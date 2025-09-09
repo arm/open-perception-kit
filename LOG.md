@@ -37,7 +37,8 @@
 
 💡 Considerations
 
-- Do we need a common-code-framework for our elements? 
+- Do we need a common-code-framework for our elements?
+- We should map all the baseline elements that has memory:DMABuf support and use them
 
 📋 TODO
 
@@ -51,5 +52,24 @@
 
 ---
 
+### 100925: Multiplatform results
 
+📌 Paralel development in aarc64 and x64 containers seems to be possible
+
+💡 Considerations
+
+- Drop Python tooling and use C++ instead?
+
+📋 TODO
+
+- Should create an easy way for IDE debugging
+
+✅ COMPLETED
+
+- Removed aarc64 from Dockerfile, container builds to Mac ➡️ aarch64, Linux PC ➡️ x64
+- Dummy element skeleton added
+- Basic build system for elements with meson + ninja (development/command.sh)
+- Container fully working on Linux PC (Bazzite + KDE + Podman), host Wayland provides visible frames
+
+---
 

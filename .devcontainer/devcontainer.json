@@ -13,8 +13,15 @@
   "runArgs": [
     "--hostname","amp-dev-forge",
     "--cap-add=SYS_PTRACE",
-    "--security-opt","seccomp=unconfined"
+    "--security-opt","seccomp=unconfined",
+    "--env=WAYLAND_DISPLAY",
+    "--env=XDG_RUNTIME_DIR=/tmp",
+    "--volume=${localEnv:XDG_RUNTIME_DIR}/${localEnv:WAYLAND_DISPLAY}:/tmp/${localEnv:WAYLAND_DISPLAY}:rw,z"
   ],
+  "containerEnv": {
+    "WAYLAND_DISPLAY": "${localEnv:WAYLAND_DISPLAY}",
+    "XDG_RUNTIME_DIR": "/tmp"
+  },
   "overrideCommand": true,
   "init": true,
   "forwardPorts": [7100,1234],

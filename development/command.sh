@@ -10,9 +10,10 @@ ELEMENT="ampdummy"     # change if you rename the element
 msg() { printf '[%s] %s\n' "$(basename "$0")" "$*"; }
 need() { command -v "$1" >/dev/null 2>&1 || { echo "Missing tool: $1" >&2; exit 127; }; }
 
+# ---- build ----
+
 build() {
   need meson; need ninja
-
   msg "Build command in directory: $PROJECT_ROOT 🥷" 
 
 
@@ -29,6 +30,8 @@ build() {
   msg "done → $BUILD_DIR"
 }
 
+# ---- clean ----
+
 clean() {
   if [[ -d "$BUILD_DIR" ]]; then
     msg "removing $BUILD_DIR…"
@@ -37,6 +40,8 @@ clean() {
     msg "nothing to clean"
   fi
 }
+
+# ---- test ----
 
 test_run() {
   need gst-inspect-1.0; need gst-launch-1.0
@@ -49,18 +54,21 @@ test_run() {
   gst-inspect-1.0 "$ELEMENT" || { echo "Element '$ELEMENT' not found." >&2; exit 1; }
 
   msg "running test pipeline…"
-  gst-launch-1.0 -q videotestsrc num-buffers=10 ! "$ELEMENT" ! fakesink
+  #gst-launch-1.0 videotestsrc ! ampdummy ! waylandsink
+  gst-launch-1.0 -q videotestsrc num-buffers=200 ! "$ELEMENT" ! waylandsink
   msg "pipeline finished."
 }
+
+# ---- help ----
 
 usage() {
   cat <<EOF
 Usage: $(basename "$0") <command>
 
 Commands:
-  build    Configure (if needed) and compile with Meson/Ninja
-  clean    Remove all build artifacts (delete '$BUILD_DIR')
-  test     Build (if needed), export GST_PLUGIN_PATH, and run a demo pipeline
+  build ➡️   Configure (if needed) and compile with Meson/Ninja
+  clean ➡️   Remove all build artifacts (delete '$BUILD_DIR')
+  test  ➡️   Build (if needed), export GST_PLUGIN_PATH, and run a demo pipeline
 
 Examples:
   $(basename "$0") build
@@ -70,12 +78,13 @@ EOF
 }
 
 # ---- entrypoint ----
+
 cmd="${1:-}"
 case "$cmd" in
   build) build ;;
   clean) clean ;;
   test)  test_run ;;
-  ""|help|-h|--help) usage ;;
+  ""|help) usage ;;
   *)
     echo "Unknown command: $cmd" >&2
     usage >&2

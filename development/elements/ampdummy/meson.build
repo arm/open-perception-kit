@@ -6,6 +6,6 @@ gstampdummy = shared_module(
   ],
   include_directories: inc_root,
   dependencies: amp_deps,
-  gnu_symbol_visibility: 'hidden', # good hygiene
-  install: false                   # dev flow: keep in build dir; use GST_PLUGIN_PATH
+  gnu_symbol_visibility: 'hidden', 
+  install: false
 )
