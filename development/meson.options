@@ -1,0 +1,1 @@
+option('enable_asserts', type: 'boolean', value: true, description: 'Enable internal asserts')

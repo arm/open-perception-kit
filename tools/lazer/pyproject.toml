@@ -1,0 +1,15 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "lazer"
+version = "0.1.0"
+description = "Lazer CLI helper"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["typer>=0.12", "rich>=13.7"]
+scripts = { lazer = "lazer.cli:app" }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lazer"]
