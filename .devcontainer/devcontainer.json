@@ -1,0 +1,34 @@
+{
+  "name": "amp-dev-forge",
+  "build": { 
+	  "dockerfile": "Dockerfile", "args": { 
+		  "USERNAME": "devgoblin", 
+		  "USER_UID": "1000", 
+		  "USER_GID": "1000" 
+	  } 
+  },
+  "remoteUser": "devgoblin",
+  "workspaceFolder": "/work",
+  "mounts": ["source=${localWorkspaceFolder},target=/work,type=bind,consistency=cached"],
+  "runArgs": [
+    "--hostname","amp-dev-forge",
+    "--cap-add=SYS_PTRACE",
+    "--security-opt","seccomp=unconfined"
+  ],
+  "overrideCommand": true,
+  "init": true,
+  "forwardPorts": [7100,1234],
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python", "ms-python.vscode-pylance",
+        "ms-vscode.cpptools", "ms-azuretools.vscode-docker", "eamodio.gitlens"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "python.defaultInterpreterPath": "/work/.venv/bin/python"
+      }
+    }
+  }
+}

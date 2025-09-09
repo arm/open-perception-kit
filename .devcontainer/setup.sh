@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ---------- config ----------
+PROJECT_DIR="/work/tools/lazer"
+VENV_DIR="$PROJECT_DIR/.venv"
+BASHRC="$HOME/.bashrc"
+
+# ---------- helpers ----------
+log() { echo -e "[setup.sh] $*"; }
+die() { echo -e "[setup.sh] ERROR: $*" >&2; exit 1; }
+
+append_once() {
+  local needle="$1"
+  local line="$2"
+  grep -Fqx "$needle" "$BASHRC" 2>/dev/null || echo "$line" >> "$BASHRC"
+}
+
+trap 'die "failed at line $LINENO"' ERR
+
+# ---------- basic info architecture ----------
+log "Executing ./.devcontainer/setup.sh"
+ARCH=$(uname -m)
+log "Container architecture: $ARCH"
+
+# ---------- prompt (add once) ----------
+PROMPT_EXPORT="export PS1='\\u@\\h:\\w\\$ '"
+log "Ensuring prompt…"
+append_once "$PROMPT_EXPORT" "$PROMPT_EXPORT"
+
+# ---------- sanity checks ----------
+command -v uv >/dev/null 2>&1 || die "uv not found in PATH"
+[ -d "$PROJECT_DIR" ] || die "project directory not found: $PROJECT_DIR"
+
+# ---------- venv (recreate & sync) ----------
+log "Creating venv with system site-packages: $VENV_DIR"
+UV_VENV_CLEAR=1 uv venv --system-site-packages "$VENV_DIR"
+
+log "Syncing dependencies from pyproject in $PROJECT_DIR"
+uv sync --directory "$PROJECT_DIR"
+
+# ---------- auto-activation for interactive shells ----------
+log "Configuring auto-activation in $BASHRC"
+append_once \
+  "if [[ \$- == *i* ]] && [[ -z \${VIRTUAL_ENV:-} ]] && [[ -f $VENV_DIR/bin/activate ]]; then source $VENV_DIR/bin/activate; fi" \
+  "
+# Auto-activate lazer venv in interactive shells
+if [[ \$- == *i* ]] && [[ -z \${VIRTUAL_ENV:-} ]] && [[ -f $VENV_DIR/bin/activate ]]; then
+  source $VENV_DIR/bin/activate
+fi"
+
+# ---------- optional: only auto-activate inside project ----------
+# If you prefer activation ONLY when you're in /work/tools/lazer*, replace the block above with:
+# append_once \
+#   'if [[ $- == *i* ]] && [[ -z ${VIRTUAL_ENV:-} ]] && [[ "$PWD" == '"$PROJECT_DIR"'* ]] && [[ -f '"$VENV_DIR"'/bin/activate ]]; then source '"$VENV_DIR"'/bin/activate; fi' \
+#   "
+# # Auto-activate lazer venv only inside the project dir
+# if [[ \$- == *i* ]] && [[ -z \${VIRTUAL_ENV:-} ]] && [[ \"\$PWD\" == $PROJECT_DIR* ]] && [[ -f $VENV_DIR/bin/activate ]]; then
+#   source $VENV_DIR/bin/activate
+# fi"
+
+# ---------- smoke tests (non-fatal) ----------
+log "Running smoke tests…"
+set +e
+"$VENV_DIR/bin/python" -c 'import sys; print("Python:", sys.version.split()[0])' >/dev/null 2>&1 || true
+"$VENV_DIR/bin/python" -c 'import gi; import gi.repository.Gst as _; print("gi/Gst OK")' >/dev/null 2>&1 || true
+if command -v lazer >/dev/null 2>&1; then
+  lazer --help >/dev/null 2>&1 || true
+fi
+set -e
+
+log "Done. Open a NEW terminal to see the prompt & venv activation."

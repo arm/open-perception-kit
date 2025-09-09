@@ -1,0 +1,57 @@
+# -------------------------
+# Python / uv
+# -------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pkl
+*.egg-info/
+.eggs/
+.venv/
+.uv/
+.venv*/
+.uv-cache/
+.uv-lock/
+
+# -------------------------
+# Meson / Ninja / CMake / Make
+# -------------------------
+build/
+_build/
+*.ninja
+.ninja_log
+.ninja_deps
+compile_commands.json
+meson-logs/
+meson-private/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.o
+*.a
+*.la
+*.lo
+*.so
+*.so.*
+
+# -------------------------
+# Editor / IDE
+# -------------------------
+.vscode/
+.idea/
+*.swp
+*~
+
+# -------------------------
+# OS junk
+# -------------------------
+.DS_Store
+Thumbs.db
+
+# -------------------------
+# Devcontainer / Docker
+# -------------------------
+.devcontainer/.env
+*.log
