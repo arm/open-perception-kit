@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ---- config ----
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd -- "$(dirname -- "$0")" && pwd)"
 BUILD_DIR="$PROJECT_ROOT/build"
 ELEMENT="ampdummy"     # change if you rename the element
 
@@ -12,13 +12,18 @@ need() { command -v "$1" >/dev/null 2>&1 || { echo "Missing tool: $1" >&2; exit 
 
 build() {
   need meson; need ninja
+
+  msg "Build command in directory: $PROJECT_ROOT 🥷" 
+
+
   if [[ ! -d "$BUILD_DIR" ]]; then
     msg "meson setup (debug)…"
-    meson setup "$BUILD_DIR" --buildtype=debug
+    meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug
   else
     msg "meson configure (keeping existing build dir)…"
     meson configure "$BUILD_DIR" >/dev/null
   fi
+
   msg "compiling…"
   meson compile -C "$BUILD_DIR"
   msg "done → $BUILD_DIR"
