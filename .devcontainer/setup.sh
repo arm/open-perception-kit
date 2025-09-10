@@ -1,11 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ---------- config ----------
-PROJECT_DIR="/work/tools/lazer"
-VENV_DIR="$PROJECT_DIR/.venv"
-BASHRC="$HOME/.bashrc"
-
 # ---------- helpers ----------
 log() { echo -e "[setup.sh] $*"; }
 die() { echo -e "[setup.sh] ERROR: $*" >&2; exit 1; }
@@ -17,6 +12,42 @@ append_once() {
 }
 
 trap 'die "failed at line $LINENO"' ERR
+
+# ---------- display ---------
+export DISPLAY=host.docker.internal:0
+#export LIBGL_ALWAYS_INDIRECT=1
+export GST_XIMAGESINK_DISABLE_SHM=1     # <
+
+# graphics stuff (portable)
+case "${HOST_OS:-}" in
+  Linux*|linux*)
+    # Wayland first; fall back to X11 if needed
+    if [ -n "${WAYLAND_DISPLAY:-}" ] && [ -S "/run/user/1000/${WAYLAND_DISPLAY}" ]; then
+      export XDG_RUNTIME_DIR="/run/user/1000"
+      echo "[setup] Wayland detected: $WAYLAND_DISPLAY"
+    elif [ -S /tmp/.X11-unix/X0 ]; then
+      export DISPLAY="${HOST_DISPLAY:-:0}"
+      echo "[setup] X11 socket detected: DISPLAY=$DISPLAY"
+    else
+      echo "[setup] No Wayland/X11 sockets detected on Linux; GUI disabled."
+    fi
+    ;;
+  Darwin*|darwin*)
+    # macOS: use XQuartz TCP if user wants GUI; otherwise do nothing
+    # User must enable: XQuartz → Security → "Allow connections from network clients"
+    # and run on host: xhost + 127.0.0.1
+    export DISPLAY="${HOST_DISPLAY:-host.docker.internal:0}"
+    echo "[setup] macOS detected: DISPLAY=$DISPLAY"
+    ;;
+  *)
+    echo "[setup] Unknown host OS; leaving GUI env unset."
+    ;;
+esac
+
+# ---------- config ----------
+PROJECT_DIR="/work/tools/lazer"
+VENV_DIR="$PROJECT_DIR/.venv"
+BASHRC="$HOME/.bashrc"
 
 # ---------- basic info architecture ----------
 log "Executing ./.devcontainer/setup.sh"

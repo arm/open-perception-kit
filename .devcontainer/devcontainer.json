@@ -1,11 +1,8 @@
 {
   "name": "amp-dev-forge",
-  "build": { 
-	  "dockerfile": "Dockerfile", "args": { 
-		  "USERNAME": "devgoblin", 
-		  "USER_UID": "1000", 
-		  "USER_GID": "1000" 
-	  } 
+  "build": {
+    "dockerfile": "Dockerfile",
+    "args": { "USERNAME": "devgoblin", "USER_UID": "1000", "USER_GID": "1000" }
   },
   "remoteUser": "devgoblin",
   "workspaceFolder": "/work",
@@ -13,14 +10,17 @@
   "runArgs": [
     "--hostname","amp-dev-forge",
     "--cap-add=SYS_PTRACE",
-    "--security-opt","seccomp=unconfined",
-    "--env=WAYLAND_DISPLAY",
-    "--env=XDG_RUNTIME_DIR=/tmp",
-    "--volume=${localEnv:XDG_RUNTIME_DIR}/${localEnv:WAYLAND_DISPLAY}:/tmp/${localEnv:WAYLAND_DISPLAY}:rw,z"
+    "--security-opt","seccomp=unconfined"
+    // 👇 drop linux-only Wayland mounts here
+    // DO NOT mount /tmp/.X11-unix or XDG_RUNTIME_DIR unconditionally
   ],
   "containerEnv": {
-    "WAYLAND_DISPLAY": "${localEnv:WAYLAND_DISPLAY}",
-    "XDG_RUNTIME_DIR": "/tmp"
+    // pass through host info for conditional setup
+    "HOST_OS": "${localEnv:OSTYPE}",
+    "HOST_DISPLAY": "${localEnv:DISPLAY}",
+
+    // keep your project env
+    "GST_PLUGIN_PATH": "/work/development/build"
   },
   "overrideCommand": true,
   "init": true,
@@ -28,10 +28,7 @@
   "postCreateCommand": "bash .devcontainer/setup.sh",
   "customizations": {
     "vscode": {
-      "recommendations": [
-        "ms-python.python", 
-        "ms-vscode.cpptools"
-      ],
+      "recommendations": ["ms-python.python", "ms-vscode.cpptools"],
       "settings": {
         "terminal.integrated.defaultProfile.linux": "bash",
         "python.defaultInterpreterPath": "/work/.venv/bin/python"

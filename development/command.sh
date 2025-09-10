@@ -54,8 +54,9 @@ test_run() {
   gst-inspect-1.0 "$ELEMENT" || { echo "Element '$ELEMENT' not found." >&2; exit 1; }
 
   msg "running test pipeline…"
-  #gst-launch-1.0 videotestsrc ! ampdummy ! waylandsink
-  gst-launch-1.0 -q videotestsrc num-buffers=200 ! "$ELEMENT" ! waylandsink
+# gst-launch-1.0 videotestsrc ! ampdummy ! waylandsink
+  gst-launch-1.0 -q videotestsrc num-buffers=200 ! "$ELEMENT" ! videoconvert ! ximagesink
+# waylandsink
   msg "pipeline finished."
 }
 
