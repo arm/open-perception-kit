@@ -7,7 +7,7 @@
 📌 No real target hardware for a long time
 
 - Development in container (not so compatible)
-- Development on ARM boards (slooow)
+- Development on ARM boards (slooow for everyday dev)
 - Linux PC with AMD GPU (AMD drivers follow standards, unlike NVIDIA)
 
 💡 Considerations
@@ -28,7 +28,7 @@
 
 ### 090925
 
-🔫 lazer
+🔫 Lazer
 
 - Latency-Aware Zero-copy Execution Rig
 - Tool written in python
@@ -59,6 +59,8 @@
 💡 Considerations
 
 - Drop Python tooling and use C++ instead?
+  - C++ would be simpler, no Python devenv, etc
+  - Maybe later the exp kit will need a Python CLI anyway
 
 📋 TODO
 
