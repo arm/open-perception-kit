@@ -21,26 +21,15 @@ export GST_XIMAGESINK_DISABLE_SHM=1     # <
 # graphics stuff (portable)
 case "${HOST_OS:-}" in
   Linux*|linux*)
-    # Wayland first; fall back to X11 if needed
-    if [ -n "${WAYLAND_DISPLAY:-}" ] && [ -S "/run/user/1000/${WAYLAND_DISPLAY}" ]; then
-      export XDG_RUNTIME_DIR="/run/user/1000"
-      echo "[setup] Wayland detected: $WAYLAND_DISPLAY"
-    elif [ -S /tmp/.X11-unix/X0 ]; then
-      export DISPLAY="${HOST_DISPLAY:-:0}"
-      echo "[setup] X11 socket detected: DISPLAY=$DISPLAY"
-    else
-      echo "[setup] No Wayland/X11 sockets detected on Linux; GUI disabled."
-    fi
+    export DISPLAY="${HOST_DISPLAY:-:0}"
+    log "Display on Linux: DISPLAY=$DISPLAY"
     ;;
   Darwin*|darwin*)
-    # macOS: use XQuartz TCP if user wants GUI; otherwise do nothing
-    # User must enable: XQuartz → Security → "Allow connections from network clients"
-    # and run on host: xhost + 127.0.0.1
     export DISPLAY="${HOST_DISPLAY:-host.docker.internal:0}"
-    echo "[setup] macOS detected: DISPLAY=$DISPLAY"
+    log "Display on macOS: DISPLAY=$DISPLAY"
     ;;
   *)
-    echo "[setup] Unknown host OS; leaving GUI env unset."
+    echo "Unknown host OS; leaving GUI env unset."
     ;;
 esac
 
