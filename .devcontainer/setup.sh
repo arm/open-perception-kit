@@ -13,25 +13,22 @@ append_once() {
 
 trap 'die "failed at line $LINENO"' ERR
 
-# ---------- display ---------
-export DISPLAY=host.docker.internal:0
-#export LIBGL_ALWAYS_INDIRECT=1
-export GST_XIMAGESINK_DISABLE_SHM=1     # <
+log "Running on: $HOST_OS OS"
 
-# graphics stuff (portable)
-case "${HOST_OS:-}" in
-  Linux*|linux*)
-    export DISPLAY="${HOST_DISPLAY:-:0}"
-    log "Display on Linux: DISPLAY=$DISPLAY"
-    ;;
-  Darwin*|darwin*)
-    export DISPLAY="${HOST_DISPLAY:-host.docker.internal:0}"
-    log "Display on macOS: DISPLAY=$DISPLAY"
-    ;;
-  *)
-    echo "Unknown host OS; leaving GUI env unset."
-    ;;
-esac
+# ---------- display ---------
+#case "${HOST_OS:-}" in
+#  Linux*|linux*)
+#    log "🖥️ Setting display for Linux"
+#    export DISPLAY="${HOST_DISPLAY:-:0}"
+#    ;;
+#  Darwin*|darwin*)
+#    log "🖥️ Setting display for MacOS"
+#    export DISPLAY="${HOST_DISPLAY:-host.docker.internal:0}"
+#    ;;
+#  *)
+#    log "🖥️ Unknown host OS, no display setup"
+#    ;;
+#esac
 
 # ---------- config ----------
 PROJECT_DIR="/work/tools/lazer"

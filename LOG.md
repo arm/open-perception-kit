@@ -52,7 +52,7 @@
 
 ---
 
-### 100925: Multiplatform results
+### 100925
 
 📌 Paralel development in aarc64 and x64 containers seems to be possible
 
@@ -74,4 +74,69 @@
 - Container fully working on Linux PC (Bazzite + KDE + Podman), host Wayland provides visible frames
 
 ---
+
+### 110925
+
+📌 The Q3 demo is near and doing a demo is not the best direction for development, but maybe reachable.
+
+💡 Considerations
+
+- Demo requires inference element with inference engine integration
+- Also some drawing functionality is required
+- YOLO object detection?
+- Face detection?
+
+📋 TODO
+
+- An 🧠 **ampinfer** element
+- Add ONNX dependencies to the container
+- Implement a code that can access the pixels of the video frame traveling down the pipeline
+
+✅ COMPLETED
+
+- Visible frames on MacOS (important to demo the system)
+
+---
+
+### 120925
+
+💡 Considerations
+
+- Pipeline element negotiation seems very complex, additional research is required 🔎
+
+📋 TODO
+
+- Fix the inference
+- The inference pipeline is very slow, hopefully display tunneling causes this
+- The ximagesink tunneling is so fragile, that some network streaming based display must be tested
+
+✅ COMPLETED
+
+- The yolov8n model is added to the project (fp32 + int8)
+- ONNX dependencies added to the container
+- The ampinfer element is basically done for a simple usecase
+- But does not work ☹️
+
+---
+
+### 130925: First inference working
+
+💡 Considerations
+
+- The fragile image tunneling to host is removed
+- Now we go on with UDP casting, host runs video client, container runs server (in-pipeline)
+- This is a start-and-forget lazy-coupled client-server video display for development  
+
+📋 TODO
+
+- Cleanup ampinfer code
+
+✅ COMPLETED
+
+- Testvideo added to git
+- Video playback via UDP casting is stable, ximagesink tunneling removed
+- ONNX yolov8n is working in-pipeline
+
+---
+
 

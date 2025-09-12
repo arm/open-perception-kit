@@ -14,7 +14,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-    ca-certificates curl git sudo bash-completion mc unzip vim nano \
+    ca-certificates curl wget git sudo bash-completion mc unzip vim nano \
     build-essential meson ninja-build pkg-config gdb \
     python3 python3-venv python3-gi python3-gst-1.0 \
     libssl-dev libffi-dev zlib1g-dev libbz2-dev liblzma-dev libsqlite3-dev \
@@ -26,6 +26,14 @@ RUN set -eux; \
     libwayland-dev libva-dev libv4l-dev libgtk-3-0; \
   update-ca-certificates; \
   rm -rf /var/lib/apt/lists/*
+
+# onnx runtime
+
+RUN wget https://github.com/microsoft/onnxruntime/releases/download/v1.18.1/onnxruntime-linux-aarch64-1.18.1.tgz
+RUN tar xf onnxruntime-linux-aarch64-1.18.1.tgz
+RUN sudo cp -r onnxruntime-linux-aarch64-1.18.1/include/* /usr/local/include/
+RUN sudo cp -r onnxruntime-linux-aarch64-1.18.1/lib/* /usr/local/lib/
+RUN sudo ldconfig
 
 # uv (Python package manager)
 RUN set -eux; \
@@ -53,5 +61,4 @@ WORKDIR /work
 ENV GST_DEBUG=2 \
     GST_PLUGIN_PATH=/work/development/build
 
-# Keep the devcontainer alive (VS Code overrides CMD if overrideCommand=true)
 CMD ["sleep","infinity"]
