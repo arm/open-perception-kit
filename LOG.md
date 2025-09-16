@@ -123,7 +123,6 @@
 
 💡 Considerations
 
-- The fragile image tunneling to host is removed
 - Now we go on with UDP casting, host runs video client, container runs server (in-pipeline)
 - This is a start-and-forget lazy-coupled client-server video display for development  
 
@@ -134,9 +133,18 @@
 ✅ COMPLETED
 
 - Testvideo added to git
-- Video playback via UDP casting is stable, ximagesink tunneling removed
+- The fragile image tunneling (ximagesing, waylandsink) to host is removed
+- Video playback via UDP casting is stable (+portable), ximagesink tunneling removed
 - ONNX yolov8n is working in-pipeline
 
 ---
 
+### 160925
+
+✅ COMPLETED
+
+- Build and test scripts in ./scripts
+- Some script celanup and formating implemented
+
+---
 

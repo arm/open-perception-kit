@@ -10,7 +10,8 @@
   "runArgs": [
     "--hostname","amp-dev-forge",
     "--cap-add=SYS_PTRACE",
-    "--security-opt","seccomp=unconfined"
+    "--security-opt","seccomp=unconfined",
+    "--network", "host"
   ],
   "containerEnv": {
     "HOST_OS": "${localEnv:OSTYPE}",
