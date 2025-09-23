@@ -24,17 +24,7 @@ Basic task can be done using the command.sh script:
 ## 🍎 MacOS Setup
 
 brew instll ffmpeg
-ffplay -fflags nobuffer -flags low_delay -f mpegts udp://127.0.0.1:5000
-
-ffplay -hide_banner -fflags nobuffer -flags low_delay -f mpegts \
-  "udp://@:5000?overrun_nonfatal=1&fifo_size=10000000"
-
----
-
-IP=$(getent ahostsv4 host.docker.internal | awk 'NR==1{print $1}')
-gst-launch-1.0 ... mpegtsmux ! udpsink host="$IP" port=5000 sync=false async=false mtu=1400
-
-ffplay -hide_banner -loglevel error -fflags nobuffer -flags low_delay -f mpegts "udp://@:5000"
+ffplay -hide_banner -fflags nobuffer -flags low_delay -f mpegts udp://127.0.0.1:5000
 
 ### On host
 

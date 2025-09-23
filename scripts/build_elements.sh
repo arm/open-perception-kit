@@ -12,7 +12,7 @@ BUILD_DIR="$PROJECT_ROOT/build"
 debug() {
   need meson; need ninja
 
-  msg_begin "Starting DEBUG build in directory: $PROJECT_ROOT 🥷" 
+  msg_begin "Starting DEBUG build in directory: $PROJECT_ROOT" 
 
   if [[ ! -d "$BUILD_DIR" ]]; then
     msg "Meson setup.."
@@ -31,17 +31,17 @@ debug() {
 release() {
   need meson; need ninja
 
-  msg_begin "Starting RELEASE build in directory: $PROJECT_ROOT 🥷" 
+  msg_begin "Starting RELEASE build in directory: $PROJECT_ROOT" 
 
 
   if [[ ! -d "$BUILD_DIR" ]]; then
     msg "Meson setup (release)…"
     meson setup "$BUILD_DIR" "$PROJECT_ROOT" \
-      --buildtype=release 
-      -Doptimization=3 \
+      --buildtype=release  \
       -Ddebug=false \
       -Dstrip=true \
-      -Db_lto=true
+      -Db_lto=true \
+      -Doptimization=3
   else
     msg "Meson configure (keeping existing build dir)…"
     meson configure "$BUILD_DIR" >/dev/null
@@ -49,7 +49,7 @@ release() {
 
   msg "Compiling…"
   meson compile -C "$BUILD_DIR"
-  
+
   msg_end "Release build done → $BUILD_DIR"
 }
 
@@ -61,7 +61,7 @@ clean() {
     rm -rf "$BUILD_DIR"
     msg_end "Done."
   else
-    msg_endp "NOTHING to clean.."
+    msg_end_err "NOTHING to clean.."
   fi
 }
 
@@ -70,15 +70,14 @@ usage() {
   cat <<EOF
 
 Commands:
-  onnx ➡️ Run yolov8n test using onnx framework
+  clean ➡️ Clear all build artifacts.
+  debug ➡️ Build elements in debug.
+  release ➡️ Build elements in release.
 
-Examples:
-  $(basename "$0") onnx
 EOF
 }
 
 # ---- entrypoint ----
-
 cmd="${1:-}"
 case "$cmd" in
   debug) debug ;;

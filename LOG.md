@@ -6,14 +6,15 @@
 
 📌 No real target hardware for a long time
 
-- Development in container (not so compatible)
-- Development on ARM boards (slooow for everyday dev)
-- Linux PC with AMD GPU (AMD drivers follow standards, unlike NVIDIA)
+The original idea was to do the development in a container, its disadvantage is that not fully compatible with the final hardware.
+We can do the development on already available ARM boards, the problem is that mostly they are to slooow to reflect the final performance.
+We also can use a Linux PC with AMD GPU or Intel GPU, that ones follow standards unlike NVidia.
 
 💡 Considerations
 
-- Use standard 'memory:DMABuf' capsfeature to achieve zero-copy
-- Continous research in all GStreamer-related topics  😓
+- Use standard 'Memory:DMABuf' capsfeature to achieve zero-copy
+- We need continous research in all GStreamer-related topics  😓
+- Most important Linux tech stack elements here: DMA-BUF, DRM/KMS, GBM, EGL and of course OpenGL + Vulkan
 
 📋 TODO
 
@@ -30,15 +31,16 @@
 
 🔫 Lazer
 
-- Latency-Aware Zero-copy Execution Rig
-- Tool written in python
-- Mostly runs system utilities and parses output
-- Gives system diagnostics in the perspective of GStreamer capabilities, hardware acceleration, drivers
+Lazer is a companion tool for the while development process of AMP and also could be a generic tool for the future developers using AMP.
+Lazer is written in Python, the container helps to host it and also to to improve it with new functions.
+Lazer should help the user to discover a given system: what hardver acceleration capabilities are available, GStreamer element list, driver availability.
+Lazer also should help to create new elements.
+The awkward backronym is 'Latency-Aware Zero-copy Execution Rig'.
 
 💡 Considerations
 
-- Do we need a common-code-framework for our elements?
-- We should map all the baseline elements that has memory:DMABuf support and use them
+- Do we need a common-code-framework for our elements? An utility framework?
+- We should map all the baseline elements that has Memory:DMABuf support and use them
 
 📋 TODO
 
@@ -56,19 +58,22 @@
 
 📌 Paralel development in aarc64 and x64 containers seems to be possible
 
+The containers are working, x64 on Linux PC, aarch64 on MacOS, the project builds and runs on both.
+It seems that development on a Linux PC with good drivers and standard-following compontents is possible to solve the lack-of-hardware problem.
+
 💡 Considerations
 
 - Drop Python tooling and use C++ instead?
-  - C++ would be simpler, no Python devenv, etc
+  - C++ would be simpler, no Python devenv, etc..
   - Maybe later the exp kit will need a Python CLI anyway
 
 📋 TODO
 
-- Should create an easy way for IDE debugging
+- Should create an easy way for trace debugging via VSCode IDE
 
 ✅ COMPLETED
 
-- Removed aarc64 from Dockerfile, container builds to Mac ➡️ aarch64, Linux PC ➡️ x64
+- Removed aarc64 from Dockerfile, container builds on Mac ➡️ aarch64, on Linux PC ➡️ x64
 - Dummy element skeleton added
 - Basic build system for elements with meson + ninja (development/command.sh)
 - Container fully working on Linux PC (Bazzite + KDE + Podman), host Wayland provides visible frames
@@ -77,7 +82,7 @@
 
 ### 110925
 
-📌 The Q3 demo is near and doing a demo is not the best direction for development, but maybe reachable.
+📌 Conisdering a Q3 demo, preparing for that is not the best direction for development, but maybe reachable.
 
 💡 Considerations
 
@@ -143,8 +148,27 @@
 
 ✅ COMPLETED
 
-- Build and test scripts in ./scripts
+- Build and test scripts in **./scripts**
 - Some script celanup and formating implemented
 
 ---
+
+### 220925
+
+🧠 Inference input data
+
+A possible solution for inference data generation is to create a format for input tensor data. 
+The quantized input tensor data could be donwstreamed together with the original frame.
+There is also a memory type **GLMemory** in GStreamer that is crucial for our usecases.
+
+📦 Existing OpenGL elements can be handy for inference preprocessing
+
+- Color-space conversion (and scaling): **glcolorconvert** (e.g. NV12↔RGBA) and also resize 
+- Transforms/crop-like operations: **gltransformation**
+- Compositing/overlay (OSD-style): **glvideomixer** (mix multiple GPU streams/layers with positioning and alpha)
+- Custom GPU ops: **glshader** (to inject custom pixel shader)
+
+📋 TODO
+
+- Container generator script for supported platforms (to tunnel different hardware to the container on different hosts)
 

@@ -23,7 +23,7 @@ onnx() {
   need gst-launch-1.0
 
   if [ ! -d "$BUILD_DIR" ]; then
-    msg_endp "Error: directory $BUILD_DIR does not exist" >&2
+    msg_end_err "Error: directory $BUILD_DIR does not exist" >&2
     exit 1
   fi
 
@@ -45,9 +45,17 @@ onnx() {
   msg_end "Pipeline finished."
 }
 
+# ---- help ----
+usage() {
+  cat <<EOF
+
+Commands:
+  onnx ➡️ Run yolov8n test using onnx framework.
+
+EOF
+}
 
 # ---- entrypoint ----
-
 cmd="${1:-}"
 case "$cmd" in
   onnx) onnx ;;

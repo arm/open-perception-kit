@@ -26,8 +26,9 @@ onnx_dep = declare_dependency(
 )
 
 amp_deps = [gst_dep, gstbase_dep, gstv_dep, glib_dep, gobject_dep, onnx_dep]
-inc_root = include_directories('common/include')
+inc_root = include_directories('common')
 
 # add each element subdir
+subdir('common')
 subdir('elements/ampdummy')
 subdir('elements/ampinfer')

@@ -1,7 +1,3 @@
-// Minimal, GStreamer-1.0–compatible YOLO ONNX filter
-// - Sink/src caps: video/x-raw,format=RGB
-// - In-place: draws red boxes, passes frame on
-// Build needs: gstreamer-1.0, gstreamer-video-1.0, onnxruntime (C++ API)
 
 #include <gst/gst.h>
 #include <gst/base/gstbasetransform.h>
@@ -18,6 +14,7 @@
 #include <string>
 #include <vector>
 
+// int8 model for embedded use, the float32 version is loaded from file
 extern unsigned int yolov8n_int8_onnx_len;
 extern unsigned char yolov8n_int8_onnx[];
 
@@ -67,8 +64,7 @@ static inline float iou_xyxy(const float a[4], const float b[4]) {
   return uni > 0.f ? inter / uni : 0.f;
 }
 
-static std::vector<float>
-resize_normalize_rgb_nn(const guint8* src, int W, int H, int S) {
+static std::vector<float> resize_normalize_rgb_nn(const guint8* src, int W, int H, int S) {
   // nearest-neighbor to NxCxSxS float NCHW (N=1)
   std::vector<float> out(1 * 3 * S * S);
   for (int y=0; y<S; ++y) {
@@ -110,9 +106,6 @@ static std::vector<Det> yolov8_like_post(const float* data, const std::vector<in
     if (!transposed) {
       row = data + i*84;
     } else {
-      // gather [84,N] -> row i
-      // row[j] = data[j*N + i]
-      // copy to small stack buffer
       static float tmp[84];
       for (int j=0;j<84;++j) tmp[j] = data[j*N + i];
       row = tmp;
@@ -150,54 +143,27 @@ static std::vector<Det> yolov8_like_post(const float* data, const std::vector<in
   return out;
 }
 
-static inline void draw_box_rgb(guint8* rgb, int W, int H, const Det& d) {
-  const int x1 = std::max(0, (int)std::round(d.x1));
-  const int y1 = std::max(0, (int)std::round(d.y1));
-  const int x2 = std::min(W-1, (int)std::round(d.x2));
-  const int y2 = std::min(H-1, (int)std::round(d.y2));
-
-  for (int x=x1; x<=x2; ++x) {
-    if ((unsigned)y1 < (unsigned)H) { guint8* p = rgb + (y1*W + x)*3; p[0]=255; p[1]=0; p[2]=0; }
-    if ((unsigned)y2 < (unsigned)H) { guint8* p = rgb + (y2*W + x)*3; p[0]=255; p[1]=0; p[2]=0; }
-  }
-  for (int y=y1; y<=y2; ++y) {
-    if ((unsigned)x1 < (unsigned)W) { guint8* p = rgb + (y*W + x1)*3; p[0]=255; p[1]=0; p[2]=0; }
-    if ((unsigned)x2 < (unsigned)W) { guint8* p = rgb + (y*W + x2)*3; p[0]=255; p[1]=0; p[2]=0; }
-  }
-}
-
 // ---------------- Gst virtuals ----------------
 
 static gboolean gst_ampinfer_start (GstBaseTransform *b) {
   auto *self = (GstAmpInfer*) b;
 
-  /*if (!self->model_path || !*self->model_path) {
-    GST_ERROR_OBJECT(self, "model-path not set");
-    return FALSE;
-  }*/
-
   try {
   self->session_opts = new Ort::SessionOptions();
-    self->session_opts->SetIntraOpNumThreads(1);
+  self->session_opts->SetIntraOpNumThreads(1);
 
-        self->env = new Ort::Env(ORT_LOGGING_LEVEL_WARNING, "ampinfer");
-    self->mem_info = new Ort::MemoryInfo(Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU));
-
+  self->env = new Ort::Env(ORT_LOGGING_LEVEL_WARNING, "ampinfer");
+  self->mem_info = new Ort::MemoryInfo(Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU));
 
   if (!self->model_path || !*self->model_path) {
     self->session = new Ort::Session(
-      *self->env,
+    *self->env,
       static_cast<const void*>(yolov8n_int8_onnx),
       static_cast<size_t>(yolov8n_int8_onnx_len),
       *self->session_opts);
     } else {
       self->session = new Ort::Session(*self->env, self->model_path, *self->session_opts);
     }
-
-//    Ort::Env*          env; //{ORT_LOGGING_LEVEL_WARNING, "ampinfer"};
-//  Ort::Session*      session = nullptr;
-//  Ort::SessionOptions session_opts;
-//  Ort::MemoryInfo*   mem_info; //{Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU)};
 
     // cache I/O names (works with ONNX Runtime 1.18+)
     Ort::AllocatorWithDefaultOptions alloc;
@@ -222,8 +188,6 @@ static gboolean gst_ampinfer_start (GstBaseTransform *b) {
     return FALSE;
   }
 
-  printf("amp infer is up\n");
-
   return TRUE;
 }
 
@@ -238,32 +202,26 @@ static gboolean gst_ampinfer_stop (GstBaseTransform *b) {
   return TRUE;
 }
 
-static inline void draw_box(guint8* rgb, int framew, int frameh, float x0, float y0, float x1, float y1) {
+static inline void drawBox(guint8* rgb, int framew, int frameh, float x0, float y0, float x1, float y1) {
   x0 = (x0 / 640) * framew;
   y0 = (y0 / 640) * frameh;
   x1 = (x1 / 640) * framew;
   y1 = (y1 / 640) * frameh;
-
-  //printf("[%f %f %f %f]\n", x0, y0, x1, y1);
 
   int _x0 = (int)x0;
   int _y0 = (int)y0;
   int _x1 = (int)x1;
   int _y1 = (int)y1;
 
-
   for(int y = _y0; y <= y1; y++) {
     for(int x = _x0; x <= x1; x++) {
-
       if(y == _y0 || x == _x0 || y == _y1 || x == _x1) {
         rgb[3 * (y * framew + x) + 0] = 0xff;
         rgb[3 * (y * framew + x) + 1] = 0xff;
         rgb[3 * (y * framew + x) + 2] = 0xff;
       }
-
     }
   }
-
 }
 
 static gboolean gst_ampinfer_set_info (GstVideoFilter *vf,
@@ -279,10 +237,8 @@ static gboolean gst_ampinfer_set_info (GstVideoFilter *vf,
   return TRUE;
 }
 
+// --------------------------------------------------------------
 
-
-  // --------------------------------------------------------------
-  // --------------------------------------------------------------
 static float IoU(const Det& a, const Det& b){
   float xx1 = std::max(a.x1,b.x1), yy1=std::max(a.y1,b.y1);
   float xx2 = std::min(a.x2,b.x2), yy2=std::min(a.y2,b.y2);
@@ -301,12 +257,10 @@ static void NMS(std::vector<Det>& d, float iou_thr){
   }
   d.swap(keep);
 }
+
 static inline float clampf(float v,float lo,float hi){return std::max(lo,std::min(v,hi));}
-  // --------------------------------------------------------------
-  // --------------------------------------------------------------
 
-
-
+// --------------------------------------------------------------
 
 static GstFlowReturn gst_ampinfer_transform_frame_ip (GstVideoFilter *vf, GstVideoFrame *frame)
 {
@@ -323,20 +277,20 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip (GstVideoFilter *vf, GstVid
   auto input = resize_normalize_rgb_nn(rgb, W, H, self->imgsz);
   std::array<int64_t,4> ishape{{1,3,self->imgsz,self->imgsz}};
   Ort::Value in = Ort::Value::CreateTensor<float>(*self->mem_info,
-                                                  input.data(), (size_t)input.size(),
-                                                  ishape.data(), ishape.size());
+    input.data(), (size_t)input.size(),
+    ishape.data(), ishape.size());
 
   // run
-  auto out = self->session->Run(Ort::RunOptions{nullptr},
-                                (const char* const*)self->input_names.data(), &in, 1,
-                                (const char* const*)self->output_names.data(), self->output_names.size());
+  auto out = self->session->Run(
+    Ort::RunOptions{nullptr},
+    (const char* const*)self->input_names.data(), &in, 1,
+    (const char* const*)self->output_names.data(), self->output_names.size());
 
-  // --------------------------------------------------------------
   // --------------------------------------------------------------
 
   // model & frame sizes
-  const int IMG = self->imgsz;          // your square inference size (e.g., 640)
-  const float sx = float(W)/IMG, sy = float(H)/IMG;  // scale back to frame
+  const int IMG = self->imgsz; // square inference size (e.g. 640)
+  const float sx = float(W)/IMG, sy = float(H)/IMG; // scale back to frame
 
   Ort::Value& v = out.at(0);
   auto info  = v.GetTensorTypeAndShapeInfo();
@@ -348,13 +302,15 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip (GstVideoFilter *vf, GstVid
   // B: [1,N,84] => N=dims[1], C=84
   int64_t N=-1, C=-1; bool col_first=false;
   if(dims.size()==3 && dims[0]==1){
-    if     (dims[1]==84){ C=84; N=dims[2]; col_first=true;  } // [1,84,N]
+    if(dims[1]==84){ C=84; N=dims[2]; col_first=true;  } // [1,84,N]
     else if(dims[2]==84){ C=84; N=dims[1]; col_first=false; } // [1,N,84]
   }
-  if(N<=0 || C!=84) { /* unexpected shape: log & bail gracefully */ }
+  if(N <= 0 || C != 84) { 
+    /* unexpected shape */ 
+  }
 
-  const float conf_thr = 0.25f; //self->conf;   // e.g., 0.25
-  const float iou_thr  = 0.45f; //self->iou;    // e.g., 0.45
+  const float conf_thr = 0.25f; //self->conf; // e.g., 0.25
+  const float iou_thr  = 0.45f; //self->iou; // e.g., 0.45
   std::vector<Det> dets; dets.reserve((size_t)N);
 
   // Iterate candidates
@@ -362,7 +318,7 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip (GstVideoFilter *vf, GstVid
     const float* row = col_first ? (p + i) : (p + i*84);
     // read box (cx,cy,w,h)
     float cx, cy, bw, bh;
-    if (col_first) {                   // [84 x N]: stride = N
+    if (col_first) { // [84 x N]: stride = N
       const int64_t s = N;
       cx=row[0*s]; cy=row[1*s]; bw=row[2*s]; bh=row[3*s];
       // classes start at 4*s
@@ -376,7 +332,7 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip (GstVideoFilter *vf, GstVid
       d.x1=clampf(d.x1,0,W-1); d.y1=clampf(d.y1,0,H-1);
       d.x2=clampf(d.x2,0,W-1); d.y2=clampf(d.y2,0,H-1);
       dets.push_back(d);
-    } else {                           // [N x 84]: contiguous row of 84
+    } else { // [N x 84]: contiguous row of 84
       cx=row[0]; cy=row[1]; bw=row[2]; bh=row[3];
       int best=-1; float bestp=0.f;
       for (int c=0;c<80;++c){ float sc=row[4+c]; if(sc>bestp){bestp=sc; best=c;} }
@@ -392,25 +348,9 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip (GstVideoFilter *vf, GstVid
   NMS(dets, iou_thr);
 
   for(const auto& a : dets) {
-    //struct Det { float x1,y1,x2,y2,conf; int cls; };
-    //printf("[%f %f %f %f - %d %f]\n", (double)a.x1, (double)a.y1, (double)a.x2, (double)a.y2, a.cls, (double)a.conf);
-    draw_box(rgb, W, H, a.x1, a.y1, a.x2, a.y2);
+    drawBox(rgb, W, H, a.x1, a.y1, a.x2, a.y2);
   }
 
-  // --------------------------------------------------------------
-  // --------------------------------------------------------------
-
-  // take first output
-  /*
-  Ort::Value &ov = out[0];
-  auto info = ov.GetTensorTypeAndShapeInfo();
-  std::vector<int64_t> odims = info.GetShape();
-  float *odata = ov.GetTensorMutableData<float>();
-  
-  auto dets = yolov8_like_post(odata, odims, W, H, self->conf_thr, self->iou_thr);
-
-  for (const auto &d : dets) draw_box_rgb(rgb, W, H, d);
-*/
   return GST_FLOW_OK;
 }
 

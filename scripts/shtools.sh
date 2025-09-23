@@ -35,9 +35,9 @@ UNDERLINE="\033[4m"
 
 msg() { printf '%s→ %b\033[0m\n' "$(basename "$0")" "$*"; }
 
-msg_begin() { printf '%s→ \033[1;34m%b\033[0m\n' "$(basename "$0")" "$*"; }
-msg_end() { printf '%s→ \033[1;32m%b\033[0m\n' "$(basename "$0")" "$*"; }
-msg_endp() { printf '%s→ \033[1;31m%b\033[0m\n' "$(basename "$0")" "$*"; }
+msg_begin() { printf '%s→ \033[7m\033[1;34m%b\033[0m\n' "$(basename "$0")" "$*"; }
+msg_end() { printf '%s→ \033[7m\033[1;32m%b\033[0m\n' "$(basename "$0")" "$*"; }
+msg_end_err() { printf '%s→ \033[7m\033[1;31m%b\033[0m\n' "$(basename "$0")" "$*"; }
 
 need() { command -v "$1" >/dev/null 2>&1 || { echo "Missing tool: $1" >&2; exit 127; }; }
 
