@@ -8,8 +8,8 @@ version = "0.1.0"
 description = "Lazer CLI helper"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["typer>=0.12", "rich>=13.7"]
-scripts = { lazer = "lazer.cli:app" }
+dependencies = ["typer>=0.12", "rich>=13.7", "textual", "questionary"]
+scripts = { lazer = "lazer.cli:main" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/lazer"]

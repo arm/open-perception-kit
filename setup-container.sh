@@ -2,30 +2,32 @@
 
 build_docker() {
 	FILE="./.devcontainer/Dockerfile.template"
+	echo "Using $FILE"
 	FINAL=$( [ -f "$FILE" ] && cat "$FILE" || echo "" )
 
 	OUT="./.devcontainer/Dockerfile"
+	echo "Writing $OUT"
 	echo "$FINAL" > $OUT
-	
-	echo "Saved $OUT"
 }
 
 build_devcontainer() {
 	FILE="./.devcontainer/devcontainer.template.json"
+	echo "Using $FILE"
 	FINAL=$( [ -f "$FILE" ] && cat "$FILE" || echo "" )
 	
 	FILE="./.devcontainer/runargs.$1"
+	echo "Using $FILE"
 	RUNARGS=$( [ -f "$FILE" ] && cat "$FILE" || echo "" )
 	FILE="./.devcontainer/env.$1"
+	echo "Using $FILE"
 	ENV=$( [ -f "$FILE" ] && cat "$FILE" || echo "" )
 	
 	FINAL=${FINAL//%RUNARGS%/$RUNARGS}
 	FINAL=${FINAL//%ENV%/$ENV}
 
 	OUT="./.devcontainer/devcontainer.json"
-	echo "$FINAL" > $OUT
-	
-	echo "Saved $OUT"
+	echo "Writing $OUT"
+	echo "$FINAL" > $OUT	
 }
 
 build() {

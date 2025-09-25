@@ -1,127 +1,142 @@
 
-from . import __appinfo__ 
-from . import __version__
+from .elements import PRIMARY_ELEMENTS
+    
+# ---------------------------
 
 import sys
-import typer
-
-from rich import print
-from rich.console import Console
-from rich.panel import Panel
-from rich.text import Text
+import questionary
+from prompt_toolkit.styles import Style
 
 import gi
 gi.require_version("Gst", "1.0")
 from gi.repository import Gst
-
-app = typer.Typer(help=__appinfo__)
-console = Console()
-
 Gst.init(sys.argv)
 
-# ---
+# ---------------------------
 
-def element_supports_dmabuf(element_name: str) -> bool:
+from rich.table import Table
+from rich.console import Console
+
+console = Console()
+
+# ---------------------------
+
+def list_all_elements():
+    registry = Gst.Registry.get()
+    factories = registry.get_feature_list(Gst.ElementFactory)
+
+    for factory in sorted(factories, key=lambda f: f.get_name()):
+        print(factory.get_name(), end=" ")
+    print()
+
+from shutil import get_terminal_size
+from math import ceil
+from rich.console import Console
+from rich.table import Table
+from gi.repository import Gst
+
+console = Console()
+
+def element_has_static_support_dmabuf(element_name: str) -> bool:
     factory = Gst.ElementFactory.find(element_name)
     if not factory:
-        print(f"❌ Element '{element_name}' not found")
         return False
 
-    found = False
     for tmpl in factory.get_static_pad_templates() or []:
         caps = tmpl.get_caps()
         if not caps or caps.is_empty():
             continue
-
         for i in range(caps.get_size()):
-            feats = caps.get_features(i)  # Gst.CapsFeatures or None
-            if not feats:
-                continue
+            feats = caps.get_features(i)
+            if feats and feats.contains("memory:DMABuf"):
+                return True
+            if feats:
+                for j in range(feats.get_size()):
+                    if feats.get_nth(j) == "memory:DMABuf":
+                        return True
+    return False
 
-            # Easiest check:
-            if feats.contains("memory:DMABuf"):
-                s = caps.get_structure(i)
-                print(f"✅ {element_name}: pad '{tmpl.name_template}' "
-                      f"({tmpl.direction.value_nick}) supports DMABuf "
-                      f"via {s.to_string()}")
-                found = True
-                continue
-
-            # (Optional) explicit iteration:
-            for j in range(feats.get_size()):
-                if feats.get_nth(j) == "memory:DMABuf":
-                    s = caps.get_structure(i)
-                    print(f"✅ {element_name}: pad '{tmpl.name_template}' "
-                          f"({tmpl.direction.value_nick}) supports DMABuf "
-                          f"via {s.to_string()}")
-                    found = True
-                    break
-
-    if not found:
-        print(f"❌ {element_name} has no pads with memory:DMABuf")
-    return found
-
-# ---
-
-def print_error(text: str):
-        print(f"[red]Error:[/] {text}")
-
-
-def print_banner():
-    banner_text = Text.assemble(
-        ("Lazer ", "bold magenta"),
-        (__version__, "bold cyan"),
-        (" - " + __appinfo__, "green"),
-    )
-    print(Panel(banner_text, expand=False, border_style="blue"))
-
-# ---
-
-@app.callback(invoke_without_command=True)
-def main(ctx: typer.Context):
-    print_banner()
-    if ctx.invoked_subcommand is None:
-        typer.echo(ctx.get_help())
-
-@app.command()
-def elements():
+def list_dmabuf_elements_table() -> list[str]:
     registry = Gst.Registry.get()
     factories = registry.get_feature_list(Gst.ElementFactory)
+    names = sorted(f.get_name() for f in factories if element_has_static_support_dmabuf(f.get_name()))
 
-    for factory in sorted(factories, key=lambda f: f.get_name()):
-        print(factory.get_name())
+    if not names:
+        console.print("[red]No elements advertise memory:DMABuf[/]")
+        return []
 
-@app.command()
-def elementsdmabuf():
-    registry = Gst.Registry.get()
-    factories = registry.get_feature_list(Gst.ElementFactory)
+    # terminal width and rough column sizing
+    term_width = get_terminal_size((80, 20)).columns
+    max_name_len = max(len(n) for n in names) + 2  # padding
+    ncols = max(1, term_width // max_name_len)
+    nrows = ceil(len(names) / ncols)
 
-    for factory in sorted(factories, key=lambda f: f.get_name()):
-        element_supports_dmabuf(factory.get_name())
+    table = Table(title="Elements with DMABuf support", show_header=False, box=None, pad_edge=False)
+    for _ in range(ncols):
+        table.add_column(justify="left", no_wrap=True)
 
-@app.command()
-def dmabuf(element: str):
-    element_supports_dmabuf(element)
+    # fill table row by row
+    for r in range(nrows):
+        row = []
+        for c in range(ncols):
+            idx = r + c * nrows
+            row.append(names[idx] if idx < len(names) else "")
+        table.add_row(*row)
 
-@app.command()
-def element(element: str):
-    import subprocess
-    r = subprocess.run(
-        ["gst-inspect-1.0", element],
-        capture_output=True,
-        text=True,
-    )
+    console.print(table)
+    return names
 
-    if r.returncode != 0:
-        msg = r.stderr.strip().splitlines()[0]
-        print_error(msg)
-        raise typer.Exit(r.returncode)
-    console.print(f"[cyan]Info for [bold]{element}[/]:\n[/]")
-    typer.echo(r.stdout)
+def list_primary_elements() -> list[str]:
+    table = Table(title="Primary elements and DMABuf support")
+    table.add_column("Element", style="cyan")
+    table.add_column("DMABuf?", style="bold")
+
+    supported = []
+    for name in PRIMARY_ELEMENTS:
+        if element_has_static_support_dmabuf(name):
+            table.add_row(name, "[green]Yes[/]")
+            supported.append(name)
+        else:
+            table.add_row(name, "[red]No[/]")
+
+    console.print(table)
+    return supported    
+
+def main():
+    # Style overrides
+    custom_style = Style([
+        ("qmark", "fg:#ff0000"),
+        ("pointer", "fg:#000000"),  # the little "›" pointer hidden
+        ("selected", "reverse"),    # inverse bar for active choice
+        ("highlighted", "reverse"), # also inverse for search match
+    ])
+
+    while True:
+        choice = questionary.select(
+            "LAZER MENU",
+            choices=[
+                "1. List all elements",
+                "2. List DMA-BUF elements",
+                "3. List primary elements",
+                "Inspect element (gst-inspect)",
+                "Quit",
+            ],
+            style=custom_style,
+        ).ask()
+
+        if choice == "Quit":
+            print("Exiting..")
+            break
+
+        if choice.startswith("1."):
+            list_all_elements()
+
+        if choice.startswith("2."):
+            list_dmabuf_elements_table()
+
+        if choice.startswith("3."):
+            list_primary_elements()
 
 
-if __name__ == "__main__":
-    Gst(None)
-    app()
-
+    
 

@@ -15,7 +15,7 @@
     "--network", "host"
   ],
   "containerEnv": {
-  	"CONTAINER_TYPE": "hw_acc_x64_pc",
+  	"CONTAINER_TYPE": "default",
     "HOST_OS": "${localEnv:OSTYPE}",
     "GST_PLUGIN_PATH": "/work/development/build",
     "HOST_DISPLAY": "${localEnv:DISPLAY}"

@@ -172,3 +172,15 @@ There is also a memory type **GLMemory** in GStreamer that is crucial for our us
 
 - Container generator script for supported platforms (to tunnel different hardware to the container on different hosts)
 
+### 220925
+
+💡 Considerations
+
+Up until now Lazer used static pad templates to discover elements that expose DMABuf-compatible pads.
+There are elements that adds these pad caps dynamically when created, only in case there are the required driver caps.
+So Lazer must implement this system.
+
+✅ COMPLETED
+
+- Container generator script (**default** and **hw_acc_x64_pc** containers are available)
+
