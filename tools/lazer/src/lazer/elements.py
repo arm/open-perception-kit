@@ -12,5 +12,9 @@ PRIMARY_ELEMENTS = [
     # sinks (display/output)
     "kmssink",              # direct DRM/KMS display sink
     "waylandsink",          # Wayland compositor sink
+
+    "videotestsrc",
+    "videoconvert",
+    "mpegtsmux",
 ]
 

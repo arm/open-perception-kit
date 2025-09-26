@@ -1,6 +1,8 @@
 
 from .elements import PRIMARY_ELEMENTS
-    
+
+from .pipelinecheck import run_gst_dmabuf_audit_io
+
 # ---------------------------
 
 import sys
@@ -118,7 +120,7 @@ def main():
                 "1. List all elements",
                 "2. List DMA-BUF elements",
                 "3. List primary elements",
-                "Inspect element (gst-inspect)",
+                "4. Pipeline check",
                 "Quit",
             ],
             style=custom_style,
@@ -136,6 +138,18 @@ def main():
 
         if choice.startswith("3."):
             list_primary_elements()
+
+        if choice.startswith("4."):
+            pipeline = (
+                "videotestsrc is-live=true ! "
+                "video/x-raw,format=NV12,width=1280,height=720,framerate=30/1 ! "
+                "videoconvert ! x264enc tune=zerolatency speed-preset=ultrafast ! " \
+                "mpegtsmux ! " \
+                "udpsink host=127.0.0.1 port=5000 sync=false async=false"
+            )
+            summary = run_gst_dmabuf_audit_io(pipeline, force_dmabuf_caps=False, run_seconds=3)
+            #from pprint import pprint
+            console.print(summary)
 
 
     
