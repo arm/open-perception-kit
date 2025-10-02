@@ -120,7 +120,7 @@ def main():
                 "1. List all elements",
                 "2. List DMA-BUF elements",
                 "3. List primary elements",
-                "4. Pipeline check",
+                "4. Pipeline check with Intel iGPU",
                 "Quit",
             ],
             style=custom_style,

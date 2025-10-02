@@ -9,6 +9,8 @@ enum class GstTensorDataType {
   fp32
 };
 
+/*
+
 struct GstTensorData {
   GstMeta meta;
   GstTensorDType dtype;
@@ -28,5 +30,7 @@ const GstMetaInfo * gst_tensor_meta_get_info(void);
 static inline GstTensorMeta* gst_buffer_add_tensor_meta (GstBuffer *buf) {
   return (GstTensorMeta *) gst_buffer_add_meta (buf, GST_TENSOR_META_INFO, NULL);
 };
+
+*/
 
 

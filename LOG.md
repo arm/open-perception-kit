@@ -183,4 +183,12 @@ So Lazer must implement this system.
 ✅ COMPLETED
 
 - Container generator script (**default** and **hw_acc_x64_pc** containers are available)
+- Build real pipelines in Lazer and check DMABuf memory usage in real environment
+
+### 260925
+
+✅ COMPLETED
+
+- Lazer is now menu based
+- Pipeline test in Lazer that prints the elements i/o data types - not surprisingly no DBMBuf support in default container :( 
 
