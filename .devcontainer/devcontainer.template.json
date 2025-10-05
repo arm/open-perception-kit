@@ -24,7 +24,7 @@
   },
   "overrideCommand": true,
   "init": true,
-  "forwardPorts": [7100,1234],
+  "forwardPorts": [7100,1234],  
   "postCreateCommand": "bash .devcontainer/setup.sh",
   "customizations": {
     "vscode": {

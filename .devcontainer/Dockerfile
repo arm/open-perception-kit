@@ -1,5 +1,4 @@
 # .devcontainer/Dockerfile
-#FROM --platform=linux/arm64 debian:bookworm-slim
 FROM --platform=linux debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -10,32 +9,62 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Base deps (build tools, GStreamer stack, Python, QoL tools)
+# Show base info (helps reading logs)
+RUN set -eux; uname -a; cat /etc/os-release; dpkg --print-architecture
+
+# Always start with update
+RUN set -eux; apt-get update
+
+# QoL tools
+RUN set -eux; \
+  apt-get install -y --no-install-recommends \
+    ca-certificates curl wget git sudo bash-completion mc unzip vim nano
+
+# Build tools
+RUN set -eux; \
+  apt-get install -y --no-install-recommends \
+    build-essential meson ninja-build pkg-config gdb
+
+# Python + core libs
+RUN set -eux; \
+  apt-get install -y --no-install-recommends \
+    python3 python3-venv python3-gi python3-gst-1.0 \
+    libssl-dev libffi-dev zlib1g-dev libbz2-dev liblzma-dev libsqlite3-dev
+
+# GStreamer core
+RUN set -eux; \
+  apt-get install -y --no-install-recommends \
+    libgstreamer1.0-dev gstreamer1.0-tools
+
+# GStreamer base + GL/X
+RUN set -eux; \
+  apt-get install -y --no-install-recommends \
+    libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-x gstreamer1.0-gl
+
+# GStreamer extra plugins (bad/good/ugly)
+RUN set -eux; \
+  apt-get install -y --no-install-recommends \
+    libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-bad gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly
+
+# libav can sometimes be the troublemaker; probe then install
 RUN set -eux; \
   apt-get update; \
-  apt-get install -y --no-install-recommends \
-    ca-certificates curl wget git sudo bash-completion mc unzip vim nano \
-    build-essential meson ninja-build pkg-config gdb \
-    python3 python3-venv python3-gi python3-gst-1.0 \
-    libssl-dev libffi-dev zlib1g-dev libbz2-dev liblzma-dev libsqlite3-dev \
-    libgstreamer1.0-dev gstreamer1.0-tools \
-    libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-x gstreamer1.0-gl \
-    libgstreamer-plugins-bad1.0-dev  gstreamer1.0-plugins-bad \
-    gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly gstreamer1.0-libav \
-    libdrm-dev libgbm-dev libegl1-mesa-dev libgles2-mesa-dev \
-    libwayland-dev libva-dev libv4l-dev libgtk-3-0 \
-    gstreamer1.0-vaapi intel-media-va-driver \
-    vainfo intel-media-va-driver gstreamer1.0-vaapi libva-drm2; \
-  rm -rf /var/lib/apt/lists/*
+  if apt-get install -y --no-install-recommends --dry-run gstreamer1.0-libav; then \
+    apt-get install -y --no-install-recommends gstreamer1.0-libav; \
+  else \
+    echo 'NOTE: gstreamer1.0-libav not available on this image/mirror'; \
+  fi
 
-# onnx runtime
+# Optional: DRM/EGL/Wayland bits (comment out if not needed)
+#RUN set -eux; \
+#  apt-get install -y --no-install-recommends \
+#    libdrm-dev libgbm-dev libegl1-mesa-dev libgles2-mesa-dev \
+#    libwayland-dev libva-dev libv4l-dev libgtk-3-0 || true
 
-RUN wget https://github.com/microsoft/onnxruntime/releases/download/v1.18.1/onnxruntime-linux-aarch64-1.18.1.tgz
-RUN tar xf onnxruntime-linux-aarch64-1.18.1.tgz
-RUN sudo cp -r onnxruntime-linux-aarch64-1.18.1/include/* /usr/local/include/
-RUN sudo cp -r onnxruntime-linux-aarch64-1.18.1/lib/* /usr/local/lib/
-RUN sudo ldconfig
+# Clean apt cache
+RUN set -eux; update-ca-certificates || true; rm -rf /var/lib/apt/lists/*
 
+    
 # uv (Python package manager)
 RUN set -eux; \
   curl -LsSf https://astral.sh/uv/install.sh | \

@@ -13,7 +13,7 @@ append_once() {
 
 trap 'die "failed at line $LINENO"' ERR
 
-log "Running on: $HOST_OS OS"
+#log "Running on: $HOST_OS OS"
 
 # ---------- display ---------
 #case "${HOST_OS:-}" in
@@ -66,6 +66,19 @@ if [[ \$- == *i* ]] && [[ -z \${VIRTUAL_ENV:-} ]] && [[ -f $VENV_DIR/bin/activat
   source $VENV_DIR/bin/activate
 fi"
 
+# ---------- INTEL DRIVERS ----------
+
+if [ "$CONTAINER_TYPE" == "intel_igpu_pc" ]; then
+  set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+    gstreamer1.0-vaapi intel-media-va-driver \
+    libdrm-dev libgbm-dev libegl1-mesa-dev libgles2-mesa-dev \
+    libwayland-dev libva-dev libv4l-dev libgtk-3-0; \
+    vainfo intel-media-va-driver gstreamer1.0-vaapi libva-drm2; 
+  rm -rf /var/lib/apt/lists/*
+fi
+
 # ---------- ONNX ----------
 
 ARCH=$(uname -m)
@@ -91,6 +104,8 @@ mkdir -p deps/onnxruntime
 cp -r "$DIR_NAME/include" deps/onnxruntime/
 cp -r "$DIR_NAME/lib" deps/onnxruntime/
 
+#!/usr/bin/env bash
+
 # ---------- optional: only auto-activate inside project ----------
 # If you prefer activation ONLY when you're in /work/tools/lazer*, replace the block above with:
 # append_once \
@@ -102,16 +117,17 @@ cp -r "$DIR_NAME/lib" deps/onnxruntime/
 # fi"
 
 # ---------- smoke tests (non-fatal) ----------
-log "Running smoke tests…"
-set +e
-"$VENV_DIR/bin/python" -c 'import sys; print("Python:", sys.version.split()[0])' >/dev/null 2>&1 || true
-"$VENV_DIR/bin/python" -c 'import gi; import gi.repository.Gst as _; print("gi/Gst OK")' >/dev/null 2>&1 || true
-if command -v lazer >/dev/null 2>&1; then
-  lazer --help >/dev/null 2>&1 || true
-fi
-set -e
+#log "Running smoke tests…"
+#set +e
+#"$VENV_DIR/bin/python" -c 'import sys; print("Python:", sys.version.split()[0])' >/dev/null 2>&1 || true
+#"$VENV_DIR/bin/python" -c 'import gi; import gi.repository.Gst as _; print("gi/Gst OK")' >/dev/null 2>&1 || true
+#if command -v lazer >/dev/null 2>&1; then
+#  lazer --help >/dev/null 2>&1 || true
+#fi
+#set -e
+
+export GST_PLUGIN_PATH=/work/development/build:/usr/lib/x86_64-linux-gnu/gstreamer-1.0
 
 log "Done. Open a NEW terminal to see the prompt & venv activation."
 
-export GST_PLUGIN_PATH=/work/development/build:/usr/lib/x86_64-linux-gnu/gstreamer-1.0
 

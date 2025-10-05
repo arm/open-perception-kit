@@ -54,10 +54,10 @@ static void gst_ampdummy_class_init(GstAmpDummyClass* classPtr)
 static void gst_ampdummy_init(GstAmpDummy* self)
 {
   // this element works in-place
-  gst_base_transform_set_in_place (GST_BASE_TRANSFORM (self), TRUE);
+  gst_base_transform_set_in_place(GST_BASE_TRANSFORM (self), TRUE);
 
   // or true passthrough
-  // gst_base_transform_set_passthrough (GST_BASE_TRANSFORM (self), TRUE);
+  // gst_base_transform_set_passthrough(GST_BASE_TRANSFORM (self), TRUE);
 }
 
 static gboolean plugin_init(GstPlugin* plugin)

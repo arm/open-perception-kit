@@ -38,8 +38,7 @@ build() {
 while true; do
     echo "Please select an option:"
     echo "1) Default container"
-    echo "2) PC hardware accelerated x64 Linux"
-    echo "3) Intel iGPU x64 Linux"
+    echo "2) Intel iGPU x64 Linux"
     echo "q) Quit"
     read -rp "Enter choice: " choice
 
@@ -49,13 +48,9 @@ while true; do
         	break
         	;;
         2)
-        	build "hw_acc_x64_pc"
+			build "intel_igpu_pc"
         	break
             ;;
-	3)
-		build "intel_igpu_pc"
-		break
-	    ;;
         q)
         	echo "Exiting.."
             break
