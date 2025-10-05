@@ -14,15 +14,20 @@ def run_gst_dmabuf_audit_io(
     run_seconds: int = 5
 ):
     """
-    Build and run a GStreamer pipeline, counting DMA-Buf vs non-DMA-Buf buffers
+    Build and run a GStreamer pipeline, counting DMA-Buf, GLMemory (GLImage/EGLImage), and system memory buffers
     on BOTH sink (incoming) and src (outgoing) pads of every element.
 
     Returns:
         {
-          "pads": {
-            "elem:pad": {"dir":"sink|src", "dmabuf":int, "sysmem":int}
-          },
-          "pipeline_str_effective": str
+            "pads": {
+                "elem:pad": {
+                    "dir": "sink" or "src",
+                    "dmabuf": int,
+                    "glmem": int,
+                    "sysmem": int
+                }
+            },
+            "pipeline_str_effective": str
         }
     """
 
@@ -33,37 +38,47 @@ def run_gst_dmabuf_audit_io(
     desc = _force_caps(pipeline_str) if force_dmabuf_caps else pipeline_str
     pipeline = Gst.parse_launch(desc)
 
-    pads = {}  # key -> {dir, dmabuf, sysmem}
+    pads = {}  # key -> {dir, dmabuf, glmem, sysmem}
 
     def _pad_key(pad: Gst.Pad) -> str:
         parent = pad.get_parent_element()
         return f"{parent.get_name()}:{pad.get_name()}"
 
-    def _buffer_has_dmabuf(buf: Gst.Buffer) -> bool:
+    def _buffer_memory_types(buf: Gst.Buffer) -> set:
+        types = set()
         if not buf:
-            return False
-        n = buf.n_memory()
-        for i in range(n):
+            return types
+        for i in range(buf.n_memory()):
             mem = buf.peek_memory(i)
-            # GI exposes gst_memory_is_type() as Memory.is_type("DMABuf")
             try:
                 if mem.is_type("DMABuf"):
-                    return True
+                    types.add("DMABuf")
+                if mem.is_type("GLMemory"):
+                    types.add("GLMemory")
+                if mem.is_type("EGLImage"):
+                    types.add("EGLImage")
+                if mem.is_type("GstMemoryGL"):
+                    types.add("GstMemoryGL")
             except Exception:
-                pass
-        return False
+                continue
+        return types
 
     def _attach_buffer_probe(pad: Gst.Pad, direction: str):
         key = _pad_key(pad)
-        pads.setdefault(key, {"dir": direction, "dmabuf": 0, "sysmem": 0})
+        pads.setdefault(key, {"dir": direction, "dmabuf": 0, "glmem": 0, "sysmem": 0})
 
         def _probe(_pad, info):
             buf = info.get_buffer()
             if buf is not None:
-                if _buffer_has_dmabuf(buf):
+                types = _buffer_memory_types(buf)
+
+                if "DMABuf" in types:
                     pads[key]["dmabuf"] += 1
+                elif {"GLMemory", "EGLImage", "GstMemoryGL"} & types:
+                    pads[key]["glmem"] += 1
                 else:
                     pads[key]["sysmem"] += 1
+
             return Gst.PadProbeReturn.OK
 
         pad.add_probe(Gst.PadProbeType.BUFFER, _probe)

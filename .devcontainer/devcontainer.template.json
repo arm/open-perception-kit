@@ -6,7 +6,9 @@
   },
   "remoteUser": "devgoblin",
   "workspaceFolder": "/work",
-  "mounts": ["source=${localWorkspaceFolder},target=/work,type=bind,consistency=cached"],
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/work,type=bind,consistency=cached"
+  ],
   "runArgs": [
   	%RUNARGS%
     "--hostname","amp-dev-forge",

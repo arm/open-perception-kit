@@ -33,7 +33,6 @@ onnx() {
   msg "Running test pipeline.."
 
   IP=$(getent ahostsv4 host.docker.internal | awk 'NR==1{print $1}')
-  msg "Using IP address for stream: $IP"
   
   gst-launch-1.0 \
     filesrc location=/work/etc/videos/00.mp4 ! decodebin ! \
@@ -41,8 +40,7 @@ onnx() {
     ampinfer model-path=/work/etc/models/yolov8n/yolov8n-fp32.onnx imgsz=640 ! \
     videoconvert ! x264enc tune=zerolatency speed-preset=ultrafast ! \
     mpegtsmux ! \
-    udpsink host="1027.0.0.1" port=5000 sync=false async=false
-    #udpsink host="$IP" port=5000 sync=false async=false
+    udpsink host="$IP" port=5000 sync=false async=false
 
   msg_end "Pipeline finished."
 }

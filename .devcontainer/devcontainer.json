@@ -6,9 +6,26 @@
   },
   "remoteUser": "devgoblin",
   "workspaceFolder": "/work",
-  "mounts": ["source=${localWorkspaceFolder},target=/work,type=bind,consistency=cached"],
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/work,type=bind,consistency=cached"
+  ],
   "runArgs": [
-  	
+  	"--env=DISPLAY=${localEnv:DISPLAY}",
+"--env=XDG_RUNTIME_DIR=${localEnv:XDG_RUNTIME_DIR}",
+"--env=LIBVA_DRIVER_NAME=iHD",
+"--device=/dev/dri",
+"--group-add=video",
+"--group-add=render",
+"--volume=/tmp/.X11-unix:/tmp/.X11-unix",
+"--volume=${localEnv:XDG_RUNTIME_DIR}:${localEnv:XDG_RUNTIME_DIR}",
+"--security-opt", "apparmor=unconfined",
+"--security-opt", "seccomp=unconfined",
+"--cap-add=SYS_ADMIN",
+"--env=LIBGL_ALWAYS_INDIRECT=1",
+"--env=QT_XCB_GL_INTEGRATION=none",
+"--env=WAYLAND_DISPLAY=${localEnv:WAYLAND_DISPLAY}",
+"--volume=${localEnv:XDG_RUNTIME_DIR}/${localEnv:WAYLAND_DISPLAY}:/tmp/wayland.sock",
+"--privileged",
     "--hostname","amp-dev-forge",
     "--cap-add=SYS_PTRACE",
     "--security-opt","seccomp=unconfined",
@@ -16,6 +33,9 @@
   ],
   "containerEnv": {
   	"CONTAINER_TYPE": "default",
+"DISPLAY": "${localEnv:DISPLAY}",
+"XAUTHORITY": "/home/devgoblin/.Xauthority",
+"WAYLAND_DISPLAY": "${localEnv:WAYLAND_DISPLAY}",
     "HOST_OS": "${localEnv:OSTYPE}",
     "GST_PLUGIN_PATH": "/work/development/build",
     "HOST_DISPLAY": "${localEnv:DISPLAY}"

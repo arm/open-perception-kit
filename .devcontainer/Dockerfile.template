@@ -23,8 +23,9 @@ RUN set -eux; \
     libgstreamer-plugins-bad1.0-dev  gstreamer1.0-plugins-bad \
     gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly gstreamer1.0-libav \
     libdrm-dev libgbm-dev libegl1-mesa-dev libgles2-mesa-dev \
-    libwayland-dev libva-dev libv4l-dev libgtk-3-0; \
-  update-ca-certificates; \
+    libwayland-dev libva-dev libv4l-dev libgtk-3-0 \
+    gstreamer1.0-vaapi intel-media-va-driver \
+    vainfo intel-media-va-driver gstreamer1.0-vaapi libva-drm2; \
   rm -rf /var/lib/apt/lists/*
 
 # onnx runtime
@@ -53,6 +54,9 @@ RUN set -eux; \
   echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/90-${USERNAME}"; \
   chmod 0440 "/etc/sudoers.d/90-${USERNAME}"; \
   mkdir -p /work && chown -R "${USER_UID}:${USER_GID}" /work
+
+RUN groupadd -g 993 render || true && \
+    usermod -aG render devgoblin || true
 
 USER ${USERNAME}
 WORKDIR /work

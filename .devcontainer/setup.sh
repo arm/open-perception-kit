@@ -66,6 +66,31 @@ if [[ \$- == *i* ]] && [[ -z \${VIRTUAL_ENV:-} ]] && [[ -f $VENV_DIR/bin/activat
   source $VENV_DIR/bin/activate
 fi"
 
+# ---------- ONNX ----------
+
+ARCH=$(uname -m)
+
+if [ "$ARCH" == "x86_64" ]; then
+    ORT_URL="https://github.com/microsoft/onnxruntime/releases/download/v1.18.1/onnxruntime-linux-x64-1.18.1.tgz"
+elif [ "$ARCH" == "aarch64" ]; then
+    ORT_URL="https://github.com/microsoft/onnxruntime/releases/download/v1.18.1/onnxruntime-linux-aarch64-1.18.1.tgz"
+else
+    echo "Unsupported architecture: $ARCH"
+    exit 1
+fi
+
+# Download and extract
+wget "$ORT_URL"
+tar xf "$(basename $ORT_URL)"
+
+# Extract directory name
+DIR_NAME=$(basename $ORT_URL .tgz)
+
+# Install locally (no sudo!)
+mkdir -p deps/onnxruntime
+cp -r "$DIR_NAME/include" deps/onnxruntime/
+cp -r "$DIR_NAME/lib" deps/onnxruntime/
+
 # ---------- optional: only auto-activate inside project ----------
 # If you prefer activation ONLY when you're in /work/tools/lazer*, replace the block above with:
 # append_once \
@@ -87,3 +112,6 @@ fi
 set -e
 
 log "Done. Open a NEW terminal to see the prompt & venv activation."
+
+export GST_PLUGIN_PATH=/work/development/build:/usr/lib/x86_64-linux-gnu/gstreamer-1.0
+
