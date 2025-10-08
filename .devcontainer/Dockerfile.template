@@ -92,6 +92,9 @@ WORKDIR /work
 
 # Project-friendly defaults
 ENV GST_DEBUG=2 \
-    GST_PLUGIN_PATH=/work/development/build
+    GST_PLUGIN_PATH=/work/development/build/meson-out
+
+ENV LD_LIBRARY_PATH="/work/deps/onnxruntime/lib:${LD_LIBRARY_PATH:-}"
+CMD ldconfig
 
 CMD ["sleep","infinity"]

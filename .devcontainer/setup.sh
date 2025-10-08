@@ -126,7 +126,7 @@ cp -r "$DIR_NAME/lib" deps/onnxruntime/
 #fi
 #set -e
 
-export GST_PLUGIN_PATH=/work/development/build:/usr/lib/x86_64-linux-gnu/gstreamer-1.0
+
 
 log "Done. Open a NEW terminal to see the prompt & venv activation."
 
