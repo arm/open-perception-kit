@@ -262,7 +262,7 @@ static inline float clampf(float v,float lo,float hi){return std::max(lo,std::mi
 
 // --------------------------------------------------------------
 
-static GstFlowReturn gst_ampinfer_transform_frame_ip (GstVideoFilter *vf, GstVideoFrame *frame)
+static GstFlowReturn gst_ampinfer_transform_frame_ip(GstVideoFilter *vf, GstVideoFrame *frame)
 {
   auto *self = (GstAmpInfer*) vf;
   if (!self->ort_ready) return GST_FLOW_OK;

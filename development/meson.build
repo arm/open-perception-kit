@@ -22,19 +22,21 @@ gobject_dep    = dependency('gobject-2.0', required: true)
 
 onnx_include = include_directories('../deps/onnxruntime/include')
 onnx_libdir = meson.project_source_root() / '../deps/onnxruntime/lib'
-message('ONNX include dir: deps/onnxruntime/include')
-message('ONNX lib dir: ' + onnx_libdir)
 
 onnx_dep = declare_dependency(
-  include_directories: onnx_include,
+  include_directories: '../deps/onnxruntime/include',
   link_args: ['-L' + onnx_libdir, '-lonnxruntime']
 )
 
 amp_deps = [gst_dep, gstbase_dep, gstv_dep, glib_dep, gobject_dep, onnx_dep]
 
-inc_root = include_directories('common')
+common_include = include_directories('common')
+uniflow_include = include_directories('uniflow')
 
 # add each element subdir
 subdir('common')
-subdir('elements/ampdummy')
+subdir('uniflow')
 subdir('elements/ampinfer')
+subdir('elements/ampinferonnx')
+subdir('elements/ampinferpre')
+subdir('elements/ampinferpost')

@@ -1,10 +1,10 @@
 
 gstampdummy = shared_module(
-  'gstampdummy',                   
+  'ampinferpre',                   
   sources: [
-    'ampdummy.cpp'
+    'ampinferpre.cpp'
   ],
-  include_directories: inc_root,
+  include_directories: [common_include, uniflow_include],
   dependencies: amp_deps,
   gnu_symbol_visibility: 'hidden', 
   install: false

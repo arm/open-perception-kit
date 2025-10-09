@@ -1,12 +1,12 @@
 
 gstampinfer = shared_module(
-  'gstampinfer',                   
+  'ampinfer',                   
   sources: [
     'ampinfer.cpp',
     'yolov8n-int8.cpp'
   ],
-  include_directories: inc_root,
+  include_directories: common_include,
   dependencies: amp_deps,
-  gnu_symbol_visibility: 'hidden', 
+  gnu_symbol_visibility: 'hidden',
   install: false
 )

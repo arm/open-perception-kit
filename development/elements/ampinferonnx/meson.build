@@ -1,8 +1,8 @@
 
-common = static_library(
-  'common',                   
+gstampdummy = shared_module(
+  'ampinferonnx',                   
   sources: [
-    'Tensor.cpp'
+    'ampinferonnx.cpp'
   ],
   include_directories: common_include,
   dependencies: amp_deps,
