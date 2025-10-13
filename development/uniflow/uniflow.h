@@ -10,10 +10,14 @@
 
 namespace uf {
 
-    struct ValuePattern {
+    struct ValueLayout {
 
-        size_t stride;
+        struct Position {
+            size_t offset;
+        };
 
+        size_t fullStepByteStride = -1;
+        
 
     };
 
