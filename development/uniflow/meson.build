@@ -7,7 +7,9 @@ common = static_library(
     'tensor_view.h',
     'tensor_types.h',
     'tensor_types.cpp',
-    'output_types.h'
+    'output_types.h',
+    'basic_proc.cpp',
+    'basic_proc.h'
   ],
   include_directories: common_include,
   gnu_symbol_visibility: 'hidden', 

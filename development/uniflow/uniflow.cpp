@@ -1,5 +1,7 @@
 #include "uniflow.h"
 
+#include "output_types.h"
+
 namespace uf {
 
 
@@ -8,6 +10,10 @@ namespace uf {
 
 
 void testmain() {
+
+    uf::Detection d[2];
+    d[0].payload = uf::Box();
+    d[1].payload = uf::Confidence();
 
     uf::i8 tensor[128];
     uf::TensorView<uf::i8> tensorView(tensor, 128);

@@ -11,6 +11,7 @@ namespace uf {
     using f32 = float;
 
     enum class Type { u8, i8, f16, f32 };
+    enum class Range { R0_1, Rm1_1 };
 
     float Float01_From_f16(f16 h);
     f16 Float01_Into_f16(float f);
@@ -23,4 +24,7 @@ namespace uf {
 
     float Float01_From_i8(i8 v);
     i8 Float01_Into_i8(float v);
+
+    enum class Ordering { Nchw, Nhwc, Chw, Hwc };
+
 }

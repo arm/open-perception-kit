@@ -10,6 +10,12 @@
 
 namespace uf {
 
+    struct ValuePattern {
+
+        size_t stride;
+
+
+    };
 
 }
 
