@@ -43,9 +43,7 @@ namespace uf {
     };
 
     struct TensorFromImage {
-
-
-
+        
     };
 
 }

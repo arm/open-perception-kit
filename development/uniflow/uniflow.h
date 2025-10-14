@@ -10,16 +10,5 @@
 
 namespace uf {
 
-    struct ValueLayout {
-
-        struct Position {
-            size_t offset;
-        };
-
-        size_t fullStepByteStride = -1;
-        
-
-    };
-
 }
 
