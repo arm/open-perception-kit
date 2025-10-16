@@ -206,28 +206,29 @@ static gboolean gst_ampinfer_stop (GstBaseTransform *b) {
 
 static inline void drawBox(guint8* rgb, int framew, int frameh, float x0, float y0, float x1, float y1) {
 
-  //printf("%d %d\n", framew, frameh);
-
-  x0 = (x0 / yoloSquareSize) * framew;
-  y0 = (y0 / yoloSquareSize) * frameh;
-  x1 = (x1 / yoloSquareSize) * framew;
-  y1 = (y1 / yoloSquareSize) * frameh;
-
   int _x0 = (int)x0;
   int _y0 = (int)y0;
   int _x1 = (int)x1;
   int _y1 = (int)y1;
 
-  //printf("%d %d %d %d\n", _x0, _y0, _x1, _y1);
+  for(int x = _x0; x <= _x1; x++) {
+        rgb[3 * (_y0 * framew + x) + 0] = 0xff;
+        rgb[3 * (_y0 * framew + x) + 1] = 0xff;
+        rgb[3 * (_y0 * framew + x) + 2] = 0xff;
 
-  for(int y = _y0; y <= y1; y++) {
-    for(int x = _x0; x <= x1; x++) {
-      if(y == _y0 || x == _x0 || y == _y1 || x == _x1) {
-        rgb[3 * (y * framew + x) + 0] = 0xff;
-        rgb[3 * (y * framew + x) + 1] = 0xff;
-        rgb[3 * (y * framew + x) + 2] = 0xff;
-      }
-    }
+        rgb[3 * (_y1 * framew + x) + 0] = 0xff;
+        rgb[3 * (_y1 * framew + x) + 1] = 0xff;
+        rgb[3 * (_y1 * framew + x) + 2] = 0xff;
+  }
+
+  for(int y = _y0; y <= _y1; y++) {
+      rgb[3 * (y * framew + _x0) + 0] = 0xff;
+      rgb[3 * (y * framew + _x0) + 1] = 0xff;
+      rgb[3 * (y * framew + _x0) + 2] = 0xff;
+
+      rgb[3 * (y * framew + _x1) + 0] = 0xff;
+      rgb[3 * (y * framew + _x1) + 1] = 0xff;
+      rgb[3 * (y * framew + _x1) + 2] = 0xff;
   }
 }
 

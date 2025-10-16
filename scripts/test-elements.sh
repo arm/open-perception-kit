@@ -37,7 +37,6 @@ onnx() {
   gst-launch-1.0 \
     filesrc location=/work/etc/videos/00.mp4 ! decodebin ! \
     videoconvert ! \
-    videoscale ! video/x-raw,format=RGB,width=160,height=160 ! \
     ampinfer model-path=/work/etc/models/yolov8n/yolov8n-160-fp32.onnx imgsz=160 ! \
     videoconvert ! x264enc tune=zerolatency speed-preset=ultrafast ! \
     mpegtsmux ! \
