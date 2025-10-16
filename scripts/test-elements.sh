@@ -36,8 +36,49 @@ onnx() {
   
   gst-launch-1.0 \
     filesrc location=/work/etc/videos/00.mp4 ! decodebin ! \
-    videoconvert ! videoscale ! video/x-raw,format=RGB,width=640,height=640 ! \
-    ampinfer model-path=/work/etc/models/yolov8n/yolov8n-fp32.onnx imgsz=640 ! \
+    videoconvert ! \
+    videoscale ! video/x-raw,format=RGB,width=160,height=160 ! \
+    ampinfer model-path=/work/etc/models/yolov8n/yolov8n-160-fp32.onnx imgsz=160 ! \
+    videoconvert ! x264enc tune=zerolatency speed-preset=ultrafast ! \
+    mpegtsmux ! \
+    udpsink host="$IP" port=5000 sync=false async=false
+
+  msg_end "Pipeline finished."
+}
+
+#    videoscale ! video/x-raw,format=RGB,width=160,height=160 ! \
+
+
+#  gst-launch-1.0 \
+#    filesrc location=/work/etc/videos/00.mp4 ! decodebin ! \
+#    videoconvert ! videoscale ! video/x-raw,format=RGB,width=640,height=640 ! \
+#    ampinfer model-path=/work/etc/models/yolov8n/yolov8n-fp32.onnx imgsz=640 ! \
+#    videoconvert ! x264enc tune=zerolatency speed-preset=ultrafast ! \
+#    mpegtsmux ! \
+#    udpsink host="$IP" port=5000 sync=false async=false
+
+onnx2() {
+
+  msg_begin "Executing test with ONNX2 element..\n"
+
+  need gst-launch-1.0
+
+  if [ ! -d "$BUILD_DIR" ]; then
+    msg_end_err "Error: directory $BUILD_DIR does not exist" >&2
+    exit 1
+  fi
+
+  export GST_PLUGIN_PATH="$BUILD_DIR"
+  msg "GST_PLUGIN_PATH=$GST_PLUGIN_PATH"
+
+  msg "Running test pipeline.."
+
+  IP=$(getent ahostsv4 host.docker.internal | awk 'NR==1{print $1}')
+  
+  gst-launch-1.0 \
+    filesrc location=/work/etc/videos/00.mp4 ! decodebin ! \
+    videoconvert ! videoscale ! video/x-raw,format=RGB,width=160,height=160 ! \
+    ampinfer model-path=/work/etc/models/yolov8n/yolov8n-160-qdq.onnx imgsz=160 ! \
     videoconvert ! x264enc tune=zerolatency speed-preset=ultrafast ! \
     mpegtsmux ! \
     udpsink host="$IP" port=5000 sync=false async=false
@@ -118,6 +159,7 @@ usage() {
 
 Commands:
   onnx ➡️ Run yolov8n test using onnx framework.
+  onnx2 ➡️ Run yolov8n int8 test using onnx framework.
   ampinfer ➡️ Run yolov8n test using onnx via ampinfer.
   onnxweb ➡️ Run yolov8n test over web using onnx framework.
 
@@ -128,6 +170,7 @@ EOF
 cmd="${1:-}"
 case "$cmd" in
   onnx) onnx ;;
+  onnx2) onnx2 ;;
   ampinfer) ampinfer ;;
   onnxweb) onnxweb ;;
   *)

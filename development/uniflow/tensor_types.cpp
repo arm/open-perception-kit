@@ -15,7 +15,7 @@ static inline TO bit_cast(FROM v) {
 
 // float32 -> fp16 (as 16-bit bits)
 
-uf::f16 uf::Float01_Into_f16(float f) {
+uflw::f16 uflw::Float01_Into_f16(float f) {
 
     uint32_t x = bit_cast<uint32_t>(f);
     uint32_t sign = (x >> 31) & 1;
@@ -62,7 +62,7 @@ uf::f16 uf::Float01_Into_f16(float f) {
 }
 
 // fp16 bits -> float32
-float uf::Float01_From_f16(uf::f16 h) {
+float uflw::Float01_From_f16(uflw::f16 h) {
 
   uint32_t sign = (h >> 15) & 1;
   uint32_t exp  = (h >> 10) & 0x1F;
@@ -90,23 +90,23 @@ float uf::Float01_From_f16(uf::f16 h) {
     return bit_cast<float>(out);
 }
 
-float uf::Float01_From_u8(uf::u8 v)
+float uflw::Float01_From_u8(uflw::u8 v)
 {
     return v / 255.0f;
 }
 
-uf::u8 uf::Float01_Into_u8(float v)
+uflw::u8 uflw::Float01_Into_u8(float v)
 {
     assert(v >= 0.0f && v <= 1.0f);
     return (u8)(v * 255);
 }
 
-float uf::Float01_From_i8(uf::i8 v)
+float uflw::Float01_From_i8(uflw::i8 v)
 {
     return Float01_From_u8((u8)(((int)v) + 128));
 }
 
-uf::i8 uf::Float01_Into_i8(float v)
+uflw::i8 uflw::Float01_Into_i8(float v)
 {
     assert(v >= 0.0f && v <= 1.0f);
     u8 temp = Float01_Into_u8(v);
@@ -114,12 +114,12 @@ uf::i8 uf::Float01_Into_i8(float v)
     return 0;
 }
 
-float uf::Float01_From_f32(uf::f32 v) { 
+float uflw::Float01_From_f32(uflw::f32 v) { 
     assert(v >= 0.0f && v <= 1.0f);
     return v; 
 }
 
-uf::f32 uf::Float01_Into_f32(float v) { 
+uflw::f32 uflw::Float01_Into_f32(float v) { 
     assert(v >= 0.0f && v <= 1.0f);
     return v; 
 }

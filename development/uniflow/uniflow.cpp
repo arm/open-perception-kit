@@ -2,7 +2,7 @@
 
 #include "output_types.h"
 
-namespace uf {
+namespace uflw {
 
 
 
@@ -11,12 +11,12 @@ namespace uf {
 
 void testmain() {
 
-    uf::Detection d[2];
-    d[0].payload = uf::Box();
-    d[1].payload = uf::Confidence();
+    uflw::Detection d[2];
+    d[0].payload = uflw::Box();
+    d[1].payload = uflw::Confidence();
 
-    uf::i8 tensor[128];
-    uf::TensorView<uf::i8> tensorView(tensor, 128);
+    uflw::i8 tensor[128];
+    uflw::TensorView<uflw::i8> tensorView(tensor, 128);
 
     tensorView.set01(5, 3.14f);
     //float v = tensorView.get01(5);
@@ -51,7 +51,7 @@ if (m && m->tensor) {
   const guint8 *ptr = g_bytes_get_data (m->tensor, &sz);
   // use ptr, size, dtype, dims, zero_point, scale to feed your runtime
 }
-  
+
 */
 
 

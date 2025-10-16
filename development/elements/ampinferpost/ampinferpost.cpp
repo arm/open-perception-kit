@@ -29,7 +29,7 @@ static GstFlowReturn gst_ampinferpost_transform_ip(GstBaseTransform* base, GstBu
   (void) base;
   (void) buffer;
 
-  printf("AMP INFER POST is processing..\n");
+//  printf("AMP INFER POST is processing..\n");
 
   return GST_FLOW_OK;
 }

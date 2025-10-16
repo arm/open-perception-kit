@@ -10,6 +10,8 @@
 #include <gst/base/gstbasetransform.h>
 #include <stdio.h>
 
+#include "TensorMeta.h"
+
 // ------------------------------------------------
 
 G_BEGIN_DECLS
@@ -29,7 +31,12 @@ static GstFlowReturn gst_ampinferonnx_transform_ip(GstBaseTransform* base, GstBu
   (void) base;
   (void) buffer;
 
-  printf("AMP INFER ONNX is processing..\n");
+  GstMetaTensor* tensor = GstMetaTensorGetAttached(buffer);
+  if(nullptr != tensor) { 
+    if(tensor->tensorType == TensorType::Input) {
+      printf("Inference has input tensor.. %ld\n", tensor->tensorByteSize); 
+    }
+  }
 
   return GST_FLOW_OK;
 }
@@ -39,21 +46,20 @@ static void gst_ampinferonnx_class_init(GstAmpInferOnnxClass* classPtr)
   GstBaseTransformClass *bt = GST_BASE_TRANSFORM_CLASS(classPtr);
   bt->transform_ip = gst_ampinferonnx_transform_ip;
 
-  // simple ANY → ANY pad templates (should be tightened later)
   static GstStaticPadTemplate sinktempl = GST_STATIC_PAD_TEMPLATE ("sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS_ANY);
   static GstStaticPadTemplate srctempl  = GST_STATIC_PAD_TEMPLATE ("src",  GST_PAD_SRC,  GST_PAD_ALWAYS, GST_STATIC_CAPS_ANY);
 
   gst_element_class_add_static_pad_template(GST_ELEMENT_CLASS (classPtr), &sinktempl);
   gst_element_class_add_static_pad_template(GST_ELEMENT_CLASS (classPtr), &srctempl);
 
-  gst_element_class_set_static_metadata (GST_ELEMENT_CLASS (classPtr),
+  gst_element_class_set_static_metadata(GST_ELEMENT_CLASS(classPtr),
     "AMP inference via onnx", "Filter/Effect/Video",
-    "No-op skeleton element", "You <tamas.kulcsar@arm.com>");
+    "ML inference element", "<tamas.kulcsar@arm.com>");
 }
 
 static void gst_ampinferonnx_init(GstAmpInferOnnx* self)
 {
-  // in place, but the needs to be able to attach meta (raw output tensor)
+  // in place, but needs to be able to attach meta (the raw output tensor)
   gst_base_transform_set_in_place(GST_BASE_TRANSFORM (self), TRUE);
 
   // true passthrough 

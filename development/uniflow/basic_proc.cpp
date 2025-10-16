@@ -33,7 +33,7 @@ std::vector<Det> nms(std::vector<Det> v, float iou_thr, int max_keep=100) {
   return out;
 }
 
-float uf::m::sigmoid(float x) { 
+float uflw::m::sigmoid(float x) { 
     return 1.f / (1.f + std::exp(-x)); 
 }
 

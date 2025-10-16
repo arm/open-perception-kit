@@ -25,7 +25,7 @@ onnx_libdir = meson.project_source_root() / '../deps/onnxruntime/lib'
 
 onnx_dep = declare_dependency(
   include_directories: '../deps/onnxruntime/include',
-  link_args: ['-L' + onnx_libdir, '-lonnxruntime']
+  link_args: ['-L' + onnx_libdir, '-lonnxruntime', '-Wl,--no-undefined']
 )
 
 amp_deps = [gst_dep, gstbase_dep, gstv_dep, glib_dep, gobject_dep, onnx_dep]
@@ -37,6 +37,7 @@ uniflow_include = include_directories('uniflow')
 subdir('common')
 subdir('uniflow')
 subdir('elements/ampinfer')
+#subdir('elements/ampinfer2')
 subdir('elements/ampinferonnx')
 subdir('elements/ampinferpre')
 subdir('elements/ampinferpost')

@@ -14,6 +14,8 @@
 #include <string>
 #include <vector>
 
+static int yoloSquareSize = 0;
+
 // int8 model for embedded use, the float32 version is loaded from file
 extern unsigned int yolov8n_int8_onnx_len;
 extern unsigned char yolov8n_int8_onnx[];
@@ -203,15 +205,20 @@ static gboolean gst_ampinfer_stop (GstBaseTransform *b) {
 }
 
 static inline void drawBox(guint8* rgb, int framew, int frameh, float x0, float y0, float x1, float y1) {
-  x0 = (x0 / 640) * framew;
-  y0 = (y0 / 640) * frameh;
-  x1 = (x1 / 640) * framew;
-  y1 = (y1 / 640) * frameh;
+
+  //printf("%d %d\n", framew, frameh);
+
+  x0 = (x0 / yoloSquareSize) * framew;
+  y0 = (y0 / yoloSquareSize) * frameh;
+  x1 = (x1 / yoloSquareSize) * framew;
+  y1 = (y1 / yoloSquareSize) * frameh;
 
   int _x0 = (int)x0;
   int _y0 = (int)y0;
   int _x1 = (int)x1;
   int _y1 = (int)y1;
+
+  //printf("%d %d %d %d\n", _x0, _y0, _x1, _y1);
 
   for(int y = _y0; y <= y1; y++) {
     for(int x = _x0; x <= x1; x++) {
@@ -262,10 +269,14 @@ static inline float clampf(float v,float lo,float hi){return std::max(lo,std::mi
 
 // --------------------------------------------------------------
 
-static GstFlowReturn gst_ampinfer_transform_frame_ip(GstVideoFilter *vf, GstVideoFrame *frame)
+static GstFlowReturn gst_ampinfer_transform_frame_ip (GstVideoFilter *vf, GstVideoFrame *frame)
 {
   auto *self = (GstAmpInfer*) vf;
   if (!self->ort_ready) return GST_FLOW_OK;
+
+  if(yoloSquareSize == 0) {
+    yoloSquareSize = (int)self->imgsz;
+  }
 
   const int W = GST_VIDEO_FRAME_WIDTH(frame);
   const int H = GST_VIDEO_FRAME_HEIGHT(frame);
@@ -274,6 +285,7 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip(GstVideoFilter *vf, GstVide
   if (!rgb) return GST_FLOW_OK;
 
   // preprocess
+  //printf("%d %d -> %d %d\n", W, H, self->imgsz, yoloSquareSize);
   auto input = resize_normalize_rgb_nn(rgb, W, H, self->imgsz);
   std::array<int64_t,4> ishape{{1,3,self->imgsz,self->imgsz}};
   Ort::Value in = Ort::Value::CreateTensor<float>(*self->mem_info,

@@ -6,7 +6,7 @@
 
 #include "tensor_types.h"
 
-namespace uf {
+namespace uflw {
 
     enum class DetectionType { Unknown, Box, Confidence, Label, ConfidenceLabel, ConfidenceLabelBox };
 

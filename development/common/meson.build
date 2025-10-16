@@ -2,10 +2,8 @@
 common = static_library(
   'common',                   
   sources: [
-    'InferInputMeta.h',
-    'InferInputMeta.cpp',
-    'InferOutputMeta.h',
-    'InferOutputMeta.cpp',
+    'TensorMeta.h',
+    'TensorMeta.cpp',
     'InferResultMeta.h',
     'InferResultMeta.cpp'
   ],

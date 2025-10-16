@@ -8,7 +8,7 @@
 #include "tensor_view.h"
 #include "output_types.h"
 
-namespace uf {
+namespace uflw {
 
 }
 

@@ -3,14 +3,16 @@
 #include <cstdint>
 #include <cstddef>
 
-namespace uf {
+namespace uflw {
 
     using u8 = unsigned char;
     using i8 = signed char;
     using f16 = unsigned short;
     using f32 = float;
 
-    enum class Type { u8, i8, f16, f32 };
+    using ValuePointer = void*;
+
+    enum class ValueType { u8, i8, f16, f32 };
     
     enum class RangeType { Auto, Exact };
     
@@ -36,14 +38,13 @@ namespace uf {
     float Float01_From_i8(i8 v);
     i8 Float01_Into_i8(float v);
 
-    enum class DataByteArrayFormat {
-        Image_Rgb888,
-        Image_Bgr888,
-        Image_Jpeg
-    };
-
-    struct TensorFromImage {
-        
+    enum class RawDataLayout {
+        Rgb8,
+        Bgr8,
+        Mono8,
+        Monof32,
+        Rgbf32,
+        Jpeg
     };
 
 }

@@ -7,7 +7,7 @@
 
 #include "tensor_types.h"
 
-namespace uf {
+namespace uflw {
 
     //
     // Non-owning wrapper around a memory area contains fixed number of fixed 
@@ -49,7 +49,7 @@ namespace uf {
 
     private:
 
-        Type type;
+        ValueType valueType;
         std::byte* data;
         size_t count, typeSize;
 

@@ -1,5 +1,5 @@
 
-common = static_library(
+uniflow = static_library(
   'uniflow',                   
   sources: [
     'uniflow.h',
@@ -9,7 +9,9 @@ common = static_library(
     'tensor_types.cpp',
     'output_types.h',
     'basic_proc.cpp',
-    'basic_proc.h'
+    'basic_proc.h',
+    'cpu_imgproc.cpp',
+    'cpu_imgproc.h'
   ],
   include_directories: common_include,
   gnu_symbol_visibility: 'hidden', 
