@@ -14,8 +14,6 @@ static gboolean GstMetaTensor_init(GstMeta *meta, gpointer params, GstBuffer *bu
     m->quantization.zeroPoint = 0;
     m->quantization.scale = 1.0f;
     
-    m->range.type = uflw::RangeType::Auto;
-    
     return TRUE;
 }
 
@@ -32,7 +30,6 @@ static gboolean GstMetaTensor_transform(GstBuffer* dest, GstMeta* meta, GstBuffe
 
     d->valueType = m->valueType;
     d->quantization = m->quantization;
-    d->range = m->range;
 
     d->tensorType = m->tensorType;
     d->tensorData = m->tensorData ? gst_memory_ref(m->tensorData) : NULL;
@@ -87,8 +84,7 @@ GstMetaTensor* GstMetaTensorAttach(TensorType tensorType, GstBuffer *buf, gsize 
     meta->tensorType = TensorType::Unknown;
     meta->tensorByteSize = tensorByteSize;
     meta->valueType = uflw::ValueType::i8;
-    meta->quantization = uflw::Quantization {};
-    meta->range = uflw::Range {};
+    meta->quantization = uflw::QuantizationArgs {};
 
     // Allocate writable GstMemory for the tensor
     meta->tensorData = gst_allocator_alloc(nullptr, meta->tensorByteSize, nullptr);

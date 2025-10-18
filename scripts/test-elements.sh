@@ -105,15 +105,16 @@ ampinfer() {
   
   gst-launch-1.0 \
     filesrc location=/work/etc/videos/00.mp4 ! decodebin ! \
-    videoconvert ! videoscale ! video/x-raw,format=RGB,width=640,height=640 ! \
-    ampinfer model-path=/work/etc/models/yolov8n/yolov8n-fp32.onnx imgsz=640 ! \
-    ampinferpre ! ampinferonnx ! ampinferpost ! \
+    ampinferonnx model-path=/work/etc/models/yolov8n/yolov8n-fp32.onnx imgsz=640 ! \
     videoconvert ! x264enc tune=zerolatency speed-preset=ultrafast ! \
     mpegtsmux ! \
     udpsink host="$IP" port=5000 sync=false async=false
 
   msg_end "Pipeline finished."
 }
+
+#    ampinfer model-path=/work/etc/models/yolov8n/yolov8n-fp32.onnx imgsz=640 ! \
+#    videoconvert ! videoscale ! video/x-raw,format=RGB,width=640,height=640 ! \
 
 onnxweb() {
 

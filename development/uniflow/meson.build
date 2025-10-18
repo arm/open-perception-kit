@@ -11,7 +11,11 @@ uniflow = static_library(
     'basic_proc.cpp',
     'basic_proc.h',
     'cpu_imgproc.cpp',
-    'cpu_imgproc.h'
+    'cpu_imgproc.h',
+    'internal_types.cpp',
+    'internal_types.h',
+    'public_types.cpp',
+    'public_types.h'
   ],
   include_directories: common_include,
   gnu_symbol_visibility: 'hidden', 

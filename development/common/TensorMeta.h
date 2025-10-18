@@ -17,8 +17,7 @@ typedef struct _GstMetaTensor {
 
     TensorType tensorType;
     uflw::ValueType valueType;
-    uflw::Quantization quantization;
-    uflw::Range range;
+    uflw::QuantizationArgs quantization;
 
 } GstMetaTensor;
 

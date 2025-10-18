@@ -3,10 +3,10 @@
 using namespace uflw;
 
 
-void ImageConvert::Resize(uflw::ValuePointer src, size_t srcWidth, size_t srcHeight, RawDataLayout srcLayout,
-    uflw::ValuePointer dst, size_t dstWidth, size_t dstHeight, RawDataLayout dstLayout) {
+void ImageConvert::Resize(uflw::ValuePointer src, size_t srcWidth, size_t srcHeight, RawDataFormat srcLayout,
+    uflw::ValuePointer dst, size_t dstWidth, size_t dstHeight, RawDataFormat dstLayout) {
 
-    if(srcLayout == RawDataLayout::Rgb8 && dstLayout == RawDataLayout::Rgbf32) {
+    if(srcLayout == RawDataFormat::Rgb8 && dstLayout == RawDataFormat::Rgbf32) {
 
         uflw::u8* in = (uflw::u8*)src;
         uflw::f32* out = (uflw::f32*)dst;

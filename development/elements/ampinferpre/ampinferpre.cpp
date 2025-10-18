@@ -36,6 +36,8 @@ static GstFlowReturn gst_ampinferpre_transform_frame_ip(GstVideoFilter *vf, GstV
   (void) vf;
 //  (void) buffer;
 
+return GST_FLOW_OK;
+
   const int frameWidth = GST_VIDEO_FRAME_WIDTH(frame);
   const int frameHeight = GST_VIDEO_FRAME_HEIGHT(frame);
 

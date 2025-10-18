@@ -11,9 +11,8 @@ namespace uflw {
 
     //
     // Non-owning wrapper around a memory area contains fixed number of fixed 
-    // type (1 or 2 bytes) tensor values.
+    // type (1, 2 or 4 bytes) tensor values.
     //
-
     template<typename T>
     struct TensorView {
 
@@ -56,3 +55,4 @@ namespace uflw {
     };
 
 }
+

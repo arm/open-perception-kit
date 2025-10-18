@@ -43,8 +43,19 @@ static void gst_ampinferpost_class_init(GstAmpInferPostClass* classPtr)
   static GstStaticPadTemplate sinktempl = GST_STATIC_PAD_TEMPLATE ("sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS_ANY);
   static GstStaticPadTemplate srctempl  = GST_STATIC_PAD_TEMPLATE ("src",  GST_PAD_SRC,  GST_PAD_ALWAYS, GST_STATIC_CAPS_ANY);
 
-  gst_element_class_add_static_pad_template(GST_ELEMENT_CLASS (classPtr), &sinktempl);
-  gst_element_class_add_static_pad_template(GST_ELEMENT_CLASS (classPtr), &srctempl);
+//  gst_element_class_add_static_pad_template(GST_ELEMENT_CLASS (classPtr), &sinktempl);
+//  gst_element_class_add_static_pad_template(GST_ELEMENT_CLASS (classPtr), &srctempl);
+
+/*
+ static GstStaticPadTemplate sink_t =
+    GST_STATIC_PAD_TEMPLATE ("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
+      GST_STATIC_CAPS ("video/x-raw, format=(string)RGB"));
+  static GstStaticPadTemplate src_t  =
+    GST_STATIC_PAD_TEMPLATE ("src",  GST_PAD_SRC,  GST_PAD_ALWAYS,
+      GST_STATIC_CAPS ("video/x-raw, format=(string)RGB"));
+  gst_element_class_add_static_pad_template (ecls, &sink_t);
+  gst_element_class_add_static_pad_template (ecls, &src_t);
+  */
 
   gst_element_class_set_static_metadata (GST_ELEMENT_CLASS (classPtr),
     "AMP Infer Post", "Filter/Effect/Video",

@@ -10,6 +10,18 @@
 
 namespace uflw {
 
+    class Tensor {    
+    
+    public:
+
+        
+
+    private:
+
+        ValuePointer data = nullptr;
+        size_t size = 0;
+
+    };
 
 }
 

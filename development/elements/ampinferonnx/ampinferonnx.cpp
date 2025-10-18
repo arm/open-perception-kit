@@ -31,6 +31,8 @@ static GstFlowReturn gst_ampinferonnx_transform_ip(GstBaseTransform* base, GstBu
   (void) base;
   (void) buffer;
 
+    return GST_FLOW_OK;
+
   GstMetaTensor* tensor = GstMetaTensorGetAttached(buffer);
   if(nullptr != tensor) { 
     if(tensor->tensorType == TensorType::Input) {
