@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <type_traits>
 
-#include "tensor_types.h"
+#include "public_types.h"
 
 namespace uflw {
 
