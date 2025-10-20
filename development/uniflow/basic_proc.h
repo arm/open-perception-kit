@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "tensor_types.h"
+#include "internal_types.h"
 
 namespace uflw {
 

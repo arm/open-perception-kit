@@ -8,13 +8,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC_FILES=(
   "$SCRIPT_DIR/basic_proc.cpp"
   "$SCRIPT_DIR/cpu_imgproc.cpp"
-  "$SCRIPT_DIR/tensor_types.cpp"
+  "$SCRIPT_DIR/internal_types.cpp"
+  "$SCRIPT_DIR/public_types.cpp"
   "$SCRIPT_DIR/uniflow.cpp"
 )
 OUT_FILE="$SCRIPT_DIR/../build/uniflow.mjs"
 
 # Now compile using absolute paths
-em++ "${SRC_FILES[@]}" -O3 -std=c++17 \
+em++ -v "${SRC_FILES[@]}" -O3 -std=c++17 \
   -sWASM=1 \
   -sMODULARIZE=1 -sEXPORT_ES6=1 \
   -sEXPORTED_FUNCTIONS='[]' \

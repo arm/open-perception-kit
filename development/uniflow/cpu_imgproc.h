@@ -6,8 +6,8 @@ namespace uflw {
 
     struct ImageConvert {
 
-        void Resize(uflw::ValuePointer src, size_t srcWidth, size_t srcHeight, RawDataFormat srcLayout,
-            uflw::ValuePointer dst, size_t dstWidth, size_t dstHeight, RawDataFormat dstLayout);
+        void Resize(uflw::ValuePointer src, size_t srcWidth, size_t srcHeight, RawDataFormat srcFormat,
+            uflw::ValuePointer dst, size_t dstWidth, size_t dstHeight, RawDataFormat dstFormat);
 
     };
 
