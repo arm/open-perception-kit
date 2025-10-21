@@ -15,7 +15,7 @@
 
 #include "TensorMeta.h"
 
-#include "cpu_image_kernels.h"
+#include "uniflow/cpu_image_kernels.h"
 
 // ------------------------------------------------
 

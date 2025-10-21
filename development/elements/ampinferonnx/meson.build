@@ -4,7 +4,8 @@ ampinferonnx = shared_module(
   sources: [
     'ampinferonnx.cpp'
   ],
-  include_directories: [ common_include, uniflow_include ],
+#  include_directories: [ common_include, uniflow_include ],
+  include_directories: [ common_include ],
   dependencies: [amp_deps ], 
   link_with: [ common ],
   gnu_symbol_visibility: 'hidden', 

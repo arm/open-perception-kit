@@ -28,14 +28,17 @@ onnx_dep = declare_dependency(
   link_args: ['-L' + onnx_libdir, '-lonnxruntime', '-Wl,--no-undefined']
 )
 
-amp_deps = [gst_dep, gstbase_dep, gstv_dep, glib_dep, gobject_dep, onnx_dep]
+uniflow_dep = dependency('uniflow', fallback: ['uniflow', 'uniflow_dep'])
+
+amp_deps = [gst_dep, gstbase_dep, gstv_dep, glib_dep, gobject_dep, onnx_dep, uniflow_dep]
+
 
 common_include = include_directories('common')
-uniflow_include = include_directories('uniflow')
+#uniflow_include = include_directories('uniflow')
 
 # add each element subdir
 subdir('common')
-subdir('uniflow')
+#subdir('uniflow')
 subdir('elements/ampinfer')
 subdir('elements/ampinferonnx')
 subdir('elements/ampinferpre')

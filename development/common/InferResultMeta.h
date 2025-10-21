@@ -2,5 +2,5 @@
 
 #include <gst/gst.h>
 
-#include "uniflow.h"
+#include "uniflow/uniflow.h"
 

@@ -11,7 +11,7 @@ namespace uflw {
         ValueType dstType = ValueType::f32;
         RawDataFormat srcFormat = RawDataFormat::ImageRgb8;
         
-        ResizeStrategy resizeStrategy = ResizeStrategy::Disable;
+        ResizeStrategy resizeStrategy = ResizeStrategy::ResizeToFill;
         bool enableBilinearFiltering = false;
 
         float letterboxingFillRed = 114 / 255.0f;
