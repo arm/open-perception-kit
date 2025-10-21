@@ -130,12 +130,3 @@ uflw::f32 uflw::Float01_Into_f32(float v) {
 
 // ---
 
-uflw::Result uflw::ImageTensorBuilder::buildTensor(const ImageTensorBuilderSetup& setup,
-    uint8_t* srcData, size_t srcWidth, size_t srcHeight, size_t srcBufferByteCount, 
-    ValuePointer dstData, size_t dstHeight, size_t dstByteCount, size_t dstWidth) {
-
-    
-        
-    return Result::Ok;
-
-}

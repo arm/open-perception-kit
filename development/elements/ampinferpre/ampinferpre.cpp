@@ -15,7 +15,7 @@
 
 #include "TensorMeta.h"
 
-#include "cpu_kernels.h"
+#include "cpu_image_kernels.h"
 
 // ------------------------------------------------
 

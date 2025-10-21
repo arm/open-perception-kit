@@ -64,7 +64,6 @@ namespace uflw {
     // Arguments to for value conversions to generate input tensor.
     // Original min/max is the minimum and maximum value of the tensor values used during training.
     struct QuantizationArgs { 
-
         float trainRangeMin = -1.0f, trainRangeMax = -1.0f;
         float scale = 1.0f; 
         float zeroPoint = 0.0f; 
@@ -89,7 +88,6 @@ namespace uflw {
         
         AudioMonoPcm8,
         AudioMonoPcm16
-    
     };
 
     // In-tensor data layout
@@ -119,28 +117,7 @@ namespace uflw {
         ExecuTorch
     };
 
-    struct ImageTensorBuilderSetup {
-        QuantizationArgs quantizationArgs;
-        
-        TensorLayout dstTensorLayout = TensorLayout::Hwc;
-        ValueType dstType = ValueType::f32;
-        RawDataFormat srcFormat = RawDataFormat::ImageRgb8;
-        
-        ResizeStrategy resizeStrategy = ResizeStrategy::Disable;
-        bool enableBilinearFiltering = false;
 
-        float letterboxingFillRed = 114 / 255.0f;
-        float letterboxingFillGreen = 114 / 255.0f;
-        float letterboxingFillBlue = 114 / 255.0f;
-    };
-
-    struct ImageTensorBuilder {
-
-        static Result buildTensor(const ImageTensorBuilderSetup& setup,
-            uint8_t* srcData, size_t srcWidth, size_t srcHeight, size_t srcBufferByteCount, 
-            ValuePointer dstData, size_t dstHeight, size_t dstByteCount, size_t dstWidth);
-
-    };
 
 }
 

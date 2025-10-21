@@ -1,4 +1,4 @@
-#include "cpu_kernels.h"
+#include "cpu_image_kernels.h"
 
 using namespace uflw;
 
@@ -17,7 +17,7 @@ bool ImageOps::StrechBlit_Rgb8_Rect_Rgbf32_Rect(
     float* out = dst;
     constexpr float inv255 = 1.0f / 255.0f;
 
-    // nearest-neighbor sampling stretch from srcRect to dstRect, packed RGBf32 on dst
+    // nearest-neighbour sampling stretch from srcRect to dstRect, packed RGBf32 on dst
     for (size_t dy = 0; dy < dstRect.h; ++dy) {
         const size_t sy = srcRect.y + (dy * srcRect.h) / dstRect.h;
         const size_t dyi = dstRect.y + dy;
@@ -70,19 +70,15 @@ bool ImageOps::Fill_Rgbf32_Rect(float* dst, size_t dstWidth, size_t dstHeight, c
     if (dstRect.x + dstRect.w > dstWidth || dstRect.y + dstRect.h > dstHeight)
         return false;
 
-    float* out = dst;
-    const size_t planeStride = dstWidth * dstHeight;
-
     for (size_t dy = 0; dy < dstRect.h; ++dy) {
         const size_t dyi = dstRect.y + dy;
-        const size_t rowBase = dyi * dstWidth + dstRect.x;
+        float* row = dst + (dyi * dstWidth + dstRect.x) * 3;  // 3 floats per pixel
 
         for (size_t dx = 0; dx < dstRect.w; ++dx) {
-            const size_t base = rowBase + dx;
-
-            out[0 * planeStride + base] = r;
-            out[1 * planeStride + base] = g;
-            out[2 * planeStride + base] = b;
+            float* px = row + dx * 3;
+            px[0] = r;
+            px[1] = g;
+            px[2] = b;
         }
     }
 
@@ -151,19 +147,15 @@ bool ImageOps::Fill_Rgb8_Rect(uint8_t* dst, size_t dstWidth, size_t dstHeight, c
     if (dstRect.x + dstRect.w > dstWidth || dstRect.y + dstRect.h > dstHeight)
         return false;
 
-    uint8_t* out = dst;
-    const size_t planeStride = dstWidth * dstHeight;
-
     for (size_t dy = 0; dy < dstRect.h; ++dy) {
         const size_t dyi = dstRect.y + dy;
-        const size_t rowBase = dyi * dstWidth + dstRect.x;
+        uint8_t* row = dst + ((dyi * dstWidth) + dstRect.x) * 3;
 
         for (size_t dx = 0; dx < dstRect.w; ++dx) {
-            const size_t base = rowBase + dx;
-
-            out[0 * planeStride + base] = r;
-            out[1 * planeStride + base] = g;
-            out[2 * planeStride + base] = b;
+            uint8_t* px = row + dx * 3;
+            px[0] = r;  // R
+            px[1] = g;  // G
+            px[2] = b;  // B
         }
     }
 
