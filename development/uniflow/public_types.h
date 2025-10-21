@@ -136,7 +136,7 @@ namespace uflw {
 
     struct ImageTensorBuilder {
 
-        Result buildTensor(const ImageTensorBuilderSetup& setup,
+        static Result buildTensor(const ImageTensorBuilderSetup& setup,
             uint8_t* srcData, size_t srcWidth, size_t srcHeight, size_t srcBufferByteCount, 
             ValuePointer dstData, size_t dstHeight, size_t dstByteCount, size_t dstWidth);
 

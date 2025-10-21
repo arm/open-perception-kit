@@ -4,7 +4,7 @@ using namespace uflw;
 
 bool ImageOps::StrechBlit_Rgb8_Rect_Rgbf32_Rect(
     uint8_t* src, size_t srcWidth, size_t srcHeight, const ImageOps::Rect& srcRect,
-    uint8_t* dst, size_t dstWidth, size_t dstHeight, const ImageOps::Rect& dstRect,
+    float* dst, size_t dstWidth, size_t dstHeight, const ImageOps::Rect& dstRect,
     Sampling sampling)
 {
     if(!src || !dst) return false;
@@ -14,7 +14,7 @@ bool ImageOps::StrechBlit_Rgb8_Rect_Rgbf32_Rect(
         return false;
 
     const uint8_t* in = src;
-    float* out = (float*)dst;
+    float* out = dst;
     constexpr float inv255 = 1.0f / 255.0f;
 
     // nearest-neighbor sampling stretch from srcRect to dstRect, packed RGBf32 on dst
@@ -41,18 +41,18 @@ bool ImageOps::StrechBlit_Rgb8_Rect_Rgbf32_Rect(
 }
 
 bool ImageOps::StrechBlit_Rgb8_Full_Rgbf32_Full(uint8_t* src, size_t srcWidth, size_t srcHeight, 
-    uint8_t* dst, size_t dstWidth, size_t dstHeight, Sampling sampling) {
+    float* dst, size_t dstWidth, size_t dstHeight, Sampling sampling) {
     Rect srcRect = { 0, 0, srcWidth, srcHeight };
     Rect dstRect = { 0, 0, dstWidth, dstHeight };
     return StrechBlit_Rgb8_Rect_Rgbf32_Rect(src, srcWidth, srcHeight, srcRect, 
         dst, dstWidth, dstHeight, dstRect, sampling);
 }
 
-bool ImageOps::Clear_Rgbf32(uint8_t* dst, size_t dstWidth, size_t dstHeight, float r, float g, float b) {
+bool ImageOps::Clear_Rgbf32(float* dst, size_t dstWidth, size_t dstHeight, float r, float g, float b) {
 
     if(!dst) return false;
 
-    float* p = (float*)dst;
+    float* p = dst;
     int count = dstWidth * dstHeight;
     for(int i = 0; i < count; i++) {
         p[3 * i + 0] = r;
@@ -63,14 +63,14 @@ bool ImageOps::Clear_Rgbf32(uint8_t* dst, size_t dstWidth, size_t dstHeight, flo
     return true;
 }
 
-bool ImageOps::Fill_Rgbf32_Rect(uint8_t* dst, size_t dstWidth, size_t dstHeight, const Rect& dstRect, float r, float g, float b) {
+bool ImageOps::Fill_Rgbf32_Rect(float* dst, size_t dstWidth, size_t dstHeight, const Rect& dstRect, float r, float g, float b) {
 
     if (!dst) return false;
 
     if (dstRect.x + dstRect.w > dstWidth || dstRect.y + dstRect.h > dstHeight)
         return false;
 
-    float* out = (float*)dst;
+    float* out = dst;
     const size_t planeStride = dstWidth * dstHeight;
 
     for (size_t dy = 0; dy < dstRect.h; ++dy) {
@@ -89,4 +89,83 @@ bool ImageOps::Fill_Rgbf32_Rect(uint8_t* dst, size_t dstWidth, size_t dstHeight,
     return true;
 }
 
+bool ImageOps::StrechBlit_Rgb8_Rect_Rgb8_Rect(
+    uint8_t* src, size_t srcWidth, size_t srcHeight, const Rect& srcRect,
+    uint8_t* dst, size_t dstWidth, size_t dstHeight, const Rect& dstRect,
+    Sampling sampling)
+{
+    if (!src || !dst) return false;
 
+    if (srcRect.x + srcRect.w > srcWidth || srcRect.y + srcRect.h > srcHeight || dstRect.x + dstRect.w > dstWidth || dstRect.y + dstRect.h > dstHeight)
+        return false;
+
+    for (size_t dy = 0; dy < dstRect.h; ++dy) {
+        const size_t sy = srcRect.y + (dy * srcRect.h) / dstRect.h;
+
+        const uint8_t* srcRow = src + (sy * srcWidth + srcRect.x) * 3;
+        uint8_t* dstRow = dst + ((dstRect.y + dy) * dstWidth + dstRect.x) * 3;
+
+        for (size_t dx = 0; dx < dstRect.w; ++dx) {
+            const size_t sx = (dx * srcRect.w) / dstRect.w;
+
+            const uint8_t* sp = srcRow + sx * 3;
+            uint8_t* dp = dstRow + dx * 3;
+
+            // Copy RGB
+            dp[0] = sp[0];
+            dp[1] = sp[1];
+            dp[2] = sp[2];
+        }
+    }
+
+    return true;
+}
+
+bool ImageOps::StrechBlit_Rgb8_Full_Rgb8_Full(uint8_t* src, size_t srcWidth, size_t srcHeight, 
+    uint8_t* dst, size_t dstWidth, size_t dstHeight, Sampling sampling) {
+    Rect srcRect = { 0, 0, srcWidth, srcHeight };
+    Rect dstRect = { 0, 0, dstWidth, dstHeight };
+    return StrechBlit_Rgb8_Rect_Rgb8_Rect(src, srcWidth, srcHeight, srcRect, 
+        dst, dstWidth, dstHeight, dstRect, sampling);
+}
+        
+bool ImageOps::Clear_Rgb8(uint8_t* dst, size_t dstWidth, size_t dstHeight, uint8_t r, uint8_t g, uint8_t b) {
+
+    if(!dst) return false;
+
+    uint8_t* p = dst;
+    int count = dstWidth * dstHeight;
+    for(int i = 0; i < count; i++) {
+        p[3 * i + 0] = r;
+        p[3 * i + 1] = g;
+        p[3 * i + 2] = b;
+    }
+
+    return true;
+}
+
+bool ImageOps::Fill_Rgb8_Rect(uint8_t* dst, size_t dstWidth, size_t dstHeight, const Rect& dstRect, uint8_t r, uint8_t g, uint8_t b) {
+
+    if (!dst) return false;
+
+    if (dstRect.x + dstRect.w > dstWidth || dstRect.y + dstRect.h > dstHeight)
+        return false;
+
+    uint8_t* out = dst;
+    const size_t planeStride = dstWidth * dstHeight;
+
+    for (size_t dy = 0; dy < dstRect.h; ++dy) {
+        const size_t dyi = dstRect.y + dy;
+        const size_t rowBase = dyi * dstWidth + dstRect.x;
+
+        for (size_t dx = 0; dx < dstRect.w; ++dx) {
+            const size_t base = rowBase + dx;
+
+            out[0 * planeStride + base] = r;
+            out[1 * planeStride + base] = g;
+            out[2 * planeStride + base] = b;
+        }
+    }
+
+    return true;
+}
