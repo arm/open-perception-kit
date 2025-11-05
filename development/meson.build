@@ -8,6 +8,8 @@ project('amp_elements', ['c', 'cpp'],
   ]
 )
 
+add_project_arguments('-Wno-unused-variable', language: 'c')
+add_project_arguments('-Wno-unused-variable', language: 'cpp')
 add_project_arguments('-Wno-unused-parameter', language: 'c')
 add_project_arguments('-Wno-unused-parameter', language: 'cpp')
 add_project_arguments('-Wno-unused-function', language: 'c')
@@ -43,3 +45,4 @@ subdir('elements/ampinfer')
 subdir('elements/ampinferonnx')
 subdir('elements/ampinferpre')
 subdir('elements/ampinferpost')
+subdir('elements/ampdebug')

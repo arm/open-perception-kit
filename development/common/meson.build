@@ -2,6 +2,8 @@
 common = static_library(
   'common',                   
   sources: [
+    'OnnxTools.h',
+    'OnnxTools.cpp',
     'TensorMeta.h',
     'TensorMeta.cpp',
     'InferResultMeta.h',

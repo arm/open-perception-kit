@@ -17,8 +17,8 @@
 static int yoloSquareSize = 0;
 
 // int8 model for embedded use, the float32 version is loaded from file
-extern unsigned int yolov8n_int8_onnx_len;
-extern unsigned char yolov8n_int8_onnx[];
+//extern unsigned int yolov8n_int8_onnx_len;
+//extern unsigned char yolov8n_int8_onnx[];
 
 #ifndef PACKAGE
 #define PACKAGE "amp-elements"
@@ -156,16 +156,8 @@ static gboolean gst_ampinfer_start (GstBaseTransform *b) {
 
   self->env = new Ort::Env(ORT_LOGGING_LEVEL_WARNING, "ampinfer");
   self->mem_info = new Ort::MemoryInfo(Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU));
-
-  if (!self->model_path || !*self->model_path) {
-    self->session = new Ort::Session(
-    *self->env,
-      static_cast<const void*>(yolov8n_int8_onnx),
-      static_cast<size_t>(yolov8n_int8_onnx_len),
-      *self->session_opts);
-    } else {
-      self->session = new Ort::Session(*self->env, self->model_path, *self->session_opts);
-    }
+  
+    self->session = new Ort::Session(*self->env, self->model_path, *self->session_opts);
 
     // cache I/O names (works with ONNX Runtime 1.18+)
     Ort::AllocatorWithDefaultOptions alloc;
@@ -270,6 +262,27 @@ static inline float clampf(float v,float lo,float hi){return std::max(lo,std::mi
 
 // --------------------------------------------------------------
 
+#include <fstream>
+
+static size_t elem_size(ONNXTensorElementDataType t) {
+  switch (t) {
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:   return sizeof(float);
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:   return sizeof(uint8_t);
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8:    return sizeof(int8_t);
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT16:  return sizeof(uint16_t);
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT16:   return sizeof(int16_t);
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:   return sizeof(int32_t);
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:   return sizeof(int64_t);
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL:    return sizeof(uint8_t);
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16: return 2;            // IEEE 754 half
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE:  return sizeof(double);
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT32:  return sizeof(uint32_t);
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64:  return sizeof(uint64_t);
+    case ONNX_TENSOR_ELEMENT_DATA_TYPE_BFLOAT16:return 2;
+    default: return 0; // strings / complex / undefined handled separately
+  }
+}
+
 static GstFlowReturn gst_ampinfer_transform_frame_ip (GstVideoFilter *vf, GstVideoFrame *frame)
 {
   auto *self = (GstAmpInfer*) vf;
@@ -294,7 +307,7 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip (GstVideoFilter *vf, GstVid
     ishape.data(), ishape.size());
 
   // run
-  auto out = self->session->Run(
+  std::vector<Ort::Value> out = self->session->Run(
     Ort::RunOptions{nullptr},
     (const char* const*)self->input_names.data(), &in, 1,
     (const char* const*)self->output_names.data(), self->output_names.size());
@@ -307,8 +320,23 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip (GstVideoFilter *vf, GstVid
 
   Ort::Value& v = out.at(0);
   auto info  = v.GetTensorTypeAndShapeInfo();
+
   std::vector<int64_t> dims = info.GetShape();
   float* p = v.GetTensorMutableData<float>();
+
+  ONNXTensorElementDataType tensorType = info.GetElementType();
+  if( tensorType == ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT) printf("this is float\n");
+
+  int valueCount = 1;
+  for(const auto& a : dims) {
+    printf("%d ", a);
+    valueCount *= a;
+  }
+  printf("\n");
+  int outTensorByteCount = valueCount * 4;
+  void* tensorBytes = p;
+  printf("outTensorByteCount: %d\n", outTensorByteCount);
+
 
   // Detect layout
   // A: [1,84,N] => C=84, N=dims[2]
@@ -362,6 +390,45 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip (GstVideoFilter *vf, GstVid
 
   for(const auto& a : dets) {
     drawBox(rgb, W, H, a.x1, a.y1, a.x2, a.y2);
+  }
+
+  static int counter = 1000;
+  if(dets.size() > 0) {
+    std::string s, fileName;
+
+    fileName = std::string("/work/temp/dump/" + std::to_string(counter));
+    counter++;
+
+//struct Det { float x1,y1,x2,y2,conf; int cls; };
+    s += std::to_string(dets[0].x1) + " ";
+    s += std::to_string(dets[0].y1) + " ";
+    s += std::to_string(dets[0].x2) + " ";
+    s += std::to_string(dets[0].y2) + " conf ";
+    s += std::to_string(dets[0].conf) + " class ";
+    s += std::to_string(dets[0].cls) + "\n";
+    printf("%s\n", s.c_str());
+  
+    //int outTensorByteCount = valueCount * 4;
+    //void* tensorBytes = p;
+    //write_numeric_tensor_raw(out, fileName + ".dump");
+
+    /*
+    FILE* f = fopen((fileName + ".dump").c_str(), "wb");
+    if(f) {
+      fwrite(tensorBytes, 1, outTensorByteCount, f);
+      fclose(f);
+    }*/
+
+    {
+
+      for(int i = 0; i < 16; i++) {
+        printf("%f ", ((float*)tensorBytes)[i]);
+      }
+      printf("\n");
+      printf("\n");
+
+    }
+
   }
 
   return GST_FLOW_OK;

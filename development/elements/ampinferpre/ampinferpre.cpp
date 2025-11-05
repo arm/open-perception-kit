@@ -38,8 +38,8 @@ static GstFlowReturn gst_ampinferpre_transform_frame_ip(GstVideoFilter *vf, GstV
 
 return GST_FLOW_OK;
 
-  const int frameWidth = GST_VIDEO_FRAME_WIDTH(frame);
-  const int frameHeight = GST_VIDEO_FRAME_HEIGHT(frame);
+  //const int frameWidth = GST_VIDEO_FRAME_WIDTH(frame);
+  //const int frameHeight = GST_VIDEO_FRAME_HEIGHT(frame);
 
   guint8 *rgb = (guint8*)GST_VIDEO_FRAME_PLANE_DATA(frame, 0);
   if (!rgb) return GST_FLOW_OK;

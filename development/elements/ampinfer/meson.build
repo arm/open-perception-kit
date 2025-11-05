@@ -2,8 +2,7 @@
 gstampinfer = shared_module(
   'ampinfer',                   
   sources: [
-    'ampinfer.cpp',
-    'yolov8n-int8.cpp'
+    'ampinfer.cpp'
   ],
   include_directories: common_include,
   dependencies: amp_deps,
