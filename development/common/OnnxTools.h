@@ -5,16 +5,25 @@
 #include "uniflow/public_types.h"
 #include "uniflow/uniflow.h"
 
-struct OnnxOutputTensor {
+struct OnnxTools {
 
-    //OnnxOutputTensor()    
+    static size_t getOnnxValueTypeByteSize(ONNXTensorElementDataType tensorType);
 
 };
 
-class OnnxTools {
+struct OnnxOutputTensor {
 
-public:
+    OnnxOutputTensor(const std::vector<Ort::Value>& runResult);
 
-    static size_t getOnnxValueTypeByteSize(ONNXTensorElementDataType tensorType);
+    uflw::Shape getShape() const;
+    size_t getValueCount() const;
+
+    size_t getValueByteSize() const;
+    size_t getByteSize() const;
+    const void* getRawData() const;
+
+    const std::vector<Ort::Value>& runResult;
+
+    bool dump(const std::string& fileName) const;
 
 };

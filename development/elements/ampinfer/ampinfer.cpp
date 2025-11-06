@@ -14,6 +14,11 @@
 #include <string>
 #include <vector>
 
+#include "OnnxTools.h"
+
+#include "uniflow/public_types.h"
+#include "uniflow/yolo_like_parser.h"
+
 static int yoloSquareSize = 0;
 
 // int8 model for embedded use, the float32 version is loaded from file
@@ -311,6 +316,21 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip (GstVideoFilter *vf, GstVid
     Ort::RunOptions{nullptr},
     (const char* const*)self->input_names.data(), &in, 1,
     (const char* const*)self->output_names.data(), self->output_names.size());
+
+  // --------------------------------------------------------------
+
+  uflw::ConfidenceLabelBox resultBoxes[32];
+
+  OnnxOutputTensor tensor(out);
+  
+  uflw::YoloLikeParser::Config config;
+
+  
+  uflw::YoloLikeParser::parse(
+    (void*)tensor.getRawData(), tensor.getByteSize(), 
+    uflw::ValueType::f32, config,
+    resultBoxes, 32);
+
 
   // --------------------------------------------------------------
 
