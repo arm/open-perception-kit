@@ -327,7 +327,8 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip (GstVideoFilter *vf, GstVid
   frameTime = now;
 
    char buffer[128];
-   sprintf(buffer, "Playback FPS: %.2f\nInference MS: %d FPS: %.2f\n",
+   sprintf(buffer, "Frame: %dx%d Tensor: %dx%d\nPlayback FPS: %.2f\nInference MS: %d FPS: %.2f\n",
+      (int)W, (int)H, (int)self->imgsz, (int)self->imgsz,
       (float)(1e9 / (double)(frameDelay)),
       (int)((double)(afterInference - beforeInference) / 1000000.0f),
       (float)(1e9 / (double)(afterInference - beforeInference))

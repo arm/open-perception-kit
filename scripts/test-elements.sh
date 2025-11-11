@@ -49,7 +49,7 @@ IP=$(getent ahostsv4 host.docker.internal | awk 'NR==1{print $1}')
     filesrc location=/work/etc/videos/00.mp4 ! decodebin ! \
     videoconvert ! \
     ampinfer model-path=/work/etc/models/yolov11n/yolo11n-fp32-320.onnx imgsz=320 ! \
-    textoverlay name=overlay text="Gathering performance info" valignment=top halignment=left font-desc="Sans, 14" ! \
+    textoverlay name=overlay text="Gathering performance info" valignment=top halignment=center font-desc="Sans, 14" ! \
     videoconvert ! x264enc tune=zerolatency speed-preset=ultrafast ! \
     mpegtsmux ! \
     udpsink host="$IP" port=5000 sync=true async=false
