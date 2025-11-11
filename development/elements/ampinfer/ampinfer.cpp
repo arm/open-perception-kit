@@ -15,9 +15,10 @@
 #include <vector>
 
 #include "OnnxTools.h"
+#include "PerformanceMetrics.h"
 
-#include "uniflow/public_types.h"
-#include "uniflow/yolo_like_parser.h"
+//#include "uniflow/public_types.h"
+//#include "uniflow/yolo_like_parser.h"
 
 static int yoloSquareSize = 0;
 
@@ -305,6 +306,7 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip (GstVideoFilter *vf, GstVid
 
   // preprocess
   //printf("%d %d -> %d %d\n", W, H, self->imgsz, yoloSquareSize);
+
   auto input = resize_normalize_rgb_nn(rgb, W, H, self->imgsz);
   std::array<int64_t,4> ishape{{1,3,self->imgsz,self->imgsz}};
   Ort::Value in = Ort::Value::CreateTensor<float>(*self->mem_info,
@@ -312,25 +314,58 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip (GstVideoFilter *vf, GstVid
     ishape.data(), ishape.size());
 
   // run
+  uint64_t beforeInference = getNanos();
   std::vector<Ort::Value> out = self->session->Run(
     Ort::RunOptions{nullptr},
     (const char* const*)self->input_names.data(), &in, 1,
     (const char* const*)self->output_names.data(), self->output_names.size());
+  uint64_t afterInference = getNanos();
+
+  static uint64_t frameTime = 0;
+  uint64_t now = getNanos();
+  double frameDelay = double(now - frameTime);
+  frameTime = now;
+
+   char buffer[128];
+   sprintf(buffer, "Playback FPS: %.2f\nInference MS: %d FPS: %.2f\n",
+      (float)(1e9 / (double)(frameDelay)),
+      (int)((double)(afterInference - beforeInference) / 1000000.0f),
+      (float)(1e9 / (double)(afterInference - beforeInference))
+    );
+
+   {
+  GstObject  *parent_obj = gst_element_get_parent(GST_ELEMENT(vf));  // returns GstObject*
+    if (parent_obj) {
+      if (GST_IS_ELEMENT(parent_obj)) {
+          GstElement *parent_elem = GST_ELEMENT_CAST(parent_obj);
+        GstElement *overlay = gst_bin_get_by_name(GST_BIN(parent_elem), "overlay");
+        if (overlay) {
+            g_object_set(overlay, "text", buffer, NULL);
+            gst_object_unref(overlay);
+        }
+      }
+      gst_object_unref(parent_obj);
+    }   
+  }
+
 
   // --------------------------------------------------------------
 
-  uflw::ConfidenceLabelBox resultBoxes[32];
-
+  /*
   OnnxOutputTensor tensor(out);
+
+  uflw::ConfidenceLabelBox resultBoxes[32];
   
   uflw::YoloLikeParser::Config config;
-
+  config.quantization.valueType = uflw::ValueType::f32;
+  config.quantization.scale = 1.0f;
+  config.quantization.zeroPoint = 0.0f;
   
   uflw::YoloLikeParser::parse(
     (void*)tensor.getRawData(), tensor.getByteSize(), 
-    uflw::ValueType::f32, config,
+    config,
     resultBoxes, 32);
-
+*/
 
   // --------------------------------------------------------------
 
@@ -345,17 +380,17 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip (GstVideoFilter *vf, GstVid
   float* p = v.GetTensorMutableData<float>();
 
   ONNXTensorElementDataType tensorType = info.GetElementType();
-  if( tensorType == ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT) printf("this is float\n");
+//  if( tensorType == ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT) printf("this is float\n");
 
   int valueCount = 1;
   for(const auto& a : dims) {
-    printf("%d ", a);
+    //printf("%ld ", a);
     valueCount *= a;
   }
-  printf("\n");
+  //printf("\n");
   int outTensorByteCount = valueCount * 4;
   void* tensorBytes = p;
-  printf("outTensorByteCount: %d\n", outTensorByteCount);
+//  printf("outTensorByteCount: %d\n", outTensorByteCount);
 
 
   // Detect layout
@@ -420,13 +455,14 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip (GstVideoFilter *vf, GstVid
     counter++;
 
 //struct Det { float x1,y1,x2,y2,conf; int cls; };
+/*
     s += std::to_string(dets[0].x1) + " ";
     s += std::to_string(dets[0].y1) + " ";
     s += std::to_string(dets[0].x2) + " ";
     s += std::to_string(dets[0].y2) + " conf ";
     s += std::to_string(dets[0].conf) + " class ";
     s += std::to_string(dets[0].cls) + "\n";
-    printf("%s\n", s.c_str());
+    printf("%s\n", s.c_str());*/
   
     //int outTensorByteCount = valueCount * 4;
     //void* tensorBytes = p;
@@ -439,7 +475,7 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip (GstVideoFilter *vf, GstVid
       fclose(f);
     }*/
 
-    {
+    /*{
 
       for(int i = 0; i < 16; i++) {
         printf("%f ", ((float*)tensorBytes)[i]);
@@ -447,7 +483,7 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip (GstVideoFilter *vf, GstVid
       printf("\n");
       printf("\n");
 
-    }
+    }*/
 
   }
 

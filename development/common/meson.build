@@ -2,6 +2,8 @@
 common = static_library(
   'common',                   
   sources: [
+    'PerformanceMetrics.h',
+    'PerformanceMetrics.cpp',
     'OnnxTools.h',
     'OnnxTools.cpp',
     'TensorMeta.h',
