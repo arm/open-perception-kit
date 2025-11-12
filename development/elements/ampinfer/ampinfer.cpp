@@ -325,13 +325,26 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip (GstVideoFilter *vf, GstVid
   uint64_t now = getNanos();
   double frameDelay = double(now - frameTime);
   frameTime = now;
+  
+  static int inferenceP50 = 0;
+  static int inferenceP95 = 0;
+  static std::vector<int> inferenceSpans;
+  inferenceSpans.push_back((int)((afterInference - beforeInference) / 1e6));
+
+  if(inferenceSpans.size() >= 25) {
+    std::sort(inferenceSpans.begin(), inferenceSpans.end());
+    inferenceP50 = inferenceSpans[12];
+    inferenceP95 = inferenceSpans[24];
+    inferenceSpans.clear();
+  }
 
    char buffer[128];
-   sprintf(buffer, "Frame: %dx%d Tensor: %dx%d\nPlayback FPS: %.2f\nInference MS: %d FPS: %.2f\n",
+   sprintf(buffer, "Frame: %dx%d Tensor: %dx%d\nPlayback FPS: %.2f\nInference %dms Inference FPS: %.2f\nInference p50: %dms p95: %dms",
       (int)W, (int)H, (int)self->imgsz, (int)self->imgsz,
       (float)(1e9 / (double)(frameDelay)),
       (int)((double)(afterInference - beforeInference) / 1000000.0f),
-      (float)(1e9 / (double)(afterInference - beforeInference))
+      (float)(1e9 / (double)(afterInference - beforeInference)),
+      inferenceP50, inferenceP95
     );
 
    {
