@@ -7,15 +7,37 @@ A development environment for **AI media processing pipelines**, built for rapid
 ## 📘 Table of Contents
 
 1. [📦 Container](#-container)
-2. [🛠️ Build and Test](#️-build-and-test)
-3. [🍎🐧 macOS / Linux Setup](#-macos--linux-setup)
-4. [🧠 Setting Up Visual Studio Code for IntelliSense and Debugging](#-setting-up-visual-studio-code-for-intellisense-and-symbolic-debugging)
+   - [Prerequisites](#prerequisites)
+   - [DevContainer Setup](#devcontainer-setup)
+3. [🛠️ Build and Test](#️-build-and-test)
+4. [🍎🐧 macOS / Linux Setup](#-macos--linux-setup)
+5. [🧠 Setting Up Visual Studio Code for IntelliSense and Debugging](#-setting-up-visual-studio-code-for-intellisense-and-symbolic-debugging)
    - [IntelliSense](#intellisense)
    - [Debugging](#debugging)
 
 ---
 
 ## 📦 Container
+
+### Prerequisites
+
+Before starting the DevContainer, ensure that the `ssh-agent` is running and that your GitHub private key has been added to it.
+This can be done in several ways depending on your operating system. The setup for Linux and macOS is as follows:
+
+```bash
+# For bash users: add ssh-agent to your .profile
+eval "$(ssh-agent -s)"
+```
+
+The above command starts the SSH agent, which automatically adds your default keys (for example, `.ssh/id_rsa`, `.ssh/id_dsa`, etc.) from the `.ssh` directory.
+
+If you need to add a different key, use the following command:
+
+```bash
+ssh-add [private_key_filename]
+```
+
+### DevContainer Setup
 
 The repository supports multiple development platforms.  
 To set up a usable Docker environment, first run `setup-container.sh` on the host OS and select the appropriate platform:
