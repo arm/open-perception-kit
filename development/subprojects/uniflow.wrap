@@ -1,2 +1,6 @@
-[wrap-file]
+[wrap-git]
+url = git@github.com:Arm-Debug/uniflow-dev.git
+revision = HEAD
+depth = 1
 directory = uniflow-dev
+
