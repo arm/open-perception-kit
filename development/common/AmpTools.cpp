@@ -29,7 +29,7 @@ std::string AmpTools::getLocalIp() {
     }
 
     for (p = res; p != NULL; p = p->ai_next) {
-        struct sockaddr_in *addr = (struct sockaddr_in *)p->ai_addr;
+        struct sockaddr_in *addr = (struct sockaddr_in*)p->ai_addr;
         inet_ntop(AF_INET, &addr->sin_addr, ipstr, sizeof ipstr);
         ret = ipstr;
         printf("IPv4 address: %s\n", ipstr);

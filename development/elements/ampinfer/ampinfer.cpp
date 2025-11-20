@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "OnnxTools.h"
+#include "GstTools.h"
 #include "PerformanceMetrics.h"
 
 //#include "uniflow/public_types.h"
@@ -178,9 +179,31 @@ static gboolean gst_ampinfer_start (GstBaseTransform *b) {
     }
     for (size_t i=0;i<no;++i) {
       auto s = self->session->GetOutputNameAllocated(i, alloc);
+      printf("**** Output:[%s]\n", s.get());
       self->output_names.push_back(strdup(s.get()));
     }
 
+
+
+
+{
+Ort::AllocatorWithDefaultOptions alloc;
+Ort::ModelMetadata meta = self->session->GetModelMetadata();
+
+printf("Model version: %lld\n", (long long)meta.GetVersion());
+
+// Keys -> vector<Ort::AllocatedStringPtr>
+auto keys = meta.GetCustomMetadataMapKeysAllocated(alloc);
+
+for (const auto& k : keys) {
+    // Value -> Ort::AllocatedStringPtr (may be null)
+    auto v = meta.LookupCustomMetadataMapAllocated(k.get(), alloc);
+    printf("Meta[%s] = %s\n", k.get(), v ? v.get() : "(null)");
+}  
+}
+
+
+    
     self->ort_ready = TRUE;
     GST_INFO_OBJECT(self, "Loaded model: %s", self->model_path);
   } catch (const std::exception& e) {
@@ -338,30 +361,33 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip (GstVideoFilter *vf, GstVid
     inferenceSpans.clear();
   }
 
-   char buffer[128];
-   sprintf(buffer, "Frame: %dx%d Tensor: %dx%d\nPlayback FPS: %.2f\nInference %dms Inference FPS: %.2f\nInference p50: %dms p95: %dms",
-      (int)W, (int)H, (int)self->imgsz, (int)self->imgsz,
-      (float)(1e9 / (double)(frameDelay)),
-      (int)((double)(afterInference - beforeInference) / 1000000.0f),
-      (float)(1e9 / (double)(afterInference - beforeInference)),
-      inferenceP50, inferenceP95
-    );
+  char buffer[128];
+  sprintf(buffer, "Frame: %dx%d Tensor: %dx%d\nPlayback FPS: %.2f\nInference %dms Inference FPS: %.2f\nInference p50: %dms p95: %dms",
+    (int)W, (int)H, (int)self->imgsz, (int)self->imgsz,
+    (float)(1e9 / (double)(frameDelay)),
+    (int)((double)(afterInference - beforeInference) / 1000000.0f),
+    (float)(1e9 / (double)(afterInference - beforeInference)),
+    inferenceP50, inferenceP95
+  );
 
-   {
-  GstObject  *parent_obj = gst_element_get_parent(GST_ELEMENT(vf));  // returns GstObject*
-    if (parent_obj) {
-      if (GST_IS_ELEMENT(parent_obj)) {
-          GstElement *parent_elem = GST_ELEMENT_CAST(parent_obj);
-        GstElement *overlay = gst_bin_get_by_name(GST_BIN(parent_elem), "overlay");
-        if (overlay) {
-            g_object_set(overlay, "text", buffer, NULL);
-            gst_object_unref(overlay);
-        }
-      }
-      gst_object_unref(parent_obj);
-    }   
+  static bool overlayDesignSetupDone = false;
+  GstElement* overlay = GstTools::getOverlayElement(vf);
+  if(overlay) {
+    if(!overlayDesignSetupDone) {
+      overlayDesignSetupDone = true;
+      g_object_set(overlay,
+        "font-desc", "Monospace, 7",
+        "halignment", 0,
+        "valignment", 2,
+        "shaded-background", TRUE,
+        "shading-value", 100,
+        NULL);
+    }
+
+    g_object_set(overlay, "text", buffer, NULL);
+
+    GstTools::releaseElement(overlay);
   }
-
 
   // --------------------------------------------------------------
 
