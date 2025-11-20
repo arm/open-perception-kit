@@ -2,6 +2,10 @@
 common = static_library(
   'common',                   
   sources: [
+    'GstTools.h',
+    'GstTools.cpp',
+    'AmpTools.h',
+    'AmpTools.cpp',
     'PerformanceMetrics.h',
     'PerformanceMetrics.cpp',
     'OnnxTools.h',
