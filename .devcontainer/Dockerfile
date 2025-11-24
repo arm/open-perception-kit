@@ -23,7 +23,8 @@ RUN set -eux; \
 # Build tools
 RUN set -eux; \
   apt-get install -y --no-install-recommends \
-    build-essential meson ninja-build pkg-config gdb clangd ssh
+    build-essential emscripten meson ninja-build pkg-config gdb cmake build-essential pkg-config libsoup-3.0-dev libjson-glib-dev \
+    clangd ssh
 
 # Python + core libs
 RUN set -eux; \

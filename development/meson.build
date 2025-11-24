@@ -14,6 +14,8 @@ add_project_arguments('-Wno-unused-parameter', language: 'c')
 add_project_arguments('-Wno-unused-parameter', language: 'cpp')
 add_project_arguments('-Wno-unused-function', language: 'c')
 add_project_arguments('-Wno-unused-function', language: 'cpp')
+add_project_arguments('-Wno-unused-but-set-variable', language: 'cpp')
+add_project_arguments('-Wno-unused-but-set-variable', language: 'c')
 
 # -------- Core deps (always)
 gst_dep      = dependency('gstreamer-1.0',        required: true)

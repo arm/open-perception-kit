@@ -17,6 +17,7 @@
 #include "OnnxTools.h"
 #include "GstTools.h"
 #include "PerformanceMetrics.h"
+#include "uniflow/yolo_like_parser.h"
 
 //#include "uniflow/public_types.h"
 //#include "uniflow/yolo_like_parser.h"
@@ -166,6 +167,8 @@ static gboolean gst_ampinfer_start (GstBaseTransform *b) {
   
     self->session = new Ort::Session(*self->env, self->model_path, *self->session_opts);
 
+    uflw::Model model = OnnxTools::inspectModel(*self->session);
+
     // cache I/O names (works with ONNX Runtime 1.18+)
     Ort::AllocatorWithDefaultOptions alloc;
     const size_t ni = self->session->GetInputCount();
@@ -175,9 +178,10 @@ static gboolean gst_ampinfer_start (GstBaseTransform *b) {
     self->output_names.clear();
     for (size_t i=0;i<ni;++i) {
       auto s = self->session->GetInputNameAllocated(i, alloc);
+      printf("**** Input:[%s]\n", s.get());
       self->input_names.push_back(strdup(s.get()));
     }
-    for (size_t i=0;i<no;++i) {
+    for(size_t i = 0; i < no; ++i) {
       auto s = self->session->GetOutputNameAllocated(i, alloc);
       printf("**** Output:[%s]\n", s.get());
       self->output_names.push_back(strdup(s.get()));
@@ -186,21 +190,27 @@ static gboolean gst_ampinfer_start (GstBaseTransform *b) {
 
 
 
-{
-Ort::AllocatorWithDefaultOptions alloc;
-Ort::ModelMetadata meta = self->session->GetModelMetadata();
 
-printf("Model version: %lld\n", (long long)meta.GetVersion());
 
-// Keys -> vector<Ort::AllocatedStringPtr>
-auto keys = meta.GetCustomMetadataMapKeysAllocated(alloc);
+/*{
+  printf("Model info -----------\n");
+  Ort::AllocatorWithDefaultOptions alloc;
+  Ort::ModelMetadata meta = self->session->GetModelMetadata();
 
-for (const auto& k : keys) {
-    // Value -> Ort::AllocatedStringPtr (may be null)
-    auto v = meta.LookupCustomMetadataMapAllocated(k.get(), alloc);
-    printf("Meta[%s] = %s\n", k.get(), v ? v.get() : "(null)");
-}  
-}
+  //uflw::YoloLikeParser::ModelOutput modelOutput = OnnxTools::getOutputFromModel(meta, 0);
+
+  printf("Model version: %lld\n", (long long)meta.GetVersion());
+
+  // Keys -> vector<Ort::AllocatedStringPtr>
+  auto keys = meta.GetCustomMetadataMapKeysAllocated(alloc);
+
+  for (const auto& k : keys) {
+      // Value -> Ort::AllocatedStringPtr (may be null)
+      auto v = meta.LookupCustomMetadataMapAllocated(k.get(), alloc);
+      printf("Meta[%s] = %s\n", k.get(), v ? v.get() : "(null)");
+  }  
+  printf("---------- -----------\n");
+}*/
 
 
     
@@ -582,12 +592,10 @@ static void gst_ampinfer_class_init (GstAmpInferClass *klass) {
       0.0, 1.0, 0.45, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
   // Static pad templates (portable across GStreamer-1.0 versions)
-  static GstStaticPadTemplate sink_t =
-    GST_STATIC_PAD_TEMPLATE ("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
-      GST_STATIC_CAPS ("video/x-raw, format=(string)RGB"));
-  static GstStaticPadTemplate src_t  =
-    GST_STATIC_PAD_TEMPLATE ("src",  GST_PAD_SRC,  GST_PAD_ALWAYS,
-      GST_STATIC_CAPS ("video/x-raw, format=(string)RGB"));
+  static GstStaticPadTemplate sink_t = GST_STATIC_PAD_TEMPLATE ("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
+    GST_STATIC_CAPS ("video/x-raw, format=(string)RGB"));
+  static GstStaticPadTemplate src_t  = GST_STATIC_PAD_TEMPLATE ("src",  GST_PAD_SRC,  GST_PAD_ALWAYS,
+    GST_STATIC_CAPS ("video/x-raw, format=(string)RGB"));
   gst_element_class_add_static_pad_template (ecls, &sink_t);
   gst_element_class_add_static_pad_template (ecls, &src_t);
 

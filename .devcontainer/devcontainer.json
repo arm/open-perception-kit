@@ -7,8 +7,7 @@
   "remoteUser": "devgoblin",
   "workspaceFolder": "/work",
   "mounts": [
-    "source=${localWorkspaceFolder},target=/work,type=bind,consistency=cached",
-    "source=${localEnv:SSH_AUTH_SOCK},target=/ssh-agent,type=bind"
+    "source=${localWorkspaceFolder},target=/work,type=bind,consistency=cached"
   ],
   "runArgs": [
   	
@@ -21,8 +20,7 @@
   	"CONTAINER_TYPE": "default",
     "HOST_OS": "${localEnv:OSTYPE}",
     "GST_PLUGIN_PATH": "/work/development/build",
-    "HOST_DISPLAY": "${localEnv:DISPLAY}",
-    "SSH_AUTH_SOCK": "/ssh-agent"
+    "HOST_DISPLAY": "${localEnv:DISPLAY}"
   },
   "overrideCommand": true,
   "init": true,
