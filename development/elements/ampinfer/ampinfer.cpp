@@ -4,6 +4,7 @@
 #include <gst/video/gstvideofilter.h>
 #include <gst/video/video.h>
 
+#include <memory>
 #include <onnxruntime_cxx_api.h>
 
 #include <stdio.h>
@@ -14,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "OnnxInference.h"
 #include "OnnxTools.h"
 #include "GstTools.h"
 #include "PerformanceMetrics.h"
@@ -48,6 +50,8 @@ struct _GstAmpInfer {
   Ort::MemoryInfo*   mem_info; //{Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU)};
   std::vector<char*> input_names;
   std::vector<char*> output_names;
+
+  std::shared_ptr<OnnxInference> onnxInference;
 };
 
 G_END_DECLS
@@ -150,6 +154,9 @@ static std::vector<Det> yolov8_like_post(const float* data, const std::vector<in
 
 static gboolean gst_ampinfer_start (GstBaseTransform *b) {
   auto *self = (GstAmpInfer*) b;
+
+  self->onnxInference = std::make_shared<OnnxInference>();
+  self->onnxInference->setup(self->model_path);
 
   try {
   self->session_opts = new Ort::SessionOptions();

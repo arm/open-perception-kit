@@ -3,6 +3,7 @@
 #include <onnxruntime_cxx_api.h>
 
 #include "uniflow/model_io.h"
+#include "uniflow/detection_types.h"
 
 #include "OnnxTools.h"
 
@@ -16,9 +17,14 @@ struct OnnxInference {
 
     OnnxResult setup(const std::string& file);
 
-    std::string modelPath;
+    void setOutputParser(std::unique_ptr<uflw::NetworkOutputParser> parser) { this->outputParser = std::move(parser); }
+
+    uflw::DetectionResult execute(const uflw::TensorReader* tensor0, const uflw::TensorReader* tensor1 = nullptr,
+            const uflw::TensorReader* tensor2 = nullptr, const uflw::TensorReader* tensor3 = nullptr);
 
 protected:
+
+    std::string modelPath;
 
     bool setupReady = false;
 
@@ -30,5 +36,6 @@ protected:
     std::vector<char*> outputNames;
 
     uflw::Model managedModel;
+    std::unique_ptr<uflw::NetworkOutputParser> outputParser;
 
 };

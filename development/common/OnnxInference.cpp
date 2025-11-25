@@ -1,5 +1,6 @@
 #include "OnnxInference.h"
 #include "OnnxTools.h"
+#include "uniflow/detection_types.h"
 #include <memory>
 
 OnnxInference::OnnxInference() {
@@ -55,5 +56,13 @@ OnnxResult OnnxInference::setup(const std::string& file) {
     }
 
     return OnnxResult::Ok;
+
+}
+
+uflw::DetectionResult OnnxInference::execute(const uflw::TensorReader* tensor0, const uflw::TensorReader* tensor1, const uflw::TensorReader* tensor2, const uflw::TensorReader* tensor3) {
+
+    uflw::DetectionResult result;
+
+    return result;
 
 }

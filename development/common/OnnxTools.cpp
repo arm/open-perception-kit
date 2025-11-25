@@ -258,42 +258,56 @@ uflw::Model OnnxTools::inspectModel(const Ort::Session& session) {
         Ort::TypeInfo ti = session.GetInputTypeInfo(i);
 
         auto tensor = ti.GetTensorTypeAndShapeInfo();
-        /*auto m = ti.GetMapTypeInfo();
-        auto o = ti.GetOptionalTypeInfo();
-        auto s = ti.GetSequenceTypeInfo();
-        auto c = ti.GetConst();
-        auto oxt = ti.GetONNXType();*/
-
         // name
         model.inputs[i].name = session.GetInputNameAllocated(i, allocator).get();
         // tensor value type
         if(!onnxTypeToUniflowType(tensor.GetElementType(), model.inputs[i].valueType)) model.parseError = "unknown input tensor value type";
+        if(uflw::ValueType::f32 != model.inputs[i].valueType) {
+            model.parseError = "only float32 input tensors are supported in ONNX";
+            return model;
+        } 
         // shape
-        if(false == getTensorShape(session, uflw::TensorInOut::In, i, model.inputs[i].shape))
+        if(false == getTensorShape(session, uflw::TensorInOut::In, i, model.inputs[i].shape)) {
             model.parseError = "too many dimensions in input tensor";
+            return model;
+        }
         // input format
         model.inputs[i].dataKind = guessModelInputDataKind(session, i, model.inputs[i].batch);
-        if(model.inputs[i].dataKind == uflw::InputTensorDataKind::Unknown)
+        if(model.inputs[i].dataKind == uflw::InputTensorDataKind::Unknown) {
             model.parseError = "input tensor dara kind dicovery failed";      
+            return model;
+        }
+        // etc
+        model.inputs[i].quantArguments.valueType = model.inputs[i].valueType;
+        model.inputs[i].quantArguments.scale = 1.0f;
+        model.inputs[i].quantArguments.zeroPoint = 0.0f;
     }
 
     for (size_t i = 0; i < model.modelOutputCount; ++i) {
         Ort::TypeInfo ti = session.GetOutputTypeInfo(i);
 
         auto tensor = ti.GetTensorTypeAndShapeInfo();
-        /*auto m = ti.GetMapTypeInfo();
-        auto o = ti.GetOptionalTypeInfo();
-        auto s = ti.GetSequenceTypeInfo();
-        auto c = ti.GetConst();
-        auto oxt = ti.GetONNXType();*/
-
         // name
         model.outputs[i].name = session.GetOutputNameAllocated(i, allocator).get();
         // tensor value type
-        if(!onnxTypeToUniflowType(tensor.GetElementType(), model.outputs[i].valueType)) model.parseError = "unknown input tensor value type";
+        if(!onnxTypeToUniflowType(tensor.GetElementType(), model.outputs[i].valueType)) {
+            model.parseError = "unknown input tensor value type";
+            return model;
+        }
+        if(uflw::ValueType::f32 != model.outputs[i].valueType) {
+            model.parseError = "only float32 output tensors are supported in ONNX";
+            return model;
+        }        
         // shape
-        if(false == getTensorShape(session, uflw::TensorInOut::Out, i, model.outputs[i].shape))
+        if(false == getTensorShape(session, uflw::TensorInOut::Out, i, model.outputs[i].shape)) {
             model.parseError = "too many dimensions in output tensor";
+            return model;
+        }
+        // etc
+        model.outputs[i].quantArguments.valueType = model.outputs[i].valueType;
+        model.outputs[i].quantArguments.scale = 1.0f;
+        model.outputs[i].quantArguments.zeroPoint = 0.0f;
+
     }
 
     return model;
@@ -301,7 +315,7 @@ uflw::Model OnnxTools::inspectModel(const Ort::Session& session) {
 }
 
 // ---
-
+/*
 OnnxOutputTensor::OnnxOutputTensor(const std::vector<Ort::Value>& runResult) : runResult(runResult) {
 
 }
@@ -372,7 +386,7 @@ bool OnnxOutputTensor::dump(const std::string& fileName) const {
     fclose(f);
     return true;
 }
-
+*/
 /*uflw::YoloLikeParser::ModelOutput OnnxTools::getOutputFromYoloModel(const Ort::Session* session, int index) {
 
     uflw::YoloLikeParser::ModelOutput out;
