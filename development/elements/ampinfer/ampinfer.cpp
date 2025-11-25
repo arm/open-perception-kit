@@ -19,14 +19,7 @@
 #include "PerformanceMetrics.h"
 #include "uniflow/yolo_like_parser.h"
 
-//#include "uniflow/public_types.h"
-//#include "uniflow/yolo_like_parser.h"
-
 static int yoloSquareSize = 0;
-
-// int8 model for embedded use, the float32 version is loaded from file
-//extern unsigned int yolov8n_int8_onnx_len;
-//extern unsigned char yolov8n_int8_onnx[];
 
 #ifndef PACKAGE
 #define PACKAGE "amp-elements"

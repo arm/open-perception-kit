@@ -156,6 +156,22 @@ uflw::ModelFamily OnnxTools::guessModelFamily(const Ort::Session& session, uflw:
     size_t num_inputs = session.GetInputCount();
     size_t num_outputs = session.GetOutputCount();
 
+    // prefer outputs, maybe their names are more verbose
+    for (size_t i = 0; i < num_outputs; ++i) {
+        auto nameAlloc = session.GetOutputNameAllocated(i, alloc);
+        std::string name = toLower(nameAlloc.get());
+
+        if (name.find("selectedboxes") != std::string::npos)
+            return uflw::ModelFamily::BlazeFace;
+        if (name.find("boxes") != std::string::npos || name.find("yolo") != std::string::npos)
+            return uflw::ModelFamily::YoloObjectDetection;
+        if (name.find("det") != std::string::npos && name.find("class") != std::string::npos)
+            return uflw::ModelFamily::EfficientDet;
+        if (name.find("seg") != std::string::npos)
+            return uflw::ModelFamily::Segmentation;
+    }
+
+    // fallback to inputs
     for (size_t i = 0; i < num_inputs; ++i) {
         auto nameAlloc = session.GetInputNameAllocated(i, alloc);
         std::string name = toLower(nameAlloc.get());
@@ -165,20 +181,6 @@ uflw::ModelFamily OnnxTools::guessModelFamily(const Ort::Session& session, uflw:
             return uflw::ModelFamily::Whisper;
         if (name.find("clip") != std::string::npos)
             return uflw::ModelFamily::Clip;
-    }
-
-    for (size_t i = 0; i < num_outputs; ++i) {
-        auto nameAlloc = session.GetOutputNameAllocated(i, alloc);
-        std::string name = toLower(nameAlloc.get());
-
-        if (name.find("boxes") != std::string::npos || name.find("yolo") != std::string::npos)
-            return uflw::ModelFamily::YoloObjectDetection;
-        if (name.find("blazeface") != std::string::npos)
-            return uflw::ModelFamily::BlazeFace;
-        if (name.find("det") != std::string::npos && name.find("class") != std::string::npos)
-            return uflw::ModelFamily::EfficientDet;
-        if (name.find("seg") != std::string::npos)
-            return uflw::ModelFamily::Segmentation;
     }
 
     auto nodeCount = session.GetOverridableInitializerCount();
@@ -256,11 +258,11 @@ uflw::Model OnnxTools::inspectModel(const Ort::Session& session) {
         Ort::TypeInfo ti = session.GetInputTypeInfo(i);
 
         auto tensor = ti.GetTensorTypeAndShapeInfo();
-        auto m = ti.GetMapTypeInfo();
+        /*auto m = ti.GetMapTypeInfo();
         auto o = ti.GetOptionalTypeInfo();
         auto s = ti.GetSequenceTypeInfo();
         auto c = ti.GetConst();
-        auto oxt = ti.GetONNXType();
+        auto oxt = ti.GetONNXType();*/
 
         // name
         model.inputs[i].name = session.GetInputNameAllocated(i, allocator).get();
@@ -279,11 +281,11 @@ uflw::Model OnnxTools::inspectModel(const Ort::Session& session) {
         Ort::TypeInfo ti = session.GetOutputTypeInfo(i);
 
         auto tensor = ti.GetTensorTypeAndShapeInfo();
-        auto m = ti.GetMapTypeInfo();
+        /*auto m = ti.GetMapTypeInfo();
         auto o = ti.GetOptionalTypeInfo();
         auto s = ti.GetSequenceTypeInfo();
         auto c = ti.GetConst();
-        auto oxt = ti.GetONNXType();
+        auto oxt = ti.GetONNXType();*/
 
         // name
         model.outputs[i].name = session.GetOutputNameAllocated(i, allocator).get();
@@ -291,11 +293,7 @@ uflw::Model OnnxTools::inspectModel(const Ort::Session& session) {
         if(!onnxTypeToUniflowType(tensor.GetElementType(), model.outputs[i].valueType)) model.parseError = "unknown input tensor value type";
         // shape
         if(false == getTensorShape(session, uflw::TensorInOut::Out, i, model.outputs[i].shape))
-            model.parseError = "too many dimensions in input tensor";
-        // input format
-        //model.inputs[i].dataKind = guessModelInputDataKind(session, i, model.inputs[i].batch);
-        //if(model.inputs[i].dataKind == uflw::InputTensorDataKind::Unknown)
-        //    model.parseError = "input tensor dara kind dicovery failed";      
+            model.parseError = "too many dimensions in output tensor";
     }
 
     return model;

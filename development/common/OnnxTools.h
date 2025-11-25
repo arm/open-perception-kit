@@ -22,6 +22,12 @@ struct ModelIntrospection {
     std::vector<IoInfo> outputs;
 };
 
+enum class OnnxResult {
+    Ok = 0,
+    UniflowModelInspectError,
+    CreateEnvironmentError
+};
+
 struct OnnxTools {
 
     static bool onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, uflw::ValueType& outUniflowType);

@@ -10,6 +10,8 @@ common = static_library(
     'PerformanceMetrics.cpp',
     'OnnxTools.h',
     'OnnxTools.cpp',
+    'OnnxInference.h',
+    'OnnxInference.cpp',
     'TensorMeta.h',
     'TensorMeta.cpp',
     'InferResultMeta.h',
