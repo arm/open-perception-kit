@@ -24,30 +24,16 @@ OnnxResult OnnxInference::setup(const std::string& file) {
   
         this->session = new Ort::Session(*this->environment, this->modelPath.c_str(), *this->sessionOptions);
 
-        this->managedModel = OnnxTools::inspectModel(*this->session);
-        if(false == this->managedModel.parseError.empty()) {
+        this->uflwModel = OnnxTools::inspectModel(*this->session);
+        if(false == this->uflwModel.parseError.empty()) {
             return OnnxResult::UniflowModelInspectError;
         }
-
-        /*
-        Ort::AllocatorWithDefaultOptions allocator;
-        const size_t ni = this->session->GetInputCount();
-        const size_t no = this->session->GetOutputCount();
-
-        this->inputNames.clear();
-        this->outputNames.clear();
-        for (size_t i=0;i<ni;++i) {
-            auto s = this->session->GetInputNameAllocated(i, allocator);
-            printf("**** Input:[%s]\n", s.get());
-            this->inputNames.push_back(strdup(s.get()));
-        }
-        for(size_t i = 0; i < no; ++i) {
-            auto s = this->session->GetOutputNameAllocated(i, allocator);
-            printf("**** Output:[%s]\n", s.get());
-            this->outputNames.push_back(strdup(s.get()));
-        }
-            */
         
+        std::string modelLog = OnnxTools::toString(this->uflwModel);
+        printf("---> New  model  parsed <---\n");
+        printf("%s", modelLog.c_str());
+        printf("--- --- --- ---- --- --- ---\n");
+
         this->setupReady = true;
     } 
     catch (const std::exception& e) {

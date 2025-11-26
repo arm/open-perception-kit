@@ -83,6 +83,8 @@ struct OnnxTools {
 
     static uflw::Model inspectModel(const Ort::Session& session);
 
+    static std::string toString(const uflw::Model& model);
+
     // ---
 
     static std::string serializeDetectionResult(const uflw::DetectionResult& r) {

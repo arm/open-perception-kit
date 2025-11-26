@@ -5,6 +5,9 @@
 #include "uniflow/model_io.h"
 #include "uniflow/public_types.h"
 
+#define FMT_HEADER_ONLY
+#include <fmt/core.h>
+
 bool safeParseInt(const char *str, int *out) {
     char *endptr;
     errno = 0; 
@@ -104,6 +107,10 @@ bool OnnxTools::onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, uflw::
     }
     if(onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8) {
         outUniflowType = uflw::ValueType::u8;
+        return true;
+    }
+    if(onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64) {
+        outUniflowType = uflw::ValueType::i64;
         return true;
     }
     return false;
@@ -211,13 +218,13 @@ uflw::InputTensorDataKind OnnxTools::guessModelInputDataKind(const Ort::Session&
     std::string name = session.GetInputNameAllocated(inputIndex, alloc).get();
 
     // quick text check
-    if (valueType == ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64 || valueType == ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32) {
+    /*if (valueType == ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64 || valueType == ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32) {
         if (name.find("token") != std::string::npos || name.find("ids") != std::string::npos)
             return uflw::InputTensorDataKind::TextDUMMY;
-    }
+    }*/
 
     // float data
-    if (valueType == ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT || valueType == ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8) {
+    if (valueType == ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT || valueType == ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64) {
         if (shape.dimensionCount == 1) {
                 return uflw::InputTensorDataKind::Value;
         }
@@ -236,7 +243,14 @@ uflw::InputTensorDataKind OnnxTools::guessModelInputDataKind(const Ort::Session&
                 outBatchCount = shape.valueCount[0];
                 return uflw::InputTensorDataKind::ImageRgbHwc;
             }
-            if ((shape.valueCount[1] == 1 || shape.valueCount[3] == 1)) return uflw::InputTensorDataKind::ImageGray;
+            if(shape.valueCount[1] == 1) {
+                outBatchCount = shape.valueCount[0];
+                return uflw::InputTensorDataKind::ImageGray;
+            }
+            if(shape.valueCount[3] == 1) {
+                outBatchCount = shape.valueCount[0];
+                return uflw::InputTensorDataKind::ImageGray;
+            }
         }
     }
     
@@ -260,10 +274,11 @@ uflw::Model OnnxTools::inspectModel(const Ort::Session& session) {
         auto tensor = ti.GetTensorTypeAndShapeInfo();
         // name
         model.inputs[i].name = session.GetInputNameAllocated(i, allocator).get();
+        printf("%s\n", model.inputs[i].name.c_str());
         // tensor value type
         if(!onnxTypeToUniflowType(tensor.GetElementType(), model.inputs[i].valueType)) model.parseError = "unknown input tensor value type";
-        if(uflw::ValueType::f32 != model.inputs[i].valueType) {
-            model.parseError = "only float32 input tensors are supported in ONNX";
+        if(uflw::ValueType::f32 != model.inputs[i].valueType && uflw::ValueType::i64 != model.inputs[i].valueType) {
+            model.parseError = "only float32 or int64 input tensors are supported in ONNX";
             return model;
         } 
         // shape
@@ -271,6 +286,8 @@ uflw::Model OnnxTools::inspectModel(const Ort::Session& session) {
             model.parseError = "too many dimensions in input tensor";
             return model;
         }
+        printf("%s\n", uflw::toString(model.inputs[i].valueType).c_str());
+        printf("%s\n", model.inputs[i].shape.toString().c_str());
         // input format
         model.inputs[i].dataKind = guessModelInputDataKind(session, i, model.inputs[i].batch);
         if(model.inputs[i].dataKind == uflw::InputTensorDataKind::Unknown) {
@@ -312,6 +329,30 @@ uflw::Model OnnxTools::inspectModel(const Ort::Session& session) {
 
     return model;
 
+}
+
+std::string OnnxTools::toString(const uflw::Model& model) {
+    std::string ret;
+    
+    ret += fmt::format("Model: [{}]\n", uflw::toString(model.modelFamily).c_str());
+    ret += fmt::format("Version: [{}]\n", model.version.c_str());
+    ret += fmt::format("Input count: {}\n", model.modelInputCount);
+    ret += fmt::format("Output count: {}\n", model.modelOutputCount);
+
+    for(size_t i = 0; i < model.modelInputCount; i++) {
+        ret += fmt::format("Input #{} [{}]\n", i, model.inputs[i].name.c_str());
+        ret += fmt::format(" Batch {}\n", model.inputs[i].batch);
+        ret += fmt::format(" ValueType: {}\n", uflw::toString(model.inputs[i].valueType).c_str());
+        ret += fmt::format(" Shape: {}\n", uflw::toString(model.inputs[i].shape).c_str());        
+        ret += fmt::format(" DataKind: {}\n", uflw::toString(model.inputs[i].dataKind).c_str());        
+    }
+    for(size_t i = 0; i < model.modelOutputCount; i++) {
+        ret += fmt::format("Output #{} [{}]\n", i, model.outputs[i].name.c_str());
+        ret += fmt::format(" ValueType: {}\n", uflw::toString(model.outputs[i].valueType).c_str());
+        ret += fmt::format(" Shape: {}\n", uflw::toString(model.outputs[i].shape).c_str());        
+    }
+
+    return ret;
 }
 
 // ---

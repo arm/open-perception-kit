@@ -35,7 +35,7 @@ protected:
     std::vector<char*> inputNames;
     std::vector<char*> outputNames;
 
-    uflw::Model managedModel;
+    uflw::Model uflwModel;
     std::unique_ptr<uflw::NetworkOutputParser> outputParser;
 
 };
