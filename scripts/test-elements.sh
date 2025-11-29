@@ -32,30 +32,19 @@ onnx() {
 
   msg "Running test pipeline.."
 
-  #IP=$(getent ahostsv4 host.docker.internal | awk 'NR==1{print $1}')
-#  IP="127.0.0.1"
-
-IP=$(getent ahostsv4 host.docker.internal | awk 'NR==1{print $1}')
+  IP=$(getent ahostsv4 host.docker.internal | awk 'NR==1{print $1}')
   
-#  gst-launch-1.0 \
-#    filesrc location=/work/etc/videos/00.mp4 ! decodebin ! \
-#    videoconvert !
-#    ampinfer model-path=/work/etc/models/yolov11n/yolo11n-fp32-640.onnx imgsz=640 ! \
-#    videoconvert ! x264enc tune=zerolatency speed-preset=ultrafast ! \
-#    mpegtsmux ! \
-#    udpsink host="$IP" port=5000 sync=false async=false
-
-#    ampinfer model-path=/work/etc/models/yolov11n/yolo11n-fp32-320.onnx imgsz=320 ! \
- #   ampinfer model-path=/work/etc/models/blazeface/blaze-fp32-128.onnx imgsz=320 ! \
+  # ampinfer model-path=/work/etc/models/yolov11n/yolo11n-fp32-320.onnx imgsz=320 ! \
+  # ampinfer model-path=/work/etc/models/blazeface/blaze-fp32-128.onnx imgsz=320 ! \
 
   gst-launch-1.0 \
-    filesrc location=/work/etc/videos/00.mp4 ! decodebin ! \
-    videoconvert ! \
-    ampinfer model-path=/work/etc/models/blazeface/blaze-fp32-128.onnx imgsz=320 ! \
-    textoverlay name=overlay text="Gathering performance info" valignment=top halignment=center font-desc="Sans, 14" ! \
-    videoconvert ! x264enc tune=zerolatency speed-preset=ultrafast ! \
-    mpegtsmux ! \
-    udpsink host="$IP" port=5000 sync=true async=false
+    filesrc location=/work/etc/videos/00.mp4 ! decodebin name=dec \
+    dec. ! queue ! video/x-raw ! videoconvert ! \
+      ampinfer model-path=/work/etc/models/yolov11n/yolo11n-fp32-320.onnx imgsz=320 ! \
+      textoverlay name=overlay valignment=top halignment=center font-desc="Sans, 14" ! \
+      ampsink name=sink \
+    dec. ! queue ! audio/x-raw ! audioconvert ! audioresample ! \
+      sink.audiopad
 
   msg_end "Pipeline finished."
 }

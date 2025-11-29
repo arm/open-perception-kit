@@ -18,6 +18,7 @@ struct OnnxInference {
     OnnxResult setup(const std::string& file);
 
     void setOutputParser(std::unique_ptr<uflw::NetworkOutputParser> parser) { this->outputParser = std::move(parser); }
+    void setInputBuilder(std::unique_ptr<uflw::NetworkInputBuilder> builder) { this->inputBuilder = std::move(builder); }
 
     uflw::DetectionResult execute(const uflw::TensorReader* tensor0, const uflw::TensorReader* tensor1 = nullptr,
             const uflw::TensorReader* tensor2 = nullptr, const uflw::TensorReader* tensor3 = nullptr);
@@ -37,5 +38,7 @@ protected:
 
     uflw::Model uflwModel;
     std::unique_ptr<uflw::NetworkOutputParser> outputParser;
+    std::unique_ptr<uflw::NetworkInputBuilder> inputBuilder;
 
 };
+

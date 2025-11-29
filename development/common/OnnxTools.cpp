@@ -8,6 +8,14 @@
 #define FMT_HEADER_ONLY
 #include <fmt/core.h>
 
+std::string toLower(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(),
+                   [](unsigned char c){ return std::tolower(c); });
+    return s;
+}
+
+// ---
+
 bool safeParseInt(const char *str, int *out) {
     char *endptr;
     errno = 0; 
@@ -20,11 +28,6 @@ bool safeParseInt(const char *str, int *out) {
 
     *out = (int)val;
     return true;
-}
-
-static std::string toLower(std::string s) noexcept {
-    for (auto &c : s) c = static_cast<char>(std::tolower(c));
-    return s;
 }
 
 const char* getOnnxValueTypeName(ONNXTensorElementDataType t) {
@@ -258,9 +261,30 @@ uflw::InputTensorDataKind OnnxTools::guessModelInputDataKind(const Ort::Session&
 
 }
 
-uflw::Model OnnxTools::inspectModel(const Ort::Session& session) {
+std::map<std::string, std::string> OnnxTools::getModelMeta(const Ort::Session& session) {
+    std::map<std::string, std::string> ret;
+
+    Ort::AllocatorWithDefaultOptions alloc;
+    Ort::ModelMetadata meta = session.GetModelMetadata();
+
+    std::vector<Ort::AllocatedStringPtr> keys = meta.GetCustomMetadataMapKeysAllocated(alloc);
+    for (const auto& k : keys) {
+        Ort::AllocatedStringPtr v = meta.LookupCustomMetadataMapAllocated(k.get(), alloc);
+        if(v) ret[toLower(k.get())] = toLower(v.get());
+    }
+
+    return ret;
+}
+
+uflw::Model OnnxTools::inspectModel(const Ort::Session& session, const std::string& modelFile) {
+
+    std::map<std::string, std::string> meta = OnnxTools::getModelMeta(session);
+
+    // ---- -------------------------------------------
 
     uflw::Model model;
+    model.modelFileName = modelFile;
+
     uflw::FxString<32> modelVersion;
     model.modelFamily = guessModelFamily(session, modelVersion);
     
@@ -291,7 +315,7 @@ uflw::Model OnnxTools::inspectModel(const Ort::Session& session) {
         // input format
         model.inputs[i].dataKind = guessModelInputDataKind(session, i, model.inputs[i].batch);
         if(model.inputs[i].dataKind == uflw::InputTensorDataKind::Unknown) {
-            model.parseError = "input tensor dara kind dicovery failed";      
+            model.parseError = "input tensor data kind dicovery failed";      
             return model;
         }
         // etc

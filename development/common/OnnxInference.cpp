@@ -24,8 +24,9 @@ OnnxResult OnnxInference::setup(const std::string& file) {
   
         this->session = new Ort::Session(*this->environment, this->modelPath.c_str(), *this->sessionOptions);
 
-        this->uflwModel = OnnxTools::inspectModel(*this->session);
+        this->uflwModel = OnnxTools::inspectModel(*this->session, this->modelPath);
         if(false == this->uflwModel.parseError.empty()) {
+            printf("INSPECT MODEL FAILED: %s\n", this->uflwModel.parseError.c_str());
             return OnnxResult::UniflowModelInspectError;
         }
         

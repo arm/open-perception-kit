@@ -10,6 +10,7 @@
 #include "uniflow/model_io.h"
 
 #include <vector>
+#include <map>
 
 #include <nlohmann/json.hpp>
 #include <vector>  // important
@@ -80,8 +81,10 @@ struct OnnxTools {
 
     static uflw::ModelFamily guessModelFamily(const Ort::Session& session, uflw::FxString<32>& outVersion);
     static uflw::InputTensorDataKind guessModelInputDataKind(const Ort::Session& session, int inputIndex, int& outBatchCount);
+    static std::map<std::string, std::string> getModelMeta(const Ort::Session& session);
 
-    static uflw::Model inspectModel(const Ort::Session& session);
+    static uflw::Model inspectModel(const Ort::Session& session, const std::string& modelFile);
+
 
     static std::string toString(const uflw::Model& model);
 

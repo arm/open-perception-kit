@@ -155,19 +155,19 @@ static std::vector<Det> yolov8_like_post(const float* data, const std::vector<in
 static gboolean gst_ampinfer_start (GstBaseTransform *b) {
   auto *self = (GstAmpInfer*) b;
 
-  self->onnxInference = std::make_shared<OnnxInference>();
-  self->onnxInference->setup(self->model_path);
-
   try {
-  self->session_opts = new Ort::SessionOptions();
-  self->session_opts->SetIntraOpNumThreads(1);
+    self->session_opts = new Ort::SessionOptions();
+    self->session_opts->SetIntraOpNumThreads(1);
 
-  self->env = new Ort::Env(ORT_LOGGING_LEVEL_WARNING, "ampinfer");
-  self->mem_info = new Ort::MemoryInfo(Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU));
+    self->env = new Ort::Env(ORT_LOGGING_LEVEL_WARNING, "ampinfer");
+    self->mem_info = new Ort::MemoryInfo(Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU));
   
     self->session = new Ort::Session(*self->env, self->model_path, *self->session_opts);
 
-    uflw::Model model = OnnxTools::inspectModel(*self->session);
+    self->onnxInference = std::make_shared<OnnxInference>();
+    self->onnxInference->setup(self->model_path);
+
+    uflw::Model model = OnnxTools::inspectModel(*self->session, self->model_path);
 
     // cache I/O names (works with ONNX Runtime 1.18+)
     Ort::AllocatorWithDefaultOptions alloc;
