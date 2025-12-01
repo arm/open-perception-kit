@@ -22,6 +22,9 @@
     "GST_PLUGIN_PATH": "/work/development/build",
     "HOST_DISPLAY": "${localEnv:DISPLAY}"
   },
+  "features": {
+    "ghcr.io/devcontainers/features/sshd:1": {}
+  },
   "overrideCommand": true,
   "init": true,
   "forwardPorts": [7100,1234],  
