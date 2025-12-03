@@ -13,6 +13,7 @@ __pycache__/
 .venv*/
 .uv-cache/
 .uv-lock/
+*.lock
 
 # -------------------------
 # Meson / Ninja / CMake / Make
@@ -66,4 +67,5 @@ Thumbs.db
 # External dependencies
 # -------------------------
 deps/
+development/subprojects/uniflow-dev
 onnxruntime-linux-aarch64-*
