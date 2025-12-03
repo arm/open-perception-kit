@@ -1,6 +1,6 @@
 
 common = static_library(
-  'common',                   
+  'common',
   sources: [
     'GstTools.h',
     'GstTools.cpp',
@@ -8,6 +8,8 @@ common = static_library(
     'AmpTools.cpp',
     'PerformanceMetrics.h',
     'PerformanceMetrics.cpp',
+    'PerformanceTracer.h',
+    'PerformanceTracer.cpp',
     'OnnxTools.h',
     'OnnxTools.cpp',
     'OnnxInference.h',
@@ -20,6 +22,6 @@ common = static_library(
 #  include_directories: [ common_include, uniflow_include],
   include_directories: [ common_include ],
   dependencies: [ amp_deps ],
-  gnu_symbol_visibility: 'hidden', 
+  gnu_symbol_visibility: 'hidden',
   install: false
 )
