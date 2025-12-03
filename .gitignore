@@ -54,4 +54,16 @@ Thumbs.db
 # Devcontainer / Docker
 # -------------------------
 .devcontainer/.env
+.devcontainer/Dockerfile
+.devcontainer/devcontainer.json
+
+# -------------------------
+# Log files
+# -------------------------
 *.log
+
+# -------------------------
+# External dependencies
+# -------------------------
+deps/
+onnxruntime-linux-aarch64-*
