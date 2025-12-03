@@ -465,7 +465,7 @@ double FastStats::percentile_ms(double p) const {
 
     std::sort(sorted_samples.begin(), sorted_samples.end());
 
-    size_t idx = static_cast<size_t>((sorted_samples.size() - 1) * p / 100.0);
+    size_t idx = static_cast<size_t>((sorted_samples.size() - 1) * p);
     return sorted_samples[idx] / 1e6; // Convert ns to ms
 }
 

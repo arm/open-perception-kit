@@ -365,7 +365,8 @@ static size_t elem_size(ONNXTensorElementDataType t) {
 }
 
 static GstFlowReturn gst_ampinfer_transform_frame_ip(GstVideoFilter *vf, GstVideoFrame *frame) {
-    AMP_FAST_SCOPE(FRAME_TOTAL);
+    static amp::PerformanceTracer *tracer = amp::getGlobalTracer();
+    amp::PerformanceTracer::ScopedTimer frame_timer(tracer, "frame_total");
 
     auto *self = (GstAmpInfer *)vf;
     if (!self->ort_ready)
@@ -389,7 +390,7 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip(GstVideoFilter *vf, GstVide
     Ort::Value in{nullptr};
 
     {
-        AMP_FAST_SCOPE(PREPROCESSING);
+        amp::PerformanceTracer::ScopedTimer preprocessing_timer(tracer, "preprocessing");
         input = resize_normalize_rgb_nn(rgb, W, H, self->imgsz);
         in = Ort::Value::CreateTensor<float>(
             *self->mem_info, input.data(), (size_t)input.size(), ishape.data(), ishape.size());
@@ -399,7 +400,7 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip(GstVideoFilter *vf, GstVide
     uint64_t beforeInference = getNanos();
     std::vector<Ort::Value> out;
     {
-        AMP_FAST_SCOPE(INFERENCE);
+        amp::PerformanceTracer::ScopedTimer inference_timer(tracer, "inference");
         out = self->session->Run(Ort::RunOptions{nullptr},
                                  (const char *const *)self->input_names.data(),
                                  &in,
@@ -493,7 +494,7 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip(GstVideoFilter *vf, GstVide
     void *tensorBytes = nullptr;
 
     {
-        AMP_FAST_SCOPE(POSTPROCESSING);
+        amp::PerformanceTracer::ScopedTimer postprocessing_timer(tracer, "postprocessing");
 
         Ort::Value &v = out.at(0);
         auto info = v.GetTensorTypeAndShapeInfo();
@@ -648,13 +649,38 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip(GstVideoFilter *vf, GstVide
     // Print performance statistics every 30 frames (rewrite in place)
     static int frame_counter = 0;
     static int total_frames = 0;
+
     frame_counter++;
     total_frames++;
+
+    // End cycle for statistics calculation
+    tracer->endCycle();
+
     if (frame_counter >= 30) {
+        auto all_stats = tracer->getAllStats();
+
         // Clear screen and move cursor to top
         printf("\033[2J\033[H");
-        printf("=== Fast Performance Tracer Statistics (live update) ===\n");
-        amp::fast::printSummary();
+        printf("=== Performance Tracer Statistics (live update) ===\n\n");
+        printf("╔═══════════════════════════════════════════════════════════════════════════╗\n");
+        printf("║                  Performance Tracer Summary                               ║\n");
+        printf("╠═══════════════════════════════════════════════════════════════════════════╣\n");
+        printf("║ Key                  │ Count │  Avg(ms) │  P50(ms) │  P95(ms) │  P99(ms) ║\n");
+        printf("╠══════════════════════╪═══════╪══════════╪══════════╪══════════╪══════════╣\n");
+
+        for (const auto &[key, stats] : all_stats) {
+            if (stats.count > 0) {
+                printf("║ %-20s │ %5zu │ %8.2f │ %8.2f │ %8.2f │ %8.2f ║\n",
+                       key.c_str(),
+                       stats.count,
+                       stats.avg_ms(),
+                       stats.p50_ms(),
+                       stats.p95_ms(),
+                       stats.p99_ms());
+            }
+        }
+
+        printf("╚═══════════════════════════════════════════════════════════════════════════╝\n");
         printf("\nFrames processed: %d | Press Ctrl+C to stop\n", total_frames);
         fflush(stdout);
         frame_counter = 0;

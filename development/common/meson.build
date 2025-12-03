@@ -1,5 +1,5 @@
 
-common = static_library(
+common = shared_library(
   'common',
   sources: [
     'GstTools.h',
@@ -22,6 +22,6 @@ common = static_library(
 #  include_directories: [ common_include, uniflow_include],
   include_directories: [ common_include ],
   dependencies: [ amp_deps ],
-  gnu_symbol_visibility: 'hidden',
+  gnu_symbol_visibility: 'default',
   install: false
 )
