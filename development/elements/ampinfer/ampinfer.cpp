@@ -664,7 +664,7 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip(GstVideoFilter *vf, GstVide
         printf("=== Performance Tracer Statistics (live update) ===\n\n");
         printf("╔═══════════════════════════════════════════════════════════════════════════╗\n");
         printf("║                  Performance Tracer Summary                               ║\n");
-        printf("╠═══════════════════════════════════════════════════════════════════════════╣\n");
+        printf("╠═══════════════════════════════════════════════════════════=═══════════════╣\n");
         printf("║ Key                  │ Count │  Avg(ms) │  P50(ms) │  P95(ms) │  P99(ms) ║\n");
         printf("╠══════════════════════╪═══════╪══════════╪══════════╪══════════╪══════════╣\n");
 

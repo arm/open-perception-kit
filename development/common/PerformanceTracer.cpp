@@ -3,6 +3,7 @@
 #include <cmath>
 #include <iomanip>
 #include <iostream>
+#include <numeric>
 #include <sstream>
 #include <thread>
 
@@ -437,115 +438,5 @@ PerformanceTracer *getGlobalTracer() {
     }
     return g_global_tracer;
 }
-
-// ============================================================================
-// Fast Performance Tracer Implementation
-// ============================================================================
-
-namespace fast {
-
-// All static data is now managed via inline accessor functions in the header
-// to avoid static initialization order fiasco
-
-double FastStats::percentile_ms(double p) const {
-    // Collect samples
-    std::vector<uint64_t> sorted_samples;
-    sorted_samples.reserve(SAMPLE_SIZE);
-
-    for (const auto &s : samples) {
-        uint64_t val = s.load(std::memory_order_relaxed);
-        if (val > 0) {
-            sorted_samples.push_back(val);
-        }
-    }
-
-    if (sorted_samples.empty()) {
-        return 0.0;
-    }
-
-    std::sort(sorted_samples.begin(), sorted_samples.end());
-
-    size_t idx = static_cast<size_t>((sorted_samples.size() - 1) * p);
-    return sorted_samples[idx] / 1e6; // Convert ns to ms
-}
-
-// getStatsForKey and getKeyName are now inline functions in the header
-
-void reset() {
-    for (auto &s : getStats()) {
-        s.count.store(0, std::memory_order_relaxed);
-        s.total_ns.store(0, std::memory_order_relaxed);
-        s.min_ns.store(UINT64_MAX, std::memory_order_relaxed);
-        s.max_ns.store(0, std::memory_order_relaxed);
-        s.sample_index.store(0, std::memory_order_relaxed);
-        for (auto &sample : s.samples) {
-            sample.store(0, std::memory_order_relaxed);
-        }
-    }
-}
-
-void printSummary() {
-    std::cout
-        << "\n╔═══════════════════════════════════════════════════════════════════════════╗\n";
-    std::cout << "║                  Fast Performance Tracer Summary                          ║\n";
-    std::cout << "╠═══════════════════════════════════════════════════════════════════════════╣\n";
-    std::cout << "║ Key                  │ Count │  Avg(ms) │  P50(ms) │  P95(ms) │  P99(ms) ║\n";
-    std::cout << "╠══════════════════════╪═══════╪══════════╪══════════╪══════════╪══════════╣\n";
-
-    for (size_t i = 0; i < static_cast<size_t>(TimingKey::MAX_KEYS); ++i) {
-        const auto &stat = getStats()[i];
-        uint64_t count = stat.count.load(std::memory_order_relaxed);
-
-        if (count == 0)
-            continue;
-
-        std::cout << "║ " << std::left << std::setw(20) << getKeyName(static_cast<TimingKey>(i))
-                  << " │ " << std::right << std::setw(5) << count << " │ " << std::setw(8)
-                  << std::fixed << std::setprecision(2) << stat.avg_ms() << " │ " << std::setw(8)
-                  << std::fixed << std::setprecision(2) << stat.percentile_ms(50.0) << " │ "
-                  << std::setw(8) << std::fixed << std::setprecision(2) << stat.percentile_ms(95.0)
-                  << " │ " << std::setw(8) << std::fixed << std::setprecision(2)
-                  << stat.percentile_ms(99.0) << " ║\n";
-    }
-
-    std::cout << "╚═══════════════════════════════════════════════════════════════════════════╝\n";
-}
-
-std::string toJSON() {
-    std::ostringstream oss;
-    oss << "{\n";
-    oss << "  \"fast_tracer\": [\n";
-
-    bool first = true;
-    for (size_t i = 0; i < static_cast<size_t>(TimingKey::MAX_KEYS); ++i) {
-        const auto &stat = getStats()[i];
-        uint64_t count = stat.count.load(std::memory_order_relaxed);
-
-        if (count == 0)
-            continue;
-
-        if (!first)
-            oss << ",\n";
-        first = false;
-
-        oss << "    {\n";
-        oss << "      \"key\": \"" << getKeyName(static_cast<TimingKey>(i)) << "\",\n";
-        oss << "      \"count\": " << count << ",\n";
-        oss << "      \"avg_ms\": " << std::fixed << std::setprecision(3) << stat.avg_ms() << ",\n";
-        oss << "      \"p50_ms\": " << stat.percentile_ms(50.0) << ",\n";
-        oss << "      \"p95_ms\": " << stat.percentile_ms(95.0) << ",\n";
-        oss << "      \"p99_ms\": " << stat.percentile_ms(99.0) << ",\n";
-        oss << "      \"min_ms\": " << (stat.min_ns.load(std::memory_order_relaxed) / 1e6) << ",\n";
-        oss << "      \"max_ms\": " << (stat.max_ns.load(std::memory_order_relaxed) / 1e6) << "\n";
-        oss << "    }";
-    }
-
-    oss << "\n  ]\n";
-    oss << "}\n";
-
-    return oss.str();
-}
-
-} // namespace fast
 
 } // namespace amp

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `ampperformance` GStreamer element overlays real-time performance metrics from the Fast Performance Tracer directly onto video streams. It provides visual feedback of inference pipeline performance including preprocessing, inference, postprocessing, and overall frame timing.
+The `ampperformance` GStreamer element overlays real-time performance metrics from the Performance Tracer directly onto video streams. It provides visual feedback of inference pipeline performance including preprocessing, inference, postprocessing, and overall frame timing.
 
 ## Features
 
@@ -10,7 +10,7 @@ The `ampperformance` GStreamer element overlays real-time performance metrics fr
 - **Cairo Graphics**: Uses Cairo for high-quality rendering
 - **Customizable Appearance**: Configurable position, colors, font size, and transparency
 - **Low Overhead**: Updates at configurable intervals to minimize performance impact
-- **Fast Tracer Integration**: Reads lock-free performance statistics from amp::fast namespace
+- **Performance Tracer Integration**: Reads statistics from global amp::PerformanceTracer instance
 
 ## Installation
 
@@ -57,7 +57,6 @@ gst-launch-1.0 \
 | `x-offset` | int | 0-∞ | 10 | Horizontal position in pixels from left edge |
 | `y-offset` | int | 0-∞ | 10 | Vertical position in pixels from top edge |
 | `font-size` | double | 6.0-72.0 | 12.0 | Font size in points |
-| `show-graph` | boolean | - | false | Display performance graph (future feature) |
 | `bg-color` | string | hex | #000000 | Background color in hex format |
 | `text-color` | string | hex | #00FF00 | Text color in hex format |
 | `alpha` | double | 0.0-1.0 | 0.85 | Background transparency (0=transparent, 1=opaque) |
@@ -123,40 +122,44 @@ The `update-interval` property controls how often the overlay is redrawn:
 - **5**: Good balance (default)
 - **10-30**: Minimal overhead for production use
 
-### Fast Tracer Integration
+### Performance Tracer Integration
 
-The element reads directly from the global Fast Performance Tracer statistics:
-- Lock-free atomic reads
-- ~57ns overhead per timing operation
-- Thread-safe access to global `amp::fast::g_stats` array
+The element reads directly from the global Performance Tracer statistics:
+- Thread-safe mutex-protected reads
+- ~50-100ns overhead per timing operation
+- Access via `amp::getGlobalTracer()` singleton
 
 ## Code Integration
 
-To enable performance tracking in your element, use the Fast Tracer macros:
+To enable performance tracking in your element, use the Performance Tracer macros:
 
 ```cpp
 #include "PerformanceTracer.h"
 
 static GstFlowReturn my_transform_frame_ip(GstVideoFilter *filter, GstVideoFrame *frame) {
-  AMP_FAST_SCOPE(FRAME_TOTAL);
+  static amp::PerformanceTracer *tracer = amp::getGlobalTracer();
+  amp::PerformanceTracer::ScopedTimer frame_timer(tracer, "frame_total");
   
   // Preprocessing
   {
-    AMP_FAST_SCOPE(PREPROCESSING);
+    amp::PerformanceTracer::ScopedTimer prep_timer(tracer, "preprocessing");
     // ... preprocessing code ...
   }
   
   // Inference
   {
-    AMP_FAST_SCOPE(INFERENCE);
+    amp::PerformanceTracer::ScopedTimer infer_timer(tracer, "inference");
     // ... inference code ...
   }
   
   // Postprocessing
   {
-    AMP_FAST_SCOPE(POSTPROCESSING);
+    amp::PerformanceTracer::ScopedTimer post_timer(tracer, "postprocessing");
     // ... postprocessing code ...
   }
+  
+  // End cycle to calculate statistics
+  tracer->endCycle();
   
   return GST_FLOW_OK;
 }
@@ -235,7 +238,7 @@ This generates test videos with performance overlays that can be inspected.
 
 ### Issue: Performance metrics show zero
 
-**Solution**: Ensure ampinfer is using Fast Tracer macros (AMP_FAST_SCOPE) in the code.
+**Solution**: Ensure ampinfer is using Performance Tracer (ScopedTimer) in the code and calling `endCycle()`.
 
 ### Issue: Overlay updates too slowly
 
@@ -253,19 +256,19 @@ ampperformance update-interval=1
          │
          v
 ┌─────────────────┐
-│   ampinfer      │ ◄── Fast Tracer (AMP_FAST_SCOPE)
+│   ampinfer      │ ◄── Performance Tracer (ScopedTimer)
 │  (with timing)  │     Records: preprocessing, inference, postprocessing
 └────────┬────────┘
          │
          v
 ┌─────────────────┐
 │  videoconvert   │
-│  (to BGRA)      │
+│  (to BGRA/RGBA) │
 └────────┬────────┘
          │
          v
 ┌─────────────────┐
-│ ampperformance  │ ◄── Reads amp::fast::g_stats (lock-free)
+│ ampperformance  │ ◄── Reads amp::getGlobalTracer() (thread-safe)
 │  (draws overlay)│     Renders with Cairo
 └────────┬────────┘
          │
@@ -277,7 +280,7 @@ ampperformance update-interval=1
 
 ## Future Enhancements
 
-- [ ] Performance graph visualization (`show-graph` property)
+- [ ] Performance graph visualization
 - [ ] Histogram display of timing distribution
 - [ ] Custom metric selection (choose which metrics to display)
 - [ ] Multiple display layouts (compact, detailed, minimal)
@@ -287,9 +290,9 @@ ampperformance update-interval=1
 
 ## Related Documentation
 
-- [Fast Performance Tracer Guide](FAST_TRACER_GUIDE.md)
-- [Performance Tracer API](../development/common/PerformanceTracer.h)
-- [AMP Inference Element](../development/elements/ampinfer/)
+- [Performance Tracer Guide](PERFORMANCE_TRACER.md) - Complete API documentation
+- [Performance Tracer API](../development/common/PerformanceTracer.h) - Header file reference
+- [AMP Inference Element](../development/elements/ampinfer/) - Example integration
 
 ## License
 

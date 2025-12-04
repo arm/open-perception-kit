@@ -34,7 +34,6 @@ struct _GstAmpPerformance {
     gint x_offset;
     gint y_offset;
     gdouble font_size;
-    gboolean show_graph;
     gchar *background_color;
     gchar *text_color;
     gdouble alpha;
@@ -65,7 +64,6 @@ GST_DEBUG_CATEGORY_STATIC(gst_amp_performance_debug);
 #define DEFAULT_X_OFFSET 10
 #define DEFAULT_Y_OFFSET 10
 #define DEFAULT_FONT_SIZE 12.0
-#define DEFAULT_SHOW_GRAPH FALSE
 #define DEFAULT_BG_COLOR "#000000"
 #define DEFAULT_TEXT_COLOR "#00FF00"
 #define DEFAULT_ALPHA 0.85
@@ -77,7 +75,6 @@ enum {
     PROP_X_OFFSET,
     PROP_Y_OFFSET,
     PROP_FONT_SIZE,
-    PROP_SHOW_GRAPH,
     PROP_BG_COLOR,
     PROP_TEXT_COLOR,
     PROP_ALPHA,
@@ -156,15 +153,6 @@ static void gst_amp_performance_class_init(GstAmpPerformanceClass *klass) {
 
     g_object_class_install_property(
         gobject_class,
-        PROP_SHOW_GRAPH,
-        g_param_spec_boolean("show-graph",
-                             "Show Graph",
-                             "Display performance graph",
-                             DEFAULT_SHOW_GRAPH,
-                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(
-        gobject_class,
         PROP_BG_COLOR,
         g_param_spec_string("bg-color",
                             "Background Color",
@@ -208,7 +196,7 @@ static void gst_amp_performance_class_init(GstAmpPerformanceClass *klass) {
         element_class,
         "AMP Performance Overlay",
         "Filter/Effect/Video",
-        "Overlays real-time performance metrics from Fast Performance Tracer",
+        "Overlays real-time performance metrics from Performance Tracer",
         "AMP Team <amp@example.com>");
 
     // Set pad templates
@@ -225,7 +213,6 @@ static void gst_amp_performance_init(GstAmpPerformance *self) {
     self->x_offset = DEFAULT_X_OFFSET;
     self->y_offset = DEFAULT_Y_OFFSET;
     self->font_size = DEFAULT_FONT_SIZE;
-    self->show_graph = DEFAULT_SHOW_GRAPH;
     self->background_color = g_strdup(DEFAULT_BG_COLOR);
     self->text_color = g_strdup(DEFAULT_TEXT_COLOR);
     self->alpha = DEFAULT_ALPHA;
@@ -267,9 +254,6 @@ static void gst_amp_performance_set_property(GObject *object,
     case PROP_FONT_SIZE:
         self->font_size = g_value_get_double(value);
         break;
-    case PROP_SHOW_GRAPH:
-        self->show_graph = g_value_get_boolean(value);
-        break;
     case PROP_BG_COLOR:
         g_free(self->background_color);
         self->background_color = g_value_dup_string(value);
@@ -304,9 +288,6 @@ gst_amp_performance_get_property(GObject *object, guint prop_id, GValue *value, 
     case PROP_FONT_SIZE:
         g_value_set_double(value, self->font_size);
         break;
-    case PROP_SHOW_GRAPH:
-        g_value_set_boolean(value, self->show_graph);
-        break;
     case PROP_BG_COLOR:
         g_value_set_string(value, self->background_color);
         break;
@@ -328,7 +309,7 @@ gst_amp_performance_get_property(GObject *object, guint prop_id, GValue *value, 
 // Helper function to render overlay to cached surface
 static void render_overlay_cache(GstAmpPerformance *self) {
     // Get global tracer (fresh each time to ensure same instance as ampinfer)
-    amp::PerformanceTracer* tracer = amp::getGlobalTracer();
+    amp::PerformanceTracer *tracer = amp::getGlobalTracer();
 
     // Parse colors
     double bg_r, bg_g, bg_b;
