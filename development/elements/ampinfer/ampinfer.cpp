@@ -513,7 +513,7 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip(GstVideoFilter *vf, GstVide
         // printf("\n");
         outTensorByteCount = valueCount * 4;
         tensorBytes = p;
-        //  printf("outTensorByteCount: %d\n", outTensorByteCount);
+        // printf("outTensorByteCount: %d\n", outTensorByteCount);
 
         // Detect layout
         // A: [1,84,N] => C=84, N=dims[2]
@@ -662,9 +662,9 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip(GstVideoFilter *vf, GstVide
         // Clear screen and move cursor to top
         printf("\033[2J\033[H");
         printf("=== Performance Tracer Statistics (live update) ===\n\n");
-        printf("╔═══════════════════════════════════════════════════════════════════════════╗\n");
-        printf("║                  Performance Tracer Summary                               ║\n");
-        printf("╠═══════════════════════════════════════════════════════════=═══════════════╣\n");
+        printf("╔══════════════════════════════════════════════════════════════════════════╗\n");
+        printf("║                  Performance Tracer Summary                              ║\n");
+        printf("╠══════════════════════════════════════════════════════════════════════════╣\n");
         printf("║ Key                  │ Count │  Avg(ms) │  P50(ms) │  P95(ms) │  P99(ms) ║\n");
         printf("╠══════════════════════╪═══════╪══════════╪══════════╪══════════╪══════════╣\n");
 
@@ -680,7 +680,7 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip(GstVideoFilter *vf, GstVide
             }
         }
 
-        printf("╚═══════════════════════════════════════════════════════════════════════════╝\n");
+        printf("╚══════════════════════════════════════════════════════════════════════════╝\n");
         printf("\nFrames processed: %d | Press Ctrl+C to stop\n", total_frames);
         fflush(stdout);
         frame_counter = 0;

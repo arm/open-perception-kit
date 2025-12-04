@@ -61,6 +61,7 @@ gst-launch-1.0 \
 | `text-color` | string | hex | #00FF00 | Text color in hex format |
 | `alpha` | double | 0.0-1.0 | 0.85 | Background transparency (0=transparent, 1=opaque) |
 | `update-interval` | uint | 1-120 | 5 | Update overlay every N frames |
+| `show-all-metrics` | boolean | - | false | Display all available metrics instead of predefined list |
 
 ### Property Examples
 
@@ -79,30 +80,70 @@ ampperformance update-interval=1
 
 # Update every 10 frames for minimal overhead
 ampperformance update-interval=10
+
+# Show all metrics from tracer (not just predefined list)
+ampperformance show-all-metrics=true
+
+# Show predefined metrics only (default)
+ampperformance show-all-metrics=false
 ```
 
 ## Display Format
 
-The overlay shows the following metrics:
+### Predefined Metrics (default: `show-all-metrics=false`)
+
+The overlay shows a curated list of common metrics:
 
 ```
 ═══ Performance Metrics ═══
-PreProc: 0.25ms (p95:0.31ms)
-Inference: 7.44ms (p95:7.91ms)
-PostProc: 0.07ms (p95:0.09ms)
-Frame: 7.78ms (p95:8.30ms)
-FPS: 128.5
+PreProc           :   0.25ms  (p95:   0.31ms)
+Inference         :   7.44ms  (p95:   7.91ms)
+PostProc          :   0.07ms  (p95:   0.09ms)
+Frame             :   7.78ms  (p95:   8.30ms)
+FPS :  128.5
 ═══════════════════════════
 ```
 
-### Metrics Explained
-
+**Metrics Explained:**
 - **PreProc**: Image preprocessing time (resize, normalize, format conversion)
 - **Inference**: Runtime model execution time
 - **PostProc**: Output processing time (detection parsing, NMS, drawing)
 - **Frame**: Total frame processing time (sum of all stages)
 - **FPS**: Calculated frames per second based on average frame time
 - **p95**: 95th percentile - shows worst-case performance
+
+### All Metrics (`show-all-metrics=true`)
+
+When enabled, displays all metrics currently tracked by the Performance Tracer:
+
+```
+═══ Performance Metrics ═══
+frame_total       :   7.78ms  (p95:   8.30ms)
+inference         :   7.44ms  (p95:   7.91ms)
+postprocessing    :   0.10ms  (p95:   0.12ms)
+preprocessing     :   0.25ms  (p95:   0.31ms)
+FPS :  128.5
+═══════════════════════════
+```
+
+If your element tracks additional custom metrics, they will appear here automatically:
+
+```
+═══ Performance Metrics ═══
+custom_metric_1   :   1.23ms  (p95:   1.45ms)
+custom_metric_2   :   0.15ms  (p95:   0.20ms)
+frame_total       :   9.16ms  (p95:   9.86ms)
+inference         :   7.44ms  (p95:   7.91ms)
+postprocessing    :   0.10ms  (p95:   0.12ms)
+preprocessing     :   0.25ms  (p95:   0.31ms)
+FPS :  109.2
+═══════════════════════════
+```
+
+This mode is useful when:
+- You've added custom timing keys to your element
+- You want to see all instrumented operations
+- Debugging performance issues across multiple components
 
 ## Supported Video Formats
 
@@ -211,17 +252,6 @@ gst-launch-1.0 \
   ampinfer model-path=model2.onnx ! videoconvert ! video/x-raw,format=BGRA ! \
   ampperformance x-offset=10 y-offset=10 text-color="#FF0000" ! comp.sink_1
 ```
-
-## Testing
-
-Run the test script:
-
-```bash
-cd /work/scripts
-bash test-performance-overlay.sh
-```
-
-This generates test videos with performance overlays that can be inspected.
 
 ## Troubleshooting
 

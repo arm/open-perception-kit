@@ -4,21 +4,50 @@
 export GST_PLUGIN_PATH=/work/development/build/meson-out
 export LD_LIBRARY_PATH=/work/development/build/meson-out:$LD_LIBRARY_PATH
 
+# Parse options
+SHOW_ALL_METRICS="false"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --show-all-metrics=*)
+      SHOW_ALL_METRICS="${1#*=}"
+      shift
+      ;;
+    --show-all-metrics)
+      SHOW_ALL_METRICS="true"
+      shift
+      ;;
+    --predefined-metrics)
+      SHOW_ALL_METRICS="false"
+      shift
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
 echo "=== AMP Performance Overlay Pipeline ==="
 echo ""
 echo "Plugin path: $GST_PLUGIN_PATH"
 echo "Library path: $LD_LIBRARY_PATH"
+echo "Show all metrics: $SHOW_ALL_METRICS"
 echo ""
 
 if [ $# -eq 0 ]; then
-  echo "Usage: $0 <command>"
+  echo "Usage: $0 [options] <command>"
+  echo ""
+  echo "Options:"
+  echo "  --show-all-metrics[=true|false]  Show all metrics (default: true)"
+  echo "  --predefined-metrics             Show only predefined metrics (same as --show-all-metrics=false)"
   echo ""
   echo "Examples:"
   echo "  # Test with videotestsrc"
   echo "  $0 test"
+  echo "  $0 --predefined-metrics test"
   echo ""
   echo "  # Process a video file"
   echo "  $0 video <input.mp4> <output.mp4>"
+  echo "  $0 --show-all-metrics=false video <input.mp4> <output.mp4>"
   echo ""
   echo "  # Custom pipeline"
   echo "  $0 gst-launch-1.0 videotestsrc ! ..."
@@ -33,7 +62,7 @@ case "$1" in
       video/x-raw,format=RGB,width=1280,height=720 ! \
       ampinfer model-path=/work/etc/models/yolov8n/yolov8n-160-fp32.onnx imgsz=160 ! \
       videoconvert ! video/x-raw,format=BGRA ! \
-      ampperformance x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 ! \
+      ampperformance show-all-metrics=$SHOW_ALL_METRICS x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 ! \
       videoconvert ! x264enc ! mp4mux ! \
       filesink location=/work/test_ampperformance.mp4
     echo ""
@@ -61,7 +90,7 @@ case "$1" in
       videoscale ! video/x-raw,width=1280,height=720 ! \
       ampinfer model-path=/work/etc/models/yolov8n/yolov8n-160-fp32.onnx imgsz=160 ! \
       videoconvert ! video/x-raw,format=BGRA ! \
-      ampperformance x-offset=20 y-offset=20 font-size=18 alpha=0.9 ! \
+      ampperformance show-all-metrics=$SHOW_ALL_METRICS x-offset=20 y-offset=20 font-size=18 alpha=0.9 ! \
       videoconvert ! x264enc ! mp4mux ! \
       filesink location="$OUTPUT"
     echo ""
@@ -86,7 +115,7 @@ case "$1" in
         videoscale ! video/x-raw,width=1280,height=720 ! \
         ampinfer model-path=/work/etc/models/yolov8n/yolov8n-160-fp32.onnx imgsz=160 ! \
         videoconvert ! video/x-raw,format=BGRA ! \
-        ampperformance x-offset=20 y-offset=20 font-size=18 alpha=0.9 ! \
+        ampperformance show-all-metrics=$SHOW_ALL_METRICS x-offset=20 y-offset=20 font-size=18 alpha=0.9 ! \
         videoconvert ! x264enc ! mp4mux ! \
         filesink location="$OUTPUT"
       echo ""
