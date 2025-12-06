@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <onnxruntime_cxx_api.h>
 
 #include "uniflow/detection_types.h"
@@ -9,70 +10,21 @@
 #include "uniflow/yolo_like_parser.h"
 #include "uniflow/model_io.h"
 
+#include "JsonSchemas.h" 
+
 #include <vector>
 #include <map>
 
 #include <nlohmann/json.hpp>
-#include <vector>  // important
 
 using nlohmann::json;
 
 enum class OnnxResult {
     Ok = 0,
     UniflowModelInspectError,
-    CreateEnvironmentError
+    CreateEnvironmentError,
+    TensorProblem
 };
-
-namespace uflw {
-
-    inline void to_json(json& j, const DetectionRect& b) {
-        j = json {
-            { "x", b.x },
-            { "y", b.y },
-            { "w", b.w },
-            { "h", b.h },
-            { "confidence", b.confidence },
-            { "classIndex", b.classIndex }
-        };
-    }
-
-    inline void from_json(const json& j, DetectionRect& b) {
-        j.at("x").get_to(b.x);
-        j.at("y").get_to(b.y);
-        j.at("w").get_to(b.w);
-        j.at("h").get_to(b.h);
-        j.at("confidence").get_to(b.confidence);
-        j.at("classIndex").get_to(b.classIndex);
-    }
-
-    inline void to_json(json& j, const DetectionPoint& p) {
-        j = json { { "x", p.x }, { "y", p.y } };
-    }
-
-    inline void from_json(const json& j, DetectionPoint& p) {
-        j.at("x").get_to(p.x);
-        j.at("y").get_to(p.y);
-    }
-
-    inline void to_json(json& j, const DetectionResult& r) {
-        j = json {
-            { "inferId",  r.inferId },
-            { "originTs", r.originTs },
-            { "inferTs",  r.inferTs },
-            { "rects",    r.rects },
-            { "points",   r.points }
-        };
-    }
-
-    inline void from_json(const json& j, DetectionResult& r) {
-        j.at("inferId").get_to(r.inferId);
-        j.at("originTs").get_to(r.originTs);
-        j.at("inferTs").get_to(r.inferTs);
-        j.at("rects").get_to(r.rects);
-        j.at("points").get_to(r.points);
-    }
-
-} // namespace uflw
 
 struct OnnxTools {
 
@@ -80,7 +32,7 @@ struct OnnxTools {
     static bool getTensorShape(const Ort::Session& session, uflw::TensorInOut tensorInOut, int inputIndex, uflw::Shape& outShape);
 
     static uflw::ModelFamily guessModelFamily(const Ort::Session& session, uflw::FxString<32>& outVersion);
-    static uflw::InputTensorDataKind guessModelInputDataKind(const Ort::Session& session, int inputIndex, int& outBatchCount);
+    static uflw::TensorDataKind guessModelInputDataKind(const Ort::Session& session, int inputIndex, int& outBatchCount);
     static std::map<std::string, std::string> getModelMeta(const Ort::Session& session);
 
     static uflw::Model inspectModel(const Ort::Session& session, const std::string& modelFile);
@@ -105,3 +57,60 @@ struct OnnxTools {
         }
     }
 };
+
+struct OnnxTensor {
+
+    OnnxTensor(const uflw::Shape& shape, uflw::ValueType type) {
+        this->shape = shape;
+        this->type = type;
+        this->typeByteSize = uflw::getValueTypeByteSize(type);
+        for(size_t i = 0; i < shape.dimensionCount; i++)
+            onnxShape[i] = shape.valueCount[i];
+
+        this->data.resize(shape.getFullValueCount() * typeByteSize);
+    }
+
+    uint8_t* getData() { 
+        return (uint8_t*)data.data(); 
+    }
+
+    size_t getElementCount() { 
+        size_t elemCount = data.size() / typeByteSize;
+        return elemCount; 
+    }
+    
+    size_t getByteCount() { return data.size(); }
+
+    bool checkShape(const uflw::Shape& shape) { return this->shape == shape; }
+
+    Ort::Value createOnnxTensor(const Ort::MemoryInfo& memInfo) {
+        if (this->type == uflw::ValueType::f32) {
+            return Ort::Value::CreateTensor<float>(
+            memInfo,
+            reinterpret_cast<float*>(getData()),
+            getElementCount(),
+            this->onnxShape,
+            this->shape.dimensionCount);
+        } else if (this->type == uflw::ValueType::i64) {
+            return Ort::Value::CreateTensor<int64_t>(
+                memInfo,
+                reinterpret_cast<int64_t*>(getData()),
+                getElementCount(),
+                onnxShape,
+                this->shape.dimensionCount);
+        } else {
+            assert(0);
+        }
+    }
+    
+private:
+
+    uflw::ValueType type;
+    size_t typeByteSize;
+    uflw::Shape shape;
+    int64_t onnxShape[8];
+
+    std::vector<uint8_t> data;
+
+};
+

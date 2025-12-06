@@ -4,6 +4,8 @@ common = static_library(
   sources: [
     'GstTools.h',
     'GstTools.cpp',
+    'ModelDescriptor.h',
+    'ModelDescriptor.cpp',
     'AmpTools.h',
     'AmpTools.cpp',
     'PerformanceMetrics.h',
@@ -15,10 +17,13 @@ common = static_library(
     'TensorMeta.h',
     'TensorMeta.cpp',
     'InferResultMeta.h',
-    'InferResultMeta.cpp'
+    'InferResultMeta.cpp',
+
+    'amp/Result.h',
+    'amp/Result.cpp'
   ],
-#  include_directories: [ common_include, uniflow_include],
   include_directories: [ common_include ],
+  cpp_args: ['-DFMT_HEADER_ONLY'],
   dependencies: [ amp_deps ],
   gnu_symbol_visibility: 'hidden', 
   install: false

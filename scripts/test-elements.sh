@@ -40,7 +40,7 @@ onnx() {
   gst-launch-1.0 \
     filesrc location=/work/etc/videos/00.mp4 ! decodebin name=dec \
     dec. ! queue ! video/x-raw ! videoconvert ! \
-      ampinfer model-path=/work/etc/models/yolov11n/yolo11n-fp32-320.onnx imgsz=320 ! \
+      ampinfer model-path=/work/etc/models/blazeface/blazeface.onnx imgsz=320 ! \
       textoverlay name=overlay valignment=top halignment=center font-desc="Sans, 14" ! \
       ampsink name=sink \
     dec. ! queue ! audio/x-raw ! audioconvert ! audioresample ! \
