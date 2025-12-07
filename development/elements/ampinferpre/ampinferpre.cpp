@@ -13,7 +13,7 @@
 
 #include <stdio.h>
 
-#include "TensorMeta.h"
+#include "gst/TensorMeta.h"
 
 #include "uniflow/cpu_image_kernels.h"
 
@@ -44,7 +44,7 @@ return GST_FLOW_OK;
   guint8 *rgb = (guint8*)GST_VIDEO_FRAME_PLANE_DATA(frame, 0);
   if (!rgb) return GST_FLOW_OK;
 
-  GstMetaTensor* tensor = GstMetaTensorAttach(TensorType::Input, frame->buffer, 640 * 640 * 3 * 4);
+  /*GstMetaTensor* tensor = GstMetaTensorAttach(TensorType::Input, frame->buffer, 640 * 640 * 3 * 4);
   tensor->tensorType = TensorType::Input;
   tensor->valueType = uflw::ValueType::f32;
 
@@ -54,7 +54,7 @@ return GST_FLOW_OK;
 
 
     GstMetaTensorUnlockData(tensor, &mem);
-  }
+  }*/
     
 
 

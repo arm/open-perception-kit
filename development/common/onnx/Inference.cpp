@@ -1,7 +1,8 @@
 #include "Inference.h"
 
-#include "OnnxTools.h"
+#include "amp/String.h"
 #include "gst/video/video-enumtypes.h"
+#include "onnx/Tools.h"
 #include "onnxruntime_cxx_api.h"
 #include "tl/expected.hpp"
 #include "uniflow/detection_types.h"
@@ -12,6 +13,9 @@
 #include <fmt/core.h>
 
 #include "amp/File.h"
+#include "amp/String.h"
+
+#include "ModelDescriptor.h"
 
 using namespace onnx;
 
@@ -19,16 +23,35 @@ Inference::Inference() {
 }
 
 Inference::~Inference() {   
+    if(this->session) delete this->session;
+}
 
+onnx::Result Inference::setupFromJson(const std::string& filePath) {
+
+    auto md = ModelDescriptor::fromFile(filePath);
+
+    if (!md) {
+        fmt::print("{}", md.error().toString());
+        return onnx::Result::TensorProblem;
+    }
+    ModelDescriptor desc = *md;
+
+    // setup model path correctly
+    {
+        std::string modelRoot = filePath;
+        if(amp::utf8::contains(modelRoot, '/')) {
+            size_t lastSlashAt = amp::utf8::lastIndexOf(modelRoot, '/');
+            modelRoot = amp::utf8::left(modelRoot, lastSlashAt + 1);
+        } else {
+            modelRoot = "";
+        }
+        desc.modelFile = modelRoot + desc.modelFile;
+    }
+
+    return setup(desc.modelFile);
 }
 
 onnx::Result Inference::setup(const std::string& file) {
-
-    if(auto fileSize = amp::fs::fileSize("/work/etc/models/yolov8n/yolov8n-fp32.onnxx"); !fileSize) {
-        fmt::print("{}\n", fileSize.error().toString());
-    } else {
-        fmt::print("File size is {}\n", (int)*fileSize);
-    }
 
     this->model = nullptr;
     this->inputBuilder = nullptr;

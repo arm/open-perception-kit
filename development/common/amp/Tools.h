@@ -2,9 +2,13 @@
 
 #include <string>
 
-struct AmpTools {
+namespace amp {
+
+struct Tools {
 
     static bool isRunningInDocker() { return true; }
     static std::string getLocalIp();
+    static void abort();
 
-};
+};}
+

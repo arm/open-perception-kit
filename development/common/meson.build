@@ -2,23 +2,23 @@
 common = static_library(
   'common',                   
   sources: [
-    'GstTools.h',
-    'GstTools.cpp',
     'ModelDescriptor.h',
     'ModelDescriptor.cpp',
-    'AmpTools.h',
-    'AmpTools.cpp',
     'PerformanceMetrics.h',
     'PerformanceMetrics.cpp',
-    'OnnxTools.h',
-    'OnnxTools.cpp',
-    'TensorMeta.h',
-    'TensorMeta.cpp',
-    'InferResultMeta.h',
-    'InferResultMeta.cpp',
 
+    'gst/Tools.h',
+    'gst/Tools.cpp',
+    'gst/TensorMeta.h',
+    'gst/TensorMeta.cpp',
+
+    'amp/File.h',
+    'amp/Painter.h',
+    'amp/String.h',
     'amp/Result.h',
     'amp/Result.cpp',
+    'amp/Tools.h',
+    'amp/Tools.cpp',
 
     'onnx/Inference.h',
     'onnx/Inference.cpp',

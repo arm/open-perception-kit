@@ -158,6 +158,91 @@ namespace amp {
             }
             return false;
         }
+
+        // Return true if `str` is a NULL-terminated string of *valid* UTF-8.
+        static bool validate(const char* str)
+        {
+            const unsigned char* p = reinterpret_cast<const unsigned char*>(str);
+
+            while (*p != 0) {
+                unsigned char b0 = *p;
+
+                // 1-byte ASCII: 0xxxxxxx
+                if ((b0 & 0x80u) == 0u) {
+                    ++p;
+                    continue;
+                }
+
+                // Determine sequence length and initial codepoint bits
+                uint32_t code = 0;
+                int length = 0;
+
+                if ((b0 & 0xE0u) == 0xC0u) {          // 110xxxxx → 2 bytes
+                    length = 2;
+                    code   = b0 & 0x1Fu;
+                    // Overlong check: 2-byte sequence must be >= 0x80
+                    if (code < 0x2u) return false;
+                }
+                else if ((b0 & 0xF0u) == 0xE0u) {     // 1110xxxx → 3 bytes
+                    length = 3;
+                    code   = b0 & 0x0Fu;
+                }
+                else if ((b0 & 0xF8u) == 0xF0u) {     // 11110xxx → 4 bytes
+                    length = 4;
+                    code   = b0 & 0x07u;
+                }
+                else {
+                    // Invalid leading byte
+                    return false;
+                }
+
+                // Make sure we actually *have* that many bytes before NUL.
+                // (p[0] is b0; we need p[1..length-1])
+                for (int i = 1; i < length; ++i) {
+                    unsigned char bi = p[i];
+                    if (bi == 0) {
+                        // String ended in the middle of a sequence
+                        return false;
+                    }
+                    // Continuation must be 10xxxxxx
+                    if ((bi & 0xC0u) != 0x80u) {
+                        return false;
+                    }
+                    code = (code << 6) | (bi & 0x3Fu);
+                }
+
+                // Now `code` is the decoded scalar value; apply further checks.
+
+                // Check for overlong encodings:
+                switch (length) {
+                case 2:
+                    if (code < 0x80u || code > 0x7FFu) return false;
+                    break;
+                case 3:
+                    if (code < 0x800u || code > 0xFFFFu) return false;
+                    break;
+                case 4:
+                    if (code < 0x10000u || code > 0x10FFFFu) return false;
+                    break;
+                default:
+                    // Shouldn’t happen, but be defensive
+                    return false;
+                }
+
+                // Exclude UTF-16 surrogate range
+                if (code >= 0xD800u && code <= 0xDFFFu)
+                    return false;
+
+                // Exclude codepoints > Unicode max (already covered above, but keep)
+                if (code > 0x10FFFFu)
+                    return false;
+
+                p += length;
+            }
+
+            return true;
+        }
+        
     };
 
     // Higher-level UTF-8 string utilities working on std::string.

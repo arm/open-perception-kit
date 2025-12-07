@@ -1,6 +1,8 @@
-#include "GstTools.h"
+#include "Tools.h"
 
-GstElement* GstTools::getOverlayElement(GstVideoFilter* videoFilter, const char* overlayElementName) {
+using namespace gst;
+
+GstElement* Tools::getOverlayElement(GstVideoFilter* videoFilter, const char* overlayElementName) {
 
     GstObject* parent_obj = gst_element_get_parent(GST_ELEMENT(videoFilter));
     if (parent_obj) {
@@ -14,7 +16,7 @@ GstElement* GstTools::getOverlayElement(GstVideoFilter* videoFilter, const char*
     return nullptr;
 }
 
-GstElement* GstTools::getOverlayElement(GstVideoFilter* videoFilter) {
+GstElement* Tools::getOverlayElement(GstVideoFilter* videoFilter) {
     if (!videoFilter) return nullptr;
 
     // Get the parent (should be a bin)

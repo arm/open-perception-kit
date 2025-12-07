@@ -1,0 +1,14 @@
+{
+	"name": "yolo",
+	"modelFile": "yolov8n-fp32.onnx",
+
+	"builderId": "OnnxBuilder",
+	"parserId": "BlazeFaceParser",
+
+	"inputShape": [1, 128, 128, 3],
+
+	"dynamicOutput": false,
+
+	"maxDetectionCount": 16,
+	"confidenceThreshold": 0.7
+}

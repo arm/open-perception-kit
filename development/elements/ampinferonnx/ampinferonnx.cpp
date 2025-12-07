@@ -10,7 +10,7 @@
 #include <gst/base/gstbasetransform.h>
 #include <stdio.h>
 
-#include "TensorMeta.h"
+//#include "TensorMeta.h"
 
 // ------------------------------------------------
 
@@ -33,12 +33,12 @@ static GstFlowReturn gst_ampinferonnx_transform_ip(GstBaseTransform* base, GstBu
 
     return GST_FLOW_OK;
 
-  GstMetaTensor* tensor = GstMetaTensorGetAttached(buffer);
+  /*GstMetaTensor* tensor = GstMetaTensorGetAttached(buffer);
   if(nullptr != tensor) { 
     if(tensor->tensorType == TensorType::Input) {
       printf("Inference has input tensor.. %ld\n", tensor->tensorByteSize); 
     }
-  }
+  }*/
 
   return GST_FLOW_OK;
 }

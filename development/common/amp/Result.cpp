@@ -26,7 +26,7 @@ std::string Error::toString() {
     };
 
     std::string ret = format("{}{}\n{}{}",
-        format(RED, "Error:\n"), yellow(magic_enum::enum_name(resultFlag)),
+        format(RED, "Error:\n"), yellow(magic_enum::enum_name(flag)),
         format(RED, "Because:\n"), green(info)
     );
 

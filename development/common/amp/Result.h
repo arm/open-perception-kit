@@ -13,9 +13,10 @@
 
 namespace amp {
 
-    enum class ResultFlag {
-        Ok = 0,
+    enum class ErrorFlag {
+        Ok = 0, // but why?
         FileNotFound,
+        InvalidData,
         GenericError
     };
 
@@ -23,14 +24,14 @@ namespace amp {
 
         Error() { }
 
-        Error(ResultFlag flag, const std::string& info, const std::source_location& location = std::source_location()) :
-            resultFlag(flag), 
+        Error(ErrorFlag flag, const std::string& info, const std::source_location& location = std::source_location()) :
+            flag(flag), 
             info(info),
             sourceLocation(location)
         { 
         }
 
-        ResultFlag resultFlag = ResultFlag::GenericError;
+        ErrorFlag flag = ErrorFlag::GenericError;
         std::string info;
         std::source_location sourceLocation;
 

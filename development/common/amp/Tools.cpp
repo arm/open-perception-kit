@@ -1,4 +1,4 @@
-#include "AmpTools.h"
+#include "Tools.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,9 +6,11 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-std::string AmpTools::getLocalIp() {
+using namespace amp;
 
-    if(!AmpTools::isRunningInDocker()) {
+std::string Tools::getLocalIp() {
+
+    if(!Tools::isRunningInDocker()) {
         return "127.0.0.1";
     }
 
@@ -40,4 +42,8 @@ std::string AmpTools::getLocalIp() {
     
     return ret;    
 
+}
+
+void Tools::abort() {
+    ::abort();
 }

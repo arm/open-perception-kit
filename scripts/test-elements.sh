@@ -34,31 +34,29 @@ onnx() {
 
   IP=$(getent ahostsv4 host.docker.internal | awk 'NR==1{print $1}')
   
-  # ampinfer model-path=/work/etc/models/yolov11n/yolo11n-fp32-320.onnx imgsz=320 ! \
-  # ampinfer model-path=/work/etc/models/blazeface/blaze-fp32-128.onnx imgsz=320 ! \
 
-  gst-launch-1.0 \
-    filesrc location=/work/etc/videos/00.mp4 ! decodebin name=dec \
-    dec. ! queue ! video/x-raw ! videoconvert ! \
-      ampinfer model-path=/work/etc/models/blazeface/blazeface.onnx imgsz=320 ! \
+#  gst-launch-1.0 \
+#    filesrc location=/work/etc/videos/00.mp4 ! decodebin name=dec \
+#    dec. ! queue ! video/x-raw ! videoconvert ! \
+#      ampinfer model-path=/work/etc/models/blazeface/blazeface.onnx imgsz=320 ! \
+#      textoverlay name=overlay valignment=top halignment=center font-desc="Sans, 14" ! \
+#      ampsink name=sink \
+#    dec. ! queue ! audio/x-raw ! audioconvert ! audioresample ! \
+#      sink.audiopad
+
+
+gst-launch-1.0 \
+  filesrc location=/work/etc/images/katana.jpg ! \
+  jpegdec ! \
+  imagefreeze ! \
+  videoconvert ! \
+      ampinfer model-path=/work/etc/models/yolov8n/yolov8n-fp32.onnx ! \
       textoverlay name=overlay valignment=top halignment=center font-desc="Sans, 14" ! \
-      ampsink name=sink \
-    dec. ! queue ! audio/x-raw ! audioconvert ! audioresample ! \
-      sink.audiopad
+      ampsink name=sink 
 
   msg_end "Pipeline finished."
 }
 
-#    videoscale ! video/x-raw,format=RGB,width=160,height=160 ! \
-
-
-#  gst-launch-1.0 \
-#    filesrc location=/work/etc/videos/00.mp4 ! decodebin ! \
-#    videoconvert ! videoscale ! video/x-raw,format=RGB,width=640,height=640 ! \
-#    ampinfer model-path=/work/etc/models/yolov8n/yolov8n-fp32.onnx imgsz=640 ! \
-#    videoconvert ! x264enc tune=zerolatency speed-preset=ultrafast ! \
-#    mpegtsmux ! \
-#    udpsink host="$IP" port=5000 sync=false async=false
 
 onnx2() {
 

@@ -8,7 +8,7 @@ g++ -fPIC -shared -o libgstampsink.so ampsink.cpp \
 #include <gst/video/video.h>
 #include <gst/audio/audio.h>
 
-#include "AmpTools.h"
+#include "amp/Tools.h"
 
 #ifndef PACKAGE
 #define PACKAGE "ampsink"
@@ -72,7 +72,7 @@ static void push_props_down(GstAmpSink *self) {
   if (self->udpsink) {
     g_object_set(self->udpsink,
 //                 "host",  self->host ? self->host : (gchar*)"127.0.0.1",
-                 "host",  self->host ? self->host : (gchar*)AmpTools::getLocalIp().c_str(),
+                 "host",  self->host ? self->host : (gchar*)amp::Tools::getLocalIp().c_str(),
                  "port",  self->port,
                  "sync",  self->sync,
                  "async", self->async,
@@ -256,7 +256,7 @@ static void gst_amp_sink_dispose(GObject *object) {
 
 static void gst_amp_sink_init(GstAmpSink *self) {
   /* defaults */
-  self->host               = g_strdup(AmpTools::getLocalIp().c_str());
+  self->host               = g_strdup(amp::Tools::getLocalIp().c_str());
   self->port               = 5000;
   self->sync               = FALSE;   /* sender shouldn't schedule */
   self->async              = FALSE;

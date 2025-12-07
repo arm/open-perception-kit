@@ -25,6 +25,7 @@ struct Inference {
     Inference();
     virtual ~Inference();
 
+    onnx::Result setupFromJson(const std::string& filePath);
     onnx::Result setup(const std::string& file);
 
     void setOutputParser(std::unique_ptr<uflw::NetworkOutputParser> parser) { this->outputParser = std::move(parser); }
@@ -53,6 +54,11 @@ protected:
     std::unique_ptr<uflw::Model> model;
     std::unique_ptr<uflw::NetworkOutputParser> outputParser;
     std::unique_ptr<uflw::NetworkInputBuilder> inputBuilder;
+
+    struct ApiTensorIo {
+
+    };
+
     std::unique_ptr<onnx::Tensor> inputTensors[4];
     std::unique_ptr<onnx::Tensor> outputTensors[4];
     std::vector<const char*> inputNames;

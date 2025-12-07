@@ -5,7 +5,9 @@
 #include <gst/video/gstvideofilter.h>
 #include <gst/video/video.h>
 
-struct GstTools {
+namespace gst {  
+
+struct Tools {
 
     static GstElement* getOverlayElement(GstVideoFilter* videoFilter);
     static GstElement* getOverlayElement(GstVideoFilter* videoFilter, const char* overlayElementName);
@@ -14,6 +16,6 @@ struct GstTools {
             gst_object_unref(element);
     }
 
-};
+};}
 
 
