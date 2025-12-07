@@ -16,8 +16,9 @@
 #include <string>
 #include <vector>
 
-#include "OnnxInference.h"
+#include "onnx/Inference.h"
 #include "OnnxTools.h"
+
 #include "GstTools.h"
 #include "PerformanceMetrics.h"
 #include "uniflow/blazeface_parser.h"
@@ -55,7 +56,7 @@ struct _GstAmpInfer {
   std::vector<char*> input_names;
   std::vector<char*> output_names;
 
-  std::shared_ptr<OnnxInference> onnxInference;
+  std::shared_ptr<onnx::Inference> onnxInference;
 };
 
 G_END_DECLS
@@ -76,7 +77,7 @@ static gboolean gst_ampinfer_start (GstBaseTransform *b) {
 
     // ---
 
-    self->onnxInference = std::make_shared<OnnxInference>();
+    self->onnxInference = std::make_shared<onnx::Inference>();
     self->onnxInference->setup(self->model_path);
 
     if(self->onnxInference->getModel().modelFamily == uflw::ModelFamily::YoloObjectDetection) {

@@ -1,5 +1,3 @@
-#pragma once
-
 #include <cstdint>
 #include <onnxruntime_cxx_api.h>
 
@@ -15,52 +13,11 @@
 #include <vector>
 #include <map>
 
-#include <nlohmann/json.hpp>
+namespace onnx {
 
-using nlohmann::json;
+struct Tensor {
 
-enum class OnnxResult {
-    Ok = 0,
-    UniflowModelInspectError,
-    CreateEnvironmentError,
-    TensorProblem
-};
-
-struct OnnxTools {
-
-    static bool onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, uflw::ValueType& outUniflowType);
-    static bool getTensorShape(const Ort::Session& session, uflw::TensorInOut tensorInOut, int inputIndex, uflw::Shape& outShape);
-
-    static uflw::ModelFamily guessModelFamily(const Ort::Session& session, uflw::FxString<32>& outVersion);
-    static uflw::TensorDataKind guessModelInputDataKind(const Ort::Session& session, int inputIndex, int& outBatchCount);
-    static std::map<std::string, std::string> getModelMeta(const Ort::Session& session);
-
-    static uflw::Model inspectModel(const Ort::Session& session, const std::string& modelFile);
-
-
-    static std::string toString(const uflw::Model& model);
-
-    // ---
-
-    static std::string serializeDetectionResult(const uflw::DetectionResult& r) {
-        json j = r;
-        return j.dump();
-    }
-
-    static bool deserializeDetectionResult(const std::string& s, uflw::DetectionResult& out) {
-        try {
-            json j = json::parse(s);
-            out = j.get<uflw::DetectionResult>();
-            return true;
-        } catch (...) {
-            return false;
-        }
-    }
-};
-
-struct OnnxTensor {
-
-    OnnxTensor(const uflw::Shape& shape, uflw::ValueType type) {
+    Tensor(const uflw::Shape& shape, uflw::ValueType type) {
         this->shape = shape;
         this->type = type;
         this->typeByteSize = uflw::getValueTypeByteSize(type);
@@ -113,4 +70,6 @@ private:
     std::vector<uint8_t> data;
 
 };
+}
+
 

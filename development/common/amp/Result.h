@@ -15,6 +15,7 @@ namespace amp {
 
     enum class ResultFlag {
         Ok = 0,
+        FileNotFound,
         GenericError
     };
 
@@ -39,7 +40,7 @@ namespace amp {
 
     template <typename T>
     using Result = tl::expected<T, Error>;    
-    
+
 }
 
 #define AMP_ERROR(flag, info) ::amp::Error(flag, info, std::source_location::current())

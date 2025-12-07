@@ -12,15 +12,18 @@ common = static_library(
     'PerformanceMetrics.cpp',
     'OnnxTools.h',
     'OnnxTools.cpp',
-    'OnnxInference.h',
-    'OnnxInference.cpp',
     'TensorMeta.h',
     'TensorMeta.cpp',
     'InferResultMeta.h',
     'InferResultMeta.cpp',
 
     'amp/Result.h',
-    'amp/Result.cpp'
+    'amp/Result.cpp',
+
+    'onnx/Inference.h',
+    'onnx/Inference.cpp',
+    'onnx/Tools.h',
+    'onnx/Tools.cpp'
   ],
   include_directories: [ common_include ],
   cpp_args: ['-DFMT_HEADER_ONLY'],

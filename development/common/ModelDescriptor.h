@@ -21,8 +21,8 @@ struct ModelDescriptor {
     bool forceOutputType = false;
     uflw::ValueType outputType;
     
-    uflw::Shape inputShape;
-    uflw::Shape outputShape;
+    uflw::Shape inputShape = uflw::Shape { 0 };
+    uflw::Shape outputShape = uflw::Shape { 0 };
 
     size_t maxDetectionCount = 16;
     float confidenceThreshold = 0.7f;
@@ -53,28 +53,4 @@ inline void from_json(const json& j, ModelDescriptor& b) {
     j.at("maxDetectionCount").get_to(b.maxDetectionCount);
     j.at("confidenceThreshold").get_to(b.confidenceThreshold);
 }
-
-/*
-inline void to_json(json& j, const uflw::ValueType& b) {
-    j = json {
-        { "name", b.name },
-        { "builderId", b.builderId },
-        { "parserId", b.parserId },
-        { "dynamicInput", b.dynamicInput },
-        { "dynamicOutput", b.dynamicOutput },
-        { "inputShape", b.inputShape }
-    };
-}
-
-inline void from_json(const json& j, const uflw::ValueType& b) {
-    j.at("name").get_to(b.name);
-    j.at("parserId").get_to(b.parserId);
-    j.at("builderId").get_to(b.builderId);
-    j.at("dynamicInput").get_to(b.dynamicInput);
-    j.at("dynamicOutput").get_to(b.dynamicOutput);
-    j.at("inputShape").get_to(b.inputShape);
-}
-*/
-
-
 

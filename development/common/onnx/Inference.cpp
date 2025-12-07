@@ -1,4 +1,5 @@
-#include "OnnxInference.h"
+#include "Inference.h"
+
 #include "OnnxTools.h"
 #include "gst/video/video-enumtypes.h"
 #include "onnxruntime_cxx_api.h"
@@ -8,29 +9,25 @@
 #include "uniflow/tensor_view.h"
 #include <memory>
 
-#include <fmt/color.h>
+#include <fmt/core.h>
 
-#include "amp/Result.h"
+#include "amp/File.h"
 
-OnnxInference::OnnxInference() {
+using namespace onnx;
+
+Inference::Inference() {
 }
 
-OnnxInference::~OnnxInference() {
-
-}
-
-amp::Result<int> getShit() {    
-
-    return tl::unexpected(AMP_ERROR(amp::ResultFlag::GenericError, "shit"));
+Inference::~Inference() {   
 
 }
 
-OnnxResult OnnxInference::setup(const std::string& file) {
+onnx::Result Inference::setup(const std::string& file) {
 
-    if(auto r = getShit(); !r) {
-        printf("%s\n", r.error().toString().c_str());
+    if(auto fileSize = amp::fs::fileSize("/work/etc/models/yolov8n/yolov8n-fp32.onnxx"); !fileSize) {
+        fmt::print("{}\n", fileSize.error().toString());
     } else {
-        r = 4;
+        fmt::print("File size is {}\n", (int)*fileSize);
     }
 
     this->model = nullptr;
@@ -60,13 +57,13 @@ OnnxResult OnnxInference::setup(const std::string& file) {
   
         this->session = new Ort::Session(*this->environment, this->modelPath.c_str(), *this->sessionOptions);
 
-        this->model = std::make_unique<uflw::Model>(OnnxTools::inspectModel(*this->session, this->modelPath));
+        this->model = std::make_unique<uflw::Model>(onnx::Tools::inspectModel(*this->session, this->modelPath));
         if(false == this->model->parseError.empty()) {
             printf("INSPECT MODEL FAILED: %s\n", this->model->parseError.c_str());
-            return OnnxResult::UniflowModelInspectError;
+            return onnx::Result::UniflowModelInspectError;
         }
         
-        std::string modelLog = OnnxTools::toString(*this->model);
+        std::string modelLog = onnx::Tools::toString(*this->model);
         printf("---> New  model  parsed <---\n");
         printf("%s", modelLog.c_str());
         printf("--- --- --- ---- --- --- ---\n");
@@ -77,30 +74,30 @@ OnnxResult OnnxInference::setup(const std::string& file) {
     } 
     catch (const std::exception& e) {
     
-        return OnnxResult::CreateEnvironmentError;
+        return onnx::Result::CreateEnvironmentError;
     }
 
-    return OnnxResult::Ok;
+    return onnx::Result::Ok;
 
 }
 
-void OnnxInference::setupTensorsForModel() {
+void Inference::setupTensorsForModel() {
 
     for(size_t i = 0; i < this->model->modelInputCount; i++) {
-        this->inputTensors[i] = std::make_unique<OnnxTensor>(this->model->inputs[i].shape, this->model->inputs[i].valueType);
+        this->inputTensors[i] = std::make_unique<onnx::Tensor>(this->model->inputs[i].shape, this->model->inputs[i].valueType);
         this->inputNames.push_back(this->model->inputs[i].name.c_str());
         this->inputTensorVector.push_back(this->inputTensors[i]->createOnnxTensor(*this->memoryInfo));
     }
 
     for(size_t i = 0; i < this->model->modelOutputCount; i++) {
-        this->outputTensors[i] = std::make_unique<OnnxTensor>(this->model->outputs[i].shape, this->model->outputs[i].valueType);
+        this->outputTensors[i] = std::make_unique<onnx::Tensor>(this->model->outputs[i].shape, this->model->outputs[i].valueType);
         this->outputNames.push_back(this->model->outputs[i].name.c_str());
         this->outputTensorVector.push_back(this->outputTensors[i]->createOnnxTensor(*this->memoryInfo));
     }
 
 }
 
-OnnxResult OnnxInference::preprocessImageData(size_t tensorIndex, const uint8_t* data, uflw::TensorDataKind dataKind, uflw::ValueType valueType, size_t imageWidth, size_t imageHeight) {
+onnx::Result Inference::preprocessImageData(size_t tensorIndex, const uint8_t* data, uflw::TensorDataKind dataKind, uflw::ValueType valueType, size_t imageWidth, size_t imageHeight) {
 
     uflw::NetworkInputBuilder::Setup setup;
     setup.original.data = data;
@@ -131,11 +128,11 @@ OnnxResult OnnxInference::preprocessImageData(size_t tensorIndex, const uint8_t*
     this->inferenceMetaData.image.modelWidth = modelWidth;
     this->inferenceMetaData.image.modelHeight = modelHeight;
 
-    return OnnxResult::Ok;
+    return onnx::Result::Ok;
 
 }
 
-OnnxResult OnnxInference::inference() {
+onnx::Result Inference::inference() {
 
     if(inputTensorVector.size() > 1) {
         *(float*)inputTensors[0]->getData() = 0.99f; // confidence
@@ -162,11 +159,11 @@ OnnxResult OnnxInference::inference() {
     this->outputNames.size());
     }
 
-    return OnnxResult::Ok;
+    return onnx::Result::Ok;
 
 }
 
-OnnxResult OnnxInference::postprocess(const uflw::NetworkOutputParser::Settings& settings,
+onnx::Result Inference::postprocess(const uflw::NetworkOutputParser::Settings& settings,
                                       uflw::DetectionResult& outDetectionResults) {
 
     if (!this->useDynamicOutput) {
@@ -213,7 +210,7 @@ OnnxResult OnnxInference::postprocess(const uflw::NetworkOutputParser::Settings&
 
             // Map ONNX type → uflw::ValueType
             uflw::ValueType valueType;
-            if (!OnnxTools::onnxTypeToUniflowType(elemType, valueType)) {
+            if (!onnx::Tools::onnxTypeToUniflowType(elemType, valueType)) {
                 // If you have better error handling, plug it here
                 assert(0);
             }
@@ -248,6 +245,6 @@ OnnxResult OnnxInference::postprocess(const uflw::NetworkOutputParser::Settings&
         // dynamicReaders stays alive until here, so tensorReaders are valid during parse()
     }
 
-    return OnnxResult::Ok;
+    return onnx::Result::Ok;
 }
 

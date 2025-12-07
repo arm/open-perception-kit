@@ -1,4 +1,5 @@
-#include "OnnxTools.h"
+#include "Tools.h"
+
 #include "onnxruntime_c_api.h"
 #include "onnxruntime_cxx_api.h"
 #include "uniflow/fixed_string.h"
@@ -6,6 +7,8 @@
 #include "uniflow/public_types.h"
 
 #include <fmt/core.h>
+
+using namespace onnx;
 
 std::string toLower(std::string s) {
     std::transform(s.begin(), s.end(), s.begin(),
@@ -15,7 +18,7 @@ std::string toLower(std::string s) {
 
 // --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 
-bool OnnxTools::getTensorShape(const Ort::Session& session, uflw::TensorInOut tensorInOut, int inOutIndex, uflw::Shape& outShape) {
+bool Tools::getTensorShape(const Ort::Session& session, uflw::TensorInOut tensorInOut, int inOutIndex, uflw::Shape& outShape) {
 
     Ort::TypeInfo ti = (tensorInOut == uflw::TensorInOut::In) ? session.GetInputTypeInfo(inOutIndex) : session.GetOutputTypeInfo(inOutIndex);
 
@@ -34,7 +37,7 @@ bool OnnxTools::getTensorShape(const Ort::Session& session, uflw::TensorInOut te
 
 }
 
-bool OnnxTools::onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, uflw::ValueType& outUniflowType) {
+bool Tools::onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, uflw::ValueType& outUniflowType) {
     if(onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT) {
         outUniflowType = uflw::ValueType::f32;
         return true;
@@ -58,7 +61,7 @@ bool OnnxTools::onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, uflw::
     return false;
 }
 
-uflw::ModelFamily OnnxTools::guessModelFamily(const Ort::Session& session, uflw::FxString<32>& outVersion) {
+uflw::ModelFamily Tools::guessModelFamily(const Ort::Session& session, uflw::FxString<32>& outVersion) {
 
     Ort::AllocatorWithDefaultOptions alloc;
 
@@ -140,7 +143,7 @@ uflw::ModelFamily OnnxTools::guessModelFamily(const Ort::Session& session, uflw:
     return uflw::ModelFamily::Unknown;
 }
 
-uflw::TensorDataKind OnnxTools::guessModelInputDataKind(const Ort::Session& session, int inputIndex, int& outBatchCount) {
+uflw::TensorDataKind Tools::guessModelInputDataKind(const Ort::Session& session, int inputIndex, int& outBatchCount) {
 
     outBatchCount = 0;
 
@@ -200,7 +203,7 @@ uflw::TensorDataKind OnnxTools::guessModelInputDataKind(const Ort::Session& sess
 
 }
 
-std::map<std::string, std::string> OnnxTools::getModelMeta(const Ort::Session& session) {
+std::map<std::string, std::string> Tools::getModelMeta(const Ort::Session& session) {
     std::map<std::string, std::string> ret;
 
     Ort::AllocatorWithDefaultOptions alloc;
@@ -215,9 +218,9 @@ std::map<std::string, std::string> OnnxTools::getModelMeta(const Ort::Session& s
     return ret;
 }
 
-uflw::Model OnnxTools::inspectModel(const Ort::Session& session, const std::string& modelFile) {
+uflw::Model Tools::inspectModel(const Ort::Session& session, const std::string& modelFile) {
 
-    std::map<std::string, std::string> meta = OnnxTools::getModelMeta(session);
+    std::map<std::string, std::string> meta = Tools::getModelMeta(session);
 
     // ---- -------------------------------------------
 
@@ -296,7 +299,7 @@ uflw::Model OnnxTools::inspectModel(const Ort::Session& session, const std::stri
 
 }
 
-std::string OnnxTools::toString(const uflw::Model& model) {
+std::string Tools::toString(const uflw::Model& model) {
     std::string ret;
     
     ret += fmt::format("Model: [{}]\n", uflw::toString(model.modelFamily).c_str());
@@ -320,109 +323,4 @@ std::string OnnxTools::toString(const uflw::Model& model) {
     return ret;
 }
 
-// ---
-/*
-OnnxOutputTensor::OnnxOutputTensor(const std::vector<Ort::Value>& runResult) : runResult(runResult) {
 
-}
-
-size_t OnnxOutputTensor::getValueByteSize() const {
-    if(this->runResult.size() == 0) return 0;
-    return getOnnxValueTypeByteSize(this->runResult.at(0).GetTensorTypeAndShapeInfo().GetElementType());
-}
-
-uflw::Shape OnnxOutputTensor::getShape() const {
-    uflw::Shape shape;
-
-    if(this->runResult.size() == 0) return shape;
-
-    std::vector<int64_t> originalShape = this->runResult.at(0).GetTensorTypeAndShapeInfo().GetShape();
-
-    for(size_t i = 0; i < sizeof(shape.valueCount); i++) {
-        if(i < originalShape.size()) {
-            shape.valueCount[i] = originalShape[i];
-        }
-    }
-    shape.dimensionCount = originalShape.size();
-
-    return shape;
-}
-
-size_t OnnxOutputTensor::getValueCount() const {
- 
-    if(this->runResult.size() == 0) return 0;
-
-    uflw::Shape shape = this->getShape();
-    
-    size_t valueCount = 1;
-    for(size_t i = 0; i < shape.dimensionCount; i++) {
-        valueCount *= shape.valueCount[i];
-    }
-
-    return valueCount;
-}
-
-size_t OnnxOutputTensor::getByteSize() const {
-    if(this->runResult.size() == 0) return 0;
-
-    return this->getValueByteSize() * this->getValueCount();
-}
-
-const void* OnnxOutputTensor::getRawData() const {
-    if(this->runResult.size() == 0) return nullptr;
-    return this->runResult.at(0).GetTensorRawData();
-}
-
-bool OnnxOutputTensor::dump(const std::string& fileName) const {
-
-    const void* raw = getRawData();
-    size_t amount = getByteSize();
-
-    if(!raw || !amount) return false;
-
-    FILE* f = fopen(fileName.c_str(), "wb");
-
-    if(!f) return false;
-
-    if(amount < fwrite(raw, 1, amount, f)) {
-        fclose(f);
-        return false;
-    }
-    
-    fclose(f);
-    return true;
-}
-*/
-/*uflw::YoloLikeParser::ModelOutput OnnxTools::getOutputFromYoloModel(const Ort::Session* session, int index) {
-
-    uflw::YoloLikeParser::ModelOutput out;
-
-    Ort::AllocatorWithDefaultOptions alloc;
-    Ort::ModelMetadata meta = session->GetModelMetadata();
-
-    // ---
-
-    std::vector<Ort::AllocatedStringPtr> keys = meta.GetCustomMetadataMapKeysAllocated(alloc);
-
-    for (const auto& k : keys) {
-        
-        Ort::AllocatedStringPtr v = meta.LookupCustomMetadataMapAllocated(k.get(), alloc);
-        if(v) {
-            if(!strcmp(k.get(), "stride")) {
-                int stride;
-                if(safeParseInt(v.get(), &stride)) {
-                    out.detectionStepStride = stride;
-                }
-            }
-        }
-
-
-        //printf("Meta[%s] = %s\n", k.get(), v ? v.get() : "(null)");
-    
-    }  
-
-    // ---
-
-    return out;
-
-}*/

@@ -5,7 +5,10 @@
 #include "uniflow/model_io.h"
 #include "uniflow/detection_types.h"
 
-#include "OnnxTools.h"
+#include "onnx/Tools.h"
+
+#include "onnx/Tensor.h"
+
 #include "uniflow/public_types.h"
 #include "uniflow/tensor_view.h"
 
@@ -15,19 +18,21 @@
 
 #include "amp/Result.h"
 
-struct OnnxInference {
+namespace onnx {
 
-    OnnxInference();
-    virtual ~OnnxInference();
+struct Inference {
 
-    OnnxResult setup(const std::string& file);
+    Inference();
+    virtual ~Inference();
+
+    onnx::Result setup(const std::string& file);
 
     void setOutputParser(std::unique_ptr<uflw::NetworkOutputParser> parser) { this->outputParser = std::move(parser); }
     void setInputBuilder(std::unique_ptr<uflw::NetworkInputBuilder> builder) { this->inputBuilder = std::move(builder); }
 
-    OnnxResult preprocessImageData(size_t tensorIndex, const uint8_t* data, uflw::TensorDataKind dataKind, uflw::ValueType valueType, size_t imageWidth, size_t imageHeight);
-    OnnxResult inference();
-    OnnxResult postprocess(const uflw::NetworkOutputParser::Settings& settings, uflw::DetectionResult& outDetectionResults);
+    onnx::Result preprocessImageData(size_t tensorIndex, const uint8_t* data, uflw::TensorDataKind dataKind, uflw::ValueType valueType, size_t imageWidth, size_t imageHeight);
+    onnx::Result inference();
+    onnx::Result postprocess(const uflw::NetworkOutputParser::Settings& settings, uflw::DetectionResult& outDetectionResults);
 
     const uflw::Model& getModel() const { return *this->model; }
 
@@ -48,8 +53,8 @@ protected:
     std::unique_ptr<uflw::Model> model;
     std::unique_ptr<uflw::NetworkOutputParser> outputParser;
     std::unique_ptr<uflw::NetworkInputBuilder> inputBuilder;
-    std::unique_ptr<OnnxTensor> inputTensors[4];
-    std::unique_ptr<OnnxTensor> outputTensors[4];
+    std::unique_ptr<onnx::Tensor> inputTensors[4];
+    std::unique_ptr<onnx::Tensor> outputTensors[4];
     std::vector<const char*> inputNames;
     std::vector<const char*> outputNames;
     std::vector<Ort::Value> inputTensorVector;
@@ -58,6 +63,7 @@ protected:
     bool useDynamicOutput = true;
     std::vector<Ort::Value> dynamicOutputData;
     std::unique_ptr<uflw::TensorReader> outputTensorReaders[4];
-};
+
+};}
 
 

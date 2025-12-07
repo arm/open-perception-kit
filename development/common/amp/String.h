@@ -7,153 +7,197 @@
 #include <sstream>
 #include <algorithm>
 
-namespace amp { 
+namespace amp {
 
-    struct utf8 {
-
-        static constexpr size_t NOT_FOUND = static_cast<size_t>(-1);
-
+    // Low–level UTF-8 codepoint codec working on const char*.
+    struct codepoint
+    {
         // Decode a single UTF-8 codepoint from `str`.
-        static char32_t codepointDecode(const char* str) {
-            unsigned int cp = static_cast<unsigned char>(str[0]);
+        // Assumes `str` points to a NUL-terminated UTF-8 sequence.
+        static char32_t decode(const char* str)
+        {
+            const unsigned char b0 = static_cast<unsigned char>(str[0]);
 
-            if ((cp & 0x80u) != 0u) {
-                if ((cp & 0xE0u) == 0xC0u) {
-                    cp = ((cp & 0x1Fu) << 6) |
-                        (static_cast<unsigned char>(str[1]) & 0x3Fu);
-                } else if ((cp & 0xF0u) == 0xE0u) {
-                    cp = ((cp & 0x0Fu) << 12) |
-                        ((static_cast<unsigned char>(str[1]) & 0x3Fu) << 6) |
-                        (static_cast<unsigned char>(str[2]) & 0x3Fu);
-                } else if ((cp & 0xF8u) == 0xF0u) {
-                    cp = ((cp & 0x07u) << 18) |
-                        ((static_cast<unsigned char>(str[1]) & 0x3Fu) << 12) |
-                        ((static_cast<unsigned char>(str[2]) & 0x3Fu) << 6) |
-                        (static_cast<unsigned char>(str[3]) & 0x3Fu);
-                }
+            // 1-byte (ASCII)
+            if ((b0 & 0x80u) == 0u) {
+                return static_cast<char32_t>(b0);
             }
 
-            return static_cast<char32_t>(cp);
+            // Determine sequence length from leading byte
+            int length = 0;
+            if      ((b0 & 0xE0u) == 0xC0u) length = 2;
+            else if ((b0 & 0xF0u) == 0xE0u) length = 3;
+            else if ((b0 & 0xF8u) == 0xF0u) length = 4;
+            else
+                return 0; // invalid leading byte → treat as null / error
+
+            // Start from masked first byte
+            uint32_t code = 0;
+            switch (length) {
+            case 2: code = b0 & 0x1Fu; break;
+            case 3: code = b0 & 0x0Fu; break;
+            case 4: code = b0 & 0x07u; break;
+            default: return 0;
+            }
+
+            // Consume continuation bytes (no strict validation)
+            for (int i = 1; i < length; ++i) {
+                const unsigned char bi = static_cast<unsigned char>(str[i]);
+                // Optionally check: if ((bi & 0xC0u) != 0x80u) → error
+                code = (code << 6) | (bi & 0x3Fu);
+            }
+
+            return static_cast<char32_t>(code);
         }
 
         // Advance pointer by one UTF-8 codepoint.
-        static const char* codepointSkip(const char* str) {
-            unsigned char c = static_cast<unsigned char>(*str);
-            if ((c & 0x80u) == 0x00u) {
-                ++str;
-            } else if ((c & 0xE0u) == 0xC0u) {
-                str += 2;
-            } else if ((c & 0xF0u) == 0xE0u) {
-                str += 3;
-            } else if ((c & 0xF8u) == 0xF0u) {
-                str += 4;
+        static const char* skip(const char* str)
+        {
+            const unsigned char b0 = static_cast<unsigned char>(str[0]);
+
+            if ((b0 & 0x80u) == 0u) {
+                return str + 1; // ASCII, single byte
             }
-            return str;
+
+            // Determine sequence length from leading byte
+            if      ((b0 & 0xE0u) == 0xC0u) return str + 2;
+            else if ((b0 & 0xF0u) == 0xE0u) return str + 3;
+            else if ((b0 & 0xF8u) == 0xF0u) return str + 4;
+
+            // Invalid leading byte: advance by 1 as a fallback
+            return str + 1;
         }
 
         // Get UTF-8 byte width of a codepoint.
-        static std::size_t codepointByteWidth(char32_t cp) {
-            auto v = static_cast<uint32_t>(cp);
+        static std::size_t byteWidth(char32_t cp)
+        {
+            const uint32_t v = static_cast<uint32_t>(cp);
+
             if (v <= 0x7Fu)      return 1;
             if (v <= 0x7FFu)     return 2;
             if (v <= 0xFFFFu)    return 3;
             if (v <= 0x10FFFFu)  return 4;
-            return 0;
+
+            return 0; // outside Unicode range
         }
 
         // Encode a codepoint as UTF-8 into dst, return pointer past written bytes.
-        static char* codepointEncode(char* dst, char32_t cp, std::size_t space) {
-            std::size_t width = codepointByteWidth(cp);
-            if (width == 0 || width + 1 > space) // +1 for nul
-                return dst;
+        // `space` is the max number of bytes available in dst (including a NUL).
+        static char* encode(char* dst, char32_t cp, std::size_t space)
+        {
+            const uint32_t v_in = static_cast<uint32_t>(cp);
+            const std::size_t width = byteWidth(cp);
 
-            uint32_t v = static_cast<uint32_t>(cp);
+            if (width == 0 || width + 1 > space) { // +1 for terminating 0 if needed
+                return dst;
+            }
+
+            uint32_t v = v_in;
+            unsigned char* out = reinterpret_cast<unsigned char*>(dst);
 
             switch (width) {
             case 1:
-                dst[0] = static_cast<unsigned char>(v & 0x7F);
-                dst[1] = '\0';
+                out[0] = static_cast<unsigned char>(v);
+                out[1] = 0;
                 return dst + 1;
+
             case 2:
                 v &= 0x7FFu;
-                dst[0] = static_cast<unsigned char>(0xC0u | (v >> 6));
-                dst[1] = static_cast<unsigned char>(0x80u | (v & 0x3Fu));
-                dst[2] = '\0';
+                out[0] = static_cast<unsigned char>(0xC0u | (v >> 6));
+                out[1] = static_cast<unsigned char>(0x80u | (v & 0x3Fu));
+                out[2] = 0;
                 return dst + 2;
+
             case 3:
                 v &= 0xFFFFu;
-                dst[0] = static_cast<unsigned char>(0xE0u | (v >> 12));
-                dst[1] = static_cast<unsigned char>(0x80u | ((v >> 6) & 0x3Fu));
-                dst[2] = static_cast<unsigned char>(0x80u | (v & 0x3Fu));
-                dst[3] = '\0';
+                out[0] = static_cast<unsigned char>(0xE0u | (v >> 12));
+                out[1] = static_cast<unsigned char>(0x80u | ((v >> 6) & 0x3Fu));
+                out[2] = static_cast<unsigned char>(0x80u | (v & 0x3Fu));
+                out[3] = 0;
                 return dst + 3;
+
             case 4:
                 v &= 0x1FFFFFu;
-                dst[0] = static_cast<unsigned char>(0xF0u | (v >> 18));
-                dst[1] = static_cast<unsigned char>(0x80u | ((v >> 12) & 0x3Fu));
-                dst[2] = static_cast<unsigned char>(0x80u | ((v >> 6) & 0x3Fu));
-                dst[3] = static_cast<unsigned char>(0x80u | (v & 0x3Fu));
-                dst[4] = '\0';
+                out[0] = static_cast<unsigned char>(0xF0u | (v >> 18));
+                out[1] = static_cast<unsigned char>(0x80u | ((v >> 12) & 0x3Fu));
+                out[2] = static_cast<unsigned char>(0x80u | ((v >> 6) & 0x3Fu));
+                out[3] = static_cast<unsigned char>(0x80u | (v & 0x3Fu));
+                out[4] = 0;
                 return dst + 4;
+
             default:
                 return dst;
             }
         }
 
         // Count codepoints in a NULL-terminated UTF-8 string.
-        static std::size_t codepointCount(const char* str) {
-            std::size_t count = 0;
+        static std::size_t count(const char* str)
+        {
+            std::size_t n = 0;
             while (true) {
-                char32_t cp = codepointDecode(str);
+                char32_t cp = decode(str);
                 if (!cp) break;
-                str = codepointSkip(str);
-                ++count;
+                str = skip(str);
+                ++n;
             }
-            return count;
+            return n;
         }
 
         /// Check whether string contains codepoint `cp`.
-        static bool codepointContained(const char* str, char32_t cp, const char** foundAt = nullptr) {
+        /// If `foundAt` is non-null, it is set to the pointer where `cp` starts.
+        static bool contains(const char* str, char32_t cp, const char** foundAt = nullptr)
+        {
             while (true) {
-                char32_t current = codepointDecode(str);
+                char32_t current = decode(str);
                 if (!current) break;
                 if (current == cp) {
-                    if(foundAt) *foundAt = str;
+                    if (foundAt) *foundAt = str;
                     return true;
                 }
-                str = codepointSkip(str);
+                str = skip(str);
             }
             return false;
         }
+    };
 
-        static std::size_t byteLength(const std::string& s) {
+    // Higher-level UTF-8 string utilities working on std::string.
+    struct utf8
+    {
+        static constexpr std::size_t NOT_FOUND = static_cast<std::size_t>(-1);
+
+        static std::size_t byteLength(const std::string& s)
+        {
             return s.size();
         }
 
-        static std::size_t length(const std::string& s) {
+        // Number of Unicode codepoints in s.
+        static std::size_t length(const std::string& s)
+        {
             if (s.empty()) return 0;
 
             std::size_t count = 0;
             const char* p = s.c_str();
             while (true)
             {
-                char32_t cp = codepointDecode(p);
+                char32_t cp = codepoint::decode(p);
                 if (!cp) break;
-                p = codepointSkip(p);
+                p = codepoint::skip(p);
                 ++count;
             }
             return count;
         }
 
-        static void append(std::string& s, char32_t cp) {
+        static void append(std::string& s, char32_t cp)
+        {
             char buf[8]{};
-            codepointEncode(buf, cp, 8);
+            codepoint::encode(buf, cp, sizeof(buf));
             s += buf;
         }
 
-        static void prepend(std::string& s, char32_t cp) {
+        static void prepend(std::string& s, char32_t cp)
+        {
             char buf[8]{};
-            codepointEncode(buf, cp, 8);
+            codepoint::encode(buf, cp, sizeof(buf));
             s = std::string(buf) + s;
         }
 
@@ -162,10 +206,10 @@ namespace amp {
             const char* p = s.c_str();
             while (true)
             {
-                char32_t cp = codepointDecode(p);
+                char32_t cp = codepoint::decode(p);
                 if (!cp) break;
                 if (cp == c) return true;
-                p = codepointSkip(p);
+                p = codepoint::skip(p);
             }
             return false;
         }
@@ -188,132 +232,145 @@ namespace amp {
             return false;
         }
 
-        static bool containsOnly(const std::string& str, const std::string& allowedChars) {
-            const char* p = str.c_str(); 
+        static bool containsOnly(const std::string& str, const std::string& allowedChars)
+        {
+            const char* p = str.c_str();
             while (true)
             {
-                char32_t cp = codepointDecode(p);
+                char32_t cp = codepoint::decode(p);
                 if (!cp) break;
                 if (!contains(allowedChars, cp))
                     return false;
-                p = codepointSkip(p);
+                p = codepoint::skip(p);
             }
             return true;
         }
 
-        static std::size_t count(const std::string& s, char32_t target) {
+        static std::size_t count(const std::string& s, char32_t target)
+        {
             if (s.empty()) return 0;
 
             std::size_t cnt = 0;
             const char* p = s.c_str();
             while (true)
             {
-                char32_t cp = codepointDecode(p);
+                char32_t cp = codepoint::decode(p);
                 if (!cp) break;
                 if (cp == target)
                     ++cnt;
-                p = codepointSkip(p);
+                p = codepoint::skip(p);
             }
             return cnt;
         }
 
-        static std::string removeRight(const std::string& s, size_t codepointCount) {
-            size_t len = static_cast<int>(length(s));
+        static std::string removeRight(const std::string& s, std::size_t codepointCount)
+        {
+            std::size_t len = length(s);
             if (len <= codepointCount) return {};
 
-            int copyCount = len - codepointCount;
+            std::size_t copyCount = len - codepointCount;
             std::string result;
 
             const char* p = s.c_str();
-            for (size_t i = 0; i < copyCount; ++i)
+            for (std::size_t i = 0; i < copyCount; ++i)
             {
-                char32_t cp = codepointDecode(p);
+                char32_t cp = codepoint::decode(p);
                 append(result, cp);
-                p = codepointSkip(p);
+                p = codepoint::skip(p);
             }
 
             return result;
         }
 
-        static std::string removeLeft(const std::string& s, size_t codepointCount) {
-            size_t len = static_cast<int>(length(s));
+        static std::string removeLeft(const std::string& s, std::size_t codepointCount)
+        {
+            std::size_t len = length(s);
             if (len <= codepointCount) return {};
 
             const char* p = s.c_str();
-            for (size_t i = 0; i < codepointCount; ++i)
-                p = codepointSkip(p);
+            for (std::size_t i = 0; i < codepointCount; ++i)
+                p = codepoint::skip(p);
 
             return std::string(p);
         }
 
-        static std::string right(const std::string& s, size_t codepointCount) {
-            size_t len = static_cast<int>(length(s));
+        static std::string right(const std::string& s, std::size_t codepointCount)
+        {
+            std::size_t len = length(s);
             if (codepointCount >= len) return s;
             return removeLeft(s, len - codepointCount);
         }
 
-        static std::string left(const std::string& s, size_t codepointCount) {
-            size_t len = static_cast<int>(length(s));
+        static std::string left(const std::string& s, std::size_t codepointCount)
+        {
+            std::size_t len = length(s);
             if (codepointCount >= len) return s;
             return removeRight(s, len - codepointCount);
         }
 
-        static char32_t first(const std::string& s) {
-            if(!s.length()) return 0;
-            return codepointDecode(s.c_str());
+        static char32_t first(const std::string& s)
+        {
+            if (s.empty()) return 0;
+            return codepoint::decode(s.c_str());
         }
 
-        static char32_t last(const std::string& s) {
-            size_t len = length(s);
+        static char32_t last(const std::string& s)
+        {
+            std::size_t len = length(s);
+            if (!len) return 0;
+
             const char* p = s.c_str();
-            if(!len) return 0;
+            for (std::size_t i = 0; i < len - 1; ++i)
+                p = codepoint::skip(p);
 
-            for(size_t i = 0; i < len - 1; i++)
-                p = codepointSkip(p); 
-
-            return codepointDecode(p);
+            return codepoint::decode(p);
         }
 
-        static std::string substring(const std::string& s, size_t firstCodepoint, size_t codepointCount) {
+        static std::string substring(const std::string& s,
+                                     std::size_t firstCodepoint,
+                                     std::size_t codepointCount)
+        {
             std::string result;
 
-            size_t len = length(s);
+            std::size_t len = length(s);
             if (firstCodepoint >= len) return {};
 
             const char* p = s.c_str();
-            for (size_t i = 0; i < firstCodepoint; ++i)
-                p = codepointSkip(p);
+            for (std::size_t i = 0; i < firstCodepoint; ++i)
+                p = codepoint::skip(p);
 
-            for (size_t i = 0; i < codepointCount; ++i) {
-                char32_t cp = codepointDecode(p);
+            for (std::size_t i = 0; i < codepointCount; ++i) {
+                char32_t cp = codepoint::decode(p);
                 if (!cp) break;
                 append(result, cp);
-                p = codepointSkip(p);
+                p = codepoint::skip(p);
             }
 
             return result;
         }
 
-        static std::string trim(const std::string& s, const std::string& whatToTrim = " \r\n\t") {
+        static std::string trim(const std::string& s,
+                                const std::string& whatToTrim = " \r\n\t")
+        {
             if (s.empty())
                 return {};
 
             const char* p = s.c_str();
 
-            // 1) Count leading "litter" codepoints
+            // 1) Count leading characters to trim
             std::size_t leading = 0;
             {
                 const char* cur = p;
                 while (true) {
-                    char32_t cp = codepointDecode(cur);
+                    char32_t cp = codepoint::decode(cur);
                     if (!cp) break;                          // end of string
-                    if (!contains(whatToTrim, cp)) break;        // first non-litter
-                    cur = codepointSkip(cur);
+                    if (!contains(whatToTrim, cp)) break;    // first non-trim
+                    cur = codepoint::skip(cur);
                     ++leading;
                 }
             }
 
-            // 2) Count trailing "litter" codepoints
+            // 2) Count trailing characters to trim
             std::size_t trailing = 0;
             {
                 const char* cur = p;
@@ -321,9 +378,9 @@ namespace amp {
                 std::size_t totalLen = length(s);
 
                 while (true) {
-                    char32_t cp = codepointDecode(cur);
+                    char32_t cp = codepoint::decode(cur);
                     if (!cp) break;                          // end of string
-                    cur = codepointSkip(cur);
+                    cur = codepoint::skip(cur);
                     ++idx;
 
                     if (contains(whatToTrim, cp))
@@ -332,7 +389,6 @@ namespace amp {
                         trailing = 0;                        // reset trailing run
                 }
 
-                // Safety: never let trailing exceed total leđngth
                 if (trailing > totalLen) trailing = totalLen;
             }
 
@@ -343,13 +399,16 @@ namespace amp {
 
             return substring(s, leading, totalLen - leading - trailing);
         }
- 
-         static std::string replace(const std::string& s, char32_t from, char32_t to) {
+
+        static std::string replace(const std::string& s,
+                                   char32_t from,
+                                   char32_t to)
+        {
             std::string result;
             const char* p = s.c_str();
 
             while (true) {
-                char32_t cp = codepointDecode(p);
+                char32_t cp = codepoint::decode(p);
                 if (!cp) break;
 
                 if (cp == from)
@@ -357,18 +416,20 @@ namespace amp {
                 else
                     append(result, cp);
 
-                p = codepointSkip(p);
+                p = codepoint::skip(p);
             }
 
             return result;
         }
 
-        static void replaceInPlace(std::string& s, const std::string& from, const std::string& to)
+        static void replaceInPlace(std::string& s,
+                                   const std::string& from,
+                                   const std::string& to)
         {
             if (from.empty())
                 return;
 
-            std::size_t sLen   = length(s);    // in codepoints
+            std::size_t sLen    = length(s);    // in codepoints
             std::size_t fromLen = length(from);
             std::string result;
             result.reserve(s.size());
@@ -385,12 +446,12 @@ namespace amp {
 
                     // advance pointer p by fromLen codepoints
                     for (std::size_t k = 0; k < fromLen; ++k)
-                        p = codepointSkip(p);
+                        p = codepoint::skip(p);
                 } else {
                     // Copy one codepoint from s to result
-                    char32_t cp = codepointDecode(p);
+                    char32_t cp = codepoint::decode(p);
                     append(result, cp);
-                    p = codepointSkip(p);
+                    p = codepoint::skip(p);
                     ++i;
                 }
             }
@@ -398,7 +459,9 @@ namespace amp {
             s.swap(result);
         }
 
-        static std::string replace(const std::string& s, const std::string& from, const std::string& to)
+        static std::string replace(const std::string& s,
+                                   const std::string& from,
+                                   const std::string& to)
         {
             std::string copy = s;
             replaceInPlace(copy, from, to);
@@ -412,46 +475,47 @@ namespace amp {
 
             while (true)
             {
-                char32_t cp = codepointDecode(p);
+                char32_t cp = codepoint::decode(p);
                 if (!cp) break;
                 if (cp != target)
                     append(result, cp);
-                p = codepointSkip(p);
+                p = codepoint::skip(p);
             }
 
             return result;
         }
 
-        static std::string removeCharacters(const std::string& s, const std::string& chars) {
+        static std::string removeCharacters(const std::string& s,
+                                            const std::string& chars)
+        {
             std::string result;
             const char* p = s.c_str();
 
             while (true)
             {
-                char32_t cp = codepointDecode(p);
+                char32_t cp = codepoint::decode(p);
                 if (!cp) break;
                 if (!contains(chars, cp))
                     append(result, cp);
-                p = codepointSkip(p);
+                p = codepoint::skip(p);
             }
 
             return result;
         }
 
-        static std::string simplify(
-            const std::string& s,
-            const std::string& whatToSimplify = " \r\n\t",
-            char32_t simpleOne = ' ')
+        static std::string simplify(const std::string& s,
+                                    const std::string& whatToSimplify = " \r\n\t",
+                                    char32_t simpleOne = U' ')
         {
             std::string simplified;
-            std::string trimmed = trim(s, whatToSimplify);
-            const char* p = trimmed.c_str();
+            std::string t = trim(s, whatToSimplify);
+            const char* p = t.c_str();
 
             bool inWhitespace = false;
 
             while (true)
             {
-                char32_t cp = codepointDecode(p);
+                char32_t cp = codepoint::decode(p);
                 if (!cp) break;
 
                 if (contains(whatToSimplify, cp))
@@ -465,20 +529,17 @@ namespace amp {
                     inWhitespace = false;
                     append(simplified, cp);
                 }
-                p = codepointSkip(p);
+                p = codepoint::skip(p);
             }
 
             return simplified;
         }
 
-
         static bool beginsWith(const std::string& s, const std::string& prefix)
         {
-            // If prefix is longer in codepoints, cannot match
             if (length(prefix) > length(s))
                 return false;
 
-            // Compare just the prefix-sized portion
             std::size_t prefixLen = length(prefix);
             std::string slice = substring(s, 0, prefixLen);
 
@@ -487,13 +548,12 @@ namespace amp {
 
         static bool endsWith(const std::string& s, const std::string& suffix)
         {
-            std::size_t sLen = length(s);
+            std::size_t sLen  = length(s);
             std::size_t sufLen = length(suffix);
 
             if (sLen < sufLen)
                 return false;
 
-            // Take the last sufLen codepoints of s
             std::string slice = substring(s, sLen - sufLen, sufLen);
             return slice == suffix;
         }
@@ -501,9 +561,7 @@ namespace amp {
         static bool beginsWith(const std::string& s, char32_t c)
         {
             if (s.empty()) return false;
-
-            char32_t cp = codepointDecode(s.c_str());
-            return cp == c;
+            return codepoint::decode(s.c_str()) == c;
         }
 
         static bool endsWith(const std::string& s, char32_t c)
@@ -511,33 +569,30 @@ namespace amp {
             std::size_t len = length(s);
             if (len == 0) return false;
 
-            // Move to the last codepoint
             const char* p = s.c_str();
             for (std::size_t i = 0; i < len - 1; ++i)
-                p = codepointSkip(p);
+                p = codepoint::skip(p);
 
-            return codepointDecode(p) == c;
+            return codepoint::decode(p) == c;
         }
 
-        static size_t segmentCount(const std::string& s, const std::string& separator)
+        static std::size_t segmentCount(const std::string& s,
+                                        const std::string& separator)
         {
             if (s.empty())
                 return 0;
 
-            // Empty separator? Treat as 1 segment (or could throw)
             if (separator.empty())
                 return 1;
 
-            std::size_t sLen  = length(s);
+            std::size_t sLen   = length(s);
             std::size_t sepLen = length(separator);
 
-            // If separator longer than input → whole string is one segment
             if (sepLen > sLen)
                 return 1;
 
             std::size_t occurrences = 0;
 
-            // UTF-8 aware: walk codepoint by codepoint
             for (std::size_t i = 0; i + sepLen <= sLen; ++i)
             {
                 if (substring(s, i, sepLen) == separator)
@@ -548,13 +603,12 @@ namespace amp {
         }
 
         static std::string segmentAt(const std::string& s,
-                             const std::string& separator,
-                             std::size_t index)
+                                     const std::string& separator,
+                                     std::size_t index)
         {
             if (s.empty())
                 return {};
 
-            // If separator is empty: treat as a single segment
             if (separator.empty()) {
                 return (index == 0) ? s : std::string{};
             }
@@ -562,7 +616,6 @@ namespace amp {
             std::size_t sLen   = length(s);
             std::size_t sepLen = length(separator);
 
-            // If separator longer than string, whole string is a single segment
             if (sepLen > sLen) {
                 return (index == 0) ? s : std::string{};
             }
@@ -573,36 +626,31 @@ namespace amp {
             std::size_t i = 0; // current position in codepoints
             while (i + sepLen <= sLen)
             {
-                // Check if separator matches at position i (UTF-8 safe)
                 if (substring(s, i, sepLen) == separator)
                 {
-                    // We reached the end of a segment [segmentStart, i)
                     if (currentSegmentIndex == index) {
                         return substring(s, segmentStart, i - segmentStart);
                     }
 
-                    // Move to next segment
                     ++currentSegmentIndex;
                     segmentStart = i + sepLen;
-                    i = segmentStart; // jump over the separator
+                    i = segmentStart;
                 }
                 else
                 {
-                    ++i; // move forward one codepoint
+                    ++i;
                 }
             }
 
-            // Handle last segment (from segmentStart to end of string)
             if (currentSegmentIndex == index) {
                 return substring(s, segmentStart, sLen - segmentStart);
             }
 
-            // Out of range
             return {};
         }
 
         static std::vector<std::string> split(const std::string& s,
-                                            const std::string& separator)
+                                              const std::string& separator)
         {
             std::vector<std::string> parts;
 
@@ -620,27 +668,23 @@ namespace amp {
             }
 
             const char* p = s.c_str();
-            std::size_t i = 0; // codepoint index
+            std::size_t i = 0;           // codepoint index
             std::size_t segmentStart = 0; // codepoint index
 
             while (i + sepLen <= sLen) {
                 if (substring(s, i, sepLen) == separator) {
-                    // segment [segmentStart, i)
                     parts.push_back(substring(s, segmentStart, i - segmentStart));
                     i += sepLen;
                     segmentStart = i;
 
-                    // advance pointer by sepLen codepoints
                     for (std::size_t k = 0; k < sepLen; ++k)
-                        p = codepointSkip(p);
+                        p = codepoint::skip(p);
                 } else {
-                    // move forward 1 codepoint
-                    p = codepointSkip(p);
+                    p = codepoint::skip(p);
                     ++i;
                 }
             }
 
-            // tail segment
             if (segmentStart <= sLen) {
                 parts.push_back(substring(s, segmentStart, sLen - segmentStart));
             }
@@ -673,12 +717,11 @@ namespace amp {
             }
 
             const char* p = s.c_str();
-            std::size_t i = 0; // codepoint index
+            std::size_t i = 0;           // codepoint index
             std::size_t segmentStart = 0; // codepoint index
 
             while (i + sepLen <= sLen) {
                 if (substring(s, i, sepLen) == separator) {
-                    // raw segment [segmentStart, i)
                     std::string item = substring(s, segmentStart, i - segmentStart);
                     item = trim(item, whatToTrim);
 
@@ -688,16 +731,14 @@ namespace amp {
                     i += sepLen;
                     segmentStart = i;
 
-                    // advance pointer by sepLen codepoints
                     for (std::size_t k = 0; k < sepLen; ++k)
-                        p = codepointSkip(p);
+                        p = codepoint::skip(p);
                 } else {
-                    p = codepointSkip(p);
+                    p = codepoint::skip(p);
                     ++i;
                 }
             }
 
-            // tail segment
             if (segmentStart <= sLen) {
                 std::string item = substring(s, segmentStart, sLen - segmentStart);
                 item = trim(item, whatToTrim);
@@ -712,66 +753,64 @@ namespace amp {
         static std::string toLowerAscii(const std::string& s)
         {
             std::string result;
-            result.reserve(s.size()); // optimization: avoid reallocation
+            result.reserve(s.size());
 
             const char* p = s.c_str();
 
             while (true)
             {
-                char32_t cp = codepointDecode(p);
+                char32_t cp = codepoint::decode(p);
                 if (!cp)
                     break;
 
-                // ASCII uppercase range
-                if (cp >= U'A' && cp <= U'Z')
-                {
+                if (cp >= U'A' && cp <= U'Z') {
                     cp = (cp - U'A') + U'a';
                 }
 
                 append(result, cp);
-                p = codepointSkip(p);
+                p = codepoint::skip(p);
             }
 
             return result;
         }
 
-        static size_t lastIndexOf(const std::string& s, char32_t c)
+        static std::size_t lastIndexOf(const std::string& s, char32_t c)
         {
             const char* p = s.c_str();
-            size_t index = 0;
-            size_t last = NOT_FOUND;   
+            std::size_t index = 0;
+            std::size_t last  = NOT_FOUND;
 
             while (true)
             {
-                char32_t cp = codepointDecode(p);
+                char32_t cp = codepoint::decode(p);
                 if (!cp)
                     break;
 
                 if (cp == c)
                     last = index;
 
-                p = codepointSkip(p);
+                p = codepoint::skip(p);
                 ++index;
             }
 
             return last;
         }
 
-        static size_t firstIndexOf(const std::string& s, char32_t c)
+        static std::size_t firstIndexOf(const std::string& s, char32_t c)
         {
             const char* p = s.c_str();
-            size_t index = 0;
+            std::size_t index = 0;
 
             while (true)
             {
-                char32_t cp = codepointDecode(p);
+                char32_t cp = codepoint::decode(p);
                 if (!cp) break;
                 if (cp == c) return index;
-                p = codepointSkip(p);
+                p = codepoint::skip(p);
                 ++index;
             }
 
-            return NOT_FOUND;        // NOT FOUND
+            return NOT_FOUND;
         }
 
         template <typename T>
@@ -779,7 +818,7 @@ namespace amp {
         {
             if (s.empty()) {
                 if (parsedSuccessfully) *parsedSuccessfully = false;
-                return T {};
+                return T{};
             }
 
             std::istringstream iss(s);
@@ -792,7 +831,6 @@ namespace amp {
 
             if (ok) {
                 iss >> std::ws; // skip trailing whitespace
-                // check: nothing except whitespace after the number
                 if (!iss.eof()) ok = false;
             }
 
@@ -813,8 +851,41 @@ namespace amp {
             return ok;
         }
 
+        static void trimInPlace(std::string& s,
+                                const std::string& whatToTrim = " \r\n\t")
+        {
+            s = trim(s, whatToTrim);
+        }
+
+        static void simplifyInPlace(std::string& s,
+                                    const std::string& whatToSimplify = " \r\n\t",
+                                    char32_t simpleOne = U' ')
+        {
+            s = simplify(s, whatToSimplify, simpleOne);
+        }
+
+        static void toLowerAsciiInPlace(std::string& s)
+        {
+            s = toLowerAscii(s);
+        }
+
+        static void replaceInPlace(std::string& s,
+                                   char32_t from,
+                                   char32_t to)
+        {
+            s = replace(s, from, to);
+        }
+
+        static void removeInPlace(std::string& s, char32_t target)
+        {
+            s = remove(s, target);
+        }
+
+        static void removeCharactersInPlace(std::string& s,
+                                            const std::string& chars)
+        {
+            s = removeCharacters(s, chars);
+        }
     };
-}   
-
-
+}
 
