@@ -55,3 +55,11 @@ Thumbs.db
 # -------------------------
 .devcontainer/.env
 *.log
+
+
+deps
+onnxruntime-linux-x64-1.18.1/
+onnxruntime-linux-x64-1.18.1.tgz*
+
+uv.lock
+development/subprojects/
