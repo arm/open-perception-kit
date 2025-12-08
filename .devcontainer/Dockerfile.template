@@ -1,5 +1,5 @@
 # .devcontainer/Dockerfile
-FROM --platform=linux debian:bookworm-slim
+FROM --platform=linux debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8 \
