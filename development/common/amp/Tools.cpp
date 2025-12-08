@@ -10,13 +10,13 @@ using namespace amp;
 
 std::string Tools::getLocalIp() {
 
-    if(!Tools::isRunningInDocker()) {
+    if(Tools::isRunningInDocker()) {
         return "127.0.0.1";
     }
 
     std::string ret;
 
-   const char *hostname = "host.docker.internal";
+    const char *hostname = "host.docker.internal";
     struct addrinfo hints, *res, *p;
     char ipstr[INET_ADDRSTRLEN];
 

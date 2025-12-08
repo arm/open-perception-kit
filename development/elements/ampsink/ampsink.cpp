@@ -71,7 +71,7 @@ set_int_if_prop_exists(GstElement *e, const char *prop, gint value) {
 static void push_props_down(GstAmpSink *self) {
   if (self->udpsink) {
     g_object_set(self->udpsink,
-//                 "host",  self->host ? self->host : (gchar*)"127.0.0.1",
+                //  "host",  self->host ? self->host : (gchar*)"127.0.0.1",
                  "host",  self->host ? self->host : (gchar*)amp::Tools::getLocalIp().c_str(),
                  "port",  self->port,
                  "sync",  self->sync,
