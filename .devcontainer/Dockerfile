@@ -1,5 +1,5 @@
 # .devcontainer/Dockerfile
-FROM --platform=linux debian:bookworm-slim
+FROM --platform=linux debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8 \
@@ -30,7 +30,7 @@ RUN set -eux; \
 RUN set -eux; \
   apt-get install -y --no-install-recommends \
     python3 python3-venv python3-gi python3-gst-1.0 \
-    libssl-dev libffi-dev zlib1g-dev libbz2-dev liblzma-dev libsqlite3-dev
+    libssl-dev libffi-dev zlib1g-dev libbz2-dev liblzma-dev libsqlite3-dev libfmt-dev
 
 # GStreamer core
 RUN set -eux; \
