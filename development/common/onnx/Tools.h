@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <onnxruntime_cxx_api.h>
 
+#include "amp/Result.h"
 #include "uniflow/detection_types.h"
 #include "uniflow/fixed_string.h"
 #include "uniflow/public_types.h"
@@ -37,7 +38,7 @@ struct Tools {
     static uflw::TensorDataKind guessModelInputDataKind(const Ort::Session& session, int inputIndex, int& outBatchCount);
     static std::map<std::string, std::string> getModelMeta(const Ort::Session& session);
 
-    static uflw::Model inspectModel(const Ort::Session& session, const std::string& modelFile);
+    static amp::Result<uflw::Model> inspectModel(const Ort::Session& session);
 
 
     static std::string toString(const uflw::Model& model);

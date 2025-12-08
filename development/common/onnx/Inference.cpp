@@ -1,6 +1,7 @@
 #include "Inference.h"
 
 #include "amp/String.h"
+#include "amp/Result.h"
 #include "gst/video/video-enumtypes.h"
 #include "onnx/Tools.h"
 #include "onnxruntime_cxx_api.h"
@@ -14,6 +15,7 @@
 
 #include "amp/File.h"
 #include "amp/String.h"
+#include "amp/Result.h"
 
 #include "ModelDescriptor.h"
 
@@ -26,18 +28,14 @@ Inference::~Inference() {
     if(this->session) delete this->session;
 }
 
-onnx::Result Inference::setupFromJson(const std::string& filePath) {
+amp::Result<void> Inference::setupFromJson(const std::string& filePath) {
 
-    auto md = ModelDescriptor::fromFile(filePath);
-
-    if (!md) {
-        fmt::print("{}", md.error().toString());
-        return onnx::Result::TensorProblem;
+    auto descResult = ModelDescriptor::fromFile(filePath);
+    if (!descResult) {
+        return tl::unexpected{ descResult.error() };
     }
-    ModelDescriptor desc = *md;
 
-    // setup model path correctly
-    {
+    { // setup model file name
         std::string modelRoot = filePath;
         if(amp::utf8::contains(modelRoot, '/')) {
             size_t lastSlashAt = amp::utf8::lastIndexOf(modelRoot, '/');
@@ -45,30 +43,22 @@ onnx::Result Inference::setupFromJson(const std::string& filePath) {
         } else {
             modelRoot = "";
         }
-        desc.modelFile = modelRoot + desc.modelFile;
+        (*descResult).modelFile = modelRoot + (*descResult).modelFile;
     }
 
-    return setup(desc.modelFile);
+    auto setupResult = setup(*descResult);
+    if(!setupResult) {
+        return tl::unexpected{ setupResult.error() };
+    }
+
+    return { };
 }
 
-onnx::Result Inference::setup(const std::string& file) {
+amp::Result<void> Inference::setup(const ModelDescriptor& modelDesc_) {
 
-    this->model = nullptr;
-    this->inputBuilder = nullptr;
-    this->outputParser = nullptr;
-    for(size_t i = 0; i < 4; i++) {
-        this->inputTensors[i] = nullptr;
-        this->outputTensors[i] = nullptr;
-    }
-    this->inputNames.clear();
-    this->outputNames.clear();
-
-    this->inputTensorVector.clear();
-    this->outputTensorVector.clear();
-
-    // ---
-
-    this->modelPath = file;
+    this->api = ApiTensorGlue();
+    this->modelDescriptor = modelDesc_;
+    //this->modelPath = file;
 
     try {
         
@@ -78,44 +68,42 @@ onnx::Result Inference::setup(const std::string& file) {
         this->environment = new Ort::Env(ORT_LOGGING_LEVEL_WARNING, "ampinfer");
         this->memoryInfo = new Ort::MemoryInfo(Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU));
   
-        this->session = new Ort::Session(*this->environment, this->modelPath.c_str(), *this->sessionOptions);
+        this->session = new Ort::Session(*this->environment, modelDescriptor.modelFile.c_str(), *this->sessionOptions);
 
-        this->model = std::make_unique<uflw::Model>(onnx::Tools::inspectModel(*this->session, this->modelPath));
-        if(false == this->model->parseError.empty()) {
-            printf("INSPECT MODEL FAILED: %s\n", this->model->parseError.c_str());
-            return onnx::Result::UniflowModelInspectError;
+        auto modelResult = onnx::Tools::inspectModel(*this->session);
+        if(!modelResult) {
+            return tl::unexpected{ modelResult.error() };
         }
+        this->model = *modelResult;
         
-        std::string modelLog = onnx::Tools::toString(*this->model);
-        printf("---> New  model  parsed <---\n");
+        std::string modelLog = onnx::Tools::toString(this->model);
+        printf("========= New  model  parsed =========\n");
         printf("%s", modelLog.c_str());
-        printf("--- --- --- ---- --- --- ---\n");
+        printf("========= ================== =========\n");
 
         setupTensorsForModel();
 
         this->setupReady = true;
     } 
     catch (const std::exception& e) {
-    
-        return onnx::Result::CreateEnvironmentError;
+        return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::OnnxLowLevelError, e.what()));
     }
 
-    return onnx::Result::Ok;
-
+    return { };
 }
 
 void Inference::setupTensorsForModel() {
 
-    for(size_t i = 0; i < this->model->modelInputCount; i++) {
-        this->inputTensors[i] = std::make_unique<onnx::Tensor>(this->model->inputs[i].shape, this->model->inputs[i].valueType);
-        this->inputNames.push_back(this->model->inputs[i].name.c_str());
-        this->inputTensorVector.push_back(this->inputTensors[i]->createOnnxTensor(*this->memoryInfo));
+    for(size_t i = 0; i < this->model.modelInputCount; i++) {
+        api.inputTensors[i] = std::make_unique<onnx::Tensor>(this->model.inputs[i].shape, this->model.inputs[i].valueType);
+        api.inputNames.push_back(this->model.inputs[i].name.c_str());
+        api.inputTensorVector.push_back(api.inputTensors[i]->createOnnxTensor(*this->memoryInfo));
     }
 
-    for(size_t i = 0; i < this->model->modelOutputCount; i++) {
-        this->outputTensors[i] = std::make_unique<onnx::Tensor>(this->model->outputs[i].shape, this->model->outputs[i].valueType);
-        this->outputNames.push_back(this->model->outputs[i].name.c_str());
-        this->outputTensorVector.push_back(this->outputTensors[i]->createOnnxTensor(*this->memoryInfo));
+    for(size_t i = 0; i < this->model.modelOutputCount; i++) {
+        api.outputTensors[i] = std::make_unique<onnx::Tensor>(this->model.outputs[i].shape, this->model.outputs[i].valueType);
+        api.outputNames.push_back(this->model.outputs[i].name.c_str());
+        api.outputTensorVector.push_back(api.outputTensors[i]->createOnnxTensor(*this->memoryInfo));
     }
 
 }
@@ -131,14 +119,14 @@ onnx::Result Inference::preprocessImageData(size_t tensorIndex, const uint8_t* d
     setup.original.type = valueType;
 
     size_t modelWidth, modelHeight;
-    model->inputs[tensorIndex].getImageWidthHeight(modelWidth, modelHeight);
+    model.inputs[tensorIndex].getImageWidthHeight(modelWidth, modelHeight);
 
-    setup.target.data = inputTensors[tensorIndex]->getData();
-    setup.target.byteCount = inputTensors[tensorIndex]->getByteCount();
+    setup.target.data = api.inputTensors[tensorIndex]->getData();
+    setup.target.byteCount = api.inputTensors[tensorIndex]->getByteCount();
     setup.target.width = modelWidth;
     setup.target.height = modelHeight;
     //setup.target.kind = uflw::TensorDataKind::ImageRgbChw;
-    setup.target.kind = model->inputs[0].dataKind;
+    setup.target.kind = model.inputs[0].dataKind;
     setup.target.type = uflw::ValueType::f32;
 
     uflw::Result result = inputBuilder->build(setup);
@@ -157,29 +145,29 @@ onnx::Result Inference::preprocessImageData(size_t tensorIndex, const uint8_t* d
 
 onnx::Result Inference::inference() {
 
-    if(inputTensorVector.size() > 1) {
-        *(float*)inputTensors[0]->getData() = 0.99f; // confidence
-        *(int64_t*)inputTensors[1]->getData() = 1; // numdetections
-        *(float*)inputTensors[2]->getData() = 0.9f; // iou threshold
+    if(api.inputTensorVector.size() > 1) {
+        *(float*)api.inputTensors[0]->getData() = 0.99f; // confidence
+        *(int64_t*)api.inputTensors[1]->getData() = 1; // numdetections
+        *(float*)api.inputTensors[2]->getData() = 0.9f; // iou threshold
     }
 
     if(false == this->useDynamicOutput) {
     this->session->Run(
         Ort::RunOptions { nullptr },
-        (const char* const*)this->inputNames.data(),
-        inputTensorVector.data(),
-        inputTensorVector.size(),
-        (const char* const*)this->outputNames.data(),
-        outputTensorVector.data(),
-        outputTensorVector.size());
+        (const char* const*)this->api.inputNames.data(),
+        api.inputTensorVector.data(),
+        api.inputTensorVector.size(),
+        (const char* const*)api.outputNames.data(),
+        api.outputTensorVector.data(),
+        api.outputTensorVector.size());
     } else {
         dynamicOutputData = this->session->Run(
     Ort::RunOptions{nullptr},
-    (const char* const*)this->inputNames.data(),
-    inputTensorVector.data(),
-    inputTensorVector.size(),
-    (const char* const*)this->outputNames.data(),
-    this->outputNames.size());
+    (const char* const*)api.inputNames.data(),
+    api.inputTensorVector.data(),
+    api.inputTensorVector.size(),
+    (const char* const*)api.outputNames.data(),
+    api.outputNames.size());
     }
 
     return onnx::Result::Ok;
@@ -195,13 +183,13 @@ onnx::Result Inference::postprocess(const uflw::NetworkOutputParser::Settings& s
         const uflw::TensorReader* tensorReaders[4] = { nullptr, nullptr, nullptr, nullptr };
 
         for (size_t i = 0; i < 4; ++i) {
-            if (i < model->modelOutputCount) {
+            if (i < model.modelOutputCount) {
                 if (this->outputTensorReaders[i] == nullptr) {
                     this->outputTensorReaders[i] = std::make_unique<uflw::TensorReader>(
-                        outputTensors[i]->getData(),
-                        outputTensors[i]->getByteCount(),
-                        model->outputs[i].shape,
-                        model->outputs[i].valueType,
+                        api.outputTensors[i]->getData(),
+                        api.outputTensors[i]->getByteCount(),
+                        model.outputs[i].shape,
+                        model.outputs[i].valueType,
                         1.0f,
                         0.0f
                     );
@@ -222,7 +210,7 @@ onnx::Result Inference::postprocess(const uflw::NetworkOutputParser::Settings& s
         dynamicReaders.resize(4);
 
         const size_t numOutputs =
-            std::min<size_t>(std::min<size_t>(model->modelOutputCount, dynamicOutputData.size()), 4);
+            std::min<size_t>(std::min<size_t>(model.modelOutputCount, dynamicOutputData.size()), 4);
 
         for (size_t i = 0; i < numOutputs; ++i) {
             Ort::Value& v = dynamicOutputData[i];

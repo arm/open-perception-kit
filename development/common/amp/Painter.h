@@ -1112,9 +1112,7 @@ namespace amp {
             },
         };
 
-        static void drawChar(Painter& surf,
-                             int x, int y,
-                             char ch,
+        static void drawChar(Painter& surf, int x, int y, char ch,
                              uint8_t fr, uint8_t fg, uint8_t fb,
                              uint8_t br, uint8_t bg, uint8_t bb)
         {

@@ -2,6 +2,7 @@
 
 #include <onnxruntime_cxx_api.h>
 
+#include "ModelDescriptor.h"
 #include "uniflow/model_io.h"
 #include "uniflow/detection_types.h"
 
@@ -25,8 +26,8 @@ struct Inference {
     Inference();
     virtual ~Inference();
 
-    onnx::Result setupFromJson(const std::string& filePath);
-    onnx::Result setup(const std::string& file);
+    amp::Result<void> setupFromJson(const std::string& filePath);
+    amp::Result<void> setup(const ModelDescriptor& modelDesc);
 
     void setOutputParser(std::unique_ptr<uflw::NetworkOutputParser> parser) { this->outputParser = std::move(parser); }
     void setInputBuilder(std::unique_ptr<uflw::NetworkInputBuilder> builder) { this->inputBuilder = std::move(builder); }
@@ -35,13 +36,11 @@ struct Inference {
     onnx::Result inference();
     onnx::Result postprocess(const uflw::NetworkOutputParser::Settings& settings, uflw::DetectionResult& outDetectionResults);
 
-    const uflw::Model& getModel() const { return *this->model; }
+    const uflw::Model& getModel() const { return this->model; }
 
 protected:
 
     uflw::NetworkOutputParser::InferenceMetadata inferenceMetaData;
-
-    std::string modelPath;
     bool setupReady = false;
 
     Ort::Env* environment = nullptr;
@@ -51,24 +50,26 @@ protected:
 
     void setupTensorsForModel();
 
-    std::unique_ptr<uflw::Model> model;
+    ModelDescriptor modelDescriptor;
+    uflw::Model model;
     std::unique_ptr<uflw::NetworkOutputParser> outputParser;
     std::unique_ptr<uflw::NetworkInputBuilder> inputBuilder;
-
-    struct ApiTensorIo {
-
-    };
-
-    std::unique_ptr<onnx::Tensor> inputTensors[4];
-    std::unique_ptr<onnx::Tensor> outputTensors[4];
-    std::vector<const char*> inputNames;
-    std::vector<const char*> outputNames;
-    std::vector<Ort::Value> inputTensorVector;
-    std::vector<Ort::Value> outputTensorVector;
 
     bool useDynamicOutput = true;
     std::vector<Ort::Value> dynamicOutputData;
     std::unique_ptr<uflw::TensorReader> outputTensorReaders[4];
+
+    // ---
+
+    struct ApiTensorGlue {
+        std::unique_ptr<onnx::Tensor> inputTensors[4];
+        std::unique_ptr<onnx::Tensor> outputTensors[4];
+        std::vector<const char*> inputNames;
+        std::vector<const char*> outputNames;
+        std::vector<Ort::Value> inputTensorVector;
+        std::vector<Ort::Value> outputTensorVector;
+    };
+    ApiTensorGlue api;
 
 };}
 

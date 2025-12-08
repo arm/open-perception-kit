@@ -2,11 +2,14 @@
 
 #include "onnxruntime_c_api.h"
 #include "onnxruntime_cxx_api.h"
+#include "tl/expected.hpp"
 #include "uniflow/fixed_string.h"
 #include "uniflow/model_io.h"
 #include "uniflow/public_types.h"
 
 #include <fmt/core.h>
+
+#include "amp/Result.h"
 
 using namespace onnx;
 
@@ -218,7 +221,7 @@ std::map<std::string, std::string> Tools::getModelMeta(const Ort::Session& sessi
     return ret;
 }
 
-uflw::Model Tools::inspectModel(const Ort::Session& session, const std::string& modelFile) {
+amp::Result<uflw::Model> Tools::inspectModel(const Ort::Session& session) {
 
     std::map<std::string, std::string> meta = Tools::getModelMeta(session);
 
@@ -240,26 +243,20 @@ uflw::Model Tools::inspectModel(const Ort::Session& session, const std::string& 
         auto tensor = ti.GetTensorTypeAndShapeInfo();
         // name
         model.inputs[i].name = session.GetInputNameAllocated(i, allocator).get();
-        printf("%s\n", model.inputs[i].name.c_str());
         // tensor value type
         if(!onnxTypeToUniflowType(tensor.GetElementType(), model.inputs[i].valueType)) model.parseError = "unknown input tensor value type";
         if(uflw::ValueType::f32 != model.inputs[i].valueType && uflw::ValueType::i64 != model.inputs[i].valueType) {
-            model.parseError = "only float32 or int64 input tensors are supported in ONNX";
-            return model;
+            return tl::unexpected{ AMP_ERROR(amp::ErrorFlag::ModelInspectError, "only float32 or int64 input tensors are supported in ONNX") };
         } 
         // shape
         if(false == getTensorShape(session, uflw::TensorInOut::In, i, model.inputs[i].shape)) {
-            model.parseError = "too many dimensions in input tensor";
-            return model;
+            return tl::unexpected{ AMP_ERROR(amp::ErrorFlag::ModelInspectError, "too many dimensions in input tensor") };
         }
                 
-        printf("%s\n", uflw::toString(model.inputs[i].valueType).c_str());
-        printf("%s\n", model.inputs[i].shape.toString().c_str());
         // input format
         model.inputs[i].dataKind = guessModelInputDataKind(session, i, model.inputs[i].batch);
         if(model.inputs[i].dataKind == uflw::TensorDataKind::Unknown) {
-            model.parseError = "input tensor data kind dicovery failed";      
-            return model;
+            return tl::unexpected{ AMP_ERROR(amp::ErrorFlag::ModelInspectError, "input tensor data kind dicovery failed") };
         }
         // etc
         model.inputs[i].quantArguments.valueType = model.inputs[i].valueType;
@@ -275,17 +272,14 @@ uflw::Model Tools::inspectModel(const Ort::Session& session, const std::string& 
         model.outputs[i].name = session.GetOutputNameAllocated(i, allocator).get();
         // tensor value type
         if(!onnxTypeToUniflowType(tensor.GetElementType(), model.outputs[i].valueType)) {
-            model.parseError = "unknown input tensor value type";
-            return model;
+            return tl::unexpected{ AMP_ERROR(amp::ErrorFlag::ModelInspectError, "unknown input tensor value type") };
         }
         if(uflw::ValueType::f32 != model.outputs[i].valueType) {
-            model.parseError = "only float32 output tensors are supported in ONNX";
-            return model;
+            return tl::unexpected{ AMP_ERROR(amp::ErrorFlag::ModelInspectError, "only float32 output tensors are supported in ONNX") };
         }        
         // shape
         if(false == getTensorShape(session, uflw::TensorInOut::Out, i, model.outputs[i].shape)) {
-            model.parseError = "too many dimensions in output tensor";
-            return model;
+            return tl::unexpected{ AMP_ERROR(amp::ErrorFlag::ModelInspectError, "too many dimensions in output tensor") };
         }
 
         // etc
