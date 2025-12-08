@@ -13,6 +13,7 @@ __pycache__/
 .venv*/
 .uv-cache/
 .uv-lock/
+*.lock
 
 # -------------------------
 # Meson / Ninja / CMake / Make
@@ -54,12 +55,25 @@ Thumbs.db
 # Devcontainer / Docker
 # -------------------------
 .devcontainer/.env
+.devcontainer/Dockerfile
+.devcontainer/devcontainer.json
+
+# -------------------------
+# Log files
+# -------------------------
 *.log
 
 
-deps
-onnxruntime-linux-x64-1.18.1/
-onnxruntime-linux-x64-1.18.1.tgz*
 
 uv.lock
 development/subprojects/
+# -------------------------
+# External dependencies
+# -------------------------
+deps/
+development/subprojects/uniflow-dev
+onnxruntime-linux-aarch64-*
+onnxruntime-linux-x64-*
+
+
+.cache

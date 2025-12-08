@@ -1,6 +1,6 @@
 
-common = static_library(
-  'common',                   
+common = shared_library(
+  'common',
   sources: [
     'ModelDescriptor.h',
     'ModelDescriptor.cpp',
@@ -23,11 +23,14 @@ common = static_library(
     'onnx/Inference.h',
     'onnx/Inference.cpp',
     'onnx/Tools.h',
-    'onnx/Tools.cpp'
+    'onnx/Tools.cpp',
+
+    'PerformanceTracer.h',
+    'PerformanceTracer.cpp',
   ],
   include_directories: [ common_include ],
   cpp_args: ['-DFMT_HEADER_ONLY'],
   dependencies: [ amp_deps ],
-  gnu_symbol_visibility: 'hidden', 
+  gnu_symbol_visibility: 'default',
   install: false
 )
