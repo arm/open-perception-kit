@@ -32,7 +32,7 @@ onnx() {
 
   msg "Running test pipeline.."
 
-  IP=$(getent ahostsv4 host.docker.internal | awk 'NR==1{print $1}')
+  # IP=$(getent ahostsv4 host.docker.internal | awk 'NR==1{print $1}')
   
 
 #  gst-launch-1.0 \
@@ -50,7 +50,7 @@ gst-launch-1.0 \
   jpegdec ! \
   imagefreeze ! \
   videoconvert ! \
-      ampinfer model-path=/work/etc/models/yolov8n/yolov8n-fp32.onnx ! \
+      ampinfer model-path=/work/etc/models/yolo/yolo.json ! \
       textoverlay name=overlay valignment=top halignment=center font-desc="Sans, 14" ! \
       ampsink name=sink 
 
@@ -60,7 +60,7 @@ gst-launch-1.0 \
 
 onnx2() {
 
-  msg_begin "Executing test with ONNX2 element..\n"
+  msg_tegin "Executing test with ONNX2 element..\n"
 
   need gst-launch-1.0
 
