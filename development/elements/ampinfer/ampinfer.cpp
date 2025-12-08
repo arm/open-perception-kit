@@ -6,6 +6,7 @@
 
 #include <onnxruntime_cxx_api.h>
 
+#include "amp/Tools.h"
 #include "uniflow/blazeface_parser.h"
 #include "uniflow/image_tensor_builder.h"
 #include "uniflow/model_io.h"
@@ -21,6 +22,8 @@
 
 #include "gst/Tools.h"
 #include "PerformanceMetrics.h"
+
+#include <fmt/core.h>
 
 #ifndef PACKAGE
 #define PACKAGE "amp-elements"
@@ -53,7 +56,12 @@ static gboolean gst_ampinfer_start (GstBaseTransform *b) {
   try {
     self->onnxInference = std::make_shared<onnx::Inference>();
 //    self->onnxInference->setup(self->modelPath);
-    self->onnxInference->setupFromJson(self->modelPath);
+    
+    auto setupResult = self->onnxInference->setupFromJson(self->modelPath);
+    if(!setupResult) {
+      //fmt::print("{}\n", setupResult.error().toString());
+      amp::Tools::abort();
+    }
 
     if(self->onnxInference->getModel().modelFamily == uflw::ModelFamily::YoloObjectDetection) {
       std::unique_ptr<uflw::NetworkOutputParser> parser = std::make_unique<uflw::YoloLikeParser>();

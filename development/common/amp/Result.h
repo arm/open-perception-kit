@@ -17,7 +17,9 @@ namespace amp {
         Ok = 0, // but why?
         FileNotFound,
         InvalidData,
-        GenericError
+        GenericError,
+        ModelInspectError,
+        OnnxLowLevelError
     };
 
     struct Error {
@@ -35,7 +37,7 @@ namespace amp {
         std::string info;
         std::source_location sourceLocation;
 
-        std::string toString();
+        std::string toString() const;
 
     };
 

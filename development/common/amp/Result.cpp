@@ -6,7 +6,7 @@
 
 using namespace amp;
 
-std::string Error::toString() {
+std::string Error::toString() const {
     using fmt::format;
     using fmt::color;
     using fmt::emphasis;
