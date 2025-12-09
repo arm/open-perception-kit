@@ -60,7 +60,7 @@ case "$1" in
     gst-launch-1.0 \
       videotestsrc num-buffers=150 pattern=smpte ! \
       video/x-raw,format=RGB,width=1280,height=720 ! \
-      ampinfer model-path=/work/etc/models/yolov8n/yolov8n-160-fp32.onnx imgsz=160 ! \
+      ampinfer model-path=/work/etc/models/yolo/yolo.json ! \
       videoconvert ! video/x-raw,format=BGRA ! \
       ampperformance show-all-metrics=$SHOW_ALL_METRICS x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 ! \
       videoconvert ! x264enc ! mp4mux ! \
@@ -88,7 +88,7 @@ case "$1" in
       filesrc location="$INPUT" ! qtdemux ! h264parse ! avdec_h264 ! \
       videoconvert ! video/x-raw,format=RGB ! \
       videoscale ! video/x-raw,width=1280,height=720 ! \
-      ampinfer model-path=/work/etc/models/yolov8n/yolov8n-160-fp32.onnx imgsz=160 ! \
+      ampinfer model-path=/work/etc/models/yolov/yolo.json  ! \
       videoconvert ! video/x-raw,format=BGRA ! \
       ampperformance show-all-metrics=$SHOW_ALL_METRICS x-offset=20 y-offset=20 font-size=18 alpha=0.9 ! \
       videoconvert ! x264enc ! mp4mux ! \
@@ -113,7 +113,7 @@ case "$1" in
         filesrc location="$INPUT" ! qtdemux ! h264parse ! avdec_h264 ! \
         videoconvert ! video/x-raw,format=RGB ! \
         videoscale ! video/x-raw,width=1280,height=720 ! \
-        ampinfer model-path=/work/etc/models/yolov8n/yolov8n-160-fp32.onnx imgsz=160 ! \
+        ampinfer model-path=/work/etc/models/yolo/yolo.json  ! \
         videoconvert ! video/x-raw,format=BGRA ! \
         ampperformance show-all-metrics=$SHOW_ALL_METRICS x-offset=20 y-offset=20 font-size=18 alpha=0.9 ! \
         videoconvert ! x264enc ! mp4mux ! \

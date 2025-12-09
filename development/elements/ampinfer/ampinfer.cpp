@@ -10,9 +10,7 @@
 #include "uniflow/blazeface_parser.h"
 #include "uniflow/image_tensor_builder.h"
 #include "uniflow/model_io.h"
-#include "uniflow/output_types.h"
 #include "uniflow/public_types.h"
-#include "uniflow/tensor_view.h"
 #include "uniflow/yolo_like_parser.h"
 #include "uniflow/labels.h"
 
@@ -20,8 +18,7 @@
 
 #include "amp/Painter.h"
 
-#include "gst/Tools.h"
-#include "PerformanceMetrics.h"
+#include <PerformanceTracer.h>
 
 #include <fmt/core.h>
 
@@ -109,59 +106,65 @@ static gboolean gst_ampinfer_set_info (GstVideoFilter *vf,
 static GstFlowReturn gst_ampinfer_transform_frame_ip (GstVideoFilter *vf, GstVideoFrame *frame)
 {
   auto *self = (GstAmpInfer*) vf;
-  
-  size_t frameWidth = frame->info.width;
-  size_t frameHeight = frame->info.height;
 
-  uint8_t* rgb = (uint8_t*)frame->data[0];
-  if (!rgb) return GST_FLOW_OK;
+  static amp::PerformanceTracer *tracer = amp::getGlobalTracer();
+  {
+    amp::PerformanceTracer::ScopedTimer frame_timer(tracer, "frame_total");
+    
 
-  if(self->onnxInference) { 
+    size_t frameWidth = frame->info.width;
+    size_t frameHeight = frame->info.height;
 
-    self->onnxInference->preprocessImageData(
-    0, 
-    rgb, uflw::TensorDataKind::ImageRgbChw, uflw::ValueType::u8, 
-    frameWidth, frameHeight);
+    uint8_t* rgb = (uint8_t*)frame->data[0];
+    if (!rgb) return GST_FLOW_OK;
 
-    self->onnxInference->inference();
+    if(self->onnxInference) { 
 
-    uflw::NetworkOutputParser::Settings settings;
-    settings.confidenceThreshold = 0.3f;
-    settings.normalizedCoordinates = false;
-    settings.iouThreshold = 0.3f;
-    settings.maxDetectionCount = 3;
-    uflw::DetectionResult detectionResults;
-    self->onnxInference->postprocess(settings, detectionResults);
+      self->onnxInference->preprocessImageData(
+      0, 
+      rgb, uflw::TensorDataKind::ImageRgbChw, uflw::ValueType::u8, 
+      frameWidth, frameHeight);
 
-    if(detectionResults.rects.size()) {
+      self->onnxInference->inference();
 
-      amp::Painter painter(rgb, frameWidth, frameHeight, frameWidth * 3);
-      amp::TextRenderer textRenderer;
+      uflw::NetworkOutputParser::Settings settings;
+      settings.confidenceThreshold = 0.3f;
+      settings.normalizedCoordinates = false;
+      settings.iouThreshold = 0.3f;
+      settings.maxDetectionCount = 3;
+      uflw::DetectionResult detectionResults;
+      self->onnxInference->postprocess(settings, detectionResults);
 
-      if(self->onnxInference->getModel().modelFamily == uflw::ModelFamily::YoloObjectDetection) {
-        for(const auto& a : detectionResults.rects) {            
-          painter.drawRect(a.x, a.y, a.w, a.h, 255, 123, 52, 2);
+      if(detectionResults.rects.size()) {
 
-//          textRenderer.drawText(painter, 100, 200, "alma: korte", 255, 255, 255, 0, 255, 0);
+        amp::Painter painter(rgb, frameWidth, frameHeight, frameWidth * 3);
+        amp::TextRenderer textRenderer;
 
-            auto label = uflw::Labels::getLabel(uflw::LabelType::Coco, a.classIndex);
-            textRenderer.drawText(painter, a.x, a.y, label.data(), 0, 0, 0, 0, 255, 0);
+        if(self->onnxInference->getModel().modelFamily == uflw::ModelFamily::YoloObjectDetection) {
+          for(const auto& a : detectionResults.rects) {            
+            painter.drawRect(a.x, a.y, a.w, a.h, 255, 123, 52, 2);
 
+  //          textRenderer.drawText(painter, 100, 200, "alma: korte", 255, 255, 255, 0, 255, 0);
+
+              auto label = uflw::Labels::getLabel(uflw::LabelType::Coco, a.classIndex);
+              textRenderer.drawText(painter, a.x, a.y, label.data(), 0, 0, 0, 0, 255, 0);
+
+          }
+        } else {
+          for(const auto& a : detectionResults.rects) {
+            painter.drawPoint(a.x + a.w / 2, a.y + a.h / 2, 100, 200, 255, 10);
+            break;
+          }
         }
-      } else {
-        for(const auto& a : detectionResults.rects) {
-          painter.drawPoint(a.x + a.w / 2, a.y + a.h / 2, 100, 200, 255, 10);
-          break;
+
+        for(const auto& a : detectionResults.points) {
+          painter.drawPoint(a.x, a.y, 255, 255, 255, 4);
         }
       }
 
-      for(const auto& a : detectionResults.points) {
-        painter.drawPoint(a.x, a.y, 255, 255, 255, 4);
-      }
     }
-
   }
-
+  tracer->endCycle();
   return GST_FLOW_OK;
 }
 
