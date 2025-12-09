@@ -4,7 +4,9 @@ repos:
     hooks:
       - id: clang-format
         name: clang-format
-        entry: clang-format
+        entry: bash -c 'PRE_COMMIT_NO_CONCURRENCY=1 clang-format --dry-run --Werror "$@"' --
         language: system
         types_or: [c, c++]
         files: "\\.(c|cc|cpp|cxx|h|hh|hpp)$"
+        pass_filenames: true
+        require_serial: true
