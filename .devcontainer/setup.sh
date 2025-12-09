@@ -75,7 +75,7 @@ if [ "$CONTAINER_TYPE" == "intel_igpu_pc" ]; then
     gstreamer1.0-vaapi intel-media-va-driver \
     libdrm-dev libgbm-dev libegl1-mesa-dev libgles2-mesa-dev \
     libwayland-dev libva-dev libv4l-dev libgtk-3-0; \
-    vainfo intel-media-va-driver gstreamer1.0-vaapi libva-drm2; 
+    vainfo intel-media-va-driver gstreamer1.0-vaapi libva-drm2;
   rm -rf /var/lib/apt/lists/*
 fi
 
@@ -126,8 +126,7 @@ cp -r "$DIR_NAME/lib" deps/onnxruntime/
 #fi
 #set -e
 
-
+log "Installing pre-commit hooks"
+cd /work && pre-commit install
 
 log "Done. Open a NEW terminal to see the prompt & venv activation."
-
-

@@ -1,0 +1,18 @@
+BasedOnStyle: LLVM
+
+# Line breaking / wrapping
+ColumnLimit: 100
+BinPackArguments: false
+BinPackParameters: false
+
+# Braces
+BreakBeforeBraces: Attach
+
+# Indentation
+IndentWidth: 4
+
+# “Short…” options — limited set in clang-format 14
+AllowShortBlocksOnASingleLine: false
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Empty
