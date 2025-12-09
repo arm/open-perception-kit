@@ -9,8 +9,10 @@
 using namespace amp;
 
 std::string Tools::getLocalIp() {
+    return "0.0.0.0";
 
-    if(Tools::isRunningInDocker()) {
+#if 0
+    if(!Tools::isRunningInDocker()) {
         return "127.0.0.1";
     }
 
@@ -39,8 +41,9 @@ std::string Tools::getLocalIp() {
     }
 
     freeaddrinfo(res);
-    
-    return ret;    
+
+    return ret;
+#endif
 
 }
 
