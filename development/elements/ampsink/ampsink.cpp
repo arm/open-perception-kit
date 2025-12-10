@@ -259,9 +259,69 @@ static void gst_amp_sink_setup_http_server(GstAmpSink *self) {
             (self->static_files_location ? self->static_files_location : "(null)"));
     }
 
-    http_server->Post("/ctrl", [&](const Request &req, Response &res) {
-        // TODO@zoli: handle the control message
-        std::cout << "stop requested\n";
+    http_server->Post("/ctrl", [self](const Request &req, Response &res) {
+        // Add CORS headers
+        res.set_header("Access-Control-Allow-Origin", "*");
+        res.set_header("Access-Control-Allow-Methods", "POST, OPTIONS");
+        res.set_header("Access-Control-Allow-Headers", "Content-Type");
+
+        // Parse JSON request body
+        std::string body = req.body;
+
+        GST_INFO_OBJECT(self, "Received POST to /ctrl, body: %s", body.c_str());
+
+        // Simple JSON parsing for {"enabled": true/false}
+        bool enabled = (body.find("\"enabled\":true") != std::string::npos ||
+                        body.find("\"enabled\": true") != std::string::npos);
+
+        GST_INFO_OBJECT(self, "Control request: ampperformance enabled=%d", enabled);
+
+        // Create custom upstream event for ampperformance
+        GstStructure *structure =
+            gst_structure_new("ampperformance", "enabled", G_TYPE_BOOLEAN, enabled, NULL);
+        GstEvent *event = gst_event_new_custom(GST_EVENT_CUSTOM_UPSTREAM, structure);
+
+        // Get the peer pad (source pad of upstream element connected to our sink)
+        GstPad *sink_pad = gst_element_get_static_pad(GST_ELEMENT(self), "sink");
+        if (sink_pad) {
+            GstPad *peer_pad = gst_pad_get_peer(sink_pad);
+
+            if (peer_pad) {
+                GstElement *peer_elem = GST_ELEMENT(gst_pad_get_parent(peer_pad));
+                GST_INFO_OBJECT(self,
+                                "Sending event to peer element: %s",
+                                peer_elem ? GST_ELEMENT_NAME(peer_elem) : "unknown");
+
+                gboolean result = gst_pad_send_event(peer_pad, event);
+
+                if (peer_elem)
+                    gst_object_unref(peer_elem);
+                gst_object_unref(peer_pad);
+                gst_object_unref(sink_pad);
+
+                if (result) {
+                    res.status = 200;
+                    res.set_content("{\"status\":\"ok\"}", "application/json");
+                    GST_INFO_OBJECT(self, "Event sent successfully");
+                } else {
+                    res.status = 500;
+                    res.set_content("{\"status\":\"error\",\"message\":\"Failed to send event\"}",
+                                    "application/json");
+                    GST_WARNING_OBJECT(self, "Failed to send event upstream");
+                }
+            } else {
+                gst_object_unref(sink_pad);
+                res.status = 500;
+                res.set_content("{\"status\":\"error\",\"message\":\"No peer pad\"}",
+                                "application/json");
+                GST_ERROR_OBJECT(self, "Could not get peer pad");
+            }
+        } else {
+            res.status = 500;
+            res.set_content("{\"status\":\"error\",\"message\":\"No sink pad\"}",
+                            "application/json");
+            GST_ERROR_OBJECT(self, "Could not get sink pad");
+        }
     });
 
     // TODO@ibori: error handling

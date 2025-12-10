@@ -38,6 +38,7 @@ struct _GstAmpPerformance {
     gchar *text_color;
     gdouble alpha;
     gboolean show_all_metrics;
+    gboolean enabled;
 
     // Internal state
     guint frame_count;
@@ -77,6 +78,7 @@ GST_DEBUG_CATEGORY_STATIC(gst_amp_performance_debug);
 #define DEFAULT_ALPHA 0.85
 #define DEFAULT_UPDATE_INTERVAL 5
 #define DEFAULT_SHOW_ALL_METRICS FALSE
+#define DEFAULT_ENABLED TRUE
 
 // Property IDs
 enum {
@@ -88,7 +90,8 @@ enum {
     PROP_TEXT_COLOR,
     PROP_ALPHA,
     PROP_UPDATE_INTERVAL,
-    PROP_SHOW_ALL_METRICS
+    PROP_SHOW_ALL_METRICS,
+    PROP_ENABLED
 };
 
 // Function prototypes
@@ -101,6 +104,8 @@ gst_amp_performance_get_property(GObject *object, guint prop_id, GValue *value, 
 static void gst_amp_performance_finalize(GObject *object);
 static GstFlowReturn gst_amp_performance_transform_frame_ip(GstVideoFilter *filter,
                                                             GstVideoFrame *frame);
+static gboolean gst_amp_performance_sink_event(GstBaseTransform *trans, GstEvent *event);
+static gboolean gst_amp_performance_src_event(GstBaseTransform *trans, GstEvent *event);
 
 // Helper function to parse hex color
 static void parse_hex_color(const char *hex, double *r, double *g, double *b) {
@@ -120,12 +125,15 @@ static void gst_amp_performance_class_init(GstAmpPerformanceClass *klass) {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     GstElementClass *element_class = GST_ELEMENT_CLASS(klass);
     GstVideoFilterClass *vfilter_class = GST_VIDEO_FILTER_CLASS(klass);
+    GstBaseTransformClass *trans_class = GST_BASE_TRANSFORM_CLASS(klass);
 
     gobject_class->set_property = gst_amp_performance_set_property;
     gobject_class->get_property = gst_amp_performance_get_property;
     gobject_class->finalize = gst_amp_performance_finalize;
 
     vfilter_class->transform_frame_ip = gst_amp_performance_transform_frame_ip;
+    trans_class->sink_event = gst_amp_performance_sink_event;
+    trans_class->src_event = gst_amp_performance_src_event;
 
     // Install properties
     g_object_class_install_property(
@@ -210,6 +218,15 @@ static void gst_amp_performance_class_init(GstAmpPerformanceClass *klass) {
                              DEFAULT_SHOW_ALL_METRICS,
                              (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
+    g_object_class_install_property(
+        gobject_class,
+        PROP_ENABLED,
+        g_param_spec_boolean("enabled",
+                             "Enabled",
+                             "Enable or disable performance overlay display",
+                             DEFAULT_ENABLED,
+                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
     // Set metadata
     gst_element_class_set_static_metadata(
         element_class,
@@ -240,6 +257,7 @@ static void gst_amp_performance_init(GstAmpPerformance *self) {
     self->show_all_metrics = DEFAULT_SHOW_ALL_METRICS;
     self->last_frame_time = std::chrono::steady_clock::now();
     self->fps_average = 0.0;
+    self->enabled = DEFAULT_ENABLED;
     self->overlay_cache = nullptr;
     self->cache_width = 0;
     self->cache_height = 0;
@@ -295,6 +313,9 @@ static void gst_amp_performance_set_property(GObject *object,
         self->show_all_metrics = g_value_get_boolean(value);
         self->cache_dirty = true;
         break;
+    case PROP_ENABLED:
+        self->enabled = g_value_get_boolean(value);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -329,6 +350,9 @@ gst_amp_performance_get_property(GObject *object, guint prop_id, GValue *value, 
         break;
     case PROP_SHOW_ALL_METRICS:
         g_value_set_boolean(value, self->show_all_metrics);
+        break;
+    case PROP_ENABLED:
+        g_value_set_boolean(value, self->enabled);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -553,6 +577,10 @@ static GstFlowReturn gst_amp_performance_transform_frame_ip(GstVideoFilter *filt
                                                             GstVideoFrame *frame) {
     GstAmpPerformance *self = GST_AMP_PERFORMANCE(filter);
 
+    if (!self->enabled) {
+        return GST_FLOW_OK;
+    }
+
     // Track frame timing for FPS calculation
     auto current_time = std::chrono::steady_clock::now();
     if (self->frame_count > 1) { // Skip first frame
@@ -566,6 +594,7 @@ static GstFlowReturn gst_amp_performance_transform_frame_ip(GstVideoFilter *filt
                                 : (self->fps_average * 0.95 + instant_fps * 0.05);
     }
     self->last_frame_time = current_time;
+
     self->frame_count++;
 
     // Update cache every N frames
@@ -618,6 +647,35 @@ static GstFlowReturn gst_amp_performance_transform_frame_ip(GstVideoFilter *filt
     cairo_surface_destroy(surface);
 
     return GST_FLOW_OK;
+}
+
+static gboolean gst_amp_performance_sink_event(GstBaseTransform *trans, GstEvent *event) {
+    // Handle downstream events (from upstream elements)
+    // Custom control events come via src_event instead
+    return GST_BASE_TRANSFORM_CLASS(parent_class)->sink_event(trans, event);
+}
+
+static gboolean gst_amp_performance_src_event(GstBaseTransform *trans, GstEvent *event) {
+    GstAmpPerformance *self = GST_AMP_PERFORMANCE(trans);
+
+    if (GST_EVENT_TYPE(event) == GST_EVENT_CUSTOM_UPSTREAM) {
+        const GstStructure *structure = gst_event_get_structure(event);
+
+        if (structure && gst_structure_has_name(structure, "ampperformance")) {
+            gboolean enabled;
+            if (gst_structure_get_boolean(structure, "enabled", &enabled)) {
+                GST_INFO_OBJECT(self, "Received upstream event: enabled=%d", enabled);
+                self->enabled = enabled;
+            } else {
+                GST_WARNING_OBJECT(self, "Received ampperformance event without 'enabled' field");
+            }
+            gst_event_unref(event);
+            return TRUE;
+        }
+    }
+
+    // Chain up to parent class for other events
+    return GST_BASE_TRANSFORM_CLASS(parent_class)->src_event(trans, event);
 }
 
 // Plugin initialization
