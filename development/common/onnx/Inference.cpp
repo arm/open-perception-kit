@@ -195,15 +195,17 @@ void Inference::setupTensorsForModel() {
             api.outputTensorVector.push_back(api.outputTensors[i]->createOnnxTensor(*this->memoryInfo));
     }
 
+    fmt::print("Input tensors are set up\n");
 }
 
 amp::Result<void> Inference::createTensorProcessors() {
 
     if(this->modelDescriptor.modelFamily == "yolo-object-detection") {
         this->outputParser = std::make_unique<uflw::YoloLikeParser>();
+        fmt::print("Creating tensor parser: YoloLikeParser\n");
     } else if(this->modelDescriptor.modelFamily == "blazeface") {
         this->outputParser = std::make_unique<uflw::BlazeFaceParser>();
-        return { };
+        fmt::print("Creating tensor parser: BlazeFaceParser\n");
     } else {
         return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::NotSupported, fmt::format("cannot create output tensor parser for [{}]", this->modelDescriptor.modelFamily)));
     }

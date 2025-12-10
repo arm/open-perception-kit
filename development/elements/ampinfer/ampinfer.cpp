@@ -15,6 +15,7 @@
 #include "uniflow/model_io.h"
 #include "uniflow/public_types.h"
 #include "uniflow/yolo_like_parser.h"
+#include <fmt/core.h>
 
 #include "onnx/Inference.h"
 
@@ -22,7 +23,8 @@
 
 #include <PerformanceTracer.h>
 
-#include <fmt/core.h>
+#include "amp/Result.h"
+#include "amp/Tools.h"
 
 struct GstAmpInferMembers {
     std::shared_ptr<onnx::Inference> onnxInference;
@@ -69,7 +71,6 @@ static gboolean gst_ampinfer_start(GstBaseTransform *b) {
             fmt::print("{}\n", setupResult.error().toString());
             amp::Tools::abort();
         }
-
     } catch (const std::exception &e) {
         amp::Error err = AMP_ERROR(amp::ErrorFlag::OnnxLowLevelError, e.what());
         fmt::print("{}\n", err.toString());
@@ -78,6 +79,99 @@ static gboolean gst_ampinfer_start(GstBaseTransform *b) {
     }
 
     return TRUE;
+}
+
+static gboolean gst_ampinfer_stop(GstBaseTransform *b) {
+    auto *self = (GstAmpInfer *)b;
+    delete self->m;
+    return TRUE;
+}
+
+static gboolean gst_ampinfer_set_info(GstVideoFilter *vf,
+                                      GstCaps *incaps,
+                                      GstVideoInfo *ininfo,
+                                      GstCaps *outcaps,
+                                      GstVideoInfo *outinfo) {
+    (void)incaps;
+    (void)outcaps;
+    (void)outinfo;
+
+    auto *self = (GstAmpInfer *)vf;
+    self->in_info = *ininfo;
+    return TRUE;
+}
+
+static GstFlowReturn gst_ampinfer_transform_frame_ip(GstVideoFilter *vf, GstVideoFrame *frame) {
+    return GST_FLOW_OK;
+    GstAmpInfer *self = (GstAmpInfer *)vf;
+
+    size_t frameWidth = frame->info.width;
+    size_t frameHeight = frame->info.height;
+    uint8_t *rgb = (uint8_t *)frame->data[0];
+    if (!rgb)
+        return GST_FLOW_OK;
+
+    if (!self->m->onnxInference)
+        return GST_FLOW_OK;
+
+    // ---
+
+    // preprocess
+    auto prepocessResult = self->m->onnxInference->preprocessImageData(
+        0, rgb, uflw::TensorDataKind::ImageRgbChw, uflw::ValueType::u8, frameWidth, frameHeight);
+    if (!prepocessResult) {
+        fmt::print("{}", prepocessResult.error().toString());
+        return GST_FLOW_OK;
+    }
+
+    // inference
+    auto inferenceResult = self->m->onnxInference->inference();
+    if (!inferenceResult) {
+        fmt::print("{}", inferenceResult.error().toString());
+        return GST_FLOW_OK;
+    }
+
+    // postprocess
+    uflw::NetworkOutputParser::Settings settings;
+    settings.confidenceThreshold = 0.3f;
+    settings.normalizedCoordinates = false;
+    settings.iouThreshold = 0.3f;
+    settings.maxDetectionCount = 3;
+
+    uflw::DetectionResult detectionResults;
+    auto postprocessResult = self->m->onnxInference->postprocess(settings, detectionResults);
+    if (!postprocessResult) {
+        fmt::print("{}", postprocessResult.error().toString());
+        return GST_FLOW_OK;
+    }
+
+    // decorate
+    if (detectionResults.rects.size()) {
+
+        amp::Painter painter(rgb, frameWidth, frameHeight, frameWidth * 3);
+        amp::TextRenderer textRenderer;
+
+        if (self->m->onnxInference->getModel().modelFamily ==
+            std::string("yolo-object-detection")) {
+            for (const auto &a : detectionResults.rects) {
+                painter.drawRect(a.x, a.y, a.w, a.h, 255, 123, 52, 2);
+                auto label = uflw::Labels::getLabel(uflw::LabelType::Coco, a.classIndex);
+                textRenderer.drawText(painter, a.x, a.y, label.data(), 0, 0, 0, 0, 255, 0);
+            }
+        }
+
+        if (self->m->onnxInference->getModel().modelFamily == std::string("blazeface")) {
+            for (const auto &a : detectionResults.rects) {
+                painter.drawCircle(a.x + a.w / 2, a.y + a.h / 2, a.w / 2, 155, 255, 64, 3);
+                break;
+            }
+            for (const auto &a : detectionResults.points) {
+                painter.drawPoint(a.x, a.y, 255, 255, 255, 4);
+            }
+        }
+    }
+
+    return GST_FLOW_OK;
 }
 
 static gboolean gst_ampinfer_stop(GstBaseTransform *b) {
