@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>WebRTC Stream</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <div class="card">
+            <div class="card-header">
+                <div class="title">
+                    <span class="title-dot"></span>
+                    WebRTC Stream Monitor
+                </div>
+                <div id="status-pill" class="status-pill connecting">
+                    <span class="status-dot"></span>
+                    <div>
+                        <div id="status-label" class="status-label">CONNECTING</div>
+                        <div id="status-subtext" class="subtext">Initializing WebRTC &amp; signaling…</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-body">
+                <div class="video-wrapper">
+                    <video id="video" autoplay playsinline muted></video>
+                    <div id="video-overlay" class="video-overlay">
+                        <div class="overlay-chip">
+                            <div class="spinner"></div>
+                            <div id="overlay-text">Waiting for stream…</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sidebar">
+                    <div>
+                        <div class="sidebar-section-title">Controls</div>
+                        <div class="btn-row">
+                            <button id="reconnectBtn" class="primary">
+                                <span class="btn-icon">↻</span>
+                                Reconnect
+                            </button>
+                            <button id="postButton">
+                                <span class="btn-icon">⇪</span>
+                                Send POST
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="sidebar-section-title">Connection</div>
+                        <div id="status-line" class="status-line">
+                            Starting up…
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="sidebar-section-title">Debug log</div>
+                        <div id="log" class="log"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logic -->
+        <script src="webrtc.js"></script>
+        <script src="button.js"></script>
+    </body>
+</html>
