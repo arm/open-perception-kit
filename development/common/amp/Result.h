@@ -19,7 +19,8 @@ namespace amp {
         InvalidData,
         GenericError,
         ModelInspectError,
-        OnnxLowLevelError
+        OnnxLowLevelError,
+        NotSupported
     };
 
     struct Error {
@@ -33,9 +34,9 @@ namespace amp {
         { 
         }
 
-        ErrorFlag flag = ErrorFlag::GenericError;
-        std::string info;
-        std::source_location sourceLocation;
+        const ErrorFlag flag = ErrorFlag::GenericError;
+        const std::string info;
+        const std::source_location sourceLocation;
 
         std::string toString() const;
 

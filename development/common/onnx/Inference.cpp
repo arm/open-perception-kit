@@ -2,20 +2,25 @@
 
 #include "amp/String.h"
 #include "amp/Result.h"
+#include "fmt/base.h"
 #include "gst/video/video-enumtypes.h"
 #include "onnx/Tools.h"
 #include "onnxruntime_cxx_api.h"
 #include "tl/expected.hpp"
+#include "uniflow/blazeface_parser.h"
 #include "uniflow/detection_types.h"
 #include "uniflow/model_io.h"
 #include "uniflow/tensor_view.h"
+#include "uniflow/image_tensor_builder.h"
 #include <memory>
 
 #include <fmt/core.h>
 
-#include "amp/File.h"
 #include "amp/String.h"
 #include "amp/Result.h"
+
+#include "magic_enum/magic_enum.hpp"
+
 
 #include "ModelDescriptor.h"
 
@@ -75,20 +80,103 @@ amp::Result<void> Inference::setup(const ModelDescriptor& modelDesc_) {
             return tl::unexpected{ modelResult.error() };
         }
         this->model = *modelResult;
+
+        // --- build up model
         
         std::string modelLog = onnx::Tools::toString(this->model);
-        printf("========= New  model  parsed =========\n");
+        printf("========= Original onnx model ========\n");
         printf("%s", modelLog.c_str());
         printf("========= ================== =========\n");
 
-        setupTensorsForModel();
+        auto cmResult = this->createModelFromModelDesc();
+        if(!cmResult) {
+            return tl::make_unexpected(cmResult.error());
+        }
+
+        this->setupTensorsForModel();
+        
+        auto ctpResult = this->createTensorProcessors();
+        if(!ctpResult){
+            return tl::make_unexpected(ctpResult.error());
+        }
 
         this->setupReady = true;
+
+        // ---
+
+        modelLog = onnx::Tools::toString(this->model);
+        printf("======= Model updated with json ======\n");
+        printf("%s", modelLog.c_str());
+        printf("========= ================== =========\n");
+
     } 
     catch (const std::exception& e) {
         return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::OnnxLowLevelError, e.what()));
     }
 
+    return { };
+}
+
+amp::Result<void> Inference::createModelFromModelDesc() {
+
+    this->model.modelFamily = this->modelDescriptor.modelFamily;
+
+    // INPUT tensors
+    if(this->model.modelInputCount != this->modelDescriptor.inputTensors.size()) {
+        return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, "input tensor count must be the same in ONNX and json"));
+    }
+
+    for(size_t i = 0; i < this->modelDescriptor.inputTensors.size(); i++) {
+        TensorDescriptor& descTensor = this->modelDescriptor.inputTensors[i];
+
+        // setup data kind
+        if(descTensor.dataKind == uflw::TensorDataKind::Unknown) {
+            return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, "input tensor data kind is unknown"));
+        }
+        this->model.inputs[i].dataKind = descTensor.dataKind;
+
+        // setup final tenshor shape
+        if(descTensor.shape.hasDynamicDimension()) {
+            return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, "json cannot contain dynamic input shapes"));
+        }
+
+        if(this->model.inputs[i].shape.hasDynamicDimension()) {
+            if(false == this->model.inputs[i].shape.applyDimensionsForDynamic(descTensor.shape)) {
+                return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, "cannot apply json input tensor shape to onnx tensor shape"));
+            }
+        }
+    }
+
+    // OUTPUT tensors
+    if(false == this->modelDescriptor.dynamicOutput) {
+        if(this->model.modelOutputCount != this->modelDescriptor.outputTensors.size()) {
+            return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, "output tensor count must be the same in ONNX and json"));
+        }        
+    }
+
+    for(size_t i = 0; i < this->modelDescriptor.outputTensors.size(); i++) {
+        TensorDescriptor& descTensor = this->modelDescriptor.outputTensors[i];
+
+        // setup data kind
+        if(descTensor.dataKind == uflw::TensorDataKind::Unknown) {
+            return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, "output tensor data kind is unknown"));
+        }
+
+        // setup final tenshor shape
+        if(descTensor.shape.hasDynamicDimension()) {
+            return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, "json cannot contain dynamic output shapes"));
+        }
+
+        if(this->model.outputs[i].shape.hasDynamicDimension()) {
+            if(false == this->model.outputs[i].shape.applyDimensionsForDynamic(descTensor.shape)) {
+                return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, "cannot apply json output tensor shape to onnx tensor shape"));
+            }
+        }
+    }
+
+    // other stuff
+    this->useDynamicOutput = this->modelDescriptor.dynamicOutput;
+    
     return { };
 }
 
@@ -103,12 +191,29 @@ void Inference::setupTensorsForModel() {
     for(size_t i = 0; i < this->model.modelOutputCount; i++) {
         api.outputTensors[i] = std::make_unique<onnx::Tensor>(this->model.outputs[i].shape, this->model.outputs[i].valueType);
         api.outputNames.push_back(this->model.outputs[i].name.c_str());
-        api.outputTensorVector.push_back(api.outputTensors[i]->createOnnxTensor(*this->memoryInfo));
+        if(false == this->useDynamicOutput)
+            api.outputTensorVector.push_back(api.outputTensors[i]->createOnnxTensor(*this->memoryInfo));
     }
 
 }
 
-onnx::Result Inference::preprocessImageData(size_t tensorIndex, const uint8_t* data, uflw::TensorDataKind dataKind, uflw::ValueType valueType, size_t imageWidth, size_t imageHeight) {
+amp::Result<void> Inference::createTensorProcessors() {
+
+    if(this->modelDescriptor.modelFamily == "yolo-object-detection") {
+        this->outputParser = std::make_unique<uflw::YoloLikeParser>();
+    } else if(this->modelDescriptor.modelFamily == "blazeface") {
+        this->outputParser = std::make_unique<uflw::BlazeFaceParser>();
+        return { };
+    } else {
+        return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::NotSupported, fmt::format("cannot create output tensor parser for [{}]", this->modelDescriptor.modelFamily)));
+    }
+
+    this->inputBuilder = std::make_unique<uflw::ImageTensorBuilder>();
+
+    return { };
+}
+
+amp::Result<void> Inference::preprocessImageData(size_t tensorIndex, const uint8_t* data, uflw::TensorDataKind dataKind, uflw::ValueType valueType, size_t imageWidth, size_t imageHeight) {
 
     uflw::NetworkInputBuilder::Setup setup;
     setup.original.data = data;
@@ -119,19 +224,20 @@ onnx::Result Inference::preprocessImageData(size_t tensorIndex, const uint8_t* d
     setup.original.type = valueType;
 
     size_t modelWidth, modelHeight;
-    model.inputs[tensorIndex].getImageWidthHeight(modelWidth, modelHeight);
+    if(false == model.inputs[tensorIndex].tryGetImageTensorSize(modelWidth, modelHeight)) {
+        return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, "tensor seems not to be an image"));
+    }
 
     setup.target.data = api.inputTensors[tensorIndex]->getData();
     setup.target.byteCount = api.inputTensors[tensorIndex]->getByteCount();
     setup.target.width = modelWidth;
     setup.target.height = modelHeight;
-    //setup.target.kind = uflw::TensorDataKind::ImageRgbChw;
     setup.target.kind = model.inputs[0].dataKind;
     setup.target.type = uflw::ValueType::f32;
 
     uflw::Result result = inputBuilder->build(setup);
     if(uflw::Result::Ok != result) {
-      printf("ERROR!\n");
+        return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, "tensor build error"));
     }
 
     this->inferenceMetaData.image.width = imageWidth;
@@ -139,11 +245,11 @@ onnx::Result Inference::preprocessImageData(size_t tensorIndex, const uint8_t* d
     this->inferenceMetaData.image.modelWidth = modelWidth;
     this->inferenceMetaData.image.modelHeight = modelHeight;
 
-    return onnx::Result::Ok;
+    return { };
 
 }
 
-onnx::Result Inference::inference() {
+amp::Result<void> Inference::inference() {
 
     if(api.inputTensorVector.size() > 1) {
         *(float*)api.inputTensors[0]->getData() = 0.99f; // confidence
@@ -170,11 +276,11 @@ onnx::Result Inference::inference() {
     api.outputNames.size());
     }
 
-    return onnx::Result::Ok;
+    return { };
 
 }
 
-onnx::Result Inference::postprocess(const uflw::NetworkOutputParser::Settings& settings,
+amp::Result<void> Inference::postprocess(const uflw::NetworkOutputParser::Settings& settings,
                                       uflw::DetectionResult& outDetectionResults) {
 
     if (!this->useDynamicOutput) {
@@ -256,6 +362,6 @@ onnx::Result Inference::postprocess(const uflw::NetworkOutputParser::Settings& s
         // dynamicReaders stays alive until here, so tensorReaders are valid during parse()
     }
 
-    return onnx::Result::Ok;
+    return { };
 }
 

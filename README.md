@@ -148,6 +148,7 @@ After clicking *Run and Debug (Ctrl+Shift+D)* in VS Code, create the following `
             ],
             "externalConsole": false,
             "MIMode": "gdb",
+            "targetArchitecture": "arm64", 
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",

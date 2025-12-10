@@ -1,4 +1,5 @@
 #include "Tools.h"
+#include "fmt/base.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,7 +19,7 @@ std::string Tools::getLocalIp() {
 
     std::string ret;
 
-    const char *hostname = "host.docker.internal";
+   const char *hostname = "host.docker.internal";
     struct addrinfo hints, *res, *p;
     char ipstr[INET_ADDRSTRLEN];
 
@@ -48,5 +49,6 @@ std::string Tools::getLocalIp() {
 }
 
 void Tools::abort() {
+    fmt::print("Amp is aborting the pipeline..\n");
     ::abort();
 }

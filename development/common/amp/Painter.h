@@ -108,6 +108,28 @@ namespace amp {
             p[2] = b;
         }
 
+        void drawCircle(int centerX, int centerY, int radius, uint8_t r, uint8_t g, uint8_t b, int thickness = 1)
+        {
+            if (!valid() || radius <= 0 || thickness <= 0)
+                return;
+
+            const int outerR = radius;
+            const int innerR = std::max(0, radius - thickness + 1);
+
+            const int outerR2 = outerR * outerR;
+            const int innerR2 = innerR * innerR;
+
+            // Brute-force over bounding box, rely on setPixel() for clipping.
+            for (int dy = -outerR; dy <= outerR; ++dy) {
+                for (int dx = -outerR; dx <= outerR; ++dx) {
+                    const int dist2 = dx * dx + dy * dy;
+                    if (dist2 <= outerR2 && dist2 >= innerR2) {
+                        setPixel(centerX + dx, centerY + dy, r, g, b);
+                    }
+                }
+            }
+        }
+
         // Draw a horizontal line y, from x0 to x1 inclusive, clipped
         void drawHLine(int x0, int x1, int y,
                     uint8_t r, uint8_t g, uint8_t b)
