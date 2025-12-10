@@ -16,6 +16,8 @@ jobs:
         run: |
           apt-get update
           apt-get install -y git clang-format-19
+          # Create symlink for convenience
+          ln -sf /usr/bin/clang-format-19 /usr/bin/clang-format
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -49,6 +51,7 @@ jobs:
 
       - name: Run clang-format on changed files
         if: steps.changed_files.outputs.files != ''
+        shell: bash
         run: |
           FILES="${{ steps.changed_files.outputs.files }}"
           echo "Checking formatting for:"
