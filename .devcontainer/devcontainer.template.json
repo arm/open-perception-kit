@@ -32,7 +32,10 @@
   "customizations": {
     "vscode": {
       "recommendations": ["ms-python.python", "ms-vscode.cpptools"],
-      "extensions": ["xaver.clang-format"],
+      "extensions": [
+        "xaver.clang-format",
+        "ms-vscode.cpptools-extension-pack"
+      ],
       "settings": {
         "terminal.integrated.defaultProfile.linux": "bash",
         "python.defaultInterpreterPath": "/work/.venv/bin/python"
