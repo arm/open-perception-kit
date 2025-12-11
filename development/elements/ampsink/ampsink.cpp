@@ -22,6 +22,8 @@ g++ -fPIC -shared -o libgstampsink.so ampsink.cpp \
 
 #include <cpp-httplib/httplib.h>
 
+#include <nlohmann/json.hpp>
+
 #include <memory>
 #include <thread>
 
@@ -36,8 +38,28 @@ g++ -fPIC -shared -o libgstampsink.so ampsink.cpp \
 typedef struct _GstAmpSink GstAmpSink;
 typedef struct _GstAmpSinkClass GstAmpSinkClass;
 
-std::thread http_server_thread;
-std::unique_ptr<httplib::Server> http_server;
+using ws_server = websocketpp::server<websocketpp::config::asio>;
+using connection_hdl = websocketpp::connection_hdl;
+using json = nlohmann::json;
+
+struct SessionContext {
+    ws_server *ws;
+    connection_hdl hdl;
+
+    // alias to make webrtcbin reachable from session negotation functions
+    GstElement *webrtcbin;
+};
+
+using WebRtcSessions =
+    std::map<connection_hdl, std::shared_ptr<SessionContext>, std::owner_less<connection_hdl>>;
+
+struct GstAmpPrivate {
+    std::thread http_server_thread;
+    std::thread ws_server_thread;
+    std::unique_ptr<httplib::Server> http_server;
+
+    WebRtcSessions webrtc_sessions;
+};
 
 struct _GstAmpSink {
     GstBin parent;
@@ -53,6 +75,8 @@ struct _GstAmpSink {
     gchar *static_files_location;
     gint http_port;
     gint ws_port;
+
+    GstAmpPrivate *private_data;
 };
 
 struct _GstAmpSinkClass {
@@ -174,20 +198,25 @@ static void gst_amp_sink_release_pad(GstElement *element, GstPad *pad) {
 static void gst_amp_sink_dispose(GObject *object) {
     auto *self = reinterpret_cast<GstAmpSink *>(object);
 
-    if (http_server) {
-        http_server->stop();
+    if (self->private_data->http_server) {
+        self->private_data->http_server->stop();
     }
-    http_server_thread.join();
+    self->private_data->http_server_thread.join();
 
     g_clear_pointer(&self->host, g_free);
     g_clear_pointer(&self->static_files_location, g_free);
+
+    delete self->private_data;
+
     G_OBJECT_CLASS(gst_amp_sink_parent_class)->dispose(object);
 }
 
 static void gst_amp_sink_setup_http_server(GstAmpSink *self) {
     using namespace httplib;
 
-    http_server = std::make_unique<Server>();
+    auto &http_server = self->private_data->http_server;
+
+    self->private_data->http_server = std::make_unique<Server>();
 
     auto ret = http_server->set_mount_point("/", self->static_files_location);
     if (!ret) {
@@ -208,7 +237,181 @@ static void gst_amp_sink_setup_http_server(GstAmpSink *self) {
     }
 }
 
+static void send_text(SessionContext *ctx, const std::string &text) {
+    try {
+        ctx->ws->send(ctx->hdl, text, websocketpp::frame::opcode::text);
+    } catch (const websocketpp::exception &e) {
+        std::cerr << "WebSocket send error: " << e.what() << std::endl;
+    }
+}
+
+void send_ice_candidate_message(SessionContext *ctx, guint mlineindex, gchar *candidate) {
+    std::cout << "Sending ICE candidate: mlineindex=" << mlineindex << ", candidate=" << candidate
+              << std::endl;
+    json msg;
+    msg["type"] = "candidate";
+    msg["ice"] = {{"candidate", candidate}, {"sdpMLineIndex", mlineindex}};
+
+    send_text(ctx, msg.dump());
+
+    std::cout << "ICE candidate sent" << std::endl;
+}
+
+void on_ice_candidate(GstElement *webrtc, guint mlineindex, gchar *candidate, gpointer user_data) {
+    std::cout << "ICE candidate generated: mlineindex=" << mlineindex << ", candidate=" << candidate
+              << std::endl;
+
+    SessionContext *ctx = static_cast<SessionContext *>(user_data);
+    send_ice_candidate_message(ctx, mlineindex, candidate);
+}
+
+void on_negotiation_needed(GstElement *webrtc, gpointer user_data) {
+    std::cout << "Negotiation needed" << std::endl;
+}
+
+void on_open(GstAmpSink *self, ws_server *ws, connection_hdl hdl) {
+    auto ctx = std::make_shared<SessionContext>();
+
+    ctx->ws = ws;
+    ctx->hdl = hdl;
+    ctx->webrtcbin = self->webrtcbin;
+
+    g_signal_connect(
+        self->webrtcbin, "on-negotiation-needed", G_CALLBACK(on_negotiation_needed), ctx.get());
+    g_signal_connect(self->webrtcbin, "on-ice-candidate", G_CALLBACK(on_ice_candidate), ctx.get());
+
+    self->private_data->webrtc_sessions[hdl] = ctx;
+}
+
+void on_close(GstAmpSink *self, connection_hdl hdl) {
+    std::cout << "WebSocket connection closed" << std::endl;
+    auto &webrtc_sessions = self->private_data->webrtc_sessions;
+
+    auto it = webrtc_sessions.find(hdl);
+    if (it != webrtc_sessions.end()) {
+        auto ctx = it->second;
+#if 0
+        if (ctx->pipeline) {
+            std::cout << "Tearing down pipeline" << std::endl;
+            gst_element_set_state(ctx->pipeline, GST_STATE_NULL);
+            gst_object_unref(ctx->pipeline);
+        }
+#endif
+        webrtc_sessions.erase(it);
+    }
+}
+
+void on_answer_created(GstPromise *promise, gpointer user_data) {
+    std::cout << "Answer created" << std::endl;
+
+    SessionContext *ctx = static_cast<SessionContext *>(user_data);
+
+    GstWebRTCSessionDescription *answer = NULL;
+    const GstStructure *reply = gst_promise_get_reply(promise);
+    gst_structure_get(reply, "answer", GST_TYPE_WEBRTC_SESSION_DESCRIPTION, &answer, NULL);
+
+    GstPromise *local_promise = gst_promise_new();
+    g_signal_emit_by_name(ctx->webrtcbin, "set-local-description", answer, local_promise);
+
+    json sdp_json;
+    sdp_json["type"] = "answer";
+    sdp_json["sdp"] = gst_sdp_message_as_text(answer->sdp);
+    send_text(ctx, sdp_json.dump());
+
+    std::cout << "Local description set and answer sent: " << sdp_json.dump() << std::endl;
+
+    gst_webrtc_session_description_free(answer);
+}
+
+void on_set_remote_description(GstPromise *promise, gpointer user_data) {
+    std::cout << "Remote description set, creating answer" << std::endl;
+
+    SessionContext *ctx = static_cast<SessionContext *>(user_data);
+    GstPromise *answer_promise = gst_promise_new_with_change_func(on_answer_created, ctx, NULL);
+
+    g_signal_emit_by_name(ctx->webrtcbin, "create-answer", NULL, answer_promise);
+}
+
+void on_message(GstAmpSink *self,
+                ws_server *server,
+                connection_hdl hdl,
+                ws_server::message_ptr msg) {
+    auto &webrtc_sessions = self->private_data->webrtc_sessions;
+
+    try {
+        auto it = webrtc_sessions.find(hdl);
+        if (it == webrtc_sessions.end()) {
+            std::cerr << "No session context for this connection" << std::endl;
+            return;
+        }
+        auto ctx = it->second;
+
+        const std::string payload = msg->get_payload();
+        json j = json::parse(payload);
+
+        std::string type = j["type"].get<std::string>();
+
+        if (type == "offer") {
+            std::cout << "Received offer: " << payload << std::endl;
+
+            std::string sdp = j["sdp"].get<std::string>();
+            GstSDPMessage *sdp_message = nullptr;
+            if (gst_sdp_message_new_from_text(sdp.c_str(), &sdp_message) != GST_SDP_OK) {
+                g_printerr("Failed to parse SDP offer\n");
+                return;
+            }
+
+            GstWebRTCSessionDescription *offer =
+                gst_webrtc_session_description_new(GST_WEBRTC_SDP_TYPE_OFFER, sdp_message);
+
+            GstPromise *promise =
+                gst_promise_new_with_change_func(on_set_remote_description, ctx.get(), NULL);
+            g_signal_emit_by_name(self->webrtcbin, "set-remote-description", offer, promise);
+            gst_webrtc_session_description_free(offer);
+
+            std::cout << "Setting remote description" << std::endl;
+        } else if (type == "candidate") {
+            std::cout << "Received ICE candidate: " << payload << std::endl;
+
+            auto ice = j["ice"];
+            std::string candidate = ice["candidate"].get<std::string>();
+            guint sdpMLineIndex = static_cast<guint>(ice["sdpMLineIndex"].get<int>());
+
+            g_signal_emit_by_name(
+                self->webrtcbin, "add-ice-candidate", sdpMLineIndex, candidate.c_str());
+
+            std::cout << "Added ICE candidate" << std::endl;
+        }
+    } catch (const std::exception &e) {
+        std::cerr << "on_message exception: " << e.what() << std::endl;
+    }
+}
+
+static void gst_amp_sink_setup_ws_server(GstAmpSink *self) {
+
+    ws_server server;
+
+    server.init_asio();
+
+    server.set_open_handler([&server, self](connection_hdl hdl) { on_open(self, &server, hdl); });
+
+    server.set_close_handler([self](connection_hdl hdl) { on_close(self, hdl); });
+
+    server.set_message_handler([&server, self](connection_hdl hdl, ws_server::message_ptr msg) {
+        on_message(self, &server, hdl, msg);
+    });
+
+    server.set_reuse_addr(true);
+    server.listen(self->ws_port);
+    server.start_accept();
+
+    std::cout << "WebSocket++ server listening on port " << self->ws_port << std::endl;
+    server.run();
+}
+
 static void gst_amp_sink_init(GstAmpSink *self) {
+    self->private_data = new GstAmpPrivate();
+
     /* defaults */
     self->host = g_strdup(amp::Tools::getLocalIp().c_str());
     self->static_files_location = g_strdup("./scripts/public");
@@ -259,7 +462,8 @@ static void gst_amp_sink_init(GstAmpSink *self) {
     /* initial property push */
     push_props_down(self);
 
-    http_server_thread = std::thread(gst_amp_sink_setup_http_server, self);
+    self->private_data->ws_server_thread = std::thread(gst_amp_sink_setup_ws_server, self);
+    self->private_data->http_server_thread = std::thread(gst_amp_sink_setup_http_server, self);
 }
 
 static void gst_amp_sink_class_init(GstAmpSinkClass *klass) {
