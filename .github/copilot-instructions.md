@@ -86,7 +86,7 @@
 ```bash
 ./scripts/build-elements.sh release
 ```
-- Uses `-Doptimization=3 -Db_lto=true -Dstrip=true`
+- Uses Meson options: `-Doptimization=3 -Db_lto=true -Dstrip=true` (compiles with `-O3 -flto`)
 - Build time: ~60-90 seconds (LTO adds overhead)
 
 ### Build Output
@@ -128,8 +128,8 @@ Pre-commit hooks are installed by `.devcontainer/setup.sh`. They run clang-forma
 
 ### Manual Formatting Check
 ```bash
-clang-format --dry-run --Werror <file.cpp>  # Check only
-clang-format -i <file.cpp>                  # Fix in-place
+clang-format -style=file --dry-run --Werror <file.cpp>  # Check only
+clang-format -style=file -i <file.cpp>                  # Fix in-place
 ```
 
 ### Format All Changed Files
@@ -140,8 +140,8 @@ pre-commit run --all-files  # Run all hooks on all files
 ### CI Check (GitHub Actions)
 - **Workflow**: `.github/workflows/clang-format-check.yml`
 - **Trigger**: All pull requests
-- **Container**: `debian:trixie` with `clang-format-19`
-- **Check**: Runs `clang-format --dry-run --Werror` on changed C/C++ files
+- **Container**: `debian:trixie` with `clang-format-19` (symlinked to `clang-format`)
+- **Check**: Runs `clang-format -style=file --dry-run --Werror` on changed C/C++ files
 - **Pass Criteria**: Zero formatting violations
 
 ### Format Configuration
@@ -152,7 +152,7 @@ pre-commit run --all-files  # Run all hooks on all files
 
 ### Fixing Format Failures
 If CI fails:
-1. Locally: `clang-format -i <failing-files>`
+1. Locally: `clang-format -style=file -i <failing-files>`
 2. Commit formatting fixes
 3. Push to update PR
 
@@ -182,7 +182,7 @@ Optional CLI tool. Setup by `.devcontainer/setup.sh`:
 
 ### Making C++ Changes to Elements
 1. Edit element source (e.g., `development/elements/ampinfer/ampinfer.cpp`)
-2. **ALWAYS format before commit**: `clang-format -i <file>`
+2. **ALWAYS format before commit**: `clang-format -style=file -i <file>`
 3. Build: `./scripts/build-elements.sh debug`
 4. Test: `./scripts/test-elements.sh onnx`
 5. Verify: Check console output for errors
