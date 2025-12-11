@@ -14,11 +14,11 @@
 **IMPORTANT**: All build and test commands MUST be run inside the DevContainer. The host environment lacks necessary dependencies (GStreamer, ONNX Runtime, meson, etc.). Never attempt to build or test outside the container.
 
 ### DevContainer Setup (One-Time)
-1. Run `./setup-container.sh` on host and select platform (option 1 for default)
+1. Run `./setup-container.sh` on host and select platform (option 1: Default container)
 2. This generates `.devcontainer/Dockerfile` and `.devcontainer/devcontainer.json`
 3. Open in VS Code and select "Reopen in Container"
 4. Container automatically runs `.devcontainer/setup.sh` which:
-   - Downloads and installs ONNX Runtime (x64 or aarch64)
+   - Downloads and installs ONNX Runtime (x64 or aarch64) to `deps/onnxruntime/`
    - Sets up Python venv for lazer tool
    - Installs pre-commit hooks
    - Configures environment variables
@@ -94,8 +94,8 @@
 - `GST_PLUGIN_PATH` automatically set to `/work/development/build`
 
 ### Common Build Issues
-1. **"uniflow dependency not found"**: Ensure `.devcontainer/setup.sh` completed successfully. It clones uniflow from GitHub.
-2. **"onnxruntime not found"**: Check `/work/deps/onnxruntime/` exists. Re-run setup.sh if missing.
+1. **"uniflow dependency not found"**: Meson automatically fetches subproject dependencies from `subprojects/*.wrap` files during build configuration. Ensure network access and retry build.
+2. **"onnxruntime not found"**: Check `deps/onnxruntime/` exists. Re-run `.devcontainer/setup.sh` if missing.
 3. **Stale build state**: Use `./scripts/build-elements.sh clean` then rebuild.
 
 ## Testing
@@ -104,8 +104,8 @@
 
 ### Test Pipeline Examples
 ```bash
-./scripts/test-elements.sh onnx      # Basic ONNX inference + display
-./scripts/test-elements.sh onnxweb   # ONNX inference + WebRTC output
+./scripts/test-elements.sh onnx      # YOLOv8n ONNX inference test with overlay
+./scripts/test-elements.sh onnxweb   # YOLOv8n ONNX inference with WebRTC output
 ```
 
 ### Test Requirements
@@ -167,9 +167,9 @@ LD_LIBRARY_PATH=/work/deps/onnxruntime/lib    # ONNX runtime libs
 
 ### Dependencies
 - **GStreamer 1.0**: Core framework + base/video/audio plugins
-- **ONNX Runtime 1.18.1**: Downloaded by setup.sh to `/work/deps/onnxruntime/`
-- **Uniflow**: Inference utilities (subproject, cloned via Meson wrap)
-- **Cairo**: Graphics rendering (subproject via Meson wrap)
+- **ONNX Runtime 1.18.1**: Downloaded by setup.sh to `deps/onnxruntime/`
+- **Uniflow**: Inference utilities (subproject, fetched via Meson wrap)
+- **Cairo**: Graphics rendering (subproject, fetched via Meson wrap)
 - **libsoup-3.0** / **json-glib**: For ampsink WebRTC (optional)
 
 ### Python Tools (tools/lazer)
