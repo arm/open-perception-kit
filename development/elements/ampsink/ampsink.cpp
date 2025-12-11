@@ -9,6 +9,7 @@ g++ -fPIC -shared -o libgstampsink.so ampsink.cpp \
 #include <gst/gstutils.h>
 #include <gst/video/video.h>
 #include <gst/webrtc/webrtc.h>
+#include <iostream>
 
 #define ASIO_STANDALONE
 #include <asio.hpp>
@@ -43,10 +44,10 @@ using connection_hdl = websocketpp::connection_hdl;
 using json = nlohmann::json;
 
 struct SessionContext {
-    ws_server *ws;
     connection_hdl hdl;
 
-    // alias to make webrtcbin reachable from session negotation functions
+    // aliases to make ws_server webrtcbin reachable from session negotation functions
+    std::shared_ptr<ws_server> ws;
     GstElement *webrtcbin;
 };
 
@@ -57,6 +58,8 @@ struct GstAmpPrivate {
     std::thread http_server_thread;
     std::thread ws_server_thread;
     std::unique_ptr<httplib::Server> http_server;
+
+    std::shared_ptr<ws_server> ws;
 
     WebRtcSessions webrtc_sessions;
 };
@@ -201,7 +204,13 @@ static void gst_amp_sink_dispose(GObject *object) {
     if (self->private_data->http_server) {
         self->private_data->http_server->stop();
     }
+
     self->private_data->http_server_thread.join();
+
+    if (self->private_data->ws) {
+        self->private_data->ws->stop();
+    }
+    self->private_data->ws_server_thread.join();
 
     g_clear_pointer(&self->host, g_free);
     g_clear_pointer(&self->static_files_location, g_free);
@@ -269,7 +278,7 @@ void on_negotiation_needed(GstElement *webrtc, gpointer user_data) {
     std::cout << "Negotiation needed" << std::endl;
 }
 
-void on_open(GstAmpSink *self, ws_server *ws, connection_hdl hdl) {
+void on_open(GstAmpSink *self, std::shared_ptr<ws_server> ws, connection_hdl hdl) {
     auto ctx = std::make_shared<SessionContext>();
 
     ctx->ws = ws;
@@ -333,7 +342,7 @@ void on_set_remote_description(GstPromise *promise, gpointer user_data) {
 }
 
 void on_message(GstAmpSink *self,
-                ws_server *server,
+                std::shared_ptr<ws_server> server,
                 connection_hdl hdl,
                 ws_server::message_ptr msg) {
     auto &webrtc_sessions = self->private_data->webrtc_sessions;
@@ -388,25 +397,28 @@ void on_message(GstAmpSink *self,
 }
 
 static void gst_amp_sink_setup_ws_server(GstAmpSink *self) {
+    std::cout << "started ws server\n";
 
-    ws_server server;
+    auto server = std::make_shared<ws_server>();
 
-    server.init_asio();
+    server->init_asio();
 
-    server.set_open_handler([&server, self](connection_hdl hdl) { on_open(self, &server, hdl); });
+    server->set_open_handler([&server, self](connection_hdl hdl) { on_open(self, server, hdl); });
 
-    server.set_close_handler([self](connection_hdl hdl) { on_close(self, hdl); });
+    server->set_close_handler([self](connection_hdl hdl) { on_close(self, hdl); });
 
-    server.set_message_handler([&server, self](connection_hdl hdl, ws_server::message_ptr msg) {
-        on_message(self, &server, hdl, msg);
+    server->set_message_handler([&server, self](connection_hdl hdl, ws_server::message_ptr msg) {
+        on_message(self, server, hdl, msg);
     });
 
-    server.set_reuse_addr(true);
-    server.listen(self->ws_port);
-    server.start_accept();
+    server->set_reuse_addr(true);
+    server->listen(self->ws_port);
+    server->start_accept();
+
+    self->private_data->ws = server;
 
     std::cout << "WebSocket++ server listening on port " << self->ws_port << std::endl;
-    server.run();
+    server->run();
 }
 
 static void gst_amp_sink_init(GstAmpSink *self) {
