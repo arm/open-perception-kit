@@ -5,13 +5,23 @@ g++ -fPIC -shared -o libgstampsink.so ampsink.cpp \
 
 #include <gst/audio/audio.h>
 #include <gst/gst.h>
+#include <gst/gstelement.h>
 #include <gst/gstutils.h>
 #include <gst/video/video.h>
+#include <gst/webrtc/webrtc.h>
 
-#include "amp/Tools.h"
-#include "gst/gstelement.h"
+#define ASIO_STANDALONE
+#include <asio.hpp>
+
+#include <websocketpp/common/connection_hdl.hpp>
+#include <websocketpp/config/asio.hpp>
+#include <websocketpp/frame.hpp>
+#include <websocketpp/server.hpp>
+
+#include <amp/Tools.h>
 
 #include <cpp-httplib/httplib.h>
+
 #include <memory>
 #include <thread>
 
@@ -164,7 +174,7 @@ static void gst_amp_sink_release_pad(GstElement *element, GstPad *pad) {
 static void gst_amp_sink_dispose(GObject *object) {
     auto *self = reinterpret_cast<GstAmpSink *>(object);
 
-    if(http_server) {
+    if (http_server) {
         http_server->stop();
     }
     http_server_thread.join();
@@ -180,19 +190,19 @@ static void gst_amp_sink_setup_http_server(GstAmpSink *self) {
     http_server = std::make_unique<Server>();
 
     auto ret = http_server->set_mount_point("/", self->static_files_location);
-    if(!ret) {
+    if (!ret) {
         // TODO@ibori: error handling
         throw std::runtime_error("the static file directory doesn't exist");
     }
 
-    http_server->Post("/ctrl", [&](const Request& req, Response& res) {
+    http_server->Post("/ctrl", [&](const Request &req, Response &res) {
         // TODO@zoli: handle the contol message
         std::cout << "stop requested\n";
     });
 
     // TODO@ibori: error handling
     auto started = http_server->listen(self->host, self->http_port);
-    if(!ret) {
+    if (!ret) {
         // TODO@ibori: error handling
         throw std::runtime_error("http server cannot be started");
     }
@@ -228,8 +238,7 @@ static void gst_amp_sink_init(GstAmpSink *self) {
                      self->webrtcbin,
                      NULL);
 
-    if (!gst_element_link_many(
-            self->vconv, self->queue, self->vp8enc, self->rtpvp8pay, NULL)) {
+    if (!gst_element_link_many(self->vconv, self->queue, self->vp8enc, self->rtpvp8pay, NULL)) {
         GST_ERROR_OBJECT(self, "Failed to link video chain");
     }
 
@@ -282,8 +291,11 @@ static void gst_amp_sink_class_init(GstAmpSinkClass *klass) {
     g_object_class_install_property(
         gobject_class,
         PROP_STATIC_FILES,
-        g_param_spec_string(
-            "static-files", "Static Files Location", "Location of the static files for HTTP Server", "./scripts/public", kRW));
+        g_param_spec_string("static-files",
+                            "Static Files Location",
+                            "Location of the static files for HTTP Server",
+                            "./scripts/public",
+                            kRW));
 
     /* pads */
     gst_element_class_add_static_pad_template(element_class, &v_sink_template);
@@ -293,11 +305,12 @@ static void gst_amp_sink_class_init(GstAmpSinkClass *klass) {
     element_class->request_new_pad = gst_amp_sink_request_new_pad;
     element_class->release_pad = gst_amp_sink_release_pad;
 
-    gst_element_class_set_static_metadata(element_class,
-                                          "AmpSink (video+audio → raw video+audio -> VP8 -> WebRTC)",
-                                          "Sink/Network/Bin",
-                                          "Encodes & muxes raw video+audio to TS and sends to UDP",
-                                          "Your Name <you@example.com>");
+    gst_element_class_set_static_metadata(
+        element_class,
+        "AmpSink (video+audio → raw video+audio -> VP8 -> WebRTC)",
+        "Sink/Network/Bin",
+        "Encodes & muxes raw video+audio to TS and sends to UDP",
+        "Your Name <you@example.com>");
 }
 
 /* ===== Plugin boilerplate ===== */
