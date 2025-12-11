@@ -8,6 +8,8 @@
 
 #include "amp/Result.h"
 
+using nlohmann::json;
+
 struct TensorDescriptor {
     uflw::Shape shape { }; // if this is missing, system tries to discover it using onnx
     uflw::TensorDataKind dataKind = uflw::TensorDataKind::Unknown; // e.g. ImageRgbChw
@@ -15,6 +17,8 @@ struct TensorDescriptor {
     uflw::ValueType valueType = uflw::ValueType::f32;
     float zeroPoint = 0.0f;
     float scale = 1.0f;
+
+    std::vector<float> valueInputs;
 };
 
 struct ModelDescriptor {
@@ -23,7 +27,6 @@ struct ModelDescriptor {
     
     std::string modelFile;
     std::string modelFamily; // "yolo-object-detection", "blazeface"
-    uflw::ValueType inputValueType;
 
     std::vector<TensorDescriptor> inputTensors;
     std::vector<TensorDescriptor> outputTensors;
@@ -41,7 +44,7 @@ struct ModelDescriptor {
 
 };
 
-using nlohmann::json;
+// ---
 
 inline void to_json(json& j, const TensorDescriptor& b) {
     j = json {
@@ -50,15 +53,19 @@ inline void to_json(json& j, const TensorDescriptor& b) {
         { "zeroPoint", b.zeroPoint },
         { "scale", b.scale },
         { "dataKind", b.dataKind },
+        { "valueInputs", b.valueInputs },
     };
 }
 
 inline void from_json(const json& j, TensorDescriptor& b) {
-    j.at("shape").get_to(b.shape);
+//    j.at("shape").get_to(b.shape);
+    b.shape = j.value("shape", uflw::Shape());
     b.valueType = j.value("valueType", uflw::ValueType::f32);
     b.zeroPoint = j.value("zeroPoint", 0.0f);
     b.scale = j.value("scale", 1.0f);
-    b.dataKind = j.value("dataKind", uflw::TensorDataKind::Unknown);
+     j.at("dataKind").get_to(b.dataKind);
+//    b.dataKind = j.value("dataKind", uflw::TensorDataKind::Unknown);
+    b.valueInputs = j.value("valueInputs", std::vector<float>{});
 }
 
 inline void to_json(json& j, const ModelDescriptor& b) {

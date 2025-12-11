@@ -102,7 +102,7 @@ amp::Result<void> Inference::setup(const ModelDescriptor& modelDesc_) {
 
         this->setupReady = true;
 
-        // ---
+        // ---  
 
         modelLog = onnx::Tools::toString(this->model);
         printf("======= Model updated with json ======\n");
@@ -135,14 +135,41 @@ amp::Result<void> Inference::createModelFromModelDesc() {
         }
         this->model.inputs[i].dataKind = descTensor.dataKind;
 
+        // check Value/Vector2/Vector3/Vector4 value count
+        if(uflw::isScalarDataKind(this->model.inputs[i].dataKind)) {
+            if(this->modelDescriptor.inputTensors[i].shape.isValid()) {
+                return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, "please do not include shape for Value/Vector input tensors in json"));
+            } 
+
+            if((this->model.inputs[i].dataKind == uflw::TensorDataKind::Value && descTensor.valueInputs.size() != 1)
+                || (this->model.inputs[i].dataKind == uflw::TensorDataKind::Vector2 && descTensor.valueInputs.size() != 2)
+                || (this->model.inputs[i].dataKind == uflw::TensorDataKind::Vector3 && descTensor.valueInputs.size() != 3)
+                || (this->model.inputs[i].dataKind == uflw::TensorDataKind::Vector4 && descTensor.valueInputs.size() != 4)) {
+                return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, "input tensor Value/Vector needs the proper amount of input valuea int valueInputs"));
+            }            
+        } else {
+            if(this->modelDescriptor.inputTensors[i].shape.isInvalid()) {
+                return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, "please include shape for non-Value/Vector input tensors in json"));
+            }
+        }
+
         // setup final tenshor shape
         if(descTensor.shape.hasDynamicDimension()) {
             return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, "json cannot contain dynamic input shapes"));
         }
 
         if(this->model.inputs[i].shape.hasDynamicDimension()) {
+            // if there is dynamic shape in onnx, the desc shape must be forced to it
             if(false == this->model.inputs[i].shape.applyDimensionsForDynamic(descTensor.shape)) {
                 return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, "cannot apply json input tensor shape to onnx tensor shape"));
+            }
+        } else {
+            // if no dynamic shape in onnx, but shape is provided in json -> they must match
+            if(this->modelDescriptor.inputTensors[i].shape.isValid()) {
+                if(this->modelDescriptor.inputTensors[i].shape == this->model.inputs[i].shape) {
+                } else {
+                    return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, "if shape is provided in input tensor, the onnx static shape must mach, tip: you can skip shape in this case"));
+                }
             }
         }
     }
@@ -151,8 +178,16 @@ amp::Result<void> Inference::createModelFromModelDesc() {
     if(false == this->modelDescriptor.dynamicOutput) {
         if(this->model.modelOutputCount != this->modelDescriptor.outputTensors.size()) {
             return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, "output tensor count must be the same in ONNX and json"));
+        }
+        if(this->model.modelInputCount != this->modelDescriptor.inputTensors.size()) {
+            return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, "output tensor count must be the same in ONNX and json"));
+        }        
+    } else {
+        if(this->modelDescriptor.outputTensors.size()) {
+            return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, "please avoid to insert outputs in the json if the output is set to dynamic"));
         }        
     }
+
 
     for(size_t i = 0; i < this->modelDescriptor.outputTensors.size(); i++) {
         TensorDescriptor& descTensor = this->modelDescriptor.outputTensors[i];
@@ -170,6 +205,13 @@ amp::Result<void> Inference::createModelFromModelDesc() {
         if(this->model.outputs[i].shape.hasDynamicDimension()) {
             if(false == this->model.outputs[i].shape.applyDimensionsForDynamic(descTensor.shape)) {
                 return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, "cannot apply json output tensor shape to onnx tensor shape"));
+            }
+        } else {
+            // if no dynamic shape in onnx, but shape is provided in dest, they must match
+            if(this->modelDescriptor.outputTensors[i].shape.isInvalid()) {
+                if(this->modelDescriptor.outputTensors[i].shape != this->model.outputs[i].shape) {
+                    return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, "if shape is provided in output tensor, the onnx static shape must mach, tip: you can skip shape in this case"));
+                }
             }
         }
     }
@@ -253,11 +295,32 @@ amp::Result<void> Inference::preprocessImageData(size_t tensorIndex, const uint8
 
 amp::Result<void> Inference::inference() {
 
-    if(api.inputTensorVector.size() > 1) {
-        *(float*)api.inputTensors[0]->getData() = 0.99f; // confidence
-        *(int64_t*)api.inputTensors[1]->getData() = 1; // numdetections
-        *(float*)api.inputTensors[2]->getData() = 0.9f; // iou threshold
-    }
+    for(size_t i = 0; i < api.inputTensorVector.size(); i++) {
+        if(uflw::isScalarDataKind(this->model.inputs[i].dataKind)) {
+            if(this->model.inputs[i].dataKind == uflw::TensorDataKind::Value) {
+                ((float*)(api.inputTensors[i]->getData()))[0] = this->modelDescriptor.inputTensors[i].valueInputs[0];
+                
+            }
+            if(this->model.inputs[i].dataKind == uflw::TensorDataKind::Vector2) {
+                for(size_t k = 0; k < 2; k++)
+                    ((float*)(api.inputTensors[i]->getData()))[k] = this->modelDescriptor.inputTensors[i].valueInputs[k];
+            }
+            if(this->model.inputs[i].dataKind == uflw::TensorDataKind::Vector3) {
+                for(size_t k = 0; k < 3; k++)
+                    ((float*)(api.inputTensors[i]->getData()))[k] = this->modelDescriptor.inputTensors[i].valueInputs[k];
+            }
+            if(this->model.inputs[i].dataKind == uflw::TensorDataKind::Vector4) {
+                for(size_t k = 0; k < 4; k++)
+                    ((float*)(api.inputTensors[i]->getData()))[k] = this->modelDescriptor.inputTensors[i].valueInputs[k];
+            }
+        }
+    } 
+    
+    /*if(api.inputTensorVector.size() > 1) {
+        *(float*)api.inputTensors[1]->getData() = 0.2f; // confidence
+        *(int64_t*)api.inputTensors[2]->getData() = 5; // numdetections
+        *(float*)api.inputTensors[3]->getData() = 0.5f; // iou threshold
+    }*/
 
     if(false == this->useDynamicOutput) {
     this->session->Run(
