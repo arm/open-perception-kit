@@ -238,6 +238,12 @@ static void gst_amp_sink_setup_http_server(GstAmpSink *self) {
 
     self->private_data->http_server = std::make_unique<Server>();
 
+    // Dynamic config endpoint
+    http_server->Get("/amp-config.js", [self](const Request &req, Response &res) {
+        std::string js = "window.AMP_CONFIG = { wsPort: " + std::to_string(self->ws_port) + " };";
+        res.set_content(js, "application/javascript");
+    });
+
     auto ret = http_server->set_mount_point("/", self->static_files_location);
     if (!ret) {
         // TODO@ibori: error handling

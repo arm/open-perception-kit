@@ -54,7 +54,15 @@ function appendLog(message, type = 'info') {
 }
 
 // ===== WEBRTC + SIGNALING LOGIC =====
-const SIGNALING_URL = 'ws://localhost:8000/ws'; // adjust if needed
+const WS_PROTO = location.protocol === 'https:' ? 'wss' : 'ws';
+const WS_HOST  = location.hostname;
+
+// Prefer configured wsPort, fallback to page port if missing
+const WS_PORT =
+  (window.AMP_CONFIG && window.AMP_CONFIG.wsPort) ||
+  (location.port || (location.protocol === 'https:' ? 443 : 80));
+
+const SIGNALING_URL = `${WS_PROTO}://${WS_HOST}:${WS_PORT}/ws`;
 
 let signaling = null;
 let pc = null;
