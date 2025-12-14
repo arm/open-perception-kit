@@ -38,6 +38,7 @@ struct ModelDescriptor {
     
     size_t maxDetectionCount = 16;
     float confidenceThreshold = 0.7f;
+    float iouThreshold = 0.5f;
 
     static amp::Result<ModelDescriptor> fromJson(const std::string& jsonString);
     static amp::Result<ModelDescriptor> fromFile(const std::string& path);
@@ -77,7 +78,8 @@ inline void to_json(json& j, const ModelDescriptor& b) {
         { "outputTensors", b.outputTensors },
         { "dynamicOutput", b.dynamicOutput },
         { "maxDetectionCount", b.maxDetectionCount },
-        { "confidenceThreshold", b.confidenceThreshold }
+        { "confidenceThreshold", b.confidenceThreshold },
+        { "iouThreshold", b.iouThreshold }
     };
 }
 
@@ -90,5 +92,6 @@ inline void from_json(const json& j, ModelDescriptor& b) {
     j.at("dynamicOutput").get_to(b.dynamicOutput);
     j.at("maxDetectionCount").get_to(b.maxDetectionCount);
     j.at("confidenceThreshold").get_to(b.confidenceThreshold);
+    j.at("iouThreshold").get_to(b.iouThreshold);
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "amp/Result.h"
+#include "amp/String.h"
 #include "tl/expected.hpp"
 
 #include <filesystem>
@@ -49,7 +50,11 @@ namespace amp { struct fs {
                 out.erase(0, 3);
             }
         } else {
-            return tl::unexpected(amp::Error(amp::ErrorFlag::InvalidData, fmt::format("Text file [{}] is not UTF8 data", path)));
+            return tl::unexpected(amp::Error(amp::ErrorFlag::InvalidData, fmt::format("Text file [{}] must be UTF8 unicode file", path)));
+        }
+
+        if(codepoint::validate(out.c_str()) == false) {
+            return tl::unexpected(amp::Error(amp::ErrorFlag::InvalidData, fmt::format("Text file [{}] does not contain valid UTF8 data", path)));
         }
 
         return out;

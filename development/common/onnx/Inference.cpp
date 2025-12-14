@@ -2,25 +2,30 @@
 
 #include "amp/String.h"
 #include "amp/Result.h"
+#include "amp/DescriptorStrings.h"
+
 #include "fmt/base.h"
 #include "gst/video/video-enumtypes.h"
 #include "onnx/Tools.h"
 #include "onnxruntime_cxx_api.h"
 #include "tl/expected.hpp"
-#include "uniflow/blazeface_parser.h"
 #include "uniflow/detection_types.h"
 #include "uniflow/model_io.h"
+#include "uniflow/public_types.h"
 #include "uniflow/tensor_view.h"
 #include "uniflow/image_tensor_builder.h"
 #include <memory>
 
 #include <fmt/core.h>
 
+#include "uniflow/blazeface_parser.h"
+#include "uniflow/ultraface_parser.h"
+#include "uniflow/yolo_like_parser.h"
+
 #include "amp/String.h"
 #include "amp/Result.h"
 
 #include "magic_enum/magic_enum.hpp"
-
 
 #include "ModelDescriptor.h"
 
@@ -242,12 +247,15 @@ void Inference::setupTensorsForModel() {
 
 amp::Result<void> Inference::createTensorProcessors() {
 
-    if(this->modelDescriptor.modelFamily == "yolo-object-detection") {
+    if(this->modelDescriptor.modelFamily == amp::NetworkId::YoloObjectDetection) {
         this->outputParser = std::make_unique<uflw::YoloLikeParser>();
         fmt::print("Creating tensor parser: YoloLikeParser\n");
     } else if(this->modelDescriptor.modelFamily == "blazeface") {
         this->outputParser = std::make_unique<uflw::BlazeFaceParser>();
         fmt::print("Creating tensor parser: BlazeFaceParser\n");
+    } else if(this->modelDescriptor.modelFamily == amp::NetworkId::UltraFace) {
+        this->outputParser = std::make_unique<uflw::UltraFaceParser>();
+        fmt::print("Creating tensor parser: UltraFaceParser\n");
     } else {
         return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::NotSupported, fmt::format("cannot create output tensor parser for [{}]", this->modelDescriptor.modelFamily)));
     }
@@ -293,35 +301,44 @@ amp::Result<void> Inference::preprocessImageData(size_t tensorIndex, const uint8
 
 }
 
+template <typename toT, typename fromT>
+void writeValueTo(void* ptr, size_t valueIndex, void* valueAddress) {
+    toT* address = (toT*)ptr;
+    address[valueIndex] = *(fromT*)valueAddress;
+} 
+
 amp::Result<void> Inference::inference() {
 
+    // setting scalar tensors
     for(size_t i = 0; i < api.inputTensorVector.size(); i++) {
         if(uflw::isScalarDataKind(this->model.inputs[i].dataKind)) {
-            if(this->model.inputs[i].dataKind == uflw::TensorDataKind::Value) {
-                ((float*)(api.inputTensors[i]->getData()))[0] = this->modelDescriptor.inputTensors[i].valueInputs[0];
-                
-            }
-            if(this->model.inputs[i].dataKind == uflw::TensorDataKind::Vector2) {
-                for(size_t k = 0; k < 2; k++)
-                    ((float*)(api.inputTensors[i]->getData()))[k] = this->modelDescriptor.inputTensors[i].valueInputs[k];
-            }
-            if(this->model.inputs[i].dataKind == uflw::TensorDataKind::Vector3) {
-                for(size_t k = 0; k < 3; k++)
-                    ((float*)(api.inputTensors[i]->getData()))[k] = this->modelDescriptor.inputTensors[i].valueInputs[k];
-            }
-            if(this->model.inputs[i].dataKind == uflw::TensorDataKind::Vector4) {
-                for(size_t k = 0; k < 4; k++)
-                    ((float*)(api.inputTensors[i]->getData()))[k] = this->modelDescriptor.inputTensors[i].valueInputs[k];
+
+            size_t valueCount = 0;
+            if(this->model.inputs[i].dataKind == uflw::TensorDataKind::Value) valueCount = 1;
+            if(this->model.inputs[i].dataKind == uflw::TensorDataKind::Vector2) valueCount = 2;
+            if(this->model.inputs[i].dataKind == uflw::TensorDataKind::Vector3) valueCount = 3;
+            if(this->model.inputs[i].dataKind == uflw::TensorDataKind::Vector4) valueCount = 4;
+
+            if(this->model.inputs[i].valueType == uflw::ValueType::f32) {
+                for(size_t g = 0; g < valueCount; g++) {
+                    writeValueTo<float, float>(
+                        this->modelDescriptor.inputTensors[i].valueInputs.data(), 
+                        g, 
+                        api.inputTensors[i]->getData());
+                }
+            } else {
+                assert(0); // no type support to set scalar tensor input value 
             }
         }
     } 
     
-    /*if(api.inputTensorVector.size() > 1) {
+    /*if(api.inputTensorVector.size() > 1) {    
         *(float*)api.inputTensors[1]->getData() = 0.2f; // confidence
         *(int64_t*)api.inputTensors[2]->getData() = 5; // numdetections
         *(float*)api.inputTensors[3]->getData() = 0.5f; // iou threshold
     }*/
 
+    // run the inference
     if(false == this->useDynamicOutput) {
     this->session->Run(
         Ort::RunOptions { nullptr },
@@ -329,7 +346,7 @@ amp::Result<void> Inference::inference() {
         api.inputTensorVector.data(),
         api.inputTensorVector.size(),
         (const char* const*)api.outputNames.data(),
-        api.outputTensorVector.data(),
+        api.outputTensorVector.data(), 
         api.outputTensorVector.size());
     } else {
         dynamicOutputData = this->session->Run(

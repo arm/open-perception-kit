@@ -893,7 +893,7 @@ namespace amp {
         //   "///a//b"  keepSeparator=false -> "///a/"
         //   "abc"                          -> ""        (only one segment)
         //   "abc/"                         -> "abc/"    (last segment is empty, no change)
-        inline std::string removeLastSegment(const std::string& s, const std::string& separator,
+        static std::string removeLastSegment(const std::string& s, const std::string& separator,
             bool keepSeparator = false)
         {
             if (s.empty())
@@ -954,7 +954,7 @@ namespace amp {
         //   "a/b/c"    keepSeparator=false -> "b/c"
         //   "a/b/c"    keepSeparator=true  -> "/b/c"
         //   "abc"                          -> ""        (single segment)
-        inline std::string removeFirstSegment(const std::string& s, const std::string& separator,
+        static std::string removeFirstSegment(const std::string& s, const std::string& separator,
             bool keepSeparator = false)
         {
             if (s.empty())
