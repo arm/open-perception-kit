@@ -1,6 +1,6 @@
 
 document.getElementById('postButton').addEventListener('click', function () {
-  fetch('/stop', {
+  fetch('/ctrl', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'

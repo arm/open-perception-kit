@@ -47,7 +47,7 @@ using json = nlohmann::json;
 struct SessionContext {
     connection_hdl hdl;
 
-    // aliases to make ws_server reachable from session negotation functions
+    // aliases to make ws_server reachable from session negotiation functions
     std::shared_ptr<ws_server> ws;
 
     // Per-client GStreamer branch
@@ -254,7 +254,9 @@ static void gst_amp_sink_setup_http_server(GstAmpSink *self) {
     auto ret = http_server->set_mount_point("/", self->static_files_location);
     if (!ret) {
         // TODO@ibori: error handling
-        throw std::runtime_error("the static file directory doesn't exist");
+        throw std::runtime_error(
+            std::string("Static file directory does not exist: ") +
+            (self->static_files_location ? self->static_files_location : "(null)"));
     }
 
     http_server->Post("/ctrl", [&](const Request &req, Response &res) {
@@ -266,7 +268,9 @@ static void gst_amp_sink_setup_http_server(GstAmpSink *self) {
     auto started = http_server->listen(self->host, self->http_port);
     if (!started) {
         // TODO@ibori: error handling
-        throw std::runtime_error("http server cannot be started");
+        throw std::runtime_error(std::string("HTTP server failed to start on ") +
+                                 std::string(self->host ? self->host : "<null>") + ":" +
+                                 std::to_string(self->http_port));
     }
 }
 
