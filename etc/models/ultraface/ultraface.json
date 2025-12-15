@@ -1,8 +1,8 @@
 {
-	"name": "yolo",
+	"name": "ultraface",
 	
-	"modelFamily": "yolo-object-detection",
-	"modelFile": "yolo11n-fp32-320.onnx",
+	"modelFamily": "ultraface",
+	"modelFile": "version-RFB-320.onnx",
 	
 	"dynamicOutput": true,
 
@@ -13,8 +13,9 @@
 	"inputTensors": 
 	[
 		{
-			"shape": [ 1, 3, 320, 320 ],
+			"shape": [ 1, 3, 240, 320 ],
 			"dataKind": "ImageRgbChw"
 		}
 	]
+
 }

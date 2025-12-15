@@ -881,6 +881,119 @@ namespace amp {
             return last;
         }
 
+        // Remove the last segment delimited by `separator`.
+        //
+        // Segment is defined as the substring *after* the last occurrence
+        // of `separator` (in UTF-8 codepoints). We do NOT try to interpret
+        // or skip empty segments; we just look for the last separator and
+        // chop off everything after it (optionally including the separator).
+        //
+        // Examples, separator = "/":
+        //   "///a//b"  keepSeparator=true  -> "///a//"
+        //   "///a//b"  keepSeparator=false -> "///a/"
+        //   "abc"                          -> ""        (only one segment)
+        //   "abc/"                         -> "abc/"    (last segment is empty, no change)
+        static std::string removeLastSegment(const std::string& s, const std::string& separator,
+            bool keepSeparator = false)
+        {
+            if (s.empty())
+                return {};
+
+            if (separator.empty())
+                return s;
+
+            const std::size_t sLen   = utf8::length(s);         // in codepoints
+            const std::size_t sepLen = utf8::length(separator); // in codepoints
+
+            if (sepLen == 0 || sepLen > sLen)
+                return s;
+
+            // Find last occurrence of separator in codepoint space.
+            std::size_t lastPos = utf8::NOT_FOUND;
+
+            // We search from right to left over possible starting positions.
+            // Valid start positions: [0 .. sLen - sepLen].
+            if (sLen >= sepLen) {
+                for (std::size_t pos = sLen - sepLen + 1; pos-- > 0; ) {
+                    if (utf8::substring(s, pos, sepLen) == separator) {
+                        lastPos = pos;
+                        break;
+                    }
+                    if (pos == 0) break; // guard against size_t underflow
+                }
+            }
+
+            if (lastPos == utf8::NOT_FOUND) {
+                // No separator → single segment → removing it yields empty string.
+                return {};
+            }
+
+            const std::size_t segmentStart = lastPos + sepLen;
+            if (segmentStart >= sLen) {
+                // Last separator is at the very end; last segment is empty → no change.
+                return s;
+            }
+
+            // There are actual characters after the last separator.
+            // Keep everything before the last segment, optionally including that separator.
+            const std::size_t keepLen = keepSeparator ? segmentStart : lastPos;
+            return utf8::substring(s, 0, keepLen);
+        }
+
+        // Remove the first segment delimited by `separator`.
+        //
+        // Segment is defined as the substring *before* the first occurrence
+        // of `separator`. Again, we do not do anything special with empty
+        // segments – if the string starts with the separator, the first
+        // segment is just the empty prefix, and removing it drops exactly
+        // one occurrence of the separator when keepSeparator == false.
+        //
+        // Examples, separator = "/":
+        //   "///a//b"  keepSeparator=false -> "//a//b"   (drop first empty segment + one '/')
+        //   "///a//b"  keepSeparator=true  -> "///a//b"  (first segment is empty; we keep sep)
+        //   "a/b/c"    keepSeparator=false -> "b/c"
+        //   "a/b/c"    keepSeparator=true  -> "/b/c"
+        //   "abc"                          -> ""        (single segment)
+        static std::string removeFirstSegment(const std::string& s, const std::string& separator,
+            bool keepSeparator = false)
+        {
+            if (s.empty())
+                return {};
+
+            if (separator.empty())
+                return s;
+
+            const std::size_t sLen   = utf8::length(s);
+            const std::size_t sepLen = utf8::length(separator);
+
+            if (sepLen == 0 || sepLen > sLen)
+                return s;
+
+            // Find first occurrence of separator in codepoint space.
+            std::size_t firstPos = utf8::NOT_FOUND;
+
+            for (std::size_t pos = 0; pos + sepLen <= sLen; ++pos) {
+                if (utf8::substring(s, pos, sepLen) == separator) {
+                    firstPos = pos;
+                    break;
+                }
+            }
+
+            if (firstPos == utf8::NOT_FOUND) {
+                // No separator → the whole string is one segment → removing it yields empty.
+                return {};
+            }
+
+            // Everything before firstPos is the first segment.
+            // Decide where the new string should start.
+            std::size_t newStart = keepSeparator ? firstPos : firstPos + sepLen;
+
+            if (newStart >= sLen)
+                return {}; // nothing left after removing first segment
+
+            return utf8::substring(s, newStart, sLen - newStart);
+        }
+
         static std::size_t firstIndexOf(const std::string& s, char32_t c)
         {
             const char* p = s.c_str();

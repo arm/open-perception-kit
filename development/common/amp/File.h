@@ -1,6 +1,7 @@
 #pragma once
 
 #include "amp/Result.h"
+#include "amp/String.h"
 #include "tl/expected.hpp"
 
 #include <filesystem>
@@ -19,6 +20,15 @@ namespace amp { struct fs {
             return tl::unexpected(amp::Error(amp::ErrorFlag::FileNotFound, path));
         }
         return (uint64_t)std::filesystem::file_size(path);
+    }
+
+    static amp::Result<std::vector<uint8_t>> load(const std::string& path, bool returnEmptyIfNotFound = true) {
+    
+        if(false == available(path)) {
+            if(returnEmptyIfNotFound) return std::vector<uint8_t>{};
+            return tl::unexpected(amp::Error(amp::ErrorFlag::FileNotFound, path));
+        }
+    
     }
 
     static amp::Result<std::string> loadText(const std::string& path, bool returnEmptyIfNotFound = true) {
@@ -40,7 +50,11 @@ namespace amp { struct fs {
                 out.erase(0, 3);
             }
         } else {
-            return tl::unexpected(amp::Error(amp::ErrorFlag::InvalidData, fmt::format("Text file [{}] has no UTF8 data", path)));
+            return tl::unexpected(amp::Error(amp::ErrorFlag::InvalidData, fmt::format("Text file [{}] must be UTF8 unicode file", path)));
+        }
+
+        if(codepoint::validate(out.c_str()) == false) {
+            return tl::unexpected(amp::Error(amp::ErrorFlag::InvalidData, fmt::format("Text file [{}] does not contain valid UTF8 data", path)));
         }
 
         return out;

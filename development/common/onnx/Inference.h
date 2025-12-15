@@ -28,13 +28,11 @@ struct Inference {
 
     amp::Result<void> setupFromJson(const std::string& filePath);
     amp::Result<void> setup(const ModelDescriptor& modelDesc);
+    bool isReady() { return setupReady; }
 
-    void setOutputParser(std::unique_ptr<uflw::NetworkOutputParser> parser) { this->outputParser = std::move(parser); }
-    void setInputBuilder(std::unique_ptr<uflw::NetworkInputBuilder> builder) { this->inputBuilder = std::move(builder); }
-
-    onnx::Result preprocessImageData(size_t tensorIndex, const uint8_t* data, uflw::TensorDataKind dataKind, uflw::ValueType valueType, size_t imageWidth, size_t imageHeight);
-    onnx::Result inference();
-    onnx::Result postprocess(const uflw::NetworkOutputParser::Settings& settings, uflw::DetectionResult& outDetectionResults);
+    amp::Result<void> preprocessImageData(size_t tensorIndex, const uint8_t* data, uflw::TensorDataKind dataKind, uflw::ValueType valueType, size_t imageWidth, size_t imageHeight);
+    amp::Result<void> inference();
+    amp::Result<void> postprocess(const uflw::NetworkOutputParser::Settings& settings, uflw::DetectionResult& outDetectionResults);
 
     const uflw::Model& getModel() const { return this->model; }
 
@@ -58,6 +56,9 @@ protected:
     bool useDynamicOutput = true;
     std::vector<Ort::Value> dynamicOutputData;
     std::unique_ptr<uflw::TensorReader> outputTensorReaders[4];
+
+    amp::Result<void> createModelFromModelDesc();
+    amp::Result<void> createTensorProcessors();
 
     // ---
 

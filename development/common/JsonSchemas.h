@@ -91,5 +91,15 @@ namespace uflw {
         }
         s.dimensionCount = i;
     }
+
+    NLOHMANN_JSON_SERIALIZE_ENUM(uflw::TensorDataKind, {
+        {TensorDataKind::ImageRgbChw, "ImageRgbChw"},
+        {TensorDataKind::ImageRgbHwc, "ImageRgbHwc"},
+        {TensorDataKind::ImageGray, "ImageGray"},
+        {TensorDataKind::Value, "Value"},
+        {TensorDataKind::Vector2, "Vector2"},
+        {TensorDataKind::Vector3, "Vector3"},
+        {TensorDataKind::Vector4, "Vector4"},
+    })
 }
 

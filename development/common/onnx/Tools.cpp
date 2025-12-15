@@ -13,140 +13,50 @@
 
 using namespace onnx;
 
-std::string toLower(std::string s) {
-    std::transform(s.begin(), s.end(), s.begin(),
-                   [](unsigned char c){ return std::tolower(c); });
-    return s;
+bool Tools::onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, uflw::ValueType& outType) {
+    if(onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT) { outType = uflw::ValueType::f32; return true; }
+    if(onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16) { outType = uflw::ValueType::f16; return true; }
+    if(onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8) { outType = uflw::ValueType::i8; return true; }
+    if(onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8) { outType = uflw::ValueType::u8; return true; }
+    if(onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64) { outType = uflw::ValueType::i64; return true; }
+    return false;
+}
+
+std::map<std::string, std::string> Tools::getModelMeta(const Ort::Session& session) {
+    
+    auto toLower = [](std::string s) -> std::string {
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){ return std::tolower(c); });
+        return s;
+    };
+
+    // ---
+
+    std::map<std::string, std::string> ret;
+
+    Ort::AllocatorWithDefaultOptions alloc;
+    Ort::ModelMetadata meta = session.GetModelMetadata();
+
+    std::vector<Ort::AllocatedStringPtr> keys = meta.GetCustomMetadataMapKeysAllocated(alloc);
+    for (const auto& k : keys) {
+        Ort::AllocatedStringPtr v = meta.LookupCustomMetadataMapAllocated(k.get(), alloc);
+        if(v) ret[toLower(k.get())] = toLower(v.get());
+    }
+
+    return ret;
 }
 
 // --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 
-bool Tools::getTensorShape(const Ort::Session& session, uflw::TensorInOut tensorInOut, int inOutIndex, uflw::Shape& outShape) {
-
-    Ort::TypeInfo ti = (tensorInOut == uflw::TensorInOut::In) ? session.GetInputTypeInfo(inOutIndex) : session.GetOutputTypeInfo(inOutIndex);
-
+std::vector<size_t> Tools::getTensorShape(const Ort::Session& session, uflw::TensorInOut tensorInOut, int tensorIndex) {
+    Ort::TypeInfo ti = (tensorInOut == uflw::TensorInOut::In) ? session.GetInputTypeInfo(tensorIndex) : session.GetOutputTypeInfo(tensorIndex);
     auto tensor = ti.GetTensorTypeAndShapeInfo();
-
-    if(tensor.GetShape().size() > 8) return false;
-
-    outShape.dimensionCount = tensor.GetShape().size();
-    auto onnxShape = tensor.GetShape();
-    for(size_t i = 0; i < outShape.dimensionCount; i++) {
-        outShape.valueCount[i] = onnxShape[i];
-        if(~outShape.valueCount[i] == 0) outShape.valueCount[i] = 0;
-    }
-
-    return true;
-
+    std::vector<size_t> dims;
+    for(const auto& a : tensor.GetShape())
+        dims.push_back(a);
+    return dims;
 }
 
-bool Tools::onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, uflw::ValueType& outUniflowType) {
-    if(onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT) {
-        outUniflowType = uflw::ValueType::f32;
-        return true;
-    }
-    if(onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16) {
-        outUniflowType = uflw::ValueType::f16;
-        return true;
-    }
-    if(onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8) {
-        outUniflowType = uflw::ValueType::i8;
-        return true;
-    }
-    if(onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8) {
-        outUniflowType = uflw::ValueType::u8;
-        return true;
-    }
-    if(onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64) {
-        outUniflowType = uflw::ValueType::i64;
-        return true;
-    }
-    return false;
-}
-
-uflw::ModelFamily Tools::guessModelFamily(const Ort::Session& session, uflw::FxString<32>& outVersion) {
-
-    Ort::AllocatorWithDefaultOptions alloc;
-
-    // Try model metadata
-    Ort::ModelMetadata meta = session.GetModelMetadata();
-    auto keys = meta.GetCustomMetadataMapKeysAllocated(alloc);
-    for (auto& k : keys) {
-        std::string key = toLower(k.get());
-        auto valAlloc = meta.LookupCustomMetadataMapAllocated(k.get(), alloc);
-        std::string val = valAlloc ? toLower(std::string(valAlloc.get())) : "";
-
-        printf("[%s]:[%s]\n", key.c_str(), val.c_str());
-
-        // version
-        if (key.find("version") != std::string::npos || key.find("model_version") != std::string::npos)
-            outVersion = val;
-
-        // YOLO (Ultralytics / Darknet)
-        if (key.find("author") != std::string::npos && val.find("ultralytics") != std::string::npos)
-            return uflw::ModelFamily::YoloObjectDetection;
-        if (key.find("task") != std::string::npos && val.find("detect") != std::string::npos)
-            return uflw::ModelFamily::YoloObjectDetection;
-        if (val.find("yolo") != std::string::npos)
-            return uflw::ModelFamily::YoloObjectDetection;
-
-        // BlazeFace
-        if (val.find("blazeface") != std::string::npos)
-            return uflw::ModelFamily::BlazeFace;
-
-        // EfficientDet
-        if (val.find("efficientdet") != std::string::npos)
-            return uflw::ModelFamily::EfficientDet;
-
-        // CLIP
-        if (val.find("clip") != std::string::npos)
-            return uflw::ModelFamily::Clip;
-
-        // Whisper (speech-to-text)
-        if (val.find("whisper") != std::string::npos)
-            return uflw::ModelFamily::Whisper;
-    }
-
-    // --- If metadata missing, look at input/output names as fallback ---
-    size_t num_inputs = session.GetInputCount();
-    size_t num_outputs = session.GetOutputCount();
-
-    // prefer outputs, maybe their names are more verbose
-    for (size_t i = 0; i < num_outputs; ++i) {
-        auto nameAlloc = session.GetOutputNameAllocated(i, alloc);
-        std::string name = toLower(nameAlloc.get());
-
-        if (name.find("selectedboxes") != std::string::npos)
-            return uflw::ModelFamily::BlazeFace;
-        if (name.find("boxes") != std::string::npos || name.find("yolo") != std::string::npos)
-            return uflw::ModelFamily::YoloObjectDetection;
-        if (name.find("det") != std::string::npos && name.find("class") != std::string::npos)
-            return uflw::ModelFamily::EfficientDet;
-        if (name.find("seg") != std::string::npos)
-            return uflw::ModelFamily::Segmentation;
-    }
-
-    // fallback to inputs
-    for (size_t i = 0; i < num_inputs; ++i) {
-        auto nameAlloc = session.GetInputNameAllocated(i, alloc);
-        std::string name = toLower(nameAlloc.get());
-        if (name.find("image") != std::string::npos && num_outputs == 1)
-            return uflw::ModelFamily::Classification;
-        if (name.find("mel") != std::string::npos || name.find("audio") != std::string::npos)
-            return uflw::ModelFamily::Whisper;
-        if (name.find("clip") != std::string::npos)
-            return uflw::ModelFamily::Clip;
-    }
-
-    auto nodeCount = session.GetOverridableInitializerCount();
-    if (nodeCount > 0) {
-        // use node/operator patterns here
-    }
-
-    return uflw::ModelFamily::Unknown;
-}
-
-uflw::TensorDataKind Tools::guessModelInputDataKind(const Ort::Session& session, int inputIndex, int& outBatchCount) {
+/*uflw::TensorDataKind Tools::guessModelInputDataKind(const Ort::Session& session, int inputIndex, int& outBatchCount) {
 
     outBatchCount = 0;
 
@@ -164,12 +74,6 @@ uflw::TensorDataKind Tools::guessModelInputDataKind(const Ort::Session& session,
     ONNXTensorElementDataType valueType = typeInfo.GetTensorTypeAndShapeInfo().GetElementType();
     
     std::string name = session.GetInputNameAllocated(inputIndex, alloc).get();
-
-    // quick text check
-    /*if (valueType == ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64 || valueType == ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32) {
-        if (name.find("token") != std::string::npos || name.find("ids") != std::string::npos)
-            return uflw::InputTensorDataKind::TextDUMMY;
-    }*/
 
     // float data
     if (valueType == ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT || valueType == ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64) {
@@ -204,100 +108,83 @@ uflw::TensorDataKind Tools::guessModelInputDataKind(const Ort::Session& session,
     
     return uflw::TensorDataKind::Unknown;
 
-}
-
-std::map<std::string, std::string> Tools::getModelMeta(const Ort::Session& session) {
-    std::map<std::string, std::string> ret;
-
-    Ort::AllocatorWithDefaultOptions alloc;
-    Ort::ModelMetadata meta = session.GetModelMetadata();
-
-    std::vector<Ort::AllocatedStringPtr> keys = meta.GetCustomMetadataMapKeysAllocated(alloc);
-    for (const auto& k : keys) {
-        Ort::AllocatedStringPtr v = meta.LookupCustomMetadataMapAllocated(k.get(), alloc);
-        if(v) ret[toLower(k.get())] = toLower(v.get());
-    }
-
-    return ret;
-}
+}*/
 
 amp::Result<uflw::Model> Tools::inspectModel(const Ort::Session& session) {
 
-    std::map<std::string, std::string> meta = Tools::getModelMeta(session);
-
-    // ---- -------------------------------------------
-
     uflw::Model model;
-    //model.modelFileName = modelFile;
-
-    uflw::FxString<32> modelVersion;
-    model.modelFamily = guessModelFamily(session, modelVersion);
     
     Ort::AllocatorWithDefaultOptions allocator;
     model.modelInputCount = session.GetInputCount();
     model.modelOutputCount = session.GetOutputCount();
 
+    // inspect all the INPUT TENSORS
     for (size_t i = 0; i < model.modelInputCount; ++i) {
         Ort::TypeInfo ti = session.GetInputTypeInfo(i);
 
         auto tensor = ti.GetTensorTypeAndShapeInfo();
         // name
         model.inputs[i].name = session.GetInputNameAllocated(i, allocator).get();
+        
         // tensor value type
-        if(!onnxTypeToUniflowType(tensor.GetElementType(), model.inputs[i].valueType)) model.parseError = "unknown input tensor value type";
-        if(uflw::ValueType::f32 != model.inputs[i].valueType && uflw::ValueType::i64 != model.inputs[i].valueType) {
+        uflw::ValueType tensorValueType;
+        if(false == onnxTypeToUniflowType(tensor.GetElementType(), tensorValueType)) {
+            return tl::unexpected{ AMP_ERROR(amp::ErrorFlag::ModelInspectError, fmt::format("cannot recognize input ONNX type: {}", (uint64_t)tensor.GetElementType())) };
+        }
+
+        if(uflw::ValueType::f32 != tensorValueType && uflw::ValueType::i64 != tensorValueType) {
             return tl::unexpected{ AMP_ERROR(amp::ErrorFlag::ModelInspectError, "only float32 or int64 input tensors are supported in ONNX") };
-        } 
+        }    
+        model.inputs[i].valueType = tensorValueType;
+
         // shape
-        if(false == getTensorShape(session, uflw::TensorInOut::In, i, model.inputs[i].shape)) {
-            return tl::unexpected{ AMP_ERROR(amp::ErrorFlag::ModelInspectError, "too many dimensions in input tensor") };
+        std::vector<size_t> onnxDims = getTensorShape(session, uflw::TensorInOut::In, i);
+        if(onnxDims.size() < 1 || onnxDims.size() > 8) {
+            return tl::unexpected{ AMP_ERROR(amp::ErrorFlag::ModelInspectError, "input tensor size must be between 1 and 8") };
         }
-                
-        // input format
-        model.inputs[i].dataKind = guessModelInputDataKind(session, i, model.inputs[i].batch);
-        if(model.inputs[i].dataKind == uflw::TensorDataKind::Unknown) {
-            return tl::unexpected{ AMP_ERROR(amp::ErrorFlag::ModelInspectError, "input tensor data kind dicovery failed") };
-        }
-        // etc
-        model.inputs[i].quantArguments.valueType = model.inputs[i].valueType;
-        model.inputs[i].quantArguments.scale = 1.0f;
-        model.inputs[i].quantArguments.zeroPoint = 0.0f;
+        model.inputs[i].shape.setFrom(onnxDims);                
+
+        fmt::print("Input shape {}\n", model.inputs[i].shape.toString().c_str()); 
+
     }
 
+    // inspect all the OUTPUT TENSORS
     for (size_t i = 0; i < model.modelOutputCount; ++i) {
         Ort::TypeInfo ti = session.GetOutputTypeInfo(i);
 
         auto tensor = ti.GetTensorTypeAndShapeInfo();
         // name
         model.outputs[i].name = session.GetOutputNameAllocated(i, allocator).get();
+        
         // tensor value type
-        if(!onnxTypeToUniflowType(tensor.GetElementType(), model.outputs[i].valueType)) {
-            return tl::unexpected{ AMP_ERROR(amp::ErrorFlag::ModelInspectError, "unknown input tensor value type") };
+        uflw::ValueType tensorValueType;
+        if(false == onnxTypeToUniflowType(tensor.GetElementType(), tensorValueType)) {
+            return tl::unexpected{ AMP_ERROR(amp::ErrorFlag::ModelInspectError, fmt::format("cannot recognize output ONNX type: {}", (uint64_t)tensor.GetElementType())) };
         }
-        if(uflw::ValueType::f32 != model.outputs[i].valueType) {
-            return tl::unexpected{ AMP_ERROR(amp::ErrorFlag::ModelInspectError, "only float32 output tensors are supported in ONNX") };
-        }        
+
+        if(uflw::ValueType::f32 != tensorValueType && uflw::ValueType::i64 != tensorValueType) {
+            return tl::unexpected{ AMP_ERROR(amp::ErrorFlag::ModelInspectError, "only float32 or int64 input tensors are supported in ONNX") };
+        }    
+        model.outputs[i].valueType = tensorValueType;
+
         // shape
-        if(false == getTensorShape(session, uflw::TensorInOut::Out, i, model.outputs[i].shape)) {
-            return tl::unexpected{ AMP_ERROR(amp::ErrorFlag::ModelInspectError, "too many dimensions in output tensor") };
+        std::vector<size_t> onnxDims = getTensorShape(session, uflw::TensorInOut::Out, i);
+        if(onnxDims.size() < 1 || onnxDims.size() > 8) {
+            return tl::unexpected{ AMP_ERROR(amp::ErrorFlag::ModelInspectError, "output tensor size must be between 1 and 8") };
         }
-
-        // etc
-        model.outputs[i].quantArguments.valueType = model.outputs[i].valueType;
-        model.outputs[i].quantArguments.scale = 1.0f;
-        model.outputs[i].quantArguments.zeroPoint = 0.0f;
-
-    }
+        model.outputs[i].shape.setFrom(onnxDims);                
+        fmt::print("Output shape {}\n", model.outputs[i].shape.toString().c_str()); 
+}
 
     return model;
-
 }
+
+
 
 std::string Tools::toString(const uflw::Model& model) {
     std::string ret;
     
-    ret += fmt::format("Model: [{}]\n", uflw::toString(model.modelFamily).c_str());
-    ret += fmt::format("Version: [{}]\n", model.version.c_str());
+    ret += fmt::format("Model: [{}]\n", model.modelFamily.c_str());
     ret += fmt::format("Input count: {}\n", model.modelInputCount);
     ret += fmt::format("Output count: {}\n", model.modelOutputCount);
 
