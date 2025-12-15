@@ -44,6 +44,7 @@ struct _GstAmpInfer {
 
     // Properties
     gchar *modelPath;
+    gchar *modelName;
     gboolean active;
 
     // a safe place for c++ stuff
@@ -63,7 +64,6 @@ static gboolean gst_ampinfer_start(GstBaseTransform *b) {
     self->m = new GstAmpInferMembers();
 
     try {
-        amp::PerformanceTracer::ScopedTimer frame_timer(tracer, "frame_total");
         self->m->onnxInference = std::make_shared<onnx::Inference>();
 
         auto setupResult = self->m->onnxInference->setupFromJson(self->modelPath);
@@ -77,8 +77,6 @@ static gboolean gst_ampinfer_start(GstBaseTransform *b) {
         amp::Tools::abort();
         return FALSE;
     }
-
-    tracer->endCycle();
 
     return TRUE;
 }
@@ -118,35 +116,54 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip(GstVideoFilter *vf, GstVide
     if (!self->m->onnxInference)
         return GST_FLOW_OK;
 
-    // ---
+    // Get tracer and prepare metric names
+    static amp::PerformanceTracer *tracer = amp::getGlobalTracer();
+    std::string base_name = self->modelName ? self->modelName : "ampinfer";
+    std::string preprocess_name = base_name + "_preprocess";
+    std::string inference_name = base_name + "_inference";
+    std::string postprocess_name = base_name + "_postprocess";
 
     // preprocess
-    auto prepocessResult = self->m->onnxInference->preprocessImageData(
-        0, rgb, uflw::TensorDataKind::ImageRgbChw, uflw::ValueType::u8, frameWidth, frameHeight);
-    if (!prepocessResult) {
-        fmt::print("{}", prepocessResult.error().toString());
-        return GST_FLOW_OK;
+    {
+        amp::PerformanceTracer::ScopedTimer timer(tracer, preprocess_name);
+        auto prepocessResult =
+            self->m->onnxInference->preprocessImageData(0,
+                                                        rgb,
+                                                        uflw::TensorDataKind::ImageRgbChw,
+                                                        uflw::ValueType::u8,
+                                                        frameWidth,
+                                                        frameHeight);
+        if (!prepocessResult) {
+            fmt::print("{}", prepocessResult.error().toString());
+            return GST_FLOW_OK;
+        }
     }
 
     // inference
-    auto inferenceResult = self->m->onnxInference->inference();
-    if (!inferenceResult) {
-        fmt::print("{}", inferenceResult.error().toString());
-        return GST_FLOW_OK;
+    {
+        amp::PerformanceTracer::ScopedTimer timer(tracer, inference_name);
+        auto inferenceResult = self->m->onnxInference->inference();
+        if (!inferenceResult) {
+            fmt::print("{}", inferenceResult.error().toString());
+            return GST_FLOW_OK;
+        }
     }
 
     // postprocess
-    uflw::NetworkOutputParser::Settings settings;
-    settings.iouThreshold = 0.3f;
-    settings.confidenceThreshold = 0.5f;
-    settings.normalizedCoordinates = false;
-    settings.maxDetectionCount = 12;
-
     uflw::DetectionResult detectionResults;
-    auto postprocessResult = self->m->onnxInference->postprocess(settings, detectionResults);
-    if (!postprocessResult) {
-        fmt::print("{}", postprocessResult.error().toString());
-        return GST_FLOW_OK;
+    {
+        amp::PerformanceTracer::ScopedTimer timer(tracer, postprocess_name);
+        uflw::NetworkOutputParser::Settings settings;
+        settings.iouThreshold = 0.3f;
+        settings.confidenceThreshold = 0.5f;
+        settings.normalizedCoordinates = false;
+        settings.maxDetectionCount = 12;
+
+        auto postprocessResult = self->m->onnxInference->postprocess(settings, detectionResults);
+        if (!postprocessResult) {
+            fmt::print("{}", postprocessResult.error().toString());
+            return GST_FLOW_OK;
+        }
     }
 
     // decorate
@@ -180,7 +197,7 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip(GstVideoFilter *vf, GstVide
 
 // ---------------- properties & class init ----------------
 
-enum { PROP_0, PROP_MODEL_PATH, PROP_MODEL_ACTIVE };
+enum { PROP_0, PROP_MODEL_PATH, PROP_MODEL_NAME, PROP_MODEL_ACTIVE };
 
 static void gst_ampinfer_set_property(GObject *o, guint id, const GValue *v, GParamSpec *ps) {
     auto *self = (GstAmpInfer *)o;
@@ -188,6 +205,10 @@ static void gst_ampinfer_set_property(GObject *o, guint id, const GValue *v, GPa
     case PROP_MODEL_PATH:
         g_free(self->modelPath);
         self->modelPath = g_value_dup_string(v);
+        break;
+    case PROP_MODEL_NAME:
+        g_free(self->modelName);
+        self->modelName = g_value_dup_string(v);
         break;
     case PROP_MODEL_ACTIVE:
         self->active = g_value_get_boolean(v);
@@ -202,6 +223,9 @@ static void gst_ampinfer_get_property(GObject *o, guint id, GValue *v, GParamSpe
     switch (id) {
     case PROP_MODEL_PATH:
         g_value_set_string(v, self->modelPath);
+        break;
+    case PROP_MODEL_NAME:
+        g_value_set_string(v, self->modelName);
         break;
     case PROP_MODEL_ACTIVE:
         g_value_set_boolean(v, self->active);
@@ -227,6 +251,15 @@ static void gst_ampinfer_class_init(GstAmpInferClass *klass) {
                             "Model path",
                             "Path to YOLO ONNX model",
                             nullptr,
+                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
+        gobj,
+        PROP_MODEL_NAME,
+        g_param_spec_string("model-name",
+                            "Model name",
+                            "Name for performance metric",
+                            "ampinfer",
                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
@@ -262,6 +295,7 @@ static void gst_ampinfer_class_init(GstAmpInferClass *klass) {
 
 static void gst_ampinfer_init(GstAmpInfer *self) {
     self->modelPath = nullptr;
+    self->modelName = g_strdup("ampinfer");
     self->active = true;
     gst_base_transform_set_in_place(GST_BASE_TRANSFORM(self), TRUE);
     gst_base_transform_set_qos_enabled(GST_BASE_TRANSFORM(self), FALSE);

@@ -43,6 +43,10 @@ struct _GstAmpPerformance {
     guint frame_count;
     guint update_interval;
 
+    // FPS tracking
+    std::chrono::steady_clock::time_point last_frame_time;
+    gdouble fps_average;
+
     // Cached overlay surface
     cairo_surface_t *overlay_cache;
     guint cache_width;
@@ -234,6 +238,8 @@ static void gst_amp_performance_init(GstAmpPerformance *self) {
     self->frame_count = 0;
     self->update_interval = DEFAULT_UPDATE_INTERVAL;
     self->show_all_metrics = DEFAULT_SHOW_ALL_METRICS;
+    self->last_frame_time = std::chrono::steady_clock::now();
+    self->fps_average = 0.0;
     self->overlay_cache = nullptr;
     self->cache_width = 0;
     self->cache_height = 0;
@@ -335,6 +341,9 @@ static void render_overlay_cache(GstAmpPerformance *self) {
     // Get global tracer (fresh each time to ensure same instance as ampinfer)
     amp::PerformanceTracer *tracer = amp::getGlobalTracer();
 
+    // End the performance cycle to calculate statistics
+    tracer->endCycle();
+
     // Parse colors
     double bg_r, bg_g, bg_b;
     double text_r, text_g, text_b;
@@ -345,19 +354,48 @@ static void render_overlay_cache(GstAmpPerformance *self) {
     std::vector<std::string> lines;
     lines.push_back("═══ Performance Metrics ═══");
 
+    // Group metrics by model name (prefix before underscore) - declared outside for FPS calculation
+    std::map<std::string, std::vector<std::pair<std::string, amp::TimingStats>>> grouped_metrics;
+
     if (self->show_all_metrics) {
-        // Display all available metrics from tracer
+        // Display all available metrics from tracer, grouped by model
         auto all_stats = tracer->getAllStats();
 
         for (const auto &[key, stats] : all_stats) {
             if (stats.count > 0) {
-                char line_buffer[80];
+                // Extract model name (everything before first underscore)
+                size_t underscore_pos = key.find('_');
+                std::string model_name =
+                    (underscore_pos != std::string::npos) ? key.substr(0, underscore_pos) : key;
+                grouped_metrics[model_name].push_back({key, stats});
+            }
+        }
+
+        // Display metrics grouped by model, ordered: preprocess, inference, postprocess
+        for (const auto &[model_name, metrics] : grouped_metrics) {
+            // Sort metrics within each model: preprocess -> inference -> postprocess
+            std::vector<std::pair<std::string, amp::TimingStats>> sorted_metrics = metrics;
+            std::sort(
+                sorted_metrics.begin(), sorted_metrics.end(), [](const auto &a, const auto &b) {
+                    auto get_order = [](const std::string &key) {
+                        if (key.find("_preprocess") != std::string::npos)
+                            return 0;
+                        if (key.find("_inference") != std::string::npos)
+                            return 1;
+                        if (key.find("_postprocess") != std::string::npos)
+                            return 2;
+                        return 3;
+                    };
+                    return get_order(a.first) < get_order(b.first);
+                });
+
+            for (const auto &[key, stats] : sorted_metrics) {
+                char line_buffer[96];
                 double avg = stats.avg_ms();
                 double p95 = stats.p95_ms();
-                // Use fixed-width columns: 18 chars for name, right-aligned numbers
                 snprintf(line_buffer,
                          sizeof(line_buffer),
-                         "%-18s: %6.2fms  (p95: %6.2fms)",
+                         "%-24s: %7.2fms  (p95: %7.2fms)",
                          key.c_str(),
                          avg,
                          p95);
@@ -373,27 +411,25 @@ static void render_overlay_cache(GstAmpPerformance *self) {
 
         MetricData metrics[] = {{"PreProc", "preprocessing"},
                                 {"Inference", "inference"},
-                                {"PostProc", "postprocessing"},
-                                {"Frame", "frame_total"}};
+                                {"PostProc", "postprocessing"}};
 
         for (const auto &metric : metrics) {
             const auto stats = tracer->getStats(metric.key);
 
-            char line_buffer[80];
+            char line_buffer[96];
             if (stats.count > 0) {
                 double avg = stats.avg_ms();
                 double p95 = stats.p95_ms();
-                // Use fixed-width columns: 18 chars for name, right-aligned numbers
                 snprintf(line_buffer,
                          sizeof(line_buffer),
-                         "%-18s: %6.2fms  (p95: %6.2fms)",
+                         "%-24s: %7.2fms  (p95: %7.2fms)",
                          metric.name,
                          avg,
                          p95);
             } else {
                 snprintf(line_buffer,
                          sizeof(line_buffer),
-                         "%-18s: %s",
+                         "%-24s: %s",
                          metric.name,
                          "  -- (waiting...)  ");
             }
@@ -401,20 +437,34 @@ static void render_overlay_cache(GstAmpPerformance *self) {
         }
     }
 
-    // Calculate FPS
-    const auto frame_stats = tracer->getStats("frame_total");
-    size_t frame_count_total = frame_stats.count;
-
-    char fps_buffer[64];
-    if (frame_count_total > 0) {
-        double avg_frame_ms = frame_stats.avg_ms();
-        double fps = avg_frame_ms > 0 ? 1000.0 / avg_frame_ms : 0;
-        snprintf(fps_buffer, sizeof(fps_buffer), "FPS : %6.1f", fps);
-    } else {
-        snprintf(fps_buffer, sizeof(fps_buffer), "FPS : %s", "  -- (waiting...)  ");
+    // Calculate processing capability FPS from sum of all p50 metrics
+    double total_processing_ms = 0.0;
+    for (const auto &[model_name, metric_list] : grouped_metrics) {
+        for (const auto &[metric_name, stats] : metric_list) {
+            total_processing_ms += stats.p50_ms();
+        }
     }
-    lines.push_back(std::string(fps_buffer));
-    lines.push_back("═══════════════════════════");
+    double processing_fps =
+        (total_processing_ms > 0)
+            ? 1000.0 / total_processing_ms
+            : 0.0; // Display both pipeline FPS (actual frame rate) and processing FPS (capability)
+    if (self->fps_average > 0) {
+        char fps_buffer[96];
+        snprintf(
+            fps_buffer, sizeof(fps_buffer), "Pipeline FPS            : %7.1f", self->fps_average);
+        lines.push_back(std::string(fps_buffer));
+    }
+
+    if (processing_fps > 0) {
+        char proc_fps_buffer[96];
+        snprintf(proc_fps_buffer,
+                 sizeof(proc_fps_buffer),
+                 "Processing FPS (max)    : %7.1f",
+                 processing_fps);
+        lines.push_back(std::string(proc_fps_buffer));
+    }
+
+    lines.push_back("═══════════════════════════════════════════════");
 
     // Create temporary surface for font measurement
     cairo_surface_t *temp_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1, 1);
@@ -425,7 +475,7 @@ static void render_overlay_cache(GstAmpPerformance *self) {
     // Calculate dimensions - use sample text matching the actual format
     // This should accommodate the longest metric names with proper column alignment
     cairo_text_extents_t extents;
-    cairo_text_extents(temp_cr, "buffer_validation : 999.99ms  (p95: 999.99ms)", &extents);
+    cairo_text_extents(temp_cr, "ultraface_postprocess  :  999.99ms  (p95:  999.99ms)", &extents);
     double measured_width = extents.width;
 
     // Calculate actual maximum line width from content
@@ -503,6 +553,19 @@ static GstFlowReturn gst_amp_performance_transform_frame_ip(GstVideoFilter *filt
                                                             GstVideoFrame *frame) {
     GstAmpPerformance *self = GST_AMP_PERFORMANCE(filter);
 
+    // Track frame timing for FPS calculation
+    auto current_time = std::chrono::steady_clock::now();
+    if (self->frame_count > 1) { // Skip first frame
+        auto frame_duration = std::chrono::duration_cast<std::chrono::microseconds>(
+            current_time - self->last_frame_time);
+        double frame_ms = frame_duration.count() / 1000.0;
+        double instant_fps = frame_ms > 0 ? 1000.0 / frame_ms : 0;
+        // Exponential moving average for smoother FPS display
+        self->fps_average = (self->fps_average == 0.0)
+                                ? instant_fps
+                                : (self->fps_average * 0.95 + instant_fps * 0.05);
+    }
+    self->last_frame_time = current_time;
     self->frame_count++;
 
     // Update cache every N frames
