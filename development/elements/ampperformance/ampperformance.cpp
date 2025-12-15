@@ -215,7 +215,7 @@ static void gst_amp_performance_class_init(GstAmpPerformanceClass *klass) {
         "AMP Team <amp@example.com>");
 
     // Set pad templates
-    GstCaps *caps = gst_caps_from_string("video/x-raw, format=(string){RGB, RGBA, BGR, BGRA}");
+    GstCaps *caps = gst_caps_from_string("video/x-raw, format=(string){RGBA}");
     GstPadTemplate *src_template = gst_pad_template_new("src", GST_PAD_SRC, GST_PAD_ALWAYS, caps);
     GstPadTemplate *sink_template =
         gst_pad_template_new("sink", GST_PAD_SINK, GST_PAD_ALWAYS, caps);
@@ -541,6 +541,7 @@ static GstFlowReturn gst_amp_performance_transform_frame_ip(GstVideoFilter *filt
         cairo_image_surface_create_for_data(data, cairo_format, width, height, stride);
 
     if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
+        auto ret = cairo_surface_status(surface);
         cairo_surface_destroy(surface);
         return GST_FLOW_ERROR;
     }
