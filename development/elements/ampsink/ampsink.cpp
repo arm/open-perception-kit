@@ -10,6 +10,7 @@ g++ -fPIC -shared -o libgstampsink.so ampsink.cpp \
 #include <gst/video/video.h>
 #include <gst/webrtc/webrtc.h>
 #include <iostream>
+#include <mutex>
 
 #define ASIO_STANDALONE
 #include <asio.hpp>
@@ -67,6 +68,7 @@ struct GstAmpPrivate {
 
     std::shared_ptr<ws_server> ws;
 
+    std::mutex webrtc_session_mutex;
     WebRtcSessions webrtc_sessions;
 };
 
@@ -216,12 +218,17 @@ static void gst_amp_sink_dispose(GObject *object) {
         self->private_data->http_server->stop();
     }
 
-    self->private_data->http_server_thread.join();
+    if (self->private_data->http_server_thread.joinable()) {
+        self->private_data->http_server_thread.join();
+    }
 
     if (self->private_data->ws) {
         self->private_data->ws->stop();
     }
-    self->private_data->ws_server_thread.join();
+
+    if (self->private_data->ws_server_thread.joinable()) {
+        self->private_data->ws_server_thread.join();
+    }
 
     g_clear_pointer(&self->host, g_free);
     g_clear_pointer(&self->static_files_location, g_free);
@@ -251,13 +258,13 @@ static void gst_amp_sink_setup_http_server(GstAmpSink *self) {
     }
 
     http_server->Post("/ctrl", [&](const Request &req, Response &res) {
-        // TODO@zoli: handle the contol message
+        // TODO@zoli: handle the control message
         std::cout << "stop requested\n";
     });
 
     // TODO@ibori: error handling
     auto started = http_server->listen(self->host, self->http_port);
-    if (!ret) {
+    if (!started) {
         // TODO@ibori: error handling
         throw std::runtime_error("http server cannot be started");
     }
@@ -420,6 +427,7 @@ void on_open(GstAmpSink *self, std::shared_ptr<ws_server> ws, connection_hdl hdl
         ctx->webrtcbin, "on-negotiation-needed", G_CALLBACK(on_negotiation_needed), ctx.get());
     g_signal_connect(ctx->webrtcbin, "on-ice-candidate", G_CALLBACK(on_ice_candidate), ctx.get());
 
+    std::lock_guard<std::mutex> mutex_gurard(self->private_data->webrtc_session_mutex);
     self->private_data->webrtc_sessions[hdl] = ctx;
 
     std::cout << "Per-client WebRTC branch created and attached to tee\n";
@@ -427,11 +435,14 @@ void on_open(GstAmpSink *self, std::shared_ptr<ws_server> ws, connection_hdl hdl
 
 void on_close(GstAmpSink *self, connection_hdl hdl) {
     std::cout << "WebSocket connection closed" << std::endl;
+
+    std::lock_guard<std::mutex> mutex_gurard(self->private_data->webrtc_session_mutex);
     auto &sessions = self->private_data->webrtc_sessions;
 
     auto it = sessions.find(hdl);
-    if (it == sessions.end())
+    if (it == sessions.end()) {
         return;
+    }
 
     auto ctx = it->second;
 
@@ -512,6 +523,7 @@ void on_message(GstAmpSink *self,
                 std::shared_ptr<ws_server> server,
                 connection_hdl hdl,
                 ws_server::message_ptr msg) {
+    std::lock_guard<std::mutex> mutex_gurard(self->private_data->webrtc_session_mutex);
     auto &webrtc_sessions = self->private_data->webrtc_sessions;
 
     try {
@@ -570,19 +582,20 @@ static void gst_amp_sink_setup_ws_server(GstAmpSink *self) {
 
     server->init_asio();
 
-    server->set_open_handler([&server, self](connection_hdl hdl) { on_open(self, server, hdl); });
+    self->private_data->ws = server;
+
+    server->set_open_handler(
+        [self](connection_hdl hdl) { on_open(self, self->private_data->ws, hdl); });
 
     server->set_close_handler([self](connection_hdl hdl) { on_close(self, hdl); });
 
-    server->set_message_handler([&server, self](connection_hdl hdl, ws_server::message_ptr msg) {
-        on_message(self, server, hdl, msg);
+    server->set_message_handler([self](connection_hdl hdl, ws_server::message_ptr msg) {
+        on_message(self, self->private_data->ws, hdl, msg);
     });
 
     server->set_reuse_addr(true);
     server->listen(self->ws_port);
     server->start_accept();
-
-    self->private_data->ws = server;
 
     std::cout << "WebSocket++ server listening on port " << self->ws_port << std::endl;
     server->run();
@@ -711,7 +724,7 @@ static void gst_amp_sink_class_init(GstAmpSinkClass *klass) {
         element_class,
         "AmpSink (video+audio → raw video+audio -> VP8 -> WebRTC)",
         "Sink/Network/Bin",
-        "Encodes & muxes raw video+audio and sends them to WebRT",
+        "Encodes & muxes raw video+audio and sends them to WebRTC",
         "Your Name <you@example.com>");
 }
 
