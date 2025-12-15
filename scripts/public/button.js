@@ -1,4 +1,3 @@
-
 document.getElementById('postButton').addEventListener('click', function () {
   fetch('/ctrl', {
     method: 'POST',

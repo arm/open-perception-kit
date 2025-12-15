@@ -431,7 +431,7 @@ void on_open(GstAmpSink *self, std::shared_ptr<ws_server> ws, connection_hdl hdl
         ctx->webrtcbin, "on-negotiation-needed", G_CALLBACK(on_negotiation_needed), ctx.get());
     g_signal_connect(ctx->webrtcbin, "on-ice-candidate", G_CALLBACK(on_ice_candidate), ctx.get());
 
-    std::lock_guard<std::mutex> mutex_gurard(self->private_data->webrtc_session_mutex);
+    std::lock_guard<std::mutex> mutex_guard(self->private_data->webrtc_session_mutex);
     self->private_data->webrtc_sessions[hdl] = ctx;
 
     std::cout << "Per-client WebRTC branch created and attached to tee\n";
@@ -440,7 +440,7 @@ void on_open(GstAmpSink *self, std::shared_ptr<ws_server> ws, connection_hdl hdl
 void on_close(GstAmpSink *self, connection_hdl hdl) {
     std::cout << "WebSocket connection closed" << std::endl;
 
-    std::lock_guard<std::mutex> mutex_gurard(self->private_data->webrtc_session_mutex);
+    std::lock_guard<std::mutex> mutex_guard(self->private_data->webrtc_session_mutex);
     auto &sessions = self->private_data->webrtc_sessions;
 
     auto it = sessions.find(hdl);
@@ -527,7 +527,7 @@ void on_message(GstAmpSink *self,
                 std::shared_ptr<ws_server> server,
                 connection_hdl hdl,
                 ws_server::message_ptr msg) {
-    std::lock_guard<std::mutex> mutex_gurard(self->private_data->webrtc_session_mutex);
+    std::lock_guard<std::mutex> mutex_guard(self->private_data->webrtc_session_mutex);
     auto &webrtc_sessions = self->private_data->webrtc_sessions;
 
     try {
