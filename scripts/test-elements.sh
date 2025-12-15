@@ -50,11 +50,10 @@ gst-launch-1.0 \
   jpegdec ! \
   imagefreeze ! \
   videoconvert ! \
-      ampinfer model-path=/work/etc/models/yolo/yolo.json ! \
-      videoconvert ! video/x-raw,format=BGRA ! \
-      ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 ! \
-      videoconvert ! video/x-raw,format=BGRA ! \
+      ampinfer model-path=/work/etc/models/yolo/yolo.json active=true ! \
+      ampinfer model-path=/work/etc/models/ultraface/ultraface.json active=true ! \
       textoverlay name=overlay valignment=top halignment=center font-desc="Sans, 14" ! \
+      ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 ! \
       ampsink name=sink 
 
   msg_end "Pipeline finished."

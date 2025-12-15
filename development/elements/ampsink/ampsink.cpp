@@ -14,6 +14,8 @@ g++ -fPIC -shared -o libgstampsink.so ampsink.cpp \
 #define PACKAGE "ampsink"
 #endif
 
+#define VIDEO_QUALITY "faster"
+
 /* =============================== AmpSink ============================== */
 
 typedef struct _GstAmpSink      GstAmpSink;
@@ -38,7 +40,7 @@ struct _GstAmpSink {
   gboolean   async;
 
   gchar     *video_tune;           /* e.g., "zerolatency" */
-  gchar     *video_speed_preset;   /* e.g., "ultrafast"   */
+  gchar     *video_speed_preset;  /* VIDEO_QUALITY */
   gint       video_keyint;         /* GOP size            */
 
   gint       audio_bitrate;        /* encoder bitrate (bps) */
@@ -85,6 +87,7 @@ static void push_props_down(GstAmpSink *self) {
       gst_util_set_object_arg(G_OBJECT(self->x264), "speed-preset", self->video_speed_preset);
     if (self->video_keyint >= 0)
       g_object_set(self->x264, "key-int-max", self->video_keyint, NULL);
+    g_object_set(self->x264, "bitrate", 8000, NULL); // kbps
   }
   if (self->audioenc && self->audio_bitrate > 0) {
     /* avenc_mp2 uses 'bitrate' (bps). twolame typically uses kbps. Try both. */
@@ -261,7 +264,7 @@ static void gst_amp_sink_init(GstAmpSink *self) {
   self->sync               = FALSE;   /* sender shouldn't schedule */
   self->async              = FALSE;
   self->video_tune         = g_strdup("zerolatency");
-  self->video_speed_preset = g_strdup("ultrafast");
+  self->video_speed_preset = g_strdup(VIDEO_QUALITY);
   self->video_keyint       = 30;
   self->audio_bitrate      = 128000;
 
@@ -352,7 +355,7 @@ static void gst_amp_sink_class_init(GstAmpSinkClass *klass) {
   g_object_class_install_property(gobject_class, PROP_VIDEO_SPEED_PRESET,
     g_param_spec_string("video-speed-preset", "Video speed preset",
                         "x264enc speed-preset (e.g., 'ultrafast')",
-                        "ultrafast", kRW));
+                        VIDEO_QUALITY, kRW));
   g_object_class_install_property(gobject_class, PROP_VIDEO_KEY_INT_MAX,
     g_param_spec_int("video-key-int-max", "Video keyint max",
                      "x264enc key-int-max (GOP size)",
