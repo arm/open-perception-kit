@@ -61,6 +61,12 @@ struct SessionContext {
 using WebRtcSessions =
     std::map<connection_hdl, std::shared_ptr<SessionContext>, std::owner_less<connection_hdl>>;
 
+struct ModelStatus {
+    std::string name;
+    bool active;
+    std::string element_name;
+};
+
 struct GstAmpPrivate {
     std::thread http_server_thread;
     std::thread ws_server_thread;
@@ -70,6 +76,9 @@ struct GstAmpPrivate {
 
     std::mutex webrtc_session_mutex;
     WebRtcSessions webrtc_sessions;
+
+    std::mutex model_registry_mutex;
+    std::map<std::string, ModelStatus> model_registry; // key: element_name
 };
 
 struct _GstAmpSink {
@@ -210,6 +219,66 @@ static void gst_amp_sink_release_pad(GstElement *element, GstPad *pad) {
     gst_element_remove_pad(element, pad);
 }
 
+/* ===== Event handling ===== */
+static gboolean gst_amp_sink_sink_event(GstPad *pad, GstObject *parent, GstEvent *event) {
+    auto *self = reinterpret_cast<GstAmpSink *>(parent);
+
+    if (GST_EVENT_TYPE(event) == GST_EVENT_CUSTOM_DOWNSTREAM) {
+        const GstStructure *structure = gst_event_get_structure(event);
+
+        if (gst_structure_has_name(structure, "amp-model-register")) {
+            const gchar *model_name = gst_structure_get_string(structure, "model-name");
+            const gchar *element_name = gst_structure_get_string(structure, "element-name");
+            gboolean active = FALSE;
+            gst_structure_get_boolean(structure, "active", &active);
+
+            if (model_name && element_name) {
+                std::lock_guard<std::mutex> lock(self->private_data->model_registry_mutex);
+                ModelStatus status;
+                status.name = model_name;
+                status.active = active;
+                status.element_name = element_name;
+                self->private_data->model_registry[element_name] = status;
+
+                std::cout << "[ampsink] Registered model: " << model_name
+                          << " from element: " << element_name
+                          << " (active: " << (active ? "yes" : "no") << ")" << std::endl;
+            }
+
+            // Consume the event (don't pass it further)
+            gst_event_unref(event);
+            return TRUE;
+        } else if (gst_structure_has_name(structure, "amp-model-unregister")) {
+            const gchar *element_name = gst_structure_get_string(structure, "element-name");
+
+            if (element_name) {
+                std::lock_guard<std::mutex> lock(self->private_data->model_registry_mutex);
+                auto it = self->private_data->model_registry.find(element_name);
+                if (it != self->private_data->model_registry.end()) {
+                    std::cout << "[ampsink] Unregistered model: " << it->second.name
+                              << " from element: " << element_name << std::endl;
+                    self->private_data->model_registry.erase(it);
+                }
+            }
+
+            // Consume the event (don't pass it further)
+            gst_event_unref(event);
+            return TRUE;
+        }
+    }
+
+    // Pass all other events (CAPS, SEGMENT, EOS, etc.) to the target pad
+    GstPad *target = gst_ghost_pad_get_target(GST_GHOST_PAD(pad));
+    if (target) {
+        gboolean ret = gst_pad_send_event(target, event);
+        gst_object_unref(target);
+        return ret;
+    }
+
+    gst_event_unref(event);
+    return FALSE;
+}
+
 /* ===== Lifecycle ===== */
 static void gst_amp_sink_dispose(GObject *object) {
     auto *self = reinterpret_cast<GstAmpSink *>(object);
@@ -249,6 +318,29 @@ static void gst_amp_sink_setup_http_server(GstAmpSink *self) {
     http_server->Get("/amp-config.js", [self](const Request &req, Response &res) {
         std::string js = "window.AMP_CONFIG = { wsPort: " + std::to_string(self->ws_port) + " };";
         res.set_content(js, "application/javascript");
+    });
+
+    // Model registry endpoint
+    http_server->Get("/models", [self](const Request &req, Response &res) {
+        res.set_header("Access-Control-Allow-Origin", "*");
+        res.set_header("Access-Control-Allow-Methods", "GET, OPTIONS");
+        res.set_header("Access-Control-Allow-Headers", "Content-Type");
+
+        json models_array = json::array();
+
+        {
+            std::lock_guard<std::mutex> lock(self->private_data->model_registry_mutex);
+            for (const auto &entry : self->private_data->model_registry) {
+                json model_obj = {{"element_name", entry.second.element_name},
+                                  {"model_name", entry.second.name},
+                                  {"active", entry.second.active}};
+                models_array.push_back(model_obj);
+            }
+        }
+
+        json response = {{"models", models_array}, {"count", models_array.size()}};
+
+        res.set_content(response.dump(2), "application/json");
     });
 
     auto ret = http_server->set_mount_point("/", self->static_files_location);
@@ -732,6 +824,10 @@ static void gst_amp_sink_init(GstAmpSink *self) {
         GstPad *vs = gst_element_get_static_pad(self->vconv, "sink");
         GstPad *vg = gst_ghost_pad_new("sink", vs);
         gst_object_unref(vs);
+
+        // Install custom event handler
+        gst_pad_set_event_function(vg, gst_amp_sink_sink_event);
+
         gst_element_add_pad(GST_ELEMENT(self), vg);
     }
 

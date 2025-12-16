@@ -61,6 +61,11 @@ static gboolean gst_ampinfer_start(GstBaseTransform *b) {
     auto *self = (GstAmpInfer *)b;
     static amp::PerformanceTracer *tracer = amp::getGlobalTracer();
 
+    if (!self->modelName) {
+        GST_ERROR_OBJECT(self, "model-name property is mandatory but not set");
+        return FALSE;
+    }
+
     self->m = new GstAmpInferMembers();
 
     try {
@@ -78,11 +83,41 @@ static gboolean gst_ampinfer_start(GstBaseTransform *b) {
         return FALSE;
     }
 
+    // Send model registration event downstream
+    GstPad *srcpad = gst_element_get_static_pad(GST_ELEMENT(self), "src");
+    if (srcpad) {
+        GstStructure *structure = gst_structure_new("amp-model-register",
+                                                    "model-name",
+                                                    G_TYPE_STRING,
+                                                    self->modelName,
+                                                    "element-name",
+                                                    G_TYPE_STRING,
+                                                    GST_OBJECT_NAME(self),
+                                                    "active",
+                                                    G_TYPE_BOOLEAN,
+                                                    self->active,
+                                                    NULL);
+        GstEvent *event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, structure);
+        gst_pad_push_event(srcpad, event);
+        gst_object_unref(srcpad);
+    }
+
     return TRUE;
 }
 
 static gboolean gst_ampinfer_stop(GstBaseTransform *b) {
     auto *self = (GstAmpInfer *)b;
+
+    // Send model unregistration event downstream
+    GstPad *srcpad = gst_element_get_static_pad(GST_ELEMENT(self), "src");
+    if (srcpad) {
+        GstStructure *structure = gst_structure_new(
+            "amp-model-unregister", "element-name", G_TYPE_STRING, GST_OBJECT_NAME(self), NULL);
+        GstEvent *event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, structure);
+        gst_pad_push_event(srcpad, event);
+        gst_object_unref(srcpad);
+    }
+
     delete self->m;
     return TRUE;
 }
@@ -258,8 +293,8 @@ static void gst_ampinfer_class_init(GstAmpInferClass *klass) {
         PROP_MODEL_NAME,
         g_param_spec_string("model-name",
                             "Model name",
-                            "Name for performance metric",
-                            "ampinfer",
+                            "Name of the executed model (mandatory)",
+                            nullptr,
                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
@@ -295,7 +330,7 @@ static void gst_ampinfer_class_init(GstAmpInferClass *klass) {
 
 static void gst_ampinfer_init(GstAmpInfer *self) {
     self->modelPath = nullptr;
-    self->modelName = g_strdup("ampinfer");
+    self->modelName = nullptr;
     self->active = true;
     gst_base_transform_set_in_place(GST_BASE_TRANSFORM(self), TRUE);
     gst_base_transform_set_qos_enabled(GST_BASE_TRANSFORM(self), FALSE);

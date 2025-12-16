@@ -50,8 +50,8 @@ gst-launch-1.0 \
   jpegdec ! \
   imagefreeze ! \
   videoconvert ! \
-      ampinfer model-path=/work/etc/models/yolo/yolo.json active=true ! \
-      ampinfer model-path=/work/etc/models/ultraface/ultraface.json active=true ! \
+      ampinfer model-path=/work/etc/models/yolo/yolo.json model-name=yolov8n active=true ! \
+      ampinfer model-path=/work/etc/models/ultraface/ultraface.json model-name=ultraface active=true ! \
       textoverlay name=overlay valignment=top halignment=center font-desc="Sans, 14" ! \
   videoconvert ! \
       ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 ! \
@@ -83,7 +83,7 @@ onnx2() {
   gst-launch-1.0 \
     filesrc location=/work/etc/videos/00.mp4 ! decodebin ! \
     videoconvert ! videoscale ! video/x-raw,format=RGB,width=160,height=160 ! \
-    ampinfer model-path=/work/etc/models/yolov8n/yolov8n-160-qdq.onnx imgsz=160 ! \
+    ampinfer model-path=/work/etc/models/yolov8n/yolov8n-160-qdq.onnx model-name=yolov8n-160 imgsz=160 ! \
     videoconvert ! x264enc tune=zerolatency speed-preset=ultrafast ! \
     mpegtsmux ! \
     udpsink host="$IP" port=5000 sync=false async=false
@@ -143,7 +143,7 @@ onnxweb() {
   gst-launch-1.0 \
     filesrc location=/work/etc/videos/00.mp4 ! decodebin ! \
     videoconvert ! videoscale ! video/x-raw,format=RGB,width=640,height=640 ! \
-    ampinfer model-path=/work/etc/models/yolov8n/yolov8n-fp32.onnx imgsz=640 ! \
+    ampinfer model-path=/work/etc/models/yolov8n/yolov8n-fp32.onnx model-name=yolov8n-640 imgsz=640 ! \
     videoconvert ! \
     jpegenc quality=75 ! \
     multipartmux boundary=spion ! tcpserversink host=127.0.0.1 port=5001
