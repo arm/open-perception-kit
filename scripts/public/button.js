@@ -1,41 +1,43 @@
 
 let overlayEnabled = true;
 
-document.getElementById('postButton').addEventListener('click', function () {
-  console.log('Button clicked! Current state:', overlayEnabled);
+document.addEventListener('DOMContentLoaded', function() {
+  const button = document.getElementById('postButton');
   
-  // Toggle the overlay state
-  overlayEnabled = !overlayEnabled;
+  if (!button) {
+    console.error('postButton not found in DOM');
+    return;
+  }
   
-  console.log('Toggling to:', overlayEnabled);
-  
-  // Update button text
-  this.textContent = overlayEnabled ? 'Disable Performance Overlay' : 'Enable Performance Overlay';
-  
-  const payload = { enabled: overlayEnabled };
-  console.log('Sending payload:', payload);
-  
-  fetch('/ctrl', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(payload)
-  })
-  .then(response => {
-    console.log('Response status:', response.status);
-    return response.json();
-  })
-  .then(data => {
-    console.log('Server response:', data);
-    if (data.status === 'ok') {
-      console.log(`Performance overlay ${overlayEnabled ? 'enabled' : 'disabled'}`);
-    } else {
-      console.error('Failed to toggle overlay:', data.message);
-    }
-  })
-  .catch(error => {
-    console.error('Fetch error:', error);
+  button.addEventListener('click', function () {
+    // Toggle the state
+    overlayEnabled = !overlayEnabled;
+    
+    console.log('Toggling performance overlay to:', overlayEnabled);
+    
+    // Update button text
+    const icon = '<span class="btn-icon">👁</span> ';
+    this.innerHTML = icon + (overlayEnabled ? 'Disable Performance Overlay' : 'Enable Performance Overlay');
+    
+    fetch('/ctrl', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ enabled: overlayEnabled })
+    })
+    .then(response => response.json())
+    .then(data => {
+      console.log('Server response:', data);
+      if (data.status !== 'ok') {
+        console.error('Server returned error:', data);
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      // Revert state on error
+      overlayEnabled = !overlayEnabled;
+      this.innerHTML = icon + (overlayEnabled ? 'Disable Performance Overlay' : 'Enable Performance Overlay');
+    });
   });
 });
-
