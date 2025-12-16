@@ -343,6 +343,78 @@ static void gst_amp_sink_setup_http_server(GstAmpSink *self) {
         res.set_content(response.dump(2), "application/json");
     });
 
+    // Model toggle endpoint
+    http_server->Post("/models/toggle", [self](const Request &req, Response &res) {
+        res.set_header("Access-Control-Allow-Origin", "*");
+        res.set_header("Access-Control-Allow-Methods", "POST, OPTIONS");
+        res.set_header("Access-Control-Allow-Headers", "Content-Type");
+
+        try {
+            json request_data = json::parse(req.body);
+            std::string element_name = request_data.value("element_name", "");
+            bool active = request_data.value("active", true);
+
+            if (element_name.empty()) {
+                res.status = 400;
+                res.set_content("{\"status\":\"error\",\"message\":\"element_name is required\"}",
+                                "application/json");
+                return;
+            }
+
+            // Get the pipeline
+            GstElement *pipeline = GST_ELEMENT(gst_element_get_parent(GST_ELEMENT(self)));
+            if (!pipeline) {
+                res.status = 500;
+                res.set_content("{\"status\":\"error\",\"message\":\"Could not get pipeline\"}",
+                                "application/json");
+                GST_ERROR_OBJECT(self, "Could not get pipeline");
+                return;
+            }
+
+            // Find the element by name
+            GstElement *target_element =
+                gst_bin_get_by_name(GST_BIN(pipeline), element_name.c_str());
+            gst_object_unref(pipeline);
+
+            if (!target_element) {
+                res.status = 404;
+                json error_response = {{"status", "error"},
+                                       {"message", "Element not found: " + element_name}};
+                res.set_content(error_response.dump(), "application/json");
+                GST_WARNING_OBJECT(self, "Element not found: %s", element_name.c_str());
+                return;
+            }
+
+            // Set the active property
+            g_object_set(target_element, "active", active, NULL);
+            gst_object_unref(target_element);
+
+            // Update the registry
+            {
+                std::lock_guard<std::mutex> lock(self->private_data->model_registry_mutex);
+                for (auto &entry : self->private_data->model_registry) {
+                    if (entry.second.element_name == element_name) {
+                        entry.second.active = active;
+                        break;
+                    }
+                }
+            }
+
+            GST_INFO_OBJECT(self, "Set element %s active=%d", element_name.c_str(), active);
+
+            json response = {{"status", "ok"}, {"element_name", element_name}, {"active", active}};
+            res.status = 200;
+            res.set_content(response.dump(), "application/json");
+
+        } catch (const json::exception &e) {
+            res.status = 400;
+            json error_response = {{"status", "error"},
+                                   {"message", std::string("Invalid JSON: ") + e.what()}};
+            res.set_content(error_response.dump(), "application/json");
+            GST_ERROR_OBJECT(self, "JSON parse error: %s", e.what());
+        }
+    });
+
     auto ret = http_server->set_mount_point("/", self->static_files_location);
     if (!ret) {
         // TODO@ibori: error handling

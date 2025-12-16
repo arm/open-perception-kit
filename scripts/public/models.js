@@ -103,21 +103,46 @@ class ModelsManager {
     /**
      * Handle toggle button click
      */
-    handleToggle(model, button) {
+    async handleToggle(model, button) {
         // Disable button to prevent double-clicks
         button.disabled = true;
         button.style.opacity = '0.5';
         button.style.cursor = 'not-allowed';
 
-        console.log(`Toggle model: ${model.model_name} (currently ${model.active ? 'active' : 'inactive'})`);
+        const newActiveState = !model.active;
+        console.log(`Toggle model: ${model.model_name} from ${model.active} to ${newActiveState}`);
         
-        // TODO: Implement actual toggle API call
-        // For now, just provide visual feedback
-        setTimeout(() => {
+        try {
+            const response = await fetch('/models/toggle', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    element_name: model.element_name,
+                    active: newActiveState
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.status === 'ok') {
+                console.log(`Successfully toggled ${model.model_name} to ${newActiveState}`);
+                // Refresh the model list to show updated state
+                await this.fetchModels();
+            } else {
+                console.error('Failed to toggle model:', data.message || 'Unknown error');
+                alert(`Failed to toggle model: ${data.message || 'Unknown error'}`);
+            }
+        } catch (error) {
+            console.error('Error toggling model:', error);
+            alert(`Error toggling model: ${error.message}`);
+        } finally {
+            // Re-enable button
             button.disabled = false;
             button.style.opacity = '';
             button.style.cursor = '';
-        }, 1000);
+        }
     }
 
     /**
