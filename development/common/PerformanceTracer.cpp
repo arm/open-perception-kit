@@ -146,6 +146,33 @@ void PerformanceTracer::reset() {
     // Note: callbacks are not cleared on reset - they persist
 }
 
+void PerformanceTracer::removeMetrics(const std::string &key) {
+    // Acquire all locks in consistent order to prevent deadlocks
+    std::lock_guard<std::mutex> lock1(active_mutex_);
+    std::lock_guard<std::mutex> lock2(current_cycle_mutex_);
+    std::lock_guard<std::mutex> lock3(history_mutex_);
+    std::lock_guard<std::mutex> lock4(stats_mutex_);
+
+    // Remove from active timers (exact match)
+    active_timers_.erase(key);
+
+    // Remove from current cycle measurements (exact match)
+    current_cycle_measurements_.erase(
+        std::remove_if(current_cycle_measurements_.begin(),
+                       current_cycle_measurements_.end(),
+                       [&key](const TimingMeasurement &m) { return m.key == key; }),
+        current_cycle_measurements_.end());
+
+    // Remove from history (exact match)
+    measurement_history_.erase(key);
+
+    // Remove from stats cache (exact match)
+    stats_cache_.erase(key);
+
+    // Force recalculation on next cycle
+    auto_calculate_stats_ = true;
+}
+
 size_t PerformanceTracer::getActiveTimerCount() const {
     std::lock_guard<std::mutex> lock(active_mutex_);
     return active_timers_.size();

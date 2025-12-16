@@ -160,6 +160,8 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip(GstVideoFilter *vf, GstVide
 
     // preprocess
     {
+        if (!self->active)
+            return GST_FLOW_OK;
         amp::PerformanceTracer::ScopedTimer timer(tracer, preprocess_name);
         auto prepocessResult =
             self->m->onnxInference->preprocessImageData(0,
@@ -176,6 +178,8 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip(GstVideoFilter *vf, GstVide
 
     // inference
     {
+        if (!self->active)
+            return GST_FLOW_OK;
         amp::PerformanceTracer::ScopedTimer timer(tracer, inference_name);
         auto inferenceResult = self->m->onnxInference->inference();
         if (!inferenceResult) {
@@ -187,6 +191,9 @@ static GstFlowReturn gst_ampinfer_transform_frame_ip(GstVideoFilter *vf, GstVide
     // postprocess
     uflw::DetectionResult detectionResults;
     {
+        if (!self->active)
+            return GST_FLOW_OK;
+        GST_LOG_OBJECT(self, "Recording postprocess metric: %s", postprocess_name.c_str());
         amp::PerformanceTracer::ScopedTimer timer(tracer, postprocess_name);
         uflw::NetworkOutputParser::Settings settings;
         settings.iouThreshold = 0.3f;
@@ -245,9 +252,25 @@ static void gst_ampinfer_set_property(GObject *o, guint id, const GValue *v, GPa
         g_free(self->modelName);
         self->modelName = g_value_dup_string(v);
         break;
-    case PROP_MODEL_ACTIVE:
-        self->active = g_value_get_boolean(v);
+    case PROP_MODEL_ACTIVE: {
+        gboolean new_active = g_value_get_boolean(v);
+        // If disabling the model, clear its performance metrics
+        if (self->active && !new_active && self->modelName) {
+            static amp::PerformanceTracer *tracer = amp::getGlobalTracer();
+            std::string base_name = self->modelName;
+            GST_INFO_OBJECT(self, "Removing metrics for model: %s", base_name.c_str());
+            tracer->removeMetrics(base_name + "_preprocess");
+            tracer->removeMetrics(base_name + "_inference");
+            tracer->removeMetrics(base_name + "_postprocess");
+            GST_INFO_OBJECT(self,
+                            "Metrics removed for: %s_preprocess, %s_inference, %s_postprocess",
+                            base_name.c_str(),
+                            base_name.c_str(),
+                            base_name.c_str());
+        }
+        self->active = new_active;
         break;
+    }
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(o, id, ps);
     }

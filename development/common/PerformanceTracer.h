@@ -187,6 +187,12 @@ class PerformanceTracer {
     void reset();
 
     /**
+     * Remove all metrics for a specific key
+     * @param key The key to remove metrics for
+     */
+    void removeMetrics(const std::string &key);
+
+    /**
      * Get total number of active timers (start called, end not yet called)
      */
     size_t getActiveTimerCount() const;
