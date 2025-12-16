@@ -35,6 +35,16 @@
 
                 <div class="sidebar">
                     <div>
+                        <div class="sidebar-section-title">AI Models</div>
+                        <div id="models-container" class="models-container">
+                            <div class="models-loading">
+                                <div class="spinner"></div>
+                                <span>Loading models...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
                         <div class="sidebar-section-title">Controls</div>
                         <div class="btn-row">
                             <button id="reconnectBtn" class="primary">
@@ -65,7 +75,8 @@
 
         <!-- Logic -->
         <script src="/amp-config.js"></script>
-        <script src="webrtc.js"></script>
-        <script src="button.js"></script>
+        <script src="/webrtc.js"></script>
+        <script src="/button.js"></script>
+        <script src="/models.js"></script>
     </body>
 </html>
