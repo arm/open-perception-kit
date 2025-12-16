@@ -1,0 +1,10 @@
+# Build directory
+build/
+
+# Meson subprojects - ignore all downloaded source directories
+subprojects/*/
+
+# Keep these wraps (required dependencies)
+!subprojects/asio.wrap
+!subprojects/uniflow.wrap
+!subprojects/websocketpp.wrap
