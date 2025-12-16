@@ -25,6 +25,12 @@
             <div class="card-body">
                 <div class="video-wrapper">
                     <video id="video" autoplay playsinline muted></video>
+
+                    <button id="playPauseBtn" class="video-control" type="button" aria-label="Pause video">
+                        <span id="playPauseIcon" class="video-control-icon">⏸</span>
+                        <span class="video-control-text">Pause</span>
+                    </button>
+
                     <div id="video-overlay" class="video-overlay">
                         <div class="overlay-chip">
                             <div class="spinner"></div>
@@ -74,5 +80,6 @@
         <script src="/webrtc.js"></script>
         <script src="/button.js"></script>
         <script src="/models.js"></script>
+        <script src="/video-controls.js"></script>
     </body>
 </html>

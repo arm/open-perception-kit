@@ -58,6 +58,20 @@ struct SessionContext {
     GstPad *webrtc_sink_pad = nullptr; // requested from webrtcbin ("sink_%u")
 };
 
+struct ToggleStateRequest {
+    GstElement *element = nullptr;
+    GstState resulting = GST_STATE_NULL;
+
+    std::mutex m;
+    std::condition_variable cv;
+    bool done = false;
+    bool ok = false;
+};
+
+struct ToggleInvokeBox {
+    std::shared_ptr<ToggleStateRequest> req;
+};
+
 using WebRtcSessions =
     std::map<connection_hdl, std::shared_ptr<SessionContext>, std::owner_less<connection_hdl>>;
 
@@ -114,21 +128,22 @@ G_DEFINE_TYPE(GstAmpSink, gst_amp_sink, GST_TYPE_BIN)
 
 /* ===== Utils ===== */
 
-static gboolean have_element(const char *name) {
-    GstElementFactory *f = gst_element_factory_find(name);
-    if (f) {
-        gst_object_unref(f);
-        return TRUE;
-    }
-    return FALSE;
-}
+static GstElement *get_top_pipeline(GstElement *elem) {
+    if (!elem)
+        return nullptr;
 
-static void set_int_if_prop_exists(GstElement *e, const char *prop, gint value) {
-    if (!e)
-        return;
-    GParamSpec *ps = g_object_class_find_property(G_OBJECT_GET_CLASS(e), prop);
-    if (ps)
-        g_object_set(e, prop, value, NULL);
+    GstElement *cur = elem;
+    GstElement *parent = GST_ELEMENT(gst_element_get_parent(cur)); // ref
+    while (parent) {
+        if (GST_IS_PIPELINE(parent)) {
+            return parent; // return with ref held
+        }
+        // move up
+        GstElement *next = GST_ELEMENT(gst_element_get_parent(parent)); // ref
+        gst_object_unref(parent);                                       // drop current parent ref
+        parent = next;
+    }
+    return nullptr;
 }
 
 static void push_props_down(GstAmpSink *self) {
@@ -305,6 +320,46 @@ static void gst_amp_sink_dispose(GObject *object) {
     delete self->private_data;
 
     G_OBJECT_CLASS(gst_amp_sink_parent_class)->dispose(object);
+}
+
+static gboolean toggle_on_main(gpointer user_data) {
+    std::cout << "invoked\n";
+    auto *box = static_cast<ToggleInvokeBox *>(user_data);
+    auto tsr = box->req; // copy shared_ptr
+
+    GstState cur = GST_STATE_NULL, pending = GST_STATE_NULL;
+    gst_element_get_state(tsr->element, &cur, &pending, 0);
+
+    // Decide target more robustly (treat "pending PLAYING" as playing)
+    const bool is_playingish = (cur == GST_STATE_PLAYING) || (pending == GST_STATE_PLAYING);
+    const GstState target = is_playingish ? GST_STATE_PAUSED : GST_STATE_PLAYING;
+
+    gst_element_set_state(tsr->element, target);
+
+    // Optionally wait a bit for the state to settle
+    GstState after = GST_STATE_NULL, after_pending = GST_STATE_NULL;
+    gst_element_get_state(tsr->element, &after, &after_pending, 200 * GST_MSECOND);
+
+    {
+        std::lock_guard<std::mutex> lk(tsr->m);
+        tsr->resulting = after; // <- write under lock
+        tsr->ok = true;
+        tsr->done = true;
+    }
+    tsr->cv.notify_one();
+
+    std::cout << "check is_pipeline\n";
+    if (tsr->element && GST_IS_PIPELINE(tsr->element)) {
+        std::cout << "is_pipeline\n";
+        gst_object_unref(tsr->element);
+        tsr->element = nullptr;
+    }
+
+    return G_SOURCE_REMOVE;
+}
+
+static void destroy_box(gpointer user_data) {
+    delete static_cast<ToggleInvokeBox *>(user_data);
 }
 
 static void gst_amp_sink_setup_http_server(GstAmpSink *self) {
@@ -486,6 +541,51 @@ static void gst_amp_sink_setup_http_server(GstAmpSink *self) {
                             "application/json");
             GST_ERROR_OBJECT(self, "Could not get sink pad");
         }
+    });
+
+    http_server->Post("/play-pause", [self](const Request &, Response &res) {
+        std::cout << "play-pause\n";
+        auto tsr = std::make_shared<ToggleStateRequest>();
+
+        GstElement *pipeline = get_top_pipeline(GST_ELEMENT(self));
+        tsr->element = pipeline ? pipeline : GST_ELEMENT(self); // if pipeline, ref is held
+
+        auto *box = new ToggleInvokeBox{tsr};
+        g_main_context_invoke_full(nullptr, G_PRIORITY_DEFAULT, toggle_on_main, box, destroy_box);
+
+        bool completed = false;
+        {
+            std::unique_lock<std::mutex> lk(tsr->m);
+            completed =
+                tsr->cv.wait_for(lk, std::chrono::milliseconds(800), [&] { return tsr->done; });
+        }
+
+        json out;
+        if (!completed) {
+            out["ok"] = false;
+            out["error"] = "timeout waiting for state change";
+            res.status = 504;
+            res.set_content(out.dump(), "application/json");
+            return;
+        }
+
+        // Read resulting under lock (or copy it while holding the lock)
+        GstState resulting;
+        {
+            std::lock_guard<std::mutex> lk(tsr->m);
+            resulting = tsr->resulting;
+        }
+
+        std::string state_str = "unknown";
+        if (resulting == GST_STATE_PLAYING)
+            state_str = "playing";
+        else if (resulting == GST_STATE_PAUSED)
+            state_str = "paused";
+
+        out["ok"] = true;
+        out["state"] = state_str;
+
+        res.set_content(out.dump(), "application/json");
     });
 
     // TODO@ibori: error handling

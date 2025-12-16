@@ -27,9 +27,11 @@ body {
   padding: 16px;
 }
 
+/* ================= Layout (adaptive sizes) ================= */
+
 .card {
   width: 100%;
-  max-width: 900px;
+  max-width: 980px; /* baseline */
   background: linear-gradient(135deg, #020617, #020617) padding-box,
     linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(14, 165, 233, 0.4)) border-box;
   border-radius: 24px;
@@ -40,12 +42,24 @@ body {
     0 0 0 1px rgba(15, 23, 42, 0.8);
 }
 
+/* Wider card and bigger video on large screens */
+@media (min-width: 1100px) {
+  .card { max-width: 1180px; }
+}
+@media (min-width: 1400px) {
+  .card { max-width: 1400px; }
+}
+@media (min-width: 1700px) {
+  .card { max-width: 1600px; }
+}
+
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
   margin-bottom: 16px;
+  flex-wrap: wrap;
 }
 
 .title {
@@ -63,6 +77,35 @@ body {
   background: var(--accent);
   box-shadow: 0 0 12px rgba(59, 130, 246, 0.9);
 }
+
+.card-body {
+  display: grid;
+  grid-template-columns: minmax(0, 2.6fr) minmax(0, 1.2fr); /* baseline: video bigger */
+  gap: 16px;
+}
+
+/* Even more video dominance on big screens */
+@media (min-width: 1100px) {
+  .card-body {
+    grid-template-columns: minmax(0, 3.2fr) minmax(0, 1fr);
+    gap: 18px;
+  }
+}
+@media (min-width: 1400px) {
+  .card-body {
+    grid-template-columns: minmax(0, 3.6fr) minmax(0, 1fr);
+    gap: 20px;
+  }
+}
+
+/* Stack on mobile/tablet */
+@media (max-width: 900px) {
+  .card-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ================= Status pill ================= */
 
 .status-pill {
   display: inline-flex;
@@ -111,17 +154,7 @@ body {
   opacity: 0.8;
 }
 
-.card-body {
-  display: grid;
-  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.3fr);
-  gap: 16px;
-}
-
-@media (max-width: 800px) {
-  .card-body {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
+/* ================= Video ================= */
 
 .video-wrapper {
   position: relative;
@@ -129,18 +162,42 @@ body {
   border-radius: var(--radius);
   overflow: hidden;
   border: 1px solid var(--border);
-  min-height: 220px;
+  min-height: 320px; /* baseline bigger */
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
+/* Bigger minimum on big screens */
+@media (min-width: 1100px) {
+  .video-wrapper { min-height: 420px; }
+}
+@media (min-width: 1400px) {
+  .video-wrapper { min-height: 520px; }
+}
+
+/* Smaller minimum on mobile */
+@media (max-width: 900px) {
+  .video-wrapper { min-height: 260px; }
+}
+
 video {
   width: 100%;
   height: 100%;
-  max-height: 480px;
+  max-height: 560px; /* baseline bigger */
   object-fit: contain;
   background: #000;
+}
+
+/* Bigger max height on big screens */
+@media (min-width: 1100px) {
+  video { max-height: 720px; }
+}
+@media (min-width: 1400px) {
+  video { max-height: 820px; }
+}
+@media (min-width: 1700px) {
+  video { max-height: 920px; }
 }
 
 .video-overlay {
@@ -169,20 +226,82 @@ video {
   color: var(--text-muted);
 }
 
-.spinner {
-  width: 14px;
-  height: 14px;
+.video-control {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 3;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 8px 12px;
   border-radius: 999px;
-  border: 2px solid rgba(148, 163, 184, 0.4);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.7);
+  color: var(--text);
+
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  backdrop-filter: blur(10px);
+  transition:
+    transform 0.08s ease,
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.video-control:hover {
+  background: rgba(15, 23, 42, 0.85);
+  border-color: rgba(148, 163, 184, 0.6);
+  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.25);
+  transform: translateY(-1px);
+}
+
+.video-control:active {
+  transform: translateY(0);
+}
+
+.video-control:disabled {
+  opacity: 0.5;
+  cursor: default;
+  box-shadow: none;
+}
+
+.video-control-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.video-control-text {
+  letter-spacing: 0.02em;
+}
+
+/* Ensure overlay doesn't block clicks */
+.video-overlay {
+  pointer-events: none;
+}
+
+/* ================= Spinner (single definition) ================= */
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 2px solid rgba(148, 163, 184, 0.35);
   border-top-color: var(--accent);
-  animation: spin 0.9s linear infinite;
+  animation: spin 0.8s linear infinite;
+  flex: 0 0 auto;
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
+
+/* ================= Sidebar ================= */
 
 .sidebar {
   background: radial-gradient(circle at top left, #111827, #020617);
@@ -208,6 +327,8 @@ video {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* ================= Buttons ================= */
 
 button {
   border-radius: 999px;
@@ -261,6 +382,8 @@ button.primary:not(:disabled):hover {
   font-size: 0.9em;
 }
 
+/* ================= Status line + log ================= */
+
 .status-line {
   font-size: 0.78rem;
   color: var(--text-muted);
@@ -272,7 +395,7 @@ button.primary:not(:disabled):hover {
 }
 
 .log {
-  max-height: 110px;
+  max-height: 140px; /* slightly taller now */
   overflow-y: auto;
   padding-right: 4px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
@@ -312,7 +435,8 @@ button.primary:not(:disabled):hover {
   color: var(--danger);
 }
 
-/* Models Section */
+/* ================= Models Section ================= */
+
 .models-container {
   display: flex;
   flex-direction: column;
@@ -326,19 +450,6 @@ button.primary:not(:disabled):hover {
   padding: 16px;
   color: var(--text-muted);
   font-size: 0.9rem;
-}
-
-.spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid rgba(59, 130, 246, 0.2);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 .models-error {
