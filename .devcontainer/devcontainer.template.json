@@ -14,7 +14,8 @@
     "--hostname","amp-dev-forge",
     "--cap-add=SYS_PTRACE",
     "--security-opt","seccomp=unconfined",
-    "--network", "host"
+    "-p", "8000:8000",
+    "-p", "9999:9999"
   ],
   "containerEnv": {
   	%ENV%
@@ -27,7 +28,6 @@
   },
   "overrideCommand": true,
   "init": true,
-  "forwardPorts": [7100,1234,8000,9999],  
   "postCreateCommand": "bash .devcontainer/setup.sh",
   "customizations": {
     "vscode": {

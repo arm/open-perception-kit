@@ -66,6 +66,8 @@ RUN set -eux; \
 # Clean apt cache
 RUN set -eux; update-ca-certificates || true; rm -rf /var/lib/apt/lists/*
 
+EXPOSE 8000
+EXPOSE 9999
 
 # uv (Python package manager)
 RUN set -eux; \

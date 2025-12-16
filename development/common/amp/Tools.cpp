@@ -1,12 +1,6 @@
 #include "Tools.h"
 #include "fmt/base.h"
 
-#if 1
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <stdlib.h>
-#endif
-
 using namespace amp;
 
 std::string Tools::getLocalIp() {
