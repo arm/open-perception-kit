@@ -7,7 +7,6 @@ const statusLineEl = document.getElementById('status-line');
 const overlay = document.getElementById('video-overlay');
 const overlayText = document.getElementById('overlay-text');
 const logEl = document.getElementById('log');
-const reconnectBtn = document.getElementById('reconnectBtn');
 
 // ===== UI HELPERS =====
 function setStatus(state, label, subtext) {
@@ -22,16 +21,13 @@ function setStatus(state, label, subtext) {
     case 'reconnecting':
         overlay.classList.remove('hidden');
         overlayText.textContent = 'Connecting…';
-        reconnectBtn.disabled = true;
         break;
     case 'connected':
         overlay.classList.add('hidden');
-        reconnectBtn.disabled = false;
         break;
     case 'disconnected':
         overlay.classList.remove('hidden');
         overlayText.textContent = 'Disconnected – waiting for stream…';
-        reconnectBtn.disabled = false;
         break;
     }
 }
@@ -249,36 +245,6 @@ function connectSignaling(manual = false) {
     };
 }
 
-// Manual reconnect button
-reconnectBtn.addEventListener('click', () => {
-    setStatus('reconnecting', 'Reconnecting', 'Manual reconnect requested…');
-    setStatusLine(
-        '<strong>Manual reconnect requested.</strong> Trying to re-establish signaling & WebRTC…');
-
-    if (pcRestartTimer) {
-        clearTimeout(pcRestartTimer);
-        pcRestartTimer = null;
-    }
-
-    if (pc) {
-        try {
-            pc.close();
-        } catch (e) {
-            appendLog('Error closing pc on manual reconnect: ' + e, 'error');
-        }
-        pc = null;
-    }
-
-    if (signaling) {
-        try {
-            signaling.close();
-        } catch (e) {
-            appendLog('Error closing ws on manual reconnect: ' + e, 'error');
-        }
-    }
-
-    connectSignaling(true);
-});
 
 // Initial startup
 setStatus('connecting', 'Connecting', 'Initializing…');
