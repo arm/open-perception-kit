@@ -2,7 +2,8 @@
   "name": "amp-dev-forge",
   "build": {
     "dockerfile": "Dockerfile",
-    "args": { "USERNAME": "devgoblin", "USER_UID": "1000", "USER_GID": "1000" }
+    "args": { "USERNAME": "devgoblin", "USER_UID": "1000", "USER_GID": "1000" },
+    "target": "amp-dev-base"
   },
   "remoteUser": "devgoblin",
   "workspaceFolder": "/work",
