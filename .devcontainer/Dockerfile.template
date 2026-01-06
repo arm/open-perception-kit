@@ -120,7 +120,10 @@ RUN apt-get update && \
         openssh-client sudo less ripgrep fd-find tmux \
         build-essential pkg-config cmake unzip xz-utils \
         powerline fonts-powerline eza bat clangd gosu \
+        lua5.1 luarocks tree-sitter-cli wl-clipboard\
         iproute2 iputils-ping traceroute iputils-arping dnsutils tcpdump nmap
+
+RUN luarocks install jsregexp
 
 RUN chsh -s /usr/bin/zsh ${USERNAME}
 
@@ -145,6 +148,13 @@ RUN curl -LO https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/
     ln -s /opt/nvim/usr/bin/nvim /usr/local/bin/nvim && \
     rm ${NVIM_APPIMAGE}
 
+ARG CPP_TOOLS_VERSION=v1.29.3
+ARG CPP_TOOLS_APPIMAGE=cpptools-linux-x64.vsix
+RUN curl -LO https://github.com/microsoft/vscode-cpptools/releases/download/${CPP_TOOLS_VERSION}/${CPP_TOOLS_APPIMAGE} && \
+    mkdir -p /home/${USERNAME}/bin/cpptools && \
+    unzip ${CPP_TOOLS_APPIMAGE} -d /home/${USERNAME}/bin/cpptools && \
+    chmod +x /home/${USERNAME}/bin/cpptools/extension/debugAdapters/bin/OpenDebugAD7 && \
+    ln -s /home/${USERNAME}/bin/cpptools/extension/debugAdapters/bin/OpenDebugAD7 /usr/local/bin/OpenDebugAD7
 
 # ---- Install oh-my-zsh for dev user ----
 RUN curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -o /tmp/install-ohmyzsh.sh && \
@@ -161,6 +171,7 @@ RUN mkdir -p /home/${USERNAME}/.config && \
 
 # ---- SSH agent socket mapping ----
 ENV SSH_AUTH_SOCK=/ssh-agent
+ENV SHELL=/bin/zsh
 
 ENTRYPOINT ["/usr/local/bin/uidgid-entrypoint"]
 
