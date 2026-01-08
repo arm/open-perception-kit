@@ -148,6 +148,11 @@ RUN curl -LO https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/
     ln -s /opt/nvim/usr/bin/nvim /usr/local/bin/nvim && \
     rm ${NVIM_APPIMAGE}
 
+RUN update-alternatives --install /usr/bin/vi vi /usr/local/bin/nvim 60 && \
+    update-alternatives --install /usr/bin/vim vim /usr/local/bin/nvim 60 && \
+    update-alternatives --set vim /usr/local/bin/nvim && \
+    update-alternatives --set vi /usr/local/bin/nvim 
+
 ARG CPP_TOOLS_VERSION=v1.29.3
 ARG CPP_TOOLS_APPIMAGE=cpptools-linux-x64.vsix
 RUN curl -LO https://github.com/microsoft/vscode-cpptools/releases/download/${CPP_TOOLS_VERSION}/${CPP_TOOLS_APPIMAGE} && \
