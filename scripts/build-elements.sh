@@ -7,6 +7,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 # ---- config ----
 PROJECT_ROOT=/work/development
 BUILD_DIR="$PROJECT_ROOT/build"
+TESTS_BUILD_DIR="$PROJECT_ROOT/build-test"
 
 # ---- build ----
 debug() {
@@ -38,6 +39,10 @@ debug_with_executorch() {
   if [[ ! -d "$BUILD_DIR" ]]; then
     msg "Meson setup.."
     meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat --wrap-mode=forcefallback -Dexecutorch=enabled
+
+  if [[ ! -d "$BUILD_DIR" ]]; then
+    msg "Meson setup.."
+    meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat -Dtests="$enable_tests" --wrap-mode=forcefallback
   else
     msg "Meson configure (keeping existing build dir)…"
     meson configure "$BUILD_DIR" >/dev/null
@@ -79,13 +84,20 @@ release() {
 }
 # ---- clean ----
 clean() {
-    msg_begin "Executing CLEAN on $BUILD_DIR"
+    msg_begin "Executing CLEAN on $BUILD_DIR and $TESTS_BUILD_DIR"
   if [[ -d "$BUILD_DIR" ]]; then
     msg "REMOVING $BUILD_DIR…"
     rm -rf "$BUILD_DIR"
     msg_end "Done."
   else
-    msg_end_err "NOTHING to clean.."
+    msg_end_err "no $BUILD_DIR to clean.."
+  fi
+  if [[ -d "$TESTS_BUILD_DIR" ]]; then
+    msg "REMOVING $TESTS_BUILD_DIR"
+    rm -rf "$TESTS_BUILD_DIR"
+    msg_end "Done."
+  else
+    msg_end_err "no $TESTS_BUILD_DIR to clean.."
   fi
 }
 

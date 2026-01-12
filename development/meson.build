@@ -112,91 +112,7 @@ subdir('elements/ampsink')
 if get_option('tests')
   subdir('tests')
 endif
-'''
-# -------- EXECUTORCH
-executorch_libdir  = meson.project_source_root() / '../deps/executorch/lib'
-executorch_dep = declare_dependency(
-  include_directories: ['../deps/executorch/include', '../deps/libtorch/include'],
-  link_args: [
-    '-L' + executorch_libdir,
 
-    # Extensions (your code uses Module/Tensor, so put these early)
-    '-lextension_module',
-    '-lextension_tensor',
-    '-lextension_flat_tensor',
-    '-lextension_data_loader',
-    '-lextension_named_data_map',
-    '-lextension_threadpool',
-
-    # ExecuTorch core/runtime
-    '-lexecutorch',
-    '-lexecutorch_core',
-
-    # --- Force include portable ops / kernels ---
-    '-Wl,--whole-archive',
-      '-lportable_ops_lib',
-      '-lportable_kernels',
-#      '-lkernels_util_all_deps',
-    '-Wl,--no-whole-archive',
-
-    # Threadpool deps used by kernels/util
-    '-lpthreadpool',
-    '-lcpuinfo',
-
-    # System libs typically required when static-linking these stacks
-    '-lpthread',
-    '-ldl',
-    '-lm',
-
-    '-Wl,--no-undefined',
-  ]
-)
-'''
-'''
-# -------- EXECUTORCH
-executorch_opt = get_option('executorch')
-if executorch_opt.enabled()
-  executorch_root = meson.project_source_root() / '../deps/executorch'
-  libtorch_root   = meson.project_source_root() / '../deps/libtorch'
-
-  executorch_libdir = executorch_root / 'lib'
-
-  executorch_dep = declare_dependency(
-    include_directories: [
-      include_directories(executorch_root / 'include'),
-      include_directories(libtorch_root   / 'include'),
-    ],
-    link_args: [
-      '-L' + executorch_libdir,
-
-      # Extensions (Module/Tensor/etc.)
-      '-lextension_module',
-      '-lextension_tensor',
-      '-lextension_flat_tensor',
-      '-lextension_data_loader',
-      '-lextension_named_data_map',
-      '-lextension_threadpool',
-
-      # ExecuTorch core/runtime
-      '-lexecutorch',
-      '-lexecutorch_core',
-
-      # Threadpool deps used by kernels/util
-      '-lpthreadpool',
-      '-lcpuinfo',
-
-      # System libs
-      '-lpthread',
-      '-ldl',
-      '-lm',
-
-      '-Wl,--no-undefined',
-    ]
-  )
-
-  subdir('ops-executorch')
-endif
-'''
 # -------- EXECUTORCH
 executorch_opt = get_option('executorch')
 executorch_root = meson.project_source_root() / '../deps/executorch'
@@ -228,4 +144,8 @@ if executorch_opt.enabled()
   )
 
   subdir('ops-executorch')
+endif
+
+if get_option('tests')
+  subdir('tests')
 endif

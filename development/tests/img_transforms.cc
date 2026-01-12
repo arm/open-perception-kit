@@ -8,7 +8,7 @@ TEST(img_transforms, no_resize_u8rgb_chw_to_float32rgb_chw) {
     constexpr size_t in_height = 8;
     constexpr size_t in_channel_number = 3;
 
-    // create some input tensor pattern
+    // createa some input ternsor pattern
     uint8_t input[in_channel_number * in_height * in_width];
     for (size_t c = 0; c < in_channel_number; c++) {
         for (size_t h = 0; h < in_height; h++) {
