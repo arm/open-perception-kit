@@ -7,7 +7,6 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 # ---- config ----
 PROJECT_ROOT=/work/development
 BUILD_DIR="$PROJECT_ROOT/build"
-TESTS_BUILD_DIR="$PROJECT_ROOT/build-test"
 
 # ---- build ----
 debug() {
