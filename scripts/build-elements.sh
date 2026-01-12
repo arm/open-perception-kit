@@ -58,42 +58,15 @@ release() {
 
   msg_end "Release build done → $BUILD_DIR"
 }
-# # ---- build tests (release)----
-# tests() {
-#   need meson; need ninja
-
-#   msg_begin "Starting unit TEST build in directory: $PROJECT_ROOT" 
-
-#   if [[ ! -d "$TESTS_BUILD_DIR" ]]; then
-#     msg "Meson setup (test)…"
-#     meson setup "$TESTS_BUILD_DIR" "$PROJECT_ROOT" \
-#       -Dtests=true
-#   else
-#     msg "Meson configure (keeping existing build dir)…"
-#     meson configure "$TESTS_BUILD_DIR" >/dev/null
-#   fi
-
-#   msg "Compiling…"
-#   meson compile -C "$TESTS_BUILD_DIR" 
-#   msg_end "TEST build done → $TESTS_BUILD_DIR"
-# }
-
 # ---- clean ----
 clean() {
-    msg_begin "Executing CLEAN on $BUILD_DIR and $TESTS_BUILD_DIR"
+    msg_begin "Executing CLEAN on $BUILD_DIR"
   if [[ -d "$BUILD_DIR" ]]; then
     msg "REMOVING $BUILD_DIR…"
     rm -rf "$BUILD_DIR"
     msg_end "Done."
   else
-    msg_end_err "no $BUILD_DIR to clean.."
-  fi
-  if [[ -d "$TESTS_BUILD_DIR" ]]; then
-    msg "REMOVING $TESTS_BUILD_DIR"
-    rm -rf "$TESTS_BUILD_DIR"
-    msg_end "Done."
-  else
-    msg_end_err "no $TESTS_BUILD_DIR to clean.."
+    msg_end_err "NOTHING to clean.."
   fi
 }
 
