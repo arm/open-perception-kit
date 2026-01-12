@@ -15,7 +15,6 @@ TEST(img_transforms, no_resize_u8rgb_chw_to_float32rgb_chw) {
             for (size_t w = 0; w < in_width; w++) {
                 input[c * in_height * in_width + h * in_width + w] =
                     static_cast<uint8_t>(c * 100 + h * 10 + w);
-                auto px_addr = c * in_height * in_width + h * in_width + w;
             }
         }
     }
