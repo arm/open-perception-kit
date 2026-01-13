@@ -3,7 +3,6 @@
 
 #include <memory>
 #include <mutex>
-#include <thread>
 
 #include <amp/Tools.h>
 
@@ -14,19 +13,9 @@
 #include <gst/video/video.h>
 #include <gst/webrtc/webrtc.h>
 
-#define ASIO_STANDALONE
-#include <asio.hpp>
-
-#include <websocketpp/common/connection_hdl.hpp>
-#include <websocketpp/config/asio.hpp>
-#include <websocketpp/frame.hpp>
-#include <websocketpp/server.hpp>
-
-#include <cpp-httplib/httplib.h>
-
-#include <nlohmann/json.hpp>
-
-#define STUN_SERVER "stun://stun.l.google.com:19302"
+#include "http_server.h"
+#include "model_reg.h"
+#include "webrtc_ws.h"
 
 struct _GstAmpSinkClass {
     GstBinClass parent_class;
@@ -34,24 +23,6 @@ struct _GstAmpSinkClass {
 
 typedef struct _GstAmpSink GstAmpSink;
 typedef struct _GstAmpSinkClass GstAmpSinkClass;
-
-using ws_server = websocketpp::server<websocketpp::config::asio>;
-using connection_hdl = websocketpp::connection_hdl;
-using json = nlohmann::json;
-
-struct SessionContext {
-    connection_hdl hdl;
-
-    // aliases to make ws_server reachable from session negotiation functions
-    std::shared_ptr<ws_server> ws;
-
-    // Per-client GStreamer branch
-    GstElement *webrtcbin = nullptr;
-    GstElement *queue = nullptr; // between tee and webrtcbin
-
-    GstPad *tee_src_pad = nullptr;     // requested from tee
-    GstPad *webrtc_sink_pad = nullptr; // requested from webrtcbin ("sink_%u")
-};
 
 struct ToggleStateRequest {
     GstElement *element = nullptr;
@@ -67,27 +38,10 @@ struct ToggleInvokeBox {
     std::shared_ptr<ToggleStateRequest> req;
 };
 
-using WebRtcSessions =
-    std::map<connection_hdl, std::shared_ptr<SessionContext>, std::owner_less<connection_hdl>>;
-
-struct ModelStatus {
-    std::string name;
-    bool active;
-    std::string element_name;
-};
-
 struct GstAmpPrivate {
-    std::thread http_server_thread;
-    std::thread ws_server_thread;
-    std::unique_ptr<httplib::Server> http_server;
-
-    std::shared_ptr<ws_server> ws;
-
-    std::mutex webrtc_session_mutex;
-    WebRtcSessions webrtc_sessions;
-
-    std::mutex model_registry_mutex;
-    std::map<std::string, ModelStatus> model_registry; // key: element_name
+    std::unique_ptr<AmpSinkHttpServer> http_server;
+    std::unique_ptr<WebRtcWebSocket> webrtc_websocket;
+    std::unique_ptr<ModelRegistry> model_registry;
 };
 
 struct _GstAmpSink {

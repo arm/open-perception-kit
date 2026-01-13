@@ -1,37 +1,58 @@
 #include "webrtc_ws.h"
+#include "ampsink.h"
 
-static void on_message(GstAmpSink *self,
-                       std::shared_ptr<ws_server> server,
-                       connection_hdl hdl,
-                       ws_server::message_ptr msg);
+#include <nlohmann/json.hpp>
 
-static void on_open(GstAmpSink *self, std::shared_ptr<ws_server> ws, connection_hdl hdl);
-static void on_close(GstAmpSink *self, connection_hdl hdl);
+#include <thread>
 
-void gst_amp_sink_setup_ws_server(GstAmpSink *self) {
+using namespace nlohmann;
+
+WebRtcSockerError WebRtcWebSocket::setup() {
     std::cout << "started ws server\n";
 
-    auto server = std::make_shared<ws_server>();
+    ws = std::make_shared<ws_server>();
 
-    server->init_asio();
+    ws->init_asio();
 
-    self->private_data->ws = server;
+    ws->set_open_handler([this](connection_hdl hdl) { on_open(hdl); });
+    ws->set_close_handler([this](connection_hdl hdl) { on_close(hdl); });
+    ws->set_message_handler(
+        [this](connection_hdl hdl, ws_server::message_ptr msg) { on_message(hdl, msg); });
 
-    server->set_open_handler(
-        [self](connection_hdl hdl) { on_open(self, self->private_data->ws, hdl); });
+    ws->set_reuse_addr(true);
+    ws->listen(self_->ws_port);
+    ws->start_accept();
 
-    server->set_close_handler([self](connection_hdl hdl) { on_close(self, hdl); });
+    return WebRtcSockerError::OK;
+}
 
-    server->set_message_handler([self](connection_hdl hdl, ws_server::message_ptr msg) {
-        on_message(self, self->private_data->ws, hdl, msg);
-    });
+WebRtcSockerError WebRtcWebSocket::start() {
+    using namespace std::chrono_literals;
 
-    server->set_reuse_addr(true);
-    server->listen(self->ws_port);
-    server->start_accept();
+    if (auto error = setup(); error != WebRtcSockerError::OK) {
+        return error;
+    }
+    std::cout << "WebSocket++ server listening on port " << self_->ws_port << std::endl;
 
-    std::cout << "WebSocket++ server listening on port " << self->ws_port << std::endl;
-    server->run();
+    ws_server_thread = std::thread(&ws_server::run, ws);
+    while (!ws->is_listening()) {
+        std::this_thread::sleep_for(1ms);
+    }
+
+    return WebRtcSockerError::OK;
+}
+
+WebRtcSockerError WebRtcWebSocket::stop() {
+
+    if (ws) {
+        ws->stop();
+    }
+
+    if (ws_server_thread.joinable()) {
+        ws_server_thread.join();
+    }
+
+    return WebRtcSockerError::OK;
 }
 
 static void on_negotiation_needed(GstElement *webrtc, gpointer user_data) {
@@ -66,7 +87,8 @@ on_ice_candidate(GstElement *webrtc, guint mlineindex, gchar *candidate, gpointe
     SessionContext *ctx = static_cast<SessionContext *>(user_data);
     send_ice_candidate_message(ctx, mlineindex, candidate);
 }
-static void on_open(GstAmpSink *self, std::shared_ptr<ws_server> ws, connection_hdl hdl) {
+
+void WebRtcWebSocket::on_open(connection_hdl hdl) {
     std::cout << "WebSocket connection opened" << std::endl;
 
     auto ctx = std::make_shared<SessionContext>();
@@ -89,33 +111,33 @@ static void on_open(GstAmpSink *self, std::shared_ptr<ws_server> ws, connection_
     g_object_set(ctx->webrtcbin, "stun-server", STUN_SERVER, nullptr);
 
     // Add to ampsink bin
-    gst_bin_add_many(GST_BIN(self), ctx->queue, ctx->webrtcbin, nullptr);
+    gst_bin_add_many(GST_BIN(self_), ctx->queue, ctx->webrtcbin, nullptr);
 
     // === 1) tee → client queue ===
-    ctx->tee_src_pad = gst_element_request_pad_simple(self->tee, "src_%u");
+    ctx->tee_src_pad = gst_element_request_pad_simple(self_->tee, "src_%u");
     if (!ctx->tee_src_pad) {
         g_printerr("Failed to request src pad from tee for client branch\n");
-        gst_bin_remove_many(GST_BIN(self), ctx->queue, ctx->webrtcbin, nullptr);
+        gst_bin_remove_many(GST_BIN(self_), ctx->queue, ctx->webrtcbin, nullptr);
         return;
     }
 
     GstPad *queue_sink_pad = gst_element_get_static_pad(ctx->queue, "sink");
     if (!queue_sink_pad) {
         g_printerr("Failed to get sink pad of client queue\n");
-        gst_element_release_request_pad(self->tee, ctx->tee_src_pad);
+        gst_element_release_request_pad(self_->tee, ctx->tee_src_pad);
         gst_object_unref(ctx->tee_src_pad);
         ctx->tee_src_pad = nullptr;
-        gst_bin_remove_many(GST_BIN(self), ctx->queue, ctx->webrtcbin, nullptr);
+        gst_bin_remove_many(GST_BIN(self_), ctx->queue, ctx->webrtcbin, nullptr);
         return;
     }
 
     if (gst_pad_link(ctx->tee_src_pad, queue_sink_pad) != GST_PAD_LINK_OK) {
         g_printerr("Failed to link tee -> client queue\n");
         gst_object_unref(queue_sink_pad);
-        gst_element_release_request_pad(self->tee, ctx->tee_src_pad);
+        gst_element_release_request_pad(self_->tee, ctx->tee_src_pad);
         gst_object_unref(ctx->tee_src_pad);
         ctx->tee_src_pad = nullptr;
-        gst_bin_remove_many(GST_BIN(self), ctx->queue, ctx->webrtcbin, nullptr);
+        gst_bin_remove_many(GST_BIN(self_), ctx->queue, ctx->webrtcbin, nullptr);
         return;
     }
     gst_object_unref(queue_sink_pad);
@@ -131,11 +153,11 @@ static void on_open(GstAmpSink *self, std::shared_ptr<ws_server> ws, connection_
             gst_pad_unlink(ctx->tee_src_pad, qs);
             gst_object_unref(qs);
         }
-        gst_element_release_request_pad(self->tee, ctx->tee_src_pad);
+        gst_element_release_request_pad(self_->tee, ctx->tee_src_pad);
         gst_object_unref(ctx->tee_src_pad);
         ctx->tee_src_pad = nullptr;
 
-        gst_bin_remove_many(GST_BIN(self), ctx->queue, ctx->webrtcbin, nullptr);
+        gst_bin_remove_many(GST_BIN(self_), ctx->queue, ctx->webrtcbin, nullptr);
         return;
     }
 
@@ -150,11 +172,11 @@ static void on_open(GstAmpSink *self, std::shared_ptr<ws_server> ws, connection_
             gst_pad_unlink(ctx->tee_src_pad, qs);
             gst_object_unref(qs);
         }
-        gst_element_release_request_pad(self->tee, ctx->tee_src_pad);
+        gst_element_release_request_pad(self_->tee, ctx->tee_src_pad);
         gst_object_unref(ctx->tee_src_pad);
         ctx->tee_src_pad = nullptr;
 
-        gst_bin_remove_many(GST_BIN(self), ctx->queue, ctx->webrtcbin, nullptr);
+        gst_bin_remove_many(GST_BIN(self_), ctx->queue, ctx->webrtcbin, nullptr);
         return;
     }
 
@@ -172,11 +194,11 @@ static void on_open(GstAmpSink *self, std::shared_ptr<ws_server> ws, connection_
             gst_pad_unlink(ctx->tee_src_pad, qs);
             gst_object_unref(qs);
         }
-        gst_element_release_request_pad(self->tee, ctx->tee_src_pad);
+        gst_element_release_request_pad(self_->tee, ctx->tee_src_pad);
         gst_object_unref(ctx->tee_src_pad);
         ctx->tee_src_pad = nullptr;
 
-        gst_bin_remove_many(GST_BIN(self), ctx->queue, ctx->webrtcbin, nullptr);
+        gst_bin_remove_many(GST_BIN(self_), ctx->queue, ctx->webrtcbin, nullptr);
         return;
     }
 
@@ -191,17 +213,17 @@ static void on_open(GstAmpSink *self, std::shared_ptr<ws_server> ws, connection_
         ctx->webrtcbin, "on-negotiation-needed", G_CALLBACK(on_negotiation_needed), ctx.get());
     g_signal_connect(ctx->webrtcbin, "on-ice-candidate", G_CALLBACK(on_ice_candidate), ctx.get());
 
-    std::lock_guard<std::mutex> mutex_guard(self->private_data->webrtc_session_mutex);
-    self->private_data->webrtc_sessions[hdl] = ctx;
+    std::lock_guard<std::mutex> mutex_guard(webrtc_session_mutex);
+    webrtc_sessions[hdl] = ctx;
 
     std::cout << "Per-client WebRTC branch created and attached to tee\n";
 }
 
-static void on_close(GstAmpSink *self, connection_hdl hdl) {
+void WebRtcWebSocket::on_close(connection_hdl hdl) {
     std::cout << "WebSocket connection closed" << std::endl;
 
-    std::lock_guard<std::mutex> mutex_guard(self->private_data->webrtc_session_mutex);
-    auto &sessions = self->private_data->webrtc_sessions;
+    std::lock_guard<std::mutex> mutex_guard(webrtc_session_mutex);
+    auto &sessions = webrtc_sessions;
 
     auto it = sessions.find(hdl);
     if (it == sessions.end()) {
@@ -228,7 +250,7 @@ static void on_close(GstAmpSink *self, connection_hdl hdl) {
             gst_object_unref(queue_sink);
         }
 
-        gst_element_release_request_pad(self->tee, ctx->tee_src_pad);
+        gst_element_release_request_pad(self_->tee, ctx->tee_src_pad);
         gst_object_unref(ctx->tee_src_pad);
         ctx->tee_src_pad = nullptr;
     }
@@ -242,7 +264,7 @@ static void on_close(GstAmpSink *self, connection_hdl hdl) {
 
     // 4) Remove per-client elements from the bin
     if (ctx->queue || ctx->webrtcbin) {
-        gst_bin_remove_many(GST_BIN(self), ctx->queue, ctx->webrtcbin, nullptr);
+        gst_bin_remove_many(GST_BIN(self_), ctx->queue, ctx->webrtcbin, nullptr);
     }
 
     ctx->queue = nullptr;
@@ -283,12 +305,8 @@ static void on_set_remote_description(GstPromise *promise, gpointer user_data) {
     g_signal_emit_by_name(ctx->webrtcbin, "create-answer", NULL, answer_promise);
 }
 
-static void on_message(GstAmpSink *self,
-                       std::shared_ptr<ws_server> server,
-                       connection_hdl hdl,
-                       ws_server::message_ptr msg) {
-    std::lock_guard<std::mutex> mutex_guard(self->private_data->webrtc_session_mutex);
-    auto &webrtc_sessions = self->private_data->webrtc_sessions;
+void WebRtcWebSocket::on_message(connection_hdl hdl, ws_server::message_ptr msg) {
+    std::lock_guard<std::mutex> mutex_guard(webrtc_session_mutex);
 
     try {
         auto it = webrtc_sessions.find(hdl);

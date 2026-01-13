@@ -1,88 +1,98 @@
 
-#include "http_server.h"
+#include <format>
+
+#include <nlohmann/json.hpp>
+
 #include "ampsink.h"
+#include "http_server.h"
+#include "nlohmann/json_fwd.hpp"
 #include "utils.h"
 
 using namespace httplib;
+using namespace nlohmann;
 
-static void get_dynamic_config(GstAmpSink *self, const Request &req, Response &res);
-static void model_registry(GstAmpSink *self, const Request &req, Response &res);
-static void model_toggle(GstAmpSink *self, const Request &req, Response &res);
-static void ctrl(GstAmpSink *self, const Request &req, Response &res);
-static void play_pause(GstAmpSink *self, const Request &req, Response &res);
+AmpSinkHttpServerError AmpSinkHttpServer::setup() {
 
-void gst_amp_sink_setup_http_server(GstAmpSink *self) {
-
-    auto &http_server = self->private_data->http_server;
-
-    self->private_data->http_server = std::make_unique<Server>();
+    http_server = std::make_unique<Server>();
 
     // Dynamic config endpoint
-    http_server->Get("/amp-config.js", [self](const Request &req, Response &res) {
-        get_dynamic_config(self, req, res);
-    });
+    http_server->Get("/amp-config.js",
+                     [this](const Request &req, Response &res) { get_dynamic_config(req, res); });
 
     // Model registry endpoint
     http_server->Get("/models",
-                     [self](const Request &req, Response &res) { model_registry(self, req, res); });
+                     [this](const Request &req, Response &res) { model_registry(req, res); });
 
     // Model toggle endpoint
     http_server->Post("/models/toggle",
-                      [self](const Request &req, Response &res) { model_toggle(self, req, res); });
+                      [this](const Request &req, Response &res) { model_toggle(req, res); });
 
-    auto ret = http_server->set_mount_point("/", self->static_files_location);
+    auto ret = http_server->set_mount_point("/", self_->static_files_location);
     if (!ret) {
         // TODO@ibori: error handling
-        throw std::runtime_error(
-            std::string("Static file directory does not exist: ") +
-            (self->static_files_location ? self->static_files_location : "(null)"));
+        auto sfl = self_->static_files_location ? self_->static_files_location : "(null)";
+        std::cerr << std::format("Static file directory does not exist: {}", sfl);
+
+        return AmpSinkHttpServerError::NO_STATIC_FILES_DIRECTORY;
     }
 
-    http_server->Post("/ctrl", [self](const Request &req, Response &res) { ctrl(self, req, res); });
+    http_server->Post("/ctrl", [this](const Request &req, Response &res) { ctrl(req, res); });
 
     http_server->Post("/play-pause",
-                      [self](const Request &req, Response &res) { play_pause(self, req, res); });
+                      [this](const Request &req, Response &res) { play_pause(req, res); });
 
-    // TODO@ibori: error handling
-    auto started = http_server->listen(self->host, self->http_port);
-    if (!started) {
-        // TODO@ibori: error handling
-        throw std::runtime_error(std::string("HTTP server failed to start on ") +
-                                 std::string(self->host ? self->host : "<null>") + ":" +
-                                 std::to_string(self->http_port));
+    return AmpSinkHttpServerError::OK;
+}
+
+AmpSinkHttpServerError AmpSinkHttpServer::start() {
+    if (auto error = setup(); error != AmpSinkHttpServerError::OK) {
+        return error;
+    }
+
+    http_server_thread =
+        std::thread(&AmpSinkHttpServer::listen, this, self_->host, self_->http_port);
+    http_server->wait_until_ready();
+    if (http_server->is_running()) {
+        return AmpSinkHttpServerError::OK;
+    } else {
+        const auto host = std::string(self_->host ? self_->host : "<null>");
+        std::cerr << std::format("HTTP server failed to start on {}:{}\n", host, self_->http_port);
+
+        return AmpSinkHttpServerError::CANNOT_BIND_SERVER_PORT;
     }
 }
 
-static void get_dynamic_config(GstAmpSink *self, const Request &req, Response &res) {
+AmpSinkHttpServerError AmpSinkHttpServer::stop() {
 
-    std::string js = "window.AMP_CONFIG = { wsPort: " + std::to_string(self->ws_port) + " };";
+    if (http_server) {
+        http_server->stop();
+    }
+
+    if (http_server_thread.joinable()) {
+        http_server_thread.join();
+    }
+
+    return AmpSinkHttpServerError::OK;
+}
+
+void AmpSinkHttpServer::get_dynamic_config(const Request &req, Response &res) {
+
+    std::string js = "window.AMP_CONFIG = { wsPort: " + std::to_string(self_->ws_port) + " };";
     res.set_content(js, "application/javascript");
 }
 
-static void model_registry(GstAmpSink *self, const Request &req, Response &res) {
+void AmpSinkHttpServer::model_registry(const Request &req, Response &res) {
 
     res.set_header("Access-Control-Allow-Origin", "*");
     res.set_header("Access-Control-Allow-Methods", "GET, OPTIONS");
     res.set_header("Access-Control-Allow-Headers", "Content-Type");
 
-    json models_array = json::array();
-
-    {
-        std::lock_guard<std::mutex> lock(self->private_data->model_registry_mutex);
-        for (const auto &entry : self->private_data->model_registry) {
-            json model_obj = {{"element_name", entry.second.element_name},
-                              {"model_name", entry.second.name},
-                              {"active", entry.second.active}};
-            models_array.push_back(model_obj);
-        }
-    }
-
-    json response = {{"models", models_array}, {"count", models_array.size()}};
+    auto response = self_->private_data->model_registry->enumerate_models();
 
     res.set_content(response.dump(2), "application/json");
 }
 
-static void model_toggle(GstAmpSink *self, const Request &req, Response &res) {
+void AmpSinkHttpServer::model_toggle(const Request &req, Response &res) {
 
     res.set_header("Access-Control-Allow-Origin", "*");
     res.set_header("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -101,12 +111,12 @@ static void model_toggle(GstAmpSink *self, const Request &req, Response &res) {
         }
 
         // Get the pipeline
-        GstElement *pipeline = GST_ELEMENT(gst_element_get_parent(GST_ELEMENT(self)));
+        GstElement *pipeline = GST_ELEMENT(gst_element_get_parent(GST_ELEMENT(self_)));
         if (!pipeline) {
             res.status = 500;
             res.set_content("{\"status\":\"error\",\"message\":\"Could not get pipeline\"}",
                             "application/json");
-            GST_ERROR_OBJECT(self, "Could not get pipeline");
+            GST_ERROR_OBJECT(self_, "Could not get pipeline");
             return;
         }
 
@@ -119,7 +129,7 @@ static void model_toggle(GstAmpSink *self, const Request &req, Response &res) {
             json error_response = {{"status", "error"},
                                    {"message", "Element not found: " + element_name}};
             res.set_content(error_response.dump(), "application/json");
-            GST_WARNING_OBJECT(self, "Element not found: %s", element_name.c_str());
+            GST_WARNING_OBJECT(self_, "Element not found: %s", element_name.c_str());
             return;
         }
 
@@ -127,18 +137,9 @@ static void model_toggle(GstAmpSink *self, const Request &req, Response &res) {
         g_object_set(target_element, "active", active, NULL);
         gst_object_unref(target_element);
 
-        // Update the registry
-        {
-            std::lock_guard<std::mutex> lock(self->private_data->model_registry_mutex);
-            for (auto &entry : self->private_data->model_registry) {
-                if (entry.second.element_name == element_name) {
-                    entry.second.active = active;
-                    break;
-                }
-            }
-        }
+        self_->private_data->model_registry->model_toggle(element_name, active);
 
-        GST_INFO_OBJECT(self, "Set element %s active=%d", element_name.c_str(), active);
+        GST_INFO_OBJECT(self_, "Set element %s active=%d", element_name.c_str(), active);
 
         json response = {{"status", "ok"}, {"element_name", element_name}, {"active", active}};
         res.status = 200;
@@ -149,11 +150,13 @@ static void model_toggle(GstAmpSink *self, const Request &req, Response &res) {
         json error_response = {{"status", "error"},
                                {"message", std::string("Invalid JSON: ") + e.what()}};
         res.set_content(error_response.dump(), "application/json");
-        GST_ERROR_OBJECT(self, "JSON parse error: %s", e.what());
+        GST_ERROR_OBJECT(self_, "JSON parse error: %s", e.what());
     }
 }
 
-static gboolean toggle_on_main(gpointer user_data) {
+extern "C" {
+
+gboolean toggle_on_main(gpointer user_data) {
 
     std::cout << "invoked\n";
     auto *box = static_cast<ToggleInvokeBox *>(user_data);
@@ -190,11 +193,13 @@ static gboolean toggle_on_main(gpointer user_data) {
     return G_SOURCE_REMOVE;
 }
 
-static void destroy_box(gpointer user_data) {
+void destroy_box(gpointer user_data) {
     delete static_cast<ToggleInvokeBox *>(user_data);
 }
 
-static void ctrl(GstAmpSink *self, const Request &req, Response &res) {
+} // extern "C"
+
+void AmpSinkHttpServer::ctrl(const Request &req, Response &res) {
 
     // Add CORS headers
     res.set_header("Access-Control-Allow-Origin", "*");
@@ -204,13 +209,13 @@ static void ctrl(GstAmpSink *self, const Request &req, Response &res) {
     // Parse JSON request body
     std::string body = req.body;
 
-    GST_INFO_OBJECT(self, "Received POST to /ctrl, body: %s", body.c_str());
+    GST_INFO_OBJECT(self_, "Received POST to /ctrl, body: %s", body.c_str());
 
     // Simple JSON parsing for {"enabled": true/false}
     bool enabled = (body.find("\"enabled\":true") != std::string::npos ||
                     body.find("\"enabled\": true") != std::string::npos);
 
-    GST_INFO_OBJECT(self, "Control request: ampperformance enabled=%d", enabled);
+    GST_INFO_OBJECT(self_, "Control request: ampperformance enabled=%d", enabled);
 
     // Create custom upstream event for ampperformance
     GstStructure *structure =
@@ -218,13 +223,13 @@ static void ctrl(GstAmpSink *self, const Request &req, Response &res) {
     GstEvent *event = gst_event_new_custom(GST_EVENT_CUSTOM_UPSTREAM, structure);
 
     // Get the peer pad (source pad of upstream element connected to our sink)
-    GstPad *sink_pad = gst_element_get_static_pad(GST_ELEMENT(self), "sink");
+    GstPad *sink_pad = gst_element_get_static_pad(GST_ELEMENT(self_), "sink");
     if (sink_pad) {
         GstPad *peer_pad = gst_pad_get_peer(sink_pad);
 
         if (peer_pad) {
             GstElement *peer_elem = GST_ELEMENT(gst_pad_get_parent(peer_pad));
-            GST_INFO_OBJECT(self,
+            GST_INFO_OBJECT(self_,
                             "Sending event to peer element: %s",
                             peer_elem ? GST_ELEMENT_NAME(peer_elem) : "unknown");
 
@@ -238,34 +243,34 @@ static void ctrl(GstAmpSink *self, const Request &req, Response &res) {
             if (result) {
                 res.status = 200;
                 res.set_content("{\"status\":\"ok\"}", "application/json");
-                GST_INFO_OBJECT(self, "Event sent successfully");
+                GST_INFO_OBJECT(self_, "Event sent successfully");
             } else {
                 res.status = 500;
                 res.set_content("{\"status\":\"error\",\"message\":\"Failed to send event\"}",
                                 "application/json");
-                GST_WARNING_OBJECT(self, "Failed to send event upstream");
+                GST_WARNING_OBJECT(self_, "Failed to send event upstream");
             }
         } else {
             gst_object_unref(sink_pad);
             res.status = 500;
             res.set_content("{\"status\":\"error\",\"message\":\"No peer pad\"}",
                             "application/json");
-            GST_ERROR_OBJECT(self, "Could not get peer pad");
+            GST_ERROR_OBJECT(self_, "Could not get peer pad");
         }
     } else {
         res.status = 500;
         res.set_content("{\"status\":\"error\",\"message\":\"No sink pad\"}", "application/json");
-        GST_ERROR_OBJECT(self, "Could not get sink pad");
+        GST_ERROR_OBJECT(self_, "Could not get sink pad");
     }
 }
 
-static void play_pause(GstAmpSink *self, const Request &req, Response &res) {
+void AmpSinkHttpServer::play_pause(const Request &req, Response &res) {
 
     std::cout << "play-pause\n";
     auto tsr = std::make_shared<ToggleStateRequest>();
 
-    GstElement *pipeline = get_top_pipeline(GST_ELEMENT(self));
-    tsr->element = pipeline ? pipeline : GST_ELEMENT(self); // if pipeline, ref is held
+    GstElement *pipeline = get_top_pipeline(GST_ELEMENT(self_));
+    tsr->element = pipeline ? pipeline : GST_ELEMENT(self_); // if pipeline, ref is held
 
     auto *box = new ToggleInvokeBox{tsr};
     g_main_context_invoke_full(nullptr, G_PRIORITY_DEFAULT, toggle_on_main, box, destroy_box);

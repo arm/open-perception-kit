@@ -8,6 +8,7 @@ g++ -fPIC -shared -o libgstampsink.so ampsink.cpp \
 #include "webrtc_ws.h"
 
 #include <iostream>
+#include <memory>
 
 #ifndef PACKAGE
 #define PACKAGE "ampsink"
@@ -112,16 +113,7 @@ static gboolean gst_amp_sink_sink_event(GstPad *pad, GstObject *parent, GstEvent
             gst_structure_get_boolean(structure, "active", &active);
 
             if (model_name && element_name) {
-                std::lock_guard<std::mutex> lock(self->private_data->model_registry_mutex);
-                ModelStatus status;
-                status.name = model_name;
-                status.active = active;
-                status.element_name = element_name;
-                self->private_data->model_registry[element_name] = status;
-
-                std::cout << "[ampsink] Registered model: " << model_name
-                          << " from element: " << element_name
-                          << " (active: " << (active ? "yes" : "no") << ")" << std::endl;
+                self->private_data->model_registry->add_model(model_name, element_name, active);
             }
 
             // Consume the event (don't pass it further)
@@ -131,13 +123,7 @@ static gboolean gst_amp_sink_sink_event(GstPad *pad, GstObject *parent, GstEvent
             const gchar *element_name = gst_structure_get_string(structure, "element-name");
 
             if (element_name) {
-                std::lock_guard<std::mutex> lock(self->private_data->model_registry_mutex);
-                auto it = self->private_data->model_registry.find(element_name);
-                if (it != self->private_data->model_registry.end()) {
-                    std::cout << "[ampsink] Unregistered model: " << it->second.name
-                              << " from element: " << element_name << std::endl;
-                    self->private_data->model_registry.erase(it);
-                }
+                self->private_data->model_registry->del_model(element_name);
             }
 
             // Consume the event (don't pass it further)
@@ -162,21 +148,8 @@ static gboolean gst_amp_sink_sink_event(GstPad *pad, GstObject *parent, GstEvent
 static void gst_amp_sink_dispose(GObject *object) {
     auto *self = reinterpret_cast<GstAmpSink *>(object);
 
-    if (self->private_data->http_server) {
-        self->private_data->http_server->stop();
-    }
-
-    if (self->private_data->http_server_thread.joinable()) {
-        self->private_data->http_server_thread.join();
-    }
-
-    if (self->private_data->ws) {
-        self->private_data->ws->stop();
-    }
-
-    if (self->private_data->ws_server_thread.joinable()) {
-        self->private_data->ws_server_thread.join();
-    }
+    self->private_data->http_server->stop();
+    self->private_data->webrtc_websocket->stop();
 
     g_clear_pointer(&self->host, g_free);
     g_clear_pointer(&self->static_files_location, g_free);
@@ -260,8 +233,13 @@ static void gst_amp_sink_init(GstAmpSink *self) {
         gst_element_add_pad(GST_ELEMENT(self), vg);
     }
 
-    self->private_data->ws_server_thread = std::thread(gst_amp_sink_setup_ws_server, self);
-    self->private_data->http_server_thread = std::thread(gst_amp_sink_setup_http_server, self);
+    self->private_data->model_registry = std::make_unique<ModelRegistry>();
+
+    self->private_data->webrtc_websocket = std::make_unique<WebRtcWebSocket>(self);
+    self->private_data->webrtc_websocket->start();
+
+    self->private_data->http_server = std::make_unique<AmpSinkHttpServer>(self);
+    self->private_data->http_server->start();
 }
 
 static void gst_amp_sink_class_init(GstAmpSinkClass *klass) {
