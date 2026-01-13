@@ -19,6 +19,8 @@ common = shared_library(
     'amp/Result.cpp',
     'amp/Tools.h',
     'amp/Tools.cpp',
+    'amp/PerceptionContext.h',
+    'amp/PerceptionContext.cpp',
 
     'onnx/Inference.h',
     'onnx/Inference.cpp',

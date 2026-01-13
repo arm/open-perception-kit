@@ -1,24 +1,19 @@
 #pragma once
 
-#include <cstdint>
 #include <onnxruntime_cxx_api.h>
 
-#include "amp/Result.h"
 #include "uniflow/detection_types.h"
-#include "uniflow/fixed_string.h"
-#include "uniflow/public_types.h"
-#include "uniflow/uniflow.h"
-#include "uniflow/yolo_like_parser.h"
 #include "uniflow/model_io.h"
-
-#include "JsonSchemas.h" 
-
-#include <vector>
-#include <map>
+#include "uniflow/public_types.h"
 
 #include "amp/Result.h"
+
+#include "JsonSchemas.h"
 
 #include <nlohmann/json.hpp>
+
+#include <map>
+#include <vector>
 
 using nlohmann::json;
 
@@ -26,26 +21,23 @@ namespace onnx {
 
 struct Tools {
 
-    static bool onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, uflw::ValueType& outType);
-    
-    static std::vector<size_t> getTensorShape(const Ort::Session& session, uflw::TensorInOut tensorInOut, int tensorIndex);
+    static bool onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, uflw::ValueType &outType);
 
-    //static uflw::TensorDataKind guessModelInputDataKind(const Ort::Session& session, int inputIndex, int& outBatchCount);
-    static std::map<std::string, std::string> getModelMeta(const Ort::Session& session);
+    static std::vector<size_t>
+    getTensorShape(const Ort::Session &session, uflw::TensorInOut tensorInOut, int tensorIndex);
+    static std::map<std::string, std::string> getModelMeta(const Ort::Session &session);
+    static amp::Result<uflw::Model> inspectModel(const Ort::Session &session);
 
-    static amp::Result<uflw::Model> inspectModel(const Ort::Session& session);
-
-
-    static std::string toString(const uflw::Model& model);
+    static std::string toString(const uflw::Model &model);
 
     // ---
 
-    static std::string serializeDetectionResult(const uflw::DetectionResult& r) {
+    static std::string serializeDetectionResult(const uflw::DetectionResult &r) {
         json j = r;
         return j.dump();
     }
 
-    static bool deserializeDetectionResult(const std::string& s, uflw::DetectionResult& out) {
+    static bool deserializeDetectionResult(const std::string &s, uflw::DetectionResult &out) {
         try {
             json j = json::parse(s);
             out = j.get<uflw::DetectionResult>();
@@ -54,8 +46,5 @@ struct Tools {
             return false;
         }
     }
-    
-};}
-
-
-
+};
+} // namespace onnx

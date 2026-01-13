@@ -2,13 +2,15 @@
 
 // ---
 /*
-OnnxOutputTensor::OnnxOutputTensor(const std::vector<Ort::Value>& runResult) : runResult(runResult) {
+OnnxOutputTensor::OnnxOutputTensor(const std::vector<Ort::Value>& runResult) : runResult(runResult)
+{
 
 }
 
 size_t OnnxOutputTensor::getValueByteSize() const {
     if(this->runResult.size() == 0) return 0;
-    return getOnnxValueTypeByteSize(this->runResult.at(0).GetTensorTypeAndShapeInfo().GetElementType());
+    return
+getOnnxValueTypeByteSize(this->runResult.at(0).GetTensorTypeAndShapeInfo().GetElementType());
 }
 
 uflw::Shape OnnxOutputTensor::getShape() const {
@@ -16,7 +18,8 @@ uflw::Shape OnnxOutputTensor::getShape() const {
 
     if(this->runResult.size() == 0) return shape;
 
-    std::vector<int64_t> originalShape = this->runResult.at(0).GetTensorTypeAndShapeInfo().GetShape();
+    std::vector<int64_t> originalShape =
+this->runResult.at(0).GetTensorTypeAndShapeInfo().GetShape();
 
     for(size_t i = 0; i < sizeof(shape.valueCount); i++) {
         if(i < originalShape.size()) {
@@ -29,11 +32,11 @@ uflw::Shape OnnxOutputTensor::getShape() const {
 }
 
 size_t OnnxOutputTensor::getValueCount() const {
- 
+
     if(this->runResult.size() == 0) return 0;
 
     uflw::Shape shape = this->getShape();
-    
+
     size_t valueCount = 1;
     for(size_t i = 0; i < shape.dimensionCount; i++) {
         valueCount *= shape.valueCount[i];
@@ -68,12 +71,13 @@ bool OnnxOutputTensor::dump(const std::string& fileName) const {
         fclose(f);
         return false;
     }
-    
+
     fclose(f);
     return true;
 }
 */
-/*uflw::YoloLikeParser::ModelOutput OnnxTools::getOutputFromYoloModel(const Ort::Session* session, int index) {
+/*uflw::YoloLikeParser::ModelOutput OnnxTools::getOutputFromYoloModel(const Ort::Session* session,
+int index) {
 
     uflw::YoloLikeParser::ModelOutput out;
 
@@ -85,7 +89,7 @@ bool OnnxOutputTensor::dump(const std::string& fileName) const {
     std::vector<Ort::AllocatedStringPtr> keys = meta.GetCustomMetadataMapKeysAllocated(alloc);
 
     for (const auto& k : keys) {
-        
+
         Ort::AllocatedStringPtr v = meta.LookupCustomMetadataMapAllocated(k.get(), alloc);
         if(v) {
             if(!strcmp(k.get(), "stride")) {
@@ -98,13 +102,11 @@ bool OnnxOutputTensor::dump(const std::string& fileName) const {
 
 
         //printf("Meta[%s] = %s\n", k.get(), v ? v.get() : "(null)");
-    
-    }  
+
+    }
 
     // ---
 
     return out;
 
 }*/
-
-

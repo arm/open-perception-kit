@@ -3,18 +3,16 @@
 #include <onnxruntime_cxx_api.h>
 
 #include "ModelDescriptor.h"
-#include "uniflow/model_io.h"
 #include "uniflow/detection_types.h"
-
-#include "onnx/Tools.h"
+#include "uniflow/model_io.h"
 
 #include "onnx/Tensor.h"
 
 #include "uniflow/public_types.h"
 #include "uniflow/tensor_view.h"
 
-#include <string>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "amp/Result.h"
@@ -26,25 +24,34 @@ struct Inference {
     Inference();
     virtual ~Inference();
 
-    amp::Result<void> setupFromJson(const std::string& filePath);
-    amp::Result<void> setup(const ModelDescriptor& modelDesc);
-    bool isReady() { return setupReady; }
+    amp::Result<void> setupFromJson(const std::string &filePath);
+    amp::Result<void> setup(const ModelDescriptor &modelDesc);
+    bool isReady() {
+        return setupReady;
+    }
 
-    amp::Result<void> preprocessImageData(size_t tensorIndex, const uint8_t* data, uflw::TensorDataKind dataKind, uflw::ValueType valueType, size_t imageWidth, size_t imageHeight);
+    amp::Result<void> preprocessImageData(size_t tensorIndex,
+                                          const uint8_t *data,
+                                          uflw::TensorDataKind dataKind,
+                                          uflw::ValueType valueType,
+                                          size_t imageWidth,
+                                          size_t imageHeight);
     amp::Result<void> inference();
-    amp::Result<void> postprocess(const uflw::NetworkOutputParser::Settings& settings, uflw::DetectionResult& outDetectionResults);
+    amp::Result<void> postprocess(const uflw::NetworkOutputParser::Settings &settings,
+                                  uflw::DetectionResult &outDetectionResults);
 
-    const uflw::Model& getModel() const { return this->model; }
+    const uflw::Model &getModel() const {
+        return this->model;
+    }
 
-protected:
-
+  protected:
     uflw::NetworkOutputParser::InferenceMetadata inferenceMetaData;
     bool setupReady = false;
 
-    Ort::Env* environment = nullptr;
-    Ort::Session* session = nullptr;
-    Ort::SessionOptions* sessionOptions = nullptr;
-    Ort::MemoryInfo* memoryInfo = nullptr;
+    Ort::Env *environment = nullptr;
+    Ort::Session *session = nullptr;
+    Ort::SessionOptions *sessionOptions = nullptr;
+    Ort::MemoryInfo *memoryInfo = nullptr;
 
     void setupTensorsForModel();
 
@@ -65,13 +72,11 @@ protected:
     struct ApiTensorGlue {
         std::unique_ptr<onnx::Tensor> inputTensors[4];
         std::unique_ptr<onnx::Tensor> outputTensors[4];
-        std::vector<const char*> inputNames;
-        std::vector<const char*> outputNames;
+        std::vector<const char *> inputNames;
+        std::vector<const char *> outputNames;
         std::vector<Ort::Value> inputTensorVector;
         std::vector<Ort::Value> outputTensorVector;
     };
     ApiTensorGlue api;
-
-};}
-
-
+};
+} // namespace onnx

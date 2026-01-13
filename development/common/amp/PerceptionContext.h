@@ -1,47 +1,63 @@
 #pragma once
 
-#include <vector>
+#include <cassert>
 #include <string>
-#include <stdiont.h>
+#include <vector>
+
+#include <stdint.h>
 
 namespace amp {
 
-    struct RawDetectionRect2d {
-        float x, y, w, h;
-        float confidence = 0.0f;
-        int classInfo = 0;
-    };
+struct RawDetectionRect2d {
+    float x, y, w, h;
+    float confidence = 0.0f;
+    int classInfo = 0;
+};
 
-    struct RawDetectionPoint2d {
-        float x, y;
-    };
+struct RawDetectionPoint2d {
+    float x, y;
+};
 
-    struct RawDetection {
-        std::string inferenceElementId, inferenceNetworkId;
-        uint64_t inferenceTime;
-        std::string detectionResultType;
+struct SegmentationMap {
+    std::vector<uint8_t> map;
+    size_t width = 0, height = 0;
 
-        std::vector<RawDetectionRect2d> rects;
-        std::vector<RawDetectionPoint2d> points;
-    };
+    inline uint8_t &at(size_t x, size_t y) {
+        assert(x < width);
+        assert(x < width);
+        return map.data()[width * y + x];
+    }
+};
 
-    // complex object that stores all the inference information
-    // like raw detections, processed detections
-    // and all other inference-related data
-    struct PerceptionContext {
-        std::vector<RawDetection> rawDetections;
+struct RawDetection {
+    std::string inferenceElementId, inferenceNetworkId;
+    uint64_t inferenceTime;
+    std::string detectionResultType;
 
-        bool empty() {
-            if(rawDetections.empty()) return true;
-            
-            for(const auto& a : rawDetections) {
-                if(a.points.empty() == false) return false;
-                if(a.rects.empty() == false) return false;
-            }
+    std::vector<RawDetectionRect2d> rects;
+    std::vector<RawDetectionPoint2d> points;
+    std::vector<SegmentationMap> segmentationMaps;
+};
 
+// complex object that stores all the inference information
+// like raw detections, processed detections
+// and all other inference-related data
+struct PerceptionContext {
+    std::vector<RawDetection> rawDetections;
+
+    bool empty() {
+        if (rawDetections.empty())
             return true;
-        }
-    };
 
-    
-}
+        for (const auto &a : rawDetections) {
+            if (a.points.empty() == false)
+                return false;
+            if (a.rects.empty() == false)
+                return false;
+        }
+
+        return true;
+    }
+};
+
+} // namespace amp
