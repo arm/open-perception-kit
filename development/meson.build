@@ -84,9 +84,6 @@ common_include = include_directories('common')
 # Subdirs
 subdir('common')
 subdir('elements/ampinfer')
-subdir('elements/ampinferonnx')
-subdir('elements/ampinferpre')
-subdir('elements/ampinferpost')
 subdir('elements/ampperformance')
 subdir('elements/ampsink')
 

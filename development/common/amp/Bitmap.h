@@ -1,5 +1,10 @@
 #pragma once
 
+#include <vector>
+
+#include <assert.h>
+#include <stdint.h>
+
 namespace amp {
 
 struct Map8 {

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "amp/Bitmap.h"
+
 #include <cassert>
 #include <string>
 #include <vector>
@@ -7,6 +9,25 @@
 #include <stdint.h>
 
 namespace amp {
+
+struct DetectionRect {
+    float x, y, w, h;
+    float confidence;
+    int classIndex;
+};
+
+struct DetectionPoint {
+    float x, y;
+};
+
+struct DetectionResult {
+    uint64_t inferId, originTs, inferTs;
+    std::vector<DetectionRect> rects;
+    std::vector<DetectionPoint> points;
+    std::vector<Map8> maps;
+};
+
+// ---
 
 struct RawDetectionRect2d {
     float x, y, w, h;

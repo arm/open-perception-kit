@@ -18,7 +18,7 @@ using f16 = f16_type;
 using f32 = float;
 using i64 = int64_t;
 
-enum class ValueType { i8, i8, f16, f32, i64 };
+enum class ValueType { u8, i8, f16, f32, i64 };
 
 using ValuePointer = void *;
 
@@ -42,5 +42,36 @@ struct QuantizationArgs {
     float scale = 1.0f;
     float zeroPoint = 0.0f;
 };
+
+// ---
+
+enum class TensorInOut { In, Out };
+
+enum class TensorDataKind {
+    Unknown = 0,
+    ImageRgbChw,
+    ImageRgbHwc,
+    ImageGray,
+
+    Value,
+    Vector2,
+    Vector3,
+    Vector4,
+
+    AudioDUMMY,
+    TextDUMMY,
+};
+
+inline bool isScalarDataKind(TensorDataKind kind) {
+    if (kind == TensorDataKind::Value)
+        return true;
+    if (kind == TensorDataKind::Vector2)
+        return true;
+    if (kind == TensorDataKind::Vector3)
+        return true;
+    if (kind == TensorDataKind::Vector4)
+        return true;
+    return false;
+}
 
 } // namespace amp

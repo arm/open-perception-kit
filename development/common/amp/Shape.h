@@ -76,6 +76,7 @@ struct Shape {
         return !isInvalid();
     }
 
+    // dynamic dimension is marked as -1
     bool hasDynamicDimension() const {
         for (size_t i = 0; i < dimensionCount; i++)
             if (valueCount[i] == -1)
@@ -83,6 +84,9 @@ struct Shape {
         return false;
     }
 
+    // try to apply a shape to another shape
+    // - static dimensions must match
+    // - dynamic dimensions are overwritten
     bool applyDimensionsForDynamic(const Shape &other) {
         if (false == hasDynamicDimension())
             return false;

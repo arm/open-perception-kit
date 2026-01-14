@@ -27,6 +27,10 @@ common = shared_library(
     'onnx/Tools.h',
     'onnx/Tools.cpp',
 
+    'postproc/YoloParser.cpp',
+    'postproc/UltraFaceParser.cpp',
+    'postproc/PaddleOcrParser.cpp',
+
     'PerformanceTracer.h',
     'PerformanceTracer.cpp',
   ],

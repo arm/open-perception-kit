@@ -72,7 +72,7 @@ class Painter {
                 // If it's a probability/heatmap, you'll probably want a threshold:
                 // if (smPixel >= 128) { ... }
                 if (smPixel != 0 && smPixel != 128) {
-                    printf("%d ", smPixel);
+                    // printf("%d ", smPixel);
                     const size_t dstOffset = 3 * (y * m_width + x);
                     m_data[dstOffset + 0] = 0x00;
                     m_data[dstOffset + 1] = 0x00;
