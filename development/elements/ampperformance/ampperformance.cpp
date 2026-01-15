@@ -461,31 +461,33 @@ static void render_overlay_cache(GstAmpPerformance *self) {
         }
     }
 
-    // Calculate processing capability FPS from sum of all p50 metrics
-    double total_processing_ms = 0.0;
+    // Calculate AI utilization from sum of all p50 metrics
+    double total_ai_ms = 0.0;
     for (const auto &[model_name, metric_list] : grouped_metrics) {
         for (const auto &[metric_name, stats] : metric_list) {
-            total_processing_ms += stats.p50_ms();
+            total_ai_ms += stats.p50_ms();
         }
     }
-    double processing_fps =
-        (total_processing_ms > 0)
-            ? 1000.0 / total_processing_ms
-            : 0.0; // Display both pipeline FPS (actual frame rate) and processing FPS (capability)
+
     if (self->fps_average > 0) {
         char fps_buffer[96];
-        snprintf(
-            fps_buffer, sizeof(fps_buffer), "Pipeline FPS            : %7.1f", self->fps_average);
+        snprintf(fps_buffer,
+                 sizeof(fps_buffer),
+                 "Pipeline                : %6.1f FPS",
+                 self->fps_average);
         lines.push_back(std::string(fps_buffer));
-    }
 
-    if (processing_fps > 0) {
-        char proc_fps_buffer[96];
-        snprintf(proc_fps_buffer,
-                 sizeof(proc_fps_buffer),
-                 "Processing FPS (max)    : %7.1f",
-                 processing_fps);
-        lines.push_back(std::string(proc_fps_buffer));
+        // Calculate and display AI utilization percentage
+        if (total_ai_ms > 0) {
+            double frame_time_ms = 1000.0 / self->fps_average;
+            double ai_utilization = (total_ai_ms / frame_time_ms) * 100.0;
+            char util_buffer[96];
+            snprintf(util_buffer,
+                     sizeof(util_buffer),
+                     "AI Utilization          : %6.1f%%",
+                     ai_utilization);
+            lines.push_back(std::string(util_buffer));
+        }
     }
 
     lines.push_back("═══════════════════════════════════════════════");
