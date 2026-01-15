@@ -1,8 +1,10 @@
 #pragma once
 
+#include "amp/Shape.h"
+#include "amp/Types.h"
+
 #include "JsonSchemas.h"
-#include "uniflow/model_io.h"
-#include "uniflow/public_types.h"
+
 #include <nlohmann/json.hpp>
 #include <string>
 
@@ -11,10 +13,10 @@
 using nlohmann::json;
 
 struct TensorDescriptor {
-    uflw::Shape shape{}; // if this is missing, system tries to discover it using onnx
-    uflw::TensorDataKind dataKind = uflw::TensorDataKind::Unknown; // e.g. ImageRgbChw
+    amp::Shape shape{}; // if this is missing, system tries to discover it using onnx
+    amp::TensorDataKind dataKind = amp::TensorDataKind::Unknown; // e.g. ImageRgbChw
 
-    uflw::ValueType valueType = uflw::ValueType::f32;
+    amp::ValueType valueType = amp::ValueType::f32;
     float zeroPoint = 0.0f;
     float scale = 1.0f;
 
@@ -34,7 +36,7 @@ struct ModelDescriptor {
     // sometimes onnx reports an output tensor shape but the models fails to use it
     // set to true to let the model decide the output (tensor reallocation in every inference step)
     bool dynamicOutput = false;
-    uflw::ValueType outputValueType;
+    amp::ValueType outputValueType;
 
     size_t maxDetectionCount = 16;
     float confidenceThreshold = 0.7f;
@@ -59,12 +61,12 @@ inline void to_json(json &j, const TensorDescriptor &b) {
 
 inline void from_json(const json &j, TensorDescriptor &b) {
     //    j.at("shape").get_to(b.shape);
-    b.shape = j.value("shape", uflw::Shape());
-    b.valueType = j.value("valueType", uflw::ValueType::f32);
+    b.shape = j.value("shape", amp::Shape());
+    b.valueType = j.value("valueType", amp::ValueType::f32);
     b.zeroPoint = j.value("zeroPoint", 0.0f);
     b.scale = j.value("scale", 1.0f);
     j.at("dataKind").get_to(b.dataKind);
-    //    b.dataKind = j.value("dataKind", uflw::TensorDataKind::Unknown);
+    //    b.dataKind = j.value("dataKind", amp::TensorDataKind::Unknown);
     b.valueInputs = j.value("valueInputs", std::vector<float>{});
 }
 

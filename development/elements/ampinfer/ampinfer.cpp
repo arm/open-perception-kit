@@ -8,16 +8,15 @@
 #include "glib-object.h"
 #include "glib.h"
 #include "gst/gstpad.h"
-#include "uniflow/labels.h"
-#include "uniflow/model_io.h"
-#include "uniflow/public_types.h"
 
 #include "onnx/Inference.h"
 
 #include "amp/DescriptorStrings.h"
+#include "amp/Labels.h"
 #include "amp/Painter.h"
 #include "amp/Result.h"
 #include "amp/Tools.h"
+
 #include <PerformanceTracer.h>
 
 struct GstAmpInferMembers {
@@ -151,13 +150,8 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
         }
 
         amp::PerformanceTracer::ScopedTimer timer(tracer, preprocess_name);
-        auto prepocessResult =
-            self->m->onnxInference->preprocessImageData(0,
-                                                        rgb,
-                                                        uflw::TensorDataKind::ImageRgbChw,
-                                                        uflw::ValueType::u8,
-                                                        frameWidth,
-                                                        frameHeight);
+        auto prepocessResult = self->m->onnxInference->preprocessImageData(
+            0, rgb, amp::TensorDataKind::ImageRgbChw, amp::ValueType::u8, frameWidth, frameHeight);
         if (!prepocessResult) {
             fmt::print("{}\n", prepocessResult.error().toString());
             gst_buffer_unmap(buf, &map);
@@ -183,7 +177,7 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     }
 
     // postprocess
-    uflw::DetectionResult detectionResults;
+    amp::DetectionResult detectionResults;
     {
         if (!self->active) {
             gst_buffer_unmap(buf, &map);
@@ -193,7 +187,7 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
         GST_LOG_OBJECT(self, "Recording postprocess metric: %s", postprocess_name.c_str());
         amp::PerformanceTracer::ScopedTimer timer(tracer, postprocess_name);
 
-        uflw::NetworkOutputParser::Settings settings;
+        amp::NetworkOutputParser::Settings settings;
         settings.iouThreshold = 0.3f;
         settings.confidenceThreshold = 0.5f;
         settings.normalizedCoordinates = false;
@@ -223,7 +217,7 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
             std::string(amp::NetworkId::YoloObjectDetection)) {
             for (const auto &a : detectionResults.rects) {
                 painter.drawRect(a.x, a.y, a.w, a.h, 255, 123, 52, 2);
-                auto label = uflw::Labels::getLabel(uflw::LabelType::Coco, a.classIndex);
+                auto label = amp::Labels::getLabel(amp::LabelType::Coco, a.classIndex);
                 textRenderer.drawText(painter, a.x, a.y, label.data(), 0, 0, 0, 0, 255, 0);
             }
         }

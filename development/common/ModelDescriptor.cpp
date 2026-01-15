@@ -5,7 +5,7 @@
 #include "amp/File.h"
 #include "amp/Result.h"
 
-#include "AMP/AttributeMap.h"
+#include "amp/AttributeMap.h"
 
 amp::Result<ModelDescriptor> ModelDescriptor::fromJson(const std::string &jsonString) {
 

@@ -1,14 +1,17 @@
 #pragma once
 
+#include "amp/Shape.h"
+#include "amp/Types.h"
+
 namespace amp {
 
 struct ModelInput {
     std::string name;
     TensorDataKind dataKind = TensorDataKind::Unknown;
-    uflw::ValueType valueType = uflw::ValueType::f32;
-    uflw::Shape shape{};
+    amp::ValueType valueType = amp::ValueType::f32;
+    amp::Shape shape{};
     int batch = 0;
-    uflw::QuantizationArgs quantArguments;
+    amp::QuantizationArgs quantArguments;
 
     // should implement these 2 stuffz
     float scale = 1.0f, bias = 0.0f;
@@ -32,9 +35,9 @@ struct ModelInput {
 
 struct ModelOutput {
     std::string name;
-    uflw::ValueType valueType = uflw::ValueType::f32;
-    uflw::Shape shape;
-    uflw::QuantizationArgs quantArguments;
+    amp::ValueType valueType = amp::ValueType::f32;
+    amp::Shape shape;
+    amp::QuantizationArgs quantArguments;
 };
 
 struct Model {

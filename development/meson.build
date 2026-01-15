@@ -41,16 +41,30 @@ if not soup_dep.found()
 endif
 json_dep = dependency('json-glib-1.0', required: false)
 
+fmt_dep = dependency('fmt', fallback : ['fmt', 'fmt_dep'], required : true)
+
+nlohmann_dep = dependency('nlohmann_json',
+                      required : true,
+                      fallback : ['nlohmann_json', 'nlohmann_json_dep'])
+
+magic_enum_dep = dependency(
+  'magic_enum',
+  required : true,
+  fallback : ['magic_enum', 'magic_enum_dep']
+)
+
+tl_expected_dep = dependency('tl-expected', required : true)
+
 web_server_enabled = soup_dep.found() and json_dep.found()
 
-# -------- ONNX + uniflow (as you had)
+# -------- ONNX
 onnx_include = include_directories('../deps/onnxruntime/include')
 onnx_libdir  = meson.project_source_root() / '../deps/onnxruntime/lib'
 onnx_dep = declare_dependency(
   include_directories: '../deps/onnxruntime/include',
   link_args: ['-L' + onnx_libdir, '-lonnxruntime', '-Wl,--no-undefined']
 )
-uniflow_dep = dependency('uniflow', fallback: ['uniflow', 'uniflow_dep'])
+#uniflow_dep = dependency('uniflow', fallback: ['uniflow', 'uniflow_dep'])
 
 # -------- Exported defs + deps for subdirs
 amp_defs = ['-DAMP_WEB_MODE=1']  # Web mode always compiled
@@ -71,7 +85,7 @@ amp_deps = [
   gst_dep, gstbase_dep, gstv_dep, gsta_dep,
   glib_dep, gobject_dep,
   webrtc_dep, sdp_dep,
-  onnx_dep, uniflow_dep,
+  onnx_dep, fmt_dep, nlohmann_dep, nlohmann_dep, magic_enum_dep, tl_expected_dep
 ]
 
 if web_server_enabled

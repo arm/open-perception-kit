@@ -33,7 +33,7 @@ struct Labels {
         case LabelType::Coco:
             return theCocoLbels[index];
         };
-        return std::string_view("?");
+        return "?";
     }
 };
 

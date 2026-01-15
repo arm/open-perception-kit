@@ -3,13 +3,14 @@
 #include <onnxruntime_cxx_api.h>
 
 #include "ModelDescriptor.h"
-#include "uniflow/detection_types.h"
-#include "uniflow/model_io.h"
 
 #include "onnx/Tensor.h"
 
-#include "uniflow/public_types.h"
-#include "uniflow/tensor_view.h"
+#include "amp/Model.h"
+#include "amp/PerceptionContext.h"
+#include "amp/Shape.h"
+#include "amp/TensorInOut.h"
+#include "amp/Types.h"
 
 #include <memory>
 #include <string>
@@ -32,20 +33,20 @@ struct Inference {
 
     amp::Result<void> preprocessImageData(size_t tensorIndex,
                                           const uint8_t *data,
-                                          uflw::TensorDataKind dataKind,
-                                          uflw::ValueType valueType,
+                                          amp::TensorDataKind dataKind,
+                                          amp::ValueType valueType,
                                           size_t imageWidth,
                                           size_t imageHeight);
     amp::Result<void> inference();
-    amp::Result<void> postprocess(const uflw::NetworkOutputParser::Settings &settings,
-                                  uflw::DetectionResult &outDetectionResults);
+    amp::Result<void> postprocess(const amp::NetworkOutputParser::Settings &settings,
+                                  amp::DetectionResult &outDetectionResults);
 
-    const uflw::Model &getModel() const {
+    const amp::Model &getModel() const {
         return this->model;
     }
 
   protected:
-    uflw::NetworkOutputParser::InferenceMetadata inferenceMetaData;
+    amp::NetworkOutputParser::InferenceMetadata inferenceMetaData;
     bool setupReady = false;
 
     Ort::Env *environment = nullptr;
@@ -56,13 +57,13 @@ struct Inference {
     void setupTensorsForModel();
 
     ModelDescriptor modelDescriptor;
-    uflw::Model model;
-    std::unique_ptr<uflw::NetworkOutputParser> outputParser;
-    std::unique_ptr<uflw::NetworkInputBuilder> inputBuilder;
+    amp::Model model;
+    std::unique_ptr<amp::NetworkOutputParser> outputParser;
+    std::unique_ptr<amp::NetworkInputBuilder> inputBuilder;
 
     bool useDynamicOutput = true;
     std::vector<Ort::Value> dynamicOutputData;
-    std::unique_ptr<uflw::TensorReader> outputTensorReaders[4];
+    std::unique_ptr<amp::TensorReader> outputTensorReaders[4];
 
     amp::Result<void> createModelFromModelDesc();
     amp::Result<void> createTensorProcessors();

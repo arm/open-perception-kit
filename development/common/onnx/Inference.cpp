@@ -9,21 +9,20 @@
 #include "onnx/Tools.h"
 #include "onnxruntime_cxx_api.h"
 #include "tl/expected.hpp"
-#include "uniflow/detection_types.h"
-#include "uniflow/image_tensor_builder.h"
-#include "uniflow/model_io.h"
-#include "uniflow/public_types.h"
-#include "uniflow/tensor_view.h"
 #include <memory>
 
 #include <fmt/core.h>
 
-#include "uniflow/paddleocr_parser.h"
-#include "uniflow/ultraface_parser.h"
-#include "uniflow/yolo_like_parser.h"
+#include "postproc/PaddleocrParser.h"
+#include "postproc/UltrafaceParser.h"
+#include "postproc/YoloParser.h"
+
+#include "preproc/ImageTensorBuilder.h"
 
 #include "amp/Result.h"
 #include "amp/String.h"
+#include "amp/TensorInOut.h"
+#include "amp/Types.h"
 
 #include "magic_enum/magic_enum.hpp"
 
@@ -137,27 +136,27 @@ amp::Result<void> Inference::createModelFromModelDesc() {
         TensorDescriptor &descTensor = this->modelDescriptor.inputTensors[i];
 
         // setup data kind
-        if (descTensor.dataKind == uflw::TensorDataKind::Unknown) {
+        if (descTensor.dataKind == amp::TensorDataKind::Unknown) {
             return tl::make_unexpected(
                 AMP_ERROR(amp::ErrorFlag::InvalidData, "input tensor data kind is unknown"));
         }
         this->model.inputs[i].dataKind = descTensor.dataKind;
 
         // check Value/Vector2/Vector3/Vector4 value count
-        if (uflw::isScalarDataKind(this->model.inputs[i].dataKind)) {
+        if (amp::isScalarDataKind(this->model.inputs[i].dataKind)) {
             if (this->modelDescriptor.inputTensors[i].shape.isValid()) {
                 return tl::make_unexpected(AMP_ERROR(
                     amp::ErrorFlag::InvalidData,
                     "please do not include shape for Value/Vector input tensors in json"));
             }
 
-            if ((this->model.inputs[i].dataKind == uflw::TensorDataKind::Value &&
+            if ((this->model.inputs[i].dataKind == amp::TensorDataKind::Value &&
                  descTensor.valueInputs.size() != 1) ||
-                (this->model.inputs[i].dataKind == uflw::TensorDataKind::Vector2 &&
+                (this->model.inputs[i].dataKind == amp::TensorDataKind::Vector2 &&
                  descTensor.valueInputs.size() != 2) ||
-                (this->model.inputs[i].dataKind == uflw::TensorDataKind::Vector3 &&
+                (this->model.inputs[i].dataKind == amp::TensorDataKind::Vector3 &&
                  descTensor.valueInputs.size() != 3) ||
-                (this->model.inputs[i].dataKind == uflw::TensorDataKind::Vector4 &&
+                (this->model.inputs[i].dataKind == amp::TensorDataKind::Vector4 &&
                  descTensor.valueInputs.size() != 4)) {
                 return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData,
                                                      "input tensor Value/Vector needs the proper "
@@ -222,7 +221,7 @@ amp::Result<void> Inference::createModelFromModelDesc() {
         TensorDescriptor &descTensor = this->modelDescriptor.outputTensors[i];
 
         // setup data kind
-        if (descTensor.dataKind == uflw::TensorDataKind::Unknown) {
+        if (descTensor.dataKind == amp::TensorDataKind::Unknown) {
             return tl::make_unexpected(
                 AMP_ERROR(amp::ErrorFlag::InvalidData, "output tensor data kind is unknown"));
         }
@@ -282,13 +281,13 @@ void Inference::setupTensorsForModel() {
 amp::Result<void> Inference::createTensorProcessors() {
 
     if (this->modelDescriptor.modelFamily == amp::NetworkId::YoloObjectDetection) {
-        this->outputParser = std::make_unique<uflw::YoloLikeParser>();
+        this->outputParser = std::make_unique<amp::YoloLikeParser>();
         fmt::print("Creating tensor parser: YoloLikeParser\n");
     } else if (this->modelDescriptor.modelFamily == amp::NetworkId::UltraFace) {
-        this->outputParser = std::make_unique<uflw::UltraFaceParser>();
+        this->outputParser = std::make_unique<amp::UltraFaceParser>();
         fmt::print("Creating tensor parser: UltraFaceParser\n");
     } else if (this->modelDescriptor.modelFamily == amp::NetworkId::PaddleOcrDetection) {
-        this->outputParser = std::make_unique<uflw::PaddleOcrDetectionParser>();
+        this->outputParser = std::make_unique<amp::PaddleOcrDetectionParser>();
         fmt::print("Creating tensor parser: PaddleOcrDetectionParser\n");
     } else {
         return tl::make_unexpected(
@@ -297,19 +296,19 @@ amp::Result<void> Inference::createTensorProcessors() {
                                   this->modelDescriptor.modelFamily)));
     }
 
-    this->inputBuilder = std::make_unique<uflw::ImageTensorBuilder>();
+    this->inputBuilder = std::make_unique<amp::ImageTensorBuilder>();
 
     return {};
 }
 
 amp::Result<void> Inference::preprocessImageData(size_t tensorIndex,
                                                  const uint8_t *data,
-                                                 uflw::TensorDataKind dataKind,
-                                                 uflw::ValueType valueType,
+                                                 amp::TensorDataKind dataKind,
+                                                 amp::ValueType valueType,
                                                  size_t imageWidth,
                                                  size_t imageHeight) {
 
-    uflw::NetworkInputBuilder::Setup setup;
+    amp::NetworkInputBuilder::Setup setup;
     setup.original.data = data;
     setup.original.width = imageWidth;
     setup.original.height = imageHeight;
@@ -328,11 +327,12 @@ amp::Result<void> Inference::preprocessImageData(size_t tensorIndex,
     setup.target.width = modelWidth;
     setup.target.height = modelHeight;
     setup.target.kind = model.inputs[0].dataKind;
-    setup.target.type = uflw::ValueType::f32;
+    setup.target.type = amp::ValueType::f32;
 
-    uflw::Result result = inputBuilder->build(setup);
-    if (uflw::Result::Ok != result) {
-        return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, "tensor build error"));
+    amp::Result<void> result = inputBuilder->build(setup);
+    if (result.has_value() == false) {
+        return result;
+        // return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, "tensor build error"));
     }
 
     this->inferenceMetaData.image.width = imageWidth;
@@ -353,19 +353,19 @@ amp::Result<void> Inference::inference() {
 
     // setting scalar tensors
     for (size_t i = 0; i < api.inputTensorVector.size(); i++) {
-        if (uflw::isScalarDataKind(this->model.inputs[i].dataKind)) {
+        if (amp::isScalarDataKind(this->model.inputs[i].dataKind)) {
 
             size_t valueCount = 0;
-            if (this->model.inputs[i].dataKind == uflw::TensorDataKind::Value)
+            if (this->model.inputs[i].dataKind == amp::TensorDataKind::Value)
                 valueCount = 1;
-            if (this->model.inputs[i].dataKind == uflw::TensorDataKind::Vector2)
+            if (this->model.inputs[i].dataKind == amp::TensorDataKind::Vector2)
                 valueCount = 2;
-            if (this->model.inputs[i].dataKind == uflw::TensorDataKind::Vector3)
+            if (this->model.inputs[i].dataKind == amp::TensorDataKind::Vector3)
                 valueCount = 3;
-            if (this->model.inputs[i].dataKind == uflw::TensorDataKind::Vector4)
+            if (this->model.inputs[i].dataKind == amp::TensorDataKind::Vector4)
                 valueCount = 4;
 
-            if (this->model.inputs[i].valueType == uflw::ValueType::f32) {
+            if (this->model.inputs[i].valueType == amp::ValueType::f32) {
                 for (size_t g = 0; g < valueCount; g++) {
                     writeValueTo<float, float>(
                         this->modelDescriptor.inputTensors[i].valueInputs.data(),
@@ -409,38 +409,42 @@ amp::Result<void> Inference::inference() {
     return {};
 }
 
-amp::Result<void> Inference::postprocess(const uflw::NetworkOutputParser::Settings &settings,
-                                         uflw::DetectionResult &outDetectionResults) {
+amp::Result<void> Inference::postprocess(const amp::NetworkOutputParser::Settings &settings,
+                                         amp::DetectionResult &outDetectionResults) {
 
     if (!this->useDynamicOutput) {
         // --- STATIC, PREALLOCATED OUTPUTS ---
 
-        const uflw::TensorReader *tensorReaders[4] = {nullptr, nullptr, nullptr, nullptr};
+        const amp::TensorReader *tensorReaders[4] = {nullptr, nullptr, nullptr, nullptr};
 
         for (size_t i = 0; i < 4; ++i) {
             if (i < model.modelOutputCount) {
                 if (this->outputTensorReaders[i] == nullptr) {
                     this->outputTensorReaders[i] =
-                        std::make_unique<uflw::TensorReader>(api.outputTensors[i]->getData(),
-                                                             api.outputTensors[i]->getByteCount(),
-                                                             model.outputs[i].shape,
-                                                             model.outputs[i].valueType,
-                                                             1.0f,
-                                                             0.0f);
+                        std::make_unique<amp::TensorReader>(api.outputTensors[i]->getData(),
+                                                            api.outputTensors[i]->getByteCount(),
+                                                            model.outputs[i].shape,
+                                                            model.outputs[i].valueType,
+                                                            1.0f,
+                                                            0.0f);
                 }
                 tensorReaders[i] = this->outputTensorReaders[i].get();
             }
         }
 
-        outputParser->parse(tensorReaders, settings, this->inferenceMetaData, outDetectionResults);
+        amp::Result<void> inferenceResult = outputParser->parse(
+            tensorReaders, settings, this->inferenceMetaData, outDetectionResults);
+        if (inferenceResult.has_value() == false)
+            return inferenceResult;
+
     } else {
         // --- DYNAMIC OUTPUTS ALLOCATED BY ORT ---
 
-        const uflw::TensorReader *tensorReaders[4] = {nullptr, nullptr, nullptr, nullptr};
+        const amp::TensorReader *tensorReaders[4] = {nullptr, nullptr, nullptr, nullptr};
 
         // We’ll build temporary TensorReaders for this call only.
         // They just wrap ORT’s output buffers; no copying.
-        std::vector<std::unique_ptr<uflw::TensorReader>> dynamicReaders;
+        std::vector<std::unique_ptr<amp::TensorReader>> dynamicReaders;
         dynamicReaders.resize(4);
 
         const size_t numOutputs =
@@ -453,34 +457,37 @@ amp::Result<void> Inference::postprocess(const uflw::NetworkOutputParser::Settin
             auto onnxShape = tinfo.GetShape();
             ONNXTensorElementDataType elemType = tinfo.GetElementType();
 
-            // Map ONNX type → uflw::ValueType
-            uflw::ValueType valueType;
+            // Map ONNX type → amp::ValueType
+            amp::ValueType valueType;
             if (!onnx::Tools::onnxTypeToUniflowType(elemType, valueType)) {
                 // If you have better error handling, plug it here
                 assert(0);
             }
 
-            // Build uflw::Shape from ORT shape
-            uflw::Shape shape;
+            // Build amp::Shape from ORT shape
+            amp::Shape shape;
             shape.dimensionCount = onnxShape.size();
             for (size_t d = 0; d < shape.dimensionCount; ++d) {
                 shape.valueCount[d] = static_cast<size_t>(onnxShape[d]);
             }
 
             // Compute byte count
-            const size_t elemSize = uflw::getValueTypeByteSize(valueType);
+            const size_t elemSize = amp::getValueTypeByteSize(valueType);
             const size_t byteCount = elemSize * shape.getFullValueCount();
 
             // Get raw data pointer from ORT tensor
             void *dataPtr = v.GetTensorMutableData<void>();
 
-            dynamicReaders[i] = std::make_unique<uflw::TensorReader>(
+            dynamicReaders[i] = std::make_unique<amp::TensorReader>(
                 dataPtr, byteCount, shape, valueType, 1.0f, 0.0f);
 
             tensorReaders[i] = dynamicReaders[i].get();
         }
 
-        outputParser->parse(tensorReaders, settings, this->inferenceMetaData, outDetectionResults);
+        amp::Result<void> inferenceResult = outputParser->parse(
+            tensorReaders, settings, this->inferenceMetaData, outDetectionResults);
+        if (inferenceResult.has_value() == false)
+            return inferenceResult;
         // dynamicReaders stays alive until here, so tensorReaders are valid during parse()
     }
 

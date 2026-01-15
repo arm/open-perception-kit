@@ -1,4 +1,4 @@
-#include "uniflow/cpu_image_kernels.h"
+#include "preproc/CpuImageKernels.h"
 
 using namespace amp;
 

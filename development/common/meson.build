@@ -21,6 +21,8 @@ common = shared_library(
     'amp/Tools.cpp',
     'amp/PerceptionContext.h',
     'amp/PerceptionContext.cpp',
+    'amp/ImageNetLabels.cpp',
+    'amp/CocoLabels.cpp',
 
     'onnx/Inference.h',
     'onnx/Inference.cpp',
@@ -31,10 +33,13 @@ common = shared_library(
     'postproc/UltraFaceParser.cpp',
     'postproc/PaddleOcrParser.cpp',
 
+    'preproc/ImageTensorBuilder.cpp',
+    'preproc/CpuImageKernels.cpp',
+
     'PerformanceTracer.h',
     'PerformanceTracer.cpp',
   ],
-  include_directories: [ common_include ],
+  include_directories: [ common_include ],  
   cpp_args: ['-DFMT_HEADER_ONLY'],
   dependencies: [ amp_deps ],
   gnu_symbol_visibility: 'default',

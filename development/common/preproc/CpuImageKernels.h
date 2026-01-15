@@ -1,6 +1,6 @@
 #pragma once
 
-#include "uniflow/public_types.h"
+#include "amp/Types.h"
 
 namespace amp {
 

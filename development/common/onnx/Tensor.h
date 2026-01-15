@@ -3,17 +3,19 @@
 #include <cstdint>
 #include <onnxruntime_cxx_api.h>
 
-#include "uniflow/public_types.h"
+#include "amp/Shape.h"
+#include "amp/Types.h"
+
 #include <vector>
 
 namespace onnx {
 
 struct Tensor {
 
-    Tensor(const uflw::Shape &shape, uflw::ValueType type) {
+    Tensor(const amp::Shape &shape, amp::ValueType type) {
         this->shape = shape;
         this->type = type;
-        this->typeByteSize = uflw::getValueTypeByteSize(type);
+        this->typeByteSize = amp::getValueTypeByteSize(type);
         for (size_t i = 0; i < shape.dimensionCount; i++)
             onnxShape[i] = shape.valueCount[i];
 
@@ -37,18 +39,18 @@ struct Tensor {
         return data.size();
     }
 
-    bool checkShape(const uflw::Shape &shape) {
+    bool checkShape(const amp::Shape &shape) {
         return this->shape == shape;
     }
 
     Ort::Value createOnnxTensor(const Ort::MemoryInfo &memInfo) {
-        if (this->type == uflw::ValueType::f32) {
+        if (this->type == amp::ValueType::f32) {
             return Ort::Value::CreateTensor<float>(memInfo,
                                                    reinterpret_cast<float *>(getData()),
                                                    getElementCount(),
                                                    this->onnxShape,
                                                    this->shape.dimensionCount);
-        } else if (this->type == uflw::ValueType::i64) {
+        } else if (this->type == amp::ValueType::i64) {
             return Ort::Value::CreateTensor<int64_t>(memInfo,
                                                      reinterpret_cast<int64_t *>(getData()),
                                                      getElementCount(),
@@ -60,9 +62,9 @@ struct Tensor {
     }
 
   private:
-    uflw::ValueType type;
+    amp::ValueType type;
     size_t typeByteSize;
-    uflw::Shape shape;
+    amp::Shape shape;
     int64_t onnxShape[8];
 
     std::vector<uint8_t> data;

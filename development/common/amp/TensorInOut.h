@@ -1,5 +1,6 @@
 #pragma once
 
+#include "amp/PerceptionContext.h"
 #include "amp/Result.h"
 #include "amp/TensorReader.h"
 

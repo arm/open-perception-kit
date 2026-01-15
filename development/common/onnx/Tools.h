@@ -2,11 +2,11 @@
 
 #include <onnxruntime_cxx_api.h>
 
-#include "uniflow/detection_types.h"
-#include "uniflow/model_io.h"
-#include "uniflow/public_types.h"
-
+#include "amp/Model.h"
+#include "amp/PerceptionContext.h"
 #include "amp/Result.h"
+#include "amp/Shape.h"
+#include "amp/Types.h"
 
 #include "JsonSchemas.h"
 
@@ -21,26 +21,26 @@ namespace onnx {
 
 struct Tools {
 
-    static bool onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, uflw::ValueType &outType);
+    static bool onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, amp::ValueType &outType);
 
     static std::vector<size_t>
-    getTensorShape(const Ort::Session &session, uflw::TensorInOut tensorInOut, int tensorIndex);
+    getTensorShape(const Ort::Session &session, amp::TensorInOut tensorInOut, int tensorIndex);
     static std::map<std::string, std::string> getModelMeta(const Ort::Session &session);
-    static amp::Result<uflw::Model> inspectModel(const Ort::Session &session);
+    static amp::Result<amp::Model> inspectModel(const Ort::Session &session);
 
-    static std::string toString(const uflw::Model &model);
+    static std::string toString(const amp::Model &model);
 
     // ---
 
-    static std::string serializeDetectionResult(const uflw::DetectionResult &r) {
+    static std::string serializeDetectionResult(const amp::DetectionResult &r) {
         json j = r;
         return j.dump();
     }
 
-    static bool deserializeDetectionResult(const std::string &s, uflw::DetectionResult &out) {
+    static bool deserializeDetectionResult(const std::string &s, amp::DetectionResult &out) {
         try {
             json j = json::parse(s);
-            out = j.get<uflw::DetectionResult>();
+            out = j.get<amp::DetectionResult>();
             return true;
         } catch (...) {
             return false;

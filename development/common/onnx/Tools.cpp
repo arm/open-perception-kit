@@ -4,9 +4,9 @@
 #include "onnxruntime_c_api.h"
 #include "onnxruntime_cxx_api.h"
 #include "tl/expected.hpp"
-#include "uniflow/fixed_string.h"
-#include "uniflow/model_io.h"
-#include "uniflow/public_types.h"
+
+#include "amp/Shape.h"
+#include "amp/Types.h"
 
 #include <fmt/core.h>
 
@@ -14,33 +14,33 @@
 
 using namespace onnx;
 
-bool Tools::onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, uflw::ValueType &outType) {
+bool Tools::onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, amp::ValueType &outType) {
     if (onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT) {
-        outType = uflw::ValueType::f32;
+        outType = amp::ValueType::f32;
         return true;
     }
     if (onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16) {
-        outType = uflw::ValueType::f16;
+        outType = amp::ValueType::f16;
         return true;
     }
     if (onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8) {
-        outType = uflw::ValueType::i8;
+        outType = amp::ValueType::i8;
         return true;
     }
     if (onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8) {
-        outType = uflw::ValueType::u8;
+        outType = amp::ValueType::u8;
         return true;
     }
     if (onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64) {
-        outType = uflw::ValueType::i64;
+        outType = amp::ValueType::i64;
         return true;
     }
     return false;
 }
 
 std::vector<size_t>
-Tools::getTensorShape(const Ort::Session &session, uflw::TensorInOut tensorInOut, int tensorIndex) {
-    Ort::TypeInfo ti = (tensorInOut == uflw::TensorInOut::In)
+Tools::getTensorShape(const Ort::Session &session, amp::TensorInOut tensorInOut, int tensorIndex) {
+    Ort::TypeInfo ti = (tensorInOut == amp::TensorInOut::In)
                            ? session.GetInputTypeInfo(tensorIndex)
                            : session.GetOutputTypeInfo(tensorIndex);
     auto tensor = ti.GetTensorTypeAndShapeInfo();
@@ -50,9 +50,9 @@ Tools::getTensorShape(const Ort::Session &session, uflw::TensorInOut tensorInOut
     return dims;
 }
 
-amp::Result<uflw::Model> Tools::inspectModel(const Ort::Session &session) {
+amp::Result<amp::Model> Tools::inspectModel(const Ort::Session &session) {
 
-    uflw::Model model;
+    amp::Model model;
 
     Ort::AllocatorWithDefaultOptions allocator;
     model.modelInputCount = session.GetInputCount();
@@ -67,14 +67,14 @@ amp::Result<uflw::Model> Tools::inspectModel(const Ort::Session &session) {
         model.inputs[i].name = session.GetInputNameAllocated(i, allocator).get();
 
         // tensor value type
-        uflw::ValueType tensorValueType;
+        amp::ValueType tensorValueType;
         if (false == onnxTypeToUniflowType(tensor.GetElementType(), tensorValueType)) {
             return tl::unexpected{AMP_ERROR(amp::ErrorFlag::ModelInspectError,
                                             fmt::format("cannot recognize input ONNX type: {}",
                                                         (uint64_t)tensor.GetElementType()))};
         }
 
-        if (uflw::ValueType::f32 != tensorValueType && uflw::ValueType::i64 != tensorValueType) {
+        if (amp::ValueType::f32 != tensorValueType && amp::ValueType::i64 != tensorValueType) {
             return tl::unexpected{
                 AMP_ERROR(amp::ErrorFlag::ModelInspectError,
                           "only float32 or int64 input tensors are supported in ONNX")};
@@ -82,7 +82,7 @@ amp::Result<uflw::Model> Tools::inspectModel(const Ort::Session &session) {
         model.inputs[i].valueType = tensorValueType;
 
         // shape
-        std::vector<size_t> onnxDims = getTensorShape(session, uflw::TensorInOut::In, i);
+        std::vector<size_t> onnxDims = getTensorShape(session, amp::TensorInOut::In, i);
         if (onnxDims.size() < 1 || onnxDims.size() > 8) {
             return tl::unexpected{AMP_ERROR(amp::ErrorFlag::ModelInspectError,
                                             "input tensor size must be between 1 and 8")};
@@ -101,14 +101,14 @@ amp::Result<uflw::Model> Tools::inspectModel(const Ort::Session &session) {
         model.outputs[i].name = session.GetOutputNameAllocated(i, allocator).get();
 
         // tensor value type
-        uflw::ValueType tensorValueType;
+        amp::ValueType tensorValueType;
         if (false == onnxTypeToUniflowType(tensor.GetElementType(), tensorValueType)) {
             return tl::unexpected{AMP_ERROR(amp::ErrorFlag::ModelInspectError,
                                             fmt::format("cannot recognize output ONNX type: {}",
                                                         (uint64_t)tensor.GetElementType()))};
         }
 
-        if (uflw::ValueType::f32 != tensorValueType && uflw::ValueType::i64 != tensorValueType) {
+        if (amp::ValueType::f32 != tensorValueType && amp::ValueType::i64 != tensorValueType) {
             return tl::unexpected{
                 AMP_ERROR(amp::ErrorFlag::ModelInspectError,
                           "only float32 or int64 input tensors are supported in ONNX")};
@@ -116,7 +116,7 @@ amp::Result<uflw::Model> Tools::inspectModel(const Ort::Session &session) {
         model.outputs[i].valueType = tensorValueType;
 
         // shape
-        std::vector<size_t> onnxDims = getTensorShape(session, uflw::TensorInOut::Out, i);
+        std::vector<size_t> onnxDims = getTensorShape(session, amp::TensorInOut::Out, i);
         if (onnxDims.size() < 1 || onnxDims.size() > 8) {
             return tl::unexpected{AMP_ERROR(amp::ErrorFlag::ModelInspectError,
                                             "output tensor size must be between 1 and 8")};
@@ -128,7 +128,7 @@ amp::Result<uflw::Model> Tools::inspectModel(const Ort::Session &session) {
     return model;
 }
 
-std::string Tools::toString(const uflw::Model &model) {
+std::string Tools::toString(const amp::Model &model) {
     std::string ret;
 
     ret += fmt::format("Model: [{}]\n", model.modelFamily.c_str());
@@ -139,13 +139,15 @@ std::string Tools::toString(const uflw::Model &model) {
         ret += fmt::format("Input #{} [{}]\n", i, model.inputs[i].name.c_str());
         ret += fmt::format(" Batch {}\n", model.inputs[i].batch);
         ret += fmt::format(" ValueType: {}\n", magic_enum::enum_name(model.inputs[i].valueType));
-        ret += fmt::format(" Shape: {}\n", uflw::toString(model.inputs[i].shape).c_str());
+        ret += fmt::format(" Shape: {}\n", model.inputs[i].shape.toString().c_str());
+        // ret += fmt::format(" Shape: {}\n", amp::toString(model.inputs[i].shape).c_str());
         ret += fmt::format(" DataKind: {}\n", magic_enum::enum_name(model.inputs[i].dataKind));
     }
     for (size_t i = 0; i < model.modelOutputCount; i++) {
         ret += fmt::format("Output #{} [{}]\n", i, model.outputs[i].name.c_str());
         ret += fmt::format(" ValueType: {}\n", magic_enum::enum_name(model.outputs[i].valueType));
-        ret += fmt::format(" Shape: {}\n", uflw::toString(model.outputs[i].shape).c_str());
+        // ret += fmt::format(" Shape: {}\n", amp::toString(model.outputs[i].shape).c_str());
+        ret += fmt::format(" Shape: {}\n", model.outputs[i].shape.toString().c_str());
     }
 
     return ret;
