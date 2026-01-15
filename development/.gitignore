@@ -5,6 +5,6 @@ build/
 subprojects/*/
 
 # Keep these wraps (required dependencies)
-!subprojects/asio.wrap
-!subprojects/uniflow.wrap
-!subprojects/websocketpp.wrap
+!subprojects/*.wrap
+!subprojects/*.wrap
+!subprojects/*.wrap
