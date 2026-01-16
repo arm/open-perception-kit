@@ -67,17 +67,54 @@ const BACKOFF_FACTOR = 1.1;
 
 let pcRestartTimer = null;
 
+
+let remoteStream = new MediaStream();
+
+function resetRemoteStream() {
+  remoteStream = new MediaStream();
+  video.srcObject = remoteStream;
+}
+
+function attachRemoteStream() {
+  if (video.srcObject !== remoteStream) {
+    video.srcObject = remoteStream;
+  }
+}
+
 function createPeerConnection() {
+    appendLog("createPeerConnection")
     if (pc) {
         try {
+            appendLog("close from createPeerConnection")
             pc.close();
         } catch (e) {
             appendLog('Error closing old RTCPeerConnection: ' + e, 'error');
         }
     }
 
+    // Reset the media element + previous remote tracks
+    try {
+        if (video.srcObject) {
+            const old = video.srcObject;
+            if (old && old.getTracks) old.getTracks().forEach(t => t.stop());
+        }
+    } catch {}
+
+    video.srcObject = null;
+    remoteStream = new MediaStream();
+    attachRemoteStream();
+
+    // Keep autoplay smooth
+    video.autoplay = true;
+    video.playsInline = true;
+
     appendLog('Creating new RTCPeerConnection');
     pc = new RTCPeerConnection({iceServers : [ {urls : 'stun:stun.l.google.com:19302'} ]});
+
+    resetRemoteStream();
+
+    pc.addTransceiver('video', {direction : 'recvonly'});
+    pc.addTransceiver('audio', {direction : 'recvonly'});
 
     pc.onicecandidate = (event) => {
         if (event.candidate && signaling && signaling.readyState === WebSocket.OPEN) {
@@ -86,18 +123,19 @@ function createPeerConnection() {
         }
     };
 
+
     pc.ontrack = (event) => {
         appendLog('Received track kind=' + event.track.kind);
-        if (event.track.kind === 'video') {
-            video.srcObject = event.streams[0];
-            video.play()
-                .then(() => {
-                          // ok
-                      })
-                .catch((err) => { appendLog('Error playing video: ' + err, 'error'); });
 
+        // Add track to our stable remote stream
+        remoteStream.addTrack(event.track);
+        attachRemoteStream();
+
+        if (event.track.kind === 'video') {
             setStatus('connected', 'Connected', 'Receiving video stream');
             setStatusLine('<strong>WebRTC connected.</strong> Video stream should be visible.');
+        } else if (event.track.kind === 'audio') {
+            appendLog('Audio track attached. If muted=false, you should hear sound.');
         }
     };
 
@@ -117,7 +155,8 @@ function createPeerConnection() {
         () => { appendLog('ICE gathering state: ' + pc.iceGatheringState); };
 
     pc.onsignalingstatechange = () => { appendLog('Signaling state: ' + pc.signalingState); };
-}
+
+} // createPeerConnection
 
 function schedulePeerRestart() {
     if (pcRestartTimer)
@@ -144,18 +183,19 @@ async function startWebRTC() {
         setStatus('connecting', 'Connecting', 'Creating offer and sending to server…');
         setStatusLine('<strong>Creating offer</strong> and sending it to the signaling server…');
 
-        pc.addTransceiver('video', {direction : 'recvonly'});
+
         const offer = await pc.createOffer();
         appendLog('Created offer');
         await pc.setLocalDescription(offer);
         appendLog('Set local description with offer');
+        appendLog("SDP" + pc.localDescription.sdp);
 
         signaling.send(JSON.stringify({type : 'offer', sdp : pc.localDescription.sdp}));
     } catch (err) {
         appendLog('Error during startWebRTC: ' + err, 'error');
         schedulePeerRestart();
     }
-}
+} // startWebRTC
 
 function restartWebRTC() {
     appendLog('Restarting WebRTC: new RTCPeerConnection and new offer…');
@@ -243,8 +283,7 @@ function connectSignaling(manual = false) {
             connectSignaling();
         }, wsReconnectDelay);
     };
-}
-
+} // connectSignaling
 
 // Initial startup
 setStatus('connecting', 'Connecting', 'Initializing…');

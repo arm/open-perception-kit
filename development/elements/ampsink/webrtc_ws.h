@@ -2,6 +2,7 @@
 #define __WEBRTC_WS_H__
 
 #include <gst/gst.h>
+#include <gst/webrtc/webrtc.h>
 
 #include <memory>
 
@@ -37,6 +38,13 @@ struct SessionContext {
 
     GstPad *tee_src_pad = nullptr;     // requested from tee
     GstPad *webrtc_sink_pad = nullptr; // requested from webrtcbin ("sink_%u")
+
+    GstElement *audio_queue = nullptr;
+    GstPad *audio_tee_src_pad = nullptr;
+    GstPad *audio_webrtc_sink_pad = nullptr;
+
+    GstElement *a_capsfilter = nullptr;
+    GstElement *v_capsfilter = nullptr;
 };
 
 class WebRtcWebSocket {

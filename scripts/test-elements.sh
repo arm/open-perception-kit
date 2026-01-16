@@ -62,6 +62,43 @@ gst-launch-1.0 \
 }
 
 
+audio() {
+
+  msg_begin "Executing test with audio..\n"
+
+  need gst-launch-1.0
+
+  if [ ! -d "$BUILD_DIR" ]; then
+    msg_end_err "Error: directory $BUILD_DIR does not exist" >&2
+    exit 1
+  fi
+
+  export GST_PLUGIN_PATH="$BUILD_DIR/meson-out"
+  msg "GST_PLUGIN_PATH=$GST_PLUGIN_PATH"
+
+  msg "Running test pipeline.."
+
+
+
+# external audio
+gst-launch-1.0 \
+  videotestsrc is-live=true pattern=ball ! \
+    video/x-raw,framerate=30/1 ! \
+    videoconvert ! \
+    ampsink name=sink \
+  audiotestsrc is-live=true wave=square ! \
+    audio/x-raw,rate=48000,channels=2 ! \
+    sink.audiosink
+
+# internal silence generator
+# gst-launch-1.0 \
+#   videotestsrc is-live=true pattern=ball ! \
+#     video/x-raw,framerate=30/1 ! \
+#     videoconvert ! \
+#     ampsink name=sink
+
+  msg_end "Pipeline finished."
+}
 onnx2() {
 
   msg_tegin "Executing test with ONNX2 element..\n"
@@ -176,6 +213,7 @@ EOF
 cmd="${1:-}"
 case "$cmd" in
   onnx) onnx ;;
+  audio) audio ;;
   onnx2) onnx2 ;;
   ampinfer) ampinfer ;;
   onnxweb) onnxweb ;;

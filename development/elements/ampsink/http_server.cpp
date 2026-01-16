@@ -2,6 +2,7 @@
 #include <format>
 
 #include <nlohmann/json.hpp>
+#include <string>
 
 #include "ampsink.h"
 #include "http_server.h"
@@ -76,8 +77,7 @@ AmpSinkHttpServerError AmpSinkHttpServer::stop() {
 }
 
 void AmpSinkHttpServer::get_dynamic_config(const Request &req, Response &res) {
-
-    std::string js = "window.AMP_CONFIG = { wsPort: " + std::to_string(self_->ws_port) + " };";
+    std::string js = "window.AMP_CONFIG = { wsPort: " + std::to_string(self_->ws_port) + "};";
     res.set_content(js, "application/javascript");
 }
 

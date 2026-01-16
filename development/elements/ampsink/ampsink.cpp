@@ -7,7 +7,6 @@ g++ -fPIC -shared -o libgstampsink.so ampsink.cpp \
 #include "http_server.h"
 #include "webrtc_ws.h"
 
-#include <iostream>
 #include <memory>
 
 #ifndef PACKAGE
@@ -75,11 +74,11 @@ gst_amp_sink_get_property(GObject *object, guint prop_id, GValue *value, GParamS
 }
 
 /* ===== Pad templates ===== */
-static GstStaticPadTemplate v_sink_template =
-    GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS("video/x-raw"));
+static GstStaticPadTemplate v_sink_template = GST_STATIC_PAD_TEMPLATE(
+    "videosink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS("video/x-raw"));
 
 static GstStaticPadTemplate a_sink_template = GST_STATIC_PAD_TEMPLATE(
-    "audiopad", GST_PAD_SINK, GST_PAD_REQUEST, GST_STATIC_CAPS("audio/x-raw"));
+    "audiosink", GST_PAD_SINK, GST_PAD_REQUEST, GST_STATIC_CAPS("audio/x-raw"));
 
 /* ===== Request/Release pads (audio, MP2 path + audiorate) ===== */
 
@@ -89,10 +88,57 @@ static GstPad *gst_amp_sink_request_new_pad(GstElement *element,
                                             const GstCaps *caps) {
     auto *self = reinterpret_cast<GstAmpSink *>(element);
     const gchar *templ_name = GST_PAD_TEMPLATE_NAME_TEMPLATE(templ);
-    if (g_strcmp0(templ_name, "audiopad") != 0)
-        return nullptr;
 
-    return nullptr;
+    if (g_strcmp0(templ_name, "audiosink") != 0) {
+        return nullptr;
+    }
+
+    // If already created, just return existing pad
+    if (self->audio_ghost_pad) {
+        return self->audio_ghost_pad;
+    }
+
+    // IMPORTANT: ghost an UNLINKED internal pad (the queue sink), not selector/request pads,
+    // and not aconv sink if it's already linked in the internal chain.
+    if (!self->ain_queue) {
+        GST_ERROR_OBJECT(self, "audio_in_queue is NULL (init_audio not run?)");
+        return nullptr;
+    }
+
+    GstPad *qin_sink = gst_element_get_static_pad(self->ain_queue, "sink");
+    if (!qin_sink) {
+        GST_ERROR_OBJECT(self, "Failed to get audio_in_queue:sink");
+        return nullptr;
+    }
+
+    // Create REQUEST ghost pad
+    self->audio_ghost_pad = gst_ghost_pad_new("audiosink", qin_sink);
+    gst_object_unref(qin_sink);
+
+    if (!self->audio_ghost_pad) {
+        GST_ERROR_OBJECT(self, "Failed to create audio ghost pad");
+        return nullptr;
+    }
+
+    gst_pad_set_active(self->audio_ghost_pad, TRUE);
+
+    if (!gst_element_add_pad(GST_ELEMENT(self), self->audio_ghost_pad)) {
+        GST_ERROR_OBJECT(self, "Failed to add audio ghost pad to element");
+        gst_object_unref(self->audio_ghost_pad);
+        self->audio_ghost_pad = nullptr;
+        return nullptr;
+    }
+
+    // switch selector immediately to the "real" pad.
+    // this can be done in pad probe. it would be better
+    if (self->aselector && self->aselector_real_pad) {
+        g_object_set(self->aselector, "active-pad", self->aselector_real_pad, NULL);
+        GST_INFO_OBJECT(self, "Audio request pad created, selector switched to real audio input");
+    } else {
+        GST_WARNING_OBJECT(self, "Selector or real pad not ready; cannot switch to real input");
+    }
+
+    return self->audio_ghost_pad;
 }
 
 static void gst_amp_sink_release_pad(GstElement *element, GstPad *pad) {
@@ -159,14 +205,7 @@ static void gst_amp_sink_dispose(GObject *object) {
     G_OBJECT_CLASS(gst_amp_sink_parent_class)->dispose(object);
 }
 
-static void gst_amp_sink_init(GstAmpSink *self) {
-    self->private_data = new GstAmpPrivate();
-
-    /* defaults */
-    self->host = g_strdup(amp::Tools::getLocalIp().c_str());
-    self->static_files_location = g_strdup("./scripts/public");
-    self->http_port = 9999;
-    self->ws_port = 8000;
+static void init_video(GstAmpSink *self) {
 
     self->vconv = gst_element_factory_make("videoconvert", "vconv");
     self->queue = gst_element_factory_make("queue", "vqueue");
@@ -177,6 +216,7 @@ static void gst_amp_sink_init(GstAmpSink *self) {
     g_return_if_fail(self->vconv && self->queue && self->vp8enc && self->rtpvp8pay && self->tee);
 
     g_object_set(self->vp8enc, "deadline", 1, NULL);
+    g_object_set(self->vp8enc, "keyframe-max-dist", 30, NULL); // keyframe every ~1s at 30fps
 
     gst_bin_add_many(
         GST_BIN(self), self->vconv, self->queue, self->vp8enc, self->rtpvp8pay, self->tee, NULL);
@@ -232,7 +272,138 @@ static void gst_amp_sink_init(GstAmpSink *self) {
 
         gst_element_add_pad(GST_ELEMENT(self), vg);
     }
+}
 
+static void init_audio(GstAmpSink *self) {
+    // //////////////////////////////////////////////
+    // AUDIO is always created and add silence to it
+    // /////////////////////////////////////////////
+
+    // Create audio elements
+    self->asilence_src = gst_element_factory_make("audiotestsrc", "audio_silence_src");
+    self->ain_queue = gst_element_factory_make("queue", "audio_in_queue");
+    self->aselector = gst_element_factory_make("input-selector", "audio_selector");
+    self->acapsfilter = gst_element_factory_make("capsfilter", "audio_caps");
+    self->aconv = gst_element_factory_make("audioconvert", "aconv");
+    self->aresample = gst_element_factory_make("audioresample", "aresample");
+    self->opusenc = gst_element_factory_make("opusenc", "opusenc");
+    self->rtpopuspay = gst_element_factory_make("rtpopuspay", "rtpopuspay");
+    self->atee = gst_element_factory_make("tee", "audio_tee");
+
+    if (!self->asilence_src || !self->aselector || !self->aconv || !self->aresample ||
+        !self->opusenc || !self->rtpopuspay || !self->atee) {
+        GST_ERROR_OBJECT(self, "Failed to create audio elements");
+    }
+
+    g_object_set(self->asilence_src, "wave", 4 /* silence */, "is-live", TRUE, NULL);
+
+    g_object_set(self->rtpopuspay, "pt", 111, NULL);
+
+    GstCaps *audio_caps = gst_caps_new_simple("audio/x-raw",
+                                              "format",
+                                              G_TYPE_STRING,
+                                              "S16LE",
+                                              "rate",
+                                              G_TYPE_INT,
+                                              48000,
+                                              "channels",
+                                              G_TYPE_INT,
+                                              2,
+                                              NULL);
+    g_object_set(self->acapsfilter, "caps", audio_caps, NULL);
+    gst_caps_unref(audio_caps);
+
+    // Add + link shared audio chain
+    gst_bin_add_many(GST_BIN(self),
+                     self->asilence_src,
+                     self->ain_queue,
+                     self->aselector,
+                     self->aconv,
+                     self->aresample,
+                     self->acapsfilter,
+                     self->opusenc,
+                     self->rtpopuspay,
+                     self->atee,
+                     NULL);
+
+    // link the silence path to the selector
+    GstPad *silence_src_pad = gst_element_get_static_pad(self->asilence_src, "src");
+    self->aselector_silence_pad = gst_element_request_pad_simple(self->aselector, "sink_%u");
+    auto lret = gst_pad_link(silence_src_pad, self->aselector_silence_pad);
+    gst_object_unref(silence_src_pad);
+
+    if (lret != GST_PAD_LINK_OK) {
+        GST_ERROR_OBJECT(self, "Failed to link silence into selector: %d", lret);
+    }
+
+    // Link REAL input queue into selector (pad link)
+    GstPad *real_src = gst_element_get_static_pad(self->ain_queue, "src");
+    self->aselector_real_pad = gst_element_request_pad_simple(self->aselector, "sink_%u");
+    lret = gst_pad_link(real_src, self->aselector_real_pad);
+    gst_object_unref(real_src);
+    if (lret != GST_PAD_LINK_OK) {
+        GST_ERROR_OBJECT(self, "Failed to link real audio into selector: %d", lret);
+        return;
+    }
+
+    // selector -> opusenc -> pay -> tee
+    if (!gst_element_link_many(self->aselector,
+                               self->aconv,
+                               self->aresample,
+                               self->acapsfilter,
+                               self->opusenc,
+                               self->rtpopuspay,
+                               self->atee,
+                               NULL)) {
+        GST_ERROR_OBJECT(self, "Failed to link selector->opusenc->pay->tee chain");
+    }
+
+    // Drain branch so pipeline can PLAY with no clients
+    self->audio_drain_queue = gst_element_factory_make("queue", "audio_drain_queue");
+    self->audio_drain_fakesink = gst_element_factory_make("fakesink", "audio_drain_fakesink");
+
+    g_object_set(self->audio_drain_fakesink, "sync", FALSE, "async", FALSE, NULL);
+
+    gst_bin_add_many(GST_BIN(self), self->audio_drain_queue, self->audio_drain_fakesink, NULL);
+
+    gst_element_link(self->audio_drain_queue, self->audio_drain_fakesink);
+
+    // tee → drain
+    self->audio_drain_tee_src_pad = gst_element_request_pad_simple(self->atee, "src_%u");
+    GstPad *drain_sink_pad = gst_element_get_static_pad(self->audio_drain_queue, "sink");
+    lret = gst_pad_link(self->audio_drain_tee_src_pad, drain_sink_pad);
+    gst_object_unref(drain_sink_pad);
+    if (lret != GST_PAD_LINK_OK) {
+        GST_ERROR_OBJECT(self, "Failed to link audio drain branch: %d", lret);
+    }
+
+    // Sync state
+    gst_element_sync_state_with_parent(self->asilence_src);
+    gst_element_sync_state_with_parent(self->ain_queue);
+    gst_element_sync_state_with_parent(self->aselector);
+    gst_element_sync_state_with_parent(self->aconv);
+    gst_element_sync_state_with_parent(self->aresample);
+    gst_element_sync_state_with_parent(self->acapsfilter);
+    gst_element_sync_state_with_parent(self->opusenc);
+    gst_element_sync_state_with_parent(self->rtpopuspay);
+    gst_element_sync_state_with_parent(self->atee);
+    gst_element_sync_state_with_parent(self->audio_drain_queue);
+    gst_element_sync_state_with_parent(self->audio_drain_fakesink);
+}
+
+static void gst_amp_sink_init(GstAmpSink *self) {
+    self->private_data = new GstAmpPrivate();
+
+    /* defaults */
+    self->host = g_strdup(amp::Tools::getLocalIp().c_str());
+    self->static_files_location = g_strdup("./scripts/public");
+    self->http_port = 9999;
+    self->ws_port = 8000;
+
+    init_video(self);
+    init_audio(self);
+
+    // private data
     self->private_data->model_registry = std::make_unique<ModelRegistry>();
 
     self->private_data->webrtc_websocket = std::make_unique<WebRtcWebSocket>(self);

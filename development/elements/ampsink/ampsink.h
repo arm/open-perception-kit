@@ -47,16 +47,37 @@ struct GstAmpPrivate {
 struct _GstAmpSink {
     GstBin parent;
 
-    GstElement *vconv;
-    GstElement *queue;
-    GstElement *vp8enc;
-    GstElement *rtpvp8pay;
-    GstElement *tee;
+    GstElement *vconv = nullptr;
+    GstElement *queue = nullptr;
+    GstElement *vp8enc = nullptr;
+    GstElement *rtpvp8pay = nullptr;
+    GstElement *tee = nullptr;
+
+    // audio
+    GstElement *asilence_src = nullptr;
+    GstElement *ain_queue = nullptr;
+    GstElement *aselector = nullptr;
+    GstElement *acapsfilter = nullptr;
+    GstElement *aconv = nullptr;
+    GstElement *aresample = nullptr;
+    GstElement *opusenc = nullptr;
+    GstElement *rtpopuspay = nullptr;
+    GstElement *atee = nullptr;
+
+    GstPad *aselector_silence_pad = nullptr;
+    GstPad *aselector_real_pad = nullptr;
 
     // Drain branch to make the pipeline complete
-    GstElement *drain_queue;
-    GstElement *drain_fakesink;
-    GstPad *drain_tee_src_pad;
+    GstElement *drain_queue = nullptr;
+    GstElement *drain_fakesink = nullptr;
+    GstPad *drain_tee_src_pad = nullptr;
+
+    GstElement *audio_drain_queue = nullptr;
+    GstElement *audio_drain_fakesink = nullptr;
+    GstPad *audio_drain_tee_src_pad = nullptr;
+
+    // The request audio ghost pad (optional to store)
+    GstPad *audio_ghost_pad = nullptr;
 
     /* properties */
     gchar *host;
