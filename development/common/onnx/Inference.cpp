@@ -16,13 +16,13 @@
 #include "postproc/PaddleocrParser.h"
 #include "postproc/UltrafaceParser.h"
 #include "postproc/YoloParser.h"
-
-#include "preproc/ImageTensorBuilder.h"
+#include "preproc/GenericImageTensorBuilder.h"
 
 #include "amp/Result.h"
 #include "amp/String.h"
-#include "amp/TensorInOut.h"
 #include "amp/Types.h"
+#include "postproc/TensorParser.h"
+#include "preproc/TensorBuilder.h"
 
 #include "magic_enum/magic_enum.hpp"
 
@@ -296,7 +296,7 @@ amp::Result<void> Inference::createTensorProcessors() {
                                   this->modelDescriptor.modelFamily)));
     }
 
-    this->inputBuilder = std::make_unique<amp::ImageTensorBuilder>();
+    this->inputBuilder = std::make_unique<amp::GenericImageTensorBuilder>();
 
     return {};
 }
@@ -308,13 +308,13 @@ amp::Result<void> Inference::preprocessImageData(size_t tensorIndex,
                                                  size_t imageWidth,
                                                  size_t imageHeight) {
 
-    amp::NetworkInputBuilder::Setup setup;
-    setup.original.data = data;
-    setup.original.width = imageWidth;
-    setup.original.height = imageHeight;
-    setup.original.byteCount = imageWidth * imageHeight * 3;
-    setup.original.kind = dataKind;
-    setup.original.type = valueType;
+    amp::TensorBuilder::Setup setup;
+    setup.imageSource.data = data;
+    setup.imageSource.width = imageWidth;
+    setup.imageSource.height = imageHeight;
+    setup.imageSource.byteCount = imageWidth * imageHeight * 3;
+    setup.imageSource.kind = dataKind;
+    setup.imageSource.type = valueType;
 
     size_t modelWidth, modelHeight;
     if (false == model.inputs[tensorIndex].tryGetImageTensorSize(modelWidth, modelHeight)) {
@@ -322,23 +322,22 @@ amp::Result<void> Inference::preprocessImageData(size_t tensorIndex,
             AMP_ERROR(amp::ErrorFlag::InvalidData, "tensor seems not to be an image"));
     }
 
-    setup.target.data = api.inputTensors[tensorIndex]->getData();
-    setup.target.byteCount = api.inputTensors[tensorIndex]->getByteCount();
-    setup.target.width = modelWidth;
-    setup.target.height = modelHeight;
-    setup.target.kind = model.inputs[0].dataKind;
-    setup.target.type = amp::ValueType::f32;
+    setup.imageDestination.data = api.inputTensors[tensorIndex]->getData();
+    setup.imageDestination.byteCount = api.inputTensors[tensorIndex]->getByteCount();
+    setup.imageDestination.width = modelWidth;
+    setup.imageDestination.height = modelHeight;
+    setup.imageDestination.kind = model.inputs[0].dataKind;
+    setup.imageDestination.type = amp::ValueType::f32;
 
     amp::Result<void> result = inputBuilder->build(setup);
     if (result.has_value() == false) {
         return result;
-        // return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, "tensor build error"));
     }
 
-    this->inferenceMetaData.image.width = imageWidth;
-    this->inferenceMetaData.image.height = imageHeight;
-    this->inferenceMetaData.image.modelWidth = modelWidth;
-    this->inferenceMetaData.image.modelHeight = modelHeight;
+    this->inferenceInfo.image.width = imageWidth;
+    this->inferenceInfo.image.height = imageHeight;
+    this->inferenceInfo.image.modelWidth = modelWidth;
+    this->inferenceInfo.image.modelHeight = modelHeight;
 
     return {};
 }
@@ -409,13 +408,15 @@ amp::Result<void> Inference::inference() {
     return {};
 }
 
-amp::Result<void> Inference::postprocess(const amp::NetworkOutputParser::Settings &settings,
+amp::Result<void> Inference::postprocess(const amp::TensorParser::Settings &parserSettings,
                                          amp::DetectionResult &outDetectionResults) {
+
+    amp::TensorParser::Input parserInput;
+    parserInput.parserSettings = parserSettings;
+    parserInput.inferenceInfo = this->inferenceInfo;
 
     if (!this->useDynamicOutput) {
         // --- STATIC, PREALLOCATED OUTPUTS ---
-
-        const amp::TensorReader *tensorReaders[4] = {nullptr, nullptr, nullptr, nullptr};
 
         for (size_t i = 0; i < 4; ++i) {
             if (i < model.modelOutputCount) {
@@ -428,19 +429,16 @@ amp::Result<void> Inference::postprocess(const amp::NetworkOutputParser::Setting
                                                             1.0f,
                                                             0.0f);
                 }
-                tensorReaders[i] = this->outputTensorReaders[i].get();
+                parserInput.tensors[i] = this->outputTensorReaders[i].get();
             }
         }
 
-        amp::Result<void> inferenceResult = outputParser->parse(
-            tensorReaders, settings, this->inferenceMetaData, outDetectionResults);
+        amp::Result<void> inferenceResult = outputParser->parse(parserInput, outDetectionResults);
         if (inferenceResult.has_value() == false)
             return inferenceResult;
 
     } else {
         // --- DYNAMIC OUTPUTS ALLOCATED BY ORT ---
-
-        const amp::TensorReader *tensorReaders[4] = {nullptr, nullptr, nullptr, nullptr};
 
         // We’ll build temporary TensorReaders for this call only.
         // They just wrap ORT’s output buffers; no copying.
@@ -481,11 +479,10 @@ amp::Result<void> Inference::postprocess(const amp::NetworkOutputParser::Setting
             dynamicReaders[i] = std::make_unique<amp::TensorReader>(
                 dataPtr, byteCount, shape, valueType, 1.0f, 0.0f);
 
-            tensorReaders[i] = dynamicReaders[i].get();
+            parserInput.tensors[i] = dynamicReaders[i].get();
         }
 
-        amp::Result<void> inferenceResult = outputParser->parse(
-            tensorReaders, settings, this->inferenceMetaData, outDetectionResults);
+        amp::Result<void> inferenceResult = outputParser->parse(parserInput, outDetectionResults);
         if (inferenceResult.has_value() == false)
             return inferenceResult;
         // dynamicReaders stays alive until here, so tensorReaders are valid during parse()

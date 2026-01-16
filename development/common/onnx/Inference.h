@@ -8,9 +8,10 @@
 
 #include "amp/Model.h"
 #include "amp/PerceptionContext.h"
-#include "amp/Shape.h"
-#include "amp/TensorInOut.h"
 #include "amp/Types.h"
+
+#include "postproc/TensorParser.h"
+#include "preproc/TensorBuilder.h"
 
 #include <memory>
 #include <string>
@@ -38,7 +39,7 @@ struct Inference {
                                           size_t imageWidth,
                                           size_t imageHeight);
     amp::Result<void> inference();
-    amp::Result<void> postprocess(const amp::NetworkOutputParser::Settings &settings,
+    amp::Result<void> postprocess(const amp::TensorParser::Settings &parserSettings,
                                   amp::DetectionResult &outDetectionResults);
 
     const amp::Model &getModel() const {
@@ -46,7 +47,7 @@ struct Inference {
     }
 
   protected:
-    amp::NetworkOutputParser::InferenceMetadata inferenceMetaData;
+    amp::TensorParser::InferenceInfo inferenceInfo;
     bool setupReady = false;
 
     Ort::Env *environment = nullptr;
@@ -58,8 +59,8 @@ struct Inference {
 
     ModelDescriptor modelDescriptor;
     amp::Model model;
-    std::unique_ptr<amp::NetworkOutputParser> outputParser;
-    std::unique_ptr<amp::NetworkInputBuilder> inputBuilder;
+    std::unique_ptr<amp::TensorParser> outputParser;
+    std::unique_ptr<amp::TensorBuilder> inputBuilder;
 
     bool useDynamicOutput = true;
     std::vector<Ort::Value> dynamicOutputData;

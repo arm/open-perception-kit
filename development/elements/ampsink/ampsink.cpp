@@ -22,7 +22,7 @@ g++ -fPIC -shared -o libgstampsink.so ampsink.cpp \
 
 #include <amp/Tools.h>
 
-#include <cpp-httplib/httplib.h>
+#include <httplib.h>
 
 #include <nlohmann/json.hpp>
 

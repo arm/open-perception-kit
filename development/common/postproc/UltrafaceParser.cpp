@@ -160,27 +160,27 @@ static std::vector<Anchor> anchors;
 
 // ----------------------------------------------------------------------------
 
-amp::Result<void>
-amp::UltraFaceParser::parse(const amp::TensorReader *tensorReades[4],
-                            const NetworkOutputParser::Settings &settings,
-                            const NetworkOutputParser::InferenceMetadata &metaData,
-                            amp::DetectionResult &detectionResult) {
+amp::Result<void> amp::UltraFaceParser::parse(const amp::TensorParser::Input &input,
+                                              amp::DetectionResult &detectionResult) {
 
-    const float confThreshold =
-        (settings.confidenceThreshold == 0.0f) ? 0.5f : settings.confidenceThreshold;
+    const float confThreshold = (input.parserSettings.confidenceThreshold == 0.0f)
+                                    ? 0.5f
+                                    : input.parserSettings.confidenceThreshold;
 
-    const float iouThreshold = (settings.iouThreshold == 0.0f) ? 0.3f : settings.iouThreshold;
+    const float iouThreshold =
+        (input.parserSettings.iouThreshold == 0.0f) ? 0.3f : input.parserSettings.iouThreshold;
 
-    const size_t frameWidth = metaData.image.width;
-    const size_t frameHeight = metaData.image.height;
+    const size_t frameWidth = input.inferenceInfo.image.width;
+    const size_t frameHeight = input.inferenceInfo.image.height;
     if (anchors.empty())
-        anchors = generateAnchors(metaData.image.modelWidth, metaData.image.modelHeight);
+        anchors = generateAnchors(input.inferenceInfo.image.modelWidth,
+                                  input.inferenceInfo.image.modelHeight);
 
-    const TensorReader *scores = tensorReades[0];
-    const TensorReader *boxes = tensorReades[1];
+    const TensorReader *scores = input.tensors[0];
+    const TensorReader *boxes = input.tensors[1];
 
-    assert(metaData.image.modelWidth > 0);
-    assert(metaData.image.modelHeight > 0);
+    assert(input.inferenceInfo.image.modelWidth > 0);
+    assert(input.inferenceInfo.image.modelHeight > 0);
     assert(scores != nullptr);
     assert(boxes != nullptr);
     assert(scores != nullptr);
@@ -255,7 +255,7 @@ amp::UltraFaceParser::parse(const amp::TensorReader *tensorReades[4],
         float y2 = y_max;
 
         // ---- 3) convert to pixel coords ----
-        if (false == settings.normalizedCoordinates) {
+        if (false == input.parserSettings.normalizedCoordinates) {
             x1 *= frameWidth;
             y1 *= frameHeight;
             x2 *= frameWidth;

@@ -33,7 +33,7 @@ common = shared_library(
     'postproc/UltraFaceParser.cpp',
     'postproc/PaddleOcrParser.cpp',
 
-    'preproc/ImageTensorBuilder.cpp',
+    'preproc/GenericImageTensorBuilder.cpp',
     'preproc/CpuImageKernels.cpp',
 
     'PerformanceTracer.h',

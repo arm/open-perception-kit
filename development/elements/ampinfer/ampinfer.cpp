@@ -187,7 +187,7 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
         GST_LOG_OBJECT(self, "Recording postprocess metric: %s", postprocess_name.c_str());
         amp::PerformanceTracer::ScopedTimer timer(tracer, postprocess_name);
 
-        amp::NetworkOutputParser::Settings settings;
+        amp::TensorParser::Settings settings;
         settings.iouThreshold = 0.3f;
         settings.confidenceThreshold = 0.5f;
         settings.normalizedCoordinates = false;

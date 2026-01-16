@@ -2,16 +2,14 @@
 
 #include "amp/PerceptionContext.h"
 #include "amp/Result.h"
-#include "amp/TensorInOut.h"
 #include "amp/TensorReader.h"
+#include "postproc/TensorParser.h"
 
 namespace amp {
 
-struct PaddleOcrDetectionParser : public amp::NetworkOutputParser {
+struct PaddleOcrDetectionParser : public amp::TensorParser {
 
-    virtual amp::Result<void> parse(const amp::TensorReader *tensorReades[4],
-                                    const NetworkOutputParser::Settings &settings,
-                                    const NetworkOutputParser::InferenceMetadata &metaData,
+    virtual amp::Result<void> parse(const amp::TensorParser::Input &input,
                                     amp::DetectionResult &detectionResult) override;
 };
 

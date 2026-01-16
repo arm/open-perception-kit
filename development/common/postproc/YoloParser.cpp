@@ -42,27 +42,27 @@ static inline float clampf(float v, float lo, float hi) {
 
 // ----------------------------------------------------------------------------
 
-amp::Result<void> amp::YoloLikeParser::parse(const amp::TensorReader *tensorReades[4],
-                                             const NetworkOutputParser::Settings &settings,
-                                             const NetworkOutputParser::InferenceMetadata &metaData,
+amp::Result<void> amp::YoloLikeParser::parse(const amp::TensorParser::Input &input,
                                              amp::DetectionResult &detectionResult) {
 
-    const float confThreshold =
-        (settings.confidenceThreshold == 0.0f) ? 0.25f : settings.confidenceThreshold;
+    const float confThreshold = (input.parserSettings.confidenceThreshold == 0.0f)
+                                    ? 0.25f
+                                    : input.parserSettings.confidenceThreshold;
 
-    const float iouThreshold = (settings.iouThreshold == 0.0f) ? 0.45f : settings.iouThreshold;
+    const float iouThreshold =
+        (input.parserSettings.iouThreshold == 0.0f) ? 0.45f : input.parserSettings.iouThreshold;
 
-    const size_t frameWidth = metaData.image.width;
-    const size_t frameHeight = metaData.image.height;
+    const size_t frameWidth = input.inferenceInfo.image.width;
+    const size_t frameHeight = input.inferenceInfo.image.height;
 
-    assert(metaData.image.modelWidth == metaData.image.modelHeight);
+    assert(input.inferenceInfo.image.modelWidth == input.inferenceInfo.image.modelHeight);
 
-    const size_t yoloModelSquareSize = metaData.image.modelWidth;
+    const size_t yoloModelSquareSize = input.inferenceInfo.image.modelWidth;
     const float sx = static_cast<float>(frameWidth) / yoloModelSquareSize;
     const float sy = static_cast<float>(frameHeight) / yoloModelSquareSize;
 
-    const TensorReader &tensor = *tensorReades[0];
-    const amp::Shape shape = tensorReades[0]->getShape();
+    const TensorReader &tensor = *input.tensors[0];
+    const amp::Shape shape = input.tensors[0]->getShape();
 
     // Assume tensor is [*, C, N] or [*, N, C] and the smaller one is C
     bool colFirst = true;
@@ -138,7 +138,7 @@ amp::Result<void> amp::YoloLikeParser::parse(const amp::TensorReader *tensorRead
         dets.push_back(d);
     }
 
-    if (settings.applyNms)
+    if (input.parserSettings.applyNms)
         nms(dets, iouThreshold);
 
     for (const auto &a : dets) {
@@ -150,11 +150,11 @@ amp::Result<void> amp::YoloLikeParser::parse(const amp::TensorReader *tensorRead
         rect.confidence = a.conf;
         rect.classIndex = a.cls;
 
-        if (settings.normalizedCoordinates) {
-            rect.x /= metaData.image.width;
-            rect.w /= metaData.image.width;
-            rect.y /= metaData.image.height;
-            rect.h /= metaData.image.height;
+        if (input.parserSettings.normalizedCoordinates) {
+            rect.x /= input.inferenceInfo.image.width;
+            rect.w /= input.inferenceInfo.image.width;
+            rect.y /= input.inferenceInfo.image.height;
+            rect.h /= input.inferenceInfo.image.height;
         }
 
         detectionResult.rects.push_back(rect);

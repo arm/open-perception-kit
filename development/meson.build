@@ -53,6 +53,12 @@ magic_enum_dep = dependency(
   fallback : ['magic_enum', 'magic_enum_dep']
 )
 
+httplib_dep = dependency(
+  'cpp-httplib',
+  required : true,
+  fallback : ['cpp-httplib', 'cpp_httplib_dep']
+)
+
 tl_expected_dep = dependency('tl-expected', required : true)
 
 web_server_enabled = soup_dep.found() and json_dep.found()
@@ -85,7 +91,7 @@ amp_deps = [
   gst_dep, gstbase_dep, gstv_dep, gsta_dep,
   glib_dep, gobject_dep,
   webrtc_dep, sdp_dep,
-  onnx_dep, fmt_dep, nlohmann_dep, nlohmann_dep, magic_enum_dep, tl_expected_dep
+  onnx_dep, fmt_dep, nlohmann_dep, nlohmann_dep, magic_enum_dep, tl_expected_dep, httplib_dep
 ]
 
 if web_server_enabled
