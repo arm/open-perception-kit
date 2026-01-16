@@ -1,1 +1,2 @@
 option('enable_asserts', type: 'boolean', value: true, description: 'Enable internal asserts')
+option('tests', type: 'boolean', value: false, description: 'Build unit tests')

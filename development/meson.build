@@ -89,3 +89,7 @@ subdir('elements/ampinferpre')
 subdir('elements/ampinferpost')
 subdir('elements/ampperformance')
 subdir('elements/ampsink')
+
+if get_option('tests')
+  subdir('tests')
+endif
