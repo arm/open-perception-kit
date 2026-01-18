@@ -78,7 +78,6 @@ struct Inference {
         std::vector<const char *> outputNames;
         std::vector<Ort::Value> inputTensorVector;
         std::vector<Ort::Value> outputTensorVector;
-    };
-    ApiTensorGlue api;
+    } api;
 };
 } // namespace onnx

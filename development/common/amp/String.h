@@ -221,8 +221,6 @@ struct codepoint {
                 code = (code << 6) | (bi & 0x3Fu);
             }
 
-            // Now `code` is the decoded scalar value; apply further checks.
-
             // Check for overlong encodings:
             switch (length) {
             case 2:

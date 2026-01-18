@@ -10,6 +10,7 @@
 
 namespace onnx {
 
+// ONNX level tensor
 struct Tensor {
 
     Tensor(const amp::Shape &shape, amp::ValueType type) {

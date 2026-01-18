@@ -36,6 +36,11 @@ common = shared_library(
     'preproc/GenericImageTensorBuilder.cpp',
     'preproc/CpuImageKernels.cpp',
 
+    'op/Op.cpp',
+    'op/OpChain.cpp',
+    'op/OpFactory.cpp',
+    'op/OpContext.cpp',
+
     'PerformanceTracer.h',
     'PerformanceTracer.cpp',
   ],

@@ -29,6 +29,7 @@ enum class ErrorFlag {
     SizeMismatch,
     ImageModelDimensionError,
     ImageDimensionError,
+    SystemFailure,
     TensorError,
     ParseError
 };

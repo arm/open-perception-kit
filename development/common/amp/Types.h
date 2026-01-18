@@ -48,16 +48,17 @@ struct QuantizationArgs {
 
 enum class TensorInOut { In, Out };
 
+// represents the type of data stored in an input tensor
 enum class TensorDataKind {
     Unknown = 0,
-    ImageRgbChw,
-    ImageRgbHwc,
+    ImageRgbChw, // RRRGGGBBB
+    ImageRgbHwc, // RGBRGBRGB
     ImageGray,
 
-    Value,
-    Vector2,
-    Vector3,
-    Vector4,
+    Value,   // one scalar value (often used an an input tensor for some inference configuration)
+    Vector2, // 2 scalar values
+    Vector3, // 3 scalar values
+    Vector4, // 4 scalar values
 
     AudioDUMMY,
     TextDUMMY,
