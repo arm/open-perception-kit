@@ -1,0 +1,166 @@
+name: Black Duck Security and License Scan
+
+on:
+  push:
+    tags:
+      - "*"  # Trigger on any tag
+  workflow_dispatch:  # Manual trigger from GitHub UI
+
+permissions:
+  contents: read
+
+jobs:
+  blackduck:
+    runs-on: self-hosted-ubuntu-latest-x64
+
+    env:
+      BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+      BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download detect.sh from Artifactory (no auth)
+        run: |
+          set -euo pipefail
+          URL="https://artifactory.arm.com/artifactory/synopsys-blackduck.detect-arm/detect-arm.sh"
+          curl -fsSL -L -o "${GITHUB_WORKSPACE}/detect-arm.sh" "${URL}"
+          # sanity: must be a script
+          head -n 1 "${GITHUB_WORKSPACE}/detect-arm.sh" | grep -q '^#!' || {
+            echo "Downloaded detect-arm.sh doesn't look like a script"
+            head -n 5 "${GITHUB_WORKSPACE}/detect-arm.sh"
+            exit 3
+          }
+          chmod +x "${GITHUB_WORKSPACE}/detect-arm.sh"
+
+      - name: Resolve project name and version
+        run: |
+          set -euo pipefail
+          # Project name: owner:repo
+          PROJECT_NAME="${{ github.repository }}"
+          PROJECT_NAME="${PROJECT_NAME//\//:}"
+          
+          # Version: use tag name directly or branch name for manual runs
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref_type }}" == "tag" ]]; then
+            # Tag push: use tag name as-is
+            VERSION_NAME="${{ github.ref_name }}"
+            echo "Using tag as version: $VERSION_NAME"
+          else
+            # Manual run: use branch name or default
+            VERSION_NAME="${{ github.ref_name }}"
+            VERSION_NAME="$(echo "$VERSION_NAME" | tr -d '[:space:]')"
+            [[ -n "$VERSION_NAME" ]] || VERSION_NAME="manual-scan"
+            echo "Using version name: $VERSION_NAME"
+          fi
+          
+          {
+            echo "PROJECT_NAME=$PROJECT_NAME"
+            echo "VERSION_NAME=$VERSION_NAME"
+          } >> "$GITHUB_ENV"
+          echo "Black Duck project name: ${PROJECT_NAME}"
+          echo "Black Duck version name: ${VERSION_NAME}"
+
+      - name: Run Black Duck Detect
+        run: |
+          set -euo pipefail
+          
+          # Determine scan mode based on trigger
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # MANUAL RUN: Rapid scan without upload
+            echo "=========================================="
+            echo "MANUAL SCAN MODE: Rapid scan (no upload)"
+            echo "=========================================="
+            echo "Running local-only scan for quick feedback..."
+            echo "Results will NOT be uploaded to Black Duck Hub"
+            echo ""
+            
+            ${GITHUB_WORKSPACE}/detect-arm.sh \
+              --detect.source.path="." \
+              --detect.output.path="bd-output" \
+              --detect.tools=DETECTOR \
+              --blackduck.offline.mode=true \
+              --detect.risk.report.pdf=false \
+              --logging.level.detect=INFO \
+              --detect.cleanup=false \
+              --detect.excluded.directories.search.depth=0 \
+              --detect.excluded.directories=".git,.github/workflows,bd-output"
+            
+            echo ""
+            echo "✓ Rapid scan complete (offline mode)"
+            echo "✓ Results available in bd-output/ directory"
+            echo "✓ Download artifacts to review findings"
+            
+          else
+            # TAG PUSH: Full scan with upload to Black Duck Hub
+            echo "=========================================="
+            echo "TAG SCAN MODE: Full scan + upload"
+            echo "=========================================="
+            
+            if [[ -z "${BLACKDUCK_URL}" || -z "${BLACKDUCK_TOKEN}" ]]; then
+              echo "Missing BLACKDUCK_URL or BLACKDUCK_TOKEN secrets" >&2
+              exit 2
+            fi
+            
+            echo "Running Black Duck scan on entire repository..."
+            echo "Scanning paths:"
+            echo "  - Source code: development/"
+            echo "  - Python tools: tools/lazer/"
+            echo "  - Scripts: scripts/"
+            echo "  - Configuration: meson.build, .clang-format, etc."
+            echo "  - Documentation: docs/"
+            echo "  - Models and test data: etc/"
+            echo ""
+            
+            ${GITHUB_WORKSPACE}/detect-arm.sh \
+              --blackduck.url="${BLACKDUCK_URL}" \
+              --blackduck.api.token="${BLACKDUCK_TOKEN}" \
+              --detect.project.name="${PROJECT_NAME}" \
+              --detect.project.version.name="${VERSION_NAME}" \
+              --detect.source.path="." \
+              --detect.output.path="bd-output" \
+              --detect.tools=DETECTOR,SIGNATURE_SCAN \
+              --detect.risk.report.pdf=true \
+              --logging.level.detect=INFO \
+              --detect.cleanup=false \
+              --detect.excluded.directories.search.depth=0 \
+              --detect.excluded.directories=".git,.github/workflows,bd-output"
+            
+            echo ""
+            echo "✓ Full scan complete"
+            echo "✓ Results uploaded to Black Duck Hub"
+            echo "✓ Project: ${PROJECT_NAME}"
+            echo "✓ Version: ${VERSION_NAME}"
+          fi
+
+      # The risk report PDF is created in the workspace root (not bd-output).
+      - name: Upload Risk Report PDF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blackduck-risk-report
+          path: "*BlackDuck_RiskReport.pdf"
+          if-no-files-found: warn
+          retention-days: 10
+
+      - name: Upload Detect status.json
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blackduck-status
+          path: bd-output/runs/**/status/status.json
+          if-no-files-found: warn
+          retention-days: 10
+
+      - name: Upload Detect logs (run + signature scan)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blackduck-logs
+          path: |
+            bd-output/runs/**/scan/BlackDuckScanOutput/**
+            bd-output/runs/**/*.log
+            bd-output/runs/**/*.txt
+            bd-output/runs/**/bdio/**
+          if-no-files-found: warn
+          retention-days: 10
