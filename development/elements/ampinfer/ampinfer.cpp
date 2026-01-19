@@ -11,7 +11,9 @@
 
 #include "onnx/Inference.h"
 
+#include "amp/AttributeMap.h"
 #include "amp/DescriptorStrings.h"
+#include "amp/File.h"
 #include "amp/Labels.h"
 #include "amp/Painter.h"
 #include "amp/Result.h"
@@ -40,6 +42,7 @@ struct _GstAmpInfer {
 
     // Properties
     gchar *modelPath;
+    gchar *opChainPath;
     gchar *modelName;
     gboolean active;
 
@@ -151,7 +154,7 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
         amp::PerformanceTracer::ScopedTimer timer(tracer, preprocess_name);
         auto prepocessResult = self->m->onnxInference->preprocessImageData(
-            0, rgb, amp::TensorDataKind::ImageRgbChw, amp::ValueType::u8, frameWidth, frameHeight);
+            0, rgb, amp::DataKind::ImageRgbChw, amp::Tdt::Uint8, frameWidth, frameHeight);
         if (!prepocessResult) {
             fmt::print("{}\n", prepocessResult.error().toString());
             gst_buffer_unmap(buf, &map);
@@ -239,7 +242,7 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
 // ---------------- properties & class init ----------------
 
-enum { PROP_0, PROP_MODEL_PATH, PROP_MODEL_NAME, PROP_MODEL_ACTIVE };
+enum { PROP_0, PROP_MODEL_PATH, PROP_OPCHAIN_PATH, PROP_MODEL_NAME, PROP_MODEL_ACTIVE };
 
 static void gst_ampinfer_set_property(GObject *o, guint id, const GValue *v, GParamSpec *ps) {
     auto *self = (GstAmpInfer *)o;
@@ -247,6 +250,10 @@ static void gst_ampinfer_set_property(GObject *o, guint id, const GValue *v, GPa
     case PROP_MODEL_PATH:
         g_free(self->modelPath);
         self->modelPath = g_value_dup_string(v);
+        break;
+    case PROP_OPCHAIN_PATH:
+        g_free(self->opChainPath);
+        self->opChainPath = g_value_dup_string(v);
         break;
     case PROP_MODEL_NAME:
         g_free(self->modelName);
@@ -276,6 +283,9 @@ static void gst_ampinfer_get_property(GObject *o, guint id, GValue *v, GParamSpe
     case PROP_MODEL_PATH:
         g_value_set_string(v, self->modelPath);
         break;
+    case PROP_OPCHAIN_PATH:
+        g_value_set_string(v, self->opChainPath);
+        break;
     case PROP_MODEL_NAME:
         g_value_set_string(v, self->modelName);
         break;
@@ -301,6 +311,15 @@ static void gst_ampinfer_class_init(GstAmpInferClass *klass) {
         g_param_spec_string("model-path",
                             "Model path",
                             "Path to YOLO ONNX model",
+                            nullptr,
+                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
+        gobj,
+        PROP_OPCHAIN_PATH,
+        g_param_spec_string("opchain-path",
+                            "OpChain path",
+                            "Path to OpChain setup JSON",
                             nullptr,
                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
@@ -342,6 +361,7 @@ static void gst_ampinfer_class_init(GstAmpInferClass *klass) {
 }
 
 static void gst_ampinfer_init(GstAmpInfer *self) {
+    self->opChainPath = nullptr;
     self->modelPath = nullptr;
     self->modelName = nullptr;
     self->active = true;

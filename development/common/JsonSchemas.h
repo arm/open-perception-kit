@@ -85,14 +85,14 @@ inline void from_json(const json &j, amp::Shape &s) {
     s.dimensionCount = i;
 }
 
-NLOHMANN_JSON_SERIALIZE_ENUM(amp::TensorDataKind,
+NLOHMANN_JSON_SERIALIZE_ENUM(amp::DataKind,
                              {
-                                 {TensorDataKind::ImageRgbChw, "ImageRgbChw"},
-                                 {TensorDataKind::ImageRgbHwc, "ImageRgbHwc"},
-                                 {TensorDataKind::ImageGray, "ImageGray"},
-                                 {TensorDataKind::Value, "Value"},
-                                 {TensorDataKind::Vector2, "Vector2"},
-                                 {TensorDataKind::Vector3, "Vector3"},
-                                 {TensorDataKind::Vector4, "Vector4"},
+                                 {DataKind::ImageRgbChw, "ImageRgbChw"},
+                                 {DataKind::ImageRgbHwc, "ImageRgbHwc"},
+                                 {DataKind::ImageGray, "ImageGray"},
+                                 {DataKind::Value, "Value"},
+                                 {DataKind::Vector2, "Vector2"},
+                                 {DataKind::Vector3, "Vector3"},
+                                 {DataKind::Vector4, "Vector4"},
                              })
 } // namespace amp

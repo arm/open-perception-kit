@@ -26,8 +26,6 @@ common = shared_library(
 
     'onnx/Inference.h',
     'onnx/Inference.cpp',
-    'onnx/Tools.h',
-    'onnx/Tools.cpp',
 
     'postproc/YoloParser.cpp',
     'postproc/UltraFaceParser.cpp',
@@ -40,6 +38,7 @@ common = shared_library(
     'op/OpChain.cpp',
     'op/OpFactory.cpp',
     'op/OpContext.cpp',
+    'op/OpChainDescriptor.cpp',
 
     'PerformanceTracer.h',
     'PerformanceTracer.cpp',

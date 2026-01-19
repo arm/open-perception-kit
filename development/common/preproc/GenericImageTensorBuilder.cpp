@@ -17,21 +17,21 @@ amp::Result<void> amp::GenericImageTensorBuilder::build(const TensorBuilder::Set
     size_t dstHeight = setup.imageDestination.height;
     size_t dstByteCount = setup.imageDestination.byteCount;
 
-    if (setup.imageSource.kind == amp::TensorDataKind::ImageRgbChw &&
-        setup.imageDestination.kind == amp::TensorDataKind::ImageRgbChw) {
+    if (setup.imageSource.kind == amp::DataKind::ImageRgbChw &&
+        setup.imageDestination.kind == amp::DataKind::ImageRgbChw) {
 
-        if (setup.imageSource.type == amp::ValueType::u8 &&
-            setup.imageDestination.type == amp::ValueType::f32) {
+        if (setup.imageSource.type == amp::Tdt::Uint8 &&
+            setup.imageDestination.type == amp::Tdt::Float32) {
             amp::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Chw(
                 src, srcWidth, srcHeight, (float *)dst, dstWidth, dstHeight);
         }
     }
 
-    if (setup.imageSource.kind == amp::TensorDataKind::ImageRgbChw &&
-        setup.imageDestination.kind == amp::TensorDataKind::ImageRgbHwc) {
+    if (setup.imageSource.kind == amp::DataKind::ImageRgbChw &&
+        setup.imageDestination.kind == amp::DataKind::ImageRgbHwc) {
 
-        if (setup.imageSource.type == amp::ValueType::u8 &&
-            setup.imageDestination.type == amp::ValueType::f32) {
+        if (setup.imageSource.type == amp::Tdt::Uint8 &&
+            setup.imageDestination.type == amp::Tdt::Float32) {
             amp::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Hwc(
                 src, srcWidth, srcHeight, (float *)dst, dstWidth, dstHeight);
         }

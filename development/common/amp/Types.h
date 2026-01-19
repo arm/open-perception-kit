@@ -13,27 +13,28 @@ using f16_type = _Float16;
 
 namespace amp {
 
-using u8 = unsigned char;
-using i8 = signed char;
-using f16 = f16_type;
-using f32 = float;
-using i64 = int64_t;
+using Uint8 = unsigned char;
+using Int8 = signed char;
+using Float16 = f16_type;
+using Float32 = float;
+using Int64 = int64_t;
 
-enum class ValueType { u8, i8, f16, f32, i64 };
+// tensor data type
+enum class Tdt { Uint8, Int8, Float16, Float32, Int64 };
 
 using ValuePointer = void *;
 
-inline size_t getValueTypeByteSize(ValueType type) {
+inline size_t getValueTypeByteSize(Tdt type) {
     switch (type) {
-    case ValueType::i8:
+    case Tdt::Int8:
         return 1;
-    case ValueType::u8:
+    case Tdt::Uint8:
         return 1;
-    case ValueType::f16:
+    case Tdt::Float16:
         return 2;
-    case ValueType::f32:
+    case Tdt::Float32:
         return 4;
-    case ValueType::i64:
+    case Tdt::Int64:
         return 8;
     }
     return 0;
@@ -49,7 +50,7 @@ struct QuantizationArgs {
 enum class TensorInOut { In, Out };
 
 // represents the type of data stored in an input tensor
-enum class TensorDataKind {
+enum class DataKind {
     Unknown = 0,
     ImageRgbChw, // RRRGGGBBB
     ImageRgbHwc, // RGBRGBRGB
@@ -64,14 +65,14 @@ enum class TensorDataKind {
     TextDUMMY,
 };
 
-inline bool isScalarDataKind(TensorDataKind kind) {
-    if (kind == TensorDataKind::Value)
+inline bool isScalarDataKind(DataKind kind) {
+    if (kind == DataKind::Value)
         return true;
-    if (kind == TensorDataKind::Vector2)
+    if (kind == DataKind::Vector2)
         return true;
-    if (kind == TensorDataKind::Vector3)
+    if (kind == DataKind::Vector3)
         return true;
-    if (kind == TensorDataKind::Vector4)
+    if (kind == DataKind::Vector4)
         return true;
     return false;
 }

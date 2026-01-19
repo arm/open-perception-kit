@@ -14,9 +14,9 @@ using nlohmann::json;
 
 struct TensorDescriptor {
     amp::Shape shape{}; // if this is missing, system tries to discover it using onnx
-    amp::TensorDataKind dataKind = amp::TensorDataKind::Unknown; // e.g. ImageRgbChw
+    amp::DataKind dataKind = amp::DataKind::Unknown; // e.g. ImageRgbChw
 
-    amp::ValueType valueType = amp::ValueType::f32;
+    amp::Tdt tdt = amp::Tdt::Float32;
     float zeroPoint = 0.0f;
     float scale = 1.0f;
 
@@ -36,7 +36,7 @@ struct ModelDescriptor {
     // sometimes onnx reports an output tensor shape but the models fails to use it
     // set to true to let the model decide the output (tensor reallocation in every inference step)
     bool dynamicOutput = false;
-    amp::ValueType outputValueType;
+    amp::Tdt outputTdtType;
 
     size_t maxDetectionCount = 16;
     float confidenceThreshold = 0.7f;
@@ -51,7 +51,7 @@ struct ModelDescriptor {
 inline void to_json(json &j, const TensorDescriptor &b) {
     j = json{
         {"shape", b.shape},
-        {"valueType", b.valueType},
+        {"valueType", b.tdt},
         {"zeroPoint", b.zeroPoint},
         {"scale", b.scale},
         {"dataKind", b.dataKind},
@@ -62,11 +62,11 @@ inline void to_json(json &j, const TensorDescriptor &b) {
 inline void from_json(const json &j, TensorDescriptor &b) {
     //    j.at("shape").get_to(b.shape);
     b.shape = j.value("shape", amp::Shape());
-    b.valueType = j.value("valueType", amp::ValueType::f32);
+    b.tdt = j.value("valueType", amp::Tdt::Float32);
     b.zeroPoint = j.value("zeroPoint", 0.0f);
     b.scale = j.value("scale", 1.0f);
     j.at("dataKind").get_to(b.dataKind);
-    //    b.dataKind = j.value("dataKind", amp::TensorDataKind::Unknown);
+    //    b.dataKind = j.value("dataKind", amp::DataKind::Unknown);
     b.valueInputs = j.value("valueInputs", std::vector<float>{});
 }
 

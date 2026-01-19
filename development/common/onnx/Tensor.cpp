@@ -1,3 +1,0 @@
-#include "onnx/Tensor.h"
-
-// ---

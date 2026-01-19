@@ -2,7 +2,7 @@
 
 #include "amp/PerceptionContext.h"
 #include "amp/Result.h"
-#include "amp/TensorReader.h"
+#include "amp/TensorView.h"
 #include "postproc/TensorParser.h"
 
 //

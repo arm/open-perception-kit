@@ -5,8 +5,6 @@
 #include "amp/String.h"
 
 #include "fmt/base.h"
-#include "gst/video/video-enumtypes.h"
-#include "onnx/Tools.h"
 #include "onnxruntime_cxx_api.h"
 #include "tl/expected.hpp"
 #include <memory>
@@ -81,7 +79,7 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc_) {
         this->session = new Ort::Session(
             *this->environment, modelDescriptor.modelFile.c_str(), *this->sessionOptions);
 
-        auto modelResult = onnx::Tools::inspectModel(*this->session);
+        auto modelResult = inspectModel(*this->session);
         if (!modelResult) {
             return tl::unexpected{modelResult.error()};
         }
@@ -89,7 +87,7 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc_) {
 
         // --- build up model
 
-        std::string modelLog = onnx::Tools::toString(this->model);
+        std::string modelLog = toString(this->model);
         printf("========= Original onnx model ========\n");
         printf("%s", modelLog.c_str());
         printf("========= ================== =========\n");
@@ -110,7 +108,7 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc_) {
 
         // ---
 
-        modelLog = onnx::Tools::toString(this->model);
+        modelLog = toString(this->model);
         printf("======= Model updated with json ======\n");
         printf("%s", modelLog.c_str());
         printf("========= ================== =========\n");
@@ -136,7 +134,7 @@ amp::Result<void> Inference::createModelFromModelDesc() {
         TensorDescriptor &descTensor = this->modelDescriptor.inputTensors[i];
 
         // setup data kind
-        if (descTensor.dataKind == amp::TensorDataKind::Unknown) {
+        if (descTensor.dataKind == amp::DataKind::Unknown) {
             return tl::make_unexpected(
                 AMP_ERROR(amp::ErrorFlag::InvalidData, "input tensor data kind is unknown"));
         }
@@ -150,13 +148,13 @@ amp::Result<void> Inference::createModelFromModelDesc() {
                     "please do not include shape for Value/Vector input tensors in json"));
             }
 
-            if ((this->model.inputs[i].dataKind == amp::TensorDataKind::Value &&
+            if ((this->model.inputs[i].dataKind == amp::DataKind::Value &&
                  descTensor.valueInputs.size() != 1) ||
-                (this->model.inputs[i].dataKind == amp::TensorDataKind::Vector2 &&
+                (this->model.inputs[i].dataKind == amp::DataKind::Vector2 &&
                  descTensor.valueInputs.size() != 2) ||
-                (this->model.inputs[i].dataKind == amp::TensorDataKind::Vector3 &&
+                (this->model.inputs[i].dataKind == amp::DataKind::Vector3 &&
                  descTensor.valueInputs.size() != 3) ||
-                (this->model.inputs[i].dataKind == amp::TensorDataKind::Vector4 &&
+                (this->model.inputs[i].dataKind == amp::DataKind::Vector4 &&
                  descTensor.valueInputs.size() != 4)) {
                 return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData,
                                                      "input tensor Value/Vector needs the proper "
@@ -221,7 +219,7 @@ amp::Result<void> Inference::createModelFromModelDesc() {
         TensorDescriptor &descTensor = this->modelDescriptor.outputTensors[i];
 
         // setup data kind
-        if (descTensor.dataKind == amp::TensorDataKind::Unknown) {
+        if (descTensor.dataKind == amp::DataKind::Unknown) {
             return tl::make_unexpected(
                 AMP_ERROR(amp::ErrorFlag::InvalidData, "output tensor data kind is unknown"));
         }
@@ -303,8 +301,8 @@ amp::Result<void> Inference::createTensorProcessors() {
 
 amp::Result<void> Inference::preprocessImageData(size_t tensorIndex,
                                                  const uint8_t *data,
-                                                 amp::TensorDataKind dataKind,
-                                                 amp::ValueType valueType,
+                                                 amp::DataKind dataKind,
+                                                 amp::Tdt valueType,
                                                  size_t imageWidth,
                                                  size_t imageHeight) {
 
@@ -327,7 +325,7 @@ amp::Result<void> Inference::preprocessImageData(size_t tensorIndex,
     setup.imageDestination.width = modelWidth;
     setup.imageDestination.height = modelHeight;
     setup.imageDestination.kind = model.inputs[0].dataKind;
-    setup.imageDestination.type = amp::ValueType::f32;
+    setup.imageDestination.type = amp::Tdt::Float32;
 
     amp::Result<void> result = inputBuilder->build(setup);
     if (result.has_value() == false) {
@@ -355,16 +353,16 @@ amp::Result<void> Inference::inference() {
         if (amp::isScalarDataKind(this->model.inputs[i].dataKind)) {
 
             size_t valueCount = 0;
-            if (this->model.inputs[i].dataKind == amp::TensorDataKind::Value)
+            if (this->model.inputs[i].dataKind == amp::DataKind::Value)
                 valueCount = 1;
-            if (this->model.inputs[i].dataKind == amp::TensorDataKind::Vector2)
+            if (this->model.inputs[i].dataKind == amp::DataKind::Vector2)
                 valueCount = 2;
-            if (this->model.inputs[i].dataKind == amp::TensorDataKind::Vector3)
+            if (this->model.inputs[i].dataKind == amp::DataKind::Vector3)
                 valueCount = 3;
-            if (this->model.inputs[i].dataKind == amp::TensorDataKind::Vector4)
+            if (this->model.inputs[i].dataKind == amp::DataKind::Vector4)
                 valueCount = 4;
 
-            if (this->model.inputs[i].valueType == amp::ValueType::f32) {
+            if (this->model.inputs[i].valueType == amp::Tdt::Float32) {
                 for (size_t g = 0; g < valueCount; g++) {
                     writeValueTo<float, float>(
                         this->modelDescriptor.inputTensors[i].valueInputs.data(),
@@ -420,16 +418,16 @@ amp::Result<void> Inference::postprocess(const amp::TensorParser::Settings &pars
 
         for (size_t i = 0; i < 4; ++i) {
             if (i < model.modelOutputCount) {
-                if (this->outputTensorReaders[i] == nullptr) {
-                    this->outputTensorReaders[i] =
-                        std::make_unique<amp::TensorReader>(api.outputTensors[i]->getData(),
-                                                            api.outputTensors[i]->getByteCount(),
-                                                            model.outputs[i].shape,
-                                                            model.outputs[i].valueType,
-                                                            1.0f,
-                                                            0.0f);
+                if (this->outputTensorViews[i] == nullptr) {
+                    this->outputTensorViews[i] =
+                        std::make_unique<amp::TensorView>(api.outputTensors[i]->getData(),
+                                                          api.outputTensors[i]->getByteCount(),
+                                                          model.outputs[i].shape,
+                                                          model.outputs[i].valueType,
+                                                          1.0f,
+                                                          0.0f);
                 }
-                parserInput.tensors[i] = this->outputTensorReaders[i].get();
+                parserInput.tensors[i] = this->outputTensorViews[i].get();
             }
         }
 
@@ -440,10 +438,10 @@ amp::Result<void> Inference::postprocess(const amp::TensorParser::Settings &pars
     } else {
         // --- DYNAMIC OUTPUTS ALLOCATED BY ORT ---
 
-        // We’ll build temporary TensorReaders for this call only.
+        // We’ll build temporary TensorViews for this call only.
         // They just wrap ORT’s output buffers; no copying.
-        std::vector<std::unique_ptr<amp::TensorReader>> dynamicReaders;
-        dynamicReaders.resize(4);
+        std::vector<std::unique_ptr<amp::TensorView>> dynamicViews;
+        dynamicViews.resize(4);
 
         const size_t numOutputs =
             std::min<size_t>(std::min<size_t>(model.modelOutputCount, dynamicOutputData.size()), 4);
@@ -456,8 +454,8 @@ amp::Result<void> Inference::postprocess(const amp::TensorParser::Settings &pars
             ONNXTensorElementDataType elemType = tinfo.GetElementType();
 
             // Map ONNX type → amp::ValueType
-            amp::ValueType valueType;
-            if (!onnx::Tools::onnxTypeToUniflowType(elemType, valueType)) {
+            amp::Tdt valueType;
+            if (!onnxTypeToUniflowType(elemType, valueType)) {
                 // If you have better error handling, plug it here
                 assert(0);
             }
@@ -476,17 +474,157 @@ amp::Result<void> Inference::postprocess(const amp::TensorParser::Settings &pars
             // Get raw data pointer from ORT tensor
             void *dataPtr = v.GetTensorMutableData<void>();
 
-            dynamicReaders[i] = std::make_unique<amp::TensorReader>(
-                dataPtr, byteCount, shape, valueType, 1.0f, 0.0f);
+            dynamicViews[i] =
+                std::make_unique<amp::TensorView>(dataPtr, byteCount, shape, valueType, 1.0f, 0.0f);
 
-            parserInput.tensors[i] = dynamicReaders[i].get();
+            parserInput.tensors[i] = dynamicViews[i].get();
         }
 
         amp::Result<void> inferenceResult = outputParser->parse(parserInput, outDetectionResults);
         if (inferenceResult.has_value() == false)
             return inferenceResult;
-        // dynamicReaders stays alive until here, so tensorReaders are valid during parse()
+        // dynamicReaders stays alive until here, so TensorViews are valid during parse()
     }
 
     return {};
+}
+
+std::vector<size_t> Inference::getTensorShape(const Ort::Session &session,
+                                              amp::TensorInOut tensorInOut,
+                                              int tensorIndex) {
+    Ort::TypeInfo ti = (tensorInOut == amp::TensorInOut::In)
+                           ? session.GetInputTypeInfo(tensorIndex)
+                           : session.GetOutputTypeInfo(tensorIndex);
+    auto tensor = ti.GetTensorTypeAndShapeInfo();
+    std::vector<size_t> dims;
+    for (const auto &a : tensor.GetShape())
+        dims.push_back(a);
+    return dims;
+}
+
+amp::Result<amp::Model> Inference::inspectModel(const Ort::Session &session) {
+
+    amp::Model model;
+
+    Ort::AllocatorWithDefaultOptions allocator;
+    model.modelInputCount = session.GetInputCount();
+    model.modelOutputCount = session.GetOutputCount();
+
+    // inspect all the INPUT TENSORS
+    for (size_t i = 0; i < model.modelInputCount; ++i) {
+        Ort::TypeInfo ti = session.GetInputTypeInfo(i);
+
+        auto tensor = ti.GetTensorTypeAndShapeInfo();
+        // name
+        model.inputs[i].name = session.GetInputNameAllocated(i, allocator).get();
+
+        // tensor value type
+        amp::Tdt tensorValueType;
+        if (false == onnxTypeToUniflowType(tensor.GetElementType(), tensorValueType)) {
+            return tl::unexpected{AMP_ERROR(amp::ErrorFlag::ModelInspectError,
+                                            fmt::format("cannot recognize input ONNX type: {}",
+                                                        (uint64_t)tensor.GetElementType()))};
+        }
+
+        if (amp::Tdt::Float32 != tensorValueType && amp::Tdt::Int64 != tensorValueType) {
+            return tl::unexpected{
+                AMP_ERROR(amp::ErrorFlag::ModelInspectError,
+                          "only float32 or int64 input tensors are supported in ONNX")};
+        }
+        model.inputs[i].valueType = tensorValueType;
+
+        // shape
+        std::vector<size_t> onnxDims = getTensorShape(session, amp::TensorInOut::In, i);
+        if (onnxDims.size() < 1 || onnxDims.size() > 8) {
+            return tl::unexpected{AMP_ERROR(amp::ErrorFlag::ModelInspectError,
+                                            "input tensor size must be between 1 and 8")};
+        }
+        model.inputs[i].shape.setFrom(onnxDims);
+
+        fmt::print("Input shape {}\n", model.inputs[i].shape.toString().c_str());
+    }
+
+    // inspect all the OUTPUT TENSORS
+    for (size_t i = 0; i < model.modelOutputCount; ++i) {
+        Ort::TypeInfo ti = session.GetOutputTypeInfo(i);
+
+        auto tensor = ti.GetTensorTypeAndShapeInfo();
+        // name
+        model.outputs[i].name = session.GetOutputNameAllocated(i, allocator).get();
+
+        // tensor value type
+        amp::Tdt tensorValueType;
+        if (false == onnxTypeToUniflowType(tensor.GetElementType(), tensorValueType)) {
+            return tl::unexpected{AMP_ERROR(amp::ErrorFlag::ModelInspectError,
+                                            fmt::format("cannot recognize output ONNX type: {}",
+                                                        (uint64_t)tensor.GetElementType()))};
+        }
+
+        if (amp::Tdt::Float32 != tensorValueType && amp::Tdt::Int64 != tensorValueType) {
+            return tl::unexpected{
+                AMP_ERROR(amp::ErrorFlag::ModelInspectError,
+                          "only float32 or int64 input tensors are supported in ONNX")};
+        }
+        model.outputs[i].valueType = tensorValueType;
+
+        // shape
+        std::vector<size_t> onnxDims = getTensorShape(session, amp::TensorInOut::Out, i);
+        if (onnxDims.size() < 1 || onnxDims.size() > 8) {
+            return tl::unexpected{AMP_ERROR(amp::ErrorFlag::ModelInspectError,
+                                            "output tensor size must be between 1 and 8")};
+        }
+        model.outputs[i].shape.setFrom(onnxDims);
+        fmt::print("Output shape {}\n", model.outputs[i].shape.toString().c_str());
+    }
+
+    return model;
+}
+
+bool Inference::onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, amp::Tdt &outType) {
+    if (onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT) {
+        outType = amp::Tdt::Float32;
+        return true;
+    }
+    if (onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16) {
+        outType = amp::Tdt::Float16;
+        return true;
+    }
+    if (onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8) {
+        outType = amp::Tdt::Int8;
+        return true;
+    }
+    if (onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8) {
+        outType = amp::Tdt::Uint8;
+        return true;
+    }
+    if (onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64) {
+        outType = amp::Tdt::Int64;
+        return true;
+    }
+    return false;
+}
+
+std::string Inference::toString(const amp::Model &model) {
+    std::string ret;
+
+    ret += fmt::format("Model: [{}]\n", model.modelFamily.c_str());
+    ret += fmt::format("Input count: {}\n", model.modelInputCount);
+    ret += fmt::format("Output count: {}\n", model.modelOutputCount);
+
+    for (size_t i = 0; i < model.modelInputCount; i++) {
+        ret += fmt::format("Input #{} [{}]\n", i, model.inputs[i].name.c_str());
+        ret += fmt::format(" Batch {}\n", model.inputs[i].batch);
+        ret += fmt::format(" ValueType: {}\n", magic_enum::enum_name(model.inputs[i].valueType));
+        ret += fmt::format(" Shape: {}\n", model.inputs[i].shape.toString().c_str());
+        // ret += fmt::format(" Shape: {}\n", amp::toString(model.inputs[i].shape).c_str());
+        ret += fmt::format(" DataKind: {}\n", magic_enum::enum_name(model.inputs[i].dataKind));
+    }
+    for (size_t i = 0; i < model.modelOutputCount; i++) {
+        ret += fmt::format("Output #{} [{}]\n", i, model.outputs[i].name.c_str());
+        ret += fmt::format(" ValueType: {}\n", magic_enum::enum_name(model.outputs[i].valueType));
+        // ret += fmt::format(" Shape: {}\n", amp::toString(model.outputs[i].shape).c_str());
+        ret += fmt::format(" Shape: {}\n", model.outputs[i].shape.toString().c_str());
+    }
+
+    return ret;
 }

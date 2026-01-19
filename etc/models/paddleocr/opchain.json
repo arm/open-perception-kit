@@ -1,0 +1,15 @@
+{
+  "ops": [
+    {
+      "opId": "std/onnx-inference",
+      "attributes": {
+        "modelDescriptor": "paddleocr-detection.json",
+      }
+    },
+    {
+      "opId": "std/postproc",
+      "attributes": {
+      }
+    }
+  ]
+}

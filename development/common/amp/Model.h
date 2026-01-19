@@ -7,8 +7,8 @@ namespace amp {
 
 struct ModelInput {
     std::string name;
-    TensorDataKind dataKind = TensorDataKind::Unknown;
-    amp::ValueType valueType = amp::ValueType::f32;
+    DataKind dataKind = DataKind::Unknown;
+    amp::Tdt valueType = amp::Tdt::Float32;
     amp::Shape shape{};
     int batch = 0;
     amp::QuantizationArgs quantArguments;
@@ -35,7 +35,7 @@ struct ModelInput {
 
 struct ModelOutput {
     std::string name;
-    amp::ValueType valueType = amp::ValueType::f32;
+    amp::Tdt valueType = amp::Tdt::Float32;
     amp::Shape shape;
     amp::QuantizationArgs quantArguments;
 };

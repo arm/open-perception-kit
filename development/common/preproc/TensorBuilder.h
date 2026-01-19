@@ -15,8 +15,8 @@ struct TensorBuilder {
         size_t width = 0;
         size_t height = 0;
 
-        TensorDataKind kind = TensorDataKind::Unknown;
-        amp::ValueType type = amp::ValueType::f32;
+        DataKind kind = DataKind::Unknown;
+        amp::Tdt type = amp::Tdt::Float32;
     };
 
     struct ImageDestination {
@@ -26,8 +26,8 @@ struct TensorBuilder {
         size_t width = 0;
         size_t height = 0;
 
-        TensorDataKind kind = TensorDataKind::Unknown;
-        amp::ValueType type = amp::ValueType::f32;
+        DataKind kind = DataKind::Unknown;
+        amp::Tdt type = amp::Tdt::Float32;
     };
 
     struct AudioSource {};

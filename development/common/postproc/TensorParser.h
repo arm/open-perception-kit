@@ -2,7 +2,7 @@
 
 #include "amp/PerceptionContext.h"
 #include "amp/Result.h"
-#include "amp/TensorReader.h"
+#include "amp/TensorView.h"
 
 namespace amp {
 
@@ -34,7 +34,7 @@ struct TensorParser {
     };
 
     struct Input {
-        amp::TensorReader *tensors[4] = {nullptr};
+        amp::TensorView *tensors[4] = {nullptr};
         TensorParser::Settings parserSettings;
         TensorParser::InferenceInfo inferenceInfo;
     };

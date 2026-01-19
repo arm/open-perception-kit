@@ -176,8 +176,8 @@ amp::Result<void> amp::UltraFaceParser::parse(const amp::TensorParser::Input &in
         anchors = generateAnchors(input.inferenceInfo.image.modelWidth,
                                   input.inferenceInfo.image.modelHeight);
 
-    const TensorReader *scores = input.tensors[0];
-    const TensorReader *boxes = input.tensors[1];
+    const TensorView *scores = input.tensors[0];
+    const TensorView *boxes = input.tensors[1];
 
     assert(input.inferenceInfo.image.modelWidth > 0);
     assert(input.inferenceInfo.image.modelHeight > 0);

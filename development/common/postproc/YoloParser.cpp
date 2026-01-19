@@ -61,7 +61,7 @@ amp::Result<void> amp::YoloLikeParser::parse(const amp::TensorParser::Input &inp
     const float sx = static_cast<float>(frameWidth) / yoloModelSquareSize;
     const float sy = static_cast<float>(frameHeight) / yoloModelSquareSize;
 
-    const TensorReader &tensor = *input.tensors[0];
+    const TensorView &tensor = *input.tensors[0];
     const amp::Shape shape = input.tensors[0]->getShape();
 
     // Assume tensor is [*, C, N] or [*, N, C] and the smaller one is C

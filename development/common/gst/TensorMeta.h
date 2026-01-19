@@ -16,7 +16,7 @@ typedef struct _GstMetaTensor {
     GstMemory *tensorData;
 
     TensorType tensorType;
-    amp::ValueType valueType;
+    amp::Tdt valueType;
     amp::QuantizationArgs quantization;
 
 } GstMetaTensor;

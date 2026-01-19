@@ -9,7 +9,7 @@ static gboolean GstMetaTensor_init(GstMeta *meta, gpointer params, GstBuffer *bu
     m->tensorType = TensorType::Unknown;
     m->tensorData = nullptr;
 
-    m->valueType = amp::ValueType::u8;
+    m->valueType = amp::Tdt::Uint8;
 
     m->quantization.zeroPoint = 0;
     m->quantization.scale = 1.0f;
@@ -83,7 +83,7 @@ GstMetaTensor *GstMetaTensorAttach(TensorType tensorType, GstBuffer *buf, gsize 
     // Fill the static metadata fields
     meta->tensorType = TensorType::Unknown;
     meta->tensorByteSize = tensorByteSize;
-    meta->valueType = amp::ValueType::i8;
+    meta->valueType = amp::Tdt::Int8;
     meta->quantization = amp::QuantizationArgs{};
 
     // Allocate writable GstMemory for the tensor
