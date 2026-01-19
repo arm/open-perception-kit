@@ -24,6 +24,14 @@ struct fs {
         return (uint64_t)std::filesystem::file_size(path);
     }
 
+    static std::vector<uint8_t> loadOrEmpty(const std::string &path) {
+        auto loadResult = load(path, false);
+        if (loadResult.has_value())
+            return std::vector<uint8_t>{};
+
+        return *loadResult;
+    }
+
     static amp::Result<std::vector<uint8_t>> load(const std::string &path,
                                                   bool returnEmptyIfNotFound = true) {
         if (!available(path)) {
