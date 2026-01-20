@@ -3,12 +3,14 @@
 #include <gst/video/video.h>
 
 #include <fmt/core.h>
+#include <memory>
 #include <onnxruntime_cxx_api.h>
 
 #include "glib-object.h"
 #include "glib.h"
 #include "gst/gstpad.h"
 
+#include "nlohmann/json.hpp"
 #include "onnx/Inference.h"
 
 #include "amp/AttributeMap.h"
@@ -17,12 +19,53 @@
 #include "amp/Labels.h"
 #include "amp/Painter.h"
 #include "amp/Result.h"
+#include "amp/String.h"
 #include "amp/Tools.h"
+
+#include "op/Op.h"
+#include "op/OpChain.h"
 
 #include <PerformanceTracer.h>
 
 struct GstAmpInferMembers {
     std::shared_ptr<onnx::Inference> onnxInference;
+
+    amp::OpChain opChain;
+
+    amp::Result<void> setupOpChainFromJson(const std::string &filePath) {
+        auto setupResult = opChain.setupFromFile(filePath);
+        if (!setupResult) {
+            return setupResult;
+        }
+
+        /*        { // setup model file name
+                    std::string modelRoot = filePath;
+                    if (amp::utf8::contains(modelRoot, '/')) {
+                        size_t lastSlashAt = amp::utf8::lastIndexOf(modelRoot, '/');
+                        modelRoot = amp::utf8::left(modelRoot, lastSlashAt + 1);
+                    } else {
+                        modelRoot = "";
+                    }
+                }*/
+
+        /*        auto setupResult = setup(*descResult);
+                if (!setupResult) {
+                    return tl::unexpected{setupResult.error()};
+                }
+
+
+
+                /*std::string jsonText = amp::fs::loadTextOrDefault(opChainJsonPath, "");
+                if (jsonText.empty()) {
+                    return tl::unexpected(
+                        AMP_ERROR(amp::ErrorFlag::InvalidData,
+                                  fmt::format("No config file for opchain [{}]", opChainJsonPath)));
+                }
+
+                amp::OpChainDescriptor desc = nlohmann::from_json(jsonText);*/
+
+        return {};
+    }
 };
 
 #ifndef PACKAGE
@@ -68,20 +111,30 @@ static gboolean gst_ampinfer_start(GstBaseTransform *b) {
 
     self->m = new GstAmpInferMembers();
 
-    try {
+    if (self->opChainPath && self->opChainPath[0]) {
 
-        self->m->onnxInference = std::make_shared<onnx::Inference>();
-
-        auto setupResult = self->m->onnxInference->setupFromJson(self->modelPath);
+        auto setupResult = self->m->setupOpChainFromJson(self->opChainPath);
         if (!setupResult) {
-            fmt::print("{}\n", setupResult.error().toString());
+            fmt::print("Error while setting up op-chain: {}\n", setupResult.error().toString());
             AMP_ABORT;
         }
-    } catch (const std::exception &e) {
-        amp::Error err = AMP_ERROR(amp::ErrorFlag::OnnxStartupException, e.what());
-        fmt::print("{}\n", err.toString());
-        AMP_ABORT;
-        return FALSE;
+
+    } else {
+        try {
+
+            self->m->onnxInference = std::make_shared<onnx::Inference>();
+
+            auto setupResult = self->m->onnxInference->setupFromJson(self->modelPath);
+            if (!setupResult) {
+                fmt::print("{}\n", setupResult.error().toString());
+                AMP_ABORT;
+            }
+        } catch (const std::exception &e) {
+            amp::Error err = AMP_ERROR(amp::ErrorFlag::OnnxStartupException, e.what());
+            fmt::print("{}\n", err.toString());
+            AMP_ABORT;
+            return FALSE;
+        }
     }
 
     return TRUE;

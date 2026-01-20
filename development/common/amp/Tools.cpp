@@ -1,6 +1,7 @@
 #include "Tools.h"
 #include "fmt/base.h"
 
+#include "amp/String.h"
 #include "fmt/core.h"
 #include <dlfcn.h>
 
@@ -18,10 +19,24 @@ void Tools::abort() {
 }
 
 Result<DynamicLibraryHandle> Tools::DynamicLibraryOpen(const std::string &name) {
-    // clear any old errors
-    dlerror();
 
-    void *handle = dlopen(name.c_str(), RTLD_NOW);
+    std::vector<std::string> names;
+    names.push_back(name);
+    if (amp::utf8::endsWith(name, ".so") == false) {
+        names.push_back(name + ".so");
+    }
+
+    void *handle = nullptr;
+
+    for (const auto &n : names) {
+        dlerror();
+
+        handle = dlopen(n.c_str(), RTLD_NOW);
+
+        if (handle)
+            break;
+    }
+
     if (!handle) {
         const char *err = dlerror();
         std::string errorInfo =

@@ -1,32 +1,55 @@
 #pragma once
 
+#include <string>
+
 #include "amp/AttributeMap.h"
 #include "amp/PerceptionContext.h"
 #include "amp/Result.h"
 #include "amp/Tools.h"
 
+#include "op/OpContext.h"
+
 namespace amp {
 
 struct Op {
-
     virtual ~Op() {}
-
     virtual Result<void> configure(const AttributeMap &attributes) = 0;
-    virtual Result<void> process(PerceptionContext &perceptionContext) = 0;
+    virtual Result<void> process(OpContext &opContext) = 0;
 };
 
-// ---
-
-// embeds a pointer to an Op instance, use for RAII
 class OpRef {
-
   public:
-    OpRef(Op *op);
-    virtual ~OpRef();
+    OpRef();
+    ~OpRef();
+
+    Result<void> bind(const std::string &soName, const std::string &opName);
+
+    OpRef(const OpRef &) = delete;
+    OpRef &operator=(const OpRef &) = delete;
+
+    OpRef(OpRef &&other) noexcept;
+    OpRef &operator=(OpRef &&other) noexcept;
+
+    amp::Op *get() const noexcept {
+        return op;
+    }
+    amp::Op &operator*() const {
+        return *op;
+    }
+    amp::Op *operator->() const noexcept {
+        return op;
+    }
 
   private:
-    Op *op;
+    using CreateFn = void *(*)(const char *);
+    using DeleteFn = void (*)(void *);
+
+    void reset() noexcept;
+
     DynamicLibraryHandle dlHandle = nullptr;
+    CreateFn createFn = nullptr;
+    DeleteFn destroyFn = nullptr;
+    amp::Op *op = nullptr;
 };
 
 } // namespace amp

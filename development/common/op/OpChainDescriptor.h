@@ -4,6 +4,12 @@
 #include <vector>
 
 #include "amp/AttributeMap.h"
+#include "amp/Result.h"
+
+#include "JsonSchemas.h"
+
+#include <nlohmann/json.hpp>
+#include <string>
 
 namespace amp {
 
@@ -15,6 +21,9 @@ struct OpChainDescriptor {
     };
 
     std::vector<Op> ops;
+
+    static amp::Result<OpChainDescriptor> fromJson(const std::string &jsonString);
+    static amp::Result<OpChainDescriptor> fromFile(const std::string &path);
 };
 
 } // namespace amp

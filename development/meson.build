@@ -104,6 +104,9 @@ common_include = include_directories('common')
 # Subdirs
 subdir('common')
 subdir('elements/ampinfer')
+subdir('ops-onnx')
+subdir('ops-std')
+subdir('ops-hailort')
 subdir('elements/ampperformance')
 subdir('elements/ampsink')
 

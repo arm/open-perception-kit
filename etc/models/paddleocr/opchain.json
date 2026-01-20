@@ -1,14 +1,15 @@
 {
   "ops": [
     {
-      "opId": "std/onnx-inference",
+      "id": "amp-onnx-ops/PreprocessInference",
       "attributes": {
-        "modelDescriptor": "paddleocr-detection.json",
+        "modelDescriptor": "paddleocr-detection.json"
       }
     },
     {
-      "opId": "std/postproc",
+      "id": "amp-std-ops/Postprocess",
       "attributes": {
+          "parser": "PaddleOcrDetectionParser"
       }
     }
   ]
