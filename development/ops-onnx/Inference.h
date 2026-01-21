@@ -99,7 +99,7 @@ struct Inference {
                                           size_t imageHeight);
     amp::Result<void> inference();
     amp::Result<void> postprocess(const amp::TensorParser::Settings &parserSettings,
-                                  amp::DetectionResult &outDetectionResults);
+                                  amp::RawDetectionLayer &outDetectionResults);
 
     const amp::Model &getModel() const {
         return this->model;

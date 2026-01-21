@@ -1,4 +1,5 @@
 #include "postproc/UltrafaceParser.h"
+#include "amp/PerceptionContext.h"
 
 #include <algorithm>
 #include <cmath>
@@ -161,7 +162,7 @@ static std::vector<Anchor> anchors;
 // ----------------------------------------------------------------------------
 
 amp::Result<void> amp::UltraFaceParser::parse(const amp::TensorParser::Input &input,
-                                              amp::DetectionResult &detectionResult) {
+                                              amp::RawDetectionLayer &detectionResult) {
 
     const float confThreshold = (input.parserSettings.confidenceThreshold == 0.0f)
                                     ? 0.5f

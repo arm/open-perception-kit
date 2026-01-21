@@ -6,6 +6,7 @@
 #include <memory>
 #include <onnxruntime_cxx_api.h>
 
+#include "amp/PerceptionContext.h"
 #include "glib-object.h"
 #include "glib.h"
 #include "gst/gstpad.h"
@@ -24,6 +25,7 @@
 
 #include "op/Op.h"
 #include "op/OpChain.h"
+#include "op/OpChainContext.h"
 
 #include <PerformanceTracer.h>
 
@@ -32,38 +34,16 @@ struct GstAmpInferMembers {
 
     amp::OpChain opChain;
 
+    amp::Result<void> executeOpChain(amp::OpChainContext &opChainContext,
+                                     amp::PerceptionContext &perceptionContext) {
+        return {};
+    }
+
     amp::Result<void> setupOpChainFromJson(const std::string &filePath) {
         auto setupResult = opChain.setupFromFile(filePath);
         if (!setupResult) {
             return setupResult;
         }
-
-        /*        { // setup model file name
-                    std::string modelRoot = filePath;
-                    if (amp::utf8::contains(modelRoot, '/')) {
-                        size_t lastSlashAt = amp::utf8::lastIndexOf(modelRoot, '/');
-                        modelRoot = amp::utf8::left(modelRoot, lastSlashAt + 1);
-                    } else {
-                        modelRoot = "";
-                    }
-                }*/
-
-        /*        auto setupResult = setup(*descResult);
-                if (!setupResult) {
-                    return tl::unexpected{setupResult.error()};
-                }
-
-
-
-                /*std::string jsonText = amp::fs::loadTextOrDefault(opChainJsonPath, "");
-                if (jsonText.empty()) {
-                    return tl::unexpected(
-                        AMP_ERROR(amp::ErrorFlag::InvalidData,
-                                  fmt::format("No config file for opchain [{}]", opChainJsonPath)));
-                }
-
-                amp::OpChainDescriptor desc = nlohmann::from_json(jsonText);*/
-
         return {};
     }
 };
@@ -233,7 +213,7 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     }
 
     // postprocess
-    amp::DetectionResult detectionResults;
+    amp::RawDetectionLayer detectionResults;
     {
         if (!self->active) {
             gst_buffer_unmap(buf, &map);

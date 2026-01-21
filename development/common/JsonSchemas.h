@@ -38,21 +38,21 @@ inline void from_json(const json &j, DetectionPoint &p) {
     j.at("y").get_to(p.y);
 }
 
-inline void to_json(json &j, const DetectionResult &r) {
+/*inline void to_json(json &j, const RawDetection &r) {
     j = json{{"inferId", r.inferId},
              {"originTs", r.originTs},
-             {"inferTs", r.inferTs},
+             {"inferTs", r.infer},
              {"rects", r.rects},
              {"points", r.points}};
 }
 
-inline void from_json(const json &j, DetectionResult &r) {
+inline void from_json(const json &j, RawDetection &r) {
     j.at("inferId").get_to(r.inferId);
     j.at("originTs").get_to(r.originTs);
     j.at("inferTs").get_to(r.inferTs);
     j.at("rects").get_to(r.rects);
     j.at("points").get_to(r.points);
-}
+}*/
 
 } // namespace amp
 

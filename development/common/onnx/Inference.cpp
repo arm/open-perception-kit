@@ -1,6 +1,7 @@
 #include "Inference.h"
 
 #include "amp/DescriptorStrings.h"
+#include "amp/PerceptionContext.h"
 #include "amp/Result.h"
 #include "amp/String.h"
 
@@ -407,7 +408,7 @@ amp::Result<void> Inference::inference() {
 }
 
 amp::Result<void> Inference::postprocess(const amp::TensorParser::Settings &parserSettings,
-                                         amp::DetectionResult &outDetectionResults) {
+                                         amp::RawDetectionLayer &outDetectionResults) {
 
     amp::TensorParser::Input parserInput;
     parserInput.parserSettings = parserSettings;

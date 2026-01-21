@@ -1,4 +1,5 @@
 #include "postproc/PaddleOcrParser.h"
+#include "amp/PerceptionContext.h"
 
 #include <cmath>
 #include <cstdint>
@@ -6,7 +7,7 @@
 using namespace amp;
 
 amp::Result<void> PaddleOcrDetectionParser::parse(const amp::TensorParser::Input &input,
-                                                  amp::DetectionResult &detectionResult) {
+                                                  amp::RawDetectionLayer &detectionResult) {
 
     assert(input.tensors[0]);
 

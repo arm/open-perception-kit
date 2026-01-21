@@ -37,6 +37,6 @@ amp::Result<void> Postprocess::configure(const amp::AttributeMap &attributes) {
     return {};
 }
 
-amp::Result<void> Postprocess::process(amp::OpContext &opContext) {
+amp::Result<void> Postprocess::process(amp::OpChainContext &opChainContext) {
     return {};
 }

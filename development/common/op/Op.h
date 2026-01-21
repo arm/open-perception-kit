@@ -7,14 +7,14 @@
 #include "amp/Result.h"
 #include "amp/Tools.h"
 
-#include "op/OpContext.h"
+#include "op/OpChainContext.h"
 
 namespace amp {
 
 struct Op {
     virtual ~Op() {}
     virtual Result<void> configure(const AttributeMap &attributes) = 0;
-    virtual Result<void> process(OpContext &opContext) = 0;
+    virtual Result<void> process(OpChainContext &opChainContext) = 0;
 };
 
 class OpRef {

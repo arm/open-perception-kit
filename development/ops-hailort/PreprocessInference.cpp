@@ -13,6 +13,6 @@ amp::Result<void> PreprocessInference::configure(const amp::AttributeMap &attrib
     return {};
 }
 
-amp::Result<void> PreprocessInference::process(amp::OpContext &opContext) {
+amp::Result<void> PreprocessInference::process(amp::OpChainContext &opCainContext) {
     return {};
 }

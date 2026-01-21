@@ -10,7 +10,7 @@ namespace amp {
 struct PaddleOcrDetectionParser : public amp::TensorParser {
 
     virtual amp::Result<void> parse(const amp::TensorParser::Input &input,
-                                    amp::DetectionResult &detectionResult) override;
+                                    amp::RawDetectionLayer &output) override;
 };
 
 } // namespace amp

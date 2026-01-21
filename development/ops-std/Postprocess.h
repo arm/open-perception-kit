@@ -2,7 +2,7 @@
 
 #include "amp/Result.h"
 #include "op/Op.h"
-#include "op/OpContext.h"
+#include "op/OpChainContext.h"
 
 #include "postproc/TensorParser.h"
 
@@ -16,7 +16,7 @@ class Postprocess : public amp::Op {
     virtual ~Postprocess();
 
     virtual amp::Result<void> configure(const amp::AttributeMap &attributes) override;
-    virtual amp::Result<void> process(amp::OpContext &opContext) override;
+    virtual amp::Result<void> process(amp::OpChainContext &opChainContext) override;
 
   private:
     std::unique_ptr<amp::TensorParser> parser;

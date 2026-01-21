@@ -40,6 +40,6 @@ struct TensorParser {
     };
 
     virtual amp::Result<void> parse(const amp::TensorParser::Input &input,
-                                    amp::DetectionResult &detectionResult) = 0;
+                                    amp::RawDetectionLayer &output) = 0;
 };
 } // namespace amp

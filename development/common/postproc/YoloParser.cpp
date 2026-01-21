@@ -1,4 +1,5 @@
 #include "postproc/YoloParser.h"
+#include "amp/PerceptionContext.h"
 
 #include <algorithm>
 #include <cmath>
@@ -43,7 +44,7 @@ static inline float clampf(float v, float lo, float hi) {
 // ----------------------------------------------------------------------------
 
 amp::Result<void> amp::YoloLikeParser::parse(const amp::TensorParser::Input &input,
-                                             amp::DetectionResult &detectionResult) {
+                                             amp::RawDetectionLayer &detectionResult) {
 
     const float confThreshold = (input.parserSettings.confidenceThreshold == 0.0f)
                                     ? 0.25f

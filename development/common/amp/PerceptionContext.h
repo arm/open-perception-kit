@@ -20,7 +20,7 @@ struct DetectionPoint {
     float x, y;
 };
 
-struct DetectionResult {
+struct RawDetectionLayer {
     uint64_t inferId, originTs, inferTs;
     std::vector<DetectionRect> rects;
     std::vector<DetectionPoint> points;
@@ -50,7 +50,7 @@ struct SegmentationMap {
     }
 };
 
-struct RawDetection {
+/*struct RawDetection {
     std::string inferenceElementId, inferenceNetworkId;
     uint64_t inferenceTime;
     std::string detectionResultType;
@@ -58,13 +58,17 @@ struct RawDetection {
     std::vector<RawDetectionRect2d> rects;
     std::vector<RawDetectionPoint2d> points;
     std::vector<SegmentationMap> segmentationMaps;
-};
+};*/
 
 // complex object that stores all the inference information
 // like raw detections, processed detections
 // and all other inference-related data
 struct PerceptionContext {
-    std::vector<RawDetection> rawDetections;
+
+    // temporarily here to be compatible with the
+    RawDetectionLayer detectionResult;
+
+    /*std::vector<RawDetection> rawDetections;
 
     bool empty() {
         if (rawDetections.empty())
@@ -78,7 +82,7 @@ struct PerceptionContext {
         }
 
         return true;
-    }
+    }*/
 };
 
 } // namespace amp
