@@ -4,6 +4,7 @@
 #include <memory>
 #include <onnxruntime_cxx_api.h>
 
+#include "amp/TensorView.h"
 #include "postproc/PaddleocrParser.h"
 #include "postproc/UltrafaceParser.h"
 #include "postproc/YoloParser.h"
@@ -25,18 +26,28 @@ amp::Result<void> Postprocess::configure(const amp::AttributeMap &attributes) {
 
     if (parser == "PaddleOcrDetectionParser") {
         this->parser = std::make_unique<PaddleOcrDetectionParser>();
-    } else if (parser == "YoloParser") {
+    } else if (parser == "YoloLikeParser") {
         this->parser = std::make_unique<YoloLikeParser>();
     } else if (parser == "UltrafaceParser") {
         this->parser = std::make_unique<UltraFaceParser>();
     } else {
         return tl::unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData,
-                                        fmt::format("No ensor parser with name: [{}]", parser)));
+                                        fmt::format("No tensor parser with name: [{}]", parser)));
     }
 
     return {};
 }
 
 amp::Result<void> Postprocess::process(amp::OpChainContext &opChainContext) {
+
+    amp::RawDetectionLayer rawDetectionLayer;
+    rawDetectionLayer.modelFamily = opChainContext.modelFamily;
+    auto parseResult = parser->parse(opChainContext.tensorParserInput, rawDetectionLayer);
+    if (!parseResult) {
+        return parseResult;
+    }
+
+    opChainContext.perceptionContext->detectionResult = rawDetectionLayer;
+
     return {};
 }

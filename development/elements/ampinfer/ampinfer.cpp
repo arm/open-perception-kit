@@ -6,6 +6,7 @@
 #include <memory>
 #include <onnxruntime_cxx_api.h>
 
+#include "amp/BitmapView.h"
 #include "amp/PerceptionContext.h"
 #include "glib-object.h"
 #include "glib.h"
@@ -34,8 +35,13 @@ struct GstAmpInferMembers {
 
     amp::OpChain opChain;
 
-    amp::Result<void> executeOpChain(amp::OpChainContext &opChainContext,
-                                     amp::PerceptionContext &perceptionContext) {
+    amp::Result<void> executeOpChain(amp::OpChainContext &opChainContext) {
+        for (const auto &op : opChain.ops) {
+            auto opResult = op->process(opChainContext);
+            if (!opResult) {
+                return opResult;
+            }
+        }
         return {};
     }
 
@@ -151,7 +157,7 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     if (!self->active)
         return GST_FLOW_OK;
 
-    if (!self->m || !self->m->onnxInference)
+    if (!self->m || self->m->opChain.ops.empty())
         return GST_FLOW_OK;
 
     GstMapInfo map;
@@ -171,6 +177,52 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
         return GST_FLOW_OK;
     }
 
+    // ======================================================================================
+
+    amp::PerceptionContext perceptionContext;
+    amp::OpChainContext opChainContext;
+
+    amp::BitmapView pipelineFrame(rgb, frameWidth, frameHeight);
+
+    opChainContext.perceptionContext = &perceptionContext;
+    opChainContext.bitmapViews["pipelineVideoFrame"] = pipelineFrame;
+
+    auto executeResult = self->m->executeOpChain(opChainContext);
+    if (!executeResult) {
+        fmt::print("{}\n", executeResult.error().toString());
+        gst_buffer_unmap(buf, &map);
+        AMP_ABORT;
+        return GST_FLOW_OK;
+    }
+
+    if (false == perceptionContext.detectionResult.maps.empty()) {
+        amp::Painter painter(rgb, frameWidth, frameHeight, frameWidth * 3);
+        painter.drawSegmentMap8(perceptionContext.detectionResult.maps[0].map.data(),
+                                perceptionContext.detectionResult.maps[0].width,
+                                perceptionContext.detectionResult.maps[0].height);
+    }
+
+    if (perceptionContext.detectionResult.rects.size()) {
+        amp::Painter painter(rgb, frameWidth, frameHeight, frameWidth * 3);
+        amp::TextRenderer textRenderer;
+
+        if (perceptionContext.detectionResult.modelFamily == "yolo-object-detection") {
+            for (const auto &a : perceptionContext.detectionResult.rects) {
+                painter.drawRect(a.x, a.y, a.w, a.h, 255, 123, 52, 2);
+                auto label = amp::Labels::getLabel(amp::LabelType::Coco, a.classIndex);
+                textRenderer.drawText(painter, a.x, a.y, label.data(), 0, 0, 0, 0, 255, 0);
+            }
+        }
+
+        if (perceptionContext.detectionResult.modelFamily == "ultraface") {
+            for (const auto &a : perceptionContext.detectionResult.rects) {
+                painter.drawCircle(a.x + a.w / 2, a.y + a.h / 2, a.w / 2, 155, 255, 64, 6);
+            }
+        }
+    }
+
+    // ======================================================================================
+#ifdef SKIP
     // Get tracer and prepare metric names
     static amp::PerformanceTracer *tracer = amp::getGlobalTracer();
     std::string base_name = self->modelName ? self->modelName : "ampinfer";
@@ -268,7 +320,7 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
             }
         }
     }
-
+#endif
     gst_buffer_unmap(buf, &map);
     return GST_FLOW_OK;
 }

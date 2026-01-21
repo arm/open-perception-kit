@@ -85,6 +85,7 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc_) {
             return tl::unexpected{modelResult.error()};
         }
         this->model = *modelResult;
+        this->model.modelFamily = modelDesc_.modelFamily;
 
         // --- build up model
 
@@ -407,11 +408,7 @@ amp::Result<void> Inference::inference() {
     return {};
 }
 
-amp::Result<void> Inference::postprocess(const amp::TensorParser::Settings &parserSettings,
-                                         amp::RawDetectionLayer &outDetectionResults) {
-
-    amp::TensorParser::Input parserInput;
-    parserInput.parserSettings = parserSettings;
+void Inference::prepareForPostprocess(amp::TensorParser::Input &parserInput) {
     parserInput.inferenceInfo = this->inferenceInfo;
 
     if (!this->useDynamicOutput) {
@@ -431,17 +428,12 @@ amp::Result<void> Inference::postprocess(const amp::TensorParser::Settings &pars
                 parserInput.tensors[i] = this->outputTensorViews[i].get();
             }
         }
-
-        amp::Result<void> inferenceResult = outputParser->parse(parserInput, outDetectionResults);
-        if (inferenceResult.has_value() == false)
-            return inferenceResult;
-
     } else {
         // --- DYNAMIC OUTPUTS ALLOCATED BY ORT ---
 
         // We’ll build temporary TensorViews for this call only.
         // They just wrap ORT’s output buffers; no copying.
-        std::vector<std::unique_ptr<amp::TensorView>> dynamicViews;
+        dynamicViews.clear();
         dynamicViews.resize(4);
 
         const size_t numOutputs =
@@ -480,12 +472,19 @@ amp::Result<void> Inference::postprocess(const amp::TensorParser::Settings &pars
 
             parserInput.tensors[i] = dynamicViews[i].get();
         }
-
-        amp::Result<void> inferenceResult = outputParser->parse(parserInput, outDetectionResults);
-        if (inferenceResult.has_value() == false)
-            return inferenceResult;
-        // dynamicReaders stays alive until here, so TensorViews are valid during parse()
     }
+}
+
+amp::Result<void> Inference::postprocess(const amp::TensorParser::Settings &parserSettings,
+                                         amp::RawDetectionLayer &outDetectionResults) {
+
+    amp::TensorParser::Input parserInput;
+    parserInput.parserSettings = parserSettings;
+    prepareForPostprocess(parserInput);
+
+    amp::Result<void> inferenceResult = outputParser->parse(parserInput, outDetectionResults);
+    if (inferenceResult.has_value() == false)
+        return inferenceResult;
 
     return {};
 }

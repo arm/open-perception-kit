@@ -21,6 +21,7 @@ struct DetectionPoint {
 };
 
 struct RawDetectionLayer {
+    std::string modelFamily;
     uint64_t inferId, originTs, inferTs;
     std::vector<DetectionRect> rects;
     std::vector<DetectionPoint> points;

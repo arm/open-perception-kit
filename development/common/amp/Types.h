@@ -13,7 +13,7 @@ using f16_type = _Float16;
 
 namespace amp {
 
-using Uint8 = unsigned char;
+using Uint8 = uint8_t;
 using Int8 = signed char;
 using Float16 = f16_type;
 using Float32 = float;

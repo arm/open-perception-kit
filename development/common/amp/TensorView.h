@@ -15,6 +15,8 @@ namespace amp {
 //
 struct TensorView {
 
+    TensorView() {}
+
     TensorView(const void *data,
                size_t byteCount,
                amp::Shape shape,

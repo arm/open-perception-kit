@@ -10,9 +10,11 @@
 namespace amp {
 
 //
-// non-owning view around pixel data (of different format)
+// non-owning view around pixel data (of different formats)
 //
 struct BitmapView {
+
+    BitmapView() {}
 
     BitmapView(uint8_t *data, size_t width, size_t height, size_t stride = 0) {
         this->data = data;

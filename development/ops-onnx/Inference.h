@@ -6,6 +6,7 @@
 
 #include "amp/Model.h"
 #include "amp/PerceptionContext.h"
+#include "amp/TensorView.h"
 #include "amp/Types.h"
 
 #include "postproc/TensorParser.h"
@@ -97,7 +98,12 @@ struct Inference {
                                           amp::Tdt valueType,
                                           size_t imageWidth,
                                           size_t imageHeight);
+
+    void prepareForPostprocess(amp::TensorParser::Input &input);
     amp::Result<void> inference();
+
+    // amp::TensorView* getOutputTensors
+
     amp::Result<void> postprocess(const amp::TensorParser::Settings &parserSettings,
                                   amp::RawDetectionLayer &outDetectionResults);
 
@@ -128,11 +134,15 @@ struct Inference {
     std::unique_ptr<amp::TensorBuilder> inputBuilder;
 
     bool useDynamicOutput = true;
+    std::vector<std::unique_ptr<amp::TensorView>> dynamicViews;
+
     std::vector<Ort::Value> dynamicOutputData;
     std::unique_ptr<amp::TensorView> outputTensorViews[4];
 
     amp::Result<void> createModelFromModelDesc();
     amp::Result<void> createTensorProcessors();
+
+    amp::TensorView *lastUsedOutputTensors[4] = {nullptr};
 
     // ---
 
