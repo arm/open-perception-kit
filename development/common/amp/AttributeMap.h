@@ -194,7 +194,7 @@ struct AttributeMap {
     const AttributeValue &require(const std::string &key) const {
         auto it = values_.find(key);
         if (it == values_.end()) {
-            throw AttributeError("AttributeMap: missing key '" + key + "'");
+            throw AttributeError("AttributeMap: missing key [" + key + "]");
         }
         return it->second;
     }
