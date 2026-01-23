@@ -1,8 +1,11 @@
 
 #include <format>
+#include <string>
 
 #include <nlohmann/json.hpp>
-#include <string>
+
+// WebRTC in GST is unstable: this macro disables the warning
+#define GST_USE_UNSTABLE_API
 
 #include "ampsink.h"
 #include "http_server.h"

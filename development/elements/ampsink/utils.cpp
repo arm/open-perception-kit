@@ -1,5 +1,9 @@
+#include <gst/gst.h>
 #include <gst/gstpipeline.h>
 
+#include "aux.h"
+#include "gst/gstbin.h"
+#include "gst/gstelement.h"
 #include "utils.h"
 
 GstElement *get_top_pipeline(GstElement *elem) {
@@ -18,4 +22,80 @@ GstElement *get_top_pipeline(GstElement *elem) {
         parent = next;
     }
     return nullptr;
+}
+
+void dump_sink_pads(GstElement *element) {
+#ifndef NDEBUG
+    g_return_if_fail(GST_IS_ELEMENT(element));
+
+    GstIterator *it = gst_element_iterate_pads(element);
+    if (!it) {
+        DBG("No pad iterator");
+        return;
+    }
+
+    GValue item = G_VALUE_INIT;
+    gboolean done = FALSE;
+
+    while (!done) {
+        switch (gst_iterator_next(it, &item)) {
+        case GST_ITERATOR_OK: {
+            GstPad *pad = GST_PAD(g_value_get_object(&item));
+            if (pad && gst_pad_get_direction(pad) == GST_PAD_SINK) {
+                const GstPadTemplate *templ = gst_pad_get_pad_template(pad);
+                const gchar *templ_name =
+                    templ ? GST_PAD_TEMPLATE_NAME_TEMPLATE(templ) : "(no template)";
+
+                DBG("Sink pad: {} (template: {})", GST_PAD_NAME(pad), templ_name);
+            }
+            g_value_reset(&item);
+            break;
+        }
+        case GST_ITERATOR_RESYNC:
+            gst_iterator_resync(it);
+            break;
+        case GST_ITERATOR_ERROR:
+            DBG("Pad iteration error");
+            done = TRUE;
+            break;
+        case GST_ITERATOR_DONE:
+            done = TRUE;
+            break;
+        }
+    }
+
+    g_value_unset(&item);
+    gst_iterator_free(it);
+#endif // !NDEBUG
+}
+
+void dump_pipeline_graph(GstElement *element, const std::string &file_name) {
+
+#ifndef NDEBUG
+    GstElement *pipeline = get_top_pipeline(GST_ELEMENT(element));
+    GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS(
+        GST_BIN(pipeline), GST_DEBUG_GRAPH_SHOW_ALL, file_name.c_str());
+    gst_object_unref(pipeline);
+#endif // !NDEBUG
+}
+
+void release_request_pad_and_unref(GstElement *elem, GstPad **ppad) {
+    if (!ppad || !*ppad)
+        return;
+    if (elem && GST_IS_ELEMENT(elem) && GST_IS_PAD(*ppad)) {
+        gst_element_release_request_pad(elem, *ppad);
+    }
+    gst_object_unref(*ppad);
+    *ppad = nullptr;
+}
+
+void remove_pad_if_present(GstElement *elem, GstPad **ppad) {
+    if (!ppad || !*ppad)
+        return;
+    if (elem && GST_IS_ELEMENT(elem) && GST_IS_PAD(*ppad)) {
+        gst_element_remove_pad(elem, *ppad); // drops element’s ref
+    } else {
+        gst_object_unref(*ppad); // fallback if somehow not parented
+    }
+    *ppad = nullptr;
 }

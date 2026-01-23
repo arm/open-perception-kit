@@ -251,6 +251,12 @@ function connectSignaling(manual = false) {
                 setStatusLine('<strong>Answer received.</strong> Waiting for video track…');
             } else if (data.type === 'candidate' && data.ice) {
                 appendLog('Adding ICE candidate');
+                if (!data.ice || data.ice.candidate === "") {
+                    // end-of-candidates
+                    appendLog('End of candidates');
+                    await pc.addIceCandidate(null);
+                    return;
+                }
                 await pc.addIceCandidate(new RTCIceCandidate(data.ice));
             }
         } catch (err) {

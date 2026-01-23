@@ -1,15 +1,179 @@
-#include "webrtc_ws.h"
-#include "ampsink.h"
+#include "gst/gstpromise.h"
+#include <glib-object.h>
+#include <glib.h>
+#include <gst/gstbin.h>
+#include <gst/gstobject.h>
+#include <gst/gstpad.h>
+#include <gst/gstutils.h>
+#include <gst/sdp/sdp.h>
 
-#include <nlohmann/json.hpp>
-
+#include <cctype>
+#include <exception>
+#include <memory>
+#include <stdexcept>
+#include <string>
 #include <thread>
+
+// WebRTC in GST is unstable: this macro disables the warning
+#define GST_USE_UNSTABLE_API
+
+#include "ampsink.h"
+#include "aux.h"
+#include "utils.h"
+#include "webrtc_ws.h"
 
 using namespace nlohmann;
 
-WebRtcSockerError WebRtcWebSocket::setup() {
-    std::cout << "started ws server\n";
+// forward decl's
+static void on_negotiation_needed(GstElement *webrtc, gpointer user_data);
+static void
+on_ice_candidate(GstElement *webrtc, guint mlineindex, gchar *candidate, gpointer user_data);
+static void on_set_remote_description(GstPromise *promise, gpointer user_data);
 
+#define REMOVE_AND_FREE_ELEMENT(element)                                                           \
+    do {                                                                                           \
+        if ((element)) {                                                                           \
+            GstObject *parent = gst_object_get_parent(GST_OBJECT((element)));                      \
+            if (parent) {                                                                          \
+                gst_object_unref(parent);                                                          \
+                gst_bin_remove(GST_BIN(self), (element));                                          \
+            } else {                                                                               \
+                gst_object_unref((element));                                                       \
+            }                                                                                      \
+            (element) = nullptr;                                                                   \
+        }                                                                                          \
+    } while (0)
+
+#define FREE_PAD(pad, element)                                                                     \
+    do {                                                                                           \
+        if ((pad)) {                                                                               \
+            if ((element) && GST_IS_ELEMENT((element)) && GST_IS_PAD((pad))) {                     \
+                gst_element_release_request_pad((element), (pad));                                 \
+            }                                                                                      \
+            gst_object_unref((pad));                                                               \
+            (pad) = nullptr;                                                                       \
+        }                                                                                          \
+    } while (0)
+
+static inline bool set_state_elements_many(GstState state,
+                                           std::initializer_list<GstElement *> elems) {
+    bool ok = true;
+    for (GstElement *e : elems) {
+        if (!e)
+            continue;
+
+        const auto r = gst_element_set_state(e, state);
+        // For teardown, ASYNC is usually fine; FAILURE is not.
+        if (r == GST_STATE_CHANGE_FAILURE) {
+            ok = false;
+            DBG("Failed to set state on {}", GST_ELEMENT_NAME(e));
+        }
+    }
+
+    return ok;
+}
+
+// SessionContext is private to this compilation unit
+struct SessionContext {
+    _GstAmpSink *self;
+
+    connection_hdl hdl;
+
+    // aliases to make ws_server reachable from session negotiation functions
+    std::shared_ptr<ws_server> ws;
+
+    // Per-client GStreamer branch
+    GstElement *webrtcbin = nullptr;
+    GstPad *webrtc_sink_pad = nullptr; // requested from webrtcbin ("sink_%u")
+    GstPad *audio_webrtc_sink_pad = nullptr;
+
+    GstElement *queue = nullptr; // between tee and webrtcbin
+    GstElement *audio_queue = nullptr;
+
+    GstPad *tee_src_pad = nullptr; // requested from tee
+    GstPad *audio_tee_src_pad = nullptr;
+
+    GstElement *a_capsfilter = nullptr;
+    GstElement *v_capsfilter = nullptr;
+
+    // Puts the VP8/Opus stream to RTP payloads
+    GstElement *v_pay = nullptr;
+    GstElement *a_pay = nullptr;
+
+    gint pt_video_vp8 = 96;
+    gint pt_audio_opus = 111;
+
+    SessionContext() = default;
+
+    SessionContext(const SessionContext &) = delete;
+    SessionContext &operator=(const SessionContext &) = delete;
+
+    SessionContext(SessionContext &&rhs) = delete;
+    SessionContext &operator=(SessionContext &&) = delete;
+
+    ~SessionContext() {
+        DBG("Destruct SessionContext");
+
+        if (!self)
+            return;
+
+        // Stop elements (only if non-null)
+        set_state_elements_many(
+            GST_STATE_NULL,
+            {webrtcbin, queue, v_pay, v_capsfilter, audio_queue, a_pay, a_capsfilter});
+
+        // Unlink VIDEO tee -> client queue and release the tee src pad
+        if (tee_src_pad) {
+            auto queue_sink = queue ? gst_element_get_static_pad(queue, "sink") : nullptr;
+            if (queue_sink) {
+                gst_pad_unlink(tee_src_pad, queue_sink);
+                gst_object_unref(queue_sink);
+            }
+
+            gst_element_release_request_pad(self->tee, tee_src_pad);
+            gst_object_unref(tee_src_pad);
+            tee_src_pad = nullptr;
+        }
+
+        // Unlink AUDIO tee -> audio_queue and release the audio tee src pad
+        if (audio_tee_src_pad) {
+            auto aq_sink = audio_queue ? gst_element_get_static_pad(audio_queue, "sink") : nullptr;
+            if (aq_sink) {
+                gst_pad_unlink(audio_tee_src_pad, aq_sink);
+                gst_object_unref(aq_sink);
+            }
+
+            // Only if we have an audio tee in the bin
+            if (self->atee) {
+                gst_element_release_request_pad(self->atee, audio_tee_src_pad);
+            }
+            gst_object_unref(audio_tee_src_pad);
+            audio_tee_src_pad = nullptr;
+        }
+
+        FREE_PAD(webrtc_sink_pad, webrtcbin);
+        FREE_PAD(audio_webrtc_sink_pad, webrtcbin);
+
+        // Remove per-client elements from the bin
+        if (audio_queue || queue || webrtcbin || v_pay || a_pay || v_capsfilter || a_capsfilter) {
+            // Note1: gst_bin_remove_many tolerates NULLs poorly in some builds;
+            // Note2: it makes unref too?
+            gst_bin_remove_many(GST_BIN(self),
+                                audio_queue,
+                                queue,
+                                v_pay,
+                                a_pay,
+                                v_capsfilter,
+                                a_capsfilter,
+                                webrtcbin,
+                                nullptr);
+        }
+
+        audio_queue = queue = webrtcbin = v_pay = a_pay = v_capsfilter = a_capsfilter = nullptr;
+    }
+};
+
+WebRtcSockerError WebRtcWebSocket::setup() {
     ws = std::make_shared<ws_server>();
 
     ws->init_asio();
@@ -23,6 +187,8 @@ WebRtcSockerError WebRtcWebSocket::setup() {
     ws->listen(self_->ws_port);
     ws->start_accept();
 
+    DBG("WebSocket server started");
+
     return WebRtcSockerError::OK;
 }
 
@@ -32,7 +198,7 @@ WebRtcSockerError WebRtcWebSocket::start() {
     if (auto error = setup(); error != WebRtcSockerError::OK) {
         return error;
     }
-    std::cout << "WebSocket++ server listening on port " << self_->ws_port << std::endl;
+    DBG("WebSocket++ server listening on port {}", self_->ws_port);
 
     ws_server_thread = std::thread(&ws_server::run, ws);
     while (!ws->is_listening()) {
@@ -43,7 +209,6 @@ WebRtcSockerError WebRtcWebSocket::start() {
 }
 
 WebRtcSockerError WebRtcWebSocket::stop() {
-
     if (ws) {
         ws->stop();
     }
@@ -52,67 +217,206 @@ WebRtcSockerError WebRtcWebSocket::stop() {
         ws_server_thread.join();
     }
 
+    webrtc_sessions.clear();
+
     return WebRtcSockerError::OK;
 }
 
-static void on_negotiation_needed(GstElement *webrtc, gpointer user_data) {
-    std::cout << "Negotiation needed" << std::endl;
+void WebRtcWebSocket::set_video_pt(SessionContext *ctx) {
+
+    DBG("SET VIDEO PT: {}", ctx->pt_video_vp8);
+
+    auto caps_str =
+        std::format("application/x-rtp,media=video,encoding-name=VP8,clock-rate=90000,payload={}",
+                    ctx->pt_video_vp8);
+
+    auto vcaps = gst_caps_from_string(caps_str.c_str());
+    g_object_set(ctx->v_capsfilter, "caps", vcaps, nullptr);
+    gst_caps_unref(vcaps);
+
+    g_object_set(ctx->v_pay, "pt", (uint32_t)ctx->pt_video_vp8, nullptr);
 }
 
-static void send_text(SessionContext *ctx, const std::string &text) {
+bool WebRtcWebSocket::attach_video(SessionContext *ctx) {
+
+    auto self = ctx->self;
+
     try {
-        ctx->ws->send(ctx->hdl, text, websocketpp::frame::opcode::text);
-    } catch (const websocketpp::exception &e) {
-        std::cerr << "WebSocket send error: " << e.what() << std::endl;
+
+        ctx->queue = gst_element_factory_make("queue", nullptr);
+        ctx->v_pay = gst_element_factory_make("rtpvp8pay", nullptr);
+        ctx->v_capsfilter = gst_element_factory_make("capsfilter", nullptr);
+
+        if (!ctx->queue || !ctx->v_pay || !ctx->v_capsfilter) {
+            throw std::runtime_error("Can't create video elements");
+        }
+
+        g_object_set(ctx->queue,
+                     "leaky",
+                     2, // downstream
+                     "max-size-buffers",
+                     10,
+                     "max-size-time",
+                     0,
+                     "max-size-bytes",
+                     0,
+                     nullptr);
+
+        set_video_pt(ctx);
+
+        gst_bin_add_many(GST_BIN(self), ctx->queue, ctx->v_pay, ctx->v_capsfilter, nullptr);
+
+        // queue -> pay -> caps -> webrtcbin
+        if (!gst_element_link_many(ctx->queue, ctx->v_pay, ctx->v_capsfilter, nullptr)) {
+            throw std::runtime_error("Can't link video queue->payload->capsfilert");
+        }
+
+        ctx->webrtc_sink_pad = gst_element_request_pad_simple(ctx->webrtcbin, "sink_%u");
+        if (!ctx->webrtc_sink_pad) {
+            throw std::runtime_error("Failed to request webrtc video sink pad");
+        }
+
+        auto v_pay_src = gst_element_get_static_pad(ctx->v_capsfilter, "src");
+        if (!v_pay_src) {
+            throw std::runtime_error("Can't get pad from video capsfilter");
+        }
+
+        if (gst_pad_link(v_pay_src, ctx->webrtc_sink_pad) != GST_PAD_LINK_OK) {
+            gst_object_unref(v_pay_src);
+            throw std::runtime_error("Can't link rtpv8pay to webrtc");
+        };
+        gst_object_unref(v_pay_src);
+
+        // sync state
+        if (!gst_element_sync_state_with_parent(ctx->queue) ||
+            !gst_element_sync_state_with_parent(ctx->v_pay) ||
+            !gst_element_sync_state_with_parent(ctx->v_capsfilter) ||
+            !gst_element_sync_state_with_parent(ctx->webrtcbin)) {
+            throw std::runtime_error("Cannot sync video elements");
+        }
+
+        DBG("Video branch attached (VP8 PT={})", ctx->pt_video_vp8);
+
+        return true;
+    } catch (const std::exception &err) {
+        DBG("attach_video() failed: {}", err.what());
+
+        FREE_PAD(ctx->webrtc_sink_pad, ctx->webrtcbin);
+        REMOVE_AND_FREE_ELEMENT(ctx->v_capsfilter);
+        REMOVE_AND_FREE_ELEMENT(ctx->v_pay);
+        REMOVE_AND_FREE_ELEMENT(ctx->queue);
+
+        return false;
     }
 }
 
-static void send_ice_candidate_message(SessionContext *ctx, guint mlineindex, gchar *candidate) {
-    std::cout << "Sending ICE candidate: mlineindex=" << mlineindex << ", candidate=" << candidate
-              << std::endl;
-    json msg;
-    msg["type"] = "candidate";
-    msg["ice"] = {{"candidate", candidate}, {"sdpMLineIndex", mlineindex}};
+gboolean WebRtcWebSocket::set_audio_pt(SessionContext *ctx) {
 
-    send_text(ctx, msg.dump());
+    DBG("SET AUDIO PT: {}", ctx->pt_audio_opus);
 
-    std::cout << "ICE candidate sent" << std::endl;
+    auto caps_str =
+        std::format("application/x-rtp,media=audio,encoding-name=OPUS,clock-rate=48000,payload={}",
+                    ctx->pt_audio_opus);
+    auto acaps = gst_caps_from_string(caps_str.c_str());
+    g_object_set(ctx->a_capsfilter, "caps", acaps, nullptr);
+    gst_caps_unref(acaps);
+
+    // Set pt to what the browser offered (Firefox often uses 109, Chrome often 111)
+    g_object_set(ctx->a_pay, "pt", ctx->pt_audio_opus, nullptr);
+
+    return G_SOURCE_REMOVE;
 }
 
-static void
-on_ice_candidate(GstElement *webrtc, guint mlineindex, gchar *candidate, gpointer user_data) {
-    if (!candidate || candidate[0] == '\0') {
-        std::cout << "ICE end-of-candidates for mline " << mlineindex << " (not sending)\n";
-        return;
+bool WebRtcWebSocket::attach_audio(SessionContext *ctx) {
+
+    auto self = ctx->self;
+
+    try {
+        if (!self->atee || !GST_IS_ELEMENT(self->atee)) {
+            throw std::runtime_error("Audio tee not present; cannot attach audio");
+        }
+
+        ctx->audio_queue = gst_element_factory_make("queue", nullptr);
+        ctx->a_pay = gst_element_factory_make("rtpopuspay", nullptr);
+        ctx->a_capsfilter = gst_element_factory_make("capsfilter", nullptr);
+
+        if (!ctx->audio_queue || !ctx->a_pay || !ctx->a_capsfilter) {
+            throw std::runtime_error("Failed to create audio elements");
+        }
+
+        set_audio_pt(ctx);
+
+        g_object_set(ctx->audio_queue,
+                     "leaky",
+                     2,
+                     "max-size-buffers",
+                     10,
+                     "max-size-time",
+                     0,
+                     "max-size-bytes",
+                     0,
+                     nullptr);
+
+        // Add to the parent bin (AmpSink bin)
+        gst_bin_add_many(GST_BIN(self), ctx->audio_queue, ctx->a_pay, ctx->a_capsfilter, nullptr);
+
+        // audio_queue -> pay -> caps
+        if (!gst_element_link_many(ctx->audio_queue, ctx->a_pay, ctx->a_capsfilter, nullptr)) {
+            throw std::runtime_error("Failed to link audio_queue -> pay -> caps");
+        }
+
+        // Link capsfilter -> webrtcbin request sink pad
+        ctx->audio_webrtc_sink_pad = gst_element_request_pad_simple(ctx->webrtcbin, "sink_%u");
+        if (!ctx->audio_webrtc_sink_pad) {
+            throw std::runtime_error("Failed to request webrtc audio sink pad");
+        }
+
+        auto a_pay_src = gst_element_get_static_pad(ctx->a_capsfilter, "src");
+        if (!a_pay_src) {
+            throw std::runtime_error("Can't get pad from audio capsfilter");
+        }
+
+        if (gst_pad_link(a_pay_src, ctx->audio_webrtc_sink_pad) != GST_PAD_LINK_OK) {
+            gst_object_unref(a_pay_src);
+            throw std::runtime_error("Can't link rtpopuspay to webrtc");
+        };
+        gst_object_unref(a_pay_src);
+
+        // Sync state
+        if (!gst_element_sync_state_with_parent(ctx->audio_queue) ||
+            !gst_element_sync_state_with_parent(ctx->a_pay) ||
+            !gst_element_sync_state_with_parent(ctx->a_capsfilter)) {
+            throw std::runtime_error("Failed to sync audio elements");
+        }
+
+        DBG("Audio branch attached (Opus PT={})", ctx->pt_audio_opus);
+
+        return true;
+    } catch (const std::exception &err) {
+        DBG("attach_audio() failed: {}", err.what());
+
+        FREE_PAD(ctx->audio_webrtc_sink_pad, ctx->webrtcbin);
+        REMOVE_AND_FREE_ELEMENT(ctx->a_capsfilter);
+        REMOVE_AND_FREE_ELEMENT(ctx->a_pay);
+        REMOVE_AND_FREE_ELEMENT(ctx->audio_queue);
+
+        return false;
     }
-
-    std::cout << "ICE candidate generated: mlineindex=" << mlineindex << ", candidate=" << candidate
-              << std::endl;
-
-    SessionContext *ctx = static_cast<SessionContext *>(user_data);
-    send_ice_candidate_message(ctx, mlineindex, candidate);
 }
 
 void WebRtcWebSocket::on_open(connection_hdl hdl) {
-    std::cout << "WebSocket connection opened" << std::endl;
+
+    DBG("WebSocket connection opened");
 
     auto ctx = std::make_shared<SessionContext>();
+    ctx->self = self_;
     ctx->ws = ws;
     ctx->hdl = hdl;
 
     // ---- Per-client elements ----
-    ctx->queue = gst_element_factory_make("queue", nullptr);
     ctx->webrtcbin = gst_element_factory_make("webrtcbin", nullptr);
-    ctx->v_capsfilter = gst_element_factory_make("capsfilter", nullptr);
-
-    if (!ctx->queue || !ctx->webrtcbin || !ctx->v_capsfilter) {
-        std::cerr << "Failed to create per-client elements (queue/webrtcbin/v_capsfilter)\n";
-        if (ctx->queue)
-            gst_object_unref(ctx->queue);
-        if (ctx->webrtcbin)
-            gst_object_unref(ctx->webrtcbin);
-        if (ctx->v_capsfilter)
-            gst_object_unref(ctx->v_capsfilter);
+    if (!ctx->webrtcbin) {
+        DBG("Failed to create per-client webrtcbin");
         return;
     }
 
@@ -125,328 +429,315 @@ void WebRtcWebSocket::on_open(connection_hdl hdl) {
                  FALSE,
                  nullptr);
 
-    // Force video RTP caps so webrtcbin can route to the correct m-line/transceiver.
-    // TODO@ibori: does not work when Firefox is used
-    {
-        GstCaps *vcaps = gst_caps_from_string(
-            "application/x-rtp,media=video,encoding-name=VP8,clock-rate=90000,payload=96");
-        g_object_set(ctx->v_capsfilter, "caps", vcaps, NULL);
-        gst_caps_unref(vcaps);
-    }
-
-    // Add to ampsink bin
-    gst_bin_add_many(GST_BIN(self_), ctx->queue, ctx->v_capsfilter, ctx->webrtcbin, nullptr);
-
-    // ---- VIDEO: tee -> queue ----
-    ctx->tee_src_pad = gst_element_request_pad_simple(self_->tee, "src_%u");
-    if (!ctx->tee_src_pad) {
-        std::cerr << "Failed to request video src pad from tee\n";
-        gst_bin_remove_many(GST_BIN(self_), ctx->queue, ctx->v_capsfilter, ctx->webrtcbin, nullptr);
-        return;
-    }
-
-    GstPad *queue_sink_pad = gst_element_get_static_pad(ctx->queue, "sink");
-    if (!queue_sink_pad) {
-        std::cerr << "Failed to get sink pad of client video queue\n";
-        gst_element_release_request_pad(self_->tee, ctx->tee_src_pad);
-        gst_object_unref(ctx->tee_src_pad);
-        ctx->tee_src_pad = nullptr;
-
-        gst_bin_remove_many(GST_BIN(self_), ctx->queue, ctx->v_capsfilter, ctx->webrtcbin, nullptr);
-        return;
-    }
-
-    if (gst_pad_link(ctx->tee_src_pad, queue_sink_pad) != GST_PAD_LINK_OK) {
-        std::cerr << "Failed to link tee -> client video queue\n";
-        gst_object_unref(queue_sink_pad);
-
-        gst_element_release_request_pad(self_->tee, ctx->tee_src_pad);
-        gst_object_unref(ctx->tee_src_pad);
-        ctx->tee_src_pad = nullptr;
-
-        gst_bin_remove_many(GST_BIN(self_), ctx->queue, ctx->v_capsfilter, ctx->webrtcbin, nullptr);
-        return;
-    }
-    gst_object_unref(queue_sink_pad);
-
-    // ---- VIDEO: queue -> capsfilter -> webrtcbin ----
-    if (!gst_element_link_many(ctx->queue, ctx->v_capsfilter, ctx->webrtcbin, nullptr)) {
-        std::cerr << "Failed to link queue -> v_capsfilter -> webrtcbin\n";
-
-        // Undo tee -> queue
-        GstPad *qs = gst_element_get_static_pad(ctx->queue, "sink");
-        if (qs) {
-            gst_pad_unlink(ctx->tee_src_pad, qs);
-            gst_object_unref(qs);
-        }
-        gst_element_release_request_pad(self_->tee, ctx->tee_src_pad);
-        gst_object_unref(ctx->tee_src_pad);
-        ctx->tee_src_pad = nullptr;
-
-        gst_bin_remove_many(GST_BIN(self_), ctx->queue, ctx->v_capsfilter, ctx->webrtcbin, nullptr);
-        return;
-    }
-
-    // Sync to parent state
-    gst_element_sync_state_with_parent(ctx->queue);
-    gst_element_sync_state_with_parent(ctx->v_capsfilter);
-    gst_element_sync_state_with_parent(ctx->webrtcbin);
-
     // WebRTC callbacks (per client webrtcbin!)
     g_signal_connect(
         ctx->webrtcbin, "on-negotiation-needed", G_CALLBACK(on_negotiation_needed), ctx.get());
     g_signal_connect(ctx->webrtcbin, "on-ice-candidate", G_CALLBACK(on_ice_candidate), ctx.get());
 
-    // Store session early
-    {
-        std::lock_guard<std::mutex> g(webrtc_session_mutex);
-        webrtc_sessions[hdl] = ctx;
-    }
+    // Add to ampsink bin
+    gst_bin_add_many(GST_BIN(self_), ctx->webrtcbin, nullptr);
 
-    // ========================= OPTIONAL AUDIO =========================
-    if (!self_->atee || !GST_IS_ELEMENT(self_->atee)) {
-        std::cout << "Audio tee not present; continuing video-only\n";
-        return;
-    }
+    attach_video(ctx.get());
+    attach_audio(ctx.get());
 
-    ctx->audio_queue = gst_element_factory_make("queue", nullptr);
-    ctx->a_capsfilter = gst_element_factory_make("capsfilter", nullptr);
+    dump_sink_pads(ctx->webrtcbin);
 
-    if (!ctx->audio_queue || !ctx->a_capsfilter) {
-        std::cerr << "Failed to create audio_queue/a_capsfilter; continuing video-only\n";
-        if (ctx->audio_queue)
-            gst_object_unref(ctx->audio_queue);
-        if (ctx->a_capsfilter)
-            gst_object_unref(ctx->a_capsfilter);
-        ctx->audio_queue = nullptr;
-        ctx->a_capsfilter = nullptr;
-        return;
-    }
-
-    // TODO@ibori: bad when firefox is used
-    {
-        GstCaps *acaps = gst_caps_from_string(
-            "application/x-rtp,media=audio,encoding-name=OPUS,clock-rate=48000,payload=111");
-        g_object_set(ctx->a_capsfilter, "caps", acaps, NULL);
-        gst_caps_unref(acaps);
-    }
-
-    gst_bin_add_many(GST_BIN(self_), ctx->audio_queue, ctx->a_capsfilter, nullptr);
-    gst_element_sync_state_with_parent(ctx->audio_queue);
-    gst_element_sync_state_with_parent(ctx->a_capsfilter);
-
-    // atee -> audio_queue
-    ctx->audio_tee_src_pad = gst_element_request_pad_simple(self_->atee, "src_%u");
-    if (!ctx->audio_tee_src_pad) {
-        std::cerr << "Failed to request audio src pad from atee; continuing video-only\n";
-        gst_bin_remove_many(GST_BIN(self_), ctx->audio_queue, ctx->a_capsfilter, nullptr);
-        ctx->audio_queue = nullptr;
-        ctx->a_capsfilter = nullptr;
-        return;
-    }
-
-    GstPad *aq_sink = gst_element_get_static_pad(ctx->audio_queue, "sink");
-    if (!aq_sink || gst_pad_link(ctx->audio_tee_src_pad, aq_sink) != GST_PAD_LINK_OK) {
-        std::cerr << "Failed to link atee -> audio_queue; continuing video-only\n";
-        if (aq_sink)
-            gst_object_unref(aq_sink);
-
-        gst_element_release_request_pad(self_->atee, ctx->audio_tee_src_pad);
-        gst_object_unref(ctx->audio_tee_src_pad);
-        ctx->audio_tee_src_pad = nullptr;
-
-        gst_bin_remove_many(GST_BIN(self_), ctx->audio_queue, ctx->a_capsfilter, nullptr);
-        ctx->audio_queue = nullptr;
-        ctx->a_capsfilter = nullptr;
-        return;
-    }
-    gst_object_unref(aq_sink);
-
-    // audio_queue -> capsfilter -> webrtcbin
-    if (!gst_element_link_many(ctx->audio_queue, ctx->a_capsfilter, ctx->webrtcbin, nullptr)) {
-        std::cerr
-            << "Failed to link audio_queue -> a_capsfilter -> webrtcbin; continuing video-only\n";
-
-        // undo atee -> audio_queue
-        GstPad *aqs = gst_element_get_static_pad(ctx->audio_queue, "sink");
-        if (aqs) {
-            gst_pad_unlink(ctx->audio_tee_src_pad, aqs);
-            gst_object_unref(aqs);
-        }
-        gst_element_release_request_pad(self_->atee, ctx->audio_tee_src_pad);
-        gst_object_unref(ctx->audio_tee_src_pad);
-        ctx->audio_tee_src_pad = nullptr;
-
-        gst_bin_remove_many(GST_BIN(self_), ctx->audio_queue, ctx->a_capsfilter, nullptr);
-        ctx->audio_queue = nullptr;
-        ctx->a_capsfilter = nullptr;
-        return;
-    }
-
-    gst_element_sync_state_with_parent(ctx->audio_queue);
-    gst_element_sync_state_with_parent(ctx->a_capsfilter);
-
-    std::cout << "Audio branch attached for this client\n";
+    std::lock_guard<std::mutex> g(webrtc_session_mutex);
+    webrtc_sessions[hdl] = ctx;
 }
 
 void WebRtcWebSocket::on_close(connection_hdl hdl) {
-    std::cout << "WebSocket connection closed" << std::endl;
+    DBG("WebSocket connection closed");
 
-    std::lock_guard<std::mutex> mutex_guard(webrtc_session_mutex);
-    auto &sessions = webrtc_sessions;
+    std::shared_ptr<SessionContext> ctx = nullptr;
+    {
+        std::lock_guard<std::mutex> mutex_guard(webrtc_session_mutex);
+        auto &sessions = webrtc_sessions;
 
-    auto it = sessions.find(hdl);
-    if (it == sessions.end()) {
+        auto it = sessions.find(hdl);
+        if (it == sessions.end()) {
+            return;
+        }
+
+        ctx = it->second;
+
+        // Forget the session
+        sessions.erase(it);
+    }
+
+    if (ctx) {
+        dump_sink_pads(ctx->webrtcbin);
+        dump_pipeline_graph(GST_ELEMENT(ctx->self), "pipeline_on_close");
+    }
+}
+
+/*
+ * IMPORTANT:
+ * Do NOT connect tee → (per-client elements) before payload types are set from the offer.
+ * webrtcbin snapshots RTP properties on first buffer.
+ */
+// this method links the per-client (both the audio and video) elements to the main graph
+void WebRtcWebSocket::link_per_client_elemets(SessionContext *ctx) {
+
+    GstPad *q_sink = nullptr;
+    GstPad *aq_sink = nullptr;
+    try {
+        // create the tee source pad
+        ctx->tee_src_pad = gst_element_request_pad_simple(ctx->self->tee, "src_%u");
+        if (!ctx->tee_src_pad) {
+            DBG("Failed to request video src pad from tee");
+            gst_bin_remove_many(GST_BIN(ctx->self), ctx->queue, ctx->webrtcbin, nullptr);
+            return;
+        }
+
+        q_sink = gst_element_get_static_pad(ctx->queue, "sink");
+        if (!ctx->tee_src_pad || !q_sink ||
+            gst_pad_link(ctx->tee_src_pad, q_sink) != GST_PAD_LINK_OK) {
+            throw std::runtime_error("Failed to link queue to video tee");
+        }
+        gst_object_unref(q_sink);
+        q_sink = nullptr;
+
+        // atee -> audio_queue (pad link)
+        ctx->audio_tee_src_pad = gst_element_request_pad_simple(ctx->self->atee, "src_%u");
+        if (!ctx->audio_tee_src_pad) {
+            throw std::runtime_error("Failed to request audio src pad from atee");
+        }
+
+        aq_sink = gst_element_get_static_pad(ctx->audio_queue, "sink");
+        if (!aq_sink || gst_pad_link(ctx->audio_tee_src_pad, aq_sink) != GST_PAD_LINK_OK) {
+            throw std::runtime_error("Failed to link atee -> audio_queue");
+        }
+        gst_object_unref(aq_sink);
+
+    } catch (const std::exception &e) {
+        DBG("link_per_client_elemets failed: {}", e.what());
+
+        if (q_sink)
+            gst_object_unref(q_sink);
+        if (aq_sink)
+            gst_object_unref(aq_sink);
+        FREE_PAD(ctx->tee_src_pad, self_->tee);
+        FREE_PAD(ctx->audio_tee_src_pad, self_->atee);
+    }
+}
+
+void WebRtcWebSocket::process_offer(std::shared_ptr<SessionContext> ctx, const json &jsn) {
+
+    auto sdp = jsn["sdp"].get<std::string>();
+    GstSDPMessage *sdp_message = nullptr;
+    if (gst_sdp_message_new_from_text(sdp.c_str(), &sdp_message) != GST_SDP_OK) {
+        DBG("Failed to parse SDP offer");
         return;
     }
 
-    auto ctx = it->second;
+    ctx->pt_video_vp8 = find_pt_for_codec(sdp_message, "video", "VP8");
+    ctx->pt_audio_opus = find_pt_for_codec(sdp_message, "audio", "opus");
 
-    // 1) Stop per-client elements
-    if (ctx->webrtcbin)
-        gst_element_set_state(ctx->webrtcbin, GST_STATE_NULL);
-    if (ctx->queue)
-        gst_element_set_state(ctx->queue, GST_STATE_NULL);
-    if (ctx->audio_queue)
-        gst_element_set_state(ctx->audio_queue, GST_STATE_NULL);
+    set_video_pt(ctx.get());
+    set_audio_pt(ctx.get());
 
-    // 2) Unlink VIDEO tee -> client queue and release the tee src pad
-    if (ctx->tee_src_pad) {
-        GstPad *queue_sink = ctx->queue ? gst_element_get_static_pad(ctx->queue, "sink") : nullptr;
-        if (queue_sink) {
-            gst_pad_unlink(ctx->tee_src_pad, queue_sink);
-            gst_object_unref(queue_sink);
-        }
+    link_per_client_elemets(ctx.get());
 
-        gst_element_release_request_pad(self_->tee, ctx->tee_src_pad);
-        gst_object_unref(ctx->tee_src_pad);
-        ctx->tee_src_pad = nullptr;
-    }
+    gst_element_sync_state_with_parent(ctx->webrtcbin);
 
-    // 2b) Unlink AUDIO tee -> audio_queue and release the audio tee src pad
-    if (ctx->audio_tee_src_pad) {
-        GstPad *aq_sink =
-            ctx->audio_queue ? gst_element_get_static_pad(ctx->audio_queue, "sink") : nullptr;
-        if (aq_sink) {
-            gst_pad_unlink(ctx->audio_tee_src_pad, aq_sink);
-            gst_object_unref(aq_sink);
-        }
+    DBG("Offer PTs: VP8={}, opus={}", ctx->pt_video_vp8, ctx->pt_audio_opus);
 
-        // Only if we have an audio tee in the bin
-        if (self_->atee) {
-            gst_element_release_request_pad(self_->atee, ctx->audio_tee_src_pad);
-        }
-        gst_object_unref(ctx->audio_tee_src_pad);
-        ctx->audio_tee_src_pad = nullptr;
-    }
+    auto offer = gst_webrtc_session_description_new(GST_WEBRTC_SDP_TYPE_OFFER, sdp_message);
+    auto promise = gst_promise_new_with_change_func(on_set_remote_description, ctx.get(), nullptr);
 
-    // 3) Release VIDEO webrtcbin sink_%u pad
-    if (ctx->webrtc_sink_pad && ctx->webrtcbin) {
-        gst_element_release_request_pad(ctx->webrtcbin, ctx->webrtc_sink_pad);
-        gst_object_unref(ctx->webrtc_sink_pad);
-        ctx->webrtc_sink_pad = nullptr;
-    }
+    g_signal_emit_by_name(ctx->webrtcbin, "set-remote-description", offer, promise);
+    gst_webrtc_session_description_free(offer);
 
-    // 3b) Release AUDIO webrtcbin sink_%u pad
-    if (ctx->audio_webrtc_sink_pad && ctx->webrtcbin) {
-        gst_element_release_request_pad(ctx->webrtcbin, ctx->audio_webrtc_sink_pad);
-        gst_object_unref(ctx->audio_webrtc_sink_pad);
-        ctx->audio_webrtc_sink_pad = nullptr;
-    }
-
-    // 4) Remove per-client elements from the bin (include audio_queue)
-    if (ctx->audio_queue || ctx->queue || ctx->webrtcbin) {
-        // Note: gst_bin_remove_many tolerates NULLs poorly in some builds;
-        gst_bin_remove_many(GST_BIN(self_), ctx->audio_queue, ctx->queue, ctx->webrtcbin, nullptr);
-    }
-
-    ctx->audio_queue = nullptr;
-    ctx->queue = nullptr;
-    ctx->webrtcbin = nullptr;
-
-    // 5) Forget the session
-    sessions.erase(it);
-}
-static void on_answer_created(GstPromise *promise, gpointer user_data) {
-    std::cout << "Answer created" << std::endl;
-
-    SessionContext *ctx = static_cast<SessionContext *>(user_data);
-
-    GstWebRTCSessionDescription *answer = NULL;
-    const GstStructure *reply = gst_promise_get_reply(promise);
-    gst_structure_get(reply, "answer", GST_TYPE_WEBRTC_SESSION_DESCRIPTION, &answer, NULL);
-
-    GstPromise *local_promise = gst_promise_new();
-    g_signal_emit_by_name(ctx->webrtcbin, "set-local-description", answer, local_promise);
-
-    json sdp_json;
-    sdp_json["type"] = "answer";
-    sdp_json["sdp"] = gst_sdp_message_as_text(answer->sdp);
-    send_text(ctx, sdp_json.dump());
-
-    std::cout << "Local description set and answer sent: " << sdp_json.dump() << std::endl;
-
-    gst_webrtc_session_description_free(answer);
+    DBG("Setting remote description");
 }
 
-static void on_set_remote_description(GstPromise *promise, gpointer user_data) {
-    std::cout << "Remote description set, creating answer" << std::endl;
+void WebRtcWebSocket::process_canditate(std::shared_ptr<SessionContext> ctx, const json &jsn) {
+    DBG("Received ICE candidate");
 
-    SessionContext *ctx = static_cast<SessionContext *>(user_data);
-    GstPromise *answer_promise = gst_promise_new_with_change_func(on_answer_created, ctx, NULL);
+    auto ice = jsn["ice"];
+    auto candidate = ice["candidate"].get<std::string>();
+    auto sdpMLineIndex = static_cast<guint>(ice["sdpMLineIndex"].get<int>());
 
-    g_signal_emit_by_name(ctx->webrtcbin, "create-answer", NULL, answer_promise);
+    g_signal_emit_by_name(ctx->webrtcbin, "add-ice-candidate", sdpMLineIndex, candidate.c_str());
+
+    DBG("Added ICE candidate: candidate={} mlindex={}", candidate, sdpMLineIndex);
 }
 
 void WebRtcWebSocket::on_message(connection_hdl hdl, ws_server::message_ptr msg) {
-    std::lock_guard<std::mutex> mutex_guard(webrtc_session_mutex);
+    DBG("on_message");
 
     try {
+        std::lock_guard<std::mutex> mutex_guard(webrtc_session_mutex);
         auto it = webrtc_sessions.find(hdl);
         if (it == webrtc_sessions.end()) {
-            std::cerr << "No session context for this connection" << std::endl;
+            DBG("No session context for this connection");
             return;
         }
         auto ctx = it->second;
 
         const std::string payload = msg->get_payload();
-        json j = json::parse(payload);
+        json jsn = json::parse(payload);
 
-        std::string type = j["type"].get<std::string>();
+        auto type = jsn["type"].get<std::string>();
 
         if (type == "offer") {
-            std::cout << "Received offer: " << payload << std::endl;
-
-            std::string sdp = j["sdp"].get<std::string>();
-            GstSDPMessage *sdp_message = nullptr;
-            if (gst_sdp_message_new_from_text(sdp.c_str(), &sdp_message) != GST_SDP_OK) {
-                g_printerr("Failed to parse SDP offer\n");
-                return;
-            }
-
-            GstWebRTCSessionDescription *offer =
-                gst_webrtc_session_description_new(GST_WEBRTC_SDP_TYPE_OFFER, sdp_message);
-
-            GstPromise *promise =
-                gst_promise_new_with_change_func(on_set_remote_description, ctx.get(), NULL);
-            g_signal_emit_by_name(ctx->webrtcbin, "set-remote-description", offer, promise);
-            gst_webrtc_session_description_free(offer);
-
-            std::cout << "Setting remote description" << std::endl;
-
+            process_offer(ctx, jsn);
         } else if (type == "candidate") {
-            std::cout << "Received ICE candidate: " << payload << std::endl;
-
-            auto ice = j["ice"];
-            std::string candidate = ice["candidate"].get<std::string>();
-            guint sdpMLineIndex = static_cast<guint>(ice["sdpMLineIndex"].get<int>());
-
-            g_signal_emit_by_name(
-                ctx->webrtcbin, "add-ice-candidate", sdpMLineIndex, candidate.c_str());
-
-            std::cout << "Added ICE candidate" << std::endl;
+            process_canditate(ctx, jsn);
         }
+
     } catch (const std::exception &e) {
-        std::cerr << "on_message exception: " << e.what() << std::endl;
+        DBG("on_message exception: {}", e.what());
     }
+}
+
+static bool iequals_prefix(const std::string &s, const std::string &p) {
+    if (s.size() < p.size())
+        return false;
+    for (size_t i = 0; i < p.size(); ++i) {
+        if (std::tolower((unsigned char)s[i]) != std::tolower((unsigned char)p[i]))
+            return false;
+    }
+    return true;
+}
+
+// Returns -1 if not found
+int WebRtcWebSocket::find_pt_for_codec(const GstSDPMessage *msg,
+                                       const char *media_type, // "video" or "audio"
+                                       const char *codec_name) // "VP8" or "opus"
+{
+    const auto n_media = gst_sdp_message_medias_len(msg);
+    for (guint mi = 0; mi < n_media; ++mi) {
+        const auto m = gst_sdp_message_get_media(msg, mi);
+        if (!m)
+            continue;
+
+        const auto mt = gst_sdp_media_get_media(m); // "audio"/"video"
+        if (!mt || g_strcmp0(mt, media_type) != 0)
+            continue;
+
+        const auto n_attr = gst_sdp_media_attributes_len(m);
+        for (guint ai = 0; ai < n_attr; ++ai) {
+            const auto a = gst_sdp_media_get_attribute(m, ai);
+            if (!a || !a->key || !a->value)
+                continue;
+
+            // In GStreamer, rtpmap appears as key="rtpmap" value="<pt> <codec>/<clock>[/ch]"
+            if (g_strcmp0(a->key, "rtpmap") != 0)
+                continue;
+
+            auto v = std::string(a->value); // e.g. "120 VP8/90000" or "109 opus/48000/2"
+
+            // Split: "<pt> <rest>"
+            const auto sp = v.find(' ');
+            if (sp == std::string::npos)
+                continue;
+
+            const auto pt_str = v.substr(0, sp);
+            const auto rest = v.substr(sp + 1);
+
+            // Compare codec prefix case-insensitively: "VP8/..." or "opus/..."
+            auto want = std::string(codec_name);
+            want.push_back('/');
+
+            if (!iequals_prefix(rest, want))
+                continue;
+
+            try {
+                return std::stoi(pt_str);
+            } catch (...) {
+                continue;
+            }
+        }
+    }
+    return -1;
+}
+
+//
+// Pure C functions - GstWebRTC callbacks
+//
+static void on_negotiation_needed(GstElement *webrtc, gpointer user_data) {
+    DBG("Negotiation needed");
+}
+
+static void send_text(SessionContext *ctx, const std::string &text) {
+    try {
+        ctx->ws->send(ctx->hdl, text, websocketpp::frame::opcode::text);
+    } catch (const websocketpp::exception &e) {
+        DBG("WebSocket send error: {}", e.what());
+    }
+}
+
+static void
+send_ice_candidate_message(SessionContext *ctx, guint mlineindex, const gchar *candidate) {
+    DBG("Sending ICE candidate: mlineindex={}, candidate={}", mlineindex, candidate);
+
+    json msg;
+    msg["type"] = "candidate";
+    msg["ice"] = {{"candidate", candidate}, {"sdpMLineIndex", mlineindex}};
+
+    send_text(ctx, msg.dump());
+
+    DBG("ICE candidate sent");
+}
+
+static void
+on_ice_candidate(GstElement *webrtc, guint mlineindex, gchar *candidate, gpointer user_data) {
+    DBG("on_ice_candidate");
+
+    auto ctx = static_cast<SessionContext *>(user_data);
+
+    if (!candidate || candidate[0] == '\0') {
+        DBG("ICE end-of-candidates for mline {} (not sending)", mlineindex);
+        send_ice_candidate_message(ctx, mlineindex, "");
+        return;
+    }
+
+    DBG("ICE candidate generated: mlineindex={} candidate={}", mlineindex, candidate);
+
+    send_ice_candidate_message(ctx, mlineindex, candidate);
+}
+
+static void on_answer_created(GstPromise *promise, gpointer user_data) {
+    DBG("on_answer_created");
+
+    auto *ctx = static_cast<SessionContext *>(user_data);
+
+    GstWebRTCSessionDescription *answer = nullptr;
+    const GstStructure *reply = gst_promise_get_reply(promise);
+    if (!reply ||
+        !gst_structure_get(
+            reply, "answer", GST_TYPE_WEBRTC_SESSION_DESCRIPTION, &answer, nullptr) ||
+        !answer) {
+        DBG("No answer in promise reply");
+        gst_promise_unref(promise);
+        return;
+    }
+
+    auto local_promise = gst_promise_new();
+    g_signal_emit_by_name(ctx->webrtcbin, "set-local-description", answer, local_promise);
+    gst_promise_unref(local_promise);
+
+    json sdp_json;
+    auto sdp_text = gst_sdp_message_as_text(answer->sdp);
+    sdp_json["type"] = "answer";
+    sdp_json["sdp"] = sdp_text ? sdp_text : "";
+    send_text(ctx, sdp_json.dump());
+    g_free(sdp_text);
+
+    gst_webrtc_session_description_free(answer);
+    gst_promise_unref(promise);
+}
+
+static void on_set_remote_description(GstPromise *promise, gpointer user_data) {
+    DBG("on_set_remote_description");
+
+    auto ctx = static_cast<SessionContext *>(user_data);
+
+    auto answer_promise = gst_promise_new_with_change_func(on_answer_created, ctx, nullptr);
+
+    g_signal_emit_by_name(ctx->webrtcbin, "create-answer", nullptr, answer_promise);
+
+    gst_promise_unref(promise);
 }

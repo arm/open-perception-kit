@@ -76,9 +76,10 @@ audio() {
   export GST_PLUGIN_PATH="$BUILD_DIR/meson-out"
   msg "GST_PLUGIN_PATH=$GST_PLUGIN_PATH"
 
+  export GST_DEBUG_DUMP_DOT_DIR=/work/graphs/
+  rm -rf /work/graphs/*.dot
+
   msg "Running test pipeline.."
-
-
 
 # external audio
 gst-launch-1.0 \

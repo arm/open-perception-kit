@@ -16,7 +16,7 @@ debug() {
 
   if [[ ! -d "$BUILD_DIR" ]]; then
     msg "Meson setup.."
-    meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat
+    meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat -Ddebug=true
   else
     msg "Meson configure (keeping existing build dir)…"
     meson configure "$BUILD_DIR" >/dev/null

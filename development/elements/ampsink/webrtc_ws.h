@@ -9,10 +9,17 @@
 #define ASIO_STANDALONE
 #include <asio.hpp>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtemplate-id-cdtor"
+
 #include <websocketpp/common/connection_hdl.hpp>
 #include <websocketpp/config/asio.hpp>
 #include <websocketpp/frame.hpp>
 #include <websocketpp/server.hpp>
+
+#pragma GCC diagnostic pop
+
+#include <nlohmann/json.hpp>
 
 #define STUN_SERVER "stun://stun.l.google.com:19302"
 
@@ -25,27 +32,9 @@ struct _GstAmpSink;
 using ws_server = websocketpp::server<websocketpp::config::asio>;
 using connection_hdl = websocketpp::connection_hdl;
 
-struct SessionContext {
-
-    connection_hdl hdl;
-
-    // aliases to make ws_server reachable from session negotiation functions
-    std::shared_ptr<ws_server> ws;
-
-    // Per-client GStreamer branch
-    GstElement *webrtcbin = nullptr;
-    GstElement *queue = nullptr; // between tee and webrtcbin
-
-    GstPad *tee_src_pad = nullptr;     // requested from tee
-    GstPad *webrtc_sink_pad = nullptr; // requested from webrtcbin ("sink_%u")
-
-    GstElement *audio_queue = nullptr;
-    GstPad *audio_tee_src_pad = nullptr;
-    GstPad *audio_webrtc_sink_pad = nullptr;
-
-    GstElement *a_capsfilter = nullptr;
-    GstElement *v_capsfilter = nullptr;
-};
+// forwards
+class WebRtcWebSocket;
+struct SessionContext;
 
 class WebRtcWebSocket {
 
@@ -60,6 +49,21 @@ class WebRtcWebSocket {
 
     std::mutex webrtc_session_mutex;
     WebRtcSessions webrtc_sessions;
+
+    int find_pt_for_codec(const GstSDPMessage *msg,
+                          const char *media_type,  // "video" or "audio"
+                          const char *codec_name); // "VP8" or "opus"
+
+    gboolean set_audio_pt(SessionContext *ctx);
+    bool attach_audio(SessionContext *ctx);
+
+    void set_video_pt(SessionContext *ctx);
+    bool attach_video(SessionContext *ctx);
+
+    void link_per_client_elemets(SessionContext *ctx);
+
+    void process_offer(std::shared_ptr<SessionContext> ctx, const nlohmann::json &jsn);
+    void process_canditate(std::shared_ptr<SessionContext> ctx, const nlohmann::json &jsn);
 
     void on_open(connection_hdl hdl);
     void on_close(connection_hdl hdl);

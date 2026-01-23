@@ -3,8 +3,12 @@ g++ -fPIC -shared -o libgstampsink.so ampsink.cpp \
   $(pkg-config --cflags --libs gstreamer-1.0 gstreamer-video-1.0 gstreamer-audio-1.0)
 */
 
+// WebRTC in GST is unstable: this macro disables the warning
+#define GST_USE_UNSTABLE_API
+
 #include "ampsink.h"
 #include "http_server.h"
+#include "utils.h"
 #include "webrtc_ws.h"
 
 #include <memory>
@@ -94,6 +98,10 @@ static GstPad *gst_amp_sink_request_new_pad(GstElement *element,
     }
 
     // If already created, just return existing pad
+    // This is probaly not the best approach:
+    //      one request -> one new pad
+    //      what happens if somebody requests new pad,
+    //      and we return an already-connected-pad
     if (self->audio_ghost_pad) {
         return self->audio_ghost_pad;
     }
@@ -142,7 +150,11 @@ static GstPad *gst_amp_sink_request_new_pad(GstElement *element,
 }
 
 static void gst_amp_sink_release_pad(GstElement *element, GstPad *pad) {
+    auto *self = reinterpret_cast<GstAmpSink *>(element);
     gst_element_remove_pad(element, pad);
+    if (pad == self->audio_ghost_pad) {
+        self->audio_ghost_pad = nullptr;
+    }
 }
 
 /* ===== Event handling ===== */
@@ -194,15 +206,33 @@ static gboolean gst_amp_sink_sink_event(GstPad *pad, GstObject *parent, GstEvent
 static void gst_amp_sink_dispose(GObject *object) {
     auto *self = reinterpret_cast<GstAmpSink *>(object);
 
-    self->private_data->http_server->stop();
-    self->private_data->webrtc_websocket->stop();
+    if (self->private_data) {
+        self->private_data->http_server->stop();
+        self->private_data->webrtc_websocket->stop();
+    }
 
+    G_OBJECT_CLASS(gst_amp_sink_parent_class)->dispose(object);
+}
+
+static void gst_amp_sink_finalize(GObject *object) {
+    auto *self = reinterpret_cast<GstAmpSink *>(object);
+
+    // Release request pads (selector + tees)
+    release_request_pad_and_unref(self->aselector, &self->aselector_silence_pad);
+    release_request_pad_and_unref(self->aselector, &self->aselector_real_pad);
+
+    release_request_pad_and_unref(self->tee, &self->drain_tee_src_pad);
+    release_request_pad_and_unref(self->atee, &self->audio_drain_tee_src_pad);
+
+    // Free properties
     g_clear_pointer(&self->host, g_free);
     g_clear_pointer(&self->static_files_location, g_free);
 
+    // Free private data
     delete self->private_data;
+    self->private_data = nullptr;
 
-    G_OBJECT_CLASS(gst_amp_sink_parent_class)->dispose(object);
+    G_OBJECT_CLASS(gst_amp_sink_parent_class)->finalize(object);
 }
 
 static void init_video(GstAmpSink *self) {
@@ -210,19 +240,16 @@ static void init_video(GstAmpSink *self) {
     self->vconv = gst_element_factory_make("videoconvert", "vconv");
     self->queue = gst_element_factory_make("queue", "vqueue");
     self->vp8enc = gst_element_factory_make("vp8enc", "vp8enc");
-    self->rtpvp8pay = gst_element_factory_make("rtpvp8pay", "rtpvp8pay");
     self->tee = gst_element_factory_make("tee", "rtp_tee");
 
-    g_return_if_fail(self->vconv && self->queue && self->vp8enc && self->rtpvp8pay && self->tee);
+    g_return_if_fail(self->vconv && self->queue && self->vp8enc && self->tee);
 
     g_object_set(self->vp8enc, "deadline", 1, NULL);
     g_object_set(self->vp8enc, "keyframe-max-dist", 30, NULL); // keyframe every ~1s at 30fps
 
-    gst_bin_add_many(
-        GST_BIN(self), self->vconv, self->queue, self->vp8enc, self->rtpvp8pay, self->tee, NULL);
+    gst_bin_add_many(GST_BIN(self), self->vconv, self->queue, self->vp8enc, self->tee, NULL);
 
-    if (!gst_element_link_many(
-            self->vconv, self->queue, self->vp8enc, self->rtpvp8pay, self->tee, NULL)) {
+    if (!gst_element_link_many(self->vconv, self->queue, self->vp8enc, self->tee, NULL)) {
         GST_ERROR_OBJECT(self, "Failed to link video chain");
     }
 
@@ -287,17 +314,14 @@ static void init_audio(GstAmpSink *self) {
     self->aconv = gst_element_factory_make("audioconvert", "aconv");
     self->aresample = gst_element_factory_make("audioresample", "aresample");
     self->opusenc = gst_element_factory_make("opusenc", "opusenc");
-    self->rtpopuspay = gst_element_factory_make("rtpopuspay", "rtpopuspay");
     self->atee = gst_element_factory_make("tee", "audio_tee");
 
     if (!self->asilence_src || !self->aselector || !self->aconv || !self->aresample ||
-        !self->opusenc || !self->rtpopuspay || !self->atee) {
+        !self->opusenc || !self->atee || !self->ain_queue || !self->acapsfilter) {
         GST_ERROR_OBJECT(self, "Failed to create audio elements");
     }
 
     g_object_set(self->asilence_src, "wave", 4 /* silence */, "is-live", TRUE, NULL);
-
-    g_object_set(self->rtpopuspay, "pt", 111, NULL);
 
     GstCaps *audio_caps = gst_caps_new_simple("audio/x-raw",
                                               "format",
@@ -322,7 +346,6 @@ static void init_audio(GstAmpSink *self) {
                      self->aresample,
                      self->acapsfilter,
                      self->opusenc,
-                     self->rtpopuspay,
                      self->atee,
                      NULL);
 
@@ -346,16 +369,15 @@ static void init_audio(GstAmpSink *self) {
         return;
     }
 
-    // selector -> opusenc -> pay -> tee
+    // selector -> opusenc -> tee
     if (!gst_element_link_many(self->aselector,
                                self->aconv,
                                self->aresample,
                                self->acapsfilter,
                                self->opusenc,
-                               self->rtpopuspay,
                                self->atee,
                                NULL)) {
-        GST_ERROR_OBJECT(self, "Failed to link selector->opusenc->pay->tee chain");
+        GST_ERROR_OBJECT(self, "Failed to link selector->opusenc->tee chain");
     }
 
     // Drain branch so pipeline can PLAY with no clients
@@ -385,7 +407,6 @@ static void init_audio(GstAmpSink *self) {
     gst_element_sync_state_with_parent(self->aresample);
     gst_element_sync_state_with_parent(self->acapsfilter);
     gst_element_sync_state_with_parent(self->opusenc);
-    gst_element_sync_state_with_parent(self->rtpopuspay);
     gst_element_sync_state_with_parent(self->atee);
     gst_element_sync_state_with_parent(self->audio_drain_queue);
     gst_element_sync_state_with_parent(self->audio_drain_fakesink);
@@ -420,6 +441,7 @@ static void gst_amp_sink_class_init(GstAmpSinkClass *klass) {
     gobject_class->set_property = gst_amp_sink_set_property;
     gobject_class->get_property = gst_amp_sink_get_property;
     gobject_class->dispose = gst_amp_sink_dispose;
+    gobject_class->finalize = gst_amp_sink_finalize;
 
     /* C++ flags helper */
     constexpr GParamFlags kRW =
