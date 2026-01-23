@@ -8,6 +8,8 @@
 #include <string>
 
 #include "PerformanceTracer.h"
+#include "amp/DescriptorStrings.h"
+#include "gst/PerceptionContextMeta.h"
 
 #ifndef PACKAGE
 #define PACKAGE "amp-elements"
@@ -49,7 +51,7 @@ struct _GstAmpPerformance {
     gdouble fps_average;
 
     // Cached overlay surface
-    cairo_surface_t *overlay_cache;
+    std::vector<std::string> cached_lines;
     guint cache_width;
     guint cache_height;
     gboolean cache_dirty;
@@ -236,7 +238,7 @@ static void gst_amp_performance_class_init(GstAmpPerformanceClass *klass) {
         "AMP Team <amp@example.com>");
 
     // Set pad templates
-    GstCaps *caps = gst_caps_from_string("video/x-raw, format=(string){RGBA}");
+    GstCaps *caps = gst_caps_from_string("video/x-raw, format=(string){BGRA}");
     GstPadTemplate *src_template = gst_pad_template_new("src", GST_PAD_SRC, GST_PAD_ALWAYS, caps);
     GstPadTemplate *sink_template =
         gst_pad_template_new("sink", GST_PAD_SINK, GST_PAD_ALWAYS, caps);
@@ -258,7 +260,7 @@ static void gst_amp_performance_init(GstAmpPerformance *self) {
     self->last_frame_time = std::chrono::steady_clock::now();
     self->fps_average = 0.0;
     self->enabled = DEFAULT_ENABLED;
-    self->overlay_cache = nullptr;
+    self->cached_lines = std::vector<std::string>();
     self->cache_width = 0;
     self->cache_height = 0;
     self->cache_dirty = true;
@@ -268,11 +270,7 @@ static void gst_amp_performance_init(GstAmpPerformance *self) {
 static void gst_amp_performance_finalize(GObject *object) {
     GstAmpPerformance *self = GST_AMP_PERFORMANCE(object);
 
-    if (self->overlay_cache) {
-        cairo_surface_destroy(self->overlay_cache);
-        self->overlay_cache = nullptr;
-    }
-
+    self->cached_lines.clear();
     g_free(self->background_color);
     g_free(self->text_color);
 
@@ -361,7 +359,7 @@ gst_amp_performance_get_property(GObject *object, guint prop_id, GValue *value, 
 }
 
 // Helper function to render overlay to cached surface
-static void render_overlay_cache(GstAmpPerformance *self) {
+static std::vector<std::string> get_performance_data(GstAmpPerformance *self) {
     // Get global tracer (fresh each time to ensure same instance as ampinfer)
     amp::PerformanceTracer *tracer = amp::getGlobalTracer();
 
@@ -491,88 +489,7 @@ static void render_overlay_cache(GstAmpPerformance *self) {
     }
 
     lines.push_back("═══════════════════════════════════════════════");
-
-    // Create temporary surface for font measurement
-    cairo_surface_t *temp_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1, 1);
-    cairo_t *temp_cr = cairo_create(temp_surface);
-    cairo_select_font_face(temp_cr, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(temp_cr, self->font_size);
-
-    // Calculate dimensions - use sample text matching the actual format
-    // This should accommodate the longest metric names with proper column alignment
-    cairo_text_extents_t extents;
-    cairo_text_extents(temp_cr, "ultraface_postprocess  :  999.99ms  (p95:  999.99ms)", &extents);
-    double measured_width = extents.width;
-
-    // Calculate actual maximum line width from content
-    double max_content_width = measured_width;
-    for (const auto &line : lines) {
-        cairo_text_extents(temp_cr, line.c_str(), &extents);
-        if (extents.width > max_content_width) {
-            max_content_width = extents.width;
-        }
-    }
-
-    double line_height = self->font_size * 1.5;
-    double box_width = max_content_width + 40; // Extra padding for table-like appearance
-    double box_height = lines.size() * line_height + 20;
-
-    cairo_destroy(temp_cr);
-    cairo_surface_destroy(temp_surface);
-
-    // Calculate dimensions - width is stable due to fixed formatting, track max height only
-    guint cache_w = (guint)(box_width + 4);
-    guint desired_h = (guint)(box_height + 4);
-
-    // Track maximum height to prevent vertical flickering when metric count changes
-    if (desired_h > self->max_height) {
-        self->max_height = desired_h;
-    }
-    guint cache_h = self->max_height;
-
-    if (self->overlay_cache) {
-        cairo_surface_destroy(self->overlay_cache);
-    }
-
-    self->overlay_cache = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, cache_w, cache_h);
-    self->cache_width = cache_w;
-    self->cache_height = cache_h;
-
-    cairo_t *cr = cairo_create(self->overlay_cache);
-
-    // Clear with transparency
-    cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
-    cairo_paint(cr);
-    cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
-
-    // Draw semi-transparent background box (use max dimensions for stable size)
-    double display_width = cache_w - 4;
-    double display_height = cache_h - 4;
-
-    cairo_set_source_rgba(cr, bg_r, bg_g, bg_b, self->alpha);
-    cairo_rectangle(cr, 2, 2, display_width, display_height);
-    cairo_fill(cr);
-
-    // Draw border
-    cairo_set_source_rgba(cr, text_r, text_g, text_b, self->alpha);
-    cairo_set_line_width(cr, 2.0);
-    cairo_rectangle(cr, 2, 2, display_width, display_height);
-    cairo_stroke(cr);
-
-    // Draw text
-    cairo_set_source_rgb(cr, text_r, text_g, text_b);
-    cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(cr, self->font_size);
-
-    double y_pos = 22;
-    for (const auto &line : lines) {
-        cairo_move_to(cr, 12, y_pos);
-        cairo_show_text(cr, line.c_str());
-        y_pos += line_height;
-    }
-
-    cairo_destroy(cr);
-    self->cache_dirty = false;
+    return lines;
 }
 
 static GstFlowReturn gst_amp_performance_transform_frame_ip(GstVideoFilter *filter,
@@ -599,54 +516,19 @@ static GstFlowReturn gst_amp_performance_transform_frame_ip(GstVideoFilter *filt
 
     self->frame_count++;
 
-    // Update cache every N frames
     if (self->cache_dirty || (self->frame_count % self->update_interval) == 0) {
-        render_overlay_cache(self);
+        // Update cache every N frames
+        self->cached_lines = get_performance_data(self);
     }
 
-    // Quick exit if no cache
-    if (!self->overlay_cache) {
-        return GST_FLOW_OK;
+    // Get PerceptionContextMeta
+    if (const auto perceptionContextMeta = amp::PerceptionContextMeta::get(gst_buffer_make_writable(
+            frame->buffer))) { // NOTE: PerceptionContextMeta locks internally!
+        const auto perceptionContext = perceptionContextMeta->context();
+        if (perceptionContext) {
+            perceptionContext->perfdata = self->cached_lines;
+        }
     }
-
-    gint width = GST_VIDEO_FRAME_WIDTH(frame);
-    gint height = GST_VIDEO_FRAME_HEIGHT(frame);
-    gint stride = GST_VIDEO_FRAME_PLANE_STRIDE(frame, 0);
-    guint8 *data = (guint8 *)GST_VIDEO_FRAME_PLANE_DATA(frame, 0);
-
-    GstVideoFormat format = GST_VIDEO_FRAME_FORMAT(frame);
-    cairo_format_t cairo_format;
-
-    switch (format) {
-    case GST_VIDEO_FORMAT_BGRA:
-        cairo_format = CAIRO_FORMAT_ARGB32;
-        break;
-    case GST_VIDEO_FORMAT_RGBA:
-    case GST_VIDEO_FORMAT_RGB:
-    case GST_VIDEO_FORMAT_BGR:
-        cairo_format = CAIRO_FORMAT_RGB24;
-        break;
-    default:
-        return GST_FLOW_OK;
-    }
-
-    // Create Cairo surface for video frame
-    cairo_surface_t *surface =
-        cairo_image_surface_create_for_data(data, cairo_format, width, height, stride);
-
-    if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
-        auto ret = cairo_surface_status(surface);
-        cairo_surface_destroy(surface);
-        return GST_FLOW_ERROR;
-    }
-
-    // Fast blit: just composite the cached overlay onto the frame
-    cairo_t *cr = cairo_create(surface);
-    cairo_set_source_surface(cr, self->overlay_cache, self->x_offset, self->y_offset);
-    cairo_paint(cr);
-
-    cairo_destroy(cr);
-    cairo_surface_destroy(surface);
 
     return GST_FLOW_OK;
 }

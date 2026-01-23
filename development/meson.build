@@ -107,6 +107,7 @@ subdir('ops-onnx')
 subdir('ops-std')
 subdir('ops-hailort')
 subdir('elements/ampperformance')
+subdir('elements/amposd')
 subdir('elements/ampsink')
 
 if get_option('tests')

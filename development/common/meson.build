@@ -11,9 +11,10 @@ common = shared_library(
     'gst/Tools.cpp',
     'gst/TensorMeta.h',
     'gst/TensorMeta.cpp',
-
+    'gst/PerceptionContextMeta.h',
+    'gst/PerceptionContextMeta.cpp',
+    
     'amp/File.h',
-    'amp/Painter.h',
     'amp/String.h',
     'amp/Result.h',
     'amp/Result.cpp',
