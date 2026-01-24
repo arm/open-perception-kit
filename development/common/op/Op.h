@@ -14,6 +14,7 @@ namespace amp {
 struct Op {
     virtual ~Op() {}
     virtual Result<void> configure(const AttributeMap &attributes) = 0;
+    virtual Result<void> peek(OpChainContext &opChainContext) = 0;
     virtual Result<void> process(OpChainContext &opChainContext) = 0;
 };
 

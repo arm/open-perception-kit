@@ -16,3 +16,7 @@ amp::Result<void> PreprocessInference::configure(const amp::AttributeMap &attrib
 amp::Result<void> PreprocessInference::process(amp::OpChainContext &opCainContext) {
     return {};
 }
+
+amp::Result<void> PreprocessInference::peek(amp::OpChainContext &opCainContext) {
+    return {};
+}

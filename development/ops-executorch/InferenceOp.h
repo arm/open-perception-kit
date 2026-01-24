@@ -5,22 +5,20 @@
 #include "op/OpChainContext.h"
 
 #include "Inference.h"
-#include <memory>
 
-namespace onnx {
+namespace exct {
 
-class PreprocessAndInference : public amp::Op {
+class InferenceOp : public amp::Op {
   public:
-    PreprocessAndInference();
-    virtual ~PreprocessAndInference();
+    InferenceOp();
+    virtual ~InferenceOp();
 
     virtual amp::Result<void> configure(const amp::AttributeMap &attributes) override;
     virtual amp::Result<void> peek(amp::OpChainContext &opChainContext) override;
     virtual amp::Result<void> process(amp::OpChainContext &opChainContext) override;
 
   private:
-    std::unique_ptr<onnx::Inference> inference;
-    std::string modelFamily;
+    std::unique_ptr<exct::Inference> inference;
 };
 
-} // namespace onnx
+} // namespace exct

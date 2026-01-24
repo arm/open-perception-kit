@@ -20,6 +20,10 @@ PreprocessAndInference::PreprocessAndInference() {}
 
 PreprocessAndInference::~PreprocessAndInference() {}
 
+amp::Result<void> PreprocessAndInference::peek(amp::OpChainContext &opChainContext) {
+    return {};
+}
+
 amp::Result<void> PreprocessAndInference::configure(const amp::AttributeMap &attributes) {
 
     std::string modelDescPath;

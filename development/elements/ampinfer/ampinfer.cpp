@@ -4,7 +4,7 @@
 
 #include <fmt/core.h>
 #include <memory>
-#include <onnxruntime_cxx_api.h>
+// #include <onnxruntime_cxx_api.h>
 
 #include "amp/BitmapView.h"
 #include "amp/PerceptionContext.h"
@@ -13,7 +13,7 @@
 #include "gst/gstpad.h"
 
 #include "nlohmann/json.hpp"
-#include "onnx/Inference.h"
+// #include "onnx/Inference.h"
 
 #include "amp/AttributeMap.h"
 #include "amp/DescriptorStrings.h"
@@ -31,7 +31,7 @@
 #include <PerformanceTracer.h>
 
 struct GstAmpInferMembers {
-    std::shared_ptr<onnx::Inference> onnxInference;
+    // std::shared_ptr<onnx::Inference> onnxInference;
 
     amp::OpChain opChain;
 
@@ -106,7 +106,7 @@ static gboolean gst_ampinfer_start(GstBaseTransform *b) {
         }
 
     } else {
-        try {
+        /*try {
 
             self->m->onnxInference = std::make_shared<onnx::Inference>();
 
@@ -120,7 +120,7 @@ static gboolean gst_ampinfer_start(GstBaseTransform *b) {
             fmt::print("{}\n", err.toString());
             AMP_ABORT;
             return FALSE;
-        }
+        }*/
     }
 
     return TRUE;

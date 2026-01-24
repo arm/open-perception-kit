@@ -1,3 +1,4 @@
+#ifdef SKIP
 #include "Inference.h"
 
 #include "amp/DescriptorStrings.h"
@@ -629,3 +630,4 @@ std::string Inference::toString(const amp::Model &model) {
 
     return ret;
 }
+#endif

@@ -1,3 +1,4 @@
+#ifdef SKIP
 #pragma once
 
 #include <onnxruntime_cxx_api.h>
@@ -146,3 +147,4 @@ struct Inference {
     } api;
 };
 } // namespace onnx
+#endif

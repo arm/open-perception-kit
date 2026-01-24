@@ -1,4 +1,5 @@
 #include "Tools.h"
+#include "amp/Result.h"
 #include "fmt/base.h"
 
 #include "amp/String.h"
@@ -26,6 +27,7 @@ Result<DynamicLibraryHandle> Tools::DynamicLibraryOpen(const std::string &name) 
         names.push_back(name + ".so");
     }
 
+    std::string loadErrors;
     void *handle = nullptr;
 
     for (const auto &n : names) {
@@ -33,15 +35,18 @@ Result<DynamicLibraryHandle> Tools::DynamicLibraryOpen(const std::string &name) 
 
         handle = dlopen(n.c_str(), RTLD_NOW);
 
+        const char *err = dlerror();
+        if (!err)
+            err = "unknown error";
+        loadErrors += fmt::format("ERROR while loading library [{}]: {}\n", n, err);
+
         if (handle)
             break;
     }
 
     if (!handle) {
-        const char *err = dlerror();
-        std::string errorInfo =
-            fmt::format("Dynamic library [{}] load error: {}", name, err ? err : "unknown error");
-        return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::SystemFailure, errorInfo));
+        fmt::print("{}", loadErrors);
+        return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::SystemFailure, loadErrors));
     }
 
     return (DynamicLibraryHandle)handle;

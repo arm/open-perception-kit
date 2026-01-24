@@ -2,7 +2,6 @@
 
 #include <fmt/core.h>
 #include <memory>
-#include <onnxruntime_cxx_api.h>
 
 #include "amp/TensorView.h"
 #include "postproc/PaddleocrParser.h"
@@ -13,6 +12,10 @@ using namespace amp;
 
 Postprocess::Postprocess() {}
 Postprocess::~Postprocess() {}
+
+amp::Result<void> Postprocess::peek(amp::OpChainContext &opChainContext) {
+    return {};
+}
 
 amp::Result<void> Postprocess::configure(const amp::AttributeMap &attributes) {
 

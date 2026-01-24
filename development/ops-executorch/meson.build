@@ -1,13 +1,13 @@
 
-onnxops = shared_module(
-  'amp-onnx-ops',                   
+executorchops = shared_module(
+  'amp-executorch-ops',                   
   sources: [
     'Inference.cpp',
     'Interface.cpp',
-    'PreprocessAndInference.cpp'    
+    'InferenceOp.cpp'    
   ],
   include_directories: common_include,
-  dependencies: [amp_deps, onnx_dep],
+  dependencies: [amp_deps, executorch_dep],
   cpp_args: ['-DFMT_HEADER_ONLY'],
   link_with: [ common ],
   name_prefix: '',

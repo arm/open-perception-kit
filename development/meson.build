@@ -70,7 +70,6 @@ onnx_dep = declare_dependency(
   include_directories: '../deps/onnxruntime/include',
   link_args: ['-L' + onnx_libdir, '-lonnxruntime', '-Wl,--no-undefined']
 )
-#uniflow_dep = dependency('uniflow', fallback: ['uniflow', 'uniflow_dep'])
 
 # -------- Exported defs + deps for subdirs
 amp_defs = ['-DAMP_WEB_MODE=1']  # Web mode always compiled
@@ -91,7 +90,7 @@ amp_deps = [
   gst_dep, gstbase_dep, gstv_dep, gsta_dep,
   glib_dep, gobject_dep,
   webrtc_dep, sdp_dep,
-  onnx_dep, fmt_dep, nlohmann_dep, nlohmann_dep, magic_enum_dep, tl_expected_dep, httplib_dep
+  fmt_dep, nlohmann_dep, nlohmann_dep, magic_enum_dep, tl_expected_dep, httplib_dep
 ]
 
 if web_server_enabled
@@ -113,3 +112,42 @@ subdir('elements/ampsink')
 if get_option('tests')
   subdir('tests')
 endif
+# -------- EXECUTORCH
+'''
+executorch_libdir  = meson.project_source_root() / '../deps/executorch/lib'
+executorch_dep = declare_dependency(
+  include_directories: ['../deps/executorch/include', '../deps/libtorch/include'],
+  link_args: [
+    '-L' + executorch_libdir,
+
+    # Extensions (your code uses Module/Tensor, so put these early)
+    '-lextension_module',
+    '-lextension_tensor',
+    '-lextension_flat_tensor',
+    '-lextension_data_loader',
+    '-lextension_named_data_map',
+    '-lextension_threadpool',
+
+    # ExecuTorch core/runtime
+    '-lexecutorch',
+    '-lexecutorch_core',
+
+    # Portable ops / kernels
+    '-lportable_ops_lib',
+    '-lportable_kernels',
+    '-lkernels_util_all_deps',
+
+    # Threadpool deps used by kernels/util
+    '-lpthreadpool',
+    '-lcpuinfo',
+
+    # System libs typically required when static-linking these stacks
+    '-lpthread',
+    '-ldl',
+    '-lm',
+
+    '-Wl,--no-undefined',
+  ]
+)
+subdir('ops-executorch')
+'''
