@@ -180,10 +180,11 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     // ======================================================================================
 
     std::shared_ptr<amp::PerceptionContextMeta> perceptionContextMeta;
-    perceptionContextMeta = amp::PerceptionContextMeta::get(gst_buffer_make_writable(buf));
+    GstBuffer *writable_buf = gst_buffer_make_writable(buf);
+    perceptionContextMeta = amp::PerceptionContextMeta::get(writable_buf);
     if (!perceptionContextMeta) {
-        perceptionContextMeta = amp::PerceptionContextMeta::attach(gst_buffer_make_writable(buf),
-                                                                   new amp::PerceptionContext());
+        perceptionContextMeta = amp::PerceptionContextMeta::attach(
+            writable_buf, new amp::PerceptionContext());
     }
     auto perceptionContext_ptr = perceptionContextMeta->get_payload();
 

@@ -2,28 +2,28 @@
 
 using namespace amp;
 
-bool ImageOps::StrechBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(const uint8_t *src,
-                                                         size_t srcWidth,
-                                                         size_t srcHeight,
-                                                         float *dst,
-                                                         size_t dstWidth,
-                                                         size_t dstHeight,
-                                                         Sampling sampling) {
+bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(const uint8_t *src,
+                                                          size_t srcWidth,
+                                                          size_t srcHeight,
+                                                          float *dst,
+                                                          size_t dstWidth,
+                                                          size_t dstHeight,
+                                                          Sampling sampling) {
     Rect srcRect = {0, 0, srcWidth, srcHeight};
     Rect dstRect = {0, 0, dstWidth, dstHeight};
-    return StrechBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(
+    return StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(
         src, srcWidth, srcHeight, srcRect, dst, dstWidth, dstHeight, dstRect, sampling);
 }
 
-bool ImageOps::StrechBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const uint8_t *src,
-                                                         size_t srcWidth,
-                                                         size_t srcHeight,
-                                                         const ImageOps::Rect &srcRect,
-                                                         float *dst,
-                                                         size_t dstWidth,
-                                                         size_t dstHeight,
-                                                         const ImageOps::Rect &dstRect,
-                                                         Sampling sampling) {
+bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const uint8_t *src,
+                                                          size_t srcWidth,
+                                                          size_t srcHeight,
+                                                          const ImageOps::Rect &srcRect,
+                                                          float *dst,
+                                                          size_t dstWidth,
+                                                          size_t dstHeight,
+                                                          const ImageOps::Rect &dstRect,
+                                                          Sampling sampling) {
     if (!src || !dst)
         return false;
 

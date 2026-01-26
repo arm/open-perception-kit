@@ -72,7 +72,7 @@ onnx_rgba() {
     exit 1
   fi
 
-  export GST_PLUGIN_PATH="$BUILD_DIR/meson-out"
+  export GST_PLUGIN_PATH="$BUILD_DIR"
   msg "GST_PLUGIN_PATH=$GST_PLUGIN_PATH"
 
   msg "Running test pipeline.."
