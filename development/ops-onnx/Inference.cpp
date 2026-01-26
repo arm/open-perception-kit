@@ -5,7 +5,6 @@
 #include "amp/Result.h"
 #include "amp/String.h"
 
-#include "fmt/base.h"
 #include "onnxruntime_cxx_api.h"
 #include "tl/expected.hpp"
 #include <memory>

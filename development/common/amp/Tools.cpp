@@ -1,6 +1,5 @@
 #include "Tools.h"
 #include "amp/Result.h"
-#include "fmt/base.h"
 
 #include "amp/String.h"
 #include "fmt/core.h"
