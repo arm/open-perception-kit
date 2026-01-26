@@ -3,6 +3,7 @@
 #include <gst/video/video.h>
 
 #include <fmt/core.h>
+#include <iostream>
 #include <memory>
 // #include <onnxruntime_cxx_api.h>
 
@@ -19,7 +20,6 @@
 #include "amp/DescriptorStrings.h"
 #include "amp/File.h"
 #include "amp/Labels.h"
-#include "amp/Painter.h"
 #include "amp/Result.h"
 #include "amp/String.h"
 #include "amp/Tools.h"
@@ -37,6 +37,8 @@ struct GstAmpInferMembers {
     amp::OpChain opChain;
 
     amp::Result<void> executeOpChain(amp::OpChainContext &opChainContext) {
+        std::cout << "GstAmpInferMembers::executeOpChain: executing op chain with "
+                  << opChain.ops.size() << " ops." << std::endl;
         for (const auto &op : opChain.ops) {
             auto opResult = op->process(opChainContext);
             if (!opResult) {
@@ -145,8 +147,8 @@ static gboolean gst_ampinfer_set_caps(GstBaseTransform *b, GstCaps *incaps, GstC
     }
 
     // Keep original assumption: RGB only
-    if (GST_VIDEO_INFO_FORMAT(&self->vinfo) != GST_VIDEO_FORMAT_RGB) {
-        GST_ERROR_OBJECT(self, "Unsupported format (expected RGB)");
+    if (GST_VIDEO_INFO_FORMAT(&self->vinfo) != GST_VIDEO_FORMAT_BGRA) {
+        GST_ERROR_OBJECT(self, "Unsupported format (expected BGRA)");
         return FALSE;
     }
 
@@ -161,32 +163,12 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
     if (!self->m || self->m->opChain.ops.empty())
         return GST_FLOW_OK;
-    size_t frameWidth = frame->info.width;
-    size_t frameHeight = frame->info.height;
-    uint8_t *data = (uint8_t *)frame->data[0];
-
-    // Detect format and set bytes per pixel
-    GstVideoFormat format = GST_VIDEO_FRAME_FORMAT(frame);
-    int bytesPerPixel;
-    uflw::TensorDataKind dataKind;
-
-    if (format == GST_VIDEO_FORMAT_RGB) {
-        bytesPerPixel = 3;
-        dataKind = uflw::TensorDataKind::ImageRgbChw;
-    } else if (format == GST_VIDEO_FORMAT_BGRA) {
-        bytesPerPixel = 4;
-        dataKind = uflw::TensorDataKind::ImageBgraHwc;
-    } else {
-        GST_ERROR_OBJECT(self, "Unsupported format: %s", gst_video_format_to_string(format));
-        return GST_FLOW_ERROR;
-    }
 
     GstMapInfo map;
     if (!gst_buffer_map(buf, &map, GST_MAP_READWRITE)) {
         GST_WARNING_OBJECT(self, "Failed to map buffer");
         return GST_FLOW_OK;
     }
-
     const size_t frameWidth = GST_VIDEO_INFO_WIDTH(&self->vinfo);
     const size_t frameHeight = GST_VIDEO_INFO_HEIGHT(&self->vinfo);
 
@@ -200,12 +182,19 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
     // ======================================================================================
 
-    amp::PerceptionContext perceptionContext;
+    std::shared_ptr<amp::PerceptionContextMeta> perceptionContextMeta;
+    perceptionContextMeta = amp::PerceptionContextMeta::get(gst_buffer_make_writable(buf));
+    if (!perceptionContextMeta) {
+        perceptionContextMeta = amp::PerceptionContextMeta::attach(gst_buffer_make_writable(buf),
+                                                                   new amp::PerceptionContext());
+    }
+    auto perceptionContext_ptr = perceptionContextMeta->get_payload();
+
     amp::OpChainContext opChainContext;
 
     amp::BitmapView pipelineFrame(rgb, frameWidth, frameHeight);
 
-    opChainContext.perceptionContext = &perceptionContext;
+    opChainContext.perceptionContext = perceptionContext_ptr;
     opChainContext.bitmapViews["pipelineVideoFrame"] = pipelineFrame;
 
     auto executeResult = self->m->executeOpChain(opChainContext);
@@ -216,31 +205,12 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
         return GST_FLOW_OK;
     }
 
-    if (false == perceptionContext.detectionResult.maps.empty()) {
-        amp::Painter painter(rgb, frameWidth, frameHeight, frameWidth * 3);
-        painter.drawSegmentMap8(perceptionContext.detectionResult.maps[0].map.data(),
-                                perceptionContext.detectionResult.maps[0].width,
-                                perceptionContext.detectionResult.maps[0].height);
-    }
-
-    if (perceptionContext.detectionResult.rects.size()) {
-        amp::Painter painter(rgb, frameWidth, frameHeight, frameWidth * 3);
-        amp::TextRenderer textRenderer;
-
-        if (perceptionContext.detectionResult.modelFamily == "yolo-object-detection") {
-            for (const auto &a : perceptionContext.detectionResult.rects) {
-                painter.drawRect(a.x, a.y, a.w, a.h, 255, 123, 52, 2);
-                auto label = amp::Labels::getLabel(amp::LabelType::Coco, a.classIndex);
-                textRenderer.drawText(painter, a.x, a.y, label.data(), 0, 0, 0, 0, 255, 0);
-            }
-        }
-
-        if (perceptionContext.detectionResult.modelFamily == "ultraface") {
-            for (const auto &a : perceptionContext.detectionResult.rects) {
-                painter.drawCircle(a.x + a.w / 2, a.y + a.h / 2, a.w / 2, 155, 255, 64, 6);
-            }
-        }
-    }
+    // if (false == perceptionContext.detectionResult.maps.empty()) {
+    //     amp::Painter painter(rgb, frameWidth, frameHeight, frameWidth * 3);
+    //     painter.drawSegmentMap8(perceptionContext.detectionResult.maps[0].map.data(),
+    //                             perceptionContext.detectionResult.maps[0].width,
+    //                             perceptionContext.detectionResult.maps[0].height);
+    // }
 
     // ======================================================================================
 #ifdef SKIP
@@ -309,26 +279,21 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
             return GST_FLOW_OK;
         }
     }
+#endif
 
-    std::shared_ptr<amp::PerceptionContextMeta> perceptionContextMeta;
-    perceptionContextMeta =
-        amp::PerceptionContextMeta::get(gst_buffer_make_writable(frame->buffer));
-    if (!perceptionContextMeta) {
-        perceptionContextMeta = amp::PerceptionContextMeta::attach(
-            gst_buffer_make_writable(frame->buffer), new amp::PerceptionContext());
-    }
-    auto perceptionContext = perceptionContextMeta->get_payload();
-    perceptionContext->rawDetections.emplace_back(
-        detectionResults,
-        GST_OBJECT_NAME(self),
-        self->m->onnxInference->getModel().modelFamily.c_str(),
-        uflw::LabelType::Coco);
     return GST_FLOW_OK;
 }
 
 // ---------------- properties & class init ----------------
 
-enum { PROP_0, PROP_MODEL_PATH, PROP_OPCHAIN_PATH, PROP_MODEL_NAME, PROP_MODEL_ACTIVE };
+enum {
+    PROP_0,
+    PROP_MODEL_PATH,
+    PROP_OPCHAIN_PATH,
+    PROP_MODEL_NAME,
+    PROP_MODEL_ACTIVE,
+    PROP_FORMAT
+};
 
 static void gst_ampinfer_set_property(GObject *o, guint id, const GValue *v, GParamSpec *ps) {
     auto *self = (GstAmpInfer *)o;

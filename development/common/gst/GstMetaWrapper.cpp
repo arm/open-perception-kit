@@ -1,5 +1,4 @@
 #include "PerceptionContextMeta.h"
-
 #include <glib.h>
 #include <memory>
 

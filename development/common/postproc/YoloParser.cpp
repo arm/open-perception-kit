@@ -1,4 +1,5 @@
 #include "postproc/YoloParser.h"
+#include "amp/Labels.h"
 #include "amp/PerceptionContext.h"
 
 #include <algorithm>
@@ -149,7 +150,7 @@ amp::Result<void> amp::YoloLikeParser::parse(const amp::TensorParser::Input &inp
         rect.w = a.x2 - a.x1;
         rect.h = a.y2 - a.y1;
         rect.confidence = a.conf;
-        rect.classIndex = a.cls;
+        rect.label = amp::Labels::getLabel(amp::LabelType::Coco, a.cls);
 
         if (input.parserSettings.normalizedCoordinates) {
             rect.x /= input.inferenceInfo.image.width;

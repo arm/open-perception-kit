@@ -17,6 +17,15 @@ amp::Result<void> amp::GenericImageTensorBuilder::build(const TensorBuilder::Set
     size_t dstHeight = setup.imageDestination.height;
     size_t dstByteCount = setup.imageDestination.byteCount;
 
+    if (setup.imageSource.kind == amp::DataKind::ImageBgraHwc &&
+        setup.imageDestination.kind == amp::DataKind::ImageRgbChw) {
+        if (setup.imageSource.type == amp::Tdt::Uint8 &&
+            setup.imageDestination.type == amp::Tdt::Float32) {
+            amp::ImageOps::StrechBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(
+                src, srcWidth, srcHeight, (float *)dst, dstWidth, dstHeight);
+        }
+    }
+
     if (setup.imageSource.kind == amp::DataKind::ImageRgbChw &&
         setup.imageDestination.kind == amp::DataKind::ImageRgbChw) {
 

@@ -59,7 +59,7 @@ amp::Result<void> PreprocessAndInference::process(amp::OpChainContext &opChainCo
     // preprocess
     auto prepocessResult = inference->preprocessImageData(0,
                                                           pipelineVideoFrame.data,
-                                                          amp::DataKind::ImageRgbChw,
+                                                          amp::DataKind::ImageBgraHwc,
                                                           amp::Tdt::Uint8,
                                                           pipelineVideoFrame.width,
                                                           pipelineVideoFrame.height);

@@ -52,8 +52,9 @@ enum class TensorInOut { In, Out };
 // represents the type of data stored in an input tensor
 enum class DataKind {
     Unknown = 0,
-    ImageRgbChw, // RRRGGGBBB
-    ImageRgbHwc, // RGBRGBRGB
+    ImageRgbChw,  // RRRGGGBBB
+    ImageRgbHwc,  // RGBRGBRGB
+    ImageBgraHwc, // BGRABGRA
     ImageGray,
 
     Value,   // one scalar value (often used an an input tensor for some inference configuration)

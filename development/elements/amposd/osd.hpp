@@ -10,7 +10,7 @@
 
 namespace Osd {
 class Layer;
-using RawDetectionBox = amp::RawDetectionRect2d;
+using RawDetectionBox = amp::DetectionRect;
 
 using Layers_t = std::deque<std::unique_ptr<Layer>>;
 //------------------------------------------------

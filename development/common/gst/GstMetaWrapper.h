@@ -1,5 +1,5 @@
 #pragma once
-
+#include <gst/gst.h>
 #include <memory>
 
 template <typename T> struct GstMetaContainer {

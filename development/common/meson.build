@@ -28,8 +28,8 @@ common = shared_library(
     'amp/CocoLabels.cpp',
 
     'postproc/YoloParser.cpp',
-    'postproc/UltraFaceParser.cpp',
-    'postproc/PaddleOcrParser.cpp',
+    'postproc/UltrafaceParser.cpp',
+    'postproc/PaddleocrParser.cpp',
 
     'preproc/GenericImageTensorBuilder.cpp',
     'preproc/CpuImageKernels.cpp',

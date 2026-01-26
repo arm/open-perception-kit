@@ -282,13 +282,12 @@ draw_detection_layer(GstAmpOsd *self,
     auto layer = std::make_unique<Osd::Layer>(imgWidth, imgHeight);
 
     for (const auto &inferDetections : perceptionContext.rawDetections) {
-        if (inferDetections.inferenceNetworkId ==
-            amp::NetworkId::YoloObjectDetection) { // FIXME: use enum?
+        if (inferDetections.modelFamily == "yolo-object-detection") {
             for (const auto &box : inferDetections.rects) {
                 Osd::ObjectBox::draw(*layer, box, Osd::Color("#ff0000ff"), 2.0f);
             }
         }
-        if (inferDetections.inferenceNetworkId == amp::NetworkId::UltraFace) {
+        if (inferDetections.modelFamily == "ultraface") {
             for (const auto &box : inferDetections.rects) {
                 Osd::Circle::draw(*layer,
                                   Osd::Coordinate{box.x + box.w / 2.0f, box.y + box.h / 2.0f},
