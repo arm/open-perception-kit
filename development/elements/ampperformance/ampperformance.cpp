@@ -524,7 +524,7 @@ static GstFlowReturn gst_amp_performance_transform_frame_ip(GstVideoFilter *filt
     // Get PerceptionContextMeta
     if (const auto perceptionContextMeta = amp::PerceptionContextMeta::get(gst_buffer_make_writable(
             frame->buffer))) { // NOTE: PerceptionContextMeta locks internally!
-        const auto perceptionContext = perceptionContextMeta->context();
+        const auto perceptionContext = perceptionContextMeta->get_payload();
         if (perceptionContext) {
             perceptionContext->perfdata = self->cached_lines;
         }

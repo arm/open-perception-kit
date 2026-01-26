@@ -317,7 +317,7 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
         perceptionContextMeta = amp::PerceptionContextMeta::attach(
             gst_buffer_make_writable(frame->buffer), new amp::PerceptionContext());
     }
-    auto perceptionContext = perceptionContextMeta->context();
+    auto perceptionContext = perceptionContextMeta->get_payload();
     perceptionContext->rawDetections.emplace_back(
         detectionResults,
         GST_OBJECT_NAME(self),

@@ -345,7 +345,7 @@ static GstFlowReturn gst_amp_osd_transform_frame_ip(GstVideoFilter *filter, GstV
     // Get PerceptionContextMeta
     if (const auto perceptionContextMeta = amp::PerceptionContextMeta::get(
             frame->buffer)) { // NOTE: PerceptionContextMeta locks internally!
-        const auto perceptionContext = perceptionContextMeta->context();
+        const auto perceptionContext = perceptionContextMeta->get_const_payload();
         if (perceptionContext) {
             layers.push_back(draw_detection_layer(self, imgWidth, imgHeight, *perceptionContext));
             layers.push_back(draw_perf_layer(self, imgWidth, imgHeight, *perceptionContext));
