@@ -94,7 +94,7 @@ gst-launch-1.0 \
   filesrc location=/work/etc/images/katana.jpg ! \
   jpegdec ! \
   imagefreeze ! \
-  videoconvert ! video/x-raw,format=BGRA !\
+  videoconvert ! video/x-raw,format=BGRA ! \
       ampinfer opchain-path=/work/etc/models/yolo/opchain.json model-name=yolov8n active=true ! \
       ampinfer opchain-path=/work/etc/models/ultraface/opchain.json model-name=ultraface active=true ! \
       ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 ! \
