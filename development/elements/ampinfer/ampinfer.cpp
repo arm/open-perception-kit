@@ -3,7 +3,6 @@
 #include <gst/video/video.h>
 
 #include <fmt/core.h>
-#include <iostream>
 #include <memory>
 // #include <onnxruntime_cxx_api.h>
 
@@ -37,8 +36,6 @@ struct GstAmpInferMembers {
     amp::OpChain opChain;
 
     amp::Result<void> executeOpChain(amp::OpChainContext &opChainContext) {
-        std::cout << "GstAmpInferMembers::executeOpChain: executing op chain with "
-                  << opChain.ops.size() << " ops." << std::endl;
         for (const auto &op : opChain.ops) {
             auto opResult = op->process(opChainContext);
             if (!opResult) {
