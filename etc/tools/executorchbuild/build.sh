@@ -126,11 +126,14 @@ build_executorch() {
     -DEXECUTORCH_BUILD_EXTENSION_NAMED_DATA_MAP=ON \
     -DEXECUTORCH_BUILD_PORTABLE_OPS=ON \
     -DEXECUTORCH_BUILD_EXECUTOR_RUNNER=ON \
-    -DCMAKE_INSTALL_PREFIX=/opt/executorch
+  	-DEXECUTORCH_BUILD_XNNPACK=ON \
+  	-DEXECUTORCH_BUILD_XNNPACK_BACKEND=ON \
+    -DEXECUTORCH_SELECT_ALL_OPS=ON \
+	-DCMAKE_INSTALL_PREFIX=/opt/executorch
 
 	cmake --build build --parallel 1
   	cmake --install build --prefix /work/deps/executorch
-      
+    		  
 }
 
 # --- main ---

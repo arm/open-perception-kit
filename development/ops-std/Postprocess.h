@@ -6,8 +6,6 @@
 
 #include "postproc/TensorParser.h"
 
-#include "onnx/Inference.h"
-
 namespace amp {
 
 class Postprocess : public amp::Op {

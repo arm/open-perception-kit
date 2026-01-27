@@ -24,9 +24,6 @@ common = shared_library(
     'amp/ImageNetLabels.cpp',
     'amp/CocoLabels.cpp',
 
-    'onnx/Inference.h',
-    'onnx/Inference.cpp',
-
     'postproc/YoloParser.cpp',
     'postproc/UltraFaceParser.cpp',
     'postproc/PaddleOcrParser.cpp',

@@ -89,12 +89,12 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc_) {
 
         // --- build up model
 
-        std::string modelLog = toString(this->model);
+        std::string modelLog = model.toString();
         printf("========= Original onnx model ========\n");
         printf("%s", modelLog.c_str());
         printf("========= ================== =========\n");
 
-        auto cmResult = this->createModelFromModelDesc();
+        auto cmResult = model.applyModelFromDescriptor(this->modelDescriptor);
         if (!cmResult) {
             return tl::make_unexpected(cmResult.error());
         }
@@ -110,7 +110,7 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc_) {
 
         // ---
 
-        modelLog = toString(this->model);
+        modelLog = model.toString();
         printf("======= Model updated with json ======\n");
         printf("%s", modelLog.c_str());
         printf("========= ================== =========\n");
@@ -122,7 +122,7 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc_) {
     return {};
 }
 
-amp::Result<void> Inference::createModelFromModelDesc() {
+/*amp::Result<void> Inference::createModelFromModelDesc() {
 
     this->model.modelFamily = this->modelDescriptor.modelFamily;
 
@@ -255,22 +255,22 @@ amp::Result<void> Inference::createModelFromModelDesc() {
     this->useDynamicOutput = this->modelDescriptor.dynamicOutput;
 
     return {};
-}
+}*/
 
 void Inference::setupTensorsForModel() {
 
-    for (size_t i = 0; i < this->model.modelInputCount; i++) {
+    for (size_t i = 0; i < this->model.inputs.size(); i++) {
         api.inputTensors[i] = std::make_unique<onnx::Tensor>(this->model.inputs[i].shape,
                                                              this->model.inputs[i].valueType);
         api.inputNames.push_back(this->model.inputs[i].name.c_str());
         api.inputTensorVector.push_back(api.inputTensors[i]->createOnnxTensor(*this->memoryInfo));
     }
 
-    for (size_t i = 0; i < this->model.modelOutputCount; i++) {
+    for (size_t i = 0; i < this->model.outputs.size(); i++) {
         api.outputTensors[i] = std::make_unique<onnx::Tensor>(this->model.outputs[i].shape,
                                                               this->model.outputs[i].valueType);
         api.outputNames.push_back(this->model.outputs[i].name.c_str());
-        if (false == this->useDynamicOutput)
+        if (false == model.useDynamicOutput)
             api.outputTensorVector.push_back(
                 api.outputTensors[i]->createOnnxTensor(*this->memoryInfo));
     }
@@ -385,7 +385,7 @@ amp::Result<void> Inference::inference() {
 
     // run the inference
     try {
-        if (false == this->useDynamicOutput) {
+        if (false == model.useDynamicOutput) {
             this->session->Run(Ort::RunOptions{nullptr},
                                (const char *const *)this->api.inputNames.data(),
                                api.inputTensorVector.data(),
@@ -411,11 +411,11 @@ amp::Result<void> Inference::inference() {
 void Inference::prepareForPostprocess(amp::TensorParser::Input &parserInput) {
     parserInput.inferenceInfo = this->inferenceInfo;
 
-    if (!this->useDynamicOutput) {
+    if (!model.useDynamicOutput) {
         // --- STATIC, PREALLOCATED OUTPUTS ---
 
         for (size_t i = 0; i < 4; ++i) {
-            if (i < model.modelOutputCount) {
+            if (i < model.outputs.size()) {
                 if (this->outputTensorViews[i] == nullptr) {
                     this->outputTensorViews[i] =
                         std::make_unique<amp::TensorView>(api.outputTensors[i]->getData(),
@@ -431,13 +431,13 @@ void Inference::prepareForPostprocess(amp::TensorParser::Input &parserInput) {
     } else {
         // --- DYNAMIC OUTPUTS ALLOCATED BY ORT ---
 
-        // We’ll build temporary TensorViews for this call only.
-        // They just wrap ORT’s output buffers; no copying.
+        // we’ll build temporary TensorViews for this call only.
+        // they just wrap ort’s output buffers, no copy
         dynamicViews.clear();
         dynamicViews.resize(4);
 
         const size_t numOutputs =
-            std::min<size_t>(std::min<size_t>(model.modelOutputCount, dynamicOutputData.size()), 4);
+            std::min<size_t>(std::min<size_t>(model.outputs.size(), dynamicOutputData.size()), 4);
 
         for (size_t i = 0; i < numOutputs; ++i) {
             Ort::Value &v = dynamicOutputData[i];
@@ -503,15 +503,17 @@ std::vector<size_t> Inference::getTensorShape(const Ort::Session &session,
 }
 
 amp::Result<amp::Model> Inference::inspectModel(const Ort::Session &session) {
-
     amp::Model model;
+    model.api = "onnxrt";
 
     Ort::AllocatorWithDefaultOptions allocator;
-    model.modelInputCount = session.GetInputCount();
-    model.modelOutputCount = session.GetOutputCount();
+    // model.modelInputCount = session.GetInputCount();
+    // model.modelOutputCount = session.GetOutputCount();
+    model.inputs.resize(session.GetInputCount());
+    model.outputs.resize(session.GetOutputCount());
 
     // inspect all the INPUT TENSORS
-    for (size_t i = 0; i < model.modelInputCount; ++i) {
+    for (size_t i = 0; i < model.inputs.size(); ++i) {
         Ort::TypeInfo ti = session.GetInputTypeInfo(i);
 
         auto tensor = ti.GetTensorTypeAndShapeInfo();
@@ -545,7 +547,7 @@ amp::Result<amp::Model> Inference::inspectModel(const Ort::Session &session) {
     }
 
     // inspect all the OUTPUT TENSORS
-    for (size_t i = 0; i < model.modelOutputCount; ++i) {
+    for (size_t i = 0; i < model.outputs.size(); ++i) {
         Ort::TypeInfo ti = session.GetOutputTypeInfo(i);
 
         auto tensor = ti.GetTensorTypeAndShapeInfo();
@@ -602,29 +604,4 @@ bool Inference::onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, amp::T
         return true;
     }
     return false;
-}
-
-std::string Inference::toString(const amp::Model &model) {
-    std::string ret;
-
-    ret += fmt::format("Model: [{}]\n", model.modelFamily.c_str());
-    ret += fmt::format("Input count: {}\n", model.modelInputCount);
-    ret += fmt::format("Output count: {}\n", model.modelOutputCount);
-
-    for (size_t i = 0; i < model.modelInputCount; i++) {
-        ret += fmt::format("Input #{} [{}]\n", i, model.inputs[i].name.c_str());
-        ret += fmt::format(" Batch {}\n", model.inputs[i].batch);
-        ret += fmt::format(" ValueType: {}\n", magic_enum::enum_name(model.inputs[i].valueType));
-        ret += fmt::format(" Shape: {}\n", model.inputs[i].shape.toString().c_str());
-        // ret += fmt::format(" Shape: {}\n", amp::toString(model.inputs[i].shape).c_str());
-        ret += fmt::format(" DataKind: {}\n", magic_enum::enum_name(model.inputs[i].dataKind));
-    }
-    for (size_t i = 0; i < model.modelOutputCount; i++) {
-        ret += fmt::format("Output #{} [{}]\n", i, model.outputs[i].name.c_str());
-        ret += fmt::format(" ValueType: {}\n", magic_enum::enum_name(model.outputs[i].valueType));
-        // ret += fmt::format(" Shape: {}\n", amp::toString(model.outputs[i].shape).c_str());
-        ret += fmt::format(" Shape: {}\n", model.outputs[i].shape.toString().c_str());
-    }
-
-    return ret;
 }

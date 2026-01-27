@@ -3,7 +3,7 @@
     {
       "id": "amp-executorch-ops/Inference",
       "attributes": {
-        "modelDescriptor": "/work/etc/models/yolx/yolo.json"
+        "modelDescriptor": "/work/etc/models/yolox/yolo.json"
       }
     },
     {

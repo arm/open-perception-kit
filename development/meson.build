@@ -112,8 +112,8 @@ subdir('elements/ampsink')
 if get_option('tests')
   subdir('tests')
 endif
-# -------- EXECUTORCH
 '''
+# -------- EXECUTORCH
 executorch_libdir  = meson.project_source_root() / '../deps/executorch/lib'
 executorch_dep = declare_dependency(
   include_directories: ['../deps/executorch/include', '../deps/libtorch/include'],
@@ -132,10 +132,12 @@ executorch_dep = declare_dependency(
     '-lexecutorch',
     '-lexecutorch_core',
 
-    # Portable ops / kernels
-    '-lportable_ops_lib',
-    '-lportable_kernels',
-    '-lkernels_util_all_deps',
+    # --- Force include portable ops / kernels ---
+    '-Wl,--whole-archive',
+      '-lportable_ops_lib',
+      '-lportable_kernels',
+#      '-lkernels_util_all_deps',
+    '-Wl,--no-whole-archive',
 
     # Threadpool deps used by kernels/util
     '-lpthreadpool',
@@ -149,5 +151,44 @@ executorch_dep = declare_dependency(
     '-Wl,--no-undefined',
   ]
 )
-subdir('ops-executorch')
 '''
+
+# -------- EXECUTORCH (global dependency; NO whole-archive here)
+executorch_libdir = meson.project_source_root() / '../deps/executorch/lib'
+
+executorch_dep = declare_dependency(
+  include_directories: [
+    '../deps/executorch/include',
+    '../deps/libtorch/include',
+  ],
+  link_args: [
+    '-L' + executorch_libdir,
+
+    # Extensions (Module/Tensor/etc.)
+    '-lextension_module',
+    '-lextension_tensor',
+    '-lextension_flat_tensor',
+    '-lextension_data_loader',
+    '-lextension_named_data_map',
+    '-lextension_threadpool',
+
+    # ExecuTorch core/runtime
+    '-lexecutorch',
+    '-lexecutorch_core',
+
+    # Threadpool deps used by kernels/util
+    '-lpthreadpool',
+    '-lcpuinfo',
+
+    # System libs
+    '-lpthread',
+    '-ldl',
+    '-lm',
+
+    '-Wl,--no-undefined',
+  ]
+)
+
+subdir('ops-executorch')
+
+

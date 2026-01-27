@@ -23,6 +23,7 @@ enum class ErrorFlag {
     OnnxStartupException,
     OnnxModelLoadException,
     OnnxInferenceException,
+    ExecuTorchError,
     NotSupported,
     ErrorWithSrcSetup,
     ErrorWithDstSetup,

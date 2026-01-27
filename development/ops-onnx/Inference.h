@@ -116,7 +116,6 @@ struct Inference {
     bool setupReady = false;
 
     static bool onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, amp::Tdt &outType);
-    static std::string toString(const amp::Model &model);
     static std::vector<size_t>
     getTensorShape(const Ort::Session &session, amp::TensorInOut tensorInOut, int tensorIndex);
     static amp::Result<amp::Model> inspectModel(const Ort::Session &session);
@@ -133,13 +132,11 @@ struct Inference {
     std::unique_ptr<amp::TensorParser> outputParser;
     std::unique_ptr<amp::TensorBuilder> inputBuilder;
 
-    bool useDynamicOutput = true;
     std::vector<std::unique_ptr<amp::TensorView>> dynamicViews;
 
     std::vector<Ort::Value> dynamicOutputData;
     std::unique_ptr<amp::TensorView> outputTensorViews[4];
 
-    amp::Result<void> createModelFromModelDesc();
     amp::Result<void> createTensorProcessors();
 
     amp::TensorView *lastUsedOutputTensors[4] = {nullptr};
