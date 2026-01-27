@@ -12,11 +12,13 @@ BUILD_DIR="$PROJECT_ROOT/build"
 debug() {
   need meson; need ninja
 
-  msg_begin "Starting DEBUG build in directory: $PROJECT_ROOT" 
+  local enable_tests="${1:-false}"
+
+  msg_begin "Starting DEBUG build in directory: $PROJECT_ROOT (tests=$enable_tests)" 
 
   if [[ ! -d "$BUILD_DIR" ]]; then
     msg "Meson setup.."
-    meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat -Ddebug=true
+    meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat -Dtests="$enable_tests"
   else
     msg "Meson configure (keeping existing build dir)…"
     meson configure "$BUILD_DIR" >/dev/null
@@ -31,7 +33,9 @@ debug() {
 release() {
   need meson; need ninja
 
-  msg_begin "Starting RELEASE build in directory: $PROJECT_ROOT" 
+  local enable_tests="${1:-false}"
+
+  msg_begin "Starting RELEASE build in directory: $PROJECT_ROOT (tests=$enable_tests)" 
 
 
   if [[ ! -d "$BUILD_DIR" ]]; then
@@ -42,7 +46,8 @@ release() {
       -Dstrip=true \
       -Db_lto=true \
       -Doptimization=3 \
-      --layout=flat
+      --layout=flat \
+      -Dtests="$enable_tests"
   else
     msg "Meson configure (keeping existing build dir)…"
     meson configure "$BUILD_DIR" >/dev/null
@@ -53,7 +58,6 @@ release() {
 
   msg_end "Release build done → $BUILD_DIR"
 }
-
 # ---- clean ----
 clean() {
     msg_begin "Executing CLEAN on $BUILD_DIR"
@@ -72,17 +76,18 @@ usage() {
 
 Commands:
   clean ➡️ Clear all build artifacts.
-  debug ➡️ Build elements in debug.
-  release ➡️ Build elements in release.
+  debug [true|false] ➡️ Build elements in debug. Optional: enable/disable tests (default: false).
+  release [true|false] ➡️ Build elements in release. Optional: enable/disable tests (default: false).
 
 EOF
 }
 
 # ---- entrypoint ----
 cmd="${1:-}"
+arg="${2:-}"
 case "$cmd" in
-  debug) debug ;;
-  release) release ;;
+  debug) debug "$arg" ;;
+  release) release "$arg" ;;
   clean) clean ;;
   *)
     echo "Unknown command: $cmd" >&2
