@@ -102,8 +102,6 @@ struct Inference {
     void prepareForPostprocess(amp::TensorParser::Input &input);
     amp::Result<void> inference();
 
-    // amp::TensorView* getOutputTensors
-
     amp::Result<void> postprocess(const amp::TensorParser::Settings &parserSettings,
                                   amp::RawDetectionLayer &outDetectionResults);
 

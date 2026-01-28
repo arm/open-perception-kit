@@ -255,6 +255,7 @@ void Inference::Forward() {
     }
 
     // Get first output as a Tensor, then get typed pointer
+
     auto outTensor = result->at(0).toTensor();
     const float *out = outTensor.const_data_ptr<float>();
 

@@ -152,43 +152,80 @@ executorch_dep = declare_dependency(
   ]
 )
 '''
+'''
+# -------- EXECUTORCH
+executorch_opt = get_option('executorch')
+if executorch_opt.enabled()
+  executorch_root = meson.project_source_root() / '../deps/executorch'
+  libtorch_root   = meson.project_source_root() / '../deps/libtorch'
 
-# -------- EXECUTORCH (global dependency; NO whole-archive here)
-executorch_libdir = meson.project_source_root() / '../deps/executorch/lib'
+  executorch_libdir = executorch_root / 'lib'
 
-executorch_dep = declare_dependency(
-  include_directories: [
-    '../deps/executorch/include',
-    '../deps/libtorch/include',
-  ],
-  link_args: [
-    '-L' + executorch_libdir,
+  executorch_dep = declare_dependency(
+    include_directories: [
+      include_directories(executorch_root / 'include'),
+      include_directories(libtorch_root   / 'include'),
+    ],
+    link_args: [
+      '-L' + executorch_libdir,
 
-    # Extensions (Module/Tensor/etc.)
-    '-lextension_module',
-    '-lextension_tensor',
-    '-lextension_flat_tensor',
-    '-lextension_data_loader',
-    '-lextension_named_data_map',
-    '-lextension_threadpool',
+      # Extensions (Module/Tensor/etc.)
+      '-lextension_module',
+      '-lextension_tensor',
+      '-lextension_flat_tensor',
+      '-lextension_data_loader',
+      '-lextension_named_data_map',
+      '-lextension_threadpool',
 
-    # ExecuTorch core/runtime
-    '-lexecutorch',
-    '-lexecutorch_core',
+      # ExecuTorch core/runtime
+      '-lexecutorch',
+      '-lexecutorch_core',
 
-    # Threadpool deps used by kernels/util
-    '-lpthreadpool',
-    '-lcpuinfo',
+      # Threadpool deps used by kernels/util
+      '-lpthreadpool',
+      '-lcpuinfo',
 
-    # System libs
-    '-lpthread',
-    '-ldl',
-    '-lm',
+      # System libs
+      '-lpthread',
+      '-ldl',
+      '-lm',
 
-    '-Wl,--no-undefined',
-  ]
-)
+      '-Wl,--no-undefined',
+    ]
+  )
 
-subdir('ops-executorch')
+  subdir('ops-executorch')
+endif
+'''
+# -------- EXECUTORCH
+executorch_opt = get_option('executorch')
+executorch_root = meson.project_source_root() / '../deps/executorch'
+libtorch_root   = meson.project_source_root() / '../deps/libtorch'
+executorch_libdir = executorch_root / 'lib'
+if executorch_opt.enabled()
+  executorch_dep = declare_dependency(
+    include_directories: [
+      include_directories('../deps/executorch/include'),
+      include_directories('../deps/libtorch/include'),
+    ],
+    link_args: [
+      '-L' + executorch_libdir,
+      '-lextension_module',
+      '-lextension_tensor',
+      '-lextension_flat_tensor',
+      '-lextension_data_loader',
+      '-lextension_named_data_map',
+      '-lextension_threadpool',
+      '-lexecutorch',
+      '-lexecutorch_core',
+      '-lpthreadpool',
+      '-lcpuinfo',
+      '-lpthread',
+      '-ldl',
+      '-lm',
+      '-Wl,--no-undefined',
+    ]
+  )
 
-
+  subdir('ops-executorch')
+endif
