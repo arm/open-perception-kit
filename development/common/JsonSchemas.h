@@ -17,7 +17,7 @@ inline void to_json(json &j, const DetectionRect &b) {
              {"w", b.w},
              {"h", b.h},
              {"confidence", b.confidence},
-             {"classIndex", b.classIndex}};
+             {"label", b.label}};
 }
 
 inline void from_json(const json &j, DetectionRect &b) {
@@ -26,7 +26,7 @@ inline void from_json(const json &j, DetectionRect &b) {
     j.at("w").get_to(b.w);
     j.at("h").get_to(b.h);
     j.at("confidence").get_to(b.confidence);
-    j.at("classIndex").get_to(b.classIndex);
+    j.at("label").get_to(b.label);
 }
 
 inline void to_json(json &j, const DetectionPoint &p) {

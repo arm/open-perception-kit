@@ -2,6 +2,70 @@
 
 using namespace amp;
 
+bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(const uint8_t *src,
+                                                          size_t srcWidth,
+                                                          size_t srcHeight,
+                                                          float *dst,
+                                                          size_t dstWidth,
+                                                          size_t dstHeight,
+                                                          Sampling sampling) {
+    Rect srcRect = {0, 0, srcWidth, srcHeight};
+    Rect dstRect = {0, 0, dstWidth, dstHeight};
+    return StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(
+        src, srcWidth, srcHeight, srcRect, dst, dstWidth, dstHeight, dstRect, sampling);
+}
+
+bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const uint8_t *src,
+                                                          size_t srcWidth,
+                                                          size_t srcHeight,
+                                                          const ImageOps::Rect &srcRect,
+                                                          float *dst,
+                                                          size_t dstWidth,
+                                                          size_t dstHeight,
+                                                          const ImageOps::Rect &dstRect,
+                                                          Sampling sampling) {
+    if (!src || !dst)
+        return false;
+
+    if (srcRect.x + srcRect.w > srcWidth || srcRect.y + srcRect.h > srcHeight ||
+        dstRect.x + dstRect.w > dstWidth || dstRect.y + dstRect.h > dstHeight)
+        return false;
+
+    const uint8_t *in = src;
+    float *out = dst;
+    constexpr float inv255 = 1.0f / 255.0f;
+
+    const size_t C = 3;
+    const size_t H = dstHeight;
+    const size_t W = dstWidth;
+
+    const size_t planeSize = H * W;
+
+    // nearest-neighbour sampling stretch from srcRect to dstRect, CHW layout
+    for (size_t dy = 0; dy < dstRect.h; ++dy) {
+        const size_t sy = srcRect.y + (dy * srcRect.h) / dstRect.h;
+        const size_t dyi = dstRect.y + dy;
+
+        for (size_t dx = 0; dx < dstRect.w; ++dx) {
+            const size_t sx = srcRect.x + (dx * srcRect.w) / dstRect.w;
+            const size_t dxi = dstRect.x + dx;
+
+            // source: BGRA interleaved, HWC
+            const size_t srcIndexRGB = (sy * srcWidth + sx) * 4;
+            const uint8_t *p = in + srcIndexRGB;
+
+            // CHW destination
+            const size_t hwIndex = dyi * W + dxi;
+
+            out[0 * planeSize + hwIndex] = p[2] * inv255; // R channel
+            out[1 * planeSize + hwIndex] = p[1] * inv255; // G channel
+            out[2 * planeSize + hwIndex] = p[0] * inv255; // B channel
+        }
+    }
+
+    return true;
+}
+
 bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(const uint8_t *src,
                                                         size_t srcWidth,
                                                         size_t srcHeight,

@@ -49,7 +49,7 @@ amp::Result<void> Postprocess::process(amp::OpChainContext &opChainContext) {
         return parseResult;
     }
 
-    opChainContext.perceptionContext->detectionResult = rawDetectionLayer;
+    opChainContext.perceptionContext->rawDetections.push_back(rawDetectionLayer);
 
     return {};
 }

@@ -11,9 +11,12 @@ common = shared_library(
     'gst/Tools.cpp',
     'gst/TensorMeta.h',
     'gst/TensorMeta.cpp',
-
+    'gst/GstMetaWrapper.h',
+    'gst/GstMetaWrapper.cpp',
+    'gst/PerceptionContextMeta.h',
+    'gst/PerceptionContextMeta.cpp',
+    
     'amp/File.h',
-    'amp/Painter.h',
     'amp/String.h',
     'amp/Result.h',
     'amp/Result.cpp',
@@ -25,8 +28,8 @@ common = shared_library(
     'amp/CocoLabels.cpp',
 
     'postproc/YoloParser.cpp',
-    'postproc/UltraFaceParser.cpp',
-    'postproc/PaddleOcrParser.cpp',
+    'postproc/UltrafaceParser.cpp',
+    'postproc/PaddleocrParser.cpp',
 
     'preproc/GenericImageTensorBuilder.cpp',
     'preproc/CpuImageKernels.cpp',

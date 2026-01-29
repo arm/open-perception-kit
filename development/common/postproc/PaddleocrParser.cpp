@@ -1,4 +1,4 @@
-#include "postproc/PaddleOcrParser.h"
+#include "postproc/PaddleocrParser.h"
 #include "amp/PerceptionContext.h"
 
 #include <cmath>

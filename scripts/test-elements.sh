@@ -61,6 +61,49 @@ gst-launch-1.0 \
   msg_end "Pipeline finished."
 }
 
+onnx_rgba() {
+
+  msg_begin "Executing test with ONNX element..\n"
+
+  need gst-launch-1.0
+
+  if [ ! -d "$BUILD_DIR" ]; then
+    msg_end_err "Error: directory $BUILD_DIR does not exist" >&2
+    exit 1
+  fi
+
+  export GST_PLUGIN_PATH="$BUILD_DIR"
+  msg "GST_PLUGIN_PATH=$GST_PLUGIN_PATH"
+
+  msg "Running test pipeline.."
+
+  # IP=$(getent ahostsv4 host.docker.internal | awk 'NR==1{print $1}')
+  
+
+#  gst-launch-1.0 \
+#    filesrc location=/work/etc/videos/00.mp4 ! decodebin name=dec \
+#    dec. ! queue ! video/x-raw ! videoconvert ! \
+#      ampinfer model-path=/work/etc/models/blazeface/blazeface.onnx imgsz=320 ! \
+#      textoverlay name=overlay valignment=top halignment=center font-desc="Sans, 14" ! \
+#      ampsink name=sink \
+#    dec. ! queue ! audio/x-raw ! audioconvert ! audioresample ! \
+#      sink.audiopad
+
+
+gst-launch-1.0 \
+  filesrc location=/work/etc/images/katana.jpg ! \
+  jpegdec ! \
+  imagefreeze ! \
+  videoconvert ! video/x-raw,format=BGRA ! \
+      ampinfer opchain-path=/work/etc/models/yolo/opchain.json model-name=yolov8n active=true ! \
+      ampinfer opchain-path=/work/etc/models/ultraface/opchain.json model-name=ultraface active=true ! \
+      ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 ! \
+      amposd enabled=true ! \
+      ampsink name=sink
+  
+  msg_end "Pipeline finished."
+      #textoverlay name=overlay valignment=top halignment=center font-desc="Sans, 14" ! \
+}
 
 onnx2() {
 
@@ -177,6 +220,7 @@ cmd="${1:-}"
 case "$cmd" in
   onnx) onnx ;;
   onnx2) onnx2 ;;
+  onnx_rgba) onnx_rgba ;;
   ampinfer) ampinfer ;;
   onnxweb) onnxweb ;;
   *)

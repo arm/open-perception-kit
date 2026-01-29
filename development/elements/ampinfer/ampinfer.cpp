@@ -19,7 +19,6 @@
 #include "amp/DescriptorStrings.h"
 #include "amp/File.h"
 #include "amp/Labels.h"
-#include "amp/Painter.h"
 #include "amp/Result.h"
 #include "amp/String.h"
 #include "amp/Tools.h"
@@ -28,6 +27,7 @@
 #include "op/OpChain.h"
 #include "op/OpChainContext.h"
 
+#include "gst/PerceptionContextMeta.h"
 #include <PerformanceTracer.h>
 
 struct GstAmpInferMembers {
@@ -74,6 +74,7 @@ struct _GstAmpInfer {
     gchar *opChainPath;
     gchar *modelName;
     gboolean active;
+    gchar *format;
 
     // a safe place for c++ stuff
     GstAmpInferMembers *m;
@@ -143,8 +144,8 @@ static gboolean gst_ampinfer_set_caps(GstBaseTransform *b, GstCaps *incaps, GstC
     }
 
     // Keep original assumption: RGB only
-    if (GST_VIDEO_INFO_FORMAT(&self->vinfo) != GST_VIDEO_FORMAT_RGB) {
-        GST_ERROR_OBJECT(self, "Unsupported format (expected RGB)");
+    if (GST_VIDEO_INFO_FORMAT(&self->vinfo) != GST_VIDEO_FORMAT_BGRA) {
+        GST_ERROR_OBJECT(self, "Unsupported format (expected BGRA)");
         return FALSE;
     }
 
@@ -165,7 +166,6 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
         GST_WARNING_OBJECT(self, "Failed to map buffer");
         return GST_FLOW_OK;
     }
-
     const size_t frameWidth = GST_VIDEO_INFO_WIDTH(&self->vinfo);
     const size_t frameHeight = GST_VIDEO_INFO_HEIGHT(&self->vinfo);
 
@@ -179,12 +179,20 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
     // ======================================================================================
 
-    amp::PerceptionContext perceptionContext;
+    std::shared_ptr<amp::PerceptionContextMeta> perceptionContextMeta;
+    GstBuffer *writable_buf = gst_buffer_make_writable(buf);
+    perceptionContextMeta = amp::PerceptionContextMeta::get(writable_buf);
+    if (!perceptionContextMeta) {
+        perceptionContextMeta = amp::PerceptionContextMeta::attach(
+            writable_buf, new amp::PerceptionContext());
+    }
+    auto perceptionContext_ptr = perceptionContextMeta->get_payload();
+
     amp::OpChainContext opChainContext;
 
     amp::BitmapView pipelineFrame(rgb, frameWidth, frameHeight);
 
-    opChainContext.perceptionContext = &perceptionContext;
+    opChainContext.perceptionContext = perceptionContext_ptr;
     opChainContext.bitmapViews["pipelineVideoFrame"] = pipelineFrame;
 
     auto executeResult = self->m->executeOpChain(opChainContext);
@@ -195,31 +203,12 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
         return GST_FLOW_OK;
     }
 
-    if (false == perceptionContext.detectionResult.maps.empty()) {
-        amp::Painter painter(rgb, frameWidth, frameHeight, frameWidth * 3);
-        painter.drawSegmentMap8(perceptionContext.detectionResult.maps[0].map.data(),
-                                perceptionContext.detectionResult.maps[0].width,
-                                perceptionContext.detectionResult.maps[0].height);
-    }
-
-    if (perceptionContext.detectionResult.rects.size()) {
-        amp::Painter painter(rgb, frameWidth, frameHeight, frameWidth * 3);
-        amp::TextRenderer textRenderer;
-
-        if (perceptionContext.detectionResult.modelFamily == "yolo-object-detection") {
-            for (const auto &a : perceptionContext.detectionResult.rects) {
-                painter.drawRect(a.x, a.y, a.w, a.h, 255, 123, 52, 2);
-                auto label = amp::Labels::getLabel(amp::LabelType::Coco, a.classIndex);
-                textRenderer.drawText(painter, a.x, a.y, label.data(), 0, 0, 0, 0, 255, 0);
-            }
-        }
-
-        if (perceptionContext.detectionResult.modelFamily == "ultraface") {
-            for (const auto &a : perceptionContext.detectionResult.rects) {
-                painter.drawCircle(a.x + a.w / 2, a.y + a.h / 2, a.w / 2, 155, 255, 64, 6);
-            }
-        }
-    }
+    // if (false == perceptionContext.detectionResult.maps.empty()) {
+    //     amp::Painter painter(rgb, frameWidth, frameHeight, frameWidth * 3);
+    //     painter.drawSegmentMap8(perceptionContext.detectionResult.maps[0].map.data(),
+    //                             perceptionContext.detectionResult.maps[0].width,
+    //                             perceptionContext.detectionResult.maps[0].height);
+    // }
 
     // ======================================================================================
 #ifdef SKIP
@@ -288,46 +277,21 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
             return GST_FLOW_OK;
         }
     }
-
-    // decorate (in-place draw)
-    if (false == detectionResults.maps.empty()) {
-        amp::Painter painter(rgb, frameWidth, frameHeight, frameWidth * 3);
-        painter.drawSegmentMap8(detectionResults.maps[0].map.data(),
-                                detectionResults.maps[0].width,
-                                detectionResults.maps[0].height);
-    }
-
-    if (detectionResults.rects.size()) {
-        amp::Painter painter(rgb, frameWidth, frameHeight, frameWidth * 3);
-        amp::TextRenderer textRenderer;
-
-        if (self->m->onnxInference->getModel().modelFamily ==
-            std::string(amp::NetworkId::YoloObjectDetection)) {
-            for (const auto &a : detectionResults.rects) {
-                painter.drawRect(a.x, a.y, a.w, a.h, 255, 123, 52, 2);
-                auto label = amp::Labels::getLabel(amp::LabelType::Coco, a.classIndex);
-                textRenderer.drawText(painter, a.x, a.y, label.data(), 0, 0, 0, 0, 255, 0);
-            }
-        }
-
-        if (self->m->onnxInference->getModel().modelFamily ==
-            std::string(amp::NetworkId::UltraFace)) {
-            for (const auto &a : detectionResults.rects) {
-                painter.drawCircle(a.x + a.w / 2, a.y + a.h / 2, a.w / 2, 155, 255, 64, 6);
-            }
-            for (const auto &a : detectionResults.points) {
-                painter.drawPoint(a.x, a.y, 255, 255, 255, 4);
-            }
-        }
-    }
 #endif
-    gst_buffer_unmap(buf, &map);
+
     return GST_FLOW_OK;
 }
 
 // ---------------- properties & class init ----------------
 
-enum { PROP_0, PROP_MODEL_PATH, PROP_OPCHAIN_PATH, PROP_MODEL_NAME, PROP_MODEL_ACTIVE };
+enum {
+    PROP_0,
+    PROP_MODEL_PATH,
+    PROP_OPCHAIN_PATH,
+    PROP_MODEL_NAME,
+    PROP_MODEL_ACTIVE,
+    PROP_FORMAT
+};
 
 static void gst_ampinfer_set_property(GObject *o, guint id, const GValue *v, GParamSpec *ps) {
     auto *self = (GstAmpInfer *)o;
@@ -357,6 +321,10 @@ static void gst_ampinfer_set_property(GObject *o, guint id, const GValue *v, GPa
         self->active = new_active;
         break;
     }
+    case PROP_FORMAT:
+        g_free(self->format);
+        self->format = g_value_dup_string(v);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(o, id, ps);
     }
@@ -376,6 +344,9 @@ static void gst_ampinfer_get_property(GObject *o, guint id, GValue *v, GParamSpe
         break;
     case PROP_MODEL_ACTIVE:
         g_value_set_boolean(v, self->active);
+        break;
+    case PROP_FORMAT:
+        g_value_set_string(v, self->format);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(o, id, ps);
@@ -426,10 +397,20 @@ static void gst_ampinfer_class_init(GstAmpInferClass *klass) {
                              true,
                              (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
+    g_object_class_install_property(
+        gobj,
+        PROP_FORMAT,
+        g_param_spec_string("format",
+                            "Video format",
+                            "Video format (BGRA)",
+                            "BGRA",
+                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    // Static pad templates (portable across GStreamer-1.0 versions)
     static GstStaticPadTemplate sink_t = GST_STATIC_PAD_TEMPLATE(
-        "sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS("video/x-raw, format=(string)RGB"));
+        "sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS("video/x-raw, format={BGRA}"));
     static GstStaticPadTemplate src_t = GST_STATIC_PAD_TEMPLATE(
-        "src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS("video/x-raw, format=(string)RGB"));
+        "src", GST_PAD_SRC, GST_PAD_ALWAYS, GST_STATIC_CAPS("video/x-raw, format={BGRA}"));
     gst_element_class_add_static_pad_template(ecls, &sink_t);
     gst_element_class_add_static_pad_template(ecls, &src_t);
 
@@ -453,6 +434,7 @@ static void gst_ampinfer_init(GstAmpInfer *self) {
     self->m = nullptr;
     gst_video_info_init(&self->vinfo);
 
+    self->format = g_strdup("BGRA");
     gst_base_transform_set_in_place(GST_BASE_TRANSFORM(self), TRUE);
     gst_base_transform_set_passthrough(GST_BASE_TRANSFORM(self), FALSE);
     gst_base_transform_set_qos_enabled(GST_BASE_TRANSFORM(self), FALSE);

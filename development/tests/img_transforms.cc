@@ -8,7 +8,7 @@ TEST(img_transforms, no_resize_u8rgb_chw_to_float32rgb_chw) {
     constexpr size_t in_height = 8;
     constexpr size_t in_channel_number = 3;
 
-    // create some input tensor pattern
+    // createa some input ternsor pattern
     uint8_t input[in_channel_number * in_height * in_width];
     for (size_t c = 0; c < in_channel_number; c++) {
         for (size_t h = 0; h < in_height; h++) {
@@ -23,15 +23,15 @@ TEST(img_transforms, no_resize_u8rgb_chw_to_float32rgb_chw) {
 
     // trivial conversion from u8 rgb chw to float32 rgb chw without resize
     // no resize no layout conversion, just type conversion
-    ASSERT_TRUE(ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(input,
-                                                                   in_width,
-                                                                   in_height,
-                                                                   {0, 0, in_width, in_height},
-                                                                   output,
-                                                                   in_width,
-                                                                   in_height,
-                                                                   {0, 0, in_width, in_height},
-                                                                   ImageOps::Sampling::Nearest));
+    ASSERT_TRUE(ImageOps::StretchBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(input,
+                                                                    in_width,
+                                                                    in_height,
+                                                                    {0, 0, in_width, in_height},
+                                                                    output,
+                                                                    in_width,
+                                                                    in_height,
+                                                                    {0, 0, in_width, in_height},
+                                                                    ImageOps::Sampling::Nearest));
     // check that float converted back to u8 matches input values
     for (size_t c = 0; c < in_channel_number; c++) {
         for (size_t h = 0; h < in_height; h++) {

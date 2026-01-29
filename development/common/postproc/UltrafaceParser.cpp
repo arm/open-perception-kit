@@ -271,7 +271,7 @@ amp::Result<void> amp::UltraFaceParser::parse(const amp::TensorParser::Input &in
         dr.w = x2 - x1;
         dr.h = y2 - y1;
         dr.confidence = face;
-        dr.classIndex = 0;
+        dr.label = "";
 
         detectionResult.rects.push_back(dr);
     }

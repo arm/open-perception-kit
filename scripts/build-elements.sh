@@ -7,6 +7,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 # ---- config ----
 PROJECT_ROOT=/work/development
 BUILD_DIR="$PROJECT_ROOT/build"
+TESTS_BUILD_DIR="$PROJECT_ROOT/build-test"
 
 # ---- build ----
 debug() {
@@ -33,7 +34,7 @@ debug() {
 debug_with_executorch() {
   need meson; need ninja
 
-  msg_begin "Starting DEBUG build in directory: $PROJECT_ROOT" 
+  msg_begin "Starting DEBUG build with ExecuTorch in directory: $PROJECT_ROOT" 
 
   if [[ ! -d "$BUILD_DIR" ]]; then
     msg "Meson setup.."
@@ -46,7 +47,7 @@ debug_with_executorch() {
   msg "Compiling.."
   meson compile -C "$BUILD_DIR"
 
-  msg_end "DEBUG compilation DONE → $BUILD_DIR"
+  msg_end "DEBUG compilation with ExecuTorch DONE → $BUILD_DIR"
 }
 
 release() {
@@ -79,13 +80,20 @@ release() {
 }
 # ---- clean ----
 clean() {
-    msg_begin "Executing CLEAN on $BUILD_DIR"
+    msg_begin "Executing CLEAN on $BUILD_DIR and $TESTS_BUILD_DIR"
   if [[ -d "$BUILD_DIR" ]]; then
     msg "REMOVING $BUILD_DIR…"
     rm -rf "$BUILD_DIR"
     msg_end "Done."
   else
-    msg_end_err "NOTHING to clean.."
+    msg_end_err "no $BUILD_DIR to clean.."
+  fi
+  if [[ -d "$TESTS_BUILD_DIR" ]]; then
+    msg "REMOVING $TESTS_BUILD_DIR"
+    rm -rf "$TESTS_BUILD_DIR"
+    msg_end "Done."
+  else
+    msg_end_err "no $TESTS_BUILD_DIR to clean.."
   fi
 }
 
