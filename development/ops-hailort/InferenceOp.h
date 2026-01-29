@@ -8,10 +8,10 @@
 
 namespace hailort {
 
-class PreprocessInference : public amp::Op {
+class InferrenceOp : public amp::Op {
   public:
-    PreprocessInference();
-    virtual ~PreprocessInference();
+    InferrenceOp();
+    virtual ~InferrenceOp();
 
     virtual amp::Result<void> peek(amp::OpChainContext &opChainContext) override;
     virtual amp::Result<void> configure(const amp::AttributeMap &attributes) override;

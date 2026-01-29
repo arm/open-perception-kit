@@ -3,6 +3,7 @@ onnxops = shared_module(
   'amp-onnx-ops',                   
   sources: [
     'Inference.cpp',
+    'InferenceOp.cpp',
     'Interface.cpp',
     'PreprocessAndInference.cpp'    
   ],

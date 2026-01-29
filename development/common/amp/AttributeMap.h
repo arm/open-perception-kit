@@ -161,7 +161,7 @@ struct AttributeMap {
     }
 
     // typed getters
-    std::int64_t getInt(const std::string &key) const {
+    int64_t getInt(const std::string &key) const {
         return require(key).asInt();
     }
     double getDouble(const std::string &key) const {
@@ -176,6 +176,44 @@ struct AttributeMap {
     const AttributeValue::Array &getArray(const std::string &key) const {
         return require(key).asArray();
     }
+
+    int64_t getIntOrDefaultOrDefault(const std::string &key, int64_t defaultValue) const {
+        try {
+            return getInt(key);
+        } catch (const AttributeError &error) {
+            return defaultValue;
+        }
+    }
+    double getDoubleOrDefault(const std::string &key, double defaultValue) const {
+        try {
+            return getDouble(key);
+        } catch (const AttributeError &error) {
+            return defaultValue;
+        }
+    }
+    bool getBoolOrDefault(const std::string &key, bool defaultValue) const {
+        try {
+            return getDouble(key);
+        } catch (const AttributeError &error) {
+            return defaultValue;
+        }
+    }
+    const std::string &getStringOrDefault(const std::string &key,
+                                          const std::string &defaultValue) const {
+        try {
+            return getString(key);
+        } catch (const AttributeError &error) {
+            return defaultValue;
+        }
+    }
+    std::shared_ptr<AttributeMap> getObjectOfNUll(const std::string &key) const {
+        try {
+            return getObject(key);
+        } catch (const AttributeError &error) {
+            return nullptr;
+        }
+    }
+
     std::shared_ptr<AttributeMap> getObject(const std::string &key) const {
         const auto &v = require(key);
         if (!v.isObject())

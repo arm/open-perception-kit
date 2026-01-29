@@ -1,0 +1,24 @@
+{
+	"ops": [
+	{
+		"id": "amp-std-ops/ImagePreprocess",
+		"attributes": {
+		}
+	},
+	{
+		"id": "amp-onnx-ops/Inference",
+        "attributes": {
+			"modelDescriptor": "/work/etc/models/yolo/yolo.json"
+        }
+	},
+    {
+		"id": "amp-std-ops/Postprocess",
+		"attributes": {
+			"parser": "YoloLikeParser",
+			"maxDetectionCount": 16,
+			"confidenceThreshold": 0.7,
+			"iouThreshold": 0.5
+		}
+	}
+  ]
+}

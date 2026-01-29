@@ -1,12 +1,11 @@
+#include "InferenceOp.h"
 #include "op/Op.h"
-
-#include "PreprocessInference.h"
 
 #include <cstring>
 
 amp::Op *createOp(const std::string &opName) {
-    if (opName == "PreprocessInference")
-        return new hailort::PreprocessInference();
+    if (opName == "Inference")
+        return new hailort::InferrenceOp();
     return nullptr;
 }
 

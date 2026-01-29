@@ -19,12 +19,11 @@ amp::Result<void> Postprocess::peek(amp::OpChainContext &opChainContext) {
 
 amp::Result<void> Postprocess::configure(const amp::AttributeMap &attributes) {
 
-    std::string parser;
+    std::string parser = attributes.getStringOrDefault("parser", "");
 
-    try {
-        parser = attributes.getString("parser");
-    } catch (const AttributeError &error) {
-        return tl::unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData, error.what()));
+    if (parser.empty()) {
+        return tl::unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData,
+                                        fmt::format("No 'parser' attribute in postprocessor op")));
     }
 
     if (parser == "PaddleOcrDetectionParser") {

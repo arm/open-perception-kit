@@ -1,5 +1,6 @@
 #include "op/Op.h"
 
+#include "InferenceOp.h"
 #include "PreprocessAndInference.h"
 
 #include <cstring>
@@ -7,6 +8,8 @@
 amp::Op *createOp(const std::string &opName) {
     if (opName == "PreprocessAndInference")
         return new onnx::PreprocessAndInference();
+    if (opName == "Inference")
+        return new onnx::InferenceOp();
     return nullptr;
 }
 

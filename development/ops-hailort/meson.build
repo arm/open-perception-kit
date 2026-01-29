@@ -4,7 +4,7 @@ hailortops = shared_module(
   sources: [
     'Inference.cpp',
     'Interface.cpp',
-    'PreprocessInference.cpp'    
+    'InferenceOp.cpp'    
   ],
   include_directories: common_include,
   dependencies: amp_deps,
