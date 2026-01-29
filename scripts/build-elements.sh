@@ -34,15 +34,11 @@ debug() {
 debug_with_executorch() {
   need meson; need ninja
 
-  msg_begin "Starting DEBUG build in directory: $PROJECT_ROOT" 
+  msg_begin "Starting DEBUG build with ExecuTorch in directory: $PROJECT_ROOT" 
 
   if [[ ! -d "$BUILD_DIR" ]]; then
     msg "Meson setup.."
     meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat --wrap-mode=forcefallback -Dexecutorch=enabled
-
-  if [[ ! -d "$BUILD_DIR" ]]; then
-    msg "Meson setup.."
-    meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat -Dtests="$enable_tests" --wrap-mode=forcefallback
   else
     msg "Meson configure (keeping existing build dir)…"
     meson configure "$BUILD_DIR" >/dev/null
@@ -51,7 +47,7 @@ debug_with_executorch() {
   msg "Compiling.."
   meson compile -C "$BUILD_DIR"
 
-  msg_end "DEBUG compilation DONE → $BUILD_DIR"
+  msg_end "DEBUG compilation with ExecuTorch DONE → $BUILD_DIR"
 }
 
 release() {
