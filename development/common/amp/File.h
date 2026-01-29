@@ -5,36 +5,73 @@
 #include "tl/expected.hpp"
 
 #include <filesystem>
-#include <string>
 #include <fstream>
+#include <string>
 
-namespace amp { struct fs {
+namespace amp {
+struct fs {
 
-    static bool available(const std::string& path) {
-        if(std::filesystem::exists(path)) return true;
+    static bool available(const std::string &path) {
+        if (std::filesystem::exists(path))
+            return true;
         return false;
     }
 
-    static amp::Result<uint64_t> fileSize(const std::string& path) {
-        if(!available(path)) {
+    static amp::Result<uint64_t> fileSize(const std::string &path) {
+        if (!available(path)) {
             return tl::unexpected(amp::Error(amp::ErrorFlag::FileNotFound, path));
         }
         return (uint64_t)std::filesystem::file_size(path);
     }
 
-    static amp::Result<std::vector<uint8_t>> load(const std::string& path, bool returnEmptyIfNotFound = true) {
-    
-        if(false == available(path)) {
-            if(returnEmptyIfNotFound) return std::vector<uint8_t>{};
-            return tl::unexpected(amp::Error(amp::ErrorFlag::FileNotFound, path));
-        }
-    
+    static std::vector<uint8_t> loadOrEmpty(const std::string &path) {
+        auto loadResult = load(path, false);
+        if (loadResult.has_value())
+            return std::vector<uint8_t>{};
+
+        return *loadResult;
     }
 
-    static amp::Result<std::string> loadText(const std::string& path, bool returnEmptyIfNotFound = true) {
+    static amp::Result<std::vector<uint8_t>> load(const std::string &path,
+                                                  bool returnEmptyIfNotFound = true) {
+        if (!available(path)) {
+            if (returnEmptyIfNotFound) {
+                return std::vector<uint8_t>{};
+            }
+            return tl::unexpected(amp::Error(amp::ErrorFlag::FileNotFound, path));
+        }
 
-        if(false == available(path)) {
-            if(returnEmptyIfNotFound) return "";
+        std::ifstream file(path, std::ios::binary | std::ios::ate);
+        if (!file) {
+            return tl::unexpected(amp::Error(amp::ErrorFlag::FileOperationError, path));
+        }
+
+        const std::streamsize size = file.tellg();
+        if (size < 0) {
+            return tl::unexpected(amp::Error(amp::ErrorFlag::FileOperationError, path));
+        }
+
+        std::vector<uint8_t> buffer(static_cast<size_t>(size));
+        file.seekg(0, std::ios::beg);
+
+        if (!file.read(reinterpret_cast<char *>(buffer.data()), size)) {
+            return tl::unexpected(amp::Error(amp::ErrorFlag::FileOperationError, path));
+        }
+
+        return buffer;
+    }
+
+    static std::string loadTextOrDefault(const std::string &path,
+                                         const std::string &defaultResult) {
+        amp::Result<std::string> loadResult = loadText(path);
+        if (loadResult.has_value() == false)
+            return defaultResult;
+        return loadResult.value();
+    }
+
+    static amp::Result<std::string> loadText(const std::string &path) {
+
+        if (false == available(path)) {
             return tl::unexpected(amp::Error(amp::ErrorFlag::FileNotFound, path));
         }
 
@@ -43,18 +80,22 @@ namespace amp { struct fs {
         std::string out(size, '\0');
         f.seekg(0);
         f.read(out.data(), size);
-        
+
         size_t bomCheck = checkBom(out);
-        if(bomCheck == 0 || bomCheck == 3) {
-            if(bomCheck == 3) {
+        if (bomCheck == 0 || bomCheck == 3) {
+            if (bomCheck == 3) {
                 out.erase(0, 3);
             }
         } else {
-            return tl::unexpected(amp::Error(amp::ErrorFlag::InvalidData, fmt::format("Text file [{}] must be UTF8 unicode file", path)));
+            return tl::unexpected(
+                amp::Error(amp::ErrorFlag::InvalidData,
+                           fmt::format("Text file [{}] must be UTF8 unicode file", path)));
         }
 
-        if(codepoint::validate(out.c_str()) == false) {
-            return tl::unexpected(amp::Error(amp::ErrorFlag::InvalidData, fmt::format("Text file [{}] does not contain valid UTF8 data", path)));
+        if (codepoint::validate(out.c_str()) == false) {
+            return tl::unexpected(
+                amp::Error(amp::ErrorFlag::InvalidData,
+                           fmt::format("Text file [{}] does not contain valid UTF8 data", path)));
         }
 
         return out;
@@ -62,40 +103,26 @@ namespace amp { struct fs {
 
     // ---
 
-    static size_t checkBom(const std::string& s) {
-        if (s.size() >= 3 &&
-            (unsigned char)s[0] == 0xEF &&
-            (unsigned char)s[1] == 0xBB &&
+    static size_t checkBom(const std::string &s) {
+        if (s.size() >= 3 && (unsigned char)s[0] == 0xEF && (unsigned char)s[1] == 0xBB &&
             (unsigned char)s[2] == 0xBF)
-        return 3; // UTF-8
+            return 3; // UTF-8
 
-        if (s.size() >= 2 &&
-            (unsigned char)s[0] == 0xFF &&
-            (unsigned char)s[1] == 0xFE)
-        return 2; // UTF-16 LE
+        if (s.size() >= 2 && (unsigned char)s[0] == 0xFF && (unsigned char)s[1] == 0xFE)
+            return 2; // UTF-16 LE
 
-        if (s.size() >= 2 &&
-            (unsigned char)s[0] == 0xFE &&
-            (unsigned char)s[1] == 0xFF)
-        return 2; // UTF-16 BE
+        if (s.size() >= 2 && (unsigned char)s[0] == 0xFE && (unsigned char)s[1] == 0xFF)
+            return 2; // UTF-16 BE
 
-        if (s.size() >= 4 &&
-            (unsigned char)s[0] == 0xFF &&
-            (unsigned char)s[1] == 0xFE &&
-            (unsigned char)s[2] == 0x00 &&
-            (unsigned char)s[3] == 0x00)
-        return 4; // UTF-32 LE
+        if (s.size() >= 4 && (unsigned char)s[0] == 0xFF && (unsigned char)s[1] == 0xFE &&
+            (unsigned char)s[2] == 0x00 && (unsigned char)s[3] == 0x00)
+            return 4; // UTF-32 LE
 
-        if (s.size() >= 4 &&
-            (unsigned char)s[0] == 0x00 &&
-            (unsigned char)s[1] == 0x00 &&
-            (unsigned char)s[2] == 0xFE &&
-            (unsigned char)s[3] == 0xFF)
-        return 4; // UTF-32 BE
+        if (s.size() >= 4 && (unsigned char)s[0] == 0x00 && (unsigned char)s[1] == 0x00 &&
+            (unsigned char)s[2] == 0xFE && (unsigned char)s[3] == 0xFF)
+            return 4; // UTF-32 BE
 
         return 0; // No BOM
     }
-
-};}
-
-
+};
+} // namespace amp

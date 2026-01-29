@@ -50,8 +50,8 @@ gst-launch-1.0 \
   jpegdec ! \
   imagefreeze ! \
   videoconvert ! \
-      ampinfer model-path=/work/etc/models/yolo/yolo.json model-name=yolov8n active=true ! \
-      ampinfer model-path=/work/etc/models/ultraface/ultraface.json model-name=ultraface active=true ! \
+      ampinfer opchain-path=/work/etc/models/yolo/opchain.json model-name=yolov8n active=true ! \
+      ampinfer opchain-path=/work/etc/models/ultraface/opchain.json model-name=ultraface active=true ! \
       textoverlay name=overlay valignment=top halignment=center font-desc="Sans, 14" ! \
   videoconvert ! \
       ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 ! \

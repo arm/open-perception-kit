@@ -1,0 +1,16 @@
+{
+  "ops": [
+    {
+      "id": "amp-onnx-ops/PreprocessAndInference",
+      "attributes": {
+        "modelDescriptor": "/work/etc/models/yolo/yolo.json"
+      }
+    },
+    {
+      "id": "amp-std-ops/Postprocess",
+      "attributes": {
+          "parser": "YoloLikeParser"
+      }
+    }
+  ]
+}

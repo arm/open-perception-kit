@@ -41,16 +41,35 @@ if not soup_dep.found()
 endif
 json_dep = dependency('json-glib-1.0', required: false)
 
+fmt_dep = dependency('fmt', fallback : ['fmt', 'fmt_dep'], required : true)
+
+nlohmann_dep = dependency('nlohmann_json',
+                      required : true,
+                      fallback : ['nlohmann_json', 'nlohmann_json_dep'])
+
+magic_enum_dep = dependency(
+  'magic_enum',
+  required : true,
+  fallback : ['magic_enum', 'magic_enum_dep']
+)
+
+httplib_dep = dependency(
+  'cpp-httplib',
+  required : true,
+  fallback : ['cpp-httplib', 'cpp_httplib_dep']
+)
+
+tl_expected_dep = dependency('tl-expected', required : true)
+
 web_server_enabled = soup_dep.found() and json_dep.found()
 
-# -------- ONNX + uniflow (as you had)
+# -------- ONNX
 onnx_include = include_directories('../deps/onnxruntime/include')
 onnx_libdir  = meson.project_source_root() / '../deps/onnxruntime/lib'
 onnx_dep = declare_dependency(
   include_directories: '../deps/onnxruntime/include',
   link_args: ['-L' + onnx_libdir, '-lonnxruntime', '-Wl,--no-undefined']
 )
-uniflow_dep = dependency('uniflow', fallback: ['uniflow', 'uniflow_dep'])
 
 # -------- Exported defs + deps for subdirs
 amp_defs = ['-DAMP_WEB_MODE=1']  # Web mode always compiled
@@ -71,7 +90,7 @@ amp_deps = [
   gst_dep, gstbase_dep, gstv_dep, gsta_dep,
   glib_dep, gobject_dep,
   webrtc_dep, sdp_dep,
-  onnx_dep, uniflow_dep,
+  fmt_dep, nlohmann_dep, nlohmann_dep, magic_enum_dep, tl_expected_dep, httplib_dep
 ]
 
 if web_server_enabled
@@ -84,12 +103,129 @@ common_include = include_directories('common')
 # Subdirs
 subdir('common')
 subdir('elements/ampinfer')
-subdir('elements/ampinferonnx')
-subdir('elements/ampinferpre')
-subdir('elements/ampinferpost')
+subdir('ops-onnx')
+subdir('ops-std')
+subdir('ops-hailort')
 subdir('elements/ampperformance')
 subdir('elements/ampsink')
 
 if get_option('tests')
   subdir('tests')
+endif
+'''
+# -------- EXECUTORCH
+executorch_libdir  = meson.project_source_root() / '../deps/executorch/lib'
+executorch_dep = declare_dependency(
+  include_directories: ['../deps/executorch/include', '../deps/libtorch/include'],
+  link_args: [
+    '-L' + executorch_libdir,
+
+    # Extensions (your code uses Module/Tensor, so put these early)
+    '-lextension_module',
+    '-lextension_tensor',
+    '-lextension_flat_tensor',
+    '-lextension_data_loader',
+    '-lextension_named_data_map',
+    '-lextension_threadpool',
+
+    # ExecuTorch core/runtime
+    '-lexecutorch',
+    '-lexecutorch_core',
+
+    # --- Force include portable ops / kernels ---
+    '-Wl,--whole-archive',
+      '-lportable_ops_lib',
+      '-lportable_kernels',
+#      '-lkernels_util_all_deps',
+    '-Wl,--no-whole-archive',
+
+    # Threadpool deps used by kernels/util
+    '-lpthreadpool',
+    '-lcpuinfo',
+
+    # System libs typically required when static-linking these stacks
+    '-lpthread',
+    '-ldl',
+    '-lm',
+
+    '-Wl,--no-undefined',
+  ]
+)
+'''
+'''
+# -------- EXECUTORCH
+executorch_opt = get_option('executorch')
+if executorch_opt.enabled()
+  executorch_root = meson.project_source_root() / '../deps/executorch'
+  libtorch_root   = meson.project_source_root() / '../deps/libtorch'
+
+  executorch_libdir = executorch_root / 'lib'
+
+  executorch_dep = declare_dependency(
+    include_directories: [
+      include_directories(executorch_root / 'include'),
+      include_directories(libtorch_root   / 'include'),
+    ],
+    link_args: [
+      '-L' + executorch_libdir,
+
+      # Extensions (Module/Tensor/etc.)
+      '-lextension_module',
+      '-lextension_tensor',
+      '-lextension_flat_tensor',
+      '-lextension_data_loader',
+      '-lextension_named_data_map',
+      '-lextension_threadpool',
+
+      # ExecuTorch core/runtime
+      '-lexecutorch',
+      '-lexecutorch_core',
+
+      # Threadpool deps used by kernels/util
+      '-lpthreadpool',
+      '-lcpuinfo',
+
+      # System libs
+      '-lpthread',
+      '-ldl',
+      '-lm',
+
+      '-Wl,--no-undefined',
+    ]
+  )
+
+  subdir('ops-executorch')
+endif
+'''
+# -------- EXECUTORCH
+executorch_opt = get_option('executorch')
+executorch_root = meson.project_source_root() / '../deps/executorch'
+libtorch_root   = meson.project_source_root() / '../deps/libtorch'
+executorch_libdir = executorch_root / 'lib'
+if executorch_opt.enabled()
+  executorch_dep = declare_dependency(
+    include_directories: [
+      include_directories('../deps/executorch/include'),
+      include_directories('../deps/libtorch/include'),
+    ],
+    link_args: [
+      '-L' + executorch_libdir,
+      '-lextension_module',
+      '-lextension_tensor',
+      '-lextension_flat_tensor',
+      '-lextension_data_loader',
+      '-lextension_named_data_map',
+      '-lextension_threadpool',
+      '-lexecutorch',
+      '-lexecutorch_core',
+      '-lpthreadpool',
+      '-lcpuinfo',
+      '-lpthread',
+      '-ldl',
+      '-lm',
+      '-Wl,--no-undefined',
+    ]
+  )
+
+  subdir('ops-executorch')
 endif

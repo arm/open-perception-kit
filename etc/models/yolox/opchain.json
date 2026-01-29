@@ -1,0 +1,16 @@
+{
+  "ops": [
+    {
+      "id": "amp-executorch-ops/Inference",
+      "attributes": {
+        "modelDescriptor": "/work/etc/models/yolox/yolo.json"
+      }
+    },
+    {
+      "id": "amp-std-ops/Postprocess",
+      "attributes": {
+          "parser": "YoloLikeParser"
+      }
+    }
+  ]
+}

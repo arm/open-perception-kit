@@ -30,6 +30,25 @@ debug() {
   msg_end "DEBUG compilation DONE → $BUILD_DIR"
 }
 
+debug_with_executorch() {
+  need meson; need ninja
+
+  msg_begin "Starting DEBUG build in directory: $PROJECT_ROOT" 
+
+  if [[ ! -d "$BUILD_DIR" ]]; then
+    msg "Meson setup.."
+    meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat --wrap-mode=forcefallback -Dexecutorch=enabled
+  else
+    msg "Meson configure (keeping existing build dir)…"
+    meson configure "$BUILD_DIR" >/dev/null
+  fi
+
+  msg "Compiling.."
+  meson compile -C "$BUILD_DIR"
+
+  msg_end "DEBUG compilation DONE → $BUILD_DIR"
+}
+
 release() {
   need meson; need ninja
 
@@ -88,6 +107,7 @@ arg="${2:-}"
 case "$cmd" in
   debug) debug "$arg" ;;
   release) release "$arg" ;;
+  debug_with_executorch) debug_with_executorch ;;
   clean) clean ;;
   *)
     echo "Unknown command: $cmd" >&2
