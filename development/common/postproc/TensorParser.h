@@ -34,7 +34,7 @@ struct TensorParser {
     };
 
     struct Input {
-        amp::TensorView *tensors[4] = {nullptr};
+        amp::TensorView *tensors[amp::MaxIoTensorCount] = {nullptr};
         TensorParser::Settings parserSettings;
         TensorParser::InferenceInfo inferenceInfo;
     };

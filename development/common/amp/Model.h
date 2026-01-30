@@ -53,12 +53,8 @@ struct Model {
 
     std::string modelFamily, api;
 
-    // size_t modelInputCount = 0;
-    // ModelInput inputs[4];
     std::vector<ModelInput> inputs;
 
-    // size_t modelOutputCount = 0;
-    // ModelOutput outputs[4];
     std::vector<ModelOutput> outputs;
 
     // some runtimes enable models
@@ -235,3 +231,7 @@ struct Model {
 };
 
 } // namespace amp
+
+/*
+"location=/work/etc/images/katana.jpg", "!", "jpegdec", "!", "imagefreeze", "!",
+*/

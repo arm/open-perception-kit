@@ -2,6 +2,7 @@
 
 #include "amp/String.h"
 
+#include "op/Op.h"
 #include "op/OpChainDescriptor.h"
 
 using namespace amp;
@@ -34,7 +35,7 @@ amp::Result<void> OpChain::setupFromFile(const std::string &filePath) {
             return configureResult;
         }
 
-        ops.push_back(std::move(opRef));
+        opRefs.push_back(std::move(opRef));
 
         printf("*");
     }

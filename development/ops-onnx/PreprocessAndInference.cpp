@@ -20,7 +20,7 @@ PreprocessAndInference::PreprocessAndInference() {}
 
 PreprocessAndInference::~PreprocessAndInference() {}
 
-amp::Result<void> PreprocessAndInference::peek(amp::OpChainContext &opChainContext) {
+amp::Result<void> PreprocessAndInference::bind(size_t index, const std::vector<amp::Op *> &ops) {
     return {};
 }
 

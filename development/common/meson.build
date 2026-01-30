@@ -36,7 +36,6 @@ common = shared_library(
 
     'op/Op.cpp',
     'op/OpChain.cpp',
-    'op/OpFactory.cpp',
     'op/OpChainContext.cpp',
     'op/OpChainDescriptor.cpp',
 

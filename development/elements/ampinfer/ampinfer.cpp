@@ -36,13 +36,7 @@ struct GstAmpInferMembers {
     amp::OpChain opChain;
 
     amp::Result<void> executeOpChain(amp::OpChainContext &opChainContext) {
-        for (const auto &op : opChain.ops) {
-            auto opResult = op->process(opChainContext);
-            if (!opResult) {
-                return opResult;
-            }
-        }
-        return {};
+        return opChain.execute(opChainContext);
     }
 
     amp::Result<void> setupOpChainFromJson(const std::string &filePath) {
@@ -158,7 +152,7 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     if (!self->active)
         return GST_FLOW_OK;
 
-    if (!self->m || self->m->opChain.ops.empty())
+    if (!self->m)
         return GST_FLOW_OK;
 
     GstMapInfo map;
@@ -183,8 +177,8 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     GstBuffer *writable_buf = gst_buffer_make_writable(buf);
     perceptionContextMeta = amp::PerceptionContextMeta::get(writable_buf);
     if (!perceptionContextMeta) {
-        perceptionContextMeta = amp::PerceptionContextMeta::attach(
-            writable_buf, new amp::PerceptionContext());
+        perceptionContextMeta =
+            amp::PerceptionContextMeta::attach(writable_buf, new amp::PerceptionContext());
     }
     auto perceptionContext_ptr = perceptionContextMeta->get_payload();
 

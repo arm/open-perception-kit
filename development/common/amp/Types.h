@@ -78,4 +78,6 @@ inline bool isScalarDataKind(DataKind kind) {
     return false;
 }
 
+constexpr size_t MaxIoTensorCount = 4;
+
 } // namespace amp

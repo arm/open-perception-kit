@@ -20,7 +20,7 @@ InferenceOp::InferenceOp() {}
 
 InferenceOp::~InferenceOp() {}
 
-amp::Result<void> InferenceOp::peek(amp::OpChainContext &opChainContext) {
+amp::Result<void> InferenceOp::bind(size_t index, const std::vector<amp::Op *> &ops) {
     return {};
 }
 

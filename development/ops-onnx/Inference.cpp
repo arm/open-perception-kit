@@ -278,7 +278,7 @@ void Inference::prepareForPostprocess(amp::TensorParser::Input &parserInput) {
     if (!model.useDynamicOutput) {
         // --- STATIC, PREALLOCATED OUTPUTS ---
 
-        for (size_t i = 0; i < 4; ++i) {
+        for (size_t i = 0; i < amp::MaxIoTensorCount; ++i) {
             if (i < model.outputs.size()) {
                 if (this->outputTensorViews[i] == nullptr) {
                     this->outputTensorViews[i] =

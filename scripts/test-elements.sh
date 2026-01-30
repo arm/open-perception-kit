@@ -105,9 +105,9 @@ gst-launch-1.0 \
       #textoverlay name=overlay valignment=top halignment=center font-desc="Sans, 14" ! \
 }
 
-onnx2() {
+ocr() {
 
-  msg_tegin "Executing test with ONNX2 element..\n"
+  msg_begin "Executing test with ONNX element..\n"
 
   need gst-launch-1.0
 
@@ -121,17 +121,18 @@ onnx2() {
 
   msg "Running test pipeline.."
 
-  IP=$(getent ahostsv4 host.docker.internal | awk 'NR==1{print $1}')
-  
   gst-launch-1.0 \
-    filesrc location=/work/etc/videos/00.mp4 ! decodebin ! \
-    videoconvert ! videoscale ! video/x-raw,format=RGB,width=160,height=160 ! \
-    ampinfer model-path=/work/etc/models/yolov8n/yolov8n-160-qdq.onnx model-name=yolov8n-160 imgsz=160 ! \
-    videoconvert ! x264enc tune=zerolatency speed-preset=ultrafast ! \
-    mpegtsmux ! \
-    udpsink host="$IP" port=5000 sync=false async=false
-
+  filesrc location=/work/etc/images/contents.jpg ! \
+  jpegdec ! \
+  imagefreeze ! \
+  videoconvert ! video/x-raw,format=BGRA ! \
+      ampinfer opchain-path=/work/etc/models/paddleocr/opchain.json model-name=ultraface active=true ! \
+      ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 ! \
+      amposd enabled=true ! \
+      ampsink name=sink
+  
   msg_end "Pipeline finished."
+
 }
 
 ampinfer() {
@@ -219,7 +220,7 @@ EOF
 cmd="${1:-}"
 case "$cmd" in
   onnx) onnx ;;
-  onnx2) onnx2 ;;
+  ocr) ocr ;;
   onnx_rgba) onnx_rgba ;;
   ampinfer) ampinfer ;;
   onnxweb) onnxweb ;;

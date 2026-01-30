@@ -11,12 +11,7 @@
 
 namespace amp {
 
-struct Op {
-    virtual ~Op() {}
-    virtual Result<void> configure(const AttributeMap &attributes) = 0;
-    virtual Result<void> peek(OpChainContext &opChainContext) = 0;
-    virtual Result<void> process(OpChainContext &opChainContext) = 0;
-};
+struct Op;
 
 class OpRef {
   public:
@@ -51,6 +46,15 @@ class OpRef {
     CreateFn createFn = nullptr;
     DeleteFn destroyFn = nullptr;
     amp::Op *op = nullptr;
+};
+
+struct Op {
+    virtual ~Op() {}
+    // called when an instance is created
+    virtual Result<void> configure(const AttributeMap &attributes) = 0;
+    virtual Result<void> bind(size_t index, const std::vector<amp::Op *> &ops) = 0;
+    // called to make the Op do its job
+    virtual Result<void> process(OpChainContext &opChainContext) = 0;
 };
 
 } // namespace amp

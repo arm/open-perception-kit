@@ -13,7 +13,7 @@ using namespace amp;
 ImagePreprocessOp::ImagePreprocessOp() {}
 ImagePreprocessOp::~ImagePreprocessOp() {}
 
-amp::Result<void> ImagePreprocessOp::peek(amp::OpChainContext &opChainContext) {
+amp::Result<void> ImagePreprocessOp::bind(size_t index, const std::vector<amp::Op *> &ops) {
     return {};
 }
 

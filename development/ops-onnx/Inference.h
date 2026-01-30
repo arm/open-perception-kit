@@ -133,17 +133,15 @@ struct Inference {
     std::vector<std::unique_ptr<amp::TensorView>> dynamicViews;
 
     std::vector<Ort::Value> dynamicOutputData;
-    std::unique_ptr<amp::TensorView> outputTensorViews[4];
+    std::unique_ptr<amp::TensorView> outputTensorViews[amp::MaxIoTensorCount];
 
     amp::Result<void> createTensorProcessors();
-
-    amp::TensorView *lastUsedOutputTensors[4] = {nullptr};
 
     // ---
 
     struct ApiTensorGlue {
-        std::unique_ptr<onnx::Tensor> inputTensors[4];
-        std::unique_ptr<onnx::Tensor> outputTensors[4];
+        std::unique_ptr<onnx::Tensor> inputTensors[amp::MaxIoTensorCount];
+        std::unique_ptr<onnx::Tensor> outputTensors[amp::MaxIoTensorCount];
         std::vector<const char *> inputNames;
         std::vector<const char *> outputNames;
         std::vector<Ort::Value> inputTensorVector;

@@ -13,7 +13,7 @@ using namespace amp;
 Postprocess::Postprocess() {}
 Postprocess::~Postprocess() {}
 
-amp::Result<void> Postprocess::peek(amp::OpChainContext &opChainContext) {
+amp::Result<void> Postprocess::bind(size_t index, const std::vector<amp::Op *> &ops) {
     return {};
 }
 
