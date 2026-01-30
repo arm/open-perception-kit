@@ -1,5 +1,6 @@
 #include "gst/PerceptionContextMeta.h"
 #include "osd.hpp"
+#include <cmath>
 #include <cstring>
 #include <gst/gst.h>
 #include <gst/video/gstvideofilter.h>
@@ -274,6 +275,74 @@ draw_perf_layer(GstAmpOsd *self,
 }
 
 static std::unique_ptr<Osd::Layer>
+draw_segmentation_layer(GstAmpOsd *self, float imgWidth, float imgHeight, const amp::Map8 &segMap) {
+    auto layer = std::make_unique<Osd::Layer>(imgWidth, imgHeight);
+
+    // Get direct access to the layer's pixel data
+    cairo_surface_flush(layer->surface);
+    unsigned char *data = cairo_image_surface_get_data(layer->surface);
+    int stride = cairo_image_surface_get_stride(layer->surface);
+
+    // Calculate scale factors if segmentation map size differs from video frame
+    auto scale_x = static_cast<float>(imgWidth) / static_cast<float>(segMap.width);
+    auto scale_y = static_cast<float>(imgHeight) / static_cast<float>(segMap.height);
+
+    // First pass: find min/max values in the segmentation map
+    uint8_t min_value = 255U;
+    uint8_t max_value = 0U;
+    for (size_t i = 0; i < segMap.map.size(); ++i) {
+        auto val = segMap.map[i];
+        min_value = std::min(min_value, val);
+        max_value = std::max(max_value, val);
+    }
+
+    // Avoid division by zero if map is uniform
+    if (max_value == min_value) {
+        return layer; // Return empty layer if no variation
+    }
+
+    // Second pass: draw with normalized values
+    for (size_t y = 0; y < static_cast<size_t>(imgHeight); ++y) {
+        for (size_t x = 0; x < static_cast<size_t>(imgWidth); ++x) {
+            // Map frame coordinates to segmentation map coordinates
+            auto seg_x = static_cast<size_t>(x / scale_x);
+            auto seg_y = static_cast<size_t>(y / scale_y);
+
+            // Bounds check
+            if (seg_x >= segMap.width || seg_y >= segMap.height) {
+                continue;
+            }
+
+            // Get value from segmentation map (0-255)
+            auto value = segMap.map[seg_y * segMap.width + seg_x];
+
+            // Min-max normalization: map [min_value, max_value] → [0, 255]
+            auto range = static_cast<float>(max_value - min_value);
+            auto normalized = static_cast<float>(value - min_value) / range;
+
+            // Apply gamma correction for perceptual uniformity
+            auto gamma = 2.2f;
+            auto alpha = static_cast<uint8_t>(std::pow(normalized, gamma) * 255.0f);
+
+            // Skip fully transparent pixels
+            if (alpha == 0) {
+                continue;
+            }
+
+            // Use bright cyan overlay for detected regions
+            auto *pixel = data + y * stride + x * 4;
+            pixel[0] = 255; // Blue
+            pixel[1] = 255; // Green
+            pixel[2] = 0;   // Red (BGR = cyan)
+            pixel[3] = alpha;
+        }
+    }
+
+    cairo_surface_mark_dirty(layer->surface);
+    return layer;
+}
+
+static std::unique_ptr<Osd::Layer>
 draw_detection_layer(GstAmpOsd *self,
                      float imgWidth,
                      float imgHeight,
@@ -345,6 +414,16 @@ static GstFlowReturn gst_amp_osd_transform_frame_ip(GstVideoFilter *filter, GstV
             frame->buffer)) { // NOTE: PerceptionContextMeta locks internally!
         const auto perceptionContext = perceptionContextMeta->get_const_payload();
         if (perceptionContext) {
+            // Draw segmentation maps from rawDetections (bottom layer)
+            for (const auto &detection : perceptionContext->rawDetections) {
+                for (const auto &segMap : detection.maps) {
+                    if (!segMap.map.empty() && segMap.width > 0 && segMap.height > 0) {
+                        layers.push_back(
+                            draw_segmentation_layer(self, imgWidth, imgHeight, segMap));
+                    }
+                }
+            }
+            // Draw detection boxes on top of segmentation
             layers.push_back(draw_detection_layer(self, imgWidth, imgHeight, *perceptionContext));
             layers.push_back(draw_perf_layer(self, imgWidth, imgHeight, *perceptionContext));
         }
