@@ -4,10 +4,18 @@ g++ -fPIC -shared -o libgstampsink.so ampsink.cpp \
 */
 
 // WebRTC in GST is unstable: this macro disables the warning
+#include "glib-object.h"
+#include "glib.h"
+#include "gst/gstobject.h"
+#include <gst/gstelement.h>
+#include <nlohmann/json_fwd.hpp>
+
 #define GST_USE_UNSTABLE_API
 
 #include "ampsink.h"
+#include "aux.h"
 #include "http_server.h"
+#include "status_reporter.h"
 #include "utils.h"
 #include "webrtc_ws.h"
 
@@ -25,8 +33,80 @@ enum {
     PROP_HOST,
     PROP_HTTP_PORT,
     PROP_WS_PORT,
+    PROP_CTRL_PORT,
     PROP_STATIC_FILES,
 };
+
+class PipelineStateReporter : public StatusReporter {
+    GstAmpSink *self_ = nullptr;
+
+    bool has_audio_ = false;
+
+  public:
+    PipelineStateReporter(GstAmpSink *self) : self_(self) {}
+
+    void set_paused() {
+        trigger_reporting();
+    }
+
+    void set_audio(bool has_audio) {
+        has_audio_ = has_audio;
+        trigger_reporting();
+    }
+
+    nlohmann::json report() const override {
+        nlohmann::json ret;
+
+        if (self_) {
+            // get the playing state
+            GstState cur = GST_STATE_NULL;
+            GstState pending = GST_STATE_NULL;
+            gst_element_get_state(GST_ELEMENT(self_), &cur, &pending, 0);
+            DBG("current state: {}, {}", int(cur), int(pending));
+
+            ret["playing"] = (cur == GST_STATE_PLAYING ? true : false);
+
+            // audio state
+            ret["audio"] = has_audio_;
+        }
+
+        return ret;
+    }
+};
+
+class PerformanceOverlayStateReporter : public StatusReporter {
+    GstAmpSink *self_ = nullptr;
+
+  public:
+    PerformanceOverlayStateReporter(GstAmpSink *self) : self_(self) {}
+
+    nlohmann::json report() const override {
+        nlohmann::json ret;
+
+        // we suppose here that only one ampperformance element exists in the pipeline
+        auto top = get_top_pipeline(GST_ELEMENT(self_));
+        auto perf_ovr = get_element_by_type(top, "ampperformance");
+        gst_object_unref(top);
+
+        if (perf_ovr && GST_IS_ELEMENT(perf_ovr)) {
+            ret["has_performance_overlay"] = true;
+
+            gboolean enabled;
+            g_object_get(perf_ovr, "enabled", &enabled, NULL);
+            ret["enabled"] = bool(enabled);
+
+            gst_object_unref(perf_ovr);
+        } else {
+            ret["has_performance_overlay"] = false;
+            ret["enabled"] = false;
+        }
+
+        return ret;
+    }
+};
+
+std::shared_ptr<PipelineStateReporter> pipeline_state_reporter;
+std::shared_ptr<PerformanceOverlayStateReporter> performance_overlay_state_reporter;
 
 GType gst_amp_sink_get_type(void);
 #define GST_TYPE_AMP_SINK (gst_amp_sink_get_type())
@@ -45,6 +125,9 @@ gst_amp_sink_set_property(GObject *object, guint prop_id, const GValue *value, G
         break;
     case PROP_WS_PORT:
         self->ws_port = g_value_get_int(value);
+        break;
+    case PROP_CTRL_PORT:
+        self->ctrl_port = g_value_get_int(value);
         break;
     case PROP_STATIC_FILES:
         g_free(self->static_files_location);
@@ -68,6 +151,9 @@ gst_amp_sink_get_property(GObject *object, guint prop_id, GValue *value, GParamS
         break;
     case PROP_WS_PORT:
         g_value_set_int(value, self->ws_port);
+        break;
+    case PROP_CTRL_PORT:
+        g_value_set_int(value, self->ctrl_port);
         break;
     case PROP_STATIC_FILES:
         g_value_set_string(value, self->static_files_location);
@@ -96,6 +182,8 @@ static GstPad *gst_amp_sink_request_new_pad(GstElement *element,
     if (g_strcmp0(templ_name, "audiosink") != 0) {
         return nullptr;
     }
+
+    pipeline_state_reporter->set_audio(true);
 
     // If already created, just return existing pad
     // This is probaly not the best approach:
@@ -209,6 +297,7 @@ static void gst_amp_sink_dispose(GObject *object) {
     if (self->private_data) {
         self->private_data->http_server->stop();
         self->private_data->webrtc_websocket->stop();
+        self->private_data->ctrl_websocket->stop();
     }
 
     G_OBJECT_CLASS(gst_amp_sink_parent_class)->dispose(object);
@@ -420,18 +509,32 @@ static void gst_amp_sink_init(GstAmpSink *self) {
     self->static_files_location = g_strdup("./scripts/public");
     self->http_port = 9999;
     self->ws_port = 8000;
+    self->ctrl_port = 8001;
 
     init_video(self);
     init_audio(self);
 
     // private data
-    self->private_data->model_registry = std::make_unique<ModelRegistry>();
+    self->private_data->model_registry = std::make_shared<ModelRegistry>();
 
     self->private_data->webrtc_websocket = std::make_unique<WebRtcWebSocket>(self);
     self->private_data->webrtc_websocket->start();
 
+    self->private_data->ctrl_websocket = std::make_unique<CtrlWebSocket>(self);
+    self->private_data->ctrl_websocket->start();
+
     self->private_data->http_server = std::make_unique<AmpSinkHttpServer>(self);
     self->private_data->http_server->start();
+
+    pipeline_state_reporter = std::make_shared<PipelineStateReporter>(self);
+    performance_overlay_state_reporter = std::make_shared<PerformanceOverlayStateReporter>(self);
+
+    self->private_data->ctrl_websocket->register_status_reporter(
+        "models", self->private_data->model_registry);
+    self->private_data->ctrl_websocket->register_status_reporter("pipeline_state",
+                                                                 pipeline_state_reporter);
+    self->private_data->ctrl_websocket->register_status_reporter(
+        "perf_overlay", performance_overlay_state_reporter);
 }
 
 static void gst_amp_sink_class_init(GstAmpSinkClass *klass) {
@@ -461,6 +564,10 @@ static void gst_amp_sink_class_init(GstAmpSinkClass *klass) {
         gobject_class,
         PROP_WS_PORT,
         g_param_spec_int("ws-port", "WebSocket Port", "WebSocket Port", 1, 65535, 8000, kRW));
+    g_object_class_install_property(
+        gobject_class,
+        PROP_CTRL_PORT,
+        g_param_spec_int("ctrl-port", "Control Port", "Control Port", 1, 65535, 8001, kRW));
     g_object_class_install_property(
         gobject_class,
         PROP_STATIC_FILES,

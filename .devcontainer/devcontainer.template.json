@@ -16,6 +16,7 @@
     "--cap-add=SYS_PTRACE",
     "--security-opt","seccomp=unconfined",
     "-p", "8000:8000",
+    "-p", "8001:8001",
     "-p", "9999:9999"
   ],
   "containerEnv": {

@@ -55,24 +55,6 @@ static void on_set_remote_description(GstPromise *promise, gpointer user_data);
         }                                                                                          \
     } while (0)
 
-static inline bool set_state_elements_many(GstState state,
-                                           std::initializer_list<GstElement *> elems) {
-    bool ok = true;
-    for (GstElement *e : elems) {
-        if (!e)
-            continue;
-
-        const auto r = gst_element_set_state(e, state);
-        // For teardown, ASYNC is usually fine; FAILURE is not.
-        if (r == GST_STATE_CHANGE_FAILURE) {
-            ok = false;
-            DBG("Failed to set state on {}", GST_ELEMENT_NAME(e));
-        }
-    }
-
-    return ok;
-}
-
 // SessionContext is private to this compilation unit
 struct SessionContext {
     _GstAmpSink *self;
@@ -81,6 +63,9 @@ struct SessionContext {
 
     // aliases to make ws_server reachable from session negotiation functions
     std::shared_ptr<ws_server> ws;
+
+    gulong onn_id;
+    gulong oic_id;
 
     // Per-client GStreamer branch
     GstElement *webrtcbin = nullptr;
@@ -430,9 +415,10 @@ void WebRtcWebSocket::on_open(connection_hdl hdl) {
                  nullptr);
 
     // WebRTC callbacks (per client webrtcbin!)
-    g_signal_connect(
+    ctx->onn_id = g_signal_connect(
         ctx->webrtcbin, "on-negotiation-needed", G_CALLBACK(on_negotiation_needed), ctx.get());
-    g_signal_connect(ctx->webrtcbin, "on-ice-candidate", G_CALLBACK(on_ice_candidate), ctx.get());
+    ctx->oic_id = g_signal_connect(
+        ctx->webrtcbin, "on-ice-candidate", G_CALLBACK(on_ice_candidate), ctx.get());
 
     // Add to ampsink bin
     gst_bin_add_many(GST_BIN(self_), ctx->webrtcbin, nullptr);
@@ -460,6 +446,9 @@ void WebRtcWebSocket::on_close(connection_hdl hdl) {
         }
 
         ctx = it->second;
+
+        g_signal_handler_disconnect(ctx->webrtcbin, ctx->onn_id);
+        g_signal_handler_disconnect(ctx->webrtcbin, ctx->oic_id);
 
         // Forget the session
         sessions.erase(it);

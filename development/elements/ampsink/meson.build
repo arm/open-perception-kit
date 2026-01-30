@@ -11,6 +11,7 @@ ampinferpre = shared_module(
     'ampsink.cpp',
     'http_server.cpp',
     'webrtc_ws.cpp',
+    'ctrl_ws.cpp',
     'utils.cpp',
     'model_reg.cpp'
   ],

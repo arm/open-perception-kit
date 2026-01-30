@@ -8,6 +8,8 @@ const overlay = document.getElementById('video-overlay');
 const overlayText = document.getElementById('overlay-text');
 const logEl = document.getElementById('log');
 
+let receiving_video = false;
+
 // ===== UI HELPERS =====
 function setStatus(state, label, subtext) {
     statusPill.classList.remove('connecting', 'connected', 'reconnecting', 'disconnected');
@@ -33,6 +35,7 @@ function setStatus(state, label, subtext) {
 }
 
 function setStatusLine(text) {
+    console.log("setStatusLine: " + text);
     statusLineEl.innerHTML = text;
 }
 
@@ -132,6 +135,7 @@ function createPeerConnection() {
         attachRemoteStream();
 
         if (event.track.kind === 'video') {
+            receiving_video = true;
             setStatus('connected', 'Connected', 'Receiving video stream');
             setStatusLine('<strong>WebRTC connected.</strong> Video stream should be visible.');
         } else if (event.track.kind === 'audio') {
@@ -227,6 +231,7 @@ function connectSignaling(manual = false) {
     signaling.onopen = () => {
         appendLog('Signaling WebSocket open');
         wsReconnectDelay = 1000;
+        receiving_video = false;
         setStatus('connecting', 'Connecting', 'Signaling connected – creating offer…');
         if (!pc)
             createPeerConnection();
@@ -244,16 +249,21 @@ function connectSignaling(manual = false) {
 
         try {
             if (data.type === 'answer') {
+
                 appendLog('Setting remote description with answer');
-                await pc.setRemoteDescription(
-                    new RTCSessionDescription({type : 'answer', sdp : data.sdp}));
+
+                await pc.setRemoteDescription(new RTCSessionDescription({type : 'answer', sdp : data.sdp}));
                 setStatus('connected', 'Connected', 'Answer received from server.');
-                setStatusLine('<strong>Answer received.</strong> Waiting for video track…');
+                if(!receiving_video) {
+                    setStatusLine('<strong>Answer received.</strong> Waiting for video track…');
+                }
             } else if (data.type === 'candidate' && data.ice) {
+
                 appendLog('Adding ICE candidate');
                 if (!data.ice || data.ice.candidate === "") {
                     // end-of-candidates
                     appendLog('End of candidates');
+
                     await pc.addIceCandidate(null);
                     return;
                 }
@@ -273,6 +283,8 @@ function connectSignaling(manual = false) {
         setStatus('disconnected', 'Disconnected', 'Signaling closed – will retry…');
         setStatusLine(
             '<strong>Signaling connection closed.</strong> Will retry automatically, or click Reconnect.');
+
+        receiving_video = false;
 
         if (pc) {
             try {

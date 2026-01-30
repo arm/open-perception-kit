@@ -3,53 +3,26 @@
  * Handles fetching and displaying registered AI models
  */
 
+import {ctrlSend} from "./ctrlws.js"
+
 class ModelsManager {
     constructor() {
         this.container = document.getElementById('models-container');
-        this.models = [];
         this.updateInterval = null;
     }
 
-    /**
-     * Initialize the models manager
-     */
-    init() {
-        this.fetchModels();
-        // Auto-refresh every 5 seconds
-        this.updateInterval = setInterval(() => this.fetchModels(), 5000);
-    }
-
-    /**
-     * Fetch models from the API
-     */
-    async fetchModels() {
-        try {
-            const response = await fetch('/models');
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            const data = await response.json();
-            this.models = data.models || [];
-            this.render();
-        } catch (error) {
-            console.error('Failed to fetch models:', error);
-            this.renderError(error.message);
-        }
-    }
 
     /**
      * Render the models list
      */
-    render() {
+    render(models) {
         if (!this.container) return;
 
         // Clear container
         this.container.innerHTML = '';
 
         // Handle empty state
-        if (this.models.length === 0) {
+        if (models.length === 0) {
             this.container.innerHTML = `
                 <div class="models-empty">
                     No models registered yet
@@ -59,8 +32,8 @@ class ModelsManager {
         }
 
         // Sort models by model_name for consistent display
-        const sortedModels = [...this.models].sort((a, b) => 
-            a.model_name.localeCompare(b.model_name)
+        const sortedModels = [...models].sort((a, b) => 
+            a.name.localeCompare(b.name)
         );
 
         // Render each model
@@ -86,9 +59,9 @@ class ModelsManager {
         item.innerHTML = `
             <div class="model-info">
                 <div class="model-status-dot ${statusClass}"></div>
-                <div class="model-name" title="${model.model_name}">${model.model_name}</div>
+                <div class="model-name" title="${model.name}">${model.name}</div>
             </div>
-            <button class="model-toggle-btn ${buttonClass}" data-model="${model.model_name}" data-active="${model.active}">
+            <button class="model-toggle-btn ${buttonClass}" data-model="${model.name}" data-active="${model.active}">
                 ${buttonText}
             </button>
         `;
@@ -113,27 +86,9 @@ class ModelsManager {
         console.log(`Toggle model: ${model.model_name} from ${model.active} to ${newActiveState}`);
         
         try {
-            const response = await fetch('/models/toggle', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    element_name: model.element_name,
-                    active: newActiveState
-                })
-            });
 
-            const data = await response.json();
+            ctrlSend({type: "model_toggle", name: model.element_name});
 
-            if (response.ok && data.status === 'ok') {
-                console.log(`Successfully toggled ${model.model_name} to ${newActiveState}`);
-                // Refresh the model list to show updated state
-                await this.fetchModels();
-            } else {
-                console.error('Failed to toggle model:', data.message || 'Unknown error');
-                alert(`Failed to toggle model: ${data.message || 'Unknown error'}`);
-            }
         } catch (error) {
             console.error('Error toggling model:', error);
             alert(`Error toggling model: ${error.message}`);
@@ -170,11 +125,5 @@ class ModelsManager {
     }
 }
 
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    const modelsManager = new ModelsManager();
-    modelsManager.init();
+export const modelsManager = new ModelsManager();
     
-    // Store reference for debugging
-    window.modelsManager = modelsManager;
-});

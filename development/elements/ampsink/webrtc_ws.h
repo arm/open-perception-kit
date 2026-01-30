@@ -1,6 +1,7 @@
 #ifndef __WEBRTC_WS_H__
 #define __WEBRTC_WS_H__
 
+#include "glib.h"
 #include <gst/gst.h>
 #include <gst/webrtc/webrtc.h>
 

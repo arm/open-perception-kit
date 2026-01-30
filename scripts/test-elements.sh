@@ -56,6 +56,7 @@ gst-launch-1.0 \
   videoconvert ! \
       ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 ! \
   videoconvert ! \
+      video/x-raw,framerate=30/1 ! \
       ampsink name=sink
 
   msg_end "Pipeline finished."
@@ -82,6 +83,16 @@ audio() {
   msg "Running test pipeline.."
 
 # external audio
+# valgrind --leak-check=full --num-callers=20 --log-file=vgdump.txt \
+# gst-launch-1.0 \
+#   videotestsrc is-live=true pattern=ball ! \
+#     video/x-raw,framerate=30/1 ! \
+#     videoconvert ! \
+#     ampsink name=sink \
+#   audiotestsrc is-live=true wave=square ! \
+#     audio/x-raw,rate=48000,channels=2 ! \
+#     sink.audiosink
+
 gst-launch-1.0 \
   videotestsrc is-live=true pattern=ball ! \
     video/x-raw,framerate=30/1 ! \
@@ -203,6 +214,7 @@ usage() {
 
 Commands:
   onnx ➡️ Run yolov8n test using onnx framework.
+  audio ➡️ Run a simple test for AmpSink
   onnx2 ➡️ Run yolov8n int8 test using onnx framework.
   ampinfer ➡️ Run yolov8n test using onnx via ampinfer.
   onnxweb ➡️ Run yolov8n test over web using onnx framework.
