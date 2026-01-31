@@ -9,6 +9,12 @@
 #include "postproc/UltrafaceParser.h"
 #include "postproc/YoloParser.h"
 
+#include <PerformanceTracer.h>
+#define AMP_PERF_BLOCK(name)                                                                       \
+    static amp::PerformanceTracer *tracer = amp::getGlobalTracer();                                \
+    std::string traceName = name;                                                                  \
+    amp::PerformanceTracer::ScopedTimer timer(tracer, traceName);
+
 using namespace amp;
 
 PostprocessOp::PostprocessOp() {}
@@ -42,6 +48,8 @@ amp::Result<void> PostprocessOp::configure(const amp::AttributeMap &attributes) 
 }
 
 amp::Result<void> PostprocessOp::process(amp::OpChainContext &opChainContext) {
+    AMP_PERF_BLOCK(fmt::format("std/PostprocessOp/{}", opChainContext.inferenceInfo.modelFamily));
+
     amp::TensorParser::Input tensorParserInput;
 
     // populate tensors
@@ -64,7 +72,7 @@ amp::Result<void> PostprocessOp::process(amp::OpChainContext &opChainContext) {
 
     opChainContext.perceptionContext->rawDetections.push_back(rawDetectionLayer);
 
-    fmt::print("Detected rects: {}\n", rawDetectionLayer.rects.size());
+    // fmt::print("Detected rects: {}\n", rawDetectionLayer.rects.size());
 
     return {};
 }

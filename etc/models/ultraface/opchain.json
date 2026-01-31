@@ -1,16 +1,26 @@
 {
-  "ops": [
+	"ops": [
+	{
+		"id": "amp-std-ops/GenericImagePreprocess",
+		"attributes": {
+			"inputImageTensorIndex": 0,
+			"inputImageSourceName": "pipelineVideoFrame"
+		}
+	},
+	{
+		"id": "amp-onnx-ops/Inference",
+        "attributes": {
+			"modelDescriptor": "/work/etc/models/ultraface/ultraface.json"
+        }
+	},
     {
-      "id": "amp-onnx-ops/PreprocessAndInference",
-      "attributes": {
-        "modelDescriptor": "/work/etc/models/ultraface/ultraface.json"
-      }
-    },
-    {
-      "id": "amp-std-ops/Postprocess",
-      "attributes": {
-          "parser": "UltrafaceParser"
-      }
-    }
+		"id": "amp-std-ops/Postprocess",
+		"attributes": {
+			"parser": "UltrafaceParser",
+			"maxDetectionCount": 16,
+			"confidenceThreshold": 0.7,
+			"iouThreshold": 0.5
+		}
+	}
   ]
 }

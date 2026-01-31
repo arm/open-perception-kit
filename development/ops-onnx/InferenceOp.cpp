@@ -15,6 +15,12 @@
 #include "gst/gstpad.h"
 #include "op/OpChainContext.h"
 
+#include <PerformanceTracer.h>
+#define AMP_PERF_BLOCK(name)                                                                       \
+    static amp::PerformanceTracer *tracer = amp::getGlobalTracer();                                \
+    std::string traceName = name;                                                                  \
+    amp::PerformanceTracer::ScopedTimer timer(tracer, traceName);
+
 using namespace onnx;
 
 InferenceOp::InferenceOp() {}
@@ -31,7 +37,10 @@ amp::Result<void> InferenceOp::configure(const amp::AttributeMap &attributes) {
     try {
         modelDescPath = attributes.getString("modelDescriptor");
     } catch (const amp::AttributeError &error) {
-        AMP_ABORT; // todo
+
+        return tl::unexpected(
+            AMP_ERROR(amp::ErrorFlag::InvalidOpChain,
+                      fmt::format("Missing required attribute in InferenceOp: {}", error.what())));
     }
 
     try {
@@ -39,13 +48,11 @@ amp::Result<void> InferenceOp::configure(const amp::AttributeMap &attributes) {
 
         auto setupResult = inference->setupFromJson(modelDescPath);
         if (!setupResult) {
-            fmt::print("{}\n", setupResult.error().toString());
-            AMP_ABORT; // todo
+            return setupResult;
         }
     } catch (const std::exception &e) {
-        amp::Error err = AMP_ERROR(amp::ErrorFlag::OnnxStartupException, e.what());
-        fmt::print("{}\n", err.toString());
-        AMP_ABORT; // todo
+        return tl::unexpected(AMP_ERROR(amp::ErrorFlag::OnnxStartupException,
+                                        fmt::format("OnnxRT startup error: {}", e.what())));
     }
 
     modelFamily = inference->getModel().modelFamily;
@@ -54,6 +61,8 @@ amp::Result<void> InferenceOp::configure(const amp::AttributeMap &attributes) {
 }
 
 amp::Result<void> InferenceOp::process(amp::OpChainContext &opChainContext) {
+    AMP_PERF_BLOCK(fmt::format("onnx/InferenceOp/{}", opChainContext.inferenceInfo.modelFamily));
+
     amp::BitmapView pipelineVideoFrame = opChainContext.bitmapViews["pipelineVideoFrame"];
 
     // inference
