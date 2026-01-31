@@ -7,13 +7,8 @@
 
 using namespace amp;
 
-amp::Result<void> OpChain::setupFromFile(const std::string &filePath) {
-    auto descResult = amp::OpChainDescriptor::fromFile(filePath);
-    if (!descResult) {
-        return tl::unexpected{descResult.error()};
-    }
-
-    for (const auto &op : (*descResult).ops) {
+amp::Result<void> OpChain::setupFromDescriptor(const amp::OpChainDescriptor &descriptor) {
+    for (const auto &op : descriptor.ops) {
 
         if (amp::utf8::count(op.id, '/') != 1) {
             return tl::unexpected(
@@ -35,10 +30,52 @@ amp::Result<void> OpChain::setupFromFile(const std::string &filePath) {
             return configureResult;
         }
 
-        opRefs.push_back(std::move(opRef));
-
-        printf("*");
+        add(opRef);
+        // opRefs.push_back(std::move(opRef));
     }
 
+    auto chainBindResult = bind();
+    if (!chainBindResult) {
+        return chainBindResult;
+    }
+
+    return {};
+}
+
+amp::Result<void> OpChain::setupFromFile(const std::string &filePath) {
+    auto descResult = amp::OpChainDescriptor::fromFile(filePath);
+    if (!descResult) {
+        return tl::unexpected{descResult.error()};
+    }
+    return setupFromDescriptor(*descResult);
+}
+
+void OpChain::add(amp::OpRef &opRef) {
+    opRefs.push_back(std::move(opRef));
+}
+
+amp::Result<void> OpChain::bind() {
+    opPtrs.resize(opRefs.size());
+    for (size_t i = 0; i < opRefs.size(); i++) {
+        opPtrs[i] = opRefs[i].get();
+    }
+
+    for (size_t i = 0; i < opPtrs.size(); i++) {
+        auto opBindResult = opPtrs[i]->bind(i, opPtrs);
+        if (!opBindResult) {
+            return opBindResult;
+        }
+    }
+
+    return {};
+}
+
+amp::Result<void> OpChain::execute(amp::OpChainContext &opChainContext) {
+    for (const auto &op : opPtrs) {
+        auto opResult = op->process(opChainContext);
+        if (!opResult) {
+            return opResult;
+        }
+    }
     return {};
 }

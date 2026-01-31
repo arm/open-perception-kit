@@ -206,7 +206,7 @@ struct AttributeMap {
             return defaultValue;
         }
     }
-    std::shared_ptr<AttributeMap> getObjectOfNUll(const std::string &key) const {
+    std::shared_ptr<AttributeMap> getObjectOrNUll(const std::string &key) const {
         try {
             return getObject(key);
         } catch (const AttributeError &error) {

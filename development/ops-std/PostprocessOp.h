@@ -8,10 +8,10 @@
 
 namespace amp {
 
-class ImagePreprocessOp : public amp::Op {
+class PostprocessOp : public amp::Op {
   public:
-    ImagePreprocessOp();
-    virtual ~ImagePreprocessOp();
+    PostprocessOp();
+    virtual ~PostprocessOp();
 
     virtual amp::Result<void> configure(const amp::AttributeMap &attributes) override;
     virtual amp::Result<void> process(amp::OpChainContext &opChainContext) override;

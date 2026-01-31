@@ -3,10 +3,12 @@
 #include "amp/DescriptorStrings.h"
 #include "amp/PerceptionContext.h"
 #include "amp/Result.h"
+#include "amp/Shape.h"
 #include "amp/String.h"
 
 #include "onnxruntime_cxx_api.h"
 #include "tl/expected.hpp"
+#include <cstdint>
 #include <memory>
 
 #include <fmt/core.h>
@@ -269,6 +271,40 @@ amp::Result<void> Inference::inference() {
         return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::OnnxInferenceException, e.what()));
     }
 
+    // fill the tensors data pointers
+    // postprocessor will use these addresses
+    for (size_t i = 0; i < amp::MaxTensorCount; i++)
+        outputTensorPointers[i] = nullptr;
+    if (false == model.useDynamicOutput) {
+        for (size_t i = 0; i < api.outputTensorVector.size(); i++) {
+            outputTensorPointers[i] = api.outputTensorVector[i].GetTensorData<uint8_t>();
+        }
+    } else {
+        for (size_t i = 0; i < dynamicOutputData.size(); i++) {
+            Ort::Value &v = dynamicOutputData[i];
+            outputTensorPointers[i] = v.GetTensorMutableData<uint8_t>();
+        }
+    }
+
+    // fill the final tensor shapes
+    // postprocessor will use these shapes
+    for (size_t i = 0; i < amp::MaxTensorCount; i++)
+        outputTensorFinalShapes[i] = amp::Shape();
+    if (false == model.useDynamicOutput) {
+        for (size_t i = 0; i < api.outputTensorVector.size(); i++) {
+            std::vector<size_t> onnxShape =
+                getTensorShape(*this->session, amp::TensorInOut::Out, i);
+            outputTensorFinalShapes[i].setFrom(onnxShape);
+        }
+    } else {
+        for (size_t i = 0; i < dynamicOutputData.size(); i++) {
+            Ort::Value &v = dynamicOutputData[i];
+            auto tinfo = v.GetTensorTypeAndShapeInfo();
+            std::vector<int64_t> onnxShape = tinfo.GetShape();
+            outputTensorFinalShapes[i].setFrom(onnxShape);
+        }
+    }
+
     return {};
 }
 
@@ -278,7 +314,7 @@ void Inference::prepareForPostprocess(amp::TensorParser::Input &parserInput) {
     if (!model.useDynamicOutput) {
         // --- STATIC, PREALLOCATED OUTPUTS ---
 
-        for (size_t i = 0; i < amp::MaxIoTensorCount; ++i) {
+        for (size_t i = 0; i < amp::MaxTensorCount; ++i) {
             if (i < model.outputs.size()) {
                 if (this->outputTensorViews[i] == nullptr) {
                     this->outputTensorViews[i] =
@@ -298,10 +334,10 @@ void Inference::prepareForPostprocess(amp::TensorParser::Input &parserInput) {
         // we’ll build temporary TensorViews for this call only.
         // they just wrap ort’s output buffers, no copy
         dynamicViews.clear();
-        dynamicViews.resize(4);
+        dynamicViews.resize(amp::MaxTensorCount);
 
-        const size_t numOutputs =
-            std::min<size_t>(std::min<size_t>(model.outputs.size(), dynamicOutputData.size()), 4);
+        const size_t numOutputs = std::min<size_t>(
+            std::min<size_t>(model.outputs.size(), dynamicOutputData.size()), amp::MaxTensorCount);
 
         for (size_t i = 0; i < numOutputs; ++i) {
             Ort::Value &v = dynamicOutputData[i];

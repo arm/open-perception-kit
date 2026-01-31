@@ -109,7 +109,7 @@ static std::vector<Anchor> generateAnchors(size_t image_w, size_t image_h) {
     std::vector<Anchor> priors;
     priors.reserve(4420); // known count for 320x240
 
-    for (int k = 0; k < amp::MaxIoTensorCount; ++k) {
+    for (int k = 0; k < 4; ++k) {
         const int fm_w = feature_map_w[k];
         const int fm_h = feature_map_h[k];
 

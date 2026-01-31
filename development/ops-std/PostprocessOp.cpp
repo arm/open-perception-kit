@@ -1,23 +1,24 @@
-#include "Postprocess.h"
+#include "PostprocessOp.h"
 
 #include <fmt/core.h>
 #include <memory>
 
 #include "amp/TensorView.h"
+#include "amp/Types.h"
 #include "postproc/PaddleocrParser.h"
 #include "postproc/UltrafaceParser.h"
 #include "postproc/YoloParser.h"
 
 using namespace amp;
 
-Postprocess::Postprocess() {}
-Postprocess::~Postprocess() {}
+PostprocessOp::PostprocessOp() {}
+PostprocessOp::~PostprocessOp() {}
 
-amp::Result<void> Postprocess::bind(size_t index, const std::vector<amp::Op *> &ops) {
+amp::Result<void> PostprocessOp::bind(size_t index, const std::vector<amp::Op *> &ops) {
     return {};
 }
 
-amp::Result<void> Postprocess::configure(const amp::AttributeMap &attributes) {
+amp::Result<void> PostprocessOp::configure(const amp::AttributeMap &attributes) {
 
     std::string parser = attributes.getStringOrDefault("parser", "");
 
@@ -40,16 +41,30 @@ amp::Result<void> Postprocess::configure(const amp::AttributeMap &attributes) {
     return {};
 }
 
-amp::Result<void> Postprocess::process(amp::OpChainContext &opChainContext) {
+amp::Result<void> PostprocessOp::process(amp::OpChainContext &opChainContext) {
+    amp::TensorParser::Input tensorParserInput;
+
+    // populate tensors
+    for (size_t i = 0; i < amp::MaxTensorCount; i++) {
+        if (i < opChainContext.inferenceOutputTensorCount)
+            tensorParserInput.tensors[i] = &opChainContext.inferenceOutputTensors[i];
+        else
+            tensorParserInput.tensors[i] = nullptr;
+    }
+
+    // copy active inference info
+    tensorParserInput.inferenceInfo = opChainContext.inferenceInfo;
 
     amp::RawDetectionLayer rawDetectionLayer;
-    rawDetectionLayer.modelFamily = opChainContext.modelFamily;
-    auto parseResult = parser->parse(opChainContext.tensorParserInput, rawDetectionLayer);
+    rawDetectionLayer.modelFamily = opChainContext.inferenceInfo.modelFamily;
+    auto parseResult = parser->parse(tensorParserInput, rawDetectionLayer);
     if (!parseResult) {
         return parseResult;
     }
 
     opChainContext.perceptionContext->rawDetections.push_back(rawDetectionLayer);
+
+    fmt::print("Detected rects: {}\n", rawDetectionLayer.rects.size());
 
     return {};
 }

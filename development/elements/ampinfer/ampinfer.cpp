@@ -8,6 +8,7 @@
 
 #include "amp/BitmapView.h"
 #include "amp/PerceptionContext.h"
+#include "amp/Types.h"
 #include "glib-object.h"
 #include "glib.h"
 #include "gst/gstpad.h"
@@ -184,7 +185,7 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
     amp::OpChainContext opChainContext;
 
-    amp::BitmapView pipelineFrame(rgb, frameWidth, frameHeight);
+    amp::BitmapView pipelineFrame(rgb, amp::DataKind::ImageBgraHwc, frameWidth, frameHeight);
 
     opChainContext.perceptionContext = perceptionContext_ptr;
     opChainContext.bitmapViews["pipelineVideoFrame"] = pipelineFrame;

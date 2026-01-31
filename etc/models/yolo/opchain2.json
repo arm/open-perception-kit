@@ -1,8 +1,10 @@
 {
 	"ops": [
 	{
-		"id": "amp-std-ops/ImagePreprocess",
+		"id": "amp-std-ops/GenericImagePreprocess",
 		"attributes": {
+			"inputImageTensorIndex": 0,
+			"inputImageSourceName": "pipelineVideoFrame"
 		}
 	},
 	{

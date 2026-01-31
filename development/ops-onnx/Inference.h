@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <onnxruntime_cxx_api.h>
 
 #include "ModelDescriptor.h"
@@ -109,8 +110,17 @@ struct Inference {
         return this->model;
     }
 
+    const uint8_t *getOutputTensorDataAddress(size_t index) const {
+        assert(outputTensorPointers[index]);
+        return outputTensorPointers[index];
+    }
+
+    amp::Shape getOutputTensorFinalShape(size_t index) const {
+        return outputTensorFinalShapes[index];
+    }
+
   protected:
-    amp::TensorParser::InferenceInfo inferenceInfo;
+    amp::InferenceInfo inferenceInfo;
     bool setupReady = false;
 
     static bool onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, amp::Tdt &outType);
@@ -133,19 +143,31 @@ struct Inference {
     std::vector<std::unique_ptr<amp::TensorView>> dynamicViews;
 
     std::vector<Ort::Value> dynamicOutputData;
-    std::unique_ptr<amp::TensorView> outputTensorViews[amp::MaxIoTensorCount];
+    std::unique_ptr<amp::TensorView> outputTensorViews[amp::MaxTensorCount];
 
     amp::Result<void> createTensorProcessors();
+
+    // plain pointers to output tensor buffers and the after-inference shapes (no -1s here)
+    // later this will be used to pass to the postprocessor
+    // static case: it is enough to fill at tensor allocation
+    // dynamic case: must be filled after each inference
+    const uint8_t *outputTensorPointers[amp::MaxTensorCount] = {nullptr};
+    amp::Shape outputTensorFinalShapes[amp::MaxTensorCount];
 
     // ---
 
     struct ApiTensorGlue {
-        std::unique_ptr<onnx::Tensor> inputTensors[amp::MaxIoTensorCount];
-        std::unique_ptr<onnx::Tensor> outputTensors[amp::MaxIoTensorCount];
+        std::unique_ptr<onnx::Tensor> inputTensors[amp::MaxTensorCount];
+        std::unique_ptr<onnx::Tensor> outputTensors[amp::MaxTensorCount];
         std::vector<const char *> inputNames;
         std::vector<const char *> outputNames;
         std::vector<Ort::Value> inputTensorVector;
         std::vector<Ort::Value> outputTensorVector;
     } api;
+
+  public:
+    uint8_t *getInputTensorDataAddress(size_t index) {
+        return api.inputTensors[index]->getData();
+    }
 };
 } // namespace onnx

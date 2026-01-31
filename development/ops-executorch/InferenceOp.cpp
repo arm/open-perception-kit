@@ -9,7 +9,8 @@ using namespace exct;
 InferenceOp::InferenceOp() {}
 InferenceOp::~InferenceOp() {}
 
-amp::Result<void> InferenceOp::bind(size_t index, const std::vector<amp::Op *> &ops) return {};
+amp::Result<void> InferenceOp::bind(size_t index, const std::vector<amp::Op *> &ops) {
+    return {};
 }
 
 amp::Result<void> InferenceOp::configure(const amp::AttributeMap &attributes) {

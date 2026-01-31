@@ -9,10 +9,13 @@
 
 namespace onnx {
 
-class InferenceOp : public amp::Op {
+class InferenceOp : public amp::Op, public amp::OpInterfaceInference {
   public:
     InferenceOp();
     virtual ~InferenceOp();
+
+    virtual const amp::Model &getModel() const override;
+    virtual uint8_t *getTensorDataAddress(size_t index) const override;
 
     virtual amp::Result<void> configure(const amp::AttributeMap &attributes) override;
     virtual amp::Result<void> bind(size_t index, const std::vector<amp::Op *> &ops) override;

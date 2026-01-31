@@ -20,7 +20,6 @@ class PreprocessAndInference : public amp::Op {
 
   private:
     std::unique_ptr<onnx::Inference> inference;
-    std::string modelFamily;
 };
 
 } // namespace onnx

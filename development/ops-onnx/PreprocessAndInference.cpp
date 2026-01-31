@@ -48,8 +48,6 @@ amp::Result<void> PreprocessAndInference::configure(const amp::AttributeMap &att
         AMP_ABORT; // todo
     }
 
-    modelFamily = inference->getModel().modelFamily;
-
     return {};
 }
 
@@ -75,7 +73,6 @@ amp::Result<void> PreprocessAndInference::process(amp::OpChainContext &opChainCo
     }
 
     inference->prepareForPostprocess(opChainContext.tensorParserInput);
-    opChainContext.modelFamily = inference->getModel().modelFamily;
 
     return {};
 }

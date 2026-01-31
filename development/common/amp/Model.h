@@ -3,6 +3,7 @@
 #include "ModelDescriptor.h"
 #include "amp/Result.h"
 #include "amp/Shape.h"
+#include "amp/TensorView.h"
 #include "amp/Types.h"
 
 #include "fmt/format.h"
@@ -18,9 +19,6 @@ struct ModelInput {
     amp::Shape shape{};
     int batch = 0;
     amp::QuantizationArgs quantArguments;
-
-    // should implement these 2 stuffz
-    float scale = 1.0f, bias = 0.0f;
 
     bool tryGetImageTensorSize(size_t &outWidht, size_t &outHeight) {
         if (shape.dimensionCount == 4) {
@@ -61,6 +59,35 @@ struct Model {
     // where the output size is only determined
     // while executiong the inference
     bool useDynamicOutput = false;
+
+    TensorView createOutputTensorView(size_t index, const uint8_t *data) const {
+        assert(index < outputs.size());
+
+        TensorView tw(data,
+                      outputs[index].shape.getFullValueCount() *
+                          amp::getValueTypeByteSize(outputs[index].valueType),
+                      outputs[index].shape,
+                      outputs[index].valueType,
+                      outputs[index].quantArguments.scale,
+                      outputs[index].quantArguments.zeroPoint);
+
+        return tw;
+    }
+
+    TensorView
+    createOutputTensorView(size_t index, const uint8_t *data, const amp::Shape &shape) const {
+        assert(index < outputs.size());
+
+        TensorView tw(data,
+                      outputs[index].shape.getFullValueCount() *
+                          amp::getValueTypeByteSize(outputs[index].valueType),
+                      shape,
+                      outputs[index].valueType,
+                      outputs[index].quantArguments.scale,
+                      outputs[index].quantArguments.zeroPoint);
+
+        return tw;
+    }
 
     // there are 2 models: data from the model file + data from the JSON file
     // this func must be called on the Model instance built from the model file

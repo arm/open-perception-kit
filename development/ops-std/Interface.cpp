@@ -2,14 +2,14 @@
 
 #include <cstring>
 
-#include "ImagePreprocessOp.h"
-#include "Postprocess.h"
+#include "GenericImagePreprocessOp.h"
+#include "PostprocessOp.h"
 
 amp::Op *createOp(const std::string &opName) {
     if (opName == "Postprocess")
-        return new amp::Postprocess();
-    if (opName == "ImagePreprocess")
-        return new amp::ImagePreprocessOp();
+        return new amp::PostprocessOp();
+    if (opName == "GenericImagePreprocess")
+        return new amp::GenericImagePreprocessOp();
     return nullptr;
 }
 

@@ -47,6 +47,8 @@ static inline float clampf(float v, float lo, float hi) {
 amp::Result<void> amp::YoloLikeParser::parse(const amp::TensorParser::Input &input,
                                              amp::RawDetectionLayer &detectionResult) {
 
+    assert(input.tensors[0]);
+
     const float confThreshold = (input.parserSettings.confidenceThreshold == 0.0f)
                                     ? 0.25f
                                     : input.parserSettings.confidenceThreshold;

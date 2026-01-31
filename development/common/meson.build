@@ -35,6 +35,7 @@ common = shared_library(
     'preproc/CpuImageKernels.cpp',
 
     'op/Op.cpp',
+    'op/OpRef.cpp',
     'op/OpChain.cpp',
     'op/OpChainContext.cpp',
     'op/OpChainDescriptor.cpp',

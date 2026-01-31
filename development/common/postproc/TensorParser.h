@@ -20,23 +20,10 @@ struct TensorParser {
         size_t maxDetectionCount = 0;
     };
 
-    // Information about the inference itself
-    // sometimes these things are crucial for the parsing itself
-    struct ImageInferenceMetadata {
-        // physical image dimensions the inference runs on
-        size_t width = 0, height = 0;
-        // the input tensor dimensions
-        size_t modelWidth = 0, modelHeight = 0;
-    };
-
-    struct InferenceInfo {
-        ImageInferenceMetadata image;
-    };
-
     struct Input {
-        amp::TensorView *tensors[amp::MaxIoTensorCount] = {nullptr};
+        amp::TensorView *tensors[amp::MaxTensorCount] = {nullptr};
         TensorParser::Settings parserSettings;
-        TensorParser::InferenceInfo inferenceInfo;
+        amp::InferenceInfo inferenceInfo;
     };
 
     virtual amp::Result<void> parse(const amp::TensorParser::Input &input,

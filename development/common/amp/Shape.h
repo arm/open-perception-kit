@@ -50,6 +50,13 @@ struct Shape {
             this->valueCount[i] = dims[i];
     }
 
+    void setFrom(const std::vector<int64_t> &dims) {
+        assert(dims.size() <= 8);
+        this->dimensionCount = dims.size();
+        for (size_t i = 0; i < dims.size() && i < 8; i++)
+            this->valueCount[i] = dims[i];
+    }
+
     int valueCount[8] = {0};
     size_t dimensionCount = 0;
 
