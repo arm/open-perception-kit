@@ -16,10 +16,6 @@
 #include "op/OpChainContext.h"
 
 #include <PerformanceTracer.h>
-#define AMP_PERF_BLOCK(name)                                                                       \
-    static amp::PerformanceTracer *tracer = amp::getGlobalTracer();                                \
-    std::string traceName = name;                                                                  \
-    amp::PerformanceTracer::ScopedTimer timer(tracer, traceName);
 
 using namespace onnx;
 
@@ -61,7 +57,7 @@ amp::Result<void> InferenceOp::configure(const amp::AttributeMap &attributes) {
 }
 
 amp::Result<void> InferenceOp::process(amp::OpChainContext &opChainContext) {
-    AMP_PERF_BLOCK(fmt::format("onnx/InferenceOp/{}", opChainContext.inferenceInfo.modelFamily));
+    AMP_TRACE_SCOPE(fmt::format("onnx/Infer/{}", opChainContext.inferenceInfo.modelFamily));
 
     amp::BitmapView pipelineVideoFrame = opChainContext.bitmapViews["pipelineVideoFrame"];
 

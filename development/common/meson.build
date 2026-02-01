@@ -27,13 +27,6 @@ common = shared_library(
     'amp/ImageNetLabels.cpp',
     'amp/CocoLabels.cpp',
 
-    'postproc/YoloParser.cpp',
-    'postproc/UltrafaceParser.cpp',
-    'postproc/PaddleocrParser.cpp',
-
-    'preproc/GenericImageTensorBuilder.cpp',
-    'preproc/CpuImageKernels.cpp',
-
     'op/Op.cpp',
     'op/OpRef.cpp',
     'op/OpChain.cpp',

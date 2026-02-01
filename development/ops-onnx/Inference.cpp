@@ -13,16 +13,9 @@
 
 #include <fmt/core.h>
 
-#include "postproc/PaddleocrParser.h"
-#include "postproc/UltrafaceParser.h"
-#include "postproc/YoloParser.h"
-#include "preproc/GenericImageTensorBuilder.h"
-
 #include "amp/Result.h"
 #include "amp/String.h"
 #include "amp/Types.h"
-#include "postproc/TensorParser.h"
-#include "preproc/TensorBuilder.h"
 
 #include "magic_enum/magic_enum.hpp"
 
@@ -102,10 +95,10 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc_) {
 
         this->setupTensorsForModel();
 
-        auto ctpResult = this->createTensorProcessors();
+        /*auto ctpResult = this->createTensorProcessors();
         if (!ctpResult) {
             return tl::make_unexpected(ctpResult.error());
-        }
+        }*/
 
         this->setupReady = true;
 
@@ -142,70 +135,6 @@ void Inference::setupTensorsForModel() {
     }
 
     fmt::print("Input tensors are set up\n");
-}
-
-amp::Result<void> Inference::createTensorProcessors() {
-
-    if (this->modelDescriptor.modelFamily == amp::NetworkId::YoloObjectDetection) {
-        this->outputParser = std::make_unique<amp::YoloLikeParser>();
-        fmt::print("Creating tensor parser: YoloLikeParser\n");
-    } else if (this->modelDescriptor.modelFamily == amp::NetworkId::UltraFace) {
-        this->outputParser = std::make_unique<amp::UltraFaceParser>();
-        fmt::print("Creating tensor parser: UltraFaceParser\n");
-    } else if (this->modelDescriptor.modelFamily == amp::NetworkId::PaddleOcrDetection) {
-        this->outputParser = std::make_unique<amp::PaddleOcrDetectionParser>();
-        fmt::print("Creating tensor parser: PaddleOcrDetectionParser\n");
-    } else {
-        return tl::make_unexpected(
-            AMP_ERROR(amp::ErrorFlag::NotSupported,
-                      fmt::format("cannot create output tensor parser for [{}]",
-                                  this->modelDescriptor.modelFamily)));
-    }
-
-    this->inputBuilder = std::make_unique<amp::GenericImageTensorBuilder>();
-
-    return {};
-}
-
-amp::Result<void> Inference::preprocessImageData(size_t tensorIndex,
-                                                 const uint8_t *data,
-                                                 amp::DataKind dataKind,
-                                                 amp::Tdt valueType,
-                                                 size_t imageWidth,
-                                                 size_t imageHeight) {
-
-    amp::TensorBuilder::Setup setup;
-    setup.imageSource.data = data;
-    setup.imageSource.width = imageWidth;
-    setup.imageSource.height = imageHeight;
-    setup.imageSource.byteCount = imageWidth * imageHeight * 3;
-    setup.imageSource.kind = dataKind;
-    setup.imageSource.type = valueType;
-
-    size_t modelWidth, modelHeight;
-    if (false == model.inputs[tensorIndex].tryGetImageTensorSize(modelWidth, modelHeight)) {
-        return tl::make_unexpected(
-            AMP_ERROR(amp::ErrorFlag::InvalidData, "tensor seems not to be an image"));
-    }
-
-    setup.imageDestination.data = api.inputTensors[tensorIndex]->getData();
-    setup.imageDestination.byteCount = api.inputTensors[tensorIndex]->getByteCount();
-    setup.imageDestination.width = modelWidth;
-    setup.imageDestination.height = modelHeight;
-    setup.imageDestination.kind = model.inputs[0].dataKind;
-    setup.imageDestination.type = amp::Tdt::Float32;
-
-    amp::Result<void> result = inputBuilder->build(setup);
-    if (result.has_value() == false) {
-        return result;
-    }
-
-    this->inferenceInfo.image.width = imageWidth;
-    this->inferenceInfo.image.height = imageHeight;
-    this->inferenceInfo.image.modelWidth = modelWidth;
-    this->inferenceInfo.image.modelHeight = modelHeight;
-
-    return {};
 }
 
 template <typename toT, typename fromT>
@@ -308,87 +237,6 @@ amp::Result<void> Inference::inference() {
     return {};
 }
 
-void Inference::prepareForPostprocess(amp::TensorParser::Input &parserInput) {
-    parserInput.inferenceInfo = this->inferenceInfo;
-
-    if (!model.useDynamicOutput) {
-        // --- STATIC, PREALLOCATED OUTPUTS ---
-
-        for (size_t i = 0; i < amp::MaxTensorCount; ++i) {
-            if (i < model.outputs.size()) {
-                if (this->outputTensorViews[i] == nullptr) {
-                    this->outputTensorViews[i] =
-                        std::make_unique<amp::TensorView>(api.outputTensors[i]->getData(),
-                                                          api.outputTensors[i]->getByteCount(),
-                                                          model.outputs[i].shape,
-                                                          model.outputs[i].valueType,
-                                                          1.0f,
-                                                          0.0f);
-                }
-                parserInput.tensors[i] = this->outputTensorViews[i].get();
-            }
-        }
-    } else {
-        // --- DYNAMIC OUTPUTS ALLOCATED BY ORT ---
-
-        // we’ll build temporary TensorViews for this call only.
-        // they just wrap ort’s output buffers, no copy
-        dynamicViews.clear();
-        dynamicViews.resize(amp::MaxTensorCount);
-
-        const size_t numOutputs = std::min<size_t>(
-            std::min<size_t>(model.outputs.size(), dynamicOutputData.size()), amp::MaxTensorCount);
-
-        for (size_t i = 0; i < numOutputs; ++i) {
-            Ort::Value &v = dynamicOutputData[i];
-
-            auto tinfo = v.GetTensorTypeAndShapeInfo();
-            auto onnxShape = tinfo.GetShape();
-            ONNXTensorElementDataType elemType = tinfo.GetElementType();
-
-            // Map ONNX type → amp::ValueType
-            amp::Tdt valueType;
-            if (!onnxTypeToUniflowType(elemType, valueType)) {
-                // If you have better error handling, plug it here
-                assert(0);
-            }
-
-            // Build amp::Shape from ORT shape
-            amp::Shape shape;
-            shape.dimensionCount = onnxShape.size();
-            for (size_t d = 0; d < shape.dimensionCount; ++d) {
-                shape.valueCount[d] = static_cast<size_t>(onnxShape[d]);
-            }
-
-            // Compute byte count
-            const size_t elemSize = amp::getValueTypeByteSize(valueType);
-            const size_t byteCount = elemSize * shape.getFullValueCount();
-
-            // Get raw data pointer from ORT tensor
-            void *dataPtr = v.GetTensorMutableData<void>();
-
-            dynamicViews[i] =
-                std::make_unique<amp::TensorView>(dataPtr, byteCount, shape, valueType, 1.0f, 0.0f);
-
-            parserInput.tensors[i] = dynamicViews[i].get();
-        }
-    }
-}
-
-amp::Result<void> Inference::postprocess(const amp::TensorParser::Settings &parserSettings,
-                                         amp::RawDetectionLayer &outDetectionResults) {
-
-    amp::TensorParser::Input parserInput;
-    parserInput.parserSettings = parserSettings;
-    prepareForPostprocess(parserInput);
-
-    amp::Result<void> inferenceResult = outputParser->parse(parserInput, outDetectionResults);
-    if (inferenceResult.has_value() == false)
-        return inferenceResult;
-
-    return {};
-}
-
 std::vector<size_t> Inference::getTensorShape(const Ort::Session &session,
                                               amp::TensorInOut tensorInOut,
                                               int tensorIndex) {
@@ -407,8 +255,6 @@ amp::Result<amp::Model> Inference::inspectModel(const Ort::Session &session) {
     model.api = "onnxrt";
 
     Ort::AllocatorWithDefaultOptions allocator;
-    // model.modelInputCount = session.GetInputCount();
-    // model.modelOutputCount = session.GetOutputCount();
     model.inputs.resize(session.GetInputCount());
     model.outputs.resize(session.GetOutputCount());
 

@@ -4,7 +4,6 @@
 #include "amp/PerceptionContext.h"
 #include "amp/TensorView.h"
 #include "amp/Types.h"
-#include "postproc/TensorParser.h"
 #include <cstdint>
 #include <map>
 
@@ -30,8 +29,6 @@ struct OpChainContext {
     size_t inferenceOutputTensorCount = 0;
     amp::TensorView inferenceOutputTensors[amp::MaxTensorCount];
     amp::InferenceInfo inferenceInfo;
-
-    amp::TensorParser::Input tensorParserInput;
 
     PerceptionContext *perceptionContext = nullptr;
 };

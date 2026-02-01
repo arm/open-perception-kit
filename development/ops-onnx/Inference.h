@@ -6,12 +6,8 @@
 #include "ModelDescriptor.h"
 
 #include "amp/Model.h"
-#include "amp/PerceptionContext.h"
 #include "amp/TensorView.h"
 #include "amp/Types.h"
-
-#include "postproc/TensorParser.h"
-#include "preproc/TensorBuilder.h"
 
 #include <memory>
 #include <string>
@@ -100,11 +96,8 @@ struct Inference {
                                           size_t imageWidth,
                                           size_t imageHeight);
 
-    void prepareForPostprocess(amp::TensorParser::Input &input);
+    // void prepareForPostprocess(amp::TensorParser::Input &input);
     amp::Result<void> inference();
-
-    amp::Result<void> postprocess(const amp::TensorParser::Settings &parserSettings,
-                                  amp::RawDetectionLayer &outDetectionResults);
 
     const amp::Model &getModel() const {
         return this->model;
@@ -137,15 +130,11 @@ struct Inference {
 
     ModelDescriptor modelDescriptor;
     amp::Model model;
-    std::unique_ptr<amp::TensorParser> outputParser;
-    std::unique_ptr<amp::TensorBuilder> inputBuilder;
 
     std::vector<std::unique_ptr<amp::TensorView>> dynamicViews;
 
     std::vector<Ort::Value> dynamicOutputData;
     std::unique_ptr<amp::TensorView> outputTensorViews[amp::MaxTensorCount];
-
-    amp::Result<void> createTensorProcessors();
 
     // plain pointers to output tensor buffers and the after-inference shapes (no -1s here)
     // later this will be used to pass to the postprocessor

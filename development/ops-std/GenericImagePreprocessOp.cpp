@@ -8,10 +8,6 @@
 #include "tl/expected.hpp"
 
 #include <PerformanceTracer.h>
-#define AMP_PERF_BLOCK(name)                                                                       \
-    static amp::PerformanceTracer *tracer = amp::getGlobalTracer();                                \
-    std::string traceName = name;                                                                  \
-    amp::PerformanceTracer::ScopedTimer timer(tracer, traceName);
 
 using namespace amp;
 
@@ -71,7 +67,7 @@ amp::Result<void> GenericImagePreprocessOp::configure(const amp::AttributeMap &a
 }
 
 amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChainContext) {
-    AMP_PERF_BLOCK(fmt::format("std/GipOp/{}", upcomingInferenceModel.modelFamily));
+    AMP_TRACE_SCOPE(fmt::format("std/GenImgPre/{}", upcomingInferenceModel.modelFamily));
 
     amp::BitmapView *pipelineVideoFrame = opChainContext.getBitmapView("pipelineVideoFrame");
 

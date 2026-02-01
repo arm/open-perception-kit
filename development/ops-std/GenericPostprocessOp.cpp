@@ -1,4 +1,4 @@
-#include "PostprocessOp.h"
+#include "GenericPostprocessOp.h"
 
 #include <fmt/core.h>
 #include <memory>
@@ -10,21 +10,17 @@
 #include "postproc/YoloParser.h"
 
 #include <PerformanceTracer.h>
-#define AMP_PERF_BLOCK(name)                                                                       \
-    static amp::PerformanceTracer *tracer = amp::getGlobalTracer();                                \
-    std::string traceName = name;                                                                  \
-    amp::PerformanceTracer::ScopedTimer timer(tracer, traceName);
 
 using namespace amp;
 
-PostprocessOp::PostprocessOp() {}
-PostprocessOp::~PostprocessOp() {}
+GenericPostprocessOp::GenericPostprocessOp() {}
+GenericPostprocessOp::~GenericPostprocessOp() {}
 
-amp::Result<void> PostprocessOp::bind(size_t index, const std::vector<amp::Op *> &ops) {
+amp::Result<void> GenericPostprocessOp::bind(size_t index, const std::vector<amp::Op *> &ops) {
     return {};
 }
 
-amp::Result<void> PostprocessOp::configure(const amp::AttributeMap &attributes) {
+amp::Result<void> GenericPostprocessOp::configure(const amp::AttributeMap &attributes) {
 
     std::string parser = attributes.getStringOrDefault("parser", "");
 
@@ -47,8 +43,8 @@ amp::Result<void> PostprocessOp::configure(const amp::AttributeMap &attributes) 
     return {};
 }
 
-amp::Result<void> PostprocessOp::process(amp::OpChainContext &opChainContext) {
-    AMP_PERF_BLOCK(fmt::format("std/PostprocessOp/{}", opChainContext.inferenceInfo.modelFamily));
+amp::Result<void> GenericPostprocessOp::process(amp::OpChainContext &opChainContext) {
+    AMP_TRACE_SCOPE(fmt::format("std/Post/{}", opChainContext.inferenceInfo.modelFamily));
 
     amp::TensorParser::Input tensorParserInput;
 

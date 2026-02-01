@@ -14,7 +14,7 @@
         }
 	},
     {
-		"id": "amp-std-ops/Postprocess",
+		"id": "amp-std-ops/GenericPostprocess",
 		"attributes": {
 			"parser": "YoloLikeParser",
 			"maxDetectionCount": 16,
