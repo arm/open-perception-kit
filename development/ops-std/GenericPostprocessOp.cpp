@@ -5,6 +5,7 @@
 
 #include "amp/TensorView.h"
 #include "amp/Types.h"
+#include "postproc/GazeDetectionParser.h"
 #include "postproc/PaddleocrParser.h"
 #include "postproc/UltrafaceParser.h"
 #include "postproc/YoloParser.h"
@@ -35,6 +36,8 @@ amp::Result<void> GenericPostprocessOp::configure(const amp::AttributeMap &attri
         this->parser = std::make_unique<PaddleOcrDetectionParser>();
     } else if (parser == "YoloParser") {
         this->parser = std::make_unique<YoloParser>();
+    } else if (parser == "GazeDetectionParser") {
+        this->parser = std::make_unique<GazeDetectionParser>();
     } else if (parser == "UltrafaceParser") {
         this->parser = std::make_unique<UltraFaceParser>();
     } else {
@@ -70,12 +73,14 @@ amp::Result<void> GenericPostprocessOp::process(amp::OpChainContext &opChainCont
 
     opChainContext.perceptionContext->rawDetections.push_back(rawDetectionLayer);
 
-    /* "$##$!!?+!!#$ if you delete this"
+    /* I WILL $##$!!?+!!#$ if you delete this
+
     for(size_t i = 0; i < rawDetectionLayer.rects.size(); i++) {
         fmt::print("{} {} {} {} {}\n", opChainContext.inferenceInfo.modelFamily,
-    rawDetectionLayer.rects[i].x, rawDetectionLayer.rects[i].y, rawDetectionLayer.rects[i].w,
-    rawDetectionLayer.rects[i].h);
+            rawDetectionLayer.rects[i].x, rawDetectionLayer.rects[i].y,
+    rawDetectionLayer.rects[i].w, rawDetectionLayer.rects[i].h);
     }
+
     */
 
     return {};

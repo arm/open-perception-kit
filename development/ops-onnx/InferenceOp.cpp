@@ -5,9 +5,9 @@
 #include <onnxruntime_cxx_api.h>
 
 #include "Inference.h"
-#include "ModelDescriptor.h"
 #include "amp/AttributeMap.h"
 #include "amp/BitmapView.h"
+#include "amp/ModelDescriptor.h"
 #include "amp/TensorView.h"
 #include "amp/Tools.h"
 #include "glib-object.h"

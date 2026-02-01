@@ -8,7 +8,6 @@
 #include <string>
 
 #include "PerformanceTracer.h"
-#include "amp/DescriptorStrings.h"
 #include "gst/PerceptionContextMeta.h"
 
 #ifndef PACKAGE

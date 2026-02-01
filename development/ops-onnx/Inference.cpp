@@ -1,6 +1,5 @@
 #include "Inference.h"
 
-#include "amp/DescriptorStrings.h"
 #include "amp/PerceptionContext.h"
 #include "amp/Result.h"
 #include "amp/Shape.h"
@@ -19,7 +18,7 @@
 
 #include "magic_enum/magic_enum.hpp"
 
-#include "ModelDescriptor.h"
+#include "amp/ModelDescriptor.h"
 
 using namespace onnx;
 
@@ -94,11 +93,6 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc_) {
         }
 
         this->setupTensorsForModel();
-
-        /*auto ctpResult = this->createTensorProcessors();
-        if (!ctpResult) {
-            return tl::make_unexpected(ctpResult.error());
-        }*/
 
         this->setupReady = true;
 

@@ -3,7 +3,7 @@
 #include "amp/Shape.h"
 #include "amp/Types.h"
 
-#include "JsonSchemas.h"
+#include "amp/JsonSchemas.h"
 
 #include <nlohmann/json.hpp>
 #include <string>
@@ -28,7 +28,7 @@ struct ModelDescriptor {
     std::string name;
 
     std::string modelFile;
-    std::string modelFamily; // "yolo-object-detection", "blazeface"
+    std::string modelFamily;
 
     std::vector<TensorDescriptor> inputTensors;
     std::vector<TensorDescriptor> outputTensors;
@@ -37,10 +37,6 @@ struct ModelDescriptor {
     // set to true to let the model decide the output (tensor reallocation in every inference step)
     bool dynamicOutput = false;
     amp::Tdt outputTdtType;
-
-    size_t maxDetectionCount = 16;
-    float confidenceThreshold = 0.7f;
-    float iouThreshold = 0.5f;
 
     static amp::Result<ModelDescriptor> fromJson(const std::string &jsonString);
     static amp::Result<ModelDescriptor> fromFile(const std::string &path);
@@ -76,10 +72,7 @@ inline void to_json(json &j, const ModelDescriptor &b) {
              {"modelFamily", b.modelFamily},
              {"inputTensors", b.inputTensors},
              {"outputTensors", b.outputTensors},
-             {"dynamicOutput", b.dynamicOutput},
-             {"maxDetectionCount", b.maxDetectionCount},
-             {"confidenceThreshold", b.confidenceThreshold},
-             {"iouThreshold", b.iouThreshold}};
+             {"dynamicOutput", b.dynamicOutput}};
 }
 
 inline void from_json(const json &j, ModelDescriptor &b) {
@@ -89,7 +82,4 @@ inline void from_json(const json &j, ModelDescriptor &b) {
     b.inputTensors = j.value("inputTensors", std::vector<TensorDescriptor>{});
     b.outputTensors = j.value("outputTensors", std::vector<TensorDescriptor>{});
     j.at("dynamicOutput").get_to(b.dynamicOutput);
-    j.at("maxDetectionCount").get_to(b.maxDetectionCount);
-    j.at("confidenceThreshold").get_to(b.confidenceThreshold);
-    j.at("iouThreshold").get_to(b.iouThreshold);
 }

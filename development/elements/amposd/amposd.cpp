@@ -1,4 +1,3 @@
-#include "amp/DescriptorStrings.h"
 #include "gst/PerceptionContextMeta.h"
 #include "osd.hpp"
 #include <cstring>
@@ -282,7 +281,7 @@ draw_detection_layer(GstAmpOsd *self,
     auto layer = std::make_unique<Osd::Layer>(imgWidth, imgHeight);
 
     for (const auto &inferDetections : perceptionContext.rawDetections) {
-        if (inferDetections.modelFamily == "yolo-object-detection") {
+        if (inferDetections.modelFamily == "yolo-obj") {
             for (const auto &box : inferDetections.rects) {
                 Osd::ObjectBox::draw(*layer, box, Osd::Color("#ff0000ff"), 2.0f);
             }

@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <onnxruntime_cxx_api.h>
 
-#include "ModelDescriptor.h"
+#include "amp/ModelDescriptor.h"
 
 #include "amp/Model.h"
 #include "amp/TensorView.h"

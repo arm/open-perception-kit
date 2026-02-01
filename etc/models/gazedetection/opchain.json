@@ -1,0 +1,26 @@
+{
+	"ops": [
+	{
+		"id": "amp-std-ops/GenericImagePreprocess",
+		"attributes": {
+			"inputImageTensorIndex": 0,
+			"inputImageSourceName": "pipelineVideoFrame"
+		}
+	},
+	{
+		"id": "amp-onnx-ops/Inference",
+        "attributes": {
+			"modelDescriptor": "/work/etc/models/gazedetection/model.json"
+        }
+	},
+    {
+		"id": "amp-std-ops/GenericPostprocess",
+		"attributes": {
+			"parser": "GazeDetectionParser",
+			"normalizeCoordinates": false,
+			"confidenceThreshold": 0.5,
+			"iouThreshold": 0.3
+		}
+	}
+  ]
+}

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ModelDescriptor.h"
+#include "amp/ModelDescriptor.h"
 #include "amp/Result.h"
 #include "amp/Shape.h"
 #include "amp/TensorView.h"

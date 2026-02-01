@@ -2,10 +2,6 @@
 common = shared_library(
   'common',
   sources: [
-    'ModelDescriptor.h',
-    'ModelDescriptor.cpp',
-    'PerformanceMetrics.h',
-    'PerformanceMetrics.cpp',
 
     'gst/Tools.h',
     'gst/Tools.cpp',
@@ -26,6 +22,8 @@ common = shared_library(
     'amp/PerceptionContext.cpp',
     'amp/ImageNetLabels.cpp',
     'amp/CocoLabels.cpp',
+    'amp/ModelDescriptor.h',
+    'amp/ModelDescriptor.cpp',
 
     'op/Op.cpp',
     'op/OpRef.cpp',

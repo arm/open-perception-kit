@@ -17,7 +17,6 @@
 // #include "onnx/Inference.h"
 
 #include "amp/AttributeMap.h"
-#include "amp/DescriptorStrings.h"
 #include "amp/File.h"
 #include "amp/Labels.h"
 #include "amp/Result.h"
@@ -65,7 +64,6 @@ struct _GstAmpInfer {
     GstVideoInfo vinfo;
 
     // Properties
-    gchar *modelPath;
     gchar *opChainPath;
     gchar *modelName;
     gboolean active;
@@ -93,30 +91,15 @@ static gboolean gst_ampinfer_start(GstBaseTransform *b) {
 
     self->m = new GstAmpInferMembers();
 
-    if (self->opChainPath && self->opChainPath[0]) {
+    if (!self->opChainPath || !self->opChainPath[0]) {
+        GST_ERROR_OBJECT(self, "opchain property is mandatory but not set");
+        return FALSE;
+    }
 
-        auto setupResult = self->m->setupOpChainFromJson(self->opChainPath);
-        if (!setupResult) {
-            fmt::print("Error while setting up op-chain: {}\n", setupResult.error().toString());
-            AMP_ABORT;
-        }
-
-    } else {
-        /*try {
-
-            self->m->onnxInference = std::make_shared<onnx::Inference>();
-
-            auto setupResult = self->m->onnxInference->setupFromJson(self->modelPath);
-            if (!setupResult) {
-                fmt::print("{}\n", setupResult.error().toString());
-                AMP_ABORT;
-            }
-        } catch (const std::exception &e) {
-            amp::Error err = AMP_ERROR(amp::ErrorFlag::OnnxStartupException, e.what());
-            fmt::print("{}\n", err.toString());
-            AMP_ABORT;
-            return FALSE;
-        }*/
+    auto setupResult = self->m->setupOpChainFromJson(self->opChainPath);
+    if (!setupResult) {
+        fmt::print("Error while setting up op-chain: {}\n", setupResult.error().toString());
+        AMP_ABORT;
     }
 
     return TRUE;
@@ -279,22 +262,11 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
 // ---------------- properties & class init ----------------
 
-enum {
-    PROP_0,
-    PROP_MODEL_PATH,
-    PROP_OPCHAIN_PATH,
-    PROP_MODEL_NAME,
-    PROP_MODEL_ACTIVE,
-    PROP_FORMAT
-};
+enum { PROP_0, PROP_OPCHAIN_PATH, PROP_MODEL_NAME, PROP_MODEL_ACTIVE, PROP_FORMAT };
 
 static void gst_ampinfer_set_property(GObject *o, guint id, const GValue *v, GParamSpec *ps) {
     auto *self = (GstAmpInfer *)o;
     switch (id) {
-    case PROP_MODEL_PATH:
-        g_free(self->modelPath);
-        self->modelPath = g_value_dup_string(v);
-        break;
     case PROP_OPCHAIN_PATH:
         g_free(self->opChainPath);
         self->opChainPath = g_value_dup_string(v);
@@ -328,9 +300,6 @@ static void gst_ampinfer_set_property(GObject *o, guint id, const GValue *v, GPa
 static void gst_ampinfer_get_property(GObject *o, guint id, GValue *v, GParamSpec *ps) {
     auto *self = (GstAmpInfer *)o;
     switch (id) {
-    case PROP_MODEL_PATH:
-        g_value_set_string(v, self->modelPath);
-        break;
     case PROP_OPCHAIN_PATH:
         g_value_set_string(v, self->opChainPath);
         break;
@@ -355,15 +324,6 @@ static void gst_ampinfer_class_init(GstAmpInferClass *klass) {
 
     gobj->set_property = gst_ampinfer_set_property;
     gobj->get_property = gst_ampinfer_get_property;
-
-    g_object_class_install_property(
-        gobj,
-        PROP_MODEL_PATH,
-        g_param_spec_string("model-path",
-                            "Model path",
-                            "Path to YOLO ONNX model",
-                            nullptr,
-                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
         gobj,
@@ -423,7 +383,6 @@ static void gst_ampinfer_class_init(GstAmpInferClass *klass) {
 
 static void gst_ampinfer_init(GstAmpInfer *self) {
     self->opChainPath = nullptr;
-    self->modelPath = nullptr;
     self->modelName = nullptr;
     self->active = true;
     self->m = nullptr;
