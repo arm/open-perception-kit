@@ -65,7 +65,6 @@ struct _GstAmpInfer {
 
     // Properties
     gchar *opChainPath;
-    gchar *modelName;
     gboolean active;
     gchar *format;
 
@@ -83,11 +82,6 @@ static gboolean gst_ampinfer_start(GstBaseTransform *b) {
     auto *self = (GstAmpInfer *)b;
     static amp::PerformanceTracer *tracer = amp::getGlobalTracer();
     (void)tracer;
-
-    if (!self->modelName) {
-        GST_ERROR_OBJECT(self, "model-name property is mandatory but not set");
-        return FALSE;
-    }
 
     self->m = new GstAmpInferMembers();
 
@@ -192,7 +186,6 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 #ifdef SKIP
     // Get tracer and prepare metric names
     static amp::PerformanceTracer *tracer = amp::getGlobalTracer();
-    std::string base_name = self->modelName ? self->modelName : "ampinfer";
     std::string preprocess_name = base_name + "_preprocess";
     std::string inference_name = base_name + "_inference";
     std::string postprocess_name = base_name + "_postprocess";
@@ -262,7 +255,7 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
 // ---------------- properties & class init ----------------
 
-enum { PROP_0, PROP_OPCHAIN_PATH, PROP_MODEL_NAME, PROP_MODEL_ACTIVE, PROP_FORMAT };
+enum { PROP_0, PROP_OPCHAIN_PATH, PROP_MODEL_ACTIVE, PROP_FORMAT };
 
 static void gst_ampinfer_set_property(GObject *o, guint id, const GValue *v, GParamSpec *ps) {
     auto *self = (GstAmpInfer *)o;
@@ -271,21 +264,8 @@ static void gst_ampinfer_set_property(GObject *o, guint id, const GValue *v, GPa
         g_free(self->opChainPath);
         self->opChainPath = g_value_dup_string(v);
         break;
-    case PROP_MODEL_NAME:
-        g_free(self->modelName);
-        self->modelName = g_value_dup_string(v);
-        break;
     case PROP_MODEL_ACTIVE: {
-        gboolean new_active = g_value_get_boolean(v);
-        if (self->active && !new_active && self->modelName) {
-            static amp::PerformanceTracer *tracer = amp::getGlobalTracer();
-            std::string base_name = self->modelName;
-            GST_INFO_OBJECT(self, "Removing metrics for model: %s", base_name.c_str());
-            tracer->removeMetrics(base_name + "_preprocess");
-            tracer->removeMetrics(base_name + "_inference");
-            tracer->removeMetrics(base_name + "_postprocess");
-        }
-        self->active = new_active;
+        self->active = g_value_get_boolean(v);
         break;
     }
     case PROP_FORMAT:
@@ -302,9 +282,6 @@ static void gst_ampinfer_get_property(GObject *o, guint id, GValue *v, GParamSpe
     switch (id) {
     case PROP_OPCHAIN_PATH:
         g_value_set_string(v, self->opChainPath);
-        break;
-    case PROP_MODEL_NAME:
-        g_value_set_string(v, self->modelName);
         break;
     case PROP_MODEL_ACTIVE:
         g_value_set_boolean(v, self->active);
@@ -331,15 +308,6 @@ static void gst_ampinfer_class_init(GstAmpInferClass *klass) {
         g_param_spec_string("opchain-path",
                             "OpChain path",
                             "Path to OpChain setup JSON",
-                            nullptr,
-                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(
-        gobj,
-        PROP_MODEL_NAME,
-        g_param_spec_string("model-name",
-                            "Model name",
-                            "Name of the executed model (mandatory)",
                             nullptr,
                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
@@ -383,7 +351,6 @@ static void gst_ampinfer_class_init(GstAmpInferClass *klass) {
 
 static void gst_ampinfer_init(GstAmpInfer *self) {
     self->opChainPath = nullptr;
-    self->modelName = nullptr;
     self->active = true;
     self->m = nullptr;
     gst_video_info_init(&self->vinfo);

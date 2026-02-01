@@ -7,6 +7,7 @@
 #include "amp/Types.h"
 #include "postproc/GazeDetectionParser.h"
 #include "postproc/PaddleocrParser.h"
+#include "postproc/PersonClassificationParser.h"
 #include "postproc/UltrafaceParser.h"
 #include "postproc/YoloParser.h"
 
@@ -36,6 +37,8 @@ amp::Result<void> GenericPostprocessOp::configure(const amp::AttributeMap &attri
         this->parser = std::make_unique<PaddleOcrDetectionParser>();
     } else if (parser == "YoloParser") {
         this->parser = std::make_unique<YoloParser>();
+    } else if (parser == "PersonClassificationParser") {
+        this->parser = std::make_unique<PersonClassificationParser>();
     } else if (parser == "GazeDetectionParser") {
         this->parser = std::make_unique<GazeDetectionParser>();
     } else if (parser == "UltrafaceParser") {
