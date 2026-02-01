@@ -44,17 +44,17 @@ static inline float clampf(float v, float lo, float hi) {
 
 // ----------------------------------------------------------------------------
 
-amp::Result<void> amp::YoloLikeParser::parse(const amp::TensorParser::Input &input,
-                                             amp::RawDetectionLayer &detectionResult) {
+amp::Result<void> amp::YoloParser::parse(const amp::TensorParser::Input &input,
+                                         amp::RawDetectionLayer &detectionResult) {
 
     assert(input.tensors[0]);
 
-    const float confThreshold = (input.parserSettings.confidenceThreshold == 0.0f)
-                                    ? 0.25f
-                                    : input.parserSettings.confidenceThreshold;
-
-    const float iouThreshold =
-        (input.parserSettings.iouThreshold == 0.0f) ? 0.45f : input.parserSettings.iouThreshold;
+    const float confThreshold =
+        (float)input.attributes.getDoubleOrDefault("confidenceThreshold", 0.25);
+    const float iouThreshold = (float)input.attributes.getDoubleOrDefault("iouThreshold", 0.45);
+    const bool normalizeCoordinates =
+        (float)input.attributes.getBoolOrDefault("normalizeCoordinates", true);
+    const bool applyNms = (float)input.attributes.getBoolOrDefault("applyNms", true);
 
     const size_t frameWidth = input.inferenceInfo.image.width;
     const size_t frameHeight = input.inferenceInfo.image.height;
@@ -142,7 +142,7 @@ amp::Result<void> amp::YoloLikeParser::parse(const amp::TensorParser::Input &inp
         dets.push_back(d);
     }
 
-    if (input.parserSettings.applyNms)
+    if (applyNms)
         nms(dets, iouThreshold);
 
     for (const auto &a : dets) {
@@ -154,7 +154,7 @@ amp::Result<void> amp::YoloLikeParser::parse(const amp::TensorParser::Input &inp
         rect.confidence = a.conf;
         rect.label = amp::Labels::getLabel(amp::LabelType::Coco, a.cls);
 
-        if (input.parserSettings.normalizedCoordinates) {
+        if (normalizeCoordinates) {
             rect.x /= input.inferenceInfo.image.width;
             rect.w /= input.inferenceInfo.image.width;
             rect.y /= input.inferenceInfo.image.height;

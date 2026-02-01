@@ -2,8 +2,8 @@
 
 #include "amp/PerceptionContext.h"
 #include "amp/Result.h"
+#include "amp/TensorParser.h"
 #include "amp/TensorView.h"
-#include "postproc/TensorParser.h"
 
 //
 namespace amp {

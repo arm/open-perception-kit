@@ -1,5 +1,6 @@
 #pragma once
 
+#include "amp/AttributeMap.h"
 #include "amp/PerceptionContext.h"
 #include "amp/Result.h"
 #include "amp/TensorView.h"
@@ -11,18 +12,12 @@ namespace amp {
 // and place them in
 struct TensorParser {
 
-    struct Settings {
-        bool normalizedCoordinates = false;
-        float confidenceThreshold = 0.0f;
-        float iouThreshold = 0.0f;
-        bool fixedAnchorSizes = false;
-        bool applyNms = true;
-        size_t maxDetectionCount = 0;
-    };
-
     struct Input {
+
+        Input(const amp::AttributeMap &attributes) : attributes(attributes) {}
+
         amp::TensorView *tensors[amp::MaxTensorCount] = {nullptr};
-        TensorParser::Settings parserSettings;
+        const amp::AttributeMap &attributes;
         amp::InferenceInfo inferenceInfo;
     };
 

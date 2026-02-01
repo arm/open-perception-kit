@@ -22,6 +22,8 @@ amp::Result<void> GenericPostprocessOp::bind(size_t index, const std::vector<amp
 
 amp::Result<void> GenericPostprocessOp::configure(const amp::AttributeMap &attributes) {
 
+    this->attributes = attributes.cloneDeep();
+
     std::string parser = attributes.getStringOrDefault("parser", "");
 
     if (parser.empty()) {
@@ -31,8 +33,8 @@ amp::Result<void> GenericPostprocessOp::configure(const amp::AttributeMap &attri
 
     if (parser == "PaddleOcrDetectionParser") {
         this->parser = std::make_unique<PaddleOcrDetectionParser>();
-    } else if (parser == "YoloLikeParser") {
-        this->parser = std::make_unique<YoloLikeParser>();
+    } else if (parser == "YoloParser") {
+        this->parser = std::make_unique<YoloParser>();
     } else if (parser == "UltrafaceParser") {
         this->parser = std::make_unique<UltraFaceParser>();
     } else {
@@ -46,7 +48,7 @@ amp::Result<void> GenericPostprocessOp::configure(const amp::AttributeMap &attri
 amp::Result<void> GenericPostprocessOp::process(amp::OpChainContext &opChainContext) {
     AMP_TRACE_SCOPE(fmt::format("std/Post/{}", opChainContext.inferenceInfo.modelFamily));
 
-    amp::TensorParser::Input tensorParserInput;
+    amp::TensorParser::Input tensorParserInput(attributes);
 
     // populate tensors
     for (size_t i = 0; i < amp::MaxTensorCount; i++) {
@@ -68,7 +70,13 @@ amp::Result<void> GenericPostprocessOp::process(amp::OpChainContext &opChainCont
 
     opChainContext.perceptionContext->rawDetections.push_back(rawDetectionLayer);
 
-    // fmt::print("Detected rects: {}\n", rawDetectionLayer.rects.size());
+    /* "$##$!!?+!!#$ if you delete this"
+    for(size_t i = 0; i < rawDetectionLayer.rects.size(); i++) {
+        fmt::print("{} {} {} {} {}\n", opChainContext.inferenceInfo.modelFamily,
+    rawDetectionLayer.rects[i].x, rawDetectionLayer.rects[i].y, rawDetectionLayer.rects[i].w,
+    rawDetectionLayer.rects[i].h);
+    }
+    */
 
     return {};
 }

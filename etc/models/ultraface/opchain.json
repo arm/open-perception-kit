@@ -17,9 +17,9 @@
 		"id": "amp-std-ops/GenericPostprocess",
 		"attributes": {
 			"parser": "UltrafaceParser",
-			"maxDetectionCount": 16,
-			"confidenceThreshold": 0.7,
-			"iouThreshold": 0.5
+			"normalizeCoordinates": false,
+			"confidenceThreshold": 0.5,
+			"iouThreshold": 0.3
 		}
 	}
   ]

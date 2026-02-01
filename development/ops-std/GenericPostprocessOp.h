@@ -4,7 +4,7 @@
 #include "op/Op.h"
 #include "op/OpChainContext.h"
 
-#include "postproc/TensorParser.h"
+#include "amp/TensorParser.h"
 
 namespace amp {
 
@@ -19,6 +19,7 @@ class GenericPostprocessOp : public amp::Op {
 
   private:
     std::unique_ptr<amp::TensorParser> parser;
+    amp::AttributeMap attributes;
 };
 
 } // namespace amp
