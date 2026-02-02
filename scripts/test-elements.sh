@@ -97,13 +97,63 @@ gst-launch-1.0 \
       #textoverlay name=overlay valignment=top halignment=center font-desc="Sans, 14" ! \
 }
 
+audio() {
+
+  msg_begin "Executing test with audio..\n"
+
+  need gst-launch-1.0
+
+  if [ ! -d "$BUILD_DIR" ]; then
+    msg_end_err "Error: directory $BUILD_DIR does not exist" >&2
+    exit 1
+  fi
+
+  export GST_PLUGIN_PATH="$BUILD_DIR/meson-out"
+  msg "GST_PLUGIN_PATH=$GST_PLUGIN_PATH"
+
+  export GST_DEBUG_DUMP_DOT_DIR=/work/graphs/
+  rm -rf /work/graphs/*.dot
+
+  msg "Running test pipeline.."
+
+# external audio
+# valgrind --leak-check=full --num-callers=20 --log-file=vgdump.txt \
+# gst-launch-1.0 \
+#   videotestsrc is-live=true pattern=ball ! \
+#     video/x-raw,framerate=30/1 ! \
+#     videoconvert ! \
+#     ampsink name=sink \
+#   audiotestsrc is-live=true wave=square ! \
+#     audio/x-raw,rate=48000,channels=2 ! \
+#     sink.audiosink
+
+gst-launch-1.0 \
+  videotestsrc is-live=true pattern=ball ! \
+    video/x-raw,framerate=30/1 ! \
+    videoconvert ! \
+    ampsink name=sink \
+  audiotestsrc is-live=true wave=square ! \
+    audio/x-raw,rate=48000,channels=2 ! \
+    sink.audiosink
+
+# internal silence generator
+# gst-launch-1.0 \
+#   videotestsrc is-live=true pattern=ball ! \
+#     video/x-raw,framerate=30/1 ! \
+#     videoconvert ! \
+#     ampsink name=sink
+
+  msg_end "Pipeline finished."
+}
+
 # ---- help ----
 usage() {
   cat <<EOF
 
 Commands:
   onnx ➡️ Run yolov8n test using onnx framework.
-  onnx_rgba ➡️ Run yolov8n int8 test using onnx framework with rgba.
+  onnx_rgb ➡️ Run yolov8n int8 test using onnx framework with rgb.
+  audio ➡️ Run the audio test.
 
 EOF
 }
@@ -113,7 +163,8 @@ cmd="${1:-}"
 case "$cmd" in
   onnx) onnx ;;
   ocr) ocr ;;
-  onnx_rgba) onnx_rgba ;;
+  onnx_rgb) onnx_rgb ;;
+  audio) audio ;;
   *)
     echo "Unknown command: $cmd" >&2
     usage >&2

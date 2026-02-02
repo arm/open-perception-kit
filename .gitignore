@@ -41,6 +41,7 @@ Makefile
 # Editor / IDE
 # -------------------------
 .vscode/
+!.vscode/launch.json
 .idea/
 *.swp
 *~

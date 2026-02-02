@@ -2,7 +2,8 @@
   "name": "amp-dev-forge",
   "build": {
     "dockerfile": "Dockerfile",
-    "args": { "USERNAME": "devgoblin", "USER_UID": "1000", "USER_GID": "1000" }
+    "args": { "USERNAME": "devgoblin", "USER_UID": "1000", "USER_GID": "1000" },
+    "target": "amp-dev-base"
   },
   "remoteUser": "devgoblin",
   "workspaceFolder": "/work",
@@ -15,6 +16,7 @@
     "--cap-add=SYS_PTRACE",
     "--security-opt","seccomp=unconfined",
     "-p", "8000:8000",
+    "-p", "8001:8001",
     "-p", "9999:9999"
   ],
   "containerEnv": {

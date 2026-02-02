@@ -1,44 +1,29 @@
 // video-controls.js
-(() => {
-  const btn = document.getElementById("playPauseBtn");
-  const icon = document.getElementById("playPauseIcon");
-  const text = btn ? btn.querySelector(".video-control-text") : null;
 
-  if (!btn || !icon || !text) return;
+import { ctrlSend } from "./ctrlws.js";
 
-  const setUi = (state) => {
-    const isPlaying = state === "playing";
-    icon.textContent = isPlaying ? "⏸" : "▶";
-    text.textContent = isPlaying ? "Pause" : "Play";
-    btn.setAttribute("aria-label", isPlaying ? "Pause pipeline" : "Play pipeline");
-  };
 
-  const setBusy = (busy) => {
-    btn.disabled = busy;
-    btn.style.opacity = busy ? "0.7" : "";
-  };
+const playBtn = document.getElementById("playPauseBtn");
+const playIcon = document.getElementById("playPauseIcon");
+const playText = playBtn ? playBtn.querySelector(".video-control-text") : null;
 
-  btn.addEventListener("click", async () => {
+const setBusy = (busy) => {
+    playBtn.disabled = busy;
+    playBtn.style.opacity = busy ? "0.7" : "";
+};
+
+export const setPlayPause = (isPlaying) => {
+    if (!playBtn || !playIcon || !playText) return;
+
+    playIcon.textContent = isPlaying ? "⏸" : "▶";
+    playText.textContent = isPlaying ? "pause" : "play";
+    playBtn.setAttribute("aria-label", isPlaying ? "Pause pipeline" : "Play pipeline");
+
+    setBusy(false);
+};
+
+playBtn.addEventListener("click", () => {
     setBusy(true);
 
-    try {
-      const r = await fetch("/play-pause", { method: "POST" });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-
-      const data = await r.json();
-      if (!data || data.ok !== true) throw new Error("Bad response");
-
-      // expected: { ok: true, state: "playing" | "paused" }
-      setUi(data.state);
-    } catch (e) {
-      console.error("play/pause failed:", e);
-      appendLog(`[control] play/pause failed: ${e.message || e}`, "error");
-    } finally {
-      setBusy(false);
-    }
-  });
-
-  // Initial UI state (assume playing unless server says otherwise)
-  // If you later add GET /state, replace this with a fetch to initialize.
-  setUi("playing");
-})();
+    ctrlSend({type: "play_pause"});
+});

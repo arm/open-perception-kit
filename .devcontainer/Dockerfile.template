@@ -1,5 +1,5 @@
 # .devcontainer/Dockerfile
-FROM --platform=linux debian:trixie-slim
+FROM --platform=linux debian:trixie-slim AS amp-dev-base
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8 \
@@ -64,9 +64,11 @@ RUN set -eux; \
 #    libwayland-dev libva-dev libv4l-dev libgtk-3-0 || true
 
 # Clean apt cache
-RUN set -eux; update-ca-certificates || true; rm -rf /var/lib/apt/lists/*
+# RUN set -eux; update-ca-certificates || true; rm -rf /var/lib/apt/lists/*
+RUN set -eux; update-ca-certificates || true
 
 EXPOSE 8000
+EXPOSE 8001
 EXPOSE 9999
 
 # uv (Python package manager)
@@ -102,3 +104,81 @@ ENV LD_LIBRARY_PATH="/work/deps/onnxruntime/lib:${LD_LIBRARY_PATH:-}"
 CMD ldconfig
 
 CMD ["sleep","infinity"]
+
+
+FROM amp-dev-base AS amp-dev-rich
+
+ARG USERNAME=devgoblin
+ARG USER_UID=1000
+ARG USER_GID=1000
+
+USER root
+
+# ---- Basic packages for development ----
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        zsh git curl wget ca-certificates locales \
+        openssh-client sudo less ripgrep fd-find tmux \
+        build-essential pkg-config cmake unzip xz-utils \
+        powerline fonts-powerline eza bat clangd gosu \
+        lua5.1 luarocks tree-sitter-cli wl-clipboard\
+        iproute2 iputils-ping traceroute iputils-arping dnsutils tcpdump nmap
+
+RUN luarocks install jsregexp
+
+RUN chsh -s /usr/bin/zsh ${USERNAME}
+
+COPY ./uidgid-entrypoint.sh /usr/local/bin/uidgid-entrypoint
+RUN chmod +x /usr/local/bin/uidgid-entrypoint
+
+# ---- Locale ----
+RUN sed -i 's/^# *\(en_US.UTF-8 UTF-8\)/\1/' /etc/locale.gen && \
+    locale-gen en_US.UTF-8 && update-locale LANG=en_US.UTF-8
+ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+
+# ---- Install Neovim v0.11.5 via AppImage ----
+ARG NVIM_VERSION=v0.11.5
+ARG NVIM_APPIMAGE=nvim-linux-x86_64.appimage
+
+RUN touch /container_env
+
+RUN curl -LO https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/${NVIM_APPIMAGE} && \
+    chmod +x ${NVIM_APPIMAGE} && \
+    ./${NVIM_APPIMAGE} --appimage-extract && \
+    mv squashfs-root /opt/nvim && \
+    ln -s /opt/nvim/usr/bin/nvim /usr/local/bin/nvim && \
+    rm ${NVIM_APPIMAGE}
+
+RUN update-alternatives --install /usr/bin/vi vi /usr/local/bin/nvim 60 && \
+    update-alternatives --install /usr/bin/vim vim /usr/local/bin/nvim 60 && \
+    update-alternatives --set vim /usr/local/bin/nvim && \
+    update-alternatives --set vi /usr/local/bin/nvim 
+
+ARG CPP_TOOLS_VERSION=v1.29.3
+ARG CPP_TOOLS_APPIMAGE=cpptools-linux-x64.vsix
+RUN curl -LO https://github.com/microsoft/vscode-cpptools/releases/download/${CPP_TOOLS_VERSION}/${CPP_TOOLS_APPIMAGE} && \
+    mkdir -p /home/${USERNAME}/bin/cpptools && \
+    unzip ${CPP_TOOLS_APPIMAGE} -d /home/${USERNAME}/bin/cpptools && \
+    chmod +x /home/${USERNAME}/bin/cpptools/extension/debugAdapters/bin/OpenDebugAD7 && \
+    ln -s /home/${USERNAME}/bin/cpptools/extension/debugAdapters/bin/OpenDebugAD7 /usr/local/bin/OpenDebugAD7
+
+# ---- Install oh-my-zsh for dev user ----
+RUN curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -o /tmp/install-ohmyzsh.sh && \
+    chmod +x /tmp/install-ohmyzsh.sh && \
+    su - ${USERNAME} -c "env RUNZSH=no CHSH=no KEEP_ZSHRC=yes /tmp/install-ohmyzsh.sh" && \
+    rm /tmp/install-ohmyzsh.sh
+
+# ---- Symlinks to mounted configs ----
+# We expect /home/dev/configs to be provided via a bind-mount at runtime.
+RUN mkdir -p /home/${USERNAME}/.config && \
+    ln -sfn /home/${USERNAME}/configs/zshrc /home/${USERNAME}/.zshrc && \
+    ln -sfn /home/${USERNAME}/configs/nvchad_2025_08 /home/${USERNAME}/.config/nvim && \
+    chown -R ${USER_UID}:${USER_GID} /home/${USERNAME}/.config /home/${USERNAME}/.zshrc
+
+# ---- SSH agent socket mapping ----
+ENV SSH_AUTH_SOCK=/ssh-agent
+ENV SHELL=/bin/zsh
+
+ENTRYPOINT ["/usr/local/bin/uidgid-entrypoint"]
+
+USER ${USERNAME}

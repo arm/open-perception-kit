@@ -1,0 +1,77 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "onnx",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/usr/bin/gst-launch-1.0",
+            "args": [
+                "filesrc", "location=/work/etc/images/katana.jpg", "!",
+                "jpegdec", "!", 
+                "imagefreeze", "!",
+                "videoconvert", "!", 
+                "ampinfer", "model-path=/work/etc/models/yolo/yolo.json", "model-name=yolov8n", "active=true", "!", 
+                "ampinfer", "model-path=/work/etc/models/ultraface/ultraface.json", "model-name=ultraface active=true", "!", 
+                "textoverlay", "name=overlay", "valignment=top", "halignment=center", "font-desc=\"Sans,14\"", "!",
+                "videoconvert", "!", 
+                "ampperformance", "show-all-metrics=true", "x-offset=20", "y-offset=20", "font-size=18", "alpha=0.9", "update-interval=1", "!",
+                "videoconvert", "!", 
+                "ampsink", "name=sink"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                { "name": "GST_PLUGIN_PATH", "value": "${workspaceFolder}/development/build/meson-out" }
+            ],
+            "externalConsole": false,
+            "MIMode":"gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set disassembly flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "audio",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/usr/bin/gst-launch-1.0",
+            "args": [
+              "videotestsrc", "is-live=true", "pattern=ball", "!",
+                "video/x-raw,framerate=30/1", "!", 
+                "videoconvert", "!", 
+                "ampsink", "name=sink",
+              "audiotestsrc", "is-live=true", "wave=square", "!",
+                "audio/x-raw,rate=48000,channels=2", "!",
+                "sink.audiosink"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                { "name": "GST_PLUGIN_PATH", "value": "${workspaceFolder}/development/build/meson-out" }
+            ],
+            "externalConsole": false,
+            "MIMode":"gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set disassembly flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        }
+    ]
+}

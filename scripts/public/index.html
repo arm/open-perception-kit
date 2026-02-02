@@ -26,10 +26,17 @@
                 <div class="video-wrapper">
                     <video id="video" autoplay playsinline muted></video>
 
-                    <button id="playPauseBtn" class="video-control" type="button" aria-label="Pause pipeline">
-                        <span id="playPauseIcon" class="video-control-icon">⏸</span>
-                        <span class="video-control-text">Pause</span>
-                    </button>
+                    <div class="video-controls">
+                        <button id="playPauseBtn" class="video-control" type="button" aria-label="Pause pipeline">
+                            <span id="playPauseIcon" class="video-control-icon">⏸</span>
+                            <span class="video-control-text">Pause</span>
+                        </button>
+
+                        <button id="muteUnmuteBtn" class="video-control" type="button" aria-label="Unmute">
+                            <span id="muteUnmuteIcon" class="video-control-icon">🔇</span>
+                            <span class="video-control-text">Unmute</span>
+                        </button>
+                    </div>
 
                     <div id="video-overlay" class="video-overlay">
                         <div class="overlay-chip">
@@ -53,7 +60,7 @@
                     <div>
                         <div class="sidebar-section-title">Controls</div>
                         <div class="btn-row">
-                            <button id="postButton" class="primary">
+                            <button id="enablePerfOverlayBtn" class="primary">
                                 <span class="btn-icon">👁</span>
                                 Disable Performance Overlay
                             </button>
@@ -76,10 +83,13 @@
         </div>
 
         <!-- Logic -->
-        <script src="/amp-config.js"></script>
-        <script src="/webrtc.js"></script>
-        <script src="/button.js"></script>
-        <script src="/models.js"></script>
-        <script src="/video-controls.js"></script>
+        <script type="module" src="/amp-config.js"></script>
+        <script type="module" src="/webrtc.js"></script>
+        <script type="module" src="/ctrlws.js"></script>
+        <script type="module" src="/button.js"></script>
+        <script type="module" src="/models.js"></script>
+        <script type="module" src="/video-controls.js"></script>
+        <script type="module" src="/audio.js"></script>
+        <script type="module" src="/perf_overlay.js"></script>
     </body>
 </html>

@@ -8,6 +8,8 @@ const overlay = document.getElementById('video-overlay');
 const overlayText = document.getElementById('overlay-text');
 const logEl = document.getElementById('log');
 
+let receiving_video = false;
+
 // ===== UI HELPERS =====
 function setStatus(state, label, subtext) {
     statusPill.classList.remove('connecting', 'connected', 'reconnecting', 'disconnected');
@@ -33,6 +35,7 @@ function setStatus(state, label, subtext) {
 }
 
 function setStatusLine(text) {
+    console.log("setStatusLine: " + text);
     statusLineEl.innerHTML = text;
 }
 
@@ -67,17 +70,54 @@ const BACKOFF_FACTOR = 1.1;
 
 let pcRestartTimer = null;
 
+
+let remoteStream = new MediaStream();
+
+function resetRemoteStream() {
+  remoteStream = new MediaStream();
+  video.srcObject = remoteStream;
+}
+
+function attachRemoteStream() {
+  if (video.srcObject !== remoteStream) {
+    video.srcObject = remoteStream;
+  }
+}
+
 function createPeerConnection() {
+    appendLog("createPeerConnection")
     if (pc) {
         try {
+            appendLog("close from createPeerConnection")
             pc.close();
         } catch (e) {
             appendLog('Error closing old RTCPeerConnection: ' + e, 'error');
         }
     }
 
+    // Reset the media element + previous remote tracks
+    try {
+        if (video.srcObject) {
+            const old = video.srcObject;
+            if (old && old.getTracks) old.getTracks().forEach(t => t.stop());
+        }
+    } catch {}
+
+    video.srcObject = null;
+    remoteStream = new MediaStream();
+    attachRemoteStream();
+
+    // Keep autoplay smooth
+    video.autoplay = true;
+    video.playsInline = true;
+
     appendLog('Creating new RTCPeerConnection');
     pc = new RTCPeerConnection({iceServers : [ {urls : 'stun:stun.l.google.com:19302'} ]});
+
+    resetRemoteStream();
+
+    pc.addTransceiver('video', {direction : 'recvonly'});
+    pc.addTransceiver('audio', {direction : 'recvonly'});
 
     pc.onicecandidate = (event) => {
         if (event.candidate && signaling && signaling.readyState === WebSocket.OPEN) {
@@ -86,18 +126,20 @@ function createPeerConnection() {
         }
     };
 
+
     pc.ontrack = (event) => {
         appendLog('Received track kind=' + event.track.kind);
-        if (event.track.kind === 'video') {
-            video.srcObject = event.streams[0];
-            video.play()
-                .then(() => {
-                          // ok
-                      })
-                .catch((err) => { appendLog('Error playing video: ' + err, 'error'); });
 
+        // Add track to our stable remote stream
+        remoteStream.addTrack(event.track);
+        attachRemoteStream();
+
+        if (event.track.kind === 'video') {
+            receiving_video = true;
             setStatus('connected', 'Connected', 'Receiving video stream');
             setStatusLine('<strong>WebRTC connected.</strong> Video stream should be visible.');
+        } else if (event.track.kind === 'audio') {
+            appendLog('Audio track attached. If muted=false, you should hear sound.');
         }
     };
 
@@ -117,7 +159,8 @@ function createPeerConnection() {
         () => { appendLog('ICE gathering state: ' + pc.iceGatheringState); };
 
     pc.onsignalingstatechange = () => { appendLog('Signaling state: ' + pc.signalingState); };
-}
+
+} // createPeerConnection
 
 function schedulePeerRestart() {
     if (pcRestartTimer)
@@ -144,18 +187,19 @@ async function startWebRTC() {
         setStatus('connecting', 'Connecting', 'Creating offer and sending to server…');
         setStatusLine('<strong>Creating offer</strong> and sending it to the signaling server…');
 
-        pc.addTransceiver('video', {direction : 'recvonly'});
+
         const offer = await pc.createOffer();
         appendLog('Created offer');
         await pc.setLocalDescription(offer);
         appendLog('Set local description with offer');
+        appendLog("SDP" + pc.localDescription.sdp);
 
         signaling.send(JSON.stringify({type : 'offer', sdp : pc.localDescription.sdp}));
     } catch (err) {
         appendLog('Error during startWebRTC: ' + err, 'error');
         schedulePeerRestart();
     }
-}
+} // startWebRTC
 
 function restartWebRTC() {
     appendLog('Restarting WebRTC: new RTCPeerConnection and new offer…');
@@ -187,6 +231,7 @@ function connectSignaling(manual = false) {
     signaling.onopen = () => {
         appendLog('Signaling WebSocket open');
         wsReconnectDelay = 1000;
+        receiving_video = false;
         setStatus('connecting', 'Connecting', 'Signaling connected – creating offer…');
         if (!pc)
             createPeerConnection();
@@ -204,13 +249,23 @@ function connectSignaling(manual = false) {
 
         try {
             if (data.type === 'answer') {
+
                 appendLog('Setting remote description with answer');
-                await pc.setRemoteDescription(
-                    new RTCSessionDescription({type : 'answer', sdp : data.sdp}));
+
+                await pc.setRemoteDescription(new RTCSessionDescription({type : 'answer', sdp : data.sdp}));
                 setStatus('connected', 'Connected', 'Answer received from server.');
-                setStatusLine('<strong>Answer received.</strong> Waiting for video track…');
+                if (!receiving_video) {
+                    setStatusLine('<strong>Answer received.</strong> Waiting for video track…');
+                }
             } else if (data.type === 'candidate' && data.ice) {
+
                 appendLog('Adding ICE candidate');
+                if (!data.ice || data.ice.candidate === "") {
+                    // end-of-candidates
+                    appendLog('End of candidates');
+
+                    return;
+                }
                 await pc.addIceCandidate(new RTCIceCandidate(data.ice));
             }
         } catch (err) {
@@ -228,6 +283,8 @@ function connectSignaling(manual = false) {
         setStatusLine(
             '<strong>Signaling connection closed.</strong> Will retry automatically, or click Reconnect.');
 
+        receiving_video = false;
+
         if (pc) {
             try {
                 pc.close();
@@ -243,8 +300,7 @@ function connectSignaling(manual = false) {
             connectSignaling();
         }, wsReconnectDelay);
     };
-}
-
+} // connectSignaling
 
 // Initial startup
 setStatus('connecting', 'Connecting', 'Initializing…');
