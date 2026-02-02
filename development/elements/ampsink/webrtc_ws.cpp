@@ -500,7 +500,7 @@ void WebRtcWebSocket::link_per_client_elements(SessionContext *ctx) {
         gst_object_unref(aq_sink);
 
     } catch (const std::exception &e) {
-        DBG("link_per_client_elemets failed: {}", e.what());
+        DBG("link_per_client_elements failed: {}", e.what());
 
         if (q_sink)
             gst_object_unref(q_sink);

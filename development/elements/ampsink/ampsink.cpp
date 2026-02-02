@@ -201,7 +201,7 @@ static GstPad *gst_amp_sink_request_new_pad(GstElement *element,
     //      what happens if somebody requests new pad,
     //      and we return an already-connected-pad
     if (self->audio_ghost_pad) {
-        return self->audio_ghost_pad;
+        return nullptr;
     }
 
     // IMPORTANT: ghost an UNLINKED internal pad (the queue sink), not selector/request pads,
@@ -359,7 +359,7 @@ static void init_video(GstAmpSink *self) {
 
     g_return_if_fail(self->drain_queue && self->drain_fakesink);
 
-    // fakesink should not block or syncs to clock
+    // fakesink should not block or sync to clock
     g_object_set(self->drain_fakesink, "sync", FALSE, "async", FALSE, NULL);
 
     gst_bin_add_many(GST_BIN(self), self->drain_queue, self->drain_fakesink, NULL);

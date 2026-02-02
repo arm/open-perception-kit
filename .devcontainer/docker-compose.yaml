@@ -17,8 +17,6 @@ services:
     #gpus: all
 
     environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=all
       - XDG_RUNTIME_DIR=/run/user/${HOST_UID}
       - WAYLAND_DISPLAY=wayland-0
       - DISPLAY

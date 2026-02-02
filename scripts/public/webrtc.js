@@ -264,7 +264,6 @@ function connectSignaling(manual = false) {
                     // end-of-candidates
                     appendLog('End of candidates');
 
-                    await pc.addIceCandidate(null);
                     return;
                 }
                 await pc.addIceCandidate(new RTCIceCandidate(data.ice));

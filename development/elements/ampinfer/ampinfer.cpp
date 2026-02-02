@@ -80,7 +80,8 @@ G_DEFINE_TYPE(GstAmpInfer, gst_ampinfer, GST_TYPE_BASE_TRANSFORM)
 // ---------------- GstBaseTransform virtuals ----------------
 //
 namespace fs = std::filesystem;
-std::optional<fs::path> parent_dir_name(const fs::path &p) {
+
+static std::optional<fs::path> parent_dir_name(const fs::path &p) {
     if (!p.has_filename()) {
         return std::nullopt;
     }
