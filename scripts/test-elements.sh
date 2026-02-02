@@ -16,7 +16,7 @@ need() { command -v "$1" >/dev/null 2>&1 || { echo "Missing tool: $1" >&2; exit 
 
 # ---- test ----
 
-onnx() {
+onnx_rgb() {
 
   msg_begin "Executing test with ONNX element..\n"
 
@@ -38,8 +38,10 @@ gst-launch-1.0 \
   jpegdec ! \
   imagefreeze ! \
   videoconvert ! \
-      ampinfer opchain-path=/work/etc/models/yolo/opchain.json model-name=yolov8n active=true ! \
-      ampinfer opchain-path=/work/etc/models/ultraface/opchain.json model-name=ultraface active=true ! \
+      ampinfer opchain-path=/work/etc/models/yolo/opchain.json active=true ! \
+      ampinfer opchain-path=/work/etc/models/ultraface/opchain.json active=true ! \
+      ampinfer opchain-path=/work/etc/models/personclassification/opchain.json active=true ! \
+      ampinfer opchain-path=/work/etc/models/gazedetection/opchain.json active=true ! \
       textoverlay name=overlay valignment=top halignment=center font-desc="Sans, 14" ! \
   videoconvert ! \
       ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 ! \
@@ -49,7 +51,7 @@ gst-launch-1.0 \
   msg_end "Pipeline finished."
 }
 
-onnx_rgba() {
+onnx() {
 
   msg_begin "Executing test with ONNX element..\n"
 
