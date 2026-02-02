@@ -61,7 +61,7 @@ class WebRtcWebSocket {
     void set_video_pt(SessionContext *ctx);
     bool attach_video(SessionContext *ctx);
 
-    void link_per_client_elemets(SessionContext *ctx);
+    void link_per_client_elements(SessionContext *ctx);
 
     void process_offer(std::shared_ptr<SessionContext> ctx, const nlohmann::json &jsn);
     void process_canditate(std::shared_ptr<SessionContext> ctx, const nlohmann::json &jsn);
@@ -80,4 +80,4 @@ class WebRtcWebSocket {
     WebRtcSockerError stop();
 };
 
-#endif // !__WEVRTC_WS_H__
+#endif // !__WEBRTC_WS_H__

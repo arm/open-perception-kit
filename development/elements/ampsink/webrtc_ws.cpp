@@ -466,7 +466,7 @@ void WebRtcWebSocket::on_close(connection_hdl hdl) {
  * webrtcbin snapshots RTP properties on first buffer.
  */
 // this method links the per-client (both the audio and video) elements to the main graph
-void WebRtcWebSocket::link_per_client_elemets(SessionContext *ctx) {
+void WebRtcWebSocket::link_per_client_elements(SessionContext *ctx) {
 
     GstPad *q_sink = nullptr;
     GstPad *aq_sink = nullptr;
@@ -526,7 +526,7 @@ void WebRtcWebSocket::process_offer(std::shared_ptr<SessionContext> ctx, const j
     set_video_pt(ctx.get());
     set_audio_pt(ctx.get());
 
-    link_per_client_elemets(ctx.get());
+    link_per_client_elements(ctx.get());
 
     gst_element_sync_state_with_parent(ctx->webrtcbin);
 

@@ -196,7 +196,7 @@ static GstPad *gst_amp_sink_request_new_pad(GstElement *element,
     pipeline_state_reporter->set_audio(true);
 
     // If already created, just return existing pad
-    // This is probaly not the best approach:
+    // This is probably not the best approach:
     //      one request -> one new pad
     //      what happens if somebody requests new pad,
     //      and we return an already-connected-pad
@@ -283,6 +283,7 @@ static gboolean gst_amp_sink_sink_event(GstPad *pad, GstObject *parent, GstEvent
             }
 
             // Consume the event (don't pass it further)
+
             gst_event_unref(event);
             return TRUE;
         }
@@ -358,7 +359,7 @@ static void init_video(GstAmpSink *self) {
 
     g_return_if_fail(self->drain_queue && self->drain_fakesink);
 
-    // fakesink should not block or syncsto clock
+    // fakesink should not block or syncs to clock
     g_object_set(self->drain_fakesink, "sync", FALSE, "async", FALSE, NULL);
 
     gst_bin_add_many(GST_BIN(self), self->drain_queue, self->drain_fakesink, NULL);

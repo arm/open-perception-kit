@@ -254,7 +254,7 @@ function connectSignaling(manual = false) {
 
                 await pc.setRemoteDescription(new RTCSessionDescription({type : 'answer', sdp : data.sdp}));
                 setStatus('connected', 'Connected', 'Answer received from server.');
-                if(!receiving_video) {
+                if (!receiving_video) {
                     setStatusLine('<strong>Answer received.</strong> Waiting for video track…');
                 }
             } else if (data.type === 'candidate' && data.ice) {

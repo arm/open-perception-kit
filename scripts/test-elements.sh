@@ -153,7 +153,7 @@ usage() {
 Commands:
   onnx ➡️ Run yolov8n test using onnx framework.
   onnx_rgba ➡️ Run yolov8n int8 test using onnx framework with rgba.
-  audio ➡️ Run the audio test 
+  audio ➡️ Run the audio test.
 
 EOF
 }

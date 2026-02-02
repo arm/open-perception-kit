@@ -1,6 +1,6 @@
 
 #!/usr/bin/env bash
-set -euo 
+set -euo  pipefail
 
 # Ensure we run from repo root even if script is called elsewhere
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
