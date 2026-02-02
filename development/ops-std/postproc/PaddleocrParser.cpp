@@ -25,14 +25,6 @@ amp::Result<void> PaddleOcrDetectionParser::parse(const amp::TensorParser::Input
 
     uint8_t *dst = detectionResult.maps.back().map.data();
 
-    float *fp = (float *)input.tensors[0]->getData();
-    for (size_t i = 0; i < maskHeight * maskWidth; i++)
-        //    if((uint8_t)fp[i])
-        //      printf("%u ", (uint8_t)fp[i]);
-
-        float minProb = 1000000.0;
-    float maxProb = -1000000.0;
-
     float minLogit = 1e30f, maxLogit = -1e30f;
 
     for (size_t i = 0; i < maskWidth * maskHeight; i++) {
