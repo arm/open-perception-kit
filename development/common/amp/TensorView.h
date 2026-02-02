@@ -43,7 +43,7 @@ struct TensorView {
             typeSize = 8;
             break;
         }
-        valueCount = byteCount / typeSize;
+        valueCount = shape.getFullValueCount();
     }
 
     float get(size_t i) const {

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "amp/Result.h"
-#include "preproc/TensorBuilder.h"
+#include "amp/TensorBuilder.h"
 
 namespace amp {
 

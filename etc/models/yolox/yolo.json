@@ -1,7 +1,7 @@
 {
 	"name": "yolo",
 	
-	"modelFamily": "yolo-object-detection",
+	"modelFamily": "yolo-obj",
 	"modelFile": "yolox_nano.pte",
 	
 	"dynamicOutput": true,

@@ -164,12 +164,11 @@ static std::vector<Anchor> anchors;
 amp::Result<void> amp::UltraFaceParser::parse(const amp::TensorParser::Input &input,
                                               amp::RawDetectionLayer &detectionResult) {
 
-    const float confThreshold = (input.parserSettings.confidenceThreshold == 0.0f)
-                                    ? 0.5f
-                                    : input.parserSettings.confidenceThreshold;
-
-    const float iouThreshold =
-        (input.parserSettings.iouThreshold == 0.0f) ? 0.3f : input.parserSettings.iouThreshold;
+    const float confThreshold =
+        (float)input.attributes.getDoubleOrDefault("confidenceThreshold", 0.5);
+    const float iouThreshold = (float)input.attributes.getDoubleOrDefault("iouThreshold", 0.3);
+    const bool normalizeCoordinates =
+        (float)input.attributes.getBoolOrDefault("normalizeCoordinates", true);
 
     const size_t frameWidth = input.inferenceInfo.image.width;
     const size_t frameHeight = input.inferenceInfo.image.height;
@@ -256,7 +255,7 @@ amp::Result<void> amp::UltraFaceParser::parse(const amp::TensorParser::Input &in
         float y2 = y_max;
 
         // ---- 3) convert to pixel coords ----
-        if (false == input.parserSettings.normalizedCoordinates) {
+        if (false == normalizeCoordinates) {
             x1 *= frameWidth;
             y1 *= frameHeight;
             x2 *= frameWidth;
@@ -276,9 +275,8 @@ amp::Result<void> amp::UltraFaceParser::parse(const amp::TensorParser::Input &in
         detectionResult.rects.push_back(dr);
     }
 
-    // detectionResult.rects = nonMaxSuppression(detectionResult.rects,
-    // settings.confidenceThreshold, settings.iouThreshold);
-    detectionResult.rects = nonMaxSuppression(detectionResult.rects, 0.6f, 0.01f);
+    // detectionResult.rects = nonMaxSuppression(detectionResult.rects, 0.6f, 0.01f);
+    detectionResult.rects = nonMaxSuppression(detectionResult.rects, confThreshold, iouThreshold);
 
     return {};
 }

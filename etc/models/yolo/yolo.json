@@ -1,7 +1,7 @@
 {
 	"name": "yolo",
 	
-	"modelFamily": "yolo-object-detection",
+	"modelFamily": "yolo-obj",
 	"modelFile": "yolo11n-fp32-320.onnx",
 	
 	"dynamicOutput": true,

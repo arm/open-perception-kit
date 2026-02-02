@@ -32,7 +32,8 @@ enum class ErrorFlag {
     ImageDimensionError,
     SystemFailure,
     TensorError,
-    ParseError
+    ParseError,
+    InvalidOpChain
 };
 
 struct Error {

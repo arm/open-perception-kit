@@ -4,21 +4,22 @@
 #include "op/Op.h"
 #include "op/OpChainContext.h"
 
-#include "postproc/TensorParser.h"
+#include "amp/TensorParser.h"
 
 namespace amp {
 
-class Postprocess : public amp::Op {
+class GenericPostprocessOp : public amp::Op {
   public:
-    Postprocess();
-    virtual ~Postprocess();
+    GenericPostprocessOp();
+    virtual ~GenericPostprocessOp();
 
     virtual amp::Result<void> configure(const amp::AttributeMap &attributes) override;
     virtual amp::Result<void> process(amp::OpChainContext &opChainContext) override;
-    virtual amp::Result<void> peek(amp::OpChainContext &opChainContext) override;
+    virtual amp::Result<void> bind(size_t index, const std::vector<amp::Op *> &ops) override;
 
   private:
     std::unique_ptr<amp::TensorParser> parser;
+    amp::AttributeMap attributes;
 };
 
 } // namespace amp

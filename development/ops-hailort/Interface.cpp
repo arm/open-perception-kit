@@ -5,7 +5,7 @@
 
 amp::Op *createOp(const std::string &opName) {
     if (opName == "Inference")
-        return new hailort::InferrenceOp();
+        return new hailort::InferenceOp();
     return nullptr;
 }
 

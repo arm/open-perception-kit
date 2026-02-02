@@ -1,15 +1,15 @@
 #include "op/Op.h"
 
-#include "InferenceOp.h"
-#include "PreprocessAndInference.h"
-
 #include <cstring>
 
+#include "GenericImagePreprocessOp.h"
+#include "GenericPostprocessOp.h"
+
 amp::Op *createOp(const std::string &opName) {
-    if (opName == "PreprocessAndInference")
-        return new onnx::PreprocessAndInference();
-    if (opName == "Inference")
-        return new onnx::InferenceOp();
+    if (opName == "GenericPostprocess")
+        return new amp::GenericPostprocessOp();
+    if (opName == "GenericImagePreprocess")
+        return new amp::GenericImagePreprocessOp();
     return nullptr;
 }
 

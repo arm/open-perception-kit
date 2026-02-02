@@ -1,16 +1,24 @@
 {
-  "ops": [
+	"ops": [
+	{
+		"id": "amp-std-ops/GenericImagePreprocess",
+		"attributes": {
+			"inputImageTensorIndex": 0,
+			"inputImageSourceName": "pipelineVideoFrame"
+		}
+	},
+	{
+		"id": "amp-onnx-ops/Inference",
+        "attributes": {
+			"modelDescriptor": "/work/etc/models/paddleocr/paddleocr-detection.json"
+        }
+	},
     {
-      "id": "amp-onnx-ops/PreprocessAndInference",
-      "attributes": {
-        "modelDescriptor": "/work/etc/models/paddleocr/paddleocr-detection.json"
-      }
-    },
-    {
-      "id": "amp-std-ops/Postprocess",
-      "attributes": {
-          "parser": "PaddleOcrDetectionParser"
-      }
-    }
+		"id": "amp-std-ops/GenericPostprocess",
+		"attributes": {
+			"parser": "PaddleOcrDetectionParser",
+			"segmentationThreshold": 0.3
+		}
+	}
   ]
 }

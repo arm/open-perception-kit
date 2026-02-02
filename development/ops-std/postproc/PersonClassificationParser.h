@@ -2,12 +2,12 @@
 
 #include "amp/PerceptionContext.h"
 #include "amp/Result.h"
+#include "amp/TensorParser.h"
 #include "amp/TensorView.h"
-#include "postproc/TensorParser.h"
 
 namespace amp {
 
-struct PaddleOcrDetectionParser : public amp::TensorParser {
+struct PersonClassificationParser : public amp::TensorParser {
 
     virtual amp::Result<void> parse(const amp::TensorParser::Input &input,
                                     amp::RawDetectionLayer &output) override;
