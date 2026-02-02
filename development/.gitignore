@@ -6,5 +6,3 @@ subprojects/*/
 
 # Keep these wraps (required dependencies)
 !subprojects/*.wrap
-!subprojects/*.wrap
-!subprojects/*.wrap

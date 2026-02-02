@@ -1,6 +1,0 @@
-[wrap-git]
-url = git@github.com:Arm-Debug/uniflow-dev.git
-revision = error-handling-refactor
-depth = 1
-directory = uniflow-dev
-

@@ -1,7 +1,7 @@
 #ifndef __HTTP_SERVER_H__
 #define __HTTP_SERVER_H__
 
-#include <cpp-httplib/httplib.h>
+#include <httplib.h>
 
 #include <thread>
 

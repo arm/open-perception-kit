@@ -8,7 +8,6 @@ g++ -fPIC -shared -o libgstampsink.so ampsink.cpp \
 #include "glib.h"
 #include "gst/gstobject.h"
 #include <gst/gstelement.h>
-#include <nlohmann/json_fwd.hpp>
 
 #define GST_USE_UNSTABLE_API
 
@@ -18,6 +17,17 @@ g++ -fPIC -shared -o libgstampsink.so ampsink.cpp \
 #include "status_reporter.h"
 #include "utils.h"
 #include "webrtc_ws.h"
+
+#include <websocketpp/common/connection_hdl.hpp>
+#include <websocketpp/config/asio.hpp>
+#include <websocketpp/frame.hpp>
+#include <websocketpp/server.hpp>
+
+#include <amp/Tools.h>
+
+#include <httplib.h>
+
+#include <nlohmann/json.hpp>
 
 #include <memory>
 
