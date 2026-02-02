@@ -1,4 +1,4 @@
-#include "ModelDescriptor.h"
+#include "amp/ModelDescriptor.h"
 #include "fmt/color.h"
 #include "tl/expected.hpp"
 
@@ -8,7 +8,6 @@
 #include "amp/AttributeMap.h"
 
 amp::Result<ModelDescriptor> ModelDescriptor::fromJson(const std::string &jsonString) {
-
     try {
         json json = json::parse(jsonString);
         return json.get<ModelDescriptor>();
@@ -21,5 +20,12 @@ amp::Result<ModelDescriptor> ModelDescriptor::fromJson(const std::string &jsonSt
 
 amp::Result<ModelDescriptor> ModelDescriptor::fromFile(const std::string &path) {
     std::string content = amp::fs::loadTextOrDefault(path, "");
+
+    if (content.empty()) {
+        return tl::unexpected(
+            AMP_ERROR(amp::ErrorFlag::InvalidData,
+                      fmt::format("ModelDescriptor file [{}] not found or emty", path)));
+    }
+
     return fromJson(content);
 }

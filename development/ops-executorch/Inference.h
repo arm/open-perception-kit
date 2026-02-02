@@ -3,8 +3,8 @@
 #include <cstdint>
 #include <executorch/extension/module/module.h>
 
-#include "ModelDescriptor.h"
 #include "amp/Model.h"
+#include "amp/ModelDescriptor.h"
 #include "amp/Result.h"
 
 #include <memory>

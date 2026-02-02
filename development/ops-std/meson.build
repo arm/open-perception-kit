@@ -2,9 +2,19 @@
 stdops = shared_module(
   'amp-std-ops',                   
   sources: [
-    'Interface.cpp',
-    'Postprocess.cpp',
-    'ImagePreprocessOp.cpp'
+    'Plugin.cpp',
+    'GenericPostprocessOp.cpp',
+    'GenericImagePreprocessOp.cpp',
+
+    'postproc/YoloParser.cpp',
+    'postproc/UltrafaceParser.cpp',
+    'postproc/PaddleocrParser.cpp',
+    'postproc/GazeDetectionParser.cpp',
+    'postproc/PersonClassificationParser.cpp',
+
+    'preproc/GenericImageTensorBuilder.cpp',
+    'preproc/CpuImageKernels.cpp'
+
   ],
   include_directories: common_include,
   dependencies: amp_deps,

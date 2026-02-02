@@ -2,10 +2,6 @@
 common = shared_library(
   'common',
   sources: [
-    'ModelDescriptor.h',
-    'ModelDescriptor.cpp',
-    'PerformanceMetrics.h',
-    'PerformanceMetrics.cpp',
 
     'gst/Tools.h',
     'gst/Tools.cpp',
@@ -26,17 +22,12 @@ common = shared_library(
     'amp/PerceptionContext.cpp',
     'amp/ImageNetLabels.cpp',
     'amp/CocoLabels.cpp',
-
-    'postproc/YoloParser.cpp',
-    'postproc/UltrafaceParser.cpp',
-    'postproc/PaddleocrParser.cpp',
-
-    'preproc/GenericImageTensorBuilder.cpp',
-    'preproc/CpuImageKernels.cpp',
+    'amp/ModelDescriptor.h',
+    'amp/ModelDescriptor.cpp',
 
     'op/Op.cpp',
+    'op/OpRef.cpp',
     'op/OpChain.cpp',
-    'op/OpFactory.cpp',
     'op/OpChainContext.cpp',
     'op/OpChainDescriptor.cpp',
 

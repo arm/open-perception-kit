@@ -3,7 +3,7 @@
 #include "amp/BitmapView.h"
 #include "amp/PerceptionContext.h"
 #include "amp/TensorView.h"
-#include "postproc/TensorParser.h"
+#include "amp/Types.h"
 #include <cstdint>
 #include <map>
 
@@ -25,18 +25,10 @@ struct OpChainContext {
         return &it->second;
     }
 
-    std::map<std::string, amp::TensorView> tensorViews;
-
-    amp::TensorView *getTensorView(const std::string &name) {
-        auto it = tensorViews.find(name);
-        if (it == tensorViews.end()) {
-            return nullptr;
-        }
-        return &it->second;
-    }
-
-    std::string modelFamily;
-    amp::TensorParser::Input tensorParserInput;
+    // info about the last executed inference
+    size_t inferenceOutputTensorCount = 0;
+    amp::TensorView inferenceOutputTensors[amp::MaxTensorCount];
+    amp::InferenceInfo inferenceInfo;
 
     PerceptionContext *perceptionContext = nullptr;
 };

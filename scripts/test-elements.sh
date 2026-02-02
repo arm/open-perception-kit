@@ -16,7 +16,7 @@ need() { command -v "$1" >/dev/null 2>&1 || { echo "Missing tool: $1" >&2; exit 
 
 # ---- test ----
 
-onnx() {
+onnx_rgb() {
 
   msg_begin "Executing test with ONNX element..\n"
 
@@ -32,26 +32,16 @@ onnx() {
 
   msg "Running test pipeline.."
 
-  # IP=$(getent ahostsv4 host.docker.internal | awk 'NR==1{print $1}')
-  
-
-#  gst-launch-1.0 \
-#    filesrc location=/work/etc/videos/00.mp4 ! decodebin name=dec \
-#    dec. ! queue ! video/x-raw ! videoconvert ! \
-#      ampinfer model-path=/work/etc/models/blazeface/blazeface.onnx imgsz=320 ! \
-#      textoverlay name=overlay valignment=top halignment=center font-desc="Sans, 14" ! \
-#      ampsink name=sink \
-#    dec. ! queue ! audio/x-raw ! audioconvert ! audioresample ! \
-#      sink.audiopad
-
 
 gst-launch-1.0 \
   filesrc location=/work/etc/images/katana.jpg ! \
   jpegdec ! \
   imagefreeze ! \
   videoconvert ! \
-      ampinfer opchain-path=/work/etc/models/yolo/opchain.json model-name=yolov8n active=true ! \
-      ampinfer opchain-path=/work/etc/models/ultraface/opchain.json model-name=ultraface active=true ! \
+      ampinfer opchain-path=/work/etc/models/yolo/opchain.json active=true ! \
+      ampinfer opchain-path=/work/etc/models/ultraface/opchain.json active=true ! \
+      ampinfer opchain-path=/work/etc/models/personclassification/opchain.json active=true ! \
+      ampinfer opchain-path=/work/etc/models/gazedetection/opchain.json active=true ! \
       textoverlay name=overlay valignment=top halignment=center font-desc="Sans, 14" ! \
   videoconvert ! \
       ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 ! \
@@ -61,7 +51,7 @@ gst-launch-1.0 \
   msg_end "Pipeline finished."
 }
 
-onnx_rgba() {
+onnx() {
 
   msg_begin "Executing test with ONNX element..\n"
 
@@ -95,8 +85,10 @@ gst-launch-1.0 \
   jpegdec ! \
   imagefreeze ! \
   videoconvert ! video/x-raw,format=BGRA ! \
-      ampinfer opchain-path=/work/etc/models/yolo/opchain.json model-name=yolov8n active=true ! \
-      ampinfer opchain-path=/work/etc/models/ultraface/opchain.json model-name=ultraface active=true ! \
+      ampinfer opchain-path=/work/etc/models/yolo/opchain.json active=true ! \
+      ampinfer opchain-path=/work/etc/models/ultraface/opchain.json active=true ! \
+      ampinfer opchain-path=/work/etc/models/personclassification/opchain.json active=true ! \
+      ampinfer opchain-path=/work/etc/models/gazedetection/opchain.json active=true ! \
       ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 ! \
       amposd enabled=true ! \
       ampsink name=sink
@@ -105,112 +97,13 @@ gst-launch-1.0 \
       #textoverlay name=overlay valignment=top halignment=center font-desc="Sans, 14" ! \
 }
 
-onnx2() {
-
-  msg_tegin "Executing test with ONNX2 element..\n"
-
-  need gst-launch-1.0
-
-  if [ ! -d "$BUILD_DIR" ]; then
-    msg_end_err "Error: directory $BUILD_DIR does not exist" >&2
-    exit 1
-  fi
-
-  export GST_PLUGIN_PATH="$BUILD_DIR"
-  msg "GST_PLUGIN_PATH=$GST_PLUGIN_PATH"
-
-  msg "Running test pipeline.."
-
-  IP=$(getent ahostsv4 host.docker.internal | awk 'NR==1{print $1}')
-  
-  gst-launch-1.0 \
-    filesrc location=/work/etc/videos/00.mp4 ! decodebin ! \
-    videoconvert ! videoscale ! video/x-raw,format=RGB,width=160,height=160 ! \
-    ampinfer model-path=/work/etc/models/yolov8n/yolov8n-160-qdq.onnx model-name=yolov8n-160 imgsz=160 ! \
-    videoconvert ! x264enc tune=zerolatency speed-preset=ultrafast ! \
-    mpegtsmux ! \
-    udpsink host="$IP" port=5000 sync=false async=false
-
-  msg_end "Pipeline finished."
-}
-
-ampinfer() {
-
-  msg_begin "Executing test with AMPINFER element..\n"
-
-  need gst-launch-1.0
-
-  if [ ! -d "$BUILD_DIR" ]; then
-    msg_end_err "Error: directory $BUILD_DIR does not exist" >&2
-    exit 1
-  fi
-
-  export GST_PLUGIN_PATH="$BUILD_DIR"
-  msg "GST_PLUGIN_PATH=$GST_PLUGIN_PATH"
-
-  msg "Running test pipeline.."
-
-  IP=$(getent ahostsv4 host.docker.internal | awk 'NR==1{print $1}')
-  
-  gst-launch-1.0 \
-    filesrc location=/work/etc/videos/00.mp4 ! decodebin ! \
-    ampinferonnx model-path=/work/etc/models/yolov8n/yolov8n-fp32.onnx imgsz=640 ! \
-    videoconvert ! x264enc tune=zerolatency speed-preset=ultrafast ! \
-    mpegtsmux ! \
-    udpsink host="$IP" port=5000 sync=false async=false
-
-  msg_end "Pipeline finished."
-}
-
-#    ampinfer model-path=/work/etc/models/yolov8n/yolov8n-fp32.onnx imgsz=640 ! \
-#    videoconvert ! videoscale ! video/x-raw,format=RGB,width=640,height=640 ! \
-
-onnxweb() {
-
-  msg_begin "Executing test over web with ONNX element..\n"
-
-  need gst-launch-1.0
-
-  if [ ! -d "$BUILD_DIR" ]; then
-    msg_end_err "Error: directory $BUILD_DIR does not exist" >&2
-    exit 1
-  fi
-
-  export GST_PLUGIN_PATH="$BUILD_DIR"
-  msg "GST_PLUGIN_PATH=$GST_PLUGIN_PATH"
-
-  msg "Running test pipeline.."
-
-  IP=$(getent ahostsv4 host.docker.internal | awk 'NR==1{print $1}')
-  
-  gst-launch-1.0 \
-    filesrc location=/work/etc/videos/00.mp4 ! decodebin ! \
-    videoconvert ! videoscale ! video/x-raw,format=RGB,width=640,height=640 ! \
-    ampinfer model-path=/work/etc/models/yolov8n/yolov8n-fp32.onnx model-name=yolov8n-640 imgsz=640 ! \
-    videoconvert ! \
-    jpegenc quality=75 ! \
-    multipartmux boundary=spion ! tcpserversink host=127.0.0.1 port=5001
-      #x264enc tune=zerolatency speed-preset=ultrafast ! \
-    #mpegtsmux ! \
-    #videotestsrc is-live=true ! videoconvert ! vp8enc deadline=1 ! rtpvp8pay ! queue ! send.
- #    hlssink2 target-duration=2 max-files=5 \
-#    playlist-location=/var/www/html/stream.m3u8 \
-#    location=/var/www/html/segment_%05d.ts \
-#    playlist-root=http://127.0.0.1:8080/
-
-
-    msg_end "Pipeline finished."
-}
-
 # ---- help ----
 usage() {
   cat <<EOF
 
 Commands:
   onnx ➡️ Run yolov8n test using onnx framework.
-  onnx2 ➡️ Run yolov8n int8 test using onnx framework.
-  ampinfer ➡️ Run yolov8n test using onnx via ampinfer.
-  onnxweb ➡️ Run yolov8n test over web using onnx framework.
+  onnx_rgba ➡️ Run yolov8n int8 test using onnx framework with rgba.
 
 EOF
 }
@@ -219,10 +112,8 @@ EOF
 cmd="${1:-}"
 case "$cmd" in
   onnx) onnx ;;
-  onnx2) onnx2 ;;
+  ocr) ocr ;;
   onnx_rgba) onnx_rgba ;;
-  ampinfer) ampinfer ;;
-  onnxweb) onnxweb ;;
   *)
     echo "Unknown command: $cmd" >&2
     usage >&2

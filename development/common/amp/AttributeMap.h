@@ -109,6 +109,7 @@ struct AttributeError : std::runtime_error {
 };
 
 struct AttributeMap {
+
     using Map = std::map<std::string, AttributeValue>;
     AttributeValue &operator[](std::string key) {
         return values_[std::move(key)];
@@ -193,7 +194,7 @@ struct AttributeMap {
     }
     bool getBoolOrDefault(const std::string &key, bool defaultValue) const {
         try {
-            return getDouble(key);
+            return getBool(key);
         } catch (const AttributeError &error) {
             return defaultValue;
         }
@@ -206,7 +207,7 @@ struct AttributeMap {
             return defaultValue;
         }
     }
-    std::shared_ptr<AttributeMap> getObjectOfNUll(const std::string &key) const {
+    std::shared_ptr<AttributeMap> getObjectOrNUll(const std::string &key) const {
         try {
             return getObject(key);
         } catch (const AttributeError &error) {
@@ -228,6 +229,8 @@ struct AttributeMap {
         return values_;
     }
 
+    AttributeMap cloneDeep() const;
+
   private:
     const AttributeValue &require(const std::string &key) const {
         auto it = values_.find(key);
@@ -239,6 +242,63 @@ struct AttributeMap {
 
     Map values_;
 };
+
+// --- clone
+
+inline AttributeValue cloneAttributeValue(const AttributeValue &v); // fwd
+
+inline AttributeMap cloneAttributeMap(const AttributeMap &src) {
+    AttributeMap dst;
+    for (const auto &kv : src.raw()) {
+        dst.raw().emplace(kv.first, cloneAttributeValue(kv.second));
+    }
+    return dst;
+}
+
+inline AttributeValue cloneAttributeValue(const AttributeValue &v) {
+    using Array = AttributeValue::Array;
+
+    if (v.isNull()) {
+        return AttributeValue::make_null();
+    }
+    if (v.isInt()) {
+        return AttributeValue(v.asInt());
+    }
+    if (v.isDouble()) {
+        return AttributeValue(v.asDouble());
+    }
+    if (v.isBool()) {
+        return AttributeValue(v.asBool());
+    }
+    if (v.isString()) {
+        return AttributeValue(v.asString());
+    }
+    if (v.isArray()) {
+        const auto &srcArr = v.asArray();
+        Array dstArr;
+        dstArr.reserve(srcArr.size());
+        for (const auto &elem : srcArr) {
+            dstArr.emplace_back(cloneAttributeValue(elem));
+        }
+        return AttributeValue(std::move(dstArr));
+    }
+    if (v.isObject()) {
+        const auto &mp = v.asMapPtr();
+        if (!mp) {
+            // preserve "null" object as null, or make it empty object if you prefer
+            return AttributeValue::make_null();
+        }
+        auto clonedMap = std::make_shared<AttributeMap>(cloneAttributeMap(*mp));
+        return AttributeValue(std::move(clonedMap));
+    }
+
+    // Should be unreachable with current Storage types
+    return AttributeValue::make_null();
+}
+
+inline AttributeMap AttributeMap::cloneDeep() const {
+    return cloneAttributeMap(*this);
+}
 
 } // namespace amp
 

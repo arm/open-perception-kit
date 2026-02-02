@@ -5,18 +5,18 @@
 
 using namespace hailort;
 
-InferrenceOp::InferrenceOp() {}
-InferrenceOp::~InferrenceOp() {}
+InferenceOp::InferenceOp() {}
+InferenceOp::~InferenceOp() {}
 
-amp::Result<void> InferrenceOp::configure(const amp::AttributeMap &attributes) {
+amp::Result<void> InferenceOp::configure(const amp::AttributeMap &attributes) {
 
     return {};
 }
 
-amp::Result<void> InferrenceOp::process(amp::OpChainContext &opCainContext) {
+amp::Result<void> InferenceOp::process(amp::OpChainContext &opCainContext) {
     return {};
 }
 
-amp::Result<void> InferrenceOp::peek(amp::OpChainContext &opCainContext) {
+amp::Result<void> InferenceOp::bind(size_t index, const std::vector<amp::Op *> &ops) {
     return {};
 }

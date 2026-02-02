@@ -6,7 +6,7 @@
 #include "amp/AttributeMap.h"
 #include "amp/Result.h"
 
-#include "JsonSchemas.h"
+#include "amp/JsonSchemas.h"
 
 #include <nlohmann/json.hpp>
 #include <string>

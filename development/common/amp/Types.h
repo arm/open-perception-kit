@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 
 #if defined(__arm__) || defined(__aarch64__)
 using f16_type = __fp16;
@@ -77,5 +78,22 @@ inline bool isScalarDataKind(DataKind kind) {
         return true;
     return false;
 }
+
+constexpr size_t MaxTensorCount = 4;
+constexpr int64_t InvalidTensorIndex = 0xdead;
+
+// Information about the inference itself
+// sometimes these things are crucial for the parsing itself
+struct ImageInferenceMetadata {
+    // physical image dimensions the inference runs on
+    size_t width = 0, height = 0;
+    // the input tensor dimensions
+    size_t modelWidth = 0, modelHeight = 0;
+};
+
+struct InferenceInfo {
+    std::string modelFamily;
+    ImageInferenceMetadata image;
+};
 
 } // namespace amp

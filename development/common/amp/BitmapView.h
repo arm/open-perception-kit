@@ -16,8 +16,10 @@ struct BitmapView {
 
     BitmapView() {}
 
-    BitmapView(uint8_t *data, size_t width, size_t height, size_t stride = 0) {
+    BitmapView(
+        uint8_t *data, amp::DataKind dataKind, size_t width, size_t height, size_t stride = 0) {
         this->data = data;
+        this->dataKind = dataKind;
         this->width = width;
         this->height = height;
         this->stride = stride;
@@ -25,6 +27,7 @@ struct BitmapView {
 
     uint8_t *data = nullptr;
     size_t width = 0, height = 0, stride = 0;
+    amp::DataKind dataKind = amp::DataKind::Unknown;
 };
 
 } // namespace amp

@@ -1,5 +1,7 @@
 #include "InferenceOp.h"
 #include "Inference.h"
+#include "amp/Result.h"
+#include "tl/expected.hpp"
 
 #include <fmt/core.h>
 #include <memory>
@@ -9,7 +11,7 @@ using namespace exct;
 InferenceOp::InferenceOp() {}
 InferenceOp::~InferenceOp() {}
 
-amp::Result<void> InferenceOp::peek(amp::OpChainContext &opChainContext) {
+amp::Result<void> InferenceOp::bind(size_t index, const std::vector<amp::Op *> &ops) {
     return {};
 }
 
@@ -20,7 +22,9 @@ amp::Result<void> InferenceOp::configure(const amp::AttributeMap &attributes) {
     try {
         modelDescPath = attributes.getString("modelDescriptor");
     } catch (const amp::AttributeError &error) {
-        AMP_ABORT; // todo
+        return tl::unexpect(AMP_ERROR(
+            amp::ErrorFlag::InvalidOpChain,
+            fmt::format("Missing required attribute in InferenceOp, mandatory: modelDescriptor")));
     }
 
     try {
@@ -28,20 +32,12 @@ amp::Result<void> InferenceOp::configure(const amp::AttributeMap &attributes) {
 
         auto setupResult = inference->setupFromJson(modelDescPath);
         if (!setupResult) {
-            fmt::print("{}\n", setupResult.error().toString());
-            AMP_ABORT; // todo
+            return setupResult;
         }
     } catch (const std::exception &e) {
-        amp::Error err = AMP_ERROR(amp::ErrorFlag::OnnxStartupException, e.what());
-        fmt::print("{}\n", err.toString());
-        AMP_ABORT; // todo
+        return tl::unexpect(AMP_ERROR(amp::ErrorFlag::OnnxStartupException,
+                                      fmt::format("OnnxRT startup error: {}", e.what())));
     }
-
-    //    modelFamily = inference->getModel().modelFamily;
-
-    return {};
-
-    //    inference = std::make_unique<Inference>();
 
     return {};
 }

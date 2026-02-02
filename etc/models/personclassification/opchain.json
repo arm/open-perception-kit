@@ -10,16 +10,13 @@
 	{
 		"id": "amp-onnx-ops/Inference",
         "attributes": {
-			"modelDescriptor": "/work/etc/models/ultraface/ultraface.json"
+			"modelDescriptor": "/work/etc/models/personclassification/model.json"
         }
 	},
     {
 		"id": "amp-std-ops/GenericPostprocess",
 		"attributes": {
-			"parser": "UltrafaceParser",
-			"normalizeCoordinates": false,
-			"confidenceThreshold": 0.5,
-			"iouThreshold": 0.3
+			"parser": "PersonClassificationParser"
 		}
 	}
   ]

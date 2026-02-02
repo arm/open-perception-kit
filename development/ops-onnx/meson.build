@@ -4,8 +4,7 @@ onnxops = shared_module(
   sources: [
     'Inference.cpp',
     'InferenceOp.cpp',
-    'Interface.cpp',
-    'PreprocessAndInference.cpp'    
+    'Plugin.cpp'
   ],
   include_directories: common_include,
   dependencies: [amp_deps, onnx_dep],

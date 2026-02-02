@@ -1,16 +1,13 @@
 #pragma once
 
+#include <cstdint>
 #include <onnxruntime_cxx_api.h>
 
-#include "ModelDescriptor.h"
+#include "amp/ModelDescriptor.h"
 
 #include "amp/Model.h"
-#include "amp/PerceptionContext.h"
 #include "amp/TensorView.h"
 #include "amp/Types.h"
-
-#include "postproc/TensorParser.h"
-#include "preproc/TensorBuilder.h"
 
 #include <memory>
 #include <string>
@@ -99,18 +96,24 @@ struct Inference {
                                           size_t imageWidth,
                                           size_t imageHeight);
 
-    void prepareForPostprocess(amp::TensorParser::Input &input);
+    // void prepareForPostprocess(amp::TensorParser::Input &input);
     amp::Result<void> inference();
-
-    amp::Result<void> postprocess(const amp::TensorParser::Settings &parserSettings,
-                                  amp::RawDetectionLayer &outDetectionResults);
 
     const amp::Model &getModel() const {
         return this->model;
     }
 
+    const uint8_t *getOutputTensorDataAddress(size_t index) const {
+        assert(outputTensorPointers[index]);
+        return outputTensorPointers[index];
+    }
+
+    amp::Shape getOutputTensorFinalShape(size_t index) const {
+        return outputTensorFinalShapes[index];
+    }
+
   protected:
-    amp::TensorParser::InferenceInfo inferenceInfo;
+    amp::InferenceInfo inferenceInfo;
     bool setupReady = false;
 
     static bool onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, amp::Tdt &outType);
@@ -127,27 +130,33 @@ struct Inference {
 
     ModelDescriptor modelDescriptor;
     amp::Model model;
-    std::unique_ptr<amp::TensorParser> outputParser;
-    std::unique_ptr<amp::TensorBuilder> inputBuilder;
 
     std::vector<std::unique_ptr<amp::TensorView>> dynamicViews;
 
     std::vector<Ort::Value> dynamicOutputData;
-    std::unique_ptr<amp::TensorView> outputTensorViews[4];
+    std::unique_ptr<amp::TensorView> outputTensorViews[amp::MaxTensorCount];
 
-    amp::Result<void> createTensorProcessors();
-
-    amp::TensorView *lastUsedOutputTensors[4] = {nullptr};
+    // plain pointers to output tensor buffers and the after-inference shapes (no -1s here)
+    // later this will be used to pass to the postprocessor
+    // static case: it is enough to fill at tensor allocation
+    // dynamic case: must be filled after each inference
+    const uint8_t *outputTensorPointers[amp::MaxTensorCount] = {nullptr};
+    amp::Shape outputTensorFinalShapes[amp::MaxTensorCount];
 
     // ---
 
     struct ApiTensorGlue {
-        std::unique_ptr<onnx::Tensor> inputTensors[4];
-        std::unique_ptr<onnx::Tensor> outputTensors[4];
+        std::unique_ptr<onnx::Tensor> inputTensors[amp::MaxTensorCount];
+        std::unique_ptr<onnx::Tensor> outputTensors[amp::MaxTensorCount];
         std::vector<const char *> inputNames;
         std::vector<const char *> outputNames;
         std::vector<Ort::Value> inputTensorVector;
         std::vector<Ort::Value> outputTensorVector;
     } api;
+
+  public:
+    uint8_t *getInputTensorDataAddress(size_t index) {
+        return api.inputTensors[index]->getData();
+    }
 };
 } // namespace onnx

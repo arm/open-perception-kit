@@ -8,6 +8,7 @@
 
 #include "amp/BitmapView.h"
 #include "amp/PerceptionContext.h"
+#include "amp/Types.h"
 #include "glib-object.h"
 #include "glib.h"
 #include "gst/gstpad.h"
@@ -16,7 +17,6 @@
 // #include "onnx/Inference.h"
 
 #include "amp/AttributeMap.h"
-#include "amp/DescriptorStrings.h"
 #include "amp/File.h"
 #include "amp/Labels.h"
 #include "amp/Result.h"
@@ -36,13 +36,7 @@ struct GstAmpInferMembers {
     amp::OpChain opChain;
 
     amp::Result<void> executeOpChain(amp::OpChainContext &opChainContext) {
-        for (const auto &op : opChain.ops) {
-            auto opResult = op->process(opChainContext);
-            if (!opResult) {
-                return opResult;
-            }
-        }
-        return {};
+        return opChain.execute(opChainContext);
     }
 
     amp::Result<void> setupOpChainFromJson(const std::string &filePath) {
@@ -70,9 +64,7 @@ struct _GstAmpInfer {
     GstVideoInfo vinfo;
 
     // Properties
-    gchar *modelPath;
     gchar *opChainPath;
-    gchar *modelName;
     gboolean active;
     gchar *format;
 
@@ -91,37 +83,17 @@ static gboolean gst_ampinfer_start(GstBaseTransform *b) {
     static amp::PerformanceTracer *tracer = amp::getGlobalTracer();
     (void)tracer;
 
-    if (!self->modelName) {
-        GST_ERROR_OBJECT(self, "model-name property is mandatory but not set");
+    self->m = new GstAmpInferMembers();
+
+    if (!self->opChainPath || !self->opChainPath[0]) {
+        GST_ERROR_OBJECT(self, "opchain property is mandatory but not set");
         return FALSE;
     }
 
-    self->m = new GstAmpInferMembers();
-
-    if (self->opChainPath && self->opChainPath[0]) {
-
-        auto setupResult = self->m->setupOpChainFromJson(self->opChainPath);
-        if (!setupResult) {
-            fmt::print("Error while setting up op-chain: {}\n", setupResult.error().toString());
-            AMP_ABORT;
-        }
-
-    } else {
-        /*try {
-
-            self->m->onnxInference = std::make_shared<onnx::Inference>();
-
-            auto setupResult = self->m->onnxInference->setupFromJson(self->modelPath);
-            if (!setupResult) {
-                fmt::print("{}\n", setupResult.error().toString());
-                AMP_ABORT;
-            }
-        } catch (const std::exception &e) {
-            amp::Error err = AMP_ERROR(amp::ErrorFlag::OnnxStartupException, e.what());
-            fmt::print("{}\n", err.toString());
-            AMP_ABORT;
-            return FALSE;
-        }*/
+    auto setupResult = self->m->setupOpChainFromJson(self->opChainPath);
+    if (!setupResult) {
+        fmt::print("Error while setting up op-chain: {}\n", setupResult.error().toString());
+        AMP_ABORT;
     }
 
     return TRUE;
@@ -158,7 +130,7 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     if (!self->active)
         return GST_FLOW_OK;
 
-    if (!self->m || self->m->opChain.ops.empty())
+    if (!self->m)
         return GST_FLOW_OK;
 
     GstMapInfo map;
@@ -183,14 +155,14 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     GstBuffer *writable_buf = gst_buffer_make_writable(buf);
     perceptionContextMeta = amp::PerceptionContextMeta::get(writable_buf);
     if (!perceptionContextMeta) {
-        perceptionContextMeta = amp::PerceptionContextMeta::attach(
-            writable_buf, new amp::PerceptionContext());
+        perceptionContextMeta =
+            amp::PerceptionContextMeta::attach(writable_buf, new amp::PerceptionContext());
     }
     auto perceptionContext_ptr = perceptionContextMeta->get_payload();
 
     amp::OpChainContext opChainContext;
 
-    amp::BitmapView pipelineFrame(rgb, frameWidth, frameHeight);
+    amp::BitmapView pipelineFrame(rgb, amp::DataKind::ImageBgraHwc, frameWidth, frameHeight);
 
     opChainContext.perceptionContext = perceptionContext_ptr;
     opChainContext.bitmapViews["pipelineVideoFrame"] = pipelineFrame;
@@ -203,122 +175,22 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
         return GST_FLOW_OK;
     }
 
-    // if (false == perceptionContext.detectionResult.maps.empty()) {
-    //     amp::Painter painter(rgb, frameWidth, frameHeight, frameWidth * 3);
-    //     painter.drawSegmentMap8(perceptionContext.detectionResult.maps[0].map.data(),
-    //                             perceptionContext.detectionResult.maps[0].width,
-    //                             perceptionContext.detectionResult.maps[0].height);
-    // }
-
-    // ======================================================================================
-#ifdef SKIP
-    // Get tracer and prepare metric names
-    static amp::PerformanceTracer *tracer = amp::getGlobalTracer();
-    std::string base_name = self->modelName ? self->modelName : "ampinfer";
-    std::string preprocess_name = base_name + "_preprocess";
-    std::string inference_name = base_name + "_inference";
-    std::string postprocess_name = base_name + "_postprocess";
-
-    // preprocess
-    {
-        if (!self->active) {
-            gst_buffer_unmap(buf, &map);
-            return GST_FLOW_OK;
-        }
-
-        amp::PerformanceTracer::ScopedTimer timer(tracer, preprocess_name);
-        auto prepocessResult = self->m->onnxInference->preprocessImageData(
-            0, rgb, amp::DataKind::ImageRgbChw, amp::Tdt::Uint8, frameWidth, frameHeight);
-        if (!prepocessResult) {
-            fmt::print("{}\n", prepocessResult.error().toString());
-            gst_buffer_unmap(buf, &map);
-            return GST_FLOW_OK;
-        }
-    }
-
-    // inference
-    {
-        if (!self->active) {
-            gst_buffer_unmap(buf, &map);
-            return GST_FLOW_OK;
-        }
-
-        amp::PerformanceTracer::ScopedTimer timer(tracer, inference_name);
-        auto inferenceResult = self->m->onnxInference->inference();
-        if (!inferenceResult) {
-            fmt::print("{}\n", inferenceResult.error().toString());
-            gst_buffer_unmap(buf, &map);
-            AMP_ABORT;
-            return GST_FLOW_OK;
-        }
-    }
-
-    // postprocess
-    amp::RawDetectionLayer detectionResults;
-    {
-        if (!self->active) {
-            gst_buffer_unmap(buf, &map);
-            return GST_FLOW_OK;
-        }
-
-        GST_LOG_OBJECT(self, "Recording postprocess metric: %s", postprocess_name.c_str());
-        amp::PerformanceTracer::ScopedTimer timer(tracer, postprocess_name);
-
-        amp::TensorParser::Settings settings;
-        settings.iouThreshold = 0.3f;
-        settings.confidenceThreshold = 0.5f;
-        settings.normalizedCoordinates = false;
-        settings.maxDetectionCount = 12;
-
-        auto postprocessResult = self->m->onnxInference->postprocess(settings, detectionResults);
-        if (!postprocessResult) {
-            fmt::print("{}\n", postprocessResult.error().toString());
-            gst_buffer_unmap(buf, &map);
-            return GST_FLOW_OK;
-        }
-    }
-#endif
-
     return GST_FLOW_OK;
 }
 
 // ---------------- properties & class init ----------------
 
-enum {
-    PROP_0,
-    PROP_MODEL_PATH,
-    PROP_OPCHAIN_PATH,
-    PROP_MODEL_NAME,
-    PROP_MODEL_ACTIVE,
-    PROP_FORMAT
-};
+enum { PROP_0, PROP_OPCHAIN_PATH, PROP_MODEL_ACTIVE, PROP_FORMAT };
 
 static void gst_ampinfer_set_property(GObject *o, guint id, const GValue *v, GParamSpec *ps) {
     auto *self = (GstAmpInfer *)o;
     switch (id) {
-    case PROP_MODEL_PATH:
-        g_free(self->modelPath);
-        self->modelPath = g_value_dup_string(v);
-        break;
     case PROP_OPCHAIN_PATH:
         g_free(self->opChainPath);
         self->opChainPath = g_value_dup_string(v);
         break;
-    case PROP_MODEL_NAME:
-        g_free(self->modelName);
-        self->modelName = g_value_dup_string(v);
-        break;
     case PROP_MODEL_ACTIVE: {
-        gboolean new_active = g_value_get_boolean(v);
-        if (self->active && !new_active && self->modelName) {
-            static amp::PerformanceTracer *tracer = amp::getGlobalTracer();
-            std::string base_name = self->modelName;
-            GST_INFO_OBJECT(self, "Removing metrics for model: %s", base_name.c_str());
-            tracer->removeMetrics(base_name + "_preprocess");
-            tracer->removeMetrics(base_name + "_inference");
-            tracer->removeMetrics(base_name + "_postprocess");
-        }
-        self->active = new_active;
+        self->active = g_value_get_boolean(v);
         break;
     }
     case PROP_FORMAT:
@@ -333,14 +205,8 @@ static void gst_ampinfer_set_property(GObject *o, guint id, const GValue *v, GPa
 static void gst_ampinfer_get_property(GObject *o, guint id, GValue *v, GParamSpec *ps) {
     auto *self = (GstAmpInfer *)o;
     switch (id) {
-    case PROP_MODEL_PATH:
-        g_value_set_string(v, self->modelPath);
-        break;
     case PROP_OPCHAIN_PATH:
         g_value_set_string(v, self->opChainPath);
-        break;
-    case PROP_MODEL_NAME:
-        g_value_set_string(v, self->modelName);
         break;
     case PROP_MODEL_ACTIVE:
         g_value_set_boolean(v, self->active);
@@ -363,28 +229,10 @@ static void gst_ampinfer_class_init(GstAmpInferClass *klass) {
 
     g_object_class_install_property(
         gobj,
-        PROP_MODEL_PATH,
-        g_param_spec_string("model-path",
-                            "Model path",
-                            "Path to YOLO ONNX model",
-                            nullptr,
-                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(
-        gobj,
         PROP_OPCHAIN_PATH,
         g_param_spec_string("opchain-path",
                             "OpChain path",
                             "Path to OpChain setup JSON",
-                            nullptr,
-                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(
-        gobj,
-        PROP_MODEL_NAME,
-        g_param_spec_string("model-name",
-                            "Model name",
-                            "Name of the executed model (mandatory)",
                             nullptr,
                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
@@ -428,8 +276,6 @@ static void gst_ampinfer_class_init(GstAmpInferClass *klass) {
 
 static void gst_ampinfer_init(GstAmpInfer *self) {
     self->opChainPath = nullptr;
-    self->modelPath = nullptr;
-    self->modelName = nullptr;
     self->active = true;
     self->m = nullptr;
     gst_video_info_init(&self->vinfo);
