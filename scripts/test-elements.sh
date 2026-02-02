@@ -163,7 +163,8 @@ cmd="${1:-}"
 case "$cmd" in
   onnx) onnx ;;
   ocr) ocr ;;
-  onnx_rgba) onnx_rgba ;;
+  onnx_rgb) onnx_rgb ;;
+  audio) audio ;;
   *)
     echo "Unknown command: $cmd" >&2
     usage >&2
