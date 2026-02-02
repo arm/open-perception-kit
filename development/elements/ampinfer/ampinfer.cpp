@@ -1,3 +1,4 @@
+#include <filesystem>
 #include <gst/base/gstbasetransform.h>
 #include <gst/gst.h>
 #include <gst/video/video.h>
@@ -77,6 +78,20 @@ G_END_DECLS
 G_DEFINE_TYPE(GstAmpInfer, gst_ampinfer, GST_TYPE_BASE_TRANSFORM)
 
 // ---------------- GstBaseTransform virtuals ----------------
+//
+namespace fs = std::filesystem;
+std::optional<fs::path> parent_dir_name(const fs::path &p) {
+    if (!p.has_filename()) {
+        return std::nullopt;
+    }
+
+    fs::path parent = p.parent_path();
+    if (parent.empty()) {
+        return std::nullopt;
+    }
+
+    return parent.filename();
+}
 
 static gboolean gst_ampinfer_start(GstBaseTransform *b) {
     auto *self = (GstAmpInfer *)b;
@@ -94,6 +109,30 @@ static gboolean gst_ampinfer_start(GstBaseTransform *b) {
     if (!setupResult) {
         fmt::print("Error while setting up op-chain: {}\n", setupResult.error().toString());
         AMP_ABORT;
+    }
+
+    // Send model registration event downstream
+    GstPad *srcpad = gst_element_get_static_pad(GST_ELEMENT(self), "src");
+    if (srcpad) {
+        std::string name = "unknown";
+        if (auto dir = parent_dir_name(self->opChainPath); dir.has_value()) {
+            name = dir->string();
+        }
+
+        GstStructure *structure = gst_structure_new("amp-model-register",
+                                                    "model-name",
+                                                    G_TYPE_STRING,
+                                                    name.c_str(),
+                                                    "element-name",
+                                                    G_TYPE_STRING,
+                                                    GST_OBJECT_NAME(self),
+                                                    "active",
+                                                    G_TYPE_BOOLEAN,
+                                                    self->active,
+                                                    NULL);
+        GstEvent *event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, structure);
+        gst_pad_push_event(srcpad, event);
+        gst_object_unref(srcpad);
     }
 
     return TRUE;
