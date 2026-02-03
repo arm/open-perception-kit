@@ -69,6 +69,16 @@ amp::Result<void> GenericImagePreprocessOp::configure(const amp::AttributeMap &a
 amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChainContext) {
     AMP_TRACE_SCOPE(fmt::format("std/GenImgPre/{}", upcomingInferenceModel.modelFamily));
 
+    if (opChainContext.inferenceCrops.size() == 0) {
+        opChainContext.execute = false;
+        return {};
+    }
+
+    amp::PixelRect cropRect = opChainContext.inferenceCrops.back();
+    opChainContext.inferenceCrops.pop_back();
+    uint64_t sourceUuid = opChainContext.inferenceCropUuids.back();
+    opChainContext.inferenceCropUuids.pop_back();
+
     amp::BitmapView *pipelineVideoFrame = opChainContext.getBitmapView("pipelineVideoFrame");
 
     if (pipelineVideoFrame == nullptr) {
@@ -78,8 +88,14 @@ amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChain
 
     amp::TensorBuilder::Setup setup;
     setup.imageSource.data = pipelineVideoFrame->data;
-    setup.imageSource.width = pipelineVideoFrame->width;
-    setup.imageSource.height = pipelineVideoFrame->height;
+    setup.imageSource.surfaceWidth = pipelineVideoFrame->width;
+    setup.imageSource.surfaceHeight = pipelineVideoFrame->height;
+    setup.imageSource.x = cropRect.x;
+    setup.imageSource.y = cropRect.y;
+    setup.imageSource.width = cropRect.width;
+    setup.imageSource.height = cropRect.height;
+    //    setup.imageSource.width = pipelineVideoFrame->width;
+    //    setup.imageSource.height = pipelineVideoFrame->height;
     setup.imageSource.byteCount = pipelineVideoFrame->width * pipelineVideoFrame->height * 4;
     setup.imageSource.kind = amp::DataKind::ImageBgraHwc;
     setup.imageSource.type = amp::Tdt::Uint8;
@@ -92,6 +108,10 @@ amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChain
     }
 
     setup.imageDestination.type = upcomingInferenceModel.inputs[inputImageTensorIndex].valueType;
+    setup.imageDestination.surfaceWidth = modelWidth;
+    setup.imageDestination.surfaceHeight = modelHeight;
+    setup.imageDestination.x = 0;
+    setup.imageDestination.y = 0;
     setup.imageDestination.width = modelWidth;
     setup.imageDestination.height = modelHeight;
     setup.imageDestination.kind = upcomingInferenceModel.inputs[inputImageTensorIndex].dataKind;
@@ -106,12 +126,15 @@ amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChain
     }
 
     // populate inference info
-    opChainContext.inferenceInfo.image.width = pipelineVideoFrame->width;
-    opChainContext.inferenceInfo.image.height = pipelineVideoFrame->height;
+    //    opChainContext.inferenceInfo.image.width = pipelineVideoFrame->width;
+    //    opChainContext.inferenceInfo.image.height = pipelineVideoFrame->height;
+    opChainContext.inferenceInfo.image.width = cropRect.width;
+    opChainContext.inferenceInfo.image.height = cropRect.height;
     opChainContext.inferenceInfo.image.modelWidth = modelWidth;
     opChainContext.inferenceInfo.image.modelHeight = modelHeight;
     opChainContext.inferenceInfo.modelFamily = upcomingInferenceModel.modelFamily;
     opChainContext.inferenceInfo.contentType = upcomingInferenceModel.contentType;
+    opChainContext.inferenceInfo.parentUuid = sourceUuid;
 
     return {};
 }

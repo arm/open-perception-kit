@@ -85,9 +85,11 @@ struct Perception {
     struct Layer {
         std::string engine, model, tags;
         std::string contentType; // "generic-object", "human-face", "human-figure", "ocr-text",
-                                 // "human-eye-yp"
+                                 // "eye-yp"
         std::vector<Detection> detections;
     };
+
+    std::vector<Layer> layers;
 };
 
 struct PerceptionTools {
@@ -95,6 +97,23 @@ struct PerceptionTools {
     Perception &perception;
 
     PerceptionTools(Perception &perception) : perception(perception) {}
+
+    std::vector<Perception::Rect> getAllRectsWithContentType(const std::string &type) const {
+        std::vector<Perception::Rect> result;
+
+        for (const auto &layer : perception.layers) {
+            if (layer.contentType != type)
+                continue;
+
+            for (const auto &det : layer.detections) {
+                if (const auto *rect = std::get_if<Perception::Rect>(&det)) {
+                    result.push_back(*rect);
+                }
+            }
+        }
+
+        return result;
+    }
 };
 
 } // namespace amp

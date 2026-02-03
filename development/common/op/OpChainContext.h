@@ -7,6 +7,7 @@
 #include "amp/Types.h"
 #include <cstdint>
 #include <map>
+#include <vector>
 
 namespace amp {
 
@@ -16,10 +17,7 @@ namespace amp {
 // buffers stored here as pointers must be valid through the execution of the chain
 struct OpChainContext {
 
-    struct TaggedBitmapView {
-        amp::Tags tags;
-        amp::BitmapView bitmapView;
-    };
+    bool execute = true;
 
     std::map<std::string, amp::BitmapView> bitmapViews;
 
@@ -31,12 +29,18 @@ struct OpChainContext {
         return &it->second;
     }
 
+    std::vector<amp::PixelRect> inferenceCrops;
+    std::vector<uint64_t> inferenceCropUuids;
+
     // info about the last executed inference
+    uint64_t inferenceSourceUuid = 0;
     size_t inferenceOutputTensorCount = 0;
     amp::TensorView inferenceOutputTensors[amp::MaxTensorCount];
     amp::InferenceInfo inferenceInfo;
 
     PerceptionContext *perceptionContext = nullptr;
+
+    bool inferenceControllerExecuted = false;
 };
 
 } // namespace amp

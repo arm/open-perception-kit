@@ -92,9 +92,14 @@ struct ImageInferenceMetadata {
 };
 
 struct InferenceInfo {
+    uint64_t parentUuid;
     std::string contentType;
     std::string modelFamily;
     ImageInferenceMetadata image;
+};
+
+struct PixelRect {
+    size_t x = 0, y = 0, width = 0, height = 0;
 };
 
 } // namespace amp

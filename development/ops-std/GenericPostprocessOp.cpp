@@ -56,6 +56,13 @@ amp::Result<void> GenericPostprocessOp::process(amp::OpChainContext &opChainCont
 
     amp::TensorParser::Input tensorParserInput(attributes);
 
+    // HACK
+    // PerceptionContext will be replaced by Perception
+    // to keep the old functionality a PerceptionLayer instance is hacked into Input
+    // some of the parsers allo fill that
+    tensorParserInput.perceptionLayer.contentType = opChainContext.inferenceInfo.contentType;
+    // HACK
+
     // populate tensors
     for (size_t i = 0; i < amp::MaxTensorCount; i++) {
         if (i < opChainContext.inferenceOutputTensorCount)
@@ -75,6 +82,11 @@ amp::Result<void> GenericPostprocessOp::process(amp::OpChainContext &opChainCont
     }
 
     opChainContext.perceptionContext->rawDetections.push_back(rawDetectionLayer);
+
+    // HACK remove if Perception replaces PerceptionContext
+    opChainContext.perceptionContext->perception.layers.push_back(
+        tensorParserInput.perceptionLayer);
+    // HACK
 
     /* I WILL $##$!!?+!!#$ if you delete this
 

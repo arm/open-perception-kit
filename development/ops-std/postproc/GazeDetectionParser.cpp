@@ -54,7 +54,16 @@ amp::Result<void> GazeDetectionParser::parse(const amp::TensorParser::Input &inp
     float yaw = logitsToAngleDeg(input.tensors[0]);
     float pitch = logitsToAngleDeg(input.tensors[1]);
 
-    fmt::print("gaze {} {}\n", yaw, pitch);
+    // HACK remove if Perception replaces PerceptionContext
+    amp::TensorParser::Input &ncInput = const_cast<amp::TensorParser::Input &>(input);
+    Perception::YawPitch yp;
+    yp.yaw = yaw;
+    yp.pitch = pitch;
+    yp.parentUuid = input.inferenceInfo.parentUuid;
+    ncInput.perceptionLayer.detections.push_back(yp);
+    // HACK
+
+    // fmt::print("gaze {} {}\n", yaw, pitch);
 
     return {};
 }

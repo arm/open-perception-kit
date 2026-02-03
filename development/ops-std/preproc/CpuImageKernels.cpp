@@ -2,6 +2,7 @@
 
 using namespace amp;
 
+// this one is called
 bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(const uint8_t *src,
                                                           size_t srcWidth,
                                                           size_t srcHeight,

@@ -12,6 +12,11 @@ struct TensorBuilder {
         const uint8_t *data = nullptr;
         size_t byteCount = 0;
 
+        size_t surfaceWidth = 0;
+        size_t surfaceHeight = 0;
+
+        size_t x = 0;
+        size_t y = 0;
         size_t width = 0;
         size_t height = 0;
 
@@ -23,6 +28,11 @@ struct TensorBuilder {
         uint8_t *data = nullptr;
         size_t byteCount = 0;
 
+        size_t surfaceWidth = 0;
+        size_t surfaceHeight = 0;
+
+        size_t x = 0;
+        size_t y = 0;
         size_t width = 0;
         size_t height = 0;
 

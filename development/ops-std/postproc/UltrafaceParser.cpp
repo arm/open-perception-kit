@@ -278,5 +278,19 @@ amp::Result<void> amp::UltraFaceParser::parse(const amp::TensorParser::Input &in
     // detectionResult.rects = nonMaxSuppression(detectionResult.rects, 0.6f, 0.01f);
     detectionResult.rects = nonMaxSuppression(detectionResult.rects, confThreshold, iouThreshold);
 
+    // HACK remove if Perception replaces PerceptionContext
+    for (const auto &dr : detectionResult.rects) {
+        amp::TensorParser::Input &ncInput = const_cast<amp::TensorParser::Input &>(input);
+        Perception::Rect faceRect;
+        faceRect.x = dr.x;
+        faceRect.y = dr.y;
+        faceRect.w = dr.w;
+        faceRect.h = dr.h;
+        ncInput.perceptionLayer.detections.push_back(faceRect);
+    }
+    // HACK
+
+    // fmt::print("ultraface: {}\n", detectionResult.rects.size());
+
     return {};
 }

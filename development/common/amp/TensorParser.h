@@ -14,6 +14,8 @@ struct TensorParser {
 
     struct Input {
 
+        Perception::Layer perceptionLayer;
+
         Input(const amp::AttributeMap &attributes) : attributes(attributes) {}
 
         amp::TensorView *tensors[amp::MaxTensorCount] = {nullptr};
