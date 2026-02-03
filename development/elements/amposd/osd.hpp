@@ -20,7 +20,7 @@ class Layer {
     Layer(float width, float height)
         : surface(cairo_image_surface_create(
               CAIRO_FORMAT_ARGB32, static_cast<int>(width), static_cast<int>(height))),
-          context(cairo_create(surface)){};
+          context(cairo_create(surface)) {};
     Layer(const Layer &) = delete;
     Layer &operator=(const Layer &) = delete;
 
