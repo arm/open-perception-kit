@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <fmt/core.h>
 #include <stdint.h>
 #include <string>
 #include <variant>
@@ -112,6 +113,61 @@ struct PerceptionTools {
             }
         }
 
+        return result;
+    }
+
+    std::vector<Perception::Rect> getAllRectsWithContentType(const std::string &type,
+                                                             uint64_t uuid) const {
+        std::vector<Perception::Rect> result;
+
+        for (const auto &layer : perception.layers) {
+            if (layer.contentType != type)
+                continue;
+
+            for (const auto &det : layer.detections) {
+                if (const auto *rect = std::get_if<Perception::Rect>(&det)) {
+                    if (rect->uuid == uuid)
+                        result.push_back(*rect);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    template <typename T>
+    std::vector<T> getAllWithContentTypeByUuid(const std::string &type, uint64_t uuid) const {
+        std::vector<T> result;
+
+        for (const auto &layer : perception.layers) {
+            if (layer.contentType != type)
+                continue;
+
+            for (const auto &det : layer.detections) {
+                if (const auto *v = std::get_if<T>(&det)) {
+                    fmt::print("{} {}\n", v->uuid, uuid);
+                    if (v->uuid == uuid) {
+                        result.push_back(*v);
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    template <typename T> std::vector<T> getAllWithContentType(const std::string &type) const {
+        std::vector<T> result;
+
+        for (const auto &layer : perception.layers) {
+            if (layer.contentType != type)
+                continue;
+
+            for (const auto &det : layer.detections) {
+                if (const auto *v = std::get_if<T>(&det)) {
+                    result.push_back(*v);
+                }
+            }
+        }
         return result;
     }
 };

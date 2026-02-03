@@ -1,7 +1,9 @@
+#include "amp/Perception.h"
 #include "gst/PerceptionContextMeta.h"
 #include "osd.hpp"
 #include <cmath>
 #include <cstring>
+#include <fmt/core.h>
 #include <gst/gst.h>
 #include <gst/video/gstvideofilter.h>
 #include <gst/video/video.h>
@@ -342,6 +344,37 @@ draw_segmentation_layer(GstAmpOsd *self, float imgWidth, float imgHeight, const 
     return layer;
 }
 
+static void draw_perceptionLayer(Osd::Layer *layer, const amp::Perception &perception) {
+    amp::Perception &ncP = const_cast<amp::Perception &>(perception);
+    amp::PerceptionTools prc(ncP);
+
+    std::vector<amp::Perception::YawPitch> yps =
+        prc.getAllWithContentType<amp::Perception::YawPitch>("eye-yp");
+
+    for (const auto &yp : yps) {
+        std::vector<amp::Perception::Rect> parents =
+            prc.getAllRectsWithContentType("human-face", yp.parentUuid);
+
+        assert(parents.size() == 1);
+
+        amp::Perception::Rect parent = parents[0];
+
+        int x = int(parent.x + parent.w / 2);
+        int y = int(parent.y + parent.h / 2);
+        int yaw = (int)yp.yaw;
+        int pitch = (int)yp.pitch;
+
+        fmt::print("{},{}:{},{}\n", x, y, yaw, pitch);
+
+        Osd::Point::draw(*layer, Osd::Coordinate{x, y}, Osd::Color("#ff0000ff"), 10.0f);
+
+        Osd::Point::draw(
+            *layer, Osd::Coordinate{x + yaw * 5, y + pitch * 5}, Osd::Color("#00ff00ff"), 15.0f);
+    }
+
+    printf("*");
+}
+
 static std::unique_ptr<Osd::Layer>
 draw_detection_layer(GstAmpOsd *self,
                      float imgWidth,
@@ -369,6 +402,9 @@ draw_detection_layer(GstAmpOsd *self,
             }
         }
     }
+
+    draw_perceptionLayer(layer.get(), perceptionContext.perception);
+
     return layer;
 }
 
