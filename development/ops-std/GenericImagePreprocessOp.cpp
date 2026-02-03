@@ -111,6 +111,7 @@ amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChain
     opChainContext.inferenceInfo.image.modelWidth = modelWidth;
     opChainContext.inferenceInfo.image.modelHeight = modelHeight;
     opChainContext.inferenceInfo.modelFamily = upcomingInferenceModel.modelFamily;
+    opChainContext.inferenceInfo.contentType = upcomingInferenceModel.contentType;
 
     return {};
 }

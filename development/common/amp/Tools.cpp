@@ -2,6 +2,7 @@
 #include "amp/Result.h"
 
 #include "amp/String.h"
+#include "amp/Types.h"
 #include "fmt/core.h"
 #include <dlfcn.h>
 
@@ -76,3 +77,5 @@ Result<void *> Tools::DynamicLibraryGetSymbolRaw(DynamicLibraryHandle handle,
 
     return sym;
 }
+
+std::atomic<uint64_t> amp::Uuid::counter_{1};

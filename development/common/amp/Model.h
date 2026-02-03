@@ -49,7 +49,7 @@ struct Model {
     bool inputSizeAppliedByModel = false;
     bool nmsAppliedByModel = false;
 
-    std::string modelFamily, api;
+    std::string modelFamily, engine, contentType;
 
     std::vector<ModelInput> inputs;
 
@@ -95,7 +95,8 @@ struct Model {
     // this tries to unify the two and create a final model
     amp::Result<void> applyModelFromDescriptor(const ModelDescriptor &modelDescriptor) {
 
-        this->modelFamily = this->modelFamily;
+        this->modelFamily = modelDescriptor.modelFamily;
+        this->contentType = modelDescriptor.contentType;
 
         // INPUT tensors
         if (inputs.size() != modelDescriptor.inputTensors.size()) {
@@ -233,7 +234,7 @@ struct Model {
         std::string ret;
 
         ret += fmt::format("Model: [{}]\n", modelFamily);
-        ret += fmt::format("Api: [{}]\n", api);
+        ret += fmt::format("Engine: [{}]\n", engine);
         ret += fmt::format("Input count: {}\n", inputs.size());
         ret += fmt::format("Output count: {}\n", outputs.size());
 

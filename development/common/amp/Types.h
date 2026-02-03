@@ -92,6 +92,7 @@ struct ImageInferenceMetadata {
 };
 
 struct InferenceInfo {
+    std::string contentType;
     std::string modelFamily;
     ImageInferenceMetadata image;
 };

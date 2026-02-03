@@ -6,6 +6,8 @@
 	
 	"dynamicOutput": true,
 
+	"contentType": "human-face",
+
 	"maxDetectionCount": 16,
 	"confidenceThreshold": 0.7,
 	"iouThreshold": 0.5,

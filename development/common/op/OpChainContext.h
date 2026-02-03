@@ -2,6 +2,7 @@
 
 #include "amp/BitmapView.h"
 #include "amp/PerceptionContext.h"
+#include "amp/Tags.h"
 #include "amp/TensorView.h"
 #include "amp/Types.h"
 #include <cstdint>
@@ -14,6 +15,11 @@ namespace amp {
 // for generate permanent data, the Op must copy it to the PerceptionContext
 // buffers stored here as pointers must be valid through the execution of the chain
 struct OpChainContext {
+
+    struct TaggedBitmapView {
+        amp::Tags tags;
+        amp::BitmapView bitmapView;
+    };
 
     std::map<std::string, amp::BitmapView> bitmapViews;
 

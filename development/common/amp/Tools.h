@@ -2,6 +2,9 @@
 
 #include "amp/Result.h"
 
+#include <atomic>
+#include <cstdint>
+#include <ctime>
 #include <string>
 
 namespace amp {
@@ -38,6 +41,29 @@ struct Tools {
         return reinterpret_cast<FuncPtr>(*raw);
     }
 };
+
+class Uuid {
+  public:
+    // Implicit conversion to uint64_t
+    operator uint64_t() const noexcept {
+        // fetch_add returns the previous value
+        return counter_.fetch_add(1, std::memory_order_relaxed);
+    }
+
+  private:
+    static std::atomic<uint64_t> counter_;
+};
+
+class TsUtcNs {
+  public:
+    operator uint64_t() const noexcept {
+        timespec ts{};
+        clock_gettime(CLOCK_REALTIME, &ts);
+
+        return static_cast<uint64_t>(ts.tv_sec) * 1000000000ULL + static_cast<uint64_t>(ts.tv_nsec);
+    }
+};
+
 } // namespace amp
 
 #define AMP_ABORT ::abort();

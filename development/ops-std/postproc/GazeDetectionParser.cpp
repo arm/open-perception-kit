@@ -54,5 +54,7 @@ amp::Result<void> GazeDetectionParser::parse(const amp::TensorParser::Input &inp
     float yaw = logitsToAngleDeg(input.tensors[0]);
     float pitch = logitsToAngleDeg(input.tensors[1]);
 
+    fmt::print("gaze {} {}\n", yaw, pitch);
+
     return {};
 }

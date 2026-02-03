@@ -246,7 +246,7 @@ std::vector<size_t> Inference::getTensorShape(const Ort::Session &session,
 
 amp::Result<amp::Model> Inference::inspectModel(const Ort::Session &session) {
     amp::Model model;
-    model.api = "onnxrt";
+    model.engine = "onnxrt";
 
     Ort::AllocatorWithDefaultOptions allocator;
     model.inputs.resize(session.GetInputCount());

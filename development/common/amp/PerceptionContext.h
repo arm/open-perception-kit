@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include "amp/Perception.h"
+
 namespace amp {
 struct DetectionRect {
     float x, y, w, h;
@@ -41,6 +43,7 @@ struct SegmentationMap {
 struct PerceptionContext {
     std::deque<RawDetectionLayer> rawDetections;
     std::vector<std::string> perfdata;
+    Perception perception;
 };
 
 } // namespace amp

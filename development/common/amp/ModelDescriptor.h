@@ -29,6 +29,7 @@ struct ModelDescriptor {
 
     std::string modelFile;
     std::string modelFamily;
+    std::string contentType;
 
     std::vector<TensorDescriptor> inputTensors;
     std::vector<TensorDescriptor> outputTensors;
@@ -70,6 +71,7 @@ inline void to_json(json &j, const ModelDescriptor &b) {
     j = json{{"name", b.name},
              {"modelFile", b.modelFile},
              {"modelFamily", b.modelFamily},
+             {"contentType", b.contentType},
              {"inputTensors", b.inputTensors},
              {"outputTensors", b.outputTensors},
              {"dynamicOutput", b.dynamicOutput}};
@@ -79,6 +81,7 @@ inline void from_json(const json &j, ModelDescriptor &b) {
     j.at("name").get_to(b.name);
     j.at("modelFile").get_to(b.modelFile);
     j.at("modelFamily").get_to(b.modelFamily);
+    b.contentType = j.value("contentType", std::string{});
     b.inputTensors = j.value("inputTensors", std::vector<TensorDescriptor>{});
     b.outputTensors = j.value("outputTensors", std::vector<TensorDescriptor>{});
     j.at("dynamicOutput").get_to(b.dynamicOutput);

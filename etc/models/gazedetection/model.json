@@ -6,6 +6,8 @@
 	
 	"dynamicOutput": true,
 	
+	"contentType": "human-eye-yp",
+	
 	"inputTensors": 
 	[
 		{
