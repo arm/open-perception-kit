@@ -5,7 +5,6 @@
 		"attributes": {
 		}
 	},
-	"ops": [
 	{
 		"id": "amp-std-ops/GenericImagePreprocess",
 		"attributes": {

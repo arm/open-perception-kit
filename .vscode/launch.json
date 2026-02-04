@@ -7,13 +7,13 @@
             "request": "launch",
             "program": "/usr/bin/gst-launch-1.0",
             "args": [
-                "filesrc", "location=/work/etc/images/gaze2.jpg", "!",
+                "filesrc", "location=/work/etc/images/gaze.jpg", "!",
                 "jpegdec", "!",
                 "imagefreeze", "!",
                 "videoconvert", "!", "video/x-raw,format=BGRA", "!",
                 "ampinfer", "opchain-path=/work/etc/models/ultraface/opchain.json", "active=true", "!",
                 "ampinfer", "opchain-path=/work/etc/models/gazedetection/for-all-faces-opchain.json", "active=true", "!",
-                "ampperformance", "show-all-metrics=true", "x-offset=20", "y-offset=20", "font-size=18", "alpha=0.9", "update-interval=1", "!",
+                "ampinfer", "opchain-path=/work/etc/models/yolo/opchain.json", "active=true", "!",
                 "amposd", "enabled=true", "!",
                 "videoconvert", "!", "pngenc", "!", "filesink", "location=/work/var/result.png"
             ],

@@ -344,6 +344,40 @@ draw_segmentation_layer(GstAmpOsd *self, float imgWidth, float imgHeight, const 
     return layer;
 }
 
+static inline float deg2rad(float d) {
+    return d * 3.1415926535f / 180.0f;
+}
+
+// Returns endpoint of arrow given eye center and angles
+static inline void gazeEndpoint(float eyeX,
+                                float eyeY,
+                                float yawDeg,
+                                float pitchDeg,
+                                float lengthPx,
+                                float &outX,
+                                float &outY) {
+    float yaw = deg2rad(yawDeg);
+    float pitch = deg2rad(pitchDeg);
+
+    // Simple projection:
+    float dx = std::tan(yaw);
+    float dy = -std::tan(pitch); // minus because +pitch means up, but screen y goes down
+
+    // Normalize to constant length
+    float n = std::sqrt(dx * dx + dy * dy);
+    if (n < 1e-6f) {
+        outX = eyeX;
+        outY = eyeY;
+        return;
+    }
+
+    dx /= n;
+    dy /= n;
+
+    outX = eyeX + dx * lengthPx;
+    outY = eyeY + dy * lengthPx;
+}
+
 static void draw_perceptionLayer(Osd::Layer *layer, const amp::Perception &perception) {
     amp::Perception &ncP = const_cast<amp::Perception &>(perception);
     amp::PerceptionTools prc(ncP);
@@ -359,20 +393,20 @@ static void draw_perceptionLayer(Osd::Layer *layer, const amp::Perception &perce
 
         amp::Perception::Rect parent = parents[0];
 
-        int x = int(parent.x + parent.w / 2);
-        int y = int(parent.y + parent.h / 2);
-        int yaw = (int)yp.yaw;
-        int pitch = (int)yp.pitch;
+        float x = parent.x + parent.w / 2;
+        float y = parent.y + parent.h / 2;
+        float yaw = yp.yaw;
+        float pitch = yp.pitch;
 
-        fmt::print("{},{}:{},{}\n", x, y, yaw, pitch);
+        float xEnd, yEnd;
+        gazeEndpoint(x, y, -yaw, pitch, 120, xEnd, yEnd);
+        //        fmt::print("{},{}\n", xOff, yOff);
+        // fmt::print("{} ", xEnd - x);
 
         Osd::Point::draw(*layer, Osd::Coordinate{x, y}, Osd::Color("#ff0000ff"), 10.0f);
 
-        Osd::Point::draw(
-            *layer, Osd::Coordinate{x + yaw * 5, y + pitch * 5}, Osd::Color("#00ff00ff"), 15.0f);
+        Osd::Point::draw(*layer, Osd::Coordinate{xEnd, yEnd}, Osd::Color("#00ff00ff"), 15.0f);
     }
-
-    printf("*");
 }
 
 static std::unique_ptr<Osd::Layer>

@@ -47,8 +47,8 @@ amp::Result<void> GazeDetectionParser::parse(const amp::TensorParser::Input &inp
     assert(input.tensors[1]->getShape().dimensionCount == 2);
 
     assert(input.tensors[0]->getShape().valueCount[0] == 1);
-    assert(input.tensors[1]->getShape().valueCount[0] == 1);
     assert(input.tensors[0]->getShape().valueCount[1] == 90);
+    assert(input.tensors[1]->getShape().valueCount[0] == 1);
     assert(input.tensors[1]->getShape().valueCount[1] == 90);
 
     float yaw = logitsToAngleDeg(input.tensors[0]);
@@ -63,7 +63,9 @@ amp::Result<void> GazeDetectionParser::parse(const amp::TensorParser::Input &inp
     ncInput.perceptionLayer.detections.push_back(yp);
     // HACK
 
-    // fmt::print("gaze {} {}\n", yaw, pitch);
+    if (yaw < 0) {
+        fmt::print("gaze {} {}\n", yaw, pitch);
+    }
 
     return {};
 }
