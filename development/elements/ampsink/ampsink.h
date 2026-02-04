@@ -39,6 +39,7 @@ struct _GstAmpSink {
     GstElement *vconv = nullptr;
     GstElement *queue = nullptr;
     GstElement *vp8enc = nullptr;
+    GstElement *vclock = nullptr;
     GstElement *tee = nullptr;
 
     // audio
@@ -49,6 +50,7 @@ struct _GstAmpSink {
     GstElement *aconv = nullptr;
     GstElement *aresample = nullptr;
     GstElement *opusenc = nullptr;
+    GstElement *aclock = nullptr;
     GstElement *atee = nullptr;
 
     GstPad *aselector_silence_pad = nullptr;
