@@ -157,13 +157,19 @@ void dump_pipeline_graph(GstElement *element, const std::string &file_name) {
     gst_object_unref(pipeline);
 #endif // !NDEBUG
 }
-
 void release_request_pad_and_unref(GstElement *elem, GstPad **ppad) {
     if (!ppad || !*ppad)
         return;
-    if (elem && GST_IS_ELEMENT(elem) && GST_IS_PAD(*ppad)) {
-        gst_element_release_request_pad(elem, *ppad);
+
+    if (elem) {
+        GstObject *parent = gst_object_get_parent(GST_OBJECT(*ppad));
+        if (parent == GST_OBJECT(elem)) {
+            gst_element_release_request_pad(elem, *ppad);
+        }
+        if (parent)
+            gst_object_unref(parent);
     }
+
     gst_object_unref(*ppad);
     *ppad = nullptr;
 }

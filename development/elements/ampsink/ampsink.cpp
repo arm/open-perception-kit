@@ -310,19 +310,22 @@ static void gst_amp_sink_dispose(GObject *object) {
         self->private_data->webrtc_websocket->stop();
         self->private_data->ctrl_websocket->stop();
     }
+    // IMPORTANT: selector may be holding a ref via active-pad
+    if (self->aselector) {
+        g_object_set(self->aselector, "active-pad", NULL, NULL);
+    }
+
+    release_request_pad_and_unref(self->aselector, &self->aselector_silence_pad);
+    release_request_pad_and_unref(self->aselector, &self->aselector_real_pad);
+
+    release_request_pad_and_unref(self->tee, &self->drain_tee_src_pad);
+    release_request_pad_and_unref(self->atee, &self->audio_drain_tee_src_pad);
 
     G_OBJECT_CLASS(gst_amp_sink_parent_class)->dispose(object);
 }
 
 static void gst_amp_sink_finalize(GObject *object) {
     auto *self = reinterpret_cast<GstAmpSink *>(object);
-
-    // Release request pads (selector + tees)
-    release_request_pad_and_unref(self->aselector, &self->aselector_silence_pad);
-    release_request_pad_and_unref(self->aselector, &self->aselector_real_pad);
-
-    release_request_pad_and_unref(self->tee, &self->drain_tee_src_pad);
-    release_request_pad_and_unref(self->atee, &self->audio_drain_tee_src_pad);
 
     // Free properties
     g_clear_pointer(&self->host, g_free);
@@ -340,16 +343,20 @@ static void init_video(GstAmpSink *self) {
     self->vconv = gst_element_factory_make("videoconvert", "vconv");
     self->queue = gst_element_factory_make("queue", "vqueue");
     self->vp8enc = gst_element_factory_make("vp8enc", "vp8enc");
+    self->vclock = gst_element_factory_make("identity", "vclock");
     self->tee = gst_element_factory_make("tee", "rtp_tee");
 
-    g_return_if_fail(self->vconv && self->queue && self->vp8enc && self->tee);
+    g_return_if_fail(self->vconv && self->queue && self->vp8enc && self->tee && self->vclock);
 
+    g_object_set(self->vclock, "sync", TRUE, NULL);
     g_object_set(self->vp8enc, "deadline", 1, NULL);
     g_object_set(self->vp8enc, "keyframe-max-dist", 30, NULL); // keyframe every ~1s at 30fps
 
-    gst_bin_add_many(GST_BIN(self), self->vconv, self->queue, self->vp8enc, self->tee, NULL);
+    gst_bin_add_many(
+        GST_BIN(self), self->vconv, self->queue, self->vp8enc, self->vclock, self->tee, NULL);
 
-    if (!gst_element_link_many(self->vconv, self->queue, self->vp8enc, self->tee, NULL)) {
+    if (!gst_element_link_many(
+            self->vconv, self->queue, self->vp8enc, self->vclock, self->tee, NULL)) {
         GST_ERROR_OBJECT(self, "Failed to link video chain");
     }
 
@@ -414,10 +421,11 @@ static void init_audio(GstAmpSink *self) {
     self->aconv = gst_element_factory_make("audioconvert", "aconv");
     self->aresample = gst_element_factory_make("audioresample", "aresample");
     self->opusenc = gst_element_factory_make("opusenc", "opusenc");
+    self->aclock = gst_element_factory_make("identity", "aclock");
     self->atee = gst_element_factory_make("tee", "audio_tee");
 
     if (!self->asilence_src || !self->aselector || !self->aconv || !self->aresample ||
-        !self->opusenc || !self->atee || !self->ain_queue || !self->acapsfilter) {
+        !self->opusenc || !self->aclock || !self->atee || !self->ain_queue || !self->acapsfilter) {
         GST_ERROR_OBJECT(self, "Failed to create audio elements");
     }
 
@@ -435,6 +443,7 @@ static void init_audio(GstAmpSink *self) {
                                               2,
                                               NULL);
     g_object_set(self->acapsfilter, "caps", audio_caps, NULL);
+    g_object_set(self->aclock, "sync", TRUE, NULL);
     gst_caps_unref(audio_caps);
 
     // Add + link shared audio chain
@@ -446,6 +455,7 @@ static void init_audio(GstAmpSink *self) {
                      self->aresample,
                      self->acapsfilter,
                      self->opusenc,
+                     self->aclock,
                      self->atee,
                      NULL);
 
@@ -475,6 +485,7 @@ static void init_audio(GstAmpSink *self) {
                                self->aresample,
                                self->acapsfilter,
                                self->opusenc,
+                               self->aclock,
                                self->atee,
                                NULL)) {
         GST_ERROR_OBJECT(self, "Failed to link selector->opusenc->tee chain");

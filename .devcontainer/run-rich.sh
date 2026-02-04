@@ -11,4 +11,4 @@ HOST_GID="$(id -g)"
 cd "${REPO_ROOT}"
 
 HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" \
-docker compose -f .devcontainer/docker-compose.yaml up -d --build
+docker compose -f ./docker-compose.yaml up -d --build
