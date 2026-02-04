@@ -72,6 +72,37 @@
                     "ignoreFailures": true
                 }
             ]
+        },
+        {
+            "name": "video",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/usr/bin/gst-launch-1.0",
+            "args": [
+              "filesrc", "location=/work/etc/videos/00.mp4", "!",
+                "queue", "!", "decodebin", "name=dec",
+                    "dec.", "!", "queue", "!", "videoconvert", "!", "videoscale", "!", "video/x-raw", "!", "ampsink", "name=sink",
+                    "dec.", "!", "queue", "!", "audioconvert", "!", "audioresample", "!", "audio/x-raw,channels=2,rate=44100", "!", "sink.audiosink"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                { "name": "GST_PLUGIN_PATH", "value": "${workspaceFolder}/development/build/meson-out" }
+            ],
+            "externalConsole": false,
+            "MIMode":"gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set disassembly flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
         }
     ]
 }
