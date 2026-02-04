@@ -135,7 +135,7 @@ audio_internal_silence() {
 
     msg "Running test pipeline.."
 
-    # no audio connected to ampsing -> use the internal silence generator
+    # no audio connected to ampsink -> use the internal silence generator
     gst-launch-1.0 \
         videotestsrc is-live=true pattern=ball ! \
         video/x-raw,framerate=30/1 ! \
