@@ -40,6 +40,24 @@ struct Tools {
 
         return reinterpret_cast<FuncPtr>(*raw);
     }
+
+    static bool
+    savePngFromBgra(const std::string &path, const uint8_t *bgra, int width, int height);
+
+    static bool savePngCropFromBgra(const std::string &path,
+                                    const uint8_t *src_bgra,
+                                    int src_width,
+                                    int src_height,
+                                    int crop_x,
+                                    int crop_y,
+                                    int crop_w,
+                                    int crop_h,
+                                    int src_stride_bytes = 0);
+
+    static bool savePngFromRgbF32(const std::string &path,
+                                  float *src_bgra_f32,
+                                  size_t src_width,
+                                  size_t src_height);
 };
 
 class Uuid {

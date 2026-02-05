@@ -1,9 +1,11 @@
 #include "GenericImagePreprocessOp.h"
 
+#include <cstdint>
 #include <fmt/core.h>
 
 #include "amp/Result.h"
 #include "amp/TensorView.h"
+#include "amp/Tools.h"
 #include "amp/Types.h"
 #include "tl/expected.hpp"
 
@@ -94,8 +96,6 @@ amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChain
     setup.imageSource.y = cropRect.y;
     setup.imageSource.width = cropRect.width;
     setup.imageSource.height = cropRect.height;
-    //    setup.imageSource.width = pipelineVideoFrame->width;
-    //    setup.imageSource.height = pipelineVideoFrame->height;
     setup.imageSource.byteCount = pipelineVideoFrame->width * pipelineVideoFrame->height * 4;
     setup.imageSource.kind = amp::DataKind::ImageBgraHwc;
     setup.imageSource.type = amp::Tdt::Uint8;
@@ -105,6 +105,30 @@ amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChain
                      modelWidth, modelHeight)) {
         return tl::make_unexpected(
             AMP_ERROR(amp::ErrorFlag::InvalidData, "tensor seems not to be an image"));
+    }
+
+    /*fmt::print("crop: {} {} {} {}\n",
+               setup.imageSource.x,
+               setup.imageSource.y,
+               setup.imageSource.width,
+               setup.imageSource.height);*/
+
+    if (false) {
+        std::string debugFile = fmt::format("/work/var/crop_[{}]_{}_{}x{}x{}x{}.png",
+                                            upcomingInferenceModel.contentType,
+                                            (uint64_t)Uuid(),
+                                            setup.imageSource.x,
+                                            setup.imageSource.y,
+                                            setup.imageSource.width,
+                                            setup.imageSource.height);
+        Tools::savePngCropFromBgra(debugFile,
+                                   setup.imageSource.data,
+                                   setup.imageSource.surfaceWidth,
+                                   setup.imageSource.surfaceHeight,
+                                   setup.imageSource.x,
+                                   setup.imageSource.y,
+                                   setup.imageSource.width,
+                                   setup.imageSource.height);
     }
 
     setup.imageDestination.type = upcomingInferenceModel.inputs[inputImageTensorIndex].valueType;
@@ -125,9 +149,20 @@ amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChain
         return result;
     }
 
+    if (false) {
+        std::string debugFile = fmt::format("/work/var/tensor_[{}][{}]_{}x{}.png",
+                                            upcomingInferenceModel.contentType,
+                                            (uint64_t)Uuid(),
+                                            modelWidth,
+                                            modelHeight);
+
+        Tools::savePngFromRgbF32(debugFile,
+                                 (float *)upcomingTensorAddresses[inputImageTensorIndex],
+                                 modelWidth,
+                                 modelHeight);
+    }
+
     // populate inference info
-    //    opChainContext.inferenceInfo.image.width = pipelineVideoFrame->width;
-    //    opChainContext.inferenceInfo.image.height = pipelineVideoFrame->height;
     opChainContext.inferenceInfo.image.width = cropRect.width;
     opChainContext.inferenceInfo.image.height = cropRect.height;
     opChainContext.inferenceInfo.image.modelWidth = modelWidth;

@@ -399,10 +399,7 @@ static void draw_perceptionLayer(Osd::Layer *layer, const amp::Perception &perce
         float pitch = yp.pitch;
 
         float xEnd, yEnd;
-        gazeEndpoint(x, y, -yaw, pitch, 120, xEnd, yEnd);
-        //        fmt::print("{},{}\n", xOff, yOff);
-        // fmt::print("{} ", xEnd - x);
-
+        gazeEndpoint(x, y, yaw, pitch, 120, xEnd, yEnd);
         Osd::Point::draw(*layer, Osd::Coordinate{x, y}, Osd::Color("#ff0000ff"), 10.0f);
 
         Osd::Point::draw(*layer, Osd::Coordinate{xEnd, yEnd}, Osd::Color("#00ff00ff"), 15.0f);

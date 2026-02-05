@@ -56,10 +56,13 @@ amp::Result<void> InferenceControllerOp::process(amp::OpChainContext &opChainCon
 
         for (const auto &r : rects) {
             amp::PixelRect rect;
-            rect.x = (int)r.w;
+            rect.x = (int)r.x;
             rect.y = (int)r.y;
             rect.width = (int)r.w;
             rect.height = (int)r.h;
+
+            // fmt::print("ctrl: {} {} {} {}\n", rect.x, rect.y, rect.width, rect.height);
+
             opChainContext.inferenceCrops.push_back(rect);
             opChainContext.inferenceCropUuids.push_back(r.uuid);
         }

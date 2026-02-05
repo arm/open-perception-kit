@@ -287,10 +287,9 @@ amp::Result<void> amp::UltraFaceParser::parse(const amp::TensorParser::Input &in
         faceRect.w = dr.w;
         faceRect.h = dr.h;
         ncInput.perceptionLayer.detections.push_back(faceRect);
+        // fmt::print("ultraface: {} {} {} {}\n", dr.x, dr.y, dr.w, dr.h);
     }
     // HACK
-
-    // fmt::print("ultraface: {}\n", detectionResult.rects.size());
 
     return {};
 }
