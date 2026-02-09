@@ -6,6 +6,7 @@
 #include "amp/TensorView.h"
 #include "amp/Types.h"
 #include "postproc/GazeDetectionParser.h"
+#include "postproc/ImageNetClassificationParser.h"
 #include "postproc/PaddleocrParser.h"
 #include "postproc/PersonClassificationParser.h"
 #include "postproc/UltrafaceParser.h"
@@ -37,6 +38,8 @@ amp::Result<void> GenericPostprocessOp::configure(const amp::AttributeMap &attri
         this->parser = std::make_unique<PaddleOcrDetectionParser>();
     } else if (parser == "YoloParser") {
         this->parser = std::make_unique<YoloParser>();
+    } else if (parser == "ImageNetClassificationParser") {
+        this->parser = std::make_unique<ImageNetClassificationParser>();
     } else if (parser == "PersonClassificationParser") {
         this->parser = std::make_unique<PersonClassificationParser>();
     } else if (parser == "GazeDetectionParser") {

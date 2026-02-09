@@ -62,7 +62,7 @@ amp::Result<void> GenericImagePreprocessOp::configure(const amp::AttributeMap &a
     inputImageSourceName =
         attributes.getStringOrDefault("inputImageSourceName", "pipelineVideoFrame");
     inputImageTensorIndex =
-        attributes.getIntOrDefaultOrDefault("inputImageTensorIndex", amp::InvalidTensorIndex);
+        attributes.getIntOrDefault("inputImageTensorIndex", amp::InvalidTensorIndex);
     return {};
 }
 

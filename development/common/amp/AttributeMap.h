@@ -178,7 +178,7 @@ struct AttributeMap {
         return require(key).asArray();
     }
 
-    int64_t getIntOrDefaultOrDefault(const std::string &key, int64_t defaultValue) const {
+    int64_t getIntOrDefault(const std::string &key, int64_t defaultValue) const {
         try {
             return getInt(key);
         } catch (const AttributeError &error) {

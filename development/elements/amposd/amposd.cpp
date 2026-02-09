@@ -5,7 +5,9 @@
 #include <gst/gst.h>
 #include <gst/video/gstvideofilter.h>
 #include <gst/video/video.h>
+#include <iomanip>
 #include <new>
+#include <sstream>
 
 #ifndef PACKAGE
 #define PACKAGE "amp-elements"
@@ -366,6 +368,36 @@ draw_detection_layer(GstAmpOsd *self,
             for (const auto &box : inferDetections.points) {
                 Osd::Point::draw(
                     *layer, Osd::Coordinate{box.x, box.y}, Osd::Color("#ff00ffff"), 4.0f);
+            }
+        }
+        if (inferDetections.modelFamily == "classification") {
+            // Draw classification results as a label list in lower-left corner
+            const auto fontSize = 14.0f;
+            const auto lineHeight = fontSize * 1.5f;
+            const auto numResults = inferDetections.rects.size();
+
+            // Calculate starting position (lower-left corner with padding)
+            const auto padding = 10.0f;
+            const auto startX = padding;
+            const auto startY = imgHeight - (numResults * lineHeight) - (2.0f * padding);
+
+            for (auto i = 0U; i < inferDetections.rects.size(); ++i) {
+                const auto &result = inferDetections.rects[i];
+
+                std::ostringstream oss;
+                oss << "#" << (i + 1U) << ": " << result.label << " (" << std::fixed
+                    << std::setprecision(1) << (result.confidence * 100.0f) << "%)";
+
+                float textX = startX;
+                float textY = startY + i * lineHeight;
+
+                Osd::Text::draw(*layer,
+                                Osd::Coordinate(textX, textY),
+                                oss.str(),
+                                Osd::Color("#ffffffff"),
+                                Osd::Color("#000000ff"),
+                                "monospace",
+                                fontSize);
             }
         }
     }
