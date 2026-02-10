@@ -1,6 +1,5 @@
 #pragma once
 
-#include "amp/PerceptionContext.h"
 #include "amp/Shape.h"
 #include "amp/Types.h"
 
@@ -11,7 +10,7 @@ using nlohmann::json;
 
 namespace amp {
 
-inline void to_json(json &j, const DetectionRect &b) {
+/*inline void to_json(json &j, const DetectionRect &b) {
     j = json{{"x", b.x},
              {"y", b.y},
              {"w", b.w},
@@ -38,7 +37,7 @@ inline void from_json(const json &j, DetectionPoint &p) {
     j.at("y").get_to(p.y);
 }
 
-/*inline void to_json(json &j, const RawDetection &r) {
+inline void to_json(json &j, const RawDetection &r) {
     j = json{{"inferId", r.inferId},
              {"originTs", r.originTs},
              {"inferTs", r.infer},

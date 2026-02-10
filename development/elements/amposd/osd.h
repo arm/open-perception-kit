@@ -1,4 +1,5 @@
-#include <amp/PerceptionContext.h>
+#include "amp/Color.h"
+#include "amp/Perception.h"
 #include <cairo.h>
 #include <iostream>
 #include <map>
@@ -10,7 +11,6 @@
 
 namespace Osd {
 class Layer;
-using RawDetectionBox = amp::DetectionRect;
 
 using Layers_t = std::deque<std::unique_ptr<Layer>>;
 //------------------------------------------------
@@ -41,6 +41,7 @@ class Layer {
     cairo_surface_t *surface;
     cairo_t *context;
 };
+
 class Coordinate {
   public:
     Coordinate(float x, float y) : x(x), y(y) {}
@@ -56,79 +57,33 @@ class Coordinate {
     }
 };
 
-class CoordinateRel : public Coordinate {
-  public:
-    CoordinateRel(float x, float y, const Layer &layer)
-        : CoordinateRel{x, y, layer.getWidth(), layer.getHeight()} {}
-    CoordinateRel(float x, float y, float width, float height)
-        : Coordinate{x * width, y * height}, width(width), height(height) {}
-
-  private:
-    const float width;
-    const float height;
-};
-
-class Color {
-  public:
-    constexpr Color(double r, double g, double b, double a) : r(r), g(g), b(b), a(a) {}
-
-    // Parse #RRGGBBAA at compile time when given a string literal.
-    constexpr explicit Color(std::string_view colorCode) : r(0.0), g(0.0), b(0.0), a(1.0) {
-        const auto parseHex = [](char c) constexpr -> uint8_t {
-            if (c >= '0' && c <= '9') {
-                return static_cast<uint8_t>(c - '0');
-            }
-            if (c >= 'a' && c <= 'f') {
-                return static_cast<uint8_t>(10 + (c - 'a'));
-            }
-            if (c >= 'A' && c <= 'F') {
-                return static_cast<uint8_t>(10 + (c - 'A'));
-            }
-            throw std::invalid_argument("Invalid hex digit in color code");
-        };
-
-        const auto parseColor = [&](std::string_view code) constexpr -> uint32_t {
-            if (code.size() != 9 || code.front() != '#') {
-                throw std::invalid_argument("Color code must be #RRGGBBAA");
-            }
-            uint32_t value = 0;
-            for (std::size_t i = 1; i < code.size(); ++i) {
-                value = static_cast<uint32_t>((value << 4) | parseHex(code[i]));
-            }
-            return value;
-        };
-
-        const uint32_t color = parseColor(colorCode);
-        r = static_cast<double>((color >> 24) & 0xff) / 255.0;
-        g = static_cast<double>((color >> 16) & 0xff) / 255.0;
-        b = static_cast<double>((color >> 8) & 0xff) / 255.0;
-        a = static_cast<double>((color >> 0) & 0xff) / 255.0;
-    }
-
-    double r;
-    double g;
-    double b;
-    double a;
-};
-
 // primitive drawing elements
 class Point {
   public:
-    static void draw(Layer &layer, const Coordinate &pos, const Color &color, float size) {
-        cairo_set_source_rgba(layer.context, color.r, color.g, color.b, color.a);
+    static void draw(Layer &layer, const Coordinate &pos, const amp::Color &color, float size) {
+        cairo_set_source_rgba(layer.context,
+                              amp::Colors::getRedf(color),
+                              amp::Colors::getGreenf(color),
+                              amp::Colors::getBluef(color),
+                              amp::Colors::getAlphaf(color));
         cairo_rectangle(layer.context, pos.x - size / 2, pos.y - size / 2, size, size);
         cairo_fill(layer.context);
     }
 };
+
 class Rectangle {
   public:
     static void draw(Layer &layer,
                      const Coordinate &pos,
                      float width,
                      float height,
-                     const Color &color,
+                     const amp::Color &color,
                      float thickness = 2.0f) {
-        cairo_set_source_rgba(layer.context, color.r, color.g, color.b, color.a);
+        cairo_set_source_rgba(layer.context,
+                              amp::Colors::getRedf(color),
+                              amp::Colors::getGreenf(color),
+                              amp::Colors::getBluef(color),
+                              amp::Colors::getAlphaf(color));
         cairo_set_line_width(layer.context, thickness);
         cairo_rectangle(layer.context, pos.x, pos.y, width, height);
         cairo_stroke(layer.context);
@@ -138,19 +93,24 @@ class Rectangle {
 class RectangleFilled {
   public:
     static void
-    draw(Layer &layer, const Coordinate &pos, float width, float height, const Color &color) {
-        cairo_set_source_rgba(layer.context, color.r, color.g, color.b, color.a);
+    draw(Layer &layer, const Coordinate &pos, float width, float height, const amp::Color &color) {
+        cairo_set_source_rgba(layer.context,
+                              amp::Colors::getRedf(color),
+                              amp::Colors::getGreenf(color),
+                              amp::Colors::getBluef(color),
+                              amp::Colors::getAlphaf(color));
         cairo_rectangle(layer.context, pos.x, pos.y, width, height);
         cairo_fill(layer.context);
     }
 };
+
 class Text {
   public:
     static void draw(Layer &layer,
                      const Coordinate &pos,
                      const std::string &text,
-                     const Color &color,
-                     const Color &bgColor,
+                     const amp::Color &color,
+                     const amp::Color &bgColor,
                      const std::string &fontFamily,
                      float fontSize) {
         cairo_select_font_face(
@@ -160,7 +120,11 @@ class Text {
         cairo_text_extents(layer.context, text.c_str(), &text_ex);
         RectangleFilled::draw(
             layer, Coordinate{pos.x, pos.y}, text_ex.width + 5, text_ex.height + 5, bgColor);
-        cairo_set_source_rgba(layer.context, color.r, color.g, color.b, color.a);
+        cairo_set_source_rgba(layer.context,
+                              amp::Colors::getRedf(color),
+                              amp::Colors::getGreenf(color),
+                              amp::Colors::getBluef(color),
+                              amp::Colors::getAlphaf(color));
         cairo_move_to(layer.context, pos.x, pos.y + text_ex.height);
         cairo_show_text(layer.context, text.c_str());
     }
@@ -171,9 +135,13 @@ class Circle {
     static void draw(Layer &layer,
                      const Coordinate &center,
                      float radius,
-                     const Color &color,
+                     const amp::Color &color,
                      float thickness = 2.0f) {
-        cairo_set_source_rgba(layer.context, color.r, color.g, color.b, color.a);
+        cairo_set_source_rgba(layer.context,
+                              amp::Colors::getRedf(color),
+                              amp::Colors::getGreenf(color),
+                              amp::Colors::getBluef(color),
+                              amp::Colors::getAlphaf(color));
         cairo_set_line_width(layer.context, thickness);
         cairo_arc(layer.context, center.x, center.y, radius, 0, std::numbers::pi * 2);
         cairo_stroke(layer.context);
@@ -185,20 +153,20 @@ class ObjectBox {
   public:
     static constexpr auto fontsize = 16.0f;
     static void draw(Layer &layer,
-                     const RawDetectionBox &objectBox,
-                     const Color &color,
+                     const amp::Perception::Rect &objectBox,
+                     const amp::Color &color,
                      float thickness = 2.0f) {
         Text::draw(layer,
                    Coordinate{objectBox.x, objectBox.y},
-                   objectBox.label,
-                   Color{"#ffffffff"},
-                   Color{"#000000ff"},
+                   objectBox.text,
+                   amp::Colors::fromStringOrDefault("#ffffffff"),
+                   amp::Colors::fromStringOrDefault("#000000ff"),
                    "monospace",
                    fontsize);
         Rectangle::draw(layer,
                         Coordinate{objectBox.x, objectBox.y},
-                        objectBox.w,
-                        objectBox.h,
+                        objectBox.width,
+                        objectBox.height,
                         color,
                         thickness);
     }
@@ -233,4 +201,71 @@ class Canvas {
     cairo_surface_t *surface;
     cairo_t *cr;
 };
+
+class Arrow {
+  public:
+    // headLength/headWidth are in pixels. You can tune defaults.
+    static void draw(Layer &layer,
+                     const Coordinate &from,
+                     const Coordinate &to,
+                     const amp::Color &color,
+                     float thickness = 2.0f,
+                     float headLength = 12.0f,
+                     float headWidth = 8.0f) {
+        cairo_t *cr = layer.context;
+
+        cairo_set_source_rgba(cr,
+                              amp::Colors::getRedf(color),
+                              amp::Colors::getGreenf(color),
+                              amp::Colors::getBluef(color),
+                              amp::Colors::getAlphaf(color));
+
+        // Vector from->to
+        const float dx = to.x - from.x;
+        const float dy = to.y - from.y;
+        const float len = std::sqrt(dx * dx + dy * dy);
+
+        // Degenerate case: no length -> draw a point
+        if (len < 1e-6f) {
+            cairo_set_line_width(cr, thickness);
+            cairo_arc(cr, from.x, from.y, thickness * 0.5f, 0.0, std::numbers::pi * 2.0);
+            cairo_fill(cr);
+            return;
+        }
+
+        // Unit direction
+        const float ux = dx / len;
+        const float uy = dy / len;
+
+        // Clamp head length so it doesn't exceed arrow length
+        const float hl = std::min(headLength, len);
+
+        // End of shaft (start of head), so head doesn't overshoot the endpoint
+        const Coordinate shaftEnd{to.x - ux * hl, to.y - uy * hl};
+
+        // Perpendicular unit
+        const float px = -uy;
+        const float py = ux;
+
+        // Head triangle corners
+        const float hw = headWidth * 0.5f;
+        const Coordinate left{shaftEnd.x + px * hw, shaftEnd.y + py * hw};
+        const Coordinate right{shaftEnd.x - px * hw, shaftEnd.y - py * hw};
+
+        // Draw shaft
+        cairo_set_line_width(cr, thickness);
+        cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+        cairo_move_to(cr, from.x, from.y);
+        cairo_line_to(cr, shaftEnd.x, shaftEnd.y);
+        cairo_stroke(cr);
+
+        // Draw head (filled triangle)
+        cairo_move_to(cr, to.x, to.y);
+        cairo_line_to(cr, left.x, left.y);
+        cairo_line_to(cr, right.x, right.y);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+    }
+};
+
 } // namespace Osd

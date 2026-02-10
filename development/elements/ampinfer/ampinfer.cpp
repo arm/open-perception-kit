@@ -8,6 +8,7 @@
 // #include <onnxruntime_cxx_api.h>
 
 #include "amp/BitmapView.h"
+#include "amp/Perception.h"
 #include "amp/PerceptionContext.h"
 #include "amp/Types.h"
 #include "glib-object.h"
@@ -196,7 +197,7 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     perceptionContextMeta = amp::PerceptionContextMeta::get(writable_buf);
     if (!perceptionContextMeta) {
         perceptionContextMeta =
-            amp::PerceptionContextMeta::attach(writable_buf, new amp::PerceptionContext());
+            amp::PerceptionContextMeta::attach(writable_buf, new amp::Perception());
     }
     auto perceptionContext_ptr = perceptionContextMeta->get_payload();
 
@@ -204,7 +205,7 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
     amp::BitmapView pipelineFrame(rgb, amp::DataKind::ImageBgraHwc, frameWidth, frameHeight);
 
-    opChainContext.perceptionContext = perceptionContext_ptr;
+    opChainContext.perception = perceptionContext_ptr;
     opChainContext.bitmapViews["pipelineVideoFrame"] = pipelineFrame;
 
     auto executeResult = self->m->executeOpChain(opChainContext);

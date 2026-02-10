@@ -3,6 +3,7 @@
 #include <fmt/core.h>
 #include <memory>
 
+#include "amp/Perception.h"
 #include "amp/TensorView.h"
 #include "amp/Types.h"
 #include "postproc/GazeDetectionParser.h"
@@ -56,13 +57,6 @@ amp::Result<void> GenericPostprocessOp::process(amp::OpChainContext &opChainCont
 
     amp::TensorParser::Input tensorParserInput(attributes);
 
-    // HACK
-    // PerceptionContext will be replaced by Perception
-    // to keep the old functionality a PerceptionLayer instance is hacked into Input
-    // some of the parsers allo fill that
-    tensorParserInput.perceptionLayer.contentType = opChainContext.inferenceInfo.contentType;
-    // HACK
-
     // populate tensors
     for (size_t i = 0; i < amp::MaxTensorCount; i++) {
         if (i < opChainContext.inferenceOutputTensorCount)
@@ -74,29 +68,23 @@ amp::Result<void> GenericPostprocessOp::process(amp::OpChainContext &opChainCont
     // copy active inference info
     tensorParserInput.inferenceInfo = opChainContext.inferenceInfo;
 
-    amp::RawDetectionLayer rawDetectionLayer;
-    rawDetectionLayer.modelFamily = opChainContext.inferenceInfo.modelFamily;
+    amp::Perception::Layer rawDetectionLayer;
+    rawDetectionLayer.model = opChainContext.inferenceInfo.modelFamily;
     auto parseResult = parser->parse(tensorParserInput, rawDetectionLayer);
     if (!parseResult) {
         return parseResult;
     }
 
-    opChainContext.perceptionContext->rawDetections.push_back(rawDetectionLayer);
+    // set parent uids
+    for (auto &det : rawDetectionLayer.detections) {
+        Perception::Object &obj = std::visit(
+            [](auto &v) -> Perception::Object & { return static_cast<Perception::Object &>(v); },
+            det);
 
-    // HACK remove if Perception replaces PerceptionContext
-    opChainContext.perceptionContext->perception.layers.push_back(
-        tensorParserInput.perceptionLayer);
-    // HACK
-
-    /* I WILL $##$!!?+!!#$ if you delete this
-
-    for(size_t i = 0; i < rawDetectionLayer.rects.size(); i++) {
-        fmt::print("{} {} {} {} {}\n", opChainContext.inferenceInfo.modelFamily,
-            rawDetectionLayer.rects[i].x, rawDetectionLayer.rects[i].y,
-    rawDetectionLayer.rects[i].w, rawDetectionLayer.rects[i].h);
+        obj.parentUuid = opChainContext.inferenceSourceUuid;
     }
 
-    */
+    opChainContext.perception->layers.push_back(rawDetectionLayer);
 
     return {};
 }

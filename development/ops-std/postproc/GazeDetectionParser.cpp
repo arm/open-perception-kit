@@ -1,7 +1,7 @@
 
 
 #include "postproc/GazeDetectionParser.h"
-#include "amp/PerceptionContext.h"
+#include "amp/Perception.h"
 
 #include <cmath>
 #include <cstdint>
@@ -33,7 +33,7 @@ inline float logitsToAngleDeg(const amp::TensorView *logits, float gazeRangeDeg 
 }
 
 amp::Result<void> GazeDetectionParser::parse(const amp::TensorParser::Input &input,
-                                             amp::RawDetectionLayer &detectionResult) {
+                                             amp::Perception::Layer &detectionResult) {
 
     assert(input.tensors[0]);
     assert(input.tensors[1]);
@@ -75,7 +75,13 @@ amp::Result<void> GazeDetectionParser::parse(const amp::TensorParser::Input &inp
     if (pitch > maxPitch)
         maxPitch = pitch;
 
-    fmt::print("minYP {} {} maxYP {} {}\n", minYaw, minPitch, maxYaw, maxPitch);
+    // fmt::print("minYP {} {} maxYP {} {}\n", minYaw, minPitch, maxYaw, maxPitch);
+
+    detectionResult.contentType = "eye-yp";
+    Perception::YawPitch result;
+    result.yaw = yaw;
+    result.pitch = pitch;
+    detectionResult.detections.push_back(result);
 
     return {};
 }

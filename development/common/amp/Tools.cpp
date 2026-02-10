@@ -222,31 +222,33 @@ bool Tools::savePngCropFromBgra(const std::string &path,
     return stbi_write_png(path.c_str(), out_w, out_h, 4, rgba.data(), out_stride) != 0;
 }*/
 
-bool Tools::savePngFromRgbF32(const std::string &path,
-                              float *src_bgra_f32,
-                              size_t width,
-                              size_t height) {
-    if (!src_bgra_f32 || width <= 0 || height <= 0)
+bool Tools::savePngFromRgbChwF32(const std::string &path,
+                                 const float *src_rgb_chw_f32,
+                                 size_t width,
+                                 size_t height) {
+    if (!src_rgb_chw_f32 || width == 0 || height == 0)
         return false;
 
-    std::vector<uint8_t> rgba((size_t)width * (size_t)height * 4);
+    std::vector<uint8_t> rgba(width * height * 4);
 
     auto to_u8 = [](float v) -> uint8_t {
         v = std::clamp(v, 0.0f, 1.0f);
-        return (uint8_t)std::lround(v * 255.0f);
+        return static_cast<uint8_t>(std::lround(v * 255.0f));
     };
 
-    const size_t pixelCount = (size_t)width * (size_t)height;
-    for (size_t i = 0; i < pixelCount; ++i) {
-        const float b = src_bgra_f32[i * 3 + 0];
-        const float g = src_bgra_f32[i * 3 + 1];
-        const float r = src_bgra_f32[i * 3 + 2];
+    const size_t plane = width * height;
 
-        rgba[i * 4 + 0] = uint8_t(r * 255);
-        rgba[i * 4 + 1] = uint8_t(g * 255);
-        rgba[i * 4 + 2] = uint8_t(b * 255);
-        rgba[i * 4 + 3] = uint8_t(255);
+    for (size_t i = 0; i < plane; ++i) {
+        const float r = src_rgb_chw_f32[0 * plane + i];
+        const float g = src_rgb_chw_f32[1 * plane + i];
+        const float b = src_rgb_chw_f32[2 * plane + i];
+
+        rgba[i * 4 + 0] = to_u8(r);
+        rgba[i * 4 + 1] = to_u8(g);
+        rgba[i * 4 + 2] = to_u8(b);
+        rgba[i * 4 + 3] = 255;
     }
 
-    return stbi_write_png(path.c_str(), width, height, 4, rgba.data(), width * 4) != 0;
+    return stbi_write_png(path.c_str(), (int)width, (int)height, 4, rgba.data(), (int)width * 4) !=
+           0;
 }

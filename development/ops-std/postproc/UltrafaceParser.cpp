@@ -1,4 +1,5 @@
 #include "postproc/UltrafaceParser.h"
+#include "amp/Perception.h"
 #include "amp/PerceptionContext.h"
 
 #include <algorithm>
@@ -8,11 +9,11 @@
 using namespace amp;
 
 // IoU between two boxes (x,y = top-left, w,h = size)
-inline float iou(const DetectionRect &a, const DetectionRect &b) {
-    float ax2 = a.x + a.w;
-    float ay2 = a.y + a.h;
-    float bx2 = b.x + b.w;
-    float by2 = b.y + b.h;
+inline float iou(const Perception::Rect &a, const Perception::Rect &b) {
+    float ax2 = a.x + a.width;
+    float ay2 = a.y + a.height;
+    float bx2 = b.x + b.width;
+    float by2 = b.y + b.height;
 
     float interLeft = std::max(a.x, b.x);
     float interTop = std::max(a.y, b.y);
@@ -26,8 +27,8 @@ inline float iou(const DetectionRect &a, const DetectionRect &b) {
         return 0.0f;
 
     float interArea = interW * interH;
-    float areaA = a.w * a.h;
-    float areaB = b.w * b.h;
+    float areaA = a.width * a.height;
+    float areaB = b.width * b.height;
 
     float unionArea = areaA + areaB - interArea;
     if (unionArea <= 0.0f)
@@ -40,13 +41,16 @@ inline float iou(const DetectionRect &a, const DetectionRect &b) {
 //  - detections: all raw boxes (no pre-thresholding)
 //  - scoreThreshold: drop boxes with confidence < scoreThreshold
 //  - iouThreshold: IoU >= this → suppress lower-confidence box
-inline std::vector<DetectionRect> nonMaxSuppression(const std::vector<DetectionRect> &detections,
-                                                    float scoreThreshold,
-                                                    float iouThreshold) {
+inline std::vector<Perception::Detection>
+nonMaxSuppression(const std::vector<Perception::Detection> &detections,
+                  float scoreThreshold,
+                  float iouThreshold) {
     // 1) Filter by score
-    std::vector<DetectionRect> candidates;
+    std::vector<Perception::Detection> candidates;
     candidates.reserve(detections.size());
-    for (const auto &d : detections) {
+    for (const auto &det : detections) {
+        const auto &d = std::get<amp::Perception::Rect>(det);
+
         if (d.confidence >= scoreThreshold)
             candidates.push_back(d);
     }
@@ -55,27 +59,30 @@ inline std::vector<DetectionRect> nonMaxSuppression(const std::vector<DetectionR
         return {};
 
     // 2) Sort by confidence descending
-    std::sort(
-        candidates.begin(), candidates.end(), [](const DetectionRect &a, const DetectionRect &b) {
-            return a.confidence > b.confidence;
-        });
+    std::sort(candidates.begin(),
+              candidates.end(),
+              [](const Perception::Detection &da, const Perception::Detection &db) {
+                  const auto &a = std::get<amp::Perception::Rect>(da);
+                  const auto &b = std::get<amp::Perception::Rect>(db);
+                  return a.confidence > b.confidence;
+              });
 
     // 3) Greedy NMS
-    std::vector<DetectionRect> result;
+    std::vector<Perception::Detection> result;
     std::vector<bool> suppressed(candidates.size(), false);
 
     for (size_t i = 0; i < candidates.size(); ++i) {
         if (suppressed[i])
             continue;
 
-        const DetectionRect &current = candidates[i];
+        const Perception::Rect &current = std::get<Perception::Rect>(candidates[i]);
         result.push_back(current);
 
         for (size_t j = i + 1; j < candidates.size(); ++j) {
             if (suppressed[j])
                 continue;
 
-            if (iou(current, candidates[j]) >= iouThreshold) {
+            if (iou(current, std::get<Perception::Rect>(candidates[j])) >= iouThreshold) {
                 suppressed[j] = true;
             }
         }
@@ -162,7 +169,7 @@ static std::vector<Anchor> anchors;
 // ----------------------------------------------------------------------------
 
 amp::Result<void> amp::UltraFaceParser::parse(const amp::TensorParser::Input &input,
-                                              amp::RawDetectionLayer &detectionResult) {
+                                              amp::Perception::Layer &detectionResult) {
 
     const float confThreshold =
         (float)input.attributes.getDoubleOrDefault("confidenceThreshold", 0.5);
@@ -264,32 +271,35 @@ amp::Result<void> amp::UltraFaceParser::parse(const amp::TensorParser::Input &in
 
         // ---
 
-        DetectionRect dr;
+        Perception::Rect dr;
         dr.x = x1;
         dr.y = y1;
-        dr.w = x2 - x1;
-        dr.h = y2 - y1;
+        dr.width = x2 - x1;
+        dr.height = y2 - y1;
         dr.confidence = face;
-        dr.label = "";
+        dr.text = "";
 
-        detectionResult.rects.push_back(dr);
+        detectionResult.detections.push_back(dr);
     }
 
     // detectionResult.rects = nonMaxSuppression(detectionResult.rects, 0.6f, 0.01f);
-    detectionResult.rects = nonMaxSuppression(detectionResult.rects, confThreshold, iouThreshold);
+    detectionResult.detections =
+        nonMaxSuppression(detectionResult.detections, confThreshold, iouThreshold);
 
     // HACK remove if Perception replaces PerceptionContext
-    for (const auto &dr : detectionResult.rects) {
-        amp::TensorParser::Input &ncInput = const_cast<amp::TensorParser::Input &>(input);
-        Perception::Rect faceRect;
-        faceRect.x = dr.x;
-        faceRect.y = dr.y;
-        faceRect.w = dr.w;
-        faceRect.h = dr.h;
-        ncInput.perceptionLayer.detections.push_back(faceRect);
-        // fmt::print("ultraface: {} {} {} {}\n", dr.x, dr.y, dr.w, dr.h);
-    }
+    /*    for (const auto &dr : detectionResult.detections) {
+            amp::TensorParser::Input &ncInput = const_cast<amp::TensorParser::Input &>(input);
+            Perception::Rect faceRect;
+            faceRect.x = dr.x;
+            faceRect.y = dr.y;
+            faceRect.w = dr.w;
+            faceRect.h = dr.h;
+            ncInput.perceptionLayer.detections.push_back(faceRect);
+            // fmt::print("ultraface: {} {} {} {}\n", dr.x, dr.y, dr.w, dr.h);
+        }*/
     // HACK
+
+    detectionResult.contentType = "human-face";
 
     return {};
 }

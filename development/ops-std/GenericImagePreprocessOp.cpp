@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <fmt/core.h>
 
+#include "amp/Perception.h"
 #include "amp/Result.h"
 #include "amp/TensorView.h"
 #include "amp/Tools.h"
@@ -79,6 +80,7 @@ amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChain
     amp::PixelRect cropRect = opChainContext.inferenceCrops.back();
     opChainContext.inferenceCrops.pop_back();
     uint64_t sourceUuid = opChainContext.inferenceCropUuids.back();
+    opChainContext.inferenceSourceUuid = opChainContext.inferenceCropUuids.back();
     opChainContext.inferenceCropUuids.pop_back();
 
     amp::BitmapView *pipelineVideoFrame = opChainContext.getBitmapView("pipelineVideoFrame");
@@ -88,6 +90,7 @@ amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChain
                                              "GenericImagePreprocessOp needs pipelineVideoFrame"));
     }
 
+    // setup tensor data source
     amp::TensorBuilder::Setup setup;
     setup.imageSource.data = pipelineVideoFrame->data;
     setup.imageSource.surfaceWidth = pipelineVideoFrame->width;
@@ -107,12 +110,16 @@ amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChain
             AMP_ERROR(amp::ErrorFlag::InvalidData, "tensor seems not to be an image"));
     }
 
-    /*fmt::print("crop: {} {} {} {}\n",
-               setup.imageSource.x,
-               setup.imageSource.y,
-               setup.imageSource.width,
-               setup.imageSource.height);*/
+    // debug
+    if (false) {
+        fmt::print("crop: {} {} {} {}\n",
+                   setup.imageSource.x,
+                   setup.imageSource.y,
+                   setup.imageSource.width,
+                   setup.imageSource.height);
+    }
 
+    // debug
     if (false) {
         std::string debugFile = fmt::format("/work/var/crop_[{}]_{}_{}x{}x{}x{}.png",
                                             upcomingInferenceModel.contentType,
@@ -131,6 +138,7 @@ amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChain
                                    setup.imageSource.height);
     }
 
+    // setup preprocessed tensor data
     setup.imageDestination.type = upcomingInferenceModel.inputs[inputImageTensorIndex].valueType;
     setup.imageDestination.surfaceWidth = modelWidth;
     setup.imageDestination.surfaceHeight = modelHeight;
@@ -144,11 +152,13 @@ amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChain
         amp::getValueTypeByteSize(upcomingInferenceModel.inputs[inputImageTensorIndex].valueType);
     setup.imageDestination.data = upcomingTensorAddresses[inputImageTensorIndex];
 
+    // call tensor building
     amp::Result<void> result = genericImageInputTensorBuilder.build(setup);
     if (result.has_value() == false) {
         return result;
     }
 
+    // debug
     if (false) {
         std::string debugFile = fmt::format("/work/var/tensor_[{}][{}]_{}x{}.png",
                                             upcomingInferenceModel.contentType,
@@ -156,10 +166,10 @@ amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChain
                                             modelWidth,
                                             modelHeight);
 
-        Tools::savePngFromRgbF32(debugFile,
-                                 (float *)upcomingTensorAddresses[inputImageTensorIndex],
-                                 modelWidth,
-                                 modelHeight);
+        Tools::savePngFromRgbChwF32(debugFile,
+                                    (float *)upcomingTensorAddresses[inputImageTensorIndex],
+                                    modelWidth,
+                                    modelHeight);
     }
 
     // populate inference info

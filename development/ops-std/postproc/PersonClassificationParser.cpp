@@ -1,4 +1,5 @@
 #include "postproc/PersonClassificationParser.h"
+#include "amp/Perception.h"
 #include "amp/PerceptionContext.h"
 
 #include <cmath>
@@ -7,7 +8,7 @@
 using namespace amp;
 
 amp::Result<void> PersonClassificationParser::parse(const amp::TensorParser::Input &input,
-                                                    amp::RawDetectionLayer &detectionResult) {
+                                                    amp::Perception::Layer &detectionResult) {
 
     assert(input.tensors[0]);
 

@@ -23,7 +23,7 @@
 		"attributes": {
 			"parser": "UltrafaceParser",
 			"normalizeCoordinates": false,
-			"confidenceThreshold": 0.5,
+			"confidenceThreshold": 0.3,
 			"iouThreshold": 0.1
 		}
 	}

@@ -1,5 +1,5 @@
 #pragma once
-#include "amp/PerceptionContext.h"
+#include "amp/Perception.h"
 #include "gst/GstMetaWrapper.h"
 #include <gst/gst.h>
 
@@ -14,6 +14,6 @@ struct PerceptionContextMetaTraits {
     static const char *meta_name();
     static const gchar **tags();
 };
-using GstMetaPerceptionContext = GstMetaContainer<amp::PerceptionContext>;
-using PerceptionContextMeta = GstMetaWrapper<amp::PerceptionContext, PerceptionContextMetaTraits>;
+using GstMetaPerceptionContext = GstMetaContainer<amp::Perception>;
+using PerceptionContextMeta = GstMetaWrapper<amp::Perception, PerceptionContextMetaTraits>;
 } // namespace amp

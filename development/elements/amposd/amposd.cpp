@@ -1,6 +1,8 @@
+#include "amp/Bitmap.h"
+#include "amp/Color.h"
 #include "amp/Perception.h"
 #include "gst/PerceptionContextMeta.h"
-#include "osd.hpp"
+#include "osd.h"
 #include <cmath>
 #include <cstring>
 #include <fmt/core.h>
@@ -32,7 +34,7 @@ struct _GstAmpOsd {
     gboolean enabled;
 
     // Internal state
-    guint frame_count;
+    guint frameCount;
 };
 
 struct _GstAmpOsdClass {
@@ -109,7 +111,7 @@ static void gst_amp_osd_class_init(GstAmpOsdClass *klass) {
 static void gst_amp_osd_init(GstAmpOsd *self) {
     // Initialize properties
     self->enabled = DEFAULT_ENABLED;
-    self->frame_count = 0;
+    self->frameCount = 0;
 
     GST_DEBUG_OBJECT(self, "Initialized AmpOsd element");
 }
@@ -155,7 +157,7 @@ static gboolean gst_amp_osd_start(GstBaseTransform *trans) {
     GstAmpOsd *self = GST_AMP_OSD(trans);
 
     GST_INFO_OBJECT(self, "Starting AmpOsd element");
-    self->frame_count = 0;
+    self->frameCount = 0;
 
     return TRUE;
 }
@@ -163,16 +165,15 @@ static gboolean gst_amp_osd_start(GstBaseTransform *trans) {
 static gboolean gst_amp_osd_stop(GstBaseTransform *trans) {
     GstAmpOsd *self = GST_AMP_OSD(trans);
 
-    GST_INFO_OBJECT(self, "Stopping AmpOsd element - processed %u frames", self->frame_count);
+    GST_INFO_OBJECT(self, "Stopping AmpOsd element - processed %u frames", self->frameCount);
 
     return TRUE;
 }
 
-static std::unique_ptr<Osd::Layer>
-draw_perf_layer(GstAmpOsd *self,
-                float imgWidth,
-                float imgHeight,
-                const amp::PerceptionContext &perceptionContext) {
+static std::unique_ptr<Osd::Layer> drawPerformanceLayer(GstAmpOsd *self,
+                                                        float imgWidth,
+                                                        float imgHeight,
+                                                        const amp::Perception &perceptionContext) {
     constexpr float line_height = 16.0f;
     constexpr float x_offset = 10.0f;
     constexpr float y_offset = 10.0f;
@@ -184,100 +185,17 @@ draw_perf_layer(GstAmpOsd *self,
         Osd::Text::draw(*layer,
                         Osd::Coordinate(x_offset, line_y_offset),
                         line,
-                        Osd::Color("#11ff00ff"),
-                        Osd::Color("#000000ff"),
+                        amp::Colors::fromStringOrDefault("#66ff00ff"),
+                        amp::Colors::fromStringOrDefault("#000000ff"),
                         "monospace",
                         line_height);
         line_y_offset += line_height; // Increment y_offset for next line
     }
     return layer;
-
-    // moved here from ampperformance
-    //  // Create temporary surface for font measurement
-    //  cairo_surface_t *temp_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1, 1);
-    //  cairo_t *temp_cr = cairo_create(temp_surface);
-    //  cairo_select_font_face(temp_cr, "monospace", CAIRO_FONT_SLANT_NORMAL,
-    //  CAIRO_FONT_WEIGHT_BOLD); cairo_set_font_size(temp_cr, self->font_size);
-
-    // // Calculate dimensions - use sample text matching the actual format
-    // // This should accommodate the longest metric names with proper column alignment
-    // cairo_text_extents_t extents;
-    // cairo_text_extents(temp_cr, "ultraface_postprocess  :  999.99ms  (p95:  999.99ms)",
-    // &extents); double measured_width = extents.width;
-
-    // // Calculate actual maximum line width from content
-    // double max_content_width = measured_width;
-    // for (const auto &line : lines) {
-    //     cairo_text_extents(temp_cr, line.c_str(), &extents);
-    //     if (extents.width > max_content_width) {
-    //         max_content_width = extents.width;
-    //     }
-    // }
-
-    // double line_height = self->font_size * 1.5;
-    // double box_width = max_content_width + 40; // Extra padding for table-like appearance
-    // double box_height = lines.size() * line_height + 20;
-
-    // cairo_destroy(temp_cr);
-    // cairo_surface_destroy(temp_surface);
-
-    // // Calculate dimensions - width is stable due to fixed formatting, track max height only
-    // guint cache_w = (guint)(box_width + 4);
-    // guint desired_h = (guint)(box_height + 4);
-
-    // // Track maximum height to prevent vertical flickering when metric count changes
-    // if (desired_h > self->max_height) {
-    //     self->max_height = desired_h;
-    // }
-    // guint cache_h = self->max_height;
-
-    // if (self->overlay_cache) {
-    //     cairo_surface_destroy(self->overlay_cache);
-    // }
-
-    // self->overlay_cache = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, cache_w, cache_h);
-    // self->cache_width = cache_w;
-    // self->cache_height = cache_h;
-
-    // cairo_t *cr = cairo_create(self->overlay_cache);
-
-    // // Clear with transparency
-    // cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
-    // cairo_paint(cr);
-    // cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
-
-    // // Draw semi-transparent background box (use max dimensions for stable size)
-    // double display_width = cache_w - 4;
-    // double display_height = cache_h - 4;
-
-    // cairo_set_source_rgba(cr, bg_r, bg_g, bg_b, self->alpha);
-    // cairo_rectangle(cr, 2, 2, display_width, display_height);
-    // cairo_fill(cr);
-
-    // // Draw border
-    // cairo_set_source_rgba(cr, text_r, text_g, text_b, self->alpha);
-    // cairo_set_line_width(cr, 2.0);
-    // cairo_rectangle(cr, 2, 2, display_width, display_height);
-    // cairo_stroke(cr);
-
-    // // Draw text
-    // cairo_set_source_rgb(cr, text_r, text_g, text_b);
-    // cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    // cairo_set_font_size(cr, self->font_size);
-
-    // double y_pos = 22;
-    // for (const auto &line : lines) {
-    //     cairo_move_to(cr, 12, y_pos);
-    //     cairo_show_text(cr, line.c_str());
-    //     y_pos += line_height;
-    // }
-
-    // cairo_destroy(cr);
-    // self->cache_dirty = false;
 }
 
 static std::unique_ptr<Osd::Layer>
-draw_segmentation_layer(GstAmpOsd *self, float imgWidth, float imgHeight, const amp::Map8 &segMap) {
+drawSegmentationLayer(GstAmpOsd *self, float imgWidth, float imgHeight, const amp::Bitmap &segMap) {
     auto layer = std::make_unique<Osd::Layer>(imgWidth, imgHeight);
 
     // Get direct access to the layer's pixel data
@@ -286,14 +204,14 @@ draw_segmentation_layer(GstAmpOsd *self, float imgWidth, float imgHeight, const 
     int stride = cairo_image_surface_get_stride(layer->surface);
 
     // Calculate scale factors if segmentation map size differs from video frame
-    auto scale_x = static_cast<float>(imgWidth) / static_cast<float>(segMap.width);
-    auto scale_y = static_cast<float>(imgHeight) / static_cast<float>(segMap.height);
+    auto scale_x = static_cast<float>(imgWidth) / static_cast<float>(segMap.getWidth());
+    auto scale_y = static_cast<float>(imgHeight) / static_cast<float>(segMap.getHeight());
 
     // First pass: find min/max values in the segmentation map
     uint8_t min_value = 255U;
     uint8_t max_value = 0U;
-    for (size_t i = 0; i < segMap.map.size(); ++i) {
-        auto val = segMap.map[i];
+    for (size_t i = 0; i < segMap.getWidth() * segMap.getHeight(); ++i) {
+        auto val = segMap.getData()[i];
         min_value = std::min(min_value, val);
         max_value = std::max(max_value, val);
     }
@@ -311,20 +229,18 @@ draw_segmentation_layer(GstAmpOsd *self, float imgWidth, float imgHeight, const 
             auto seg_y = static_cast<size_t>(y / scale_y);
 
             // Bounds check
-            if (seg_x >= segMap.width || seg_y >= segMap.height) {
+            if (seg_x >= segMap.getWidth() || seg_y >= segMap.getHeight()) {
                 continue;
             }
 
             // Get value from segmentation map (0-255)
-            auto value = segMap.map[seg_y * segMap.width + seg_x];
+            auto value = segMap.getData()[seg_y * segMap.getWidth() + seg_x];
 
             // Min-max normalization: map [min_value, max_value] → [0, 255]
             auto range = static_cast<float>(max_value - min_value);
             auto normalized = static_cast<float>(value - min_value) / range;
 
-            // Apply gamma correction for perceptual uniformity
-            auto gamma = 2.2f;
-            auto alpha = static_cast<uint8_t>(std::pow(normalized, gamma) * 255.0f);
+            auto alpha = static_cast<uint8_t>(normalized * 255.0f);
 
             // Skip fully transparent pixels
             if (alpha == 0) {
@@ -348,7 +264,6 @@ static inline float deg2rad(float d) {
     return d * 3.1415926535f / 180.0f;
 }
 
-// Returns endpoint of arrow given eye center and angles
 static inline void gazeEndpoint(float eyeX,
                                 float eyeY,
                                 float yawDeg,
@@ -359,17 +274,10 @@ static inline void gazeEndpoint(float eyeX,
     float yaw = deg2rad(yawDeg);
     float pitch = deg2rad(pitchDeg);
 
-    // Simple projection:
-    float dx = std::tan(yaw);
+    float dx = -std::tan(yaw);
     float dy = -std::tan(pitch); // minus because +pitch means up, but screen y goes down
 
-    // Normalize to constant length
     float n = std::sqrt(dx * dx + dy * dy);
-    if (n < 1e-6f) {
-        outX = eyeX;
-        outY = eyeY;
-        return;
-    }
 
     dx /= n;
     dy /= n;
@@ -378,88 +286,64 @@ static inline void gazeEndpoint(float eyeX,
     outY = eyeY + dy * lengthPx;
 }
 
-static void draw_perceptionLayer(Osd::Layer *layer, const amp::Perception &perception) {
-    amp::Perception &ncP = const_cast<amp::Perception &>(perception);
-    amp::PerceptionTools prc(ncP);
+static void drawGazeVectors(Osd::Layer *layer, const amp::Perception &perception) {
+    amp::ConstPerceptionTools perceptionTools(perception);
 
     std::vector<amp::Perception::YawPitch> yps =
-        prc.getAllWithContentType<amp::Perception::YawPitch>("eye-yp");
+        perceptionTools.getAllWithContentType<amp::Perception::YawPitch>("eye-yp");
 
     for (const auto &yp : yps) {
         std::vector<amp::Perception::Rect> parents =
-            prc.getAllRectsWithContentType("human-face", yp.parentUuid);
+            perceptionTools.getAllRectsWithContentType("human-face", yp.parentUuid);
 
         assert(parents.size() == 1);
 
         amp::Perception::Rect parent = parents[0];
 
-        float x = parent.x + parent.w / 2;
-        float y = parent.y + parent.h / 2;
+        float x = parent.x + parent.width / 2;
+        float y = parent.y + parent.height / 2;
         float yaw = yp.yaw;
         float pitch = yp.pitch;
 
         float xEnd, yEnd;
         gazeEndpoint(x, y, yaw, pitch, 120, xEnd, yEnd);
-        Osd::Point::draw(*layer, Osd::Coordinate{x, y}, Osd::Color("#ff0000ff"), 10.0f);
+        Osd::Arrow::draw(*layer, {x, y}, {xEnd, yEnd}, amp::Colors::lightGoldenrodYellow);
+        // Osd::Point::draw(*layer, Osd::Coordinate{x, y},
+        // amp::Colors::fromStringOrDefault("#ff0000ff"), 10.0f);
 
-        Osd::Point::draw(*layer, Osd::Coordinate{xEnd, yEnd}, Osd::Color("#00ff00ff"), 15.0f);
+        // Osd::Point::draw(*layer, Osd::Coordinate{xEnd, yEnd},
+        // amp::Colors::fromStringOrDefault("#00ff00ff"), 15.0f);
     }
 }
 
-static std::unique_ptr<Osd::Layer>
-draw_detection_layer(GstAmpOsd *self,
-                     float imgWidth,
-                     float imgHeight,
-                     const amp::PerceptionContext &perceptionContext) {
+static std::unique_ptr<Osd::Layer> drawPerceptionLayer(GstAmpOsd *self,
+                                                       float imgWidth,
+                                                       float imgHeight,
+                                                       const amp::Perception &perception) {
     auto layer = std::make_unique<Osd::Layer>(imgWidth, imgHeight);
 
-    for (const auto &inferDetections : perceptionContext.rawDetections) {
-        if (inferDetections.modelFamily == "yolo-obj") {
-            for (const auto &box : inferDetections.rects) {
-                Osd::ObjectBox::draw(*layer, box, Osd::Color("#ff0000ff"), 2.0f);
+    for (const auto &inferLayer : perception.layers) {
+        if (inferLayer.contentType == "generic-object") {
+            for (const auto &det : inferLayer.detections) {
+                const auto &box = std::get<amp::Perception::Rect>(det);
+                Osd::ObjectBox::draw(
+                    *layer, box, amp::Colors::fromStringOrDefault("#ff0000ff"), 2.0f);
             }
         }
-        if (inferDetections.modelFamily == "ultraface") {
-            for (const auto &box : inferDetections.rects) {
-                Osd::Circle::draw(*layer,
-                                  Osd::Coordinate{box.x + box.w / 2.0f, box.y + box.h / 2.0f},
-                                  box.w / 2.0f,
-                                  Osd::Color("#2600ffff"),
-                                  2.0f);
-            }
-            for (const auto &box : inferDetections.points) {
-                Osd::Point::draw(
-                    *layer, Osd::Coordinate{box.x, box.y}, Osd::Color("#ff00ffff"), 4.0f);
+        if (inferLayer.contentType == "human-face") {
+            for (const auto &det : inferLayer.detections) {
+                const auto &box = std::get<amp::Perception::Rect>(det);
+                Osd::Circle::draw(
+                    *layer,
+                    Osd::Coordinate{box.x + box.width / 2.0f, box.y + box.height / 2.0f},
+                    box.width / 2.0f,
+                    amp::Colors::fromStringOrDefault("#2600ffff"),
+                    2.0f);
             }
         }
+        drawGazeVectors(layer.get(), perception);
     }
 
-    draw_perceptionLayer(layer.get(), perceptionContext.perception);
-
-    return layer;
-}
-
-static std::unique_ptr<Osd::Layer>
-draw_debug_layer(GstAmpOsd *self, float imgWidth, float imgHeight) {
-    auto layer = std::make_unique<Osd::Layer>(imgWidth, imgHeight);
-    const auto centerCoord = Osd::CoordinateRel(0.5f, 0.5f, *layer);
-
-    Osd::Point::draw(*layer, centerCoord, Osd::Color("#ff0000ff"), 10.0f);
-    Osd::Text::draw(*layer,
-                    centerCoord,
-                    "center(" + std::to_string(centerCoord.x) + ", " +
-                        std::to_string(centerCoord.y) + ")",
-                    Osd::Color("#ffffffff"),
-                    Osd::Color("#000000ff"),
-                    "monospace",
-                    16.0f);
-    Osd::Text::draw(*layer,
-                    Osd::CoordinateRel(0.f, 1.f, *layer) - Osd::Coordinate(0.f, 16.f),
-                    "frame count= " + std::to_string(self->frame_count),
-                    Osd::Color("#ffffffff"),
-                    Osd::Color("#000000ff"),
-                    "monospace",
-                    16.0f);
     return layer;
 }
 
@@ -475,30 +359,33 @@ static GstFlowReturn gst_amp_osd_transform_frame_ip(GstVideoFilter *filter, GstV
     float imgHeight = static_cast<float>(GST_VIDEO_FRAME_HEIGHT(frame));
     gint imgStride = GST_VIDEO_FRAME_PLANE_STRIDE(frame, 0);
 
+    // "ocr-detection-segmentation"
     Osd::Layers_t layers;
     // Get PerceptionContextMeta
-    if (const auto perceptionContextMeta = amp::PerceptionContextMeta::get(
-            frame->buffer)) { // NOTE: PerceptionContextMeta locks internally!
+    if (const auto perceptionContextMeta = amp::PerceptionContextMeta::get(frame->buffer)) {
         const auto perceptionContext = perceptionContextMeta->get_const_payload();
         if (perceptionContext) {
-            // Draw segmentation maps from rawDetections (bottom layer)
-            for (const auto &detection : perceptionContext->rawDetections) {
-                for (const auto &segMap : detection.maps) {
-                    if (!segMap.map.empty() && segMap.width > 0 && segMap.height > 0) {
-                        layers.push_back(
-                            draw_segmentation_layer(self, imgWidth, imgHeight, segMap));
+            for (const auto &layer : perceptionContext->layers) {
+                if (layer.contentType == "ocr-detection-segmentation") {
+                    for (const auto &det : layer.detections) {
+                        const auto &sm = std::get<amp::Perception::SegmentationMap>(det);
+                        if (!sm.bitmap.empty() && sm.bitmap.getWidth() > 0 &&
+                            sm.bitmap.getHeight() > 0) {
+                            layers.push_back(
+                                drawSegmentationLayer(self, imgWidth, imgHeight, sm.bitmap));
+                        }
                     }
                 }
             }
             // Draw detection boxes on top of segmentation
-            layers.push_back(draw_detection_layer(self, imgWidth, imgHeight, *perceptionContext));
-            layers.push_back(draw_perf_layer(self, imgWidth, imgHeight, *perceptionContext));
+            layers.push_back(drawPerceptionLayer(self, imgWidth, imgHeight, *perceptionContext));
+            layers.push_back(drawPerformanceLayer(self, imgWidth, imgHeight, *perceptionContext));
         }
     }
-    layers.push_back(draw_debug_layer(self, imgWidth, imgHeight));
+
     Osd::Canvas(imgData, imgWidth, imgHeight).paint(layers);
 
-    self->frame_count++;
+    self->frameCount++;
     return GST_FLOW_OK;
 }
 

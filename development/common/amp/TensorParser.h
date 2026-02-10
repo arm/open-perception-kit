@@ -1,6 +1,7 @@
 #pragma once
 
 #include "amp/AttributeMap.h"
+#include "amp/Perception.h"
 #include "amp/PerceptionContext.h"
 #include "amp/Result.h"
 #include "amp/TensorView.h"
@@ -24,6 +25,6 @@ struct TensorParser {
     };
 
     virtual amp::Result<void> parse(const amp::TensorParser::Input &input,
-                                    amp::RawDetectionLayer &output) = 0;
+                                    amp::Perception::Layer &output) = 0;
 };
 } // namespace amp

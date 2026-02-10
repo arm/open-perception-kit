@@ -43,23 +43,32 @@ amp::Result<void> InferenceControllerOp::process(amp::OpChainContext &opChainCon
     }
 
     if (contentType.empty()) {
+        // setup source VideoFrame object
+        Perception::Layer rootLayer;
+        Perception::VideoFrame videoFrame;
+        videoFrame.originalWidth = pipelineVideoFrame->width;
+        videoFrame.originalHeight = pipelineVideoFrame->height;
+        opChainContext.inferenceSourceUuid = videoFrame.uuid;
+        rootLayer.detections.push_back(videoFrame);
+
         amp::PixelRect rect;
         rect.x = 0;
         rect.y = 0;
         rect.width = pipelineVideoFrame->width;
         rect.height = pipelineVideoFrame->height;
         opChainContext.inferenceCrops.push_back(rect);
-        opChainContext.inferenceCropUuids.push_back(0); // todo: use pipeline frame object uuid
+
+        opChainContext.inferenceCropUuids.push_back(videoFrame.uuid);
     } else {
-        PerceptionTools perception(opChainContext.perceptionContext->perception);
+        PerceptionTools perception(*opChainContext.perception);
         auto rects = perception.getAllRectsWithContentType(contentType);
 
         for (const auto &r : rects) {
             amp::PixelRect rect;
             rect.x = (int)r.x;
             rect.y = (int)r.y;
-            rect.width = (int)r.w;
-            rect.height = (int)r.h;
+            rect.width = (int)r.width;
+            rect.height = (int)r.height;
 
             // fmt::print("ctrl: {} {} {} {}\n", rect.x, rect.y, rect.width, rect.height);
 

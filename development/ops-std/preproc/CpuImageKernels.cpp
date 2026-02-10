@@ -83,15 +83,18 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(const uint8_t *src,
         dstRect.x + dstRect.w > dstWidth || dstRect.y + dstRect.h > dstHeight)
         return false;
 
-    const uint8_t *in = src; // source HWC u8
-    float *out = dst;        // destination HWC float32
     constexpr float inv255 = 1.0f / 255.0f;
 
     const size_t C = 3;
-    const size_t H = dstHeight;
-    const size_t W = dstWidth;
+    const size_t Wdst = dstWidth;
 
-    // nearest-neighbor resize, HWC → HWC
+    const size_t srcPlane = srcWidth * srcHeight; // CHW planes
+    const size_t dstPlane = dstWidth * dstHeight; // not used here, but symmetry
+
+    (void)dstPlane;
+    (void)sampling;
+
+    // nearest-neighbor resize, CHW(u8) -> HWC(f32)
     for (size_t dy = 0; dy < dstRect.h; ++dy) {
         const size_t sy = srcRect.y + (dy * srcRect.h) / dstRect.h;
         const size_t dyi = dstRect.y + dy;
@@ -100,16 +103,17 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(const uint8_t *src,
             const size_t sx = srcRect.x + (dx * srcRect.w) / dstRect.w;
             const size_t dxi = dstRect.x + dx;
 
-            // src (u8 HWC interleaved)
-            const size_t srcIndexRGB = (sy * srcWidth + sx) * C;
-            const uint8_t *p = in + srcIndexRGB;
+            const size_t srcHw = sy * srcWidth + sx;
 
-            // dst (float32 HWC interleaved)
-            const size_t dstIndexRGB = (dyi * W + dxi) * C;
+            const uint8_t r = src[0 * srcPlane + srcHw];
+            const uint8_t g = src[1 * srcPlane + srcHw];
+            const uint8_t b = src[2 * srcPlane + srcHw];
 
-            out[dstIndexRGB + 0] = p[0] * inv255; // R
-            out[dstIndexRGB + 1] = p[1] * inv255; // G
-            out[dstIndexRGB + 2] = p[2] * inv255; // B
+            const size_t dstIndex = (dyi * Wdst + dxi) * C; // HWC interleaved
+
+            dst[dstIndex + 0] = r * inv255;
+            dst[dstIndex + 1] = g * inv255;
+            dst[dstIndex + 2] = b * inv255;
         }
     }
 
@@ -158,17 +162,17 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(const uint8_t *src,
         dstRect.x + dstRect.w > dstWidth || dstRect.y + dstRect.h > dstHeight)
         return false;
 
-    const uint8_t *in = src;
-    float *out = dst;
     constexpr float inv255 = 1.0f / 255.0f;
 
-    const size_t C = 3;
-    const size_t H = dstHeight;
-    const size_t W = dstWidth;
+    const size_t Wdst = dstWidth;
+    const size_t Hdst = dstHeight;
 
-    const size_t planeSize = H * W;
+    const size_t srcPlane = srcWidth * srcHeight; // CHW source planes
+    const size_t dstPlane = Wdst * Hdst;          // CHW dest planes
 
-    // nearest-neighbour sampling stretch from srcRect to dstRect, CHW layout
+    (void)sampling;
+
+    // nearest-neighbor resize, CHW(u8) -> CHW(f32)
     for (size_t dy = 0; dy < dstRect.h; ++dy) {
         const size_t sy = srcRect.y + (dy * srcRect.h) / dstRect.h;
         const size_t dyi = dstRect.y + dy;
@@ -177,16 +181,16 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(const uint8_t *src,
             const size_t sx = srcRect.x + (dx * srcRect.w) / dstRect.w;
             const size_t dxi = dstRect.x + dx;
 
-            // source: RGB interleaved, HWC
-            const size_t srcIndexRGB = (sy * srcWidth + sx) * 3;
-            const uint8_t *p = in + srcIndexRGB;
+            const size_t srcHw = sy * srcWidth + sx;
+            const size_t dstHw = dyi * Wdst + dxi;
 
-            // CHW destination
-            const size_t hwIndex = dyi * W + dxi;
+            const uint8_t r = src[0 * srcPlane + srcHw];
+            const uint8_t g = src[1 * srcPlane + srcHw];
+            const uint8_t b = src[2 * srcPlane + srcHw];
 
-            out[0 * planeSize + hwIndex] = ((p[0] * inv255) - 0.485f) / 0.229f;
-            out[1 * planeSize + hwIndex] = ((p[1] * inv255) - 0.456f) / 0.224f;
-            out[2 * planeSize + hwIndex] = ((p[2] * inv255) - 0.406f) / 0.225f;
+            dst[0 * dstPlane + dstHw] = r * inv255;
+            dst[1 * dstPlane + dstHw] = g * inv255;
+            dst[2 * dstPlane + dstHw] = b * inv255;
         }
     }
 
@@ -195,16 +199,20 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(const uint8_t *src,
 
 bool ImageOps::Clear_Rgbf32(
     float *dst, size_t dstWidth, size_t dstHeight, float r, float g, float b) {
-
     if (!dst)
         return false;
 
-    float *p = dst;
-    int count = dstWidth * dstHeight;
-    for (int i = 0; i < count; i++) {
-        p[3 * i + 0] = r;
-        p[3 * i + 1] = g;
-        p[3 * i + 2] = b;
+    const size_t plane = dstWidth * dstHeight;
+
+    // CHW planar: [R plane][G plane][B plane]
+    float *rPlane = dst + 0 * plane;
+    float *gPlane = dst + 1 * plane;
+    float *bPlane = dst + 2 * plane;
+
+    for (size_t i = 0; i < plane; ++i) {
+        rPlane[i] = r;
+        gPlane[i] = g;
+        bPlane[i] = b;
     }
 
     return true;
@@ -212,22 +220,29 @@ bool ImageOps::Clear_Rgbf32(
 
 bool ImageOps::Fill_Rgbf32_Rect(
     float *dst, size_t dstWidth, size_t dstHeight, const Rect &dstRect, float r, float g, float b) {
-
     if (!dst)
         return false;
 
     if (dstRect.x + dstRect.w > dstWidth || dstRect.y + dstRect.h > dstHeight)
         return false;
 
+    const size_t plane = dstWidth * dstHeight;
+
+    float *rPlane = dst + 0 * plane;
+    float *gPlane = dst + 1 * plane;
+    float *bPlane = dst + 2 * plane;
+
     for (size_t dy = 0; dy < dstRect.h; ++dy) {
-        const size_t dyi = dstRect.y + dy;
-        float *row = dst + (dyi * dstWidth + dstRect.x) * 3; // 3 floats per pixel
+        const size_t y = dstRect.y + dy;
+        const size_t rowBase = y * dstWidth;
 
         for (size_t dx = 0; dx < dstRect.w; ++dx) {
-            float *px = row + dx * 3;
-            px[0] = r;
-            px[1] = g;
-            px[2] = b;
+            const size_t x = dstRect.x + dx;
+            const size_t hw = rowBase + x;
+
+            rPlane[hw] = r;
+            gPlane[hw] = g;
+            bPlane[hw] = b;
         }
     }
 

@@ -16,7 +16,7 @@ const gchar **PerceptionContextMetaTraits::tags() {
 }
 
 // Explicit instantiation for PerceptionContext
-template class GstMetaWrapper<amp::PerceptionContext, amp::PerceptionContextMetaTraits>;
+template class GstMetaWrapper<amp::Perception, amp::PerceptionContextMetaTraits>;
 } // namespace amp
 
 extern "C" {

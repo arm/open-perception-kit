@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "amp/Perception.h"
-
+#ifdef skip
 namespace amp {
 struct DetectionRect {
     float x, y, w, h;
@@ -23,10 +23,10 @@ struct RawDetectionLayer {
     uint64_t inferId, originTs, inferTs;
     std::vector<DetectionRect> rects;
     std::vector<DetectionPoint> points;
-    std::vector<Map8> maps;
+    std::vector<amp::Bitmap> maps;
 };
 
-struct SegmentationMap {
+/*struct SegmentationMap {
     std::vector<uint8_t> map;
     size_t width = 0, height = 0;
 
@@ -35,7 +35,7 @@ struct SegmentationMap {
         assert(x < width);
         return map.data()[width * y + x];
     }
-};
+};*/
 
 // complex object that stores all the inference information
 // like raw detections, processed detections
@@ -45,5 +45,5 @@ struct PerceptionContext {
     std::vector<std::string> perfdata;
     Perception perception;
 };
-
 } // namespace amp
+#endif

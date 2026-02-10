@@ -15,9 +15,9 @@ struct Labels {
 
         switch (labelType) {
         case LabelType::ImageNet:
-            return 79;
-        case LabelType::Coco:
             return 1000;
+        case LabelType::Coco:
+            return 79;
         };
         return 0;
     }

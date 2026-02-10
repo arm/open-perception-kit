@@ -1,5 +1,6 @@
 #include "postproc/PaddleocrParser.h"
-#include "amp/PerceptionContext.h"
+#include "amp/Bitmap.h"
+#include "amp/Perception.h"
 
 #include <cmath>
 #include <cstdint>
@@ -7,7 +8,7 @@
 using namespace amp;
 
 amp::Result<void> PaddleOcrDetectionParser::parse(const amp::TensorParser::Input &input,
-                                                  amp::RawDetectionLayer &detectionResult) {
+                                                  amp::Perception::Layer &detectionResult) {
 
     assert(input.tensors[0]);
 
@@ -20,12 +21,15 @@ amp::Result<void> PaddleOcrDetectionParser::parse(const amp::TensorParser::Input
     assert(maskHeight == input.inferenceInfo.image.modelHeight);
     assert(maskWidth == input.inferenceInfo.image.modelWidth);
 
-    detectionResult.maps.push_back(amp::Map8());
-    detectionResult.maps.back().map.resize(maskWidth * maskHeight);
+    detectionResult.detections.push_back(Perception::SegmentationMap());
 
-    uint8_t *dst = detectionResult.maps.back().map.data();
+    auto &sm = std::get<Perception::SegmentationMap>(detectionResult.detections.back());
+    sm.bitmap = amp::Bitmap(amp::Bitmap::Type::Uint8, maskWidth, maskHeight);
 
-    float minLogit = 1e30f, maxLogit = -1e30f;
+    uint8_t *dst = (uint8_t *)sm.bitmap.getData();
+
+    float minLogit = std::numeric_limits<float>::infinity();
+    float maxLogit = -std::numeric_limits<float>::infinity();
 
     for (size_t i = 0; i < maskWidth * maskHeight; i++) {
         float logit = input.tensors[0]->get(i);
@@ -38,10 +42,8 @@ amp::Result<void> PaddleOcrDetectionParser::parse(const amp::TensorParser::Input
         v = std::max(0, std::min(255, v));
         dst[i] = (uint8_t)v;
     }
-    // printf("logit min=%f max=%f\n", minLogit, maxLogit);
 
-    detectionResult.maps.back().width = maskWidth;
-    detectionResult.maps.back().height = maskHeight;
+    detectionResult.contentType = "ocr-detection-segmentation";
 
     return {};
 }

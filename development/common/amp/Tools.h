@@ -54,10 +54,10 @@ struct Tools {
                                     int crop_h,
                                     int src_stride_bytes = 0);
 
-    static bool savePngFromRgbF32(const std::string &path,
-                                  float *src_bgra_f32,
-                                  size_t src_width,
-                                  size_t src_height);
+    static bool savePngFromRgbChwF32(const std::string &path,
+                                     const float *src_rgb_f32,
+                                     size_t src_width,
+                                     size_t src_height);
 };
 
 class Uuid {

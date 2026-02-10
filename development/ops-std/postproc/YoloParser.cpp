@@ -1,5 +1,6 @@
 #include "postproc/YoloParser.h"
 #include "amp/Labels.h"
+#include "amp/Perception.h"
 #include "amp/PerceptionContext.h"
 
 #include <algorithm>
@@ -45,7 +46,7 @@ static inline float clampf(float v, float lo, float hi) {
 // ----------------------------------------------------------------------------
 
 amp::Result<void> amp::YoloParser::parse(const amp::TensorParser::Input &input,
-                                         amp::RawDetectionLayer &detectionResult) {
+                                         amp::Perception::Layer &detectionResult) {
 
     assert(input.tensors[0]);
 
@@ -146,23 +147,25 @@ amp::Result<void> amp::YoloParser::parse(const amp::TensorParser::Input &input,
         nms(dets, iouThreshold);
 
     for (const auto &a : dets) {
-        DetectionRect rect;
+        Perception::Rect rect;
         rect.x = a.x1;
         rect.y = a.y1;
-        rect.w = a.x2 - a.x1;
-        rect.h = a.y2 - a.y1;
+        rect.width = a.x2 - a.x1;
+        rect.height = a.y2 - a.y1;
         rect.confidence = a.conf;
-        rect.label = amp::Labels::getLabel(amp::LabelType::Coco, a.cls);
+        rect.text = amp::Labels::getLabel(amp::LabelType::Coco, a.cls);
 
         if (normalizeCoordinates) {
             rect.x /= input.inferenceInfo.image.width;
-            rect.w /= input.inferenceInfo.image.width;
+            rect.width /= input.inferenceInfo.image.width;
             rect.y /= input.inferenceInfo.image.height;
-            rect.h /= input.inferenceInfo.image.height;
+            rect.height /= input.inferenceInfo.image.height;
         }
 
-        detectionResult.rects.push_back(rect);
+        detectionResult.detections.push_back(rect);
     }
+
+    detectionResult.contentType = "generic-object";
 
     return {};
 }

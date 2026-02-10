@@ -1,7 +1,7 @@
 #pragma once
 
 #include "amp/BitmapView.h"
-#include "amp/PerceptionContext.h"
+#include "amp/Perception.h"
 #include "amp/Tags.h"
 #include "amp/TensorView.h"
 #include "amp/Types.h"
@@ -38,7 +38,7 @@ struct OpChainContext {
     amp::TensorView inferenceOutputTensors[amp::MaxTensorCount];
     amp::InferenceInfo inferenceInfo;
 
-    PerceptionContext *perceptionContext = nullptr;
+    Perception *perception = nullptr;
 
     bool inferenceControllerExecuted = false;
 };
