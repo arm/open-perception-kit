@@ -1,0 +1,4 @@
+{
+  "description": "Simple pipeline with FPS overlay",
+  "pipeline": "videotestsrc ! videoconvert ! fpsdisplaysink"
+}

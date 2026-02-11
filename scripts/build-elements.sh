@@ -8,6 +8,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 PROJECT_ROOT=/work/development
 BUILD_DIR="$PROJECT_ROOT/build"
 TESTS_BUILD_DIR="$PROJECT_ROOT/build-test"
+AMP_MENU=$PROJECT_ROOT/build/meson-out/amp-menu
 
 # ---- build ----
 debug() {
@@ -28,6 +29,8 @@ debug() {
   msg "Compiling.."
   meson compile -C "$BUILD_DIR"
 
+  cp $AMP_MENU $SCRIPT_DIR/
+
   msg_end "DEBUG compilation DONE → $BUILD_DIR"
 }
 
@@ -46,6 +49,8 @@ debug_with_executorch() {
 
   msg "Compiling.."
   meson compile -C "$BUILD_DIR"
+
+  cp $AMP_MENU $SCRIPT_DIR/
 
   msg_end "DEBUG compilation with ExecuTorch DONE → $BUILD_DIR"
 }
@@ -75,6 +80,8 @@ release() {
 
   msg "Compiling…"
   meson compile -C "$BUILD_DIR"
+
+  cp $AMP_MENU $SCRIPT_DIR/
 
   msg_end "Release build done → $BUILD_DIR"
 }

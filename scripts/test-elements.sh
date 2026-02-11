@@ -173,16 +173,50 @@ video() {
   msg_end "Pipeline finished."
 }
 
+single_cam() {
+  msg_begin "Executing test with camera...\n"
+
+  gst-launch-1.0 v4l2src device=/dev/video4 do-timestamp=true \
+      ! videoconvert ! videoscale \
+      ! video/x-raw,width=640,height=480,framerate=30/1 \
+      ! ampsink name=sink
+
+  msg_end "Pipeline finished."
+}
+
+multi_cam() {
+  msg_begin "Executing test with multiple camera...\n"
+
+  gst-launch-1.0 -e \
+      compositor name=comp background=black \
+          sink_0::xpos=0   sink_0::ypos=0 \
+          sink_1::xpos=640 sink_1::ypos=0 \
+          ! videoconvert ! ampsink name=sink \
+      v4l2src device=/dev/video0 do-timestamp=true \
+          ! videoconvert ! videoscale \
+          ! video/x-raw,width=640,height=480,framerate=30/1 \
+          ! queue max-size-time=200000000 \
+          ! comp.sink_0 \
+      v4l2src device=/dev/video4 do-timestamp=true \
+          ! videoconvert ! videoscale \
+          ! video/x-raw,width=640,height=480,framerate=30/1 \
+          ! queue max-size-time=200000000 \
+          ! comp.sink_1
+  msg_end "Pipeline finished."
+}
+
 # ---- help ----
 usage() {
   cat <<EOF
 
 Commands:
-  onnx ➡️ Run yolov8n test using onnx framework.
-  onnx_rgb ➡️ Run yolov8n int8 test using onnx framework with rgb.
-  audio ➡️ Run the audio test.
-  audio_internal_silence ➡️ Run the audio test with internal silence generator.
-  video ➡️ Run the video test.
+  onnx                      ➡️ Run yolov8n test using onnx framework.
+  onnx_rgb                  ➡️ Run yolov8n int8 test using onnx framework with rgb.
+  audio                     ➡️ Run the audio test.
+  audio_internal_silence    ➡️ Run the audio test with internal silence generator.
+  video                     ➡️ Run the video test.
+  single_cam                ➡️ Run test using a /dev/video0 cam  
+  multi_cam                 ➡️ Run test using a /dev/video0 and /dev/video4 cam  
 
 EOF
 }
@@ -196,6 +230,8 @@ case "$cmd" in
   audio) audio ;;
   audio_internal_silence) audio_internal_silence ;;
   video) video ;;
+  single_cam) single_cam ;;
+  multi_cam) multi_cam ;;
   *)
     echo "Unknown command: $cmd" >&2
     usage >&2

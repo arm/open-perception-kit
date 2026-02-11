@@ -10,5 +10,7 @@ HOST_GID="$(id -g)"
 
 cd "${REPO_ROOT}"
 
+./scripts/gen_cam.sh
+
 HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" \
-docker compose -f .devcontainer/docker-compose.yaml up -d --build
+docker compose -f .devcontainer/docker-compose.yaml -f .devcontainer/docker-compose.video.yaml up -d --build

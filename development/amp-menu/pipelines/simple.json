@@ -1,0 +1,4 @@
+{
+  "description": "the simplest possible pipeline",
+  "pipeline": "videotestsrc ! autovideosink"
+}

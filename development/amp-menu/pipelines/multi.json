@@ -1,0 +1,7 @@
+{
+  "description": "Multiline example",
+  "pipeline": [
+      "videotestsrc !", 
+      "videoconvert ! fpsdisplaysink"
+  ]
+}

@@ -100,6 +100,20 @@ endif
 # Common include(s)
 common_include = include_directories('common')
 
+# gtest dependencies
+cmake = import('cmake')
+
+opt = cmake.subproject_options()
+opt.add_cmake_defines({
+  'BUILD_GMOCK': false,
+  'INSTALL_GTEST': false,
+})
+
+gtest_cmake = cmake.subproject('gtest', options : opt)
+
+gtest_dep      = gtest_cmake.dependency('gtest')
+gtest_main_dep = gtest_cmake.dependency('gtest_main')
+
 # Subdirs
 subdir('common')
 subdir('elements/ampinfer')
@@ -109,6 +123,8 @@ subdir('ops-hailort')
 subdir('elements/ampperformance')
 subdir('elements/amposd')
 subdir('elements/ampsink')
+subdir('amp-menu')
+
 
 if get_option('tests')
   subdir('tests')
@@ -147,6 +163,3 @@ if executorch_opt.enabled()
   subdir('ops-executorch')
 endif
 
-if get_option('tests')
-  subdir('tests')
-endif
