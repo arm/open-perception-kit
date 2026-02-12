@@ -4,8 +4,8 @@ set -euo pipefail
 
 SERVICE_NAME1="amp-dev-base"
 SERVICE_NAME2="amp-dev-rich"
-OUT_COMPOSE1="${2:-.devcontainer/docker-compose.devcont.video.yaml}"
-OUT_COMPOSE2="${3:-.devcontainer/docker-compose.video.yaml}"
+OUT_COMPOSE1="${1:-.devcontainer/docker-compose.devcont.video.yaml}"
+OUT_COMPOSE2="${2:-.devcontainer/docker-compose.video.yaml}"
 OUT_ENV="${3:-.devcontainer/cameras.env}"
 
 V4L_DIR="/dev/v4l/by-id"

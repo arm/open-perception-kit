@@ -81,3 +81,5 @@ onnxruntime-linux-x64-*
 
 
 graphs/
+
+scripts/amp-menu

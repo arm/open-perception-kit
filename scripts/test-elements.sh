@@ -14,6 +14,11 @@ BUILD_DIR="$PROJECT_ROOT/build"
 msg() { printf '[%s] %b\n' "$(basename "$0")" "$*"; }
 need() { command -v "$1" >/dev/null 2>&1 || { echo "Missing tool: $1" >&2; exit 127; }; }
 setup_env() {
+    if [ ! -d "$BUILD_DIR" ]; then
+        msg_end_err "Error: directory $BUILD_DIR does not exist" >&2
+        exit 1
+    fi
+
     export GST_PLUGIN_PATH="$BUILD_DIR/meson-out"
     msg "GST_PLUGIN_PATH=$GST_PLUGIN_PATH"
 
@@ -63,11 +68,6 @@ onnx() {
 
   need gst-launch-1.0
 
-  if [ ! -d "$BUILD_DIR" ]; then
-    msg_end_err "Error: directory $BUILD_DIR does not exist" >&2
-    exit 1
-  fi
-
   setup_env
 
   msg "Running test pipeline.."
@@ -97,11 +97,6 @@ audio() {
 
   need gst-launch-1.0
 
-  if [ ! -d "$BUILD_DIR" ]; then
-    msg_end_err "Error: directory $BUILD_DIR does not exist" >&2
-    exit 1
-  fi
-
   setup_env
 
   msg "Running test pipeline.."
@@ -126,11 +121,6 @@ audio_internal_silence() {
 
     need gst-launch-1.0
 
-    if [ ! -d "$BUILD_DIR" ]; then
-        msg_end_err "Error: directory $BUILD_DIR does not exist" >&2
-        exit 1
-    fi
-
     setup_env
 
     msg "Running test pipeline.."
@@ -150,11 +140,6 @@ video() {
   msg_begin "Executing test with video...\n"
 
   need gst-launch-1.0
-
-  if [ ! -d "$BUILD_DIR" ]; then
-    msg_end_err "Error: directory $BUILD_DIR does not exist" >&2
-    exit 1
-  fi
 
   setup_env
 
@@ -176,7 +161,11 @@ video() {
 single_cam() {
   msg_begin "Executing test with camera...\n"
 
-  gst-launch-1.0 v4l2src device=/dev/video4 do-timestamp=true \
+  need gst-launch-1.0
+
+  setup_env
+
+  gst-launch-1.0 v4l2src device="$CAM0" do-timestamp=true \
       ! videoconvert ! videoscale \
       ! video/x-raw,width=640,height=480,framerate=30/1 \
       ! ampsink name=sink
@@ -187,17 +176,21 @@ single_cam() {
 multi_cam() {
   msg_begin "Executing test with multiple camera...\n"
 
+  need gst-launch-1.0
+
+  setup_env
+
   gst-launch-1.0 -e \
       compositor name=comp background=black \
           sink_0::xpos=0   sink_0::ypos=0 \
           sink_1::xpos=640 sink_1::ypos=0 \
           ! videoconvert ! ampsink name=sink \
-      v4l2src device=/dev/video0 do-timestamp=true \
+      v4l2src device="$CAM0" do-timestamp=true \
           ! videoconvert ! videoscale \
           ! video/x-raw,width=640,height=480,framerate=30/1 \
           ! queue max-size-time=200000000 \
           ! comp.sink_0 \
-      v4l2src device=/dev/video4 do-timestamp=true \
+      v4l2src device="$CAM1" do-timestamp=true \
           ! videoconvert ! videoscale \
           ! video/x-raw,width=640,height=480,framerate=30/1 \
           ! queue max-size-time=200000000 \

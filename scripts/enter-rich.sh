@@ -7,7 +7,9 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 cd "${REPO_ROOT}"
 
+CAM_ENV_FILE=".devcontainer/cameras.env"
+
 ./scripts/gen_cam.sh
 
-docker exec -it -u devgoblin --env-file .devcontainer/cameras.env -e TERM="$TERM" amp-dev-rich zsh
+docker exec -it -u devgoblin --env-file "${CAM_ENV_FILE}" -e TERM="$TERM" amp-dev-rich zsh
 
