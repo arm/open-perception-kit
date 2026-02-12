@@ -349,36 +349,40 @@ static std::unique_ptr<Osd::Layer> drawPerceptionLayer(GstAmpOsd *self,
             }
         }
 
-      drawGazeVectors(layer.get(), perception);
+        drawGazeVectors(layer.get(), perception);
 
-      if (inferLayer.contentType == "classification") {
-            // Draw classification results as a label list in lower-left corner
-            const auto fontSize = 14.0f;
-            const auto lineHeight = fontSize * 1.5f;
-            const auto numResults = inferDetections.rects.size();
+        if (inferLayer.contentType == "classification") {
+            for (const auto &det : inferLayer.detections) {
+                // Draw classification results as a label list in lower-left corner
+                const auto &classification = std::get<amp::Perception::Classification>(det);
 
-            // Calculate starting position (lower-left corner with padding)
-            const auto padding = 10.0f;
-            const auto startX = padding;
-            const auto startY = imgHeight - (numResults * lineHeight) - (2.0f * padding);
+                const auto fontSize = 14.0f;
+                const auto lineHeight = fontSize * 1.5f;
+                const auto numResults = inferLayer.detections.size();
 
-            for (auto i = 0U; i < inferDetections.rects.size(); ++i) {
-                const auto &result = inferDetections.rects[i];
+                // Calculate starting position (lower-left corner with padding)
+                const auto padding = 10.0f;
+                const auto startX = padding;
+                const auto startY = imgHeight - (numResults * lineHeight) - (2.0f * padding);
 
-                std::ostringstream oss;
-                oss << "#" << (i + 1U) << ": " << result.label << " (" << std::fixed
-                    << std::setprecision(1) << (result.confidence * 100.0f) << "%)";
+                for (auto i = 0U; i < classification.candidates.size(); ++i) {
+                    const auto &result = classification.candidates[i];
 
-                float textX = startX;
-                float textY = startY + i * lineHeight;
+                    std::ostringstream oss;
+                    oss << "#" << (i + 1U) << ": " << result.text << " (" << std::fixed
+                        << std::setprecision(1) << (result.confidence * 100.0f) << "%)";
 
-                Osd::Text::draw(*layer,
-                                Osd::Coordinate(textX, textY),
-                                oss.str(),
-                                Osd::Color("#ffffffff"),
-                                Osd::Color("#000000ff"),
-                                "monospace",
-                                fontSize);
+                    float textX = startX;
+                    float textY = startY + i * lineHeight;
+
+                    Osd::Text::draw(*layer,
+                                    Osd::Coordinate(textX, textY),
+                                    oss.str(),
+                                    amp::Colors::fromStringOrDefault("#ffffffff"),
+                                    amp::Colors::fromStringOrDefault("#000000ff"),
+                                    "monospace",
+                                    fontSize);
+                }
             }
         }
     }

@@ -1,6 +1,5 @@
 #include "postproc/ImageNetClassificationParser.h"
 #include "amp/Labels.h"
-#include "amp/PerceptionContext.h"
 
 #include <algorithm>
 #include <cmath>
@@ -28,7 +27,7 @@ static void softmax(const std::span<float> input, std::span<float> output) {
 }
 
 amp::Result<void> ImageNetClassificationParser::parse(const amp::TensorParser::Input &input,
-                                                      amp::RawDetectionLayer &detectionResult) {
+                                                      amp::Perception::Layer &detectionResult) {
 
     assert(input.tensors[0]);
 
@@ -70,23 +69,27 @@ amp::Result<void> ImageNetClassificationParser::parse(const amp::TensorParser::I
                           scoredIndices.end(),
                           std::greater<>());
 
-        detectionResult.rects.reserve(numResults);
+        amp::Perception::Classification classification;
+
+        classification.candidates.reserve(numResults);
         for (int i = 0; i < numResults; ++i) {
             const auto &[confidence, classIdx] = scoredIndices[i];
 
             // Store classification result as DetectionRect
             // x,y will be used to position the label in lower-right corner
             // w,h are not used for classification (no actual bounding box)
-            amp::DetectionRect detection;
-            detection.x = 0.0f;                  // Position will be calculated by renderer
-            detection.y = static_cast<float>(i); // Store index for rendering
-            detection.w = 0.0f;                  // Not used
-            detection.h = 0.0f;                  // Not used
-            detection.confidence = confidence;
-            detection.label = theImageNetLabels[classIdx];
+            amp::Perception::Classification::Candidate candidate;
+            candidate.x = 0.0f;                  // Position will be calculated by renderer
+            candidate.y = static_cast<float>(i); // Store index for rendering
+            candidate.w = 0.0f;                  // Not used
+            candidate.h = 0.0f;                  // Not used
+            candidate.confidence = confidence;
+            candidate.text = theImageNetLabels[classIdx];
 
-            detectionResult.rects.push_back(detection);
+            classification.candidates.push_back(candidate);
         }
+
+        detectionResult.detections.push_back(classification);
     }
 
     return {};
