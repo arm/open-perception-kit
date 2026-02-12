@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+
+CAM0=${CAM0:-""}
+CAM1=${CAM1:-""}
+
 set -euo pipefail
 
 # ---- include ----
@@ -14,6 +18,11 @@ BUILD_DIR="$PROJECT_ROOT/build"
 msg() { printf '[%s] %b\n' "$(basename "$0")" "$*"; }
 need() { command -v "$1" >/dev/null 2>&1 || { echo "Missing tool: $1" >&2; exit 127; }; }
 setup_env() {
+    if [ ! -d "$BUILD_DIR" ]; then
+        msg_end_err "Error: directory $BUILD_DIR does not exist" >&2
+        exit 1
+    fi
+
     export GST_PLUGIN_PATH="$BUILD_DIR/meson-out"
     msg "GST_PLUGIN_PATH=$GST_PLUGIN_PATH"
 
@@ -63,11 +72,6 @@ onnx() {
 
   need gst-launch-1.0
 
-  if [ ! -d "$BUILD_DIR" ]; then
-    msg_end_err "Error: directory $BUILD_DIR does not exist" >&2
-    exit 1
-  fi
-
   setup_env
 
   msg "Running test pipeline.."
@@ -97,11 +101,6 @@ audio() {
 
   need gst-launch-1.0
 
-  if [ ! -d "$BUILD_DIR" ]; then
-    msg_end_err "Error: directory $BUILD_DIR does not exist" >&2
-    exit 1
-  fi
-
   setup_env
 
   msg "Running test pipeline.."
@@ -126,11 +125,6 @@ audio_internal_silence() {
 
     need gst-launch-1.0
 
-    if [ ! -d "$BUILD_DIR" ]; then
-        msg_end_err "Error: directory $BUILD_DIR does not exist" >&2
-        exit 1
-    fi
-
     setup_env
 
     msg "Running test pipeline.."
@@ -151,11 +145,6 @@ video() {
 
   need gst-launch-1.0
 
-  if [ ! -d "$BUILD_DIR" ]; then
-    msg_end_err "Error: directory $BUILD_DIR does not exist" >&2
-    exit 1
-  fi
-
   setup_env
 
   msg "Running test pipeline.."
@@ -173,18 +162,66 @@ video() {
   msg_end "Pipeline finished."
 }
 
+single_cam() {
+  msg_begin "Executing test with camera...\n"
+
+  need gst-launch-1.0
+
+  setup_env
+
+  gst-launch-1.0 v4l2src device="$CAM0" do-timestamp=true \
+      ! videoconvert ! videoscale \
+      ! video/x-raw,width=640,height=480,framerate=30/1 \
+      ! ampsink name=sink
+
+  msg_end "Pipeline finished."
+}
+
+multi_cam() {
+  msg_begin "Executing test with multiple cameras...\n"
+
+  need gst-launch-1.0
+
+  setup_env
+
+  gst-launch-1.0 -e \
+      compositor name=comp background=black \
+          sink_0::xpos=0   sink_0::ypos=0 \
+          sink_1::xpos=640 sink_1::ypos=0 \
+          ! videoconvert ! ampsink name=sink \
+      v4l2src device="$CAM0" do-timestamp=true \
+          ! videoconvert ! videoscale \
+          ! video/x-raw,width=640,height=480,framerate=30/1 \
+          ! queue max-size-time=200000000 \
+          ! comp.sink_0 \
+      v4l2src device="$CAM1" do-timestamp=true \
+          ! videoconvert ! videoscale \
+          ! video/x-raw,width=640,height=480,framerate=30/1 \
+          ! queue max-size-time=200000000 \
+          ! comp.sink_1
+  msg_end "Pipeline finished."
+}
+
 # ---- help ----
 usage() {
   cat <<EOF
 
 Commands:
-  onnx ➡️ Run yolov8n test using onnx framework.
-  onnx_rgb ➡️ Run yolov8n int8 test using onnx framework with rgb.
-  audio ➡️ Run the audio test.
-  audio_internal_silence ➡️ Run the audio test with internal silence generator.
-  video ➡️ Run the video test.
-
+  onnx                      ➡️ Run yolov8n test using onnx framework.
+  onnx_rgb                  ➡️ Run yolov8n int8 test using onnx framework with rgb.
+  audio                     ➡️ Run the audio test.
+  audio_internal_silence    ➡️ Run the audio test with internal silence generator.
+  video                     ➡️ Run the video test.
 EOF
+
+if [[ -n "${CAM0}" ]]; then
+  echo "  single_cam                ➡️ Run test using a ${CAM0} cam"
+
+  if [[ -n "${CAM1}" ]]; then
+      echo "  multi_cam                 ➡️ Run test using a ${CAM0} and ${CAM1} cam"
+  fi
+fi
+
 }
 
 # ---- entrypoint ----
@@ -196,6 +233,8 @@ case "$cmd" in
   audio) audio ;;
   audio_internal_silence) audio_internal_silence ;;
   video) video ;;
+  single_cam) single_cam ;;
+  multi_cam) multi_cam ;;
   *)
     echo "Unknown command: $cmd" >&2
     usage >&2

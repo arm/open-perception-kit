@@ -46,7 +46,7 @@ RUN set -eux; \
 RUN set -eux; \
   apt-get install -y --no-install-recommends \
     libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-bad gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
-    gstreamer1.0-nice
+    gstreamer1.0-nice v4l-utils
 
 # libav can sometimes be the troublemaker; probe then install
 RUN set -eux; \

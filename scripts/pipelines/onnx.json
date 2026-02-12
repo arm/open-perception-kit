@@ -1,0 +1,17 @@
+{
+    "description": "Test ONNX pipeline",
+    "pipeline": [
+
+      "filesrc location=/work/etc/images/katana.jpg !",
+      "jpegdec !",
+      "imagefreeze !",
+      "videoconvert ! video/x-raw,format=BGRA !",
+          "ampinfer opchain-path=/work/etc/models/yolo/opchain.json active=true !",
+          "ampinfer opchain-path=/work/etc/models/ultraface/opchain.json active=true !",
+          "ampinfer opchain-path=/work/etc/models/personclassification/opchain.json active=true !",
+          "ampinfer opchain-path=/work/etc/models/gazedetection/opchain.json active=true !",
+          "ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
+          "amposd enabled=true !",
+          "ampsink name=sink"
+        ]
+}
