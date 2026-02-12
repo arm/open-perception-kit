@@ -16,15 +16,15 @@ amp::Result<void> InferenceOp::bind(size_t index, const std::vector<amp::Op *> &
 }
 
 amp::Result<void> InferenceOp::configure(const amp::AttributeMap &attributes) {
-
     std::string modelDescPath;
 
     try {
         modelDescPath = attributes.getString("modelDescriptor");
     } catch (const amp::AttributeError &error) {
-        return tl::unexpect(AMP_ERROR(
-            amp::ErrorFlag::InvalidOpChain,
-            fmt::format("Missing required attribute in InferenceOp, mandatory: modelDescriptor")));
+
+        return tl::unexpected(
+            AMP_ERROR(amp::ErrorFlag::InvalidOpChain,
+                      fmt::format("Missing required attribute in InferenceOp: {}", error.what())));
     }
 
     try {
@@ -35,9 +35,11 @@ amp::Result<void> InferenceOp::configure(const amp::AttributeMap &attributes) {
             return setupResult;
         }
     } catch (const std::exception &e) {
-        return tl::unexpect(AMP_ERROR(amp::ErrorFlag::OnnxStartupException,
-                                      fmt::format("OnnxRT startup error: {}", e.what())));
+        return tl::unexpected(AMP_ERROR(amp::ErrorFlag::OnnxStartupException,
+                                        fmt::format("OnnxRT startup error: {}", e.what())));
     }
+
+    // modelFamily = inference->getModel().modelFamily;
 
     return {};
 }

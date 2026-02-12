@@ -27,10 +27,6 @@ Key objectives:
 - Allow remote pipeline usage via WebRTC while execution runs inside a container.
 - Ensure reliability through automated integration testing.
 
----
-
-# 🎥 Media Focus
-
 The current system primarily supports:
 
 - Video-based inference pipelines
