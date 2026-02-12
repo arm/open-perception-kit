@@ -31,7 +31,7 @@ class ModelsManager {
             return;
         }
 
-        // Sort models by model_name for consistent display
+        // Sort models by name (which is the model_name) for consistent display
         const sortedModels = [...models].sort((a, b) => 
             a.name.localeCompare(b.name)
         );
@@ -49,8 +49,6 @@ class ModelsManager {
     createModelItem(model) {
         const item = document.createElement('div');
         item.className = 'model-item';
-        item.dataset.modelName = model.model_name;
-        item.dataset.elementName = model.element_name;
 
         const statusClass = model.active ? 'active' : 'inactive';
         const buttonClass = model.active ? 'disable' : 'enable';
@@ -83,7 +81,7 @@ class ModelsManager {
         button.style.cursor = 'not-allowed';
 
         const newActiveState = !model.active;
-        console.log(`Toggle model: ${model.model_name} from ${model.active} to ${newActiveState}`);
+        console.log(`Toggle model: ${model.name} from ${model.active} to ${newActiveState}`);
         
         try {
 

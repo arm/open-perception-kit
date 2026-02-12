@@ -1,0 +1,20 @@
+{
+    "description": "Test AmpSink with multiple camera",
+    "pipeline": [
+
+      "compositor name=comp background=black ",
+          "sink_0::xpos=0   sink_0::ypos=0 ",
+          "sink_1::xpos=640 sink_1::ypos=0 ",
+          "! videoconvert ! ampsink name=sink ",
+      "v4l2src device=${CAM0:-/dev/video0} do-timestamp=true ",
+          "! videoconvert ! videoscale ",
+          "! video/x-raw,width=640,height=480,framerate=30/1 ",
+          "! queue max-size-time=200000000 ",
+          "! comp.sink_0 ",
+      "v4l2src device=${CAM1?CAM1 must be set} do-timestamp=true ",
+          "! videoconvert ! videoscale ",
+          "! video/x-raw,width=640,height=480,framerate=30/1 ",
+          "! queue max-size-time=200000000 ",
+          "! comp.sink_1"
+    ]
+}

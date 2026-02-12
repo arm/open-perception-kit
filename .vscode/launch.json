@@ -2,21 +2,11 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "onnx",
+            "name": "AMP",
             "type": "cppdbg",
             "request": "launch",
-            "program": "/usr/bin/gst-launch-1.0",
-            "args": [
-                "filesrc", "location=/work/etc/images/katana.jpg", "!",
-                "jpegdec", "!",
-                "videoconvert", "!", "video/x-raw,format=BGRA", "!",
-                "ampinfer", "opchain-path=/work/etc/models/ultraface/opchain.json", "active=true", "!",
-                "ampinfer", "opchain-path=/work/etc/models/gazedetection/for-all-faces-opchain.json", "active=true", "!",
-                "ampinfer", "opchain-path=/work/etc/models/yolo/opchain.json", "active=true", "!",
-                "ampinfer", "opchain-path=/work/etc/models/paddleocr/opchain.json", "active=true", "!",
-                "amposd", "enabled=true", "!",
-                "videoconvert", "!", "pngenc", "!", "filesink", "location=/work/var/result.png"
-            ],
+            "program": "/work/scripts/amp-menu",
+            "args": ["-l"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [
