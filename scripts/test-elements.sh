@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+
+CAM0=${CAM0:-""}
+CAM1=${CAM1:-""}
+
 set -euo pipefail
 
 # ---- include ----
@@ -174,7 +178,7 @@ single_cam() {
 }
 
 multi_cam() {
-  msg_begin "Executing test with multiple camera...\n"
+  msg_begin "Executing test with multiple cameras...\n"
 
   need gst-launch-1.0
 
@@ -208,10 +212,16 @@ Commands:
   audio                     ➡️ Run the audio test.
   audio_internal_silence    ➡️ Run the audio test with internal silence generator.
   video                     ➡️ Run the video test.
-  single_cam                ➡️ Run test using a /dev/video0 cam  
-  multi_cam                 ➡️ Run test using a /dev/video0 and /dev/video4 cam  
-
 EOF
+
+if [[ -n "${CAM0}" ]]; then
+  echo "  single_cam                ➡️ Run test using a ${CAM0} cam"
+
+  if [[ -n "${CAM1}" ]]; then
+      echo "  multi_cam                 ➡️ Run test using a ${CAM0} and ${CAM1} cam"
+  fi
+fi
+
 }
 
 # ---- entrypoint ----
