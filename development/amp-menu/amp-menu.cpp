@@ -14,7 +14,6 @@
 #include <unistd.h>
 #include <unordered_map>
 #include <vector>
-#include <wordexp.h>
 
 #include <nlohmann/json.hpp>
 
@@ -178,37 +177,6 @@ static std::optional<int> read_choice_int() {
     if (v < std::numeric_limits<int>::min() || v > std::numeric_limits<int>::max())
         return std::nullopt;
     return static_cast<int>(v);
-}
-
-// Execvp from a vector<string>. On success this does not return.
-static int exec_from_args(const std::vector<std::string> &args) {
-    if (args.empty()) {
-        std::cerr << "No args\n";
-        return 1;
-    }
-    std::vector<char *> argv;
-    argv.reserve(args.size() + 1);
-    // duplicate strings into heap (mutable C-strings)
-    std::vector<char *> allocated;
-    allocated.reserve(args.size());
-    for (const auto &s : args) {
-        char *c = strdup(s.c_str());
-        if (!c) {
-            perror("strdup");
-            for (char *p : allocated)
-                free(p);
-            return 127;
-        }
-        allocated.push_back(c);
-        argv.push_back(c);
-    }
-    argv.push_back(nullptr);
-    execvp(argv[0], argv.data());
-    // if execvp returned, it failed
-    perror("execvp");
-    for (char *p : allocated)
-        free(p);
-    return 127;
 }
 
 int run_gst_launch(const std::string &pipeline, bool dry_run) {
