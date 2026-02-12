@@ -1,9 +1,10 @@
 #pragma once
 
+#include <array>
 #include <string>
 
-extern const char *theImageNetLabels[];
-extern const char *theCocoLbels[];
+extern const std::array<const char *, 1001U> theImageNetLabels;
+extern const std::array<const char *, 80U> theCocoLbels;
 
 namespace amp {
 
@@ -11,20 +12,18 @@ enum class LabelType { ImageNet, Coco };
 
 struct Labels {
 
-    static size_t getLabelCount(LabelType labelType) {
-
+    static constexpr size_t getLabelCount(LabelType labelType) {
         switch (labelType) {
         case LabelType::ImageNet:
-            return 79;
+            return std::tuple_size_v<decltype(theImageNetLabels)>;
         case LabelType::Coco:
-            return 1000;
+            return std::tuple_size_v<decltype(theCocoLbels)>;
         };
-        return 0;
+        return 0U;
     }
 
     static std::string getLabel(LabelType labelType, size_t index) {
-        size_t count = getLabelCount(labelType);
-        if (index >= count)
+        if (index >= getLabelCount(labelType))
             return "";
 
         switch (labelType) {
