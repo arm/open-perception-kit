@@ -9,7 +9,6 @@
 
 #include "amp/BitmapView.h"
 #include "amp/Perception.h"
-#include "amp/PerceptionContext.h"
 #include "amp/Types.h"
 #include "glib-object.h"
 #include "glib.h"
@@ -109,7 +108,9 @@ static gboolean gst_ampinfer_start(GstBaseTransform *b) {
 
     auto setupResult = self->m->setupOpChainFromJson(self->opChainPath);
     if (!setupResult) {
-        fmt::print("Error while setting up op-chain: {}\n", setupResult.error().toString());
+        fmt::print("Error while setting up op-chain [{}]: {}\n",
+                   self->opChainPath,
+                   setupResult.error().toString());
         AMP_ABORT;
     }
 

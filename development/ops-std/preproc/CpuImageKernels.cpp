@@ -1,4 +1,5 @@
 #include "preproc/CpuImageKernels.h"
+#include "amp/Types.h"
 
 using namespace amp;
 
@@ -9,11 +10,13 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(const uint8_t *src,
                                                           float *dst,
                                                           size_t dstWidth,
                                                           size_t dstHeight,
+                                                          const Colorf &mean,
+                                                          const Colorf &std,
                                                           Sampling sampling) {
     Rect srcRect = {0, 0, srcWidth, srcHeight};
     Rect dstRect = {0, 0, dstWidth, dstHeight};
     return StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(
-        src, srcWidth, srcHeight, srcRect, dst, dstWidth, dstHeight, dstRect, sampling);
+        src, srcWidth, srcHeight, srcRect, dst, dstWidth, dstHeight, dstRect, mean, std, sampling);
 }
 
 bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const uint8_t *src,
@@ -24,6 +27,8 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const uint8_t *src,
                                                           size_t dstWidth,
                                                           size_t dstHeight,
                                                           const ImageOps::Rect &dstRect,
+                                                          const Colorf &mean,
+                                                          const Colorf &std,
                                                           Sampling sampling) {
     if (!src || !dst)
         return false;
@@ -43,24 +48,63 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const uint8_t *src,
     const size_t planeSize = H * W;
 
     // nearest-neighbour sampling stretch from srcRect to dstRect, CHW layout
-    for (size_t dy = 0; dy < dstRect.h; ++dy) {
-        const size_t sy = srcRect.y + (dy * srcRect.h) / dstRect.h;
-        const size_t dyi = dstRect.y + dy;
 
-        for (size_t dx = 0; dx < dstRect.w; ++dx) {
-            const size_t sx = srcRect.x + (dx * srcRect.w) / dstRect.w;
-            const size_t dxi = dstRect.x + dx;
+    if (amp::MeanStd::isDefaultMean(mean) && amp::MeanStd::isDefaultStd(std)) {
+        // default mean/std
+        for (size_t dy = 0; dy < dstRect.h; ++dy) {
+            const size_t sy = srcRect.y + (dy * srcRect.h) / dstRect.h;
+            const size_t dyi = dstRect.y + dy;
 
-            // source: BGRA interleaved, HWC
-            const size_t srcIndexRGB = (sy * srcWidth + sx) * 4;
-            const uint8_t *p = in + srcIndexRGB;
+            for (size_t dx = 0; dx < dstRect.w; ++dx) {
+                const size_t sx = srcRect.x + (dx * srcRect.w) / dstRect.w;
+                const size_t dxi = dstRect.x + dx;
 
-            // CHW destination
-            const size_t hwIndex = dyi * W + dxi;
+                // source: BGRA interleaved, HWC
+                const size_t srcIndexRGB = (sy * srcWidth + sx) * 4;
+                const uint8_t *p = in + srcIndexRGB;
 
-            out[0 * planeSize + hwIndex] = p[2] * inv255; // R channel
-            out[1 * planeSize + hwIndex] = p[1] * inv255; // G channel
-            out[2 * planeSize + hwIndex] = p[0] * inv255; // B channel
+                // CHW destination
+                const size_t hwIndex = dyi * W + dxi;
+
+                out[0 * planeSize + hwIndex] = p[2] * inv255; // R channel
+                out[1 * planeSize + hwIndex] = p[1] * inv255; // G channel
+                out[2 * planeSize + hwIndex] = p[0] * inv255; // B channel
+            }
+        }
+    } else {
+        // non-default mean/std: (x - mean) / std, where x is in [0,1]
+        const auto [meanR, meanG, meanB, meanA] = mean;
+        const auto [stdR, stdG, stdB, stdA] = std;
+        (void)meanA;
+        (void)stdA;
+
+        // Guard against division by zero (or near-zero) std
+        constexpr float eps = 1e-12f;
+        const float invStdR = 1.0f / std::max(stdR, eps);
+        const float invStdG = 1.0f / std::max(stdG, eps);
+        const float invStdB = 1.0f / std::max(stdB, eps);
+
+        for (size_t dy = 0; dy < dstRect.h; ++dy) {
+            const size_t sy = srcRect.y + (dy * srcRect.h) / dstRect.h;
+            const size_t dyi = dstRect.y + dy;
+
+            for (size_t dx = 0; dx < dstRect.w; ++dx) {
+                const size_t sx = srcRect.x + (dx * srcRect.w) / dstRect.w;
+                const size_t dxi = dstRect.x + dx;
+
+                const size_t srcIndex = (sy * srcWidth + sx) * 4;
+                const uint8_t *p = in + srcIndex;
+
+                const size_t hwIndex = dyi * W + dxi;
+
+                const float r01 = p[2] * inv255; // BGRA -> R
+                const float g01 = p[1] * inv255; //        G
+                const float b01 = p[0] * inv255; //        B
+
+                out[0 * planeSize + hwIndex] = (r01 - meanR) * invStdR;
+                out[1 * planeSize + hwIndex] = (g01 - meanG) * invStdG;
+                out[2 * planeSize + hwIndex] = (b01 - meanB) * invStdB;
+            }
         }
     }
 
@@ -75,6 +119,8 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(const uint8_t *src,
                                                         size_t dstWidth,
                                                         size_t dstHeight,
                                                         const ImageOps::Rect &dstRect,
+                                                        const Colorf &mean,
+                                                        const Colorf &std,
                                                         Sampling sampling) {
     if (!src || !dst)
         return false;
@@ -126,11 +172,14 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Hwc(const uint8_t *src,
                                                         float *dst,
                                                         size_t dstWidth,
                                                         size_t dstHeight,
+                                                        const Colorf &mean,
+                                                        const Colorf &std,
+
                                                         Sampling sampling) {
     Rect srcRect = {0, 0, srcWidth, srcHeight};
     Rect dstRect = {0, 0, dstWidth, dstHeight};
     return StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(
-        src, srcWidth, srcHeight, srcRect, dst, dstWidth, dstHeight, dstRect, sampling);
+        src, srcWidth, srcHeight, srcRect, dst, dstWidth, dstHeight, dstRect, mean, std, sampling);
 }
 
 bool ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Chw(const uint8_t *src,
@@ -139,11 +188,13 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Chw(const uint8_t *src,
                                                         float *dst,
                                                         size_t dstWidth,
                                                         size_t dstHeight,
+                                                        const Colorf &mean,
+                                                        const Colorf &std,
                                                         Sampling sampling) {
     Rect srcRect = {0, 0, srcWidth, srcHeight};
     Rect dstRect = {0, 0, dstWidth, dstHeight};
     return StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(
-        src, srcWidth, srcHeight, srcRect, dst, dstWidth, dstHeight, dstRect, sampling);
+        src, srcWidth, srcHeight, srcRect, dst, dstWidth, dstHeight, dstRect, mean, std, sampling);
 }
 
 bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(const uint8_t *src,
@@ -154,6 +205,9 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(const uint8_t *src,
                                                         size_t dstWidth,
                                                         size_t dstHeight,
                                                         const ImageOps::Rect &dstRect,
+                                                        const Colorf &mean,
+                                                        const Colorf &std,
+
                                                         Sampling sampling) {
     if (!src || !dst)
         return false;
@@ -257,6 +311,8 @@ bool ImageOps::StrechBlit_Rgb8_Rect_Rgb8_Rect(const uint8_t *src,
                                               size_t dstWidth,
                                               size_t dstHeight,
                                               const Rect &dstRect,
+                                              const Colorf &mean,
+                                              const Colorf &std,
                                               Sampling sampling) {
     if (!src || !dst)
         return false;
@@ -293,11 +349,13 @@ bool ImageOps::StrechBlit_Rgb8_Full_Rgb8_Full(const uint8_t *src,
                                               uint8_t *dst,
                                               size_t dstWidth,
                                               size_t dstHeight,
+                                              const Colorf &mean,
+                                              const Colorf &std,
                                               Sampling sampling) {
     Rect srcRect = {0, 0, srcWidth, srcHeight};
     Rect dstRect = {0, 0, dstWidth, dstHeight};
     return StrechBlit_Rgb8_Rect_Rgb8_Rect(
-        src, srcWidth, srcHeight, srcRect, dst, dstWidth, dstHeight, dstRect, sampling);
+        src, srcWidth, srcHeight, srcRect, dst, dstWidth, dstHeight, dstRect, mean, std, sampling);
 }
 
 bool ImageOps::Clear_Rgb8(

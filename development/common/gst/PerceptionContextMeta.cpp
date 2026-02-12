@@ -1,4 +1,3 @@
-#include "PerceptionContextMeta.h"
 #include "GstMetaWrapper.cpp"
 
 namespace amp {

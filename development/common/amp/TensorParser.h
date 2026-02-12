@@ -2,7 +2,6 @@
 
 #include "amp/AttributeMap.h"
 #include "amp/Perception.h"
-#include "amp/PerceptionContext.h"
 #include "amp/Result.h"
 #include "amp/TensorView.h"
 

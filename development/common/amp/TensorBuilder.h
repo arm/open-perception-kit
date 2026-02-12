@@ -1,5 +1,6 @@
 #pragma once
 
+#include "amp/Color.h"
 #include "amp/Result.h"
 #include "amp/Types.h"
 
@@ -22,6 +23,9 @@ struct TensorBuilder {
 
         DataKind kind = DataKind::Unknown;
         amp::Tdt type = amp::Tdt::Float32;
+
+        amp::Colorf mean = {0.0f, 0.0f, 0.0f, 0.0f};
+        amp::Colorf std = {1.0f, 1.0f, 1.0f, 1.0f};
     };
 
     struct ImageDestination {

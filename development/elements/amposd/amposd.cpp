@@ -305,6 +305,11 @@ static void drawGazeVectors(Osd::Layer *layer, const amp::Perception &perception
         float yaw = yp.yaw;
         float pitch = yp.pitch;
 
+        // if(yp.confidence < 0.1f) continue;
+
+        if (yaw < 0.1f && pitch < 0.1f && yaw > -0.1f && pitch > -0.1f)
+            continue;
+
         float xEnd, yEnd;
         gazeEndpoint(x, y, yaw, pitch, 120, xEnd, yEnd);
         Osd::Arrow::draw(*layer, {x, y}, {xEnd, yEnd}, amp::Colors::lightGoldenrodYellow);

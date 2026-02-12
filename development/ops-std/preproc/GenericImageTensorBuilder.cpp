@@ -41,7 +41,9 @@ amp::Result<void> amp::GenericImageTensorBuilder::build(const TensorBuilder::Set
                                                                       (float *)dst,
                                                                       dstFullWidth,
                                                                       dstFullHeight,
-                                                                      dstRect);
+                                                                      dstRect,
+                                                                      setup.imageSource.mean,
+                                                                      setup.imageSource.std);
         }
     }
 
@@ -50,8 +52,14 @@ amp::Result<void> amp::GenericImageTensorBuilder::build(const TensorBuilder::Set
 
         if (setup.imageSource.type == amp::Tdt::Uint8 &&
             setup.imageDestination.type == amp::Tdt::Float32) {
-            amp::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Chw(
-                src, srcWidth, srcHeight, (float *)dst, dstWidth, dstHeight);
+            amp::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Chw(src,
+                                                                    srcWidth,
+                                                                    srcHeight,
+                                                                    (float *)dst,
+                                                                    dstWidth,
+                                                                    dstHeight,
+                                                                    setup.imageSource.mean,
+                                                                    setup.imageSource.std);
         }
     }
 
@@ -60,8 +68,14 @@ amp::Result<void> amp::GenericImageTensorBuilder::build(const TensorBuilder::Set
 
         if (setup.imageSource.type == amp::Tdt::Uint8 &&
             setup.imageDestination.type == amp::Tdt::Float32) {
-            amp::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Hwc(
-                src, srcWidth, srcHeight, (float *)dst, dstWidth, dstHeight);
+            amp::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Hwc(src,
+                                                                    srcWidth,
+                                                                    srcHeight,
+                                                                    (float *)dst,
+                                                                    dstWidth,
+                                                                    dstHeight,
+                                                                    setup.imageSource.mean,
+                                                                    setup.imageSource.std);
         }
     }
 

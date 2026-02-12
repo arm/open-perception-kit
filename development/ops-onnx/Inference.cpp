@@ -1,6 +1,6 @@
 #include "Inference.h"
 
-#include "amp/PerceptionContext.h"
+#include "amp/Perception.h"
 #include "amp/Result.h"
 #include "amp/Shape.h"
 #include "amp/String.h"

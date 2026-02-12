@@ -1,6 +1,5 @@
 #include "postproc/UltrafaceParser.h"
 #include "amp/Perception.h"
-#include "amp/PerceptionContext.h"
 
 #include <algorithm>
 #include <cmath>
@@ -97,7 +96,7 @@ struct Anchor {
     float cx, cy, w, h;
 };
 
-static std::vector<Anchor> generateAnchors(size_t image_w, size_t image_h) {
+/*static std::vector<Anchor> generateAnchors(size_t image_w, size_t image_h) {
     assert(image_w == 320);
     assert(image_h == 240);
 
@@ -154,6 +153,79 @@ static std::vector<Anchor> generateAnchors(size_t image_w, size_t image_h) {
                 return 1.0f;
             return v;
         };
+        a.cx = clamp01(a.cx);
+        a.cy = clamp01(a.cy);
+        a.w = clamp01(a.w);
+        a.h = clamp01(a.h);
+    }
+
+    // priors.size() should be 4420 here for 320x240
+    return priors;
+}*/
+
+static std::vector<Anchor> generateAnchors(size_t image_w, size_t image_h) {
+    assert(image_w == 320);
+    assert(image_h == 240);
+
+    // Feature map sizes (often computed with ceil(image/stride))
+    const int feature_map_w[4] = {40, 20, 10, 5};
+    const int feature_map_h[4] = {30, 15, 8, 4};
+
+    // Strides (shrinkage) per feature level (UltraFace typical)
+    const int shrinkage_w[4] = {8, 16, 32, 64};
+    const int shrinkage_h[4] = {8, 16, 32, 64};
+
+    // min_boxes per feature level (same order as Python)
+    const int min_boxes[4][3] = {
+        {10, 16, 24},   // level 0  (3 anchors)
+        {32, 48, -1},   // level 1  (2 anchors, ignore -1)
+        {64, 96, -1},   // level 2  (2 anchors, ignore -1)
+        {128, 192, 256} // level 3  (3 anchors)
+    };
+
+    std::vector<Anchor> priors;
+    priors.reserve(4420); // known count for 320x240
+
+    for (int k = 0; k < 4; ++k) {
+        const int fm_w = feature_map_w[k];
+        const int fm_h = feature_map_h[k];
+
+        // IMPORTANT:
+        // Use image/stride as the normalization scale (not fm_w/fm_h),
+        // because fm sizes are often ceil(image/stride) and using fm_* directly
+        // can bias anchor centers (often showing up as slight down/right shifts).
+        const float scale_w = static_cast<float>(image_w) / static_cast<float>(shrinkage_w[k]);
+        const float scale_h = static_cast<float>(image_h) / static_cast<float>(shrinkage_h[k]);
+
+        for (int j = 0; j < fm_h; ++j) {     // over height
+            for (int i = 0; i < fm_w; ++i) { // over width
+                const float cx = (static_cast<float>(i) + 0.5f) / scale_w;
+                const float cy = (static_cast<float>(j) + 0.5f) / scale_h;
+
+                // add anchors of different sizes at this location
+                for (int mb_idx = 0; mb_idx < 3; ++mb_idx) {
+                    const int box = min_boxes[k][mb_idx];
+                    if (box <= 0)
+                        continue; // skip unused slots (-1)
+
+                    const float w = static_cast<float>(box) / static_cast<float>(image_w);
+                    const float h = static_cast<float>(box) / static_cast<float>(image_h);
+
+                    priors.push_back(Anchor{cx, cy, w, h});
+                }
+            }
+        }
+    }
+
+    // Optional: clamp to [0,1] like the original code
+    auto clamp01 = [](float v) {
+        if (v < 0.0f)
+            return 0.0f;
+        if (v > 1.0f)
+            return 1.0f;
+        return v;
+    };
+    for (auto &a : priors) {
         a.cx = clamp01(a.cx);
         a.cy = clamp01(a.cy);
         a.w = clamp01(a.w);
@@ -277,6 +349,13 @@ amp::Result<void> amp::UltraFaceParser::parse(const amp::TensorParser::Input &in
         dr.width = x2 - x1;
         dr.height = y2 - y1;
         dr.confidence = face;
+
+        // maybe this would be more correct, because face is a logit
+        /*float m = std::max(face, notFace);
+        float ef = std::exp(face - m);
+        float eb = std::exp(notFace - m);
+        float p_face = ef / (ef + eb);
+        dr.confidence = p_face;*/
         dr.text = "";
 
         detectionResult.detections.push_back(dr);
@@ -285,19 +364,6 @@ amp::Result<void> amp::UltraFaceParser::parse(const amp::TensorParser::Input &in
     // detectionResult.rects = nonMaxSuppression(detectionResult.rects, 0.6f, 0.01f);
     detectionResult.detections =
         nonMaxSuppression(detectionResult.detections, confThreshold, iouThreshold);
-
-    // HACK remove if Perception replaces PerceptionContext
-    /*    for (const auto &dr : detectionResult.detections) {
-            amp::TensorParser::Input &ncInput = const_cast<amp::TensorParser::Input &>(input);
-            Perception::Rect faceRect;
-            faceRect.x = dr.x;
-            faceRect.y = dr.y;
-            faceRect.w = dr.w;
-            faceRect.h = dr.h;
-            ncInput.perceptionLayer.detections.push_back(faceRect);
-            // fmt::print("ultraface: {} {} {} {}\n", dr.x, dr.y, dr.w, dr.h);
-        }*/
-    // HACK
 
     detectionResult.contentType = "human-face";
 

@@ -1,6 +1,5 @@
 #include "postproc/PersonClassificationParser.h"
 #include "amp/Perception.h"
-#include "amp/PerceptionContext.h"
 
 #include <cmath>
 #include <cstdint>

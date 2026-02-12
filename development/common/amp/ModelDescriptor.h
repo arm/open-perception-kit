@@ -8,9 +8,12 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
+#include "amp/Color.h"
 #include "amp/Result.h"
 
 using nlohmann::json;
+
+// namespace amp {
 
 struct TensorDescriptor {
     amp::Shape shape{}; // if this is missing, system tries to discover it using onnx
@@ -19,6 +22,7 @@ struct TensorDescriptor {
     amp::Tdt tdt = amp::Tdt::Float32;
     float zeroPoint = 0.0f;
     float scale = 1.0f;
+    amp::Colorf mean = {0.0f, 0.0f, 0.0f, 0.0f}, std = {1.0f, 1.0f, 1.0f, 1.0f};
 
     std::vector<float> valueInputs;
 };
@@ -51,6 +55,8 @@ inline void to_json(json &j, const TensorDescriptor &b) {
         {"valueType", b.tdt},
         {"zeroPoint", b.zeroPoint},
         {"scale", b.scale},
+        {"mean", b.mean},
+        {"std", b.std},
         {"dataKind", b.dataKind},
         {"valueInputs", b.valueInputs},
     };
@@ -62,6 +68,8 @@ inline void from_json(const json &j, TensorDescriptor &b) {
     b.tdt = j.value("valueType", amp::Tdt::Float32);
     b.zeroPoint = j.value("zeroPoint", 0.0f);
     b.scale = j.value("scale", 1.0f);
+    b.mean = j.value("mean", amp::Colorf{0.0f, 0.0f, 0.0f, 0.0f});
+    b.std = j.value("std", amp::Colorf{1.0f, 1.0f, 1.0f, 1.0f});
     j.at("dataKind").get_to(b.dataKind);
     //    b.dataKind = j.value("dataKind", amp::DataKind::Unknown);
     b.valueInputs = j.value("valueInputs", std::vector<float>{});
@@ -86,3 +94,4 @@ inline void from_json(const json &j, ModelDescriptor &b) {
     b.outputTensors = j.value("outputTensors", std::vector<TensorDescriptor>{});
     j.at("dynamicOutput").get_to(b.dynamicOutput);
 }
+//}

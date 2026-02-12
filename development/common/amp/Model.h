@@ -19,6 +19,7 @@ struct ModelInput {
     amp::Shape shape{};
     int batch = 0;
     amp::QuantizationArgs quantArguments;
+    amp::Colorf mean = {0.0f, 0.0f, 0.0f, 0.0f}, std = {1.0f, 1.0f, 1.0f, 1.0f};
 
     bool tryGetImageTensorSize(size_t &outWidht, size_t &outHeight) {
         if (shape.dimensionCount == 4) {
@@ -169,6 +170,10 @@ struct Model {
                     }
                 }
             }
+
+            // set mean and std
+            this->inputs[i].mean = modelDescriptor.inputTensors[i].mean;
+            this->inputs[i].std = modelDescriptor.inputTensors[i].std;
         }
 
         // OUTPUT tensors
@@ -259,7 +264,3 @@ struct Model {
 };
 
 } // namespace amp
-
-/*
-"location=/work/etc/images/katana.jpg", "!", "jpegdec", "!", "imagefreeze", "!",
-*/

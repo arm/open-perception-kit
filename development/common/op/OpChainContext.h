@@ -11,13 +11,15 @@
 
 namespace amp {
 
-// all the data generated in the OpChain of an element
-// this data is thrown away when the opchain is finished
-// for generate permanent data, the Op must copy it to the PerceptionContext
-// buffers stored here as pointers must be valid through the execution of the chain
 struct OpChainContext {
 
     bool execute = true;
+
+    /*int inLoopStartIndex = -1, inLoopEndIndex = -1;
+    void exitLoop() {
+        assert(inLoopStartIndex != -1);
+        assert(inLoopEndIndex != -1);
+    }*/
 
     std::map<std::string, amp::BitmapView> bitmapViews;
 
@@ -39,6 +41,8 @@ struct OpChainContext {
     amp::InferenceInfo inferenceInfo;
 
     Perception *perception = nullptr;
+
+    int loopStartOpIndex = -1;
 
     bool inferenceControllerExecuted = false;
 };

@@ -18,8 +18,6 @@ common = shared_library(
     'amp/Result.cpp',
     'amp/Tools.h',
     'amp/Tools.cpp',
-    'amp/PerceptionContext.h',
-    'amp/PerceptionContext.cpp',
     'amp/ImageNetLabels.cpp',
     'amp/CocoLabels.cpp',
     'amp/ModelDescriptor.h',

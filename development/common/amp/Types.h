@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <string>
 
+#include "amp/Color.h"
+
 #if defined(__arm__) || defined(__aarch64__)
 using f16_type = __fp16;
 #elif defined(__x86_64__)
@@ -44,6 +46,20 @@ inline size_t getValueTypeByteSize(Tdt type) {
 struct QuantizationArgs {
     float scale = 1.0f;
     float zeroPoint = 0.0f;
+};
+
+struct MeanStd {
+    static bool isDefaultMean(const amp::Colorf &value) {
+        if (value.r != 0.0f || value.g != 0.0f || value.b != 0.0f)
+            return false;
+        return true;
+    }
+
+    static bool isDefaultStd(const amp::Colorf &value) {
+        if (value.r != 1.0f || value.g != 1.0f || value.b != 1.0f)
+            return false;
+        return true;
+    }
 };
 
 // ---

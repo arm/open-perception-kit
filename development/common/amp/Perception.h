@@ -20,6 +20,7 @@ struct Perception {
         uint64_t uuid = Uuid();
         uint64_t parentUuid = 0;
         uint64_t creationTsNs = TsUtcNs();
+        float confidence = 0.0f;
     };
 
     struct VideoFrame : public Object {
@@ -44,14 +45,12 @@ struct Perception {
 
     struct Rect : public Object {
         float x = 0.0f, y = 0.0f, width = 0.0f, height = 0.0f;
-        float confidence = 0.0f;
         int classId = -1;
         std::string text;
     };
 
     struct Classification : public Object {
         bool yes = false;
-        float confidence = 0.0f;
         int classId = -1;
         std::string text;
     };

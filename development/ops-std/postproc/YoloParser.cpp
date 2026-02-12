@@ -1,7 +1,6 @@
 #include "postproc/YoloParser.h"
 #include "amp/Labels.h"
 #include "amp/Perception.h"
-#include "amp/PerceptionContext.h"
 
 #include <algorithm>
 #include <cmath>

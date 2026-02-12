@@ -102,6 +102,8 @@ amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChain
     setup.imageSource.byteCount = pipelineVideoFrame->width * pipelineVideoFrame->height * 4;
     setup.imageSource.kind = amp::DataKind::ImageBgraHwc;
     setup.imageSource.type = amp::Tdt::Uint8;
+    setup.imageSource.mean = upcomingInferenceModel.inputs[inputImageTensorIndex].mean;
+    setup.imageSource.std = upcomingInferenceModel.inputs[inputImageTensorIndex].std;
 
     size_t modelWidth, modelHeight;
     if (false == upcomingInferenceModel.inputs[inputImageTensorIndex].tryGetImageTensorSize(

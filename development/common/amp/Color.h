@@ -9,7 +9,14 @@
 namespace amp {
 
 typedef uint32_t Color;
-typedef std::tuple<float, float, float, float> Colorf;
+
+struct Colorf {
+    Colorf() {}
+    Colorf(float r, float g, float b, float a) : r(r), g(g), b(b), a(a) {}
+    Colorf(float r, float g, float b) : r(r), g(g), b(b), a(1.0f) {}
+
+    float r = 1.0f, g = 1.0f, b = 1.0f, a = 1.0f;
+};
 
 #define COLOR_FROM_RGB_BYTES(r, g, b)                                                              \
     (0xff000000u | (uint32_t(b) << 16) | (uint32_t(g) << 8) | uint32_t(r))
