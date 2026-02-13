@@ -349,8 +349,6 @@ static std::unique_ptr<Osd::Layer> drawPerceptionLayer(GstAmpOsd *self,
             }
         }
 
-        drawGazeVectors(layer.get(), perception);
-
         if (inferLayer.contentType == "classification") {
             for (const auto &det : inferLayer.detections) {
                 // Draw classification results as a label list in lower-left corner
@@ -358,7 +356,7 @@ static std::unique_ptr<Osd::Layer> drawPerceptionLayer(GstAmpOsd *self,
 
                 const auto fontSize = 14.0f;
                 const auto lineHeight = fontSize * 1.5f;
-                const auto numResults = inferLayer.detections.size();
+                const auto numResults = classification.candidates.size();
 
                 // Calculate starting position (lower-left corner with padding)
                 const auto padding = 10.0f;
@@ -385,6 +383,8 @@ static std::unique_ptr<Osd::Layer> drawPerceptionLayer(GstAmpOsd *self,
                 }
             }
         }
+
+        drawGazeVectors(layer.get(), perception);
     }
 
     return layer;

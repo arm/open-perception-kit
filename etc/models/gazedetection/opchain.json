@@ -1,5 +1,12 @@
 {
 	"ops": [
+		{
+			"id": "amp-std-ops/InferenceController",
+			"group": "for-all-faces",
+			"attributes": {
+				"contentType": "human-face"
+			}
+		},
 	{
 		"id": "amp-std-ops/GenericImagePreprocess",
 		"attributes": {

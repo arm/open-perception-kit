@@ -71,6 +71,8 @@ amp::Result<void> ImageNetClassificationParser::parse(const amp::TensorParser::I
 
         amp::Perception::Classification classification;
 
+        detectionResult.contentType = "classification";
+
         classification.candidates.reserve(numResults);
         for (int i = 0; i < numResults; ++i) {
             const auto &[confidence, classIdx] = scoredIndices[i];
