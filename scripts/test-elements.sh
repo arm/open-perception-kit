@@ -58,9 +58,7 @@ gst-launch-1.0 \
       ampinfer opchain-path=/work/etc/models/personclassification/opchain.json active=true ! \
       ampinfer opchain-path=/work/etc/models/gazedetection/opchain.json active=true ! \
       textoverlay name=overlay valignment=top halignment=center font-desc="Sans, 14" ! \
-  videoconvert ! \
-      ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 ! \
-  videoconvert ! \
+      videoconvert ! \
       ampsink name=sink
 
   msg_end "Pipeline finished."
@@ -241,3 +239,12 @@ case "$cmd" in
     exit 2
     ;;
 esac
+
+
+
+gst-launch-1.0  filesrc location=/work/etc/videos/01.mp4 ! \
+decodebin ! queue ! videoconvert ! videoscale ! video/x-raw,format=BGRA ! \
+ampinfer opchain-path=/work/etc/models/ultraface/opchain.json active=true ! \
+ampinfer opchain-path=/work/etc/models/gazedetection/for-all-faces-opchain.json active=true ! \
+amposd enabled=true ! \
+ampsink name=sink

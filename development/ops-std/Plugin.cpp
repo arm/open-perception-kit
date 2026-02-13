@@ -4,12 +4,15 @@
 
 #include "GenericImagePreprocessOp.h"
 #include "GenericPostprocessOp.h"
+#include "InferenceControllerOp.h"
 
 amp::Op *createOp(const std::string &opName) {
     if (opName == "GenericPostprocess")
         return new amp::GenericPostprocessOp();
     if (opName == "GenericImagePreprocess")
         return new amp::GenericImagePreprocessOp();
+    if (opName == "InferenceController")
+        return new amp::InferenceControllerOp();
     return nullptr;
 }
 

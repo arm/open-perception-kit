@@ -19,6 +19,7 @@ class InferenceOp : public amp::Op {
 
   private:
     std::unique_ptr<exct::Inference> inference;
+    std::string modelFamily;
 };
 
 } // namespace exct

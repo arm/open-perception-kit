@@ -3,7 +3,7 @@
 #include <string>
 
 #include "amp/AttributeMap.h"
-#include "amp/PerceptionContext.h"
+#include "amp/Perception.h"
 #include "amp/Result.h"
 #include "amp/Tools.h"
 

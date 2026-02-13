@@ -1,5 +1,5 @@
 #include "postproc/UltrafaceParser.h"
-#include "amp/PerceptionContext.h"
+#include "amp/Perception.h"
 
 #include <algorithm>
 #include <cmath>
@@ -8,11 +8,11 @@
 using namespace amp;
 
 // IoU between two boxes (x,y = top-left, w,h = size)
-inline float iou(const DetectionRect &a, const DetectionRect &b) {
-    float ax2 = a.x + a.w;
-    float ay2 = a.y + a.h;
-    float bx2 = b.x + b.w;
-    float by2 = b.y + b.h;
+inline float iou(const Perception::Rect &a, const Perception::Rect &b) {
+    float ax2 = a.x + a.width;
+    float ay2 = a.y + a.height;
+    float bx2 = b.x + b.width;
+    float by2 = b.y + b.height;
 
     float interLeft = std::max(a.x, b.x);
     float interTop = std::max(a.y, b.y);
@@ -26,8 +26,8 @@ inline float iou(const DetectionRect &a, const DetectionRect &b) {
         return 0.0f;
 
     float interArea = interW * interH;
-    float areaA = a.w * a.h;
-    float areaB = b.w * b.h;
+    float areaA = a.width * a.height;
+    float areaB = b.width * b.height;
 
     float unionArea = areaA + areaB - interArea;
     if (unionArea <= 0.0f)
@@ -40,13 +40,16 @@ inline float iou(const DetectionRect &a, const DetectionRect &b) {
 //  - detections: all raw boxes (no pre-thresholding)
 //  - scoreThreshold: drop boxes with confidence < scoreThreshold
 //  - iouThreshold: IoU >= this → suppress lower-confidence box
-inline std::vector<DetectionRect> nonMaxSuppression(const std::vector<DetectionRect> &detections,
-                                                    float scoreThreshold,
-                                                    float iouThreshold) {
+inline std::vector<Perception::Detection>
+nonMaxSuppression(const std::vector<Perception::Detection> &detections,
+                  float scoreThreshold,
+                  float iouThreshold) {
     // 1) Filter by score
-    std::vector<DetectionRect> candidates;
+    std::vector<Perception::Detection> candidates;
     candidates.reserve(detections.size());
-    for (const auto &d : detections) {
+    for (const auto &det : detections) {
+        const auto &d = std::get<amp::Perception::Rect>(det);
+
         if (d.confidence >= scoreThreshold)
             candidates.push_back(d);
     }
@@ -55,27 +58,30 @@ inline std::vector<DetectionRect> nonMaxSuppression(const std::vector<DetectionR
         return {};
 
     // 2) Sort by confidence descending
-    std::sort(
-        candidates.begin(), candidates.end(), [](const DetectionRect &a, const DetectionRect &b) {
-            return a.confidence > b.confidence;
-        });
+    std::sort(candidates.begin(),
+              candidates.end(),
+              [](const Perception::Detection &da, const Perception::Detection &db) {
+                  const auto &a = std::get<amp::Perception::Rect>(da);
+                  const auto &b = std::get<amp::Perception::Rect>(db);
+                  return a.confidence > b.confidence;
+              });
 
     // 3) Greedy NMS
-    std::vector<DetectionRect> result;
+    std::vector<Perception::Detection> result;
     std::vector<bool> suppressed(candidates.size(), false);
 
     for (size_t i = 0; i < candidates.size(); ++i) {
         if (suppressed[i])
             continue;
 
-        const DetectionRect &current = candidates[i];
+        const Perception::Rect &current = std::get<Perception::Rect>(candidates[i]);
         result.push_back(current);
 
         for (size_t j = i + 1; j < candidates.size(); ++j) {
             if (suppressed[j])
                 continue;
 
-            if (iou(current, candidates[j]) >= iouThreshold) {
+            if (iou(current, std::get<Perception::Rect>(candidates[j])) >= iouThreshold) {
                 suppressed[j] = true;
             }
         }
@@ -90,7 +96,7 @@ struct Anchor {
     float cx, cy, w, h;
 };
 
-static std::vector<Anchor> generateAnchors(size_t image_w, size_t image_h) {
+/*static std::vector<Anchor> generateAnchors(size_t image_w, size_t image_h) {
     assert(image_w == 320);
     assert(image_h == 240);
 
@@ -155,6 +161,79 @@ static std::vector<Anchor> generateAnchors(size_t image_w, size_t image_h) {
 
     // priors.size() should be 4420 here for 320x240
     return priors;
+}*/
+
+static std::vector<Anchor> generateAnchors(size_t image_w, size_t image_h) {
+    assert(image_w == 320);
+    assert(image_h == 240);
+
+    // Feature map sizes (often computed with ceil(image/stride))
+    const int feature_map_w[4] = {40, 20, 10, 5};
+    const int feature_map_h[4] = {30, 15, 8, 4};
+
+    // Strides (shrinkage) per feature level (UltraFace typical)
+    const int shrinkage_w[4] = {8, 16, 32, 64};
+    const int shrinkage_h[4] = {8, 16, 32, 64};
+
+    // min_boxes per feature level (same order as Python)
+    const int min_boxes[4][3] = {
+        {10, 16, 24},   // level 0  (3 anchors)
+        {32, 48, -1},   // level 1  (2 anchors, ignore -1)
+        {64, 96, -1},   // level 2  (2 anchors, ignore -1)
+        {128, 192, 256} // level 3  (3 anchors)
+    };
+
+    std::vector<Anchor> priors;
+    priors.reserve(4420); // known count for 320x240
+
+    for (int k = 0; k < 4; ++k) {
+        const int fm_w = feature_map_w[k];
+        const int fm_h = feature_map_h[k];
+
+        // IMPORTANT:
+        // Use image/stride as the normalization scale (not fm_w/fm_h),
+        // because fm sizes are often ceil(image/stride) and using fm_* directly
+        // can bias anchor centers (often showing up as slight down/right shifts).
+        const float scale_w = static_cast<float>(image_w) / static_cast<float>(shrinkage_w[k]);
+        const float scale_h = static_cast<float>(image_h) / static_cast<float>(shrinkage_h[k]);
+
+        for (int j = 0; j < fm_h; ++j) {     // over height
+            for (int i = 0; i < fm_w; ++i) { // over width
+                const float cx = (static_cast<float>(i) + 0.5f) / scale_w;
+                const float cy = (static_cast<float>(j) + 0.5f) / scale_h;
+
+                // add anchors of different sizes at this location
+                for (int mb_idx = 0; mb_idx < 3; ++mb_idx) {
+                    const int box = min_boxes[k][mb_idx];
+                    if (box <= 0)
+                        continue; // skip unused slots (-1)
+
+                    const float w = static_cast<float>(box) / static_cast<float>(image_w);
+                    const float h = static_cast<float>(box) / static_cast<float>(image_h);
+
+                    priors.push_back(Anchor{cx, cy, w, h});
+                }
+            }
+        }
+    }
+
+    // Optional: clamp to [0,1] like the original code
+    auto clamp01 = [](float v) {
+        if (v < 0.0f)
+            return 0.0f;
+        if (v > 1.0f)
+            return 1.0f;
+        return v;
+    };
+    for (auto &a : priors) {
+        a.cx = clamp01(a.cx);
+        a.cy = clamp01(a.cy);
+        a.w = clamp01(a.w);
+        a.h = clamp01(a.h);
+    }
+
+    // priors.size() should be 4420 here for 320x240
+    return priors;
 }
 
 static std::vector<Anchor> anchors;
@@ -162,7 +241,7 @@ static std::vector<Anchor> anchors;
 // ----------------------------------------------------------------------------
 
 amp::Result<void> amp::UltraFaceParser::parse(const amp::TensorParser::Input &input,
-                                              amp::RawDetectionLayer &detectionResult) {
+                                              amp::Perception::Layer &detectionResult) {
 
     const float confThreshold =
         (float)input.attributes.getDoubleOrDefault("confidenceThreshold", 0.5);
@@ -264,19 +343,29 @@ amp::Result<void> amp::UltraFaceParser::parse(const amp::TensorParser::Input &in
 
         // ---
 
-        DetectionRect dr;
+        Perception::Rect dr;
         dr.x = x1;
         dr.y = y1;
-        dr.w = x2 - x1;
-        dr.h = y2 - y1;
+        dr.width = x2 - x1;
+        dr.height = y2 - y1;
         dr.confidence = face;
-        dr.label = "";
 
-        detectionResult.rects.push_back(dr);
+        // maybe this would be more correct, because face is a logit
+        /*float m = std::max(face, notFace);
+        float ef = std::exp(face - m);
+        float eb = std::exp(notFace - m);
+        float p_face = ef / (ef + eb);
+        dr.confidence = p_face;*/
+        dr.text = "";
+
+        detectionResult.detections.push_back(dr);
     }
 
     // detectionResult.rects = nonMaxSuppression(detectionResult.rects, 0.6f, 0.01f);
-    detectionResult.rects = nonMaxSuppression(detectionResult.rects, confThreshold, iouThreshold);
+    detectionResult.detections =
+        nonMaxSuppression(detectionResult.detections, confThreshold, iouThreshold);
+
+    detectionResult.contentType = "human-face";
 
     return {};
 }

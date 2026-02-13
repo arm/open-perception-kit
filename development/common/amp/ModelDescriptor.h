@@ -8,9 +8,12 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
+#include "amp/Color.h"
 #include "amp/Result.h"
 
 using nlohmann::json;
+
+// namespace amp {
 
 struct TensorDescriptor {
     amp::Shape shape{}; // if this is missing, system tries to discover it using onnx
@@ -19,6 +22,7 @@ struct TensorDescriptor {
     amp::Tdt tdt = amp::Tdt::Float32;
     float zeroPoint = 0.0f;
     float scale = 1.0f;
+    amp::Colorf mean = {0.0f, 0.0f, 0.0f, 0.0f}, std = {1.0f, 1.0f, 1.0f, 1.0f};
 
     std::vector<float> valueInputs;
 };
@@ -29,6 +33,7 @@ struct ModelDescriptor {
 
     std::string modelFile;
     std::string modelFamily;
+    std::string contentType;
 
     std::vector<TensorDescriptor> inputTensors;
     std::vector<TensorDescriptor> outputTensors;
@@ -50,6 +55,8 @@ inline void to_json(json &j, const TensorDescriptor &b) {
         {"valueType", b.tdt},
         {"zeroPoint", b.zeroPoint},
         {"scale", b.scale},
+        {"mean", b.mean},
+        {"std", b.std},
         {"dataKind", b.dataKind},
         {"valueInputs", b.valueInputs},
     };
@@ -61,6 +68,8 @@ inline void from_json(const json &j, TensorDescriptor &b) {
     b.tdt = j.value("valueType", amp::Tdt::Float32);
     b.zeroPoint = j.value("zeroPoint", 0.0f);
     b.scale = j.value("scale", 1.0f);
+    b.mean = j.value("mean", amp::Colorf{0.0f, 0.0f, 0.0f, 0.0f});
+    b.std = j.value("std", amp::Colorf{1.0f, 1.0f, 1.0f, 1.0f});
     j.at("dataKind").get_to(b.dataKind);
     //    b.dataKind = j.value("dataKind", amp::DataKind::Unknown);
     b.valueInputs = j.value("valueInputs", std::vector<float>{});
@@ -70,6 +79,7 @@ inline void to_json(json &j, const ModelDescriptor &b) {
     j = json{{"name", b.name},
              {"modelFile", b.modelFile},
              {"modelFamily", b.modelFamily},
+             {"contentType", b.contentType},
              {"inputTensors", b.inputTensors},
              {"outputTensors", b.outputTensors},
              {"dynamicOutput", b.dynamicOutput}};
@@ -79,7 +89,9 @@ inline void from_json(const json &j, ModelDescriptor &b) {
     j.at("name").get_to(b.name);
     j.at("modelFile").get_to(b.modelFile);
     j.at("modelFamily").get_to(b.modelFamily);
+    b.contentType = j.value("contentType", std::string{});
     b.inputTensors = j.value("inputTensors", std::vector<TensorDescriptor>{});
     b.outputTensors = j.value("outputTensors", std::vector<TensorDescriptor>{});
     j.at("dynamicOutput").get_to(b.dynamicOutput);
 }
+//}

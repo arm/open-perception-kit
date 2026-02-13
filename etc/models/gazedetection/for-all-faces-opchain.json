@@ -1,0 +1,36 @@
+{
+	"ops": [
+	{
+		"id": "amp-std-ops/InferenceController",
+		"group": "for-all-faces",
+		"attributes": {
+			"contentType": "human-face"
+			"loopOpGroup": "for-all-faces";
+		}
+	},
+	{
+		"id": "amp-std-ops/GenericImagePreprocess",
+		"group": "for-all-faces",
+		"attributes": {
+			"inputImageTensorIndex": 0
+		}
+	},
+	{
+		"id": "amp-onnx-ops/Inference",
+		"group": "for-all-faces",
+        "attributes": {
+			"modelDescriptor": "/work/etc/models/gazedetection/model.json"
+        }
+	},
+    {
+		"id": "amp-std-ops/GenericPostprocess",
+		"group": "for-all-faces",
+		"attributes": {
+			"parser": "GazeDetectionParser",
+			"normalizeCoordinates": false,
+			"confidenceThreshold": 0.5,
+			"iouThreshold": 0.3
+		}
+	}
+  ]
+}

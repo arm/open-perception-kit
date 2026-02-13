@@ -7,15 +7,57 @@
 
 namespace amp {
 
-struct Map8 {
-    std::vector<uint8_t> map;
-    size_t width = 0, height = 0;
+struct Bitmap {
 
-    inline uint8_t &at(size_t x, size_t y) {
-        assert(x < width);
-        assert(x < width);
-        return map.data()[width * y + x];
+    enum class Type { Uint8, Uint32 };
+
+    Bitmap() {}
+
+    Bitmap(Type type, size_t width, size_t height) {
+        realloc(type, width, height);
     }
+
+    void set8(size_t x, size_t y, uint8_t value) {
+        assert(type == Type::Uint8);
+        pixels[y * width + x] = value;
+    }
+
+    uint8_t get8(size_t x, size_t y) const {
+        assert(type == Type::Uint8);
+        return pixels[y * width + x];
+    }
+
+    void realloc(Type type, size_t width, size_t height) {
+        size_t size = width * height;
+        if (type == Type::Uint32)
+            size *= 4;
+        pixels.resize(size);
+
+        this->type = type;
+        this->width = width;
+        this->height = height;
+    }
+
+    Type getType() const {
+        return type;
+    }
+    size_t getWidth() const {
+        return width;
+    }
+    size_t getHeight() const {
+        return height;
+    }
+    const uint8_t *getData() const {
+        return pixels.data();
+    }
+    bool empty() const {
+        return pixels.empty();
+    }
+
+  private:
+    Type type = Type::Uint8;
+    std::vector<uint8_t> pixels;
+    size_t width = 0, height = 0;
 };
 
 } // namespace amp

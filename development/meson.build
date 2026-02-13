@@ -18,6 +18,7 @@ add_project_arguments('-Wno-unused-but-set-variable', language: 'cpp')
 add_project_arguments('-Wno-unused-but-set-variable', language: 'c')
 
 # -------- Core deps (always)
+stb_dep = dependency('stb', fallback: ['stb', 'stb_dep'])
 gst_dep      = dependency('gstreamer-1.0',        required: true)
 gstbase_dep  = dependency('gstreamer-base-1.0',   required: true)
 gstv_dep     = dependency('gstreamer-video-1.0',  required: true)
@@ -87,6 +88,7 @@ endif
 add_project_arguments(amp_defs, language: 'cpp')
 
 amp_deps = [
+  stb_dep,
   gst_dep, gstbase_dep, gstv_dep, gsta_dep,
   glib_dep, gobject_dep,
   webrtc_dep, sdp_dep,

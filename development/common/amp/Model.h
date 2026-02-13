@@ -19,6 +19,7 @@ struct ModelInput {
     amp::Shape shape{};
     int batch = 0;
     amp::QuantizationArgs quantArguments;
+    amp::Colorf mean = {0.0f, 0.0f, 0.0f, 0.0f}, std = {1.0f, 1.0f, 1.0f, 1.0f};
 
     bool tryGetImageTensorSize(size_t &outWidht, size_t &outHeight) {
         if (shape.dimensionCount == 4) {
@@ -49,7 +50,7 @@ struct Model {
     bool inputSizeAppliedByModel = false;
     bool nmsAppliedByModel = false;
 
-    std::string modelFamily, api;
+    std::string modelFamily, engine, contentType;
 
     std::vector<ModelInput> inputs;
 
@@ -95,7 +96,8 @@ struct Model {
     // this tries to unify the two and create a final model
     amp::Result<void> applyModelFromDescriptor(const ModelDescriptor &modelDescriptor) {
 
-        this->modelFamily = this->modelFamily;
+        this->modelFamily = modelDescriptor.modelFamily;
+        this->contentType = modelDescriptor.contentType;
 
         // INPUT tensors
         if (inputs.size() != modelDescriptor.inputTensors.size()) {
@@ -168,6 +170,10 @@ struct Model {
                     }
                 }
             }
+
+            // set mean and std
+            this->inputs[i].mean = modelDescriptor.inputTensors[i].mean;
+            this->inputs[i].std = modelDescriptor.inputTensors[i].std;
         }
 
         // OUTPUT tensors
@@ -233,7 +239,7 @@ struct Model {
         std::string ret;
 
         ret += fmt::format("Model: [{}]\n", modelFamily);
-        ret += fmt::format("Api: [{}]\n", api);
+        ret += fmt::format("Engine: [{}]\n", engine);
         ret += fmt::format("Input count: {}\n", inputs.size());
         ret += fmt::format("Output count: {}\n", outputs.size());
 
@@ -258,7 +264,3 @@ struct Model {
 };
 
 } // namespace amp
-
-/*
-"location=/work/etc/images/katana.jpg", "!", "jpegdec", "!", "imagefreeze", "!",
-*/

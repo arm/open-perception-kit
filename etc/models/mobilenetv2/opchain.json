@@ -1,5 +1,11 @@
 {
 	"ops": [
+		{
+			"id": "amp-std-ops/InferenceController",
+			"group": "for-all-faces",
+			"attributes": {
+			}
+		},
 	{
 		"id": "amp-std-ops/GenericImagePreprocess",
 		"attributes": {

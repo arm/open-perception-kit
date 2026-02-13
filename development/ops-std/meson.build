@@ -5,6 +5,7 @@ stdops = shared_module(
     'Plugin.cpp',
     'GenericPostprocessOp.cpp',
     'GenericImagePreprocessOp.cpp',
+    'InferenceControllerOp.cpp',
 
     'postproc/YoloParser.cpp',
     'postproc/UltrafaceParser.cpp',

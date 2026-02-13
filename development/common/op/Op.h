@@ -5,7 +5,7 @@
 
 #include "amp/AttributeMap.h"
 #include "amp/Model.h"
-#include "amp/PerceptionContext.h"
+#include "amp/Perception.h"
 #include "amp/Result.h"
 #include "amp/Shape.h"
 #include "amp/Tools.h"
@@ -14,11 +14,13 @@
 
 namespace amp {
 
+// interface for ops that can provide tensor IO information
 struct OpInterfaceInference {
     virtual const amp::Model &getModel() const = 0;
     virtual uint8_t *getTensorDataAddress(size_t index) const = 0;
 };
 
+// interface for ops that do inference postprocessing
 struct OpInterfacePostprocessor {
     virtual std::string getPostprocessorId() = 0;
 };
@@ -31,6 +33,13 @@ struct Op {
     virtual Result<void> bind(size_t index, const std::vector<amp::Op *> &ops) = 0;
     // called to make the Op do its job
     virtual Result<void> process(OpChainContext &opChainContext) = 0;
+
+    // called by the OpChain execution system
+    // the Op can decide if the system must loop over a subchain multiple times
+    // the loop head have to be in the same group as the loop members
+    virtual bool isLoopHead() {
+        return false;
+    }
 
     template <class T> T *as() noexcept {
         return dynamic_cast<T *>(this);

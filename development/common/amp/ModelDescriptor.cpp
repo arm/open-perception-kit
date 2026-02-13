@@ -7,6 +7,8 @@
 
 #include "amp/AttributeMap.h"
 
+// using namespace amp;
+
 amp::Result<ModelDescriptor> ModelDescriptor::fromJson(const std::string &jsonString) {
     try {
         json json = json::parse(jsonString);

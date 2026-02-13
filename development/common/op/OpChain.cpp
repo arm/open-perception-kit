@@ -31,7 +31,6 @@ amp::Result<void> OpChain::setupFromDescriptor(const amp::OpChainDescriptor &des
         }
 
         add(opRef);
-        // opRefs.push_back(std::move(opRef));
     }
 
     auto chainBindResult = bind();
@@ -71,10 +70,14 @@ amp::Result<void> OpChain::bind() {
 }
 
 amp::Result<void> OpChain::execute(amp::OpChainContext &opChainContext) {
-    for (const auto &op : opPtrs) {
-        auto opResult = op->process(opChainContext);
-        if (!opResult) {
-            return opResult;
+    while (opChainContext.execute) {
+        for (const auto &op : opPtrs) {
+            if (opChainContext.execute == false)
+                break;
+            auto opResult = op->process(opChainContext);
+            if (!opResult) {
+                return opResult;
+            }
         }
     }
     return {};

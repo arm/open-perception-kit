@@ -1,8 +1,26 @@
-# Build directory
+# ------------------------------------------------------------
+# Build output
+# ------------------------------------------------------------
+
 build/
 
-# Meson subprojects - ignore all downloaded source directories
+# ------------------------------------------------------------
+# Meson subprojects
+# ------------------------------------------------------------
+
+# Ignore all downloaded subproject directories
 subprojects/*/
 
-# Keep these wraps (required dependencies)
+# Keep wrap definitions (dependency descriptors)
 !subprojects/*.wrap
+
+# ------------------------------------------------------------
+# Allow custom packagefiles overrides
+# ------------------------------------------------------------
+
+# Re-include packagefiles directory structure
+!subprojects/packagefiles/
+!subprojects/packagefiles/**/
+
+# Allow specific override build files
+!subprojects/packagefiles/**/meson.build

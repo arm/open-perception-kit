@@ -95,7 +95,7 @@ amp::Result<void> Inference::setupFromJson(const std::string &filePath) {
 
 amp::Result<amp::Model> Inference::inspectModel(executorch::extension::Module &module) {
     amp::Model model;
-    model.api = "executorch";
+    model.engine = "executorch";
 
     // method_names() forces program load on first call
     const auto names = module.method_names();

@@ -1,0 +1,66 @@
+{
+	"ops": [
+
+
+		{
+			"id": "amp-std-ops/InferenceController",
+			"attributes": {
+			}
+		},
+		{
+			"id": "amp-std-ops/GenericImagePreprocess",
+			"attributes": {
+				"inputImageTensorIndex": 0,
+				"inputImageSourceName": "pipelineVideoFrame"
+			}
+		},
+		{
+			"id": "amp-onnx-ops/Inference",
+	        "attributes": {
+				"modelDescriptor": "/work/etc/models/ultraface/ultraface.json"
+	        }
+		},
+	    {
+			"id": "amp-std-ops/GenericPostprocess",
+			"attributes": {
+				"parser": "UltrafaceParser",
+				"normalizeCoordinates": false,
+				"confidenceThreshold": 0.3,
+				"iouThreshold": 0.1
+			}
+		},
+
+
+	{
+		"id": "amp-std-ops/InferenceController",
+		"attributes": {
+			"contentType": "human-face",
+			"group": "for-all-faces",
+		}
+	},
+	{
+		"id": "amp-std-ops/GenericImagePreprocess",
+		"attributes": {
+			"group": "for-all-faces",
+			"inputImageTensorIndex": 0
+		}
+	},
+	{
+		"id": "amp-onnx-ops/Inference",
+        "attributes": {
+			"group": "for-all-faces",
+			"modelDescriptor": "/work/etc/models/gazedetection/model.json"
+        }
+	},
+    {
+		"id": "amp-std-ops/GenericPostprocess",
+		"attributes": {
+			"group": "for-all-faces",
+			"parser": "GazeDetectionParser",
+			"normalizeCoordinates": false,
+			"confidenceThreshold": 0.5,
+			"iouThreshold": 0.3
+		}
+	}
+  ]
+}
