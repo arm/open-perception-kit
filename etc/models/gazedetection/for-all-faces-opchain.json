@@ -5,6 +5,7 @@
 		"group": "for-all-faces",
 		"attributes": {
 			"contentType": "human-face"
+			"loopOpGroup": "for-all-faces";
 		}
 	},
 	{
