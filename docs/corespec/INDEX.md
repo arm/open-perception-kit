@@ -4,7 +4,6 @@
 ██  ██ ██    ██ ██     █   ██████ ▀██▀  ██ ▀█▄ 
 ```
 
-# AMP / LVK  
 ## Arm Media Pipelines – Linux Vision Kit
 
 AMP/LVK defines the internal architecture and execution model of the
