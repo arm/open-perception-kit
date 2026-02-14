@@ -4,8 +4,8 @@
 		"id": "amp-std-ops/InferenceController",
 		"group": "for-all-faces",
 		"attributes": {
-			"contentType": "human-face"
-			"loopOpGroup": "for-all-faces";
+			"contentType": "human-face",
+			"loopOpGroup": "for-all-faces"
 		}
 	},
 	{

@@ -27,21 +27,6 @@ require fundamental architectural changes.
 
 ---
 
-# 🐳 Containerized Development Model
-
-The system is designed to run inside containers.
-
-Advantages:
-
-- Reproducible development environments
-- Clean dependency management
-- Consistent runtime behavior across platforms
-- Easy deployment to edge devices
-
-Development workflows assume container-first execution.
-
----
-
 # 🍓 Raspberry Pi 5 Support
 
 The framework provides strong support for Raspberry Pi 5 deployment.
@@ -54,6 +39,21 @@ This includes:
 - Remote interaction capabilities
 
 The Raspberry Pi 5 is treated as a primary edge deployment target.
+
+---
+
+# 🐳 Containerized Development Model
+
+The system is designed to run inside containers.
+
+Advantages:
+
+- Reproducible development environments
+- Clean dependency management
+- Consistent runtime behavior across platforms
+- Easy deployment to edge devices
+
+Development workflows assume container-first execution.
 
 ---
 
