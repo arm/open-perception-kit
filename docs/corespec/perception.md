@@ -1,84 +1,111 @@
+
 # Perception
-## Inference Data Collection and Aggregation Model
+## Persistent Inference Result Model
+
+Perception is the persistent metadata container that travels downstream with the media buffer.
+It aggregates structured results produced by inference and postprocessing stages across the pipeline.
 
 <img src="perception.jpg" alt="Inference Data Collection (Perception)" width="600">
 
-Perception is the persistent data model that accumulates structured results
-produced by inference elements within the GStreamer pipeline.
-
-Each inference stage reads from and writes to the same Perception instance,
-which travels alongside the media buffer.
-
----
-
-## Core Principles
-
-- Inference elements attach structured metadata to Perception.
-- Perception is propagated with the GStreamer buffer.
-- Each stage may enrich, refine, or augment previously attached data.
-- Data remains accessible to downstream elements.
+Perception is designed to support:
+- Multi-stage inference (detection → refinement → classification).
+- Branching pipelines (parallel video/audio inference).
+- Stable cross-stage references via UUID relationships.
+- Backend-agnostic metadata representation.
 
 ---
 
-## Incremental Enrichment
+## Core Data Model
 
-The pipeline may contain multiple inference stages, such as:
+### Object
 
-- Object detection
-- Face detection
-- Tracking
-- Face recognition
-- Event or messaging triggers
+`Perception::Object`
 
-Each stage contributes additional metadata:
+Common base for all stored entities.
 
-- Object rectangles and labels
-- Human face rectangles
-- Entity identifiers
-- Person identifiers
-- Domain-specific attributes
+- `uuid` uniquely identifies the entity instance.
+- `parentUuid` links an entity to its logical parent (e.g. detections to the frame, or derived detections to a source ROI).
+- `creationTsNs` captures creation time for correlation and ordering.
 
-Perception evolves step-by-step as the buffer moves through the pipeline.
+This enables stable linking between pipeline stages without relying on positional indices.
 
 ---
 
-## Branching Pipelines
+## Frame Anchors
 
-The GStreamer pipeline may contain branches.
+### VideoFrame
 
-- Audio and video inference chains may run in parallel.
-- Multiple model families may process the same frame.
-- Independent branches can attach metadata simultaneously.
+`Perception::VideoFrame`
 
-Results from different branches are merged into the same Perception model.
+Descriptor for a video frame and its geometric transforms. Derived from Object.
+Acts as the parent/root for vision inference detections originating from that frame.
 
----
+Stores original dimensions and crop/letterbox parameters, enabling coordinate normalization and reverse mapping.
 
-## Parallel Inference
+### AudioFrame
 
-The architecture supports:
+`Perception::AudioFrame`
 
-- Video inference
-- Audio inference
-- Multi-model execution
-- Multi-stage refinement
+Descriptor for an audio chunk. Derived from Object.
+Acts as the parent/root for audio inference detections.
 
-Parallel processing does not duplicate state.
-All inference results are aggregated into a single Perception instance.
+Stores original stream properties and cut parameters to preserve alignment and traceability.
 
 ---
 
-## Complex Use Cases
+## Detection Primitives
 
-This incremental and composable design enables:
+Perception provides a small set of normalized detection types that cover common inference outputs:
 
-- Multi-stage detection → tracking → recognition pipelines
-- Cross-modal fusion (audio + video)
-- Hierarchical inference flows
-- Backend-triggered messaging and event systems
+- `Rect` for localized detections with confidence and optional class/text annotation.
+- `Classification` for top-k candidates (optionally with region hints).
+- `YawPitch` for angular/regression outputs (e.g. gaze/head pose).
+- `LocalizedText` for OCR-like localized text payloads.
+- `SegmentationMap` for dense pixel-level outputs.
 
-Perception acts as the structured, persistent knowledge graph of the current
-media buffer.
+All detection types inherit from Object and can participate in parent/child relationships.
 
-It is the central integration point between inference, tracking, and
-application-level logic.
+---
+
+## Detection Variant
+
+`using Detection = std::variant<...>`
+
+Detections are stored as a tagged variant.
+This keeps the container type-safe while allowing heterogeneous outputs per layer.
+
+---
+
+## Layer
+
+`Perception::Layer`
+
+A Layer represents the results of a single inference step.
+
+Layer metadata provides provenance and interpretation context:
+
+- `engine` identifies the runtime backend (e.g. ONNX RT, Hailo RT, ExecuTorch).
+- `model` identifies the model used.
+- `tags` provide implementation-specific routing/labeling hints.
+- `labelFamily` describes the label set namespace (e.g. coco, imageNet).
+- `contentType` describes the semantic output category (e.g. humanFace, classification, eyeYawPitch).
+
+`detections` contains the structured outputs produced by that inference step.
+
+---
+
+## Performance Data
+
+`perfdata` stores performance-related strings for tracing and profiling.
+This enables lightweight instrumentation propagation alongside inference results.
+
+---
+
+# Why This Architecture Works Well
+
+- Provenance is explicit: each Layer captures engine/model context, enabling reproducible interpretation and debugging.
+- Cross-stage linking is robust: UUID + parentUuid enables stable relationships across pipeline branches and multi-stage inference.
+- Backend-agnostic representation: inference runtimes can be swapped while producing consistent Perception outputs.
+- Scales to complex pipelines: multiple Layers accumulate naturally (parallel branches, multi-model cascades, refinement chains).
+- Type-safe heterogeneity: variants allow multiple detection types without fragile base-class hierarchies or untyped maps.
+

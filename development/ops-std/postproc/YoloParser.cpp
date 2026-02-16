@@ -164,7 +164,7 @@ amp::Result<void> amp::YoloParser::parse(const amp::TensorParser::Input &input,
         detectionResult.detections.push_back(rect);
     }
 
-    detectionResult.contentType = "generic-object";
+    detectionResult.contentType = "genericObject";
 
     return {};
 }

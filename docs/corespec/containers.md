@@ -1,7 +1,5 @@
 # Containerized Execution Model
-## WebRTC-Based Media Integration
-
-<img src="webrtc.jpg" alt="Containerized pipeline architecture" width="600">
+## About
 
 The system is designed around a container-first development and deployment model.
 
@@ -16,17 +14,13 @@ The container executes the GStreamer pipeline, including inference workloads.
 
 - The repository defines the full build environment.
 - The container encapsulates all dependencies.
-- The same environment is used across Linux, macOS (via virtualization), and edge devices.
+- The same environment is used across Linux, macOS, Windows, Raspberry PI5 and other devices.
 - This eliminates host-specific configuration drift.
-
----
-
-## Challenges of Container Isolation
 
 While containers provide reproducibility, they introduce runtime challenges:
 
 - The container is isolated from the host display server.
-- Audio playback inside the container is non-trivial.
+- Video/audio playback inside the container is non-trivial.
 - Direct GPU / display integration may be constrained.
 - UDP-based audio/video streaming is often laggy and unstable.
 - Media debugging becomes difficult with traditional forwarding approaches.
@@ -37,22 +31,17 @@ While containers provide reproducibility, they introduce runtime challenges:
 
 To solve these issues, the system introduces **AmpSink**.
 
-AmpSink:
+<img src="webrtc.jpg" alt="WebRTC utilization" width="600">
+
+Our element is called AmpSink.
+AmpSink provides a web endpoint inside the container.
+The host web browser connects to this endpoint and renders the media stream.
 
 - Streams media using WebRTC.
 - Provides low-latency video and audio output.
 - Avoids unstable UDP streaming.
 - Works reliably across host platforms.
-- Enables browser-based visualization of pipeline output.
-
-The host web browser connects to the container and renders the media stream.
-
-This provides:
-
-- Stable playback
-- No perceptible lag
-- Interactive debugging
-- Platform-independent viewing
+- Enables browser-based pipeline control.
 
 ---
 
@@ -63,7 +52,6 @@ The browser communicates with the container using REST control commands.
 This allows:
 
 - Pipeline start/stop control
-- Runtime parameter updates
 - Triggering actions
 - Service management
 
@@ -74,21 +62,15 @@ Media transport and control signaling are cleanly separated.
 ## AmpSource (Planned)
 
 AmpSource extends the architecture in the opposite direction.
+The system routes the browser camera and microphone data into the container.
+Also web based video/audio streams can be routed into the container as a source for a pipeline.
+Media is streamed into the pipeline.
+This enables different use cases where the user can use the device with a single browser connection.
 
-Concept:
+Example use cases:
 
-- A device boots and starts the pipeline automatically.
-- The pipeline runs inside the container.
-- The user opens a browser and connects via WebRTC.
-- The browser provides webcam/microphone input.
-- Media is streamed into the pipeline.
-
-This enables:
-
-- Headless device deployment
-- Remote operation
-- Zero-install user interaction
-- Embedded edge scenarios
+- Video conference with neural network inferences
+- Realtime translated web radio
 
 ---
 

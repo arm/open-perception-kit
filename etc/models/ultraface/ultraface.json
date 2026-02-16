@@ -6,7 +6,7 @@
 	
 	"dynamicOutput": true,
 
-	"contentType": "human-face",
+	"contentType": "humanFace",
 	
 	"inputTensors": 
 	[

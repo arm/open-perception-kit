@@ -19,22 +19,48 @@ inside GStreamer pipelines, targeting containerized development and edge deploym
 - [Generic Info](generic-info.md)  
   High-level introduction and project scope.
 
-- [Architectural Overview](architectural-overview.md)  
-  Core system structure and execution flow.
-
----
-
-## Runtime and Deployment
+- [Architecture](architectural-overview.md)  
+  Arxhitectural overview of the system.
 
 - [Containers](containers.md)  
   Container runtime architecture and WebRTC integration model.
 
----
+- [Inference Engines](inference-engines.md)  
+  About the inference engines important for our project.
+
+- [Inference Engines](inference-engines.md)  
+  About the inference engines important for our project.
+  
+- [amp::Model](model.md) 
+  The amp::Model object.
+
+- [Inference Process](engine-independent.md) 
+  The inference engine independent inference process.
 
 ## Execution Engine
 
-- [Op System](op-system.md)  
-  Operation lifecycle, inference contracts, dynamic loading, and execution semantics.
+- [Perception](perception.md)  
+  Perception is the persistent metadata container that travels downstream with the media buffer.
+
+- [Op system](op-system.md)  
+  Local processing based on micro-pipelines.
 
 - [OpChain Context](op-chain-context.md)  
   Transient runtime data model and ownership rules.
+
+- [OpChain Example](op-chain-example.md)  
+  The Op system in a simple example.
+
+- [Tensor Builder](tensor-builder.md) 
+  The input tensors are built by the tensor builders.
+
+## Elements
+
+- [amposd](amposd.md)  
+  Details of the drawing element.
+
+- [ampperformance](ampperformance.md)  
+  Details about the performance measurement system.
+
+
+

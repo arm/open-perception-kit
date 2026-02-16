@@ -1,102 +1,131 @@
-# 🏗 Architectural Overview
+# Architectural Overview
+## AMP/LVK Execution Model and GStreamer Integration
 
-The system is built around a modular **OpChain execution logic**.
-
-At runtime:
-
-- A GStreamer pipeline feeds frames into the system.
-- Frames enter the OpChain execution environment.
-- Ops process frames sequentially using a shared transient context.
-- Inference operations are scheduled and executed via supported runtimes.
-- Postprocessing attaches persistent results to a Perception object.
-- Preprocessing is handled by configurable video and audio preprocessors.
-- The Perception object travels downstream as the persistent result container.
-
-The architecture cleanly separates:
-
-- Transient execution state (OpChainContext)
-- Persistent output state (Perception)
-- Inference runtime abstraction
-- Postprocessing logic
-- Loop and execution control
-- Runtime integration layer
+AMP/LVK is a GStreamer-centric inference processing framework, designed to run AI workloads in media pipelines.
+GStreamer provides the media transport and scheduling, while the core execution model is independent and can run without GStreamer.
+In this architecture, GStreamer primarily feeds audio/video buffers into the system and carries results downstream as metadata.
 
 ---
 
-# Op Modules and Dynamic Loading
+## System Composition
 
-Ops are grouped by functionality into dynamically loadable shared libraries (`.so` files).
-This modular structure allows the system to remain extensible while keeping runtime
-dependencies isolated by backend or feature domain.
+The system is implemented as a set of reusable GStreamer elements that can be inserted into existing pipelines.
 
----
+Core elements:
 
-## OpChain Construction
+- `ampinfer`  
+  Runs micro-pipelines (OpChains) that perform preprocessing, inference, and postprocessing.
+  Produces structured results into Perception.
 
-OpChains are defined declaratively using a JSON configuration file.
+- `ampsink`  
+  Provides WebRTC-based output to a browser for stable, low-latency A/V visualization from containerized pipelines.
 
-At startup:
+- `amposd`  
+  Visualizes results by decorating video frames using Perception metadata.
+  Planned extension: DMABUF-based Vulkan rendering for zero-copy pipelines.
 
-- The system parses the JSON definition.
-- The required shared libraries are loaded dynamically.
-- Op instances are instantiated directly from the loaded `.so` modules.
-- The OpChain is constructed in the order defined in the configuration.
-- The `configure` and `bind` lifecycle phases are executed.
-- The chain becomes ready for runtime execution.
+- `amptracker`  
+  Tracks detections across frames and stabilizes identities and trajectories over time.
 
-This design enables flexible pipeline composition without recompilation.
+- `ampperformance`  
+  Collects and exposes performance metrics to support profiling and runtime analysis.
 
----
-
-## Standard Op Libraries
-
-The system provides a standard set of Op libraries:
-
-- `amp-std-ops.so`  
-  Core processing Ops and general-purpose components.
-
-- `amp-hailo-ops.so`  
-  Hailo runtime–specific inference Ops.
-
-- `amp-onnx-ops.so`  
-  ONNX Runtime–based inference Ops.
-
-- `amp-executorch-ops.so`  
-  ExecuTorch backend integration Ops.
-
-Additional Op libraries can be added without modifying the core execution engine,
-provided they conform to the Op interface contract.
+Each element can be placed into any existing GStreamer pipeline as a modular building block.
 
 ---
 
-## Architectural Benefits
+## Configuration Model
 
-- Backend-specific logic is isolated.
-- New inference runtimes can be integrated as separate modules.
-- The core engine remains runtime-agnostic.
-- Deployment artifacts remain modular.
-- Feature sets can be enabled or disabled per deployment.
+All runtime setup is defined in JSON (maybe later in YAML files also).
 
-This modular loading mechanism is fundamental to the system’s extensibility model.
+JSON configuration is used to describe:
+
+- Which elements build up the micro-pipeline (OpChain)
+- Op attributes (models, thresholds, parsers, preprocessing settings)
+- Backend selection also configured via Ops
+- Model cascading
+
+---
+
+## Op System and Micro-Pipelines
+
+The internal processing model is based on an Op system.
+
+- An `Op` is a modular processing unit with a strict lifecycle (`configure`, `bind`, `process`).
+- Ops are composed into ordered pipelines called `OpChain`.
+- OpChains define “micro-pipelines” that implement a specific processing goal
+  (e.g., face detection, gaze estimation, OCR detection, classification).
+
+OpChains are created from JSON descriptors and can be executed inside `ampinfer`
+or as standalone pipelines without GStreamer.
+
+This enables pipeline composition and model swapping without recompilation.
+The micro-pipelines are flexible enough to define non-inference task.
+Micro pipelines can be distruputed over differenet GStremaer elements or even inside one element.
+Different inference engines can used even inside a micro-pipeline.
 
 ---
 
-# 🧠 Inference Runtime Support
+## Perception Data Model
 
-The framework supports multiple inference backends:
+Perception is the persistent inference result container.
 
-- ONNX Runtime
-- Hailo Runtime
-- ExecuTorch
+- It travels downstream alongside the media buffer.
+- It aggregates structured results across pipeline stages.
+- Each inference or postprocessing stage can append new Perception Layers.
 
-The runtime abstraction layer allows:
+A Perception Layer captures one inference step and its outputs.
+This enables complex pipelines such as:
 
-- Easy integration of new models
-- Backend-agnostic Op implementation
-- Consistent tensor access patterns
-- Clear lifecycle control
+- multi-model cascades (detection → refinement → classification)
+- parallel branches (audio + video inference)
+- incremental enrichment across elements
 
-Model integration is intentionally simple and structured to reduce friction
-when deploying new networks into existing pipelines.
+- [Perception](perception.md)  
+  See details here.
+
 
 ---
+
+## Tracking
+
+`amptracker` consumes Perception detections and correlates them across frames.
+
+Goals:
+
+- Improve temporal stability of detections.
+- Preserve identities across time.
+- Attach track identifiers and trajectories back into Perception.
+
+Tracking operates as a downstream enrichment stage, producing additional Perception layers or metadata.
+
+---
+
+## Visualization and Rendering
+
+`amposd` uses Perception to render visual overlays on video frames.
+
+Current behavior:
+
+- Decorates frames with inference results (rectangles, labels, etc.).
+
+Planned behavior:
+
+- DMABUF-based Vulkan rendering to support zero-copy pipelines.
+- Reduced latency and CPU overhead for high-performance edge deployments.
+
+---
+
+## End-to-End Data Flow
+
+A typical execution flow:
+
+1. GStreamer delivers an audio/video buffer into the pipeline.
+2. `ampinfer` executes an OpChain for preprocessing → inference → postprocessing.
+3. Results are written into Perception as one or more Layers.
+4. `amptracker` optionally stabilizes detections across frames and enriches Perception.
+5. `amposd` optionally visualizes Perception results on video frames.
+6. `ampsink` optionally streams the output to a browser via WebRTC.
+7. `ampperformance` records runtime performance information.
+
+This modular architecture enables flexible composition while keeping the core inference engine reusable outside GStreamer.

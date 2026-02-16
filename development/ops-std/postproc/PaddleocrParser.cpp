@@ -43,7 +43,7 @@ amp::Result<void> PaddleOcrDetectionParser::parse(const amp::TensorParser::Input
         dst[i] = (uint8_t)v;
     }
 
-    detectionResult.contentType = "ocr-detection-segmentation";
+    detectionResult.contentType = "ocrDetectionSegmentation";
 
     return {};
 }
