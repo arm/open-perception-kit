@@ -13,6 +13,7 @@ stdops = shared_module(
     'postproc/GazeDetectionParser.cpp',
     'postproc/PersonClassificationParser.cpp',
     'postproc/ImageNetClassificationParser.cpp',
+    'postproc/ModNetSegmentationParser.cpp',
 
     'preproc/GenericImageTensorBuilder.cpp',
     'preproc/CpuImageKernels.cpp'

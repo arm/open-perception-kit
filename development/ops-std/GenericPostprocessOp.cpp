@@ -8,6 +8,7 @@
 #include "amp/Types.h"
 #include "postproc/GazeDetectionParser.h"
 #include "postproc/ImageNetClassificationParser.h"
+#include "postproc/ModNetSegmentationParser.h"
 #include "postproc/PaddleocrParser.h"
 #include "postproc/PersonClassificationParser.h"
 #include "postproc/UltrafaceParser.h"
@@ -47,6 +48,8 @@ amp::Result<void> GenericPostprocessOp::configure(const amp::AttributeMap &attri
         this->parser = std::make_unique<GazeDetectionParser>();
     } else if (parser == "UltrafaceParser") {
         this->parser = std::make_unique<UltraFaceParser>();
+    } else if (parser == "ModNetSegmentationParser") {
+        this->parser = std::make_unique<ModNetSegmentationParser>();
     } else {
         return tl::unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData,
                                         fmt::format("No tensor parser with name: [{}]", parser)));
