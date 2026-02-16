@@ -54,6 +54,9 @@ inside GStreamer pipelines, targeting containerized development and edge deploym
 - [Tensor Builder](tensor-builder.md) 
   The input tensors are built by the tensor builders.
 
+- [Tensor Parser](tensor-parser.md) 
+  The output tensors are parsed by one of the tensor parser.
+
 ## Elements
 
 - [amposd](amposd.md)  

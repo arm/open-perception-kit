@@ -6,6 +6,8 @@ The AMP inference architecture deliberately separates:
 - Engine-specific responsibilities  
 - Engine-agnostic processing logic  
 
+<img src="engine-independent.jpg" alt="Engine Independent Architecture" width="400">
+
 This ensures portability, modularity, and clean backend abstraction.
 
 The lifecycle of a model and inference execution follows a structured

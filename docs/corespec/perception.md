@@ -1,4 +1,3 @@
-
 # Perception
 ## Persistent Inference Result Model
 
