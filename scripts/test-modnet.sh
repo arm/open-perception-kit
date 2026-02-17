@@ -12,7 +12,7 @@ echo "Open http://localhost:9999 in your browser to see video"
 echo ""
 
 gst-launch-1.0 \
-  filesrc location=/work/etc/images/golden_retriever.jpg ! \
+  filesrc location=/work/etc/images/woman.jpg ! \
   jpegdec ! \
   imagefreeze ! \
   videoconvert ! video/x-raw,format=BGRA ! \
