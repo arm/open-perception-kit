@@ -1,4 +1,4 @@
-# Perception (?)
+# Perception
 ## Persistent Inference Result Model
 
 Perception is the persistent metadata container that travels downstream with the media buffer.

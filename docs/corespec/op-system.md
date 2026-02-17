@@ -1,4 +1,4 @@
-# Op System (?)
+# Op System
 ## Modular Operation Framework and Execution Model
 
 The **Op system** is the modular execution framework that powers the

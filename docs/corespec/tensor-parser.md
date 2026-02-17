@@ -1,4 +1,4 @@
-# TensorParser (?)
+# TensorParser
 ## Output Tensor Interpretation Interface
 
 TensorParser defines the interface responsible for converting raw inference

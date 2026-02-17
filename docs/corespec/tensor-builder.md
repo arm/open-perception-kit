@@ -1,4 +1,4 @@
-# TensorBuilder (?)
+# TensorBuilder
 ## Parameterized Input Tensor Construction Interface
 
 TensorBuilder defines the interface responsible for constructing model input

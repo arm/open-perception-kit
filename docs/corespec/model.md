@@ -89,7 +89,7 @@ Contains:
 
 -   name
 -   Shape
--   Tdt
+-   Tdt (dtype - tensor data type)
 -   QuantizationArgs
 
 The model may operate in:

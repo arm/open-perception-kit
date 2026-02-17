@@ -1,4 +1,4 @@
-# OpChainContext (?)
+# OpChainContext
 ## Transient Execution Context for an OpChain Element
 
 OpChainContext stores all transient data generated during the execution of an OpChain element.

@@ -34,6 +34,9 @@ inside GStreamer pipelines, targeting containerized development and edge deploym
 - [Inference Process](engine-independent.md)  
   The inference engine independent inference process.
 
+- [Types](types.md)  
+  Generic types.
+
 ## Execution Engine
 
 - [Perception](perception.md)  
