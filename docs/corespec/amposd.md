@@ -7,11 +7,12 @@
 This component currently supports 32bit ARGB drawing only, what determines the required video frame format.
 If there is no decoration over the video it is likely because of the mismached format.
 
-It consumes `PerceptionContextMeta` attached to buffers, generates
+It uses the received `Perception` instace attached to buffers, generates
 intermediate Cairo drawing layers, and composites them over the input frame
 in-place.
 
-Later a Vulkan or OpenGL based rendering path also will be implemented to make DMA-BUF/zero copy pipelines possible.
+In a later stage of development a Vulkan or OpenGL based rendering path also will be 
+implemented to make DMA-BUF/zero copy pipelines possible.
 
 The element operates purely as a visualization stage and does not modify Perception itself.
 
@@ -105,7 +106,6 @@ Currently supported:
 
 - Renders segmentation map as alpha-blended overlay.
 - Performs min-max normalization of map values.
-- Maps normalized intensity to cyan overlay.
 - Supports automatic scaling when segmentation resolution differs from frame size.
 
 ---

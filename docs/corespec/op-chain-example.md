@@ -1,4 +1,4 @@
-# Example OpChain in ampinfer
+# Example OpChain in ampinfer (?)
 ## Model Cascading: Face-Driven Crop Loop With Preprocess → Inference → Postprocess
 
 This example shows a typical OpChain executed inside the `ampinfer` GStreamer element.

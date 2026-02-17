@@ -1,5 +1,4 @@
-# AMP Model System
-
+# AMP Model System (?)
 ## Engine-Agnostic Model Abstraction and Descriptor Merge Architecture
 
 The AMP inference framework separates model runtime introspection from

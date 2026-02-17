@@ -27,20 +27,17 @@ inside GStreamer pipelines, targeting containerized development and edge deploym
 
 - [Inference Engines](inference-engines.md)  
   About the inference engines important for our project.
-
-- [Inference Engines](inference-engines.md)  
-  About the inference engines important for our project.
   
-- [amp::Model](model.md) 
+- [amp::Model](model.md)  
   The amp::Model object.
 
-- [Inference Process](engine-independent.md) 
+- [Inference Process](engine-independent.md)  
   The inference engine independent inference process.
 
 ## Execution Engine
 
 - [Perception](perception.md)  
-  Perception is the persistent metadata container that travels downstream with the media buffer.
+  Perception is the persistent metadata container.
 
 - [Op system](op-system.md)  
   Local processing based on micro-pipelines.
@@ -51,13 +48,16 @@ inside GStreamer pipelines, targeting containerized development and edge deploym
 - [OpChain Example](op-chain-example.md)  
   The Op system in a simple example.
 
-- [Tensor Builder](tensor-builder.md) 
+- [Tensor Builder](tensor-builder.md)  
   The input tensors are built by the tensor builders.
 
-- [Tensor Parser](tensor-parser.md) 
+- [Tensor Parser](tensor-parser.md)  
   The output tensors are parsed by one of the tensor parser.
 
 ## Elements
+
+- [ampinfer](ampinfer.md)  
+  Details of the inference element.
 
 - [amposd](amposd.md)  
   Details of the drawing element.
@@ -65,5 +65,7 @@ inside GStreamer pipelines, targeting containerized development and edge deploym
 - [ampperformance](ampperformance.md)  
   Details about the performance measurement system.
 
+- [ampsink](ampsink.md)  
+  Details about the WebRTC presentation system.
 
 

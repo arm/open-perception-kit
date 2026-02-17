@@ -34,7 +34,7 @@ To solve these issues, the system introduces **AmpSink**.
 <img src="webrtc.jpg" alt="WebRTC utilization" width="600">
 
 Our element is called AmpSink.
-AmpSink provides a web endpoint inside the container.
+AmpSink provides a web endpoint inside the container publishing media.
 The host web browser connects to this endpoint and renders the media stream.
 
 - Streams media using WebRTC.
@@ -45,9 +45,9 @@ The host web browser connects to this endpoint and renders the media stream.
 
 ---
 
-## REST Control Interface
+## WebSocket Control Interface
 
-The browser communicates with the container using REST control commands.
+The browser communicates with the container using WebSocket control commands.
 
 This allows:
 

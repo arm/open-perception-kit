@@ -1,10 +1,13 @@
-# Inference Execution Flow
+# Inference Execution Flow (?)
 ## Engine-Specific Loading+Inference with Engine-Agnostic Processing
 
 The AMP inference architecture deliberately separates:
 
 - Engine-specific responsibilities  
 - Engine-agnostic processing logic  
+
+ We use even separated .so files for the different inference engines, so the different SDKs, 
+ libraries, headers, dependencies can be handled fully separated from each other and the core system.
 
 <img src="engine-independent.jpg" alt="Engine Independent Architecture" width="400">
 
@@ -102,7 +105,7 @@ This separation ensures:
 
 ---
 
-# 4. Key Design Principle
+## Key Design Principle
 
 The inference engine is responsible only for:
 
@@ -112,9 +115,8 @@ The inference engine is responsible only for:
 All other responsibilities are handled generically:
 
 - Preprocessing
-- Tensor memory abstraction
 - Postprocessing
-- Result formatting
+- Inference result formatting
 
 This design guarantees that:
 

@@ -1,7 +1,7 @@
 # Architectural Overview
 ## AMP/LVK Execution Model and GStreamer Integration
 
-AMP/LVK is a GStreamer-centric inference processing framework, designed to run AI workloads in media pipelines.
+AMP/LVK is a GStreamer-centric inference execution framework, designed to run AI workloads in media pipelines.
 GStreamer provides the media transport and scheduling, while the core execution model is independent and can run without GStreamer.
 In this architecture, GStreamer primarily feeds audio/video buffers into the system and carries results downstream as metadata.
 
@@ -14,8 +14,9 @@ The system is implemented as a set of reusable GStreamer elements that can be in
 Core elements:
 
 - `ampinfer`  
-  Runs micro-pipelines (OpChains) that perform preprocessing, inference, and postprocessing.
+  Runs micro-pipelines (OpChain) that perform preprocessing, inference, and postprocessing.
   Produces structured results into Perception.
+  OpChans can contain any other processing steps, but for us inference is the most important kind.
 
 - `ampsink`  
   Provides WebRTC-based output to a browser for stable, low-latency A/V visualization from containerized pipelines.
@@ -89,7 +90,9 @@ This enables complex pipelines such as:
 
 ## Tracking
 
-`amptracker` consumes Perception detections and correlates them across frames.
+`amptracker` uses Perception detections and deriving cross-frame information from them
+In ideal case it creates an **entity** that represents the real world entities.
+In this case missing detections on frames does not mean that the given entity is lost.
 
 Goals:
 
@@ -97,7 +100,7 @@ Goals:
 - Preserve identities across time.
 - Attach track identifiers and trajectories back into Perception.
 
-Tracking operates as a downstream enrichment stage, producing additional Perception layers or metadata.
+Adds 'tracking' layers to the Perception. (planned)
 
 ---
 
@@ -123,7 +126,7 @@ A typical execution flow:
 1. GStreamer delivers an audio/video buffer into the pipeline.
 2. `ampinfer` executes an OpChain for preprocessing → inference → postprocessing.
 3. Results are written into Perception as one or more Layers.
-4. `amptracker` optionally stabilizes detections across frames and enriches Perception.
+4. `amptracker` optionally stabilizes detections across frames and adds tracking layer.
 5. `amposd` optionally visualizes Perception results on video frames.
 6. `ampsink` optionally streams the output to a browser via WebRTC.
 7. `ampperformance` records runtime performance information.

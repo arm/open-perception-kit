@@ -1,5 +1,5 @@
 
-# 🎯 System Vision
+# 🎯 System Vision (?)
 
 The system is designed to make model integration and inference execution
 inside GStreamer pipelines straightforward, modular, and production-ready.
