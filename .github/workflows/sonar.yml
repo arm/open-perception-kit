@@ -13,6 +13,7 @@ jobs:
       PROJECT_ROOT: ./development
       BUILD_DIR: ./development/build
       ORT_URL: "https://github.com/microsoft/onnxruntime/releases/download/v1.18.1/onnxruntime-linux-x64-1.18.1.tgz"
+      DEPS_ONNX: "deps/onnxruntime"
 
 
     steps:
@@ -23,7 +24,8 @@ jobs:
         run: |
           wget "$ORT_URL" -O onnx.tgz
           tar xf onnx.tgz
-          DIR_NAME=$(basename "$ORT_URL" .tgz) cp "$DIR_NAME"/include /deps/onnxruntim && cp "$DIR_NAME"/lib /deps/onnxruntim 
+          mkdir -p 
+          cp $(basename "$ORT_URL" .tgz)/include "${DEPS_ONNX}" && cp $(basename "$ORT_URL" .tgz)/lib "${DEPS_ONNX}" 
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends ca-certificates curl wget git sudo unzip
           sudo apt-get install -y --no-install-recommends build-essential emscripten meson ninja-build pkg-config gdb cmake build-essential pkg-config libsoup-3.0-dev libjson-glib-dev clangd ssh clang-format libcairo2-dev
