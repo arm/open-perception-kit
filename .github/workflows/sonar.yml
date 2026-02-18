@@ -28,11 +28,15 @@ jobs:
           cp -r $(basename "$ORT_URL" .tgz)/include "${DEPS_ONNX}" && cp -r $(basename "$ORT_URL" .tgz)/lib "${DEPS_ONNX}" 
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends ca-certificates curl wget git sudo unzip
-          sudo apt-get install -y --no-install-recommends build-essential emscripten meson ninja-build pkg-config gdb cmake build-essential pkg-config libsoup-3.0-dev libjson-glib-dev clangd ssh clang-format libcairo2-dev
+          sudo apt-get install -y --no-install-recommends gcc-14 g++14 build-essential emscripten meson ninja-build pkg-config gdb cmake build-essential pkg-config libsoup-3.0-dev libjson-glib-dev clangd ssh clang-format libcairo2-dev
           sudo apt-get install -y --no-install-recommends python3 python3-venv python3-gi python3-gst-1.0 libssl-dev libffi-dev zlib1g-dev libbz2-dev liblzma-dev libsqlite3-dev libfmt-dev pre-commit libfmt-dev
           sudo apt-get install -y --no-install-recommends libgstreamer1.0-dev gstreamer1.0-tools
           sudo apt-get install -y --no-install-recommends libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-x gstreamer1.0-gl
           sudo apt-get install -y --no-install-recommends libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-bad gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly gstreamer1.0-nice v4l-utils
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100
+          gcc --version
+          g++ --version
           
       - name: Prepare build
         run:
