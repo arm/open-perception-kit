@@ -1,0 +1,59 @@
+name: Sonar
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build-and-sonar:
+    runs-on: self-hosted-ubuntu-latest-x64
+
+    env:
+      PROJECT_ROOT: ./development
+      BUILD_DIR: ./development/build
+
+    steps:
+      - name: Checkkout
+        uses: actions/checkout@v4
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ca-certificates curl wget git sudo unzip
+          sudo apt-get install -y --no-install-recommends build-essential emscripten meson ninja-build pkg-config gdb cmake build-essential pkg-config libsoup-3.0-dev libjson-glib-dev clangd ssh clang-format libcairo2-dev
+          sudo apt-get install -y --no-install-recommends python3 python3-venv python3-gi python3-gst-1.0 libssl-dev libffi-dev zlib1g-dev libbz2-dev liblzma-dev libsqlite3-dev libfmt-dev pre-commit libfmt-dev
+          sudo apt-get install -y --no-install-recommends libgstreamer1.0-dev gstreamer1.0-tools
+          sudo apt-get install -y --no-install-recommends libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-x gstreamer1.0-gl
+          sudo apt-get install -y --no-install-recommends libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-bad gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly gstreamer1.0-nice v4l-utils
+          
+      - name: Prepare build
+        run:
+          meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat
+
+      - name: Download and install the build wrapper, build the project
+        run: |
+          mkdir $HOME/.sonar
+          curl -sSLo $HOME/.sonar/build-wrapper-linux-x86.zip ${{ secrets.SONAR_HOST_URL }}/static/cpp/build-wrapper-linux-x86.zip
+          unzip -o $HOME/.sonar/build-wrapper-linux-x86.zip -d $HOME/.sonar/
+          $HOME/.sonar/build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir bw-output meson compile -C "$BUILD_DIR"
+        env:
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_UR }}
+          
+      - name: Download and install the SonarScanner
+        env:
+          SONAR_SCANNER_VERSION: 4.6.2.2472
+        run: |
+          curl -sSLo $HOME/.sonar/sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${{ env.SONAR_SCANNER_VERSION }}-linux.zip
+          unzip -o $HOME/.sonar/sonar-scanner.zip -d $HOME/.sonar/
+          echo "$HOME/.sonar/sonar-scanner-${{ env.SONAR_SCANNER_VERSION }}-linux/bin" >> $GITHUB_PATH
+
+      - name: SonarQube analysis
+        run: |
+          sonar-scanner --define sonar.cfamily.build-wrapper-output=bw-output  
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          
+          
+      
