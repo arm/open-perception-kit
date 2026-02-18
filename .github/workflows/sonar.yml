@@ -22,7 +22,7 @@ jobs:
       - name: Install build deps
         run: |
           wget "$ORT_URL" -O onnx.tgz
-          tar xf onnx.tgx
+          tar xf onnx.tgz
           DIR_NAME=$(basename "$ORT_URL" .tgz) cp "$DIR_NAME"/include /deps/onnxruntim && cp "$DIR_NAME"/lib /deps/onnxruntim 
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends ca-certificates curl wget git sudo unzip
