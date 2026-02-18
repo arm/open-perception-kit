@@ -12,6 +12,8 @@ jobs:
     env:
       PROJECT_ROOT: ./development
       BUILD_DIR: ./development/build
+      ORT_URL: "https://github.com/microsoft/onnxruntime/releases/download/v1.18.1/onnxruntime-linux-x64-1.18.1.tgz"
+
 
     steps:
       - name: Checkkout
@@ -19,6 +21,9 @@ jobs:
 
       - name: Install build deps
         run: |
+          wget "$ORT_URL" -O onnx.tgz
+          tar xf onnx.tgx
+          DIR_NAME=$(basename "$ORT_URL" .tgz) cp "$DIR_NAME"/include /deps/onnxruntim && cp "$DIR_NAME"/lib /deps/onnxruntim 
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends ca-certificates curl wget git sudo unzip
           sudo apt-get install -y --no-install-recommends build-essential emscripten meson ninja-build pkg-config gdb cmake build-essential pkg-config libsoup-3.0-dev libjson-glib-dev clangd ssh clang-format libcairo2-dev
