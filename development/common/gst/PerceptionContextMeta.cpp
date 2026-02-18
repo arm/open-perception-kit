@@ -1,4 +1,5 @@
-#include "GstMetaWrapper.cpp"
+#include "PerceptionContextMeta.h"
+#include "GstMetaWrapper.h"
 
 namespace amp {
 const char *PerceptionContextMetaTraits::api_name() {
