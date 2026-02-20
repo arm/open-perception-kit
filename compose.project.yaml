@@ -65,7 +65,7 @@ services:
         .devcontainer/setup.sh &&
         .devcontainer/platform_init.sh amp-dev-base &&
         ./scripts/build-elements.sh release true &&
-        meson test -C work/development/build --print-errorlogs
+        meson test -C development/build --print-errorlogs
       '
 
   amp-quality-check-pull-request:
