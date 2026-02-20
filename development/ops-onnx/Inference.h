@@ -1,3 +1,6 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
 #pragma once
 
 #include <cstdint>
@@ -103,6 +106,10 @@ struct Inference {
         return this->model;
     }
 
+    uint8_t *getInputTensorDataAddress(size_t index) {
+        return api.inputTensors[index]->getData();
+    }
+
     const uint8_t *getOutputTensorDataAddress(size_t index) const {
         assert(outputTensorPointers[index]);
         return outputTensorPointers[index];
@@ -122,9 +129,9 @@ struct Inference {
     static amp::Result<amp::Model> inspectModel(const Ort::Session &session);
 
     Ort::Env *environment = nullptr;
-    Ort::Session *session = nullptr;
     Ort::SessionOptions *sessionOptions = nullptr;
     Ort::MemoryInfo *memoryInfo = nullptr;
+    Ort::Session *session = nullptr;
 
     void setupTensorsForModel();
 
@@ -153,10 +160,5 @@ struct Inference {
         std::vector<Ort::Value> inputTensorVector;
         std::vector<Ort::Value> outputTensorVector;
     } api;
-
-  public:
-    uint8_t *getInputTensorDataAddress(size_t index) {
-        return api.inputTensors[index]->getData();
-    }
 };
 } // namespace onnx
