@@ -24,6 +24,7 @@ x-amp-dev-common: &amp-dev-common
 
   ports:
     - 8000:8000
+    - 8080:8080
     - 8001:8001
     - 9999:9999
 
@@ -89,12 +90,3 @@ services:
         source /work/tools/lazer/.venv/bin/activate &&
         expkits-ci --clang-format-check --python-format-check --cmake-format-check --shell-format-check --license-header-check
       '
-# Topo-specific metadata
-x-topo:
-  name: "AMP TOPO Container"
-  description: |
-    Run AMP container
-
-  features:
-    - "SME"
-    - "NEON"

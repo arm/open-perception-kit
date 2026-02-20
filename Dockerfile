@@ -24,7 +24,7 @@ RUN set -eux; \
 RUN set -eux; \
   apt-get install -y --no-install-recommends \
     build-essential emscripten meson ninja-build pkg-config gdb cmake build-essential pkg-config libsoup-3.0-dev libjson-glib-dev \
-    clangd ssh clang-format libcairo2-dev pandoc
+    clangd ssh clang-format libcairo2-dev pandoc zip
 
 # Python + core libs
 RUN set -eux; \
@@ -128,6 +128,18 @@ RUN set -eux; \
 
 USER ${USERNAME}
 WORKDIR /work
+
+########## Basic deployment container ##########
+FROM amp-dev-base AS amp-deployment-base
+USER root
+ARG USERNAME=devgoblin
+
+COPY . /work
+
+USER ${USERNAME}
+WORKDIR /work
+
+CMD ["sleep","infinity"]
 
 ########## Rich development environment container ##########
 FROM amp-dev-base AS amp-dev-rich

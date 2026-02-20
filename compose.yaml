@@ -1,0 +1,65 @@
+x-amp-dev-common: &amp-dev-common
+  cap_add:
+    - SYS_PTRACE
+
+  security_opt:
+    - seccomp:unconfined
+
+  privileged: true
+
+  command: /bin/bash -c "while true; do sleep 1; done"
+
+  environment:
+    - WAYLAND_DISPLAY=wayland-0
+    - DISPLAY
+    - USERNAME=devgoblin
+
+  env_file:
+    - devices.env
+
+  volumes:
+    - /tmp/.X11-unix:/tmp/.X11-unix
+    - /run/udev:/run/udev:ro
+
+  ports:
+    - 8000:8000
+    - 8001:8001
+    - 9999:9999
+
+  stdin_open: true
+  tty: true
+  restart: unless-stopped
+
+x-amp-dev-build: &amp-dev-build
+  context: .
+  dockerfile: Dockerfile
+
+services:
+  amp-release-deployment:
+    platform: linux/arm64
+    <<: *amp-dev-common
+    build:
+      <<: *amp-dev-build
+      target: amp-deployment-base
+    network_mode: bridge
+    container_name: amp-deployment-base
+    hostname: amp-deployment-base
+    command: |
+      bash -c '
+        .devcontainer/setup.sh &&
+        .devcontainer/platform_init.sh amp-dev-base &&
+        ./scripts/build-elements.sh release false &&
+        ./scripts/gendoc.sh &&
+        ./scripts/serve-doc.sh & &&
+        ./scripts/amp-menu onnx &
+      '
+
+# Topo-specific metadata
+x-topo:
+  name: "AMP TOPO Container"
+  description: |
+    Run AMP container
+
+  features:
+    - "SME"
+    - "NEON"
