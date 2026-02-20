@@ -1,4 +1,5 @@
 {
+  "name": "Modnet",
   "ops": [
     {
       "id": "amp-std-ops/InferenceController",
