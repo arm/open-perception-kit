@@ -1,7 +1,7 @@
 {
-	"name": "yolo",
+	"name": "yolo-hailo",
 	"modelFamily": "yolo-obj",
-	"modelFile": "yolox_nano.pte",
+	"modelFile": "yolo11n-fp32-320_nms.hef",
 	"dynamicOutput": true,
 	"maxDetectionCount": 16,
 	"confidenceThreshold": 0.7,
@@ -10,11 +10,12 @@
 		{
 			"shape": [
 				1,
-				3,
-				416,
-				416
+				320,
+				320,
+				3
 			],
-			"dataKind": "ImageRgbChw"
+			"dataKind": "ImageRgbHwc",
+			"valueType": "Uint8"
 		}
 	]
 }

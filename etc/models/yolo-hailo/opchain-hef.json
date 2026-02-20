@@ -1,12 +1,9 @@
 {
-	"name": "GazeDetection",
+	"name": "YoloV11 HAILO",
 	"ops": [
 		{
 			"id": "amp-std-ops/InferenceController",
-			"group": "for-all-faces",
-			"attributes": {
-				"contentType": "humanFace"
-			}
+			"attributes": {}
 		},
 		{
 			"id": "amp-std-ops/GenericImagePreprocess",
@@ -16,18 +13,25 @@
 			}
 		},
 		{
-			"id": "amp-onnx-ops/Inference",
+			"id": "amp-hailort-ops/Inference",
 			"attributes": {
-				"modelDescriptor": "/work/etc/models/gazedetection/model.json"
+				"modelDescriptor": "/work/etc/models/yolo-hailo/yolo-hef.json"
 			}
 		},
 		{
 			"id": "amp-std-ops/GenericPostprocess",
 			"attributes": {
-				"parser": "GazeDetectionParser",
+				"applyNms": false,
+				"parser": "YoloParser",
+				"outputFormat": "HailoYoloNMS",
 				"normalizeOutputCoordinates": false,
+				"coordinatesAreNormalized": true,
 				"confidenceThreshold": 0.5,
-				"iouThreshold": 0.3
+				"maxDetections": 50,
+				"classCount": 80,
+				"maxBboxesPerClass": 100,
+				"coordOrder": "yxyx",
+				"debug": false
 			}
 		}
 	]
