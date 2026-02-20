@@ -1,3 +1,6 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
 #include "postproc/UltrafaceParser.h"
 #include "amp/Perception.h"
 
@@ -246,8 +249,8 @@ amp::Result<void> amp::UltraFaceParser::parse(const amp::TensorParser::Input &in
     const float confThreshold =
         (float)input.attributes.getDoubleOrDefault("confidenceThreshold", 0.5);
     const float iouThreshold = (float)input.attributes.getDoubleOrDefault("iouThreshold", 0.3);
-    const bool normalizeCoordinates =
-        (float)input.attributes.getBoolOrDefault("normalizeCoordinates", true);
+    const bool normalizeOutputCoordinates =
+        (float)input.attributes.getBoolOrDefault("normalizeOutputCoordinates", true);
 
     const size_t frameWidth = input.inferenceInfo.image.width;
     const size_t frameHeight = input.inferenceInfo.image.height;
@@ -334,7 +337,7 @@ amp::Result<void> amp::UltraFaceParser::parse(const amp::TensorParser::Input &in
         float y2 = y_max;
 
         // ---- 3) convert to pixel coords ----
-        if (false == normalizeCoordinates) {
+        if (false == normalizeOutputCoordinates) {
             x1 *= frameWidth;
             y1 *= frameHeight;
             x2 *= frameWidth;
