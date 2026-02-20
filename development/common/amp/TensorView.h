@@ -1,3 +1,6 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
 #pragma once
 
 #include "amp/Shape.h"
@@ -79,6 +82,13 @@ struct TensorView {
     }
     const uint8_t *getData() const {
         return data;
+    }
+
+    float getScale() const {
+        return scale;
+    }
+    float getZeroPoint() const {
+        return zeroPoint;
     }
 
   private:

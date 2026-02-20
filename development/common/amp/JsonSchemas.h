@@ -1,9 +1,15 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #pragma once
 
 #include "amp/Shape.h"
 #include "amp/Types.h"
 
+#include <algorithm>
 #include <nlohmann/json.hpp>
+#include <string>
 #include <vector>
 
 using nlohmann::json;
@@ -84,4 +90,66 @@ NLOHMANN_JSON_SERIALIZE_ENUM(amp::DataKind,
                                  {DataKind::Vector3, "Vector3"},
                                  {DataKind::Vector4, "Vector4"},
                              })
+
+inline void to_json(json &j, const amp::Tdt &t) {
+    switch (t) {
+    case amp::Tdt::Uint8:
+        j = "Uint8";
+        return;
+    case amp::Tdt::Int8:
+        j = "Int8";
+        return;
+    case amp::Tdt::Float16:
+        j = "Float16";
+        return;
+    case amp::Tdt::Float32:
+        j = "Float32";
+        return;
+    case amp::Tdt::Int64:
+        j = "Int64";
+        return;
+    default:
+        j = "Float32";
+        return;
+    }
+}
+
+inline void from_json(const json &j, amp::Tdt &t) {
+    if (j.is_number_integer()) {
+        t = static_cast<amp::Tdt>(j.get<int>());
+        return;
+    }
+
+    if (!j.is_string()) {
+        throw std::runtime_error("Tdt must be a JSON string or integer");
+    }
+
+    std::string s = j.get<std::string>();
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+
+    if (s == "uint8" || s == "u8") {
+        t = amp::Tdt::Uint8;
+        return;
+    }
+    if (s == "int8" || s == "i8") {
+        t = amp::Tdt::Int8;
+        return;
+    }
+    if (s == "float16" || s == "f16") {
+        t = amp::Tdt::Float16;
+        return;
+    }
+    if (s == "float32" || s == "f32" || s == "float") {
+        t = amp::Tdt::Float32;
+        return;
+    }
+    if (s == "int64" || s == "i64") {
+        t = amp::Tdt::Int64;
+        return;
+    }
+
+    throw std::runtime_error("Unknown Tdt value");
+}
 } // namespace amp

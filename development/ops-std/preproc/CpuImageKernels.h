@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #pragma once
 
 #include "amp/Types.h"
@@ -43,6 +47,16 @@ struct ImageOps {
                                                const Colorf &mean = {0.0f, 0.0f, 0.0f, 0.0f},
                                                const Colorf &std = {1.0f, 1.0f, 1.0f, 1.0f},
                                                Sampling sampling = Sampling::Nearest);
+
+    static bool StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(const uint8_t *src,
+                                                         size_t srcWidth,
+                                                         size_t srcHeight,
+                                                         const Rect &srcRect,
+                                                         uint8_t *dst,
+                                                         size_t dstWidth,
+                                                         size_t dstHeight,
+                                                         const Rect &dstRect,
+                                                         Sampling sampling = Sampling::Nearest);
 
     static bool
     StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(const uint8_t *src,

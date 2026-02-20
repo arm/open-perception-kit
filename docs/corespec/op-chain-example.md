@@ -80,7 +80,7 @@ The `group` field ties Ops into a named execution group.
 		"id": "amp-std-ops/GenericPostprocess",
 		"attributes": {
 			"parser": "UltrafaceParser",
-			"normalizeCoordinates": false,
+			"normalizeOutputCoordinates": false,
 			"confidenceThreshold": 0.3,
 			"iouThreshold": 0.1
 		}
@@ -111,7 +111,7 @@ The `group` field ties Ops into a named execution group.
 		"group": "for-all-faces",
 		"attributes": {
 			"parser": "GazeDetectionParser",
-			"normalizeCoordinates": false,
+			"normalizeOutputCoordinates": false,
 			"confidenceThreshold": 0.5,
 			"iouThreshold": 0.3
 		}

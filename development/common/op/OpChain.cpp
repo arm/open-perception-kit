@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #include "op/OpChain.h"
 
 #include "amp/String.h"
@@ -7,7 +11,13 @@
 
 using namespace amp;
 
+const std::string &OpChain::getName() {
+    return this->name;
+}
+
 amp::Result<void> OpChain::setupFromDescriptor(const amp::OpChainDescriptor &descriptor) {
+    name = descriptor.name;
+
     for (const auto &op : descriptor.ops) {
 
         if (amp::utf8::count(op.id, '/') != 1) {

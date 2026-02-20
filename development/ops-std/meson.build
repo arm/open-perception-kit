@@ -1,4 +1,3 @@
-
 stdops = shared_module(
   'amp-std-ops',                   
   sources: [
@@ -16,11 +15,11 @@ stdops = shared_module(
     'postproc/ModNetSegmentationParser.cpp',
 
     'preproc/GenericImageTensorBuilder.cpp',
-    'preproc/CpuImageKernels.cpp'
+    'preproc/CpuImageKernels.cpp',
 
   ],
   include_directories: common_include,
-  dependencies: amp_deps,
+  dependencies: amp_deps ,
   cpp_args: ['-DFMT_HEADER_ONLY'],
   link_with: [ common ],
   name_prefix: '',
