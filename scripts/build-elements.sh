@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+################################################################
+# Copyright (C) 2025 Arm Limited. All rights reserved.
+################################################################
 
 # ---- include ----
 SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
@@ -10,103 +13,112 @@ BUILD_DIR="$PROJECT_ROOT/build"
 TESTS_BUILD_DIR="$PROJECT_ROOT/build-test"
 AMP_MENU=$PROJECT_ROOT/build/meson-out/amp-menu
 
+mkdir -p "$BUILD_DIR"
+
+meson_build_is_configured() {
+    local build_dir="$1"
+    [[ -d "$build_dir/meson-private" ]]
+}
+
 # ---- build ----
 debug() {
-  need meson; need ninja
+    need meson
+    need ninja
 
-  local enable_tests="${1:-false}"
+    local enable_tests="${1:-false}"
 
-  msg_begin "Starting DEBUG build in directory: $PROJECT_ROOT (tests=$enable_tests)" 
+    msg_begin "Starting DEBUG build in directory: $PROJECT_ROOT (tests=$enable_tests)"
 
-  if [[ ! -d "$BUILD_DIR" ]]; then
-    msg "Meson setup.."
-    meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat -Dtests="$enable_tests"
-  else
-    msg "Meson configure (keeping existing build dir)…"
-    meson configure "$BUILD_DIR" >/dev/null
-  fi
+    if ! meson_build_is_configured "$BUILD_DIR"; then
+        msg "Meson setup.."
+        meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat -Dtests="$enable_tests"
+    else
+        msg "Meson configure (keeping existing build dir)…"
+        meson configure "$BUILD_DIR" > /dev/null
+    fi
 
-  msg "Compiling.."
-  meson compile -C "$BUILD_DIR"
+    msg "Compiling.."
+    meson compile -C "$BUILD_DIR"
 
-  cp "$AMP_MENU" "$SCRIPT_DIR/"
+    cp "$AMP_MENU" "$SCRIPT_DIR/"
 
-  msg_end "DEBUG compilation DONE → $BUILD_DIR"
+    msg_end "DEBUG compilation DONE → $BUILD_DIR"
 }
 
 debug_with_executorch() {
-  need meson; need ninja
+    need meson
+    need ninja
 
-  msg_begin "Starting DEBUG build with ExecuTorch in directory: $PROJECT_ROOT" 
+    msg_begin "Starting DEBUG build with ExecuTorch in directory: $PROJECT_ROOT"
 
-  if [[ ! -d "$BUILD_DIR" ]]; then
-    msg "Meson setup.."
-    meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat --wrap-mode=forcefallback -Dexecutorch=enabled
-  else
-    msg "Meson configure (keeping existing build dir)…"
-    meson configure "$BUILD_DIR" >/dev/null
-  fi
+    if ! meson_build_is_configured "$BUILD_DIR"; then
+        msg "Meson setup.."
+        meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat --wrap-mode=forcefallback -Dexecutorch=enabled
+    else
+        msg "Meson configure (keeping existing build dir)…"
+        meson configure "$BUILD_DIR" > /dev/null
+    fi
 
-  msg "Compiling.."
-  meson compile -C "$BUILD_DIR"
+    msg "Compiling.."
+    meson compile -C "$BUILD_DIR"
 
-  cp "$AMP_MENU" "$SCRIPT_DIR/"
+    cp "$AMP_MENU" "$SCRIPT_DIR/"
 
-  msg_end "DEBUG compilation with ExecuTorch DONE → $BUILD_DIR"
+    msg_end "DEBUG compilation with ExecuTorch DONE → $BUILD_DIR"
 }
 
 release() {
-  need meson; need ninja
+    need meson
+    need ninja
 
-  local enable_tests="${1:-false}"
+    local enable_tests="${1:-false}"
 
-  msg_begin "Starting RELEASE build in directory: $PROJECT_ROOT (tests=$enable_tests)" 
+    msg_begin "Starting RELEASE build in directory: $PROJECT_ROOT (tests=$enable_tests)"
 
+    if ! meson_build_is_configured "$BUILD_DIR"; then
+        msg "Meson setup (release)…"
+        meson setup "$BUILD_DIR" "$PROJECT_ROOT" \
+            --buildtype=release \
+            -Ddebug=false \
+            -Dstrip=true \
+            -Db_lto=true \
+            -Doptimization=3 \
+            --layout=flat \
+            -Dtests="$enable_tests"
+    else
+        msg "Meson configure (keeping existing build dir)…"
+        meson configure "$BUILD_DIR" > /dev/null
+    fi
 
-  if [[ ! -d "$BUILD_DIR" ]]; then
-    msg "Meson setup (release)…"
-    meson setup "$BUILD_DIR" "$PROJECT_ROOT" \
-      --buildtype=release  \
-      -Ddebug=false \
-      -Dstrip=true \
-      -Db_lto=true \
-      -Doptimization=3 \
-      --layout=flat \
-      -Dtests="$enable_tests"
-  else
-    msg "Meson configure (keeping existing build dir)…"
-    meson configure "$BUILD_DIR" >/dev/null
-  fi
+    msg "Compiling…"
+    meson compile -C "$BUILD_DIR"
 
-  msg "Compiling…"
-  meson compile -C "$BUILD_DIR"
+    cp "$AMP_MENU" "$SCRIPT_DIR/"
 
-  cp "$AMP_MENU" "$SCRIPT_DIR/"
-
-  msg_end "Release build done → $BUILD_DIR"
+    msg_end "Release build done → $BUILD_DIR"
 }
 # ---- clean ----
 clean() {
     msg_begin "Executing CLEAN on $BUILD_DIR and $TESTS_BUILD_DIR"
-  if [[ -d "$BUILD_DIR" ]]; then
-    msg "REMOVING $BUILD_DIR…"
-    rm -rf "$BUILD_DIR"
-    msg_end "Done."
-  else
-    msg_end_err "no $BUILD_DIR to clean.."
-  fi
-  if [[ -d "$TESTS_BUILD_DIR" ]]; then
-    msg "REMOVING $TESTS_BUILD_DIR"
-    rm -rf "$TESTS_BUILD_DIR"
-    msg_end "Done."
-  else
-    msg_end_err "no $TESTS_BUILD_DIR to clean.."
-  fi
+    if [[ -d "$BUILD_DIR" ]]; then
+        msg "REMOVING $BUILD_DIR…"
+        rm -rf "$BUILD_DIR"
+        msg_end "Done."
+    else
+        msg_end_err "no $BUILD_DIR to clean.."
+    fi
+    if [[ -d "$TESTS_BUILD_DIR" ]]; then
+        msg "REMOVING $TESTS_BUILD_DIR"
+        rm -rf "$TESTS_BUILD_DIR"
+        msg_end "Done."
+    else
+        msg_end_err "no $TESTS_BUILD_DIR to clean.."
+    fi
 }
 
 # ---- help ----
 usage() {
-  cat <<EOF
+    cat << EOF
 
 Commands:
   clean ➡️ Clear all build artifacts.
@@ -120,13 +132,13 @@ EOF
 cmd="${1:-}"
 arg="${2:-}"
 case "$cmd" in
-  debug) debug "$arg" ;;
-  release) release "$arg" ;;
-  debug_with_executorch) debug_with_executorch ;;
-  clean) clean ;;
-  *)
-    echo "Unknown command: $cmd" >&2
-    usage >&2
-    exit 2
-    ;;
+    debug) debug "$arg" ;;
+    release) release "$arg" ;;
+    debug_with_executorch) debug_with_executorch ;;
+    clean) clean ;;
+    *)
+        echo "Unknown command: $cmd" >&2
+        usage >&2
+        exit 2
+        ;;
 esac

@@ -1,12 +1,28 @@
 repos:
-  # Local clang-format hook (uses clang-format available in PATH)
   - repo: local
     hooks:
-      - id: clang-format
-        name: clang-format
-        entry: bash -c 'PRE_COMMIT_NO_CONCURRENCY=1 clang-format --dry-run --Werror "$@"' --
+      - id: branch-naming
+        name: Branch Naming Convention
+        entry: bash -c 'source /work/tools/lazer/.venv/bin/activate && expkits-ci --branch-naming --list-of-files $@' _
         language: system
-        types_or: [c, c++]
-        files: "\\.(c|cc|cpp|cxx|h|hh|hpp)$"
-        pass_filenames: true
-        require_serial: true
+      - id: commit-msg
+        name: Commit Message Format
+        entry: bash -c 'source /work/tools/lazer/.venv/bin/activate && expkits-ci --commit-msg --list-of-files $@' _
+        language: system
+        stages: [commit-msg]
+      - id: clang-format
+        name: Clang Format
+        entry: bash -c 'source /work/tools/lazer/.venv/bin/activate && expkits-ci --clang-format --list-of-files $@' _
+        language: system
+      - id: python-format
+        name: Python Format (PEP-8)
+        entry: bash -c 'source /work/tools/lazer/.venv/bin/activate && expkits-ci --python-format --list-of-files $@' _
+        language: system
+      - id: cmake-format
+        name: CMake Format
+        entry: bash -c 'source /work/tools/lazer/.venv/bin/activate && expkits-ci --cmake-format --list-of-files $@' _
+        language: system
+      - id: license-header
+        name: License Header Check
+        entry: bash -c 'source /work/tools/lazer/.venv/bin/activate && expkits-ci --license-header --list-of-files $@' _
+        language: system
