@@ -1,0 +1,24 @@
+[project]
+name = "expkits-ci"
+version = "0.1.0"
+description = "CI and development tools for expkits"
+authors = [{name = "Arm Limited"}]
+requires-python = ">=3.8"
+dependencies = [
+    "setuptools>=65.0",
+    "autopep8==2.3.1",
+    "pycodestyle==2.12.1",
+    "pre-commit==3.5.0",
+    "GitPython==3.1.45",
+    "requests==2.32.4",
+    "argcomplete==3.6.2",
+    "cmake-format==0.6.13",
+    "clang-format==20.1.8",
+    "clang-tidy==20.1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[project.scripts]
+expkits-ci = "expkits_ci:main"
