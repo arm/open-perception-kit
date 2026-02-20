@@ -1,4 +1,4 @@
- TensorParser
+# TensorParser
 ## Output Tensor Interpretation Interface
 
 TensorParser defines the interface responsible for converting raw inference
@@ -41,7 +41,7 @@ It provides:
 - Access to output tensor memory blocks
 - Inference metadata describing execution context
 - Attribute configuration for parser customization
-- The target Perception layer context
+- The target Perception layer context (Perception::Layer instance)
 
 The parser does not own tensor memory and must treat all tensor pointers
 as externally managed.
@@ -99,6 +99,8 @@ Parses object detection outputs produced by YOLO-based models.
 Extracts bounding boxes, class identifiers, and confidence scores.
 Writes detected objects into the Perception layer.
 
+We also have a parser for the HailoRT accelerated Yolo output, when the network handles the NMS differently.
+
 ## UltraFace Parser
 
 Parses face detection outputs from UltraFace models.
@@ -123,7 +125,22 @@ Parses classification outputs from ImageNet-style models.
 Extracts top-k class predictions and confidence scores.
 Attaches classification results to the Perception layer.
 
----
+## Person Classification Parser
+
+Parser for the person classification network of the Arm AAIR team.
+Stores person classification detection object in the layer.
+
+# Additional Parsers
 
 Additional parsers can be implemented by conforming to the TensorParser
 interface without modifying the core execution engine.
+
+The system provides a mechanism for implementing custom output parsers with minimal effort.
+
+Parser logic can be written in Python.
+The framework supplies direct access to the output tensor data along with a structured interface for populating the resulting detection layer.
+
+<img src="postprocessor-types.jpg" alt="Postprocessor types" width="400">
+
+This enables rapid experimentation and iteration, particularly for machine learning engineers who need to validate new models or adjust postprocessing logic without modifying the core C++ runtime.
+

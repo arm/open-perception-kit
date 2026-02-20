@@ -66,6 +66,14 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc_) {
         this->sessionOptions = new Ort::SessionOptions();
         this->sessionOptions->SetIntraOpNumThreads(1);
 
+        this->sessionOptions->SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+
+        // CPU threading
+        // this->sessionOptions->SetIntraOpNumThreads(12);   // try 6/8/10/12 on M4
+        // this->sessionOptions->SetInterOpNumThreads(1);
+        // this->sessionOptions->SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
+        // ---
+
         this->environment = new Ort::Env(ORT_LOGGING_LEVEL_WARNING, "ampinfer");
         this->memoryInfo =
             new Ort::MemoryInfo(Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU));
@@ -302,10 +310,11 @@ amp::Result<amp::Model> Inference::inspectModel(const Ort::Session &session) {
                                                         (uint64_t)tensor.GetElementType()))};
         }
 
-        if (amp::Tdt::Float32 != tensorValueType && amp::Tdt::Int64 != tensorValueType) {
+        if (amp::Tdt::Float32 != tensorValueType && amp::Tdt::Int64 != tensorValueType &&
+            amp::Tdt::Float16 != tensorValueType) {
             return tl::unexpected{
                 AMP_ERROR(amp::ErrorFlag::ModelInspectError,
-                          "only float32 or int64 input tensors are supported in ONNX")};
+                          "only float16, float32 or int64 input tensors are supported in ONNX")};
         }
         model.outputs[i].valueType = tensorValueType;
 

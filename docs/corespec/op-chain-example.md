@@ -1,5 +1,5 @@
 # Example OpChain in ampinfer
-## Face-Driven Crop Loop With Preprocess → Inference → Postprocess
+## Model Cascading: Face-Driven Crop Loop With Preprocess → Inference → Postprocess
 
 This example shows a typical OpChain executed inside the `ampinfer` GStreamer element.
 The chain runs inference over multiple regions of interest derived from Perception content.
@@ -56,39 +56,66 @@ The `group` field ties Ops into a named execution group.
 
 ```json
 {
-  "ops": [
+	"ops": [
+
+	{
+		"id": "amp-std-ops/InferenceController",
+		"attributes": {
+		}
+	},
+	{
+		"id": "amp-std-ops/GenericImagePreprocess",
+		"attributes": {
+			"inputImageTensorIndex": 0,
+			"inputImageSourceName": "pipelineVideoFrame"
+		}
+	},
+	{
+		"id": "amp-onnx-ops/Inference",
+        "attributes": {
+			"modelDescriptor": "/work/etc/models/ultraface/ultraface.json"
+        }
+	},
     {
-      "id": "amp-std-ops/InferenceController",
-      "group": "for-all-faces",
-      "attributes": {
-        "contentType": "human-face",
-        "inferenceLoopGroup": "for-all-faces"
-      }
-    },
+		"id": "amp-std-ops/GenericPostprocess",
+		"attributes": {
+			"parser": "UltrafaceParser",
+			"normalizeCoordinates": false,
+			"confidenceThreshold": 0.3,
+			"iouThreshold": 0.1
+		}
+	},
+	{
+		"id": "amp-std-ops/InferenceController",
+		"group": "for-all-faces",
+		"attributes": {
+			"contentType": "humanFace",
+		}
+	},
+	{
+		"id": "amp-std-ops/GenericImagePreprocess",
+		"group": "for-all-faces",
+		"attributes": {
+			"inputImageTensorIndex": 0
+		}
+	},
+	{
+		"id": "amp-onnx-ops/Inference",
+		"group": "for-all-faces",
+        "attributes": {
+			"modelDescriptor": "/work/etc/models/gazedetection/model.json"
+        }
+	},
     {
-      "id": "amp-std-ops/GenericImagePreprocess",
-      "group": "for-all-faces",
-      "attributes": {
-        "inputImageTensorIndex": 0
-      }
-    },
-    {
-      "id": "amp-onnx-ops/Inference",
-      "group": "for-all-faces",
-      "attributes": {
-        "modelDescriptor": "/work/etc/models/gazedetection/model.json"
-      }
-    },
-    {
-      "id": "amp-std-ops/GenericPostprocess",
-      "group": "for-all-faces",
-      "attributes": {
-        "parser": "GazeDetectionParser",
-        "normalizeCoordinates": false,
-        "confidenceThreshold": 0.5,
-        "iouThreshold": 0.3
-      }
-    }
+		"id": "amp-std-ops/GenericPostprocess",
+		"group": "for-all-faces",
+		"attributes": {
+			"parser": "GazeDetectionParser",
+			"normalizeCoordinates": false,
+			"confidenceThreshold": 0.5,
+			"iouThreshold": 0.3
+		}
+	}
   ]
 }
 ```

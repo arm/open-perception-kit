@@ -6,7 +6,7 @@
 	
 	"dynamicOutput": true,
 	
-	"contentType": "eye-yp",
+	"contentType": "eyeYawpitch",
 
 	
 	"inputTensors": 

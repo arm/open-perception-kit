@@ -44,6 +44,20 @@ amp::Result<void> amp::GenericImageTensorBuilder::build(const TensorBuilder::Set
                                                                       dstRect,
                                                                       setup.imageSource.mean,
                                                                       setup.imageSource.std);
+        } else if (setup.imageSource.type == amp::Tdt::Uint8 &&
+                   setup.imageDestination.type == amp::Tdt::Float16) {
+            amp::ImageOps::Rect srcRect(srcX, srcY, srcWidth, srcHeight);
+            amp::ImageOps::Rect dstRect(dstX, dstY, dstWidth, dstHeight);
+            amp::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(src,
+                                                                      srcFullWidth,
+                                                                      srcFullHeight,
+                                                                      srcRect,
+                                                                      (amp::Float16 *)dst,
+                                                                      dstFullWidth,
+                                                                      dstFullHeight,
+                                                                      dstRect,
+                                                                      setup.imageSource.mean,
+                                                                      setup.imageSource.std);
         }
     }
 
@@ -60,6 +74,16 @@ amp::Result<void> amp::GenericImageTensorBuilder::build(const TensorBuilder::Set
                                                                     dstHeight,
                                                                     setup.imageSource.mean,
                                                                     setup.imageSource.std);
+        } else if (setup.imageSource.type == amp::Tdt::Uint8 &&
+                   setup.imageDestination.type == amp::Tdt::Float16) {
+            amp::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Chw(src,
+                                                                    srcWidth,
+                                                                    srcHeight,
+                                                                    (amp::Float16 *)dst,
+                                                                    dstWidth,
+                                                                    dstHeight,
+                                                                    setup.imageSource.mean,
+                                                                    setup.imageSource.std);
         }
     }
 
@@ -72,6 +96,16 @@ amp::Result<void> amp::GenericImageTensorBuilder::build(const TensorBuilder::Set
                                                                     srcWidth,
                                                                     srcHeight,
                                                                     (float *)dst,
+                                                                    dstWidth,
+                                                                    dstHeight,
+                                                                    setup.imageSource.mean,
+                                                                    setup.imageSource.std);
+        } else if (setup.imageSource.type == amp::Tdt::Uint8 &&
+                   setup.imageDestination.type == amp::Tdt::Float16) {
+            amp::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Hwc(src,
+                                                                    srcWidth,
+                                                                    srcHeight,
+                                                                    (amp::Float16 *)dst,
                                                                     dstWidth,
                                                                     dstHeight,
                                                                     setup.imageSource.mean,

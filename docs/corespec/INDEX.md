@@ -1,119 +1,74 @@
-# CoreSpec
-## AMP/LVK - GStreamer Inference Pipelines
+```                                               
+▄████▄ ██▄  ▄██ █████▄   █ ██    ██  ██ ██ ▄█▀ 
+██▄▄██ ██ ▀▀ ██ ██▄▄█▀  █  ██    ██▄▄██ ████   
+██  ██ ██    ██ ██     █   ██████ ▀██▀  ██ ▀█▄ 
+```
 
-This file defines the internal architecture and execution model of our
-GStreamer-based inference processing system.
+## Arm Media Pipelines – Linux Vision Kit
 
-The primary goal of the system is to enable reliable, modular, and easily
-extensible AI inference execution inside GStreamer pipelines.
+AMP/LVK defines the internal architecture and execution model of the
+GStreamer-based inference processing framework.
 
-This documentation describes the architectural foundations, runtime contracts,
-data flow semantics, and integration model of the framework.
-
----
-
-# 🎯 System Vision
-
-The system is designed to make model integration and inference execution
-inside GStreamer pipelines straightforward, modular, and production-ready.
-
-Key objectives:
-
-- Run AI inference inside GStreamer pipelines with minimal boilerplate.
-- Support multiple inference runtimes behind a unified execution model.
-- Provide a clean separation between execution, inference, and postprocessing.
-- Enable containerized development and reproducible environments.
-- Offer strong Raspberry Pi 5 support for edge deployment scenarios.
-- Allow remote pipeline usage via WebRTC while execution runs inside a container.
-- Ensure reliability through automated integration testing.
-
-The current system primarily supports:
-
-- Video-based inference pipelines
-
-Planned extension:
-
-- Audio inference support using the same architectural principles
-
-The design ensures that expanding from video to audio inference does not
-require fundamental architectural changes.
-
----
-
-# 🐳 Containerized Development Model
-
-The system is designed to run inside containers.
-
-Advantages:
-
-- Reproducible development environments
-- Clean dependency management
-- Consistent runtime behavior across platforms
-- Easy deployment to edge devices
-
-Development workflows assume container-first execution.
-
----
-
-# 🍓 Raspberry Pi 5 Support
-
-The framework provides strong support for Raspberry Pi 5 deployment.
-
-This includes:
-
-- Optimized runtime usage
-- Hardware-aware backend integration
-- Edge-ready execution model
-- Remote interaction capabilities
-
-The Raspberry Pi 5 is treated as a primary edge deployment target.
-
----
-
-# 🌐 WebRTC Pipeline Usage
-
-Pipelines can be accessed and interacted with via WebRTC from the host
-system while the actual pipeline execution runs inside the container.
-
-This enables:
-
-- Remote monitoring
-- Interactive development
-- Streaming and visualization
-- Decoupled host and runtime environments
-
----
-
-# 🧪 Integration Testing
-
-The project includes integration tests to validate:
-
-- Pipeline behavior
-- Inference execution correctness
-- Runtime backend stability
-- End-to-end data flow
-- Containerized execution integrity
-
-Testing is part of the core architecture philosophy and ensures
-long-term system stability.
-
----
+The system enables reliable, modular, and extensible AI inference execution
+inside GStreamer pipelines, targeting containerized development and edge deployment.
 
 # 📚 Documentation Map
 
-### Core Execution Model
+## General Overview
 
-- [Op Interface](op-interface.md)  
-  Operation lifecycle, inference contracts, and execution semantics.
+- [Generic Info](generic-info.md)  
+  High-level introduction and project scope.
+
+- [Architecture](architectural-overview.md)  
+  Arxhitectural overview of the system.
+
+- [Containers](containers.md)  
+  Container runtime architecture and WebRTC integration model.
+
+- [Inference Engines](inference-engines.md)  
+  About the inference engines important for our project.
+  
+- [amp::Model](model.md)  
+  The amp::Model object.
+
+- [Inference Process](engine-independent.md)  
+  The inference engine independent inference process.
+
+- [Types](types.md)  
+  Generic types.
+
+## Execution Engine
+
+- [Perception](perception.md)  
+  Perception is the persistent metadata container.
+
+- [Op system](op-system.md)  
+  Local processing based on micro-pipelines.
 
 - [OpChain Context](op-chain-context.md)  
-  Transient execution data model and runtime ownership rules.
+  Transient runtime data model and ownership rules.
 
----
+- [OpChain Example](op-chain-example.md)  
+  The Op system in a simple example.
 
-# 🎯 Scope
+- [Tensor Builder](tensor-builder.md)  
+  The input tensors are built by the tensor builders.
 
-This documentation describes internal system behavior and architectural
-contracts. It is intended for framework developers and advanced contributors.
+- [Tensor Parser](tensor-parser.md)  
+  The output tensors are parsed by one of the tensor parser.
 
-It does not cover user-facing APIs or external integration tutorials.
+## Elements
+
+- [ampinfer](ampinfer.md)  
+  Details of the inference element.
+
+- [amposd](amposd.md)  
+  Details of the drawing element.
+
+- [ampperformance](ampperformance.md)  
+  Details about the performance measurement system.
+
+- [ampsink](ampsink.md)  
+  Details about the WebRTC presentation system.
+
+

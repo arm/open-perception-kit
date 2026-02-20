@@ -292,11 +292,11 @@ static void drawGazeVectors(Osd::Layer *layer, const amp::Perception &perception
     amp::ConstPerceptionTools perceptionTools(perception);
 
     std::vector<amp::Perception::YawPitch> yps =
-        perceptionTools.getAllWithContentType<amp::Perception::YawPitch>("eye-yp");
+        perceptionTools.getAllWithContentType<amp::Perception::YawPitch>("eyeYawPitch");
 
     for (const auto &yp : yps) {
         std::vector<amp::Perception::Rect> parents =
-            perceptionTools.getAllRectsWithContentType("human-face", yp.parentUuid);
+            perceptionTools.getAllRectsWithContentType("humanFace", yp.parentUuid);
 
         assert(parents.size() == 1);
 
@@ -330,14 +330,14 @@ static std::unique_ptr<Osd::Layer> drawPerceptionLayer(GstAmpOsd *self,
     auto layer = std::make_unique<Osd::Layer>(imgWidth, imgHeight);
 
     for (const auto &inferLayer : perception.layers) {
-        if (inferLayer.contentType == "generic-object") {
+        if (inferLayer.contentType == "genericObject") {
             for (const auto &det : inferLayer.detections) {
                 const auto &box = std::get<amp::Perception::Rect>(det);
                 Osd::ObjectBox::draw(
                     *layer, box, amp::Colors::fromStringOrDefault("#ff0000ff"), 2.0f);
             }
         }
-        if (inferLayer.contentType == "human-face") {
+        if (inferLayer.contentType == "humanFace") {
             for (const auto &det : inferLayer.detections) {
                 const auto &box = std::get<amp::Perception::Rect>(det);
                 Osd::Circle::draw(
@@ -402,14 +402,14 @@ static GstFlowReturn gst_amp_osd_transform_frame_ip(GstVideoFilter *filter, GstV
     float imgHeight = static_cast<float>(GST_VIDEO_FRAME_HEIGHT(frame));
     gint imgStride = GST_VIDEO_FRAME_PLANE_STRIDE(frame, 0);
 
-    // "ocr-detection-segmentation"
+    // "ocrDetectionSegmentation"
     Osd::Layers_t layers;
     // Get PerceptionContextMeta
     if (const auto perceptionContextMeta = amp::PerceptionContextMeta::get(frame->buffer)) {
         const auto perceptionContext = perceptionContextMeta->get_const_payload();
         if (perceptionContext) {
             for (const auto &layer : perceptionContext->layers) {
-                if (layer.contentType == "ocr-detection-segmentation") {
+                if (layer.contentType == "ocrDetectionSegmentation") {
                     for (const auto &det : layer.detections) {
                         const auto &sm = std::get<amp::Perception::SegmentationMap>(det);
                         if (!sm.bitmap.empty() && sm.bitmap.getWidth() > 0 &&

@@ -365,7 +365,7 @@ amp::Result<void> amp::UltraFaceParser::parse(const amp::TensorParser::Input &in
     detectionResult.detections =
         nonMaxSuppression(detectionResult.detections, confThreshold, iouThreshold);
 
-    detectionResult.contentType = "human-face";
+    detectionResult.contentType = "humanFace";
 
     return {};
 }

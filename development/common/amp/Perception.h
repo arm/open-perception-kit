@@ -16,12 +16,14 @@ namespace amp {
 
 struct Perception {
 
+    // base class for detections
     struct Object {
         uint64_t uuid = Uuid();
         uint64_t parentUuid = 0;
         uint64_t creationTsNs = TsUtcNs();
     };
 
+    // a viedeo frame descriptor, will be parent of vision inference detections
     struct VideoFrame : public Object {
         size_t originalWidth = 0;  // width when the source produced the frame
         size_t originalHeight = 0; // height when the source produced the frame
@@ -36,12 +38,16 @@ struct Perception {
         size_t letterboxBottom = 0;
     };
 
+    // a audio data chunk descriptor, will be parent of audio inference detections
     struct AudioFrame : public Object {
         size_t originalChannels = 0;
         size_t originalFrequency = 0;
         size_t originalSampleCount = 0;
+        size_t cutLeftSampleCount = 0;
+        size_t cutRightSampleCount = 0;
     };
 
+    // detection rectangle
     struct Rect : public Object {
         float x = 0.0f, y = 0.0f, width = 0.0f, height = 0.0f;
         float confidence = 0.0f;
@@ -49,7 +55,9 @@ struct Perception {
         std::string text;
     };
 
+    // full-crop classification result
     struct Classification : public Object {
+        // with classification we store multiple candidates
         struct Candidate {
             float confidence = 0.0f;
             int classId = -1;
@@ -59,20 +67,24 @@ struct Perception {
         std::vector<Candidate> candidates;
     };
 
+    // yaw/pitch estimation result (e.g. for gaze estimation)
     struct YawPitch : public Object {
         float confidence = 0.0f;
         float yaw = 0.0f, pitch = 0.0f;
     };
 
+    // localized text result (e.g. for OCR detection)
     struct LocalizedText : public Object {
         float x = 0.0f, y = 0.0f, w = 0.0f, h = 0.0f;
         std::string text;
     };
 
+    // segmentation map result (e.g. for OCR detection)
     struct SegmentationMap : public Object {
         amp::Bitmap bitmap;
     };
 
+    // one detextion instance
     using Detection = std::variant<Rect,
                                    YawPitch,
                                    LocalizedText,
@@ -87,17 +99,19 @@ struct Perception {
         std::string model;
         std::string tags;
 
+        // possible values:
         // "coco"
-        // "image-net"
+        // "imageNet"
         std::string labelFamily;
 
-        // "generic-object"
-        // "human-face"
-        // "human-figure"
-        // "ocr-detection-segmentation"
-        // "eye-yp"
+        // possible values:
+        // "genericObject"
+        // "humanFace"
+        // "humanFigure"
+        // "ocrDetectionSegmentation"
+        // "eyeYawPitch"
         // "classification"
-        // "person-classification"
+        // "personClassification"
         std::string contentType;
 
         std::vector<Perception::Detection> detections;
