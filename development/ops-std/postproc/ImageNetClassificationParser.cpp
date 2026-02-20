@@ -62,7 +62,7 @@ amp::Result<void> ImageNetClassificationParser::parse(const amp::TensorParser::I
 
     const auto numResults = std::min(topK, static_cast<int>(scoredIndices.size()));
 
-    if (0U < numResults) {
+    if (0 < numResults) {
         // Partial sort with std::greater<> - only sorts top-K
         std::partial_sort(scoredIndices.begin(),
                           scoredIndices.begin() + numResults,

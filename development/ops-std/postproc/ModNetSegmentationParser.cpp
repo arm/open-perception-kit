@@ -1,0 +1,46 @@
+#include "ModNetSegmentationParser.h"
+#include <algorithm>
+
+namespace amp {
+
+Result<void> ModNetSegmentationParser::parse(const Input &input, Perception::Layer &layer) {
+    layer.contentType = "modnet-segmentation";
+
+    // MODNet outputs a single tensor: alpha matte [1, 1, H, W]
+    const auto *outputTensor = input.tensors[0];
+    if (!outputTensor) {
+        return tl::unexpected(AMP_ERROR(ErrorFlag::InvalidData, "No output tensor"));
+    }
+
+    const auto shape = outputTensor->getShape();
+
+    // Validate shape: [1, 1, height, width]
+    if (shape.dimensionCount != 4 || shape.valueCount[0] != 1 || shape.valueCount[1] != 1) {
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData, "Invalid shape: expected [1,1,H,W]"));
+    }
+
+    size_t height = shape.valueCount[2];
+    size_t width = shape.valueCount[3];
+
+    // Create bitmap for the alpha matte
+    Bitmap alphaMatte(Bitmap::Type::Uint8, width, height);
+
+    // Convert float [0.0, 1.0] to uint8 [0, 255]
+    size_t idx = 0;
+    for (size_t y = 0U; y < height; ++y) {
+        for (size_t x = 0U; x < width; ++x) {
+            float alpha = std::clamp(outputTensor->get(idx++), 0.0f, 1.0f);
+            alphaMatte.set8(x, y, static_cast<uint8_t>(alpha * 255.0f));
+        }
+    }
+
+    // Create SegmentationMap detection
+    Perception::SegmentationMap segMap;
+    segMap.bitmap = std::move(alphaMatte);
+
+    layer.detections.emplace_back(std::move(segMap));
+    return {};
+}
+
+} // namespace amp

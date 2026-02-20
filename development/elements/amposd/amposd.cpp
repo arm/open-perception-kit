@@ -262,6 +262,44 @@ drawSegmentationLayer(GstAmpOsd *self, float imgWidth, float imgHeight, const am
     return layer;
 }
 
+static void replaceBackground(
+    guint8 *imgData, gint imgWidth, gint imgHeight, gint imgStride, const amp::Bitmap &segMap) {
+
+    assert(nullptr != imgData);
+
+    const auto scale_x = static_cast<float>(imgWidth) / static_cast<float>(segMap.getWidth());
+    const auto scale_y = static_cast<float>(imgHeight) / static_cast<float>(segMap.getHeight());
+
+    auto maskPixel = [](uint8_t *pixel) {
+        // Hot pink color for the background
+        static constexpr uint8_t bgColor_B = 147U;
+        static constexpr uint8_t bgColor_G = 20U;
+        static constexpr uint8_t bgColor_R = 255U;
+        pixel[0] = bgColor_B;
+        pixel[1] = bgColor_G;
+        pixel[2] = bgColor_R;
+    };
+
+    for (gint y = 0; y < imgHeight; ++y) {
+        for (gint x = 0; x < imgWidth; ++x) {
+
+            const auto seg_x = static_cast<size_t>(x / scale_x);
+            const auto seg_y = static_cast<size_t>(y / scale_y);
+
+            if ((seg_x < segMap.getWidth()) && (seg_y < segMap.getHeight())) {
+                auto maskValue = segMap.getData()[seg_y * segMap.getWidth() + seg_x];
+                auto *pixel = imgData + y * imgStride + x * 4;
+
+                // Mask value (0=background, 255=foreground)
+                static constexpr uint8_t threshold = 150U;
+                if (maskValue <= threshold) {
+                    maskPixel(pixel);
+                }
+            }
+        }
+    }
+}
+
 static inline float deg2rad(float d) {
     return d * 3.1415926535f / 180.0f;
 }
@@ -408,6 +446,20 @@ static GstFlowReturn gst_amp_osd_transform_frame_ip(GstVideoFilter *filter, GstV
     if (const auto perceptionContextMeta = amp::PerceptionContextMeta::get(frame->buffer)) {
         const auto perceptionContext = perceptionContextMeta->get_const_payload();
         if (perceptionContext) {
+            // Handle MODNet segmentation with background replacement
+            for (const auto &layer : perceptionContext->layers) {
+                if (layer.contentType == "modnet-segmentation") {
+                    for (const auto &det : layer.detections) {
+                        const auto &sm = std::get<amp::Perception::SegmentationMap>(det);
+                        if (!sm.bitmap.empty() && sm.bitmap.getWidth() > 0 &&
+                            sm.bitmap.getHeight() > 0) {
+                            replaceBackground(imgData, imgWidth, imgHeight, imgStride, sm.bitmap);
+                        }
+                    }
+                }
+            }
+
+            // Handle OCR segmentation with overlay
             for (const auto &layer : perceptionContext->layers) {
                 if (layer.contentType == "ocrDetectionSegmentation") {
                     for (const auto &det : layer.detections) {
