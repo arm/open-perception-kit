@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #include "gst/gstpromise.h"
 #include <glib-object.h>
 #include <glib.h>
@@ -18,7 +22,7 @@
 #define GST_USE_UNSTABLE_API
 
 #include "ampsink.h"
-#include "aux.h"
+#include "auxiliary.h"
 #include "utils.h"
 #include "webrtc_ws.h"
 
