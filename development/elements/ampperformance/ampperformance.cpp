@@ -1,3 +1,6 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
 #include <cairo.h>
 #include <cstring>
 #include <gst/gst.h>
@@ -458,14 +461,6 @@ static std::vector<std::string> get_performance_data(GstAmpPerformance *self) {
         }
     }
 
-    // Calculate AI utilization from sum of all p50 metrics
-    double total_ai_ms = 0.0;
-    for (const auto &[model_name, metric_list] : grouped_metrics) {
-        for (const auto &[metric_name, stats] : metric_list) {
-            total_ai_ms += stats.p50_ms();
-        }
-    }
-
     if (self->fps_average > 0) {
         char fps_buffer[96];
         snprintf(fps_buffer,
@@ -473,18 +468,6 @@ static std::vector<std::string> get_performance_data(GstAmpPerformance *self) {
                  "Pipeline                : %6.1f FPS",
                  self->fps_average);
         lines.push_back(std::string(fps_buffer));
-
-        // Calculate and display AI utilization percentage
-        if (total_ai_ms > 0) {
-            double frame_time_ms = 1000.0 / self->fps_average;
-            double ai_utilization = (total_ai_ms / frame_time_ms) * 100.0;
-            char util_buffer[96];
-            snprintf(util_buffer,
-                     sizeof(util_buffer),
-                     "AI Utilization          : %6.1f%%",
-                     ai_utilization);
-            lines.push_back(std::string(util_buffer));
-        }
     }
 
     lines.push_back("═══════════════════════════════════════════════");

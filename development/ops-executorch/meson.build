@@ -1,5 +1,36 @@
+executorch_opt = get_option('executorch')
 
-executorch_libdir = meson.project_source_root() / '../deps/executorch/lib'
+if executorch_opt.disabled()
+  subdir_done()
+endif
+
+executorch_root = meson.project_source_root() / '../deps/executorch'
+libtorch_root   = meson.project_source_root() / '../deps/libtorch'
+executorch_libdir = executorch_root / 'lib'
+
+executorch_dep = declare_dependency(
+  include_directories: [
+    include_directories('../deps/executorch/include'),
+    include_directories('../deps/libtorch/include'),
+  ],
+  link_args: [
+      '-L' + executorch_libdir,
+      '-lextension_module',
+      '-lextension_tensor',
+      '-lextension_flat_tensor',
+      '-lextension_data_loader',
+      '-lextension_named_data_map',
+      '-lextension_threadpool',
+      '-lexecutorch',
+      '-lexecutorch_core',
+      '-lpthreadpool',
+      '-lcpuinfo',
+      '-lpthread',
+      '-ldl',
+      '-lm',
+      '-Wl,--no-undefined',
+  ]
+)
 
 # These are the usual “registration / kernels” libs that often get dropped unless whole-archived
 et_force_archives = [
@@ -20,7 +51,7 @@ executorchops = shared_module(
     'InferenceOp.cpp',
   ],
   include_directories: common_include,
-  dependencies: [amp_deps, executorch_dep],
+  dependencies: amp_deps + [executorch_dep],
   cpp_args: ['-DFMT_HEADER_ONLY'],
   link_with: [common],
 
