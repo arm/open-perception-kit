@@ -64,6 +64,7 @@ RUN set -eux; update-ca-certificates || true
 EXPOSE 8000
 EXPOSE 8001
 EXPOSE 9999
+EXPOSE 8080
 
 # uv (Python package manager)
 RUN set -eux; \
@@ -139,7 +140,7 @@ COPY . /work
 USER ${USERNAME}
 WORKDIR /work
 
-CMD ["sleep","infinity"]
+ENTRYPOINT ["./scripts/deployment-process.sh"]
 
 ########## Rich development environment container ##########
 FROM amp-dev-base AS amp-dev-rich

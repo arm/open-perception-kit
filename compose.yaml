@@ -7,8 +7,6 @@ x-amp-dev-common: &amp-dev-common
 
   privileged: true
 
-  command: /bin/bash -c "while true; do sleep 1; done"
-
   environment:
     - WAYLAND_DISPLAY=wayland-0
     - DISPLAY
@@ -22,6 +20,7 @@ x-amp-dev-common: &amp-dev-common
     - /run/udev:/run/udev:ro
 
   ports:
+    - 8080:8080
     - 8000:8000
     - 8001:8001
     - 9999:9999
@@ -36,7 +35,6 @@ x-amp-dev-build: &amp-dev-build
 
 services:
   amp-release-deployment:
-    platform: linux/arm64
     <<: *amp-dev-common
     build:
       <<: *amp-dev-build
@@ -44,15 +42,6 @@ services:
     network_mode: bridge
     container_name: amp-deployment-base
     hostname: amp-deployment-base
-    command: |
-      bash -c '
-        .devcontainer/setup.sh &&
-        .devcontainer/platform_init.sh amp-dev-base &&
-        ./scripts/build-elements.sh release false &&
-        ./scripts/gendoc.sh &&
-        ./scripts/serve-doc.sh & &&
-        ./scripts/amp-menu onnx &
-      '
 
 # Topo-specific metadata
 x-topo:
