@@ -35,6 +35,7 @@ x-amp-dev-build: &amp-dev-build
 
 services:
   amp-release-deployment:
+    platform: linux/arm64
     <<: *amp-dev-common
     build:
       <<: *amp-dev-build
@@ -44,6 +45,7 @@ services:
     hostname: amp-deployment-base
 
 # Topo-specific metadata
+# TODO: for some reason in case of topo deployment from WSL the container has x86 binaries inside it instead of arm64. Despite the platform specification in the compose file.
 x-topo:
   name: "AMP TOPO Container"
   description: |
