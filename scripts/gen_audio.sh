@@ -35,8 +35,8 @@ touch "${OUT_ENV}"
 
 if [[ -d "$SND_DIR" ]]; then
     IFS=$'\n'
-    read -r -d '' -a ALL_SND_DEVS < <(find -L "$SND_DIR" -maxdepth 1 -type c -print 2> /dev/null | sort -V; printf '\0')
-    read -r -d '' -a MIC_DEVS < <(find -L "$SND_DIR" -maxdepth 1 -type c -name 'pcmC*D*c' -print 2> /dev/null | sort -V; printf '\0')
+    read -r -d '' -a ALL_SND_DEVS < <(find -L "$SND_DIR" -maxdepth 1 -type c -print 2> /dev/null | sort -V || true; printf '\0')
+    read -r -d '' -a MIC_DEVS < <(find -L "$SND_DIR" -maxdepth 1 -type c -name 'pcmC*D*c' -print 2> /dev/null | sort -V || true; printf '\0')
 else
     ALL_SND_DEVS=()
     MIC_DEVS=()

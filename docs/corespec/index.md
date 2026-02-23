@@ -16,8 +16,11 @@ inside GStreamer pipelines, targeting containerized development and edge deploym
 
 ## General Overview
 
-- [Generic Info](generic-info.md)  
+- [Generic Info](generic-info.md)
   High-level introduction and project scope.
+
+- [How-To](how-to.md)
+  How to open and start the project on PC or Raspberry Pi 5.
 
 - [Architecture](architectural-overview.md)  
   Arxhitectural overview of the system.

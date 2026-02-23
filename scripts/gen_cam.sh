@@ -35,9 +35,18 @@ touch "${OUT_ENV}"
 > "${OUT_ENV}"
 
 IFS=$'\n'
-read -r -d '' -a ALL_VIDEO_DEVS < <(ls -1 /dev/video* 2> /dev/null | sort -V; printf '\0')
-read -r -d '' -a ALL_MEDIA_DEVS < <(ls -1 /dev/media* 2> /dev/null | sort -V; printf '\0')
-read -r -d '' -a ALL_SUBDEV_DEVS < <(ls -1 /dev/v4l-subdev* 2> /dev/null | sort -V; printf '\0')
+read -r -d '' -a ALL_VIDEO_DEVS < <(
+                                    ls -1 /dev/video* 2> /dev/null | sort -V || true
+                                                                                      printf '\0'
+)
+read -r -d '' -a ALL_MEDIA_DEVS < <(
+                                    ls -1 /dev/media* 2> /dev/null | sort -V || true
+                                                                                      printf '\0'
+)
+read -r -d '' -a ALL_SUBDEV_DEVS < <(
+                                     ls -1 /dev/v4l-subdev* 2> /dev/null | sort -V || true
+                                                                                            printf '\0'
+)
 
 ALL_DEVS=("${ALL_VIDEO_DEVS[@]}" "${ALL_MEDIA_DEVS[@]}" "${ALL_SUBDEV_DEVS[@]}")
 

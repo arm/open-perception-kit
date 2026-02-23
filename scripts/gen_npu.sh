@@ -34,7 +34,10 @@ touch "${OUT_ENV}"
 HAILORT_UDS_SOCK="/tmp/hailort_uds.sock"
 
 IFS=$'\n'
-read -r -d '' -a ALL_HAILO_DEVS < <(ls -1 /dev/hailo* 2> /dev/null | sort -V; printf '\0')
+read -r -d '' -a ALL_HAILO_DEVS < <(
+                                    ls -1 /dev/hailo* 2> /dev/null | sort -V || true
+                                                                                      printf '\0'
+)
 
 for i in "${!ALL_HAILO_DEVS[@]}"; do
     echo "NPU${i}=${ALL_HAILO_DEVS[$i]}" >> "$OUT_ENV"
