@@ -34,14 +34,14 @@ V4L_DIR="/dev/v4l/by-id"
 touch "${OUT_ENV}"
 > "${OUT_ENV}"
 
-mapfile -t ALL_VIDEO_DEVS < <(ls -1 /dev/video* 2> /dev/null | sort -V || true)
-mapfile -t ALL_MEDIA_DEVS < <(ls -1 /dev/media* 2> /dev/null | sort -V || true)
-mapfile -t ALL_SUBDEV_DEVS < <(ls -1 /dev/v4l-subdev* 2> /dev/null | sort -V || true)
+IFS=$'\n' ALL_VIDEO_DEVS=($(ls -1 /dev/video* 2> /dev/null | sort -V || true))
+IFS=$'\n' ALL_MEDIA_DEVS=($(ls -1 /dev/media* 2> /dev/null | sort -V || true))
+IFS=$'\n' ALL_SUBDEV_DEVS=($(ls -1 /dev/v4l-subdev* 2> /dev/null | sort -V || true))
 
 ALL_DEVS=("${ALL_VIDEO_DEVS[@]}" "${ALL_MEDIA_DEVS[@]}" "${ALL_SUBDEV_DEVS[@]}")
 
 if [[ -d "$V4L_DIR" ]]; then
-    mapfile -t LINKS < <(ls -1 "$V4L_DIR"/*-video-index0 2> /dev/null | sort -V || true)
+    IFS=$'\n' LINKS=($(ls -1 "$V4L_DIR"/*-video-index0 2> /dev/null | sort -V || true))
 else
     LINKS=()
 fi

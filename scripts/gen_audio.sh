@@ -34,8 +34,8 @@ SND_DIR="/dev/snd"
 touch "${OUT_ENV}"
 
 if [[ -d "$SND_DIR" ]]; then
-    mapfile -t ALL_SND_DEVS < <(find -L "$SND_DIR" -maxdepth 1 -type c -print 2> /dev/null | sort -V || true)
-    mapfile -t MIC_DEVS < <(find -L "$SND_DIR" -maxdepth 1 -type c -name 'pcmC*D*c' -print 2> /dev/null | sort -V || true)
+    IFS=$'\n' ALL_SND_DEVS=($(find -L "$SND_DIR" -maxdepth 1 -type c -print 2> /dev/null | sort -V || true))
+    IFS=$'\n' MIC_DEVS=($(find -L "$SND_DIR" -maxdepth 1 -type c -name 'pcmC*D*c' -print 2> /dev/null | sort -V || true))
 else
     ALL_SND_DEVS=()
     MIC_DEVS=()

@@ -33,7 +33,7 @@ touch "${OUT_ENV}"
 
 HAILORT_UDS_SOCK="/tmp/hailort_uds.sock"
 
-mapfile -t ALL_HAILO_DEVS < <(ls -1 /dev/hailo* 2> /dev/null | sort -V || true)
+IFS=$'\n' ALL_HAILO_DEVS=($(ls -1 /dev/hailo* 2> /dev/null | sort -V || true))
 
 for i in "${!ALL_HAILO_DEVS[@]}"; do
     echo "NPU${i}=${ALL_HAILO_DEVS[$i]}" >> "$OUT_ENV"
