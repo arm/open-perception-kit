@@ -54,7 +54,10 @@ read -r -d '' -a ALL_SUBDEV_DEVS < <(
     printf '\0'
 )
 
-ALL_DEVS=("${ALL_VIDEO_DEVS[@]}" "${ALL_MEDIA_DEVS[@]}" "${ALL_SUBDEV_DEVS[@]}")
+ALL_DEVS=()
+for dev in "${ALL_VIDEO_DEVS[@]:-}" "${ALL_MEDIA_DEVS[@]:-}" "${ALL_SUBDEV_DEVS[@]:-}"; do
+    [[ -n "$dev" ]] && ALL_DEVS+=("$dev")
+done
 
 if [[ -d "$V4L_DIR" ]]; then
     LINKS=()
