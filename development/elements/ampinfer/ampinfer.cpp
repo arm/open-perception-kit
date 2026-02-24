@@ -1,35 +1,26 @@
-#include <filesystem>
+#include "gst/gstpad.h"
 #include <gst/base/gstbasetransform.h>
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
+#include <filesystem>
 #include <fmt/core.h>
 #include <memory>
-// #include <onnxruntime_cxx_api.h>
+
+#include "glib-object.h"
+#include "glib.h"
 
 #include "amp/BitmapView.h"
 #include "amp/Perception.h"
-#include "amp/Types.h"
-#include "glib-object.h"
-#include "glib.h"
-#include "gst/gstpad.h"
-
-#include "nlohmann/json.hpp"
-// #include "onnx/Inference.h"
-
-#include "amp/AttributeMap.h"
-#include "amp/File.h"
-#include "amp/Labels.h"
 #include "amp/Result.h"
-#include "amp/String.h"
 #include "amp/Tools.h"
+#include "amp/Types.h"
 
-#include "op/Op.h"
 #include "op/OpChain.h"
 #include "op/OpChainContext.h"
 
+#include "PerformanceTracer.h"
 #include "gst/PerceptionContextMeta.h"
-#include <PerformanceTracer.h>
 
 struct GstAmpInferMembers {
     // std::shared_ptr<onnx::Inference> onnxInference;
@@ -192,32 +183,42 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     }
 
     // ======================================================================================
+    g_assert(gst_buffer_is_writable(buf));
 
-    std::shared_ptr<amp::PerceptionContextMeta> perceptionContextMeta;
-    GstBuffer *writable_buf = gst_buffer_make_writable(buf);
-    perceptionContextMeta = amp::PerceptionContextMeta::get(writable_buf);
+    // try to get the perception meta
+    auto perceptionContextMeta = amp::PerceptionMeta::get(buf);
+
+    // it does not added yet -> add it
     if (!perceptionContextMeta) {
-        perceptionContextMeta =
-            amp::PerceptionContextMeta::attach(writable_buf, new amp::Perception());
+        auto perception = std::make_shared<amp::Perception>();
+        perceptionContextMeta = amp::PerceptionMeta::add(buf, perception);
     }
-    auto perceptionContext_ptr = perceptionContextMeta->get_payload();
 
-    amp::OpChainContext opChainContext;
+    auto ret = amp::PerceptionMeta::mutate<GstFlowReturn>(
+        buf, GST_FLOW_CUSTOM_ERROR, [self, rgb, frameWidth, frameHeight](auto &perception) -> auto {
+            amp::OpChainContext opChainContext;
 
-    amp::BitmapView pipelineFrame(rgb, amp::DataKind::ImageBgraHwc, frameWidth, frameHeight);
+            amp::BitmapView pipelineFrame(
+                rgb, amp::DataKind::ImageBgraHwc, frameWidth, frameHeight);
 
-    opChainContext.perception = perceptionContext_ptr;
-    opChainContext.bitmapViews["pipelineVideoFrame"] = pipelineFrame;
+            opChainContext.perception = &perception;
+            opChainContext.bitmapViews["pipelineVideoFrame"] = pipelineFrame;
 
-    auto executeResult = self->m->executeOpChain(opChainContext);
-    if (!executeResult) {
-        fmt::print("{}\n", executeResult.error().toString());
+            auto executeResult = self->m->executeOpChain(opChainContext);
+            if (!executeResult) {
+                fmt::print("{}\n", executeResult.error().toString());
+                return GST_FLOW_CUSTOM_ERROR;
+            }
+
+            return GST_FLOW_OK;
+        });
+
+    if (ret != GST_FLOW_OK) {
         gst_buffer_unmap(buf, &map);
         AMP_ABORT;
-        return GST_FLOW_OK;
     }
 
-    return GST_FLOW_OK;
+    return ret;
 }
 
 // ---------------- properties & class init ----------------

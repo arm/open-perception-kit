@@ -1,11 +1,13 @@
-#include <cairo.h>
-#include <cstring>
+
+#include "gst/gstpad.h"
 #include <gst/gst.h>
 #include <gst/video/gstvideofilter.h>
 #include <gst/video/video.h>
-#include <iomanip>
-#include <sstream>
+
+#include <cstring>
 #include <string>
+
+#include <cairo.h>
 
 #include "PerformanceTracer.h"
 #include "gst/PerceptionContextMeta.h"
@@ -521,15 +523,19 @@ static GstFlowReturn gst_amp_performance_transform_frame_ip(GstVideoFilter *filt
     }
 
     // Get PerceptionContextMeta
-    if (const auto perceptionContextMeta = amp::PerceptionContextMeta::get(gst_buffer_make_writable(
-            frame->buffer))) { // NOTE: PerceptionContextMeta locks internally!
-        const auto perceptionContext = perceptionContextMeta->get_payload();
-        if (perceptionContext) {
-            perceptionContext->perfdata = self->cached_lines;
-        }
+
+    GstBuffer *writable_buf = gst_buffer_make_writable(frame->buffer);
+    auto ret = amp::PerceptionMeta::mutate<GstFlowReturn>(
+        writable_buf, GST_FLOW_CUSTOM_ERROR, [self](auto &perception) -> auto {
+            perception.perfdata = self->cached_lines;
+            return GST_FLOW_OK;
+        });
+
+    if (ret != GST_FLOW_OK) {
+        AMP_ABORT;
     }
 
-    return GST_FLOW_OK;
+    return ret;
 }
 
 static gboolean gst_amp_performance_sink_event(GstBaseTransform *trans, GstEvent *event) {

@@ -1,8 +1,3 @@
-#include "amp/Bitmap.h"
-#include "amp/Color.h"
-#include "amp/Perception.h"
-#include "gst/PerceptionContextMeta.h"
-#include "osd.h"
 #include <cmath>
 #include <cstring>
 #include <fmt/core.h>
@@ -10,8 +5,14 @@
 #include <gst/video/gstvideofilter.h>
 #include <gst/video/video.h>
 #include <iomanip>
-#include <new>
+#include <iostream>
 #include <sstream>
+
+#include "amp/Bitmap.h"
+#include "amp/Color.h"
+#include "amp/Perception.h"
+#include "gst/PerceptionContextMeta.h"
+#include "osd.h"
 
 #ifndef PACKAGE
 #define PACKAGE "amp-elements"
@@ -404,29 +405,27 @@ static GstFlowReturn gst_amp_osd_transform_frame_ip(GstVideoFilter *filter, GstV
 
     // "ocr-detection-segmentation"
     Osd::Layers_t layers;
-    // Get PerceptionContextMeta
-    if (const auto perceptionContextMeta = amp::PerceptionContextMeta::get(frame->buffer)) {
-        const auto perceptionContext = perceptionContextMeta->get_const_payload();
-        if (perceptionContext) {
-            for (const auto &layer : perceptionContext->layers) {
-                if (layer.contentType == "ocr-detection-segmentation") {
-                    for (const auto &det : layer.detections) {
-                        const auto &sm = std::get<amp::Perception::SegmentationMap>(det);
-                        if (!sm.bitmap.empty() && sm.bitmap.getWidth() > 0 &&
-                            sm.bitmap.getHeight() > 0) {
-                            layers.push_back(
-                                drawSegmentationLayer(self, imgWidth, imgHeight, sm.bitmap));
-                        }
+
+    if (auto perception = amp::PerceptionMeta::read(frame->buffer); perception != nullptr) {
+        for (const auto &layer : perception->layers) {
+            if (layer.contentType == "ocr-detection-segmentation") {
+                for (const auto &det : layer.detections) {
+                    const auto &sm = std::get<amp::Perception::SegmentationMap>(det);
+                    if (!sm.bitmap.empty() && sm.bitmap.getWidth() > 0 &&
+                        sm.bitmap.getHeight() > 0) {
+                        layers.push_back(
+                            drawSegmentationLayer(self, imgWidth, imgHeight, sm.bitmap));
                     }
                 }
             }
-            // Draw detection boxes on top of segmentation
-            layers.push_back(drawPerceptionLayer(self, imgWidth, imgHeight, *perceptionContext));
-            layers.push_back(drawPerformanceLayer(self, imgWidth, imgHeight, *perceptionContext));
         }
-    }
 
-    Osd::Canvas(imgData, imgWidth, imgHeight).paint(layers);
+        // Draw detection boxes on top of segmentation
+        layers.push_back(drawPerceptionLayer(self, imgWidth, imgHeight, *perception));
+        layers.push_back(drawPerformanceLayer(self, imgWidth, imgHeight, *perception));
+
+        Osd::Canvas(imgData, imgWidth, imgHeight).paint(layers);
+    }
 
     self->frameCount++;
     return GST_FLOW_OK;

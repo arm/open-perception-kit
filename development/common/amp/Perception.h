@@ -2,10 +2,8 @@
 
 #include "amp/Bitmap.h"
 #include "amp/Tools.h"
-#include "amp/Types.h"
 #include <cstddef>
 #include <cstdint>
-#include <deque>
 #include <fmt/core.h>
 #include <stdint.h>
 #include <string>

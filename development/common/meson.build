@@ -5,7 +5,6 @@ common = shared_library(
 
     'gst/Tools.cpp',
     'gst/TensorMeta.cpp',
-    'gst/PerceptionContextMeta.cpp',
     
     'amp/Result.cpp',
     'amp/Tools.cpp',

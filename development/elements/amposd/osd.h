@@ -1,13 +1,10 @@
 #include "amp/Color.h"
 #include "amp/Perception.h"
 #include <cairo.h>
-#include <iostream>
-#include <map>
-#include <memory>
+#include <deque>
 #include <numbers>
 #include <stdexcept>
 #include <string>
-#include <string_view>
 
 namespace Osd {
 class Layer;
