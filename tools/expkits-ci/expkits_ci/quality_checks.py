@@ -166,6 +166,35 @@ class QualityChecks:
 
         return result
 
+    def check_secrets(self, files=None, baseline=".secrets.baseline") -> bool:
+        """Check for secrets in the given files or all tracked files if none specified."""
+        logger.info("Checking for secrets...")
+
+        result = True
+
+        if not os.path.isfile(baseline):
+            logger.error(f"Baseline file {baseline} not found!")
+            return False
+        if not files:
+            # No files specified, check all git-tracked files
+            try:
+                result = subprocess.run(["git", "ls-files"], capture_output=True, text=True, check=True)
+                files = result.stdout.strip().splitlines()
+            except Exception as e:
+                logger.error(f"Failed to get git-tracked files: {e}")
+                result = False
+                return result
+        for file in files:
+            if os.path.isfile(file):
+                try:
+                    subprocess.run(["detect-secrets-hook", "--baseline", baseline, file], check=True)
+                except subprocess.CalledProcessError:
+                    logger.error(f"Secrets detected in {file}")
+                    result = False
+        if result:
+            logger.info("No secrets detected.")
+        return result
+
     def check_clang_format(self, files, format, verbose=False) -> bool:
         """Check clang-format validity to files under folder using clang-format."""
         logger.info("Checking clang-format validity...")

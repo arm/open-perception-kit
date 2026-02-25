@@ -28,7 +28,7 @@ jobs:
             - name: Build docker image
               run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build amp-dev-base
 
-            - name: Run quality checks (nightly)
+            - name: Check Repo Quality gate (nightly)
               if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
               run: |
                   docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm amp-quality-check-full
@@ -42,7 +42,7 @@ jobs:
                 if-no-files-found: warn
                 retention-days: 10
 
-            - name: Run quality checks (PR)
+            - name: Check Repo Quality gate (PR)
               if: github.event_name == 'pull_request'
               run: |
                   export PULL_REQUEST_TARGET_BRANCH="${{ github.base_ref }}"
@@ -51,6 +51,7 @@ jobs:
             - name: AMP release build and unit test run
               if:  github.event_name == 'pull_request'
               run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm amp-release-with-ut
+
 
     check-checkboxes:
         name: Check PR template checkboxes
@@ -79,21 +80,3 @@ jobs:
                           core.setFailed(`Some checkboxes are not checked:\n${unchecked.join('\n')}`);
                         }
                       }
-
-    detect-secrets:
-        name: Check for secrets
-        runs-on: ubuntu-latest
-        if: |
-            (github.event.pull_request.draft == false) ||
-            (github.event_name == 'pull_request' && github.event.action == 'labeled' && contains(github.event.label.name, 'run-amp-ci'))
-        steps:
-            - uses: actions/checkout@v5
-            - uses: actions/setup-python@v6
-            - name: Install tools
-              run: pip install detect-secrets==1.5.0 && pip list
-            - uses: actions/checkout@v5
-              with:
-                  fetch-depth: 0
-            - name: Check for secrets using detect-secrets
-              run: git ls-files -z | xargs -0 detect-secrets-hook --baseline .secrets.baseline
-              working-directory: .

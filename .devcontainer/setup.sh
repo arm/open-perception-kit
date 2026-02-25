@@ -74,17 +74,22 @@ else
     exit 1
 fi
 
-# Download and extract
-wget "$ORT_URL"
-tar xf "$(basename $ORT_URL)"
+# Download and extract ONNX Runtime only if not already present
+if [ ! -d "deps/onnxruntime" ]; then
+    log "ONNX Runtime not found, downloading and extracting..."
+    wget "$ORT_URL"
+    tar xf "$(basename $ORT_URL)"
 
-# Extract directory name
-DIR_NAME=$(basename $ORT_URL .tgz)
+    # Extract directory name
+    DIR_NAME=$(basename $ORT_URL .tgz)
 
-# Install locally (no sudo!)
-mkdir -p deps/onnxruntime
-cp -r "$DIR_NAME/include" deps/onnxruntime/
-cp -r "$DIR_NAME/lib" deps/onnxruntime/
+    # Install locally (no sudo!)
+    mkdir -p deps/onnxruntime
+    cp -r "$DIR_NAME/include" deps/onnxruntime/
+    cp -r "$DIR_NAME/lib" deps/onnxruntime/
+else
+    log "ONNX Runtime already present, skipping download and extraction."
+fi
 
 log "Installing pre-commit hooks"
 cd /work && pre-commit install && pre-commit install -t commit-msg
