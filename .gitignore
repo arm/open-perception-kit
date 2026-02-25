@@ -59,6 +59,8 @@ Thumbs.db
 # -------------------------
 devices.env
 .devcontainer/.env
+.devcontainer/devices.env
+.devcontainer/cameras.env
 .devcontainer/*.video.yaml
 .devcontainer/*.audio.yaml
 .devcontainer/*.npu.yaml

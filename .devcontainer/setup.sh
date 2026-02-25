@@ -85,6 +85,6 @@ cp -r "$DIR_NAME/include" deps/onnxruntime/
 cp -r "$DIR_NAME/lib" deps/onnxruntime/
 
 log "Installing pre-commit hooks"
-cd /work && pre-commit install
+cd /work && pre-commit install && pre-commit install -t commit-msg
 
 log "Done. Open a NEW terminal to see the prompt & venv activation."
