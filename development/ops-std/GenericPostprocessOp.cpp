@@ -16,6 +16,7 @@
 #include "postproc/ModNetSegmentationParser.h"
 #include "postproc/PaddleocrParser.h"
 #include "postproc/PersonClassificationParser.h"
+#include "postproc/RvmParser.h"
 #include "postproc/UltrafaceParser.h"
 #include "postproc/YoloParser.h"
 
@@ -55,6 +56,8 @@ amp::Result<void> GenericPostprocessOp::configure(const amp::AttributeMap &attri
         this->parser = std::make_unique<PersonClassificationParser>();
     } else if (parser == "DummyParser") {
         this->parser = std::make_unique<DummyParser>();
+    } else if (parser == "RvmParser") {
+        this->parser = std::make_unique<RvmParser>();
     } else if (parser == "GazeDetectionParser") {
         this->parser = std::make_unique<GazeDetectionParser>();
     } else if (parser == "UltrafaceParser") {

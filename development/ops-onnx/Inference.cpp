@@ -299,7 +299,7 @@ amp::Result<void> Inference::inference() {
     }
 
     // tensor feedback
-    if (model.tensorFeedbacks.size() && false) {
+    if (model.tensorFeedbacks.size()) {
         size_t tesorIndex = 0;
         for (const auto &feedback : model.tensorFeedbacks) {
             if (feedback.mode == amp::TensorFeedback::Mode::Copy) {

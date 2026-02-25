@@ -21,7 +21,7 @@
 		{
 			"id": "amp-std-ops/GenericPostprocess",
 			"attributes": {
-				"parser": "DummyParser"
+				"parser": "RvmParser"
 			}
 		}
 	]

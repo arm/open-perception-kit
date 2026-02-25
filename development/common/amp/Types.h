@@ -78,6 +78,9 @@ enum class DataKind {
     ImageBgraHwc, // BGRABGRA
     ImageGray,
 
+    RawTensorData, // raw (sometimes quantized) tensor data, e.g. output-tensor-content after
+                   // inference
+
     Value,   // one scalar value (often used an an input tensor for some inference configuration)
     Vector2, // 2 scalar values
     Vector3, // 3 scalar values

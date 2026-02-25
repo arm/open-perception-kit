@@ -5,38 +5,38 @@
 	"dynamicOutput": true,
 	"inputTensors": [
 		{
-			"shape": [ 1, 3, 128, 128 ],
+			"shape": [ 1, 3, 256, 256 ],
 			"dataKind": "ImageRgbChw",
 			"valueType": "Float32"
 		},
 		{
 			"shape": [ 1, 1, 1, 1 ],
 			"matchShapeOutputIndex": 2,
-			"dataKind": "ImageRgbChw",
+			"dataKind": "RawTensorData",
 			"valueType": "Float32"
 		},
 		{
 			"shape": [ 1, 1, 1, 1 ],
 			"matchShapeOutputIndex": 3,
-			"dataKind": "ImageRgbChw",
+			"dataKind": "RawTensorData",
 			"valueType": "Float32"
 		},
 		{
 			"shape": [ 1, 1, 1, 1 ],
 			"matchShapeOutputIndex": 4,
-			"dataKind": "ImageRgbChw",
+			"dataKind": "RawTensorData",
 			"valueType": "Float32"
 		},
 		{
 			"shape": [ 1, 1, 1, 1 ],
 			"matchShapeOutputIndex": 5,
-			"dataKind": "ImageRgbChw",
+			"dataKind": "RawTensorData",
 			"valueType": "Float32"
 		},
 		{
 			"dataKind": "Value",
 			"valueType": "Float32",
-			"valueInputs": [ 1 ]
+			"valueInputs": [ 1.0 ]
 		}
 	],
 	"tensorFeedbacks": [
