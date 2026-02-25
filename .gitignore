@@ -96,3 +96,4 @@ gstshark*/
 scripts/pipelines/.last_selected_pipeline_id
 
 docs/corespec/
+todo.md

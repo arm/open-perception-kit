@@ -58,6 +58,8 @@ if [[ \$- == *i* ]] && [[ -z \${VIRTUAL_ENV:-} ]] && [[ -f $VENV_DIR/bin/activat
   source $VENV_DIR/bin/activate
 fi"
 uv pip install --python "/$VENV_DIR/bin/python" --project . /work/tools/expkits-ci
+EXPKITS_ARG_EVAL="eval \"\$(register-python-argcomplete expkits-ci)\""
+append_once "$EXPKITS_ARG_EVAL" "$EXPKITS_ARG_EVAL"
 
 # ---------- ONNX ----------
 
