@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstdint>
+#include <fmt/core.h>
 #include <onnxruntime_cxx_api.h>
 
 #include "amp/ModelDescriptor.h"
@@ -134,6 +135,7 @@ struct Inference {
     Ort::Session *session = nullptr;
 
     void setupTensorsForModel();
+    void recreateInputTensor(size_t index, const amp::Shape &shape, amp::Tdt valueType);
 
     ModelDescriptor modelDescriptor;
     amp::Model model;

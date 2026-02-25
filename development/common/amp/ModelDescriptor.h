@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #pragma once
 
 #include "amp/Shape.h"
@@ -24,6 +28,10 @@ struct TensorDescriptor {
     float scale = 1.0f;
     amp::Colorf mean = {0.0f, 0.0f, 0.0f, 0.0f}, std = {1.0f, 1.0f, 1.0f, 1.0f};
 
+    // if this is an input tensor and the value is not amp::InvalidTensorIndex
+    // we have to realloc the tensor to match the shape of the referenced output tensor
+    size_t matchShapeOutputIndex = amp::InvalidTensorIndex;
+
     std::vector<float> valueInputs;
 };
 
@@ -45,6 +53,8 @@ struct ModelDescriptor {
 
     static amp::Result<ModelDescriptor> fromJson(const std::string &jsonString);
     static amp::Result<ModelDescriptor> fromFile(const std::string &path);
+
+    std::vector<amp::TensorFeedback> tensorFeedbacks;
 };
 
 // ---
@@ -57,6 +67,7 @@ inline void to_json(json &j, const TensorDescriptor &b) {
         {"scale", b.scale},
         {"mean", b.mean},
         {"std", b.std},
+        {"stmatchShapeOutputIndexd", b.matchShapeOutputIndex},
         {"dataKind", b.dataKind},
         {"valueInputs", b.valueInputs},
     };
@@ -70,8 +81,8 @@ inline void from_json(const json &j, TensorDescriptor &b) {
     b.scale = j.value("scale", 1.0f);
     b.mean = j.value("mean", amp::Colorf{0.0f, 0.0f, 0.0f, 0.0f});
     b.std = j.value("std", amp::Colorf{1.0f, 1.0f, 1.0f, 1.0f});
+    b.matchShapeOutputIndex = j.value("matchShapeOutputIndex", amp::InvalidTensorIndex);
     j.at("dataKind").get_to(b.dataKind);
-    //    b.dataKind = j.value("dataKind", amp::DataKind::Unknown);
     b.valueInputs = j.value("valueInputs", std::vector<float>{});
 }
 
@@ -82,6 +93,7 @@ inline void to_json(json &j, const ModelDescriptor &b) {
              {"contentType", b.contentType},
              {"inputTensors", b.inputTensors},
              {"outputTensors", b.outputTensors},
+             {"tensorFeedbacks", b.tensorFeedbacks},
              {"dynamicOutput", b.dynamicOutput}};
 }
 
@@ -92,6 +104,7 @@ inline void from_json(const json &j, ModelDescriptor &b) {
     b.contentType = j.value("contentType", std::string{});
     b.inputTensors = j.value("inputTensors", std::vector<TensorDescriptor>{});
     b.outputTensors = j.value("outputTensors", std::vector<TensorDescriptor>{});
+    b.tensorFeedbacks = j.value("tensorFeedbacks", std::vector<amp::TensorFeedback>{});
     j.at("dynamicOutput").get_to(b.dynamicOutput);
 }
 //}

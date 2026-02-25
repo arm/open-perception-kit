@@ -11,7 +11,9 @@
 #include "onnxruntime_cxx_api.h"
 #include "tl/expected.hpp"
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <thread>
 
@@ -140,9 +142,25 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc_) {
     return {};
 }
 
+void Inference::recreateInputTensor(size_t index, const amp::Shape &shape, amp::Tdt valueType) {
+    fmt::print("Recreating input tensor #{} [{}] from {} to {}\n",
+               index,
+               this->model.inputs[index].name,
+               this->model.inputs[index].shape.toString(),
+               shape.toString());
+
+    api.inputTensors[index] = std::make_unique<onnx::Tensor>(shape, valueType);
+    api.inputTensorVector[index] = api.inputTensors[index]->createOnnxTensor(*this->memoryInfo);
+}
+
 void Inference::setupTensorsForModel() {
 
     for (size_t i = 0; i < this->model.inputs.size(); i++) {
+        fmt::print("Setting up input tensor #{} [{}] with shape: {}\n",
+                   i,
+                   this->model.inputs[i].name,
+                   this->model.inputs[i].shape.toString().c_str());
+
         api.inputTensors[i] = std::make_unique<onnx::Tensor>(this->model.inputs[i].shape,
                                                              this->model.inputs[i].valueType);
         api.inputNames.push_back(this->model.inputs[i].name.c_str());
@@ -150,6 +168,11 @@ void Inference::setupTensorsForModel() {
     }
 
     for (size_t i = 0; i < this->model.outputs.size(); i++) {
+        fmt::print("Setting up output tensor #{} [{}] with shape: {}\n",
+                   i,
+                   this->model.outputs[i].name,
+                   this->model.outputs[i].shape.toString().c_str());
+
         api.outputTensors[i] = std::make_unique<onnx::Tensor>(this->model.outputs[i].shape,
                                                               this->model.outputs[i].valueType);
         api.outputNames.push_back(this->model.outputs[i].name.c_str());
@@ -185,22 +208,19 @@ amp::Result<void> Inference::inference() {
 
             if (this->model.inputs[i].valueType == amp::Tdt::Float32) {
                 for (size_t g = 0; g < valueCount; g++) {
-                    writeValueTo<float, float>(
-                        this->modelDescriptor.inputTensors[i].valueInputs.data(),
-                        g,
-                        api.inputTensors[i]->getData());
+                    writeValueTo<float, float>(api.inputTensors[i]->getData(),
+                                               g,
+                                               this->model.inputs[i].valueInputs.data());
+
+                    // this->modelDescriptor.inputTensors[i].valueInputs.data(),
+                    // g,
+                    //);
                 }
             } else {
                 assert(0); // no type support to set scalar tensor input value
             }
         }
     }
-
-    /*if(api.inputTensorVector.size() > 1) {
-        *(float*)api.inputTensors[1]->getData() = 0.2f; // confidence
-        *(int64_t*)api.inputTensors[2]->getData() = 5; // numdetections
-        *(float*)api.inputTensors[3]->getData() = 0.5f; // iou threshold
-    }*/
 
     // run the inference
     try {
@@ -255,6 +275,70 @@ amp::Result<void> Inference::inference() {
             auto tinfo = v.GetTensorTypeAndShapeInfo();
             std::vector<int64_t> onnxShape = tinfo.GetShape();
             outputTensorFinalShapes[i].setFrom(onnxShape);
+        }
+    }
+
+    // realloc input tensors if matchShapeOutputIndex is set
+    if (model.useDynamicOutput) {
+        for (size_t i = 0; i < model.inputs.size(); i++) {
+            if (model.inputs[i].matchShapeOutputIndex != amp::InvalidTensorIndex) {
+                size_t outputIndex = model.inputs[i].matchShapeOutputIndex;
+                if (outputIndex < model.outputs.size()) {
+                    const amp::Shape &outputShape = outputTensorFinalShapes[outputIndex];
+                    amp::Tdt valueType = model.inputs[i].valueType;
+                    fmt::print(
+                        "Reallocating input tensor #{} to match output tensor #{} shape: {}\n",
+                        i,
+                        outputIndex,
+                        outputShape.toString().c_str());
+                    recreateInputTensor(i, outputShape, valueType);
+                }
+                model.inputs[i].matchShapeOutputIndex = amp::InvalidTensorIndex;
+            }
+        }
+    }
+
+    // tensor feedback
+    if (model.tensorFeedbacks.size() && false) {
+        size_t tesorIndex = 0;
+        for (const auto &feedback : model.tensorFeedbacks) {
+            if (feedback.mode == amp::TensorFeedback::Mode::Copy) {
+                size_t fromOutputIndex = feedback.fromOutputTensorIndex;
+                size_t toInputIndex = feedback.toInputTensorIndex;
+
+                if (fromOutputIndex >= model.outputs.size() ||
+                    toInputIndex >= model.inputs.size()) {
+                    return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData,
+                                                         "tensor feedback index out of range"));
+                }
+
+                size_t fromByteCount = 0;
+                if (model.useDynamicOutput) {
+                    Ort::Value &v = dynamicOutputData[fromOutputIndex];
+                    auto tinfo = v.GetTensorTypeAndShapeInfo();
+                    size_t valueCount = 1;
+                    for (auto d : tinfo.GetShape())
+                        valueCount *= d;
+                    fromByteCount = valueCount * amp::getValueTypeByteSize(
+                                                     model.outputs[fromOutputIndex].valueType);
+                } else {
+                    fromByteCount = api.outputTensors[fromOutputIndex]->getByteCount();
+                }
+
+                size_t toByteCount = api.inputTensors[toInputIndex]->getByteCount();
+
+                if (fromByteCount != toByteCount) {
+                    return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData,
+                                                         "tensor feedback buffer size mismatch"));
+                }
+
+                memcpy(api.inputTensors[toInputIndex]->getData(),
+                       outputTensorPointers[tesorIndex],
+                       toByteCount);
+                tesorIndex++;
+            } else {
+                assert(0); // unsupported feedback mode
+            }
         }
     }
 
