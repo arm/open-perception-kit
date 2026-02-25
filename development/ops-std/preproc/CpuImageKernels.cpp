@@ -1,3 +1,6 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
 #include "preproc/CpuImageKernels.h"
 #include "amp/Types.h"
 
@@ -105,6 +108,48 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const uint8_t *src,
                 out[1 * planeSize + hwIndex] = (g01 - meanG) * invStdG;
                 out[2 * planeSize + hwIndex] = (b01 - meanB) * invStdB;
             }
+        }
+    }
+
+    return true;
+}
+
+bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(const uint8_t *src,
+                                                        size_t srcWidth,
+                                                        size_t srcHeight,
+                                                        const ImageOps::Rect &srcRect,
+                                                        uint8_t *dst,
+                                                        size_t dstWidth,
+                                                        size_t dstHeight,
+                                                        const ImageOps::Rect &dstRect,
+                                                        Sampling sampling) {
+    if (!src || !dst)
+        return false;
+
+    if (srcRect.x + srcRect.w > srcWidth || srcRect.y + srcRect.h > srcHeight ||
+        dstRect.x + dstRect.w > dstWidth || dstRect.y + dstRect.h > dstHeight)
+        return false;
+
+    (void)sampling;
+
+    constexpr size_t Cdst = 3;
+
+    for (size_t dy = 0; dy < dstRect.h; ++dy) {
+        const size_t sy = srcRect.y + (dy * srcRect.h) / dstRect.h;
+        const size_t dyi = dstRect.y + dy;
+
+        for (size_t dx = 0; dx < dstRect.w; ++dx) {
+            const size_t sx = srcRect.x + (dx * srcRect.w) / dstRect.w;
+            const size_t dxi = dstRect.x + dx;
+
+            const size_t srcIndex = (sy * srcWidth + sx) * 4;
+            const uint8_t *p = src + srcIndex;
+
+            const size_t dstIndex = (dyi * dstWidth + dxi) * Cdst;
+            // BGRA -> RGB
+            dst[dstIndex + 0] = p[2];
+            dst[dstIndex + 1] = p[1];
+            dst[dstIndex + 2] = p[0];
         }
     }
 

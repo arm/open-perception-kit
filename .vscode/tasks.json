@@ -1,0 +1,138 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "00 Build Project",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/build-elements.sh",
+            "args": [
+                "${input:buildType}"
+            ],
+            "dependsOn": "99 Make build dir",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "options": {
+                "cwd": "${workspaceFolder}/development/build"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": [
+                {
+                    "base": "$gcc",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}/development/build"
+                    ]
+                }
+            ]
+        },
+        {
+            "label": "01 Clean Project",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/build-elements.sh",
+            "args": [
+                "clean"
+            ],
+            "dependsOn": "99 Make build dir",
+            "group": "build",
+            "options": {
+                "cwd": "${workspaceFolder}/development/build"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "02 Build Tests",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/build-elements.sh",
+            "args": [
+                "${input:buildType}",
+                "true"
+            ],
+            "dependsOn": "99 Make build dir",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "options": {
+                "cwd": "${workspaceFolder}/development/build"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": [
+                {
+                    "base": "$gcc",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}/development/build"
+                    ]
+                }
+            ]
+        },
+        {
+            "label": "03 Run Tests",
+            "type": "shell",
+            "command": "meson",
+            "args": [
+                "test",
+                "-C",
+                "${workspaceFolder}/development/build",
+                "--print-errorlogs"
+            ],
+            "dependsOn": "99 Make build dir",
+            "group": "test",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "99 Make build dir",
+            "type": "shell",
+            "command": "mkdir",
+            "args": [
+                "-p",
+                "${workspaceFolder}/development/build"
+            ]
+        },
+        {
+            "label": "99 Launch Without Debug",
+            "type": "shell",
+            "command": "/work/scripts/amp-menu",
+            "args": [
+                "-l"
+            ],
+            "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "buildType",
+            "description": "Build Type:",
+            "type": "pickString",
+            "options": [
+                "debug",
+                "release"
+            ]
+        }
+    ]
+}

@@ -2,18 +2,24 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "AMP",
+            "name": "AMP Debug",
+            "preLaunchTask": "00 Build Project",
             "type": "cppdbg",
             "request": "launch",
             "program": "/work/scripts/amp-menu",
-            "args": ["-l"],
+            "args": [
+                "-l"
+            ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [
-                { "name": "GST_PLUGIN_PATH", "value": "${workspaceFolder}/development/build/meson-out" }
+                {
+                    "name": "GST_PLUGIN_PATH",
+                    "value": "${workspaceFolder}/development/build/meson-out"
+                }
             ],
             "externalConsole": false,
-            "MIMode":"gdb",
+            "MIMode": "gdb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
@@ -26,6 +32,16 @@
                     "ignoreFailures": true
                 }
             ]
+        },
+        {
+            "name": "Attach to PyBind",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5678
+            },
+            "justMyCode": false
         }
     ]
 }

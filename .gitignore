@@ -42,6 +42,8 @@ Makefile
 # -------------------------
 .vscode/
 \!.vscode/launch.json
+\!.vscode/settings.json
+\!.vscode/tasks.json
 .idea/
 *.swp
 *~
@@ -55,17 +57,20 @@ Thumbs.db
 # -------------------------
 # Devcontainer / Docker
 # -------------------------
+devices.env
 .devcontainer/.env
+.devcontainer/devices.env
 .devcontainer/cameras.env
 .devcontainer/*.video.yaml
+.devcontainer/*.audio.yaml
+.devcontainer/*.npu.yaml
+.devcontainer/*.shared_memory.yaml
 
 
 # -------------------------
 # Log files
 # -------------------------
 *.log
-
-
 
 uv.lock
 # -------------------------
@@ -83,3 +88,11 @@ onnxruntime-linux-x64-*
 graphs/
 
 scripts/amp-menu
+
+core.*
+
+gstshark*/
+
+scripts/pipelines/.last_selected_pipeline_id
+
+docs/corespec/

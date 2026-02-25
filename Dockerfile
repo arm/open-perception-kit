@@ -1,4 +1,4 @@
-# .devcontainer/Dockerfile
+########## Base container defaults ##########
 FROM --platform=linux debian:trixie-slim AS amp-dev-base
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -18,18 +18,18 @@ RUN set -eux; apt-get update
 # QoL tools
 RUN set -eux; \
   apt-get install -y --no-install-recommends \
-    ca-certificates curl wget git sudo bash-completion mc unzip vim nano
+    ca-certificates curl wget git sudo bash-completion mc unzip vim nano gnupg shfmt
 
 # Build tools
 RUN set -eux; \
   apt-get install -y --no-install-recommends \
     build-essential emscripten meson ninja-build pkg-config gdb cmake build-essential pkg-config libsoup-3.0-dev libjson-glib-dev \
-    clangd ssh clang-format libcairo2-dev pandoc
+    clangd ssh clang-format libcairo2-dev pandoc zip
 
 # Python + core libs
 RUN set -eux; \
   apt-get install -y --no-install-recommends \
-    python3 python3-venv python3-gi python3-gst-1.0 \
+    python3 python3-dev python3-pip python3-venv python3-gi python3-gst-1.0 \
     libssl-dev libffi-dev zlib1g-dev libbz2-dev liblzma-dev libsqlite3-dev libfmt-dev pre-commit libfmt-dev
 
 # GStreamer core
@@ -57,12 +57,6 @@ RUN set -eux; \
     echo 'NOTE: gstreamer1.0-libav not available on this image/mirror'; \
   fi
 
-# Optional: DRM/EGL/Wayland bits (comment out if not needed)
-#RUN set -eux; \
-#  apt-get install -y --no-install-recommends \
-#    libdrm-dev libgbm-dev libegl1-mesa-dev libgles2-mesa-dev \
-#    libwayland-dev libva-dev libv4l-dev libgtk-3-0 || true
-
 # Clean apt cache
 # RUN set -eux; update-ca-certificates || true; rm -rf /var/lib/apt/lists/*
 RUN set -eux; update-ca-certificates || true
@@ -70,6 +64,7 @@ RUN set -eux; update-ca-certificates || true
 EXPOSE 8000
 EXPOSE 8001
 EXPOSE 9999
+EXPOSE 8080
 
 # uv (Python package manager)
 RUN set -eux; \
@@ -84,14 +79,17 @@ ARG USER_GID=1000
 RUN set -eux; \
   getent group "${USER_GID}" >/dev/null || groupadd --gid "${USER_GID}" "${USERNAME}"; \
   id -u "${USERNAME}" >/dev/null 2>&1 || useradd -m -u "${USER_UID}" -g "${USER_GID}" -s /bin/bash "${USERNAME}"; \
-  usermod -aG video,render "${USERNAME}" || true; \
+  getent group video >/dev/null 2>&1 || groupadd video; \
+  getent group render >/dev/null 2>&1 || groupadd render; \
+  getent group audio >/dev/null 2>&1 || groupadd audio; \
+  usermod -aG video,audio,render "${USERNAME}"; \
   mkdir -p /etc/sudoers.d; \
   echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/90-${USERNAME}"; \
   chmod 0440 "/etc/sudoers.d/90-${USERNAME}"; \
   mkdir -p /work && chown -R "${USER_UID}:${USER_GID}" /work
 
 RUN groupadd -g 993 render || true && \
-    usermod -aG render devgoblin || true
+    usermod -aG render "${USERNAME}" || true
 
 USER ${USERNAME}
 WORKDIR /work
@@ -105,7 +103,46 @@ CMD ldconfig
 
 CMD ["sleep","infinity"]
 
+########## RPI5 container ##########
+FROM amp-dev-base AS amp-dev-rpi5
+# The base stage switches to a non-root user; return to root for apt/system changes.
+USER root
+ARG USERNAME=devgoblin
+# Add Raspberry Pi repository
+RUN set -eux; \
+  apt-get update; \
+  # TODO: use key
+  echo "deb [arch=arm64 trusted=yes] https://archive.raspberrypi.com/debian trixie main" \
+    > /etc/apt/sources.list.d/raspberrypi.list
 
+# Camera and graphics libraries
+RUN set -eux; \
+  apt-get update && apt-get install -y --no-install-recommends \
+  libv4l-dev libgl1-mesa-dri libglx-mesa0 libegl1 libgbm1 libdrm2 mesa-utils libdrm-dev libgbm-dev \
+  libcamera-tools libcamera-dev libcamera-ipa libcamera-v4l2 rpicam-apps \
+  alsa-utils gstreamer1.0-libcamera gstreamer1.0-alsa
+
+RUN set -eux; \
+  apt-get update && apt-get install -y --no-install-recommends \
+  hailo-models hailo-tappas-core hailort \
+  python3-hailo-tappas python3-hailort rpicam-apps-hailo-postprocess
+
+USER ${USERNAME}
+WORKDIR /work
+
+########## Basic deployment container ##########
+FROM amp-dev-base AS amp-deployment-base
+USER root
+ARG USERNAME=devgoblin
+
+COPY . /work
+
+USER ${USERNAME}
+WORKDIR /work
+
+ENTRYPOINT ["./scripts/deployment-process.sh"]
+
+########## Rich development environment container ##########
 FROM amp-dev-base AS amp-dev-rich
 
 ARG USERNAME=devgoblin

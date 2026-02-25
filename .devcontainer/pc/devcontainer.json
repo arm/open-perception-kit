@@ -1,0 +1,46 @@
+{
+  "name": "PC amp-dev-forge",
+  "dockerComposeFile": [
+    "${localWorkspaceFolder}/compose.project.yaml",
+    "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.video.yaml",
+    "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.audio.yaml",
+    "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.npu.yaml",
+    "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.shared_memory.yaml"
+  ],
+  "service": "amp-dev-base",
+  "runServices": [
+    "amp-dev-base"
+  ],
+  "remoteUser": "devgoblin",
+  "workspaceFolder": "/work",
+  "initializeCommand": "bash .devcontainer/platform_init.sh amp-dev-base",
+  "containerEnv": {
+    "CONTAINER_TYPE": "default",
+    "HOST_OS": "${localEnv:OSTYPE}",
+    "HOST_DISPLAY": "${localEnv:DISPLAY}"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/sshd:1": {}
+  },
+  "overrideCommand": true,
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "init": true,
+  "shutdownAction": "stopCompose",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cpptools-extension-pack",
+        "matepek.vscode-catch2-test-adapter",
+        "ms-python.python",
+        "ms-python.autopep8",
+        "cheshirekow.cmake-format",
+        "mkhl.shfmt"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "python.defaultInterpreterPath": "/work/.venv/bin/python"
+      }
+    }
+  }
+}

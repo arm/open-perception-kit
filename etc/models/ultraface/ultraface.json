@@ -1,19 +1,18 @@
 {
 	"name": "ultraface",
-	
 	"modelFamily": "ultraface",
 	"modelFile": "version-RFB-320.onnx",
-	
 	"dynamicOutput": true,
-
 	"contentType": "humanFace",
-	
-	"inputTensors": 
-	[
+	"inputTensors": [
 		{
-			"shape": [ 1, 3, 240, 320 ],
+			"shape": [
+				1,
+				3,
+				240,
+				320
+			],
 			"dataKind": "ImageRgbChw"
 		}
 	]
-
 }

@@ -1,15 +1,16 @@
 {
-	"name": "mobilenetv2",
-	
+	"name": "imagenet",
 	"modelFamily": "classification",
 	"modelFile": "mobilenet_v2_1.4_224.onnx",
-	
 	"dynamicOutput": true,
-	
-	"inputTensors": 
-	[
+	"inputTensors": [
 		{
-			"shape": [1, 3, 224, 224],
+			"shape": [
+				1,
+				3,
+				224,
+				224
+			],
 			"dataKind": "ImageRgbChw"
 		}
 	]

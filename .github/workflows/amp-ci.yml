@@ -1,0 +1,99 @@
+name: amp-ci
+
+on:
+    workflow_dispatch:
+    pull_request:
+        branches: [main, "feature/**", "sandbox/**"]
+        types: [opened, synchronize, reopened, ready_for_review, labeled]
+    schedule:
+        - cron: "0 2 * * *" # Every day at 2 AM UTC'
+
+jobs:
+    quality-checks:
+        name: Run quality checks in Docker
+        runs-on: ubuntu-latest
+        if: |
+            (github.event.pull_request.draft == false) ||
+            (github.event_name == 'pull_request' && github.event.action == 'labeled' && contains(github.event.label.name, 'run-amp-ci'))
+        env:
+            python_ver: "3.12.1"
+            DOCKER_COMPOSE_FILE: compose.project.yaml
+        steps:
+            - uses: actions/checkout@v5
+              with:
+                  fetch-depth: 0
+                  fetch-tags: true
+                  ref: ${{ github.head_ref }}
+
+            - name: Build docker image
+              run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build amp-dev-base
+
+            - name: Run quality checks (nightly)
+              if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+              run: |
+                  docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm amp-quality-check-full
+
+            - name: Upload documentation artifact
+              if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+              uses: actions/upload-artifact@v4
+              with:
+                name: doc-upload
+                path: "${{ github.workspace }}/development/build/docs/doc-html.zip"
+                if-no-files-found: warn
+                retention-days: 10
+
+            - name: Run quality checks (PR)
+              if: github.event_name == 'pull_request'
+              run: |
+                  export PULL_REQUEST_TARGET_BRANCH="${{ github.base_ref }}"
+                  docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm amp-quality-check-pull-request
+
+            - name: AMP release build and unit test run
+              if:  github.event_name == 'pull_request'
+              run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm amp-release-with-ut
+
+    check-checkboxes:
+        name: Check PR template checkboxes
+        runs-on: ubuntu-latest
+        if: |
+            (github.event.pull_request.draft == false) ||
+            (github.event_name == 'pull_request' && github.event.action == 'labeled' && contains(github.event.label.name, 'run-amp-ci'))
+        steps:
+            - uses: actions/checkout@v5
+
+            - name: Check PR template checkboxes
+              uses: actions/github-script@v8
+              with:
+                  script: |
+                      if (!context.payload.pull_request) {
+                        console.log("This workflow must be run on pull_request events.");
+                      } else {
+                        const prBody = context.payload.pull_request.body;
+                        const unchecked = prBody.match(/-\s\[( |x)\]/g)
+                          ?.filter(checkbox => checkbox === '- [ ]');
+                        if (!prBody) {
+                          core.setFailed("PR body is empty or undefined.");
+                        } else if (!unchecked || unchecked.length === 0) {
+                          console.log("All checkboxes are checked.");
+                        } else {
+                          core.setFailed(`Some checkboxes are not checked:\n${unchecked.join('\n')}`);
+                        }
+                      }
+
+    detect-secrets:
+        name: Check for secrets
+        runs-on: ubuntu-latest
+        if: |
+            (github.event.pull_request.draft == false) ||
+            (github.event_name == 'pull_request' && github.event.action == 'labeled' && contains(github.event.label.name, 'run-amp-ci'))
+        steps:
+            - uses: actions/checkout@v5
+            - uses: actions/setup-python@v6
+            - name: Install tools
+              run: pip install detect-secrets==1.5.0 && pip list
+            - uses: actions/checkout@v5
+              with:
+                  fetch-depth: 0
+            - name: Check for secrets using detect-secrets
+              run: git ls-files -z | xargs -0 detect-secrets-hook --baseline .secrets.baseline
+              working-directory: .

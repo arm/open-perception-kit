@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #include "GenericPostprocessOp.h"
 
 #include <fmt/core.h>
@@ -12,6 +16,7 @@
 #include "postproc/PaddleocrParser.h"
 #include "postproc/PersonClassificationParser.h"
 #include "postproc/UltrafaceParser.h"
+
 #include "postproc/YoloParser.h"
 
 #include <PerformanceTracer.h>
@@ -40,6 +45,10 @@ amp::Result<void> GenericPostprocessOp::configure(const amp::AttributeMap &attri
         this->parser = std::make_unique<PaddleOcrDetectionParser>();
     } else if (parser == "YoloParser") {
         this->parser = std::make_unique<YoloParser>();
+
+        if (this->attributes.getStringOrDefault("outputFormat", "").empty()) {
+            this->attributes.set("outputFormat", "UltraliticsYolo");
+        }
     } else if (parser == "ImageNetClassificationParser") {
         this->parser = std::make_unique<ImageNetClassificationParser>();
     } else if (parser == "PersonClassificationParser") {

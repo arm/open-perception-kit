@@ -1,6 +1,9 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
 
-#ifndef __AUX_H__
-#define __AUX_H__
+#ifndef __AUXILIARY_H__
+#define __AUXILIARY_H__
 
 #ifndef NDEBUG
 

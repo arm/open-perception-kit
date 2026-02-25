@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 /* Build:
 g++ -fPIC -shared -o libgstampsink.so ampsink.cpp \
   $(pkg-config --cflags --libs gstreamer-1.0 gstreamer-video-1.0 gstreamer-audio-1.0)
@@ -12,7 +16,7 @@ g++ -fPIC -shared -o libgstampsink.so ampsink.cpp \
 #define GST_USE_UNSTABLE_API
 
 #include "ampsink.h"
-#include "aux.h"
+#include "auxiliary.h"
 #include "http_server.h"
 #include "status_reporter.h"
 #include "utils.h"

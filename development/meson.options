@@ -3,6 +3,12 @@ option('tests', type: 'boolean', value: false, description: 'Build unit tests')
 
 option('executorch',
   type : 'feature',
-  value : 'auto',
+  value : 'disabled',
   description : 'Enable ExecuTorch integration'
+)
+
+option('hailort',
+  type : 'feature',
+  value : 'auto',
+  description : 'Enable HailoRT integration (ops-hailort)'
 )

@@ -1,3 +1,6 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
 #pragma once
 
 #include <string>
@@ -19,6 +22,8 @@ struct OpChainDescriptor {
         std::string id, group;
         AttributeMap attributes;
     };
+
+    std::string name;
 
     std::vector<Op> ops;
 
@@ -51,10 +56,15 @@ inline void from_json(const nlohmann::json &j, OpChainDescriptor::Op &op) {
 // ---- OpChainDescriptor ----
 
 inline void to_json(nlohmann::json &j, const OpChainDescriptor &desc) {
-    j = nlohmann::json{{"ops", desc.ops}};
+    j = nlohmann::json{{"name", desc.name}, {"ops", desc.ops}};
 }
 
 inline void from_json(const nlohmann::json &j, OpChainDescriptor &desc) {
+    if (j.contains("name") && j["name"].is_string()) {
+        desc.name = j["name"].get<std::string>();
+    } else {
+        desc.name = "unknown";
+    }
     j.at("ops").get_to(desc.ops);
 }
 

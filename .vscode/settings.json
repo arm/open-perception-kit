@@ -1,0 +1,50 @@
+{
+    "search.useIgnoreFiles": true,
+    "editor.formatOnSave": true,
+    "editor.insertSpaces": true,
+    "editor.tabSize": 4,
+    "debug.hideSlowPreLaunchWarning": true,
+    "terminal.integrated.scrollback": 10000,
+    "json.format.enable": true,
+    "C_Cpp.default.browse.limitSymbolsToIncludedHeaders": false,
+    "C_Cpp.clang_format_style": "file",
+    "C_Cpp.codeAnalysis.clangTidy.codeAction.formatFixes": true,
+    "C_Cpp.codeAnalysis.clangTidy.enabled": false,
+    "C_Cpp.codeAnalysis.clangTidy.useBuildPath": true,
+    "C_Cpp.codeAnalysis.clangTidy.path": "/work/tools/lazer/.venv/bin/clang-tidy",
+    "C_Cpp.clang_format_path": "/work/tools/lazer/.venv/bin/clang-format",
+    "C_Cpp.formatting": "clangFormat",
+    "C_Cpp.default.compileCommands": [
+        "/work/development/build/compile_commands.json"
+    ],
+    "[cpp]": {
+        "editor.defaultFormatter": "ms-vscode.cpptools"
+    },
+    "[cmake]": {
+        "editor.defaultFormatter": "cheshirekow.cmake-format"
+    },
+    "cmakeFormat.exePath": "/work/tools/lazer/.venv/bin/cmake-format",
+    "cmakeFormat.args": [
+        "--config-files",
+        "${workspaceFolder}/.cmake-format.yaml"
+    ],
+    "[shellscript]": {
+        "editor.defaultFormatter": "mkhl.shfmt"
+    },
+    "shfmt.executableArgs": [
+        "-i",
+        "4",
+        "-ci",
+        "-sr",
+        "-kp"
+    ],
+    "autopep8.path": [
+        "/work/tools/lazer/.venv/bin/python",
+        "-m",
+        "autopep8"
+    ],
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.python"
+    },
+    "testMate.cpp.test.executables": "development/build/**/*{test,Test,TEST}*"
+}

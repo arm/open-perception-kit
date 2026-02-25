@@ -1,3 +1,6 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
 #include "Inference.h"
 
 #include "amp/Perception.h"
@@ -7,8 +10,10 @@
 
 #include "onnxruntime_cxx_api.h"
 #include "tl/expected.hpp"
+#include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <thread>
 
 #include <fmt/core.h>
 
@@ -25,6 +30,15 @@ using namespace onnx;
 Inference::Inference() {}
 
 Inference::~Inference() {
+    if (this->sessionOptions)
+        delete this->sessionOptions;
+
+    if (this->environment)
+        delete this->environment;
+
+    if (this->memoryInfo)
+        delete this->memoryInfo;
+
     if (this->session)
         delete this->session;
 }
@@ -62,9 +76,17 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc_) {
     // this->modelPath = file;
 
     try {
+        unsigned int hwThreads = std::thread::hardware_concurrency();
+        // IntraOp multithreading seems to be a better choice for vision models
+        unsigned int intraThreads = hwThreads ? std::max<unsigned int>(1u, hwThreads - 1u) : 1u;
+        unsigned int interThreads = 1u;
 
         this->sessionOptions = new Ort::SessionOptions();
-        this->sessionOptions->SetIntraOpNumThreads(1);
+        this->sessionOptions->SetIntraOpNumThreads(intraThreads);
+        this->sessionOptions->SetInterOpNumThreads(interThreads);
+        this->sessionOptions->SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+        this->sessionOptions->EnableCpuMemArena();
+        this->sessionOptions->SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
 
         this->sessionOptions->SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
 

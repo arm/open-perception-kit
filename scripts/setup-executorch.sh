@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+################################################################
+# Copyright (C) 2025 Arm Limited. All rights reserved.
+################################################################
+
 set -euo pipefail
 
 # --- Config (edit as needed) ---
@@ -10,15 +14,20 @@ BUILD_SH="$SELF_DIR/../etc/tools/executorchbuild/build.sh"
 GETLIB_SH="$SELF_DIR/../etc/tools/executorchbuild/getlibthorch.sh"
 
 # --- Basic checks ---
-[[ -f "$BUILD_SH" ]]  || { echo "Missing: $BUILD_SH" >&2; exit 1; }
-[[ -f "$GETLIB_SH" ]] || { echo "Missing: $GETLIB_SH" >&2; exit 1; }
-
+[[ -f "$BUILD_SH" ]]  || {
+                           echo "Missing: $BUILD_SH" >&2
+                                                          exit 1
+}
+[[ -f "$GETLIB_SH" ]] || {
+                           echo "Missing: $GETLIB_SH" >&2
+                                                           exit 1
+}
 
 run_in_script_dir() {
-  local script="$1"
-  local script_dir
-  script_dir="$(cd -- "$(dirname -- "$script")" && pwd)"
-  ( cd -- "$script_dir" && bash "./$(basename -- "$script")" )
+    local script="$1"
+    local script_dir
+    script_dir="$(cd -- "$(dirname -- "$script")" && pwd)"
+    (cd -- "$script_dir" && bash "./$(basename -- "$script")")
 }
 
 echo "AMP_EXECUTORCH=$AMP_EXECUTORCH"
@@ -35,4 +44,3 @@ echo "2) Running getlibthorch.sh as normal user (in its own directory)..."
 run_in_script_dir "$GETLIB_SH"
 
 echo "Done."
-

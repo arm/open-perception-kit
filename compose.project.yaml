@@ -1,0 +1,92 @@
+x-amp-dev-common: &amp-dev-common
+  cap_add:
+    - SYS_PTRACE
+
+  security_opt:
+    - seccomp:unconfined
+
+  privileged: true
+
+  command: /bin/bash -c "while true; do sleep 1; done"
+
+  environment:
+    - WAYLAND_DISPLAY=wayland-0
+    - DISPLAY
+    - USERNAME=devgoblin
+
+  env_file:
+    - devices.env
+
+  volumes:
+    - /tmp/.X11-unix:/tmp/.X11-unix
+    - .:/work
+    - /run/udev:/run/udev:ro
+
+  ports:
+    - 8000:8000
+    - 8080:8080
+    - 8001:8001
+    - 9999:9999
+
+  stdin_open: true
+  tty: true
+  restart: unless-stopped
+
+x-amp-dev-build: &amp-dev-build
+  context: .
+  dockerfile: Dockerfile
+
+services:
+  amp-dev-base: &amp-dev-base
+    <<: *amp-dev-common
+    build:
+      <<: *amp-dev-build
+      target: amp-dev-base
+
+    network_mode: bridge
+    container_name: amp-dev-forge-base
+    hostname: amp-dev-forge-base
+
+  amp-dev-rpi5:
+    <<: *amp-dev-common
+    build:
+      <<: *amp-dev-build
+      target: amp-dev-rpi5
+
+    network_mode: host
+    container_name: amp-dev-forge
+    hostname: amp-dev-forge
+
+  amp-release-with-ut:
+    <<: *amp-dev-base
+    container_name: amp-release-with-ut
+    hostname: amp-release-with-ut
+    command: |
+      bash -c '
+        .devcontainer/setup.sh &&
+        .devcontainer/platform_init.sh amp-dev-base &&
+        ./scripts/build-elements.sh release true &&
+        meson test -C development/build --print-errorlogs
+      '
+
+  amp-quality-check-pull-request:
+    <<: *amp-dev-base
+    container_name: amp-quality-check-pull-request
+    command: |
+      bash -c '
+        .devcontainer/setup.sh &&
+        .devcontainer/platform_init.sh amp-dev-base &&
+        source /work/tools/lazer/.venv/bin/activate &&
+        expkits-ci --all-checks --pr-target-branch ${PULL_REQUEST_TARGET_BRANCH}
+      '
+
+  amp-quality-check-full:
+    <<: *amp-dev-base
+    container_name: amp-quality-check-full
+    command: |
+      bash -c '
+        .devcontainer/setup.sh &&
+        .devcontainer/platform_init.sh amp-dev-base &&
+        source /work/tools/lazer/.venv/bin/activate &&
+        expkits-ci --clang-format-check --python-format-check --cmake-format-check --shell-format-check --license-header-check
+      '

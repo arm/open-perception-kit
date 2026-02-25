@@ -44,7 +44,7 @@ jobs:
 
       - name: Download and install the build wrapper, build the project
         run: |
-          mkdir $HOME/.sonar
+          mkdir -p $HOME/.sonar
           curl -sSLo $HOME/.sonar/build-wrapper-linux-x86.zip ${{ secrets.SONAR_HOST_URL }}/static/cpp/build-wrapper-linux-x86.zip
           unzip -o $HOME/.sonar/build-wrapper-linux-x86.zip -d $HOME/.sonar/
           $HOME/.sonar/build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir bw-output meson compile -C "$BUILD_DIR"

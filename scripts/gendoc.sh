@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+################################################################
+# Copyright (C) 2025 Arm Limited. All rights reserved.
+################################################################
+
 set -euo pipefail
 
 SRC_DIR="/work/docs/corespec"
@@ -30,10 +34,21 @@ echo "Copying assets..."
 find "$SRC_DIR" -maxdepth 1 -type f \( \
     -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o \
     -iname "*.gif" -o -iname "*.svg" -o -iname "*.webp" \
-\) -exec cp -f {} "$OUT_DIR" \;
+    \) -exec cp -f {} "$OUT_DIR" \;
 
 # --- simple link rewrite: .md -> .html ---
 echo "Rewriting internal links..."
 find "$OUT_DIR" -type f -name "*.html" -exec sed -i 's/\.md"/.html"/g' {} +
 
 echo "Done. Open: $OUT_DIR/index.html"
+
+ZIP_NAME="doc-html.zip"
+ZIP_PATH="/work/development/build/doc/$ZIP_NAME"
+BUILD_DOC_DIR="/work/development/build/doc"
+
+echo "Zipping documentation..."
+mkdir -p "$BUILD_DOC_DIR"
+cd "$OUT_DIR"
+zip -r "$ZIP_PATH" .
+cd -
+echo "Documentation zipped and copied to $ZIP_PATH"

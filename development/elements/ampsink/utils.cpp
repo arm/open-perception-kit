@@ -1,7 +1,11 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #include <gst/gst.h>
 #include <gst/gstpipeline.h>
 
-#include "aux.h"
+#include "auxiliary.h"
 #include "gst/gstbin.h"
 #include "gst/gstelement.h"
 #include "utils.h"

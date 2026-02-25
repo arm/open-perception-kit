@@ -1,36 +1,35 @@
 services:
 
-  amp-dev-base:
+  amp-dev-rich:
     build:
       context: .
-      dockerfile: Dockerfile   
-      target: amp-dev-base
+      dockerfile: ../Dockerfile
+      target: amp-dev-rich
 
-    container_name: amp-dev-forge
-
-    hostname: amp-dev-forge
-
-    cap_add:
-      - SYS_PTRACE
-
-    security_opt:
-      - seccomp:unconfined
+    container_name: amp-dev-rich
 
     network_mode: bridge
+
+    user: "0:0"
 
     command: /bin/bash -c "while true; do sleep 1; done"
 
     environment:
+      - XDG_RUNTIME_DIR=/run/user/${HOST_UID}
       - WAYLAND_DISPLAY=wayland-0
       - DISPLAY
       - USERNAME=devgoblin
-
-    env_file:
-      - cameras.env
+      - HOST_UID=${HOST_UID:-}
+      - HOST_GID=${HOST_GID:-}
 
     volumes:
+      - /run/user/${HOST_UID}:/run/user/${HOST_UID}
       - /tmp/.X11-unix:/tmp/.X11-unix
+      - ${HOME}/configs:/home/devgoblin/configs
       - ..:/work     
+      - ${SSH_AUTH_SOCK}:/ssh-agent
+
+    privileged: true
 
     ports:
       - 8000:8000
@@ -40,5 +39,4 @@ services:
     stdin_open: true
     tty: true
     restart: unless-stopped
-
 

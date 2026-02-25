@@ -1,4 +1,6 @@
-
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
 #include <gtest/gtest.h>
 
 #include <cstdlib>

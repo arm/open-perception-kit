@@ -1,32 +1,31 @@
 {
+	"name": "ImageNet",
 	"ops": [
 		{
 			"id": "amp-std-ops/InferenceController",
 			"group": "for-all-faces",
+			"attributes": {}
+		},
+		{
+			"id": "amp-std-ops/GenericImagePreprocess",
 			"attributes": {
+				"inputImageTensorIndex": 0,
+				"inputImageSourceName": "pipelineVideoFrame"
 			}
 		},
-	{
-		"id": "amp-std-ops/GenericImagePreprocess",
-		"attributes": {
-			"inputImageTensorIndex": 0,
-			"inputImageSourceName": "pipelineVideoFrame"
+		{
+			"id": "amp-onnx-ops/Inference",
+			"attributes": {
+				"modelDescriptor": "/work/etc/models/mobilenetv2/mobilenetv2.json"
+			}
+		},
+		{
+			"id": "amp-std-ops/GenericPostprocess",
+			"attributes": {
+				"parser": "ImageNetClassificationParser",
+				"topK": 5,
+				"confidenceThreshold": 0.001
+			}
 		}
-	},
-	{
-		"id": "amp-onnx-ops/Inference",
-		"attributes": {
-			"modelDescriptor": "/work/etc/models/mobilenetv2/mobilenetv2.json"
-		}
-	},
-	{
-		"id": "amp-std-ops/GenericPostprocess",
-		"attributes": {
-			"parser": "ImageNetClassificationParser",
-			"topK": 5,
-			"confidenceThreshold": 0.001
-		}
-	}
 	]
 }
-
