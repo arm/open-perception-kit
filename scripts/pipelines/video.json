@@ -1,12 +1,11 @@
 {
-    "description": "Test Inference on video",
+    "description": "Test Inference on video (video only)",
     "pipeline": [
-        "filesrc location=/work/etc/videos/00.mp4 !",
+        "filesrc location=/work/etc/videos/01.mp4 !",
         "decodebin name=dec",
-        "dec. ! queue ! videoconvert ! videoscale ! video/x-raw,framerate=24/1,format=BGRA !",
+        "dec. ! queue ! video/x-raw ! videoconvert ! videoscale ! video/x-raw,format=BGRA !",
         "ampinfer opchain-path=/work/etc/models/rvm/opchain.json active=true !",
         "amposd enabled=true !",
-        "ampsink name=sink",
-        "dec. ! queue ! audioconvert ! audioresample ! audio/x-raw,channels=2 ! sink.audiosink"
+        "ampsink name=sink"
     ]
-}   
+}

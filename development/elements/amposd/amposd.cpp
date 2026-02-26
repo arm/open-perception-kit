@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #include "amp/Bitmap.h"
 #include "amp/Color.h"
 #include "amp/Perception.h"
@@ -462,6 +466,16 @@ static GstFlowReturn gst_amp_osd_transform_frame_ip(GstVideoFilter *filter, GstV
             // Handle OCR segmentation with overlay
             for (const auto &layer : perceptionContext->layers) {
                 if (layer.contentType == "ocrDetectionSegmentation") {
+                    for (const auto &det : layer.detections) {
+                        const auto &sm = std::get<amp::Perception::SegmentationMap>(det);
+                        if (!sm.bitmap.empty() && sm.bitmap.getWidth() > 0 &&
+                            sm.bitmap.getHeight() > 0) {
+                            layers.push_back(
+                                drawSegmentationLayer(self, imgWidth, imgHeight, sm.bitmap));
+                        }
+                    }
+                }
+                if (layer.contentType == "segmentationReplaceLayer") {
                     for (const auto &det : layer.detections) {
                         const auto &sm = std::get<amp::Perception::SegmentationMap>(det);
                         if (!sm.bitmap.empty() && sm.bitmap.getWidth() > 0 &&

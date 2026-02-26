@@ -32,9 +32,11 @@ struct Tensor {
             onnxShape[i] = shape.valueCount[i];
 
         if (shape.hasDynamicDimension()) {
+            fmt::print("Creating dynamic tensor with shape: {}\n", shape.toString());
             // do nothing
         } else {
             this->data.resize(shape.getFullValueCount() * typeByteSize);
+            std::fill(this->data.begin(), this->data.end(), 0);
         }
     }
 

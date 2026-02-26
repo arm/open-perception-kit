@@ -333,8 +333,9 @@ amp::Result<void> Inference::inference() {
                 }
 
                 memcpy(api.inputTensors[toInputIndex]->getData(),
-                       outputTensorPointers[tesorIndex],
+                       outputTensorPointers[fromOutputIndex],
                        toByteCount);
+
                 tesorIndex++;
             } else {
                 assert(0); // unsupported feedback mode
