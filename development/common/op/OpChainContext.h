@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #pragma once
 
 #include "amp/BitmapView.h"
@@ -5,6 +9,7 @@
 #include "amp/Tags.h"
 #include "amp/TensorView.h"
 #include "amp/Types.h"
+#include <cstddef>
 #include <cstdint>
 #include <map>
 #include <vector>
@@ -13,14 +18,12 @@ namespace amp {
 
 struct OpChainContext {
 
-    bool execute = true;
+    // controls the loop execution, if loopGroup is not empty
+    // the system will loop back to the loop head Op
+    size_t loopId = 0;
+    bool breakLoop = false;
 
-    /*int inLoopStartIndex = -1, inLoopEndIndex = -1;
-    void exitLoop() {
-        assert(inLoopStartIndex != -1);
-        assert(inLoopEndIndex != -1);
-    }*/
-
+    // named bitmap views that ops can read/write, e.g. to share the video frame across multiple ops
     std::map<std::string, amp::BitmapView> bitmapViews;
 
     amp::BitmapView *getBitmapView(const std::string &name) {
@@ -31,8 +34,9 @@ struct OpChainContext {
         return &it->second;
     }
 
-    std::vector<amp::PixelRect> inferenceCrops;
-    std::vector<uint64_t> inferenceCropUuids;
+    // logical image tensor crops, inference loop consumes them, when ready inference loop ends
+    std::vector<amp::PixelRect> inferenceImageCrops;
+    std::vector<uint64_t> inferenceImageCropUuids;
 
     // info about the last executed inference
     uint64_t inferenceSourceUuid = 0;
@@ -40,11 +44,8 @@ struct OpChainContext {
     amp::TensorView inferenceOutputTensors[amp::MaxTensorCount];
     amp::InferenceInfo inferenceInfo;
 
+    // the perception object that ops can read/write to produce the final perception result
     Perception *perception = nullptr;
-
-    int loopStartOpIndex = -1;
-
-    bool inferenceControllerExecuted = false;
 };
 
 } // namespace amp

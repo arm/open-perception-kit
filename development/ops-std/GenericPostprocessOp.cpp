@@ -10,13 +10,14 @@
 #include "amp/Perception.h"
 #include "amp/TensorView.h"
 #include "amp/Types.h"
+#include "postproc/DummyParser.h"
 #include "postproc/GazeDetectionParser.h"
 #include "postproc/ImageNetClassificationParser.h"
 #include "postproc/ModNetSegmentationParser.h"
 #include "postproc/PaddleocrParser.h"
 #include "postproc/PersonClassificationParser.h"
+#include "postproc/RvmParser.h"
 #include "postproc/UltrafaceParser.h"
-
 #include "postproc/YoloParser.h"
 
 #include <PerformanceTracer.h>
@@ -53,6 +54,10 @@ amp::Result<void> GenericPostprocessOp::configure(const amp::AttributeMap &attri
         this->parser = std::make_unique<ImageNetClassificationParser>();
     } else if (parser == "PersonClassificationParser") {
         this->parser = std::make_unique<PersonClassificationParser>();
+    } else if (parser == "DummyParser") {
+        this->parser = std::make_unique<DummyParser>();
+    } else if (parser == "RvmParser") {
+        this->parser = std::make_unique<RvmParser>();
     } else if (parser == "GazeDetectionParser") {
         this->parser = std::make_unique<GazeDetectionParser>();
     } else if (parser == "UltrafaceParser") {

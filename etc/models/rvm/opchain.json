@@ -1,5 +1,5 @@
 {
-	"name": "PadleOCR",
+	"name": "MobileNetV3RVM",
 	"ops": [
 		{
 			"id": "amp-std-ops/InferenceController",
@@ -15,16 +15,13 @@
 		{
 			"id": "amp-onnx-ops/Inference",
 			"attributes": {
-				"modelDescriptor": "/work/etc/models/paddleocr/paddleocr-detection.json"
+				"modelDescriptor": "/work/etc/models/rvm/model.json"
 			}
 		},
 		{
 			"id": "amp-std-ops/GenericPostprocess",
 			"attributes": {
-				"parser": "PaddleOcrDetectionParser",
-			    "thresholdLow": 0.6,
-			    "thresholdHigh": 0.8,
-			    "gamma": 0.5
+				"parser": "RvmParser"
 			}
 		}
 	]

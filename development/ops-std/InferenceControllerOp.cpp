@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #include "InferenceControllerOp.h"
 
 #include <fmt/core.h>
@@ -25,22 +29,19 @@ amp::Result<void> InferenceControllerOp::configure(const amp::AttributeMap &attr
 }
 
 amp::Result<void> InferenceControllerOp::process(amp::OpChainContext &opChainContext) {
-
-    // hack to avoid multiple runs
-    if (opChainContext.inferenceControllerExecuted == false) {
-        opChainContext.inferenceControllerExecuted = true;
-    } else {
-        return {};
-    }
-
-    // ---
-
     amp::BitmapView *pipelineVideoFrame = opChainContext.getBitmapView("pipelineVideoFrame");
 
+    // TODO: later it can be also audio data not video only
     if (pipelineVideoFrame == nullptr) {
-        return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidOpChain,
-                                             "InferenceControllerOp needs pipelineVideoFrame"));
+        return tl::unexpected(AMP_ERROR(amp::ErrorFlag::InvalidOpChain,
+                                        "InferenceControllerOp needs pipelineVideoFrame"));
     }
+
+    // we put the context into loop mode, if 0 or 1 inference is needed
+    // preprocessor will break in the 1st or 2nd iteration
+    opChainContext.loopId = loopId;
+
+    opChainContext.inferenceInfo.modelFamily.clear();
 
     if (contentType.empty()) {
         // setup source VideoFrame object
@@ -56,12 +57,15 @@ amp::Result<void> InferenceControllerOp::process(amp::OpChainContext &opChainCon
         rect.y = 0;
         rect.width = pipelineVideoFrame->width;
         rect.height = pipelineVideoFrame->height;
-        opChainContext.inferenceCrops.push_back(rect);
+        opChainContext.inferenceImageCrops.push_back(rect);
 
-        opChainContext.inferenceCropUuids.push_back(videoFrame.uuid);
+        opChainContext.inferenceImageCropUuids.push_back(videoFrame.uuid);
     } else {
         PerceptionTools perception(*opChainContext.perception);
         auto rects = perception.getAllRectsWithContentType(contentType);
+
+        opChainContext.loopId = loopId;
+        opChainContext.inferenceInfo.modelFamily = contentType;
 
         for (const auto &r : rects) {
             amp::PixelRect rect;
@@ -70,10 +74,8 @@ amp::Result<void> InferenceControllerOp::process(amp::OpChainContext &opChainCon
             rect.width = (int)r.width;
             rect.height = (int)r.height;
 
-            // fmt::print("ctrl: {} {} {} {}\n", rect.x, rect.y, rect.width, rect.height);
-
-            opChainContext.inferenceCrops.push_back(rect);
-            opChainContext.inferenceCropUuids.push_back(r.uuid);
+            opChainContext.inferenceImageCrops.push_back(rect);
+            opChainContext.inferenceImageCropUuids.push_back(r.uuid);
         }
     }
 

@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #pragma once
 
 #include "amp/ModelDescriptor.h"
@@ -14,12 +18,18 @@ namespace amp {
 
 struct ModelInput {
     std::string name;
-    DataKind dataKind = DataKind::Unknown;
+    amp::DataKind dataKind = amp::DataKind::Unknown;
     amp::Tdt valueType = amp::Tdt::Float32;
     amp::Shape shape{};
     int batch = 0;
     amp::QuantizationArgs quantArguments;
     amp::Colorf mean = {0.0f, 0.0f, 0.0f, 0.0f}, std = {1.0f, 1.0f, 1.0f, 1.0f};
+
+    std::vector<float> valueInputs;
+
+    // if this value is not amp::InvalidTensorIndex
+    // we have to realloc the tensor to match the shape of the referenced output tensor
+    size_t matchShapeOutputIndex = amp::InvalidTensorIndex;
 
     bool tryGetImageTensorSize(size_t &outWidht, size_t &outHeight) {
         if (shape.dimensionCount == 4) {
@@ -55,6 +65,8 @@ struct Model {
     std::vector<ModelInput> inputs;
 
     std::vector<ModelOutput> outputs;
+
+    std::vector<amp::TensorFeedback> tensorFeedbacks;
 
     // some runtimes enable models
     // where the output size is only determined
@@ -174,6 +186,9 @@ struct Model {
             // set mean and std
             this->inputs[i].mean = modelDescriptor.inputTensors[i].mean;
             this->inputs[i].std = modelDescriptor.inputTensors[i].std;
+            this->inputs[i].valueInputs = modelDescriptor.inputTensors[i].valueInputs;
+            this->inputs[i].matchShapeOutputIndex =
+                modelDescriptor.inputTensors[i].matchShapeOutputIndex;
         }
 
         // OUTPUT tensors
@@ -232,6 +247,19 @@ struct Model {
 
         // other stuff
         this->useDynamicOutput = modelDescriptor.dynamicOutput;
+        this->tensorFeedbacks = modelDescriptor.tensorFeedbacks;
+
+        // check tensor feedbacks
+        if (this->useDynamicOutput == false) {
+            for (const auto &input : inputs) {
+                if (input.matchShapeOutputIndex != amp::InvalidTensorIndex) {
+                    return tl::make_unexpected(AMP_ERROR(
+                        amp::ErrorFlag::InvalidData,
+                        "matchShapeOutputIndex cannot be used if the output is not dynamic"));
+                }
+            }
+        }
+
         return {};
     }
 
@@ -242,22 +270,23 @@ struct Model {
         ret += fmt::format("Engine: [{}]\n", engine);
         ret += fmt::format("Input count: {}\n", inputs.size());
         ret += fmt::format("Output count: {}\n", outputs.size());
+        ret += "\n";
 
         for (size_t i = 0; i < inputs.size(); i++) {
             ret += fmt::format("Input #{} [{}]\n", i, inputs[i].name);
             ret += fmt::format(" Batch {}\n", inputs[i].batch);
             ret += fmt::format(" ValueType: {}\n", magic_enum::enum_name(inputs[i].valueType));
             ret += fmt::format(" Shape: {}\n", inputs[i].shape.toString());
-            // ret += fmt::format(" Shape: {}\n", amp::toString(model.inputs[i].shape).c_str());
             ret += fmt::format(" DataKind: {}\n", magic_enum::enum_name(inputs[i].dataKind));
         }
+        ret += "\n";
+
         for (size_t i = 0; i < outputs.size(); i++) {
             ret += fmt::format("Output #{} [{}]\n", i, outputs[i].name);
             ret += fmt::format(" ValueType: {}\n", magic_enum::enum_name(outputs[i].valueType));
-            // ret += fmt::format(" Shape: {}\n",
-            // amp::toString(model.outputs[i].shape).c_str());
             ret += fmt::format(" Shape: {}\n", outputs[i].shape.toString());
         }
+        ret += "\n";
 
         return ret;
     }

@@ -1,0 +1,13 @@
+{
+    "description": "Test Inference on video",
+    "pipeline": [
+
+      "filesrc location=/work/etc/videos/00.mp4 !",
+      "decodebin name=dec",
+          "dec. ! queue ! videoconvert ! videoscale ! video/x-raw,framerate=24/1,format=BGRA !",
+              "ampinfer opchain-path=/work/etc/models/silero-vad/opchain.json active=true !",
+              "amposd enabled=true !",
+              "ampsink name=sink",
+          "dec. ! queue ! audioconvert ! audioresample ! audio/x-raw,channels=2 ! sink.audiosink"
+    ]
+}

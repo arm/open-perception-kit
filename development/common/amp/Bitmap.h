@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #pragma once
 
 #include <vector>
@@ -46,6 +50,9 @@ struct Bitmap {
     }
     size_t getHeight() const {
         return height;
+    }
+    uint8_t *getMutableData() {
+        return pixels.data();
     }
     const uint8_t *getData() const {
         return pixels.data();

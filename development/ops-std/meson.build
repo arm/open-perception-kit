@@ -6,6 +6,8 @@ stdops = shared_module(
     'GenericImagePreprocessOp.cpp',
     'InferenceControllerOp.cpp',
 
+    'postproc/RvmParser.cpp',
+    'postproc/DummyParser.cpp',
     'postproc/YoloParser.cpp',
     'postproc/UltrafaceParser.cpp',
     'postproc/PaddleocrParser.cpp',
@@ -16,6 +18,7 @@ stdops = shared_module(
 
     'preproc/GenericImageTensorBuilder.cpp',
     'preproc/CpuImageKernels.cpp',
+    'preproc/CpuAudioKernels.cpp'
 
   ],
   include_directories: common_include,

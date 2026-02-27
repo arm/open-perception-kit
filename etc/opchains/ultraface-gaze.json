@@ -28,28 +28,29 @@
 		},
 		{
 			"id": "amp-std-ops/InferenceController",
-			"group": "for-all-faces",
+			"loopId": 2,
 			"attributes": {
 				"contentType": "humanFace"
 			}
 		},
 		{
 			"id": "amp-std-ops/GenericImagePreprocess",
-			"group": "for-all-faces",
+			"loopId": 2,
 			"attributes": {
-				"inputImageTensorIndex": 0
+				"inputImageTensorIndex": 0,
+				"inputImageSourceName": "pipelineVideoFrame"
 			}
 		},
 		{
 			"id": "amp-onnx-ops/Inference",
-			"group": "for-all-faces",
+			"loopId": 2,
 			"attributes": {
 				"modelDescriptor": "/work/etc/models/gazedetection/model.json"
 			}
 		},
 		{
 			"id": "amp-std-ops/GenericPostprocess",
-			"group": "for-all-faces",
+			"loopId": 2,
 			"attributes": {
 				"parser": "GazeDetectionParser",
 				"normalizeOutputCoordinates": false,

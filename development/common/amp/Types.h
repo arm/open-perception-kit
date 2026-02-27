@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #pragma once
 
 #include <cstddef>
@@ -74,6 +78,9 @@ enum class DataKind {
     ImageBgraHwc, // BGRABGRA
     ImageGray,
 
+    RawTensorData, // raw (sometimes quantized) tensor data, e.g. output-tensor-content after
+                   // inference
+
     Value,   // one scalar value (often used an an input tensor for some inference configuration)
     Vector2, // 2 scalar values
     Vector3, // 3 scalar values
@@ -95,7 +102,7 @@ inline bool isScalarDataKind(DataKind kind) {
     return false;
 }
 
-constexpr size_t MaxTensorCount = 4;
+constexpr size_t MaxTensorCount = 8;
 constexpr int64_t InvalidTensorIndex = 0xdead;
 
 // Information about the inference itself
@@ -116,6 +123,14 @@ struct InferenceInfo {
 
 struct PixelRect {
     size_t x = 0, y = 0, width = 0, height = 0;
+};
+
+struct TensorFeedback {
+    enum class Mode { Copy };
+
+    size_t fromOutputTensorIndex = 0;
+    size_t toInputTensorIndex = 0;
+    Mode mode = Mode::Copy;
 };
 
 } // namespace amp
