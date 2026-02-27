@@ -263,6 +263,15 @@ static void gst_amp_sink_release_pad(GstElement *element, GstPad *pad) {
 static gboolean gst_amp_sink_sink_event(GstPad *pad, GstObject *parent, GstEvent *event) {
     auto *self = reinterpret_cast<GstAmpSink *>(parent);
 
+    GST_DEBUG_OBJECT(self,
+                     "[ampsink] Event received: %s on pad %s",
+                     gst_event_type_get_name(GST_EVENT_TYPE(event)),
+                     GST_PAD_NAME(pad));
+
+    if (GST_EVENT_TYPE(event) == GST_EVENT_EOS) {
+        GST_WARNING_OBJECT(self, "[ampsink] EOS event received on pad %s", GST_PAD_NAME(pad));
+    }
+
     if (GST_EVENT_TYPE(event) == GST_EVENT_CUSTOM_DOWNSTREAM) {
         const GstStructure *structure = gst_event_get_structure(event);
 
@@ -407,7 +416,7 @@ static void init_video(GstAmpSink *self) {
 
         // Install custom event handler
         gst_pad_set_event_function(vg, gst_amp_sink_sink_event);
-
+        gst_pad_set_event_function(self->audio_ghost_pad, gst_amp_sink_sink_event);
         gst_element_add_pad(GST_ELEMENT(self), vg);
     }
 }

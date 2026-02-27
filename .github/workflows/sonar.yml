@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Checkkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install build deps
         run: |
@@ -49,7 +49,7 @@ jobs:
           unzip -o $HOME/.sonar/build-wrapper-linux-x86.zip -d $HOME/.sonar/
           $HOME/.sonar/build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir bw-output meson compile -C "$BUILD_DIR"
         env:
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_UR }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
           
       - name: Download and install the SonarScanner
         env:

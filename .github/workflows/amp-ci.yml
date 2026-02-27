@@ -19,7 +19,7 @@ jobs:
             python_ver: "3.12.1"
             DOCKER_COMPOSE_FILE: compose.project.yaml
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
               with:
                   fetch-depth: 0
                   fetch-tags: true
@@ -35,7 +35,7 @@ jobs:
 
             - name: Upload documentation artifact
               if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               with:
                 name: doc-upload
                 path: "${{ github.workspace }}/development/build/docs/doc-html.zip"
@@ -60,7 +60,7 @@ jobs:
             (github.event.pull_request.draft == false) ||
             (github.event_name == 'pull_request' && github.event.action == 'labeled' && contains(github.event.label.name, 'run-amp-ci'))
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
 
             - name: Check PR template checkboxes
               uses: actions/github-script@v8
