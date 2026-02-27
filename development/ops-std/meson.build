@@ -5,6 +5,7 @@ stdops = shared_module(
     'GenericPostprocessOp.cpp',
     'GenericImagePreprocessOp.cpp',
     'InferenceControllerOp.cpp',
+    'TrackerOp.cpp',
 
     'postproc/RvmParser.cpp',
     'postproc/DummyParser.cpp',
