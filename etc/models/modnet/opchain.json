@@ -21,9 +21,9 @@
     {
       "id": "amp-std-ops/GenericPostprocess",
       "attributes": {
-        "parser": "ModNetSegmentationParser"
-		"thresholdLow": 0.2,
-		"thresholdHigh": 0.8
+        "parser": "ModNetSegmentationParser",
+        "thresholdLow": 0.2,
+        "thresholdHigh": 0.8
       }
     }
   ]
