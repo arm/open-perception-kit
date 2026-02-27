@@ -205,10 +205,6 @@ amp::Result<void> Inference::inference() {
                     writeValueTo<float, float>(api.inputTensors[i]->getData(),
                                                g,
                                                this->model.inputs[i].valueInputs.data());
-
-                    // this->modelDescriptor.inputTensors[i].valueInputs.data(),
-                    // g,
-                    //);
                 }
             } else {
                 assert(0); // no type support to set scalar tensor input value

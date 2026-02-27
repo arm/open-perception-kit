@@ -1,5 +1,5 @@
 {
-	"name": "YoloV11",
+	"name": "MobileNetV3RVM",
 	"ops": [
 		{
 			"id": "amp-std-ops/InferenceController",

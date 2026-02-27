@@ -16,10 +16,5 @@
 			],
 			"dataKind": "ImageRgbChw"
 		}
-	],
-	"tensorFeedbacks": [
-	  { "fromOutputTensorIndex": 0, "toInputTensorIndex": 0,  "mode": "Copy" },
-	  { "fromOutputTensorIndex": 1, "toInputTensorIndex": 1, "mode": "Copy" }
 	]
 }
-

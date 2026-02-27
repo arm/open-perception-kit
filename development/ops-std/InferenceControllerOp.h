@@ -25,7 +25,7 @@ class InferenceControllerOp : public amp::Op {
     virtual amp::Result<void> bind(size_t index, const std::vector<amp::Op *> &ops) override;
 
   private:
-    std::string contentType, inferenceSource;
+    std::string contentType;
 };
 
 } // namespace amp

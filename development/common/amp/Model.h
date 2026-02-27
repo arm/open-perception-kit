@@ -250,12 +250,13 @@ struct Model {
         this->tensorFeedbacks = modelDescriptor.tensorFeedbacks;
 
         // check tensor feedbacks
-        for (const auto &input : inputs) {
-            if (input.matchShapeOutputIndex != amp::InvalidTensorIndex &&
-                this->useDynamicOutput == false) {
-                return tl::make_unexpected(
-                    AMP_ERROR(amp::ErrorFlag::InvalidData,
-                              "matchShapeOutputIndex cannot be used if the output is not dynamic"));
+        if (this->useDynamicOutput == false) {
+            for (const auto &input : inputs) {
+                if (input.matchShapeOutputIndex != amp::InvalidTensorIndex) {
+                    return tl::make_unexpected(AMP_ERROR(
+                        amp::ErrorFlag::InvalidData,
+                        "matchShapeOutputIndex cannot be used if the output is not dynamic"));
+                }
             }
         }
 

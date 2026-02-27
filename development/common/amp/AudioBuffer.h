@@ -14,6 +14,7 @@
 #include <vector>
 
 namespace amp {
+// TODO: Only a skeleton at the moment should be fully reviewed once it's fully implemented
 
 enum class AudioSampleType { U8, S16, S24, S32, F32 };
 

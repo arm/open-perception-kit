@@ -512,8 +512,7 @@ static GstFlowReturn gst_amp_osd_transform_frame_ip(GstVideoFilter *filter, GstV
 
             // Handle OCR segmentation with overlay
             for (const auto &layer : perceptionContext->layers) {
-                if (layer.contentType == "ocrDetectionSegmentation" ||
-                    layer.contentType == "segmentation") {
+                if (layer.contentType == "segmentation") {
                     for (const auto &det : layer.detections) {
                         const auto &sm = std::get<amp::Perception::SegmentationMap>(det);
                         if (!sm.bitmap.empty() && sm.bitmap.getWidth() > 0 &&
