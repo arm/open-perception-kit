@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #pragma once
 
 #include "amp/Model.h"
@@ -21,7 +25,7 @@ class InferenceControllerOp : public amp::Op {
     virtual amp::Result<void> bind(size_t index, const std::vector<amp::Op *> &ops) override;
 
   private:
-    std::string contentType;
+    std::string contentType, inferenceSource;
 };
 
 } // namespace amp

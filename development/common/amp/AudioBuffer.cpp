@@ -1,0 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
+#include "AudioBuffer.h"
+
+using namespace amp;

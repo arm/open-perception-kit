@@ -20,6 +20,7 @@ struct OpChainDescriptor {
 
     struct Op {
         std::string id, group;
+        size_t loopId = 0;
         AttributeMap attributes;
     };
 
@@ -42,13 +43,17 @@ namespace amp {
 // ---- Op ----
 
 inline void to_json(nlohmann::json &j, const OpChainDescriptor::Op &op) {
-    j = nlohmann::json{{"id", op.id}, {"group", op.group}, {"attributes", op.attributes}};
+    j = nlohmann::json{
+        {"id", op.id}, {"group", op.group}, {"loopId", op.loopId}, {"attributes", op.attributes}};
 }
 
 inline void from_json(const nlohmann::json &j, OpChainDescriptor::Op &op) {
     j.at("id").get_to(op.id);
     if (j.contains("group"))
         j.at("group").get_to(op.group);
+    if (j.contains("loopId"))
+        j.at("loopId").get_to(op.loopId);
+
     if (j.contains("attributes"))
         j.at("attributes").get_to(op.attributes);
 }

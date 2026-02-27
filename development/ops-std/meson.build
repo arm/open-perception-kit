@@ -18,6 +18,7 @@ stdops = shared_module(
 
     'preproc/GenericImageTensorBuilder.cpp',
     'preproc/CpuImageKernels.cpp',
+    'preproc/CpuAudioKernels.cpp'
 
   ],
   include_directories: common_include,

@@ -3,6 +3,7 @@
  *************************************************************/
 #include "Inference.h"
 
+#include "amp/Log.h"
 #include "amp/Perception.h"
 #include "amp/Result.h"
 #include "amp/Shape.h"
@@ -114,10 +115,7 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc_) {
 
         // --- build up model
 
-        std::string modelLog = model.toString();
-        printf("========= Original onnx model ========\n");
-        printf("%s", modelLog.c_str());
-        printf("========= ================== =========\n");
+        amp::log("{}", amp::LogTools::enframe(model.toString(), "ONNX Model"));
 
         auto cmResult = model.applyModelFromDescriptor(this->modelDescriptor);
         if (!cmResult) {
@@ -128,12 +126,8 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc_) {
 
         this->setupReady = true;
 
-        // ---
-
-        modelLog = model.toString();
-        printf("======= Model updated with json ======\n");
-        printf("%s", modelLog.c_str());
-        printf("========= ================== =========\n");
+        amp::log("{}", amp::LogTools::enframe(model.toString(), "Final Model"));
+        amp::log("{}", "ONNX: Model loaded\n");
 
     } catch (const std::exception &e) {
         return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::OnnxModelLoadException, e.what()));
@@ -181,7 +175,7 @@ void Inference::setupTensorsForModel() {
                 api.outputTensors[i]->createOnnxTensor(*this->memoryInfo));
     }
 
-    fmt::print("Input tensors are set up\n");
+    amp::log("ONNX: Input tensors are set up\n");
 }
 
 template <typename toT, typename fromT>
@@ -397,8 +391,6 @@ amp::Result<amp::Model> Inference::inspectModel(const Ort::Session &session) {
                                             "input tensor size must be between 1 and 8")};
         }
         model.inputs[i].shape.setFrom(onnxDims);
-
-        fmt::print("Input shape {}\n", model.inputs[i].shape.toString().c_str());
     }
 
     // inspect all the OUTPUT TENSORS
@@ -432,7 +424,6 @@ amp::Result<amp::Model> Inference::inspectModel(const Ort::Session &session) {
                                             "output tensor size must be between 1 and 8")};
         }
         model.outputs[i].shape.setFrom(onnxDims);
-        fmt::print("Output shape {}\n", model.outputs[i].shape.toString().c_str());
     }
 
     return model;

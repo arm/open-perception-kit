@@ -269,22 +269,23 @@ struct Model {
         ret += fmt::format("Engine: [{}]\n", engine);
         ret += fmt::format("Input count: {}\n", inputs.size());
         ret += fmt::format("Output count: {}\n", outputs.size());
+        ret += "\n";
 
         for (size_t i = 0; i < inputs.size(); i++) {
             ret += fmt::format("Input #{} [{}]\n", i, inputs[i].name);
             ret += fmt::format(" Batch {}\n", inputs[i].batch);
             ret += fmt::format(" ValueType: {}\n", magic_enum::enum_name(inputs[i].valueType));
             ret += fmt::format(" Shape: {}\n", inputs[i].shape.toString());
-            // ret += fmt::format(" Shape: {}\n", amp::toString(model.inputs[i].shape).c_str());
             ret += fmt::format(" DataKind: {}\n", magic_enum::enum_name(inputs[i].dataKind));
         }
+        ret += "\n";
+
         for (size_t i = 0; i < outputs.size(); i++) {
             ret += fmt::format("Output #{} [{}]\n", i, outputs[i].name);
             ret += fmt::format(" ValueType: {}\n", magic_enum::enum_name(outputs[i].valueType));
-            // ret += fmt::format(" Shape: {}\n",
-            // amp::toString(model.outputs[i].shape).c_str());
             ret += fmt::format(" Shape: {}\n", outputs[i].shape.toString());
         }
+        ret += "\n";
 
         return ret;
     }

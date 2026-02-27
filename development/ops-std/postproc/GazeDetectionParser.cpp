@@ -1,3 +1,6 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
 
 #include "postproc/GazeDetectionParser.h"
 #include "amp/Perception.h"
@@ -81,7 +84,7 @@ amp::Result<void> GazeDetectionParser::parse(const amp::TensorParser::Input &inp
     logitsToAngleDegAndConfidence(input.tensors[0], yaw, yawConf);
     logitsToAngleDegAndConfidence(input.tensors[1], pitch, pitchConf);
 
-    detectionResult.contentType = "eye-yp";
+    detectionResult.contentType = "eyeYawPitch";
     Perception::YawPitch result;
     result.yaw = yaw;
     result.pitch = pitch;

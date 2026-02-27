@@ -1,15 +1,16 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #include "Result.h"
 
 #include "amp/String.h"
-
-#include <fmt/format.h>
 
 using namespace amp;
 
 std::string Error::toString() const {
     using fmt::bg;
     using fmt::color;
-    using fmt::emphasis;
     using fmt::format;
 
     auto RED = bg(color::red);
@@ -27,14 +28,14 @@ std::string Error::toString() const {
                              format(RED, "Because:\n"),
                              green(info));
 
-    if (sourceLocation.file_name() && sourceLocation.file_name()[0]) {
+    if (!file.empty()) {
         ret += format("\n{}{}{}{}{}{}",
                       format(BLUE, "Where:\n"),
-                      green(sourceLocation.file_name()),
+                      green(file),
                       format(BLUE, "\n"),
-                      green(sourceLocation.function_name()),
+                      green(function),
                       format(BLUE, "\n"),
-                      green(sourceLocation.line()));
+                      green(line));
     }
 
     return ret;

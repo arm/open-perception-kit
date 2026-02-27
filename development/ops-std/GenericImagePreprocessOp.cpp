@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #include "GenericImagePreprocessOp.h"
 
 #include <cstdint>
@@ -72,16 +76,17 @@ amp::Result<void> GenericImagePreprocessOp::configure(const amp::AttributeMap &a
 amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChainContext) {
     AMP_TRACE_SCOPE(fmt::format("std/GenImgPre/{}", upcomingInferenceModel.modelFamily));
 
-    if (opChainContext.inferenceCrops.size() == 0) {
-        opChainContext.execute = false;
+    if (opChainContext.inferenceImageCrops.size() == 0) {
+        //  nothing to infer on, we break the loop and move on
+        opChainContext.breakLoop = true;
         return {};
     }
 
-    amp::PixelRect cropRect = opChainContext.inferenceCrops.back();
-    opChainContext.inferenceCrops.pop_back();
-    uint64_t sourceUuid = opChainContext.inferenceCropUuids.back();
-    opChainContext.inferenceSourceUuid = opChainContext.inferenceCropUuids.back();
-    opChainContext.inferenceCropUuids.pop_back();
+    amp::PixelRect cropRect = opChainContext.inferenceImageCrops.back();
+    opChainContext.inferenceImageCrops.pop_back();
+    uint64_t sourceUuid = opChainContext.inferenceImageCropUuids.back();
+    opChainContext.inferenceSourceUuid = opChainContext.inferenceImageCropUuids.back();
+    opChainContext.inferenceImageCropUuids.pop_back();
 
     amp::BitmapView *pipelineVideoFrame = opChainContext.getBitmapView("pipelineVideoFrame");
 

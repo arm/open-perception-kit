@@ -3,13 +3,15 @@
 	"ops": [
 		{
 			"id": "amp-std-ops/InferenceController",
-			"group": "for-all-faces",
+			"loopId": 1,
 			"attributes": {
-				"contentType": "humanFace"
+				"contentType": "humanFace",
+				"inferenceSource": "inferenceImageCrops"
 			}
 		},
 		{
 			"id": "amp-std-ops/GenericImagePreprocess",
+			"loopId": 1,
 			"attributes": {
 				"inputImageTensorIndex": 0,
 				"inputImageSourceName": "pipelineVideoFrame"
@@ -17,12 +19,14 @@
 		},
 		{
 			"id": "amp-onnx-ops/Inference",
+			"loopId": 1,
 			"attributes": {
 				"modelDescriptor": "/work/etc/models/gazedetection/model.json"
 			}
 		},
 		{
 			"id": "amp-std-ops/GenericPostprocess",
+			"loopId": 1,
 			"attributes": {
 				"parser": "GazeDetectionParser",
 				"normalizeOutputCoordinates": false,

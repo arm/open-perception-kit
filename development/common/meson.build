@@ -23,6 +23,8 @@ common = shared_library(
     'amp/ModelDescriptor.h',
     'amp/ModelDescriptor.cpp',
 
+    'amp/AudioBuffer.cpp',
+
     'op/Op.cpp',
     'op/OpRef.cpp',
     'op/OpChain.cpp',

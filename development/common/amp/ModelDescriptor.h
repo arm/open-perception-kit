@@ -38,6 +38,7 @@ struct TensorDescriptor {
 struct ModelDescriptor {
 
     std::string name;
+    std::string legal;
 
     std::string modelFile;
     std::string modelFamily;
@@ -94,6 +95,7 @@ inline void to_json(json &j, const ModelDescriptor &b) {
              {"inputTensors", b.inputTensors},
              {"outputTensors", b.outputTensors},
              {"tensorFeedbacks", b.tensorFeedbacks},
+             {"legal", b.legal},
              {"dynamicOutput", b.dynamicOutput}};
 }
 
@@ -105,6 +107,7 @@ inline void from_json(const json &j, ModelDescriptor &b) {
     b.inputTensors = j.value("inputTensors", std::vector<TensorDescriptor>{});
     b.outputTensors = j.value("outputTensors", std::vector<TensorDescriptor>{});
     b.tensorFeedbacks = j.value("tensorFeedbacks", std::vector<amp::TensorFeedback>{});
+    b.legal = j.value("legal", std::string{});
     j.at("dynamicOutput").get_to(b.dynamicOutput);
 }
 //}
