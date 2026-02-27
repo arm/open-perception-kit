@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #pragma once
 
 #include "amp/Bitmap.h"
@@ -108,7 +112,7 @@ struct Perception {
         // "genericObject"
         // "humanFace"
         // "humanFigure"
-        // "ocrDetectionSegmentation"
+        // "segmentation"
         // "eyeYawPitch"
         // "classification"
         // "personClassification"

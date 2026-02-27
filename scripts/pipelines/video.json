@@ -1,7 +1,7 @@
 {
     "description": "Test Inference on video (video only)",
     "pipeline": [
-        "filesrc location=/work/etc/videos/01.mp4 !",
+        "filesrc location=/work/etc/videos/02.mp4 !",
         "decodebin name=dec",
         "dec. ! queue ! video/x-raw ! videoconvert ! videoscale ! video/x-raw,format=BGRA !",
         "ampinfer opchain-path=/work/etc/models/rvm/opchain.json active=true !",

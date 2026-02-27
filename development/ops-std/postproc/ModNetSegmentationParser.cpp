@@ -1,10 +1,17 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #include "ModNetSegmentationParser.h"
 #include <algorithm>
 
 namespace amp {
 
 Result<void> ModNetSegmentationParser::parse(const Input &input, Perception::Layer &layer) {
-    layer.contentType = "modnet-segmentation";
+    layer.contentType = "segmentation";
+
+    const float thresholdLow = (float)input.attributes.getDoubleOrDefault("thresholdLow", 0.2f);
+    const float thresholdHigh = (float)input.attributes.getDoubleOrDefault("thresholdHigh", 0.8f);
 
     // MODNet outputs a single tensor: alpha matte [1, 1, H, W]
     const auto *outputTensor = input.tensors[0];
@@ -31,7 +38,14 @@ Result<void> ModNetSegmentationParser::parse(const Input &input, Perception::Lay
     for (size_t y = 0U; y < height; ++y) {
         for (size_t x = 0U; x < width; ++x) {
             float alpha = std::clamp(outputTensor->get(idx++), 0.0f, 1.0f);
-            alphaMatte.set8(x, y, static_cast<uint8_t>(alpha * 255.0f));
+
+            if (alpha < thresholdLow) {
+                alphaMatte.set8(x, y, 255); // fully background
+            } else if (alpha > thresholdHigh) {
+                alphaMatte.set8(x, y, 0); // fully foreground
+            } else {
+                alphaMatte.set8(x, y, static_cast<uint8_t>((1.0f - alpha) * 255.0f));
+            }
         }
     }
 

@@ -200,7 +200,7 @@ static std::unique_ptr<Osd::Layer> drawPerformanceLayer(GstAmpOsd *self,
     return layer;
 }
 
-static std::unique_ptr<Osd::Layer>
+/*static std::unique_ptr<Osd::Layer>
 drawSegmentationLayer(GstAmpOsd *self, float imgWidth, float imgHeight, const amp::Bitmap &segMap) {
     auto layer = std::make_unique<Osd::Layer>(imgWidth, imgHeight);
 
@@ -259,6 +259,53 @@ drawSegmentationLayer(GstAmpOsd *self, float imgWidth, float imgHeight, const am
             pixel[1] = 255; // Green
             pixel[2] = 0;   // Red (BGR = cyan)
             pixel[3] = alpha;
+        }
+    }
+
+    cairo_surface_mark_dirty(layer->surface);
+    return layer;
+}*/
+
+static std::unique_ptr<Osd::Layer>
+drawSegmentationLayer(GstAmpOsd *self, float imgWidth, float imgHeight, const amp::Bitmap &segMap) {
+    auto layer = std::make_unique<Osd::Layer>(imgWidth, imgHeight);
+
+    cairo_surface_flush(layer->surface);
+    unsigned char *data = cairo_image_surface_get_data(layer->surface);
+    int stride = cairo_image_surface_get_stride(layer->surface);
+
+    const size_t sw = segMap.getWidth();
+    const size_t sh = segMap.getHeight();
+
+    const float scale_x = imgWidth / static_cast<float>(sw);
+    const float scale_y = imgHeight / static_cast<float>(sh);
+
+    const uint8_t *seg = reinterpret_cast<const uint8_t *>(segMap.getData());
+
+    // Overlay color (cyan). Change these if you want a different tint.
+    const uint8_t B = 255, G = 255, R = 100;
+
+    // Optional global opacity multiplier (0..1). Keep 1.0f for "as-is".
+    const float opacity = 1.0f;
+
+    for (size_t y = 0; y < static_cast<size_t>(imgHeight); ++y) {
+        size_t sy = std::min(static_cast<size_t>(y / scale_y), sh - 1);
+        for (size_t x = 0; x < static_cast<size_t>(imgWidth); ++x) {
+            size_t sx = std::min(static_cast<size_t>(x / scale_x), sw - 1);
+
+            uint8_t a = seg[sy * sw + sx];
+            a = static_cast<uint8_t>(a * opacity);
+
+            if (a == 0)
+                continue;
+
+            auto *pixel = data + y * stride + x * 4;
+
+            // cairo ARGB32 memory is typically BGRA on little-endian
+            pixel[0] = B;
+            pixel[1] = G;
+            pixel[2] = R;
+            pixel[3] = a;
         }
     }
 
@@ -444,7 +491,7 @@ static GstFlowReturn gst_amp_osd_transform_frame_ip(GstVideoFilter *filter, GstV
     float imgHeight = static_cast<float>(GST_VIDEO_FRAME_HEIGHT(frame));
     gint imgStride = GST_VIDEO_FRAME_PLANE_STRIDE(frame, 0);
 
-    // "ocrDetectionSegmentation"
+    // "segmentation"
     Osd::Layers_t layers;
     // Get PerceptionContextMeta
     if (const auto perceptionContextMeta = amp::PerceptionContextMeta::get(frame->buffer)) {
@@ -465,17 +512,8 @@ static GstFlowReturn gst_amp_osd_transform_frame_ip(GstVideoFilter *filter, GstV
 
             // Handle OCR segmentation with overlay
             for (const auto &layer : perceptionContext->layers) {
-                if (layer.contentType == "ocrDetectionSegmentation") {
-                    for (const auto &det : layer.detections) {
-                        const auto &sm = std::get<amp::Perception::SegmentationMap>(det);
-                        if (!sm.bitmap.empty() && sm.bitmap.getWidth() > 0 &&
-                            sm.bitmap.getHeight() > 0) {
-                            layers.push_back(
-                                drawSegmentationLayer(self, imgWidth, imgHeight, sm.bitmap));
-                        }
-                    }
-                }
-                if (layer.contentType == "segmentationReplaceLayer") {
+                if (layer.contentType == "ocrDetectionSegmentation" ||
+                    layer.contentType == "segmentation") {
                     for (const auto &det : layer.detections) {
                         const auto &sm = std::get<amp::Perception::SegmentationMap>(det);
                         if (!sm.bitmap.empty() && sm.bitmap.getWidth() > 0 &&

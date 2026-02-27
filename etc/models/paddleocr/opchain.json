@@ -22,7 +22,9 @@
 			"id": "amp-std-ops/GenericPostprocess",
 			"attributes": {
 				"parser": "PaddleOcrDetectionParser",
-				"segmentationThreshold": 0.3
+			    "thresholdLow": 0.6,
+			    "thresholdHigh": 0.8,
+			    "gamma": 0.5
 			}
 		}
 	]
