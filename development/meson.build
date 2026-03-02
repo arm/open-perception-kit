@@ -125,6 +125,7 @@ subdir('ops-hailort')
 subdir('elements/ampperformance')
 subdir('elements/amposd')
 subdir('elements/ampsink')
+subdir('elements/ampcomm')
 subdir('amp-menu')
 
 
