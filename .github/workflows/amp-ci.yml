@@ -39,8 +39,8 @@ jobs:
               if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
               uses: actions/upload-artifact@v7
               with:
-                name: doc-upload
-                path: "${{ github.workspace }}/development/build/doc/doc-html.zip"
+                name: amp-doc
+                path: "${{ github.workspace }}/development/build/doc"
                 if-no-files-found: warn
                 retention-days: 10
 

@@ -6,7 +6,7 @@
 set -euo pipefail
 
 SRC_DIR="/work/docs/corespec"
-OUT_DIR="$SRC_DIR/html"
+OUT_DIR="$SRC_DIR/../html"
 
 echo "Building HTML docs..."
 echo "Source: $SRC_DIR"
@@ -47,13 +47,14 @@ find "$OUT_DIR" -type f -name "*.html" -exec sed -i 's/\.md"/.html"/g' {} +
 
 echo "Done. Open: $OUT_DIR/index.html"
 
-HTML_ZIP_NAME="doc-html.zip"
-HTML_ZIP_PATH="/work/development/build/doc/$HTML_ZIP_NAME"
-BUILD_DOC_DIR="/work/development/build/doc"
+BUILD_DOC_HTML_DIR="/work/development/build/doc/html"
+echo "Copying documentation to $BUILD_DOC_HTML_DIR..."
+mkdir -p "$BUILD_DOC_HTML_DIR"
+cp -a "$OUT_DIR/." "$BUILD_DOC_HTML_DIR/"
+echo "Documentation copied to $BUILD_DOC_HTML_DIR"
 
-echo "Zipping documentation..."
-mkdir -p "$BUILD_DOC_DIR"
-cd "$OUT_DIR"
-zip -r "$HTML_ZIP_PATH" .
-cd -
-echo "Documentation zipped and copied to $HTML_ZIP_PATH"
+BUILD_DOC_MD_DIR="/work/development/build/doc/md"
+echo "Copying documentation to $BUILD_DOC_MD_DIR..."
+mkdir -p "$BUILD_DOC_MD_DIR"
+cp -a "$SRC_DIR/." "$BUILD_DOC_MD_DIR/"
+echo "Documentation copied to $BUILD_DOC_MD_DIR"
