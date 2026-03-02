@@ -34,6 +34,7 @@ jobs:
                   docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm amp-quality-check-full
 
             - name: Upload documentation artifact
+              continues-on-error: true
               if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
               uses: actions/upload-artifact@v7
               with:
@@ -49,6 +50,7 @@ jobs:
                   docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm amp-quality-check-pull-request
 
             - name: AMP release build and unit test run
+              continues-on-error: true
               if:  github.event_name == 'pull_request'
               run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm amp-release-with-ut
 

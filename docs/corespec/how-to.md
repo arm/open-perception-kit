@@ -96,7 +96,7 @@ Important scripts for usage:
 - `serve-docs.sh`: Serve documentation locally.
 - `run-ampperformance.sh`: Run performance overlay demo.
 - `run-console`: Start a console in the devcontainer.
-- `gendoc.sh`: Generate documentation.
+- `gen-doc.sh`: Generate documentation.
 
 ## Published endpoints
 

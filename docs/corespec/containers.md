@@ -31,7 +31,7 @@ While containers provide reproducibility, they introduce runtime challenges:
 
 To solve these issues, the system introduces **AmpSink**.
 
-<img src="webrtc.jpg" alt="WebRTC utilization" width="600">
+<img src="resources/img/webrtc.jpg" alt="WebRTC utilization" width="600">
 
 Our element is called AmpSink.
 AmpSink provides a web endpoint inside the container publishing media.

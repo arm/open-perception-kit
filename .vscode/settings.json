@@ -39,7 +39,7 @@
         "-kp"
     ],
     "autopep8.path": [
-        "/work/tools/lazer/.venv/bin/python",
+        "/work/tools/lazer/.venv/bin/python3",
         "-m",
         "autopep8"
     ],

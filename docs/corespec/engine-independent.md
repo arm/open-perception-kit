@@ -9,7 +9,7 @@ The AMP inference architecture deliberately separates:
  We use even separated .so files for the different inference engines, so the different SDKs, 
  libraries, headers, dependencies can be handled fully separated from each other and the core system.
 
-<img src="engine-independent.jpg" alt="Engine Independent Architecture" width="400">
+<img src="resources/img/engine-independent.jpg" alt="Engine Independent Architecture" width="400">
 
 This ensures portability, modularity, and clean backend abstraction.
 
