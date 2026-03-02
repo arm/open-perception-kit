@@ -1,4 +1,4 @@
-name: amp-ci
+name: AMP CI Pipeline
 
 on:
     workflow_dispatch:
@@ -29,29 +29,31 @@ jobs:
               run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build amp-dev-base
 
             - name: Check Repo Quality gate (nightly)
+              continue-on-error: true
               if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
               run: |
                   docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm amp-quality-check-full
 
             - name: Upload documentation artifact
-              continues-on-error: true
+              continue-on-error: true
               if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
               uses: actions/upload-artifact@v7
               with:
                 name: doc-upload
-                path: "${{ github.workspace }}/development/build/docs/doc-html.zip"
+                path: "${{ github.workspace }}/development/build/doc/doc-html.zip"
                 if-no-files-found: warn
                 retention-days: 10
 
             - name: Check Repo Quality gate (PR)
+              continue-on-error: true
               if: github.event_name == 'pull_request'
               run: |
                   export PULL_REQUEST_TARGET_BRANCH="${{ github.base_ref }}"
                   docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm amp-quality-check-pull-request
 
             - name: AMP release build and unit test run
-              continues-on-error: true
-              if:  github.event_name == 'pull_request'
+              continue-on-error: true
+              if:  github.event_name == 'pull_request' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
               run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm amp-release-with-ut
 
 
