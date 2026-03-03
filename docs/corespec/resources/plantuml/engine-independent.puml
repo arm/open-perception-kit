@@ -1,3 +1,28 @@
 @startuml
-A <|-- B
+!include amp-style.puml
+package "ModelLoading" {
+  [ONNX Runtime]
+  [HailoRT .hef file]
+  [Executorch .pte file]
+}
+
+package "packageB" {
+  [componentB1] - [componentB2]
+  [componentB2]
+}
+
+package "packageC" {
+  [componentC1] - [componentC2]
+  [componentC2]
+}
+
+package "packageD" {
+  [componentD]
+}
+
+componentA --> componentB1
+componentA --> componentC1
+componentB2 -right-> [componentD]
+componentC2 -right-> [componentD]
+
 @enduml

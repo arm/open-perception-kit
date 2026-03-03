@@ -3,6 +3,8 @@
 <!-- Fix the link to the latest GitHub Actions run for this PR below. -->
 [![amp-ci](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/amp-ci.yml/badge.svg?branch=feature/EXPKITS-/TODO)](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/amp-ci.yml)
 
+To run the CI again, add the label "run-amp-ci".
+
 ## Description
 
 <!-- Please provide a summary of the changes and the related issue. -->

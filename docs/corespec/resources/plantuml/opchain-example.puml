@@ -1,3 +1,4 @@
 @startuml
+!include amp-style.puml
 A <|-- B
 @enduml
