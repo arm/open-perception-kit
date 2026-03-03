@@ -39,7 +39,7 @@ if [[ ! -d "${SRC_DIR}/.git" ]]; then
     git clone --depth 1 --branch "${MNN_REF}" https://github.com/alibaba/MNN.git "${SRC_DIR}"
 else
     echo "[mnn] Updating existing MNN repo..."
-    (
+    (   
         cd "${SRC_DIR}"
         git fetch --tags --prune
         git checkout "${MNN_REF}"

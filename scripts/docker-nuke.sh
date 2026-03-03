@@ -3,7 +3,6 @@
 # Copyright (C) 2025 Arm Limited. All rights reserved.
 ################################################################
 
-
 set -e
 
 echo "🚫 Stopping all running Docker containers..."
