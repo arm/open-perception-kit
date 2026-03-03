@@ -12,6 +12,8 @@ common = shared_library(
     'amp/CocoLabels.cpp',
     'amp/ModelDescriptor.cpp',
 
+    'amp/AudioBuffer.cpp',
+
     'op/Op.cpp',
     'op/OpRef.cpp',
     'op/OpChain.cpp',

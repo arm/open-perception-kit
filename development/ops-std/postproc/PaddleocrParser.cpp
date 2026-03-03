@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #include "postproc/PaddleocrParser.h"
 #include "amp/Bitmap.h"
 #include "amp/Perception.h"
@@ -10,40 +14,53 @@ using namespace amp;
 amp::Result<void> PaddleOcrDetectionParser::parse(const amp::TensorParser::Input &input,
                                                   amp::Perception::Layer &detectionResult) {
 
-    assert(input.tensors[0]);
+    const float thresholdLow = (float)input.attributes.getDoubleOrDefault("thresholdLow", 0.60f);
+    const float thresholdHigh = (float)input.attributes.getDoubleOrDefault("thresholdHigh", 0.80f);
+    const float gamma = (float)input.attributes.getDoubleOrDefault("gamma", 0.5f);
 
+    assert(input.tensors[0]);
     assert(input.tensors[0]->getShape().dimensionCount == 4);
     assert(input.tensors[0]->getShape().valueCount[1] == 1);
 
-    size_t maskHeight = input.tensors[0]->getShape().valueCount[2];
-    size_t maskWidth = input.tensors[0]->getShape().valueCount[3];
-
-    assert(maskHeight == input.inferenceInfo.image.modelHeight);
-    assert(maskWidth == input.inferenceInfo.image.modelWidth);
+    const size_t maskHeight = input.tensors[0]->getShape().valueCount[2];
+    const size_t maskWidth = input.tensors[0]->getShape().valueCount[3];
 
     detectionResult.detections.push_back(Perception::SegmentationMap());
-
     auto &sm = std::get<Perception::SegmentationMap>(detectionResult.detections.back());
     sm.bitmap = amp::Bitmap(amp::Bitmap::Type::Uint8, maskWidth, maskHeight);
 
-    uint8_t *dst = (uint8_t *)sm.bitmap.getData();
+    uint8_t *dst = const_cast<uint8_t *>(sm.bitmap.getData());
 
-    float minLogit = std::numeric_limits<float>::infinity();
-    float maxLogit = -std::numeric_limits<float>::infinity();
+    auto smoothstep = [](float e0, float e1, float x) {
+        x = std::clamp((x - e0) / (e1 - e0), 0.0f, 1.0f);
+        return x * x * (3.0f - 2.0f * x);
+    };
 
-    for (size_t i = 0; i < maskWidth * maskHeight; i++) {
+    const size_t pixelCount = maskWidth * maskHeight;
+
+    for (size_t i = 0; i < pixelCount; ++i) {
+
         float logit = input.tensors[0]->get(i);
 
-        minLogit = std::min(minLogit, logit);
-        maxLogit = std::max(maxLogit, logit);
+        // Sigmoid → probability
+        float p = 1.0f / (1.0f + std::exp(-logit));
 
-        float p = 1.0f / (1.0f + std::exp(-logit)); // sigmoid
-        int v = (int)std::lround(p * 255.0f);
-        v = std::max(0, std::min(255, v));
-        dst[i] = (uint8_t)v;
+        if (p <= thresholdLow) {
+            dst[i] = 0;
+            continue;
+        }
+
+        p = std::clamp(p, 0.0f, 1.0f);
+
+        // Soft threshold
+        float a = smoothstep(thresholdLow, thresholdHigh, p);
+
+        // Optional contrast shaping
+        a = std::pow(a, gamma);
+
+        dst[i] = static_cast<uint8_t>(std::lround(a * 255.0f));
     }
 
-    detectionResult.contentType = "ocr-detection-segmentation";
-
+    detectionResult.contentType = "segmentation";
     return {};
 }

@@ -1,19 +1,19 @@
 {
 	"name": "yolo",
-	
 	"modelFamily": "yolo-obj",
 	"modelFile": "yolox_nano.pte",
-	
 	"dynamicOutput": true,
-
 	"maxDetectionCount": 16,
 	"confidenceThreshold": 0.7,
 	"iouThreshold": 0.5,
-	
-	"inputTensors": 
-	[
+	"inputTensors": [
 		{
-			"shape": [1,3,416,416],
+			"shape": [
+				1,
+				3,
+				416,
+				416
+			],
 			"dataKind": "ImageRgbChw"
 		}
 	]

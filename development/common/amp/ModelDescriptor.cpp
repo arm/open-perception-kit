@@ -26,7 +26,7 @@ amp::Result<ModelDescriptor> ModelDescriptor::fromFile(const std::string &path) 
     if (content.empty()) {
         return tl::unexpected(
             AMP_ERROR(amp::ErrorFlag::InvalidData,
-                      fmt::format("ModelDescriptor file [{}] not found or emty", path)));
+                      fmt::format("ModelDescriptor file [{}] not found or empty", path)));
     }
 
     return fromJson(content);

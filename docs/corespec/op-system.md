@@ -1,24 +1,60 @@
 # Op System
 ## Modular Operation Framework and Execution Model
 
-The Op system is the core modular execution framework used by the `ampinfer`
-GStreamer element.
+The **Op system** is the modular execution framework that powers the
+`ampinfer` GStreamer element.
 
-It defines how processing units (Ops) are implemented, composed into OpChains,
-dynamically loaded from shared libraries, and executed inside a GStreamer
-pipeline.
+It defines how processing units (**Ops**) are implemented, dynamically loaded,
+assembled into micro-pipelines (**OpChains**), and executed within a live
+GStreamer pipeline.
 
-The architecture separates:
+Conceptually:
 
-- Operation lifecycle management
-- Inference tensor access
-- Postprocessing logic
-- Chain construction and execution
-- Dynamic module loading
+- **Ops** are small, single-responsibility processing units.
+- **OpChains** are ordered micro-pipelines built from Ops.
+- **ampinfer** is the GStreamer element that hosts and executes an OpChain
+  for each media-driven execution step (e.g., per video frame).
+
+# Architectural Positioning
+
+The system operates at two distinct levels:
+
+### 1. GStreamer Level
+
+`ampinfer` is a GStreamer element inserted into a standard media pipeline:
+
+v4l2src → videoconvert → ampinfer → autovideosink
+
+`ampinfer` receives buffers (e.g., video frames) from the pipeline and
+triggers inference processing.
+
+### 2. OpChain Level (Micro-Pipeline)
+
+Inside `ampinfer`, an **OpChain** executes as a self-contained micro-pipeline:
+
+```
+[InferenceController]
+  ↓
+[GenericImagePreprocess]
+  ↓
+[Inference]
+  ↓
+[GenericPostprocess]
+```
+
+This internal pipeline is fully decoupled from GStreamer mechanics.
+It operates on an `OpChainContext` and domain-specific data structures.
+
+In summary:
+
+- **OpChains are built from Ops**
+- **OpChains are executed inside the `ampinfer` GStreamer element**
+- GStreamer handles media scheduling
+- OpChains handle inference logic
 
 ---
 
-# Architecture Overview
+# Runtime Execution Model
 
 At runtime:
 
@@ -26,41 +62,35 @@ At runtime:
 2. Required Op implementations are loaded from shared libraries.
 3. Op instances are created and configured.
 4. The chain is bound to allow inter-Op coordination.
-5. The OpChain is executed inside the `ampinfer` GStreamer element.
-6. Each Op processes the shared OpChainContext sequentially.
+5. `ampinfer` invokes `OpChain::execute()` per processing step.
+6. Each Op processes the shared `OpChainContext` sequentially.
 
-Ops are small, composable processing units.
-OpChains are ordered collections of Ops executed as a single processing pipeline.
+The execution is strictly ordered and deterministic.
 
 ---
 
 # Op
-## Base Class for All Operation Units
+## Base Processing Unit
 
 `amp::Op`
 
-Op is the abstract base class for all processing units within an OpChain.
-Each Op participates in a defined lifecycle consisting of configuration,
-binding, and execution phases.
+`Op` is the abstract base class for all processing units within an OpChain.
+
+Each Op follows a defined lifecycle:
 
 ### Lifecycle Phases
 
-- `configure(attributes)` initializes the Op using configuration parameters.
-- `bind(index, ops)` allows the Op to inspect or connect to other Ops in the chain.
-- `process(opChainContext)` performs the runtime work for a single execution step.
+- `configure(attributes)`  
+  Initializes the Op using JSON-provided configuration.
 
-### Loop Control
+- `bind(index, ops)`  
+  Allows the Op to inspect other Ops in the chain and establish dependencies.
 
-- `isLoopHead()` allows an Op to declare itself as the head of a loop.
-- The execution engine may iterate over a subchain when a loop head requests it.
-- Loop heads and loop members must belong to the same group.
+- `process(opChainContext)`  
+  Executes runtime logic for a single step.
 
-### Type-Safe Casting
-
-Ops may expose optional capabilities.
-The `as<T>()` helpers provide safe downcasting to derived interfaces.
-
-This enables querying whether an Op supports inference or postprocessing.
+Ops are intentionally small and composable.
+They encapsulate a single responsibility (preprocess, inference, postprocess, control).
 
 ---
 
@@ -70,21 +100,17 @@ This enables querying whether an Op supports inference or postprocessing.
 
 `struct OpInterfaceInference`
 
-Interface for Ops that provide tensor input and output access for inference execution.
+Defines the contract for Ops that expose tensor memory and model metadata
+to the inference execution layer.
 
-Implementations expose:
+Responsibilities:
 
-- The associated model definition
-- Raw memory addresses for tensor buffers
+- Expose model definition metadata
+- Provide raw input/output tensor memory addresses
+- Guarantee tensor memory validity during execution
 
-### Responsibilities
-
-- Provide access to the model metadata.
-- Provide raw tensor memory addresses by index.
-- Ensure tensor memory remains valid during inference execution.
-
-This interface allows the inference controller to operate independently
-of the concrete Op implementation.
+This interface allows inference backends to remain independent from
+concrete Op implementations.
 
 ---
 
@@ -92,15 +118,14 @@ of the concrete Op implementation.
 
 `struct OpInterfacePostprocessor`
 
-Interface for Ops that perform inference postprocessing.
+Defines the contract for Ops performing inference output interpretation.
 
-Implementations provide a postprocessor identifier used to associate
-inference results with the correct parsing logic.
+Responsibilities:
 
-### Responsibilities
+- Provide a stable postprocessor identifier
+- Implement domain-specific parsing of inference outputs
 
-- Provide a stable postprocessor identifier.
-- Execute domain-specific interpretation of inference outputs.
+This enables separation between model execution and result interpretation.
 
 ---
 
@@ -108,20 +133,20 @@ inference results with the correct parsing logic.
 
 `amp::OpChain`
 
-An OpChain is an ordered list of Ops constructed and executed as a unit.
+An OpChain is an ordered collection of Ops forming a micro-pipeline.
 
-Chains can be created:
+Construction methods:
 
 - From an in-memory `OpChainDescriptor`
 - From a JSON file (`setupFromFile`)
 
 After construction:
 
-- `bind()` is called to allow Ops to resolve dependencies.
-- `execute(opChainContext)` runs the chain sequentially.
+- `bind()` resolves inter-Op dependencies
+- `execute(opChainContext)` runs the chain sequentially
 
-OpChain execution is integrated into the `ampinfer` GStreamer element
-and processes media-driven workloads such as video inference pipelines.
+OpChain execution is invoked by the `ampinfer` GStreamer element
+for each media-driven execution event.
 
 ---
 
@@ -129,13 +154,16 @@ and processes media-driven workloads such as video inference pipelines.
 
 `amp::OpChainContext`
 
-OpChainContext is the transient execution context passed through the chain.
+Transient execution context passed through the OpChain.
 
-It provides shared runtime state for a single execution step and enables
-communication between Ops.
+It:
 
-Persistent results must be written to the Perception object rather than
-stored in the context.
+- Provides shared runtime state for a single execution step
+- Enables communication between Ops
+- Carries tensor references and intermediate data
+
+Persistent results must be written into the Perception object
+and not stored inside the context.
 
 ---
 
@@ -143,15 +171,13 @@ stored in the context.
 
 `amp::OpChainDescriptor`
 
-OpChainDescriptor is the declarative representation of an OpChain.
-
-It contains the ordered list of Op definitions loaded from JSON.
+Declarative representation of an OpChain loaded from JSON.
 
 Each Op entry specifies:
 
-- `id` identifying the Op type
-- optional `group` selecting the shared library
-- `attributes` used for configuration
+- `id` — Op type identifier
+- `group` — shared library selection
+- `attributes` — configuration parameters
 
 This enables runtime composition without recompilation.
 
@@ -161,39 +187,68 @@ This enables runtime composition without recompilation.
 
 `amp::OpRef`
 
-OpRef manages dynamic loading and lifetime of Op instances.
+Responsible for dynamic loading and lifetime management of Ops.
 
 At runtime it:
 
 - Loads a shared library (`.so`)
 - Resolves factory functions
 - Instantiates the Op
-- Owns and destroys the instance safely
+- Owns and safely destroys the instance
 
-OpChain stores OpRefs for ownership and raw Op pointers for fast execution.
+`OpChain` stores:
+
+- `OpRef` objects for ownership
+- Raw `Op*` pointers for fast execution
 
 ---
 
 # Grouping and Shared Libraries
 
-Ops are grouped by functionality into named groups.
-Groups are compiled into shared libraries.
+Ops are grouped by functionality into shared libraries.
+Each group encapsulates a specific backend or functional domain.
 
-The OpChain JSON selects the group, and the system instantiates Ops
-directly from the corresponding module at runtime.
-
-Current standard Op libraries:
-
-- `amp-std-ops.so`
-- `amp-hailort-ops.so`
-- `amp-onnx-ops.so`
-- `amp-executorch-ops.so`
-
-This modular structure:
+This design:
 
 - Isolates backend-specific dependencies
-- Keeps the core engine runtime-agnostic
-- Enables extending the system with new Op sets
-- Avoids recompilation when adding functionality
+- Keeps the core runtime backend-agnostic
+- Enables extending the system without recompilation
+- Supports pluggable inference backends
 
-*/
+---
+
+# Currently Implemented Ops
+
+## amp-std-ops.so
+
+General-purpose and orchestration Ops:
+
+- **InferenceController**  
+  Create image crops for cascaded model inputs, manages loop if multiple inferences are present.
+
+- **GenericImagePreprocess**  
+  Performs generic image preprocessing (resize, normalization, layout conversion)
+  to prepare tensors for inference.
+
+- **GenericPostprocess**  
+  Performs model-agnostic output handling and forwards results
+  to Perception structure.
+
+---
+
+## amp-hailort-ops.so
+
+Hailo backend-specific Ops:
+
+- **Inference**  
+  Executes inference using the HailoRT runtime and accelerator hardware.
+
+---
+
+## amp-onnx-ops.so
+
+ONNX backend-specific Ops:
+
+- **Inference**  
+  Executes inference using ONNX Runtime.
+

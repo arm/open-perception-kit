@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #pragma once
 
 #include <cstdint>
@@ -34,12 +38,9 @@ struct Op {
     // called to make the Op do its job
     virtual Result<void> process(OpChainContext &opChainContext) = 0;
 
-    // called by the OpChain execution system
-    // the Op can decide if the system must loop over a subchain multiple times
-    // the loop head have to be in the same group as the loop members
-    virtual bool isLoopHead() {
-        return false;
-    }
+    std::string libName, opName;
+    std::string group;
+    size_t loopId = 0;
 
     template <class T> T *as() noexcept {
         return dynamic_cast<T *>(this);

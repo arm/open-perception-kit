@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #pragma once
 
 #include <atomic>
@@ -13,7 +17,7 @@
 struct _GstAmpComm;
 
 struct AmpCommJob {
-    uint64_t frame = 0;
+    uint64_t frame_counter = 0;
     std::shared_ptr<const amp::Perception> perception;
 };
 

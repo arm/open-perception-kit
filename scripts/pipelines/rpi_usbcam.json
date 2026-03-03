@@ -1,0 +1,23 @@
+{
+  "description": "Test Raspberry pipeline",
+  "pipeline": [
+    "v4l2src device=/dev/video0 ! \"image/jpeg,width=1280,height=720,framerate=60/1\"  !",
+    "jpegdec !",
+    "videoconvert ! video/x-raw,format=BGRA !",
+    "ampinfer opchain-path=/work/etc/models/yolo/opchain.json active=false !",
+    "ampinfer opchain-path=/work/etc/models/ultraface/opchain.json active=false !",
+    "ampinfer opchain-path=/work/etc/models/paddleocr/opchain.json active=false !",
+    "ampinfer opchain-path=/work/etc/models/mobilenetv2/opchain.json active=false !",
+    "ampinfer opchain-path=/work/etc/models/modnet/opchain.json active=true !",
+    "ampinfer opchain-path=/work/etc/models/yolo-hailo/opchain-hef.json active=false !",
+    "ampinfer opchain-path=/work/etc/models/personclassification/opchain.json active=false !",
+    "ampinfer opchain-path=/work/etc/models/gazedetection/opchain.json active=false !",
+    "ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
+    "amposd enabled=true !",
+    "ampsink name=sink",
+    "alsasrc device=hw:2,0 do-timestamp=true !",
+    "audioconvert ! audioresample !",
+    "audio/x-raw,rate=48000,channels=2 !",
+    "sink.audiosink"
+  ]
+}

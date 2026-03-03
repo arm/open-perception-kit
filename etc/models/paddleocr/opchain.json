@@ -1,29 +1,31 @@
 {
+	"name": "PadleOCR",
 	"ops": [
-	{
-		"id": "amp-std-ops/InferenceController",
-		"attributes": {
+		{
+			"id": "amp-std-ops/InferenceController",
+			"attributes": {}
+		},
+		{
+			"id": "amp-std-ops/GenericImagePreprocess",
+			"attributes": {
+				"inputImageTensorIndex": 0,
+				"inputImageSourceName": "pipelineVideoFrame"
+			}
+		},
+		{
+			"id": "amp-onnx-ops/Inference",
+			"attributes": {
+				"modelDescriptor": "/work/etc/models/paddleocr/paddleocr-detection.json"
+			}
+		},
+		{
+			"id": "amp-std-ops/GenericPostprocess",
+			"attributes": {
+				"parser": "PaddleOcrDetectionParser",
+			    "thresholdLow": 0.6,
+			    "thresholdHigh": 0.8,
+			    "gamma": 0.5
+			}
 		}
-	},
-	{
-		"id": "amp-std-ops/GenericImagePreprocess",
-		"attributes": {
-			"inputImageTensorIndex": 0,
-			"inputImageSourceName": "pipelineVideoFrame"
-		}
-	},
-	{
-		"id": "amp-onnx-ops/Inference",
-        "attributes": {
-			"modelDescriptor": "/work/etc/models/paddleocr/paddleocr-detection.json"
-        }
-	},
-    {
-		"id": "amp-std-ops/GenericPostprocess",
-		"attributes": {
-			"parser": "PaddleOcrDetectionParser",
-			"segmentationThreshold": 0.3
-		}
-	}
-  ]
+	]
 }

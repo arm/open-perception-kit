@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #include "glib.h"
 #include "gst/gstelement.h"
 #include <functional>
@@ -10,7 +14,7 @@
 #define GST_USE_UNSTABLE_API
 
 #include "ampsink.h"
-#include "aux.h"
+#include "auxiliary.h"
 #include "ctrl_ws.h"
 #include "utils.h"
 

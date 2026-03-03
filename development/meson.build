@@ -8,14 +8,10 @@ project('amp_elements', ['c', 'cpp'],
   ]
 )
 
-add_project_arguments('-Wno-unused-variable', language: 'c')
-add_project_arguments('-Wno-unused-variable', language: 'cpp')
-add_project_arguments('-Wno-unused-parameter', language: 'c')
-add_project_arguments('-Wno-unused-parameter', language: 'cpp')
-add_project_arguments('-Wno-unused-function', language: 'c')
-add_project_arguments('-Wno-unused-function', language: 'cpp')
-add_project_arguments('-Wno-unused-but-set-variable', language: 'cpp')
-add_project_arguments('-Wno-unused-but-set-variable', language: 'c')
+add_project_arguments('-Wno-unused-variable', language: ['c', 'cpp'])
+add_project_arguments('-Wno-unused-parameter', language: ['c', 'cpp'])
+add_project_arguments('-Wno-unused-function', language: ['c', 'cpp'])
+add_project_arguments('-Wno-unused-but-set-variable', language: ['c', 'cpp'])
 
 # -------- Core deps (always)
 stb_dep = dependency('stb', fallback: ['stb', 'stb_dep'])
@@ -121,48 +117,17 @@ subdir('common')
 subdir('elements/ampinfer')
 subdir('ops-onnx')
 subdir('ops-std')
-subdir('ops-hailort')
 subdir('elements/ampperformance')
 subdir('elements/amposd')
 subdir('elements/ampsink')
 subdir('elements/ampcomm')
 subdir('amp-menu')
 
+# Optional subdirs decision tree is inside the subdir
+subdir('ops-hailort')
+subdir('ops-executorch')
 
 if get_option('tests')
   subdir('tests')
-endif
-
-# -------- EXECUTORCH
-executorch_opt = get_option('executorch')
-executorch_root = meson.project_source_root() / '../deps/executorch'
-libtorch_root   = meson.project_source_root() / '../deps/libtorch'
-executorch_libdir = executorch_root / 'lib'
-if executorch_opt.enabled()
-  executorch_dep = declare_dependency(
-    include_directories: [
-      include_directories('../deps/executorch/include'),
-      include_directories('../deps/libtorch/include'),
-    ],
-    link_args: [
-      '-L' + executorch_libdir,
-      '-lextension_module',
-      '-lextension_tensor',
-      '-lextension_flat_tensor',
-      '-lextension_data_loader',
-      '-lextension_named_data_map',
-      '-lextension_threadpool',
-      '-lexecutorch',
-      '-lexecutorch_core',
-      '-lpthreadpool',
-      '-lcpuinfo',
-      '-lpthread',
-      '-ldl',
-      '-lm',
-      '-Wl,--no-undefined',
-    ]
-  )
-
-  subdir('ops-executorch')
 endif
 

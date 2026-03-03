@@ -1,4 +1,3 @@
-
 stdops = shared_module(
   'amp-std-ops',                   
   sources: [
@@ -7,19 +6,23 @@ stdops = shared_module(
     'GenericImagePreprocessOp.cpp',
     'InferenceControllerOp.cpp',
 
+    'postproc/RvmParser.cpp',
+    'postproc/DummyParser.cpp',
     'postproc/YoloParser.cpp',
     'postproc/UltrafaceParser.cpp',
     'postproc/PaddleocrParser.cpp',
     'postproc/GazeDetectionParser.cpp',
     'postproc/PersonClassificationParser.cpp',
     'postproc/ImageNetClassificationParser.cpp',
+    'postproc/ModNetSegmentationParser.cpp',
 
     'preproc/GenericImageTensorBuilder.cpp',
-    'preproc/CpuImageKernels.cpp'
+    'preproc/CpuImageKernels.cpp',
+    'preproc/CpuAudioKernels.cpp'
 
   ],
   include_directories: common_include,
-  dependencies: amp_deps,
+  dependencies: amp_deps ,
   cpp_args: ['-DFMT_HEADER_ONLY'],
   link_with: [ common ],
   name_prefix: '',

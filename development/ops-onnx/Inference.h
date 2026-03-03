@@ -1,6 +1,10 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
 #pragma once
 
 #include <cstdint>
+#include <fmt/core.h>
 #include <onnxruntime_cxx_api.h>
 
 #include "amp/ModelDescriptor.h"
@@ -28,9 +32,11 @@ struct Tensor {
             onnxShape[i] = shape.valueCount[i];
 
         if (shape.hasDynamicDimension()) {
+            fmt::print("Creating dynamic tensor with shape: {}\n", shape.toString());
             // do nothing
         } else {
             this->data.resize(shape.getFullValueCount() * typeByteSize);
+            std::fill(this->data.begin(), this->data.end(), 0);
         }
     }
 
@@ -103,6 +109,10 @@ struct Inference {
         return this->model;
     }
 
+    uint8_t *getInputTensorDataAddress(size_t index) {
+        return api.inputTensors[index]->getData();
+    }
+
     const uint8_t *getOutputTensorDataAddress(size_t index) const {
         assert(outputTensorPointers[index]);
         return outputTensorPointers[index];
@@ -122,11 +132,12 @@ struct Inference {
     static amp::Result<amp::Model> inspectModel(const Ort::Session &session);
 
     Ort::Env *environment = nullptr;
-    Ort::Session *session = nullptr;
     Ort::SessionOptions *sessionOptions = nullptr;
     Ort::MemoryInfo *memoryInfo = nullptr;
+    Ort::Session *session = nullptr;
 
     void setupTensorsForModel();
+    void recreateInputTensor(size_t index, const amp::Shape &shape, amp::Tdt valueType);
 
     ModelDescriptor modelDescriptor;
     amp::Model model;
@@ -153,10 +164,5 @@ struct Inference {
         std::vector<Ort::Value> inputTensorVector;
         std::vector<Ort::Value> outputTensorVector;
     } api;
-
-  public:
-    uint8_t *getInputTensorDataAddress(size_t index) {
-        return api.inputTensors[index]->getData();
-    }
 };
 } // namespace onnx

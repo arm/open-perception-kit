@@ -1,3 +1,6 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
 #include "InferenceOp.h"
 
 #include <fmt/core.h>
@@ -22,10 +25,6 @@ using namespace onnx;
 InferenceOp::InferenceOp() {}
 
 InferenceOp::~InferenceOp() {}
-
-amp::Result<void> InferenceOp::bind(size_t index, const std::vector<amp::Op *> &ops) {
-    return {};
-}
 
 amp::Result<void> InferenceOp::configure(const amp::AttributeMap &attributes) {
     std::string modelDescPath;
@@ -75,6 +74,10 @@ amp::Result<void> InferenceOp::process(amp::OpChainContext &opChainContext) {
             i, inference->getOutputTensorDataAddress(i), inference->getOutputTensorFinalShape(i));
     }
 
+    return {};
+}
+
+amp::Result<void> InferenceOp::bind(size_t index, const std::vector<amp::Op *> &ops) {
     return {};
 }
 

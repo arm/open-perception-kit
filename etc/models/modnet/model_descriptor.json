@@ -1,0 +1,12 @@
+{
+  "name": "modnet",
+  "modelFamily": "segmentation",
+  "modelFile": "model.onnx",
+  "dynamicOutput": true,
+  "inputTensors": [
+    {
+      "shape": [1, 3, 128, 128],
+      "dataKind": "ImageRgbChw"
+    }
+  ]
+}

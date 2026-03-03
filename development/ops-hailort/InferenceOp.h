@@ -1,4 +1,10 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
 #pragma once
+
+#include <memory>
+#include <string>
 
 #include "amp/Result.h"
 #include "op/Op.h"
@@ -8,10 +14,13 @@
 
 namespace hailort {
 
-class InferenceOp : public amp::Op {
+class InferenceOp : public amp::Op, public amp::OpInterfaceInference {
   public:
     InferenceOp();
     virtual ~InferenceOp();
+
+    virtual const amp::Model &getModel() const override;
+    virtual uint8_t *getTensorDataAddress(size_t index) const override;
 
     virtual amp::Result<void> bind(size_t index, const std::vector<amp::Op *> &ops) override;
     virtual amp::Result<void> configure(const amp::AttributeMap &attributes) override;
@@ -19,6 +28,7 @@ class InferenceOp : public amp::Op {
 
   private:
     std::unique_ptr<hailort::Inference> inference;
+    std::string modelFamily;
 };
 
 } // namespace hailort

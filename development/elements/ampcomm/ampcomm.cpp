@@ -1,3 +1,6 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
 
 #include <cstdint>
 #include <glib.h>
@@ -40,6 +43,8 @@ struct _GstAmpComm {
 
     GstAmpCommMethod method;
     gchar *file_name;
+
+    uint64_t frame_counter;
 
     GstAmpCommPrivate *priv;
 };
@@ -121,13 +126,15 @@ static GstFlowReturn gst_amp_comm_transform_ip(GstBaseTransform *trans, GstBuffe
 
     auto p = amp::PerceptionMeta::read(buf);
     AmpCommJob j = {
-        .frame = GST_BUFFER_PTS_IS_VALID(buf) ? (uint64_t)GST_BUFFER_PTS(buf) : 0L,
+        .frame_counter = self->frame_counter,
         .perception = p,
     };
 
     if (self->priv && self->priv->writer) {
         self->priv->writer->send(std::move(j));
     }
+
+    ++self->frame_counter;
 
     /* passthrough: do not modify buffer */
     return GST_FLOW_OK;

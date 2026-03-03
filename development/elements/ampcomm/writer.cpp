@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #include "writer.h"
 
 #include <unistd.h>
@@ -83,6 +87,7 @@ void Writer::run() {
         json j;
 
         if (job.perception) {
+            j["frame_counter"] = job.frame_counter;
             j["perception"] = *job.perception; // calls your to_json overloads
         } else {
             j["perception"] = nullptr;

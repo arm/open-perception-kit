@@ -1,4 +1,8 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
 #include "gst/gstpad.h"
+#include <filesystem>
 #include <gst/base/gstbasetransform.h>
 #include <gst/gst.h>
 #include <gst/video/video.h>
@@ -116,7 +120,7 @@ static gboolean gst_ampinfer_start(GstBaseTransform *b) {
         GstStructure *structure = gst_structure_new("amp-model-register",
                                                     "model-name",
                                                     G_TYPE_STRING,
-                                                    name.c_str(),
+                                                    self->m->opChain.getName().c_str(),
                                                     "element-name",
                                                     G_TYPE_STRING,
                                                     GST_OBJECT_NAME(self),

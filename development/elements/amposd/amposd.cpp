@@ -1,3 +1,12 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
+#include "amp/Bitmap.h"
+#include "amp/Color.h"
+#include "amp/Perception.h"
+#include "gst/PerceptionContextMeta.h"
+#include "osd.h"
 #include <cmath>
 #include <cstring>
 #include <fmt/core.h>
@@ -12,7 +21,6 @@
 #include "amp/Color.h"
 #include "amp/Perception.h"
 #include "gst/PerceptionContextMeta.h"
-#include "osd.h"
 
 #ifndef PACKAGE
 #define PACKAGE "amp-elements"
@@ -197,7 +205,7 @@ static std::unique_ptr<Osd::Layer> drawPerformanceLayer(GstAmpOsd *self,
     return layer;
 }
 
-static std::unique_ptr<Osd::Layer>
+/*static std::unique_ptr<Osd::Layer>
 drawSegmentationLayer(GstAmpOsd *self, float imgWidth, float imgHeight, const amp::Bitmap &segMap) {
     auto layer = std::make_unique<Osd::Layer>(imgWidth, imgHeight);
 
@@ -261,6 +269,91 @@ drawSegmentationLayer(GstAmpOsd *self, float imgWidth, float imgHeight, const am
 
     cairo_surface_mark_dirty(layer->surface);
     return layer;
+}*/
+
+static std::unique_ptr<Osd::Layer>
+drawSegmentationLayer(GstAmpOsd *self, float imgWidth, float imgHeight, const amp::Bitmap &segMap) {
+    auto layer = std::make_unique<Osd::Layer>(imgWidth, imgHeight);
+
+    cairo_surface_flush(layer->surface);
+    unsigned char *data = cairo_image_surface_get_data(layer->surface);
+    int stride = cairo_image_surface_get_stride(layer->surface);
+
+    const size_t sw = segMap.getWidth();
+    const size_t sh = segMap.getHeight();
+
+    const float scale_x = imgWidth / static_cast<float>(sw);
+    const float scale_y = imgHeight / static_cast<float>(sh);
+
+    const uint8_t *seg = reinterpret_cast<const uint8_t *>(segMap.getData());
+
+    // Overlay color (cyan). Change these if you want a different tint.
+    const uint8_t B = 255, G = 255, R = 100;
+
+    // Optional global opacity multiplier (0..1). Keep 1.0f for "as-is".
+    const float opacity = 1.0f;
+
+    for (size_t y = 0; y < static_cast<size_t>(imgHeight); ++y) {
+        size_t sy = std::min(static_cast<size_t>(y / scale_y), sh - 1);
+        for (size_t x = 0; x < static_cast<size_t>(imgWidth); ++x) {
+            size_t sx = std::min(static_cast<size_t>(x / scale_x), sw - 1);
+
+            uint8_t a = seg[sy * sw + sx];
+            a = static_cast<uint8_t>(a * opacity);
+
+            if (a == 0)
+                continue;
+
+            auto *pixel = data + y * stride + x * 4;
+
+            // cairo ARGB32 memory is typically BGRA on little-endian
+            pixel[0] = B;
+            pixel[1] = G;
+            pixel[2] = R;
+            pixel[3] = a;
+        }
+    }
+
+    cairo_surface_mark_dirty(layer->surface);
+    return layer;
+}
+
+static void replaceBackground(
+    guint8 *imgData, gint imgWidth, gint imgHeight, gint imgStride, const amp::Bitmap &segMap) {
+
+    assert(nullptr != imgData);
+
+    const auto scale_x = static_cast<float>(imgWidth) / static_cast<float>(segMap.getWidth());
+    const auto scale_y = static_cast<float>(imgHeight) / static_cast<float>(segMap.getHeight());
+
+    auto maskPixel = [](uint8_t *pixel) {
+        // Hot pink color for the background
+        static constexpr uint8_t bgColor_B = 147U;
+        static constexpr uint8_t bgColor_G = 20U;
+        static constexpr uint8_t bgColor_R = 255U;
+        pixel[0] = bgColor_B;
+        pixel[1] = bgColor_G;
+        pixel[2] = bgColor_R;
+    };
+
+    for (gint y = 0; y < imgHeight; ++y) {
+        for (gint x = 0; x < imgWidth; ++x) {
+
+            const auto seg_x = static_cast<size_t>(x / scale_x);
+            const auto seg_y = static_cast<size_t>(y / scale_y);
+
+            if ((seg_x < segMap.getWidth()) && (seg_y < segMap.getHeight())) {
+                auto maskValue = segMap.getData()[seg_y * segMap.getWidth() + seg_x];
+                auto *pixel = imgData + y * imgStride + x * 4;
+
+                // Mask value (0=background, 255=foreground)
+                static constexpr uint8_t threshold = 150U;
+                if (maskValue <= threshold) {
+                    maskPixel(pixel);
+                }
+            }
+        }
+    }
 }
 
 static inline float deg2rad(float d) {
@@ -293,11 +386,11 @@ static void drawGazeVectors(Osd::Layer *layer, const amp::Perception &perception
     amp::ConstPerceptionTools perceptionTools(perception);
 
     std::vector<amp::Perception::YawPitch> yps =
-        perceptionTools.getAllWithContentType<amp::Perception::YawPitch>("eye-yp");
+        perceptionTools.getAllWithContentType<amp::Perception::YawPitch>("eyeYawPitch");
 
     for (const auto &yp : yps) {
         std::vector<amp::Perception::Rect> parents =
-            perceptionTools.getAllRectsWithContentType("human-face", yp.parentUuid);
+            perceptionTools.getAllRectsWithContentType("humanFace", yp.parentUuid);
 
         assert(parents.size() == 1);
 
@@ -331,14 +424,14 @@ static std::unique_ptr<Osd::Layer> drawPerceptionLayer(GstAmpOsd *self,
     auto layer = std::make_unique<Osd::Layer>(imgWidth, imgHeight);
 
     for (const auto &inferLayer : perception.layers) {
-        if (inferLayer.contentType == "generic-object") {
+        if (inferLayer.contentType == "genericObject") {
             for (const auto &det : inferLayer.detections) {
                 const auto &box = std::get<amp::Perception::Rect>(det);
                 Osd::ObjectBox::draw(
                     *layer, box, amp::Colors::fromStringOrDefault("#ff0000ff"), 2.0f);
             }
         }
-        if (inferLayer.contentType == "human-face") {
+        if (inferLayer.contentType == "humanFace") {
             for (const auto &det : inferLayer.detections) {
                 const auto &box = std::get<amp::Perception::Rect>(det);
                 Osd::Circle::draw(
@@ -403,7 +496,7 @@ static GstFlowReturn gst_amp_osd_transform_frame_ip(GstVideoFilter *filter, GstV
     float imgHeight = static_cast<float>(GST_VIDEO_FRAME_HEIGHT(frame));
     gint imgStride = GST_VIDEO_FRAME_PLANE_STRIDE(frame, 0);
 
-    // "ocr-detection-segmentation"
+    // "segmentation"
     Osd::Layers_t layers;
 
     if (auto perception = amp::PerceptionMeta::read(frame->buffer); perception != nullptr) {

@@ -1,3 +1,6 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
 #include "preproc/GenericImageTensorBuilder.h"
 #include "preproc/CpuImageKernels.h"
 
@@ -25,6 +28,8 @@ amp::Result<void> amp::GenericImageTensorBuilder::build(const TensorBuilder::Set
     size_t dstFullWidth = setup.imageDestination.surfaceWidth;
     size_t dstFullHeight = setup.imageDestination.surfaceHeight;
 
+    bool didBuild = false;
+
     if (setup.imageSource.kind == amp::DataKind::ImageBgraHwc &&
         setup.imageDestination.kind == amp::DataKind::ImageRgbChw) {
         if (setup.imageSource.type == amp::Tdt::Uint8 &&
@@ -44,6 +49,40 @@ amp::Result<void> amp::GenericImageTensorBuilder::build(const TensorBuilder::Set
                                                                       dstRect,
                                                                       setup.imageSource.mean,
                                                                       setup.imageSource.std);
+            didBuild = true;
+        } else if (setup.imageSource.type == amp::Tdt::Uint8 &&
+                   setup.imageDestination.type == amp::Tdt::Float16) {
+            amp::ImageOps::Rect srcRect(srcX, srcY, srcWidth, srcHeight);
+            amp::ImageOps::Rect dstRect(dstX, dstY, dstWidth, dstHeight);
+            amp::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(src,
+                                                                      srcFullWidth,
+                                                                      srcFullHeight,
+                                                                      srcRect,
+                                                                      (amp::Float16 *)dst,
+                                                                      dstFullWidth,
+                                                                      dstFullHeight,
+                                                                      dstRect,
+                                                                      setup.imageSource.mean,
+                                                                      setup.imageSource.std);
+            didBuild = true;
+        }
+    }
+
+    if (setup.imageSource.kind == amp::DataKind::ImageBgraHwc &&
+        setup.imageDestination.kind == amp::DataKind::ImageRgbHwc) {
+        if (setup.imageSource.type == amp::Tdt::Uint8 &&
+            setup.imageDestination.type == amp::Tdt::Uint8) {
+            amp::ImageOps::Rect srcRect(srcX, srcY, srcWidth, srcHeight);
+            amp::ImageOps::Rect dstRect(dstX, dstY, dstWidth, dstHeight);
+            amp::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(src,
+                                                                    srcFullWidth,
+                                                                    srcFullHeight,
+                                                                    srcRect,
+                                                                    dst,
+                                                                    dstFullWidth,
+                                                                    dstFullHeight,
+                                                                    dstRect);
+            didBuild = true;
         }
     }
 
@@ -60,6 +99,18 @@ amp::Result<void> amp::GenericImageTensorBuilder::build(const TensorBuilder::Set
                                                                     dstHeight,
                                                                     setup.imageSource.mean,
                                                                     setup.imageSource.std);
+            didBuild = true;
+        } else if (setup.imageSource.type == amp::Tdt::Uint8 &&
+                   setup.imageDestination.type == amp::Tdt::Float16) {
+            amp::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Chw(src,
+                                                                    srcWidth,
+                                                                    srcHeight,
+                                                                    (amp::Float16 *)dst,
+                                                                    dstWidth,
+                                                                    dstHeight,
+                                                                    setup.imageSource.mean,
+                                                                    setup.imageSource.std);
+            didBuild = true;
         }
     }
 
@@ -76,7 +127,25 @@ amp::Result<void> amp::GenericImageTensorBuilder::build(const TensorBuilder::Set
                                                                     dstHeight,
                                                                     setup.imageSource.mean,
                                                                     setup.imageSource.std);
+            didBuild = true;
+        } else if (setup.imageSource.type == amp::Tdt::Uint8 &&
+                   setup.imageDestination.type == amp::Tdt::Float16) {
+            amp::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Hwc(src,
+                                                                    srcWidth,
+                                                                    srcHeight,
+                                                                    (amp::Float16 *)dst,
+                                                                    dstWidth,
+                                                                    dstHeight,
+                                                                    setup.imageSource.mean,
+                                                                    setup.imageSource.std);
+            didBuild = true;
         }
+    }
+
+    if (!didBuild) {
+        return tl::unexpected(AMP_ERROR(
+            amp::ErrorFlag::InvalidData,
+            "GenericImageTensorBuilder: unsupported source/destination kind+type conversion"));
     }
 
     return {};
