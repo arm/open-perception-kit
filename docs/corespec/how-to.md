@@ -102,9 +102,12 @@ Important scripts for usage:
 - `run-console`: Start a console in the devcontainer.
 - `gen-doc.sh`: Generate documentation.
 
-## Published endpoints
-
 ## Published Endpoints
+
+- [Raspberry AMP Web UI](raspberrypi.local:9999)
+- [Raspberry AMP Documentation](raspberrypi.local:8080)
+- [PC AMP Web UI](localhost:9999)
+- [PC AMP Documentation](localhost:8080)
 
 - **Hostnames:**
    - `raspberrypi.local` (on Raspberry Pi)
@@ -130,14 +133,17 @@ Important scripts for usage:
    ```
 
    To check your changes, a set of plugins are already set up in the environment, but you can alternatively:
-   * Call expkits-ci directly.
-   * Run the following task: 9 - Run CI checks for current file.
-   * Run the following task: 9 - Run full CI checks.
-   * Run the installed pre-commit hooks manually or with a commit.
+- Call expkits-ci directly.
+- Run the following task: 9 - Run CI checks for current file.
+- Run the following task: 9 - Run full CI checks.
+- Run the installed pre-commit hooks manually or with a commit.
+
    ```bash
    git pre-commit run
    ```
-   * To run without pre commit hooks simply:
+
+- To run without pre commit hooks simply:
+
    ```bash
    git commit --no-verify
    ```
