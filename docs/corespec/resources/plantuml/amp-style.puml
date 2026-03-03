@@ -17,11 +17,12 @@ skinparam legendBackgroundColor #1B3982
 skinparam legendBorderColor #C8EAFF
 skinparam legendFontColor #FFFFFF
 
-skinparam ArrowColor #2F68B7
+skinparam ArrowColor #FFFFFF
 skinparam ArrowThickness 1
-skinparam ArrowFontColor #2F68B7
+skinparam ArrowFontColor #FFFFFF
 
 skinparam LineColor #C8EAFF
+skinparam packagePadding 0
 
 skinparam package {
   BackgroundColor #1B3982
@@ -52,12 +53,14 @@ skinparam note {
 
 skinparam sequence {
   LifeLineBorderColor #C8EAFF
-  LifeLineBackgroundColor #080225
+  LifeLineBackgroundColor #6E42D6
   ParticipantBorderColor #C8EAFF
   ParticipantBackgroundColor #1B3982
   ParticipantFontColor #FFFFFF
   BoxBackgroundColor #1B3982
   BoxBorderColor #C8EAFF
+  ActorBorderColor #C8EAFF
+  ActorFontColor #FFFFFF
 }
 
 skinparam activity {
@@ -66,6 +69,15 @@ skinparam activity {
   FontColor #FFFFFF
   DiamondBackgroundColor #C8EAFF
   DiamondBorderColor #FFFFFF
+  DiamondFontColor #080225
+  StartColor #C8EAFF
+  EndColor #C8EAFF
+}
+
+skinparam actor {
+  BackgroundColor #6E42D6
+  BorderColor #C8EAFF
+  FontColor #FFFFFF
 }
 
 skinparam usecase {
@@ -78,6 +90,8 @@ skinparam state {
   BackgroundColor #1B3982
   BorderColor #C8EAFF
   FontColor #FFFFFF
+  StartColor #C8EAFF
+  EndColor #C8EAFF
 }
 
 skinparam rectangle {

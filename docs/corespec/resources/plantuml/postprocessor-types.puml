@@ -1,4 +1,20 @@
 @startuml
 !include amp-style.puml
-A <|-- B
+
+title C++ vs Python post processing method
+
+start
+
+:C++ inference;
+
+if ("Is the configured post processing python based?") then (Yes)
+  :Python post processing;
+  :python_postprocessing.py\n(injected python file);
+else (No)
+  :C++ post processing;
+endif
+
+:Metadata post processing;
+
+stop
 @enduml
