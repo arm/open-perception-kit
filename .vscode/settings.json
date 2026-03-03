@@ -14,6 +14,7 @@
     "C_Cpp.codeAnalysis.clangTidy.path": "/work/tools/lazer/.venv/bin/clang-tidy",
     "C_Cpp.clang_format_path": "/work/tools/lazer/.venv/bin/clang-format",
     "C_Cpp.formatting": "clangFormat",
+    "plantuml.jar": "/work/deps/plantuml-mit-1.2026.2.jar",
     "C_Cpp.default.compileCommands": [
         "/work/development/build/compile_commands.json"
     ],

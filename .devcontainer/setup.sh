@@ -91,6 +91,14 @@ else
     log "ONNX Runtime already present, skipping download and extraction."
 fi
 
+if [ ! -f "/work/deps/plantuml-mit-1.2026.2.jar" ]; then
+    log "PlantUML JAR not found, downloading..."
+    mkdir -p /work/deps
+    wget https://github.com/plantuml/plantuml/releases/download/v1.2026.2/plantuml-mit-1.2026.2.jar -O /work/deps/plantuml-mit-1.2026.2.jar
+else
+    log "PlantUML JAR already present, skipping download."
+fi
+
 log "Installing pre-commit hooks"
 cd /work && pre-commit install && pre-commit install -t commit-msg
 

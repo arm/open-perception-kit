@@ -12,6 +12,14 @@ echo "Building HTML docs..."
 echo "Source: $SRC_DIR"
 echo "Output: $OUT_DIR"
 
+echo "Running Doxygen API docs (using development/Doxyfile)..."
+DOXY_OUT_DIR="/work/development/build/doc/doxygen"
+mkdir -p "$DOXY_OUT_DIR"
+(   
+    cd /work/development
+    doxygen Doxyfile
+)
+
 # --- prepare output dir ---
 if [ -d "$OUT_DIR" ]; then
     echo "Clearing existing output directory..."
@@ -19,6 +27,22 @@ if [ -d "$OUT_DIR" ]; then
 else
     echo "Creating output directory..."
     mkdir -p "$OUT_DIR"
+fi
+
+# --- regenerate png figures (if any .puml exist) ---
+PLANTUML_SRC_DIR="$SRC_DIR/resources/plantuml"
+PLANTUML_OUT_DIR="$SRC_DIR/resources/img"
+
+if [ -d "$PLANTUML_SRC_DIR" ]; then
+    echo "Regenerating PlantUML figures from $PLANTUML_SRC_DIR..."
+    mkdir -p "$PLANTUML_OUT_DIR"
+    if compgen -G "$PLANTUML_SRC_DIR"/*.puml > /dev/null; then
+        java -jar /work/deps/plantuml-mit-1.2026.2.jar -tpng "$PLANTUML_SRC_DIR"/*.puml -o "$PLANTUML_OUT_DIR"
+    else
+        echo "No .puml files found in $PLANTUML_SRC_DIR, skipping PlantUML generation."
+    fi
+else
+    echo "PlantUML source directory $PLANTUML_SRC_DIR not found, skipping PlantUML generation."
 fi
 
 # --- convert markdown to html ---

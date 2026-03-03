@@ -29,13 +29,11 @@ jobs:
               run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build amp-dev-base
 
             - name: Check Repo Quality gate (nightly)
-              continue-on-error: true
               if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
               run: |
                   docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm amp-quality-check-full
 
             - name: Upload documentation artifact
-              continue-on-error: true
               if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
               uses: actions/upload-artifact@v7
               with:
@@ -45,14 +43,12 @@ jobs:
                 retention-days: 10
 
             - name: Check Repo Quality gate (PR)
-              continue-on-error: true
               if: github.event_name == 'pull_request'
               run: |
                   export PULL_REQUEST_TARGET_BRANCH="${{ github.base_ref }}"
                   docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm amp-quality-check-pull-request
 
             - name: AMP release build and unit test run
-              continue-on-error: true
               if:  github.event_name == 'pull_request' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
               run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm amp-release-with-ut
 
