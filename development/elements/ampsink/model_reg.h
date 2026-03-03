@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #ifndef __MODEL_REGISTRY_H__
 #define __MODEL_REGISTRY_H__
 

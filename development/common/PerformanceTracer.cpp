@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #include "PerformanceTracer.h"
 #include <algorithm>
 #include <cmath>

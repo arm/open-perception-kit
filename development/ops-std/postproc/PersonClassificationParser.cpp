@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #include "postproc/PersonClassificationParser.h"
 #include "amp/Perception.h"
 

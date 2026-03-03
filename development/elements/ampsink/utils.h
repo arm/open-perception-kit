@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #ifndef __UTILS_H__
 
 #include <gst/gstelement.h>

@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #ifndef __HTTP_SERVER_H__
 #define __HTTP_SERVER_H__
 

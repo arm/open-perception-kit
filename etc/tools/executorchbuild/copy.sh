@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+################################################################
+# Copyright (C) 2025 Arm Limited. All rights reserved.
+################################################################
+
 set -euo pipefail
 
 # Where executorch source + build are
@@ -14,19 +18,19 @@ OWNER_USER="${OWNER_USER:-devgoblin}"
 OWNER_GROUP="${OWNER_GROUP:-devgoblin}"
 
 if [[ ! -d "$EXECUTORCH_DIR" ]]; then
-  echo "ERROR: EXECUTORCH_DIR not found: $EXECUTORCH_DIR" >&2
-  exit 1
+    echo "ERROR: EXECUTORCH_DIR not found: $EXECUTORCH_DIR" >&2
+    exit 1
 fi
 
 if [[ ! -d "$BUILD_DIR" ]]; then
-  echo "ERROR: BUILD_DIR not found: $BUILD_DIR" >&2
-  echo "Hint: build first (cmake -S . -B build && cmake --build build)" >&2
-  exit 1
+    echo "ERROR: BUILD_DIR not found: $BUILD_DIR" >&2
+    echo "Hint: build first (cmake -S . -B build && cmake --build build)" >&2
+    exit 1
 fi
 
-if ! id "$OWNER_USER" >/dev/null 2>&1; then
-  echo "ERROR: user '$OWNER_USER' does not exist in this container." >&2
-  exit 1
+if ! id "$OWNER_USER" > /dev/null 2>&1; then
+    echo "ERROR: user '$OWNER_USER' does not exist in this container." >&2
+    exit 1
 fi
 
 # 1) Delete + recreate destination

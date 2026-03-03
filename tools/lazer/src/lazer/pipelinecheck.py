@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
+################################################################
+# Copyright (C) 2025 Arm Limited. All rights reserved.
+################################################################
+
+from gi.repository import Gst, GLib
 import gi
 gi.require_version("Gst", "1.0")
-from gi.repository import Gst, GLib
 
 # Initialize GStreamer once
 if not Gst.is_initialized():
     Gst.init(None)
+
 
 def run_gst_dmabuf_audit_io(
     pipeline_str: str,

@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #include "postproc/ImageNetClassificationParser.h"
 #include "amp/Labels.h"
 
