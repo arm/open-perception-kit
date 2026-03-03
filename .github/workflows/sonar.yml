@@ -6,7 +6,7 @@ on:
         branches: [main, "feature/**", "sandbox/**"]
         types: [opened, synchronize, reopened, ready_for_review, labeled]
     schedule:
-        - cron: "0 2 * * *" # Every day at 2 AM UTC'
+        - cron: "0 2 * * *" # Every day at 2 AM UTC
 
 jobs:
   build-and-sonar:
@@ -24,7 +24,7 @@ jobs:
 
 
     steps:
-      - name: Checkkout
+      - name: Checkout
         uses: actions/checkout@v6
 
       - name: Install build deps
