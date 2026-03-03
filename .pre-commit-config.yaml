@@ -3,7 +3,7 @@ repos:
     hooks:
       - id: branch-naming
         name: Branch Naming Convention
-        entry: bash -c 'source /work/tools/lazer/.venv/bin/activate && expkits-ci --clang-format --list-of-files $@' _
+        entry: bash -c 'source /work/tools/lazer/.venv/bin/activate && expkits-ci --branch-naming --list-of-files $@' _
         language: system
       - id: commit-msg
         name: Commit Message Format
