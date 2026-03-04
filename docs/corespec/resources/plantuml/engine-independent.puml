@@ -35,7 +35,10 @@ package " " <<inference-container>>{
     ResHef  -[dashed]-> AMPModel : represented as\n(config: HailoRT)
     ResPte  -[dashed]-> AMPModel : represented as\n(config: ExecuTorch)
 
+    AMPModel -down[hidden]-> Inference
     AMPModel -down-> Inference : model description\n& inference config
+
+    Inference -down[hidden]-> ResultMeta
     Inference -down-> ResultMeta : produces
 }
 @enduml
