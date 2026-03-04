@@ -63,6 +63,8 @@ class Writer {
 
     bool send(AmpCommJob &&job);
 
+    bool check_running();
+
     virtual bool start();
     virtual void stop();
 };

@@ -52,6 +52,14 @@ void JobQueue::reset() {
     stop_ = false;
 }
 
+bool Writer::check_running() {
+    if (!running) {
+        return start();
+    } else {
+        return true;
+    }
+}
+
 bool Writer::start() {
     auto ret = false;
     if (!running) {

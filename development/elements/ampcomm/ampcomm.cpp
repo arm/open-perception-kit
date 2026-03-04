@@ -124,14 +124,18 @@ static gboolean gst_amp_comm_stop(GstBaseTransform *trans) {
 static GstFlowReturn gst_amp_comm_transform_ip(GstBaseTransform *trans, GstBuffer *buf) {
     GstAmpComm *self = GST_AMP_COMM(trans);
 
-    auto p = amp::PerceptionMeta::read(buf);
-    AmpCommJob j = {
-        .frame_counter = self->frame_counter,
-        .perception = p,
-    };
-
     if (self->priv && self->priv->writer) {
-        self->priv->writer->send(std::move(j));
+
+        if (self->priv->writer->check_running()) {
+
+            auto p = amp::PerceptionMeta::read(buf);
+            AmpCommJob j = {
+                .frame_counter = self->frame_counter,
+                .perception = p,
+            };
+
+            self->priv->writer->send(std::move(j));
+        }
     }
 
     ++self->frame_counter;
