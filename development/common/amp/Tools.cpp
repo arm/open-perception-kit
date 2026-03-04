@@ -1,8 +1,11 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #include "Tools.h"
 #include "amp/Result.h"
 
 #include "amp/String.h"
-#include "amp/Types.h"
 #include "fmt/core.h"
 #include <cstdint>
 #include <dlfcn.h>
@@ -83,8 +86,13 @@ std::atomic<uint64_t> amp::Uuid::counter_{1};
 
 // ---
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
+
+#pragma GCC diagnostic pop
 
 bool Tools::savePngFromBgra(const std::string &path, const uint8_t *bgra, int width, int height) {
     if (!bgra || width <= 0 || height <= 0)

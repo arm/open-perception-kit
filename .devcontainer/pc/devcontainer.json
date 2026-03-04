@@ -35,7 +35,8 @@
         "ms-python.python",
         "ms-python.autopep8",
         "cheshirekow.cmake-format",
-        "mkhl.shfmt"
+        "mkhl.shfmt",
+        "jebbs.plantuml"
       ],
       "settings": {
         "terminal.integrated.defaultProfile.linux": "bash",

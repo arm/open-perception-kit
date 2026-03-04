@@ -2,10 +2,10 @@
 
 ## Host side dependencies
 ### Windows
-   * **WSL**
-   * **Git**
-   * **Docker (Desktop)**
-   * **Visual Studio Code**
+   * [WSL](https://learn.microsoft.com/en-us/windows/wsl/install)
+   * [Git](https://git-scm.com/install/)
+   * [Docker (Desktop)](https://www.docker.com/products/docker-desktop/)
+   * [Visual Studio Code](https://code.visualstudio.com/download)
    * **VSCode Dev Containers extension**
    * **WSL USB Manager 5.7.0** (Windows WSL)
 
@@ -15,6 +15,7 @@
    * **Visual Studio Code**
    * **VSCode Dev Containers extension**
    * **video4l2**
+
 ```bash
 sudo apt-get update
 sudo apt-get install -y git docker.io code v4l-utils
@@ -31,10 +32,11 @@ sudo apt-get install -y git docker.io code v4l-utils
    * **Hailo packages**
    * **video4l2**
    * **raspicam**
-   * For further details on Raspberry PI5 host installations please check out the relevant page: (How-To RPI5)[how-to-rpi.md]
+   * For further details on Raspberry PI5 host installations please check out the relevant page: [How-To RPI5](how-to-rpi.md)
+
 ```bash
 sudo apt-get update
-sudo apt-get install -y docker.io v4l-utils libraspberrypi-bin
+sudo apt-get install -y git docker.io v4l-utils libraspberrypi-bin
 ```
 
 
@@ -53,9 +55,11 @@ If you need to add a different key, use the following command:
 ssh-add [private_key_filename]
 ```
 
+For further information and a detailed tutorial check out the following tutorial: [Generating a new SSH key and adding it to the ssh-agent](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent)
+
 ## Start the project
 ### Clone the repository
-Either on your host or in case of Raspberry PI5 development open the repository with (Remote development extension)[https://code.visualstudio.com/docs/remote/ssh].
+Either on your host or in case of Raspberry PI5 development open the repository with [Remote development extension](https://code.visualstudio.com/docs/remote/ssh).
 For this to work you must be on the same local network as your raspberry device
    ```bash
    git clone git@github.com:Arm-Debug/amp-dev-forge.git
@@ -96,11 +100,14 @@ Important scripts for usage:
 - `serve-docs.sh`: Serve documentation locally.
 - `run-ampperformance.sh`: Run performance overlay demo.
 - `run-console`: Start a console in the devcontainer.
-- `gendoc.sh`: Generate documentation.
-
-## Published endpoints
+- `gen-doc.sh`: Generate documentation.
 
 ## Published Endpoints
+
+- [Raspberry AMP Web UI](raspberrypi.local:9999)
+- [Raspberry AMP Documentation](raspberrypi.local:8080)
+- [PC AMP Web UI](localhost:9999)
+- [PC AMP Documentation](localhost:8080)
 
 - **Hostnames:**
    - `raspberrypi.local` (on Raspberry Pi)
@@ -126,14 +133,17 @@ Important scripts for usage:
    ```
 
    To check your changes, a set of plugins are already set up in the environment, but you can alternatively:
-   * Call expkits-ci directly.
-   * Run the following task: 9 - Run CI checks for current file.
-   * Run the following task: 9 - Run full CI checks.
-   * Run the installed pre-commit hooks manually or with a commit.
+- Call expkits-ci directly.
+- Run the following task: 9 - Run CI checks for current file.
+- Run the following task: 9 - Run full CI checks.
+- Run the installed pre-commit hooks manually or with a commit.
+
    ```bash
    git pre-commit run
    ```
-   * To run without pre commit hooks simply:
+
+- To run without pre commit hooks simply:
+
    ```bash
    git commit --no-verify
    ```

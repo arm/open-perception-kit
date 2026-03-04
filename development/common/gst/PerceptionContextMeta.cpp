@@ -1,4 +1,9 @@
-#include "GstMetaWrapper.cpp"
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
+#include "PerceptionContextMeta.h"
+#include "GstMetaWrapper.h"
 
 namespace amp {
 const char *PerceptionContextMetaTraits::api_name() {

@@ -58,6 +58,8 @@ if [[ \$- == *i* ]] && [[ -z \${VIRTUAL_ENV:-} ]] && [[ -f $VENV_DIR/bin/activat
   source $VENV_DIR/bin/activate
 fi"
 uv pip install --python "/$VENV_DIR/bin/python" --project . /work/tools/expkits-ci
+EXPKITS_ARG_EVAL="eval \"\$(register-python-argcomplete expkits-ci)\""
+append_once "$EXPKITS_ARG_EVAL" "$EXPKITS_ARG_EVAL"
 
 # ---------- ONNX ----------
 
@@ -72,17 +74,30 @@ else
     exit 1
 fi
 
-# Download and extract
-wget "$ORT_URL"
-tar xf "$(basename $ORT_URL)"
+# Download and extract ONNX Runtime only if not already present
+if [ ! -d "deps/onnxruntime" ]; then
+    log "ONNX Runtime not found, downloading and extracting..."
+    wget "$ORT_URL"
+    tar xf "$(basename $ORT_URL)"
 
-# Extract directory name
-DIR_NAME=$(basename $ORT_URL .tgz)
+    # Extract directory name
+    DIR_NAME=$(basename $ORT_URL .tgz)
 
-# Install locally (no sudo!)
-mkdir -p deps/onnxruntime
-cp -r "$DIR_NAME/include" deps/onnxruntime/
-cp -r "$DIR_NAME/lib" deps/onnxruntime/
+    # Install locally (no sudo!)
+    mkdir -p deps/onnxruntime
+    cp -r "$DIR_NAME/include" deps/onnxruntime/
+    cp -r "$DIR_NAME/lib" deps/onnxruntime/
+else
+    log "ONNX Runtime already present, skipping download and extraction."
+fi
+
+if [ ! -f "/work/deps/plantuml-mit-1.2026.2.jar" ]; then
+    log "PlantUML JAR not found, downloading..."
+    mkdir -p /work/deps
+    wget https://github.com/plantuml/plantuml/releases/download/v1.2026.2/plantuml-mit-1.2026.2.jar -O /work/deps/plantuml-mit-1.2026.2.jar
+else
+    log "PlantUML JAR already present, skipping download."
+fi
 
 log "Installing pre-commit hooks"
 cd /work && pre-commit install && pre-commit install -t commit-msg

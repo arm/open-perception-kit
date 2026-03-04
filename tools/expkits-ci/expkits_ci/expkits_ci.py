@@ -41,6 +41,9 @@ def setup_argument_parser(parser):
     check_group.add_argument("-lh", "--license-header", default=False,
                              action="store_true", help="Add license header to files.")
 
+    check_group.add_argument("-sc", "--check-secrets", default=False,
+                             action="store_true", help="Check for secrets in files.")
+
     util_group = parser.add_argument_group('Utility Options', 'General script and logging options.')
     util_group.add_argument("-v", "--verbose", default=False, action="store_true", help="Enable verbose output.")
     util_group.add_argument("-ac", "--all-checks", default=False, action="store_true",
@@ -76,6 +79,8 @@ def perform_checks(checker, args, files):
     """Perform the specified checks based on the command line arguments."""
     result = True
 
+    if args.check_secrets:
+        result = checker.check_secrets(files) and result
     if args.branch_naming:
         result = checker.check_branch_naming() and result
     if args.commit_msg:

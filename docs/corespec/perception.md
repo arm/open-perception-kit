@@ -4,7 +4,7 @@
 Perception is the persistent metadata container that travels downstream with the media buffer.
 It aggregates structured results produced by inference and postprocessing stages across the pipeline.
 
-<img src="perception.jpg" alt="Inference Data Collection (Perception)" width="600">
+<img src="resources/img/perception.png" alt="Inference Data Collection (Perception)" width="600">
 
 Perception is designed to support:
 - Multi-stage inference (detection → refinement → classification).

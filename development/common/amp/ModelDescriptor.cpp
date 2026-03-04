@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #include "amp/ModelDescriptor.h"
 #include "fmt/color.h"
 #include "tl/expected.hpp"

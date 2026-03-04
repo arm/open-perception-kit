@@ -14,6 +14,7 @@
     "C_Cpp.codeAnalysis.clangTidy.path": "/work/tools/lazer/.venv/bin/clang-tidy",
     "C_Cpp.clang_format_path": "/work/tools/lazer/.venv/bin/clang-format",
     "C_Cpp.formatting": "clangFormat",
+    "plantuml.jar": "/work/deps/plantuml-mit-1.2026.2.jar",
     "C_Cpp.default.compileCommands": [
         "/work/development/build/compile_commands.json"
     ],
@@ -39,12 +40,12 @@
         "-kp"
     ],
     "autopep8.path": [
-        "/work/tools/lazer/.venv/bin/python",
+        "/work/tools/lazer/.venv/bin/python3",
         "-m",
         "autopep8"
     ],
     "[python]": {
-        "editor.defaultFormatter": "ms-python.python"
+        "editor.defaultFormatter": "ms-python.autopep8"
     },
     "testMate.cpp.test.executables": "development/build/**/*{test,Test,TEST}*"
 }

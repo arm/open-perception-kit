@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #include "amp/Color.h"
 #include "amp/Perception.h"
 #include <cairo.h>

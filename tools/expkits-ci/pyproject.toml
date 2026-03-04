@@ -15,6 +15,7 @@ dependencies = [
     "cmake-format==0.6.13",
     "clang-format==20.1.8",
     "clang-tidy==20.1.0",
+    "detect-secrets==1.5.0",
 ]
 
 [tool.setuptools.packages.find]

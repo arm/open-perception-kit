@@ -5,7 +5,7 @@ This example shows a typical OpChain executed inside the `ampinfer` GStreamer el
 The chain runs inference over multiple regions of interest derived from Perception content.
 The main pattern is: collect ROIs → create crops → loop over a subchain while crops remain.
 
-<img src="opchain-example.jpg" alt="Example OpChain" width="400">
+<img src="resources/img/opchain-example.png" alt="Example OpChain" width="400">
 
 ---
 
