@@ -14,7 +14,7 @@
         "ampinfer opchain-path=/work/etc/models/rvm/opchain.json active=true !",
         "ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
         "amposd enabled=true !",
-        "ampcomm method=file file-name=- !",
+        "ampcomm method=file file-name=${AMPCOMM_FILE:-/tmp/ampcomm} !",
         "ampsink name=sink"
     ]
 }

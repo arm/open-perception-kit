@@ -23,12 +23,14 @@ services:
       - USERNAME=devgoblin
       - HOST_UID=${HOST_UID:-}
       - HOST_GID=${HOST_GID:-}
+      - AMPCOMM_FILE=/tmp/ampcomm
 
     volumes:
       - /run/user/${HOST_UID}:/run/user/${HOST_UID}
       - /tmp/.X11-unix:/tmp/.X11-unix
       - ${HOME}/configs:/home/devgoblin/configs
       - ..:/work     
+      - ../amp-work-tree:/amp-work-tree
       - ${SSH_AUTH_SOCK}:/ssh-agent
 
     privileged: true

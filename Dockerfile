@@ -91,6 +91,9 @@ RUN set -eux; \
 RUN groupadd -g 993 render || true && \
     usermod -aG render "${USERNAME}" || true
 
+RUN mkfifo --mode=666 /tmp/ampcomm && \
+    chown ${USERNAME} /tmp/ampcomm
+
 USER ${USERNAME}
 WORKDIR /work
 

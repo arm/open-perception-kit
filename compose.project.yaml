@@ -13,6 +13,7 @@ x-amp-dev-common: &amp-dev-common
     - WAYLAND_DISPLAY=wayland-0
     - DISPLAY
     - USERNAME=devgoblin
+    - AMPCOMM_FILE=/tmp/ampcomm 
 
   env_file:
     - devices.env
