@@ -3,6 +3,7 @@
 skinparam shadowing false
 skinparam roundcorner 8
 skinparam dpi 150
+skinparam linetype ortho
 
 skinparam backgroundColor #080225
 skinparam defaultFontName "Arial, Helvetica, sans-serif"
