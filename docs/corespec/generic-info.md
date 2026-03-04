@@ -13,6 +13,7 @@ Key objectives:
 - Offer strong Raspberry Pi 5 support for edge deployment scenarios.
 - Allow remote pipeline usage via WebRTC while execution runs inside a container.
 - Ensure reliability through automated integration testing.
+- Wide HW Acceleration Support.
 
 The current system primarily supports:
 
