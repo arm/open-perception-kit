@@ -9,7 +9,6 @@
 #include "GenericImagePreprocessOp.h"
 #include "GenericPostprocessOp.h"
 #include "InferenceControllerOp.h"
-#include "TrackerOp.h"
 
 amp::Op *createOp(const std::string &opName) {
     if (opName == "GenericPostprocess")
@@ -18,8 +17,6 @@ amp::Op *createOp(const std::string &opName) {
         return new amp::GenericImagePreprocessOp();
     if (opName == "InferenceController")
         return new amp::InferenceControllerOp();
-    if (opName == "Tracker")
-        return new amp::TrackerOp();
     return nullptr;
 }
 
