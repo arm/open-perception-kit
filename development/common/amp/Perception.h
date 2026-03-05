@@ -88,11 +88,23 @@ struct Perception {
         amp::Bitmap bitmap;
     };
 
+    // track history trace (e.g. fading trail for tracked objects)
+    struct TrackTrace : public Object {
+        struct Point {
+            float x = 0.0f;
+            float y = 0.0f;
+        };
+
+        uint64_t trackId = 0;
+        std::vector<Point> points;
+    };
+
     // one detextion instance
     using Detection = std::variant<Rect,
                                    YawPitch,
                                    LocalizedText,
                                    SegmentationMap,
+                                   TrackTrace,
                                    VideoFrame,
                                    Classification,
                                    AudioFrame>;

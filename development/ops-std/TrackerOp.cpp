@@ -22,6 +22,10 @@ Result<void> TrackerOp::configure(const AttributeMap &attributes) {
     minHitsToConfirm = attributes.getIntOrDefault("minHitsToConfirm", Defaults::minHitsToConfirm);
     appendTrackIdToText =
         attributes.getBoolOrDefault("appendTrackIdToText", Defaults::appendTrackIdToText);
+    traceHistoryLength =
+        attributes.getIntOrDefault("traceHistoryLength", Defaults::traceHistoryLength);
+    traceContentType =
+        attributes.getStringOrDefault("traceContentType", Defaults::traceContentType);
 
     return {};
 }
@@ -108,6 +112,17 @@ void TrackerOp::updateTracks(const std::vector<Perception::Rect> &detections,
                              const std::vector<std::pair<size_t, uint64_t>> &matches,
                              const std::vector<size_t> &unmatchedDetections) {
 
+    const auto appendCenterPoint = [this](Track &track) {
+        const auto centerX = track.lastDetection.x + (track.lastDetection.width * 0.5f);
+        const auto centerY = track.lastDetection.y + (track.lastDetection.height * 0.5f);
+        track.tracePoints.push_back({centerX, centerY});
+
+        const auto maxHistorySize = static_cast<size_t>(std::max<int64_t>(1, traceHistoryLength));
+        while (track.tracePoints.size() > maxHistorySize) {
+            track.tracePoints.pop_front();
+        }
+    };
+
     // Update matched tracks
     for (const auto &[detIdx, trackId] : matches) {
         auto &track = activeTracks[trackId];
@@ -115,6 +130,7 @@ void TrackerOp::updateTracks(const std::vector<Perception::Rect> &detections,
         track.missedFrames = 0;
         track.hitStreak++;
         track.lastUpdateFrame = frameCounter;
+        appendCenterPoint(track);
     }
 
     // Create new tracks for unmatched detections
@@ -125,6 +141,7 @@ void TrackerOp::updateTracks(const std::vector<Perception::Rect> &detections,
         newTrack.missedFrames = 0;
         newTrack.hitStreak = 1;
         newTrack.lastUpdateFrame = frameCounter;
+        appendCenterPoint(newTrack);
 
         activeTracks[newTrack.trackId] = newTrack;
     }
@@ -231,6 +248,32 @@ Result<void> TrackerOp::process(OpChainContext &opChainContext) {
                 detectionIdx++;
             }
         }
+    }
+
+    amp::Perception::Layer traceLayer;
+    traceLayer.model = "Tracker";
+    traceLayer.engine = "std";
+    traceLayer.tags = "tracking";
+    traceLayer.contentType = traceContentType;
+
+    for (const auto &[trackId, track] : activeTracks) {
+        if (track.hitStreak < minHitsToConfirm) {
+            continue;
+        }
+        if (track.tracePoints.size() < 2) {
+            continue;
+        }
+
+        amp::Perception::TrackTrace trace;
+        trace.trackId = trackId;
+        trace.parentUuid = track.lastDetection.parentUuid;
+        trace.points.assign(track.tracePoints.begin(), track.tracePoints.end());
+
+        traceLayer.detections.push_back(trace);
+    }
+
+    if (!traceLayer.detections.empty()) {
+        opChainContext.perception->layers.push_back(std::move(traceLayer));
     }
 
     return {};

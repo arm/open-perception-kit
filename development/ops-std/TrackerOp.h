@@ -34,6 +34,7 @@ class TrackerOp : public amp::Op {
     struct Track {
         uint64_t trackId;
         Perception::Rect lastDetection;
+        std::deque<Perception::TrackTrace::Point> tracePoints;
         int missedFrames = 0;
         int hitStreak = 0;
         uint64_t lastUpdateFrame = 0;
@@ -45,14 +46,19 @@ class TrackerOp : public amp::Op {
         static constexpr int64_t maxMissedFrames = 5;
         static constexpr int64_t minHitsToConfirm = 5;
         static constexpr bool appendTrackIdToText = true;
+        static constexpr int64_t traceHistoryLength = 20;
+        static constexpr const char *traceContentType = "trackTrace";
     };
 
     // Configuration parameters
-    std::string contentType{Defaults::contentType};          // Type of detections to track
-    float iouThreshold{Defaults::iouThreshold};              // IOU threshold for matching
-    int64_t maxMissedFrames{Defaults::maxMissedFrames};      // Max frames before track deletion
-    int64_t minHitsToConfirm{Defaults::minHitsToConfirm};    // Min hits before track is confirmed
-    bool appendTrackIdToText{Defaults::appendTrackIdToText}; // Append track ID to text field
+    std::string contentType{Defaults::contentType};           // Type of detections to track
+    float iouThreshold{Defaults::iouThreshold};               // IOU threshold for matching
+    int64_t maxMissedFrames{Defaults::maxMissedFrames};       // Max frames before track deletion
+    int64_t minHitsToConfirm{Defaults::minHitsToConfirm};     // Min hits before track is confirmed
+    bool appendTrackIdToText{Defaults::appendTrackIdToText};  // Append track ID to text field
+    int64_t traceHistoryLength{Defaults::traceHistoryLength}; // Number of history points per track
+    std::string traceContentType{
+        Defaults::traceContentType}; // Perception layer contentType for traces
 
     // Tracking state
     std::map<uint64_t, Track> activeTracks;
