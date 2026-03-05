@@ -35,7 +35,16 @@
                 "iouThreshold": 0.3,
                 "maxMissedFrames": 5,
                 "minHitsToConfirm": 3,
-                "appendTrackIdToText": true
+                "appendTrackIdToText": true,
+                "traceHistorySeconds": 7.0,
+                "kalman": {
+                    "dt": 0.033,
+                    "initialCovariancePos": 100.0,
+                    "initialCovarianceVel": 25.0,
+                    "processNoisePos": 0.1,
+                    "processNoiseVel": 0.05,
+                    "measurementNoisePos": 20.0
+                }
             }
         }
     ]

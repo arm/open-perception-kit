@@ -24,8 +24,36 @@ Result<void> TrackerOp::configure(const AttributeMap &attributes) {
         attributes.getBoolOrDefault("appendTrackIdToText", Defaults::appendTrackIdToText);
     traceHistoryLength =
         attributes.getIntOrDefault("traceHistoryLength", Defaults::traceHistoryLength);
+    traceHistorySeconds =
+        attributes.getFloatOrDefault("traceHistorySeconds", Defaults::traceHistorySeconds);
     traceContentType =
         attributes.getStringOrDefault("traceContentType", Defaults::traceContentType);
+
+    // Preferred config: attributes.kalman.{...}; fallback to legacy flat attributes
+    const auto kalman = attributes.getObjectOrNUll("kalman");
+    const auto getKalmanFloat = [&attributes, &kalman](const char *key,
+                                                       float defaultValue) -> float {
+        if (kalman) {
+            return kalman->getFloatOrDefault(key, defaultValue);
+        }
+        return attributes.getFloatOrDefault(key, defaultValue);
+    };
+
+    kalmanDt = getKalmanFloat("dt", Defaults::kalmanDt);
+    if (kalmanDt <= 0.0f) {
+        kalmanDt = Defaults::kalmanDt;
+    }
+
+    kalmanInitialCovariancePos =
+        getKalmanFloat("initialCovariancePos", Defaults::kalmanInitialCovariancePos);
+    kalmanInitialCovarianceVel =
+        getKalmanFloat("initialCovarianceVel", Defaults::kalmanInitialCovarianceVel);
+    kalmanProcessNoisePos = getKalmanFloat("processNoisePos", Defaults::kalmanProcessNoisePos);
+    kalmanProcessNoiseVel = getKalmanFloat("processNoiseVel", Defaults::kalmanProcessNoiseVel);
+    kalmanMeasurementNoisePos =
+        getKalmanFloat("measurementNoisePos", Defaults::kalmanMeasurementNoisePos);
+
+    // Backward compatibility when no nested block is present
 
     return {};
 }
@@ -110,18 +138,12 @@ void TrackerOp::matchDetectionsToTracks(const std::vector<Perception::Rect> &det
 
 void TrackerOp::updateTracks(const std::vector<Perception::Rect> &detections,
                              const std::vector<std::pair<size_t, uint64_t>> &matches,
-                             const std::vector<size_t> &unmatchedDetections) {
+                             const std::vector<size_t> &unmatchedDetections,
+                             std::map<size_t, uint64_t> &assignedTrackByDetection,
+                             std::vector<uint64_t> &predictedOnlyTrackIds) {
 
-    const auto appendCenterPoint = [this](Track &track) {
-        const auto centerX = track.lastDetection.x + (track.lastDetection.width * 0.5f);
-        const auto centerY = track.lastDetection.y + (track.lastDetection.height * 0.5f);
-        track.tracePoints.push_back({centerX, centerY});
-
-        const auto maxHistorySize = static_cast<size_t>(std::max<int64_t>(1, traceHistoryLength));
-        while (track.tracePoints.size() > maxHistorySize) {
-            track.tracePoints.pop_front();
-        }
-    };
+    assignedTrackByDetection.clear();
+    predictedOnlyTrackIds.clear();
 
     // Update matched tracks
     for (const auto &[detIdx, trackId] : matches) {
@@ -130,7 +152,12 @@ void TrackerOp::updateTracks(const std::vector<Perception::Rect> &detections,
         track.missedFrames = 0;
         track.hitStreak++;
         track.lastUpdateFrame = frameCounter;
-        appendCenterPoint(track);
+        const auto smoothedPoint = updateCenterPointWithMeasurement(track, track.lastDetection);
+        appendTracePoint(track, smoothedPoint);
+
+        track.lastDetection.x = smoothedPoint.x - (track.lastDetection.width * 0.5f);
+        track.lastDetection.y = smoothedPoint.y - (track.lastDetection.height * 0.5f);
+        assignedTrackByDetection[detIdx] = trackId;
     }
 
     // Create new tracks for unmatched detections
@@ -141,9 +168,15 @@ void TrackerOp::updateTracks(const std::vector<Perception::Rect> &detections,
         newTrack.missedFrames = 0;
         newTrack.hitStreak = 1;
         newTrack.lastUpdateFrame = frameCounter;
-        appendCenterPoint(newTrack);
+        const auto smoothedPoint =
+            updateCenterPointWithMeasurement(newTrack, newTrack.lastDetection);
+        appendTracePoint(newTrack, smoothedPoint);
+        newTrack.lastDetection.x = smoothedPoint.x - (newTrack.lastDetection.width * 0.5f);
+        newTrack.lastDetection.y = smoothedPoint.y - (newTrack.lastDetection.height * 0.5f);
 
-        activeTracks[newTrack.trackId] = newTrack;
+        const auto newTrackId = newTrack.trackId;
+        activeTracks[newTrackId] = newTrack;
+        assignedTrackByDetection[detIdx] = newTrackId;
     }
 
     // Mark unmatched tracks as missed and remove old ones
@@ -151,8 +184,15 @@ void TrackerOp::updateTracks(const std::vector<Perception::Rect> &detections,
 
     for (auto &[trackId, track] : activeTracks) {
         if (track.lastUpdateFrame < frameCounter) {
+            const auto predictedPoint = predictCenterPoint(track);
+            track.lastDetection.x = predictedPoint.x - (track.lastDetection.width * 0.5f);
+            track.lastDetection.y = predictedPoint.y - (track.lastDetection.height * 0.5f);
+            appendTracePoint(track, predictedPoint);
+
             track.missedFrames++;
-            if (track.missedFrames > maxMissedFrames) {
+            if (track.missedFrames <= maxMissedFrames) {
+                predictedOnlyTrackIds.push_back(trackId);
+            } else {
                 tracksToRemove.push_back(trackId);
             }
         }
@@ -160,6 +200,95 @@ void TrackerOp::updateTracks(const std::vector<Perception::Rect> &detections,
 
     for (uint64_t trackId : tracksToRemove) {
         activeTracks.erase(trackId);
+    }
+}
+
+Perception::TrackTrace::Point TrackerOp::predictCenterPoint(Track &track) {
+    using StateVector = TrackKalman::StateVector;
+    using StateMatrix = TrackKalman::StateMatrix;
+
+    if (!track.kalmanInitialized) {
+        const auto centerX = track.lastDetection.x + (track.lastDetection.width * 0.5f);
+        const auto centerY = track.lastDetection.y + (track.lastDetection.height * 0.5f);
+
+        StateVector initialState{};
+        initialState[0][0] = centerX;
+        initialState[1][0] = centerY;
+        initialState[2][0] = 0.0f;
+        initialState[3][0] = 0.0f;
+
+        StateMatrix initialCovariance{};
+        initialCovariance[0][0] = kalmanInitialCovariancePos;
+        initialCovariance[1][1] = kalmanInitialCovariancePos;
+        initialCovariance[2][2] = kalmanInitialCovarianceVel;
+        initialCovariance[3][3] = kalmanInitialCovarianceVel;
+
+        track.kalman.setState(initialState);
+        track.kalman.setCovariance(initialCovariance);
+        track.kalmanInitialized = true;
+        return {centerX, centerY};
+    }
+
+    StateMatrix transition{};
+    transition[0][0] = 1.0f;
+    transition[0][2] = kalmanDt;
+    transition[1][1] = 1.0f;
+    transition[1][3] = kalmanDt;
+    transition[2][2] = 1.0f;
+    transition[3][3] = 1.0f;
+
+    StateMatrix processNoise{};
+    processNoise[0][0] = kalmanProcessNoisePos;
+    processNoise[1][1] = kalmanProcessNoisePos;
+    processNoise[2][2] = kalmanProcessNoiseVel;
+    processNoise[3][3] = kalmanProcessNoiseVel;
+
+    track.kalman.predict(transition, processNoise);
+
+    const auto &state = track.kalman.state();
+    return {state[0][0], state[1][0]};
+}
+
+Perception::TrackTrace::Point
+TrackerOp::updateCenterPointWithMeasurement(Track &track, const Perception::Rect &detection) {
+    using MeasurementVector = TrackKalman::MeasurementVector;
+    using MeasurementMatrix = TrackKalman::MeasurementMatrix;
+    using ObservationMatrix = TrackKalman::ObservationMatrix;
+
+    predictCenterPoint(track);
+
+    const float measX = detection.x + (detection.width * 0.5f);
+    const float measY = detection.y + (detection.height * 0.5f);
+
+    MeasurementVector measurement{};
+    measurement[0][0] = measX;
+    measurement[1][0] = measY;
+
+    ObservationMatrix observation{};
+    observation[0][0] = 1.0f;
+    observation[1][1] = 1.0f;
+
+    MeasurementMatrix measurementNoise{};
+    measurementNoise[0][0] = kalmanMeasurementNoisePos;
+    measurementNoise[1][1] = kalmanMeasurementNoisePos;
+
+    track.kalman.update(measurement, observation, measurementNoise);
+
+    const auto &state = track.kalman.state();
+    return {state[0][0], state[1][0]};
+}
+
+void TrackerOp::appendTracePoint(Track &track, const Perception::TrackTrace::Point &point) {
+    track.tracePoints.push_back(point);
+
+    int64_t historyPoints = traceHistoryLength;
+    if (traceHistorySeconds > 0.0f && kalmanDt > 0.0f) {
+        historyPoints = static_cast<int64_t>(std::ceil(traceHistorySeconds / kalmanDt));
+    }
+
+    const auto maxHistorySize = static_cast<size_t>(std::max<int64_t>(1, historyPoints));
+    while (track.tracePoints.size() > maxHistorySize) {
+        track.tracePoints.pop_front();
     }
 }
 
@@ -192,47 +321,32 @@ Result<void> TrackerOp::process(OpChainContext &opChainContext) {
     matchDetectionsToTracks(currentDetections, matches, unmatchedDetections);
 
     // Update track states
-    updateTracks(currentDetections, matches, unmatchedDetections);
+    std::map<size_t, uint64_t> assignedTrackByDetection;
+    std::vector<uint64_t> predictedOnlyTrackIds;
+    updateTracks(currentDetections,
+                 matches,
+                 unmatchedDetections,
+                 assignedTrackByDetection,
+                 predictedOnlyTrackIds);
 
     // Update Perception with track IDs
     size_t detectionIdx = 0;
     for (auto *layer : targetLayers) {
         for (auto &det : layer->detections) {
             if (auto *rect = std::get_if<Perception::Rect>(&det)) {
-                // Find matching track for this detection
                 uint64_t assignedTrackId = 0;
-
-                // Check matched detections
-                for (const auto &[matchDetIdx, trackId] : matches) {
-                    if (detectionIdx == matchDetIdx) {
-                        assignedTrackId = trackId;
-                        break;
-                    }
-                }
-
-                // Check unmatched detections (newly created tracks)
-                if (assignedTrackId == 0) {
-                    for (size_t unmatchedIdx : unmatchedDetections) {
-                        if (detectionIdx == unmatchedIdx) {
-                            // Find the newly created track
-                            for (const auto &[trackId, track] : activeTracks) {
-                                if (track.lastUpdateFrame == frameCounter && track.hitStreak == 1) {
-                                    float iou = computeIOU(*rect, track.lastDetection);
-                                    if (iou > 0.99f) { // Nearly identical
-                                        assignedTrackId = trackId;
-                                        break;
-                                    }
-                                }
-                            }
-                            break;
-                        }
-                    }
+                const auto assignedIt = assignedTrackByDetection.find(detectionIdx);
+                if (assignedIt != assignedTrackByDetection.end()) {
+                    assignedTrackId = assignedIt->second;
                 }
 
                 // Update detection with track ID (only if confirmed)
                 if (assignedTrackId > 0) {
                     auto it = activeTracks.find(assignedTrackId);
                     if (it != activeTracks.end() && it->second.hitStreak >= minHitsToConfirm) {
+                        rect->x = it->second.lastDetection.x;
+                        rect->y = it->second.lastDetection.y;
+
                         if (appendTrackIdToText) {
                             if (!rect->text.empty()) {
                                 rect->text = fmt::format("{} [ID:{}]", rect->text, assignedTrackId);
@@ -248,6 +362,41 @@ Result<void> TrackerOp::process(OpChainContext &opChainContext) {
                 detectionIdx++;
             }
         }
+    }
+
+    Perception::Layer *predictionOutputLayer = nullptr;
+    if (!targetLayers.empty()) {
+        predictionOutputLayer = targetLayers.front();
+    } else {
+        Perception::Layer predictedLayer;
+        predictedLayer.model = "Tracker";
+        predictedLayer.engine = "std";
+        predictedLayer.tags = "tracking-prediction";
+        predictedLayer.contentType = contentType;
+        opChainContext.perception->layers.push_back(std::move(predictedLayer));
+        predictionOutputLayer = &opChainContext.perception->layers.back();
+    }
+
+    for (const auto trackId : predictedOnlyTrackIds) {
+        const auto it = activeTracks.find(trackId);
+        if (it == activeTracks.end()) {
+            continue;
+        }
+        const auto &track = it->second;
+        if (track.hitStreak < minHitsToConfirm) {
+            continue;
+        }
+
+        auto predictedRect = track.lastDetection;
+        if (appendTrackIdToText) {
+            if (!predictedRect.text.empty()) {
+                predictedRect.text = fmt::format("{} [ID:{}]", predictedRect.text, trackId);
+            } else {
+                predictedRect.text = fmt::format("ID:{}", trackId);
+            }
+        }
+
+        predictionOutputLayer->detections.push_back(predictedRect);
     }
 
     amp::Perception::Layer traceLayer;
