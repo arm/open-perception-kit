@@ -9,7 +9,7 @@
 
 #include <amp/Perception.h>
 #include <amp/PerceptionSerializer.h>
-#include <gst/PerceptionContextMeta.h>
+#include <gst/PerceptionMeta.h>
 
 #include <nlohmann/json.hpp>
 

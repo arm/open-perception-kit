@@ -118,6 +118,7 @@ struct InferenceInfo {
     uint64_t parentUuid;
     std::string contentType;
     std::string modelFamily;
+    std::string inferElementId;
     ImageInferenceMetadata image;
 };
 

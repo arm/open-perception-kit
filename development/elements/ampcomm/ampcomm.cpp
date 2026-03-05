@@ -17,7 +17,7 @@
 #include "file_writer.h"
 #include "writer.h"
 
-#include <gst/PerceptionContextMeta.h>
+#include <gst/PerceptionMeta.h>
 
 #ifndef PACKAGE
 #define PACKAGE "ampcomm"

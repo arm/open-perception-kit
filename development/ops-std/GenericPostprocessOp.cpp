@@ -90,6 +90,7 @@ amp::Result<void> GenericPostprocessOp::process(amp::OpChainContext &opChainCont
 
     amp::Perception::Layer rawDetectionLayer;
     rawDetectionLayer.model = opChainContext.inferenceInfo.modelFamily;
+    rawDetectionLayer.inferElementId = opChainContext.inferenceInfo.inferElementId;
     auto parseResult = parser->parse(tensorParserInput, rawDetectionLayer);
     if (!parseResult) {
         return parseResult;

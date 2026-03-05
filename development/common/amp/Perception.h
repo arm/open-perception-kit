@@ -100,6 +100,7 @@ struct Perception {
         std::string engine;
         std::string model;
         std::string tags;
+        std::string inferElementId;
 
         // possible values:
         // "coco"

@@ -1,6 +1,7 @@
 /*************************************************************
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
+#include "gst/gstelement.h"
 #include "gst/gstpad.h"
 #include <filesystem>
 #include <gst/base/gstbasetransform.h>
@@ -14,17 +15,15 @@
 #include "glib-object.h"
 #include "glib.h"
 
-#include "amp/BitmapView.h"
 #include "amp/Perception.h"
 #include "amp/Result.h"
 #include "amp/Tools.h"
-#include "amp/Types.h"
 
 #include "op/OpChain.h"
 #include "op/OpChainContext.h"
 
 #include "PerformanceTracer.h"
-#include "gst/PerceptionContextMeta.h"
+#include "gst/PerceptionMeta.h"
 
 struct GstAmpInferMembers {
     // std::shared_ptr<onnx::Inference> onnxInference;
@@ -63,6 +62,7 @@ struct _GstAmpInfer {
     gchar *opChainPath;
     gboolean active;
     gchar *format;
+    gchar *inferId;
 
     // a safe place for c++ stuff
     GstAmpInferMembers *m;
@@ -75,6 +75,15 @@ G_DEFINE_TYPE(GstAmpInfer, gst_ampinfer, GST_TYPE_BASE_TRANSFORM)
 // ---------------- GstBaseTransform virtuals ----------------
 //
 namespace fs = std::filesystem;
+
+static const gchar *gst_ampinfer_get_effective_inferId(GstAmpInfer *self) {
+    /* If user provided infer-id property, prefer it */
+    if (self->inferId && self->inferId[0] != '\0')
+        return self->inferId;
+
+    /* Fallback to element name (always exists) */
+    return GST_OBJECT_NAME(GST_ELEMENT(self));
+}
 
 static std::optional<fs::path> parent_dir_name(const fs::path &p) {
     if (!p.has_filename()) {
@@ -190,17 +199,19 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     g_assert(gst_buffer_is_writable(buf));
 
     // try to get the perception meta
-    auto perceptionContextMeta = amp::PerceptionMeta::get(buf);
+    auto perceptionMeta = amp::PerceptionMeta::get(buf);
 
     // it does not added yet -> add it
-    if (!perceptionContextMeta) {
+    if (!perceptionMeta) {
         auto perception = std::make_shared<amp::Perception>();
-        perceptionContextMeta = amp::PerceptionMeta::add(buf, perception);
+        perceptionMeta = amp::PerceptionMeta::add(buf, perception);
     }
 
     auto ret = amp::PerceptionMeta::mutate<GstFlowReturn>(
         buf, GST_FLOW_CUSTOM_ERROR, [self, rgb, frameWidth, frameHeight](auto &perception) -> auto {
             amp::OpChainContext opChainContext;
+            opChainContext.inferenceInfo.inferElementId =
+                std::string(gst_ampinfer_get_effective_inferId(self));
 
             amp::BitmapView pipelineFrame(
                 rgb, amp::DataKind::ImageBgraHwc, frameWidth, frameHeight);
@@ -227,7 +238,7 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
 // ---------------- properties & class init ----------------
 
-enum { PROP_0, PROP_OPCHAIN_PATH, PROP_MODEL_ACTIVE, PROP_FORMAT };
+enum { PROP_0, PROP_OPCHAIN_PATH, PROP_MODEL_ACTIVE, PROP_FORMAT, PROP_INFER_ID };
 
 static void gst_ampinfer_set_property(GObject *o, guint id, const GValue *v, GParamSpec *ps) {
     auto *self = (GstAmpInfer *)o;
@@ -243,6 +254,10 @@ static void gst_ampinfer_set_property(GObject *o, guint id, const GValue *v, GPa
     case PROP_FORMAT:
         g_free(self->format);
         self->format = g_value_dup_string(v);
+        break;
+    case PROP_INFER_ID:
+        g_free(self->inferId);
+        self->inferId = g_value_dup_string(v);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(o, id, ps);
@@ -260,6 +275,9 @@ static void gst_ampinfer_get_property(GObject *o, guint id, GValue *v, GParamSpe
         break;
     case PROP_FORMAT:
         g_value_set_string(v, self->format);
+        break;
+    case PROP_INFER_ID:
+        g_value_set_string(v, gst_ampinfer_get_effective_inferId(self));
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(o, id, ps);
@@ -301,6 +319,16 @@ static void gst_ampinfer_class_init(GstAmpInferClass *klass) {
                             "BGRA",
                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
+    g_object_class_install_property(
+        gobj,
+        PROP_INFER_ID,
+        g_param_spec_string("infer-id",
+                            "ID of the inference element",
+                            "ID of the inference element (used in Plumber to identify the layers. "
+                            "Deafults to the name property of the element)",
+                            "",
+                            (GParamFlags)(G_PARAM_READABLE | G_PARAM_STATIC_STRINGS)));
+
     // Static pad templates (portable across GStreamer-1.0 versions)
     static GstStaticPadTemplate sink_t = GST_STATIC_PAD_TEMPLATE(
         "sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS("video/x-raw, format={BGRA}"));
@@ -325,6 +353,8 @@ static void gst_ampinfer_init(GstAmpInfer *self) {
     self->opChainPath = nullptr;
     self->active = true;
     self->m = nullptr;
+    self->inferId = nullptr;
+
     gst_video_info_init(&self->vinfo);
 
     self->format = g_strdup("BGRA");

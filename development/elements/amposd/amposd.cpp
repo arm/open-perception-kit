@@ -5,7 +5,6 @@
 #include "amp/Bitmap.h"
 #include "amp/Color.h"
 #include "amp/Perception.h"
-#include "gst/PerceptionContextMeta.h"
 #include "osd.h"
 #include <cmath>
 #include <cstring>
@@ -20,7 +19,7 @@
 #include "amp/Bitmap.h"
 #include "amp/Color.h"
 #include "amp/Perception.h"
-#include "gst/PerceptionContextMeta.h"
+#include "gst/PerceptionMeta.h"
 
 #ifndef PACKAGE
 #define PACKAGE "amp-elements"

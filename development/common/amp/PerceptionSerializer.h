@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #pragma once
 
 #include <string>
@@ -255,6 +259,7 @@ inline void to_json(json &j, const Perception::Layer &l) {
         {"labelFamily", l.labelFamily},
         {"contentType", l.contentType},
         {"detections", l.detections},
+        {"infer-id", l.inferElementId},
     };
 }
 

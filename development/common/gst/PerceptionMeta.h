@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #pragma once
 #include <gst/gst.h>
 
@@ -6,7 +10,7 @@
 
 namespace amp {
 
-struct PerceptionContextMetaTraits {
+struct PerceptionMetaTraits {
     using Payload = Perception;
 
     static const char *api_name() {
@@ -30,6 +34,6 @@ struct PerceptionContextMetaTraits {
     }
 };
 
-using PerceptionMeta = Meta<PerceptionContextMetaTraits>;
+using PerceptionMeta = Meta<PerceptionMetaTraits>;
 
 } // namespace amp

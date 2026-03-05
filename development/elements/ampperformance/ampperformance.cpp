@@ -15,7 +15,7 @@
 #include <cairo.h>
 
 #include "PerformanceTracer.h"
-#include "gst/PerceptionContextMeta.h"
+#include "gst/PerceptionMeta.h"
 
 #ifndef PACKAGE
 #define PACKAGE "amp-elements"
