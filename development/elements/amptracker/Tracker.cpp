@@ -235,7 +235,7 @@ void Processor::updateTracks(const std::vector<amp::Perception::Rect> &detection
         newTrack.lastDetection.y = initPoint.y - (newTrack.lastDetection.height * 0.5f);
 
         const auto newTrackId = newTrack.trackId;
-        activeTracks[newTrackId] = newTrack;
+        activeTracks.emplace(newTrackId, std::move(newTrack));
         assignedTrackByDetection[detIdx] = newTrackId;
     }
 
