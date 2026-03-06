@@ -29,7 +29,6 @@ struct _GstAmpTracker {
     gint minHitsToConfirm;
     gboolean appendTrackIdToText;
     gfloat traceHistorySeconds;
-    gchar *traceContentType;
     gfloat kalmanDt;
     gfloat kalmanInitialCovariancePos;
     gfloat kalmanInitialCovarianceVel;
@@ -57,7 +56,6 @@ enum {
     PROP_MIN_HITS_TO_CONFIRM,
     PROP_APPEND_TRACK_ID_TO_TEXT,
     PROP_TRACE_HISTORY_SECONDS,
-    PROP_TRACE_CONTENT_TYPE,
     PROP_KALMAN_DT,
     PROP_KALMAN_INITIAL_COVARIANCE_POS,
     PROP_KALMAN_INITIAL_COVARIANCE_VEL,
@@ -75,8 +73,6 @@ static amp::tracker::Config trackerConfigFromElement(const GstAmpTracker *self) 
     config.minHitsToConfirm = self->minHitsToConfirm;
     config.appendTrackIdToText = self->appendTrackIdToText;
     config.traceHistorySeconds = self->traceHistorySeconds;
-    config.traceContentType =
-        self->traceContentType ? self->traceContentType : amp::tracker::Defaults::traceContentType;
     config.kalmanDt = self->kalmanDt;
     config.kalmanInitialCovariancePos = self->kalmanInitialCovariancePos;
     config.kalmanInitialCovarianceVel = self->kalmanInitialCovarianceVel;
@@ -165,10 +161,6 @@ static void gst_amptracker_set_property(GObject *o, guint id, const GValue *v, G
     case PROP_TRACE_HISTORY_SECONDS:
         self->traceHistorySeconds = g_value_get_float(v);
         break;
-    case PROP_TRACE_CONTENT_TYPE:
-        g_free(self->traceContentType);
-        self->traceContentType = g_value_dup_string(v);
-        break;
     case PROP_KALMAN_DT:
         self->kalmanDt = g_value_get_float(v);
         break;
@@ -213,9 +205,6 @@ static void gst_amptracker_get_property(GObject *o, guint id, GValue *v, GParamS
     case PROP_TRACE_HISTORY_SECONDS:
         g_value_set_float(v, self->traceHistorySeconds);
         break;
-    case PROP_TRACE_CONTENT_TYPE:
-        g_value_set_string(v, self->traceContentType);
-        break;
     case PROP_KALMAN_DT:
         g_value_set_float(v, self->kalmanDt);
         break;
@@ -244,9 +233,6 @@ static void gst_amptracker_finalize(GObject *object) {
 
     g_free(self->contentType);
     self->contentType = nullptr;
-
-    g_free(self->traceContentType);
-    self->traceContentType = nullptr;
 
     delete self->m;
     self->m = nullptr;
@@ -325,15 +311,6 @@ static void gst_amptracker_class_init(GstAmpTrackerClass *klass) {
             G_MAXFLOAT,
             amp::tracker::Defaults::traceHistorySeconds,
             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(
-        gobj,
-        PROP_TRACE_CONTENT_TYPE,
-        g_param_spec_string("trace-content-type",
-                            "Trace content type",
-                            "Perception layer contentType for track traces",
-                            amp::tracker::Defaults::traceContentType,
-                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
         gobj,
@@ -429,7 +406,6 @@ static void gst_amptracker_init(GstAmpTracker *self) {
     self->minHitsToConfirm = amp::tracker::Defaults::minHitsToConfirm;
     self->appendTrackIdToText = amp::tracker::Defaults::appendTrackIdToText;
     self->traceHistorySeconds = amp::tracker::Defaults::traceHistorySeconds;
-    self->traceContentType = g_strdup(amp::tracker::Defaults::traceContentType);
     self->kalmanDt = amp::tracker::Defaults::kalmanDt;
     self->kalmanInitialCovariancePos = amp::tracker::Defaults::kalmanInitialCovariancePos;
     self->kalmanInitialCovarianceVel = amp::tracker::Defaults::kalmanInitialCovarianceVel;

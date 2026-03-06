@@ -376,7 +376,7 @@ void Processor::process(amp::Perception &perception, const Config &config) {
     traceLayer.model = "Tracker";
     traceLayer.engine = "std";
     traceLayer.tags = "tracking";
-    traceLayer.contentType = config.traceContentType;
+    traceLayer.contentType = "trackTrace";
 
     for (const auto &[trackId, track] : activeTracks) {
         if (track.hitStreak < config.minHitsToConfirm || track.tracePoints.size() < 2) {
