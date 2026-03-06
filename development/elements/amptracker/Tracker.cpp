@@ -198,7 +198,10 @@ amp::Perception::TrackTrace::Point Processor::updateCenterPointWithMeasurement(
     using MeasurementMatrix = TrackKalman::MeasurementMatrix;
     using ObservationMatrix = TrackKalman::ObservationMatrix;
 
-    predictCenterPoint(track, config);
+    if (!track.predictedThisFrame) {
+        predictCenterPoint(track, config);
+        track.predictedThisFrame = true;
+    }
 
     const float measX = detection.x + (detection.width * 0.5f);
     const float measY = detection.y + (detection.height * 0.5f);
@@ -263,6 +266,23 @@ void Processor::matchDetectionsToTracks(const std::vector<amp::Perception::Rect>
         trackIds.push_back(trackId);
     }
 
+    std::vector<amp::Perception::Rect> predictedTrackBoxes(trackIds.size());
+    for (size_t trackIdx = 0; trackIdx < trackIds.size(); ++trackIdx) {
+        auto trackIt = activeTracks.find(trackIds[trackIdx]);
+        if (trackIt == activeTracks.end()) {
+            continue;
+        }
+
+        auto &track = trackIt->second;
+        const auto predictedPoint = predictCenterPoint(track, config);
+        track.predictedThisFrame = true;
+
+        auto pred = track.lastDetection;
+        pred.x = predictedPoint.x - (pred.width * 0.5f);
+        pred.y = predictedPoint.y - (pred.height * 0.5f);
+        predictedTrackBoxes[trackIdx] = pred;
+    }
+
     std::vector<std::vector<float>> iouMatrix(detections.size(),
                                               std::vector<float>(trackIds.size(), 0.0f));
     std::vector<std::vector<float>> costMatrix(detections.size(),
@@ -271,12 +291,7 @@ void Processor::matchDetectionsToTracks(const std::vector<amp::Perception::Rect>
     for (size_t detIdx = 0; detIdx < detections.size(); ++detIdx) {
         const auto &det = detections[detIdx];
         for (size_t trackIdx = 0; trackIdx < trackIds.size(); ++trackIdx) {
-            const auto trackIt = activeTracks.find(trackIds[trackIdx]);
-            if (trackIt == activeTracks.end()) {
-                continue;
-            }
-            const auto &track = trackIt->second;
-            const float iou = computeIOU(det, track.lastDetection);
+            const float iou = computeIOU(det, predictedTrackBoxes[trackIdx]);
             iouMatrix[detIdx][trackIdx] = iou;
             costMatrix[detIdx][trackIdx] = 1.0f - iou;
         }
@@ -338,12 +353,13 @@ void Processor::updateTracks(const std::vector<amp::Perception::Rect> &detection
         newTrack.hitStreak = 1;
         newTrack.lastUpdateFrame = frameCounter;
 
-        const auto smoothedPoint =
-            updateCenterPointWithMeasurement(newTrack, newTrack.lastDetection, config);
-        appendTracePoint(newTrack, smoothedPoint, config);
+        const auto initPoint = predictCenterPoint(newTrack, config);
+        newTrack.predictedThisFrame = true;
 
-        newTrack.lastDetection.x = smoothedPoint.x - (newTrack.lastDetection.width * 0.5f);
-        newTrack.lastDetection.y = smoothedPoint.y - (newTrack.lastDetection.height * 0.5f);
+        appendTracePoint(newTrack, initPoint, config);
+
+        newTrack.lastDetection.x = initPoint.x - (newTrack.lastDetection.width * 0.5f);
+        newTrack.lastDetection.y = initPoint.y - (newTrack.lastDetection.height * 0.5f);
 
         const auto newTrackId = newTrack.trackId;
         activeTracks[newTrackId] = newTrack;
@@ -354,7 +370,14 @@ void Processor::updateTracks(const std::vector<amp::Perception::Rect> &detection
 
     for (auto &[trackId, track] : activeTracks) {
         if (track.lastUpdateFrame < frameCounter) {
-            const auto predictedPoint = predictCenterPoint(track, config);
+            amp::Perception::TrackTrace::Point predictedPoint;
+            if (track.predictedThisFrame && track.kalmanInitialized) {
+                const auto &state = track.kalman.state();
+                predictedPoint = {state[0][0], state[1][0]};
+            } else {
+                predictedPoint = predictCenterPoint(track, config);
+            }
+
             track.lastDetection.x = predictedPoint.x - (track.lastDetection.width * 0.5f);
             track.lastDetection.y = predictedPoint.y - (track.lastDetection.height * 0.5f);
             appendTracePoint(track, predictedPoint, config);
@@ -375,6 +398,11 @@ void Processor::updateTracks(const std::vector<amp::Perception::Rect> &detection
 
 void Processor::process(amp::Perception &perception, const Config &config) {
     frameCounter++;
+
+    for (auto &[trackId, track] : activeTracks) {
+        (void)trackId;
+        track.predictedThisFrame = false;
+    }
 
     std::vector<amp::Perception::Rect> currentDetections;
     std::vector<amp::Perception::Layer *> targetLayers;

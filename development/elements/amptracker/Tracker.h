@@ -62,6 +62,7 @@ class Processor {
         amp::Perception::Rect lastDetection;
         std::deque<amp::Perception::TrackTrace::Point> tracePoints;
         bool kalmanInitialized = false;
+        bool predictedThisFrame = false;
         TrackKalman kalman;
         int missedFrames = 0;
         int hitStreak = 0;
