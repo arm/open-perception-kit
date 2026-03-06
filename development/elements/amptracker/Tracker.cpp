@@ -4,9 +4,9 @@
 
 #include "Tracker.h"
 
-#include "Hungarian.h"
+#include "algo/Hungarian.h"
+#include "algo/IoU.h"
 
-#include <algorithm>
 #include <cmath>
 #include <fmt/core.h>
 
@@ -16,31 +16,6 @@ void Processor::reset() {
     activeTracks.clear();
     nextTrackId = 1;
     frameCounter = 0;
-}
-
-float Processor::computeIOU(const amp::Perception::Rect &a, const amp::Perception::Rect &b) const {
-    const float x1 = std::max(a.x, b.x);
-    const float y1 = std::max(a.y, b.y);
-    const float x2 = std::min(a.x + a.width, b.x + b.width);
-    const float y2 = std::min(a.y + a.height, b.y + b.height);
-
-    const float intersectionWidth = std::max(0.0f, x2 - x1);
-    const float intersectionHeight = std::max(0.0f, y2 - y1);
-    const float intersectionArea = intersectionWidth * intersectionHeight;
-
-    if (intersectionArea <= 0.0f) {
-        return 0.0f;
-    }
-
-    const float areaA = a.width * a.height;
-    const float areaB = b.width * b.height;
-    const float unionArea = areaA + areaB - intersectionArea;
-
-    if (unionArea <= 0.0f) {
-        return 0.0f;
-    }
-
-    return intersectionArea / unionArea;
 }
 
 amp::Perception::TrackTrace::Point Processor::predictCenterPoint(Track &track,
@@ -189,7 +164,7 @@ void Processor::matchDetectionsToTracks(const std::vector<amp::Perception::Rect>
     for (size_t detIdx = 0; detIdx < detections.size(); ++detIdx) {
         const auto &det = detections[detIdx];
         for (size_t trackIdx = 0; trackIdx < trackIds.size(); ++trackIdx) {
-            const float iou = computeIOU(det, predictedTrackBoxes[trackIdx]);
+            const float iou = amp::algo::computeIoU(det, predictedTrackBoxes[trackIdx]);
             iouMatrix[detIdx][trackIdx] = iou;
             costMatrix[detIdx][trackIdx] = 1.0f - iou;
         }

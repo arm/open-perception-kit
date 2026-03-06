@@ -73,7 +73,6 @@ class Processor {
     uint64_t nextTrackId = 1;
     uint64_t frameCounter = 0;
 
-    float computeIOU(const amp::Perception::Rect &a, const amp::Perception::Rect &b) const;
     amp::Perception::TrackTrace::Point predictCenterPoint(Track &track, const Config &config);
     amp::Perception::TrackTrace::Point updateCenterPointWithMeasurement(
         Track &track, const amp::Perception::Rect &detection, const Config &config);

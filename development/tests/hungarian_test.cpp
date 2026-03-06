@@ -4,7 +4,7 @@
 
 #include <gtest/gtest.h>
 
-#include "Hungarian.h"
+#include "algo/Hungarian.h"
 
 #include <set>
 #include <vector>
