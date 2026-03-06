@@ -128,6 +128,7 @@ struct Perception {
         // "eyeYawPitch"
         // "classification"
         // "personClassification"
+        // "trackTrace"
         std::string contentType;
 
         std::vector<Perception::Detection> detections;
