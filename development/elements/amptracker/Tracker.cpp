@@ -7,10 +7,112 @@
 #include <algorithm>
 #include <cmath>
 #include <fmt/core.h>
-#include <set>
-#include <tuple>
+#include <limits>
 
 namespace amp::tracker {
+
+namespace {
+
+std::vector<int> solveHungarian(const std::vector<std::vector<float>> &inputCost) {
+    if (inputCost.empty() || inputCost.front().empty()) {
+        return {};
+    }
+
+    const size_t originalRows = inputCost.size();
+    const size_t originalCols = inputCost.front().size();
+
+    bool transposed = false;
+    std::vector<std::vector<float>> cost = inputCost;
+
+    if (originalRows > originalCols) {
+        transposed = true;
+        cost.assign(originalCols, std::vector<float>(originalRows, 0.0f));
+        for (size_t r = 0; r < originalRows; ++r) {
+            for (size_t c = 0; c < originalCols; ++c) {
+                cost[c][r] = inputCost[r][c];
+            }
+        }
+    }
+
+    const auto n = static_cast<int>(cost.size());
+    const auto m = static_cast<int>(cost.front().size());
+
+    std::vector<float> u(n + 1, 0.0f);
+    std::vector<float> v(m + 1, 0.0f);
+    std::vector<int> p(m + 1, 0);
+    std::vector<int> way(m + 1, 0);
+
+    for (int i = 1; i <= n; ++i) {
+        p[0] = i;
+        int j0 = 0;
+        std::vector<float> minv(m + 1, std::numeric_limits<float>::max());
+        std::vector<bool> used(m + 1, false);
+
+        do {
+            used[j0] = true;
+            const int i0 = p[j0];
+            float delta = std::numeric_limits<float>::max();
+            int j1 = 0;
+
+            for (int j = 1; j <= m; ++j) {
+                if (used[j]) {
+                    continue;
+                }
+
+                const float cur = cost[i0 - 1][j - 1] - u[i0] - v[j];
+                if (cur < minv[j]) {
+                    minv[j] = cur;
+                    way[j] = j0;
+                }
+                if (minv[j] < delta) {
+                    delta = minv[j];
+                    j1 = j;
+                }
+            }
+
+            for (int j = 0; j <= m; ++j) {
+                if (used[j]) {
+                    u[p[j]] += delta;
+                    v[j] -= delta;
+                } else {
+                    minv[j] -= delta;
+                }
+            }
+
+            j0 = j1;
+        } while (p[j0] != 0);
+
+        do {
+            const int j1 = way[j0];
+            p[j0] = p[j1];
+            j0 = j1;
+        } while (j0 != 0);
+    }
+
+    std::vector<int> assignmentRows(static_cast<size_t>(n), -1);
+    for (int j = 1; j <= m; ++j) {
+        if (p[j] != 0) {
+            assignmentRows[static_cast<size_t>(p[j] - 1)] = j - 1;
+        }
+    }
+
+    if (!transposed) {
+        return assignmentRows;
+    }
+
+    std::vector<int> assignmentOriginalRows(originalRows, -1);
+    for (size_t transposedRow = 0; transposedRow < assignmentRows.size(); ++transposedRow) {
+        const int transposedCol = assignmentRows[transposedRow];
+        if (transposedCol >= 0) {
+            assignmentOriginalRows[static_cast<size_t>(transposedCol)] =
+                static_cast<int>(transposedRow);
+        }
+    }
+
+    return assignmentOriginalRows;
+}
+
+} // namespace
 
 void Processor::reset() {
     activeTracks.clear();
@@ -146,36 +248,58 @@ void Processor::matchDetectionsToTracks(const std::vector<amp::Perception::Rect>
         return;
     }
 
-    std::vector<std::tuple<float, size_t, uint64_t>> candidates;
+    if (activeTracks.empty()) {
+        unmatchedDetections.resize(detections.size());
+        for (size_t detIdx = 0; detIdx < detections.size(); ++detIdx) {
+            unmatchedDetections[detIdx] = detIdx;
+        }
+        return;
+    }
+
+    std::vector<uint64_t> trackIds;
+    trackIds.reserve(activeTracks.size());
+    for (const auto &[trackId, track] : activeTracks) {
+        (void)track;
+        trackIds.push_back(trackId);
+    }
+
+    std::vector<std::vector<float>> iouMatrix(detections.size(),
+                                              std::vector<float>(trackIds.size(), 0.0f));
+    std::vector<std::vector<float>> costMatrix(detections.size(),
+                                               std::vector<float>(trackIds.size(), 1.0f));
 
     for (size_t detIdx = 0; detIdx < detections.size(); ++detIdx) {
         const auto &det = detections[detIdx];
-        for (const auto &[trackId, track] : activeTracks) {
-            const float iou = computeIOU(det, track.lastDetection);
-            if (iou >= config.iouThreshold) {
-                candidates.emplace_back(iou, detIdx, trackId);
+        for (size_t trackIdx = 0; trackIdx < trackIds.size(); ++trackIdx) {
+            const auto trackIt = activeTracks.find(trackIds[trackIdx]);
+            if (trackIt == activeTracks.end()) {
+                continue;
             }
+            const auto &track = trackIt->second;
+            const float iou = computeIOU(det, track.lastDetection);
+            iouMatrix[detIdx][trackIdx] = iou;
+            costMatrix[detIdx][trackIdx] = 1.0f - iou;
         }
     }
 
-    std::sort(candidates.begin(), candidates.end(), [](const auto &a, const auto &b) {
-        return std::get<0>(a) > std::get<0>(b);
-    });
+    const auto assignment = solveHungarian(costMatrix);
+    std::vector<bool> matchedDetection(detections.size(), false);
 
-    std::set<size_t> matchedDetections;
-    std::set<uint64_t> matchedTracks;
+    for (size_t detIdx = 0; detIdx < assignment.size() && detIdx < detections.size(); ++detIdx) {
+        const int trackIdx = assignment[detIdx];
+        if (trackIdx < 0 || static_cast<size_t>(trackIdx) >= trackIds.size()) {
+            continue;
+        }
 
-    for (const auto &[iou, detIdx, trackId] : candidates) {
-        (void)iou;
-        if (matchedDetections.count(detIdx) == 0 && matchedTracks.count(trackId) == 0) {
-            matches.push_back({detIdx, trackId});
-            matchedDetections.insert(detIdx);
-            matchedTracks.insert(trackId);
+        const float iou = iouMatrix[detIdx][static_cast<size_t>(trackIdx)];
+        if (iou >= config.iouThreshold) {
+            matches.push_back({detIdx, trackIds[static_cast<size_t>(trackIdx)]});
+            matchedDetection[detIdx] = true;
         }
     }
 
     for (size_t detIdx = 0; detIdx < detections.size(); ++detIdx) {
-        if (matchedDetections.count(detIdx) == 0) {
+        if (!matchedDetection[detIdx]) {
             unmatchedDetections.push_back(detIdx);
         }
     }
