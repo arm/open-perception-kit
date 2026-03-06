@@ -21,7 +21,6 @@ inline constexpr float iouThreshold = 0.3f;
 inline constexpr int maxMissedFrames = 5;
 inline constexpr int minHitsToConfirm = 5;
 inline constexpr bool appendTrackIdToText = true;
-inline constexpr int traceHistoryLength = 20;
 inline constexpr float traceHistorySeconds = 5.0f;
 inline constexpr const char *traceContentType = "trackTrace";
 inline constexpr float kalmanDt = 1.0f / 30.0f;
@@ -38,7 +37,6 @@ struct Config {
     int maxMissedFrames = Defaults::maxMissedFrames;
     int minHitsToConfirm = Defaults::minHitsToConfirm;
     bool appendTrackIdToText = Defaults::appendTrackIdToText;
-    int traceHistoryLength = Defaults::traceHistoryLength;
     float traceHistorySeconds = Defaults::traceHistorySeconds;
     std::string traceContentType = Defaults::traceContentType;
     float kalmanDt = Defaults::kalmanDt;

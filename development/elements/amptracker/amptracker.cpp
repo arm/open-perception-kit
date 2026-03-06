@@ -28,7 +28,6 @@ struct _GstAmpTracker {
     gint maxMissedFrames;
     gint minHitsToConfirm;
     gboolean appendTrackIdToText;
-    gint traceHistoryLength;
     gfloat traceHistorySeconds;
     gchar *traceContentType;
     gfloat kalmanDt;
@@ -57,7 +56,6 @@ enum {
     PROP_MAX_MISSED_FRAMES,
     PROP_MIN_HITS_TO_CONFIRM,
     PROP_APPEND_TRACK_ID_TO_TEXT,
-    PROP_TRACE_HISTORY_LENGTH,
     PROP_TRACE_HISTORY_SECONDS,
     PROP_TRACE_CONTENT_TYPE,
     PROP_KALMAN_DT,
@@ -76,7 +74,6 @@ static amp::tracker::Config trackerConfigFromElement(const GstAmpTracker *self) 
     config.maxMissedFrames = self->maxMissedFrames;
     config.minHitsToConfirm = self->minHitsToConfirm;
     config.appendTrackIdToText = self->appendTrackIdToText;
-    config.traceHistoryLength = self->traceHistoryLength;
     config.traceHistorySeconds = self->traceHistorySeconds;
     config.traceContentType =
         self->traceContentType ? self->traceContentType : amp::tracker::Defaults::traceContentType;
@@ -165,9 +162,6 @@ static void gst_amptracker_set_property(GObject *o, guint id, const GValue *v, G
     case PROP_APPEND_TRACK_ID_TO_TEXT:
         self->appendTrackIdToText = g_value_get_boolean(v);
         break;
-    case PROP_TRACE_HISTORY_LENGTH:
-        self->traceHistoryLength = g_value_get_int(v);
-        break;
     case PROP_TRACE_HISTORY_SECONDS:
         self->traceHistorySeconds = g_value_get_float(v);
         break;
@@ -215,9 +209,6 @@ static void gst_amptracker_get_property(GObject *o, guint id, GValue *v, GParamS
         break;
     case PROP_APPEND_TRACK_ID_TO_TEXT:
         g_value_set_boolean(v, self->appendTrackIdToText);
-        break;
-    case PROP_TRACE_HISTORY_LENGTH:
-        g_value_set_int(v, self->traceHistoryLength);
         break;
     case PROP_TRACE_HISTORY_SECONDS:
         g_value_set_float(v, self->traceHistorySeconds);
@@ -325,25 +316,15 @@ static void gst_amptracker_class_init(GstAmpTrackerClass *klass) {
 
     g_object_class_install_property(
         gobj,
-        PROP_TRACE_HISTORY_LENGTH,
-        g_param_spec_int("trace-history-length",
-                         "Trace history length",
-                         "Number of points in track trace",
-                         1,
-                         G_MAXINT,
-                         amp::tracker::Defaults::traceHistoryLength,
-                         (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(
-        gobj,
         PROP_TRACE_HISTORY_SECONDS,
-        g_param_spec_float("trace-history-seconds",
-                           "Trace history seconds",
-                           "Optional time-window for trace history",
-                           0.0f,
-                           G_MAXFLOAT,
-                           amp::tracker::Defaults::traceHistorySeconds,
-                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+        g_param_spec_float(
+            "trace-history-seconds",
+            "Trace history seconds",
+            "Time-window for trace history (stored points: ceil(seconds / kalman-dt))",
+            0.0f,
+            G_MAXFLOAT,
+            amp::tracker::Defaults::traceHistorySeconds,
+            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
         gobj,
@@ -447,7 +428,6 @@ static void gst_amptracker_init(GstAmpTracker *self) {
     self->maxMissedFrames = amp::tracker::Defaults::maxMissedFrames;
     self->minHitsToConfirm = amp::tracker::Defaults::minHitsToConfirm;
     self->appendTrackIdToText = amp::tracker::Defaults::appendTrackIdToText;
-    self->traceHistoryLength = amp::tracker::Defaults::traceHistoryLength;
     self->traceHistorySeconds = amp::tracker::Defaults::traceHistorySeconds;
     self->traceContentType = g_strdup(amp::tracker::Defaults::traceContentType);
     self->kalmanDt = amp::tracker::Defaults::kalmanDt;

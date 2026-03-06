@@ -102,7 +102,7 @@ void Processor::appendTracePoint(Track &track,
                                  const Config &config) {
     track.tracePoints.push_back(point);
 
-    int historyPoints = config.traceHistoryLength;
+    int historyPoints = 1;
     if (config.traceHistorySeconds > 0.0f && config.kalmanDt > 0.0f) {
         historyPoints = static_cast<int>(std::ceil(config.traceHistorySeconds / config.kalmanDt));
     }
