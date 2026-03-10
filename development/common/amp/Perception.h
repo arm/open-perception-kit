@@ -99,12 +99,18 @@ struct Perception {
         std::vector<Point> points;
     };
 
+    // object embedding vector (e.g. ReID descriptor) linked to a parent detection
+    struct ObjectEmbedding : public Object {
+        std::vector<float> values;
+    };
+
     // one detextion instance
     using Detection = std::variant<Rect,
                                    YawPitch,
                                    LocalizedText,
                                    SegmentationMap,
                                    TrackTrace,
+                                   ObjectEmbedding,
                                    VideoFrame,
                                    Classification,
                                    AudioFrame>;

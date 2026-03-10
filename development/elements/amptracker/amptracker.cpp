@@ -24,6 +24,12 @@ struct _GstAmpTracker {
     GstVideoInfo vinfo;
 
     gchar *contentType;
+    gboolean useEmbeddings;
+    gchar *embeddingContentType;
+    gfloat embeddingWeight;
+    gfloat minCosineSimilarity;
+    gfloat reidReassociateThreshold;
+    gfloat dormantTrackHistorySeconds;
     gfloat iouThreshold;
     gint maxMissedFrames;
     gint minHitsToConfirm;
@@ -51,6 +57,12 @@ G_DEFINE_TYPE(GstAmpTracker, gst_amptracker, GST_TYPE_BASE_TRANSFORM)
 enum {
     PROP_0,
     PROP_CONTENT_TYPE,
+    PROP_USE_EMBEDDINGS,
+    PROP_EMBEDDING_CONTENT_TYPE,
+    PROP_EMBEDDING_WEIGHT,
+    PROP_MIN_COSINE_SIMILARITY,
+    PROP_REID_REASSOCIATE_THRESHOLD,
+    PROP_DORMANT_TRACK_HISTORY_SECONDS,
     PROP_IOU_THRESHOLD,
     PROP_MAX_MISSED_FRAMES,
     PROP_MIN_HITS_TO_CONFIRM,
@@ -68,6 +80,14 @@ static amp::tracker::Config trackerConfigFromElement(const GstAmpTracker *self) 
     amp::tracker::Config config;
     config.contentType =
         self->contentType ? self->contentType : amp::tracker::Defaults::contentType;
+    config.useEmbeddings = self->useEmbeddings;
+    config.embeddingContentType = self->embeddingContentType
+                                      ? self->embeddingContentType
+                                      : amp::tracker::Defaults::embeddingContentType;
+    config.embeddingWeight = self->embeddingWeight;
+    config.minCosineSimilarity = self->minCosineSimilarity;
+    config.reidReassociateThreshold = self->reidReassociateThreshold;
+    config.dormantTrackHistorySeconds = self->dormantTrackHistorySeconds;
     config.iouThreshold = self->iouThreshold;
     config.maxMissedFrames = self->maxMissedFrames;
     config.minHitsToConfirm = self->minHitsToConfirm;
@@ -146,6 +166,25 @@ static void gst_amptracker_set_property(GObject *o, guint id, const GValue *v, G
         g_free(self->contentType);
         self->contentType = g_value_dup_string(v);
         break;
+    case PROP_USE_EMBEDDINGS:
+        self->useEmbeddings = g_value_get_boolean(v);
+        break;
+    case PROP_EMBEDDING_CONTENT_TYPE:
+        g_free(self->embeddingContentType);
+        self->embeddingContentType = g_value_dup_string(v);
+        break;
+    case PROP_EMBEDDING_WEIGHT:
+        self->embeddingWeight = g_value_get_float(v);
+        break;
+    case PROP_MIN_COSINE_SIMILARITY:
+        self->minCosineSimilarity = g_value_get_float(v);
+        break;
+    case PROP_REID_REASSOCIATE_THRESHOLD:
+        self->reidReassociateThreshold = g_value_get_float(v);
+        break;
+    case PROP_DORMANT_TRACK_HISTORY_SECONDS:
+        self->dormantTrackHistorySeconds = g_value_get_float(v);
+        break;
     case PROP_IOU_THRESHOLD:
         self->iouThreshold = g_value_get_float(v);
         break;
@@ -189,6 +228,24 @@ static void gst_amptracker_get_property(GObject *o, guint id, GValue *v, GParamS
     switch (id) {
     case PROP_CONTENT_TYPE:
         g_value_set_string(v, self->contentType);
+        break;
+    case PROP_USE_EMBEDDINGS:
+        g_value_set_boolean(v, self->useEmbeddings);
+        break;
+    case PROP_EMBEDDING_CONTENT_TYPE:
+        g_value_set_string(v, self->embeddingContentType);
+        break;
+    case PROP_EMBEDDING_WEIGHT:
+        g_value_set_float(v, self->embeddingWeight);
+        break;
+    case PROP_MIN_COSINE_SIMILARITY:
+        g_value_set_float(v, self->minCosineSimilarity);
+        break;
+    case PROP_REID_REASSOCIATE_THRESHOLD:
+        g_value_set_float(v, self->reidReassociateThreshold);
+        break;
+    case PROP_DORMANT_TRACK_HISTORY_SECONDS:
+        g_value_set_float(v, self->dormantTrackHistorySeconds);
         break;
     case PROP_IOU_THRESHOLD:
         g_value_set_float(v, self->iouThreshold);
@@ -234,6 +291,9 @@ static void gst_amptracker_finalize(GObject *object) {
     g_free(self->contentType);
     self->contentType = nullptr;
 
+    g_free(self->embeddingContentType);
+    self->embeddingContentType = nullptr;
+
     delete self->m;
     self->m = nullptr;
 
@@ -257,6 +317,68 @@ static void gst_amptracker_class_init(GstAmpTrackerClass *klass) {
                             "Perception layer contentType to track",
                             amp::tracker::Defaults::contentType,
                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
+        gobj,
+        PROP_USE_EMBEDDINGS,
+        g_param_spec_boolean("use-embeddings",
+                             "Use embeddings",
+                             "Enable ReID embedding-based association",
+                             amp::tracker::Defaults::useEmbeddings,
+                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
+        gobj,
+        PROP_EMBEDDING_CONTENT_TYPE,
+        g_param_spec_string("embedding-content-type",
+                            "Embedding content type",
+                            "Perception layer contentType containing object embeddings",
+                            amp::tracker::Defaults::embeddingContentType,
+                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
+        gobj,
+        PROP_EMBEDDING_WEIGHT,
+        g_param_spec_float("embedding-weight",
+                           "Embedding weight",
+                           "Blend factor between IoU and embedding cost (0..1)",
+                           0.0f,
+                           1.0f,
+                           amp::tracker::Defaults::embeddingWeight,
+                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
+        gobj,
+        PROP_MIN_COSINE_SIMILARITY,
+        g_param_spec_float("min-cosine-similarity",
+                           "Min cosine similarity",
+                           "Minimum cosine similarity to accept embedding contribution",
+                           -1.0f,
+                           1.0f,
+                           amp::tracker::Defaults::minCosineSimilarity,
+                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
+        gobj,
+        PROP_REID_REASSOCIATE_THRESHOLD,
+        g_param_spec_float("reid-reassociate-threshold",
+                           "ReID reassociate threshold",
+                           "Similarity threshold to restore identity from dormant gallery",
+                           -1.0f,
+                           1.0f,
+                           amp::tracker::Defaults::reidReassociateThreshold,
+                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
+        gobj,
+        PROP_DORMANT_TRACK_HISTORY_SECONDS,
+        g_param_spec_float("dormant-track-history-seconds",
+                           "Dormant track history seconds",
+                           "How long expired track embeddings remain available for reassociation",
+                           0.0f,
+                           G_MAXFLOAT,
+                           amp::tracker::Defaults::dormantTrackHistorySeconds,
+                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
         gobj,
@@ -401,6 +523,12 @@ static void gst_amptracker_init(GstAmpTracker *self) {
     self->m = nullptr;
 
     self->contentType = g_strdup(amp::tracker::Defaults::contentType);
+    self->useEmbeddings = amp::tracker::Defaults::useEmbeddings;
+    self->embeddingContentType = g_strdup(amp::tracker::Defaults::embeddingContentType);
+    self->embeddingWeight = amp::tracker::Defaults::embeddingWeight;
+    self->minCosineSimilarity = amp::tracker::Defaults::minCosineSimilarity;
+    self->reidReassociateThreshold = amp::tracker::Defaults::reidReassociateThreshold;
+    self->dormantTrackHistorySeconds = amp::tracker::Defaults::dormantTrackHistorySeconds;
     self->iouThreshold = amp::tracker::Defaults::iouThreshold;
     self->maxMissedFrames = amp::tracker::Defaults::maxMissedFrames;
     self->minHitsToConfirm = amp::tracker::Defaults::minHitsToConfirm;

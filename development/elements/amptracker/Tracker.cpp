@@ -7,15 +7,76 @@
 #include "algo/Hungarian.h"
 #include "algo/IoU.h"
 
+#include <algorithm>
 #include <cmath>
 #include <fmt/core.h>
 
 namespace amp::tracker {
 
+static float cosineSimilarity(const std::vector<float> &a, const std::vector<float> &b) {
+    if (a.empty() || b.empty() || a.size() != b.size()) {
+        return 0.0f;
+    }
+
+    float dot = 0.0f;
+    float normA = 0.0f;
+    float normB = 0.0f;
+    for (size_t i = 0; i < a.size(); ++i) {
+        dot += a[i] * b[i];
+        normA += a[i] * a[i];
+        normB += b[i] * b[i];
+    }
+
+    if (normA <= 1e-12f || normB <= 1e-12f) {
+        return 0.0f;
+    }
+
+    return dot / (std::sqrt(normA) * std::sqrt(normB));
+}
+
+static bool isValidEmbedding(const std::vector<float> &embedding) {
+    if (embedding.empty()) {
+        return false;
+    }
+
+    float normSq = 0.0f;
+    for (const float value : embedding) {
+        if (!std::isfinite(value)) {
+            return false;
+        }
+        normSq += value * value;
+    }
+
+    return normSq > 1e-12f;
+}
+
 void Processor::reset() {
     activeTracks.clear();
+    dormantTracks.clear();
     nextTrackId = 1;
     frameCounter = 0;
+}
+
+void Processor::pruneDormantTracks(const Config &config) {
+    if (dormantTracks.empty()) {
+        return;
+    }
+
+    const float dt = std::max(config.kalmanDt, 1e-4f);
+    const uint64_t maxDormantFrames = static_cast<uint64_t>(
+        std::max(1.0f, std::ceil(std::max(config.dormantTrackHistorySeconds, 0.0f) / dt)));
+
+    std::vector<uint64_t> toErase;
+    toErase.reserve(dormantTracks.size());
+    for (const auto &[trackId, dormant] : dormantTracks) {
+        if ((frameCounter - dormant.storedAtFrame) > maxDormantFrames) {
+            toErase.push_back(trackId);
+        }
+    }
+
+    for (const auto trackId : toErase) {
+        dormantTracks.erase(trackId);
+    }
 }
 
 amp::Perception::TrackTrace::Point Processor::predictCenterPoint(Track &track,
@@ -113,11 +174,15 @@ void Processor::appendTracePoint(Track &track,
     }
 }
 
-void Processor::matchDetectionsToTracks(const std::vector<amp::Perception::Rect> &detections,
-                                        std::vector<std::pair<size_t, uint64_t>> &matches,
-                                        std::vector<size_t> &unmatchedDetections,
-                                        const Config &config) {
+void Processor::matchDetectionsToTracks(
+    const std::vector<amp::Perception::Rect> &detections,
+    const std::map<size_t, std::vector<float>> &detectionEmbeddings,
+    std::vector<std::pair<size_t, uint64_t>> &matches,
+    std::map<size_t, std::string> &matchDiagnosticsByDetection,
+    std::vector<size_t> &unmatchedDetections,
+    const Config &config) {
     matches.clear();
+    matchDiagnosticsByDetection.clear();
     unmatchedDetections.clear();
 
     if (detections.empty()) {
@@ -166,7 +231,27 @@ void Processor::matchDetectionsToTracks(const std::vector<amp::Perception::Rect>
         for (size_t trackIdx = 0; trackIdx < trackIds.size(); ++trackIdx) {
             const float iou = amp::algo::computeIoU(det, predictedTrackBoxes[trackIdx]);
             iouMatrix[detIdx][trackIdx] = iou;
-            costMatrix[detIdx][trackIdx] = 1.0f - iou;
+
+            float cost = 1.0f - iou;
+
+            if (config.useEmbeddings && config.embeddingWeight > 0.0f) {
+                const auto detEmbIt = detectionEmbeddings.find(detIdx);
+                auto trackIt = activeTracks.find(trackIds[trackIdx]);
+
+                if (detEmbIt != detectionEmbeddings.end() && trackIt != activeTracks.end() &&
+                    trackIt->second.hasEmbedding) {
+                    const float similarity =
+                        cosineSimilarity(detEmbIt->second, trackIt->second.lastEmbedding);
+
+                    if (similarity >= config.minCosineSimilarity) {
+                        const float embeddingCost = 1.0f - ((similarity + 1.0f) * 0.5f);
+                        const float w = std::clamp(config.embeddingWeight, 0.0f, 1.0f);
+                        cost = ((1.0f - w) * cost) + (w * embeddingCost);
+                    }
+                }
+            }
+
+            costMatrix[detIdx][trackIdx] = cost;
         }
     }
 
@@ -181,7 +266,24 @@ void Processor::matchDetectionsToTracks(const std::vector<amp::Perception::Rect>
 
         const float iou = iouMatrix[detIdx][static_cast<size_t>(trackIdx)];
         if (iou >= config.iouThreshold) {
-            matches.push_back({detIdx, trackIds[static_cast<size_t>(trackIdx)]});
+            const uint64_t matchedTrackId = trackIds[static_cast<size_t>(trackIdx)];
+            matches.push_back({detIdx, matchedTrackId});
+
+            std::string diagnostic = fmt::format("IOU:{:.2f}", iou);
+            if (config.useEmbeddings && config.embeddingWeight > 0.0f) {
+                const auto detEmbIt = detectionEmbeddings.find(detIdx);
+                const auto trackIt = activeTracks.find(matchedTrackId);
+                if (detEmbIt != detectionEmbeddings.end() && trackIt != activeTracks.end() &&
+                    trackIt->second.hasEmbedding) {
+                    const float similarity =
+                        cosineSimilarity(detEmbIt->second, trackIt->second.lastEmbedding);
+                    if (similarity >= config.minCosineSimilarity) {
+                        diagnostic = fmt::format("REID:{:.2f}", similarity);
+                    }
+                }
+            }
+
+            matchDiagnosticsByDetection[detIdx] = diagnostic;
             matchedDetection[detIdx] = true;
         }
     }
@@ -194,7 +296,9 @@ void Processor::matchDetectionsToTracks(const std::vector<amp::Perception::Rect>
 }
 
 void Processor::updateTracks(const std::vector<amp::Perception::Rect> &detections,
+                             const std::map<size_t, std::vector<float>> &detectionEmbeddings,
                              const std::vector<std::pair<size_t, uint64_t>> &matches,
+                             const std::map<size_t, std::string> &matchDiagnosticsByDetection,
                              const std::vector<size_t> &unmatchedDetections,
                              std::map<size_t, uint64_t> &assignedTrackByDetection,
                              std::vector<uint64_t> &predictedOnlyTrackIds,
@@ -213,18 +317,91 @@ void Processor::updateTracks(const std::vector<amp::Perception::Rect> &detection
             updateCenterPointWithMeasurement(track, track.lastDetection, config);
         appendTracePoint(track, smoothedPoint, config);
 
+        const auto diagIt = matchDiagnosticsByDetection.find(detIdx);
+        if (diagIt != matchDiagnosticsByDetection.end()) {
+            track.lastMatchDiagnostic = diagIt->second;
+        } else {
+            track.lastMatchDiagnostic = "IOU:N/A";
+        }
+
+        const auto embeddingIt = detectionEmbeddings.find(detIdx);
+        if (embeddingIt != detectionEmbeddings.end() && isValidEmbedding(embeddingIt->second)) {
+            track.lastEmbedding = embeddingIt->second;
+            track.hasEmbedding = true;
+        }
+
         track.lastDetection.x = smoothedPoint.x - (track.lastDetection.width * 0.5f);
         track.lastDetection.y = smoothedPoint.y - (track.lastDetection.height * 0.5f);
         assignedTrackByDetection[detIdx] = trackId;
     }
 
     for (size_t detIdx : unmatchedDetections) {
+        if (config.useEmbeddings && config.reidReassociateThreshold > 0.0f) {
+            const auto embeddingIt = detectionEmbeddings.find(detIdx);
+
+            if (embeddingIt != detectionEmbeddings.end() && isValidEmbedding(embeddingIt->second) &&
+                !dormantTracks.empty()) {
+                float bestSimilarity = -1.0f;
+                uint64_t bestDormantTrackId = 0;
+
+                for (const auto &[dormantTrackId, dormant] : dormantTracks) {
+                    if (!isValidEmbedding(dormant.lastEmbedding)) {
+                        continue;
+                    }
+
+                    const float similarity =
+                        cosineSimilarity(embeddingIt->second, dormant.lastEmbedding);
+                    if (similarity > bestSimilarity) {
+                        bestSimilarity = similarity;
+                        bestDormantTrackId = dormantTrackId;
+                    }
+                }
+
+                if (bestDormantTrackId > 0 && bestSimilarity >= config.reidReassociateThreshold) {
+                    const auto dormantIt = dormantTracks.find(bestDormantTrackId);
+                    if (dormantIt != dormantTracks.end()) {
+                        Track restoredTrack;
+                        restoredTrack.trackId = bestDormantTrackId;
+                        restoredTrack.lastDetection = detections[detIdx];
+                        restoredTrack.lastMatchDiagnostic =
+                            fmt::format("REID-R:{:.2f}", bestSimilarity);
+                        restoredTrack.lastEmbedding = embeddingIt->second;
+                        restoredTrack.hasEmbedding = true;
+                        restoredTrack.missedFrames = 0;
+                        restoredTrack.hitStreak = std::max(1, config.minHitsToConfirm);
+                        restoredTrack.lastUpdateFrame = frameCounter;
+
+                        const auto initPoint = predictCenterPoint(restoredTrack, config);
+                        restoredTrack.predictedThisFrame = true;
+                        appendTracePoint(restoredTrack, initPoint, config);
+                        restoredTrack.lastDetection.x =
+                            initPoint.x - (restoredTrack.lastDetection.width * 0.5f);
+                        restoredTrack.lastDetection.y =
+                            initPoint.y - (restoredTrack.lastDetection.height * 0.5f);
+
+                        activeTracks[bestDormantTrackId] = std::move(restoredTrack);
+                        assignedTrackByDetection[detIdx] = bestDormantTrackId;
+                        nextTrackId = std::max(nextTrackId, bestDormantTrackId + 1);
+                        dormantTracks.erase(dormantIt);
+                        continue;
+                    }
+                }
+            }
+        }
+
         Track newTrack;
         newTrack.trackId = nextTrackId++;
         newTrack.lastDetection = detections[detIdx];
+        newTrack.lastMatchDiagnostic = "NEW";
         newTrack.missedFrames = 0;
         newTrack.hitStreak = 1;
         newTrack.lastUpdateFrame = frameCounter;
+
+        const auto embeddingIt = detectionEmbeddings.find(detIdx);
+        if (embeddingIt != detectionEmbeddings.end() && isValidEmbedding(embeddingIt->second)) {
+            newTrack.lastEmbedding = embeddingIt->second;
+            newTrack.hasEmbedding = true;
+        }
 
         const auto initPoint = predictCenterPoint(newTrack, config);
         newTrack.predictedThisFrame = true;
@@ -257,6 +434,7 @@ void Processor::updateTracks(const std::vector<amp::Perception::Rect> &detection
 
             track.missedFrames++;
             if (track.missedFrames <= config.maxMissedFrames) {
+                track.lastMatchDiagnostic = "PRED";
                 predictedOnlyTrackIds.push_back(trackId);
             } else {
                 tracksToRemove.push_back(trackId);
@@ -265,12 +443,23 @@ void Processor::updateTracks(const std::vector<amp::Perception::Rect> &detection
     }
 
     for (const auto trackId : tracksToRemove) {
+        const auto trackIt = activeTracks.find(trackId);
+        if (trackIt != activeTracks.end() && trackIt->second.hasEmbedding &&
+            isValidEmbedding(trackIt->second.lastEmbedding)) {
+            DormantTrack dormant;
+            dormant.trackId = trackId;
+            dormant.lastDetection = trackIt->second.lastDetection;
+            dormant.lastEmbedding = trackIt->second.lastEmbedding;
+            dormant.storedAtFrame = frameCounter;
+            dormantTracks[trackId] = std::move(dormant);
+        }
         activeTracks.erase(trackId);
     }
 }
 
 void Processor::process(amp::Perception &perception, const Config &config) {
     frameCounter++;
+    pruneDormantTracks(config);
 
     for (auto &[trackId, track] : activeTracks) {
         (void)trackId;
@@ -278,27 +467,62 @@ void Processor::process(amp::Perception &perception, const Config &config) {
     }
 
     std::vector<amp::Perception::Rect> currentDetections;
+    std::vector<uint64_t> currentDetectionUuids;
     std::vector<amp::Perception::Layer *> targetLayers;
+    std::map<uint64_t, std::vector<float>> embeddingByParentUuid;
+
+    if (config.useEmbeddings) {
+        for (const auto &layer : perception.layers) {
+            if (layer.contentType != config.embeddingContentType) {
+                continue;
+            }
+
+            for (const auto &det : layer.detections) {
+                if (const auto *embedding = std::get_if<amp::Perception::ObjectEmbedding>(&det)) {
+                    if (isValidEmbedding(embedding->values)) {
+                        embeddingByParentUuid[embedding->parentUuid] = embedding->values;
+                    }
+                }
+            }
+        }
+    }
 
     for (auto &layer : perception.layers) {
         if (layer.contentType == config.contentType) {
             for (auto &det : layer.detections) {
                 if (auto *rect = std::get_if<amp::Perception::Rect>(&det)) {
                     currentDetections.push_back(*rect);
+                    currentDetectionUuids.push_back(rect->uuid);
                 }
             }
             targetLayers.push_back(&layer);
         }
     }
 
+    std::map<size_t, std::vector<float>> detectionEmbeddingsByIndex;
+    for (size_t i = 0; i < currentDetectionUuids.size(); ++i) {
+        auto embeddingIt = embeddingByParentUuid.find(currentDetectionUuids[i]);
+        if (embeddingIt != embeddingByParentUuid.end()) {
+            detectionEmbeddingsByIndex[i] = embeddingIt->second;
+        }
+    }
+
     std::vector<std::pair<size_t, uint64_t>> matches;
+    std::map<size_t, std::string> matchDiagnosticsByDetection;
     std::vector<size_t> unmatchedDetections;
-    matchDetectionsToTracks(currentDetections, matches, unmatchedDetections, config);
+    matchDetectionsToTracks(currentDetections,
+                            detectionEmbeddingsByIndex,
+                            matches,
+                            matchDiagnosticsByDetection,
+                            unmatchedDetections,
+                            config);
 
     std::map<size_t, uint64_t> assignedTrackByDetection;
     std::vector<uint64_t> predictedOnlyTrackIds;
     updateTracks(currentDetections,
+                 detectionEmbeddingsByIndex,
                  matches,
+                 matchDiagnosticsByDetection,
                  unmatchedDetections,
                  assignedTrackByDetection,
                  predictedOnlyTrackIds,
@@ -322,10 +546,12 @@ void Processor::process(amp::Perception &perception, const Config &config) {
                         rect->y = it->second.lastDetection.y;
 
                         if (config.appendTrackIdToText) {
+                            const std::string trackDiag = it->second.lastMatchDiagnostic;
                             if (!rect->text.empty()) {
-                                rect->text = fmt::format("{} [ID:{}]", rect->text, assignedTrackId);
+                                rect->text = fmt::format(
+                                    "{} [ID:{} {}]", rect->text, assignedTrackId, trackDiag);
                             } else {
-                                rect->text = fmt::format("ID:{}", assignedTrackId);
+                                rect->text = fmt::format("ID:{} {}", assignedTrackId, trackDiag);
                             }
                         }
                     }
@@ -362,10 +588,12 @@ void Processor::process(amp::Perception &perception, const Config &config) {
 
         auto predictedRect = track.lastDetection;
         if (config.appendTrackIdToText) {
+            const std::string trackDiag = track.lastMatchDiagnostic;
             if (!predictedRect.text.empty()) {
-                predictedRect.text = fmt::format("{} [ID:{}]", predictedRect.text, trackId);
+                predictedRect.text =
+                    fmt::format("{} [ID:{} {}]", predictedRect.text, trackId, trackDiag);
             } else {
-                predictedRect.text = fmt::format("ID:{}", trackId);
+                predictedRect.text = fmt::format("ID:{} {}", trackId, trackDiag);
             }
         }
 

@@ -21,6 +21,12 @@ inline constexpr float iouThreshold = 0.3f;
 inline constexpr int maxMissedFrames = 5;
 inline constexpr int minHitsToConfirm = 5;
 inline constexpr bool appendTrackIdToText = true;
+inline constexpr bool useEmbeddings = true;
+inline constexpr const char *embeddingContentType = "objectEmbedding";
+inline constexpr float embeddingWeight = 0.5f;
+inline constexpr float minCosineSimilarity = 0.0f;
+inline constexpr float reidReassociateThreshold = 0.65f;
+inline constexpr float dormantTrackHistorySeconds = 8.0f;
 inline constexpr float traceHistorySeconds = 5.0f;
 inline constexpr float kalmanDt = 1.0f / 30.0f;
 inline constexpr float kalmanInitialCovariancePos = 100.0f;
@@ -36,6 +42,12 @@ struct Config {
     int maxMissedFrames = Defaults::maxMissedFrames;
     int minHitsToConfirm = Defaults::minHitsToConfirm;
     bool appendTrackIdToText = Defaults::appendTrackIdToText;
+    bool useEmbeddings = Defaults::useEmbeddings;
+    std::string embeddingContentType = Defaults::embeddingContentType;
+    float embeddingWeight = Defaults::embeddingWeight;
+    float minCosineSimilarity = Defaults::minCosineSimilarity;
+    float reidReassociateThreshold = Defaults::reidReassociateThreshold;
+    float dormantTrackHistorySeconds = Defaults::dormantTrackHistorySeconds;
     float traceHistorySeconds = Defaults::traceHistorySeconds;
     float kalmanDt = Defaults::kalmanDt;
     float kalmanInitialCovariancePos = Defaults::kalmanInitialCovariancePos;
@@ -56,16 +68,27 @@ class Processor {
     struct Track {
         uint64_t trackId = 0;
         amp::Perception::Rect lastDetection;
+        std::string lastMatchDiagnostic = "NEW";
         std::deque<amp::Perception::TrackTrace::Point> tracePoints;
         bool kalmanInitialized = false;
         bool predictedThisFrame = false;
         TrackKalman kalman;
+        std::vector<float> lastEmbedding;
+        bool hasEmbedding = false;
         int missedFrames = 0;
         int hitStreak = 0;
         uint64_t lastUpdateFrame = 0;
     };
 
+    struct DormantTrack {
+        uint64_t trackId = 0;
+        amp::Perception::Rect lastDetection;
+        std::vector<float> lastEmbedding;
+        uint64_t storedAtFrame = 0;
+    };
+
     std::map<uint64_t, Track> activeTracks;
+    std::map<uint64_t, DormantTrack> dormantTracks;
     uint64_t nextTrackId = 1;
     uint64_t frameCounter = 0;
 
@@ -76,15 +99,20 @@ class Processor {
                           const amp::Perception::TrackTrace::Point &point,
                           const Config &config);
     void matchDetectionsToTracks(const std::vector<amp::Perception::Rect> &detections,
+                                 const std::map<size_t, std::vector<float>> &detectionEmbeddings,
                                  std::vector<std::pair<size_t, uint64_t>> &matches,
+                                 std::map<size_t, std::string> &matchDiagnosticsByDetection,
                                  std::vector<size_t> &unmatchedDetections,
                                  const Config &config);
     void updateTracks(const std::vector<amp::Perception::Rect> &detections,
+                      const std::map<size_t, std::vector<float>> &detectionEmbeddings,
                       const std::vector<std::pair<size_t, uint64_t>> &matches,
+                      const std::map<size_t, std::string> &matchDiagnosticsByDetection,
                       const std::vector<size_t> &unmatchedDetections,
                       std::map<size_t, uint64_t> &assignedTrackByDetection,
                       std::vector<uint64_t> &predictedOnlyTrackIds,
                       const Config &config);
+    void pruneDormantTracks(const Config &config);
 };
 
 } // namespace amp::tracker
