@@ -33,7 +33,7 @@ struct _GstAmpTracker {
     gfloat iouThreshold;
     gint maxMissedFrames;
     gint minHitsToConfirm;
-    gboolean appendTrackIdToText;
+    gboolean appendIdentityIdToText;
     gfloat traceHistorySeconds;
     gfloat kalmanDt;
     gfloat kalmanInitialCovariancePos;
@@ -49,7 +49,7 @@ struct _GstAmpTracker {
 G_END_DECLS
 
 struct _GstAmpTracker::Members {
-    amp::tracker::Processor processor;
+    amp::tracker::Tracker processor;
 };
 
 G_DEFINE_TYPE(GstAmpTracker, gst_amptracker, GST_TYPE_BASE_TRANSFORM)
@@ -91,7 +91,7 @@ static amp::tracker::Config trackerConfigFromElement(const GstAmpTracker *self) 
     config.iouThreshold = self->iouThreshold;
     config.maxMissedFrames = self->maxMissedFrames;
     config.minHitsToConfirm = self->minHitsToConfirm;
-    config.appendTrackIdToText = self->appendTrackIdToText;
+    config.appendIdentityIdToText = self->appendIdentityIdToText;
     config.traceHistorySeconds = self->traceHistorySeconds;
     config.kalmanDt = self->kalmanDt;
     config.kalmanInitialCovariancePos = self->kalmanInitialCovariancePos;
@@ -195,7 +195,7 @@ static void gst_amptracker_set_property(GObject *o, guint id, const GValue *v, G
         self->minHitsToConfirm = g_value_get_int(v);
         break;
     case PROP_APPEND_TRACK_ID_TO_TEXT:
-        self->appendTrackIdToText = g_value_get_boolean(v);
+        self->appendIdentityIdToText = g_value_get_boolean(v);
         break;
     case PROP_TRACE_HISTORY_SECONDS:
         self->traceHistorySeconds = g_value_get_float(v);
@@ -257,7 +257,7 @@ static void gst_amptracker_get_property(GObject *o, guint id, GValue *v, GParamS
         g_value_set_int(v, self->minHitsToConfirm);
         break;
     case PROP_APPEND_TRACK_ID_TO_TEXT:
-        g_value_set_boolean(v, self->appendTrackIdToText);
+        g_value_set_boolean(v, self->appendIdentityIdToText);
         break;
     case PROP_TRACE_HISTORY_SECONDS:
         g_value_set_float(v, self->traceHistorySeconds);
@@ -419,7 +419,7 @@ static void gst_amptracker_class_init(GstAmpTrackerClass *klass) {
         g_param_spec_boolean("append-track-id-to-text",
                              "Append track ID",
                              "Append [ID:n] to detection text",
-                             amp::tracker::Defaults::appendTrackIdToText,
+                             amp::tracker::Defaults::appendIdentityIdToText,
                              (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
@@ -532,7 +532,7 @@ static void gst_amptracker_init(GstAmpTracker *self) {
     self->iouThreshold = amp::tracker::Defaults::iouThreshold;
     self->maxMissedFrames = amp::tracker::Defaults::maxMissedFrames;
     self->minHitsToConfirm = amp::tracker::Defaults::minHitsToConfirm;
-    self->appendTrackIdToText = amp::tracker::Defaults::appendTrackIdToText;
+    self->appendIdentityIdToText = amp::tracker::Defaults::appendIdentityIdToText;
     self->traceHistorySeconds = amp::tracker::Defaults::traceHistorySeconds;
     self->kalmanDt = amp::tracker::Defaults::kalmanDt;
     self->kalmanInitialCovariancePos = amp::tracker::Defaults::kalmanInitialCovariancePos;

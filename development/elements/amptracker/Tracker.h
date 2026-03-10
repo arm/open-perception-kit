@@ -4,11 +4,12 @@
 
 #pragma once
 
-#include "KalmanFilter.h"
+#include "Identity.h"
 #include "amp/Perception.h"
 
+#include <cstddef>
 #include <cstdint>
-#include <deque>
+#include <functional>
 #include <map>
 #include <string>
 #include <vector>
@@ -20,7 +21,7 @@ inline constexpr const char *contentType = "genericObject";
 inline constexpr float iouThreshold = 0.3f;
 inline constexpr int maxMissedFrames = 5;
 inline constexpr int minHitsToConfirm = 5;
-inline constexpr bool appendTrackIdToText = true;
+inline constexpr bool appendIdentityIdToText = true;
 inline constexpr bool useEmbeddings = true;
 inline constexpr const char *embeddingContentType = "objectEmbedding";
 inline constexpr float embeddingWeight = 0.5f;
@@ -41,7 +42,7 @@ struct Config {
     float iouThreshold = Defaults::iouThreshold;
     int maxMissedFrames = Defaults::maxMissedFrames;
     int minHitsToConfirm = Defaults::minHitsToConfirm;
-    bool appendTrackIdToText = Defaults::appendTrackIdToText;
+    bool appendIdentityIdToText = Defaults::appendIdentityIdToText;
     bool useEmbeddings = Defaults::useEmbeddings;
     std::string embeddingContentType = Defaults::embeddingContentType;
     float embeddingWeight = Defaults::embeddingWeight;
@@ -57,62 +58,42 @@ struct Config {
     float kalmanMeasurementNoisePos = Defaults::kalmanMeasurementNoisePos;
 };
 
-class Processor {
+using IdentityId = uint64_t;
+using DetectionIndex = size_t;
+using DetectionIdentityAssignments = std::map<DetectionIndex, IdentityId>;
+using IdentityIdList = std::vector<IdentityId>;
+using ActiveIdentityMap = std::map<IdentityId, Identity>;
+using DormantIdentityMap = std::map<IdentityId, DormantIdentity>;
+
+using EmbeddingBatch = std::map<uint64_t, std::reference_wrapper<const std::vector<float>>>;
+using DetectionBatch = std::vector<amp::Perception::Rect>;
+using AssociationMatch = std::pair<DetectionIndex, IdentityId>;
+
+struct AssociationResult {
+    std::vector<AssociationMatch> matches;
+    std::map<DetectionIndex, std::string> diagnosticsByDetection;
+    std::vector<DetectionIndex> unmatchedDetections;
+};
+
+class Tracker {
   public:
+    /**
+     * @brief Resets tracker runtime state.
+     */
     void reset();
+
+    /**
+     * @brief Processes one perception frame through the tracking pipeline.
+     * @param perception Perception payload for the current frame.
+     * @param config Tracker runtime configuration.
+     */
     void process(amp::Perception &perception, const Config &config);
 
   private:
-    using TrackKalman = KalmanFilter<4, 2, float>;
-
-    struct Track {
-        uint64_t trackId = 0;
-        amp::Perception::Rect lastDetection;
-        std::string lastMatchDiagnostic = "NEW";
-        std::deque<amp::Perception::TrackTrace::Point> tracePoints;
-        bool kalmanInitialized = false;
-        bool predictedThisFrame = false;
-        TrackKalman kalman;
-        std::vector<float> lastEmbedding;
-        bool hasEmbedding = false;
-        int missedFrames = 0;
-        int hitStreak = 0;
-        uint64_t lastUpdateFrame = 0;
-    };
-
-    struct DormantTrack {
-        uint64_t trackId = 0;
-        amp::Perception::Rect lastDetection;
-        std::vector<float> lastEmbedding;
-        uint64_t storedAtFrame = 0;
-    };
-
-    std::map<uint64_t, Track> activeTracks;
-    std::map<uint64_t, DormantTrack> dormantTracks;
-    uint64_t nextTrackId = 1;
-    uint64_t frameCounter = 0;
-
-    amp::Perception::TrackTrace::Point predictCenterPoint(Track &track, const Config &config);
-    amp::Perception::TrackTrace::Point updateCenterPointWithMeasurement(
-        Track &track, const amp::Perception::Rect &detection, const Config &config);
-    void appendTracePoint(Track &track,
-                          const amp::Perception::TrackTrace::Point &point,
-                          const Config &config);
-    void matchDetectionsToTracks(const std::vector<amp::Perception::Rect> &detections,
-                                 const std::map<size_t, std::vector<float>> &detectionEmbeddings,
-                                 std::vector<std::pair<size_t, uint64_t>> &matches,
-                                 std::map<size_t, std::string> &matchDiagnosticsByDetection,
-                                 std::vector<size_t> &unmatchedDetections,
-                                 const Config &config);
-    void updateTracks(const std::vector<amp::Perception::Rect> &detections,
-                      const std::map<size_t, std::vector<float>> &detectionEmbeddings,
-                      const std::vector<std::pair<size_t, uint64_t>> &matches,
-                      const std::map<size_t, std::string> &matchDiagnosticsByDetection,
-                      const std::vector<size_t> &unmatchedDetections,
-                      std::map<size_t, uint64_t> &assignedTrackByDetection,
-                      std::vector<uint64_t> &predictedOnlyTrackIds,
-                      const Config &config);
-    void pruneDormantTracks(const Config &config);
+    ActiveIdentityMap activeTracks;
+    DormantIdentityMap inactiveTracks;
+    IdentityId nextTrackId = 1;
+    uint64_t currentFrameIndex = 0;
 };
 
 } // namespace amp::tracker
