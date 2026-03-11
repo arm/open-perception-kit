@@ -183,7 +183,7 @@ static gboolean gst_amp_osd_stop(GstBaseTransform *trans) {
 static std::unique_ptr<Osd::Layer> drawPerformanceLayer(GstAmpOsd *self,
                                                         float imgWidth,
                                                         float imgHeight,
-                                                        const amp::Perception &perceptionContext) {
+                                                        const amp::Perception &perception) {
     constexpr float line_height = 16.0f;
     constexpr float x_offset = 10.0f;
     constexpr float y_offset = 10.0f;
@@ -191,7 +191,7 @@ static std::unique_ptr<Osd::Layer> drawPerformanceLayer(GstAmpOsd *self,
     auto layer = std::make_unique<Osd::Layer>(imgWidth, imgHeight);
 
     float line_y_offset = y_offset;
-    for (const auto &line : perceptionContext.perfdata) {
+    for (const auto &line : perception.perfdata) {
         Osd::Text::draw(*layer,
                         Osd::Coordinate(x_offset, line_y_offset),
                         line,
