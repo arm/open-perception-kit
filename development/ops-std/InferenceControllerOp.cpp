@@ -8,7 +8,6 @@
 
 #include "amp/Perception.h"
 #include "amp/Result.h"
-#include "amp/TensorView.h"
 #include "amp/Types.h"
 #include "tl/expected.hpp"
 

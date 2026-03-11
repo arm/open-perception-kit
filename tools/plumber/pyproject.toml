@@ -1,0 +1,11 @@
+[project]
+name = "plumber"
+version = "0.1.0"
+description = "Automated test system for AMP"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "jmespath==1.1.0",
+    "numpy==2.4.2",
+    "pillow==12.1.1"
+]

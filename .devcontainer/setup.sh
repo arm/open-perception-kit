@@ -59,6 +59,9 @@ if [[ \$- == *i* ]] && [[ -z \${VIRTUAL_ENV:-} ]] && [[ -f $VENV_DIR/bin/activat
 fi"
 uv pip install --python "/$VENV_DIR/bin/python" --project . /work/tools/expkits-ci
 
+# -------- PLUMBER ---------
+uv pip install --python "/$VENV_DIR/bin/python" --project . /work/tools/plumber
+
 # ---------- ONNX ----------
 
 ARCH=$(uname -m)

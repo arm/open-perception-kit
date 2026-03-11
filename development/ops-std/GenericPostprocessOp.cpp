@@ -8,8 +8,8 @@
 #include <memory>
 
 #include "amp/Perception.h"
-#include "amp/TensorView.h"
 #include "amp/Types.h"
+
 #include "postproc/DummyParser.h"
 #include "postproc/GazeDetectionParser.h"
 #include "postproc/ImageNetClassificationParser.h"
@@ -95,6 +95,12 @@ amp::Result<void> GenericPostprocessOp::process(amp::OpChainContext &opChainCont
     if (!parseResult) {
         return parseResult;
     }
+
+    // TODO@ibori: what should I write here, if this happens on an audio branch of the pipeline?
+    rawDetectionLayer.layerProperties.emplace_back(Perception::FrameSize{
+        .width = opChainContext.inferenceInfo.image.width,
+        .height = opChainContext.inferenceInfo.image.height,
+    });
 
     // set parent uids
     for (auto &det : rawDetectionLayer.detections) {

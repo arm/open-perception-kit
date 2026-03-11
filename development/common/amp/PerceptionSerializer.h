@@ -163,6 +163,12 @@ inline void to_json(json &j, const Perception::LocalizedText &lt) {
     j["text"] = lt.text;
 }
 
+inline void to_json(json &j, const Perception::FrameSize &fs) {
+    j = json{};
+    j["w"] = fs.width;
+    j["h"] = fs.height;
+}
+
 // ---------- Bitmap strategy ----------
 
 // returns a nlohmann::json object describing the bitmap and containing base64'd compressed pixels
@@ -251,6 +257,14 @@ inline void to_json(json &j, const Perception::Detection &d) {
 
 // ---------- Layer + Perception ----------
 
+inline void to_json(json &j, const Perception::LayerProperty &lp) {
+    std::visit(
+        overloaded{
+            [&](const Perception::FrameSize &p) { j = json{{"type", "FrameSize"}, {"data", p}}; },
+        },
+        lp);
+}
+
 inline void to_json(json &j, const Perception::Layer &l) {
     j = json{
         {"engine", l.engine},
@@ -260,6 +274,7 @@ inline void to_json(json &j, const Perception::Layer &l) {
         {"contentType", l.contentType},
         {"detections", l.detections},
         {"infer-id", l.inferElementId},
+        {"layerProperties", l.layerProperties},
     };
 }
 
