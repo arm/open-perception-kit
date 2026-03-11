@@ -162,9 +162,11 @@ RUN apt-get update && \
         build-essential pkg-config cmake unzip xz-utils \
         powerline fonts-powerline eza bat clangd gosu \
         lua5.1 luarocks tree-sitter-cli wl-clipboard\
-        iproute2 iputils-ping traceroute iputils-arping dnsutils tcpdump nmap
+        iproute2 iputils-ping traceroute iputils-arping dnsutils tcpdump nmap \
+        npm
 
-RUN luarocks install jsregexp
+RUN luarocks install jsregexp && \
+    npm install -g pyright
 
 RUN chsh -s /usr/bin/zsh ${USERNAME}
 
