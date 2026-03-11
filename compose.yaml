@@ -43,6 +43,8 @@ services:
     network_mode: bridge
     container_name: amp-deployment-base
     hostname: amp-deployment-base
+    environment:
+      - AMP_PIPELINE=onnx
 
 # Topo-specific metadata
 # TODO: for some reason in case of topo deployment from WSL the container has x86 binaries inside it instead of arm64. Despite the platform specification in the compose file.
@@ -50,7 +52,11 @@ x-topo:
   name: "AMP TOPO Container"
   description: |
     Run AMP container
-
+  args:
+    AMP_PIPELINE:
+      description: | 
+        The AMP pipeline to run. This should be the name of a pipeline defined in pipelines.yaml. Some options include 'onnx', 'gaze', 'video' amd 'single_cam'.
+      default: "onnx"
   features:
     - "SME"
     - "NEON"
