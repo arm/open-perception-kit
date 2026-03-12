@@ -2,6 +2,8 @@
 /*************************************************************
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
+#include "amp/Tools.h"
+#include "gst/GstMetaWrapper.h"
 #include "gst/gstpad.h"
 #include <cairo.h>
 #include <cstring>
@@ -13,6 +15,7 @@
 #include <string>
 
 #include <cairo.h>
+#include <variant>
 
 #include "PerformanceTracer.h"
 #include "gst/PerceptionMeta.h"
@@ -509,18 +512,30 @@ static GstFlowReturn gst_amp_performance_transform_frame_ip(GstVideoFilter *filt
 
     // Get PerceptionContextMeta
 
-    GstBuffer *writable_buf = gst_buffer_make_writable(frame->buffer);
-    auto ret = amp::PerceptionMeta::mutate<GstFlowReturn>(
-        writable_buf, GST_FLOW_CUSTOM_ERROR, [self](auto &perception) -> auto {
+    // GstBuffer *writable_buf = gst_buffer_make_writable(frame->buffer);
+    auto ret =
+        amp::PerceptionMeta::mutate<GstFlowReturn>(frame->buffer, [self](auto &perception) -> auto {
             perception.perfdata = self->cached_lines;
             return GST_FLOW_OK;
         });
 
-    if (ret != GST_FLOW_OK) {
-        AMP_ABORT;
+    using ME = amp::MetaError;
+    if (std::holds_alternative<ME>(ret)) {
+        switch (std::get<ME>(ret)) {
+        case ME::OK:
+        case ME::NO_METADATA:
+            // NO_METADATA means no AI model is running
+            // so no Perceiption is available.
+            // which is normal
+            return GST_FLOW_OK;
+        }
+    } else {
+        if (std::get<GstFlowReturn>(ret) != GST_FLOW_OK) {
+            AMP_ABORT;
+        }
     }
 
-    return ret;
+    return GST_FLOW_OK;
 }
 
 static gboolean gst_amp_performance_sink_event(GstBaseTransform *trans, GstEvent *event) {

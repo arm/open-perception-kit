@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <fmt/core.h>
 #include <memory>
+#include <variant>
 
 #include "glib-object.h"
 #include "glib.h"
@@ -208,7 +209,7 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     }
 
     auto ret = amp::PerceptionMeta::mutate<GstFlowReturn>(
-        buf, GST_FLOW_CUSTOM_ERROR, [self, rgb, frameWidth, frameHeight](auto &perception) -> auto {
+        buf, [self, rgb, frameWidth, frameHeight](auto &perception) -> auto {
             amp::OpChainContext opChainContext;
             opChainContext.inferenceInfo.inferElementId =
                 std::string(gst_ampinfer_get_effective_inferId(self));
@@ -228,12 +229,15 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
             return GST_FLOW_OK;
         });
 
-    if (ret != GST_FLOW_OK) {
+    using ME = amp::MetaError;
+    if ((std::holds_alternative<GstFlowReturn>(ret) &&
+         std::get<GstFlowReturn>(ret) != GST_FLOW_OK) ||
+        std::holds_alternative<ME>(ret)) {
         gst_buffer_unmap(buf, &map);
         AMP_ABORT;
     }
 
-    return ret;
+    return GST_FLOW_OK;
 }
 
 // ---------------- properties & class init ----------------

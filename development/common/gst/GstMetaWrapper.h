@@ -1,9 +1,16 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <gst/gst.h>
+#include <iostream>
 #include <memory>
 #include <utility>
+#include <variant>
 
 namespace amp {
 
@@ -19,6 +26,11 @@ namespace amp {
 template <class Traits> struct MetaContainer {
     GstMeta meta;
     std::shared_ptr<typename Traits::Payload> payload;
+};
+
+enum class MetaError {
+    OK,
+    NO_METADATA,
 };
 
 template <class Traits> class Meta {
@@ -95,12 +107,13 @@ template <class Traits> class Meta {
 
     // ---- Mutating access with copy-on-write ----
     template <class R>
-    static R
-    mutate(GstBuffer *buf, const R &on_error, std::function<R(typename Traits::Payload &)> &&fn) {
+    static std::variant<R, MetaError> mutate(GstBuffer *buf,
+                                             std::function<R(typename Traits::Payload &)> &&fn) {
         // You should call gst_buffer_make_writable() in the element before mutating meta.
         auto *m = get(buf);
-        if (!m || !m->payload)
-            return on_error;
+        if (!m || !m->payload) {
+            return MetaError::NO_METADATA;
+        }
 
         // Copy-on-write: if shared, clone before modifying.
         if (!m->payload.unique()) {
