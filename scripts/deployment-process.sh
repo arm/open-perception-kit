@@ -15,9 +15,6 @@ sudo chmod +x ./scripts/amp-menu ./scripts/serve-docs.sh ./scripts/build-element
 
 .devcontainer/setup.sh
 .devcontainer/platform_init.sh amp-dev-base
-./scripts/build-elements.sh clean
-./scripts/build-elements.sh debug false
-./scripts/gen-doc.sh
 
 # Run scripts and redirect output to container log
 ./scripts/serve-docs.sh &

@@ -1,0 +1,32 @@
+services:
+  amp-common: &amp-common
+    cap_add:
+      - SYS_PTRACE
+
+    security_opt:
+      - seccomp:unconfined
+
+    privileged: true
+
+    environment:
+      - WAYLAND_DISPLAY=wayland-0
+      - DISPLAY
+      - USERNAME=devgoblin
+
+    env_file:
+      - devices.env
+
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - .:/work
+      - /run/udev:/run/udev:ro
+
+    ports:
+      - 8000:8000
+      - 8080:8080
+      - 8001:8001
+      - 9999:9999
+
+    stdin_open: true
+    tty: true
+    restart: unless-stopped

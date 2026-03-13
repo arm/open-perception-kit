@@ -1,0 +1,26 @@
+services:
+  amp-dev-base:
+    extends: 
+      file: ../compose.base.yaml
+      service: amp-common
+
+    network_mode: bridge
+    container_name: amp-dev-forge
+    hostname: amp-dev-forge
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: amp-dev-base
+
+  amp-dev-rpi5:
+    extends: 
+      file: ../compose.base.yaml
+      service: amp-common
+
+    network_mode: host
+    container_name: amp-dev-forge
+    hostname: amp-dev-forge
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: amp-dev-rpi5

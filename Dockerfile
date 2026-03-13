@@ -1,5 +1,7 @@
-########## Base container defaults ##########
-FROM --platform=linux debian:trixie-slim AS amp-dev-base
+######################################################################
+########## Base container defaults: bare minimum to run AMP ##########
+######################################################################
+FROM debian:trixie-slim AS amp-base
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8 \
@@ -15,62 +17,29 @@ RUN set -eux; uname -a; cat /etc/os-release; dpkg --print-architecture
 # Always start with update
 RUN set -eux; apt-get update
 
-# QoL tools
+# Minimal core tools (runtime + build)
+RUN set -eux; \
+apt-get install -y --no-install-recommends \
+    ca-certificates curl wget sudo unzip gnupg \
+    build-essential meson ninja-build pkg-config cmake \
+    libssl-dev libfmt-dev libsoup-3.0-dev libjson-glib-dev libcairo2-dev zip python3 python3-pip 
+
+# GStreamer core + base
 RUN set -eux; \
   apt-get install -y --no-install-recommends \
-    ca-certificates curl wget git sudo bash-completion mc unzip vim nano gnupg shfmt
-
-# Build tools
-RUN set -eux; \
-  apt-get install -y --no-install-recommends \
-    build-essential emscripten meson ninja-build pkg-config gdb cmake build-essential pkg-config libsoup-3.0-dev libjson-glib-dev \
-    clangd ssh clang-format libcairo2-dev pandoc zip openjdk-25-jdk graphviz doxygen
-
-# Python + core libs
-RUN set -eux; \
-  apt-get install -y --no-install-recommends \
-    python3 python3-dev python3-pip python3-venv python3-gi python3-gst-1.0 \
-    libssl-dev libffi-dev zlib1g-dev libbz2-dev liblzma-dev libsqlite3-dev libfmt-dev pre-commit libfmt-dev
-
-# GStreamer core
-RUN set -eux; \
-  apt-get install -y --no-install-recommends \
-    libgstreamer1.0-dev gstreamer1.0-tools
-
-# GStreamer base + GL/X
-RUN set -eux; \
-  apt-get install -y --no-install-recommends \
-    libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-x gstreamer1.0-gl
-
-# GStreamer extra plugins (bad/good/ugly)
-RUN set -eux; \
-  apt-get install -y --no-install-recommends \
-    libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-bad gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
-    gstreamer1.0-nice v4l-utils
-
-# libav can sometimes be the troublemaker; probe then install
-RUN set -eux; \
-  apt-get update; \
-  if apt-get install -y --no-install-recommends --dry-run gstreamer1.0-libav; then \
-    apt-get install -y --no-install-recommends gstreamer1.0-libav; \
-  else \
-    echo 'NOTE: gstreamer1.0-libav not available on this image/mirror'; \
-  fi
+    libgstreamer1.0-dev gstreamer1.0-tools gstreamer1.0-x gstreamer1.0-gl \
+    libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base \
+    libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-bad \
+    gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly  \
+    gstreamer1.0-nice 
 
 # Clean apt cache
-# RUN set -eux; update-ca-certificates || true; rm -rf /var/lib/apt/lists/*
 RUN set -eux; update-ca-certificates || true
 
 EXPOSE 8000
 EXPOSE 8001
 EXPOSE 9999
 EXPOSE 8080
-
-# uv (Python package manager)
-RUN set -eux; \
-  curl -LsSf https://astral.sh/uv/install.sh | \
-    env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh; \
-  uv --version
 
 # Non-root user
 ARG USERNAME=devgoblin
@@ -88,9 +57,6 @@ RUN set -eux; \
   chmod 0440 "/etc/sudoers.d/90-${USERNAME}"; \
   mkdir -p /work && chown -R "${USER_UID}:${USER_GID}" /work
 
-RUN groupadd -g 993 render || true && \
-    usermod -aG render "${USERNAME}" || true
-
 USER ${USERNAME}
 WORKDIR /work
 
@@ -98,16 +64,67 @@ WORKDIR /work
 ENV GST_DEBUG=2 \
     GST_PLUGIN_PATH=/work/development/build/meson-out
 
+ENV LD_LIBRARY_PATH=""
 ENV LD_LIBRARY_PATH="/work/deps/onnxruntime/lib:${LD_LIBRARY_PATH:-}"
-CMD ldconfig
 
-CMD ["sleep","infinity"]
+######################################################################
+################# Minimal container with docs and CI #################
+######################################################################
+FROM amp-base AS amp-docs-base
 
-########## RPI5 container ##########
+USER root
+
+# Dev / CI tools required for docs and quality checks
+RUN set -eux; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends \
+    git shfmt clang-format ssh \
+    openjdk-25-jdk graphviz pandoc pre-commit doxygen \
+    python3-dev python3-venv python3-gi python3-gst-1.0 \
+    libffi-dev zlib1g-dev libbz2-dev liblzma-dev libsqlite3-dev v4l-utils
+
+# uv (Python package manager) for dev/CI tooling
+RUN set -eux; \
+  curl -LsSf https://astral.sh/uv/install.sh | \
+    env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh; \
+  uv --version
+
+USER ${USERNAME}
+WORKDIR /work
+
+
+######################################################################
+#################### PC Base Development Container ###################
+######################################################################
+FROM amp-docs-base AS amp-dev-base
+
+USER root
+
+# Extra QoL and debugging tools for development shells
+RUN set -eux; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends \
+    locales bash-completion mc vim nano gdb clangd net-tools zsh \
+    openssh-client less ripgrep fd-find tmux
+
+# libav can sometimes be the troublemaker; probe then install
+RUN set -eux; \
+  apt-get update; \
+  if apt-get install -y --no-install-recommends --dry-run gstreamer1.0-libav; then \
+    apt-get install -y --no-install-recommends gstreamer1.0-libav; \
+  else \
+    echo 'NOTE: gstreamer1.0-libav not available on this image/mirror'; \
+  fi
+
+USER ${USERNAME}
+WORKDIR /work
+
+######################################################################
+###################### RPI5 Development Container ####################
+######################################################################
 FROM amp-dev-base AS amp-dev-rpi5
 # The base stage switches to a non-root user; return to root for apt/system changes.
 USER root
-ARG USERNAME=devgoblin
 # Add Raspberry Pi repository
 RUN set -eux; \
   apt-get update; \
@@ -130,35 +147,43 @@ RUN set -eux; \
 USER ${USERNAME}
 WORKDIR /work
 
-########## Basic deployment container ##########
-FROM amp-dev-base AS amp-deployment-base
-USER root
+######################################################################
+###################### Deployment container ##########################
+######################################################################
+FROM amp-docs-base AS amp-deployment-base
+
 ARG USERNAME=devgoblin
 
-COPY . /work
+USER root
+
+# Copy project into image for self-contained deployment
+COPY --chown=${USERNAME}:${USERNAME} . /work
 
 USER ${USERNAME}
 WORKDIR /work
 
+# Build AMP once at image build time so containers start fast
+RUN set -eux; \
+  .devcontainer/setup.sh; \
+  .devcontainer/platform_init.sh amp-dev-base; \
+  ./scripts/build-elements.sh clean; \
+  ./scripts/build-elements.sh debug false; \
+  ./scripts/gen-doc.sh
+
 ENTRYPOINT ["./scripts/deployment-process.sh"]
 
-########## Rich development environment container ##########
+######################################################################
+################ Rich development environment container ##############
+######################################################################
 FROM amp-dev-base AS amp-dev-rich
-
-ARG USERNAME=devgoblin
-ARG USER_UID=1000
-ARG USER_GID=1000
 
 USER root
 
 # ---- Basic packages for development ----
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        zsh git curl wget ca-certificates locales \
-        openssh-client sudo less ripgrep fd-find tmux \
-        build-essential pkg-config cmake unzip xz-utils \
-        powerline fonts-powerline eza bat clangd gosu \
-        lua5.1 luarocks tree-sitter-cli wl-clipboard\
+        xz-utils powerline fonts-powerline eza bat clangd gosu \
+        lua5.1 luarocks tree-sitter-cli wl-clipboard \
         iproute2 iputils-ping traceroute iputils-arping dnsutils tcpdump nmap
 
 RUN luarocks install jsregexp

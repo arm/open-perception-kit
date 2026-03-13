@@ -1,7 +1,7 @@
 {
   "name": "PC amp-dev-forge",
   "dockerComposeFile": [
-    "${localWorkspaceFolder}/compose.project.yaml",
+    "${localWorkspaceFolder}/.devcontainer/compose.devcont.yaml",
     "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.video.yaml",
     "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.audio.yaml",
     "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.npu.yaml",
@@ -23,7 +23,7 @@
     "ghcr.io/devcontainers/features/sshd:1": {}
   },
   "overrideCommand": true,
-  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "postCreateCommand": "bash .devcontainer/devsetup.sh",
   "init": true,
   "shutdownAction": "stopCompose",
   "customizations": {
