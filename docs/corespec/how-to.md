@@ -32,7 +32,8 @@ sudo apt-get install -y git docker.io code v4l-utils
    * **Hailo packages**
    * **video4l2**
    * **raspicam**
-   * For further details on Raspberry PI5 host installations please check out the relevant page: [How-To RPI5](how-to-rpi.md)
+   * For further details on Raspberry PI5 host installations please check out the relevant page: [How-To RPI5](how-to-rpi5.md)
+   * If you want to clone AMP and deploy it straight to a remote target with Topo, see [How-To Topo](how-to-topo.md).
 
 ```bash
 sudo apt-get update

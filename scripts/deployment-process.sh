@@ -4,8 +4,9 @@
 ################################################################
 
 set -euo pipefail
-
 # Ensure we are in the scripts directory
+
+AMP_PIPELINE=${AMP_PIPELINE:-"onnx"}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"/../
 
@@ -20,6 +21,6 @@ sudo chmod +x ./scripts/amp-menu ./scripts/serve-docs.sh ./scripts/build-element
 
 # Run scripts and redirect output to container log
 ./scripts/serve-docs.sh &
-./scripts/amp-menu onnx
+./scripts/amp-menu "$AMP_PIPELINE"
 
 while true; do wait; done
