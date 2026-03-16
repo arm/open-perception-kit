@@ -18,8 +18,8 @@ services:
       service: amp-common
 
     network_mode: host
-    container_name: amp-dev-forge
-    hostname: amp-dev-forge
+    container_name: amp-dev-forge-rpi5
+    hostname: amp-dev-forge-rpi5
     build:
       context: ..
       dockerfile: Dockerfile
