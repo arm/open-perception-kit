@@ -4,7 +4,6 @@ services:
     extends: 
       file: ./compose.base.yaml
       service: amp-common
-
     network_mode: bridge
     container_name: amp-deployment-base
     hostname: amp-deployment-base
@@ -12,8 +11,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: amp-deployment-base
-    environment:
-      - AMP_PIPELINE=onnx
+      args:
+        AMP_PIPELINE: ${AMP_PIPELINE:-onnx}
 
 # Topo-specific metadata
 # TODO: for some reason in case of topo deployment from WSL the container has x86 binaries inside it instead of arm64. Despite the platform specification in the compose file.

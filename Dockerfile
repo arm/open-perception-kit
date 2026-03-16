@@ -33,7 +33,7 @@ RUN set -eux; \
     libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base \
     libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-bad \
     gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly  \
-    gstreamer1.0-nice 
+    gstreamer1.0-nice gstreamer1.0-pipewire
 
 # Clean apt cache
 RUN set -eux; update-ca-certificates || true
@@ -157,9 +157,12 @@ FROM amp-docs-base AS amp-deployment-base
 ARG USERNAME=devgoblin
 
 USER root
+ARG AMP_PIPELINE=onnx
 
 # Copy project into image for self-contained deployment
 COPY --chown=${USERNAME}:${USERNAME} . /work
+
+ENV AMP_PIPELINE=${AMP_PIPELINE}
 
 USER ${USERNAME}
 WORKDIR /work
