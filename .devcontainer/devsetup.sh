@@ -7,14 +7,14 @@ set -euo pipefail
 # ---------- helpers ----------
 log() { echo -e "[devsetup.sh] $*"; }
 die() {
-		echo -e "[devsetup.sh] ERROR: $*" >&2
-														 exit 1
+    echo -e "[devsetup.sh] ERROR: $*" >&2
+               exit 1
 }
 
 append_once() {
-	    local needle="$1"
-	    local line="$2"
-	    grep -Fqx "$needle" "$BASHRC" 2> /dev/null || echo "$line" >> "$BASHRC"
+     local needle="$1"
+     local line="$2"
+     grep -Fqx "$needle" "$BASHRC" 2> /dev/null || echo "$line" >> "$BASHRC"
 }
 
 trap 'die "failed at line $LINENO"' ERR
@@ -48,8 +48,8 @@ uv sync --directory "$PROJECT_DIR"
 # ---------- auto-activation for interactive shells ----------
 log "Configuring auto-activation in $BASHRC"
 append_once \
-	"if [[ \$- == *i* ]] && [[ -z \${VIRTUAL_ENV:-} ]] && [[ -f $VENV_DIR/bin/activate ]]; then source $VENV_DIR/bin/activate; fi" \
-	"
+    "if [[ \$- == *i* ]] && [[ -z \${VIRTUAL_ENV:-} ]] && [[ -f $VENV_DIR/bin/activate ]]; then source $VENV_DIR/bin/activate; fi" \
+    "
 # Auto-activate lazer venv in interactive shells
 if [[ \$- == *i* ]] && [[ -z \${VIRTUAL_ENV:-} ]] && [[ -f $VENV_DIR/bin/activate ]]; then
   source $VENV_DIR/bin/activate
@@ -63,5 +63,4 @@ append_once "$EXPKITS_ARG_EVAL" "$EXPKITS_ARG_EVAL"
 log "Installing pre-commit hooks"
 cd /work && pre-commit install && pre-commit install -t commit-msg
 
-log "Dev setup finished. Open a NEW terminal to see the prompt & venv activation."
 log "Done. Open a NEW terminal to see the prompt & venv activation."

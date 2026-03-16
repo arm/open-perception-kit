@@ -5,11 +5,14 @@ services:
       file: ./compose.base.yaml
       service: amp-common
     network_mode: host
+    ports: []
     container_name: amp-deployment-base
     hostname: amp-deployment-base
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
       - /run/udev:/run/udev:ro
+    environment:
+      AMP_PIPELINE: ${AMP_PIPELINE:-onnx}
     build:
       context: .
       dockerfile: Dockerfile
