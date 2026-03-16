@@ -9,17 +9,10 @@ services:
     privileged: true
 
     environment:
-      - WAYLAND_DISPLAY=wayland-0
-      - DISPLAY
       - USERNAME=devgoblin
 
     env_file:
       - devices.env
-
-    volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix
-      - .:/work
-      - /run/udev:/run/udev:ro
 
     ports:
       - 8000:8000
@@ -30,3 +23,15 @@ services:
     stdin_open: true
     tty: true
     restart: unless-stopped
+
+  amp-common-dev: &amp-common-dev
+    <<: *amp-common
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - .:/work
+      - /run/udev:/run/udev:ro
+
+    environment:
+      - WAYLAND_DISPLAY=wayland-0
+      - DISPLAY
+      - USERNAME=devgoblin

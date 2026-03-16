@@ -4,9 +4,12 @@ services:
     extends: 
       file: ./compose.base.yaml
       service: amp-common
-    network_mode: bridge
+    network_mode: host
     container_name: amp-deployment-base
     hostname: amp-deployment-base
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /run/udev:/run/udev:ro
     build:
       context: .
       dockerfile: Dockerfile

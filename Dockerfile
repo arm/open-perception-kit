@@ -167,15 +167,7 @@ ENV AMP_PIPELINE=${AMP_PIPELINE}
 USER ${USERNAME}
 WORKDIR /work
 
-# Build AMP once at image build time so containers start fast
-RUN set -eux; \
-  .devcontainer/setup.sh; \
-  .devcontainer/platform_init.sh amp-dev-base; \
-  ./scripts/build-elements.sh clean; \
-  ./scripts/build-elements.sh debug false; \
-  ./scripts/gen-doc.sh
-
-ENTRYPOINT ["./scripts/deployment-process.sh"]
+ENTRYPOINT ["/work/scripts/deployment-process.sh"]
 
 ######################################################################
 ################ Rich development environment container ##############

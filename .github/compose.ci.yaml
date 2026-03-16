@@ -2,7 +2,7 @@ services:
   amp-docs-base: &amp-docs-base
     extends: 
       file: ../compose.base.yaml
-      service: amp-common
+      service: amp-common-dev
 
     network_mode: bridge
     container_name: amp-docs-base

@@ -2,7 +2,7 @@ services:
   amp-dev-base:
     extends: 
       file: ../compose.base.yaml
-      service: amp-common
+      service: amp-common-dev
 
     network_mode: bridge
     container_name: amp-dev-forge
@@ -15,7 +15,7 @@ services:
   amp-dev-rpi5:
     extends: 
       file: ../compose.base.yaml
-      service: amp-common
+      service: amp-common-dev
 
     network_mode: host
     container_name: amp-dev-forge-rpi5
