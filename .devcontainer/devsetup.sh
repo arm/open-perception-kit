@@ -57,7 +57,7 @@ fi"
 
 log "Installing expkits-ci and argcomplete integration"
 uv pip install --python "/$VENV_DIR/bin/python" --project . /work/tools/expkits-ci
-EXPKITS_ARG_EVAL="eval \"$(register-python-argcomplete expkits-ci)\""
+EXPKITS_ARG_EVAL='eval "$(register-python-argcomplete expkits-ci)"'
 append_once "$EXPKITS_ARG_EVAL" "$EXPKITS_ARG_EVAL"
 
 log "Installing pre-commit hooks"
