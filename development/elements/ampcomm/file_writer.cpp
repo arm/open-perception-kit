@@ -1,4 +1,8 @@
 #include <glib.h>
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #include <gst/gst.h>
 
 #include <errno.h>
