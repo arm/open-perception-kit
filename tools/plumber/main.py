@@ -16,8 +16,16 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Optional, Callable
 
-# distance func signature: (gt_det: dict, out_det: dict, frame_size: Optional[Tuple[int,int]]) -> float
-DistanceFn = Callable[[dict, dict, Optional[Tuple[int, int]]], float]
+import auxiliary as aux
+
+import distance_rect as dist_rect
+import distance_yaw_pitch as dist_yp
+import distance_seg_map as dist_sm
+import distance_classification as dist_cl
+import distance_video_frame as dist_vf
+
+# distance func signature: (gt_det: dict, out_det: dict, gt_parent_det, out_parent_det -> float
+DistanceFn = Callable[[dict, dict, dict, dict], float]
 
 
 @dataclass
@@ -27,134 +35,12 @@ class DistanceSpec:
     skip: bool = False
 
 
-def get_frame_size(layer: dict) -> Optional[Tuple[int, int]]:
-    """
-    Look for a layerProperties entry of type "FrameSize" and return (w,h) as ints.
-    Returns None if not present or malformed.
-    """
-    for prop in (layer.get("layerProperties") or []):
-        if prop.get("type") == "FrameSize":
-            data = prop.get("data", {})
-            w = data.get("w")
-            h = data.get("h")
-            try:
-                if w is not None and h is not None:
-                    return (int(w), int(h))
-            except (ValueError, TypeError):
-                pass
-    return None
-
-
-def _clamp01(v: float) -> float:
-    return max(0.0, min(1.0, v))
-
-# normalize rect fields to [x0,y0,x1,y1] in relative coordinates (0..1)
-
-
-def _normalize_rect(det: dict, frame_size: Optional[Tuple[int, int]]) -> Tuple[float, float, float, float]:
-    data = det.get("data", {})
-    x = float(data.get("x", 0.0))
-    y = float(data.get("y", 0.0))
-    w = float(data.get("width", 0.0))
-    h = float(data.get("height", 0.0))
-
-    if frame_size is not None:
-        fw, fh = frame_size
-        if fw > 0 and fh > 0:
-            nx = x / fw
-            ny = y / fh
-            nw = w / fw
-            nh = h / fh
-        else:
-            # fallback: avoid division by zero
-            nx, ny, nw, nh = x, y, w, h
-    else:
-        # no frame size: heuristically normalize using width/height if nonzero
-        # but IoU does not require normalization, so just compute relative to the larger of w/h
-        nx, ny, nw, nh = x, y, w, h
-
-    # convert (x,y,width,height) -> (x0,y0,x1,y1)
-    x0 = _clamp01(nx)
-    y0 = _clamp01(ny)
-    x1 = _clamp01(nx + nw)
-    y1 = _clamp01(ny + nh)
-    return (x0, y0, x1, y1)
-
-
-def _iou_from_normalized(a: Tuple[float, float, float, float], b: Tuple[float, float, float, float]) -> float:
-    ax0, ay0, ax1, ay1 = a
-    bx0, by0, bx1, by1 = b
-
-    inter_x0 = max(ax0, bx0)
-    inter_y0 = max(ay0, by0)
-    inter_x1 = min(ax1, bx1)
-    inter_y1 = min(ay1, by1)
-
-    iw = max(0.0, inter_x1 - inter_x0)
-    ih = max(0.0, inter_y1 - inter_y0)
-    inter = iw * ih
-    area_a = max(0.0, (ax1 - ax0)) * max(0.0, (ay1 - ay0))
-    area_b = max(0.0, (bx1 - bx0)) * max(0.0, (by1 - by0))
-    denom = area_a + area_b - inter
-    if denom <= 0.0:
-        return 0.0
-    return inter / denom
-
-
-def distance_rect(gt_det: dict, out_det: dict, frame_size: Optional[Tuple[int, int]]) -> float:
-    """
-    Return a normalized distance in [0,1] for Rect detections.
-    We use: distance = 1 - IoU(normalized boxes).
-    If either rect has zero area, IoU=0 (distance=1).
-    """
-    a = _normalize_rect(gt_det, frame_size)
-    b = _normalize_rect(out_det, frame_size)
-    iou = _iou_from_normalized(a, b)
-    dist = 1.0 - iou
-    # clamp for numerical safety
-    return max(0.0, min(1.0, dist))
-
-
-def distance_yawpitch(gt_det: dict, out_det: dict, frame_size: Optional[Tuple[int, int]]) -> float:
-    """
-    Normalize yaw/pitch difference into [0,1].
-    For now return normalized max(|yaw_diff|, |pitch_diff|) / 180 (safe upper bound).
-    We'll refine tomorrow.
-    """
-    g = gt_det.get("data", {})
-    o = out_det.get("data", {})
-    yaw_diff = abs(float(g.get("yaw", 0.0)) - float(o.get("yaw", 0.0)))
-    pitch_diff = abs(float(g.get("pitch", 0.0)) - float(o.get("pitch", 0.0)))
-    # angles are in degrees-ish; use 180 as safe normalization factor
-    return _clamp01(max(yaw_diff, pitch_diff) / 180.0)
-
-
-def distance_segmentation_map(gt_det: dict, out_det: dict, frame_size: Optional[Tuple[int, int]]) -> float:
-    """
-    Placeholder: return 1.0 (max distance). We'll implement mask IoU later.
-    """
-    return 1.0
-
-
-def distance_classification(gt_det: dict, out_det: dict, frame_size: Optional[Tuple[int, int]]) -> float:
-    """
-    Placeholder: compare top-1 text equality (0 if equal else 1).
-    We'll implement normalized candidate overlap later.
-    """
-    g_cands = gt_det.get("data", {}).get("candidates", [])
-    o_cands = out_det.get("data", {}).get("candidates", [])
-    if not g_cands or not o_cands:
-        return 1.0
-    gt_top = g_cands[0].get("text")
-    out_top = o_cands[0].get("text")
-    return 0.0 if gt_top == out_top else 1.0
-
-
 DISTANCE_SPECS: Dict[str, DistanceSpec] = {
-    "Rect": DistanceSpec(distance_rect, threshold=10.0),
-    "YawPitch": DistanceSpec(distance_yawpitch, threshold=5.0),
-    "SegmentationMap": DistanceSpec(distance_segmentation_map, threshold=0.1, skip=True),
-    "Classification": DistanceSpec(distance_classification, threshold=0.2),
+    "Rect": DistanceSpec(dist_rect.distance_rect, threshold=0.01),
+    "YawPitch": DistanceSpec(dist_yp.distance_yawpitch, threshold=0.01),
+    "SegmentationMap": DistanceSpec(dist_sm.distance_segmentation_map, threshold=0.1, skip=True),
+    "Classification": DistanceSpec(dist_cl.distance_classification, threshold=0.2),
+    "VideoFrame": DistanceSpec(dist_vf.distance_video_frame, threshold=0.1, skip=True),
 }
 
 # ---------- FIFO reading ----------
@@ -243,36 +129,13 @@ def load_ndjson(path: str) -> List[dict]:
 
 # ---------- Comparison logic ----------
 
-def _get_layers(obj: dict) -> List[dict]:
-    return (((obj.get("perception") or {}).get("layers")) or [])
-
-
-def _index_layers_by_element_id(layers: List[dict], key_name: str = "element-id") -> Dict[str, dict]:
-    """
-    Build a map: element-id -> layer.
-    If duplicates exist, last wins (you can change to error if you want).
-    """
-    idx: Dict[str, dict] = {}
-    for layer in layers:
-        element_id = layer.get(key_name)
-        if isinstance(element_id, str) and element_id:
-            idx[element_id] = layer
-    return idx
-
-
-def _group_by_type(dets: List[dict]) -> Dict[str, List[dict]]:
-    grouped: Dict[str, List[dict]] = {}
-    for d in dets or []:
-        t = d.get("type", "")
-        grouped.setdefault(t, []).append(d)
-    return grouped
-
 
 def _greedy_match_by_distance(
     gt_dets: List[dict],
+    gt_uuid_index: dict[int, tuple[dict, dict]],
     out_dets: List[dict],
+    out_uuid_index: dict[int, tuple[dict, dict]],
     dist_spec: DistanceSpec,
-    frame_size: Optional[Tuple[int, int]],
 ) -> Tuple[bool, str]:
     """
     Greedy matching with threshold and skip support.
@@ -287,24 +150,30 @@ def _greedy_match_by_distance(
 
     remaining = list(out_dets)
 
+    # enumerate detections
     for i, gt in enumerate(gt_dets):
         if not remaining:
             return False, f"ran out of output detections at gt index {i}"
+
+        gt_parent_uuid = gt['data']['parentUuid']
+        _, gt_parent_det = gt_uuid_index.get(gt_parent_uuid, (None, None))
 
         best_j = -1
         best_dist = math.inf
 
         for j, out in enumerate(remaining):
-            d = dist_spec.func(gt, out, frame_size)
-            print(f"measured distance: {d}")
+
+            out_parent_uuid = out['data']['parentUuid']
+            _, out_parent_det = out_uuid_index.get(out_parent_uuid, (None, None))
+
+            d = dist_spec.func(gt, out, gt_parent_det, out_parent_det)
+
             # ensure distance is numeric and normalized
             if not (isinstance(d, (int, float)) and math.isfinite(d)):
                 return False, f"distance function returned non-finite value for type at gt index {i}"
             if d < best_dist:
                 best_dist = d
                 best_j = j
-
-        print(f"best_distance: {best_dist}")
 
         # enforce threshold
         if best_dist > dist_spec.threshold:
@@ -322,13 +191,14 @@ def _greedy_match_by_distance(
     return True, "ok"
 
 
-def compare_layer(gt_layer: dict, out_layer: dict) -> Tuple[bool, str]:
+def compare_layer(
+        gt_layer: dict, gt_uuid_index: dict[int, tuple[dict, dict]],
+        out_layer: dict, out_uuid_index: dict[int, tuple[dict, dict]]) -> Tuple[bool, str]:
     """
     - check contentType and model
     - group detections by type
     - for each type, use DISTANCE_SPECS[type] with greedy matching
     """
-    print(f"================== layer: {out_layer['infer-id']}")
     if gt_layer.get("contentType", "") != out_layer.get("contentType", ""):
         return False, (
             f"contentType mismatch: gt={gt_layer.get('contentType')!r} "
@@ -344,8 +214,8 @@ def compare_layer(gt_layer: dict, out_layer: dict) -> Tuple[bool, str]:
     gt_dets = gt_layer.get("detections", []) or []
     out_dets = out_layer.get("detections", []) or []
 
-    gt_by_type = _group_by_type(gt_dets)
-    out_by_type = _group_by_type(out_dets)
+    gt_by_type = aux.group_by_type(gt_dets)
+    out_by_type = aux.group_by_type(out_dets)
 
     gt_types = set(gt_by_type.keys())
     out_types = set(out_by_type.keys())
@@ -354,9 +224,6 @@ def compare_layer(gt_layer: dict, out_layer: dict) -> Tuple[bool, str]:
         extra = sorted(out_types - gt_types)
         return False, f"detection type mismatch: missing={missing} extra={extra}"
 
-    # get frame size from GT layer properties (preferred)
-    frame_size = get_frame_size(gt_layer)
-
     for det_type in sorted(gt_types):
         spec = DISTANCE_SPECS.get(det_type)
         if spec is None:
@@ -364,9 +231,10 @@ def compare_layer(gt_layer: dict, out_layer: dict) -> Tuple[bool, str]:
 
         ok, msg = _greedy_match_by_distance(
             gt_by_type[det_type],
+            gt_uuid_index,
             out_by_type[det_type],
+            out_uuid_index,
             spec,
-            frame_size,
         )
         if not ok:
             return False, f"type {det_type!r}: {msg}"
@@ -374,7 +242,7 @@ def compare_layer(gt_layer: dict, out_layer: dict) -> Tuple[bool, str]:
     return True, "ok"
 
 
-def compare_perception(gt_obj: dict, out_obj: dict, element_id_key="infer-id") -> Tuple[bool, str]:
+def compare_perception(args, gt_obj: dict, out_obj: dict, element_id_key="infer-id") -> Tuple[bool, str]:
     """
     Compare two full messages. This focuses on perception.layers.
     Strategy:
@@ -384,11 +252,17 @@ def compare_perception(gt_obj: dict, out_obj: dict, element_id_key="infer-id") -
         - if Rect detections -> special matcher (IoU + label)
         - else -> compare detections list as-is (order sensitive) with numeric tolerances
     """
-    print(f"====================== comparing frame: {out_obj['frame_counter']} =============================")
-    gt_layers = _get_layers(gt_obj)
-    out_layers = _get_layers(out_obj)
 
-    out_idx = _index_layers_by_element_id(out_layers, key_name=element_id_key)
+    if args.verbose:
+        print(f"====================== comparing frame: {out_obj['frame_counter']} =============================")
+
+    gt_layers = aux.get_layers(gt_obj)
+    out_layers = aux.get_layers(out_obj)
+
+    gt_uuid_index = aux.build_uuid_index(gt_obj['perception'])
+    out_uuid_index = aux.build_uuid_index(out_obj['perception'])
+
+    out_idx = aux.index_layers_by_element_id(out_layers, key_name=element_id_key)
 
     for i, gt_layer in enumerate(gt_layers):
         element_id = gt_layer.get(element_id_key)
@@ -400,7 +274,7 @@ def compare_perception(gt_obj: dict, out_obj: dict, element_id_key="infer-id") -
         if out_layer is None:
             return False, f"Missing output layer for {element_id_key}={element_id!r}"
 
-        ok, msg = compare_layer(gt_layer, out_layer)
+        ok, msg = compare_layer(gt_layer, gt_uuid_index, out_layer, out_uuid_index)
         if not ok:
             return False, f"Layer {element_id_key}={element_id!r} mismatch: {msg}"
 
@@ -468,7 +342,7 @@ def run_check_mode(args) -> int:
             line = next(fifo_iter)
             out_obj = json.loads(line)
 
-            ok, msg = compare_perception(gt_obj, out_obj)
+            ok, msg = compare_perception(args, gt_obj, out_obj)
             compared += 1
             if not ok:
                 failures += 1

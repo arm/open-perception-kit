@@ -4,14 +4,9 @@
 
 #pragma once
 
-#include "amp/Model.h"
 #include "amp/Result.h"
-#include "amp/Types.h"
 #include "op/Op.h"
 #include "op/OpChainContext.h"
-
-#include "preproc/GenericImageTensorBuilder.h"
-#include <cstdint>
 
 namespace amp {
 

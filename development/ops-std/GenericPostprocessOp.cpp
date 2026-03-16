@@ -96,12 +96,6 @@ amp::Result<void> GenericPostprocessOp::process(amp::OpChainContext &opChainCont
         return parseResult;
     }
 
-    // TODO@ibori: what should I write here, if this happens on an audio branch of the pipeline?
-    rawDetectionLayer.layerProperties.emplace_back(Perception::FrameSize{
-        .width = opChainContext.inferenceInfo.image.width,
-        .height = opChainContext.inferenceInfo.image.height,
-    });
-
     // set parent uids
     for (auto &det : rawDetectionLayer.detections) {
         Perception::Object &obj = std::visit(
@@ -112,6 +106,10 @@ amp::Result<void> GenericPostprocessOp::process(amp::OpChainContext &opChainCont
     }
 
     opChainContext.perception->layers.push_back(rawDetectionLayer);
+
+    if (!opChainContext.rootLayer.detections.empty()) {
+        opChainContext.perception->layers.push_back(opChainContext.rootLayer);
+    }
 
     return {};
 }
