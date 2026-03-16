@@ -19,13 +19,15 @@ RUN set -eux; apt-get update
 
 # Minimal core tools (runtime + build)
 RUN set -eux; \
-apt-get install -y --no-install-recommends \
+  apt-get update; \
+  apt-get install -y --no-install-recommends \
     ca-certificates curl wget sudo unzip gnupg \
     build-essential meson ninja-build pkg-config cmake \
     libssl-dev libfmt-dev libsoup-3.0-dev libjson-glib-dev libcairo2-dev zip python3 python3-pip 
 
 # GStreamer core + base
 RUN set -eux; \
+  apt-get update; \
   apt-get install -y --no-install-recommends \
     libgstreamer1.0-dev gstreamer1.0-tools gstreamer1.0-x gstreamer1.0-gl \
     libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base \
