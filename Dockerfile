@@ -165,8 +165,7 @@ RUN apt-get update && \
         iproute2 iputils-ping traceroute iputils-arping dnsutils tcpdump nmap \
         npm
 
-RUN luarocks install jsregexp && \
-    npm install -g pyright
+RUN luarocks install jsregexp
 
 RUN chsh -s /usr/bin/zsh ${USERNAME}
 
