@@ -15,7 +15,9 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -eux; uname -a; cat /etc/os-release; dpkg --print-architecture
 
 # Always start with update
-RUN set -eux; apt-get update
+RUN set -eux; \
+  apt-get update; \
+  rm -rf /var/lib/apt/lists/*
 
 # Minimal core tools (runtime + build)
 RUN set -eux; \
@@ -23,7 +25,8 @@ RUN set -eux; \
   apt-get install -y --no-install-recommends \
     ca-certificates curl wget sudo unzip gnupg \
     build-essential meson ninja-build pkg-config cmake \
-    libssl-dev libfmt-dev libsoup-3.0-dev libjson-glib-dev libcairo2-dev zip python3 python3-pip 
+    libssl-dev libfmt-dev libsoup-3.0-dev libjson-glib-dev libcairo2-dev zip python3 python3-pip; \
+  rm -rf /var/lib/apt/lists/*
 
 # GStreamer core + base
 RUN set -eux; \
@@ -33,7 +36,8 @@ RUN set -eux; \
     libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base \
     libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-bad \
     gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly  \
-    gstreamer1.0-nice gstreamer1.0-pipewire
+    gstreamer1.0-nice gstreamer1.0-pipewire; \
+  rm -rf /var/lib/apt/lists/*
 
 # Clean apt cache
 RUN set -eux; update-ca-certificates || true
@@ -83,7 +87,8 @@ RUN set -eux; \
     git shfmt clang-format ssh \
     openjdk-25-jdk graphviz pandoc pre-commit doxygen \
     python3-dev python3-venv python3-gi python3-gst-1.0 \
-    libffi-dev zlib1g-dev libbz2-dev liblzma-dev libsqlite3-dev v4l-utils
+    libffi-dev zlib1g-dev libbz2-dev liblzma-dev libsqlite3-dev v4l-utils; \
+  rm -rf /var/lib/apt/lists/*
 
 # uv (Python package manager) for dev/CI tooling
 RUN set -eux; \
@@ -107,7 +112,8 @@ RUN set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
     locales bash-completion mc vim nano gdb clangd net-tools zsh \
-    openssh-client less ripgrep fd-find tmux
+    openssh-client less ripgrep fd-find tmux; \
+  rm -rf /var/lib/apt/lists/*
 
 # libav can sometimes be the troublemaker; probe then install
 RUN set -eux; \
@@ -116,7 +122,8 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends gstreamer1.0-libav; \
   else \
     echo 'NOTE: gstreamer1.0-libav not available on this image/mirror'; \
-  fi
+  fi; \
+  rm -rf /var/lib/apt/lists/*
 
 USER ${USERNAME}
 WORKDIR /work
@@ -139,12 +146,14 @@ RUN set -eux; \
   apt-get update && apt-get install -y --no-install-recommends \
   libv4l-dev libgl1-mesa-dri libglx-mesa0 libegl1 libgbm1 libdrm2 mesa-utils libdrm-dev libgbm-dev \
   libcamera-tools libcamera-dev libcamera-ipa libcamera-v4l2 rpicam-apps \
-  alsa-utils gstreamer1.0-libcamera gstreamer1.0-alsa
+  alsa-utils gstreamer1.0-libcamera gstreamer1.0-alsa; \
+  rm -rf /var/lib/apt/lists/*
 
 RUN set -eux; \
   apt-get update && apt-get install -y --no-install-recommends \
   hailo-models hailo-tappas-core hailort \
-  python3-hailo-tappas python3-hailort rpicam-apps-hailo-postprocess
+  python3-hailo-tappas python3-hailort rpicam-apps-hailo-postprocess; \
+  rm -rf /var/lib/apt/lists/*
 
 USER ${USERNAME}
 WORKDIR /work
@@ -178,10 +187,11 @@ USER root
 
 # ---- Basic packages for development ----
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        xz-utils powerline fonts-powerline eza bat clangd gosu \
-        lua5.1 luarocks tree-sitter-cli wl-clipboard \
-        iproute2 iputils-ping traceroute iputils-arping dnsutils tcpdump nmap
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    xz-utils powerline fonts-powerline eza bat clangd gosu \
+    lua5.1 luarocks tree-sitter-cli wl-clipboard \
+    iproute2 iputils-ping traceroute iputils-arping dnsutils tcpdump nmap; \
+  rm -rf /var/lib/apt/lists/*
 
 RUN luarocks install jsregexp
 

@@ -18,6 +18,7 @@ services:
       service: amp-common-dev
 
     network_mode: host
+    ports: []
     container_name: amp-dev-forge-rpi5
     hostname: amp-dev-forge-rpi5
     build:
