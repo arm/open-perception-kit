@@ -104,7 +104,7 @@ struct Perception {
         std::vector<float> values;
     };
 
-    // one detextion instance
+    // one detection instance
     using Detection = std::variant<Rect,
                                    YawPitch,
                                    LocalizedText,

@@ -38,63 +38,64 @@ std::vector<int> solveHungarian(const std::vector<std::vector<T>> &inputCost) {
     const auto n = static_cast<int>(cost.size());
     const auto m = static_cast<int>(cost.front().size());
 
-    std::vector<T> u(n + 1, T(0));
-    std::vector<T> v(m + 1, T(0));
-    std::vector<int> p(m + 1, 0);
-    std::vector<int> way(m + 1, 0);
+    std::vector<T> rowPotentials(n + 1, T(0));
+    std::vector<T> colPotentials(m + 1, T(0));
+    std::vector<int> matchedRowByCol(m + 1, 0);
+    std::vector<int> predecessorCol(m + 1, 0);
 
     for (int i = 1; i <= n; ++i) {
-        p[0] = i;
-        int j0 = 0;
-        std::vector<T> minv(m + 1, std::numeric_limits<T>::max());
-        std::vector<bool> used(m + 1, false);
+        matchedRowByCol[0] = i;
+        int currentCol = 0;
+        std::vector<T> minSlackByCol(m + 1, std::numeric_limits<T>::max());
+        std::vector<bool> isColInAlternatingTree(m + 1, false);
 
         do {
-            used[j0] = true;
-            const int i0 = p[j0];
-            T delta = std::numeric_limits<T>::max();
-            int j1 = 0;
+            isColInAlternatingTree[currentCol] = true;
+            const int currentRow = matchedRowByCol[currentCol];
+            T minPotentialAdjustment = std::numeric_limits<T>::max();
+            int nextCol = 0;
 
             for (int j = 1; j <= m; ++j) {
-                if (used[j]) {
+                if (isColInAlternatingTree[j]) {
                     continue;
                 }
 
-                const T cur =
-                    cost[static_cast<size_t>(i0 - 1)][static_cast<size_t>(j - 1)] - u[i0] - v[j];
-                if (cur < minv[j]) {
-                    minv[j] = cur;
-                    way[j] = j0;
+                const T reducedCost =
+                    cost[static_cast<size_t>(currentRow - 1)][static_cast<size_t>(j - 1)] -
+                    rowPotentials[currentRow] - colPotentials[j];
+                if (reducedCost < minSlackByCol[j]) {
+                    minSlackByCol[j] = reducedCost;
+                    predecessorCol[j] = currentCol;
                 }
-                if (minv[j] < delta) {
-                    delta = minv[j];
-                    j1 = j;
+                if (minSlackByCol[j] < minPotentialAdjustment) {
+                    minPotentialAdjustment = minSlackByCol[j];
+                    nextCol = j;
                 }
             }
 
             for (int j = 0; j <= m; ++j) {
-                if (used[j]) {
-                    u[p[j]] += delta;
-                    v[j] -= delta;
+                if (isColInAlternatingTree[j]) {
+                    rowPotentials[matchedRowByCol[j]] += minPotentialAdjustment;
+                    colPotentials[j] -= minPotentialAdjustment;
                 } else {
-                    minv[j] -= delta;
+                    minSlackByCol[j] -= minPotentialAdjustment;
                 }
             }
 
-            j0 = j1;
-        } while (p[j0] != 0);
+            currentCol = nextCol;
+        } while (matchedRowByCol[currentCol] != 0);
 
         do {
-            const int j1 = way[j0];
-            p[j0] = p[j1];
-            j0 = j1;
-        } while (j0 != 0);
+            const int previousCol = predecessorCol[currentCol];
+            matchedRowByCol[currentCol] = matchedRowByCol[previousCol];
+            currentCol = previousCol;
+        } while (currentCol != 0);
     }
 
     std::vector<int> assignmentRows(static_cast<size_t>(n), -1);
     for (int j = 1; j <= m; ++j) {
-        if (p[j] != 0) {
-            assignmentRows[static_cast<size_t>(p[j] - 1)] = j - 1;
+        if (matchedRowByCol[j] != 0) {
+            assignmentRows[static_cast<size_t>(matchedRowByCol[j] - 1)] = j - 1;
         }
     }
 
