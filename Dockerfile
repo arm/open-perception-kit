@@ -24,7 +24,7 @@ RUN set -eux; \
 RUN set -eux; \
   apt-get install -y --no-install-recommends \
     build-essential emscripten meson ninja-build pkg-config gdb cmake build-essential pkg-config libsoup-3.0-dev libjson-glib-dev \
-    clangd ssh clang-format libcairo2-dev pandoc zip
+    clangd ssh clang-format libcairo2-dev pandoc zip openjdk-25-jdk graphviz doxygen
 
 # Python + core libs
 RUN set -eux; \

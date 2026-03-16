@@ -22,6 +22,9 @@ inside GStreamer pipelines, targeting containerized development and edge deploym
 - [How-To](how-to.md)
   How to open and start the project on PC or Raspberry Pi 5.
 
+- [How-To Topo](how-to-topo.md)
+  Minimal Topo-based clone and deployment flow for AMP.
+
 - [Architecture](architectural-overview.md)  
   Arxhitectural overview of the system.
 
@@ -73,5 +76,4 @@ inside GStreamer pipelines, targeting containerized development and edge deploym
 
 - [ampsink](ampsink.md)  
   Details about the WebRTC presentation system.
-
 

@@ -1,3 +1,7 @@
+################################################################
+# Copyright (C) 2025 Arm Limited. All rights reserved.
+################################################################
+
 PRIMARY_ELEMENTS = [
     # sources (capture)
     "v4l2src",              # camera capture (can negotiate DMABuf with io-mode=dmabuf)
@@ -17,4 +21,3 @@ PRIMARY_ELEMENTS = [
     "videoconvert",
     "mpegtsmux",
 ]
-

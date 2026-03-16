@@ -4,7 +4,7 @@
 `ampsink` is a `GstBin` element that encapsulates a full audio/video encoding
 and WebRTC delivery stack inside a single GStreamer component.
 
-<img src="webrtc.jpg" alt="WebRTC utilization" width="600">
+<img src="resources/img/webrtc.png" alt="WebRTC utilization" width="600">
 
 It accepts raw video and optional raw audio, encodes them (VP8 for video,
 Opus for audio), and exposes the media streams through integrated WebRTC

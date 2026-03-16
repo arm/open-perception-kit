@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #ifndef __STATUS_REPORTER_H__
 #define __STATUS_REPORTER_H__
 

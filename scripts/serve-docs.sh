@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-DOCS_DIR="/work/docs/corespec/html"
+DOCS_DIR="/work/docs/html"
 PORT=8080
 
 if [ ! -d "$DOCS_DIR" ]; then

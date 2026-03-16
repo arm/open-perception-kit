@@ -407,7 +407,6 @@ static void init_video(GstAmpSink *self) {
 
         // Install custom event handler
         gst_pad_set_event_function(vg, gst_amp_sink_sink_event);
-
         gst_element_add_pad(GST_ELEMENT(self), vg);
     }
 }

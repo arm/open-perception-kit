@@ -1,3 +1,7 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
 #include "Inference.h"
 
 #define EXECUTORCH_ENABLE_LOGGING 1

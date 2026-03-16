@@ -1,6 +1,7 @@
 
 # AMP Development Forge
-![Nightly build](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/amp-ci.yml/badge.svg?branch=main)
+![AMP CI Pipeline Nightly](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/amp-ci.yml/badge.svg?branch=main)
+![SonarQube Nightly](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/sonar.yml/badge.svg?branch=main)
 
 ---
 

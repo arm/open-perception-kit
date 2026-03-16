@@ -140,7 +140,7 @@ The system provides a mechanism for implementing custom output parsers with mini
 Parser logic can be written in Python.
 The framework supplies direct access to the output tensor data along with a structured interface for populating the resulting detection layer.
 
-<img src="postprocessor-types.jpg" alt="Postprocessor types" width="400">
+<img src="resources/img/postprocessor-types.png" alt="Postprocessor types" width="400">
 
 This enables rapid experimentation and iteration, particularly for machine learning engineers who need to validate new models or adjust postprocessing logic without modifying the core C++ runtime.
 
