@@ -1,5 +1,5 @@
 {
-	"name": "ImageNet",
+	"name": "ImageNet Hailo",
 	"ops": [
 		{
 			"id": "amp-std-ops/InferenceController",
@@ -13,7 +13,7 @@
 			}
 		},
 		{
-			"id": "amp-hailo-ops/Inference",
+			"id": "amp-hailort-ops/Inference",
 			"attributes": {
 				"modelDescriptor": "/work/etc/models/mobilenetv2/mobilenetv2-hef.json"
 			}
