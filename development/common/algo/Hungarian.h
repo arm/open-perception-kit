@@ -22,6 +22,14 @@ std::vector<int> solveHungarian(const std::vector<std::vector<T>> &inputCost) {
     const size_t originalRows = inputCost.size();
     const size_t originalCols = inputCost.front().size();
 
+    // Validate that all rows have the same number of columns as the first row.
+    // If input is ragged, bail out to avoid out-of-bounds indexing later.
+    for (size_t r = 0; r < originalRows; ++r) {
+        if (inputCost[r].size() != originalCols) {
+            return {};
+        }
+    }
+
     bool transposed = false;
     std::vector<std::vector<T>> cost = inputCost;
 

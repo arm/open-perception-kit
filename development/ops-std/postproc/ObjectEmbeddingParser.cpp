@@ -4,6 +4,7 @@
 
 #include "postproc/ObjectEmbeddingParser.h"
 
+#include <cassert>
 #include <cmath>
 #include <fmt/core.h>
 
@@ -12,7 +13,11 @@ using namespace amp;
 Result<void> ObjectEmbeddingParser::parse(const TensorParser::Input &input,
                                           Perception::Layer &detectionResult) {
 
-    assert(input.tensors[0]);
+    if (!input.tensors[0]) {
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("ObjectEmbeddingParser: missing required input tensor")));
+    }
 
     const auto shape = input.tensors[0]->getShape();
     if (shape.dimensionCount != 2 || shape.valueCount[0] != 1) {

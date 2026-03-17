@@ -97,7 +97,8 @@ void appendTrackTraceDetection(amp::Perception::Layer &traceLayer,
 amp::Perception::Layer *ensurePredictionOutputLayer(amp::Perception &perception,
                                                     const Config &config) {
     for (auto &layer : perception.layers) {
-        if (isTargetLayer(layer, config)) {
+        if (layer.model == TRACKER_MODEL && layer.tags.find(PREDICTION_TAG) != std::string::npos &&
+            isTargetLayer(layer, config)) {
             return &layer;
         }
     }

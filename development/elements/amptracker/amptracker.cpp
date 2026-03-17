@@ -560,4 +560,4 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   "1.0",
                   "LGPL",
                   PACKAGE,
-                  "https://example.com")
+                  "https://arm.com")
