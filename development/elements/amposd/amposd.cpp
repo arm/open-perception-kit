@@ -483,6 +483,22 @@ static std::unique_ptr<Osd::Layer> drawPerceptionLayer(GstAmpOsd *self,
     return layer;
 }
 
+static void gst_amp_osd_process_layer(GstAmpOsd *self,
+                                      float imgWidth,
+                                      float imgHeight,
+                                      Osd::Layers_t &layers,
+                                      const amp::Perception::Layer &layer) {
+
+    if (layer.contentType == "ocr-detection-segmentation") {
+        for (const auto &det : layer.detections) {
+            const auto &sm = std::get<amp::Perception::SegmentationMap>(det);
+            if (!sm.bitmap.empty() && sm.bitmap.getWidth() > 0 && sm.bitmap.getHeight() > 0) {
+                layers.push_back(drawSegmentationLayer(self, imgWidth, imgHeight, sm.bitmap));
+            }
+        }
+    }
+}
+
 static GstFlowReturn gst_amp_osd_transform_frame_ip(GstVideoFilter *filter, GstVideoFrame *frame) {
     GstAmpOsd *self = GST_AMP_OSD(filter);
 
@@ -500,16 +516,7 @@ static GstFlowReturn gst_amp_osd_transform_frame_ip(GstVideoFilter *filter, GstV
 
     if (auto perception = amp::PerceptionMeta::read(frame->buffer); perception != nullptr) {
         for (const auto &layer : perception->layers) {
-            if (layer.contentType == "ocr-detection-segmentation") {
-                for (const auto &det : layer.detections) {
-                    const auto &sm = std::get<amp::Perception::SegmentationMap>(det);
-                    if (!sm.bitmap.empty() && sm.bitmap.getWidth() > 0 &&
-                        sm.bitmap.getHeight() > 0) {
-                        layers.push_back(
-                            drawSegmentationLayer(self, imgWidth, imgHeight, sm.bitmap));
-                    }
-                }
-            }
+            gst_amp_osd_process_layer(self, imgWidth, imgHeight, layers, layer);
         }
 
         // Draw detection boxes on top of segmentation

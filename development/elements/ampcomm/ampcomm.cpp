@@ -10,7 +10,6 @@
 
 #include <fcntl.h>
 #include <memory>
-#include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -20,7 +19,7 @@
 #include <gst/PerceptionMeta.h>
 
 #ifndef PACKAGE
-#define PACKAGE "ampcomm"
+constexpr const char *PACKAGE = "ampcomm";
 #endif
 
 /* ----------------------- Element definition ----------------------- */
@@ -31,7 +30,7 @@ G_DECLARE_FINAL_TYPE(GstAmpComm, gst_amp_comm, GST, AMP_COMM, GstBaseTransform)
 typedef enum {
 
     // can be extended: MQTT, REST, database, etc...
-    GST_AMP_COMM_METHOD_FILE = 0,
+    GST_AMP_COMM_METHOD_FILE = 1,
 } GstAmpCommMethod;
 
 struct GstAmpCommPrivate {
@@ -67,11 +66,11 @@ enum {
 
 static GType gst_amp_comm_method_get_type(void) {
     static GType t = 0;
-    static const GEnumValue values[] = {{GST_AMP_COMM_METHOD_FILE, "file", "file"},
-                                        {0, NULL, NULL}};
+    static std::vector<GEnumValue> values = {{GST_AMP_COMM_METHOD_FILE, "file", "file"},
+                                             {0, nullptr, nullptr}};
 
     if (g_once_init_enter(&t)) {
-        GType tmp = g_enum_register_static("GstAmpCommMethod", values);
+        GType tmp = g_enum_register_static("GstAmpCommMethod", values.data());
         g_once_init_leave(&t, tmp);
     }
     return t;
@@ -124,18 +123,14 @@ static gboolean gst_amp_comm_stop(GstBaseTransform *trans) {
 static GstFlowReturn gst_amp_comm_transform_ip(GstBaseTransform *trans, GstBuffer *buf) {
     GstAmpComm *self = GST_AMP_COMM(trans);
 
-    if (self->priv && self->priv->writer) {
+    if (self->priv && self->priv->writer && self->priv->writer->check_running()) {
+        auto p = amp::PerceptionMeta::read(buf);
+        AmpCommJob j = {
+            .frame_counter = self->frame_counter,
+            .perception = p,
+        };
 
-        if (self->priv->writer->check_running()) {
-
-            auto p = amp::PerceptionMeta::read(buf);
-            AmpCommJob j = {
-                .frame_counter = self->frame_counter,
-                .perception = p,
-            };
-
-            self->priv->writer->send(std::move(j));
-        }
+        self->priv->writer->send(std::move(j));
     }
 
     ++self->frame_counter;
@@ -206,12 +201,11 @@ static void gst_amp_comm_finalize(GObject *object) {
 }
 
 static void gst_amp_comm_class_init(GstAmpCommClass *klass) {
-    GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
-    GstElementClass *element_class = GST_ELEMENT_CLASS(klass);
-    GstBaseTransformClass *bt_class = GST_BASE_TRANSFORM_CLASS(klass);
+    auto *gobject_class = G_OBJECT_CLASS(klass);
+    auto *element_class = GST_ELEMENT_CLASS(klass);
+    auto *bt_class = GST_BASE_TRANSFORM_CLASS(klass);
 
-    constexpr GParamFlags kRW =
-        static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+    constexpr auto kRW = static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 
     gobject_class->set_property = gst_amp_comm_set_property;
     gobject_class->get_property = gst_amp_comm_get_property;

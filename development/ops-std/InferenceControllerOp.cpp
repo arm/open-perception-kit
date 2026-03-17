@@ -50,7 +50,7 @@ amp::Result<void> InferenceControllerOp::process(amp::OpChainContext &opChainCon
         videoFrame.originalWidth = pipelineVideoFrame->width;
         videoFrame.originalHeight = pipelineVideoFrame->height;
         opChainContext.inferenceSourceUuid = videoFrame.uuid;
-        opChainContext.rootLayer.detections.push_back(videoFrame);
+        opChainContext.rootLayer.detections.emplace_back(videoFrame);
 
         amp::PixelRect rect;
         rect.x = 0;

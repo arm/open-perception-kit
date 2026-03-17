@@ -29,7 +29,7 @@ bool JobQueue::try_push(AmpCommJob &&j) {
 bool JobQueue::pop(AmpCommJob &out) {
     std::unique_lock<std::mutex> lk(m_);
 
-    cv_.wait(lk, [&] { return stop_ || !q_.empty(); });
+    cv_.wait(lk, [this] { return stop_ || !q_.empty(); });
 
     if (q_.empty())
         return false;
@@ -70,7 +70,7 @@ bool Writer::start() {
 
         if (ret) {
             running = true;
-            th = std::thread([this] { run(); });
+            th = std::jthread([this] { run(); });
         }
     }
 

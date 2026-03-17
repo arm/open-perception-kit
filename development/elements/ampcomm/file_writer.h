@@ -29,4 +29,6 @@ class FileWriter : public Writer {
   public:
     explicit FileWriter(_GstAmpComm *self, const std::string &file_name, size_t queue_size)
         : Writer(self, queue_size), m_file_name(file_name) {}
+
+    virtual ~FileWriter() = default;
 };

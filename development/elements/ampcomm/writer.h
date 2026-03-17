@@ -43,7 +43,7 @@ class Writer {
     _GstAmpComm *m_self;
     JobQueue q;
 
-    std::thread th;
+    std::jthread th;
     std::atomic<bool> running{false};
 
   protected:
@@ -54,12 +54,13 @@ class Writer {
 
     virtual bool publish(const std::string &json_str) = 0;
 
-    const _GstAmpComm *self() {
+    const _GstAmpComm *self() const {
         return m_self;
     }
 
   public:
     explicit Writer(_GstAmpComm *self, size_t max) : m_self(self), q(max) {}
+    virtual ~Writer() = default;
 
     bool send(AmpCommJob &&job);
 

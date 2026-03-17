@@ -205,7 +205,7 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     // it does not added yet -> add it
     if (!perceptionMeta) {
         auto perception = std::make_shared<amp::Perception>();
-        perceptionMeta = amp::PerceptionMeta::add(buf, perception);
+        amp::PerceptionMeta::add(buf, perception);
     }
 
     auto ret = amp::PerceptionMeta::mutate<GstFlowReturn>(

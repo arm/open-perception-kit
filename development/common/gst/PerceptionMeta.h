@@ -20,13 +20,14 @@ struct PerceptionMetaTraits {
         return "com_arm_amp_meta_Perception";
     }
     static const gchar **tags() {
-        static const gchar *t[] = {
+        static std::vector<const gchar *> t = {
             "perception",
             "inference",
             "detections",
             nullptr,
         };
-        return t;
+
+        return t.data();
     }
 
     static Payload clone(const Payload &p) {

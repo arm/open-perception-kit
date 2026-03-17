@@ -120,7 +120,7 @@ template <class Traits> class Meta {
             m->payload = std::move(cloned);
         }
 
-        return fn(*m->payload);
+        return std::move(fn(*m->payload));
     }
 
   private:
@@ -135,7 +135,7 @@ template <class Traits> class Meta {
 
     static void free(GstMeta *meta, GstBuffer *) {
         auto *m = (MetaType *)meta;
-        m->payload.~shared_ptr<Payload>();
+        m->payload.reset();
     }
 
     static gboolean transform(GstBuffer *dest, GstMeta *meta, GstBuffer *, GQuark, gpointer) {

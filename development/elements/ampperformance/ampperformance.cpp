@@ -512,7 +512,6 @@ static GstFlowReturn gst_amp_performance_transform_frame_ip(GstVideoFilter *filt
 
     // Get PerceptionContextMeta
 
-    // GstBuffer *writable_buf = gst_buffer_make_writable(frame->buffer);
     auto ret =
         amp::PerceptionMeta::mutate<GstFlowReturn>(frame->buffer, [self](auto &perception) -> auto {
             perception.perfdata = self->cached_lines;

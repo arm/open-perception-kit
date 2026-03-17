@@ -12,6 +12,11 @@
 
 #include "file_writer.h"
 
+class FileError : public std::runtime_error {
+  public:
+    FileError(const std::string &err) : std::runtime_error(err) {}
+};
+
 static bool write_all(int fd, const char *data, size_t len) {
     size_t off = 0;
     while (off < len) {
@@ -41,7 +46,7 @@ bool FileWriter::io_open_existing(struct stat &st) {
                     self(), "Failed to open FIFO '%s': %s", m_file_name.c_str(), g_strerror(errno));
             }
 
-            throw std::runtime_error("FIFO cannot be opened");
+            throw FileError("FIFO cannot be opened");
         }
         return true;
 
@@ -51,7 +56,7 @@ bool FileWriter::io_open_existing(struct stat &st) {
             GST_INFO_OBJECT(
                 self(), "Failed to open file '%s': %s", m_file_name.c_str(), g_strerror(errno));
 
-            throw std::runtime_error("File cannot be opened");
+            throw FileError("File cannot be opened");
         }
 
         return true;
@@ -60,7 +65,7 @@ bool FileWriter::io_open_existing(struct stat &st) {
         GST_WARNING_OBJECT(
             self(), "'%s' exists but is not a FIFO or regular file", m_file_name.c_str());
 
-        throw std::runtime_error("Unknown file type");
+        throw FileError("Unknown file type");
     }
 }
 
@@ -68,7 +73,7 @@ bool FileWriter::io_create() {
     if (errno != ENOENT) {
         GST_INFO_OBJECT(self(), "stat('%s') failed: %s", m_file_name.c_str(), g_strerror(errno));
 
-        throw std::runtime_error("Cannot stat");
+        throw FileError("Cannot stat");
     }
 
     /* Doesn't exist -> create as regular file */
@@ -77,7 +82,7 @@ bool FileWriter::io_create() {
         GST_INFO_OBJECT(
             self(), "Failed to create file '%s': %s", m_file_name.c_str(), g_strerror(errno));
 
-        throw std::runtime_error("File cannot be created");
+        throw FileError("File cannot be created");
     }
 
     return true;
@@ -91,7 +96,7 @@ bool FileWriter::io_open() {
         if (m_file_name.empty()) {
             GST_WARNING_OBJECT(self(), "file-name is not set");
 
-            throw std::runtime_error("file-name is not set");
+            throw FileError("file-name is not set");
         }
 
         /* "-" means stdout */
@@ -115,7 +120,7 @@ bool FileWriter::io_open() {
 
         return ret;
 
-    } catch (std::runtime_error &) {
+    } catch (FileError &) {
         return false;
     }
 }

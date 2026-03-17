@@ -233,19 +233,21 @@ template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 inline void to_json(json &j, const Perception::Detection &d) {
     std::visit(
         overloaded{
-            [&](const Perception::Rect &v) { j = json{{"type", "Rect"}, {"data", v}}; },
-            [&](const Perception::YawPitch &v) { j = json{{"type", "YawPitch"}, {"data", v}}; },
-            [&](const Perception::LocalizedText &v) {
+            [&j](const Perception::Rect &v) { j = json{{"type", "Rect"}, {"data", v}}; },
+            [&j](const Perception::YawPitch &v) { j = json{{"type", "YawPitch"}, {"data", v}}; },
+            [&j](const Perception::LocalizedText &v) {
                 j = json{{"type", "LocalizedText"}, {"data", v}};
             },
-            [&](const Perception::SegmentationMap &v) {
+            [&j](const Perception::SegmentationMap &v) {
                 j = json{{"type", "SegmentationMap"}, {"data", v}};
             },
-            [&](const Perception::VideoFrame &v) { j = json{{"type", "VideoFrame"}, {"data", v}}; },
-            [&](const Perception::Classification &v) {
+            [&j](const Perception::VideoFrame &v) {
+                j = json{{"type", "VideoFrame"}, {"data", v}};
+            },
+            [&j](const Perception::Classification &v) {
                 j = json{{"type", "Classification"}, {"data", v}};
             },
-            [&](const Perception::AudioFrame &v) {
+            [&j](const Perception::AudioFrame &v) {
                 j = json{{"type", "AudioFrame"}, {"data", v}};
             }},
         d);

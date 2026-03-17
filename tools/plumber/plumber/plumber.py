@@ -128,8 +128,50 @@ def load_ndjson(path: str) -> List[dict]:
 
 # ---------- Comparison logic ----------
 
+def process_remaining(
+        i: int,
+        gt: dict,
+        remaining: list[dict],
+        out_uuid_index: dict[int, tuple[dict, dict]],
+        gt_uuid_index: dict[int, tuple[dict, dict]],
+        dist_spec: DistanceSpec):
 
-def _greedy_match_by_distance(
+    best_j = -1
+    best_dist = math.inf
+
+    gt_parent_uuid = gt['data']['parentUuid']
+    _, gt_parent_det = gt_uuid_index.get(gt_parent_uuid, (None, None))
+    if gt_parent_det is None:
+        return False, f"detection has no parent (parent uuid: {gt_parent_uuid})"
+
+    for j, out in enumerate(remaining):
+
+        out_parent_uuid = out['data']['parentUuid']
+        _, out_parent_det = out_uuid_index.get(out_parent_uuid, (None, None))
+        if out_parent_det is None:
+            return False, f"detection has no parent (parent uuid: {out_parent_uuid})"
+
+        d = dist_spec.func(gt, out, gt_parent_det, out_parent_det)
+
+        # ensure distance is numeric and normalized
+        if not (isinstance(d, (int, float)) and math.isfinite(d)):
+            return False, f"distance function returned non-finite value for type at gt index {i}"
+        if d < best_dist:
+            best_dist = d
+            best_j = j
+
+    # enforce threshold
+    if best_dist > dist_spec.threshold:
+        return False, (
+            f"distance too large for gt index {i}: {best_dist:.6f} > threshold {dist_spec.threshold}"
+        )
+
+    # consume match
+    if best_j >= 0:
+        remaining.pop(best_j)
+
+
+def greedy_match_by_distance(
     gt_dets: List[dict],
     gt_uuid_index: dict[int, tuple[dict, dict]],
     out_dets: List[dict],
@@ -154,39 +196,7 @@ def _greedy_match_by_distance(
         if not remaining:
             return False, f"ran out of output detections at gt index {i}"
 
-        gt_parent_uuid = gt['data']['parentUuid']
-        _, gt_parent_det = gt_uuid_index.get(gt_parent_uuid, (None, None))
-        if gt_parent_det is None:
-            return False, f"detection has not parent (parent uuid: {gt_parent_uuid})"
-
-        best_j = -1
-        best_dist = math.inf
-
-        for j, out in enumerate(remaining):
-
-            out_parent_uuid = out['data']['parentUuid']
-            _, out_parent_det = out_uuid_index.get(out_parent_uuid, (None, None))
-            if out_parent_det is None:
-                return False, f"detection has not parent (parent uuid: {out_parent_uuid})"
-
-            d = dist_spec.func(gt, out, gt_parent_det, out_parent_det)
-
-            # ensure distance is numeric and normalized
-            if not (isinstance(d, (int, float)) and math.isfinite(d)):
-                return False, f"distance function returned non-finite value for type at gt index {i}"
-            if d < best_dist:
-                best_dist = d
-                best_j = j
-
-        # enforce threshold
-        if best_dist > dist_spec.threshold:
-            return False, (
-                f"distance too large for gt index {i}: {best_dist:.6f} > threshold {dist_spec.threshold}"
-            )
-
-        # consume match
-        if best_j >= 0:
-            remaining.pop(best_j)
+        process_remaining(i, gt, remaining, out_uuid_index, gt_uuid_index, dist_spec)
 
     if remaining:
         return False, f"unmatched output detections remain: {len(remaining)}"
@@ -232,7 +242,7 @@ def compare_layer(
         if spec is None:
             return False, f"no distance spec for detection type {det_type!r}"
 
-        ok, msg = _greedy_match_by_distance(
+        ok, msg = greedy_match_by_distance(
             gt_by_type[det_type],
             gt_uuid_index,
             out_by_type[det_type],
