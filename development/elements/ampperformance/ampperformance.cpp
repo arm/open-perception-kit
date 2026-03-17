@@ -512,11 +512,10 @@ static GstFlowReturn gst_amp_performance_transform_frame_ip(GstVideoFilter *filt
 
     // Get PerceptionContextMeta
 
-    auto ret =
-        amp::PerceptionMeta::mutate<GstFlowReturn>(frame->buffer, [self](auto &perception) -> auto {
-            perception.perfdata = self->cached_lines;
-            return GST_FLOW_OK;
-        });
+    auto ret = amp::PerceptionMeta::mutate<GstFlowReturn>(frame->buffer, [self](auto &perception) {
+        perception.perfdata = self->cached_lines;
+        return GST_FLOW_OK;
+    });
 
     using ME = amp::MetaError;
     if (std::holds_alternative<ME>(ret)) {

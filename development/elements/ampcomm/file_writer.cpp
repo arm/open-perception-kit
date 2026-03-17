@@ -34,7 +34,7 @@ static bool write_all(int fd, const char *data, size_t len) {
     return true;
 }
 
-bool FileWriter::io_open_existing(struct stat &st) {
+bool FileWriter::io_open_existing(const struct stat &st) {
     if (S_ISFIFO(st.st_mode)) {
         m_fd = open(m_file_name.c_str(), O_WRONLY | O_NONBLOCK);
         if (m_fd < 0) {
@@ -138,19 +138,24 @@ void FileWriter::io_close() {
     }
 }
 
-bool FileWriter::publish(const std::string &json_str) {
+int FileWriter::check_open() {
     int fd = -1;
 
-    {
-        std::lock_guard g(m_io_lock);
+    std::lock_guard g(m_io_lock);
 
-        if (m_fd < 0)
-            io_open();
-        if (m_fd >= 0)
-            fd = dup(m_fd);
-    }
+    if (m_fd < 0)
+        io_open();
+    if (m_fd >= 0)
+        fd = dup(m_fd);
 
+    return fd;
+}
+
+bool FileWriter::publish(const std::string &json_str) {
     bool ret = false;
+
+    auto fd = check_open();
+
     if (fd >= 0) {
         bool ok = write_all(fd, json_str.c_str(), json_str.length());
         close(fd);

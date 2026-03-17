@@ -171,7 +171,7 @@ gst_amp_comm_set_property(GObject *object, guint prop_id, const GValue *value, G
 
 static void
 gst_amp_comm_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec) {
-    GstAmpComm *self = GST_AMP_COMM(object);
+    const GstAmpComm *self = GST_AMP_COMM(object);
 
     switch (prop_id) {
     case PROP_METHOD:
@@ -245,7 +245,7 @@ static void gst_amp_comm_class_init(GstAmpCommClass *klass) {
 static void gst_amp_comm_init(GstAmpComm *self) {
     self->method = GST_AMP_COMM_METHOD_FILE;
     self->file_name = g_strdup("-");
-    self->frame_counter = 0l;
+    self->frame_counter = 0L;
 
     self->priv = new GstAmpCommPrivate{};
 

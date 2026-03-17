@@ -36,8 +36,8 @@ static inline std::string base64_encode_safe(const uint8_t *data, size_t len) {
         out.push_back(table[v & 0x3F]);
         i += 3;
     }
-    size_t rem = len - i;
-    if (rem == 1) {
+
+    if (size_t rem = len - i; rem == 1) {
         uint32_t v = uint32_t(data[i]) << 16;
         out.push_back(table[(v >> 18) & 0x3F]);
         out.push_back(table[(v >> 12) & 0x3F]);
@@ -64,11 +64,10 @@ static inline bool zlib_compress(const uint8_t *data,
         return true;
     }
 
-    uLongf bound = compressBound((uLong)data_len);
+    uLongf bound = compressBound(data_len);
     out.resize(bound);
 
-    int rc = compress2(out.data(), &bound, data, (uLong)data_len, level);
-    if (rc != Z_OK) {
+    if (int rc = compress2(out.data(), &bound, data, data_len, level); rc != Z_OK) {
         out.clear();
         return false;
     }
@@ -193,8 +192,8 @@ static inline nlohmann::json bitmap_to_json_zlib_b64(const amp::Bitmap &b,
 
     // compress
     std::vector<uint8_t> compressed;
-    bool ok = zlib_compress(data, bytes, compressed, zlib_level);
-    if (!ok || compressed.empty()) {
+
+    if (bool ok = zlib_compress(data, bytes, compressed, zlib_level); !ok || compressed.empty()) {
         // compression failed: fallback to base64 of raw
         std::string raw_b64 = base64_encode_safe(data, bytes);
         j["encoding"] = "base64";

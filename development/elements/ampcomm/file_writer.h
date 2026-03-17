@@ -17,7 +17,9 @@ class FileWriter : public Writer {
 
     std::recursive_mutex m_io_lock;
 
-    bool io_open_existing(struct stat &st);
+    int check_open();
+
+    bool io_open_existing(const struct stat &st);
     bool io_create();
 
   protected:
@@ -30,5 +32,5 @@ class FileWriter : public Writer {
     explicit FileWriter(_GstAmpComm *self, const std::string &file_name, size_t queue_size)
         : Writer(self, queue_size), m_file_name(file_name) {}
 
-    virtual ~FileWriter() = default;
+    ~FileWriter() override = default;
 };

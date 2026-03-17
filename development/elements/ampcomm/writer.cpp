@@ -4,6 +4,7 @@
 
 #include "writer.h"
 
+#include <mutex>
 #include <unistd.h>
 #include <utility>
 
@@ -15,7 +16,7 @@
 
 bool JobQueue::try_push(AmpCommJob &&j) {
 
-    std::lock_guard<std::mutex> lk(m_);
+    std::scoped_lock lk(m_);
 
     if (stop_ || q_.size() >= max_)
         return false;
@@ -42,14 +43,14 @@ bool JobQueue::pop(AmpCommJob &out) {
 }
 
 void JobQueue::stop() {
-    std::lock_guard<std::mutex> lk(m_);
+    std::scoped_lock lk(m_);
     stop_ = true;
     q_.clear();
     cv_.notify_all();
 }
 
 void JobQueue::reset() {
-    std::lock_guard<std::mutex> lk(m_);
+    std::scoped_lock lk(m_);
     q_.clear();
     stop_ = false;
 }

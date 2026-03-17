@@ -45,8 +45,7 @@ template <class Traits> class Meta {
             const char *name = Traits::api_name();
 
             // 1) If it already exists, use it.
-            GType existing = g_type_from_name(name);
-            if (existing != 0) {
+            if (GType existing = g_type_from_name(name); existing != 0) {
                 type = existing;
                 g_once_init_leave(&once, 1);
                 return type;

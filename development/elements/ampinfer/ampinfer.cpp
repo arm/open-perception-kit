@@ -200,16 +200,14 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     g_assert(gst_buffer_is_writable(buf));
 
     // try to get the perception meta
-    auto perceptionMeta = amp::PerceptionMeta::get(buf);
-
     // it does not added yet -> add it
-    if (!perceptionMeta) {
+    if (auto perceptionMeta = amp::PerceptionMeta::get(buf); !perceptionMeta) {
         auto perception = std::make_shared<amp::Perception>();
         amp::PerceptionMeta::add(buf, perception);
     }
 
     auto ret = amp::PerceptionMeta::mutate<GstFlowReturn>(
-        buf, [self, rgb, frameWidth, frameHeight](auto &perception) -> auto {
+        buf, [self, rgb, frameWidth, frameHeight](auto &perception) {
             amp::OpChainContext opChainContext;
             opChainContext.inferenceInfo.inferElementId =
                 std::string(gst_ampinfer_get_effective_inferId(self));
