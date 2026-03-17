@@ -237,6 +237,7 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
         AMP_ABORT;
     }
 
+    gst_buffer_unmap(buf, &map);
     return GST_FLOW_OK;
 }
 
@@ -331,7 +332,7 @@ static void gst_ampinfer_class_init(GstAmpInferClass *klass) {
                             "ID of the inference element (used in Plumber to identify the layers. "
                             "Deafults to the name property of the element)",
                             "",
-                            (GParamFlags)(G_PARAM_READABLE | G_PARAM_STATIC_STRINGS)));
+                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     // Static pad templates (portable across GStreamer-1.0 versions)
     static GstStaticPadTemplate sink_t = GST_STATIC_PAD_TEMPLATE(

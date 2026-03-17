@@ -525,7 +525,7 @@ static GstFlowReturn gst_amp_performance_transform_frame_ip(GstVideoFilter *filt
         case ME::OK:
         case ME::NO_METADATA:
             // NO_METADATA means no AI model is running
-            // so no Perceiption is available.
+            // so no Perception is available.
             // which is normal
             return GST_FLOW_OK;
         }

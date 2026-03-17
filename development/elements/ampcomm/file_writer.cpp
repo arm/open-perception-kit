@@ -23,7 +23,7 @@ static bool write_all(int fd, const char *data, size_t len) {
         if (n < 0 && errno == EINTR)
             continue;
 
-        // EAGAIN = would block (nonblocking FIFO). Your policy: drop.
+        // EAGAIN = would block (nonblocking FIFO).
         return false;
     }
     return true;
@@ -147,10 +147,10 @@ bool FileWriter::publish(const std::string &json_str) {
 
     bool ret = false;
     if (fd >= 0) {
-        ssize_t n = write(fd, json_str.c_str(), json_str.length());
+        bool ok = write_all(fd, json_str.c_str(), json_str.length());
         close(fd);
 
-        if (n < 0) {
+        if (!ok) {
             if (errno == EPIPE || errno == ENXIO) {
                 GST_INFO_OBJECT(self(), "FIFO reader disappeared for '%s'", m_file_name.c_str());
                 io_close();

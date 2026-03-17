@@ -44,11 +44,13 @@ bool JobQueue::pop(AmpCommJob &out) {
 void JobQueue::stop() {
     std::lock_guard<std::mutex> lk(m_);
     stop_ = true;
+    q_.clear();
     cv_.notify_all();
 }
 
 void JobQueue::reset() {
     std::lock_guard<std::mutex> lk(m_);
+    q_.clear();
     stop_ = false;
 }
 

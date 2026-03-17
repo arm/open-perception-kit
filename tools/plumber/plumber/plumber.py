@@ -156,6 +156,8 @@ def _greedy_match_by_distance(
 
         gt_parent_uuid = gt['data']['parentUuid']
         _, gt_parent_det = gt_uuid_index.get(gt_parent_uuid, (None, None))
+        if gt_parent_det is None:
+            return False, f"detection has not parent (parent uuid: {gt_parent_uuid})"
 
         best_j = -1
         best_dist = math.inf
@@ -164,6 +166,8 @@ def _greedy_match_by_distance(
 
             out_parent_uuid = out['data']['parentUuid']
             _, out_parent_det = out_uuid_index.get(out_parent_uuid, (None, None))
+            if out_parent_det is None:
+                return False, f"detection has not parent (parent uuid: {out_parent_uuid})"
 
             d = dist_spec.func(gt, out, gt_parent_det, out_parent_det)
 
@@ -253,7 +257,8 @@ def compare_perception(args, gt_obj: dict, out_obj: dict, element_id_key="infer-
     """
 
     if args.verbose:
-        print(f"====================== comparing frame: {out_obj['frame_counter']} =============================")
+        fc = out_obj.get("frame_counter", 0)
+        print(f"====================== comparing frame: {fc} =============================")
 
     gt_layers = aux.get_layers(gt_obj)
     out_layers = aux.get_layers(out_obj)
@@ -339,7 +344,12 @@ def run_check_mode(args) -> int:
         for i, gt_obj in enumerate(ground):
             # Read next output JSON from FIFO
             line = next(fifo_iter)
-            out_obj = json.loads(line)
+            try:
+                out_obj = json.loads(line)
+            except json.JSONDecodeError:
+                if args.verbose:
+                    print("Skipping bad JSON line")
+                continue
 
             ok, msg = compare_perception(args, gt_obj, out_obj)
             compared += 1

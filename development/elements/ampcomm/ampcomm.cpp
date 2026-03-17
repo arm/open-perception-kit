@@ -160,6 +160,10 @@ gst_amp_comm_set_property(GObject *object, guint prop_id, const GValue *value, G
     case PROP_FILE_NAME:
         g_free(self->file_name);
         self->file_name = g_value_dup_string(value);
+        if (self->file_name == nullptr) {
+            self->file_name = g_strdup("");
+        }
+
         /* Reopen on name change */
         (void)gst_amp_comm_open_io(self);
         break;
@@ -247,6 +251,7 @@ static void gst_amp_comm_class_init(GstAmpCommClass *klass) {
 static void gst_amp_comm_init(GstAmpComm *self) {
     self->method = GST_AMP_COMM_METHOD_FILE;
     self->file_name = g_strdup("-");
+    self->frame_counter = 0l;
 
     self->priv = new GstAmpCommPrivate{};
 

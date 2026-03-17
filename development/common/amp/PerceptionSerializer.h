@@ -4,14 +4,16 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <variant>
+#include <vector>
 
 #include <zlib.h>
 
 #include <nlohmann/json.hpp>
 
-#include "Perception.h" // wherever your amp::Perception lives
+#include "Perception.h"
 #include "amp/Bitmap.h"
 
 namespace amp {

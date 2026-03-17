@@ -4,10 +4,8 @@
 
 #pragma once
 
-#include <cstdint>
 #include <functional>
 #include <gst/gst.h>
-#include <iostream>
 #include <memory>
 #include <utility>
 #include <variant>
@@ -70,14 +68,15 @@ template <class Traits> class Meta {
 
     static const GstMetaInfo *info() {
         static const GstMetaInfo *mi = nullptr;
-        if (g_once_init_enter((GstMetaInfo **)&mi)) {
+        if (g_once_init_enter_pointer(const_cast<GstMetaInfo **>(&mi))) {
             const GstMetaInfo *i = gst_meta_register(api_type(),
                                                      Traits::meta_name(),
                                                      sizeof(MetaType),
                                                      &Meta::init,
                                                      &Meta::free,
                                                      &Meta::transform);
-            g_once_init_leave((GstMetaInfo **)&mi, (GstMetaInfo *)i);
+            g_once_init_leave_pointer(const_cast<GstMetaInfo **>(&mi),
+                                      const_cast<GstMetaInfo *>(i));
         }
         return mi;
     }
