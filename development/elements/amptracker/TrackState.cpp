@@ -2,26 +2,26 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 
-#include "Identity.h"
+#include "TrackState.h"
 
 #include "Tracker.h"
 
 #include <algorithm>
 #include <cmath>
 
-namespace amp::tracker::identity {
+namespace amp::tracker::trackstate {
 
-void clearPredictionFlag(Identity &identity) {
-    identity.predictedThisFrame = false;
+void clearPredictionFlag(TrackState &track) {
+    track.predictedThisFrame = false;
 }
 
-amp::Perception::TrackTrace::Point predictCenter(Identity &identity, const Config &config) {
-    using StateVector = Identity::Kalman::StateVector;
-    using StateMatrix = Identity::Kalman::StateMatrix;
+amp::Perception::TrackTrace::Point predictCenter(TrackState &track, const Config &config) {
+    using StateVector = TrackState::Kalman::StateVector;
+    using StateMatrix = TrackState::Kalman::StateMatrix;
 
-    if (!identity.kalmanInitialized) {
-        const float centerX = identity.lastDetection.x + (identity.lastDetection.width * 0.5f);
-        const float centerY = identity.lastDetection.y + (identity.lastDetection.height * 0.5f);
+    if (!track.kalmanInitialized) {
+        const float centerX = track.lastDetection.x + (track.lastDetection.width * 0.5f);
+        const float centerY = track.lastDetection.y + (track.lastDetection.height * 0.5f);
 
         StateVector initialState{};
         initialState[0][0] = centerX;
@@ -35,9 +35,9 @@ amp::Perception::TrackTrace::Point predictCenter(Identity &identity, const Confi
         initialCovariance[2][2] = config.kalmanInitialCovarianceVel;
         initialCovariance[3][3] = config.kalmanInitialCovarianceVel;
 
-        identity.kalman.setState(initialState);
-        identity.kalman.setCovariance(initialCovariance);
-        identity.kalmanInitialized = true;
+        track.kalman.setState(initialState);
+        track.kalman.setCovariance(initialCovariance);
+        track.kalmanInitialized = true;
         return {centerX, centerY};
     }
 
@@ -55,21 +55,21 @@ amp::Perception::TrackTrace::Point predictCenter(Identity &identity, const Confi
     processNoise[2][2] = config.kalmanProcessNoiseVel;
     processNoise[3][3] = config.kalmanProcessNoiseVel;
 
-    identity.kalman.predict(transition, processNoise);
+    track.kalman.predict(transition, processNoise);
 
-    const auto &state = identity.kalman.state();
+    const auto &state = track.kalman.state();
     return {state[0][0], state[1][0]};
 }
 
 amp::Perception::TrackTrace::Point correctCenterWithMeasurement(
-    Identity &identity, const amp::Perception::Rect &detection, const Config &config) {
-    using MeasurementVector = Identity::Kalman::MeasurementVector;
-    using MeasurementMatrix = Identity::Kalman::MeasurementMatrix;
-    using ObservationMatrix = Identity::Kalman::ObservationMatrix;
+    TrackState &track, const amp::Perception::Rect &detection, const Config &config) {
+    using MeasurementVector = TrackState::Kalman::MeasurementVector;
+    using MeasurementMatrix = TrackState::Kalman::MeasurementMatrix;
+    using ObservationMatrix = TrackState::Kalman::ObservationMatrix;
 
-    if (!identity.predictedThisFrame) {
-        predictCenter(identity, config);
-        identity.predictedThisFrame = true;
+    if (!track.predictedThisFrame) {
+        predictCenter(track, config);
+        track.predictedThisFrame = true;
     }
 
     const float measX = detection.x + (detection.width * 0.5f);
@@ -87,16 +87,16 @@ amp::Perception::TrackTrace::Point correctCenterWithMeasurement(
     measurementNoise[0][0] = config.kalmanMeasurementNoisePos;
     measurementNoise[1][1] = config.kalmanMeasurementNoisePos;
 
-    identity.kalman.update(measurement, observation, measurementNoise);
+    track.kalman.update(measurement, observation, measurementNoise);
 
-    const auto &state = identity.kalman.state();
+    const auto &state = track.kalman.state();
     return {state[0][0], state[1][0]};
 }
 
-void appendTraceSample(Identity &identity,
-                       const amp::Perception::TrackTrace::Point &point,
-                       const Config &config) {
-    identity.tracePoints.push_back(point);
+void appendTracePoint(TrackState &track,
+                      const amp::Perception::TrackTrace::Point &point,
+                      const Config &config) {
+    track.traceHistoryPoints.push_back(point);
 
     int historyPoints = 1;
     if (config.traceHistorySeconds > 0.0f && config.kalmanDt > 0.0f) {
@@ -104,9 +104,9 @@ void appendTraceSample(Identity &identity,
     }
 
     const auto maxHistorySize = static_cast<size_t>(std::max(1, historyPoints));
-    while (identity.tracePoints.size() > maxHistorySize) {
-        identity.tracePoints.pop_front();
+    while (track.traceHistoryPoints.size() > maxHistorySize) {
+        track.traceHistoryPoints.pop_front();
     }
 }
 
-} // namespace amp::tracker::identity
+} // namespace amp::tracker::trackstate

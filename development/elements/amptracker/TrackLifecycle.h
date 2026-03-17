@@ -9,8 +9,8 @@
 namespace amp::tracker::tracklifecycle {
 
 struct UpdateResult {
-    DetectionIdentityAssignments assignedIdentityByDetection;
-    IdentityIdList predictedOnlyIdentityIds;
+    DetectionTrackAssignments assignedTrackByDetection;
+    TrackIdList predictedOnlyTrackIds;
 };
 
 struct FrameTrackingContext {
@@ -22,13 +22,13 @@ struct FrameTrackingContext {
 };
 
 struct MutableTrackState {
-    ActiveIdentityMap &activeTracks;
-    DormantIdentityMap &inactiveTracks;
-    IdentityId &nextTrackId;
+    ActiveTrackMap &activeTracks;
+    DormantTrackMap &inactiveTracks;
+    TrackId &nextTrackId;
 };
 
 /**
- * @brief Removes dormant identities that exceeded the configured history window.
+ * @brief Removes dormant tracks that exceeded the configured history window.
  *
  * @param frameTrackingContext Frame-local immutable lifecycle inputs.
  * @param mutableTrackState Mutable lifecycle state references.
@@ -37,17 +37,17 @@ void expireInactiveTracks(const FrameTrackingContext &frameTrackingContext,
                           MutableTrackState &mutableTrackState);
 
 /**
- * @brief Applies matching results and reconciles full identity lifecycle for a frame.
+ * @brief Applies matching results and reconciles full track lifecycle for a frame.
  *
- * Updates matched identities, attempts dormant reassociation, creates new identities,
- * advances unmatched identities via prediction, archives expired identities, and returns
+ * Updates matched tracks, attempts dormant reassociation, creates new tracks,
+ * advances unmatched tracks via prediction, archives expired tracks, and returns
  * assignment/output metadata for downstream writing.
  *
  * @param frameTrackingContext Frame-local immutable lifecycle inputs.
  * @param mutableTrackState Mutable lifecycle state references.
- * @return UpdateResult Detection-to-identity assignments and predicted-only identities.
+ * @return UpdateResult Detection-to-track assignments and predicted-only tracks.
  */
-UpdateResult updateIdentityLifecycle(const FrameTrackingContext &frameTrackingContext,
-                                     MutableTrackState &mutableTrackState);
+UpdateResult updateTrackLifecycle(const FrameTrackingContext &frameTrackingContext,
+                                  MutableTrackState &mutableTrackState);
 
 } // namespace amp::tracker::tracklifecycle

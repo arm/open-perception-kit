@@ -10,13 +10,13 @@ namespace amp::tracker::trackingoutput {
 
 struct WriterContext {
     amp::Perception &perception;
-    const ActiveIdentityMap &activeTracks;
+    const ActiveTrackMap &activeTracks;
     const Config &config;
 };
 
 struct TrackingResult {
-    const DetectionIdentityAssignments &detectionIdentityAssignments;
-    const IdentityIdList &predictedOnlyIdentityIds;
+    const DetectionTrackAssignments &detectionTrackAssignments;
+    const TrackIdList &predictedOnlyTrackIds;
 };
 
 /**
@@ -39,6 +39,6 @@ void appendPredictedDetectionsFromTrackingResult(const WriterContext &context,
  * @brief Appends a trace layer for active tracks.
  * @param context Shared output writing context.
  */
-void appendTraceLayerForActiveIdentities(const WriterContext &context);
+void appendTraceLayerForActiveTracks(const WriterContext &context);
 
 } // namespace amp::tracker::trackingoutput

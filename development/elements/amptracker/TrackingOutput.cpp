@@ -19,79 +19,78 @@ bool isTargetLayer(const amp::Perception::Layer &layer, const Config &config) {
     return layer.contentType == config.contentType;
 }
 
-std::string formatIdentityText(const std::string &existingText,
-                               IdentityId identityId,
-                               const std::string &diagnostic) {
+std::string
+formatTrackText(const std::string &existingText, TrackId trackId, const std::string &diagnostic) {
     if (existingText.empty()) {
-        return fmt::format("ID:{} {}", identityId, diagnostic);
+        return fmt::format("ID:{} {}", trackId, diagnostic);
     }
-    return fmt::format("{} [ID:{} {}]", existingText, identityId, diagnostic);
+    return fmt::format("{} [ID:{} {}]", existingText, trackId, diagnostic);
 }
 
-void appendIdentityTextIfEnabled(amp::Perception::Rect &rect,
-                                 IdentityId identityId,
-                                 const Identity &identity,
-                                 const Config &config) {
+void appendTrackTextIfEnabled(amp::Perception::Rect &rect,
+                              TrackId trackId,
+                              const TrackState &track,
+                              const Config &config) {
     if (!config.appendIdentityIdToText) {
         return;
     }
 
-    rect.text = formatIdentityText(rect.text, identityId, identity.lastMatchDiagnostic);
+    rect.text = formatTrackText(rect.text, trackId, track.lastMatchDiagnostic);
 }
 
-IdentityId lookupAssignedIdentityId(DetectionIndex detectionIndex,
-                                    const TrackingResult &trackingResult,
-                                    IdentityId defaultId = 0) {
-    const auto assignmentIt = trackingResult.detectionIdentityAssignments.find(detectionIndex);
-    if (assignmentIt == trackingResult.detectionIdentityAssignments.end()) {
+TrackId lookupAssignedTrackId(DetectionIndex detectionIndex,
+                              const TrackingResult &trackingResult,
+                              TrackId defaultId = 0) {
+    const auto assignmentIt = trackingResult.detectionTrackAssignments.find(detectionIndex);
+    if (assignmentIt == trackingResult.detectionTrackAssignments.end()) {
         return defaultId;
     }
     return assignmentIt->second;
 }
 
-const Identity *findConfirmedIdentity(IdentityId identityId, const WriterContext &context) {
-    if (identityId == 0) {
+const TrackState *findConfirmedTrack(TrackId trackId, const WriterContext &context) {
+    if (trackId == 0) {
         return nullptr;
     }
 
-    const auto identityIt = context.activeTracks.find(identityId);
-    if (identityIt == context.activeTracks.end()) {
+    const auto trackIt = context.activeTracks.find(trackId);
+    if (trackIt == context.activeTracks.end()) {
         return nullptr;
     }
 
-    if (identityIt->second.hitStreak < context.config.minHitsToConfirm) {
+    if (trackIt->second.hitStreak < context.config.minHitsToConfirm) {
         return nullptr;
     }
 
-    return &identityIt->second;
+    return &trackIt->second;
 }
 
-void applyAssignedIdentityToDetection(amp::Perception::Rect &rect,
-                                      DetectionIndex detectionIndex,
-                                      const WriterContext &context,
-                                      const TrackingResult &trackingResult) {
-    const IdentityId identityId = lookupAssignedIdentityId(detectionIndex, trackingResult);
-    const auto *identity = findConfirmedIdentity(identityId, context);
-    if (identity == nullptr) {
+void applyAssignedTrackToDetection(amp::Perception::Rect &rect,
+                                   DetectionIndex detectionIndex,
+                                   const WriterContext &context,
+                                   const TrackingResult &trackingResult) {
+    const TrackId trackId = lookupAssignedTrackId(detectionIndex, trackingResult);
+    const auto *track = findConfirmedTrack(trackId, context);
+    if (track == nullptr) {
         return;
     }
 
-    rect.x = identity->lastDetection.x;
-    rect.y = identity->lastDetection.y;
-    appendIdentityTextIfEnabled(rect, identityId, *identity, context.config);
+    rect.x = track->lastDetection.x;
+    rect.y = track->lastDetection.y;
+    appendTrackTextIfEnabled(rect, trackId, *track, context.config);
 }
 
-bool shouldEmitTrace(const Identity &identity, const Config &config) {
-    return identity.hitStreak >= config.minHitsToConfirm && identity.tracePoints.size() >= 2;
+bool shouldEmitTrace(const TrackState &track, const Config &config) {
+    return track.hitStreak >= config.minHitsToConfirm && track.traceHistoryPoints.size() >= 2;
 }
 
 void appendTrackTraceDetection(amp::Perception::Layer &traceLayer,
-                               IdentityId identityId,
-                               const Identity &identity) {
+                               TrackId trackId,
+                               const TrackState &track) {
     amp::Perception::TrackTrace trace;
-    trace.trackId = identityId;
-    trace.parentUuid = identity.lastDetection.parentUuid;
-    trace.points.assign(identity.tracePoints.begin(), identity.tracePoints.end());
+    trace.trackId = trackId;
+    trace.parentUuid = track.lastDetection.parentUuid;
+    trace.points.assign(track.traceHistoryPoints.begin(), track.traceHistoryPoints.end());
     traceLayer.detections.push_back(trace);
 }
 
@@ -128,7 +127,7 @@ void updateExistingDetectionsWithTrackingResult(const WriterContext &context,
                 continue;
             }
 
-            applyAssignedIdentityToDetection(*rect, detectionIndex, context, trackingResult);
+            applyAssignedTrackToDetection(*rect, detectionIndex, context, trackingResult);
 
             detectionIndex++;
         }
@@ -139,32 +138,32 @@ void appendPredictedDetectionsFromTrackingResult(const WriterContext &context,
                                                  const TrackingResult &trackingResult) {
     auto *predictionLayer = ensurePredictionOutputLayer(context.perception, context.config);
 
-    for (const IdentityId identityId : trackingResult.predictedOnlyIdentityIds) {
-        const auto *identity = findConfirmedIdentity(identityId, context);
-        if (identity == nullptr) {
+    for (const TrackId trackId : trackingResult.predictedOnlyTrackIds) {
+        const auto *track = findConfirmedTrack(trackId, context);
+        if (track == nullptr) {
             continue;
         }
 
-        auto predictedRect = identity->lastDetection;
-        appendIdentityTextIfEnabled(predictedRect, identityId, *identity, context.config);
+        auto predictedRect = track->lastDetection;
+        appendTrackTextIfEnabled(predictedRect, trackId, *track, context.config);
 
         predictionLayer->detections.push_back(predictedRect);
     }
 }
 
-void appendTraceLayerForActiveIdentities(const WriterContext &context) {
+void appendTraceLayerForActiveTracks(const WriterContext &context) {
     amp::Perception::Layer traceLayer;
     traceLayer.model = TRACKER_MODEL;
     traceLayer.engine = TRACKER_ENGINE;
     traceLayer.tags = TRACE_TAG;
     traceLayer.contentType = "trackTrace";
 
-    for (const auto &[identityId, identity] : context.activeTracks) {
-        if (!shouldEmitTrace(identity, context.config)) {
+    for (const auto &[trackId, track] : context.activeTracks) {
+        if (!shouldEmitTrace(track, context.config)) {
             continue;
         }
 
-        appendTrackTraceDetection(traceLayer, identityId, identity);
+        appendTrackTraceDetection(traceLayer, trackId, track);
     }
 
     if (!traceLayer.detections.empty()) {

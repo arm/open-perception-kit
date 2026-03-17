@@ -28,40 +28,40 @@ void Tracker::process(amp::Perception &perception, const Config &config) {
     auto detections = frameinputs::collectDetections(perception, config);
 
     // Reset per-frame prediction flags before running association.
-    matching::clearIdentityPredictionFlags(activeTracks);
+    matching::clearTrackPredictionFlags(activeTracks);
 
-    // Associate detections with currently active identities using IoU/ReID cost.
-    const auto detectionMatches = matching::associateDetectionsToActiveIdentities(
-        detections, embeddings, activeTracks, config);
+    // Associate detections with currently active tracks using IoU/ReID cost.
+    const auto detectionMatches =
+        matching::associateDetectionsToActiveTracks(detections, embeddings, activeTracks, config);
 
     // Build lifecycle inputs for this frame.
     auto frameTrackingContext = tracklifecycle::FrameTrackingContext{
         detections, embeddings, detectionMatches, currentFrameIndex, config};
 
-    // Build mutable lifecycle state references (active/dormant identities and next ID).
+    // Build mutable lifecycle state references (active/dormant tracks and next ID).
     auto mutableTrackState =
         tracklifecycle::MutableTrackState{activeTracks, inactiveTracks, nextTrackId};
 
-    // Remove dormant identities that exceeded the configured retention window.
+    // Remove dormant tracks that exceeded the configured retention window.
     tracklifecycle::expireInactiveTracks(frameTrackingContext, mutableTrackState);
 
-    // Update identity lifecycle for this frame.
+    // Update track lifecycle for this frame.
     const auto lifecycleUpdate =
-        tracklifecycle::updateIdentityLifecycle(frameTrackingContext, mutableTrackState);
+        tracklifecycle::updateTrackLifecycle(frameTrackingContext, mutableTrackState);
     // Bundle shared output-writing inputs.
     const auto writerContext = trackingoutput::WriterContext{perception, activeTracks, config};
     // Bundle lifecycle output needed by output writers.
     const auto resolvedTrackingAssignments = trackingoutput::TrackingResult{
-        lifecycleUpdate.assignedIdentityByDetection, lifecycleUpdate.predictedOnlyIdentityIds};
+        lifecycleUpdate.assignedTrackByDetection, lifecycleUpdate.predictedOnlyTrackIds};
 
-    // Write resolved identity assignments back onto detection outputs.
+    // Write resolved track assignments back onto detection outputs.
     trackingoutput::updateExistingDetectionsWithTrackingResult(writerContext,
                                                                resolvedTrackingAssignments);
-    // Add predicted-only identities into the prediction output layer.
+    // Add predicted-only tracks into the prediction output layer.
     trackingoutput::appendPredictedDetectionsFromTrackingResult(writerContext,
                                                                 resolvedTrackingAssignments);
-    // Add track trace for each identity.
-    trackingoutput::appendTraceLayerForActiveIdentities(writerContext);
+    // Add track trace for each active track.
+    trackingoutput::appendTraceLayerForActiveTracks(writerContext);
 }
 
 } // namespace amp::tracker

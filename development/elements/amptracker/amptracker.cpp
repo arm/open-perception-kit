@@ -49,7 +49,7 @@ struct _GstAmpTracker {
 G_END_DECLS
 
 struct _GstAmpTracker::Members {
-    amp::tracker::Tracker processor;
+    amp::tracker::Tracker tracker;
 };
 
 G_DEFINE_TYPE(GstAmpTracker, gst_amptracker, GST_TYPE_BASE_TRANSFORM)
@@ -108,7 +108,7 @@ static gboolean gst_amptracker_start(GstBaseTransform *b) {
     if (!self->m) {
         self->m = new GstAmpTracker::Members();
     }
-    self->m->processor.reset();
+    self->m->tracker.reset();
 
     return TRUE;
 }
@@ -116,7 +116,7 @@ static gboolean gst_amptracker_start(GstBaseTransform *b) {
 static gboolean gst_amptracker_stop(GstBaseTransform *b) {
     auto *self = (GstAmpTracker *)b;
     if (self->m) {
-        self->m->processor.reset();
+        self->m->tracker.reset();
     }
     return TRUE;
 }
@@ -155,7 +155,7 @@ static GstFlowReturn gst_amptracker_transform_ip(GstBaseTransform *b, GstBuffer 
         return GST_FLOW_OK;
     }
 
-    self->m->processor.process(*perception, trackerConfigFromElement(self));
+    self->m->tracker.process(*perception, trackerConfigFromElement(self));
     return GST_FLOW_OK;
 }
 
@@ -363,7 +363,7 @@ static void gst_amptracker_class_init(GstAmpTrackerClass *klass) {
         PROP_REID_REASSOCIATE_THRESHOLD,
         g_param_spec_float("reid-reassociate-threshold",
                            "ReID reassociate threshold",
-                           "Similarity threshold to restore identity from dormant gallery",
+                           "Similarity threshold to restore track from dormant gallery",
                            -1.0f,
                            1.0f,
                            amp::tracker::Defaults::reidReassociateThreshold,

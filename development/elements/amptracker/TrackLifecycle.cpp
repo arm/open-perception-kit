@@ -4,8 +4,8 @@
 
 #include "TrackLifecycle.h"
 
-#include "Identity.h"
 #include "Matching.h"
+#include "TrackState.h"
 #include "Utils.h"
 
 #include <algorithm>
@@ -28,23 +28,23 @@ void expireInactiveTracks(const FrameTrackingContext &frameTrackingContext,
 
     std::vector<uint64_t> toErase;
     toErase.reserve(mutableTrackState.inactiveTracks.size());
-    for (const auto &[identityId, dormant] : mutableTrackState.inactiveTracks) {
+    for (const auto &[trackId, dormant] : mutableTrackState.inactiveTracks) {
         if ((frameTrackingContext.currentFrameIndex - dormant.storedAtFrame) > maxDormantFrames) {
-            toErase.push_back(identityId);
+            toErase.push_back(trackId);
         }
     }
 
-    for (const auto identityId : toErase) {
-        mutableTrackState.inactiveTracks.erase(identityId);
+    for (const auto trackId : toErase) {
+        mutableTrackState.inactiveTracks.erase(trackId);
     }
 }
 
 namespace {
 
 struct LifecycleResult {
-    DetectionIdentityAssignments assignedIdentityByDetection;
-    IdentityIdList predictedOnlyIdentityIds;
-    IdentityIdList identitiesToRemove;
+    DetectionTrackAssignments assignedTrackByDetection;
+    TrackIdList predictedOnlyTrackIds;
+    TrackIdList tracksToRemove;
 };
 
 std::optional<std::reference_wrapper<const std::vector<float>>>
@@ -59,42 +59,42 @@ findDetectionEmbedding(DetectionIndex detectionIndex,
 }
 
 void applyMatchedDetection(DetectionIndex detectionIndex,
-                           IdentityId identityId,
+                           TrackId trackId,
                            const FrameTrackingContext &frameTrackingContext,
                            MutableTrackState &mutableTrackState,
                            LifecycleResult &result) {
-    auto &identity = mutableTrackState.activeTracks[identityId];
-    identity.lastDetection = frameTrackingContext.detections[detectionIndex];
-    identity.missedFrames = 0;
-    identity.hitStreak++;
-    identity.lastUpdateFrame = frameTrackingContext.currentFrameIndex;
+    auto &track = mutableTrackState.activeTracks[trackId];
+    track.lastDetection = frameTrackingContext.detections[detectionIndex];
+    track.missedFrames = 0;
+    track.hitStreak++;
+    track.lastUpdateFrame = frameTrackingContext.currentFrameIndex;
 
-    const auto smoothedPoint = identity::correctCenterWithMeasurement(
-        identity, identity.lastDetection, frameTrackingContext.config);
-    identity::appendTraceSample(identity, smoothedPoint, frameTrackingContext.config);
+    const auto smoothedPoint = trackstate::correctCenterWithMeasurement(
+        track, track.lastDetection, frameTrackingContext.config);
+    trackstate::appendTracePoint(track, smoothedPoint, frameTrackingContext.config);
 
     const auto diagnosticIt =
         frameTrackingContext.association.diagnosticsByDetection.find(detectionIndex);
-    identity.lastMatchDiagnostic =
+    track.lastMatchDiagnostic =
         (diagnosticIt != frameTrackingContext.association.diagnosticsByDetection.end())
             ? diagnosticIt->second
             : "IOU:N/A";
 
     const auto embedding = findDetectionEmbedding(detectionIndex, frameTrackingContext);
     if (embedding && isValidEmbedding(embedding->get())) {
-        identity.lastEmbedding = embedding->get();
-        identity.hasEmbedding = true;
+        track.lastEmbedding = embedding->get();
+        track.hasEmbedding = true;
     }
 
-    identity.lastDetection.x = smoothedPoint.x - (identity.lastDetection.width * 0.5f);
-    identity.lastDetection.y = smoothedPoint.y - (identity.lastDetection.height * 0.5f);
-    result.assignedIdentityByDetection[detectionIndex] = identityId;
+    track.lastDetection.x = smoothedPoint.x - (track.lastDetection.width * 0.5f);
+    track.lastDetection.y = smoothedPoint.y - (track.lastDetection.height * 0.5f);
+    result.assignedTrackByDetection[detectionIndex] = trackId;
 }
 
-bool tryRestoreDormantIdentity(DetectionIndex detectionIndex,
-                               const FrameTrackingContext &frameTrackingContext,
-                               MutableTrackState &mutableTrackState,
-                               LifecycleResult &result) {
+bool tryRestoreDormantTrack(DetectionIndex detectionIndex,
+                            const FrameTrackingContext &frameTrackingContext,
+                            MutableTrackState &mutableTrackState,
+                            LifecycleResult &result) {
     if (!frameTrackingContext.config.useEmbeddings ||
         frameTrackingContext.config.reidReassociateThreshold <= 0.0f ||
         mutableTrackState.inactiveTracks.empty()) {
@@ -107,8 +107,8 @@ bool tryRestoreDormantIdentity(DetectionIndex detectionIndex,
     }
 
     float bestSimilarity = -1.0f;
-    IdentityId bestDormantIdentityId = 0;
-    for (const auto &[dormantIdentityId, dormant] : mutableTrackState.inactiveTracks) {
+    TrackId bestDormantTrackId = 0;
+    for (const auto &[dormantTrackId, dormant] : mutableTrackState.inactiveTracks) {
         if (!isValidEmbedding(dormant.lastEmbedding)) {
             continue;
         }
@@ -116,119 +116,118 @@ bool tryRestoreDormantIdentity(DetectionIndex detectionIndex,
         const float similarity = cosineSimilarity(embedding->get(), dormant.lastEmbedding);
         if (similarity > bestSimilarity) {
             bestSimilarity = similarity;
-            bestDormantIdentityId = dormantIdentityId;
+            bestDormantTrackId = dormantTrackId;
         }
     }
 
-    if (bestDormantIdentityId == 0 ||
+    if (bestDormantTrackId == 0 ||
         bestSimilarity < frameTrackingContext.config.reidReassociateThreshold) {
         return false;
     }
 
-    const auto dormantIt = mutableTrackState.inactiveTracks.find(bestDormantIdentityId);
+    const auto dormantIt = mutableTrackState.inactiveTracks.find(bestDormantTrackId);
     if (dormantIt == mutableTrackState.inactiveTracks.end()) {
         return false;
     }
 
-    Identity restoredIdentity;
-    restoredIdentity.identityId = bestDormantIdentityId;
-    restoredIdentity.lastDetection = frameTrackingContext.detections[detectionIndex];
-    restoredIdentity.lastMatchDiagnostic = fmt::format("REID-R:{:.2f}", bestSimilarity);
-    restoredIdentity.lastEmbedding = embedding->get();
-    restoredIdentity.hasEmbedding = true;
-    restoredIdentity.missedFrames = 0;
-    restoredIdentity.hitStreak = std::max(1, frameTrackingContext.config.minHitsToConfirm);
-    restoredIdentity.lastUpdateFrame = frameTrackingContext.currentFrameIndex;
+    TrackState restoredTrack;
+    restoredTrack.trackId = bestDormantTrackId;
+    restoredTrack.lastDetection = frameTrackingContext.detections[detectionIndex];
+    restoredTrack.lastMatchDiagnostic = fmt::format("REID-R:{:.2f}", bestSimilarity);
+    restoredTrack.lastEmbedding = embedding->get();
+    restoredTrack.hasEmbedding = true;
+    restoredTrack.missedFrames = 0;
+    restoredTrack.hitStreak = std::max(1, frameTrackingContext.config.minHitsToConfirm);
+    restoredTrack.lastUpdateFrame = frameTrackingContext.currentFrameIndex;
 
-    const auto initPoint = identity::predictCenter(restoredIdentity, frameTrackingContext.config);
-    restoredIdentity.predictedThisFrame = true;
-    identity::appendTraceSample(restoredIdentity, initPoint, frameTrackingContext.config);
-    restoredIdentity.lastDetection.x = initPoint.x - (restoredIdentity.lastDetection.width * 0.5f);
-    restoredIdentity.lastDetection.y = initPoint.y - (restoredIdentity.lastDetection.height * 0.5f);
+    const auto initPoint = trackstate::predictCenter(restoredTrack, frameTrackingContext.config);
+    restoredTrack.predictedThisFrame = true;
+    trackstate::appendTracePoint(restoredTrack, initPoint, frameTrackingContext.config);
+    restoredTrack.lastDetection.x = initPoint.x - (restoredTrack.lastDetection.width * 0.5f);
+    restoredTrack.lastDetection.y = initPoint.y - (restoredTrack.lastDetection.height * 0.5f);
 
-    mutableTrackState.activeTracks[bestDormantIdentityId] = std::move(restoredIdentity);
-    result.assignedIdentityByDetection[detectionIndex] = bestDormantIdentityId;
-    mutableTrackState.nextTrackId =
-        std::max(mutableTrackState.nextTrackId, bestDormantIdentityId + 1);
+    mutableTrackState.activeTracks[bestDormantTrackId] = std::move(restoredTrack);
+    result.assignedTrackByDetection[detectionIndex] = bestDormantTrackId;
+    mutableTrackState.nextTrackId = std::max(mutableTrackState.nextTrackId, bestDormantTrackId + 1);
     mutableTrackState.inactiveTracks.erase(dormantIt);
     return true;
 }
 
-void createIdentityFromDetection(DetectionIndex detectionIndex,
-                                 const FrameTrackingContext &frameTrackingContext,
-                                 MutableTrackState &mutableTrackState,
-                                 LifecycleResult &result) {
-    Identity newIdentity;
-    newIdentity.identityId = mutableTrackState.nextTrackId++;
-    newIdentity.lastDetection = frameTrackingContext.detections[detectionIndex];
-    newIdentity.lastMatchDiagnostic = "NEW";
-    newIdentity.missedFrames = 0;
-    newIdentity.hitStreak = 1;
-    newIdentity.lastUpdateFrame = frameTrackingContext.currentFrameIndex;
+void createTrackFromDetection(DetectionIndex detectionIndex,
+                              const FrameTrackingContext &frameTrackingContext,
+                              MutableTrackState &mutableTrackState,
+                              LifecycleResult &result) {
+    TrackState newTrack;
+    newTrack.trackId = mutableTrackState.nextTrackId++;
+    newTrack.lastDetection = frameTrackingContext.detections[detectionIndex];
+    newTrack.lastMatchDiagnostic = "NEW";
+    newTrack.missedFrames = 0;
+    newTrack.hitStreak = 1;
+    newTrack.lastUpdateFrame = frameTrackingContext.currentFrameIndex;
 
     const auto embedding = findDetectionEmbedding(detectionIndex, frameTrackingContext);
     if (embedding && isValidEmbedding(embedding->get())) {
-        newIdentity.lastEmbedding = embedding->get();
-        newIdentity.hasEmbedding = true;
+        newTrack.lastEmbedding = embedding->get();
+        newTrack.hasEmbedding = true;
     }
 
-    const auto initPoint = identity::predictCenter(newIdentity, frameTrackingContext.config);
-    newIdentity.predictedThisFrame = true;
-    identity::appendTraceSample(newIdentity, initPoint, frameTrackingContext.config);
+    const auto initPoint = trackstate::predictCenter(newTrack, frameTrackingContext.config);
+    newTrack.predictedThisFrame = true;
+    trackstate::appendTracePoint(newTrack, initPoint, frameTrackingContext.config);
 
-    newIdentity.lastDetection.x = initPoint.x - (newIdentity.lastDetection.width * 0.5f);
-    newIdentity.lastDetection.y = initPoint.y - (newIdentity.lastDetection.height * 0.5f);
+    newTrack.lastDetection.x = initPoint.x - (newTrack.lastDetection.width * 0.5f);
+    newTrack.lastDetection.y = initPoint.y - (newTrack.lastDetection.height * 0.5f);
 
-    const IdentityId newIdentityId = newIdentity.identityId;
-    mutableTrackState.activeTracks.emplace(newIdentityId, std::move(newIdentity));
-    result.assignedIdentityByDetection[detectionIndex] = newIdentityId;
+    const TrackId newTrackId = newTrack.trackId;
+    mutableTrackState.activeTracks.emplace(newTrackId, std::move(newTrack));
+    result.assignedTrackByDetection[detectionIndex] = newTrackId;
 }
 
-void archiveIdentityToDormant(IdentityId identityId,
-                              const ActiveIdentityMap &activeTracks,
-                              DormantIdentityMap &inactiveTracks,
-                              uint64_t currentFrameIndex) {
-    const auto identityIt = activeTracks.find(identityId);
-    if (identityIt == activeTracks.end()) {
+void archiveTrackToDormant(TrackId trackId,
+                           const ActiveTrackMap &activeTracks,
+                           DormantTrackMap &inactiveTracks,
+                           uint64_t currentFrameIndex) {
+    const auto trackIt = activeTracks.find(trackId);
+    if (trackIt == activeTracks.end()) {
         return;
     }
 
-    if (identityIt->second.hasEmbedding && isValidEmbedding(identityIt->second.lastEmbedding)) {
-        DormantIdentity dormant;
-        dormant.identityId = identityId;
-        dormant.lastDetection = identityIt->second.lastDetection;
-        dormant.lastEmbedding = identityIt->second.lastEmbedding;
+    if (trackIt->second.hasEmbedding && isValidEmbedding(trackIt->second.lastEmbedding)) {
+        DormantTrackState dormant;
+        dormant.trackId = trackId;
+        dormant.lastDetection = trackIt->second.lastDetection;
+        dormant.lastEmbedding = trackIt->second.lastEmbedding;
         dormant.storedAtFrame = currentFrameIndex;
-        inactiveTracks[identityId] = std::move(dormant);
+        inactiveTracks[trackId] = std::move(dormant);
     }
 }
 
-void updatePredictedOnlyIdentities(const FrameTrackingContext &frameTrackingContext,
-                                   MutableTrackState &mutableTrackState,
-                                   LifecycleResult &result) {
-    for (auto &[identityId, identity] : mutableTrackState.activeTracks) {
-        if (identity.lastUpdateFrame >= frameTrackingContext.currentFrameIndex) {
+void updatePredictedOnlyTracks(const FrameTrackingContext &frameTrackingContext,
+                               MutableTrackState &mutableTrackState,
+                               LifecycleResult &result) {
+    for (auto &[trackId, track] : mutableTrackState.activeTracks) {
+        if (track.lastUpdateFrame >= frameTrackingContext.currentFrameIndex) {
             continue;
         }
 
         Perception::TrackTrace::Point predictedPoint;
-        if (identity.predictedThisFrame && identity.kalmanInitialized) {
-            const auto &state = identity.kalman.state();
+        if (track.predictedThisFrame && track.kalmanInitialized) {
+            const auto &state = track.kalman.state();
             predictedPoint = {state[0][0], state[1][0]};
         } else {
-            predictedPoint = identity::predictCenter(identity, frameTrackingContext.config);
+            predictedPoint = trackstate::predictCenter(track, frameTrackingContext.config);
         }
 
-        identity.lastDetection.x = predictedPoint.x - (identity.lastDetection.width * 0.5f);
-        identity.lastDetection.y = predictedPoint.y - (identity.lastDetection.height * 0.5f);
-        identity::appendTraceSample(identity, predictedPoint, frameTrackingContext.config);
+        track.lastDetection.x = predictedPoint.x - (track.lastDetection.width * 0.5f);
+        track.lastDetection.y = predictedPoint.y - (track.lastDetection.height * 0.5f);
+        trackstate::appendTracePoint(track, predictedPoint, frameTrackingContext.config);
 
-        identity.missedFrames++;
-        if (identity.missedFrames <= frameTrackingContext.config.maxMissedFrames) {
-            identity.lastMatchDiagnostic = "PRED";
-            result.predictedOnlyIdentityIds.push_back(identityId);
+        track.missedFrames++;
+        if (track.missedFrames <= frameTrackingContext.config.maxMissedFrames) {
+            track.lastMatchDiagnostic = "PRED";
+            result.predictedOnlyTrackIds.push_back(trackId);
         } else {
-            result.identitiesToRemove.push_back(identityId);
+            result.tracksToRemove.push_back(trackId);
         }
     }
 }
@@ -236,8 +235,8 @@ void updatePredictedOnlyIdentities(const FrameTrackingContext &frameTrackingCont
 void applyMatchedAssociations(const FrameTrackingContext &frameTrackingContext,
                               MutableTrackState &mutableTrackState,
                               LifecycleResult &result) {
-    for (const auto &[detIdx, identityId] : frameTrackingContext.association.matches) {
-        applyMatchedDetection(detIdx, identityId, frameTrackingContext, mutableTrackState, result);
+    for (const auto &[detIdx, trackId] : frameTrackingContext.association.matches) {
+        applyMatchedDetection(detIdx, trackId, frameTrackingContext, mutableTrackState, result);
     }
 }
 
@@ -245,39 +244,39 @@ void resolveUnmatchedDetections(const FrameTrackingContext &frameTrackingContext
                                 MutableTrackState &mutableTrackState,
                                 LifecycleResult &result) {
     for (DetectionIndex detIdx : frameTrackingContext.association.unmatchedDetections) {
-        if (tryRestoreDormantIdentity(detIdx, frameTrackingContext, mutableTrackState, result)) {
+        if (tryRestoreDormantTrack(detIdx, frameTrackingContext, mutableTrackState, result)) {
             continue;
         }
-        createIdentityFromDetection(detIdx, frameTrackingContext, mutableTrackState, result);
+        createTrackFromDetection(detIdx, frameTrackingContext, mutableTrackState, result);
     }
 }
 
-void archiveAndRemoveExpiredIdentities(const FrameTrackingContext &frameTrackingContext,
-                                       MutableTrackState &mutableTrackState,
-                                       const LifecycleResult &result) {
-    for (const auto identityId : result.identitiesToRemove) {
-        archiveIdentityToDormant(identityId,
-                                 mutableTrackState.activeTracks,
-                                 mutableTrackState.inactiveTracks,
-                                 frameTrackingContext.currentFrameIndex);
-        mutableTrackState.activeTracks.erase(identityId);
+void archiveAndRemoveExpiredTracks(const FrameTrackingContext &frameTrackingContext,
+                                   MutableTrackState &mutableTrackState,
+                                   const LifecycleResult &result) {
+    for (const auto trackId : result.tracksToRemove) {
+        archiveTrackToDormant(trackId,
+                              mutableTrackState.activeTracks,
+                              mutableTrackState.inactiveTracks,
+                              frameTrackingContext.currentFrameIndex);
+        mutableTrackState.activeTracks.erase(trackId);
     }
 }
 
 } // namespace
 
-UpdateResult updateIdentityLifecycle(const FrameTrackingContext &frameTrackingContext,
-                                     MutableTrackState &mutableTrackState) {
+UpdateResult updateTrackLifecycle(const FrameTrackingContext &frameTrackingContext,
+                                  MutableTrackState &mutableTrackState) {
     LifecycleResult lifecycleResult;
 
     applyMatchedAssociations(frameTrackingContext, mutableTrackState, lifecycleResult);
     resolveUnmatchedDetections(frameTrackingContext, mutableTrackState, lifecycleResult);
-    updatePredictedOnlyIdentities(frameTrackingContext, mutableTrackState, lifecycleResult);
-    archiveAndRemoveExpiredIdentities(frameTrackingContext, mutableTrackState, lifecycleResult);
+    updatePredictedOnlyTracks(frameTrackingContext, mutableTrackState, lifecycleResult);
+    archiveAndRemoveExpiredTracks(frameTrackingContext, mutableTrackState, lifecycleResult);
 
     UpdateResult result;
-    result.assignedIdentityByDetection = std::move(lifecycleResult.assignedIdentityByDetection);
-    result.predictedOnlyIdentityIds = std::move(lifecycleResult.predictedOnlyIdentityIds);
+    result.assignedTrackByDetection = std::move(lifecycleResult.assignedTrackByDetection);
+    result.predictedOnlyTrackIds = std::move(lifecycleResult.predictedOnlyTrackIds);
     return result;
 }
 

@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "Identity.h"
+#include "TrackState.h"
 #include "amp/Perception.h"
 
 #include <cstddef>
@@ -58,19 +58,19 @@ struct Config {
     float kalmanMeasurementNoisePos = Defaults::kalmanMeasurementNoisePos;
 };
 
-using IdentityId = uint64_t;
+using TrackId = uint64_t;
 using DetectionIndex = size_t;
-using DetectionIdentityAssignments = std::map<DetectionIndex, IdentityId>;
-using IdentityIdList = std::vector<IdentityId>;
-using ActiveIdentityMap = std::map<IdentityId, Identity>;
-using DormantIdentityMap = std::map<IdentityId, DormantIdentity>;
+using DetectionTrackAssignments = std::map<DetectionIndex, TrackId>;
+using TrackIdList = std::vector<TrackId>;
+using ActiveTrackMap = std::map<TrackId, TrackState>;
+using DormantTrackMap = std::map<TrackId, DormantTrackState>;
 
 using EmbeddingBatch = std::map<uint64_t, std::reference_wrapper<const std::vector<float>>>;
 using DetectionBatch = std::vector<amp::Perception::Rect>;
-using AssociationMatch = std::pair<DetectionIndex, IdentityId>;
+using TrackMatch = std::pair<DetectionIndex, TrackId>;
 
 struct AssociationResult {
-    std::vector<AssociationMatch> matches;
+    std::vector<TrackMatch> matches;
     std::map<DetectionIndex, std::string> diagnosticsByDetection;
     std::vector<DetectionIndex> unmatchedDetections;
 };
@@ -90,9 +90,9 @@ class Tracker {
     void process(amp::Perception &perception, const Config &config);
 
   private:
-    ActiveIdentityMap activeTracks;
-    DormantIdentityMap inactiveTracks;
-    IdentityId nextTrackId = 1;
+    ActiveTrackMap activeTracks;
+    DormantTrackMap inactiveTracks;
+    TrackId nextTrackId = 1;
     uint64_t currentFrameIndex = 0;
 };
 

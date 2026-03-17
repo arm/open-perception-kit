@@ -4,8 +4,7 @@
 
 #include "Matching.h"
 
-#include "Identity.h"
-
+#include "TrackState.h"
 #include "Utils.h"
 
 #include "algo/Hungarian.h"
@@ -30,32 +29,32 @@ void markAllDetectionsUnmatched(DetectionIndex detectionCount, AssociationResult
     }
 }
 
-IdentityIdList collectActiveIdentityIds(const ActiveIdentityMap &activeTracks) {
-    IdentityIdList identityIds;
-    identityIds.reserve(activeTracks.size());
-    for (const auto &[identityId, _] : activeTracks) {
-        identityIds.push_back(identityId);
+TrackIdList collectActiveTrackIds(const ActiveTrackMap &activeTracks) {
+    TrackIdList trackIds;
+    trackIds.reserve(activeTracks.size());
+    for (const auto &[trackId, _] : activeTracks) {
+        trackIds.push_back(trackId);
     }
-    return identityIds;
+    return trackIds;
 }
 
-std::vector<amp::Perception::Rect> predictIdentityBoxes(ActiveIdentityMap &activeTracks,
-                                                        const Config &config) {
-    std::vector<amp::Perception::Rect> predictedIdentityBoxes;
-    predictedIdentityBoxes.reserve(activeTracks.size());
+std::vector<amp::Perception::Rect> predictTrackBoxes(ActiveTrackMap &activeTracks,
+                                                     const Config &config) {
+    std::vector<amp::Perception::Rect> predictedTrackBoxes;
+    predictedTrackBoxes.reserve(activeTracks.size());
 
-    for (auto &[identityId, identity] : activeTracks) {
-        (void)identityId;
-        const auto predictedPoint = identity::predictCenter(identity, config);
-        identity.predictedThisFrame = true;
+    for (auto &[trackId, track] : activeTracks) {
+        (void)trackId;
+        const auto predictedPoint = trackstate::predictCenter(track, config);
+        track.predictedThisFrame = true;
 
-        auto predictedRect = identity.lastDetection;
+        auto predictedRect = track.lastDetection;
         predictedRect.x = predictedPoint.x - (predictedRect.width * 0.5f);
         predictedRect.y = predictedPoint.y - (predictedRect.height * 0.5f);
-        predictedIdentityBoxes.push_back(predictedRect);
+        predictedTrackBoxes.push_back(predictedRect);
     }
 
-    return predictedIdentityBoxes;
+    return predictedTrackBoxes;
 }
 
 const std::vector<float> *findDetectionEmbedding(size_t detectionIndex,
@@ -70,12 +69,12 @@ const std::vector<float> *findDetectionEmbedding(size_t detectionIndex,
 
 std::optional<float> computeValidSimilarity(size_t detectionIndex,
                                             const DetectionBatch &detections,
-                                            IdentityId identityId,
+                                            TrackId trackId,
                                             const EmbeddingBatch &embeddings,
-                                            const ActiveIdentityMap &activeTracks,
+                                            const ActiveTrackMap &activeTracks,
                                             const Config &config) {
     const auto *embedding = findDetectionEmbedding(detectionIndex, detections, embeddings);
-    const auto trackIt = activeTracks.find(identityId);
+    const auto trackIt = activeTracks.find(trackId);
     if (embedding == nullptr || trackIt == activeTracks.end() || !trackIt->second.hasEmbedding) {
         return std::nullopt;
     }
@@ -120,35 +119,35 @@ std::string buildMatchDiagnostic(float iou, const std::optional<float> &similari
 }
 
 void buildAssociationMatrices(const DetectionBatch &detections,
-                              const IdentityIdList &identityIds,
-                              const std::vector<amp::Perception::Rect> &predictedIdentityBoxes,
+                              const TrackIdList &trackIds,
+                              const std::vector<amp::Perception::Rect> &predictedTrackBoxes,
                               const EmbeddingBatch &embeddings,
-                              const ActiveIdentityMap &activeTracks,
+                              const ActiveTrackMap &activeTracks,
                               const Config &config,
                               CostMatrix &iouMatrix,
                               CostMatrix &costMatrix,
                               SimilarityMatrix &similarityMatrix) {
-    iouMatrix.assign(detections.size(), std::vector<float>(identityIds.size(), 0.0f));
-    costMatrix.assign(detections.size(), std::vector<float>(identityIds.size(), 1.0f));
+    iouMatrix.assign(detections.size(), std::vector<float>(trackIds.size(), 0.0f));
+    costMatrix.assign(detections.size(), std::vector<float>(trackIds.size(), 1.0f));
     similarityMatrix.assign(detections.size(),
-                            std::vector<std::optional<float>>(identityIds.size(), std::nullopt));
+                            std::vector<std::optional<float>>(trackIds.size(), std::nullopt));
 
     for (size_t detIdx = 0; detIdx < detections.size(); ++detIdx) {
         const auto &det = detections[detIdx];
-        for (size_t identityIdx = 0; identityIdx < identityIds.size(); ++identityIdx) {
-            const float iou = amp::algo::computeIoU(det, predictedIdentityBoxes[identityIdx]);
-            iouMatrix[detIdx][identityIdx] = iou;
+        for (size_t trackIdx = 0; trackIdx < trackIds.size(); ++trackIdx) {
+            const float iou = amp::algo::computeIoU(det, predictedTrackBoxes[trackIdx]);
+            iouMatrix[detIdx][trackIdx] = iou;
             const auto similarity = computeValidSimilarity(
-                detIdx, detections, identityIds[identityIdx], embeddings, activeTracks, config);
-            similarityMatrix[detIdx][identityIdx] = similarity;
-            costMatrix[detIdx][identityIdx] = computeAssociationCost(iou, similarity, config);
+                detIdx, detections, trackIds[trackIdx], embeddings, activeTracks, config);
+            similarityMatrix[detIdx][trackIdx] = similarity;
+            costMatrix[detIdx][trackIdx] = computeAssociationCost(iou, similarity, config);
         }
     }
 }
 
 void collectMatchesFromAssignment(const DetectionBatch &detections,
                                   const std::vector<int> &assignment,
-                                  const IdentityIdList &identityIds,
+                                  const TrackIdList &trackIds,
                                   const CostMatrix &iouMatrix,
                                   const SimilarityMatrix &similarityMatrix,
                                   const Config &config,
@@ -156,20 +155,20 @@ void collectMatchesFromAssignment(const DetectionBatch &detections,
     std::vector<bool> matchedDetection(detections.size(), false);
 
     for (size_t detIdx = 0; detIdx < assignment.size() && detIdx < detections.size(); ++detIdx) {
-        const int identityIdx = assignment[detIdx];
-        if (identityIdx < 0 || static_cast<size_t>(identityIdx) >= identityIds.size()) {
+        const int trackIdx = assignment[detIdx];
+        if (trackIdx < 0 || static_cast<size_t>(trackIdx) >= trackIds.size()) {
             continue;
         }
 
-        const float iou = iouMatrix[detIdx][static_cast<size_t>(identityIdx)];
+        const float iou = iouMatrix[detIdx][static_cast<size_t>(trackIdx)];
         if (iou < config.iouThreshold) {
             continue;
         }
 
-        const IdentityId matchedIdentityId = identityIds[static_cast<size_t>(identityIdx)];
-        result.matches.push_back({detIdx, matchedIdentityId});
+        const TrackId matchedTrackId = trackIds[static_cast<size_t>(trackIdx)];
+        result.matches.push_back({detIdx, matchedTrackId});
         result.diagnosticsByDetection[detIdx] =
-            buildMatchDiagnostic(iou, similarityMatrix[detIdx][static_cast<size_t>(identityIdx)]);
+            buildMatchDiagnostic(iou, similarityMatrix[detIdx][static_cast<size_t>(trackIdx)]);
         matchedDetection[detIdx] = true;
     }
 
@@ -182,17 +181,17 @@ void collectMatchesFromAssignment(const DetectionBatch &detections,
 
 } // namespace
 
-void clearIdentityPredictionFlags(ActiveIdentityMap &activeTracks) {
-    for (auto &[identityId, identity] : activeTracks) {
-        (void)identityId;
-        identity::clearPredictionFlag(identity);
+void clearTrackPredictionFlags(ActiveTrackMap &activeTracks) {
+    for (auto &[trackId, track] : activeTracks) {
+        (void)trackId;
+        trackstate::clearPredictionFlag(track);
     }
 }
 
-AssociationResult associateDetectionsToActiveIdentities(const DetectionBatch &detections,
-                                                        const EmbeddingBatch &embeddings,
-                                                        ActiveIdentityMap &activeTracks,
-                                                        const Config &config) {
+AssociationResult associateDetectionsToActiveTracks(const DetectionBatch &detections,
+                                                    const EmbeddingBatch &embeddings,
+                                                    ActiveTrackMap &activeTracks,
+                                                    const Config &config) {
     AssociationResult result;
 
     if (detections.empty()) {
@@ -204,14 +203,14 @@ AssociationResult associateDetectionsToActiveIdentities(const DetectionBatch &de
         return result;
     }
 
-    const auto identityIds = collectActiveIdentityIds(activeTracks);
-    const auto predictedIdentityBoxes = predictIdentityBoxes(activeTracks, config);
+    const auto trackIds = collectActiveTrackIds(activeTracks);
+    const auto predictedTrackBoxes = predictTrackBoxes(activeTracks, config);
     CostMatrix iouMatrix;
     CostMatrix costMatrix;
     SimilarityMatrix similarityMatrix;
     buildAssociationMatrices(detections,
-                             identityIds,
-                             predictedIdentityBoxes,
+                             trackIds,
+                             predictedTrackBoxes,
                              embeddings,
                              activeTracks,
                              config,
@@ -222,7 +221,7 @@ AssociationResult associateDetectionsToActiveIdentities(const DetectionBatch &de
     const auto assignment = amp::algo::solveHungarian(costMatrix);
 
     collectMatchesFromAssignment(
-        detections, assignment, identityIds, iouMatrix, similarityMatrix, config, result);
+        detections, assignment, trackIds, iouMatrix, similarityMatrix, config, result);
 
     return result;
 }

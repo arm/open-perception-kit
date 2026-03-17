@@ -3,7 +3,7 @@ gstamptracker = shared_module(
   sources: [
     'amptracker.cpp',
     'Tracker.cpp',
-    'Identity.cpp',
+    'TrackState.cpp',
     'Utils.cpp',
     'FrameInputs.cpp',
     'Matching.cpp',

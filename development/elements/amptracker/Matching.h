@@ -9,14 +9,14 @@
 namespace amp::tracker::matching {
 
 /**
- * @brief Resets per-frame prediction flags on all active identities.
+ * @brief Resets per-frame prediction flags on all active tracks.
  *
  * @param activeTracks Active track state map to update in place.
  */
-void clearIdentityPredictionFlags(ActiveIdentityMap &activeTracks);
+void clearTrackPredictionFlags(ActiveTrackMap &activeTracks);
 
 /**
- * @brief Associates current detections to active identities.
+ * @brief Associates current detections to active tracks.
  *
  * Computes IoU/embedding-aware costs, solves assignment, and reports matches,
  * unmatched detections, and diagnostics for lifecycle reconciliation.
@@ -27,9 +27,9 @@ void clearIdentityPredictionFlags(ActiveIdentityMap &activeTracks);
  * @param config Tracker configuration controlling association behavior.
  * @return AssociationResult Matched pairs, diagnostics, and unmatched detections.
  */
-AssociationResult associateDetectionsToActiveIdentities(const DetectionBatch &detections,
-                                                        const EmbeddingBatch &embeddings,
-                                                        ActiveIdentityMap &activeTracks,
-                                                        const Config &config);
+AssociationResult associateDetectionsToActiveTracks(const DetectionBatch &detections,
+                                                    const EmbeddingBatch &embeddings,
+                                                    ActiveTrackMap &activeTracks,
+                                                    const Config &config);
 
 } // namespace amp::tracker::matching
