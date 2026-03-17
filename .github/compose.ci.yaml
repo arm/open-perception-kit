@@ -18,7 +18,7 @@ services:
     hostname: amp-release-with-ut
     command: |
       bash -c '
-        .devcontainer/devsetup.sh &&
+        .devcontainer/setup.sh &&
         .devcontainer/platform_init.sh amp-dev-base &&
         ./scripts/build-elements.sh release true &&
         meson test -C development/build --print-errorlogs

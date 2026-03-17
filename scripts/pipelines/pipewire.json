@@ -1,8 +1,8 @@
 {
     "description": "PipeWire pipeline",
     "pipeline": [
-        "pipewiresrc do-timestamp=true !",
-        "video/x-raw,format=YUY2,width=640,height=480,framerate=30/1 !",
+        "pipewiresrc do-timestamp=true ${PW_TARGET_OBJECT_ARG:-} !",
+        "video/x-raw,format=${PW_CAPS_FORMAT:-YUY2},width=${PW_CAPS_WIDTH:-640},height=${PW_CAPS_HEIGHT:-480},framerate=${PW_CAPS_FRAMERATE:-30}/1 !",
         "videoconvert ! video/x-raw,format=BGRA !",
         "ampinfer opchain-path=/work/etc/models/yolo/opchain.json active=true !",
         "ampinfer opchain-path=/work/etc/models/ultraface/opchain.json active=true !",
