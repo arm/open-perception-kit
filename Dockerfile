@@ -78,6 +78,8 @@ ENV LD_LIBRARY_PATH="/work/deps/onnxruntime/lib:${LD_LIBRARY_PATH:-}"
 ######################################################################
 FROM amp-base AS amp-docs-base
 
+ARG USERNAME=devgoblin
+
 USER root
 
 # Dev / CI tools required for docs and quality checks
@@ -104,6 +106,8 @@ WORKDIR /work
 #################### PC Base Development Container ###################
 ######################################################################
 FROM amp-docs-base AS amp-dev-base
+
+ARG USERNAME=devgoblin
 
 USER root
 
@@ -133,6 +137,8 @@ WORKDIR /work
 ######################################################################
 FROM amp-dev-base AS amp-dev-rpi5
 # The base stage switches to a non-root user; return to root for apt/system changes.
+ARG USERNAME=devgoblin
+
 USER root
 # Add Raspberry Pi repository
 RUN set -eux; \
@@ -183,6 +189,7 @@ ENTRYPOINT ["/work/scripts/deployment-process.sh"]
 ######################################################################
 FROM amp-dev-base AS amp-dev-rich
 
+ARG USERNAME=devgoblin
 USER root
 
 # ---- Basic packages for development ----
