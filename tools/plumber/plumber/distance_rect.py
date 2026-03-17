@@ -4,7 +4,8 @@
 
 from typing import Tuple, Optional
 
-import auxiliary as aux
+from . import auxiliary as aux
+
 
 # normalize rect fields to [x0,y0,x1,y1] in relative coordinates (0..1)
 

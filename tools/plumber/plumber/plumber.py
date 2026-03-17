@@ -16,13 +16,12 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Optional, Callable
 
-import auxiliary as aux
-
-import distance_rect as dist_rect
-import distance_yaw_pitch as dist_yp
-import distance_seg_map as dist_sm
-import distance_classification as dist_cl
-import distance_video_frame as dist_vf
+from . import auxiliary as aux
+from . import distance_rect as dr
+from . import distance_yaw_pitch as dyp
+from . import distance_seg_map as dsm
+from . import distance_classification as dc
+from . import distance_video_frame as dvf
 
 # distance func signature: (gt_det: dict, out_det: dict, gt_parent_det, out_parent_det -> float
 DistanceFn = Callable[[dict, dict, dict, dict], float]
@@ -36,11 +35,11 @@ class DistanceSpec:
 
 
 DISTANCE_SPECS: Dict[str, DistanceSpec] = {
-    "Rect": DistanceSpec(dist_rect.distance_rect, threshold=0.01),
-    "YawPitch": DistanceSpec(dist_yp.distance_yawpitch, threshold=0.01),
-    "SegmentationMap": DistanceSpec(dist_sm.distance_segmentation_map, threshold=0.1, skip=True),
-    "Classification": DistanceSpec(dist_cl.distance_classification, threshold=0.2),
-    "VideoFrame": DistanceSpec(dist_vf.distance_video_frame, threshold=0.1, skip=True),
+    "Rect": DistanceSpec(dr.distance_rect, threshold=0.01),
+    "YawPitch": DistanceSpec(dyp.distance_yawpitch, threshold=0.01),
+    "SegmentationMap": DistanceSpec(dsm.distance_segmentation_map, threshold=0.1, skip=True),
+    "Classification": DistanceSpec(dc.distance_classification, threshold=0.2),
+    "VideoFrame": DistanceSpec(dvf.distance_video_frame, threshold=0.1, skip=True),
 }
 
 # ---------- FIFO reading ----------
