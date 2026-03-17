@@ -88,4 +88,7 @@ class TsUtcNs {
 
 } // namespace amp
 
-#define AMP_ABORT ::abort();
+#define AMP_ABORT                                                                                  \
+    do {                                                                                           \
+        ::abort();                                                                                 \
+    } while (0)

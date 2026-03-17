@@ -14,7 +14,7 @@
 
 class FileError : public std::runtime_error {
   public:
-    FileError(const std::string &err) : std::runtime_error(err) {}
+    explicit FileError(const std::string &err) : std::runtime_error(err) {}
 };
 
 static bool write_all(int fd, const char *data, size_t len) {
@@ -51,7 +51,7 @@ bool FileWriter::io_open_existing(const struct stat &st) {
         return true;
 
     } else if (S_ISREG(st.st_mode)) {
-        m_fd = open(m_file_name.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
+        m_fd = open(m_file_name.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0640);
         if (m_fd < 0) {
             GST_INFO_OBJECT(
                 self(), "Failed to open file '%s': %s", m_file_name.c_str(), g_strerror(errno));
@@ -77,7 +77,7 @@ bool FileWriter::io_create() {
     }
 
     /* Doesn't exist -> create as regular file */
-    m_fd = open(m_file_name.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
+    m_fd = open(m_file_name.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0640);
     if (m_fd < 0) {
         GST_INFO_OBJECT(
             self(), "Failed to create file '%s': %s", m_file_name.c_str(), g_strerror(errno));
@@ -154,9 +154,7 @@ int FileWriter::check_open() {
 bool FileWriter::publish(const std::string &json_str) {
     bool ret = false;
 
-    auto fd = check_open();
-
-    if (fd >= 0) {
+    if (auto fd = check_open(); fd >= 0) {
         bool ok = write_all(fd, json_str.c_str(), json_str.length());
         close(fd);
 

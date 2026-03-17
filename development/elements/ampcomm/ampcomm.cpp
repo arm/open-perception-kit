@@ -148,6 +148,7 @@ gst_amp_comm_set_property(GObject *object, guint prop_id, const GValue *value, G
     switch (prop_id) {
     case PROP_METHOD:
         self->method = (GstAmpCommMethod)g_value_get_enum(value);
+
         /* Reopen on method change */
         (void)gst_amp_comm_open_io(self);
         break;

@@ -28,7 +28,7 @@ bool JobQueue::try_push(AmpCommJob &&j) {
 }
 
 bool JobQueue::pop(AmpCommJob &out) {
-    std::unique_lock<std::mutex> lk(m_);
+    std::unique_lock lk(m_);
 
     cv_.wait(lk, [this] { return stop_ || !q_.empty(); });
 
