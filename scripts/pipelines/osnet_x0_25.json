@@ -1,0 +1,13 @@
+{
+    "description": "Test YOLO + OSNet embedding + tracker pipeline",
+    "pipeline": [
+        "filesrc location=/work/etc/images/golden_retriever.jpg !",
+        "jpegdec !",
+        "imagefreeze !",
+        "videoconvert ! video/x-raw,format=BGRA !",
+        "ampinfer opchain-path=/work/etc/models/yolo/opchain.json active=true !",
+        "ampinfer opchain-path=/work/etc/models/osnet_x0_25/opchain.json active=true !",
+        "amptracker content-type=genericObject !",
+        "fakesink"
+    ]
+}

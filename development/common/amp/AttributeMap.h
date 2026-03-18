@@ -169,6 +169,9 @@ struct AttributeMap {
     int64_t getInt(const std::string &key) const {
         return require(key).asInt();
     }
+    float getFloat(const std::string &key) const {
+        return require(key).asFloat();
+    }
     double getDouble(const std::string &key) const {
         return require(key).asDouble();
     }
@@ -185,6 +188,13 @@ struct AttributeMap {
     int64_t getIntOrDefault(const std::string &key, int64_t defaultValue) const {
         try {
             return getInt(key);
+        } catch (const AttributeError &error) {
+            return defaultValue;
+        }
+    }
+    float getFloatOrDefault(const std::string &key, float defaultValue) const {
+        try {
+            return getFloat(key);
         } catch (const AttributeError &error) {
             return defaultValue;
         }

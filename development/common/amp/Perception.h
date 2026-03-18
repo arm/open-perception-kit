@@ -88,11 +88,29 @@ struct Perception {
         amp::Bitmap bitmap;
     };
 
-    // one detextion instance
+    // track history trace (e.g. fading trail for tracked objects)
+    struct TrackTrace : public Object {
+        struct Point {
+            float x = 0.0f;
+            float y = 0.0f;
+        };
+
+        uint64_t trackId = 0;
+        std::vector<Point> points;
+    };
+
+    // object embedding vector (e.g. ReID descriptor) linked to a parent detection
+    struct ObjectEmbedding : public Object {
+        std::vector<float> values;
+    };
+
+    // one detection instance
     using Detection = std::variant<Rect,
                                    YawPitch,
                                    LocalizedText,
                                    SegmentationMap,
+                                   TrackTrace,
+                                   ObjectEmbedding,
                                    VideoFrame,
                                    Classification,
                                    AudioFrame>;
@@ -116,6 +134,7 @@ struct Perception {
         // "eyeYawPitch"
         // "classification"
         // "personClassification"
+        // "trackTrace"
         std::string contentType;
 
         std::vector<Perception::Detection> detections;

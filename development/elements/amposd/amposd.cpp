@@ -7,7 +7,9 @@
 #include "amp/Perception.h"
 #include "gst/PerceptionContextMeta.h"
 #include "osd.h"
+#include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <fmt/core.h>
 #include <gst/gst.h>
@@ -16,6 +18,7 @@
 #include <iomanip>
 #include <new>
 #include <sstream>
+#include <vector>
 
 #ifndef PACKAGE
 #define PACKAGE "amp-elements"
@@ -412,6 +415,52 @@ static void drawGazeVectors(Osd::Layer *layer, const amp::Perception &perception
     }
 }
 
+static amp::Color colorForTrack(uint64_t trackId) {
+    static const std::vector<amp::Color> palette = {
+        amp::Colors::yellow,
+        amp::Colors::lime,
+        amp::Colors::cyan,
+        amp::Colors::magenta,
+        amp::Colors::orange,
+        amp::Colors::deepSkyBlue,
+        amp::Colors::fuchsia,
+        amp::Colors::chartreuse,
+    };
+
+    return palette[trackId % palette.size()];
+}
+
+static amp::Color withAlpha(amp::Color color, float alpha) {
+    const auto clamped = std::clamp(alpha, 0.0f, 1.0f);
+    const auto a = static_cast<uint8_t>(clamped * 255.0f);
+    return (color & 0x00ffffffu) | (static_cast<uint32_t>(a) << 24);
+}
+
+static void drawTrackTrace(Osd::Layer &layer, const amp::Perception::TrackTrace &trace) {
+    if (trace.points.size() < 2) {
+        return;
+    }
+
+    const auto baseColor = colorForTrack(trace.trackId);
+    const auto segmentCount = trace.points.size() - 1;
+
+    for (size_t i = 0; i < segmentCount; ++i) {
+        const auto &from = trace.points[i];
+        const auto &to = trace.points[i + 1];
+
+        const auto normalizedAge = static_cast<float>(i + 1) / static_cast<float>(segmentCount);
+        const auto alpha = 0.35f + (0.65f * normalizedAge);
+
+        Osd::Arrow::draw(layer,
+                         Osd::Coordinate{from.x, from.y},
+                         Osd::Coordinate{to.x, to.y},
+                         withAlpha(baseColor, alpha),
+                         4.0f,
+                         0.0f,
+                         0.0f);
+    }
+}
+
 static std::unique_ptr<Osd::Layer> drawPerceptionLayer(GstAmpOsd *self,
                                                        float imgWidth,
                                                        float imgHeight,
@@ -419,6 +468,14 @@ static std::unique_ptr<Osd::Layer> drawPerceptionLayer(GstAmpOsd *self,
     auto layer = std::make_unique<Osd::Layer>(imgWidth, imgHeight);
 
     for (const auto &inferLayer : perception.layers) {
+        if (inferLayer.contentType == "trackTrace") {
+            for (const auto &det : inferLayer.detections) {
+                const auto &trace = std::get<amp::Perception::TrackTrace>(det);
+                drawTrackTrace(*layer, trace);
+            }
+            continue;
+        }
+
         if (inferLayer.contentType == "genericObject") {
             for (const auto &det : inferLayer.detections) {
                 const auto &box = std::get<amp::Perception::Rect>(det);
