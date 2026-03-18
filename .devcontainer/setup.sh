@@ -34,11 +34,17 @@ else
     exit 1
 fi
 
+ORT_TGZ=$(basename "$ORT_URL")
+
 # Download and extract ONNX Runtime only if not already present
 if [ ! -d "deps/onnxruntime" ]; then
     log "ONNX Runtime not found, downloading and extracting..."
-    wget "$ORT_URL"
-    tar xf "$(basename $ORT_URL)"
+    if [ ! -f "$ORT_TGZ" ]; then
+        wget "$ORT_URL"
+    else
+        log "ONNX Runtime archive $ORT_TGZ already present, skipping download."
+    fi
+    tar xf "$ORT_TGZ"
 
     # Extract directory name
     DIR_NAME=$(basename $ORT_URL .tgz)
