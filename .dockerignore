@@ -1,0 +1,27 @@
+# Ignore Git metadata
+.git
+.gitignore
+
+# Build outputs
+cmake-build*/
+**/build/
+development/build/
+var/
+deps/
+*.tgz
+
+# IDE / editor
+.vscode/
+.idea/
+.DS_Store
+
+# Python / virtualenvs
+.venv/
+**/__pycache__/
+
+# Logs and temp
+*.log
+*.tmp
+
+# Topo / graphs / large generated artifacts
+graphs/
