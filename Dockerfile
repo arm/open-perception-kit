@@ -145,8 +145,24 @@ WORKDIR /work
 
 ENTRYPOINT ["./scripts/deployment-process.sh"]
 
+FROM amp-dev-base AS amp-dev-sonar
+
+USER root
+
+ENV SONAR_SCANNER_VERSION="4.6.2.2472"
+
+ENV SONAR_HOST_URL="https://sonarqube.mobilestudio.aws.arm.com" \
+    PATH=/opt/sonar/sonar-scanner-${SONAR_SCANNER_VERSION}-linux/bin:${PATH}
+    
+RUN set -eux && \
+    mkdir -p /opt/sonar && \
+    curl -sSLo /opt/build-wrapper-linux-x86.zip ${SONAR_HOST_URL}/static/cpp/build-wrapper-linux-x86.zip && \
+    unzip -o /opt/build-wrapper-linux-x86.zip -d /opt/sonar/ && \
+    curl -sSLo /opt/sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}-linux.zip && \
+    unzip -o /opt/sonar-scanner.zip -d /opt/sonar/
+
 ########## Rich development environment container ##########
-FROM amp-dev-base AS amp-dev-rich
+FROM amp-dev-sonar AS amp-dev-rich
 
 ARG USERNAME=devgoblin
 ARG USER_UID=1000
