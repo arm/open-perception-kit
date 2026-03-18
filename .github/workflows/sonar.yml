@@ -46,7 +46,9 @@ jobs:
           g++ --version
           
       - name: Prepare build
-        run:
+        run: |
+          pwd
+          rm -rf ./development/build
           meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat
 
       - name: Download and install the build wrapper, build the project
