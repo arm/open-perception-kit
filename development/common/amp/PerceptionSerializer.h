@@ -222,6 +222,23 @@ inline void to_json(json &j, const Perception::SegmentationMap &sm) {
     j["bitmap"] = sm.bitmap;
 }
 
+inline void to_json(json &j, const Perception::ObjectEmbedding &oe) {
+    j = json{};
+    j["values"] = oe.values;
+}
+
+inline void to_json(json &j, const Perception::TrackTrace::Point &p) {
+    j = json{};
+    j["x"] = p.x;
+    j["y"] = p.y;
+}
+
+inline void to_json(json &j, const Perception::TrackTrace &tt) {
+    j = json{};
+    j["trackId"] = tt.trackId;
+    j["points"] = tt.points;
+}
+
 // ---------- Variant (Detection) ----------
 
 template <class... Ts> struct overloaded : Ts... {
@@ -248,6 +265,12 @@ inline void to_json(json &j, const Perception::Detection &d) {
             },
             [&j](const Perception::AudioFrame &v) {
                 j = json{{"type", "AudioFrame"}, {"data", v}};
+            },
+            [&j](const Perception::ObjectEmbedding &v) {
+                j = json{{"type", "ObjectEmbedding"}, {"data", v}};
+            },
+            [&j](const Perception::TrackTrace &v) {
+                j = json{{"type", "TrackTrace"}, {"data", v}};
             }},
         d);
 }

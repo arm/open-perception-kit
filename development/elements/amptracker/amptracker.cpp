@@ -3,8 +3,8 @@
  *************************************************************/
 
 #include "Tracker.h"
-#include "gst/PerceptionContextMeta.h"
 
+#include <gst/PerceptionMeta.h>
 #include <gst/base/gstbasetransform.h>
 #include <gst/gst.h>
 #include <gst/video/video.h>
@@ -145,17 +145,15 @@ static GstFlowReturn gst_amptracker_transform_ip(GstBaseTransform *b, GstBuffer 
         return GST_FLOW_OK;
     }
 
-    const auto perceptionContextMeta = amp::PerceptionContextMeta::get(buf);
-    if (!perceptionContextMeta) {
+    if (const auto perceptionMeta = amp::PerceptionMeta::get(buf); !perceptionMeta) {
         return GST_FLOW_OK;
     }
 
-    auto perception = perceptionContextMeta->get_payload();
-    if (!perception) {
+    auto ret = amp::PerceptionMeta::mutate<GstFlowReturn>(buf, [self](auto &perception) {
+        self->m->tracker.process(perception, trackerConfigFromElement(self));
         return GST_FLOW_OK;
-    }
+    });
 
-    self->m->tracker.process(*perception, trackerConfigFromElement(self));
     return GST_FLOW_OK;
 }
 
