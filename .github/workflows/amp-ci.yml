@@ -17,7 +17,7 @@ jobs:
             (github.event_name == 'pull_request' && github.event.action == 'labeled' && contains(github.event.label.name, 'run-amp-ci'))
         env:
             python_ver: "3.12.1"
-            DOCKER_COMPOSE_FILE: compose.project.yaml
+            DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
         steps:
             - uses: actions/checkout@v6
               with:
@@ -26,7 +26,7 @@ jobs:
                   ref: ${{ github.head_ref }}
 
             - name: Build docker image
-              run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build amp-dev-base
+              run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build amp-docs-base
 
             - name: Check Repo Quality gate (nightly)
               if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

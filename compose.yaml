@@ -1,50 +1,24 @@
-x-amp-dev-common: &amp-dev-common
-  cap_add:
-    - SYS_PTRACE
-
-  security_opt:
-    - seccomp:unconfined
-
-  privileged: true
-
-  environment:
-    - WAYLAND_DISPLAY=wayland-0
-    - DISPLAY
-    - USERNAME=devgoblin
-
-  env_file:
-    - devices.env
-
-  volumes:
-    - /tmp/.X11-unix:/tmp/.X11-unix
-    - /run/udev:/run/udev:ro
-
-  ports:
-    - 8080:8080
-    - 8000:8000
-    - 8001:8001
-    - 9999:9999
-
-  stdin_open: true
-  tty: true
-  restart: unless-stopped
-
-x-amp-dev-build: &amp-dev-build
-  context: .
-  dockerfile: Dockerfile
-
 services:
   amp-release-deployment:
     platform: linux/arm64
-    <<: *amp-dev-common
-    build:
-      <<: *amp-dev-build
-      target: amp-deployment-base
-    network_mode: bridge
+    extends: 
+      file: ./compose.base.yaml
+      service: amp-common
+    network_mode: host
+    ports: []
     container_name: amp-deployment-base
     hostname: amp-deployment-base
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /run/udev:/run/udev:ro
     environment:
-      - AMP_PIPELINE=onnx
+      AMP_PIPELINE: ${AMP_PIPELINE:-onnx}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: amp-deployment-base
+      args:
+        AMP_PIPELINE: ${AMP_PIPELINE:-onnx}
 
 # Topo-specific metadata
 # TODO: for some reason in case of topo deployment from WSL the container has x86 binaries inside it instead of arm64. Despite the platform specification in the compose file.

@@ -14,6 +14,7 @@
 #include "postproc/GazeDetectionParser.h"
 #include "postproc/ImageNetClassificationParser.h"
 #include "postproc/ModNetSegmentationParser.h"
+#include "postproc/ObjectEmbeddingParser.h"
 #include "postproc/PaddleocrParser.h"
 #include "postproc/PersonClassificationParser.h"
 #include "postproc/RvmParser.h"
@@ -54,6 +55,8 @@ amp::Result<void> GenericPostprocessOp::configure(const amp::AttributeMap &attri
         this->parser = std::make_unique<ImageNetClassificationParser>();
     } else if (parser == "PersonClassificationParser") {
         this->parser = std::make_unique<PersonClassificationParser>();
+    } else if (parser == "ObjectEmbeddingParser") {
+        this->parser = std::make_unique<ObjectEmbeddingParser>();
     } else if (parser == "DummyParser") {
         this->parser = std::make_unique<DummyParser>();
     } else if (parser == "RvmParser") {

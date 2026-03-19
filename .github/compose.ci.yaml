@@ -1,0 +1,48 @@
+services:
+  amp-docs-base: &amp-docs-base
+    extends: 
+      file: ../compose.base.yaml
+      service: amp-common-dev
+
+    network_mode: bridge
+    container_name: amp-docs-base
+    hostname: amp-docs-base
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: amp-docs-base
+
+  amp-release-with-ut:
+    <<: *amp-docs-base
+    container_name: amp-release-with-ut
+    hostname: amp-release-with-ut
+    command: |
+      bash -c '
+        .devcontainer/setup.sh &&
+        .devcontainer/platform_init.sh amp-dev-base &&
+        ./scripts/build-elements.sh release true &&
+        meson test -C development/build --print-errorlogs
+      '
+
+  amp-quality-check-pull-request:
+    <<: *amp-docs-base
+    container_name: amp-quality-check-pull-request
+    command: |
+      bash -c '
+        .devcontainer/devsetup.sh &&
+        .devcontainer/platform_init.sh amp-dev-base &&
+        source /work/tools/lazer/.venv/bin/activate &&
+        expkits-ci --all-checks --pr-target-branch ${PULL_REQUEST_TARGET_BRANCH}
+      '
+
+  amp-quality-check-full:
+    <<: *amp-docs-base
+    container_name: amp-quality-check-full
+    command: |
+      bash -c '
+        .devcontainer/devsetup.sh &&
+        .devcontainer/platform_init.sh amp-dev-base &&
+        ./scripts/gen-doc.sh &&
+        source /work/tools/lazer/.venv/bin/activate &&
+        expkits-ci --clang-format-check --python-format-check --cmake-format-check --shell-format-check --license-header-check
+      '
