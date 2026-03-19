@@ -328,7 +328,7 @@ static void gst_ampinfer_class_init(GstAmpInferClass *klass) {
         g_param_spec_string("infer-id",
                             "ID of the inference element",
                             "ID of the inference element (used in Plumber to identify the layers. "
-                            "Deafults to the name property of the element)",
+                            "Defaults to the name property of the element)",
                             "",
                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 

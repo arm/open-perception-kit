@@ -134,7 +134,8 @@ def process_remaining(
         remaining: list[dict],
         out_uuid_index: dict[int, tuple[dict, dict]],
         gt_uuid_index: dict[int, tuple[dict, dict]],
-        dist_spec: DistanceSpec):
+        dist_spec: DistanceSpec
+) -> Tuple[bool, str]:
 
     best_j = -1
     best_dist = math.inf
@@ -170,6 +171,8 @@ def process_remaining(
     if best_j >= 0:
         remaining.pop(best_j)
 
+    return True, ""
+
 
 def greedy_match_by_distance(
     gt_dets: List[dict],
@@ -196,7 +199,9 @@ def greedy_match_by_distance(
         if not remaining:
             return False, f"ran out of output detections at gt index {i}"
 
-        process_remaining(i, gt, remaining, out_uuid_index, gt_uuid_index, dist_spec)
+        ok, msg = process_remaining(i, gt, remaining, out_uuid_index, gt_uuid_index, dist_spec)
+        if not ok:
+            return ok, msg
 
     if remaining:
         return False, f"unmatched output detections remain: {len(remaining)}"

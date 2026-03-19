@@ -3,6 +3,8 @@
  *************************************************************/
 
 #pragma once
+#include <vector>
+
 #include <gst/gst.h>
 
 #include "amp/Perception.h"

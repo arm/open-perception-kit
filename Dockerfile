@@ -61,7 +61,9 @@ RUN set -eux; \
   mkdir -p /etc/sudoers.d; \
   echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/90-${USERNAME}"; \
   chmod 0440 "/etc/sudoers.d/90-${USERNAME}"; \
-  mkdir -p /work && chown -R "${USER_UID}:${USER_GID}" /work
+  mkdir -p /work && chown -R "${USER_UID}:${USER_GID}" /work; \
+  mkfifo --mode=640 /tmp/ampcomm && \
+  chown ${USERNAME} /tmp/ampcomm
 
 USER ${USERNAME}
 WORKDIR /work
