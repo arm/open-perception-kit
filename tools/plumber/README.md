@@ -48,7 +48,9 @@ Relevant properties:
   - currently only `file`
 - `file-name`
   - output target path
-  - in the current setup this must point to a **FIFO**
+  - `file-name` can be any file (existing or non-existing) or fifo name (must exists). 
+    if the property is set to `-`, the AmpComm writes the NDJSON to the standard output
+  - Plumber uses `/tmp/ampcomm` FIFO, which is already created in the devcontainer 
 
 Example GObject properties:
 
