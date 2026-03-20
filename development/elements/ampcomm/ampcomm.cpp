@@ -3,15 +3,16 @@
  *************************************************************/
 
 #include <cstdint>
-#include <glib.h>
-#include <glibconfig.h>
-#include <gst/base/gstbasetransform.h>
-#include <gst/gst.h>
-
 #include <fcntl.h>
 #include <memory>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <vector>
+
+#include <glib.h>
+#include <glibconfig.h>
+#include <gst/base/gstbasetransform.h>
+#include <gst/gst.h>
 
 #include "file_writer.h"
 #include "writer.h"

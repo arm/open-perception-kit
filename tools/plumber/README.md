@@ -128,7 +128,7 @@ python plumber.py <pipeline> <mode> <file> [options]
 ### Save Ground Truth
 
 ```bash
-python plumber.py onnx save gt.ndjson --fifo /tmp/ampcomm --limit 100
+plumber onnx save gt.ndjson --fifo /tmp/ampcomm --limit 100
 ```
 
 This will:
@@ -140,7 +140,7 @@ This will:
 ### Check Against Ground Truth
 
 ```bash
-python plumber.py onnx check gt.ndjson --fifo /tmp/ampcomm --fail-fast
+plumber onnx check gt.ndjson --fifo /tmp/ampcomm --fail-fast
 ```
 
 This will:

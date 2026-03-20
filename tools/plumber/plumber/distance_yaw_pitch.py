@@ -11,7 +11,6 @@ def distance_yawpitch(
     """
     Normalize yaw/pitch difference into [0,1].
     For now return normalized max(|yaw_diff|, |pitch_diff|) / 180 (safe upper bound).
-    We'll refine tomorrow.
     """
 
     del _gt_parent_det
