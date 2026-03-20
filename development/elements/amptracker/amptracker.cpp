@@ -42,6 +42,8 @@ struct _GstAmpTracker {
     gfloat kalmanProcessNoiseVel;
     gfloat kalmanMeasurementNoisePos;
 
+    gchar *inferId;
+
     struct Members;
     Members *m;
 };
@@ -74,7 +76,17 @@ enum {
     PROP_KALMAN_PROCESS_NOISE_POS,
     PROP_KALMAN_PROCESS_NOISE_VEL,
     PROP_KALMAN_MEASUREMENT_NOISE_POS,
+    PROP_INFER_ID,
 };
+
+static const gchar *gst_amptracker_get_effective_inferId(const GstAmpTracker *self) {
+    /* If user provided infer-id property, prefer it */
+    if (self->inferId && self->inferId[0] != '\0')
+        return self->inferId;
+
+    /* Fallback to element name (always exists) */
+    return GST_OBJECT_NAME(GST_ELEMENT(self));
+}
 
 static amp::tracker::Config trackerConfigFromElement(const GstAmpTracker *self) {
     amp::tracker::Config config;
@@ -99,6 +111,7 @@ static amp::tracker::Config trackerConfigFromElement(const GstAmpTracker *self) 
     config.kalmanProcessNoisePos = self->kalmanProcessNoisePos;
     config.kalmanProcessNoiseVel = self->kalmanProcessNoiseVel;
     config.kalmanMeasurementNoisePos = self->kalmanMeasurementNoisePos;
+    config.inferId = gst_amptracker_get_effective_inferId(self);
     return config;
 }
 
@@ -216,6 +229,10 @@ static void gst_amptracker_set_property(GObject *o, guint id, const GValue *v, G
     case PROP_KALMAN_MEASUREMENT_NOISE_POS:
         self->kalmanMeasurementNoisePos = g_value_get_float(v);
         break;
+    case PROP_INFER_ID:
+        g_free(self->inferId);
+        self->inferId = g_value_dup_string(v);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(o, id, ps);
     }
@@ -277,6 +294,9 @@ static void gst_amptracker_get_property(GObject *o, guint id, GValue *v, GParamS
         break;
     case PROP_KALMAN_MEASUREMENT_NOISE_POS:
         g_value_set_float(v, self->kalmanMeasurementNoisePos);
+        break;
+    case PROP_INFER_ID:
+        g_value_set_string(v, gst_amptracker_get_effective_inferId(self));
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(o, id, ps);
@@ -498,6 +518,16 @@ static void gst_amptracker_class_init(GstAmpTrackerClass *klass) {
                            amp::tracker::Defaults::kalmanMeasurementNoisePos,
                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
+    g_object_class_install_property(
+        gobj,
+        PROP_INFER_ID,
+        g_param_spec_string("infer-id",
+                            "ID of the inference element",
+                            "ID of the inference element (used in Plumber to identify the layers. "
+                            "Defaults to the name property of the element)",
+                            "",
+                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
     static GstStaticPadTemplate sink_t = GST_STATIC_PAD_TEMPLATE(
         "sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS("video/x-raw, format={BGRA}"));
     static GstStaticPadTemplate src_t = GST_STATIC_PAD_TEMPLATE(
@@ -538,6 +568,7 @@ static void gst_amptracker_init(GstAmpTracker *self) {
     self->kalmanProcessNoisePos = amp::tracker::Defaults::kalmanProcessNoisePos;
     self->kalmanProcessNoiseVel = amp::tracker::Defaults::kalmanProcessNoiseVel;
     self->kalmanMeasurementNoisePos = amp::tracker::Defaults::kalmanMeasurementNoisePos;
+    self->inferId = nullptr;
 
     gst_video_info_init(&self->vinfo);
 

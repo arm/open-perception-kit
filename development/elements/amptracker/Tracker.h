@@ -35,6 +35,7 @@ inline constexpr float kalmanInitialCovarianceVel = 25.0f;
 inline constexpr float kalmanProcessNoisePos = 0.1f;
 inline constexpr float kalmanProcessNoiseVel = 0.05f;
 inline constexpr float kalmanMeasurementNoisePos = 20.0f;
+inline constexpr const char *inferId = "";
 } // namespace Defaults
 
 struct Config {
@@ -56,6 +57,7 @@ struct Config {
     float kalmanProcessNoisePos = Defaults::kalmanProcessNoisePos;
     float kalmanProcessNoiseVel = Defaults::kalmanProcessNoiseVel;
     float kalmanMeasurementNoisePos = Defaults::kalmanMeasurementNoisePos;
+    std::string inferId = Defaults::inferId;
 };
 
 using TrackId = uint64_t;

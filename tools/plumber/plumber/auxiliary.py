@@ -3,7 +3,7 @@
 ################################################################
 
 
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
 
 def get_layers(obj: dict) -> List[dict]:
@@ -43,6 +43,17 @@ def build_uuid_index(perception: dict) -> dict[int, tuple[dict, dict]]:
             if uuid is not None:
                 index[uuid] = (layer, det)
     return index
+
+
+def frame_size_from_parent(parent_det: dict) -> Optional[Tuple[int, int]]:
+    data = parent_det["data"]
+    match parent_det["type"]:
+        case "VideoFrame":
+            return (data["originalWidth"], data["originalHeight"])
+        case "Rect":
+            return (data["width"], data["height"])
+        case _:
+            return None
 
 
 def clamp01(v: float) -> float:

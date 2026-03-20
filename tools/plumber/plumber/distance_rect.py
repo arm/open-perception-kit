@@ -60,17 +60,6 @@ def iou_from_normalized(a: Tuple[float, float, float, float], b: Tuple[float, fl
     return inter / denom
 
 
-def frame_size_from_parent(parent_det: dict) -> Optional[Tuple[int, int]]:
-    data = parent_det["data"]
-    match parent_det["type"]:
-        case "VideoFrame":
-            return (data["originalWidth"], data["originalHeight"])
-        case "Rect":
-            return (data["width"], data["height"])
-        case _:
-            return None
-
-
 def distance_rect(gt_det: dict, out_det: dict, gt_parent_det: dict, out_parent_det: dict) -> float:
     """
     Return a normalized distance in [0,1] for Rect detections.
@@ -78,8 +67,8 @@ def distance_rect(gt_det: dict, out_det: dict, gt_parent_det: dict, out_parent_d
     If either rect has zero area, IoU=0 (distance=1).
     """
 
-    gt_frame_size = frame_size_from_parent(gt_parent_det)
-    out_frame_size = frame_size_from_parent(out_parent_det)
+    gt_frame_size = aux.frame_size_from_parent(gt_parent_det)
+    out_frame_size = aux.frame_size_from_parent(out_parent_det)
 
     a = normalize_rect(gt_det, gt_frame_size)
     b = normalize_rect(out_det, out_frame_size)

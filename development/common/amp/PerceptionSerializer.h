@@ -224,6 +224,7 @@ inline void to_json(json &j, const Perception::SegmentationMap &sm) {
 
 inline void to_json(json &j, const Perception::ObjectEmbedding &oe) {
     j = json{};
+    add_object_fields(j, oe);
     j["values"] = oe.values;
 }
 
@@ -235,6 +236,7 @@ inline void to_json(json &j, const Perception::TrackTrace::Point &p) {
 
 inline void to_json(json &j, const Perception::TrackTrace &tt) {
     j = json{};
+    add_object_fields(j, tt);
     j["trackId"] = tt.trackId;
     j["points"] = tt.points;
 }

@@ -22,6 +22,8 @@ from . import distance_yaw_pitch as dyp
 from . import distance_seg_map as dsm
 from . import distance_classification as dc
 from . import distance_video_frame as dvf
+from . import distance_track_trace as dtt
+from . import distance_object_embedding as doe
 
 # distance func signature: (gt_det: dict, out_det: dict, gt_parent_det, out_parent_det -> float
 DistanceFn = Callable[[dict, dict, dict, dict], float]
@@ -40,6 +42,8 @@ DISTANCE_SPECS: Dict[str, DistanceSpec] = {
     "SegmentationMap": DistanceSpec(dsm.distance_segmentation_map, threshold=0.1, skip=True),
     "Classification": DistanceSpec(dc.distance_classification, threshold=0.2),
     "VideoFrame": DistanceSpec(dvf.distance_video_frame, threshold=0.1, skip=True),
+    "TrackTrace": DistanceSpec(dtt.distance_track_trace, threshold=0.1, skip=False),
+    "ObjectEmbedding": DistanceSpec(doe.distance_object_embedding, threshold=0.2, skip=False),
 }
 
 # ---------- FIFO reading ----------
@@ -287,7 +291,7 @@ def compare_perception(args, gt_obj: dict, out_obj: dict, element_id_key="infer-
         element_id = gt_layer.get(element_id_key)
 
         if not isinstance(element_id, str) or not element_id:
-            return False, f"GT layer at index {i} missing/invalid {element_id_key!r}"
+            return False, f"xxxxGT layer at index {i} missing/invalid {element_id_key!r}"
 
         out_layer = out_idx.get(element_id)
         if out_layer is None:
