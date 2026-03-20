@@ -312,6 +312,9 @@ static void gst_amptracker_finalize(GObject *object) {
     g_free(self->embeddingContentType);
     self->embeddingContentType = nullptr;
 
+    g_free(self->inferId);
+    self->inferId = nullptr;
+
     delete self->m;
     self->m = nullptr;
 

@@ -287,6 +287,15 @@ static void gst_ampinfer_get_property(GObject *o, guint id, GValue *v, GParamSpe
     }
 }
 
+static void gst_ampinfer_finalize(GObject *object) {
+    auto *self = reinterpret_cast<GstAmpInfer *>(object);
+
+    g_free(self->inferId);
+    self->inferId = nullptr;
+
+    G_OBJECT_CLASS(gst_ampinfer_parent_class)->finalize(object);
+}
+
 static void gst_ampinfer_class_init(GstAmpInferClass *klass) {
     GObjectClass *gobj = G_OBJECT_CLASS(klass);
     GstElementClass *ecls = GST_ELEMENT_CLASS(klass);
@@ -294,6 +303,7 @@ static void gst_ampinfer_class_init(GstAmpInferClass *klass) {
 
     gobj->set_property = gst_ampinfer_set_property;
     gobj->get_property = gst_ampinfer_get_property;
+    gobj->finalize = gst_ampinfer_finalize;
 
     g_object_class_install_property(
         gobj,

@@ -47,10 +47,6 @@ jobs:
           
       - name: Prepare build
         run: |
-          pwd
-          rm -rf ./development/build
-          git branch --show-current
-          find ./development
           meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat
 
       - name: Download and install the build wrapper, build the project

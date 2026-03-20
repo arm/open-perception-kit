@@ -291,7 +291,7 @@ def compare_perception(args, gt_obj: dict, out_obj: dict, element_id_key="infer-
         element_id = gt_layer.get(element_id_key)
 
         if not isinstance(element_id, str) or not element_id:
-            return False, f"xxxxGT layer at index {i} missing/invalid {element_id_key!r}"
+            return False, f"GT layer at index {i} missing/invalid {element_id_key!r}"
 
         out_layer = out_idx.get(element_id)
         if out_layer is None:

@@ -83,7 +83,7 @@ Example:
 ### Command line
 
 ```bash
-python plumber.py <pipeline> <mode> <file> [options]
+plumber <pipeline> <mode> <file> [options]
 ```
 
 ### Positional arguments
