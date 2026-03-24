@@ -14,6 +14,8 @@ common = shared_library(
 
     'amp/AudioBuffer.cpp',
 
+    'amp/PerceptionSerializer.cpp',
+
     'op/Op.cpp',
     'op/OpRef.cpp',
     'op/OpChain.cpp',

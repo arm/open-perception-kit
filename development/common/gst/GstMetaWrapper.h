@@ -128,19 +128,25 @@ template <class Traits> class Meta {
         auto *m = (MetaType *)meta;
         // placement-new not needed for shared_ptr because MetaType is a C++ type and
         // default-initialized. But GStreamer allocates raw memory; we must construct it.
-        new (&m->payload) std::shared_ptr<Payload>();
-        return TRUE;
+        if (m) {
+            new (&m->payload) std::shared_ptr<Payload>();
+            return TRUE;
+        } else {
+            return FALSE;
+        }
     }
 
     static void free(GstMeta *meta, GstBuffer *) {
         auto *m = (MetaType *)meta;
-        m->payload.reset();
+        if (m && m->payload) {
+            m->payload.reset();
+        }
     }
 
     static gboolean transform(GstBuffer *dest, GstMeta *meta, GstBuffer *, GQuark, gpointer) {
         auto *src = (MetaType *)meta;
         auto *dst = (MetaType *)gst_buffer_add_meta(dest, info(), nullptr);
-        if (!dst)
+        if (!dst && !src)
             return FALSE;
         new (&dst->payload) std::shared_ptr<Payload>(src->payload); // shallow copy
         return TRUE;
