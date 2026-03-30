@@ -39,6 +39,13 @@ RUN set -eux; \
     gstreamer1.0-nice gstreamer1.0-pipewire; \
   rm -rf /var/lib/apt/lists/*
 
+# Profiling tools
+RUN set -eux; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends \
+    valgrind; \
+  rm -rf /var/lib/apt/lists/*
+
 # Clean apt cache
 RUN set -eux; update-ca-certificates || true
 
