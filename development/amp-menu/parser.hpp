@@ -2,8 +2,8 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 
-#ifndef __PARSAR_H__
-#define __PARSAR_H__
+#ifndef __PARSER_HPP__
+#define __PARSER_HPP__
 
 #include <string>
 #include <vector>
@@ -14,5 +14,6 @@ struct ExecArgs {
 };
 
 ExecArgs tokenize_and_expand_argv(const std::string &s);
+std::string trim(std::string trimmed_str);
 
-#endif // !__PARSAR_H__
+#endif // !__PARSER_HPP__

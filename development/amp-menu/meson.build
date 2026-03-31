@@ -2,7 +2,7 @@
 amp_menu_parser_inc = include_directories('.')
 amp_menu_parser_lib = static_library(
   'amp_menu_parser',
-  sources: ['parsar.cpp'],
+  sources: ['parser.cpp'],
   include_directories: [amp_menu_parser_inc],
   install: false,
 )
