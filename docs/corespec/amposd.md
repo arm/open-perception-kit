@@ -102,6 +102,12 @@ Currently supported:
 - Computes endpoint from yaw/pitch angles.
 - Draws arrow from face center to projected gaze endpoint.
 
+## cameraContact
+
+- Renders a face-centered status dot.
+- Draws a green dot when the subject is looking at the camera.
+- Draws a red dot when the subject is not looking at the camera.
+
 ## ocrDetectionSegmentation
 
 - Renders segmentation map as alpha-blended overlay.

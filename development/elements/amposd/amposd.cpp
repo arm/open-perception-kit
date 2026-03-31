@@ -415,6 +415,56 @@ static void drawGazeVectors(Osd::Layer *layer, const amp::Perception &perception
     }
 }
 
+static void drawCameraContactMarkers(Osd::Layer *layer, const amp::Perception &perception) {
+    amp::ConstPerceptionTools perceptionTools(perception);
+
+    for (const auto &inferLayer : perception.layers) {
+        if (inferLayer.contentType != "cameraContact") {
+            continue;
+        }
+
+        for (const auto &det : inferLayer.detections) {
+            const auto *classification = std::get_if<amp::Perception::Classification>(&det);
+            if (!classification || classification->candidates.empty()) {
+                continue;
+            }
+
+            const auto &candidate = classification->candidates.front();
+            if (candidate.classId < 0) {
+                continue;
+            }
+
+            const auto *object = std::get_if<amp::Perception::Classification>(&det);
+            if (!object) {
+                continue;
+            }
+
+            std::vector<amp::Perception::Rect> parents =
+                perceptionTools.getAllRectsWithContentType("humanFace", object->parentUuid);
+
+            if (parents.empty()) {
+                continue;
+            }
+
+            const auto &face = parents.front();
+            const float x = face.x + face.width * 0.5f;
+            const float y = face.y + face.height * 0.5f;
+            const bool hasCameraContact = candidate.classId == 1;
+            const amp::Color markerColor = hasCameraContact ? amp::Colors::lime : amp::Colors::red;
+            const float baseRadius = std::min(face.width, face.height) * 0.5f;
+            const float markerRadius = hasCameraContact
+                                           ? std::clamp(baseRadius * 0.65f, 18.0f, 80.0f)
+                                           : std::clamp(baseRadius * 1.15f, 28.0f, 140.0f);
+            const float markerThickness = hasCameraContact ? 5.0f : 8.0f;
+            const float centerPointSize = hasCameraContact ? 10.0f : 14.0f;
+
+            Osd::Circle::draw(
+                *layer, Osd::Coordinate{x, y}, markerRadius, markerColor, markerThickness);
+            Osd::Point::draw(*layer, Osd::Coordinate{x, y}, markerColor, centerPointSize);
+        }
+    }
+}
+
 static amp::Color colorForTrack(uint64_t trackId) {
     static const std::vector<amp::Color> palette = {
         amp::Colors::yellow,
@@ -529,9 +579,10 @@ static std::unique_ptr<Osd::Layer> drawPerceptionLayer(GstAmpOsd *self,
                 }
             }
         }
-
-        drawGazeVectors(layer.get(), perception);
     }
+
+    drawGazeVectors(layer.get(), perception);
+    drawCameraContactMarkers(layer.get(), perception);
 
     return layer;
 }

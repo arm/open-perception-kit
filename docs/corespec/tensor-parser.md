@@ -113,6 +113,12 @@ Parses the output of the gaze estimation model by Arm.
 Interprets directional vector yaw/pitch values as gaze angles.
 Attaches gaze-related metadata to the Perception layer.
 
+## Camera Contact Parser
+
+Parses binary camera-contact logits with shape `[1, 2]`.
+Converts the two logits into a single top-1 classification result.
+Attaches a `cameraContact` classification to the parent face crop.
+
 ## Paddle OCR Detector Parser
 
 Parses text detection outputs from Paddle OCR detection models.
