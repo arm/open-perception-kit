@@ -15,7 +15,8 @@ namespace amp {
 using nlohmann::json;
 
 std::string base64_encode_safe(std::span<const uint8_t> data) {
-    static constexpr std::array<char,65> table = std::to_array("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
+    static constexpr std::array<char, 65> table =
+        std::to_array("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
     std::string out;
     out.reserve(((data.size() + 2) / 3) * 4);
     size_t i = 0;

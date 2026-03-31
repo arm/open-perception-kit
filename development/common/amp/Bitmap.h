@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include <vector>
 #include <span>
+#include <vector>
 
 #include <assert.h>
 #include <stdint.h>

@@ -3,9 +3,9 @@
  *************************************************************/
 
 #pragma once
-#include <string_view>
 #include <array>
 #include <span>
+#include <string_view>
 
 #include <gst/gst.h>
 

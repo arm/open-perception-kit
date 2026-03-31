@@ -12,14 +12,14 @@
 #include <gst/video/gstvideofilter.h>
 #include <gst/video/video.h>
 
-#include <cstring>
-#include <string>
-#include <vector>
-#include <chrono>
-#include <map>
 #include <algorithm>
+#include <chrono>
+#include <cstring>
+#include <map>
+#include <string>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include "PerformanceTracer.h"
 #include "gst/PerceptionMeta.h"
