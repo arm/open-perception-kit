@@ -59,7 +59,7 @@ G_DEFINE_TYPE(GstAmpComm, gst_amp_comm, GST_TYPE_BASE_TRANSFORM)
 
 /* ----------------------- Properties ----------------------- */
 
-enum {
+enum class AmpCommProps : guint {
     PROP_0,
     PROP_METHOD,
     PROP_FILE_NAME,
@@ -146,15 +146,15 @@ static void
 gst_amp_comm_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
     GstAmpComm *self = GST_AMP_COMM(object);
 
-    switch (prop_id) {
-    case PROP_METHOD:
+    switch (AmpCommProps(prop_id)) {
+    case AmpCommProps::PROP_METHOD:
         self->method = (GstAmpCommMethod)g_value_get_enum(value);
 
         /* Reopen on method change */
         (void)gst_amp_comm_open_io(self);
         break;
 
-    case PROP_FILE_NAME:
+    case AmpCommProps::PROP_FILE_NAME:
         g_free(self->file_name);
         self->file_name = g_value_dup_string(value);
         if (self->file_name == nullptr) {
@@ -175,12 +175,12 @@ static void
 gst_amp_comm_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec) {
     const GstAmpComm *self = GST_AMP_COMM(object);
 
-    switch (prop_id) {
-    case PROP_METHOD:
+    switch (AmpCommProps(prop_id)) {
+    case AmpCommProps::PROP_METHOD:
         g_value_set_enum(value, self->method);
         break;
 
-    case PROP_FILE_NAME:
+    case AmpCommProps::PROP_FILE_NAME:
         g_value_set_string(value, self->file_name);
         break;
 
@@ -214,7 +214,7 @@ static void gst_amp_comm_class_init(GstAmpCommClass *klass) {
     gobject_class->finalize = gst_amp_comm_finalize;
 
     g_object_class_install_property(gobject_class,
-                                    PROP_METHOD,
+                                    static_cast<guint>(AmpCommProps::PROP_METHOD),
                                     g_param_spec_enum("method",
                                                       "Method",
                                                       "Publishing method: file",
@@ -224,10 +224,10 @@ static void gst_amp_comm_class_init(GstAmpCommClass *klass) {
 
     g_object_class_install_property(
         gobject_class,
-        PROP_FILE_NAME,
+        static_cast<guint>(AmpCommProps::PROP_FILE_NAME),
         g_param_spec_string("file-name", "File name", "File path ('-' - std out)", "-", kRW));
 
-    /* ✅ Add pad templates so the element has sink/src pads */
+    /* Add pad templates so the element has sink/src pads */
     gst_element_class_add_pad_template(element_class, gst_static_pad_template_get(&sink_template));
 
     gst_element_class_add_pad_template(element_class, gst_static_pad_template_get(&src_template));
@@ -241,7 +241,7 @@ static void gst_amp_comm_class_init(GstAmpCommClass *klass) {
                                           "AmpComm metadata publisher",
                                           "Filter/Metadata",
                                           "Reads buffer metadata and publishes it (FIFO/file)",
-                                          "Arm Holding");
+                                          "Arm Limited");
 }
 
 static void gst_amp_comm_init(GstAmpComm *self) {

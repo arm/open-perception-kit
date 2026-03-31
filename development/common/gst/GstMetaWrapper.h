@@ -42,7 +42,7 @@ template <class Traits> class Meta {
         static GType type = 0;
 
         if (g_once_init_enter(&once)) {
-            const char *name = Traits::api_name();
+            const char *name = Traits::api_name().data();
 
             // 1) If it already exists, use it.
             if (GType existing = g_type_from_name(name); existing != 0) {
@@ -52,7 +52,7 @@ template <class Traits> class Meta {
             }
 
             // 2) Otherwise register it.
-            GType t = gst_meta_api_type_register(name, Traits::tags());
+            GType t = gst_meta_api_type_register(name, Traits::tags().data());
 
             // 3) If registration failed for some reason, try lookup again.
             if (t == 0)
@@ -69,7 +69,7 @@ template <class Traits> class Meta {
         static const GstMetaInfo *mi = nullptr;
         if (g_once_init_enter_pointer(const_cast<GstMetaInfo **>(&mi))) {
             const GstMetaInfo *i = gst_meta_register(api_type(),
-                                                     Traits::meta_name(),
+                                                     Traits::meta_name().data(),
                                                      sizeof(MetaType),
                                                      &Meta::init,
                                                      &Meta::free,
@@ -138,13 +138,14 @@ template <class Traits> class Meta {
 
     static void free(GstMeta *meta, GstBuffer *) {
         auto *m = (MetaType *)meta;
-        if (m && m->payload) {
+        if (m) {
             m->payload.reset();
+            m->payload.~shared_ptr();
         }
     }
 
     static gboolean transform(GstBuffer *dest, GstMeta *meta, GstBuffer *, GQuark, gpointer) {
-        auto *src = (MetaType *)meta;
+        auto src = reinterpret_cast<MetaType *>(meta);
         auto *dst = (MetaType *)gst_buffer_add_meta(dest, info(), nullptr);
         if (!dst && !src)
             return FALSE;

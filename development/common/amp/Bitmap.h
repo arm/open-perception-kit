@@ -5,6 +5,7 @@
 #pragma once
 
 #include <vector>
+#include <span>
 
 #include <assert.h>
 #include <stdint.h>
@@ -56,6 +57,9 @@ struct Bitmap {
     }
     const uint8_t *getData() const {
         return pixels.data();
+    }
+    std::span<const uint8_t> getPixels() const {
+        return pixels;
     }
     bool empty() const {
         return pixels.empty();

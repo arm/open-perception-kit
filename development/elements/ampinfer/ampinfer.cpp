@@ -116,7 +116,7 @@ static gboolean gst_ampinfer_start(GstBaseTransform *b) {
         fmt::print("Error while setting up op-chain [{}]: {}\n",
                    self->opChainPath,
                    setupResult.error().toString());
-        AMP_ABORT;
+        amp_abort();
     }
 
     // Send model registration event downstream
@@ -196,9 +196,6 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
         return GST_FLOW_OK;
     }
 
-    // ======================================================================================
-    g_assert(gst_buffer_is_writable(buf));
-
     // try to get the perception meta
     // it does not added yet -> add it
     if (auto perceptionMeta = amp::PerceptionMeta::get(buf); !perceptionMeta) {
@@ -232,7 +229,7 @@ static GstFlowReturn gst_ampinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
          std::get<GstFlowReturn>(ret) != GST_FLOW_OK) ||
         std::holds_alternative<ME>(ret)) {
         gst_buffer_unmap(buf, &map);
-        AMP_ABORT;
+        amp_abort();
     }
 
     gst_buffer_unmap(buf, &map);

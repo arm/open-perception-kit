@@ -11,34 +11,35 @@
 #include <nlohmann/json.hpp>
 
 namespace amp {
+
 using nlohmann::json;
 
-std::string base64_encode_safe(const uint8_t *data, size_t len) {
-    static const char *table = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+std::string base64_encode_safe(std::span<const uint8_t> data) {
+    static constexpr std::array<char,65> table = std::to_array("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
     std::string out;
-    out.reserve(((len + 2) / 3) * 4);
+    out.reserve(((data.size() + 2) / 3) * 4);
     size_t i = 0;
-    while (i + 3 <= len) {
+    while (i + 3 <= data.size()) {
         uint32_t v =
             (uint32_t(data[i]) << 16) | (uint32_t(data[i + 1]) << 8) | uint32_t(data[i + 2]);
-        out.push_back(table[(v >> 18) & 0x3F]);
-        out.push_back(table[(v >> 12) & 0x3F]);
-        out.push_back(table[(v >> 6) & 0x3F]);
-        out.push_back(table[v & 0x3F]);
+        out.push_back(table.at((v >> 18) & 0x3F));
+        out.push_back(table.at((v >> 12) & 0x3F));
+        out.push_back(table.at((v >> 6) & 0x3F));
+        out.push_back(table.at(v & 0x3F));
         i += 3;
     }
 
-    if (size_t rem = len - i; rem == 1) {
+    if (size_t rem = data.size() - i; rem == 1) {
         uint32_t v = uint32_t(data[i]) << 16;
-        out.push_back(table[(v >> 18) & 0x3F]);
-        out.push_back(table[(v >> 12) & 0x3F]);
+        out.push_back(table.at((v >> 18) & 0x3F));
+        out.push_back(table.at((v >> 12) & 0x3F));
         out.push_back('=');
         out.push_back('=');
     } else if (rem == 2) {
         uint32_t v = (uint32_t(data[i]) << 16) | (uint32_t(data[i + 1]) << 8);
-        out.push_back(table[(v >> 18) & 0x3F]);
-        out.push_back(table[(v >> 12) & 0x3F]);
-        out.push_back(table[(v >> 6) & 0x3F]);
+        out.push_back(table.at((v >> 18) & 0x3F));
+        out.push_back(table.at((v >> 12) & 0x3F));
+        out.push_back(table.at((v >> 6) & 0x3F));
         out.push_back('=');
     }
     return out;
@@ -46,16 +47,16 @@ std::string base64_encode_safe(const uint8_t *data, size_t len) {
 
 // compress data with zlib (compress2) at 'level' (0-9).
 // Returns true on success and fills out with the compressed bytes.
-bool zlib_compress(const uint8_t *data, size_t data_len, std::vector<uint8_t> &out, int level) {
-    if (!data || data_len == 0) {
+bool zlib_compress(std::span<const uint8_t> data, std::vector<uint8_t> &out, int level) {
+    if (data.empty()) {
         out.clear();
         return true;
     }
 
-    uLongf bound = compressBound(data_len);
+    auto bound = compressBound(data.size());
     out.resize(bound);
 
-    if (int rc = compress2(out.data(), &bound, data, data_len, level); rc != Z_OK) {
+    if (int rc = compress2(out.data(), &bound, data.data(), data.size(), level); rc != Z_OK) {
         out.clear();
         return false;
     }
@@ -153,17 +154,13 @@ nlohmann::json bitmap_to_json_zlib_b64(const amp::Bitmap &b, int zlib_level) {
     j["height"] = b.getHeight();
     j["type"] = (b.getType() == amp::Bitmap::Type::Uint8 ? "Uint8" : "Uint32");
 
-    auto data = b.getData();
-    if (!data) {
+    auto pixels = b.getPixels();
+    if (pixels.empty()) {
         j["encoding"] = nullptr;
         return j;
     }
 
-    size_t bytes = b.getWidth() * b.getHeight();
-    if (b.getType() == amp::Bitmap::Type::Uint32)
-        bytes *= 4;
-
-    if (bytes == 0) {
+    if (pixels.empty()) {
         j["encoding"] = nullptr;
         return j;
     }
@@ -171,20 +168,20 @@ nlohmann::json bitmap_to_json_zlib_b64(const amp::Bitmap &b, int zlib_level) {
     // compress
     std::vector<uint8_t> compressed;
 
-    if (bool ok = zlib_compress(data, bytes, compressed, zlib_level); !ok || compressed.empty()) {
+    if (bool ok = zlib_compress(pixels, compressed, zlib_level); !ok || compressed.empty()) {
         // compression failed: fallback to base64 of raw
-        std::string raw_b64 = base64_encode_safe(data, bytes);
+        std::string raw_b64 = base64_encode_safe(pixels);
         j["encoding"] = "base64";
-        j["raw_size"] = bytes;
-        j["compressed_size"] = bytes;
+        j["raw_size"] = pixels.size();
+        j["compressed_size"] = pixels.size();
         j["data_b64"] = raw_b64;
         return j;
     }
 
     // base64 the compressed bytes
-    std::string b64 = base64_encode_safe(compressed.data(), compressed.size());
+    std::string b64 = base64_encode_safe(compressed);
     j["encoding"] = "zlib+base64";
-    j["raw_size"] = bytes;
+    j["raw_size"] = pixels.size();
     j["compressed_size"] = compressed.size();
     j["data_b64"] = b64;
     return j;

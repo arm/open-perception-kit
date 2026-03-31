@@ -17,10 +17,14 @@ class FileError : public std::runtime_error {
     explicit FileError(const std::string &err) : std::runtime_error(err) {}
 };
 
-static bool write_all(int fd, const char *data, size_t len) {
+static bool write_all(int fd, const std::span<const char> data) {
     size_t off = 0;
+
+    const auto d = data.data();
+    const auto len = data.size();
+
     while (off < len) {
-        ssize_t n = ::write(fd, data + off, len - off);
+        ssize_t n = ::write(fd, d + off, len - off);
         if (n > 0) {
             off += size_t(n);
             continue;
@@ -100,7 +104,7 @@ bool FileWriter::io_open() {
         }
 
         /* "-" means stdout */
-        if (g_strcmp0("-", m_file_name.c_str()) == 0) {
+        if ("-" == m_file_name) {
             m_fd = STDOUT_FILENO;
             ret = true;
         } else {
@@ -155,7 +159,7 @@ bool FileWriter::publish(const std::string &json_str) {
     bool ret = false;
 
     if (auto fd = check_open(); fd >= 0) {
-        bool ok = write_all(fd, json_str.c_str(), json_str.length());
+        bool ok = write_all(fd, std::span<const char>(json_str.c_str(), json_str.size()));
         close(fd);
 
         if (!ok) {

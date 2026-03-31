@@ -162,7 +162,7 @@ static GstFlowReturn gst_amptracker_transform_ip(GstBaseTransform *b, GstBuffer 
         return GST_FLOW_OK;
     }
 
-    auto ret = amp::PerceptionMeta::mutate<GstFlowReturn>(buf, [self](auto &perception) {
+    amp::PerceptionMeta::mutate<GstFlowReturn>(buf, [self](auto &perception) {
         self->m->tracker.process(perception, trackerConfigFromElement(self));
         return GST_FLOW_OK;
     });

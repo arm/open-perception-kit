@@ -22,12 +22,11 @@ using nlohmann::json;
 
 // ---------- Helpers ----------
 
-std::string base64_encode_safe(const uint8_t *data, size_t len);
+std::string base64_encode_safe(std::span<const uint8_t> data);
 
 // compress data with zlib (compress2) at 'level' (0-9).
 // Returns true on success and fills out with the compressed bytes.
-bool zlib_compress(const uint8_t *data,
-                   size_t data_len,
+bool zlib_compress(std::span<const uint8_t> data,
                    std::vector<uint8_t> &out,
                    int level = Z_BEST_SPEED);
 

@@ -110,8 +110,9 @@ amp::Result<void> GenericPostprocessOp::process(amp::OpChainContext &opChainCont
 
     opChainContext.perception->layers.push_back(rawDetectionLayer);
 
-    if (!opChainContext.rootLayer.detections.empty()) {
+    if (!opChainContext.rootLayer.detections.empty() && !opChainContext.hasRootLayer) {
         opChainContext.perception->layers.push_back(opChainContext.rootLayer);
+        opChainContext.hasRootLayer = true;
     }
 
     return {};

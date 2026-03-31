@@ -599,7 +599,7 @@ static void gst_amp_sink_class_init(GstAmpSinkClass *klass) {
         g_param_spec_string("static-files",
                             "Static Files Location",
                             "Location of the static files for HTTP Server",
-                            "/work/scripts/public",
+                            "./scripts/public",
                             kRW));
 
     /* pads */

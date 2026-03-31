@@ -43,6 +43,7 @@ struct OpChainContext {
     amp::TensorView inferenceOutputTensors[amp::MaxTensorCount];
     amp::InferenceInfo inferenceInfo;
 
+    bool hasRootLayer = false;
     Perception::Layer rootLayer;
 
     // the perception object that ops can read/write to produce the final perception result

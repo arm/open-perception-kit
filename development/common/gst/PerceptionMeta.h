@@ -3,7 +3,9 @@
  *************************************************************/
 
 #pragma once
-#include <vector>
+#include <string_view>
+#include <array>
+#include <span>
 
 #include <gst/gst.h>
 
@@ -15,21 +17,21 @@ namespace amp {
 struct PerceptionMetaTraits {
     using Payload = Perception;
 
-    static const char *api_name() {
+    static const std::string_view api_name() {
         return "com_arm_amp_meta_PerceptionAPI_v1";
     }
-    static const char *meta_name() {
+    static const std::string_view meta_name() {
         return "com_arm_amp_meta_Perception";
     }
-    static const gchar **tags() {
-        static std::vector<const gchar *> t = {
+    static const std::span<const gchar *> tags() {
+        static std::array<const gchar *, 4> t = {
             "perception",
             "inference",
             "detections",
             nullptr,
         };
 
-        return t.data();
+        return t;
     }
 
     static Payload clone(const Payload &p) {

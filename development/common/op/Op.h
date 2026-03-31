@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "amp/AttributeMap.h"
 #include "amp/Model.h"

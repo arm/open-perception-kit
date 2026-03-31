@@ -87,8 +87,6 @@ class TsUtcNs {
 };
 
 } // namespace amp
-
-#define AMP_ABORT                                                                                  \
-    do {                                                                                           \
-        ::abort();                                                                                 \
-    } while (0)
+[[noreturn]] inline void amp_abort() {
+    std::abort();
+}

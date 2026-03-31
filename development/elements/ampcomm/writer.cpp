@@ -97,8 +97,8 @@ void Writer::run() {
 
         json j;
 
+        j["frame_counter"] = job.frame_counter;
         if (job.perception) {
-            j["frame_counter"] = job.frame_counter;
             j["perception"] = *job.perception; // calls your to_json overloads
         } else {
             j["perception"] = nullptr;

@@ -174,8 +174,9 @@ def process_remaining(
     # consume match
     if best_j >= 0:
         remaining.pop(best_j)
-
-    return True, ""
+        return True, ""
+    else:
+        return False, "The best match cannot be found"
 
 
 def greedy_match_by_distance(

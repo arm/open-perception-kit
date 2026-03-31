@@ -5,16 +5,20 @@
 #include "amp/Tools.h"
 #include "gst/GstMetaWrapper.h"
 #include "gst/gstpad.h"
+
 #include <cairo.h>
-#include <cstring>
+
 #include <gst/gst.h>
 #include <gst/video/gstvideofilter.h>
 #include <gst/video/video.h>
 
 #include <cstring>
 #include <string>
-
-#include <cairo.h>
+#include <vector>
+#include <chrono>
+#include <map>
+#include <algorithm>
+#include <utility>
 #include <variant>
 
 #include "PerformanceTracer.h"
@@ -529,7 +533,7 @@ static GstFlowReturn gst_amp_performance_transform_frame_ip(GstVideoFilter *filt
         }
     } else {
         if (std::get<GstFlowReturn>(ret) != GST_FLOW_OK) {
-            AMP_ABORT;
+            amp_abort();
         }
     }
 
