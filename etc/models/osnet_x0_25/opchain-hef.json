@@ -1,5 +1,5 @@
 {
-    "name": "OsnetX025Reid",
+    "name": "OsnetX025Reid HAILO",
     "ops": [
         {
             "id": "amp-std-ops/InferenceController",
@@ -15,7 +15,7 @@
             }
         },
         {
-            "id": "amp-onnx-ops/Inference",
+            "id": "amp-hailort-ops/Inference",
             "attributes": {
                 "modelDescriptor": "/work/etc/models/osnet_x0_25/model-hef.json"
             }
