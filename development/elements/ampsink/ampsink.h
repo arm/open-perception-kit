@@ -19,6 +19,7 @@
 #include "ctrl_ws.h"
 #include "http_server.h"
 #include "model_reg.h"
+#include "status_reporter.h"
 #include "webrtc_ws.h"
 
 struct _GstAmpSinkClass {
@@ -28,6 +29,35 @@ struct _GstAmpSinkClass {
 typedef struct _GstAmpSink GstAmpSink;
 typedef struct _GstAmpSinkClass GstAmpSinkClass;
 
+class PipelineStateReporter : public StatusReporter {
+    GstAmpSink *self_ = nullptr;
+
+    bool has_audio_ = false;
+
+  public:
+    PipelineStateReporter(GstAmpSink *self) : self_(self) {}
+
+    inline void set_paused() {
+        trigger_reporting();
+    }
+
+    inline void set_audio(bool has_audio) {
+        has_audio_ = has_audio;
+        trigger_reporting();
+    }
+
+    nlohmann::json report() const override;
+};
+
+class PerformanceOverlayStateReporter : public StatusReporter {
+    GstAmpSink *self_ = nullptr;
+
+  public:
+    PerformanceOverlayStateReporter(GstAmpSink *self) : self_(self) {}
+
+    nlohmann::json report() const override;
+};
+
 struct GstAmpPrivate {
     std::unique_ptr<AmpSinkHttpServer> http_server;
 
@@ -35,6 +65,8 @@ struct GstAmpPrivate {
     std::unique_ptr<CtrlWebSocket> ctrl_websocket;
 
     std::shared_ptr<ModelRegistry> model_registry;
+    std::shared_ptr<PipelineStateReporter> pipeline_state_reporter;
+    std::shared_ptr<PerformanceOverlayStateReporter> performance_overlay_state_reporter;
 };
 
 struct _GstAmpSink {
