@@ -21,7 +21,7 @@ Expected output artifact:
 Convert the original ONNX network into Hailo HAR format with the expected input tensor shape.
 
 ```bash
-hailo parser onnx osnet_x0_25_msmt17_opset21.onnx --tensor-shapes [1,3,240,320]
+hailo parser onnx osnet_x0_25_msmt17_opset21_patched.onnx --tensor-shapes [1,3,256,128]
 ```
 
 ## 3) Optimize the patched HAR
