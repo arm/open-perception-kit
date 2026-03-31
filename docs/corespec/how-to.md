@@ -148,3 +148,16 @@ Important scripts for usage:
    ```bash
    git commit --no-verify
    ```
+##  How to use (laptop's built-in) webcam in WSL/Linux
+
+ 1. (Only for WSL users) Forward camera input to WSL
+    - Install [USBIPD](https://github.com/dorssel/usbipd-win/releases)
+    - (Optional) Install [WSL USB Manager](https://github.com/nickbeth/wsl-usb-manager/releases) to have a GUI for USBIPD
+    - Forward camera image to WSL by "Binding" and "Attaching" the camera with the WSL USB Manager
+        - Note: If attaching the camera fails, then disable the device in the Device Manager. Windows sometimes starts to use the camera in background processes and it is hard to figure out which process reserved it.
+ 2. Add the camera resource to the pipeline and decode the stream before the models
+    - Eg.:
+        ```json
+        "v4l2src device=/dev/video0 ! \"image/jpeg,width=1280,height=720,framerate=60/1\"  !",
+        "jpegdec !",
+        ```
