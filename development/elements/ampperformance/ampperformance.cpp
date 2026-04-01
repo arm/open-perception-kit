@@ -514,8 +514,7 @@ static GstFlowReturn gst_amp_performance_transform_frame_ip(GstVideoFilter *filt
         self->cached_lines = get_performance_data(self);
     }
 
-    // Get PerceptionContextMeta
-
+    // Get PerceptionMeta with performance data
     auto ret = amp::PerceptionMeta::mutate<GstFlowReturn>(frame->buffer, [self](auto &perception) {
         perception.perfdata = self->cached_lines;
         return GST_FLOW_OK;

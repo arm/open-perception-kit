@@ -217,11 +217,6 @@ def greedy_match_by_distance(
 def compare_layer(
         gt_layer: dict, gt_uuid_index: dict[int, tuple[dict, dict]],
         out_layer: dict, out_uuid_index: dict[int, tuple[dict, dict]]) -> Tuple[bool, str]:
-    """
-    - check contentType and model
-    - group detections by type
-    - for each type, use DISTANCE_SPECS[type] with greedy matching
-    """
     if gt_layer.get("contentType", "") != out_layer.get("contentType", ""):
         return False, (
             f"contentType mismatch: gt={gt_layer.get('contentType')!r} "
@@ -434,8 +429,6 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--limit", type=int, default=0, help="Stop after N messages (0 = no limit).")
     p.add_argument("--verbose", action="store_true", help="Print per-message debug info.")
     p.add_argument("--fail-fast", action="store_true", help="Stop at first mismatch (check mode).")
-
-    p.set_defaults(allow_extra_detections=True)
 
     return p
 

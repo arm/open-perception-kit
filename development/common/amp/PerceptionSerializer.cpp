@@ -4,6 +4,7 @@
 
 #include "PerceptionSerializer.h"
 
+#include <array>
 #include <cstdint>
 #include <string>
 #include <variant>
@@ -156,11 +157,6 @@ nlohmann::json bitmap_to_json_zlib_b64(const amp::Bitmap &b, int zlib_level) {
     j["type"] = (b.getType() == amp::Bitmap::Type::Uint8 ? "Uint8" : "Uint32");
 
     auto pixels = b.getPixels();
-    if (pixels.empty()) {
-        j["encoding"] = nullptr;
-        return j;
-    }
-
     if (pixels.empty()) {
         j["encoding"] = nullptr;
         return j;

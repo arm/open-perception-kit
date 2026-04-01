@@ -5,24 +5,22 @@
 #include "amp/Bitmap.h"
 #include "amp/Color.h"
 #include "amp/Perception.h"
+#include "gst/PerceptionMeta.h"
 #include "osd.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-#include <fmt/core.h>
-#include <gst/gst.h>
-#include <gst/video/gstvideofilter.h>
-#include <gst/video/video.h>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <vector>
 
-#include "amp/Bitmap.h"
-#include "amp/Color.h"
-#include "amp/Perception.h"
-#include "gst/PerceptionMeta.h"
+#include <fmt/core.h>
+#include <gst/gst.h>
+#include <gst/video/gstvideofilter.h>
+#include <gst/video/video.h>
 
 #ifndef PACKAGE
 #define PACKAGE "amp-elements"

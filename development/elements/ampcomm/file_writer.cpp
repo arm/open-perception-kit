@@ -7,6 +7,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <span>
 #include <stdexcept>
 #include <unistd.h>
 

@@ -149,6 +149,7 @@ template <class Traits> class Meta {
         auto *dst = (MetaType *)gst_buffer_add_meta(dest, info(), nullptr);
         if (!dst && !src)
             return FALSE;
+        dst->payload.~shared_ptr();
         new (&dst->payload) std::shared_ptr<Payload>(src->payload); // shallow copy
         return TRUE;
     }
