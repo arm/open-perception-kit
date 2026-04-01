@@ -6,7 +6,6 @@
 
 #include "amp/BitmapView.h"
 #include "amp/Perception.h"
-#include "amp/Tags.h"
 #include "amp/TensorView.h"
 #include "amp/Types.h"
 #include <cstddef>
@@ -43,6 +42,9 @@ struct OpChainContext {
     size_t inferenceOutputTensorCount = 0;
     amp::TensorView inferenceOutputTensors[amp::MaxTensorCount];
     amp::InferenceInfo inferenceInfo;
+
+    bool hasRootLayer = false;
+    Perception::Layer rootLayer;
 
     // the perception object that ops can read/write to produce the final perception result
     Perception *perception = nullptr;

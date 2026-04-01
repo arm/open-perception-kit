@@ -121,6 +121,7 @@ subdir('elements/amptracker')
 subdir('elements/ampperformance')
 subdir('elements/amposd')
 subdir('elements/ampsink')
+subdir('elements/ampcomm')
 subdir('amp-menu')
 
 # Optional subdirs decision tree is inside the subdir

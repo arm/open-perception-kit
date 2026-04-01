@@ -5,7 +5,6 @@ common = shared_library(
 
     'gst/Tools.cpp',
     'gst/TensorMeta.cpp',
-    'gst/PerceptionContextMeta.cpp',
     
     'amp/Result.cpp',
     'amp/Tools.cpp',
@@ -14,6 +13,8 @@ common = shared_library(
     'amp/ModelDescriptor.cpp',
 
     'amp/AudioBuffer.cpp',
+
+    'amp/PerceptionSerializer.cpp',
 
     'op/Op.cpp',
     'op/OpRef.cpp',

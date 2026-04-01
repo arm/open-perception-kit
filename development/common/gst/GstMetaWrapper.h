@@ -3,215 +3,156 @@
  *************************************************************/
 
 #pragma once
-#include <glib.h>
+
+#include <functional>
 #include <gst/gst.h>
 #include <memory>
-
-template <typename T> struct GstMetaContainer {
-    GstMeta meta;
-    T *payload;
-    GMutex lock; // Thread-safe access
-};
+#include <utility>
+#include <variant>
 
 namespace amp {
 
-template <typename T, typename Traits> class GstMetaWrapper {
-  public:
-    using MetaType = GstMetaContainer<T>;
+// Traits contract:
+// struct MyTraits {
+//   using Payload = ...;
+//   static const char* api_name();   // unique
+//   static const char* meta_name();  // unique
+//   static const char* const* tags();// optional tags array, null-terminated
+//   static Payload clone(const Payload&); // or std::unique_ptr clone
+// };
 
-    static std::shared_ptr<GstMetaWrapper> get(GstBuffer *buf);
-    static std::shared_ptr<GstMetaWrapper> attach(GstBuffer *buf, T *context);
-
-    GstMetaWrapper(const GstMetaWrapper &) = delete;
-    GstMetaWrapper &operator=(const GstMetaWrapper &) = delete;
-    GstMetaWrapper(GstMetaWrapper &&other) noexcept : gst_meta(other.gst_meta) {
-        other.gst_meta = nullptr;
-    }
-
-    GstMetaWrapper &operator=(GstMetaWrapper &&other) noexcept {
-        gst_meta = other.gst_meta;
-        other.gst_meta = nullptr;
-        return *this;
-    }
-
-    ~GstMetaWrapper();
-
-    T *get_payload() const;
-    const T *get_const_payload() const;
-
-    static GType get_type();
-    static const GstMetaInfo *get_info();
-
-  private:
-    explicit GstMetaWrapper(MetaType *meta) : gst_meta(meta) {}
-
-    static gboolean init(GstMeta *meta, gpointer params, GstBuffer *buffer);
-    static void free(GstMeta *meta, GstBuffer *buffer);
-    static gboolean
-    transform(GstBuffer *dest, GstMeta *meta, GstBuffer *src, GQuark type, gpointer data);
-    static MetaType *attach_meta(GstBuffer *buf, T *context);
-    static MetaType *get_meta(GstBuffer *buf);
-    static void lock(MetaType *meta);
-    static void unlock(MetaType *meta);
-
-    MetaType *gst_meta;
+template <class Traits> struct MetaContainer {
+    GstMeta meta;
+    std::shared_ptr<typename Traits::Payload> payload;
 };
 
-template <typename T, typename Traits>
-gboolean
-GstMetaWrapper<T, Traits>::init(GstMeta *meta, gpointer /*params*/, GstBuffer * /*buffer*/) {
-    auto *m = reinterpret_cast<MetaType *>(meta);
-    m->payload = nullptr;
-    return TRUE;
-}
+enum class MetaError {
+    OK,
+    NO_METADATA,
+};
 
-template <typename T, typename Traits>
-void GstMetaWrapper<T, Traits>::free(GstMeta *meta, GstBuffer * /*buffer*/) {
-    auto *m = reinterpret_cast<MetaType *>(meta);
+template <class Traits> class Meta {
+  public:
+    using Payload = typename Traits::Payload;
+    using MetaType = MetaContainer<Traits>;
 
-    if (m->payload) {
-        delete m->payload;
-        m->payload = nullptr;
-    }
+    // ---- Registration ----
+    static GType api_type() {
+        static gsize once = 0;
+        static GType type = 0;
 
-    g_mutex_clear(&m->lock);
-}
+        if (g_once_init_enter(&once)) {
+            const char *name = Traits::api_name().data();
 
-template <typename T, typename Traits>
-gboolean GstMetaWrapper<T, Traits>::transform(
-    GstBuffer *dest, GstMeta *meta, GstBuffer * /*src*/, GQuark /*type*/, gpointer /*data*/) {
-    auto *sourceMeta = reinterpret_cast<MetaType *>(meta);
-    auto *destMeta = reinterpret_cast<MetaType *>(
-        gst_buffer_add_meta(dest, GstMetaWrapper<T, Traits>::get_info(), nullptr));
+            // 1) If it already exists, use it.
+            if (GType existing = g_type_from_name(name); existing != 0) {
+                type = existing;
+                g_once_init_leave(&once, 1);
+                return type;
+            }
 
-    if (!destMeta)
-        return FALSE;
+            // 2) Otherwise register it.
+            GType t = gst_meta_api_type_register(name, Traits::tags().data());
 
-    g_mutex_lock(&sourceMeta->lock);
+            // 3) If registration failed for some reason, try lookup again.
+            if (t == 0)
+                t = g_type_from_name(name);
 
-    if (sourceMeta->payload) {
-        destMeta->payload = new T(*sourceMeta->payload);
-    }
-
-    g_mutex_unlock(&sourceMeta->lock);
-
-    g_mutex_init(&destMeta->lock);
-
-    return TRUE;
-}
-
-template <typename T, typename Traits>
-typename GstMetaWrapper<T, Traits>::MetaType *GstMetaWrapper<T, Traits>::attach_meta(GstBuffer *buf,
-                                                                                     T *context) {
-    g_return_val_if_fail(GST_IS_BUFFER(buf), nullptr);
-    g_return_val_if_fail(context != nullptr, nullptr);
-
-    auto *meta = reinterpret_cast<MetaType *>(
-        gst_buffer_add_meta(buf, GstMetaWrapper<T, Traits>::get_info(), nullptr));
-
-    if (!meta)
-        return nullptr;
-
-    meta->payload = context;
-    g_mutex_init(&meta->lock);
-
-    return meta;
-}
-
-template <typename T, typename Traits>
-typename GstMetaWrapper<T, Traits>::MetaType *GstMetaWrapper<T, Traits>::get_meta(GstBuffer *buf) {
-    return reinterpret_cast<MetaType *>(
-        gst_buffer_get_meta(buf, GstMetaWrapper<T, Traits>::get_type()));
-}
-
-template <typename T, typename Traits> void GstMetaWrapper<T, Traits>::lock(MetaType *meta) {
-    if (meta) {
-        g_mutex_lock(&meta->lock);
-    }
-}
-
-template <typename T, typename Traits> void GstMetaWrapper<T, Traits>::unlock(MetaType *meta) {
-    if (meta) {
-        g_mutex_unlock(&meta->lock);
-    }
-}
-
-template <typename T, typename Traits> GType GstMetaWrapper<T, Traits>::get_type() {
-    static GType type = 0;
-    if (g_once_init_enter(&type)) {
-        const char *api_name = Traits::api_name();
-        GType t = g_type_from_name(api_name);
-        if (!t) {
-            t = gst_meta_api_type_register(api_name, Traits::tags());
+            type = t; // may still be 0 if totally broken, but usually won’t be.
+            g_once_init_leave(&once, 1);
         }
-        g_once_init_leave(&type, t);
-    }
-    return type;
-}
 
-template <typename T, typename Traits> const GstMetaInfo *GstMetaWrapper<T, Traits>::get_info() {
-    static const GstMetaInfo *mi = NULL;
-    if (g_once_init_enter(&mi)) {
-        const GstMetaInfo *info = gst_meta_register(GstMetaWrapper<T, Traits>::get_type(),
-                                                    Traits::meta_name(),
-                                                    sizeof(MetaType),
-                                                    GstMetaWrapper<T, Traits>::init,
-                                                    GstMetaWrapper<T, Traits>::free,
-                                                    GstMetaWrapper<T, Traits>::transform);
-        g_once_init_leave(&mi, info);
-    }
-    return mi;
-}
-
-template <typename T, typename Traits> GstMetaWrapper<T, Traits>::~GstMetaWrapper() {
-    if (gst_meta) {
-        GstMetaWrapper<T, Traits>::unlock(gst_meta);
-    }
-}
-
-template <typename T, typename Traits> T *GstMetaWrapper<T, Traits>::get_payload() const {
-    if (gst_meta) {
-        GstMetaWrapper<T, Traits>::lock(gst_meta);
-        return gst_meta->payload;
-    }
-    return nullptr;
-}
-
-template <typename T, typename Traits>
-const T *GstMetaWrapper<T, Traits>::get_const_payload() const {
-    if (gst_meta) {
-        GstMetaWrapper<T, Traits>::lock(gst_meta);
-        return gst_meta->payload;
-    }
-    return nullptr;
-}
-
-template <typename T, typename Traits>
-std::shared_ptr<GstMetaWrapper<T, Traits>> GstMetaWrapper<T, Traits>::attach(GstBuffer *buf,
-                                                                             T *context) {
-
-    MetaType *meta = GstMetaWrapper<T, Traits>::attach_meta(buf, context);
-    if (!meta) {
-        GST_ERROR("Failed to attach meta to buffer");
-        delete context;
-        return nullptr;
+        return type;
     }
 
-    return std::shared_ptr<GstMetaWrapper<T, Traits>>(new GstMetaWrapper(meta));
-}
-
-template <typename T, typename Traits>
-std::shared_ptr<GstMetaWrapper<T, Traits>> GstMetaWrapper<T, Traits>::get(GstBuffer *buf) {
-    if (!buf) {
-        return nullptr;
+    static const GstMetaInfo *info() {
+        static const GstMetaInfo *mi = nullptr;
+        if (g_once_init_enter_pointer(const_cast<GstMetaInfo **>(&mi))) {
+            const GstMetaInfo *i = gst_meta_register(api_type(),
+                                                     Traits::meta_name().data(),
+                                                     sizeof(MetaType),
+                                                     &Meta::init,
+                                                     &Meta::free,
+                                                     &Meta::transform);
+            g_once_init_leave_pointer(const_cast<GstMetaInfo **>(&mi),
+                                      const_cast<GstMetaInfo *>(i));
+        }
+        return mi;
     }
 
-    MetaType *meta = GstMetaWrapper<T, Traits>::get_meta(buf);
-    if (!meta) {
-        return nullptr;
+    // ---- Attach / Get ----
+    static MetaType *add(GstBuffer *buf, std::shared_ptr<Payload> p) {
+        g_return_val_if_fail(GST_IS_BUFFER(buf), nullptr);
+        auto *m = (MetaType *)gst_buffer_add_meta(buf, info(), nullptr);
+        if (!m)
+            return nullptr;
+        m->payload = std::move(p);
+        return m;
     }
 
-    return std::shared_ptr<GstMetaWrapper<T, Traits>>(new GstMetaWrapper(meta));
-}
+    static MetaType *get(GstBuffer *buf) {
+        g_return_val_if_fail(GST_IS_BUFFER(buf), nullptr);
+        return (MetaType *)gst_buffer_get_meta(buf, api_type());
+    }
+
+    // ---- Read-only access ----
+    static std::shared_ptr<const Payload> read(GstBuffer *buf) {
+        auto *m = get(buf);
+        if (!m || !m->payload)
+            return nullptr;
+        return m->payload;
+    }
+
+    // ---- Mutating access with copy-on-write ----
+    template <class R>
+    static std::variant<R, MetaError> mutate(GstBuffer *buf,
+                                             std::function<R(typename Traits::Payload &)> &&fn) {
+        // You should call gst_buffer_make_writable() in the element before mutating meta.
+        auto *m = get(buf);
+        if (!m || !m->payload) {
+            return MetaError::NO_METADATA;
+        }
+
+        // Copy-on-write: if shared, clone before modifying.
+        if (!m->payload.unique()) {
+            auto cloned = std::make_shared<Payload>(Traits::clone(*m->payload));
+            m->payload = std::move(cloned);
+        }
+
+        return std::move(fn(*m->payload));
+    }
+
+  private:
+    // init/free/transform for GstMeta
+    static gboolean init(GstMeta *meta, gpointer, GstBuffer *) {
+        auto *m = (MetaType *)meta;
+        // placement-new not needed for shared_ptr because MetaType is a C++ type and
+        // default-initialized. But GStreamer allocates raw memory; we must construct it.
+        if (m) {
+            new (&m->payload) std::shared_ptr<Payload>();
+            return TRUE;
+        } else {
+            return FALSE;
+        }
+    }
+
+    static void free(GstMeta *meta, GstBuffer *) {
+        auto *m = (MetaType *)meta;
+        if (m) {
+            m->payload.reset();
+            m->payload.~shared_ptr();
+        }
+    }
+
+    static gboolean transform(GstBuffer *dest, GstMeta *meta, GstBuffer *, GQuark, gpointer) {
+        auto src = reinterpret_cast<MetaType *>(meta);
+        auto *dst = (MetaType *)gst_buffer_add_meta(dest, info(), nullptr);
+        if (!dst && !src)
+            return FALSE;
+        dst->payload.~shared_ptr();
+        new (&dst->payload) std::shared_ptr<Payload>(src->payload); // shallow copy
+        return TRUE;
+    }
+};
 
 } // namespace amp

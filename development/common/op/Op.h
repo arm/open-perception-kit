@@ -6,13 +6,11 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "amp/AttributeMap.h"
 #include "amp/Model.h"
-#include "amp/Perception.h"
 #include "amp/Result.h"
-#include "amp/Shape.h"
-#include "amp/Tools.h"
 
 #include "op/OpChainContext.h"
 
