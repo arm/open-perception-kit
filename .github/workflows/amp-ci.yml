@@ -51,7 +51,20 @@ jobs:
             - name: AMP release build and unit test run
               if:  github.event_name == 'pull_request' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
               run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm amp-release-with-ut
+            
+            - name: Run Valgrind checks
+              id: valgrind_checks
+              run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm amp-valgrind-check
 
+            - name: Upload Valgrind logs on failure
+              if: ${{ steps.valgrind_checks.outcome == 'failure' }}
+              uses: actions/upload-artifact@v7
+              with:
+                name: valgrind-logs
+                path: |
+                  ${{ github.workspace }}/scripts/testing/valgrind/logs
+                if-no-files-found: warn
+                retention-days: 10
 
     check-checkboxes:
         name: Check PR template checkboxes
