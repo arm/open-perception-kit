@@ -225,7 +225,7 @@ RUN luarocks install jsregexp
 
 RUN chsh -s /usr/bin/zsh ${USERNAME}
 
-COPY ./uidgid-entrypoint.sh /usr/local/bin/uidgid-entrypoint
+COPY ./.devcontainer/uidgid-entrypoint.sh /usr/local/bin/uidgid-entrypoint
 RUN chmod +x /usr/local/bin/uidgid-entrypoint
 
 # ---- Locale ----

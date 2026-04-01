@@ -1,166 +1,506 @@
 name: Black Duck Security and License Scan
+run-name: Black Duck scan for ${{ github.ref_name }}
 
 on:
-  push:
-    tags:
-      - "*"  # Trigger on any tag
-  workflow_dispatch:  # Manual trigger from GitHub UI
+  release:
+    types: [published]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: blackduck-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   blackduck:
     runs-on: self-hosted-ubuntu-latest-x64
-
+    defaults:
+      run:
+        shell: bash
     env:
       BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
       BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
+      DETECT_SCRIPT: ${{ github.workspace }}/detect-arm.sh
+      CONTAINER_SCAN_TARS_DIR: ${{ github.workspace }}/.bd-container-tars
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-
-      - name: Download detect.sh from Artifactory (no auth)
-        run: |
-          set -euo pipefail
-          URL="https://artifactory.arm.com/artifactory/synopsys-blackduck.detect-arm/detect-arm.sh"
-          curl -fsSL -L -o "${GITHUB_WORKSPACE}/detect-arm.sh" "${URL}"
-          # sanity: must be a script
-          head -n 1 "${GITHUB_WORKSPACE}/detect-arm.sh" | grep -q '^#!' || {
-            echo "Downloaded detect-arm.sh doesn't look like a script"
-            head -n 5 "${GITHUB_WORKSPACE}/detect-arm.sh"
-            exit 3
-          }
-          chmod +x "${GITHUB_WORKSPACE}/detect-arm.sh"
-
-      - name: Resolve project name and version
-        run: |
-          set -euo pipefail
-          # Project name: owner:repo
-          PROJECT_NAME="${{ github.repository }}"
-          PROJECT_NAME="${PROJECT_NAME//\//:}"
-          
-          # Version: use tag name directly or branch name for manual runs
-          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref_type }}" == "tag" ]]; then
-            # Tag push: use tag name as-is
-            VERSION_NAME="${{ github.ref_name }}"
-            echo "Using tag as version: $VERSION_NAME"
-          else
-            # Manual run: use branch name or default
-            VERSION_NAME="${{ github.ref_name }}"
-            VERSION_NAME="$(echo "$VERSION_NAME" | tr -d '[:space:]')"
-            [[ -n "$VERSION_NAME" ]] || VERSION_NAME="manual-scan"
-            echo "Using version name: $VERSION_NAME"
-          fi
-          
-          {
-            echo "PROJECT_NAME=$PROJECT_NAME"
-            echo "VERSION_NAME=$VERSION_NAME"
-          } >> "$GITHUB_ENV"
-          echo "Black Duck project name: ${PROJECT_NAME}"
-          echo "Black Duck version name: ${VERSION_NAME}"
-
-      - name: Run Black Duck Detect
-        run: |
-          set -euo pipefail
-          
-          # Determine scan mode based on trigger
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            # MANUAL RUN: Rapid scan without upload
-            echo "=========================================="
-            echo "MANUAL SCAN MODE: Rapid scan (no upload)"
-            echo "=========================================="
-            echo "Running local-only scan for quick feedback..."
-            echo "Results will NOT be uploaded to Black Duck Hub"
-            echo ""
-            
-            ${GITHUB_WORKSPACE}/detect-arm.sh \
-              --detect.source.path="." \
-              --detect.output.path="bd-output" \
-              --detect.tools=DETECTOR \
-              --blackduck.offline.mode=true \
-              --detect.risk.report.pdf=false \
-              --logging.level.detect=INFO \
-              --detect.cleanup=false \
-              --detect.excluded.directories.search.depth=0 \
-              --detect.excluded.directories=".git,.github/workflows,bd-output"
-            
-            echo ""
-            echo "✓ Rapid scan complete (offline mode)"
-            echo "✓ Results available in bd-output/ directory"
-            echo "✓ Download artifacts to review findings"
-            
-          else
-            # TAG PUSH: Full scan with upload to Black Duck Hub
-            echo "=========================================="
-            echo "TAG SCAN MODE: Full scan + upload"
-            echo "=========================================="
-            
-            if [[ -z "${BLACKDUCK_URL}" || -z "${BLACKDUCK_TOKEN}" ]]; then
-              echo "Missing BLACKDUCK_URL or BLACKDUCK_TOKEN secrets" >&2
-              exit 2
-            fi
-            
-            echo "Running Black Duck scan on entire repository..."
-            echo "Scanning paths:"
-            echo "  - Source code: development/"
-            echo "  - Python tools: tools/lazer/"
-            echo "  - Scripts: scripts/"
-            echo "  - Configuration: meson.build, .clang-format, etc."
-            echo "  - Documentation: docs/"
-            echo "  - Models and test data: etc/"
-            echo ""
-            
-            ${GITHUB_WORKSPACE}/detect-arm.sh \
-              --blackduck.url="${BLACKDUCK_URL}" \
-              --blackduck.api.token="${BLACKDUCK_TOKEN}" \
-              --detect.project.name="${PROJECT_NAME}" \
-              --detect.project.version.name="${VERSION_NAME}" \
-              --detect.source.path="." \
-              --detect.output.path="bd-output" \
-              --detect.tools=DETECTOR,SIGNATURE_SCAN \
-              --detect.risk.report.pdf=true \
-              --logging.level.detect=INFO \
-              --detect.cleanup=false \
-              --detect.excluded.directories.search.depth=0 \
-              --detect.excluded.directories=".git,.github/workflows,bd-output"
-            
-            echo ""
-            echo "✓ Full scan complete"
-            echo "✓ Results uploaded to Black Duck Hub"
-            echo "✓ Project: ${PROJECT_NAME}"
-            echo "✓ Version: ${VERSION_NAME}"
-          fi
-
-      # The risk report PDF is created in the workspace root (not bd-output).
-      - name: Upload Risk Report PDF
-        if: always()
-        uses: actions/upload-artifact@v7
         with:
-          name: blackduck-risk-report
-          path: "*BlackDuck_RiskReport.pdf"
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Validate scan prerequisites
+        run: |
+          set -euo pipefail
+          [[ -n "${BLACKDUCK_URL:-}" ]] || { echo "Missing BLACKDUCK_URL secret" >&2; exit 2; }
+          [[ -n "${BLACKDUCK_TOKEN:-}" ]] || { echo "Missing BLACKDUCK_TOKEN secret" >&2; exit 2; }
+          command -v docker >/dev/null 2>&1 || { echo "Docker is required on this runner" >&2; exit 12; }
+          docker compose version >/dev/null 2>&1 || { echo "docker compose is required on this runner" >&2; exit 13; }
+
+      - name: Download Detect script
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://artifactory.arm.com/artifactory/synopsys-blackduck.detect-arm/detect-arm.sh" -o "${DETECT_SCRIPT}"
+          head -n 1 "${DETECT_SCRIPT}" | grep -q '^#!' || { echo "Downloaded script is invalid" >&2; exit 3; }
+          chmod +x "${DETECT_SCRIPT}"
+
+      - name: Resolve project and version names
+        run: |
+          set -euo pipefail
+
+          project_name="${{ github.repository }}"
+          project_name="${project_name//\//:}"
+
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            base_version="${{ github.event.release.tag_name }}"
+          else
+            base_version="${{ github.ref_name }}"
+            [[ -n "$(printf '%s' "${base_version}" | tr -d '[:space:]')" ]] || base_version="manual-scan"
+          fi
+
+          safe_base_version="$(printf '%s' "${base_version}" | sed 's/[[:space:]\/]/-/g')"
+          [[ -n "${safe_base_version}" ]] || safe_base_version="manual-scan"
+
+          {
+            echo "PROJECT_NAME=${project_name}"
+            echo "SOURCE_VERSION=${safe_base_version}--source"
+            echo "CONTAINER_VERSION_PREFIX=${safe_base_version}--container"
+          } >> "$GITHUB_ENV"
+
+      - name: Discover buildable containers
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          import re
+          import subprocess
+
+          workspace = pathlib.Path(os.environ["GITHUB_WORKSPACE"]).resolve()
+          runner_temp = pathlib.Path(os.environ["RUNNER_TEMP"]).resolve()
+          manifest_path = runner_temp / "bd-container-manifest.json"
+
+          def slugify(value: str) -> str:
+              value = value.strip().lower()
+              value = re.sub(r"[^a-z0-9._-]+", "-", value)
+              value = re.sub(r"-+", "-", value).strip("-")
+              return value or "container"
+
+          def run_compose_config(compose_files):
+              env = os.environ.copy()
+              env.setdefault("HOST_UID", str(os.getuid()))
+              env.setdefault("HOST_GID", str(os.getgid()))
+              env.setdefault("HOME", str(pathlib.Path.home()))
+              env.setdefault("SSH_AUTH_SOCK", env.get("SSH_AUTH_SOCK", "/tmp/ssh-agent"))
+              cmd = ["docker", "compose"]
+              for compose_file in compose_files:
+                  cmd += ["-f", str(compose_file)]
+              cmd += ["config", "--format", "json"]
+              result = subprocess.run(cmd, capture_output=True, text=True, env=env)
+              if result.returncode != 0:
+                  raise RuntimeError(result.stderr.strip() or f"docker compose config failed for {compose_files}")
+              return json.loads(result.stdout)
+
+          def normalize_build(build_spec, project_dir: pathlib.Path):
+              if isinstance(build_spec, str):
+                  context = build_spec
+                  dockerfile = "Dockerfile"
+                  target = None
+              else:
+                  context = build_spec.get("context", ".")
+                  dockerfile = build_spec.get("dockerfile", "Dockerfile")
+                  target = build_spec.get("target")
+
+              context_path = pathlib.Path(context)
+              if not context_path.is_absolute():
+                  context_path = (project_dir / context_path).resolve()
+              else:
+                  context_path = context_path.resolve()
+
+              dockerfile_path = pathlib.Path(dockerfile)
+              if not dockerfile_path.is_absolute():
+                  dockerfile_path = (context_path / dockerfile_path).resolve()
+              else:
+                  dockerfile_path = dockerfile_path.resolve()
+
+              if not context_path.exists():
+                  raise RuntimeError(f"Build context does not exist: {context_path}")
+
+              if not dockerfile_path.exists():
+                  raise RuntimeError(f"Dockerfile does not exist: {dockerfile_path}")
+
+              return str(context_path), str(dockerfile_path), target
+
+          def normalize_compose_files(raw):
+              if isinstance(raw, str):
+                  return [raw]
+              if isinstance(raw, list):
+                  return raw
+              return []
+
+          def normalize_shell_command(cmd):
+              if cmd is None:
+                  return None
+              if isinstance(cmd, str):
+                  return cmd.strip() or None
+              if isinstance(cmd, list):
+                  return " ".join(str(x) for x in cmd).strip() or None
+              if isinstance(cmd, dict):
+                  parts = []
+                  for v in cmd.values():
+                      if isinstance(v, list):
+                          parts.append(" ".join(str(x) for x in v))
+                      else:
+                          parts.append(str(v))
+                  return " && ".join(p.strip() for p in parts if p.strip()) or None
+              return str(cmd).strip() or None
+
+          entries = []
+
+          devcontainer_files = sorted(workspace.glob(".devcontainer/**/devcontainer.json"))
+          for dc_file in devcontainer_files:
+              try:
+                  data = json.loads(dc_file.read_text())
+              except Exception as e:
+                  print(f"WARNING: failed to parse {dc_file}: {e}", flush=True)
+                  continue
+
+              service = data.get("service")
+              compose_files_raw = normalize_compose_files(data.get("dockerComposeFile", []))
+              if not service or not compose_files_raw:
+                  continue
+
+              compose_files = []
+
+              for item in compose_files_raw:
+                  item = item.replace("${localWorkspaceFolder}", str(workspace))
+                  path = pathlib.Path(item)
+                  if not path.is_absolute():
+                      path = (dc_file.parent / path).resolve()
+                  else:
+                      path = path.resolve()
+
+                  if path.exists():
+                      compose_files.append(path)
+                  else:
+                      print(f"WARNING: compose file not found: {path}", flush=True)
+
+              if not compose_files:
+                  continue
+
+              compose_cfg = run_compose_config(compose_files)
+              svc = compose_cfg.get("services", {}).get(service)
+              if not svc:
+                  continue
+
+              build = svc.get("build")
+              if not build:
+                  continue
+
+              context, dockerfile, target = normalize_build(build, compose_files[0].parent)
+
+              name = slugify(f"{dc_file.parent.name}-{service}")
+
+              entries.append({
+                  "name": name,
+                  "origin": str(dc_file.relative_to(workspace)),
+                  "context": context,
+                  "dockerfile": dockerfile,
+                  "target": target,
+                  "image": f"blackduck-scan-{name}:{os.environ['GITHUB_SHA']}",
+                  "prepared_image": f"blackduck-scan-{name}:prepared-{os.environ['GITHUB_SHA']}",
+                  "remote_user": data.get("remoteUser"),
+                  "workspace_folder": data.get("workspaceFolder", "/work"),
+                  "post_create_command": normalize_shell_command(data.get("postCreateCommand")),
+                  "build_ok": False,
+                  "prepared_ok": False,
+              })
+
+          if not entries:
+              raise SystemExit("No buildable containers discovered")
+
+          manifest_path.write_text(json.dumps(entries, indent=2))
+          print(json.dumps(entries, indent=2))
+          PY
+
+      - name: Build discovered container images
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          import subprocess
+          import sys
+
+          manifest_path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "bd-container-manifest.json"
+          entries = json.loads(manifest_path.read_text())
+
+          built_any = False
+
+          for entry in entries:
+              cmd = [
+                  "docker", "build",
+                  "-t", entry["image"],
+                  "-f", entry["dockerfile"],
+              ]
+              if entry.get("target"):
+                  cmd += ["--target", entry["target"]]
+              cmd += [entry["context"]]
+
+              print(f"Building {entry['name']} from {entry['origin']}")
+              result = subprocess.run(cmd)
+
+              if result.returncode == 0:
+                  subprocess.run(["docker", "image", "inspect", entry["image"]], check=True)
+                  entry["build_ok"] = True
+                  built_any = True
+              else:
+                  print(f"WARNING: build failed for {entry['name']}, skipping later stages for this container")
+                  entry["build_ok"] = False
+                  entry["build_exit_code"] = result.returncode
+
+          manifest_path.write_text(json.dumps(entries, indent=2))
+
+          if not built_any:
+              print("No container images built successfully", file=sys.stderr)
+              sys.exit(1)
+          PY
+
+      - name: Prepare Meson wrap dependencies
+        run: |
+          set -euo pipefail
+          dev_image="amp-dev-forge-bd:${GITHUB_SHA}"
+          docker build -t "${dev_image}" --target amp-dev-base "${GITHUB_WORKSPACE}"
+
+          docker run --rm \
+            -u "$(id -u):$(id -g)" \
+            -v "${GITHUB_WORKSPACE}:/work" \
+            -w /work \
+            "${dev_image}" \
+            bash -lc '
+              set -euo pipefail
+              if [[ ! -d /work/deps/onnxruntime/include || ! -d /work/deps/onnxruntime/lib ]]; then
+                tmp_dir="$(mktemp -d)"
+                curl -fsSL "https://github.com/microsoft/onnxruntime/releases/download/v1.18.1/onnxruntime-linux-x64-1.18.1.tgz" \
+                  | tar -xzf - -C "$tmp_dir"
+                mkdir -p /work/deps/onnxruntime
+                rm -rf /work/deps/onnxruntime/include /work/deps/onnxruntime/lib
+                cp -r "$tmp_dir/onnxruntime-linux-x64-1.18.1/include" /work/deps/onnxruntime/
+                cp -r "$tmp_dir/onnxruntime-linux-x64-1.18.1/lib" /work/deps/onnxruntime/
+                rm -rf "$tmp_dir"
+              fi
+
+              meson subprojects download --sourcedir /work/development
+              meson setup /tmp/bd-meson-setup /work/development --buildtype=debug --layout=flat --wrap-mode=forcefallback -Dtests=false
+            '
+
+      - name: Materialize container setup dependencies
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          import shlex
+          import subprocess
+
+          manifest_path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "bd-container-manifest.json"
+          workspace = pathlib.Path(os.environ["GITHUB_WORKSPACE"]).resolve()
+          entries = json.loads(manifest_path.read_text())
+
+          for entry in entries:
+              if not entry.get("build_ok", False):
+                  print(f"Skipping preparation for {entry['name']} because build failed")
+                  continue
+
+              container_name = f"bd-prep-{entry['name']}-{os.environ['GITHUB_RUN_ID']}"
+              workspace_folder = entry.get("workspace_folder") or "/work"
+              post_create_command = entry.get("post_create_command")
+              remote_user = entry.get("remote_user")
+
+              print(f"Preparing runtime dependencies for {entry['name']}")
+              subprocess.run(["docker", "rm", "-f", container_name], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+              run_cmd = [
+                  "docker", "run", "-d",
+                  "--name", container_name,
+                  "-v", f"{workspace}:{workspace_folder}",
+                  "-w", workspace_folder,
+                  entry["image"],
+                  "bash", "-lc", "while true; do sleep 5; done"
+              ]
+              subprocess.run(run_cmd, check=True)
+
+              try:
+                  def exec_in_container(command, user=None):
+                      if not command:
+                          return
+                      cmd = ["docker", "exec"]
+                      if user:
+                          cmd += ["-u", user]
+                      cmd += [container_name, "bash", "-lc", f"cd {shlex.quote(workspace_folder)} && {command}"]
+                      subprocess.run(cmd, check=True)
+
+                  if post_create_command:
+                      try:
+                          exec_in_container(post_create_command, remote_user)
+                      except subprocess.CalledProcessError:
+                          exec_in_container(post_create_command)
+
+                  subprocess.run(["docker", "commit", container_name, entry["prepared_image"]], check=True)
+                  subprocess.run(["docker", "image", "inspect", entry["prepared_image"]], check=True)
+                  entry["prepared_ok"] = True
+              except subprocess.CalledProcessError as exc:
+                  print(f"WARNING: preparation failed for {entry['name']}: {exc}")
+                  entry["prepared_ok"] = False
+              finally:
+                  subprocess.run(["docker", "rm", "-f", container_name], check=False)
+
+          manifest_path.write_text(json.dumps(entries, indent=2))
+          PY
+
+      - name: Run Black Duck source scan
+        run: |
+          set -euo pipefail
+          bd_out="${RUNNER_TEMP}/bd-output"
+
+          detect_common=(
+            "--blackduck.url=${BLACKDUCK_URL}"
+            "--blackduck.api.token=${BLACKDUCK_TOKEN}"
+            "--detect.project.name=${PROJECT_NAME}"
+            "--detect.cleanup=false"
+            "--logging.level.detect=INFO"
+            "--detect.timeout=1800"
+          )
+
+          "${DETECT_SCRIPT}" "${detect_common[@]}" \
+            --detect.project.version.name="${SOURCE_VERSION}" \
+            --detect.code.location.name="${PROJECT_NAME}/${SOURCE_VERSION}/source" \
+            --detect.source.path="${GITHUB_WORKSPACE}" \
+            --detect.output.path="${bd_out}/source" \
+            --detect.tools=DETECTOR,SIGNATURE_SCAN \
+            --detect.blackduck.signature.scanner.snippet.matching=SNIPPET_MATCHING \
+            --detect.blackduck.signature.scanner.upload.source.mode=true \
+            --detect.risk.report.pdf=true \
+            --detect.excluded.directories="bd-output,bd-output-*,.git,.github/workflows,.bd-container-tars"
+
+      - name: Run Black Duck container scans
+        run: |
+          set -euo pipefail
+          rm -rf "${CONTAINER_SCAN_TARS_DIR}"
+          mkdir -p "${CONTAINER_SCAN_TARS_DIR}"
+
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          import re
+          import subprocess
+
+          manifest_path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "bd-container-manifest.json"
+          tar_dir = pathlib.Path(os.environ["CONTAINER_SCAN_TARS_DIR"]).resolve()
+          bd_out = pathlib.Path(os.environ["RUNNER_TEMP"]) / "bd-output" / "containers"
+          entries = json.loads(manifest_path.read_text())
+
+          def version_slug(name: str) -> str:
+              value = name.strip().lower()
+              value = re.sub(r"[^a-z0-9._-]+", "-", value)
+              value = re.sub(r"-+", "-", value).strip("-")
+              return value or "container"
+
+          for entry in entries:
+              name = entry["name"]
+
+              if not entry.get("build_ok", False):
+                  print(f"Skipping Black Duck scan for {name} because build failed")
+                  continue
+
+              version_name = f"{os.environ['CONTAINER_VERSION_PREFIX']}-{version_slug(name)}"
+              image_tar = tar_dir / f"{name}.tar"
+              output_dir = bd_out / name
+              output_dir.mkdir(parents=True, exist_ok=True)
+
+              scan_image = entry["prepared_image"] if entry.get("prepared_ok", False) else entry["image"]
+
+              print(f"Saving image tar for {name} from {scan_image}")
+              subprocess.run(["docker", "save", "-o", str(image_tar), scan_image], check=True)
+
+              detect_cmd = [
+                  os.environ["DETECT_SCRIPT"],
+                  f"--blackduck.url={os.environ['BLACKDUCK_URL']}",
+                  f"--blackduck.api.token={os.environ['BLACKDUCK_TOKEN']}",
+                  f"--detect.project.name={os.environ['PROJECT_NAME']}",
+                  f"--detect.project.version.name={version_name}",
+                  "--detect.cleanup=false",
+                  "--logging.level.detect=INFO",
+                  "--detect.timeout=1800",
+                  "--detect.tools=CONTAINER_SCAN",
+                  f"--detect.code.location.name={os.environ['PROJECT_NAME']}/{version_name}/container/{name}",
+                  f"--detect.output.path={output_dir}",
+                  f"--detect.container.scan.file.path={image_tar}",
+              ]
+
+              print(f"Running Black Duck container scan for {name} -> version {version_name}")
+              subprocess.run(detect_cmd, check=True)
+          PY
+
+      - name: Upload discovered container manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blackduck-container-manifest
+          path: ${{ runner.temp }}/bd-container-manifest.json
           if-no-files-found: warn
           retention-days: 10
 
-      - name: Upload Detect status.json
+      - name: Upload Black Duck status files
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: blackduck-status
-          path: bd-output/runs/**/status/status.json
+          path: ${{ runner.temp }}/bd-output/**/status/status.json
           if-no-files-found: warn
           retention-days: 10
 
-      - name: Upload Detect logs (run + signature scan)
+      - name: Upload Black Duck container outputs
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
-          name: blackduck-logs
+          name: blackduck-container-outputs
+          path: ${{ runner.temp }}/bd-output/containers
+          if-no-files-found: warn
+          retention-days: 10
+
+      - name: Upload Black Duck Detect logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blackduck-detect-logs
           path: |
-            bd-output/runs/**/scan/BlackDuckScanOutput/**
-            bd-output/runs/**/*.log
-            bd-output/runs/**/*.txt
-            bd-output/runs/**/bdio/**
+            ${{ runner.temp }}/bd-output/**/*.log
+            ${{ runner.temp }}/bd-output/**/*.txt
+            ${{ runner.temp }}/bd-output/**/scan/BlackDuckScanOutput/**
+            ${{ runner.temp }}/bd-output/**/bdio/**
+          if-no-files-found: warn
+          retention-days: 10
+
+      - name: Upload Black Duck risk report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blackduck-risk-report
+          path: ${{ runner.temp }}/bd-output/**/*BlackDuck_RiskReport.pdf
           if-no-files-found: warn
           retention-days: 10
