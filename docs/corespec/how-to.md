@@ -94,7 +94,7 @@ cd amp-dev-forge
   - Windows/Linux: Ctrl+Shift+P
   - macOS: Cmd+Shift+P
 * Then "Reopen in Container"
-* At this point every dependency, pre commit hook, and device should be ready to use inside the devcontainer.
+* At this point every dependency, pre-commit hook, and device should be ready to use inside the devcontainer.
 
 ### Build AMP
 - **00 Build Project**: Builds all elements (default).
@@ -128,10 +128,10 @@ To stop a pipeline:
 
 ## Published Endpoints
 
-- [Raspberry AMP Web UI](raspberrypi.local:9999)
-- [Raspberry AMP Documentation](raspberrypi.local:8080)
-- [PC AMP Web UI](localhost:9999)
-- [PC AMP Documentation](localhost:8080)
+- [Raspberry AMP Web UI](http://raspberrypi.local:9999)
+- [Raspberry AMP Documentation](http://raspberrypi.local:8080)
+- [PC AMP Web UI](http://localhost:9999)
+- [PC AMP Documentation](http://localhost:8080)
 
 - **Hostnames:**
    - `raspberrypi.local` (on Raspberry Pi)
@@ -183,7 +183,7 @@ usage: __main__.py [-h] [-bn] [-cm] [-jt] [-clfc] [-clf] [-clt] [-pyfc] [-pyf] [
 pre-commit run
 ```
 
-- To run without pre commit hooks simply:
+- To run without pre-commit hooks simply:
 
 ```bash
 git commit --no-verify
@@ -200,7 +200,7 @@ git commit --no-verify
         - Note: If attaching the camera fails, then disable the device in the Device Manager. Windows sometimes starts to use the camera in background processes and it is hard to figure out which process reserved it.
  2. Add the camera resource to the pipeline and decode the stream before the models
     - Eg.:
-      ```json
-      "v4l2src device=/dev/video0 ! \"image/jpeg,width=1280,height=720,framerate=60/1\"  !",
-      "jpegdec !",
-      ```
+        ```json
+        "v4l2src device=/dev/video0 ! \"image/jpeg,width=1280,height=720,framerate=60/1\"  !",
+        "jpegdec !",
+        ```
