@@ -198,7 +198,7 @@ git commit --no-verify
         - Note: If attaching the camera fails, then disable the device in the Device Manager. Windows sometimes starts to use the camera in background processes and it is hard to figure out which process reserved it.
  2. Add the camera resource to the pipeline and decode the stream before the models
     - Eg.:
-```json
-"v4l2src device=/dev/video0 ! \"image/jpeg,width=1280,height=720,framerate=60/1\"  !",
-"jpegdec !",
-```
+      ```json
+      "v4l2src device=/dev/video0 ! \"image/jpeg,width=1280,height=720,framerate=60/1\"  !",
+      "jpegdec !",
+      ```
