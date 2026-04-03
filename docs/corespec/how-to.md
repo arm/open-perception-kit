@@ -108,9 +108,11 @@ cd amp-dev-forge
 ```bash
 ./scripts/amp-menu
 ```
-- Options:
-   - `0` : start last pipeline
-   - Alternatively the user can select a specific pipeline, as defined under "scripts/pipelines"
+- Select a specific pipeline from the menu (pipelines are defined under `scripts/pipelines`).
+- To re-run the last-selected pipeline without the menu prompt:
+```bash
+./scripts/amp-menu -l
+```
 
 **First-time users:**  
 - Recommended to run the **ONNX pipeline**
