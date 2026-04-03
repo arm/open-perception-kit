@@ -178,7 +178,7 @@ usage: __main__.py [-h] [-bn] [-cm] [-jt] [-clfc] [-clf] [-clt] [-pyfc] [-pyf] [
 - Run the installed pre-commit hooks manually or with a commit.
 
 ```bash
-git pre-commit run
+pre-commit run
 ```
 
 - To run without pre commit hooks simply:
