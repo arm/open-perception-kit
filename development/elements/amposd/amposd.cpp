@@ -436,13 +436,8 @@ static void drawCameraContactMarkers(Osd::Layer *layer, const amp::Perception &p
                 continue;
             }
 
-            const auto *object = std::get_if<amp::Perception::Classification>(&det);
-            if (!object) {
-                continue;
-            }
-
             std::vector<amp::Perception::Rect> parents =
-                perceptionTools.getAllRectsWithContentType("humanFace", object->parentUuid);
+                perceptionTools.getAllRectsWithContentType("humanFace", classification->parentUuid);
 
             if (parents.empty()) {
                 continue;
