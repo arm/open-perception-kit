@@ -6,9 +6,9 @@ The model tells us if a person is looking at a camera or not.
 ## Input
 FLOAT[1,3,224,224]
 
-## Ouptut
+## Output
 Output is FLOAT[1,2]
-The models output the logits for two classes (contact / no contact). To get the final prediction for a batch:
+The model outputs logits for two classes (contact / no contact). To get the final prediction for a batch:
 
 ## Task
 Change my #file:opchain.json  and #file:model.json configuration to fit this new model. These files were copied from my gazedetection project without change.
