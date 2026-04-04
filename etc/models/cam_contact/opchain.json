@@ -29,8 +29,8 @@
 			"loopId": 1,
 			"attributes": {
 				"parser": "CameraContactParser",
-				"contactClassIndex": 0,
-				"noContactClassIndex": 1
+				"contactClassIndex": 1,
+				"noContactClassIndex": 0
 			}
 		}
 	]

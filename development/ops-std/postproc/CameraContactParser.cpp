@@ -43,9 +43,9 @@ amp::Result<void> CameraContactParser::parse(const amp::TensorParser::Input &inp
     }
 
     const int contactClassIndex =
-        static_cast<int>(input.attributes.getIntOrDefault("contactClassIndex", 0));
+        static_cast<int>(input.attributes.getIntOrDefault("contactClassIndex", 1));
     const int noContactClassIndex =
-        static_cast<int>(input.attributes.getIntOrDefault("noContactClassIndex", 1));
+        static_cast<int>(input.attributes.getIntOrDefault("noContactClassIndex", 0));
 
     if (contactClassIndex == noContactClassIndex || contactClassIndex < 0 ||
         contactClassIndex > 1 || noContactClassIndex < 0 || noContactClassIndex > 1) {
@@ -63,7 +63,7 @@ amp::Result<void> CameraContactParser::parse(const amp::TensorParser::Input &inp
 
     amp::Perception::Classification classification;
     amp::Perception::Classification::Candidate candidate;
-    candidate.classId = isContact ? 1 : 0;
+    candidate.classId = isContact ? contactClassIndex : noContactClassIndex;
     candidate.confidence = isContact ? probabilities[static_cast<size_t>(contactClassIndex)]
                                      : probabilities[static_cast<size_t>(noContactClassIndex)];
     candidate.text = isContact ? "contact" : "no contact";
