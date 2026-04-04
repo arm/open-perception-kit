@@ -2,16 +2,18 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 
+#pragma once
+
 #include "amp/Color.h"
 #include "amp/Perception.h"
+
 #include <cairo.h>
-#include <iostream>
-#include <map>
+
+#include <deque>
 #include <memory>
 #include <numbers>
 #include <stdexcept>
 #include <string>
-#include <string_view>
 
 namespace Osd {
 class Layer;

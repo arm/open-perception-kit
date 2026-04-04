@@ -12,7 +12,7 @@
     "ampinfer opchain-path=/work/etc/models/mobilenetv2/opchain.json active=false !",
     "ampinfer opchain-path=/work/etc/models/modnet/opchain.json active=false !",
     "ampinfer opchain-path=/work/etc/models/rvm/opchain.json active=false !",
-    "ampinfer opchain-path=/work/etc/models/cam_contact/opchain.json active=true !",
+    "ampinfer opchain-path=/work/etc/models/cam_contact/opchain.json active=false !",
     "ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
     "amposd enabled=true !",
     "ampsink name=sink"

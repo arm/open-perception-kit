@@ -8,7 +8,6 @@
 
 #include "amp/Perception.h"
 #include "amp/Result.h"
-#include "amp/TensorView.h"
 #include "amp/Types.h"
 #include "tl/expected.hpp"
 
@@ -42,15 +41,16 @@ amp::Result<void> InferenceControllerOp::process(amp::OpChainContext &opChainCon
     opChainContext.loopId = loopId;
 
     opChainContext.inferenceInfo.modelFamily.clear();
+    opChainContext.rootLayer.inferElementId =
+        "rootLayer_" + opChainContext.inferenceInfo.inferElementId;
 
     if (contentType.empty()) {
         // setup source VideoFrame object
-        Perception::Layer rootLayer;
         Perception::VideoFrame videoFrame;
         videoFrame.originalWidth = pipelineVideoFrame->width;
         videoFrame.originalHeight = pipelineVideoFrame->height;
         opChainContext.inferenceSourceUuid = videoFrame.uuid;
-        rootLayer.detections.push_back(videoFrame);
+        opChainContext.rootLayer.detections.emplace_back(videoFrame);
 
         amp::PixelRect rect;
         rect.x = 0;

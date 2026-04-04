@@ -8,7 +8,6 @@
 #include <memory>
 
 #include "amp/Perception.h"
-#include "amp/TensorView.h"
 #include "amp/Types.h"
 #include "postproc/CameraContactParser.h"
 #include "postproc/DummyParser.h"
@@ -96,6 +95,7 @@ amp::Result<void> GenericPostprocessOp::process(amp::OpChainContext &opChainCont
 
     amp::Perception::Layer rawDetectionLayer;
     rawDetectionLayer.model = opChainContext.inferenceInfo.modelFamily;
+    rawDetectionLayer.inferElementId = opChainContext.inferenceInfo.inferElementId;
     auto parseResult = parser->parse(tensorParserInput, rawDetectionLayer);
     if (!parseResult) {
         return parseResult;
@@ -111,6 +111,11 @@ amp::Result<void> GenericPostprocessOp::process(amp::OpChainContext &opChainCont
     }
 
     opChainContext.perception->layers.push_back(rawDetectionLayer);
+
+    if (!opChainContext.rootLayer.detections.empty() && !opChainContext.hasRootLayer) {
+        opChainContext.perception->layers.push_back(opChainContext.rootLayer);
+        opChainContext.hasRootLayer = true;
+    }
 
     return {};
 }

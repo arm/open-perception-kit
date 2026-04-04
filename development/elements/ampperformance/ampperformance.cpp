@@ -1,17 +1,28 @@
+
 /*************************************************************
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
+#include "amp/Tools.h"
+#include "gst/GstMetaWrapper.h"
+#include "gst/gstpad.h"
+
 #include <cairo.h>
-#include <cstring>
+
 #include <gst/gst.h>
 #include <gst/video/gstvideofilter.h>
 #include <gst/video/video.h>
-#include <iomanip>
-#include <sstream>
+
+#include <algorithm>
+#include <chrono>
+#include <cstring>
+#include <map>
 #include <string>
+#include <utility>
+#include <variant>
+#include <vector>
 
 #include "PerformanceTracer.h"
-#include "gst/PerceptionContextMeta.h"
+#include "gst/PerceptionMeta.h"
 
 #ifndef PACKAGE
 #define PACKAGE "amp-elements"
@@ -503,12 +514,25 @@ static GstFlowReturn gst_amp_performance_transform_frame_ip(GstVideoFilter *filt
         self->cached_lines = get_performance_data(self);
     }
 
-    // Get PerceptionContextMeta
-    if (const auto perceptionContextMeta = amp::PerceptionContextMeta::get(gst_buffer_make_writable(
-            frame->buffer))) { // NOTE: PerceptionContextMeta locks internally!
-        const auto perceptionContext = perceptionContextMeta->get_payload();
-        if (perceptionContext) {
-            perceptionContext->perfdata = self->cached_lines;
+    // Get PerceptionMeta with performance data
+    auto ret = amp::PerceptionMeta::mutate<GstFlowReturn>(frame->buffer, [self](auto &perception) {
+        perception.perfdata = self->cached_lines;
+        return GST_FLOW_OK;
+    });
+
+    using ME = amp::MetaError;
+    if (std::holds_alternative<ME>(ret)) {
+        switch (std::get<ME>(ret)) {
+        case ME::OK:
+        case ME::NO_METADATA:
+            // NO_METADATA means no AI model is running
+            // so no Perception is available.
+            // which is normal
+            return GST_FLOW_OK;
+        }
+    } else {
+        if (std::get<GstFlowReturn>(ret) != GST_FLOW_OK) {
+            amp_abort();
         }
     }
 

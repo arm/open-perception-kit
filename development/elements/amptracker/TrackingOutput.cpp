@@ -108,6 +108,7 @@ amp::Perception::Layer *ensurePredictionOutputLayer(amp::Perception &perception,
     predictedLayer.engine = TRACKER_ENGINE;
     predictedLayer.tags = PREDICTION_TAG;
     predictedLayer.contentType = config.contentType;
+    predictedLayer.inferElementId = config.inferId + "_pl";
     perception.layers.push_back(std::move(predictedLayer));
     return &perception.layers.back();
 }
@@ -158,6 +159,7 @@ void appendTraceLayerForActiveTracks(const WriterContext &context) {
     traceLayer.engine = TRACKER_ENGINE;
     traceLayer.tags = TRACE_TAG;
     traceLayer.contentType = "trackTrace";
+    traceLayer.inferElementId = context.config.inferId + "_tl";
 
     for (const auto &[trackId, track] : context.activeTracks) {
         if (!shouldEmitTrace(track, context.config)) {

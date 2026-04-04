@@ -57,7 +57,7 @@ def setup_argument_parser(parser):
     util_group.add_argument("-lf", "--log-file", default="expkits_ci.log", help="Log file path if logging to file.")
     util_group.add_argument("-lof", "--list-of-files", nargs='+', default=[],
                             help="Instead of general run on all files, run on the files in the given folder. This is useful for testing specific files.")
-    util_group.add_argument("-if", "--ignore-folder", nargs='+', default=["deps", "development/build", ],
+    util_group.add_argument("-if", "--ignore-folder", nargs='+', default=["deps", "development/build", ".git", ],
                             help="List of folders to ignore during checks.")
 
 

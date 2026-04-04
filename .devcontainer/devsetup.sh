@@ -63,4 +63,7 @@ append_once "$EXPKITS_ARG_EVAL" "$EXPKITS_ARG_EVAL"
 log "Installing pre-commit hooks"
 cd /work && pre-commit install && pre-commit install -t commit-msg
 
+# -------- PLUMBER ---------
+uv pip install --python "/$VENV_DIR/bin/python" --project . /work/tools/plumber
+
 log "Done. Open a NEW terminal to see the prompt & venv activation."

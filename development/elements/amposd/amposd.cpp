@@ -5,20 +5,22 @@
 #include "amp/Bitmap.h"
 #include "amp/Color.h"
 #include "amp/Perception.h"
-#include "gst/PerceptionContextMeta.h"
+#include "gst/PerceptionMeta.h"
 #include "osd.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <iomanip>
+#include <iostream>
+#include <sstream>
+#include <vector>
+
 #include <fmt/core.h>
 #include <gst/gst.h>
 #include <gst/video/gstvideofilter.h>
 #include <gst/video/video.h>
-#include <iomanip>
-#include <new>
-#include <sstream>
-#include <vector>
 
 #ifndef PACKAGE
 #define PACKAGE "amp-elements"
@@ -182,7 +184,7 @@ static gboolean gst_amp_osd_stop(GstBaseTransform *trans) {
 static std::unique_ptr<Osd::Layer> drawPerformanceLayer(GstAmpOsd *self,
                                                         float imgWidth,
                                                         float imgHeight,
-                                                        const amp::Perception &perceptionContext) {
+                                                        const amp::Perception &perception) {
     constexpr float line_height = 16.0f;
     constexpr float x_offset = 10.0f;
     constexpr float y_offset = 10.0f;
@@ -190,7 +192,7 @@ static std::unique_ptr<Osd::Layer> drawPerformanceLayer(GstAmpOsd *self,
     auto layer = std::make_unique<Osd::Layer>(imgWidth, imgHeight);
 
     float line_y_offset = y_offset;
-    for (const auto &line : perceptionContext.perfdata) {
+    for (const auto &line : perception.perfdata) {
         Osd::Text::draw(*layer,
                         Osd::Coordinate(x_offset, line_y_offset),
                         line,
@@ -587,6 +589,23 @@ static std::unique_ptr<Osd::Layer> drawPerceptionLayer(GstAmpOsd *self,
     return layer;
 }
 
+static void gst_amp_osd_process_layer(GstAmpOsd *self,
+                                      float imgWidth,
+                                      float imgHeight,
+                                      Osd::Layers_t &layers,
+                                      const amp::Perception::Layer &layer) {
+
+    if (layer.contentType == "ocr-detection-segmentation") {
+        for (const auto &det : layer.detections) {
+            const auto *sm = std::get_if<amp::Perception::SegmentationMap>(&det);
+            if (sm != nullptr && !sm->bitmap.empty() && sm->bitmap.getWidth() > 0 &&
+                sm->bitmap.getHeight() > 0) {
+                layers.push_back(drawSegmentationLayer(self, imgWidth, imgHeight, sm->bitmap));
+            }
+        }
+    }
+}
+
 static GstFlowReturn gst_amp_osd_transform_frame_ip(GstVideoFilter *filter, GstVideoFrame *frame) {
     GstAmpOsd *self = GST_AMP_OSD(filter);
 
@@ -601,43 +620,18 @@ static GstFlowReturn gst_amp_osd_transform_frame_ip(GstVideoFilter *filter, GstV
 
     // "segmentation"
     Osd::Layers_t layers;
-    // Get PerceptionContextMeta
-    if (const auto perceptionContextMeta = amp::PerceptionContextMeta::get(frame->buffer)) {
-        const auto perceptionContext = perceptionContextMeta->get_const_payload();
-        if (perceptionContext) {
-            // Handle MODNet segmentation with background replacement
-            for (const auto &layer : perceptionContext->layers) {
-                if (layer.contentType == "modnet-segmentation") {
-                    for (const auto &det : layer.detections) {
-                        const auto &sm = std::get<amp::Perception::SegmentationMap>(det);
-                        if (!sm.bitmap.empty() && sm.bitmap.getWidth() > 0 &&
-                            sm.bitmap.getHeight() > 0) {
-                            replaceBackground(imgData, imgWidth, imgHeight, imgStride, sm.bitmap);
-                        }
-                    }
-                }
-            }
 
-            // Handle OCR segmentation with overlay
-            for (const auto &layer : perceptionContext->layers) {
-                if (layer.contentType == "segmentation") {
-                    for (const auto &det : layer.detections) {
-                        const auto &sm = std::get<amp::Perception::SegmentationMap>(det);
-                        if (!sm.bitmap.empty() && sm.bitmap.getWidth() > 0 &&
-                            sm.bitmap.getHeight() > 0) {
-                            layers.push_back(
-                                drawSegmentationLayer(self, imgWidth, imgHeight, sm.bitmap));
-                        }
-                    }
-                }
-            }
-            // Draw detection boxes on top of segmentation
-            layers.push_back(drawPerceptionLayer(self, imgWidth, imgHeight, *perceptionContext));
-            layers.push_back(drawPerformanceLayer(self, imgWidth, imgHeight, *perceptionContext));
+    if (auto perception = amp::PerceptionMeta::read(frame->buffer); perception != nullptr) {
+        for (const auto &layer : perception->layers) {
+            gst_amp_osd_process_layer(self, imgWidth, imgHeight, layers, layer);
         }
-    }
 
-    Osd::Canvas(imgData, imgWidth, imgHeight).paint(layers);
+        // Draw detection boxes on top of segmentation
+        layers.push_back(drawPerceptionLayer(self, imgWidth, imgHeight, *perception));
+        layers.push_back(drawPerformanceLayer(self, imgWidth, imgHeight, *perception));
+
+        Osd::Canvas(imgData, imgWidth, imgHeight).paint(layers);
+    }
 
     self->frameCount++;
     return GST_FLOW_OK;
