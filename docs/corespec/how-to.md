@@ -2,7 +2,7 @@
 
 ## Quick Overview
 - **Goal:** Get AMP running locally or on a Raspberry Pi target
-- **You'll need:** Docker, VSCode, Git, and an SSH key
+- **You'll need:** Docker, VS Code, Git, and an SSH key
 - **Recommended first run:** ONNX pipeline
 
 **Steps:**
@@ -20,14 +20,14 @@
    * [Git](https://git-scm.com/install/)
    * [Docker Desktop](https://www.docker.com/products/docker-desktop/)
    * [Visual Studio Code](https://code.visualstudio.com/download)
-   * **VSCode Dev Containers extension**
+   * **VS Code Dev Containers extension**
    * **WSL USB Manager 5.7.0** (Windows WSL)
 
 ### Linux
    * **Git**
    * **Docker**
    * **Visual Studio Code**
-   * **VSCode Dev Containers extension**
+   * **VS Code Dev Containers extension**
    * **video4l2**
 
 ```bash
@@ -39,7 +39,7 @@ sudo apt-get install -y git docker.io code v4l-utils
    * **Git**
    * **Docker (Desktop)**
    * **Visual Studio Code**
-   * **VSCode Dev Containers extension**
+   * **VS Code Dev Containers extension**
 
 ### Raspberry target
    * **Docker**
@@ -47,7 +47,7 @@ sudo apt-get install -y git docker.io code v4l-utils
    * **video4l2**
    * **raspicam**
    * **Minimum 8GB RAM (16GB recommended)**
-   * For further details on Raspberry PI5 host installations please check out the relevant page: [How-To RPI5](how-to-rpi5.md)
+   * For further details on Raspberry Pi 5 host installations please check out the relevant page: [How-To Raspberry Pi 5](how-to-rpi5.md)
    * If you want to clone AMP and deploy it straight to a remote target with Topo, see [How-To Topo](how-to-topo.md).
 
 ```bash
@@ -81,15 +81,15 @@ For further information and a detailed tutorial check out the following tutorial
 
 ## Start the project
 ### Clone the repository
-Either on your host or in case of Raspberry PI5 development open the repository with [Remote development extension](https://code.visualstudio.com/docs/remote/ssh).
-For this to work you must be on the same local network as your raspberry device
+Either on your host or in case of Raspberry Pi 5 development open the repository with [Remote development extension](https://code.visualstudio.com/docs/remote/ssh).
+For this to work you must be on the same local network as your Raspberry Pi.
 
 ```bash
 git clone git@github.com:Arm-Debug/amp-dev-forge.git
 cd amp-dev-forge
 ```
 
-### Open AMP with VSCode
+### Open AMP with VS Code
 * Open command palette:
   - Windows/Linux: Ctrl+Shift+P
   - macOS: Cmd+Shift+P
@@ -98,7 +98,7 @@ cd amp-dev-forge
 
 ### Build AMP
 - **00 Build Project**: Builds all elements (default).
-  - You will be prompted to choose Debug or Release. Use Debug if unsure.
+  - You will be prompted to choose `debug` or `release`. Use `debug` if unsure.
 - **01 Clean Project**: Cleans build artifacts.
 - **02 Build Tests**: Builds with tests enabled.
 - **03 Run Tests**: Runs all tests.
@@ -122,7 +122,7 @@ To stop a pipeline:
 - macOS: Control + C  
 
 ### Debug AMP
-- Use the "AMP Debug" configuration in VSCode (F5).
+- Use the "AMP Debug" configuration in VS Code (F5).
 
 ---
 
@@ -180,8 +180,10 @@ usage: __main__.py [-h] [-bn] [-cm] [-jt] [-clfc] [-clf] [-clt] [-pyfc] [-pyf] [
 - Run the installed pre-commit hooks manually or with a commit.
 
 ```bash
-pre-commit run
+pre-commit run --all-files
 ```
+
+> Note: `pre-commit run` only checks staged files by default. Use `--all-files` to check the entire working tree, or stage your changes first.
 
 - To run without pre-commit hooks simply:
 
