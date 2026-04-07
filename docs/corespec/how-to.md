@@ -1,19 +1,33 @@
-# AMP Development Forge How-To start
+# AMP Development Forge How-To
+
+## Quick Overview
+- **Goal:** Get AMP running locally or on a Raspberry Pi target
+- **You'll need:** Docker, VS Code, Git, and an SSH key
+- **Recommended first run:** ONNX pipeline
+
+**Steps:**
+1. Install dependencies
+2. Configure SSH
+3. Clone the repository
+4. Open in DevContainer
+5. Build and run AMP
+
+---
 
 ## Host side dependencies
 ### Windows
    * [WSL](https://learn.microsoft.com/en-us/windows/wsl/install)
    * [Git](https://git-scm.com/install/)
-   * [Docker (Desktop)](https://www.docker.com/products/docker-desktop/)
+   * [Docker Desktop](https://www.docker.com/products/docker-desktop/)
    * [Visual Studio Code](https://code.visualstudio.com/download)
-   * **VSCode Dev Containers extension**
+   * **VS Code Dev Containers extension**
    * **WSL USB Manager 5.7.0** (Windows WSL)
 
 ### Linux
    * **Git**
    * **Docker**
    * **Visual Studio Code**
-   * **VSCode Dev Containers extension**
+   * **VS Code Dev Containers extension**
    * **video4l2**
 
 ```bash
@@ -25,14 +39,15 @@ sudo apt-get install -y git docker.io code v4l-utils
    * **Git**
    * **Docker (Desktop)**
    * **Visual Studio Code**
-   * **VSCode Dev Containers extension**
+   * **VS Code Dev Containers extension**
 
 ### Raspberry target
    * **Docker**
    * **Hailo packages**
    * **video4l2**
    * **raspicam**
-   * For further details on Raspberry PI5 host installations please check out the relevant page: [How-To RPI5](how-to-rpi5.md)
+   * **Minimum 8GB RAM (16GB recommended)**
+   * For further details on Raspberry Pi 5 host installations please check out the relevant page: [How-To Raspberry Pi 5](how-to-rpi5.md)
    * If you want to clone AMP and deploy it straight to a remote target with Topo, see [How-To Topo](how-to-topo.md).
 
 ```bash
@@ -40,9 +55,13 @@ sudo apt-get update
 sudo apt-get install -y git docker.io v4l-utils libraspberrypi-bin
 ```
 
+> Note: These instructions are validated for Raspberry Pi 5. Earlier Raspberry Pi versions may require different packages or may not be fully supported.
+
+---
 
 Before starting the DevContainer, ensure that the `ssh-agent` is running and that your GitHub private key has been added to it.
 This can be done in several ways depending on your operating system. The setup for Linux and macOS is as follows:
+
 ```bash
 # For bash users: add ssh-agent to your .profile
 eval "$(ssh-agent -s)"
@@ -58,37 +77,71 @@ ssh-add [private_key_filename]
 
 For further information and a detailed tutorial check out the following tutorial: [Generating a new SSH key and adding it to the ssh-agent](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent)
 
+---
+
 ## Start the project
 ### Clone the repository
-Either on your host or in case of Raspberry PI5 development open the repository with [Remote development extension](https://code.visualstudio.com/docs/remote/ssh).
-For this to work you must be on the same local network as your raspberry device
-   ```bash
-   git clone git@github.com:Arm-Debug/amp-dev-forge.git
-   cd amp-dev-forge
-   ```
+Either on your host or in case of Raspberry Pi 5 development open the repository with [Remote development extension](https://code.visualstudio.com/docs/remote/ssh).
+For this to work you must be on the same local network as your Raspberry Pi.
 
-### Open AMP with VSCode
-* Open command palette Ctrl+P(Windows/Linux) or Command+P(MAC) 
+```bash
+git clone git@github.com:Arm-Debug/amp-dev-forge.git
+cd amp-dev-forge
+```
+
+### Open AMP with VS Code
+* Open command palette:
+  - Windows/Linux: Ctrl+Shift+P
+  - macOS: Cmd+Shift+P
 * Then "Reopen in Container"
-* At this point every dependency, pre commit hook, and device should be ready to use inside the devcontainer.
+* At this point every dependency, pre-commit hook, and device should be ready to use inside the devcontainer.
 
 ### Build AMP
 - **00 Build Project**: Builds all elements (default).
+  - You will be prompted to choose `debug` or `release`. Use `debug` if unsure.
 - **01 Clean Project**: Cleans build artifacts.
 - **02 Build Tests**: Builds with tests enabled.
 - **03 Run Tests**: Runs all tests.
 
 ### Start AMP
 - Run the menu:
-   ```bash
-   ./scripts/amp-menu
-   ```
-- Options:
-   - `-l` : start last pipeline
-   - Alternatively the user can select a specific pipeline define under "scripts/pipelines"
+```bash
+./scripts/amp-menu
+```
+- Select a specific pipeline from the menu (pipelines are defined under `scripts/pipelines`).
+- To re-run the last-selected pipeline without the menu prompt:
+```bash
+./scripts/amp-menu -l
+```
+
+**First-time users:**  
+- Recommended to run the **ONNX pipeline**
+
+To stop a pipeline:
+- Windows/Linux: Ctrl + C  
+- macOS: Control + C  
 
 ### Debug AMP
-- Use the "AMP Debug" configuration in VSCode (F5).
+- Use the "AMP Debug" configuration in VS Code (F5).
+
+---
+
+## Published Endpoints
+
+- [Raspberry AMP Web UI](http://raspberrypi.local:9999)
+- [Raspberry AMP Documentation](http://raspberrypi.local:8080)
+- [PC AMP Web UI](http://localhost:9999)
+- [PC AMP Documentation](http://localhost:8080)
+
+- **Hostnames:**
+   - `raspberrypi.local` (on Raspberry Pi)
+   - `localhost` (on your development machine)
+- **Ports:**
+   - `9999` (AMP Web UI)
+   - `8080` (Documentation)
+   - Other ports may be used by ampsink or for streaming endpoints.
+
+---
 
 ## Scripts and applications in our repository
 Important scripts for usage:
@@ -103,35 +156,22 @@ Important scripts for usage:
 - `run-console`: Start a console in the devcontainer.
 - `gen-doc.sh`: Generate documentation.
 
-## Published Endpoints
-
-- [Raspberry AMP Web UI](raspberrypi.local:9999)
-- [Raspberry AMP Documentation](raspberrypi.local:8080)
-- [PC AMP Web UI](localhost:9999)
-- [PC AMP Documentation](localhost:8080)
-
-- **Hostnames:**
-   - `raspberrypi.local` (on Raspberry Pi)
-   - `localhost` (on your development machine)
-- **Ports:**
-   - `9999` (AMP Web UI)
-   - `8080` (Documentation)
-   - Other ports may be used by ampsink or for streaming endpoints.
+---
 
 ##  Quality checks
    expkits-ci is a tool that is automatically installed during the creation of the container.
    Most quality checks, both in CI and locally, are performed by this tool.
 
    For help on the `container side`, run: `expkits-ci --help`
-   ```bash
-   amp-dev-forge $ expkits-ci --help
-   usage: __main__.py [-h] [-bn] [-cm] [-jt] [-clfc] [-clf] [-clt] [-pyfc] [-pyf] [-cmfc] [-cmf] [-shfc] [-shf] [-lhc] [-lh] [-v] [-ac] [-do] [-pr PR_TARGET_BRANCH] [-lo {stdout,file,both}] [-lf LOG_FILE]
-                     [-lof LIST_OF_FILES [LIST_OF_FILES ...]]
+```bash
+amp-dev-forge $ expkits-ci --help
+usage: __main__.py [-h] [-bn] [-cm] [-jt] [-clfc] [-clf] [-clt] [-pyfc] [-pyf] [-cmfc] [-cmf] [-shfc] [-shf] [-lhc] [-lh] [-v] [-ac] [-do] [-pr PR_TARGET_BRANCH] [-lo {stdout,file,both}] [-lf LOG_FILE]
+                  [-lof LIST_OF_FILES [LIST_OF_FILES ...]]
 
-   ...
+...
 
-   (.venv-ci) ubuntu@387b974701cb:/workspaces/amp-dev-forge$
-   ```
+(.venv-ci) ubuntu@387b974701cb:/workspaces/amp-dev-forge$
+```
 
    To check your changes, a set of plugins are already set up in the environment, but you can alternatively:
 - Call expkits-ci directly.
@@ -139,15 +179,20 @@ Important scripts for usage:
 - Run the following task: 9 - Run full CI checks.
 - Run the installed pre-commit hooks manually or with a commit.
 
-   ```bash
-   git pre-commit run
-   ```
+```bash
+pre-commit run --all-files
+```
 
-- To run without pre commit hooks simply:
+> Note: `pre-commit run` only checks staged files by default. Use `--all-files` to check the entire working tree, or stage your changes first.
 
-   ```bash
-   git commit --no-verify
-   ```
+- To run without pre-commit hooks simply:
+
+```bash
+git commit --no-verify
+```
+
+---
+
 ##  How to use (laptop's built-in) webcam in WSL/Linux
 
  1. (Only for WSL users) Forward camera input to WSL
