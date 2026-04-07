@@ -23,6 +23,9 @@ common = shared_library(
     'op/OpChainDescriptor.cpp',
 
     'PerformanceTracer.cpp',
+
+    'perf/PerformanceTooling.cpp',
+    'perf/streamline_annotate.c',
   ],
   include_directories: [ common_include ],  
   cpp_args: ['-DFMT_HEADER_ONLY'],
