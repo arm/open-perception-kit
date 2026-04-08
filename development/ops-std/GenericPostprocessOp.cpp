@@ -9,7 +9,7 @@
 
 #include "amp/Perception.h"
 #include "amp/Types.h"
-
+#include "postproc/CameraContactParser.h"
 #include "postproc/DummyParser.h"
 #include "postproc/GazeDetectionParser.h"
 #include "postproc/ImageNetClassificationParser.h"
@@ -63,6 +63,8 @@ amp::Result<void> GenericPostprocessOp::configure(const amp::AttributeMap &attri
         this->parser = std::make_unique<RvmParser>();
     } else if (parser == "GazeDetectionParser") {
         this->parser = std::make_unique<GazeDetectionParser>();
+    } else if (parser == "CameraContactParser") {
+        this->parser = std::make_unique<CameraContactParser>();
     } else if (parser == "UltrafaceParser") {
         this->parser = std::make_unique<UltraFaceParser>();
     } else if (parser == "ModNetSegmentationParser") {
