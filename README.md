@@ -13,5 +13,5 @@
 
 A development environment for **AI media processing pipelines**, built for rapid testing, debugging, and deployment within containerized platforms.
 
-For further details regarding architecture please refer to our main [Documentation](docs/corespec/index.md).
-To start the project please check out our [How-To page](docs/corespec/how-to.md)
+For further details regarding architecture please refer to our main [Documentation](docs/docs/corespec/index.md).
+To start the project please check out our [How-To page](docs/docs/corespec/how-to.md)
