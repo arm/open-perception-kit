@@ -393,7 +393,6 @@ jobs:
             --detect.tools=DETECTOR,SIGNATURE_SCAN \
             --detect.blackduck.signature.scanner.snippet.matching=SNIPPET_MATCHING \
             --detect.blackduck.signature.scanner.upload.source.mode=true \
-            --detect.risk.report.pdf=true \
             --detect.excluded.directories="bd-output,bd-output-*,.git,.github/workflows,.bd-container-tars"
 
       - name: Run Black Duck container scans
@@ -493,14 +492,5 @@ jobs:
             ${{ runner.temp }}/bd-output/**/*.txt
             ${{ runner.temp }}/bd-output/**/scan/BlackDuckScanOutput/**
             ${{ runner.temp }}/bd-output/**/bdio/**
-          if-no-files-found: warn
-          retention-days: 10
-
-      - name: Upload Black Duck risk report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: blackduck-risk-report
-          path: ${{ runner.temp }}/bd-output/**/*BlackDuck_RiskReport.pdf
           if-no-files-found: warn
           retention-days: 10
