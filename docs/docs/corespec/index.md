@@ -49,6 +49,9 @@ inside GStreamer pipelines, targeting containerized development and edge deploym
 - [Types](types.md)  
   Generic types.
 
+- [Testing](testing.md)  
+  Testing, validation and verification.
+
 ## Execution Engine
 
 - [Perception](perception.md)  
