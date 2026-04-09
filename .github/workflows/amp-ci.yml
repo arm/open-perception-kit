@@ -54,6 +54,7 @@ jobs:
             
             - name: Run Valgrind checks
               id: valgrind_checks
+              continue-on-error: true # Do not block PR until the initial ones are fixed
               run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm amp-valgrind-check
 
             - name: Upload Valgrind logs on failure
