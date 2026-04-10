@@ -11,7 +11,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"/../
 
 sudo chown -R $(id -u):$(id -g) "/work/" || true
-sudo chmod +x ./scripts/amp-menu ./scripts/serve-docs.sh ./scripts/build-elements.sh ./scripts/gen-doc.sh ./.devcontainer/setup.sh ./.devcontainer/platform_init.sh 2> /dev/null || true
+sudo chmod +x ./scripts/amp-menu ./scripts/serve-docs-plain.sh ./scripts/build-elements.sh ./scripts/gen-doc.sh ./.devcontainer/setup.sh ./.devcontainer/platform_init.sh 2> /dev/null || true
 
 .devcontainer/setup.sh
 .devcontainer/platform_init.sh amp-dev-base
@@ -20,7 +20,7 @@ sudo chmod +x ./scripts/amp-menu ./scripts/serve-docs.sh ./scripts/build-element
 ./scripts/gen-doc.sh
 
 # Run scripts and redirect output to container log
-./scripts/serve-docs.sh &
+./scripts/serve-docs-plain.sh &
 ./scripts/amp-menu "$AMP_PIPELINE"
 
 while true; do wait; done
