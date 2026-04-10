@@ -156,7 +156,8 @@ Important scripts for usage:
 - `gen_audio.sh`, `gen_cam.sh`, `gen_npu.sh`, `gen_shared_memory.sh`: Generate docker-compose overrides for audio, camera, NPU, and shared memory.
 - `docker-nuke.sh`: Stop and remove all Docker containers.
 - `deployment-process.sh`: Steps for deployment.
-- `serve-docs.sh`: Serve documentation locally.
+- `serve-docs.sh`: Serve docusaurus documentation.
+- `serve-docs-plain.sh`: Serve plain HTML documentation locally from devcontainer.
 - `run-ampperformance.sh`: Run performance overlay demo.
 - `run-console`: Start a console in the devcontainer.
 - `gen-doc.sh`: Generate documentation.

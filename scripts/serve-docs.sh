@@ -15,7 +15,7 @@ if command -v podman > /dev/null 2>&1; then
 elif command -v docker > /dev/null 2>&1; then
     CONTAINER_ENGINE="docker"
 else
-    cat <<'EOF'
+    cat << 'EOF'
 Neither podman nor docker is installed.
 
 serve-docs.sh requires one of these container engines to run the local docs image.
@@ -41,7 +41,7 @@ is_logged_in_to_ghcr() {
 }
 
 if ! is_logged_in_to_ghcr; then
-    cat <<EOF
+    cat << EOF
 You must be logged into ghcr.io with $CONTAINER_ENGINE before serving the docs.
 
 Required login process:
