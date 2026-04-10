@@ -30,8 +30,8 @@ else
 fi
 
 # --- regenerate png figures (if any .puml exist) ---
-PLANTUML_SRC_DIR="$SRC_DIR/resources/plantuml"
-PLANTUML_OUT_DIR="$SRC_DIR/resources/img"
+PLANTUML_SRC_DIR="$SRC_DIR/../static/plantuml"
+PLANTUML_OUT_DIR="$SRC_DIR/../static/img"
 
 if [ -d "$PLANTUML_SRC_DIR" ]; then
     echo "Regenerating PlantUML figures from $PLANTUML_SRC_DIR..."
