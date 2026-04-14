@@ -3,11 +3,13 @@
 ######################################################################
 FROM debian:trixie-slim AS amp-base
 
+ARG ONNXRUNTIME_VERSION=1.18.1
+
 ENV DEBIAN_FRONTEND=noninteractive \
-    LANG=C.UTF-8 \
-    LC_ALL=C.UTF-8 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PYTHONDONTWRITEBYTECODE=1
+  LANG=C.UTF-8 \
+  LC_ALL=C.UTF-8 \
+  PIP_DISABLE_PIP_VERSION_CHECK=1 \
+  PYTHONDONTWRITEBYTECODE=1
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -23,20 +25,20 @@ RUN set -eux; \
 RUN set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-    ca-certificates curl wget sudo unzip gnupg \
-    build-essential meson ninja-build pkg-config cmake \
-    libssl-dev libfmt-dev libfftw3-dev libsoup-3.0-dev libjson-glib-dev libcairo2-dev zip python3 python3-pip; \
+  ca-certificates curl wget sudo unzip gnupg \
+  build-essential meson ninja-build pkg-config cmake \
+  libssl-dev libfmt-dev libfftw3-dev libsoup-3.0-dev libjson-glib-dev libcairo2-dev zip python3 python3-pip; \
   rm -rf /var/lib/apt/lists/*
 
 # GStreamer core + base
 RUN set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-    libgstreamer1.0-dev gstreamer1.0-tools gstreamer1.0-x gstreamer1.0-gl \
-    libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base \
-    libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-bad \
-    gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly  \
-    gstreamer1.0-nice gstreamer1.0-pipewire; \
+  libgstreamer1.0-dev gstreamer1.0-tools gstreamer1.0-x gstreamer1.0-gl \
+  libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base \
+  libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-bad \
+  gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly  \
+  gstreamer1.0-nice gstreamer1.0-pipewire; \
   rm -rf /var/lib/apt/lists/*
 
 # Profiling tools
@@ -48,6 +50,24 @@ RUN set -eux; \
 
 # Clean apt cache
 RUN set -eux; update-ca-certificates || true
+
+# Install ONNX Runtime into image layers for reproducible builds and SBOM visibility.
+RUN set -eux; \
+  arch="$(uname -m)"; \
+  case "$arch" in \
+  x86_64) ort_arch="x64" ;; \
+  aarch64) ort_arch="aarch64" ;; \
+  *) echo "Unsupported architecture for ONNX Runtime: $arch" >&2; exit 1 ;; \
+  esac; \
+  ort_dir="onnxruntime-linux-${ort_arch}-${ONNXRUNTIME_VERSION}"; \
+  ort_tgz="${ort_dir}.tgz"; \
+  ort_url="https://github.com/microsoft/onnxruntime/releases/download/v${ONNXRUNTIME_VERSION}/${ort_tgz}"; \
+  tmp_dir="$(mktemp -d)"; \
+  curl -fsSL "$ort_url" | tar -xzf - -C "$tmp_dir"; \
+  mkdir -p /opt/amp-deps/onnxruntime; \
+  cp -r "$tmp_dir/$ort_dir/include" /opt/amp-deps/onnxruntime/; \
+  cp -r "$tmp_dir/$ort_dir/lib" /opt/amp-deps/onnxruntime/; \
+  rm -rf "$tmp_dir"
 
 EXPOSE 8000
 EXPOSE 8001
@@ -78,10 +98,10 @@ WORKDIR /work
 
 # Project-friendly defaults
 ENV GST_DEBUG=2 \
-    GST_PLUGIN_PATH=/work/development/build/meson-out
+  GST_PLUGIN_PATH=/work/development/build/meson-out
 
 ENV LD_LIBRARY_PATH=""
-ENV LD_LIBRARY_PATH="/work/deps/onnxruntime/lib:${LD_LIBRARY_PATH:-}"
+ENV LD_LIBRARY_PATH="/opt/amp-deps/onnxruntime/lib:${LD_LIBRARY_PATH:-}"
 
 ######################################################################
 ################# Minimal container with docs and CI #################
@@ -96,17 +116,24 @@ USER root
 RUN set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-    git shfmt clang-format ssh \
-    openjdk-25-jdk graphviz pandoc pre-commit doxygen \
-    python3-dev python3-venv python3-gi python3-gst-1.0 \
-    libffi-dev zlib1g-dev libbz2-dev liblzma-dev libsqlite3-dev v4l-utils; \
+  git shfmt clang-format ssh \
+  openjdk-25-jdk graphviz pandoc pre-commit doxygen \
+  python3-dev python3-venv python3-gi python3-gst-1.0 \
+  libffi-dev zlib1g-dev libbz2-dev liblzma-dev libsqlite3-dev v4l-utils; \
   rm -rf /var/lib/apt/lists/*
 
 # uv (Python package manager) for dev/CI tooling
 RUN set -eux; \
   curl -LsSf https://astral.sh/uv/install.sh | \
-    env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh; \
+  env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh; \
   uv --version
+
+# Install PlantUML JAR into image layers for docs generation and SBOM visibility.
+ARG PLANTUML_VERSION=1.2026.2
+RUN set -eux; \
+  mkdir -p /opt/amp-deps; \
+  wget "https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}/plantuml-mit-${PLANTUML_VERSION}.jar" \
+  -O "/opt/amp-deps/plantuml-mit-${PLANTUML_VERSION}.jar"
 
 USER ${USERNAME}
 WORKDIR /work
@@ -125,17 +152,17 @@ USER root
 RUN set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-    locales bash-completion mc vim nano gdb clangd net-tools zsh \
-    openssh-client less ripgrep fd-find tmux; \
+  locales bash-completion mc vim nano gdb clangd net-tools zsh \
+  openssh-client less ripgrep fd-find tmux; \
   rm -rf /var/lib/apt/lists/*
 
 # libav can sometimes be the troublemaker; probe then install
 RUN set -eux; \
   apt-get update; \
   if apt-get install -y --no-install-recommends --dry-run gstreamer1.0-libav; then \
-    apt-get install -y --no-install-recommends gstreamer1.0-libav; \
+  apt-get install -y --no-install-recommends gstreamer1.0-libav; \
   else \
-    echo 'NOTE: gstreamer1.0-libav not available on this image/mirror'; \
+  echo 'NOTE: gstreamer1.0-libav not available on this image/mirror'; \
   fi; \
   rm -rf /var/lib/apt/lists/*
 
@@ -143,8 +170,22 @@ RUN set -eux; \
 RUN set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-    firefox-esr; \
+  firefox-esr; \
   rm -rf /var/lib/apt/lists/*
+
+# Install Python dev tool dependencies into an image-owned virtual environment.
+COPY tools/lazer /tmp/amp-tools/lazer
+COPY tools/expkits-ci /tmp/amp-tools/expkits-ci
+COPY tools/plumber /tmp/amp-tools/plumber
+RUN set -eux; \
+  uv venv --system-site-packages /opt/amp-venvs/devtools; \
+  uv pip install --python /opt/amp-venvs/devtools/bin/python \
+  /tmp/amp-tools/lazer \
+  /tmp/amp-tools/expkits-ci \
+  /tmp/amp-tools/plumber; \
+  rm -rf /tmp/amp-tools
+
+ENV AMP_DEVTOOLS_VENV=/opt/amp-venvs/devtools
 
 USER ${USERNAME}
 WORKDIR /work
@@ -162,7 +203,7 @@ RUN set -eux; \
   apt-get update; \
   # TODO: use key
   echo "deb [arch=arm64 trusted=yes] https://archive.raspberrypi.com/debian trixie main" \
-    > /etc/apt/sources.list.d/raspberrypi.list
+  > /etc/apt/sources.list.d/raspberrypi.list
 
 # Camera and graphics libraries
 RUN set -eux; \
@@ -247,14 +288,14 @@ USER root
 ENV SONAR_SCANNER_VERSION="4.6.2.2472"
 
 ENV SONAR_HOST_URL="https://sonarqube.mobilestudio.aws.arm.com" \
-    PATH=/opt/sonar/sonar-scanner-${SONAR_SCANNER_VERSION}-linux/bin:${PATH}
-    
+  PATH=/opt/sonar/sonar-scanner-${SONAR_SCANNER_VERSION}-linux/bin:${PATH}
+
 RUN set -eux && \
-    mkdir -p /opt/sonar && \
-    curl -sSLo /opt/build-wrapper-linux-x86.zip ${SONAR_HOST_URL}/static/cpp/build-wrapper-linux-x86.zip && \
-    unzip -o /opt/build-wrapper-linux-x86.zip -d /opt/sonar/ && \
-    curl -sSLo /opt/sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}-linux.zip && \
-    unzip -o /opt/sonar-scanner.zip -d /opt/sonar/
+  mkdir -p /opt/sonar && \
+  curl -sSLo /opt/build-wrapper-linux-x86.zip ${SONAR_HOST_URL}/static/cpp/build-wrapper-linux-x86.zip && \
+  unzip -o /opt/build-wrapper-linux-x86.zip -d /opt/sonar/ && \
+  curl -sSLo /opt/sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}-linux.zip && \
+  unzip -o /opt/sonar-scanner.zip -d /opt/sonar/
 
 ######################################################################
 ################ Rich development environment container ##############
@@ -267,9 +308,9 @@ USER root
 # ---- Basic packages for development ----
 RUN apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    xz-utils powerline fonts-powerline eza bat clangd gosu \
-    lua5.1 luarocks tree-sitter-cli wl-clipboard \
-    iproute2 iputils-ping traceroute iputils-arping dnsutils tcpdump nmap; \
+  xz-utils powerline fonts-powerline eza bat clangd gosu \
+  lua5.1 luarocks tree-sitter-cli wl-clipboard \
+  iproute2 iputils-ping traceroute iputils-arping dnsutils tcpdump nmap; \
   rm -rf /var/lib/apt/lists/*
 
 RUN luarocks install jsregexp
@@ -281,7 +322,7 @@ RUN chmod +x /usr/local/bin/uidgid-entrypoint
 
 # ---- Locale ----
 RUN sed -i 's/^# *\(en_US.UTF-8 UTF-8\)/\1/' /etc/locale.gen && \
-    locale-gen en_US.UTF-8 && update-locale LANG=en_US.UTF-8
+  locale-gen en_US.UTF-8 && update-locale LANG=en_US.UTF-8
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 
 # ---- Install Neovim v0.11.5 via AppImage ----
@@ -291,37 +332,37 @@ ARG NVIM_APPIMAGE=nvim-linux-x86_64.appimage
 RUN touch /container_env
 
 RUN curl -LO https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/${NVIM_APPIMAGE} && \
-    chmod +x ${NVIM_APPIMAGE} && \
-    ./${NVIM_APPIMAGE} --appimage-extract && \
-    mv squashfs-root /opt/nvim && \
-    ln -s /opt/nvim/usr/bin/nvim /usr/local/bin/nvim && \
-    rm ${NVIM_APPIMAGE}
+  chmod +x ${NVIM_APPIMAGE} && \
+  ./${NVIM_APPIMAGE} --appimage-extract && \
+  mv squashfs-root /opt/nvim && \
+  ln -s /opt/nvim/usr/bin/nvim /usr/local/bin/nvim && \
+  rm ${NVIM_APPIMAGE}
 
 RUN update-alternatives --install /usr/bin/vi vi /usr/local/bin/nvim 60 && \
-    update-alternatives --install /usr/bin/vim vim /usr/local/bin/nvim 60 && \
-    update-alternatives --set vim /usr/local/bin/nvim && \
-    update-alternatives --set vi /usr/local/bin/nvim 
+  update-alternatives --install /usr/bin/vim vim /usr/local/bin/nvim 60 && \
+  update-alternatives --set vim /usr/local/bin/nvim && \
+  update-alternatives --set vi /usr/local/bin/nvim 
 
 ARG CPP_TOOLS_VERSION=v1.29.3
 ARG CPP_TOOLS_APPIMAGE=cpptools-linux-x64.vsix
 RUN curl -LO https://github.com/microsoft/vscode-cpptools/releases/download/${CPP_TOOLS_VERSION}/${CPP_TOOLS_APPIMAGE} && \
-    mkdir -p /home/${USERNAME}/bin/cpptools && \
-    unzip ${CPP_TOOLS_APPIMAGE} -d /home/${USERNAME}/bin/cpptools && \
-    chmod +x /home/${USERNAME}/bin/cpptools/extension/debugAdapters/bin/OpenDebugAD7 && \
-    ln -s /home/${USERNAME}/bin/cpptools/extension/debugAdapters/bin/OpenDebugAD7 /usr/local/bin/OpenDebugAD7
+  mkdir -p /home/${USERNAME}/bin/cpptools && \
+  unzip ${CPP_TOOLS_APPIMAGE} -d /home/${USERNAME}/bin/cpptools && \
+  chmod +x /home/${USERNAME}/bin/cpptools/extension/debugAdapters/bin/OpenDebugAD7 && \
+  ln -s /home/${USERNAME}/bin/cpptools/extension/debugAdapters/bin/OpenDebugAD7 /usr/local/bin/OpenDebugAD7
 
 # ---- Install oh-my-zsh for dev user ----
 RUN curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -o /tmp/install-ohmyzsh.sh && \
-    chmod +x /tmp/install-ohmyzsh.sh && \
-    su - ${USERNAME} -c "env RUNZSH=no CHSH=no KEEP_ZSHRC=yes /tmp/install-ohmyzsh.sh" && \
-    rm /tmp/install-ohmyzsh.sh
+  chmod +x /tmp/install-ohmyzsh.sh && \
+  su - ${USERNAME} -c "env RUNZSH=no CHSH=no KEEP_ZSHRC=yes /tmp/install-ohmyzsh.sh" && \
+  rm /tmp/install-ohmyzsh.sh
 
 # ---- Symlinks to mounted configs ----
 # We expect /home/dev/configs to be provided via a bind-mount at runtime.
 RUN mkdir -p /home/${USERNAME}/.config && \
-    ln -sfn /home/${USERNAME}/configs/zshrc /home/${USERNAME}/.zshrc && \
-    ln -sfn /home/${USERNAME}/configs/nvchad_2025_08 /home/${USERNAME}/.config/nvim && \
-    chown -R ${USER_UID}:${USER_GID} /home/${USERNAME}/.config /home/${USERNAME}/.zshrc
+  ln -sfn /home/${USERNAME}/configs/zshrc /home/${USERNAME}/.zshrc && \
+  ln -sfn /home/${USERNAME}/configs/nvchad_2025_08 /home/${USERNAME}/.config/nvim && \
+  chown -R ${USER_UID}:${USER_GID} /home/${USERNAME}/.config /home/${USERNAME}/.zshrc
 
 # ---- SSH agent socket mapping ----
 ENV SSH_AUTH_SOCK=/ssh-agent

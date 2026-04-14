@@ -16,53 +16,33 @@ trap 'die "failed at line $LINENO"' ERR
 
 sudo chown -R $(id -u):$(id -g) "/work/" || true
 
-# ---------- basic info architecture ----------
+# ---------- basic info ----------
 log "Executing ./.devcontainer/setup.sh (base setup)"
 ARCH=$(uname -m)
 log "Container architecture: $ARCH"
 
-# ---------- ONNX Runtime (shared for dev and deployment) ----------
+# ---------- ONNX Runtime (verify only) ----------
+WORK_ORT_DIR="/work/deps/onnxruntime"
+IMAGE_ORT_DIR="/opt/amp-deps/onnxruntime"
 
-ARCH=$(uname -m)
-
-if [ "$ARCH" == "x86_64" ]; then
-    ORT_URL="https://github.com/microsoft/onnxruntime/releases/download/v1.24.4/onnxruntime-linux-x64-1.24.4.tgz"
-elif [ "$ARCH" == "aarch64" ]; then
-    ORT_URL="https://github.com/microsoft/onnxruntime/releases/download/v1.24.4/onnxruntime-linux-aarch64-1.24.4.tgz"
+if [[ -d "$WORK_ORT_DIR/include" && -d "$WORK_ORT_DIR/lib" ]]; then
+    log "Found ONNX Runtime in workspace: $WORK_ORT_DIR"
+elif [[ -d "$IMAGE_ORT_DIR/include" && -d "$IMAGE_ORT_DIR/lib" ]]; then
+    log "Found ONNX Runtime in image: $IMAGE_ORT_DIR"
 else
-    echo "Unsupported architecture: $ARCH"
-    exit 1
+    die "ONNX Runtime not found in $WORK_ORT_DIR or $IMAGE_ORT_DIR. Install it via Dockerfile."
 fi
 
-ORT_TGZ=$(basename "$ORT_URL")
+# ---------- PlantUML JAR (verify only) ----------
+WORK_PLANTUML_JAR="/work/deps/plantuml-mit-1.2026.2.jar"
+IMAGE_PLANTUML_JAR="/opt/amp-deps/plantuml-mit-1.2026.2.jar"
 
-# Download and extract ONNX Runtime only if not already present
-if [ ! -d "deps/onnxruntime" ]; then
-    log "ONNX Runtime not found, downloading and extracting..."
-    if [ ! -f "$ORT_TGZ" ]; then
-        wget "$ORT_URL"
-    else
-        log "ONNX Runtime archive $ORT_TGZ already present, skipping download."
-    fi
-    tar xf "$ORT_TGZ"
-
-    # Extract directory name
-    DIR_NAME=$(basename $ORT_URL .tgz)
-
-    # Install locally (no sudo!)
-    mkdir -p deps/onnxruntime
-    cp -r "$DIR_NAME/include" deps/onnxruntime/
-    cp -r "$DIR_NAME/lib" deps/onnxruntime/
+if [[ -f "$WORK_PLANTUML_JAR" ]]; then
+    log "Found PlantUML JAR in workspace: $WORK_PLANTUML_JAR"
+elif [[ -f "$IMAGE_PLANTUML_JAR" ]]; then
+    log "Found PlantUML JAR in image: $IMAGE_PLANTUML_JAR"
 else
-    log "ONNX Runtime already present, skipping download and extraction."
-fi
-
-if [ ! -f "/work/deps/plantuml-mit-1.2026.2.jar" ]; then
-    log "PlantUML JAR not found, downloading..."
-    mkdir -p /work/deps
-    wget https://github.com/plantuml/plantuml/releases/download/v1.2026.2/plantuml-mit-1.2026.2.jar -O /work/deps/plantuml-mit-1.2026.2.jar
-else
-    log "PlantUML JAR already present, skipping download."
+    log "PlantUML JAR not found in workspace or image. Docs generation may skip PlantUML figures."
 fi
 
 log "Base setup.sh finished."
