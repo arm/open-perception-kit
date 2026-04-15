@@ -17,58 +17,21 @@ jobs:
         (github.event_name == 'pull_request' && github.event.action == 'labeled' && contains(github.event.label.name, 'run-amp-ci'))
 
     env:
-      PROJECT_ROOT: ./development
-      BUILD_DIR: ./development/build
-      ORT_URL: "https://github.com/microsoft/onnxruntime/releases/download/v1.18.1/onnxruntime-linux-x64-1.18.1.tgz"
-      DEPS_ONNX: "deps/onnxruntime"
-
+      DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+              with:
+                  fetch-depth: 0
+                  fetch-tags: true
+                  ref: ${{ github.head_ref }}
 
-      - name: Install build deps
-        run: |
-          wget "$ORT_URL" -O onnx.tgz
-          tar xf onnx.tgz
-          mkdir -p "${DEPS_ONNX}"
-          cp -r $(basename "$ORT_URL" .tgz)/include "${DEPS_ONNX}" && cp -r $(basename "$ORT_URL" .tgz)/lib "${DEPS_ONNX}" 
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ca-certificates curl wget git sudo unzip
-          sudo apt-get install -y --no-install-recommends gcc-14 g++-14 build-essential emscripten meson ninja-build pkg-config gdb cmake build-essential pkg-config libsoup-3.0-dev libjson-glib-dev clangd ssh clang-format libcairo2-dev
-          sudo apt-get install -y --no-install-recommends python3 python3-venv python3-gi python3-gst-1.0 libssl-dev libffi-dev zlib1g-dev libbz2-dev liblzma-dev libsqlite3-dev libfmt-dev pre-commit libfmt-dev
-          sudo apt-get install -y --no-install-recommends libgstreamer1.0-dev gstreamer1.0-tools
-          sudo apt-get install -y --no-install-recommends libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-x gstreamer1.0-gl
-          sudo apt-get install -y --no-install-recommends libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-bad gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly gstreamer1.0-nice v4l-utils
-          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100
-          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100
-          gcc --version
-          g++ --version
+      - name: Build docker image 
+        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build amp-sonar-check
           
-      - name: Prepare build
-        run: |
-          meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat
-
-      - name: Download and install the build wrapper, build the project
-        run: |
-          mkdir -p $HOME/.sonar
-          curl -sSLo $HOME/.sonar/build-wrapper-linux-x86.zip ${{ secrets.SONAR_HOST_URL }}/static/cpp/build-wrapper-linux-x86.zip
-          unzip -o $HOME/.sonar/build-wrapper-linux-x86.zip -d $HOME/.sonar/
-          $HOME/.sonar/build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir bw-output meson compile -C "$BUILD_DIR"
-        env:
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          
-      - name: Download and install the SonarScanner
-        env:
-          SONAR_SCANNER_VERSION: 7.3.0.5189
-        run: |
-          curl -sSLo $HOME/.sonar/sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${{ env.SONAR_SCANNER_VERSION }}-linux-x64.zip
-          unzip -o $HOME/.sonar/sonar-scanner.zip -d $HOME/.sonar/
-          echo "$HOME/.sonar/sonar-scanner-${{ env.SONAR_SCANNER_VERSION }}-linux-x64/bin" >> $GITHUB_PATH
-
       - name: SonarQube analysis
-        run: |
-          sonar-scanner --define sonar.cfamily.build-wrapper-output=bw-output  
+        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm amp-sonar-check
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}

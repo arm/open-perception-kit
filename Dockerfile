@@ -200,17 +200,16 @@ FROM amp-dev-base AS amp-dev-sonar
 
 USER root
 
-ENV SONAR_SCANNER_VERSION="4.6.2.2472"
+ENV SONAR_SCANNER_VERSION="8.0.1.6346"
 
 ENV SONAR_HOST_URL="https://sonarqube.mobilestudio.aws.arm.com" \
-    PATH=/opt/sonar/sonar-scanner-${SONAR_SCANNER_VERSION}-linux/bin:${PATH}
-    
-RUN set -eux && \
-    mkdir -p /opt/sonar && \
-    curl -sSLo /opt/build-wrapper-linux-x86.zip ${SONAR_HOST_URL}/static/cpp/build-wrapper-linux-x86.zip && \
-    unzip -o /opt/build-wrapper-linux-x86.zip -d /opt/sonar/ && \
-    curl -sSLo /opt/sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}-linux.zip && \
-    unzip -o /opt/sonar-scanner.zip -d /opt/sonar/
+    PATH=/opt/sonar/sonar-scanner-${SONAR_SCANNER_VERSION}/bin:/opt/sonar/build-wrapper-linux-x86:${PATH}
+RUN set -eux; \
+    mkdir -p /opt/sonar; \
+    curl -fsSLo /tmp/sonar-scanner.zip \
+        "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}.zip"; \
+    unzip -o /tmp/sonar-scanner.zip -d /opt/sonar/; \
+    rm -f /tmp/sonar-scanner.zip
 
 ######################################################################
 ################ Rich development environment container ##############
@@ -232,7 +231,7 @@ RUN luarocks install jsregexp
 
 RUN chsh -s /usr/bin/zsh ${USERNAME}
 
-COPY ./.devcontainer/uidgid-entrypoint.sh /usr/local/bin/uidgid-entrypoint
+COPY uidgid-entrypoint.sh /usr/local/bin/uidgid-entrypoint
 RUN chmod +x /usr/local/bin/uidgid-entrypoint
 
 # ---- Locale ----
@@ -241,7 +240,7 @@ RUN sed -i 's/^# *\(en_US.UTF-8 UTF-8\)/\1/' /etc/locale.gen && \
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 
 # ---- Install Neovim v0.11.5 via AppImage ----
-ARG NVIM_VERSION=v0.11.5
+ARG NVIM_VERSION=v0.12.1
 ARG NVIM_APPIMAGE=nvim-linux-x86_64.appimage
 
 RUN touch /container_env
@@ -276,7 +275,7 @@ RUN curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/in
 # We expect /home/dev/configs to be provided via a bind-mount at runtime.
 RUN mkdir -p /home/${USERNAME}/.config && \
     ln -sfn /home/${USERNAME}/configs/zshrc /home/${USERNAME}/.zshrc && \
-    ln -sfn /home/${USERNAME}/configs/nvchad_2025_08 /home/${USERNAME}/.config/nvim && \
+    ln -sfn /home/${USERNAME}/configs/nvchad_2026_04 /home/${USERNAME}/.config/nvim && \
     chown -R ${USER_UID}:${USER_GID} /home/${USERNAME}/.config /home/${USERNAME}/.zshrc
 
 # ---- SSH agent socket mapping ----

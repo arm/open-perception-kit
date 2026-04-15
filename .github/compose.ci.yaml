@@ -46,3 +46,27 @@ services:
         source /work/tools/lazer/.venv/bin/activate &&
         expkits-ci --clang-format-check --python-format-check --cmake-format-check --shell-format-check --license-header-check
       '
+
+  amp-sonar-check:
+    extends: 
+      file: ../compose.base.yaml
+      service: amp-common-dev
+    container_name: amp-sonar-check
+    hostname: amp-sonar-check
+    network_mode: host
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: amp-dev-sonar 
+    environment:
+      PROJECT_ROOT: /work/development
+      BUILD_DIR: /work/development/build
+      SONAR_TOKEN: ${SONAR_TOKEN}
+    command: |
+      bash -c '
+        .devcontainer/devsetup.sh &&
+        .devcontainer/platform_init.sh amp-dev-base &&
+        source /work/tools/lazer/.venv/bin/activate &&
+        meson setup "$$BUILD_DIR" "$$PROJECT_ROOT" --buildtype=debug --wipe &&
+        sonar-scanner 
+      '
