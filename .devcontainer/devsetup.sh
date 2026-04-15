@@ -41,7 +41,16 @@ append_once "$PROMPT_EXPORT" "$PROMPT_EXPORT"
 # ---------- venv wiring (no installs) ----------
 if [[ -d "$IMAGE_DEVTOOLS_VENV" ]]; then
     log "Using image-provided devtools venv: $IMAGE_DEVTOOLS_VENV"
-    if [[ ! -e "$VENV_DIR" ]]; then
+    if [[ -L "$VENV_DIR" ]]; then
+        current_target="$(readlink "$VENV_DIR")"
+        if [[ "$current_target" != "$IMAGE_DEVTOOLS_VENV" ]]; then
+            log "Replacing stale venv symlink: $VENV_DIR -> $current_target"
+            rm "$VENV_DIR"
+            ln -s "$IMAGE_DEVTOOLS_VENV" "$VENV_DIR"
+        fi
+    elif [[ -e "$VENV_DIR" ]]; then
+        die "$VENV_DIR exists but is not a symlink to $IMAGE_DEVTOOLS_VENV. Remove it and rerun devsetup."
+    else
         ln -s "$IMAGE_DEVTOOLS_VENV" "$VENV_DIR"
     fi
 else
