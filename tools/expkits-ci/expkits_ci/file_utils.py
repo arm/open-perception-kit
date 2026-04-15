@@ -73,9 +73,13 @@ class FileUtils:
                 logger.error(f"Unexpected error getting git files: {e}")
                 raise
 
-        existing_files = [f for f in files if os.path.exists(
-            f) and not any(f.startswith(skip) for skip in ignore_folder)]
-
+        existing_files = [
+            f for f in files
+            if os.path.exists(f) and (
+                f.endswith(".git/COMMIT_EDITMSG")
+                or not any(f.startswith(skip) for skip in ignore_folder)
+            )
+        ]
         logger.info(f"Number of files to check: {len(existing_files)}")
 
         return existing_files
