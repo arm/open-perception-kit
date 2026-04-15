@@ -22,10 +22,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-              with:
-                  fetch-depth: 0
-                  fetch-tags: true
-                  ref: ${{ github.head_ref }}
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ref: ${{ github.head_ref }}
 
       - name: Build docker image 
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build amp-sonar-check
