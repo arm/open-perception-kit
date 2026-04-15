@@ -22,15 +22,12 @@ ARCH=$(uname -m)
 log "Container architecture: $ARCH"
 
 # ---------- ONNX Runtime (verify only) ----------
-WORK_ORT_DIR="/work/deps/onnxruntime"
-IMAGE_ORT_DIR="/opt/amp-deps/onnxruntime"
+ORT_DIR="/opt/amp-deps/onnxruntime"
 
-if [[ -d "$WORK_ORT_DIR/include" && -d "$WORK_ORT_DIR/lib" ]]; then
-    log "Found ONNX Runtime in workspace: $WORK_ORT_DIR"
-elif [[ -d "$IMAGE_ORT_DIR/include" && -d "$IMAGE_ORT_DIR/lib" ]]; then
-    log "Found ONNX Runtime in image: $IMAGE_ORT_DIR"
+if [[ -d "$ORT_DIR/include" && -d "$ORT_DIR/lib" ]]; then
+    log "Found ONNX Runtime in image: $ORT_DIR"
 else
-    die "ONNX Runtime not found in $WORK_ORT_DIR or $IMAGE_ORT_DIR. Install it via Dockerfile."
+    die "ONNX Runtime not found at $ORT_DIR. Install it via Dockerfile."
 fi
 
 # ---------- PlantUML JAR (verify only) ----------

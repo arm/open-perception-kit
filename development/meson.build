@@ -61,10 +61,19 @@ tl_expected_dep = dependency('tl-expected', required : true)
 web_server_enabled = soup_dep.found() and json_dep.found()
 
 # -------- ONNX
-onnx_include = include_directories('../deps/onnxruntime/include')
-onnx_libdir  = meson.project_source_root() / '../deps/onnxruntime/lib'
+fs = import('fs')
+
+onnx_root = '/opt/amp-deps/onnxruntime'
+if not (fs.is_dir(onnx_root / 'include') and fs.is_dir(onnx_root / 'lib'))
+  error('ONNX Runtime not found. Expected include/ and lib/ under ' + onnx_root)
+endif
+
+message('Using ONNX Runtime from: ' + onnx_root)
+
+onnx_include = include_directories(onnx_root / 'include')
+onnx_libdir  = onnx_root / 'lib'
 onnx_dep = declare_dependency(
-  include_directories: '../deps/onnxruntime/include',
+  include_directories: onnx_include,
   link_args: ['-L' + onnx_libdir, '-lonnxruntime', '-Wl,--no-undefined']
 )
 
