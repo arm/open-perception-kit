@@ -30,7 +30,7 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix
       - ${HOME}/configs:/home/devgoblin/configs
       - ..:/work     
-      - ../amp-work-tree:/amp-work-tree
+      - ../../amp-work-tree:/amp-work-tree
       - ${SSH_AUTH_SOCK}:/ssh-agent
 
     privileged: true
