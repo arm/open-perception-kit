@@ -36,7 +36,8 @@
         "ms-python.autopep8",
         "cheshirekow.cmake-format",
         "mkhl.shfmt",
-        "jebbs.plantuml"
+        "jebbs.plantuml",
+        "SonarSource.sonarlint-vscode"
       ],
       "settings": {
         "terminal.integrated.defaultProfile.linux": "bash",

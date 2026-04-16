@@ -47,5 +47,11 @@
     "[python]": {
         "editor.defaultFormatter": "ms-python.autopep8"
     },
-    "testMate.cpp.test.executables": "development/build/**/*{test,Test,TEST}*"
+    "testMate.cpp.test.executables": "development/build/**/*{test,Test,TEST}*",
+
+    "sonarlint.pathToCompileCommands": "${workspaceFolder}/compile_commands.json",
+    "sonarlint.connectedMode.project": {
+        "connectionId": "https-sonarqube-mobilestudio-aws-arm-com",
+        "projectKey": "LinuxVisionKitAmp_3PIaCH2mDmayKH"
+    }
 }
