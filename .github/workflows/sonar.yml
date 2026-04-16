@@ -31,7 +31,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ github.head_ref }}
+          ref: ${{ github.head_ref || github.ref }}
 
       - name: Build docker image 
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build amp-sonar-check

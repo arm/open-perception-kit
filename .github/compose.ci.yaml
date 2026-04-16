@@ -61,6 +61,7 @@ services:
     environment:
       PROJECT_ROOT: /work/development
       BUILD_DIR: /work/development/build
+      SONAR_HOST_URL: ${SONAR_HOST_URL}
       SONAR_TOKEN: ${SONAR_TOKEN}
     command: |
       bash -c '

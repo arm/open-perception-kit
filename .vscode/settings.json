@@ -49,7 +49,7 @@
     },
     "testMate.cpp.test.executables": "development/build/**/*{test,Test,TEST}*",
 
-    "sonarlint.pathToCompileCommands": "${workspaceFolder}/compile_commands.json",
+    "sonarlint.pathToCompileCommands": "/work/development/build/compile_commands.json",
     "sonarlint.connectedMode.project": {
         "connectionId": "https-sonarqube-mobilestudio-aws-arm-com",
         "projectKey": "LinuxVisionKitAmp_3PIaCH2mDmayKH"

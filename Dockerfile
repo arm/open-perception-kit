@@ -203,9 +203,10 @@ USER root
 ENV SONAR_SCANNER_VERSION="8.0.1.6346"
 
 ENV SONAR_HOST_URL="https://sonarqube.mobilestudio.aws.arm.com" \
-    PATH=/opt/sonar/sonar-scanner-${SONAR_SCANNER_VERSION}/bin:/opt/sonar/build-wrapper-linux-x86:${PATH}
+    PATH=/opt/sonar/sonar-scanner-${SONAR_SCANNER_VERSION}/bin:${PATH}
 RUN set -eux; \
-    apt-get update; apt-get install gcovr; \
+    apt-get update; apt-get install -y --no-install-recommends gcovr; \
+    rm -rf /var/lib/apt/lists/*; \
     mkdir -p /opt/sonar; \
     curl -fsSLo /tmp/sonar-scanner.zip \
         "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}.zip"; \
