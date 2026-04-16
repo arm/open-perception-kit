@@ -103,5 +103,6 @@ todo.md
 # Sonar files
 # -------------------------
 .scannerwork
+coverage.xml
 
 

@@ -67,6 +67,9 @@ services:
         .devcontainer/devsetup.sh &&
         .devcontainer/platform_init.sh amp-dev-base &&
         source /work/tools/lazer/.venv/bin/activate &&
-        meson setup "$$BUILD_DIR" "$$PROJECT_ROOT" --buildtype=debug --wipe &&
+        meson setup "$$BUILD_DIR" "$$PROJECT_ROOT" --buildtype=debug --wipe -Dtests=true -Db_coverage=true &&
+        meson compile -C "$$BUILD_DIR" &&
+        meson test -C "$$BUILD_DIR" --print-errorlogs &&
+        gcovr -r . --sonarqube coverage.xml &&
         sonar-scanner 
       '

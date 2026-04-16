@@ -36,7 +36,7 @@ RUN set -eux; \
     libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base \
     libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-bad \
     gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly  \
-    gstreamer1.0-nice gstreamer1.0-pipewire; \
+    gstreamer1.0-nice gstreamer1.0-pipewire nodejs; \
   rm -rf /var/lib/apt/lists/*
 
 # Clean apt cache
@@ -205,6 +205,7 @@ ENV SONAR_SCANNER_VERSION="8.0.1.6346"
 ENV SONAR_HOST_URL="https://sonarqube.mobilestudio.aws.arm.com" \
     PATH=/opt/sonar/sonar-scanner-${SONAR_SCANNER_VERSION}/bin:/opt/sonar/build-wrapper-linux-x86:${PATH}
 RUN set -eux; \
+    apt-get update; apt-get install gcovr; \
     mkdir -p /opt/sonar; \
     curl -fsSLo /tmp/sonar-scanner.zip \
         "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}.zip"; \
