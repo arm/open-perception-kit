@@ -10,6 +10,7 @@ on:
 
 jobs:
   build-and-sonar:
+    name: Run Sonar analysis in Docker
     runs-on: self-hosted-ubuntu-latest-x64
 
     if: |
