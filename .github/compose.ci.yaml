@@ -63,7 +63,7 @@ services:
       BUILD_DIR: /work/development/build
       SONAR_HOST_URL: ${SONAR_HOST_URL}
       SONAR_TOKEN: ${SONAR_TOKEN}
-      SONAR_BRANCH: ${{ github.head_ref || github.ref_name }}
+      SONAR_BRANCH: ${SONAR_BRANCH}
     command: |
       bash -c '
         .devcontainer/devsetup.sh &&
