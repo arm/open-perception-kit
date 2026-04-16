@@ -9,15 +9,14 @@ sidebar_label: amposd
 `amposd` is a GStreamer `GstVideoFilter` element that renders structured
 `Perception` metadata onto ARGB/BGRA video frames.
 
-This component currently supports 32bit ARGB drawing only, what determines the required video frame format.
-If there is no decoration over the video it is likely because of the mismached format.
+This component currently supports 32-bit ARGB drawing only, which determines the required video frame format.
+If there is no overlay on the video, it is likely because of a mismatched format.
 
-It uses the received `Perception` instace attached to buffers, generates
+It uses the received `Perception` instance attached to buffers, generates
 intermediate Cairo drawing layers, and composites them over the input frame
 in-place.
 
-In a later stage of development a Vulkan or OpenGL based rendering path also will be 
-implemented to make DMA-BUF/zero copy pipelines possible.
+At a later stage of development, a Vulkan- or OpenGL-based rendering path may also be implemented to make DMA-BUF zero-copy pipelines possible.
 
 The element operates purely as a visualization stage and does not modify Perception itself.
 
@@ -28,7 +27,7 @@ The element operates purely as a visualization stage and does not modify Percept
 - Element type: `GstVideoFilter`
 - Pad caps: `video/x-raw, format=BGRA`
 - Processing mode: in-place (`transform_frame_ip`)
-- Metadata dependency: `PerceptionContextMeta`
+- Metadata dependency: `PerceptionMeta`
 
 `amposd` can be inserted anywhere downstream of `ampinfer`
 or other elements that attach `Perception` metadata.
@@ -39,13 +38,14 @@ or other elements that attach `Perception` metadata.
 
 For each incoming frame:
 
-1. Retrieve `PerceptionContextMeta` from the buffer.
+1. Read `PerceptionMeta` from the buffer if it is present.
 2. Access the immutable `Perception` payload.
 3. Generate one or more Cairo-backed overlay layers.
 4. Composite the layers over the input frame using `CAIRO_OPERATOR_OVER`.
 5. Return the modified frame downstream.
 
 All drawing occurs in-memory using Cairo image surfaces.
+If no `PerceptionMeta` is attached, `amposd` leaves the frame unchanged.
 
 ---
 

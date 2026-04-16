@@ -39,6 +39,10 @@ g++ -fPIC -shared -o libgstampsink.so ampsink.cpp \
 #define PACKAGE "ampsink"
 #endif
 
+#ifndef AMP_DEFAULT_STATIC_FILES_LOCATION
+#define AMP_DEFAULT_STATIC_FILES_LOCATION "./development/web/content"
+#endif
+
 /* =============================== AmpSink ============================== */
 
 /* ===== Properties ===== */
@@ -531,7 +535,7 @@ static void gst_amp_sink_init(GstAmpSink *self) {
 
     /* defaults */
     self->host = g_strdup(amp::Tools::getLocalIp().c_str());
-    self->static_files_location = g_strdup("./scripts/public");
+    self->static_files_location = g_strdup(AMP_DEFAULT_STATIC_FILES_LOCATION);
     self->http_port = 9999;
     self->ws_port = 8000;
     self->ctrl_port = 8001;
@@ -599,7 +603,7 @@ static void gst_amp_sink_class_init(GstAmpSinkClass *klass) {
         g_param_spec_string("static-files",
                             "Static Files Location",
                             "Location of the static files for HTTP Server",
-                            "./scripts/public",
+                            AMP_DEFAULT_STATIC_FILES_LOCATION,
                             kRW));
 
     /* pads */

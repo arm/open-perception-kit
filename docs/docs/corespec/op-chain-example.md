@@ -15,8 +15,7 @@ The main pattern is: collect ROIs → create crops → loop over a subchain whil
 
 ## Chain Layout
 
-The chain is composed of four Ops executed in order.
-All Ops are assigned to the same group so they can participate in the same inference loop.
+The chain is composed of four Ops executed once, followed by a second four-Op block that is repeated with `loopId = 2`.
 Each Op can read transient execution data from OpChainContext and write persistent results into Perception.
 
 - `amp-std-ops/InferenceController`
@@ -32,8 +31,8 @@ Each Op can read transient execution data from OpChainContext and write persiste
 It selects input regions based on `contentType`.
 It queries Perception for all rectangles matching the content type (e.g. detected faces).
 It converts these rectangles into logical crops for inference.
-It pushes the resulting crop list into `OpChainContext::inferenceCrops`.
-It then repeatedly executes the Ops in `inferenceLoopGroup` while consuming crops.
+It pushes the resulting crop list into `OpChainContext::inferenceImageCrops` and stores matching parent UUIDs in `OpChainContext::inferenceImageCropUuids`.
+It then repeatedly executes the Ops that share the active `loopId` while consuming crops.
 One crop is removed per iteration.
 Looping stops when the crop list becomes empty.
 
@@ -55,8 +54,8 @@ GenericPostprocess parses output tensors and writes structured metadata into Per
 ## JSON Descriptor Example
 
 The OpChain is defined declaratively via JSON.
-The `group` field ties Ops into a named execution group.
-`InferenceController` uses `inferenceLoopGroup` to select which group is iterated.
+The `loopId` field ties Ops into a repeated execution group.
+`InferenceController` activates the loop by setting the current `loopId` in the execution context.
 
 ```json
 {
@@ -75,7 +74,7 @@ The `group` field ties Ops into a named execution group.
     {
       "id": "amp-onnx-ops/Inference",
       "attributes": {
-        "modelDescriptor": "/work/etc/models/ultraface/ultraface.json"
+        "modelDescriptor": "/work/config/models/ultraface/model.json"
       }
     },
     {
@@ -89,28 +88,29 @@ The `group` field ties Ops into a named execution group.
     },
     {
       "id": "amp-std-ops/InferenceController",
-      "group": "for-all-faces",
+      "loopId": 1,
       "attributes": {
         "contentType": "humanFace"
       }
     },
     {
       "id": "amp-std-ops/GenericImagePreprocess",
-      "group": "for-all-faces",
+      "loopId": 1,
       "attributes": {
-        "inputImageTensorIndex": 0
+        "inputImageTensorIndex": 0,
+        "inputImageSourceName": "pipelineVideoFrame"
       }
     },
     {
       "id": "amp-onnx-ops/Inference",
-      "group": "for-all-faces",
+      "loopId": 1,
       "attributes": {
-        "modelDescriptor": "/work/etc/models/gazedetection/model.json"
+        "modelDescriptor": "/work/config/models/gaze-detection/model.json"
       }
     },
     {
       "id": "amp-std-ops/GenericPostprocess",
-      "group": "for-all-faces",
+      "loopId": 1,
       "attributes": {
         "parser": "GazeDetectionParser",
         "normalizeOutputCoordinates": false,
@@ -126,5 +126,5 @@ The `group` field ties Ops into a named execution group.
 
 The example uses ONNX inference via amp-onnx-ops/Inference.
 The same pattern applies to other runtimes by swapping the inference Op implementation.
-Perception is the persistent container that travels downstream and accumulates results across Ops and across GStreamer ampinfer element intances.
+Perception is the persistent container that travels downstream and accumulates results across Ops and across GStreamer ampinfer element instances.
 OpChainContext is transient and only valid during execution of the current chain.

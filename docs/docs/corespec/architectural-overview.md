@@ -21,7 +21,7 @@ Core elements:
 - `ampinfer`  
   Runs micro-pipelines (OpChain) that perform preprocessing, inference, and postprocessing.
   Produces structured results into Perception.
-  OpChans can contain any other processing steps, but for us inference is the most important kind.
+  OpChains can contain other processing steps, but inference is the most important one in this project.
 
 - `ampsink`  
   Provides WebRTC-based output to a browser for stable, low-latency A/V visualization from containerized pipelines.
@@ -42,7 +42,7 @@ Each element can be placed into any existing GStreamer pipeline as a modular bui
 
 ## Configuration Model
 
-All runtime setup is defined in JSON (maybe later in YAML files also).
+All runtime setup is currently defined in JSON.
 
 JSON configuration is used to describe:
 
@@ -66,9 +66,9 @@ OpChains are created from JSON descriptors and can be executed inside `ampinfer`
 or as standalone pipelines without GStreamer.
 
 This enables pipeline composition and model swapping without recompilation.
-The micro-pipelines are flexible enough to define non-inference task.
-Micro pipelines can be distruputed over differenet GStremaer elements or even inside one element.
-Different inference engines can used even inside a micro-pipeline.
+The micro-pipelines are flexible enough to define non-inference tasks.
+Micro-pipelines can be distributed across different GStreamer elements or contained within a single element.
+Different inference engines can be used even within a single micro-pipeline.
 
 ---
 
@@ -95,9 +95,9 @@ This enables complex pipelines such as:
 
 ## Tracking
 
-`amptracker` uses Perception detections and deriving cross-frame information from them
-In ideal case it creates an **entity** that represents the real world entities.
-In this case missing detections on frames does not mean that the given entity is lost.
+`amptracker` uses Perception detections and derives cross-frame information from them.
+In the ideal case, it creates an **entity** that represents a real-world object.
+In that case, a missing detection on a single frame does not mean that the entity is lost.
 
 Goals:
 
@@ -105,7 +105,7 @@ Goals:
 - Preserve identities across time.
 - Attach track identifiers and trajectories back into Perception.
 
-Adds 'tracking' layers to the Perception. (planned)
+It adds `tracking` layers to Perception. (planned)
 
 ---
 

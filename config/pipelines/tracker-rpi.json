@@ -1,0 +1,27 @@
+{
+  "description": "Object tracking pipeline using the Hailo opchain with the default image source and ampsink video sink.",
+  "pipeline": [
+    "filesrc location=/work/data/images/katana.jpg !",
+    "jpegdec !",
+    "imagefreeze !",
+    "videoconvert ! video/x-raw,format=BGRA !",
+    "ampinfer opchain-path=/work/config/opchains/tracking/opchain-hailo.json active=false !",
+    "amptracker content-type=genericObject !",
+    "ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
+    "amposd enabled=true !",
+    "ampsink name=sink"
+  ],
+  "alternative-source-libcamera": [
+    "libcamerasrc camera-name=\"/base/axi/pcie@1000120000/rp1/i2c@80000/imx708@1a\" !",
+    "video/x-raw,format=RGB,width=1536,height=864,framerate=60/1 !",
+    "videoconvert ! video/x-raw,format=BGRA !"
+  ],
+  "alternative-source-v4l2": [
+    "v4l2src device=/dev/video0 ! \"image/jpeg,width=1280,height=720,framerate=60/1\"  !",
+    "jpegdec !",
+    "videoconvert ! video/x-raw,format=BGRA !"
+  ],
+  "alternative-sink": [
+    "filesink location=/work/data/output/full-dev.mp4"
+  ]
+}

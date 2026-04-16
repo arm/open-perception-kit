@@ -19,7 +19,7 @@ The container executes the GStreamer pipeline, including inference workloads.
 
 - The repository defines the full build environment.
 - The container encapsulates all dependencies.
-- The same environment is used across Linux, macOS, Windows, Raspberry PI5 and other devices.
+- The same environment is used across Linux, macOS, Windows, Raspberry Pi 5, and other devices.
 - This eliminates host-specific configuration drift.
 
 While containers provide reproducibility, they introduce runtime challenges:
@@ -68,7 +68,7 @@ Media transport and control signaling are cleanly separated.
 
 AmpSource extends the architecture in the opposite direction.
 The system routes the browser camera and microphone data into the container.
-Also web based video/audio streams can be routed into the container as a source for a pipeline.
+Web-based video/audio streams can also be routed into the container as a pipeline source.
 Media is streamed into the pipeline.
 This enables different use cases where the user can use the device with a single browser connection.
 

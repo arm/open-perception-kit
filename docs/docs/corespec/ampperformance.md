@@ -131,8 +131,8 @@ In `transform_frame_ip`:
 
 1. Update FPS estimation based on inter-frame timing.
 2. Refresh cached metric lines every `update-interval` frames or when marked dirty.
-3. Acquire writable buffer access and get `PerceptionContextMeta`.
-4. Write the cached formatted lines into `perceptionContext->perfdata`.
+3. Try to mutate `PerceptionMeta` on the current buffer.
+4. If `PerceptionMeta` is present, write the cached formatted lines into `perception.perfdata`.
 
 `get_performance_data()` internally calls `getGlobalTracer()->endCycle()`.
 This establishes the cycle boundary from within the element.
@@ -172,7 +172,8 @@ This allows runtime toggling without property reconfiguration.
 
 # Integration Notes
 
-- `ampperformance` requires `PerceptionContextMeta` to be present on buffers.
+- `ampperformance` writes metrics when `PerceptionMeta` is present on the buffer.
+- If no `PerceptionMeta` is attached, the element returns successfully without writing anything.
 - Downstream elements (e.g., `amposd`) can render `Perception::perfdata` as text overlay.
 - For correctness, the cycle boundary should match the intended unit of work.
   When `ampperformance` drives `endCycle()`, it effectively defines the cycle as “per frame”.

@@ -5,13 +5,14 @@ sidebar_label: How-To Topo
 
 # AMP Development Forge Topo How-To
 
+As an alternative to using a Dev Container, deployment can be done directly with Topo.
 This guide shows the shortest path from cloning AMP with Topo to deploying it to a remote target over SSH.
 
 The repository already includes Topo metadata in `compose.yaml`, so after cloning the project you can deploy it directly with the `topo` CLI.
 
 ## Prerequisites
 
-- `topo` is installed on your host machine.
+- [topo](https://github.com/arm/topo) is installed on your host machine.
 - Your target is reachable over SSH.
 - Your target is ready to run the deployment.
 
@@ -25,6 +26,7 @@ cd test
 ```
 
 This creates a local `test` directory containing the AMP Development Forge project.
+Alternatively the usual working directory can also be used.
 
 ## Deploy to your target
 

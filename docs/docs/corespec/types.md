@@ -124,7 +124,7 @@ This defines the maximum number of tensor slots used by components like:
 - parsers that operate on multiple outputs
 
 It is a deliberate fixed upper bound for predictable stack/struct sizing.
-All places where multiple tensors are referenced this constant is used.
+This constant is used wherever multiple tensors are referenced.
 
 - `InvalidTensorIndex = 0xdead`
 

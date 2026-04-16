@@ -104,7 +104,7 @@ Parses object detection outputs produced by YOLO-based models.
 Extracts bounding boxes, class identifiers, and confidence scores.
 Writes detected objects into the Perception layer.
 
-We also have a parser for the HailoRT accelerated Yolo output, when the network handles the NMS differently.
+There is also a parser for HailoRT-accelerated YOLO output when the network handles NMS differently.
 
 ## UltraFace Parser
 
@@ -127,7 +127,7 @@ Attaches a `cameraContact` classification to the parent face crop.
 ## Paddle OCR Detector Parser
 
 Parses text detection outputs from Paddle OCR detection models.
-Extracts text regions segmentation map.
+Extracts a text-region segmentation map.
 Stores detected text regions for downstream recognition stages.
 
 ## ImageNet Classification Parser
@@ -139,7 +139,7 @@ Attaches classification results to the Perception layer.
 ## Person Classification Parser
 
 Parser for the person classification network of the Arm AAIR team.
-Stores person classification detection object in the layer.
+Stores a person-classification detection object in the layer.
 
 # Additional Parsers
 

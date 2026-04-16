@@ -167,7 +167,8 @@ ampsink listens for custom downstream events:
 - `amp-model-register`
 - `amp-model-unregister`
 
-These events originate from `ampinfer`.
+`ampinfer` currently emits `amp-model-register` events.
+`ampsink` also handles `amp-model-unregister` if another upstream component emits it.
 
 Upon reception:
 

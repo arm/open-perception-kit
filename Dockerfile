@@ -184,7 +184,7 @@ ENV AMP_PIPELINE=${AMP_PIPELINE}
 USER ${USERNAME}
 WORKDIR /work
 
-ENTRYPOINT ["/work/scripts/deployment-process.sh"]
+ENTRYPOINT ["/work/scripts/private/deployment-process.sh"]
 
 ######################################################################
 ###################### Deployment container ##########################

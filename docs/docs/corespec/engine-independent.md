@@ -11,8 +11,7 @@ The AMP inference architecture deliberately separates:
 - Engine-specific responsibilities  
 - Engine-agnostic processing logic  
 
- We use even separated .so files for the different inference engines, so the different SDKs, 
- libraries, headers, dependencies can be handled fully separated from each other and the core system.
+We even use separate `.so` files for the different inference engines so that their SDKs, libraries, headers, and dependencies can remain fully isolated from each other and from the core system.
 
 ![Engine Independent Architecture](/img/engine-independent.png)
 
@@ -72,7 +71,7 @@ Once tensors are prepared:
 This is the only stage where the backend runtime is active (and model loading).
 
 The engine writes results into raw tensor memory.
-That will be read wrapped into a `TensorView` that does the dequantazition.
+That memory is then wrapped in a `TensorView`, which handles dequantization.
 
 ## Engine-Agnostic Postprocessing
 
@@ -86,7 +85,7 @@ After inference execution:
 
 No backend-specific logic is required at this stage.
 
-## The overall flow can be summarization
+## The overall flow can be summarized
 
 ```
 Engine-specific load

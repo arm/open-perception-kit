@@ -39,8 +39,7 @@
         "jebbs.plantuml"
       ],
       "settings": {
-        "terminal.integrated.defaultProfile.linux": "bash",
-        "python.defaultInterpreterPath": "/work/tools/lazer/.venv/bin/python"
+        "python.defaultInterpreterPath": "/work/tools/.venv/bin/python"
       }
     }
   }

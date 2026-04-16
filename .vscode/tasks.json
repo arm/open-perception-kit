@@ -117,7 +117,7 @@
         {
             "label": "99 Launch Without Debug",
             "type": "shell",
-            "command": "/work/scripts/amp-menu",
+            "command": "/work/tools/amp-menu",
             "args": [
                 "-l"
             ],

@@ -8,7 +8,7 @@ sidebar_label: ampinfer
 
 `ampinfer` is a GstBaseTransform element responsible for executing
 OpChains inside a GStreamer pipeline.
-Its main purpose to run inference or inference cascades.
+Its main purpose is to run inference or inference cascades.
 
 GStreamer provides the media transport and scheduling. `ampinfer` converts
 incoming video buffers into the runtime representation required by the
@@ -42,8 +42,14 @@ explicitly.
 `opchain-path` (string, mandatory)
 
 Filesystem path to the OpChain JSON descriptor.
+Typical deployments keep opchains under `/work/config/opchains/<name>/opchain.json` and the
+referenced model descriptors under `/work/config/models/<name>/`.
 
-This file defines: - Ordered Ops - Shared library groups - Op attributes
+This file defines:
+
+- Ordered Ops
+- Shared library groups
+- Op attributes
 
 `active` (boolean)
 
@@ -61,13 +67,17 @@ Declares expected input format.
 -   Loads and initializes OpChain from JSON.
 -   Emits a custom downstream event: amp-model-register.
 
-The event contains: - model-name - element-name - active state
+The event contains:
+
+- model-name
+- element-name
+- active state
 
 `stop()`
 
 -   Frees OpChain members and releases resources.
 
-`set_caps()àzaz 
+`set_caps()`
 
 -   Parses and validates incoming caps.
 -   Ensures video format is BGRA.
@@ -77,13 +87,13 @@ The event contains: - model-name - element-name - active state
 
 1.  If active is false → passthrough.
 2.  Map the buffer for read/write access.
-3.  Ensure PerceptionContextMeta is attached.
+3.  Ensure `PerceptionMeta` is attached.
 4.  Construct OpChainContext.
 5.  Create BitmapView from BGRA frame.
 6.  Insert BitmapView as “pipelineVideoFrame”.
 7.  Assign pointer to `Perception` for Ops to emit persistent data.
 8.  Execute OpChain.
-9.  On failure, log and abort (current implementation).
+9.  On failure, log the error and abort in the current implementation.
 
 All persistent inference output must be written by Ops into Perception.
 `OpChainContext` remains transient and is discarded after execution.

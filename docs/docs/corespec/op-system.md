@@ -180,8 +180,9 @@ Declarative representation of an OpChain loaded from JSON.
 
 Each Op entry specifies:
 
-- `id` — Op type identifier
-- `group` — shared library selection
+- `id` — library/op identifier used for dynamic loading (for example `amp-std-ops/InferenceController`)
+- `group` — optional string copied onto the runtime `Op`
+- `loopId` — optional repeated-execution group identifier
 - `attributes` — configuration parameters
 
 This enables runtime composition without recompilation.
@@ -229,7 +230,7 @@ This design:
 General-purpose and orchestration Ops:
 
 - **InferenceController**  
-  Create image crops for cascaded model inputs, manages loop if multiple inferences are present.
+  Creates image crops for cascaded model inputs and manages the loop when multiple inferences are present.
 
 - **GenericImagePreprocess**  
   Performs generic image preprocessing (resize, normalization, layout conversion)

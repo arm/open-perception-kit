@@ -5,35 +5,57 @@ sidebar_label: How-To
 
 # AMP Development Forge How-To
 
+This is the deep-dive setup and usage guide.
+
+If you only want the shortest path to a first run, use the platform TL;DR pages instead.
+If you want the fuller setup path and the next documentation hub finishing this tutorial, continue from here to [Engineering starting point](how-to-engineering.md).
+
 ## Quick Overview
 - **Goal:** Get AMP running locally or on a Raspberry Pi target
 - **You'll need:** Docker, VS Code, Git, and an SSH key
 - **Recommended first run:** ONNX pipeline
 
 **Steps:**
-1. Install dependencies
-2. Configure SSH
-3. Clone the repository
-4. Open in DevContainer
-5. Build and run AMP
+1) [Clone the amp repository](#clone-the-repository)
+2) [Install dependencies](#host-side-dependencies)
+3) [Open and build the project](#open-and-start-the-project) or [deploy with Topo](how-to-topo.md)
 
 ---
 
+### Clone the repository
+For PC development, clone the repository on your host.
+For on-device Raspberry Pi 5 development, clone the repository after setting up SSH successfully.
+Alternatively you can develop on your PC and deploy to the target with Topo.
+
+```bash
+git clone git@github.com:Arm-Debug/amp-dev-forge.git
+cd amp-dev-forge
+```
+
 ## Host side dependencies
-### Windows
+
+We currently support four targets: Windows with WSL, Linux, macOS, and Raspberry Pi 5.
+Install the required tools on your host for the target you plan to use.
+
+> Besides the listed dependencies, additional tools are installed inside the development or deployment container.
+Working directly on the host outside the container is not well supported at the moment. The project assumes container-managed dependencies.
+
+### Windows+WSL
    * [WSL](https://learn.microsoft.com/en-us/windows/wsl/install)
    * [Git](https://git-scm.com/install/)
    * [Docker Desktop](https://www.docker.com/products/docker-desktop/)
    * [Visual Studio Code](https://code.visualstudio.com/download)
-   * **VS Code Dev Containers extension**
-   * **WSL USB Manager 5.7.0** (Windows WSL)
+   * [VS Code Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+   * [WSL USB Manager 5.7.0](https://github.com/nickbeth/wsl-usb-manager)
 
 ### Linux
-   * **Git**
+   * [Git](https://git-scm.com/install/)
    * **Docker**
-   * **Visual Studio Code**
-   * **VS Code Dev Containers extension**
-   * **video4l2**
+   * [Visual Studio Code](https://code.visualstudio.com/download)
+   * [VS Code Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+   * **v4l-utils**
+
+The following command should help with this.
 
 ```bash
 sudo apt-get update
@@ -41,29 +63,22 @@ sudo apt-get install -y git docker.io code v4l-utils
 ```
 
 ### Mac
-   * **Git**
-   * **Docker (Desktop)**
-   * **Visual Studio Code**
-   * **VS Code Dev Containers extension**
+   * [Git](https://git-scm.com/install/)
+   * [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+      * Colima is not tested at the moment due to networking issues.
+   * [Visual Studio Code](https://code.visualstudio.com/download)
+   * [VS Code Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+   * [Remote development extension](https://code.visualstudio.com/docs/remote/ssh)
 
-### Raspberry target
+### Raspberry Pi 5
    * **Docker**
    * **Hailo packages**
-   * **video4l2**
+   * **v4l-utils**
    * **raspicam**
-   * **Minimum 8GB RAM (16GB recommended)**
-   * For further details on Raspberry Pi 5 host installations please check out the relevant page: [How-To Raspberry Pi 5](how-to-rpi5.md)
-   * If you want to clone AMP and deploy it straight to a remote target with Topo, see [How-To Topo](how-to-topo.md).
+   * [Required device and required packages on the target](how-to-rpi5.md)
+   * [Setup SSH connection](#ssh-setup)
 
-```bash
-sudo apt-get update
-sudo apt-get install -y git docker.io v4l-utils libraspberrypi-bin
-```
-
-> Note: These instructions are validated for Raspberry Pi 5. Earlier Raspberry Pi versions may require different packages or may not be fully supported.
-
----
-
+### SSH setup
 Before starting the DevContainer, ensure that the `ssh-agent` is running and that your GitHub private key has been added to it.
 This can be done in several ways depending on your operating system. The setup for Linux and macOS is as follows:
 
@@ -84,22 +99,21 @@ For further information and a detailed tutorial check out the following tutorial
 
 ---
 
-## Start the project
-### Clone the repository
-Either on your host or in case of Raspberry Pi 5 development open the repository with [Remote development extension](https://code.visualstudio.com/docs/remote/ssh).
-For this to work you must be on the same local network as your Raspberry Pi.
-
-```bash
-git clone git@github.com:Arm-Debug/amp-dev-forge.git
-cd amp-dev-forge
-```
+## Open and Start the project
+The project is meant to run inside a container either as a devcontainer on your PC, a devcontainer on your Raspberry Pi or deployment container with topo.
 
 ### Open AMP with VS Code
 * Open command palette:
   - Windows/Linux: Ctrl+Shift+P
   - macOS: Cmd+Shift+P
-* Then "Reopen in Container"
-* At this point every dependency, pre-commit hook, and device should be ready to use inside the devcontainer.
+* Then select "Reopen in Container". A popup will appear.
+   - For PC development choose "PC amp-dev-forge"
+   - For Raspberry Pi on device development choose "RPI5 amp-dev-forge"
+* After a successful container build, every dependency, pre-commit hook, and device should be ready to use inside the Dev Container.
+
+### Known Container issues
+* If a required port is already reserved, the development or deployment container will not start.
+* It is possible to use Docker only with Windows and WSL. In this case, Docker Desktop is not mandatory and host networking can also be used.
 
 ### Build AMP
 - **00 Build Project**: Builds all elements (default).
@@ -109,29 +123,48 @@ cd amp-dev-forge
 - **03 Run Tests**: Runs all tests.
 
 ### Start AMP
+
+After a successful build, `amp-menu` will be created in the `tools` folder. This tool serves as the project entry point and simplifies GStreamer pipeline creation.
+
 - Run the menu:
 ```bash
-./scripts/amp-menu
+./tools/amp-menu
 ```
-- Select a specific pipeline from the menu (pipelines are defined under `scripts/pipelines`).
+- Select a specific pipeline from the menu. Pipelines are defined under `config/pipelines`.
 - To re-run the last-selected pipeline without the menu prompt:
 ```bash
-./scripts/amp-menu -l
+./tools/amp-menu -l
 ```
+To stop an application that was not started from a VS Code launch configuration, press Ctrl+C in the console.
 
 **First-time users:**  
-- Recommended to run the **ONNX pipeline**
+- We recommend running **01-full-onnx** first.
+It includes the main integrated ONNX pipelines and models currently available in the system.
 
 To stop a pipeline:
 - Windows/Linux: Ctrl + C  
 - macOS: Control + C  
 
+### Other available pipelines
+
+Each pipeline's default source is an image, and the default sink is the `ampsink` endpoint. The pipeline files also contain premade alternative sources and sinks. Use them as templates when switching to a camera or video source.
+
+- `01-full-onnx.json` — integrated ONNX model pipelines on a still image
+- `02-full-onnx-hailo.json` — integrated ONNX + Hailo pipelines on camera and audio input
+- `cam-connect.json` — camera-contact demo
+- `gaze-detection.json` — gaze-estimation demo
+- `tracker-pc.json` — ONNX tracking demo
+- `tracker-rpi.json` — Hailo tracking demo
+
 ### Debug AMP
-- Use the "AMP Debug" configuration in VS Code (F5).
+- Use the "AMP Debug latest" configuration in VS Code (F5). This will run the latest selected pipeline. Before debugging, a popup should appear. Select the release or debug target you want to use.
+- Use the "AMP Debug selection" configuration in VS Code (F5). This will run the pipeline you select. Before debugging, a popup should appear. Select the release or debug target you want to use. Another popup will prompt you to select the specific pipeline you want to debug.
 
 ---
 
 ## Published Endpoints
+
+Open a new terminal in the Dev Container to see the available endpoints. When in doubt, the following endpoints apply.
 
 - [Raspberry AMP Web UI](http://raspberrypi.local:9999)
 - [Raspberry AMP Documentation](http://raspberrypi.local:8080)
@@ -144,31 +177,41 @@ To stop a pipeline:
 - **Ports:**
    - `9999` (AMP Web UI)
    - `8080` (Documentation)
-   - Other ports may be used by ampsink or for streaming endpoints.
+   - **Besides these, the following ports are also used in the background: 8000, 8001**
 
 ---
+## How to use a laptop's built-in webcam in WSL/Linux
+
+ 1. (Only for WSL users) Forward camera input to WSL.
+    - Install [USBIPD](https://github.com/dorssel/usbipd-win/releases)
+    - (Optional) Install [WSL USB Manager](https://github.com/nickbeth/wsl-usb-manager/releases) to get a GUI for USBIPD
+    - Forward the camera to WSL by binding and attaching it with WSL USB Manager
+        - Note: If attaching the camera fails, then disable the device in the Device Manager. Windows sometimes starts to use the camera in background processes and it is hard to figure out which process reserved it.
+ 2. Add the camera source to the pipeline and decode the stream before the models.
+    - Eg.:
+        ```json
+        "v4l2src device=/dev/video0 ! \"image/jpeg,width=1280,height=720,framerate=60/1\"  !",
+        "jpegdec !",
+        ```
 
 ## Scripts and applications in our repository
+Helper scripts can be found under the `scripts` folder. The root of that folder contains the scripts needed to build and run the project, while `scripts/private` contains helper scripts that are not normally used directly.
+
 Important scripts for usage:
 - `amp-menu`: Main launcher for pipelines and demos.
 - `build-elements.sh`: Build all GStreamer elements.
-- `dev_init.sh`: Initialize dev environment and generate device YAMLs.
-- `gen_audio.sh`, `gen_cam.sh`, `gen_npu.sh`, `gen_shared_memory.sh`: Generate docker-compose overrides for audio, camera, NPU, and shared memory.
 - `docker-nuke.sh`: Stop and remove all Docker containers.
-- `deployment-process.sh`: Steps for deployment.
 - `serve-docs.sh`: Serve docusaurus documentation.
 - `serve-docs-plain.sh`: Serve plain HTML documentation locally from devcontainer.
-- `run-ampperformance.sh`: Run performance overlay demo.
-- `run-console`: Start a console in the devcontainer.
 - `gen-doc.sh`: Generate documentation.
 
 ---
 
-##  Quality checks
-   expkits-ci is a tool that is automatically installed during the creation of the container.
-   Most quality checks, both in CI and locally, are performed by this tool.
+## Quality checks
+`expkits-ci` is a tool that is installed automatically during container creation.
+Most quality checks, both in CI and locally, are performed by this tool.
 
-   For help on the `container side`, run: `expkits-ci --help`
+For help inside the container, run `expkits-ci --help`.
 ```bash
 amp-dev-forge $ expkits-ci --help
 usage: __main__.py [-h] [-bn] [-cm] [-jt] [-clfc] [-clf] [-clt] [-pyfc] [-pyf] [-cmfc] [-cmf] [-shfc] [-shf] [-lhc] [-lh] [-v] [-ac] [-do] [-pr PR_TARGET_BRANCH] [-lo {stdout,file,both}] [-lf LOG_FILE]
@@ -179,11 +222,7 @@ usage: __main__.py [-h] [-bn] [-cm] [-jt] [-clfc] [-clf] [-clt] [-pyfc] [-pyf] [
 (.venv-ci) ubuntu@387b974701cb:/workspaces/amp-dev-forge$
 ```
 
-   To check your changes, a set of plugins are already set up in the environment, but you can alternatively:
-- Call expkits-ci directly.
-- Run the following task: 9 - Run CI checks for current file.
-- Run the following task: 9 - Run full CI checks.
-- Run the installed pre-commit hooks manually or with a commit.
+To check your changes, a set of plugins is already configured in the environment, but you can also call `expkits-ci` directly or run the installed pre-commit hooks manually.
 
 ```bash
 pre-commit run --all-files
@@ -199,16 +238,5 @@ git commit --no-verify
 
 ---
 
-##  How to use (laptop's built-in) webcam in WSL/Linux
-
- 1. (Only for WSL users) Forward camera input to WSL
-    - Install [USBIPD](https://github.com/dorssel/usbipd-win/releases)
-    - (Optional) Install [WSL USB Manager](https://github.com/nickbeth/wsl-usb-manager/releases) to have a GUI for USBIPD
-    - Forward camera image to WSL by "Binding" and "Attaching" the camera with the WSL USB Manager
-        - Note: If attaching the camera fails, then disable the device in the Device Manager. Windows sometimes starts to use the camera in background processes and it is hard to figure out which process reserved it.
- 2. Add the camera resource to the pipeline and decode the stream before the models
-    - Eg.:
-        ```json
-        "v4l2src device=/dev/video0 ! \"image/jpeg,width=1280,height=720,framerate=60/1\"  !",
-        "jpegdec !",
-        ```
+## Next steps
+In order to not just use the project but extend it with your own cool stuff continue to [Engineering starting point](how-to-engineering.md).

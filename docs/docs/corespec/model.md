@@ -3,7 +3,7 @@ sidebar_position: 9
 sidebar_label: amp::Model
 ---
 
-# AMP Model System (?)
+# AMP Model System
 ## Engine-Agnostic Model Abstraction and Descriptor Merge Architecture
 
 The AMP inference framework separates model runtime introspection from
@@ -35,7 +35,7 @@ Otherwise, model loading fails.
 ## Canonical Runtime Representation
 
 The amp::Model class is the unified runtime model abstraction used by the Op
-system. This will define the input and ouptut tensors when the inference is executed.
+system. It defines the input and output tensors used when inference is executed.
 
 It contains:
 
@@ -100,7 +100,7 @@ Contains:
 The model may operate in:
 
 -   Static output mode
--   Dynamic output mode (useDynamicOutput) - supported by ONNX Runtime and MNN.
+-   Dynamic output mode (`useDynamicOutput`) when the selected runtime resolves output shapes at execution time.
 
 # 2. ModelDescriptor
 
@@ -126,13 +126,10 @@ It contains:
 	"name": "yolo",
 	
 	"modelFamily": "yolo-obj",
+	"contentType": "genericObject",
 	"modelFile": "yolo11n-fp32-320.onnx",
 	
 	"dynamicOutput": true,
-
-	"maxDetectionCount": 16,
-	"confidenceThreshold": 0.7,
-	"iouThreshold": 0.5,
 	
 	"inputTensors": 
 	[
@@ -168,7 +165,7 @@ The selected inference engine:
 -   Extracts quantization parameters
 
 An initial amp::Model instance is created from engine data. 
-Most of these values is not provided by all the model files.
+Most of these values are not provided directly by every model file.
 
 ## Phase 2 - Descriptor Merge
 

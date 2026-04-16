@@ -1,0 +1,14 @@
+{
+    "description": "Test Inference on video",
+    "pipeline": [
+        "filesrc location=/work/data/videos/00.mp4 !",
+        "decodebin name=dec",
+        "dec. ! queue ! videoconvert ! videoscale ! video/x-raw,framerate=24/1,format=BGRA !",
+        "ampinfer opchain-path=/work/config/opchains/yolo/opchain.json active=true !",
+        "ampinfer opchain-path=/work/config/opchains/ultraface/opchain.json active=true !",
+        "ampinfer opchain-path=/work/config/opchains/gazedetection/opchain.json active=true !",
+        "amposd enabled=true !",
+        "ampsink name=sink",
+        "dec. ! queue ! audioconvert ! audioresample ! audio/x-raw,channels=2 ! sink.audiosink"
+    ]
+}

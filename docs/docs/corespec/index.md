@@ -32,7 +32,7 @@ inside GStreamer pipelines, targeting containerized development and edge deploym
   Minimal Topo-based clone and deployment flow for AMP.
 
 - [Architecture](architectural-overview.md)  
-  Arxhitectural overview of the system.
+  Architectural overview of the system.
 
 - [Containers](containers.md)  
   Container runtime architecture and WebRTC integration model.
@@ -67,7 +67,7 @@ inside GStreamer pipelines, targeting containerized development and edge deploym
   The input tensors are built by the tensor builders.
 
 - [Tensor Parser](tensor-parser.md)  
-  The output tensors are parsed by one of the tensor parser.
+  The output tensors are parsed by one of the tensor parsers.
 
 ## Elements
 

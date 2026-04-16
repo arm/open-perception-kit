@@ -87,13 +87,13 @@ onnxruntime-linux-x64-*
 
 graphs/
 
-scripts/amp-menu
+tools/amp-menu
 
 core.*
 
 gstshark*/
 
-scripts/pipelines/.last_selected_pipeline_id
+config/pipelines/.last_selected_pipeline_id
 
 docs/html
 todo.md
