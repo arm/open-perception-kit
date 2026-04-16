@@ -73,5 +73,5 @@ services:
         meson compile -C "$$BUILD_DIR" &&
         meson test -C "$$BUILD_DIR" --print-errorlogs &&
         gcovr -r . --sonarqube coverage.xml &&
-        sonar-scanner -Dsonar.branch.name="$SONAR_BRANCH" -Dsonar.pullrequest.key=${{ github.event.pull_request.number }} -Dsonar.pullrequest.branch=${{ github.head_ref }} -Dsonar.pullrequest.base=${{ github.base_ref }}
+        sonar-scanner -Dsonar.branch.name="$$SONAR_BRANCH"
       '
