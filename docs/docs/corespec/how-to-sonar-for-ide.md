@@ -28,7 +28,7 @@ To generate it:
 
 For C/C++, SonarQube for IDE relies on the compilation database.
 
-This is done automatically be `scripts/build-elements.sh`.
+This is done automatically by `scripts/build-elements.sh`.
 
 ## 3. Configure VS Code user settings
 
@@ -60,7 +60,7 @@ In .vscode/settings.json:
   }
 }
 ```
-**Notes*
+**Notes:**
 * Use an absolute path for compile_commands.json
 * connectionId must match the user settings
 * projectKey must be the SonarQube project key (not the display name)

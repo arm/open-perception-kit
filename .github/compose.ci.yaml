@@ -73,7 +73,7 @@ services:
         meson compile -C "$$BUILD_DIR" &&
         meson test -C "$$BUILD_DIR" --print-errorlogs &&
         gcovr -r . --sonarqube coverage.xml &&
-        sonar-scanner -Dsonar.branch.name="$$SONAR_BRANCH -Dsonar.qualitygate.wait="$${SONAR_QUALITYGATE_WAIT}" \
+        sonar-scanner -Dsonar.branch.name="$$SONAR_BRANCH" -Dsonar.qualitygate.wait="$${SONAR_QUALITYGATE_WAIT}" \
           -Dsonar.pullrequest.key="$$PR_KEY" \
           -Dsonar.pullrequest.branch="$$PR_BRANCH" \
           -Dsonar.pullrequest.base="$$PR_BASE"

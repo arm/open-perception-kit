@@ -44,3 +44,6 @@ jobs:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
           SONAR_BRANCH: ${{ github.head_ref || github.ref_name }}
           SONAR_QUALITYGATE_WAIT: "true"
+          PR_KEY: ${{ github.event.pull_request.number }}
+          PR_BRANCH: ${{ github.head_ref }}
+          PR_BASE: ${{ github.base_ref }}
