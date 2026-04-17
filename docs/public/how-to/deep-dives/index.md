@@ -8,7 +8,7 @@ sidebar_label: How-To
 This is the deep-dive setup and usage guide.
 
 If you only want the shortest path to a first run, use the platform TL;DR pages instead.
-If you want the fuller setup path and the next documentation hub finishing this tutorial, continue from here to [Engineering starting point](how-to-engineering.md).
+If you want the fuller setup path and the next documentation hub finishing this tutorial, continue from here to [Engineering starting point](engineering.md).
 
 ## Quick Overview
 - **Goal:** Get AMP running locally or on a Raspberry Pi target
@@ -18,7 +18,7 @@ If you want the fuller setup path and the next documentation hub finishing this 
 **Steps:**
 1) [Clone the amp repository](#clone-the-repository)
 2) [Install dependencies](#host-side-dependencies)
-3) [Open and build the project](#open-and-start-the-project) or [deploy with Topo](how-to-topo.md)
+3) [Open and build the project](#open-and-start-the-project) or [deploy with Topo](topo.md)
 
 ---
 
@@ -75,7 +75,7 @@ sudo apt-get install -y git docker.io code v4l-utils
    * **Hailo packages**
    * **v4l-utils**
    * **raspicam**
-   * [Required device and required packages on the target](how-to-rpi5.md)
+   * [Required device and required packages on the target](rpi5.md)
    * [Setup SSH connection](#ssh-setup)
 
 ### SSH setup
@@ -239,4 +239,4 @@ git commit --no-verify
 ---
 
 ## Next steps
-In order to not just use the project but extend it with your own cool stuff continue to [Engineering starting point](how-to-engineering.md).
+In order to not just use the project but extend it with your own cool stuff continue to [Engineering starting point](engineering.md).

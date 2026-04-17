@@ -64,7 +64,7 @@ At minimum, contributors should:
 - run relevant tests
 - run formatting and quality checks
 
-Useful commands are already documented in [How-To](how-to.md). The repository also provides `expkits-ci` and pre-commit hooks for routine checks.
+Useful commands are already documented in [How-To](index.md). The repository also provides `expkits-ci` and pre-commit hooks for routine checks.
 
 ## Pull request expectations
 

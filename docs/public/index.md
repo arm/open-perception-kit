@@ -15,15 +15,15 @@ This documentation is split into two main paths:
 
 ### Quick first run
 
-- [Windows/Linux quick guide](how-to/quick-guides/how-to-win-lin-quick-guide.md)
-- [macOS quick guide](how-to/quick-guides/how-to-mac-quick-guide.md)
-- [Raspberry Pi quick guide](how-to/quick-guides/how-to-rpi-quick-guide.md)
+- [Windows/Linux quick guide](how-to/quick-guides/win-lin.md)
+- [macOS quick guide](how-to/quick-guides/mac.md)
+- [Raspberry Pi quick guide](how-to/quick-guides/rpi.md)
 
 ### Fuller setup and usage
 
-- [Main how-to guide](how-to/deep-dives/how-to.md)
-- [Engineering starting point](how-to/deep-dives/how-to-engineering.md)
-- [Bring your model](how-to/deep-dives/how-to-bring-your-model.md)
+- [Main how-to guide](how-to/deep-dives/index.md)
+- [Engineering starting point](how-to/deep-dives/engineering.md)
+- [Bring your model](how-to/deep-dives/bring-your-model.md)
 
 ### Architecture and implementation detail
 

@@ -11,8 +11,8 @@ This file tracks the current documentation layout inside the repository.
 The actively maintained Docusaurus content now lives under:
 
 - [public/arch/index.md](public/arch/index.md)
-- [public/how-to/deep-dives/how-to.md](public/how-to/deep-dives/how-to.md)
-- [public/how-to/quick-guides/how-to-win-lin-quick-guide.md](public/how-to/quick-guides/how-to-win-lin-quick-guide.md)
+- [public/how-to/deep-dives/index.md](public/how-to/deep-dives/index.md)
+- [public/how-to/quick-guides/win-lin.md](public/how-to/quick-guides/win-lin.md)
 
 The supporting assets live under:
 

@@ -22,12 +22,12 @@ There are two documentation paths:
 
 ### Quick Guide paths
 
-- [Windows/Linux Quick Guide](docs/docs/corespec/how-to-win-lin-quick-guide.md)
-- [macOS Quick Guide](docs/docs/corespec/how-to-mac-quick-guide.md)
-- [Raspberry Pi Quick Guide](docs/docs/corespec/how-to-rpi-quick-guide.md)
+- [Windows/Linux Quick Guide](docs/public/how-to/quick-guides/win-lin.md)
+- [macOS Quick Guide](docs/public/how-to/quick-guides/mac.md)
+- [Raspberry Pi Quick Guide](docs/public/how-to/quick-guides/rpi.md)
 
 ### Deep-dive path
 
-- [How-To](docs/docs/corespec/how-to.md) — deep-dive setup, build, run, and debug guide
-- [Engineering starting point](docs/docs/corespec/how-to-engineering.md) — the next documentation hub after the deep-dive setup page
-- [Core documentation index with architecture](docs/docs/corespec/index.md)
+- [How-To](docs/public/how-to/deep-dives/index.md) — deep-dive setup, build, run, and debug guide
+- [Engineering starting point](docs/public/how-to/deep-dives/engineering.md) — the next documentation hub after the deep-dive setup page
+- [Core documentation index with architecture](docs/public/arch/index.md)

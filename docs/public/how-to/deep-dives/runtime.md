@@ -136,6 +136,6 @@ If it does not match an existing postprocessor, you will usually need to add you
 
 ## Where to look next
 
-- [How-To](how-to.md)
-- [Bring your model](how-to-bring-your-model.md)
-- [Structural basics](how-to-structural-basics.md)
+- [How-To](index.md)
+- [Bring your model](bring-your-model.md)
+- [Structural basics](structural-basics.md)

@@ -113,4 +113,4 @@ After you have selected a pipeline once, you can rerun the last selection with:
 
 ## If you want the deeper guides
 
-Continue with the [main how-to guide](../deep-dives/how-to.md).
+Continue with the [main how-to guide](../deep-dives/index.md).

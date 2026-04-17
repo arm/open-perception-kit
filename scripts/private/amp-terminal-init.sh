@@ -63,7 +63,7 @@ if [[ -z "${AMP_TERMINAL_WELCOME_SHOWN:-}" ]]; then
     frame_line "Web UI     http://${primary_host}:9999"
     frame_line "Docs       http://${primary_host}:8080/index.html"
     frame_sep
-    frame_line "Ref        /work/docs/public/how-to/deep-dives/how-to.md"
+    frame_line "Ref        /work/docs/public/how-to/deep-dives/index.md"
     frame_bottom
     echo
 fi

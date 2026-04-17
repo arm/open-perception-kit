@@ -1,38 +1,25 @@
 ---
-sidebar_position: 6
-sidebar_label: TL;DR Windows/Linux
+sidebar_position: 7
+sidebar_label: TL;DR macOS
 ---
 
-# Windows/Linux TL;DR
+# macOS TL;DR
 
-This is the shortest path from cloning the repository to running the first AMP pipeline on a PC.
+This is the shortest path from cloning the repository to running the first AMP pipeline on macOS.
 
 Use this page if you want the quickest first run.
 Use the other how-to pages if you want setup details, troubleshooting help, or deeper explanations.
 
 ## 1. Install the host tools
 
-### Windows
-Use WSL and install:
-- WSL
+Install:
 - Git
 - Docker Desktop
 - Visual Studio Code
 - VS Code Dev Containers extension
 
-### Linux
-Install:
-- Git
-- Docker
-- Visual Studio Code
-- VS Code Dev Containers extension
-
-On Ubuntu-like systems, this is a good start:
-
-```bash
-sudo apt-get update
-sudo apt-get install -y git docker.io code v4l-utils
-```
+> Colima is not the recommended path here.
+> The existing project docs treat Docker Desktop as the expected setup.
 
 ## 2. Make sure your Git SSH key is ready
 
@@ -105,4 +92,4 @@ After you have selected a pipeline once, you can rerun the last selection with:
 
 ## If you want the deeper guides
 
-Continue with the [main how-to guide](../deep-dives/how-to.md).
+Continue with the [main how-to guide](../deep-dives/index.md).
