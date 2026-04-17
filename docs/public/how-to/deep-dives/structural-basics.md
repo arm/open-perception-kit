@@ -7,6 +7,12 @@ sidebar_label: Structural basics
 
 This page explains where users usually need to put their own files and which folders matter for day-to-day use.
 
+## What will you learn from this documentation?
+
+If you follow this page successfully, you will learn where AMP expects models, opchains, pipeline presets, media files, scripts, and source changes to live.
+
+At the end of this page, you should be able to place new files in the right folders and tell when a task can stay in `config/` versus when it must move into `development/`.
+
 ## The folders most users need
 
 ### `config/`
@@ -71,3 +77,13 @@ The usual flow is:
 5. the result is shown or published by the downstream elements
 
 You only need the deeper `development/` source tree if this flow is not enough for your use case or if your model output needs a new postprocessor.
+
+## What should you have at the end of this document?
+
+By the end of this page, you should have:
+
+- a practical map of the folders that matter for normal AMP work
+- a clear understanding of the usual edit points for models, pipelines, and media
+- a simple rule for when source-code changes are actually needed
+
+Success looks like this: you can decide where to add a model, where to edit a pipeline, and whether your task stays in configuration or requires runtime code changes.

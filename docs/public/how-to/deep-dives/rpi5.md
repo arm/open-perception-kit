@@ -7,6 +7,12 @@ sidebar_label: Raspberry Pi 5
 > Note: These instructions are validated for Raspberry Pi 5. Earlier Raspberry Pi versions may require different packages or may not be fully supported.
 > This whole document should be followed outside the container on the host machine to enable seamless work with the development or deployment container.
 
+## What will you learn from this documentation?
+
+If you follow this page successfully, you will learn how to assemble a supported Raspberry Pi 5 setup, install the required host packages, validate the attached camera, and prepare the device for AMP container workflows.
+
+At the end of this page, you should have a Raspberry Pi 5 on your desk that is ready for AMP development or deployment, with SSH access working and camera-related host validation completed.
+
 ## Components
 
 In order to run the project the following components are needed:
@@ -167,3 +173,14 @@ gst-launch-1.0 v4l2src device=/dev/video16 io-mode=dmabuf ! "video/x-raw(memory:
 ```sh
 gst-inspect-1.0 <element-name>
 ```
+
+## What should you have at the end of this document?
+
+By the end of this page, you should have:
+
+- a Raspberry Pi 5 assembled with the intended AI and camera hardware
+- the required host packages installed
+- working SSH access for VS Code remote use
+- at least one validated camera path using `rpicam-hello`, `v4l2-ctl`, or `gst-launch-1.0`
+
+Success looks like this: the Pi boots with the expected hardware, the camera is discoverable, simple camera pipelines run, and the board is ready for the AMP container workflow.

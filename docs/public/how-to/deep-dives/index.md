@@ -10,6 +10,17 @@ This is the deep-dive setup and usage guide.
 If you only want the shortest path to a first run, use the platform TL;DR pages instead.
 If you want the fuller setup path and the next documentation hub finishing this tutorial, continue from here to [Engineering starting point](engineering.md).
 
+## What will you learn from this documentation?
+
+If you follow this guide successfully, you will learn how to:
+
+- prepare a supported host or Raspberry Pi target for AMP
+- clone the repository and open it in the expected container workflow
+- build the project, run `amp-menu`, and start a first pipeline
+- find the published endpoints and continue into the next engineering-focused documents
+
+At the end of this guide, you should have a working AMP environment on your desk, a first pipeline running, and a clear path to the next deep-dive topics.
+
 ## Quick Overview
 - **Goal:** Get AMP running locally or on a Raspberry Pi target
 - **You'll need:** Docker, VS Code, Git, and an SSH key
@@ -240,3 +251,16 @@ git commit --no-verify
 
 ## Next steps
 In order to not just use the project but extend it with your own cool stuff continue to [Engineering starting point](engineering.md).
+
+## What should you have at the end of this document?
+
+By the end of this guide, you should have:
+
+- a supported host or Raspberry Pi setup with the main prerequisites installed
+- working Git and SSH access for cloning the repository
+- a working AMP Dev Container or Topo deployment path
+- a successful build of the runtime
+- `amp-menu` running and at least one pipeline started
+- access to the AMP UI and documentation endpoints
+
+Success looks like this: you can build AMP, launch a pipeline, open the published UI in a browser, and continue into the engineering guides without guessing the next step.

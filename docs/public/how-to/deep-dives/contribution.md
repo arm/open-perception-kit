@@ -7,6 +7,12 @@ sidebar_label: Contribution
 
 This page describes the normal contribution flow for AMP Development Forge.
 
+## What will you learn from this documentation?
+
+If you follow this page successfully, you will learn the expected contribution flow for branches, commits, local checks, pull requests, and documentation updates.
+
+At the end of this page, you should know how to prepare a change so that it matches the repository workflow and review expectations.
+
 ## Before you start
 
 - Work inside the repository container workflow whenever possible.
@@ -83,3 +89,14 @@ If CI needs to be retriggered, add the `run-amp-ci` label. If it was already pre
 - user-facing workflow changes: update the relevant docs under `docs/public/how-to/`
 - C++ or GStreamer behavior changes: update the relevant docs under `docs/public/arch/`
 - contribution workflow changes: update `.github/CONTRIBUTING.md` and `.github/PULL_REQUEST_TEMPLATE.md`
+
+## What should you have at the end of this document?
+
+By the end of this page, you should have:
+
+- a correctly named branch
+- commits that follow the repository format
+- the main local checks run for your change
+- a PR description that explains what changed and why
+
+Success looks like this: your change is ready to open as a pull request with the expected task reference, checks, and documentation updates already in place.

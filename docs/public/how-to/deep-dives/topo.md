@@ -10,6 +10,12 @@ This guide shows the shortest path from cloning AMP with Topo to deploying it to
 
 The repository already includes Topo metadata in `compose.yaml`, so after cloning the project you can deploy it directly with the `topo` CLI.
 
+## What will you learn from this documentation?
+
+If you follow this page successfully, you will learn how to clone AMP with Topo and deploy it to a remote target over SSH.
+
+At the end of this page, you should have a deployed AMP workspace on a reachable target and a simple way to repeat that deployment flow.
+
 ## Prerequisites
 
 - [topo](https://github.com/arm/topo) is installed on your host machine.
@@ -58,3 +64,13 @@ topo clone test git:https://github.com/Arm-Debug/amp-dev-forge.git
 cd test
 topo deploy --target {ssh_target}
 ```
+
+## What should you have at the end of this document?
+
+By the end of this page, you should have:
+
+- a local clone prepared through Topo
+- a reachable SSH target
+- a successful `topo deploy` run to that target
+
+Success looks like this: `topo` can clone the repository, reach the target, and complete the deployment without requiring the Dev Container workflow.

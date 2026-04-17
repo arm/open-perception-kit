@@ -7,6 +7,12 @@ sidebar_label: Custom postprocessing
 
 This page covers the next step after the normal model-integration path: writing or generating a parser when the built-in postprocessors are not enough.
 
+## What will you learn from this documentation?
+
+If you follow this page successfully, you will learn when custom postprocessing is the right extension point and how to turn a model-specific output tensor contract into a parser that produces meaningful `Perception` results.
+
+At the end of this page, you should know what custom code belongs in a parser, how to register it, how to reference it from an `opchain.json`, and how to judge whether the result is ready for visualization.
+
 Only continue with this page after you have already established that:
 
 - the normal `opchain.json` structure is correct for your model
@@ -178,3 +184,14 @@ The important part is the division of responsibility:
 - the parser inside `GenericPostprocess` turns outputs into `Perception` results
 
 If you stay within that structure, a custom postprocessor is usually a small and contained change.
+
+## What should you have at the end of this document?
+
+By the end of this page, you should have:
+
+- a clear reason why the built-in parsers are not sufficient
+- a concrete parser implementation or a precise parser-generation prompt
+- the parser registered in `GenericPostprocessOp`
+- an `opchain.json` that references the new parser name
+
+Success looks like this: your model outputs are translated into the right `Perception` structure, and the runtime can consume those results without guessing.

@@ -10,6 +10,17 @@ This is the shortest path from preparing the Raspberry Pi to running the first A
 Use this page if you want the quickest first run.
 Use the longer Raspberry Pi and How-To pages if you want hardware setup details, camera setup details, or troubleshooting help.
 
+## What will you learn from this documentation?
+
+If you follow this page successfully, you will learn how to:
+
+- prepare a Raspberry Pi 5 host for AMP work
+- connect to the target from VS Code and reopen the repository in the container
+- build AMP on the target and start `amp-menu`
+- run a first pipeline and verify that the Pi-hosted web UI is reachable
+
+At the end of this guide, you should have AMP running on your desk on a Raspberry Pi 5, with the first pipeline launched and the web UI available at `http://raspberrypi.local:9999`.
+
 ## 0. Required devices
 For other possible hardware setups please check out the deep dive documentations.
 
@@ -114,3 +125,16 @@ After you have selected a pipeline once, you can rerun the last selection with:
 ## If you want the deeper guides
 
 Continue with the [main how-to guide](../deep-dives/index.md).
+
+## What should you have at the end of this document?
+
+By the end of this guide, you should have:
+
+- a prepared Raspberry Pi 5 host with the required packages
+- working SSH access from your development machine
+- a working Dev Container on the Pi
+- a successful build
+- at least one AMP pipeline started from `amp-menu`
+- the AMP web UI reachable at `http://raspberrypi.local:9999`
+
+Success looks like this: VS Code connects to the Pi, the container opens, the project builds, the pipeline starts, and the web UI is reachable from your browser.

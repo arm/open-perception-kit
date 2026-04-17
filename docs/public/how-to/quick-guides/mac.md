@@ -10,6 +10,17 @@ This is the shortest path from cloning the repository to running the first AMP p
 Use this page if you want the quickest first run.
 Use the other how-to pages if you want setup details, troubleshooting help, or deeper explanations.
 
+## What will you learn from this documentation?
+
+If you follow this page successfully, you will learn how to:
+
+- prepare a supported macOS host for AMP development
+- open the repository in the expected container workflow
+- build the project and start `amp-menu`
+- run the first pipeline and verify that the local web UI is reachable
+
+At the end of this guide, you should have AMP running on your desk on a macOS development machine, with the first pipeline launched and the web UI available at `http://localhost:9999`.
+
 ## 1. Install the host tools
 
 Install:
@@ -93,3 +104,15 @@ After you have selected a pipeline once, you can rerun the last selection with:
 ## If you want the deeper guides
 
 Continue with the [main how-to guide](../deep-dives/index.md).
+
+## What should you have at the end of this document?
+
+By the end of this guide, you should have:
+
+- a working Dev Container for AMP on macOS
+- a successful local build
+- `amp-menu` starting correctly
+- `01-full-onnx.json` running at least once
+- the AMP web UI reachable at `http://localhost:9999`
+
+Success looks like this: the container opens correctly, the build completes, the pipeline starts from `amp-menu`, and the browser can reach the AMP UI.

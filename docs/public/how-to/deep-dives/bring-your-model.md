@@ -7,6 +7,12 @@ sidebar_label: Bring your model
 
 This page describes the shortest practical path for bringing your own model into AMP with as little runtime-code change as possible.
 
+## What will you learn from this documentation?
+
+If you follow this page successfully, you will learn how to add a model to AMP by reusing the existing descriptor, opchain, and parser structure wherever possible.
+
+At the end of this page, you should have a model folder, a matching `model.json`, a working `opchain.json`, and a clear decision on whether an existing parser is enough or whether you need custom postprocessing.
+
 ## Supported model formats
 
 The codebase currently supports these runtime/model combinations:
@@ -173,3 +179,14 @@ If you need to go beyond that and change elements or core runtime behavior, the 
 If your model output does not match any built-in parser, the next step is custom postprocessing.
 
 That topic is covered separately in [Custom postprocessing](custom-postprocessing.md).
+
+## What should you have at the end of this document?
+
+By the end of this page, you should have:
+
+- a new or adapted model folder under `config/models/`
+- descriptor metadata that matches the real model contract
+- an `opchain.json` that points to the right inference backend and parser
+- a realistic answer to whether the model is low-friction in the current runtime
+
+Success looks like this: AMP can load the model, the pipeline runs, the selected parser matches the outputs, and the result appears correctly in the runtime.

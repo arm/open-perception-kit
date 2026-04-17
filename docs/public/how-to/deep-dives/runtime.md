@@ -7,6 +7,12 @@ sidebar_label: Runtime basics
 
 This page explains the practical runtime concepts you need when you want to run AMP with your own media or your own model files.
 
+## What will you learn from this documentation?
+
+If you follow this page successfully, you will learn how AMP uses pipelines, OpChains, and model descriptors together at runtime.
+
+At the end of this page, you should be able to tell where to change the media source, where to change model execution behavior, and what a successful runtime path looks like from input to rendered result.
+
 ## GStreamer basics in AMP
 
 AMP runs inside GStreamer pipelines.
@@ -139,3 +145,13 @@ If it does not match an existing postprocessor, you will usually need to add you
 - [How-To](index.md)
 - [Bring your model](bring-your-model.md)
 - [Structural basics](structural-basics.md)
+
+## What should you have at the end of this document?
+
+By the end of this page, you should have:
+
+- a working mental model of the difference between pipelines, OpChains, and models
+- a clear idea of where to change images, videos, cameras, or model descriptors
+- an understanding of the normal end-to-end runtime flow inside AMP
+
+Success looks like this: you can inspect a runtime issue or integration task and quickly decide whether the change belongs in a pipeline preset, an OpChain, or a model descriptor.
