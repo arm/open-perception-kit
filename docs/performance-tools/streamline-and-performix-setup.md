@@ -1,13 +1,10 @@
 
-# Performix and Streamline for Arm Performance Studio
+# Performix Quick Guide
 
-Performix is a standalone tool, while Streamline can be opened from the Arm Performance Studio interface.
+Performix is a standalone with which we can monitor performance metrics of our device.
 
 Download Peformix here:
 https://developer.arm.com/servers-and-cloud-computing/arm-performix
-
-Download Arm Performance Studio here:
-https://developer.arm.com/Tools%20and%20Software/Arm%20Performance%20Studio
 
 ---
 
@@ -100,46 +97,6 @@ The target must support Linux performance monitoring features:
 - Appropriate permissions (root or perf_event_paranoid = -1)
 
 Without these, data collection may fail or be incomplete.
-
----
-
-## Streamline SSH
-
-Streamline is a tool that lets you to do performance measurements and Streamline Annotations. 
-Streamline Annotations are marking points that can be placed in the source code to follow the code flow and measure the time consumed by operations.
-Streamline application is part of the Arm Performance Studio.
-
-![image](streamline-ssh.jpg)
-
-In Streamline you have to add a new SSH configuration:
-- Selecting SSH
-- Name it
-- Set host address (e.g. 127.0.0.1)
-- Set port (2222)
-- Set username: devgoblin
-- Set the path to your host-side private key
-- Set gatord destination (e.g. ~/)
-- Set gatord port: 8080
-
-Test connection button helps you to ensure that your configuration is valid.
-
----
-
-## Streamline exectuion
-
-After adding a connection and testing it you can setu up some measurement in the 'Configure capture' section.
-
-![image](streamline-configure-application.jpg)
-
-You can set up:
-- Command: the shell command that will be executed (the measured app itself) on the target
-- Working directory: Optional work folder on the target
-- User name: Alternate username to run the application as.
-- Stop at exit: Set if you want the measurement to end when the application exits.
-
-The 'Start capture' button now will execute the application (and gatord if required) on the target.
-
-![image](streamline-results.jpg)
 
 ---
 
