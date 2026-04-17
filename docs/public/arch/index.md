@@ -1,84 +1,77 @@
 ---
-slug: /corespec
+slug: /arch
 sidebar_position: 1
 sidebar_label: Overview
 ---
 
-```                                               
-▄████▄ ██▄  ▄██ █████▄   █ ██    ██  ██ ██ ▄█▀ 
-██▄▄██ ██ ▀▀ ██ ██▄▄█▀  █  ██    ██▄▄██ ████   
-██  ██ ██    ██ ██     █   ██████ ▀██▀  ██ ▀█▄ 
-```
+# Architecture overview
 
-## Arm Media Pipelines – Linux Vision Kit
-
-AMP/LVK defines the internal architecture and execution model of the
-GStreamer-based inference processing framework.
-
-The system enables reliable, modular, and extensible AI inference execution
-inside GStreamer pipelines, targeting containerized development and edge deployment.
+This section documents the current AMP Development Forge runtime layout,
+execution model, and main GStreamer elements.
 
 # 📚 Documentation Map
 
-## General Overview
+## General overview
 
 - [Generic Info](generic-info.md)
   High-level introduction and project scope.
 
-- [How-To](how-to.md)
-  How to open and start the project on PC or Raspberry Pi 5.
+- [Project overview](project-overview.md)
+  High-level purpose, scope, and goals.
 
-- [How-To Topo](how-to-topo.md)
-  Minimal Topo-based clone and deployment flow for AMP.
-
-- [Architecture](architectural-overview.md)  
+- [Architecture](architectural-overview.md)
   Architectural overview of the system.
 
-- [Containers](containers.md)  
-  Container runtime architecture and WebRTC integration model.
+- [Containers](containers.md)
+  Container runtime and development environment notes.
 
-- [Inference Engines](inference-engines.md)  
-  About the inference engines important for our project.
-  
-- [amp::Model](model.md)  
+- [Inference engines](inference-engines.md)
+  Runtime backend overview.
+
+- [amp::Model](model.md)
   The amp::Model object.
 
-- [Inference Process](engine-independent.md)  
+- [Inference process](engine-independent.md)
   The inference engine independent inference process.
 
-- [Types](types.md)  
+- [Types](types.md)
   Generic types.
 
-## Execution Engine
+## Execution engine
 
-- [Perception](perception.md)  
+- [Perception](perception.md)
   Perception is the persistent metadata container.
 
-- [Op system](op-system.md)  
+- [Op system](op-system.md)
   Local processing based on micro-pipelines.
 
-- [OpChain Context](op-chain-context.md)  
+- [OpChain Context](op-chain-context.md)
   Transient runtime data model and ownership rules.
 
-- [OpChain Example](op-chain-example.md)  
+- [OpChain Example](op-chain-example.md)
   The Op system in a simple example.
 
-- [Tensor Builder](tensor-builder.md)  
+- [Tensor Builder](tensor-builder.md)
   The input tensors are built by the tensor builders.
 
-- [Tensor Parser](tensor-parser.md)  
+- [Tensor Parser](tensor-parser.md)
   The output tensors are parsed by one of the tensor parsers.
 
 ## Elements
 
-- [ampinfer](ampinfer.md)  
+- [ampinfer](elements/ampinfer.md)
   Details of the inference element.
 
-- [amposd](amposd.md)  
+- [amposd](elements/amposd.md)
   Details of the drawing element.
 
-- [ampperformance](ampperformance.md)  
+- [ampperformance](elements/ampperformance.md)
   Details about the performance measurement system.
 
-- [ampsink](ampsink.md)  
+- [ampsink](elements/ampsink.md)
   Details about the WebRTC presentation system.
+
+## Supporting topics
+
+- [Streamline and Performix setup](streamline-and-performix-setup.md)
+  Notes for external profiling tools.

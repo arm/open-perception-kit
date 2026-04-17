@@ -8,7 +8,7 @@ set -euo pipefail
 IMAGE="ghcr.io/arm-debug/edge-ai-docs/local-development:v0.0.2"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-DOCS_CONTENT_DIR="$REPO_ROOT/docs/content"
+DOCS_CONTENT_DIR="$REPO_ROOT/docs/public"
 DOCS_STATIC_DIR="$REPO_ROOT/docs/static"
 
 if command -v podman > /dev/null 2>&1; then

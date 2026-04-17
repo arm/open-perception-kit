@@ -4,9 +4,9 @@ sidebar_label: Architecture
 ---
 
 # Architectural Overview
-## AMP/LVK Execution Model and GStreamer Integration
+## AMP execution model and GStreamer integration
 
-AMP/LVK is a GStreamer-centric inference execution framework, designed to run AI workloads in media pipelines.
+AMP Development Forge is a GStreamer-centric inference execution framework, designed to run AI workloads in media pipelines.
 GStreamer provides the media transport and scheduling, while the core execution model is independent and can run without GStreamer.
 In this architecture, GStreamer primarily feeds audio/video buffers into the system and carries results downstream as metadata.
 

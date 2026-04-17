@@ -25,7 +25,7 @@ Use this for your own test media.
 ### `docs/`
 This contains the project documentation.
 
-- `docs/docs/` contains the Markdown source.
+- `docs/public/` contains the Markdown source used by the current docs site.
 - `docs/static/` contains the images used by the docs.
 
 ### `scripts/`

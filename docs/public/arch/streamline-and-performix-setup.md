@@ -1,3 +1,7 @@
+---
+sidebar_position: 31
+sidebar_label: Streamline and Performix
+---
 
 # Performix Quick Guide
 
@@ -77,34 +81,11 @@ If SSH does not work:
 
 ---
 
-## gatrod
-
-The application 'gatord' is a tool that helps collecting information on the target and send it to the host-side tools.
-The arm64 and x86_64 versions are included in the repo /work/etc/gatord folder.
-
-Install hints: 
-
-```bash
-sudo install -m 755 /work/etc/gatord/ /usr/local/bin/gatord
-which gatord
-gatord --help | head
-```
-
-The target must support Linux performance monitoring features:
-
-- perf_event enabled in kernel (CONFIG_PERF_EVENTS)
-- /proc and /sys mounted
-- Appropriate permissions (root or perf_event_paranoid = -1)
-
-Without these, data collection may fail or be incomplete.
-
----
-
 ## Performix SSH
 
 In Performix the SSH setup is very similar.
 
-![image](performix-ssh.jpg)
+![Performix SSH setup](/img/performix-ssh.jpg)
 
 After clicking 'Add Target' you have to populate the form with information:
 - Host: 127.0.0.1 or the IP address of the target device
@@ -129,8 +110,8 @@ Now here is an example of setting up one that works:
 
 The 'Run Recipe' button executes the target applicaion and do the measurement.
 
-![image](performix-recipe.jpg)
+![Performix recipe setup](/img/performix-recipe.jpg)
 
 After running a recibe by clicking on 'Run Recipe' you will get the measurement results.
 
-![image](performix-results.jpg)
+![Performix results](/img/performix-results.jpg)

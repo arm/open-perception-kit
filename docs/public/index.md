@@ -1,0 +1,43 @@
+---
+slug: /
+sidebar_position: 1
+sidebar_label: Overview
+---
+
+# AMP Development Forge documentation
+
+This documentation is split into two main paths:
+
+- **How-to guides** for cloning, building, running, and integrating content
+- **Architecture docs** for runtime structure, execution flow, and implementation detail
+
+## Start with the path you need
+
+### Quick first run
+
+- [Windows/Linux quick guide](how-to/quick-guides/how-to-win-lin-quick-guide.md)
+- [macOS quick guide](how-to/quick-guides/how-to-mac-quick-guide.md)
+- [Raspberry Pi quick guide](how-to/quick-guides/how-to-rpi-quick-guide.md)
+
+### Fuller setup and usage
+
+- [Main how-to guide](how-to/deep-dives/how-to.md)
+- [Engineering starting point](how-to/deep-dives/how-to-engineering.md)
+- [Bring your model](how-to/deep-dives/how-to-bring-your-model.md)
+
+### Architecture and implementation detail
+
+- [Architecture index](arch/index.md)
+- [Architectural overview](arch/architectural-overview.md)
+- [ampinfer](arch/elements/ampinfer.md)
+- [amposd](arch/elements/amposd.md)
+- [ampperformance](arch/elements/ampperformance.md)
+- [ampsink](arch/elements/ampsink.md)
+
+## Documentation structure
+
+- [how-to](how-to) contains task-oriented user and integrator guides
+- [arch](arch) contains runtime, data-model, and element documentation
+
+Use the how-to pages when you want to get work done.
+Use the architecture pages when you want to understand or modify the implementation.

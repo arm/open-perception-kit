@@ -111,4 +111,6 @@ After you have selected a pipeline once, you can rerun the last selection with:
 ./tools/amp-menu -l
 ```
 
-## If you want the deeper guides check out our deep dive guide [deep dive guide](how-to.md)
+## If you want the deeper guides
+
+Continue with the [main how-to guide](../deep-dives/how-to.md).

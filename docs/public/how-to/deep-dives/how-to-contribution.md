@@ -80,6 +80,6 @@ If CI needs to be retriggered, add the `run-amp-ci` label. If it was already pre
 
 - model integration changes: update the matching files under `config/models/` and `config/opchains/`
 - pipeline changes: update the matching files under `config/pipelines/`
-- user-facing workflow changes: update the relevant docs under `docs/docs/corespec/`
-- C++ or GStreamer behavior changes: update the relevant docs under `docs/docs/corespec/`
+- user-facing workflow changes: update the relevant docs under `docs/public/how-to/`
+- C++ or GStreamer behavior changes: update the relevant docs under `docs/public/arch/`
 - contribution workflow changes: update `.github/CONTRIBUTING.md` and `.github/PULL_REQUEST_TEMPLATE.md`

@@ -92,7 +92,4 @@ After you have selected a pipeline once, you can rerun the last selection with:
 
 ## If you want the deeper guides
 
-- [How-To](how-to.md)
-- [Structural basics](how-to-structural-basics.md)
-- [Runtime basics](how-to-runtime.md)
-- [Bring your model](how-to-bring-your-model.md)
+Continue with the [main how-to guide](../deep-dives/how-to.md).

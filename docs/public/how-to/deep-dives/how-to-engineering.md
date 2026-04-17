@@ -18,12 +18,12 @@ Use it once you already understand the basic setup flow and want to continue int
 
 ## When you need deeper implementation detail
 
-- [ampinfer](ampinfer.md)
-- [amposd](amposd.md)
-- [ampperformance](ampperformance.md)
-- [ampsink](ampsink.md)
-- [Architectural overview](architectural-overview.md)
-- [Op system](op-system.md)
-- [OpChain Example](op-chain-example.md)
-- [amp::Model](model.md)
-- [Perception](perception.md)
+- [ampinfer](../../arch/elements/ampinfer.md)
+- [amposd](../../arch/elements/amposd.md)
+- [ampperformance](../../arch/elements/ampperformance.md)
+- [ampsink](../../arch/elements/ampsink.md)
+- [Architectural overview](../../arch/architectural-overview.md)
+- [Op system](../../arch/op-system.md)
+- [OpChain Example](../../arch/op-chain-example.md)
+- [amp::Model](../../arch/model.md)
+- [Perception](../../arch/perception.md)

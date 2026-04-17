@@ -1,8 +1,8 @@
 {
-  "label": "Core Specification",
-  "position": 4,
+  "label": "Documentation",
+  "position": 1,
   "link": {
     "type": "doc",
-    "id": "corespec/index"
+    "id": "index"
   }
 }

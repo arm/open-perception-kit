@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-SRC_DIR="/work/docs/content"
+SRC_DIR="/work/docs/public"
 OUT_DIR="/work/docs/html"
 
 echo "Building HTML docs..."

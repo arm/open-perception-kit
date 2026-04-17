@@ -59,6 +59,10 @@ Enables or disables OpChain execution.
 
 Declares expected input format.
 
+`infer-id` (string)
+
+Optional logical identifier used to tag the inference element instance in runtime metadata.
+
 ## Lifecycle
 
 `start()`
