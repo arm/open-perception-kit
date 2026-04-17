@@ -64,8 +64,16 @@ services:
       SONAR_HOST_URL: ${SONAR_HOST_URL}
       SONAR_TOKEN: ${SONAR_TOKEN}
       SONAR_BRANCH: ${SONAR_BRANCH}
+      SONAR_QUALITYGATE_WAIT: 
+      PR_KEY: ${PR_KEY}
+      PR_BRANCH: ${PR_BRANCH}
+      PR_BASE: ${PR_BASE} 
     command: |
       bash -c '
+        echo "PR_KEY=$PR_KEY" &&
+        echo "PR_BRANCH=$PR_BRANCH" &&
+        echo "PR_BASE=$PR_BASE" &&
+        echo "SONAR_QUALITYGATE_WAIT=$SONAR_QUALITYGATE_WAIT" &&
         .devcontainer/devsetup.sh &&
         .devcontainer/platform_init.sh amp-dev-base &&
         source /work/tools/lazer/.venv/bin/activate &&
