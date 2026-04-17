@@ -13,11 +13,8 @@ execution model, and main GStreamer elements.
 
 ## General overview
 
-- [Generic Info](generic-info.md)
-  High-level introduction and project scope.
-
 - [Project overview](project-overview.md)
-  High-level purpose, scope, and goals.
+  High-level introduction, purpose, scope, and goals.
 
 - [Architecture](architectural-overview.md)
   Architectural overview of the system.

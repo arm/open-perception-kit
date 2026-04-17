@@ -40,19 +40,6 @@ Each element can be placed into any existing GStreamer pipeline as a modular bui
 
 ---
 
-## Configuration Model
-
-All runtime setup is currently defined in JSON.
-
-JSON configuration is used to describe:
-
-- Which elements build up the micro-pipeline (OpChain)
-- Op attributes (models, thresholds, parsers, preprocessing settings)
-- Backend selection also configured via Ops
-- Model cascading
-
----
-
 ## Op System and Micro-Pipelines
 
 The internal processing model is based on an Op system.
@@ -69,6 +56,19 @@ This enables pipeline composition and model swapping without recompilation.
 The micro-pipelines are flexible enough to define non-inference tasks.
 Micro-pipelines can be distributed across different GStreamer elements or contained within a single element.
 Different inference engines can be used even within a single micro-pipeline.
+
+---
+
+## Configuration Model
+
+All runtime setup is currently defined in JSON.
+
+JSON configuration is used to describe:
+
+- Which elements build up the micro-pipeline (OpChain)
+- Op attributes (models, thresholds, parsers, preprocessing settings)
+- Backend selection also configured via Ops
+- Model cascading
 
 ---
 

@@ -1,9 +1,18 @@
 ---
-sidebar_position: 3
+sidebar_position: 2
 sidebar_label: Project Overview
 ---
 
 # Project Overview
+
+AMP Development Forge is a framework for building and running AI-enabled media workflows.
+
+At a high level, it combines:
+
+- GStreamer-based media pipeline integration
+- an Op-based execution model for preprocessing, inference, and postprocessing
+- structured `Perception` results that downstream elements can render, track, or publish
+
 
 ## Project Definition
 
@@ -13,7 +22,7 @@ At its core, the inference capability is independent from GStreamer. This means 
 
 In simple terms, this project is a software foundation for running AI-enabled media workflows in a consistent, modular, and maintainable way.
 
-### Project Objectives
+## Project Objectives
 
 The primary goal is to provide a clear and reusable foundation for media-based AI workflows. The project is intended to reduce setup effort, improve consistency between environments, and make it easier to run the same workflow many times with predictable behavior.
 
@@ -21,7 +30,7 @@ Another goal is to support practical development and delivery work. Teams should
 
 The project also aims to make results easier to consume. Outputs should be understandable for both development and operational use, so people can quickly interpret what the system produced and how it behaved.
 
-### Core Capabilities
+## Core Capabilities
 
 The package knows how to:
 
@@ -33,7 +42,7 @@ The package knows how to:
 
 From a user perspective, this means the package can act as the central execution layer for AI media flows. It can handle the progression from incoming data, through processing, to outputs that can be viewed, tracked, and evaluated as part of a larger system.
 
-### Scope and Limitations
+## Scope and Limitations
 
 The package is designed as an execution framework and should be used within clearly defined workflow boundaries. Output quality is directly dependent on input quality, model quality, and correct configuration; weak data or unsuitable models will lead to weak results.
 
