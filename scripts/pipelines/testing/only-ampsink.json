@@ -1,0 +1,10 @@
+{
+  "description": "Test the ampsink plugin with a simple pipeline that decodes a JPEG image and sends the output to the ampsink plugin.",
+  "pipeline": [
+    "filesrc location=/work/etc/images/katana.jpg !",
+    "jpegdec !",
+    "imagefreeze num-buffers=${NUM_FRAMES:-30} !",
+    "videoconvert ! video/x-raw,format=BGRA,framerate=30/1 !",
+    "ampsink name=sink"
+  ]
+}

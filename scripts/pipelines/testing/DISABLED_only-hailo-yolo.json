@@ -1,0 +1,11 @@
+{
+  "description": "Test the hailo yolo plugin with a simple pipeline that decodes a JPEG image, runs inference on the yolov5s model, and sends the output to a fakesink.",
+  "pipeline": [
+    "filesrc location=/work/etc/images/katana.jpg !",
+    "jpegdec !",
+    "imagefreeze num-buffers=${NUM_FRAMES:-30} !",
+    "videoconvert ! video/x-raw,format=BGRA,framerate=30/1 !",
+    "ampinfer opchain-path=/work/etc/models/yolo-hailo/opchain-hef.json active=true !",
+    "fakesink sync=true"
+  ]
+}

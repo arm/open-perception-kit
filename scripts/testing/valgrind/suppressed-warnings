@@ -1,0 +1,158 @@
+# Valgrind suppressions for common third-party GLib/GStreamer noise.
+# Keep this file conservative: suppress only framework allocations that are
+# process-lifetime singletons or plugin-loader caches, not project code.
+
+{
+   glib_reachable_singletons
+   Memcheck:Leak
+   match-leak-kinds: reachable,possible
+   ...
+   obj:*/libglib-2.0.so*
+}
+
+{
+   gobject_type_system_singletons
+   Memcheck:Leak
+   match-leak-kinds: reachable,possible
+   ...
+   obj:*/libgobject-2.0.so*
+}
+
+{
+   gstreamer_registry_or_plugin_loader_reachable
+   Memcheck:Leak
+   match-leak-kinds: reachable,possible
+   ...
+   obj:*/libgstreamer-1.0.so*
+}
+
+{
+   gstbase_plugin_reachable
+   Memcheck:Leak
+   match-leak-kinds: reachable,possible
+   ...
+   obj:*/libgstbase-1.0.so*
+}
+
+{
+   gmodule_loader_reachable
+   Memcheck:Leak
+   match-leak-kinds: reachable,possible
+   ...
+   obj:*/libgmodule-2.0.so*
+}
+
+{
+   onnxruntime_thread_start_possibly_lost
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   ...
+   obj:*/libonnxruntime.so*
+   ...
+   fun:start_thread
+   fun:clone
+}
+
+{
+   onnxruntime_pthread_once_small_definite
+   Memcheck:Leak
+   match-leak-kinds: definite,possible,reachable
+   fun:calloc
+   ...
+   obj:*/libonnxruntime.so*
+   ...
+   fun:__pthread_once_slow.isra.0
+   fun:pthread_once@@GLIBC_2.34
+}
+
+{
+   onnxruntime_thread_atexit_reachable
+   Memcheck:Leak
+   match-leak-kinds: reachable,possible
+   fun:calloc
+   fun:__cxa_thread_atexit_impl
+   fun:__cxa_thread_atexit
+   ...
+   obj:*/libonnxruntime.so*
+}
+
+{
+   gstreamer_buffer_pool_shutdown_definite
+   Memcheck:Leak
+   match-leak-kinds: definite,possible,reachable
+   fun:malloc
+   fun:g_malloc
+   ...
+   obj:*/libgstreamer-1.0.so*
+   fun:gst_buffer_new_allocate
+   ...
+   fun:gst_buffer_pool_acquire_buffer
+   ...
+   obj:*/libgstbase-1.0.so*
+}
+
+{
+   glib_gstreamer_parse_indirect
+   Memcheck:Leak
+   match-leak-kinds: indirect
+   ...
+   obj:*/libgstreamer-1.0.so*
+   ...
+   obj:*/libgobject-2.0.so*
+   ...
+   fun:g_option_context_parse
+}
+
+{
+   glib_init_definitely_lost_16k
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:g_malloc
+   obj:*/libglib-2.0.so*
+   ...
+   fun:call_init
+   fun:_dl_init
+}
+
+{
+   orc_jit_codecache_reachable
+   Memcheck:Leak
+   match-leak-kinds: reachable,possible
+   ...
+   obj:*/liborc-0.4.so*
+}
+
+{
+   gstvideo_orc_compile_reachable
+   Memcheck:Leak
+   match-leak-kinds: reachable,possible
+   ...
+   obj:*/libgstvideo-1.0.so*
+}
+
+{
+   gst_videoconvertscale_reachable
+   Memcheck:Leak
+   match-leak-kinds: reachable,possible
+   ...
+   obj:*/libgstvideoconvertscale.so*
+}
+
+{
+   ld_loader_dlopen_reachable
+   Memcheck:Leak
+   match-leak-kinds: reachable,possible
+   ...
+   obj:*/ld-linux-*.so*
+   fun:dlopen_doit
+}
+{
+   ld_loader_dlopen_reachable_generic_ld
+   Memcheck:Leak
+   match-leak-kinds: reachable,possible
+   ...
+   obj:*/ld-*.so*
+   fun:dlopen_doit
+}

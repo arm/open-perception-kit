@@ -97,3 +97,8 @@ scripts/pipelines/.last_selected_pipeline_id
 
 docs/html
 todo.md
+
+# -------------------------
+# Valgrind logs (might not only be files with .log extension, so the whole directory is ignored)
+# -------------------------
+scripts/testing/valgrind/logs
