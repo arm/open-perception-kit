@@ -101,7 +101,7 @@ ENV GST_DEBUG=2 \
   GST_PLUGIN_PATH=/work/development/build/meson-out
 
 ENV LD_LIBRARY_PATH=""
-ENV LD_LIBRARY_PATH="/opt/amp-deps/onnxruntime/lib:${LD_LIBRARY_PATH:-}"
+ENV LD_LIBRARY_PATH=/opt/amp-deps/onnxruntime/lib
 
 ######################################################################
 ################# Minimal container with docs and CI #################
