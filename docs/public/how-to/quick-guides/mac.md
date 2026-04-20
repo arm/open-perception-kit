@@ -41,6 +41,8 @@ eval "$(ssh-agent -s)"
 ssh-add <your-private-key>
 ```
 
+> Expected result: Git operations over SSH should work without prompting for a password on every repository access.
+
 ## 3. Clone the repository
 
 ```bash
@@ -48,15 +50,23 @@ git clone git@github.com:Arm-Debug/amp-dev-forge.git
 cd amp-dev-forge
 ```
 
+> Expected result: the `amp-dev-forge` folder exists locally and VS Code can open it.
+
 ## 4. Open the repository in VS Code
 
-Open the cloned folder in VS Code.
+Open the cloned folder in VS Code. Either in the UI or with the following command:
+
+```bash
+code .
+```
 
 Then run:
 - "Reopen in Container"
 - choose "PC amp-dev-forge"
 
 Wait until the Dev Container finishes building.
+
+> Expected result: VS Code reconnects into the container and the project opens with the container environment active.
 
 ## 5. Build the project
 
@@ -70,6 +80,8 @@ Or build in the container terminal:
 ./scripts/build-elements.sh debug false
 ```
 
+> Expected result: the build completes successfully and `tools/amp-menu` is available.
+
 ## 6. Start AMP
 
 Run:
@@ -78,6 +90,12 @@ Run:
 ./tools/amp-menu
 ```
 
+Stop:
+
+To stop an application that was not started from a VS Code launch configuration, press Ctrl+C in the console.
+
+> Expected result: `amp-menu` starts and shows the pipeline selection menu.
+
 ## 7. Run the first pipeline
 
 In `amp-menu`, select:
@@ -85,7 +103,11 @@ In `amp-menu`, select:
 
 This is the shortest recommended first pipeline.
 
+> Expected result: the selected pipeline launches without errors and AMP begins running.
+
 ## 8. Open the web UI
+
+> Disclaimer: Microsoft Edge is the suggested browser for the AMP web UI. If the image is not visible in the browser, open `edge://flags/`, find `#enable-webrtc-hide-local-ips-with-mdns`, and disable it.
 
 Open:
 - http://localhost:9999
@@ -93,13 +115,17 @@ Open:
 Documentation is available at:
 - http://localhost:8080
 
+> Expected result: the AMP UI opens in your browser and the documentation endpoint is also reachable.
+
 ## 9. Run it again later without the menu
 
-After you have selected a pipeline once, you can rerun the last selection with:
+After you have selected a pipeline once, you can rerun the last selection with the -l (latest) argument:
 
 ```bash
 ./tools/amp-menu -l
 ```
+
+> Expected result: AMP starts the most recently selected pipeline directly without showing the menu.
 
 ## If you want the deeper guides
 

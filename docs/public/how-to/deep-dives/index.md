@@ -128,7 +128,8 @@ The project is meant to run inside a container either as a devcontainer on your 
 
 ### Build AMP
 - **00 Build Project**: Builds all elements (default).
-  - You will be prompted to choose `debug` or `release`. Use `debug` if unsure.
+   - Before build, a popup should appear.
+   - You will be prompted to choose `debug` or `release`. Use `debug` if unsure.
 - **01 Clean Project**: Cleans build artifacts.
 - **02 Build Tests**: Builds with tests enabled.
 - **03 Run Tests**: Runs all tests.
@@ -146,6 +147,8 @@ After a successful build, `amp-menu` will be created in the `tools` folder. This
 ```bash
 ./tools/amp-menu -l
 ```
+At the moment, pipeline execution is fully synchronous end to end. An asynchronous execution flow is planned for a later update, but it is not available yet.
+
 To stop an application that was not started from a VS Code launch configuration, press Ctrl+C in the console.
 
 **First-time users:**  
@@ -176,6 +179,8 @@ Each pipeline's default source is an image, and the default sink is the `ampsink
 ## Published Endpoints
 
 Open a new terminal in the Dev Container to see the available endpoints. When in doubt, the following endpoints apply.
+
+> Disclaimer: Microsoft Edge is the suggested browser for the AMP web UI. If the image is not visible in the browser, open `edge://flags/`, find `#enable-webrtc-hide-local-ips-with-mdns`, and disable it.
 
 - [Raspberry AMP Web UI](http://raspberrypi.local:9999)
 - [Raspberry AMP Documentation](http://raspberrypi.local:8080)

@@ -28,6 +28,8 @@ For other possible hardware setups please check out the deep dive documentations
 - [AI HAT+](https://www.raspberrypi.com/products/ai-hat/)
 - [Camera Module v3](https://www.raspberrypi.com/products/camera-module-3/)
 
+> Expected result: you have the minimum supported Raspberry Pi hardware in place for the quick-start path.
+
 ## 1. Prepare the Raspberry Pi host
 
 On the Raspberry Pi host, install the main packages:
@@ -59,6 +61,8 @@ If needed, temporarily enable password authentication in `/etc/ssh/sshd_config`:
 PasswordAuthentication yes
 ```
 
+> Expected result: you can connect to the Raspberry Pi from your development machine over SSH.
+
 ## 3. Clone the repository on the Raspberry Pi
 
 After SSH access is working, clone the repository on the Raspberry Pi:
@@ -67,6 +71,8 @@ After SSH access is working, clone the repository on the Raspberry Pi:
 git clone git@github.com:Arm-Debug/amp-dev-forge.git
 cd amp-dev-forge
 ```
+
+> Expected result: the repository is present on the Raspberry Pi and ready to be opened remotely from VS Code.
 
 ## 4. Open the Raspberry Pi in VS Code
 
@@ -77,6 +83,8 @@ From your development machine:
 - choose "RPI5 amp-dev-forge"
 
 Wait until the Dev Container finishes building.
+
+> Expected result: VS Code reconnects into the Raspberry Pi container and the project opens with the container environment active.
 
 ## 5. Build the project
 
@@ -90,6 +98,8 @@ Or build in the container terminal:
 ./scripts/build-elements.sh debug false
 ```
 
+> Expected result: the build completes successfully and `tools/amp-menu` is available on the Raspberry Pi.
+
 ## 6. Start AMP
 
 Run:
@@ -97,6 +107,13 @@ Run:
 ```bash
 ./tools/amp-menu
 ```
+
+Stop:
+
+To stop an application that was not started from a VS Code launch configuration, press Ctrl+C in the console.
+
+> Expected result: `amp-menu` starts and shows the pipeline selection menu.
+
 
 ## 7. Run the first pipeline
 
@@ -106,7 +123,11 @@ For the shortest first run, select:
 If you specifically want the camera + Hailo path after that, use:
 - `02-full-onnx-hailo.json`
 
+> Expected result: the selected pipeline launches without errors and AMP begins running on the Raspberry Pi.
+
 ## 8. Open the web UI
+
+> Disclaimer: Microsoft Edge is the suggested browser for the AMP web UI. If the image is not visible in the browser, open `edge://flags/`, find `#enable-webrtc-hide-local-ips-with-mdns`, and disable it.
 
 Open:
 - http://raspberrypi.local:9999
@@ -114,13 +135,17 @@ Open:
 Documentation is available at:
 - http://raspberrypi.local:8080
 
+> Expected result: the AMP UI opens from another machine on the network and the documentation endpoint is also reachable.
+
 ## 9. Run it again later without the menu
 
-After you have selected a pipeline once, you can rerun the last selection with:
+After you have selected a pipeline once, you can rerun the last selection with the -l (latest) argument:
 
 ```bash
 ./tools/amp-menu -l
 ```
+
+> Expected result: AMP starts the most recently selected pipeline directly without showing the menu.
 
 ## If you want the deeper guides
 
