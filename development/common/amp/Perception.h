@@ -136,6 +136,12 @@ struct Perception {
         // "trackTrace"
         std::string contentType;
 
+        // Optional OSD/rendering hint for the layer.
+        // Examples:
+        // "overlay"
+        // "backgroundReplacement"
+        std::string compositingMode;
+
         std::vector<Perception::Detection> detections;
     };
 

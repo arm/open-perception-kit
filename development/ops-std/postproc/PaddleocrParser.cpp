@@ -62,5 +62,6 @@ amp::Result<void> PaddleOcrDetectionParser::parse(const amp::TensorParser::Input
     }
 
     detectionResult.contentType = "segmentation";
+    detectionResult.compositingMode = "overlay";
     return {};
 }

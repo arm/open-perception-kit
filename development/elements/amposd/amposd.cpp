@@ -655,9 +655,11 @@ static void gst_amp_osd_process_layer(GstAmpOsd *self,
                                       gint imgStride,
                                       float imgWidth,
                                       float imgHeight,
-                                      [[maybe_unused]] Osd::Layers_t &layers,
+                                      Osd::Layers_t &layers,
                                       const amp::Perception::Layer &layer) {
     if (layer.contentType == "segmentation") {
+        const bool useBackgroundReplacement = layer.compositingMode == "backgroundReplacement";
+
         for (const auto &det : layer.detections) {
             const auto *sm = std::get_if<amp::Perception::SegmentationMap>(&det);
             if (sm == nullptr || sm->bitmap.empty() || sm->bitmap.getWidth() == 0U ||
@@ -665,16 +667,16 @@ static void gst_amp_osd_process_layer(GstAmpOsd *self,
                 continue;
             }
 
-            replaceBackground(imgData,
-                              static_cast<gint>(imgWidth),
-                              static_cast<gint>(imgHeight),
-                              imgStride,
-                              sm->bitmap,
-                              self->bgImage);
-
-            // Keep this available if you later want a visible segmentation overlay in addition
-            // to background replacement.
-            // layers.push_back(drawSegmentationLayer(self, imgWidth, imgHeight, sm->bitmap));
+            if (useBackgroundReplacement) {
+                replaceBackground(imgData,
+                                  static_cast<gint>(imgWidth),
+                                  static_cast<gint>(imgHeight),
+                                  imgStride,
+                                  sm->bitmap,
+                                  self->bgImage);
+            } else {
+                layers.push_back(drawSegmentationLayer(self, imgWidth, imgHeight, sm->bitmap));
+            }
         }
     }
 }

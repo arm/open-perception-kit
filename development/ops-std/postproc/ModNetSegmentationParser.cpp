@@ -9,6 +9,7 @@ namespace amp {
 
 Result<void> ModNetSegmentationParser::parse(const Input &input, Perception::Layer &layer) {
     layer.contentType = "segmentation";
+    layer.compositingMode = "backgroundReplacement";
 
     const float thresholdLow = (float)input.attributes.getDoubleOrDefault("thresholdLow", 0.2f);
     const float thresholdHigh = (float)input.attributes.getDoubleOrDefault("thresholdHigh", 0.8f);
