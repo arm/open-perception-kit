@@ -1,0 +1,129 @@
+(hailo_virtualenv) hailo@e142420:~/amp/models/yolov11$ hailo parser onnx yolo11n-fp32-320.onnx --tensor-shapes [1,3,320,320]
+[info] Current Time: 16:41:10, 04/20/26
+[info] CPU: Architecture: x86_64, Model: Intel(R) Xeon(R) w7-3465X, Number Of Cores: 56, Utilization: 1.2%
+[info] Memory: Total: 125GB, Available: 119GB
+[info] System info: OS: Linux, Kernel: 6.8.0-107-generic
+[info] Hailo DFC Version: 5.3.0
+[info] HailoRT Version: 5.3.0
+[info] PCIe: No Hailo PCIe device was found
+[info] Running `hailo parser onnx yolo11n-fp32-320.onnx --tensor-shapes [1,3,320,320]`
+[info] No GPU chosen, selecting least used GPU. To select GPU explicitly please use CUDA_VISIBLE_DEVICES environment variable.
+[info] Selected GPU: 0
+[info] Translation started on ONNX model yolo11n-fp32-320
+[info] Restored ONNX model yolo11n-fp32-320 (completion time: 00:00:00.05)
+[info] Extracted ONNXRuntime meta-data for Hailo model (completion time: 00:00:00.18)
+[info] Simplified ONNX model for a parsing retry attempt (completion time: 00:00:01.28)
+[info] Saved simplified ONNX to: yolo11n-fp32-320.sim.onnx, will be used for parsing retry.
+[warning] ONNX shape inference failed: Unsupported dynamic shape([0, 3, 0, 0]) found on input node images. Please use net_input_shapes, see documentation for additional info.
+Traceback (most recent call last):
+  File "/local/workspace/hailo_virtualenv/lib/python3.10/site-packages/hailo_sdk_client/sdk_backend/parser/parser.py", line 252, in translate_onnx_model
+    parsing_results = self._parse_onnx_model_to_hn(
+  File "/local/workspace/hailo_virtualenv/lib/python3.10/site-packages/hailo_sdk_client/sdk_backend/parser/parser.py", line 328, in _parse_onnx_model_to_hn
+    return self.parse_model_to_hn(
+  File "/local/workspace/hailo_virtualenv/lib/python3.10/site-packages/hailo_sdk_client/sdk_backend/parser/parser.py", line 427, in parse_model_to_hn
+    fuser = HailoNNFuser(converter.convert_model(), net_name, converter.end_node_names)
+  File "/local/workspace/hailo_virtualenv/lib/python3.10/site-packages/hailo_sdk_client/model_translator/translator.py", line 92, in convert_model
+    self._create_layers()
+  File "/local/workspace/hailo_virtualenv/lib/python3.10/site-packages/hailo_sdk_client/model_translator/edge_nn_translator.py", line 39, in _create_layers
+    self._add_direct_layers()
+  File "/local/workspace/hailo_virtualenv/lib/python3.10/site-packages/hailo_sdk_client/model_translator/edge_nn_translator.py", line 162, in _add_direct_layers
+    raise ParsingWithRecommendationException(
+hailo_sdk_client.model_translator.exceptions.ParsingWithRecommendationException: Parsing failed. The errors found in the graph are:
+ UnsupportedShuffleLayerError in op /model.23/dfl/Transpose: Failed to determine type of layer to create in node /model.23/dfl/Transpose
+ UnsupportedShuffleLayerError in op /model.23/dfl/Reshape_1: Failed to determine type of layer to create in node /model.23/dfl/Reshape_1
+ UnsupportedConcatLayerError in op /model.23/Concat_24: Unsupported concat over axis batch
+ UnsupportedShuffleLayerError in op /model.10/m/m.0/attn/Reshape_2: Failed to determine type of layer to create in node /model.10/m/m.0/attn/Reshape_2
+ UnsupportedShuffleLayerError in op /model.10/m/m.0/attn/Reshape_1: Failed to determine type of layer to create in node /model.10/m/m.0/attn/Reshape_1
+Please try to parse the model again, using these end node names: /model.4/cv2/act/Mul, /model.10/cv1/act/Mul, /model.6/cv2/act/Mul
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/local/workspace/hailo_virtualenv/lib/python3.10/site-packages/hailo_sdk_client/tools/parser_cli.py", line 220, in run
+    self._parse(net_name, args, tensor_shapes)
+  File "/local/workspace/hailo_virtualenv/lib/python3.10/site-packages/hailo_sdk_client/tools/parser_cli.py", line 306, in _parse
+    self.runner.translate_onnx_model(
+  File "/local/workspace/hailo_virtualenv/lib/python3.10/site-packages/hailo_sdk_common/states/states.py", line 16, in wrapped_func
+    return func(self, *args, **kwargs)
+  File "/local/workspace/hailo_virtualenv/lib/python3.10/site-packages/hailo_sdk_client/runner/client_runner.py", line 1364, in translate_onnx_model
+    parser.translate_onnx_model(
+  File "/local/workspace/hailo_virtualenv/lib/python3.10/site-packages/hailo_sdk_client/sdk_backend/parser/parser.py", line 288, in translate_onnx_model
+    parsing_results = self._parse_onnx_model_to_hn(
+  File "/local/workspace/hailo_virtualenv/lib/python3.10/site-packages/hailo_sdk_client/sdk_backend/parser/parser.py", line 328, in _parse_onnx_model_to_hn
+    return self.parse_model_to_hn(
+  File "/local/workspace/hailo_virtualenv/lib/python3.10/site-packages/hailo_sdk_client/sdk_backend/parser/parser.py", line 427, in parse_model_to_hn
+    fuser = HailoNNFuser(converter.convert_model(), net_name, converter.end_node_names)
+  File "/local/workspace/hailo_virtualenv/lib/python3.10/site-packages/hailo_sdk_client/model_translator/translator.py", line 92, in convert_model
+    self._create_layers()
+  File "/local/workspace/hailo_virtualenv/lib/python3.10/site-packages/hailo_sdk_client/model_translator/edge_nn_translator.py", line 37, in _create_layers
+    self._add_input_layers()
+  File "/local/workspace/hailo_virtualenv/lib/python3.10/site-packages/hailo_sdk_client/model_translator/edge_nn_translator.py", line 72, in _add_input_layers
+    input_shapes = vertex.get_input_layer_shapes()
+  File "/local/workspace/hailo_virtualenv/lib/python3.10/site-packages/hailo_sdk_client/model_translator/onnx_translator/onnx_graph.py", line 7036, in get_input_layer_shapes
+    raise UnsupportedInputShapesError(
+hailo_sdk_client.model_translator.exceptions.UnsupportedInputShapesError: ('Unsupported dynamic shape found on input node images, consider using start_node_names + net_input_shapes arguments when calling translator, e.g. runner.translate_onnx_model(..., start_node_names=[images], net_input_shapes=[0, 3, 224, 224])', '[0, 3, 224, 224]')
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/local/workspace/hailo_virtualenv/bin/hailo", line 8, in <module>
+    sys.exit(main())
+  File "/local/workspace/hailo_virtualenv/lib/python3.10/site-packages/hailo_sdk_client/tools/cmd_utils/main.py", line 106, in main
+    ret_val = client_command_runner.run()
+  File "/local/workspace/hailo_virtualenv/lib/python3.10/site-packages/hailo_sdk_client/tools/cmd_utils/base_utils.py", line 68, in run
+    return self._run(argv)
+  File "/local/workspace/hailo_virtualenv/lib/python3.10/site-packages/hailo_sdk_client/tools/cmd_utils/base_utils.py", line 98, in _run
+    return args.func(args)
+  File "/local/workspace/hailo_virtualenv/lib/python3.10/site-packages/hailo_sdk_client/tools/parser_cli.py", line 241, in run
+    raise ParserCLIException(f"Could not parse the model due to dynamic shapes. {msg}")
+hailo_sdk_client.tools.parser_cli.ParserCLIException: Could not parse the model due to dynamic shapes. Please try to parse the model again, using: --tensor-shapes,
+ e.g. hailo parser onnx yolo11n-fp32-320.onnx --tensor-shapes [1,3,320,320] --tensor-shapes [0,3,224,224]
+^[[A(hailo_virtualenv) hailo@e142420:~/amp/models/yolovhailo parser onnx --help
+[info] Current Time: 16:41:28, 04/20/26
+[info] CPU: Architecture: x86_64, Model: Intel(R) Xeon(R) w7-3465X, Number Of Cores: 56, Utilization: 1.0%
+[info] Memory: Total: 125GB, Available: 119GB
+[info] System info: OS: Linux, Kernel: 6.8.0-107-generic
+[info] Hailo DFC Version: 5.3.0
+[info] HailoRT Version: 5.3.0
+[info] PCIe: No Hailo PCIe device was found
+[info] Running `hailo parser onnx --help`
+[info] No GPU chosen, selecting least used GPU. To select GPU explicitly please use CUDA_VISIBLE_DEVICES environment variable.
+[info] Selected GPU: 0
+usage: hailo parser onnx [-h] [--net-name NET_NAME] [--har-path HAR_PATH] [--start-node-names START_NODE_NAMES [START_NODE_NAMES ...]]
+                         [--end-node-names END_NODE_NAMES [END_NODE_NAMES ...]] [--tensor-shapes TENSOR_SHAPES [TENSOR_SHAPES ...]]
+                         [--hw-arch {hailo15h,hailo15m,hailo15l,hailo10h,hailo10p}] [-y] [--parsing-report-path PARSING_REPORT_PATH]
+                         [--augmented-path AUGMENTED_PATH] [--disable-rt-metadata-extraction] [--disable-onnx-simplifier]
+                         [--input-format INPUT_FORMAT [INPUT_FORMAT ...]]
+                         model_path
+
+positional arguments:
+  model_path            Path to the .onnx model file
+
+options:
+  -h, --help            show this help message and exit
+  --net-name NET_NAME   Name of the new Hailo network to generate
+  --har-path HAR_PATH   Path to the new HAR (defaults to net-name)
+  --start-node-names START_NODE_NAMES [START_NODE_NAMES ...]
+                        List of names of the first ONNX nodes to parse. Example: --start-node-names <start_node_name1> <start_node_name2> ...
+  --end-node-names END_NODE_NAMES [END_NODE_NAMES ...]
+                        List of ONNX nodes, where parsing stops after all of them are parsed. The order determines the order of the outputs.
+                        Example: --end-node-names <end_node_name1> <end_node_name2> ...
+  --tensor-shapes TENSOR_SHAPES [TENSOR_SHAPES ...]
+                        List of start nodes and their shapes(<node_name>=<shape>), or a single shape for single input networks.
+  --hw-arch {hailo15h,hailo15m,hailo15l,hailo10h,hailo10p}
+                        Hardware architecture to be used
+  -y                    Automatic yes to prompts. Assume "yes" as an answer to all parser recommendations and run non-interactively.
+  --parsing-report-path PARSING_REPORT_PATH
+                        File path to save the parsing report (saved only when provided)
+  --augmented-path AUGMENTED_PATH
+                        Path to save the augmented.onnx file
+  --disable-rt-metadata-extraction
+                        Disable ONNX metadata extraction. When set, the har-onnx-rt cannot be used.
+  --disable-onnx-simplifier
+                        Disable ONNX simplifier automatic usage during parsing.
+  --input-format INPUT_FORMAT [INPUT_FORMAT ...]
+                        List of start nodes and their format(<node_name>=<format>), or a single format for single input networks. Formats
+                        should be written by their initials, for example NCHW (batch, channels, height, width), NGC (batch, groups,
+                        channels).
+(hailo_virtualenv) hailo@e142420:~/amp/models/yolov11$ ^C
+(hailo_virtualenv) hailo@e142420:~/amp/models/yolov11$ 
