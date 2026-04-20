@@ -63,17 +63,36 @@ web_server_enabled = soup_dep.found() and json_dep.found()
 # -------- ONNX
 fs = import('fs')
 
-onnx_root = '/opt/amp-deps/onnxruntime'
-if not (fs.is_dir(onnx_root / 'include') and fs.is_dir(onnx_root / 'lib'))
-  error('ONNX Runtime not found. Expected include/ and lib/ under ' + onnx_root)
+onnx_root = ''
+onnx_candidates = []
+
+onnx_root_env = run_command('sh', '-c', 'printf %s "$AMP_ONNXRUNTIME_ROOT"', check: false).stdout().strip()
+if onnx_root_env != ''
+  onnx_candidates += [onnx_root_env]
+endif
+
+onnx_candidates += [
+  '/opt/amp-deps/onnxruntime',
+  meson.project_source_root() / '../deps/onnxruntime',
+  meson.project_source_root() / '../onnxruntime-linux-aarch64-1.18.1',
+]
+
+foreach candidate : onnx_candidates
+  if fs.is_dir(candidate / 'include') and fs.is_dir(candidate / 'lib')
+    onnx_root = candidate
+    break
+  endif
+endforeach
+
+if onnx_root == ''
+  error('ONNX Runtime not found. Set AMP_ONNXRUNTIME_ROOT or provide include/ and lib/ under one of: ' + ', '.join(onnx_candidates))
 endif
 
 message('Using ONNX Runtime from: ' + onnx_root)
 
-onnx_include = include_directories(onnx_root / 'include')
 onnx_libdir  = onnx_root / 'lib'
 onnx_dep = declare_dependency(
-  include_directories: onnx_include,
+  compile_args: ['-I' + (onnx_root / 'include')],
   link_args: ['-L' + onnx_libdir, '-lonnxruntime', '-Wl,--no-undefined']
 )
 
