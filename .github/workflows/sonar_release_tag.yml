@@ -1,0 +1,49 @@
+name: Sonar on Release
+on:
+  push:
+    tags:
+      - "release/*"
+
+jobs:
+  sonar-release:
+    name: Run Sonar analysis when Release tag is pushed
+    runs-on: self-hosted-ubuntu-latest-x64
+
+    if: |
+        (github.event.pull_request.draft == false) ||
+        (github.event_name == 'pull_request' && github.event.action == 'labeled' && contains(github.event.label.name, 'run-amp-ci'))
+
+    env:
+      DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
+
+    steps:
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
+
+      - name: Checkout tagged commit
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Derive tag metadata
+        shell: bash
+        run: |
+          echo "TAG_NAME=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          echo "SONAR_RELEASE_BRANCH=tags/${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          echo "SONAR_PROJECT_VERSION=${GITHUB_REF_NAME#release/}" >> "$GITHUB_ENV"
+
+      - name: Build docker image 
+        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build amp-sonar-check
+          
+      - name: Run SonarQube release analysis
+        run: docker compose -f "${{ env.DOCKER_COMPOSE_FILE }}" run --rm amp-sonar-check
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_BRANCH: ${{ env.SONAR_RELEASE_BRANCH }}
+          SONAR_PROJECT_VERSION: ${{ env.SONAR_PROJECT_VERSION }}
+          SONAR_QUALITYGATE_WAIT: "true"
