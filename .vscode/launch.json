@@ -3,12 +3,15 @@
     "configurations": [
         {
             "name": "AMP Debug",
-            "preLaunchTask": "00 Build Project",
+            "preLaunchTask": "99 Build for debugging",
             "type": "cppdbg",
             "request": "launch",
             "program": "/work/scripts/amp-menu",
             "args": [
-                "-l"
+                "-l",
+                //"-f",
+                //"30",
+                //"/work/scripts/pipelines/testing/only-ampsink.json",
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

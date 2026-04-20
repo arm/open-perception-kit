@@ -105,4 +105,7 @@ todo.md
 .scannerwork
 coverage.xml
 
-
+# -------------------------
+# Valgrind logs (might not only be files with .log extension, so the whole directory is ignored)
+# -------------------------
+scripts/testing/valgrind/logs

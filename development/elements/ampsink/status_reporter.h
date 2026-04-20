@@ -5,6 +5,7 @@
 #ifndef __STATUS_REPORTER_H__
 #define __STATUS_REPORTER_H__
 
+#include <functional>
 #include <nlohmann/json.hpp>
 
 class StatusReporter {
