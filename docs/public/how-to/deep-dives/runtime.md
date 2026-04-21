@@ -112,6 +112,8 @@ imagefreeze !
 videoconvert ! video/x-raw,format=BGRA !
 ```
 
+Suggested path for custom image is under `data/images/` folder.
+
 ### Custom video
 
 For a video file, use a file source with decode, for example:
@@ -121,6 +123,8 @@ filesrc location=/work/data/videos/my-video.mp4 !
 decodebin name=dec
 dec. ! queue ! videoconvert ! videoscale ! video/x-raw,format=BGRA !
 ```
+
+Suggested path for custom image is under `data/videos/` folder.
 
 ### Custom camera
 

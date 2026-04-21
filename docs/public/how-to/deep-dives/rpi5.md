@@ -21,6 +21,7 @@ In order to run the project the following components are needed:
 	- The 8GB version should work as well but it's not tested at the moment.
 - [AI HAT+](https://www.raspberrypi.com/products/ai-hat/)
 	- AI Hat+ 2 will work soon but the compilet Hailo 8 models are not compatible out of the box with the new device.
+	- There are some Hailo10 compatible models in the repository, but the path is not tested throughly, so may not work as expected.
 - USB or CSI camera
 	- [Camera Module v3](https://www.raspberrypi.com/products/camera-module-3/)
 	- USB camera (project tested with Lenovo C920 Pro)

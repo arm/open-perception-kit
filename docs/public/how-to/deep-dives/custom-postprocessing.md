@@ -25,6 +25,8 @@ In this codebase, the part that most often differs from model to model is postpr
 
 At that point, the place you usually need to extend is `development/ops-std/postproc/`, together with the parser selection inside `GenericPostprocessOp`.
 
+That is also why custom postprocessing is the default extension path before any deeper runtime work. If the model already runs and only the meaning of the outputs is missing, the intended interface is the parser layer plus the matching `opchain.json` reference.
+
 ## Why custom postprocessing is usually the right extension point
 
 That is the right level for most model-specific work because:
@@ -33,6 +35,8 @@ That is the right level for most model-specific work because:
 - `GenericPostprocessOp` already collects the output tensors into a parser input
 - the parser already receives `inferenceInfo`, and `GenericPostprocessOp` links parsed results back to the current inference source
 - you only need to translate model outputs into `Perception` objects
+
+Those `Perception` objects are the structured results that the rest of AMP consumes downstream. In the normal flow, the parser is the step that turns raw tensor output into the app-usable runtime format.
 
 The best example to follow is the camera-contact flow used by the `cam-connect` pipeline:
 
@@ -73,6 +77,8 @@ The shortest practical path is:
 
 This keeps the change local to the inference chain and avoids touching `ampinfer` or the outer GStreamer pipeline.
 
+That local change is usually a good sign that you are still within the intended extension surface. When the work can stay inside parser code, build wiring, and `opchain.json`, you usually do not need a new Op. If you do a new post processing operation should be enough and touching any inference operation as a user is out of scope at the moment.
+
 ## Alternative path: use a well-specified integration prompt
 
 You do not always have to hand-write the parser first.
@@ -110,13 +116,49 @@ In other words, preprocessing prepares pixels, but postprocessing explains meani
 
 ## What usually belongs in the custom code
 
-Only add custom code for behavior that the existing parsers cannot express cleanly, for example:
+In this codebase, “custom code” usually means a small and specific set of files, not a broad runtime rewrite.
 
-- model-specific tensor layouts
-- custom logits-to-class rules
-- anchor decoding or box decoding logic
-- output tensors spread across multiple buffers
-- nonstandard segmentation or embedding output formats
+If you can reuse an existing `Perception` structure such as `Rect`, `Classification`, `YawPitch`, `SegmentationMap`, or `ObjectEmbedding`, the usual files to touch are:
+
+1. create a new parser header under `development/ops-std/postproc/<YourParser>.h`
+2. create a new parser implementation under `development/ops-std/postproc/<YourParser>.cpp`
+3. add that `.cpp` file to `development/ops-std/meson.build`
+4. include and register the parser in `development/ops-std/GenericPostprocessOp.cpp`
+5. reference the parser name from the model's `opchain.json`
+
+That is the normal path when the output tensor meaning is new, but the result still fits an existing `Perception` type.
+
+If you need a genuinely new `Perception` structure because none of the existing detection types matches your result cleanly, the usual files to touch are:
+
+1. `development/common/amp/Perception.h`
+	- add the new struct
+	- add it to `Perception::Detection`
+2. `development/common/amp/PerceptionSerializer.h`
+	- declare `to_json()` for the new struct if it needs to be serialized out of process
+3. `development/common/amp/PerceptionSerializer.cpp`
+	- implement `to_json()` for the new struct
+	- add it to the `Perception::Detection` variant serializer
+4. `development/ops-std/postproc/<YourParser>.h`
+	- declare the parser that produces the new structure
+5. `development/ops-std/postproc/<YourParser>.cpp`
+	- create and fill the new `Perception` object
+	- set `layer.contentType` to the content type you want downstream code to look for
+6. `development/ops-std/meson.build`
+	- compile the new parser source file
+7. `development/ops-std/GenericPostprocessOp.cpp`
+	- include the parser header
+	- instantiate it from the `parser` attribute string
+8. the relevant `config/models/<model>/opchain.json` or `config/opchains/.../opchain.json`
+	- route inference output into that parser by name
+
+If another downstream element needs to understand the new `contentType`, you may also need to update that element. The common example is `development/elements/amposd/amposd.cpp` for overlay rendering.
+
+So the routing path is usually:
+
+- parser implementation produces a `Perception::Layer`
+- `layer.contentType` names the semantic result category
+- `GenericPostprocessOp` pushes that layer into `Perception`
+- downstream elements such as `amposd` or `amptracker` look for that `contentType`
 
 If your model output already matches one of the built-in parsers, prefer reusing that parser instead of creating a new one.
 
@@ -128,9 +170,11 @@ Once your parser writes the right `Perception` results, those results can alread
 
 That means the usual flow is:
 
-1. your parser converts raw tensors into `Perception`
-2. `amposd` reads those `Perception` layers downstream
-3. `amposd` draws the overlay on the video frame
+1. your parser converts raw tensors into a `Perception::Layer`
+2. each detection in that layer gets linked back to the current inference source through `parentUuid`
+3. `GenericPostprocessOp` appends the layer to `Perception`
+4. `PerceptionMeta` carries that structured data downstream with the buffer
+5. `amposd` reads the resulting layers and decides what to draw based on `layer.contentType` and the detection variant type
 
 This is how the checked-in camera-contact flow works as well: the parser produces a `cameraContact` result, and `amposd` renders that as a green or red status dot.
 
@@ -142,6 +186,36 @@ So when bringing your own model, you should think about two separate questions:
 If the answer to the second question is yes, then you only need the parser.
 
 If the answer is no, then the parser may still be correct, but you will also need to extend `amposd` so the new result type has a visible overlay.
+
+In practice, “make the data make sense” means:
+
+- pick the right `Perception` structure for the meaning of the output
+- fill its fields in normalized image coordinates or the expected runtime units
+- make sure every result is linked to the correct parent object with `parentUuid`
+- choose a stable `layer.contentType` string that downstream code can match on
+
+Then, for visualization, choose the overlay style that matches the semantics of the data:
+
+- boxes or circles for detections tied to image regions
+- text lists for classifications
+- arrows or vectors for directional values such as gaze
+- mask overlays for segmentation
+- custom symbols only when the existing styles do not fit the meaning well
+
+For a new visualization path, the file to extend is usually `development/elements/amposd/amposd.cpp`.
+
+The usual pattern there is:
+
+1. check `layer.contentType`
+2. read the expected `Perception` variant from `layer.detections`
+3. find the parent region if the drawing depends on an earlier detection
+4. draw the overlay with the existing `Osd::*` helpers
+
+So the practical rule is:
+
+- if the parser output already matches an existing `amposd` branch, reuse that path
+- if the parser output is structurally new, add a new drawing branch in `amposd.cpp`
+- if the result is meaningful for machines but not useful as an overlay, it is acceptable to keep it in `Perception` without drawing it immediately
 
 ## Minimal opchain shape for this pattern
 

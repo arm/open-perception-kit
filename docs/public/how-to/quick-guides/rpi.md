@@ -30,7 +30,19 @@ For other possible hardware setups please check out the deep dive documentations
 
 > Expected result: you have the minimum supported Raspberry Pi hardware in place for the quick-start path.
 
-## 1. Prepare the Raspberry Pi host
+## 1. Enable SSH access
+
+Enable SSH on the Raspberry Pi and make sure you can connect to it from your development machine.
+
+If needed, temporarily enable password authentication in `/etc/ssh/sshd_config`:
+
+```ini
+PasswordAuthentication yes
+```
+
+> Expected result: you can connect to the Raspberry Pi from your development machine over SSH.
+
+## 2. Prepare the Raspberry Pi host
 
 On the Raspberry Pi host, install the main packages:
 
@@ -50,18 +62,6 @@ If you use a Hailo NPU, also install:
 ```bash
 sudo apt-get install hailo-all
 ```
-
-## 2. Enable SSH access
-
-Enable SSH on the Raspberry Pi and make sure you can connect to it from your development machine.
-
-If needed, temporarily enable password authentication in `/etc/ssh/sshd_config`:
-
-```ini
-PasswordAuthentication yes
-```
-
-> Expected result: you can connect to the Raspberry Pi from your development machine over SSH.
 
 ## 3. Clone the repository on the Raspberry Pi
 
@@ -110,7 +110,7 @@ Run:
 
 Stop:
 
-To stop an application that was not started from a VS Code launch configuration, press Ctrl+C in the console.
+To stop an application that was not started from a VS Code launch configuration, press Ctrl+C(Windows) in the console.
 
 > Expected result: `amp-menu` starts and shows the pipeline selection menu.
 
@@ -150,6 +150,8 @@ After you have selected a pipeline once, you can rerun the last selection with t
 ## If you want the deeper guides
 
 Continue with the [main how-to guide](../deep-dives/index.md).
+
+If you want a guided repository walk-through, continue with the [exercise quick guide](exercise.md).
 
 ## What should you have at the end of this document?
 

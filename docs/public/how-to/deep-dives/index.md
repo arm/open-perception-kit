@@ -7,7 +7,7 @@ sidebar_label: How-To
 
 This is the deep-dive setup and usage guide.
 
-If you only want the shortest path to a first run, use the platform TL;DR pages instead.
+If you only want the shortest path to a first run, use the platform quick-guide pages instead.
 If you want the fuller setup path and the next documentation hub finishing this tutorial, continue from here to [Engineering starting point](engineering.md).
 
 ## What will you learn from this documentation?

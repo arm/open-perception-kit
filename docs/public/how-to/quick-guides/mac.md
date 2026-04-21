@@ -1,9 +1,9 @@
 ---
 sidebar_position: 7
-sidebar_label: TL;DR macOS
+sidebar_label: macOS Quick-Guide
 ---
 
-# macOS TL;DR
+# macOS Quick-Guide
 
 This is the shortest path from cloning the repository to running the first AMP pipeline on macOS.
 
@@ -92,7 +92,7 @@ Run:
 
 Stop:
 
-To stop an application that was not started from a VS Code launch configuration, press Ctrl+C in the console.
+To stop an application that was not started from a VS Code launch configuration, press Command+C in the console.
 
 > Expected result: `amp-menu` starts and shows the pipeline selection menu.
 
@@ -130,6 +130,8 @@ After you have selected a pipeline once, you can rerun the last selection with t
 ## If you want the deeper guides
 
 Continue with the [main how-to guide](../deep-dives/index.md).
+
+If you want a guided repository walk-through, continue with the [exercise quick guide](exercise.md).
 
 ## What should you have at the end of this document?
 

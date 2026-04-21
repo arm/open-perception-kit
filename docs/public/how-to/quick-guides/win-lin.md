@@ -1,9 +1,9 @@
 ---
 sidebar_position: 6
-sidebar_label: TL;DR Windows/Linux
+sidebar_label: Windows/Linux Quick-Guide
 ---
 
-# Windows/Linux TL;DR
+# Windows/Linux Quick-Guide
 
 This is the shortest path from cloning the repository to running the first AMP pipeline on a PC.
 
@@ -143,6 +143,8 @@ After you have selected a pipeline once, you can rerun the last selection with t
 ## If you want the deeper guides
 
 Continue with the [main how-to guide](../deep-dives/index.md).
+
+If you want a guided repository walk-through, continue with the [exercise quick guide](exercise.md).
 
 ## What should you have at the end of this document?
 

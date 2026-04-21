@@ -37,6 +37,8 @@ At minimum, that folder should contain:
 - usually `opchain.json`
 - `README.md`
 
+For most users, these files are the main integration interface of the system. The default path is to describe the model with `model.json`, connect it with `opchain.json`, and let the existing runtime elements do the rest.
+
 ## Required descriptor metadata
 
 `model.json` is the runtime descriptor used by the inference Op.
@@ -61,6 +63,8 @@ The easiest workflow is to copy one of the existing model folders and then adjus
 ## Creating the micro-pipeline
 
 The micro-pipeline is the `opchain.json` consumed by `ampinfer`.
+
+This is the main runtime interface you should use by default when onboarding a model. In the normal path, you do not start by changing `ampinfer` or adding a new Op. You start by describing the chain with `opchain.json` and by selecting the parser that turns model outputs into structured runtime results.
 
 A minimal model opchain typically looks like this:
 
@@ -98,6 +102,8 @@ If your model runs on the full frame, a structure like this is usually enough.
 
 If your model runs on crops produced by another stage, reuse an existing multi-stage example instead of inventing a new structure from scratch.
 
+What matters here is not only that the model runs, but that the last stage produces results in the format the rest of AMP already understands. The normal app-consumable result format in AMP is `Perception`, carried downstream as `PerceptionMeta`, so the parser choice is part of the model integration contract, not an optional extra.
+
 ## Reuse an existing postprocessor if possible
 
 The built-in post processors currently registered in `GenericPostprocessOp` are:
@@ -127,6 +133,8 @@ The easiest models to integrate without code changes are models that fit one of 
 - `Perception::YawPitch` for gaze estimation
 - `Perception::SegmentationMap` for segmentation or mask outputs
 - `Perception::ObjectEmbedding` for ReID / embedding outputs
+
+These are the structured result shapes that downstream AMP code already consumes. In other words, when bringing a model into AMP, you are usually trying to map raw tensors into one of these `Perception` forms rather than inventing a model-specific application contract.
 
 If your output shape and meaning already match one of the existing parsers, integration is usually straightforward.
 
@@ -164,6 +172,8 @@ For a normal bring-your-own-model task, try to stay within:
 If that is not enough, the next most common place to change is:
 
 - `development/ops-std/postproc/` for a new postprocessor
+
+Those are the intended user-facing extension points for the common path. If you stay within model descriptors, opchains, pipeline presets, and parser selection, you are still using the default integration surface.
 
 If you need to go beyond that and change elements or core runtime behavior, the task has moved beyond a simple model drop-in.
 ## Good examples to copy from
