@@ -34,6 +34,9 @@ execution model, and main GStreamer elements.
 - [Types](types.md)
   Generic types.
 
+- [Testing](testing.md)  
+  Testing, validation and verification.
+
 ## Execution engine
 
 - [Perception](perception.md)

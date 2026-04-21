@@ -24,6 +24,17 @@ services:
         meson test -C development/build --print-errorlogs
       '
 
+  amp-valgrind-check:
+    <<: *amp-docs-base
+    container_name: amp-valgrind-check
+    hostname: amp-valgrind-check
+    command: |
+      bash -c '
+        .devcontainer/setup.sh &&
+        .devcontainer/platform_init.sh amp-dev-base &&
+        ./scripts/testing/valgrind/test-elements-with-valgrind.sh clean
+      '
+
   amp-quality-check-pull-request:
     <<: *amp-docs-base
     container_name: amp-quality-check-pull-request

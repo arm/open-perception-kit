@@ -117,11 +117,38 @@
         {
             "label": "99 Launch Without Debug",
             "type": "shell",
-            "command": "/work/tools/amp-menu",
+            "command": "/work/scripts/amp-menu",
+            "hide": true,
             "args": [
                 "-l"
             ],
             "problemMatcher": []
+        },
+        {
+            "label": "99 Build for debugging",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/build-elements.sh",
+            "args": [
+                "debug"
+            ],
+            "dependsOn": "99 Make build dir",
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "options": {
+                "cwd": "${workspaceFolder}/development/build"
+            },
+            "hide": true,
+            "problemMatcher": [
+                {
+                    "base": "$gcc",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}/development/build"
+                    ]
+                }
+            ]
         }
     ],
     "inputs": [

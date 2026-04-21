@@ -3,7 +3,7 @@
     "configurations": [
         {
             "name": "AMP Debug latest",
-            "preLaunchTask": "00 Build Project",
+            "preLaunchTask": "99 Build for debugging",
             "type": "cppdbg",
             "request": "launch",
             "program": "/work/tools/amp-menu",
@@ -40,7 +40,10 @@
             "request": "launch",
             "program": "/work/tools/amp-menu",
             "args": [
-                "-l"
+                "-l",
+                //"-f",
+                //"30",
+                //"/work/scripts/pipelines/testing/only-ampsink.json",
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

@@ -18,7 +18,6 @@ g++ -fPIC -shared -o libgstampsink.so ampsink.cpp \
 #include "ampsink.h"
 #include "auxiliary.h"
 #include "http_server.h"
-#include "status_reporter.h"
 #include "utils.h"
 #include "webrtc_ws.h"
 
@@ -54,77 +53,55 @@ enum {
     PROP_CTRL_PORT,
     PROP_STATIC_FILES,
 };
+nlohmann::json PipelineStateReporter::report() const {
+    nlohmann::json ret;
 
-class PipelineStateReporter : public StatusReporter {
-    GstAmpSink *self_ = nullptr;
+    if (self_) {
+        // get the playing state
+        GstState cur = GST_STATE_NULL;
+        GstState pending = GST_STATE_NULL;
+        gst_element_get_state(GST_ELEMENT(self_), &cur, &pending, 0);
+        DBG("current state: {}, {}", int(cur), int(pending));
 
-    bool has_audio_ = false;
+        ret["playing"] = (cur == GST_STATE_PLAYING ? true : false);
 
-  public:
-    PipelineStateReporter(GstAmpSink *self) : self_(self) {}
-
-    void set_paused() {
-        trigger_reporting();
+        // audio state
+        ret["audio"] = has_audio_;
     }
 
-    void set_audio(bool has_audio) {
-        has_audio_ = has_audio;
-        trigger_reporting();
-    }
+    return ret;
+}
+nlohmann::json PerformanceOverlayStateReporter::report() const {
+    nlohmann::json ret;
 
-    nlohmann::json report() const override {
-        nlohmann::json ret;
+    ret["has_performance_overlay"] = false;
+    ret["enabled"] = false;
 
-        if (self_) {
-            // get the playing state
-            GstState cur = GST_STATE_NULL;
-            GstState pending = GST_STATE_NULL;
-            gst_element_get_state(GST_ELEMENT(self_), &cur, &pending, 0);
-            DBG("current state: {}, {}", int(cur), int(pending));
-
-            ret["playing"] = (cur == GST_STATE_PLAYING ? true : false);
-
-            // audio state
-            ret["audio"] = has_audio_;
-        }
-
+    if (!self_) {
         return ret;
     }
-};
 
-class PerformanceOverlayStateReporter : public StatusReporter {
-    GstAmpSink *self_ = nullptr;
-
-  public:
-    PerformanceOverlayStateReporter(GstAmpSink *self) : self_(self) {}
-
-    nlohmann::json report() const override {
-        nlohmann::json ret;
-
-        // we suppose here that only one ampperformance element exists in the pipeline
-        auto top = get_top_pipeline(GST_ELEMENT(self_));
-        auto perf_ovr = get_element_by_type(top, "ampperformance");
-        gst_object_unref(top);
-
-        if (perf_ovr && GST_IS_ELEMENT(perf_ovr)) {
-            ret["has_performance_overlay"] = true;
-
-            gboolean enabled;
-            g_object_get(perf_ovr, "enabled", &enabled, NULL);
-            ret["enabled"] = bool(enabled);
-
-            gst_object_unref(perf_ovr);
-        } else {
-            ret["has_performance_overlay"] = false;
-            ret["enabled"] = false;
-        }
-
+    // we suppose here that only one ampperformance element exists in the pipeline
+    auto top = get_top_pipeline(GST_ELEMENT(self_));
+    if (!top) {
         return ret;
     }
-};
 
-std::shared_ptr<PipelineStateReporter> pipeline_state_reporter;
-std::shared_ptr<PerformanceOverlayStateReporter> performance_overlay_state_reporter;
+    auto perf_ovr = get_element_by_type(top, "ampperformance");
+    gst_object_unref(top);
+
+    if (perf_ovr && GST_IS_ELEMENT(perf_ovr)) {
+        ret["has_performance_overlay"] = true;
+
+        gboolean enabled;
+        g_object_get(perf_ovr, "enabled", &enabled, NULL);
+        ret["enabled"] = bool(enabled);
+
+        gst_object_unref(perf_ovr);
+    }
+
+    return ret;
+}
 
 GType gst_amp_sink_get_type(void);
 #define GST_TYPE_AMP_SINK (gst_amp_sink_get_type())
@@ -201,7 +178,9 @@ static GstPad *gst_amp_sink_request_new_pad(GstElement *element,
         return nullptr;
     }
 
-    pipeline_state_reporter->set_audio(true);
+    if (self->private_data && self->private_data->pipeline_state_reporter) {
+        self->private_data->pipeline_state_reporter->set_audio(true);
+    }
 
     // If already created, just return existing pad
     // This is probably not the best approach:
@@ -263,6 +242,18 @@ static void gst_amp_sink_release_pad(GstElement *element, GstPad *pad) {
     }
 }
 
+static void gst_amp_sink_stop_pipeline_async(GstElement *element, gpointer user_data) {
+    auto *self = reinterpret_cast<GstAmpSink *>(element);
+    GstElement *top = get_top_pipeline(element);
+
+    if (top && GST_IS_ELEMENT(top)) {
+        GST_INFO_OBJECT(self, "EOS received, posting EOS message to top pipeline");
+        gst_element_post_message(top, gst_message_new_eos(GST_OBJECT(top)));
+        gst_object_unref(top);
+        return;
+    }
+}
+
 /* ===== Event handling ===== */
 static gboolean gst_amp_sink_sink_event(GstPad *pad, GstObject *parent, GstEvent *event) {
     auto *self = reinterpret_cast<GstAmpSink *>(parent);
@@ -297,7 +288,14 @@ static gboolean gst_amp_sink_sink_event(GstPad *pad, GstObject *parent, GstEvent
         }
     }
 
-    // Pass all other events (CAPS, SEGMENT, EOS, etc.) to the target pad
+    if (GST_EVENT_TYPE(event) == GST_EVENT_EOS) {
+        GST_INFO_OBJECT(self, "End of stream received at sink pad event");
+        gst_element_call_async(
+            GST_ELEMENT(self), gst_amp_sink_stop_pipeline_async, nullptr, nullptr);
+        // Forward EOS to the target pad to notify downstream elements of stream end
+    }
+
+    // Pass all events (including EOS) to the target pad
     GstPad *target = gst_ghost_pad_get_target(GST_GHOST_PAD(pad));
     if (target) {
         gboolean ret = gst_pad_send_event(target, event);
@@ -311,13 +309,33 @@ static gboolean gst_amp_sink_sink_event(GstPad *pad, GstObject *parent, GstEvent
 
 /* ===== Lifecycle ===== */
 static void gst_amp_sink_dispose(GObject *object) {
+    if (!object) {
+        return;
+    }
     auto *self = reinterpret_cast<GstAmpSink *>(object);
 
     if (self->private_data) {
-        self->private_data->http_server->stop();
-        self->private_data->webrtc_websocket->stop();
-        self->private_data->ctrl_websocket->stop();
+        // Stop ctrl_websocket first to ensure callbacks are no longer active before destroying
+        // reporters
+        if (self->private_data->ctrl_websocket) {
+            self->private_data->ctrl_websocket->stop();
+            self->private_data->ctrl_websocket.reset();
+        }
+        // Now reset reporters after ctrl_websocket is destroyed (no more callbacks referencing
+        // them)
+        self->private_data->pipeline_state_reporter.reset();
+        self->private_data->performance_overlay_state_reporter.reset();
+
+        if (self->private_data->http_server) {
+            self->private_data->http_server->stop();
+            self->private_data->http_server.reset();
+        }
+        if (self->private_data->webrtc_websocket) {
+            self->private_data->webrtc_websocket->stop();
+            self->private_data->webrtc_websocket.reset();
+        }
     }
+
     // IMPORTANT: selector may be holding a ref via active-pad
     if (self->aselector) {
         g_object_set(self->aselector, "active-pad", NULL, NULL);
@@ -555,15 +573,16 @@ static void gst_amp_sink_init(GstAmpSink *self) {
     self->private_data->http_server = std::make_unique<AmpSinkHttpServer>(self);
     self->private_data->http_server->start();
 
-    pipeline_state_reporter = std::make_shared<PipelineStateReporter>(self);
-    performance_overlay_state_reporter = std::make_shared<PerformanceOverlayStateReporter>(self);
+    self->private_data->pipeline_state_reporter = std::make_shared<PipelineStateReporter>(self);
+    self->private_data->performance_overlay_state_reporter =
+        std::make_shared<PerformanceOverlayStateReporter>(self);
 
     self->private_data->ctrl_websocket->register_status_reporter(
         "models", self->private_data->model_registry);
-    self->private_data->ctrl_websocket->register_status_reporter("pipeline_state",
-                                                                 pipeline_state_reporter);
     self->private_data->ctrl_websocket->register_status_reporter(
-        "perf_overlay", performance_overlay_state_reporter);
+        "pipeline_state", self->private_data->pipeline_state_reporter);
+    self->private_data->ctrl_websocket->register_status_reporter(
+        "perf_overlay", self->private_data->performance_overlay_state_reporter);
 }
 
 static void gst_amp_sink_class_init(GstAmpSinkClass *klass) {

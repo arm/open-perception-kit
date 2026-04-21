@@ -2,11 +2,13 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 
+#include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <regex>
 #include <stdexcept>
 
-#include "parsar.h"
+#include "parser.hpp"
 
 static const char *getenv_raw(const std::string &name) {
     return std::getenv(name.c_str()); // may return nullptr
@@ -153,4 +155,13 @@ ExecArgs tokenize_and_expand_argv(const std::string &s) {
     out.argv.push_back(nullptr);
 
     return out;
+}
+
+std::string trim(std::string trimmed_str) {
+    auto not_space = [](unsigned char c) { return !std::isspace(c); };
+    trimmed_str.erase(trimmed_str.begin(),
+                      std::find_if(trimmed_str.begin(), trimmed_str.end(), not_space));
+    trimmed_str.erase(std::find_if(trimmed_str.rbegin(), trimmed_str.rend(), not_space).base(),
+                      trimmed_str.end());
+    return trimmed_str;
 }

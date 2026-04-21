@@ -39,6 +39,13 @@ RUN set -eux; \
     gstreamer1.0-nice gstreamer1.0-pipewire; \
   rm -rf /var/lib/apt/lists/*
 
+# Profiling tools
+RUN set -eux; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends \
+    valgrind; \
+  rm -rf /var/lib/apt/lists/*
+
 # Clean apt cache
 RUN set -eux; update-ca-certificates || true
 
@@ -129,6 +136,13 @@ RUN set -eux; \
   else \
     echo 'NOTE: gstreamer1.0-libav not available on this image/mirror'; \
   fi; \
+  rm -rf /var/lib/apt/lists/*
+
+# Install Firefox for AMP's web-based UI and testing in case docker port forwarding fails.
+RUN set -eux; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends \
+    firefox-esr; \
   rm -rf /var/lib/apt/lists/*
 
 USER ${USERNAME}
