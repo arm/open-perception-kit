@@ -21,12 +21,27 @@ If you follow this page successfully, you will learn how to:
 
 At the end of this guide, you should have AMP running on your desk on a Raspberry Pi 5, with the first pipeline launched and the web UI available at `http://raspberrypi.local:9999`.
 
-## 0. Required devices
+## 0. Required devices and access to the device
 For other hardware setups, use the deeper Raspberry Pi guide.
 
 - [Raspberry Pi 5 16GB](https://www.raspberrypi.com/products/raspberry-pi-5/)
-- [AI HAT+](https://www.raspberrypi.com/products/ai-hat/)
+- [AI HAT+](https://www.raspberrypi.com/products/ai-hat/) for the Hailo 8 path
+- a supported Hailo 10 accelerator if you plan to use the `RPI5 H10 amp-dev-forge` container
 - [Camera Module v3](https://www.raspberrypi.com/products/camera-module-3/)
+
+### Assembly
+
+1.  Attach spacers to the Raspberry Pi 5.
+2.  Mount the AI HAT+ 2 onto the GPIO header.
+3.  Connect the PCIe ribbon cable:
+    -   From the Raspberry Pi 5 PCIe port to the HAT
+    -   Ensure copper contacts face **up on the HAT side**
+4.  Install the heatsink onto the Hailo chip on the HAT.
+5.  Connect the power supply.
+
+Follow the [Basic instructions](https://www.raspberrypi.com/documentation/computers/getting-started.html) guide to create a headless Trixie installation and install the selected image.
+
+SSH can also be configured using the installer. Sometimes, even when SSH is enabled, it may not work out of the box after boot. In that case, create an empty file named `ssh` in the root folder of `bootfs`.
 
 > Expected result: you have the minimum supported Raspberry Pi hardware in place for the quick-start path.
 
@@ -44,12 +59,26 @@ PasswordAuthentication yes
 
 ## 2. Prepare the Raspberry Pi host
 
-On the Raspberry Pi host, install the main packages:
+### Update System
 
+``` bash
+sudo apt update
+sudo apt full-upgrade -y
+sudo rpi-eeprom-update -a
+```
+
+### Enable PCIe Gen 3
+
+``` bash
+sudo raspi-config
+```
+-   Navigate to: Advanced Options → PCIe Speed → Enable Gen 3
+
+### Additional packages
 ```bash
 sudo apt-get update
-sudo apt-get install -y git docker.io v4l-utils libraspberrypi-bin
-sudo apt-get install libcamera-apps libcamera-dev libcamera-doc libcamera-tools \
+sudo apt-get install -y git docker.io v4l-utils raspi-utils-core raspi-utils-dt
+sudo apt-get install rpicam-apps libcamera-dev libcamera-doc libcamera-tools \
   gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-gl \
   libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev \
   gstreamer1.0-libcamera \
@@ -57,11 +86,56 @@ sudo apt-get install libcamera-apps libcamera-dev libcamera-doc libcamera-tools 
   code cmake libcairo2-dev libssl-dev
 ```
 
-If you use a Hailo NPU, also install:
+## Hailo installation
 
-```bash
+The `RPI5 H10 amp-dev-forge` and `RPI5 H8 amp-dev-forge` container only adds the Hailo 10 user-space packages. Kernel or PCIe driver packages such as `hailort-pcie-driver` or `h10-hailort-pcie-driver` stay on the Raspberry Pi host.
+
+### Hailo8
+
+If you are using the Hailo 8 / AI HAT+ path, install the required tools:
+
+```sh
+sudo apt-get update
+sudo apt-get install dkms
 sudo apt-get install hailo-all
+sudo reboot
 ```
+
+### Hailo10
+
+If you are using the Hailo 10 path, install the required host-side Hailo 10 driver stack first.
+
+``` bash
+sudo apt install dkms
+sudo apt install hailo-h10-all
+sudo reboot
+```
+
+### Verify Installation
+
+After the host-side Hailo 10 setup, confirm that the device nodes exist:
+
+```sh
+ls /dev/hailo*
+```
+
+``` bash
+hailortcli fw-control identify
+```
+
+-   Confirm output includes: Device Architecture: HAILO10H
+Example:
+``` bash
+pi@rpi-5:~ $ hailortcli fw-control identify
+Executing on device: 0001:03:00.0
+Identifying board
+Control Protocol Version: 2
+Firmware Version: 5.1.1 (release,app)
+Logger Version: 0
+Device Architecture: HAILO10H
+```
+
+> Expected result: the Raspberry Pi host has the required packages installed and, for the Hailo 10 path, the host-side Hailo 10 stack is enabled and validated before the Dev Container is started.
 
 ## 3. Clone the repository on the Raspberry Pi
 
@@ -80,7 +154,11 @@ From your development machine:
 - connect to the Raspberry Pi over Remote SSH in VS Code
 - open the cloned repository folder
 - run "Reopen in Container"
-- choose "RPI5 amp-dev-forge"
+
+Choose the matching container:
+
+- `RPI5 H8 amp-dev-forge` for Hailo 8 / AI HAT+ work
+- `RPI5 H10 amp-dev-forge` for Hailo 10 work
 
 Wait until the Dev Container finishes building.
 
@@ -115,13 +193,16 @@ To stop an application that was not started from a VS Code launch configuration,
 > Expected result: `amp-menu` starts and shows the pipeline selection menu.
 
 
-## 7. Run the first pipeline
+## 7. Run the example pipeline
 
-For the shortest first run, select:
+For the shortest first run, int `amp-menu` select:
 - `01-full-onnx.json`
 
-If you specifically want the camera + Hailo path after that, use:
-- `02-full-onnx-hailo.json`
+This is the shortest recommended first pipeline.
+
+If you specifically want the Hailo-accelerated path after that, use:
+- `02-full-onnx-hailo8.json` for the Hailo 8 / AI HAT+ path
+- `02-full-onnx-hailo10.json` for the Hailo 10 path
 
 > Expected result: the selected pipeline launches and the web UI can later list the preset's models.
 

@@ -49,7 +49,7 @@ That lets the AMP web UI register the model first and then enable it from the **
 
 ## What is an OpChain?
 
-An OpChain is a smaller internal micro-pipeline executed by `ampinfer`.
+An OpChain is a smaller internal micropipeline executed by `ampinfer`.
 
 An OpChain usually contains:
 - `InferenceController`
@@ -90,7 +90,7 @@ The normal runtime stack is:
 
 ## Runtime input expectations
 
-The current video-oriented elements generally expect BGRA frames before inference and overlay stages.
+The current video-oriented elements generally expect BGRA frames before perprocess and overlay stages.
 
 That is why many pipeline presets contain lines such as:
 

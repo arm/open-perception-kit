@@ -3,7 +3,7 @@
 Whole-frame ImageNet classifier.
 
 - Backend: ONNX
-- Input: RGB image, `[1, 3, 224, 224]`
+- Input: NCHW image, `[1, 3, 224, 224]`
 - Output: ImageNet class scores
 - Post processor: `ImageNetClassificationParser`
 - Supported Perception result: `Perception::Classification` in a `classification` layer

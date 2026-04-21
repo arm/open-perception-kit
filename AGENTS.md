@@ -134,6 +134,5 @@ If you change docs, at minimum verify that paths, file names, and checked-in exa
 ## Agent guardrails
 
 - Reuse checked-in patterns before inventing new ones.
-- Do not refer to old names such as `PerceptionContextMeta`.
 - Keep docs aligned with `config/` and `development/`.
 - If a task is actually blocked by current architecture, say so and cross-check [Known limitations](docs/public/how-to/deep-dives/known-limitations.md).

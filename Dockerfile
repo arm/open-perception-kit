@@ -151,7 +151,7 @@ WORKDIR /work
 ######################################################################
 ###################### RPI5 Development Container ####################
 ######################################################################
-FROM amp-dev-base AS amp-dev-rpi5
+FROM amp-dev-base AS amp-dev-rpi5-h8
 # The base stage switches to a non-root user; return to root for apt/system changes.
 ARG USERNAME=devgoblin
 

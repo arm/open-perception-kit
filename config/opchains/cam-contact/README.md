@@ -1,6 +1,6 @@
 # Camera Contact OpChain
 
-Two-stage camera-contact micro-pipeline:
+Two-stage camera-contact micropipeline:
 
 1. Detect `humanFace` rectangles with UltraFace.
 2. Classify each detected face crop with the camera-contact model.

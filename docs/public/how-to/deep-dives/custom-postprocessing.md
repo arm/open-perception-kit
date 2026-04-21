@@ -225,27 +225,38 @@ The usual chain shape is still:
 
 ```json
 {
+	"name": "CameraContact",
 	"ops": [
 		{
 			"id": "amp-std-ops/InferenceController",
+			"loopId": 1,
 			"attributes": {
-				"contentType": "humanFace"
+				"contentType": "humanFace",
+				"inferenceSource": "inferenceImageCrops"
 			}
 		},
 		{
 			"id": "amp-std-ops/GenericImagePreprocess",
-			"attributes": {}
-		},
-		{
-			"id": "amp-onnx-ops/Inference",
+			"loopId": 1,
 			"attributes": {
-				"modelDescriptor": "/work/config/models/cam-contact/model.json"
+				"inputImageTensorIndex": 0,
+				"inputImageSourceName": "pipelineVideoFrame"
 			}
 		},
+			{
+				"id": "amp-onnx-ops/Inference",
+				"loopId": 1,
+				"attributes": {
+					"modelDescriptor": "/work/config/models/cam-contact/model.json"
+				}
+			},
 		{
 			"id": "amp-std-ops/GenericPostprocess",
+			"loopId": 1,
 			"attributes": {
-				"parser": "<YourParser>"
+				"parser": "CameraContactParser",
+				"contactClassIndex": 1,
+				"noContactClassIndex": 0
 			}
 		}
 	]

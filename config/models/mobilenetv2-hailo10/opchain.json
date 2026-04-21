@@ -15,7 +15,7 @@
 		{
 			"id": "amp-hailort-ops/Inference",
 			"attributes": {
-				"modelDescriptor": "/work/config/models/mobilenetv2-hef/model.json"
+				"modelDescriptor": "/work/config/models/mobilenetv2-hailo10/model.json"
 			}
 		},
 		{

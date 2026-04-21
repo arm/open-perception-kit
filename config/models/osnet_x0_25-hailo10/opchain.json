@@ -17,7 +17,7 @@
         {
             "id": "amp-hailort-ops/Inference",
             "attributes": {
-                "modelDescriptor": "/work/config/models/osnet_x0_25-hef/model.json"
+                "modelDescriptor": "/work/config/models/osnet_x0_25-hailo10/model.json"
             }
         },
         {

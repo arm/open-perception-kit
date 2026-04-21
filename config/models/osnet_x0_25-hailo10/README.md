@@ -1,13 +1,14 @@
-# OSNet x0.25 Hailo
+# OSNet x0.25 Hailo 10
 
-Hailo-compiled variant of the OSNet x0.25 embedding model.
+Hailo 10-compiled variant of the OSNet x0.25 embedding model.
 
 - Backend: HailoRT
-- Input: RGB crop, `[1, 3, 256, 128]`, normalized with ImageNet mean/std
+- Input: NCHW crop, `[1, 3, 256, 128]`, normalized with ImageNet mean/std
 - Output: dynamic embedding tensor, typically matching the ONNX variant
 - Post processor: `ObjectEmbeddingParser`
 - Supported Perception result: `Perception::ObjectEmbedding` in an `objectEmbedding` layer
 - Note: this `.hef` is the compiled Hailo version of the original ONNX model
+- Typical pairing: `config/pipelines/02-full-onnx-hailo10.json`
 
 # Export Tutorial
 

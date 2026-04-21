@@ -12,7 +12,7 @@ services:
       dockerfile: Dockerfile
       target: amp-dev-base
 
-  amp-dev-rpi5:
+  amp-dev-rpi5-h8:
     extends: 
       file: ../compose.base.yaml
       service: amp-common-dev
@@ -24,7 +24,7 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-      target: amp-dev-rpi5
+      target: amp-dev-rpi5-h8
 
   amp-dev-rpi5-h10:
     extends:

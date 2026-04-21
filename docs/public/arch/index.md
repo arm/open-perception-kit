@@ -43,7 +43,7 @@ execution model, and main GStreamer elements.
   Perception is the persistent metadata container.
 
 - [Op system](op-system.md)
-  Local processing based on micro-pipelines.
+  Local processing based on micropipelines.
 
 - [OpChain Context](op-chain-context.md)
   Transient runtime data model and ownership rules.

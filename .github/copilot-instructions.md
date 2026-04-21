@@ -20,8 +20,8 @@
 - Unit tests: `development/tests/`
 
 ## Current runtime facts
-- Video-processing elements currently assume `BGRA` caps. Preserve that unless the task explicitly changes the pipeline contract.
-- `PerceptionMeta` is the current buffer metadata type. Do not refer to `PerceptionContextMeta` in new docs or code comments.
+- Video-processing elements currently assume `BGRA` caps. Preserve caps expectations.
+- `PerceptionMeta` is the current buffer metadata type.
 - OpChain loop execution is driven by `loopId`, not by a named loop-group field.
 - `InferenceControllerOp` populates `OpChainContext::inferenceImageCrops` and `inferenceImageCropUuids`.
 - `ampinfer` exposes `opchain-path`, `active`, `format`, and `infer-id` properties.
@@ -37,7 +37,6 @@
 - Primary build script: `scripts/build-elements.sh`
    - debug: `./scripts/build-elements.sh debug [true|false]`
    - release: `./scripts/build-elements.sh release [true|false]`
-   - ExecuTorch debug: `./scripts/build-elements.sh debug_with_executorch`
    - clean: `./scripts/build-elements.sh clean`
 - The main build directory is `development/build`.
 - `amp-menu` is built under `development/build/meson-out/amp-menu` and copied to `/work/tools/amp-menu` by the build script.

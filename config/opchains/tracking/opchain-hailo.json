@@ -15,7 +15,7 @@
         {
             "id": "amp-hailort-ops/Inference",
             "attributes": {
-                "modelDescriptor": "/work/config/models/yolov11-hef/model.json"
+                "modelDescriptor": "/work/config/models/yolov11-hailo8/model.json"
             }
         },
         {
@@ -50,7 +50,7 @@
         {
             "id": "amp-hailort-ops/Inference",
             "attributes": {
-                "modelDescriptor": "/work/config/models/osnet_x0_25-hef/model.json"
+                "modelDescriptor": "/work/config/models/osnet_x0_25-hailo8/model.json"
             }
         },
         {

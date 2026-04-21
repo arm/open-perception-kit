@@ -18,7 +18,7 @@ At the end of this page, you should be able to place new files in the right fold
 ### `config/`
 This is the most important folder for normal usage.
 
-- `config/models/` stores model folders. Put your model file, `model.json`, basic and minimal `opchain.json`, and `README.md` here.
+- `config/models/` stores model folders. Put your model file, `model.json`, basic and minimal `opchain.json`, and `README.md` here. Runtime-specific compiled variants also live here, for example `mobilenetv2-hailo8/` and `mobilenetv2-hailo10/`.
 - `config/opchains/` stores reusable multi-stage pipelines, for example detector + secondary model chains.
 - `config/pipelines/` stores the top-level presets shown by `amp-menu`.
 

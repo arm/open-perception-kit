@@ -1,6 +1,6 @@
 # Gaze Detection OpChain
 
-Two-stage gaze-detection micro-pipeline:
+Two-stage gaze-detection micropipeline:
 
 1. detect `humanFace` rectangles with UltraFace
 2. estimate gaze for each face crop

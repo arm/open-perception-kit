@@ -1,7 +1,7 @@
 {
 	"name": "imagenet",
 	"modelFamily": "classification",
-	"modelFile": "hailo8/mobilenet_v2_1_4_224.hef",
+	"modelFile": "mobilenet_v2_1_4_224.hef",
 	"dynamicOutput": true,
 	"inputTensors": [
 		{

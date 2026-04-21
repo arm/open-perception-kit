@@ -7,21 +7,21 @@
     "videoconvert ! video/x-raw,format=BGRA !",
     "ampinfer opchain-path=/work/config/models/ultraface/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/yolov11/opchain.json active=false !",
-    "ampinfer opchain-path=/work/config/models/yolov11-hef/opchain.json active=false !",
+    "ampinfer opchain-path=/work/config/models/yolov11-hailo8/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/cam-contact/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/gaze-detection/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/mobilenetv2/opchain.json active=false !",
-    "ampinfer opchain-path=/work/config/models/mobilenetv2-hef/opchain.json active=false !",
+    "ampinfer opchain-path=/work/config/models/mobilenetv2-hailo8/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/modnet/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/osnet_x0_25/opchain.json active=false !",
-    "ampinfer opchain-path=/work/config/models/osnet_x0_25-hef/opchain.json active=false !",
+    "ampinfer opchain-path=/work/config/models/osnet_x0_25-hailo8/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/paddleocr/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/personclassification/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/rvm/opchain.json active=false !",
     "amptracker content-type=genericObject !",
     "ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
     "amposd enabled=true !",
-    "ampsink name=sink",
+    "ampsink name=sink"
   ],
   "alternative-source-image": [
     "filesrc location=/work/data/images/katana.jpg !",
@@ -43,7 +43,7 @@
     "filesrc location=/work/data/videos/01.mp4 !",
     "decodebin !",
     "videoconvert !",
-    "video/x-raw,format=BGRA !",
+    "video/x-raw,format=BGRA !"
   ],
   "alternative-sink-file": [
     "filesink location=/work/data/output/full-dev.mp4"

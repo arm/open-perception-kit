@@ -10,13 +10,13 @@ The **Op system** is the modular execution framework that powers the
 `ampinfer` GStreamer element.
 
 It defines how processing units (**Ops**) are implemented, dynamically loaded,
-assembled into micro-pipelines (**OpChains**), and executed within a live
+assembled into micropipelines (**OpChains**), and executed within a live
 GStreamer pipeline.
 
 Conceptually:
 
 - **Ops** are small, single-responsibility processing units.
-- **OpChains** are ordered micro-pipelines built from Ops.
+- **OpChains** are ordered micropipelines built from Ops.
 - **ampinfer** is the GStreamer element that hosts and executes an OpChain
   for each media-driven execution step (e.g., per video frame).
 
@@ -33,9 +33,9 @@ v4l2src → videoconvert → ampinfer → autovideosink
 `ampinfer` receives buffers (e.g., video frames) from the pipeline and
 triggers inference processing.
 
-### 2. OpChain Level (Micro-Pipeline)
+### 2. OpChain Level (micropipeline)
 
-Inside `ampinfer`, an **OpChain** executes as a self-contained micro-pipeline:
+Inside `ampinfer`, an **OpChain** executes as a self-contained micropipeline:
 
 ```
 [InferenceController]
@@ -138,7 +138,7 @@ This enables separation between model execution and result interpretation.
 
 `amp::OpChain`
 
-An OpChain is an ordered collection of Ops forming a micro-pipeline.
+An OpChain is an ordered collection of Ops forming a micropipeline.
 
 Construction methods:
 

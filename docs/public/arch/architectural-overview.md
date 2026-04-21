@@ -19,7 +19,7 @@ The system is implemented as a set of reusable GStreamer elements that can be in
 Core elements:
 
 - `ampinfer`  
-  Runs micro-pipelines (OpChain) that perform preprocessing, inference, and postprocessing.
+  Runs micropipelines (OpChain) that perform preprocessing, inference, and postprocessing.
   Produces structured results into Perception.
   OpChains can contain other processing steps, but inference is the most important one in this project.
 
@@ -40,22 +40,21 @@ Each element can be placed into any existing GStreamer pipeline as a modular bui
 
 ---
 
-## Op System and Micro-Pipelines
+## Op System and micropipelines
 
 The internal processing model is based on an Op system.
 
 - An `Op` is a modular processing unit with a strict lifecycle (`configure`, `bind`, `process`).
 - Ops are composed into ordered pipelines called `OpChain`.
-- OpChains define “micro-pipelines” that implement a specific processing goal
+- OpChains define “micropipelines” that implement a specific processing goal
   (e.g., face detection, gaze estimation, OCR detection, classification).
 
 OpChains are created from JSON descriptors and can be executed inside `ampinfer`
 or as standalone pipelines without GStreamer.
 
 This enables pipeline composition and model swapping without recompilation.
-The micro-pipelines are flexible enough to define non-inference tasks.
-Micro-pipelines can be distributed across different GStreamer elements or contained within a single element.
-Different inference engines can be used even within a single micro-pipeline.
+The micropipelines are flexible enough to define non-inference tasks.
+Different inference engines can be used even within a single micropipeline.
 
 ---
 
@@ -65,7 +64,7 @@ All runtime setup is currently defined in JSON.
 
 JSON configuration is used to describe:
 
-- Which elements build up the micro-pipeline (OpChain)
+- Which elements build up the micropipeline (OpChain)
 - Op attributes (models, thresholds, parsers, preprocessing settings)
 - Backend selection also configured via Ops
 - Model cascading
@@ -105,7 +104,7 @@ Goals:
 - Preserve identities across time.
 - Attach track identifiers and trajectories back into Perception.
 
-Today, it updates tracked detections in-place and can emit `trackTrace` layers.
+Today, it updates tracked detections in-place and can emit `TrackTrace` layers.
 Richer tracker-specific output layers are still evolving.
 
 ---

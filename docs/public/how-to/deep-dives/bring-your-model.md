@@ -19,9 +19,27 @@ The codebase currently supports these runtime/model combinations:
 
 - ONNX Runtime with `.onnx` models
 - HailoRT with `.hef` models
-- ExecuTorch with `.pte` models, currently experimental
 
 If you want the least friction, start with ONNX and reuse an existing output parser.
+
+## Checked-in Hailo naming pattern
+
+The repository now keeps compiled Hailo variants in accelerator-specific model folders rather than in one generic `*-hef` bucket.
+
+Current checked-in examples include:
+
+- `config/models/mobilenetv2-hailo8/`
+- `config/models/mobilenetv2-hailo10/`
+- `config/models/osnet_x0_25-hailo8/`
+- `config/models/osnet_x0_25-hailo10/`
+- `config/models/yolov11-hailo8/`
+
+The matching full-demo presets are:
+
+- `config/pipelines/02-full-onnx-hailo8.json`
+- `config/pipelines/02-full-onnx-hailo10.json`
+
+If you are adding another compiled Hailo model, follow that same naming pattern so the pipeline can select the intended accelerator generation explicitly.
 
 ## Minimum files for a new model
 
@@ -60,9 +78,9 @@ Important input metadata includes:
 
 The easiest workflow is to copy one of the existing model folders and then adjust only the fields that differ.
 
-## Creating the micro-pipeline
+## Creating the micropipeline
 
-The micro-pipeline is the `opchain.json` consumed by `ampinfer`.
+The micropipeline is the `opchain.json` consumed by `ampinfer`.
 
 This is the main runtime interface you should use by default when onboarding a model. In the normal path, you do not start by changing `ampinfer` or adding a new Op. You start by describing the chain with `opchain.json` and by selecting the parser that turns model outputs into structured runtime results.
 
@@ -180,10 +198,13 @@ If you need to go beyond that and change elements or core runtime behavior, the 
 ## Good examples to copy from
 
 - `config/models/yolov11/` for a simple object detector
+- `config/models/yolov11-hailo8/` for a Hailo 8 detector variant
 - `config/opchains/tracking/` for a detector + embedding cascade
 - `config/models/mobilenetv2/` for a simple classifier
+- `config/models/mobilenetv2-hailo8/` and `config/models/mobilenetv2-hailo10/` for compiled Hailo classifier variants
 - `config/models/modnet/` for segmentation
 - `config/models/osnet_x0_25/` for embeddings
+- `config/models/osnet_x0_25-hailo8/` and `config/models/osnet_x0_25-hailo10/` for compiled Hailo embedding variants
 
 ## If the built-in parsers are not enough
 

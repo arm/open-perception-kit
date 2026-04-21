@@ -80,14 +80,19 @@ sudo apt-get install -y git docker.io code v4l-utils
    * [Visual Studio Code](https://code.visualstudio.com/download)
    * [VS Code Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
    * [Remote development extension](https://code.visualstudio.com/docs/remote/ssh)
+      * The following permission shall be granted in Settings otherwise the remote connection will fail Privacy & Security -> Local Network : vscode
 
 ### Raspberry Pi 5
    * **Docker**
-   * **Hailo packages**
+   * **Camera packages**
+   * **Hailo 8 or Hailo 10 host stack**, depending on the target
    * **v4l-utils**
-   * **raspicam**
    * [Required device and required packages on the target](rpi5.md)
    * [Setup SSH connection](#ssh-setup)
+
+Use `RPI5 H8 amp-dev-forge` for the Hailo 8 / AI HAT+ path.
+Use `RPI5 H10 amp-dev-forge` for the Hailo 10 / AI HAT+ 2 path.
+The Hailo 10 container expects the host-side Hailo 10 driver stack to already be installed.
 
 ### SSH setup
 Before starting the DevContainer, ensure that the `ssh-agent` is running and that your GitHub private key has been added to it.
@@ -119,8 +124,11 @@ The project is meant to run inside a container either as a devcontainer on your 
   - macOS: Cmd+Shift+P
 * Then select "Reopen in Container". A popup will appear.
    - For PC development choose "PC amp-dev-forge"
-   - For Raspberry Pi on device development choose "RPI5 amp-dev-forge"
+   - For Raspberry Pi on-device Hailo 8 / AI HAT+ development choose `RPI5 H8 amp-dev-forge`
+   - For Raspberry Pi on-device Hailo 10 / AI HAT+ 2 development choose `RPI5 H10 amp-dev-forge`
 * After a successful container build, every dependency, pre-commit hook, and device should be ready to use inside the Dev Container.
+
+On Raspberry Pi, `.devcontainer/platform_init.sh` runs on the host before container creation and generates the camera, audio, NPU, and shared-memory passthrough overrides for the selected service.
 
 ### Known Container issues
 * If a required port is already reserved, the development or deployment container will not start.
@@ -147,7 +155,7 @@ After a successful build, `amp-menu` will be created in the `tools` folder. This
 ```bash
 ./tools/amp-menu -l
 ```
-At the moment, pipeline execution is fully synchronous end to end. An asynchronous execution flow is planned for a later update, but it is not available yet.
+At the moment, pipeline execution is fully synchronous end to end. An asynchronous inference execution flow is planned for a later update, but it is not available yet.
 
 To stop an application that was not started from a VS Code launch configuration, press Ctrl+C in the console.
 
@@ -166,11 +174,12 @@ To stop a pipeline:
 Each pipeline's default source is an image, and the default sink is the `ampsink` endpoint. The pipeline files also contain premade alternative sources and sinks. Use them as templates when switching to a camera or video source.
 
 - `01-full-onnx.json` — integrated ONNX model pipelines on a still image
-- `02-full-onnx-hailo.json` — integrated ONNX + Hailo pipelines on camera and audio input
+- `02-full-onnx-hailo8.json` — integrated ONNX + Hailo 8 pipelines on a still image with ampsink video and optional audio sink
+- `03-full-onnx-hailo10.json` — integrated ONNX + Hailo 10 pipelines on a still image with ampsink video and optional audio sink
 - `cam-connect.json` — camera-contact demo
 - `gaze-detection.json` — gaze-estimation demo
 - `tracker-pc.json` — ONNX tracking demo
-- `tracker-rpi.json` — Hailo tracking demo
+- `tracker-rpi.json` — Hailo 8 tracking demo
 
 ### Debug AMP
 - Use the "AMP Debug latest" configuration in VS Code (F5). This will run the latest selected pipeline. Before debugging, a popup should appear. Select the release or debug target you want to use.

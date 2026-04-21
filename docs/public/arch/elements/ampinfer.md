@@ -12,7 +12,7 @@ Its main purpose is to run inference or inference cascades.
 
 GStreamer provides the media transport and scheduling. `ampinfer` converts
 incoming video buffers into the runtime representation required by the
-Op system and executes the configured micro-pipeline for each frame.
+Op system and executes the configured micropipeline for each frame.
 
 The Op system itself is independent of GStreamer. `ampinfer` acts as the
 integration layer between media transport and the Op execution engine.

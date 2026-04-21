@@ -96,9 +96,9 @@ To stop an application that was not started from a VS Code launch configuration,
 
 > Expected result: `amp-menu` starts and shows the pipeline selection menu.
 
-## 7. Run the first pipeline
+## 7. Run the example pipeline
 
-In `amp-menu`, select:
+For the shortest first run, int `amp-menu` select:
 - `01-full-onnx.json`
 
 This is the shortest recommended first pipeline.

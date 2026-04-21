@@ -1,5 +1,5 @@
 {
-  "description": "Every available ONNX model with the default image source and ampsink video sink.",
+  "description": "Every available ONNX and Hailo model with the default image source and ampsink video and audio sink.",
   "pipeline": [
     "filesrc location=/work/data/images/katana.jpg !",
     "jpegdec !",
@@ -7,11 +7,14 @@
     "videoconvert ! video/x-raw,format=BGRA !",
     "ampinfer opchain-path=/work/config/models/ultraface/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/yolov11/opchain.json active=false !",
+    "ampinfer opchain-path=/work/config/models/yolov11-hailo10/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/cam-contact/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/gaze-detection/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/mobilenetv2/opchain.json active=false !",
+    "ampinfer opchain-path=/work/config/models/mobilenetv2-hailo10/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/modnet/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/osnet_x0_25/opchain.json active=false !",
+    "ampinfer opchain-path=/work/config/models/osnet_x0_25-hailo10/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/paddleocr/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/personclassification/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/rvm/opchain.json active=false !",
@@ -42,7 +45,7 @@
     "videoconvert !",
     "video/x-raw,format=BGRA !"
   ],
-  "alternative-sink": [
+  "alternative-sink-file": [
     "filesink location=/work/data/output/full-dev.mp4"
   ],
   "alternative-sink-ampsink-with-audio": [

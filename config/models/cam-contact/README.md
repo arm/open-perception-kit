@@ -3,7 +3,7 @@
 Binary camera-contact classifier for face crops.
 
 - Backend: ONNX
-- Input: RGB crop, `[1, 3, 224, 224]`, `Float32`, ImageNet mean/std normalization
+- Input: NCHW crop, `[1, 3, 224, 224]`, `Float32`, ImageNet mean/std normalization
 - Output: logits `[1, 2]` for `no contact` and `contact`
 - Postprocessor: `CameraContactParser`
 - Supported Perception result: `Perception::Classification` in a `cameraContact` layer
