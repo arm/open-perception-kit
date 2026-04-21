@@ -25,3 +25,17 @@ services:
       context: ..
       dockerfile: Dockerfile
       target: amp-dev-rpi5
+
+  amp-dev-rpi5-h10:
+    extends:
+      file: ../compose.base.yaml
+      service: amp-common-dev
+
+    network_mode: host
+    ports: []
+    container_name: amp-dev-forge-rpi5-h10
+    hostname: amp-dev-forge-rpi5-h10
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: amp-dev-rpi5-h10

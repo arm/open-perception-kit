@@ -181,6 +181,42 @@ USER ${USERNAME}
 WORKDIR /work
 
 ######################################################################
+################### RPI5 Development Container (H10) #################
+######################################################################
+FROM amp-dev-base AS amp-dev-rpi5-h10
+# The base stage switches to a non-root user; return to root for apt/system changes.
+ARG USERNAME=devgoblin
+
+USER root
+# Add Raspberry Pi repository
+RUN set -eux; \
+  apt-get update; \
+  # TODO: use key
+  echo "deb [arch=arm64 trusted=yes] https://archive.raspberrypi.com/debian trixie main" \
+    > /etc/apt/sources.list.d/raspberrypi.list
+
+# Camera and graphics libraries
+RUN set -eux; \
+  apt-get update && apt-get install -y --no-install-recommends \
+  libv4l-dev libgl1-mesa-dri libglx-mesa0 libegl1 libgbm1 libdrm2 mesa-utils libdrm-dev libgbm-dev \
+  libcamera-tools libcamera-dev libcamera-ipa libcamera-v4l2 rpicam-apps \
+  alsa-utils gstreamer1.0-libcamera gstreamer1.0-alsa; \
+  rm -rf /var/lib/apt/lists/*
+
+# Hailo H10 user-space stack only.
+# Kernel driver packages (DKMS / h10-hailort-pcie-driver) are host-level and
+# fail in container builds because they require host kernel/module tooling.
+RUN set -eux; \
+  apt-get update && apt-get install -y --no-install-recommends \
+  h10-hailort python3-h10-hailort \
+  hailo-tappas-core python3-hailo-tappas \
+  hailo-models rpicam-apps-hailo-postprocess; \
+  rm -rf /var/lib/apt/lists/*
+
+USER ${USERNAME}
+WORKDIR /work
+
+######################################################################
 ###################### Deployment container ##########################
 ######################################################################
 FROM amp-docs-base AS amp-deployment-base
