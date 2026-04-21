@@ -1,4 +1,5 @@
 {
+    "name": "GazeDetectionWithUltraface",
     "ops": [
         {
             "id": "amp-std-ops/InferenceController",

@@ -1,4 +1,5 @@
 {
+    "name": "FullTrackingHailo",
     "ops": [
         {
             "id": "amp-std-ops/InferenceController",

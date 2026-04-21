@@ -1,4 +1,5 @@
 {
+    "name": "CameraContactWithUltraface",
     "ops": [
         {
             "id": "amp-std-ops/InferenceController",

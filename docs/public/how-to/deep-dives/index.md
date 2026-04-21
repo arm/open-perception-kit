@@ -202,6 +202,7 @@ Once the UI is open, use the **AI Models** panel to enable the models you want t
    - **Besides these, the following ports are also used in the background: 8000, 8001**
 
 ---
+
 ## How to use a laptop's built-in webcam in WSL/Linux
 
  1. (Only for WSL users) Forward camera input to WSL.
@@ -211,10 +212,11 @@ Once the UI is open, use the **AI Models** panel to enable the models you want t
         - Note: If attaching the camera fails, then disable the device in the Device Manager. Windows sometimes starts to use the camera in background processes and it is hard to figure out which process reserved it.
  2. Add the camera source to the pipeline and decode the stream before the models.
     - Eg.:
-        ```json
-        "v4l2src device=/dev/video0 ! \"image/jpeg,width=1280,height=720,framerate=60/1\"  !",
-        "jpegdec !",
-        ```
+
+```json
+"v4l2src device=/dev/video0 ! \"image/jpeg,width=1280,height=720,framerate=60/1\"  !",
+"jpegdec !",
+```
 
 ## Scripts and applications in our repository
 Helper scripts can be found under the `scripts` folder. The root of that folder contains the scripts needed to build and run the project, while `scripts/private` contains helper scripts that are not normally used directly.
@@ -227,7 +229,6 @@ Important scripts for usage:
 - `serve-docs-plain.sh`: Serve plain HTML documentation locally from the Dev Container.
 - `gen-doc.sh`: Generate documentation.
 
----
 
 ## Quality checks
 `expkits-ci` is a tool that is installed automatically during container creation.

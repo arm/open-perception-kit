@@ -1,4 +1,5 @@
 {
+    "name": "FullTrackingOnnx",
     "ops": [
         {
             "id": "amp-std-ops/InferenceController",

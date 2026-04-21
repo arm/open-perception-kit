@@ -3,7 +3,7 @@ sidebar_position: 2
 sidebar_label: macOS Quick Guide
 ---
 
-# macOS Quick-Guide
+# macOS Quick Guide
 
 This is the shortest path from cloning the repository to running the first AMP pipeline on macOS.
 

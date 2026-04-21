@@ -1,9 +1,13 @@
 {
   "description": "Every available ONNX and Hailo model with the default image source and ampsink video and audio sink.",
   "pipeline": [
-    "v4l2src device=/dev/video0 ! \"image/jpeg,width=1280,height=720,framerate=60/1\"  !",
+    "filesrc location=/work/data/images/katana.jpg !",
     "jpegdec !",
+    "imagefreeze !",
     "videoconvert ! video/x-raw,format=BGRA !",
+    "ampinfer opchain-path=/work/config/models/ultraface/opchain.json active=false !",
+    "ampinfer opchain-path=/work/config/models/yolov11/opchain.json active=false !",
+    "ampinfer opchain-path=/work/config/models/yolov11-hef/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/cam-contact/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/gaze-detection/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/mobilenetv2/opchain.json active=false !",
@@ -14,24 +18,41 @@
     "ampinfer opchain-path=/work/config/models/paddleocr/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/personclassification/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/rvm/opchain.json active=false !",
-    "ampinfer opchain-path=/work/config/models/ultraface/opchain.json active=false !",
-    "ampinfer opchain-path=/work/config/models/yolov11/opchain.json active=false !",
-    "ampinfer opchain-path=/work/config/models/yolov11-hef/opchain.json active=false !",
     "amptracker content-type=genericObject !",
     "ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
     "amposd enabled=true !",
+    "ampsink name=sink",
+  ],
+  "alternative-source-image": [
+    "filesrc location=/work/data/images/katana.jpg !",
+    "jpegdec !",
+    "imagefreeze !",
+    "videoconvert ! video/x-raw,format=BGRA !"
+  ],
+  "alternative-source-usbcam": [
+    "v4l2src device=/dev/video0 ! \"image/jpeg,width=1280,height=720,framerate=60/1\"  !",
+    "jpegdec !",
+    "videoconvert ! video/x-raw,format=BGRA !"
+  ],
+  "alternative-source-raspicam": [
+    "libcamerasrc camera-name=\"/base/axi/pcie@1000120000/rp1/i2c@80000/imx708@1a\" !",
+    "video/x-raw,format=RGB,width=1536,height=864,framerate=60/1 !",
+    "videoconvert ! video/x-raw,format=BGRA !"
+  ],
+  "alternative-source-video": [
+    "filesrc location=/work/data/videos/01.mp4 !",
+    "decodebin !",
+    "videoconvert !",
+    "video/x-raw,format=BGRA !",
+  ],
+  "alternative-sink-file": [
+    "filesink location=/work/data/output/full-dev.mp4"
+  ],
+  "alternative-sink-ampsink-with-audio": [
     "ampsink name=sink",
     "alsasrc device=hw:2,0 do-timestamp=true !",
     "audioconvert ! audioresample !",
     "audio/x-raw,rate=48000,channels=2 !",
     "sink.audiosink"
-  ],
-  "alternative-source": [
-    "libcamerasrc camera-name=\"/base/axi/pcie@1000120000/rp1/i2c@80000/imx708@1a\" !",
-    "video/x-raw,format=RGB,width=1536,height=864,framerate=60/1 !",
-    "videoconvert ! video/x-raw,format=BGRA !"
-  ],
-  "alternative-sink": [
-    "filesink location=/work/data/output/full-dev.mp4"
   ]
 }

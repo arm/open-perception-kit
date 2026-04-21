@@ -7,6 +7,13 @@ set -euo pipefail
 
 SRC_DIR="/work/docs/public"
 OUT_DIR="/work/docs/html"
+TMP_DIR="$(mktemp -d)"
+
+cleanup() {
+    rm -rf "$TMP_DIR"
+}
+
+trap cleanup EXIT
 
 echo "Building HTML docs..."
 echo "Source: $SRC_DIR"
@@ -29,6 +36,11 @@ else
     mkdir -p "$OUT_DIR"
 fi
 
+# --- prepare markdown sources for plain HTML generation ---
+PREPARED_SRC_DIR="$TMP_DIR/public"
+echo "Preparing Markdown sources for plain HTML output..."
+python3 /work/scripts/private/prepare_plain_docs.py "$SRC_DIR" "$PREPARED_SRC_DIR"
+
 # --- regenerate png figures (if any .puml exist) ---
 PLANTUML_SRC_DIR="/work/docs/static/plantuml"
 PLANTUML_OUT_DIR="/work/docs/static/img"
@@ -47,12 +59,12 @@ fi
 
 # --- convert markdown to html recursively ---
 echo "Converting Markdown files to HTML..."
-find "$SRC_DIR" -type f -name "*.md" -print0 | while IFS= read -r -d '' file; do
-    rel_path="${file#$SRC_DIR/}"
+find "$PREPARED_SRC_DIR" -type f -name "*.md" -print0 | while IFS= read -r -d '' file; do
+    rel_path="${file#$PREPARED_SRC_DIR/}"
     out_path="$OUT_DIR/${rel_path%.md}.html"
     mkdir -p "$(dirname "$out_path")"
     echo "Converting $rel_path -> ${rel_path%.md}.html"
-    pandoc "$file" -s -o "$out_path"
+    pandoc --from markdown-yaml_metadata_block "$file" -s -o "$out_path"
 done
 
 # --- copy images/assets ---
