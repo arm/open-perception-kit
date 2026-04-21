@@ -1,5 +1,5 @@
 ---
-sidebar_position: 31
+sidebar_position: 4
 sidebar_label: Runtime basics
 ---
 
@@ -43,6 +43,9 @@ Those presets define:
 The launcher `tools/amp-menu` reads these presets and runs them.
 
 If you want to change which image, video, or camera is used, this is usually the first place to edit.
+
+Some checked-in presets intentionally set `ampinfer active=false`.
+That lets the AMP web UI register the model first and then enable it from the **AI Models** panel when you are ready.
 
 ## What is an OpChain?
 
@@ -112,7 +115,7 @@ imagefreeze !
 videoconvert ! video/x-raw,format=BGRA !
 ```
 
-Suggested path for custom image is under `data/images/` folder.
+Suggested path for custom images is `data/images/`.
 
 ### Custom video
 
@@ -124,7 +127,7 @@ decodebin name=dec
 dec. ! queue ! videoconvert ! videoscale ! video/x-raw,format=BGRA !
 ```
 
-Suggested path for custom image is under `data/videos/` folder.
+Suggested path for custom videos is `data/videos/`.
 
 ### Custom camera
 

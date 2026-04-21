@@ -2,6 +2,9 @@
 
 Top-level pipeline presets used by `amp-menu`.
 
+The main demo presets typically register their `ampinfer` elements with `active=false`.
+This is intentional: open the AMP web UI and enable the models you want from the **AI Models** panel.
+
 - `01-full-onnx` — all listed ONNX model pipelines on a still image
 - `02-full-onnx-hailo` — all listed ONNX + Hailo pipelines on camera + audio input
 - `cam-connect` — camera-contact demo

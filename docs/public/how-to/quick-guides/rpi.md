@@ -1,5 +1,5 @@
 ---
-sidebar_position: 8
+sidebar_position: 3
 sidebar_label: Raspberry Pi Quick Guide
 ---
 
@@ -22,7 +22,7 @@ If you follow this page successfully, you will learn how to:
 At the end of this guide, you should have AMP running on your desk on a Raspberry Pi 5, with the first pipeline launched and the web UI available at `http://raspberrypi.local:9999`.
 
 ## 0. Required devices
-For other possible hardware setups please check out the deep dive documentations.
+For other hardware setups, use the deeper Raspberry Pi guide.
 
 - [Raspberry Pi 5 16GB](https://www.raspberrypi.com/products/raspberry-pi-5/)
 - [AI HAT+](https://www.raspberrypi.com/products/ai-hat/)
@@ -110,7 +110,7 @@ Run:
 
 Stop:
 
-To stop an application that was not started from a VS Code launch configuration, press Ctrl+C(Windows) in the console.
+To stop an application that was not started from a VS Code launch configuration, press Ctrl+C in the console.
 
 > Expected result: `amp-menu` starts and shows the pipeline selection menu.
 
@@ -123,11 +123,15 @@ For the shortest first run, select:
 If you specifically want the camera + Hailo path after that, use:
 - `02-full-onnx-hailo.json`
 
-> Expected result: the selected pipeline launches without errors and AMP begins running on the Raspberry Pi.
+> Expected result: the selected pipeline launches and the web UI can later list the preset's models.
 
 ## 8. Open the web UI
 
-> Disclaimer: Microsoft Edge is the suggested browser for the AMP web UI. If the image is not visible in the browser, open `edge://flags/`, find `#enable-webrtc-hide-local-ips-with-mdns`, and disable it.
+- Disclaimer: Microsoft Edge, Firefox or Safari are the suggested browsers for the AMP web UI. If the image is not visible in the browser on Windows
+   - Edge: open `edge://flags/`, find `#enable-webrtc-hide-local-ips-with-mdns`, and disable it.
+   - Firefox: `about:config`, find media.peerconnection.ice.obfuscate_host_addresses, and disable it.
+
+For Mac users, mDNS might not work, so instead of typing `raspberrypi.local`, use the Raspberry Pi’s IP address.
 
 Open:
 - http://raspberrypi.local:9999
@@ -135,7 +139,10 @@ Open:
 Documentation is available at:
 - http://raspberrypi.local:8080
 
-> Expected result: the AMP UI opens from another machine on the network and the documentation endpoint is also reachable.
+In the **AI Models** panel, enable one or more models to start inference.
+The main demo presets register their models as inactive by default so you can switch them on individually.
+
+> Expected result: the AMP UI opens from another machine on the network, the documentation endpoint is reachable, and enabled models begin producing overlays or results.
 
 ## 9. Run it again later without the menu
 

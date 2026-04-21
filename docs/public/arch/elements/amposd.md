@@ -1,5 +1,5 @@
 ---
-sidebar_position: 19
+sidebar_position: 2
 sidebar_label: amposd
 ---
 
@@ -7,10 +7,10 @@ sidebar_label: amposd
 ## On-Screen Display Element for Perception Visualization
 
 `amposd` is a GStreamer `GstVideoFilter` element that renders structured
-`Perception` metadata onto ARGB/BGRA video frames.
+`Perception` metadata onto BGRA video frames by compositing Cairo ARGB32 overlay layers.
 
-This component currently supports 32-bit ARGB drawing only, which determines the required video frame format.
-If there is no overlay on the video, it is likely because of a mismatched format.
+The current data path expects BGRA video frames on the element pads.
+If there is no overlay on the video, first check the frame format and make sure upstream elements are actually producing `PerceptionMeta`.
 
 It uses the received `Perception` instance attached to buffers, generates
 intermediate Cairo drawing layers, and composites them over the input frame
@@ -113,11 +113,16 @@ Currently supported:
 - Draws a green dot when the subject is looking at the camera.
 - Draws a red dot when the subject is not looking at the camera.
 
-## ocrDetectionSegmentation
+## segmentation
 
 - Renders segmentation map as alpha-blended overlay.
 - Performs min-max normalization of map values.
 - Supports automatic scaling when segmentation resolution differs from frame size.
+
+## trackTrace
+
+- Renders tracker history as line traces.
+- Uses `Perception::TrackTrace` points emitted by `amptracker`.
 
 ---
 
@@ -160,7 +165,7 @@ This allows lightweight runtime profiling visualization.
 
 - In-place modification of BGRA frames.
 - No intermediate frame duplication.
-- Cairo ARGB32 overlays composited over original buffer.
+- Cairo ARGB32 overlays composited over the original buffer.
 - CPU-based rendering.
 - Current implementation requires linear image memory.
 

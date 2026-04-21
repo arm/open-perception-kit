@@ -1,13 +1,13 @@
 ---
-sidebar_position: 31
+sidebar_position: 17
 sidebar_label: Streamline and Performix
 ---
 
 # Performix Quick Guide
 
-Performix is a standalone with which we can monitor performance metrics of our device.
+Performix is a standalone tool for monitoring performance metrics on the target device.
 
-Download Peformix here:
+Download Performix here:
 https://developer.arm.com/servers-and-cloud-computing/arm-performix
 
 ---
@@ -92,26 +92,26 @@ After clicking 'Add Target' you have to populate the form with information:
 - Name: An arbitrary name for the target
 - Port: SSH port (2222)
 - User: User name on target (devgoblin)
-- Key sleection: 'Select key manually' works with the above generated key
+- Key selection: `Select key manually` works with the generated key above
 
-You can 'Test Connection' also here.
+You can also use `Test Connection` here.
 
 ## Performix Recipes
 
-To do some measurement in Performix you need a recepe. 
+To take measurements in Performix, you need a recipe.
 Not all kinds of measurements are possible in a container.
 
 Now here is an example of setting up one that works:
 - Target: Name of the target
 - Workload type: Launch a new process
-- Workload: The process that will be executed and measured on the target (/work/scripts/amp-menu onnx)
+- Workload: The process that will be executed and measured on the target (for example `/work/tools/amp-menu 01-full-onnx`)
 - Set profiling duration: Limitless or execution for a limited time only
 - Different other settings
 
-The 'Run Recipe' button executes the target applicaion and do the measurement.
+The `Run Recipe` button executes the target application and performs the measurement.
 
 ![Performix recipe setup](/img/performix-recipe.jpg)
 
-After running a recibe by clicking on 'Run Recipe' you will get the measurement results.
+After running a recipe by clicking `Run Recipe`, you will get the measurement results.
 
 ![Performix results](/img/performix-results.jpg)

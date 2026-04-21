@@ -4,12 +4,12 @@ sidebar_position: 1
 sidebar_label: Overview
 ---
 
-# Architecture overview
+# Architecture Documentation
 
 This section documents the current AMP Development Forge runtime layout,
 execution model, and main GStreamer elements.
 
-# 📚 Documentation Map
+## Documentation Map
 
 ## General overview
 

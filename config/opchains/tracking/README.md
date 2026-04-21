@@ -1,6 +1,6 @@
 # Tracking OpChains
 
-Detector + ReID micropipeline for `amptracker`.
+Detector + ReID micro-pipeline for `amptracker`.
 
 - `opchain-onnx.json`: YOLOv11 ONNX + OSNet ONNX
 - `opchain-hailo.json`: YOLOv11 Hailo + OSNet Hailo

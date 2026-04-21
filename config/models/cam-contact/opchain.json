@@ -17,13 +17,13 @@
 				"inputImageSourceName": "pipelineVideoFrame"
 			}
 		},
-		{
-			"id": "amp-onnx-ops/Inference",
-			"loopId": 1,
-			"attributes": {
-				"modelDescriptor": "/work/config/models/cam_contact/model.json"
-			}
-		},
+			{
+				"id": "amp-onnx-ops/Inference",
+				"loopId": 1,
+				"attributes": {
+					"modelDescriptor": "/work/config/models/cam-contact/model.json"
+				}
+			},
 		{
 			"id": "amp-std-ops/GenericPostprocess",
 			"loopId": 1,

@@ -1,5 +1,5 @@
 {
-    "description": "Test AmpSink with multiple camera",
+    "description": "Test ampsink with multiple cameras",
     "pipeline": [
         "compositor name=comp background=black ",
         "sink_0::xpos=0   sink_0::ypos=0 ",

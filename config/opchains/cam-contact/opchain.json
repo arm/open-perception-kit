@@ -14,7 +14,7 @@
         {
             "id": "amp-onnx-ops/Inference",
             "attributes": {
-                "modelDescriptor": "/work/config/models/ultraface/ultraface.json"
+                "modelDescriptor": "/work/config/models/ultraface/model.json"
             }
         },
         {
@@ -43,14 +43,14 @@
         },
         {
             "id": "amp-onnx-ops/Inference",
-            "loopId": 1,
+            "loopId": 2,
             "attributes": {
                 "modelDescriptor": "/work/config/models/cam-contact/model.json"
             }
         },
         {
             "id": "amp-std-ops/GenericPostprocess",
-            "loopId": 1,
+            "loopId": 2,
             "attributes": {
                 "parser": "CameraContactParser",
                 "contactClassIndex": 1,

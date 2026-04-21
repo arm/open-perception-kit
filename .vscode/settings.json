@@ -44,6 +44,7 @@
         "-m",
         "autopep8"
     ],
+    "python.defaultInterpreterPath": "/work/tools/.venv/bin/python",
     "[python]": {
         "editor.defaultFormatter": "ms-python.autopep8"
     },

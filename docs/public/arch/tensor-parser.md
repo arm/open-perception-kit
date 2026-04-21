@@ -1,5 +1,5 @@
 ---
-sidebar_position: 17
+sidebar_position: 15
 sidebar_label: Tensor Parser
 ---
 
@@ -141,16 +141,38 @@ Attaches classification results to the Perception layer.
 Parser for the person classification network of the Arm AAIR team.
 Stores a person-classification detection object in the layer.
 
+## ModNet Segmentation Parser
+
+Parses segmentation-mask outputs into `Perception::SegmentationMap`.
+Used when the downstream runtime should render or publish a mask.
+
+## RVM Parser
+
+Parses RVM foreground-mask output into `Perception::SegmentationMap`.
+This is another segmentation-style path that shares the same `contentType`.
+
+## Object Embedding Parser
+
+Parses embedding outputs into `Perception::ObjectEmbedding`.
+This is typically used together with `amptracker` or other ReID-style flows.
+
+## Dummy Parser
+
+Debug parser that logs tensor information without producing a meaningful application result.
+
 # Additional Parsers
 
 Additional parsers can be implemented by conforming to the TensorParser
 interface without modifying the core execution engine.
 
-The system provides a mechanism for implementing custom output parsers with minimal effort.
+Today, custom parsers are implemented in C++ under `development/ops-std/postproc/`
+and selected by name from `GenericPostprocessOp.cpp`.
+That keeps model-specific output handling close to the existing OpChain and parser layer.
 
-Parser logic can be written in Python.
-The framework supplies direct access to the output tensor data along with a structured interface for populating the resulting detection layer.
+Python-based postprocessing is not part of the current runtime.
+It is discussed as a future direction in [Known limitations](../how-to/deep-dives/known-limitations.md).
 
 ![Postprocessor types](/img/postprocessor-types.png)
 
-This enables rapid experimentation and iteration, particularly for machine learning engineers who need to validate new models or adjust postprocessing logic without modifying the core C++ runtime.
+This design still keeps custom parsing localized: adding a new parser usually means
+adding one parser class, registering it, and referencing it from `opchain.json`.

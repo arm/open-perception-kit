@@ -1,12 +1,12 @@
 {
-  "description": "Every available onnx model with default image source and ampsink video sink.",
+  "description": "Every available ONNX model with the default image source and ampsink video sink.",
   "pipeline": [
     "filesrc location=/work/data/images/katana.jpg !",
     "jpegdec !",
     "imagefreeze !",
     "videoconvert ! video/x-raw,format=BGRA !",
-    "ampinfer opchain-path=/work/config/models/cam_contact/opchain.json active=false !",
-    "ampinfer opchain-path=/work/config/models/gazedetection/opchain.json active=false !",
+    "ampinfer opchain-path=/work/config/models/cam-contact/opchain.json active=false !",
+    "ampinfer opchain-path=/work/config/models/gaze-detection/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/mobilenetv2/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/modnet/opchain.json active=false !",
     "ampinfer opchain-path=/work/config/models/osnet_x0_25/opchain.json active=false !",

@@ -1,6 +1,6 @@
 ---
-sidebar_position: 6
-sidebar_label: Windows/Linux Quick-Guide
+sidebar_position: 1
+sidebar_label: Windows/Linux Quick Guide
 ---
 
 # Windows/Linux Quick-Guide
@@ -116,19 +116,23 @@ In `amp-menu`, select:
 
 This is the shortest recommended first pipeline.
 
-> Expected result: the selected pipeline launches without errors and AMP begins running.
+> Expected result: the selected pipeline launches and the web UI can later list the preset's models.
 
 ## 8. Open the web UI
 
-> Disclaimer: Microsoft Edge is the suggested browser for the AMP web UI. If the image is not visible in the browser, open `edge://flags/`, find `#enable-webrtc-hide-local-ips-with-mdns`, and disable it.
-
+- Disclaimer: Microsoft Edge or Firefox are the suggested browsers for the AMP web UI. If the image is not visible in the browser on Windows
+   - Edge: open `edge://flags/`, find `#enable-webrtc-hide-local-ips-with-mdns`, and disable it.
+   - Firefox: `about:config`, find media.peerconnection.ice.obfuscate_host_addresses, and disable it
 Open:
 - http://localhost:9999
 
 Documentation is available at:
 - http://localhost:8080
 
-> Expected result: the AMP UI opens in your browser and the documentation endpoint is also reachable.
+In the **AI Models** panel, enable one or more models to start inference.
+The main demo presets register their models as inactive by default so you can switch them on individually.
+
+> Expected result: the AMP UI opens in your browser, the documentation endpoint is reachable, and enabled models begin producing overlays or results.
 
 ## 9. Run it again later without the menu
 

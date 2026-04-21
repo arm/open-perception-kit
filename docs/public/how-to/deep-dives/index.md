@@ -1,5 +1,5 @@
 ---
-sidebar_position: 3
+sidebar_position: 1
 sidebar_label: How-To
 ---
 
@@ -8,7 +8,7 @@ sidebar_label: How-To
 This is the deep-dive setup and usage guide.
 
 If you only want the shortest path to a first run, use the platform quick-guide pages instead.
-If you want the fuller setup path and the next documentation hub finishing this tutorial, continue from here to [Engineering starting point](engineering.md).
+If you want the fuller setup path and the next documentation hub after this tutorial, continue from here to [Engineering starting point](engineering.md).
 
 ## What will you learn from this documentation?
 
@@ -27,9 +27,9 @@ At the end of this guide, you should have a working AMP environment on your desk
 - **Recommended first run:** ONNX pipeline
 
 **Steps:**
-1) [Clone the amp repository](#clone-the-repository)
-2) [Install dependencies](#host-side-dependencies)
-3) [Open and build the project](#open-and-start-the-project) or [deploy with Topo](topo.md)
+1. [Clone the AMP repository](#clone-the-repository)
+2. [Install dependencies](#host-side-dependencies)
+3. [Open and build the project](#open-and-start-the-project) or [deploy with Topo](topo.md)
 
 ---
 
@@ -110,7 +110,7 @@ For further information and a detailed tutorial check out the following tutorial
 
 ---
 
-## Open and Start the project
+## Open and start the project
 The project is meant to run inside a container either as a devcontainer on your PC, a devcontainer on your Raspberry Pi or deployment container with topo.
 
 ### Open AMP with VS Code
@@ -154,6 +154,8 @@ To stop an application that was not started from a VS Code launch configuration,
 **First-time users:**  
 - We recommend running **01-full-onnx** first.
 It includes the main integrated ONNX pipelines and models currently available in the system.
+- The shipped demo presets usually register their `ampinfer` elements with `active=false`.
+  After the UI opens, use the **AI Models** panel to enable the models you want to run.
 
 To stop a pipeline:
 - Windows/Linux: Ctrl + C  
@@ -180,12 +182,16 @@ Each pipeline's default source is an image, and the default sink is the `ampsink
 
 Open a new terminal in the Dev Container to see the available endpoints. When in doubt, the following endpoints apply.
 
-> Disclaimer: Microsoft Edge is the suggested browser for the AMP web UI. If the image is not visible in the browser, open `edge://flags/`, find `#enable-webrtc-hide-local-ips-with-mdns`, and disable it.
+- Disclaimer: Microsoft Edge, Firefox, or Safari are the suggested browsers for the AMP web UI. If the image is not visible in the browser on Windows
+   - Edge: open `edge://flags/`, find `#enable-webrtc-hide-local-ips-with-mdns`, and disable it.
+   - Firefox: `about:config`, find `media.peerconnection.ice.obfuscate_host_addresses`, and disable it.
 
 - [Raspberry AMP Web UI](http://raspberrypi.local:9999)
 - [Raspberry AMP Documentation](http://raspberrypi.local:8080)
 - [PC AMP Web UI](http://localhost:9999)
 - [PC AMP Documentation](http://localhost:8080)
+
+Once the UI is open, use the **AI Models** panel to enable the models you want to run and the **Controls** panel to toggle the performance overlay.
 
 - **Hostnames:**
    - `raspberrypi.local` (on Raspberry Pi)
@@ -218,7 +224,7 @@ Important scripts for usage:
 - `build-elements.sh`: Build all GStreamer elements.
 - `docker-nuke.sh`: Stop and remove all Docker containers.
 - `serve-docs.sh`: Serve docusaurus documentation.
-- `serve-docs-plain.sh`: Serve plain HTML documentation locally from devcontainer.
+- `serve-docs-plain.sh`: Serve plain HTML documentation locally from the Dev Container.
 - `gen-doc.sh`: Generate documentation.
 
 ---
@@ -255,7 +261,8 @@ git commit --no-verify
 ---
 
 ## Next steps
-In order to not just use the project but extend it with your own cool stuff continue to [Engineering starting point](engineering.md).
+
+If you want to move from using the project to extending it, continue to [Engineering starting point](engineering.md).
 
 ## What should you have at the end of this document?
 

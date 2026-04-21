@@ -1,5 +1,5 @@
 ---
-sidebar_position: 33
+sidebar_position: 6
 sidebar_label: Custom postprocessing
 ---
 
@@ -77,7 +77,9 @@ The shortest practical path is:
 
 This keeps the change local to the inference chain and avoids touching `ampinfer` or the outer GStreamer pipeline.
 
-That local change is usually a good sign that you are still within the intended extension surface. When the work can stay inside parser code, build wiring, and `opchain.json`, you usually do not need a new Op. If you do a new post processing operation should be enough and touching any inference operation as a user is out of scope at the moment.
+That local change is usually a good sign that you are still within the intended extension surface.
+When the work can stay inside parser code, build wiring, and `opchain.json`, you usually do not need a new Op.
+For normal model onboarding, adding a parser is the intended path; changing inference Ops or deeper runtime code is outside the common user extension surface.
 
 ## Alternative path: use a well-specified integration prompt
 
@@ -191,7 +193,7 @@ In practice, “make the data make sense” means:
 
 - pick the right `Perception` structure for the meaning of the output
 - fill its fields in normalized image coordinates or the expected runtime units
-- make sure every result is linked to the correct parent object with `parentUuid`
+- make sure the OpChain is feeding the correct source object so `GenericPostprocessOp` can set `parentUuid` correctly
 - choose a stable `layer.contentType` string that downstream code can match on
 
 Then, for visualization, choose the overlay style that matches the semantics of the data:

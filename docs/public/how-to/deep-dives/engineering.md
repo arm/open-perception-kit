@@ -1,5 +1,5 @@
 ---
-sidebar_position: 34
+sidebar_position: 2
 sidebar_label: Engineering starting point
 ---
 

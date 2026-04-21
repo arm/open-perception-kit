@@ -1,5 +1,5 @@
 ---
-sidebar_position: 4
+sidebar_position: 8
 sidebar_label: Raspberry Pi 5
 ---
 
@@ -18,10 +18,10 @@ At the end of this page, you should have a Raspberry Pi 5 on your desk that is r
 In order to run the project the following components are needed:
 
 - [Raspberry Pi 5 16GB](https://www.raspberrypi.com/products/raspberry-pi-5/)
-	- The 8GB version should work as well but it's not tested at the moment.
+	- The 8GB version should work as well, but it is not tested at the moment.
 - [AI HAT+](https://www.raspberrypi.com/products/ai-hat/)
-	- AI Hat+ 2 will work soon but the compilet Hailo 8 models are not compatible out of the box with the new device.
-	- There are some Hailo10 compatible models in the repository, but the path is not tested throughly, so may not work as expected.
+	- The newer Hailo-10 based path is not validated in this repository yet.
+	- There are some Hailo-10-compatible models in the repository, but that path is not tested thoroughly and may not work as expected.
 - USB or CSI camera
 	- [Camera Module v3](https://www.raspberrypi.com/products/camera-module-3/)
 	- USB camera (project tested with Lenovo C920 Pro)
@@ -96,13 +96,13 @@ See: [Debian | Docker Docs](https://docs.docker.com/engine/install/debian/)
 
 ## SSH and VS Code
 
-To set up SSH connection with VS Code, first enable password authentication in `/etc/ssh/sshd_config` by changing the following line:
+To set up an SSH connection with VS Code, first enable password authentication in `/etc/ssh/sshd_config` by changing the following line:
 
 ```ini
 PasswordAuthentication yes
 ```
 
-Then follow the tutorial: https://code.visualstudio.com/docs/remote/ssh
+Then follow the [VS Code Remote SSH tutorial](https://code.visualstudio.com/docs/remote/ssh).
 
 After the first negotiation, your key will be stored on the Pi and you can switch back to `PasswordAuthentication no`.
 
@@ -135,7 +135,7 @@ Available cameras
 					 3280x2464 [21.19 fps - (0, 0)/3280x2464 crop]
 ```
 
-> **Note:** The camera identifiers are not `0` and `1`; they are `/base/axi/pcie@1000120000/rp1/i2c@88000/imx708@1a` and `/base/axi/pcie@1000120000/rp1/i2c@70000/imx219@10`. Use supported formats and resolutions when building the GStreamer pipeline.
+> **Note:** For `libcamerasrc`, the stable identifiers are not `0` and `1`; they are the full camera names such as `/base/axi/pcie@1000120000/rp1/i2c@88000/imx708@1a` and `/base/axi/pcie@1000120000/rp1/i2c@70000/imx219@10`. Use supported formats and resolutions when building the GStreamer pipeline.
 
 ### USB Cameras
 

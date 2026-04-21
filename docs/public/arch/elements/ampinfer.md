@@ -1,5 +1,5 @@
 ---
-sidebar_position: 18
+sidebar_position: 1
 sidebar_label: ampinfer
 ---
 
@@ -54,6 +54,7 @@ This file defines:
 `active` (boolean)
 
 Enables or disables OpChain execution.
+When disabled, `ampinfer` passes buffers through unchanged and does not attach new `PerceptionMeta` on its own.
 
 `format` (string, default: BGRA)
 
@@ -89,7 +90,7 @@ The event contains:
 
 ## Per-Frame Execution Path
 
-1.  If active is false → passthrough.
+1.  If `active` is false -> passthrough.
 2.  Map the buffer for read/write access.
 3.  Ensure `PerceptionMeta` is attached.
 4.  Construct OpChainContext.
@@ -105,7 +106,7 @@ All persistent inference output must be written by Ops into Perception.
 
 ## Perception Integration
 
-`ampinfer` guarantees that a `Perception` object exists for every processed
+`ampinfer` guarantees that a `Perception` object exists for every active processed
 frame.
 
 This enables: 

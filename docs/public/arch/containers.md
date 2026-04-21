@@ -1,5 +1,5 @@
 ---
-sidebar_position: 7
+sidebar_position: 4
 sidebar_label: Containers
 ---
 
@@ -32,14 +32,14 @@ While containers provide reproducibility, they introduce runtime challenges:
 
 ---
 
-## AmpSink: WebRTC-Based Output
+## `ampsink`: WebRTC-Based Output
 
-To solve these issues, the system introduces **AmpSink**.
+To solve these issues, the system introduces **`ampsink`**.
 
 ![WebRTC utilization](/img/webrtc.png)
 
-Our element is called AmpSink.
-AmpSink provides a web endpoint inside the container publishing media.
+The element is called `ampsink`.
+`ampsink` provides a web endpoint inside the container that publishes media.
 The host web browser connects to this endpoint and renders the media stream.
 
 - Streams media using WebRTC.
@@ -64,9 +64,9 @@ Media transport and control signaling are cleanly separated.
 
 ---
 
-## AmpSource (Planned)
+## `ampsource` (Planned)
 
-AmpSource extends the architecture in the opposite direction.
+`ampsource` would extend the architecture in the opposite direction.
 The system routes the browser camera and microphone data into the container.
 Web-based video/audio streams can also be routed into the container as a pipeline source.
 Media is streamed into the pipeline.
@@ -75,7 +75,7 @@ This enables different use cases where the user can use the device with a single
 Example use cases:
 
 - Video conference with neural network inferences
-- Realtime translated web radio
+- Real-time translated web radio
 
 ---
 

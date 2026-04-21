@@ -1,6 +1,6 @@
 ---
-sidebar_position: 7
-sidebar_label: macOS Quick-Guide
+sidebar_position: 2
+sidebar_label: macOS Quick Guide
 ---
 
 # macOS Quick-Guide
@@ -92,7 +92,7 @@ Run:
 
 Stop:
 
-To stop an application that was not started from a VS Code launch configuration, press Command+C in the console.
+To stop an application that was not started from a VS Code launch configuration, press Control+C in the console.
 
 > Expected result: `amp-menu` starts and shows the pipeline selection menu.
 
@@ -103,11 +103,11 @@ In `amp-menu`, select:
 
 This is the shortest recommended first pipeline.
 
-> Expected result: the selected pipeline launches without errors and AMP begins running.
+> Expected result: the selected pipeline launches and the web UI can later list the preset's models.
 
 ## 8. Open the web UI
 
-> Disclaimer: Microsoft Edge is the suggested browser for the AMP web UI. If the image is not visible in the browser, open `edge://flags/`, find `#enable-webrtc-hide-local-ips-with-mdns`, and disable it.
+> Disclaimer: Safari is the suggested browser for the AMP web UI on mac.
 
 Open:
 - http://localhost:9999
@@ -115,7 +115,10 @@ Open:
 Documentation is available at:
 - http://localhost:8080
 
-> Expected result: the AMP UI opens in your browser and the documentation endpoint is also reachable.
+In the **AI Models** panel, enable one or more models to start inference.
+The main demo presets register their models as inactive by default so you can switch them on individually.
+
+> Expected result: the AMP UI opens in your browser, the documentation endpoint is reachable, and enabled models begin producing overlays or results.
 
 ## 9. Run it again later without the menu
 

@@ -1,5 +1,5 @@
 ---
-sidebar_position: 30
+sidebar_position: 3
 sidebar_label: Structural basics
 ---
 

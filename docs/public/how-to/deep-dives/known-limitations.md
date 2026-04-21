@@ -1,5 +1,5 @@
 ---
-sidebar_position: 35
+sidebar_position: 7
 sidebar_label: Known limitations
 ---
 
@@ -106,7 +106,8 @@ This makes the repository useful for demos and integrated development, but it al
 
 #### Proposed solution
 
-A cleaner architectural split would keep frame/result gathering and contract-based result publication close to the perception runtime, while moving visualization hosting and application-layer UI concerns into a higher-level application stack. To help with this Cairn SDK will provide a higher level python(?) binding later on top of our perception results.
+A cleaner architectural split would keep frame/result gathering and contract-based result publication close to the perception runtime, while moving visualization hosting and application-layer UI concerns into a higher-level application stack.
+One possible follow-on is a higher-level Cairn SDK binding on top of the perception results, but that is not part of the current repository.
 
 ### Camera acquisition is not yet uniform
 

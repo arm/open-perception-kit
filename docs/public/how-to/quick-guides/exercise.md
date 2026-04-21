@@ -1,6 +1,6 @@
 ---
-sidebar_position: 9
-sidebar_label: Exercise quick guide
+sidebar_position: 4
+sidebar_label: Exercise Quick Guide
 ---
 
 # Exercise Quick Guide
@@ -137,6 +137,8 @@ A minimal example is:
 
 This step proves that you can swap only the sink side and produce a concrete artifact without changing the source side.
 
+If `/work/data/output/` does not exist yet, create it before running this step.
+
 > Expected result: the pipeline writes a frame to `/work/data/output/exercise-frame.jpg`.
 
 ## Step 4: Switch to an image source and `ampsink`
@@ -185,13 +187,14 @@ A first inference-enabled version looks like this:
     "jpegdec !",
     "imagefreeze !",
     "videoconvert ! video/x-raw,format=BGRA !",
-    "ampinfer opchain-path=/work/config/opchains/cam-contact/opchain.json active=false !",
+    "ampinfer opchain-path=/work/config/opchains/cam-contact/opchain.json active=true !",
     "ampsink name=sink"
   ]
 }
 ```
 
 This is an important repository concept: the top-level pipeline does not need to describe every model stage directly. It can delegate the inference logic to an OpChain.
+For this exercise, `active=true` keeps the data path obvious and immediate. The shipped demo presets often use `active=false` instead so the web UI can enable models one by one.
 
 > Expected result: the pipeline still runs through `ampsink`, but now the buffer also carries `PerceptionMeta` produced by the camera-contact inference chain.
 
@@ -207,7 +210,7 @@ Now add `amposd` so the structured results can be drawn onto the frame.
     "jpegdec !",
     "imagefreeze !",
     "videoconvert ! video/x-raw,format=BGRA !",
-    "ampinfer opchain-path=/work/config/opchains/cam-contact/opchain.json active=false !",
+    "ampinfer opchain-path=/work/config/opchains/cam-contact/opchain.json active=true !",
     "amposd enabled=true !",
     "ampsink name=sink"
   ]
@@ -234,7 +237,7 @@ Now add `ampperformance` before `amposd`.
     "jpegdec !",
     "imagefreeze !",
     "videoconvert ! video/x-raw,format=BGRA !",
-    "ampinfer opchain-path=/work/config/opchains/cam-contact/opchain.json active=false !",
+    "ampinfer opchain-path=/work/config/opchains/cam-contact/opchain.json active=true !",
     "ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
     "amposd enabled=true !",
     "ampsink name=sink"
@@ -243,6 +246,7 @@ Now add `ampperformance` before `amposd`.
 ```
 
 This is now very close to the checked-in camera-contact preset.
+The main difference is that the shipped preset keeps its model inactive by default so it can be enabled from the web UI.
 
 The fully checked-in example to compare against is:
 
@@ -326,7 +330,7 @@ Relevant snippet:
     {
       "id": "amp-onnx-ops/Inference",
       "attributes": {
-        "modelDescriptor": "/work/config/models/ultraface/ultraface.json"
+        "modelDescriptor": "/work/config/models/ultraface/model.json"
       }
     },
     {
@@ -344,14 +348,14 @@ Relevant snippet:
     },
     {
       "id": "amp-onnx-ops/Inference",
-      "loopId": 1,
+      "loopId": 2,
       "attributes": {
         "modelDescriptor": "/work/config/models/cam-contact/model.json"
       }
     },
     {
       "id": "amp-std-ops/GenericPostprocess",
-      "loopId": 1,
+      "loopId": 2,
       "attributes": {
         "parser": "CameraContactParser",
         "contactClassIndex": 1,
@@ -464,7 +468,7 @@ Once you have gone through the steps above, compare your exercise pipeline with:
 config/pipelines/cam-connect.json
 ```
 
-That file is the checked-in version of the same idea:
+That file is the checked-in version of the same idea, with the additional detail that the UI is expected to toggle models on and off:
 
 - image source
 - camera-contact opchain

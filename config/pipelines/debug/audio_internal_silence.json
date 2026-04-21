@@ -1,5 +1,5 @@
 {
-    "description": "Test AmpSink internal silence generator",
+    "description": "Test ampsink internal silence generator",
     "pipeline": [
         "videotestsrc is-live=true pattern=ball !",
         "video/x-raw,framerate=30/1 !",

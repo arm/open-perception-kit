@@ -1,5 +1,5 @@
 {
-    "description": "Test AmpSink audio",
+    "description": "Test ampsink audio",
     "pipeline": [
         "videotestsrc is-live=true pattern=ball !",
         "video/x-raw,framerate=30/1 !",

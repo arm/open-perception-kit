@@ -5,8 +5,8 @@
         "jpegdec !",
         "imagefreeze !",
         "videoconvert ! video/x-raw,format=BGRA !",
-        "ampinfer opchain-path=/work/config/opchains/yolo/opchain.json active=true !",
-        "ampinfer opchain-path=/work/config/opchains/osnet_x0_25/opchain.json active=true !",
+        "ampinfer opchain-path=/work/config/models/yolov11/opchain.json active=true !",
+        "ampinfer opchain-path=/work/config/models/osnet_x0_25/opchain.json active=true !",
         "amptracker content-type=genericObject !",
         "fakesink"
     ]

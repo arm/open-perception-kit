@@ -1,5 +1,5 @@
 {
-    "description": "Test AmpSink with single camera",
+    "description": "Test ampsink with a single camera",
     "pipeline": [
         "v4l2src device=/dev/video4 do-timestamp=true ",
         "! videoconvert ! videoscale ",

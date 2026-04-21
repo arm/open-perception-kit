@@ -1,6 +1,6 @@
 ---
-sidebar_position: 6
-sidebar_label: Architecture
+sidebar_position: 3
+sidebar_label: Architectural overview
 ---
 
 # Architectural Overview
@@ -105,7 +105,8 @@ Goals:
 - Preserve identities across time.
 - Attach track identifiers and trajectories back into Perception.
 
-It adds `tracking` layers to Perception. (planned)
+Today, it updates tracked detections in-place and can emit `trackTrace` layers.
+Richer tracker-specific output layers are still evolving.
 
 ---
 
@@ -131,7 +132,7 @@ A typical execution flow:
 1. GStreamer delivers an audio/video buffer into the pipeline.
 2. `ampinfer` executes an OpChain for preprocessing → inference → postprocessing.
 3. Results are written into Perception as one or more Layers.
-4. `amptracker` optionally stabilizes detections across frames and adds tracking layer.
+4. `amptracker` optionally stabilizes detections across frames and can append `trackTrace` output.
 5. `amposd` optionally visualizes Perception results on video frames.
 6. `ampsink` optionally streams the output to a browser via WebRTC.
 7. `ampperformance` records runtime performance information.

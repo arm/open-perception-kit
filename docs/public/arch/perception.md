@@ -1,5 +1,5 @@
 ---
-sidebar_position: 12
+sidebar_position: 10
 sidebar_label: Perception
 ---
 
@@ -66,6 +66,8 @@ Perception provides a small set of normalized detection types that cover common 
 - `YawPitch` for angular/regression outputs (e.g. gaze/head pose).
 - `LocalizedText` for OCR-like localized text payloads.
 - `SegmentationMap` for dense pixel-level outputs.
+- `TrackTrace` for tracker history rendered as a motion trail.
+- `ObjectEmbedding` for embedding or ReID vectors linked to a parent detection.
 
 All detection types inherit from Object and can participate in parent/child relationships.
 
@@ -91,6 +93,7 @@ Layer metadata provides provenance and interpretation context:
 - `engine` identifies the runtime backend (e.g. ONNX RT, Hailo RT, ExecuTorch).
 - `model` identifies the model used.
 - `tags` provide implementation-specific routing/labeling hints.
+- `inferElementId` identifies the `ampinfer` or tracker instance that produced the layer.
 - `labelFamily` describes the label set namespace (e.g. coco, imageNet).
 - `contentType` describes the semantic output category (e.g. humanFace, classification, eyeYawPitch).
 

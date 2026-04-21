@@ -1,5 +1,5 @@
 ---
-sidebar_position: 32
+sidebar_position: 5
 sidebar_label: Bring your model
 ---
 
@@ -106,7 +106,7 @@ What matters here is not only that the model runs, but that the last stage produ
 
 ## Reuse an existing postprocessor if possible
 
-The built-in post processors currently registered in `GenericPostprocessOp` are:
+The built-in postprocessors currently registered in `GenericPostprocessOp` are:
 
 - `YoloParser`
 - `UltrafaceParser`
@@ -176,6 +176,7 @@ If that is not enough, the next most common place to change is:
 Those are the intended user-facing extension points for the common path. If you stay within model descriptors, opchains, pipeline presets, and parser selection, you are still using the default integration surface.
 
 If you need to go beyond that and change elements or core runtime behavior, the task has moved beyond a simple model drop-in.
+
 ## Good examples to copy from
 
 - `config/models/yolov11/` for a simple object detector

@@ -1,6 +1,6 @@
 ---
-sidebar_position: 22
-sidebar_label: testing
+sidebar_position: 9
+sidebar_label: Testing
 ---
 # Testing, Validation and Verification
 
@@ -37,7 +37,7 @@ The script builds AMP in debug mode, runs selected test pipelines through `amp-m
 For each pipeline:
 
 1. Runs `valgrind` with full leak checking.
-2. Runs `scripts/amp-menu -f <NUM_FRAMES> <pipeline.json>` under Valgrind.
+2. Runs `tools/amp-menu -f <NUM_FRAMES> <pipeline.json>` under Valgrind.
 3. Stores output in `scripts/testing/valgrind/logs/<pipeline-name>.valgrind.log.*` (PID-suffixed, including child processes).
 4. Returns non-zero if one or more pipelines fail Valgrind checks.
 
@@ -140,7 +140,7 @@ Use a custom suppression file:
 <a id="valgrind-debugging"></a>
 ### Debugging a failed testing pipeline
 
-When a pipeline from `scripts/pipelines/testing/` fails (eg. on the CI server during a PR check):
+When a pipeline from `scripts/pipelines/testing/` fails (for example on the CI server during a PR check):
 
 1. Re-run only the failing pipeline.
 
@@ -181,5 +181,3 @@ If that step fails, logs are uploaded as a workflow artifact named:
 - `valgrind-logs`
 
 This artifact contains files from `scripts/testing/valgrind/logs/` for offline analysis.
-
-

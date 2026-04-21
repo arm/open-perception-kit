@@ -48,6 +48,11 @@
 - When documenting models or OpChains, prefer actual checked-in examples from `config/models/*` and `config/opchains/*`.
 - Op plugins must expose `amp_create_op_instance` and `amp_delete_op_instance` in their plugin entry files.
 - Avoid inventing features that are not present in `development/`. If uncertain, verify the exact property names, metadata names, and field names in code first.
+- Prefer the default extension surfaces before changing core runtime code:
+   - `config/models/`
+   - `config/opchains/`
+   - `config/pipelines/`
+   - `development/ops-std/postproc/`
 - Preserve existing naming used by the codebase:
    - `PerceptionMeta`
    - `loopId`
@@ -56,9 +61,27 @@
    - `perfdata`
 
 ## Docs maintenance guidance
-- Architecture and element docs live under `docs/docs/`.
+- Architecture and element docs live under `docs/public/`.
 - Keep docs grounded in the implementation under `development/`, not in historical naming.
 - If you update paths or behavior in docs, verify them against the current code and `config/` layout.
+
+## Agent-friendly entry points
+- Repository-wide guidance for coding agents lives in `AGENTS.md`.
+- Task-oriented agent playbooks live in `skills.md`.
+- When extending the repository, start from these docs depending on the task:
+   - `docs/public/how-to/deep-dives/engineering.md`
+   - `docs/public/how-to/deep-dives/structural-basics.md`
+   - `docs/public/how-to/deep-dives/runtime.md`
+   - `docs/public/how-to/deep-dives/bring-your-model.md`
+   - `docs/public/how-to/deep-dives/custom-postprocessing.md`
+   - `docs/public/how-to/deep-dives/known-limitations.md`
+
+## Extension heuristics for agents
+- If the user wants a new runnable demo or exercise, start in `config/pipelines/`.
+- If the user wants to onboard a new model, start in `config/models/` and `config/opchains/`.
+- If the model runs but the outputs are not understood yet, start in `development/ops-std/postproc/`.
+- If a new result must be visualized, inspect `development/elements/amposd/amposd.cpp` after the parser path is clear.
+- Do not change `ampinfer`, `ampsink`, or shared runtime code first unless the task clearly requires deeper runtime work.
 
 ## Tooling notes
 - multiple formatting rules are enforced in CI and by pre-commit hooks.

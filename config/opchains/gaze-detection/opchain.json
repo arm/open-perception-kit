@@ -14,7 +14,7 @@
         {
             "id": "amp-onnx-ops/Inference",
             "attributes": {
-                "modelDescriptor": "/work/config/models/ultraface/ultraface.json"
+                "modelDescriptor": "/work/config/models/ultraface/model.json"
             }
         },
         {

@@ -1,6 +1,6 @@
 ---
-sidebar_position: 5
-sidebar_label: How-To Topo
+sidebar_position: 9
+sidebar_label: Topo How-To
 ---
 
 # AMP Development Forge Topo How-To
@@ -32,7 +32,7 @@ cd test
 ```
 
 This creates a local `test` directory containing the AMP Development Forge project.
-Alternatively the usual working directory can also be used.
+If you already cloned the repository another way, you can also run `topo deploy` from that existing working tree.
 
 ## Deploy to your target
 
