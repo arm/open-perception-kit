@@ -25,7 +25,7 @@ RUN set -eux; \
   apt-get install -y --no-install-recommends \
     ca-certificates curl wget sudo unzip gnupg \
     build-essential meson ninja-build pkg-config cmake \
-    libssl-dev libfmt-dev libsoup-3.0-dev libjson-glib-dev libcairo2-dev zip python3 python3-pip; \
+    libssl-dev libfmt-dev libfftw3-dev libsoup-3.0-dev libjson-glib-dev libcairo2-dev zip python3 python3-pip; \
   rm -rf /var/lib/apt/lists/*
 
 # GStreamer core + base
@@ -53,6 +53,7 @@ EXPOSE 8000
 EXPOSE 8001
 EXPOSE 9999
 EXPOSE 8080
+EXPOSE 2222
 
 # Non-root user
 ARG USERNAME=devgoblin
