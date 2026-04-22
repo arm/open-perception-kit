@@ -13,7 +13,7 @@ This documentation is split into two main paths:
 
 ## Choose a documentation path
 
-![AMP documentation learning paths](../static/img//documentation-paths.png)
+![AMP documentation learning paths](../static/img/documentation-paths.png)
 
 Use this flowchart when you are deciding how deep to go first.
 The quick-guide path is the fastest way to reach a working pipeline and then reconnect through the [Exercise Quick Guide](how-to/quick-guides/exercise.md) into the same engineering path as the full setup flow.
