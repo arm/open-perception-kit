@@ -32,7 +32,7 @@ The deep-dive path branches by platform and Raspberry Pi accelerator choice, the
 - [Main how-to guide](how-to/deep-dives/index.md)
 - [Engineering starting point](how-to/deep-dives/engineering.md)
 - [Bring your model](how-to/deep-dives/bring-your-model.md)
-- [Performix setup](performix-setup.md)
+- [Performix setup](how-to/deep-dives/performix-setup.md)
 
 ### Architecture and implementation detail
 
