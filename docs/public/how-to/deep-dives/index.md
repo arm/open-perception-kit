@@ -122,11 +122,15 @@ The project is meant to run inside a container either as a devcontainer on your 
 * Open command palette:
   - Windows/Linux: Ctrl+Shift+P
   - macOS: Cmd+Shift+P
-* Then select "Reopen in Container". A popup will appear.
+* Then select `Dev Containers: Reopen in Container`. A popup will appear.
    - For PC development choose "PC amp-dev-forge"
    - For Raspberry Pi on-device Hailo 8 / AI HAT+ development choose `RPI5 H8 amp-dev-forge`
    - For Raspberry Pi on-device Hailo 10 / AI HAT+ 2 development choose `RPI5 H10 amp-dev-forge`
 * After a successful container build, every dependency, pre-commit hook, and device should be ready to use inside the Dev Container.
+
+![VS Code command palette showing Reopen in Container](../../../static/img/vscode-reopen-in-container.png)
+
+![VS Code Dev Container selection dialog](../../../static/img/vscode-reopen-in-container2.png)
 
 On Raspberry Pi, `.devcontainer/platform_init.sh` runs on the host before container creation and generates the camera, audio, NPU, and shared-memory passthrough overrides for the selected service.
 
@@ -135,12 +139,17 @@ On Raspberry Pi, `.devcontainer/platform_init.sh` runs on the host before contai
 * It is possible to use Docker only with Windows and WSL. In this case, Docker Desktop is not mandatory and host networking can also be used.
 
 ### Build AMP
+- Open the Command Palette and run `Tasks: Run Task`, or use **Terminal -> Run Task...**
 - **00 Build Project**: Builds all elements (default).
    - Before build, a popup should appear.
    - You will be prompted to choose `debug` or `release`. Use `debug` if unsure.
 - **01 Clean Project**: Cleans build artifacts.
 - **02 Build Tests**: Builds with tests enabled.
 - **03 Run Tests**: Runs all tests.
+
+![VS Code task picker showing 00 Build Project](../../../static/img/vsc-task-build.png)
+
+![VS Code build type picker showing debug and release](../../../static/img/vscode-task-build2.png)
 
 ### Start AMP
 
@@ -184,6 +193,8 @@ Each pipeline's default source is an image, and the default sink is the `ampsink
 ### Debug AMP
 - Use the "AMP Debug latest" configuration in VS Code (F5). This will run the latest selected pipeline. Before debugging, a popup should appear. Select the release or debug target you want to use.
 - Use the "AMP Debug selection" configuration in VS Code (F5). This will run the pipeline you select. Before debugging, a popup should appear. Select the release or debug target you want to use. Another popup will prompt you to select the specific pipeline you want to debug.
+
+![VS Code Run and Debug view showing AMP Debug latest](../../../static/img/vscode-debug.png)
 
 ---
 

@@ -60,9 +60,14 @@ Open the cloned folder in VS Code. Either in the UI or with the following comman
 code .
 ```
 
-Then run:
-- "Reopen in Container"
-- choose "PC amp-dev-forge"
+Then:
+- open the Command Palette with `Cmd+Shift+P`
+- run `Dev Containers: Reopen in Container`
+- choose `PC amp-dev-forge`
+
+![VS Code command palette showing Reopen in Container](../../../static/img/vscode-reopen-in-container.png)
+
+![VS Code Dev Container selection dialog](../../../static/img/vscode-reopen-in-container2.png)
 
 Wait until the Dev Container finishes building.
 
@@ -71,8 +76,13 @@ Wait until the Dev Container finishes building.
 ## 5. Build the project
 
 Use the build task in VS Code:
+- open the Command Palette and run `Tasks: Run Task`
 - run **00 Build Project**
 - choose `debug` unless you specifically want `release`
+
+![VS Code task picker showing 00 Build Project](../../../static/img/vsc-task-build.png)
+
+![VS Code build type picker showing debug and release](../../../static/img/vscode-task-build2.png)
 
 Or build in the container terminal:
 
@@ -98,7 +108,7 @@ To stop an application that was not started from a VS Code launch configuration,
 
 ## 7. Run the example pipeline
 
-For the shortest first run, int `amp-menu` select:
+For the shortest first run, in `amp-menu` select:
 - `01-full-onnx.json`
 
 This is the shortest recommended first pipeline.
