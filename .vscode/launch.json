@@ -84,14 +84,10 @@
             "id": "selectedPipeline",
             "type": "pickString",
             "description": "Selected pipeline to debug.",
-            "default": "01-full-pc",
+            "default": "01-full-onnx",
             "options": [
-                "01-full-pc",
-                "01-full-rpi",
-                "cam-contact",
-                "gaze-detection",
-                "tracker-pc",
-                "tracker-rpi"
+                "01-full-onnx",
+                "02-full-onnx-hailo8"
             ]
         }
     ]

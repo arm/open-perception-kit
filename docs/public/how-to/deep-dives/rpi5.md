@@ -185,7 +185,7 @@ PasswordAuthentication yes
 
 Then follow the [VS Code Remote SSH tutorial](https://code.visualstudio.com/docs/remote/ssh).
 
-> On Mac the following permission shall be granted in Settings otherwise the remote connection will fail Privacy & Security -> Local Network : vscode
+> **Note for Mac users:** Grant VS Code access to the local network in **Settings → Privacy & Security → Local Network**, otherwise the remote connection will fail.
 
 After the first negotiation, your key will be stored on the Pi and you can switch back to `PasswordAuthentication no`.
 
