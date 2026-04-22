@@ -49,7 +49,7 @@ if [ -d "$PLANTUML_SRC_DIR" ]; then
     echo "Regenerating PlantUML figures from $PLANTUML_SRC_DIR..."
     mkdir -p "$PLANTUML_OUT_DIR"
     if compgen -G "$PLANTUML_SRC_DIR"/*.puml > /dev/null; then
-        java -jar /work/deps/plantuml-mit-1.2026.2.jar -tpng "$PLANTUML_SRC_DIR"/*.puml -o "$PLANTUML_OUT_DIR"
+        java -Djava.awt.headless=true -jar /work/deps/plantuml-mit-1.2026.2.jar -tpng "$PLANTUML_SRC_DIR"/*.puml -o "$PLANTUML_OUT_DIR"
     else
         echo "No .puml files found in $PLANTUML_SRC_DIR, skipping PlantUML generation."
     fi

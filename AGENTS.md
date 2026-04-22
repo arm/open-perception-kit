@@ -2,7 +2,17 @@
 
 This file is the starting point for coding agents working in AMP Development Forge.
 
-The repository already has strong checked-in examples. Agents should prefer extending those examples and the documented default extension surfaces instead of inventing new patterns.
+Prefer checked-in examples and documented extension surfaces over inventing new patterns.
+
+## Workflow
+
+For anything beyond a tiny local edit:
+
+1. read the relevant checked-in docs and examples first
+2. identify the intended extension surface before editing
+3. make a short implementation and verification plan
+4. implement only the changes the task needs
+5. report what was verified and what was not
 
 ## Start here
 
@@ -25,8 +35,6 @@ For implementation detail and background, continue with:
 - [ampsink](docs/public/arch/elements/ampsink.md)
 
 ## Default extension surfaces
-
-Agents should treat these as the default, user-facing extension points:
 
 - `config/models/` for model descriptors and model-local opchains
 - `config/opchains/` for reusable multi-stage inference chains
@@ -95,8 +103,6 @@ Only do this after the `Perception` structure and parser output are clear.
 ### Update docs
 Ground doc changes in checked-in code and config.
 
-Prefer these entry points:
-
 - `docs/public/index.md`
 - `docs/public/how-to/deep-dives/engineering.md`
 - `docs/public/how-to/deep-dives/bring-your-model.md`
@@ -113,26 +119,24 @@ Prefer these entry points:
 
 ## Build and validation
 
-Prefer the container workflow.
-
-Primary build script:
-
 - `./scripts/build-elements.sh debug [true|false]`
 - `./scripts/build-elements.sh release [true|false]`
-
-Build directory:
-
-- `development/build`
-
-Tests:
-
-- build with tests enabled
+- `./scripts/build-elements.sh clean`
 - `./scripts/build-elements.sh debug true`
+- `meson test -C /work/development/build --print-errorlogs`
+- `./scripts/gen-doc.sh` to refresh generated docs, Doxygen output, and PlantUML images
+- `./scripts/serve-docs-plain.sh`
+- `./scripts/serve-docs.sh`
 
-If you change docs, at minimum verify that paths, file names, and checked-in examples still exist.
+Incomplete verification step available:
+
+- runtime changes: build with tests and run `meson test`
+- config or pipeline changes: if `./tools/amp-menu` exists, use `./tools/amp-menu -p <pipeline-id-or-path>`
+- docs or diagrams: run `./scripts/gen-doc.sh`
 
 ## Agent guardrails
 
 - Reuse checked-in patterns before inventing new ones.
 - Keep docs aligned with `config/` and `development/`.
+- Prefer the container workflow.
 - If a task is actually blocked by current architecture, say so and cross-check [Known limitations](docs/public/how-to/deep-dives/known-limitations.md).

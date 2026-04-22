@@ -1,7 +1,7 @@
 {
 	"name": "gazedetection",
 	"modelFamily": "gazedet",
-	"modelFile": "gazedetection.onnx",
+	"modelFile": "l2cs_mobilegaze_mobilenetv2-a8w8-2-ort-quantized.onnx",
 	"dynamicOutput": true,
 	"contentType": "eyeYawpitch",
 	"inputTensors": [
