@@ -3,7 +3,6 @@
 # Copyright (C) 2025 Arm Limited. All rights reserved.
 ################################################################
 
-
 # Always unset the welcome flag at the start so it is per-terminal, not global.
 unset AMP_TERMINAL_WELCOME_SHOWN
 
