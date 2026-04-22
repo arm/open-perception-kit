@@ -8,7 +8,7 @@ Hailo 10-compiled variant of the OSNet x0.25 embedding model.
 - Post processor: `ObjectEmbeddingParser`
 - Supported Perception result: `Perception::ObjectEmbedding` in an `objectEmbedding` layer
 - Note: this `.hef` is the compiled Hailo version of the original ONNX model
-- Typical pairing: `config/pipelines/02-full-onnx-hailo10.json`
+- Typical pairing: `config/pipelines/03-full-onnx-hailo10.json`
 
 # Export Tutorial
 

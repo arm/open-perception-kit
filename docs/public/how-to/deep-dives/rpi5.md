@@ -169,7 +169,7 @@ The repository now ships two Raspberry Pi-specific development container targets
 - `RPI5 H8 amp-dev-forge` -> service `amp-dev-rpi5-h8` -> Hailo 8 / AI HAT+ path
 - `RPI5 H10 amp-dev-forge` -> service `amp-dev-rpi5-h10` -> Hailo 10 / AI HAT+ 2 path
 
-The matching full-demo presets are `config/pipelines/02-full-onnx-hailo8.json` and `config/pipelines/02-full-onnx-hailo10.json`.
+The matching full-demo presets are `config/pipelines/02-full-onnx-hailo8.json` and `config/pipelines/03-full-onnx-hailo10.json`.
 
 Both Raspberry Pi containers use host networking.
 Before either container is created, `.devcontainer/platform_init.sh` runs on the host and generates the camera, audio, NPU, and shared-memory docker-compose overrides for the selected service.
