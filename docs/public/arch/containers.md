@@ -75,7 +75,7 @@ Those host-level packages, such as `h10-hailort-pcie-driver`, need to stay on th
 
 To solve these issues, the system introduces **`ampsink`**.
 
-![WebRTC utilization](/img/webrtc.png)
+![WebRTC utilization](../../static/img/webrtc.png)
 
 The element is called `ampsink`.
 `ampsink` provides a web endpoint inside the container that publishes media.

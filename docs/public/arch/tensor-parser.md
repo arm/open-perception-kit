@@ -172,7 +172,7 @@ That keeps model-specific output handling close to the existing OpChain and pars
 Python-based postprocessing is not part of the current runtime.
 It is discussed as a future direction in [Known limitations](../how-to/deep-dives/known-limitations.md).
 
-![Postprocessor types](/img/postprocessor-types.png)
+![Postprocessor types](../../static/img/postprocessor-types.png)
 
 This design still keeps custom parsing localized: adding a new parser usually means
 adding one parser class, registering it, and referencing it from `opchain.json`.

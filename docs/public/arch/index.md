@@ -70,8 +70,3 @@ execution model, and main GStreamer elements.
 
 - [ampsink](elements/ampsink.md)
   Details about the WebRTC presentation system.
-
-## Supporting topics
-
-- [Streamline and Performix setup](streamline-and-performix-setup.md)
-  Notes for external profiling tools.

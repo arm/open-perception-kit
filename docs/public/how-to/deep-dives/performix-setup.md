@@ -85,7 +85,7 @@ If SSH does not work:
 
 In Performix the SSH setup is very similar.
 
-![Performix SSH setup](/img/performix-ssh.jpg)
+![Performix SSH setup](../../static/img/performix-ssh.jpg)
 
 After clicking 'Add Target' you have to populate the form with information:
 - Host: 127.0.0.1 or the IP address of the target device
@@ -110,8 +110,8 @@ Now here is an example of setting up one that works:
 
 The `Run Recipe` button executes the target application and performs the measurement.
 
-![Performix recipe setup](/img/performix-recipe.jpg)
+![Performix recipe setup](../../static/img/performix-recipe.jpg)
 
 After running a recipe by clicking `Run Recipe`, you will get the measurement results.
 
-![Performix results](/img/performix-results.jpg)
+![Performix results](../../static/img/performix-results.jpg)

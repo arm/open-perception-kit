@@ -79,10 +79,10 @@ find "$SRC_DIR" -type f \( \
     cp -f "$file" "$out_path"
 done
 
-if [ -d "/work/docs/static/img" ]; then
-    echo "Copying static images..."
-    mkdir -p "$OUT_DIR/img"
-    cp -a /work/docs/static/img/. "$OUT_DIR/img/"
+if [ -d "/work/docs/static" ]; then
+    echo "Copying static assets..."
+    mkdir -p "$OUT_DIR/static"
+    cp -a /work/docs/static/. "$OUT_DIR/static/"
 fi
 
 # --- simple link rewrite: .md -> .html ---

@@ -1,0 +1,68 @@
+@startuml
+!include amp-style.puml
+
+title AMP Engineer Execution Flow Example
+
+start
+
+partition "Launcher and preset loading" {
+  :Run `tools/amp-menu`;
+  :Enumerate `/work/config/pipelines/*.json`\nand parse the selected preset with `nlohmann::json`;
+  :Validate `description` and `pipeline`,\nthen join the `pipeline` array into one\nGStreamer launch string;
+  :Call `gst_parse_launch()` to build an example graph:\nsource -> decode -> videoconvert(BGRA)\n-> ampinfer -> amptracker -> ampperformance -> amposd -> ampsink;
+}
+
+partition "Startup and module setup" {
+  fork
+    :`ampinfer::start()` allocates members\nand reads `opchain-path`;
+    :`OpChain::setupFromFile(opchain.json)`\nparses `OpChainDescriptor` JSON;
+    :For each `library/op` entry,\n`OpRef::bind()` loads the shared library,\nresolves factory symbols,\ncreates the Op instance,\nand runs `configure(attributes)`;
+    :Inference Op `configure()` loads\n`model.json` and backend runtime state;
+    :`OpChain::bind()` wires dependencies,\nvalidates grouped `loopId`,\nand `set_caps()` caches BGRA `GstVideoInfo`;
+    :Emit `amp-model-register` downstream;
+  fork again
+    :`amptracker::start()`, `ampperformance`,\nand `amposd::start()` prepare\ntracker, tracing, and filter state;
+  fork again
+    :`ampsink::init()` builds the internal\nvideo/audio branches,\nsilence fallback, and drain branches;
+    :Create `ModelRegistry`, start;
+    :WebRTC signaling, control WebSocket;
+    :Start embedded HTTP server;
+    :Register status reporters\n(`models`, `pipeline_state`, `perf_overlay`);
+  end fork
+  :`ampsink` receives `amp-model-register`\nand exposes the registered model;
+  :Pipeline reaches PLAYING state;
+}
+
+while ("Next buffer arrives?") is (yes)
+  partition "" {
+    :Source / decode / `videoconvert`\ndeliver a BGRA buffer;
+    if ("`ampinfer active`?") then (yes)
+      :Map `GstBuffer`, ensure `PerceptionMeta`\n(create `Perception` on first touch),\nand create `OpChainContext`;
+      :Insert `BitmapView` as `pipelineVideoFrame`\nand attach `Perception*` + `inferElementId`;
+      :Call `OpChain::execute()`;
+    else (no)
+      :Skip inference work and pass the buffer through;
+    endif
+  }
+
+  partition "OpChain execution inside ampinfer" {
+    if ("Inference executed for this buffer?") then (yes)
+      :`InferenceControllerOp`\ncreates the root `VideoFrame`,\ncollects crops or cascade sources,\nand sets `loopId`;
+      while ("More crops or loop-group work?") is (yes)
+        :`GenericImagePreprocessOp`\nreads the upcoming model metadata,\nfinds the input tensor,\nand builds the preprocessed tensor;
+        :Runtime-specific `InferenceOp`\nand wraps outputs as `TensorView`s;
+        :`GenericPostprocessOp`\nselects the configured parser,\nturns tensors into a `Perception::Layer`,\nlinks `parentUuid`, and appends the layer;
+      endwhile (no)
+    endif
+  }
+
+  partition "Downstream AMP processing and output\nafter inference and opchain execution" {
+    :`amptracker` optionally mutates\n`Perception` with IDs and traces;
+    :`ampperformance` refreshes metrics,\ncalls `endCycle()`, and writes `perfdata`;
+    :`amposd` reads `PerceptionMeta`,\nbuilds Cairo layers,\nand composites overlays onto the frame;
+    :`ampsink` encodes VP8/Opus,\nkeeps drain branches alive,\nserves HTTP + WebRTC + control WS,\nand streams the result to the browser;
+  }
+endwhile (no)
+
+stop
+@enduml

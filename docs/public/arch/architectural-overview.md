@@ -40,6 +40,36 @@ Each element can be placed into any existing GStreamer pipeline as a modular bui
 
 ---
 
+## Use Case View
+
+The following use-case view complements the element-oriented description below.
+The diagram aims to be a higher level view of our functionalities focusing on user-facing capabilities and default extension surfaces.
+Amber for experimental or still-evolving areas such as ExecuTorch and audio inference, and red for planned or intentionally unfinished directions such as Python-based post processing.
+
+![AMP use case overview](../../static/img/use-case.png)
+
+---
+
+## Component View
+
+This component view focuses on the runtime shape inside the container boundaries.
+It intentionally treats `GStreamer` as the current pipeline host layer rather than as the long-term architectural center of the system.
+The stable interfaces worth carrying across component boundaries are the AMP element model, `OpChain` inside `ampinfer`, and above all `Perception` as the runtime contract.
+`ampinfer` creates and enriches `Perception` through OpChain execution, `amptracker` and `ampperformance` append more structured data, `amposd` consumes it for visualization, and any external application-facing boundary can treat serialized `Perception` as the main contract.
+
+![AMP component overview](../../static/img/component-overview.png)
+
+---
+
+## General activity diagram
+
+This activity diagram is intentionally more implementation-oriented than the use-case and component views.
+It traces the path from `amp-menu` preset parsing through element initialization and then into the steady-state per-buffer execution path inside `ampinfer`, `amptracker`, `ampperformance`, `amposd`, and `ampsink`.
+
+![AMP engineer execution flow](../../static/img/execution-flow.png)
+
+---
+
 ## Op System and micropipelines
 
 The internal processing model is based on an Op system.

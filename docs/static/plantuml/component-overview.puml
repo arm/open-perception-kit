@@ -1,0 +1,80 @@
+@startuml
+!include amp-style.puml
+
+title AMP Container Component Overview
+
+top to bottom direction
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+skinparam ranksep 80
+skinparam nodesep 70
+skinparam linetype ortho
+
+component "External application /\nservice" as External
+interface "Perception" as IPerception
+
+rectangle "AMP Development Forge Container" {
+  package "AMP element chain" as CHAIN {
+    component "ampinfer" as AMPINFER
+    component "amptracker" as AMPTRACKER
+    component "ampperformance" as AMPPERF
+    component "amposd" as AMPOSD
+    component "ampsink" as AMPSINK
+  }
+
+  package "Inference execution inside ampinfer" as INFERBOX {
+    component "OpChain / Op system\n(JSON descriptors,\nconfigure -> bind -> process,\nloopId-based execution)" as OPC
+    component "Preprocess Ops" as PRE
+    component "Inference Ops\n(ONNX / Hailo / ExecuTorch)" as INF
+    component "Postprocess Parsers" as POST
+  }
+
+  package "Stable runtime contract" as CONTRACT {
+    component "PerceptionMeta /\nPerception" as PERC
+    component "PerceptionSerializer /\npublisher boundary" as PERCSER
+  }
+
+  package "Current pipeline host layer" as HOST {
+    component "GStreamer runtime\n(current media transport,\nscheduling, and metadata carrier)" as GST
+  }
+}
+
+AMPINFER -down-> AMPTRACKER
+AMPTRACKER -down-> AMPPERF
+AMPPERF -down-> AMPOSD
+AMPOSD -down-> AMPSINK
+
+OPC -down-> PRE
+PRE -down-> INF
+INF -down-> POST
+OPC ..> AMPINFER : executes inside
+
+CHAIN --> PERC
+
+PERC -down-> PERCSER
+PERCSER -down-> IPerception
+IPerception -down-> External
+
+GST -up-> CHAIN
+
+INFERBOX -[hidden]right-> CHAIN
+CHAIN -[hidden]right-> CONTRACT
+CHAIN -[hidden]down-> HOST
+INFERBOX -[hidden]down-> HOST
+CONTRACT -[hidden]down-> HOST
+CONTRACT -[hidden]down-> IPerception
+IPerception -[hidden]down-> External
+
+legend bottom
+- GStreamer is the current pipeline/orchestration host layer.
+  It handles media transport, scheduling, and metadata carriage.
+- OpChain is the inference-specific glue inside ampinfer.
+  It binds preprocess, backend execution, and postprocess stages.
+- Perception is the stable runtime contract passed between AMP components
+  and published to external applications.
+- ampinfer creates and enriches that contract via OpChain execution.
+- amptracker and ampperformance append more structured runtime data.
+- amposd and ampsink consume it for rendering and publication.
+endlegend
+
+@enduml
