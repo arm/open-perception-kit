@@ -1,7 +1,7 @@
 {
-  "description": "Test the ampmenu plugin with a simple pipeline that decodes a JPEG image and discards the output.",
+  "description": "Test the amp-menu launcher with a simple pipeline that decodes a JPEG image and discards the output.",
   "pipeline": [
-    "filesrc location=/work/etc/images/katana.jpg !",
+    "filesrc location=/work/data/images/katana.jpg !",
     "jpegdec !",
     "fakesink sync=true"
   ]

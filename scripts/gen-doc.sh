@@ -5,8 +5,15 @@
 
 set -euo pipefail
 
-SRC_DIR="/work/docs/corespec"
-OUT_DIR="$SRC_DIR/../html"
+SRC_DIR="/work/docs/public"
+OUT_DIR="/work/docs/html"
+TMP_DIR="$(mktemp -d)"
+
+cleanup() {
+    rm -rf "$TMP_DIR"
+}
+
+trap cleanup EXIT
 
 echo "Building HTML docs..."
 echo "Source: $SRC_DIR"
@@ -29,15 +36,20 @@ else
     mkdir -p "$OUT_DIR"
 fi
 
+# --- prepare markdown sources for plain HTML generation ---
+PREPARED_SRC_DIR="$TMP_DIR/public"
+echo "Preparing Markdown sources for plain HTML output..."
+python3 /work/scripts/private/prepare_plain_docs.py "$SRC_DIR" "$PREPARED_SRC_DIR"
+
 # --- regenerate png figures (if any .puml exist) ---
-PLANTUML_SRC_DIR="$SRC_DIR/../static/plantuml"
-PLANTUML_OUT_DIR="$SRC_DIR/../static/img"
+PLANTUML_SRC_DIR="/work/docs/static/plantuml"
+PLANTUML_OUT_DIR="/work/docs/static/img"
 
 if [ -d "$PLANTUML_SRC_DIR" ]; then
     echo "Regenerating PlantUML figures from $PLANTUML_SRC_DIR..."
     mkdir -p "$PLANTUML_OUT_DIR"
     if compgen -G "$PLANTUML_SRC_DIR"/*.puml > /dev/null; then
-        java -jar /work/deps/plantuml-mit-1.2026.2.jar -tpng "$PLANTUML_SRC_DIR"/*.puml -o "$PLANTUML_OUT_DIR"
+        java -Djava.awt.headless=true -jar /work/deps/plantuml-mit-1.2026.2.jar -tpng "$PLANTUML_SRC_DIR"/*.puml -o "$PLANTUML_OUT_DIR"
     else
         echo "No .puml files found in $PLANTUML_SRC_DIR, skipping PlantUML generation."
     fi
@@ -45,12 +57,14 @@ else
     echo "PlantUML source directory $PLANTUML_SRC_DIR not found, skipping PlantUML generation."
 fi
 
-# --- convert markdown to html ---
-for file in "$SRC_DIR"/*.md; do
-    base="$(basename "$file")"
-    name="${base%.md}"
-    echo "Converting $base -> $name.html"
-    pandoc "$file" -s -o "$OUT_DIR/$name.html"
+# --- convert markdown to html recursively ---
+echo "Converting Markdown files to HTML..."
+find "$PREPARED_SRC_DIR" -type f -name "*.md" -print0 | while IFS= read -r -d '' file; do
+    rel_path="${file#$PREPARED_SRC_DIR/}"
+    out_path="$OUT_DIR/${rel_path%.md}.html"
+    mkdir -p "$(dirname "$out_path")"
+    echo "Converting $rel_path -> ${rel_path%.md}.html"
+    pandoc --from markdown-yaml_metadata_block "$file" -s -o "$out_path"
 done
 
 # --- copy images/assets ---
@@ -64,6 +78,12 @@ find "$SRC_DIR" -type f \( \
     mkdir -p "$(dirname "$out_path")"
     cp -f "$file" "$out_path"
 done
+
+if [ -d "/work/docs/static" ]; then
+    echo "Copying static assets..."
+    mkdir -p "$OUT_DIR/static"
+    cp -a /work/docs/static/. "$OUT_DIR/static/"
+fi
 
 # --- simple link rewrite: .md -> .html ---
 echo "Rewriting internal links..."

@@ -1,0 +1,15 @@
+{
+    "description": "Test tracker with YOLO + OSNet ReID on video",
+    "pipeline": [
+        "filesrc location=/work/data/videos/01.mp4 !",
+        "decodebin !",
+        "videoconvert !",
+        "video/x-raw,format=BGRA !",
+        "ampinfer opchain-path=/work/config/models/yolov11/opchain.json active=true !",
+        "ampinfer opchain-path=/work/config/models/osnet_x0_25/opchain.json active=true !",
+        "amptracker content-type=genericObject !",
+        "amposd enabled=true !",
+        "ampcomm method=file file-name=${AMPCOMM_FILE:-/tmp/ampcomm} !",
+        "ampsink name=sink"
+    ]
+}

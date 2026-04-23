@@ -8,7 +8,8 @@ set -euo pipefail
 IMAGE="ghcr.io/arm-debug/edge-ai-docs/local-development:v0.0.2"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-DOCS_DIR="$REPO_ROOT/docs"
+DOCS_CONTENT_DIR="$REPO_ROOT/docs/public"
+DOCS_STATIC_DIR="$REPO_ROOT/docs/static"
 
 if command -v podman > /dev/null 2>&1; then
     CONTAINER_ENGINE="podman"
@@ -64,10 +65,18 @@ EOF
     exit 1
 fi
 
-if [ ! -d "$DOCS_DIR" ]; then
-    printf 'Documentation directory not found: %s\n' "$DOCS_DIR" >&2
+if [ ! -d "$DOCS_CONTENT_DIR" ]; then
+    printf 'Documentation content directory not found: %s\n' "$DOCS_CONTENT_DIR" >&2
+    exit 1
+fi
+
+if [ ! -d "$DOCS_STATIC_DIR" ]; then
+    printf 'Documentation static directory not found: %s\n' "$DOCS_STATIC_DIR" >&2
     exit 1
 fi
 
 printf 'Serving docs with %s on http://localhost:3003\n' "$CONTAINER_ENGINE"
-exec "$CONTAINER_ENGINE" run --rm -it -p 3003:3000 -v "$DOCS_DIR:/opt/docusaurus/content" "$IMAGE"
+exec "$CONTAINER_ENGINE" run --rm -it -p 3003:3000 \
+    -v "$DOCS_CONTENT_DIR:/opt/docusaurus/content/docs" \
+    -v "$DOCS_STATIC_DIR:/opt/docusaurus/content/static" \
+    "$IMAGE"

@@ -166,22 +166,47 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
         // Setting up hailo VDevice to be able to handle multiple uses for the same device.
         params.device_count = 1;
 
-        params.multi_process_service = true;
+        // HailoRT service mode is only valid on specific devices (for example Hailo15).
+        // Keep it disabled by default and allow explicit opt-in via env var.
+        const char *mpsEnv = std::getenv("AMP_HAILO_MULTI_PROCESS_SERVICE");
+        const bool mpsRequested =
+            (nullptr != mpsEnv) &&
+            ((0 == std::strcmp(mpsEnv, "1")) || (0 == std::strcmp(mpsEnv, "true")) ||
+             (0 == std::strcmp(mpsEnv, "TRUE")) || (0 == std::strcmp(mpsEnv, "yes")) ||
+             (0 == std::strcmp(mpsEnv, "on")));
+
+        params.multi_process_service = mpsRequested;
         static const char kGroupId[] = "SHARED";
-        params.group_id = kGroupId;
+        params.group_id = mpsRequested ? kGroupId : nullptr;
 
         auto vdeviceExp = hailort::VDevice::create(params);
-        if (!vdeviceExp) {
+        if (!vdeviceExp && params.multi_process_service &&
+            (HAILO_INVALID_OPERATION == vdeviceExp.status())) {
+            // Gracefully fall back when service mode is not supported by this device.
+            params.multi_process_service = false;
+            params.group_id = nullptr;
+
+            auto fallbackVdeviceExp = hailort::VDevice::create(params);
+            if (!fallbackVdeviceExp) {
+                return tl::make_unexpected(
+                    AMP_ERROR(amp::ErrorFlag::InvalidData,
+                              fmt::format("Failed to create Hailo VDevice: {}",
+                                          static_cast<int>(fallbackVdeviceExp.status()))));
+            }
+            this->vdevice = fallbackVdeviceExp.release();
+        } else if (!vdeviceExp) {
             const char *hint = params.multi_process_service
                                    ? " (multi_process_service enabled; verify hailort_service is "
-                                     "running and reachable)"
+                                     "running and reachable or disable it via "
+                                     "AMP_HAILO_MULTI_PROCESS_SERVICE=0)"
                                    : "";
             return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData,
                                                  fmt::format("Failed to create Hailo VDevice: {}{}",
                                                              static_cast<int>(vdeviceExp.status()),
                                                              hint)));
+        } else {
+            this->vdevice = vdeviceExp.release();
         }
-        this->vdevice = vdeviceExp.release();
 
         auto inferModelExp = this->vdevice->create_infer_model(this->modelDescriptor.modelFile);
         if (!inferModelExp) {

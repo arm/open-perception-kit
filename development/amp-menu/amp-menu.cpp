@@ -31,7 +31,7 @@ struct PipelineEntry {
     std::string pipeline{};    // The pipeline definition from the JSON file
 };
 
-static constexpr const char *kPipelinesDir = "/work/scripts/pipelines"; // <-- hardcode here
+static constexpr const char *kPipelinesDir = "/work/config/pipelines";
 static constexpr const char *kLastSelectionFileName = ".last_selected_pipeline_id";
 
 static fs::path last_selection_path() {

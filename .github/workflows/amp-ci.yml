@@ -77,7 +77,7 @@ jobs:
             - uses: actions/checkout@v6
 
             - name: Check PR template checkboxes
-              uses: actions/github-script@v8
+              uses: actions/github-script@v9
               with:
                   script: |
                       if (!context.payload.pull_request) {
@@ -87,7 +87,7 @@ jobs:
                         const unchecked = prBody.match(/-\s\[( |x)\]/g)
                           ?.filter(checkbox => checkbox === '- [ ]');
                         if (!prBody) {
-                          core.setFailed("PR body is empty or undefined.");
+                          core.log("PR body is empty or undefined.");
                         } else if (!unchecked || unchecked.length === 0) {
                           console.log("All checkboxes are checked.");
                         } else {

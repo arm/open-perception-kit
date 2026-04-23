@@ -110,7 +110,7 @@ plumber <pipeline> <mode> <file> [options]
 
 - `--amp-menu`
   - path to the `amp-menu` executable
-  - default: `/work/scripts/amp-menu`
+  - default: `/work/tools/amp-menu`
 
 - `--amp-menu-args`
   - extra arguments passed to `amp-menu`

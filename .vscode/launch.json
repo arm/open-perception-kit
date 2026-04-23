@@ -2,11 +2,43 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "AMP Debug",
+            "name": "AMP Debug latest",
             "preLaunchTask": "99 Build for debugging",
             "type": "cppdbg",
             "request": "launch",
-            "program": "/work/scripts/amp-menu",
+            "program": "/work/tools/amp-menu",
+            "args": [
+                "-l"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                {
+                    "name": "GST_PLUGIN_PATH",
+                    "value": "${workspaceFolder}/development/build/meson-out"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set disassembly flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "AMP Debug selection",
+            "preLaunchTask": "00 Build Project",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/work/tools/amp-menu",
             "args": [
                 "-l",
                 //"-f",
@@ -45,6 +77,18 @@
                 "port": 5678
             },
             "justMyCode": false
+        },
+    ],
+    "inputs": [
+        {
+            "id": "selectedPipeline",
+            "type": "pickString",
+            "description": "Selected pipeline to debug.",
+            "default": "01-full-onnx",
+            "options": [
+                "01-full-onnx",
+                "02-full-onnx-hailo8"
+            ]
         }
     ]
 }
