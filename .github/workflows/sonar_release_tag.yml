@@ -47,6 +47,7 @@ jobs:
           SONAR_BRANCH: ${{ env.SONAR_RELEASE_BRANCH }}
           SONAR_PROJECT_VERSION: ${{ env.SONAR_PROJECT_VERSION }}
           SONAR_QUALITYGATE_WAIT: "true"
+          BUILD_STRING: ${{ github.sha }}
 
       - name: Mark SonarQube analysis with release tag
         if: startsWith(github.ref, 'refs/tags/')
