@@ -110,6 +110,8 @@ services:
       SONAR_TOKEN: ${SONAR_TOKEN}
       SONAR_BRANCH: ${SONAR_BRANCH}
       SONAR_QUALITYGATE_WAIT: 
+      BUILD_STRING:
+      SONAR_PROJECT_VERSION:
     command: |
       bash -c '
         .devcontainer/devsetup.sh &&
@@ -122,5 +124,5 @@ services:
         sonar-scanner -Dsonar.qualitygate.wait="$${SONAR_QUALITYGATE_WAIT}" \
           -Dsonar.branch.name="$$SONAR_BRANCH" \
           -Dsonar.projectVersion="$$SONAR_PROJECT_VERSION" \
-          -Dsonar.buildString="${BUILD_STRING}"
+          -Dsonar.buildString="$$BUILD_STRING"
       '
