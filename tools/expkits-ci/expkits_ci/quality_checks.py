@@ -68,36 +68,70 @@ class QualityChecks:
         return result
 
     @staticmethod
+    def filter_comment_lines(commit_msg):
+        """Filter out comment lines and empty lines from the commit message."""
+        filtered_lines = []
+        for line in commit_msg.splitlines():
+            stripped_line = line.strip()
+            if stripped_line == "# ------------------------ >8 ------------------------":
+                break
+            if not stripped_line or stripped_line.startswith("#"):
+                continue
+            filtered_lines.append(stripped_line)
+        return filtered_lines
+
+    @staticmethod
     def check_commit_message(files=None) -> bool:
         """Check commit message format. If a file is provided and looks like a commit message file, read from it."""
         logger.info("Checking commit message format...")
         commit_msg = None
 
-        is_commit_msg_file = False
-        if files and isinstance(files, list) and len(files) == 1 and os.path.isfile(files[0]):
-            fname = files[0]
-            if ".git" in os.path.normpath(fname).split(os.sep) and not fname.endswith(('.py', '.cpp', '.c', '.h', '.hpp', '.cmake')):
-                is_commit_msg_file = True
-        if is_commit_msg_file:
-            try:
-                with open(files[0], 'r', encoding='utf-8') as f:
-                    commit_msg = f.read()
-            except Exception as e:
-                logger.error(f"Could not read commit message file {files[0]}: {e}")
-                return False
-        else:
-            try:
-                repo = Repo(os.getcwd(), search_parent_directories=True)
-                commit_msg = repo.head.commit.message
-            except GitCommandError as e:
-                logger.error(f"Could not get commit message: {e}")
-                return False
-            except Exception as e:
-                logger.error(f"Unexpected error getting commit message: {e}")
-                return False
+        try:
+            repo = Repo(os.getcwd(), search_parent_directories=True)
+        except Exception as e:
+            logger.error(f"Could not get git repository: {e}")
+            return False
 
-        lines = [line.strip() for line in commit_msg.strip().splitlines() if line.strip()]
-        if len(lines) < 2:
+        # Try to read from .git/COMMIT_EDITMSG first (the current/pending commit message)
+        try:
+            commit_msg_file = os.path.join(repo.git_dir, 'COMMIT_EDITMSG')
+            logger.info(f"Attempting to read commit message from {commit_msg_file}")
+            if os.path.isfile(commit_msg_file):
+                with open(commit_msg_file, 'r', encoding='utf-8') as f:
+                    commit_msg = f.read()
+                    logger.info("Commit message:\n" + commit_msg)
+        except Exception as e:
+            logger.error(f"Could not read commit message from {commit_msg_file}: {e}")
+
+        # If we couldn't read from COMMIT_EDITMSG, scan passed files and read
+        # the first regular file that is found under the .git directory and not ends with a common source code extension.
+        if not commit_msg and files and isinstance(files, list):
+            git_commit_msg_file = None
+
+            for candidate in files:
+                normalized = os.path.normpath(candidate)
+                path_parts = normalized.split(os.sep)
+                if ".git" in path_parts and not candidate.endswith(('.py', '.cpp', '.c', '.h', '.hpp', '.cmake')):
+                    git_commit_msg_file = candidate
+                    break
+
+            if git_commit_msg_file:
+                try:
+                    with open(git_commit_msg_file, 'r', encoding='utf-8') as f:
+                        commit_msg = f.read()
+                        logger.info(f"Commit message read from {git_commit_msg_file}:\n" + commit_msg)
+                except Exception as e:
+                    logger.error(
+                        f"Could not read commit message file {git_commit_msg_file}: {e}")
+                    return False
+
+        # If still no commit message, use empty string to make sure the check fails
+        if not commit_msg:
+            commit_msg = ""
+
+        filtered_lines = QualityChecks.filter_comment_lines(commit_msg)
+
+        if len(filtered_lines) < 2:
             logger.error(
                 "Commit message must have at least two lines: a description and a reference to a JIRA ticket.")
             logger.info("Example:")
@@ -106,14 +140,14 @@ class QualityChecks:
                 "Please rename your commit accordingly. Hint: git commit --amend")
             return False
 
-        if not lines[0]:
+        if not filtered_lines[0]:
             logger.error(
                 "First line of commit message must be a non-empty description.")
             return False
 
         # Second line: <bug|task>: JIRA-XXXX
         jira_pattern = r"^(Bug|Task): (%s)-\d+$" % "|".join(QualityChecks.JIRA_PROJECTS)
-        if not re.match(jira_pattern, lines[1], re.IGNORECASE):
+        if not re.match(jira_pattern, filtered_lines[1], re.IGNORECASE):
             logger.error(
                 f"Second line must match \"<Bug|Task>: JIRA-XXXX\" with a valid JIRA project.")
             logger.info("Example:")
@@ -122,6 +156,104 @@ class QualityChecks:
 
         logger.info("Commit message format is valid.")
         return True
+
+    @staticmethod
+    def check_commit_messages_on_ci(files=None, target_branch=None) -> bool:
+        """Check all commit messages on the current branch that are not on target_branch.
+
+        When target_branch is provided the set of commits checked is
+        those reachable from HEAD but not from the merge-base with target_branch,
+        i.e. exactly the commits introduced by the current branch/PR.
+        When target_branch is omitted, only HEAD is checked.
+        """
+        logger.info("Checking commit message format...")
+
+        try:
+            repo = Repo(os.getcwd(), search_parent_directories=True)
+        except Exception as e:
+            logger.error(f"Could not get git repository: {e}")
+            return False
+
+        # Collect the commits to validate.
+        commits = []
+        if target_branch:
+            try:
+                # In CI the checkout is detached, so the bare branch name (e.g. "main")
+                # does not exist as a local ref. Prefer "origin/<branch>" and fall back
+                # to the bare name so the function works both locally and on CI.
+                remote_ref = f"origin/{target_branch}"
+                try:
+                    target_commit = repo.commit(remote_ref)
+                    logger.info(f"Resolved target branch as '{remote_ref}'")
+                except (GitCommandError, Exception):
+                    target_commit = repo.commit(target_branch)
+                    logger.info(f"Resolved target branch as '{target_branch}'")
+
+                merge_base_list = repo.merge_base(repo.head.commit, target_commit)
+                if not merge_base_list:
+                    logger.error(f"Could not find merge base between HEAD and '{target_branch}'.")
+                    return False
+                merge_base = merge_base_list[0]
+                logger.info(f"Checking commits between merge base {merge_base.hexsha[:8]} and HEAD")
+                for commit in repo.iter_commits(f"{merge_base.hexsha}..HEAD"):
+                    commits.append(commit)
+            except GitCommandError as e:
+                logger.error(f"Could not determine commits relative to '{target_branch}': {e}")
+                return False
+            except Exception as e:
+                logger.error(f"Unexpected error collecting commits: {e}")
+                return False
+        else:
+            try:
+                commits = [repo.head.commit]
+            except Exception as e:
+                logger.error(f"Could not read HEAD commit: {e}")
+                return False
+
+        if not commits:
+            logger.info("No commits to check.")
+            return True
+
+        logger.info(f"Checking {len(commits)} commit(s)...")
+
+        jira_pattern = r"^(Bug|Task): (%s)-\d+$" % "|".join(QualityChecks.JIRA_PROJECTS)
+        result = True
+
+        for commit in commits:
+            sha = commit.hexsha[:8]
+            filtered_lines = QualityChecks.filter_comment_lines(commit.message)
+
+            if len(filtered_lines) < 2:
+                logger.error(
+                    f"[{sha}] Commit message must have at least two lines: "
+                    "a description and a reference to a JIRA ticket.")
+                logger.error("Example:")
+                logger.error("  Add new feature for X\n  Task: EXPKITS-1234")
+                logger.error(
+                    "The current commit message is:\n" + "\n".join(filtered_lines))
+                result = False
+                continue
+
+            if not filtered_lines[0]:
+                logger.error(f"[{sha}] First line of commit message must be a non-empty description.")
+                logger.error(
+                    "The current commit message is:\n" + "\n".join(filtered_lines))
+                result = False
+                continue
+
+            if not re.match(jira_pattern, filtered_lines[1], re.IGNORECASE):
+                logger.error(
+                    f"[{sha}] Second line must match \"<Bug|Task>: JIRA-XXXX\" with a valid JIRA project.")
+                logger.error("Example:")
+                logger.error(f"  Task: {QualityChecks.JIRA_PROJECTS[0]}-1234")
+                logger.error(
+                    "The current commit message is:\n" + "\n".join(filtered_lines))
+                result = False
+                continue
+
+            logger.info(f"[{sha}] Commit message format is valid.")
+
+        return result
 
     @staticmethod
     def get_http_response(url, timeout=10):

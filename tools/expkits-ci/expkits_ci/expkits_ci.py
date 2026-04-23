@@ -18,7 +18,9 @@ def setup_argument_parser(parser):
     check_group.add_argument("-bn", "--branch-naming", default=False,
                              action="store_true", help="Run branch naming check.")
     check_group.add_argument("-cm", "--commit-msg", default=False,
-                             action="store_true", help="Run commit message check.")
+                             action="store_true", help="Run commit message check during committing.")
+    check_group.add_argument("-cmci", "--commit-msg-ci", default=False,
+                             action="store_true", help="Run commit message check on CI.")
     check_group.add_argument("-jt", "--jira-ticket", default=False, action="store_true", help="Run JIRA ticket check.")
     check_group.add_argument("-clfc", "--clang-format-check", default=False,
                              action="store_true", help="Run clang-format check.")
@@ -65,7 +67,7 @@ def setup_all_checks(args):
     """Set up all checks to be run by default."""
     args.commit_diff = True
     args.branch_naming = True
-    args.commit_msg = True
+    args.commit_msg_ci = True
     args.jira_ticket = True
     args.clang_format_check = True
     # args.clang_tidy = True # TODO: for now clang-tidy should only be advisory
@@ -85,6 +87,8 @@ def perform_checks(checker, args, files):
         result = checker.check_branch_naming() and result
     if args.commit_msg:
         result = checker.check_commit_message(files) and result
+    if args.commit_msg_ci:
+        result = checker.check_commit_messages_on_ci(files, target_branch=args.pr_target_branch) and result
     # if args.jira_ticket:
     #     result = checker.check_jira_ticket() and result
     if args.clang_format or args.clang_format_check:
