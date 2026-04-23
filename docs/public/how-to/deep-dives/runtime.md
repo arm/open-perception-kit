@@ -49,7 +49,7 @@ That lets the AMP web UI register the model first and then enable it from the **
 
 ## What is an OpChain?
 
-An OpChain is a smaller internal micropipeline executed by `ampinfer`.
+An OpChain is a smaller, self-contained micropipeline that runs locally within 'ampinfer'.
 
 An OpChain usually contains:
 - `InferenceController`

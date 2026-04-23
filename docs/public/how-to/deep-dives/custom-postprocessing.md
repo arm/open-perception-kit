@@ -269,6 +269,7 @@ The important part is the division of responsibility:
 - `GenericImagePreprocess` converts those regions into model input tensors
 - the inference Op runs the model
 - the parser inside `GenericPostprocess` turns outputs into `Perception` results
+- This is an absolutely minimal opchain and it still requires a different operation to create the humanFace content.
 
 If you stay within that structure, a custom postprocessor is usually a small and contained change.
 

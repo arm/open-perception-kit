@@ -20,10 +20,10 @@ rectangle "AMP Development Forge" {
   usecase "Carry structured\nPerception" as UC_perception
   usecase "Deliver and inspect\nruntime results" as UC_runtime
 
-  usecase "Topo-oriented\ndeployment" as UC_topo #7A1F1F
+  usecase "Topo-oriented\ndeployment" as UC_topo #8A6A00
   usecase "Custom parser /\ncustom Op" as UC_customext
   usecase "ExecuTorch" as UC_exec #8A6A00
-  usecase "Schema-based Perception\n+ entities" as UC_schema #7A1F1F
+  usecase "Schema-based Perception\n+ entities" as UC_schema #8A6A00
   usecase "Browser mapping /\nGPU OSD / separate web app" as UC_runtimefuture #7A1F1F
 
   usecase "PC / Raspberry Pi + Hailo\ndevcontainers + passthrough" as UC_envcurrent
@@ -32,8 +32,8 @@ rectangle "AMP Development Forge" {
   usecase "Current C++ contract +\nserialization" as UC_cpp
   usecase "ampsink + amposd +\ntracking + perf / profiling" as UC_runtimecurrent
 
-  usecase "Python / automatic\nparser integration" as UC_pyext #7A1F1F
-  usecase "Additional backends" as UC_morebackends #7A1F1F
+  usecase "Python / automatic\nparser integration" as UC_pyext #8A6A00
+  usecase "Additional backends" as UC_morebackends #8A6A00
 }
 
 Deploy -right-> UC_env

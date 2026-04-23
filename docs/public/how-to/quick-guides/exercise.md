@@ -109,6 +109,8 @@ This is useful because it removes most source-side complexity from the exercise.
 At this point, you are only proving that:
 
 - the source image can be loaded
+  - each premade pipeline contains a set of alternative sources
+  - if you run into camera issues, see the [Runtime Deep Dive: Custom camera](../deep-dives/runtime.md#custom-camera) section
 - the image is decoded
 - the frame is converted into the BGRA format expected by the current video-processing elements
 

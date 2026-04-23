@@ -18,7 +18,7 @@ partition "Startup and module setup" {
     :`OpChain::setupFromFile(opchain.json)`\nparses `OpChainDescriptor` JSON;
     :For each `library/op` entry,\n`OpRef::bind()` loads the shared library,\nresolves factory symbols,\ncreates the Op instance,\nand runs `configure(attributes)`;
     :Inference Op `configure()` loads\n`model.json` and backend runtime state;
-    :`OpChain::bind()` wires dependencies,\nvalidates grouped `loopId`,\nand `set_caps()` caches BGRA `GstVideoInfo`;
+    :`OpChain::bind()` wires dependencies,\nvalidates grouped `loopId`;
     :Emit `amp-model-register` downstream;
   fork again
     :`amptracker::start()`, `ampperformance`,\nand `amposd::start()` prepare\ntracker, tracing, and filter state;
