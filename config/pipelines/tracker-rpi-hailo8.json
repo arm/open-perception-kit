@@ -1,5 +1,5 @@
 {
-  "description": "Object tracking pipeline using the Hailo opchain with the default image source and ampsink video sink.",
+  "description": "Object tracking pipeline using the Hailo opchain with the default video source and ampsink video sink.",
   "pipeline": [
     "filesrc location=/work/data/videos/01.mp4 !",
     "decodebin !",
