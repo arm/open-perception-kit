@@ -37,9 +37,8 @@ The script builds AMP in debug mode, runs selected test pipelines through `amp-m
 For each pipeline:
 
 1. Runs `valgrind` with full leak checking.
-2. Runs `tools/amp-menu -f <NUM_FRAMES> <pipeline.json>` under Valgrind.
-3. Stores output in `scripts/testing/valgrind/logs/<pipeline-name>.valgrind.log.*` (PID-suffixed, including child processes).
-4. Returns non-zero if one or more pipelines fail Valgrind checks.
+2. Stores output in `scripts/testing/valgrind/logs/<pipeline-name>.valgrind.log.*` (PID-suffixed, including child processes).
+3. Returns non-zero if one or more pipelines fail Valgrind checks.
 
 By default, third-party suppressions are enabled with:
 
