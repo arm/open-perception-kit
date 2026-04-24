@@ -1,10 +1,10 @@
 {
   "description": "Object tracking pipeline using the ONNX opchain with the default image source and ampsink video sink.",
   "pipeline": [
-    "filesrc location=/work/data/images/katana.jpg !",
-    "jpegdec !",
-    "imagefreeze !",
-    "videoconvert ! video/x-raw,format=BGRA !",
+    "filesrc location=/work/data/videos/01.mp4 !",
+    "decodebin !",
+    "videoconvert !",
+    "video/x-raw,format=BGRA !",
     "ampinfer opchain-path=/work/config/opchains/tracking/opchain-onnx.json active=false !",
     "amptracker content-type=genericObject !",
     "ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
