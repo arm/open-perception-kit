@@ -34,7 +34,7 @@ This is done automatically by `scripts/build-elements.sh`.
 
 Open User Settings (JSON) and add:
 
-```JSON
+```json
 {
 
   "sonarlint.connectedMode.connections.sonarqube": [
@@ -51,7 +51,7 @@ Open User Settings (JSON) and add:
 ## 4. Configure workspace settings
 
 In .vscode/settings.json:
-```JSON
+```json
 {
   "sonarlint.pathToCompileCommands": "/work/development/build/compile_commands.json",
   "sonarlint.connectedMode.project": {

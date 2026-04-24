@@ -9,10 +9,6 @@ jobs:
     name: Run Sonar analysis when Release tag is pushed
     runs-on: self-hosted-ubuntu-latest-x64
 
-    if: |
-        (github.event.pull_request.draft == false) ||
-        (github.event_name == 'pull_request' && github.event.action == 'labeled' && contains(github.event.label.name, 'run-amp-ci'))
-
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
 
