@@ -13,6 +13,6 @@ TARGET_SERVICE_KIND="${1:-amp-dev-base}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-chmod +x scripts/dev_init.sh || true
+chmod +x scripts/private/dev-init.sh || true
 touch devices.env
-bash ./scripts/dev_init.sh "${TARGET_SERVICE_KIND}" devcont devices.env
+bash ./scripts/private/dev-init.sh "${TARGET_SERVICE_KIND}" devcont devices.env

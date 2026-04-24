@@ -418,7 +418,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
 
     p.add_argument("--fifo", default="/tmp/ampcomm", help="Path to FIFO used by ampcomm.")
-    p.add_argument("--amp-menu", default="/work/scripts/amp-menu", help="Path to amp-menu executable.")
+    p.add_argument("--amp-menu", default="/work/tools/amp-menu", help="Path to amp-menu executable.")
     p.add_argument(
         "--amp-menu-args",
         nargs=argparse.REMAINDER,

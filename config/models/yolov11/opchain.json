@@ -1,0 +1,32 @@
+{
+	"name": "YoloV11",
+	"ops": [
+		{
+			"id": "amp-std-ops/InferenceController",
+			"attributes": {}
+		},
+		{
+			"id": "amp-std-ops/GenericImagePreprocess",
+			"attributes": {
+				"inputImageTensorIndex": 0,
+				"inputImageSourceName": "pipelineVideoFrame"
+			}
+		},
+		{
+			"id": "amp-onnx-ops/Inference",
+			"attributes": {
+				"modelDescriptor": "/work/config/models/yolov11/model.json"
+			}
+		},
+		{
+			"id": "amp-std-ops/GenericPostprocess",
+			"attributes": {
+				"parser": "YoloParser",
+				"normalizeOutputCoordinates": false,
+				"applyNms": true,
+				"confidenceThreshold": 0.25,
+				"iouThreshold": 0.45
+			}
+		}
+	]
+}

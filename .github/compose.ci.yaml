@@ -42,7 +42,7 @@ services:
       bash -c '
         .devcontainer/devsetup.sh &&
         .devcontainer/platform_init.sh amp-dev-base &&
-        source /work/tools/lazer/.venv/bin/activate &&
+        source /work/tools/.venv/bin/activate &&
         expkits-ci --all-checks --pr-target-branch ${PULL_REQUEST_TARGET_BRANCH}
       '
 
@@ -54,7 +54,7 @@ services:
         .devcontainer/devsetup.sh &&
         .devcontainer/platform_init.sh amp-dev-base &&
         ./scripts/gen-doc.sh &&
-        source /work/tools/lazer/.venv/bin/activate &&
+        source /work/tools/.venv/bin/activate &&
         expkits-ci --clang-format-check --python-format-check --cmake-format-check --shell-format-check --license-header-check
       '
 

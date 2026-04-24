@@ -14,7 +14,7 @@ services:
 
     user: "0:0"
 
-    command: /bin/bash -c "/work/.devcontainer/setup.sh && while true; do sleep 1; done"
+    command: /bin/bash -c "/work/.devcontainer/setup.sh && /work/.devcontainer/devsetup.sh && while true; do sleep 1; done"
 
     environment:
       - XDG_RUNTIME_DIR=/run/user/${HOST_UID}

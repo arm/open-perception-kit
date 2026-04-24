@@ -5,13 +5,14 @@
 
 # ---- include ----
 SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
-. "$SCRIPT_DIR/shtools.sh"
+. "$SCRIPT_DIR/private/shtools.sh"
 
 # ---- config ----
 PROJECT_ROOT=/work/development
 BUILD_DIR="$PROJECT_ROOT/build"
 TESTS_BUILD_DIR="$PROJECT_ROOT/build-test"
 AMP_MENU=$PROJECT_ROOT/build/meson-out/amp-menu
+AMP_MENU_OUT=/work/tools/amp-menu
 
 mkdir -p "$BUILD_DIR"
 
@@ -40,7 +41,7 @@ debug() {
     msg "Compiling.."
     meson compile -C "$BUILD_DIR"
 
-    cp "$AMP_MENU" "$SCRIPT_DIR/"
+    cp "$AMP_MENU" "$AMP_MENU_OUT"
 
     msg_end "DEBUG compilation DONE → $BUILD_DIR"
 }
@@ -62,7 +63,7 @@ debug_with_executorch() {
     msg "Compiling.."
     meson compile -C "$BUILD_DIR"
 
-    cp "$AMP_MENU" "$SCRIPT_DIR/"
+    cp "$AMP_MENU" "$AMP_MENU_OUT"
 
     msg_end "DEBUG compilation with ExecuTorch DONE → $BUILD_DIR"
 }
@@ -93,7 +94,7 @@ release() {
     msg "Compiling…"
     meson compile -C "$BUILD_DIR"
 
-    cp "$AMP_MENU" "$SCRIPT_DIR/"
+    cp "$AMP_MENU" "$AMP_MENU_OUT"
 
     msg_end "Release build done → $BUILD_DIR"
 }

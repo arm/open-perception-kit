@@ -1,0 +1,9 @@
+{
+    "label": "Elements",
+    "position": 16,
+    "link": {
+        "type": "generated-index",
+        "title": "Element documentation",
+        "description": "Implementation-facing documentation for the main AMP GStreamer elements."
+    }
+}

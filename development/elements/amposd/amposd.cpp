@@ -590,7 +590,7 @@ static void gst_amp_osd_process_layer(GstAmpOsd *self,
                                       Osd::Layers_t &layers,
                                       const amp::Perception::Layer &layer) {
 
-    if (layer.contentType == "ocr-detection-segmentation") {
+    if (layer.contentType == "segmentation") {
         for (const auto &det : layer.detections) {
             const auto *sm = std::get_if<amp::Perception::SegmentationMap>(&det);
             if (sm != nullptr && !sm->bitmap.empty() && sm->bitmap.getWidth() > 0 &&
