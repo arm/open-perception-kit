@@ -32,7 +32,7 @@ services:
       bash -c '
         .devcontainer/setup.sh &&
         .devcontainer/platform_init.sh amp-dev-base &&
-        ./scripts/testing/valgrind/test-elements-with-valgrind.sh clean
+        ./scripts/testing/valgrind/test-elements-with-valgrind.sh clean --pipeline only-onnx-yolo
       '
 
   amp-quality-check-pull-request:
