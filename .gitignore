@@ -114,9 +114,10 @@ data/videos/*.mp4
 coverage.xml
 
 # -------------------------
-# Valgrind logs (might not only be files with .log extension, so the whole directory is ignored)
+# Valgrind output xml files and error summary xml file
 # -------------------------
-scripts/testing/valgrind/logs
+scripts/testing/valgrind/logs/*.xml
+**/valgrind-error-summary*.xml
 
 # Example build outputs
 examples/bin/
