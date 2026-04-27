@@ -10,7 +10,7 @@ WORK_ROOT="$(cd -- "$SCRIPT_DIR/../../.." && pwd)"
 BUILD_SCRIPT="$WORK_ROOT/scripts/build-elements.sh"
 SHTOOLS_SCRIPT="$WORK_ROOT/scripts/private/shtools.sh"
 AMP_MENU="$WORK_ROOT/tools/amp-menu"
-TEST_PIPELINES_DIR="$WORK_ROOT/scripts/pipelines/testing"
+TEST_PIPELINES_DIR="$WORK_ROOT/config/pipelines/testing"
 LOG_DIR="$SCRIPT_DIR/logs"
 DEFAULT_SUPPRESSIONS_FILE="$SCRIPT_DIR/suppressed-warnings"
 
