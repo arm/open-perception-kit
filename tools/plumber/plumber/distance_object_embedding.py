@@ -36,7 +36,7 @@ def distance_object_embedding(gt_det: dict, out_det: dict, gt_parent_det: dict, 
         norm1 += a * a
         norm2 += b * b
 
-    if is_near_zero(norm1) == 0.0 or is_near_zero(norm2) == 0.0:
+    if is_near_zero(norm1) or is_near_zero(norm2):
         return 1.0
 
     cos_sim = dot / (math.sqrt(norm1) * math.sqrt(norm2))
