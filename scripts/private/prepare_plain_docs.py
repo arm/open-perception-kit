@@ -14,8 +14,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-
-HEADING_PATTERN = re.compile(r"^#\s+(.+?)\s*$")
+HEADING_PATTERN = re.compile(r"^#\s+(\S(?:.*\S)?)\s*$")
 FRONT_MATTER_PATTERN = re.compile(
     r"\A---[ \t]*\r?\n.*?\r?\n---[ \t]*(?:\r?\n|$)",
     re.DOTALL,

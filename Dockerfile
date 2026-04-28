@@ -104,7 +104,7 @@ RUN set -eux; \
 
 # uv (Python package manager) for dev/CI tooling
 RUN set -eux; \
-  curl -LsSf https://astral.sh/uv/install.sh | \
+  curl  -LsSf --proto =https https://astral.sh/uv/install.sh | \
     env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh; \
   uv --version
 
@@ -252,7 +252,7 @@ RUN set -eux; \
     apt-get update; apt-get install -y --no-install-recommends gcovr; \
     rm -rf /var/lib/apt/lists/*; \
     mkdir -p /opt/sonar; \
-    curl -fsSLo /tmp/sonar-scanner.zip \
+    curl --proto "=https" -fsSLo /tmp/sonar-scanner.zip \
         "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}.zip"; \
     unzip -o /tmp/sonar-scanner.zip -d /opt/sonar/; \
     rm -f /tmp/sonar-scanner.zip
@@ -291,7 +291,7 @@ ARG NVIM_APPIMAGE=nvim-linux-x86_64.appimage
 
 RUN touch /container_env
 
-RUN curl -LO https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/${NVIM_APPIMAGE} && \
+RUN curl --proto "=https" -LO https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/${NVIM_APPIMAGE} && \
     chmod +x ${NVIM_APPIMAGE} && \
     ./${NVIM_APPIMAGE} --appimage-extract && \
     mv squashfs-root /opt/nvim && \
@@ -305,14 +305,14 @@ RUN update-alternatives --install /usr/bin/vi vi /usr/local/bin/nvim 60 && \
 
 ARG CPP_TOOLS_VERSION=v1.29.3
 ARG CPP_TOOLS_APPIMAGE=cpptools-linux-x64.vsix
-RUN curl -LO https://github.com/microsoft/vscode-cpptools/releases/download/${CPP_TOOLS_VERSION}/${CPP_TOOLS_APPIMAGE} && \
+RUN curl --proto "=https" -LO https://github.com/microsoft/vscode-cpptools/releases/download/${CPP_TOOLS_VERSION}/${CPP_TOOLS_APPIMAGE} && \
     mkdir -p /home/${USERNAME}/bin/cpptools && \
     unzip ${CPP_TOOLS_APPIMAGE} -d /home/${USERNAME}/bin/cpptools && \
     chmod +x /home/${USERNAME}/bin/cpptools/extension/debugAdapters/bin/OpenDebugAD7 && \
     ln -s /home/${USERNAME}/bin/cpptools/extension/debugAdapters/bin/OpenDebugAD7 /usr/local/bin/OpenDebugAD7
 
 # ---- Install oh-my-zsh for dev user ----
-RUN curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -o /tmp/install-ohmyzsh.sh && \
+RUN curl --proto "=https" -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -o /tmp/install-ohmyzsh.sh && \
     chmod +x /tmp/install-ohmyzsh.sh && \
     su - ${USERNAME} -c "env RUNZSH=no CHSH=no KEEP_ZSHRC=yes /tmp/install-ohmyzsh.sh" && \
     rm /tmp/install-ohmyzsh.sh
