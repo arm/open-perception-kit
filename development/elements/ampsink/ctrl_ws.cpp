@@ -184,7 +184,9 @@ gboolean toggle_on_main(gpointer user_data) {
     tsr->cv.notify_one();
 
     std::cout << "check is_pipeline\n";
-    if (tsr->element && GST_IS_PIPELINE(tsr->element)) {
+
+    // GST_IS_PIPELINE() is a macro performing a type check with no side effects
+    if (tsr->element && GST_IS_PIPELINE(tsr->element)) { // NOSONAR
         std::cout << "is_pipeline\n";
         gst_object_unref(tsr->element);
         tsr->element = nullptr;
@@ -226,7 +228,8 @@ void CtrlWebSocket::enable_perf_overlay(const json &jsn) {
     auto perf_ovr = get_element_by_type(top, "ampperformance");
     gst_object_unref(top);
 
-    if (perf_ovr && GST_IS_ELEMENT(perf_ovr)) {
+    // GST_IS_ELEMENT() is a macro performing a type check with no side effects
+    if (perf_ovr && GST_IS_ELEMENT(perf_ovr)) { // NOSONAR
 
         gboolean enabled;
         g_object_get(perf_ovr, "enabled", &enabled, NULL);

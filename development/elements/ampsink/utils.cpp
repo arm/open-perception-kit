@@ -29,7 +29,8 @@ GstElement *get_top_pipeline(GstElement *elem) {
 }
 
 GstElement *get_element_by_name(GstElement *top_level, const std::string &element_name) {
-    if (!top_level || !GST_IS_ELEMENT(top_level)) {
+    // GST_IS_ELEMENT() is a macro performing a type check with no side effects
+    if (!top_level || !GST_IS_ELEMENT(top_level)) { // NOSONAR
         return nullptr;
     }
 
@@ -67,7 +68,8 @@ GstElement *get_element_by_name(GstElement *top_level, const std::string &elemen
 }
 
 GstElement *get_element_by_type(GstElement *top_level, const std::string &type_name) {
-    if (!top_level || !GST_IS_ELEMENT(top_level) || type_name.empty()) {
+    // GST_IS_ELEMENT() is a macro performing a type check with no side effects
+    if (!top_level || !GST_IS_ELEMENT(top_level) || type_name.empty()) { // NOSONAR
         return nullptr;
     }
 
@@ -181,8 +183,10 @@ void release_request_pad_and_unref(GstElement *elem, GstPad **ppad) {
 void remove_pad_if_present(GstElement *elem, GstPad **ppad) {
     if (!ppad || !*ppad)
         return;
-    if (elem && GST_IS_ELEMENT(elem) && GST_IS_PAD(*ppad)) {
-        gst_element_remove_pad(elem, *ppad); // drops element’s ref
+
+    // GST_IS_ELEMENT() and GST_IS_PAD() are macros performing a type checks with no side effects
+    if (elem && GST_IS_ELEMENT(elem) && GST_IS_PAD(*ppad)) { // NOSONAR
+        gst_element_remove_pad(elem, *ppad);                 // drops element’s ref
     } else {
         gst_object_unref(*ppad); // fallback if somehow not parented
     }

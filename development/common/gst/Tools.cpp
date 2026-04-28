@@ -27,7 +27,8 @@ GstElement *Tools::getOverlayElement(GstVideoFilter *videoFilter) {
 
     // Get the parent (should be a bin)
     GstObject *parent = gst_element_get_parent(GST_ELEMENT(videoFilter));
-    if (!parent || !GST_IS_BIN(parent)) {
+    // GST_IS_BIN() is a macro performing a type check with no side effects
+    if (!parent || !GST_IS_BIN(parent)) { // NOSONAR
         if (parent)
             gst_object_unref(parent);
         return nullptr;

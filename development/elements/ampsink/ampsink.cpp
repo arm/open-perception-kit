@@ -90,7 +90,8 @@ nlohmann::json PerformanceOverlayStateReporter::report() const {
     auto perf_ovr = get_element_by_type(top, "ampperformance");
     gst_object_unref(top);
 
-    if (perf_ovr && GST_IS_ELEMENT(perf_ovr)) {
+    // GST_IS_ELEMENT() is a macro performing a type check with no side effects
+    if (perf_ovr && GST_IS_ELEMENT(perf_ovr)) { // NOSONAR
         ret["has_performance_overlay"] = true;
 
         gboolean enabled;
