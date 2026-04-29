@@ -9,6 +9,43 @@ class ModelsManager {
     constructor() {
         this.container = document.getElementById('models-container');
         this.updateInterval = null;
+        this._descriptionCache = new Map();
+        this._tooltip = this._createTooltip();
+    }
+
+    _createTooltip() {
+        const t = document.createElement('div');
+        t.id = 'model-tooltip';
+        t.style.position = 'fixed';
+        t.style.pointerEvents = 'none';
+        t.style.zIndex = '1000';
+        t.style.display = 'none';
+        t.className = 'model-tooltip';
+        document.body.appendChild(t);
+        return t;
+    }
+
+    async _fetchDescription(model) {
+        // Return cached if available
+        if (this._descriptionCache.has(model.element_name))
+            return this._descriptionCache.get(model.element_name);
+        try {
+            const url = `/api/model-info?name=${encodeURIComponent(model.name)}`;
+            const resp = await fetch(url, { cache: 'no-store' });
+            if (resp.ok) {
+                const j = await resp.json();
+                const desc = j.description || j.opchain?.description || j.model?.description || '';
+                this._descriptionCache.set(model.element_name, desc);
+                return desc;
+            }
+        } catch (e) {
+            // ignore
+        }
+
+        // Fallback to any inline description field from the model object
+        const fallback = model.description || model.desc || '';
+        this._descriptionCache.set(model.element_name, fallback);
+        return fallback;
     }
 
 
@@ -52,7 +89,7 @@ class ModelsManager {
 
         item.innerHTML = `
             <div class="model-info">
-                <div class="model-name" title="${model.name}">${model.name}</div>
+                <div class="model-name">${model.name}</div>
             </div>
             <label class="model-toggle-switch" aria-label="Toggle ${model.name}">
                 <input type="checkbox" role="switch" ${model.active ? 'checked' : ''}>
@@ -63,6 +100,39 @@ class ModelsManager {
         `;
 
         const toggle = item.querySelector('input[type="checkbox"]');
+
+        // Hover tooltip handling
+        const nameEl = item.querySelector('.model-name');
+        let hoverActive = false;
+        nameEl.addEventListener('mouseenter', async (ev) => {
+            hoverActive = true;
+            const desc = await this._fetchDescription(model);
+            this._tooltip.textContent = desc || 'No description available';
+            this._tooltip.style.display = 'block';
+            const rect = nameEl.getBoundingClientRect();
+            // Place tooltip below the element to avoid overlapping the name
+            const top = rect.bottom + 6; // 6px gap
+            let left = rect.left;
+            // ensure tooltip doesn't overflow viewport on initial placement
+            const maxLeft = window.innerWidth - 12 - this._tooltip.offsetWidth;
+            if (left > maxLeft) left = Math.max(8, maxLeft);
+            this._tooltip.style.left = `${left}px`;
+            this._tooltip.style.top = `${top}px`;
+        });
+
+        nameEl.addEventListener('mousemove', (ev) => {
+            if (!hoverActive) return;
+            // Only update horizontal position on mouse move so tooltip stays below the name
+            let x = ev.clientX + 12;
+            const maxLeft = window.innerWidth - 12 - this._tooltip.offsetWidth;
+            if (x > maxLeft) x = Math.max(8, maxLeft);
+            this._tooltip.style.left = `${x}px`;
+        });
+
+        nameEl.addEventListener('mouseleave', () => {
+            hoverActive = false;
+            this._tooltip.style.display = 'none';
+        });
 
         toggle.addEventListener('change', () => {
             const shouldBeActive = toggle.checked;
