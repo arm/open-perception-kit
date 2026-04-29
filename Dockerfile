@@ -104,7 +104,7 @@ RUN set -eux; \
 
 # uv (Python package manager) for dev/CI tooling
 RUN set -eux; \
-  curl  -LsSf --proto =https https://astral.sh/uv/install.sh | \
+  curl --proto "=https" -LsSf  https://astral.sh/uv/install.sh | \
     env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh; \
   uv --version
 
