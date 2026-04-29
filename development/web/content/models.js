@@ -3,7 +3,7 @@
  * Handles fetching and displaying registered AI models
  */
 
-import {ctrlSend} from "./ctrlws.js"
+import { ctrlSend } from "./ctrlws.js"
 
 class ModelsManager {
     constructor() {
@@ -32,7 +32,7 @@ class ModelsManager {
         }
 
         // Sort models by name (which is the model_name) for consistent display
-        const sortedModels = [...models].sort((a, b) => 
+        const sortedModels = [...models].sort((a, b) =>
             a.name.localeCompare(b.name)
         );
 
@@ -50,51 +50,55 @@ class ModelsManager {
         const item = document.createElement('div');
         item.className = 'model-item';
 
-        const statusClass = model.active ? 'active' : 'inactive';
-        const buttonClass = model.active ? 'disable' : 'enable';
-        const buttonText = model.active ? 'Disable' : 'Enable';
-
         item.innerHTML = `
             <div class="model-info">
-                <div class="model-status-dot ${statusClass}"></div>
                 <div class="model-name" title="${model.name}">${model.name}</div>
             </div>
-            <button class="model-toggle-btn ${buttonClass}" data-model="${model.name}" data-active="${model.active}">
-                ${buttonText}
-            </button>
+            <label class="model-toggle-switch" aria-label="Toggle ${model.name}">
+                <input type="checkbox" role="switch" ${model.active ? 'checked' : ''}>
+                <span class="model-toggle-track" aria-hidden="true">
+                    <span class="model-toggle-thumb"></span>
+                </span>
+            </label>
         `;
 
-        // Add click handler for toggle button
-        const button = item.querySelector('.model-toggle-btn');
-        button.addEventListener('click', () => this.handleToggle(model, button));
+        const toggle = item.querySelector('input[type="checkbox"]');
+
+        toggle.addEventListener('change', () => {
+            const shouldBeActive = toggle.checked;
+            this.handleToggle(model, shouldBeActive, item, toggle);
+        });
 
         return item;
     }
 
     /**
-     * Handle toggle button click
+     * Handle radio selection changes
      */
-    async handleToggle(model, button) {
-        // Disable button to prevent double-clicks
-        button.disabled = true;
-        button.style.opacity = '0.5';
-        button.style.cursor = 'not-allowed';
+    async handleToggle(model, shouldBeActive, item, toggle) {
+        if (model.active === shouldBeActive) {
+            return;
+        }
 
-        const newActiveState = !model.active;
-        console.log(`Toggle model: ${model.name} from ${model.active} to ${newActiveState}`);
-        
+        const previousActive = model.active;
+
+        toggle.disabled = true;
+        item.classList.add('model-pending');
+
+        model.active = shouldBeActive;
+        item.classList.toggle('model-active', shouldBeActive);
+
+        console.log(`Toggle model: ${model.name} from ${previousActive} to ${shouldBeActive}`);
+
         try {
-
-            ctrlSend({type: "model_toggle", name: model.element_name});
+            ctrlSend({ type: "model_toggle", name: model.element_name });
 
         } catch (error) {
             console.error('Error toggling model:', error);
             alert(`Error toggling model: ${error.message}`);
         } finally {
-            // Re-enable button
-            button.disabled = false;
-            button.style.opacity = '';
-            button.style.cursor = '';
+            toggle.disabled = false;
+            item.classList.remove('model-pending');
         }
     }
 
@@ -124,4 +128,4 @@ class ModelsManager {
 }
 
 export const modelsManager = new ModelsManager();
-    
+
