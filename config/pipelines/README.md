@@ -7,7 +7,8 @@ This is intentional: open the AMP web UI and enable the models you want from the
 
 - `01-full-onnx` — all listed ONNX model pipelines on a still image
 - `02-full-onnx-hailo8` — all listed ONNX + Hailo 8 model pipelines on a still image with ampsink video and optional audio sink
-- `03-full-onnx-hailo10` — all listed ONNX + Hailo 10 model pipelines on a still image with ampsink video and optional audio sink
+- `03-full-onnx-hailo8l` — all listed ONNX + Hailo 8L model pipelines on a still image with ampsink video and optional audio sink
+- `04-full-onnx-hailo10` — all listed ONNX + Hailo 10 model pipelines on a still image with ampsink video and optional audio sink
 - `cam-connect` — camera-contact demo
 - `gaze-detection` — gaze-estimation demo
 - `tracker-pc` — ONNX tracking demo
