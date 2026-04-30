@@ -40,10 +40,7 @@
             "request": "launch",
             "program": "/work/tools/amp-menu",
             "args": [
-                "-l",
-                //"-f",
-                //"30",
-                //"/work/scripts/pipelines/testing/only-ampsink.json",
+                "${input:selectedPipeline}"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
@@ -87,7 +84,13 @@
             "default": "01-full-onnx",
             "options": [
                 "01-full-onnx",
-                "02-full-onnx-hailo8"
+                "02-full-onnx-hailo8",
+                "03-full-onnx-hailo8l",
+                "04-full-onnx-hailo10",
+                "cam-connect",
+                "gaze-detection",
+                "tracker-pc",
+                "tracker-rpi-hailo8"
             ]
         }
     ]

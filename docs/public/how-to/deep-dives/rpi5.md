@@ -5,7 +5,7 @@ sidebar_label: Raspberry Pi 5
 
 # Raspberry Pi 5: Assembly and Installation Guide
 > Note: These instructions are validated for Raspberry Pi 5. Earlier Raspberry Pi versions may require different packages or may not be fully supported.
-> This whole document should be followed outside the container on the remote target to enable seamless work with the development or deployment container.
+> This whole document should be followed outside the container on the remote host to enable seamless work with the remote host container or deployment container.
 
 ## What will you learn from this documentation?
 
@@ -19,25 +19,26 @@ In order to run the project the following components are needed:
 
 - [Raspberry Pi 5 16GB](https://www.raspberrypi.com/products/raspberry-pi-5/)
 	- The 8GB version should work as well, but it is not tested at the moment.
-- [AI HAT+](https://www.raspberrypi.com/products/ai-hat/)
+- [Hailo 8 AI HAT](https://www.raspberrypi.com/products/ai-hat/)
 	- Use this with the `RPI5 H8 amp-dev-forge` / `amp-dev-rpi5-h8` container path.
+	- Older Hailo 8L hardware may also work, but Hailo 8 and Hailo 8L compiled model files are not interchangeable.
 - Supported Hailo 10 accelerator
 	- Use this with the `RPI5 H10 amp-dev-forge` / `amp-dev-rpi5-h10` container path.
-	- The Hailo 10 kernel and PCIe driver packages remain host-side. The container only installs the Hailo 10 user-space stack.
+	- The Hailo 10 kernel and PCIe driver packages remain on the remote host. The container only installs the Hailo 10 user-space stack.
 - USB or CSI camera
 	- [Camera Module v3](https://www.raspberrypi.com/products/camera-module-3/)
 	- USB camera (project tested with Lenovo C920 Pro)
 - Class 10 SD Card with at least 32GB capacity
-- (Optional)Raspberry Pi Active Cooler.
+- (Optional) Raspberry Pi Active Cooler.
 - (Optional) [M.2 HAT](https://www.raspberrypi.com/products/m2-hat-plus/) with compatible SSD
 - (Optional) [Monitor](https://www.raspberrypi.com/products/raspberry-pi-monitor/)
 - (Optional) PCIe splitter
-	- Only needed if the Ai Hat and SSD HAT are intended to be used at the same time.
+	- Only needed if the AI HAT and SSD HAT are intended to be used at the same time.
 
 ## Assembly
 
 1.  Attach spacers to the Raspberry Pi 5.
-2.  Mount the AI HAT+ 2 onto the GPIO header.
+2.  Mount the Hailo 8 AI HAT, or the selected supported accelerator, onto the GPIO header.
 3.  Connect the PCIe ribbon cable:
     -   From the Raspberry Pi 5 PCIe port to the HAT
     -   Ensure copper contacts face **up on the HAT side**
@@ -51,7 +52,7 @@ Follow these tutorials to install the latest (trixie) OS and assemble your Pi. I
 - [Basic instructions](https://www.raspberrypi.com/documentation/computers/getting-started.html)
 - [M.2 Installation](https://www.raspberrypi.com/documentation/accessories/m2-hat-plus.html)
 
-SSH can also be configured using the installer. Sometimes, even when SSH is enabled, it may not work out of the box after boot. In that case, create an empty file named `ssh` in the root folder of `bootfs`.
+SSH can also be configured using the installer. If SSH does not start after boot, see [Troubleshooting: empty SSH file creation](troubleshooting.md#empty-ssh-file-creation).
 
 ### Update System
 
@@ -102,11 +103,11 @@ dtoverlay=<cameratype2>
 
 ## Hailo installation
 
-The `RPI5 H10 amp-dev-forge` and `RPI5 H8 amp-dev-forge` container only adds the Hailo 10 user-space packages. Kernel or PCIe driver packages such as `hailort-pcie-driver` or `h10-hailort-pcie-driver` stay on the remote host.
+The remote host containers add the matching user-space packages inside the container. Kernel or PCIe driver packages such as `hailort-pcie-driver` or `h10-hailort-pcie-driver` stay on the remote host.
 
-### Hailo8
+### Hailo 8
 
-If you are using the Hailo 8 / AI HAT+ path, install the required tools:
+If you are using the Hailo 8 AI HAT path, install the required tools:
 
 ```sh
 sudo apt-get update
@@ -135,9 +136,11 @@ Board Name: Hailo-8
 Device Architecture: HAILO8
 ```
 
-### Hailo10
+The primary supported Hailo AI HAT path is Hailo 8. Older Hailo 8L hardware may also work, but use Hailo 8L-compiled model files for Hailo 8L hardware.
 
-If you are using the Hailo 10 path, install the required host-side Hailo 10 driver stack first.
+### Hailo 10
+
+If you are using the Hailo 10 path, install the required Hailo 10 driver stack on the remote host first.
 
 ``` bash
 sudo apt install dkms
@@ -147,7 +150,7 @@ sudo reboot
 
 ### Verify Installation
 
-After the host-side Hailo 10 setup, confirm that the device nodes exist:
+After the remote host Hailo 10 setup, confirm that the device nodes exist:
 
 ```sh
 ls /dev/hailo*
@@ -181,12 +184,12 @@ usbhid.mousepoll=0
 
 See: [Debian | Docker Docs](https://docs.docker.com/engine/install/debian/)
 
-## Raspberry Pi devcontainer targets
+## Raspberry Pi remote host container options
 
-The repository now ships two Raspberry Pi-specific development container targets:
+The repository now ships two Raspberry Pi-specific remote host container options:
 
-- `RPI5 H8 amp-dev-forge` -> service `amp-dev-rpi5-h8` -> Hailo 8 / AI HAT+ path
-- `RPI5 H10 amp-dev-forge` -> service `amp-dev-rpi5-h10` -> Hailo 10 / AI HAT+ 2 path
+- `RPI5 H8 amp-dev-forge` -> service `amp-dev-rpi5-h8` -> Hailo 8 AI HAT path
+- `RPI5 H10 amp-dev-forge` -> service `amp-dev-rpi5-h10` -> supported Hailo 10 accelerator path
 
 The matching full-demo presets are `config/pipelines/02-full-onnx-hailo8.json`, `config/pipelines/03-full-onnx-hailo8l.json` and `config/pipelines/04-full-onnx-hailo10.json`.
 
@@ -196,8 +199,8 @@ When you validate the accelerated path from `amp-menu`, select the matching Hail
 
 ![Running the selected Raspberry Pi Hailo pipeline](../../../static/img/22-raspberry-hailo-pipeline2.png)
 
-Both Raspberry Pi containers use host networking.
-Before either container is created, `.devcontainer/platform_init.sh` runs on the host and generates the camera, audio, NPU, and shared-memory docker-compose overrides for the selected service.
+Both remote host containers use host networking.
+Before either container is created, `.devcontainer/platform_init.sh` runs on the remote host and generates the camera, audio, NPU, and shared-memory docker-compose overrides for the selected service.
 That is why the Pi-hosted UI and documentation stay reachable at `http://raspberrypi.local:9999` and `http://raspberrypi.local:8080`.
 
 ## SSH and VS Code

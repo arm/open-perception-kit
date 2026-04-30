@@ -19,9 +19,11 @@ If you follow this page successfully, you will learn how to:
 - build the project and start `amp-menu`
 - run the first pipeline and verify that the local web UI is reachable
 
-At the end of this guide, you should have AMP running on your desk on a macOS development machine, with the first pipeline launched and the web UI available at `http://localhost:9999`.
+At the end of this guide, you should have AMP running on your macOS host, with the first pipeline launched and the web UI available at `http://localhost:9999`.
 
 ## 1. Install the host tools
+
+The following section should detail the platform specific prerequisites that this document assumes are already met: [Deep dive prerequisites section](../deep-dives/index.md#prerequisites)
 
 Install:
 - Git
@@ -42,6 +44,8 @@ ssh-add <your-private-key>
 ```
 
 > Expected result: Git operations over SSH should work without prompting for a password on every repository access.
+
+For key creation details, see [Generating a new SSH key and adding it to the ssh-agent](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent).
 
 ## 3. Clone the repository
 
@@ -92,7 +96,7 @@ cd amp-dev-forge
 
 ## 4. Open the repository in VS Code
 
-Open the cloned folder in VS Code. Either in the UI or with the following command:
+Open the cloned folder in VS Code. Use **File -> Open Folder...**, or run the following command from the repository root if `code` is available in your shell path:
 
 ```bash
 code .
@@ -107,26 +111,25 @@ Then:
 
 ![VS Code command palette showing Reopen in Container](../../../static/img/05-reopen-in-container.png)
 
-![VS Code Dev Container selection dialog](../../../static/img/06-reopen-in-container2.png)
+![VS Code container selection dialog](../../../static/img/06-reopen-in-container2.png)
 
-Wait until the Dev Container finishes building.
+Wait until the host side container finishes building.
 
 Open a new terminal inside VS Code after the container is ready. The prompt should show that you are working inside the container workspace.
 
-![VS Code terminal opened inside the Dev Container](../../../static/img/07-in-container-new-console.png)
+![VS Code terminal opened inside the host side container](../../../static/img/07-in-container-new-console.png)
 
-> Expected result: VS Code reconnects into the container and the project opens with the container environment active.
+> Expected result: VS Code reconnects into the host side container and the project opens with the container environment active.
 
 ## 5. Build the project
 
 Use the build task in VS Code:
 - open the Command Palette and run `Tasks: Run Task`
 - run **00 Build Project**
-- choose `debug` unless you specifically want `release`
 
 ![VS Code build task for AMP](../../../static/img/08-build-project.png)
 
-Or build in the container terminal:
+Or build in the active host side container terminal:
 
 ```bash
 ./scripts/build-elements.sh debug false
@@ -136,7 +139,15 @@ Or build in the container terminal:
 
 ## 6. Start AMP
 
-- Run the menu in a new terminal inside the container:
+Use the VS Code run task:
+
+- open the Command Palette and run `Tasks: Run Task`
+- run **00 Run project and select pipeline**
+- choose `01-full-onnx`
+
+The menu view is also available through **00 Run project with menu**.
+
+You can also run the menu in a new terminal inside the active host side container from the project root:
 
 ```bash
 ./tools/amp-menu
@@ -150,12 +161,12 @@ Stop:
 
 To stop an application that was not started from a VS Code launch configuration, press Control+C in the console.
 
-> Expected result: `amp-menu` starts and shows the pipeline selection menu.
+> Expected result: the selected task or `amp-menu` starts and either launches the selected pipeline or shows the pipeline selection menu.
 
 ## 7. Run the example pipeline
 
-For the shortest first run, in `amp-menu` select:
-- `01-full-onnx.json` by typing the corresponding number and pressing enter.
+For the shortest first run, choose `01-full-onnx`.
+If you opened the interactive menu, type the corresponding number and press Enter.
 
 This is the shortest recommended first pipeline.
 
@@ -163,7 +174,7 @@ This is the shortest recommended first pipeline.
 
 ## 8. Open the web UI
 
-> Disclaimer: Safari is the suggested browser for the AMP web UI on mac.
+Safari is the suggested browser for the AMP web UI on macOS. If the image is not visible or unstable, see [Troubleshooting: Browser and WebRTC connection issues](../deep-dives/troubleshooting.md#browser-and-webrtc-connection-issues).
 
 Open:
 - http://localhost:9999
@@ -198,6 +209,8 @@ The log window shows browser-side connection messages and RTC connection debug d
 
 After you have selected a pipeline once, you can rerun the last selection with the -l (latest) argument:
 
+The VS Code task for this is **00 Run project with latest pipeline**.
+
 ```bash
 ./tools/amp-menu -l
 ```
@@ -206,7 +219,7 @@ After you have selected a pipeline once, you can rerun the last selection with t
 
 ## If you want the deeper guides
 
-Continue with the [main how-to guide](../deep-dives/index.md).
+Continue with the [deep dive how-to guide](../deep-dives/index.md).
 
 If you want a guided repository walk-through, continue with the [exercise quick guide](exercise.md).
 
@@ -214,10 +227,10 @@ If you want a guided repository walk-through, continue with the [exercise quick 
 
 By the end of this guide, you should have:
 
-- a working Dev Container for AMP on macOS
+- a working host side container for AMP on a macOS host
 - a successful local build
-- `amp-menu` starting correctly
+- `amp-menu` starting correctly from the VS Code task or the active host side container terminal
 - `01-full-onnx.json` running at least once
 - the AMP web UI reachable at `http://localhost:9999`
 
-Success looks like this: the container opens correctly, the build completes, the pipeline starts from `amp-menu`, and the browser can reach the AMP UI.
+Success looks like this: the container opens correctly, the build completes, the pipeline starts from the VS Code task or `amp-menu`, and the browser can reach the AMP UI.

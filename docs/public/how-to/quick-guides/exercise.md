@@ -38,7 +38,7 @@ Inside the container, those locations are typically available under:
 ## Exercise 1 - Change an existing pipeline
 In this exercise, you will start from an existing pipeline and change its source. This lets you compare the output produced by different source types while keeping the rest of the pipeline unchanged.
 
-For simplicity's sake, use the camera-contact pipeline. It is available everywhere and is short enough to inspect comfortably.
+For simplicity's sake, use the camera-contact pipeline in `config/pipelines/cam-connect.json`. It is available everywhere and is short enough to inspect comfortably.
 
 The beginning of the pipeline contains the active source. The end of the preset lists alternative sources you can copy into place. To change the source, remove the original source section and replace it with a video source, or with a camera source if one is available.
 

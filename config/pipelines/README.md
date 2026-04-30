@@ -12,6 +12,6 @@ This is intentional: open the AMP web UI and enable the models you want from the
 - `cam-connect` — camera-contact demo
 - `gaze-detection` — gaze-estimation demo
 - `tracker-pc` — ONNX tracking demo
-- `tracker-rpi` — Hailo 8 tracking demo
+- `tracker-rpi-hailo8` — Hailo 8 tracking demo
 
 `.last_selected_pipeline_id` stores the last chosen top-level pipeline id. `amp-menu -l` uses it to rerun the previous selection.

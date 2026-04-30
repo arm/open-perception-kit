@@ -15,11 +15,12 @@ Use it once you already understand the basic setup flow and want to continue int
 - [Runtime basics](runtime.md) — how to select inputs, run pipelines, and understand outputs
 - [Bring your model](bring-your-model.md) — the practical path for adding your own model files and descriptors
 - [Custom postprocessing](custom-postprocessing.md) — what to do when the built-in parsers are not enough
-- [Performance measurement with performix](performix-setup.md) — measure your applications performance with performix
+- [Troubleshooting](troubleshooting.md) — browser, SSH, mDNS, and camera checks
+- [Performance measurement with performix](performix-setup.md) — measure your application's performance with performix
 - [Contribution](contribution.md) — branch, commit, PR, and review expectations
 
 ## When you need deeper implementation detail
 
-- [Architecture index](arch/index.md)
-- [Architectural overview](arch/architectural-overview.md)
-- [Known limitations](arch/known-limitations.md)
+- [Architecture index](../../arch/index.md)
+- [Architectural overview](../../arch/architectural-overview.md)
+- [Known limitations](../../arch/known-limitations.md)
