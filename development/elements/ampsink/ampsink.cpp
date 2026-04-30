@@ -376,7 +376,11 @@ static void init_video(GstAmpSink *self) {
 
     g_object_set(self->vclock, "sync", TRUE, NULL);
     g_object_set(self->vp8enc, "deadline", 1, NULL);
-    g_object_set(self->vp8enc, "keyframe-max-dist", 30, NULL); // keyframe every ~1s at 30fps
+    g_object_set(self->vp8enc, "target-bitrate", 2500000, NULL);
+    g_object_set(self->vp8enc, "cpu-used", 4, NULL);
+    g_object_set(self->vp8enc, "keyframe-max-dist", 60, NULL);
+    g_object_set(self->vp8enc, "threads", 4, NULL);
+    g_object_set(self->vp8enc, "error-resilient", 1, NULL);
 
     gst_bin_add_many(
         GST_BIN(self), self->vconv, self->queue, self->vp8enc, self->vclock, self->tee, NULL);
