@@ -94,7 +94,7 @@ nlohmann::json PerformanceOverlayStateReporter::report() const {
         ret["has_performance_overlay"] = true;
 
         gboolean enabled;
-        g_object_get(perf_ovr, "enabled", &enabled, NULL);
+        g_object_get(perf_ovr, "enabled", &enabled, nullptr);
         ret["enabled"] = bool(enabled);
 
         gst_object_unref(perf_ovr);
@@ -225,7 +225,7 @@ static GstPad *gst_amp_sink_request_new_pad(GstElement *element,
     // switch selector immediately to the "real" pad.
     // this can be done in pad probe. it would be better
     if (self->aselector && self->aselector_real_pad) {
-        g_object_set(self->aselector, "active-pad", self->aselector_real_pad, NULL);
+        g_object_set(self->aselector, "active-pad", self->aselector_real_pad, nullptr);
         GST_INFO_OBJECT(self, "Audio request pad created, selector switched to real audio input");
     } else {
         GST_WARNING_OBJECT(self, "Selector or real pad not ready; cannot switch to real input");
@@ -338,7 +338,7 @@ static void gst_amp_sink_dispose(GObject *object) {
 
     // IMPORTANT: selector may be holding a ref via active-pad
     if (self->aselector) {
-        g_object_set(self->aselector, "active-pad", NULL, NULL);
+        g_object_set(self->aselector, "active-pad", NULL, nullptr);
     }
 
     release_request_pad_and_unref(self->aselector, &self->aselector_silence_pad);
@@ -374,19 +374,19 @@ static void init_video(GstAmpSink *self) {
 
     g_return_if_fail(self->vconv && self->queue && self->vp8enc && self->tee && self->vclock);
 
-    g_object_set(self->vclock, "sync", TRUE, NULL);
-    g_object_set(self->vp8enc, "deadline", 1, NULL);
-    g_object_set(self->vp8enc, "target-bitrate", 2500000, NULL);
-    g_object_set(self->vp8enc, "cpu-used", 4, NULL);
-    g_object_set(self->vp8enc, "keyframe-max-dist", 60, NULL);
-    g_object_set(self->vp8enc, "threads", 4, NULL);
-    g_object_set(self->vp8enc, "error-resilient", 1, NULL);
+    g_object_set(self->vclock, "sync", TRUE, nullptr);
+    g_object_set(self->vp8enc, "deadline", 1, nullptr); // the frame shall be rendered realtime
+    g_object_set(self->vp8enc, "target-bitrate", 2500000, nullptr); // bits/sec
+    g_object_set(self->vp8enc, "cpu-used", 4, nullptr);
+    g_object_set(self->vp8enc, "keyframe-max-dist", 60, nullptr); // max frames between key frames
+    g_object_set(self->vp8enc, "threads", 4, nullptr);
+    g_object_set(self->vp8enc, "error-resilient", 1, nullptr);
 
     gst_bin_add_many(
-        GST_BIN(self), self->vconv, self->queue, self->vp8enc, self->vclock, self->tee, NULL);
+        GST_BIN(self), self->vconv, self->queue, self->vp8enc, self->vclock, self->tee, nullptr);
 
     if (!gst_element_link_many(
-            self->vconv, self->queue, self->vp8enc, self->vclock, self->tee, NULL)) {
+            self->vconv, self->queue, self->vp8enc, self->vclock, self->tee, nullptr)) {
         GST_ERROR_OBJECT(self, "Failed to link video chain");
     }
 
@@ -397,9 +397,9 @@ static void init_video(GstAmpSink *self) {
     g_return_if_fail(self->drain_queue && self->drain_fakesink);
 
     // fakesink should not block or sync to clock
-    g_object_set(self->drain_fakesink, "sync", FALSE, "async", FALSE, NULL);
+    g_object_set(self->drain_fakesink, "sync", FALSE, "async", FALSE, nullptr);
 
-    gst_bin_add_many(GST_BIN(self), self->drain_queue, self->drain_fakesink, NULL);
+    gst_bin_add_many(GST_BIN(self), self->drain_queue, self->drain_fakesink, nullptr);
 
     if (!gst_element_link(self->drain_queue, self->drain_fakesink)) {
         GST_ERROR_OBJECT(self, "Failed to link drain_queue -> drain_fakesink");
@@ -458,7 +458,7 @@ static void init_audio(GstAmpSink *self) {
         GST_ERROR_OBJECT(self, "Failed to create audio elements");
     }
 
-    g_object_set(self->asilence_src, "wave", 4 /* silence */, "is-live", TRUE, NULL);
+    g_object_set(self->asilence_src, "wave", 4 /* silence */, "is-live", TRUE, nullptr);
 
     GstCaps *audio_caps = gst_caps_new_simple("audio/x-raw",
                                               "format",
@@ -470,9 +470,9 @@ static void init_audio(GstAmpSink *self) {
                                               "channels",
                                               G_TYPE_INT,
                                               2,
-                                              NULL);
-    g_object_set(self->acapsfilter, "caps", audio_caps, NULL);
-    g_object_set(self->aclock, "sync", TRUE, NULL);
+                                              nullptr);
+    g_object_set(self->acapsfilter, "caps", audio_caps, nullptr);
+    g_object_set(self->aclock, "sync", TRUE, nullptr);
     gst_caps_unref(audio_caps);
 
     // Add + link shared audio chain
@@ -486,7 +486,7 @@ static void init_audio(GstAmpSink *self) {
                      self->opusenc,
                      self->aclock,
                      self->atee,
-                     NULL);
+                     nullptr);
 
     // link the silence path to the selector
     GstPad *silence_src_pad = gst_element_get_static_pad(self->asilence_src, "src");
@@ -516,7 +516,7 @@ static void init_audio(GstAmpSink *self) {
                                self->opusenc,
                                self->aclock,
                                self->atee,
-                               NULL)) {
+                               nullptr)) {
         GST_ERROR_OBJECT(self, "Failed to link selector->opusenc->tee chain");
     }
 
@@ -524,9 +524,9 @@ static void init_audio(GstAmpSink *self) {
     self->audio_drain_queue = gst_element_factory_make("queue", "audio_drain_queue");
     self->audio_drain_fakesink = gst_element_factory_make("fakesink", "audio_drain_fakesink");
 
-    g_object_set(self->audio_drain_fakesink, "sync", FALSE, "async", FALSE, NULL);
+    g_object_set(self->audio_drain_fakesink, "sync", FALSE, "async", FALSE, nullptr);
 
-    gst_bin_add_many(GST_BIN(self), self->audio_drain_queue, self->audio_drain_fakesink, NULL);
+    gst_bin_add_many(GST_BIN(self), self->audio_drain_queue, self->audio_drain_fakesink, nullptr);
 
     gst_element_link(self->audio_drain_queue, self->audio_drain_fakesink);
 

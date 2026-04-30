@@ -250,7 +250,7 @@ bool WebRtcWebSocket::attach_video(SessionContext *ctx) {
                      "max-size-bytes",
                      0,
                      nullptr);
-        g_object_set(ctx->v_pay, "picture-id-mode", 2, NULL); // picture-id-mode = 15-bit
+        g_object_set(ctx->v_pay, "picture-id-mode", 2, nullptr); // picture-id-mode = 15-bit
 
         set_video_pt(ctx);
 
