@@ -1,5 +1,6 @@
 {
 	"name": "ImageNet Hailo",
+	"description": "Hailo 10-compiled variant of the MobileNetV2 ImageNet classifier.",
 	"ops": [
 		{
 			"id": "amp-std-ops/InferenceController",

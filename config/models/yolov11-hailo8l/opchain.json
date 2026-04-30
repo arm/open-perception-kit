@@ -1,5 +1,6 @@
 {
 	"name": "YoloV11 HAILO",
+	"description": "Hailo 8L-compiled variant of the YoloV11 object detection model.",
 	"ops": [
 		{
 			"id": "amp-std-ops/InferenceController",

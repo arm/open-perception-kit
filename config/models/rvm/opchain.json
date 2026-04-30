@@ -1,5 +1,6 @@
 {
 	"name": "MobileNetV3RVM",
+	"description": "MobileNetV3 based RVM for real-time background removal.",
 	"ops": [
 		{
 			"id": "amp-std-ops/InferenceController",
