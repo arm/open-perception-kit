@@ -6,7 +6,7 @@
             "type": "shell",
             "command": "${workspaceFolder}/scripts/build-elements.sh",
             "args": [
-                "${input:buildType}"
+                "debug"
             ],
             "dependsOn": "99 Make build dir",
             "group": {
@@ -30,6 +30,42 @@
                     ]
                 }
             ]
+        },
+        {
+            "label": "00 Run project with default pipeline",
+            "type": "shell",
+            "command": "/work/scripts/amp-menu",
+            "hide": true,
+            "args": [
+                ""
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "00 Run project with latest pipeline",
+            "type": "shell",
+            "command": "/work/scripts/amp-menu",
+            "hide": true,
+            "args": [
+                "-l"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "00 Run project and select pipeline",
+            "type": "shell",
+            "command": "/work/scripts/amp-menu",
+            "hide": true,
+            "args": [
+                "02-full-onnx-hailo8",
+                "03-full-onnx-hailo8l",
+                "04-full-onnx-hailo10",
+                "cam-connect",
+                "gaze-detection",
+                "tracker-pc",
+                "tracker-rpi-hailo8"
+            ],
+            "problemMatcher": []
         },
         {
             "label": "01 Clean Project",
@@ -57,7 +93,7 @@
             "type": "shell",
             "command": "${workspaceFolder}/scripts/build-elements.sh",
             "args": [
-                "${input:buildType}",
+                "debug",
                 "true"
             ],
             "dependsOn": "99 Make build dir",
@@ -114,42 +150,6 @@
                 "${workspaceFolder}/development/build"
             ]
         },
-        {
-            "label": "99 Launch Without Debug",
-            "type": "shell",
-            "command": "/work/scripts/amp-menu",
-            "hide": true,
-            "args": [
-                "-l"
-            ],
-            "problemMatcher": []
-        },
-        {
-            "label": "99 Build for debugging",
-            "type": "shell",
-            "command": "${workspaceFolder}/scripts/build-elements.sh",
-            "args": [
-                "debug"
-            ],
-            "dependsOn": "99 Make build dir",
-            "group": {
-                "kind": "build",
-                "isDefault": false
-            },
-            "options": {
-                "cwd": "${workspaceFolder}/development/build"
-            },
-            "hide": true,
-            "problemMatcher": [
-                {
-                    "base": "$gcc",
-                    "fileLocation": [
-                        "relative",
-                        "${workspaceFolder}/development/build"
-                    ]
-                }
-            ]
-        }
     ],
     "inputs": [
         {

@@ -3,7 +3,7 @@
     "configurations": [
         {
             "name": "AMP Debug latest",
-            "preLaunchTask": "99 Build for debugging",
+            "preLaunchTask": "00 Build Project",
             "type": "cppdbg",
             "request": "launch",
             "program": "/work/tools/amp-menu",
