@@ -10,11 +10,19 @@ This is the deep-dive setup and usage guide.
 If you only want the shortest path to a first run, use the platform quick-guide pages instead.
 If you want the fuller setup path and the next documentation hub after this tutorial, continue from here to [Engineering starting point](engineering.md).
 
+## Terminology
+
+* host - windows+WSL/Linux/mac PC
+* host side container - containerized environment on the windows+WSL/Linux/mac PC host
+* remote host - Raspberry Pi is the only supported remote host as of now.
+* remote host container - containerized environment on the RPi host
+* target - Only applicable during deployment when from a host (windows+WSL/Linux/mac PC) we deploy the container onto the target(Raspberry Pi at the moment)
+
 ## What will you learn from this documentation?
 
 If you follow this guide successfully, you will learn how to:
 
-- prepare a supported host or Raspberry Pi target for AMP
+- prepare a supported host or remote host for AMP
 - clone the repository and open it in the expected container workflow
 - build the project, run `amp-menu`, and start a first pipeline
 - find the published endpoints and continue into the next engineering-focused documents
@@ -35,18 +43,25 @@ At the end of this guide, you should have a working AMP environment on your desk
 
 ### Clone the repository
 For PC development, clone the repository on your host.
-For on-device Raspberry Pi 5 development, clone the repository after setting up SSH successfully.
+For on-device Raspberry Pi 5 development, clone the repository on the remote host after setting up SSH successfully.
 Alternatively you can develop on your PC and deploy to the target with Topo.
+![AMP Development Forge repository root](../../../static/img/02-repo-root.png)
+
+If you need a source archive instead of a Git clone, use the release page and download the compressed source package.
+
+![GitHub release page showing the source code download](../../../static/img/01-repo-compressed.png)
 
 ```bash
 git clone git@github.com:Arm-Debug/amp-dev-forge.git
 cd amp-dev-forge
 ```
 
+![Terminal output after cloning the repository](../../../static/img/03-repo-clone.png)
+
 ## Host side dependencies
 
-We currently support four targets: Windows with WSL, Linux, macOS, and Raspberry Pi 5.
-Install the required tools on your host for the target you plan to use.
+We currently support four hosts: Windows with WSL, Linux, macOS, and Raspberry Pi 5.
+Install the required tools on your host in order to use the project.
 
 > Besides the listed dependencies, additional tools are installed inside the development or deployment container.
 Working directly on the host outside the container is not well supported at the moment. The project assumes container-managed dependencies.
@@ -119,6 +134,10 @@ For further information and a detailed tutorial check out the following tutorial
 The project is meant to run inside a container either as a devcontainer on your PC, a devcontainer on your Raspberry Pi or deployment container with topo.
 
 ### Open AMP with VS Code
+Open the cloned repository folder in VS Code first.
+
+![VS Code opened in the AMP repository](../../../static/img/04-starting-point-vscode.png)
+
 * Open command palette:
   - Windows/Linux: Ctrl+Shift+P
   - macOS: Cmd+Shift+P
@@ -128,9 +147,13 @@ The project is meant to run inside a container either as a devcontainer on your 
    - For Raspberry Pi on-device Hailo 10 / AI HAT+ 2 development choose `RPI5 H10 amp-dev-forge`
 * After a successful container build, every dependency, pre-commit hook, and device should be ready to use inside the Dev Container.
 
-![VS Code command palette showing Reopen in Container](../../../static/img/vscode-reopen-in-container.png)
+![VS Code command palette showing Reopen in Container](../../../static/img/05-reopen-in-container.png)
 
-![VS Code Dev Container selection dialog](../../../static/img/vscode-reopen-in-container2.png)
+![VS Code Dev Container selection dialog](../../../static/img/06-reopen-in-container2.png)
+
+Open a new terminal inside VS Code after the container is ready. The prompt should show that you are working inside the container workspace.
+
+![VS Code terminal opened inside the Dev Container](../../../static/img/07-in-container-new-console.png)
 
 On Raspberry Pi, `.devcontainer/platform_init.sh` runs on the host before container creation and generates the camera, audio, NPU, and shared-memory passthrough overrides for the selected service.
 
@@ -147,15 +170,13 @@ On Raspberry Pi, `.devcontainer/platform_init.sh` runs on the host before contai
 - **02 Build Tests**: Builds with tests enabled.
 - **03 Run Tests**: Runs all tests.
 
-![VS Code task picker showing 00 Build Project](../../../static/img/vsc-task-build.png)
-
-![VS Code build type picker showing debug and release](../../../static/img/vscode-task-build2.png)
+![VS Code build task for AMP](../../../static/img/08-build-project.png)
 
 ### Start AMP
 
 After a successful build, `amp-menu` will be created in the `tools` folder. This tool serves as the project entry point and simplifies GStreamer pipeline creation.
 
-- Run the menu:
+- Run the menu in a new terminal inside the container:
 ```bash
 ./tools/amp-menu
 ```
@@ -174,6 +195,8 @@ It includes the main integrated ONNX pipelines and models currently available in
 - The shipped demo presets usually register their `ampinfer` elements with `active=false`.
   After the UI opens, use the **AI Models** panel to enable the models you want to run.
 
+![AMP pipeline selection view](../../../static/img/09-select-pipeline.png)
+
 To stop a pipeline:
 - Windows/Linux: Ctrl + C  
 - macOS: Control + C  
@@ -184,7 +207,8 @@ Each pipeline's default source is an image, and the default sink is the `ampsink
 
 - `01-full-onnx.json` — integrated ONNX model pipelines on a still image
 - `02-full-onnx-hailo8.json` — integrated ONNX + Hailo 8 pipelines on a still image with ampsink video and optional audio sink
-- `03-full-onnx-hailo10.json` — integrated ONNX + Hailo 10 pipelines on a still image with ampsink video and optional audio sink
+- `03-full-onnx-hailo8l.json` — integrated ONNX + Hailo 8L pipelines on a still image with ampsink video and optional audio sink
+- `04-full-onnx-hailo10.json` — integrated ONNX + Hailo 10 pipelines on a still image with ampsink video and optional audio sink
 - `cam-connect.json` — camera-contact demo
 - `gaze-detection.json` — gaze-estimation demo
 - `tracker-pc.json` — ONNX tracking demo
@@ -194,7 +218,7 @@ Each pipeline's default source is an image, and the default sink is the `ampsink
 - Use the "AMP Debug latest" configuration in VS Code (F5). This will run the latest selected pipeline. Before debugging, a popup should appear. Select the release or debug target you want to use.
 - Use the "AMP Debug selection" configuration in VS Code (F5). This will run the pipeline you select. Before debugging, a popup should appear. Select the release or debug target you want to use. Another popup will prompt you to select the specific pipeline you want to debug.
 
-![VS Code Run and Debug view showing AMP Debug latest](../../../static/img/vscode-debug.png)
+![VS Code Run and Debug view showing AMP Debug latest](../../../static/img/23-vscode-debug.png)
 
 ---
 
@@ -212,6 +236,8 @@ Open a new terminal in the Dev Container to see the available endpoints. When in
 - [PC AMP Documentation](http://localhost:8080)
 
 Once the UI is open, use the **AI Models** panel to enable the models you want to run and the **Controls** panel to toggle the performance overlay.
+
+![AMP browser UI after opening the web view](../../../static/img/10-browser-ui.png)
 
 - **Hostnames:**
    - `raspberrypi.local` (on Raspberry Pi)
@@ -289,9 +315,9 @@ If you want to move from using the project to extending it, continue to [Enginee
 
 By the end of this guide, you should have:
 
-- a supported host or Raspberry Pi setup with the main prerequisites installed
+- a supported host setup with the main prerequisites installed
 - working Git and SSH access for cloning the repository
-- a working AMP Dev Container or Topo deployment path
+- a working AMP Development Container or Topo deployment path
 - a successful build of the runtime
 - `amp-menu` running and at least one pipeline started
 - access to the AMP UI and documentation endpoints

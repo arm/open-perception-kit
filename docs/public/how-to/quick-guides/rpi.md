@@ -14,9 +14,9 @@ Use the longer Raspberry Pi and How-To pages if you want hardware setup details,
 
 If you follow this page successfully, you will learn how to:
 
-- prepare a Raspberry Pi 5 host for AMP work
-- connect to the target from VS Code and reopen the repository in the container
-- build AMP on the target and start `amp-menu`
+- prepare a Raspberry Pi 5 remote host for AMP work
+- connect to the remote host from VS Code and reopen the repository in the container
+- build AMP on the remote host and start `amp-menu`
 - run a first pipeline and verify that the Pi-hosted web UI is reachable
 
 At the end of this guide, you should have AMP running on your desk on a Raspberry Pi 5, with the first pipeline launched and the web UI available at `http://raspberrypi.local:9999`.
@@ -26,7 +26,7 @@ For other hardware setups, use the deeper Raspberry Pi guide.
 
 - [Raspberry Pi 5 16GB](https://www.raspberrypi.com/products/raspberry-pi-5/)
 - [AI HAT+](https://www.raspberrypi.com/products/ai-hat/) for the Hailo 8 path
-- a supported Hailo 10 accelerator if you plan to use the `RPI5 H10 amp-dev-forge` container
+- a supported Hailo 10 accelerator if you plan to use the `RPI5 H10 amp-dev-forge` remote host container
 - [Camera Module v3](https://www.raspberrypi.com/products/camera-module-3/)
 
 ### Assembly
@@ -39,7 +39,7 @@ For other hardware setups, use the deeper Raspberry Pi guide.
 4.  Install the heatsink onto the Hailo chip on the HAT.
 5.  Connect the power supply.
 
-Follow the [Basic instructions](https://www.raspberrypi.com/documentation/computers/getting-started.html) guide to create a headless Trixie installation and install the selected image.
+Download and use the Raspberry Pi Imager to install the operating system (Debian trixie) for your raspberry Pi [Basic instructions](https://www.raspberrypi.com/documentation/computers/getting-started.html).
 
 SSH can also be configured using the installer. Sometimes, even when SSH is enabled, it may not work out of the box after boot. In that case, create an empty file named `ssh` in the root folder of `bootfs`.
 
@@ -54,6 +54,14 @@ If needed, temporarily enable password authentication in `/etc/ssh/sshd_config`:
 ```ini
 PasswordAuthentication yes
 ```
+
+Test the connection from your development machine:
+
+```bash
+ssh pi@raspberrypi.local
+```
+
+![Terminal testing an SSH connection to the Raspberry Pi](../../../static/img/15-ssh-test.png)
 
 > Expected result: you can connect to the Raspberry Pi from your development machine over SSH.
 
@@ -86,11 +94,12 @@ sudo apt-get install rpicam-apps libcamera-dev libcamera-doc libcamera-tools \
   code cmake libcairo2-dev libssl-dev
 ```
 
-## Hailo installation
+
+### Hailo installation
 
 The `RPI5 H10 amp-dev-forge` and `RPI5 H8 amp-dev-forge` container only adds the Hailo 10 user-space packages. Kernel or PCIe driver packages such as `hailort-pcie-driver` or `h10-hailort-pcie-driver` stay on the Raspberry Pi host.
 
-### Hailo8
+#### Hailo8
 
 If you are using the Hailo 8 / AI HAT+ path, install the required tools:
 
@@ -101,7 +110,27 @@ sudo apt-get install hailo-all
 sudo reboot
 ```
 
-### Hailo10
+```sh
+ls /dev/hailo*
+```
+
+``` bash
+hailortcli fw-control identify
+```
+
+-   Confirm output includes: Device Architecture: HAILO8
+Example:
+``` bash
+Executing on device: 0001:03:00.0
+Identifying board
+Control Protocol Version: 2
+Firmware Version: 4.23.0 (release,app,extended context switch buffer)
+Logger Version: 0
+Board Name: Hailo-8
+Device Architecture: HAILO8
+```
+
+#### Hailo10
 
 If you are using the Hailo 10 path, install the required host-side Hailo 10 driver stack first.
 
@@ -146,6 +175,41 @@ git clone git@github.com:Arm-Debug/amp-dev-forge.git
 cd amp-dev-forge
 ```
 
+![Terminal output after cloning the repository](../../../static/img/03-repo-clone.png)
+
+If you need a source archive instead, download the compressed source package from the release page and extract it on the Raspberry Pi before continuing.
+
+![GitHub release page showing the source code download](../../../static/img/01-repo-compressed.png)
+
+Replace `<version>` with the release tag you want to use, for example `v0.1.0`.
+
+Download and extract the ZIP archive:
+
+```bash
+# If unzip is missing:
+sudo apt-get install -y unzip
+
+VERSION=<version>
+curl -L -o amp-dev-forge-${VERSION}.zip \
+  "https://github.com/Arm-Debug/amp-dev-forge/archive/refs/tags/${VERSION}.zip"
+unzip amp-dev-forge-${VERSION}.zip
+mv amp-dev-forge-${VERSION} amp-dev-forge
+cd amp-dev-forge
+```
+
+Or download and extract the tar archive:
+
+```bash
+VERSION=<version>
+curl -L -o amp-dev-forge-${VERSION}.tar.gz \
+  "https://github.com/Arm-Debug/amp-dev-forge/archive/refs/tags/${VERSION}.tar.gz"
+tar -xzf amp-dev-forge-${VERSION}.tar.gz
+mv amp-dev-forge-${VERSION} amp-dev-forge
+cd amp-dev-forge
+```
+
+If you use the archive path, continue from the next step after `cd amp-dev-forge`.
+
 > Expected result: the repository is present on the Raspberry Pi and ready to be opened remotely from VS Code.
 
 ## 4. Open the Raspberry Pi in VS Code
@@ -156,18 +220,32 @@ From your development machine:
 - open the Command Palette with `Ctrl+Shift+P` or `Cmd+Shift+P`
 - run `Dev Containers: Reopen in Container`
 
+Use the Remote SSH entry point in VS Code to open a remote window.
+
+![VS Code opening a remote window](../../../static/img/16-open-remote-window.png)
+
+You can also start the same flow from the command palette.
+
+![VS Code command palette alternative for opening a remote window](../../../static/img/17-open-remote-window2.png)
+
+Select the SSH configuration for your Raspberry Pi.
+
+![VS Code SSH target selection](../../../static/img/18-select-ssh-configuration.png)
+
+Once VS Code is connected to the Pi, reopen the cloned repository folder.
+
+![VS Code reopening the repository folder on the Raspberry Pi](../../../static/img/19-reopen-folder.png)
+
 Choose the matching container:
 
 - `RPI5 H8 amp-dev-forge` for Hailo 8 / AI HAT+ work
 - `RPI5 H10 amp-dev-forge` for Hailo 10 work
 
-![VS Code command palette showing Reopen in Container](../../../static/img/vscode-reopen-in-container.png)
+![VS Code reopening the Raspberry Pi project in a Dev Container](../../../static/img/20-reopen-in-container.png)
 
-![VS Code Dev Container selection dialog with Raspberry Pi targets](../../../static/img/vscode-reopen-in-container2.png)
+Wait until the Development Container finishes building. With a good connection and SSD, this usually takes around 6 minutes.
 
-Wait until the Dev Container finishes building.
-
-> Expected result: VS Code reconnects into the Raspberry Pi container and the project opens with the container environment active.
+> Expected result: VS Code reconnects into the remote host Raspberry Pi container and the project opens with the container environment active.
 
 ## 5. Build the project
 
@@ -176,9 +254,9 @@ Use the build task in VS Code:
 - run **00 Build Project**
 - choose `debug` unless you specifically want `release`
 
-![VS Code task picker showing 00 Build Project](../../../static/img/vsc-task-build.png)
+> Disclaimer. During GStreamer pipeline runs, some errors caused by browser connection issues or dropped frames are expected. These can be ignored; a more verbose logging system is in progress.
 
-![VS Code build type picker showing debug and release](../../../static/img/vscode-task-build2.png)
+![VS Code build task for AMP](../../../static/img/08-build-project.png)
 
 Or build in the container terminal:
 
@@ -190,11 +268,15 @@ Or build in the container terminal:
 
 ## 6. Start AMP
 
-Run:
+- Run the menu in a new terminal inside the container:
 
 ```bash
 ./tools/amp-menu
 ```
+
+The menu should show the available pipeline presets.
+
+![AMP pipeline selection view](../../../static/img/09-select-pipeline.png)
 
 Stop:
 
@@ -206,19 +288,23 @@ To stop an application that was not started from a VS Code launch configuration,
 ## 7. Run the example pipeline
 
 For the shortest first run, in `amp-menu` select:
-- `01-full-onnx.json`
+- `01-full-onnx` by typing the corresponding number and pressing enter.
 
 This is the shortest recommended first pipeline.
 
 If you specifically want the Hailo-accelerated path after that, use:
 - `02-full-onnx-hailo8.json` for the Hailo 8 / AI HAT+ path
-- `02-full-onnx-hailo10.json` for the Hailo 10 path
+- `04-full-onnx-hailo10.json` for the Hailo 10 path
+
+![Selecting a Raspberry Pi Hailo pipeline](../../../static/img/21-raspberry-hailo-pipeline1.png)
+
+![Running the selected Raspberry Pi Hailo pipeline](../../../static/img/22-raspberry-hailo-pipeline2.png)
 
 > Expected result: the selected pipeline launches and the web UI can later list the preset's models.
 
 ## 8. Open the web UI
 
-- Disclaimer: Microsoft Edge, Firefox or Safari are the suggested browsers for the AMP web UI. If the image is not visible in the browser on Windows
+- Disclaimer: Microsoft Edge, Firefox or Safari are the suggested browsers for the AMP web UI. If the image is not visible in the browser on Windows (black screen inside the Web UI)
    - Edge: open `edge://flags/`, find `#enable-webrtc-hide-local-ips-with-mdns`, and disable it.
    - Firefox: `about:config`, find media.peerconnection.ice.obfuscate_host_addresses, and disable it.
 
@@ -232,6 +318,24 @@ Documentation is available at:
 
 In the **AI Models** panel, enable one or more models to start inference.
 The main demo presets register their models as inactive by default so you can switch them on individually.
+
+![AMP browser UI after opening the web view](../../../static/img/10-browser-ui.png)
+
+Use the model controls to enable or disable selected models. The demo presets usually start with models disabled, so this is the normal way to begin inference after the page opens.
+
+![AMP browser UI model enable and disable controls](../../../static/img/24-browser-ui-enable-disable.png)
+
+The performance overlay is available after at least one model is enabled.
+
+![AMP browser UI with the performance overlay visible](../../../static/img/24-browser-ui-performance-overlay1.png)
+
+Use the performance overlay button to show or hide the performance data.
+
+![AMP browser UI performance overlay toggle button](../../../static/img/24-browser-ui-performance-overlay2.png)
+
+The log window shows browser-side connection messages and RTC connection debug data. Use it when the web UI opens but the video connection is unstable or does not appear.
+
+![AMP browser UI log window with RTC connection messages](../../../static/img/24-browser-ui-logwindow.png)
 
 > Expected result: the AMP UI opens from another machine on the network, the documentation endpoint is reachable, and enabled models begin producing overlays or results.
 

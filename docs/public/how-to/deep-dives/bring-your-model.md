@@ -37,7 +37,8 @@ Current checked-in examples include:
 The matching full-demo presets are:
 
 - `config/pipelines/02-full-onnx-hailo8.json`
-- `config/pipelines/03-full-onnx-hailo10.json`
+- `config/pipelines/03-full-onnx-hailo8l.json`
+- `config/pipelines/04-full-onnx-hailo10.json`
 
 If you are adding another compiled Hailo model, follow that same naming pattern so the pipeline can select the intended accelerator generation explicitly.
 

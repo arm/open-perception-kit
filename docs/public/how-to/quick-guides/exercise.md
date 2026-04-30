@@ -5,18 +5,7 @@ sidebar_label: Exercise Quick Guide
 
 # Exercise Quick Guide
 
-This guide is a short hands-on exercise for understanding how the repository fits together.
-
-Instead of starting from the most advanced checked-in demo immediately, this exercise builds a pipeline step by step and shows which files in the codebase are responsible for each layer.
-
-The goal is not to invent a new architecture. The goal is to reuse the checked-in codebase and gradually understand:
-
-- how a top-level pipeline preset is written
-- how sources and sinks are swapped
-- how `ampinfer` is inserted
-- how the camera-contact path depends on UltraFace first
-- how `amposd` and `ampperformance` fit into the pipeline
-- where the model descriptor, opchain, postprocessing, and visualization logic live
+This guide contains three short hands-on exercises for understanding how the repository fits together.
 
 ## Before you start
 
@@ -46,7 +35,64 @@ Inside the container, those locations are typically available under:
 /work/data/videos/
 ```
 
-## Step 1: Create a new top-level pipeline preset
+## Exercise 1 - Change an existing pipeline
+In this exercise, you will start from an existing pipeline and change its source. This lets you compare the output produced by different source types while keeping the rest of the pipeline unchanged.
+
+For simplicity's sake, use the camera-contact pipeline. It is available everywhere and is short enough to inspect comfortably.
+
+The beginning of the pipeline contains the active source. The end of the preset lists alternative sources you can copy into place. To change the source, remove the original source section and replace it with a video source, or with a camera source if one is available.
+
+Before:
+
+```json
+{
+  "description": "Camera contact pipeline with the default image source and ampsink video sink.",
+  "pipeline": [
+    "filesrc location=/work/data/images/katana.jpg !",
+    "jpegdec !",
+    "imagefreeze !",
+    "videoconvert ! video/x-raw,format=BGRA !",
+    "ampinfer opchain-path=/work/config/opchains/cam-contact/opchain.json active=false !",
+    "amptracker content-type=genericObject !",
+    "ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
+    "amposd enabled=true !",
+    "ampsink name=sink"
+  ]
+}
+```
+
+After:
+
+```json
+{
+  "description": "Camera contact pipeline with the default image source and ampsink video sink.",
+  "pipeline": [
+    "filesrc location=/work/data/videos/01.mp4 !",
+    "decodebin !",
+    "videoconvert !",
+    "video/x-raw,format=BGRA !",
+    "ampinfer opchain-path=/work/config/opchains/cam-contact/opchain.json active=false !",
+    "amptracker content-type=genericObject !",
+    "ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
+    "amposd enabled=true !",
+    "ampsink name=sink"
+  ]
+}
+```
+
+## Exercise 2 - A new pipeline from scratch
+Instead of starting from the most advanced checked-in demo immediately, this exercise builds a pipeline step by step and shows which files in the codebase are responsible for each layer.
+
+The goal is not to invent a new architecture. The goal is to reuse the checked-in codebase and gradually understand:
+
+- how a top-level pipeline preset is written
+- how sources and sinks are swapped
+- how `ampinfer` is inserted
+- how the camera-contact path depends on UltraFace first
+- how `amposd` and `ampperformance` fit into the pipeline
+- where the model descriptor, opchain, postprocessing, and visualization logic live
+
+### Step 1: Create a new top-level pipeline preset
 
 Create a new JSON file under:
 
@@ -85,7 +131,7 @@ This is the first important repository concept:
 
 > Expected result: the new preset appears in `amp-menu` and runs a valid video pipeline that ends in `fakesink`.
 
-## Step 2: Use an image source and `fakesink`
+### Step 2: Use an image source and `fakesink`
 
 Now switch from a video file to a single repeated image while keeping `fakesink` at the end.
 
@@ -116,7 +162,7 @@ At this point, you are only proving that:
 
 > Expected result: the pipeline runs successfully, but no visible output is produced yet.
 
-## Step 3: Switch to an image source and `filesink`
+### Step 3: Switch to an image source and `filesink`
 
 Now replace `fakesink` with a file-writing sink path.
 
@@ -143,7 +189,7 @@ If `/work/data/output/` does not exist yet, create it before running this step.
 
 > Expected result: the pipeline writes a frame to `/work/data/output/exercise-frame.jpg`.
 
-## Step 4: Switch to an image source and `ampsink`
+### Step 4: Switch to an image source and `ampsink`
 
 Now change the output side to the checked-in browser-facing sink.
 
@@ -164,7 +210,7 @@ This is the first point where the pipeline becomes visible through the current A
 
 > Expected result: the pipeline runs and the image is reachable through the current `ampsink`-hosted web UI.
 
-## Step 5: Include inference for camera contact
+### Step 5: Include inference for camera contact
 
 Now insert `ampinfer`.
 
@@ -200,7 +246,7 @@ For this exercise, `active=true` keeps the data path obvious and immediate. The 
 
 > Expected result: the pipeline still runs through `ampsink`, but now the buffer also carries `PerceptionMeta` produced by the camera-contact inference chain.
 
-## Step 6: Include the OSD element
+### Step 6: Include the OSD element
 
 Now add `amposd` so the structured results can be drawn onto the frame.
 
@@ -227,7 +273,7 @@ At this point, the data path becomes easier to understand:
 
 > Expected result: face detections and camera-contact indicators become visible on the output frame.
 
-## Step 7: Include performance measurement
+### Step 7: Include performance measurement
 
 Now add `ampperformance` before `amposd`.
 
@@ -258,7 +304,7 @@ config/pipelines/cam-connect.json
 
 > Expected result: the output shows both the normal overlay and the formatted performance overlay text.
 
-## Step 8: For a deeper understanding, inspect the codebase pieces behind the exercise
+### Step 8: For a deeper understanding, inspect the codebase pieces behind the exercise
 
 > The most important idea here is that the top-level pipeline is only the outer shell. This section is for readers who want to understand how the checked-in example is assembled and how a similar integration would be done for their own model. For more detail after reading through this quick exercise, continue with [Bring your model](../deep-dives/bring-your-model.md) and [Custom postprocessing](../deep-dives/custom-postprocessing.md).
 
@@ -269,7 +315,7 @@ The top-level pipeline is only the outer shell. The real camera-contact behavior
 - postprocessing parser
 - OSD visualization logic
 
-### Step 8.1: Camera-contact model descriptor
+#### Step 8.1: Camera-contact model descriptor
 
 Path:
 
@@ -281,31 +327,49 @@ Relevant snippet:
 
 ```json
 {
-  "name": "cam_contact",
-  "modelFamily": "cam_contact",
-  "modelFile": "cam_contact_mobilenetv2_100.ra_in1k-a8w8-ort-quantized.onnx",
-  "dynamicOutput": false,
-  "contentType": "cameraContact",
-  "inputTensors": [
-    {
-      "shape": [1, 3, 224, 224],
-      "dataKind": "ImageRgbChw",
-      "valueType": "Float32"
-    }
-  ],
-  "outputTensors": [
-    {
-      "shape": [1, 2],
-      "dataKind": "RawTensorData",
-      "valueType": "Float32"
-    }
-  ]
+	"name": "cam_contact",
+	"modelFamily": "cam_contact",
+	"modelFile": "cam_contact_nitec_rs18-a8w8-ort-quantized.onnx",
+	"dynamicOutput": false,
+	"contentType": "cameraContact",
+	"inputTensors": [
+		{
+			"shape": [
+				1,
+				3,
+				224,
+				224
+			],
+			"dataKind": "ImageRgbChw",
+			"valueType": "Float32",
+			"mean": [
+				0.485,
+				0.456,
+				0.406
+			],
+			"std": [
+				0.229,
+				0.224,
+				0.225
+			]
+		}
+	],
+	"outputTensors": [
+		{
+			"shape": [
+				1,
+				2
+			],
+			"dataKind": "RawTensorData",
+			"valueType": "Float32"
+		}
+	]
 }
 ```
 
 This file tells the inference Op what model is being loaded and what tensor contract is expected.
 
-### Step 8.2: Camera-contact opchain
+#### Step 8.2: Camera-contact opchain
 
 Path:
 
@@ -317,60 +381,72 @@ Relevant snippet:
 
 ```json
 {
-  "ops": [
-    {
-      "id": "amp-std-ops/InferenceController",
-      "attributes": {}
-    },
-    {
-      "id": "amp-std-ops/GenericImagePreprocess",
-      "attributes": {
-        "inputImageTensorIndex": 0,
-        "inputImageSourceName": "pipelineVideoFrame"
-      }
-    },
-    {
-      "id": "amp-onnx-ops/Inference",
-      "attributes": {
-        "modelDescriptor": "/work/config/models/ultraface/model.json"
-      }
-    },
-    {
-      "id": "amp-std-ops/GenericPostprocess",
-      "attributes": {
-        "parser": "UltrafaceParser"
-      }
-    },
-    {
-      "id": "amp-std-ops/InferenceController",
-      "loopId": 2,
-      "attributes": {
-        "contentType": "humanFace"
-      }
-    },
-    {
-      "id": "amp-onnx-ops/Inference",
-      "loopId": 2,
-      "attributes": {
-        "modelDescriptor": "/work/config/models/cam-contact/model.json"
-      }
-    },
-    {
-      "id": "amp-std-ops/GenericPostprocess",
-      "loopId": 2,
-      "attributes": {
-        "parser": "CameraContactParser",
-        "contactClassIndex": 1,
-        "noContactClassIndex": 0
-      }
-    }
-  ]
+    "name": "CameraContactWithUltraface",
+    "ops": [
+        {
+            "id": "amp-std-ops/InferenceController",
+            "attributes": {}
+        },
+        {
+            "id": "amp-std-ops/GenericImagePreprocess",
+            "attributes": {
+                "inputImageTensorIndex": 0,
+                "inputImageSourceName": "pipelineVideoFrame"
+            }
+        },
+        {
+            "id": "amp-onnx-ops/Inference",
+            "attributes": {
+                "modelDescriptor": "/work/config/models/ultraface/model.json"
+            }
+        },
+        {
+            "id": "amp-std-ops/GenericPostprocess",
+            "attributes": {
+                "parser": "UltrafaceParser",
+                "normalizeOutputCoordinates": false,
+                "confidenceThreshold": 0.3,
+                "iouThreshold": 0.1
+            }
+        },
+        {
+            "id": "amp-std-ops/InferenceController",
+            "loopId": 2,
+            "attributes": {
+                "contentType": "humanFace"
+            }
+        },
+        {
+            "id": "amp-std-ops/GenericImagePreprocess",
+            "loopId": 2,
+            "attributes": {
+                "inputImageTensorIndex": 0,
+                "inputImageSourceName": "pipelineVideoFrame"
+            }
+        },
+        {
+            "id": "amp-onnx-ops/Inference",
+            "loopId": 2,
+            "attributes": {
+                "modelDescriptor": "/work/config/models/cam-contact/model.json"
+            }
+        },
+        {
+            "id": "amp-std-ops/GenericPostprocess",
+            "loopId": 2,
+            "attributes": {
+                "parser": "CameraContactParser",
+                "contactClassIndex": 1,
+                "noContactClassIndex": 0
+            }
+        }
+    ]
 }
 ```
 
 This is where the two-stage logic lives. The top-level pipeline only sees one `ampinfer`, but the opchain contains both the face detector and the camera-contact classifier.
 
-### Step 8.3: Camera-contact postprocessing element
+#### Step 8.3: Camera-contact postprocessing element
 
 Path:
 
@@ -393,12 +469,29 @@ amp::Result<void> CameraContactParser::parse(const amp::TensorParser::Input &inp
     }
 
     const auto probabilities = softmax2(tensor);
-    const bool isContact = probabilities[1] >= probabilities[0];
+    const int contactClassIndex =
+        static_cast<int>(input.attributes.getIntOrDefault("contactClassIndex", 1));
+    const int noContactClassIndex =
+        static_cast<int>(input.attributes.getIntOrDefault("noContactClassIndex", 0));
+
+    if (contactClassIndex == noContactClassIndex || contactClassIndex < 0 ||
+        contactClassIndex > 1 || noContactClassIndex < 0 || noContactClassIndex > 1) {
+        return tl::unexpected(AMP_ERROR(
+            amp::ErrorFlag::InvalidData,
+            fmt::format(
+                "CameraContactParser requires distinct class indices in [0,1], got {} and {}",
+                contactClassIndex,
+                noContactClassIndex)));
+    }
+
+    const bool isContact = probabilities[static_cast<size_t>(contactClassIndex)] >=
+                           probabilities[static_cast<size_t>(noContactClassIndex)];
 
     amp::Perception::Classification classification;
     amp::Perception::Classification::Candidate candidate;
-    candidate.classId = isContact ? 1 : 0;
-    candidate.confidence = isContact ? probabilities[1] : probabilities[0];
+    candidate.classId = isContact ? contactClassIndex : noContactClassIndex;
+    candidate.confidence = isContact ? probabilities[static_cast<size_t>(contactClassIndex)]
+                                     : probabilities[static_cast<size_t>(noContactClassIndex)];
     candidate.text = isContact ? "contact" : "no contact";
 
     classification.candidates.push_back(candidate);
@@ -412,7 +505,7 @@ amp::Result<void> CameraContactParser::parse(const amp::TensorParser::Input &inp
 
 This is where the raw `[1,2]` tensor becomes a structured `Perception::Classification` result in a `cameraContact` layer.
 
-### Step 8.4: Camera-contact OSD visualization
+#### Step 8.4: Camera-contact OSD visualization
 
 Path:
 
@@ -438,6 +531,10 @@ static void drawCameraContactMarkers(Osd::Layer *layer, const amp::Perception &p
             }
 
             const auto &candidate = classification->candidates.front();
+            if (candidate.classId < 0) {
+                continue;
+            }
+
             std::vector<amp::Perception::Rect> parents =
                 perceptionTools.getAllRectsWithContentType("humanFace", classification->parentUuid);
 
@@ -446,15 +543,20 @@ static void drawCameraContactMarkers(Osd::Layer *layer, const amp::Perception &p
             }
 
             const auto &face = parents.front();
+            const float x = face.x + face.width * 0.5f;
+            const float y = face.y + face.height * 0.5f;
             const bool hasCameraContact = candidate.classId == 1;
             const amp::Color markerColor = hasCameraContact ? amp::Colors::lime : amp::Colors::red;
+            const float baseRadius = std::min(face.width, face.height) * 0.5f;
+            const float markerRadius = hasCameraContact
+                                           ? std::clamp(baseRadius * 0.65f, 18.0f, 80.0f)
+                                           : std::clamp(baseRadius * 1.15f, 28.0f, 140.0f);
+            const float markerThickness = hasCameraContact ? 5.0f : 8.0f;
+            const float centerPointSize = hasCameraContact ? 10.0f : 14.0f;
 
-            Osd::Circle::draw(*layer,
-                              Osd::Coordinate{face.x + face.width * 0.5f,
-                                              face.y + face.height * 0.5f},
-                              std::min(face.width, face.height) * 0.5f,
-                              markerColor,
-                              5.0f);
+            Osd::Circle::draw(
+                *layer, Osd::Coordinate{x, y}, markerRadius, markerColor, markerThickness);
+            Osd::Point::draw(*layer, Osd::Coordinate{x, y}, markerColor, centerPointSize);
         }
     }
 }
@@ -462,7 +564,7 @@ static void drawCameraContactMarkers(Osd::Layer *layer, const amp::Perception &p
 
 This is where the `cameraContact` `Perception` result is turned into a visual overlay.
 
-## Final comparison with the checked-in preset
+### Final comparison with the checked-in preset
 
 Once you have gone through the steps above, compare your exercise pipeline with:
 
@@ -478,6 +580,50 @@ That file is the checked-in version of the same idea, with the additional detail
 - OSD
 - `ampsink`
 
+## Exercise 3 - Agentic AI integration
+In this exercise you prepare a new ONNX model integration for an agent.
+The important part is not the chat tool itself. The important part is giving the agent the exact model files, repository locations, and tensor contract so it can work inside the intended AMP extension surfaces instead of guessing.
+
+Use this exercise when you have one or more ONNX model artifacts and you want an agent to create or update the model descriptor, opchain, pipeline preset, and parser code if the existing parsers are not enough.
+
+### Step 1: Download the ONNX models
+
+Download the ONNX model artifacts from the model provider or release location you are using for the exercise.
+![Agentic AI example ONNX model resources](../../../static/img/11-onnx-models.png)
+
+### Step 2: Copy the resources to the correct location
+
+Create one folder per model under:
+
+```text
+config/models/<model-id>/
+```
+
+Inside the container, the same folder is available under:
+
+```text
+/work/config/models/<model-id>/
+```
+
+Before prompting the agent, add or copy the model description into:
+```text
+config/models/<model-id>/README.md
+```
+
+Copy the ONNX file and any model-local resources into that folder.
+![Agentic AI model resources copied into the AMP config tree](../../../static/img/12-agentic-resources.png)
+
+
+### Step 3: Prompt the agent
+
+Prompt the agent from the repository root so it can read the docs, checked-in examples, and model resources.
+
+![Prompting the agent with the model integration request](../../../static/img/13-agentic-prompt.png)
+
+### Step 5: Check the result
+
+After the agent finishes, inspect the files it changed before running the pipeline, then build and run the project.
+
 ## What should you have at the end of this exercise?
 
 By the end of this guide, you should understand:
@@ -488,7 +634,8 @@ By the end of this guide, you should understand:
 - why camera contact depends on UltraFace first
 - how postprocessing turns tensors into `Perception`
 - how `amposd` turns `Perception` into a visible overlay
+- how to prepare model files and tensor specs for an agentic integration
 
 You should also be able to swap the example media path with your own file under `/work/data/images/` or `/work/data/videos/` and understand which layer of the repository you are changing when you edit the pipeline preset, the opchain, or the parser.
 
-Success looks like this: you can read a checked-in pipeline, trace it into the model descriptor, opchain, parser, and visualization code, and make a small pipeline change without guessing.
+Success looks like this: you can read a checked-in pipeline, trace it into the model descriptor, opchain, parser, and visualization code, make a small pipeline change without guessing, and prepare a precise prompt for an agent to integrate a new model.

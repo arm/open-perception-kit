@@ -170,7 +170,7 @@ and selected by name from `GenericPostprocessOp.cpp`.
 That keeps model-specific output handling close to the existing OpChain and parser layer.
 
 Python-based postprocessing is not part of the current runtime.
-It is discussed as a future direction in [Known limitations](../how-to/deep-dives/known-limitations.md).
+It is discussed as a future direction in [Known limitations](../how-to/arch/known-limitations.md).
 
 ![Postprocessor types](../../static/img/postprocessor-types.png)
 

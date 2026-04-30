@@ -5,11 +5,11 @@ sidebar_label: Raspberry Pi 5
 
 # Raspberry Pi 5: Assembly and Installation Guide
 > Note: These instructions are validated for Raspberry Pi 5. Earlier Raspberry Pi versions may require different packages or may not be fully supported.
-> This whole document should be followed outside the container on the host machine to enable seamless work with the development or deployment container.
+> This whole document should be followed outside the container on the remote target to enable seamless work with the development or deployment container.
 
 ## What will you learn from this documentation?
 
-If you follow this page successfully, you will learn how to assemble a supported Raspberry Pi 5 setup, install the required host packages, validate the attached camera, and prepare the device for AMP container workflows.
+If you follow this page successfully, you will learn how to assemble a supported Raspberry Pi 5 setup, install the required remote host packages, validate the attached camera, and prepare the device for AMP container workflows.
 
 At the end of this page, you should have a Raspberry Pi 5 on your desk that is ready for AMP development or deployment, with SSH access working and camera-related host validation completed.
 
@@ -76,8 +76,7 @@ sudo apt-get install rpicam-apps libcamera-dev libcamera-doc libcamera-tools \
   gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-gl \
   libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev \
   gstreamer1.0-libcamera \
-  ffmpeg \
-  code cmake libcairo2-dev libssl-dev
+  code  libcairo2-dev libssl-dev
 ```
 
 Alternatively, after booting from the SD card, you can copy its contents to the M.2 drive using the "SD Card Copier" tool on the Pi.
@@ -103,7 +102,7 @@ dtoverlay=<cameratype2>
 
 ## Hailo installation
 
-The `RPI5 H10 amp-dev-forge` and `RPI5 H8 amp-dev-forge` container only adds the Hailo 10 user-space packages. Kernel or PCIe driver packages such as `hailort-pcie-driver` or `h10-hailort-pcie-driver` stay on the Raspberry Pi host.
+The `RPI5 H10 amp-dev-forge` and `RPI5 H8 amp-dev-forge` container only adds the Hailo 10 user-space packages. Kernel or PCIe driver packages such as `hailort-pcie-driver` or `h10-hailort-pcie-driver` stay on the remote host.
 
 ### Hailo8
 
@@ -114,6 +113,26 @@ sudo apt-get update
 sudo apt-get install dkms
 sudo apt-get install hailo-all
 sudo reboot
+```
+
+```sh
+ls /dev/hailo*
+```
+
+``` bash
+hailortcli fw-control identify
+```
+
+-   Confirm output includes: Device Architecture: HAILO8
+Example:
+``` bash
+Executing on device: 0001:03:00.0
+Identifying board
+Control Protocol Version: 2
+Firmware Version: 4.23.0 (release,app,extended context switch buffer)
+Logger Version: 0
+Board Name: Hailo-8
+Device Architecture: HAILO8
 ```
 
 ### Hailo10
@@ -169,7 +188,13 @@ The repository now ships two Raspberry Pi-specific development container targets
 - `RPI5 H8 amp-dev-forge` -> service `amp-dev-rpi5-h8` -> Hailo 8 / AI HAT+ path
 - `RPI5 H10 amp-dev-forge` -> service `amp-dev-rpi5-h10` -> Hailo 10 / AI HAT+ 2 path
 
-The matching full-demo presets are `config/pipelines/02-full-onnx-hailo8.json` and `config/pipelines/03-full-onnx-hailo10.json`.
+The matching full-demo presets are `config/pipelines/02-full-onnx-hailo8.json`, `config/pipelines/03-full-onnx-hailo8l.json` and `config/pipelines/04-full-onnx-hailo10.json`.
+
+When you validate the accelerated path from `amp-menu`, select the matching Hailo preset for the accelerator installed on the Pi.
+
+![Selecting a Raspberry Pi Hailo pipeline](../../../static/img/21-raspberry-hailo-pipeline1.png)
+
+![Running the selected Raspberry Pi Hailo pipeline](../../../static/img/22-raspberry-hailo-pipeline2.png)
 
 Both Raspberry Pi containers use host networking.
 Before either container is created, `.devcontainer/platform_init.sh` runs on the host and generates the camera, audio, NPU, and shared-memory docker-compose overrides for the selected service.
@@ -186,6 +211,14 @@ PasswordAuthentication yes
 Then follow the [VS Code Remote SSH tutorial](https://code.visualstudio.com/docs/remote/ssh).
 
 > **Note for Mac users:** Grant VS Code access to the local network in **Settings → Privacy & Security → Local Network**, otherwise the remote connection will fail.
+
+Test the SSH connection before opening the repository through VS Code.
+
+```bash
+ssh pi@raspberrypi.local
+```
+
+![Terminal testing an SSH connection to the Raspberry Pi](../../../static/img/15-ssh-test.png)
 
 After the first negotiation, your key will be stored on the Pi and you can switch back to `PasswordAuthentication no`.
 
