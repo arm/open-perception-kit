@@ -182,7 +182,7 @@ The normal workflow is:
 2. create or update an `opchain.json`
 3. optionally add a top-level pipeline preset under `config/pipelines/`
 4. build inside the container
-5. run the pipeline with the VS Code run task or `tools/amp-menu`
+5. run the pipeline with the VS Code run task "00 Run project and select pipeline" or `tools/amp-menu`
 6. update the model and opchain `README.md` files
 
 ## What you should try not to change first

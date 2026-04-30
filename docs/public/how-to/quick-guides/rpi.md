@@ -80,30 +80,15 @@ Follow [Raspberry Pi 5: Assembly and Installation Guide](../deep-dives/rpi5.md) 
 
 ## 3. Clone the repository on the Raspberry Pi
 
-After SSH access is working, clone the repository on the Raspberry Pi:
-
-```bash
-git clone git@github.com:Arm-Debug/amp-dev-forge.git
-cd amp-dev-forge
-```
-
-![Terminal output after cloning the repository](../../../static/img/03-repo-clone.png)
-
-If you need a source archive instead, download the compressed source package from the release page and extract it on the Raspberry Pi before continuing.
-
+In order to download the latest release archive download the compressed source package from the [release page](https://github.com/Arm-Debug/amp-dev-forge/releases) and extract it before continuing.
 ![GitHub release page showing the source code download](../../../static/img/01-repo-compressed.png)
 
-Replace `<version>` with the release tag you want to use, for example `v0.1.0`.
-
-Download and extract the ZIP archive:
+Extract the ZIP archive:
 
 ```bash
 # If unzip is missing:
 sudo apt-get install -y unzip
 
-VERSION=<version>
-curl -L -o amp-dev-forge-${VERSION}.zip \
-  "https://github.com/Arm-Debug/amp-dev-forge/archive/refs/tags/${VERSION}.zip"
 unzip amp-dev-forge-${VERSION}.zip
 mv amp-dev-forge-${VERSION} amp-dev-forge
 cd amp-dev-forge
@@ -121,6 +106,15 @@ cd amp-dev-forge
 ```
 
 If you use the archive path, continue from the next step after `cd amp-dev-forge`.
+
+Alternatively SSH access is working, clone the repository on the Raspberry Pi:
+
+```bash
+git clone git@github.com:Arm-Debug/amp-dev-forge.git
+cd amp-dev-forge
+```
+
+![Terminal output after cloning the repository](../../../static/img/03-repo-clone.png)
 
 > Expected result: the repository is present on the Raspberry Pi and ready to be opened remotely from VS Code.
 
