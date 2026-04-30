@@ -292,12 +292,12 @@ jobs:
               set -euo pipefail
               if [[ ! -d /work/deps/onnxruntime/include || ! -d /work/deps/onnxruntime/lib ]]; then
                 tmp_dir="$(mktemp -d)"
-                curl -fsSL "https://github.com/microsoft/onnxruntime/releases/download/v1.18.1/onnxruntime-linux-x64-1.18.1.tgz" \
+                curl -fsSL "https://github.com/microsoft/onnxruntime/releases/download/v1.24.4/onnxruntime-linux-x64-1.24.4.tgz" \
                   | tar -xzf - -C "$tmp_dir"
                 mkdir -p /work/deps/onnxruntime
                 rm -rf /work/deps/onnxruntime/include /work/deps/onnxruntime/lib
-                cp -r "$tmp_dir/onnxruntime-linux-x64-1.18.1/include" /work/deps/onnxruntime/
-                cp -r "$tmp_dir/onnxruntime-linux-x64-1.18.1/lib" /work/deps/onnxruntime/
+                cp -r "$tmp_dir/onnxruntime-linux-x64-1.24.4/include" /work/deps/onnxruntime/
+                cp -r "$tmp_dir/onnxruntime-linux-x64-1.24.4/lib" /work/deps/onnxruntime/
                 rm -rf "$tmp_dir"
               fi
 

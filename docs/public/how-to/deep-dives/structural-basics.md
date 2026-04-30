@@ -44,7 +44,7 @@ This contains the main helper scripts you are expected to run.
 ### `tools/`
 This contains helper tools created or used by the project.
 
-- `tools/amp-menu` is the launcher used to run pipeline presets.
+- `tools/amp-menu` is the launcher used to run pipeline presets. The VS Code run tasks call it for normal launches from the host side container or remote host container.
 
 ## When you need the source tree
 

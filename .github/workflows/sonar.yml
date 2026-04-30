@@ -19,7 +19,7 @@ jobs:
     env:
       PROJECT_ROOT: ./development
       BUILD_DIR: ./development/build
-      ORT_URL: "https://github.com/microsoft/onnxruntime/releases/download/v1.18.1/onnxruntime-linux-x64-1.18.1.tgz"
+      ORT_URL: "https://github.com/microsoft/onnxruntime/releases/download/v1.24.4/onnxruntime-linux-x64-1.24.4.tgz"
       DEPS_ONNX: "deps/onnxruntime"
 
 

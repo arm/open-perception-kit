@@ -14,6 +14,6 @@ Example export commands:
 
 ```bash
 hailo parser onnx mobilenet_v2_1.4_224.onnx --tensor-shapes [1,3,224,224]
-hailo optimize mobilenet_v2_1.4_224.har --use-random-calib-set
-hailo compiler mobilenet_v2_1.4_224_optimized.har
+hailo optimize mobilenet_v2_1_4_224.har --use-random-calib-set
+hailo compiler mobilenet_v2_1_4_224_optimized.har
 ```

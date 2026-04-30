@@ -26,9 +26,9 @@ log "Container architecture: $ARCH"
 ARCH=$(uname -m)
 
 if [ "$ARCH" == "x86_64" ]; then
-    ORT_URL="https://github.com/microsoft/onnxruntime/releases/download/v1.18.1/onnxruntime-linux-x64-1.18.1.tgz"
+    ORT_URL="https://github.com/microsoft/onnxruntime/releases/download/v1.24.4/onnxruntime-linux-x64-1.24.4.tgz"
 elif [ "$ARCH" == "aarch64" ]; then
-    ORT_URL="https://github.com/microsoft/onnxruntime/releases/download/v1.18.1/onnxruntime-linux-aarch64-1.18.1.tgz"
+    ORT_URL="https://github.com/microsoft/onnxruntime/releases/download/v1.24.4/onnxruntime-linux-aarch64-1.24.4.tgz"
 else
     echo "Unsupported architecture: $ARCH"
     exit 1

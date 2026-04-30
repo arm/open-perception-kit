@@ -8,7 +8,7 @@ Hailo 10-compiled variant of the MobileNetV2 ImageNet classifier.
 - Post processor: `ImageNetClassificationParser`
 - Supported Perception result: `Perception::Classification` in a `classification` layer
 - Note: this `.hef` is the compiled Hailo version of the original ONNX model
-- Typical pairing: `config/pipelines/03-full-onnx-hailo10.json`
+- Typical pairing: `config/pipelines/04-full-onnx-hailo10.json`
 
 Example export commands:
 

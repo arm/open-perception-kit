@@ -40,7 +40,7 @@ Those presets define:
 - the processing elements used in the stream
 - the sink, usually `ampsink`
 
-The launcher `tools/amp-menu` reads these presets and runs them.
+The launcher `tools/amp-menu` reads these presets and runs them. For normal use, start it through the VS Code run tasks; for terminal use, call `./tools/amp-menu` from the active host side container or remote host container terminal at the project root.
 
 If you want to change which image, video, or camera is used, this is usually the first place to edit.
 
@@ -90,7 +90,7 @@ The normal runtime stack is:
 
 ## Runtime input expectations
 
-The current video-oriented elements generally expect BGRA frames before perprocess and overlay stages.
+The current video-oriented elements generally expect BGRA frames before preprocess and overlay stages.
 
 That is why many pipeline presets contain lines such as:
 

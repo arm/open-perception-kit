@@ -29,17 +29,22 @@ The repository now keeps compiled Hailo variants in accelerator-specific model f
 Current checked-in examples include:
 
 - `config/models/mobilenetv2-hailo8/`
+- `config/models/mobilenetv2-hailo8l/`
 - `config/models/mobilenetv2-hailo10/`
 - `config/models/osnet_x0_25-hailo8/`
+- `config/models/osnet_x0_25-hailo8l/`
 - `config/models/osnet_x0_25-hailo10/`
 - `config/models/yolov11-hailo8/`
+- `config/models/yolov11-hailo8l/`
 
 The matching full-demo presets are:
 
 - `config/pipelines/02-full-onnx-hailo8.json`
-- `config/pipelines/03-full-onnx-hailo10.json`
+- `config/pipelines/03-full-onnx-hailo8l.json`
+- `config/pipelines/04-full-onnx-hailo10.json`
 
 If you are adding another compiled Hailo model, follow that same naming pattern so the pipeline can select the intended accelerator generation explicitly.
+Hailo 8 and Hailo 8L compiled model files are not interchangeable, so keep those variants in separate folders and use the matching pipeline preset.
 
 ## Minimum files for a new model
 
@@ -177,7 +182,7 @@ The normal workflow is:
 2. create or update an `opchain.json`
 3. optionally add a top-level pipeline preset under `config/pipelines/`
 4. build inside the container
-5. run the pipeline with `tools/amp-menu`
+5. run the pipeline with the VS Code run task "00 Run project and select pipeline" or `tools/amp-menu`
 6. update the model and opchain `README.md` files
 
 ## What you should try not to change first

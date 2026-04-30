@@ -3,7 +3,7 @@ sidebar_position: 1
 sidebar_label: Windows/Linux Quick Guide
 ---
 
-# Windows/Linux Quick-Guide
+# Windows/Linux Quick Guide
 
 This is the shortest path from cloning the repository to running the first AMP pipeline on a PC.
 
@@ -19,9 +19,13 @@ If you follow this page successfully, you will learn how to:
 - build the project and start `amp-menu`
 - run the first pipeline and verify that the local web UI is reachable
 
-At the end of this guide, you should have AMP running on your desk on a PC development machine, with the first pipeline launched and the web UI available at `http://localhost:9999`.
+At the end of this guide, you should have AMP running on your host, with the first pipeline launched and the web UI available at `http://localhost:9999`.
 
 ## 1. Install the host tools
+
+The following section should detail the platform specific prerequisites that this document assumes are already met: [Deep dive prerequisites section](../deep-dives/index.md#prerequisites)
+
+Although not complete, a check script can help the user determine whether the prerequisites are met: "./scripts/pre-req.sh"
 
 ### Windows
 Use WSL and install:
@@ -56,48 +60,83 @@ ssh-add <your-private-key>
 
 > Expected result: Git operations over SSH should work at this point.
 
+For key creation details, see [Generating a new SSH key and adding it to the ssh-agent](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent).
+
 ## 3. Clone the repository
 
+In order to download the latest release archive download the compressed source package from the [release page](https://github.com/Arm-Debug/amp-dev-forge/releases) and extract it before continuing.
+![GitHub release page showing the source code download](../../../static/img/01-repo-compressed.png)
+
+Extract the ZIP archive:
+
 ```bash
-git clone git@github.com:Arm-Debug/amp-dev-forge.git
+# if unzip is missing:
+sudo apt-get install -y unzip
+
+unzip amp-dev-forge-${VERSION}.zip
+mv amp-dev-forge-${VERSION} amp-dev-forge
 cd amp-dev-forge
 ```
+
+Or extract the tar archive:
+
+```bash
+tar -xzf amp-dev-forge-${VERSION}.tar.gz
+mv amp-dev-forge-${VERSION} amp-dev-forge
+cd amp-dev-forge
+```
+
+If you use the archive path, continue from the next step after `cd amp-dev-forge`.
+
+Alternatively you can clone the repository with Git.
+
+![AMP Development Forge repository root](../../../static/img/02-repo-root.png)
+
+```bash
+git clone git@github.com:Arm-Debug/amp-dev-forge.git --branch <version>
+cd amp-dev-forge
+```
+
+![Terminal output after cloning the repository](../../../static/img/03-repo-clone.png)
 
 > Expected result: the `amp-dev-forge` folder exists locally and VS Code can open it.
 
 ## 4. Open the repository in VS Code
 
-Open the cloned folder in VS Code. Either in the UI or with the following command:
+Open the cloned folder in VS Code. Use **File -> Open Folder...**, or run the following command from the repository root if `code` is available in your shell path:
 
 ```bash
 code .
 ```
+
+![VS Code opened in the AMP repository](../../../static/img/04-starting-point-vscode.png)
 
 Then:
 - open the Command Palette with `Ctrl+Shift+P`
 - run `Dev Containers: Reopen in Container`
 - choose `PC amp-dev-forge`
 
-![VS Code command palette showing Reopen in Container](../../../static/img/vscode-reopen-in-container.png)
+![VS Code command palette showing Reopen in Container](../../../static/img/05-reopen-in-container.png)
 
-![VS Code Dev Container selection dialog](../../../static/img/vscode-reopen-in-container2.png)
+![VS Code container selection dialog](../../../static/img/06-reopen-in-container2.png)
 
-Wait until the Dev Container finishes building.
+Wait until the host side container finishes building.
 
-> Expected result: VS Code reconnects into the container and the project opens with the container environment active.
+Open a new terminal inside VS Code after the container is ready. The prompt should show that you are working inside the container workspace.
+
+![VS Code terminal opened inside the host side container](../../../static/img/07-in-container-new-console.png)
+
+> Expected result: VS Code reconnects into the host side container and the project opens with the container environment active.
 
 ## 5. Build the project
 
 Use the build task in VS Code:
 - open the Command Palette and run `Tasks: Run Task`
 - run **00 Build Project**
-- choose `debug` unless you specifically want `release`
 
-![VS Code task picker showing 00 Build Project](../../../static/img/vsc-task-build.png)
+![VS Code build task for AMP](../../../static/img/08-build-project.png)
 
-![VS Code build type picker showing debug and release](../../../static/img/vscode-task-build2.png)
-
-Or build in the container terminal:
+Or build in the active host side container terminal:
 
 ```bash
 ./scripts/build-elements.sh debug false
@@ -107,22 +146,36 @@ Or build in the container terminal:
 
 ## 6. Start AMP
 
-Run:
+Use the VS Code run task:
+
+- open the Command Palette and run `Tasks: Run Task`
+- run **00 Run project and select pipeline**
+- choose `01-full-onnx`
+
+The menu view is also available through **00 Run project with menu**.
+
+You can also run the menu in a new terminal inside the active host side container from the project root:
 
 ```bash
 ./tools/amp-menu
 ```
 
+The menu should show the available pipeline presets.
+
+![AMP pipeline selection view](../../../static/img/09-select-pipeline.png)
+
 Stop:
 
 To stop an application that was not started from a VS Code launch configuration, press Ctrl+C in the console.
 
-> Expected result: `amp-menu` starts and shows the pipeline selection menu.
+> Expected result: the selected task or `amp-menu` starts and either launches the selected pipeline or shows the pipeline selection menu.
+
+> Disclaimer. During GStreamer pipeline runs, some errors caused by browser connection issues or dropped frames are expected. These can be ignored; a more verbose logging system is in progress.
 
 ## 7. Run the example pipeline
 
-For the shortest first run, in `amp-menu` select:
-- `01-full-onnx.json`
+For the shortest first run, choose `01-full-onnx`.
+If you opened the interactive menu, type the corresponding number and press Enter.
 
 This is the shortest recommended first pipeline.
 
@@ -130,9 +183,8 @@ This is the shortest recommended first pipeline.
 
 ## 8. Open the web UI
 
-- Disclaimer: Microsoft Edge or Firefox are the suggested browsers for the AMP web UI. If the image is not visible in the browser on Windows
-   - Edge: open `edge://flags/`, find `#enable-webrtc-hide-local-ips-with-mdns`, and disable it.
-   - Firefox: `about:config`, find media.peerconnection.ice.obfuscate_host_addresses, and disable it
+Microsoft Edge or Firefox are the suggested browsers for the AMP web UI. If the image is not visible in the browser on Windows, see [Troubleshooting: Browser and WebRTC connection issues](../deep-dives/troubleshooting.md#browser-and-webrtc-connection-issues).
+
 Open:
 - http://localhost:9999
 
@@ -142,11 +194,31 @@ Documentation is available at:
 In the **AI Models** panel, enable one or more models to start inference.
 The main demo presets register their models as inactive by default so you can switch them on individually.
 
+![AMP browser UI after opening the web view](../../../static/img/10-browser-ui.png)
+
+Use the model controls to enable or disable selected models. The demo presets usually start with models disabled, so this is the normal way to begin inference after the page opens.
+
+![AMP browser UI model enable and disable controls](../../../static/img/24-browser-ui-enable-disable.png)
+
+The performance overlay is available after at least one model is enabled.
+
+![AMP browser UI with the performance overlay visible](../../../static/img/24-browser-ui-performance-overlay1.png)
+
+Use the performance overlay button to show or hide the performance data.
+
+![AMP browser UI performance overlay toggle button](../../../static/img/24-browser-ui-performance-overlay2.png)
+
+The log window shows browser-side connection messages and RTC connection debug data. Use it when the web UI opens but the video connection is unstable or does not appear.
+
+![AMP browser UI log window with RTC connection messages](../../../static/img/24-browser-ui-logwindow.png)
+
 > Expected result: the AMP UI opens in your browser, the documentation endpoint is reachable, and enabled models begin producing overlays or results.
 
 ## 9. Run it again later without the menu
 
 After you have selected a pipeline once, you can rerun the last selection with the -l (latest) argument:
+
+The VS Code task for this is **00 Run project with latest pipeline**.
 
 ```bash
 ./tools/amp-menu -l
@@ -156,7 +228,7 @@ After you have selected a pipeline once, you can rerun the last selection with t
 
 ## If you want the deeper guides
 
-Continue with the [main how-to guide](../deep-dives/index.md).
+Continue with the [deep dive how-to guide](../deep-dives/index.md).
 
 If you want a guided repository walk-through, continue with the [exercise quick guide](exercise.md).
 
@@ -164,10 +236,10 @@ If you want a guided repository walk-through, continue with the [exercise quick 
 
 By the end of this guide, you should have:
 
-- a working Dev Container for AMP on Windows or Linux
+- a working host side container for AMP on a Windows or Linux host
 - a successful local build
-- `amp-menu` starting correctly
+- `amp-menu` starting correctly from the VS Code task or the active host side container terminal
 - `01-full-onnx.json` running at least once
 - the AMP web UI reachable at `http://localhost:9999`
 
-Success looks like this: the container opens correctly, the build completes, the pipeline starts from `amp-menu`, and the browser can reach the AMP UI.
+Success looks like this: the container opens correctly, the build completes, the pipeline starts from the VS Code task or `amp-menu`, and the browser can reach the AMP UI.
