@@ -179,6 +179,8 @@ To stop an application that was not started from a VS Code launch configuration,
 
 > Expected result: the selected task or `amp-menu` starts and either launches the selected pipeline or shows the pipeline selection menu.
 
+> Disclaimer. During GStreamer pipeline runs, some errors caused by browser connection issues or dropped frames are expected. These can be ignored; a more verbose logging system is in progress.
+
 ## 7. Run the example pipeline
 
 For the shortest first run, choose `01-full-onnx`.

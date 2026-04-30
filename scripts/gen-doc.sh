@@ -7,6 +7,7 @@ set -euo pipefail
 
 SRC_DIR="/work/docs/public"
 OUT_DIR="/work/docs/html"
+HTML_CONTENT_DIR="$OUT_DIR/public"
 TMP_DIR="$(mktemp -d)"
 
 cleanup() {
@@ -61,7 +62,7 @@ fi
 echo "Converting Markdown files to HTML..."
 find "$PREPARED_SRC_DIR" -type f -name "*.md" -print0 | while IFS= read -r -d '' file; do
     rel_path="${file#$PREPARED_SRC_DIR/}"
-    out_path="$OUT_DIR/${rel_path%.md}.html"
+    out_path="$HTML_CONTENT_DIR/${rel_path%.md}.html"
     mkdir -p "$(dirname "$out_path")"
     echo "Converting $rel_path -> ${rel_path%.md}.html"
     pandoc --from markdown-yaml_metadata_block "$file" -s -o "$out_path"
@@ -74,7 +75,7 @@ find "$SRC_DIR" -type f \( \
     -iname "*.gif" -o -iname "*.svg" -o -iname "*.webp" \
     \) -print0 | while IFS= read -r -d '' file; do
     rel_path="${file#$SRC_DIR/}"
-    out_path="$OUT_DIR/$rel_path"
+    out_path="$HTML_CONTENT_DIR/$rel_path"
     mkdir -p "$(dirname "$out_path")"
     cp -f "$file" "$out_path"
 done
@@ -89,11 +90,26 @@ fi
 echo "Rewriting internal links..."
 find "$OUT_DIR" -type f -name "*.html" -exec sed -i 's/\.md"/.html"/g' {} +
 
+cat > "$OUT_DIR/index.html" <<'EOF'
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="refresh" content="0; url=public/index.html">
+  <title>AMP Development Forge Documentation</title>
+</head>
+<body>
+  <p><a href="public/index.html">Open the documentation</a>.</p>
+</body>
+</html>
+EOF
+
 echo "Done. Open: $OUT_DIR/index.html"
 
 BUILD_DOC_HTML_DIR="/work/development/build/doc/html"
 echo "Copying documentation to $BUILD_DOC_HTML_DIR..."
 mkdir -p "$BUILD_DOC_HTML_DIR"
+rm -rf "${BUILD_DOC_HTML_DIR:?}/"*
 cp -a "$OUT_DIR/." "$BUILD_DOC_HTML_DIR/"
 echo "Documentation copied to $BUILD_DOC_HTML_DIR"
 

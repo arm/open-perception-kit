@@ -163,8 +163,6 @@ Use the build task in VS Code:
 - open the Command Palette and run `Tasks: Run Task`
 - run **00 Build Project**
 
-> Disclaimer. During GStreamer pipeline runs, some errors caused by browser connection issues or dropped frames are expected. These can be ignored; a more verbose logging system is in progress.
-
 ![VS Code build task for AMP](../../../static/img/08-build-project.png)
 
 Or build in the active remote host container terminal from the project root:
@@ -201,6 +199,7 @@ To stop an application that was not started from a VS Code launch configuration,
 
 > Expected result: the selected task or `amp-menu` starts and either launches the selected pipeline or shows the pipeline selection menu.
 
+> Disclaimer. During GStreamer pipeline runs, some errors caused by browser connection issues or dropped frames are expected. These can be ignored; a more verbose logging system is in progress.
 
 ## 7. Run the example pipeline
 

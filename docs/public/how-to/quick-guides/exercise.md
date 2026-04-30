@@ -114,7 +114,7 @@ Start with the smallest valid preset shape:
 {
   "description": "Exercise pipeline built step by step.",
   "pipeline": [
-    "filesrc location=/work/data/videos/example.mp4 !",
+    "filesrc location=/work/data/videos/00.mp4 !",
     "decodebin !",
     "videoconvert ! video/x-raw,format=BGRA !",
     "fakesink"
@@ -178,7 +178,7 @@ A minimal example is:
     "videoconvert ! video/x-raw,format=BGRA !",
     "videoconvert !",
     "jpegenc !",
-    "filesink location=/work/data/output/exercise-frame.jpg"
+    "filesink location=/work/data/exercise-frame.jpg"
   ]
 }
 ```
@@ -244,7 +244,7 @@ A first inference-enabled version looks like this:
 This is an important repository concept: the top-level pipeline does not need to describe every model stage directly. It can delegate the inference logic to an OpChain.
 For this exercise, `active=true` keeps the data path obvious and immediate. The shipped demo presets often use `active=false` instead so the web UI can enable models one by one.
 
-> Expected result: the pipeline still runs through `ampsink`, but now the buffer also carries `PerceptionMeta` produced by the camera-contact inference chain.
+> Expected result: the pipeline still runs through `ampsink`, but now the buffer also carries `PerceptionMeta` produced by the camera-contact inference chain. At this point since there isn't any overlay the result should not be visible.
 
 ### Step 6: Include the OSD element
 
