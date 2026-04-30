@@ -1,17 +1,19 @@
 
 import { ctrlSend } from "./ctrlws.js";
 
-// handle disable Performance overlay button
-const enablePerfOverlayBtn = document.getElementById('enablePerfOverlayBtn');
+// handle Performance overlay toggle (checkbox)
+const enablePerfOverlayChk = document.getElementById('enablePerfOverlayChk');
 
-enablePerfOverlayBtn.addEventListener('click', function() {
-
-    console.log('Toggling performance overlay');
-
-    ctrlSend({type: "perf_overlay"});
-});
+if (enablePerfOverlayChk) {
+    enablePerfOverlayChk.addEventListener('change', function () {
+        console.log('Toggling performance overlay');
+        ctrlSend({ type: "perf_overlay" });
+    });
+}
 
 export function setPerfOverlayButton(overlayEnabled) {
-    const icon = '<span class="btn-icon">👁</span> ';
-    enablePerfOverlayBtn.innerHTML = icon + (overlayEnabled ? 'Disable Performance Overlay' : 'Enable Performance Overlay');
+    // update checkbox state to reflect server value; keep same API name
+    if (enablePerfOverlayChk) {
+        enablePerfOverlayChk.checked = !!overlayEnabled;
+    }
 }

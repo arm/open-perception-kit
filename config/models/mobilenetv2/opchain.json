@@ -1,5 +1,6 @@
 {
 	"name": "ImageNet",
+	"description": "ImageNet info message from opchain.json::description",
 	"ops": [
 		{
 			"id": "amp-std-ops/InferenceController",
