@@ -67,16 +67,29 @@ template <class Traits> class Meta {
 
     static const GstMetaInfo *info() {
         static const GstMetaInfo *mi = nullptr;
-        if (g_once_init_enter_pointer(const_cast<GstMetaInfo **>(&mi))) {
-            const GstMetaInfo *i = gst_meta_register(api_type(),
-                                                     Traits::meta_name().data(),
-                                                     sizeof(MetaType),
-                                                     &Meta::init,
-                                                     &Meta::free,
-                                                     &Meta::transform);
-            g_once_init_leave_pointer(const_cast<GstMetaInfo **>(&mi),
-                                      const_cast<GstMetaInfo *>(i));
+
+        if (g_once_init_enter_pointer(&mi)) {
+            const char *name = Traits::meta_name().data();
+
+            const GstMetaInfo *i = gst_meta_get_info(name);
+
+            if (!i) {
+                i = gst_meta_register(
+                    api_type(), name, sizeof(MetaType), &Meta::init, &Meta::free, &Meta::transform);
+
+                if (!i) {
+                    // Maybe another .so registered it between get_info() and register().
+                    i = gst_meta_get_info(name);
+                }
+            }
+
+            if (!i) {
+                g_error("Failed to register GstMetaInfo '%s'", name);
+            }
+
+            g_once_init_leave_pointer(&mi, const_cast<GstMetaInfo *>(i));
         }
+
         return mi;
     }
 
@@ -84,8 +97,9 @@ template <class Traits> class Meta {
     static MetaType *add(GstBuffer *buf, std::shared_ptr<Payload> p) {
         g_return_val_if_fail(GST_IS_BUFFER(buf), nullptr);
         auto *m = (MetaType *)gst_buffer_add_meta(buf, info(), nullptr);
-        if (!m)
+        if (!m) {
             return nullptr;
+        }
         m->payload = std::move(p);
         return m;
     }
