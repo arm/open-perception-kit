@@ -1,5 +1,6 @@
 {
 	"name": "YoloV11",
+	"description": "YoloV11 object detection model.",
 	"ops": [
 		{
 			"id": "amp-std-ops/InferenceController",

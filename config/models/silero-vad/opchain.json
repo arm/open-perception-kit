@@ -1,4 +1,5 @@
 {
+	"description": "Silero VAD model for voice activity detection.",
 	"ops": [
 		{
 			"id": "amp-std-ops/InferenceController",

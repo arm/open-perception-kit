@@ -1,5 +1,6 @@
 {
 	"name": "Ultraface",
+	"description": "Ultraface face detection model.",
 	"ops": [
 		{
 			"id": "amp-std-ops/InferenceController",

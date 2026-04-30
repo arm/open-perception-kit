@@ -1,5 +1,6 @@
 {
 	"name": "CameraContact",
+	"description": "Model to detect if a person is looking into the camera or not.",
 	"ops": [
 		{
 			"id": "amp-std-ops/InferenceController",
@@ -17,13 +18,13 @@
 				"inputImageSourceName": "pipelineVideoFrame"
 			}
 		},
-			{
-				"id": "amp-onnx-ops/Inference",
-				"loopId": 1,
-				"attributes": {
-					"modelDescriptor": "/work/config/models/cam-contact/model.json"
-				}
-			},
+		{
+			"id": "amp-onnx-ops/Inference",
+			"loopId": 1,
+			"attributes": {
+				"modelDescriptor": "/work/config/models/cam-contact/model.json"
+			}
+		},
 		{
 			"id": "amp-std-ops/GenericPostprocess",
 			"loopId": 1,

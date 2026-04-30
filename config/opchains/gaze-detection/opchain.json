@@ -1,5 +1,6 @@
 {
     "name": "GazeDetectionWithUltraface",
+    "description": "Two-stage gaze-detection micropipeline: first detect faces with ultraface, then run gaze-detection.",
     "ops": [
         {
             "id": "amp-std-ops/InferenceController",

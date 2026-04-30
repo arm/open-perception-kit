@@ -1,5 +1,6 @@
 {
   "name": "Modnet",
+  "description": "Modnet real time background matting model.",
   "ops": [
     {
       "id": "amp-std-ops/InferenceController",

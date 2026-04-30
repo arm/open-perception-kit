@@ -1,5 +1,6 @@
 {
 	"name": "GazeDetection",
+	"description": "Detects gaze direction from human face images.",
 	"ops": [
 		{
 			"id": "amp-std-ops/InferenceController",
