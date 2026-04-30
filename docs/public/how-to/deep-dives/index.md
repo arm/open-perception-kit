@@ -80,6 +80,8 @@ cd amp-dev-forge
 We currently support four hosts: Windows with WSL, Linux, macOS, and Raspberry Pi 5.
 Install the required tools on your host in order to use the project.
 
+Although not complete, a check script can help the user determine whether the prerequisites are met: "./scripts/pre-req.sh"
+
 > Besides the listed dependencies, additional tools are installed inside the development or deployment container.
 Working directly on the host outside the container is not well supported at the moment. The project assumes container-managed dependencies.
 

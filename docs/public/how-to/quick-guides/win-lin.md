@@ -25,6 +25,8 @@ At the end of this guide, you should have AMP running on your host, with the fir
 
 The following section should detail the platform specific prerequisites that this document assumes are already met: [Deep dive prerequisites section](../deep-dives/index.md#prerequisites)
 
+Although not complete, a check script can help the user determine whether the prerequisites are met: "./scripts/pre-req.sh"
+
 ### Windows
 Use WSL and install:
 - WSL

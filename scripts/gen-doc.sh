@@ -90,7 +90,7 @@ fi
 echo "Rewriting internal links..."
 find "$OUT_DIR" -type f -name "*.html" -exec sed -i 's/\.md"/.html"/g' {} +
 
-cat > "$OUT_DIR/index.html" <<'EOF'
+cat > "$OUT_DIR/index.html" << 'EOF'
 <!doctype html>
 <html lang="en">
 <head>

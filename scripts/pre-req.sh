@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+################################################################
+# Copyright (C) 2025 Arm Limited. All rights reserved.
+################################################################
+
 set -euo pipefail
 
 failures=0
@@ -7,8 +11,8 @@ check_cmd() {
     local name="$1"
     local cmd="$2"
 
-    if command -v "$cmd" >/dev/null 2>&1; then
-        echo "OK: $name found: $($cmd --version 2>/dev/null | head -n 1)"
+    if command -v "$cmd" > /dev/null 2>&1; then
+        echo "OK: $name found: $($cmd --version 2> /dev/null | head -n 1)"
     else
         echo "ERROR: $name is not installed or not on PATH"
         failures=$((failures + 1))
@@ -16,7 +20,7 @@ check_cmd() {
 }
 
 check_docker() {
-    if command -v docker >/dev/null 2>&1; then
+    if command -v docker > /dev/null 2>&1; then
         echo "OK: Docker found: $(docker --version)"
     else
         echo "ERROR: Docker is not installed or not on PATH"
@@ -24,7 +28,7 @@ check_docker() {
         return
     fi
 
-    if docker info >/dev/null 2>&1; then
+    if docker info > /dev/null 2>&1; then
         echo "OK: Docker daemon is running"
     else
         echo "ERROR: Docker is installed but the daemon is not reachable"
@@ -33,9 +37,9 @@ check_docker() {
 }
 
 check_docker_compose() {
-    if docker compose version >/dev/null 2>&1; then
+    if docker compose version > /dev/null 2>&1; then
         echo "OK: Docker Compose found: $(docker compose version)"
-    elif command -v docker-compose >/dev/null 2>&1; then
+    elif command -v docker-compose > /dev/null 2>&1; then
         echo "OK: legacy docker-compose found: $(docker-compose --version)"
     else
         echo "ERROR: Docker Compose is not installed"
@@ -44,43 +48,43 @@ check_docker_compose() {
 }
 
 check_github_ssh_auth() {
-  local output
+    local output
 
-  output="$(ssh -T -o BatchMode=yes git@github.com 2>&1 || true)"
+    output="$(ssh -T -o BatchMode=yes git@github.com 2>&1 || true)"
 
-  if echo "$output" | grep -qi "successfully authenticated"; then
-    echo "OK: GitHub SSH authentication works"
-  else
-    echo "ERROR: GitHub SSH authentication failed"
-    echo "$output"
-    failures=$((failures + 1))
-  fi
+    if echo "$output" | grep -qi "successfully authenticated"; then
+        echo "OK: GitHub SSH authentication works"
+    else
+        echo "ERROR: GitHub SSH authentication failed"
+        echo "$output"
+        failures=$((failures + 1))
+    fi
 }
 
 is_raspberry_pi() {
-    grep -qi "raspberry pi" /proc/device-tree/model 2>/dev/null
+    grep -qi "raspberry pi" /proc/device-tree/model 2> /dev/null
 }
 
 check_rpi_supported_model() {
-  if ! is_raspberry_pi; then
-    return
-  fi
+    if ! is_raspberry_pi; then
+        return
+    fi
 
-  local model
-  model="$(get_device_model)"
+    local model
+    model="$(get_device_model)"
 
-  if echo "$model" | grep -qi "raspberry pi 5"; then
-    echo "OK: Supported device: $model"
-  else
-    echo "ERROR: Unsupported Raspberry Pi model"
-    echo "       Detected: $model"
-    echo "       Required: Raspberry Pi 5"
-    failures=$((failures + 1))
-  fi
+    if echo "$model" | grep -qi "raspberry pi 5"; then
+        echo "OK: Supported device: $model"
+    else
+        echo "ERROR: Unsupported Raspberry Pi model"
+        echo "       Detected: $model"
+        echo "       Required: Raspberry Pi 5"
+        failures=$((failures + 1))
+    fi
 }
 
 is_raspberry_pi_5() {
-    grep -qi "raspberry pi 5" /proc/device-tree/model 2>/dev/null
+    grep -qi "raspberry pi 5" /proc/device-tree/model 2> /dev/null
 }
 
 check_debian_trixie_on_rpi5() {
@@ -137,7 +141,7 @@ check_rpi_packages() {
     local missing=()
 
     for pkg in "${packages[@]}"; do
-        if dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "install ok installed"; then
+        if dpkg-query -W -f='${Status}' "$pkg" 2> /dev/null | grep -q "install ok installed"; then
             echo "OK: package installed: $pkg"
         else
             echo "ERROR: package missing: $pkg"
@@ -152,7 +156,6 @@ check_rpi_packages() {
         printf '  %s\n' "${missing[@]}"
     fi
 }
-
 
 echo "Checking prerequisites..."
 echo

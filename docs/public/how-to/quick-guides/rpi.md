@@ -25,6 +25,8 @@ At the end of this guide, you should have AMP running on your desk on a Raspberr
 
 The following section should detail the platform specific prerequisites that this document assumes are already met: [Deep dive prerequisites section](../deep-dives/index.md#prerequisites)
 
+Although not complete, a check script can help the user determine whether the prerequisites are met: "./scripts/pre-req.sh"
+
 Complete the detailed Raspberry Pi hardware, assembly, package, Hailo, SSH, and camera setup in [Raspberry Pi 5: Assembly and Installation Guide](../deep-dives/rpi5.md) before starting this quick guide.
 
 For the quick-start path, you need:
