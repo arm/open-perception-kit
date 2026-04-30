@@ -16,6 +16,7 @@
 #include <chrono>
 #include <cstring>
 #include <map>
+#include <set>
 #include <string>
 #include <utility>
 #include <variant>
@@ -376,8 +377,41 @@ static std::vector<std::string> get_performance_data(GstAmpPerformance *self) {
     // Get global tracer (fresh each time to ensure same instance as ampinfer)
     amp::PerformanceTracer *tracer = amp::getGlobalTracer();
 
+    // Capture current-cycle measurements before ending the cycle. endCycle()
+    // clears the current cycle buffer, so we must read it first.
+    std::vector<amp::TimingMeasurement> measurements = tracer->getCurrentCycleMeasurements();
+
     // End the performance cycle to calculate statistics
     tracer->endCycle();
+
+    // Remove stale metrics for models that produced no measurements in this
+    // cycle. This helps when a model is disabled: its historical metrics
+    // should not remain in the cache and be displayed by OSD.
+    {
+        std::set<std::string> active_models;
+        for (const auto &m : measurements) {
+            const auto &k = m.key;
+            size_t pos = k.find('_');
+            std::string model = (pos != std::string::npos) ? k.substr(0, pos) : k;
+            active_models.insert(model);
+        }
+
+        // Iterate all known stats and remove those whose model prefix was not
+        // observed in this cycle.
+        auto all_stats_for_removal = tracer->getAllStats();
+        for (const auto &kv : all_stats_for_removal) {
+            const std::string &key = kv.first;
+            const amp::TimingStats &stats = kv.second;
+            if (stats.count == 0)
+                continue;
+
+            size_t pos = key.find('_');
+            std::string model = (pos != std::string::npos) ? key.substr(0, pos) : key;
+            if (active_models.find(model) == active_models.end()) {
+                tracer->removeMetrics(key);
+            }
+        }
+    }
 
     // Parse colors
     double bg_r, bg_g, bg_b;
@@ -472,12 +506,18 @@ static std::vector<std::string> get_performance_data(GstAmpPerformance *self) {
         }
     }
 
-    if (self->fps_average > 0) {
+    // Always include an FPS line so downstream OSD can show at least FPS when
+    // no model metrics are available. If FPS not yet measured, show placeholder.
+    {
         char fps_buffer[96];
-        snprintf(fps_buffer,
-                 sizeof(fps_buffer),
-                 "Pipeline                : %6.1f FPS",
-                 self->fps_average);
+        if (self->fps_average > 0) {
+            snprintf(fps_buffer,
+                     sizeof(fps_buffer),
+                     "Pipeline                : %6.1f FPS",
+                     self->fps_average);
+        } else {
+            snprintf(fps_buffer, sizeof(fps_buffer), "Pipeline                :    --.- FPS");
+        }
         lines.push_back(std::string(fps_buffer));
     }
 
@@ -512,6 +552,13 @@ static GstFlowReturn gst_amp_performance_transform_frame_ip(GstVideoFilter *filt
     if (self->cache_dirty || (self->frame_count % self->update_interval) == 0) {
         // Update cache every N frames
         self->cached_lines = get_performance_data(self);
+    }
+
+    // try to get the perception meta
+    // it does not added yet -> add it
+    if (auto perceptionMeta = amp::PerceptionMeta::get(frame->buffer); !perceptionMeta) {
+        auto perception = std::make_shared<amp::Perception>();
+        amp::PerceptionMeta::add(frame->buffer, perception);
     }
 
     // Get PerceptionMeta with performance data
