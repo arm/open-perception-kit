@@ -146,22 +146,12 @@ struct PixelRect {
 };
 
 struct ImageLayoutDesc {
-    struct ValidationRules {
-        bool requireData = true;
-        bool requireImageKind = true;
-        bool requireKnownType = true;
-        bool requireSurface = true;
-        bool requireNonEmptyRect = true;
-        bool requireRectWithinSurface = true;
-        bool requireByteCountForFullSurface = true;
-        bool requireFullSurfaceRect = false;
-    };
-
     uint8_t *data = nullptr;
     size_t byteCount = 0;
     
     size_t surfaceWidth = 0;
     size_t surfaceHeight = 0;
+    size_t surfacetride = 0; // in bytes, NOT USED YET, we assume tightly packed for now
 
     PixelRect rect;
     

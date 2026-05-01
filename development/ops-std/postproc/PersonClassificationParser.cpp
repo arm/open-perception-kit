@@ -19,14 +19,12 @@ amp::Result<void> PersonClassificationParser::parse(const amp::TensorParser::Inp
 
     assert(input.tensors[0]->getShape().valueCount[0] == 1);
     assert(input.tensors[0]->getShape().valueCount[1] == 2);
-
     
-    bool isPerson = input.tensors[0]->get(1) > input.tensors[0]->get(0);
-    fmt::print("PersonClassificationParser [person: {} vs non-person: {}] says it is a {}\n",
-               input.tensors[0]->get(1),
-               input.tensors[0]->get(0),
-               isPerson ? "person" : "not person");
-    
+    detectionResult.contentType = "personClassification";
+    Perception::PersonClassification result;
+    result.yesConfidence = input.tensors[0]->get(1);
+    result.noConfidence = input.tensors[0]->get(0);
+    detectionResult.detections.push_back(result);
 
     return {};
 }
