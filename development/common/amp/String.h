@@ -10,6 +10,8 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <cstdint>
+
 
 namespace amp {
 

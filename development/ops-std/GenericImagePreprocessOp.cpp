@@ -100,10 +100,7 @@ amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChain
     setup.imageSourceDesc.data = pipelineVideoFrame->data;
     setup.imageSourceDesc.surfaceWidth = pipelineVideoFrame->width;
     setup.imageSourceDesc.surfaceHeight = pipelineVideoFrame->height;
-    setup.imageSourceDesc.x = cropRect.x;
-    setup.imageSourceDesc.y = cropRect.y;
-    setup.imageSourceDesc.width = cropRect.width;
-    setup.imageSourceDesc.height = cropRect.height;
+    setup.imageSourceDesc.rect = cropRect;
     setup.imageSourceDesc.byteCount = pipelineVideoFrame->width * pipelineVideoFrame->height * 4;
     setup.imageSourceDesc.kind = amp::DataKind::ImageBgraHwc;
     setup.imageSourceDesc.type = amp::Tdt::Uint8;
@@ -120,10 +117,10 @@ amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChain
     // debug
     if (false) {
         fmt::print("crop: {} {} {} {}\n",
-                   setup.imageSourceDesc.x,
-                   setup.imageSourceDesc.y,
-                   setup.imageSourceDesc.width,
-                   setup.imageSourceDesc.height);
+                   setup.imageSourceDesc.rect.x,
+                   setup.imageSourceDesc.rect.y,
+                   setup.imageSourceDesc.rect.width,
+                   setup.imageSourceDesc.rect.height);
     }
 
     // debug
@@ -131,28 +128,25 @@ amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChain
         std::string debugFile = fmt::format("/work/var/crop_[{}]_{}_{}x{}x{}x{}.png",
                                             upcomingInferenceModel.contentType,
                                             (uint64_t)Uuid(),
-                                            setup.imageSourceDesc.x,
-                                            setup.imageSourceDesc.y,
-                                            setup.imageSourceDesc.width,
-                                            setup.imageSourceDesc.height);
+                                            setup.imageSourceDesc.rect.x,
+                                            setup.imageSourceDesc.rect.y,
+                                            setup.imageSourceDesc.rect.width,
+                                            setup.imageSourceDesc.rect.height);
         Tools::savePngCropFromBgra(debugFile,
                                    setup.imageSourceDesc.data,
                                    setup.imageSourceDesc.surfaceWidth,
                                    setup.imageSourceDesc.surfaceHeight,
-                                   setup.imageSourceDesc.x,
-                                   setup.imageSourceDesc.y,
-                                   setup.imageSourceDesc.width,
-                                   setup.imageSourceDesc.height);
+                                   setup.imageSourceDesc.rect.x,
+                                   setup.imageSourceDesc.rect.y,
+                                   setup.imageSourceDesc.rect.width,
+                                   setup.imageSourceDesc.rect.height);
     }
 
     // setup preprocessed tensor data
     setup.imageDestinationDesc.type = upcomingInferenceModel.inputs[inputImageTensorIndex].valueType;
     setup.imageDestinationDesc.surfaceWidth = modelWidth;
     setup.imageDestinationDesc.surfaceHeight = modelHeight;
-    setup.imageDestinationDesc.x = 0;
-    setup.imageDestinationDesc.y = 0;
-    setup.imageDestinationDesc.width = modelWidth;
-    setup.imageDestinationDesc.height = modelHeight;
+    setup.imageDestinationDesc.rect = {0, 0, modelWidth, modelHeight};
     setup.imageDestinationDesc.kind = upcomingInferenceModel.inputs[inputImageTensorIndex].dataKind;
     setup.imageDestinationDesc.byteCount =
         upcomingInferenceModel.inputs[inputImageTensorIndex].shape.getFullValueCount() *

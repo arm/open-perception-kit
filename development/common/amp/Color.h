@@ -7,6 +7,7 @@
 #include "amp/String.h"
 #include <cstdint>
 #include <string>
+#include <cstdint>
 #include <tuple>
 #include <unordered_map>
 
