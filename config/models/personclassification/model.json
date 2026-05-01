@@ -1,17 +1,17 @@
 {
 	"name": "personclassification",
 	"modelFamily": "personclass",
-	"modelFile": "model_int8.onnx",
+	"modelFile": "tf_mobilenetv1_float_model.onnx",
 	"dynamicOutput": true,
 	"inputTensors": [
 		{
 			"shape": [
 				1,
-				3,
-				224,
-				224
+				96,
+				96,
+				3
 			],
-			"dataKind": "ImageRgbChw"
+			"dataKind": "ImageRgbHwc"
 		}
 	]
 }

@@ -59,6 +59,32 @@ struct ImageOps {
                                                          Sampling sampling = Sampling::Nearest);
 
     static bool
+    StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(const uint8_t *src,
+                                               size_t srcWidth,
+                                               size_t srcHeight,
+                                               const Rect &srcRect,
+                                               float *dst,
+                                               size_t dstWidth,
+                                               size_t dstHeight,
+                                               const Rect &dstRect,
+                                               const Colorf &mean = {0.0f, 0.0f, 0.0f, 0.0f},
+                                               const Colorf &std = {1.0f, 1.0f, 1.0f, 1.0f},
+                                               Sampling sampling = Sampling::Nearest);
+
+    static bool
+    StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Hwc(const uint8_t *src,
+                                               size_t srcWidth,
+                                               size_t srcHeight,
+                                               const Rect &srcRect,
+                                               Float16 *dst,
+                                               size_t dstWidth,
+                                               size_t dstHeight,
+                                               const Rect &dstRect,
+                                               const Colorf &mean = {0.0f, 0.0f, 0.0f, 0.0f},
+                                               const Colorf &std = {1.0f, 1.0f, 1.0f, 1.0f},
+                                               Sampling sampling = Sampling::Nearest);
+
+    static bool
     StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(const uint8_t *src,
                                                size_t srcWidth,
                                                size_t srcHeight,

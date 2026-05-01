@@ -249,6 +249,150 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(const uint8_t *src,
     return true;
 }
 
+bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(const uint8_t *src,
+                                                          size_t srcWidth,
+                                                          size_t srcHeight,
+                                                          const ImageOps::Rect &srcRect,
+                                                          float *dst,
+                                                          size_t dstWidth,
+                                                          size_t dstHeight,
+                                                          const ImageOps::Rect &dstRect,
+                                                          const Colorf &mean,
+                                                          const Colorf &std,
+                                                          Sampling sampling) {
+    if (!src || !dst)
+        return false;
+
+    if (srcRect.x + srcRect.w > srcWidth || srcRect.y + srcRect.h > srcHeight ||
+        dstRect.x + dstRect.w > dstWidth || dstRect.y + dstRect.h > dstHeight)
+        return false;
+
+    constexpr float inv255 = 1.0f / 255.0f;
+    constexpr size_t C = 3;
+
+    (void)sampling;
+
+    if (amp::MeanStd::isDefaultMean(mean) && amp::MeanStd::isDefaultStd(std)) {
+        for (size_t dy = 0; dy < dstRect.h; ++dy) {
+            const size_t sy = srcRect.y + (dy * srcRect.h) / dstRect.h;
+            const size_t dyi = dstRect.y + dy;
+
+            for (size_t dx = 0; dx < dstRect.w; ++dx) {
+                const size_t sx = srcRect.x + (dx * srcRect.w) / dstRect.w;
+                const size_t dxi = dstRect.x + dx;
+
+                const uint8_t *p = src + (sy * srcWidth + sx) * 4; // BGRA
+                float *q = dst + (dyi * dstWidth + dxi) * C;       // RGB HWC
+
+                q[0] = p[2] * inv255; // R
+                q[1] = p[1] * inv255; // G
+                q[2] = p[0] * inv255; // B
+            }
+        }
+    } else {
+        const auto [meanR, meanG, meanB, meanA] = mean;
+        const auto [stdR, stdG, stdB, stdA] = std;
+        (void)meanA;
+        (void)stdA;
+
+        constexpr float eps = 1e-12f;
+        const float invStdR = 1.0f / std::max(stdR, eps);
+        const float invStdG = 1.0f / std::max(stdG, eps);
+        const float invStdB = 1.0f / std::max(stdB, eps);
+
+        for (size_t dy = 0; dy < dstRect.h; ++dy) {
+            const size_t sy = srcRect.y + (dy * srcRect.h) / dstRect.h;
+            const size_t dyi = dstRect.y + dy;
+
+            for (size_t dx = 0; dx < dstRect.w; ++dx) {
+                const size_t sx = srcRect.x + (dx * srcRect.w) / dstRect.w;
+                const size_t dxi = dstRect.x + dx;
+
+                const uint8_t *p = src + (sy * srcWidth + sx) * 4;
+                float *q = dst + (dyi * dstWidth + dxi) * C;
+
+                q[0] = (p[2] * inv255 - meanR) * invStdR;
+                q[1] = (p[1] * inv255 - meanG) * invStdG;
+                q[2] = (p[0] * inv255 - meanB) * invStdB;
+            }
+        }
+    }
+
+    return true;
+}
+
+bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Hwc(const uint8_t *src,
+                                                          size_t srcWidth,
+                                                          size_t srcHeight,
+                                                          const ImageOps::Rect &srcRect,
+                                                          Float16 *dst,
+                                                          size_t dstWidth,
+                                                          size_t dstHeight,
+                                                          const ImageOps::Rect &dstRect,
+                                                          const Colorf &mean,
+                                                          const Colorf &std,
+                                                          Sampling sampling) {
+    if (!src || !dst)
+        return false;
+
+    if (srcRect.x + srcRect.w > srcWidth || srcRect.y + srcRect.h > srcHeight ||
+        dstRect.x + dstRect.w > dstWidth || dstRect.y + dstRect.h > dstHeight)
+        return false;
+
+    constexpr float inv255 = 1.0f / 255.0f;
+    constexpr size_t C = 3;
+
+    (void)sampling;
+
+    if (amp::MeanStd::isDefaultMean(mean) && amp::MeanStd::isDefaultStd(std)) {
+        for (size_t dy = 0; dy < dstRect.h; ++dy) {
+            const size_t sy = srcRect.y + (dy * srcRect.h) / dstRect.h;
+            const size_t dyi = dstRect.y + dy;
+
+            for (size_t dx = 0; dx < dstRect.w; ++dx) {
+                const size_t sx = srcRect.x + (dx * srcRect.w) / dstRect.w;
+                const size_t dxi = dstRect.x + dx;
+
+                const uint8_t *p = src + (sy * srcWidth + sx) * 4;
+                Float16 *q = dst + (dyi * dstWidth + dxi) * C;
+
+                q[0] = static_cast<Float16>(p[2] * inv255); // R
+                q[1] = static_cast<Float16>(p[1] * inv255); // G
+                q[2] = static_cast<Float16>(p[0] * inv255); // B
+            }
+        }
+    } else {
+        const auto [meanR, meanG, meanB, meanA] = mean;
+        const auto [stdR, stdG, stdB, stdA] = std;
+        (void)meanA;
+        (void)stdA;
+
+        constexpr float eps = 1e-12f;
+        const float invStdR = 1.0f / std::max(stdR, eps);
+        const float invStdG = 1.0f / std::max(stdG, eps);
+        const float invStdB = 1.0f / std::max(stdB, eps);
+
+        for (size_t dy = 0; dy < dstRect.h; ++dy) {
+            const size_t sy = srcRect.y + (dy * srcRect.h) / dstRect.h;
+            const size_t dyi = dstRect.y + dy;
+
+            for (size_t dx = 0; dx < dstRect.w; ++dx) {
+                const size_t sx = srcRect.x + (dx * srcRect.w) / dstRect.w;
+                const size_t dxi = dstRect.x + dx;
+
+                const uint8_t *p = src + (sy * srcWidth + sx) * 4;
+                Float16 *q = dst + (dyi * dstWidth + dxi) * C;
+
+                q[0] = static_cast<Float16>((p[2] * inv255 - meanR) * invStdR);
+                q[1] = static_cast<Float16>((p[1] * inv255 - meanG) * invStdG);
+                q[2] = static_cast<Float16>((p[0] * inv255 - meanB) * invStdB);
+            }
+        }
+    }
+
+    return true;
+}
+
 bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(const uint8_t *src,
                                                         size_t srcWidth,
                                                         size_t srcHeight,
