@@ -199,7 +199,7 @@ struct ImageLayoutDesc {
     }
 };
 
-enum class Sampling { Nearest, Linear };
+enum class Sampling { Nearest, Linear /* not supported yet */ };
 
 struct TensorFeedback {
     enum class Mode { Copy };

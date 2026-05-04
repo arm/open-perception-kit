@@ -6,6 +6,7 @@
 #include "amp/Color.h"
 #include "amp/Perception.h"
 #include "gst/PerceptionMeta.h"
+#include "gst/Tools.h"
 #include "osd.h"
 
 #include <algorithm>
@@ -592,6 +593,39 @@ static std::unique_ptr<Osd::Layer> drawPerceptionLayer([[maybe_unused]] GstAmpOs
                 const auto &box = std::get<amp::Perception::Rect>(det);
                 Osd::ObjectBox::draw(
                     *layer, box, amp::Colors::fromStringOrDefault("#ff0000ff"), 2.0f);
+            }
+        }
+
+        if (inferLayer.contentType == "personClassification") {
+            for (const auto &det : inferLayer.detections) {
+                const auto &pc = std::get<amp::Perception::PersonClassification>(det);
+
+                const bool isPerson = pc.yesConfidence > pc.noConfidence;
+                const std::string label = isPerson ? "PERSON" : "NON-PERSON";
+                const auto color = isPerson ? amp::Colors::fromStringOrDefault("#66ff00ff")
+                                            : amp::Colors::fromStringOrDefault("#ff4444ff");
+                constexpr float fontSize = 64.0f;
+
+                cairo_select_font_face(layer->context, "monospace",
+                                       CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+                cairo_set_font_size(layer->context, fontSize);
+                cairo_text_extents_t ex;
+                cairo_text_extents(layer->context, label.c_str(), &ex);
+
+                const float x = (imgWidth  - ex.width)  / 2.0f - ex.x_bearing;
+                const float y = (imgHeight - ex.height) / 2.0f - ex.y_bearing;
+
+                uint64_t timeMs = amp::TsUtcNs() / 1000000U;
+                if(timeMs % 1000 < 800) {
+                    Osd::Text::draw(*layer,
+                                Osd::Coordinate(x, y),
+                                label,
+                                color,
+                                amp::Colors::fromStringOrDefault("#000000cc"),
+                                "monospace",
+                                fontSize);
+
+                }
             }
         }
 
