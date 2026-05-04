@@ -7,18 +7,38 @@
 
 #include <algorithm>
 #include <cmath>
+#include <fmt/core.h>
 
 using namespace amp;
 
 amp::Result<void> PersonClassificationParser::parse(const amp::TensorParser::Input &input,
                                                     amp::Perception::Layer &detectionResult) {
 
-    assert(input.tensors[0]);
+    if (!input.tensors[0]) {
+        return tl::unexpected(AMP_ERROR(
+            ErrorFlag::InvalidData, "PersonClassificationParser: input tensor is null"));
+    }
 
-    assert(input.tensors[0]->getShape().dimensionCount == 2);
+    const auto shape = input.tensors[0]->getShape();
+    if (shape.dimensionCount != 2) {
+        return tl::unexpected(AMP_ERROR(
+            ErrorFlag::InvalidData,
+            fmt::format("PersonClassificationParser: expected 2D tensor, got {}D",
+                       shape.dimensionCount)));
+    }
 
-    assert(input.tensors[0]->getShape().valueCount[0] == 1);
-    assert(input.tensors[0]->getShape().valueCount[1] == 2);
+    if (shape.valueCount[0] != 1) {
+        return tl::unexpected(AMP_ERROR(
+            ErrorFlag::InvalidData,
+            fmt::format("PersonClassificationParser: batch size must be 1, got {}",
+                       shape.valueCount[0])));
+    }
+    if (shape.valueCount[1] != 2) {
+        return tl::unexpected(AMP_ERROR(
+            ErrorFlag::InvalidData,
+            fmt::format("PersonClassificationParser: expected 2 classes, got {}",
+                       shape.valueCount[1])));
+    }
 
     const float rawNo = input.tensors[0]->get(0);
     const float rawYes = input.tensors[0]->get(1);

@@ -6,7 +6,6 @@
 #include "amp/Perception.h"
 
 #include <algorithm>
-#include <cassert>
 #include <cmath>
 #include <cstddef>
 
@@ -67,16 +66,33 @@ inline void logitsToAngleDegAndConfidence(const amp::TensorView *logits,
 
 amp::Result<void> GazeDetectionParser::parse(const amp::TensorParser::Input &input,
                                              amp::Perception::Layer &detectionResult) {
-    assert(input.tensors[0]);
-    assert(input.tensors[1]);
+    // Validate tensor pointers.
+    if (!input.tensors[0] || !input.tensors[1]) {
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData, "GazeDetectionParser: input tensors are null"));
+    }
 
-    assert(input.tensors[0]->getShape().dimensionCount == 2);
-    assert(input.tensors[1]->getShape().dimensionCount == 2);
+    // Validate tensor shapes.
+    if (input.tensors[0]->getShape().dimensionCount != 2) {
+        return tl::unexpected(AMP_ERROR(
+            ErrorFlag::InvalidData, "GazeDetectionParser: yaw tensor must have 2 dimensions"));
+    }
+    if (input.tensors[1]->getShape().dimensionCount != 2) {
+        return tl::unexpected(AMP_ERROR(
+            ErrorFlag::InvalidData, "GazeDetectionParser: pitch tensor must have 2 dimensions"));
+    }
 
-    assert(input.tensors[0]->getShape().valueCount[0] == 1);
-    assert(input.tensors[0]->getShape().valueCount[1] == 90);
-    assert(input.tensors[1]->getShape().valueCount[0] == 1);
-    assert(input.tensors[1]->getShape().valueCount[1] == 90);
+    // Validate tensor dimensions: [1, 90].
+    if (input.tensors[0]->getShape().valueCount[0] != 1 ||
+        input.tensors[0]->getShape().valueCount[1] != 90) {
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData, "GazeDetectionParser: yaw tensor shape must be [1, 90]"));
+    }
+    if (input.tensors[1]->getShape().valueCount[0] != 1 ||
+        input.tensors[1]->getShape().valueCount[1] != 90) {
+        return tl::unexpected(AMP_ERROR(
+            ErrorFlag::InvalidData, "GazeDetectionParser: pitch tensor shape must be [1, 90]"));
+    }
 
     float yaw = 0.0f, yawConf = 0.0f;
     float pitch = 0.0f, pitchConf = 0.0f;

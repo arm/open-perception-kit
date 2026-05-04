@@ -6,7 +6,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cassert>
 #include <cmath>
 #include <fmt/core.h>
 
@@ -31,7 +30,10 @@ std::array<float, 2> softmax2(const amp::TensorView &tensor) {
 
 amp::Result<void> CameraContactParser::parse(const amp::TensorParser::Input &input,
                                              amp::Perception::Layer &detectionResult) {
-    assert(input.tensors[0]);
+    if (!input.tensors[0]) {
+        return tl::unexpected(AMP_ERROR(
+            amp::ErrorFlag::InvalidData, "CameraContactParser: input tensor is null"));
+    }
 
     const auto &tensor = *input.tensors[0];
     const auto shape = tensor.getShape();
