@@ -19,7 +19,7 @@
     "ampinfer opchain-path=/work/config/models/rvm/opchain.json active=false !",
     "amptracker content-type=genericObject !",
     "ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
-    "amposd enabled=true !",
+    "amposd enabled=true bg-image=\"/work/data/images/woman.jpg\" !",
     "ampsink name=sink"
   ],
   "alternative-source-image": [
