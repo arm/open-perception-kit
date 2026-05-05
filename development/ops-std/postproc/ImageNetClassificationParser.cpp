@@ -18,6 +18,11 @@ using namespace amp;
 static void softmax(const std::span<float> input, std::span<float> output) {
 
     if (input.size() != output.size()) {
+        std::fill(output.begin(), output.end(), 0.0f);
+        return;
+    }
+
+    if (input.empty()) {
         return;
     }
 
