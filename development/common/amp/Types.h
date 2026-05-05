@@ -153,7 +153,7 @@ struct ImageLayoutDesc {
 
     size_t surfaceWidth = 0;
     size_t surfaceHeight = 0;
-    size_t surfacetride = 0; // in bytes, NOT USED YET, we assume tightly packed for now
+    size_t surfaceStride = 0; // in bytes, NOT USED YET, we assume tightly packed for now
 
     PixelRect rect;
 
