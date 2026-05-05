@@ -67,10 +67,10 @@
         },
         {
             "name": "AMP Debug for Colima (LLDB)",
-            "preLaunchTask": "99 Build for debugging",
+            "preLaunchTask": "00 Build Project",
             "type": "lldb",
             "request": "launch",
-            "program": "/work/scripts/amp-menu",
+            "program": "/work/tools/amp-menu",
             "args": [
                 "-l"
             ],
