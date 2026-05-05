@@ -45,7 +45,7 @@ RUN set -eux; \
 RUN set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-    valgrind; \
+  valgrind; \
   rm -rf /var/lib/apt/lists/*
 
 # Clean apt cache
@@ -174,13 +174,11 @@ RUN set -eux; \
   rm -rf /var/lib/apt/lists/*
 
 # Install Python dev tool dependencies into an image-owned virtual environment.
-COPY tools/lazer /tmp/amp-tools/lazer
 COPY tools/expkits-ci /tmp/amp-tools/expkits-ci
 COPY tools/plumber /tmp/amp-tools/plumber
 RUN set -eux; \
   uv venv --system-site-packages /opt/amp-venvs/devtools; \
   uv pip install --python /opt/amp-venvs/devtools/bin/python \
-  /tmp/amp-tools/lazer \
   /tmp/amp-tools/expkits-ci \
   /tmp/amp-tools/plumber; \
   rm -rf /tmp/amp-tools
@@ -235,7 +233,7 @@ RUN set -eux; \
   apt-get update; \
   # TODO: use key
   echo "deb [arch=arm64 trusted=yes] https://archive.raspberrypi.com/debian trixie main" \
-    > /etc/apt/sources.list.d/raspberrypi.list
+  > /etc/apt/sources.list.d/raspberrypi.list
 
 # Camera and graphics libraries
 RUN set -eux; \
