@@ -10,7 +10,8 @@
 namespace amp {
 
 /**
- * @brief Generic image tensor builder that dispatches conversion kernels by source/destination layout and type.
+ * @brief Generic image tensor builder that dispatches conversion kernels by source/destination
+ * layout and type.
  */
 struct GenericImageTensorBuilder : public amp::TensorBuilder {
 

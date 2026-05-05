@@ -186,11 +186,11 @@ validateParseInput(const amp::TensorParser::Input &input) {
     const size_t modelWidth = input.inferenceInfo.image.modelWidth;
     const size_t modelHeight = input.inferenceInfo.image.modelHeight;
     if (modelWidth == 0 || modelHeight == 0) {
-        return tl::unexpected(AMP_ERROR(
-            ErrorFlag::InvalidData,
-            fmt::format("UltraFaceParser: model dimensions must be > 0, got {}x{}",
-                        modelWidth,
-                        modelHeight)));
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("UltraFaceParser: model dimensions must be > 0, got {}x{}",
+                                  modelWidth,
+                                  modelHeight)));
     }
 
     if (modelWidth != 320 || modelHeight != 240) {
@@ -204,54 +204,54 @@ validateParseInput(const amp::TensorParser::Input &input) {
     const TensorView *scores = input.tensors[0];
     const TensorView *boxes = input.tensors[1];
     if (!scores || !boxes) {
-        return tl::unexpected(AMP_ERROR(
-            ErrorFlag::InvalidData, "UltraFaceParser: score and box tensors are required"));
+        return tl::unexpected(AMP_ERROR(ErrorFlag::InvalidData,
+                                        "UltraFaceParser: score and box tensors are required"));
     }
 
     const auto scoresShape = scores->getShape();
     const auto boxesShape = boxes->getShape();
     if (scoresShape.dimensionCount != 3) {
-        return tl::unexpected(AMP_ERROR(
-            ErrorFlag::InvalidData,
-            fmt::format("UltraFaceParser: scores tensor must be 3D, got {}D",
-                        scoresShape.dimensionCount)));
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("UltraFaceParser: scores tensor must be 3D, got {}D",
+                                  scoresShape.dimensionCount)));
     }
     if (boxesShape.dimensionCount != 3) {
-        return tl::unexpected(AMP_ERROR(
-            ErrorFlag::InvalidData,
-            fmt::format("UltraFaceParser: boxes tensor must be 3D, got {}D",
-                        boxesShape.dimensionCount)));
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("UltraFaceParser: boxes tensor must be 3D, got {}D",
+                                  boxesShape.dimensionCount)));
     }
     if (scoresShape.valueCount[0] != 1) {
-        return tl::unexpected(AMP_ERROR(
-            ErrorFlag::InvalidData,
-            fmt::format("UltraFaceParser: scores batch size must be 1, got {}",
-                        scoresShape.valueCount[0])));
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("UltraFaceParser: scores batch size must be 1, got {}",
+                                  scoresShape.valueCount[0])));
     }
     if (boxesShape.valueCount[0] != 1) {
-        return tl::unexpected(AMP_ERROR(
-            ErrorFlag::InvalidData,
-            fmt::format("UltraFaceParser: boxes batch size must be 1, got {}",
-                        boxesShape.valueCount[0])));
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("UltraFaceParser: boxes batch size must be 1, got {}",
+                                  boxesShape.valueCount[0])));
     }
     if (scoresShape.valueCount[2] != 2) {
-        return tl::unexpected(AMP_ERROR(
-            ErrorFlag::InvalidData,
-            fmt::format("UltraFaceParser: scores tensor last dimension must be 2, got {}",
-                        scoresShape.valueCount[2])));
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("UltraFaceParser: scores tensor last dimension must be 2, got {}",
+                                  scoresShape.valueCount[2])));
     }
     if (boxesShape.valueCount[2] != 4) {
-        return tl::unexpected(AMP_ERROR(
-            ErrorFlag::InvalidData,
-            fmt::format("UltraFaceParser: boxes tensor last dimension must be 4, got {}",
-                        boxesShape.valueCount[2])));
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("UltraFaceParser: boxes tensor last dimension must be 4, got {}",
+                                  boxesShape.valueCount[2])));
     }
     if (scoresShape.valueCount[1] != boxesShape.valueCount[1]) {
-        return tl::unexpected(AMP_ERROR(
-            ErrorFlag::InvalidData,
-            fmt::format("UltraFaceParser: score and box counts differ: {} vs {}",
-                        scoresShape.valueCount[1],
-                        boxesShape.valueCount[1])));
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("UltraFaceParser: score and box counts differ: {} vs {}",
+                                  scoresShape.valueCount[1],
+                                  boxesShape.valueCount[1])));
     }
 
     if (anchors.empty()) {
@@ -267,7 +267,8 @@ validateParseInput(const amp::TensorParser::Input &input) {
                         detectionCount)));
     }
 
-    return ValidatedUltraFaceInput{.scores = scores, .boxes = boxes, .detectionCount = detectionCount};
+    return ValidatedUltraFaceInput{
+        .scores = scores, .boxes = boxes, .detectionCount = detectionCount};
 }
 
 // ----------------------------------------------------------------------------

@@ -86,7 +86,7 @@ class Rectangle {
                      float height,
                      const amp::Color &color,
                      float thickness = 2.0f) {
-                cairo_new_path(layer.context);
+        cairo_new_path(layer.context);
         cairo_set_source_rgba(layer.context,
                               amp::Colors::getRedf(color),
                               amp::Colors::getGreenf(color),
@@ -102,7 +102,7 @@ class RectangleFilled {
   public:
     static void
     draw(Layer &layer, const Coordinate &pos, float width, float height, const amp::Color &color) {
-                cairo_new_path(layer.context);
+        cairo_new_path(layer.context);
         cairo_set_source_rgba(layer.context,
                               amp::Colors::getRedf(color),
                               amp::Colors::getGreenf(color),
@@ -146,8 +146,8 @@ class Circle {
                      float radius,
                      const amp::Color &color,
                      float thickness = 2.0f) {
-                // Start a fresh subpath so arcs do not connect to a previous current point.
-                cairo_new_sub_path(layer.context);
+        // Start a fresh subpath so arcs do not connect to a previous current point.
+        cairo_new_sub_path(layer.context);
         cairo_set_source_rgba(layer.context,
                               amp::Colors::getRedf(color),
                               amp::Colors::getGreenf(color),

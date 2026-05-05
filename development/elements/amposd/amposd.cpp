@@ -606,25 +606,24 @@ static std::unique_ptr<Osd::Layer> drawPerceptionLayer([[maybe_unused]] GstAmpOs
                                             : amp::Colors::fromStringOrDefault("#ff4444ff");
                 constexpr float fontSize = 64.0f;
 
-                cairo_select_font_face(layer->context, "monospace",
-                                       CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+                cairo_select_font_face(
+                    layer->context, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
                 cairo_set_font_size(layer->context, fontSize);
                 cairo_text_extents_t ex;
                 cairo_text_extents(layer->context, label.c_str(), &ex);
 
-                const float x = (imgWidth  - ex.width)  / 2.0f - ex.x_bearing;
+                const float x = (imgWidth - ex.width) / 2.0f - ex.x_bearing;
                 const float y = (imgHeight - ex.height) / 2.0f - ex.y_bearing;
 
                 uint64_t timeMs = amp::TsUtcNs() / 1000000U;
-                if(timeMs % 1000 < 800) {
+                if (timeMs % 1000 < 800) {
                     Osd::Text::draw(*layer,
-                                Osd::Coordinate(x, y),
-                                label,
-                                color,
-                                amp::Colors::fromStringOrDefault("#000000cc"),
-                                "monospace",
-                                fontSize);
-
+                                    Osd::Coordinate(x, y),
+                                    label,
+                                    color,
+                                    amp::Colors::fromStringOrDefault("#000000cc"),
+                                    "monospace",
+                                    fontSize);
                 }
             }
         }

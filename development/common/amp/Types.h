@@ -137,7 +137,9 @@ struct InferenceInfo {
 struct PixelRect {
     size_t x = 0, y = 0, width = 0, height = 0;
 
-    bool isEmpty() const { return width == 0 || height == 0; }
+    bool isEmpty() const {
+        return width == 0 || height == 0;
+    }
 
     bool fitsWithin(size_t surfaceWidth, size_t surfaceHeight) const {
         return x <= surfaceWidth && y <= surfaceHeight && width <= surfaceWidth - x &&
@@ -148,16 +150,16 @@ struct PixelRect {
 struct ImageLayoutDesc {
     uint8_t *data = nullptr;
     size_t byteCount = 0;
-    
+
     size_t surfaceWidth = 0;
     size_t surfaceHeight = 0;
     size_t surfacetride = 0; // in bytes, NOT USED YET, we assume tightly packed for now
 
     PixelRect rect;
-    
+
     DataKind kind = DataKind::Unknown;
     amp::Tdt type = amp::Tdt::Float32;
-    
+
     amp::Colorf mean = {0.0f, 0.0f, 0.0f, 0.0f};
     amp::Colorf std = {1.0f, 1.0f, 1.0f, 1.0f};
 
@@ -176,7 +178,9 @@ struct ImageLayoutDesc {
         }
     }
 
-    bool hasKnownImageStorage() const { return getChannelCount() != 0; }
+    bool hasKnownImageStorage() const {
+        return getChannelCount() != 0;
+    }
 
     bool rectIsFullSurface() const {
         return rect.x == 0 && rect.y == 0 && rect.width == surfaceWidth &&

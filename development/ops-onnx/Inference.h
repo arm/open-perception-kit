@@ -146,7 +146,8 @@ struct Inference {
 
     // Output tensor buffer pointers and shapes populated after inference().
     // Valid only until the next inference() call.
-    // Backend internal: use TensorView interface (via getOutputTensorDataAddress) for external access.
+    // Backend internal: use TensorView interface (via getOutputTensorDataAddress) for external
+    // access.
     const uint8_t *outputTensorPointers[amp::MaxTensorCount] = {nullptr};
     amp::Shape outputTensorFinalShapes[amp::MaxTensorCount];
 

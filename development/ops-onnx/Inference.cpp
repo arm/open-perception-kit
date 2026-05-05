@@ -241,10 +241,11 @@ amp::Result<void> Inference::inference() {
 
     if (false == model.useDynamicOutput) {
         if (api.outputTensorVector.size() > amp::MaxTensorCount) {
-            return tl::make_unexpected(AMP_ERROR(
-                amp::ErrorFlag::InvalidData,
-                fmt::format("Model output tensor count {} exceeds max supported {}",
-                            api.outputTensorVector.size(), amp::MaxTensorCount)));
+            return tl::make_unexpected(
+                AMP_ERROR(amp::ErrorFlag::InvalidData,
+                          fmt::format("Model output tensor count {} exceeds max supported {}",
+                                      api.outputTensorVector.size(),
+                                      amp::MaxTensorCount)));
         }
         for (size_t i = 0; i < api.outputTensorVector.size(); i++) {
             outputTensorPointers[i] = api.outputTensorVector[i].GetTensorData<uint8_t>();
@@ -254,7 +255,8 @@ amp::Result<void> Inference::inference() {
             return tl::make_unexpected(AMP_ERROR(
                 amp::ErrorFlag::InvalidData,
                 fmt::format("Model dynamic output tensor count {} exceeds max supported {}",
-                            dynamicOutputData.size(), amp::MaxTensorCount)));
+                            dynamicOutputData.size(),
+                            amp::MaxTensorCount)));
         }
         for (size_t i = 0; i < dynamicOutputData.size(); i++) {
             Ort::Value &v = dynamicOutputData[i];

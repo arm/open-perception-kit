@@ -143,7 +143,8 @@ amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChain
     }
 
     // setup preprocessed tensor data
-    setup.imageDestinationDesc.type = upcomingInferenceModel.inputs[inputImageTensorIndex].valueType;
+    setup.imageDestinationDesc.type =
+        upcomingInferenceModel.inputs[inputImageTensorIndex].valueType;
     setup.imageDestinationDesc.surfaceWidth = modelWidth;
     setup.imageDestinationDesc.surfaceHeight = modelHeight;
     setup.imageDestinationDesc.rect = {0, 0, modelWidth, modelHeight};

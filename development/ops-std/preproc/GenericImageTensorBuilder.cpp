@@ -20,19 +20,16 @@ amp::Result<void> amp::GenericImageTensorBuilder::build(const TensorBuilder::Set
                                 setup.imageDestinationDesc.rectIsFullSurface();
             if (isFull) {
                 amp::ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(
-                    setup.imageSourceDesc,
-                    setup.imageDestinationDesc);
+                    setup.imageSourceDesc, setup.imageDestinationDesc);
             } else {
                 amp::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(
-                    setup.imageSourceDesc,
-                    setup.imageDestinationDesc);
+                    setup.imageSourceDesc, setup.imageDestinationDesc);
             }
             didBuild = true;
         } else if (setup.imageSourceDesc.type == amp::Tdt::Uint8 &&
                    setup.imageDestinationDesc.type == amp::Tdt::Float16) {
-            amp::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(
-                setup.imageSourceDesc,
-                setup.imageDestinationDesc);
+            amp::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(setup.imageSourceDesc,
+                                                                      setup.imageDestinationDesc);
             didBuild = true;
         }
     }
@@ -41,21 +38,18 @@ amp::Result<void> amp::GenericImageTensorBuilder::build(const TensorBuilder::Set
         setup.imageDestinationDesc.kind == amp::DataKind::ImageRgbHwc) {
         if (setup.imageSourceDesc.type == amp::Tdt::Uint8 &&
             setup.imageDestinationDesc.type == amp::Tdt::Uint8) {
-            amp::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(
-                setup.imageSourceDesc,
-                setup.imageDestinationDesc);
+            amp::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(setup.imageSourceDesc,
+                                                                    setup.imageDestinationDesc);
             didBuild = true;
         } else if (setup.imageSourceDesc.type == amp::Tdt::Uint8 &&
                    setup.imageDestinationDesc.type == amp::Tdt::Float32) {
-            amp::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(
-                setup.imageSourceDesc,
-                setup.imageDestinationDesc);
+            amp::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(setup.imageSourceDesc,
+                                                                      setup.imageDestinationDesc);
             didBuild = true;
         } else if (setup.imageSourceDesc.type == amp::Tdt::Uint8 &&
                    setup.imageDestinationDesc.type == amp::Tdt::Float16) {
-            amp::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Hwc(
-                setup.imageSourceDesc,
-                setup.imageDestinationDesc);
+            amp::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Hwc(setup.imageSourceDesc,
+                                                                      setup.imageDestinationDesc);
             didBuild = true;
         }
     }
@@ -85,20 +79,17 @@ amp::Result<void> amp::GenericImageTensorBuilder::build(const TensorBuilder::Set
             const bool isFull = setup.imageSourceDesc.rectIsFullSurface() &&
                                 setup.imageDestinationDesc.rectIsFullSurface();
             if (isFull) {
-                amp::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Chw(
-                    setup.imageSourceDesc,
-                    setup.imageDestinationDesc);
+                amp::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Chw(setup.imageSourceDesc,
+                                                                        setup.imageDestinationDesc);
             } else {
-                amp::ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(
-                    setup.imageSourceDesc,
-                    setup.imageDestinationDesc);
+                amp::ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(setup.imageSourceDesc,
+                                                                        setup.imageDestinationDesc);
             }
             didBuild = true;
         } else if (setup.imageSourceDesc.type == amp::Tdt::Uint8 &&
                    setup.imageDestinationDesc.type == amp::Tdt::Float16) {
-            amp::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Chw(
-                setup.imageSourceDesc,
-                setup.imageDestinationDesc);
+            amp::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Chw(setup.imageSourceDesc,
+                                                                    setup.imageDestinationDesc);
             didBuild = true;
         }
     }
@@ -110,20 +101,17 @@ amp::Result<void> amp::GenericImageTensorBuilder::build(const TensorBuilder::Set
             const bool isFull = setup.imageSourceDesc.rectIsFullSurface() &&
                                 setup.imageDestinationDesc.rectIsFullSurface();
             if (isFull) {
-                amp::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Hwc(
-                    setup.imageSourceDesc,
-                    setup.imageDestinationDesc);
+                amp::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Hwc(setup.imageSourceDesc,
+                                                                        setup.imageDestinationDesc);
             } else {
-                amp::ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(
-                    setup.imageSourceDesc,
-                    setup.imageDestinationDesc);
+                amp::ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(setup.imageSourceDesc,
+                                                                        setup.imageDestinationDesc);
             }
             didBuild = true;
         } else if (setup.imageSourceDesc.type == amp::Tdt::Uint8 &&
                    setup.imageDestinationDesc.type == amp::Tdt::Float16) {
-            amp::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Hwc(
-                setup.imageSourceDesc,
-                setup.imageDestinationDesc);
+            amp::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Hwc(setup.imageSourceDesc,
+                                                                    setup.imageDestinationDesc);
             didBuild = true;
         }
     }

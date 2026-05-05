@@ -18,25 +18,25 @@ amp::Result<void> RvmParser::parse(const amp::TensorParser::Input &input,
                                    amp::Perception::Layer &detectionResult) {
 
     if (!input.tensors[0] || !input.tensors[1]) {
-        return tl::unexpected(AMP_ERROR(
-            ErrorFlag::InvalidData, "RvmParser: input tensors are null"));
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData, "RvmParser: input tensors are null"));
     }
 
     const auto shape = input.tensors[1]->getShape();
     if (shape.dimensionCount != 4) {
-        return tl::unexpected(AMP_ERROR(
-            ErrorFlag::InvalidData,
-            fmt::format("RvmParser: expected 4D tensor, got {}D", shape.dimensionCount)));
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("RvmParser: expected 4D tensor, got {}D", shape.dimensionCount)));
     }
     if (shape.valueCount[0] != 1) {
-        return tl::unexpected(AMP_ERROR(
-            ErrorFlag::InvalidData,
-            fmt::format("RvmParser: batch size must be 1, got {}", shape.valueCount[0])));
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("RvmParser: batch size must be 1, got {}", shape.valueCount[0])));
     }
     if (shape.valueCount[1] != 1) {
-        return tl::unexpected(AMP_ERROR(
-            ErrorFlag::InvalidData,
-            fmt::format("RvmParser: expected 1 channel, got {}", shape.valueCount[1])));
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("RvmParser: expected 1 channel, got {}", shape.valueCount[1])));
     }
 
     size_t maskHeight = shape.valueCount[2];

@@ -37,30 +37,31 @@ amp::Result<void> ImageNetClassificationParser::parse(const amp::TensorParser::I
                                                       amp::Perception::Layer &detectionResult) {
 
     if (!input.tensors[0]) {
-        return tl::unexpected(AMP_ERROR(
-            amp::ErrorFlag::InvalidData, "ImageNetClassificationParser: input tensor is null"));
+        return tl::unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData,
+                                        "ImageNetClassificationParser: input tensor is null"));
     }
 
     const auto shape = input.tensors[0]->getShape();
     if (shape.dimensionCount != 2U) {
-        return tl::unexpected(AMP_ERROR(
-            amp::ErrorFlag::InvalidData,
-            fmt::format("ImageNetClassificationParser: expected 2D tensor, got {}D",
-                       shape.dimensionCount)));
+        return tl::unexpected(
+            AMP_ERROR(amp::ErrorFlag::InvalidData,
+                      fmt::format("ImageNetClassificationParser: expected 2D tensor, got {}D",
+                                  shape.dimensionCount)));
     }
     if (shape.valueCount[0] != 1U) {
-        return tl::unexpected(AMP_ERROR(
-            amp::ErrorFlag::InvalidData,
-            fmt::format("ImageNetClassificationParser: batch size must be 1, got {}",
-                       shape.valueCount[0])));
+        return tl::unexpected(
+            AMP_ERROR(amp::ErrorFlag::InvalidData,
+                      fmt::format("ImageNetClassificationParser: batch size must be 1, got {}",
+                                  shape.valueCount[0])));
     }
 
     constexpr auto numClasses = Labels::getLabelCount(LabelType::ImageNet);
     if (numClasses != shape.valueCount[1]) {
-        return tl::unexpected(AMP_ERROR(
-            amp::ErrorFlag::InvalidData,
-            fmt::format("ImageNetClassificationParser: expected {} classes, got {}",
-                       numClasses, shape.valueCount[1])));
+        return tl::unexpected(
+            AMP_ERROR(amp::ErrorFlag::InvalidData,
+                      fmt::format("ImageNetClassificationParser: expected {} classes, got {}",
+                                  numClasses,
+                                  shape.valueCount[1])));
     }
 
     const int topK = input.attributes.getIntOrDefault("topK", 5);

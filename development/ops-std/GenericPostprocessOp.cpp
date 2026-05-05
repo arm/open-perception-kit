@@ -35,20 +35,19 @@ using ParserCreator = std::function<std::unique_ptr<amp::TensorParser>()>;
 
 #define REG_PARSER(name, cls) {#name, []() { return std::make_unique<cls>(); }},
 
-const std::map<std::string, ParserCreator>& getParserRegistry() {
+const std::map<std::string, ParserCreator> &getParserRegistry() {
     static const std::map<std::string, ParserCreator> registry = {
         // parser registration
         REG_PARSER(PaddleOcrDetectionParser, amp::PaddleOcrDetectionParser)
-        REG_PARSER(YoloParser, amp::YoloParser)
-        REG_PARSER(ImageNetClassificationParser, amp::ImageNetClassificationParser)
-        REG_PARSER(PersonClassificationParser, amp::PersonClassificationParser)
-        REG_PARSER(ObjectEmbeddingParser, amp::ObjectEmbeddingParser)
-        REG_PARSER(DummyParser, amp::DummyParser)
-        REG_PARSER(RvmParser, amp::RvmParser)
-        REG_PARSER(GazeDetectionParser, amp::GazeDetectionParser)
-        REG_PARSER(CameraContactParser, amp::CameraContactParser)
-        REG_PARSER(UltrafaceParser, amp::UltraFaceParser)
-        REG_PARSER(ModNetSegmentationParser, amp::ModNetSegmentationParser)
+            REG_PARSER(YoloParser, amp::YoloParser)
+                REG_PARSER(ImageNetClassificationParser, amp::ImageNetClassificationParser)
+                    REG_PARSER(PersonClassificationParser, amp::PersonClassificationParser)
+                        REG_PARSER(ObjectEmbeddingParser, amp::ObjectEmbeddingParser) REG_PARSER(
+                            DummyParser, amp::DummyParser) REG_PARSER(RvmParser, amp::RvmParser)
+                            REG_PARSER(GazeDetectionParser, amp::GazeDetectionParser)
+                                REG_PARSER(CameraContactParser, amp::CameraContactParser)
+                                    REG_PARSER(UltrafaceParser, amp::UltraFaceParser) REG_PARSER(
+                                        ModNetSegmentationParser, amp::ModNetSegmentationParser)
         // ... add new parsers here
     };
     return registry;
@@ -76,7 +75,7 @@ amp::Result<void> GenericPostprocessOp::configure(const amp::AttributeMap &attri
                                         fmt::format("No 'parser' attribute in postprocessor op")));
     }
 
-    const auto& registry = getParserRegistry();
+    const auto &registry = getParserRegistry();
     auto it = registry.find(parser);
     if (it == registry.end()) {
         return tl::unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData,

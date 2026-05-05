@@ -20,15 +20,15 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageLayoutDesc 
     size_t srcWidth = src.surfaceWidth;
     size_t srcHeight = src.surfaceHeight;
     const PixelRect &srcRect = src.rect;
-    
+
     float *dstPtr = (float *)dst.data;
     size_t dstWidth = dst.surfaceWidth;
     size_t dstHeight = dst.surfaceHeight;
     const PixelRect &dstRect = dst.rect;
-    
+
     const Colorf &mean = src.mean;
     const Colorf &std = src.std;
-    
+
     if (!srcPtr || !dstPtr)
         return false;
 
@@ -117,12 +117,12 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(const ImageLayoutDesc &s
     size_t srcWidth = src.surfaceWidth;
     size_t srcHeight = src.surfaceHeight;
     const PixelRect &srcRect = src.rect;
-    
+
     uint8_t *dstPtr = (uint8_t *)dst.data;
     size_t dstWidth = dst.surfaceWidth;
     size_t dstHeight = dst.surfaceHeight;
     const PixelRect &dstRect = dst.rect;
-    
+
     if (!srcPtr || !dstPtr)
         return false;
 
@@ -163,15 +163,15 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(const ImageLayoutDesc 
     size_t srcWidth = src.surfaceWidth;
     size_t srcHeight = src.surfaceHeight;
     const PixelRect &srcRect = src.rect;
-    
+
     Float16 *dstPtr = (Float16 *)dst.data;
     size_t dstWidth = dst.surfaceWidth;
     size_t dstHeight = dst.surfaceHeight;
     const PixelRect &dstRect = dst.rect;
-    
+
     const Colorf &mean = src.mean;
     const Colorf &std = src.std;
-    
+
     if (!srcPtr || !dstPtr)
         return false;
 
@@ -261,15 +261,15 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(const ImageLayoutDesc 
     size_t srcWidth = src.surfaceWidth;
     size_t srcHeight = src.surfaceHeight;
     const PixelRect &srcRect = src.rect;
-    
+
     float *dstPtr = (float *)dst.data;
     size_t dstWidth = dst.surfaceWidth;
     size_t dstHeight = dst.surfaceHeight;
     const PixelRect &dstRect = dst.rect;
-    
+
     const Colorf &mean = src.mean;
     const Colorf &std = src.std;
-    
+
     if (!srcPtr || !dstPtr)
         return false;
 
@@ -338,15 +338,15 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Hwc(const ImageLayoutDesc 
     size_t srcWidth = src.surfaceWidth;
     size_t srcHeight = src.surfaceHeight;
     const PixelRect &srcRect = src.rect;
-    
+
     Float16 *dstPtr = (Float16 *)dst.data;
     size_t dstWidth = dst.surfaceWidth;
     size_t dstHeight = dst.surfaceHeight;
     const PixelRect &dstRect = dst.rect;
-    
+
     const Colorf &mean = src.mean;
     const Colorf &std = src.std;
-    
+
     if (!srcPtr || !dstPtr)
         return false;
 
@@ -464,12 +464,12 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(const ImageLayoutDesc &s
     size_t srcWidth = src.surfaceWidth;
     size_t srcHeight = src.surfaceHeight;
     const PixelRect &srcRect = src.rect;
-    
+
     float *dstPtr = (float *)dst.data;
     size_t dstWidth = dst.surfaceWidth;
     size_t dstHeight = dst.surfaceHeight;
     const PixelRect &dstRect = dst.rect;
-    
+
     if (!srcPtr || !dstPtr)
         return false;
 
@@ -526,11 +526,11 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Hwc(const ImageLayoutDesc &s
     const uint8_t *srcPtr = src.data;
     size_t srcWidth = src.surfaceWidth;
     size_t srcHeight = src.surfaceHeight;
-    
+
     Float16 *dstPtr = (Float16 *)dst.data;
     size_t dstWidth = dst.surfaceWidth;
     size_t dstHeight = dst.surfaceHeight;
-    
+
     if (!srcPtr || !dstPtr)
         return false;
 
@@ -579,11 +579,11 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Chw(const ImageLayoutDesc &s
     const uint8_t *srcPtr = src.data;
     size_t srcWidth = src.surfaceWidth;
     size_t srcHeight = src.surfaceHeight;
-    
+
     Float16 *dstPtr = (Float16 *)dst.data;
     size_t dstWidth = dst.surfaceWidth;
     size_t dstHeight = dst.surfaceHeight;
-    
+
     if (!srcPtr || !dstPtr)
         return false;
 
@@ -627,12 +627,12 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(const ImageLayoutDesc &s
     size_t srcWidth = src.surfaceWidth;
     size_t srcHeight = src.surfaceHeight;
     const PixelRect &srcRect = src.rect;
-    
+
     float *dstPtr = (float *)dst.data;
     size_t dstWidth = dst.surfaceWidth;
     size_t dstHeight = dst.surfaceHeight;
     const PixelRect &dstRect = dst.rect;
-    
+
     if (!srcPtr || !dstPtr)
         return false;
 
@@ -674,4 +674,3 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(const ImageLayoutDesc &s
 
     return true;
 }
-

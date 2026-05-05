@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+################################################################
+# Copyright (C) 2025 Arm Limited. All rights reserved.
+################################################################
+
 set -euo pipefail
 
 WORK_DIR="/work"

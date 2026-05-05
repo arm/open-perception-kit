@@ -6,12 +6,11 @@
 
 #include <algorithm>
 #include <cstdarg>
+#include <cstdint>
 #include <cstring>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <cstdint>
-
 
 namespace amp {
 

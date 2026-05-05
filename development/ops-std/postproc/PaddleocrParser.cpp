@@ -20,22 +20,22 @@ amp::Result<void> PaddleOcrDetectionParser::parse(const amp::TensorParser::Input
     const float gamma = (float)input.attributes.getDoubleOrDefault("gamma", 0.5f);
 
     if (!input.tensors[0]) {
-        return tl::unexpected(AMP_ERROR(
-            ErrorFlag::InvalidData, "PaddleOcrDetectionParser: input tensor is null"));
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData, "PaddleOcrDetectionParser: input tensor is null"));
     }
 
     const auto shape = input.tensors[0]->getShape();
     if (shape.dimensionCount != 4) {
-        return tl::unexpected(AMP_ERROR(
-            ErrorFlag::InvalidData,
-            fmt::format("PaddleOcrDetectionParser: expected 4D tensor, got {}D",
-                       shape.dimensionCount)));
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("PaddleOcrDetectionParser: expected 4D tensor, got {}D",
+                                  shape.dimensionCount)));
     }
     if (shape.valueCount[1] != 1) {
-        return tl::unexpected(AMP_ERROR(
-            ErrorFlag::InvalidData,
-            fmt::format("PaddleOcrDetectionParser: expected 1 channel, got {}",
-                       shape.valueCount[1])));
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("PaddleOcrDetectionParser: expected 1 channel, got {}",
+                                  shape.valueCount[1])));
     }
 
     const size_t maskHeight = shape.valueCount[2];

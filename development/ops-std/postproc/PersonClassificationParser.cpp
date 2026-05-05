@@ -15,29 +15,29 @@ amp::Result<void> PersonClassificationParser::parse(const amp::TensorParser::Inp
                                                     amp::Perception::Layer &detectionResult) {
 
     if (!input.tensors[0]) {
-        return tl::unexpected(AMP_ERROR(
-            ErrorFlag::InvalidData, "PersonClassificationParser: input tensor is null"));
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData, "PersonClassificationParser: input tensor is null"));
     }
 
     const auto shape = input.tensors[0]->getShape();
     if (shape.dimensionCount != 2) {
-        return tl::unexpected(AMP_ERROR(
-            ErrorFlag::InvalidData,
-            fmt::format("PersonClassificationParser: expected 2D tensor, got {}D",
-                       shape.dimensionCount)));
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("PersonClassificationParser: expected 2D tensor, got {}D",
+                                  shape.dimensionCount)));
     }
 
     if (shape.valueCount[0] != 1) {
-        return tl::unexpected(AMP_ERROR(
-            ErrorFlag::InvalidData,
-            fmt::format("PersonClassificationParser: batch size must be 1, got {}",
-                       shape.valueCount[0])));
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("PersonClassificationParser: batch size must be 1, got {}",
+                                  shape.valueCount[0])));
     }
     if (shape.valueCount[1] != 2) {
-        return tl::unexpected(AMP_ERROR(
-            ErrorFlag::InvalidData,
-            fmt::format("PersonClassificationParser: expected 2 classes, got {}",
-                       shape.valueCount[1])));
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("PersonClassificationParser: expected 2 classes, got {}",
+                                  shape.valueCount[1])));
     }
 
     const float rawNo = input.tensors[0]->get(0);
