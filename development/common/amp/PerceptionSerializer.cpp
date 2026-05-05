@@ -258,6 +258,7 @@ void to_json(json &j, const Perception::Layer &l) {
         {"tags", l.tags},
         {"labelFamily", l.labelFamily},
         {"contentType", l.contentType},
+        {"compositingMode", l.compositingMode},
         {"detections", l.detections},
         {"infer-id", l.inferElementId},
     };

@@ -49,6 +49,7 @@ amp::Result<void> RvmParser::parse(const amp::TensorParser::Input &input,
     }
 
     detectionResult.contentType = "segmentation";
+    detectionResult.compositingMode = "backgroundReplacement";
 
     return {};
 }
