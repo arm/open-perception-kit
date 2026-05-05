@@ -29,7 +29,7 @@ Although not complete, a check script can help the user determine whether the pr
 
 Install:
 - Git
-- Docker Desktop
+- Docker Desktop (for Colima see [Colima Mac Installation](colima-mac.md))
 - Visual Studio Code
 - VS Code Dev Containers extension
 
