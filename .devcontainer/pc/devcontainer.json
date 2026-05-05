@@ -36,8 +36,7 @@
         "ms-python.autopep8",
         "cheshirekow.cmake-format",
         "mkhl.shfmt",
-        "jebbs.plantuml",
-        "SonarSource.sonarlint-vscode"
+        "jebbs.plantuml"
       ],
       "settings": {
         "python.defaultInterpreterPath": "/work/tools/.venv/bin/python"

@@ -48,11 +48,5 @@
     "[python]": {
         "editor.defaultFormatter": "ms-python.autopep8"
     },
-    "testMate.cpp.test.executables": "development/build/**/*{test,Test,TEST}*",
-
-    "sonarlint.pathToCompileCommands": "${workspaceFolder}/development/build/compile_commands.json",
-    "sonarlint.connectedMode.project": {
-        "connectionId": "ArmSonar",
-        "projectKey": "LinuxVisionKitAmp_3PIaCH2mDmayKH"
-    }
+    "testMate.cpp.test.executables": "development/build/**/*{test,Test,TEST}*"
 }
