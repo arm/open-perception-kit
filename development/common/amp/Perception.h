@@ -88,8 +88,8 @@ struct Perception {
 
     // a simple yes/no classification for person presence
     struct PersonClassification : public Object {
-        float yesConfidence = 0.0;
-        float noConfidence = 0.0;
+        float yesConfidence = 0.0f;
+        float noConfidence = 0.0f;
     };
 
     // track history trace (e.g. fading trail for tracked objects)
