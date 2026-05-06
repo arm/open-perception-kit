@@ -111,6 +111,17 @@ struct ImageOps {
                                                          Sampling sampling = Sampling::Nearest);
 
     /**
+     * @brief Stretch-blits RGB8 CHW source rect into RGB float16 HWC destination rect.
+     * @param src Source descriptor (RGB8 CHW).
+     * @param dst Destination descriptor (RGB float16 HWC).
+     * @param sampling Sampling mode used during resize.
+     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     */
+    static bool StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Hwc(const ImageLayoutDesc &src,
+                                                         const ImageLayoutDesc &dst,
+                                                         Sampling sampling = Sampling::Nearest);
+
+    /**
      * @brief Stretch-blits RGB8 CHW full-frame input into RGB float32 HWC full-frame output.
      * @param src Source descriptor (RGB8 CHW, full-frame rect expected).
      * @param dst Destination descriptor (RGB float32 HWC, full-frame rect expected).
@@ -140,6 +151,17 @@ struct ImageOps {
      * @return true on success, false on invalid pointers or out-of-bounds rects.
      */
     static bool StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(const ImageLayoutDesc &src,
+                                                         const ImageLayoutDesc &dst,
+                                                         Sampling sampling = Sampling::Nearest);
+
+    /**
+     * @brief Stretch-blits RGB8 CHW source rect into RGB float16 CHW destination rect.
+     * @param src Source descriptor (RGB8 CHW).
+     * @param dst Destination descriptor (RGB float16 CHW).
+     * @param sampling Sampling mode used during resize.
+     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     */
+    static bool StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Chw(const ImageLayoutDesc &src,
                                                          const ImageLayoutDesc &dst,
                                                          Sampling sampling = Sampling::Nearest);
 

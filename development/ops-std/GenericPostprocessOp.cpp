@@ -33,27 +33,28 @@ namespace {
 
 using ParserCreator = std::function<std::unique_ptr<amp::TensorParser>()>;
 
-#define REG_PARSER(name, cls) {#name, []() { return std::make_unique<cls>(); }},
+template <class T> ParserCreator make() {
+    return []() { return std::make_unique<T>(); };
+}
 
+// parser registry
 const std::map<std::string, ParserCreator> &getParserRegistry() {
     static const std::map<std::string, ParserCreator> registry = {
-        // parser registration
-        REG_PARSER(PaddleOcrDetectionParser, amp::PaddleOcrDetectionParser)
-            REG_PARSER(YoloParser, amp::YoloParser)
-                REG_PARSER(ImageNetClassificationParser, amp::ImageNetClassificationParser)
-                    REG_PARSER(PersonClassificationParser, amp::PersonClassificationParser)
-                        REG_PARSER(ObjectEmbeddingParser, amp::ObjectEmbeddingParser) REG_PARSER(
-                            DummyParser, amp::DummyParser) REG_PARSER(RvmParser, amp::RvmParser)
-                            REG_PARSER(GazeDetectionParser, amp::GazeDetectionParser)
-                                REG_PARSER(CameraContactParser, amp::CameraContactParser)
-                                    REG_PARSER(UltrafaceParser, amp::UltraFaceParser) REG_PARSER(
-                                        ModNetSegmentationParser, amp::ModNetSegmentationParser)
+        {"CameraContactParser", make<amp::CameraContactParser>()},
+        {"DummyParser", make<amp::DummyParser>()},
+        {"GazeDetectionParser", make<amp::GazeDetectionParser>()},
+        {"ImageNetClassificationParser", make<amp::ImageNetClassificationParser>()},
+        {"ModNetSegmentationParser", make<amp::ModNetSegmentationParser>()},
+        {"ObjectEmbeddingParser", make<amp::ObjectEmbeddingParser>()},
+        {"PaddleOcrDetectionParser", make<amp::PaddleOcrDetectionParser>()},
+        {"PersonClassificationParser", make<amp::PersonClassificationParser>()},
+        {"RvmParser", make<amp::RvmParser>()},
+        {"UltrafaceParser", make<amp::UltraFaceParser>()},
+        {"YoloParser", make<amp::YoloParser>()},
         // ... add new parsers here
     };
     return registry;
 }
-
-#undef REG_PARSER
 
 } // namespace
 
