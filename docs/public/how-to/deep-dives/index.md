@@ -3,55 +3,89 @@ sidebar_position: 1
 sidebar_label: How-To
 ---
 
-# AMP Development Forge How-To
+# Deep dive
 
 This is the deep-dive setup and usage guide.
 
-If you only want the shortest path to a first run, use the platform quick-guide pages instead.
+If you only want the shortest path to a first run, use the platform quick guide pages instead.
 If you want the fuller setup path and the next documentation hub after this tutorial, continue from here to [Engineering starting point](engineering.md).
+
+## Terminology
+
+* host - windows+WSL/Linux/mac PC
+* host side container - containerized environment on the windows+WSL/Linux/mac PC host
+* remote host - Raspberry Pi is the only supported remote host as of now.
+* remote host container - containerized environment on the RPi host
+* target - Only applicable during deployment when from a host (windows+WSL/Linux/mac PC) we deploy the container onto the target(Raspberry Pi at the moment)
 
 ## What will you learn from this documentation?
 
 If you follow this guide successfully, you will learn how to:
 
-- prepare a supported host or Raspberry Pi target for AMP
+- prepare a supported host or remote host for AMP
 - clone the repository and open it in the expected container workflow
-- build the project, run `amp-menu`, and start a first pipeline
+- build the project, use the VS Code tasks or `amp-menu`, and start a first pipeline
 - find the published endpoints and continue into the next engineering-focused documents
 
 At the end of this guide, you should have a working AMP environment on your desk, a first pipeline running, and a clear path to the next deep-dive topics.
 
 ## Quick Overview
-- **Goal:** Get AMP running locally or on a Raspberry Pi target
+- **Goal:** Get AMP running on a host or remote host
 - **You'll need:** Docker, VS Code, Git, and an SSH key
 - **Recommended first run:** ONNX pipeline
 
 **Steps:**
 1. [Clone the AMP repository](#clone-the-repository)
-2. [Install dependencies](#host-side-dependencies)
+2. [Install dependencies](#prerequisites)
 3. [Open and build the project](#open-and-start-the-project) or [deploy with Topo](topo.md)
 
 ---
 
 ### Clone the repository
 For PC development, clone the repository on your host.
-For on-device Raspberry Pi 5 development, clone the repository after setting up SSH successfully.
-Alternatively you can develop on your PC and deploy to the target with Topo.
+For on-device Raspberry Pi 5 development, clone the repository on the remote host after setting up SSH successfully.
+Alternatively you can develop on your host and deploy to the target with Topo.
+![AMP Development Forge repository root](../../../static/img/02-repo-root.png)
+
+If you need a source archive instead of a Git clone, use the release page and download the compressed source package.
+
+![GitHub release page showing the source code download](../../../static/img/01-repo-compressed.png)
+
+Replace `<version>` with the release tag you want to use, for example `v0.1.0`.
+
+Download and extract the ZIP archive:
+
+```bash
+# If unzip is missing on a Debian-based system:
+sudo apt-get install -y unzip
+
+unzip amp-dev-forge-${VERSION}.zip
+mv amp-dev-forge-${VERSION} amp-dev-forge
+cd amp-dev-forge
+```
+
+If you use the archive path, continue from the next step after `cd amp-dev-forge`.
+
+To clone with Git instead, use:
 
 ```bash
 git clone git@github.com:Arm-Debug/amp-dev-forge.git
 cd amp-dev-forge
 ```
 
-## Host side dependencies
+![Terminal output after cloning the repository](../../../static/img/03-repo-clone.png)
 
-We currently support four targets: Windows with WSL, Linux, macOS, and Raspberry Pi 5.
-Install the required tools on your host for the target you plan to use.
+## Prerequisites
+
+We currently support four hosts: Windows with WSL, Linux, macOS, and Raspberry Pi 5.
+Install the required tools on your host in order to use the project.
+
+Although not complete, a check script can help the user determine whether the prerequisites are met: "./scripts/pre-req.sh"
 
 > Besides the listed dependencies, additional tools are installed inside the development or deployment container.
 Working directly on the host outside the container is not well supported at the moment. The project assumes container-managed dependencies.
 
-### Windows+WSL
+### Windows with WSL
    * [WSL](https://learn.microsoft.com/en-us/windows/wsl/install)
    * [Git](https://git-scm.com/install/)
    * [Docker Desktop](https://www.docker.com/products/docker-desktop/)
@@ -73,29 +107,32 @@ sudo apt-get update
 sudo apt-get install -y git docker.io code v4l-utils
 ```
 
-### Mac
+### macOS
    * [Git](https://git-scm.com/install/)
    * [Docker Desktop](https://www.docker.com/products/docker-desktop/)
       * Colima is not tested at the moment due to networking issues.
    * [Visual Studio Code](https://code.visualstudio.com/download)
    * [VS Code Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
-   * [Remote development extension](https://code.visualstudio.com/docs/remote/ssh)
-      * The following permission shall be granted in Settings otherwise the remote connection will fail Privacy & Security -> Local Network : vscode
+   * [VS Code Remote SSH extension](https://code.visualstudio.com/docs/remote/ssh), if you connect to a Raspberry Pi
+      * Grant VS Code local network access in **Settings -> Privacy & Security -> Local Network**, otherwise the remote connection may fail.
 
 ### Raspberry Pi 5
+   * **VS Code Remote SSH extension on the host**
+   * **VS Code Dev Containers extension on the host**
    * **Docker**
    * **Camera packages**
-   * **Hailo 8 or Hailo 10 host stack**, depending on the target
+   * **Hailo 8 or Hailo 10 host stack**, depending on the accelerator path
    * **v4l-utils**
-   * [Required device and required packages on the target](rpi5.md)
+   * **Follow the specific [Required device and required packages on the remote host](rpi5.md) description to set up the raspberry pi host **
    * [Setup SSH connection](#ssh-setup)
 
-Use `RPI5 H8 amp-dev-forge` for the Hailo 8 / AI HAT+ path.
-Use `RPI5 H10 amp-dev-forge` for the Hailo 10 / AI HAT+ 2 path.
-The Hailo 10 container expects the host-side Hailo 10 driver stack to already be installed.
+Use `RPI5 H8 amp-dev-forge` for the Hailo 8 AI HAT path.
+Use `RPI5 H10 amp-dev-forge` for the supported Hailo 10 accelerator path.
+The Hailo 10 remote host container expects the Hailo 10 driver stack to already be installed on the remote host.
+The primary supported Hailo AI HAT path is Hailo 8. Older Hailo 8L hardware may also work, but Hailo 8 and Hailo 8L compiled model files are not interchangeable.
 
 ### SSH setup
-Before starting the DevContainer, ensure that the `ssh-agent` is running and that your GitHub private key has been added to it.
+Before starting the host side container or remote host container, ensure that the `ssh-agent` is running and that your GitHub private key has been added to it.
 This can be done in several ways depending on your operating system. The setup for Linux and macOS is as follows:
 
 ```bash
@@ -113,26 +150,42 @@ ssh-add [private_key_filename]
 
 For further information and a detailed tutorial check out the following tutorial: [Generating a new SSH key and adding it to the ssh-agent](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent)
 
+For Raspberry Pi access, enable SSH during imaging when possible. During first setup, keep password authentication enabled in `/etc/ssh/sshd_config`:
+
+```ini
+PasswordAuthentication yes
+```
+
+If SSH or `raspberrypi.local` is unreliable, see [Troubleshooting](troubleshooting.md#raspberry-pi-ssh-and-mdns).
+
 ---
 
 ## Open and start the project
-The project is meant to run inside a container either as a devcontainer on your PC, a devcontainer on your Raspberry Pi or deployment container with topo.
+The project is meant to run inside a container: either a host side container on your host, a remote host container on your remote host, or a deployment container with Topo.
 
 ### Open AMP with VS Code
+Open the cloned repository folder in VS Code first. Use **File -> Open Folder...**, or run `code .` from the repository root if the `code` command is available in your shell path.
+
+![VS Code opened in the AMP repository](../../../static/img/04-starting-point-vscode.png)
+
 * Open command palette:
   - Windows/Linux: Ctrl+Shift+P
   - macOS: Cmd+Shift+P
 * Then select `Dev Containers: Reopen in Container`. A popup will appear.
    - For PC development choose "PC amp-dev-forge"
-   - For Raspberry Pi on-device Hailo 8 / AI HAT+ development choose `RPI5 H8 amp-dev-forge`
-   - For Raspberry Pi on-device Hailo 10 / AI HAT+ 2 development choose `RPI5 H10 amp-dev-forge`
-* After a successful container build, every dependency, pre-commit hook, and device should be ready to use inside the Dev Container.
+   - For Raspberry Pi on-device Hailo 8 development choose `RPI5 H8 amp-dev-forge`
+   - For Raspberry Pi on-device Hailo 10 development choose `RPI5 H10 amp-dev-forge`
+* After a successful container build, every dependency, pre-commit hook, and device should be ready to use inside the selected container.
 
-![VS Code command palette showing Reopen in Container](../../../static/img/vscode-reopen-in-container.png)
+![VS Code command palette showing Reopen in Container](../../../static/img/05-reopen-in-container.png)
 
-![VS Code Dev Container selection dialog](../../../static/img/vscode-reopen-in-container2.png)
+![VS Code container selection dialog](../../../static/img/06-reopen-in-container2.png)
 
-On Raspberry Pi, `.devcontainer/platform_init.sh` runs on the host before container creation and generates the camera, audio, NPU, and shared-memory passthrough overrides for the selected service.
+Open a new terminal inside VS Code after the container is ready. The prompt should show that you are working inside the container workspace.
+
+![VS Code terminal opened inside the selected container](../../../static/img/07-in-container-new-console.png)
+
+On the remote host, `.devcontainer/platform_init.sh` runs before container creation and generates the camera, audio, NPU, and shared-memory passthrough overrides for the selected service.
 
 ### Known Container issues
 * If a required port is already reserved, the development or deployment container will not start.
@@ -141,21 +194,24 @@ On Raspberry Pi, `.devcontainer/platform_init.sh` runs on the host before contai
 ### Build AMP
 - Open the Command Palette and run `Tasks: Run Task`, or use **Terminal -> Run Task...**
 - **00 Build Project**: Builds all elements (default).
-   - Before build, a popup should appear.
-   - You will be prompted to choose `debug` or `release`. Use `debug` if unsure.
 - **01 Clean Project**: Cleans build artifacts.
 - **02 Build Tests**: Builds with tests enabled.
 - **03 Run Tests**: Runs all tests.
 
-![VS Code task picker showing 00 Build Project](../../../static/img/vsc-task-build.png)
-
-![VS Code build type picker showing debug and release](../../../static/img/vscode-task-build2.png)
+![VS Code build task for AMP](../../../static/img/08-build-project.png)
 
 ### Start AMP
 
 After a successful build, `amp-menu` will be created in the `tools` folder. This tool serves as the project entry point and simplifies GStreamer pipeline creation.
 
-- Run the menu:
+Prefer the VS Code tasks for routine launches:
+
+- **00 Run project with menu**: opens the interactive `amp-menu` pipeline list.
+- **00 Run project and select pipeline**: prompts for a pipeline and runs it directly.
+- **00 Run project with latest pipeline**: reruns the last selected pipeline.
+
+Alternatively, run the menu in a new terminal inside the active host side container or remote host container from the project root:
+
 ```bash
 ./tools/amp-menu
 ```
@@ -174,6 +230,8 @@ It includes the main integrated ONNX pipelines and models currently available in
 - The shipped demo presets usually register their `ampinfer` elements with `active=false`.
   After the UI opens, use the **AI Models** panel to enable the models you want to run.
 
+![AMP pipeline selection view](../../../static/img/09-select-pipeline.png)
+
 To stop a pipeline:
 - Windows/Linux: Ctrl + C  
 - macOS: Control + C  
@@ -184,27 +242,26 @@ Each pipeline's default source is an image, and the default sink is the `ampsink
 
 - `01-full-onnx.json` — integrated ONNX model pipelines on a still image
 - `02-full-onnx-hailo8.json` — integrated ONNX + Hailo 8 pipelines on a still image with ampsink video and optional audio sink
-- `03-full-onnx-hailo10.json` — integrated ONNX + Hailo 10 pipelines on a still image with ampsink video and optional audio sink
+- `03-full-onnx-hailo8l.json` — integrated ONNX + Hailo 8L pipelines on a still image with ampsink video and optional audio sink
+- `04-full-onnx-hailo10.json` — integrated ONNX + Hailo 10 pipelines on a still image with ampsink video and optional audio sink
 - `cam-connect.json` — camera-contact demo
 - `gaze-detection.json` — gaze-estimation demo
 - `tracker-pc.json` — ONNX tracking demo
-- `tracker-rpi.json` — Hailo 8 tracking demo
+- `tracker-rpi-hailo8.json` — Hailo 8 tracking demo
 
 ### Debug AMP
-- Use the "AMP Debug latest" configuration in VS Code (F5). This will run the latest selected pipeline. Before debugging, a popup should appear. Select the release or debug target you want to use.
-- Use the "AMP Debug selection" configuration in VS Code (F5). This will run the pipeline you select. Before debugging, a popup should appear. Select the release or debug target you want to use. Another popup will prompt you to select the specific pipeline you want to debug.
+- Use the "AMP Debug latest" configuration in VS Code (F5). This will run the latest selected pipeline. Before debugging, a popup should appear. Select the release or debug build variant you want to use.
+- Use the "AMP Debug selection" configuration in VS Code (F5). This will run the pipeline you select. Before debugging, a popup should appear. Select the release or debug build variant you want to use. Another popup will prompt you to select the specific pipeline you want to debug.
 
-![VS Code Run and Debug view showing AMP Debug latest](../../../static/img/vscode-debug.png)
+![VS Code Run and Debug view showing AMP Debug latest](../../../static/img/23-vscode-debug.png)
 
 ---
 
 ## Published Endpoints
 
-Open a new terminal in the Dev Container to see the available endpoints. When in doubt, the following endpoints apply.
+Open a new terminal in the active container to see the available endpoints. When in doubt, the following endpoints apply.
 
-- Disclaimer: Microsoft Edge, Firefox, or Safari are the suggested browsers for the AMP web UI. If the image is not visible in the browser on Windows
-   - Edge: open `edge://flags/`, find `#enable-webrtc-hide-local-ips-with-mdns`, and disable it.
-   - Firefox: `about:config`, find `media.peerconnection.ice.obfuscate_host_addresses`, and disable it.
+Microsoft Edge, Firefox, and Safari are the suggested browsers for the AMP web UI. If the UI opens but the video is black or unstable, see [Troubleshooting](troubleshooting.md#browser-and-webrtc-connection-issues).
 
 - [Raspberry AMP Web UI](http://raspberrypi.local:9999)
 - [Raspberry AMP Documentation](http://raspberrypi.local:8080)
@@ -213,9 +270,11 @@ Open a new terminal in the Dev Container to see the available endpoints. When in
 
 Once the UI is open, use the **AI Models** panel to enable the models you want to run and the **Controls** panel to toggle the performance overlay.
 
+![AMP browser UI after opening the web view](../../../static/img/10-browser-ui.png)
+
 - **Hostnames:**
    - `raspberrypi.local` (on Raspberry Pi)
-   - `localhost` (on your development machine)
+   - `localhost` (on your host)
 - **Ports:**
    - `9999` (AMP Web UI)
    - `8080` (Documentation)
@@ -223,31 +282,20 @@ Once the UI is open, use the **AI Models** panel to enable the models you want t
 
 ---
 
-## How to use a laptop's built-in webcam in WSL/Linux
+## Troubleshooting
 
- 1. (Only for WSL users) Forward camera input to WSL.
-    - Install [USBIPD](https://github.com/dorssel/usbipd-win/releases)
-    - (Optional) Install [WSL USB Manager](https://github.com/nickbeth/wsl-usb-manager/releases) to get a GUI for USBIPD
-    - Forward the camera to WSL by binding and attaching it with WSL USB Manager
-        - Note: If attaching the camera fails, then disable the device in the Device Manager. Windows sometimes starts to use the camera in background processes and it is hard to figure out which process reserved it.
- 2. Add the camera source to the pipeline and decode the stream before the models.
-    - Eg.:
-
-```json
-"v4l2src device=/dev/video0 ! \"image/jpeg,width=1280,height=720,framerate=60/1\"  !",
-"jpegdec !",
-```
+Browser, mDNS, SSH, empty `ssh` file, and camera-handling notes are collected in [Troubleshooting](troubleshooting.md).
 
 ## Scripts and applications in our repository
 Helper scripts can be found under the `scripts` folder. The root of that folder contains the scripts needed to build and run the project, while `scripts/private` contains helper scripts that are not normally used directly.
 
 Important scripts for usage:
-- `amp-menu`: Main launcher for pipelines and demos.
-- `build-elements.sh`: Build all GStreamer elements.
-- `docker-nuke.sh`: Stop and remove all Docker containers.
-- `serve-docs.sh`: Serve docusaurus documentation.
-- `serve-docs-plain.sh`: Serve plain HTML documentation locally from the Dev Container.
-- `gen-doc.sh`: Generate documentation.
+- `tools/amp-menu`: Main launcher for pipelines and demos. The VS Code run tasks call this for you.
+- `scripts/build-elements.sh`: Build all GStreamer elements. The **00 Build Project** task calls this for you.
+- `scripts/docker-nuke.sh`: Stop and remove all Docker containers.
+- `scripts/serve-docs.sh`: Serve docusaurus documentation.
+- `scripts/serve-docs-plain.sh`: Serve plain HTML documentation locally from the active container.
+- `scripts/gen-doc.sh`: Generate documentation.
 
 
 ## Quality checks
@@ -289,11 +337,11 @@ If you want to move from using the project to extending it, continue to [Enginee
 
 By the end of this guide, you should have:
 
-- a supported host or Raspberry Pi setup with the main prerequisites installed
+- a supported host setup with the main prerequisites installed
 - working Git and SSH access for cloning the repository
-- a working AMP Dev Container or Topo deployment path
+- a working host side container, remote host container, or Topo deployment path
 - a successful build of the runtime
-- `amp-menu` running and at least one pipeline started
+- at least one pipeline started through the VS Code task or `amp-menu`
 - access to the AMP UI and documentation endpoints
 
 Success looks like this: you can build AMP, launch a pipeline, open the published UI in a browser, and continue into the engineering guides without guessing the next step.

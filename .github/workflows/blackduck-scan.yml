@@ -31,6 +31,12 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -41,6 +47,8 @@ jobs:
           set -euo pipefail
           [[ -n "${BLACKDUCK_URL:-}" ]] || { echo "Missing BLACKDUCK_URL secret" >&2; exit 2; }
           [[ -n "${BLACKDUCK_TOKEN:-}" ]] || { echo "Missing BLACKDUCK_TOKEN secret" >&2; exit 2; }
+          [[ -n "${{ secrets.DOCKER_USER }}" ]] || { echo "Missing DOCKER_USER secret" >&2; exit 14; }
+          [[ -n "${{ secrets.DOCKER_TOKEN }}" ]] || { echo "Missing DOCKER_TOKEN secret" >&2; exit 15; }
           command -v docker >/dev/null 2>&1 || { echo "Docker is required on this runner" >&2; exit 12; }
           docker compose version >/dev/null 2>&1 || { echo "docker compose is required on this runner" >&2; exit 13; }
 
@@ -292,12 +300,12 @@ jobs:
               set -euo pipefail
               if [[ ! -d /work/deps/onnxruntime/include || ! -d /work/deps/onnxruntime/lib ]]; then
                 tmp_dir="$(mktemp -d)"
-                curl -fsSL "https://github.com/microsoft/onnxruntime/releases/download/v1.18.1/onnxruntime-linux-x64-1.18.1.tgz" \
+                curl -fsSL "https://github.com/microsoft/onnxruntime/releases/download/v1.24.4/onnxruntime-linux-x64-1.24.4.tgz" \
                   | tar -xzf - -C "$tmp_dir"
                 mkdir -p /work/deps/onnxruntime
                 rm -rf /work/deps/onnxruntime/include /work/deps/onnxruntime/lib
-                cp -r "$tmp_dir/onnxruntime-linux-x64-1.18.1/include" /work/deps/onnxruntime/
-                cp -r "$tmp_dir/onnxruntime-linux-x64-1.18.1/lib" /work/deps/onnxruntime/
+                cp -r "$tmp_dir/onnxruntime-linux-x64-1.24.4/include" /work/deps/onnxruntime/
+                cp -r "$tmp_dir/onnxruntime-linux-x64-1.24.4/lib" /work/deps/onnxruntime/
                 rm -rf "$tmp_dir"
               fi
 

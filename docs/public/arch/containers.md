@@ -22,14 +22,14 @@ The container executes the GStreamer pipeline, including inference workloads.
 - The same environment is used across Linux, macOS, Windows, Raspberry Pi 5, and other devices.
 - This eliminates host-specific configuration drift.
 
-The repository currently defines three main development targets:
+The repository currently defines three main container workflows:
 
-- `amp-dev-base` for the normal PC devcontainer workflow
-- `amp-dev-rpi5-h8` for Raspberry Pi 5 + Hailo 8 / AI HAT+ workflow
-- `amp-dev-rpi5-h10` for Raspberry Pi 5 + Hailo 10 / AI HAT+ 2 workflow
+- `amp-dev-base` for the normal host side container workflow
+- `amp-dev-rpi5-h8` for the Raspberry Pi 5 + Hailo 8 AI HAT workflow
+- `amp-dev-rpi5-h10` for the Raspberry Pi 5 + supported Hailo 10 accelerator workflow
 
-The PC container uses bridge networking with published ports.
-The Raspberry Pi containers use host networking so the web UI and docs are exposed directly on the Pi host.
+The host side container uses bridge networking with published ports.
+The remote host containers use host networking so the web UI and docs are exposed directly on the remote host.
 
 While containers provide reproducibility, they introduce runtime challenges:
 
@@ -41,7 +41,7 @@ While containers provide reproducibility, they introduce runtime challenges:
 
 ## Host-Side Device Passthrough
 
-Before a devcontainer starts, `.devcontainer/platform_init.sh` runs on the host.
+Before a host side container or remote host container starts, `.devcontainer/platform_init.sh` runs on the host or remote host.
 That script calls `scripts/private/dev-init.sh`, which generates the docker-compose override files used for:
 
 - camera passthrough
@@ -52,11 +52,11 @@ That script calls `scripts/private/dev-init.sh`, which generates the docker-comp
 The generated override filenames follow the selected container kind, for example `.devcontainer/docker-compose.devcont.video.yaml` and `.devcontainer/docker-compose.devcont.npu.yaml`.
 `devices.env` is generated alongside them so the selected service sees the matching host device environment.
 
-This means Raspberry Pi container setup is not only a static `Dockerfile` choice.
+This means remote host container setup is not only a static `Dockerfile` choice.
 It is a combination of:
 
-- the selected devcontainer service
-- host-side device discovery
+- the selected container service
+- host or remote host device discovery
 - generated docker-compose override files
 
 ## Raspberry Pi Hailo Split
@@ -66,8 +66,10 @@ The Raspberry Pi workflow is now split by accelerator generation.
 - `amp-dev-rpi5-h8` installs the Hailo 8-oriented user-space stack together with the camera packages used by the Pi pipelines.
 - `amp-dev-rpi5-h10` installs the Hailo 10 user-space stack together with the same camera packages.
 
+Hailo 8 and Hailo 8L compiled model files are not interchangeable. Use the Hailo 8L model folders and `03-full-onnx-hailo8l.json` preset only with Hailo 8L hardware.
+
 For the Hailo 10 path, the container intentionally does not install kernel driver packages.
-Those host-level packages, such as `h10-hailort-pcie-driver`, need to stay on the Raspberry Pi host because they depend on host kernel and module tooling.
+Those host-level packages, such as `h10-hailort-pcie-driver`, need to stay on the remote host because they depend on host kernel and module tooling.
 
 ---
 

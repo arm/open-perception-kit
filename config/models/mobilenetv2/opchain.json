@@ -1,5 +1,6 @@
 {
 	"name": "ImageNet",
+	"description": "Whole-frame ImageNet classifier.",
 	"ops": [
 		{
 			"id": "amp-std-ops/InferenceController",

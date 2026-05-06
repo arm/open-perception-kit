@@ -1,5 +1,6 @@
 {
     "name": "FullTrackingHailo",
+    "description": "Detector + ReID micropipeline for `amptracker` using Hailo 8-compiled models.",
     "ops": [
         {
             "id": "amp-std-ops/InferenceController",

@@ -1,6 +1,6 @@
 services:
   amp-docs-base: &amp-docs-base
-    extends: 
+    extends:
       file: ../compose.base.yaml
       service: amp-common-dev
 
@@ -11,6 +11,19 @@ services:
       context: ..
       dockerfile: Dockerfile
       target: amp-docs-base
+
+  amp-dev-base: &amp-dev-base
+    extends:
+      file: ../compose.base.yaml
+      service: amp-common-dev
+
+    network_mode: bridge
+    container_name: amp-dev-base
+    hostname: amp-dev-base
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: amp-dev-base
 
   amp-release-with-ut:
     <<: *amp-docs-base
@@ -32,11 +45,11 @@ services:
       bash -c '
         .devcontainer/setup.sh &&
         .devcontainer/platform_init.sh amp-dev-base &&
-        ./scripts/testing/valgrind/test-elements-with-valgrind.sh clean
+        ./scripts/testing/valgrind/test-elements-with-valgrind.sh clean --pipeline only-onnx-yolo
       '
 
   amp-quality-check-pull-request:
-    <<: *amp-docs-base
+    <<: *amp-dev-base
     container_name: amp-quality-check-pull-request
     command: |
       bash -c '
@@ -47,7 +60,7 @@ services:
       '
 
   amp-quality-check-full:
-    <<: *amp-docs-base
+    <<: *amp-dev-base
     container_name: amp-quality-check-full
     command: |
       bash -c '

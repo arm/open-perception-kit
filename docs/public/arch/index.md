@@ -16,7 +16,7 @@ execution model, and main GStreamer elements.
 - [Project overview](project-overview.md)
   High-level introduction, purpose, scope, and goals.
 
-- [Architecture](architectural-overview.md)
+- [Architecture overview](architectural-overview.md)
   Architectural overview of the system.
 
 - [Containers](containers.md)

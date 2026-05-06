@@ -1,5 +1,6 @@
 {
     "name": "OsnetX025Reid HAILO",
+    "description": "Hailo 8-compiled variant of the OsnetX0.25 Re-identification model.",
     "ops": [
         {
             "id": "amp-std-ops/InferenceController",

@@ -10,7 +10,7 @@ WORK_ROOT="$(cd -- "$SCRIPT_DIR/../../.." && pwd)"
 BUILD_SCRIPT="$WORK_ROOT/scripts/build-elements.sh"
 SHTOOLS_SCRIPT="$WORK_ROOT/scripts/private/shtools.sh"
 AMP_MENU="$WORK_ROOT/tools/amp-menu"
-TEST_PIPELINES_DIR="$WORK_ROOT/scripts/pipelines/testing"
+TEST_PIPELINES_DIR="$WORK_ROOT/config/pipelines/testing"
 LOG_DIR="$SCRIPT_DIR/logs"
 DEFAULT_SUPPRESSIONS_FILE="$SCRIPT_DIR/suppressed-warnings"
 
@@ -47,8 +47,8 @@ Options:
                  Enable verbose Valgrind output (adds --verbose to Valgrind arguments).
 
 Environment:
-  NUM_FRAMES                 Frames passed to amp-menu via -f (default: 30)
-  VALGRIND_ERROR_EXITCODE    Valgrind error exit code (default: 99)
+    NUM_FRAMES                 Number of frames to process from the default image (default value: 30)
+    VALGRIND_ERROR_EXITCODE    Valgrind error exit code (default: 99)
 
 EOF
 }
@@ -91,8 +91,10 @@ run_valgrind_all() {
         exit 1
     fi
 
-    # Ensure freshly built plugins are discoverable.
+    # Ensure freshly built plugins are discoverable and pipeline templates can
+    # resolve the configured frame count from the process environment.
     export GST_PLUGIN_PATH="$WORK_ROOT/development/build/meson-out${GST_PLUGIN_PATH:+:$GST_PLUGIN_PATH}"
+    export NUM_FRAMES="${NUM_FRAMES:-30}"
 
     local valgrind_args=(
         --leak-check=full
@@ -173,7 +175,7 @@ run_valgrind_all() {
         if valgrind \
             "${valgrind_args[@]}" \
             --log-file="$log_file.%p" \
-            "$AMP_MENU" -f "$NUM_FRAMES" "$pipeline"; then
+            "$AMP_MENU" "$pipeline"; then
             msg "PASSED: $pipeline"
             msg "Logs: $log_file.* (including child processes)"
         else

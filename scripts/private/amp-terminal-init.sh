@@ -62,7 +62,7 @@ if [[ -z "${AMP_TERMINAL_WELCOME_SHOWN:-}" ]]; then
     frame_line "Build cmd       ./scripts/build-elements.sh debug"
     frame_line "Build task      00 Build Project"
     frame_line "Launch cmd      /work/tools/amp-menu -l"
-    frame_line "Launch task     99 Launch Without Debug"
+    frame_line "Launch task     00 Run project with latest pipeline"
     frame_line "Docs gen        ./scripts/gen-doc.sh"
     frame_line "Docs serve      ./scripts/serve-docs.sh"
     frame_sep

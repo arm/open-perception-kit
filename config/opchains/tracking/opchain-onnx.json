@@ -1,5 +1,6 @@
 {
     "name": "FullTrackingOnnx",
+    "description": "Detector + ReID micropipeline for `amptracker`.",
     "ops": [
         {
             "id": "amp-std-ops/InferenceController",

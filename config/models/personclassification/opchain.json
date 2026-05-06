@@ -1,5 +1,6 @@
 {
 	"name": "PersonClassification",
+	"description": "Person classification model.",
 	"ops": [
 		{
 			"id": "amp-std-ops/InferenceController",

@@ -1,0 +1,17 @@
+{
+  "description": "Test the ONNX YOLO pipeline with a simple pipeline that decodes a JPEG image, runs inference on the YOLOv11 model, and sends the output to a fakesink.",
+  "pipeline": [
+    "filesrc location=/work/data/images/katana.jpg !",
+    "jpegdec !",
+    "imagefreeze num-buffers=${NUM_FRAMES:-30} !",
+    "videoconvert ! video/x-raw,format=BGRA,framerate=30/1 !",
+    "ampinfer opchain-path=/work/config/models/yolov11/opchain.json active=true !",
+    "ampinfer opchain-path=/work/config/models/ultraface/opchain.json active=true !",
+    "ampinfer opchain-path=/work/config/opchains/gaze-detection/opchain.json active=true !",
+    "ampinfer opchain-path=/work/config/models/mobilenetv2/opchain.json active=true !",
+    "ampinfer opchain-path=/work/config/models/osnet_x0_25/opchain.json active=true !",
+    "ampinfer opchain-path=/work/config/models/rvm/opchain.json active=true !",
+    "amptracker content-type=genericObject !",
+    "ampsink name=sink"
+  ]
+}

@@ -1,5 +1,6 @@
 {
     "name": "OsnetX025Reid",
+    "description": "Opchain for OsnetX0.25 Re-identification model.",
     "ops": [
         {
             "id": "amp-std-ops/InferenceController",

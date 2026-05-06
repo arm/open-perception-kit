@@ -109,7 +109,7 @@ This makes the repository useful for demos and integrated development, but it al
 A cleaner architectural split would keep frame/result gathering and contract-based result publication close to the perception runtime, while moving visualization hosting and application-layer UI concerns into a higher-level application stack.
 One possible follow-on is a higher-level Cairn SDK binding on top of the perception results, but that is not part of the current repository.
 
-### Camera acquisition is not yet uniform
+### Camera and image acquisition is not yet uniform
 
 Today, camera handling is still troublesome because camera sources are not uniform across platforms and real devices.
 

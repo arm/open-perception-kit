@@ -2,8 +2,8 @@ services:
 
   amp-dev-rich:
     build:
-      context: .
-      dockerfile: ../Dockerfile
+      context: ..
+      dockerfile: Dockerfile
       target: amp-dev-rich
 
     container_name: amp-dev-rich
