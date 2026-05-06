@@ -13,12 +13,66 @@ BUILD_DIR="$PROJECT_ROOT/build"
 TESTS_BUILD_DIR="$PROJECT_ROOT/build-test"
 AMP_MENU=$PROJECT_ROOT/build/meson-out/amp-menu
 AMP_MENU_OUT=/work/tools/amp-menu
+EXTRA_SETUP_ARGS=()
 
 mkdir -p "$BUILD_DIR"
 
 meson_build_is_configured() {
     local build_dir="$1"
     [[ -d "$build_dir/meson-private" ]]
+}
+
+parse_extra_setup_args() {
+    local raw_args="$1"
+
+    EXTRA_SETUP_ARGS=()
+    if [[ -z "$raw_args" ]]; then
+        return
+    fi
+
+    local IFS=,
+    read -r -a EXTRA_SETUP_ARGS <<< "$raw_args"
+}
+
+parse_args() {
+    local allow_tests_arg="$1"
+    shift
+
+    POSITIONAL_ARGS=()
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --extra-setup-args=*)
+                parse_extra_setup_args "${1#--extra-setup-args=}"
+                ;;
+            --extra-setup-args)
+                echo "--extra-setup-args requires the form --extra-setup-args=arg1,arg2=10" >&2
+                usage >&2
+                exit 2
+                ;;
+            --*)
+                echo "Unknown option: $1" >&2
+                usage >&2
+                exit 2
+                ;;
+            *)
+                POSITIONAL_ARGS+=("$1")
+                ;;
+        esac
+        shift
+    done
+
+    if [[ "$allow_tests_arg" == "true" ]]; then
+        if [[ ${#POSITIONAL_ARGS[@]} -gt 1 ]]; then
+            echo "Too many arguments: ${POSITIONAL_ARGS[*]}" >&2
+            usage >&2
+            exit 2
+        fi
+    elif [[ ${#POSITIONAL_ARGS[@]} -gt 0 ]]; then
+        echo "Unexpected arguments: ${POSITIONAL_ARGS[*]}" >&2
+        usage >&2
+        exit 2
+    fi
 }
 
 # ---- build ----
@@ -32,7 +86,7 @@ debug() {
 
     if ! meson_build_is_configured "$BUILD_DIR"; then
         msg "Meson setup.."
-        meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat -Dtests="$enable_tests"
+        meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat -Dtests="$enable_tests" "${EXTRA_SETUP_ARGS[@]}"
     else
         msg "Meson configure (keeping existing build dir)…"
         meson configure "$BUILD_DIR" > /dev/null
@@ -54,7 +108,7 @@ debug_with_executorch() {
 
     if ! meson_build_is_configured "$BUILD_DIR"; then
         msg "Meson setup.."
-        meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat --wrap-mode=forcefallback -Dexecutorch=enabled
+        meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat --wrap-mode=forcefallback -Dexecutorch=enabled "${EXTRA_SETUP_ARGS[@]}"
     else
         msg "Meson configure (keeping existing build dir)…"
         meson configure "$BUILD_DIR" > /dev/null
@@ -85,7 +139,8 @@ release() {
             -Db_lto=true \
             -Doptimization=3 \
             --layout=flat \
-            -Dtests="$enable_tests"
+            -Dtests="$enable_tests" \
+            "${EXTRA_SETUP_ARGS[@]}"
     else
         msg "Meson configure (keeping existing build dir)…"
         meson configure "$BUILD_DIR" > /dev/null
@@ -123,20 +178,35 @@ usage() {
 
 Commands:
   clean ➡️ Clear all build artifacts.
-  debug [true|false] ➡️ Build elements in debug. Optional: enable/disable tests (default: false).
-  release [true|false] ➡️ Build elements in release. Optional: enable/disable tests (default: false).
+  debug [true|false] [--extra-setup-args=arg1,arg2=10] ➡️ Build elements in debug. Optional: enable/disable tests (default: false).
+  debug_with_executorch [--extra-setup-args=arg1,arg2=10] ➡️ Build elements in debug with ExecuTorch.
+  release [true|false] [--extra-setup-args=arg1,arg2=10] ➡️ Build elements in release. Optional: enable/disable tests (default: false).
 
 EOF
 }
 
 # ---- entrypoint ----
 cmd="${1:-}"
-arg="${2:-}"
+if [[ $# -gt 0 ]]; then
+    shift
+fi
 case "$cmd" in
-    debug) debug "$arg" ;;
-    release) release "$arg" ;;
-    debug_with_executorch) debug_with_executorch ;;
-    clean) clean ;;
+    debug)
+        parse_args true "$@"
+        debug "${POSITIONAL_ARGS[0]:-false}"
+        ;;
+    release)
+        parse_args true "$@"
+        release "${POSITIONAL_ARGS[0]:-false}"
+        ;;
+    debug_with_executorch)
+        parse_args false "$@"
+        debug_with_executorch
+        ;;
+    clean)
+        parse_args false "$@"
+        clean
+        ;;
     *)
         echo "Unknown command: $cmd" >&2
         usage >&2
