@@ -141,7 +141,7 @@ RUN set -eux; \
 ARG PLANTUML_VERSION=1.2026.2
 RUN set -eux; \
   mkdir -p /opt/amp-deps; \
-  wget "https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}/plantuml-mit-${PLANTUML_VERSION}.jar" \
+  wget --secure-protocol=TLSv1_2 "https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}/plantuml-mit-${PLANTUML_VERSION}.jar" \
   -O "/opt/amp-deps/plantuml-mit-${PLANTUML_VERSION}.jar"
 
 USER ${USERNAME}
