@@ -36,7 +36,8 @@
         "ms-python.autopep8",
         "cheshirekow.cmake-format",
         "mkhl.shfmt",
-        "jebbs.plantuml"
+        "jebbs.plantuml",
+        "vadimcn.vscode-lldb"
       ],
       "settings": {
         "python.defaultInterpreterPath": "/work/tools/.venv/bin/python"

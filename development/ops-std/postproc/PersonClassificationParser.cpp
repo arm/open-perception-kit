@@ -5,28 +5,69 @@
 #include "postproc/PersonClassificationParser.h"
 #include "amp/Perception.h"
 
+#include <algorithm>
 #include <cmath>
-#include <cstdint>
+#include <fmt/core.h>
 
 using namespace amp;
 
 amp::Result<void> PersonClassificationParser::parse(const amp::TensorParser::Input &input,
                                                     amp::Perception::Layer &detectionResult) {
 
-    assert(input.tensors[0]);
+    if (!input.tensors[0]) {
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData, "PersonClassificationParser: input tensor is null"));
+    }
 
-    assert(input.tensors[0]->getShape().dimensionCount == 2);
+    const auto shape = input.tensors[0]->getShape();
+    if (shape.dimensionCount != 2) {
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("PersonClassificationParser: expected 2D tensor, got {}D",
+                                  shape.dimensionCount)));
+    }
 
-    assert(input.tensors[0]->getShape().valueCount[0] == 1);
-    assert(input.tensors[0]->getShape().valueCount[1] == 2);
+    if (shape.valueCount[0] != 1) {
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("PersonClassificationParser: batch size must be 1, got {}",
+                                  shape.valueCount[0])));
+    }
+    if (shape.valueCount[1] != 2) {
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("PersonClassificationParser: expected 2 classes, got {}",
+                                  shape.valueCount[1])));
+    }
 
-    /*
-    bool isPerson = input.tensors[0]->get(1) > input.tensors[0]->get(0);
-    fmt::print("PersonClassificationParser [person: {} vs non-person: {}] says it is a {}\n",
-               input.tensors[0]->get(1),
-               input.tensors[0]->get(0),
-               isPerson ? "person" : "not person");
-    */
+    const float rawNo = input.tensors[0]->get(0);
+    const float rawYes = input.tensors[0]->get(1);
+
+    float noConfidence = rawNo;
+    float yesConfidence = rawYes;
+
+    // Some models output logits while others output probabilities.
+    // If output does not look like probabilities, apply softmax.
+    const float sum = rawNo + rawYes;
+    const bool looksLikeProbabilities =
+        rawNo >= 0.0f && rawYes >= 0.0f && std::abs(sum - 1.0f) < 1e-3f;
+
+    if (!looksLikeProbabilities) {
+        const float maxLogit = std::max(rawNo, rawYes);
+        const float expNo = std::exp(rawNo - maxLogit);
+        const float expYes = std::exp(rawYes - maxLogit);
+        const float denom = expNo + expYes;
+        if (denom > 0.0f) {
+            noConfidence = expNo / denom;
+            yesConfidence = expYes / denom;
+        }
+    }
+
+    detectionResult.contentType = "personClassification";
+    Perception::PersonClassification result;
+    result.yesConfidence = yesConfidence;
+    result.noConfidence = noConfidence;
+    detectionResult.detections.push_back(result);
 
     return {};
 }

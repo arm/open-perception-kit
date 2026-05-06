@@ -30,6 +30,15 @@ RUN set -eux; \
   libssl-dev libfmt-dev libfftw3-dev libsoup-3.0-dev libjson-glib-dev libcairo2-dev zip python3 python3-pip; \
   rm -rf /var/lib/apt/lists/*
 
+# LLDB 17 for Colima
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        lldb-17 && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN ln -sf /usr/bin/lldb-17 /usr/local/bin/lldb && \
+    ln -sf /usr/bin/lldb-server-17 /usr/local/bin/lldb-server
+				  	  			
 # GStreamer core + base
 RUN set -eux; \
   apt-get update; \

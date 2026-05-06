@@ -102,6 +102,18 @@ inline bool isScalarDataKind(DataKind kind) {
     return false;
 }
 
+inline bool isImageDataKind(DataKind kind) {
+    if (kind == DataKind::ImageRgbChw)
+        return true;
+    if (kind == DataKind::ImageRgbHwc)
+        return true;
+    if (kind == DataKind::ImageBgraHwc)
+        return true;
+    if (kind == DataKind::ImageGray)
+        return true;
+    return false;
+}
+
 constexpr size_t MaxTensorCount = 8;
 constexpr int64_t InvalidTensorIndex = 0xdead;
 
@@ -124,7 +136,74 @@ struct InferenceInfo {
 
 struct PixelRect {
     size_t x = 0, y = 0, width = 0, height = 0;
+
+    bool isEmpty() const {
+        return width == 0 || height == 0;
+    }
+
+    bool fitsWithin(size_t surfaceWidth, size_t surfaceHeight) const {
+        return x <= surfaceWidth && y <= surfaceHeight && width <= surfaceWidth - x &&
+               height <= surfaceHeight - y;
+    }
 };
+
+struct ImageLayoutDesc {
+    uint8_t *data = nullptr;
+    size_t byteCount = 0;
+
+    size_t surfaceWidth = 0;
+    size_t surfaceHeight = 0;
+    size_t surfaceStride = 0; // in bytes, NOT USED YET, we assume tightly packed for now
+
+    PixelRect rect;
+
+    DataKind kind = DataKind::Unknown;
+    amp::Tdt type = amp::Tdt::Float32;
+
+    amp::Colorf mean = {0.0f, 0.0f, 0.0f, 0.0f};
+    amp::Colorf std = {1.0f, 1.0f, 1.0f, 1.0f};
+
+    size_t getChannelCount() const {
+        switch (kind) {
+        case DataKind::ImageRgbChw:
+            return 3;
+        case DataKind::ImageRgbHwc:
+            return 3;
+        case DataKind::ImageBgraHwc:
+            return 4;
+        case DataKind::ImageGray:
+            return 1;
+        default:
+            return 0;
+        }
+    }
+
+    bool hasKnownImageStorage() const {
+        return getChannelCount() != 0;
+    }
+
+    bool rectIsFullSurface() const {
+        return rect.x == 0 && rect.y == 0 && rect.width == surfaceWidth &&
+               rect.height == surfaceHeight;
+    }
+
+    size_t getMinimumByteCountForFullSurface() const {
+        const size_t channelCount = getChannelCount();
+        const size_t valueSize = amp::getValueTypeByteSize(type);
+        if (channelCount == 0 || valueSize == 0)
+            return 0;
+        return surfaceWidth * surfaceHeight * channelCount * valueSize;
+    }
+
+    bool hasByteCountForFullSurface() const {
+        const size_t minimumByteCount = getMinimumByteCountForFullSurface();
+        if (minimumByteCount == 0)
+            return false;
+        return byteCount >= minimumByteCount;
+    }
+};
+
+enum class Sampling { Nearest, Linear /* not supported yet */ };
 
 struct TensorFeedback {
     enum class Mode { Copy };

@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <fmt/core.h>
 #include <span>
 #include <vector>
 
@@ -16,7 +17,14 @@ using namespace amp;
 // Softmax helper function
 static void softmax(const std::span<float> input, std::span<float> output) {
 
-    assert(input.size() == output.size());
+    if (input.size() != output.size()) {
+        std::fill(output.begin(), output.end(), 0.0f);
+        return;
+    }
+
+    if (input.empty()) {
+        return;
+    }
 
     auto it = std::max_element(input.begin(), input.end());
     float max = *it;
@@ -33,14 +41,33 @@ static void softmax(const std::span<float> input, std::span<float> output) {
 amp::Result<void> ImageNetClassificationParser::parse(const amp::TensorParser::Input &input,
                                                       amp::Perception::Layer &detectionResult) {
 
-    assert(input.tensors[0]);
+    if (!input.tensors[0]) {
+        return tl::unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData,
+                                        "ImageNetClassificationParser: input tensor is null"));
+    }
 
     const auto shape = input.tensors[0]->getShape();
-    assert(shape.dimensionCount == 2U);
-    assert(shape.valueCount[0] == 1U);
+    if (shape.dimensionCount != 2U) {
+        return tl::unexpected(
+            AMP_ERROR(amp::ErrorFlag::InvalidData,
+                      fmt::format("ImageNetClassificationParser: expected 2D tensor, got {}D",
+                                  shape.dimensionCount)));
+    }
+    if (shape.valueCount[0] != 1U) {
+        return tl::unexpected(
+            AMP_ERROR(amp::ErrorFlag::InvalidData,
+                      fmt::format("ImageNetClassificationParser: batch size must be 1, got {}",
+                                  shape.valueCount[0])));
+    }
 
     constexpr auto numClasses = Labels::getLabelCount(LabelType::ImageNet);
-    assert(numClasses == shape.valueCount[1]);
+    if (numClasses != shape.valueCount[1]) {
+        return tl::unexpected(
+            AMP_ERROR(amp::ErrorFlag::InvalidData,
+                      fmt::format("ImageNetClassificationParser: expected {} classes, got {}",
+                                  numClasses,
+                                  shape.valueCount[1])));
+    }
 
     const int topK = input.attributes.getIntOrDefault("topK", 5);
     const float confidenceThreshold =

@@ -5,10 +5,15 @@
 #include "GenericPostprocessOp.h"
 
 #include <fmt/core.h>
+#include <functional>
+#include <map>
 #include <memory>
 
 #include "amp/Perception.h"
 #include "amp/Types.h"
+#include <PerformanceTracer.h>
+
+// parser class headers
 #include "postproc/CameraContactParser.h"
 #include "postproc/DummyParser.h"
 #include "postproc/GazeDetectionParser.h"
@@ -20,10 +25,38 @@
 #include "postproc/RvmParser.h"
 #include "postproc/UltrafaceParser.h"
 #include "postproc/YoloParser.h"
-
-#include <PerformanceTracer.h>
+// ... add new parser headers here
 
 using namespace amp;
+
+namespace {
+
+using ParserCreator = std::function<std::unique_ptr<amp::TensorParser>()>;
+
+template <class T> ParserCreator make() {
+    return []() { return std::make_unique<T>(); };
+}
+
+// parser registry
+const std::map<std::string, ParserCreator> &getParserRegistry() {
+    static const std::map<std::string, ParserCreator> registry = {
+        {"CameraContactParser", make<amp::CameraContactParser>()},
+        {"DummyParser", make<amp::DummyParser>()},
+        {"GazeDetectionParser", make<amp::GazeDetectionParser>()},
+        {"ImageNetClassificationParser", make<amp::ImageNetClassificationParser>()},
+        {"ModNetSegmentationParser", make<amp::ModNetSegmentationParser>()},
+        {"ObjectEmbeddingParser", make<amp::ObjectEmbeddingParser>()},
+        {"PaddleOcrDetectionParser", make<amp::PaddleOcrDetectionParser>()},
+        {"PersonClassificationParser", make<amp::PersonClassificationParser>()},
+        {"RvmParser", make<amp::RvmParser>()},
+        {"UltrafaceParser", make<amp::UltraFaceParser>()},
+        {"YoloParser", make<amp::YoloParser>()},
+        // ... add new parsers here
+    };
+    return registry;
+}
+
+} // namespace
 
 GenericPostprocessOp::GenericPostprocessOp() {}
 GenericPostprocessOp::~GenericPostprocessOp() {}
@@ -43,36 +76,14 @@ amp::Result<void> GenericPostprocessOp::configure(const amp::AttributeMap &attri
                                         fmt::format("No 'parser' attribute in postprocessor op")));
     }
 
-    if (parser == "PaddleOcrDetectionParser") {
-        this->parser = std::make_unique<PaddleOcrDetectionParser>();
-    } else if (parser == "YoloParser") {
-        this->parser = std::make_unique<YoloParser>();
-
-        if (this->attributes.getStringOrDefault("outputFormat", "").empty()) {
-            this->attributes.set("outputFormat", "UltraliticsYolo");
-        }
-    } else if (parser == "ImageNetClassificationParser") {
-        this->parser = std::make_unique<ImageNetClassificationParser>();
-    } else if (parser == "PersonClassificationParser") {
-        this->parser = std::make_unique<PersonClassificationParser>();
-    } else if (parser == "ObjectEmbeddingParser") {
-        this->parser = std::make_unique<ObjectEmbeddingParser>();
-    } else if (parser == "DummyParser") {
-        this->parser = std::make_unique<DummyParser>();
-    } else if (parser == "RvmParser") {
-        this->parser = std::make_unique<RvmParser>();
-    } else if (parser == "GazeDetectionParser") {
-        this->parser = std::make_unique<GazeDetectionParser>();
-    } else if (parser == "CameraContactParser") {
-        this->parser = std::make_unique<CameraContactParser>();
-    } else if (parser == "UltrafaceParser") {
-        this->parser = std::make_unique<UltraFaceParser>();
-    } else if (parser == "ModNetSegmentationParser") {
-        this->parser = std::make_unique<ModNetSegmentationParser>();
-    } else {
+    const auto &registry = getParserRegistry();
+    auto it = registry.find(parser);
+    if (it == registry.end()) {
         return tl::unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData,
                                         fmt::format("No tensor parser with name: [{}]", parser)));
     }
+
+    this->parser = it->second();
 
     return {};
 }

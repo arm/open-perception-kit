@@ -66,6 +66,20 @@
             ]
         },
         {
+            "name": "AMP Debug for Colima (LLDB)",
+            "preLaunchTask": "00 Build Project",
+            "type": "lldb",
+            "request": "launch",
+            "program": "/work/tools/amp-menu",
+            "args": [
+                "-l"
+            ],
+            "cwd": "/work",
+            "env": {
+                "GST_PLUGIN_PATH": "/work/development/build/meson-out"
+            }
+        },
+        {
             "name": "Attach to PyBind",
             "type": "debugpy",
             "request": "attach",

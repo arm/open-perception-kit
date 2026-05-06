@@ -16,7 +16,7 @@
 		{
 			"id": "amp-onnx-ops/Inference",
 			"attributes": {
-				"modelDescriptor": "/work/config/models/personclassification/model.json"
+				"modelDescriptor": "/work/config/models/personclassification/model-int8.json"
 			}
 		},
 		{

@@ -50,6 +50,7 @@ void to_json(json &j, const Perception::Classification::Candidate &c);
 void to_json(json &j, const Perception::Classification &c);
 void to_json(json &j, const Perception::YawPitch &yp);
 void to_json(json &j, const Perception::LocalizedText &lt);
+void to_json(json &j, const Perception::PersonClassification &pc);
 
 // ---------- Bitmap strategy ----------
 

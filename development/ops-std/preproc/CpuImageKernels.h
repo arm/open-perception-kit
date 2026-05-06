@@ -10,186 +10,182 @@ namespace amp {
 
 struct ImageOps {
 
-    enum Sampling { Nearest, Linear };
-
-    struct Rect {
-        Rect(size_t x, size_t y, size_t w, size_t h) {
-            this->x = x;
-            this->y = y;
-            this->w = w;
-            this->h = h;
-        }
-
-        size_t x, y, w, h;
-    };
-
     // ---
-    static bool
-    StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(const uint8_t *src,
-                                               size_t srcWidth,
-                                               size_t srcHeight,
-                                               float *dst,
-                                               size_t dstWidth,
-                                               size_t dstHeight,
-                                               const Colorf &mean = {0.0f, 0.0f, 0.0f, 0.0f},
-                                               const Colorf &std = {1.0f, 1.0f, 1.0f, 1.0f},
-                                               Sampling sampling = Sampling::Nearest);
+    /**
+     * @brief Stretch-blits BGRA8 HWC full-frame input into RGB float32 CHW full-frame output.
+     * @param src Source descriptor (BGRA8 HWC, full-frame rect expected).
+     * @param dst Destination descriptor (RGB float32 CHW, full-frame rect expected).
+     * @param sampling Sampling mode used during resize.
+     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     */
+    static bool StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(const ImageLayoutDesc &src,
+                                                           const ImageLayoutDesc &dst,
+                                                           Sampling sampling = Sampling::Nearest);
 
-    static bool
-    StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const uint8_t *src,
-                                               size_t srcWidth,
-                                               size_t srcHeight,
-                                               const Rect &srcRect,
-                                               float *dst,
-                                               size_t dstWidth,
-                                               size_t dstHeight,
-                                               const Rect &dstRect,
-                                               const Colorf &mean = {0.0f, 0.0f, 0.0f, 0.0f},
-                                               const Colorf &std = {1.0f, 1.0f, 1.0f, 1.0f},
-                                               Sampling sampling = Sampling::Nearest);
+    /**
+     * @brief Stretch-blits BGRA8 HWC source rect into RGB float32 CHW destination rect.
+     * @param src Source descriptor (BGRA8 HWC); src.mean/src.std are applied when non-default.
+     * @param dst Destination descriptor (RGB float32 CHW).
+     * @param sampling Sampling mode used during resize.
+     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     */
+    static bool StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageLayoutDesc &src,
+                                                           const ImageLayoutDesc &dst,
+                                                           Sampling sampling = Sampling::Nearest);
 
-    static bool StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(const uint8_t *src,
-                                                         size_t srcWidth,
-                                                         size_t srcHeight,
-                                                         const Rect &srcRect,
-                                                         uint8_t *dst,
-                                                         size_t dstWidth,
-                                                         size_t dstHeight,
-                                                         const Rect &dstRect,
+    /**
+     * @brief Stretch-blits BGRA8 HWC source rect into RGB8 HWC destination rect.
+     * @param src Source descriptor (BGRA8 HWC).
+     * @param dst Destination descriptor (RGB8 HWC).
+     * @param sampling Sampling mode used during resize.
+     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     */
+    static bool StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(const ImageLayoutDesc &src,
+                                                         const ImageLayoutDesc &dst,
                                                          Sampling sampling = Sampling::Nearest);
 
-    static bool
-    StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(const uint8_t *src,
-                                               size_t srcWidth,
-                                               size_t srcHeight,
-                                               const Rect &srcRect,
-                                               Float16 *dst,
-                                               size_t dstWidth,
-                                               size_t dstHeight,
-                                               const Rect &dstRect,
-                                               const Colorf &mean = {0.0f, 0.0f, 0.0f, 0.0f},
-                                               const Colorf &std = {1.0f, 1.0f, 1.0f, 1.0f},
-                                               Sampling sampling = Sampling::Nearest);
+    /**
+     * @brief Stretch-blits BGRA8 HWC source rect into RGB float32 HWC destination rect.
+     * @param src Source descriptor (BGRA8 HWC); src.mean/src.std are applied when non-default.
+     * @param dst Destination descriptor (RGB float32 HWC).
+     * @param sampling Sampling mode used during resize.
+     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     */
+    static bool StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(const ImageLayoutDesc &src,
+                                                           const ImageLayoutDesc &dst,
+                                                           Sampling sampling = Sampling::Nearest);
 
-    static bool
-    StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(const uint8_t *src,
-                                             size_t srcWidth,
-                                             size_t srcHeight,
-                                             const Rect &srcRect,
-                                             float *dst,
-                                             size_t dstWidth,
-                                             size_t dstHeight,
-                                             const Rect &dstRect,
-                                             const Colorf &mean = {0.0f, 0.0f, 0.0f, 0.0f},
-                                             const Colorf &std = {1.0f, 1.0f, 1.0f, 1.0f},
+    /**
+     * @brief Stretch-blits BGRA8 HWC source rect into RGB float16 HWC destination rect.
+     * @param src Source descriptor (BGRA8 HWC); src.mean/src.std are applied when non-default.
+     * @param dst Destination descriptor (RGB float16 HWC).
+     * @param sampling Sampling mode used during resize.
+     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     */
+    static bool StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Hwc(const ImageLayoutDesc &src,
+                                                           const ImageLayoutDesc &dst,
+                                                           Sampling sampling = Sampling::Nearest);
 
-                                             Sampling sampling = Sampling::Nearest);
+    /**
+     * @brief Stretch-blits BGRA8 HWC source rect into RGB float16 CHW destination rect.
+     * @param src Source descriptor (BGRA8 HWC); src.mean/src.std are applied when non-default.
+     * @param dst Destination descriptor (RGB float16 CHW).
+     * @param sampling Sampling mode used during resize.
+     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     */
+    static bool StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(const ImageLayoutDesc &src,
+                                                           const ImageLayoutDesc &dst,
+                                                           Sampling sampling = Sampling::Nearest);
 
-    static bool
-    StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Hwc(const uint8_t *src,
-                                             size_t srcWidth,
-                                             size_t srcHeight,
-                                             float *dst,
-                                             size_t dstWidth,
-                                             size_t dstHeight,
-                                             const Colorf &mean = {0.0f, 0.0f, 0.0f, 0.0f},
-                                             const Colorf &std = {1.0f, 1.0f, 1.0f, 1.0f},
+    /**
+     * @brief Stretch-blits BGRA8 HWC full-frame input into Gray8 full-frame output.
+     * @param src Source descriptor (BGRA8 HWC, full-frame rect expected).
+     * @param dst Destination descriptor (Gray8, full-frame rect expected).
+     * @param sampling Sampling mode used during resize.
+     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     */
+    static bool StretchBlit_Bgra8_Hwc_Full_Gray8_Full(const ImageLayoutDesc &src,
+                                                      const ImageLayoutDesc &dst,
+                                                      Sampling sampling = Sampling::Nearest);
 
-                                             Sampling sampling = Sampling::Nearest);
+    /**
+     * @brief Stretch-blits BGRA8 HWC source rect into Gray8 destination rect.
+     * @param src Source descriptor (BGRA8 HWC).
+     * @param dst Destination descriptor (Gray8).
+     * @param sampling Sampling mode used during resize.
+     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     */
+    static bool StretchBlit_Bgra8_Hwc_Rect_Gray8_Rect(const ImageLayoutDesc &src,
+                                                      const ImageLayoutDesc &dst,
+                                                      Sampling sampling = Sampling::Nearest);
 
-    static bool
-    StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Hwc(const uint8_t *src,
-                                             size_t srcWidth,
-                                             size_t srcHeight,
-                                             Float16 *dst,
-                                             size_t dstWidth,
-                                             size_t dstHeight,
-                                             const Colorf &mean = {0.0f, 0.0f, 0.0f, 0.0f},
-                                             const Colorf &std = {1.0f, 1.0f, 1.0f, 1.0f},
+    /**
+     * @brief Stretch-blits RGB8 CHW source rect into RGB float32 HWC destination rect.
+     * @param src Source descriptor (RGB8 CHW).
+     * @param dst Destination descriptor (RGB float32 HWC).
+     * @param sampling Sampling mode used during resize.
+     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     */
+    static bool StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(const ImageLayoutDesc &src,
+                                                         const ImageLayoutDesc &dst,
+                                                         Sampling sampling = Sampling::Nearest);
 
-                                             Sampling sampling = Sampling::Nearest);
+    /**
+     * @brief Stretch-blits RGB8 CHW source rect into RGB float16 HWC destination rect.
+     * @param src Source descriptor (RGB8 CHW).
+     * @param dst Destination descriptor (RGB float16 HWC).
+     * @param sampling Sampling mode used during resize.
+     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     */
+    static bool StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Hwc(const ImageLayoutDesc &src,
+                                                         const ImageLayoutDesc &dst,
+                                                         Sampling sampling = Sampling::Nearest);
 
-    static bool
-    StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(const uint8_t *src,
-                                             size_t srcWidth,
-                                             size_t srcHeight,
-                                             const Rect &srcRect,
-                                             float *dst,
-                                             size_t dstWidth,
-                                             size_t dstHeight,
-                                             const Rect &dstRect,
-                                             const Colorf &mean = {0.0f, 0.0f, 0.0f, 0.0f},
-                                             const Colorf &std = {1.0f, 1.0f, 1.0f, 1.0f},
+    /**
+     * @brief Stretch-blits RGB8 CHW full-frame input into RGB float32 HWC full-frame output.
+     * @param src Source descriptor (RGB8 CHW, full-frame rect expected).
+     * @param dst Destination descriptor (RGB float32 HWC, full-frame rect expected).
+     * @param sampling Sampling mode used during resize.
+     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     */
+    static bool StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Hwc(const ImageLayoutDesc &src,
+                                                         const ImageLayoutDesc &dst,
+                                                         Sampling sampling = Sampling::Nearest);
 
-                                             Sampling sampling = Sampling::Nearest);
+    /**
+     * @brief Stretch-blits RGB8 CHW full-frame input into RGB float16 HWC full-frame output.
+     * @param src Source descriptor (RGB8 CHW, full-frame rect expected).
+     * @param dst Destination descriptor (RGB float16 HWC, full-frame rect expected).
+     * @param sampling Sampling mode used during resize.
+     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     */
+    static bool StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Hwc(const ImageLayoutDesc &src,
+                                                         const ImageLayoutDesc &dst,
+                                                         Sampling sampling = Sampling::Nearest);
 
-    static bool
-    StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Chw(const uint8_t *src,
-                                             size_t srcWidth,
-                                             size_t srcHeight,
-                                             float *dst,
-                                             size_t dstWidth,
-                                             size_t dstHeight,
-                                             const Colorf &mean = {0.0f, 0.0f, 0.0f, 0.0f},
-                                             const Colorf &std = {1.0f, 1.0f, 1.0f, 1.0f},
-                                             Sampling sampling = Sampling::Nearest);
+    /**
+     * @brief Stretch-blits RGB8 CHW source rect into RGB float32 CHW destination rect.
+     * @param src Source descriptor (RGB8 CHW).
+     * @param dst Destination descriptor (RGB float32 CHW).
+     * @param sampling Sampling mode used during resize.
+     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     */
+    static bool StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(const ImageLayoutDesc &src,
+                                                         const ImageLayoutDesc &dst,
+                                                         Sampling sampling = Sampling::Nearest);
 
-    static bool
-    StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Chw(const uint8_t *src,
-                                             size_t srcWidth,
-                                             size_t srcHeight,
-                                             Float16 *dst,
-                                             size_t dstWidth,
-                                             size_t dstHeight,
-                                             const Colorf &mean = {0.0f, 0.0f, 0.0f, 0.0f},
-                                             const Colorf &std = {1.0f, 1.0f, 1.0f, 1.0f},
-                                             Sampling sampling = Sampling::Nearest);
+    /**
+     * @brief Stretch-blits RGB8 CHW source rect into RGB float16 CHW destination rect.
+     * @param src Source descriptor (RGB8 CHW).
+     * @param dst Destination descriptor (RGB float16 CHW).
+     * @param sampling Sampling mode used during resize.
+     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     */
+    static bool StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Chw(const ImageLayoutDesc &src,
+                                                         const ImageLayoutDesc &dst,
+                                                         Sampling sampling = Sampling::Nearest);
 
-    static bool
-    Clear_Rgbf32(float *dst, size_t dstWidth, size_t dstHeight, float r, float g, float b);
+    /**
+     * @brief Stretch-blits RGB8 CHW full-frame input into RGB float32 CHW full-frame output.
+     * @param src Source descriptor (RGB8 CHW, full-frame rect expected).
+     * @param dst Destination descriptor (RGB float32 CHW, full-frame rect expected).
+     * @param sampling Sampling mode used during resize.
+     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     */
+    static bool StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Chw(const ImageLayoutDesc &src,
+                                                         const ImageLayoutDesc &dst,
+                                                         Sampling sampling = Sampling::Nearest);
 
-    static bool Fill_Rgbf32_Rect(float *dst,
-                                 size_t dstWidth,
-                                 size_t dstHeight,
-                                 const Rect &dstRect,
-                                 float r,
-                                 float g,
-                                 float b);
-
-    // ---
-
-    static bool StrechBlit_Rgb8_Rect_Rgb8_Rect(const uint8_t *src,
-                                               size_t srcWidth,
-                                               size_t srcHeight,
-                                               const Rect &srcRect,
-                                               uint8_t *dst,
-                                               size_t dstWidth,
-                                               size_t dstHeight,
-                                               const Rect &dstRect,
-                                               const Colorf &mean = {0.0f, 0.0f, 0.0f, 0.0f},
-                                               const Colorf &std = {1.0f, 1.0f, 1.0f, 1.0f},
-                                               Sampling sampling = Sampling::Nearest);
-
-    static bool StrechBlit_Rgb8_Full_Rgb8_Full(const uint8_t *src,
-                                               size_t srcWidth,
-                                               size_t srcHeight,
-                                               uint8_t *dst,
-                                               size_t dstWidth,
-                                               size_t dstHeight,
-                                               const Colorf &mean = {0.0f, 0.0f, 0.0f, 0.0f},
-                                               const Colorf &std = {1.0f, 1.0f, 1.0f, 1.0f},
-                                               Sampling sampling = Sampling::Nearest);
-
-    static bool
-    Clear_Rgb8(uint8_t *dst, size_t dstWidth, size_t dstHeight, uint8_t r, uint8_t g, uint8_t b);
-
-    static bool Fill_Rgb8_Rect(uint8_t *dst,
-                               size_t dstWidth,
-                               size_t dstHeight,
-                               const Rect &dstRect,
-                               uint8_t r,
-                               uint8_t g,
-                               uint8_t b);
+    /**
+     * @brief Stretch-blits RGB8 CHW full-frame input into RGB float16 CHW full-frame output.
+     * @param src Source descriptor (RGB8 CHW, full-frame rect expected).
+     * @param dst Destination descriptor (RGB float16 CHW, full-frame rect expected).
+     * @param sampling Sampling mode used during resize.
+     * @return true on success, false on invalid pointers or out-of-bounds rects.
+     */
+    static bool StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Chw(const ImageLayoutDesc &src,
+                                                         const ImageLayoutDesc &dst,
+                                                         Sampling sampling = Sampling::Nearest);
 };
 
 } // namespace amp
