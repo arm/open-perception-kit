@@ -8,6 +8,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <fmt/core.h>
 
 using namespace amp;
 
@@ -18,12 +19,27 @@ amp::Result<void> PaddleOcrDetectionParser::parse(const amp::TensorParser::Input
     const float thresholdHigh = (float)input.attributes.getDoubleOrDefault("thresholdHigh", 0.80f);
     const float gamma = (float)input.attributes.getDoubleOrDefault("gamma", 0.5f);
 
-    assert(input.tensors[0]);
-    assert(input.tensors[0]->getShape().dimensionCount == 4);
-    assert(input.tensors[0]->getShape().valueCount[1] == 1);
+    if (!input.tensors[0]) {
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData, "PaddleOcrDetectionParser: input tensor is null"));
+    }
 
-    const size_t maskHeight = input.tensors[0]->getShape().valueCount[2];
-    const size_t maskWidth = input.tensors[0]->getShape().valueCount[3];
+    const auto shape = input.tensors[0]->getShape();
+    if (shape.dimensionCount != 4) {
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("PaddleOcrDetectionParser: expected 4D tensor, got {}D",
+                                  shape.dimensionCount)));
+    }
+    if (shape.valueCount[1] != 1) {
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("PaddleOcrDetectionParser: expected 1 channel, got {}",
+                                  shape.valueCount[1])));
+    }
+
+    const size_t maskHeight = shape.valueCount[2];
+    const size_t maskWidth = shape.valueCount[3];
 
     detectionResult.detections.push_back(Perception::SegmentationMap());
     auto &sm = std::get<Perception::SegmentationMap>(detectionResult.detections.back());
@@ -62,5 +78,6 @@ amp::Result<void> PaddleOcrDetectionParser::parse(const amp::TensorParser::Input
     }
 
     detectionResult.contentType = "segmentation";
+    detectionResult.compositingMode = "overlay";
     return {};
 }

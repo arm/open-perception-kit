@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <fmt/core.h>
 #include <vector>
 
 using namespace amp;
@@ -99,72 +100,11 @@ struct Anchor {
     float cx, cy, w, h;
 };
 
-/*static std::vector<Anchor> generateAnchors(size_t image_w, size_t image_h) {
-    assert(image_w == 320);
-    assert(image_h == 240);
-
-    // feature map sizes (widths and heights) from fd_config.py
-    const int feature_map_w[4] = {40, 20, 10, 5};
-    const int feature_map_h[4] = {30, 15, 8, 4};
-
-    // min_boxes per feature level (same order as Python)
-    const int min_boxes[4][3] = {
-        {10, 16, 24},   // level 0  (3 anchors)
-        {32, 48, -1},   // level 1  (2 anchors, ignore -1)
-        {64, 96, -1},   // level 2  (2 anchors, ignore -1)
-        {128, 192, 256} // level 3  (3 anchors)
-    };
-
-    std::vector<Anchor> priors;
-    priors.reserve(4420); // known count for 320x240
-
-    for (int k = 0; k < 4; ++k) {
-        const int fm_w = feature_map_w[k];
-        const int fm_h = feature_map_h[k];
-
-        const float scale_w = static_cast<float>(fm_w); // = image_w / shrinkage_w[k]
-        const float scale_h = static_cast<float>(fm_h); // = image_h / shrinkage_h[k]
-
-        for (int j = 0; j < fm_h; ++j) // over height
-        {
-            for (int i = 0; i < fm_w; ++i) // over width
-            {
-                const float cx = (static_cast<float>(i) + 0.5f) / scale_w;
-                const float cy = (static_cast<float>(j) + 0.5f) / scale_h;
-
-                // add anchors of different sizes at this location
-                for (int mb_idx = 0; mb_idx < 3; ++mb_idx) {
-                    const int box = min_boxes[k][mb_idx];
-                    if (box <= 0)
-                        continue; // skip unused slots (-1)
-
-                    const float w = static_cast<float>(box) / static_cast<float>(image_w);
-                    const float h = static_cast<float>(box) / static_cast<float>(image_h);
-
-                    priors.push_back(Anchor{cx, cy, w, h});
-                }
-            }
-        }
-    }
-
-    // Optional: clamp to [0,1] like the original code
-    for (auto &a : priors) {
-        auto clamp01 = [](float v) {
-            if (v < 0.0f)
-                return 0.0f;
-            if (v > 1.0f)
-                return 1.0f;
-            return v;
-        };
-        a.cx = clamp01(a.cx);
-        a.cy = clamp01(a.cy);
-        a.w = clamp01(a.w);
-        a.h = clamp01(a.h);
-    }
-
-    // priors.size() should be 4420 here for 320x240
-    return priors;
-}*/
+struct ValidatedUltraFaceInput {
+    const TensorView *scores = nullptr;
+    const TensorView *boxes = nullptr;
+    size_t detectionCount = 0;
+};
 
 static std::vector<Anchor> generateAnchors(size_t image_w, size_t image_h) {
     assert(image_w == 320);
@@ -241,6 +181,96 @@ static std::vector<Anchor> generateAnchors(size_t image_w, size_t image_h) {
 
 static std::vector<Anchor> anchors;
 
+static amp::Result<ValidatedUltraFaceInput>
+validateParseInput(const amp::TensorParser::Input &input) {
+    const size_t modelWidth = input.inferenceInfo.image.modelWidth;
+    const size_t modelHeight = input.inferenceInfo.image.modelHeight;
+    if (modelWidth == 0 || modelHeight == 0) {
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("UltraFaceParser: model dimensions must be > 0, got {}x{}",
+                                  modelWidth,
+                                  modelHeight)));
+    }
+
+    if (modelWidth != 320 || modelHeight != 240) {
+        return tl::unexpected(AMP_ERROR(
+            ErrorFlag::InvalidData,
+            fmt::format("UltraFaceParser: unsupported model dimensions {}x{}, expected 320x240",
+                        modelWidth,
+                        modelHeight)));
+    }
+
+    const TensorView *scores = input.tensors[0];
+    const TensorView *boxes = input.tensors[1];
+    if (!scores || !boxes) {
+        return tl::unexpected(AMP_ERROR(ErrorFlag::InvalidData,
+                                        "UltraFaceParser: score and box tensors are required"));
+    }
+
+    const auto scoresShape = scores->getShape();
+    const auto boxesShape = boxes->getShape();
+    if (scoresShape.dimensionCount != 3) {
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("UltraFaceParser: scores tensor must be 3D, got {}D",
+                                  scoresShape.dimensionCount)));
+    }
+    if (boxesShape.dimensionCount != 3) {
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("UltraFaceParser: boxes tensor must be 3D, got {}D",
+                                  boxesShape.dimensionCount)));
+    }
+    if (scoresShape.valueCount[0] != 1) {
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("UltraFaceParser: scores batch size must be 1, got {}",
+                                  scoresShape.valueCount[0])));
+    }
+    if (boxesShape.valueCount[0] != 1) {
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("UltraFaceParser: boxes batch size must be 1, got {}",
+                                  boxesShape.valueCount[0])));
+    }
+    if (scoresShape.valueCount[2] != 2) {
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("UltraFaceParser: scores tensor last dimension must be 2, got {}",
+                                  scoresShape.valueCount[2])));
+    }
+    if (boxesShape.valueCount[2] != 4) {
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("UltraFaceParser: boxes tensor last dimension must be 4, got {}",
+                                  boxesShape.valueCount[2])));
+    }
+    if (scoresShape.valueCount[1] != boxesShape.valueCount[1]) {
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("UltraFaceParser: score and box counts differ: {} vs {}",
+                                  scoresShape.valueCount[1],
+                                  boxesShape.valueCount[1])));
+    }
+
+    if (anchors.empty()) {
+        anchors = generateAnchors(modelWidth, modelHeight);
+    }
+
+    const size_t detectionCount = boxesShape.valueCount[1];
+    if (anchors.size() != detectionCount) {
+        return tl::unexpected(AMP_ERROR(
+            ErrorFlag::InvalidData,
+            fmt::format("UltraFaceParser: anchor count {} does not match detection count {}",
+                        anchors.size(),
+                        detectionCount)));
+    }
+
+    return ValidatedUltraFaceInput{
+        .scores = scores, .boxes = boxes, .detectionCount = detectionCount};
+}
+
 // ----------------------------------------------------------------------------
 
 amp::Result<void> amp::UltraFaceParser::parse(const amp::TensorParser::Input &input,
@@ -254,28 +284,14 @@ amp::Result<void> amp::UltraFaceParser::parse(const amp::TensorParser::Input &in
 
     const size_t frameWidth = input.inferenceInfo.image.width;
     const size_t frameHeight = input.inferenceInfo.image.height;
-    if (anchors.empty())
-        anchors = generateAnchors(input.inferenceInfo.image.modelWidth,
-                                  input.inferenceInfo.image.modelHeight);
+    auto validated = validateParseInput(input);
+    if (!validated) {
+        return tl::unexpected(validated.error());
+    }
 
-    const TensorView *scores = input.tensors[0];
-    const TensorView *boxes = input.tensors[1];
-
-    assert(input.inferenceInfo.image.modelWidth > 0);
-    assert(input.inferenceInfo.image.modelHeight > 0);
-    assert(scores != nullptr);
-    assert(boxes != nullptr);
-    assert(scores != nullptr);
-    assert(boxes->getShape().dimensionCount == 3);
-    assert(scores->getShape().dimensionCount == 3);
-    assert(boxes->getShape().valueCount[0] == 1);
-    assert(scores->getShape().valueCount[0] == 1);
-    assert(boxes->getShape().valueCount[2] == 4);
-    assert(scores->getShape().valueCount[2] == 2);
-
-    size_t detectionCount = boxes->getShape().valueCount[1];
-
-    assert(anchors.size() == detectionCount);
+    const TensorView *scores = validated->scores;
+    const TensorView *boxes = validated->boxes;
+    const size_t detectionCount = validated->detectionCount;
 
     for (size_t i = 0; i < detectionCount; i++) {
         float notFace = scores->get(2 * i + 0);
@@ -290,19 +306,6 @@ amp::Result<void> amp::UltraFaceParser::parse(const amp::TensorParser::Input &in
         float aw = anchors[i].w;
         float ah = anchors[i].h;
 
-        /*
-        // ---- 1) decode center + size (normalized) ----
-        float pred_cx = v0 * aw + acx;
-        float pred_cy = v1 * ah + acy;
-        float pred_w  = std::exp(v2) * aw;
-        float pred_h  = std::exp(v3) * ah;
-
-        // ---- 2) convert to normalized corner coords ----
-        float x_min = pred_cx - pred_w * 0.5f;
-        float y_min = pred_cy - pred_h * 0.5f;
-        float x_max = pred_cx + pred_w * 0.5f;
-        float y_max = pred_cy + pred_h * 0.5f;
-        */
         constexpr float CENTER_VAR = 0.1f;
         constexpr float SIZE_VAR = 0.2f;
 
@@ -353,12 +356,6 @@ amp::Result<void> amp::UltraFaceParser::parse(const amp::TensorParser::Input &in
         dr.height = y2 - y1;
         dr.confidence = face;
 
-        // maybe this would be more correct, because face is a logit
-        /*float m = std::max(face, notFace);
-        float ef = std::exp(face - m);
-        float eb = std::exp(notFace - m);
-        float p_face = ef / (ef + eb);
-        dr.confidence = p_face;*/
         dr.text = "";
 
         detectionResult.detections.push_back(dr);

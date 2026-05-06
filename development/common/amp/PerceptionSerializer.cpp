@@ -146,6 +146,13 @@ void to_json(json &j, const Perception::LocalizedText &lt) {
     j["text"] = lt.text;
 }
 
+void to_json(json &j, const Perception::PersonClassification &pc) {
+    j = json{};
+    add_object_fields(j, pc);
+    j["yesConfidence"] = pc.yesConfidence;
+    j["noConfidence"] = pc.noConfidence;
+}
+
 // ---------- Bitmap strategy ----------
 
 // returns a nlohmann::json object describing the bitmap and containing base64'd compressed pixels
@@ -245,6 +252,9 @@ void to_json(json &j, const Perception::Detection &d) {
             },
             [&j](const Perception::TrackTrace &v) {
                 j = json{{"type", "TrackTrace"}, {"data", v}};
+            },
+            [&j](const Perception::PersonClassification &v) {
+                j = json{{"type", "PersonClassification"}, {"data", v}};
             }},
         d);
 }
@@ -258,6 +268,7 @@ void to_json(json &j, const Perception::Layer &l) {
         {"tags", l.tags},
         {"labelFamily", l.labelFamily},
         {"contentType", l.contentType},
+        {"compositingMode", l.compositingMode},
         {"detections", l.detections},
         {"infer-id", l.inferElementId},
     };

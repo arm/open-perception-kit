@@ -6,21 +6,28 @@
 #include "amp/Color.h"
 #include "amp/Perception.h"
 #include "gst/PerceptionMeta.h"
+#include "gst/Tools.h"
 #include "osd.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <iomanip>
-#include <iostream>
+#include <memory>
+#include <optional>
 #include <sstream>
+#include <string>
 #include <vector>
 
 #include <fmt/core.h>
 #include <gst/gst.h>
 #include <gst/video/gstvideofilter.h>
 #include <gst/video/video.h>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 
 #ifndef PACKAGE
 #define PACKAGE "amp-elements"
@@ -43,9 +50,11 @@ struct _GstAmpOsd {
 
     // Properties
     gboolean enabled;
+    gchar *bgImagePath;
 
     // Internal state
     guint frameCount;
+    std::optional<amp::Bitmap> bgImage;
 };
 
 struct _GstAmpOsdClass {
@@ -61,9 +70,10 @@ GST_DEBUG_CATEGORY_STATIC(gst_amp_osd_debug);
 
 // Default values
 #define DEFAULT_ENABLED TRUE
+#define DEFAULT_BG_IMAGE ""
 
 // Property IDs
-enum { PROP_0, PROP_ENABLED };
+enum { PROP_0, PROP_ENABLED, PROP_BG_IMAGE };
 
 // Function prototypes
 static void
@@ -74,6 +84,7 @@ static void gst_amp_osd_finalize(GObject *object);
 static GstFlowReturn gst_amp_osd_transform_frame_ip(GstVideoFilter *filter, GstVideoFrame *frame);
 static gboolean gst_amp_osd_start(GstBaseTransform *trans);
 static gboolean gst_amp_osd_stop(GstBaseTransform *trans);
+static bool gst_amp_osd_load_bg_image(GstAmpOsd *self);
 
 #define gst_amp_osd_parent_class parent_class
 G_DEFINE_TYPE(GstAmpOsd, gst_amp_osd, GST_TYPE_VIDEO_FILTER);
@@ -100,13 +111,24 @@ static void gst_amp_osd_class_init(GstAmpOsdClass *klass) {
                              "Enabled",
                              "Enable or disable OSD overlay",
                              DEFAULT_ENABLED,
-                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                             static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
+        gobject_class,
+        PROP_BG_IMAGE,
+        g_param_spec_string(
+            "bg-image",
+            "Background Image",
+            "Optional replacement background image applied where the segmentation mask marks "
+            "background",
+            DEFAULT_BG_IMAGE,
+            static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     // Set element metadata
     gst_element_class_set_static_metadata(element_class,
                                           "AMP OSD Overlay",
                                           "Filter/Video",
-                                          "On-Screen Display overlay for ARGB video frames",
+                                          "On-Screen Display overlay for BGRA video frames",
                                           "AMP Development Team");
 
     // Set pad templates
@@ -122,20 +144,86 @@ static void gst_amp_osd_class_init(GstAmpOsdClass *klass) {
 static void gst_amp_osd_init(GstAmpOsd *self) {
     // Initialize properties
     self->enabled = DEFAULT_ENABLED;
+    self->bgImagePath = g_strdup(DEFAULT_BG_IMAGE);
     self->frameCount = 0;
+    self->bgImage.reset();
 
     GST_DEBUG_OBJECT(self, "Initialized AmpOsd element");
 }
 
+static bool gst_amp_osd_load_bg_image(GstAmpOsd *self) {
+    self->bgImage.reset();
+
+    if (self->bgImagePath == nullptr || self->bgImagePath[0] == '\0') {
+        GST_DEBUG_OBJECT(self, "No bg-image configured");
+        return false;
+    }
+
+    int width = 0;
+    int height = 0;
+    int channels = 0;
+
+    stbi_uc *rawPixels = stbi_load(self->bgImagePath, &width, &height, &channels, 4);
+    if (rawPixels == nullptr) {
+        GST_WARNING_OBJECT(self,
+                           "Failed to load bg-image '%s': %s",
+                           self->bgImagePath,
+                           stbi_failure_reason() != nullptr ? stbi_failure_reason()
+                                                            : "unknown error");
+        return false;
+    }
+
+    auto pixels = std::unique_ptr<stbi_uc, decltype(&stbi_image_free)>(rawPixels, stbi_image_free);
+
+    if (width <= 0 || height <= 0) {
+        GST_WARNING_OBJECT(self, "Invalid bg-image '%s': invalid dimensions", self->bgImagePath);
+        return false;
+    }
+
+    amp::Bitmap bitmap;
+    bitmap.realloc(
+        amp::Bitmap::Type::Uint32, static_cast<size_t>(width), static_cast<size_t>(height));
+
+    auto *dst = bitmap.getMutableData();
+
+    for (int y = 0; y < height; ++y) {
+        const auto *srcRow = rawPixels + (static_cast<size_t>(y) * static_cast<size_t>(width) * 4U);
+
+        for (int x = 0; x < width; ++x) {
+            const auto *src = srcRow + (static_cast<size_t>(x) * 4U);
+            const size_t outIdx =
+                (static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x)) * 4U;
+
+            // Convert RGBA from stb_image to BGRA expected by downstream code.
+            dst[outIdx + 0U] = src[2]; // B
+            dst[outIdx + 1U] = src[1]; // G
+            dst[outIdx + 2U] = src[0]; // R
+            dst[outIdx + 3U] = src[3]; // A
+        }
+    }
+
+    self->bgImage = std::move(bitmap);
+
+    GST_INFO_OBJECT(self, "Loaded bg-image '%s' (%dx%d)", self->bgImagePath, width, height);
+    return true;
+}
+
 static void
 gst_amp_osd_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
-    GstAmpOsd *self = GST_AMP_OSD(object);
+    auto *self = GST_AMP_OSD(object);
 
     switch (prop_id) {
     case PROP_ENABLED:
         self->enabled = g_value_get_boolean(value);
         GST_INFO_OBJECT(self, "Enabled set to: %d", self->enabled);
         break;
+
+    case PROP_BG_IMAGE:
+        g_free(self->bgImagePath);
+        self->bgImagePath = g_value_dup_string(value);
+        gst_amp_osd_load_bg_image(self);
+        break;
+
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -144,12 +232,17 @@ gst_amp_osd_set_property(GObject *object, guint prop_id, const GValue *value, GP
 
 static void
 gst_amp_osd_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec) {
-    GstAmpOsd *self = GST_AMP_OSD(object);
+    auto *self = GST_AMP_OSD(object);
 
     switch (prop_id) {
     case PROP_ENABLED:
         g_value_set_boolean(value, self->enabled);
         break;
+
+    case PROP_BG_IMAGE:
+        g_value_set_string(value, self->bgImagePath);
+        break;
+
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -157,31 +250,36 @@ gst_amp_osd_get_property(GObject *object, guint prop_id, GValue *value, GParamSp
 }
 
 static void gst_amp_osd_finalize(GObject *object) {
-    GstAmpOsd *self = GST_AMP_OSD(object);
+    auto *self = GST_AMP_OSD(object);
 
     GST_DEBUG_OBJECT(self, "Finalizing AmpOsd element");
+
+    g_free(self->bgImagePath);
+    self->bgImagePath = nullptr;
+    self->bgImage.reset();
 
     G_OBJECT_CLASS(parent_class)->finalize(object);
 }
 
 static gboolean gst_amp_osd_start(GstBaseTransform *trans) {
-    GstAmpOsd *self = GST_AMP_OSD(trans);
+    auto *self = GST_AMP_OSD(trans);
 
     GST_INFO_OBJECT(self, "Starting AmpOsd element");
     self->frameCount = 0;
+    gst_amp_osd_load_bg_image(self);
 
     return TRUE;
 }
 
 static gboolean gst_amp_osd_stop(GstBaseTransform *trans) {
-    GstAmpOsd *self = GST_AMP_OSD(trans);
+    auto *self = GST_AMP_OSD(trans);
 
     GST_INFO_OBJECT(self, "Stopping AmpOsd element - processed %u frames", self->frameCount);
 
     return TRUE;
 }
 
-static std::unique_ptr<Osd::Layer> drawPerformanceLayer(GstAmpOsd *self,
+static std::unique_ptr<Osd::Layer> drawPerformanceLayer([[maybe_unused]] GstAmpOsd *self,
                                                         float imgWidth,
                                                         float imgHeight,
                                                         const amp::Perception &perception) {
@@ -200,113 +298,52 @@ static std::unique_ptr<Osd::Layer> drawPerformanceLayer(GstAmpOsd *self,
                         amp::Colors::fromStringOrDefault("#000000ff"),
                         "monospace",
                         line_height);
-        line_y_offset += line_height; // Increment y_offset for next line
+        line_y_offset += line_height;
     }
+
     return layer;
 }
 
-/*static std::unique_ptr<Osd::Layer>
-drawSegmentationLayer(GstAmpOsd *self, float imgWidth, float imgHeight, const amp::Bitmap &segMap) {
-    auto layer = std::make_unique<Osd::Layer>(imgWidth, imgHeight);
-
-    // Get direct access to the layer's pixel data
-    cairo_surface_flush(layer->surface);
-    unsigned char *data = cairo_image_surface_get_data(layer->surface);
-    int stride = cairo_image_surface_get_stride(layer->surface);
-
-    // Calculate scale factors if segmentation map size differs from video frame
-    auto scale_x = static_cast<float>(imgWidth) / static_cast<float>(segMap.getWidth());
-    auto scale_y = static_cast<float>(imgHeight) / static_cast<float>(segMap.getHeight());
-
-    // First pass: find min/max values in the segmentation map
-    uint8_t min_value = 255U;
-    uint8_t max_value = 0U;
-    for (size_t i = 0; i < segMap.getWidth() * segMap.getHeight(); ++i) {
-        auto val = segMap.getData()[i];
-        min_value = std::min(min_value, val);
-        max_value = std::max(max_value, val);
-    }
-
-    // Avoid division by zero if map is uniform
-    if (max_value == min_value) {
-        return layer; // Return empty layer if no variation
-    }
-
-    // Second pass: draw with normalized values
-    for (size_t y = 0; y < static_cast<size_t>(imgHeight); ++y) {
-        for (size_t x = 0; x < static_cast<size_t>(imgWidth); ++x) {
-            // Map frame coordinates to segmentation map coordinates
-            auto seg_x = static_cast<size_t>(x / scale_x);
-            auto seg_y = static_cast<size_t>(y / scale_y);
-
-            // Bounds check
-            if (seg_x >= segMap.getWidth() || seg_y >= segMap.getHeight()) {
-                continue;
-            }
-
-            // Get value from segmentation map (0-255)
-            auto value = segMap.getData()[seg_y * segMap.getWidth() + seg_x];
-
-            // Min-max normalization: map [min_value, max_value] → [0, 255]
-            auto range = static_cast<float>(max_value - min_value);
-            auto normalized = static_cast<float>(value - min_value) / range;
-
-            auto alpha = static_cast<uint8_t>(normalized * 255.0f);
-
-            // Skip fully transparent pixels
-            if (alpha == 0) {
-                continue;
-            }
-
-            // Use bright cyan overlay for detected regions
-            auto *pixel = data + y * stride + x * 4;
-            pixel[0] = 255; // Blue
-            pixel[1] = 255; // Green
-            pixel[2] = 0;   // Red (BGR = cyan)
-            pixel[3] = alpha;
-        }
-    }
-
-    cairo_surface_mark_dirty(layer->surface);
-    return layer;
-}*/
-
-static std::unique_ptr<Osd::Layer>
-drawSegmentationLayer(GstAmpOsd *self, float imgWidth, float imgHeight, const amp::Bitmap &segMap) {
+static std::unique_ptr<Osd::Layer> drawSegmentationLayer([[maybe_unused]] GstAmpOsd *self,
+                                                         float imgWidth,
+                                                         float imgHeight,
+                                                         const amp::Bitmap &segMap) {
     auto layer = std::make_unique<Osd::Layer>(imgWidth, imgHeight);
 
     cairo_surface_flush(layer->surface);
-    unsigned char *data = cairo_image_surface_get_data(layer->surface);
-    int stride = cairo_image_surface_get_stride(layer->surface);
+    auto *data = cairo_image_surface_get_data(layer->surface);
+    const int stride = cairo_image_surface_get_stride(layer->surface);
 
     const size_t sw = segMap.getWidth();
     const size_t sh = segMap.getHeight();
 
+    if (sw == 0U || sh == 0U) {
+        return layer;
+    }
+
     const float scale_x = imgWidth / static_cast<float>(sw);
     const float scale_y = imgHeight / static_cast<float>(sh);
 
-    const uint8_t *seg = reinterpret_cast<const uint8_t *>(segMap.getData());
+    const auto *seg = reinterpret_cast<const uint8_t *>(segMap.getData());
 
-    // Overlay color (cyan). Change these if you want a different tint.
-    const uint8_t B = 255, G = 255, R = 100;
-
-    // Optional global opacity multiplier (0..1). Keep 1.0f for "as-is".
-    const float opacity = 1.0f;
+    // cairo ARGB32 memory is typically BGRA on little-endian systems.
+    constexpr uint8_t B = 255U;
+    constexpr uint8_t G = 255U;
+    constexpr uint8_t R = 100U;
+    constexpr float opacity = 1.0f;
 
     for (size_t y = 0; y < static_cast<size_t>(imgHeight); ++y) {
-        size_t sy = std::min(static_cast<size_t>(y / scale_y), sh - 1);
+        const size_t sy = std::min(static_cast<size_t>(y / scale_y), sh - 1U);
+
         for (size_t x = 0; x < static_cast<size_t>(imgWidth); ++x) {
-            size_t sx = std::min(static_cast<size_t>(x / scale_x), sw - 1);
+            const size_t sx = std::min(static_cast<size_t>(x / scale_x), sw - 1U);
 
-            uint8_t a = seg[sy * sw + sx];
-            a = static_cast<uint8_t>(a * opacity);
-
-            if (a == 0)
+            auto a = static_cast<uint8_t>(static_cast<float>(seg[sy * sw + sx]) * opacity);
+            if (a == 0U) {
                 continue;
+            }
 
-            auto *pixel = data + y * stride + x * 4;
-
-            // cairo ARGB32 memory is typically BGRA on little-endian
+            auto *pixel = data + y * static_cast<size_t>(stride) + x * 4U;
             pixel[0] = B;
             pixel[1] = G;
             pixel[2] = R;
@@ -318,39 +355,66 @@ drawSegmentationLayer(GstAmpOsd *self, float imgWidth, float imgHeight, const am
     return layer;
 }
 
-static void replaceBackground(
-    guint8 *imgData, gint imgWidth, gint imgHeight, gint imgStride, const amp::Bitmap &segMap) {
+static void replaceBackground(guint8 *imgData,
+                              gint imgWidth,
+                              gint imgHeight,
+                              gint imgStride,
+                              const amp::Bitmap &segMap,
+                              const std::optional<amp::Bitmap> &bgImage) {
+    assert(imgData != nullptr);
 
-    assert(nullptr != imgData);
+    const auto segWidth = segMap.getWidth();
+    const auto segHeight = segMap.getHeight();
 
-    const auto scale_x = static_cast<float>(imgWidth) / static_cast<float>(segMap.getWidth());
-    const auto scale_y = static_cast<float>(imgHeight) / static_cast<float>(segMap.getHeight());
+    if (segWidth == 0U || segHeight == 0U) {
+        return;
+    }
 
-    auto maskPixel = [](uint8_t *pixel) {
-        // Hot pink color for the background
-        static constexpr uint8_t bgColor_B = 147U;
-        static constexpr uint8_t bgColor_G = 20U;
-        static constexpr uint8_t bgColor_R = 255U;
-        pixel[0] = bgColor_B;
-        pixel[1] = bgColor_G;
-        pixel[2] = bgColor_R;
-    };
+    const float segScaleX = static_cast<float>(imgWidth) / static_cast<float>(segWidth);
+    const float segScaleY = static_cast<float>(imgHeight) / static_cast<float>(segHeight);
+
+    const bool hasBgImage = bgImage.has_value();
+    const float bgScaleX =
+        hasBgImage ? (static_cast<float>(imgWidth) / static_cast<float>(bgImage->getWidth()))
+                   : 1.0f;
+    const float bgScaleY =
+        hasBgImage ? (static_cast<float>(imgHeight) / static_cast<float>(bgImage->getHeight()))
+                   : 1.0f;
+
+    constexpr uint8_t threshold = 150U;
 
     for (gint y = 0; y < imgHeight; ++y) {
+        auto *row = imgData + static_cast<size_t>(y) * static_cast<size_t>(imgStride);
+        const auto segY = std::min(static_cast<size_t>(y / segScaleY), segHeight - 1U);
+
         for (gint x = 0; x < imgWidth; ++x) {
+            const auto segX = std::min(static_cast<size_t>(x / segScaleX), segWidth - 1U);
+            const auto maskValue = segMap.getData()[segY * segWidth + segX];
 
-            const auto seg_x = static_cast<size_t>(x / scale_x);
-            const auto seg_y = static_cast<size_t>(y / scale_y);
+            // RVM mask values are inverted here: high values map to background.
+            if (maskValue < threshold) {
+                continue;
+            }
 
-            if ((seg_x < segMap.getWidth()) && (seg_y < segMap.getHeight())) {
-                auto maskValue = segMap.getData()[seg_y * segMap.getWidth() + seg_x];
-                auto *pixel = imgData + y * imgStride + x * 4;
+            auto *pixel = row + static_cast<size_t>(x) * 4U;
 
-                // Mask value (0=background, 255=foreground)
-                static constexpr uint8_t threshold = 150U;
-                if (maskValue <= threshold) {
-                    maskPixel(pixel);
-                }
+            if (hasBgImage) {
+                const auto bgX =
+                    std::min(static_cast<size_t>(x / bgScaleX), bgImage->getWidth() - 1U);
+                const auto bgY =
+                    std::min(static_cast<size_t>(y / bgScaleY), bgImage->getHeight() - 1U);
+
+                const auto *bgData = bgImage->getData();
+                const size_t idx = (bgY * bgImage->getWidth() + bgX) * 4U;
+
+                pixel[0] = bgData[idx + 0U];
+                pixel[1] = bgData[idx + 1U];
+                pixel[2] = bgData[idx + 2U];
+            } else {
+                // Cyan fallback when no replacement background image is configured.
+                pixel[0] = 255U;
+                pixel[1] = 255U;
+                pixel[2] = 0U;
             }
         }
     }
@@ -367,13 +431,18 @@ static inline void gazeEndpoint(float eyeX,
                                 float lengthPx,
                                 float &outX,
                                 float &outY) {
-    float yaw = deg2rad(yawDeg);
-    float pitch = deg2rad(pitchDeg);
+    const float yaw = deg2rad(yawDeg);
+    const float pitch = deg2rad(pitchDeg);
 
     float dx = -std::tan(yaw);
-    float dy = -std::tan(pitch); // minus because +pitch means up, but screen y goes down
+    float dy = -std::tan(pitch); // +pitch means up, but screen y grows down
 
-    float n = std::sqrt(dx * dx + dy * dy);
+    const float n = std::sqrt(dx * dx + dy * dy);
+    if (n <= 0.0f) {
+        outX = eyeX;
+        outY = eyeY;
+        return;
+    }
 
     dx /= n;
     dy /= n;
@@ -385,35 +454,31 @@ static inline void gazeEndpoint(float eyeX,
 static void drawGazeVectors(Osd::Layer *layer, const amp::Perception &perception) {
     amp::ConstPerceptionTools perceptionTools(perception);
 
-    std::vector<amp::Perception::YawPitch> yps =
+    const auto yps =
         perceptionTools.getAllWithContentType<amp::Perception::YawPitch>("eyeYawPitch");
 
     for (const auto &yp : yps) {
-        std::vector<amp::Perception::Rect> parents =
-            perceptionTools.getAllRectsWithContentType("humanFace", yp.parentUuid);
+        const auto parents = perceptionTools.getAllRectsWithContentType("humanFace", yp.parentUuid);
 
-        assert(parents.size() == 1);
-
-        amp::Perception::Rect parent = parents[0];
-
-        float x = parent.x + parent.width / 2;
-        float y = parent.y + parent.height / 2;
-        float yaw = yp.yaw;
-        float pitch = yp.pitch;
-
-        // if(yp.confidence < 0.1f) continue;
-
-        if (yaw < 0.1f && pitch < 0.1f && yaw > -0.1f && pitch > -0.1f)
+        if (parents.size() != 1U) {
             continue;
+        }
 
-        float xEnd, yEnd;
-        gazeEndpoint(x, y, yaw, pitch, 120, xEnd, yEnd);
+        const auto &parent = parents[0];
+
+        const float x = parent.x + parent.width / 2.0f;
+        const float y = parent.y + parent.height / 2.0f;
+        const float yaw = yp.yaw;
+        const float pitch = yp.pitch;
+
+        if (yaw < 0.1f && pitch < 0.1f && yaw > -0.1f && pitch > -0.1f) {
+            continue;
+        }
+
+        float xEnd = x;
+        float yEnd = y;
+        gazeEndpoint(x, y, yaw, pitch, 120.0f, xEnd, yEnd);
         Osd::Arrow::draw(*layer, {x, y}, {xEnd, yEnd}, amp::Colors::lightGoldenrodYellow);
-        // Osd::Point::draw(*layer, Osd::Coordinate{x, y},
-        // amp::Colors::fromStringOrDefault("#ff0000ff"), 10.0f);
-
-        // Osd::Point::draw(*layer, Osd::Coordinate{xEnd, yEnd},
-        // amp::Colors::fromStringOrDefault("#00ff00ff"), 15.0f);
     }
 }
 
@@ -427,7 +492,7 @@ static void drawCameraContactMarkers(Osd::Layer *layer, const amp::Perception &p
 
         for (const auto &det : inferLayer.detections) {
             const auto *classification = std::get_if<amp::Perception::Classification>(&det);
-            if (!classification || classification->candidates.empty()) {
+            if (classification == nullptr || classification->candidates.empty()) {
                 continue;
             }
 
@@ -436,7 +501,7 @@ static void drawCameraContactMarkers(Osd::Layer *layer, const amp::Perception &p
                 continue;
             }
 
-            std::vector<amp::Perception::Rect> parents =
+            const auto parents =
                 perceptionTools.getAllRectsWithContentType("humanFace", classification->parentUuid);
 
             if (parents.empty()) {
@@ -484,18 +549,18 @@ static amp::Color withAlpha(amp::Color color, float alpha) {
 }
 
 static void drawTrackTrace(Osd::Layer &layer, const amp::Perception::TrackTrace &trace) {
-    if (trace.points.size() < 2) {
+    if (trace.points.size() < 2U) {
         return;
     }
 
     const auto baseColor = colorForTrack(trace.trackId);
-    const auto segmentCount = trace.points.size() - 1;
+    const auto segmentCount = trace.points.size() - 1U;
 
     for (size_t i = 0; i < segmentCount; ++i) {
         const auto &from = trace.points[i];
-        const auto &to = trace.points[i + 1];
+        const auto &to = trace.points[i + 1U];
 
-        const auto normalizedAge = static_cast<float>(i + 1) / static_cast<float>(segmentCount);
+        const auto normalizedAge = static_cast<float>(i + 1U) / static_cast<float>(segmentCount);
         const auto alpha = 0.35f + (0.65f * normalizedAge);
 
         Osd::Arrow::draw(layer,
@@ -508,7 +573,7 @@ static void drawTrackTrace(Osd::Layer &layer, const amp::Perception::TrackTrace 
     }
 }
 
-static std::unique_ptr<Osd::Layer> drawPerceptionLayer(GstAmpOsd *self,
+static std::unique_ptr<Osd::Layer> drawPerceptionLayer([[maybe_unused]] GstAmpOsd *self,
                                                        float imgWidth,
                                                        float imgHeight,
                                                        const amp::Perception &perception) {
@@ -530,6 +595,39 @@ static std::unique_ptr<Osd::Layer> drawPerceptionLayer(GstAmpOsd *self,
                     *layer, box, amp::Colors::fromStringOrDefault("#ff0000ff"), 2.0f);
             }
         }
+
+        if (inferLayer.contentType == "personClassification") {
+            for (const auto &det : inferLayer.detections) {
+                const auto &pc = std::get<amp::Perception::PersonClassification>(det);
+
+                const bool isPerson = pc.yesConfidence > pc.noConfidence;
+                const std::string label = isPerson ? "PERSON" : "NON-PERSON";
+                const auto color = isPerson ? amp::Colors::fromStringOrDefault("#66ff00ff")
+                                            : amp::Colors::fromStringOrDefault("#ff4444ff");
+                constexpr float fontSize = 64.0f;
+
+                cairo_select_font_face(
+                    layer->context, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+                cairo_set_font_size(layer->context, fontSize);
+                cairo_text_extents_t ex;
+                cairo_text_extents(layer->context, label.c_str(), &ex);
+
+                const float x = (imgWidth - ex.width) / 2.0f - ex.x_bearing;
+                const float y = (imgHeight - ex.height) / 2.0f - ex.y_bearing;
+
+                uint64_t timeMs = amp::TsUtcNs() / 1000000U;
+                if (timeMs % 1000 < 800) {
+                    Osd::Text::draw(*layer,
+                                    Osd::Coordinate(x, y),
+                                    label,
+                                    color,
+                                    amp::Colors::fromStringOrDefault("#000000cc"),
+                                    "monospace",
+                                    fontSize);
+                }
+            }
+        }
+
         if (inferLayer.contentType == "humanFace") {
             for (const auto &det : inferLayer.detections) {
                 const auto &box = std::get<amp::Perception::Rect>(det);
@@ -547,24 +645,25 @@ static std::unique_ptr<Osd::Layer> drawPerceptionLayer(GstAmpOsd *self,
                 // Draw classification results as a label list in lower-left corner
                 const auto &classification = std::get<amp::Perception::Classification>(det);
 
-                const auto fontSize = 14.0f;
-                const auto lineHeight = fontSize * 1.5f;
+                const float fontSize = 14.0f;
+                const float lineHeight = fontSize * 1.5f;
                 const auto numResults = classification.candidates.size();
 
                 // Calculate starting position (lower-left corner with padding)
-                const auto padding = 10.0f;
-                const auto startX = padding;
-                const auto startY = imgHeight - (numResults * lineHeight) - (2.0f * padding);
+                const float padding = 10.0f;
+                const float startX = padding;
+                const float startY =
+                    imgHeight - (static_cast<float>(numResults) * lineHeight) - (2.0f * padding);
 
-                for (auto i = 0U; i < classification.candidates.size(); ++i) {
+                for (size_t i = 0U; i < classification.candidates.size(); ++i) {
                     const auto &result = classification.candidates[i];
 
                     std::ostringstream oss;
                     oss << "#" << (i + 1U) << ": " << result.text << " (" << std::fixed
                         << std::setprecision(1) << (result.confidence * 100.0f) << "%)";
 
-                    float textX = startX;
-                    float textY = startY + i * lineHeight;
+                    const float textX = startX;
+                    const float textY = startY + static_cast<float>(i) * lineHeight;
 
                     Osd::Text::draw(*layer,
                                     Osd::Coordinate(textX, textY),
@@ -585,16 +684,30 @@ static std::unique_ptr<Osd::Layer> drawPerceptionLayer(GstAmpOsd *self,
 }
 
 static void gst_amp_osd_process_layer(GstAmpOsd *self,
+                                      guint8 *imgData,
+                                      gint imgStride,
                                       float imgWidth,
                                       float imgHeight,
                                       Osd::Layers_t &layers,
                                       const amp::Perception::Layer &layer) {
-
     if (layer.contentType == "segmentation") {
+        const bool useBackgroundReplacement = layer.compositingMode == "backgroundReplacement";
+
         for (const auto &det : layer.detections) {
             const auto *sm = std::get_if<amp::Perception::SegmentationMap>(&det);
-            if (sm != nullptr && !sm->bitmap.empty() && sm->bitmap.getWidth() > 0 &&
-                sm->bitmap.getHeight() > 0) {
+            if (sm == nullptr || sm->bitmap.empty() || sm->bitmap.getWidth() == 0U ||
+                sm->bitmap.getHeight() == 0U) {
+                continue;
+            }
+
+            if (useBackgroundReplacement) {
+                replaceBackground(imgData,
+                                  static_cast<gint>(imgWidth),
+                                  static_cast<gint>(imgHeight),
+                                  imgStride,
+                                  sm->bitmap,
+                                  self->bgImage);
+            } else {
                 layers.push_back(drawSegmentationLayer(self, imgWidth, imgHeight, sm->bitmap));
             }
         }
@@ -602,37 +715,34 @@ static void gst_amp_osd_process_layer(GstAmpOsd *self,
 }
 
 static GstFlowReturn gst_amp_osd_transform_frame_ip(GstVideoFilter *filter, GstVideoFrame *frame) {
-    GstAmpOsd *self = GST_AMP_OSD(filter);
+    auto *self = GST_AMP_OSD(filter);
 
     if (!self->enabled) {
         return GST_FLOW_OK;
     }
 
-    guint8 *imgData = (guint8 *)GST_VIDEO_FRAME_PLANE_DATA(frame, 0);
-    float imgWidth = static_cast<float>(GST_VIDEO_FRAME_WIDTH(frame));
-    float imgHeight = static_cast<float>(GST_VIDEO_FRAME_HEIGHT(frame));
-    gint imgStride = GST_VIDEO_FRAME_PLANE_STRIDE(frame, 0);
+    auto *imgData = static_cast<guint8 *>(GST_VIDEO_FRAME_PLANE_DATA(frame, 0));
+    const float imgWidth = static_cast<float>(GST_VIDEO_FRAME_WIDTH(frame));
+    const float imgHeight = static_cast<float>(GST_VIDEO_FRAME_HEIGHT(frame));
+    const gint imgStride = GST_VIDEO_FRAME_PLANE_STRIDE(frame, 0);
 
-    // "segmentation"
     Osd::Layers_t layers;
 
     if (auto perception = amp::PerceptionMeta::read(frame->buffer); perception != nullptr) {
         for (const auto &layer : perception->layers) {
-            gst_amp_osd_process_layer(self, imgWidth, imgHeight, layers, layer);
+            gst_amp_osd_process_layer(self, imgData, imgStride, imgWidth, imgHeight, layers, layer);
         }
 
-        // Draw detection boxes on top of segmentation
         layers.push_back(drawPerceptionLayer(self, imgWidth, imgHeight, *perception));
         layers.push_back(drawPerformanceLayer(self, imgWidth, imgHeight, *perception));
 
         Osd::Canvas(imgData, imgWidth, imgHeight).paint(layers);
     }
 
-    self->frameCount++;
+    ++self->frameCount;
     return GST_FLOW_OK;
 }
 
-// Plugin initialization
 static gboolean plugin_init(GstPlugin *plugin) {
     GST_DEBUG_CATEGORY_INIT(gst_amp_osd_debug, "amposd", 0, "AMP OSD Overlay");
 
@@ -642,7 +752,7 @@ static gboolean plugin_init(GstPlugin *plugin) {
 GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   GST_VERSION_MINOR,
                   amposd,
-                  "AMP OSD Overlay - On-Screen Display for RGBA video frames",
+                  "AMP OSD Overlay - On-Screen Display for BGRA video frames",
                   plugin_init,
                   "1.0",
                   "LGPL",

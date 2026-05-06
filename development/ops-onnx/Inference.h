@@ -142,15 +142,12 @@ struct Inference {
     ModelDescriptor modelDescriptor;
     amp::Model model;
 
-    std::vector<std::unique_ptr<amp::TensorView>> dynamicViews;
-
     std::vector<Ort::Value> dynamicOutputData;
-    std::unique_ptr<amp::TensorView> outputTensorViews[amp::MaxTensorCount];
 
-    // plain pointers to output tensor buffers and the after-inference shapes (no -1s here)
-    // later this will be used to pass to the postprocessor
-    // static case: it is enough to fill at tensor allocation
-    // dynamic case: must be filled after each inference
+    // Output tensor buffer pointers and shapes populated after inference().
+    // Valid only until the next inference() call.
+    // Backend internal: use TensorView interface (via getOutputTensorDataAddress) for external
+    // access.
     const uint8_t *outputTensorPointers[amp::MaxTensorCount] = {nullptr};
     amp::Shape outputTensorFinalShapes[amp::MaxTensorCount];
 

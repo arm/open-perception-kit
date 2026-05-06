@@ -4,7 +4,6 @@
 
 #include "postproc/ObjectEmbeddingParser.h"
 
-#include <cassert>
 #include <cmath>
 #include <fmt/core.h>
 

@@ -31,7 +31,7 @@ enum class CoordOrder {
 };
 
 static OutputFormat parseOutputFormat(const amp::AttributeMap &attrs) {
-    const std::string fmt = attrs.getStringOrDefault("outputFormat", "");
+    const std::string fmt = attrs.getStringOrDefault("outputFormat", "UltraliticsYolo");
 
     if (fmt == "UltraliticsYolo") {
         return OutputFormat::UltraliticsYolo;
