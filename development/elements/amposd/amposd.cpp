@@ -15,8 +15,10 @@
 #include <cstdint>
 #include <cstring>
 #include <iomanip>
+#include <limits>
 #include <memory>
 #include <optional>
+#include <span>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -163,7 +165,11 @@ static bool gst_amp_osd_load_bg_image(GstAmpOsd *self) {
     int height = 0;
     int channels = 0;
 
-    stbi_uc *rawPixels = stbi_load(self->bgImagePath, &width, &height, &channels, 4);
+    constexpr int requestedChannels = STBI_rgb_alpha;
+    constexpr size_t bytesPerPixel = 4U;
+
+    stbi_uc *rawPixels =
+        stbi_load(self->bgImagePath, &width, &height, &channels, requestedChannels);
     if (rawPixels == nullptr) {
         GST_WARNING_OBJECT(self,
                            "Failed to load bg-image '%s': %s",
@@ -180,25 +186,33 @@ static bool gst_amp_osd_load_bg_image(GstAmpOsd *self) {
         return false;
     }
 
+    const auto imageWidth = static_cast<size_t>(width);
+    const auto imageHeight = static_cast<size_t>(height);
+
+    if (imageWidth > std::numeric_limits<size_t>::max() / imageHeight ||
+        imageWidth * imageHeight > std::numeric_limits<size_t>::max() / bytesPerPixel) {
+        GST_WARNING_OBJECT(self, "Invalid bg-image '%s': dimensions too large", self->bgImagePath);
+        return false;
+    }
+
+    const size_t pixelCount = imageWidth * imageHeight;
+    const size_t byteCount = pixelCount * bytesPerPixel;
+
     amp::Bitmap bitmap;
-    bitmap.realloc(
-        amp::Bitmap::Type::Uint32, static_cast<size_t>(width), static_cast<size_t>(height));
+    bitmap.realloc(amp::Bitmap::Type::Uint32, imageWidth, imageHeight);
 
-    auto *dst = bitmap.getMutableData();
+    std::span<const stbi_uc> srcPixels(rawPixels, byteCount);
+    std::span<uint8_t> dstPixels(bitmap.getMutableData(), byteCount);
 
-    for (int y = 0; y < height; ++y) {
-        const auto *srcRow = rawPixels + (static_cast<size_t>(y) * static_cast<size_t>(width) * 4U);
-
-        for (int x = 0; x < width; ++x) {
-            const auto *src = srcRow + (static_cast<size_t>(x) * 4U);
-            const size_t outIdx =
-                (static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x)) * 4U;
+    for (size_t y = 0; y < imageHeight; ++y) {
+        for (size_t x = 0; x < imageWidth; ++x) {
+            const size_t outIdx = (y * imageWidth + x) * bytesPerPixel;
 
             // Convert RGBA from stb_image to BGRA expected by downstream code.
-            dst[outIdx + 0U] = src[2]; // B
-            dst[outIdx + 1U] = src[1]; // G
-            dst[outIdx + 2U] = src[0]; // R
-            dst[outIdx + 3U] = src[3]; // A
+            dstPixels[outIdx + 0U] = srcPixels[outIdx + 2U]; // B
+            dstPixels[outIdx + 1U] = srcPixels[outIdx + 1U]; // G
+            dstPixels[outIdx + 2U] = srcPixels[outIdx + 0U]; // R
+            dstPixels[outIdx + 3U] = srcPixels[outIdx + 3U]; // A
         }
     }
 
