@@ -5,6 +5,10 @@
 import math
 
 
+def is_near_zero(x: float, abs_tol: float = 1e-9) -> bool:
+    return math.isclose(x, 0.0, abs_tol=abs_tol)
+
+
 def distance_object_embedding(gt_det: dict, out_det: dict, gt_parent_det: dict, out_parent_det: dict) -> float:
     """
     Cosine distance between embedding vectors.
@@ -32,7 +36,7 @@ def distance_object_embedding(gt_det: dict, out_det: dict, gt_parent_det: dict, 
         norm1 += a * a
         norm2 += b * b
 
-    if norm1 == 0.0 or norm2 == 0.0:
+    if is_near_zero(norm1) or is_near_zero(norm2):
         return 1.0
 
     cos_sim = dot / (math.sqrt(norm1) * math.sqrt(norm2))

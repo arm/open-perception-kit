@@ -35,7 +35,7 @@ class PipelineStateReporter : public StatusReporter {
     bool has_audio_ = false;
 
   public:
-    PipelineStateReporter(GstAmpSink *self) : self_(self) {}
+    explicit PipelineStateReporter(GstAmpSink *self) : self_(self) {}
 
     inline void set_paused() {
         trigger_reporting();
@@ -53,7 +53,7 @@ class PerformanceOverlayStateReporter : public StatusReporter {
     GstAmpSink *self_ = nullptr;
 
   public:
-    PerformanceOverlayStateReporter(GstAmpSink *self) : self_(self) {}
+    explicit PerformanceOverlayStateReporter(GstAmpSink *self) : self_(self) {}
 
     nlohmann::json report() const override;
 };

@@ -8,9 +8,8 @@ __pycache__/
 *.pkl
 *.egg-info/
 .eggs/
-.venv/
+**/.venv
 .uv/
-.venv*/
 .uv-cache/
 .uv-lock/
 *.lock
@@ -98,6 +97,13 @@ config/pipelines/.last_selected_pipeline_id
 
 docs/html
 todo.md
+
+
+# -------------------------
+# Sonar files
+# -------------------------
+.scannerwork
+coverage.xml
 
 # -------------------------
 # Valgrind logs (might not only be files with .log extension, so the whole directory is ignored)

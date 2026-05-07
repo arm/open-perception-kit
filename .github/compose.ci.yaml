@@ -70,3 +70,70 @@ services:
         source /work/tools/.venv/bin/activate &&
         expkits-ci --clang-format-check --python-format-check --cmake-format-check --shell-format-check --license-header-check
       '
+
+  amp-sonar-check:
+    extends: 
+      file: ../compose.base.yaml
+      service: amp-common-dev
+    container_name: amp-sonar-check
+    hostname: amp-sonar-check
+    network_mode: bridge
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: amp-dev-sonar 
+    environment:
+      PROJECT_ROOT: /work/development
+      BUILD_DIR: /work/development/build
+      SONAR_HOST_URL: ${SONAR_HOST_URL}
+      SONAR_TOKEN: ${SONAR_TOKEN}
+      SONAR_BRANCH: ${SONAR_BRANCH}
+      SONAR_QUALITYGATE_WAIT: 
+      PR_KEY: ${PR_KEY}
+      PR_BRANCH: ${PR_BRANCH}
+      PR_BASE: ${PR_BASE} 
+    command: |
+      bash -c '
+        .devcontainer/devsetup.sh &&
+        .devcontainer/platform_init.sh amp-dev-base &&
+        source /work/tools/.venv/bin/activate &&
+        ./scripts/build-elements.sh debug true --extra-setup-args=-Db_coverage=true,--wipe &&
+        meson test -C "$$BUILD_DIR" --print-errorlogs &&
+        gcovr -r . --sonarqube coverage.xml &&
+        sonar-scanner -Dsonar.qualitygate.wait="$${SONAR_QUALITYGATE_WAIT}" \
+          -Dsonar.branch.name="$$SONAR_BRANCH"
+      '
+
+  amp-sonar-check-release:
+    extends: 
+      file: ../compose.base.yaml
+      service: amp-common-dev
+    container_name: amp-sonar-check-release
+    hostname: amp-sonar-check-release
+    network_mode: bridge
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: amp-dev-sonar 
+    environment:
+      PROJECT_ROOT: /work/development
+      BUILD_DIR: /work/development/build
+      SONAR_HOST_URL: ${SONAR_HOST_URL}
+      SONAR_TOKEN: ${SONAR_TOKEN}
+      SONAR_BRANCH: ${SONAR_BRANCH}
+      SONAR_QUALITYGATE_WAIT: ${SONAR_QUALITYGATE_WAIT}
+      BUILD_STRING: ${BUILD_STRING} 
+      SONAR_PROJECT_VERSION: ${SONAR_PROJECT_VERSION}
+    command: |
+      bash -c '
+        .devcontainer/devsetup.sh &&
+        .devcontainer/platform_init.sh amp-dev-base &&
+        source /work/tools/.venv/bin/activate &&
+        ./scripts/build-elements.sh debug true --extra-setup-args=-Db_coverage=true,--wipe &&
+        meson test -C "$$BUILD_DIR" --print-errorlogs &&
+        gcovr -r . --sonarqube coverage.xml &&
+        sonar-scanner -Dsonar.qualitygate.wait="$${SONAR_QUALITYGATE_WAIT}" \
+          -Dsonar.branch.name="$$SONAR_BRANCH" \
+          -Dsonar.projectVersion="$$SONAR_PROJECT_VERSION" \
+          -Dsonar.buildString="$$BUILD_STRING"
+      '

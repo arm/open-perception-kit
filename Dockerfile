@@ -133,7 +133,7 @@ RUN set -eux; \
 
 # uv (Python package manager) for dev/CI tooling
 RUN set -eux; \
-  curl -LsSf https://astral.sh/uv/install.sh | \
+  curl --proto "=https" -LsSf https://astral.sh/uv/install.sh | \
   env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh; \
   uv --version
 
@@ -141,8 +141,9 @@ RUN set -eux; \
 ARG PLANTUML_VERSION=1.2026.2
 RUN set -eux; \
   mkdir -p /opt/amp-deps; \
-  wget "https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}/plantuml-mit-${PLANTUML_VERSION}.jar" \
-  -O "/opt/amp-deps/plantuml-mit-${PLANTUML_VERSION}.jar"
+  wget --secure-protocol=TLSv1_2 \
+    "https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}/plantuml-mit-${PLANTUML_VERSION}.jar" \
+    -O "/opt/amp-deps/plantuml-mit-${PLANTUML_VERSION}.jar"
 
 USER ${USERNAME}
 WORKDIR /work
@@ -292,17 +293,19 @@ FROM amp-dev-base AS amp-dev-sonar
 
 USER root
 
-ENV SONAR_SCANNER_VERSION="4.6.2.2472"
+ENV SONAR_SCANNER_VERSION="8.0.1.6346"
 
 ENV SONAR_HOST_URL="https://sonarqube.mobilestudio.aws.arm.com" \
-  PATH=/opt/sonar/sonar-scanner-${SONAR_SCANNER_VERSION}-linux/bin:${PATH}
+    PATH=/opt/sonar/sonar-scanner-${SONAR_SCANNER_VERSION}/bin:${PATH}
 
-RUN set -eux && \
-  mkdir -p /opt/sonar && \
-  curl -sSLo /opt/build-wrapper-linux-x86.zip ${SONAR_HOST_URL}/static/cpp/build-wrapper-linux-x86.zip && \
-  unzip -o /opt/build-wrapper-linux-x86.zip -d /opt/sonar/ && \
-  curl -sSLo /opt/sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}-linux.zip && \
-  unzip -o /opt/sonar-scanner.zip -d /opt/sonar/
+RUN set -eux; \
+    apt-get update; apt-get install -y --no-install-recommends gcovr; \
+    rm -rf /var/lib/apt/lists/*; \
+    mkdir -p /opt/sonar; \
+    curl --proto "=https" -fsSLo /tmp/sonar-scanner.zip \
+        "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}.zip"; \
+    unzip -o /tmp/sonar-scanner.zip -d /opt/sonar/; \
+    rm -f /tmp/sonar-scanner.zip
 
 ######################################################################
 ################ Rich development environment container ##############
@@ -324,7 +327,7 @@ RUN luarocks install jsregexp
 
 RUN chsh -s /usr/bin/zsh ${USERNAME}
 
-COPY ./.devcontainer/uidgid-entrypoint.sh /usr/local/bin/uidgid-entrypoint
+COPY .devcontainer/uidgid-entrypoint.sh /usr/local/bin/uidgid-entrypoint
 RUN chmod +x /usr/local/bin/uidgid-entrypoint
 
 # ---- Locale ----
@@ -333,12 +336,12 @@ RUN sed -i 's/^# *\(en_US.UTF-8 UTF-8\)/\1/' /etc/locale.gen && \
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 
 # ---- Install Neovim v0.11.5 via AppImage ----
-ARG NVIM_VERSION=v0.11.5
+ARG NVIM_VERSION=v0.12.1
 ARG NVIM_APPIMAGE=nvim-linux-x86_64.appimage
 
 RUN touch /container_env
 
-RUN curl -LO https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/${NVIM_APPIMAGE} && \
+RUN curl --proto "=https" -LO https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/${NVIM_APPIMAGE} && \
   chmod +x ${NVIM_APPIMAGE} && \
   ./${NVIM_APPIMAGE} --appimage-extract && \
   mv squashfs-root /opt/nvim && \
@@ -352,14 +355,14 @@ RUN update-alternatives --install /usr/bin/vi vi /usr/local/bin/nvim 60 && \
 
 ARG CPP_TOOLS_VERSION=v1.29.3
 ARG CPP_TOOLS_APPIMAGE=cpptools-linux-x64.vsix
-RUN curl -LO https://github.com/microsoft/vscode-cpptools/releases/download/${CPP_TOOLS_VERSION}/${CPP_TOOLS_APPIMAGE} && \
+RUN curl --proto "=https" -LO https://github.com/microsoft/vscode-cpptools/releases/download/${CPP_TOOLS_VERSION}/${CPP_TOOLS_APPIMAGE} && \
   mkdir -p /home/${USERNAME}/bin/cpptools && \
   unzip ${CPP_TOOLS_APPIMAGE} -d /home/${USERNAME}/bin/cpptools && \
   chmod +x /home/${USERNAME}/bin/cpptools/extension/debugAdapters/bin/OpenDebugAD7 && \
   ln -s /home/${USERNAME}/bin/cpptools/extension/debugAdapters/bin/OpenDebugAD7 /usr/local/bin/OpenDebugAD7
 
 # ---- Install oh-my-zsh for dev user ----
-RUN curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -o /tmp/install-ohmyzsh.sh && \
+RUN curl --proto "=https" -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -o /tmp/install-ohmyzsh.sh && \
   chmod +x /tmp/install-ohmyzsh.sh && \
   su - ${USERNAME} -c "env RUNZSH=no CHSH=no KEEP_ZSHRC=yes /tmp/install-ohmyzsh.sh" && \
   rm /tmp/install-ohmyzsh.sh
@@ -368,7 +371,7 @@ RUN curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/in
 # We expect /home/dev/configs to be provided via a bind-mount at runtime.
 RUN mkdir -p /home/${USERNAME}/.config && \
   ln -sfn /home/${USERNAME}/configs/zshrc /home/${USERNAME}/.zshrc && \
-  ln -sfn /home/${USERNAME}/configs/nvchad_2025_08 /home/${USERNAME}/.config/nvim && \
+  ln -sfn /home/${USERNAME}/configs/nvchad_2026_04 /home/${USERNAME}/.config/nvim && \
   chown -R ${USER_UID}:${USER_GID} /home/${USERNAME}/.config /home/${USERNAME}/.zshrc
 
 # ---- SSH agent socket mapping ----

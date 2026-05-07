@@ -90,7 +90,8 @@ nlohmann::json PerformanceOverlayStateReporter::report() const {
     auto perf_ovr = get_element_by_type(top, "ampperformance");
     gst_object_unref(top);
 
-    if (perf_ovr && GST_IS_ELEMENT(perf_ovr)) {
+    // GST_IS_ELEMENT() is a macro performing a type check with no side effects
+    if (perf_ovr && GST_IS_ELEMENT(perf_ovr)) { // NOSONAR
         ret["has_performance_overlay"] = true;
 
         gboolean enabled;
@@ -246,7 +247,8 @@ static void gst_amp_sink_stop_pipeline_async(GstElement *element, gpointer user_
     auto *self = reinterpret_cast<GstAmpSink *>(element);
     GstElement *top = get_top_pipeline(element);
 
-    if (top && GST_IS_ELEMENT(top)) {
+    // GST_IS_ELEMENT() is a macro performing a type check with no side effects
+    if (top && GST_IS_ELEMENT(top)) { // NOSONAR
         GST_INFO_OBJECT(self, "EOS received, posting EOS message to top pipeline");
         gst_element_post_message(top, gst_message_new_eos(GST_OBJECT(top)));
         gst_object_unref(top);

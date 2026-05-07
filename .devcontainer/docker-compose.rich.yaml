@@ -2,8 +2,8 @@ services:
 
   amp-dev-rich:
     build:
-      context: .
-      dockerfile: ../Dockerfile
+      context: ..
+      dockerfile: Dockerfile
       target: amp-dev-rich
 
     container_name: amp-dev-rich
@@ -14,7 +14,11 @@ services:
 
     user: "0:0"
 
-    command: /bin/bash -c "/work/.devcontainer/setup.sh && while true; do sleep 1; done"
+    command: | 
+      /bin/bash -c "/work/.devcontainer/setup.sh && 
+      /work/.devcontainer/devsetup.sh && 
+      ln -sf ~/configs/.gitconfig ~/.gitconfig &&
+      while true; do sleep 1; done"
 
     environment:
       - XDG_RUNTIME_DIR=/run/user/${HOST_UID}
@@ -30,7 +34,7 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix
       - ${HOME}/configs:/home/devgoblin/configs
       - ..:/work     
-      - ../amp-work-tree:/amp-work-tree
+      - ../../amp-work-tree:/amp-work-tree
       - ${SSH_AUTH_SOCK}:/ssh-agent
 
     privileged: true

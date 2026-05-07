@@ -11,7 +11,7 @@ At a high level, it combines:
 - structured `Perception` results that downstream elements can render, track, or publish
 
 ## For first-time users
-For rendered documentation instead of Markdown files, see the [AMP Development Forge Docusaurus documentation](https://docs.staging.devplatform.arm.com/amp-dev-forge/).
+For rendered documentation instead of Markdown files, see the [AMP Development Forge Docusaurus documentation](https://docs.staging.devplatform.arm.com/perception-xpk).
 
 ### Quick first run
 The quick-guide path is the fastest way to reach a working pipeline and then reconnect through the [Exercise Quick Guide](docs/public/how-to/quick-guides/exercise.md) into the same engineering path as the full setup flow.
@@ -38,3 +38,4 @@ The architectural path provides a deeper understanding of the project, its curre
 - [Architecture index](docs/public/arch/index.md)
 - [Architectural overview](docs/public/arch/architectural-overview.md)
 - [Known limitations](docs/public/arch/known-limitations.md)
+

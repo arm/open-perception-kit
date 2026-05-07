@@ -49,8 +49,8 @@
         "editor.defaultFormatter": "ms-python.autopep8"
     },
     "testMate.cpp.test.executables": "development/build/**/*{test,Test,TEST}*",
-	"lldb.executable": "/usr/local/bin/lldb",
-	"lldb.library": "/lib/aarch64-linux-gnu/liblldb-17.so.1",
-	"lldb.server": "/usr/local/bin/lldb-server",
-	"lldb.verboseLogging": true
+    "lldb.executable": "/usr/local/bin/lldb",
+    "lldb.library": "/lib/aarch64-linux-gnu/liblldb-17.so.1",
+    "lldb.server": "/usr/local/bin/lldb-server",
+    "lldb.verboseLogging": true
 }

@@ -322,7 +322,8 @@ bool WebRtcWebSocket::attach_audio(SessionContext *ctx) {
     auto self = ctx->self;
 
     try {
-        if (!self->atee || !GST_IS_ELEMENT(self->atee)) {
+        // GST_IS_ELEMENT() is a macro performing a type check with no side effects
+        if (!self->atee || !GST_IS_ELEMENT(self->atee)) { // NOSONAR
             throw std::runtime_error("Audio tee not present; cannot attach audio");
         }
 
