@@ -3,7 +3,7 @@
 Binary person / non-person classifier.
 
 - Backend: ONNX
-- Input: NCHW image, `[1, 96, 96, 3]`
+- Input: NHWC image, `[1, 96, 96, 3]`
 - Output: logits `[1, 2]` (first is the person prob)
 - Post processor: `PersonClassificationParser`
 - Supported Perception result: PersonClassification
