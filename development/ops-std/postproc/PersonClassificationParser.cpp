@@ -40,8 +40,8 @@ amp::Result<void> PersonClassificationParser::parse(const amp::TensorParser::Inp
                                   shape.valueCount[1])));
     }
 
-    const float rawNo = input.tensors[0]->get(0);
-    const float rawYes = input.tensors[0]->get(1);
+    const float rawYes = input.tensors[0]->get(0);
+    const float rawNo = input.tensors[0]->get(1);
 
     float noConfidence = rawNo;
     float yesConfidence = rawYes;
