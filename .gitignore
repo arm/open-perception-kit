@@ -98,6 +98,12 @@ config/pipelines/.last_selected_pipeline_id
 docs/html
 todo.md
 
+# -------------------------
+# Demo video assets (download with scripts/download-data.sh)
+# -------------------------
+data/videos/*.mov
+data/videos/*.mp4
+
 
 # -------------------------
 # Sonar files
