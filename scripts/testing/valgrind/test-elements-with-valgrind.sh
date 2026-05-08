@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 WORK_ROOT="$(cd -- "$SCRIPT_DIR/../../.." && pwd)"
 BUILD_SCRIPT="$WORK_ROOT/scripts/build-elements.sh"
 SHTOOLS_SCRIPT="$WORK_ROOT/scripts/private/shtools.sh"
-AMP_MENU="$WORK_ROOT/tools/amp-menu"
+PEK_MENU="$WORK_ROOT/tools/pek-menu"
 TEST_PIPELINES_DIR="$WORK_ROOT/config/pipelines/testing"
 LOG_DIR="$SCRIPT_DIR/logs"
 DEFAULT_SUPPRESSIONS_FILE="$SCRIPT_DIR/suppressed-warnings"
@@ -81,8 +81,8 @@ run_valgrind_all() {
         exit 1
     fi
 
-    if [[ ! -x "$AMP_MENU" ]]; then
-        echo "amp-menu binary not found or not executable: $AMP_MENU" >&2
+    if [[ ! -x "$PEK_MENU" ]]; then
+        echo "pek-menu binary not found or not executable: $PEK_MENU" >&2
         exit 1
     fi
 
@@ -175,7 +175,7 @@ run_valgrind_all() {
         if valgrind \
             "${valgrind_args[@]}" \
             --log-file="$log_file.%p" \
-            "$AMP_MENU" "$pipeline"; then
+            "$PEK_MENU" "$pipeline"; then
             msg "PASSED: $pipeline"
             msg "Logs: $log_file.* (including child processes)"
         else

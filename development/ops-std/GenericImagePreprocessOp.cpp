@@ -7,24 +7,24 @@
 #include <cstdint>
 #include <fmt/core.h>
 
-#include "amp/Perception.h"
-#include "amp/Result.h"
-#include "amp/TensorView.h"
-#include "amp/Tools.h"
-#include "amp/Types.h"
+#include "pek/Perception.h"
+#include "pek/Result.h"
+#include "pek/TensorView.h"
+#include "pek/Tools.h"
+#include "pek/Types.h"
 #include "tl/expected.hpp"
 
 #include <PerformanceTracer.h>
 
-using namespace amp;
+using namespace pek;
 
 GenericImagePreprocessOp::GenericImagePreprocessOp() {}
 GenericImagePreprocessOp::~GenericImagePreprocessOp() {}
 
-amp::Result<void> GenericImagePreprocessOp::bind(size_t index, const std::vector<amp::Op *> &ops) {
+pek::Result<void> GenericImagePreprocessOp::bind(size_t index, const std::vector<pek::Op *> &ops) {
     // sanity check
     if (ops.size() <= index) {
-        return tl::unexpected(AMP_ERROR(amp::ErrorFlag::InvalidOpChain,
+        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidOpChain,
                                         "GenericImagePreprocessOp cannot be the last Op"));
     }
 
@@ -32,7 +32,7 @@ amp::Result<void> GenericImagePreprocessOp::bind(size_t index, const std::vector
     const OpInterfaceInference *inferenceOp = ops[index + 1]->as<OpInterfaceInference>();
     if (!inferenceOp) {
         return tl::unexpected(
-            AMP_ERROR(amp::ErrorFlag::InvalidOpChain,
+            PEK_ERROR(pek::ErrorFlag::InvalidOpChain,
                       "GenericImagePreprocessOp should be BEFORE an inference Op"));
     }
 
@@ -42,7 +42,7 @@ amp::Result<void> GenericImagePreprocessOp::bind(size_t index, const std::vector
         upcomingTensorAddresses[i] = inferenceOp->getTensorDataAddress(i);
     }
 
-    if (inputImageTensorIndex == amp::InvalidTensorIndex) {
+    if (inputImageTensorIndex == pek::InvalidTensorIndex) {
         // user not specified a tensor index
         // we try to discover here which upcoming tensor has image-like shape
         for (size_t i = 0; i < upcomingInferenceModel.inputs.size(); i++) {
@@ -55,26 +55,26 @@ amp::Result<void> GenericImagePreprocessOp::bind(size_t index, const std::vector
     }
 
     // sanity check
-    if (inputImageTensorIndex == amp::InvalidTensorIndex) {
-        return tl::unexpected(AMP_ERROR(
-            amp::ErrorFlag::InvalidOpChain,
+    if (inputImageTensorIndex == pek::InvalidTensorIndex) {
+        return tl::unexpected(PEK_ERROR(
+            pek::ErrorFlag::InvalidOpChain,
             "GenericImagePreprocessOp cannot find an upcoming tensor index to work with"));
     }
 
     return {};
 }
 
-amp::Result<void> GenericImagePreprocessOp::configure(const amp::AttributeMap &attributes) {
+pek::Result<void> GenericImagePreprocessOp::configure(const pek::AttributeMap &attributes) {
     // --- get config info from the json attributes
     inputImageSourceName =
         attributes.getStringOrDefault("inputImageSourceName", "pipelineVideoFrame");
     inputImageTensorIndex =
-        attributes.getIntOrDefault("inputImageTensorIndex", amp::InvalidTensorIndex);
+        attributes.getIntOrDefault("inputImageTensorIndex", pek::InvalidTensorIndex);
     return {};
 }
 
-amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChainContext) {
-    AMP_TRACE_SCOPE(fmt::format("std/GenImgPre/{}", upcomingInferenceModel.modelFamily));
+pek::Result<void> GenericImagePreprocessOp::process(pek::OpChainContext &opChainContext) {
+    PEK_TRACE_SCOPE(fmt::format("std/GenImgPre/{}", upcomingInferenceModel.modelFamily));
 
     if (opChainContext.inferenceImageCrops.size() == 0) {
         //  nothing to infer on, we break the loop and move on
@@ -82,28 +82,28 @@ amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChain
         return {};
     }
 
-    amp::PixelRect cropRect = opChainContext.inferenceImageCrops.back();
+    pek::PixelRect cropRect = opChainContext.inferenceImageCrops.back();
     opChainContext.inferenceImageCrops.pop_back();
     uint64_t sourceUuid = opChainContext.inferenceImageCropUuids.back();
     opChainContext.inferenceSourceUuid = opChainContext.inferenceImageCropUuids.back();
     opChainContext.inferenceImageCropUuids.pop_back();
 
-    amp::BitmapView *pipelineVideoFrame = opChainContext.getBitmapView("pipelineVideoFrame");
+    pek::BitmapView *pipelineVideoFrame = opChainContext.getBitmapView("pipelineVideoFrame");
 
     if (pipelineVideoFrame == nullptr) {
-        return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidOpChain,
+        return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InvalidOpChain,
                                              "GenericImagePreprocessOp needs pipelineVideoFrame"));
     }
 
     // setup tensor data source
-    amp::TensorBuilder::Setup setup;
+    pek::TensorBuilder::Setup setup;
     setup.imageSourceDesc.data = pipelineVideoFrame->data;
     setup.imageSourceDesc.surfaceWidth = pipelineVideoFrame->width;
     setup.imageSourceDesc.surfaceHeight = pipelineVideoFrame->height;
     setup.imageSourceDesc.rect = cropRect;
     setup.imageSourceDesc.byteCount = pipelineVideoFrame->width * pipelineVideoFrame->height * 4;
-    setup.imageSourceDesc.kind = amp::DataKind::ImageBgraHwc;
-    setup.imageSourceDesc.type = amp::Tdt::Uint8;
+    setup.imageSourceDesc.kind = pek::DataKind::ImageBgraHwc;
+    setup.imageSourceDesc.type = pek::Tdt::Uint8;
     setup.imageSourceDesc.mean = upcomingInferenceModel.inputs[inputImageTensorIndex].mean;
     setup.imageSourceDesc.std = upcomingInferenceModel.inputs[inputImageTensorIndex].std;
 
@@ -111,7 +111,7 @@ amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChain
     if (false == upcomingInferenceModel.inputs[inputImageTensorIndex].tryGetImageTensorSize(
                      modelWidth, modelHeight)) {
         return tl::make_unexpected(
-            AMP_ERROR(amp::ErrorFlag::InvalidData, "tensor seems not to be an image"));
+            PEK_ERROR(pek::ErrorFlag::InvalidData, "tensor seems not to be an image"));
     }
 
     // debug
@@ -151,11 +151,11 @@ amp::Result<void> GenericImagePreprocessOp::process(amp::OpChainContext &opChain
     setup.imageDestinationDesc.kind = upcomingInferenceModel.inputs[inputImageTensorIndex].dataKind;
     setup.imageDestinationDesc.byteCount =
         upcomingInferenceModel.inputs[inputImageTensorIndex].shape.getFullValueCount() *
-        amp::getValueTypeByteSize(upcomingInferenceModel.inputs[inputImageTensorIndex].valueType);
+        pek::getValueTypeByteSize(upcomingInferenceModel.inputs[inputImageTensorIndex].valueType);
     setup.imageDestinationDesc.data = upcomingTensorAddresses[inputImageTensorIndex];
 
     // call tensor building
-    amp::Result<void> result = genericImageInputTensorBuilder.build(setup);
+    pek::Result<void> result = genericImageInputTensorBuilder.build(setup);
     if (result.has_value() == false) {
         return result;
     }

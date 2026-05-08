@@ -1,35 +1,35 @@
 services:
-  amp-release-deployment:
+  pek-release-deployment:
     platform: linux/arm64
     extends: 
       file: ./compose.base.yaml
-      service: amp-common
+      service: pek-common
     network_mode: host
     ports: []
-    container_name: amp-deployment-base
-    hostname: amp-deployment-base
+    container_name: pek-deployment-base
+    hostname: pek-deployment-base
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
       - /run/udev:/run/udev:ro
     environment:
-      AMP_PIPELINE: ${AMP_PIPELINE:-onnx}
+      PEK_PIPELINE: ${PEK_PIPELINE:-onnx}
     build:
       context: .
       dockerfile: Dockerfile
-      target: amp-deployment-base
+      target: pek-deployment-base
       args:
-        AMP_PIPELINE: ${AMP_PIPELINE:-onnx}
+        PEK_PIPELINE: ${PEK_PIPELINE:-onnx}
 
 # Topo-specific metadata
 # TODO: for some reason in case of topo deployment from WSL the container has x86 binaries inside it instead of arm64. Despite the platform specification in the compose file.
 x-topo:
-  name: "AMP TOPO Container"
+  name: "Perception Experience Kit TOPO Container"
   description: |
-    Run AMP container
+    Run Perception Experience Kit container
   args:
-    AMP_PIPELINE:
+    PEK_PIPELINE:
       description: | 
-        The AMP pipeline to run. This should be the name of a pipeline defined in pipelines.yaml. Some options include 'onnx', 'gaze', 'video' amd 'single_cam'.
+        The Perception Experience Kit pipeline to run. This should be the name of a pipeline defined in pipelines.yaml. Some options include 'onnx', 'gaze', 'video' amd 'single_cam'.
       default: "onnx"
   features:
     - "SME"

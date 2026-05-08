@@ -1,10 +1,10 @@
 {
-    "description": "Test ampsink audio",
+    "description": "Test peksink audio",
     "pipeline": [
         "videotestsrc is-live=true pattern=ball !",
         "video/x-raw,framerate=30/1 !",
         "videoconvert !",
-        "ampsink name=sink",
+        "peksink name=sink",
         "audiotestsrc is-live=true wave=square !",
         "audio/x-raw,rate=48000,channels=2 !",
         "sink.audiosink"

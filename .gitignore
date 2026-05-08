@@ -87,7 +87,7 @@ onnxruntime-linux-x64-*
 
 graphs/
 
-tools/amp-menu
+tools/pek-menu
 
 core.*
 

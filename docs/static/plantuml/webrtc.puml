@@ -1,19 +1,19 @@
 @startuml
-!include amp-style.puml
+!include pek-style.puml
 
 title WebRTC media and control flow
 
 participant "Host Web Browser" as Browser
 participant "Container" as Container
-participant "AmpSource" as AmpSource
-participant "Ampsink" as Ampsink
+participant "PekSource" as PekSource
+participant "Peksink" as Peksink
 
 Browser -> Container : Webcam/Mic
 activate Container
-Container -> AmpSource : Deliver media stream
+Container -> PekSource : Deliver media stream
 
 Browser -> Container : REST control commands
-Container -> Ampsink : Handle control command
+Container -> Peksink : Handle control command
 
 Container --> Browser : Control response
 deactivate Container

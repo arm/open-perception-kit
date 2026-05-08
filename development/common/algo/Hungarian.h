@@ -9,7 +9,7 @@
 #include <type_traits>
 #include <vector>
 
-namespace amp::algo {
+namespace pek::algo {
 
 template <typename T>
 std::vector<int> solveHungarian(const std::vector<std::vector<T>> &inputCost) {
@@ -123,4 +123,4 @@ std::vector<int> solveHungarian(const std::vector<std::vector<T>> &inputCost) {
     return assignmentOriginalRows;
 }
 
-} // namespace amp::algo
+} // namespace pek::algo

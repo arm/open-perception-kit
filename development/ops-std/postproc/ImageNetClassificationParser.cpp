@@ -3,7 +3,7 @@
  *************************************************************/
 
 #include "postproc/ImageNetClassificationParser.h"
-#include "amp/Labels.h"
+#include "pek/Labels.h"
 
 #include <algorithm>
 #include <cmath>
@@ -12,7 +12,7 @@
 #include <span>
 #include <vector>
 
-using namespace amp;
+using namespace pek;
 
 // Softmax helper function
 static void softmax(const std::span<float> input, std::span<float> output) {
@@ -38,24 +38,24 @@ static void softmax(const std::span<float> input, std::span<float> output) {
     }
 }
 
-amp::Result<void> ImageNetClassificationParser::parse(const amp::TensorParser::Input &input,
-                                                      amp::Perception::Layer &detectionResult) {
+pek::Result<void> ImageNetClassificationParser::parse(const pek::TensorParser::Input &input,
+                                                      pek::Perception::Layer &detectionResult) {
 
     if (!input.tensors[0]) {
-        return tl::unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData,
+        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
                                         "ImageNetClassificationParser: input tensor is null"));
     }
 
     const auto shape = input.tensors[0]->getShape();
     if (shape.dimensionCount != 2U) {
         return tl::unexpected(
-            AMP_ERROR(amp::ErrorFlag::InvalidData,
+            PEK_ERROR(pek::ErrorFlag::InvalidData,
                       fmt::format("ImageNetClassificationParser: expected 2D tensor, got {}D",
                                   shape.dimensionCount)));
     }
     if (shape.valueCount[0] != 1U) {
         return tl::unexpected(
-            AMP_ERROR(amp::ErrorFlag::InvalidData,
+            PEK_ERROR(pek::ErrorFlag::InvalidData,
                       fmt::format("ImageNetClassificationParser: batch size must be 1, got {}",
                                   shape.valueCount[0])));
     }
@@ -63,7 +63,7 @@ amp::Result<void> ImageNetClassificationParser::parse(const amp::TensorParser::I
     constexpr auto numClasses = Labels::getLabelCount(LabelType::ImageNet);
     if (numClasses != shape.valueCount[1]) {
         return tl::unexpected(
-            AMP_ERROR(amp::ErrorFlag::InvalidData,
+            PEK_ERROR(pek::ErrorFlag::InvalidData,
                       fmt::format("ImageNetClassificationParser: expected {} classes, got {}",
                                   numClasses,
                                   shape.valueCount[1])));
@@ -100,7 +100,7 @@ amp::Result<void> ImageNetClassificationParser::parse(const amp::TensorParser::I
                           scoredIndices.end(),
                           std::greater<>());
 
-        amp::Perception::Classification classification;
+        pek::Perception::Classification classification;
 
         detectionResult.contentType = "classification";
 
@@ -111,7 +111,7 @@ amp::Result<void> ImageNetClassificationParser::parse(const amp::TensorParser::I
             // Store classification result as DetectionRect
             // x,y will be used to position the label in lower-right corner
             // w,h are not used for classification (no actual bounding box)
-            amp::Perception::Classification::Candidate candidate;
+            pek::Perception::Classification::Candidate candidate;
             candidate.x = 0.0f;                  // Position will be calculated by renderer
             candidate.y = static_cast<float>(i); // Store index for rendering
             candidate.w = 0.0f;                  // Not used

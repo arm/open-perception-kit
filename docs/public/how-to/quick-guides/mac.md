@@ -5,7 +5,7 @@ sidebar_label: macOS Quick Guide
 
 # macOS Quick Guide
 
-This is the shortest path from cloning the repository to running the first AMP pipeline on macOS.
+This is the shortest path from cloning the repository to running the first Perception Experience Kit pipeline on macOS.
 
 Use this page if you want the quickest first run.
 Use the other how-to pages if you want setup details, troubleshooting help, or deeper explanations.
@@ -14,12 +14,12 @@ Use the other how-to pages if you want setup details, troubleshooting help, or d
 
 If you follow this page successfully, you will learn how to:
 
-- prepare a supported macOS host for AMP development
+- prepare a supported macOS host for Perception Experience Kit development
 - open the repository in the expected container workflow
-- build the project and start `amp-menu`
+- build the project and start `pek-menu`
 - run the first pipeline and verify that the local web UI is reachable
 
-At the end of this guide, you should have AMP running on your macOS host, with the first pipeline launched and the web UI available at `http://localhost:9999`.
+At the end of this guide, you should have Perception Experience Kit running on your macOS host, with the first pipeline launched and the web UI available at `http://localhost:9999`.
 
 ## 1. Install the host tools
 
@@ -51,39 +51,39 @@ For key creation details, see [Generating a new SSH key and adding it to the ssh
 
 ## 3. Clone the repository
 
-In order to download the latest release archive download the compressed source package from the [release page](https://github.com/Arm-Debug/amp-dev-forge/releases) and extract it before continuing.
+In order to download the latest release archive download the compressed source package from the [release page](https://github.com/Arm-Debug/perception-experience-kit/releases) and extract it before continuing.
 ![GitHub release page showing the source code download](../../../static/img/01-repo-compressed.png)
 
 Extract the ZIP archive:
 
 ```bash
-unzip amp-dev-forge-${VERSION}.zip
-mv amp-dev-forge-${VERSION} amp-dev-forge
-cd amp-dev-forge
+unzip perception-experience-kit-${VERSION}.zip
+mv perception-experience-kit-${VERSION} perception-experience-kit
+cd perception-experience-kit
 ```
 
 Extract the tar archive:
 
 ```bash
-tar -xzf amp-dev-forge-${VERSION}.tar.gz
-mv amp-dev-forge-${VERSION} amp-dev-forge
-cd amp-dev-forge
+tar -xzf perception-experience-kit-${VERSION}.tar.gz
+mv perception-experience-kit-${VERSION} perception-experience-kit
+cd perception-experience-kit
 ```
 
-If you use the archive path, continue from the next step after `cd amp-dev-forge`.
+If you use the archive path, continue from the next step after `cd perception-experience-kit`.
 
 Alternatively you can clone the repository with Git.
 
-![AMP Development Forge repository root](../../../static/img/02-repo-root.png)
+![Perception Experience Kit repository root](../../../static/img/02-repo-root.png)
 
 ```bash
-git clone git@github.com:Arm-Debug/amp-dev-forge.git
-cd amp-dev-forge
+git clone git@github.com:Arm-Debug/perception-experience-kit.git
+cd perception-experience-kit
 ```
 
 ![Terminal output after cloning the repository](../../../static/img/03-repo-clone.png)
 
-> Expected result: the `amp-dev-forge` folder exists locally and VS Code can open it.
+> Expected result: the `perception-experience-kit` folder exists locally and VS Code can open it.
 
 ## 4. Open the repository in VS Code
 
@@ -93,12 +93,12 @@ Open the cloned folder in VS Code. Use **File -> Open Folder...**, or run the fo
 code .
 ```
 
-![VS Code opened in the AMP repository](../../../static/img/04-starting-point-vscode.png)
+![VS Code opened in the Perception Experience Kit repository](../../../static/img/04-starting-point-vscode.png)
 
 Then:
 - open the Command Palette with `Cmd+Shift+P`
 - run `Dev Containers: Reopen in Container`
-- choose `PC amp-dev-forge`
+- choose `PC perception-experience-kit`
 
 ![VS Code command palette showing Reopen in Container](../../../static/img/05-reopen-in-container.png)
 
@@ -118,7 +118,7 @@ Use the build task in VS Code:
 - open the Command Palette and run `Tasks: Run Task`
 - run **00 Build Project**
 
-![VS Code build task for AMP](../../../static/img/08-build-project.png)
+![VS Code build task for Perception Experience Kit](../../../static/img/08-build-project.png)
 
 Or build in the active host side container terminal:
 
@@ -126,9 +126,9 @@ Or build in the active host side container terminal:
 ./scripts/build-elements.sh debug false
 ```
 
-> Expected result: the build completes successfully and `tools/amp-menu` is available.
+> Expected result: the build completes successfully and `tools/pek-menu` is available.
 
-## 6. Start AMP
+## 6. Start Perception Experience Kit
 
 Use the VS Code run task:
 
@@ -141,18 +141,18 @@ The menu view is also available through **00 Run project with menu**.
 You can also run the menu in a new terminal inside the active host side container from the project root:
 
 ```bash
-./tools/amp-menu
+./tools/pek-menu
 ```
 
 The menu should show the available pipeline presets.
 
-![AMP pipeline selection view](../../../static/img/09-select-pipeline.png)
+![Perception Experience Kit pipeline selection view](../../../static/img/09-select-pipeline.png)
 
 Stop:
 
 To stop an application that was not started from a VS Code launch configuration, press Control+C in the console.
 
-> Expected result: the selected task or `amp-menu` starts and either launches the selected pipeline or shows the pipeline selection menu.
+> Expected result: the selected task or `pek-menu` starts and either launches the selected pipeline or shows the pipeline selection menu.
 
 > Disclaimer. During GStreamer pipeline runs, some errors caused by browser connection issues or dropped frames are expected. These can be ignored; a more verbose logging system is in progress.
 
@@ -167,7 +167,7 @@ This is the shortest recommended first pipeline.
 
 ## 8. Open the web UI
 
-Safari is the suggested browser for the AMP web UI on macOS. If the image is not visible or unstable, see [Troubleshooting: Browser and WebRTC connection issues](../deep-dives/troubleshooting.md#browser-and-webrtc-connection-issues).
+Safari is the suggested browser for the Perception Experience Kit web UI on macOS. If the image is not visible or unstable, see [Troubleshooting: Browser and WebRTC connection issues](../deep-dives/troubleshooting.md#browser-and-webrtc-connection-issues).
 
 Open:
 - http://localhost:9999
@@ -178,25 +178,25 @@ Documentation is available at:
 In the **AI Models** panel, enable one or more models to start inference.
 The main demo presets register their models as inactive by default so you can switch them on individually.
 
-![AMP browser UI after opening the web view](../../../static/img/10-browser-ui.png)
+![Perception Experience Kit browser UI after opening the web view](../../../static/img/10-browser-ui.png)
 
 Use the model controls to enable or disable selected models. The demo presets usually start with models disabled, so this is the normal way to begin inference after the page opens.
 
-![AMP browser UI model enable and disable controls](../../../static/img/24-browser-ui-enable-disable.png)
+![Perception Experience Kit browser UI model enable and disable controls](../../../static/img/24-browser-ui-enable-disable.png)
 
 The performance overlay is available after at least one model is enabled.
 
-![AMP browser UI with the performance overlay visible](../../../static/img/24-browser-ui-performance-overlay1.png)
+![Perception Experience Kit browser UI with the performance overlay visible](../../../static/img/24-browser-ui-performance-overlay1.png)
 
 Use the performance overlay button to show or hide the performance data.
 
-![AMP browser UI performance overlay toggle button](../../../static/img/24-browser-ui-performance-overlay2.png)
+![Perception Experience Kit browser UI performance overlay toggle button](../../../static/img/24-browser-ui-performance-overlay2.png)
 
 The log window shows browser-side connection messages and RTC connection debug data. Use it when the web UI opens but the video connection is unstable or does not appear.
 
-![AMP browser UI log window with RTC connection messages](../../../static/img/24-browser-ui-logwindow.png)
+![Perception Experience Kit browser UI log window with RTC connection messages](../../../static/img/24-browser-ui-logwindow.png)
 
-> Expected result: the AMP UI opens in your browser, the documentation endpoint is reachable, and enabled models begin producing overlays or results.
+> Expected result: the Perception Experience Kit UI opens in your browser, the documentation endpoint is reachable, and enabled models begin producing overlays or results.
 
 ## 9. Run it again later without the menu
 
@@ -205,10 +205,10 @@ After you have selected a pipeline once, you can rerun the last selection with t
 The VS Code task for this is **00 Run project with latest pipeline**.
 
 ```bash
-./tools/amp-menu -l
+./tools/pek-menu -l
 ```
 
-> Expected result: AMP starts the most recently selected pipeline directly without showing the menu.
+> Expected result: Perception Experience Kit starts the most recently selected pipeline directly without showing the menu.
 
 ## If you want the deeper guides
 
@@ -220,10 +220,10 @@ If you want a guided repository walk-through, continue with the [exercise quick 
 
 By the end of this guide, you should have:
 
-- a working host side container for AMP on a macOS host
+- a working host side container for Perception Experience Kit on a macOS host
 - a successful local build
-- `amp-menu` starting correctly from the VS Code task or the active host side container terminal
+- `pek-menu` starting correctly from the VS Code task or the active host side container terminal
 - `01-full-onnx.json` running at least once
-- the AMP web UI reachable at `http://localhost:9999`
+- the Perception Experience Kit web UI reachable at `http://localhost:9999`
 
-Success looks like this: the container opens correctly, the build completes, the pipeline starts from the VS Code task or `amp-menu`, and the browser can reach the AMP UI.
+Success looks like this: the container opens correctly, the build completes, the pipeline starts from the VS Code task or `pek-menu`, and the browser can reach the Perception Experience Kit UI.

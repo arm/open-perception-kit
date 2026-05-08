@@ -2,9 +2,9 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 #include "preproc/CpuImageKernels.h"
-#include "amp/Types.h"
+#include "pek/Types.h"
 
-using namespace amp;
+using namespace pek;
 
 namespace {
 
@@ -42,7 +42,7 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(const ImageLayoutDesc 
     constexpr float inv255 = 1.0f / 255.0f;
     const size_t planeSize = dstWidth * dstHeight;
 
-    if (amp::MeanStd::isDefaultMean(mean) && amp::MeanStd::isDefaultStd(std)) {
+    if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
         for (size_t y = 0; y < dstHeight; ++y) {
             for (size_t x = 0; x < dstWidth; ++x) {
                 const uint8_t *p = srcPtr + (y * srcWidth + x) * 4;
@@ -117,7 +117,7 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageLayoutDesc 
 
     // nearest-neighbour sampling stretch from srcRect to dstRect, CHW layout
 
-    if (amp::MeanStd::isDefaultMean(mean) && amp::MeanStd::isDefaultStd(std)) {
+    if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
         // default mean/std
         for (size_t dy = 0; dy < dstRect.height; ++dy) {
             const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
@@ -261,7 +261,7 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(const ImageLayoutDesc 
 
     // nearest-neighbour sampling stretch from srcRect to dstRect, CHW layout
 
-    if (amp::MeanStd::isDefaultMean(mean) && amp::MeanStd::isDefaultStd(std)) {
+    if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
         // default mean/std
         for (size_t dy = 0; dy < dstRect.height; ++dy) {
             const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
@@ -351,7 +351,7 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(const ImageLayoutDesc 
 
     (void)sampling;
 
-    if (amp::MeanStd::isDefaultMean(mean) && amp::MeanStd::isDefaultStd(std)) {
+    if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
         for (size_t dy = 0; dy < dstRect.height; ++dy) {
             const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
             const size_t dyi = dstRect.y + dy;
@@ -428,7 +428,7 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Hwc(const ImageLayoutDesc 
 
     (void)sampling;
 
-    if (amp::MeanStd::isDefaultMean(mean) && amp::MeanStd::isDefaultStd(std)) {
+    if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
         for (size_t dy = 0; dy < dstRect.height; ++dy) {
             const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
             const size_t dyi = dstRect.y + dy;

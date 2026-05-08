@@ -56,7 +56,7 @@ const WS_PROTO = location.protocol === 'https:' ? 'wss' : 'ws';
 const WS_HOST = location.hostname;
 
 // Prefer configured wsPort, fallback to page port if missing
-const WS_PORT = (window.AMP_CONFIG && window.AMP_CONFIG.wsPort) ||
+const WS_PORT = (window.PEK_CONFIG && window.PEK_CONFIG.wsPort) ||
                 (location.port || (location.protocol === 'https:' ? 443 : 80));
 
 const SIGNALING_URL = `${WS_PROTO}://${WS_HOST}:${WS_PORT}/ws`;

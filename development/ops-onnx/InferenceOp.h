@@ -3,26 +3,26 @@
  *************************************************************/
 #pragma once
 
-#include "amp/Result.h"
 #include "op/Op.h"
 #include "op/OpChainContext.h"
+#include "pek/Result.h"
 
 #include "Inference.h"
 #include <memory>
 
 namespace onnx {
 
-class InferenceOp : public amp::Op, public amp::OpInterfaceInference {
+class InferenceOp : public pek::Op, public pek::OpInterfaceInference {
   public:
     InferenceOp();
     virtual ~InferenceOp();
 
-    virtual const amp::Model &getModel() const override;
+    virtual const pek::Model &getModel() const override;
     virtual uint8_t *getTensorDataAddress(size_t index) const override;
 
-    virtual amp::Result<void> configure(const amp::AttributeMap &attributes) override;
-    virtual amp::Result<void> bind(size_t index, const std::vector<amp::Op *> &ops) override;
-    virtual amp::Result<void> process(amp::OpChainContext &opChainContext) override;
+    virtual pek::Result<void> configure(const pek::AttributeMap &attributes) override;
+    virtual pek::Result<void> bind(size_t index, const std::vector<pek::Op *> &ops) override;
+    virtual pek::Result<void> process(pek::OpChainContext &opChainContext) override;
 
   private:
     std::unique_ptr<onnx::Inference> inference;

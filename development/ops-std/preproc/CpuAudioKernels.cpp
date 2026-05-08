@@ -4,4 +4,4 @@
 
 #include "CpuAudioKernels.h"
 
-using namespace amp;
+using namespace pek;

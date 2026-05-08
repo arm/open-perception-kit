@@ -1,16 +1,16 @@
 services:
 
-  amp-dev-rich:
+  pek-dev-rich:
     build:
       context: ..
       dockerfile: Dockerfile
-      target: amp-dev-rich
+      target: pek-dev-rich
 
-    container_name: amp-dev-rich
+    container_name: pek-dev-rich
 
     network_mode: bridge
 
-    hostname: amp
+    hostname: pek
 
     user: "0:0"
 
@@ -27,14 +27,14 @@ services:
       - USERNAME=devgoblin
       - HOST_UID=${HOST_UID:-}
       - HOST_GID=${HOST_GID:-}
-      - AMPCOMM_FILE=/tmp/ampcomm
+      - PEKCOMM_FILE=/tmp/pekcomm
 
     volumes:
       - /run/user/${HOST_UID}:/run/user/${HOST_UID}
       - /tmp/.X11-unix:/tmp/.X11-unix
       - ${HOME}/configs:/home/devgoblin/configs
       - ..:/work     
-      - ../../amp-work-tree:/amp-work-tree
+      - ../../pek-work-tree:/pek-work-tree
       - ${SSH_AUTH_SOCK}:/ssh-agent
 
     privileged: true

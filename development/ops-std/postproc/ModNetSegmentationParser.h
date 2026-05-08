@@ -4,13 +4,13 @@
 
 #pragma once
 
-#include "amp/TensorParser.h"
+#include "pek/TensorParser.h"
 
-namespace amp {
+namespace pek {
 
 class ModNetSegmentationParser : public TensorParser {
   public:
-    amp::Result<void> parse(const Input &input, Perception::Layer &layer) override;
+    pek::Result<void> parse(const Input &input, Perception::Layer &layer) override;
 };
 
-} // namespace amp
+} // namespace pek

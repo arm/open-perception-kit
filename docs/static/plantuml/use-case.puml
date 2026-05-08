@@ -1,7 +1,7 @@
 @startuml
-!include amp-style.puml
+!include pek-style.puml
 
-title AMP Development Forge Use Case Overview
+title Perception Experience Kit Use Case Overview
 
 top to bottom direction
 skinparam packageStyle rectangle
@@ -13,7 +13,7 @@ actor "Deployment engineer" as Deploy
 actor "Model integrator" as Modeler
 actor "Pipeline developer" as Dev
 
-rectangle "AMP Development Forge" {
+rectangle "Perception Experience Kit" {
   usecase "Prepare shared\ncontainer environment" as UC_env
   usecase "Integrate and extend\nmodels" as UC_model
   usecase "Use backend-agnostic\ninference" as UC_backend
@@ -30,7 +30,7 @@ rectangle "AMP Development Forge" {
   usecase "Model config + preset +\nJSON OpChain" as UC_modelcurrent
   usecase "ONNX Runtime /\nHailoRT" as UC_mainbackends
   usecase "Current C++ contract +\nserialization" as UC_cpp
-  usecase "ampsink + amposd +\ntracking + perf / profiling" as UC_runtimecurrent
+  usecase "peksink + pekosd +\ntracking + perf / profiling" as UC_runtimecurrent
 
   usecase "Python / automatic\nparser integration" as UC_pyext #8A6A00
   usecase "Additional backends" as UC_morebackends #8A6A00

@@ -93,7 +93,7 @@ Layer metadata provides provenance and interpretation context:
 - `engine` identifies the runtime backend (e.g. ONNX RT, Hailo RT, ExecuTorch).
 - `model` identifies the model used.
 - `tags` provide implementation-specific routing/labeling hints.
-- `inferElementId` identifies the `ampinfer` or tracker instance that produced the layer.
+- `inferElementId` identifies the `pekinfer` or tracker instance that produced the layer.
 - `labelFamily` describes the label set namespace (e.g. coco, imageNet).
 - `contentType` describes the semantic output category (e.g. humanFace, classification, eyeYawPitch).
 

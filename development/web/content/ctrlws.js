@@ -7,7 +7,7 @@ import {modelsManager} from "./models.js"
 const CTRL_PROTO = location.protocol === 'https:' ? 'wss' : 'ws';
 const CTRL_HOST = location.hostname;
 
-const CTRL_PORT = (window.AMP_CONFIG && window.AMP_CONFIG.ctrlPort) ||
+const CTRL_PORT = (window.PEK_CONFIG && window.PEK_CONFIG.ctrlPort) ||
                 (location.port || (location.protocol === 'https:' ? 443 : 80));
 
 const CTRL_URL = `${CTRL_PROTO}://${CTRL_HOST}:${CTRL_PORT}/ws`;

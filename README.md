@@ -1,8 +1,8 @@
-# AMP Development Forge
-![AMP CI Pipeline Nightly](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/amp-ci.yml/badge.svg?branch=main)
-![SonarQube Nightly](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/sonar.yml/badge.svg?branch=main)
+# Perception Experience Kit
+![Perception Experience Kit CI Pipeline Nightly](https://github.com/Arm-Debug/perception-experience-kit/actions/workflows/pek-ci.yml/badge.svg?branch=main)
+![SonarQube Nightly](https://github.com/Arm-Debug/perception-experience-kit/actions/workflows/sonar.yml/badge.svg?branch=main)
 
-[AMP Development Forge](https://github.com/Arm-Debug/amp-dev-forge) is a framework for building and running AI-enabled media workflows. It provides a development environment for **AI media processing pipelines**, built for rapid testing, debugging, and deployment within containerized platforms.
+[Perception Experience Kit](https://github.com/Arm-Debug/perception-experience-kit) is a framework for building and running AI-enabled media workflows. It provides a development environment for **AI media processing pipelines**, built for rapid testing, debugging, and deployment within containerized platforms.
 It helps teams move from raw input to meaningful output in a clear and repeatable way. Instead of treating each new use case as a one-off effort, the package provides a stable structure that can be reused and adapted.
 
 At a high level, it combines:
@@ -11,7 +11,7 @@ At a high level, it combines:
 - structured `Perception` results that downstream elements can render, track, or publish
 
 ## For first-time users
-For rendered documentation instead of Markdown files, see the [AMP Development Forge Docusaurus documentation](https://docs.staging.devplatform.arm.com/perception-xpk).
+For rendered documentation instead of Markdown files, see the [Perception Experience Kit Docusaurus documentation](https://docs.staging.devplatform.arm.com/perception-xpk).
 
 ### Quick first run
 The quick-guide path is the fastest way to reach a working pipeline and then reconnect through the [Exercise Quick Guide](docs/public/how-to/quick-guides/exercise.md) into the same engineering path as the full setup flow.

@@ -5,7 +5,7 @@ sidebar_label: Known limitations
 
 # Known Limitations
 
-This page captures the most important current limitations and architectural friction points in AMP Development Forge.
+This page captures the most important current limitations and architectural friction points in Perception Experience Kit.
 
 The goal of this page is not to block experimentation. The goal is to make the current boundaries explicit, so model integration work, postprocessing work, and application work can be planned with realistic expectations.
 
@@ -16,8 +16,8 @@ The current system already provides a useful end-to-end path:
 - models can be described with `model.json`
 - inference chains can be composed with `opchain.json`
 - structured results can be written into `Perception`
-- `amposd` can render several built-in result types
-- `ampsink` can expose a browser-facing runtime stack
+- `pekosd` can render several built-in result types
+- `peksink` can expose a browser-facing runtime stack
 
 That said, some important parts of the current system are still tightly coupled, harder to extend than they should be, or broader in scope than they should be in the long term.
 
@@ -67,7 +67,7 @@ A better long-term direction would be to define `Perception` structures from exp
 
 ### Visualization is too closely tied to runtime implementation
 
-`amposd` currently knows how to draw specific result types directly in C++.
+`pekosd` currently knows how to draw specific result types directly in C++.
 
 That is useful for debugging, but it couples visualization behavior too tightly to the runtime implementation.
 
@@ -75,7 +75,7 @@ In the long term, the drawing layer should be more generic:
 
 - `Perception` should describe the result
 - a JSON or YAML visualization mapping should describe how that result is rendered
-- `amposd` should draw according to that mapping rather than embedding model-specific drawing rules directly in C++
+- `pekosd` should draw according to that mapping rather than embedding model-specific drawing rules directly in C++
 
 That would reduce the need to modify the overlay code every time a new result type is introduced.
 
@@ -87,15 +87,15 @@ That could work like this:
 
 - `Perception` continues to describe only the structured result
 - a JSON or YAML visualization contract describes how each result should be drawn
-- `amposd` uses that contract instead of hardcoded model-specific drawing branches
+- `pekosd` uses that contract instead of hardcoded model-specific drawing branches
 
-An additional step beyond `amposd` could be a browser-side drawing solution. In that setup, the structure would only describe the correspondence between `Perception` content and visualization elements, and the actual drawing could happen in a browser or application layer instead of only inside the runtime overlay.
+An additional step beyond `pekosd` could be a browser-side drawing solution. In that setup, the structure would only describe the correspondence between `Perception` content and visualization elements, and the actual drawing could happen in a browser or application layer instead of only inside the runtime overlay.
 
 ### Application concerns are mixed into the repository scope
 
 The repository currently contains not only inference/runtime pieces, but also browser-facing and application-facing delivery pieces.
 
-In particular, `ampsink` includes:
+In particular, `peksink` includes:
 
 - WebRTC delivery
 - HTTP serving
@@ -130,7 +130,7 @@ That would make it easier to:
 
 - request the images the application actually needs
 - hide device-specific camera details behind a more uniform interface
-- reduce platform-specific source handling inside AMP pipeline examples
+- reduce platform-specific source handling inside Perception Experience Kit pipeline examples
 - keep camera acquisition concerns at the right abstraction level for applications
 
 ## Conclusion
@@ -139,5 +139,5 @@ Until these limitations are addressed, it is safest to treat the system like thi
 
 - `model.json` and `opchain.json` are the main supported integration interfaces
 - `Perception` is the main structured runtime result format
-- `amposd` is primarily a debugging and inspection overlay
+- `pekosd` is primarily a debugging and inspection overlay
 - the browser/UI stack is a convenient demo path, not the final architectural boundary for product applications

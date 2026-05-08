@@ -13,7 +13,7 @@ This guide assumes that:
 
 - the repository is already cloned
 - the project builds successfully
-- `tools/amp-menu` is available
+- `tools/pek-menu` is available
 
 If you only want the shortest setup path first, use one of the platform quick guides and then come back here.
 
@@ -46,17 +46,17 @@ Before:
 
 ```json
 {
-  "description": "Camera contact pipeline with the default image source and ampsink video sink.",
+  "description": "Camera contact pipeline with the default image source and peksink video sink.",
   "pipeline": [
     "filesrc location=/work/data/images/katana.jpg !",
     "jpegdec !",
     "imagefreeze !",
     "videoconvert ! video/x-raw,format=BGRA !",
-    "ampinfer opchain-path=/work/config/opchains/cam-contact/opchain.json active=false !",
-    "amptracker content-type=genericObject !",
-    "ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
-    "amposd enabled=true !",
-    "ampsink name=sink"
+    "pekinfer opchain-path=/work/config/opchains/cam-contact/opchain.json active=false !",
+    "pektracker content-type=genericObject !",
+    "pekperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
+    "pekosd enabled=true !",
+    "peksink name=sink"
   ]
 }
 ```
@@ -65,17 +65,17 @@ After:
 
 ```json
 {
-  "description": "Camera contact pipeline with the default image source and ampsink video sink.",
+  "description": "Camera contact pipeline with the default image source and peksink video sink.",
   "pipeline": [
     "filesrc location=/work/data/videos/01.mp4 !",
     "decodebin !",
     "videoconvert !",
     "video/x-raw,format=BGRA !",
-    "ampinfer opchain-path=/work/config/opchains/cam-contact/opchain.json active=false !",
-    "amptracker content-type=genericObject !",
-    "ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
-    "amposd enabled=true !",
-    "ampsink name=sink"
+    "pekinfer opchain-path=/work/config/opchains/cam-contact/opchain.json active=false !",
+    "pektracker content-type=genericObject !",
+    "pekperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
+    "pekosd enabled=true !",
+    "peksink name=sink"
   ]
 }
 ```
@@ -87,9 +87,9 @@ The goal is not to invent a new architecture. The goal is to reuse the checked-i
 
 - how a top-level pipeline preset is written
 - how sources and sinks are swapped
-- how `ampinfer` is inserted
+- how `pekinfer` is inserted
 - how the camera-contact path depends on UltraFace first
-- how `amposd` and `ampperformance` fit into the pipeline
+- how `pekosd` and `pekperformance` fit into the pipeline
 - where the model descriptor, opchain, postprocessing, and visualization logic live
 
 ### Step 1: Create a new top-level pipeline preset
@@ -106,7 +106,7 @@ For example:
 config/pipelines/exercise-camera-contact.json
 ```
 
-In this repository, this top-level pipeline JSON is the format that `amp-menu` reads.
+In this repository, this top-level pipeline JSON is the format that `pek-menu` reads.
 
 Start with the smallest valid preset shape:
 
@@ -129,7 +129,7 @@ This is the first important repository concept:
 - you can evolve the preset incrementally without touching runtime source code yet
 - it is often easiest to start with a simple video source first, then switch to a repeated image source when you want a more controlled and easy-to-recognize result
 
-> Expected result: the new preset appears in `amp-menu` and runs a valid video pipeline that ends in `fakesink`.
+> Expected result: the new preset appears in `pek-menu` and runs a valid video pipeline that ends in `fakesink`.
 
 ### Step 2: Use an image source and `fakesink`
 
@@ -150,7 +150,7 @@ The smallest useful image-based pipeline for this exercise is:
 }
 ```
 
-This is useful because it removes most source-side complexity from the exercise. From this point onward, the next steps can focus on AMP elements rather than on video timing or container decoding.
+This is useful because it removes most source-side complexity from the exercise. From this point onward, the next steps can focus on Perception Experience Kit elements rather than on video timing or container decoding.
 
 At this point, you are only proving that:
 
@@ -189,30 +189,30 @@ If `/work/data/output/` does not exist yet, create it before running this step.
 
 > Expected result: the pipeline writes a frame to `/work/data/output/exercise-frame.jpg`.
 
-### Step 4: Switch to an image source and `ampsink`
+### Step 4: Switch to an image source and `peksink`
 
 Now change the output side to the checked-in browser-facing sink.
 
 ```json
 {
-  "description": "Image source to ampsink.",
+  "description": "Image source to peksink.",
   "pipeline": [
     "filesrc location=/work/data/images/katana.jpg !",
     "jpegdec !",
     "imagefreeze !",
     "videoconvert ! video/x-raw,format=BGRA !",
-    "ampsink name=sink"
+    "peksink name=sink"
   ]
 }
 ```
 
-This is the first point where the pipeline becomes visible through the current AMP UI stack.
+This is the first point where the pipeline becomes visible through the current Perception Experience Kit UI stack.
 
-> Expected result: the pipeline runs and the image is reachable through the current `ampsink`-hosted web UI.
+> Expected result: the pipeline runs and the image is reachable through the current `peksink`-hosted web UI.
 
 ### Step 5: Include inference for camera contact
 
-Now insert `ampinfer`.
+Now insert `pekinfer`.
 
 For this exercise, use the existing checked-in opchain:
 
@@ -235,8 +235,8 @@ A first inference-enabled version looks like this:
     "jpegdec !",
     "imagefreeze !",
     "videoconvert ! video/x-raw,format=BGRA !",
-    "ampinfer opchain-path=/work/config/opchains/cam-contact/opchain.json active=true !",
-    "ampsink name=sink"
+    "pekinfer opchain-path=/work/config/opchains/cam-contact/opchain.json active=true !",
+    "peksink name=sink"
   ]
 }
 ```
@@ -244,11 +244,11 @@ A first inference-enabled version looks like this:
 This is an important repository concept: the top-level pipeline does not need to describe every model stage directly. It can delegate the inference logic to an OpChain.
 For this exercise, `active=true` keeps the data path obvious and immediate. The shipped demo presets often use `active=false` instead so the web UI can enable models one by one.
 
-> Expected result: the pipeline still runs through `ampsink`, but now the buffer also carries `PerceptionMeta` produced by the camera-contact inference chain. At this point since there isn't any overlay the result should not be visible.
+> Expected result: the pipeline still runs through `peksink`, but now the buffer also carries `PerceptionMeta` produced by the camera-contact inference chain. At this point since there isn't any overlay the result should not be visible.
 
 ### Step 6: Include the OSD element
 
-Now add `amposd` so the structured results can be drawn onto the frame.
+Now add `pekosd` so the structured results can be drawn onto the frame.
 
 ```json
 {
@@ -258,37 +258,37 @@ Now add `amposd` so the structured results can be drawn onto the frame.
     "jpegdec !",
     "imagefreeze !",
     "videoconvert ! video/x-raw,format=BGRA !",
-    "ampinfer opchain-path=/work/config/opchains/cam-contact/opchain.json active=true !",
-    "amposd enabled=true !",
-    "ampsink name=sink"
+    "pekinfer opchain-path=/work/config/opchains/cam-contact/opchain.json active=true !",
+    "pekosd enabled=true !",
+    "peksink name=sink"
   ]
 }
 ```
 
 At this point, the data path becomes easier to understand:
 
-- `ampinfer` writes structured results into `PerceptionMeta`
-- `amposd` reads `PerceptionMeta`
-- `amposd` draws the supported overlay elements onto the BGRA frame
+- `pekinfer` writes structured results into `PerceptionMeta`
+- `pekosd` reads `PerceptionMeta`
+- `pekosd` draws the supported overlay elements onto the BGRA frame
 
 > Expected result: face detections and camera-contact indicators become visible on the output frame.
 
 ### Step 7: Include performance measurement
 
-Now add `ampperformance` before `amposd`.
+Now add `pekperformance` before `pekosd`.
 
 ```json
 {
-  "description": "Image source with inference, performance, OSD, and ampsink.",
+  "description": "Image source with inference, performance, OSD, and peksink.",
   "pipeline": [
     "filesrc location=/work/data/images/katana.jpg !",
     "jpegdec !",
     "imagefreeze !",
     "videoconvert ! video/x-raw,format=BGRA !",
-    "ampinfer opchain-path=/work/config/opchains/cam-contact/opchain.json active=true !",
-    "ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
-    "amposd enabled=true !",
-    "ampsink name=sink"
+    "pekinfer opchain-path=/work/config/opchains/cam-contact/opchain.json active=true !",
+    "pekperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
+    "pekosd enabled=true !",
+    "peksink name=sink"
   ]
 }
 ```
@@ -384,24 +384,24 @@ Relevant snippet:
     "name": "CameraContactWithUltraface",
     "ops": [
         {
-            "id": "amp-std-ops/InferenceController",
+            "id": "pek-std-ops/InferenceController",
             "attributes": {}
         },
         {
-            "id": "amp-std-ops/GenericImagePreprocess",
+            "id": "pek-std-ops/GenericImagePreprocess",
             "attributes": {
                 "inputImageTensorIndex": 0,
                 "inputImageSourceName": "pipelineVideoFrame"
             }
         },
         {
-            "id": "amp-onnx-ops/Inference",
+            "id": "pek-onnx-ops/Inference",
             "attributes": {
                 "modelDescriptor": "/work/config/models/ultraface/model.json"
             }
         },
         {
-            "id": "amp-std-ops/GenericPostprocess",
+            "id": "pek-std-ops/GenericPostprocess",
             "attributes": {
                 "parser": "UltrafaceParser",
                 "normalizeOutputCoordinates": false,
@@ -410,14 +410,14 @@ Relevant snippet:
             }
         },
         {
-            "id": "amp-std-ops/InferenceController",
+            "id": "pek-std-ops/InferenceController",
             "loopId": 2,
             "attributes": {
                 "contentType": "humanFace"
             }
         },
         {
-            "id": "amp-std-ops/GenericImagePreprocess",
+            "id": "pek-std-ops/GenericImagePreprocess",
             "loopId": 2,
             "attributes": {
                 "inputImageTensorIndex": 0,
@@ -425,14 +425,14 @@ Relevant snippet:
             }
         },
         {
-            "id": "amp-onnx-ops/Inference",
+            "id": "pek-onnx-ops/Inference",
             "loopId": 2,
             "attributes": {
                 "modelDescriptor": "/work/config/models/cam-contact/model.json"
             }
         },
         {
-            "id": "amp-std-ops/GenericPostprocess",
+            "id": "pek-std-ops/GenericPostprocess",
             "loopId": 2,
             "attributes": {
                 "parser": "CameraContactParser",
@@ -444,7 +444,7 @@ Relevant snippet:
 }
 ```
 
-This is where the two-stage logic lives. The top-level pipeline only sees one `ampinfer`, but the opchain contains both the face detector and the camera-contact classifier.
+This is where the two-stage logic lives. The top-level pipeline only sees one `pekinfer`, but the opchain contains both the face detector and the camera-contact classifier.
 
 #### Step 8.3: Camera-contact postprocessing element
 
@@ -457,14 +457,14 @@ development/ops-std/postproc/CameraContactParser.cpp
 Relevant snippet:
 
 ```cpp
-amp::Result<void> CameraContactParser::parse(const amp::TensorParser::Input &input,
-                                             amp::Perception::Layer &detectionResult) {
+pek::Result<void> CameraContactParser::parse(const pek::TensorParser::Input &input,
+                                             pek::Perception::Layer &detectionResult) {
     const auto &tensor = *input.tensors[0];
     const auto shape = tensor.getShape();
 
     if (shape.dimensionCount != 2 || shape.valueCount[0] != 1 || shape.valueCount[1] != 2) {
-        return tl::unexpected(AMP_ERROR(
-            amp::ErrorFlag::InvalidData,
+        return tl::unexpected(PEK_ERROR(
+            pek::ErrorFlag::InvalidData,
             fmt::format("CameraContactParser expects [1,2] logits, got {}", shape.toString())));
     }
 
@@ -476,8 +476,8 @@ amp::Result<void> CameraContactParser::parse(const amp::TensorParser::Input &inp
 
     if (contactClassIndex == noContactClassIndex || contactClassIndex < 0 ||
         contactClassIndex > 1 || noContactClassIndex < 0 || noContactClassIndex > 1) {
-        return tl::unexpected(AMP_ERROR(
-            amp::ErrorFlag::InvalidData,
+        return tl::unexpected(PEK_ERROR(
+            pek::ErrorFlag::InvalidData,
             fmt::format(
                 "CameraContactParser requires distinct class indices in [0,1], got {} and {}",
                 contactClassIndex,
@@ -487,8 +487,8 @@ amp::Result<void> CameraContactParser::parse(const amp::TensorParser::Input &inp
     const bool isContact = probabilities[static_cast<size_t>(contactClassIndex)] >=
                            probabilities[static_cast<size_t>(noContactClassIndex)];
 
-    amp::Perception::Classification classification;
-    amp::Perception::Classification::Candidate candidate;
+    pek::Perception::Classification classification;
+    pek::Perception::Classification::Candidate candidate;
     candidate.classId = isContact ? contactClassIndex : noContactClassIndex;
     candidate.confidence = isContact ? probabilities[static_cast<size_t>(contactClassIndex)]
                                      : probabilities[static_cast<size_t>(noContactClassIndex)];
@@ -510,14 +510,14 @@ This is where the raw `[1,2]` tensor becomes a structured `Perception::Classific
 Path:
 
 ```text
-development/elements/amposd/amposd.cpp
+development/elements/pekosd/pekosd.cpp
 ```
 
 Relevant snippet:
 
 ```cpp
-static void drawCameraContactMarkers(Osd::Layer *layer, const amp::Perception &perception) {
-    amp::ConstPerceptionTools perceptionTools(perception);
+static void drawCameraContactMarkers(Osd::Layer *layer, const pek::Perception &perception) {
+    pek::ConstPerceptionTools perceptionTools(perception);
 
     for (const auto &inferLayer : perception.layers) {
         if (inferLayer.contentType != "cameraContact") {
@@ -525,7 +525,7 @@ static void drawCameraContactMarkers(Osd::Layer *layer, const amp::Perception &p
         }
 
         for (const auto &det : inferLayer.detections) {
-            const auto *classification = std::get_if<amp::Perception::Classification>(&det);
+            const auto *classification = std::get_if<pek::Perception::Classification>(&det);
             if (!classification || classification->candidates.empty()) {
                 continue;
             }
@@ -535,7 +535,7 @@ static void drawCameraContactMarkers(Osd::Layer *layer, const amp::Perception &p
                 continue;
             }
 
-            std::vector<amp::Perception::Rect> parents =
+            std::vector<pek::Perception::Rect> parents =
                 perceptionTools.getAllRectsWithContentType("humanFace", classification->parentUuid);
 
             if (parents.empty()) {
@@ -546,7 +546,7 @@ static void drawCameraContactMarkers(Osd::Layer *layer, const amp::Perception &p
             const float x = face.x + face.width * 0.5f;
             const float y = face.y + face.height * 0.5f;
             const bool hasCameraContact = candidate.classId == 1;
-            const amp::Color markerColor = hasCameraContact ? amp::Colors::lime : amp::Colors::red;
+            const pek::Color markerColor = hasCameraContact ? pek::Colors::lime : pek::Colors::red;
             const float baseRadius = std::min(face.width, face.height) * 0.5f;
             const float markerRadius = hasCameraContact
                                            ? std::clamp(baseRadius * 0.65f, 18.0f, 80.0f)
@@ -578,11 +578,11 @@ That file is the checked-in version of the same idea, with the additional detail
 - camera-contact opchain
 - performance overlay
 - OSD
-- `ampsink`
+- `peksink`
 
 ## Exercise 3 - Agentic AI integration
 In this exercise you prepare a new ONNX model integration for an agent.
-The important part is not the chat tool itself. The important part is giving the agent the exact model files, repository locations, and tensor contract so it can work inside the intended AMP extension surfaces instead of guessing.
+The important part is not the chat tool itself. The important part is giving the agent the exact model files, repository locations, and tensor contract so it can work inside the intended Perception Experience Kit extension surfaces instead of guessing.
 
 Use this exercise when you have one or more ONNX model artifacts and you want an agent to create or update the model descriptor, opchain, pipeline preset, and parser code if the existing parsers are not enough.
 
@@ -611,7 +611,7 @@ config/models/<model-id>/README.md
 ```
 
 Copy the ONNX file and any model-local resources into that folder.
-![Agentic AI model resources copied into the AMP config tree](../../../static/img/12-agentic-resources.png)
+![Agentic AI model resources copied into the Perception Experience Kit config tree](../../../static/img/12-agentic-resources.png)
 
 
 ### Step 3: Prompt the agent
@@ -630,10 +630,10 @@ By the end of this guide, you should understand:
 
 - how top-level pipeline presets are defined under `config/pipelines/`
 - how sources and sinks can be swapped independently of inference logic
-- how one `ampinfer` element can hide a multi-stage opchain
+- how one `pekinfer` element can hide a multi-stage opchain
 - why camera contact depends on UltraFace first
 - how postprocessing turns tensors into `Perception`
-- how `amposd` turns `Perception` into a visible overlay
+- how `pekosd` turns `Perception` into a visible overlay
 - how to prepare model files and tensor specs for an agentic integration
 
 You should also be able to swap the example media path with your own file under `/work/data/images/` or `/work/data/videos/` and understand which layer of the repository you are changing when you edit the pipeline preset, the opchain, or the parser.

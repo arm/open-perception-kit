@@ -29,14 +29,14 @@ if not hailort_dep.found()
 endif
 
 hailortops = shared_module(
-  'amp-hailort-ops',
+  'pek-hailort-ops',
   sources: [
     'Inference.cpp',
     'Interface.cpp',
     'InferenceOp.cpp'
   ],
   include_directories: common_include,
-  dependencies: amp_deps + [hailort_dep],
+  dependencies: pek_deps + [hailort_dep],
   cpp_args: ['-DFMT_HEADER_ONLY'],
   link_with: [ common ],
   name_prefix: '',

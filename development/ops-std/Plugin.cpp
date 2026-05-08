@@ -10,23 +10,23 @@
 #include "GenericPostprocessOp.h"
 #include "InferenceControllerOp.h"
 
-amp::Op *createOp(const std::string &opName) {
+pek::Op *createOp(const std::string &opName) {
     if (opName == "GenericPostprocess")
-        return new amp::GenericPostprocessOp();
+        return new pek::GenericPostprocessOp();
     if (opName == "GenericImagePreprocess")
-        return new amp::GenericImagePreprocessOp();
+        return new pek::GenericImagePreprocessOp();
     if (opName == "InferenceController")
-        return new amp::InferenceControllerOp();
+        return new pek::InferenceControllerOp();
     return nullptr;
 }
 
 // ---
 
-extern "C" void amp_delete_op_instance(void *opInstacnce) {
-    delete (amp::Op *)opInstacnce;
+extern "C" void pek_delete_op_instance(void *opInstacnce) {
+    delete (pek::Op *)opInstacnce;
 }
 
-extern "C" void *amp_create_op_instance(const char *opName) {
+extern "C" void *pek_create_op_instance(const char *opName) {
     if (!opName)
         return nullptr;
     return createOp(opName);

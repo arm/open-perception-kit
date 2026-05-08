@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file is the starting point for coding agents working in AMP Development Forge.
+This file is the starting point for coding agents working in Perception Experience Kit.
 
 Prefer checked-in examples and documented extension surfaces over inventing new patterns.
 
@@ -30,15 +30,15 @@ For implementation detail and background, continue with:
 - [Architectural overview](docs/public/arch/architectural-overview.md)
 - [Op system](docs/public/arch/op-system.md)
 - [Perception](docs/public/arch/perception.md)
-- [ampinfer](docs/public/arch/elements/ampinfer.md)
-- [amposd](docs/public/arch/elements/amposd.md)
-- [ampsink](docs/public/arch/elements/ampsink.md)
+- [pekinfer](docs/public/arch/elements/pekinfer.md)
+- [pekosd](docs/public/arch/elements/pekosd.md)
+- [peksink](docs/public/arch/elements/peksink.md)
 
 ## Default extension surfaces
 
 - `config/models/` for model descriptors and model-local opchains
 - `config/opchains/` for reusable multi-stage inference chains
-- `config/pipelines/` for top-level runnable presets used by `amp-menu`
+- `config/pipelines/` for top-level runnable presets used by `pek-menu`
 - `development/ops-std/postproc/` for new tensor parsers
 
 Do not start by changing core runtime code unless the task clearly requires it.
@@ -87,16 +87,16 @@ Useful checked-in examples:
 ### Add a new structured runtime result
 Start in:
 
-- `development/common/amp/Perception.h`
-- `development/common/amp/PerceptionSerializer.h`
-- `development/common/amp/PerceptionSerializer.cpp`
+- `development/common/pek/Perception.h`
+- `development/common/pek/PerceptionSerializer.h`
+- `development/common/pek/PerceptionSerializer.cpp`
 
 Then continue into parser and visualization code only if needed.
 
 ### Add or modify overlay rendering
 Start in:
 
-- `development/elements/amposd/amposd.cpp`
+- `development/elements/pekosd/pekosd.cpp`
 
 Only do this after the `Perception` structure and parser output are clear.
 
@@ -114,8 +114,8 @@ Ground doc changes in checked-in code and config.
 - Video-processing elements currently assume `BGRA` caps unless the task explicitly changes the contract.
 - `PerceptionMeta` is the current metadata type.
 - OpChain loop execution is driven by `loopId`.
-- `ampperformance` writes to `Perception.perfdata`; `amposd` renders it.
-- `ampsink` currently owns the WebRTC, HTTP, and control WebSocket stack.
+- `pekperformance` writes to `Perception.perfdata`; `pekosd` renders it.
+- `peksink` currently owns the WebRTC, HTTP, and control WebSocket stack.
 
 ## Build and validation
 
@@ -131,7 +131,7 @@ Ground doc changes in checked-in code and config.
 Incomplete verification step available:
 
 - runtime changes: build with tests and run `meson test`
-- config or pipeline changes: if `./tools/amp-menu` exists, use `./tools/amp-menu -p <pipeline-id-or-path>`
+- config or pipeline changes: if `./tools/pek-menu` exists, use `./tools/pek-menu -p <pipeline-id-or-path>`
 - docs or diagrams: run `./scripts/gen-doc.sh`
 
 ## Agent guardrails

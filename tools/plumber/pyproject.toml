@@ -1,7 +1,7 @@
 [project]
 name = "plumber"
 version = "0.1.0"
-description = "Automated test system for AMP"
+description = "Automated test system for Perception Experience Kit"
 authors = [{name = "Arm Limited"}]
 readme = "README.md"
 requires-python = ">=3.13"

@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include "amp/Types.h"
+#include "pek/Types.h"
 
-namespace amp {
+namespace pek {
 
 struct ImageOps {
 
@@ -188,4 +188,4 @@ struct ImageOps {
                                                          Sampling sampling = Sampling::Nearest);
 };
 
-} // namespace amp
+} // namespace pek

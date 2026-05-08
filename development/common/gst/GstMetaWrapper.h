@@ -10,7 +10,7 @@
 #include <utility>
 #include <variant>
 
-namespace amp {
+namespace pek {
 
 // Traits contract:
 // struct MyTraits {
@@ -169,4 +169,4 @@ template <class Traits> class Meta {
     }
 };
 
-} // namespace amp
+} // namespace pek

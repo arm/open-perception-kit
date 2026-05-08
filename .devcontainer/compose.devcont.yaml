@@ -1,41 +1,41 @@
 services:
-  amp-dev-base:
+  pek-dev-base:
     extends: 
       file: ../compose.base.yaml
-      service: amp-common-dev
+      service: pek-common-dev
 
     network_mode: bridge
-    container_name: amp-dev-forge
-    hostname: amp-dev-forge
+    container_name: perception-experience-kit
+    hostname: perception-experience-kit
     build:
       context: ..
       dockerfile: Dockerfile
-      target: amp-dev-base
+      target: pek-dev-base
 
-  amp-dev-rpi5-h8:
+  pek-dev-rpi5-h8:
     extends: 
       file: ../compose.base.yaml
-      service: amp-common-dev
+      service: pek-common-dev
 
     network_mode: host
     ports: []
-    container_name: amp-dev-forge-rpi5
-    hostname: amp-dev-forge-rpi5
+    container_name: perception-experience-kit-rpi5
+    hostname: perception-experience-kit-rpi5
     build:
       context: ..
       dockerfile: Dockerfile
-      target: amp-dev-rpi5-h8
+      target: pek-dev-rpi5-h8
 
-  amp-dev-rpi5-h10:
+  pek-dev-rpi5-h10:
     extends:
       file: ../compose.base.yaml
-      service: amp-common-dev
+      service: pek-common-dev
 
     network_mode: host
     ports: []
-    container_name: amp-dev-forge-rpi5-h10
-    hostname: amp-dev-forge-rpi5-h10
+    container_name: perception-experience-kit-rpi5-h10
+    hostname: perception-experience-kit-rpi5-h10
     build:
       context: ..
       dockerfile: Dockerfile
-      target: amp-dev-rpi5-h10
+      target: pek-dev-rpi5-h10

@@ -60,7 +60,7 @@ is_running() {
 }
 
 do_up() {
-    ./scripts/private/dev-init.sh amp-dev-rich "$DC_RICH" "$DEV_ENV_FILE"
+    ./scripts/private/dev-init.sh pek-dev-rich "$DC_RICH" "$DEV_ENV_FILE"
 
     HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" \
         docker compose "${COMPOSE_FILES[@]}" up -d --build

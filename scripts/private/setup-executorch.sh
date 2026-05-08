@@ -6,7 +6,7 @@
 set -euo pipefail
 
 # --- Config (edit as needed) ---
-: "${AMP_EXECUTORCH:=1}"     # default if not already set; change to a path/value if needed
+: "${PEK_EXECUTORCH:=1}"     # default if not already set; change to a path/value if needed
 
 # --- Resolve paths relative to THIS script's location ---
 SELF_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -30,9 +30,9 @@ run_in_script_dir() {
     (cd -- "$script_dir" && bash "./$(basename -- "$script")")
 }
 
-echo "AMP_EXECUTORCH=$AMP_EXECUTORCH"
+echo "PEK_EXECUTORCH=$PEK_EXECUTORCH"
 echo "1) Running build.sh as root (in its own directory)..."
-sudo --preserve-env=AMP_EXECUTORCH bash -c '
+sudo --preserve-env=PEK_EXECUTORCH bash -c '
   set -euo pipefail
   script="$1"
   script_dir="$(cd -- "$(dirname -- "$script")" && pwd)"

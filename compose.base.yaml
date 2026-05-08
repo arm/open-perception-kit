@@ -1,5 +1,5 @@
 services:
-  amp-common: &amp-common
+  pek-common: &pek-common
     cap_add:
       - SYS_PTRACE
 
@@ -25,8 +25,8 @@ services:
     tty: true
     restart: unless-stopped
 
-  amp-common-dev: &amp-common-dev
-    <<: *amp-common
+  pek-common-dev: &pek-common-dev
+    <<: *pek-common
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
       - .:/work

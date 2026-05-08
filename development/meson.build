@@ -1,4 +1,4 @@
-project('amp_elements', ['c', 'cpp'],
+project('pek_elements', ['c', 'cpp'],
   version: '0.1.0',
   default_options: [
     'c_std=c11',
@@ -66,13 +66,13 @@ fs = import('fs')
 onnx_root = ''
 onnx_candidates = []
 
-onnx_root_env = run_command('sh', '-c', 'printf %s "$AMP_ONNXRUNTIME_ROOT"', check: false).stdout().strip()
+onnx_root_env = run_command('sh', '-c', 'printf %s "$PEK_ONNXRUNTIME_ROOT"', check: false).stdout().strip()
 if onnx_root_env != ''
   onnx_candidates += [onnx_root_env]
 endif
 
 onnx_candidates += [
-  '/opt/amp-deps/onnxruntime',
+  '/opt/pek-deps/onnxruntime',
   meson.project_source_root() / '../deps/onnxruntime',
   meson.project_source_root() / '../onnxruntime-linux-aarch64-1.18.1',
 ]
@@ -85,7 +85,7 @@ foreach candidate : onnx_candidates
 endforeach
 
 if onnx_root == ''
-  error('ONNX Runtime not found. Set AMP_ONNXRUNTIME_ROOT or provide include/ and lib/ under one of: ' + ', '.join(onnx_candidates))
+  error('ONNX Runtime not found. Set PEK_ONNXRUNTIME_ROOT or provide include/ and lib/ under one of: ' + ', '.join(onnx_candidates))
 endif
 
 message('Using ONNX Runtime from: ' + onnx_root)
@@ -97,21 +97,21 @@ onnx_dep = declare_dependency(
 )
 
 # -------- Exported defs + deps for subdirs
-amp_defs = ['-DAMP_WEB_MODE=1']  # Web mode always compiled
+pek_defs = ['-DPEK_WEB_MODE=1']  # Web mode always compiled
 if web_server_enabled
-  amp_defs += ['-DAMP_WEB_SERVER=1']
+  pek_defs += ['-DPEK_WEB_SERVER=1']
   if use_soup2
-    amp_defs += ['-DUSE_SOUP2=1']
+    pek_defs += ['-DUSE_SOUP2=1']
   else
-    amp_defs += ['-DUSE_SOUP3=1']
+    pek_defs += ['-DUSE_SOUP3=1']
   endif
 else
-  amp_defs += ['-DAMP_WEB_SERVER=0']  # fallback to file-based/manual signaling
-  warning('libsoup and/or json-glib not found — building ampsink without embedded HTTP/WS server (manual signaling mode).')
+  pek_defs += ['-DPEK_WEB_SERVER=0']  # fallback to file-based/manual signaling
+  warning('libsoup and/or json-glib not found — building peksink without embedded HTTP/WS server (manual signaling mode).')
 endif
-add_project_arguments(amp_defs, language: 'cpp')
+add_project_arguments(pek_defs, language: 'cpp')
 
-amp_deps = [
+pek_deps = [
   stb_dep,
   gst_dep, gstbase_dep, gstv_dep, gsta_dep,
   glib_dep, gobject_dep,
@@ -120,7 +120,7 @@ amp_deps = [
 ]
 
 if web_server_enabled
-  amp_deps += [ soup_dep, json_dep ]
+  pek_deps += [ soup_dep, json_dep ]
 endif
 
 # Common include(s)
@@ -142,15 +142,15 @@ gtest_main_dep = gtest_cmake.dependency('gtest_main')
 
 # Subdirs
 subdir('common')
-subdir('elements/ampinfer')
+subdir('elements/pekinfer')
 subdir('ops-onnx')
 subdir('ops-std')
-subdir('elements/amptracker')
-subdir('elements/ampperformance')
-subdir('elements/amposd')
-subdir('elements/ampsink')
-subdir('elements/ampcomm')
-subdir('amp-menu')
+subdir('elements/pektracker')
+subdir('elements/pekperformance')
+subdir('elements/pekosd')
+subdir('elements/peksink')
+subdir('elements/pekcomm')
+subdir('pek-menu')
 
 # Optional subdirs decision tree is inside the subdir
 subdir('ops-hailort')

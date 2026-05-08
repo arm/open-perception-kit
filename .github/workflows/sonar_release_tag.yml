@@ -33,10 +33,10 @@ jobs:
           echo "SONAR_PROJECT_VERSION=${GITHUB_REF_NAME#release/}" >> "$GITHUB_ENV"
 
       - name: Build docker image 
-        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build amp-sonar-check-release
+        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-sonar-check-release
           
       - name: Run SonarQube release analysis
-        run: docker compose -f "${{ env.DOCKER_COMPOSE_FILE }}" run --rm amp-sonar-check-release
+        run: docker compose -f "${{ env.DOCKER_COMPOSE_FILE }}" run --rm pek-sonar-check-release
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}

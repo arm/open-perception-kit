@@ -8,7 +8,7 @@
 #include <concepts>
 #include <type_traits>
 
-namespace amp::algo {
+namespace pek::algo {
 
 template <typename T>
 concept Arithmetic = std::is_arithmetic_v<std::remove_cvref_t<T>>;
@@ -65,4 +65,4 @@ template <AxisAlignedBox Box> auto computeIoU(const Box &a, const Box &b) {
                                  static_cast<CoordType>(b.height));
 }
 
-} // namespace amp::algo
+} // namespace pek::algo

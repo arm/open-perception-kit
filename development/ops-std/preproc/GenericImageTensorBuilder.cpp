@@ -7,11 +7,11 @@
 #include <cassert>
 #include <stdint.h>
 
-using namespace amp;
+using namespace pek;
 
 namespace {
 
-bool canUseFullKernelFastPath(const amp::ImageLayoutDesc &src, const amp::ImageLayoutDesc &dst) {
+bool canUseFullKernelFastPath(const pek::ImageLayoutDesc &src, const pek::ImageLayoutDesc &dst) {
     const bool isSrcFull = src.rectIsFullSurface();
     const bool isDstFull = dst.rectIsFullSurface();
     const bool sameSize =
@@ -21,120 +21,120 @@ bool canUseFullKernelFastPath(const amp::ImageLayoutDesc &src, const amp::ImageL
 
 } // namespace
 
-amp::Result<void> amp::GenericImageTensorBuilder::build(const TensorBuilder::Setup &setup) {
+pek::Result<void> pek::GenericImageTensorBuilder::build(const TensorBuilder::Setup &setup) {
     bool didBuild = false;
 
-    if (setup.imageSourceDesc.kind == amp::DataKind::ImageBgraHwc &&
-        setup.imageDestinationDesc.kind == amp::DataKind::ImageRgbChw) {
-        if (setup.imageSourceDesc.type == amp::Tdt::Uint8 &&
-            setup.imageDestinationDesc.type == amp::Tdt::Float32) {
+    if (setup.imageSourceDesc.kind == pek::DataKind::ImageBgraHwc &&
+        setup.imageDestinationDesc.kind == pek::DataKind::ImageRgbChw) {
+        if (setup.imageSourceDesc.type == pek::Tdt::Uint8 &&
+            setup.imageDestinationDesc.type == pek::Tdt::Float32) {
             const bool isFull =
                 canUseFullKernelFastPath(setup.imageSourceDesc, setup.imageDestinationDesc);
             if (isFull) {
-                didBuild = amp::ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(
+                didBuild = pek::ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(
                     setup.imageSourceDesc, setup.imageDestinationDesc);
             } else {
-                didBuild = amp::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(
+                didBuild = pek::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(
                     setup.imageSourceDesc, setup.imageDestinationDesc);
             }
-        } else if (setup.imageSourceDesc.type == amp::Tdt::Uint8 &&
-                   setup.imageDestinationDesc.type == amp::Tdt::Float16) {
-            didBuild = amp::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(
+        } else if (setup.imageSourceDesc.type == pek::Tdt::Uint8 &&
+                   setup.imageDestinationDesc.type == pek::Tdt::Float16) {
+            didBuild = pek::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(
                 setup.imageSourceDesc, setup.imageDestinationDesc);
         }
     }
 
-    if (setup.imageSourceDesc.kind == amp::DataKind::ImageBgraHwc &&
-        setup.imageDestinationDesc.kind == amp::DataKind::ImageRgbHwc) {
-        if (setup.imageSourceDesc.type == amp::Tdt::Uint8 &&
-            setup.imageDestinationDesc.type == amp::Tdt::Uint8) {
-            didBuild = amp::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(
+    if (setup.imageSourceDesc.kind == pek::DataKind::ImageBgraHwc &&
+        setup.imageDestinationDesc.kind == pek::DataKind::ImageRgbHwc) {
+        if (setup.imageSourceDesc.type == pek::Tdt::Uint8 &&
+            setup.imageDestinationDesc.type == pek::Tdt::Uint8) {
+            didBuild = pek::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(
                 setup.imageSourceDesc, setup.imageDestinationDesc);
-        } else if (setup.imageSourceDesc.type == amp::Tdt::Uint8 &&
-                   setup.imageDestinationDesc.type == amp::Tdt::Float32) {
-            didBuild = amp::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(
+        } else if (setup.imageSourceDesc.type == pek::Tdt::Uint8 &&
+                   setup.imageDestinationDesc.type == pek::Tdt::Float32) {
+            didBuild = pek::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(
                 setup.imageSourceDesc, setup.imageDestinationDesc);
-        } else if (setup.imageSourceDesc.type == amp::Tdt::Uint8 &&
-                   setup.imageDestinationDesc.type == amp::Tdt::Float16) {
-            didBuild = amp::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Hwc(
+        } else if (setup.imageSourceDesc.type == pek::Tdt::Uint8 &&
+                   setup.imageDestinationDesc.type == pek::Tdt::Float16) {
+            didBuild = pek::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Hwc(
                 setup.imageSourceDesc, setup.imageDestinationDesc);
         }
     }
 
-    if (setup.imageSourceDesc.kind == amp::DataKind::ImageBgraHwc &&
-        setup.imageDestinationDesc.kind == amp::DataKind::ImageGray) {
-        if (setup.imageSourceDesc.type == amp::Tdt::Uint8 &&
-            setup.imageDestinationDesc.type == amp::Tdt::Uint8) {
+    if (setup.imageSourceDesc.kind == pek::DataKind::ImageBgraHwc &&
+        setup.imageDestinationDesc.kind == pek::DataKind::ImageGray) {
+        if (setup.imageSourceDesc.type == pek::Tdt::Uint8 &&
+            setup.imageDestinationDesc.type == pek::Tdt::Uint8) {
             const bool isFull =
                 canUseFullKernelFastPath(setup.imageSourceDesc, setup.imageDestinationDesc);
 
             if (isFull) {
-                didBuild = amp::ImageOps::StretchBlit_Bgra8_Hwc_Full_Gray8_Full(
+                didBuild = pek::ImageOps::StretchBlit_Bgra8_Hwc_Full_Gray8_Full(
                     setup.imageSourceDesc, setup.imageDestinationDesc);
             } else {
-                didBuild = amp::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Gray8_Rect(
-                    setup.imageSourceDesc, setup.imageDestinationDesc);
-            }
-        }
-    }
-
-    if (setup.imageSourceDesc.kind == amp::DataKind::ImageRgbChw &&
-        setup.imageDestinationDesc.kind == amp::DataKind::ImageRgbChw) {
-        if (setup.imageSourceDesc.type == amp::Tdt::Uint8 &&
-            setup.imageDestinationDesc.type == amp::Tdt::Float32) {
-            const bool isFull =
-                canUseFullKernelFastPath(setup.imageSourceDesc, setup.imageDestinationDesc);
-            if (isFull) {
-                didBuild = amp::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Chw(
-                    setup.imageSourceDesc, setup.imageDestinationDesc);
-            } else {
-                didBuild = amp::ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(
-                    setup.imageSourceDesc, setup.imageDestinationDesc);
-            }
-        } else if (setup.imageSourceDesc.type == amp::Tdt::Uint8 &&
-                   setup.imageDestinationDesc.type == amp::Tdt::Float16) {
-            const bool isFull =
-                canUseFullKernelFastPath(setup.imageSourceDesc, setup.imageDestinationDesc);
-            if (isFull) {
-                didBuild = amp::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Chw(
-                    setup.imageSourceDesc, setup.imageDestinationDesc);
-            } else {
-                didBuild = amp::ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Chw(
+                didBuild = pek::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Gray8_Rect(
                     setup.imageSourceDesc, setup.imageDestinationDesc);
             }
         }
     }
 
-    if (setup.imageSourceDesc.kind == amp::DataKind::ImageRgbChw &&
-        setup.imageDestinationDesc.kind == amp::DataKind::ImageRgbHwc) {
-        if (setup.imageSourceDesc.type == amp::Tdt::Uint8 &&
-            setup.imageDestinationDesc.type == amp::Tdt::Float32) {
+    if (setup.imageSourceDesc.kind == pek::DataKind::ImageRgbChw &&
+        setup.imageDestinationDesc.kind == pek::DataKind::ImageRgbChw) {
+        if (setup.imageSourceDesc.type == pek::Tdt::Uint8 &&
+            setup.imageDestinationDesc.type == pek::Tdt::Float32) {
             const bool isFull =
                 canUseFullKernelFastPath(setup.imageSourceDesc, setup.imageDestinationDesc);
             if (isFull) {
-                didBuild = amp::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Hwc(
+                didBuild = pek::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Chw(
                     setup.imageSourceDesc, setup.imageDestinationDesc);
             } else {
-                didBuild = amp::ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(
+                didBuild = pek::ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(
                     setup.imageSourceDesc, setup.imageDestinationDesc);
             }
-        } else if (setup.imageSourceDesc.type == amp::Tdt::Uint8 &&
-                   setup.imageDestinationDesc.type == amp::Tdt::Float16) {
+        } else if (setup.imageSourceDesc.type == pek::Tdt::Uint8 &&
+                   setup.imageDestinationDesc.type == pek::Tdt::Float16) {
             const bool isFull =
                 canUseFullKernelFastPath(setup.imageSourceDesc, setup.imageDestinationDesc);
             if (isFull) {
-                didBuild = amp::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Hwc(
+                didBuild = pek::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Chw(
                     setup.imageSourceDesc, setup.imageDestinationDesc);
             } else {
-                didBuild = amp::ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Hwc(
+                didBuild = pek::ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Chw(
+                    setup.imageSourceDesc, setup.imageDestinationDesc);
+            }
+        }
+    }
+
+    if (setup.imageSourceDesc.kind == pek::DataKind::ImageRgbChw &&
+        setup.imageDestinationDesc.kind == pek::DataKind::ImageRgbHwc) {
+        if (setup.imageSourceDesc.type == pek::Tdt::Uint8 &&
+            setup.imageDestinationDesc.type == pek::Tdt::Float32) {
+            const bool isFull =
+                canUseFullKernelFastPath(setup.imageSourceDesc, setup.imageDestinationDesc);
+            if (isFull) {
+                didBuild = pek::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Hwc(
+                    setup.imageSourceDesc, setup.imageDestinationDesc);
+            } else {
+                didBuild = pek::ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(
+                    setup.imageSourceDesc, setup.imageDestinationDesc);
+            }
+        } else if (setup.imageSourceDesc.type == pek::Tdt::Uint8 &&
+                   setup.imageDestinationDesc.type == pek::Tdt::Float16) {
+            const bool isFull =
+                canUseFullKernelFastPath(setup.imageSourceDesc, setup.imageDestinationDesc);
+            if (isFull) {
+                didBuild = pek::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Hwc(
+                    setup.imageSourceDesc, setup.imageDestinationDesc);
+            } else {
+                didBuild = pek::ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Hwc(
                     setup.imageSourceDesc, setup.imageDestinationDesc);
             }
         }
     }
 
     if (!didBuild) {
-        return tl::unexpected(AMP_ERROR(
-            amp::ErrorFlag::InvalidData,
+        return tl::unexpected(PEK_ERROR(
+            pek::ErrorFlag::InvalidData,
             "GenericImageTensorBuilder: unsupported source/destination kind+type conversion"));
     }
 

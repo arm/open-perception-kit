@@ -7,9 +7,9 @@
 #include <fmt/core.h>
 #include <memory>
 
-#include "amp/AttributeMap.h"
-#include "amp/TensorView.h"
 #include "op/OpChainContext.h"
+#include "pek/AttributeMap.h"
+#include "pek/TensorView.h"
 
 #include <PerformanceTracer.h>
 
@@ -19,15 +19,15 @@ InferenceOp::InferenceOp() {}
 
 InferenceOp::~InferenceOp() {}
 
-amp::Result<void> InferenceOp::configure(const amp::AttributeMap &attributes) {
+pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
     std::string modelDescPath;
 
     try {
         modelDescPath = attributes.getString("modelDescriptor");
-    } catch (const amp::AttributeError &error) {
+    } catch (const pek::AttributeError &error) {
 
-        return tl::unexpected(AMP_ERROR(
-            amp::ErrorFlag::InvalidOpChain,
+        return tl::unexpected(PEK_ERROR(
+            pek::ErrorFlag::InvalidOpChain,
             fmt::format("Missing required attribute in Hailo InferenceOp: {}", error.what())));
     }
 
@@ -39,7 +39,7 @@ amp::Result<void> InferenceOp::configure(const amp::AttributeMap &attributes) {
             return setupResult;
         }
     } catch (const std::exception &e) {
-        return tl::unexpected(AMP_ERROR(amp::ErrorFlag::OnnxStartupException,
+        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::OnnxStartupException,
                                         fmt::format("HailoRT startup error: {}", e.what())));
     }
 
@@ -48,8 +48,8 @@ amp::Result<void> InferenceOp::configure(const amp::AttributeMap &attributes) {
     return {};
 }
 
-amp::Result<void> InferenceOp::process(amp::OpChainContext &opChainContext) {
-    AMP_TRACE_SCOPE(fmt::format("hailort/Infer/{}", opChainContext.inferenceInfo.modelFamily));
+pek::Result<void> InferenceOp::process(pek::OpChainContext &opChainContext) {
+    PEK_TRACE_SCOPE(fmt::format("hailort/Infer/{}", opChainContext.inferenceInfo.modelFamily));
 
     auto inferenceResult = inference->inference();
     if (!inferenceResult) {
@@ -57,13 +57,13 @@ amp::Result<void> InferenceOp::process(amp::OpChainContext &opChainContext) {
         return inferenceResult;
     }
 
-    const amp::Model &model = inference->getModel();
+    const pek::Model &model = inference->getModel();
 
     size_t outputTensorCount = model.outputs.size();
     opChainContext.inferenceOutputTensorCount = outputTensorCount;
 
     for (size_t i = 0; i < outputTensorCount; i++) {
-        const amp::Shape outShape = inference->getOutputTensorFinalShape(i);
+        const pek::Shape outShape = inference->getOutputTensorFinalShape(i);
         const uint8_t *outData = inference->getOutputTensorDataAddress(i);
 
         opChainContext.inferenceOutputTensors[i] =
@@ -73,11 +73,11 @@ amp::Result<void> InferenceOp::process(amp::OpChainContext &opChainContext) {
     return {};
 }
 
-amp::Result<void> InferenceOp::bind(size_t index, const std::vector<amp::Op *> &ops) {
+pek::Result<void> InferenceOp::bind(size_t index, const std::vector<pek::Op *> &ops) {
     return {};
 }
 
-const amp::Model &InferenceOp::getModel() const {
+const pek::Model &InferenceOp::getModel() const {
     assert(inference);
     return inference->getModel();
 }

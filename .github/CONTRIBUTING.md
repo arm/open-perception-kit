@@ -8,7 +8,7 @@
 	- first line: short description
 	- second line: `Task: EXPKITS-xxxx`
 	- remaining lines: optional details
-- For pull requests, CI can be rerun by adding the `run-amp-ci` label.
+- For pull requests, CI can be rerun by adding the `run-pek-ci` label.
 
 ## Example
 

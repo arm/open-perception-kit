@@ -1,5 +1,5 @@
 stdops = shared_module(
-  'amp-std-ops',                   
+  'pek-std-ops',                   
   sources: [
     'Plugin.cpp',
     'GenericPostprocessOp.cpp',
@@ -24,7 +24,7 @@ stdops = shared_module(
 
   ],
   include_directories: common_include,
-  dependencies: amp_deps ,
+  dependencies: pek_deps ,
   cpp_args: ['-DFMT_HEADER_ONLY'],
   link_with: [ common ],
   name_prefix: '',

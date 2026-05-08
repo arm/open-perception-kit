@@ -3,19 +3,19 @@
  *************************************************************/
 
 #include "postproc/GazeDetectionParser.h"
-#include "amp/Perception.h"
+#include "pek/Perception.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 
-using namespace amp;
+using namespace pek;
 
 namespace {
 
 // Soft-argmax over bins -> angle in degrees.
 // Also returns a confidence in [0,1] as max softmax probability.
-inline void logitsToAngleDegAndConfidence(const amp::TensorView *logits,
+inline void logitsToAngleDegAndConfidence(const pek::TensorView *logits,
                                           float &outAngleDeg,
                                           float &outConfidence,
                                           float gazeRangeDeg = 90.0f) {
@@ -64,33 +64,33 @@ inline void logitsToAngleDegAndConfidence(const amp::TensorView *logits,
 
 } // namespace
 
-amp::Result<void> GazeDetectionParser::parse(const amp::TensorParser::Input &input,
-                                             amp::Perception::Layer &detectionResult) {
+pek::Result<void> GazeDetectionParser::parse(const pek::TensorParser::Input &input,
+                                             pek::Perception::Layer &detectionResult) {
     // Validate tensor pointers.
     if (!input.tensors[0] || !input.tensors[1]) {
         return tl::unexpected(
-            AMP_ERROR(ErrorFlag::InvalidData, "GazeDetectionParser: input tensors are null"));
+            PEK_ERROR(ErrorFlag::InvalidData, "GazeDetectionParser: input tensors are null"));
     }
 
     // Validate tensor shapes.
     if (input.tensors[0]->getShape().dimensionCount != 2) {
-        return tl::unexpected(AMP_ERROR(ErrorFlag::InvalidData,
+        return tl::unexpected(PEK_ERROR(ErrorFlag::InvalidData,
                                         "GazeDetectionParser: yaw tensor must have 2 dimensions"));
     }
     if (input.tensors[1]->getShape().dimensionCount != 2) {
-        return tl::unexpected(AMP_ERROR(
+        return tl::unexpected(PEK_ERROR(
             ErrorFlag::InvalidData, "GazeDetectionParser: pitch tensor must have 2 dimensions"));
     }
 
     // Validate tensor dimensions: [1, 90].
     if (input.tensors[0]->getShape().valueCount[0] != 1 ||
         input.tensors[0]->getShape().valueCount[1] != 90) {
-        return tl::unexpected(AMP_ERROR(ErrorFlag::InvalidData,
+        return tl::unexpected(PEK_ERROR(ErrorFlag::InvalidData,
                                         "GazeDetectionParser: yaw tensor shape must be [1, 90]"));
     }
     if (input.tensors[1]->getShape().valueCount[0] != 1 ||
         input.tensors[1]->getShape().valueCount[1] != 90) {
-        return tl::unexpected(AMP_ERROR(ErrorFlag::InvalidData,
+        return tl::unexpected(PEK_ERROR(ErrorFlag::InvalidData,
                                         "GazeDetectionParser: pitch tensor shape must be [1, 90]"));
     }
 

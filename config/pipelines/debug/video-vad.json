@@ -4,9 +4,9 @@
         "filesrc location=/work/data/videos/00.mp4 !",
         "decodebin name=dec",
         "dec. ! queue ! videoconvert ! videoscale ! video/x-raw,framerate=24/1,format=BGRA !",
-        "ampinfer opchain-path=/work/config/models/silero-vad/opchain.json active=true !",
-        "amposd enabled=true !",
-        "ampsink name=sink",
+        "pekinfer opchain-path=/work/config/models/silero-vad/opchain.json active=true !",
+        "pekosd enabled=true !",
+        "peksink name=sink",
         "dec. ! queue ! audioconvert ! audioresample ! audio/x-raw,channels=2 ! sink.audiosink"
     ]
 }
