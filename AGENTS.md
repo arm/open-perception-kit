@@ -23,7 +23,7 @@ Read these first before making substantial changes:
 - [Runtime basics](docs/public/how-to/deep-dives/runtime.md)
 - [Bring your model](docs/public/how-to/deep-dives/bring-your-model.md)
 - [Custom postprocessing](docs/public/how-to/deep-dives/custom-postprocessing.md)
-- [Known limitations](docs/public/how-to/arch/known-limitations.md)
+- [Known limitations](docs/public/arch/known-limitations.md)
 
 For implementation detail and background, continue with:
 
@@ -59,7 +59,7 @@ Start in:
 
 Read first:
 
-- [Exercise quick guide](docs/public/how-to/quick-guides/exercise.md)
+- [Pipeline customisation guide](docs/public/how-to/quick-guides/exercise.md)
 - [Bring your model](docs/public/how-to/deep-dives/bring-your-model.md)
 
 Useful checked-in examples:
@@ -139,4 +139,4 @@ Incomplete verification step available:
 - Reuse checked-in patterns before inventing new ones.
 - Keep docs aligned with `config/` and `development/`.
 - Prefer the container workflow.
-- If a task is actually blocked by current architecture, say so and cross-check [Known limitations](docs/public/how-to/arch/known-limitations.md).
+- If a task is actually blocked by current architecture, say so and cross-check [Known limitations](docs/public/arch/known-limitations.md).
