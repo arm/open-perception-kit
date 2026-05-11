@@ -1,7 +1,8 @@
 {
     "description": "Test tracker with YOLO + OSNet ReID on video",
+    "loop": true,
     "pipeline": [
-        "filesrc location=/work/data/videos/01.mp4 !",
+        "filesrc location=/work/data/videos/GettyImages-1298072556.mov !",
         "decodebin !",
         "videoconvert !",
         "video/x-raw,format=BGRA !",

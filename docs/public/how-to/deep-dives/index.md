@@ -238,12 +238,12 @@ To stop a pipeline:
 
 ### Other available pipelines
 
-Each pipeline's default source is an image, and the default sink is the `peksink` endpoint. The pipeline files also contain premade alternative sources and sinks. Use them as templates when switching to a camera or video source.
+Each pipeline's default source is a video file, and the default sink is the `peksink` endpoint. The pipeline files also contain premade alternative sources and sinks. Use them as templates when switching to a camera or different video source.
 
-- `01-full-onnx.json` — integrated ONNX model pipelines on a still image
-- `02-full-onnx-hailo8.json` — integrated ONNX + Hailo 8 pipelines on a still image with peksink video and optional audio sink
-- `03-full-onnx-hailo8l.json` — integrated ONNX + Hailo 8L pipelines on a still image with peksink video and optional audio sink
-- `04-full-onnx-hailo10.json` — integrated ONNX + Hailo 10 pipelines on a still image with peksink video and optional audio sink
+- `01-full-onnx.json` — integrated ONNX model pipelines on a video source
+- `02-full-onnx-hailo8.json` — integrated ONNX + Hailo 8 pipelines on a video source with peksink video and optional audio sink
+- `03-full-onnx-hailo8l.json` — integrated ONNX + Hailo 8L pipelines on a video source with peksink video and optional audio sink
+- `04-full-onnx-hailo10.json` — integrated ONNX + Hailo 10 pipelines on a video source with peksink video and optional audio sink
 - `cam-connect.json` — camera-contact demo
 - `gaze-detection.json` — gaze-estimation demo
 - `tracker-pc.json` — ONNX tracking demo
