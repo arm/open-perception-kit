@@ -18,7 +18,7 @@ At a high level, it combines:
 For rendered documentation instead of Markdown files, see the [Perception Experience Kit Docusaurus documentation](https://docs.staging.devplatform.arm.com/perception-experience-kit/).
 
 ### Quick first run
-The quick-guide path is the fastest way to reach a working pipeline and then reconnect through the [Exercise Quick Guide](how-to/quick-guides/exercise.md) into the same engineering path as the full setup flow.
+The quick-guide path is the fastest way to reach a working pipeline and then reconnect through the [Pipeline customisation guide](how-to/quick-guides/exercise.md) into the same engineering path as the full setup flow.
 
 - [Windows/Linux quick guide](how-to/quick-guides/win-lin.md)
 - [macOS quick guide](how-to/quick-guides/mac.md)

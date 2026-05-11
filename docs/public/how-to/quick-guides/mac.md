@@ -214,7 +214,7 @@ The VS Code task for this is **00 Run project with latest pipeline**.
 
 Continue with the [deep dive how-to guide](../deep-dives/index.md).
 
-If you want a guided repository walk-through, continue with the [exercise quick guide](exercise.md).
+If you want a guided repository walk-through, continue with the [Pipeline customisation guide](exercise.md).
 
 ## What should you have at the end of this document?
 

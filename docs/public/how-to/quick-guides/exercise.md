@@ -1,9 +1,9 @@
 ---
 sidebar_position: 4
-sidebar_label: Exercise Quick Guide
+sidebar_label: Pipeline customisation guide
 ---
 
-# Exercise Quick Guide
+# Pipeline customisation guide
 
 This guide contains three short hands-on exercises for understanding how the repository fits together.
 
