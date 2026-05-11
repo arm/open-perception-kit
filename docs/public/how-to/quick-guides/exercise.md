@@ -40,18 +40,18 @@ In this exercise, you will start from an existing pipeline and change its source
 
 For simplicity's sake, use the camera-contact pipeline in `config/pipelines/cam-connect.json`. It is available everywhere and is short enough to inspect comfortably.
 
-The beginning of the pipeline contains the active source. The end of the preset lists alternative sources you can copy into place. To change the source, remove the original source section and replace it with a video source, or with a camera source if one is available.
+The beginning of the pipeline contains the active source. The end of the preset lists alternative sources you can copy into place. To change the source, remove the original source section and replace it with a different video source, or with a camera source if one is available.
 
 Before:
 
 ```json
 {
-  "description": "Camera contact pipeline with the default image source and ampsink video sink.",
+  "description": "Camera contact pipeline with the default video source and ampsink video sink.",
   "pipeline": [
-    "filesrc location=/work/data/images/katana.jpg !",
-    "jpegdec !",
-    "imagefreeze !",
-    "videoconvert ! video/x-raw,format=BGRA !",
+    "filesrc location=/work/data/videos/GettyImages-2222093886.mov !",
+    "decodebin !",
+    "videoconvert !",
+    "video/x-raw,format=BGRA !",
     "ampinfer opchain-path=/work/config/opchains/cam-contact/opchain.json active=false !",
     "amptracker content-type=genericObject !",
     "ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
@@ -61,16 +61,15 @@ Before:
 }
 ```
 
-After:
+After (swapped to a USB camera source):
 
 ```json
 {
-  "description": "Camera contact pipeline with the default image source and ampsink video sink.",
+  "description": "Camera contact pipeline with the default video source and ampsink video sink.",
   "pipeline": [
-    "filesrc location=/work/data/videos/01.mp4 !",
-    "decodebin !",
-    "videoconvert !",
-    "video/x-raw,format=BGRA !",
+    "v4l2src device=/dev/video0 ! \"image/jpeg,width=1280,height=720,framerate=60/1\" !",
+    "jpegdec !",
+    "videoconvert ! video/x-raw,format=BGRA !",
     "ampinfer opchain-path=/work/config/opchains/cam-contact/opchain.json active=false !",
     "amptracker content-type=genericObject !",
     "ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
@@ -114,7 +113,7 @@ Start with the smallest valid preset shape:
 {
   "description": "Exercise pipeline built step by step.",
   "pipeline": [
-    "filesrc location=/work/data/videos/00.mp4 !",
+    "filesrc location=/work/data/videos/GettyImages-1140581459.mov !",
     "decodebin !",
     "videoconvert ! video/x-raw,format=BGRA !",
     "fakesink"

@@ -1,7 +1,8 @@
 {
   "description": "Object tracking pipeline using the Hailo opchain with the default video source and ampsink video sink.",
+  "loop": true,
   "pipeline": [
-    "filesrc location=/work/data/videos/01.mp4 !",
+    "filesrc location=/work/data/videos/GettyImages-1298072556.mov !",
     "decodebin !",
     "videoconvert !",
     "video/x-raw,format=BGRA !",
@@ -28,7 +29,7 @@
     "videoconvert ! video/x-raw,format=BGRA !"
   ],
   "alternative-source-video": [
-    "filesrc location=/work/data/videos/01.mp4 !",
+    "filesrc location=/work/data/videos/GettyImages-1140581459.mov !",
     "decodebin !",
     "videoconvert !",
     "video/x-raw,format=BGRA !"
