@@ -75,3 +75,13 @@ The default first pipeline is `01-full-onnx`. It uses a still image by default. 
 
 - [Raspberry Pi SSH Setup](raspberry-pi-ssh.md) - use this before the Raspberry Pi tutorial if you want to connect from your normal computer.
 - [GitHub SSH Key Setup](github-ssh-key.md) - use this only if you need to clone from GitHub with an SSH URL.
+
+## Advanced Topics
+
+Use these after a quick start is working:
+
+- [Structural Basics](structural-basics.md) - where models, pipelines, media files, scripts, and source changes live.
+- [Runtime Basics](runtime-basics.md) - how AMP uses pipelines, OpChains, model descriptors, and browser output.
+- [Bring Your Model](bring-your-model.md) - how to add a model by reusing existing descriptors, OpChains, and parsers.
+- [Custom Postprocessing](custom-postprocessing.md) - how to add a parser when existing tensor parsers do not match your model output.
+- [Performance Measurement With Performix](performance-measurement.md) - how to connect Performix and run a measurement recipe.
