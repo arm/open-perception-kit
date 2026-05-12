@@ -24,7 +24,7 @@ You need:
 - Supported Hailo 8 AI HAT, Hailo 8L hardware with matching compiled models, or supported Hailo 10 accelerator.
 - Network connection between your normal computer and the Raspberry Pi.
 - Power supply suitable for Raspberry Pi 5 and attached hardware.
-- Optional camera. The first run uses a static image, so the camera is not required for first success.
+- Optional camera. The first run uses checked-in sample media, so the camera is not required for first success.
 
 The first tutorial can run without Hailo by using the ONNX pipeline. Hailo is needed for the Hailo-specific pipelines later in this page.
 
@@ -215,7 +215,7 @@ Expected result: the build finishes without errors and `tools/amp-menu` exists.
 
 ## 11. Run The First Pipeline
 
-A pipeline is a saved runtime preset. It tells AMP where the input comes from, which models can run, and where the result is shown. The first pipeline uses a static image so you can confirm the system works before changing to a camera.
+A pipeline is a saved runtime preset. It tells AMP where the input comes from, which models can run, and where the result is shown. The first pipeline uses checked-in sample media so you can confirm the system works before changing to a camera.
 
 Run in the **Docker shell on the Raspberry Pi**:
 
@@ -225,7 +225,7 @@ Run in the **Docker shell on the Raspberry Pi**:
 
 Leave this terminal open. The pipeline is running while this command is active.
 
-Expected result: AMP starts the `01-full-onnx` pipeline. This pipeline uses a static image and ONNX models.
+Expected result: AMP starts the `01-full-onnx` pipeline. This pipeline uses sample media and ONNX models.
 
 <img src="static/img/09-select-pipeline.png" alt="AMP pipeline selection view" width="720" style="max-width: 100%; height: auto;">
 
@@ -247,7 +247,7 @@ In the **AI Models** panel, enable one model first. Start with `yolov11` or `mob
 
 <img src="static/img/10-browser-ui.png" alt="AMP browser UI after opening the web view" width="720" style="max-width: 100%; height: auto;">
 
-Expected result: the page shows the AMP view and enabling a model produces an overlay or result. The first pipeline uses a static image, so it is normal that you do not see a live camera feed yet.
+Expected result: the page shows the AMP view and enabling a model produces an overlay or result. The first pipeline uses sample media, so it is normal that you do not see a live camera feed yet.
 
 ## 13. Try A Hailo Pipeline
 
@@ -275,26 +275,35 @@ For Hailo 10, run:
 
 Open the same browser URL and enable one model in the **AI Models** panel.
 
-## 14. Switch From Static Image To Camera
+## 14. Switch From Sample Media To Camera
 
-The checked-in quick-start pipelines use a static image by default. This keeps the first run predictable.
+The checked-in quick-start pipelines use sample media by default. This keeps the first run predictable.
 
-The pipeline files already contain alternative camera sources:
+For the full camera walkthrough, use [Use A Camera](camera-input.md).
 
-- `alternative-source-usbcam` for USB cameras.
-- `alternative-source-raspicam` for Raspberry Pi CSI cameras.
+For the first Raspberry Pi camera test, open `config/pipelines/01-full-onnx.json` and replace the first source lines in the `pipeline` array.
 
-Open one of these files in VS Code:
+The checked-in sample source currently starts like this:
 
-- `config/pipelines/01-full-onnx.json`
-- `config/pipelines/02-full-onnx-hailo8.json`
-- `config/pipelines/03-full-onnx-hailo8l.json`
-- `config/pipelines/04-full-onnx-hailo10.json`
+```json
+"filesrc location=/work/data/videos/GettyImages-1140581459.mov !",
+"decodebin !",
+"videoconvert !",
+"video/x-raw,format=BGRA !",
+```
 
 For a USB camera, check the device path in the **Raspberry Pi shell**:
 
 ```bash
 v4l2-ctl --list-devices
+```
+
+If the camera is `/dev/video0`, replace the source lines with:
+
+```json
+"v4l2src device=/dev/video0 ! \"image/jpeg,width=1280,height=720,framerate=60/1\" !",
+"jpegdec !",
+"videoconvert ! video/x-raw,format=BGRA !",
 ```
 
 For a CSI camera, check the camera name in the **Raspberry Pi shell**:
@@ -303,9 +312,22 @@ For a CSI camera, check the camera name in the **Raspberry Pi shell**:
 rpicam-hello --list-cameras
 ```
 
-Then copy the matching alternative camera source into the pipeline's main `pipeline` source section. Keep the rest of the pipeline unchanged for the first camera test.
+Then use the full camera name in a source block like this:
 
-Expected result: after you rerun `amp-menu`, the browser shows camera input instead of the static image.
+```json
+"libcamerasrc camera-name=\"/base/axi/pcie@1000120000/rp1/i2c@80000/imx708@1a\" !",
+"video/x-raw,format=RGB,width=1536,height=864,framerate=60/1 !",
+"videoconvert ! video/x-raw,format=BGRA !",
+```
+
+Keep the rest of the pipeline unchanged for the first camera test.
+
+The pipeline files also contain these alternative camera sources as templates:
+
+- `alternative-source-usbcam` for USB cameras.
+- `alternative-source-raspicam` for Raspberry Pi CSI cameras.
+
+Expected result: after you rerun `amp-menu`, the browser shows camera input instead of the checked-in sample media.
 
 ## 15. Stop And Run Again
 
@@ -325,4 +347,4 @@ To run the last selected pipeline again, run in the **Docker shell on the Raspbe
 - If the Dev Container does not start, confirm Docker works on the Raspberry Pi with `docker info`.
 - If Hailo models fail, confirm that `ls /dev/hailo*` and `hailortcli fw-control identify` work on the Raspberry Pi before opening the container.
 - If the browser opens but no result appears, enable a model in the **AI Models** panel.
-- If you expected a live camera feed, complete the first static-image run first, then follow the camera section above.
+- If you expected a live camera feed, complete the first sample-media run first, then follow the camera section above.

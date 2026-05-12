@@ -120,7 +120,7 @@ In the **AI Models** panel, enable one model first. For example, enable `yolov11
 
 <img src="static/img/10-browser-ui.png" alt="AMP browser UI after opening the web view" width="720" style="max-width: 100%; height: auto;">
 
-Expected result: the page shows the AMP view and enabling a model produces an overlay or result. The default quick-start pipeline uses a still image, not a live camera.
+Expected result: the page shows the AMP view and enabling a model produces an overlay or result. The default quick-start pipeline uses checked-in sample media, not a live camera.
 
 ## 6. Stop And Run Again
 

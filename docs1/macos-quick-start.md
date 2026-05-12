@@ -1,6 +1,6 @@
 # macOS Quick Start
 
-Use this guide on a Mac. AMP runs inside a VS Code Dev Container. The first run uses a still image and the local browser UI.
+Use this guide on a Mac. AMP runs inside a VS Code Dev Container. The first run uses checked-in sample media and the local browser UI.
 
 ## What You Need
 
@@ -110,7 +110,7 @@ In the **AI Models** panel, enable one model first. For example, enable `yolov11
 
 <img src="static/img/10-browser-ui.png" alt="AMP browser UI after opening the web view" width="720" style="max-width: 100%; height: auto;">
 
-Expected result: the page shows the AMP view and enabling a model produces an overlay or result. The default quick-start pipeline uses a still image, not a live camera.
+Expected result: the page shows the AMP view and enabling a model produces an overlay or result. The default quick-start pipeline uses checked-in sample media, not a live camera.
 
 ## 7. Stop And Run Again
 

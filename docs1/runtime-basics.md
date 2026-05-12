@@ -159,7 +159,7 @@ Common presets include:
 - `tracker-pc.json` - ONNX tracking demo.
 - `tracker-rpi-hailo8.json` - Hailo 8 tracking demo.
 
-Pipeline files often contain `alternative-source-*` and `alternative-sink-*` sections. Use those as templates when switching from the default static image to a camera, video file, or different sink.
+Pipeline files often contain `alternative-source-*` and `alternative-sink-*` sections. Use those as templates when switching from the default sample media to a camera, video file, or different sink.
 
 ## Debugging from VS Code
 
