@@ -140,7 +140,7 @@ The smallest useful image-based pipeline for this exercise is:
 {
   "description": "Image source to fakesink.",
   "pipeline": [
-    "filesrc location=/work/data/images/katana.jpg !",
+    "filesrc location=/work/data/images/GettyImages-1140581459-thumbnail.jpg !",
     "jpegdec !",
     "imagefreeze !",
     "videoconvert ! video/x-raw,format=BGRA !",
@@ -171,7 +171,7 @@ A minimal example is:
 {
   "description": "Image source to filesink.",
   "pipeline": [
-    "filesrc location=/work/data/images/katana.jpg !",
+    "filesrc location=/work/data/images/GettyImages-1140581459-thumbnail.jpg !",
     "jpegdec !",
     "imagefreeze !",
     "videoconvert ! video/x-raw,format=BGRA !",
@@ -196,7 +196,7 @@ Now change the output side to the checked-in browser-facing sink.
 {
   "description": "Image source to peksink.",
   "pipeline": [
-    "filesrc location=/work/data/images/katana.jpg !",
+    "filesrc location=/work/data/images/GettyImages-1140581459-thumbnail.jpg !",
     "jpegdec !",
     "imagefreeze !",
     "videoconvert ! video/x-raw,format=BGRA !",
@@ -230,7 +230,7 @@ A first inference-enabled version looks like this:
 {
   "description": "Image source with camera-contact inference.",
   "pipeline": [
-    "filesrc location=/work/data/images/katana.jpg !",
+    "filesrc location=/work/data/images/GettyImages-1140581459-thumbnail.jpg !",
     "jpegdec !",
     "imagefreeze !",
     "videoconvert ! video/x-raw,format=BGRA !",
@@ -253,7 +253,7 @@ Now add `pekosd` so the structured results can be drawn onto the frame.
 {
   "description": "Image source with camera-contact inference and OSD.",
   "pipeline": [
-    "filesrc location=/work/data/images/katana.jpg !",
+    "filesrc location=/work/data/images/GettyImages-1140581459-thumbnail.jpg !",
     "jpegdec !",
     "imagefreeze !",
     "videoconvert ! video/x-raw,format=BGRA !",
@@ -280,7 +280,7 @@ Now add `pekperformance` before `pekosd`.
 {
   "description": "Image source with inference, performance, OSD, and peksink.",
   "pipeline": [
-    "filesrc location=/work/data/images/katana.jpg !",
+    "filesrc location=/work/data/images/GettyImages-1140581459-thumbnail.jpg !",
     "jpegdec !",
     "imagefreeze !",
     "videoconvert ! video/x-raw,format=BGRA !",

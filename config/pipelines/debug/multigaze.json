@@ -1,7 +1,7 @@
 {
   "description": "Multiple inference types cascaded in one opchain.",
   "pipeline": [
-    "filesrc location=/work/data/images/army.jpg !",
+    "filesrc location=/work/data/images/GettyImages-1140581459-thumbnail.jpg !",
     "jpegdec !",
     "imagefreeze !",
     "videoconvert ! video/x-raw,format=BGRA !",
