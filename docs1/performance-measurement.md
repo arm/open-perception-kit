@@ -62,7 +62,7 @@ It should let you in without a password. Use different IP for remote target devi
 
 ---
 
-## Troubleshooting
+## If SSH Does Not Work
 
 If SSH does not work:
 

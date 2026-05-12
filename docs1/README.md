@@ -63,18 +63,27 @@ For a PC or Mac, the web UI is:
 http://localhost:9999
 ```
 
+The local documentation endpoint is:
+
+```text
+http://localhost:8080
+```
+
 For a Raspberry Pi, the web UI is usually:
 
 ```text
 http://raspberrypi.local:9999
 ```
 
+The Raspberry Pi documentation endpoint is usually:
+
+```text
+http://raspberrypi.local:8080
+```
+
 The default first pipeline is `01-full-onnx`. It uses a still image by default. Some pipeline files also contain alternative camera and video sources, but the first run should prove the basic build and browser path before you change inputs.
 
-## Optional Setup Pages
-
-- [Raspberry Pi SSH Setup](raspberry-pi-ssh.md) - use this before the Raspberry Pi tutorial if you want to connect from your normal computer.
-- [GitHub SSH Key Setup](github-ssh-key.md) - use this only if you need to clone from GitHub with an SSH URL.
+AMP also uses ports `8000` and `8001` internally for browser-facing runtime communication.
 
 ## Advanced Topics
 
@@ -85,3 +94,8 @@ Use these after a quick start is working:
 - [Bring Your Model](bring-your-model.md) - how to add a model by reusing existing descriptors, OpChains, and parsers.
 - [Custom Postprocessing](custom-postprocessing.md) - how to add a parser when existing tensor parsers do not match your model output.
 - [Performance Measurement With Performix](performance-measurement.md) - how to connect Performix and run a measurement recipe.
+
+## Optional Setup Pages
+
+- [Raspberry Pi SSH Setup](raspberry-pi-ssh.md) - use this before the Raspberry Pi tutorial if you want to connect from your normal computer.
+- [GitHub SSH Key Setup](github-ssh-key.md) - use this only if you need to clone from GitHub with an SSH URL.

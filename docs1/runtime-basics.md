@@ -42,6 +42,8 @@ If you want to change which image, video, or camera is used, this is usually the
 Some checked-in presets intentionally set `ampinfer active=false`.
 That lets the AMP web UI register the model first and then enable it from the **AI Models** panel when you are ready.
 
+At the moment, pipeline execution is synchronous end to end. An asynchronous inference execution flow is planned for a later update, but it is not available yet.
+
 ## What is an OpChain?
 
 An OpChain is a smaller, self-contained micropipeline that runs locally within 'ampinfer'.
@@ -141,6 +143,32 @@ The normal user path is:
 If your model output already matches an existing postprocessor, this can usually be done without changing the C++ code.
 
 If it does not match an existing postprocessor, you will usually need to add your own postprocessor in the source tree. In practice, that means the task is no longer just about dropping files into `config/`.
+
+## Common pipeline presets
+
+The checked-in pipeline presets live under `config/pipelines/`.
+
+Common presets include:
+
+- `01-full-onnx.json` - integrated ONNX model pipelines.
+- `02-full-onnx-hailo8.json` - integrated ONNX and Hailo 8 pipelines.
+- `03-full-onnx-hailo8l.json` - integrated ONNX and Hailo 8L pipelines.
+- `04-full-onnx-hailo10.json` - integrated ONNX and Hailo 10 pipelines.
+- `cam-connect.json` - camera-contact demo.
+- `gaze-detection.json` - gaze-estimation demo.
+- `tracker-pc.json` - ONNX tracking demo.
+- `tracker-rpi-hailo8.json` - Hailo 8 tracking demo.
+
+Pipeline files often contain `alternative-source-*` and `alternative-sink-*` sections. Use those as templates when switching from the default static image to a camera, video file, or different sink.
+
+## Debugging from VS Code
+
+After a successful build, the VS Code **Run and Debug** view can launch the most recent pipeline or prompt for a pipeline selection.
+
+Use:
+
+- **AMP Debug latest** to debug the last selected pipeline.
+- **AMP Debug selection** to choose a pipeline before debugging.
 
 ## Where to look next
 

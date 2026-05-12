@@ -35,6 +35,8 @@ This contains the main helper scripts you are expected to run.
 
 - `scripts/build-elements.sh` builds the runtime.
 - `scripts/serve-docs.sh` and `scripts/serve-docs-plain.sh` serve the docs.
+- `scripts/gen-doc.sh` refreshes generated documentation.
+- `scripts/docker-nuke.sh` stops and removes Docker containers created by the project.
 - `scripts/private/` contains internal helper scripts. Most users do not need to call them directly.
 
 ### `tools/`
@@ -73,6 +75,38 @@ The usual flow is:
 5. the result is shown or published by the downstream elements
 
 You only need the deeper `development/` source tree if this flow is not enough for your use case or if your model output needs a new postprocessor.
+
+## Common VS Code tasks
+
+The Dev Container provides VS Code tasks for normal development:
+
+- **00 Build Project** builds the runtime.
+- **00 Run project with menu** opens the interactive `amp-menu` pipeline list.
+- **00 Run project and select pipeline** prompts for a pipeline and runs it directly.
+- **00 Run project with latest pipeline** reruns the last selected pipeline.
+- **01 Clean Project** cleans build artifacts.
+- **02 Build Tests** builds with tests enabled.
+- **03 Run Tests** runs the test suite.
+
+These tasks run inside the active Dev Container. If you run the equivalent commands manually, use the **Docker shell**.
+
+## Quality checks
+
+The container installs `expkits-ci`, which is used for many local and CI checks.
+
+Run this in the **Docker shell** for help:
+
+```bash
+expkits-ci --help
+```
+
+You can also run the configured pre-commit checks manually:
+
+```bash
+pre-commit run --all-files
+```
+
+`pre-commit run` checks only staged files by default. Use `--all-files` when you want to check the whole working tree.
 
 ## What should you have at the end of this document?
 
