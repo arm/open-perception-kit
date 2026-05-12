@@ -153,6 +153,9 @@ On your normal computer, open VS Code.
    - Windows/Linux: `Ctrl+Shift+P`.
    - macOS: `Cmd+Shift+P`.
 2. Run **Remote-SSH: Connect to Host...**.
+
+<img src="static/img/16-open-remote-window.png" alt="VS Code Remote SSH open remote window command" width="720" style="max-width: 100%; height: auto;">
+
 3. Choose or enter:
 
 ```text
@@ -165,6 +168,8 @@ If `.local` did not work in the terminal, use the IP address instead:
 <username>@<raspberry-pi-ip-address>
 ```
 
+<img src="static/img/18-select-ssh-configuration.png" alt="VS Code SSH host selection" width="720" style="max-width: 100%; height: auto;">
+
 Expected result: VS Code opens a remote window connected to the Raspberry Pi.
 
 ## 9. Open The AMP Folder And Prepare The Container
@@ -172,8 +177,14 @@ Expected result: VS Code opens a remote window connected to the Raspberry Pi.
 In the VS Code remote window:
 
 1. Open the `amp-dev-forge` folder on the Raspberry Pi.
+
+<img src="static/img/19-reopen-folder.png" alt="VS Code opening the AMP folder on the Raspberry Pi" width="720" style="max-width: 100%; height: auto;">
+
 2. Open the Command Palette.
 3. Run **Dev Containers: Reopen in Container**.
+
+<img src="static/img/20-reopen-in-container.png" alt="VS Code reopening the Raspberry Pi project in a Dev Container" width="720" style="max-width: 100%; height: auto;">
+
 4. Choose the container for your hardware:
    - **RPI5 H8 amp-dev-forge** for Hailo 8 or Hailo 8L work.
    - **RPI5 H10 amp-dev-forge** for Hailo 10 work.
@@ -181,6 +192,8 @@ In the VS Code remote window:
 VS Code may say that it is building the container. Think of this as preparing the AMP environment. It can take several minutes on the first run.
 
 Expected result: VS Code reloads and opens the repository inside the Dev Container. A new VS Code terminal is now the **Docker shell on the Raspberry Pi**.
+
+<img src="static/img/07-in-container-new-console.png" alt="VS Code terminal inside the Dev Container" width="720" style="max-width: 100%; height: auto;">
 
 ## 10. Build The Project
 
@@ -195,6 +208,8 @@ You can also use the VS Code task:
 1. Open the Command Palette.
 2. Run **Tasks: Run Task**.
 3. Choose **00 Build Project**.
+
+<img src="static/img/08-build-project.png" alt="VS Code build task for AMP" width="720" style="max-width: 100%; height: auto;">
 
 Expected result: the build finishes without errors and `tools/amp-menu` exists.
 
@@ -212,6 +227,8 @@ Leave this terminal open. The pipeline is running while this command is active.
 
 Expected result: AMP starts the `01-full-onnx` pipeline. This pipeline uses a static image and ONNX models.
 
+<img src="static/img/09-select-pipeline.png" alt="AMP pipeline selection view" width="720" style="max-width: 100%; height: auto;">
+
 ## 12. Open The Web UI
 
 Open a browser on your normal computer:
@@ -227,6 +244,8 @@ http://<raspberry-pi-ip-address>:9999
 ```
 
 In the **AI Models** panel, enable one model first. Start with `yolov11` or `mobilenetv2`.
+
+<img src="static/img/10-browser-ui.png" alt="AMP browser UI after opening the web view" width="720" style="max-width: 100%; height: auto;">
 
 Expected result: the page shows the AMP view and enabling a model produces an overlay or result. The first pipeline uses a static image, so it is normal that you do not see a live camera feed yet.
 
