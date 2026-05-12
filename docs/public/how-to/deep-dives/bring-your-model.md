@@ -5,11 +5,11 @@ sidebar_label: Bring your model
 
 # Bring Your Model
 
-This page describes the shortest practical path for bringing your own model into AMP with as little runtime-code change as possible.
+This page describes the shortest practical path for bringing your own model into Perception Experience Kit with as little runtime-code change as possible.
 
 ## What will you learn from this documentation?
 
-If you follow this page successfully, you will learn how to add a model to AMP by reusing the existing descriptor, opchain, and parser structure wherever possible.
+If you follow this page successfully, you will learn how to add a model to Perception Experience Kit by reusing the existing descriptor, opchain, and parser structure wherever possible.
 
 At the end of this page, you should have a model folder, a matching `model.json`, a working `opchain.json`, and a clear decision on whether an existing parser is enough or whether you need custom postprocessing.
 
@@ -85,9 +85,9 @@ The easiest workflow is to copy one of the existing model folders and then adjus
 
 ## Creating the micropipeline
 
-The micropipeline is the `opchain.json` consumed by `ampinfer`.
+The micropipeline is the `opchain.json` consumed by `pekinfer`.
 
-This is the main runtime interface you should use by default when onboarding a model. In the normal path, you do not start by changing `ampinfer` or adding a new Op. You start by describing the chain with `opchain.json` and by selecting the parser that turns model outputs into structured runtime results.
+This is the main runtime interface you should use by default when onboarding a model. In the normal path, you do not start by changing `pekinfer` or adding a new Op. You start by describing the chain with `opchain.json` and by selecting the parser that turns model outputs into structured runtime results.
 
 A minimal model opchain typically looks like this:
 
@@ -95,24 +95,24 @@ A minimal model opchain typically looks like this:
 {
 	"ops": [
 		{
-			"id": "amp-std-ops/InferenceController",
+			"id": "pek-std-ops/InferenceController",
 			"attributes": {}
 		},
 		{
-			"id": "amp-std-ops/GenericImagePreprocess",
+			"id": "pek-std-ops/GenericImagePreprocess",
 			"attributes": {
 				"inputImageTensorIndex": 0,
 				"inputImageSourceName": "pipelineVideoFrame"
 			}
 		},
 		{
-			"id": "amp-onnx-ops/Inference",
+			"id": "pek-onnx-ops/Inference",
 			"attributes": {
 				"modelDescriptor": "/work/config/models/<your-model>/model.json"
 			}
 		},
 		{
-			"id": "amp-std-ops/GenericPostprocess",
+			"id": "pek-std-ops/GenericPostprocess",
 			"attributes": {
 				"parser": "<YourParser>"
 			}
@@ -125,7 +125,7 @@ If your model runs on the full frame, a structure like this is usually enough.
 
 If your model runs on crops produced by another stage, reuse an existing multi-stage example instead of inventing a new structure from scratch.
 
-What matters here is not only that the model runs, but that the last stage produces results in the format the rest of AMP already understands. The normal app-consumable result format in AMP is `Perception`, carried downstream as `PerceptionMeta`, so the parser choice is part of the model integration contract, not an optional extra.
+What matters here is not only that the model runs, but that the last stage produces results in the format the rest of Perception Experience Kit already understands. The normal app-consumable result format in Perception Experience Kit is `Perception`, carried downstream as `PerceptionMeta`, so the parser choice is part of the model integration contract, not an optional extra.
 
 ## Reuse an existing postprocessor if possible
 
@@ -157,7 +157,7 @@ The easiest models to integrate without code changes are models that fit one of 
 - `Perception::SegmentationMap` for segmentation or mask outputs
 - `Perception::ObjectEmbedding` for ReID / embedding outputs
 
-These are the structured result shapes that downstream AMP code already consumes. In other words, when bringing a model into AMP, you are usually trying to map raw tensors into one of these `Perception` forms rather than inventing a model-specific application contract.
+These are the structured result shapes that downstream Perception Experience Kit code already consumes. In other words, when bringing a model into Perception Experience Kit, you are usually trying to map raw tensors into one of these `Perception` forms rather than inventing a model-specific application contract.
 
 If your output shape and meaning already match one of the existing parsers, integration is usually straightforward.
 
@@ -182,7 +182,7 @@ The normal workflow is:
 2. create or update an `opchain.json`
 3. optionally add a top-level pipeline preset under `config/pipelines/`
 4. build inside the container
-5. run the pipeline with the VS Code run task "00 Run project and select pipeline" or `tools/amp-menu`
+5. run the pipeline with the VS Code run task "00 Run project and select pipeline" or `tools/pek-menu`
 6. update the model and opchain `README.md` files
 
 ## What you should try not to change first
@@ -226,4 +226,4 @@ By the end of this page, you should have:
 - an `opchain.json` that points to the right inference backend and parser
 - a realistic answer to whether the model is low-friction in the current runtime
 
-Success looks like this: AMP can load the model, the pipeline runs, the selected parser matches the outputs, and the result appears correctly in the runtime.
+Success looks like this: Perception Experience Kit can load the model, the pipeline runs, the selected parser matches the outputs, and the result appears correctly in the runtime.

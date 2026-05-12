@@ -8,7 +8,7 @@ set -euo pipefail
 # This runs on the *host* (before the container is created).
 # Generate docker-compose override(s) for camera/device passthrough.
 
-TARGET_SERVICE_KIND="${1:-amp-dev-base}"
+TARGET_SERVICE_KIND="${1:-pek-dev-base}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"

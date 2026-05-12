@@ -9,9 +9,9 @@ sidebar_label: Raspberry Pi 5
 
 ## What will you learn from this documentation?
 
-If you follow this page successfully, you will learn how to assemble a supported Raspberry Pi 5 setup, install the required remote host packages, validate the attached camera, and prepare the device for AMP container workflows.
+If you follow this page successfully, you will learn how to assemble a supported Raspberry Pi 5 setup, install the required remote host packages, validate the attached camera, and prepare the device for Perception Experience Kit container workflows.
 
-At the end of this page, you should have a Raspberry Pi 5 on your desk that is ready for AMP development or deployment, with SSH access working and camera-related host validation completed.
+At the end of this page, you should have a Raspberry Pi 5 on your desk that is ready for Perception Experience Kit development or deployment, with SSH access working and camera-related host validation completed.
 
 ## Components
 
@@ -20,10 +20,10 @@ In order to run the project the following components are needed:
 - [Raspberry Pi 5 16GB](https://www.raspberrypi.com/products/raspberry-pi-5/)
 	- The 8GB version should work as well, but it is not tested at the moment.
 - [Hailo 8 AI HAT](https://www.raspberrypi.com/products/ai-hat/)
-	- Use this with the `RPI5 H8 amp-dev-forge` / `amp-dev-rpi5-h8` container path.
+	- Use this with the `RPI5 H8 perception-experience-kit` / `pek-dev-rpi5-h8` container path.
 	- Older Hailo 8L hardware may also work, but Hailo 8 and Hailo 8L compiled model files are not interchangeable.
 - Supported Hailo 10 accelerator
-	- Use this with the `RPI5 H10 amp-dev-forge` / `amp-dev-rpi5-h10` container path.
+	- Use this with the `RPI5 H10 perception-experience-kit` / `pek-dev-rpi5-h10` container path.
 	- The Hailo 10 kernel and PCIe driver packages remain on the remote host. The container only installs the Hailo 10 user-space stack.
 - USB or CSI camera
 	- [Camera Module v3](https://www.raspberrypi.com/products/camera-module-3/)
@@ -188,12 +188,12 @@ See: [Debian | Docker Docs](https://docs.docker.com/engine/install/debian/)
 
 The repository now ships two Raspberry Pi-specific remote host container options:
 
-- `RPI5 H8 amp-dev-forge` -> service `amp-dev-rpi5-h8` -> Hailo 8 AI HAT path
-- `RPI5 H10 amp-dev-forge` -> service `amp-dev-rpi5-h10` -> supported Hailo 10 accelerator path
+- `RPI5 H8 perception-experience-kit` -> service `pek-dev-rpi5-h8` -> Hailo 8 AI HAT path
+- `RPI5 H10 perception-experience-kit` -> service `pek-dev-rpi5-h10` -> supported Hailo 10 accelerator path
 
 The matching full-demo presets are `config/pipelines/02-full-onnx-hailo8.json`, `config/pipelines/03-full-onnx-hailo8l.json` and `config/pipelines/04-full-onnx-hailo10.json`.
 
-When you validate the accelerated path from `amp-menu`, select the matching Hailo preset for the accelerator installed on the Pi.
+When you validate the accelerated path from `pek-menu`, select the matching Hailo preset for the accelerator installed on the Pi.
 
 ![Selecting a Raspberry Pi Hailo pipeline](../../../static/img/21-raspberry-hailo-pipeline1.png)
 
@@ -303,4 +303,4 @@ By the end of this page, you should have:
 - working SSH access for VS Code remote use
 - at least one validated camera path using `rpicam-hello`, `v4l2-ctl`, or `gst-launch-1.0`
 
-Success looks like this: the Pi boots with the expected hardware, the camera is discoverable, simple camera pipelines run, and the board is ready for the AMP container workflow.
+Success looks like this: the Pi boots with the expected hardware, the camera is discoverable, simple camera pipelines run, and the board is ready for the Perception Experience Kit container workflow.

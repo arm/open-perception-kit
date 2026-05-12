@@ -1,11 +1,11 @@
 # Pull Request
 
 <!-- Fix the link to the latest GitHub Actions run for this PR below. -->
-[![AMP CI Pipeline](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/amp-ci.yml/badge.svg?branch=feature/EXPKITS-/TODO)](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/amp-ci.yml)
+[![Perception Experience Kit CI Pipeline](https://github.com/Arm-Debug/perception-experience-kit/actions/workflows/pek-ci.yml/badge.svg?branch=feature/EXPKITS-/TODO)](https://github.com/Arm-Debug/perception-experience-kit/actions/workflows/pek-ci.yml)
 
 ## PR rules
 
-- To rerun CI, add the `run-amp-ci` label. To retrigger again, remove it and add it again.
+- To rerun CI, add the `run-pek-ci` label. To retrigger again, remove it and add it again.
 - Format code according to the repository configuration. The `expkits-ci` tool should help with this.
 - Name branches as `feature/EXPKITS-xxxx/any-descriptive-string`.
 - Use this commit message structure:

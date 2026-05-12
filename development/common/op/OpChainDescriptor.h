@@ -6,15 +6,15 @@
 #include <string>
 #include <vector>
 
-#include "amp/AttributeMap.h"
-#include "amp/Result.h"
+#include "pek/AttributeMap.h"
+#include "pek/Result.h"
 
-#include "amp/JsonSchemas.h"
+#include "pek/JsonSchemas.h"
 
 #include <nlohmann/json.hpp>
 #include <string>
 
-namespace amp {
+namespace pek {
 
 struct OpChainDescriptor {
 
@@ -28,17 +28,17 @@ struct OpChainDescriptor {
 
     std::vector<Op> ops;
 
-    static amp::Result<OpChainDescriptor> fromJson(const std::string &jsonString);
-    static amp::Result<OpChainDescriptor> fromFile(const std::string &path);
+    static pek::Result<OpChainDescriptor> fromJson(const std::string &jsonString);
+    static pek::Result<OpChainDescriptor> fromFile(const std::string &path);
 };
 
-} // namespace amp
+} // namespace pek
 
 // ---
 
 #include <nlohmann/json.hpp>
 
-namespace amp {
+namespace pek {
 
 // ---- Op ----
 
@@ -73,4 +73,4 @@ inline void from_json(const nlohmann::json &j, OpChainDescriptor &desc) {
     j.at("ops").get_to(desc.ops);
 }
 
-} // namespace amp
+} // namespace pek

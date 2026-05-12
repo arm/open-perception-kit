@@ -3,8 +3,8 @@
  *************************************************************/
 
 #include "postproc/YoloParser.h"
-#include "amp/Labels.h"
-#include "amp/Perception.h"
+#include "pek/Labels.h"
+#include "pek/Perception.h"
 
 #include <algorithm>
 #include <cmath>
@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-using namespace amp;
+using namespace pek;
 
 struct Det {
     float x1, y1, x2, y2, conf;
@@ -30,7 +30,7 @@ enum class CoordOrder {
     xywh,
 };
 
-static OutputFormat parseOutputFormat(const amp::AttributeMap &attrs) {
+static OutputFormat parseOutputFormat(const pek::AttributeMap &attrs) {
     const std::string fmt = attrs.getStringOrDefault("outputFormat", "UltraliticsYolo");
 
     if (fmt == "UltraliticsYolo") {
@@ -78,7 +78,7 @@ static inline bool isFinitePositive(float v) {
     return std::isfinite(v) && (v > 0.0f);
 }
 
-static inline CoordOrder coordOrderCode(const amp::AttributeMap &attrs) {
+static inline CoordOrder coordOrderCode(const pek::AttributeMap &attrs) {
     const std::string order = attrs.getStringOrDefault("coordOrder", "yxyx");
 
     if (order == "xyxy")
@@ -94,8 +94,8 @@ static inline CoordOrder coordOrderCode(const amp::AttributeMap &attrs) {
 }
 
 static void fillDetection(const std::vector<Det> &dets,
-                          const amp::TensorParser::Input &input,
-                          amp::Perception::Layer &detectionResult,
+                          const pek::TensorParser::Input &input,
+                          pek::Perception::Layer &detectionResult,
                           bool normalizeOutputCoordinates) {
     const float frameWidth = static_cast<float>(input.inferenceInfo.image.width);
     const float frameHeight = static_cast<float>(input.inferenceInfo.image.height);
@@ -107,7 +107,7 @@ static void fillDetection(const std::vector<Det> &dets,
         rect.width = a.x2 - a.x1;
         rect.height = a.y2 - a.y1;
         rect.confidence = a.conf;
-        rect.text = amp::Labels::getLabel(amp::LabelType::Coco, a.cls);
+        rect.text = pek::Labels::getLabel(pek::LabelType::Coco, a.cls);
 
         if (normalizeOutputCoordinates) {
             rect.x /= frameWidth;
@@ -120,7 +120,7 @@ static void fillDetection(const std::vector<Det> &dets,
     }
 }
 
-static void processDetection(const amp::TensorParser::Input &input,
+static void processDetection(const pek::TensorParser::Input &input,
                              Det &d,
                              size_t frameWidth,
                              size_t frameHeight,
@@ -149,8 +149,8 @@ static void processDetection(const amp::TensorParser::Input &input,
 
 // ----------------------------------------------------------------------------
 
-amp::Result<void> amp::YoloParser::parse(const amp::TensorParser::Input &input,
-                                         amp::Perception::Layer &detectionResult) {
+pek::Result<void> pek::YoloParser::parse(const pek::TensorParser::Input &input,
+                                         pek::Perception::Layer &detectionResult) {
 
     const OutputFormat outputFormat = parseOutputFormat(input.attributes);
 
@@ -179,7 +179,7 @@ amp::Result<void> amp::YoloParser::parse(const amp::TensorParser::Input &input,
     const float sy = static_cast<float>(frameHeight) / static_cast<float>(modelHeight);
 
     const TensorView &tensor = *input.tensors[0];
-    const amp::Shape shape = input.tensors[0]->getShape();
+    const pek::Shape shape = input.tensors[0]->getShape();
 
     assert(frameWidth != 0);
     assert(frameHeight != 0);
@@ -197,8 +197,8 @@ amp::Result<void> amp::YoloParser::parse(const amp::TensorParser::Input &input,
         // Accept packed tensor shape [1, classCount, flat]
         if (shape.dimensionCount != 3 || shape.valueCount[0] != 1 ||
             shape.valueCount[1] != classCount) {
-            return tl::unexpected(AMP_ERROR(
-                amp::ErrorFlag::InvalidData,
+            return tl::unexpected(PEK_ERROR(
+                pek::ErrorFlag::InvalidData,
                 fmt::format("YoloParser: expected packed tensor shape [1,classCount,flat], got {}",
                             shape.toString())));
         }

@@ -1,7 +1,7 @@
 @startuml
-!include amp-style.puml
+!include pek-style.puml
 
-title AMP Engine Independent Inference Overview
+title Perception Experience Kit Engine Independent Inference Overview
 
 skinparam package<<inference-container>> {
   BackgroundColor transparent
@@ -10,7 +10,7 @@ skinparam package<<inference-container>> {
 }
 
 package " " <<inference-container>>{
-    package "AMP-Model representation\n\nAPI agnostic generic model descriptor\n- input/output formats\n- pre/post-processor types\n- inference configs" as AMPModel
+    package "Perception Experience Kit model representation\n\nAPI agnostic generic model descriptor\n- input/output formats\n- pre/post-processor types\n- inference configs" as PEKModel
     package "Inference" as Inference {
     together {
         component "ONNX Runtime" as ONNX
@@ -31,12 +31,12 @@ package " " <<inference-container>>{
     ResOnnx -[hidden]right-> ResHef
     ResHef -[hidden]right-> ResPte
 
-    ResOnnx -[dashed]-> AMPModel : represented as\n(config: ONNX)
-    ResHef  -[dashed]-> AMPModel : represented as\n(config: HailoRT)
-    ResPte  -[dashed]-> AMPModel : represented as\n(config: ExecuTorch)
+    ResOnnx -[dashed]-> PEKModel : represented as\n(config: ONNX)
+    ResHef  -[dashed]-> PEKModel : represented as\n(config: HailoRT)
+    ResPte  -[dashed]-> PEKModel : represented as\n(config: ExecuTorch)
 
-    AMPModel -down[hidden]-> Inference
-    AMPModel -down-> Inference : model description\n& inference config
+    PEKModel -down[hidden]-> Inference
+    PEKModel -down-> Inference : model description\n& inference config
 
     Inference -down[hidden]-> ResultMeta
     Inference -down-> ResultMeta : produces

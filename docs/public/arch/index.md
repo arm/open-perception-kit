@@ -6,7 +6,7 @@ sidebar_label: Overview
 
 # Architecture Documentation
 
-This section documents the current AMP Development Forge runtime layout,
+This section documents the current Perception Experience Kit runtime layout,
 execution model, and main GStreamer elements.
 
 ## Documentation Map
@@ -25,8 +25,8 @@ execution model, and main GStreamer elements.
 - [Inference engines](inference-engines.md)
   Runtime backend overview.
 
-- [amp::Model](model.md)
-  The amp::Model object.
+- [pek::Model](model.md)
+  The pek::Model object.
 
 - [Inference process](engine-independent.md)
   The inference engine independent inference process.
@@ -59,14 +59,14 @@ execution model, and main GStreamer elements.
 
 ## Elements
 
-- [ampinfer](elements/ampinfer.md)
+- [pekinfer](elements/pekinfer.md)
   Details of the inference element.
 
-- [amposd](elements/amposd.md)
+- [pekosd](elements/pekosd.md)
   Details of the drawing element.
 
-- [ampperformance](elements/ampperformance.md)
+- [pekperformance](elements/pekperformance.md)
   Details about the performance measurement system.
 
-- [ampsink](elements/ampsink.md)
+- [peksink](elements/peksink.md)
   Details about the WebRTC presentation system.

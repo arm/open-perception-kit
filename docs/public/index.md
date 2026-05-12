@@ -4,9 +4,9 @@ sidebar_position: 1
 sidebar_label: Overview
 ---
 
-# [AMP Development Forge](https://github.com/Arm-Debug/amp-dev-forge)
+# [Perception Experience Kit](https://github.com/Arm-Debug/perception-experience-kit)
 
-[AMP Development Forge](https://github.com/Arm-Debug/amp-dev-forge) is a framework for building and running AI-enabled media workflows. It provides a development environment for **AI media processing pipelines**, built for rapid testing, debugging, and deployment within containerized platforms.
+[Perception Experience Kit](https://github.com/Arm-Debug/perception-experience-kit) is a framework for building and running AI-enabled media workflows. It provides a development environment for **AI media processing pipelines**, built for rapid testing, debugging, and deployment within containerized platforms.
 It helps teams move from raw input to meaningful output in a clear and repeatable way. Instead of treating each new use case as a one-off effort, the package provides a stable structure that can be reused and adapted.
 
 At a high level, it combines:
@@ -15,10 +15,10 @@ At a high level, it combines:
 - structured `Perception` results that downstream elements can render, track, or publish
 
 ## For first-time users
-For rendered documentation instead of Markdown files, see the [AMP Development Forge Docusaurus documentation](https://docs.staging.devplatform.arm.com/amp-dev-forge/).
+For rendered documentation instead of Markdown files, see the [Perception Experience Kit Docusaurus documentation](https://docs.staging.devplatform.arm.com/perception-experience-kit/).
 
 ### Quick first run
-The quick-guide path is the fastest way to reach a working pipeline and then reconnect through the [Exercise Quick Guide](how-to/quick-guides/exercise.md) into the same engineering path as the full setup flow.
+The quick-guide path is the fastest way to reach a working pipeline and then reconnect through the [Pipeline customisation guide](how-to/quick-guides/exercise.md) into the same engineering path as the full setup flow.
 
 - [Windows/Linux quick guide](how-to/quick-guides/win-lin.md)
 - [macOS quick guide](how-to/quick-guides/mac.md)

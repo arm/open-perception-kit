@@ -44,14 +44,14 @@ et_force_archives = [
 ]
 
 executorchops = shared_module(
-  'amp-executorch-ops',
+  'pek-executorch-ops',
   sources: [
     'Inference.cpp',
     'Interface.cpp',
     'InferenceOp.cpp',
   ],
   include_directories: common_include,
-  dependencies: amp_deps + [executorch_dep],
+  dependencies: pek_deps + [executorch_dep],
   cpp_args: ['-DFMT_HEADER_ONLY'],
   link_with: [common],
 

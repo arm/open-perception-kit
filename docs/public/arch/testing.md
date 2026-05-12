@@ -27,7 +27,7 @@ This section describes how to run memory checks with the Valgrind runner script.
 
 - `scripts/testing/valgrind/test-elements-with-valgrind.sh`
 
-The script builds AMP in debug mode, runs selected test pipelines through `amp-menu` under Valgrind, and writes one log file per pipeline to:
+The script builds Perception Experience Kit in debug mode, runs selected test pipelines through `pek-menu` under Valgrind, and writes one log file per pipeline to:
 
 - `scripts/testing/valgrind/logs/`
 
@@ -161,7 +161,7 @@ rg -n "ERROR SUMMARY|definitely lost|indirectly lost|possibly lost|still reachab
 
 4. Analyse call stacks:
 
-- Frames rooted in project sources (for example `development/elements/...` or `development/common/...`) usually indicate real AMP issues.
+- Frames rooted in project sources (for example `development/elements/...` or `development/common/...`) usually indicate real Perception Experience Kit issues.
 - Frames entirely in system/framework libraries are often third-party lifetime allocations and may belong in suppression tuning.
 
 For deeper runtime diagnostics, re-run the failing pipeline with `--verbose`:
@@ -173,7 +173,7 @@ For deeper runtime diagnostics, re-run the failing pipeline with `--verbose`:
 <a id="valgrind-ci"></a>
 ### CI behavior
 
-In CI (`.github/workflows/amp-ci.yml`), the step named **Run Valgrind checks** runs this script via docker compose.
+In CI (`.github/workflows/pek-ci.yml`), the step named **Run Valgrind checks** runs this script via docker compose.
 
 If that step fails, logs are uploaded as a workflow artifact named:
 

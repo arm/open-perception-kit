@@ -3,11 +3,11 @@
  *************************************************************/
 #include "Inference.h"
 
-#include "amp/Log.h"
-#include "amp/Perception.h"
-#include "amp/Result.h"
-#include "amp/Shape.h"
-#include "amp/String.h"
+#include "pek/Log.h"
+#include "pek/Perception.h"
+#include "pek/Result.h"
+#include "pek/Shape.h"
+#include "pek/String.h"
 
 #include "onnxruntime_cxx_api.h"
 #include "tl/expected.hpp"
@@ -20,13 +20,13 @@
 
 #include <fmt/core.h>
 
-#include "amp/Result.h"
-#include "amp/String.h"
-#include "amp/Types.h"
+#include "pek/Result.h"
+#include "pek/String.h"
+#include "pek/Types.h"
 
 #include "magic_enum/magic_enum.hpp"
 
-#include "amp/ModelDescriptor.h"
+#include "pek/ModelDescriptor.h"
 
 using namespace onnx;
 
@@ -46,7 +46,7 @@ Inference::~Inference() {
         delete this->session;
 }
 
-amp::Result<void> Inference::setupFromJson(const std::string &filePath) {
+pek::Result<void> Inference::setupFromJson(const std::string &filePath) {
 
     auto descResult = ModelDescriptor::fromFile(filePath);
     if (!descResult) {
@@ -55,9 +55,9 @@ amp::Result<void> Inference::setupFromJson(const std::string &filePath) {
 
     { // setup model file name
         std::string modelRoot = filePath;
-        if (amp::utf8::contains(modelRoot, '/')) {
-            size_t lastSlashAt = amp::utf8::lastIndexOf(modelRoot, '/');
-            modelRoot = amp::utf8::left(modelRoot, lastSlashAt + 1);
+        if (pek::utf8::contains(modelRoot, '/')) {
+            size_t lastSlashAt = pek::utf8::lastIndexOf(modelRoot, '/');
+            modelRoot = pek::utf8::left(modelRoot, lastSlashAt + 1);
         } else {
             modelRoot = "";
         }
@@ -72,7 +72,7 @@ amp::Result<void> Inference::setupFromJson(const std::string &filePath) {
     return {};
 }
 
-amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc_) {
+pek::Result<void> Inference::setup(const ModelDescriptor &modelDesc_) {
 
     this->api = ApiTensorGlue();
     this->modelDescriptor = modelDesc_;
@@ -99,7 +99,7 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc_) {
         // this->sessionOptions->SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
         // ---
 
-        this->environment = new Ort::Env(ORT_LOGGING_LEVEL_WARNING, "ampinfer");
+        this->environment = new Ort::Env(ORT_LOGGING_LEVEL_WARNING, "pekinfer");
         this->memoryInfo =
             new Ort::MemoryInfo(Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU));
 
@@ -115,7 +115,7 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc_) {
 
         // --- build up model
 
-        amp::log("{}", amp::LogTools::enframe(model.toString(), "ONNX Model"));
+        pek::log("{}", pek::LogTools::enframe(model.toString(), "ONNX Model"));
 
         auto cmResult = model.applyModelFromDescriptor(this->modelDescriptor);
         if (!cmResult) {
@@ -126,17 +126,17 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc_) {
 
         this->setupReady = true;
 
-        amp::log("{}", amp::LogTools::enframe(model.toString(), "Final Model"));
-        amp::log("{}", "ONNX: Model loaded\n");
+        pek::log("{}", pek::LogTools::enframe(model.toString(), "Final Model"));
+        pek::log("{}", "ONNX: Model loaded\n");
 
     } catch (const std::exception &e) {
-        return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::OnnxModelLoadException, e.what()));
+        return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::OnnxModelLoadException, e.what()));
     }
 
     return {};
 }
 
-void Inference::recreateInputTensor(size_t index, const amp::Shape &shape, amp::Tdt valueType) {
+void Inference::recreateInputTensor(size_t index, const pek::Shape &shape, pek::Tdt valueType) {
     fmt::print("Recreating input tensor #{} [{}] from {} to {}\n",
                index,
                this->model.inputs[index].name,
@@ -175,7 +175,7 @@ void Inference::setupTensorsForModel() {
                 api.outputTensors[i]->createOnnxTensor(*this->memoryInfo));
     }
 
-    amp::log("ONNX: Input tensors are set up\n");
+    pek::log("ONNX: Input tensors are set up\n");
 }
 
 template <typename toT, typename fromT>
@@ -184,23 +184,23 @@ void writeValueTo(void *ptr, size_t valueIndex, void *valueAddress) {
     address[valueIndex] = *(fromT *)valueAddress;
 }
 
-amp::Result<void> Inference::inference() {
+pek::Result<void> Inference::inference() {
 
     // setting scalar tensors
     for (size_t i = 0; i < api.inputTensorVector.size(); i++) {
-        if (amp::isScalarDataKind(this->model.inputs[i].dataKind)) {
+        if (pek::isScalarDataKind(this->model.inputs[i].dataKind)) {
 
             size_t valueCount = 0;
-            if (this->model.inputs[i].dataKind == amp::DataKind::Value)
+            if (this->model.inputs[i].dataKind == pek::DataKind::Value)
                 valueCount = 1;
-            if (this->model.inputs[i].dataKind == amp::DataKind::Vector2)
+            if (this->model.inputs[i].dataKind == pek::DataKind::Vector2)
                 valueCount = 2;
-            if (this->model.inputs[i].dataKind == amp::DataKind::Vector3)
+            if (this->model.inputs[i].dataKind == pek::DataKind::Vector3)
                 valueCount = 3;
-            if (this->model.inputs[i].dataKind == amp::DataKind::Vector4)
+            if (this->model.inputs[i].dataKind == pek::DataKind::Vector4)
                 valueCount = 4;
 
-            if (this->model.inputs[i].valueType == amp::Tdt::Float32) {
+            if (this->model.inputs[i].valueType == pek::Tdt::Float32) {
                 for (size_t g = 0; g < valueCount; g++) {
                     writeValueTo<float, float>(api.inputTensors[i]->getData(),
                                                g,
@@ -231,32 +231,32 @@ amp::Result<void> Inference::inference() {
                                                    api.outputNames.size());
         }
     } catch (const std::exception &e) {
-        return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::OnnxInferenceException, e.what()));
+        return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::OnnxInferenceException, e.what()));
     }
 
     // fill the tensors data pointers
     // postprocessor will use these addresses
-    for (size_t i = 0; i < amp::MaxTensorCount; i++)
+    for (size_t i = 0; i < pek::MaxTensorCount; i++)
         outputTensorPointers[i] = nullptr;
 
     if (false == model.useDynamicOutput) {
-        if (api.outputTensorVector.size() > amp::MaxTensorCount) {
+        if (api.outputTensorVector.size() > pek::MaxTensorCount) {
             return tl::make_unexpected(
-                AMP_ERROR(amp::ErrorFlag::InvalidData,
+                PEK_ERROR(pek::ErrorFlag::InvalidData,
                           fmt::format("Model output tensor count {} exceeds max supported {}",
                                       api.outputTensorVector.size(),
-                                      amp::MaxTensorCount)));
+                                      pek::MaxTensorCount)));
         }
         for (size_t i = 0; i < api.outputTensorVector.size(); i++) {
             outputTensorPointers[i] = api.outputTensorVector[i].GetTensorData<uint8_t>();
         }
     } else {
-        if (dynamicOutputData.size() > amp::MaxTensorCount) {
-            return tl::make_unexpected(AMP_ERROR(
-                amp::ErrorFlag::InvalidData,
+        if (dynamicOutputData.size() > pek::MaxTensorCount) {
+            return tl::make_unexpected(PEK_ERROR(
+                pek::ErrorFlag::InvalidData,
                 fmt::format("Model dynamic output tensor count {} exceeds max supported {}",
                             dynamicOutputData.size(),
-                            amp::MaxTensorCount)));
+                            pek::MaxTensorCount)));
         }
         for (size_t i = 0; i < dynamicOutputData.size(); i++) {
             Ort::Value &v = dynamicOutputData[i];
@@ -266,12 +266,12 @@ amp::Result<void> Inference::inference() {
 
     // fill the final tensor shapes
     // postprocessor will use these shapes
-    for (size_t i = 0; i < amp::MaxTensorCount; i++)
-        outputTensorFinalShapes[i] = amp::Shape();
+    for (size_t i = 0; i < pek::MaxTensorCount; i++)
+        outputTensorFinalShapes[i] = pek::Shape();
     if (false == model.useDynamicOutput) {
         for (size_t i = 0; i < api.outputTensorVector.size(); i++) {
             std::vector<size_t> onnxShape =
-                getTensorShape(*this->session, amp::TensorInOut::Out, i);
+                getTensorShape(*this->session, pek::TensorInOut::Out, i);
             outputTensorFinalShapes[i].setFrom(onnxShape);
         }
     } else {
@@ -286,11 +286,11 @@ amp::Result<void> Inference::inference() {
     // realloc input tensors if matchShapeOutputIndex is set
     if (model.useDynamicOutput) {
         for (size_t i = 0; i < model.inputs.size(); i++) {
-            if (model.inputs[i].matchShapeOutputIndex != amp::InvalidTensorIndex) {
+            if (model.inputs[i].matchShapeOutputIndex != pek::InvalidTensorIndex) {
                 size_t outputIndex = model.inputs[i].matchShapeOutputIndex;
                 if (outputIndex < model.outputs.size()) {
-                    const amp::Shape &outputShape = outputTensorFinalShapes[outputIndex];
-                    amp::Tdt valueType = model.inputs[i].valueType;
+                    const pek::Shape &outputShape = outputTensorFinalShapes[outputIndex];
+                    pek::Tdt valueType = model.inputs[i].valueType;
                     fmt::print(
                         "Reallocating input tensor #{} to match output tensor #{} shape: {}\n",
                         i,
@@ -298,7 +298,7 @@ amp::Result<void> Inference::inference() {
                         outputShape.toString().c_str());
                     recreateInputTensor(i, outputShape, valueType);
                 }
-                model.inputs[i].matchShapeOutputIndex = amp::InvalidTensorIndex;
+                model.inputs[i].matchShapeOutputIndex = pek::InvalidTensorIndex;
             }
         }
     }
@@ -307,13 +307,13 @@ amp::Result<void> Inference::inference() {
     if (model.tensorFeedbacks.size()) {
         size_t tesorIndex = 0;
         for (const auto &feedback : model.tensorFeedbacks) {
-            if (feedback.mode == amp::TensorFeedback::Mode::Copy) {
+            if (feedback.mode == pek::TensorFeedback::Mode::Copy) {
                 size_t fromOutputIndex = feedback.fromOutputTensorIndex;
                 size_t toInputIndex = feedback.toInputTensorIndex;
 
                 if (fromOutputIndex >= model.outputs.size() ||
                     toInputIndex >= model.inputs.size()) {
-                    return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData,
+                    return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
                                                          "tensor feedback index out of range"));
                 }
 
@@ -324,7 +324,7 @@ amp::Result<void> Inference::inference() {
                     size_t valueCount = 1;
                     for (auto d : tinfo.GetShape())
                         valueCount *= d;
-                    fromByteCount = valueCount * amp::getValueTypeByteSize(
+                    fromByteCount = valueCount * pek::getValueTypeByteSize(
                                                      model.outputs[fromOutputIndex].valueType);
                 } else {
                     fromByteCount = api.outputTensors[fromOutputIndex]->getByteCount();
@@ -333,7 +333,7 @@ amp::Result<void> Inference::inference() {
                 size_t toByteCount = api.inputTensors[toInputIndex]->getByteCount();
 
                 if (fromByteCount != toByteCount) {
-                    return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData,
+                    return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
                                                          "tensor feedback buffer size mismatch"));
                 }
 
@@ -352,9 +352,9 @@ amp::Result<void> Inference::inference() {
 }
 
 std::vector<size_t> Inference::getTensorShape(const Ort::Session &session,
-                                              amp::TensorInOut tensorInOut,
+                                              pek::TensorInOut tensorInOut,
                                               int tensorIndex) {
-    Ort::TypeInfo ti = (tensorInOut == amp::TensorInOut::In)
+    Ort::TypeInfo ti = (tensorInOut == pek::TensorInOut::In)
                            ? session.GetInputTypeInfo(tensorIndex)
                            : session.GetOutputTypeInfo(tensorIndex);
     auto tensor = ti.GetTensorTypeAndShapeInfo();
@@ -364,8 +364,8 @@ std::vector<size_t> Inference::getTensorShape(const Ort::Session &session,
     return dims;
 }
 
-amp::Result<amp::Model> Inference::inspectModel(const Ort::Session &session) {
-    amp::Model model;
+pek::Result<pek::Model> Inference::inspectModel(const Ort::Session &session) {
+    pek::Model model;
     model.engine = "onnxrt";
 
     Ort::AllocatorWithDefaultOptions allocator;
@@ -381,24 +381,24 @@ amp::Result<amp::Model> Inference::inspectModel(const Ort::Session &session) {
         model.inputs[i].name = session.GetInputNameAllocated(i, allocator).get();
 
         // tensor value type
-        amp::Tdt tensorValueType;
+        pek::Tdt tensorValueType;
         if (false == onnxTypeToUniflowType(tensor.GetElementType(), tensorValueType)) {
-            return tl::unexpected{AMP_ERROR(amp::ErrorFlag::ModelInspectError,
+            return tl::unexpected{PEK_ERROR(pek::ErrorFlag::ModelInspectError,
                                             fmt::format("cannot recognize input ONNX type: {}",
                                                         (uint64_t)tensor.GetElementType()))};
         }
 
-        if (amp::Tdt::Float32 != tensorValueType && amp::Tdt::Int64 != tensorValueType) {
+        if (pek::Tdt::Float32 != tensorValueType && pek::Tdt::Int64 != tensorValueType) {
             return tl::unexpected{
-                AMP_ERROR(amp::ErrorFlag::ModelInspectError,
+                PEK_ERROR(pek::ErrorFlag::ModelInspectError,
                           "only float32 or int64 input tensors are supported in ONNX")};
         }
         model.inputs[i].valueType = tensorValueType;
 
         // shape
-        std::vector<size_t> onnxDims = getTensorShape(session, amp::TensorInOut::In, i);
+        std::vector<size_t> onnxDims = getTensorShape(session, pek::TensorInOut::In, i);
         if (onnxDims.size() < 1 || onnxDims.size() > 8) {
-            return tl::unexpected{AMP_ERROR(amp::ErrorFlag::ModelInspectError,
+            return tl::unexpected{PEK_ERROR(pek::ErrorFlag::ModelInspectError,
                                             "input tensor size must be between 1 and 8")};
         }
         model.inputs[i].shape.setFrom(onnxDims);
@@ -413,25 +413,25 @@ amp::Result<amp::Model> Inference::inspectModel(const Ort::Session &session) {
         model.outputs[i].name = session.GetOutputNameAllocated(i, allocator).get();
 
         // tensor value type
-        amp::Tdt tensorValueType;
+        pek::Tdt tensorValueType;
         if (false == onnxTypeToUniflowType(tensor.GetElementType(), tensorValueType)) {
-            return tl::unexpected{AMP_ERROR(amp::ErrorFlag::ModelInspectError,
+            return tl::unexpected{PEK_ERROR(pek::ErrorFlag::ModelInspectError,
                                             fmt::format("cannot recognize output ONNX type: {}",
                                                         (uint64_t)tensor.GetElementType()))};
         }
 
-        if (amp::Tdt::Float32 != tensorValueType && amp::Tdt::Int64 != tensorValueType &&
-            amp::Tdt::Float16 != tensorValueType) {
+        if (pek::Tdt::Float32 != tensorValueType && pek::Tdt::Int64 != tensorValueType &&
+            pek::Tdt::Float16 != tensorValueType) {
             return tl::unexpected{
-                AMP_ERROR(amp::ErrorFlag::ModelInspectError,
+                PEK_ERROR(pek::ErrorFlag::ModelInspectError,
                           "only float16, float32 or int64 input tensors are supported in ONNX")};
         }
         model.outputs[i].valueType = tensorValueType;
 
         // shape
-        std::vector<size_t> onnxDims = getTensorShape(session, amp::TensorInOut::Out, i);
+        std::vector<size_t> onnxDims = getTensorShape(session, pek::TensorInOut::Out, i);
         if (onnxDims.size() < 1 || onnxDims.size() > 8) {
-            return tl::unexpected{AMP_ERROR(amp::ErrorFlag::ModelInspectError,
+            return tl::unexpected{PEK_ERROR(pek::ErrorFlag::ModelInspectError,
                                             "output tensor size must be between 1 and 8")};
         }
         model.outputs[i].shape.setFrom(onnxDims);
@@ -440,25 +440,25 @@ amp::Result<amp::Model> Inference::inspectModel(const Ort::Session &session) {
     return model;
 }
 
-bool Inference::onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, amp::Tdt &outType) {
+bool Inference::onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, pek::Tdt &outType) {
     if (onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT) {
-        outType = amp::Tdt::Float32;
+        outType = pek::Tdt::Float32;
         return true;
     }
     if (onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16) {
-        outType = amp::Tdt::Float16;
+        outType = pek::Tdt::Float16;
         return true;
     }
     if (onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8) {
-        outType = amp::Tdt::Int8;
+        outType = pek::Tdt::Int8;
         return true;
     }
     if (onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8) {
-        outType = amp::Tdt::Uint8;
+        outType = pek::Tdt::Uint8;
         return true;
     }
     if (onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64) {
-        outType = amp::Tdt::Int64;
+        outType = pek::Tdt::Int64;
         return true;
     }
     return false;

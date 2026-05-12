@@ -8,7 +8,7 @@
 #include <fmt/format.h>
 #include <utility> // std::exchange
 
-using namespace amp;
+using namespace pek;
 
 OpRef::OpRef() = default;
 
@@ -52,26 +52,26 @@ OpRef &OpRef::operator=(OpRef &&other) noexcept {
     return *this;
 }
 
-amp::Result<void> OpRef::bind(const std::string &soName, const std::string &opName) {
+pek::Result<void> OpRef::bind(const std::string &soName, const std::string &opName) {
     // Ensure a previous binding is cleanly released
     reset();
 
     // Open library (Tools::DynamicLibraryOpen returns tl::optional / similar)
     auto openResult = Tools::DynamicLibraryOpen(soName);
     if (!openResult.has_value()) {
-        return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::SystemFailure,
+        return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::SystemFailure,
                                              fmt::format("Cannot load library [{}]", soName)));
     }
 
     dlHandle = *openResult;
 
-    auto cr = Tools::DynamicLibraryGetSymbol<CreateFn>(dlHandle, "amp_create_op_instance");
-    auto del = Tools::DynamicLibraryGetSymbol<DeleteFn>(dlHandle, "amp_delete_op_instance");
+    auto cr = Tools::DynamicLibraryGetSymbol<CreateFn>(dlHandle, "pek_create_op_instance");
+    auto del = Tools::DynamicLibraryGetSymbol<DeleteFn>(dlHandle, "pek_delete_op_instance");
     if (!cr || !del) {
         // reset() will close dlHandle and clear fields
         reset();
         return tl::make_unexpected(
-            AMP_ERROR(amp::ErrorFlag::SystemFailure,
+            PEK_ERROR(pek::ErrorFlag::SystemFailure,
                       fmt::format("Cannot get interface methods of library [{}]", soName)));
     }
 
@@ -85,18 +85,18 @@ amp::Result<void> OpRef::bind(const std::string &soName, const std::string &opNa
     } catch (...) {
         // In case createFn throws (shouldn't), clean up
         reset();
-        return tl::make_unexpected(AMP_ERROR(
-            amp::ErrorFlag::SystemFailure,
+        return tl::make_unexpected(PEK_ERROR(
+            pek::ErrorFlag::SystemFailure,
             fmt::format("Exception while creating op [{}] of library [{}]", opName, soName)));
     }
 
     if (!raw) {
         reset();
         return tl::make_unexpected(
-            AMP_ERROR(amp::ErrorFlag::SystemFailure,
+            PEK_ERROR(pek::ErrorFlag::SystemFailure,
                       fmt::format("Cannot create op [{}] of library [{}]", opName, soName)));
     }
 
-    op = static_cast<amp::Op *>(raw);
+    op = static_cast<pek::Op *>(raw);
     return {}; // success
 }

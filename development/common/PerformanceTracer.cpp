@@ -11,7 +11,7 @@
 #include <sstream>
 #include <thread>
 
-namespace amp {
+namespace pek {
 
 // ============================================================================
 // PerformanceTracer Implementation
@@ -470,4 +470,4 @@ PerformanceTracer *getGlobalTracer() {
     return g_global_tracer;
 }
 
-} // namespace amp
+} // namespace pek

@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-namespace amp {
+namespace pek {
 
 // ============================================================================
 // Core Data Structures
@@ -328,10 +328,10 @@ PerformanceTracer *getGlobalTracer();
 /**
  * Convenience macros for global tracer
  */
-#define AMP_TRACE_START(key) amp::getGlobalTracer()->start(key)
-#define AMP_TRACE_END(key) amp::getGlobalTracer()->end(key)
-#define AMP_TRACE_SCOPE(key)                                                                       \
-    amp::PerformanceTracer::ScopedTimer _amp_timer_##__LINE__(amp::getGlobalTracer(), key)
-#define AMP_TRACE_END_CYCLE() amp::getGlobalTracer()->endCycle()
+#define PEK_TRACE_START(key) pek::getGlobalTracer()->start(key)
+#define PEK_TRACE_END(key) pek::getGlobalTracer()->end(key)
+#define PEK_TRACE_SCOPE(key)                                                                       \
+    pek::PerformanceTracer::ScopedTimer _pek_timer_##__LINE__(pek::getGlobalTracer(), key)
+#define PEK_TRACE_END_CYCLE() pek::getGlobalTracer()->endCycle()
 
-} // namespace amp
+} // namespace pek

@@ -6,7 +6,7 @@ sidebar_label: Inference Process
 # Inference Execution Flow
 ## Engine-Specific Loading+Inference with Engine-Agnostic Processing
 
-The AMP inference architecture deliberately separates:
+The Perception Experience Kit inference architecture deliberately separates:
 
 - Engine-specific responsibilities  
 - Engine-agnostic processing logic  
@@ -34,10 +34,10 @@ The selected inference backend (e.g., ONNX, HailoRT, ExecuTorch):
 ## Conversion to Engine-Agnostic Model
 
 After successful loading and validation, the backend constructs
-an `amp::Model` instance.
+an `pek::Model` instance.
 
-`amp::Model` becomes the **platform-independent, canonical representation**
-of the model within the AMP framework.
+`pek::Model` becomes the **platform-independent, canonical representation**
+of the model within the Perception Experience Kit framework.
 No backend-specific structures leak into generic code.
 Tensor metadata is handled uniformly.
 
@@ -90,7 +90,7 @@ No backend-specific logic is required at this stage.
 ```
 Engine-specific load
   ↓
-amp::Model (engine-agnostic representation)
+pek::Model (engine-agnostic representation)
   ↓
 Generic preprocessing
   ↓

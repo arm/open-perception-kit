@@ -1,13 +1,13 @@
 
 onnxops = shared_module(
-  'amp-onnx-ops',                   
+  'pek-onnx-ops',                   
   sources: [
     'Inference.cpp',
     'InferenceOp.cpp',
     'Plugin.cpp'
   ],
   include_directories: common_include,
-  dependencies: [amp_deps, onnx_dep],
+  dependencies: [pek_deps, onnx_dep],
   cpp_args: ['-DFMT_HEADER_ONLY'],
   link_with: [ common ],
   name_prefix: '',

@@ -7,7 +7,7 @@
 
 #include <cstring>
 
-amp::Op *createOp(const std::string &opName) {
+pek::Op *createOp(const std::string &opName) {
     if (opName == "Inference")
         return new hailort::InferenceOp();
     return nullptr;
@@ -15,11 +15,11 @@ amp::Op *createOp(const std::string &opName) {
 
 // ---
 
-extern "C" void amp_delete_op_instance(void *opInstacnce) {
-    delete (amp::Op *)opInstacnce;
+extern "C" void pek_delete_op_instance(void *opInstacnce) {
+    delete (pek::Op *)opInstacnce;
 }
 
-extern "C" void *amp_create_op_instance(const char *opName) {
+extern "C" void *pek_create_op_instance(const char *opName) {
     if (!opName)
         return nullptr;
     return createOp(opName);

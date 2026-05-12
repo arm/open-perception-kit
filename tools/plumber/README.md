@@ -1,31 +1,31 @@
-# AmpComm / Plumber
+# PekComm / Plumber
 
 ## Overview
 
-This system is used to test perception output from an AMP pipeline.
+This system is used to test perception output from an Perception Experience Kit pipeline.
 
 At a high level:
 
-- **AmpComm** is a GStreamer element that serializes Perception output as **NDJSON**.
+- **PekComm** is a GStreamer element that serializes Perception output as **NDJSON**.
 - **Plumber** is a Python-based test tool that:
   - can **save** the incoming NDJSON as Ground Truth
   - can **check** a pipeline run against previously saved Ground Truth
 
 The data exchange between the pipeline and Plumber is currently done through a **FIFO**.
 
-AmpComm writes one JSON object per line, and Plumber reads the stream line by line.
+PekComm writes one JSON object per line, and Plumber reads the stream line by line.
 
 ## Architecture
 
 ```text
-AMP pipeline
+Perception Experience Kit pipeline
    |
    v
-AmpComm (GStreamer element)
+PekComm (GStreamer element)
    |
    |  NDJSON over FIFO
    v
-/tmp/ampcomm
+/tmp/pekcomm
    |
    v
 Plumber
@@ -37,9 +37,9 @@ Plumber
 
 ## Components
 
-### AmpComm
+### PekComm
 
-AmpComm is responsible for publishing Perception JSON objects from the pipeline.
+PekComm is responsible for publishing Perception JSON objects from the pipeline.
 
 Relevant properties:
 
@@ -49,26 +49,26 @@ Relevant properties:
 - `file-name`
   - output target path
   - `file-name` can be any file (existing or non-existing) or fifo name (must exists). 
-    if the property is set to `-`, the AmpComm writes the NDJSON to the standard output
-  - Plumber uses `/tmp/ampcomm` FIFO, which is already created in the devcontainer 
+    if the property is set to `-`, the PekComm writes the NDJSON to the standard output
+  - Plumber uses `/tmp/pekcomm` FIFO, which is already created in the devcontainer 
 
 Example GObject properties:
 
 - `method=file`
-- `file-name=/tmp/ampcomm`
+- `file-name=/tmp/pekcomm`
 
 ### Plumber
 
 Plumber is the regression / validation tool.
 
-It starts a pipeline with `amp-menu`, reads the generated NDJSON stream from the FIFO, and either:
+It starts a pipeline with `pek-menu`, reads the generated NDJSON stream from the FIFO, and either:
 
 - stores it as Ground Truth
 - or compares it to an existing Ground Truth file
 
 ## Data Format
 
-AmpComm writes **NDJSON**:
+PekComm writes **NDJSON**:
 
 - one Perception JSON per line
 - each line is a complete JSON object
@@ -91,7 +91,7 @@ plumber <pipeline> <mode> <file> [options]
 ### Positional arguments
 
 - `pipeline`
-  - pipeline name passed to `amp-menu`
+  - pipeline name passed to `pek-menu`
   - example: `onnx`
 
 - `mode`
@@ -105,15 +105,15 @@ plumber <pipeline> <mode> <file> [options]
 ### Options
 
 - `--fifo`
-  - path to FIFO used by AmpComm
-  - default: `/tmp/ampcomm`
+  - path to FIFO used by PekComm
+  - default: `/tmp/pekcomm`
 
-- `--amp-menu`
-  - path to the `amp-menu` executable
-  - default: `/work/tools/amp-menu`
+- `--pek-menu`
+  - path to the `pek-menu` executable
+  - default: `/work/tools/pek-menu`
 
-- `--amp-menu-args`
-  - extra arguments passed to `amp-menu`
+- `--pek-menu-args`
+  - extra arguments passed to `pek-menu`
 
 - `--limit`
   - stop after N messages
@@ -130,33 +130,33 @@ plumber <pipeline> <mode> <file> [options]
 ### Save Ground Truth
 
 ```bash
-plumber onnx save gt.ndjson --fifo /tmp/ampcomm --limit 100
+plumber onnx save gt.ndjson --fifo /tmp/pekcomm --limit 100
 ```
 
 This will:
 
-- start `amp-menu onnx`
-- read NDJSON from `/tmp/ampcomm`
+- start `pek-menu onnx`
+- read NDJSON from `/tmp/pekcomm`
 - save 100 messages into `gt.ndjson`
 
 ### Check Against Ground Truth
 
 ```bash
-plumber onnx check gt.ndjson --fifo /tmp/ampcomm --fail-fast
+plumber onnx check gt.ndjson --fifo /tmp/pekcomm --fail-fast
 ```
 
 This will:
 
-- start `amp-menu onnx`
-- read NDJSON from `/tmp/ampcomm`
+- start `pek-menu onnx`
+- read NDJSON from `/tmp/pekcomm`
 - compare the incoming data with `gt.ndjson`
 
-## AmpComm Configuration Example
+## PekComm Configuration Example
 
 Example pipeline element configuration:
 
 ```text
-ampcomm method=file file-name=/tmp/ampcomm
+pekcomm method=file file-name=/tmp/pekcomm
 ```
 
 In the current setup, `file-name` should refer to a FIFO path used for communication with Plumber.
@@ -175,7 +175,7 @@ This allows regression testing of pipeline output across code changes.
 
 ## Notes
 
-- FIFO output is used for live communication between AmpComm and Plumber.
+- FIFO output is used for live communication between PekComm and Plumber.
 - Ground Truth is stored as NDJSON.
 - NDJSON is used because it is simple, stream-friendly, and easy to process line by line.
 

@@ -1,12 +1,12 @@
 ---
 sidebar_position: 6
-sidebar_label: amp::Model
+sidebar_label: pek::Model
 ---
 
-# AMP Model System
+# Perception Experience Kit Model System
 ## Engine-Agnostic Model Abstraction and Descriptor Merge Architecture
 
-The AMP inference framework separates model runtime introspection from
+The Perception Experience Kit inference framework separates model runtime introspection from
 user-provided model metadata.
 
 This separation ensures:
@@ -14,14 +14,14 @@ This separation ensures:
 -   Backend independence (ONNX, HailoRT, ExecuTorch, etc.)
 -   Strict validation of tensor definitions
 -   Deterministic runtime behavior
--   Clean integration into OpChains inside ampinfer
+-   Clean integration into OpChains inside pekinfer
 
 Two primary components are involved:
 
--   amp::Model (engine-agnostic runtime model representation)
--   amp::ModelDescriptor (declarative JSON metadata)
+-   pek::Model (engine-agnostic runtime model representation)
+-   pek::ModelDescriptor (declarative JSON metadata)
 
-The final runtime model used by inference Ops is an amp::Model instance
+The final runtime model used by inference Ops is an pek::Model instance
 produced by merging:
 
 1.  Information extracted from the inference engine
@@ -30,11 +30,11 @@ produced by merging:
 If overlapping information is present in both sources, it must match.
 Otherwise, model loading fails.
 
-# 1. amp::Model
+# 1. pek::Model
 
 ## Canonical Runtime Representation
 
-The amp::Model class is the unified runtime model abstraction used by the Op
+The pek::Model class is the unified runtime model abstraction used by the Op
 system. It defines the input and output tensors used when inference is executed.
 
 It contains:
@@ -164,12 +164,12 @@ The selected inference engine:
 -   Extracts value types
 -   Extracts quantization parameters
 
-An initial amp::Model instance is created from engine data. 
+An initial pek::Model instance is created from engine data. 
 Most of these values are not provided directly by every model file.
 
 ## Phase 2 - Descriptor Merge
 
-amp::Model::applyModelFromDescriptor merges JSON metadata into the
+pek::Model::applyModelFromDescriptor merges JSON metadata into the
 engine-derived model.
 
 Input tensor validation rules:
@@ -209,7 +209,7 @@ This strict validation guarantees deterministic inference behavior.
 
 After successful merge:
 
--   The amp::Model is fully resolved
+-   The pek::Model is fully resolved
 -   All tensor dimensions are known
 -   Data formats are fixed
 -   Quantization parameters are fixed

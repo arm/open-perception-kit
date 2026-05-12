@@ -4,16 +4,16 @@
 
 #pragma once
 
-#include "amp/Perception.h"
-#include "amp/Result.h"
-#include "amp/TensorParser.h"
+#include "pek/Perception.h"
+#include "pek/Result.h"
+#include "pek/TensorParser.h"
 
-namespace amp {
+namespace pek {
 
-struct PaddleOcrDetectionParser : public amp::TensorParser {
+struct PaddleOcrDetectionParser : public pek::TensorParser {
 
-    virtual amp::Result<void> parse(const amp::TensorParser::Input &input,
-                                    amp::Perception::Layer &output) override;
+    virtual pek::Result<void> parse(const pek::TensorParser::Input &input,
+                                    pek::Perception::Layer &output) override;
 };
 
-} // namespace amp
+} // namespace pek

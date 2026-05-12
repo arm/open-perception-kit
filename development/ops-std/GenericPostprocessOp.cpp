@@ -9,8 +9,8 @@
 #include <map>
 #include <memory>
 
-#include "amp/Perception.h"
-#include "amp/Types.h"
+#include "pek/Perception.h"
+#include "pek/Types.h"
 #include <PerformanceTracer.h>
 
 // parser class headers
@@ -27,11 +27,11 @@
 #include "postproc/YoloParser.h"
 // ... add new parser headers here
 
-using namespace amp;
+using namespace pek;
 
 namespace {
 
-using ParserCreator = std::function<std::unique_ptr<amp::TensorParser>()>;
+using ParserCreator = std::function<std::unique_ptr<pek::TensorParser>()>;
 
 template <class T> ParserCreator make() {
     return []() { return std::make_unique<T>(); };
@@ -40,17 +40,17 @@ template <class T> ParserCreator make() {
 // parser registry
 const std::map<std::string, ParserCreator> &getParserRegistry() {
     static const std::map<std::string, ParserCreator> registry = {
-        {"CameraContactParser", make<amp::CameraContactParser>()},
-        {"DummyParser", make<amp::DummyParser>()},
-        {"GazeDetectionParser", make<amp::GazeDetectionParser>()},
-        {"ImageNetClassificationParser", make<amp::ImageNetClassificationParser>()},
-        {"ModNetSegmentationParser", make<amp::ModNetSegmentationParser>()},
-        {"ObjectEmbeddingParser", make<amp::ObjectEmbeddingParser>()},
-        {"PaddleOcrDetectionParser", make<amp::PaddleOcrDetectionParser>()},
-        {"PersonClassificationParser", make<amp::PersonClassificationParser>()},
-        {"RvmParser", make<amp::RvmParser>()},
-        {"UltrafaceParser", make<amp::UltraFaceParser>()},
-        {"YoloParser", make<amp::YoloParser>()},
+        {"CameraContactParser", make<pek::CameraContactParser>()},
+        {"DummyParser", make<pek::DummyParser>()},
+        {"GazeDetectionParser", make<pek::GazeDetectionParser>()},
+        {"ImageNetClassificationParser", make<pek::ImageNetClassificationParser>()},
+        {"ModNetSegmentationParser", make<pek::ModNetSegmentationParser>()},
+        {"ObjectEmbeddingParser", make<pek::ObjectEmbeddingParser>()},
+        {"PaddleOcrDetectionParser", make<pek::PaddleOcrDetectionParser>()},
+        {"PersonClassificationParser", make<pek::PersonClassificationParser>()},
+        {"RvmParser", make<pek::RvmParser>()},
+        {"UltrafaceParser", make<pek::UltraFaceParser>()},
+        {"YoloParser", make<pek::YoloParser>()},
         // ... add new parsers here
     };
     return registry;
@@ -61,25 +61,25 @@ const std::map<std::string, ParserCreator> &getParserRegistry() {
 GenericPostprocessOp::GenericPostprocessOp() {}
 GenericPostprocessOp::~GenericPostprocessOp() {}
 
-amp::Result<void> GenericPostprocessOp::bind(size_t index, const std::vector<amp::Op *> &ops) {
+pek::Result<void> GenericPostprocessOp::bind(size_t index, const std::vector<pek::Op *> &ops) {
     return {};
 }
 
-amp::Result<void> GenericPostprocessOp::configure(const amp::AttributeMap &attributes) {
+pek::Result<void> GenericPostprocessOp::configure(const pek::AttributeMap &attributes) {
 
     this->attributes = attributes.cloneDeep();
 
     std::string parser = attributes.getStringOrDefault("parser", "");
 
     if (parser.empty()) {
-        return tl::unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData,
+        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
                                         fmt::format("No 'parser' attribute in postprocessor op")));
     }
 
     const auto &registry = getParserRegistry();
     auto it = registry.find(parser);
     if (it == registry.end()) {
-        return tl::unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData,
+        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
                                         fmt::format("No tensor parser with name: [{}]", parser)));
     }
 
@@ -88,13 +88,13 @@ amp::Result<void> GenericPostprocessOp::configure(const amp::AttributeMap &attri
     return {};
 }
 
-amp::Result<void> GenericPostprocessOp::process(amp::OpChainContext &opChainContext) {
-    AMP_TRACE_SCOPE(fmt::format("std/Post/{}", opChainContext.inferenceInfo.modelFamily));
+pek::Result<void> GenericPostprocessOp::process(pek::OpChainContext &opChainContext) {
+    PEK_TRACE_SCOPE(fmt::format("std/Post/{}", opChainContext.inferenceInfo.modelFamily));
 
-    amp::TensorParser::Input tensorParserInput(attributes);
+    pek::TensorParser::Input tensorParserInput(attributes);
 
     // populate tensors
-    for (size_t i = 0; i < amp::MaxTensorCount; i++) {
+    for (size_t i = 0; i < pek::MaxTensorCount; i++) {
         if (i < opChainContext.inferenceOutputTensorCount)
             tensorParserInput.tensors[i] = &opChainContext.inferenceOutputTensors[i];
         else
@@ -104,7 +104,7 @@ amp::Result<void> GenericPostprocessOp::process(amp::OpChainContext &opChainCont
     // copy active inference info
     tensorParserInput.inferenceInfo = opChainContext.inferenceInfo;
 
-    amp::Perception::Layer rawDetectionLayer;
+    pek::Perception::Layer rawDetectionLayer;
     rawDetectionLayer.model = opChainContext.inferenceInfo.modelFamily;
     rawDetectionLayer.inferElementId = opChainContext.inferenceInfo.inferElementId;
     auto parseResult = parser->parse(tensorParserInput, rawDetectionLayer);

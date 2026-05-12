@@ -39,7 +39,7 @@ usermod  -g "${HOST_GID}" "${USERNAME}" || true
 chown -R "${HOST_UID}:${HOST_GID}" "/home/${USERNAME}" || true
 mkdir -p /work
 chown -R "${HOST_UID}:${HOST_GID}" /work || true
-chown -R "${HOST_UID}:${HOST_GID}" /tmp/ampcomm || true
+chown -R "${HOST_UID}:${HOST_GID}" /tmp/pekcomm || true
 
 # Drop privileges
 exec gosu "${HOST_UID}:${HOST_GID}" "$@"

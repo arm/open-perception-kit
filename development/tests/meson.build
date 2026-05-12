@@ -1,8 +1,8 @@
 
-amp_menu_tests = executable(
-  'amp_menu_tests',
-  ['amp_menu_parser_test.cpp'],
-  dependencies : [gtest_main_dep, gtest_dep, amp_menu_parser_dep],
+pek_menu_tests = executable(
+  'pek_menu_tests',
+  ['pek_menu_parser_test.cpp'],
+  dependencies : [gtest_main_dep, gtest_dep, pek_menu_parser_dep],
 )
 
 matrix_operations_tests = executable(
@@ -34,7 +34,7 @@ iou_tests = executable(
 )
 
 
-test('amp_menu_tests', amp_menu_tests)
+test('pek_menu_tests', pek_menu_tests)
 test('matrix_operations_tests', matrix_operations_tests)
 test('kalman_filter_tests', kalman_filter_tests)
 test('hungarian_tests', hungarian_tests)

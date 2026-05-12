@@ -4,26 +4,26 @@
 
 #pragma once
 
-#include "amp/Result.h"
 #include "op/Op.h"
 #include "op/OpChainContext.h"
+#include "pek/Result.h"
 
-#include "amp/TensorParser.h"
+#include "pek/TensorParser.h"
 
-namespace amp {
+namespace pek {
 
-class GenericPostprocessOp : public amp::Op {
+class GenericPostprocessOp : public pek::Op {
   public:
     GenericPostprocessOp();
     virtual ~GenericPostprocessOp();
 
-    virtual amp::Result<void> configure(const amp::AttributeMap &attributes) override;
-    virtual amp::Result<void> process(amp::OpChainContext &opChainContext) override;
-    virtual amp::Result<void> bind(size_t index, const std::vector<amp::Op *> &ops) override;
+    virtual pek::Result<void> configure(const pek::AttributeMap &attributes) override;
+    virtual pek::Result<void> process(pek::OpChainContext &opChainContext) override;
+    virtual pek::Result<void> bind(size_t index, const std::vector<pek::Op *> &ops) override;
 
   private:
-    std::unique_ptr<amp::TensorParser> parser;
-    amp::AttributeMap attributes;
+    std::unique_ptr<pek::TensorParser> parser;
+    pek::AttributeMap attributes;
 };
 
-} // namespace amp
+} // namespace pek

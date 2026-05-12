@@ -5,8 +5,8 @@
     "jpegdec !",
     "imagefreeze num-buffers=${NUM_FRAMES:-30} !",
     "videoconvert ! video/x-raw,format=BGRA,framerate=30/1 !",
-    "ampinfer opchain-path=/work/config/opchains/tracking/opchain-onnx.json active=true !",
-    "amptracker content-type=genericObject !",
+    "pekinfer opchain-path=/work/config/opchains/tracking/opchain-onnx.json active=true !",
+    "pektracker content-type=genericObject !",
     "fakesink sync=true"
   ]
 }

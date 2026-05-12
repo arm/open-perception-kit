@@ -34,7 +34,7 @@
         {
             "label": "00 Run project with menu",
             "type": "shell",
-            "command": "/work/tools/amp-menu",
+            "command": "/work/tools/pek-menu",
             "options": {
                 "cwd": "${workspaceFolder}"
             },
@@ -44,7 +44,7 @@
         {
             "label": "00 Run project with latest pipeline",
             "type": "shell",
-            "command": "/work/tools/amp-menu",
+            "command": "/work/tools/pek-menu",
             "options": {
                 "cwd": "${workspaceFolder}"
             },
@@ -56,7 +56,7 @@
         {
             "label": "00 Run project and select pipeline",
             "type": "shell",
-            "command": "/work/tools/amp-menu",
+            "command": "/work/tools/pek-menu",
             "options": {
                 "cwd": "${workspaceFolder}"
             },

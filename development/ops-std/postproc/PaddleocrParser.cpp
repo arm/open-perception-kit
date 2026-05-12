@@ -3,17 +3,17 @@
  *************************************************************/
 
 #include "postproc/PaddleocrParser.h"
-#include "amp/Bitmap.h"
-#include "amp/Perception.h"
+#include "pek/Bitmap.h"
+#include "pek/Perception.h"
 
 #include <cmath>
 #include <cstdint>
 #include <fmt/core.h>
 
-using namespace amp;
+using namespace pek;
 
-amp::Result<void> PaddleOcrDetectionParser::parse(const amp::TensorParser::Input &input,
-                                                  amp::Perception::Layer &detectionResult) {
+pek::Result<void> PaddleOcrDetectionParser::parse(const pek::TensorParser::Input &input,
+                                                  pek::Perception::Layer &detectionResult) {
 
     const float thresholdLow = (float)input.attributes.getDoubleOrDefault("thresholdLow", 0.60f);
     const float thresholdHigh = (float)input.attributes.getDoubleOrDefault("thresholdHigh", 0.80f);
@@ -21,19 +21,19 @@ amp::Result<void> PaddleOcrDetectionParser::parse(const amp::TensorParser::Input
 
     if (!input.tensors[0]) {
         return tl::unexpected(
-            AMP_ERROR(ErrorFlag::InvalidData, "PaddleOcrDetectionParser: input tensor is null"));
+            PEK_ERROR(ErrorFlag::InvalidData, "PaddleOcrDetectionParser: input tensor is null"));
     }
 
     const auto shape = input.tensors[0]->getShape();
     if (shape.dimensionCount != 4) {
         return tl::unexpected(
-            AMP_ERROR(ErrorFlag::InvalidData,
+            PEK_ERROR(ErrorFlag::InvalidData,
                       fmt::format("PaddleOcrDetectionParser: expected 4D tensor, got {}D",
                                   shape.dimensionCount)));
     }
     if (shape.valueCount[1] != 1) {
         return tl::unexpected(
-            AMP_ERROR(ErrorFlag::InvalidData,
+            PEK_ERROR(ErrorFlag::InvalidData,
                       fmt::format("PaddleOcrDetectionParser: expected 1 channel, got {}",
                                   shape.valueCount[1])));
     }
@@ -43,7 +43,7 @@ amp::Result<void> PaddleOcrDetectionParser::parse(const amp::TensorParser::Input
 
     detectionResult.detections.push_back(Perception::SegmentationMap());
     auto &sm = std::get<Perception::SegmentationMap>(detectionResult.detections.back());
-    sm.bitmap = amp::Bitmap(amp::Bitmap::Type::Uint8, maskWidth, maskHeight);
+    sm.bitmap = pek::Bitmap(pek::Bitmap::Type::Uint8, maskWidth, maskHeight);
 
     uint8_t *dst = const_cast<uint8_t *>(sm.bitmap.getData());
 

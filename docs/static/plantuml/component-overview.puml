@@ -1,7 +1,7 @@
 @startuml
-!include amp-style.puml
+!include pek-style.puml
 
-title AMP Container Component Overview
+title Perception Experience Kit Container Component Overview
 
 top to bottom direction
 skinparam packageStyle rectangle
@@ -13,16 +13,16 @@ skinparam linetype ortho
 component "External application /\nservice" as External
 interface "Perception" as IPerception
 
-rectangle "AMP Development Forge Container" {
-  package "AMP element chain" as CHAIN {
-    component "ampinfer" as AMPINFER
-    component "amptracker" as AMPTRACKER
-    component "ampperformance" as AMPPERF
-    component "amposd" as AMPOSD
-    component "ampsink" as AMPSINK
+rectangle "Perception Experience Kit Container" {
+  package "Perception Experience Kit element chain" as CHAIN {
+    component "pekinfer" as PEKINFER
+    component "pektracker" as PEKTRACKER
+    component "pekperformance" as PEKPERF
+    component "pekosd" as PEKOSD
+    component "peksink" as PEKSINK
   }
 
-  package "Inference execution inside ampinfer" as INFERBOX {
+  package "Inference execution inside pekinfer" as INFERBOX {
     component "OpChain / Op system\n(JSON descriptors,\nconfigure -> bind -> process,\nloopId-based execution)" as OPC
     component "Preprocess Ops" as PRE
     component "Inference Ops\n(ONNX / Hailo / ExecuTorch)" as INF
@@ -39,15 +39,15 @@ rectangle "AMP Development Forge Container" {
   }
 }
 
-AMPINFER -down-> AMPTRACKER
-AMPTRACKER -down-> AMPPERF
-AMPPERF -down-> AMPOSD
-AMPOSD -down-> AMPSINK
+PEKINFER -down-> PEKTRACKER
+PEKTRACKER -down-> PEKPERF
+PEKPERF -down-> PEKOSD
+PEKOSD -down-> PEKSINK
 
 OPC -down-> PRE
 PRE -down-> INF
 INF -down-> POST
-OPC ..> AMPINFER : executes inside
+OPC ..> PEKINFER : executes inside
 
 CHAIN --> PERC
 
@@ -68,13 +68,13 @@ IPerception -[hidden]down-> External
 legend bottom
 - GStreamer is the current pipeline/orchestration host layer.
   It handles media transport, scheduling, and metadata carriage.
-- OpChain is the inference-specific glue inside ampinfer.
+- OpChain is the inference-specific glue inside pekinfer.
   It binds preprocess, backend execution, and postprocess stages.
-- Perception is the stable runtime contract passed between AMP components
+- Perception is the stable runtime contract passed between Perception Experience Kit components
   and published to external applications.
-- ampinfer creates and enriches that contract via OpChain execution.
-- amptracker and ampperformance append more structured runtime data.
-- amposd and ampsink consume it for rendering and publication.
+- pekinfer creates and enriches that contract via OpChain execution.
+- pektracker and pekperformance append more structured runtime data.
+- pekosd and peksink consume it for rendering and publication.
 endlegend
 
 @enduml

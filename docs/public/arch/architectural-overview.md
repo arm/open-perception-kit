@@ -4,9 +4,9 @@ sidebar_label: Architectural overview
 ---
 
 # Architectural Overview
-## AMP execution model and GStreamer integration
+## Perception Experience Kit execution model and GStreamer integration
 
-AMP Development Forge is a GStreamer-centric inference execution framework, designed to run AI workloads in media pipelines.
+Perception Experience Kit is a GStreamer-centric inference execution framework, designed to run AI workloads in media pipelines.
 GStreamer provides the media transport and scheduling, while the core execution model is independent and can run without GStreamer.
 In this architecture, GStreamer primarily feeds audio/video buffers into the system and carries results downstream as metadata.
 
@@ -18,22 +18,22 @@ The system is implemented as a set of reusable GStreamer elements that can be in
 
 Core elements:
 
-- `ampinfer`  
+- `pekinfer`  
   Runs micropipelines (OpChain) that perform preprocessing, inference, and postprocessing.
   Produces structured results into Perception.
   OpChains can contain other processing steps, but inference is the most important one in this project.
 
-- `ampsink`  
+- `peksink`  
   Provides WebRTC-based output to a browser for stable, low-latency A/V visualization from containerized pipelines.
 
-- `amposd`  
+- `pekosd`  
   Visualizes results by decorating video frames using Perception metadata.
   Planned extension: DMABUF-based Vulkan rendering for zero-copy pipelines.
 
-- `amptracker`  
+- `pektracker`  
   Tracks detections across frames and stabilizes identities and trajectories over time.
 
-- `ampperformance`  
+- `pekperformance`  
   Collects and exposes performance metrics to support profiling and runtime analysis.
 
 Each element can be placed into any existing GStreamer pipeline as a modular building block.
@@ -46,7 +46,7 @@ The following use-case view complements the element-oriented description below.
 The diagram aims to be a higher level view of our functionalities focusing on user-facing capabilities and default extension surfaces.
 Amber for experimental or still-evolving areas such as ExecuTorch and audio inference, and red for planned or intentionally unfinished directions such as Python-based post processing.
 
-![AMP use case overview](../../static/img/use-case.png)
+![Perception Experience Kit use case overview](../../static/img/use-case.png)
 
 ---
 
@@ -54,19 +54,19 @@ Amber for experimental or still-evolving areas such as ExecuTorch and audio infe
 
 This component view focuses on the runtime shape inside the container boundaries.
 It intentionally treats `GStreamer` as the current pipeline host layer rather than as the long-term architectural center of the system.
-The stable interfaces worth carrying across component boundaries are the AMP element model, `OpChain` inside `ampinfer`, and above all `Perception` as the runtime contract.
-`ampinfer` creates and enriches `Perception` through OpChain execution, `amptracker` and `ampperformance` append more structured data, `amposd` consumes it for visualization, and any external application-facing boundary can treat serialized `Perception` as the main contract.
+The stable interfaces worth carrying across component boundaries are the Perception Experience Kit element model, `OpChain` inside `pekinfer`, and above all `Perception` as the runtime contract.
+`pekinfer` creates and enriches `Perception` through OpChain execution, `pektracker` and `pekperformance` append more structured data, `pekosd` consumes it for visualization, and any external application-facing boundary can treat serialized `Perception` as the main contract.
 
-![AMP component overview](../../static/img/component-overview.png)
+![Perception Experience Kit component overview](../../static/img/component-overview.png)
 
 ---
 
 ## General activity diagram
 
 This activity diagram is intentionally more implementation-oriented than the use-case and component views.
-It traces the path from `amp-menu` preset parsing through element initialization and then into the steady-state per-buffer execution path inside `ampinfer`, `amptracker`, `ampperformance`, `amposd`, and `ampsink`.
+It traces the path from `pek-menu` preset parsing through element initialization and then into the steady-state per-buffer execution path inside `pekinfer`, `pektracker`, `pekperformance`, `pekosd`, and `peksink`.
 
-![AMP engineer execution flow](../../static/img/execution-flow.png)
+![Perception Experience Kit engineer execution flow](../../static/img/execution-flow.png)
 
 ---
 
@@ -79,7 +79,7 @@ The internal processing model is based on an Op system.
 - OpChains define “micropipelines” that implement a specific processing goal
   (e.g., face detection, gaze estimation, OCR detection, classification).
 
-OpChains are created from JSON descriptors and can be executed inside `ampinfer`
+OpChains are created from JSON descriptors and can be executed inside `pekinfer`
 or as standalone pipelines without GStreamer.
 
 This enables pipeline composition and model swapping without recompilation.
@@ -124,7 +124,7 @@ This enables complex pipelines such as:
 
 ## Tracking
 
-`amptracker` uses Perception detections and derives cross-frame information from them.
+`pektracker` uses Perception detections and derives cross-frame information from them.
 In the ideal case, it creates an **entity** that represents a real-world object.
 In that case, a missing detection on a single frame does not mean that the entity is lost.
 
@@ -141,7 +141,7 @@ Richer tracker-specific output layers are still evolving.
 
 ## Visualization and Rendering
 
-`amposd` uses Perception to render visual overlays on video frames.
+`pekosd` uses Perception to render visual overlays on video frames.
 
 Current behavior:
 
@@ -159,11 +159,11 @@ Planned behavior:
 A typical execution flow:
 
 1. GStreamer delivers an audio/video buffer into the pipeline.
-2. `ampinfer` executes an OpChain for preprocessing → inference → postprocessing.
+2. `pekinfer` executes an OpChain for preprocessing → inference → postprocessing.
 3. Results are written into Perception as one or more Layers.
-4. `amptracker` optionally stabilizes detections across frames and can append `trackTrace` output.
-5. `amposd` optionally visualizes Perception results on video frames.
-6. `ampsink` optionally streams the output to a browser via WebRTC.
-7. `ampperformance` records runtime performance information.
+4. `pektracker` optionally stabilizes detections across frames and can append `trackTrace` output.
+5. `pekosd` optionally visualizes Perception results on video frames.
+6. `peksink` optionally streams the output to a browser via WebRTC.
+7. `pekperformance` records runtime performance information.
 
 This modular architecture enables flexible composition while keeping the core inference engine reusable outside GStreamer.

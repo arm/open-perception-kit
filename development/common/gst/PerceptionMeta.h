@@ -9,19 +9,19 @@
 
 #include <gst/gst.h>
 
-#include "amp/Perception.h"
 #include "gst/GstMetaWrapper.h"
+#include "pek/Perception.h"
 
-namespace amp {
+namespace pek {
 
 struct PerceptionMetaTraits {
     using Payload = Perception;
 
     static const std::string_view api_name() {
-        return "com_arm_amp_meta_PerceptionAPI_v1";
+        return "com_arm_pek_meta_PerceptionAPI_v1";
     }
     static const std::string_view meta_name() {
-        return "com_arm_amp_meta_Perception";
+        return "com_arm_pek_meta_Perception";
     }
     static const std::span<const gchar *> tags() {
         static std::array<const gchar *, 4> t = {
@@ -41,4 +41,4 @@ struct PerceptionMetaTraits {
 
 using PerceptionMeta = Meta<PerceptionMetaTraits>;
 
-} // namespace amp
+} // namespace pek

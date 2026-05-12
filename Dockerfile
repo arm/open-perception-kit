@@ -1,7 +1,7 @@
 ######################################################################
-########## Base container defaults: bare minimum to run AMP ##########
+########## Base container defaults: bare minimum to run PEK ##########
 ######################################################################
-FROM debian:trixie-slim AS amp-base
+FROM debian:trixie-slim AS pek-base
 
 ARG ONNXRUNTIME_VERSION=1.18.1
 
@@ -73,9 +73,9 @@ RUN set -eux; \
   ort_url="https://github.com/microsoft/onnxruntime/releases/download/v${ONNXRUNTIME_VERSION}/${ort_tgz}"; \
   tmp_dir="$(mktemp -d)"; \
   curl -fsSL "$ort_url" | tar -xzf - -C "$tmp_dir"; \
-  mkdir -p /opt/amp-deps/onnxruntime; \
-  cp -r "$tmp_dir/$ort_dir/include" /opt/amp-deps/onnxruntime/; \
-  cp -r "$tmp_dir/$ort_dir/lib" /opt/amp-deps/onnxruntime/; \
+  mkdir -p /opt/pek-deps/onnxruntime; \
+  cp -r "$tmp_dir/$ort_dir/include" /opt/pek-deps/onnxruntime/; \
+  cp -r "$tmp_dir/$ort_dir/lib" /opt/pek-deps/onnxruntime/; \
   rm -rf "$tmp_dir"
 
 EXPOSE 8000
@@ -99,8 +99,8 @@ RUN set -eux; \
   echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/90-${USERNAME}"; \
   chmod 0440 "/etc/sudoers.d/90-${USERNAME}"; \
   mkdir -p /work && chown -R "${USER_UID}:${USER_GID}" /work; \
-  test -p /tmp/ampcomm || mkfifo --mode=640 /tmp/ampcomm && \
-  chown ${USERNAME} /tmp/ampcomm
+  test -p /tmp/pekcomm || mkfifo --mode=640 /tmp/pekcomm && \
+  chown ${USERNAME} /tmp/pekcomm
 
 USER ${USERNAME}
 WORKDIR /work
@@ -110,12 +110,12 @@ ENV GST_DEBUG=2 \
   GST_PLUGIN_PATH=/work/development/build/meson-out
 
 ENV LD_LIBRARY_PATH=""
-ENV LD_LIBRARY_PATH=/opt/amp-deps/onnxruntime/lib
+ENV LD_LIBRARY_PATH=/opt/pek-deps/onnxruntime/lib
 
 ######################################################################
 ################# Minimal container with docs and CI #################
 ######################################################################
-FROM amp-base AS amp-docs-base
+FROM pek-base AS pek-docs-base
 
 ARG USERNAME=devgoblin
 
@@ -140,10 +140,10 @@ RUN set -eux; \
 # Install PlantUML JAR into image layers for docs generation and SBOM visibility.
 ARG PLANTUML_VERSION=1.2026.2
 RUN set -eux; \
-  mkdir -p /opt/amp-deps; \
+  mkdir -p /opt/pek-deps; \
   wget --secure-protocol=TLSv1_2 \
     "https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}/plantuml-mit-${PLANTUML_VERSION}.jar" \
-    -O "/opt/amp-deps/plantuml-mit-${PLANTUML_VERSION}.jar"
+    -O "/opt/pek-deps/plantuml-mit-${PLANTUML_VERSION}.jar"
 
 USER ${USERNAME}
 WORKDIR /work
@@ -152,7 +152,7 @@ WORKDIR /work
 ######################################################################
 #################### PC Base Development Container ###################
 ######################################################################
-FROM amp-docs-base AS amp-dev-base
+FROM pek-docs-base AS pek-dev-base
 
 ARG USERNAME=devgoblin
 
@@ -176,7 +176,7 @@ RUN set -eux; \
   fi; \
   rm -rf /var/lib/apt/lists/*
 
-# Install Firefox for AMP's web-based UI and testing in case docker port forwarding fails.
+# Install Firefox for Perception Experience Kit's web-based UI and testing in case docker port forwarding fails.
 RUN set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
@@ -184,16 +184,16 @@ RUN set -eux; \
   rm -rf /var/lib/apt/lists/*
 
 # Install Python dev tool dependencies into an image-owned virtual environment.
-COPY tools/expkits-ci /tmp/amp-tools/expkits-ci
-COPY tools/plumber /tmp/amp-tools/plumber
+COPY tools/expkits-ci /tmp/pek-tools/expkits-ci
+COPY tools/plumber /tmp/pek-tools/plumber
 RUN set -eux; \
-  uv venv --system-site-packages /opt/amp-venvs/devtools; \
-  uv pip install --python /opt/amp-venvs/devtools/bin/python \
-  /tmp/amp-tools/expkits-ci \
-  /tmp/amp-tools/plumber; \
-  rm -rf /tmp/amp-tools
+  uv venv --system-site-packages /opt/pek-venvs/devtools; \
+  uv pip install --python /opt/pek-venvs/devtools/bin/python \
+  /tmp/pek-tools/expkits-ci \
+  /tmp/pek-tools/plumber; \
+  rm -rf /tmp/pek-tools
 
-ENV AMP_DEVTOOLS_VENV=/opt/amp-venvs/devtools
+ENV PEK_DEVTOOLS_VENV=/opt/pek-venvs/devtools
 
 USER ${USERNAME}
 WORKDIR /work
@@ -201,7 +201,7 @@ WORKDIR /work
 ######################################################################
 ###################### RPI5 Development Container ####################
 ######################################################################
-FROM amp-dev-base AS amp-dev-rpi5-h8
+FROM pek-dev-base AS pek-dev-rpi5-h8
 # The base stage switches to a non-root user; return to root for apt/system changes.
 ARG USERNAME=devgoblin
 
@@ -233,7 +233,7 @@ WORKDIR /work
 ######################################################################
 ################### RPI5 Development Container (H10) #################
 ######################################################################
-FROM amp-dev-base AS amp-dev-rpi5-h10
+FROM pek-dev-base AS pek-dev-rpi5-h10
 # The base stage switches to a non-root user; return to root for apt/system changes.
 ARG USERNAME=devgoblin
 
@@ -269,17 +269,17 @@ WORKDIR /work
 ######################################################################
 ###################### Deployment container ##########################
 ######################################################################
-FROM amp-docs-base AS amp-deployment-base
+FROM pek-docs-base AS pek-deployment-base
 
 ARG USERNAME=devgoblin
 
 USER root
-ARG AMP_PIPELINE=onnx
+ARG PEK_PIPELINE=onnx
 
 # Copy project into image for self-contained deployment
 COPY --chown=${USERNAME}:${USERNAME} . /work
 
-ENV AMP_PIPELINE=${AMP_PIPELINE}
+ENV PEK_PIPELINE=${PEK_PIPELINE}
 
 USER ${USERNAME}
 WORKDIR /work
@@ -289,7 +289,7 @@ ENTRYPOINT ["/work/scripts/private/deployment-process.sh"]
 ######################################################################
 ###################### Deployment container ##########################
 ######################################################################
-FROM amp-dev-base AS amp-dev-sonar
+FROM pek-dev-base AS pek-dev-sonar
 
 USER root
 
@@ -310,7 +310,7 @@ RUN set -eux; \
 ######################################################################
 ################ Rich development environment container ##############
 ######################################################################
-FROM amp-dev-sonar AS amp-dev-rich
+FROM pek-dev-sonar AS pek-dev-rich
 
 ARG USERNAME=devgoblin
 USER root

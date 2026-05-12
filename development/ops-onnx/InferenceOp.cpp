@@ -8,15 +8,15 @@
 #include <onnxruntime_cxx_api.h>
 
 #include "Inference.h"
-#include "amp/AttributeMap.h"
-#include "amp/BitmapView.h"
-#include "amp/ModelDescriptor.h"
-#include "amp/TensorView.h"
-#include "amp/Tools.h"
 #include "glib-object.h"
 #include "glib.h"
 #include "gst/gstpad.h"
 #include "op/OpChainContext.h"
+#include "pek/AttributeMap.h"
+#include "pek/BitmapView.h"
+#include "pek/ModelDescriptor.h"
+#include "pek/TensorView.h"
+#include "pek/Tools.h"
 
 #include <PerformanceTracer.h>
 
@@ -26,15 +26,15 @@ InferenceOp::InferenceOp() {}
 
 InferenceOp::~InferenceOp() {}
 
-amp::Result<void> InferenceOp::configure(const amp::AttributeMap &attributes) {
+pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
     std::string modelDescPath;
 
     try {
         modelDescPath = attributes.getString("modelDescriptor");
-    } catch (const amp::AttributeError &error) {
+    } catch (const pek::AttributeError &error) {
 
         return tl::unexpected(
-            AMP_ERROR(amp::ErrorFlag::InvalidOpChain,
+            PEK_ERROR(pek::ErrorFlag::InvalidOpChain,
                       fmt::format("Missing required attribute in InferenceOp: {}", error.what())));
     }
 
@@ -46,7 +46,7 @@ amp::Result<void> InferenceOp::configure(const amp::AttributeMap &attributes) {
             return setupResult;
         }
     } catch (const std::exception &e) {
-        return tl::unexpected(AMP_ERROR(amp::ErrorFlag::OnnxStartupException,
+        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::OnnxStartupException,
                                         fmt::format("OnnxRT startup error: {}", e.what())));
     }
 
@@ -55,10 +55,10 @@ amp::Result<void> InferenceOp::configure(const amp::AttributeMap &attributes) {
     return {};
 }
 
-amp::Result<void> InferenceOp::process(amp::OpChainContext &opChainContext) {
-    AMP_TRACE_SCOPE(fmt::format("onnx/Infer/{}", opChainContext.inferenceInfo.modelFamily));
+pek::Result<void> InferenceOp::process(pek::OpChainContext &opChainContext) {
+    PEK_TRACE_SCOPE(fmt::format("onnx/Infer/{}", opChainContext.inferenceInfo.modelFamily));
 
-    amp::BitmapView pipelineVideoFrame = opChainContext.bitmapViews["pipelineVideoFrame"];
+    pek::BitmapView pipelineVideoFrame = opChainContext.bitmapViews["pipelineVideoFrame"];
 
     // inference
     auto inferenceResult = inference->inference();
@@ -77,11 +77,11 @@ amp::Result<void> InferenceOp::process(amp::OpChainContext &opChainContext) {
     return {};
 }
 
-amp::Result<void> InferenceOp::bind(size_t index, const std::vector<amp::Op *> &ops) {
+pek::Result<void> InferenceOp::bind(size_t index, const std::vector<pek::Op *> &ops) {
     return {};
 }
 
-const amp::Model &InferenceOp::getModel() const {
+const pek::Model &InferenceOp::getModel() const {
     assert(inference);
     return inference->getModel();
 }

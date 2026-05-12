@@ -3,11 +3,11 @@ sidebar_position: 13
 sidebar_label: OpChain Example
 ---
 
-# Example OpChain in ampinfer
+# Example OpChain in pekinfer
 
 ## Model Cascading: Face-Driven Crop Loop With Preprocess → Inference → Postprocess
 
-This example shows a typical OpChain executed inside the `ampinfer` GStreamer element.
+This example shows a typical OpChain executed inside the `pekinfer` GStreamer element.
 The chain runs inference over multiple regions of interest derived from Perception content.
 The main pattern is: collect ROIs → create crops → loop over a subchain while crops remain.
 
@@ -18,10 +18,10 @@ The main pattern is: collect ROIs → create crops → loop over a subchain whil
 The chain is composed of four Ops executed once, followed by a second four-Op block that is repeated with `loopId = 2`.
 Each Op can read transient execution data from OpChainContext and write persistent results into Perception.
 
-- `amp-std-ops/InferenceController`
-- `amp-std-ops/GenericImagePreprocess`
-- `amp-onnx-ops/Inference`
-- `amp-std-ops/GenericPostprocess`
+- `pek-std-ops/InferenceController`
+- `pek-std-ops/GenericImagePreprocess`
+- `pek-onnx-ops/Inference`
+- `pek-std-ops/GenericPostprocess`
 
 ---
 
@@ -61,24 +61,24 @@ The `loopId` field ties Ops into a repeated execution group.
 {
   "ops": [
     {
-      "id": "amp-std-ops/InferenceController",
+      "id": "pek-std-ops/InferenceController",
       "attributes": {}
     },
     {
-      "id": "amp-std-ops/GenericImagePreprocess",
+      "id": "pek-std-ops/GenericImagePreprocess",
       "attributes": {
         "inputImageTensorIndex": 0,
         "inputImageSourceName": "pipelineVideoFrame"
       }
     },
     {
-      "id": "amp-onnx-ops/Inference",
+      "id": "pek-onnx-ops/Inference",
       "attributes": {
         "modelDescriptor": "/work/config/models/ultraface/model.json"
       }
     },
     {
-      "id": "amp-std-ops/GenericPostprocess",
+      "id": "pek-std-ops/GenericPostprocess",
       "attributes": {
         "parser": "UltrafaceParser",
         "normalizeOutputCoordinates": false,
@@ -87,14 +87,14 @@ The `loopId` field ties Ops into a repeated execution group.
       }
     },
     {
-      "id": "amp-std-ops/InferenceController",
+      "id": "pek-std-ops/InferenceController",
       "loopId": 1,
       "attributes": {
         "contentType": "humanFace"
       }
     },
     {
-      "id": "amp-std-ops/GenericImagePreprocess",
+      "id": "pek-std-ops/GenericImagePreprocess",
       "loopId": 1,
       "attributes": {
         "inputImageTensorIndex": 0,
@@ -102,14 +102,14 @@ The `loopId` field ties Ops into a repeated execution group.
       }
     },
     {
-      "id": "amp-onnx-ops/Inference",
+      "id": "pek-onnx-ops/Inference",
       "loopId": 1,
       "attributes": {
         "modelDescriptor": "/work/config/models/gaze-detection/model.json"
       }
     },
     {
-      "id": "amp-std-ops/GenericPostprocess",
+      "id": "pek-std-ops/GenericPostprocess",
       "loopId": 1,
       "attributes": {
         "parser": "GazeDetectionParser",
@@ -124,7 +124,7 @@ The `loopId` field ties Ops into a repeated execution group.
 
 ## Notes
 
-The example uses ONNX inference via amp-onnx-ops/Inference.
+The example uses ONNX inference via pek-onnx-ops/Inference.
 The same pattern applies to other runtimes by swapping the inference Op implementation.
-Perception is the persistent container that travels downstream and accumulates results across Ops and across GStreamer ampinfer element instances.
+Perception is the persistent container that travels downstream and accumulates results across Ops and across GStreamer pekinfer element instances.
 OpChainContext is transient and only valid during execution of the current chain.

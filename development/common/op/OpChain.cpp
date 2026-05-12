@@ -4,35 +4,35 @@
 
 #include "op/OpChain.h"
 
-#include "amp/Log.h"
-#include "amp/String.h"
+#include "pek/Log.h"
+#include "pek/String.h"
 
 #include "op/Op.h"
 #include "op/OpChainDescriptor.h"
 
 #include <unordered_set>
 
-using namespace amp;
+using namespace pek;
 
 const std::string &OpChain::getName() {
     return this->name;
 }
 
-amp::Result<void> OpChain::setupFromDescriptor(const amp::OpChainDescriptor &descriptor) {
+pek::Result<void> OpChain::setupFromDescriptor(const pek::OpChainDescriptor &descriptor) {
     name = descriptor.name;
 
     for (const auto &op : descriptor.ops) {
 
-        if (amp::utf8::count(op.id, '/') != 1) {
+        if (pek::utf8::count(op.id, '/') != 1) {
             return tl::unexpected(
-                AMP_ERROR(amp::ErrorFlag::InvalidData,
+                PEK_ERROR(pek::ErrorFlag::InvalidData,
                           fmt::format("Op id must be library/op, but found: [{}]", op.id)));
         }
 
-        std::string libName = amp::utf8::split(op.id, "/")[0];
-        std::string opName = amp::utf8::split(op.id, "/")[1];
+        std::string libName = pek::utf8::split(op.id, "/")[0];
+        std::string opName = pek::utf8::split(op.id, "/")[1];
 
-        amp::OpRef opRef;
+        pek::OpRef opRef;
         auto bindResult = opRef.bind(libName, opName);
         if (!bindResult) {
             return bindResult;
@@ -57,7 +57,7 @@ amp::Result<void> OpChain::setupFromDescriptor(const amp::OpChainDescriptor &des
         return tl::unexpected(std::move(chainBindResult.error()));
     }
 
-    amp::log("{}", amp::LogTools::enframe(this->toString(), "OpChain"));
+    pek::log("{}", pek::LogTools::enframe(this->toString(), "OpChain"));
 
     // validation
     auto validateResult = validate();
@@ -65,12 +65,12 @@ amp::Result<void> OpChain::setupFromDescriptor(const amp::OpChainDescriptor &des
         return tl::unexpected(std::move(validateResult.error()));
     }
 
-    amp::logn("OpChain is valid\n");
+    pek::logn("OpChain is valid\n");
 
     return {};
 }
 
-amp::Result<void> OpChain::validateGroupedLoopIds() {
+pek::Result<void> OpChain::validateGroupedLoopIds() {
     std::unordered_set<size_t> closed;
 
     bool havePrev = false;
@@ -97,7 +97,7 @@ amp::Result<void> OpChain::validateGroupedLoopIds() {
 
         // if id is non-zero and already closed, it's invalid
         if (id != 0 && closed.contains(id)) {
-            return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidOpChain,
+            return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InvalidOpChain,
                                                  "OpChain loopId values must be grouped together"));
         }
 
@@ -107,7 +107,7 @@ amp::Result<void> OpChain::validateGroupedLoopIds() {
     return {};
 }
 
-amp::Result<void> OpChain::validate() {
+pek::Result<void> OpChain::validate() {
     auto validateLoopIdsResult = validateGroupedLoopIds();
     if (!validateLoopIdsResult) {
         return validateLoopIdsResult;
@@ -115,9 +115,9 @@ amp::Result<void> OpChain::validate() {
     return {};
 }
 
-amp::Result<void> OpChain::setupFromFile(const std::string &filePath) {
-    amp::log("Loading OpChain from file: [{}]\n", filePath);
-    auto descResult = amp::OpChainDescriptor::fromFile(filePath);
+pek::Result<void> OpChain::setupFromFile(const std::string &filePath) {
+    pek::log("Loading OpChain from file: [{}]\n", filePath);
+    auto descResult = pek::OpChainDescriptor::fromFile(filePath);
     if (!descResult) {
         return tl::unexpected(std::move(descResult.error()));
     }
@@ -125,11 +125,11 @@ amp::Result<void> OpChain::setupFromFile(const std::string &filePath) {
     return setupFromDescriptor(*descResult);
 }
 
-void OpChain::add(amp::OpRef &opRef) {
+void OpChain::add(pek::OpRef &opRef) {
     opRefs.push_back(std::move(opRef));
 }
 
-amp::Result<void> OpChain::bind() {
+pek::Result<void> OpChain::bind() {
     opPtrs.resize(opRefs.size());
     for (size_t i = 0; i < opRefs.size(); i++) {
         opPtrs[i] = opRefs[i].get();
@@ -145,7 +145,7 @@ amp::Result<void> OpChain::bind() {
     return {};
 }
 
-amp::Result<void> OpChain::execute(amp::OpChainContext &opChainContext) {
+pek::Result<void> OpChain::execute(pek::OpChainContext &opChainContext) {
     size_t currentIndex = 0;
 
     // reset loop control flags

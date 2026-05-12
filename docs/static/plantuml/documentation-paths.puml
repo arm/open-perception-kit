@@ -1,11 +1,11 @@
 @startuml
-!include amp-style.puml
+!include pek-style.puml
 
-title AMP Documentation Learning Paths
+title Perception Experience Kit Documentation Learning Paths
 
 start
 
-:Open the AMP docs landing page;
+:Open the Perception Experience Kit docs landing page;
 
 if ("Do you want the shortest path\nto a first successful run?") then (yes)
   partition "Quick guide path" {
@@ -34,7 +34,7 @@ else (no)
     else (Deployment)
       :Topo-compatible deployment path;
     endif
-    :Build AMP, run tools/amp-menu,\nand inspect presets and endpoints;
+    :Build Perception Experience Kit, run tools/pek-menu,\nand inspect presets and endpoints;
   }
 endif
 
@@ -50,11 +50,11 @@ partition "Shared engineering path" {
 partition "Architecture understanding" {
   :Architectural overview;
   :Op system, OpChain example,\nand engine-independent inference flow;
-  :Perception and amp::Model;
-  :Element deep dives:\nampinfer, amposd,\nampperformance, and ampsink;
+  :Perception and pek::Model;
+  :Element deep dives:\npekinfer, pekosd,\npekperformance, and peksink;
 }
 
-:Understand how the whole repository\nfits together and where to extend it with your own content\nconforming to the AMP architecture and contribution guidelines;
+:Understand how the whole repository\nfits together and where to extend it with your own content\nconforming to the Perception Experience Kit architecture and contribution guidelines;
 stop
 
 @enduml

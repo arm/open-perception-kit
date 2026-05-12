@@ -50,7 +50,7 @@ if [ -d "$PLANTUML_SRC_DIR" ]; then
     echo "Regenerating PlantUML figures from $PLANTUML_SRC_DIR..."
     mkdir -p "$PLANTUML_OUT_DIR"
     if compgen -G "$PLANTUML_SRC_DIR"/*.puml > /dev/null; then
-        PLANTUML_JAR="${PLANTUML_JAR:-/opt/amp-deps/plantuml-mit-1.2026.2.jar}"
+        PLANTUML_JAR="${PLANTUML_JAR:-/opt/pek-deps/plantuml-mit-1.2026.2.jar}"
         if [ ! -f "$PLANTUML_JAR" ] && [ -f "/work/deps/plantuml-mit-1.2026.2.jar" ]; then
             PLANTUML_JAR="/work/deps/plantuml-mit-1.2026.2.jar"
         fi
@@ -104,7 +104,7 @@ cat > "$OUT_DIR/index.html" << 'EOF'
 <head>
   <meta charset="utf-8">
   <meta http-equiv="refresh" content="0; url=public/index.html">
-  <title>AMP Development Forge Documentation</title>
+  <title>Perception Experience Kit Documentation</title>
 </head>
 <body>
   <p><a href="public/index.html">Open the documentation</a>.</p>

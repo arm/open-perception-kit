@@ -1,4 +1,4 @@
-# AMP Development Forge – Copilot Instructions
+# Perception Experience Kit – Copilot Instructions
 
 Follow the repository root `AGENTS.md` first.
 
@@ -9,10 +9,10 @@ Follow the repository root `AGENTS.md` first.
   - `config/opchains/`
   - `config/pipelines/`
   - `development/ops-std/postproc/`
-- Shared types: `development/common/amp/`
+- Shared types: `development/common/pek/`
 - Op system: `development/common/op/`
 - GStreamer metadata: `development/common/gst/`
-- Launcher: `development/amp-menu/`
+- Launcher: `development/pek-menu/`
 - Tests: `development/tests/`
 - Docs: `docs/public/`
 
@@ -20,10 +20,10 @@ Follow the repository root `AGENTS.md` first.
 - Video-processing elements expect `BGRA` unless the task changes the contract.
 - Buffer metadata is `PerceptionMeta`.
 - OpChain loops use `loopId`.
-- `ampinfer` executes OpChains and writes `PerceptionMeta`.
-- `ampperformance` writes text into `Perception.perfdata`.
-- `amposd` renders overlays.
-- `ampsink` owns the WebRTC, HTTP, and control WebSocket stack.
+- `pekinfer` executes OpChains and writes `PerceptionMeta`.
+- `pekperformance` writes text into `Perception.perfdata`.
+- `pekosd` renders overlays.
+- `peksink` owns the WebRTC, HTTP, and control WebSocket stack.
 
 ## Working style
 - Reuse checked-in examples before inventing new patterns.
@@ -35,6 +35,6 @@ Follow the repository root `AGENTS.md` first.
 - Build: `./scripts/build-elements.sh debug [true|false]` or `./scripts/build-elements.sh release [true|false]`
 - Clean: `./scripts/build-elements.sh clean`
 - Tests: `./scripts/build-elements.sh debug true` then `meson test -C /work/development/build --print-errorlogs`
-- Pipeline dry-run: `./tools/amp-menu -p <pipeline-id-or-path>` if available
+- Pipeline dry-run: `./tools/pek-menu -p <pipeline-id-or-path>` if available
 - Docs and diagrams: `./scripts/gen-doc.sh`
 - Docs preview: `./scripts/serve-docs-plain.sh` or `./scripts/serve-docs.sh`

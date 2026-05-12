@@ -6,33 +6,33 @@
 
 #include <fmt/core.h>
 
-#include "amp/Perception.h"
-#include "amp/Result.h"
-#include "amp/Types.h"
+#include "pek/Perception.h"
+#include "pek/Result.h"
+#include "pek/Types.h"
 #include "tl/expected.hpp"
 
 #include <PerformanceTracer.h>
 
-using namespace amp;
+using namespace pek;
 
 InferenceControllerOp::InferenceControllerOp() {}
 InferenceControllerOp::~InferenceControllerOp() {}
 
-amp::Result<void> InferenceControllerOp::bind(size_t index, const std::vector<amp::Op *> &ops) {
+pek::Result<void> InferenceControllerOp::bind(size_t index, const std::vector<pek::Op *> &ops) {
     return {};
 }
 
-amp::Result<void> InferenceControllerOp::configure(const amp::AttributeMap &attributes) {
+pek::Result<void> InferenceControllerOp::configure(const pek::AttributeMap &attributes) {
     contentType = attributes.getStringOrDefault("contentType", "");
     return {};
 }
 
-amp::Result<void> InferenceControllerOp::process(amp::OpChainContext &opChainContext) {
-    amp::BitmapView *pipelineVideoFrame = opChainContext.getBitmapView("pipelineVideoFrame");
+pek::Result<void> InferenceControllerOp::process(pek::OpChainContext &opChainContext) {
+    pek::BitmapView *pipelineVideoFrame = opChainContext.getBitmapView("pipelineVideoFrame");
 
     // TODO: later it can be also audio data not video only
     if (pipelineVideoFrame == nullptr) {
-        return tl::unexpected(AMP_ERROR(amp::ErrorFlag::InvalidOpChain,
+        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidOpChain,
                                         "InferenceControllerOp needs pipelineVideoFrame"));
     }
 
@@ -52,7 +52,7 @@ amp::Result<void> InferenceControllerOp::process(amp::OpChainContext &opChainCon
         opChainContext.inferenceSourceUuid = videoFrame.uuid;
         opChainContext.rootLayer.detections.emplace_back(videoFrame);
 
-        amp::PixelRect rect;
+        pek::PixelRect rect;
         rect.x = 0;
         rect.y = 0;
         rect.width = pipelineVideoFrame->width;
@@ -68,7 +68,7 @@ amp::Result<void> InferenceControllerOp::process(amp::OpChainContext &opChainCon
         opChainContext.inferenceInfo.modelFamily = contentType;
 
         for (const auto &r : rects) {
-            amp::PixelRect rect;
+            pek::PixelRect rect;
             rect.x = (int)r.x;
             rect.y = (int)r.y;
             rect.width = (int)r.width;
