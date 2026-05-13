@@ -438,6 +438,18 @@ static inline float deg2rad(float d) {
     return d * 3.1415926535f / 180.0f;
 }
 
+static inline void gazeTo2d(float yawDeg, float pitchDeg, float &outX, float &outY) {
+    const float yaw = deg2rad(yawDeg);
+    const float pitch = deg2rad(pitchDeg);
+
+    // Match the provided yp_to_xyz() convention:
+    //   x = sin(yaw) * cos(pitch)
+    //   y = sin(pitch)
+    // For image coordinates, positive screen Y grows downward, so invert y.
+    outX = std::sin(yaw) * std::cos(pitch);
+    outY = -std::sin(pitch);
+}
+
 static inline void gazeEndpoint(float eyeX,
                                 float eyeY,
                                 float yawDeg,
@@ -445,24 +457,19 @@ static inline void gazeEndpoint(float eyeX,
                                 float lengthPx,
                                 float &outX,
                                 float &outY) {
-    const float yaw = deg2rad(yawDeg);
-    const float pitch = deg2rad(pitchDeg);
+    float gazeX = 0.0f;
+    float gazeY = 0.0f;
+    gazeTo2d(yawDeg, pitchDeg, gazeX, gazeY);
 
-    float dx = -std::tan(yaw);
-    float dy = -std::tan(pitch); // +pitch means up, but screen y grows down
-
-    const float n = std::sqrt(dx * dx + dy * dy);
+    const float n = std::sqrt(gazeX * gazeX + gazeY * gazeY);
     if (n <= 0.0f) {
         outX = eyeX;
         outY = eyeY;
         return;
     }
 
-    dx /= n;
-    dy /= n;
-
-    outX = eyeX + dx * lengthPx;
-    outY = eyeY + dy * lengthPx;
+    outX = eyeX + (gazeX / n) * lengthPx;
+    outY = eyeY + (gazeY / n) * lengthPx;
 }
 
 static void drawGazeVectors(Osd::Layer *layer, const pek::Perception &perception) {
