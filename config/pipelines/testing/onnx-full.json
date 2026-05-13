@@ -5,13 +5,13 @@
     "jpegdec !",
     "imagefreeze num-buffers=${NUM_FRAMES:-30} !",
     "videoconvert ! video/x-raw,format=BGRA,framerate=30/1 !",
-    "ampinfer opchain-path=/work/config/models/yolov11/opchain.json active=true !",
-    "ampinfer opchain-path=/work/config/models/ultraface/opchain.json active=true !",
-    "ampinfer opchain-path=/work/config/opchains/gaze-detection/opchain.json active=true !",
-    "ampinfer opchain-path=/work/config/models/mobilenetv2/opchain.json active=true !",
-    "ampinfer opchain-path=/work/config/models/osnet_x0_25/opchain.json active=true !",
-    "ampinfer opchain-path=/work/config/models/rvm/opchain.json active=true !",
-    "amptracker content-type=genericObject !",
-    "ampsink name=sink"
+    "pekinfer opchain-path=/work/config/models/yolov11/opchain.json active=true !",
+    "pekinfer opchain-path=/work/config/models/ultraface/opchain.json active=true !",
+    "pekinfer opchain-path=/work/config/opchains/gaze-detection/opchain.json active=true !",
+    "pekinfer opchain-path=/work/config/models/mobilenetv2/opchain.json active=true !",
+    "pekinfer opchain-path=/work/config/models/osnet_x0_25/opchain.json active=true !",
+    "pekinfer opchain-path=/work/config/models/rvm/opchain.json active=true !",
+    "pektracker content-type=genericObject !",
+    "peksink name=sink"
   ]
 }

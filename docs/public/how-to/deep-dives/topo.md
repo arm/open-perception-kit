@@ -3,18 +3,18 @@ sidebar_position: 9
 sidebar_label: Topo How-To
 ---
 
-# AMP Development Forge Topo How-To
+# Perception Experience Kit Topo How-To
 
 As an alternative to using a Dev Container, deployment can be done directly with Topo.
-This guide shows the shortest path from cloning AMP with Topo to deploying it to a remote target over SSH.
+This guide shows the shortest path from cloning Perception Experience Kit with Topo to deploying it to a remote target over SSH.
 
 The repository already includes Topo metadata in `compose.yaml`, so after cloning the project you can deploy it directly with the `topo` CLI.
 
 ## What will you learn from this documentation?
 
-If you follow this page successfully, you will learn how to clone AMP with Topo and deploy it to a remote target over SSH.
+If you follow this page successfully, you will learn how to clone Perception Experience Kit with Topo and deploy it to a remote target over SSH.
 
-At the end of this page, you should have a deployed AMP workspace on a reachable target and a simple way to repeat that deployment flow.
+At the end of this page, you should have a deployed Perception Experience Kit workspace on a reachable target and a simple way to repeat that deployment flow.
 
 ## Prerequisites
 
@@ -27,11 +27,11 @@ The `--target` flag accepts either an SSH config host alias or a `user@host` des
 ## Clone the project with Topo
 
 ```bash
-topo clone test git:https://github.com/Arm-Debug/amp-dev-forge.git
+topo clone test git:https://github.com/Arm-Debug/perception-experience-kit.git
 cd test
 ```
 
-This creates a local `test` directory containing the AMP Development Forge project.
+This creates a local `test` directory containing the Perception Experience Kit project.
 If you already cloned the repository another way, you can also run `topo deploy` from that existing working tree.
 
 ## Deploy to your target
@@ -57,10 +57,10 @@ topo health --target {ssh_target}
 
 ## Summary
 
-For a standard Topo-based AMP deployment, the workflow is:
+For a standard Topo-based Perception Experience Kit deployment, the workflow is:
 
 ```bash
-topo clone test git:https://github.com/Arm-Debug/amp-dev-forge.git
+topo clone test git:https://github.com/Arm-Debug/perception-experience-kit.git
 cd test
 topo deploy --target {ssh_target}
 ```

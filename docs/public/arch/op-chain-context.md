@@ -23,14 +23,14 @@ OpChain execution.
 
 ## Named Bitmap Views
 
-`std::map<std::string, amp::BitmapView> bitmapViews;`
+`std::map<std::string, pek::BitmapView> bitmapViews;`
 
 Named bitmap views provide shared image buffers accessible by Ops during execution.
 The most important entry is `"pipelineVideoFrame"`, which represents the video frame
 received from GStreamer and serves as the primary image source for processing.
 Ops may query these views by name to access intermediate or input image data.
 
-`amp::BitmapView *getBitmapView(const std::string &name);`
+`pek::BitmapView *getBitmapView(const std::string &name);`
 
 Returns a pointer to a named bitmap view if it exists, otherwise returns `nullptr`.
 
@@ -52,7 +52,7 @@ Allows an Op to stop the current loop early.
 
 ## Inference Crops and Crop UUIDs
 
-`std::vector<amp::PixelRect> inferenceImageCrops;`
+`std::vector<pek::PixelRect> inferenceImageCrops;`
 
 `std::vector<uint64_t> inferenceImageCropUuids;`
 

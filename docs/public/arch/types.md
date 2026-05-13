@@ -6,7 +6,7 @@ sidebar_label: Types
 # Types, Tensor Metadata, and Shape
 ## Core Primitives for Tensor I/O and Inference Contracts
 
-These headers define the low-level primitives used across the AMP inference stack:
+These headers define the low-level primitives used across the Perception Experience Kit inference stack:
 value types, tensor element types, data layout kinds, inference metadata, and tensor shapes.
 
 They sit on the hot path of preprocessing → inference → postprocessing, and they define
@@ -177,7 +177,7 @@ and mapping detections to specific crop windows.
 # Shape
 ## Tensor Dimension Representation
 
-`amp::Shape` represents a tensor’s dimensionality using a fixed-capacity design.
+`pek::Shape` represents a tensor’s dimensionality using a fixed-capacity design.
 
 ### Key Properties
 
@@ -207,7 +207,7 @@ A single shape mismatch can cause:
 - silent inference misinterpretation
 - crashes that manifest far away from the root cause
 
-In AMP, shape is part of the “contract” between:
+In Perception Experience Kit, shape is part of the “contract” between:
 
 - tensor builders (produce correctly shaped inputs)
 - inference backends (expect exact input dimensions)
@@ -264,7 +264,7 @@ strict compatibility constraints.
 # TensorView
 ## Non-Owning, Quantization-Agnostic Tensor Wrapper
 
-`amp::TensorView` is a lightweight, non-owning view over a contiguous block of
+`pek::TensorView` is a lightweight, non-owning view over a contiguous block of
 tensor memory.
 
 It is primarily intended for postprocessing and tensor parsers.  
@@ -283,8 +283,8 @@ A `TensorView` is constructed with:
 
 - `const void* data` — pointer to the raw tensor memory.
 - `size_t byteCount` — total buffer size in bytes.
-- `amp::Shape shape` — logical tensor shape.
-- `amp::Tdt type` — element type descriptor.
+- `pek::Shape shape` — logical tensor shape.
+- `pek::Tdt type` — element type descriptor.
 - `float scale`, `float zeroPoint` — quantization parameters.
 
 During construction:

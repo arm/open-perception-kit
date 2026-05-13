@@ -5,7 +5,7 @@ sidebar_label: Project Overview
 
 # Project Overview
 
-AMP Development Forge is a framework for building and running AI-enabled media workflows.
+Perception Experience Kit is a framework for building and running AI-enabled media workflows.
 
 At a high level, it combines:
 

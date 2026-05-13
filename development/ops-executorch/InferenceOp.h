@@ -4,22 +4,22 @@
 
 #pragma once
 
-#include "amp/Result.h"
 #include "op/Op.h"
 #include "op/OpChainContext.h"
+#include "pek/Result.h"
 
 #include "Inference.h"
 
 namespace exct {
 
-class InferenceOp : public amp::Op {
+class InferenceOp : public pek::Op {
   public:
     InferenceOp();
     virtual ~InferenceOp();
 
-    virtual amp::Result<void> configure(const amp::AttributeMap &attributes) override;
-    virtual amp::Result<void> bind(size_t index, const std::vector<amp::Op *> &ops) override;
-    virtual amp::Result<void> process(amp::OpChainContext &opChainContext) override;
+    virtual pek::Result<void> configure(const pek::AttributeMap &attributes) override;
+    virtual pek::Result<void> bind(size_t index, const std::vector<pek::Op *> &ops) override;
+    virtual pek::Result<void> process(pek::OpChainContext &opChainContext) override;
 
   private:
     std::unique_ptr<exct::Inference> inference;

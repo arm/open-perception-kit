@@ -3,25 +3,25 @@
  *************************************************************/
 
 #include "postproc/DummyParser.h"
-#include "amp/Perception.h"
-#include "amp/TensorParser.h"
-#include "amp/Types.h"
+#include "pek/Perception.h"
+#include "pek/TensorParser.h"
+#include "pek/Types.h"
 
 #include <cmath>
 #include <fmt/core.h>
 #include <string>
 
-using namespace amp;
+using namespace pek;
 
-amp::Result<void> DummyParser::parse(const amp::TensorParser::Input &input,
-                                     amp::Perception::Layer &detectionResult) {
+pek::Result<void> DummyParser::parse(const pek::TensorParser::Input &input,
+                                     pek::Perception::Layer &detectionResult) {
 
     bool log = input.attributes.getBoolOrDefault("log", false);
 
     if (log) {
         std::string log = "DummyParser got tensors: \n";
 
-        for (size_t i = 0; i < amp::MaxTensorCount; i++) {
+        for (size_t i = 0; i < pek::MaxTensorCount; i++) {
             if (input.tensors[i] == nullptr)
                 continue;
             log += input.tensors[i]->getShape().toString() + "\n";

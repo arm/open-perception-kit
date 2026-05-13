@@ -6,14 +6,14 @@
 
 #include <string>
 
-#include "amp/AttributeMap.h"
-#include "amp/Perception.h"
-#include "amp/Result.h"
-#include "amp/Tools.h"
+#include "pek/AttributeMap.h"
+#include "pek/Perception.h"
+#include "pek/Result.h"
+#include "pek/Tools.h"
 
 #include "op/OpChainContext.h"
 
-namespace amp {
+namespace pek {
 
 struct Op;
 
@@ -30,13 +30,13 @@ class OpRef {
     OpRef(OpRef &&other) noexcept;
     OpRef &operator=(OpRef &&other) noexcept;
 
-    amp::Op *get() const noexcept {
+    pek::Op *get() const noexcept {
         return op;
     }
-    amp::Op &operator*() const {
+    pek::Op &operator*() const {
         return *op;
     }
-    amp::Op *operator->() const noexcept {
+    pek::Op *operator->() const noexcept {
         return op;
     }
 
@@ -49,7 +49,7 @@ class OpRef {
     DynamicLibraryHandle dlHandle = nullptr;
     CreateFn createFn = nullptr;
     DeleteFn destroyFn = nullptr;
-    amp::Op *op = nullptr;
+    pek::Op *op = nullptr;
 };
 
-} // namespace amp
+} // namespace pek

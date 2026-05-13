@@ -1,25 +1,24 @@
-# AMP Development Forge
-![AMP CI Pipeline Nightly](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/amp-ci.yml/badge.svg?branch=main)
-![SonarQube Nightly](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/sonar.yml/badge.svg?branch=main)
+# Perception XPK
+![PEK CI Pipeline Nightly](https://github.com/Arm-Debug/perception-experience-kit/actions/workflows/pek-ci.yml/badge.svg?branch=main)
+![SonarQube Nightly](https://github.com/Arm-Debug/perception-experience-kit/actions/workflows/sonar.yml/badge.svg?branch=main)
 
-[AMP Development Forge](https://github.com/Arm-Debug/amp-dev-forge) is a framework for building and running AI-enabled media workflows. It provides a development environment for **AI media processing pipelines**, built for rapid testing, debugging, and deployment within containerized platforms.
-It helps teams move from raw input to meaningful output in a clear and repeatable way. Instead of treating each new use case as a one-off effort, the package provides a stable structure that can be reused and adapted.
+The Perception XPK is a framework for building and running AI-enabled media workflows.
 
-At a high level, it combines:
+For example, you could use it for:
+- creating a smart camera doorbell that recognizes when one or more people are present and responds in real time
+- creating tools that read labels, signs, or documents and act based on the text found
+
+Use it to prototype, test and deploy AI pipelines, turning raw media into meaningful output. It includes models for object detection, classification, tracking, segmentation, text recognition, voice activity detection and similar perception use cases.
+
+At a high level, the Perception XPK combines:
 - GStreamer-based media pipeline integration
 - an Op-based execution model for preprocessing, inference, and postprocessing
 - structured `Perception` results that downstream elements can render, track, or publish
 
-## For first-time users
-For rendered documentation instead of Markdown files, see the [AMP Development Forge Docusaurus documentation](https://docs.staging.devplatform.arm.com/perception-xpk).
-
-### Quick first run
-The quick-guide path is the fastest way to reach a working pipeline and then reconnect through the [Exercise Quick Guide](docs/public/how-to/quick-guides/exercise.md) into the same engineering path as the full setup flow.
-
-- [Windows/Linux quick guide](docs/public/how-to/quick-guides/win-lin.md)
-- [macOS quick guide](docs/public/how-to/quick-guides/mac.md)
-- [Raspberry Pi quick guide](docs/public/how-to/quick-guides/rpi.md)
-- The [tutorial video](https://armh.sharepoint.com/:v:/s/StrategyandEcosystems/IQCzFz6fgiUMSoOBeC9le6q-AYEuQd2FaDPcQFjF3_r5Y5g?nav=eyJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJTdHJlYW1XZWJBcHAiLCJyZWZlcnJhbFZpZXciOiJTaGFyZURpYWxvZy1MaW5rIiwicmVmZXJyYWxBcHBQbGF0Zm9ybSI6IldlYiIsInJlZmVycmFsTW9kZSI6InZpZXcifX0%3D) follows the usual path for a new user.
+## Get started
+- Run on [Raspberry Pi 5](docs/public/how-to/quick-guides/rpi.md) (recommended)
+- Run locally with the [macOS quick guide](docs/public/how-to/quick-guides/mac.md) or [Windows/Linux quick guide](docs/public/how-to/quick-guides/win-lin.md) / [tutorial video](https://armh.sharepoint.com/:v:/s/StrategyandEcosystems/IQCzFz6fgiUMSoOBeC9le6q-AYEuQd2FaDPcQFjF3_r5Y5g?nav=eyJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJTdHJlYW1XZWJBcHAiLCJyZWZlcnJhbFZpZXciOiJTaGFyZURpYWxvZy1MaW5rIiwicmVmZXJyYWxBcHBQbGF0Zm9ybSI6IldlYiIsInJlZmVycmFsTW9kZSI6InZpZXcifX0%3D)
+- After running your first pipeline, use the [Pipeline customisation guide](docs/public/how-to/quick-guides/exercise.md) to learn how to make your own and integrate a model
 
 ## Advanced paths
 
@@ -39,3 +38,4 @@ The architectural path provides a deeper understanding of the project, its curre
 - [Architectural overview](docs/public/arch/architectural-overview.md)
 - [Known limitations](docs/public/arch/known-limitations.md)
 
+For rendered documentation instead of Markdown files, see the [Perception XPK Docusaurus Site](https://docs.staging.devplatform.arm.com/amp-dev-forge/).

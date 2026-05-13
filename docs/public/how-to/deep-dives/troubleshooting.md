@@ -9,7 +9,7 @@ Use this page when the quick-guide path is mostly complete but the browser, SSH,
 
 ## Browser and WebRTC connection issues
 
-Microsoft Edge, Firefox, and Safari are the suggested browsers for the AMP web UI.
+Microsoft Edge, Firefox, and Safari are the suggested browsers for the Perception Experience Kit web UI.
 
 If the web UI opens but the video stays black, check the browser mDNS settings:
 
@@ -62,7 +62,7 @@ If SSH was enabled in Raspberry Pi Imager but does not start after boot, create 
 
 ## Camera handling and checking
 
-Camera source handling differs by platform and device. The quickest way to isolate issues is to validate the camera on the host before using it in an AMP pipeline.
+Camera source handling differs by platform and device. The quickest way to isolate issues is to validate the camera on the host before using it in an Perception Experience Kit pipeline.
 
 ### Raspberry Pi CSI cameras
 

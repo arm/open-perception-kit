@@ -4,16 +4,16 @@
 
 #pragma once
 
-#include "amp/BitmapView.h"
-#include "amp/Perception.h"
-#include "amp/TensorView.h"
-#include "amp/Types.h"
+#include "pek/BitmapView.h"
+#include "pek/Perception.h"
+#include "pek/TensorView.h"
+#include "pek/Types.h"
 #include <cstddef>
 #include <cstdint>
 #include <map>
 #include <vector>
 
-namespace amp {
+namespace pek {
 
 struct OpChainContext {
 
@@ -23,9 +23,9 @@ struct OpChainContext {
     bool breakLoop = false;
 
     // named bitmap views that ops can read/write, e.g. to share the video frame across multiple ops
-    std::map<std::string, amp::BitmapView> bitmapViews;
+    std::map<std::string, pek::BitmapView> bitmapViews;
 
-    amp::BitmapView *getBitmapView(const std::string &name) {
+    pek::BitmapView *getBitmapView(const std::string &name) {
         auto it = bitmapViews.find(name);
         if (it == bitmapViews.end()) {
             return nullptr;
@@ -34,14 +34,14 @@ struct OpChainContext {
     }
 
     // logical image tensor crops, inference loop consumes them, when ready inference loop ends
-    std::vector<amp::PixelRect> inferenceImageCrops;
+    std::vector<pek::PixelRect> inferenceImageCrops;
     std::vector<uint64_t> inferenceImageCropUuids;
 
     // info about the last executed inference
     uint64_t inferenceSourceUuid = 0;
     size_t inferenceOutputTensorCount = 0;
-    amp::TensorView inferenceOutputTensors[amp::MaxTensorCount];
-    amp::InferenceInfo inferenceInfo;
+    pek::TensorView inferenceOutputTensors[pek::MaxTensorCount];
+    pek::InferenceInfo inferenceInfo;
 
     bool hasRootLayer = false;
     Perception::Layer rootLayer;
@@ -50,4 +50,4 @@ struct OpChainContext {
     Perception *perception = nullptr;
 };
 
-} // namespace amp
+} // namespace pek

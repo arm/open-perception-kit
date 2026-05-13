@@ -22,7 +22,7 @@ ARCH=$(uname -m)
 log "Container architecture: $ARCH"
 
 # ---------- ONNX Runtime (verify only) ----------
-ORT_DIR="/opt/amp-deps/onnxruntime"
+ORT_DIR="/opt/pek-deps/onnxruntime"
 
 if [[ -d "$ORT_DIR/include" && -d "$ORT_DIR/lib" ]]; then
     log "Found ONNX Runtime in image: $ORT_DIR"
@@ -32,7 +32,7 @@ fi
 
 # ---------- PlantUML JAR (verify only) ----------
 WORK_PLANTUML_JAR="/work/deps/plantuml-mit-1.2026.2.jar"
-IMAGE_PLANTUML_JAR="/opt/amp-deps/plantuml-mit-1.2026.2.jar"
+IMAGE_PLANTUML_JAR="/opt/pek-deps/plantuml-mit-1.2026.2.jar"
 
 if [[ -f "$WORK_PLANTUML_JAR" ]]; then
     log "Found PlantUML JAR in workspace: $WORK_PLANTUML_JAR"

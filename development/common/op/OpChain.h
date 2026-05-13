@@ -4,37 +4,37 @@
 
 #pragma once
 
-#include "amp/Result.h"
 #include "op/Op.h"
 #include "op/OpChainDescriptor.h"
 #include "op/OpRef.h"
+#include "pek/Result.h"
 
 #include <vector>
 
-namespace amp {
+namespace pek {
 
 class OpChain {
     std::string name;
-    std::vector<amp::OpRef> opRefs;
-    std::vector<amp::Op *> opPtrs;
+    std::vector<pek::OpRef> opRefs;
+    std::vector<pek::Op *> opPtrs;
 
     // validation
-    amp::Result<void> validateGroupedLoopIds();
-    amp::Result<void> validate();
+    pek::Result<void> validateGroupedLoopIds();
+    pek::Result<void> validate();
 
   public:
     // creation
-    amp::Result<void> setupFromDescriptor(const amp::OpChainDescriptor &descriptor);
-    amp::Result<void> setupFromFile(const std::string &jsonFile);
+    pek::Result<void> setupFromDescriptor(const pek::OpChainDescriptor &descriptor);
+    pek::Result<void> setupFromFile(const std::string &jsonFile);
 
     const std::string &getName();
-    void add(amp::OpRef &opRef);
+    void add(pek::OpRef &opRef);
 
     // when all ops are added, bind them together, e.g. to let them know about each other
-    amp::Result<void> bind();
+    pek::Result<void> bind();
 
     // execute the chain, e.g. for one inference
-    amp::Result<void> execute(amp::OpChainContext &opChainContext);
+    pek::Result<void> execute(pek::OpChainContext &opChainContext);
 
     // debug
     std::string toString() const {
@@ -50,4 +50,4 @@ class OpChain {
     }
 };
 
-} // namespace amp
+} // namespace pek

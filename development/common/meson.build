@@ -6,15 +6,15 @@ common = shared_library(
     'gst/Tools.cpp',
     'gst/TensorMeta.cpp',
     
-    'amp/Result.cpp',
-    'amp/Tools.cpp',
-    'amp/ImageNetLabels.cpp',
-    'amp/CocoLabels.cpp',
-    'amp/ModelDescriptor.cpp',
+    'pek/Result.cpp',
+    'pek/Tools.cpp',
+    'pek/ImageNetLabels.cpp',
+    'pek/CocoLabels.cpp',
+    'pek/ModelDescriptor.cpp',
 
-    'amp/AudioBuffer.cpp',
+    'pek/AudioBuffer.cpp',
 
-    'amp/PerceptionSerializer.cpp',
+    'pek/PerceptionSerializer.cpp',
 
     'op/Op.cpp',
     'op/OpRef.cpp',
@@ -26,7 +26,7 @@ common = shared_library(
   ],
   include_directories: [ common_include ],  
   cpp_args: ['-DFMT_HEADER_ONLY'],
-  dependencies: [ amp_deps ],
+  dependencies: [ pek_deps ],
   gnu_symbol_visibility: 'default',
   install: false
 )

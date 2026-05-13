@@ -7,20 +7,20 @@
 #include <cmath>
 #include <fmt/core.h>
 
-using namespace amp;
+using namespace pek;
 
 Result<void> ObjectEmbeddingParser::parse(const TensorParser::Input &input,
                                           Perception::Layer &detectionResult) {
 
     if (!input.tensors[0]) {
         return tl::unexpected(
-            AMP_ERROR(ErrorFlag::InvalidData,
+            PEK_ERROR(ErrorFlag::InvalidData,
                       fmt::format("ObjectEmbeddingParser: missing required input tensor")));
     }
 
     const auto shape = input.tensors[0]->getShape();
     if (shape.dimensionCount != 2 || shape.valueCount[0] != 1) {
-        return tl::unexpected(AMP_ERROR(
+        return tl::unexpected(PEK_ERROR(
             ErrorFlag::InvalidData,
             fmt::format("ObjectEmbeddingParser expects [1,N], got {}", shape.toString())));
     }

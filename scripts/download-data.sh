@@ -2,7 +2,7 @@
 ################################################################
 # Copyright (C) 2025 Arm Limited. All rights reserved.
 ################################################################
-# Downloads demo video assets from the AMP public Box folder
+# Downloads demo video assets from the PEK public Box folder
 # into data/videos/. Skips files that already exist.
 #
 # Usage: ./scripts/download-data.sh

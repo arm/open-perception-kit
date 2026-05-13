@@ -29,13 +29,13 @@ void ExpectUniqueAssignedColumns(const std::vector<int> &assignment,
 
 TEST(HungarianAlgo, EmptyInputReturnsEmptyAssignment) {
     const std::vector<std::vector<float>> costMatrix;
-    const auto assignment = amp::algo::solveHungarian(costMatrix);
+    const auto assignment = pek::algo::solveHungarian(costMatrix);
     EXPECT_TRUE(assignment.empty());
 }
 
 TEST(HungarianAlgo, EmptyColumnsReturnsEmptyAssignment) {
     const std::vector<std::vector<float>> costMatrix = {{}};
-    const auto assignment = amp::algo::solveHungarian(costMatrix);
+    const auto assignment = pek::algo::solveHungarian(costMatrix);
     EXPECT_TRUE(assignment.empty());
 }
 
@@ -46,7 +46,7 @@ TEST(HungarianAlgo, SquareMatrixFindsOptimalAssignment) {
         {3, 2, 2},
     };
 
-    const auto assignment = amp::algo::solveHungarian(costMatrix);
+    const auto assignment = pek::algo::solveHungarian(costMatrix);
 
     ASSERT_EQ(assignment.size(), 3U);
     EXPECT_EQ(assignment[0], 1);
@@ -62,7 +62,7 @@ TEST(HungarianAlgo, WideMatrixKeepsRowCountAndAssignsDistinctColumns) {
         {10.0f, 9.0f, 1.0f, 9.0f},
     };
 
-    const auto assignment = amp::algo::solveHungarian(costMatrix);
+    const auto assignment = pek::algo::solveHungarian(costMatrix);
 
     ASSERT_EQ(assignment.size(), 2U);
     EXPECT_EQ(assignment[0], 1);
@@ -79,7 +79,7 @@ TEST(HungarianAlgo, TallMatrixUsesTransposePathAndMapsBackToOriginalRows) {
         {9.0f, 0.0f},
     };
 
-    const auto assignment = amp::algo::solveHungarian(costMatrix);
+    const auto assignment = pek::algo::solveHungarian(costMatrix);
 
     ASSERT_EQ(assignment.size(), 4U);
 

@@ -7,7 +7,7 @@ Binary camera-contact classifier for face crops.
 - Output: logits `[1, 2]` for `no contact` and `contact`
 - Postprocessor: `CameraContactParser`
 - Supported Perception result: `Perception::Classification` in a `cameraContact` layer
-- Typical use: run on detected face crops after a face detector and visualize the result in `amposd`
+- Typical use: run on detected face crops after a face detector and visualize the result in `pekosd`
 
 Note: the checked-in opchain still uses the legacy path `/work/config/models/cam_contact/model.json`.
 
@@ -27,7 +27,7 @@ The model outputs logits for two classes (contact / no contact). To get the fina
 
 ### Task
 Change my #file:opchain.json  and #file:model.json configuration to fit this new model. These files were copied from my gazedetection project without change.
-Change amposd in a way that it should draw a red circle to the persons face if the person isn't looking into the camera and a green circle if they are looking at the camera.
+Change pekosd in a way that it should draw a red circle to the persons face if the person isn't looking into the camera and a green circle if they are looking at the camera.
 Similarly to #file:YoloParser.cpp  and #file:GazeDetectionParser.cpp I need similar post processing elements except the CameraContact post processor should make sense of the new models output tensor.
 Check my #codebase and make the needed modifications to make this model work.
 

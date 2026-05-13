@@ -4,7 +4,7 @@
 
 #include "InferenceOp.h"
 #include "Inference.h"
-#include "amp/Result.h"
+#include "pek/Result.h"
 #include "tl/expected.hpp"
 
 #include <fmt/core.h>
@@ -15,19 +15,19 @@ using namespace exct;
 InferenceOp::InferenceOp() {}
 InferenceOp::~InferenceOp() {}
 
-amp::Result<void> InferenceOp::bind(size_t index, const std::vector<amp::Op *> &ops) {
+pek::Result<void> InferenceOp::bind(size_t index, const std::vector<pek::Op *> &ops) {
     return {};
 }
 
-amp::Result<void> InferenceOp::configure(const amp::AttributeMap &attributes) {
+pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
     std::string modelDescPath;
 
     try {
         modelDescPath = attributes.getString("modelDescriptor");
-    } catch (const amp::AttributeError &error) {
+    } catch (const pek::AttributeError &error) {
 
         return tl::unexpected(
-            AMP_ERROR(amp::ErrorFlag::InvalidOpChain,
+            PEK_ERROR(pek::ErrorFlag::InvalidOpChain,
                       fmt::format("Missing required attribute in InferenceOp: {}", error.what())));
     }
 
@@ -39,7 +39,7 @@ amp::Result<void> InferenceOp::configure(const amp::AttributeMap &attributes) {
             return setupResult;
         }
     } catch (const std::exception &e) {
-        return tl::unexpected(AMP_ERROR(amp::ErrorFlag::OnnxStartupException,
+        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::OnnxStartupException,
                                         fmt::format("OnnxRT startup error: {}", e.what())));
     }
 
@@ -48,6 +48,6 @@ amp::Result<void> InferenceOp::configure(const amp::AttributeMap &attributes) {
     return {};
 }
 
-amp::Result<void> InferenceOp::process(amp::OpChainContext &opCainContext) {
+pek::Result<void> InferenceOp::process(pek::OpChainContext &opCainContext) {
     return {};
 }

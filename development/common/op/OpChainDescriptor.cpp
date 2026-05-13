@@ -4,23 +4,23 @@
 
 #include "op/OpChainDescriptor.h"
 
-#include "amp/File.h"
+#include "pek/File.h"
 
-using namespace amp;
+using namespace pek;
 
-amp::Result<OpChainDescriptor> OpChainDescriptor::fromJson(const std::string &jsonString) {
+pek::Result<OpChainDescriptor> OpChainDescriptor::fromJson(const std::string &jsonString) {
 
     try {
         json json = json::parse(jsonString);
         return json.get<OpChainDescriptor>();
     } catch (const json::exception &e) {
-        return tl::unexpected(AMP_ERROR(
-            amp::ErrorFlag::InvalidData,
+        return tl::unexpected(PEK_ERROR(
+            pek::ErrorFlag::InvalidData,
             fmt::format("Error occured while parsing OpChainDescriptor json: {}", e.what())));
     }
 }
 
-amp::Result<OpChainDescriptor> OpChainDescriptor::fromFile(const std::string &path) {
-    std::string content = amp::fs::loadTextOrDefault(path, "");
+pek::Result<OpChainDescriptor> OpChainDescriptor::fromFile(const std::string &path) {
+    std::string content = pek::fs::loadTextOrDefault(path, "");
     return fromJson(content);
 }

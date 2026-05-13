@@ -6,11 +6,11 @@
         "decodebin !",
         "videoconvert !",
         "video/x-raw,format=BGRA !",
-        "ampinfer opchain-path=/work/config/models/yolov11/opchain.json active=true !",
-        "ampinfer opchain-path=/work/config/models/osnet_x0_25/opchain.json active=true !",
-        "amptracker content-type=genericObject !",
-        "amposd enabled=true !",
-        "ampcomm method=file file-name=${AMPCOMM_FILE:-/tmp/ampcomm} !",
-        "ampsink name=sink"
+        "pekinfer opchain-path=/work/config/models/yolov11/opchain.json active=true !",
+        "pekinfer opchain-path=/work/config/models/osnet_x0_25/opchain.json active=true !",
+        "pektracker content-type=genericObject !",
+        "pekosd enabled=true !",
+        "pekcomm method=file file-name=${PEKCOMM_FILE:-/tmp/pekcomm} !",
+        "peksink name=sink"
     ]
 }

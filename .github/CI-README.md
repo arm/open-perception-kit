@@ -7,16 +7,16 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 ## What does `.github/docker-compose.yml` do?
 
-- Sets up the docker environment and creates easily accessible services for amp-ci
+- Sets up the docker environment and creates easily accessible services for pek-ci
 
-## What does `.github/workflows/amp-ci.yml` do?
+## What does `.github/workflows/pek-ci.yml` do?
 
 - Runs the actual checks
 
 ## Functionalities
 
 - **Triggers:** Runs on pull requests, manual dispatch, and nightly schedule.
-- **Branch and PR logic:** Only runs on non-draft PRs, or when the `run-amp-ci` label is added to a draft PR.
+- **Branch and PR logic:** Only runs on non-draft PRs, or when the `run-pek-ci` label is added to a draft PR.
 - **init-workspace:** Prepares the workspace and environment.
 - **build-changed-applications:** Builds only the applications changed in a PR.
 - **build-all-applications:** Builds all applications (nightly or manual trigger).

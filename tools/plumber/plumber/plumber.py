@@ -73,18 +73,18 @@ def read_fifo_lines(fifo_path: str):
 
 # ---------- Subprocess management ----------
 
-def start_pipeline(amp_menu: str, pipeline_name: str, extra_args: List[str], fifo_path: str) -> subprocess.Popen:
+def start_pipeline(pek_menu: str, pipeline_name: str, extra_args: List[str], fifo_path: str) -> subprocess.Popen:
     """
-    Start 'amp-menu <pipeline_name> ...' in background.
+    Start 'pek-menu <pipeline_name> ...' in background.
     """
 
-    cmd = [amp_menu, pipeline_name] + extra_args
+    cmd = [pek_menu, pipeline_name] + extra_args
 
     # Copy current environment
     env = os.environ.copy()
 
-    # Set AMPCOMM_FILE for this subprocess only
-    env["AMPCOMM_FILE"] = fifo_path
+    # Set PEKCOMM_FILE for this subprocess only
+    env["PEKCOMM_FILE"] = fifo_path
 
     return subprocess.Popen(
         cmd,
@@ -308,7 +308,7 @@ def run_save_mode(args) -> int:
     if not fifo.exists():
         os.mkfifo(args.fifo)
 
-    proc = start_pipeline(args.amp_menu, args.pipeline, args.amp_menu_args, args.fifo)
+    proc = start_pipeline(args.pek_menu, args.pipeline, args.pek_menu_args, args.fifo)
 
     def shutdown(*_):
         stop_process(proc)
@@ -349,7 +349,7 @@ def run_check_mode(args) -> int:
         print(f"Ground truth file is empty: {args.file}", file=sys.stderr)
         return 2
 
-    proc = start_pipeline(args.amp_menu, args.pipeline, args.amp_menu_args, args.fifo)
+    proc = start_pipeline(args.pek_menu, args.pipeline, args.pek_menu_args, args.fifo)
 
     failures = 0
     compared = 0
@@ -400,11 +400,11 @@ def run_check_mode(args) -> int:
 
 def build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        description="Tester tool for amp-menu pipeline FIFO perception output.",
+        description="Tester tool for pek-menu pipeline FIFO perception output.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
-    p.add_argument("pipeline", help="Pipeline name to start via amp-menu (e.g. 'onnx').")
+    p.add_argument("pipeline", help="Pipeline name to start via pek-menu (e.g. 'onnx').")
 
     p.add_argument(
         "mode",
@@ -417,13 +417,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="NDJSON file path: output file in save mode, input file in check mode.",
     )
 
-    p.add_argument("--fifo", default="/tmp/ampcomm", help="Path to FIFO used by ampcomm.")
-    p.add_argument("--amp-menu", default="/work/tools/amp-menu", help="Path to amp-menu executable.")
+    p.add_argument("--fifo", default="/tmp/pekcomm", help="Path to FIFO used by pekcomm.")
+    p.add_argument("--pek-menu", default="/work/tools/pek-menu", help="Path to pek-menu executable.")
     p.add_argument(
-        "--amp-menu-args",
+        "--pek-menu-args",
         nargs=argparse.REMAINDER,
         default=[],
-        help="Extra args passed to amp-menu after the pipeline name. Example: --amp-menu-args --foo bar",
+        help="Extra args passed to pek-menu after the pipeline name. Example: --pek-menu-args --foo bar",
     )
 
     p.add_argument("--limit", type=int, default=0, help="Stop after N messages (0 = no limit).")

@@ -8,17 +8,17 @@
 #include <string>
 #include <vector>
 
-#include "amp/AttributeMap.h"
-#include "amp/Model.h"
-#include "amp/Result.h"
+#include "pek/AttributeMap.h"
+#include "pek/Model.h"
+#include "pek/Result.h"
 
 #include "op/OpChainContext.h"
 
-namespace amp {
+namespace pek {
 
 // interface for ops that can provide tensor IO information
 struct OpInterfaceInference {
-    virtual const amp::Model &getModel() const = 0;
+    virtual const pek::Model &getModel() const = 0;
     virtual uint8_t *getTensorDataAddress(size_t index) const = 0;
 };
 
@@ -32,7 +32,7 @@ struct Op {
     // called when an instance is created Op can setup itself
     virtual Result<void> configure(const AttributeMap &attributes) = 0;
     // called when the OpChain is built, here the Op can get info from the other Op instances
-    virtual Result<void> bind(size_t index, const std::vector<amp::Op *> &ops) = 0;
+    virtual Result<void> bind(size_t index, const std::vector<pek::Op *> &ops) = 0;
     // called to make the Op do its job
     virtual Result<void> process(OpChainContext &opChainContext) = 0;
 
@@ -49,4 +49,4 @@ struct Op {
     }
 };
 
-} // namespace amp
+} // namespace pek

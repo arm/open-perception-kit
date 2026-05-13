@@ -2,14 +2,14 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 #include "postproc/UltrafaceParser.h"
-#include "amp/Perception.h"
+#include "pek/Perception.h"
 
 #include <algorithm>
 #include <cmath>
 #include <fmt/core.h>
 #include <vector>
 
-using namespace amp;
+using namespace pek;
 
 // IoU between two boxes (x,y = top-left, w,h = size)
 inline float iou(const Perception::Rect &a, const Perception::Rect &b) {
@@ -52,7 +52,7 @@ nonMaxSuppression(const std::vector<Perception::Detection> &detections,
     std::vector<Perception::Detection> candidates;
     candidates.reserve(detections.size());
     for (const auto &det : detections) {
-        const auto &d = std::get<amp::Perception::Rect>(det);
+        const auto &d = std::get<pek::Perception::Rect>(det);
 
         if (d.confidence >= scoreThreshold)
             candidates.push_back(d);
@@ -65,8 +65,8 @@ nonMaxSuppression(const std::vector<Perception::Detection> &detections,
     std::sort(candidates.begin(),
               candidates.end(),
               [](const Perception::Detection &da, const Perception::Detection &db) {
-                  const auto &a = std::get<amp::Perception::Rect>(da);
-                  const auto &b = std::get<amp::Perception::Rect>(db);
+                  const auto &a = std::get<pek::Perception::Rect>(da);
+                  const auto &b = std::get<pek::Perception::Rect>(db);
                   return a.confidence > b.confidence;
               });
 
@@ -181,20 +181,20 @@ static std::vector<Anchor> generateAnchors(size_t image_w, size_t image_h) {
 
 static std::vector<Anchor> anchors;
 
-static amp::Result<ValidatedUltraFaceInput>
-validateParseInput(const amp::TensorParser::Input &input) {
+static pek::Result<ValidatedUltraFaceInput>
+validateParseInput(const pek::TensorParser::Input &input) {
     const size_t modelWidth = input.inferenceInfo.image.modelWidth;
     const size_t modelHeight = input.inferenceInfo.image.modelHeight;
     if (modelWidth == 0 || modelHeight == 0) {
         return tl::unexpected(
-            AMP_ERROR(ErrorFlag::InvalidData,
+            PEK_ERROR(ErrorFlag::InvalidData,
                       fmt::format("UltraFaceParser: model dimensions must be > 0, got {}x{}",
                                   modelWidth,
                                   modelHeight)));
     }
 
     if (modelWidth != 320 || modelHeight != 240) {
-        return tl::unexpected(AMP_ERROR(
+        return tl::unexpected(PEK_ERROR(
             ErrorFlag::InvalidData,
             fmt::format("UltraFaceParser: unsupported model dimensions {}x{}, expected 320x240",
                         modelWidth,
@@ -204,7 +204,7 @@ validateParseInput(const amp::TensorParser::Input &input) {
     const TensorView *scores = input.tensors[0];
     const TensorView *boxes = input.tensors[1];
     if (!scores || !boxes) {
-        return tl::unexpected(AMP_ERROR(ErrorFlag::InvalidData,
+        return tl::unexpected(PEK_ERROR(ErrorFlag::InvalidData,
                                         "UltraFaceParser: score and box tensors are required"));
     }
 
@@ -212,43 +212,43 @@ validateParseInput(const amp::TensorParser::Input &input) {
     const auto boxesShape = boxes->getShape();
     if (scoresShape.dimensionCount != 3) {
         return tl::unexpected(
-            AMP_ERROR(ErrorFlag::InvalidData,
+            PEK_ERROR(ErrorFlag::InvalidData,
                       fmt::format("UltraFaceParser: scores tensor must be 3D, got {}D",
                                   scoresShape.dimensionCount)));
     }
     if (boxesShape.dimensionCount != 3) {
         return tl::unexpected(
-            AMP_ERROR(ErrorFlag::InvalidData,
+            PEK_ERROR(ErrorFlag::InvalidData,
                       fmt::format("UltraFaceParser: boxes tensor must be 3D, got {}D",
                                   boxesShape.dimensionCount)));
     }
     if (scoresShape.valueCount[0] != 1) {
         return tl::unexpected(
-            AMP_ERROR(ErrorFlag::InvalidData,
+            PEK_ERROR(ErrorFlag::InvalidData,
                       fmt::format("UltraFaceParser: scores batch size must be 1, got {}",
                                   scoresShape.valueCount[0])));
     }
     if (boxesShape.valueCount[0] != 1) {
         return tl::unexpected(
-            AMP_ERROR(ErrorFlag::InvalidData,
+            PEK_ERROR(ErrorFlag::InvalidData,
                       fmt::format("UltraFaceParser: boxes batch size must be 1, got {}",
                                   boxesShape.valueCount[0])));
     }
     if (scoresShape.valueCount[2] != 2) {
         return tl::unexpected(
-            AMP_ERROR(ErrorFlag::InvalidData,
+            PEK_ERROR(ErrorFlag::InvalidData,
                       fmt::format("UltraFaceParser: scores tensor last dimension must be 2, got {}",
                                   scoresShape.valueCount[2])));
     }
     if (boxesShape.valueCount[2] != 4) {
         return tl::unexpected(
-            AMP_ERROR(ErrorFlag::InvalidData,
+            PEK_ERROR(ErrorFlag::InvalidData,
                       fmt::format("UltraFaceParser: boxes tensor last dimension must be 4, got {}",
                                   boxesShape.valueCount[2])));
     }
     if (scoresShape.valueCount[1] != boxesShape.valueCount[1]) {
         return tl::unexpected(
-            AMP_ERROR(ErrorFlag::InvalidData,
+            PEK_ERROR(ErrorFlag::InvalidData,
                       fmt::format("UltraFaceParser: score and box counts differ: {} vs {}",
                                   scoresShape.valueCount[1],
                                   boxesShape.valueCount[1])));
@@ -260,7 +260,7 @@ validateParseInput(const amp::TensorParser::Input &input) {
 
     const size_t detectionCount = boxesShape.valueCount[1];
     if (anchors.size() != detectionCount) {
-        return tl::unexpected(AMP_ERROR(
+        return tl::unexpected(PEK_ERROR(
             ErrorFlag::InvalidData,
             fmt::format("UltraFaceParser: anchor count {} does not match detection count {}",
                         anchors.size(),
@@ -273,8 +273,8 @@ validateParseInput(const amp::TensorParser::Input &input) {
 
 // ----------------------------------------------------------------------------
 
-amp::Result<void> amp::UltraFaceParser::parse(const amp::TensorParser::Input &input,
-                                              amp::Perception::Layer &detectionResult) {
+pek::Result<void> pek::UltraFaceParser::parse(const pek::TensorParser::Input &input,
+                                              pek::Perception::Layer &detectionResult) {
 
     const float confThreshold =
         (float)input.attributes.getDoubleOrDefault("confidenceThreshold", 0.5);

@@ -5,7 +5,7 @@
 #include "ModNetSegmentationParser.h"
 #include <algorithm>
 
-namespace amp {
+namespace pek {
 
 Result<void> ModNetSegmentationParser::parse(const Input &input, Perception::Layer &layer) {
     layer.contentType = "segmentation";
@@ -17,7 +17,7 @@ Result<void> ModNetSegmentationParser::parse(const Input &input, Perception::Lay
     // MODNet outputs a single tensor: alpha matte [1, 1, H, W]
     const auto *outputTensor = input.tensors[0];
     if (!outputTensor) {
-        return tl::unexpected(AMP_ERROR(ErrorFlag::InvalidData, "No output tensor"));
+        return tl::unexpected(PEK_ERROR(ErrorFlag::InvalidData, "No output tensor"));
     }
 
     const auto shape = outputTensor->getShape();
@@ -25,7 +25,7 @@ Result<void> ModNetSegmentationParser::parse(const Input &input, Perception::Lay
     // Validate shape: [1, 1, height, width]
     if (shape.dimensionCount != 4 || shape.valueCount[0] != 1 || shape.valueCount[1] != 1) {
         return tl::unexpected(
-            AMP_ERROR(ErrorFlag::InvalidData, "Invalid shape: expected [1,1,H,W]"));
+            PEK_ERROR(ErrorFlag::InvalidData, "Invalid shape: expected [1,1,H,W]"));
     }
 
     size_t height = shape.valueCount[2];
@@ -58,4 +58,4 @@ Result<void> ModNetSegmentationParser::parse(const Input &input, Perception::Lay
     return {};
 }
 
-} // namespace amp
+} // namespace pek

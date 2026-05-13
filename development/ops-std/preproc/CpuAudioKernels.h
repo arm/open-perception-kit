@@ -4,8 +4,8 @@
 
 #pragma once
 
-namespace amp {
+namespace pek {
 
 struct AudioOps {};
 
-} // namespace amp
+} // namespace pek

@@ -5,7 +5,7 @@ sidebar_label: Contribution
 
 # Contribution
 
-This page describes the normal contribution flow for AMP Development Forge.
+This page describes the normal contribution flow for Perception Experience Kit.
 
 ## What will you learn from this documentation?
 
@@ -80,7 +80,7 @@ When opening a PR:
 - check the developer checklist in the PR template
 - make sure documentation is updated when applicable
 
-If CI needs to be retriggered, add the `run-amp-ci` label. If it was already present, remove it and add it again.
+If CI needs to be retriggered, add the `run-pek-ci` label. If it was already present, remove it and add it again.
 
 ## What to update for common changes
 

@@ -86,7 +86,7 @@ This separation ensures:
 New models can be integrated by implementing a corresponding TensorParser
 without modifying the core execution engine.
 
-The default parsers are located in **amp-std-ops**.
+The default parsers are located in **pek-std-ops**.
 
 ---
 
@@ -154,7 +154,7 @@ This is another segmentation-style path that shares the same `contentType`.
 ## Object Embedding Parser
 
 Parses embedding outputs into `Perception::ObjectEmbedding`.
-This is typically used together with `amptracker` or other ReID-style flows.
+This is typically used together with `pektracker` or other ReID-style flows.
 
 ## Dummy Parser
 

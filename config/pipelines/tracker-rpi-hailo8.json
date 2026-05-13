@@ -1,16 +1,16 @@
 {
-  "description": "Object tracking pipeline using the Hailo opchain with the default video source and ampsink video sink.",
+  "description": "Object tracking pipeline using the Hailo opchain with the default video source and peksink video sink.",
   "loop": true,
   "pipeline": [
     "filesrc location=/work/data/videos/GettyImages-1298072556.mov !",
     "decodebin !",
     "videoconvert !",
     "video/x-raw,format=BGRA !",
-    "ampinfer opchain-path=/work/config/opchains/tracking/opchain-hailo.json active=false !",
-    "amptracker content-type=genericObject !",
-    "ampperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
-    "amposd enabled=true !",
-    "ampsink name=sink"
+    "pekinfer opchain-path=/work/config/opchains/tracking/opchain-hailo.json active=false !",
+    "pektracker content-type=genericObject !",
+    "pekperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
+    "pekosd enabled=true !",
+    "peksink name=sink"
   ],
   "alternative-source-image": [
     "filesrc location=/work/data/images/katana.jpg !",
@@ -37,8 +37,8 @@
   "alternative-sink": [
     "filesink location=/work/data/output/full-dev.mp4"
   ],
-  "alternative-sink-ampsink-with-audio": [
-    "ampsink name=sink",
+  "alternative-sink-peksink-with-audio": [
+    "peksink name=sink",
     "alsasrc device=hw:2,0 do-timestamp=true !",
     "audioconvert ! audioresample !",
     "audio/x-raw,rate=48000,channels=2 !",

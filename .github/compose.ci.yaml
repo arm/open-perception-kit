@@ -1,87 +1,87 @@
 services:
-  amp-docs-base: &amp-docs-base
+  pek-docs-base: &pek-docs-base
     extends:
       file: ../compose.base.yaml
-      service: amp-common-dev
+      service: pek-common-dev
 
     network_mode: bridge
-    container_name: amp-docs-base
-    hostname: amp-docs-base
+    container_name: pek-docs-base
+    hostname: pek-docs-base
     build:
       context: ..
       dockerfile: Dockerfile
-      target: amp-docs-base
+      target: pek-docs-base
 
-  amp-dev-base: &amp-dev-base
+  pek-dev-base: &pek-dev-base
     extends:
       file: ../compose.base.yaml
-      service: amp-common-dev
+      service: pek-common-dev
 
     network_mode: bridge
-    container_name: amp-dev-base
-    hostname: amp-dev-base
+    container_name: pek-dev-base
+    hostname: pek-dev-base
     build:
       context: ..
       dockerfile: Dockerfile
-      target: amp-dev-base
+      target: pek-dev-base
 
-  amp-release-with-ut:
-    <<: *amp-docs-base
-    container_name: amp-release-with-ut
-    hostname: amp-release-with-ut
+  pek-release-with-ut:
+    <<: *pek-docs-base
+    container_name: pek-release-with-ut
+    hostname: pek-release-with-ut
     command: |
       bash -c '
         .devcontainer/setup.sh &&
-        .devcontainer/platform_init.sh amp-dev-base &&
+        .devcontainer/platform_init.sh pek-dev-base &&
         ./scripts/build-elements.sh release true &&
         meson test -C development/build --print-errorlogs
       '
 
-  amp-valgrind-check:
-    <<: *amp-docs-base
-    container_name: amp-valgrind-check
-    hostname: amp-valgrind-check
+  pek-valgrind-check:
+    <<: *pek-docs-base
+    container_name: pek-valgrind-check
+    hostname: pek-valgrind-check
     command: |
       bash -c '
         .devcontainer/setup.sh &&
-        .devcontainer/platform_init.sh amp-dev-base &&
+        .devcontainer/platform_init.sh pek-dev-base &&
         ./scripts/testing/valgrind/test-elements-with-valgrind.sh clean --pipeline only-onnx-yolo
       '
 
-  amp-quality-check-pull-request:
-    <<: *amp-dev-base
-    container_name: amp-quality-check-pull-request
+  pek-quality-check-pull-request:
+    <<: *pek-dev-base
+    container_name: pek-quality-check-pull-request
     command: |
       bash -c '
         .devcontainer/devsetup.sh &&
-        .devcontainer/platform_init.sh amp-dev-base &&
+        .devcontainer/platform_init.sh pek-dev-base &&
         source /work/tools/.venv/bin/activate &&
         expkits-ci --all-checks --pr-target-branch ${PULL_REQUEST_TARGET_BRANCH}
       '
 
-  amp-quality-check-full:
-    <<: *amp-dev-base
-    container_name: amp-quality-check-full
+  pek-quality-check-full:
+    <<: *pek-dev-base
+    container_name: pek-quality-check-full
     command: |
       bash -c '
         .devcontainer/devsetup.sh &&
-        .devcontainer/platform_init.sh amp-dev-base &&
+        .devcontainer/platform_init.sh pek-dev-base &&
         ./scripts/gen-doc.sh &&
         source /work/tools/.venv/bin/activate &&
         expkits-ci --clang-format-check --python-format-check --cmake-format-check --shell-format-check --license-header-check
       '
 
-  amp-sonar-check:
+  pek-sonar-check:
     extends: 
       file: ../compose.base.yaml
-      service: amp-common-dev
-    container_name: amp-sonar-check
-    hostname: amp-sonar-check
+      service: pek-common-dev
+    container_name: pek-sonar-check
+    hostname: pek-sonar-check
     network_mode: bridge
     build:
       context: ..
       dockerfile: Dockerfile
-      target: amp-dev-sonar 
+      target: pek-dev-sonar 
     environment:
       PROJECT_ROOT: /work/development
       BUILD_DIR: /work/development/build
@@ -95,7 +95,7 @@ services:
     command: |
       bash -c '
         .devcontainer/devsetup.sh &&
-        .devcontainer/platform_init.sh amp-dev-base &&
+        .devcontainer/platform_init.sh pek-dev-base &&
         source /work/tools/.venv/bin/activate &&
         ./scripts/build-elements.sh debug true --extra-setup-args=-Db_coverage=true,--wipe &&
         meson test -C "$$BUILD_DIR" --print-errorlogs &&
@@ -104,17 +104,17 @@ services:
           -Dsonar.branch.name="$$SONAR_BRANCH"
       '
 
-  amp-sonar-check-release:
+  pek-sonar-check-release:
     extends: 
       file: ../compose.base.yaml
-      service: amp-common-dev
-    container_name: amp-sonar-check-release
-    hostname: amp-sonar-check-release
+      service: pek-common-dev
+    container_name: pek-sonar-check-release
+    hostname: pek-sonar-check-release
     network_mode: bridge
     build:
       context: ..
       dockerfile: Dockerfile
-      target: amp-dev-sonar 
+      target: pek-dev-sonar 
     environment:
       PROJECT_ROOT: /work/development
       BUILD_DIR: /work/development/build
@@ -127,7 +127,7 @@ services:
     command: |
       bash -c '
         .devcontainer/devsetup.sh &&
-        .devcontainer/platform_init.sh amp-dev-base &&
+        .devcontainer/platform_init.sh pek-dev-base &&
         source /work/tools/.venv/bin/activate &&
         ./scripts/build-elements.sh debug true --extra-setup-args=-Db_coverage=true,--wipe &&
         meson test -C "$$BUILD_DIR" --print-errorlogs &&

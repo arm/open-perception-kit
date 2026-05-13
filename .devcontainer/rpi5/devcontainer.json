@@ -1,5 +1,5 @@
 {
-  "name": "RPI5 H8 amp-dev-forge",
+  "name": "RPI5 H8 perception-experience-kit",
   "dockerComposeFile": [
     "${localWorkspaceFolder}/.devcontainer/compose.devcont.yaml",
     "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.video.yaml",
@@ -7,13 +7,13 @@
     "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.npu.yaml",
     "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.shared_memory.yaml"
   ],
-  "service": "amp-dev-rpi5-h8",
+  "service": "pek-dev-rpi5-h8",
   "runServices": [
-    "amp-dev-rpi5-h8"
+    "pek-dev-rpi5-h8"
   ],
   "remoteUser": "devgoblin",
   "workspaceFolder": "/work",
-  "initializeCommand": "bash .devcontainer/platform_init.sh amp-dev-rpi5-h8",
+  "initializeCommand": "bash .devcontainer/platform_init.sh pek-dev-rpi5-h8",
   "containerEnv": {
     "CONTAINER_TYPE": "default",
     "HOST_OS": "${localEnv:OSTYPE}",

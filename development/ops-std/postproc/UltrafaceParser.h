@@ -4,18 +4,18 @@
 
 #pragma once
 
-#include "amp/Perception.h"
-#include "amp/Result.h"
-#include "amp/TensorParser.h"
-#include "amp/TensorView.h"
+#include "pek/Perception.h"
+#include "pek/Result.h"
+#include "pek/TensorParser.h"
+#include "pek/TensorView.h"
 
 //
-namespace amp {
+namespace pek {
 
-struct UltraFaceParser : public amp::TensorParser {
+struct UltraFaceParser : public pek::TensorParser {
 
-    virtual amp::Result<void> parse(const amp::TensorParser::Input &input,
-                                    amp::Perception::Layer &output) override;
+    virtual pek::Result<void> parse(const pek::TensorParser::Input &input,
+                                    pek::Perception::Layer &output) override;
 };
 
-} // namespace amp
+} // namespace pek

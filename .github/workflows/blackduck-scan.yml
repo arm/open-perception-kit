@@ -32,7 +32,7 @@ jobs:
           submodules: recursive
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
@@ -288,8 +288,8 @@ jobs:
       - name: Prepare Meson wrap dependencies
         run: |
           set -euo pipefail
-          dev_image="amp-dev-forge-bd:${GITHUB_SHA}"
-          docker build -t "${dev_image}" --target amp-dev-base "${GITHUB_WORKSPACE}"
+          dev_image="perception-experience-kit-bd:${GITHUB_SHA}"
+          docker build -t "${dev_image}" --target pek-dev-base "${GITHUB_WORKSPACE}"
 
           docker run --rm \
             -u "$(id -u):$(id -g)" \

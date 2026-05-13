@@ -18,8 +18,8 @@
 
 #include <sys/mman.h>
 
-#include "amp/Result.h"
-#include "amp/String.h"
+#include "pek/Result.h"
+#include "pek/String.h"
 
 using namespace hailort;
 
@@ -27,27 +27,27 @@ Inference::Inference() {}
 
 Inference::~Inference() {}
 
-amp::Result<hailo_format_type_t> Inference::ampTypeToHailoType(amp::Tdt type) {
+pek::Result<hailo_format_type_t> Inference::pekTypeToHailoType(pek::Tdt type) {
     switch (type) {
-    case amp::Tdt::Uint8:
+    case pek::Tdt::Uint8:
         return HAILO_FORMAT_TYPE_UINT8;
-    case amp::Tdt::Float32:
+    case pek::Tdt::Float32:
         return HAILO_FORMAT_TYPE_FLOAT32;
     default:
         return tl::make_unexpected(
-            AMP_ERROR(amp::ErrorFlag::InvalidData, "Unsupported tensor type for HailoRT"));
+            PEK_ERROR(pek::ErrorFlag::InvalidData, "Unsupported tensor type for HailoRT"));
     }
 }
 
-amp::Result<amp::Tdt> Inference::hailoTypeToAmpType(hailo_format_type_t type) {
+pek::Result<pek::Tdt> Inference::hailoTypeToPekType(hailo_format_type_t type) {
     switch (type) {
     case HAILO_FORMAT_TYPE_UINT8:
-        return amp::Tdt::Uint8;
+        return pek::Tdt::Uint8;
     case HAILO_FORMAT_TYPE_FLOAT32:
-        return amp::Tdt::Float32;
+        return pek::Tdt::Float32;
     default:
         return tl::make_unexpected(
-            AMP_ERROR(amp::ErrorFlag::InvalidData, "Unsupported HailoRT format type"));
+            PEK_ERROR(pek::ErrorFlag::InvalidData, "Unsupported HailoRT format type"));
     }
 }
 
@@ -72,9 +72,9 @@ Inference::Buffer Inference::allocateBuffer(size_t byteCount) {
     return b;
 }
 
-amp::Result<amp::Shape> Inference::hailoVstreamToAmpSize(const hailo_vstream_info_t &info,
+pek::Result<pek::Shape> Inference::hailoVstreamToPekSize(const hailo_vstream_info_t &info,
                                                          size_t batchSize) {
-    amp::Shape s;
+    pek::Shape s;
 
     // Hailo vstream_info_t exposes (height, width, features) only. Batch is implicit (we drive
     // batch size = 1). Treat these as (H, W, F).
@@ -112,7 +112,7 @@ amp::Result<amp::Shape> Inference::hailoVstreamToAmpSize(const hailo_vstream_inf
         s.valueCount[3] = static_cast<int>(F);
     } else {
         return tl::make_unexpected(
-            AMP_ERROR(amp::ErrorFlag::InvalidData,
+            PEK_ERROR(pek::ErrorFlag::InvalidData,
                       fmt::format("Unsupported HailoRT vstream format order {}",
                                   static_cast<int>(info.format.order))));
     }
@@ -120,7 +120,7 @@ amp::Result<amp::Shape> Inference::hailoVstreamToAmpSize(const hailo_vstream_inf
     return s;
 }
 
-amp::Result<void> Inference::setupFromJson(const std::string &filePath) {
+pek::Result<void> Inference::setupFromJson(const std::string &filePath) {
 
     auto descResult = ModelDescriptor::fromFile(filePath);
     if (!descResult) {
@@ -129,9 +129,9 @@ amp::Result<void> Inference::setupFromJson(const std::string &filePath) {
 
     { // setup model file name
         std::string modelRoot = filePath;
-        if (amp::utf8::contains(modelRoot, '/')) {
-            size_t lastSlashAt = amp::utf8::lastIndexOf(modelRoot, '/');
-            modelRoot = amp::utf8::left(modelRoot, lastSlashAt + 1);
+        if (pek::utf8::contains(modelRoot, '/')) {
+            size_t lastSlashAt = pek::utf8::lastIndexOf(modelRoot, '/');
+            modelRoot = pek::utf8::left(modelRoot, lastSlashAt + 1);
         } else {
             modelRoot = "";
         }
@@ -146,9 +146,9 @@ amp::Result<void> Inference::setupFromJson(const std::string &filePath) {
     return {};
 }
 
-amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
+pek::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
     this->modelDescriptor = modelDesc;
-    this->model = amp::Model();
+    this->model = pek::Model();
     this->model.engine = "hailort";
     this->model.modelFamily = this->modelDescriptor.modelFamily;
     this->setupReady = false;
@@ -158,7 +158,7 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
         const hailo_status initStatus = hailo_init_vdevice_params(&params);
         if (HAILO_SUCCESS != initStatus) {
             return tl::make_unexpected(
-                AMP_ERROR(amp::ErrorFlag::InvalidData,
+                PEK_ERROR(pek::ErrorFlag::InvalidData,
                           fmt::format("hailo_init_vdevice_params failed, status {}",
                                       static_cast<int>(initStatus))));
         }
@@ -168,7 +168,7 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
 
         // HailoRT service mode is only valid on specific devices (for example Hailo15).
         // Keep it disabled by default and allow explicit opt-in via env var.
-        const char *mpsEnv = std::getenv("AMP_HAILO_MULTI_PROCESS_SERVICE");
+        const char *mpsEnv = std::getenv("PEK_HAILO_MULTI_PROCESS_SERVICE");
         const bool mpsRequested =
             (nullptr != mpsEnv) &&
             ((0 == std::strcmp(mpsEnv, "1")) || (0 == std::strcmp(mpsEnv, "true")) ||
@@ -189,7 +189,7 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
             auto fallbackVdeviceExp = hailort::VDevice::create(params);
             if (!fallbackVdeviceExp) {
                 return tl::make_unexpected(
-                    AMP_ERROR(amp::ErrorFlag::InvalidData,
+                    PEK_ERROR(pek::ErrorFlag::InvalidData,
                               fmt::format("Failed to create Hailo VDevice: {}",
                                           static_cast<int>(fallbackVdeviceExp.status()))));
             }
@@ -198,9 +198,9 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
             const char *hint = params.multi_process_service
                                    ? " (multi_process_service enabled; verify hailort_service is "
                                      "running and reachable or disable it via "
-                                     "AMP_HAILO_MULTI_PROCESS_SERVICE=0)"
+                                     "PEK_HAILO_MULTI_PROCESS_SERVICE=0)"
                                    : "";
-            return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData,
+            return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
                                                  fmt::format("Failed to create Hailo VDevice: {}{}",
                                                              static_cast<int>(vdeviceExp.status()),
                                                              hint)));
@@ -211,7 +211,7 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
         auto inferModelExp = this->vdevice->create_infer_model(this->modelDescriptor.modelFile);
         if (!inferModelExp) {
             return tl::make_unexpected(
-                AMP_ERROR(amp::ErrorFlag::InvalidData,
+                PEK_ERROR(pek::ErrorFlag::InvalidData,
                           fmt::format("Failed to create infer model for HEF [{}]: {}",
                                       this->modelDescriptor.modelFile,
                                       static_cast<int>(inferModelExp.status()))));
@@ -235,12 +235,12 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
         auto inputInfosExp = this->inferModel->hef().get_input_vstream_infos();
         if (!inputInfosExp) {
             return tl::make_unexpected(
-                AMP_ERROR(amp::ErrorFlag::InvalidData, "Failed to query HEF input vstream infos"));
+                PEK_ERROR(pek::ErrorFlag::InvalidData, "Failed to query HEF input vstream infos"));
         }
         auto outputInfosExp = this->inferModel->hef().get_output_vstream_infos();
         if (!outputInfosExp) {
             return tl::make_unexpected(
-                AMP_ERROR(amp::ErrorFlag::InvalidData, "Failed to query HEF output vstream infos"));
+                PEK_ERROR(pek::ErrorFlag::InvalidData, "Failed to query HEF output vstream infos"));
         }
 
         // Configure input and output tensors based on HEF defaults.
@@ -269,7 +269,7 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
         auto configuredExp = this->inferModel->configure();
         if (!configuredExp) {
             return tl::make_unexpected(
-                AMP_ERROR(amp::ErrorFlag::InvalidData,
+                PEK_ERROR(pek::ErrorFlag::InvalidData,
                           fmt::format("Failed to configure infer model: {}",
                                       static_cast<int>(configuredExp.status()))));
         }
@@ -280,21 +280,21 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
         auto bindingsExp = this->configuredInferModel->create_bindings();
         if (!bindingsExp) {
             return tl::make_unexpected(
-                AMP_ERROR(amp::ErrorFlag::InvalidData, "Failed to create HailoRT bindings"));
+                PEK_ERROR(pek::ErrorFlag::InvalidData, "Failed to create HailoRT bindings"));
         }
         this->bindings =
             std::make_unique<hailort::ConfiguredInferModel::Bindings>(bindingsExp.release());
 
-        // Build amp::Model internal representation from HEF vstream infos and configurations.
+        // Build pek::Model internal representation from HEF vstream infos and configurations.
         this->model.inputs.resize(inputInfos.size());
         this->model.outputs.resize(outputInfos.size());
 
         for (size_t i = 0; i < inputInfos.size(); ++i) {
-            auto typeExp = hailoTypeToAmpType(inputInfos[i].format.type);
+            auto typeExp = hailoTypeToPekType(inputInfos[i].format.type);
             if (!typeExp) {
                 return tl::unexpected{typeExp.error()};
             }
-            auto shapeExp = hailoVstreamToAmpSize(inputInfos[i], batchSize);
+            auto shapeExp = hailoVstreamToPekSize(inputInfos[i], batchSize);
             if (!shapeExp) {
                 return tl::unexpected{shapeExp.error()};
             }
@@ -303,17 +303,17 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
             this->model.inputs[i].valueType = *typeExp;
             this->model.inputs[i].quantArguments.scale = inputInfos[i].quant_info.qp_scale;
             this->model.inputs[i].quantArguments.zeroPoint = inputInfos[i].quant_info.qp_zp;
-            this->model.inputs[i].dataKind = amp::DataKind::ImageRgbHwc; // amp::DataKind::Unknown;
+            this->model.inputs[i].dataKind = pek::DataKind::ImageRgbHwc; // pek::DataKind::Unknown;
             this->model.inputs[i].shape = *shapeExp;
         }
 
         for (size_t i = 0; i < outputInfos.size(); ++i) {
-            auto typeExp = hailoTypeToAmpType(outputInfos[i].format.type);
+            auto typeExp = hailoTypeToPekType(outputInfos[i].format.type);
             if (!typeExp) {
                 return tl::unexpected{typeExp.error()};
             }
 
-            auto shapeExp = hailoVstreamToAmpSize(outputInfos[i], 1);
+            auto shapeExp = hailoVstreamToPekSize(outputInfos[i], 1);
             if (!shapeExp) {
                 return tl::unexpected{shapeExp.error()};
             }
@@ -326,11 +326,11 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
         }
 
         // Allocate and bind I/O buffers.
-        for (size_t i = 0; i < amp::MaxTensorCount; ++i) {
+        for (size_t i = 0; i < pek::MaxTensorCount; ++i) {
             inputBuffers[i] = Buffer();
             outputBuffers[i] = Buffer();
             outputTensorPointers[i] = nullptr;
-            outputTensorFinalShapes[i] = amp::Shape();
+            outputTensorFinalShapes[i] = pek::Shape();
         }
 
         for (size_t i = 0; i < inputNames.size(); ++i) {
@@ -342,7 +342,7 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
                 MemoryView(inputBuffers[i].data.get(), frameSize));
             if (HAILO_SUCCESS != st) {
                 return tl::make_unexpected(
-                    AMP_ERROR(amp::ErrorFlag::InvalidData,
+                    PEK_ERROR(pek::ErrorFlag::InvalidData,
                               fmt::format("Failed to set input buffer for [{}], status {}",
                                           name,
                                           static_cast<int>(st))));
@@ -358,7 +358,7 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
                 MemoryView(outputBuffers[i].data.get(), frameSize));
             if (HAILO_SUCCESS != st) {
                 return tl::make_unexpected(
-                    AMP_ERROR(amp::ErrorFlag::InvalidData,
+                    PEK_ERROR(pek::ErrorFlag::InvalidData,
                               fmt::format("Failed to set output buffer for [{}], status {}",
                                           name,
                                           static_cast<int>(st))));
@@ -371,23 +371,23 @@ amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
         this->setupReady = true;
         fmt::print("HailoRT inference setup ready for model [{}]\n", modelDesc.modelFile);
     } catch (const std::exception &e) {
-        return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData,
+        return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
                                              fmt::format("HailoRT setup exception: {}", e.what())));
     }
 
     return {};
 }
 
-amp::Result<void> Inference::inference(std::chrono::milliseconds timeout) {
+pek::Result<void> Inference::inference(std::chrono::milliseconds timeout) {
     if (!setupReady || !configuredInferModel || !bindings) {
-        return tl::make_unexpected(AMP_ERROR(amp::ErrorFlag::InvalidData,
+        return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
                                              "HailoRT inference called before successful setup"));
     }
 
     hailo_status st = configuredInferModel->run(*bindings, timeout);
     if (HAILO_SUCCESS != st) {
         return tl::make_unexpected(
-            AMP_ERROR(amp::ErrorFlag::InvalidData,
+            PEK_ERROR(pek::ErrorFlag::InvalidData,
                       fmt::format("HailoRT run failed, status {}", static_cast<int>(st))));
     }
 

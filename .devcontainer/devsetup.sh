@@ -23,7 +23,7 @@ trap 'die "failed at line $LINENO"' ERR
 TOOLS_DIR="/work/tools"
 VENV_DIR="$TOOLS_DIR/.venv"
 BASHRC="$HOME/.bashrc"
-IMAGE_DEVTOOLS_VENV="${AMP_DEVTOOLS_VENV:-/opt/amp-venvs/devtools}"
+IMAGE_DEVTOOLS_VENV="${PEK_DEVTOOLS_VENV:-/opt/pek-venvs/devtools}"
 
 log "Executing ./.devcontainer/devsetup.sh (dev extras)"
 
@@ -67,15 +67,15 @@ if [[ \$- == *i* ]] && [[ -z \${VIRTUAL_ENV:-} ]] && [[ -f $VENV_DIR/bin/activat
   source $VENV_DIR/bin/activate
 fi"
 
-log "Configuring AMP terminal welcome in $BASHRC"
+log "Configuring PEK terminal welcome in $BASHRC"
 append_once \
-    "# Show AMP terminal welcome in interactive bash shells" \
+    "# Show PEK terminal welcome in interactive bash shells" \
     "
-# Show AMP terminal welcome in interactive bash shells
-if [[ \$- == *i* ]] && [[ -z \${AMP_TERMINAL_INIT_ACTIVE:-} ]] && [[ -f /work/scripts/private/amp-terminal-init.sh ]]; then
-  AMP_TERMINAL_INIT_SKIP_BASHRC=1
-  source /work/scripts/private/amp-terminal-init.sh
-  unset AMP_TERMINAL_INIT_SKIP_BASHRC
+# Show PEK terminal welcome in interactive bash shells
+if [[ \$- == *i* ]] && [[ -z \${PEK_TERMINAL_INIT_ACTIVE:-} ]] && [[ -f /work/scripts/private/pek-terminal-init.sh ]]; then
+  PEK_TERMINAL_INIT_SKIP_BASHRC=1
+  source /work/scripts/private/pek-terminal-init.sh
+  unset PEK_TERMINAL_INIT_SKIP_BASHRC
 fi"
 EXPKITS_ARG_EVAL='eval "$(register-python-argcomplete expkits-ci)"'
 append_once "$EXPKITS_ARG_EVAL" "$EXPKITS_ARG_EVAL"

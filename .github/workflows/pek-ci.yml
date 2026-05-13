@@ -1,0 +1,99 @@
+name: Perception Experience Kit CI Pipeline
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main, "feature/**", "sandbox/**" ]
+    types: [ opened, synchronize, reopened, ready_for_review, labeled ]
+  schedule:
+    - cron: "0 2 * * *" # Every day at 2 AM UTC'
+
+jobs:
+  quality-checks:
+    name: Run quality checks in Docker
+    runs-on: ubuntu-latest
+    if: |
+      (github.event.pull_request.draft == false) ||
+      (github.event_name == 'pull_request' && github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+    env:
+      python_ver: "3.12.1"
+      DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ref: ${{ github.head_ref }}
+
+      - name: Build docker image
+        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-docs-base
+          pek-dev-base
+
+      - name: Check Repo Quality gate (nightly)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: |
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-quality-check-full
+
+      - name: Upload documentation artifact
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: pek-doc
+          path: "${{ github.workspace }}/development/build/doc"
+          if-no-files-found: warn
+          retention-days: 10
+
+      - name: Check Repo Quality gate (PR)
+        if: github.event_name == 'pull_request'
+        run: |
+          export PULL_REQUEST_TARGET_BRANCH="${{ github.base_ref }}"
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-quality-check-pull-request
+
+      - name: Perception Experience Kit release build and unit test run
+        if: github.event_name == 'pull_request' || github.event_name == 'schedule' ||
+          github.event_name == 'workflow_dispatch'
+        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm
+          pek-release-with-ut
+
+      - name: Run Valgrind checks
+        id: valgrind_checks
+        continue-on-error: true # Do not block PR until the initial ones are fixed
+        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-valgrind-check
+
+      - name: Upload Valgrind logs on failure
+        if: ${{ steps.valgrind_checks.outcome == 'failure' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: valgrind-logs
+          path: |
+            ${{ github.workspace }}/scripts/testing/valgrind/logs
+          if-no-files-found: warn
+          retention-days: 10
+
+  check-checkboxes:
+    name: Check PR template checkboxes
+    runs-on: ubuntu-latest
+    if: |
+      (github.event.pull_request.draft == false) ||
+      (github.event_name == 'pull_request' && github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check PR template checkboxes
+        uses: actions/github-script@v8
+        with:
+          script: |
+            if (!context.payload.pull_request) {
+              console.log("This workflow must be run on pull_request events.");
+            } else {
+              const prBody = context.payload.pull_request.body;
+              const unchecked = prBody.match(/-\s\[( |x)\]/g)
+                ?.filter(checkbox => checkbox === '- [ ]');
+              if (!prBody) {
+                core.setFailed("PR body is empty or undefined.");
+              } else if (!unchecked || unchecked.length === 0) {
+                console.log("All checkboxes are checked.");
+              } else {
+                core.setFailed(`Some checkboxes are not checked:\n${unchecked.join('\n')}`);
+              }
+            }

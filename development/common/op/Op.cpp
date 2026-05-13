@@ -6,4 +6,4 @@
 
 #include <fmt/format.h>
 
-using namespace amp;
+using namespace pek;

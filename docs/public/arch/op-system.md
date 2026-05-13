@@ -7,7 +7,7 @@ sidebar_label: Op System
 ## Modular Operation Framework and Execution Model
 
 The **Op system** is the modular execution framework that powers the
-`ampinfer` GStreamer element.
+`pekinfer` GStreamer element.
 
 It defines how processing units (**Ops**) are implemented, dynamically loaded,
 assembled into micropipelines (**OpChains**), and executed within a live
@@ -17,7 +17,7 @@ Conceptually:
 
 - **Ops** are small, single-responsibility processing units.
 - **OpChains** are ordered micropipelines built from Ops.
-- **ampinfer** is the GStreamer element that hosts and executes an OpChain
+- **pekinfer** is the GStreamer element that hosts and executes an OpChain
   for each media-driven execution step (e.g., per video frame).
 
 # Architectural Positioning
@@ -26,16 +26,16 @@ The system operates at two distinct levels:
 
 ### 1. GStreamer Level
 
-`ampinfer` is a GStreamer element inserted into a standard media pipeline:
+`pekinfer` is a GStreamer element inserted into a standard media pipeline:
 
-v4l2src → videoconvert → ampinfer → autovideosink
+v4l2src → videoconvert → pekinfer → autovideosink
 
-`ampinfer` receives buffers (e.g., video frames) from the pipeline and
+`pekinfer` receives buffers (e.g., video frames) from the pipeline and
 triggers inference processing.
 
 ### 2. OpChain Level (micropipeline)
 
-Inside `ampinfer`, an **OpChain** executes as a self-contained micropipeline:
+Inside `pekinfer`, an **OpChain** executes as a self-contained micropipeline:
 
 ```
 [InferenceController]
@@ -53,7 +53,7 @@ It operates on an `OpChainContext` and domain-specific data structures.
 In summary:
 
 - **OpChains are built from Ops**
-- **OpChains are executed inside the `ampinfer` GStreamer element**
+- **OpChains are executed inside the `pekinfer` GStreamer element**
 - GStreamer handles media scheduling
 - OpChains handle inference logic
 
@@ -67,7 +67,7 @@ At runtime:
 2. Required Op implementations are loaded from shared libraries.
 3. Op instances are created and configured.
 4. The chain is bound to allow inter-Op coordination.
-5. `ampinfer` invokes `OpChain::execute()` per processing step.
+5. `pekinfer` invokes `OpChain::execute()` per processing step.
 6. Each Op processes the shared `OpChainContext` sequentially.
 
 The execution is strictly ordered and deterministic.
@@ -77,7 +77,7 @@ The execution is strictly ordered and deterministic.
 # Op
 ## Base Processing Unit
 
-`amp::Op`
+`pek::Op`
 
 `Op` is the abstract base class for all processing units within an OpChain.
 
@@ -136,7 +136,7 @@ This enables separation between model execution and result interpretation.
 
 # OpChain
 
-`amp::OpChain`
+`pek::OpChain`
 
 An OpChain is an ordered collection of Ops forming a micropipeline.
 
@@ -150,14 +150,14 @@ After construction:
 - `bind()` resolves inter-Op dependencies
 - `execute(opChainContext)` runs the chain sequentially
 
-OpChain execution is invoked by the `ampinfer` GStreamer element
+OpChain execution is invoked by the `pekinfer` GStreamer element
 for each media-driven execution event.
 
 ---
 
 # OpChainContext
 
-`amp::OpChainContext`
+`pek::OpChainContext`
 
 Transient execution context passed through the OpChain.
 
@@ -174,13 +174,13 @@ and not stored inside the context.
 
 # OpChainDescriptor
 
-`amp::OpChainDescriptor`
+`pek::OpChainDescriptor`
 
 Declarative representation of an OpChain loaded from JSON.
 
 Each Op entry specifies:
 
-- `id` — library/op identifier used for dynamic loading (for example `amp-std-ops/InferenceController`)
+- `id` — library/op identifier used for dynamic loading (for example `pek-std-ops/InferenceController`)
 - `group` — optional string copied onto the runtime `Op`
 - `loopId` — optional repeated-execution group identifier
 - `attributes` — configuration parameters
@@ -191,7 +191,7 @@ This enables runtime composition without recompilation.
 
 # Dynamic Loading and OpRef
 
-`amp::OpRef`
+`pek::OpRef`
 
 Responsible for dynamic loading and lifetime management of Ops.
 
@@ -225,7 +225,7 @@ This design:
 
 # Currently Implemented Ops
 
-## amp-std-ops.so
+## pek-std-ops.so
 
 General-purpose and orchestration Ops:
 
@@ -242,7 +242,7 @@ General-purpose and orchestration Ops:
 
 ---
 
-## amp-hailort-ops.so
+## pek-hailort-ops.so
 
 Hailo backend-specific Ops:
 
@@ -251,7 +251,7 @@ Hailo backend-specific Ops:
 
 ---
 
-## amp-onnx-ops.so
+## pek-onnx-ops.so
 
 ONNX backend-specific Ops:
 

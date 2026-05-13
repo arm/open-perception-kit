@@ -12,12 +12,12 @@
 #include <executorch/extension/tensor/tensor_ptr_maker.h>
 #include <memory>
 
-#include "amp/Model.h"
-#include "amp/Result.h"
-#include "amp/String.h"
-#include "amp/Types.h"
 #include "executorch/runtime/core/error.h"
 #include "fmt/base.h"
+#include "pek/Model.h"
+#include "pek/Result.h"
+#include "pek/String.h"
+#include "pek/Types.h"
 
 using ::executorch::aten::ScalarType;
 using ::executorch::extension::MethodMeta;
@@ -26,27 +26,27 @@ using ::executorch::runtime::Result;
 
 // ---
 
-static amp::Tdt to_amp_tdt(executorch::aten::ScalarType t) {
+static pek::Tdt to_pek_tdt(executorch::aten::ScalarType t) {
     using executorch::aten::ScalarType;
     switch (t) {
     case ScalarType::Byte:
-        return amp::Tdt::Uint8;
+        return pek::Tdt::Uint8;
     case ScalarType::Char:
-        return amp::Tdt::Int8;
+        return pek::Tdt::Int8;
     case ScalarType::Long:
-        return amp::Tdt::Int64;
+        return pek::Tdt::Int64;
     case ScalarType::Half:
-        return amp::Tdt::Float16;
+        return pek::Tdt::Float16;
     case ScalarType::Float:
-        return amp::Tdt::Float32;
+        return pek::Tdt::Float32;
     default:
         assert(0);
     }
-    return amp::Tdt::Float32;
+    return pek::Tdt::Float32;
 }
 
-template <typename SizesT> static amp::Shape to_amp_shape(const SizesT &sizes) {
-    amp::Shape s{};
+template <typename SizesT> static pek::Shape to_pek_shape(const SizesT &sizes) {
+    pek::Shape s{};
 
     s.dimensionCount = static_cast<int>(sizes.size());
 
@@ -71,7 +71,7 @@ using namespace exct;
 Inference::Inference() {}
 Inference::~Inference() {}
 
-amp::Result<void> Inference::setupFromJson(const std::string &filePath) {
+pek::Result<void> Inference::setupFromJson(const std::string &filePath) {
 
     auto descResult = ModelDescriptor::fromFile(filePath);
     if (!descResult) {
@@ -80,9 +80,9 @@ amp::Result<void> Inference::setupFromJson(const std::string &filePath) {
 
     { // setup model file name
         std::string modelRoot = filePath;
-        if (amp::utf8::contains(modelRoot, '/')) {
-            size_t lastSlashAt = amp::utf8::lastIndexOf(modelRoot, '/');
-            modelRoot = amp::utf8::left(modelRoot, lastSlashAt + 1);
+        if (pek::utf8::contains(modelRoot, '/')) {
+            size_t lastSlashAt = pek::utf8::lastIndexOf(modelRoot, '/');
+            modelRoot = pek::utf8::left(modelRoot, lastSlashAt + 1);
         } else {
             modelRoot = "";
         }
@@ -97,8 +97,8 @@ amp::Result<void> Inference::setupFromJson(const std::string &filePath) {
     return {};
 }
 
-amp::Result<amp::Model> Inference::inspectModel(executorch::extension::Module &module) {
-    amp::Model model;
+pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &module) {
+    pek::Model model;
     model.engine = "executorch";
 
     // method_names() forces program load on first call
@@ -107,7 +107,7 @@ amp::Result<amp::Model> Inference::inspectModel(executorch::extension::Module &m
         std::printf("Failed to query method names: error=%d\n", (int)names.error());
 
         return tl::unexpected{
-            AMP_ERROR(amp::ErrorFlag::ExecuTorchError,
+            PEK_ERROR(pek::ErrorFlag::ExecuTorchError,
                       fmt::format("Failed to query method names: error={}", (int)names.error()))};
     }
 
@@ -118,8 +118,8 @@ amp::Result<amp::Model> Inference::inspectModel(executorch::extension::Module &m
 
             const auto mm = module.method_meta(method_name);
             if (!mm.ok()) {
-                return tl::unexpected{AMP_ERROR(
-                    amp::ErrorFlag::ExecuTorchError,
+                return tl::unexpected{PEK_ERROR(
+                    pek::ErrorFlag::ExecuTorchError,
                     fmt::format("Failed to get data of forward(): error={}", (int)mm.error()))};
             }
 
@@ -127,17 +127,17 @@ amp::Result<amp::Model> Inference::inspectModel(executorch::extension::Module &m
             for (size_t i = 0; i < (size_t)mm->num_inputs(); ++i) {
                 const auto tm = mm->input_tensor_meta(i);
                 if (!tm.ok()) {
-                    return tl::unexpected{AMP_ERROR(
-                        amp::ErrorFlag::ExecuTorchError,
+                    return tl::unexpected{PEK_ERROR(
+                        pek::ErrorFlag::ExecuTorchError,
                         fmt::format("Failed to get data of input: error={}", (int)tm.error()))};
                 }
 
-                amp::ModelInput input;
+                pek::ModelInput input;
                 input.name = fmt::format("input{}", i);
-                input.valueType = to_amp_tdt(tm->scalar_type());
+                input.valueType = to_pek_tdt(tm->scalar_type());
 
                 auto sizes = tm->sizes();
-                input.shape = to_amp_shape(sizes);
+                input.shape = to_pek_shape(sizes);
                 input.batch = (sizes.size() > 0) ? static_cast<int>(sizes[0]) : 0;
 
                 model.inputs.push_back(input);
@@ -147,17 +147,17 @@ amp::Result<amp::Model> Inference::inspectModel(executorch::extension::Module &m
             for (size_t i = 0; i < (size_t)mm->num_outputs(); ++i) {
                 const auto tm = mm->output_tensor_meta(i);
                 if (!tm.ok()) {
-                    return tl::unexpected{AMP_ERROR(
-                        amp::ErrorFlag::ExecuTorchError,
+                    return tl::unexpected{PEK_ERROR(
+                        pek::ErrorFlag::ExecuTorchError,
                         fmt::format("Failed to get data of output: error={}", (int)tm.error()))};
                 }
 
-                amp::ModelOutput output;
+                pek::ModelOutput output;
                 output.name = fmt::format("output{}", i);
-                output.valueType = to_amp_tdt(tm->scalar_type());
+                output.valueType = to_pek_tdt(tm->scalar_type());
 
                 auto sizes = tm->sizes();
-                output.shape = to_amp_shape(sizes);
+                output.shape = to_pek_shape(sizes);
 
                 model.outputs.push_back(output);
             }
@@ -166,18 +166,18 @@ amp::Result<amp::Model> Inference::inspectModel(executorch::extension::Module &m
 
     if (!haveForward) {
         return tl::unexpected{
-            AMP_ERROR(amp::ErrorFlag::ExecuTorchError, fmt::format("No forward() in model"))};
+            PEK_ERROR(pek::ErrorFlag::ExecuTorchError, fmt::format("No forward() in model"))};
     }
 
     if (model.inputs.size() == 0 || model.outputs.size() == 0) {
-        return tl::unexpected{AMP_ERROR(amp::ErrorFlag::ExecuTorchError,
+        return tl::unexpected{PEK_ERROR(pek::ErrorFlag::ExecuTorchError,
                                         fmt::format("Model input/output config error"))};
     }
 
     return model;
 }
 
-amp::Result<void> Inference::setup(const ModelDescriptor &modelDesc_) {
+pek::Result<void> Inference::setup(const ModelDescriptor &modelDesc_) {
 
     modelDescriptor = modelDesc_;
     modelPath = modelDesc_.modelFile;
@@ -226,7 +226,7 @@ void Inference::setTensorSizes() {
     for (size_t i = 0; i < model.inputs.size(); i++) {
         size_t tensorValueCount = model.inputs[i].shape.getFullValueCount();
         size_t tensorByteCount =
-            tensorValueCount * amp::getValueTypeByteSize(model.inputs[i].valueType);
+            tensorValueCount * pek::getValueTypeByteSize(model.inputs[i].valueType);
         inputTensors[i].resize(tensorByteCount);
         fmt::print("Executorch input tensor prepared: {} bytes\n", tensorByteCount);
     }
@@ -236,7 +236,7 @@ void Inference::setTensorSizes() {
     for (size_t i = 0; i < model.outputs.size(); i++) {
         size_t tensorValueCount = model.outputs[i].shape.getFullValueCount();
         size_t tensorByteCount =
-            tensorValueCount * amp::getValueTypeByteSize(model.inputs[i].valueType);
+            tensorValueCount * pek::getValueTypeByteSize(model.inputs[i].valueType);
         outputTensors[i].resize(tensorByteCount);
         fmt::print("Executorch output tensor prepared: {} bytes\n", tensorByteCount);
     }

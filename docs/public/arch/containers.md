@@ -24,9 +24,9 @@ The container executes the GStreamer pipeline, including inference workloads.
 
 The repository currently defines three main container workflows:
 
-- `amp-dev-base` for the normal host side container workflow
-- `amp-dev-rpi5-h8` for the Raspberry Pi 5 + Hailo 8 AI HAT workflow
-- `amp-dev-rpi5-h10` for the Raspberry Pi 5 + supported Hailo 10 accelerator workflow
+- `pek-dev-base` for the normal host side container workflow
+- `pek-dev-rpi5-h8` for the Raspberry Pi 5 + Hailo 8 AI HAT workflow
+- `pek-dev-rpi5-h10` for the Raspberry Pi 5 + supported Hailo 10 accelerator workflow
 
 The host side container uses bridge networking with published ports.
 The remote host containers use host networking so the web UI and docs are exposed directly on the remote host.
@@ -63,8 +63,8 @@ It is a combination of:
 
 The Raspberry Pi workflow is now split by accelerator generation.
 
-- `amp-dev-rpi5-h8` installs the Hailo 8-oriented user-space stack together with the camera packages used by the Pi pipelines.
-- `amp-dev-rpi5-h10` installs the Hailo 10 user-space stack together with the same camera packages.
+- `pek-dev-rpi5-h8` installs the Hailo 8-oriented user-space stack together with the camera packages used by the Pi pipelines.
+- `pek-dev-rpi5-h10` installs the Hailo 10 user-space stack together with the same camera packages.
 
 Hailo 8 and Hailo 8L compiled model files are not interchangeable. Use the Hailo 8L model folders and `03-full-onnx-hailo8l.json` preset only with Hailo 8L hardware.
 
@@ -73,14 +73,14 @@ Those host-level packages, such as `h10-hailort-pcie-driver`, need to stay on th
 
 ---
 
-## `ampsink`: WebRTC-Based Output
+## `peksink`: WebRTC-Based Output
 
-To solve these issues, the system introduces **`ampsink`**.
+To solve these issues, the system introduces **`peksink`**.
 
 ![WebRTC utilization](../../static/img/webrtc.png)
 
-The element is called `ampsink`.
-`ampsink` provides a web endpoint inside the container that publishes media.
+The element is called `peksink`.
+`peksink` provides a web endpoint inside the container that publishes media.
 The host web browser connects to this endpoint and renders the media stream.
 
 - Streams media using WebRTC.

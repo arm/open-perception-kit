@@ -6,7 +6,7 @@
 
 #include <gst/gst.h>
 
-#include "amp/Types.h"
+#include "pek/Types.h"
 
 G_BEGIN_DECLS
 
@@ -20,8 +20,8 @@ typedef struct _GstMetaTensor {
     GstMemory *tensorData;
 
     TensorType tensorType;
-    amp::Tdt valueType;
-    amp::QuantizationArgs quantization;
+    pek::Tdt valueType;
+    pek::QuantizationArgs quantization;
 
 } GstMetaTensor;
 

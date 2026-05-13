@@ -4,34 +4,34 @@
 
 #pragma once
 
-#include "amp/Model.h"
-#include "amp/Result.h"
-#include "amp/Types.h"
 #include "op/Op.h"
 #include "op/OpChainContext.h"
+#include "pek/Model.h"
+#include "pek/Result.h"
+#include "pek/Types.h"
 
 #include "preproc/GenericImageTensorBuilder.h"
 #include <cstdint>
 
-namespace amp {
+namespace pek {
 
-class GenericImagePreprocessOp : public amp::Op {
+class GenericImagePreprocessOp : public pek::Op {
   public:
     GenericImagePreprocessOp();
     virtual ~GenericImagePreprocessOp();
 
-    virtual amp::Result<void> configure(const amp::AttributeMap &attributes) override;
-    virtual amp::Result<void> process(amp::OpChainContext &opChainContext) override;
-    virtual amp::Result<void> bind(size_t index, const std::vector<amp::Op *> &ops) override;
+    virtual pek::Result<void> configure(const pek::AttributeMap &attributes) override;
+    virtual pek::Result<void> process(pek::OpChainContext &opChainContext) override;
+    virtual pek::Result<void> bind(size_t index, const std::vector<pek::Op *> &ops) override;
 
   private:
     std::string inputImageSourceName;
     size_t inputImageTensorIndex;
 
-    amp::GenericImageTensorBuilder genericImageInputTensorBuilder;
+    pek::GenericImageTensorBuilder genericImageInputTensorBuilder;
 
-    amp::Model upcomingInferenceModel;
-    uint8_t *upcomingTensorAddresses[amp::MaxTensorCount] = {nullptr};
+    pek::Model upcomingInferenceModel;
+    uint8_t *upcomingTensorAddresses[pek::MaxTensorCount] = {nullptr};
 };
 
-} // namespace amp
+} // namespace pek
