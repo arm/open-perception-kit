@@ -10,6 +10,7 @@ pekcomm = shared_module(
     'pekcomm.cpp',
     'writer.cpp',
     'file_writer.cpp',
+    'tcp_writer.cpp',
     'websocket_writer.cpp',
   ],
   include_directories: [common_include],
@@ -18,4 +19,3 @@ pekcomm = shared_module(
   link_with: [ common ],
   install: false
 )
-
