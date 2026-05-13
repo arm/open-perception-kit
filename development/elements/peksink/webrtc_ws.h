@@ -9,7 +9,12 @@
 #include <gst/gst.h>
 #include <gst/webrtc/webrtc.h>
 
+#include <atomic>
+#include <cstddef>
+#include <map>
 #include <memory>
+#include <mutex>
+#include <thread>
 
 #define ASIO_STANDALONE
 #include <asio.hpp>
@@ -25,6 +30,8 @@
 #pragma GCC diagnostic pop
 
 #include <nlohmann/json.hpp>
+
+#include "webrtc_session.h"
 
 #define STUN_SERVER "stun://stun.l.google.com:19302"
 
@@ -51,8 +58,9 @@ class WebRtcWebSocket {
     std::thread ws_server_thread;
 
     std::shared_ptr<ws_server> ws = nullptr;
+    std::atomic_bool stopping = false;
 
-    std::mutex webrtc_session_mutex;
+    mutable std::mutex webrtc_session_mutex;
     WebRtcSessions webrtc_sessions;
 
     int find_pt_for_codec(const GstSDPMessage *msg,
@@ -65,7 +73,7 @@ class WebRtcWebSocket {
     void set_video_pt(SessionContext *ctx);
     bool attach_video(SessionContext *ctx);
 
-    void link_per_client_elements(SessionContext *ctx);
+    bool link_per_client_elements(SessionContext *ctx);
 
     void process_offer(std::shared_ptr<SessionContext> ctx, const nlohmann::json &jsn);
     void process_canditate(std::shared_ptr<SessionContext> ctx, const nlohmann::json &jsn);
@@ -73,6 +81,8 @@ class WebRtcWebSocket {
     void on_open(connection_hdl hdl);
     void on_close(connection_hdl hdl);
     void on_message(connection_hdl hdl, ws_server::message_ptr msg);
+
+    std::shared_ptr<SessionContext> get_session(connection_hdl hdl);
 
     WebRtcSockerError setup();
 
@@ -82,6 +92,9 @@ class WebRtcWebSocket {
 
     WebRtcSockerError start();
     WebRtcSockerError stop();
+
+    bool cleanup_session(connection_hdl hdl, const char *reason);
+    std::size_t active_session_count() const;
 };
 
 #endif // !__WEBRTC_WS_H__
