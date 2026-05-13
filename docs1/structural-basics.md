@@ -4,7 +4,7 @@ This page explains where users usually need to put their own files and which fol
 
 ## What will you learn from this documentation?
 
-If you follow this page successfully, you will learn where AMP expects models, opchains, pipeline presets, media files, scripts, and source changes to live.
+If you follow this page successfully, you will learn where PEK expects models, opchains, pipeline presets, media files, scripts, and source changes to live.
 
 At the end of this page, you should be able to place new files in the right folders and tell when a task can stay in `config/` versus when it must move into `development/`.
 
@@ -15,7 +15,7 @@ This is the most important folder for normal usage.
 
 - `config/models/` stores model folders. Put your model file, `model.json`, basic and minimal `opchain.json`, and `README.md` here. Runtime-specific compiled variants also live here, for example `mobilenetv2-hailo8/` and `mobilenetv2-hailo10/`.
 - `config/opchains/` stores reusable multi-stage pipelines, for example detector + secondary model chains.
-- `config/pipelines/` stores the top-level presets shown by `amp-menu`.
+- `config/pipelines/` stores the top-level presets shown by `pek-menu`.
 
 ### `data/`
 Use this for your own test media.
@@ -42,7 +42,7 @@ This contains the main helper scripts you are expected to run.
 ### `tools/`
 This contains helper tools created or used by the project.
 
-- `tools/amp-menu` is the launcher used to run pipeline presets. The VS Code run tasks call it for normal launches from the host side container or remote host container.
+- `tools/pek-menu` is the launcher used to run pipeline presets. The VS Code run tasks call it for normal launches from the host side container or remote host container.
 
 ## When you need the source tree
 
@@ -70,7 +70,7 @@ The usual flow is:
 
 1. select a pipeline preset from `config/pipelines/`
 2. that preset starts a GStreamer pipeline
-3. `ampinfer` loads an OpChain from `config/opchains/` or `config/models/*/opchain.json`
+3. `pekinfer` loads an OpChain from `config/opchains/` or `config/models/*/opchain.json`
 4. the OpChain loads one or more model descriptors from `config/models/`
 5. the result is shown or published by the downstream elements
 
@@ -81,7 +81,7 @@ You only need the deeper `development/` source tree if this flow is not enough f
 The Dev Container provides VS Code tasks for normal development:
 
 - **00 Build Project** builds the runtime.
-- **00 Run project with menu** opens the interactive `amp-menu` pipeline list.
+- **00 Run project with menu** opens the interactive `pek-menu` pipeline list.
 - **00 Run project and select pipeline** prompts for a pipeline and runs it directly.
 - **00 Run project with latest pipeline** reruns the last selected pipeline.
 - **01 Clean Project** cleans build artifacts.
@@ -112,7 +112,7 @@ pre-commit run --all-files
 
 By the end of this page, you should have:
 
-- a practical map of the folders that matter for normal AMP work
+- a practical map of the folders that matter for normal PEK work
 - a clear understanding of the usual edit points for models, pipelines, and media
 - a simple rule for when source-code changes are actually needed
 

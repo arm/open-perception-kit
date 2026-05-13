@@ -26,7 +26,7 @@ At the top of the `pipeline` array, the checked-in sample source currently looks
 "video/x-raw,format=BGRA !",
 ```
 
-Replace only those source lines. Leave the `ampinfer`, `amptracker`, `ampperformance`, `amposd`, and `ampsink` lines as they are.
+Replace only those source lines. Leave the `pekinfer`, `pektracker`, `pekperformance`, `pekosd`, and `peksink` lines as they are.
 
 ## 3. Use A USB Camera
 
@@ -69,13 +69,13 @@ If your camera name is different, replace the value inside `camera-name="..."`.
 Run in the **Docker shell**:
 
 ```bash
-./tools/amp-menu -l
+./tools/pek-menu -l
 ```
 
 Or run the pipeline explicitly:
 
 ```bash
-./tools/amp-menu 01-full-onnx
+./tools/pek-menu 01-full-onnx
 ```
 
 Open the web UI:
@@ -99,5 +99,5 @@ Expected result: the browser shows camera input instead of the checked-in sample
 - Confirm the sample-media pipeline worked before the camera edit.
 - Confirm the camera is visible with `v4l2-ctl --list-devices` or `rpicam-hello --list-cameras`.
 - Confirm the camera path or camera name in the JSON matches the detected device.
-- Keep the output format conversion to `BGRA`; AMP video elements expect that format in the normal path.
+- Keep the output format conversion to `BGRA`; PEK video elements expect that format in the normal path.
 - Stop the running pipeline with `Ctrl+C` before starting it again.

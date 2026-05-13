@@ -1,16 +1,16 @@
 # Runtime Basics
 
-This page explains the practical runtime concepts you need when you want to run AMP with your own media or your own model files.
+This page explains the practical runtime concepts you need when you want to run PEK with your own media or your own model files.
 
 ## What will you learn from this documentation?
 
-If you follow this page successfully, you will learn how AMP uses pipelines, OpChains, and model descriptors together at runtime.
+If you follow this page successfully, you will learn how PEK uses pipelines, OpChains, and model descriptors together at runtime.
 
 At the end of this page, you should be able to tell where to change the media source, where to change model execution behavior, and what a successful runtime path looks like from input to rendered result.
 
-## GStreamer basics in AMP
+## GStreamer basics in PEK
 
-AMP runs inside GStreamer pipelines.
+PEK runs inside GStreamer pipelines.
 
 A GStreamer pipeline is a chain of elements connected with `!`, for example:
 
@@ -18,13 +18,13 @@ A GStreamer pipeline is a chain of elements connected with `!`, for example:
 source ! convert ! process ! sink
 ```
 
-In AMP, a typical video pipeline looks like this:
+In PEK, a typical video pipeline looks like this:
 
 ```text
-source ! videoconvert ! ampinfer ! amposd ! ampsink
+source ! videoconvert ! pekinfer ! pekosd ! peksink
 ```
 
-The source provides media, `ampinfer` runs AI processing, `amposd` draws overlays, and `ampsink` publishes the result.
+The source provides media, `pekinfer` runs AI processing, `pekosd` draws overlays, and `peksink` publishes the result.
 
 ## What is a pipeline?
 
@@ -33,20 +33,20 @@ In this repository, “pipeline” usually means the top-level GStreamer runtime
 Those presets define:
 - the source, such as an image, video file, or camera
 - the processing elements used in the stream
-- the sink, usually `ampsink`
+- the sink, usually `peksink`
 
-The launcher `tools/amp-menu` reads these presets and runs them. For normal use, start it through the VS Code run tasks; for terminal use, call `./tools/amp-menu` from the active host side container or remote host container terminal at the project root.
+The launcher `tools/pek-menu` reads these presets and runs them. For normal use, start it through the VS Code run tasks; for terminal use, call `./tools/pek-menu` from the active host side container or remote host container terminal at the project root.
 
 If you want to change which image, video, or camera is used, this is usually the first place to edit.
 
-Some checked-in presets intentionally set `ampinfer active=false`.
-That lets the AMP web UI register the model first and then enable it from the **AI Models** panel when you are ready.
+Some checked-in presets intentionally set `pekinfer active=false`.
+That lets the PEK web UI register the model first and then enable it from the **AI Models** panel when you are ready.
 
 At the moment, pipeline execution is synchronous end to end. An asynchronous inference execution flow is planned for a later update, but it is not available yet.
 
 ## What is an OpChain?
 
-An OpChain is a smaller, self-contained micropipeline that runs locally within 'ampinfer'.
+An OpChain is a smaller, self-contained micropipeline that runs locally within 'pekinfer'.
 
 An OpChain usually contains:
 - `InferenceController`
@@ -60,10 +60,10 @@ For most users, the important point is simple: the pipeline decides where media 
 
 ## What is a model?
 
-A model in AMP is made of two parts:
+A model in PEK is made of two parts:
 
 1. the actual model file, such as `.onnx` or `.hef`
-2. a JSON descriptor, usually `model.json`, that tells AMP how to use it
+2. a JSON descriptor, usually `model.json`, that tells PEK how to use it
 
 The descriptor defines things such as:
 - input tensor shape
@@ -79,8 +79,8 @@ If you are only adding your own model, you usually only need to copy and adapt a
 The normal runtime stack is:
 
 1. a top-level pipeline is selected from `config/pipelines/`
-2. that pipeline creates one or more `ampinfer` elements
-3. each `ampinfer` loads an OpChain
+2. that pipeline creates one or more `pekinfer` elements
+3. each `pekinfer` loads an OpChain
 4. the OpChain loads one or more model descriptors
 5. postprocessing writes structured results
 6. downstream elements render, track, or publish those results
@@ -167,8 +167,8 @@ After a successful build, the VS Code **Run and Debug** view can launch the most
 
 Use:
 
-- **AMP Debug latest** to debug the last selected pipeline.
-- **AMP Debug selection** to choose a pipeline before debugging.
+- **PEK Debug latest** to debug the last selected pipeline.
+- **PEK Debug selection** to choose a pipeline before debugging.
 
 ## Where to look next
 
@@ -181,6 +181,6 @@ By the end of this page, you should have:
 
 - a working mental model of the difference between pipelines, OpChains, and models
 - a clear idea of where to change images, videos, cameras, or model descriptors
-- an understanding of the normal end-to-end runtime flow inside AMP
+- an understanding of the normal end-to-end runtime flow inside PEK
 
 Success looks like this: you can inspect a runtime issue or integration task and quickly decide whether the change belongs in a pipeline preset, an OpChain, or a model descriptor.

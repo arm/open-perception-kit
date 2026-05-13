@@ -1,6 +1,6 @@
 # Linux Quick Start
 
-Use this guide on a Linux computer. AMP runs inside a VS Code Dev Container, so build and run commands happen inside the container after setup.
+Use this guide on a Linux computer. PEK runs inside a VS Code Dev Container, so build and run commands happen inside the container after setup.
 
 ## What You Need
 
@@ -43,17 +43,17 @@ The easiest path is HTTPS cloning. It does not require an SSH key.
 Run in the **host shell**:
 
 ```bash
-git clone https://github.com/Arm-Debug/amp-dev-forge.git
-cd amp-dev-forge
+git clone https://github.com/Arm-Debug/pek.git
+cd pek
 ```
 
 If you must clone with SSH, set up your key first: [GitHub SSH Key Setup](github-ssh-key.md).
 
-Expected result: you are in the `amp-dev-forge` folder.
+Expected result: you are in the `pek` folder.
 
 ## 2. Open The Project In VS Code
 
-Run in the **host shell**, from the `amp-dev-forge` folder:
+Run in the **host shell**, from the `pek` folder:
 
 ```bash
 code .
@@ -61,14 +61,14 @@ code .
 
 In VS Code:
 
-<img src="static/img/04-starting-point-vscode.png" alt="VS Code opened in the AMP repository" width="720" style="max-width: 100%; height: auto;">
+<img src="static/img/04-starting-point-vscode.png" alt="VS Code opened in the PEK repository" width="720" style="max-width: 100%; height: auto;">
 
 1. Open the Command Palette with `Ctrl+Shift+P`.
 2. Run **Dev Containers: Reopen in Container**.
 
 <img src="static/img/05-reopen-in-container.png" alt="VS Code command palette showing Reopen in Container" width="720" style="max-width: 100%; height: auto;">
 
-3. Choose **PC amp-dev-forge**.
+3. Choose **PC pek**.
 
 <img src="static/img/06-reopen-in-container2.png" alt="VS Code Dev Container selection dialog" width="720" style="max-width: 100%; height: auto;">
 
@@ -78,7 +78,7 @@ Expected result: VS Code reloads into the Dev Container.
 
 <img src="static/img/07-in-container-new-console.png" alt="VS Code terminal inside the Dev Container" width="720" style="max-width: 100%; height: auto;">
 
-## 3. Build AMP
+## 3. Build PEK
 
 Open a new terminal in VS Code after the container is ready. This terminal is the **Docker shell**.
 
@@ -90,21 +90,21 @@ Run in the **Docker shell**:
 
 You can also use the VS Code task **00 Build Project**.
 
-<img src="static/img/08-build-project.png" alt="VS Code build task for AMP" width="720" style="max-width: 100%; height: auto;">
+<img src="static/img/08-build-project.png" alt="VS Code build task for PEK" width="720" style="max-width: 100%; height: auto;">
 
-Expected result: the build finishes without errors and `tools/amp-menu` exists.
+Expected result: the build finishes without errors and `tools/pek-menu` exists.
 
 ## 4. Start The First Pipeline
 
 Run in the **Docker shell**:
 
 ```bash
-./tools/amp-menu 01-full-onnx
+./tools/pek-menu 01-full-onnx
 ```
 
 You can also use the VS Code task **00 Run project and select pipeline** and choose `01-full-onnx`.
 
-<img src="static/img/09-select-pipeline.png" alt="AMP pipeline selection view" width="720" style="max-width: 100%; height: auto;">
+<img src="static/img/09-select-pipeline.png" alt="PEK pipeline selection view" width="720" style="max-width: 100%; height: auto;">
 
 Expected result: the pipeline starts and keeps running in the terminal. Leave that terminal open.
 
@@ -118,18 +118,18 @@ http://localhost:9999
 
 In the **AI Models** panel, enable one model first. For example, enable `yolov11` or `mobilenetv2`.
 
-<img src="static/img/10-browser-ui.png" alt="AMP browser UI after opening the web view" width="720" style="max-width: 100%; height: auto;">
+<img src="static/img/10-browser-ui.png" alt="PEK browser UI after opening the web view" width="720" style="max-width: 100%; height: auto;">
 
-Expected result: the page shows the AMP view and enabling a model produces an overlay or result. The default quick-start pipeline uses checked-in sample media, not a live camera.
+Expected result: the page shows the PEK view and enabling a model produces an overlay or result. The default quick-start pipeline uses checked-in sample media, not a live camera.
 
 ## 6. Stop And Run Again
 
-To stop AMP, click the terminal that is running the pipeline and press `Ctrl+C`.
+To stop PEK, click the terminal that is running the pipeline and press `Ctrl+C`.
 
 To run the last selected pipeline again, run in the **Docker shell**:
 
 ```bash
-./tools/amp-menu -l
+./tools/pek-menu -l
 ```
 
 ## If Something Fails

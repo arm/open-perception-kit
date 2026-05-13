@@ -99,7 +99,7 @@ Not all kinds of measurements are possible in a container.
 Now here is an example of setting up one that works:
 - Target: Name of the target
 - Workload type: Launch a new process
-- Workload: The process that will be executed and measured on the target (for example `/work/tools/amp-menu 01-full-onnx`)
+- Workload: The process that will be executed and measured on the target (for example `/work/tools/pek-menu 01-full-onnx`)
 - Set profiling duration: Limitless or execution for a limited time only
 - Different other settings
 

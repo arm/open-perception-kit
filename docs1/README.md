@@ -1,8 +1,8 @@
-# AMP Development Forge Documentation
+# PEK (Perception Experience Kit) Documentation
 
-AMP Development Forge helps you run AI media-processing pipelines in a repeatable container environment. In this guide, media mostly means video frames from an image, video file, or camera feed. A pipeline can read that media, run one or more AI models, and show the result in a browser.
+PEK (Perception Experience Kit) helps you run AI media-processing pipelines in a repeatable container environment. In this guide, media mostly means video frames from an image, video file, or camera feed. A pipeline can read that media, run one or more AI models, and show the result in a browser.
 
-<img src="screenshot.jpg" alt="AMP Development Forge browser UI screenshot" width="720" style="max-width: 100%; height: auto;">
+<img src="screenshot.jpg" alt="PEK (Perception Experience Kit) browser UI screenshot" width="720" style="max-width: 100%; height: auto;">
 
 ## Start Here
 
@@ -54,7 +54,7 @@ After the first inference works, the Raspberry Pi tutorial shows where to try th
 
 When the first run is working:
 
-- the AMP browser UI opens
+- the PEK browser UI opens
 - the sample media is visible
 - the **AI Models** panel is visible
 - you can enable one model from the **AI Models** panel
@@ -77,7 +77,7 @@ Switch to a camera only after the first sample-media run works.
 ## Terms You Will See
 
 - **Host** means your normal Windows, Linux, or macOS computer.
-- **Raspberry Pi** means the Pi device that runs AMP in the Raspberry Pi tutorial.
+- **Raspberry Pi** means the Pi device that runs PEK in the Raspberry Pi tutorial.
 - **Pipeline** means a saved runtime preset that chooses input, models, and output.
 - **Model** means an AI model and its descriptor files.
 - **Dev Container** means the Docker-based development environment opened by VS Code.
@@ -99,8 +99,8 @@ The first useful success signal is:
 
 1. The project opens in the correct VS Code Dev Container.
 2. The build task finishes without errors.
-3. `amp-menu` starts a pipeline.
-4. The AMP web UI opens in a browser.
+3. `pek-menu` starts a pipeline.
+4. The PEK web UI opens in a browser.
 5. At least one model can be enabled from the **AI Models** panel.
 
 For a PC or Mac, the web UI is:
@@ -129,14 +129,14 @@ http://raspberrypi.local:8080
 
 The default first pipeline is `01-full-onnx`. It uses sample media by default. Some pipeline files also contain alternative camera and video sources, but the first run should prove the basic build and browser path before you change inputs.
 
-AMP also uses ports `8000` and `8001` internally for browser-facing runtime communication.
+PEK also uses ports `8000` and `8001` internally for browser-facing runtime communication.
 
 ## Advanced Topics
 
 Use these after a quick start is working:
 
 - [Structural Basics](structural-basics.md) - where models, pipelines, media files, scripts, and source changes live.
-- [Runtime Basics](runtime-basics.md) - how AMP uses pipelines, OpChains, model descriptors, and browser output.
+- [Runtime Basics](runtime-basics.md) - how PEK uses pipelines, OpChains, model descriptors, and browser output.
 - [Use A Camera](camera-input.md) - how to switch from sample media to USB or Raspberry Pi CSI camera input.
 - [Bring Your Model](bring-your-model.md) - how to add a model by reusing existing descriptors, OpChains, and parsers.
 - [Custom Postprocessing](custom-postprocessing.md) - how to add a parser when existing tensor parsers do not match your model output.
