@@ -1,6 +1,6 @@
 # Perception XPK
-![PEK CI Pipeline Nightly](https://github.com/Arm-Debug/perception-experience-kit/actions/workflows/pek-ci.yml/badge.svg?branch=main)
-![SonarQube Nightly](https://github.com/Arm-Debug/perception-experience-kit/actions/workflows/sonar.yml/badge.svg?branch=main)
+![PEK CI Pipeline Nightly](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/pek-ci.yml/badge.svg?branch=main)
+![SonarQube Nightly](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/sonar.yml/badge.svg?branch=main)
 
 The Perception XPK is a framework for building and running AI-enabled media workflows.
 

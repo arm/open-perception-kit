@@ -69,7 +69,7 @@ If you use the archive path, continue from the next step after `cd perception-ex
 To clone with Git instead, use:
 
 ```bash
-git clone git@github.com:Arm-Debug/perception-experience-kit.git
+git clone git@github.com:Arm-Debug/amp-dev-forge.git
 cd perception-experience-kit
 ```
 

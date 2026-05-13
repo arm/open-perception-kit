@@ -27,7 +27,7 @@ The `--target` flag accepts either an SSH config host alias or a `user@host` des
 ## Clone the project with Topo
 
 ```bash
-topo clone test git:https://github.com/Arm-Debug/perception-experience-kit.git
+topo clone test git:https://github.com/Arm-Debug/amp-dev-forge.git
 cd test
 ```
 
@@ -60,7 +60,7 @@ topo health --target {ssh_target}
 For a standard Topo-based Perception Experience Kit deployment, the workflow is:
 
 ```bash
-topo clone test git:https://github.com/Arm-Debug/perception-experience-kit.git
+topo clone test git:https://github.com/Arm-Debug/amp-dev-forge.git
 cd test
 topo deploy --target {ssh_target}
 ```

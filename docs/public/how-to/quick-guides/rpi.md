@@ -80,7 +80,7 @@ Follow [Raspberry Pi 5: Assembly and Installation Guide](../deep-dives/rpi5.md) 
 
 ## 3. Clone the repository on the Raspberry Pi
 
-In order to download the latest release archive download the compressed source package from the [release page](https://github.com/Arm-Debug/perception-experience-kit/releases) and extract it before continuing.
+In order to download the latest release archive download the compressed source package from the [release page](https://github.com/Arm-Debug/amp-dev-forge/releases) and extract it before continuing.
 ![GitHub release page showing the source code download](../../../static/img/01-repo-compressed.png)
 
 Extract the ZIP archive:
@@ -99,7 +99,7 @@ Or download and extract the tar archive:
 ```bash
 VERSION=<version>
 curl -L -o perception-experience-kit-${VERSION}.tar.gz \
-  "https://github.com/Arm-Debug/perception-experience-kit/archive/refs/tags/${VERSION}.tar.gz"
+  "https://github.com/Arm-Debug/amp-dev-forge/archive/refs/tags/${VERSION}.tar.gz"
 tar -xzf perception-experience-kit-${VERSION}.tar.gz
 mv perception-experience-kit-${VERSION} perception-experience-kit
 cd perception-experience-kit
@@ -110,7 +110,7 @@ If you use the archive path, continue from the next step after `cd perception-ex
 Alternatively SSH access is working, clone the repository on the Raspberry Pi:
 
 ```bash
-git clone git@github.com:Arm-Debug/perception-experience-kit.git
+git clone git@github.com:Arm-Debug/amp-dev-forge.git
 cd perception-experience-kit
 ```
 

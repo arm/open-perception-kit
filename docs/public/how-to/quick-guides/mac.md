@@ -51,7 +51,7 @@ For key creation details, see [Generating a new SSH key and adding it to the ssh
 
 ## 3. Clone the repository
 
-In order to download the latest release archive download the compressed source package from the [release page](https://github.com/Arm-Debug/perception-experience-kit/releases) and extract it before continuing.
+In order to download the latest release archive download the compressed source package from the [release page](https://github.com/Arm-Debug/amp-dev-forge/releases) and extract it before continuing.
 ![GitHub release page showing the source code download](../../../static/img/01-repo-compressed.png)
 
 Extract the ZIP archive:
@@ -77,7 +77,7 @@ Alternatively you can clone the repository with Git.
 ![Perception Experience Kit repository root](../../../static/img/02-repo-root.png)
 
 ```bash
-git clone git@github.com:Arm-Debug/perception-experience-kit.git
+git clone git@github.com:Arm-Debug/amp-dev-forge.git
 cd perception-experience-kit
 ```
 
