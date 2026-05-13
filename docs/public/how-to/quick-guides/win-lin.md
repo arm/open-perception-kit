@@ -38,7 +38,10 @@ Use WSL and install:
 ### Linux
 Install:
 - Git
-- Docker
+- **Docker**
+    - For docker intallation on ubuntu or debian follow the specific steps defined by Docker
+    - [Ubuntu Installation Guide](https://docs.docker.com/engine/install/ubuntu/)
+    - [Debian Installation Guide](https://docs.docker.com/engine/install/debian/)
 - Visual Studio Code
 - VS Code Dev Containers extension
 
@@ -46,7 +49,7 @@ On Ubuntu-like systems, this is a good start:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y git docker.io code v4l-utils
+sudo apt-get install -y git code v4l-utils
 ```
 
 ## 2. Make sure your Git SSH key is ready

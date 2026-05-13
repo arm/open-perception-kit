@@ -72,7 +72,7 @@ sudo raspi-config
 ### Additional packages
 ```bash
 sudo apt-get update
-sudo apt-get install -y git docker.io v4l-utils raspi-utils-core raspi-utils-dt
+sudo apt-get install -y git v4l-utils raspi-utils-core raspi-utils-dt
 sudo apt-get install rpicam-apps libcamera-dev libcamera-doc libcamera-tools \
   gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-gl \
   libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev \
@@ -182,6 +182,7 @@ usbhid.mousepoll=0
 
 ## Docker Installation
 
+For docker intallation on ubuntu or debian follow the specific steps defined by Docker
 See: [Debian | Docker Docs](https://docs.docker.com/engine/install/debian/)
 
 ## Raspberry Pi remote host container options

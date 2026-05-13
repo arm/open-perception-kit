@@ -96,6 +96,9 @@ Working directly on the host outside the container is not well supported at the 
 ### Linux
    * [Git](https://git-scm.com/install/)
    * **Docker**
+      * For docker intallation on ubuntu or debian follow the specific steps defined by Docker
+      * [Ubuntu Installation Guide](https://docs.docker.com/engine/install/ubuntu/)
+      * [Debian Installation Guide](https://docs.docker.com/engine/install/debian/)
    * [Visual Studio Code](https://code.visualstudio.com/download)
    * [VS Code Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
    * **v4l-utils**
@@ -104,7 +107,7 @@ The following command should help with this.
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y git docker.io code v4l-utils
+sudo apt-get install -y git code v4l-utils
 ```
 
 ### macOS
