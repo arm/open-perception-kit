@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AMP Face Pong</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+
+<body>
+  <div class="page-shell">
+    <section class="top-row">
+      <section class="card players-card">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Players</p>
+            <h2>Face Tracking</h2>
+          </div>
+        </div>
+
+        <div class="player-list">
+          <article class="player-card left">
+            <div class="player-header">
+              <h3>Left Player</h3>
+              <span id="left-presence" class="pill offline">No face</span>
+            </div>
+            <div class="player-grid">
+              <div>
+                <span class="metric-label">Paddle Y</span>
+                <span id="left-y" class="metric-value">n/a</span>
+              </div>
+              <div>
+                <span class="metric-label">Raw face Y</span>
+                <span id="left-raw-y" class="metric-value">n/a</span>
+              </div>
+              <div>
+                <span class="metric-label">Calibration</span>
+                <span id="left-calibration" class="metric-value">Not set</span>
+              </div>
+              <div>
+                <span class="metric-label">Confidence</span>
+                <span id="left-confidence" class="metric-value">n/a</span>
+              </div>
+            </div>
+            <div class="calibration-actions">
+              <button id="left-reset-calibration" type="button" class="button-secondary small-button">Reset auto
+                range</button>
+            </div>
+          </article>
+
+          <article class="player-card right">
+            <div class="player-header">
+              <h3>Right Player</h3>
+              <span id="right-presence" class="pill offline">No face</span>
+            </div>
+            <div class="player-grid">
+              <div>
+                <span class="metric-label">Paddle Y</span>
+                <span id="right-y" class="metric-value">n/a</span>
+              </div>
+              <div>
+                <span class="metric-label">Raw face Y</span>
+                <span id="right-raw-y" class="metric-value">n/a</span>
+              </div>
+              <div>
+                <span class="metric-label">Calibration</span>
+                <span id="right-calibration" class="metric-value">Not set</span>
+              </div>
+              <div>
+                <span class="metric-label">Confidence</span>
+                <span id="right-confidence" class="metric-value">n/a</span>
+              </div>
+            </div>
+            <div class="calibration-actions">
+              <button id="right-reset-calibration" type="button" class="button-secondary small-button">Reset auto
+                range</button>
+            </div>
+          </article>
+        </div>
+      </section>
+    </section>
+
+    <main class="bottom-row">
+      <section class="game-panel card">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Playfield</p>
+            <h2>Face-controlled Pong</h2>
+          </div>
+          <div class="scoreboard">
+            <div class="score-item">
+              <span class="score-label">Left</span>
+              <span id="score-left" class="score-value">0</span>
+            </div>
+            <div class="score-divider">:</div>
+            <div class="score-item">
+              <span class="score-label">Right</span>
+              <span id="score-right" class="score-value">0</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-frame">
+          <canvas id="game-canvas" width="1280" height="720"
+            aria-label="Pong game canvas controlled by face metadata"></canvas>
+        </div>
+
+        <div class="game-note" id="game-note">
+          Waiting for metadata. Put one detected face in each half of the source image.
+        </div>
+      </section>
+
+      <aside class="side-column">
+        <section class="card settings-card">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">Settings</p>
+              <h2>Game Controls</h2>
+            </div>
+          </div>
+
+          <div class="settings-list">
+            <label class="field">
+              <span>Ball speed</span>
+              <input id="ball-speed" type="range" min="180" max="900" step="10" value="420" />
+              <strong id="ball-speed-value" class="field-value">420 px/s</strong>
+            </label>
+
+            <label class="field">
+              <span>Paddle height</span>
+              <input id="paddle-height" type="range" min="70" max="180" step="2" value="110" />
+              <strong id="paddle-height-value" class="field-value">110 px</strong>
+            </label>
+
+            <label class="field">
+              <span>Face hold time</span>
+              <input id="hold-time" type="range" min="300" max="3000" step="100" value="1200" />
+              <strong id="hold-time-value" class="field-value">1.2 s</strong>
+            </label>
+
+            <label class="switch-field" for="mirror-sides">
+              <span>Mirror left/right</span>
+              <span class="switch-row">
+                <input id="mirror-sides" type="checkbox" />
+                <span class="switch-copy">Swap player sides for mirrored camera input</span>
+              </span>
+            </label>
+
+            <form class="connect-panel embedded-connect" id="connect-form">
+              <label class="field">
+                <span>Metadata WebSocket</span>
+                <input id="ws-url" name="ws-url" type="text" value="ws://127.0.0.1:7001/ws" spellcheck="false"
+                  autocomplete="off" />
+              </label>
+
+              <div class="button-row">
+                <button id="connect-button" type="submit">Connect</button>
+                <button id="disconnect-button" type="button" class="button-secondary">Disconnect</button>
+              </div>
+
+              <p id="status-line" class="status-line offline">Offline</p>
+            </form>
+
+            <p class="helper-note">
+              Calibration is automatic and continuous. The game keeps learning the live minimum and
+              maximum face Y positions and maps that observed range to full paddle travel.
+            </p>
+          </div>
+
+          <div class="button-row">
+            <button id="toggle-game" type="button">Pause</button>
+            <button id="reset-game" type="button" class="button-secondary">Reset round</button>
+          </div>
+        </section>
+
+        <section class="card session-card">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">Session</p>
+              <h2>Live State</h2>
+            </div>
+          </div>
+
+          <div class="metrics-grid">
+            <div class="metric">
+              <span class="metric-label">Messages</span>
+              <span id="messages-value" class="metric-value">0</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">Frame Counter</span>
+              <span id="frame-value" class="metric-value">n/a</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">Faces</span>
+              <span id="faces-value" class="metric-value">0</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">Ball</span>
+              <span id="ball-value" class="metric-value">420 px/s</span>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+
+</html>
