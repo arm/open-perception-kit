@@ -89,29 +89,27 @@ Extract the ZIP archive:
 # If unzip is missing:
 sudo apt-get install -y unzip
 
-unzip perception-experience-kit-${VERSION}.zip
-mv perception-experience-kit-${VERSION} perception-experience-kit
-cd perception-experience-kit
+unzip amp-dev-forge-${VERSION}.zip
+mv amp-dev-forge-${VERSION} amp-dev-forge
+cd amp-dev-forge
 ```
 
 Or download and extract the tar archive:
 
 ```bash
 VERSION=<version>
-curl -L -o perception-experience-kit-${VERSION}.tar.gz \
-  "https://github.com/Arm-Debug/amp-dev-forge/archive/refs/tags/${VERSION}.tar.gz"
-tar -xzf perception-experience-kit-${VERSION}.tar.gz
-mv perception-experience-kit-${VERSION} perception-experience-kit
-cd perception-experience-kit
+tar -xzf amp-dev-forge-${VERSION}.tar.gz
+mv amp-dev-forge-${VERSION} amp-dev-forge
+cd amp-dev-forge
 ```
 
-If you use the archive path, continue from the next step after `cd perception-experience-kit`.
+If you use the archive path, continue from the next step after `cd amp-dev-forge`.
 
 Alternatively SSH access is working, clone the repository on the Raspberry Pi:
 
 ```bash
 git clone git@github.com:Arm-Debug/amp-dev-forge.git
-cd perception-experience-kit
+cd amp-dev-forge
 ```
 
 ![Terminal output after cloning the repository](../../../static/img/03-repo-clone.png)

@@ -57,20 +57,20 @@ In order to download the latest release archive download the compressed source p
 Extract the ZIP archive:
 
 ```bash
-unzip perception-experience-kit-${VERSION}.zip
-mv perception-experience-kit-${VERSION} perception-experience-kit
-cd perception-experience-kit
+unzip amp-dev-forge-${VERSION}.zip
+mv amp-dev-forge-${VERSION} amp-dev-forge
+cd amp-dev-forge
 ```
 
 Extract the tar archive:
 
 ```bash
-tar -xzf perception-experience-kit-${VERSION}.tar.gz
-mv perception-experience-kit-${VERSION} perception-experience-kit
-cd perception-experience-kit
+tar -xzf amp-dev-forge-${VERSION}.tar.gz
+mv amp-dev-forge-${VERSION} amp-dev-forge
+cd amp-dev-forge
 ```
 
-If you use the archive path, continue from the next step after `cd perception-experience-kit`.
+If you use the archive path, continue from the next step after `cd amp-dev-forge`.
 
 Alternatively you can clone the repository with Git.
 
@@ -78,12 +78,12 @@ Alternatively you can clone the repository with Git.
 
 ```bash
 git clone git@github.com:Arm-Debug/amp-dev-forge.git
-cd perception-experience-kit
+cd amp-dev-forge
 ```
 
 ![Terminal output after cloning the repository](../../../static/img/03-repo-clone.png)
 
-> Expected result: the `perception-experience-kit` folder exists locally and VS Code can open it.
+> Expected result: the `amp-dev-forge` folder exists locally and VS Code can open it.
 
 ## 4. Open the repository in VS Code
 
