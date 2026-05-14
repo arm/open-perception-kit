@@ -39,7 +39,7 @@ Use WSL and install:
 Install:
 - Git
 - **Docker**
-    - For docker intallation on ubuntu or debian follow the specific steps defined by Docker
+    - For docker installation on ubuntu or debian follow the specific steps defined by Docker
     - [Ubuntu Installation Guide](https://docs.docker.com/engine/install/ubuntu/)
     - [Debian Installation Guide](https://docs.docker.com/engine/install/debian/)
 - Visual Studio Code

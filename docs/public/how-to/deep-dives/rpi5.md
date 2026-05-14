@@ -182,7 +182,7 @@ usbhid.mousepoll=0
 
 ## Docker Installation
 
-For docker intallation on ubuntu or debian follow the specific steps defined by Docker
+For docker installation on ubuntu or debian follow the specific steps defined by Docker
 See: [Debian | Docker Docs](https://docs.docker.com/engine/install/debian/)
 
 ## Raspberry Pi remote host container options

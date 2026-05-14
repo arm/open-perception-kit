@@ -96,7 +96,7 @@ Working directly on the host outside the container is not well supported at the 
 ### Linux
    * [Git](https://git-scm.com/install/)
    * **Docker**
-      * For docker intallation on ubuntu or debian follow the specific steps defined by Docker
+      * For docker installation on ubuntu or debian follow the specific steps defined by Docker
       * [Ubuntu Installation Guide](https://docs.docker.com/engine/install/ubuntu/)
       * [Debian Installation Guide](https://docs.docker.com/engine/install/debian/)
    * [Visual Studio Code](https://code.visualstudio.com/download)
