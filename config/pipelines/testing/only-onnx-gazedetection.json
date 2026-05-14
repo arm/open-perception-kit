@@ -1,7 +1,7 @@
 {
   "description": "Test the gaze-detection pipeline with a simple pipeline that decodes a JPEG image, runs inference, and sends the output to a fakesink.",
   "pipeline": [
-    "filesrc location=/work/data/images/katana.jpg !",
+    "filesrc location=/work/data/images/GettyImages-1140581459-thumbnail.jpg !",
     "jpegdec !",
     "imagefreeze num-buffers=${NUM_FRAMES:-30} !",
     "videoconvert ! video/x-raw,format=BGRA,framerate=30/1 !",

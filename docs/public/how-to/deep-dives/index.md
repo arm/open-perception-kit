@@ -59,18 +59,18 @@ Download and extract the ZIP archive:
 # If unzip is missing on a Debian-based system:
 sudo apt-get install -y unzip
 
-unzip perception-experience-kit-${VERSION}.zip
-mv perception-experience-kit-${VERSION} perception-experience-kit
-cd perception-experience-kit
+unzip amp-dev-forge-${VERSION}.zip
+mv amp-dev-forge-${VERSION} amp-dev-forge
+cd amp-dev-forge
 ```
 
-If you use the archive path, continue from the next step after `cd perception-experience-kit`.
+If you use the archive path, continue from the next step after `cd amp-dev-forge`.
 
 To clone with Git instead, use:
 
 ```bash
-git clone git@github.com:Arm-Debug/perception-experience-kit.git
-cd perception-experience-kit
+git clone git@github.com:Arm-Debug/amp-dev-forge.git
+cd amp-dev-forge
 ```
 
 ![Terminal output after cloning the repository](../../../static/img/03-repo-clone.png)
@@ -96,6 +96,9 @@ Working directly on the host outside the container is not well supported at the 
 ### Linux
    * [Git](https://git-scm.com/install/)
    * **Docker**
+      * For docker installation on ubuntu or debian follow the specific steps defined by Docker
+      * [Ubuntu Installation Guide](https://docs.docker.com/engine/install/ubuntu/)
+      * [Debian Installation Guide](https://docs.docker.com/engine/install/debian/)
    * [Visual Studio Code](https://code.visualstudio.com/download)
    * [VS Code Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
    * **v4l-utils**
@@ -104,7 +107,7 @@ The following command should help with this.
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y git docker.io code v4l-utils
+sudo apt-get install -y git code v4l-utils
 ```
 
 ### macOS

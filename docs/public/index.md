@@ -4,9 +4,9 @@ sidebar_position: 1
 sidebar_label: Overview
 ---
 
-# [Perception Experience Kit](https://github.com/Arm-Debug/perception-experience-kit)
+# [Perception Experience Kit](https://github.com/Arm-Debug/amp-dev-forge)
 
-[Perception Experience Kit](https://github.com/Arm-Debug/perception-experience-kit) is a framework for building and running AI-enabled media workflows. It provides a development environment for **AI media processing pipelines**, built for rapid testing, debugging, and deployment within containerized platforms.
+[Perception Experience Kit](https://github.com/Arm-Debug/amp-dev-forge) is a framework for building and running AI-enabled media workflows. It provides a development environment for **AI media processing pipelines**, built for rapid testing, debugging, and deployment within containerized platforms.
 It helps teams move from raw input to meaningful output in a clear and repeatable way. Instead of treating each new use case as a one-off effort, the package provides a stable structure that can be reused and adapted.
 
 At a high level, it combines:

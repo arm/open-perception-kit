@@ -6,9 +6,9 @@ All notable changes to this project will be documented in this file.
 
 ### Minimal tracking, Topo support and container fixes
 
-* Add topo support with runtime arg by @gergelybado in https://github.com/Arm-Debug/perception-experience-kit/pull/44
-* Add minimal tracker implementation by @zmolnar in https://github.com/Arm-Debug/perception-experience-kit/pull/39
-* Container fixes and Classification Hailo version by @gergelybado in https://github.com/Arm-Debug/perception-experience-kit/pull/47
+* Add topo support with runtime arg by @gergelybado in https://github.com/Arm-Debug/amp-dev-forge/pull/44
+* Add minimal tracker implementation by @zmolnar in https://github.com/Arm-Debug/amp-dev-forge/pull/39
+* Container fixes and Classification Hailo version by @gergelybado in https://github.com/Arm-Debug/amp-dev-forge/pull/47
 
 ## [0.1.0-alpha.1] - 2026-03-04
 ### Highlights
