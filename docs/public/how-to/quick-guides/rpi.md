@@ -173,7 +173,7 @@ Use the VS Code run task:
 
 - open the Command Palette and run `Tasks: Run Task`
 - run **00 Run project and select pipeline**
-- choose `01-full-onnx`
+- choose `05-full-onnx-raspicam` for a Raspberry Pi camera, or `06-full-onnx-usb-cam` for a USB camera
 
 The menu view is also available through **00 Run project with menu**.
 
@@ -197,10 +197,10 @@ To stop an application that was not started from a VS Code launch configuration,
 
 ## 7. Run the example pipeline
 
-For the shortest first run, choose `01-full-onnx`.
+For a live camera first run, choose `05-full-onnx-raspicam` or `06-full-onnx-usb-cam`, depending on the attached camera.
 If you opened the interactive menu, type the corresponding number and press Enter.
 
-This is the shortest recommended first pipeline.
+Use `01-full-onnx` instead when you want the bundled video-file source.
 
 If you specifically want the Hailo-accelerated path after that, use:
 - `02-full-onnx-hailo8.json` for the Hailo 8 path

@@ -181,6 +181,7 @@ For the shortest first run, choose `01-full-onnx`.
 If you opened the interactive menu, type the corresponding number and press Enter.
 
 This is the shortest recommended first pipeline.
+On Linux or WSL with a USB camera exposed as `/dev/video0`, choose `06-full-onnx-usb-cam` for a live camera source enabled by default.
 
 > Expected result: the selected pipeline launches and the web UI can later list the preset's models.
 
@@ -242,7 +243,7 @@ By the end of this guide, you should have:
 - a working host side container for Perception Experience Kit on a Windows or Linux host
 - a successful local build
 - `pek-menu` starting correctly from the VS Code task or the active host side container terminal
-- `01-full-onnx.json` running at least once
+- `01-full-onnx.json` running at least once, or `06-full-onnx-usb-cam.json` on a Linux or WSL host with a USB camera at `/dev/video0`
 - the Perception Experience Kit web UI reachable at `http://localhost:9999`
 
 Success looks like this: the container opens correctly, the build completes, the pipeline starts from the VS Code task or `pek-menu`, and the browser can reach the Perception Experience Kit UI.

@@ -230,6 +230,7 @@ To stop an application that was not started from a VS Code launch configuration,
 **First-time users:**  
 - We recommend running **01-full-onnx** first.
 It includes the main integrated ONNX pipelines and models currently available in the system.
+- For a live camera first run, use **05-full-onnx-raspicam** on Raspberry Pi CSI camera setups or **06-full-onnx-usb-cam** for a USB camera exposed as `/dev/video0`.
 - The shipped demo presets usually register their `pekinfer` elements with `active=false`.
   After the UI opens, use the **AI Models** panel to enable the models you want to run.
 
@@ -241,12 +242,14 @@ To stop a pipeline:
 
 ### Other available pipelines
 
-Each pipeline's default source is a video file, and the default sink is the `peksink` endpoint. The pipeline files also contain premade alternative sources and sinks. Use them as templates when switching to a camera or different video source.
+Most pipeline defaults use a video file, and the default sink is the `peksink` endpoint. The `05-full-onnx-raspicam` and `06-full-onnx-usb-cam` presets use live camera sources by default. The pipeline files also contain premade alternative sources and sinks.
 
 - `01-full-onnx.json` — integrated ONNX model pipelines on a video source
 - `02-full-onnx-hailo8.json` — integrated ONNX + Hailo 8 pipelines on a video source with peksink video and optional audio sink
 - `03-full-onnx-hailo8l.json` — integrated ONNX + Hailo 8L pipelines on a video source with peksink video and optional audio sink
 - `04-full-onnx-hailo10.json` — integrated ONNX + Hailo 10 pipelines on a video source with peksink video and optional audio sink
+- `05-full-onnx-raspicam.json` — integrated ONNX pipelines on the Raspberry Pi camera source
+- `06-full-onnx-usb-cam.json` — integrated ONNX pipelines on the USB camera source at `/dev/video0`
 - `cam-connect.json` — camera-contact demo
 - `gaze-detection.json` — gaze-estimation demo
 - `tracker-pc.json` — ONNX tracking demo
