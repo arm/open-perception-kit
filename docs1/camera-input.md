@@ -4,20 +4,33 @@ Use this page after a quick start works with the checked-in sample media.
 
 The first camera test should change only the input source. Keep the rest of the pipeline unchanged so you know any failure is related to camera input, not model or sink changes.
 
+If you want a live camera source enabled by default, use one of the checked-in
+camera presets first:
+
+- `05-full-onnx-raspicam` for a Raspberry Pi CSI camera.
+- `06-full-onnx-usb-cam` for a USB camera exposed as `/dev/video0`.
+
+Use the manual source-editing path below when your camera device, camera name,
+resolution, or pipeline preset needs to differ from those defaults.
+
 ## 1. Choose A Pipeline File
 
-Open one of these files in VS Code:
+For live ONNX camera runs, start with one of these files:
 
-- `config/pipelines/01-full-onnx.json`
+- `config/pipelines/05-full-onnx-raspicam.json`
+- `config/pipelines/06-full-onnx-usb-cam.json`
+
+For Hailo or custom preset work, open one of these files and replace the source
+section manually:
+
 - `config/pipelines/02-full-onnx-hailo8.json`
 - `config/pipelines/03-full-onnx-hailo8l.json`
 - `config/pipelines/04-full-onnx-hailo10.json`
 
-For the first camera test, start with `config/pipelines/01-full-onnx.json`.
+## 2. Find The Source Section
 
-## 2. Find The Current Source
-
-At the top of the `pipeline` array, the checked-in sample source currently looks like this:
+At the top of the `pipeline` array, the source section defines the input.
+In sample-media presets, it usually looks like this:
 
 ```json
 "filesrc location=/work/data/videos/GettyImages-1140581459.mov !",
@@ -26,7 +39,7 @@ At the top of the `pipeline` array, the checked-in sample source currently looks
 "video/x-raw,format=BGRA !",
 ```
 
-Replace only those source lines. Leave the `pekinfer`, `pektracker`, `pekperformance`, `pekosd`, and `peksink` lines as they are.
+Replace only the source lines. Leave the `pekinfer`, `pektracker`, `pekperformance`, `pekosd`, and `peksink` lines as they are.
 
 ## 3. Use A USB Camera
 
@@ -75,7 +88,13 @@ Run in the **Docker shell**:
 Or run the pipeline explicitly:
 
 ```bash
-./tools/pek-menu 01-full-onnx
+./tools/pek-menu 05-full-onnx-raspicam
+```
+
+For a USB camera exposed as `/dev/video0`, run:
+
+```bash
+./tools/pek-menu 06-full-onnx-usb-cam
 ```
 
 Open the web UI:

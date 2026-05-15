@@ -186,8 +186,8 @@ In the VS Code remote window:
 <img src="static/img/20-reopen-in-container.png" alt="VS Code reopening the Raspberry Pi project in a Dev Container" width="720" style="max-width: 100%; height: auto;">
 
 4. Choose the container for your hardware:
-   - **RPI5 H8 pek** for Hailo 8 or Hailo 8L work.
-   - **RPI5 H10 pek** for Hailo 10 work.
+   - **RPI5 H8 perception-experience-kit** for Hailo 8 or Hailo 8L work.
+   - **RPI5 H10 perception-experience-kit** for Hailo 10 work.
 
 VS Code may say that it is building the container. Think of this as preparing the PEK environment. It can take several minutes on the first run.
 
@@ -215,17 +215,19 @@ Expected result: the build finishes without errors and `tools/pek-menu` exists.
 
 ## 11. Run The First Pipeline
 
-A pipeline is a saved runtime preset. It tells PEK where the input comes from, which models can run, and where the result is shown. The first pipeline uses checked-in sample media so you can confirm the system works before changing to a camera.
+A pipeline is a saved runtime preset. It tells PEK where the input comes from, which models can run, and where the result is shown.
 
 Run in the **Docker shell on the Raspberry Pi**:
 
 ```bash
-./tools/pek-menu 01-full-onnx
+./tools/pek-menu 05-full-onnx-raspicam
 ```
+
+For a USB camera exposed as `/dev/video0`, run `./tools/pek-menu 06-full-onnx-usb-cam` instead. Use `./tools/pek-menu 01-full-onnx` when you want the bundled video-file source.
 
 Leave this terminal open. The pipeline is running while this command is active.
 
-Expected result: PEK starts the `01-full-onnx` pipeline. This pipeline uses sample media and ONNX models.
+Expected result: PEK starts the selected ONNX pipeline.
 
 <img src="static/img/09-select-pipeline.png" alt="PEK pipeline selection view" width="720" style="max-width: 100%; height: auto;">
 
@@ -247,7 +249,7 @@ In the **AI Models** panel, enable one model first. Start with `yolov11` or `mob
 
 <img src="static/img/10-browser-ui.png" alt="PEK browser UI after opening the web view" width="720" style="max-width: 100%; height: auto;">
 
-Expected result: the page shows the PEK view and enabling a model produces an overlay or result. The first pipeline uses sample media, so it is normal that you do not see a live camera feed yet.
+Expected result: the page shows the PEK view and enabling a model produces an overlay or result. If you chose `05-full-onnx-raspicam` or `06-full-onnx-usb-cam`, the browser shows live camera input.
 
 ## 13. Try A Hailo Pipeline
 
@@ -277,11 +279,16 @@ Open the same browser URL and enable one model in the **AI Models** panel.
 
 ## 14. Switch From Sample Media To Camera
 
-The checked-in quick-start pipelines use sample media by default. This keeps the first run predictable.
+The checked-in camera presets use live camera sources by default:
+
+- `05-full-onnx-raspicam` uses the Raspberry Pi camera source.
+- `06-full-onnx-usb-cam` uses the USB camera source at `/dev/video0`.
 
 For the full camera walkthrough, use [Use A Camera](camera-input.md).
 
-For the first Raspberry Pi camera test, open `config/pipelines/01-full-onnx.json` and replace the first source lines in the `pipeline` array.
+Use the manual source-editing path below only when your camera device, camera name, resolution, or pipeline preset needs to differ from those defaults.
+
+Open the pipeline file you want to adapt and replace the first source lines in the `pipeline` array.
 
 The checked-in sample source currently starts like this:
 
@@ -327,7 +334,7 @@ The pipeline files also contain these alternative camera sources as templates:
 - `alternative-source-usbcam` for USB cameras.
 - `alternative-source-raspicam` for Raspberry Pi CSI cameras.
 
-Expected result: after you rerun `pek-menu`, the browser shows camera input instead of the checked-in sample media.
+Expected result: after you rerun `pek-menu`, the browser shows camera input.
 
 ## 15. Stop And Run Again
 
@@ -347,4 +354,4 @@ To run the last selected pipeline again, run in the **Docker shell on the Raspbe
 - If the Dev Container does not start, confirm Docker works on the Raspberry Pi with `docker info`.
 - If Hailo models fail, confirm that `ls /dev/hailo*` and `hailortcli fw-control identify` work on the Raspberry Pi before opening the container.
 - If the browser opens but no result appears, enable a model in the **AI Models** panel.
-- If you expected a live camera feed, complete the first sample-media run first, then follow the camera section above.
+- If you expected a live camera feed, use `05-full-onnx-raspicam` for a Raspberry Pi camera or `06-full-onnx-usb-cam` for a USB camera at `/dev/video0`, then follow the camera section above if your device needs custom source settings.

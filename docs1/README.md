@@ -38,6 +38,11 @@ The demo includes common perception model types such as object detection, face
 detection, image classification, segmentation, OCR, and embeddings. You only
 need to enable one model to confirm the first run works.
 
+For a live camera first run, Raspberry Pi users can choose
+`05-full-onnx-raspicam` for a Raspberry Pi camera or `06-full-onnx-usb-cam` for
+a USB camera. Linux users with a USB camera exposed as `/dev/video0` can
+choose `06-full-onnx-usb-cam`.
+
 ### 2. Switch to your own input
 
 After the sample media demo works, use a camera, image, video file, or media

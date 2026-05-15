@@ -129,6 +129,7 @@ Suggested path for custom videos is `data/videos/`.
 ### Custom camera
 
 For live input, replace the source section with a camera source such as `v4l2src` or `libcamerasrc`, following the examples already stored in `config/pipelines/`.
+For ready-to-run live camera presets, use `05-full-onnx-raspicam` for a Raspberry Pi camera or `06-full-onnx-usb-cam` for a USB camera at `/dev/video0`.
 
 ## How to use your own model
 
@@ -154,6 +155,8 @@ Common presets include:
 - `02-full-onnx-hailo8.json` - integrated ONNX and Hailo 8 pipelines.
 - `03-full-onnx-hailo8l.json` - integrated ONNX and Hailo 8L pipelines.
 - `04-full-onnx-hailo10.json` - integrated ONNX and Hailo 10 pipelines.
+- `05-full-onnx-raspicam.json` - integrated ONNX pipelines on the Raspberry Pi camera source.
+- `06-full-onnx-usb-cam.json` - integrated ONNX pipelines on the USB camera source at `/dev/video0`.
 - `cam-connect.json` - camera-contact demo.
 - `gaze-detection.json` - gaze-estimation demo.
 - `tracker-pc.json` - ONNX tracking demo.

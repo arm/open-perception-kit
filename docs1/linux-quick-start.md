@@ -68,7 +68,7 @@ In VS Code:
 
 <img src="static/img/05-reopen-in-container.png" alt="VS Code command palette showing Reopen in Container" width="720" style="max-width: 100%; height: auto;">
 
-3. Choose **PC pek**.
+3. Choose **PC perception-experience-kit**.
 
 <img src="static/img/06-reopen-in-container2.png" alt="VS Code Dev Container selection dialog" width="720" style="max-width: 100%; height: auto;">
 
@@ -103,6 +103,7 @@ Run in the **Docker shell**:
 ```
 
 You can also use the VS Code task **00 Run project and select pipeline** and choose `01-full-onnx`.
+On Linux with a USB camera exposed as `/dev/video0`, choose `06-full-onnx-usb-cam` for a live camera source enabled by default.
 
 <img src="static/img/09-select-pipeline.png" alt="PEK pipeline selection view" width="720" style="max-width: 100%; height: auto;">
 
@@ -120,7 +121,7 @@ In the **AI Models** panel, enable one model first. For example, enable `yolov11
 
 <img src="static/img/10-browser-ui.png" alt="PEK browser UI after opening the web view" width="720" style="max-width: 100%; height: auto;">
 
-Expected result: the page shows the PEK view and enabling a model produces an overlay or result. The default quick-start pipeline uses checked-in sample media, not a live camera.
+Expected result: the page shows the PEK view and enabling a model produces an overlay or result. The default quick-start pipeline uses checked-in sample media; `06-full-onnx-usb-cam` uses a USB camera at `/dev/video0`.
 
 ## 6. Stop And Run Again
 

@@ -58,7 +58,7 @@ In VS Code:
 
 <img src="static/img/05-reopen-in-container.png" alt="VS Code command palette showing Reopen in Container" width="720" style="max-width: 100%; height: auto;">
 
-3. Choose **PC pek**.
+3. Choose **PC perception-experience-kit**.
 
 <img src="static/img/06-reopen-in-container2.png" alt="VS Code Dev Container selection dialog" width="720" style="max-width: 100%; height: auto;">
 

@@ -64,3 +64,8 @@ behavior.
 For live camera input, use [Use A Camera](camera-input.md). That page covers
 USB cameras, Raspberry Pi camera input, and the checks to run before changing a
 pipeline.
+
+For ready-to-run live camera presets, use:
+
+- `05-full-onnx-raspicam` for a Raspberry Pi camera.
+- `06-full-onnx-usb-cam` for a USB camera at `/dev/video0`.
