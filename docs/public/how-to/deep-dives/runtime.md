@@ -132,6 +132,7 @@ Suggested path for custom videos is `data/videos/`.
 ### Custom camera
 
 For live input, replace the source section with a camera source such as `v4l2src` or `libcamerasrc`, following the examples already stored in `config/pipelines/`.
+For ready-to-run live camera presets, use `05-full-onnx-raspicam` for a Raspberry Pi camera or `06-full-onnx-usb-cam` for a USB camera at `/dev/video0`.
 
 ## How to use your own model
 
