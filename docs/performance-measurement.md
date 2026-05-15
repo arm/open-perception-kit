@@ -110,3 +110,5 @@ The `Run Recipe` button executes the target application and performs the measure
 After running a recipe by clicking `Run Recipe`, you will get the measurement results.
 
 <img src="static/img/performix-results.jpg" alt="Performix results" width="720" style="max-width: 100%; height: auto;">
+
+[Back to README](../README.md)

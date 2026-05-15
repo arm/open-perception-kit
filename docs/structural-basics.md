@@ -117,3 +117,5 @@ By the end of this page, you should have:
 - a simple rule for when source-code changes are actually needed
 
 Success looks like this: you can decide where to add a model, where to edit a pipeline, and whether your task stays in configuration or requires runtime code changes.
+
+[Back to README](../README.md)

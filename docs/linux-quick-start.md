@@ -139,3 +139,5 @@ To run the last selected pipeline again, run in the **Docker shell**:
 - If the build command is not found, confirm that you are in the Docker shell and in `/work`.
 - If the browser opens but no result appears, enable a model in the **AI Models** panel.
 - If you see a path error, confirm that VS Code opened the repository folder, not its parent folder.
+
+[Back to README](../README.md)

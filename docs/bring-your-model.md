@@ -222,3 +222,5 @@ By the end of this page, you should have:
 - a realistic answer to whether the model is low-friction in the current runtime
 
 Success looks like this: PEK can load the model, the pipeline runs, the selected parser matches the outputs, and the result appears correctly in the runtime.
+
+[Back to README](../README.md)

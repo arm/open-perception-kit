@@ -117,3 +117,5 @@ ssh <username>@raspberrypi.local
 ```
 
 Do this only after the password-based connection already works.
+
+[Back to README](../README.md)

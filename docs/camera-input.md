@@ -120,3 +120,5 @@ Expected result: the browser shows camera input instead of the checked-in sample
 - Confirm the camera path or camera name in the JSON matches the detected device.
 - Keep the output format conversion to `BGRA`; PEK video elements expect that format in the normal path.
 - Stop the running pipeline with `Ctrl+C` before starting it again.
+
+[Back to README](../README.md)
