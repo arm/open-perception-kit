@@ -1,6 +1,5 @@
 {
     "description": "Test Inference on video",
-    "loop": true,
     "pipeline": [
         "filesrc location=/work/data/videos/GettyImages-1140581459.mov !",
         "decodebin name=dec",

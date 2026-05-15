@@ -1,7 +1,7 @@
 # Pull Request
 
 <!-- Fix the link to the latest GitHub Actions run for this PR below. -->
-[![Perception Experience Kit CI Pipeline](https://github.com/Arm-Debug/perception-experience-kit/actions/workflows/pek-ci.yml/badge.svg?branch=feature/EXPKITS-/TODO)](https://github.com/Arm-Debug/perception-experience-kit/actions/workflows/pek-ci.yml)
+[![Perception Experience Kit CI Pipeline](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/pek-ci.yml/badge.svg?branch=feature/EXPKITS-/TODO)](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/pek-ci.yml)
 
 ## PR rules
 

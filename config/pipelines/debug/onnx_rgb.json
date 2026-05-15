@@ -1,7 +1,7 @@
 {
     "description": "Test ONNX RGB pipeline",
     "pipeline": [
-        "filesrc location=/work/data/images/katana.jpg !",
+        "filesrc location=/work/data/images/GettyImages-1140581459-thumbnail.jpg !",
         "jpegdec !",
         "imagefreeze !",
         "videoconvert !",

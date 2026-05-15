@@ -74,7 +74,7 @@ endif
 onnx_candidates += [
   '/opt/pek-deps/onnxruntime',
   meson.project_source_root() / '../deps/onnxruntime',
-  meson.project_source_root() / '../onnxruntime-linux-aarch64-1.18.1',
+  meson.project_source_root() / '../onnxruntime-linux-aarch64-1.24.4',
 ]
 
 foreach candidate : onnx_candidates

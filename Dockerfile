@@ -3,7 +3,7 @@
 ######################################################################
 FROM debian:trixie-slim AS pek-base
 
-ARG ONNXRUNTIME_VERSION=1.18.1
+ARG ONNXRUNTIME_VERSION=1.24.4
 
 ENV DEBIAN_FRONTEND=noninteractive \
   LANG=C.UTF-8 \
