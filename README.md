@@ -1,41 +1,79 @@
-# Perception XPK
-![PEK CI Pipeline Nightly](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/pek-ci.yml/badge.svg?branch=main)
-![SonarQube Nightly](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/sonar.yml/badge.svg?branch=main)
+# Perception Experience Kit (PEK)
 
-The Perception XPK is a framework for building and running AI-enabled media workflows.
+Perception Experience Kit (PEK) enables you to run AI-powered
+media-processing pipelines in a reproducible containerised environment.
 
-For example, you could use it for:
-- creating a smart camera doorbell that recognizes when one or more people are present and responds in real time
-- creating tools that read labels, signs, or documents and act based on the text found
+In this guide, media primarily refers to video frames sourced from an image,
+video file, or camera feed.
 
-Use it to prototype, test and deploy AI pipelines, turning raw media into meaningful output. It includes models for object detection, classification, tracking, segmentation, text recognition, voice activity detection and similar perception use cases.
+A PEK pipeline can:
 
-At a high level, the Perception XPK combines:
-- GStreamer-based media pipeline integration
-- an Op-based execution model for preprocessing, inference, and postprocessing
-- structured `Perception` results that downstream elements can render, track, or publish
+- read media input
+- run one or more AI models on the media
+- process the results
+- display the output in a browser
+
+For example, a pipeline might detect objects in a video stream and display the
+detection results in real time.
 
 ## Get started
-- Run on [Raspberry Pi 5](docs/public/how-to/quick-guides/rpi.md) (recommended)
-- Run locally with the [macOS quick guide](docs/public/how-to/quick-guides/mac.md) or [Windows/Linux quick guide](docs/public/how-to/quick-guides/win-lin.md) / [tutorial video](https://armh.sharepoint.com/:v:/s/StrategyandEcosystems/IQCzFz6fgiUMSoOBeC9le6q-AYEuQd2FaDPcQFjF3_r5Y5g?nav=eyJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJTdHJlYW1XZWJBcHAiLCJyZWZlcnJhbFZpZXciOiJTaGFyZURpYWxvZy1MaW5rIiwicmVmZXJyYWxBcHBQbGF0Zm9ybSI6IldlYiIsInJlZmVycmFsTW9kZSI6InZpZXcifX0%3D)
-- After running your first pipeline, use the [Pipeline customisation guide](docs/public/how-to/quick-guides/exercise.md) to learn how to make your own and integrate a model
 
-## Advanced paths
+### 1. Set up PEK and run the sample media demo
 
-### Deep dive how-to pages
-The deep-dive path branches by platform and Raspberry Pi accelerator choice, then continues into model integration, custom postprocessing, and the architecture pages.
+Start with the guide for the machine where PEK will run. Each quick start
+includes the detailed setup checks, build steps, and first browser success check
+using included sample media.
 
-- [Deep dive how-to guide](docs/public/how-to/deep-dives/index.md)
-- [Engineering starting point](docs/public/how-to/deep-dives/engineering.md)
-- [Bring your model](docs/public/how-to/deep-dives/bring-your-model.md)
-- [Troubleshooting](docs/public/how-to/deep-dives/troubleshooting.md)
-- [Performance measurement with performix](docs/public/how-to/deep-dives/performix-setup.md)
+| PEK will run on... | Hardware you need | Software you need | Start here |
+|---|---|---|---|
+| Raspberry Pi 5 | Raspberry Pi 5, power supply, network connection.<br>(Optional) Camera: USB camera or Raspberry Pi CSI camera, such as Camera Module 3 or High Quality Camera. Not needed for the sample demo.<br>(Optional) Hailo AI HAT. Required for Hailo pipelines. | Raspberry Pi OS, VS Code, Remote SSH extension, Dev Containers extension. | [Raspberry Pi 5 Tutorial](raspberry-pi-quick-start.md) |
+| Windows PC | Windows PC.<br>(Optional) Camera: supported camera input, if configured for WSL/container access. Not needed for the sample demo. | WSL with Ubuntu, Git in WSL, Docker Desktop with WSL integration, VS Code, Dev Containers extension. | [Windows Quick Start](windows-quick-start.md) |
+| Linux PC | Linux PC.<br>(Optional) Camera: USB camera or other camera visible as a Linux video device. Not needed for the sample demo. | Git, Docker Engine, Docker Compose, VS Code, Dev Containers extension. | [Linux Quick Start](linux-quick-start.md) |
+| Mac | Mac.<br>(Optional) Camera: supported camera input, if configured for container access. Not needed for the sample demo. | Git, Docker Desktop, VS Code, Dev Containers extension. | [macOS Quick Start](macos-quick-start.md) |
 
-### Architecture and implementation detail
-The architectural path provides a deeper understanding of the project, its current capabilities, and its future goals.
+The first goal is to confirm that PEK can build, start, open the browser UI,
+and show AI results on the included sample media.
 
-- [Architecture index](docs/public/arch/index.md)
-- [Architectural overview](docs/public/arch/architectural-overview.md)
-- [Known limitations](docs/public/arch/known-limitations.md)
+The demo includes common perception model types such as object detection, face
+detection, image classification, segmentation, OCR, and embeddings. You only
+need to enable one model to confirm the first run works.
 
-For rendered documentation instead of Markdown files, see the [Perception XPK Docusaurus Site](https://docs.staging.devplatform.arm.com/amp-dev-forge/).
+For a live camera first run, Raspberry Pi users can choose
+`05-full-onnx-raspicam` for a Raspberry Pi camera or `06-full-onnx-usb-cam` for
+a USB camera. Linux users with a USB camera exposed as `/dev/video0` can
+choose `06-full-onnx-usb-cam`.
+
+### 2. Switch to your own input
+
+After the sample media demo works, use a camera, image, video file, or media
+stream.
+
+- Camera: [Use A Camera](camera-input.md)
+- Image file: [Use Your Own Media](media-input.md#use-an-image-file)
+- Video file: [Use Your Own Media](media-input.md#use-a-video-file)
+- Media stream: [Use Your Own Media](media-input.md#use-a-media-stream)
+
+### 3. Bring your own model
+
+Add or adapt a model after the input and runtime flow are clear.
+
+- [Bring Your Model](bring-your-model.md)
+
+### 4. Customize postprocessing only if needed
+
+Do this only when your model output does not match an existing PEK parser.
+
+- [Custom Postprocessing](custom-postprocessing.md)
+
+### 5. Use reference pages when you need context
+
+Use these pages when you need to understand how PEK is organized:
+
+- [Structural Basics](structural-basics.md)
+- [Runtime Basics](runtime-basics.md)
+- [Performance Measurement With Performix](performance-measurement.md)
+
+## Optional Setup Pages
+
+- [Raspberry Pi SSH Setup](raspberry-pi-ssh.md) - use this before the Raspberry Pi tutorial if you want to connect from your normal computer.
+- [GitHub SSH Key Setup](github-ssh-key.md) - use this only if you need to clone from GitHub with an SSH URL.
