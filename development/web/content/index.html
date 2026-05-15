@@ -15,42 +15,41 @@
                 <span class="title-dot"></span>
                 WebRTC for Perception Experience Kit pipelines
             </div>
-            <div id="status-pill" class="status-pill connecting">
-                <span class="status-dot"></span>
-                <div>
-                    <div id="status-label" class="status-label">CONNECTING</div>
-                    <div id="status-subtext" class="subtext">Initializing WebRTC &amp; signaling…</div>
-                </div>
-            </div>
         </div>
 
         <div class="card-body">
-            <div class="video-wrapper">
-                <video id="video" autoplay playsinline muted></video>
-
-                <div class="video-controls">
-                    <button id="playPauseBtn" class="video-control" type="button" aria-label="Pause pipeline">
-                        <span id="playPauseIcon" class="video-control-icon">⏸</span>
-                        <span class="video-control-text">Pause</span>
-                    </button>
-
-                    <button id="muteUnmuteBtn" class="video-control" type="button" aria-label="Unmute">
-                        <span id="muteUnmuteIcon" class="video-control-icon">🔇</span>
-                        <span class="video-control-text">Unmute</span>
-                    </button>
-                </div>
-
-                <div id="video-overlay" class="video-overlay">
-                    <div class="overlay-chip">
-                        <div class="spinner"></div>
-                        <div id="overlay-text">Waiting for stream…</div>
-                    </div>
-                </div>
-            </div>
-
             <div class="sidebar">
-                <div>
-                    <div class="sidebar-section-title">AI Models</div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Controls</div>
+                    <div class="controls-row">
+                        <div id="status-line" class="status-line status-line--compact connecting">
+                            <span class="status-line-dot" aria-hidden="true"></span>
+                            <span class="status-line-text">WebRTC connecting</span>
+                        </div>
+                        <div class="controls-actions">
+                            <button id="playPauseBtn" class="control-button control-button--primary" type="button"
+                                aria-label="Pause pipeline">
+                                <span id="playPauseIcon" class="video-control-icon">⏸</span>
+                                <span class="video-control-text">Pause</span>
+                            </button>
+                            <button id="muteUnmuteBtn" type="button" aria-label="Unmute" style="display:none">
+                                <span id="muteUnmuteIcon" class="video-control-icon">🔇</span>
+                                <span class="video-control-text">Unmute</span>
+                            </button>
+                        </div>
+                    </div>
+                    <label class="perf-toggle-switch" aria-label="Toggle performance overlay">
+                        <input id="enablePerfOverlayChk" type="checkbox" role="switch">
+                        <span class="perf-toggle-track" aria-hidden="true">
+                            <span class="perf-toggle-thumb"></span>
+                        </span>
+                        <span class="perf-toggle-text">Performance overlay</span>
+                    </label>
+                </div>
+
+                <div class="sidebar-section sidebar-section--grow sidebar-section--models">
+                    <div class="sidebar-section-title">Pipeline Output Model</div>
                     <div id="models-container" class="models-container">
                         <div class="models-loading">
                             <div class="spinner"></div>
@@ -59,29 +58,20 @@
                     </div>
                 </div>
 
-                <div>
-                    <div class="sidebar-section-title">Controls</div>
-                    <div class="btn-row">
-                        <label class="perf-toggle-switch" aria-label="Toggle performance overlay">
-                            <input id="enablePerfOverlayChk" type="checkbox" role="switch">
-                            <span class="perf-toggle-track" aria-hidden="true">
-                                <span class="perf-toggle-thumb"></span>
-                            </span>
-                            <span class="perf-toggle-text">Performance overlay</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="sidebar-section-title">Connection</div>
-                    <div id="status-line" class="status-line">
-                        Starting up…
-                    </div>
-                </div>
-
-                <div>
+                <div class="sidebar-section">
                     <div class="sidebar-section-title">Debug log</div>
                     <div id="log" class="log"></div>
+                </div>
+
+            </div>
+
+            <div class="video-wrapper">
+                <video id="video" autoplay playsinline muted></video>
+                <div id="video-overlay" class="video-overlay">
+                    <div class="overlay-chip">
+                        <div class="spinner"></div>
+                        <div id="overlay-text">Waiting for stream…</div>
+                    </div>
                 </div>
             </div>
         </div>

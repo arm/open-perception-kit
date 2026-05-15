@@ -10,33 +10,93 @@ class ModelsManager {
         this.container = document.getElementById('models-container');
         this.updateInterval = null;
         this._descriptionCache = new Map();
-        this._tooltip = this._createTooltip();
+        this._infoPanel = this._createInfoPanel();
+        this._activeInfoButton = null;
+
+        document.addEventListener('click', (event) => {
+            if (!this._infoPanel || this._infoPanel.style.display === 'none') {
+                return;
+            }
+
+            if (this._infoPanel.contains(event.target) || event.target.closest('.model-info-button')) {
+                return;
+            }
+
+            this._hideInfoPanel();
+        });
     }
 
-    _createTooltip() {
-        const t = document.createElement('div');
-        t.id = 'model-tooltip';
-        t.style.position = 'fixed';
-        t.style.pointerEvents = 'none';
-        t.style.zIndex = '1000';
-        t.style.display = 'none';
-        t.className = 'model-tooltip';
-        document.body.appendChild(t);
-        return t;
+    _createInfoPanel() {
+        const panel = document.createElement('div');
+        panel.id = 'model-info-panel';
+        panel.style.position = 'fixed';
+        panel.style.zIndex = '1000';
+        panel.style.display = 'none';
+        panel.className = 'model-info-panel';
+        document.body.appendChild(panel);
+        return panel;
+    }
+
+    _hideInfoPanel() {
+        if (!this._infoPanel) return;
+
+        this._infoPanel.style.display = 'none';
+        if (this._activeInfoButton) {
+            this._activeInfoButton.setAttribute('aria-expanded', 'false');
+        }
+        this._activeInfoButton = null;
+    }
+
+    _showInfoPanel(buttonEl, text) {
+        this._infoPanel.textContent = text || 'No description available';
+        this._infoPanel.style.display = 'block';
+
+        const rect = buttonEl.getBoundingClientRect();
+        const panelRect = this._infoPanel.getBoundingClientRect();
+        const gap = 10;
+
+        let left = rect.right + gap;
+        let top = rect.top + (rect.height - panelRect.height) / 2;
+
+        if (left + panelRect.width > window.innerWidth - 12) {
+            left = Math.max(8, rect.left - panelRect.width - gap);
+        }
+
+        if (top < 8) {
+            top = 8;
+        }
+        if (top + panelRect.height > window.innerHeight - 8) {
+            top = Math.max(8, window.innerHeight - panelRect.height - 8);
+        }
+
+        this._infoPanel.style.left = `${left}px`;
+        this._infoPanel.style.top = `${top}px`;
     }
 
     async _fetchDescription(model) {
         // Return cached if available
-        if (this._descriptionCache.has(model.element_name))
-            return this._descriptionCache.get(model.element_name);
+        const descriptionKey = `${model.name}::${model.element_name || ''}`;
+        if (this._descriptionCache.has(descriptionKey))
+            return this._descriptionCache.get(descriptionKey);
+
+        const lookupCandidates = [model.name, model.element_name].filter(
+            (value, index, array) => value && array.indexOf(value) === index
+        );
+
         try {
-            const url = `/api/model-info?name=${encodeURIComponent(model.name)}`;
-            const resp = await fetch(url, { cache: 'no-store' });
-            if (resp.ok) {
+            for (const lookupName of lookupCandidates) {
+                const url = `/api/model-info?name=${encodeURIComponent(lookupName)}`;
+                const resp = await fetch(url, { cache: 'no-store' });
+                if (!resp.ok) {
+                    continue;
+                }
+
                 const j = await resp.json();
                 const desc = j.description || j.opchain?.description || j.model?.description || '';
-                this._descriptionCache.set(model.element_name, desc);
-                return desc;
+                if (desc) {
+                    this._descriptionCache.set(descriptionKey, desc);
+                    return desc;
+                }
             }
         } catch (e) {
             // ignore
@@ -44,7 +104,7 @@ class ModelsManager {
 
         // Fallback to any inline description field from the model object
         const fallback = model.description || model.desc || '';
-        this._descriptionCache.set(model.element_name, fallback);
+        this._descriptionCache.set(descriptionKey, fallback);
         return fallback;
     }
 
@@ -91,47 +151,36 @@ class ModelsManager {
             <div class="model-info">
                 <div class="model-name">${model.name}</div>
             </div>
-            <label class="model-toggle-switch" aria-label="Toggle ${model.name}">
-                <input type="checkbox" role="switch" ${model.active ? 'checked' : ''}>
-                <span class="model-toggle-track" aria-hidden="true">
-                    <span class="model-toggle-thumb"></span>
-                </span>
-            </label>
+            <div class="model-actions">
+                <label class="model-toggle-switch" aria-label="Toggle ${model.name}">
+                    <input type="checkbox" role="switch" ${model.active ? 'checked' : ''}>
+                    <span class="model-toggle-track" aria-hidden="true">
+                        <span class="model-toggle-thumb"></span>
+                    </span>
+                </label>
+                <button class="model-info-button" type="button" aria-label="Show information for ${model.name}" aria-expanded="false">i</button>
+            </div>
         `;
 
         const toggle = item.querySelector('input[type="checkbox"]');
+        const infoButton = item.querySelector('.model-info-button');
 
-        // Hover tooltip handling
-        const nameEl = item.querySelector('.model-name');
-        let hoverActive = false;
-        nameEl.addEventListener('mouseenter', async (ev) => {
-            hoverActive = true;
+        infoButton.addEventListener('click', async (event) => {
+            event.stopPropagation();
+
+            if (this._activeInfoButton === infoButton && this._infoPanel.style.display !== 'none') {
+                this._hideInfoPanel();
+                return;
+            }
+
+            if (this._activeInfoButton) {
+                this._activeInfoButton.setAttribute('aria-expanded', 'false');
+            }
+
             const desc = await this._fetchDescription(model);
-            this._tooltip.textContent = desc || 'No description available';
-            this._tooltip.style.display = 'block';
-            const rect = nameEl.getBoundingClientRect();
-            // Place tooltip below the element to avoid overlapping the name
-            const top = rect.bottom + 6; // 6px gap
-            let left = rect.left;
-            // ensure tooltip doesn't overflow viewport on initial placement
-            const maxLeft = window.innerWidth - 12 - this._tooltip.offsetWidth;
-            if (left > maxLeft) left = Math.max(8, maxLeft);
-            this._tooltip.style.left = `${left}px`;
-            this._tooltip.style.top = `${top}px`;
-        });
-
-        nameEl.addEventListener('mousemove', (ev) => {
-            if (!hoverActive) return;
-            // Only update horizontal position on mouse move so tooltip stays below the name
-            let x = ev.clientX + 12;
-            const maxLeft = window.innerWidth - 12 - this._tooltip.offsetWidth;
-            if (x > maxLeft) x = Math.max(8, maxLeft);
-            this._tooltip.style.left = `${x}px`;
-        });
-
-        nameEl.addEventListener('mouseleave', () => {
-            hoverActive = false;
-            this._tooltip.style.display = 'none';
+            this._activeInfoButton = infoButton;
+            infoButton.setAttribute('aria-expanded', 'true');
+            this._showInfoPanel(infoButton, desc);
         });
 
         toggle.addEventListener('change', () => {
