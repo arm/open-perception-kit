@@ -1,148 +1,307 @@
-# PEK (Perception Experience Kit) Documentation
+# Arm Perception Kit
 
-PEK (Perception Experience Kit) helps you run AI media-processing pipelines in a repeatable container environment. In this guide, media mostly means video frames from an image, video file, or camera feed. A pipeline can read that media, run one or more AI models, and show the result in a browser.
+The Arm Perception Kit helps Raspberry Pi developers get from setup to useful
+edge-vision inference without building the whole perception stack from scratch.
 
-<img src="screenshot.jpg" alt="PEK (Perception Experience Kit) browser UI screenshot" width="720" style="max-width: 100%; height: auto;">
+Use it when you want the fastest path from a ready Raspberry Pi to visible
+inference and a starting point for a vision application. This developer preview
+gives you a container-based workflow, a packaged pipeline, browser visibility,
+model controls, performance and debug signals, and output paths you can adapt
+instead of stitching those pieces together yourself.
 
-## Start Here
+You can run a reference pipeline on a Raspberry Pi 5, view the result in a
+browser, and then adapt the source, model, pipeline, accelerator, or output path
+for your own application.
 
-Choose the first page from this table:
+## What you can do
 
-| I have or want... | Start with... |
-|---|---|
-| Raspberry Pi 5 with a supported Hailo accelerator | [Raspberry Pi 5 Tutorial](raspberry-pi-quick-start.md) |
-| Windows PC | [Windows Quick Start](windows-quick-start.md) |
-| Linux PC | [Linux Quick Start](linux-quick-start.md) |
-| Mac | [macOS Quick Start](macos-quick-start.md) |
-| A working first run and want to understand the folders | [Structural Basics](structural-basics.md) |
-| A working first run and want to understand pipelines | [Runtime Basics](runtime-basics.md) |
-| A working first run and want to use a camera | [Use A Camera](camera-input.md) |
-| A working first run and want to add a model | [Bring Your Model](bring-your-model.md) |
-| A model whose output is not supported yet | [Custom Postprocessing](custom-postprocessing.md) |
+- Run a reference vision pipeline on a Raspberry Pi.
+- View the sample image stream, model controls, debug log, and performance
+  signals in a browser.
+- Enable bundled models and confirm that inference changes the viewer, debug
+  log, or performance state.
+- Use inference output as a starting point for downstream application logic.
+- Adapt the source, pipeline, model, accelerator, or output path for a Raspberry
+  Pi vision application.
 
-The recommended first tutorial is:
+## What to expect
 
-- [Raspberry Pi 5 Tutorial](raspberry-pi-quick-start.md)
+Plan for around 30 minutes from opening a ready Raspberry Pi environment to
+first inference. That assumes the prerequisites below are already in place and
+that the Raspberry Pi can reach GitHub, package repositories, and any container
+or source locations used during the first container build. Time to prepare the
+Raspberry Pi OS image, SSH, Docker, Git, VS Code, or network access is outside
+this guide. Camera input, Hailo acceleration, custom model work, and
+application integration are follow-on paths.
 
-Use the Raspberry Pi tutorial if you have a Raspberry Pi 5 and a supported Hailo accelerator. It walks through the full path from hardware checks to first inference in the browser.
+This guide uses two machines:
 
-If you do not have Raspberry Pi hardware, use one of these PC tutorials:
+- The host machine: your personal computer, used for VS Code, Remote SSH, and
+  the browser viewer.
+- The target Pi: the Raspberry Pi 5, where you clone the repository, open the
+  devcontainer, build the kit, and run the reference pipeline.
 
-- [Windows Quick Start](windows-quick-start.md)
-- [Linux Quick Start](linux-quick-start.md)
-- [macOS Quick Start](macos-quick-start.md)
+The target Pi serves the WebRTC browser viewer on port `9999`. You open that
+viewer from the host machine.
 
-## What You Will Run First
+You need:
 
-The first tutorial runs the `01-full-onnx` pipeline. It uses checked-in sample media first, because this is the most reliable way to prove that the environment, build, pipeline, and browser UI are working.
+- Raspberry Pi 5 running the supported 64-bit Raspberry Pi OS image for this
+  release. The current preflight expects a Debian Trixie-based image.
+- SSH enabled on the Raspberry Pi, with a username and password or SSH key you
+  can use from the host machine.
+- Docker Engine and the Docker Compose plugin on the target Pi, usable by
+  the account you use over SSH. The check below expects
+  `docker info` to run without `sudo`.
+- Git on the target Pi, with network access from the target Pi to the
+  repository and build sources used by this release.
+- VS Code, the Remote SSH extension, and the Dev Containers extension on your
+  host machine.
+- Network access from the host machine to the target Pi.
+- Permission to run `sudo` on the target Pi.
 
-The first pipeline includes these model families:
+## Quick install and first inference
 
-- object detection
-- face detection
-- camera-contact classification
-- gaze detection
-- image classification
-- segmentation
-- object embedding
-- OCR
-- person classification
+Follow this path first. It gets the repository onto the Raspberry Pi, opens the
+devcontainer, builds the kit, starts the reference pipeline, and opens the
+browser viewer.
 
-After the first inference works, the Raspberry Pi tutorial shows where to try the Hailo pipelines. Use [Use A Camera](camera-input.md) when you are ready to switch from sample media to a camera source.
+### Connect to the Raspberry Pi
 
-## What Success Looks Like
+Use the target Pi hostname or IP address from your prerequisite setup.
 
-When the first run is working:
+Run on the host machine:
 
-- the PEK browser UI opens
-- the sample media is visible
-- the **AI Models** panel is visible
-- you can enable one model from the **AI Models** panel
-- an overlay or result appears after a model is enabled
-
-The browser result is the important success check. A terminal message such as `playing` or `connected` is useful, but it does not by itself prove that inference is visible in the UI.
-
-## Normal First-Run Behavior
-
-The first run is intentionally conservative:
-
-- the quick-start pipeline uses checked-in sample media, not your camera
-- models usually start disabled
-- enable one model first, such as `yolov11` or `mobilenetv2`
-- some GStreamer or browser-connection warnings can appear while the pipeline is running
-- keep the terminal running while the browser UI is open
-
-Switch to a camera only after the first sample-media run works.
-
-## Terms You Will See
-
-- **Host** means your normal Windows, Linux, or macOS computer.
-- **Raspberry Pi** means the Pi device that runs PEK in the Raspberry Pi tutorial.
-- **Pipeline** means a saved runtime preset that chooses input, models, and output.
-- **Model** means an AI model and its descriptor files.
-- **Dev Container** means the Docker-based development environment opened by VS Code.
-
-## Shell Names Used In These Guides
-
-The guides label commands by where they must run.
-
-- **Host shell** means the normal terminal on your Windows, Linux, or macOS computer.
-- **WSL shell** means the Ubuntu/Linux terminal inside WSL on Windows.
-- **Raspberry Pi shell** means a terminal connected to the Raspberry Pi, usually through SSH.
-- **Docker shell** means the terminal inside the VS Code Dev Container after you choose **Dev Containers: Reopen in Container**.
-
-If a command says **Docker shell**, do not run it in your normal terminal. Open a terminal in VS Code after the container has started.
-
-## First Success Target
-
-The first useful success signal is:
-
-1. The project opens in the correct VS Code Dev Container.
-2. The build task finishes without errors.
-3. `pek-menu` starts a pipeline.
-4. The PEK web UI opens in a browser.
-5. At least one model can be enabled from the **AI Models** panel.
-
-For a PC or Mac, the web UI is:
-
-```text
-http://localhost:9999
+```bash
+ssh <raspberry-pi-username>@<raspberry-pi-hostname-or-ip>
 ```
 
-The local documentation endpoint is:
+**Expected result:** the host machine opens a shell on the target Pi.
 
-```text
-http://localhost:8080
+### Check the starting state
+
+Run on the target Pi:
+
+```bash
+cat /proc/device-tree/model
+cat /etc/os-release
+uname -m
+groups
+docker info
+docker compose version
+git --version
 ```
 
-For a Raspberry Pi, the web UI is usually:
+**Expected result:** the board is a Raspberry Pi 5, `/etc/os-release` reports the
+release-supported Raspberry Pi OS image, `uname -m` reports an Arm 64-bit
+architecture such as `aarch64`, `groups` includes `docker`, Docker is running,
+Docker Compose is available, and Git is installed.
 
-```text
-http://raspberrypi.local:9999
+If one of these checks fails, the prerequisite setup is not complete. Resolve
+the missing prerequisite before you continue.
+
+### Get the repository on the Raspberry Pi
+
+Run on the target Pi:
+
+```bash
+git clone https://github.com/Arm-Debug/amp-dev-forge.git
+cd amp-dev-forge
 ```
 
-The Raspberry Pi documentation endpoint is usually:
+**Expected result:** the repository is at `~/amp-dev-forge` unless you chose another
+folder. It contains `scripts/`, `.devcontainer/`, `config/`, `development/`,
+and `tools/`.
 
-```text
-http://raspberrypi.local:8080
+If your environment requires SSH access to GitHub and GitHub SSH
+authentication is already configured on the Raspberry Pi, use this clone
+command instead:
+
+Run on the target Pi:
+
+```bash
+git clone git@github.com:Arm-Debug/amp-dev-forge.git
+cd amp-dev-forge
 ```
 
-The default first pipeline is `01-full-onnx`. It uses sample media by default. Some pipeline files also contain alternative camera and video sources, but the first run should prove the basic build and browser path before you change inputs.
+### Run the readiness checks
 
-PEK also uses ports `8000` and `8001` internally for browser-facing runtime communication.
+Run on the target Pi from the repository folder. If you used the default
+clone location, run:
 
-## Advanced Topics
+```bash
+cd ~/amp-dev-forge
+scripts/pre-req.sh
+```
 
-Use these after a quick start is working:
+If you cloned the repository somewhere else, go to that folder before running
+`scripts/pre-req.sh`.
 
-- [Structural Basics](structural-basics.md) - where models, pipelines, media files, scripts, and source changes live.
-- [Runtime Basics](runtime-basics.md) - how PEK uses pipelines, OpChains, model descriptors, and browser output.
-- [Use A Camera](camera-input.md) - how to switch from sample media to USB or Raspberry Pi CSI camera input.
-- [Bring Your Model](bring-your-model.md) - how to add a model by reusing existing descriptors, OpChains, and parsers.
-- [Custom Postprocessing](custom-postprocessing.md) - how to add a parser when existing tensor parsers do not match your model output.
-- [Performance Measurement With Performix](performance-measurement.md) - how to connect Performix and run a measurement recipe.
+**Expected result:** the script confirms the Raspberry Pi model, OS baseline,
+Docker, Git, and related repository checks, or names the exact item it could not
+verify.
 
-## Optional Setup Pages
+The current script is broader than the first still-image ONNX path. It also
+checks GitHub SSH authentication, the `code` command, and Raspberry Pi packages
+used by wider repository paths. Those checks are not blockers when you cloned
+with HTTPS, run VS Code on the host machine, and the manual checks above
+pass. Treat Raspberry Pi model, OS, Docker, Docker Compose, Git, and network
+failures as blockers before opening the devcontainer.
 
-- [Raspberry Pi SSH Setup](raspberry-pi-ssh.md) - use this before the Raspberry Pi tutorial if you want to connect from your normal computer.
-- [GitHub SSH Key Setup](github-ssh-key.md) - use this only if you need to clone from GitHub with an SSH URL.
+### Open the devcontainer
+
+On the host machine:
+
+1. Open VS Code.
+2. Open the command palette with **View > Command Palette**.
+3. Run **Remote-SSH: Connect to Host**.
+4. Enter `<raspberry-pi-username>@<raspberry-pi-hostname-or-ip>`.
+5. Enter the target Pi account password or SSH key passphrase if VS Code asks
+   for it. The prompt can appear in the command palette or near the top of the
+   VS Code window.
+6. If VS Code asks for the remote target platform, choose Linux.
+7. Open the `amp-dev-forge` repository folder on the target Pi. If you used
+   the default clone command, the folder is `~/amp-dev-forge`.
+8. Run **Dev Containers: Reopen in Container**.
+9. Select the Raspberry Pi 5 devcontainer if VS Code asks. In this repository
+    snapshot, VS Code may show the first-run Raspberry Pi 5 container as
+    **RPI5 H8 amp-dev-forge**. Use the Hailo 10 container only for a Hailo 10
+    path.
+10. Wait until VS Code reports that the container is ready. The first
+    devcontainer build can take a few minutes while VS Code builds layers,
+    installs extensions, and runs setup scripts.
+11. Open a new terminal in VS Code.
+
+Run inside the devcontainer:
+
+```bash
+pwd
+ls /work/scripts/build-elements.sh /work/config/pipelines /work/config/models
+```
+
+**Expected result:** `pwd` prints `/work`, and the listed files and folders
+exist. If the path is not `/work`, reconnect with Remote SSH, open
+`~/amp-dev-forge` on the target Pi, and reopen it in the devcontainer.
+
+### Build the kit
+
+Run inside the devcontainer:
+
+```bash
+/work/scripts/build-elements.sh debug false
+```
+
+**Expected result:** the build completes without a blocking error and creates
+`/work/tools/amp-menu`.
+
+This command builds the Perception Kit elements in debug mode without building
+tests.
+
+The first build can take several minutes and may download packages, container
+layers, or source dependencies. Leave the terminal running unless it prints a
+blocking error.
+
+### Run the reference pipeline
+
+Run inside the devcontainer:
+
+```bash
+/work/tools/amp-menu 01-full-onnx
+```
+
+Keep this terminal running. The command starts the reference pipeline and runs
+until you stop it with `Ctrl+C`.
+
+`01-full-onnx` uses packaged still-image media, ONNX inference, the browser
+viewer, and model controls. It does not require a camera or Hailo accelerator.
+
+**Expected result:** the terminal prints the generated `gst-launch-1.0` command and does
+not exit with a missing-plugin, missing-model, or missing-device error.
+
+### Open the viewer
+
+On the host machine, open:
+
+```text
+http://<raspberry-pi-ip-address>:9999
+```
+
+You can use the hostname instead if it resolves reliably on your network:
+`http://<raspberry-pi-hostname>:9999`.
+
+**Expected result:** the viewer loads and shows the sample image stream,
+connection status, controls, the **AI Models** panel, and the debug log. The
+first source is a still image repeated as video, so it is normal if the picture
+itself does not move.
+
+### Enable a model and confirm inference
+
+In the WebRTC browser viewer, use the model toggles on the right-hand side to
+enable **Ultraface**. The reference pipeline uses
+`/work/data/images/katana.jpg`, which contains a visible face, so Ultraface is
+the clearest first model check.
+
+For the first run, enable **Ultraface** only. Ignore the other model toggles
+until the first inference path works. Some listed models need different source
+media or output from another model.
+
+![WebRTC viewer showing inference on a sample image with model toggles on the right-hand side](assets/img/browser-viewer-content.png)
+
+You have completed the first run when:
+
+- The pipeline keeps running.
+- The viewer shows the sample image stream.
+- The **AI Models** panel lists models.
+- **Ultraface** can be enabled.
+- Enabling **Ultraface** produces the expected first signal: a face-detection
+  marker appears on the sample image. If the marker does not render, use the
+  debug log, model state, or performance overlay as fallback evidence that
+  Ultraface became active.
+
+Use [Bundled models and pipelines](reference/bundled-models-and-pipelines.md)
+when you want to try another model deliberately.
+
+## If the first run fails
+
+| Symptom | Do this first |
+| --- | --- |
+| VS Code opens a local folder | Reconnect with Remote SSH and open the repository folder on the Raspberry Pi. |
+| Devcontainer terminal is not in `/work` | Reopen the Raspberry Pi repository in the devcontainer. |
+| `docker compose` is missing | The Raspberry Pi prerequisite setup is incomplete; resolve Docker Compose before reopening the devcontainer. |
+| Readiness script reports only GitHub SSH, `code`, or broader package checks | Continue if you cloned with HTTPS, use VS Code on the host machine, and the manual target Pi checks pass. |
+| Readiness script exits with `get_device_model` | Use the manual Raspberry Pi checks above and report the script failure; do not ignore model, OS, Docker, Compose, Git, or network failures. |
+| Build fails before `amp-menu` exists | Fix the first missing package, permission, or container error shown in the build output. |
+| Pipeline exits immediately | Run `/work/tools/amp-menu -p 01-full-onnx` and inspect the first missing plugin, model, or file in the generated command. |
+| Viewer does not load | Keep the pipeline terminal running, use the target Pi IP address, and check that port `9999` is reachable from the host machine. |
+| Viewer loads but stream or controls do not connect | Keep the pipeline running and check whether your network allows browser access to the Raspberry Pi ports used by the viewer and its connections: `9999`, `8000`, and `8001`. |
+| Models appear but output does not change | Confirm the model is enabled and that the sample media is expected to produce output for that model. |
+
+For more symptoms, use [Troubleshooting](troubleshooting/index.md).
+
+## Important limitations
+
+- This developer preview is for evaluation, early application development, and
+  feedback.
+- The first run proves one reference vision path. It does not prove every
+  checked-in pipeline, model, source, sink, or hardware combination.
+- Camera input, Hailo acceleration, custom models, tracking, and application
+  output are useful follow-on paths. Add one variable at a time.
+- Hailo acceleration requires matching hardware, Raspberry Pi Hailo software,
+  device access, presets, and compiled model artifacts.
+
+Use [Developer preview scope](start-here/support-matrix.md) for the full support
+matrix.
+
+## After first success
+
+Pick the next step that moves your application forward. Change one variable at
+a time so you know what caused the result.
+
+| Goal | Good next step | Why start there |
+| --- | --- | --- |
+| Use your own input or output path | [Change a source or sink](how-to/change-source-sink.md) | This is the closest step from first inference: keep the known pipeline working while you replace packaged media or change where output goes. |
+| Use live camera input | [Run camera inference](tutorials/run-camera-inference.md) | Move from packaged media to a USB or Raspberry Pi camera after the first pipeline works. |
+| Feed inference into an application | [Use output in an app](how-to/use-output-in-app.md) | Learn how to capture inference output so downstream application logic can use it. |
+| Add or adapt a model | [Add a model and OpChain](how-to/add-model-opchain.md) | Change the model once the source, sink, and output path are stable enough to isolate model issues. |
+| Use Hailo acceleration | [Run Hailo inference](tutorials/run-hailo-inference.md) | Add accelerator hardware after the ONNX path works on the Raspberry Pi. |
+| Understand the pieces | [How the kit works](start-here/how-the-kit-works.md) | Read this when you want the conceptual map of the Raspberry Pi, devcontainer, pipeline, model, viewer, and output pieces. |
