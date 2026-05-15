@@ -58,7 +58,7 @@ At minimum, that folder should contain:
 - the model file
 - `model.json`
 - usually `opchain.json`
-- `README.md`
+- `index.md`
 
 For most users, these files are the main integration interface of the system. The default path is to describe the model with `model.json`, connect it with `opchain.json`, and let the existing runtime elements do the rest.
 
@@ -183,7 +183,7 @@ The normal workflow is:
 3. optionally add a top-level pipeline preset under `config/pipelines/`
 4. build inside the container
 5. run the pipeline with the VS Code run task "00 Run project and select pipeline" or `tools/pek-menu`
-6. update the model and opchain `README.md` files
+6. update the model and opchain `index.md` files
 
 ## What you should try not to change first
 
@@ -228,4 +228,4 @@ By the end of this page, you should have:
 
 Success looks like this: PEK can load the model, the pipeline runs, the selected parser matches the outputs, and the result appears correctly in the runtime.
 
-[Back to README](../../README.md)
+[Back to README](index.md)

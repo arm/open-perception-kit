@@ -18,7 +18,7 @@ At the end of this page, you should be able to place new files in the right fold
 ### `config/`
 This is the most important folder for normal usage.
 
-- `config/models/` stores model folders. Put your model file, `model.json`, basic and minimal `opchain.json`, and `README.md` here. Runtime-specific compiled variants also live here, for example `mobilenetv2-hailo8/` and `mobilenetv2-hailo10/`.
+- `config/models/` stores model folders. Put your model file, `model.json`, basic and minimal `opchain.json`, and `index.md` here. Runtime-specific compiled variants also live here, for example `mobilenetv2-hailo8/` and `mobilenetv2-hailo10/`.
 - `config/opchains/` stores reusable multi-stage pipelines, for example detector + secondary model chains.
 - `config/pipelines/` stores the top-level presets shown by `pek-menu`.
 
@@ -63,7 +63,7 @@ For normal bring-your-own-content work, the usual edit points are:
 1. `config/models/` for your own models
 2. `config/pipelines/` for your own input/output presets
 3. `data/images/` and `data/videos/` for your own media
-4. `README.md` files in the matching config folders when you want to document your addition
+4. `index.md` files in the matching config folders when you want to document your addition
 
 If no existing postprocessor matches your model output, add this to the list:
 
@@ -123,4 +123,4 @@ By the end of this page, you should have:
 
 Success looks like this: you can decide where to add a model, where to edit a pipeline, and whether your task stays in configuration or requires runtime code changes.
 
-[Back to README](../../README.md)
+[Back to README](index.md)

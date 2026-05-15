@@ -361,4 +361,4 @@ To run the last selected pipeline again, run in the **Docker shell on the Raspbe
 - If the browser opens but no result appears, enable a model in the **AI Models** panel.
 - If you expected a live camera feed, use `05-full-onnx-raspicam` for a Raspberry Pi camera or `06-full-onnx-usb-cam` for a USB camera at `/dev/video0`, then follow the camera section above if your device needs custom source settings.
 
-[Back to README](../../README.md)
+[Back to README](index.md)

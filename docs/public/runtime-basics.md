@@ -193,4 +193,4 @@ By the end of this page, you should have:
 
 Success looks like this: you can inspect a runtime issue or integration task and quickly decide whether the change belongs in a pipeline preset, an OpChain, or a model descriptor.
 
-[Back to README](../../README.md)
+[Back to README](index.md)

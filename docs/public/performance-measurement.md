@@ -116,4 +116,4 @@ After running a recipe by clicking `Run Recipe`, you will get the measurement re
 
 ![Performix results](../static/img/performix-results.jpg)
 
-[Back to README](../../README.md)
+[Back to README](index.md)

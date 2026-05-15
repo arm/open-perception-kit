@@ -86,4 +86,4 @@ You can now clone with SSH:
 git clone git@github.com:Arm-Debug/pek.git
 ```
 
-[Back to README](../../README.md)
+[Back to README](index.md)
