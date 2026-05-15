@@ -193,6 +193,7 @@ The repository now ships two Raspberry Pi-specific remote host container options
 - `RPI5 H10 perception-experience-kit` -> service `pek-dev-rpi5-h10` -> supported Hailo 10 accelerator path
 
 The matching full-demo presets are `config/pipelines/02-full-onnx-hailo8.json`, `config/pipelines/03-full-onnx-hailo8l.json` and `config/pipelines/04-full-onnx-hailo10.json`.
+For ONNX-only live camera runs, use `config/pipelines/05-full-onnx-raspicam.json` for the Raspberry Pi camera or `config/pipelines/06-full-onnx-usb-cam.json` for a USB camera.
 
 When you validate the accelerated path from `pek-menu`, select the matching Hailo preset for the accelerator installed on the Pi.
 
