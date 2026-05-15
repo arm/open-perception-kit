@@ -1,3 +1,8 @@
+---
+sidebar_position: 9
+sidebar_label: Custom Postprocessing
+---
+
 # Custom Postprocessing
 
 This page covers the next step after the normal model-integration path: writing or generating a parser when the built-in postprocessors are not enough.
@@ -279,4 +284,4 @@ By the end of this page, you should have:
 
 Success looks like this: your model outputs are translated into the right `Perception` structure, and the runtime can consume those results without guessing.
 
-[Back to README](../README.md)
+[Back to README](../../README.md)

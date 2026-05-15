@@ -1,3 +1,8 @@
+---
+sidebar_position: 14
+sidebar_label: GitHub SSH Key
+---
+
 # GitHub SSH Key Setup
 
 This page is only needed if you want to clone PEK with an SSH URL such as:
@@ -81,4 +86,4 @@ You can now clone with SSH:
 git clone git@github.com:Arm-Debug/pek.git
 ```
 
-[Back to README](../README.md)
+[Back to README](../../README.md)

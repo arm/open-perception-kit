@@ -1,3 +1,8 @@
+---
+sidebar_position: 13
+sidebar_label: Raspberry Pi SSH
+---
+
 # Raspberry Pi SSH Setup
 
 Use this page when you want to control the Raspberry Pi from your normal computer. SSH lets you open a Raspberry Pi terminal over the network, and VS Code uses the same connection for **Remote - SSH**.
@@ -118,4 +123,4 @@ ssh <username>@raspberrypi.local
 
 Do this only after the password-based connection already works.
 
-[Back to README](../README.md)
+[Back to README](../../README.md)

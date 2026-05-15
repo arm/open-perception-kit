@@ -1,3 +1,8 @@
+---
+sidebar_position: 4
+sidebar_label: Linux
+---
+
 # Linux Quick Start
 
 Use this guide on a Linux computer. PEK runs inside a VS Code Dev Container, so build and run commands happen inside the container after setup.
@@ -61,22 +66,22 @@ code .
 
 In VS Code:
 
-<img src="static/img/04-starting-point-vscode.png" alt="VS Code opened in the PEK repository" width="720" style="max-width: 100%; height: auto;">
+![VS Code opened in the PEK repository](../static/img/04-starting-point-vscode.png)
 
 1. Open the Command Palette with `Ctrl+Shift+P`.
 2. Run **Dev Containers: Reopen in Container**.
 
-<img src="static/img/05-reopen-in-container.png" alt="VS Code command palette showing Reopen in Container" width="720" style="max-width: 100%; height: auto;">
+![VS Code command palette showing Reopen in Container](../static/img/05-reopen-in-container.png)
 
 3. Choose **PC perception-experience-kit**.
 
-<img src="static/img/06-reopen-in-container2.png" alt="VS Code Dev Container selection dialog" width="720" style="max-width: 100%; height: auto;">
+![VS Code Dev Container selection dialog](../static/img/06-reopen-in-container2.png)
 
 4. Wait for the container to finish building.
 
 Expected result: VS Code reloads into the Dev Container.
 
-<img src="static/img/07-in-container-new-console.png" alt="VS Code terminal inside the Dev Container" width="720" style="max-width: 100%; height: auto;">
+![VS Code terminal inside the Dev Container](../static/img/07-in-container-new-console.png)
 
 ## 3. Build PEK
 
@@ -90,7 +95,7 @@ Run in the **Docker shell**:
 
 You can also use the VS Code task **00 Build Project**.
 
-<img src="static/img/08-build-project.png" alt="VS Code build task for PEK" width="720" style="max-width: 100%; height: auto;">
+![VS Code build task for PEK](../static/img/08-build-project.png)
 
 Expected result: the build finishes without errors and `tools/pek-menu` exists.
 
@@ -105,7 +110,7 @@ Run in the **Docker shell**:
 You can also use the VS Code task **00 Run project and select pipeline** and choose `01-full-onnx`.
 On Linux with a USB camera exposed as `/dev/video0`, choose `06-full-onnx-usb-cam` for a live camera source enabled by default.
 
-<img src="static/img/09-select-pipeline.png" alt="PEK pipeline selection view" width="720" style="max-width: 100%; height: auto;">
+![PEK pipeline selection view](../static/img/09-select-pipeline.png)
 
 Expected result: the pipeline starts and keeps running in the terminal. Leave that terminal open.
 
@@ -119,7 +124,7 @@ http://localhost:9999
 
 In the **AI Models** panel, enable one model first. For example, enable `yolov11` or `mobilenetv2`.
 
-<img src="static/img/10-browser-ui.png" alt="PEK browser UI after opening the web view" width="720" style="max-width: 100%; height: auto;">
+![PEK browser UI after opening the web view](../static/img/10-browser-ui.png)
 
 Expected result: the page shows the PEK view and enabling a model produces an overlay or result. The default quick-start pipeline uses checked-in sample media; `06-full-onnx-usb-cam` uses a USB camera at `/dev/video0`.
 
@@ -140,4 +145,4 @@ To run the last selected pipeline again, run in the **Docker shell**:
 - If the browser opens but no result appears, enable a model in the **AI Models** panel.
 - If you see a path error, confirm that VS Code opened the repository folder, not its parent folder.
 
-[Back to README](../README.md)
+[Back to README](../../README.md)

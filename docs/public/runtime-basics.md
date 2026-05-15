@@ -1,3 +1,8 @@
+---
+sidebar_position: 11
+sidebar_label: Runtime Basics
+---
+
 # Runtime Basics
 
 This page explains the practical runtime concepts you need when you want to run PEK with your own media or your own model files.
@@ -188,4 +193,4 @@ By the end of this page, you should have:
 
 Success looks like this: you can inspect a runtime issue or integration task and quickly decide whether the change belongs in a pipeline preset, an OpChain, or a model descriptor.
 
-[Back to README](../README.md)
+[Back to README](../../README.md)

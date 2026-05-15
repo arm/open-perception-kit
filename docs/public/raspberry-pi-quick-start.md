@@ -1,3 +1,8 @@
+---
+sidebar_position: 2
+sidebar_label: Raspberry Pi 5
+---
+
 # Raspberry Pi 5 Tutorial
 
 Use this tutorial when PEK will run on a Raspberry Pi 5. Your normal computer is used to connect with VS Code. The build, container, and pipeline run on the Raspberry Pi.
@@ -154,7 +159,7 @@ On your normal computer, open VS Code.
    - macOS: `Cmd+Shift+P`.
 2. Run **Remote-SSH: Connect to Host...**.
 
-<img src="static/img/16-open-remote-window.png" alt="VS Code Remote SSH open remote window command" width="720" style="max-width: 100%; height: auto;">
+![VS Code Remote SSH open remote window command](../static/img/16-open-remote-window.png)
 
 3. Choose or enter:
 
@@ -168,7 +173,7 @@ If `.local` did not work in the terminal, use the IP address instead:
 <username>@<raspberry-pi-ip-address>
 ```
 
-<img src="static/img/18-select-ssh-configuration.png" alt="VS Code SSH host selection" width="720" style="max-width: 100%; height: auto;">
+![VS Code SSH host selection](../static/img/18-select-ssh-configuration.png)
 
 Expected result: VS Code opens a remote window connected to the Raspberry Pi.
 
@@ -178,12 +183,12 @@ In the VS Code remote window:
 
 1. Open the `pek` folder on the Raspberry Pi.
 
-<img src="static/img/19-reopen-folder.png" alt="VS Code opening the PEK folder on the Raspberry Pi" width="720" style="max-width: 100%; height: auto;">
+![VS Code opening the PEK folder on the Raspberry Pi](../static/img/19-reopen-folder.png)
 
 2. Open the Command Palette.
 3. Run **Dev Containers: Reopen in Container**.
 
-<img src="static/img/20-reopen-in-container.png" alt="VS Code reopening the Raspberry Pi project in a Dev Container" width="720" style="max-width: 100%; height: auto;">
+![VS Code reopening the Raspberry Pi project in a Dev Container](../static/img/20-reopen-in-container.png)
 
 4. Choose the container for your hardware:
    - **RPI5 H8 perception-experience-kit** for Hailo 8 or Hailo 8L work.
@@ -193,7 +198,7 @@ VS Code may say that it is building the container. Think of this as preparing th
 
 Expected result: VS Code reloads and opens the repository inside the Dev Container. A new VS Code terminal is now the **Docker shell on the Raspberry Pi**.
 
-<img src="static/img/07-in-container-new-console.png" alt="VS Code terminal inside the Dev Container" width="720" style="max-width: 100%; height: auto;">
+![VS Code terminal inside the Dev Container](../static/img/07-in-container-new-console.png)
 
 ## 10. Build The Project
 
@@ -209,7 +214,7 @@ You can also use the VS Code task:
 2. Run **Tasks: Run Task**.
 3. Choose **00 Build Project**.
 
-<img src="static/img/08-build-project.png" alt="VS Code build task for PEK" width="720" style="max-width: 100%; height: auto;">
+![VS Code build task for PEK](../static/img/08-build-project.png)
 
 Expected result: the build finishes without errors and `tools/pek-menu` exists.
 
@@ -229,7 +234,7 @@ Leave this terminal open. The pipeline is running while this command is active.
 
 Expected result: PEK starts the selected ONNX pipeline.
 
-<img src="static/img/09-select-pipeline.png" alt="PEK pipeline selection view" width="720" style="max-width: 100%; height: auto;">
+![PEK pipeline selection view](../static/img/09-select-pipeline.png)
 
 ## 12. Open The Web UI
 
@@ -247,7 +252,7 @@ http://<raspberry-pi-ip-address>:9999
 
 In the **AI Models** panel, enable one model first. Start with `yolov11` or `mobilenetv2`.
 
-<img src="static/img/10-browser-ui.png" alt="PEK browser UI after opening the web view" width="720" style="max-width: 100%; height: auto;">
+![PEK browser UI after opening the web view](../static/img/10-browser-ui.png)
 
 Expected result: the page shows the PEK view and enabling a model produces an overlay or result. If you chose `05-full-onnx-raspicam` or `06-full-onnx-usb-cam`, the browser shows live camera input.
 
@@ -356,4 +361,4 @@ To run the last selected pipeline again, run in the **Docker shell on the Raspbe
 - If the browser opens but no result appears, enable a model in the **AI Models** panel.
 - If you expected a live camera feed, use `05-full-onnx-raspicam` for a Raspberry Pi camera or `06-full-onnx-usb-cam` for a USB camera at `/dev/video0`, then follow the camera section above if your device needs custom source settings.
 
-[Back to README](../README.md)
+[Back to README](../../README.md)

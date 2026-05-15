@@ -1,3 +1,8 @@
+---
+sidebar_position: 7
+sidebar_label: Use Your Own Media
+---
+
 # Use Your Own Media
 
 Use this page after a quick start works with the included sample media.
@@ -70,4 +75,4 @@ For ready-to-run live camera presets, use:
 - `05-full-onnx-raspicam` for a Raspberry Pi camera.
 - `06-full-onnx-usb-cam` for a USB camera at `/dev/video0`.
 
-[Back to README](../README.md)
+[Back to README](../../README.md)

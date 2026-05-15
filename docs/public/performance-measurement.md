@@ -1,3 +1,8 @@
+---
+sidebar_position: 12
+sidebar_label: Performance Measurement
+---
+
 # Performance Measurement With Performix
 
 Performix is a standalone tool for monitoring performance metrics on the target device.
@@ -80,7 +85,7 @@ If SSH does not work:
 
 In Performix the SSH setup is very similar.
 
-<img src="static/img/performix-ssh.jpg" alt="Performix SSH setup" width="720" style="max-width: 100%; height: auto;">
+![Performix SSH setup](../static/img/performix-ssh.jpg)
 
 After clicking 'Add Target' you have to populate the form with information:
 - Host: 127.0.0.1 or the IP address of the target device
@@ -105,10 +110,10 @@ Now here is an example of setting up one that works:
 
 The `Run Recipe` button executes the target application and performs the measurement.
 
-<img src="static/img/performix-recipe.jpg" alt="Performix recipe setup" width="720" style="max-width: 100%; height: auto;">
+![Performix recipe setup](../static/img/performix-recipe.jpg)
 
 After running a recipe by clicking `Run Recipe`, you will get the measurement results.
 
-<img src="static/img/performix-results.jpg" alt="Performix results" width="720" style="max-width: 100%; height: auto;">
+![Performix results](../static/img/performix-results.jpg)
 
-[Back to README](../README.md)
+[Back to README](../../README.md)

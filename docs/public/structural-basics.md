@@ -1,3 +1,8 @@
+---
+sidebar_position: 10
+sidebar_label: Structural Basics
+---
+
 # Structural Basics
 
 This page explains where users usually need to put their own files and which folders matter for day-to-day use.
@@ -118,4 +123,4 @@ By the end of this page, you should have:
 
 Success looks like this: you can decide where to add a model, where to edit a pipeline, and whether your task stays in configuration or requires runtime code changes.
 
-[Back to README](../README.md)
+[Back to README](../../README.md)

@@ -1,3 +1,8 @@
+---
+sidebar_position: 8
+sidebar_label: Bring Your Model
+---
+
 # Bring Your Model
 
 This page describes the shortest practical path for bringing your own model into PEK with as little runtime-code change as possible.
@@ -223,4 +228,4 @@ By the end of this page, you should have:
 
 Success looks like this: PEK can load the model, the pipeline runs, the selected parser matches the outputs, and the result appears correctly in the runtime.
 
-[Back to README](../README.md)
+[Back to README](../../README.md)

@@ -1,3 +1,8 @@
+---
+sidebar_position: 6
+sidebar_label: Use A Camera
+---
+
 # Use A Camera
 
 Use this page after a quick start works with the checked-in sample media.
@@ -121,4 +126,4 @@ Expected result: the browser shows camera input instead of the checked-in sample
 - Keep the output format conversion to `BGRA`; PEK video elements expect that format in the normal path.
 - Stop the running pipeline with `Ctrl+C` before starting it again.
 
-[Back to README](../README.md)
+[Back to README](../../README.md)
