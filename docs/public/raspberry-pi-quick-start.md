@@ -138,6 +138,13 @@ cd pek
 
 HTTPS cloning is the simplest first path. If you must clone with SSH, use [GitHub SSH Key Setup](github-ssh-key.md).
 
+Until the repository is not released to a public repository, the SSH method has to be used:
+
+```bash
+git clone git@github.com:Arm-Debug/amp-dev-forge.git
+
+```
+
 Expected result: the `pek` folder exists on the Raspberry Pi.
 
 ## 7. Check VS Code Prerequisites On Your Computer
