@@ -74,6 +74,7 @@ sudo rpi-eeprom-update -a
 Follow the link below to install Docker: 
 
 * [Debian Installation Guide](https://docs.docker.com/engine/install/debian/)
+
 Install both Docker Engine and the Docker Compose plugin from the Debian guide so `docker compose` is available for later steps.
 Install the base packages:
 
