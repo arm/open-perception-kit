@@ -26,7 +26,7 @@ You need:
 
 - Raspberry Pi 5.
 - Raspberry Pi OS based on Debian Trixie.
-- Supported Hailo 8 AI HAT, Hailo 8L hardware with matching compiled models, or supported Hailo 10 accelerator.
+- Optional: Supported Hailo 8 AI HAT, Hailo 8L hardware with matching compiled models, or supported Hailo 10 accelerator.
 - Network connection between your normal computer and the Raspberry Pi.
 - Power supply suitable for Raspberry Pi 5 and attached hardware.
 - Optional camera. The first run uses checked-in sample media, so the camera is not required for first success.
@@ -71,11 +71,16 @@ sudo apt full-upgrade -y
 sudo rpi-eeprom-update -a
 ```
 
+Follow the link below to install Docker: 
+
+* [Debian Installation Guide](https://docs.docker.com/engine/install/debian/)
+
+Install both Docker Engine and the Docker Compose plugin from the Debian guide so `docker compose` is available for later steps.
 Install the base packages:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y git docker.io docker-compose-plugin v4l-utils raspi-utils-core raspi-utils-dt
+sudo apt-get install -y git v4l-utils raspi-utils-core raspi-utils-dt
 sudo apt-get install -y rpicam-apps libcamera-dev libcamera-doc libcamera-tools
 sudo apt-get install -y gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-gl
 sudo apt-get install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-libcamera
@@ -105,9 +110,16 @@ After reboot, reconnect with SSH.
 Run in the **Raspberry Pi shell**:
 
 ```bash
+docker info
 docker --version
 docker compose version
 git --version
+```
+
+If `docker info` fails with a permission error, add your user to the `docker` group and log out and back in:
+
+```bash
+sudo usermod -aG docker "$USER"
 ```
 
 If you installed Hailo, also run:
@@ -133,7 +145,7 @@ Run in the **Raspberry Pi shell**:
 
 ```bash
 git clone https://github.com/Arm-Debug/amp-dev-forge.git
-cd pek
+cd amp-dev-forge
 ```
 
 HTTPS cloning is the simplest first path. If you must clone with SSH, use [GitHub SSH Key Setup](github-ssh-key.md).
@@ -204,8 +216,6 @@ In the VS Code remote window:
 VS Code may say that it is building the container. Think of this as preparing the PEK environment. It can take several minutes on the first run.
 
 Expected result: VS Code reloads and opens the repository inside the Dev Container. A new VS Code terminal is now the **Docker shell on the Raspberry Pi**.
-
-![VS Code terminal inside the Dev Container](../static/img/07-in-container-new-console.png)
 
 ## 10. Build The Project
 
