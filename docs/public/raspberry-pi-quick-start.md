@@ -71,10 +71,10 @@ sudo apt full-upgrade -y
 sudo rpi-eeprom-update -a
 ```
 
-Please follow the link below to install Docker: 
+Follow the link below to install Docker: 
 
 * [Debian Installation Guide](https://docs.docker.com/engine/install/debian/)
-
+Install both Docker Engine and the Docker Compose plugin from the Debian guide so `docker compose` is available for later steps.
 Install the base packages:
 
 ```bash
@@ -109,6 +109,7 @@ After reboot, reconnect with SSH.
 Run in the **Raspberry Pi shell**:
 
 ```bash
+docker info
 docker --version
 docker compose version
 git --version
