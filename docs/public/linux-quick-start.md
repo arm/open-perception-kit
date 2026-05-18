@@ -18,12 +18,9 @@ Install these before you start:
 - VS Code **Dev Containers** extension.
 - `v4l-utils`, optional for the first run but useful for camera work.
 
-On Ubuntu-like systems, run in the **host shell**:
+Follow the instructions below to install Docker (the commands has to be executed in the **host shell**)
 
-```bash
-sudo apt-get update
-sudo apt-get install -y git docker.io docker-compose-plugin v4l-utils
-```
+ * [Ubuntu Installation Guide](https://docs.docker.com/engine/install/ubuntu/)
 
 Install VS Code from your normal package source if it is not already installed.
 
