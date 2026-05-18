@@ -16,7 +16,7 @@ Install these before you start:
 - Docker Desktop with WSL integration enabled.
 - Visual Studio Code on Windows.
 - VS Code **Dev Containers** extension.
-- Optional: VS Code **WSL** extension.
+- VS Code **WSL** extension.
 
 If you want to use a USB camera from WSL later, you may also need USBIPD or WSL USB Manager. You do not need that for the first sample-media run.
 
