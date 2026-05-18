@@ -132,13 +132,13 @@ After PEK is cloned in the next step, the repository also contains `./scripts/pr
 Run in the **Raspberry Pi shell**:
 
 ```bash
-git clone https://github.com/Arm-Debug/pek.git
+git clone https://github.com/Arm-Debug/amp-dev-forge.git
 cd pek
 ```
 
 HTTPS cloning is the simplest first path. If you must clone with SSH, use [GitHub SSH Key Setup](github-ssh-key.md).
 
-Until the repository is not released to a public repository, the SSH method has to be used:
+Until PEK is not released to a public repository, the SSH method has to be used:
 
 ```bash
 git clone git@github.com:Arm-Debug/amp-dev-forge.git

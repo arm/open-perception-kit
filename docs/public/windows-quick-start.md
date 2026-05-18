@@ -44,8 +44,8 @@ The easiest path is HTTPS cloning. It does not require an SSH key.
 Run in the **WSL shell**:
 
 ```bash
-git clone https://github.com/Arm-Debug/pek.git
-cd pek
+git clone https://github.com/Arm-Debug/amp-dev-forge.git
+cd amp-dev-forge
 ```
 
 If you must clone with SSH, set up your key first: [GitHub SSH Key Setup](github-ssh-key.md).

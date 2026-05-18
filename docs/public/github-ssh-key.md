@@ -8,13 +8,13 @@ sidebar_label: GitHub SSH Key
 This page is only needed if you want to clone PEK with an SSH URL such as:
 
 ```text
-git@github.com:Arm-Debug/pek.git
+git@github.com:Arm-Debug/amp-dev-forge.git
 ```
 
 For the quickest first run, you can skip this page and clone with HTTPS instead:
 
 ```text
-https://github.com/Arm-Debug/pek.git
+https://github.com/Arm-Debug/amp-dev-forge.git
 ```
 
 ## 1. Check Whether You Already Have A Key
@@ -83,7 +83,7 @@ Expected result: GitHub says that you successfully authenticated. It may also sa
 You can now clone with SSH:
 
 ```bash
-git clone git@github.com:Arm-Debug/pek.git
+git clone git@github.com:Arm-Debug/amp-dev-forge.git
 ```
 
 [Back to README](index.md)
