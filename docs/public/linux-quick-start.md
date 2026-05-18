@@ -22,6 +22,13 @@ Follow the instructions below to install Docker (the commands has to be executed
 
  * [Ubuntu Installation Guide](https://docs.docker.com/engine/install/ubuntu/)
 
+ Install git and v4l-utils:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y git v4l-utils
+```
+
 Install VS Code from your normal package source if it is not already installed.
 
 Check Docker in the **host shell**:
