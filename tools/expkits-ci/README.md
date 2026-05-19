@@ -39,6 +39,29 @@ expkits-ci --all-checks --pr-target-branch main --report-file artifacts/expkits-
 expkits-ci --license-header --list-of-files src/main.cpp src/util.py
 ```
 
+### clang-tidy
+
+clang-tidy is currently advisory. Build the project first so Meson generates
+`development/build/compile_commands.json`, then run clang-tidy on changed files
+or an explicit file list:
+
+```bash
+./scripts/build-elements.sh debug true
+expkits-ci --clang-tidy --commit-diff
+expkits-ci --clang-tidy --list-of-files development/elements/pektracker/Tracker.cpp
+```
+
+By default, `expkits-ci` uses `development/build/compile_commands.json`. Use
+`--compile-commands-dir` only when checking against a different build
+directory. If `clang-tidy` is not on `PATH`, `expkits-ci` also checks the active
+Python environment; CI can pass `--clang-tidy-binary` explicitly if needed.
+Files outside the active compile database scope are skipped, for example
+optional backend sources when that backend was not enabled in the current build.
+
+The repository `.clang-tidy` policy starts with a small SonarQube-aligned
+advisory set. Some SonarQube rules have no exact clang-tidy equivalent, and
+some clang-tidy findings are extra local guidance rather than SonarQube parity.
+
 ## Installation
 
 `expkits_ci` is installed automatically during workspace setup (see `setup_workspace.sh`). For manual installation:

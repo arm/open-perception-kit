@@ -1,0 +1,11 @@
+---
+Checks: >
+  -*,
+  bugprone-narrowing-conversions,
+  cppcoreguidelines-narrowing-conversions,
+  cppcoreguidelines-pro-type-member-init,
+  google-explicit-constructor,
+  modernize-use-override
+WarningsAsErrors: ''
+HeaderFilterRegex: '.*development/.*'
+FormatStyle: file

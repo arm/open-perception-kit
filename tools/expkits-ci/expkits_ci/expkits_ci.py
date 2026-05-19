@@ -88,6 +88,10 @@ def setup_argument_parser(parser):
                             help="Instead of general run on all files, run on the files in the given folder. This is useful for testing specific files.")
     util_group.add_argument("-if", "--ignore-folder", nargs='+', default=["deps", "development/build", ".git", ],
                             help="List of folders to ignore during checks.")
+    util_group.add_argument("--compile-commands-dir", default=None,
+                            help="Directory containing compile_commands.json for clang-tidy. Defaults to development/build.")
+    util_group.add_argument("--clang-tidy-binary", default=None,
+                            help="Path to clang-tidy. Defaults to PATH, then the active Python environment.")
 
 
 def setup_all_checks(args):
@@ -302,7 +306,14 @@ def perform_checks(checker, args, files, report):
             lambda: checker.check_clang_format(files, format=args.clang_format, verbose=args.verbose),
         ) and result
     if args.clang_tidy:
-        result = run_check(report, "clang-tidy", lambda: checker.check_clang_tidy(files)) and result
+        result = run_check(
+            report,
+            "clang-tidy",
+            lambda: checker.check_clang_tidy(
+                files,
+                compile_commands_dir=args.compile_commands_dir,
+                clang_tidy_binary=args.clang_tidy_binary),
+        ) and result
     if args.python_format or args.python_format_check:
         result = run_check(
             report,
