@@ -414,34 +414,23 @@ class QualityChecks:
     def _resolve_compile_commands_dir(self, compile_commands_dir=None):
         """Resolve the compile database directory used by clang-tidy."""
         project_root = self.file_utils.get_project_root()
-        candidate_dirs = []
 
         if compile_commands_dir:
             if os.path.isabs(compile_commands_dir):
-                candidate_dirs.append(compile_commands_dir)
+                candidate_dir = compile_commands_dir
             else:
-                candidate_dirs.append(os.path.join(project_root, compile_commands_dir))
+                candidate_dir = os.path.join(project_root, compile_commands_dir)
         else:
-            candidate_dirs.extend([
-                os.path.join(project_root, "development", "build"),
-                os.path.join(project_root, "build"),
-            ])
+            candidate_dir = os.path.join(project_root, "development", "build")
 
-        for candidate_dir in candidate_dirs:
-            compile_commands_path = os.path.join(candidate_dir, "compile_commands.json")
-            if os.path.isfile(compile_commands_path):
-                logger.info(f"Using clang-tidy compile database: {compile_commands_path}")
-                return candidate_dir
+        compile_commands_path = os.path.join(candidate_dir, "compile_commands.json")
+        if os.path.isfile(compile_commands_path):
+            logger.info(f"Using clang-tidy compile database: {compile_commands_path}")
+            return candidate_dir
 
-        checked_paths = [
-            os.path.join(candidate_dir, "compile_commands.json")
-            for candidate_dir in candidate_dirs
-        ]
         logger.error("Could not find compile_commands.json for clang-tidy.")
-        logger.error("Checked paths:")
-        for checked_path in checked_paths:
-            logger.error(f"  {checked_path}")
-        logger.error("Generate it first, for example with: ./scripts/build-elements.sh debug true")
+        logger.error(f"Checked path: {compile_commands_path}")
+        logger.error("Build the project first, for example with: ./scripts/build-elements.sh debug true")
         return None
 
     @staticmethod
@@ -474,13 +463,12 @@ class QualityChecks:
         return output_dir
 
     @staticmethod
-    def _compile_database_scope(compile_commands_path, project_root):
-        """Return files and directories covered by the current compile database."""
+    def _compile_database_files(compile_commands_path, project_root):
+        """Return files covered by the current compile database."""
         with open(compile_commands_path, 'r', encoding='utf-8') as f:
             compile_commands = json.load(f)
 
         compiled_files = set()
-        compiled_dirs = set()
         project_root = os.path.realpath(project_root)
 
         for entry in compile_commands:
@@ -499,24 +487,8 @@ class QualityChecks:
                 continue
 
             compiled_files.add(os.path.normpath(rel_path))
-            compiled_dirs.add(os.path.normpath(os.path.dirname(rel_path)))
 
-        return compiled_files, compiled_dirs
-
-    @staticmethod
-    def _is_file_in_compile_database_scope(file_path, compiled_files, compiled_dirs):
-        """Return true when a file belongs to a directory represented by the build."""
-        normalized_file = os.path.normpath(file_path)
-        normalized_dir = os.path.normpath(os.path.dirname(normalized_file))
-
-        if normalized_file in compiled_files:
-            return True
-
-        return any(
-            normalized_dir == compiled_dir
-            or normalized_dir.startswith(compiled_dir + os.sep)
-            for compiled_dir in compiled_dirs
-        )
+        return compiled_files
 
     def check_clang_tidy(self, files, compile_commands_dir=None, clang_tidy_binary=None) -> bool:
         """Check clang-tidy validity to files under folder."""
@@ -552,27 +524,27 @@ class QualityChecks:
         project_root = self.file_utils.get_project_root()
 
         try:
-            compiled_files, compiled_dirs = self._compile_database_scope(
+            compiled_files = self._compile_database_files(
                 compile_commands_path, project_root)
         except Exception as e:
-            logger.error(f"Failed to read clang-tidy compile database scope: {e}")
+            logger.error(f"Failed to read clang-tidy compile database files: {e}")
             return False
 
-        scoped_files = [
+        compile_database_files = [
             f for f in files
-            if self._is_file_in_compile_database_scope(f, compiled_files, compiled_dirs)
+            if os.path.normpath(f) in compiled_files
         ]
-        skipped_files = sorted(set(files) - set(scoped_files))
+        skipped_files = sorted(set(files) - set(compile_database_files))
         if skipped_files:
             logger.info(
-                "Skipping %d C/C++ file(s) not covered by the active compile database.",
+                "Skipping %d C/C++ file(s) not listed in the active compile database.",
                 len(skipped_files))
             for skipped_file in skipped_files:
-                logger.debug(f"Skipped clang-tidy file outside active build scope: {skipped_file}")
-        files = scoped_files
+                logger.debug(f"Skipped clang-tidy file not in compile database: {skipped_file}")
+        files = compile_database_files
 
         if not files:
-            logger.info("No C/C++ files covered by the active compile database.")
+            logger.info("No C/C++ files listed in the active compile database.")
             return result
 
         with tempfile.TemporaryDirectory(prefix="expkits-clang-tidy-") as filtered_compile_config_path:

@@ -55,8 +55,7 @@ By default, `expkits-ci` uses `development/build/compile_commands.json`. Use
 `--compile-commands-dir` only when checking against a different build
 directory. If `clang-tidy` is not on `PATH`, `expkits-ci` also checks the active
 Python environment; CI can pass `--clang-tidy-binary` explicitly if needed.
-Files outside the active compile database scope are skipped, for example
-optional backend sources when that backend was not enabled in the current build.
+Files not listed directly in the active compile database are skipped.
 
 The repository `.clang-tidy` policy starts with a small SonarQube-aligned
 advisory set. Some SonarQube rules have no exact clang-tidy equivalent, and
