@@ -92,6 +92,8 @@ def setup_argument_parser(parser):
                             help="Directory containing compile_commands.json for clang-tidy. Defaults to development/build.")
     util_group.add_argument("--clang-tidy-binary", default=None,
                             help="Path to clang-tidy. Defaults to PATH, then the active Python environment.")
+    util_group.add_argument("--clang-tidy-stats", default=None, metavar="LOG_FILE",
+                            help="Parse a clang-tidy log file and report diagnostic counts by check name.")
 
 
 def setup_all_checks(args):
@@ -127,6 +129,8 @@ def get_enabled_check_flags(args):
         enabled_checks.append("--clang-format-check")
     if args.clang_tidy:
         enabled_checks.append("--clang-tidy")
+    if args.clang_tidy_stats:
+        enabled_checks.append("--clang-tidy-stats")
     if args.python_format:
         enabled_checks.append("--python-format")
     elif args.python_format_check:
@@ -147,8 +151,33 @@ def get_enabled_check_flags(args):
     return enabled_checks
 
 
+def is_clang_tidy_stats_only(args):
+    """Return True when only clang-tidy log statistics were requested."""
+    return args.clang_tidy_stats and not any([
+        args.check_secrets,
+        args.branch_naming,
+        args.commit_msg,
+        args.commit_msg_ci,
+        args.jira_ticket,
+        args.clang_format,
+        args.clang_format_check,
+        args.clang_tidy,
+        args.python_format,
+        args.python_format_check,
+        args.cmake_format,
+        args.cmake_format_check,
+        args.shell_format,
+        args.shell_format_check,
+        args.license_header,
+        args.license_header_check,
+        args.all_checks,
+    ])
+
+
 def describe_file_scope(args):
     """Describe how the file set will be resolved for the current run."""
+    if is_clang_tidy_stats_only(args):
+        return f"clang-tidy log statistics ({args.clang_tidy_stats})"
     if args.list_of_files:
         return f"explicit path list ({len(args.list_of_files)} input path(s))"
     if args.pr_target_branch:
@@ -314,6 +343,12 @@ def perform_checks(checker, args, files, report):
                 compile_commands_dir=args.compile_commands_dir,
                 clang_tidy_binary=args.clang_tidy_binary),
         ) and result
+    if args.clang_tidy_stats:
+        result = run_check(
+            report,
+            "clang-tidy stats",
+            lambda: checker.report_clang_tidy_statistics(args.clang_tidy_stats),
+        ) and result
     if args.python_format or args.python_format_check:
         result = run_check(
             report,
@@ -349,6 +384,9 @@ def main():
     args = parser.parse_args()
     argcomplete.autocomplete(parser)
 
+    if args.clang_tidy_stats:
+        args.verbose = True
+
     logger = setup_expkits_logger(args.verbose, args.log_output, args.log_file)
     logger.info("Starting Experience Kit CI checks...")
     logger.info(f"Arguments: {args}")
@@ -359,16 +397,19 @@ def main():
 
     file_scope = describe_file_scope(args)
     checker = QualityChecks()
-    files = checker.file_utils.get_related_files(
-        commit_diff=args.commit_diff,
-        pr_target_branch=args.pr_target_branch,
-        files=args.list_of_files,
-        ignore_folder=args.ignore_folder)
+    if is_clang_tidy_stats_only(args):
+        files = []
+    else:
+        files = checker.file_utils.get_related_files(
+            commit_diff=args.commit_diff,
+            pr_target_branch=args.pr_target_branch,
+            files=args.list_of_files,
+            ignore_folder=args.ignore_folder)
 
     report = create_execution_report(args, file_scope, len(files))
     print_run_report(report, args.log_output, args.log_file)
 
-    if not files:
+    if not files and not is_clang_tidy_stats_only(args):
         logger.info("No files found to check.")
 
     result = perform_checks(checker, args, files, report)

@@ -49,6 +49,7 @@ or an explicit file list:
 ./scripts/build-elements.sh debug true
 expkits-ci --clang-tidy --commit-diff
 expkits-ci --clang-tidy --list-of-files development/elements/pektracker/Tracker.cpp
+expkits-ci --clang-tidy-stats clang-tidy.log
 ```
 
 By default, `expkits-ci` uses `development/build/compile_commands.json`. Use
@@ -60,6 +61,10 @@ Files not listed directly in the active compile database are skipped.
 The repository `.clang-tidy` policy starts with a small SonarQube-aligned
 advisory set. Some SonarQube rules have no exact clang-tidy equivalent, and
 some clang-tidy findings are extra local guidance rather than SonarQube parity.
+
+`--clang-tidy-stats` parses a saved clang-tidy log and reports how many
+diagnostics each clang-tidy check emitted. This is useful after increasing the
+enabled ruleset and running with `--log-output both --log-file clang-tidy.log`.
 
 ## Installation
 

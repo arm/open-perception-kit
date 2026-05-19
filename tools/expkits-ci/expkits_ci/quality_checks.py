@@ -12,6 +12,7 @@ import shlex
 import subprocess
 import tempfile
 import requests
+from collections import Counter
 from git import Repo, GitCommandError
 
 from expkits_ci.license_template_manager import LicenseTemplateManager
@@ -25,6 +26,8 @@ class QualityChecks:
 
     # Constants
     JIRA_PROJECTS = ["EXPKITS"]
+    CLANG_TIDY_DIAGNOSTIC_RE = re.compile(
+        r"^(?:\[[A-Z]+\]\s*)?.+?:\d+:\d+:\s+(warning|error):\s+.+\s+\[([A-Za-z0-9_.-]+)\]\s*$")
 
     def __init__(self):
         self.license_template_manager = LicenseTemplateManager()
@@ -586,6 +589,57 @@ class QualityChecks:
             logger.info("All files passed clang-tidy check.")
 
         return result
+
+    @staticmethod
+    def parse_clang_tidy_statistics(log_file):
+        """Parse clang-tidy diagnostics from a log file and count them by check name."""
+        check_counts = Counter()
+        severity_counts = Counter()
+
+        with open(log_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                match = QualityChecks.CLANG_TIDY_DIAGNOSTIC_RE.match(line.rstrip())
+                if not match:
+                    continue
+
+                severity, check_name = match.groups()
+                severity_counts[severity] += 1
+                check_counts[check_name] += 1
+
+        return check_counts, severity_counts
+
+    @staticmethod
+    def report_clang_tidy_statistics(log_file) -> bool:
+        """Report clang-tidy diagnostic counts by check name from a log file."""
+        logger.info("Creating clang-tidy statistics from: %s", log_file)
+
+        if not os.path.isfile(log_file):
+            logger.error("Could not find clang-tidy log file: %s", log_file)
+            return False
+
+        try:
+            check_counts, severity_counts = QualityChecks.parse_clang_tidy_statistics(log_file)
+        except Exception as e:
+            logger.error("Failed to parse clang-tidy log file: %s", e)
+            return False
+
+        total_count = sum(check_counts.values())
+        if total_count == 0:
+            logger.info("No clang-tidy diagnostics found.")
+            return True
+
+        logger.info("clang-tidy diagnostics summary:")
+        logger.info("  total: %d", total_count)
+        for severity, count in sorted(severity_counts.items()):
+            logger.info("  %s: %d", severity, count)
+
+        logger.info("")
+        logger.info("%-55s %8s", "check", "count")
+        logger.info("%-55s %8s", "-" * 55, "-----")
+        for check_name, count in check_counts.most_common():
+            logger.info("%-55s %8d", check_name, count)
+
+        return True
 
     def check_python_format(self, files, format, verbose=False) -> bool:
         """Check PEP-8 compliance for Python files."""

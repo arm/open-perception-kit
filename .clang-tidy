@@ -1,11 +1,53 @@
 ---
+# Clang-tidy is used as fast local feedback for issues that are actionable in
+# this codebase. The project uses GStreamer heavily, so checks that mainly flag
+# documented GStreamer macro/API conventions are disabled here instead of being
+# treated as team-owned C++ style issues.
 Checks: >
   -*,
-  bugprone-narrowing-conversions,
-  cppcoreguidelines-narrowing-conversions,
-  cppcoreguidelines-pro-type-member-init,
-  google-explicit-constructor,
-  modernize-use-override
+  bugprone-*,
+  clang-analyzer-*,
+  concurrency-*,
+  performance-*,
+  portability-*,
+  modernize-*,
+  -bugprone-assignment-in-if-condition,
+  -bugprone-casting-through-void,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-reserved-identifier,
+  -clang-analyzer-optin.core.EnumCastOutOfRange,
+  -modernize-type-traits,
+  -modernize-use-constraints,
+  -modernize-use-trailing-return-type,
+  -modernize-use-using,
+  -modernize-use-designated-initializers,
+  -modernize-use-ranges,
+  -performance-enum-size,
+  -performance-no-int-to-ptr
 WarningsAsErrors: ''
 HeaderFilterRegex: '.*development/.*'
 FormatStyle: file
+CheckOptions:
+  # Team style prefers conventional leading return types and does not yet
+  # require newer constraints syntax, so those modernization checks are not
+  # enforced. modernize-use-constraints is also disabled because it currently
+  # crashes while analyzing magic_enum.hpp.
+  #
+  # GStreamer's C API and macros intentionally use patterns such as casts
+  # through void, assignment-like macro internals, reserved-looking generated
+  # type names, integer/pointer conversions, typedef enum declarations, and enum
+  # values used as flags. The corresponding checks are disabled because they
+  # primarily report framework conventions rather than defects in this project.
+  #
+  # This code frequently converts neural-network detection values to floating
+  # point types. Those conversions are common and accepted for this product.
+  # Integer narrowing remains enabled because losing integer range can corrupt
+  # loop bounds, indexes, sizes, and other control-flow decisions.
+  - key: bugprone-narrowing-conversions.WarnOnIntegerNarrowingConversion
+    value: 'true'
+  - key: bugprone-narrowing-conversions.WarnOnEquivalentBitWidth
+    value: 'false'
+  - key: bugprone-narrowing-conversions.WarnOnIntegerToFloatingPointNarrowingConversion
+    value: 'false'
+  - key: bugprone-narrowing-conversions.WarnOnFloatingPointNarrowingConversion
+    value: 'false'
