@@ -12,7 +12,7 @@ application.
 **Note:** This developer preview is for evaluation, early application
 development, and feedback.
 
-![Example WebRTC viewer showing sample video inference, model controls, performance metrics, and debug log](./static/img/10-browser-ui.png.png)
+![Example WebRTC viewer showing sample video inference, model controls, performance metrics, and debug log](./static/img/10-browser-ui.png)
 
 ## Quick start: first inference on Raspberry Pi 5
 
