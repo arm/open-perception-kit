@@ -287,7 +287,7 @@ TODO@ibori:
 I think the first column of the table should contain the links. I saw one user couldn't find the link in the table.
 -->
 | Goal |  What it does |
-| --- | --- | --- |
+| --- | --- |
 | [Use your own input or output path](how-to/change-source-sink.md) | Keep the known pipeline and change the input or output. |
 | [Use live camera input](tutorials/run-camera-inference.md) | Move from packaged media to a USB or Raspberry Pi camera. |
 | [Add or adapt a model and OpChain](how-to/add-model-opchain.md) | Change the model after the source and output path work. |
