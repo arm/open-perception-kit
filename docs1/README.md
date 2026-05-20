@@ -56,11 +56,8 @@ Use this target Pi setup before you start:
 
 #### Alternative methods
 
-If Raspberry Pi 5 is not available, testing and development 
-can be done using any computer where Docker is installed.
-
-The following links describes the instructions:
-
+Testing and development can be done using any computer where Docker is installed. 
+Use the following links if you do not wish to deploy to Raspberry Pi 5:
 * [For Windows](todo_cli_windows.md)
 * [For Mac](todo_cli_mac.md)
 * [For Linux](todo_cli_linux.md)
@@ -157,8 +154,8 @@ ssh <raspberry-pi-username>@<raspberry-pi-hostname-or-ip>
 > Docker Compose overrides are generated for the target Pi.
 
 <!--
-We should not use the term 'devcontainer'. 
-Devcontainer is a VSCode term. "Create and stat the Docker Development Container"
+We should not use the term 'devcontainer' for the CLI path. 
+Devcontainer is a VS Code term. "Create and start the Docker Development Container"
 -->
 ### 4. Create and start the devcontainer
 
@@ -271,18 +268,17 @@ Model** panel. If the toggle is off, enable it.
 
 Congratulations, you have run your first Perception Kit pipeline!
 
-## For VSCode users 
+## For VS Code users 
 
-The system fully supports the pipeline testing and PEK development in Visual Studio Code (VSCode). 
+Pipeline testing and development are fully supported in Visual Studio Code (VS Code)
 Follow the links below for detailed instructions:
-
 * [Raspberry Pi 5](todo_rpi5_vscode.md)
 * [Windows](todo_vscode_windows.md)
 * [Mac](todo_vscode_mac.md)
 * [Linux](todo_vscode_linux.md)
 
 
-## After first success (Advanced topics)
+## After first success
 
 Pick your next step.
 
@@ -290,14 +286,14 @@ Pick your next step.
 TODO@ibori:
 I think the first column of the table should contain the links. I saw one user couldn't find the link in the table.
 -->
-| Goal | Good next step | What it does |
+| Goal |  What it does |
 | --- | --- | --- |
-| Use your own input or output path | [Change a source or sink](how-to/change-source-sink.md) | Keep the known pipeline and change the input or output. |
-| Use live camera input | [Run camera inference](tutorials/run-camera-inference.md) | Move from packaged media to a USB or Raspberry Pi camera. |
-| Add or adapt a model | [Add a model and OpChain](how-to/add-model-opchain.md) | Change the model after the source and output path work. |
-| Feed inference into an application | [Use output in an app](how-to/use-output-in-app.md) | Capture inference output for downstream logic. |
-| Use Hailo acceleration | [Run Hailo inference](tutorials/run-hailo-inference.md) | Add accelerator hardware. |
-| Understand pipelines, models, and outputs | [How the kit works](start-here/how-the-kit-works.md) | Read the pipeline, model, and output concepts when you need more detail. |
+| [Use your own input or output path](how-to/change-source-sink.md) | Keep the known pipeline and change the input or output. |
+| [Use live camera input](tutorials/run-camera-inference.md) | Move from packaged media to a USB or Raspberry Pi camera. |
+| [Add or adapt a model and OpChain](how-to/add-model-opchain.md) | Change the model after the source and output path work. |
+| [Feed inference into an application](how-to/use-output-in-app.md) | Capture inference output for downstream logic. |
+| [Use Hailo acceleration](tutorials/run-hailo-inference.md) | Add accelerator hardware. |
+| [Understand pipelines, models, and outputs](start-here/how-the-kit-works.md) | Read the pipeline, model, and output concepts when you need more detail. |
 
 ## If something goes wrong
 
