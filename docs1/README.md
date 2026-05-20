@@ -1,6 +1,9 @@
 # Arm Perception Kit CLI quick start
 
-The Arm Perception Kit helps Raspberry Pi developers get from setup to edge-vision inference without building the whole perception stack from scratch. It gives you a fast path from a ready Raspberry Pi 5 to visible inference and a starting point for a vision application.
+The Arm Perception Kit helps Raspberry Pi developers get from setup to 
+edge-vision inference without building the whole perception stack from scratch. 
+It gives you a fast path from a ready Raspberry Pi 5 to visible inference and 
+a starting point for a vision application.
 
 It uses a container-based workflow with a packaged pipeline, browser viewer,
 model controls, debug signals, and output paths you can adapt for your own
@@ -9,7 +12,7 @@ application.
 **Note:** This developer preview is for evaluation, early application
 development, and feedback.
 
-![Example WebRTC viewer showing sample video inference, model controls, performance metrics, and debug log](assets/img/webrtc-viewer-example.png)
+![Example WebRTC viewer showing sample video inference, model controls, performance metrics, and debug log](./static/img/10-browser-ui.png.png)
 
 ## Quick start: first inference on Raspberry Pi 5
 
@@ -48,8 +51,20 @@ Use this target Pi setup before you start:
   the host machine.
 - Known target Pi hostname or IP address.
 - Permission to run `sudo` on the target Pi.
-- Network access from the target Pi to GitHub, package repositories, and
+- Internet access from the target Pi to GitHub, package repositories, and
   container or source locations used during the first container build.
+
+#### Alternative methods
+
+If Raspberry Pi 5 is not available, testing and development 
+can be done using any computer where Docker is installed.
+
+The following links describes the instructions:
+
+* [For Windows](todo_cli_windows.md)
+* [For Mac](todo_cli_mac.md)
+* [For Linux](todo_cli_linux.md)
+
 
 ### 1. Connect and confirm the target Pi
 
@@ -94,6 +109,10 @@ When you reach the Docker install command, make sure it includes
 
 #### 2.2 Install target Pi base packages
 
+<!--
+TODO@ibori: shall be reviewed, takes forever and I am not sure, we need all of those packages
+-->
+
 Run on the target Pi:
 
 ```bash
@@ -137,6 +156,10 @@ ssh <raspberry-pi-username>@<raspberry-pi-hostname-or-ip>
 > and Git print versions, the repository is available at `~/perception-kit`, and
 > Docker Compose overrides are generated for the target Pi.
 
+<!--
+We should not use the term 'devcontainer'. 
+Devcontainer is a VSCode term. "Create and stat the Docker Development Container"
+-->
 ### 4. Create and start the devcontainer
 
 This creates the kit environment.
@@ -145,8 +168,18 @@ This creates the kit environment.
 
 Run on the target Pi:
 
+<!--
+TODO@ibori: we (developers) should make these command shorter
+-->
 ```bash
-cd ~/perception-kit && docker compose -f .devcontainer/compose.devcont.yaml -f .devcontainer/docker-compose.devcont.video.yaml -f .devcontainer/docker-compose.devcont.audio.yaml -f .devcontainer/docker-compose.devcont.npu.yaml -f .devcontainer/docker-compose.devcont.shared_memory.yaml up -d --build pek-dev-rpi5-h8 && docker ps --filter name=perception-experience-kit-rpi5 --format 'table {{.Names}} {{.Status}}'
+cd ~/perception-kit && 
+docker compose \
+    -f .devcontainer/compose.devcont.yaml \
+    -f .devcontainer/docker-compose.devcont.video.yaml \
+    -f .devcontainer/docker-compose.devcont.audio.yaml \
+    -f .devcontainer/docker-compose.devcont.npu.yaml \
+    -f .devcontainer/docker-compose.devcont.shared_memory.yaml up -d --build pek-dev-rpi5-h8 && 
+docker ps --filter name=perception-experience-kit-rpi5 --format 'table {{.Names}} {{.Status}}'
 ```
 
 **Note:** The first start can take several minutes while Docker builds the
@@ -162,6 +195,10 @@ This builds the kit inside that environment.
 #### 5.1 Run setup and build the kit
 
 Run on the target Pi:
+
+<!--
+TODO@ibori: we (developers) should make these command shorter
+-->
 
 ```bash
 docker exec perception-experience-kit-rpi5 bash -lc '
@@ -191,6 +228,9 @@ model controls, and where the result is shown.
 
 Run on the target Pi:
 
+<!--
+TODO@ibori: we (developers) should make these command shorter
+-->
 ```bash
 docker exec -it perception-experience-kit-rpi5 bash -lc 'cd /work && exec /work/tools/pek-menu 01-full-onnx'
 ```
@@ -227,14 +267,29 @@ Model** panel. If the toggle is off, enable it.
 > **Expected outcome:** YoloV11 identifies objects in the stock video stream by
 > drawing detection overlays in the viewer.
 
-![Final WebRTC success view showing inference overlays on the sample video stream](assets/img/webrtc-viewer-example.png)
+![Final WebRTC success view showing inference overlays on the sample video stream](./static/img/10-browser-ui.png)
 
 Congratulations, you have run your first Perception Kit pipeline!
 
-## After first success
+## For VSCode users 
+
+The system fully supports the pipeline testing and PEK development in Visual Studio Code (VSCode). 
+Follow the links below for detailed instructions:
+
+* [Raspberry Pi 5](todo_rpi5_vscode.md)
+* [Windows](todo_vscode_windows.md)
+* [Mac](todo_vscode_mac.md)
+* [Linux](todo_vscode_linux.md)
+
+
+## After first success (Advanced topics)
 
 Pick your next step.
 
+<!--
+TODO@ibori:
+I think the first column of the table should contain the links. I saw one user couldn't find the link in the table.
+-->
 | Goal | Good next step | What it does |
 | --- | --- | --- |
 | Use your own input or output path | [Change a source or sink](how-to/change-source-sink.md) | Keep the known pipeline and change the input or output. |
