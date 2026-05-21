@@ -22,10 +22,17 @@ Checks: >
   -modernize-use-using,
   -modernize-use-designated-initializers,
   -modernize-use-ranges,
+  -modernize-use-nodiscard,
+  -modernize-return-braced-init-list,
+  -modernize-use-std-numbers,
+  -modernize-use-std-format,
+  -modernize-use-std-print,
+  -modernize-use-integer-sign-comparison,
+  -modernize-use-starts-ends-with,
   -performance-enum-size,
   -performance-no-int-to-ptr
 WarningsAsErrors: ''
-HeaderFilterRegex: '.*development/.*'
+HeaderFilterRegex: '^\.\./(common|elements|ops-std|ops-onnx|ops-hailort|ops-executorch|pek-menu|tests|web)/'
 FormatStyle: file
 CheckOptions:
   # Team style prefers conventional leading return types and does not yet

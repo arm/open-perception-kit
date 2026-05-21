@@ -151,14 +151,12 @@ def get_enabled_check_flags(args):
     return enabled_checks
 
 
-def is_clang_tidy_stats_only(args):
-    """Return True when only clang-tidy log statistics were requested."""
-    return args.clang_tidy_stats and not any([
+def needs_related_files(args):
+    """Return True when enabled checks need precomputed file lists."""
+    file_based_check_enabled = any([
         args.check_secrets,
-        args.branch_naming,
         args.commit_msg,
         args.commit_msg_ci,
-        args.jira_ticket,
         args.clang_format,
         args.clang_format_check,
         args.clang_tidy,
@@ -172,11 +170,12 @@ def is_clang_tidy_stats_only(args):
         args.license_header_check,
         args.all_checks,
     ])
+    return file_based_check_enabled or bool(args.list_of_files) or args.commit_diff or args.pr_target_branch
 
 
 def describe_file_scope(args):
     """Describe how the file set will be resolved for the current run."""
-    if is_clang_tidy_stats_only(args):
+    if args.clang_tidy_stats and not needs_related_files(args):
         return f"clang-tidy log statistics ({args.clang_tidy_stats})"
     if args.list_of_files:
         return f"explicit path list ({len(args.list_of_files)} input path(s))"
@@ -397,19 +396,20 @@ def main():
 
     file_scope = describe_file_scope(args)
     checker = QualityChecks()
-    if is_clang_tidy_stats_only(args):
-        files = []
-    else:
+    needs_files = needs_related_files(args)
+    if needs_files:
         files = checker.file_utils.get_related_files(
             commit_diff=args.commit_diff,
             pr_target_branch=args.pr_target_branch,
             files=args.list_of_files,
             ignore_folder=args.ignore_folder)
+    else:
+        files = []
 
     report = create_execution_report(args, file_scope, len(files))
     print_run_report(report, args.log_output, args.log_file)
 
-    if not files and not is_clang_tidy_stats_only(args):
+    if needs_files and not files:
         logger.info("No files found to check.")
 
     result = perform_checks(checker, args, files, report)

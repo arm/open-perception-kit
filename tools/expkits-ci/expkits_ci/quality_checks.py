@@ -28,6 +28,15 @@ class QualityChecks:
     JIRA_PROJECTS = ["EXPKITS"]
     CLANG_TIDY_DIAGNOSTIC_RE = re.compile(
         r"^(?:\[[A-Z]+\]\s*)?.+?:\d+:\d+:\s+(warning|error):\s+.+\s+\[([A-Za-z0-9_.-]+)\]\s*$")
+    # TODO: known issue also described here:
+    # https://github.com/llvm/llvm-project/pull/111453
+    # For future use other zephyr supported static code analysis should be used
+    # https://docs.zephyrproject.org/latest/develop/sca/index.html
+    CLANG_TIDY_FILTERED_FLAGS = [
+        "-fno-reorder-functions",
+        "-mfp16-format=ieee",
+        "-fno-defer-pop"
+    ]
 
     def __init__(self):
         self.license_template_manager = LicenseTemplateManager()
@@ -513,16 +522,6 @@ class QualityChecks:
         compile_config_path = self._resolve_compile_commands_dir(compile_commands_dir)
         if not compile_config_path:
             return False
-
-        # TODO: known issue also described here:
-        # https://github.com/llvm/llvm-project/pull/111453
-        # For future use other zephyr supported static code analysis should be used
-        # https://docs.zephyrproject.org/latest/develop/sca/index.html
-        flags_to_filter = [
-            "-fno-reorder-functions",
-            "-mfp16-format=ieee",
-            "-fno-defer-pop"
-        ]
         compile_commands_path = os.path.join(compile_config_path, "compile_commands.json")
         project_root = self.file_utils.get_project_root()
 
@@ -553,10 +552,24 @@ class QualityChecks:
         with tempfile.TemporaryDirectory(prefix="expkits-clang-tidy-") as filtered_compile_config_path:
             try:
                 filtered_compile_config_path = self._filter_compile_command_flags(
-                    compile_commands_path, filtered_compile_config_path, flags_to_filter)
+                    compile_commands_path, filtered_compile_config_path, self.CLANG_TIDY_FILTERED_FLAGS)
             except Exception as e:
                 logger.error(f"Failed to prepare clang-tidy compile database: {e}")
                 return False
+
+            # Pass --config-file explicitly so the project's .clang-tidy at the
+            # repo root is always used, regardless of clang-tidy's auto-discovery
+            # walk from the source file directory. This protects against stray
+            # nested .clang-tidy files shadowing the root one and makes the
+            # effective config deterministic.
+            project_clang_tidy_config = os.path.join(project_root, ".clang-tidy")
+            config_file_args = []
+            if os.path.isfile(project_clang_tidy_config):
+                config_file_args = [f"--config-file={project_clang_tidy_config}"]
+            else:
+                logger.warning(
+                    "No .clang-tidy config file found at project root; "
+                    "HeaderFilterRegex may not apply.")
 
             for f in files:
                 try:
@@ -565,6 +578,7 @@ class QualityChecks:
                         f,
                         "-p",
                         filtered_compile_config_path,
+                        *config_file_args,
                         "--extra-arg=-DFMT_CONSTEVAL="
                     ]
 
