@@ -10,6 +10,7 @@
 #include "op/Op.h"
 #include "op/OpChainDescriptor.h"
 
+#include <unordered_map>
 #include <unordered_set>
 
 using namespace pek;
@@ -107,10 +108,32 @@ pek::Result<void> OpChain::validateGroupedLoopIds() {
     return {};
 }
 
+pek::Result<void> OpChain::validateLoopGroupSizes() {
+    std::unordered_map<size_t, size_t> groupOpCount;
+    for (Op *p : opPtrs) {
+        if (p->loopId != 0)
+            groupOpCount[p->loopId]++;
+    }
+    for (const auto &[id, count] : groupOpCount) {
+        if (count < 2)
+            return tl::make_unexpected(
+                PEK_ERROR(pek::ErrorFlag::InvalidOpChain,
+                          fmt::format("Loop group {} must contain at least 2 ops (controller + "
+                                      "one worker), but has {}",
+                                      id,
+                                      count)));
+    }
+    return {};
+}
+
 pek::Result<void> OpChain::validate() {
     auto validateLoopIdsResult = validateGroupedLoopIds();
     if (!validateLoopIdsResult) {
         return validateLoopIdsResult;
+    }
+    auto validateLoopGroupSizesResult = validateLoopGroupSizes();
+    if (!validateLoopGroupSizesResult) {
+        return validateLoopGroupSizesResult;
     }
     return {};
 }
@@ -151,6 +174,7 @@ pek::Result<void> OpChain::execute(pek::OpChainContext &opChainContext) {
     // reset loop control flags
     opChainContext.breakLoop = false;
     opChainContext.loopId = 0;
+    opChainContext.abort = false;
 
     // execute the chain
     while (currentIndex < opPtrs.size()) {
@@ -160,6 +184,11 @@ pek::Result<void> OpChain::execute(pek::OpChainContext &opChainContext) {
         auto result = op->process(opChainContext);
         if (!result)
             return result;
+
+        // abort the whole pipeline if Op requested it (e.g. audio buffering in progress)
+        if (opChainContext.abort) {
+            return {};
+        }
 
         // quit inference loop if Op requested it
         if (opChainContext.breakLoop) {
@@ -171,6 +200,7 @@ pek::Result<void> OpChain::execute(pek::OpChainContext &opChainContext) {
                 nextIndex++;
             }
 
+            opChainContext.breakLoop = false;
             currentIndex = nextIndex;
             continue;
         }
@@ -188,37 +218,24 @@ pek::Result<void> OpChain::execute(pek::OpChainContext &opChainContext) {
             continue;
         }
 
-        // check if next op is out of the loop
-        if (opChainContext.loopId) {
-            if (lastInChain || nextLoopId != loopId) {
-                // we must loop back to the head of the loop group
-                size_t firstGroupIndex = currentIndex;
-                assert(opPtrs[firstGroupIndex]->loopId == loopId);
-                while (true) {
-                    if (opPtrs[firstGroupIndex]->loopId != loopId) {
-                        firstGroupIndex++;
-                        break;
-                    }
-
-                    if (!firstGroupIndex)
-                        break;
-
-                    firstGroupIndex--;
+        // loopId != 0 is guaranteed here; check if we reached the end of this loop group
+        if (lastInChain || nextLoopId != loopId) {
+            // loop back to the first worker op (one past the controller at the group head)
+            size_t firstGroupIndex = currentIndex;
+            while (true) {
+                if (opPtrs[firstGroupIndex]->loopId != loopId) {
+                    firstGroupIndex++;
+                    break;
                 }
-
-                // skip controller Op
-                assert(opPtrs[firstGroupIndex]->loopId == loopId);
-                firstGroupIndex++;
-
-                currentIndex = firstGroupIndex;
-                assert(opPtrs[currentIndex]->loopId == loopId);
-
-            } else {
-                // nothing happened, just go on
-                currentIndex++;
+                if (!firstGroupIndex)
+                    break;
+                firstGroupIndex--;
             }
+
+            // skip the controller op (validated at setup to always be first in the group)
+            firstGroupIndex++;
+            currentIndex = firstGroupIndex;
         } else {
-            // not in loop, just go on
             currentIndex++;
         }
     }

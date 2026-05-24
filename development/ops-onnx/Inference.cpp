@@ -136,7 +136,13 @@ pek::Result<void> Inference::setup(const ModelDescriptor &modelDesc_) {
     return {};
 }
 
-void Inference::recreateInputTensor(size_t index, const pek::Shape &shape, pek::Tdt valueType) {
+void Inference::recreateInputTensor(size_t index, const pek::Shape &shape, pek::Dtype valueType) {
+    if (index >= pek::MaxTensorCount) {
+        fmt::print(
+            "ERROR: Input tensor index {} exceeds max supported {}\n", index, pek::MaxTensorCount);
+        return;
+    }
+
     fmt::print("Recreating input tensor #{} [{}] from {} to {}\n",
                index,
                this->model.inputs[index].name,
@@ -149,6 +155,13 @@ void Inference::recreateInputTensor(size_t index, const pek::Shape &shape, pek::
 
 void Inference::setupTensorsForModel() {
 
+    if (this->model.inputs.size() > pek::MaxTensorCount) {
+        fmt::print("ERROR: Model input tensor count {} exceeds max supported {}\n",
+                   this->model.inputs.size(),
+                   pek::MaxTensorCount);
+        return;
+    }
+
     for (size_t i = 0; i < this->model.inputs.size(); i++) {
         fmt::print("Setting up input tensor #{} [{}] with shape: {}\n",
                    i,
@@ -159,6 +172,13 @@ void Inference::setupTensorsForModel() {
                                                              this->model.inputs[i].valueType);
         api.inputNames.push_back(this->model.inputs[i].name.c_str());
         api.inputTensorVector.push_back(api.inputTensors[i]->createOnnxTensor(*this->memoryInfo));
+    }
+
+    if (this->model.outputs.size() > pek::MaxTensorCount) {
+        fmt::print("ERROR: Model output tensor count {} exceeds max supported {}\n",
+                   this->model.outputs.size(),
+                   pek::MaxTensorCount);
+        return;
     }
 
     for (size_t i = 0; i < this->model.outputs.size(); i++) {
@@ -200,7 +220,7 @@ pek::Result<void> Inference::inference() {
             if (this->model.inputs[i].dataKind == pek::DataKind::Vector4)
                 valueCount = 4;
 
-            if (this->model.inputs[i].valueType == pek::Tdt::Float32) {
+            if (this->model.inputs[i].valueType == pek::Dtype::Float32) {
                 for (size_t g = 0; g < valueCount; g++) {
                     writeValueTo<float, float>(api.inputTensors[i]->getData(),
                                                g,
@@ -290,7 +310,7 @@ pek::Result<void> Inference::inference() {
                 size_t outputIndex = model.inputs[i].matchShapeOutputIndex;
                 if (outputIndex < model.outputs.size()) {
                     const pek::Shape &outputShape = outputTensorFinalShapes[outputIndex];
-                    pek::Tdt valueType = model.inputs[i].valueType;
+                    pek::Dtype valueType = model.inputs[i].valueType;
                     fmt::print(
                         "Reallocating input tensor #{} to match output tensor #{} shape: {}\n",
                         i,
@@ -381,14 +401,14 @@ pek::Result<pek::Model> Inference::inspectModel(const Ort::Session &session) {
         model.inputs[i].name = session.GetInputNameAllocated(i, allocator).get();
 
         // tensor value type
-        pek::Tdt tensorValueType;
+        pek::Dtype tensorValueType;
         if (false == onnxTypeToUniflowType(tensor.GetElementType(), tensorValueType)) {
             return tl::unexpected{PEK_ERROR(pek::ErrorFlag::ModelInspectError,
                                             fmt::format("cannot recognize input ONNX type: {}",
                                                         (uint64_t)tensor.GetElementType()))};
         }
 
-        if (pek::Tdt::Float32 != tensorValueType && pek::Tdt::Int64 != tensorValueType) {
+        if (pek::Dtype::Float32 != tensorValueType && pek::Dtype::Int64 != tensorValueType) {
             return tl::unexpected{
                 PEK_ERROR(pek::ErrorFlag::ModelInspectError,
                           "only float32 or int64 input tensors are supported in ONNX")};
@@ -413,15 +433,15 @@ pek::Result<pek::Model> Inference::inspectModel(const Ort::Session &session) {
         model.outputs[i].name = session.GetOutputNameAllocated(i, allocator).get();
 
         // tensor value type
-        pek::Tdt tensorValueType;
+        pek::Dtype tensorValueType;
         if (false == onnxTypeToUniflowType(tensor.GetElementType(), tensorValueType)) {
             return tl::unexpected{PEK_ERROR(pek::ErrorFlag::ModelInspectError,
                                             fmt::format("cannot recognize output ONNX type: {}",
                                                         (uint64_t)tensor.GetElementType()))};
         }
 
-        if (pek::Tdt::Float32 != tensorValueType && pek::Tdt::Int64 != tensorValueType &&
-            pek::Tdt::Float16 != tensorValueType) {
+        if (pek::Dtype::Float32 != tensorValueType && pek::Dtype::Int64 != tensorValueType &&
+            pek::Dtype::Float16 != tensorValueType) {
             return tl::unexpected{
                 PEK_ERROR(pek::ErrorFlag::ModelInspectError,
                           "only float16, float32 or int64 input tensors are supported in ONNX")};
@@ -440,25 +460,25 @@ pek::Result<pek::Model> Inference::inspectModel(const Ort::Session &session) {
     return model;
 }
 
-bool Inference::onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, pek::Tdt &outType) {
+bool Inference::onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, pek::Dtype &outType) {
     if (onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT) {
-        outType = pek::Tdt::Float32;
+        outType = pek::Dtype::Float32;
         return true;
     }
     if (onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16) {
-        outType = pek::Tdt::Float16;
+        outType = pek::Dtype::Float16;
         return true;
     }
     if (onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT8) {
-        outType = pek::Tdt::Int8;
+        outType = pek::Dtype::Int8;
         return true;
     }
     if (onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8) {
-        outType = pek::Tdt::Uint8;
+        outType = pek::Dtype::Uint8;
         return true;
     }
     if (onnxType == ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64) {
-        outType = pek::Tdt::Int64;
+        outType = pek::Dtype::Int64;
         return true;
     }
     return false;

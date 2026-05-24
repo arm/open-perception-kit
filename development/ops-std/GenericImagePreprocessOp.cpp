@@ -103,7 +103,7 @@ pek::Result<void> GenericImagePreprocessOp::process(pek::OpChainContext &opChain
     setup.imageSourceDesc.rect = cropRect;
     setup.imageSourceDesc.byteCount = pipelineVideoFrame->width * pipelineVideoFrame->height * 4;
     setup.imageSourceDesc.kind = pek::DataKind::ImageBgraHwc;
-    setup.imageSourceDesc.type = pek::Tdt::Uint8;
+    setup.imageSourceDesc.type = pek::Dtype::Uint8;
     setup.imageSourceDesc.mean = upcomingInferenceModel.inputs[inputImageTensorIndex].mean;
     setup.imageSourceDesc.std = upcomingInferenceModel.inputs[inputImageTensorIndex].std;
 
@@ -127,7 +127,7 @@ pek::Result<void> GenericImagePreprocessOp::process(pek::OpChainContext &opChain
     if (false) {
         std::string debugFile = fmt::format("/work/var/crop_[{}]_{}_{}x{}x{}x{}.png",
                                             upcomingInferenceModel.contentType,
-                                            (uint64_t)Uuid(),
+                                            Uuid::next(),
                                             setup.imageSourceDesc.rect.x,
                                             setup.imageSourceDesc.rect.y,
                                             setup.imageSourceDesc.rect.width,
@@ -164,7 +164,7 @@ pek::Result<void> GenericImagePreprocessOp::process(pek::OpChainContext &opChain
     if (false) {
         std::string debugFile = fmt::format("/work/var/tensor_[{}][{}]_{}x{}.png",
                                             upcomingInferenceModel.contentType,
-                                            (uint64_t)Uuid(),
+                                            Uuid::next(),
                                             modelWidth,
                                             modelHeight);
 

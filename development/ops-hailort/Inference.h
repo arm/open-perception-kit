@@ -57,8 +57,8 @@ struct Inference {
         size_t byteCount = 0;
     };
 
-    static pek::Result<hailo_format_type_t> pekTypeToHailoType(pek::Tdt type);
-    static pek::Result<pek::Tdt> hailoTypeToPekType(hailo_format_type_t type);
+    static pek::Result<hailo_format_type_t> pekTypeToHailoType(pek::Dtype type);
+    static pek::Result<pek::Dtype> hailoTypeToPekType(hailo_format_type_t type);
     static pek::Result<pek::Shape> hailoVstreamToPekSize(const hailo_vstream_info_t &info,
                                                          size_t batchSize);
 

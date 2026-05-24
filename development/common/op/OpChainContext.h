@@ -21,6 +21,7 @@ struct OpChainContext {
     // the system will loop back to the loop head Op
     size_t loopId = 0;
     bool breakLoop = false;
+    bool abort = false;
 
     // named bitmap views that ops can read/write, e.g. to share the video frame across multiple ops
     std::map<std::string, pek::BitmapView> bitmapViews;

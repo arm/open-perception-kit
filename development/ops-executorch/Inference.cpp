@@ -26,23 +26,23 @@ using ::executorch::runtime::Result;
 
 // ---
 
-static pek::Tdt to_pek_tdt(executorch::aten::ScalarType t) {
+static pek::Dtype to_pek_dtype(executorch::aten::ScalarType t) {
     using executorch::aten::ScalarType;
     switch (t) {
     case ScalarType::Byte:
-        return pek::Tdt::Uint8;
+        return pek::Dtype::Uint8;
     case ScalarType::Char:
-        return pek::Tdt::Int8;
+        return pek::Dtype::Int8;
     case ScalarType::Long:
-        return pek::Tdt::Int64;
+        return pek::Dtype::Int64;
     case ScalarType::Half:
-        return pek::Tdt::Float16;
+        return pek::Dtype::Float16;
     case ScalarType::Float:
-        return pek::Tdt::Float32;
+        return pek::Dtype::Float32;
     default:
         assert(0);
     }
-    return pek::Tdt::Float32;
+    return pek::Dtype::Float32;
 }
 
 template <typename SizesT> static pek::Shape to_pek_shape(const SizesT &sizes) {
@@ -134,7 +134,7 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
 
                 pek::ModelInput input;
                 input.name = fmt::format("input{}", i);
-                input.valueType = to_pek_tdt(tm->scalar_type());
+                input.valueType = to_pek_dtype(tm->scalar_type());
 
                 auto sizes = tm->sizes();
                 input.shape = to_pek_shape(sizes);
@@ -154,7 +154,7 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
 
                 pek::ModelOutput output;
                 output.name = fmt::format("output{}", i);
-                output.valueType = to_pek_tdt(tm->scalar_type());
+                output.valueType = to_pek_dtype(tm->scalar_type());
 
                 auto sizes = tm->sizes();
                 output.shape = to_pek_shape(sizes);

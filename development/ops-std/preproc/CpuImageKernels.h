@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "pek/ImageOpDesc.h"
 #include "pek/Types.h"
 
 namespace pek {
@@ -18,8 +19,8 @@ struct ImageOps {
      * @param sampling Sampling mode used during resize.
      * @return true on success, false on invalid pointers or out-of-bounds rects.
      */
-    static bool StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(const ImageLayoutDesc &src,
-                                                           const ImageLayoutDesc &dst,
+    static bool StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(const ImageOpDesc &src,
+                                                           const ImageOpDesc &dst,
                                                            Sampling sampling = Sampling::Nearest);
 
     /**
@@ -29,8 +30,8 @@ struct ImageOps {
      * @param sampling Sampling mode used during resize.
      * @return true on success, false on invalid pointers or out-of-bounds rects.
      */
-    static bool StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageLayoutDesc &src,
-                                                           const ImageLayoutDesc &dst,
+    static bool StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src,
+                                                           const ImageOpDesc &dst,
                                                            Sampling sampling = Sampling::Nearest);
 
     /**
@@ -40,8 +41,8 @@ struct ImageOps {
      * @param sampling Sampling mode used during resize.
      * @return true on success, false on invalid pointers or out-of-bounds rects.
      */
-    static bool StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(const ImageLayoutDesc &src,
-                                                         const ImageLayoutDesc &dst,
+    static bool StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(const ImageOpDesc &src,
+                                                         const ImageOpDesc &dst,
                                                          Sampling sampling = Sampling::Nearest);
 
     /**
@@ -51,8 +52,8 @@ struct ImageOps {
      * @param sampling Sampling mode used during resize.
      * @return true on success, false on invalid pointers or out-of-bounds rects.
      */
-    static bool StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(const ImageLayoutDesc &src,
-                                                           const ImageLayoutDesc &dst,
+    static bool StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(const ImageOpDesc &src,
+                                                           const ImageOpDesc &dst,
                                                            Sampling sampling = Sampling::Nearest);
 
     /**
@@ -62,8 +63,8 @@ struct ImageOps {
      * @param sampling Sampling mode used during resize.
      * @return true on success, false on invalid pointers or out-of-bounds rects.
      */
-    static bool StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Hwc(const ImageLayoutDesc &src,
-                                                           const ImageLayoutDesc &dst,
+    static bool StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Hwc(const ImageOpDesc &src,
+                                                           const ImageOpDesc &dst,
                                                            Sampling sampling = Sampling::Nearest);
 
     /**
@@ -73,8 +74,8 @@ struct ImageOps {
      * @param sampling Sampling mode used during resize.
      * @return true on success, false on invalid pointers or out-of-bounds rects.
      */
-    static bool StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(const ImageLayoutDesc &src,
-                                                           const ImageLayoutDesc &dst,
+    static bool StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(const ImageOpDesc &src,
+                                                           const ImageOpDesc &dst,
                                                            Sampling sampling = Sampling::Nearest);
 
     /**
@@ -84,8 +85,8 @@ struct ImageOps {
      * @param sampling Sampling mode used during resize.
      * @return true on success, false on invalid pointers or out-of-bounds rects.
      */
-    static bool StretchBlit_Bgra8_Hwc_Full_Gray8_Full(const ImageLayoutDesc &src,
-                                                      const ImageLayoutDesc &dst,
+    static bool StretchBlit_Bgra8_Hwc_Full_Gray8_Full(const ImageOpDesc &src,
+                                                      const ImageOpDesc &dst,
                                                       Sampling sampling = Sampling::Nearest);
 
     /**
@@ -95,8 +96,8 @@ struct ImageOps {
      * @param sampling Sampling mode used during resize.
      * @return true on success, false on invalid pointers or out-of-bounds rects.
      */
-    static bool StretchBlit_Bgra8_Hwc_Rect_Gray8_Rect(const ImageLayoutDesc &src,
-                                                      const ImageLayoutDesc &dst,
+    static bool StretchBlit_Bgra8_Hwc_Rect_Gray8_Rect(const ImageOpDesc &src,
+                                                      const ImageOpDesc &dst,
                                                       Sampling sampling = Sampling::Nearest);
 
     /**
@@ -106,8 +107,8 @@ struct ImageOps {
      * @param sampling Sampling mode used during resize.
      * @return true on success, false on invalid pointers or out-of-bounds rects.
      */
-    static bool StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(const ImageLayoutDesc &src,
-                                                         const ImageLayoutDesc &dst,
+    static bool StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(const ImageOpDesc &src,
+                                                         const ImageOpDesc &dst,
                                                          Sampling sampling = Sampling::Nearest);
 
     /**
@@ -117,8 +118,8 @@ struct ImageOps {
      * @param sampling Sampling mode used during resize.
      * @return true on success, false on invalid pointers or out-of-bounds rects.
      */
-    static bool StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Hwc(const ImageLayoutDesc &src,
-                                                         const ImageLayoutDesc &dst,
+    static bool StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Hwc(const ImageOpDesc &src,
+                                                         const ImageOpDesc &dst,
                                                          Sampling sampling = Sampling::Nearest);
 
     /**
@@ -128,8 +129,8 @@ struct ImageOps {
      * @param sampling Sampling mode used during resize.
      * @return true on success, false on invalid pointers or out-of-bounds rects.
      */
-    static bool StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Hwc(const ImageLayoutDesc &src,
-                                                         const ImageLayoutDesc &dst,
+    static bool StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Hwc(const ImageOpDesc &src,
+                                                         const ImageOpDesc &dst,
                                                          Sampling sampling = Sampling::Nearest);
 
     /**
@@ -139,8 +140,8 @@ struct ImageOps {
      * @param sampling Sampling mode used during resize.
      * @return true on success, false on invalid pointers or out-of-bounds rects.
      */
-    static bool StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Hwc(const ImageLayoutDesc &src,
-                                                         const ImageLayoutDesc &dst,
+    static bool StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Hwc(const ImageOpDesc &src,
+                                                         const ImageOpDesc &dst,
                                                          Sampling sampling = Sampling::Nearest);
 
     /**
@@ -150,8 +151,8 @@ struct ImageOps {
      * @param sampling Sampling mode used during resize.
      * @return true on success, false on invalid pointers or out-of-bounds rects.
      */
-    static bool StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(const ImageLayoutDesc &src,
-                                                         const ImageLayoutDesc &dst,
+    static bool StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src,
+                                                         const ImageOpDesc &dst,
                                                          Sampling sampling = Sampling::Nearest);
 
     /**
@@ -161,8 +162,8 @@ struct ImageOps {
      * @param sampling Sampling mode used during resize.
      * @return true on success, false on invalid pointers or out-of-bounds rects.
      */
-    static bool StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Chw(const ImageLayoutDesc &src,
-                                                         const ImageLayoutDesc &dst,
+    static bool StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Chw(const ImageOpDesc &src,
+                                                         const ImageOpDesc &dst,
                                                          Sampling sampling = Sampling::Nearest);
 
     /**
@@ -172,8 +173,8 @@ struct ImageOps {
      * @param sampling Sampling mode used during resize.
      * @return true on success, false on invalid pointers or out-of-bounds rects.
      */
-    static bool StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Chw(const ImageLayoutDesc &src,
-                                                         const ImageLayoutDesc &dst,
+    static bool StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Chw(const ImageOpDesc &src,
+                                                         const ImageOpDesc &dst,
                                                          Sampling sampling = Sampling::Nearest);
 
     /**
@@ -183,8 +184,8 @@ struct ImageOps {
      * @param sampling Sampling mode used during resize.
      * @return true on success, false on invalid pointers or out-of-bounds rects.
      */
-    static bool StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Chw(const ImageLayoutDesc &src,
-                                                         const ImageLayoutDesc &dst,
+    static bool StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Chw(const ImageOpDesc &src,
+                                                         const ImageOpDesc &dst,
                                                          Sampling sampling = Sampling::Nearest);
 };
 

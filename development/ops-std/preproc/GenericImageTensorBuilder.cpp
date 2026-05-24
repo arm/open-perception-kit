@@ -11,7 +11,7 @@ using namespace pek;
 
 namespace {
 
-bool canUseFullKernelFastPath(const pek::ImageLayoutDesc &src, const pek::ImageLayoutDesc &dst) {
+bool canUseFullKernelFastPath(const pek::ImageOpDesc &src, const pek::ImageOpDesc &dst) {
     const bool isSrcFull = src.rectIsFullSurface();
     const bool isDstFull = dst.rectIsFullSurface();
     const bool sameSize =
@@ -26,8 +26,8 @@ pek::Result<void> pek::GenericImageTensorBuilder::build(const TensorBuilder::Set
 
     if (setup.imageSourceDesc.kind == pek::DataKind::ImageBgraHwc &&
         setup.imageDestinationDesc.kind == pek::DataKind::ImageRgbChw) {
-        if (setup.imageSourceDesc.type == pek::Tdt::Uint8 &&
-            setup.imageDestinationDesc.type == pek::Tdt::Float32) {
+        if (setup.imageSourceDesc.type == pek::Dtype::Uint8 &&
+            setup.imageDestinationDesc.type == pek::Dtype::Float32) {
             const bool isFull =
                 canUseFullKernelFastPath(setup.imageSourceDesc, setup.imageDestinationDesc);
             if (isFull) {
@@ -37,8 +37,8 @@ pek::Result<void> pek::GenericImageTensorBuilder::build(const TensorBuilder::Set
                 didBuild = pek::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(
                     setup.imageSourceDesc, setup.imageDestinationDesc);
             }
-        } else if (setup.imageSourceDesc.type == pek::Tdt::Uint8 &&
-                   setup.imageDestinationDesc.type == pek::Tdt::Float16) {
+        } else if (setup.imageSourceDesc.type == pek::Dtype::Uint8 &&
+                   setup.imageDestinationDesc.type == pek::Dtype::Float16) {
             didBuild = pek::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(
                 setup.imageSourceDesc, setup.imageDestinationDesc);
         }
@@ -46,16 +46,16 @@ pek::Result<void> pek::GenericImageTensorBuilder::build(const TensorBuilder::Set
 
     if (setup.imageSourceDesc.kind == pek::DataKind::ImageBgraHwc &&
         setup.imageDestinationDesc.kind == pek::DataKind::ImageRgbHwc) {
-        if (setup.imageSourceDesc.type == pek::Tdt::Uint8 &&
-            setup.imageDestinationDesc.type == pek::Tdt::Uint8) {
+        if (setup.imageSourceDesc.type == pek::Dtype::Uint8 &&
+            setup.imageDestinationDesc.type == pek::Dtype::Uint8) {
             didBuild = pek::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(
                 setup.imageSourceDesc, setup.imageDestinationDesc);
-        } else if (setup.imageSourceDesc.type == pek::Tdt::Uint8 &&
-                   setup.imageDestinationDesc.type == pek::Tdt::Float32) {
+        } else if (setup.imageSourceDesc.type == pek::Dtype::Uint8 &&
+                   setup.imageDestinationDesc.type == pek::Dtype::Float32) {
             didBuild = pek::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(
                 setup.imageSourceDesc, setup.imageDestinationDesc);
-        } else if (setup.imageSourceDesc.type == pek::Tdt::Uint8 &&
-                   setup.imageDestinationDesc.type == pek::Tdt::Float16) {
+        } else if (setup.imageSourceDesc.type == pek::Dtype::Uint8 &&
+                   setup.imageDestinationDesc.type == pek::Dtype::Float16) {
             didBuild = pek::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Hwc(
                 setup.imageSourceDesc, setup.imageDestinationDesc);
         }
@@ -63,8 +63,8 @@ pek::Result<void> pek::GenericImageTensorBuilder::build(const TensorBuilder::Set
 
     if (setup.imageSourceDesc.kind == pek::DataKind::ImageBgraHwc &&
         setup.imageDestinationDesc.kind == pek::DataKind::ImageGray) {
-        if (setup.imageSourceDesc.type == pek::Tdt::Uint8 &&
-            setup.imageDestinationDesc.type == pek::Tdt::Uint8) {
+        if (setup.imageSourceDesc.type == pek::Dtype::Uint8 &&
+            setup.imageDestinationDesc.type == pek::Dtype::Uint8) {
             const bool isFull =
                 canUseFullKernelFastPath(setup.imageSourceDesc, setup.imageDestinationDesc);
 
@@ -80,8 +80,8 @@ pek::Result<void> pek::GenericImageTensorBuilder::build(const TensorBuilder::Set
 
     if (setup.imageSourceDesc.kind == pek::DataKind::ImageRgbChw &&
         setup.imageDestinationDesc.kind == pek::DataKind::ImageRgbChw) {
-        if (setup.imageSourceDesc.type == pek::Tdt::Uint8 &&
-            setup.imageDestinationDesc.type == pek::Tdt::Float32) {
+        if (setup.imageSourceDesc.type == pek::Dtype::Uint8 &&
+            setup.imageDestinationDesc.type == pek::Dtype::Float32) {
             const bool isFull =
                 canUseFullKernelFastPath(setup.imageSourceDesc, setup.imageDestinationDesc);
             if (isFull) {
@@ -91,8 +91,8 @@ pek::Result<void> pek::GenericImageTensorBuilder::build(const TensorBuilder::Set
                 didBuild = pek::ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(
                     setup.imageSourceDesc, setup.imageDestinationDesc);
             }
-        } else if (setup.imageSourceDesc.type == pek::Tdt::Uint8 &&
-                   setup.imageDestinationDesc.type == pek::Tdt::Float16) {
+        } else if (setup.imageSourceDesc.type == pek::Dtype::Uint8 &&
+                   setup.imageDestinationDesc.type == pek::Dtype::Float16) {
             const bool isFull =
                 canUseFullKernelFastPath(setup.imageSourceDesc, setup.imageDestinationDesc);
             if (isFull) {
@@ -107,8 +107,8 @@ pek::Result<void> pek::GenericImageTensorBuilder::build(const TensorBuilder::Set
 
     if (setup.imageSourceDesc.kind == pek::DataKind::ImageRgbChw &&
         setup.imageDestinationDesc.kind == pek::DataKind::ImageRgbHwc) {
-        if (setup.imageSourceDesc.type == pek::Tdt::Uint8 &&
-            setup.imageDestinationDesc.type == pek::Tdt::Float32) {
+        if (setup.imageSourceDesc.type == pek::Dtype::Uint8 &&
+            setup.imageDestinationDesc.type == pek::Dtype::Float32) {
             const bool isFull =
                 canUseFullKernelFastPath(setup.imageSourceDesc, setup.imageDestinationDesc);
             if (isFull) {
@@ -118,8 +118,8 @@ pek::Result<void> pek::GenericImageTensorBuilder::build(const TensorBuilder::Set
                 didBuild = pek::ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(
                     setup.imageSourceDesc, setup.imageDestinationDesc);
             }
-        } else if (setup.imageSourceDesc.type == pek::Tdt::Uint8 &&
-                   setup.imageDestinationDesc.type == pek::Tdt::Float16) {
+        } else if (setup.imageSourceDesc.type == pek::Dtype::Uint8 &&
+                   setup.imageDestinationDesc.type == pek::Dtype::Float16) {
             const bool isFull =
                 canUseFullKernelFastPath(setup.imageSourceDesc, setup.imageDestinationDesc);
             if (isFull) {

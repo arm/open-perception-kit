@@ -19,7 +19,7 @@ namespace pek {
 struct ModelInput {
     std::string name;
     pek::DataKind dataKind = pek::DataKind::Unknown;
-    pek::Tdt valueType = pek::Tdt::Float32;
+    pek::Dtype valueType = pek::Dtype::Float32;
     pek::Shape shape{};
     int batch = 0;
     pek::QuantizationArgs quantArguments;
@@ -50,7 +50,7 @@ struct ModelInput {
 
 struct ModelOutput {
     std::string name;
-    pek::Tdt valueType = pek::Tdt::Float32;
+    pek::Dtype valueType = pek::Dtype::Float32;
     pek::Shape shape;
     pek::QuantizationArgs quantArguments;
 };

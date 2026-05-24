@@ -23,7 +23,7 @@ struct TensorDescriptor {
     pek::Shape shape{}; // if this is missing, system tries to discover it using onnx
     pek::DataKind dataKind = pek::DataKind::Unknown; // e.g. ImageRgbChw
 
-    pek::Tdt tdt = pek::Tdt::Float32;
+    pek::Dtype dtype = pek::Dtype::Float32;
     float zeroPoint = 0.0f;
     float scale = 1.0f;
     pek::Colorf mean = {0.0f, 0.0f, 0.0f, 0.0f}, std = {1.0f, 1.0f, 1.0f, 1.0f};
@@ -50,7 +50,7 @@ struct ModelDescriptor {
     // sometimes onnx reports an output tensor shape but the models fails to use it
     // set to true to let the model decide the output (tensor reallocation in every inference step)
     bool dynamicOutput = false;
-    pek::Tdt outputTdtType;
+    pek::Dtype outputDtype;
 
     static pek::Result<ModelDescriptor> fromJson(const std::string &jsonString);
     static pek::Result<ModelDescriptor> fromFile(const std::string &path);
@@ -63,7 +63,7 @@ struct ModelDescriptor {
 inline void to_json(json &j, const TensorDescriptor &b) {
     j = json{
         {"shape", b.shape},
-        {"valueType", b.tdt},
+        {"valueType", b.dtype},
         {"zeroPoint", b.zeroPoint},
         {"scale", b.scale},
         {"mean", b.mean},
@@ -77,7 +77,7 @@ inline void to_json(json &j, const TensorDescriptor &b) {
 inline void from_json(const json &j, TensorDescriptor &b) {
     //    j.at("shape").get_to(b.shape);
     b.shape = j.value("shape", pek::Shape());
-    b.tdt = j.value("valueType", pek::Tdt::Float32);
+    b.dtype = j.value("valueType", pek::Dtype::Float32);
     b.zeroPoint = j.value("zeroPoint", 0.0f);
     b.scale = j.value("scale", 1.0f);
     b.mean = j.value("mean", pek::Colorf{0.0f, 0.0f, 0.0f, 0.0f});

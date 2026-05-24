@@ -629,7 +629,7 @@ static std::unique_ptr<Osd::Layer> drawPerceptionLayer([[maybe_unused]] GstPekOs
                 const float x = (imgWidth - ex.width) / 2.0f - ex.x_bearing;
                 const float y = (imgHeight - ex.height) / 2.0f - ex.y_bearing;
 
-                uint64_t timeMs = pek::TsUtcNs() / 1000000U;
+                uint64_t timeMs = pek::Time::utcMs();
                 if (timeMs % 1000 < 800) {
                     Osd::Text::draw(*layer,
                                     Osd::Coordinate(x, y),

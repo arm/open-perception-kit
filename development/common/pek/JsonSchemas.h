@@ -94,21 +94,21 @@ NLOHMANN_JSON_SERIALIZE_ENUM(pek::DataKind,
                                  {DataKind::Vector4, "Vector4"},
                              })
 
-inline void to_json(json &j, const pek::Tdt &t) {
+inline void to_json(json &j, const pek::Dtype &t) {
     switch (t) {
-    case pek::Tdt::Uint8:
+    case pek::Dtype::Uint8:
         j = "Uint8";
         return;
-    case pek::Tdt::Int8:
+    case pek::Dtype::Int8:
         j = "Int8";
         return;
-    case pek::Tdt::Float16:
+    case pek::Dtype::Float16:
         j = "Float16";
         return;
-    case pek::Tdt::Float32:
+    case pek::Dtype::Float32:
         j = "Float32";
         return;
-    case pek::Tdt::Int64:
+    case pek::Dtype::Int64:
         j = "Int64";
         return;
     default:
@@ -117,14 +117,14 @@ inline void to_json(json &j, const pek::Tdt &t) {
     }
 }
 
-inline void from_json(const json &j, pek::Tdt &t) {
+inline void from_json(const json &j, pek::Dtype &t) {
     if (j.is_number_integer()) {
-        t = static_cast<pek::Tdt>(j.get<int>());
+        t = static_cast<pek::Dtype>(j.get<int>());
         return;
     }
 
     if (!j.is_string()) {
-        throw std::runtime_error("Tdt must be a JSON string or integer");
+        throw std::runtime_error("Dtype must be a JSON string or integer");
     }
 
     std::string s = j.get<std::string>();
@@ -133,27 +133,27 @@ inline void from_json(const json &j, pek::Tdt &t) {
     });
 
     if (s == "uint8" || s == "u8") {
-        t = pek::Tdt::Uint8;
+        t = pek::Dtype::Uint8;
         return;
     }
     if (s == "int8" || s == "i8") {
-        t = pek::Tdt::Int8;
+        t = pek::Dtype::Int8;
         return;
     }
     if (s == "float16" || s == "f16") {
-        t = pek::Tdt::Float16;
+        t = pek::Dtype::Float16;
         return;
     }
     if (s == "float32" || s == "f32" || s == "float") {
-        t = pek::Tdt::Float32;
+        t = pek::Dtype::Float32;
         return;
     }
     if (s == "int64" || s == "i64") {
-        t = pek::Tdt::Int64;
+        t = pek::Dtype::Int64;
         return;
     }
 
-    throw std::runtime_error("Unknown Tdt value");
+    throw std::runtime_error("Unknown Dtype value");
 }
 } // namespace pek
 

@@ -4,17 +4,16 @@
 
 #pragma once
 
-#include "pek/Color.h"
+#include "pek/ImageOpDesc.h"
 #include "pek/Result.h"
-#include "pek/Types.h"
 
 namespace pek {
 
 struct TensorBuilder {
 
     struct Setup {
-        ImageLayoutDesc imageSourceDesc;
-        ImageLayoutDesc imageDestinationDesc;
+        ImageOpDesc imageSourceDesc;
+        ImageOpDesc imageDestinationDesc;
     };
 
     virtual pek::Result<void> build(const TensorBuilder::Setup &setup) = 0;

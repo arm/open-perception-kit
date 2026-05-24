@@ -27,11 +27,11 @@ Inference::Inference() {}
 
 Inference::~Inference() {}
 
-pek::Result<hailo_format_type_t> Inference::pekTypeToHailoType(pek::Tdt type) {
+pek::Result<hailo_format_type_t> Inference::pekTypeToHailoType(pek::Dtype type) {
     switch (type) {
-    case pek::Tdt::Uint8:
+    case pek::Dtype::Uint8:
         return HAILO_FORMAT_TYPE_UINT8;
-    case pek::Tdt::Float32:
+    case pek::Dtype::Float32:
         return HAILO_FORMAT_TYPE_FLOAT32;
     default:
         return tl::make_unexpected(
@@ -39,12 +39,12 @@ pek::Result<hailo_format_type_t> Inference::pekTypeToHailoType(pek::Tdt type) {
     }
 }
 
-pek::Result<pek::Tdt> Inference::hailoTypeToPekType(hailo_format_type_t type) {
+pek::Result<pek::Dtype> Inference::hailoTypeToPekType(hailo_format_type_t type) {
     switch (type) {
     case HAILO_FORMAT_TYPE_UINT8:
-        return pek::Tdt::Uint8;
+        return pek::Dtype::Uint8;
     case HAILO_FORMAT_TYPE_FLOAT32:
-        return pek::Tdt::Float32;
+        return pek::Dtype::Float32;
     default:
         return tl::make_unexpected(
             PEK_ERROR(pek::ErrorFlag::InvalidData, "Unsupported HailoRT format type"));
@@ -333,6 +333,14 @@ pek::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
             outputTensorFinalShapes[i] = pek::Shape();
         }
 
+        if (inputNames.size() > pek::MaxTensorCount) {
+            return tl::make_unexpected(
+                PEK_ERROR(pek::ErrorFlag::InvalidData,
+                          fmt::format("Model input tensor count {} exceeds max supported {}",
+                                      inputNames.size(),
+                                      pek::MaxTensorCount)));
+        }
+
         for (size_t i = 0; i < inputNames.size(); ++i) {
             const auto &name = inputNames[i];
             size_t frameSize = this->inferModel->input(name)->get_frame_size();
@@ -347,6 +355,14 @@ pek::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
                                           name,
                                           static_cast<int>(st))));
             }
+        }
+
+        if (outputNames.size() > pek::MaxTensorCount) {
+            return tl::make_unexpected(
+                PEK_ERROR(pek::ErrorFlag::InvalidData,
+                          fmt::format("Model output tensor count {} exceeds max supported {}",
+                                      outputNames.size(),
+                                      pek::MaxTensorCount)));
         }
 
         for (size_t i = 0; i < outputNames.size(); ++i) {

@@ -20,6 +20,7 @@ class OpChain {
 
     // validation
     pek::Result<void> validateGroupedLoopIds();
+    pek::Result<void> validateLoopGroupSizes();
     pek::Result<void> validate();
 
   public:

@@ -23,26 +23,26 @@ struct TensorView {
     TensorView(const void *data,
                size_t byteCount,
                pek::Shape shape,
-               pek::Tdt type,
+               pek::Dtype type,
                float scale,
                float zeroPoint)
         : data((const uint8_t *)data), byteCount(byteCount), shape(shape), type(type), scale(scale),
           zeroPoint(zeroPoint) {
 
         switch (type) {
-        case Tdt::Int8:
+        case Dtype::Int8:
             typeSize = 1;
             break;
-        case Tdt::Uint8:
+        case Dtype::Uint8:
             typeSize = 1;
             break;
-        case Tdt::Float16:
+        case Dtype::Float16:
             typeSize = 2;
             break;
-        case Tdt::Float32:
+        case Dtype::Float32:
             typeSize = 4;
             break;
-        case Tdt::Int64:
+        case Dtype::Int64:
             typeSize = 8;
             break;
         }
@@ -53,15 +53,15 @@ struct TensorView {
         assert(i < valueCount);
 
         switch (type) {
-        case pek::Tdt::Uint8:
+        case pek::Dtype::Uint8:
             return toFloat(*(pek::Uint8 *)(data + i));
-        case pek::Tdt::Int8:
+        case pek::Dtype::Int8:
             return toFloat(*(pek::Int8 *)(data + i));
-        case pek::Tdt::Float16:
+        case pek::Dtype::Float16:
             return toFloat(*(pek::Float16 *)(data + i * 2));
-        case pek::Tdt::Float32:
+        case pek::Dtype::Float32:
             return toFloat(*(pek::Float32 *)(data + i * 4));
-        case pek::Tdt::Int64:
+        case pek::Dtype::Int64:
             return toFloat(*(pek::Int64 *)(data + i * 8));
         }
 
@@ -74,7 +74,7 @@ struct TensorView {
     size_t getByteCount() const {
         return byteCount;
     }
-    pek::Tdt getValueType() const {
+    pek::Dtype getValueType() const {
         return type;
     }
     pek::Shape getShape() const {
@@ -112,7 +112,7 @@ struct TensorView {
     size_t byteCount, valueCount;
     pek::Shape shape;
 
-    pek::Tdt type;
+    pek::Dtype type;
     size_t typeSize;
 
     float scale, zeroPoint;
