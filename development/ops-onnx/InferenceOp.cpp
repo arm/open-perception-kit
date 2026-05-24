@@ -46,7 +46,7 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
             return setupResult;
         }
     } catch (const std::exception &e) {
-        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::OnnxStartupException,
+        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InferenceRtStartupError,
                                         fmt::format("OnnxRT startup error: {}", e.what())));
     }
 

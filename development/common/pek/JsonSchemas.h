@@ -57,8 +57,8 @@ inline void from_json(const json &j, Colorf &c) {
 
 inline void to_json(json &j, const pek::Shape &s) {
     j = json::array();
-    for (size_t i = 0; i < s.dimensionCount; ++i) {
-        j.push_back(s.valueCount[i]);
+    for (size_t i = 0; i < s.rank; ++i) {
+        j.push_back(s.dims[i]);
     }
 }
 
@@ -68,18 +68,18 @@ inline void from_json(const json &j, pek::Shape &s) {
         throw std::runtime_error("Shape must be a JSON array");
     }
 
-    s.dimensionCount = 0;
-    std::fill(std::begin(s.valueCount), std::end(s.valueCount), 0);
+    s.rank = 0;
+    std::fill(std::begin(s.dims), std::end(s.dims), 0);
 
     size_t i = 0;
     for (const auto &v : j) {
         if (i >= 8) {
             throw std::runtime_error("Too many dimensions for Shape (max 8)");
         }
-        s.valueCount[i] = v.get<size_t>();
+        s.dims[i] = v.get<size_t>();
         ++i;
     }
-    s.dimensionCount = i;
+    s.rank = i;
 }
 
 NLOHMANN_JSON_SERIALIZE_ENUM(pek::DataKind,

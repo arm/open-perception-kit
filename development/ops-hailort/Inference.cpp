@@ -85,31 +85,31 @@ pek::Result<pek::Shape> Inference::hailoVstreamToPekSize(const hailo_vstream_inf
 
     // Keep classifier-like outputs compact.
     if (H == 1 && W == 1) {
-        s.dimensionCount = 2;
-        s.valueCount[0] = B;
-        s.valueCount[1] = static_cast<int>(F);
+        s.rank = 2;
+        s.dims[0] = B;
+        s.dims[1] = static_cast<int>(F);
         return s;
     }
 
     // info.format.order: 1=NHWC, 11=NCHW
     if (info.format.order == HAILO_FORMAT_ORDER_NHWC) {
-        s.dimensionCount = 4;
-        s.valueCount[0] = B;
-        s.valueCount[1] = static_cast<int>(H);
-        s.valueCount[2] = static_cast<int>(W);
-        s.valueCount[3] = static_cast<int>(F);
+        s.rank = 4;
+        s.dims[0] = B;
+        s.dims[1] = static_cast<int>(H);
+        s.dims[2] = static_cast<int>(W);
+        s.dims[3] = static_cast<int>(F);
     } else if (info.format.order == HAILO_FORMAT_ORDER_NCHW) {
-        s.dimensionCount = 4;
-        s.valueCount[0] = B;
-        s.valueCount[1] = static_cast<int>(F);
-        s.valueCount[2] = static_cast<int>(H);
-        s.valueCount[3] = static_cast<int>(W);
+        s.rank = 4;
+        s.dims[0] = B;
+        s.dims[1] = static_cast<int>(F);
+        s.dims[2] = static_cast<int>(H);
+        s.dims[3] = static_cast<int>(W);
     } else if (info.format.order == HAILO_FORMAT_ORDER_HAILO_NMS_BY_CLASS) {
-        s.dimensionCount = 3;
-        s.valueCount[0] = B;
-        s.valueCount[1] = static_cast<int>(H);
-        s.valueCount[2] = static_cast<int>(W);
-        s.valueCount[3] = static_cast<int>(F);
+        s.rank = 3;
+        s.dims[0] = B;
+        s.dims[1] = static_cast<int>(H);
+        s.dims[2] = static_cast<int>(W);
+        s.dims[3] = static_cast<int>(F);
     } else {
         return tl::make_unexpected(
             PEK_ERROR(pek::ErrorFlag::InvalidData,
@@ -223,8 +223,8 @@ pek::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
         size_t batchSize = 1;
         if (!this->modelDescriptor.inputTensors.empty() &&
             this->modelDescriptor.inputTensors[0].shape.isValid() &&
-            this->modelDescriptor.inputTensors[0].shape.dimensionCount > 0) {
-            int candidate = this->modelDescriptor.inputTensors[0].shape.valueCount[0];
+            this->modelDescriptor.inputTensors[0].shape.rank > 0) {
+            int candidate = this->modelDescriptor.inputTensors[0].shape.dims[0];
             if (candidate > 0) {
                 batchSize = static_cast<size_t>(candidate);
             }

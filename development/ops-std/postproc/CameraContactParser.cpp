@@ -38,7 +38,7 @@ pek::Result<void> CameraContactParser::parse(const pek::TensorParser::Input &inp
     const auto &tensor = *input.tensors[0];
     const auto shape = tensor.getShape();
 
-    if (shape.dimensionCount != 2 || shape.valueCount[0] != 1 || shape.valueCount[1] != 2) {
+    if (shape.rank != 2 || shape.dims[0] != 1 || shape.dims[1] != 2) {
         return tl::unexpected(PEK_ERROR(
             pek::ErrorFlag::InvalidData,
             fmt::format("CameraContactParser expects [1,2] logits, got {}", shape.toString())));

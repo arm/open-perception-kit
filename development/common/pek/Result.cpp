@@ -4,8 +4,6 @@
 
 #include "Result.h"
 
-#include "pek/String.h"
-
 using namespace pek;
 
 std::string Error::toString() const {

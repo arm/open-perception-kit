@@ -28,8 +28,8 @@ struct Tensor {
         this->shape = shape;
         this->type = type;
         this->typeByteSize = pek::getValueTypeByteSize(type);
-        for (size_t i = 0; i < shape.dimensionCount; i++)
-            onnxShape[i] = shape.valueCount[i];
+        for (size_t i = 0; i < shape.rank; i++)
+            onnxShape[i] = shape.dims[i];
 
         if (shape.hasDynamicDimension()) {
             fmt::print("Creating dynamic tensor with shape: {}\n", shape.toString());
@@ -63,13 +63,13 @@ struct Tensor {
                                                    reinterpret_cast<float *>(getData()),
                                                    getElementCount(),
                                                    this->onnxShape,
-                                                   this->shape.dimensionCount);
+                                                   this->shape.rank);
         } else if (this->type == pek::Dtype::Int64) {
             return Ort::Value::CreateTensor<int64_t>(memInfo,
                                                      reinterpret_cast<int64_t *>(getData()),
                                                      getElementCount(),
                                                      onnxShape,
-                                                     this->shape.dimensionCount);
+                                                     this->shape.rank);
         } else {
             assert(0);
         }

@@ -195,8 +195,7 @@ pek::Result<void> pek::YoloParser::parse(const pek::TensorParser::Input &input,
         assert(maxBboxesPerClass > 0);
 
         // Accept packed tensor shape [1, classCount, flat]
-        if (shape.dimensionCount != 3 || shape.valueCount[0] != 1 ||
-            shape.valueCount[1] != classCount) {
+        if (shape.rank != 3 || shape.dims[0] != 1 || shape.dims[1] != classCount) {
             return tl::unexpected(PEK_ERROR(
                 pek::ErrorFlag::InvalidData,
                 fmt::format("YoloParser: expected packed tensor shape [1,classCount,flat], got {}",
@@ -268,12 +267,12 @@ pek::Result<void> pek::YoloParser::parse(const pek::TensorParser::Input &input,
     } else if (outputFormat == OutputFormat::UltraliticsYolo) {
         // Assume tensor is [*, C, N] or [*, N, C] and the smaller one is C
         bool colFirst = true;
-        size_t C = shape.valueCount[1];
-        size_t N = shape.valueCount[2];
+        size_t C = shape.dims[1];
+        size_t N = shape.dims[2];
 
         if (C > N) {
-            C = shape.valueCount[2];
-            N = shape.valueCount[1];
+            C = shape.dims[2];
+            N = shape.dims[1];
             colFirst = false;
         }
 

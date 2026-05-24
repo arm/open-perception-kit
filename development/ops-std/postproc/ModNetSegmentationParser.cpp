@@ -23,13 +23,13 @@ Result<void> ModNetSegmentationParser::parse(const Input &input, Perception::Lay
     const auto shape = outputTensor->getShape();
 
     // Validate shape: [1, 1, height, width]
-    if (shape.dimensionCount != 4 || shape.valueCount[0] != 1 || shape.valueCount[1] != 1) {
+    if (shape.rank != 4 || shape.dims[0] != 1 || shape.dims[1] != 1) {
         return tl::unexpected(
             PEK_ERROR(ErrorFlag::InvalidData, "Invalid shape: expected [1,1,H,W]"));
     }
 
-    size_t height = shape.valueCount[2];
-    size_t width = shape.valueCount[3];
+    size_t height = shape.dims[2];
+    size_t width = shape.dims[3];
 
     // Create bitmap for the alpha matte
     Bitmap alphaMatte(Bitmap::Type::Uint8, width, height);

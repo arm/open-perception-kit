@@ -130,7 +130,7 @@ pek::Result<void> Inference::setup(const ModelDescriptor &modelDesc_) {
         pek::log("{}", "ONNX: Model loaded\n");
 
     } catch (const std::exception &e) {
-        return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::OnnxModelLoadException, e.what()));
+        return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InferenceRtModelLoadError, e.what()));
     }
 
     return {};
@@ -251,7 +251,7 @@ pek::Result<void> Inference::inference() {
                                                    api.outputNames.size());
         }
     } catch (const std::exception &e) {
-        return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::OnnxInferenceException, e.what()));
+        return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InferenceRtInferenceError, e.what()));
     }
 
     // fill the tensors data pointers

@@ -73,23 +73,21 @@ pek::Result<void> GazeDetectionParser::parse(const pek::TensorParser::Input &inp
     }
 
     // Validate tensor shapes.
-    if (input.tensors[0]->getShape().dimensionCount != 2) {
+    if (input.tensors[0]->getShape().rank != 2) {
         return tl::unexpected(PEK_ERROR(ErrorFlag::InvalidData,
                                         "GazeDetectionParser: yaw tensor must have 2 dimensions"));
     }
-    if (input.tensors[1]->getShape().dimensionCount != 2) {
+    if (input.tensors[1]->getShape().rank != 2) {
         return tl::unexpected(PEK_ERROR(
             ErrorFlag::InvalidData, "GazeDetectionParser: pitch tensor must have 2 dimensions"));
     }
 
     // Validate tensor dimensions: [1, 90].
-    if (input.tensors[0]->getShape().valueCount[0] != 1 ||
-        input.tensors[0]->getShape().valueCount[1] != 90) {
+    if (input.tensors[0]->getShape().dims[0] != 1 || input.tensors[0]->getShape().dims[1] != 90) {
         return tl::unexpected(PEK_ERROR(ErrorFlag::InvalidData,
                                         "GazeDetectionParser: yaw tensor shape must be [1, 90]"));
     }
-    if (input.tensors[1]->getShape().valueCount[0] != 1 ||
-        input.tensors[1]->getShape().valueCount[1] != 90) {
+    if (input.tensors[1]->getShape().dims[0] != 1 || input.tensors[1]->getShape().dims[1] != 90) {
         return tl::unexpected(PEK_ERROR(ErrorFlag::InvalidData,
                                         "GazeDetectionParser: pitch tensor shape must be [1, 90]"));
     }

@@ -20,24 +20,22 @@ pek::Result<void> PersonClassificationParser::parse(const pek::TensorParser::Inp
     }
 
     const auto shape = input.tensors[0]->getShape();
-    if (shape.dimensionCount != 2) {
-        return tl::unexpected(
-            PEK_ERROR(ErrorFlag::InvalidData,
-                      fmt::format("PersonClassificationParser: expected 2D tensor, got {}D",
-                                  shape.dimensionCount)));
+    if (shape.rank != 2) {
+        return tl::unexpected(PEK_ERROR(
+            ErrorFlag::InvalidData,
+            fmt::format("PersonClassificationParser: expected 2D tensor, got {}D", shape.rank)));
     }
 
-    if (shape.valueCount[0] != 1) {
+    if (shape.dims[0] != 1) {
         return tl::unexpected(
             PEK_ERROR(ErrorFlag::InvalidData,
                       fmt::format("PersonClassificationParser: batch size must be 1, got {}",
-                                  shape.valueCount[0])));
+                                  shape.dims[0])));
     }
-    if (shape.valueCount[1] != 2) {
-        return tl::unexpected(
-            PEK_ERROR(ErrorFlag::InvalidData,
-                      fmt::format("PersonClassificationParser: expected 2 classes, got {}",
-                                  shape.valueCount[1])));
+    if (shape.dims[1] != 2) {
+        return tl::unexpected(PEK_ERROR(
+            ErrorFlag::InvalidData,
+            fmt::format("PersonClassificationParser: expected 2 classes, got {}", shape.dims[1])));
     }
 
     const float rawYes = input.tensors[0]->get(0);

@@ -12,103 +12,162 @@
 
 namespace pek {
 
+/**
+ * @brief Fixed-capacity tensor shape descriptor.
+ */
 struct Shape {
 
+    /**
+     * @brief Constructs an empty shape.
+     */
     explicit Shape() {}
 
-    template <typename... Args> explicit Shape(Args... dims) {
-        static_assert(sizeof...(dims) <= 8, "Max 8 dimensions");
+    /**
+     * @brief Constructs a shape from up to 8 dimension values.
+     * @tparam Args Integer-like dimension argument types.
+     * @param initDims Dimension values in order.
+     */
+    template <typename... Args> explicit Shape(Args... initDims) {
+        static_assert(sizeof...(initDims) <= 8, "Max 8 dimensions");
 
-        int tmp[] = {dims...};
-        dimensionCount = 0;
+        int tmp[] = {initDims...};
+        rank = 0;
 
-        for (int i = 0; i < (int)sizeof...(dims); ++i) {
-            valueCount[i] = tmp[i];
+        for (int i = 0; i < (int)sizeof...(initDims); ++i) {
+            dims[i] = tmp[i];
             if (tmp[i] > 0)
-                dimensionCount = i + 1;
+                rank = i + 1;
         }
     }
 
+    /**
+     * @brief Compares two shapes for exact rank and dimension equality.
+     * @param o Shape to compare with.
+     * @return true when both shapes are identical.
+     */
     bool operator==(const Shape &o) const {
-        if (dimensionCount != o.dimensionCount)
+        if (rank != o.rank)
             return false;
-        for (size_t i = 0; i < dimensionCount; i++)
-            if (valueCount[i] != o.valueCount[i])
+        for (size_t i = 0; i < rank; i++)
+            if (dims[i] != o.dims[i])
                 return false;
         return true;
     }
 
+    /**
+     * @brief Returns the product of all dimensions.
+     * @return Total value count, or 0 for an empty shape.
+     */
     size_t getFullValueCount() const {
-        if (!dimensionCount)
+        if (!rank)
             return 0;
         size_t c = 1;
-        for (size_t i = 0; i < dimensionCount; i++)
-            c *= this->valueCount[i];
+        for (size_t i = 0; i < rank; i++)
+            c *= this->dims[i];
         return c;
     }
 
+    /**
+     * @brief Sets shape dimensions from a size_t vector.
+     * @param dims Dimension values. Maximum supported size is 8.
+     */
     void setFrom(const std::vector<size_t> &dims) {
         assert(dims.size() <= 8);
-        this->dimensionCount = dims.size();
+        this->rank = dims.size();
         for (size_t i = 0; i < dims.size() && i < 8; i++)
-            this->valueCount[i] = dims[i];
+            this->dims[i] = dims[i];
     }
 
+    /**
+     * @brief Sets shape dimensions from an int64_t vector.
+     * @param dims Dimension values. Maximum supported size is 8.
+     */
     void setFrom(const std::vector<int64_t> &dims) {
         assert(dims.size() <= 8);
-        this->dimensionCount = dims.size();
+        this->rank = dims.size();
         for (size_t i = 0; i < dims.size() && i < 8; i++)
-            this->valueCount[i] = dims[i];
+            this->dims[i] = dims[i];
     }
 
-    int valueCount[8] = {0};
-    size_t dimensionCount = 0;
+    /**
+     * @brief Stored dimension values.
+     *
+     * Values greater than 0 are static dimensions. A value of -1 marks a dynamic
+     * dimension placeholder.
+     */
+    int dims[8] = {0};
 
+    /**
+     * @brief Number of active entries in dims.
+     */
+    size_t rank = 0;
+
+    /**
+     * @brief Returns a compact textual representation.
+     * @return String in the form "[d0,d1,...]" or "[empty]".
+     */
     std::string toString() const {
-        if (dimensionCount == 0)
+        if (rank == 0)
             return "[empty]";
         std::string ret;
-        for (size_t i = 0; i < dimensionCount; i++) {
+        for (size_t i = 0; i < rank; i++) {
             if (false == ret.empty())
                 ret += ",";
-            ret += std::to_string(valueCount[i]);
+            ret += std::to_string(dims[i]);
         }
         return std::string("[") + ret + "]";
     }
 
+    /**
+     * @brief Checks whether the shape is invalid.
+     * @return true when rank is 0 or a dimension is 0 or below -1.
+     */
     bool isInvalid() const {
-        for (size_t i = 0; i < dimensionCount; i++)
-            if (valueCount[i] == 0 || valueCount[i] < -1)
+        for (size_t i = 0; i < rank; i++)
+            if (dims[i] == 0 || dims[i] < -1)
                 return true;
-        return (dimensionCount == 0);
+        return (rank == 0);
     }
 
+    /**
+     * @brief Checks whether the shape is valid.
+     * @return true when isInvalid() is false.
+     */
     bool isValid() const {
         return !isInvalid();
     }
 
-    // dynamic dimension is marked as -1
+    /**
+     * @brief Returns true when at least one dimension is dynamic.
+     * @return true if any dimension equals -1.
+     */
     bool hasDynamicDimension() const {
-        for (size_t i = 0; i < dimensionCount; i++)
-            if (valueCount[i] == -1)
+        for (size_t i = 0; i < rank; i++)
+            if (dims[i] == -1)
                 return true;
         return false;
     }
 
-    // try to apply a shape to another shape
-    // - static dimensions must match
-    // - dynamic dimensions are overwritten
+    /**
+     * @brief Applies dimensions from another shape to fill dynamic entries.
+     *
+     * Static dimensions must match exactly. Dynamic dimensions (-1) are replaced
+     * with the corresponding values from @p other.
+     *
+     * @param other Source shape.
+     * @return true if application succeeds, false on incompatibility.
+     */
     bool applyDimensionsForDynamic(const Shape &other) {
         if (false == hasDynamicDimension())
             return false;
-        if (dimensionCount != other.dimensionCount)
+        if (rank != other.rank)
             return false;
-        for (size_t i = 0; i < dimensionCount; i++) {
-            if (valueCount[i] == -1) {
-                assert(other.valueCount[i] > 0);
-                valueCount[i] = other.valueCount[i];
+        for (size_t i = 0; i < rank; i++) {
+            if (dims[i] == -1) {
+                assert(other.dims[i] > 0);
+                dims[i] = other.dims[i];
             } else {
-                if (valueCount[i] != other.valueCount[i])
+                if (dims[i] != other.dims[i])
                     return false;
             }
         }

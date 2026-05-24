@@ -32,15 +32,15 @@ struct ModelInput {
     size_t matchShapeOutputIndex = pek::InvalidTensorIndex;
 
     bool tryGetImageTensorSize(size_t &outWidht, size_t &outHeight) {
-        if (shape.dimensionCount == 4) {
-            if (shape.valueCount[1] == 1 || shape.valueCount[1] == 3) {
-                outWidht = shape.valueCount[3];
-                outHeight = shape.valueCount[2];
+        if (shape.rank == 4) {
+            if (shape.dims[1] == 1 || shape.dims[1] == 3) {
+                outWidht = shape.dims[3];
+                outHeight = shape.dims[2];
                 return true;
             }
-            if (shape.valueCount[3] == 1 || shape.valueCount[3] == 3) {
-                outWidht = shape.valueCount[2];
-                outHeight = shape.valueCount[1];
+            if (shape.dims[3] == 1 || shape.dims[3] == 3) {
+                outWidht = shape.dims[2];
+                outHeight = shape.dims[1];
                 return true;
             }
         }

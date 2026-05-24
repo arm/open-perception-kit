@@ -48,19 +48,19 @@ static pek::Dtype to_pek_dtype(executorch::aten::ScalarType t) {
 template <typename SizesT> static pek::Shape to_pek_shape(const SizesT &sizes) {
     pek::Shape s{};
 
-    s.dimensionCount = static_cast<int>(sizes.size());
+    s.rank = static_cast<int>(sizes.size());
 
-    // IMPORTANT: make sure we don't overflow valueCount
-    const size_t maxDims = sizeof(s.valueCount) / sizeof(s.valueCount[0]);
+    // IMPORTANT: make sure we don't overflow dims
+    const size_t maxDims = sizeof(s.dims) / sizeof(s.dims[0]);
     const size_t n = std::min(sizes.size(), maxDims);
 
     for (size_t i = 0; i < n; ++i) {
-        s.valueCount[i] = static_cast<int>(sizes[i]);
+        s.dims[i] = static_cast<int>(sizes[i]);
     }
 
     // Optional: zero remaining dims for safety
     for (size_t i = n; i < maxDims; ++i) {
-        s.valueCount[i] = 0;
+        s.dims[i] = 0;
     }
 
     return s;
