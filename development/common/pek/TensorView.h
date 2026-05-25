@@ -18,7 +18,7 @@ namespace pek {
 //
 struct TensorView {
 
-    TensorView() {}
+    TensorView() = default;
 
     TensorView(const void *data,
                size_t byteCount,
@@ -50,6 +50,7 @@ struct TensorView {
     }
 
     float get(size_t i) const {
+        assert(data != nullptr);
         assert(i < valueCount);
 
         switch (type) {
@@ -108,14 +109,16 @@ struct TensorView {
         return (float)v;
     }
 
-    const uint8_t *data;
-    size_t byteCount, valueCount;
+    const uint8_t *data = nullptr;
+    size_t byteCount = 0;
+    size_t valueCount = 0;
     pek::Shape shape;
 
-    pek::Dtype type;
-    size_t typeSize;
+    pek::Dtype type = pek::Dtype::Uint8;
+    size_t typeSize = 1;
 
-    float scale, zeroPoint;
+    float scale = 1.0f;
+    float zeroPoint = 0.0f;
 };
 
 } // namespace pek

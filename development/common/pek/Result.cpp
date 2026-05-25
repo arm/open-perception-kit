@@ -9,31 +9,35 @@ using namespace pek;
 std::string Error::toString() const {
     using fmt::bg;
     using fmt::color;
+    using fmt::fg;
     using fmt::format;
 
-    auto RED = bg(color::red);
-    auto BLUE = bg(color::blue);
-    auto GREEN = bg(color::green);
-    auto YELLOW = bg(color::yellow);
+    auto ERROR = fg(color::black) | bg(color::red);
+    auto LABEL = fg(color::black) | bg(color::yellow);
 
-    auto green = [&](auto &&v) { return format(GREEN, "{}", std::forward<decltype(v)>(v)); };
+    auto INFO = fg(color::green);
+    auto WHERE = fg(color::white) | bg(color::blue);
 
-    auto yellow = [&](auto &&v) { return format(YELLOW, "{}", std::forward<decltype(v)>(v)); };
+    std::string ret;
 
-    std::string ret = format("{}{}\n{}{}",
-                             format(RED, "Error:\n"),
-                             yellow(magic_enum::enum_name(flag)),
-                             format(RED, "Because:\n"),
-                             green(info));
+    ret += "\n";
+    ret += format(ERROR, "Error:");
+    ret += "\n";
+
+    ret += format(LABEL, magic_enum::enum_name(flag));
+    ret += "\n";
+
+    ret += format(ERROR, "Reason:");
+    ret += "\n";
+
+    ret += format(INFO, "{}", info);
 
     if (!file.empty()) {
-        ret += format("\n{}{}{}{}{}{}",
-                      format(BLUE, "Where:\n"),
-                      green(file),
-                      format(BLUE, "\n"),
-                      green(function),
-                      format(BLUE, "\n"),
-                      green(line));
+        ret += "\n";
+        ret += format(WHERE, "Where");
+        ret += "\n";
+
+        ret += format(INFO, "{}\n{}\n{}", file, function, line);
     }
 
     return ret;
