@@ -13,8 +13,9 @@
 
 using namespace pek;
 
-pek::Result<void> postproc::parser::DummyParser::parse(const pek::TensorParser::Input &input,
-                                                       pek::Perception::Layer &detectionResult) {
+pek::Result<void>
+stdop::postproc::parser::DummyParser::parse(const pek::TensorParser::Input &input,
+                                            pek::Perception::Layer &detectionResult) {
 
     bool log = input.attributes.getBoolOrDefault("log", false);
 

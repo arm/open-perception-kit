@@ -14,8 +14,9 @@
 
 using namespace pek;
 
-pek::Result<void> postproc::parser::RvmParser::parse(const pek::TensorParser::Input &input,
-                                                     pek::Perception::Layer &detectionResult) {
+pek::Result<void>
+stdop::postproc::parser::RvmParser::parse(const pek::TensorParser::Input &input,
+                                          pek::Perception::Layer &detectionResult) {
 
     if (!input.tensors[0] || !input.tensors[1]) {
         return tl::unexpected(

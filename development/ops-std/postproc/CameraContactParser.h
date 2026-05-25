@@ -9,7 +9,7 @@
 #include "pek/TensorParser.h"
 #include "pek/TensorView.h"
 
-namespace pek::postproc::parser {
+namespace pek::stdop::postproc::parser {
 
 struct CameraContactParser : public pek::TensorParser {
 
@@ -17,4 +17,4 @@ struct CameraContactParser : public pek::TensorParser {
                                     pek::Perception::Layer &output) override;
 };
 
-} // namespace pek::postproc::parser
+} // namespace pek::stdop::postproc::parser

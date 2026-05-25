@@ -28,7 +28,7 @@ class GenericImagePreprocessOp : public pek::op::Op {
     std::string inputImageSourceName;
     size_t inputImageTensorIndex;
 
-    pek::preproc::GenericImageTensorBuilder genericImageInputTensorBuilder;
+    pek::stdop::preproc::GenericImageTensorBuilder genericImageInputTensorBuilder;
 
     pek::Model upcomingInferenceModel;
     uint8_t *upcomingTensorAddresses[pek::MaxTensorCount] = {nullptr};

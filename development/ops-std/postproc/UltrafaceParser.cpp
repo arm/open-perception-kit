@@ -272,8 +272,8 @@ validateParseInput(const pek::TensorParser::Input &input) {
 // ----------------------------------------------------------------------------
 
 pek::Result<void>
-postproc::parser::UltraFaceParser::parse(const pek::TensorParser::Input &input,
-                                         pek::Perception::Layer &detectionResult) {
+stdop::postproc::parser::UltraFaceParser::parse(const pek::TensorParser::Input &input,
+                                                pek::Perception::Layer &detectionResult) {
 
     const float confThreshold =
         (float)input.attributes.getDoubleOrDefault("confidenceThreshold", 0.5);

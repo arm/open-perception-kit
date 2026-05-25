@@ -9,8 +9,9 @@
 
 using namespace pek;
 
-Result<void> postproc::parser::ObjectEmbeddingParser::parse(const TensorParser::Input &input,
-                                                            Perception::Layer &detectionResult) {
+Result<void>
+stdop::postproc::parser::ObjectEmbeddingParser::parse(const TensorParser::Input &input,
+                                                      Perception::Layer &detectionResult) {
 
     if (!input.tensors[0]) {
         return tl::unexpected(

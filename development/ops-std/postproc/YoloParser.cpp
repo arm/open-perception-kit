@@ -149,8 +149,9 @@ static void processDetection(const pek::TensorParser::Input &input,
 
 // ----------------------------------------------------------------------------
 
-pek::Result<void> postproc::parser::YoloParser::parse(const pek::TensorParser::Input &input,
-                                                      pek::Perception::Layer &detectionResult) {
+pek::Result<void>
+stdop::postproc::parser::YoloParser::parse(const pek::TensorParser::Input &input,
+                                           pek::Perception::Layer &detectionResult) {
 
     const OutputFormat outputFormat = parseOutputFormat(input.attributes);
 

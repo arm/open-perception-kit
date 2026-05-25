@@ -29,8 +29,8 @@ std::array<float, 2> softmax2(const pek::TensorView &tensor) {
 } // namespace
 
 pek::Result<void>
-postproc::parser::CameraContactParser::parse(const pek::TensorParser::Input &input,
-                                             pek::Perception::Layer &detectionResult) {
+stdop::postproc::parser::CameraContactParser::parse(const pek::TensorParser::Input &input,
+                                                    pek::Perception::Layer &detectionResult) {
     if (!input.tensors[0]) {
         return tl::unexpected(
             PEK_ERROR(pek::ErrorFlag::InvalidData, "CameraContactParser: input tensor is null"));

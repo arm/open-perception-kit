@@ -11,9 +11,8 @@
 
 using namespace pek;
 
-pek::Result<void>
-postproc::parser::PersonClassificationParser::parse(const pek::TensorParser::Input &input,
-                                                    pek::Perception::Layer &detectionResult) {
+pek::Result<void> stdop::postproc::parser::PersonClassificationParser::parse(
+    const pek::TensorParser::Input &input, pek::Perception::Layer &detectionResult) {
 
     if (!input.tensors[0]) {
         return tl::unexpected(

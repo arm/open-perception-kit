@@ -7,7 +7,7 @@
 #include "pek/ImageOpDesc.h"
 #include "pek/Types.h"
 
-namespace pek::preproc {
+namespace pek::stdop::preproc {
 
 struct ImageOps {
 
@@ -189,4 +189,4 @@ struct ImageOps {
                                                          Sampling sampling = Sampling::Nearest);
 };
 
-} // namespace pek::preproc
+} // namespace pek::stdop::preproc

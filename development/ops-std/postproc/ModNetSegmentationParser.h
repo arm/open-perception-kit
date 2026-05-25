@@ -6,11 +6,11 @@
 
 #include "pek/TensorParser.h"
 
-namespace pek::postproc::parser {
+namespace pek::stdop::postproc::parser {
 
 class ModNetSegmentationParser : public TensorParser {
   public:
     pek::Result<void> parse(const Input &input, Perception::Layer &layer) override;
 };
 
-} // namespace pek::postproc::parser
+} // namespace pek::stdop::postproc::parser

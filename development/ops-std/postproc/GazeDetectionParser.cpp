@@ -65,8 +65,8 @@ inline void logitsToAngleDegAndConfidence(const pek::TensorView *logits,
 } // namespace
 
 pek::Result<void>
-postproc::parser::GazeDetectionParser::parse(const pek::TensorParser::Input &input,
-                                             pek::Perception::Layer &detectionResult) {
+stdop::postproc::parser::GazeDetectionParser::parse(const pek::TensorParser::Input &input,
+                                                    pek::Perception::Layer &detectionResult) {
     // Validate tensor pointers.
     if (!input.tensors[0] || !input.tensors[1]) {
         return tl::unexpected(

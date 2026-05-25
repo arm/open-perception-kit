@@ -4,7 +4,7 @@
 #include "preproc/CpuImageKernels.h"
 #include "pek/Types.h"
 
-using namespace pek::preproc;
+using namespace pek::stdop::preproc;
 
 namespace {
 inline bool canRunDirectFullKernel(const pek::ImageOpDesc &src, const pek::ImageOpDesc &dst) {

@@ -13,8 +13,8 @@
 using namespace pek;
 
 pek::Result<void>
-postproc::parser::PaddleOcrDetectionParser::parse(const pek::TensorParser::Input &input,
-                                                  pek::Perception::Layer &detectionResult) {
+stdop::postproc::parser::PaddleOcrDetectionParser::parse(const pek::TensorParser::Input &input,
+                                                         pek::Perception::Layer &detectionResult) {
 
     const float thresholdLow = (float)input.attributes.getDoubleOrDefault("thresholdLow", 0.60f);
     const float thresholdHigh = (float)input.attributes.getDoubleOrDefault("thresholdHigh", 0.80f);
