@@ -12,6 +12,8 @@
 #include <initializer_list>
 #include <type_traits>
 
+namespace pek {
+
 template <uint32_t ROWS, uint32_t COLS, typename T = double> class Matrix {
   private:
     template <typename Item> class RowProxy {
@@ -215,3 +217,5 @@ template <uint32_t ROWS, uint32_t COLS, typename T>
 Matrix<ROWS, COLS, T> operator*(T scalar, const Matrix<ROWS, COLS, T> &rhs) {
     return rhs * scalar;
 }
+
+} // namespace pek

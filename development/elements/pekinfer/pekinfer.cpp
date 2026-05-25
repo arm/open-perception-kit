@@ -23,8 +23,8 @@
 #include "op/OpChain.h"
 #include "op/OpChainContext.h"
 
-#include "PerformanceTracer.h"
 #include "gst/PerceptionMeta.h"
+#include "perf/PerformanceTracer.h"
 
 struct GstPekInferMembers {
     // std::shared_ptr<onnx::Inference> onnxInference;
@@ -101,7 +101,7 @@ static std::optional<fs::path> parent_dir_name(const fs::path &p) {
 
 static gboolean gst_pekinfer_start(GstBaseTransform *b) {
     auto *self = (GstPekInfer *)b;
-    static pek::PerformanceTracer *tracer = pek::getGlobalTracer();
+    static pek::perf::PerformanceTracer *tracer = pek::perf::getGlobalTracer();
     (void)tracer;
 
     self->m = new GstPekInferMembers();

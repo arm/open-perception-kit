@@ -11,7 +11,7 @@
 #include "pek/AttributeMap.h"
 #include "pek/TensorView.h"
 
-#include <PerformanceTracer.h>
+#include <perf/PerformanceTracer.h>
 
 using namespace hailort;
 

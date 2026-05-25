@@ -22,7 +22,7 @@ common = shared_library(
     'op/OpChainContext.cpp',
     'op/OpChainDescriptor.cpp',
 
-    'PerformanceTracer.cpp',
+    'perf/PerformanceTracer.cpp',
   ],
   include_directories: [ common_include ],  
   cpp_args: ['-DFMT_HEADER_ONLY'],

@@ -11,7 +11,7 @@
 
 #include "pek/Perception.h"
 #include "pek/Types.h"
-#include <PerformanceTracer.h>
+#include <perf/PerformanceTracer.h>
 
 // parser class headers
 #include "postproc/CameraContactParser.h"

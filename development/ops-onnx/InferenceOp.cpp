@@ -18,7 +18,7 @@
 #include "pek/TensorView.h"
 #include "pek/Tools.h"
 
-#include <PerformanceTracer.h>
+#include <perf/PerformanceTracer.h>
 
 using namespace onnx;
 

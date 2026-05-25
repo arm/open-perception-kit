@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-namespace pek {
+namespace pek::perf {
 
 // ============================================================================
 // Core Data Structures
@@ -328,10 +328,11 @@ PerformanceTracer *getGlobalTracer();
 /**
  * Convenience macros for global tracer
  */
-#define PEK_TRACE_START(key) pek::getGlobalTracer()->start(key)
-#define PEK_TRACE_END(key) pek::getGlobalTracer()->end(key)
+#define PEK_TRACE_START(key) pek::perf::getGlobalTracer()->start(key)
+#define PEK_TRACE_END(key) pek::perf::getGlobalTracer()->end(key)
 #define PEK_TRACE_SCOPE(key)                                                                       \
-    pek::PerformanceTracer::ScopedTimer _pek_timer_##__LINE__(pek::getGlobalTracer(), key)
-#define PEK_TRACE_END_CYCLE() pek::getGlobalTracer()->endCycle()
+    pek::perf::PerformanceTracer::ScopedTimer _pek_timer_##__LINE__(pek::perf::getGlobalTracer(),  \
+                                                                    key)
+#define PEK_TRACE_END_CYCLE() pek::perf::getGlobalTracer()->endCycle()
 
-} // namespace pek
+} // namespace pek::perf

@@ -4,9 +4,11 @@
 
 #pragma once
 
-#include "Matrix.h"
+#include "pek/Matrix.h"
 
 #include <cstdint>
+
+namespace pek {
 
 template <uint32_t STATE_DIM, uint32_t MEAS_DIM, typename T = double> class KalmanFilter {
   public:
@@ -75,3 +77,5 @@ template <uint32_t STATE_DIM, uint32_t MEAS_DIM, typename T = double> class Kalm
     StateVector stateValue;
     StateMatrix covarianceValue;
 };
+
+} // namespace pek
