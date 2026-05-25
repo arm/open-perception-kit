@@ -13,6 +13,7 @@
 #include <vector>
 
 using namespace pek;
+using namespace pek::stdop::postproc;
 
 // Softmax helper function
 static void softmax(const std::span<float> input, std::span<float> output) {
@@ -38,8 +39,8 @@ static void softmax(const std::span<float> input, std::span<float> output) {
     }
 }
 
-pek::Result<void> stdop::postproc::parser::ImageNetClassificationParser::parse(
-    const pek::TensorParser::Input &input, pek::Perception::Layer &detectionResult) {
+Result<void> ImageNetClassificationParser::parse(const pek::TensorParser::Input &input,
+                                                 pek::Perception::Layer &detectionResult) {
 
     if (!input.tensors[0]) {
         return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,

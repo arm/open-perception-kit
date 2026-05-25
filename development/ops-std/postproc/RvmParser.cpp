@@ -13,10 +13,10 @@
 #include <string>
 
 using namespace pek;
+using namespace pek::stdop::postproc;
 
-pek::Result<void>
-stdop::postproc::parser::RvmParser::parse(const pek::TensorParser::Input &input,
-                                          pek::Perception::Layer &detectionResult) {
+Result<void> RvmParser::parse(const pek::TensorParser::Input &input,
+                              pek::Perception::Layer &detectionResult) {
 
     if (!input.tensors[0] || !input.tensors[1]) {
         return tl::unexpected(

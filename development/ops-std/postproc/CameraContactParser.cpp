@@ -10,6 +10,7 @@
 #include <fmt/core.h>
 
 using namespace pek;
+using namespace pek::stdop::postproc;
 
 namespace {
 
@@ -28,9 +29,8 @@ std::array<float, 2> softmax2(const pek::TensorView &tensor) {
 
 } // namespace
 
-pek::Result<void>
-stdop::postproc::parser::CameraContactParser::parse(const pek::TensorParser::Input &input,
-                                                    pek::Perception::Layer &detectionResult) {
+Result<void> CameraContactParser::parse(const pek::TensorParser::Input &input,
+                                        pek::Perception::Layer &detectionResult) {
     if (!input.tensors[0]) {
         return tl::unexpected(
             PEK_ERROR(pek::ErrorFlag::InvalidData, "CameraContactParser: input tensor is null"));

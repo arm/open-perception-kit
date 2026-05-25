@@ -10,6 +10,7 @@
 #include <cstddef>
 
 using namespace pek;
+using namespace pek::stdop::postproc;
 
 namespace {
 
@@ -64,9 +65,8 @@ inline void logitsToAngleDegAndConfidence(const pek::TensorView *logits,
 
 } // namespace
 
-pek::Result<void>
-stdop::postproc::parser::GazeDetectionParser::parse(const pek::TensorParser::Input &input,
-                                                    pek::Perception::Layer &detectionResult) {
+Result<void> GazeDetectionParser::parse(const pek::TensorParser::Input &input,
+                                        pek::Perception::Layer &detectionResult) {
     // Validate tensor pointers.
     if (!input.tensors[0] || !input.tensors[1]) {
         return tl::unexpected(

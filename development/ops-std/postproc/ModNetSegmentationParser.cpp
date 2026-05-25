@@ -5,10 +5,10 @@
 #include "ModNetSegmentationParser.h"
 #include <algorithm>
 
-namespace pek {
+using namespace pek;
+using namespace pek::stdop::postproc;
 
-Result<void> stdop::postproc::parser::ModNetSegmentationParser::parse(const Input &input,
-                                                                      Perception::Layer &layer) {
+Result<void> ModNetSegmentationParser::parse(const Input &input, Perception::Layer &layer) {
     layer.contentType = "segmentation";
     layer.compositingMode = "backgroundReplacement";
 
@@ -58,5 +58,3 @@ Result<void> stdop::postproc::parser::ModNetSegmentationParser::parse(const Inpu
     layer.detections.emplace_back(std::move(segMap));
     return {};
 }
-
-} // namespace pek

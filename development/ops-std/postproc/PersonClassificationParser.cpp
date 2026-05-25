@@ -10,9 +10,10 @@
 #include <fmt/core.h>
 
 using namespace pek;
+using namespace pek::stdop::postproc;
 
-pek::Result<void> stdop::postproc::parser::PersonClassificationParser::parse(
-    const pek::TensorParser::Input &input, pek::Perception::Layer &detectionResult) {
+Result<void> PersonClassificationParser::parse(const pek::TensorParser::Input &input,
+                                               pek::Perception::Layer &detectionResult) {
 
     if (!input.tensors[0]) {
         return tl::unexpected(

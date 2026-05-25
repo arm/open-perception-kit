@@ -10,6 +10,7 @@
 #include <vector>
 
 using namespace pek;
+using namespace pek::stdop::postproc;
 
 // IoU between two boxes (x,y = top-left, w,h = size)
 inline float iou(const Perception::Rect &a, const Perception::Rect &b) {
@@ -271,9 +272,8 @@ validateParseInput(const pek::TensorParser::Input &input) {
 
 // ----------------------------------------------------------------------------
 
-pek::Result<void>
-stdop::postproc::parser::UltraFaceParser::parse(const pek::TensorParser::Input &input,
-                                                pek::Perception::Layer &detectionResult) {
+Result<void> UltraFaceParser::parse(const pek::TensorParser::Input &input,
+                                    pek::Perception::Layer &detectionResult) {
 
     const float confThreshold =
         (float)input.attributes.getDoubleOrDefault("confidenceThreshold", 0.5);

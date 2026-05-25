@@ -13,6 +13,7 @@
 #include <vector>
 
 using namespace pek;
+using namespace pek::stdop::postproc;
 
 struct Det {
     float x1, y1, x2, y2, conf;
@@ -149,9 +150,8 @@ static void processDetection(const pek::TensorParser::Input &input,
 
 // ----------------------------------------------------------------------------
 
-pek::Result<void>
-stdop::postproc::parser::YoloParser::parse(const pek::TensorParser::Input &input,
-                                           pek::Perception::Layer &detectionResult) {
+Result<void> YoloParser::parse(const pek::TensorParser::Input &input,
+                               pek::Perception::Layer &detectionResult) {
 
     const OutputFormat outputFormat = parseOutputFormat(input.attributes);
 

@@ -16,19 +16,47 @@
 
 namespace pek::op {
 
+/**
+ * @brief Descriptor for a chain of operations loaded from JSON.
+ *
+ * OpChainDescriptor defines the structure and configuration of an operation chain.
+ * It is typically loaded from a JSON file and used to construct an OpChain at runtime.
+ * Each operation in the descriptor specifies its library, name, optional group, loop ID,
+ * and configuration attributes.
+ */
 struct OpChainDescriptor {
 
+    /**
+     * @brief Descriptor for a single operation in the chain.
+     */
     struct Op {
-        std::string id, group;
-        size_t loopId = 0;
-        AttributeMap attributes;
+        std::string id; ///< Unique identifier combining library and operation name (format:
+                        ///< "libName/opName").
+        std::string
+            group; ///< Optional group identifier for operations that should be executed together.
+        size_t loopId =
+            0; ///< Optional loop group ID; operations with equal non-zero loopId form a loop.
+        AttributeMap
+            attributes; ///< Configuration attributes passed to the operation's configure() method.
     };
 
-    std::string name;
+    std::string name; ///< Name of the operation chain.
 
-    std::vector<Op> ops;
+    std::vector<Op> ops; ///< List of operations in the chain, in execution order.
 
+    /**
+     * @brief Parses an OpChainDescriptor from a JSON string.
+     *
+     * @param jsonString JSON string containing a descriptor object with "name" and "ops" fields.
+     * @return OpChainDescriptor on success, or an error Result.
+     */
     static pek::Result<OpChainDescriptor> fromJson(const std::string &jsonString);
+    /**
+     * @brief Loads an OpChainDescriptor from a JSON file.
+     *
+     * @param path File path to the JSON descriptor file.
+     * @return OpChainDescriptor on success, or an error Result.
+     */
     static pek::Result<OpChainDescriptor> fromFile(const std::string &path);
 };
 

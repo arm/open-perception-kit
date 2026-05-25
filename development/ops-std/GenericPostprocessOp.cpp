@@ -40,21 +40,18 @@ template <class T> ParserCreator make() {
 // parser registry
 const std::map<std::string, ParserCreator> &getParserRegistry() {
     static const std::map<std::string, ParserCreator> registry = {
-        {"CameraContactParser", make<pek::stdop::postproc::parser::CameraContactParser>()},
-        {"DummyParser", make<pek::stdop::postproc::parser::DummyParser>()},
-        {"GazeDetectionParser", make<pek::stdop::postproc::parser::GazeDetectionParser>()},
+        {"CameraContactParser", make<pek::stdop::postproc::CameraContactParser>()},
+        {"DummyParser", make<pek::stdop::postproc::DummyParser>()},
+        {"GazeDetectionParser", make<pek::stdop::postproc::GazeDetectionParser>()},
         {"ImageNetClassificationParser",
-         make<pek::stdop::postproc::parser::ImageNetClassificationParser>()},
-        {"ModNetSegmentationParser",
-         make<pek::stdop::postproc::parser::ModNetSegmentationParser>()},
-        {"ObjectEmbeddingParser", make<pek::stdop::postproc::parser::ObjectEmbeddingParser>()},
-        {"PaddleOcrDetectionParser",
-         make<pek::stdop::postproc::parser::PaddleOcrDetectionParser>()},
-        {"PersonClassificationParser",
-         make<pek::stdop::postproc::parser::PersonClassificationParser>()},
-        {"RvmParser", make<pek::stdop::postproc::parser::RvmParser>()},
-        {"UltrafaceParser", make<pek::stdop::postproc::parser::UltraFaceParser>()},
-        {"YoloParser", make<pek::stdop::postproc::parser::YoloParser>()},
+         make<pek::stdop::postproc::ImageNetClassificationParser>()},
+        {"ModNetSegmentationParser", make<pek::stdop::postproc::ModNetSegmentationParser>()},
+        {"ObjectEmbeddingParser", make<pek::stdop::postproc::ObjectEmbeddingParser>()},
+        {"PaddleOcrDetectionParser", make<pek::stdop::postproc::PaddleOcrDetectionParser>()},
+        {"PersonClassificationParser", make<pek::stdop::postproc::PersonClassificationParser>()},
+        {"RvmParser", make<pek::stdop::postproc::RvmParser>()},
+        {"UltrafaceParser", make<pek::stdop::postproc::UltraFaceParser>()},
+        {"YoloParser", make<pek::stdop::postproc::YoloParser>()},
         // ... add new parsers here
     };
     return registry;
