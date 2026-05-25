@@ -38,7 +38,8 @@ static void softmax(const std::span<float> input, std::span<float> output) {
     }
 }
 
-pek::Result<void> ImageNetClassificationParser::parse(const pek::TensorParser::Input &input,
+pek::Result<void>
+postproc::parser::ImageNetClassificationParser::parse(const pek::TensorParser::Input &input,
                                                       pek::Perception::Layer &detectionResult) {
 
     if (!input.tensors[0]) {

@@ -40,17 +40,18 @@ template <class T> ParserCreator make() {
 // parser registry
 const std::map<std::string, ParserCreator> &getParserRegistry() {
     static const std::map<std::string, ParserCreator> registry = {
-        {"CameraContactParser", make<pek::CameraContactParser>()},
-        {"DummyParser", make<pek::DummyParser>()},
-        {"GazeDetectionParser", make<pek::GazeDetectionParser>()},
-        {"ImageNetClassificationParser", make<pek::ImageNetClassificationParser>()},
-        {"ModNetSegmentationParser", make<pek::ModNetSegmentationParser>()},
-        {"ObjectEmbeddingParser", make<pek::ObjectEmbeddingParser>()},
-        {"PaddleOcrDetectionParser", make<pek::PaddleOcrDetectionParser>()},
-        {"PersonClassificationParser", make<pek::PersonClassificationParser>()},
-        {"RvmParser", make<pek::RvmParser>()},
-        {"UltrafaceParser", make<pek::UltraFaceParser>()},
-        {"YoloParser", make<pek::YoloParser>()},
+        {"CameraContactParser", make<pek::postproc::parser::CameraContactParser>()},
+        {"DummyParser", make<pek::postproc::parser::DummyParser>()},
+        {"GazeDetectionParser", make<pek::postproc::parser::GazeDetectionParser>()},
+        {"ImageNetClassificationParser",
+         make<pek::postproc::parser::ImageNetClassificationParser>()},
+        {"ModNetSegmentationParser", make<pek::postproc::parser::ModNetSegmentationParser>()},
+        {"ObjectEmbeddingParser", make<pek::postproc::parser::ObjectEmbeddingParser>()},
+        {"PaddleOcrDetectionParser", make<pek::postproc::parser::PaddleOcrDetectionParser>()},
+        {"PersonClassificationParser", make<pek::postproc::parser::PersonClassificationParser>()},
+        {"RvmParser", make<pek::postproc::parser::RvmParser>()},
+        {"UltrafaceParser", make<pek::postproc::parser::UltraFaceParser>()},
+        {"YoloParser", make<pek::postproc::parser::YoloParser>()},
         // ... add new parsers here
     };
     return registry;

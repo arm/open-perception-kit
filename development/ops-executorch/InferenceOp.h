@@ -10,7 +10,7 @@
 
 #include "Inference.h"
 
-namespace exct {
+namespace pek::extrch {
 
 class InferenceOp : public pek::Op {
   public:
@@ -22,8 +22,8 @@ class InferenceOp : public pek::Op {
     virtual pek::Result<void> process(pek::OpChainContext &opChainContext) override;
 
   private:
-    std::unique_ptr<exct::Inference> inference;
+    std::unique_ptr<pek::extrch::Inference> inference;
     std::string modelFamily;
 };
 
-} // namespace exct
+} // namespace pek::extrch

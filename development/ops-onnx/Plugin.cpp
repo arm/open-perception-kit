@@ -10,7 +10,7 @@
 
 pek::Op *createOp(const std::string &opName) {
     if (opName == "Inference")
-        return new onnx::InferenceOp();
+        return new pek::onnx::InferenceOp();
     return nullptr;
 }
 

@@ -11,7 +11,8 @@
 
 using namespace pek;
 
-pek::Result<void> PersonClassificationParser::parse(const pek::TensorParser::Input &input,
+pek::Result<void>
+postproc::parser::PersonClassificationParser::parse(const pek::TensorParser::Input &input,
                                                     pek::Perception::Layer &detectionResult) {
 
     if (!input.tensors[0]) {

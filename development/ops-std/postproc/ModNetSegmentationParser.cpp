@@ -7,7 +7,8 @@
 
 namespace pek {
 
-Result<void> ModNetSegmentationParser::parse(const Input &input, Perception::Layer &layer) {
+Result<void> postproc::parser::ModNetSegmentationParser::parse(const Input &input,
+                                                               Perception::Layer &layer) {
     layer.contentType = "segmentation";
     layer.compositingMode = "backgroundReplacement";
 

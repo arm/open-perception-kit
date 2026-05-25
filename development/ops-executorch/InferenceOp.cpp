@@ -10,7 +10,7 @@
 #include <fmt/core.h>
 #include <memory>
 
-using namespace exct;
+using namespace pek::extrch;
 
 InferenceOp::InferenceOp() {}
 InferenceOp::~InferenceOp() {}
@@ -32,7 +32,7 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
     }
 
     try {
-        inference = std::make_unique<exct::Inference>();
+        inference = std::make_unique<pek::extrch::Inference>();
 
         auto setupResult = inference->setupFromJson(modelDescPath);
         if (!setupResult) {

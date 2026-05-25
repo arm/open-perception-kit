@@ -10,7 +10,7 @@
 
 pek::Op *createOp(const std::string &opName) {
     if (opName == "Inference")
-        return new exct::InferenceOp();
+        return new pek::extrch::InferenceOp();
     return nullptr;
 }
 

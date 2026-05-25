@@ -66,7 +66,7 @@ template <typename SizesT> static pek::Shape to_pek_shape(const SizesT &sizes) {
     return s;
 }
 
-using namespace exct;
+using namespace pek::extrch;
 
 Inference::Inference() {}
 Inference::~Inference() {}

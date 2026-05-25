@@ -8,7 +8,7 @@
 #include "pek/Result.h"
 #include "pek/TensorParser.h"
 
-namespace pek {
+namespace pek::postproc::parser {
 
 struct PaddleOcrDetectionParser : public pek::TensorParser {
 
@@ -16,4 +16,4 @@ struct PaddleOcrDetectionParser : public pek::TensorParser {
                                     pek::Perception::Layer &output) override;
 };
 
-} // namespace pek
+} // namespace pek::postproc::parser

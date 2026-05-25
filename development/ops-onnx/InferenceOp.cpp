@@ -20,7 +20,7 @@
 
 #include <perf/PerformanceTracer.h>
 
-using namespace onnx;
+using namespace pek::onnx;
 
 InferenceOp::InferenceOp() {}
 

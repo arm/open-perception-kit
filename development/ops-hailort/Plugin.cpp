@@ -9,7 +9,7 @@
 
 pek::Op *createOp(const std::string &opName) {
     if (opName == "Inference")
-        return new hailort::InferenceOp();
+        return new pek::hailo::InferenceOp();
     return nullptr;
 }
 

@@ -10,7 +10,7 @@
 #include "pek/TensorView.h"
 
 //
-namespace pek {
+namespace pek::postproc::parser {
 
 struct YoloParser : public pek::TensorParser {
 
@@ -18,4 +18,4 @@ struct YoloParser : public pek::TensorParser {
                                     pek::Perception::Layer &output) override;
 };
 
-} // namespace pek
+} // namespace pek::postproc::parser

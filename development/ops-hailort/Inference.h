@@ -15,7 +15,7 @@
 #include "pek/Result.h"
 #include "pek/Shape.h"
 
-namespace hailort {
+namespace pek::hailo {
 
 struct Inference {
 
@@ -68,10 +68,10 @@ struct Inference {
     pek::ModelDescriptor modelDescriptor;
     pek::Model model;
 
-    std::shared_ptr<hailort::VDevice> vdevice;
-    std::shared_ptr<hailort::InferModel> inferModel;
-    std::unique_ptr<hailort::ConfiguredInferModel> configuredInferModel;
-    std::unique_ptr<hailort::ConfiguredInferModel::Bindings> bindings;
+    std::shared_ptr<::hailort::VDevice> vdevice;
+    std::shared_ptr<::hailort::InferModel> inferModel;
+    std::unique_ptr<::hailort::ConfiguredInferModel> configuredInferModel;
+    std::unique_ptr<::hailort::ConfiguredInferModel::Bindings> bindings;
 
     Buffer inputBuffers[pek::MaxTensorCount];
     Buffer outputBuffers[pek::MaxTensorCount];
@@ -80,4 +80,4 @@ struct Inference {
     pek::Shape outputTensorFinalShapes[pek::MaxTensorCount];
 };
 
-} // namespace hailort
+} // namespace pek::hailo

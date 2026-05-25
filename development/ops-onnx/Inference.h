@@ -19,7 +19,7 @@
 
 #include "pek/Result.h"
 
-namespace onnx {
+namespace pek::onnx {
 
 // ONNX level tensor
 struct Tensor {
@@ -162,4 +162,4 @@ struct Inference {
         std::vector<Ort::Value> outputTensorVector;
     } api;
 };
-} // namespace onnx
+} // namespace pek::onnx

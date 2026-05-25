@@ -9,11 +9,11 @@
 #include "pek/TensorParser.h"
 #include "pek/TensorView.h"
 
-namespace pek {
+namespace pek::postproc::parser {
 
 struct ObjectEmbeddingParser : public TensorParser {
 
     Result<void> parse(const TensorParser::Input &input, Perception::Layer &output) override;
 };
 
-} // namespace pek
+} // namespace pek::postproc::parser

@@ -28,7 +28,8 @@ std::array<float, 2> softmax2(const pek::TensorView &tensor) {
 
 } // namespace
 
-pek::Result<void> CameraContactParser::parse(const pek::TensorParser::Input &input,
+pek::Result<void>
+postproc::parser::CameraContactParser::parse(const pek::TensorParser::Input &input,
                                              pek::Perception::Layer &detectionResult) {
     if (!input.tensors[0]) {
         return tl::unexpected(

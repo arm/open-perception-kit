@@ -21,7 +21,7 @@
 #include "pek/Result.h"
 #include "pek/String.h"
 
-using namespace hailort;
+using namespace pek::hailo;
 
 Inference::Inference() {}
 

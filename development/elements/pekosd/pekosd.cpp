@@ -293,36 +293,36 @@ static gboolean gst_pek_osd_stop(GstBaseTransform *trans) {
     return TRUE;
 }
 
-static std::unique_ptr<Osd::Layer> drawPerformanceLayer([[maybe_unused]] GstPekOsd *self,
-                                                        float imgWidth,
-                                                        float imgHeight,
-                                                        const pek::Perception &perception) {
+static std::unique_ptr<pek::osd::Layer> drawPerformanceLayer([[maybe_unused]] GstPekOsd *self,
+                                                             float imgWidth,
+                                                             float imgHeight,
+                                                             const pek::Perception &perception) {
     constexpr float line_height = 16.0f;
     constexpr float x_offset = 10.0f;
     constexpr float y_offset = 10.0f;
 
-    auto layer = std::make_unique<Osd::Layer>(imgWidth, imgHeight);
+    auto layer = std::make_unique<pek::osd::Layer>(imgWidth, imgHeight);
 
     float line_y_offset = y_offset;
     for (const auto &line : perception.perfdata) {
-        Osd::Text::draw(*layer,
-                        Osd::Coordinate(x_offset, line_y_offset),
-                        line,
-                        pek::Colors::fromStringOrDefault("#66ff00ff"),
-                        pek::Colors::fromStringOrDefault("#000000ff"),
-                        "monospace",
-                        line_height);
+        pek::osd::Text::draw(*layer,
+                             pek::osd::Coordinate(x_offset, line_y_offset),
+                             line,
+                             pek::Colors::fromStringOrDefault("#66ff00ff"),
+                             pek::Colors::fromStringOrDefault("#000000ff"),
+                             "monospace",
+                             line_height);
         line_y_offset += line_height;
     }
 
     return layer;
 }
 
-static std::unique_ptr<Osd::Layer> drawSegmentationLayer([[maybe_unused]] GstPekOsd *self,
-                                                         float imgWidth,
-                                                         float imgHeight,
-                                                         const pek::Bitmap &segMap) {
-    auto layer = std::make_unique<Osd::Layer>(imgWidth, imgHeight);
+static std::unique_ptr<pek::osd::Layer> drawSegmentationLayer([[maybe_unused]] GstPekOsd *self,
+                                                              float imgWidth,
+                                                              float imgHeight,
+                                                              const pek::Bitmap &segMap) {
+    auto layer = std::make_unique<pek::osd::Layer>(imgWidth, imgHeight);
 
     cairo_surface_flush(layer->surface);
     auto *data = cairo_image_surface_get_data(layer->surface);
@@ -465,7 +465,7 @@ static inline void gazeEndpoint(float eyeX,
     outY = eyeY + dy * lengthPx;
 }
 
-static void drawGazeVectors(Osd::Layer *layer, const pek::Perception &perception) {
+static void drawGazeVectors(pek::osd::Layer *layer, const pek::Perception &perception) {
     pek::ConstPerceptionTools perceptionTools(perception);
 
     const auto yps =
@@ -492,11 +492,11 @@ static void drawGazeVectors(Osd::Layer *layer, const pek::Perception &perception
         float xEnd = x;
         float yEnd = y;
         gazeEndpoint(x, y, yaw, pitch, 120.0f, xEnd, yEnd);
-        Osd::Arrow::draw(*layer, {x, y}, {xEnd, yEnd}, pek::Colors::lightGoldenrodYellow);
+        pek::osd::Arrow::draw(*layer, {x, y}, {xEnd, yEnd}, pek::Colors::lightGoldenrodYellow);
     }
 }
 
-static void drawCameraContactMarkers(Osd::Layer *layer, const pek::Perception &perception) {
+static void drawCameraContactMarkers(pek::osd::Layer *layer, const pek::Perception &perception) {
     pek::ConstPerceptionTools perceptionTools(perception);
 
     for (const auto &inferLayer : perception.layers) {
@@ -534,9 +534,9 @@ static void drawCameraContactMarkers(Osd::Layer *layer, const pek::Perception &p
             const float markerThickness = hasCameraContact ? 5.0f : 8.0f;
             const float centerPointSize = hasCameraContact ? 10.0f : 14.0f;
 
-            Osd::Circle::draw(
-                *layer, Osd::Coordinate{x, y}, markerRadius, markerColor, markerThickness);
-            Osd::Point::draw(*layer, Osd::Coordinate{x, y}, markerColor, centerPointSize);
+            pek::osd::Circle::draw(
+                *layer, pek::osd::Coordinate{x, y}, markerRadius, markerColor, markerThickness);
+            pek::osd::Point::draw(*layer, pek::osd::Coordinate{x, y}, markerColor, centerPointSize);
         }
     }
 }
@@ -562,7 +562,7 @@ static pek::Color withAlpha(pek::Color color, float alpha) {
     return (color & 0x00ffffffu) | (static_cast<uint32_t>(a) << 24);
 }
 
-static void drawTrackTrace(Osd::Layer &layer, const pek::Perception::TrackTrace &trace) {
+static void drawTrackTrace(pek::osd::Layer &layer, const pek::Perception::TrackTrace &trace) {
     if (trace.points.size() < 2U) {
         return;
     }
@@ -577,21 +577,21 @@ static void drawTrackTrace(Osd::Layer &layer, const pek::Perception::TrackTrace 
         const auto normalizedAge = static_cast<float>(i + 1U) / static_cast<float>(segmentCount);
         const auto alpha = 0.35f + (0.65f * normalizedAge);
 
-        Osd::Arrow::draw(layer,
-                         Osd::Coordinate{from.x, from.y},
-                         Osd::Coordinate{to.x, to.y},
-                         withAlpha(baseColor, alpha),
-                         4.0f,
-                         0.0f,
-                         0.0f);
+        pek::osd::Arrow::draw(layer,
+                              pek::osd::Coordinate{from.x, from.y},
+                              pek::osd::Coordinate{to.x, to.y},
+                              withAlpha(baseColor, alpha),
+                              4.0f,
+                              0.0f,
+                              0.0f);
     }
 }
 
-static std::unique_ptr<Osd::Layer> drawPerceptionLayer([[maybe_unused]] GstPekOsd *self,
-                                                       float imgWidth,
-                                                       float imgHeight,
-                                                       const pek::Perception &perception) {
-    auto layer = std::make_unique<Osd::Layer>(imgWidth, imgHeight);
+static std::unique_ptr<pek::osd::Layer> drawPerceptionLayer([[maybe_unused]] GstPekOsd *self,
+                                                            float imgWidth,
+                                                            float imgHeight,
+                                                            const pek::Perception &perception) {
+    auto layer = std::make_unique<pek::osd::Layer>(imgWidth, imgHeight);
 
     for (const auto &inferLayer : perception.layers) {
         if (inferLayer.contentType == "trackTrace") {
@@ -605,7 +605,7 @@ static std::unique_ptr<Osd::Layer> drawPerceptionLayer([[maybe_unused]] GstPekOs
         if (inferLayer.contentType == "genericObject") {
             for (const auto &det : inferLayer.detections) {
                 const auto &box = std::get<pek::Perception::Rect>(det);
-                Osd::ObjectBox::draw(
+                pek::osd::ObjectBox::draw(
                     *layer, box, pek::Colors::fromStringOrDefault("#ff0000ff"), 2.0f);
             }
         }
@@ -631,13 +631,13 @@ static std::unique_ptr<Osd::Layer> drawPerceptionLayer([[maybe_unused]] GstPekOs
 
                 uint64_t timeMs = pek::Time::utcMs();
                 if (timeMs % 1000 < 800) {
-                    Osd::Text::draw(*layer,
-                                    Osd::Coordinate(x, y),
-                                    label,
-                                    color,
-                                    pek::Colors::fromStringOrDefault("#000000cc"),
-                                    "monospace",
-                                    fontSize);
+                    pek::osd::Text::draw(*layer,
+                                         pek::osd::Coordinate(x, y),
+                                         label,
+                                         color,
+                                         pek::Colors::fromStringOrDefault("#000000cc"),
+                                         "monospace",
+                                         fontSize);
                 }
             }
         }
@@ -645,9 +645,9 @@ static std::unique_ptr<Osd::Layer> drawPerceptionLayer([[maybe_unused]] GstPekOs
         if (inferLayer.contentType == "humanFace") {
             for (const auto &det : inferLayer.detections) {
                 const auto &box = std::get<pek::Perception::Rect>(det);
-                Osd::Circle::draw(
+                pek::osd::Circle::draw(
                     *layer,
-                    Osd::Coordinate{box.x + box.width / 2.0f, box.y + box.height / 2.0f},
+                    pek::osd::Coordinate{box.x + box.width / 2.0f, box.y + box.height / 2.0f},
                     box.width / 2.0f,
                     pek::Colors::fromStringOrDefault("#2600ffff"),
                     2.0f);
@@ -679,13 +679,13 @@ static std::unique_ptr<Osd::Layer> drawPerceptionLayer([[maybe_unused]] GstPekOs
                     const float textX = startX;
                     const float textY = startY + static_cast<float>(i) * lineHeight;
 
-                    Osd::Text::draw(*layer,
-                                    Osd::Coordinate(textX, textY),
-                                    oss.str(),
-                                    pek::Colors::fromStringOrDefault("#ffffffff"),
-                                    pek::Colors::fromStringOrDefault("#000000ff"),
-                                    "monospace",
-                                    fontSize);
+                    pek::osd::Text::draw(*layer,
+                                         pek::osd::Coordinate(textX, textY),
+                                         oss.str(),
+                                         pek::Colors::fromStringOrDefault("#ffffffff"),
+                                         pek::Colors::fromStringOrDefault("#000000ff"),
+                                         "monospace",
+                                         fontSize);
                 }
             }
         }
@@ -702,7 +702,7 @@ static void gst_pek_osd_process_layer(GstPekOsd *self,
                                       gint imgStride,
                                       float imgWidth,
                                       float imgHeight,
-                                      Osd::Layers_t &layers,
+                                      pek::osd::Layers_t &layers,
                                       const pek::Perception::Layer &layer) {
     if (layer.contentType == "segmentation") {
         const bool useBackgroundReplacement = layer.compositingMode == "backgroundReplacement";
@@ -740,7 +740,7 @@ static GstFlowReturn gst_pek_osd_transform_frame_ip(GstVideoFilter *filter, GstV
     const float imgHeight = static_cast<float>(GST_VIDEO_FRAME_HEIGHT(frame));
     const gint imgStride = GST_VIDEO_FRAME_PLANE_STRIDE(frame, 0);
 
-    Osd::Layers_t layers;
+    pek::osd::Layers_t layers;
 
     if (auto perception = pek::PerceptionMeta::read(frame->buffer); perception != nullptr) {
         for (const auto &layer : perception->layers) {
@@ -750,7 +750,7 @@ static GstFlowReturn gst_pek_osd_transform_frame_ip(GstVideoFilter *filter, GstV
         layers.push_back(drawPerceptionLayer(self, imgWidth, imgHeight, *perception));
         layers.push_back(drawPerformanceLayer(self, imgWidth, imgHeight, *perception));
 
-        Osd::Canvas(imgData, imgWidth, imgHeight).paint(layers);
+        pek::osd::Canvas(imgData, imgWidth, imgHeight).paint(layers);
     }
 
     ++self->frameCount;

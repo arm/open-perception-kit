@@ -14,7 +14,7 @@
 #include <memory>
 #include <vector>
 
-namespace exct {
+namespace pek::extrch {
 
 struct Inference {
 
@@ -41,4 +41,4 @@ struct Inference {
 
     void Forward();
 };
-} // namespace exct
+} // namespace pek::extrch

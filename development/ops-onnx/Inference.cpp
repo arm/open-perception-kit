@@ -28,7 +28,7 @@
 
 #include "pek/ModelDescriptor.h"
 
-using namespace onnx;
+using namespace pek::onnx;
 
 Inference::Inference() {}
 

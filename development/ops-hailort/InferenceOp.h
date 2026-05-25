@@ -12,7 +12,7 @@
 
 #include "Inference.h"
 
-namespace hailort {
+namespace pek::hailo {
 
 class InferenceOp : public pek::Op, public pek::OpInterfaceInference {
   public:
@@ -27,8 +27,8 @@ class InferenceOp : public pek::Op, public pek::OpInterfaceInference {
     virtual pek::Result<void> process(pek::OpChainContext &opChainContext) override;
 
   private:
-    std::unique_ptr<hailort::Inference> inference;
+    std::unique_ptr<pek::hailo::Inference> inference;
     std::string modelFamily;
 };
 
-} // namespace hailort
+} // namespace pek::hailo

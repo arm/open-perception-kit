@@ -10,7 +10,7 @@
 #include "Inference.h"
 #include <memory>
 
-namespace onnx {
+namespace pek::onnx {
 
 class InferenceOp : public pek::Op, public pek::OpInterfaceInference {
   public:
@@ -29,4 +29,4 @@ class InferenceOp : public pek::Op, public pek::OpInterfaceInference {
     std::string modelFamily;
 };
 
-} // namespace onnx
+} // namespace pek::onnx

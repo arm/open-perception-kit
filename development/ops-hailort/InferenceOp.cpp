@@ -13,7 +13,7 @@
 
 #include <perf/PerformanceTracer.h>
 
-using namespace hailort;
+using namespace pek::hailo;
 
 InferenceOp::InferenceOp() {}
 
@@ -32,7 +32,7 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
     }
 
     try {
-        inference = std::make_unique<hailort::Inference>();
+        inference = std::make_unique<pek::hailo::Inference>();
 
         auto setupResult = inference->setupFromJson(modelDescPath);
         if (!setupResult) {

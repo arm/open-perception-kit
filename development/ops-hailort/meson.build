@@ -32,7 +32,7 @@ hailortops = shared_module(
   'pek-hailort-ops',
   sources: [
     'Inference.cpp',
-    'Interface.cpp',
+    'Plugin.cpp',
     'InferenceOp.cpp'
   ],
   include_directories: common_include,
