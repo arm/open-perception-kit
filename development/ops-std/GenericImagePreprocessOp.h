@@ -13,25 +13,25 @@
 #include "preproc/GenericImageTensorBuilder.h"
 #include <cstdint>
 
-namespace pek {
+namespace pek::stdop {
 
-class GenericImagePreprocessOp : public pek::Op {
+class GenericImagePreprocessOp : public pek::op::Op {
   public:
     GenericImagePreprocessOp();
     virtual ~GenericImagePreprocessOp();
 
     virtual pek::Result<void> configure(const pek::AttributeMap &attributes) override;
-    virtual pek::Result<void> process(pek::OpChainContext &opChainContext) override;
-    virtual pek::Result<void> bind(size_t index, const std::vector<pek::Op *> &ops) override;
+    virtual pek::Result<void> process(pek::op::OpChainContext &opChainContext) override;
+    virtual pek::Result<void> bind(size_t index, const std::vector<pek::op::Op *> &ops) override;
 
   private:
     std::string inputImageSourceName;
     size_t inputImageTensorIndex;
 
-    pek::GenericImageTensorBuilder genericImageInputTensorBuilder;
+    pek::preproc::GenericImageTensorBuilder genericImageInputTensorBuilder;
 
     pek::Model upcomingInferenceModel;
     uint8_t *upcomingTensorAddresses[pek::MaxTensorCount] = {nullptr};
 };
 
-} // namespace pek
+} // namespace pek::stdop

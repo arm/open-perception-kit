@@ -4,15 +4,13 @@
 #include "preproc/CpuImageKernels.h"
 #include "pek/Types.h"
 
-using namespace pek;
+using namespace pek::preproc;
 
 namespace {
-
-inline bool canRunDirectFullKernel(const ImageOpDesc &src, const ImageOpDesc &dst) {
+inline bool canRunDirectFullKernel(const pek::ImageOpDesc &src, const pek::ImageOpDesc &dst) {
     return src.rectIsFullSurface() && dst.rectIsFullSurface() &&
            src.surfaceWidth == dst.surfaceWidth && src.surfaceHeight == dst.surfaceHeight;
 }
-
 } // namespace
 
 // this one is called

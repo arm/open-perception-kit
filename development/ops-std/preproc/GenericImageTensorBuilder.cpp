@@ -7,7 +7,7 @@
 #include <cassert>
 #include <stdint.h>
 
-using namespace pek;
+using namespace pek::preproc;
 
 namespace {
 
@@ -21,7 +21,8 @@ bool canUseFullKernelFastPath(const pek::ImageOpDesc &src, const pek::ImageOpDes
 
 } // namespace
 
-pek::Result<void> pek::GenericImageTensorBuilder::build(const TensorBuilder::Setup &setup) {
+pek::Result<void>
+pek::preproc::GenericImageTensorBuilder::build(const TensorBuilder::Setup &setup) {
     bool didBuild = false;
 
     if (setup.imageSourceDesc.kind == pek::DataKind::ImageBgraHwc &&
@@ -31,15 +32,15 @@ pek::Result<void> pek::GenericImageTensorBuilder::build(const TensorBuilder::Set
             const bool isFull =
                 canUseFullKernelFastPath(setup.imageSourceDesc, setup.imageDestinationDesc);
             if (isFull) {
-                didBuild = pek::ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(
+                didBuild = pek::preproc::ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(
                     setup.imageSourceDesc, setup.imageDestinationDesc);
             } else {
-                didBuild = pek::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(
+                didBuild = pek::preproc::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(
                     setup.imageSourceDesc, setup.imageDestinationDesc);
             }
         } else if (setup.imageSourceDesc.type == pek::Dtype::Uint8 &&
                    setup.imageDestinationDesc.type == pek::Dtype::Float16) {
-            didBuild = pek::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(
+            didBuild = pek::preproc::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(
                 setup.imageSourceDesc, setup.imageDestinationDesc);
         }
     }
@@ -48,15 +49,15 @@ pek::Result<void> pek::GenericImageTensorBuilder::build(const TensorBuilder::Set
         setup.imageDestinationDesc.kind == pek::DataKind::ImageRgbHwc) {
         if (setup.imageSourceDesc.type == pek::Dtype::Uint8 &&
             setup.imageDestinationDesc.type == pek::Dtype::Uint8) {
-            didBuild = pek::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(
+            didBuild = pek::preproc::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(
                 setup.imageSourceDesc, setup.imageDestinationDesc);
         } else if (setup.imageSourceDesc.type == pek::Dtype::Uint8 &&
                    setup.imageDestinationDesc.type == pek::Dtype::Float32) {
-            didBuild = pek::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(
+            didBuild = pek::preproc::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(
                 setup.imageSourceDesc, setup.imageDestinationDesc);
         } else if (setup.imageSourceDesc.type == pek::Dtype::Uint8 &&
                    setup.imageDestinationDesc.type == pek::Dtype::Float16) {
-            didBuild = pek::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Hwc(
+            didBuild = pek::preproc::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Hwc(
                 setup.imageSourceDesc, setup.imageDestinationDesc);
         }
     }
@@ -69,10 +70,10 @@ pek::Result<void> pek::GenericImageTensorBuilder::build(const TensorBuilder::Set
                 canUseFullKernelFastPath(setup.imageSourceDesc, setup.imageDestinationDesc);
 
             if (isFull) {
-                didBuild = pek::ImageOps::StretchBlit_Bgra8_Hwc_Full_Gray8_Full(
+                didBuild = pek::preproc::ImageOps::StretchBlit_Bgra8_Hwc_Full_Gray8_Full(
                     setup.imageSourceDesc, setup.imageDestinationDesc);
             } else {
-                didBuild = pek::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Gray8_Rect(
+                didBuild = pek::preproc::ImageOps::StretchBlit_Bgra8_Hwc_Rect_Gray8_Rect(
                     setup.imageSourceDesc, setup.imageDestinationDesc);
             }
         }
@@ -85,10 +86,10 @@ pek::Result<void> pek::GenericImageTensorBuilder::build(const TensorBuilder::Set
             const bool isFull =
                 canUseFullKernelFastPath(setup.imageSourceDesc, setup.imageDestinationDesc);
             if (isFull) {
-                didBuild = pek::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Chw(
+                didBuild = pek::preproc::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Chw(
                     setup.imageSourceDesc, setup.imageDestinationDesc);
             } else {
-                didBuild = pek::ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(
+                didBuild = pek::preproc::ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(
                     setup.imageSourceDesc, setup.imageDestinationDesc);
             }
         } else if (setup.imageSourceDesc.type == pek::Dtype::Uint8 &&
@@ -96,10 +97,10 @@ pek::Result<void> pek::GenericImageTensorBuilder::build(const TensorBuilder::Set
             const bool isFull =
                 canUseFullKernelFastPath(setup.imageSourceDesc, setup.imageDestinationDesc);
             if (isFull) {
-                didBuild = pek::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Chw(
+                didBuild = pek::preproc::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Chw(
                     setup.imageSourceDesc, setup.imageDestinationDesc);
             } else {
-                didBuild = pek::ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Chw(
+                didBuild = pek::preproc::ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Chw(
                     setup.imageSourceDesc, setup.imageDestinationDesc);
             }
         }
@@ -112,10 +113,10 @@ pek::Result<void> pek::GenericImageTensorBuilder::build(const TensorBuilder::Set
             const bool isFull =
                 canUseFullKernelFastPath(setup.imageSourceDesc, setup.imageDestinationDesc);
             if (isFull) {
-                didBuild = pek::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Hwc(
+                didBuild = pek::preproc::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Hwc(
                     setup.imageSourceDesc, setup.imageDestinationDesc);
             } else {
-                didBuild = pek::ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(
+                didBuild = pek::preproc::ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(
                     setup.imageSourceDesc, setup.imageDestinationDesc);
             }
         } else if (setup.imageSourceDesc.type == pek::Dtype::Uint8 &&
@@ -123,10 +124,10 @@ pek::Result<void> pek::GenericImageTensorBuilder::build(const TensorBuilder::Set
             const bool isFull =
                 canUseFullKernelFastPath(setup.imageSourceDesc, setup.imageDestinationDesc);
             if (isFull) {
-                didBuild = pek::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Hwc(
+                didBuild = pek::preproc::ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Hwc(
                     setup.imageSourceDesc, setup.imageDestinationDesc);
             } else {
-                didBuild = pek::ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Hwc(
+                didBuild = pek::preproc::ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Hwc(
                     setup.imageSourceDesc, setup.imageDestinationDesc);
             }
         }

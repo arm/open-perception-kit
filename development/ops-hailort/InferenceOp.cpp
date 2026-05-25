@@ -48,7 +48,7 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
     return {};
 }
 
-pek::Result<void> InferenceOp::process(pek::OpChainContext &opChainContext) {
+pek::Result<void> InferenceOp::process(pek::op::OpChainContext &opChainContext) {
     PEK_TRACE_SCOPE(fmt::format("hailort/Infer/{}", opChainContext.inferenceInfo.modelFamily));
 
     auto inferenceResult = inference->inference();
@@ -73,7 +73,7 @@ pek::Result<void> InferenceOp::process(pek::OpChainContext &opChainContext) {
     return {};
 }
 
-pek::Result<void> InferenceOp::bind(size_t index, const std::vector<pek::Op *> &ops) {
+pek::Result<void> InferenceOp::bind(size_t index, const std::vector<pek::op::Op *> &ops) {
     return {};
 }
 

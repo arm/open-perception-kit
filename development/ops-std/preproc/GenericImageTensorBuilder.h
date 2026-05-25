@@ -7,7 +7,7 @@
 #include "pek/Result.h"
 #include "pek/TensorBuilder.h"
 
-namespace pek {
+namespace pek::preproc {
 
 /**
  * @brief Generic image tensor builder that dispatches conversion kernels by source/destination
@@ -23,4 +23,4 @@ struct GenericImageTensorBuilder : public pek::TensorBuilder {
     virtual pek::Result<void> build(const TensorBuilder::Setup &setup) override;
 };
 
-} // namespace pek
+} // namespace pek::preproc

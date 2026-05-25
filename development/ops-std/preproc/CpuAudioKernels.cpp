@@ -4,4 +4,4 @@
 
 #include "CpuAudioKernels.h"
 
-using namespace pek;
+using namespace pek::preproc;

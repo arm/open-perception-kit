@@ -29,9 +29,9 @@
 struct GstPekInferMembers {
     // std::shared_ptr<onnx::Inference> onnxInference;
 
-    pek::OpChain opChain;
+    pek::op::OpChain opChain;
 
-    pek::Result<void> executeOpChain(pek::OpChainContext &opChainContext) {
+    pek::Result<void> executeOpChain(pek::op::OpChainContext &opChainContext) {
         return opChain.execute(opChainContext);
     }
 
@@ -205,7 +205,7 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
     auto ret = pek::PerceptionMeta::mutate<GstFlowReturn>(
         buf, [self, rgb, frameWidth, frameHeight](auto &perception) {
-            pek::OpChainContext opChainContext;
+            pek::op::OpChainContext opChainContext;
             opChainContext.inferenceInfo.inferElementId =
                 std::string(gst_pekinfer_get_effective_inferId(self));
 

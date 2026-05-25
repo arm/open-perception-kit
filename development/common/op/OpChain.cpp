@@ -13,13 +13,13 @@
 #include <unordered_map>
 #include <unordered_set>
 
-using namespace pek;
+using namespace pek::op;
 
 const std::string &OpChain::getName() {
     return this->name;
 }
 
-pek::Result<void> OpChain::setupFromDescriptor(const pek::OpChainDescriptor &descriptor) {
+pek::Result<void> OpChain::setupFromDescriptor(const pek::op::OpChainDescriptor &descriptor) {
     name = descriptor.name;
 
     for (const auto &op : descriptor.ops) {
@@ -33,7 +33,7 @@ pek::Result<void> OpChain::setupFromDescriptor(const pek::OpChainDescriptor &des
         std::string libName = pek::utf8::split(op.id, "/")[0];
         std::string opName = pek::utf8::split(op.id, "/")[1];
 
-        pek::OpRef opRef;
+        pek::op::OpRef opRef;
         auto bindResult = opRef.bind(libName, opName);
         if (!bindResult) {
             return bindResult;
@@ -140,7 +140,7 @@ pek::Result<void> OpChain::validate() {
 
 pek::Result<void> OpChain::setupFromFile(const std::string &filePath) {
     pek::log("Loading OpChain from file: [{}]\n", filePath);
-    auto descResult = pek::OpChainDescriptor::fromFile(filePath);
+    auto descResult = pek::op::OpChainDescriptor::fromFile(filePath);
     if (!descResult) {
         return tl::unexpected(std::move(descResult.error()));
     }
@@ -148,7 +148,7 @@ pek::Result<void> OpChain::setupFromFile(const std::string &filePath) {
     return setupFromDescriptor(*descResult);
 }
 
-void OpChain::add(pek::OpRef &opRef) {
+void OpChain::add(pek::op::OpRef &opRef) {
     opRefs.push_back(std::move(opRef));
 }
 
@@ -168,7 +168,7 @@ pek::Result<void> OpChain::bind() {
     return {};
 }
 
-pek::Result<void> OpChain::execute(pek::OpChainContext &opChainContext) {
+pek::Result<void> OpChain::execute(pek::op::OpChainContext &opChainContext) {
     size_t currentIndex = 0;
 
     // reset loop control flags

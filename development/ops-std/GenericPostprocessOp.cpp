@@ -27,7 +27,7 @@
 #include "postproc/YoloParser.h"
 // ... add new parser headers here
 
-using namespace pek;
+using namespace pek::stdop;
 
 namespace {
 
@@ -62,7 +62,7 @@ const std::map<std::string, ParserCreator> &getParserRegistry() {
 GenericPostprocessOp::GenericPostprocessOp() {}
 GenericPostprocessOp::~GenericPostprocessOp() {}
 
-pek::Result<void> GenericPostprocessOp::bind(size_t index, const std::vector<pek::Op *> &ops) {
+pek::Result<void> GenericPostprocessOp::bind(size_t index, const std::vector<pek::op::Op *> &ops) {
     return {};
 }
 
@@ -89,7 +89,7 @@ pek::Result<void> GenericPostprocessOp::configure(const pek::AttributeMap &attri
     return {};
 }
 
-pek::Result<void> GenericPostprocessOp::process(pek::OpChainContext &opChainContext) {
+pek::Result<void> GenericPostprocessOp::process(pek::op::OpChainContext &opChainContext) {
     PEK_TRACE_SCOPE(fmt::format("std/Post/{}", opChainContext.inferenceInfo.modelFamily));
 
     pek::TensorParser::Input tensorParserInput(attributes);
@@ -115,8 +115,10 @@ pek::Result<void> GenericPostprocessOp::process(pek::OpChainContext &opChainCont
 
     // set parent uids
     for (auto &det : rawDetectionLayer.detections) {
-        Perception::Object &obj = std::visit(
-            [](auto &v) -> Perception::Object & { return static_cast<Perception::Object &>(v); },
+        pek::Perception::Object &obj = std::visit(
+            [](auto &v) -> pek::Perception::Object & {
+                return static_cast<pek::Perception::Object &>(v);
+            },
             det);
 
         obj.parentUuid = opChainContext.inferenceSourceUuid;

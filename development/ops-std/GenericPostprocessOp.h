@@ -10,20 +10,20 @@
 
 #include "pek/TensorParser.h"
 
-namespace pek {
+namespace pek::stdop {
 
-class GenericPostprocessOp : public pek::Op {
+class GenericPostprocessOp : public pek::op::Op {
   public:
     GenericPostprocessOp();
     virtual ~GenericPostprocessOp();
 
     virtual pek::Result<void> configure(const pek::AttributeMap &attributes) override;
-    virtual pek::Result<void> process(pek::OpChainContext &opChainContext) override;
-    virtual pek::Result<void> bind(size_t index, const std::vector<pek::Op *> &ops) override;
+    virtual pek::Result<void> process(pek::op::OpChainContext &opChainContext) override;
+    virtual pek::Result<void> bind(size_t index, const std::vector<pek::op::Op *> &ops) override;
 
   private:
     std::unique_ptr<pek::TensorParser> parser;
     pek::AttributeMap attributes;
 };
 
-} // namespace pek
+} // namespace pek::stdop

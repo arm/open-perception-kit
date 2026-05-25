@@ -4,8 +4,8 @@
 
 #pragma once
 
-namespace pek {
+namespace pek::preproc {
 
 struct AudioOps {};
 
-} // namespace pek
+} // namespace pek::preproc

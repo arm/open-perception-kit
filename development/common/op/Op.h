@@ -14,7 +14,7 @@
 
 #include "op/OpChainContext.h"
 
-namespace pek {
+namespace pek::op {
 
 // interface for ops that can provide tensor IO information
 struct OpInterfaceInference {
@@ -32,7 +32,7 @@ struct Op {
     // called when an instance is created Op can setup itself
     virtual Result<void> configure(const AttributeMap &attributes) = 0;
     // called when the OpChain is built, here the Op can get info from the other Op instances
-    virtual Result<void> bind(size_t index, const std::vector<pek::Op *> &ops) = 0;
+    virtual Result<void> bind(size_t index, const std::vector<pek::op::Op *> &ops) = 0;
     // called to make the Op do its job
     virtual Result<void> process(OpChainContext &opChainContext) = 0;
 
@@ -49,4 +49,4 @@ struct Op {
     }
 };
 
-} // namespace pek
+} // namespace pek::op

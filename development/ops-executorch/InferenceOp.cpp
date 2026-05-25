@@ -15,7 +15,7 @@ using namespace pek::extrch;
 InferenceOp::InferenceOp() {}
 InferenceOp::~InferenceOp() {}
 
-pek::Result<void> InferenceOp::bind(size_t index, const std::vector<pek::Op *> &ops) {
+pek::Result<void> InferenceOp::bind(size_t index, const std::vector<pek::op::Op *> &ops) {
     return {};
 }
 
@@ -48,6 +48,6 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
     return {};
 }
 
-pek::Result<void> InferenceOp::process(pek::OpChainContext &opCainContext) {
+pek::Result<void> InferenceOp::process(pek::op::OpChainContext &opCainContext) {
     return {};
 }

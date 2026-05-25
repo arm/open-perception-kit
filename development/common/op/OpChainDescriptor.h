@@ -14,7 +14,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
-namespace pek {
+namespace pek::op {
 
 struct OpChainDescriptor {
 
@@ -32,13 +32,13 @@ struct OpChainDescriptor {
     static pek::Result<OpChainDescriptor> fromFile(const std::string &path);
 };
 
-} // namespace pek
+} // namespace pek::op
 
 // ---
 
 #include <nlohmann/json.hpp>
 
-namespace pek {
+namespace pek::op {
 
 // ---- Op ----
 
@@ -73,4 +73,4 @@ inline void from_json(const nlohmann::json &j, OpChainDescriptor &desc) {
     j.at("ops").get_to(desc.ops);
 }
 
-} // namespace pek
+} // namespace pek::op

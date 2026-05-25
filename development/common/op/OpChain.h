@@ -11,12 +11,12 @@
 
 #include <vector>
 
-namespace pek {
+namespace pek::op {
 
 class OpChain {
     std::string name;
-    std::vector<pek::OpRef> opRefs;
-    std::vector<pek::Op *> opPtrs;
+    std::vector<pek::op::OpRef> opRefs;
+    std::vector<pek::op::Op *> opPtrs;
 
     // validation
     pek::Result<void> validateGroupedLoopIds();
@@ -25,17 +25,17 @@ class OpChain {
 
   public:
     // creation
-    pek::Result<void> setupFromDescriptor(const pek::OpChainDescriptor &descriptor);
+    pek::Result<void> setupFromDescriptor(const pek::op::OpChainDescriptor &descriptor);
     pek::Result<void> setupFromFile(const std::string &jsonFile);
 
     const std::string &getName();
-    void add(pek::OpRef &opRef);
+    void add(pek::op::OpRef &opRef);
 
     // when all ops are added, bind them together, e.g. to let them know about each other
     pek::Result<void> bind();
 
     // execute the chain, e.g. for one inference
-    pek::Result<void> execute(pek::OpChainContext &opChainContext);
+    pek::Result<void> execute(pek::op::OpChainContext &opChainContext);
 
     // debug
     std::string toString() const {
@@ -51,4 +51,4 @@ class OpChain {
     }
 };
 
-} // namespace pek
+} // namespace pek::op

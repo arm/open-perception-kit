@@ -16,12 +16,13 @@
 
 #include <perf/PerformanceTracer.h>
 
-using namespace pek;
+using namespace pek::stdop;
 
 GenericImagePreprocessOp::GenericImagePreprocessOp() {}
 GenericImagePreprocessOp::~GenericImagePreprocessOp() {}
 
-pek::Result<void> GenericImagePreprocessOp::bind(size_t index, const std::vector<pek::Op *> &ops) {
+pek::Result<void> GenericImagePreprocessOp::bind(size_t index,
+                                                 const std::vector<pek::op::Op *> &ops) {
     // sanity check
     if (ops.size() <= index) {
         return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidOpChain,
@@ -29,7 +30,8 @@ pek::Result<void> GenericImagePreprocessOp::bind(size_t index, const std::vector
     }
 
     // sanity check (later maybe other ops will be valid between them)
-    const OpInterfaceInference *inferenceOp = ops[index + 1]->as<OpInterfaceInference>();
+    const pek::op::OpInterfaceInference *inferenceOp =
+        ops[index + 1]->as<pek::op::OpInterfaceInference>();
     if (!inferenceOp) {
         return tl::unexpected(
             PEK_ERROR(pek::ErrorFlag::InvalidOpChain,
@@ -73,7 +75,7 @@ pek::Result<void> GenericImagePreprocessOp::configure(const pek::AttributeMap &a
     return {};
 }
 
-pek::Result<void> GenericImagePreprocessOp::process(pek::OpChainContext &opChainContext) {
+pek::Result<void> GenericImagePreprocessOp::process(pek::op::OpChainContext &opChainContext) {
     PEK_TRACE_SCOPE(fmt::format("std/GenImgPre/{}", upcomingInferenceModel.modelFamily));
 
     if (opChainContext.inferenceImageCrops.size() == 0) {
@@ -127,19 +129,19 @@ pek::Result<void> GenericImagePreprocessOp::process(pek::OpChainContext &opChain
     if (false) {
         std::string debugFile = fmt::format("/work/var/crop_[{}]_{}_{}x{}x{}x{}.png",
                                             upcomingInferenceModel.contentType,
-                                            Uuid::next(),
+                                            pek::Uuid::next(),
                                             setup.imageSourceDesc.rect.x,
                                             setup.imageSourceDesc.rect.y,
                                             setup.imageSourceDesc.rect.width,
                                             setup.imageSourceDesc.rect.height);
-        Tools::savePngCropFromBgra(debugFile,
-                                   setup.imageSourceDesc.data,
-                                   setup.imageSourceDesc.surfaceWidth,
-                                   setup.imageSourceDesc.surfaceHeight,
-                                   setup.imageSourceDesc.rect.x,
-                                   setup.imageSourceDesc.rect.y,
-                                   setup.imageSourceDesc.rect.width,
-                                   setup.imageSourceDesc.rect.height);
+        pek::Tools::savePngCropFromBgra(debugFile,
+                                        setup.imageSourceDesc.data,
+                                        setup.imageSourceDesc.surfaceWidth,
+                                        setup.imageSourceDesc.surfaceHeight,
+                                        setup.imageSourceDesc.rect.x,
+                                        setup.imageSourceDesc.rect.y,
+                                        setup.imageSourceDesc.rect.width,
+                                        setup.imageSourceDesc.rect.height);
     }
 
     // setup preprocessed tensor data
@@ -164,14 +166,14 @@ pek::Result<void> GenericImagePreprocessOp::process(pek::OpChainContext &opChain
     if (false) {
         std::string debugFile = fmt::format("/work/var/tensor_[{}][{}]_{}x{}.png",
                                             upcomingInferenceModel.contentType,
-                                            Uuid::next(),
+                                            pek::Uuid::next(),
                                             modelWidth,
                                             modelHeight);
 
-        Tools::savePngFromRgbChwF32(debugFile,
-                                    (float *)upcomingTensorAddresses[inputImageTensorIndex],
-                                    modelWidth,
-                                    modelHeight);
+        pek::Tools::savePngFromRgbChwF32(debugFile,
+                                         (float *)upcomingTensorAddresses[inputImageTensorIndex],
+                                         modelWidth,
+                                         modelHeight);
     }
 
     // populate inference info

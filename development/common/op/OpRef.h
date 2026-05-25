@@ -13,7 +13,7 @@
 
 #include "op/OpChainContext.h"
 
-namespace pek {
+namespace pek::op {
 
 struct Op;
 
@@ -30,13 +30,13 @@ class OpRef {
     OpRef(OpRef &&other) noexcept;
     OpRef &operator=(OpRef &&other) noexcept;
 
-    pek::Op *get() const noexcept {
+    pek::op::Op *get() const noexcept {
         return op;
     }
-    pek::Op &operator*() const {
+    pek::op::Op &operator*() const {
         return *op;
     }
-    pek::Op *operator->() const noexcept {
+    pek::op::Op *operator->() const noexcept {
         return op;
     }
 
@@ -49,7 +49,7 @@ class OpRef {
     DynamicLibraryHandle dlHandle = nullptr;
     CreateFn createFn = nullptr;
     DeleteFn destroyFn = nullptr;
-    pek::Op *op = nullptr;
+    pek::op::Op *op = nullptr;
 };
 
-} // namespace pek
+} // namespace pek::op

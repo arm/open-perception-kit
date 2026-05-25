@@ -13,7 +13,7 @@
 #include <map>
 #include <vector>
 
-namespace pek {
+namespace pek::op {
 
 struct OpChainContext {
 
@@ -51,4 +51,4 @@ struct OpChainContext {
     Perception *perception = nullptr;
 };
 
-} // namespace pek
+} // namespace pek::op
