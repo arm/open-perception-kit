@@ -90,7 +90,7 @@ struct Inference {
     virtual ~Inference();
 
     pek::Result<void> setupFromJson(const std::string &filePath);
-    pek::Result<void> setup(const ModelDescriptor &modelDesc);
+    pek::Result<void> setup(const pek::ModelDescriptor &modelDesc);
     bool isReady() {
         return setupReady;
     }
@@ -139,7 +139,7 @@ struct Inference {
     void setupTensorsForModel();
     void recreateInputTensor(size_t index, const pek::Shape &shape, pek::Dtype valueType);
 
-    ModelDescriptor modelDescriptor;
+    pek::ModelDescriptor modelDescriptor;
     pek::Model model;
 
     std::vector<Ort::Value> dynamicOutputData;

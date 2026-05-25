@@ -48,7 +48,7 @@ Inference::~Inference() {
 
 pek::Result<void> Inference::setupFromJson(const std::string &filePath) {
 
-    auto descResult = ModelDescriptor::fromFile(filePath);
+    auto descResult = pek::ModelDescriptor::fromFile(filePath);
     if (!descResult) {
         return tl::unexpected{descResult.error()};
     }
@@ -72,7 +72,7 @@ pek::Result<void> Inference::setupFromJson(const std::string &filePath) {
     return {};
 }
 
-pek::Result<void> Inference::setup(const ModelDescriptor &modelDesc_) {
+pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
 
     this->api = ApiTensorGlue();
     this->modelDescriptor = modelDesc_;

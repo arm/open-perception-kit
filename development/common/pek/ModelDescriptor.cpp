@@ -11,7 +11,7 @@
 
 #include "pek/AttributeMap.h"
 
-// using namespace pek;
+using namespace pek;
 
 pek::Result<ModelDescriptor> ModelDescriptor::fromJson(const std::string &jsonString) {
     try {

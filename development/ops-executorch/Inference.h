@@ -22,11 +22,11 @@ struct Inference {
     virtual ~Inference();
 
     pek::Result<void> setupFromJson(const std::string &filePath);
-    pek::Result<void> setup(const ModelDescriptor &modelDesc);
+    pek::Result<void> setup(const pek::ModelDescriptor &modelDesc);
 
   private:
     std::unique_ptr<executorch::extension::Module> module;
-    ModelDescriptor modelDescriptor;
+    pek::ModelDescriptor modelDescriptor;
     static pek::Result<pek::Model> inspectModel(executorch::extension::Module &module);
 
     std::string modelPath, modelFamily;

@@ -168,7 +168,7 @@ struct AttributeMap {
      * @brief Inserts/returns attribute by key.
      */
     AttributeValue &operator[](std::string key) {
-        return values_[std::move(key)];
+        return values[std::move(key)];
     }
 
     /**
@@ -176,62 +176,62 @@ struct AttributeMap {
      * @throws std::out_of_range if key is missing.
      */
     const AttributeValue &at(const std::string &key) const {
-        return values_.at(key);
+        return values.at(key);
     }
 
     /**
      * @brief Returns true if key exists.
      */
     bool contains(const std::string &key) const {
-        return values_.find(key) != values_.end();
+        return values.find(key) != values.end();
     }
 
     /**
      * @brief Removes all attributes.
      */
     void clear() {
-        values_.clear();
+        values.clear();
     }
 
     // typed setters (convenience)
     /** @brief Sets integer value. */
     AttributeMap &set(std::string key, std::int64_t v) {
-        values_[std::move(key)] = v;
+        values[std::move(key)] = v;
         return *this;
     }
     /** @brief Sets double value. */
     AttributeMap &set(std::string key, double v) {
-        values_[std::move(key)] = v;
+        values[std::move(key)] = v;
         return *this;
     }
     /** @brief Sets bool value. */
     AttributeMap &set(std::string key, bool v) {
-        values_[std::move(key)] = v;
+        values[std::move(key)] = v;
         return *this;
     }
     /** @brief Sets string value. */
     AttributeMap &set(std::string key, std::string v) {
-        values_[std::move(key)] = std::move(v);
+        values[std::move(key)] = std::move(v);
         return *this;
     }
     /** @brief Sets string value from C string. */
     AttributeMap &set(std::string key, const char *v) {
-        values_[std::move(key)] = std::string{v};
+        values[std::move(key)] = std::string{v};
         return *this;
     }
     /** @brief Sets array value. */
     AttributeMap &setArray(std::string key, AttributeValue::Array a) {
-        values_[std::move(key)] = std::move(a);
+        values[std::move(key)] = std::move(a);
         return *this;
     }
     /** @brief Sets object value. */
     AttributeMap &setObject(std::string key, std::shared_ptr<AttributeMap> m) {
-        values_[std::move(key)] = std::move(m);
+        values[std::move(key)] = std::move(m);
         return *this;
     }
     /** @brief Sets null value. */
     AttributeMap &setNull(std::string key) {
-        values_[std::move(key)] = AttributeValue::make_null();
+        values[std::move(key)] = AttributeValue::make_null();
         return *this;
     }
 
@@ -365,11 +365,11 @@ struct AttributeMap {
 
     /** @brief Returns immutable access to raw backing map. */
     const Map &raw() const {
-        return values_;
+        return values;
     }
     /** @brief Returns mutable access to raw backing map. */
     Map &raw() {
-        return values_;
+        return values;
     }
 
     /**
@@ -379,14 +379,14 @@ struct AttributeMap {
 
   private:
     const AttributeValue &require(const std::string &key) const {
-        auto it = values_.find(key);
-        if (it == values_.end()) {
+        auto it = values.find(key);
+        if (it == values.end()) {
             throw AttributeError("AttributeMap: missing key [" + key + "]");
         }
         return it->second;
     }
 
-    Map values_;
+    Map values;
 };
 
 // --- clone

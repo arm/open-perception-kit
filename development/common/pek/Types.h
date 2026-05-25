@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <stdexcept>
 #include <string>
 
 #include "pek/Color.h"
@@ -59,8 +60,33 @@ inline size_t getValueTypeByteSize(Dtype type) {
     case Dtype::Int64:
         return 8;
     }
-    assert(0);
-    return 0;
+    throw std::runtime_error("Unknown Dtype in getValueTypeByteSize()");
+}
+
+/**
+ * @brief Audio sample storage type.
+ */
+enum class AudioSampleType { U8, S16, S24, S32, F32 };
+
+/**
+ * @brief Returns the byte size of one audio sample of the given type.
+ * @param t Audio sample storage type.
+ * @return Byte size of one sample.
+ */
+inline size_t getAudioSampleByteSize(AudioSampleType t) {
+    switch (t) {
+    case AudioSampleType::U8:
+        return 1;
+    case AudioSampleType::S16:
+        return 2;
+    case AudioSampleType::S24:
+        return 3;
+    case AudioSampleType::S32:
+        return 4;
+    case AudioSampleType::F32:
+        return 4;
+    }
+    throw std::runtime_error("Unknown AudioSampleType in getAudioSampleByteSize()");
 }
 
 /**
@@ -110,6 +136,9 @@ enum class DataKind {
     ImageRgbHwc,  ///< Interleaved RGB image, layout RGBRGBRGB.
     ImageBgraHwc, ///< Interleaved BGRA image, layout BGRABGRA.
     ImageGray,    ///< Single-channel greyscale image.
+
+    AudioPcm,    ///< PCM audio samples.
+    AudioLogMel, ///< Log-mel audio samples.
 
     RawTensorData, ///< Raw (possibly quantized) tensor data, e.g. a model output buffer.
 

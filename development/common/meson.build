@@ -8,8 +8,8 @@ common = shared_library(
     
     'pek/Result.cpp',
     'pek/Tools.cpp',
-    'pek/ImageNetLabels.cpp',
-    'pek/CocoLabels.cpp',
+    'pek/Labels.cpp',
+    'pek/Model.cpp',
     'pek/ModelDescriptor.cpp',
 
     'pek/AudioBuffer.cpp',

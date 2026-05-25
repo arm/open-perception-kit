@@ -23,7 +23,7 @@ struct Inference {
     virtual ~Inference();
 
     pek::Result<void> setupFromJson(const std::string &filePath);
-    pek::Result<void> setup(const ModelDescriptor &modelDesc);
+    pek::Result<void> setup(const pek::ModelDescriptor &modelDesc);
 
     pek::Result<void>
     inference(std::chrono::milliseconds timeout = std::chrono::milliseconds(5000));
@@ -65,7 +65,7 @@ struct Inference {
     static Buffer allocateBuffer(size_t byteCount);
 
     bool setupReady = false;
-    ModelDescriptor modelDescriptor;
+    pek::ModelDescriptor modelDescriptor;
     pek::Model model;
 
     std::shared_ptr<hailort::VDevice> vdevice;
