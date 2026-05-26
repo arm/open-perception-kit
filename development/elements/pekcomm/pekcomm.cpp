@@ -15,6 +15,7 @@
 #include <gst/gst.h>
 
 #include "file_writer.h"
+#include "websocket_writer.h"
 #include "writer.h"
 
 #include <gst/PerceptionMeta.h>
@@ -30,8 +31,8 @@ G_DECLARE_FINAL_TYPE(GstPekComm, gst_pek_comm, GST, PEK_COMM, GstBaseTransform)
 
 typedef enum {
 
-    // can be extended: MQTT, REST, database, etc...
     GST_PEK_COMM_METHOD_FILE = 1,
+    GST_PEK_COMM_METHOD_WEBSOCKET = 2,
 } GstPekCommMethod;
 
 struct GstPekCommPrivate {
@@ -43,6 +44,8 @@ struct _GstPekComm {
 
     GstPekCommMethod method;
     gchar *file_name;
+    guint ws_port;
+    gchar *endpoint;
 
     uint64_t frame_counter;
 
@@ -63,11 +66,14 @@ enum class PekCommProps : guint {
     PROP_0,
     PROP_METHOD,
     PROP_FILE_NAME,
+    PROP_WS_PORT,
+    PROP_ENDPOINT,
 };
 
 static GType gst_pek_comm_method_get_type(void) {
     static GType t = 0;
     static std::vector<GEnumValue> values = {{GST_PEK_COMM_METHOD_FILE, "file", "file"},
+                                             {GST_PEK_COMM_METHOD_WEBSOCKET, "websocket", "websocket"},
                                              {0, nullptr, nullptr}};
 
     if (g_once_init_enter(&t)) {
@@ -89,7 +95,11 @@ static bool gst_pek_comm_open_io(GstPekComm *self) {
     case GST_PEK_COMM_METHOD_FILE:
         self->priv->writer = std::make_unique<FileWriter>(self, self->file_name, 5);
         ret = self->priv->writer->start();
-
+        break;
+    case GST_PEK_COMM_METHOD_WEBSOCKET:
+        self->priv->writer = std::make_unique<WebSocketWriter>(
+            self, static_cast<uint16_t>(self->ws_port), self->endpoint ? self->endpoint : "/ws", 5);
+        ret = self->priv->writer->start();
         break;
     default:
         // intentionally does nothing
@@ -165,6 +175,20 @@ gst_pek_comm_set_property(GObject *object, guint prop_id, const GValue *value, G
         (void)gst_pek_comm_open_io(self);
         break;
 
+    case PekCommProps::PROP_WS_PORT:
+        self->ws_port = g_value_get_uint(value);
+        (void)gst_pek_comm_open_io(self);
+        break;
+
+    case PekCommProps::PROP_ENDPOINT:
+        g_free(self->endpoint);
+        self->endpoint = g_value_dup_string(value);
+        if (self->endpoint == nullptr) {
+            self->endpoint = g_strdup("/ws");
+        }
+        (void)gst_pek_comm_open_io(self);
+        break;
+
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -184,6 +208,14 @@ gst_pek_comm_get_property(GObject *object, guint prop_id, GValue *value, GParamS
         g_value_set_string(value, self->file_name);
         break;
 
+    case PekCommProps::PROP_WS_PORT:
+        g_value_set_uint(value, self->ws_port);
+        break;
+
+    case PekCommProps::PROP_ENDPOINT:
+        g_value_set_string(value, self->endpoint);
+        break;
+
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -198,6 +230,7 @@ static void gst_pek_comm_finalize(GObject *object) {
     delete self->priv;
 
     g_clear_pointer(&self->file_name, g_free);
+    g_clear_pointer(&self->endpoint, g_free);
 
     G_OBJECT_CLASS(gst_pek_comm_parent_class)->finalize(object);
 }
@@ -217,7 +250,7 @@ static void gst_pek_comm_class_init(GstPekCommClass *klass) {
                                     static_cast<guint>(PekCommProps::PROP_METHOD),
                                     g_param_spec_enum("method",
                                                       "Method",
-                                                      "Publishing method: file",
+                                                      "Publishing method: file or websocket",
                                                       gst_pek_comm_method_get_type(),
                                                       GST_PEK_COMM_METHOD_FILE,
                                                       kRW));
@@ -226,6 +259,24 @@ static void gst_pek_comm_class_init(GstPekCommClass *klass) {
         gobject_class,
         static_cast<guint>(PekCommProps::PROP_FILE_NAME),
         g_param_spec_string("file-name", "File name", "File path ('-' - std out)", "-", kRW));
+
+    g_object_class_install_property(gobject_class,
+                                    static_cast<guint>(PekCommProps::PROP_WS_PORT),
+                                    g_param_spec_uint("ws-port",
+                                                      "WebSocket port",
+                                                      "Port used when method=websocket",
+                                                      1,
+                                                      65535,
+                                                      8002,
+                                                      kRW));
+
+    g_object_class_install_property(gobject_class,
+                                    static_cast<guint>(PekCommProps::PROP_ENDPOINT),
+                                    g_param_spec_string("endpoint",
+                                                        "WebSocket endpoint",
+                                                        "Endpoint path used when method=websocket",
+                                                        "/ws",
+                                                        kRW));
 
     /* Add pad templates so the element has sink/src pads */
     gst_element_class_add_pad_template(element_class, gst_static_pad_template_get(&sink_template));
@@ -240,13 +291,15 @@ static void gst_pek_comm_class_init(GstPekCommClass *klass) {
     gst_element_class_set_static_metadata(element_class,
                                           "PekComm metadata publisher",
                                           "Filter/Metadata",
-                                          "Reads buffer metadata and publishes it (FIFO/file)",
+                                          "Reads buffer metadata and publishes it (FIFO/file/WebSocket)",
                                           "Arm Limited");
 }
 
 static void gst_pek_comm_init(GstPekComm *self) {
     self->method = GST_PEK_COMM_METHOD_FILE;
     self->file_name = g_strdup("-");
+    self->ws_port = 8002;
+    self->endpoint = g_strdup("/ws");
     self->frame_counter = 0L;
 
     self->priv = new GstPekCommPrivate{};
