@@ -30,7 +30,7 @@ struct OpChainDescriptor {
      * @brief Descriptor for a single operation in the chain.
      */
     struct Op {
-        std::string id; ///< Unique identifier combining library and operation name (format:
+        std::string id; ///< Unique identifier combining library and operation name (e.g.,
                         ///< "libName/opName").
         std::string
             group; ///< Optional group identifier for operations that should be executed together.

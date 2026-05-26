@@ -13,7 +13,7 @@
 namespace pek::stdop::postproc {
 
 /**
- * @brief Bacgkround removal tensor parser.
+ * @brief Background removal tensor parser.
  *
  * Used to generate segmentation map of the background on a camera frame.
  */
