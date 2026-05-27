@@ -107,7 +107,9 @@ static void fillDetection(const std::vector<Det> &dets,
         rect.width = a.x2 - a.x1;
         rect.height = a.y2 - a.y1;
         rect.confidence = a.conf;
-        rect.text = pek::Labels::getLabel(pek::LabelType::Coco, a.cls);
+        rect.classId = a.cls;
+        rect.label = pek::Labels::getLabel(pek::LabelType::Coco, a.cls);
+        rect.text = rect.label;
 
         if (normalizeOutputCoordinates) {
             rect.x /= frameWidth;

@@ -106,6 +106,8 @@ void to_json(json &j, const Perception::Rect &r) {
     j["height"] = r.height;
     j["confidence"] = r.confidence;
     j["classId"] = r.classId;
+    if (!r.label.empty())
+        j["label"] = r.label;
     if (!r.text.empty())
         j["text"] = r.text;
 }

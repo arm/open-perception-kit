@@ -355,8 +355,9 @@ pek::Result<void> pek::UltraFaceParser::parse(const pek::TensorParser::Input &in
         dr.width = x2 - x1;
         dr.height = y2 - y1;
         dr.confidence = face;
-
-        dr.text = "";
+        dr.classId = 0;
+        dr.label = "face";
+        dr.text = dr.label;
 
         detectionResult.detections.push_back(dr);
     }
