@@ -87,25 +87,13 @@ Enter the `amp-dev-forge` folder in the terminal and run:
 ```bash
 ./quick_start
 
-# TODO: checks if the container already running. If yes, gives instructions how to enter the container then terminates
-# TODO: The script checks the supported platforms: 
-#   * Linux(Rasp Pi 5 w/wo H8/H10, fallback x86_64)
-#   * WSL
-#   * MacOs
-#   * if neither above is detected, unsupported platform is reported, then terminates.
 # TODO: Checks the host packages (on Debian, Ubuntu, Arch, RedHat, Fedora). If they aren't installed, gives instructions and terminates
-# TODO: This script check if docker, docker compose are installed
-# TODO: if not, gives instruction how to install docker and docker compose based on the detected platform, then terminates
-# TODO: Check if docker can be executed by the user. If not, gives instuction how to set this up, then terminates
-# TODO: If each prerequisites are fulfilled it starts building the container
-# TODO: After building it starts the container itself
 ```
 
 ### 3. Enter to the container command line
 
 ```bash
 ./enter_cli
-# TODO: create this script
 ```
 > **Expected outcome:** The prompt shows the `devgoblin` 
 
@@ -127,12 +115,7 @@ From the container shell, run:
 From the container shell, run:
 
 ```bash
-./command_to_build_pek
-# TODO: create this script
-# TODO: the command detects the environment
-# TODO:   * if the user is in the container CLI, it executes the command directly
-# TODO:   * otherwise, it check if the container running and executes the command using docker exec 
-# TODO:   * if neither above is true, instruct the user to build and start the container
+./build
 ```
 > **Expected outcome:** setup and kit build complete without a blocking error,
 > and the terminal prints `Pipeline launcher is ready at /work/tools/pek-menu`.
@@ -142,12 +125,7 @@ From the container shell, run:
 #### 5.1 Start the inference pipeline inside the Container
 
 ```bash
-./command_to_start_the_pipeline
-# TODO: create this script
-# TODO: the command detects the environment
-# TODO:   * if the user is in the container CLI, it executes the command directly
-# TODO:   * otherwise, it check if the container running and executes the command using docker exec 
-# TODO:   * if neither above is true, instruct the user to build and start the container
+./run
 ```
 
 Keep this terminal running. The command starts your first pipeline and runs
