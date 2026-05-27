@@ -6,15 +6,15 @@
 
 namespace pek {
 
-bool ModelInput::tryGetImageTensorSize(size_t &outWidht, size_t &outHeight) {
+bool ModelInput::tryGetImageTensorSize(size_t &outWidth, size_t &outHeight) {
     if (shape.rank == 4) {
         if (shape.dims[1] == 1 || shape.dims[1] == 3) {
-            outWidht = shape.dims[3];
+            outWidth = shape.dims[3];
             outHeight = shape.dims[2];
             return true;
         }
         if (shape.dims[3] == 1 || shape.dims[3] == 3) {
-            outWidht = shape.dims[2];
+            outWidth = shape.dims[2];
             outHeight = shape.dims[1];
             return true;
         }

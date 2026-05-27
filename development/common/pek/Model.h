@@ -55,11 +55,11 @@ struct ModelInput {
 
     /**
      * @brief Tries to extract image width/height from a 4D tensor shape.
-     * @param outWidht Output width.
+     * @param outWidth Output width.
      * @param outHeight Output height.
      * @return True when the shape looks like a 1/3-channel image tensor.
      */
-    bool tryGetImageTensorSize(size_t &outWidht, size_t &outHeight);
+    bool tryGetImageTensorSize(size_t &outWidth, size_t &outHeight);
 };
 
 /**
