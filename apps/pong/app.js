@@ -8,6 +8,7 @@ const MAX_BOUNCE_ANGLE = Math.PI / 3;
 const DEFAULT_FRAME_WIDTH = 1280;
 const DEFAULT_FRAME_HEIGHT = 720;
 const FACE_Y_FILTER_ALPHA = 0.2;
+const FACE_DISTANCE_WEIGHT = 0.35;
 
 const elements = {
   connectForm: document.getElementById("connect-form"),
@@ -42,7 +43,10 @@ const elements = {
   paddleHeightValue: document.getElementById("paddle-height-value"),
   holdTime: document.getElementById("hold-time"),
   holdTimeValue: document.getElementById("hold-time-value"),
+  trackingWindowScale: document.getElementById("tracking-window-scale"),
+  trackingWindowScaleValue: document.getElementById("tracking-window-scale-value"),
   mirrorSides: document.getElementById("mirror-sides"),
+  debugOverlay: document.getElementById("debug-overlay"),
 };
 
 const context = elements.canvas.getContext("2d");
@@ -53,6 +57,7 @@ const state = {
   frameCounter: "n/a",
   lastMessageAt: null,
   latestFaceCount: 0,
+  latestFaces: [],
   frameDimensions: {
     width: DEFAULT_FRAME_WIDTH,
     height: DEFAULT_FRAME_HEIGHT,
@@ -70,7 +75,9 @@ const state = {
     ballSpeed: Number(elements.ballSpeed.value),
     paddleHeight: Number(elements.paddleHeight.value),
     holdTimeMs: Number(elements.holdTime.value),
+    trackingWindowScale: Number(elements.trackingWindowScale.value),
     mirrorSides: elements.mirrorSides.checked,
+    showDebugOverlay: elements.debugOverlay.checked,
     lastTickMs: performance.now(),
     ball: {
       x: GAME_WIDTH / 2,
@@ -90,7 +97,15 @@ function createPlayer(side) {
     filteredFaceYNormalized: null,
     faceYNormalized: null,
     faceConfidence: null,
+    faceCenterX: null,
+    assignedFaceIndex: null,
     lastSeenMs: 0,
+    lockActive: false,
+    lockCenterX: null,
+    lockWidth: null,
+    recentFaceWidths: [],
+    validRegionMinX: null,
+    validRegionMaxX: null,
     calibration: {
       top: null,
       bottom: null,
@@ -131,6 +146,142 @@ function formatPercent(value) {
     return "n/a";
   }
   return `${Math.round(value * 100)}%`;
+}
+
+function getControlledHalf(side) {
+  if (!state.game.mirrorSides) {
+    return side;
+  }
+  return side === "left" ? "right" : "left";
+}
+
+function getDefaultRegionBounds(side, frameWidth) {
+  const splitX = frameWidth / 2;
+  const controlledHalf = getControlledHalf(side);
+  return controlledHalf === "left"
+    ? { minX: 0, maxX: splitX }
+    : { minX: splitX, maxX: frameWidth };
+}
+
+function getPlayerRegionBounds(player, side, frameWidth) {
+  if (player.lockActive && player.lockCenterX !== null && player.lockWidth !== null) {
+    const span = Math.max(player.lockWidth * state.game.trackingWindowScale, player.lockWidth);
+    return {
+      minX: clamp(player.lockCenterX - span / 2, 0, frameWidth),
+      maxX: clamp(player.lockCenterX + span / 2, 0, frameWidth),
+    };
+  }
+
+  return getDefaultRegionBounds(side, frameWidth);
+}
+
+function enrichFaces(faces) {
+  return faces.map((face, index) => {
+    const width = Math.max(Number(face.width ?? 0), 1);
+    const height = Math.max(Number(face.height ?? 0), 1);
+    return {
+      ...face,
+      index,
+      width,
+      height,
+      centerX: Number(face.x) + width / 2,
+      centerY: Number(face.y) + height / 2,
+      confidence: Number(face.confidence ?? 0),
+    };
+  });
+}
+
+function chooseUnlockedFace(candidates) {
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  return candidates.reduce((best, current) =>
+    current.confidence > best.confidence ? current : best
+  );
+}
+
+function chooseLockedFace(candidates, player, regionBounds) {
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const referenceX = player.faceCenterX ?? player.lockCenterX ?? (regionBounds.minX + regionBounds.maxX) / 2;
+  const regionWidth = Math.max(regionBounds.maxX - regionBounds.minX, 1);
+
+  return candidates.reduce((best, current) => {
+    const bestDistance = Math.abs(best.centerX - referenceX) / regionWidth;
+    const currentDistance = Math.abs(current.centerX - referenceX) / regionWidth;
+    const bestScore = best.confidence - bestDistance * FACE_DISTANCE_WEIGHT;
+    const currentScore = current.confidence - currentDistance * FACE_DISTANCE_WEIGHT;
+
+    if (currentScore !== bestScore) {
+      return currentScore > bestScore ? current : best;
+    }
+    if (current.confidence !== best.confidence) {
+      return current.confidence > best.confidence ? current : best;
+    }
+    return currentDistance < bestDistance ? current : best;
+  });
+}
+
+function medianOfThree(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
+}
+
+function pushFaceWidthSample(player, width) {
+  player.recentFaceWidths.push(width);
+  if (player.recentFaceWidths.length > 3) {
+    player.recentFaceWidths.shift();
+  }
+
+  if (player.recentFaceWidths.length < 3) {
+    return width;
+  }
+
+  return medianOfThree(player.recentFaceWidths);
+}
+
+function assignFacesToPlayers(faces, dimensions) {
+  const usedFaceIndexes = new Set();
+  const assignments = new Map();
+  const orderedSides = ["left", "right"].sort((sideA, sideB) =>
+    Number(state.players[sideB].lockActive) - Number(state.players[sideA].lockActive)
+  );
+
+  for (const side of orderedSides) {
+    const player = state.players[side];
+    const regionBounds = getPlayerRegionBounds(player, side, dimensions.width);
+    player.validRegionMinX = regionBounds.minX;
+    player.validRegionMaxX = regionBounds.maxX;
+
+    const candidates = faces.filter((face) =>
+      !usedFaceIndexes.has(face.index) &&
+      face.centerX >= regionBounds.minX &&
+      face.centerX <= regionBounds.maxX
+    );
+
+    const selectedFace = player.lockActive
+      ? chooseLockedFace(candidates, player, regionBounds)
+      : chooseUnlockedFace(candidates);
+
+    if (!selectedFace) {
+      player.assignedFaceIndex = null;
+      continue;
+    }
+
+    player.lockActive = true;
+    player.lockCenterX = selectedFace.centerX;
+    player.lockWidth = pushFaceWidthSample(player, selectedFace.width);
+    player.validRegionMinX = getPlayerRegionBounds(player, side, dimensions.width).minX;
+    player.validRegionMaxX = getPlayerRegionBounds(player, side, dimensions.width).maxX;
+    player.assignedFaceIndex = selectedFace.index;
+    assignments.set(side, selectedFace);
+    usedFaceIndexes.add(selectedFace.index);
+  }
+
+  return assignments;
 }
 
 function normalizeMessage(message) {
@@ -208,27 +359,6 @@ function deriveFrameDimensions(faces, frameCandidates) {
   };
 }
 
-function chooseFaceForSide(faces, side, frameWidth) {
-  const splitX = frameWidth / 2;
-  const controlledHalf = state.game.mirrorSides
-    ? side === "left"
-      ? "right"
-      : "left"
-    : side;
-  const candidates = faces.filter((face) => {
-    const centerX = Number(face.x) + Number(face.width) / 2;
-    return controlledHalf === "left" ? centerX < splitX : centerX >= splitX;
-  });
-
-  if (candidates.length === 0) {
-    return null;
-  }
-
-  return candidates.reduce((best, current) =>
-    Number(current.confidence ?? 0) > Number(best.confidence ?? 0) ? current : best
-  );
-}
-
 function getCalibratedFaceY(player, rawNormalizedY) {
   const { top, bottom } = player.calibration;
   if (top === null || bottom === null) {
@@ -265,16 +395,28 @@ function updatePlayersFromFaces(faces) {
   const dimensions = deriveFrameDimensions(faces.faces, faces.frameCandidates);
   state.frameDimensions = dimensions;
 
+  const enrichedFaces = enrichFaces(faces.faces);
+  const assignments = assignFacesToPlayers(enrichedFaces, dimensions);
+  const assignedSidesByIndex = new Map();
+
+  for (const [side, face] of assignments.entries()) {
+    assignedSidesByIndex.set(face.index, side);
+  }
+
+  state.latestFaces = enrichedFaces.map((face) => ({
+    ...face,
+    assignedSide: assignedSidesByIndex.get(face.index) ?? null,
+  }));
+
   for (const side of ["left", "right"]) {
     const player = state.players[side];
-    const face = chooseFaceForSide(faces.faces, side, dimensions.width);
+    const face = assignments.get(side);
 
     if (!face) {
       continue;
     }
 
-    const faceCenterY = Number(face.y) + Number(face.height) / 2;
-    const rawNormalizedY = clamp(faceCenterY / dimensions.height, 0, 1);
+    const rawNormalizedY = clamp(face.centerY / dimensions.height, 0, 1);
     player.calibration.top =
       player.calibration.top === null ? rawNormalizedY : Math.min(player.calibration.top, rawNormalizedY);
     player.calibration.bottom =
@@ -288,8 +430,9 @@ function updatePlayersFromFaces(faces) {
 
     player.rawFaceYNormalized = rawNormalizedY;
     player.faceYNormalized = calibratedY;
+    player.faceCenterX = face.centerX;
     player.targetY = calibratedY * GAME_HEIGHT;
-    player.faceConfidence = Number(face.confidence ?? 0);
+    player.faceConfidence = face.confidence;
     player.lastSeenMs = now;
   }
 }
@@ -304,6 +447,14 @@ function updatePlayerFallbacks(now) {
       player.filteredFaceYNormalized = null;
       player.faceYNormalized = null;
       player.faceConfidence = null;
+      player.faceCenterX = null;
+      player.assignedFaceIndex = null;
+      player.lockActive = false;
+      player.lockCenterX = null;
+      player.lockWidth = null;
+      player.recentFaceWidths = [];
+      player.validRegionMinX = null;
+      player.validRegionMaxX = null;
     }
   }
 }
@@ -359,13 +510,18 @@ function connect(url) {
 
   socket.onclose = () => {
     state.socket = null;
+    state.latestFaces = [];
+    state.latestFaceCount = 0;
     setStatus(`Disconnected from ${url}`, false);
     setGameNote("Metadata disconnected. Rackets will drift back to center after the hold timeout.");
   };
 }
 
 function disconnect() {
+  state.latestFaces = [];
+  state.latestFaceCount = 0;
   if (!state.socket) {
+    setStatus("Offline", false);
     return;
   }
 
@@ -405,10 +561,26 @@ function resetBall(direction = Math.random() > 0.5 ? 1 : -1) {
 function resetRound() {
   state.scores.left = 0;
   state.scores.right = 0;
-  state.players.left.centerY = GAME_HEIGHT / 2;
-  state.players.left.targetY = GAME_HEIGHT / 2;
-  state.players.right.centerY = GAME_HEIGHT / 2;
-  state.players.right.targetY = GAME_HEIGHT / 2;
+  for (const player of Object.values(state.players)) {
+    player.centerY = GAME_HEIGHT / 2;
+    player.targetY = GAME_HEIGHT / 2;
+    player.rawFaceYNormalized = null;
+    player.filteredFaceYNormalized = null;
+    player.faceYNormalized = null;
+    player.faceConfidence = null;
+    player.faceCenterX = null;
+    player.assignedFaceIndex = null;
+    player.lockActive = false;
+    player.lockCenterX = null;
+    player.lockWidth = null;
+    player.recentFaceWidths = [];
+    player.validRegionMinX = null;
+    player.validRegionMaxX = null;
+    player.calibration.top = null;
+    player.calibration.bottom = null;
+  }
+  state.latestFaces = [];
+  state.latestFaceCount = 0;
   resetBall();
   renderSidebar(0);
 }
@@ -542,6 +714,67 @@ function drawCourt() {
   context.strokeRect(10, 10, GAME_WIDTH - 20, GAME_HEIGHT - 20);
 }
 
+function projectXToGame(x) {
+  return (x / Math.max(state.frameDimensions.width, 1)) * GAME_WIDTH;
+}
+
+function projectYToGame(y) {
+  return (y / Math.max(state.frameDimensions.height, 1)) * GAME_HEIGHT;
+}
+
+function drawTrackingRegion(side) {
+  const player = state.players[side];
+  const regionBounds = {
+    minX: player.validRegionMinX ?? getDefaultRegionBounds(side, state.frameDimensions.width).minX,
+    maxX: player.validRegionMaxX ?? getDefaultRegionBounds(side, state.frameDimensions.width).maxX,
+  };
+  const x = projectXToGame(regionBounds.minX);
+  const width = projectXToGame(regionBounds.maxX) - x;
+  const calibrationTop = player.calibration.top ?? 0;
+  const calibrationBottom = player.calibration.bottom ?? 1;
+  const y = projectYToGame(calibrationTop * state.frameDimensions.height);
+  const bottomY = projectYToGame(calibrationBottom * state.frameDimensions.height);
+  const height = Math.max(bottomY - y, 4);
+  const fillColor = side === "left" ? "rgba(73, 213, 255, 0.5)" : "rgba(255, 125, 77, 0.5)";
+  const strokeColor = side === "left" ? "rgba(73, 213, 255, 0.9)" : "rgba(255, 125, 77, 0.9)";
+
+  context.fillStyle = fillColor;
+  context.fillRect(x, y, width, height);
+  context.strokeStyle = strokeColor;
+  context.lineWidth = 2;
+  context.strokeRect(x, y, width, height);
+}
+
+function drawDetectedFace(face) {
+  const x = projectXToGame(Number(face.x));
+  const y = projectYToGame(Number(face.y));
+  const width = projectXToGame(Number(face.width));
+  const height = projectYToGame(Number(face.height));
+  const locked = face.assignedSide !== null;
+
+  context.strokeStyle = locked ? "rgba(84, 255, 140, 0.96)" : "rgba(255, 72, 72, 0.96)";
+  context.lineWidth = locked ? 3 : 2;
+  context.strokeRect(x, y, width, height);
+
+  const label = locked ? `${face.assignedSide.toUpperCase()} ${(face.confidence * 100).toFixed(0)}%` : `${(face.confidence * 100).toFixed(0)}%`;
+  context.font = "700 14px 'Avenir Next', 'Segoe UI', sans-serif";
+  context.fillStyle = locked ? "rgba(84, 255, 140, 0.96)" : "rgba(255, 90, 90, 0.96)";
+  context.fillText(label, x + 4, Math.max(16, y - 8));
+}
+
+function drawDebugOverlay() {
+  if (!state.game.showDebugOverlay) {
+    return;
+  }
+
+  drawTrackingRegion("left");
+  drawTrackingRegion("right");
+
+  for (const face of state.latestFaces) {
+    drawDetectedFace(face);
+  }
+}
+
 function drawPaddle(side) {
   const paddle = getPaddleRect(side);
   const color = side === "left" ? "#49d5ff" : "#ff7d4d";
@@ -614,6 +847,7 @@ function renderPlayerCard(side) {
 function renderScene() {
   resizeCanvasForDpr();
   drawCourt();
+  drawDebugOverlay();
   drawLabels();
   drawPaddle("left");
   drawPaddle("right");
@@ -666,6 +900,11 @@ elements.holdTime.addEventListener("input", () => {
   elements.holdTimeValue.textContent = `${(state.game.holdTimeMs / 1000).toFixed(1)} s`;
 });
 
+elements.trackingWindowScale.addEventListener("input", () => {
+  state.game.trackingWindowScale = Number(elements.trackingWindowScale.value);
+  elements.trackingWindowScaleValue.textContent = `${state.game.trackingWindowScale.toFixed(2)}x`;
+});
+
 elements.mirrorSides.addEventListener("change", () => {
   state.game.mirrorSides = elements.mirrorSides.checked;
   setGameNote(
@@ -673,6 +912,10 @@ elements.mirrorSides.addEventListener("change", () => {
       ? "Mirror mode is on. Left player follows the right half of the camera image and vice versa."
       : "Mirror mode is off. Each player follows the matching half of the camera image."
   );
+});
+
+elements.debugOverlay.addEventListener("change", () => {
+  state.game.showDebugOverlay = elements.debugOverlay.checked;
 });
 
 elements.leftResetCalibration.addEventListener("click", () => {
@@ -688,6 +931,7 @@ setGameNote("Waiting for metadata. Put one detected face in each half of the sou
 elements.ballSpeedValue.textContent = `${state.game.ballSpeed} px/s`;
 elements.paddleHeightValue.textContent = `${state.game.paddleHeight} px`;
 elements.holdTimeValue.textContent = `${(state.game.holdTimeMs / 1000).toFixed(1)} s`;
+elements.trackingWindowScaleValue.textContent = `${state.game.trackingWindowScale.toFixed(2)}x`;
 resetBall();
 renderSidebar(0);
 requestAnimationFrame(tick);

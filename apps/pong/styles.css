@@ -227,6 +227,63 @@ button:disabled {
   min-width: 0;
 }
 
+.fold-card {
+  padding: 0;
+}
+
+.fold-card[open] {
+  padding-bottom: 16px;
+}
+
+.fold-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.fold-summary::-webkit-details-marker {
+  display: none;
+}
+
+.fold-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fold-title::after {
+  content: "+";
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.fold-title-text {
+  display: grid;
+}
+
+.fold-card[open] .fold-title::after {
+  content: "-";
+}
+
+.fold-body {
+  display: grid;
+  gap: 14px;
+  padding: 0 16px;
+}
+
 .section-heading {
   display: flex;
   align-items: center;
@@ -412,6 +469,20 @@ button:disabled {
   .connect-panel,
   .card {
     padding: 14px;
+  }
+
+  .fold-card {
+    padding: 0;
+  }
+
+  .fold-card[open] {
+    padding-bottom: 14px;
+  }
+
+  .fold-summary,
+  .fold-body {
+    padding-left: 14px;
+    padding-right: 14px;
   }
 
   .metrics-grid,

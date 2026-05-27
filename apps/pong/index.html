@@ -112,41 +112,72 @@
       </section>
 
       <aside class="side-column">
-        <section class="card settings-card">
-          <div class="section-heading">
-            <div>
-              <p class="section-kicker">Settings</p>
-              <h2>Game Controls</h2>
+        <details class="card fold-card settings-card" open>
+          <summary class="fold-summary">
+            <div class="fold-title">
+              <div class="fold-title-text">
+                <p class="section-kicker">Settings</p>
+              </div>
+            </div>
+          </summary>
+
+          <div class="fold-body">
+            <div class="button-row">
+              <button id="toggle-game" type="button">Pause</button>
+              <button id="reset-game" type="button" class="button-secondary">Reset round</button>
+            </div>
+
+            <div class="settings-list">
+              <label class="field">
+                <span>Ball speed</span>
+                <input id="ball-speed" type="range" min="180" max="900" step="10" value="420" />
+                <strong id="ball-speed-value" class="field-value">420 px/s</strong>
+              </label>
+
+              <label class="field">
+                <span>Paddle height</span>
+                <input id="paddle-height" type="range" min="70" max="180" step="2" value="110" />
+                <strong id="paddle-height-value" class="field-value">110 px</strong>
+              </label>
+
+              <label class="field">
+                <span>Face hold time</span>
+                <input id="hold-time" type="range" min="300" max="3000" step="100" value="1200" />
+                <strong id="hold-time-value" class="field-value">1.2 s</strong>
+              </label>
+
+              <label class="field">
+                <span>Tracking window scale</span>
+                <input id="tracking-window-scale" type="range" min="1" max="2" step="0.05" value="2" />
+                <strong id="tracking-window-scale-value" class="field-value">2.00x</strong>
+              </label>
+
+              <label class="switch-field" for="mirror-sides">
+                <span>Mirror left/right</span>
+                <span class="switch-row">
+                  <input id="mirror-sides" type="checkbox" />
+                  <span class="switch-copy">Swap player sides for mirrored camera input</span>
+                </span>
+              </label>
+
+              <p class="helper-note">
+                Calibration is automatic and continuous. The game keeps learning the live minimum and
+                maximum face Y positions and maps that observed range to full paddle travel.
+              </p>
             </div>
           </div>
+        </details>
 
-          <div class="settings-list">
-            <label class="field">
-              <span>Ball speed</span>
-              <input id="ball-speed" type="range" min="180" max="900" step="10" value="420" />
-              <strong id="ball-speed-value" class="field-value">420 px/s</strong>
-            </label>
+        <details class="card fold-card metadata-card" open>
+          <summary class="fold-summary">
+            <div class="fold-title">
+              <div class="fold-title-text">
+                <p class="section-kicker">Metadata</p>
+              </div>
+            </div>
+          </summary>
 
-            <label class="field">
-              <span>Paddle height</span>
-              <input id="paddle-height" type="range" min="70" max="180" step="2" value="110" />
-              <strong id="paddle-height-value" class="field-value">110 px</strong>
-            </label>
-
-            <label class="field">
-              <span>Face hold time</span>
-              <input id="hold-time" type="range" min="300" max="3000" step="100" value="1200" />
-              <strong id="hold-time-value" class="field-value">1.2 s</strong>
-            </label>
-
-            <label class="switch-field" for="mirror-sides">
-              <span>Mirror left/right</span>
-              <span class="switch-row">
-                <input id="mirror-sides" type="checkbox" />
-                <span class="switch-copy">Swap player sides for mirrored camera input</span>
-              </span>
-            </label>
-
+          <div class="fold-body">
             <form class="connect-panel embedded-connect" id="connect-form">
               <label class="field">
                 <span>Metadata WebSocket</span>
@@ -161,46 +192,59 @@
 
               <p id="status-line" class="status-line offline">Offline</p>
             </form>
-
-            <p class="helper-note">
-              Calibration is automatic and continuous. The game keeps learning the live minimum and
-              maximum face Y positions and maps that observed range to full paddle travel.
-            </p>
           </div>
+        </details>
 
-          <div class="button-row">
-            <button id="toggle-game" type="button">Pause</button>
-            <button id="reset-game" type="button" class="button-secondary">Reset round</button>
-          </div>
-        </section>
+        <details class="card fold-card debug-card" open>
+          <summary class="fold-summary">
+            <div class="fold-title">
+              <div class="fold-title-text">
+                <p class="section-kicker">Debug</p>
+              </div>
+            </div>
+          </summary>
 
-        <section class="card session-card">
-          <div class="section-heading">
-            <div>
-              <p class="section-kicker">Session</p>
-              <h2>Live State</h2>
-            </div>
+          <div class="fold-body">
+            <label class="switch-field" for="debug-overlay">
+              <span>Debug overlay</span>
+              <span class="switch-row">
+                <input id="debug-overlay" type="checkbox" />
+                <span class="switch-copy">Show all detected faces plus the active paddle tracking windows</span>
+              </span>
+            </label>
           </div>
+        </details>
 
-          <div class="metrics-grid">
-            <div class="metric">
-              <span class="metric-label">Messages</span>
-              <span id="messages-value" class="metric-value">0</span>
+        <details class="card fold-card session-card" open>
+          <summary class="fold-summary">
+            <div class="fold-title">
+              <div class="fold-title-text">
+                <p class="section-kicker">Session</p>
+              </div>
             </div>
-            <div class="metric">
-              <span class="metric-label">Frame Counter</span>
-              <span id="frame-value" class="metric-value">n/a</span>
-            </div>
-            <div class="metric">
-              <span class="metric-label">Faces</span>
-              <span id="faces-value" class="metric-value">0</span>
-            </div>
-            <div class="metric">
-              <span class="metric-label">Ball</span>
-              <span id="ball-value" class="metric-value">420 px/s</span>
+          </summary>
+
+          <div class="fold-body">
+            <div class="metrics-grid">
+              <div class="metric">
+                <span class="metric-label">Messages</span>
+                <span id="messages-value" class="metric-value">0</span>
+              </div>
+              <div class="metric">
+                <span class="metric-label">Frame Counter</span>
+                <span id="frame-value" class="metric-value">n/a</span>
+              </div>
+              <div class="metric">
+                <span class="metric-label">Faces</span>
+                <span id="faces-value" class="metric-value">0</span>
+              </div>
+              <div class="metric">
+                <span class="metric-label">Ball</span>
+                <span id="ball-value" class="metric-value">420 px/s</span>
+              </div>
             </div>
           </div>
-        </section>
+        </details>
       </aside>
     </main>
   </div>
