@@ -347,7 +347,7 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc) {
             inputBuffers[i] = allocateBuffer(frameSize);
 
             auto st = this->bindings->input(name)->set_buffer(
-                MemoryView(inputBuffers[i].data.get(), frameSize));
+                hailort::MemoryView(inputBuffers[i].data.get(), frameSize));
             if (HAILO_SUCCESS != st) {
                 return tl::make_unexpected(
                     PEK_ERROR(pek::ErrorFlag::InvalidData,
@@ -371,7 +371,7 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc) {
             outputBuffers[i] = allocateBuffer(frameSize);
 
             auto st = this->bindings->output(name)->set_buffer(
-                MemoryView(outputBuffers[i].data.get(), frameSize));
+                hailort::MemoryView(outputBuffers[i].data.get(), frameSize));
             if (HAILO_SUCCESS != st) {
                 return tl::make_unexpected(
                     PEK_ERROR(pek::ErrorFlag::InvalidData,
