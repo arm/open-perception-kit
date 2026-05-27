@@ -285,6 +285,21 @@ pek::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
         this->bindings =
             std::make_unique<hailort::ConfiguredInferModel::Bindings>(bindingsExp.release());
 
+        if (inputInfos.size() > pek::MaxTensorCount) {
+            return tl::make_unexpected(PEK_ERROR(
+                pek::ErrorFlag::InvalidData,
+                fmt::format("Hailo model input tensor count {} exceeds max supported {}",
+                            inputInfos.size(),
+                            pek::MaxTensorCount)));
+        }
+        if (outputInfos.size() > pek::MaxTensorCount) {
+            return tl::make_unexpected(PEK_ERROR(
+                pek::ErrorFlag::InvalidData,
+                fmt::format("Hailo model output tensor count {} exceeds max supported {}",
+                            outputInfos.size(),
+                            pek::MaxTensorCount)));
+        }
+
         // Build pek::Model internal representation from HEF vstream infos and configurations.
         this->model.inputs.resize(inputInfos.size());
         this->model.outputs.resize(outputInfos.size());

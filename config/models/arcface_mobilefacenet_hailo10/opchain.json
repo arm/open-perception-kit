@@ -1,0 +1,31 @@
+{
+    "name": "ArcFaceMobileFaceNet HAILO",
+    "description": "Hailo 10-compiled ArcFace MobileFaceNet face embedding model.",
+    "ops": [
+        {
+            "id": "amp-std-ops/InferenceController",
+            "attributes": {
+                "contentType": "humanFace"
+            }
+        },
+        {
+            "id": "amp-std-ops/GenericImagePreprocess",
+            "attributes": {
+                "inputImageTensorIndex": 0,
+                "inputImageSourceName": "pipelineVideoFrame"
+            }
+        },
+        {
+            "id": "amp-hailort-ops/Inference",
+            "attributes": {
+                "modelDescriptor": "/work/config/models/arcface_mobilefacenet_hailo10/model.json"
+            }
+        },
+        {
+            "id": "amp-std-ops/GenericPostprocess",
+            "attributes": {
+                "parser": "ObjectEmbeddingParser"
+            }
+        }
+    ]
+}

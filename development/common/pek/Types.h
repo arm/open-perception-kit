@@ -114,7 +114,7 @@ inline bool isImageDataKind(DataKind kind) {
     return false;
 }
 
-constexpr size_t MaxTensorCount = 8;
+constexpr size_t MaxTensorCount = 16;
 constexpr int64_t InvalidTensorIndex = 0xdead;
 
 // Information about the inference itself

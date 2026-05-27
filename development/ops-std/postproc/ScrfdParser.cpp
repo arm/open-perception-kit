@@ -1,0 +1,337 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
+#include "postproc/ScrfdParser.h"
+
+#include "amp/Perception.h"
+
+#include <algorithm>
+#include <cmath>
+#include <fmt/core.h>
+#include <map>
+#include <vector>
+
+using namespace amp;
+
+namespace {
+
+inline float iou(const Perception::Rect &a, const Perception::Rect &b) {
+    const float ax2 = a.x + a.width;
+    const float ay2 = a.y + a.height;
+    const float bx2 = b.x + b.width;
+    const float by2 = b.y + b.height;
+
+    const float interLeft = std::max(a.x, b.x);
+    const float interTop = std::max(a.y, b.y);
+    const float interRight = std::min(ax2, bx2);
+    const float interBottom = std::min(ay2, by2);
+
+    const float interW = interRight - interLeft;
+    const float interH = interBottom - interTop;
+    if (interW <= 0.0f || interH <= 0.0f)
+        return 0.0f;
+
+    const float interArea = interW * interH;
+    const float unionArea = a.width * a.height + b.width * b.height - interArea;
+    if (unionArea <= 0.0f)
+        return 0.0f;
+
+    return interArea / unionArea;
+}
+
+static std::vector<Perception::Detection>
+nonMaxSuppression(const std::vector<Perception::Detection> &detections,
+                  float scoreThreshold,
+                  float iouThreshold,
+                  size_t maxDetections) {
+    std::vector<Perception::Detection> candidates;
+    candidates.reserve(detections.size());
+    for (const auto &det : detections) {
+        const auto &rect = std::get<Perception::Rect>(det);
+        if (rect.confidence >= scoreThreshold) {
+            candidates.push_back(rect);
+        }
+    }
+
+    std::sort(candidates.begin(),
+              candidates.end(),
+              [](const Perception::Detection &lhs, const Perception::Detection &rhs) {
+                  return std::get<Perception::Rect>(lhs).confidence >
+                         std::get<Perception::Rect>(rhs).confidence;
+              });
+
+    std::vector<Perception::Detection> result;
+    std::vector<bool> suppressed(candidates.size(), false);
+    result.reserve(std::min(maxDetections, candidates.size()));
+
+    for (size_t i = 0; i < candidates.size() && result.size() < maxDetections; ++i) {
+        if (suppressed[i])
+            continue;
+
+        const auto &current = std::get<Perception::Rect>(candidates[i]);
+        result.push_back(current);
+
+        for (size_t j = i + 1; j < candidates.size(); ++j) {
+            if (suppressed[j])
+                continue;
+            if (iou(current, std::get<Perception::Rect>(candidates[j])) >= iouThreshold) {
+                suppressed[j] = true;
+            }
+        }
+    }
+
+    return result;
+}
+
+struct FeatureMapGroup {
+    const TensorView *scores = nullptr;
+    const TensorView *boxes = nullptr;
+    const TensorView *landmarks = nullptr;
+    size_t height = 0;
+    size_t width = 0;
+    size_t stride = 0;
+    size_t anchorsPerCell = 0;
+};
+
+inline float nhwcAt(const TensorView &tensor, size_t y, size_t x, size_t c) {
+    const auto shape = tensor.getShape();
+    const size_t width = static_cast<size_t>(shape.valueCount[2]);
+    const size_t channels = static_cast<size_t>(shape.valueCount[3]);
+    return tensor.get((y * width + x) * channels + c);
+}
+
+static amp::Result<std::vector<FeatureMapGroup>>
+validateGroups(const amp::TensorParser::Input &input, size_t modelWidth, size_t modelHeight) {
+    std::map<size_t, FeatureMapGroup> groups;
+
+    for (size_t i = 0; i < amp::MaxTensorCount; ++i) {
+        const TensorView *tensor = input.tensors[i];
+        if (!tensor)
+            continue;
+
+        const auto shape = tensor->getShape();
+        if (shape.dimensionCount != 4) {
+            return tl::unexpected(
+                AMP_ERROR(ErrorFlag::InvalidData,
+                          fmt::format("ScrfdParser: tensor {} must be NHWC [1,H,W,C], got {}",
+                                      i,
+                                      shape.toString())));
+        }
+        if (shape.valueCount[0] != 1) {
+            return tl::unexpected(
+                AMP_ERROR(ErrorFlag::InvalidData,
+                          fmt::format("ScrfdParser: tensor {} batch must be 1, got {}",
+                                      i,
+                                      shape.valueCount[0])));
+        }
+
+        const size_t height = static_cast<size_t>(shape.valueCount[1]);
+        const size_t width = static_cast<size_t>(shape.valueCount[2]);
+        const size_t channels = static_cast<size_t>(shape.valueCount[3]);
+
+        if (height == 0 || width == 0 || modelWidth % width != 0 || modelHeight % height != 0) {
+            return tl::unexpected(
+                AMP_ERROR(ErrorFlag::InvalidData,
+                          fmt::format("ScrfdParser: tensor {} shape {} does not map cleanly to "
+                                      "model size {}x{}",
+                                      i,
+                                      shape.toString(),
+                                      modelWidth,
+                                      modelHeight)));
+        }
+
+        const size_t strideX = modelWidth / width;
+        const size_t strideY = modelHeight / height;
+        if (strideX != strideY) {
+            return tl::unexpected(
+                AMP_ERROR(ErrorFlag::InvalidData,
+                          fmt::format("ScrfdParser: tensor {} shape {} implies non-square stride "
+                                      "{}x{}",
+                                      i,
+                                      shape.toString(),
+                                      strideX,
+                                      strideY)));
+        }
+
+        auto &group = groups[strideX];
+        group.height = height;
+        group.width = width;
+        group.stride = strideX;
+
+        if (channels % 10 == 0) {
+            if (group.landmarks) {
+                return tl::unexpected(AMP_ERROR(
+                    ErrorFlag::InvalidData,
+                    fmt::format("ScrfdParser: duplicate landmark tensor for stride {}", strideX)));
+            }
+            group.landmarks = tensor;
+            group.anchorsPerCell = channels / 10;
+        } else if (channels % 4 == 0) {
+            if (group.boxes) {
+                return tl::unexpected(AMP_ERROR(
+                    ErrorFlag::InvalidData,
+                    fmt::format("ScrfdParser: duplicate box tensor for stride {}", strideX)));
+            }
+            group.boxes = tensor;
+            group.anchorsPerCell = channels / 4;
+        } else {
+            if (group.scores) {
+                return tl::unexpected(AMP_ERROR(
+                    ErrorFlag::InvalidData,
+                    fmt::format("ScrfdParser: duplicate score tensor for stride {}", strideX)));
+            }
+            group.scores = tensor;
+            group.anchorsPerCell = channels;
+        }
+    }
+
+    if (groups.empty()) {
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData, "ScrfdParser: no output tensors were provided"));
+    }
+
+    std::vector<FeatureMapGroup> ordered;
+    ordered.reserve(groups.size());
+    for (auto &[stride, group] : groups) {
+        (void)stride;
+        if (!group.scores || !group.boxes) {
+            return tl::unexpected(AMP_ERROR(
+                ErrorFlag::InvalidData,
+                fmt::format("ScrfdParser: missing score or box tensor for stride {}", group.stride)));
+        }
+
+        const size_t scoreAnchors =
+            static_cast<size_t>(group.scores->getShape().valueCount[3]);
+        const size_t boxAnchors =
+            static_cast<size_t>(group.boxes->getShape().valueCount[3]) / 4;
+        if (scoreAnchors != boxAnchors) {
+            return tl::unexpected(AMP_ERROR(
+                ErrorFlag::InvalidData,
+                fmt::format("ScrfdParser: score/box anchor mismatch at stride {}: {} vs {}",
+                            group.stride,
+                            scoreAnchors,
+                            boxAnchors)));
+        }
+        if (group.landmarks) {
+            const size_t kpsAnchors =
+                static_cast<size_t>(group.landmarks->getShape().valueCount[3]) / 10;
+            if (kpsAnchors != scoreAnchors) {
+                return tl::unexpected(AMP_ERROR(
+                    ErrorFlag::InvalidData,
+                    fmt::format("ScrfdParser: landmark anchor mismatch at stride {}: {} vs {}",
+                                group.stride,
+                                kpsAnchors,
+                                scoreAnchors)));
+            }
+        }
+
+        group.anchorsPerCell = scoreAnchors;
+        ordered.push_back(group);
+    }
+
+    std::sort(
+        ordered.begin(), ordered.end(), [](const FeatureMapGroup &a, const FeatureMapGroup &b) {
+            return a.stride < b.stride;
+        });
+
+    return ordered;
+}
+
+} // namespace
+
+amp::Result<void> amp::ScrfdParser::parse(const amp::TensorParser::Input &input,
+                                          amp::Perception::Layer &detectionResult) {
+    const float confThreshold =
+        static_cast<float>(input.attributes.getDoubleOrDefault("confidenceThreshold", 0.5));
+    const float iouThreshold =
+        static_cast<float>(input.attributes.getDoubleOrDefault("iouThreshold", 0.4));
+    const bool normalizeOutputCoordinates =
+        input.attributes.getBoolOrDefault("normalizeOutputCoordinates", false);
+    const size_t maxDetections =
+        static_cast<size_t>(input.attributes.getIntOrDefault("maxDetections", 100));
+
+    const size_t modelWidth = input.inferenceInfo.image.modelWidth;
+    const size_t modelHeight = input.inferenceInfo.image.modelHeight;
+    const size_t frameWidth = input.inferenceInfo.image.width;
+    const size_t frameHeight = input.inferenceInfo.image.height;
+
+    if (modelWidth == 0 || modelHeight == 0 || frameWidth == 0 || frameHeight == 0) {
+        return tl::unexpected(
+            AMP_ERROR(ErrorFlag::InvalidData,
+                      fmt::format("ScrfdParser: invalid image dimensions frame={}x{}, model={}x{}",
+                                  frameWidth,
+                                  frameHeight,
+                                  modelWidth,
+                                  modelHeight)));
+    }
+
+    auto groupsResult = validateGroups(input, modelWidth, modelHeight);
+    if (!groupsResult) {
+        return tl::unexpected(groupsResult.error());
+    }
+
+    const float scaleX = static_cast<float>(frameWidth) / static_cast<float>(modelWidth);
+    const float scaleY = static_cast<float>(frameHeight) / static_cast<float>(modelHeight);
+
+    for (const auto &group : *groupsResult) {
+        for (size_t y = 0; y < group.height; ++y) {
+            for (size_t x = 0; x < group.width; ++x) {
+                for (size_t anchor = 0; anchor < group.anchorsPerCell; ++anchor) {
+                    const float score = nhwcAt(*group.scores, y, x, anchor);
+                    if (score < confThreshold) {
+                        continue;
+                    }
+
+                    const size_t boxBase = anchor * 4;
+                    const float l = nhwcAt(*group.boxes, y, x, boxBase + 0) *
+                                    static_cast<float>(group.stride);
+                    const float t = nhwcAt(*group.boxes, y, x, boxBase + 1) *
+                                    static_cast<float>(group.stride);
+                    const float r = nhwcAt(*group.boxes, y, x, boxBase + 2) *
+                                    static_cast<float>(group.stride);
+                    const float b = nhwcAt(*group.boxes, y, x, boxBase + 3) *
+                                    static_cast<float>(group.stride);
+
+                    const float anchorCenterX =
+                        static_cast<float>(x * group.stride);
+                    const float anchorCenterY =
+                        static_cast<float>(y * group.stride);
+
+                    float x1 = std::clamp(anchorCenterX - l, 0.0f, static_cast<float>(modelWidth));
+                    float y1 = std::clamp(anchorCenterY - t, 0.0f, static_cast<float>(modelHeight));
+                    float x2 = std::clamp(anchorCenterX + r, 0.0f, static_cast<float>(modelWidth));
+                    float y2 = std::clamp(anchorCenterY + b, 0.0f, static_cast<float>(modelHeight));
+
+                    x1 *= scaleX;
+                    y1 *= scaleY;
+                    x2 *= scaleX;
+                    y2 *= scaleY;
+
+                    if (normalizeOutputCoordinates) {
+                        x1 /= static_cast<float>(frameWidth);
+                        y1 /= static_cast<float>(frameHeight);
+                        x2 /= static_cast<float>(frameWidth);
+                        y2 /= static_cast<float>(frameHeight);
+                    }
+
+                    Perception::Rect rect;
+                    rect.x = x1;
+                    rect.y = y1;
+                    rect.width = std::max(0.0f, x2 - x1);
+                    rect.height = std::max(0.0f, y2 - y1);
+                    rect.confidence = score;
+                    rect.classId = 0;
+
+                    detectionResult.detections.push_back(rect);
+                }
+            }
+        }
+    }
+
+    detectionResult.detections = nonMaxSuppression(
+        detectionResult.detections, confThreshold, iouThreshold, maxDetections);
+    detectionResult.contentType = "humanFace";
+
+    return {};
+}

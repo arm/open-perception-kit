@@ -1,0 +1,33 @@
+{
+    "name": "SCRFD 2.5G HAILO",
+    "description": "Hailo 10-compiled SCRFD 2.5G face detector.",
+    "ops": [
+        {
+            "id": "amp-std-ops/InferenceController",
+            "attributes": {}
+        },
+        {
+            "id": "amp-std-ops/GenericImagePreprocess",
+            "attributes": {
+                "inputImageTensorIndex": 0,
+                "inputImageSourceName": "pipelineVideoFrame"
+            }
+        },
+        {
+            "id": "amp-hailort-ops/Inference",
+            "attributes": {
+                "modelDescriptor": "/work/config/models/scrfd_2.5g/model.json"
+            }
+        },
+        {
+            "id": "amp-std-ops/GenericPostprocess",
+            "attributes": {
+                "parser": "ScrfdParser",
+                "normalizeOutputCoordinates": false,
+                "confidenceThreshold": 0.5,
+                "iouThreshold": 0.4,
+                "maxDetections": 50
+            }
+        }
+    ]
+}

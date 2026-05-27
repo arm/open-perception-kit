@@ -1,0 +1,62 @@
+{
+    "name": "FaceEmbeddingWithScrfdHailo10",
+    "description": "Two-stage Hailo 10 micropipeline: SCRFD face detection followed by ArcFace MobileFaceNet embedding extraction.",
+    "ops": [
+        {
+            "id": "amp-std-ops/InferenceController",
+            "attributes": {}
+        },
+        {
+            "id": "amp-std-ops/GenericImagePreprocess",
+            "attributes": {
+                "inputImageTensorIndex": 0,
+                "inputImageSourceName": "pipelineVideoFrame"
+            }
+        },
+        {
+            "id": "amp-hailort-ops/Inference",
+            "attributes": {
+                "modelDescriptor": "/work/config/models/scrfd_2.5g/model.json"
+            }
+        },
+        {
+            "id": "amp-std-ops/GenericPostprocess",
+            "attributes": {
+                "parser": "ScrfdParser",
+                "normalizeOutputCoordinates": false,
+                "confidenceThreshold": 0.5,
+                "iouThreshold": 0.4,
+                "maxDetections": 50
+            }
+        },
+        {
+            "id": "amp-std-ops/InferenceController",
+            "loopId": 2,
+            "attributes": {
+                "contentType": "humanFace"
+            }
+        },
+        {
+            "id": "amp-std-ops/GenericImagePreprocess",
+            "loopId": 2,
+            "attributes": {
+                "inputImageTensorIndex": 0,
+                "inputImageSourceName": "pipelineVideoFrame"
+            }
+        },
+        {
+            "id": "amp-hailort-ops/Inference",
+            "loopId": 2,
+            "attributes": {
+                "modelDescriptor": "/work/config/models/arcface_mobilefacenet_hailo10/model.json"
+            }
+        },
+        {
+            "id": "amp-std-ops/GenericPostprocess",
+            "loopId": 2,
+            "attributes": {
+                "parser": "ObjectEmbeddingParser"
+            }
+        }
+    ]
+}

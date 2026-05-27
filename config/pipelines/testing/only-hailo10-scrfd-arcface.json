@@ -1,0 +1,11 @@
+{
+  "description": "Test the SCRFD 2.5G Hailo10 face detector followed by ArcFace MobileFaceNet embedding extraction on a single JPEG image.",
+  "pipeline": [
+    "filesrc location=/work/data/images/katana.jpg !",
+    "jpegdec !",
+    "imagefreeze num-buffers=${NUM_FRAMES:-30} !",
+    "videoconvert ! video/x-raw,format=BGRA,framerate=30/1 !",
+    "ampinfer opchain-path=/work/config/opchains/face-embedding/opchain-hailo10.json active=true !",
+    "fakesink sync=true"
+  ]
+}
