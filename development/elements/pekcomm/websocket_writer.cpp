@@ -4,15 +4,10 @@
 
 #include "websocket_writer.h"
 
-#include <chrono>
 #include <utility>
 
 #include <gst/gst.h>
 
-namespace {
-constexpr auto LISTEN_WAIT_STEP = std::chrono::milliseconds(1);
-constexpr int LISTEN_WAIT_ITERATIONS = 500;
-}
 
 bool WebSocketWriter::validate(PekCommConnectionHdl hdl) {
     if (!m_ws) {
@@ -62,20 +57,11 @@ bool WebSocketWriter::io_open() {
         m_ws->start_accept();
         m_ws_thread = std::thread([server = m_ws] { server->run(); });
 
-        for (int i = 0; i < LISTEN_WAIT_ITERATIONS; ++i) {
-            if (m_ws->is_listening()) {
-                GST_INFO_OBJECT(self(),
-                                "pekcomm WebSocket server listening on port %u endpoint '%s'",
-                                static_cast<unsigned>(m_port),
-                                m_endpoint.c_str());
-                return true;
-            }
-            std::this_thread::sleep_for(LISTEN_WAIT_STEP);
-        }
-
-        GST_WARNING_OBJECT(self(), "Timed out while starting pekcomm WebSocket server");
-        io_close();
-        return false;
+        GST_INFO_OBJECT(self(),
+                        "pekcomm WebSocket server listening on port %u endpoint '%s'",
+                        static_cast<unsigned>(m_port),
+                        m_endpoint.c_str());
+        return true;
     } catch (const std::exception &e) {
         GST_WARNING_OBJECT(self(), "Failed to start pekcomm WebSocket server: %s", e.what());
         io_close();
