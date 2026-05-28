@@ -104,6 +104,7 @@ detect_environment() {
     PEK_UNAME_M="$(uname -m)"
     PEK_PRETTY_OS="$(detect_os_release_field PRETTY_NAME)"
     PEK_OS_ID="$(detect_os_release_field ID)"
+    PEK_OS_VERSION_ID="$(detect_os_release_field VERSION_ID)"
     PEK_OS_VERSION_CODENAME="$(detect_os_release_field VERSION_CODENAME)"
     PEK_RPI_MODEL="$(detect_rpi_model)"
     PEK_HAILO_ARCH="$(detect_hailo_arch)"
@@ -175,6 +176,7 @@ print_shell() {
         PEK_UNAME_M
         PEK_PRETTY_OS
         PEK_OS_ID
+        PEK_OS_VERSION_ID
         PEK_OS_VERSION_CODENAME
         PEK_RPI_MODEL
         PEK_HAILO_ARCH

@@ -60,9 +60,11 @@ PACKAGES_UBUNTU_24_04_X86=(
     docker.io
     docker-compose-v2
 )
+PACKAGES_UBUNTU_26_04_X86=()
 PACKAGES_WSL=()
 PACKAGES_WSL_DEBIAN_13=()
 PACKAGES_WSL_UBUNTU_24_04=()
+PACKAGES_WSL_UBUNTU_26_04=()
 PACKAGES_RPI5=()
 PACKAGES_RPI5_HAILO8=()
 PACKAGES_RPI5_HAILO10=()
@@ -83,16 +85,20 @@ select_package_arrays() {
         wsl)
             PACKAGE_MANAGER="apt"
             SELECTED_PACKAGE_ARRAYS=(PACKAGES_WSL)
-            if [[ "$PEK_OS_ID" == "ubuntu" && "$PEK_OS_VERSION_CODENAME" == "noble" ]]; then
+            if [[ "$PEK_OS_ID" == "ubuntu" && "$PEK_OS_VERSION_ID" == "24.04" ]]; then
                 SELECTED_PACKAGE_ARRAYS+=(PACKAGES_WSL_UBUNTU_24_04)
+            elif [[ "$PEK_OS_ID" == "ubuntu" && "$PEK_OS_VERSION_ID" == "26.04" ]]; then
+                SELECTED_PACKAGE_ARRAYS+=(PACKAGES_WSL_UBUNTU_26_04)
             elif [[ "$PEK_OS_ID" == "debian" && "$PEK_OS_VERSION_CODENAME" == "trixie" ]]; then
                 SELECTED_PACKAGE_ARRAYS+=(PACKAGES_WSL_DEBIAN_13)
             fi
             ;;
         linux-x86_64)
             PACKAGE_MANAGER="apt"
-            if [[ "$PEK_OS_ID" == "ubuntu" && "$PEK_OS_VERSION_CODENAME" == "noble" ]]; then
+            if [[ "$PEK_OS_ID" == "ubuntu" && "$PEK_OS_VERSION_ID" == "24.04" ]]; then
                 SELECTED_PACKAGE_ARRAYS=(PACKAGES_UBUNTU_24_04_X86)
+            elif [[ "$PEK_OS_ID" == "ubuntu" && "$PEK_OS_VERSION_ID" == "26.04" ]]; then
+                SELECTED_PACKAGE_ARRAYS=(PACKAGES_UBUNTU_26_04_X86)
             elif [[ "$PEK_OS_ID" == "debian" && "$PEK_OS_VERSION_CODENAME" == "trixie" ]]; then
                 SELECTED_PACKAGE_ARRAYS=(PACKAGES_DEBIAN_13_X86)
             else
