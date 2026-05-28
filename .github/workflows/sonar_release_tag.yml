@@ -28,6 +28,10 @@ jobs:
           fetch-tags: true
           path: ${{ env.CI_CHECKOUT_PATH }}
 
+      - name: Export isolated workspace root
+        shell: bash
+        run: echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
+
       - name: Derive tag metadata
         shell: bash
         run: |
@@ -54,15 +58,15 @@ jobs:
         if: always()
         shell: bash
         run: |
-          checkout_dir="${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}"
-          compose_file="${checkout_dir}/${DOCKER_COMPOSE_FILE}"
-
-          if [ -d "$checkout_dir" ]; then
-            if [ -f "$compose_file" ]; then
-              docker compose -f "$compose_file" down --remove-orphans --rmi local || true
+          if [ -d "${WORKSPACE_ROOT}" ]; then
+            if [ -f "${WORKSPACE_ROOT}/${DOCKER_COMPOSE_FILE}" ]; then
+              (
+                cd "${WORKSPACE_ROOT}"
+                docker compose -f "${DOCKER_COMPOSE_FILE}" down --remove-orphans --rmi local || true
+              )
             fi
 
-            sudo chown -R "$(id -u):$(id -g)" "$checkout_dir" || true
-            chmod -R u+rwX "$checkout_dir" || true
-            rm -rf "$checkout_dir" || sudo rm -rf "$checkout_dir" || true
+            sudo chown -R "$(id -u):$(id -g)" "${WORKSPACE_ROOT}" || true
+            chmod -R u+rwX "${WORKSPACE_ROOT}" || true
+            rm -rf "${WORKSPACE_ROOT}" || sudo rm -rf "${WORKSPACE_ROOT}" || true
           fi
