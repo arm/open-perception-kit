@@ -167,9 +167,3 @@ struct Time {
 };
 
 } // namespace pek
-/**
- * @brief Immediate process termination helper.
- */
-[[noreturn]] inline void pek_abort() {
-    std::abort();
-}

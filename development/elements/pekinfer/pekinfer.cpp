@@ -116,7 +116,11 @@ static gboolean gst_pekinfer_start(GstBaseTransform *b) {
         fmt::print("Error while setting up op-chain [{}]: {}\n",
                    self->opChainPath,
                    setupResult.error().toString());
-        pek_abort();
+
+        GST_ELEMENT_ERROR(
+            self, RESOURCE, FAILED, ("Failed to setup op-chain."), ("%s", self->opChainPath));
+
+        return FALSE;
     }
 
     // Send model registration event downstream
@@ -229,7 +233,11 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
          std::get<GstFlowReturn>(ret) != GST_FLOW_OK) ||
         std::holds_alternative<ME>(ret)) {
         gst_buffer_unmap(buf, &map);
-        pek_abort();
+
+        GST_ELEMENT_ERROR(
+            self, RESOURCE, FAILED, ("Error while executing op-chain."), ("%s", self->opChainPath));
+
+        return GST_FLOW_ERROR;
     }
 
     gst_buffer_unmap(buf, &map);

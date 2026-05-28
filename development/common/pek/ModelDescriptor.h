@@ -124,7 +124,7 @@ inline void to_json(json &j, const TensorDescriptor &b) {
         {"scale", b.scale},
         {"mean", b.mean},
         {"std", b.std},
-        {"matchShapeOutputIndexd", b.matchShapeOutputIndex},
+        {"matchShapeOutputIndex", b.matchShapeOutputIndex},
         {"dataKind", b.dataKind},
         {"valueInputs", b.valueInputs},
     };

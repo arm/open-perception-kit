@@ -580,7 +580,7 @@ static GstFlowReturn gst_pek_performance_transform_frame_ip(GstVideoFilter *filt
         }
     } else {
         if (std::get<GstFlowReturn>(ret) != GST_FLOW_OK) {
-            pek_abort();
+            return std::get<GstFlowReturn>(ret);
         }
     }
 

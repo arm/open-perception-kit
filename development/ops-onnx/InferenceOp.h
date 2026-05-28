@@ -25,7 +25,7 @@ class InferenceOp : public pek::op::Op, public pek::op::OpInterfaceInference {
     virtual pek::Result<void> process(pek::op::OpChainContext &opChainContext) override;
 
   private:
-    std::unique_ptr<onnx::Inference> inference;
+    std::unique_ptr<pek::onnx::Inference> inference;
     std::string modelFamily;
 };
 

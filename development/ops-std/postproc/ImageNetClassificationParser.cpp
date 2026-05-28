@@ -60,7 +60,7 @@ Result<void> ImageNetClassificationParser::parse(const pek::TensorParser::Input 
                                   shape.dims[0])));
     }
 
-    constexpr auto numClasses = Labels::getLabelCount(LabelType::ImageNet);
+    constexpr auto numClasses = resources::Labels::getLabelCount(resources::LabelType::ImageNet);
     if (numClasses != shape.dims[1]) {
         return tl::unexpected(
             PEK_ERROR(pek::ErrorFlag::InvalidData,
@@ -117,7 +117,8 @@ Result<void> ImageNetClassificationParser::parse(const pek::TensorParser::Input 
             candidate.w = 0.0f;                  // Not used
             candidate.h = 0.0f;                  // Not used
             candidate.confidence = confidence;
-            candidate.text = theImageNetLabels[classIdx];
+            candidate.text =
+                pek::resources::Labels::getLabel(pek::resources::LabelType::ImageNet, classIdx);
 
             classification.candidates.push_back(candidate);
         }

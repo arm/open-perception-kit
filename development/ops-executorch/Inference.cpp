@@ -54,6 +54,8 @@ template <typename SizesT> static pek::Shape to_pek_shape(const SizesT &sizes) {
     const size_t maxDims = sizeof(s.dims) / sizeof(s.dims[0]);
     const size_t n = std::min(sizes.size(), maxDims);
 
+    assert(sizes.size() <= maxDims && "Tensor rank exceeds maximum supported Shape rank");
+
     for (size_t i = 0; i < n; ++i) {
         s.dims[i] = static_cast<int>(sizes[i]);
     }

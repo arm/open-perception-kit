@@ -122,7 +122,10 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
             return tl::make_unexpected(cmResult.error());
         }
 
-        this->setupTensorsForModel();
+        auto setupTensorsResult = this->setupTensorsForModel();
+        if (!setupTensorsResult) {
+            return tl::unexpected{setupTensorsResult.error()};
+        }
 
         this->setupReady = true;
 
@@ -153,13 +156,14 @@ void Inference::recreateInputTensor(size_t index, const pek::Shape &shape, pek::
     api.inputTensorVector[index] = api.inputTensors[index]->createOnnxTensor(*this->memoryInfo);
 }
 
-void Inference::setupTensorsForModel() {
+pek::Result<void> Inference::setupTensorsForModel() {
 
     if (this->model.inputs.size() > pek::MaxTensorCount) {
         fmt::print("ERROR: Model input tensor count {} exceeds max supported {}\n",
                    this->model.inputs.size(),
                    pek::MaxTensorCount);
-        return;
+        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InferenceRtModelLoadError,
+                                        "Model input tensor count exceeds max supported"));
     }
 
     for (size_t i = 0; i < this->model.inputs.size(); i++) {
@@ -178,7 +182,8 @@ void Inference::setupTensorsForModel() {
         fmt::print("ERROR: Model output tensor count {} exceeds max supported {}\n",
                    this->model.outputs.size(),
                    pek::MaxTensorCount);
-        return;
+        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InferenceRtModelLoadError,
+                                        "Model output tensor count exceeds max supported"));
     }
 
     for (size_t i = 0; i < this->model.outputs.size(); i++) {
@@ -196,6 +201,8 @@ void Inference::setupTensorsForModel() {
     }
 
     pek::log("ONNX: Input tensors are set up\n");
+
+    return {};
 }
 
 template <typename toT, typename fromT>

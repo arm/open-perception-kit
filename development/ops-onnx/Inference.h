@@ -10,7 +10,7 @@
 #include "pek/ModelDescriptor.h"
 
 #include "pek/Model.h"
-#include "pek/TensorView.h"
+#include "pek/Result.h"
 #include "pek/Types.h"
 
 #include <memory>
@@ -136,7 +136,7 @@ struct Inference {
     Ort::MemoryInfo *memoryInfo = nullptr;
     Ort::Session *session = nullptr;
 
-    void setupTensorsForModel();
+    Result<void> setupTensorsForModel();
     void recreateInputTensor(size_t index, const pek::Shape &shape, pek::Dtype valueType);
 
     pek::ModelDescriptor modelDescriptor;

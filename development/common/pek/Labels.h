@@ -8,11 +8,11 @@
 #include <string>
 
 /** @brief ImageNet class labels (index-aligned, including background). */
-extern const std::array<const char *, 1001U> theImageNetLabels;
+extern const std::array<const char *, 1001U> imageNetLabels;
 /** @brief COCO class labels (index-aligned). */
-extern const std::array<const char *, 80U> theCocoLbels;
+extern const std::array<const char *, 80U> cocoLabels;
 
-namespace pek {
+namespace pek::resources {
 
 /**
  * @brief Supported predefined label sets.
@@ -32,9 +32,9 @@ struct Labels {
     static constexpr size_t getLabelCount(LabelType labelType) {
         switch (labelType) {
         case LabelType::ImageNet:
-            return std::tuple_size_v<decltype(theImageNetLabels)>;
+            return std::tuple_size_v<decltype(imageNetLabels)>;
         case LabelType::Coco:
-            return std::tuple_size_v<decltype(theCocoLbels)>;
+            return std::tuple_size_v<decltype(cocoLabels)>;
         };
         return 0U;
     }
@@ -51,12 +51,12 @@ struct Labels {
 
         switch (labelType) {
         case LabelType::ImageNet:
-            return theImageNetLabels[index];
+            return imageNetLabels[index];
         case LabelType::Coco:
-            return theCocoLbels[index];
+            return cocoLabels[index];
         };
         return "?";
     }
 };
 
-} // namespace pek
+} // namespace pek::resources
