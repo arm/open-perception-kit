@@ -108,7 +108,8 @@ pek::Result<pek::Shape> Inference::hailoVstreamToPekSize(const hailo_vstream_inf
         s.rank = 3;
         s.dims[0] = B;
         s.dims[1] = static_cast<int>(info.nms_shape.number_of_classes);
-        s.dims[2] = static_cast<int>(1 + HailoRTCommon::BBOX_PARAMS * info.nms_shape.max_bboxes_per_class);
+        s.dims[2] = static_cast<int>(1 + hailort::HailoRTCommon::BBOX_PARAMS *
+                                             info.nms_shape.max_bboxes_per_class);
     } else {
         return tl::make_unexpected(
             PEK_ERROR(pek::ErrorFlag::InvalidData,
@@ -151,11 +152,6 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc) {
     this->model.engine = "hailort";
     this->model.modelFamily = this->modelDescriptor.modelFamily;
     this->setupReady = false;
-
-    auto cmResult = model.applyModelFromDescriptor(this->modelDescriptor);
-    if (!cmResult) {
-        return tl::make_unexpected(cmResult.error());
-    }
 
     try {
         hailo_vdevice_params_t params{};
@@ -386,6 +382,11 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc) {
 
             outputTensorPointers[i] = outputBuffers[i].data.get();
             outputTensorFinalShapes[i] = this->model.outputs[i].shape;
+        }
+
+        auto cmResult = model.applyModelFromDescriptor(this->modelDescriptor);
+        if (!cmResult) {
+            return tl::make_unexpected(cmResult.error());
         }
 
         this->setupReady = true;
