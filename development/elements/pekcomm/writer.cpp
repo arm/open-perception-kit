@@ -4,7 +4,6 @@
 
 #include "writer.h"
 
-#include <chrono>
 #include <mutex>
 #include <unistd.h>
 #include <utility>
@@ -98,12 +97,7 @@ void Writer::run() {
 
         json j;
 
-        const auto now = std::chrono::system_clock::now();
-        const auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
-
-        j["type"] = "perception";
         j["frame_counter"] = job.frame_counter;
-        j["timestamp_ms"] = now_ms.count();
         if (job.perception) {
             j["perception"] = *job.perception; // calls your to_json overloads
         } else {
