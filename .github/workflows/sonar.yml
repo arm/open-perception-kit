@@ -67,7 +67,7 @@ jobs:
 
           if [ -d "$checkout_dir" ]; then
             if [ -f "$compose_file" ]; then
-              docker compose -f "$compose_file" down --remove-orphans || true
+              docker compose -f "$compose_file" down --remove-orphans --rmi local || true
             fi
 
             sudo chown -R "$(id -u):$(id -g)" "$checkout_dir" || true
