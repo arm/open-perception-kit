@@ -28,13 +28,6 @@ jobs:
       CONTAINER_SCAN_TARS_DIR: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}/.bd-container-tars
 
     steps:
-      - name: Prepare workspace permissions
-        run: |
-          if [ -n "${GITHUB_WORKSPACE:-}" ] && [ -d "$GITHUB_WORKSPACE" ]; then
-            sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" || true
-            chmod -R u+rwX "$GITHUB_WORKSPACE" || true
-          fi
-
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
