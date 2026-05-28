@@ -15,16 +15,10 @@ namespace {
 
 // Soft-argmax over bins -> angle in degrees.
 // Also returns a confidence in [0,1] as max softmax probability.
-//
-// The checked-in gaze model is an L2CS/Gaze360-style classifier with 90 bins.
-// Upstream conversion maps the expected bin index using:
-//   angle_deg = expected_idx * 4 - 180
-// which yields [-180, +176] for indices [0, 89].
-inline void logitsToAngleDegAndConfidence(const amp::TensorView *logits,
+inline void logitsToAngleDegAndConfidence(const pek::TensorView *logits,
                                           float &outAngleDeg,
                                           float &outConfidence,
-                                          float binWidthDeg = 4.0f,
-                                          float angleOffsetDeg = -180.0f) {
+                                          float gazeRangeDeg = 90.0f) {
     const size_t n = logits ? logits->getCount() : 0;
     if (!logits || n == 0) {
         outAngleDeg = 0.0f;
@@ -60,7 +54,11 @@ inline void logitsToAngleDegAndConfidence(const amp::TensorView *logits,
         maxProb = std::max(maxProb, p);
     }
 
-    outAngleDeg = expected * binWidthDeg + angleOffsetDeg;
+    // Map expected index to [-gazeRangeDeg, +gazeRangeDeg].
+    const float denom = float(n - 1);
+    const float step = (denom > 0.0f) ? ((2.0f * gazeRangeDeg) / denom) : 0.0f;
+
+    outAngleDeg = expected * step - gazeRangeDeg;
     outConfidence = std::clamp(maxProb, 0.0f, 1.0f);
 }
 
