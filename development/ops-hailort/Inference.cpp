@@ -21,17 +21,17 @@
 #include "pek/Result.h"
 #include "pek/String.h"
 
-using namespace hailort;
+using namespace pek::hailo;
 
 Inference::Inference() {}
 
 Inference::~Inference() {}
 
-pek::Result<hailo_format_type_t> Inference::pekTypeToHailoType(pek::Tdt type) {
+pek::Result<hailo_format_type_t> Inference::pekTypeToHailoType(pek::Dtype type) {
     switch (type) {
-    case pek::Tdt::Uint8:
+    case pek::Dtype::Uint8:
         return HAILO_FORMAT_TYPE_UINT8;
-    case pek::Tdt::Float32:
+    case pek::Dtype::Float32:
         return HAILO_FORMAT_TYPE_FLOAT32;
     default:
         return tl::make_unexpected(
@@ -39,12 +39,12 @@ pek::Result<hailo_format_type_t> Inference::pekTypeToHailoType(pek::Tdt type) {
     }
 }
 
-pek::Result<pek::Tdt> Inference::hailoTypeToPekType(hailo_format_type_t type) {
+pek::Result<pek::Dtype> Inference::hailoTypeToPekType(hailo_format_type_t type) {
     switch (type) {
     case HAILO_FORMAT_TYPE_UINT8:
-        return pek::Tdt::Uint8;
+        return pek::Dtype::Uint8;
     case HAILO_FORMAT_TYPE_FLOAT32:
-        return pek::Tdt::Float32;
+        return pek::Dtype::Float32;
     default:
         return tl::make_unexpected(
             PEK_ERROR(pek::ErrorFlag::InvalidData, "Unsupported HailoRT format type"));
@@ -85,31 +85,31 @@ pek::Result<pek::Shape> Inference::hailoVstreamToPekSize(const hailo_vstream_inf
 
     // Keep classifier-like outputs compact.
     if (H == 1 && W == 1) {
-        s.dimensionCount = 2;
-        s.valueCount[0] = B;
-        s.valueCount[1] = static_cast<int>(F);
+        s.rank = 2;
+        s.dims[0] = B;
+        s.dims[1] = static_cast<int>(F);
         return s;
     }
 
     // info.format.order: 1=NHWC, 11=NCHW
     if (info.format.order == HAILO_FORMAT_ORDER_NHWC) {
-        s.dimensionCount = 4;
-        s.valueCount[0] = B;
-        s.valueCount[1] = static_cast<int>(H);
-        s.valueCount[2] = static_cast<int>(W);
-        s.valueCount[3] = static_cast<int>(F);
+        s.rank = 4;
+        s.dims[0] = B;
+        s.dims[1] = static_cast<int>(H);
+        s.dims[2] = static_cast<int>(W);
+        s.dims[3] = static_cast<int>(F);
     } else if (info.format.order == HAILO_FORMAT_ORDER_NCHW) {
-        s.dimensionCount = 4;
-        s.valueCount[0] = B;
-        s.valueCount[1] = static_cast<int>(F);
-        s.valueCount[2] = static_cast<int>(H);
-        s.valueCount[3] = static_cast<int>(W);
+        s.rank = 4;
+        s.dims[0] = B;
+        s.dims[1] = static_cast<int>(F);
+        s.dims[2] = static_cast<int>(H);
+        s.dims[3] = static_cast<int>(W);
     } else if (info.format.order == HAILO_FORMAT_ORDER_HAILO_NMS_BY_CLASS) {
-        s.dimensionCount = 3;
-        s.valueCount[0] = B;
-        s.valueCount[1] = static_cast<int>(H);
-        s.valueCount[2] = static_cast<int>(W);
-        s.valueCount[3] = static_cast<int>(F);
+        s.rank = 3;
+        s.dims[0] = B;
+        s.dims[1] = static_cast<int>(info.nms_shape.number_of_classes);
+        s.dims[2] = static_cast<int>(1 + hailort::HailoRTCommon::BBOX_PARAMS *
+                                             info.nms_shape.max_bboxes_per_class);
     } else {
         return tl::make_unexpected(
             PEK_ERROR(pek::ErrorFlag::InvalidData,
@@ -122,7 +122,7 @@ pek::Result<pek::Shape> Inference::hailoVstreamToPekSize(const hailo_vstream_inf
 
 pek::Result<void> Inference::setupFromJson(const std::string &filePath) {
 
-    auto descResult = ModelDescriptor::fromFile(filePath);
+    auto descResult = pek::ModelDescriptor::fromFile(filePath);
     if (!descResult) {
         return tl::unexpected{descResult.error()};
     }
@@ -146,7 +146,7 @@ pek::Result<void> Inference::setupFromJson(const std::string &filePath) {
     return {};
 }
 
-pek::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
+pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc) {
     this->modelDescriptor = modelDesc;
     this->model = pek::Model();
     this->model.engine = "hailort";
@@ -223,8 +223,8 @@ pek::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
         size_t batchSize = 1;
         if (!this->modelDescriptor.inputTensors.empty() &&
             this->modelDescriptor.inputTensors[0].shape.isValid() &&
-            this->modelDescriptor.inputTensors[0].shape.dimensionCount > 0) {
-            int candidate = this->modelDescriptor.inputTensors[0].shape.valueCount[0];
+            this->modelDescriptor.inputTensors[0].shape.rank > 0) {
+            int candidate = this->modelDescriptor.inputTensors[0].shape.dims[0];
             if (candidate > 0) {
                 batchSize = static_cast<size_t>(candidate);
             }
@@ -333,13 +333,21 @@ pek::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
             outputTensorFinalShapes[i] = pek::Shape();
         }
 
+        if (inputNames.size() > pek::MaxTensorCount) {
+            return tl::make_unexpected(
+                PEK_ERROR(pek::ErrorFlag::InvalidData,
+                          fmt::format("Model input tensor count {} exceeds max supported {}",
+                                      inputNames.size(),
+                                      pek::MaxTensorCount)));
+        }
+
         for (size_t i = 0; i < inputNames.size(); ++i) {
             const auto &name = inputNames[i];
             size_t frameSize = this->inferModel->input(name)->get_frame_size();
             inputBuffers[i] = allocateBuffer(frameSize);
 
             auto st = this->bindings->input(name)->set_buffer(
-                MemoryView(inputBuffers[i].data.get(), frameSize));
+                hailort::MemoryView(inputBuffers[i].data.get(), frameSize));
             if (HAILO_SUCCESS != st) {
                 return tl::make_unexpected(
                     PEK_ERROR(pek::ErrorFlag::InvalidData,
@@ -349,13 +357,21 @@ pek::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
             }
         }
 
+        if (outputNames.size() > pek::MaxTensorCount) {
+            return tl::make_unexpected(
+                PEK_ERROR(pek::ErrorFlag::InvalidData,
+                          fmt::format("Model output tensor count {} exceeds max supported {}",
+                                      outputNames.size(),
+                                      pek::MaxTensorCount)));
+        }
+
         for (size_t i = 0; i < outputNames.size(); ++i) {
             const auto &name = outputNames[i];
             size_t frameSize = this->inferModel->output(name)->get_frame_size();
             outputBuffers[i] = allocateBuffer(frameSize);
 
             auto st = this->bindings->output(name)->set_buffer(
-                MemoryView(outputBuffers[i].data.get(), frameSize));
+                hailort::MemoryView(outputBuffers[i].data.get(), frameSize));
             if (HAILO_SUCCESS != st) {
                 return tl::make_unexpected(
                     PEK_ERROR(pek::ErrorFlag::InvalidData,
@@ -366,6 +382,11 @@ pek::Result<void> Inference::setup(const ModelDescriptor &modelDesc) {
 
             outputTensorPointers[i] = outputBuffers[i].data.get();
             outputTensorFinalShapes[i] = this->model.outputs[i].shape;
+        }
+
+        auto cmResult = model.applyModelFromDescriptor(this->modelDescriptor);
+        if (!cmResult) {
+            return tl::make_unexpected(cmResult.error());
         }
 
         this->setupReady = true;

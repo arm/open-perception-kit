@@ -12,9 +12,10 @@
 #include <string>
 
 using namespace pek;
+using namespace pek::stdop::postproc;
 
-pek::Result<void> DummyParser::parse(const pek::TensorParser::Input &input,
-                                     pek::Perception::Layer &detectionResult) {
+Result<void> DummyParser::parse(const pek::TensorParser::Input &input,
+                                pek::Perception::Layer &detectionResult) {
 
     bool log = input.attributes.getBoolOrDefault("log", false);
 

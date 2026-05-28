@@ -10,20 +10,20 @@
 #include "GenericPostprocessOp.h"
 #include "InferenceControllerOp.h"
 
-pek::Op *createOp(const std::string &opName) {
+pek::op::Op *createOp(const std::string &opName) {
     if (opName == "GenericPostprocess")
-        return new pek::GenericPostprocessOp();
+        return new pek::stdop::GenericPostprocessOp();
     if (opName == "GenericImagePreprocess")
-        return new pek::GenericImagePreprocessOp();
+        return new pek::stdop::GenericImagePreprocessOp();
     if (opName == "InferenceController")
-        return new pek::InferenceControllerOp();
+        return new pek::stdop::InferenceControllerOp();
     return nullptr;
 }
 
 // ---
 
 extern "C" void pek_delete_op_instance(void *opInstacnce) {
-    delete (pek::Op *)opInstacnce;
+    delete (pek::op::Op *)opInstacnce;
 }
 
 extern "C" void *pek_create_op_instance(const char *opName) {

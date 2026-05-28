@@ -20,7 +20,7 @@ typedef struct _GstMetaTensor {
     GstMemory *tensorData;
 
     TensorType tensorType;
-    pek::Tdt valueType;
+    pek::Dtype valueType;
     pek::QuantizationArgs quantization;
 
 } GstMetaTensor;

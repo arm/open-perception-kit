@@ -4,191 +4,223 @@
 
 #pragma once
 
-#include "pek/String.h"
+#include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <string>
-#include <tuple>
 #include <unordered_map>
 
 namespace pek {
 
-typedef uint32_t Color;
+/**
+ * @brief Packed color value in ABGR byte order.
+ */
+using Color = uint32_t;
 
+/**
+ * @brief Floating-point RGBA color.
+ */
 struct Colorf {
+    /** @brief Constructs opaque white. */
     Colorf() {}
+    /** @brief Constructs color from RGBA components. */
     Colorf(float r, float g, float b, float a) : r(r), g(g), b(b), a(a) {}
+    /** @brief Constructs opaque color from RGB components. */
     Colorf(float r, float g, float b) : r(r), g(g), b(b), a(1.0f) {}
 
+    /// Red, green, blue, alpha channels.
     float r = 1.0f, g = 1.0f, b = 1.0f, a = 1.0f;
 };
 
-#define COLOR_FROM_RGB_BYTES(r, g, b)                                                              \
-    (0xff000000u | (uint32_t(b) << 16) | (uint32_t(g) << 8) | uint32_t(r))
+/**
+ * @brief Packs RGB bytes into a Color with alpha set to 255.
+ */
+constexpr Color colorFromRgbBytes(uint32_t r, uint32_t g, uint32_t b) {
+    return 0xff000000u | (b << 16) | (g << 8) | r;
+}
 
+/**
+ * @brief Named colors and conversion helpers.
+ */
 class Colors {
   public:
+    /// Named color constants usable by config and UI code.
     static constexpr const Color space = 0x00000000;
     static constexpr const Color transparentWhite = 0x00ffffff;
 
-    static constexpr const Color pink = COLOR_FROM_RGB_BYTES(255, 192, 203);
-    static constexpr const Color lightPink = COLOR_FROM_RGB_BYTES(255, 182, 193);
-    static constexpr const Color hotPink = COLOR_FROM_RGB_BYTES(255, 105, 180);
-    static constexpr const Color deepPink = COLOR_FROM_RGB_BYTES(255, 20, 147);
-    static constexpr const Color paleVioletRed = COLOR_FROM_RGB_BYTES(219, 112, 147);
-    static constexpr const Color mediumVioletRed = COLOR_FROM_RGB_BYTES(199, 21, 133);
+    static constexpr const Color pink = colorFromRgbBytes(255, 192, 203);
+    static constexpr const Color lightPink = colorFromRgbBytes(255, 182, 193);
+    static constexpr const Color hotPink = colorFromRgbBytes(255, 105, 180);
+    static constexpr const Color deepPink = colorFromRgbBytes(255, 20, 147);
+    static constexpr const Color paleVioletRed = colorFromRgbBytes(219, 112, 147);
+    static constexpr const Color mediumVioletRed = colorFromRgbBytes(199, 21, 133);
 
-    static constexpr const Color lightSalmon = COLOR_FROM_RGB_BYTES(255, 160, 122);
-    static constexpr const Color salmon = COLOR_FROM_RGB_BYTES(250, 128, 114);
-    static constexpr const Color darkSalmon = COLOR_FROM_RGB_BYTES(233, 150, 122);
-    static constexpr const Color lightCoral = COLOR_FROM_RGB_BYTES(240, 128, 128);
-    static constexpr const Color indianRed = COLOR_FROM_RGB_BYTES(205, 92, 92);
-    static constexpr const Color crimson = COLOR_FROM_RGB_BYTES(220, 20, 60);
-    static constexpr const Color fireBrick = COLOR_FROM_RGB_BYTES(178, 34, 34);
-    static constexpr const Color darkRed = COLOR_FROM_RGB_BYTES(139, 0, 0);
-    static constexpr const Color red = COLOR_FROM_RGB_BYTES(255, 0, 0);
+    static constexpr const Color lightSalmon = colorFromRgbBytes(255, 160, 122);
+    static constexpr const Color salmon = colorFromRgbBytes(250, 128, 114);
+    static constexpr const Color darkSalmon = colorFromRgbBytes(233, 150, 122);
+    static constexpr const Color lightCoral = colorFromRgbBytes(240, 128, 128);
+    static constexpr const Color indianRed = colorFromRgbBytes(205, 92, 92);
+    static constexpr const Color crimson = colorFromRgbBytes(220, 20, 60);
+    static constexpr const Color fireBrick = colorFromRgbBytes(178, 34, 34);
+    static constexpr const Color darkRed = colorFromRgbBytes(139, 0, 0);
+    static constexpr const Color red = colorFromRgbBytes(255, 0, 0);
 
-    static constexpr const Color orangeRed = COLOR_FROM_RGB_BYTES(255, 69, 0);
-    static constexpr const Color tomato = COLOR_FROM_RGB_BYTES(255, 99, 71);
-    static constexpr const Color coral = COLOR_FROM_RGB_BYTES(255, 127, 80);
-    static constexpr const Color darkOrange = COLOR_FROM_RGB_BYTES(255, 140, 0);
-    static constexpr const Color orange = COLOR_FROM_RGB_BYTES(255, 165, 0);
+    static constexpr const Color orangeRed = colorFromRgbBytes(255, 69, 0);
+    static constexpr const Color tomato = colorFromRgbBytes(255, 99, 71);
+    static constexpr const Color coral = colorFromRgbBytes(255, 127, 80);
+    static constexpr const Color darkOrange = colorFromRgbBytes(255, 140, 0);
+    static constexpr const Color orange = colorFromRgbBytes(255, 165, 0);
 
-    static constexpr const Color yellow = COLOR_FROM_RGB_BYTES(255, 255, 0);
-    static constexpr const Color lightYellow = COLOR_FROM_RGB_BYTES(255, 255, 224);
-    static constexpr const Color lemonChiffon = COLOR_FROM_RGB_BYTES(255, 250, 205);
-    static constexpr const Color lightGoldenrodYellow = COLOR_FROM_RGB_BYTES(250, 250, 210);
-    static constexpr const Color papayaWhip = COLOR_FROM_RGB_BYTES(255, 239, 213);
-    static constexpr const Color moccasin = COLOR_FROM_RGB_BYTES(255, 228, 181);
-    static constexpr const Color peachPuff = COLOR_FROM_RGB_BYTES(255, 218, 185);
-    static constexpr const Color paleGoldenrod = COLOR_FROM_RGB_BYTES(238, 232, 170);
-    static constexpr const Color khaki = COLOR_FROM_RGB_BYTES(240, 230, 140);
-    static constexpr const Color darkKhaki = COLOR_FROM_RGB_BYTES(189, 183, 107);
-    static constexpr const Color gold = COLOR_FROM_RGB_BYTES(255, 215, 0);
+    static constexpr const Color yellow = colorFromRgbBytes(255, 255, 0);
+    static constexpr const Color lightYellow = colorFromRgbBytes(255, 255, 224);
+    static constexpr const Color lemonChiffon = colorFromRgbBytes(255, 250, 205);
+    static constexpr const Color lightGoldenrodYellow = colorFromRgbBytes(250, 250, 210);
+    static constexpr const Color papayaWhip = colorFromRgbBytes(255, 239, 213);
+    static constexpr const Color moccasin = colorFromRgbBytes(255, 228, 181);
+    static constexpr const Color peachPuff = colorFromRgbBytes(255, 218, 185);
+    static constexpr const Color paleGoldenrod = colorFromRgbBytes(238, 232, 170);
+    static constexpr const Color khaki = colorFromRgbBytes(240, 230, 140);
+    static constexpr const Color darkKhaki = colorFromRgbBytes(189, 183, 107);
+    static constexpr const Color gold = colorFromRgbBytes(255, 215, 0);
 
-    static constexpr const Color cornsilk = COLOR_FROM_RGB_BYTES(255, 248, 220);
-    static constexpr const Color blanchedAlmond = COLOR_FROM_RGB_BYTES(255, 235, 205);
-    static constexpr const Color bisque = COLOR_FROM_RGB_BYTES(255, 228, 196);
-    static constexpr const Color navajoWhite = COLOR_FROM_RGB_BYTES(255, 222, 173);
-    static constexpr const Color wheat = COLOR_FROM_RGB_BYTES(245, 222, 179);
-    static constexpr const Color burlyWood = COLOR_FROM_RGB_BYTES(222, 184, 135);
-    static constexpr const Color tan = COLOR_FROM_RGB_BYTES(210, 180, 140);
-    static constexpr const Color rosyBrown = COLOR_FROM_RGB_BYTES(188, 143, 143);
-    static constexpr const Color sandyBrown = COLOR_FROM_RGB_BYTES(244, 164, 96);
-    static constexpr const Color goldenrod = COLOR_FROM_RGB_BYTES(218, 165, 32);
-    static constexpr const Color darkGoldenrod = COLOR_FROM_RGB_BYTES(184, 134, 11);
-    static constexpr const Color peru = COLOR_FROM_RGB_BYTES(205, 133, 63);
-    static constexpr const Color chocolate = COLOR_FROM_RGB_BYTES(210, 105, 30);
-    static constexpr const Color saddleBrown = COLOR_FROM_RGB_BYTES(139, 69, 19);
-    static constexpr const Color sienna = COLOR_FROM_RGB_BYTES(160, 82, 45);
-    static constexpr const Color brown = COLOR_FROM_RGB_BYTES(165, 42, 42);
-    static constexpr const Color maroon = COLOR_FROM_RGB_BYTES(128, 0, 0);
+    static constexpr const Color cornsilk = colorFromRgbBytes(255, 248, 220);
+    static constexpr const Color blanchedAlmond = colorFromRgbBytes(255, 235, 205);
+    static constexpr const Color bisque = colorFromRgbBytes(255, 228, 196);
+    static constexpr const Color navajoWhite = colorFromRgbBytes(255, 222, 173);
+    static constexpr const Color wheat = colorFromRgbBytes(245, 222, 179);
+    static constexpr const Color burlyWood = colorFromRgbBytes(222, 184, 135);
+    static constexpr const Color tan = colorFromRgbBytes(210, 180, 140);
+    static constexpr const Color rosyBrown = colorFromRgbBytes(188, 143, 143);
+    static constexpr const Color sandyBrown = colorFromRgbBytes(244, 164, 96);
+    static constexpr const Color goldenrod = colorFromRgbBytes(218, 165, 32);
+    static constexpr const Color darkGoldenrod = colorFromRgbBytes(184, 134, 11);
+    static constexpr const Color peru = colorFromRgbBytes(205, 133, 63);
+    static constexpr const Color chocolate = colorFromRgbBytes(210, 105, 30);
+    static constexpr const Color saddleBrown = colorFromRgbBytes(139, 69, 19);
+    static constexpr const Color sienna = colorFromRgbBytes(160, 82, 45);
+    static constexpr const Color brown = colorFromRgbBytes(165, 42, 42);
+    static constexpr const Color maroon = colorFromRgbBytes(128, 0, 0);
 
-    static constexpr const Color darkOliveGreen = COLOR_FROM_RGB_BYTES(85, 107, 47);
-    static constexpr const Color olive = COLOR_FROM_RGB_BYTES(128, 128, 0);
-    static constexpr const Color oliveDrab = COLOR_FROM_RGB_BYTES(107, 142, 35);
-    static constexpr const Color yellowGreen = COLOR_FROM_RGB_BYTES(154, 205, 50);
-    static constexpr const Color limeGreen = COLOR_FROM_RGB_BYTES(50, 205, 50);
-    static constexpr const Color lime = COLOR_FROM_RGB_BYTES(0, 255, 0);
-    static constexpr const Color lawnGreen = COLOR_FROM_RGB_BYTES(124, 252, 0);
-    static constexpr const Color chartreuse = COLOR_FROM_RGB_BYTES(127, 255, 0);
-    static constexpr const Color greenYellow = COLOR_FROM_RGB_BYTES(173, 255, 47);
-    static constexpr const Color springGreen = COLOR_FROM_RGB_BYTES(0, 255, 127);
-    static constexpr const Color mediumSpringGreen = COLOR_FROM_RGB_BYTES(0, 250, 154);
-    static constexpr const Color lightGreen = COLOR_FROM_RGB_BYTES(144, 238, 144);
-    static constexpr const Color paleGreen = COLOR_FROM_RGB_BYTES(152, 251, 152);
-    static constexpr const Color darkSeaGreen = COLOR_FROM_RGB_BYTES(143, 188, 143);
-    static constexpr const Color mediumSeaGreen = COLOR_FROM_RGB_BYTES(60, 179, 113);
-    static constexpr const Color seaGreen = COLOR_FROM_RGB_BYTES(46, 139, 87);
-    static constexpr const Color forestGreen = COLOR_FROM_RGB_BYTES(34, 139, 34);
-    static constexpr const Color green = COLOR_FROM_RGB_BYTES(0, 128, 0);
-    static constexpr const Color darkGreen = COLOR_FROM_RGB_BYTES(0, 100, 0);
+    static constexpr const Color darkOliveGreen = colorFromRgbBytes(85, 107, 47);
+    static constexpr const Color olive = colorFromRgbBytes(128, 128, 0);
+    static constexpr const Color oliveDrab = colorFromRgbBytes(107, 142, 35);
+    static constexpr const Color yellowGreen = colorFromRgbBytes(154, 205, 50);
+    static constexpr const Color limeGreen = colorFromRgbBytes(50, 205, 50);
+    static constexpr const Color lime = colorFromRgbBytes(0, 255, 0);
+    static constexpr const Color lawnGreen = colorFromRgbBytes(124, 252, 0);
+    static constexpr const Color chartreuse = colorFromRgbBytes(127, 255, 0);
+    static constexpr const Color greenYellow = colorFromRgbBytes(173, 255, 47);
+    static constexpr const Color springGreen = colorFromRgbBytes(0, 255, 127);
+    static constexpr const Color mediumSpringGreen = colorFromRgbBytes(0, 250, 154);
+    static constexpr const Color lightGreen = colorFromRgbBytes(144, 238, 144);
+    static constexpr const Color paleGreen = colorFromRgbBytes(152, 251, 152);
+    static constexpr const Color darkSeaGreen = colorFromRgbBytes(143, 188, 143);
+    static constexpr const Color mediumSeaGreen = colorFromRgbBytes(60, 179, 113);
+    static constexpr const Color seaGreen = colorFromRgbBytes(46, 139, 87);
+    static constexpr const Color forestGreen = colorFromRgbBytes(34, 139, 34);
+    static constexpr const Color green = colorFromRgbBytes(0, 128, 0);
+    static constexpr const Color darkGreen = colorFromRgbBytes(0, 100, 0);
 
-    static constexpr const Color mediumAquamarine = COLOR_FROM_RGB_BYTES(102, 205, 170);
-    static constexpr const Color aqua = COLOR_FROM_RGB_BYTES(0, 255, 255);
-    static constexpr const Color cyan = COLOR_FROM_RGB_BYTES(0, 255, 255);
-    static constexpr const Color lightCyan = COLOR_FROM_RGB_BYTES(224, 255, 255);
-    static constexpr const Color paleTurquoise = COLOR_FROM_RGB_BYTES(175, 238, 238);
-    static constexpr const Color aquamarine = COLOR_FROM_RGB_BYTES(127, 255, 212);
-    static constexpr const Color turquoise = COLOR_FROM_RGB_BYTES(64, 224, 208);
-    static constexpr const Color mediumTurquoise = COLOR_FROM_RGB_BYTES(72, 209, 204);
-    static constexpr const Color darkTurquoise = COLOR_FROM_RGB_BYTES(0, 206, 209);
-    static constexpr const Color lightSeaGreen = COLOR_FROM_RGB_BYTES(32, 178, 170);
-    static constexpr const Color cadetBlue = COLOR_FROM_RGB_BYTES(95, 158, 160);
-    static constexpr const Color darkCyan = COLOR_FROM_RGB_BYTES(0, 139, 139);
-    static constexpr const Color teal = COLOR_FROM_RGB_BYTES(0, 128, 128);
+    static constexpr const Color mediumAquamarine = colorFromRgbBytes(102, 205, 170);
+    static constexpr const Color aqua = colorFromRgbBytes(0, 255, 255);
+    static constexpr const Color cyan = colorFromRgbBytes(0, 255, 255);
+    static constexpr const Color lightCyan = colorFromRgbBytes(224, 255, 255);
+    static constexpr const Color paleTurquoise = colorFromRgbBytes(175, 238, 238);
+    static constexpr const Color aquamarine = colorFromRgbBytes(127, 255, 212);
+    static constexpr const Color turquoise = colorFromRgbBytes(64, 224, 208);
+    static constexpr const Color mediumTurquoise = colorFromRgbBytes(72, 209, 204);
+    static constexpr const Color darkTurquoise = colorFromRgbBytes(0, 206, 209);
+    static constexpr const Color lightSeaGreen = colorFromRgbBytes(32, 178, 170);
+    static constexpr const Color cadetBlue = colorFromRgbBytes(95, 158, 160);
+    static constexpr const Color darkCyan = colorFromRgbBytes(0, 139, 139);
+    static constexpr const Color teal = colorFromRgbBytes(0, 128, 128);
 
-    static constexpr const Color lightSteelBlue = COLOR_FROM_RGB_BYTES(176, 196, 222);
-    static constexpr const Color powderBlue = COLOR_FROM_RGB_BYTES(176, 224, 230);
-    static constexpr const Color lightBlue = COLOR_FROM_RGB_BYTES(173, 216, 230);
-    static constexpr const Color skyBlue = COLOR_FROM_RGB_BYTES(135, 206, 235);
-    static constexpr const Color lightSkyBlue = COLOR_FROM_RGB_BYTES(135, 206, 250);
-    static constexpr const Color deepSkyBlue = COLOR_FROM_RGB_BYTES(0, 191, 255);
-    static constexpr const Color dodgerBlue = COLOR_FROM_RGB_BYTES(30, 144, 255);
-    static constexpr const Color cornflowerBlue = COLOR_FROM_RGB_BYTES(100, 149, 237);
-    static constexpr const Color steelBlue = COLOR_FROM_RGB_BYTES(70, 130, 180);
-    static constexpr const Color royalBlue = COLOR_FROM_RGB_BYTES(65, 105, 225);
-    static constexpr const Color blue = COLOR_FROM_RGB_BYTES(0, 0, 255);
-    static constexpr const Color mediumBlue = COLOR_FROM_RGB_BYTES(0, 0, 205);
-    static constexpr const Color darkBlue = COLOR_FROM_RGB_BYTES(0, 0, 139);
-    static constexpr const Color navy = COLOR_FROM_RGB_BYTES(0, 0, 128);
-    static constexpr const Color midnightBlue = COLOR_FROM_RGB_BYTES(25, 25, 112);
+    static constexpr const Color lightSteelBlue = colorFromRgbBytes(176, 196, 222);
+    static constexpr const Color powderBlue = colorFromRgbBytes(176, 224, 230);
+    static constexpr const Color lightBlue = colorFromRgbBytes(173, 216, 230);
+    static constexpr const Color skyBlue = colorFromRgbBytes(135, 206, 235);
+    static constexpr const Color lightSkyBlue = colorFromRgbBytes(135, 206, 250);
+    static constexpr const Color deepSkyBlue = colorFromRgbBytes(0, 191, 255);
+    static constexpr const Color dodgerBlue = colorFromRgbBytes(30, 144, 255);
+    static constexpr const Color cornflowerBlue = colorFromRgbBytes(100, 149, 237);
+    static constexpr const Color steelBlue = colorFromRgbBytes(70, 130, 180);
+    static constexpr const Color royalBlue = colorFromRgbBytes(65, 105, 225);
+    static constexpr const Color blue = colorFromRgbBytes(0, 0, 255);
+    static constexpr const Color mediumBlue = colorFromRgbBytes(0, 0, 205);
+    static constexpr const Color darkBlue = colorFromRgbBytes(0, 0, 139);
+    static constexpr const Color navy = colorFromRgbBytes(0, 0, 128);
+    static constexpr const Color midnightBlue = colorFromRgbBytes(25, 25, 112);
 
-    static constexpr const Color lavender = COLOR_FROM_RGB_BYTES(230, 230, 250);
-    static constexpr const Color thistle = COLOR_FROM_RGB_BYTES(216, 191, 216);
-    static constexpr const Color plum = COLOR_FROM_RGB_BYTES(221, 160, 221);
-    static constexpr const Color violet = COLOR_FROM_RGB_BYTES(238, 130, 238);
-    static constexpr const Color orchid = COLOR_FROM_RGB_BYTES(218, 112, 214);
-    static constexpr const Color fuchsia = COLOR_FROM_RGB_BYTES(255, 0, 255);
-    static constexpr const Color magenta = COLOR_FROM_RGB_BYTES(255, 0, 255);
-    static constexpr const Color mediumOrchid = COLOR_FROM_RGB_BYTES(186, 85, 211);
-    static constexpr const Color mediumPurple = COLOR_FROM_RGB_BYTES(147, 112, 219);
-    static constexpr const Color blueViolet = COLOR_FROM_RGB_BYTES(138, 43, 226);
-    static constexpr const Color darkViolet = COLOR_FROM_RGB_BYTES(148, 0, 211);
-    static constexpr const Color darkOrchid = COLOR_FROM_RGB_BYTES(153, 50, 204);
-    static constexpr const Color darkMagenta = COLOR_FROM_RGB_BYTES(139, 0, 139);
-    static constexpr const Color purple = COLOR_FROM_RGB_BYTES(128, 0, 128);
-    static constexpr const Color indigo = COLOR_FROM_RGB_BYTES(75, 0, 130);
-    static constexpr const Color darkSlateBlue = COLOR_FROM_RGB_BYTES(72, 61, 139);
-    static constexpr const Color rebeccaPurple = COLOR_FROM_RGB_BYTES(102, 51, 153);
-    static constexpr const Color slateBlue = COLOR_FROM_RGB_BYTES(106, 90, 205);
-    static constexpr const Color mediumSlateBlue = COLOR_FROM_RGB_BYTES(123, 104, 238);
+    static constexpr const Color lavender = colorFromRgbBytes(230, 230, 250);
+    static constexpr const Color thistle = colorFromRgbBytes(216, 191, 216);
+    static constexpr const Color plum = colorFromRgbBytes(221, 160, 221);
+    static constexpr const Color violet = colorFromRgbBytes(238, 130, 238);
+    static constexpr const Color orchid = colorFromRgbBytes(218, 112, 214);
+    static constexpr const Color fuchsia = colorFromRgbBytes(255, 0, 255);
+    static constexpr const Color magenta = colorFromRgbBytes(255, 0, 255);
+    static constexpr const Color mediumOrchid = colorFromRgbBytes(186, 85, 211);
+    static constexpr const Color mediumPurple = colorFromRgbBytes(147, 112, 219);
+    static constexpr const Color blueViolet = colorFromRgbBytes(138, 43, 226);
+    static constexpr const Color darkViolet = colorFromRgbBytes(148, 0, 211);
+    static constexpr const Color darkOrchid = colorFromRgbBytes(153, 50, 204);
+    static constexpr const Color darkMagenta = colorFromRgbBytes(139, 0, 139);
+    static constexpr const Color purple = colorFromRgbBytes(128, 0, 128);
+    static constexpr const Color indigo = colorFromRgbBytes(75, 0, 130);
+    static constexpr const Color darkSlateBlue = colorFromRgbBytes(72, 61, 139);
+    static constexpr const Color rebeccaPurple = colorFromRgbBytes(102, 51, 153);
+    static constexpr const Color slateBlue = colorFromRgbBytes(106, 90, 205);
+    static constexpr const Color mediumSlateBlue = colorFromRgbBytes(123, 104, 238);
 
-    static constexpr const Color white = COLOR_FROM_RGB_BYTES(255, 255, 255);
-    static constexpr const Color snow = COLOR_FROM_RGB_BYTES(255, 250, 250);
-    static constexpr const Color honeydew = COLOR_FROM_RGB_BYTES(240, 255, 240);
-    static constexpr const Color mintCream = COLOR_FROM_RGB_BYTES(245, 255, 250);
-    static constexpr const Color azure = COLOR_FROM_RGB_BYTES(240, 255, 255);
-    static constexpr const Color aliceBlue = COLOR_FROM_RGB_BYTES(240, 248, 255);
-    static constexpr const Color ghostWhite = COLOR_FROM_RGB_BYTES(248, 248, 255);
-    static constexpr const Color whiteSmoke = COLOR_FROM_RGB_BYTES(245, 245, 245);
-    static constexpr const Color seashell = COLOR_FROM_RGB_BYTES(255, 245, 238);
-    static constexpr const Color beige = COLOR_FROM_RGB_BYTES(245, 245, 220);
-    static constexpr const Color oldLace = COLOR_FROM_RGB_BYTES(253, 245, 230);
-    static constexpr const Color floralWhite = COLOR_FROM_RGB_BYTES(255, 250, 240);
-    static constexpr const Color ivory = COLOR_FROM_RGB_BYTES(255, 255, 240);
-    static constexpr const Color antiqueWhite = COLOR_FROM_RGB_BYTES(250, 235, 215);
-    static constexpr const Color linen = COLOR_FROM_RGB_BYTES(250, 240, 230);
-    static constexpr const Color lavenderBlush = COLOR_FROM_RGB_BYTES(255, 240, 245);
-    static constexpr const Color mistyRose = COLOR_FROM_RGB_BYTES(255, 228, 225);
+    static constexpr const Color white = colorFromRgbBytes(255, 255, 255);
+    static constexpr const Color snow = colorFromRgbBytes(255, 250, 250);
+    static constexpr const Color honeydew = colorFromRgbBytes(240, 255, 240);
+    static constexpr const Color mintCream = colorFromRgbBytes(245, 255, 250);
+    static constexpr const Color azure = colorFromRgbBytes(240, 255, 255);
+    static constexpr const Color aliceBlue = colorFromRgbBytes(240, 248, 255);
+    static constexpr const Color ghostWhite = colorFromRgbBytes(248, 248, 255);
+    static constexpr const Color whiteSmoke = colorFromRgbBytes(245, 245, 245);
+    static constexpr const Color seashell = colorFromRgbBytes(255, 245, 238);
+    static constexpr const Color beige = colorFromRgbBytes(245, 245, 220);
+    static constexpr const Color oldLace = colorFromRgbBytes(253, 245, 230);
+    static constexpr const Color floralWhite = colorFromRgbBytes(255, 250, 240);
+    static constexpr const Color ivory = colorFromRgbBytes(255, 255, 240);
+    static constexpr const Color antiqueWhite = colorFromRgbBytes(250, 235, 215);
+    static constexpr const Color linen = colorFromRgbBytes(250, 240, 230);
+    static constexpr const Color lavenderBlush = colorFromRgbBytes(255, 240, 245);
+    static constexpr const Color mistyRose = colorFromRgbBytes(255, 228, 225);
 
-    static constexpr const Color gainsboro = COLOR_FROM_RGB_BYTES(220, 220, 220);
-    static constexpr const Color lightGray = COLOR_FROM_RGB_BYTES(211, 211, 211);
-    static constexpr const Color silver = COLOR_FROM_RGB_BYTES(192, 192, 192);
-    static constexpr const Color darkGray = COLOR_FROM_RGB_BYTES(169, 169, 169);
-    static constexpr const Color gray = COLOR_FROM_RGB_BYTES(128, 128, 128);
-    static constexpr const Color dimGray = COLOR_FROM_RGB_BYTES(105, 105, 105);
-    static constexpr const Color lightSlateGray = COLOR_FROM_RGB_BYTES(119, 136, 153);
-    static constexpr const Color slateGray = COLOR_FROM_RGB_BYTES(112, 128, 144);
-    static constexpr const Color darkSlateGray = COLOR_FROM_RGB_BYTES(47, 79, 79);
-    static constexpr const Color black = COLOR_FROM_RGB_BYTES(0, 0, 0);
+    static constexpr const Color gainsboro = colorFromRgbBytes(220, 220, 220);
+    static constexpr const Color lightGray = colorFromRgbBytes(211, 211, 211);
+    static constexpr const Color silver = colorFromRgbBytes(192, 192, 192);
+    static constexpr const Color darkGray = colorFromRgbBytes(169, 169, 169);
+    static constexpr const Color gray = colorFromRgbBytes(128, 128, 128);
+    static constexpr const Color dimGray = colorFromRgbBytes(105, 105, 105);
+    static constexpr const Color lightSlateGray = colorFromRgbBytes(119, 136, 153);
+    static constexpr const Color slateGray = colorFromRgbBytes(112, 128, 144);
+    static constexpr const Color darkSlateGray = colorFromRgbBytes(47, 79, 79);
+    static constexpr const Color black = colorFromRgbBytes(0, 0, 0);
 
+    /**
+     * @brief Parses a named color or #RRGGBB/#RRGGBBAA value.
+     * @param name Color name or hex string.
+     * @param result Parsed color output.
+     * @return true on success, false otherwise.
+     */
     static inline bool fromString(const std::string &name, Color &result) {
         Color color;
-        if (tryFromString(name, color))
+        if (tryFromString(name, color)) {
+            result = color;
             return true;
+        }
         return false;
     }
 
+    /**
+     * @brief Parses a color and returns a fallback when parsing fails.
+     * @param name Color name or hex string.
+     * @param defaultColor Fallback color when parsing fails.
+     * @return Parsed color or @p defaultColor.
+     */
     static inline Color fromStringOrDefault(const std::string &name,
                                             Color defaultColor = 0xffffff) {
         Color color;
@@ -197,32 +229,43 @@ class Colors {
         return defaultColor;
     }
 
+    /** @brief Extracts red byte component. */
     static uint8_t getRed(Color color) {
         return ((unsigned char)(color >> 0));
     }
+    /** @brief Extracts green byte component. */
     static uint8_t getGreen(Color color) {
         return ((unsigned char)(color >> 8));
     }
+    /** @brief Extracts blue byte component. */
     static uint8_t getBlue(Color color) {
         return ((unsigned char)(color >> 16));
     }
+    /** @brief Extracts alpha byte component. */
     static uint8_t getAlpha(Color color) {
         return ((unsigned char)(color >> 24));
     }
+    /** @brief Extracts red component as [0,1] float. */
     static float getRedf(Color color) {
         return ((color) & 0xff) / 255.0f;
     }
+    /** @brief Extracts green component as [0,1] float. */
     static float getGreenf(Color color) {
         return ((color >> 8) & 0xff) / 255.0f;
     }
+    /** @brief Extracts blue component as [0,1] float. */
     static float getBluef(Color color) {
         return ((color >> 16) & 0xff) / 255.0f;
     }
+    /** @brief Extracts alpha component as [0,1] float. */
     static float getAlphaf(Color color) {
         return (color >> 24) / 255.0f;
     }
 
   private:
+    /**
+     * @brief Internal parser for named and hex colors.
+     */
     static inline bool tryFromString(const std::string &name, Color &result) {
         static const std::unordered_map<std::string, Color> table = {
 
@@ -387,10 +430,13 @@ class Colors {
             return true;
         }
 
-        if (!pek::utf8::beginsWith(name, "#"))
+        if (name.empty() || name.front() != '#')
             return false;
 
-        std::string hex = pek::utf8::removeLeft(pek::utf8::toLowerAscii(name), 1);
+        std::string hex = name.substr(1);
+        std::transform(hex.begin(), hex.end(), hex.begin(), [](unsigned char c) {
+            return static_cast<char>(std::tolower(c));
+        });
 
         uint32_t rgba;
         if (false == parseHex(hex, rgba))
@@ -401,6 +447,9 @@ class Colors {
         return true;
     }
 
+    /**
+     * @brief Parses lower-case hex color text (RRGGBB or RRGGBBAA).
+     */
     static bool parseHex(const std::string &hex, uint32_t &result) {
         const size_t len = hex.size();
         if (len != 6 && len != 8)

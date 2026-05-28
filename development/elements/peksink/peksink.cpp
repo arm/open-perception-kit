@@ -558,7 +558,7 @@ static void gst_pek_sink_init(GstPekSink *self) {
     self->private_data = new GstPekPrivate();
 
     /* defaults */
-    self->host = g_strdup(pek::Tools::getLocalIp().c_str());
+    self->host = g_strdup("0.0.0.0");
     self->static_files_location = g_strdup(PEK_DEFAULT_STATIC_FILES_LOCATION);
     self->http_port = 9999;
     self->ws_port = 8000;

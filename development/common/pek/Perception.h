@@ -20,9 +20,9 @@ struct Perception {
 
     // base class for detections
     struct Object {
-        uint64_t uuid = Uuid();
+        uint64_t uuid = Uuid::next();
         uint64_t parentUuid = 0;
-        uint64_t creationTsNs = TsUtcNs();
+        uint64_t creationTsNs = Time::utcNano();
     };
 
     // a viedeo frame descriptor, will be parent of vision inference detections

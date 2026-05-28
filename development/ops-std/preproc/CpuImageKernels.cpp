@@ -4,20 +4,18 @@
 #include "preproc/CpuImageKernels.h"
 #include "pek/Types.h"
 
-using namespace pek;
+using namespace pek::stdop::preproc;
 
 namespace {
-
-inline bool canRunDirectFullKernel(const ImageLayoutDesc &src, const ImageLayoutDesc &dst) {
+inline bool canRunDirectFullKernel(const pek::ImageOpDesc &src, const pek::ImageOpDesc &dst) {
     return src.rectIsFullSurface() && dst.rectIsFullSurface() &&
            src.surfaceWidth == dst.surfaceWidth && src.surfaceHeight == dst.surfaceHeight;
 }
-
 } // namespace
 
 // this one is called
-bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(const ImageLayoutDesc &src,
-                                                          const ImageLayoutDesc &dst,
+bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(const ImageOpDesc &src,
+                                                          const ImageOpDesc &dst,
                                                           Sampling sampling) {
     if (!canRunDirectFullKernel(src, dst)) {
         return StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(src, dst, sampling);
@@ -82,8 +80,8 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Chw(const ImageLayoutDesc 
     return true;
 }
 
-bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageLayoutDesc &src,
-                                                          const ImageLayoutDesc &dst,
+bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src,
+                                                          const ImageOpDesc &dst,
                                                           Sampling sampling) {
     const uint8_t *srcPtr = src.data;
     size_t srcWidth = src.surfaceWidth;
@@ -179,8 +177,8 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageLayoutDesc 
     return true;
 }
 
-bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(const ImageLayoutDesc &src,
-                                                        const ImageLayoutDesc &dst,
+bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(const ImageOpDesc &src,
+                                                        const ImageOpDesc &dst,
                                                         Sampling sampling) {
     const uint8_t *srcPtr = src.data;
     size_t srcWidth = src.surfaceWidth;
@@ -225,8 +223,8 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(const ImageLayoutDesc &s
     return true;
 }
 
-bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(const ImageLayoutDesc &src,
-                                                          const ImageLayoutDesc &dst,
+bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(const ImageOpDesc &src,
+                                                          const ImageOpDesc &dst,
                                                           Sampling sampling) {
     const uint8_t *srcPtr = src.data;
     size_t srcWidth = src.surfaceWidth;
@@ -323,8 +321,8 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(const ImageLayoutDesc 
     return true;
 }
 
-bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(const ImageLayoutDesc &src,
-                                                          const ImageLayoutDesc &dst,
+bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(const ImageOpDesc &src,
+                                                          const ImageOpDesc &dst,
                                                           Sampling sampling) {
     const uint8_t *srcPtr = src.data;
     size_t srcWidth = src.surfaceWidth;
@@ -400,8 +398,8 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(const ImageLayoutDesc 
     return true;
 }
 
-bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Hwc(const ImageLayoutDesc &src,
-                                                          const ImageLayoutDesc &dst,
+bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Hwc(const ImageOpDesc &src,
+                                                          const ImageOpDesc &dst,
                                                           Sampling sampling) {
     const uint8_t *srcPtr = src.data;
     size_t srcWidth = src.surfaceWidth;
@@ -477,8 +475,8 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Hwc(const ImageLayoutDesc 
     return true;
 }
 
-bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Gray8_Full(const ImageLayoutDesc &src,
-                                                     const ImageLayoutDesc &dst,
+bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Gray8_Full(const ImageOpDesc &src,
+                                                     const ImageOpDesc &dst,
                                                      Sampling sampling) {
     if (!canRunDirectFullKernel(src, dst)) {
         return StretchBlit_Bgra8_Hwc_Rect_Gray8_Rect(src, dst, sampling);
@@ -510,8 +508,8 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Gray8_Full(const ImageLayoutDesc &src,
     return true;
 }
 
-bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Gray8_Rect(const ImageLayoutDesc &src,
-                                                     const ImageLayoutDesc &dst,
+bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Gray8_Rect(const ImageOpDesc &src,
+                                                     const ImageOpDesc &dst,
                                                      Sampling sampling) {
     const uint8_t *srcPtr = src.data;
     size_t srcWidth = src.surfaceWidth;
@@ -553,8 +551,8 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Gray8_Rect(const ImageLayoutDesc &src,
     return true;
 }
 
-bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(const ImageLayoutDesc &src,
-                                                        const ImageLayoutDesc &dst,
+bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(const ImageOpDesc &src,
+                                                        const ImageOpDesc &dst,
                                                         Sampling sampling) {
     const uint8_t *srcPtr = src.data;
     size_t srcWidth = src.surfaceWidth;
@@ -610,8 +608,8 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(const ImageLayoutDesc &s
     return true;
 }
 
-bool ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Hwc(const ImageLayoutDesc &src,
-                                                        const ImageLayoutDesc &dst,
+bool ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Hwc(const ImageOpDesc &src,
+                                                        const ImageOpDesc &dst,
                                                         Sampling sampling) {
     if (!canRunDirectFullKernel(src, dst)) {
         return StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(src, dst, sampling);
@@ -647,8 +645,8 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Hwc(const ImageLayoutDesc &s
     return true;
 }
 
-bool ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Hwc(const ImageLayoutDesc &src,
-                                                        const ImageLayoutDesc &dst,
+bool ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Hwc(const ImageOpDesc &src,
+                                                        const ImageOpDesc &dst,
                                                         Sampling sampling) {
     if (!canRunDirectFullKernel(src, dst)) {
         return StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Hwc(src, dst, sampling);
@@ -684,8 +682,8 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Hwc(const ImageLayoutDesc &s
     return true;
 }
 
-bool ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Chw(const ImageLayoutDesc &src,
-                                                        const ImageLayoutDesc &dst,
+bool ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Chw(const ImageOpDesc &src,
+                                                        const ImageOpDesc &dst,
                                                         Sampling sampling) {
     if (!canRunDirectFullKernel(src, dst)) {
         return StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(src, dst, sampling);
@@ -721,8 +719,8 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf32_Full_Chw(const ImageLayoutDesc &s
     return true;
 }
 
-bool ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Chw(const ImageLayoutDesc &src,
-                                                        const ImageLayoutDesc &dst,
+bool ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Chw(const ImageOpDesc &src,
+                                                        const ImageOpDesc &dst,
                                                         Sampling sampling) {
     if (!canRunDirectFullKernel(src, dst)) {
         return StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Chw(src, dst, sampling);
@@ -761,8 +759,8 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Full_Rgbf16_Full_Chw(const ImageLayoutDesc &s
     return true;
 }
 
-bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(const ImageLayoutDesc &src,
-                                                        const ImageLayoutDesc &dst,
+bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src,
+                                                        const ImageOpDesc &dst,
                                                         Sampling sampling) {
     const uint8_t *srcPtr = src.data;
     size_t srcWidth = src.surfaceWidth;
@@ -816,8 +814,8 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(const ImageLayoutDesc &s
     return true;
 }
 
-bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Hwc(const ImageLayoutDesc &src,
-                                                        const ImageLayoutDesc &dst,
+bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Hwc(const ImageOpDesc &src,
+                                                        const ImageOpDesc &dst,
                                                         Sampling sampling) {
     const uint8_t *srcPtr = src.data;
     size_t srcWidth = src.surfaceWidth;
@@ -866,8 +864,8 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Hwc(const ImageLayoutDesc &s
     return true;
 }
 
-bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Chw(const ImageLayoutDesc &src,
-                                                        const ImageLayoutDesc &dst,
+bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Chw(const ImageOpDesc &src,
+                                                        const ImageOpDesc &dst,
                                                         Sampling sampling) {
     const uint8_t *srcPtr = src.data;
     size_t srcWidth = src.surfaceWidth;

@@ -15,7 +15,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace Osd {
+namespace pek::osd {
 class Layer;
 
 using Layers_t = std::deque<std::unique_ptr<Layer>>;
@@ -279,4 +279,4 @@ class Arrow {
     }
 };
 
-} // namespace Osd
+} // namespace pek::osd

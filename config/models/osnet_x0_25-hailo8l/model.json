@@ -8,11 +8,12 @@
         {
             "shape": [
                 1,
-                3,
                 256,
-                128
+                128,
+                3
             ],
-            "dataKind": "ImageRgbChw",
+            "dataKind": "ImageRgbHwc",
+            "valueType": "Uint8",
             "mean": [
                 0.485,
                 0.456,

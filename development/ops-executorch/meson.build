@@ -47,7 +47,7 @@ executorchops = shared_module(
   'pek-executorch-ops',
   sources: [
     'Inference.cpp',
-    'Interface.cpp',
+    'Plugin.cpp',
     'InferenceOp.cpp',
   ],
   include_directories: common_include,

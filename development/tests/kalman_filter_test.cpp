@@ -4,11 +4,11 @@
 
 #include <gtest/gtest.h>
 
-#include "KalmanFilter.h"
+#include "pek/KalmanFilter.h"
 
 namespace {
 
-using Cv2DKf = KalmanFilter<4, 2, double>;
+using Cv2DKf = pek::KalmanFilter<4, 2, double>;
 using StateVector = Cv2DKf::StateVector;
 using StateMatrix = Cv2DKf::StateMatrix;
 using MeasurementVector = Cv2DKf::MeasurementVector;

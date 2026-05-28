@@ -10,12 +10,12 @@
 #include <fmt/core.h>
 #include <memory>
 
-using namespace exct;
+using namespace pek::extrch;
 
 InferenceOp::InferenceOp() {}
 InferenceOp::~InferenceOp() {}
 
-pek::Result<void> InferenceOp::bind(size_t index, const std::vector<pek::Op *> &ops) {
+pek::Result<void> InferenceOp::bind(size_t index, const std::vector<pek::op::Op *> &ops) {
     return {};
 }
 
@@ -32,7 +32,7 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
     }
 
     try {
-        inference = std::make_unique<exct::Inference>();
+        inference = std::make_unique<pek::extrch::Inference>();
 
         auto setupResult = inference->setupFromJson(modelDescPath);
         if (!setupResult) {
@@ -48,6 +48,6 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
     return {};
 }
 
-pek::Result<void> InferenceOp::process(pek::OpChainContext &opCainContext) {
+pek::Result<void> InferenceOp::process(pek::op::OpChainContext &opCainContext) {
     return {};
 }

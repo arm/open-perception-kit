@@ -13,9 +13,10 @@
 #include <string>
 
 using namespace pek;
+using namespace pek::stdop::postproc;
 
-pek::Result<void> RvmParser::parse(const pek::TensorParser::Input &input,
-                                   pek::Perception::Layer &detectionResult) {
+Result<void> RvmParser::parse(const pek::TensorParser::Input &input,
+                              pek::Perception::Layer &detectionResult) {
 
     if (!input.tensors[0] || !input.tensors[1]) {
         return tl::unexpected(
@@ -23,24 +24,24 @@ pek::Result<void> RvmParser::parse(const pek::TensorParser::Input &input,
     }
 
     const auto shape = input.tensors[1]->getShape();
-    if (shape.dimensionCount != 4) {
+    if (shape.rank != 4) {
         return tl::unexpected(
             PEK_ERROR(ErrorFlag::InvalidData,
-                      fmt::format("RvmParser: expected 4D tensor, got {}D", shape.dimensionCount)));
+                      fmt::format("RvmParser: expected 4D tensor, got {}D", shape.rank)));
     }
-    if (shape.valueCount[0] != 1) {
+    if (shape.dims[0] != 1) {
         return tl::unexpected(
             PEK_ERROR(ErrorFlag::InvalidData,
-                      fmt::format("RvmParser: batch size must be 1, got {}", shape.valueCount[0])));
+                      fmt::format("RvmParser: batch size must be 1, got {}", shape.dims[0])));
     }
-    if (shape.valueCount[1] != 1) {
+    if (shape.dims[1] != 1) {
         return tl::unexpected(
             PEK_ERROR(ErrorFlag::InvalidData,
-                      fmt::format("RvmParser: expected 1 channel, got {}", shape.valueCount[1])));
+                      fmt::format("RvmParser: expected 1 channel, got {}", shape.dims[1])));
     }
 
-    size_t maskHeight = shape.valueCount[2];
-    size_t maskWidth = shape.valueCount[3];
+    size_t maskHeight = shape.dims[2];
+    size_t maskWidth = shape.dims[3];
 
     detectionResult.detections.push_back(Perception::SegmentationMap());
 

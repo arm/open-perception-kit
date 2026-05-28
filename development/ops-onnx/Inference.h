@@ -10,7 +10,7 @@
 #include "pek/ModelDescriptor.h"
 
 #include "pek/Model.h"
-#include "pek/TensorView.h"
+#include "pek/Result.h"
 #include "pek/Types.h"
 
 #include <memory>
@@ -19,17 +19,17 @@
 
 #include "pek/Result.h"
 
-namespace onnx {
+namespace pek::onnx {
 
 // ONNX level tensor
 struct Tensor {
 
-    Tensor(const pek::Shape &shape, pek::Tdt type) {
+    Tensor(const pek::Shape &shape, pek::Dtype type) {
         this->shape = shape;
         this->type = type;
         this->typeByteSize = pek::getValueTypeByteSize(type);
-        for (size_t i = 0; i < shape.dimensionCount; i++)
-            onnxShape[i] = shape.valueCount[i];
+        for (size_t i = 0; i < shape.rank; i++)
+            onnxShape[i] = shape.dims[i];
 
         if (shape.hasDynamicDimension()) {
             fmt::print("Creating dynamic tensor with shape: {}\n", shape.toString());
@@ -58,25 +58,25 @@ struct Tensor {
     }
 
     Ort::Value createOnnxTensor(const Ort::MemoryInfo &memInfo) {
-        if (this->type == pek::Tdt::Float32) {
+        if (this->type == pek::Dtype::Float32) {
             return Ort::Value::CreateTensor<float>(memInfo,
                                                    reinterpret_cast<float *>(getData()),
                                                    getElementCount(),
                                                    this->onnxShape,
-                                                   this->shape.dimensionCount);
-        } else if (this->type == pek::Tdt::Int64) {
+                                                   this->shape.rank);
+        } else if (this->type == pek::Dtype::Int64) {
             return Ort::Value::CreateTensor<int64_t>(memInfo,
                                                      reinterpret_cast<int64_t *>(getData()),
                                                      getElementCount(),
                                                      onnxShape,
-                                                     this->shape.dimensionCount);
+                                                     this->shape.rank);
         } else {
             assert(0);
         }
     }
 
   private:
-    pek::Tdt type;
+    pek::Dtype type;
     size_t typeByteSize;
     pek::Shape shape;
     int64_t onnxShape[8];
@@ -90,7 +90,7 @@ struct Inference {
     virtual ~Inference();
 
     pek::Result<void> setupFromJson(const std::string &filePath);
-    pek::Result<void> setup(const ModelDescriptor &modelDesc);
+    pek::Result<void> setup(const pek::ModelDescriptor &modelDesc);
     bool isReady() {
         return setupReady;
     }
@@ -98,7 +98,7 @@ struct Inference {
     pek::Result<void> preprocessImageData(size_t tensorIndex,
                                           const uint8_t *data,
                                           pek::DataKind dataKind,
-                                          pek::Tdt valueType,
+                                          pek::Dtype valueType,
                                           size_t imageWidth,
                                           size_t imageHeight);
 
@@ -126,7 +126,7 @@ struct Inference {
     pek::InferenceInfo inferenceInfo;
     bool setupReady = false;
 
-    static bool onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, pek::Tdt &outType);
+    static bool onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, pek::Dtype &outType);
     static std::vector<size_t>
     getTensorShape(const Ort::Session &session, pek::TensorInOut tensorInOut, int tensorIndex);
     static pek::Result<pek::Model> inspectModel(const Ort::Session &session);
@@ -136,10 +136,10 @@ struct Inference {
     Ort::MemoryInfo *memoryInfo = nullptr;
     Ort::Session *session = nullptr;
 
-    void setupTensorsForModel();
-    void recreateInputTensor(size_t index, const pek::Shape &shape, pek::Tdt valueType);
+    Result<void> setupTensorsForModel();
+    void recreateInputTensor(size_t index, const pek::Shape &shape, pek::Dtype valueType);
 
-    ModelDescriptor modelDescriptor;
+    pek::ModelDescriptor modelDescriptor;
     pek::Model model;
 
     std::vector<Ort::Value> dynamicOutputData;
@@ -162,4 +162,4 @@ struct Inference {
         std::vector<Ort::Value> outputTensorVector;
     } api;
 };
-} // namespace onnx
+} // namespace pek::onnx

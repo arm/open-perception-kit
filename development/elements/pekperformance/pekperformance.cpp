@@ -22,8 +22,8 @@
 #include <variant>
 #include <vector>
 
-#include "PerformanceTracer.h"
 #include "gst/PerceptionMeta.h"
+#include "perf/PerformanceTracer.h"
 
 #ifndef PACKAGE
 #define PACKAGE "pek-elements"
@@ -375,11 +375,11 @@ gst_pek_performance_get_property(GObject *object, guint prop_id, GValue *value, 
 // Helper function to render overlay to cached surface
 static std::vector<std::string> get_performance_data(GstPekPerformance *self) {
     // Get global tracer (fresh each time to ensure same instance as pekinfer)
-    pek::PerformanceTracer *tracer = pek::getGlobalTracer();
+    pek::perf::PerformanceTracer *tracer = pek::perf::getGlobalTracer();
 
     // Capture current-cycle measurements before ending the cycle. endCycle()
     // clears the current cycle buffer, so we must read it first.
-    std::vector<pek::TimingMeasurement> measurements = tracer->getCurrentCycleMeasurements();
+    std::vector<pek::perf::TimingMeasurement> measurements = tracer->getCurrentCycleMeasurements();
 
     // End the performance cycle to calculate statistics
     tracer->endCycle();
@@ -401,7 +401,7 @@ static std::vector<std::string> get_performance_data(GstPekPerformance *self) {
         auto all_stats_for_removal = tracer->getAllStats();
         for (const auto &kv : all_stats_for_removal) {
             const std::string &key = kv.first;
-            const pek::TimingStats &stats = kv.second;
+            const pek::perf::TimingStats &stats = kv.second;
             if (stats.count == 0)
                 continue;
 
@@ -424,7 +424,8 @@ static std::vector<std::string> get_performance_data(GstPekPerformance *self) {
     lines.push_back("═══ Performance Metrics ═══");
 
     // Group metrics by model name (prefix before underscore) - declared outside for FPS calculation
-    std::map<std::string, std::vector<std::pair<std::string, pek::TimingStats>>> grouped_metrics;
+    std::map<std::string, std::vector<std::pair<std::string, pek::perf::TimingStats>>>
+        grouped_metrics;
 
     if (self->show_all_metrics) {
         // Display all available metrics from tracer, grouped by model
@@ -443,7 +444,7 @@ static std::vector<std::string> get_performance_data(GstPekPerformance *self) {
         // Display metrics grouped by model, ordered: preprocess, inference, postprocess
         for (const auto &[model_name, metrics] : grouped_metrics) {
             // Sort metrics within each model: preprocess -> inference -> postprocess
-            std::vector<std::pair<std::string, pek::TimingStats>> sorted_metrics = metrics;
+            std::vector<std::pair<std::string, pek::perf::TimingStats>> sorted_metrics = metrics;
             std::sort(
                 sorted_metrics.begin(), sorted_metrics.end(), [](const auto &a, const auto &b) {
                     auto get_order = [](const std::string &key) {
@@ -579,7 +580,7 @@ static GstFlowReturn gst_pek_performance_transform_frame_ip(GstVideoFilter *filt
         }
     } else {
         if (std::get<GstFlowReturn>(ret) != GST_FLOW_OK) {
-            pek_abort();
+            return std::get<GstFlowReturn>(ret);
         }
     }
 

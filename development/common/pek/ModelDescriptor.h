@@ -4,57 +4,113 @@
 
 #pragma once
 
+#include "pek/Color.h"
+#include "pek/JsonSchemas.h"
+#include "pek/Result.h"
 #include "pek/Shape.h"
 #include "pek/Types.h"
 
-#include "pek/JsonSchemas.h"
+#include <string>
+#include <vector>
 
 #include <nlohmann/json.hpp>
-#include <string>
-
-#include "pek/Color.h"
-#include "pek/Result.h"
 
 using nlohmann::json;
 
-// namespace pek {
+namespace pek {
 
+/**
+ * @brief JSON-serializable tensor descriptor used by model descriptors.
+ *
+ * Describes expected tensor shape/layout/type and optional quantization and
+ * normalization parameters for input/output tensors.
+ */
 struct TensorDescriptor {
-    pek::Shape shape{}; // if this is missing, system tries to discover it using onnx
-    pek::DataKind dataKind = pek::DataKind::Unknown; // e.g. ImageRgbChw
+    /// Tensor shape. When missing/invalid, runtime may try to infer it from model metadata.
+    pek::Shape shape{};
 
-    pek::Tdt tdt = pek::Tdt::Float32;
+    /// Tensor semantic kind (for example ImageRgbChw).
+    pek::DataKind dataKind = pek::DataKind::Unknown;
+
+    /// Tensor element type.
+    pek::Dtype dtype = pek::Dtype::Float32;
+
+    /// Quantization zero point.
     float zeroPoint = 0.0f;
+
+    /// Quantization scale.
     float scale = 1.0f;
+
+    /// Per-channel mean/std normalization parameters.
     pek::Colorf mean = {0.0f, 0.0f, 0.0f, 0.0f}, std = {1.0f, 1.0f, 1.0f, 1.0f};
 
-    // if this is an input tensor and the value is not pek::InvalidTensorIndex
-    // we have to realloc the tensor to match the shape of the referenced output tensor
+    /**
+     * @brief Optional output tensor index used for dynamic shape matching.
+     *
+     * If this is an input tensor and value is not pek::InvalidTensorIndex,
+     * the input tensor may be reallocated to match the referenced output shape.
+     */
     size_t matchShapeOutputIndex = pek::InvalidTensorIndex;
 
+    /// Optional scalar/vector input values for non-image tensor kinds.
     std::vector<float> valueInputs;
 };
 
+/**
+ * @brief JSON-serializable model descriptor.
+ *
+ * Contains model identity, tensor descriptors, and runtime behavior hints used
+ * to configure inference pipelines.
+ */
 struct ModelDescriptor {
 
+    /// Human-readable model name.
     std::string name;
+
+    /// Optional legal/license notice associated with the model.
     std::string legal;
 
+    /// Model file path (usually relative to model directory/config root).
     std::string modelFile;
+
+    /// Model family identifier (for example "yolov11").
     std::string modelFamily;
+
+    /// Semantic model content type (for example detection/classification).
     std::string contentType;
 
+    /// Input tensor descriptors.
     std::vector<TensorDescriptor> inputTensors;
+
+    /// Output tensor descriptors.
     std::vector<TensorDescriptor> outputTensors;
 
-    // sometimes onnx reports an output tensor shape but the models fails to use it
-    // set to true to let the model decide the output (tensor reallocation in every inference step)
+    /**
+     * @brief Enables runtime-dynamic output shape handling.
+     *
+     * Some models/runtimes expose output shapes that are not stable at configuration
+     * time. When enabled, runtime can reallocate output tensors per inference step.
+     */
     bool dynamicOutput = false;
-    pek::Tdt outputTdtType;
 
+    /// Optional output dtype override/hint.
+    pek::Dtype outputDtype = pek::Dtype::Float32;
+
+    /**
+     * @brief Builds a descriptor from JSON text.
+     * @param jsonString JSON payload.
+     * @return Parsed descriptor or error.
+     */
     static pek::Result<ModelDescriptor> fromJson(const std::string &jsonString);
+
+    /**
+     * @brief Loads and parses a descriptor from a JSON file.
+     * @param path JSON file path.
+     * @return Parsed descriptor or error.
+     */
     static pek::Result<ModelDescriptor> fromFile(const std::string &path);
 
+    /// Optional tensor feedback loop descriptors.
     std::vector<pek::TensorFeedback> tensorFeedbacks;
 };
 
@@ -63,21 +119,20 @@ struct ModelDescriptor {
 inline void to_json(json &j, const TensorDescriptor &b) {
     j = json{
         {"shape", b.shape},
-        {"valueType", b.tdt},
+        {"valueType", b.dtype},
         {"zeroPoint", b.zeroPoint},
         {"scale", b.scale},
         {"mean", b.mean},
         {"std", b.std},
-        {"stmatchShapeOutputIndexd", b.matchShapeOutputIndex},
+        {"matchShapeOutputIndex", b.matchShapeOutputIndex},
         {"dataKind", b.dataKind},
         {"valueInputs", b.valueInputs},
     };
 }
 
 inline void from_json(const json &j, TensorDescriptor &b) {
-    //    j.at("shape").get_to(b.shape);
     b.shape = j.value("shape", pek::Shape());
-    b.tdt = j.value("valueType", pek::Tdt::Float32);
+    b.dtype = j.value("valueType", pek::Dtype::Float32);
     b.zeroPoint = j.value("zeroPoint", 0.0f);
     b.scale = j.value("scale", 1.0f);
     b.mean = j.value("mean", pek::Colorf{0.0f, 0.0f, 0.0f, 0.0f});
@@ -110,4 +165,4 @@ inline void from_json(const json &j, ModelDescriptor &b) {
     b.legal = j.value("legal", std::string{});
     j.at("dynamicOutput").get_to(b.dynamicOutput);
 }
-//}
+} // namespace pek
