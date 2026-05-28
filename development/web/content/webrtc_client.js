@@ -99,7 +99,7 @@ class WebRtcClient {
 
         this.log(`Starting WebRTC session generation ${generation}: ${reason}`);
         this.onStatus('connecting', 'Connecting', 'Connecting to signaling server...');
-        this.onStatusLine('<strong>Connecting to signaling server...</strong>');
+        this.onStatusLine('Connecting to signaling server...');
 
         session.pc = this.createPeerConnection(session);
         session.ws = this.createSignalingSocket(session);
@@ -140,7 +140,7 @@ class WebRtcClient {
                 this.observeVideoTrack(session, event.track);
                 this.markFrameHeartbeat(session, 'video track attached');
                 this.onStatus('connected', 'Connected', 'Receiving video stream');
-                this.onStatusLine('<strong>WebRTC connected.</strong> Video stream should be visible.');
+                this.onStatusLine('WebRTC connected. Video stream should be visible.');
             }
         };
 
@@ -154,7 +154,7 @@ class WebRtcClient {
                 this.onStatus('connected', 'Connected', 'Peer connection is stable.');
             } else if (state === 'failed' || state === 'disconnected') {
                 this.onStatus('disconnected', 'Disconnected', 'Trying to recover connection...');
-                this.onStatusLine(`<strong>ICE state:</strong> ${state} - will try to restart WebRTC.`);
+                this.onStatusLine(`ICE state: ${state} - will try to restart WebRTC.`);
                 this.scheduleRestart(session, `ICE ${state}`);
             }
         };
@@ -210,7 +210,7 @@ class WebRtcClient {
 
                     this.onStatus('connected', 'Connected', 'Answer received from server.');
                     if (!session.receivingVideo)
-                        this.onStatusLine('<strong>Answer received.</strong> Waiting for video track...');
+                        this.onStatusLine('Answer received. Waiting for video track...');
                 } else if (data.type === 'candidate' && data.ice) {
                     if (!data.ice.candidate) {
                         this.log('End of candidates');
@@ -235,8 +235,7 @@ class WebRtcClient {
 
             this.log('Signaling WebSocket closed. Scheduling reconnect.');
             this.onStatus('disconnected', 'Disconnected', 'Signaling closed - will retry...');
-            this.onStatusLine(
-                '<strong>Signaling connection closed.</strong> Will retry automatically.');
+            this.onStatusLine('Signaling connection closed. Will retry automatically.');
 
             const delay = this.nextReconnectDelay();
             this.scheduleRestart(session, 'signaling closed', delay);
@@ -251,7 +250,7 @@ class WebRtcClient {
 
         try {
             this.onStatus('connecting', 'Connecting', 'Creating offer and sending to server...');
-            this.onStatusLine('<strong>Creating offer</strong> and sending it to the signaling server...');
+            this.onStatusLine('Creating offer and sending it to the signaling server...');
 
             const offer = await session.pc.createOffer();
             if (!this.isCurrent(session))

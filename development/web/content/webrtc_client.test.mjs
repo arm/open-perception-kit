@@ -110,6 +110,30 @@ test('video frame heartbeat does not spam the default logger', async () => {
     assert.equal(env.logs.some((log) => log.message === 'Video heartbeat: video frame'), false);
 });
 
+test('status line updates are plain text for the compact UI', async () => {
+    const env = createEnv();
+    const statusLines = [];
+    const client = env.createClient({
+        frameTimeoutMs: 1000,
+        reconnectDelayMs: 0,
+        onStatusLine: (message) => statusLines.push(message),
+    });
+
+    client.start();
+    env.openLatestSocket();
+    await env.flush();
+    env.latestSocket().receive({type: 'answer', sdp: 'answer'});
+    await env.flush();
+    env.attachVideoTrack();
+    env.latestPeerConnection().setIceState('failed');
+    env.clock.tick(0);
+    env.openLatestSocket();
+    env.latestSocket().serverClose();
+
+    assert.ok(statusLines.length > 0);
+    assert.equal(statusLines.some((message) => /<\/?[a-z][^>]*>/i.test(message)), false);
+});
+
 test('currentTime fallback heartbeat keeps the session alive without requestVideoFrameCallback', async () => {
     const env = createEnv();
     env.video.requestVideoFrameCallback = undefined;

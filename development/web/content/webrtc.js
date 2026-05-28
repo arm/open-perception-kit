@@ -13,39 +13,48 @@ const logEl = document.getElementById('log');
 
 // ===== UI HELPERS =====
 function setStatus(state, label, subtext) {
-    statusPill.classList.remove('connecting', 'connected', 'reconnecting', 'disconnected');
-    statusPill.classList.add(state);
-    statusLabelEl.textContent = label.toUpperCase();
-    if (subtext)
+    if (statusPill) {
+        statusPill.classList.remove('connecting', 'connected', 'reconnecting', 'disconnected');
+        statusPill.classList.add(state);
+    }
+    statusLineEl.classList.remove('connecting', 'connected', 'reconnecting', 'disconnected');
+    statusLineEl.classList.add(state);
+    if (statusLabelEl)
+        statusLabelEl.textContent = label.toUpperCase();
+    if (subtext && statusSubtextEl)
         statusSubtextEl.textContent = subtext;
 
     switch (state) {
-    case 'connecting':
-    case 'reconnecting':
-        overlay.classList.remove('hidden');
-        overlayText.textContent = 'Connecting…';
-        break;
-    case 'connected':
-        overlay.classList.add('hidden');
-        break;
-    case 'disconnected':
-        overlay.classList.remove('hidden');
-        overlayText.textContent = 'Disconnected – waiting for stream…';
-        break;
+        case 'connecting':
+        case 'reconnecting':
+            overlay.classList.remove('hidden');
+            overlayText.textContent = 'Connecting…';
+            break;
+        case 'connected':
+            overlay.classList.add('hidden');
+            break;
+        case 'disconnected':
+            overlay.classList.remove('hidden');
+            overlayText.textContent = 'Disconnected – waiting for stream…';
+            break;
     }
 }
 
 function setStatusLine(text) {
-    console.log('setStatusLine: ' + text);
-    statusLineEl.innerHTML = text;
+    console.log("setStatusLine: " + text);
+    const textEl = statusLineEl.querySelector('.status-line-text');
+    if (textEl) {
+        textEl.textContent = text;
+    } else {
+        statusLineEl.textContent = text;
+    }
 }
 
 function appendLog(message, type = 'info') {
     const div = document.createElement('div');
     div.className = 'log-line' + (type === 'error' ? ' error' : '');
     const time = new Date().toLocaleTimeString();
-    div.innerHTML = `<span>[${time}]</span> <span class="log-tag">${
-        type === 'error' ? 'ERR' : 'LOG'}</span>${message}`;
+    div.innerHTML = `<span>[${time}]</span> <span class="log-tag">${type === 'error' ? 'ERR' : 'LOG'}</span>${message}`;
     logEl.appendChild(div);
     logEl.scrollTop = logEl.scrollHeight;
 
@@ -58,7 +67,7 @@ const WS_HOST = location.hostname;
 
 // Prefer configured wsPort, fallback to page port if missing
 const WS_PORT = (window.PEK_CONFIG && window.PEK_CONFIG.wsPort) ||
-                (location.port || (location.protocol === 'https:' ? 443 : 80));
+    (location.port || (location.protocol === 'https:' ? 443 : 80));
 
 const SIGNALING_URL = `${WS_PROTO}://${WS_HOST}:${WS_PORT}/ws`;
 const WEBRTC_TIMING_CONFIG = resolveWebRtcTimingConfig(window.PEK_CONFIG || {});

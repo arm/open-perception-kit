@@ -1,5 +1,5 @@
 {
-    "name": "RPI5 H10 perception-experience-kit",
+    "name": "RPI5 (H10 optional) perception-experience-kit",
     "dockerComposeFile": [
         "${localWorkspaceFolder}/.devcontainer/compose.devcont.yaml",
         "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.video.yaml",
