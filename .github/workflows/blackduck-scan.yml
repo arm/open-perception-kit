@@ -308,10 +308,28 @@ jobs:
                 curl -fsSL "https://github.com/microsoft/onnxruntime/releases/download/v1.24.4/onnxruntime-linux-x64-1.24.4.tgz" \
                   | tar -xzf - -C "$tmp_dir"
                 mkdir -p /work/deps/onnxruntime
-                rm -rf /work/deps/onnxruntime/include /work/deps/onnxruntime/lib
+                for stale_path in /work/deps/onnxruntime/include /work/deps/onnxruntime/lib; do
+                  case "$stale_path" in
+                    /work/deps/onnxruntime/*)
+                      rm -rf "$stale_path"
+                      ;;
+                    *)
+                      echo "Refusing to remove unexpected ONNX Runtime path: $stale_path" >&2
+                      exit 1
+                      ;;
+                  esac
+                done
                 cp -r "$tmp_dir/onnxruntime-linux-x64-1.24.4/include" /work/deps/onnxruntime/
                 cp -r "$tmp_dir/onnxruntime-linux-x64-1.24.4/lib" /work/deps/onnxruntime/
-                rm -rf "$tmp_dir"
+                case "$tmp_dir" in
+                  /tmp/*)
+                    rm -rf "$tmp_dir"
+                    ;;
+                  *)
+                    echo "Refusing to remove unexpected temporary directory: $tmp_dir" >&2
+                    exit 1
+                    ;;
+                esac
               fi
 
               meson subprojects download --sourcedir /work/development
@@ -412,7 +430,18 @@ jobs:
       - name: Run Black Duck container scans
         run: |
           set -euo pipefail
-          container_scan_tars_dir="${WORKSPACE_ROOT}/.bd-container-tars"
+          workspace_root="${WORKSPACE_ROOT:-}"
+          container_scan_tars_dir="${workspace_root}/.bd-container-tars"
+
+          case "${container_scan_tars_dir}" in
+            "${GITHUB_WORKSPACE:-}"/repo-*/.bd-container-tars)
+              ;;
+            *)
+              echo "Refusing to reset unexpected Black Duck tar directory: ${container_scan_tars_dir}" >&2
+              exit 1
+              ;;
+          esac
+
           rm -rf "${container_scan_tars_dir}"
           mkdir -p "${container_scan_tars_dir}"
 
@@ -516,6 +545,8 @@ jobs:
         if: always()
         shell: bash
         run: |
+          workspace_root="${WORKSPACE_ROOT:-}"
+          expected_workspace_prefix="${GITHUB_WORKSPACE:-}/repo-"
           run_suffix="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 
           mapfile -t prep_containers < <(
@@ -539,8 +570,17 @@ jobs:
             docker image rm -f "${run_images[@]}" || true
           fi
 
-          if [ -d "${WORKSPACE_ROOT}" ]; then
-            sudo chown -R "$(id -u):$(id -g)" "${WORKSPACE_ROOT}" || true
-            chmod -R u+rwX "${WORKSPACE_ROOT}" || true
-            rm -rf "${WORKSPACE_ROOT}" || sudo rm -rf "${WORKSPACE_ROOT}" || true
+          case "${workspace_root}" in
+            "${expected_workspace_prefix}"*)
+              ;;
+            *)
+              echo "Skipping cleanup for unexpected WORKSPACE_ROOT='${workspace_root}'" >&2
+              exit 0
+              ;;
+          esac
+
+          if [ -d "${workspace_root}" ]; then
+            sudo chown -R "$(id -u):$(id -g)" "${workspace_root}" || true
+            chmod -R u+rwX "${workspace_root}" || true
+            rm -rf "${workspace_root}" || sudo rm -rf "${workspace_root}" || true
           fi

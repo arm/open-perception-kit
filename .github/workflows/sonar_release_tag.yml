@@ -58,15 +58,27 @@ jobs:
         if: always()
         shell: bash
         run: |
-          if [ -d "${WORKSPACE_ROOT}" ]; then
-            if [ -f "${WORKSPACE_ROOT}/${DOCKER_COMPOSE_FILE}" ]; then
+          workspace_root="${WORKSPACE_ROOT:-}"
+          expected_workspace_prefix="${GITHUB_WORKSPACE:-}/repo-"
+
+          case "${workspace_root}" in
+            "${expected_workspace_prefix}"*)
+              ;;
+            *)
+              echo "Skipping cleanup for unexpected WORKSPACE_ROOT='${workspace_root}'" >&2
+              exit 0
+              ;;
+          esac
+
+          if [ -d "${workspace_root}" ]; then
+            if [ -f "${workspace_root}/${DOCKER_COMPOSE_FILE}" ]; then
               (
-                cd "${WORKSPACE_ROOT}"
+                cd "${workspace_root}"
                 docker compose -f "${DOCKER_COMPOSE_FILE}" down --remove-orphans --rmi local || true
               )
             fi
 
-            sudo chown -R "$(id -u):$(id -g)" "${WORKSPACE_ROOT}" || true
-            chmod -R u+rwX "${WORKSPACE_ROOT}" || true
-            rm -rf "${WORKSPACE_ROOT}" || sudo rm -rf "${WORKSPACE_ROOT}" || true
+            sudo chown -R "$(id -u):$(id -g)" "${workspace_root}" || true
+            chmod -R u+rwX "${workspace_root}" || true
+            rm -rf "${workspace_root}" || sudo rm -rf "${workspace_root}" || true
           fi
