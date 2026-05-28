@@ -22,13 +22,23 @@ jobs:
     env:
       BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
       BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
-      DETECT_SCRIPT: ${{ github.workspace }}/detect-arm.sh
-      CONTAINER_SCAN_TARS_DIR: ${{ github.workspace }}/.bd-container-tars
+      CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      WORKSPACE_ROOT: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      DETECT_SCRIPT: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}/detect-arm.sh
+      CONTAINER_SCAN_TARS_DIR: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}/.bd-container-tars
 
     steps:
+      - name: Prepare workspace permissions
+        run: |
+          if [ -n "${GITHUB_WORKSPACE:-}" ] && [ -d "$GITHUB_WORKSPACE" ]; then
+            sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" || true
+            chmod -R u+rwX "$GITHUB_WORKSPACE" || true
+          fi
+
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
+          path: ${{ env.CI_CHECKOUT_PATH }}
           submodules: recursive
 
       - name: Log in to Docker Hub
@@ -93,9 +103,10 @@ jobs:
           import re
           import subprocess
 
-          workspace = pathlib.Path(os.environ["GITHUB_WORKSPACE"]).resolve()
+          workspace = pathlib.Path(os.environ["WORKSPACE_ROOT"]).resolve()
           runner_temp = pathlib.Path(os.environ["RUNNER_TEMP"]).resolve()
           manifest_path = runner_temp / "bd-container-manifest.json"
+          run_suffix = f"{os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}"
 
           def slugify(value: str) -> str:
               value = value.strip().lower()
@@ -224,8 +235,8 @@ jobs:
                   "context": context,
                   "dockerfile": dockerfile,
                   "target": target,
-                  "image": f"blackduck-scan-{name}:{os.environ['GITHUB_SHA']}",
-                  "prepared_image": f"blackduck-scan-{name}:prepared-{os.environ['GITHUB_SHA']}",
+                  "image": f"blackduck-scan-{name}:{os.environ['GITHUB_SHA']}-{run_suffix}",
+                  "prepared_image": f"blackduck-scan-{name}:prepared-{os.environ['GITHUB_SHA']}-{run_suffix}",
                   "remote_user": data.get("remoteUser"),
                   "workspace_folder": data.get("workspaceFolder", "/work"),
                   "post_create_command": normalize_shell_command(data.get("postCreateCommand")),
@@ -288,12 +299,12 @@ jobs:
       - name: Prepare Meson wrap dependencies
         run: |
           set -euo pipefail
-          dev_image="perception-experience-kit-bd:${GITHUB_SHA}"
-          docker build -t "${dev_image}" --target pek-dev-base "${GITHUB_WORKSPACE}"
+          dev_image="perception-experience-kit-bd:${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          docker build -t "${dev_image}" --target pek-dev-base "${WORKSPACE_ROOT}"
 
           docker run --rm \
             -u "$(id -u):$(id -g)" \
-            -v "${GITHUB_WORKSPACE}:/work" \
+            -v "${WORKSPACE_ROOT}:/work" \
             -w /work \
             "${dev_image}" \
             bash -lc '
@@ -325,7 +336,7 @@ jobs:
           import subprocess
 
           manifest_path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "bd-container-manifest.json"
-          workspace = pathlib.Path(os.environ["GITHUB_WORKSPACE"]).resolve()
+          workspace = pathlib.Path(os.environ["WORKSPACE_ROOT"]).resolve()
           entries = json.loads(manifest_path.read_text())
 
           for entry in entries:
@@ -333,7 +344,7 @@ jobs:
                   print(f"Skipping preparation for {entry['name']} because build failed")
                   continue
 
-              container_name = f"bd-prep-{entry['name']}-{os.environ['GITHUB_RUN_ID']}"
+              container_name = f"bd-prep-{entry['name']}-{os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}"
               workspace_folder = entry.get("workspace_folder") or "/work"
               post_create_command = entry.get("post_create_command")
               remote_user = entry.get("remote_user")
@@ -396,7 +407,7 @@ jobs:
           "${DETECT_SCRIPT}" "${detect_common[@]}" \
             --detect.project.version.name="${SOURCE_VERSION}" \
             --detect.code.location.name="${PROJECT_NAME}/${SOURCE_VERSION}/source" \
-            --detect.source.path="${GITHUB_WORKSPACE}" \
+            --detect.source.path="${WORKSPACE_ROOT}" \
             --detect.output.path="${bd_out}/source" \
             --detect.tools=DETECTOR,SIGNATURE_SCAN \
             --detect.blackduck.signature.scanner.snippet.matching=SNIPPET_MATCHING \
@@ -502,3 +513,57 @@ jobs:
             ${{ runner.temp }}/bd-output/**/bdio/**
           if-no-files-found: warn
           retention-days: 10
+
+      - name: Cleanup isolated workspace and Black Duck images
+        if: always()
+        run: |
+          manifest_path="${RUNNER_TEMP}/bd-container-manifest.json"
+
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          import subprocess
+
+          manifest_path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "bd-container-manifest.json"
+          run_suffix = f"{os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}"
+          seen_images = set()
+
+          if manifest_path.exists():
+              entries = json.loads(manifest_path.read_text())
+              for entry in entries:
+                  container_name = f"bd-prep-{entry['name']}-{run_suffix}"
+                  subprocess.run(
+                      ["docker", "rm", "-f", container_name],
+                      check=False,
+                      stdout=subprocess.DEVNULL,
+                      stderr=subprocess.DEVNULL,
+                  )
+                  for key in ("prepared_image", "image"):
+                      image = entry.get(key)
+                      if image and image not in seen_images:
+                          subprocess.run(
+                              ["docker", "image", "rm", "-f", image],
+                              check=False,
+                              stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL,
+                          )
+                          seen_images.add(image)
+
+          dev_image = (
+              f"perception-experience-kit-bd:"
+              f"{os.environ['GITHUB_SHA']}-{os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}"
+          )
+          subprocess.run(
+              ["docker", "image", "rm", "-f", dev_image],
+              check=False,
+              stdout=subprocess.DEVNULL,
+              stderr=subprocess.DEVNULL,
+          )
+          PY
+
+          if [ -d "${WORKSPACE_ROOT}" ]; then
+            sudo chown -R "$(id -u):$(id -g)" "${WORKSPACE_ROOT}" || true
+            chmod -R u+rwX "${WORKSPACE_ROOT}" || true
+            rm -rf "${WORKSPACE_ROOT}" || sudo rm -rf "${WORKSPACE_ROOT}" || true
+          fi
