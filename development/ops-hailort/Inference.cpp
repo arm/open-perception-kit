@@ -107,9 +107,8 @@ pek::Result<pek::Shape> Inference::hailoVstreamToPekSize(const hailo_vstream_inf
     } else if (info.format.order == HAILO_FORMAT_ORDER_HAILO_NMS_BY_CLASS) {
         s.rank = 3;
         s.dims[0] = B;
-        s.dims[1] = static_cast<int>(H);
-        s.dims[2] = static_cast<int>(W);
-        s.dims[3] = static_cast<int>(F);
+        s.dims[1] = static_cast<int>(info.nms_shape.number_of_classes);
+        s.dims[2] = static_cast<int>(1 + HailoRTCommon::BBOX_PARAMS * info.nms_shape.max_bboxes_per_class);
     } else {
         return tl::make_unexpected(
             PEK_ERROR(pek::ErrorFlag::InvalidData,
@@ -152,6 +151,11 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc) {
     this->model.engine = "hailort";
     this->model.modelFamily = this->modelDescriptor.modelFamily;
     this->setupReady = false;
+
+    auto cmResult = model.applyModelFromDescriptor(this->modelDescriptor);
+    if (!cmResult) {
+        return tl::make_unexpected(cmResult.error());
+    }
 
     try {
         hailo_vdevice_params_t params{};
