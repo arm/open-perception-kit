@@ -33,10 +33,32 @@ iou_tests = executable(
   dependencies : [gtest_main_dep, gtest_dep],
 )
 
+webrtc_session_tests = executable(
+  'webrtc_session_tests',
+  ['webrtc_session_test.cpp',
+   '../elements/peksink/webrtc_session.cpp',
+   '../elements/peksink/utils.cpp'],
+  include_directories : [common_include, include_directories('../elements/peksink')],
+  dependencies : [gtest_main_dep, gtest_dep, pek_deps],
+)
+
+node = find_program('node', required : false)
 
 test('pek_menu_tests', pek_menu_tests)
 test('matrix_operations_tests', matrix_operations_tests)
 test('kalman_filter_tests', kalman_filter_tests)
 test('hungarian_tests', hungarian_tests)
 test('iou_tests', iou_tests)
+test('webrtc_session_tests', webrtc_session_tests)
 
+if node.found()
+  test(
+    'webrtc_client_tests',
+    node,
+    args : [
+      '--test',
+      meson.project_source_root() / 'web/content/webrtc_client.test.mjs',
+      meson.project_source_root() / 'web/content/webrtc_config.test.mjs',
+    ],
+  )
+endif

@@ -25,6 +25,13 @@ jobs:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
 
+      - name: Prepare workspace permissions
+        run: |
+          if [ -n "${GITHUB_WORKSPACE:-}" ] && [ -d "$GITHUB_WORKSPACE" ]; then
+            sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" || true
+            chmod -R u+rwX "$GITHUB_WORKSPACE" || true
+          fi
+
       - name: Checkout
         uses: actions/checkout@v6
         with:
@@ -32,9 +39,9 @@ jobs:
           fetch-tags: true
           ref: ${{ github.head_ref || github.ref }}
 
-      - name: Build docker image 
+      - name: Build docker image
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-sonar-check
-          
+
       - name: SonarQube analysis
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-sonar-check
         env:

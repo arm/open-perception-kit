@@ -17,6 +17,7 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <vector>
 
 // WebRTC in GST is unstable: this macro disables the warning
 #define GST_USE_UNSTABLE_API
@@ -34,135 +35,54 @@ static void
 on_ice_candidate(GstElement *webrtc, guint mlineindex, gchar *candidate, gpointer user_data);
 static void on_set_remote_description(GstPromise *promise, gpointer user_data);
 
-#define REMOVE_AND_FREE_ELEMENT(element)                                                           \
-    do {                                                                                           \
-        if ((element)) {                                                                           \
-            GstObject *parent = gst_object_get_parent(GST_OBJECT((element)));                      \
-            if (parent) {                                                                          \
-                gst_object_unref(parent);                                                          \
-                gst_bin_remove(GST_BIN(self), (element));                                          \
-            } else {                                                                               \
-                gst_object_unref((element));                                                       \
-            }                                                                                      \
-            (element) = nullptr;                                                                   \
-        }                                                                                          \
-    } while (0)
-
-#define FREE_PAD(pad, element)                                                                     \
-    do {                                                                                           \
-        if ((pad)) {                                                                               \
-            if ((element) && GST_IS_ELEMENT((element)) && GST_IS_PAD((pad))) {                     \
-                gst_element_release_request_pad((element), (pad));                                 \
-            }                                                                                      \
-            gst_object_unref((pad));                                                               \
-            (pad) = nullptr;                                                                       \
-        }                                                                                          \
-    } while (0)
-
 // SessionContext is private to this compilation unit
-struct SessionContext {
-    _GstPekSink *self;
+struct SessionContext : PekSinkWebRtcSession {
+    _GstPekSink *self = nullptr;
+    WebRtcWebSocket *owner = nullptr;
 
     connection_hdl hdl;
 
     // aliases to make ws_server reachable from session negotiation functions
     std::shared_ptr<ws_server> ws;
 
-    gulong onn_id;
-    gulong oic_id;
-
-    // Per-client GStreamer branch
-    GstElement *webrtcbin = nullptr;
-    GstPad *webrtc_sink_pad = nullptr; // requested from webrtcbin ("sink_%u")
-    GstPad *audio_webrtc_sink_pad = nullptr;
-
-    GstElement *queue = nullptr; // between tee and webrtcbin
-    GstElement *audio_queue = nullptr;
-
-    GstPad *tee_src_pad = nullptr; // requested from tee
-    GstPad *audio_tee_src_pad = nullptr;
-
-    GstElement *a_capsfilter = nullptr;
-    GstElement *v_capsfilter = nullptr;
-
-    // Puts the VP8/Opus stream to RTP payloads
-    GstElement *v_pay = nullptr;
-    GstElement *a_pay = nullptr;
-
-    gint pt_video_vp8 = 96;
-    gint pt_audio_opus = 111;
+    bool offer_received = false;
 
     SessionContext() = default;
+    SessionContext(_GstPekSink *self_, WebRtcWebSocket *owner_)
+        : PekSinkWebRtcSession(GST_ELEMENT(self_), self_->tee, self_->atee), self(self_),
+          owner(owner_) {}
 
     SessionContext(const SessionContext &) = delete;
     SessionContext &operator=(const SessionContext &) = delete;
 
     SessionContext(SessionContext &&rhs) = delete;
     SessionContext &operator=(SessionContext &&) = delete;
-
-    ~SessionContext() {
-        DBG("Destruct SessionContext");
-
-        if (!self)
-            return;
-
-        // Stop elements (only if non-null)
-        set_state_elements_many(
-            GST_STATE_NULL,
-            {webrtcbin, queue, v_pay, v_capsfilter, audio_queue, a_pay, a_capsfilter});
-
-        // Unlink VIDEO tee -> client queue and release the tee src pad
-        if (tee_src_pad) {
-            auto queue_sink = queue ? gst_element_get_static_pad(queue, "sink") : nullptr;
-            if (queue_sink) {
-                gst_pad_unlink(tee_src_pad, queue_sink);
-                gst_object_unref(queue_sink);
-            }
-
-            gst_element_release_request_pad(self->tee, tee_src_pad);
-            gst_object_unref(tee_src_pad);
-            tee_src_pad = nullptr;
-        }
-
-        // Unlink AUDIO tee -> audio_queue and release the audio tee src pad
-        if (audio_tee_src_pad) {
-            auto aq_sink = audio_queue ? gst_element_get_static_pad(audio_queue, "sink") : nullptr;
-            if (aq_sink) {
-                gst_pad_unlink(audio_tee_src_pad, aq_sink);
-                gst_object_unref(aq_sink);
-            }
-
-            // Only if we have an audio tee in the bin
-            if (self->atee) {
-                gst_element_release_request_pad(self->atee, audio_tee_src_pad);
-            }
-            gst_object_unref(audio_tee_src_pad);
-            audio_tee_src_pad = nullptr;
-        }
-
-        FREE_PAD(webrtc_sink_pad, webrtcbin);
-        FREE_PAD(audio_webrtc_sink_pad, webrtcbin);
-
-        // Remove per-client elements from the bin
-        if (audio_queue || queue || webrtcbin || v_pay || a_pay || v_capsfilter || a_capsfilter) {
-            // Note1: gst_bin_remove_many tolerates NULLs poorly in some builds;
-            // Note2: it makes unref too?
-            gst_bin_remove_many(GST_BIN(self),
-                                audio_queue,
-                                queue,
-                                v_pay,
-                                a_pay,
-                                v_capsfilter,
-                                a_capsfilter,
-                                webrtcbin,
-                                nullptr);
-        }
-
-        audio_queue = queue = webrtcbin = v_pay = a_pay = v_capsfilter = a_capsfilter = nullptr;
-    }
 };
 
+using SessionWeakPtr = std::weak_ptr<SessionContext>;
+
+static gpointer make_session_callback_data(const std::shared_ptr<SessionContext> &ctx) {
+    return new SessionWeakPtr(ctx);
+}
+
+static void destroy_session_callback_data(gpointer user_data) {
+    delete static_cast<SessionWeakPtr *>(user_data);
+}
+
+static void destroy_signal_session_callback_data(gpointer user_data, GClosure *) {
+    destroy_session_callback_data(user_data);
+}
+
+static std::shared_ptr<SessionContext> lock_session_callback_data(gpointer user_data) {
+    auto *weak_ctx = static_cast<SessionWeakPtr *>(user_data);
+    if (!weak_ctx) {
+        return nullptr;
+    }
+    return weak_ctx->lock();
+}
+
 WebRtcSockerError WebRtcWebSocket::setup() {
+    stopping = false;
     ws = std::make_shared<ws_server>();
 
     ws->init_asio();
@@ -198,6 +118,24 @@ WebRtcSockerError WebRtcWebSocket::start() {
 }
 
 WebRtcSockerError WebRtcWebSocket::stop() {
+    stopping = true;
+
+    std::vector<std::shared_ptr<SessionContext>> sessions;
+    {
+        std::lock_guard<std::mutex> mutex_guard(webrtc_session_mutex);
+        for (auto &[hdl, ctx] : webrtc_sessions) {
+            sessions.push_back(ctx);
+        }
+        webrtc_sessions.clear();
+    }
+
+    for (auto &ctx : sessions) {
+        if (ctx) {
+            DBG("Cleaning WebRTC session during stop");
+            ctx->cleanup();
+        }
+    }
+
     if (ws) {
         ws->stop();
     }
@@ -206,9 +144,40 @@ WebRtcSockerError WebRtcWebSocket::stop() {
         ws_server_thread.join();
     }
 
-    webrtc_sessions.clear();
-
     return WebRtcSockerError::OK;
+}
+
+std::shared_ptr<SessionContext> WebRtcWebSocket::get_session(connection_hdl hdl) {
+    std::lock_guard<std::mutex> mutex_guard(webrtc_session_mutex);
+    auto it = webrtc_sessions.find(hdl);
+    if (it == webrtc_sessions.end()) {
+        return nullptr;
+    }
+    return it->second;
+}
+
+bool WebRtcWebSocket::cleanup_session(connection_hdl hdl, const char *reason) {
+    std::shared_ptr<SessionContext> ctx;
+    {
+        std::lock_guard<std::mutex> mutex_guard(webrtc_session_mutex);
+        auto it = webrtc_sessions.find(hdl);
+        if (it == webrtc_sessions.end()) {
+            return false;
+        }
+        ctx = it->second;
+        webrtc_sessions.erase(it);
+    }
+
+    if (ctx) {
+        DBG("Cleaning WebRTC session: {}", reason ? reason : "unknown");
+        ctx->cleanup();
+    }
+    return true;
+}
+
+std::size_t WebRtcWebSocket::active_session_count() const {
+    std::lock_guard<std::mutex> mutex_guard(webrtc_session_mutex);
+    return webrtc_sessions.size();
 }
 
 void WebRtcWebSocket::set_video_pt(SessionContext *ctx) {
@@ -291,10 +260,7 @@ bool WebRtcWebSocket::attach_video(SessionContext *ctx) {
     } catch (const std::exception &err) {
         DBG("attach_video() failed: {}", err.what());
 
-        FREE_PAD(ctx->webrtc_sink_pad, ctx->webrtcbin);
-        REMOVE_AND_FREE_ELEMENT(ctx->v_capsfilter);
-        REMOVE_AND_FREE_ELEMENT(ctx->v_pay);
-        REMOVE_AND_FREE_ELEMENT(ctx->queue);
+        ctx->cleanup();
 
         return false;
     }
@@ -386,10 +352,7 @@ bool WebRtcWebSocket::attach_audio(SessionContext *ctx) {
     } catch (const std::exception &err) {
         DBG("attach_audio() failed: {}", err.what());
 
-        FREE_PAD(ctx->audio_webrtc_sink_pad, ctx->webrtcbin);
-        REMOVE_AND_FREE_ELEMENT(ctx->a_capsfilter);
-        REMOVE_AND_FREE_ELEMENT(ctx->a_pay);
-        REMOVE_AND_FREE_ELEMENT(ctx->audio_queue);
+        ctx->cleanup();
 
         return false;
     }
@@ -398,9 +361,14 @@ bool WebRtcWebSocket::attach_audio(SessionContext *ctx) {
 void WebRtcWebSocket::on_open(connection_hdl hdl) {
 
     DBG("WebSocket connection opened");
+    if (stopping) {
+        DBG("Ignoring WebSocket open while stopping");
+        return;
+    }
 
-    auto ctx = std::make_shared<SessionContext>();
-    ctx->self = self_;
+    cleanup_session(hdl, "replaced by new open event");
+
+    auto ctx = std::make_shared<SessionContext>(self_, this);
     ctx->ws = ws;
     ctx->hdl = hdl;
 
@@ -421,16 +389,26 @@ void WebRtcWebSocket::on_open(connection_hdl hdl) {
                  nullptr);
 
     // WebRTC callbacks (per client webrtcbin!)
-    ctx->onn_id = g_signal_connect(
-        ctx->webrtcbin, "on-negotiation-needed", G_CALLBACK(on_negotiation_needed), ctx.get());
-    ctx->oic_id = g_signal_connect(
-        ctx->webrtcbin, "on-ice-candidate", G_CALLBACK(on_ice_candidate), ctx.get());
+    ctx->onn_id = g_signal_connect_data(ctx->webrtcbin,
+                                        "on-negotiation-needed",
+                                        G_CALLBACK(on_negotiation_needed),
+                                        make_session_callback_data(ctx),
+                                        destroy_signal_session_callback_data,
+                                        GConnectFlags(0));
+    ctx->oic_id = g_signal_connect_data(ctx->webrtcbin,
+                                        "on-ice-candidate",
+                                        G_CALLBACK(on_ice_candidate),
+                                        make_session_callback_data(ctx),
+                                        destroy_signal_session_callback_data,
+                                        GConnectFlags(0));
 
     // Add to peksink bin
     gst_bin_add_many(GST_BIN(self_), ctx->webrtcbin, nullptr);
 
-    attach_video(ctx.get());
-    attach_audio(ctx.get());
+    if (!attach_video(ctx.get()) || !attach_audio(ctx.get())) {
+        ctx->cleanup();
+        return;
+    }
 
     dump_sink_pads(ctx->webrtcbin);
 
@@ -440,29 +418,8 @@ void WebRtcWebSocket::on_open(connection_hdl hdl) {
 
 void WebRtcWebSocket::on_close(connection_hdl hdl) {
     DBG("WebSocket connection closed");
-
-    std::shared_ptr<SessionContext> ctx = nullptr;
-    {
-        std::lock_guard<std::mutex> mutex_guard(webrtc_session_mutex);
-        auto &sessions = webrtc_sessions;
-
-        auto it = sessions.find(hdl);
-        if (it == sessions.end()) {
-            return;
-        }
-
-        ctx = it->second;
-
-        g_signal_handler_disconnect(ctx->webrtcbin, ctx->onn_id);
-        g_signal_handler_disconnect(ctx->webrtcbin, ctx->oic_id);
-
-        // Forget the session
-        sessions.erase(it);
-    }
-
-    if (ctx) {
-        dump_sink_pads(ctx->webrtcbin);
-        dump_pipeline_graph(GST_ELEMENT(ctx->self), "pipeline_on_close");
+    if (cleanup_session(hdl, "websocket close")) {
+        dump_pipeline_graph(GST_ELEMENT(self_), "pipeline_on_close");
     }
 }
 
@@ -472,17 +429,20 @@ void WebRtcWebSocket::on_close(connection_hdl hdl) {
  * webrtcbin snapshots RTP properties on first buffer.
  */
 // this method links the per-client (both the audio and video) elements to the main graph
-void WebRtcWebSocket::link_per_client_elements(SessionContext *ctx) {
+bool WebRtcWebSocket::link_per_client_elements(SessionContext *ctx) {
 
     GstPad *q_sink = nullptr;
     GstPad *aq_sink = nullptr;
     try {
+        if (ctx->tee_src_pad || ctx->audio_tee_src_pad) {
+            throw std::runtime_error("Per-client tee pads already linked");
+        }
+
         // create the tee source pad
         ctx->tee_src_pad = gst_element_request_pad_simple(ctx->self->tee, "src_%u");
         if (!ctx->tee_src_pad) {
             DBG("Failed to request video src pad from tee");
-            gst_bin_remove_many(GST_BIN(ctx->self), ctx->queue, ctx->webrtcbin, nullptr);
-            return;
+            return false;
         }
 
         q_sink = gst_element_get_static_pad(ctx->queue, "sink");
@@ -504,6 +464,9 @@ void WebRtcWebSocket::link_per_client_elements(SessionContext *ctx) {
             throw std::runtime_error("Failed to link atee -> audio_queue");
         }
         gst_object_unref(aq_sink);
+        aq_sink = nullptr;
+
+        return true;
 
     } catch (const std::exception &e) {
         DBG("link_per_client_elements failed: {}", e.what());
@@ -512,34 +475,60 @@ void WebRtcWebSocket::link_per_client_elements(SessionContext *ctx) {
             gst_object_unref(q_sink);
         if (aq_sink)
             gst_object_unref(aq_sink);
-        FREE_PAD(ctx->tee_src_pad, self_->tee);
-        FREE_PAD(ctx->audio_tee_src_pad, self_->atee);
+        release_request_pad_and_unref(self_->tee, &ctx->tee_src_pad);
+        release_request_pad_and_unref(self_->atee, &ctx->audio_tee_src_pad);
+        return false;
     }
 }
 
 void WebRtcWebSocket::process_offer(std::shared_ptr<SessionContext> ctx, const json &jsn) {
 
+    if (ctx->offer_received) {
+        DBG("Repeated offer received for the same WebSocket handle");
+        cleanup_session(ctx->hdl, "repeated offer");
+        return;
+    }
+    ctx->offer_received = true;
+
     auto sdp = jsn["sdp"].get<std::string>();
     GstSDPMessage *sdp_message = nullptr;
     if (gst_sdp_message_new_from_text(sdp.c_str(), &sdp_message) != GST_SDP_OK) {
         DBG("Failed to parse SDP offer");
+        cleanup_session(ctx->hdl, "invalid offer sdp");
         return;
     }
 
     ctx->pt_video_vp8 = find_pt_for_codec(sdp_message, "video", "VP8");
     ctx->pt_audio_opus = find_pt_for_codec(sdp_message, "audio", "opus");
+    if (ctx->pt_video_vp8 < 0 || ctx->pt_audio_opus < 0) {
+        DBG("Offer is missing required payload types: VP8={}, opus={}",
+            ctx->pt_video_vp8,
+            ctx->pt_audio_opus);
+        gst_sdp_message_free(sdp_message);
+        cleanup_session(ctx->hdl, "unsupported offer payload types");
+        return;
+    }
 
     set_video_pt(ctx.get());
     set_audio_pt(ctx.get());
 
-    link_per_client_elements(ctx.get());
+    if (!link_per_client_elements(ctx.get())) {
+        gst_sdp_message_free(sdp_message);
+        cleanup_session(ctx->hdl, "per-client link failed");
+        return;
+    }
 
-    gst_element_sync_state_with_parent(ctx->webrtcbin);
+    if (!gst_element_sync_state_with_parent(ctx->webrtcbin)) {
+        gst_sdp_message_free(sdp_message);
+        cleanup_session(ctx->hdl, "webrtcbin state sync failed");
+        return;
+    }
 
     DBG("Offer PTs: VP8={}, opus={}", ctx->pt_video_vp8, ctx->pt_audio_opus);
 
     auto offer = gst_webrtc_session_description_new(GST_WEBRTC_SDP_TYPE_OFFER, sdp_message);
-    auto promise = gst_promise_new_with_change_func(on_set_remote_description, ctx.get(), nullptr);
+    auto promise = gst_promise_new_with_change_func(
+        on_set_remote_description, make_session_callback_data(ctx), destroy_session_callback_data);
 
     g_signal_emit_by_name(ctx->webrtcbin, "set-remote-description", offer, promise);
     gst_webrtc_session_description_free(offer);
@@ -562,15 +551,17 @@ void WebRtcWebSocket::process_canditate(std::shared_ptr<SessionContext> ctx, con
 void WebRtcWebSocket::on_message(connection_hdl hdl, ws_server::message_ptr msg) {
     DBG("on_message");
 
-    try {
-        std::lock_guard<std::mutex> mutex_guard(webrtc_session_mutex);
-        auto it = webrtc_sessions.find(hdl);
-        if (it == webrtc_sessions.end()) {
-            DBG("No session context for this connection");
-            return;
-        }
-        auto ctx = it->second;
+    if (stopping) {
+        return;
+    }
 
+    auto ctx = get_session(hdl);
+    if (!ctx) {
+        DBG("No session context for this connection");
+        return;
+    }
+
+    try {
         const std::string payload = msg->get_payload();
         json jsn = json::parse(payload);
 
@@ -584,6 +575,7 @@ void WebRtcWebSocket::on_message(connection_hdl hdl, ws_server::message_ptr msg)
 
     } catch (const std::exception &e) {
         DBG("on_message exception: {}", e.what());
+        cleanup_session(hdl, "message handling failure");
     }
 }
 
@@ -656,23 +648,37 @@ static void on_negotiation_needed(GstElement *webrtc, gpointer user_data) {
     DBG("Negotiation needed");
 }
 
-static void send_text(SessionContext *ctx, const std::string &text) {
+static bool send_text(const std::shared_ptr<SessionContext> &ctx, const std::string &text) {
+    if (!ctx || !ctx->ws || ctx->cleaned_up()) {
+        return false;
+    }
+
     try {
         ctx->ws->send(ctx->hdl, text, websocketpp::frame::opcode::text);
+        return true;
     } catch (const websocketpp::exception &e) {
         DBG("WebSocket send error: {}", e.what());
+        return false;
     }
 }
 
-static void
-send_ice_candidate_message(SessionContext *ctx, guint mlineindex, const gchar *candidate) {
+static void send_ice_candidate_message(const std::shared_ptr<SessionContext> &ctx,
+                                       guint mlineindex,
+                                       const gchar *candidate) {
     DBG("Sending ICE candidate: mlineindex={}, candidate={}", mlineindex, candidate);
 
     json msg;
     msg["type"] = "candidate";
     msg["ice"] = {{"candidate", candidate}, {"sdpMLineIndex", mlineindex}};
 
-    send_text(ctx, msg.dump());
+    if (!send_text(ctx, msg.dump())) {
+        auto owner = ctx->owner;
+        auto hdl = ctx->hdl;
+        if (owner) {
+            owner->cleanup_session(hdl, "ice candidate send failure");
+        }
+        return;
+    }
 
     DBG("ICE candidate sent");
 }
@@ -681,10 +687,14 @@ static void
 on_ice_candidate(GstElement *webrtc, guint mlineindex, gchar *candidate, gpointer user_data) {
     DBG("on_ice_candidate");
 
-    auto ctx = static_cast<SessionContext *>(user_data);
+    auto ctx = lock_session_callback_data(user_data);
+    if (!ctx || ctx->cleaned_up()) {
+        DBG("Ignoring ICE candidate for cleaned-up session");
+        return;
+    }
 
     if (!candidate || candidate[0] == '\0') {
-        DBG("ICE end-of-candidates for mline {} (not sending)", mlineindex);
+        DBG("Sending ICE end-of-candidates for mline {}", mlineindex);
         send_ice_candidate_message(ctx, mlineindex, "");
         return;
     }
@@ -697,7 +707,12 @@ on_ice_candidate(GstElement *webrtc, guint mlineindex, gchar *candidate, gpointe
 static void on_answer_created(GstPromise *promise, gpointer user_data) {
     DBG("on_answer_created");
 
-    auto *ctx = static_cast<SessionContext *>(user_data);
+    auto ctx = lock_session_callback_data(user_data);
+    if (!ctx || ctx->cleaned_up()) {
+        DBG("Ignoring answer for cleaned-up session");
+        gst_promise_unref(promise);
+        return;
+    }
 
     GstWebRTCSessionDescription *answer = nullptr;
     const GstStructure *reply = gst_promise_get_reply(promise);
@@ -706,7 +721,12 @@ static void on_answer_created(GstPromise *promise, gpointer user_data) {
             reply, "answer", GST_TYPE_WEBRTC_SESSION_DESCRIPTION, &answer, nullptr) ||
         !answer) {
         DBG("No answer in promise reply");
+        auto owner = ctx->owner;
+        auto hdl = ctx->hdl;
         gst_promise_unref(promise);
+        if (owner) {
+            owner->cleanup_session(hdl, "answer creation failure");
+        }
         return;
     }
 
@@ -718,19 +738,31 @@ static void on_answer_created(GstPromise *promise, gpointer user_data) {
     auto sdp_text = gst_sdp_message_as_text(answer->sdp);
     sdp_json["type"] = "answer";
     sdp_json["sdp"] = sdp_text ? sdp_text : "";
-    send_text(ctx, sdp_json.dump());
+    const bool sent = send_text(ctx, sdp_json.dump());
     g_free(sdp_text);
 
+    auto owner = ctx->owner;
+    auto hdl = ctx->hdl;
     gst_webrtc_session_description_free(answer);
     gst_promise_unref(promise);
+
+    if (!sent && owner) {
+        owner->cleanup_session(hdl, "answer send failure");
+    }
 }
 
 static void on_set_remote_description(GstPromise *promise, gpointer user_data) {
     DBG("on_set_remote_description");
 
-    auto ctx = static_cast<SessionContext *>(user_data);
+    auto ctx = lock_session_callback_data(user_data);
+    if (!ctx || ctx->cleaned_up()) {
+        DBG("Ignoring remote description for cleaned-up session");
+        gst_promise_unref(promise);
+        return;
+    }
 
-    auto answer_promise = gst_promise_new_with_change_func(on_answer_created, ctx, nullptr);
+    auto answer_promise = gst_promise_new_with_change_func(
+        on_answer_created, make_session_callback_data(ctx), destroy_session_callback_data);
 
     g_signal_emit_by_name(ctx->webrtcbin, "create-answer", nullptr, answer_promise);
 
