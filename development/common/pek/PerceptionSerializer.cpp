@@ -110,6 +110,9 @@ void to_json(json &j, const Perception::Rect &r) {
         j["label"] = r.label;
     if (!r.text.empty())
         j["text"] = r.text;
+    for (const auto &[k, v] : r.attributes) {
+        j["attributes"][k] = v;
+    }
 }
 
 void to_json(json &j, const Perception::Classification::Candidate &c) {
