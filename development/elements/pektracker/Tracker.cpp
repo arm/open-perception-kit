@@ -68,5 +68,4 @@ void Tracker::process(pek::Perception &perception, const Config &config) {
     }
 }
 
-<<<<<<< HEAD:development/elements/pektracker/Tracker.cpp
 } // namespace pek::tracker
