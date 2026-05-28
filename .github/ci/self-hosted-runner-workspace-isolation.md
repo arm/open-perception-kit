@@ -40,6 +40,8 @@ behaviour entirely:
 - each Docker Compose based CI job gets a unique checkout path
 - each such job gets a unique `COMPOSE_PROJECT_NAME`
 - fixed `container_name` entries are avoided in the CI compose file
+- the self-hosted Sonar workflows tear down Compose resources and delete their
+  isolated checkout directory in an `if: always()` cleanup step
 
 This ensures that one job does not reuse another job's poisoned checkout path or
 Docker resource names.
@@ -58,8 +60,8 @@ document first.
 This is still containment, not the final cleanup:
 
 - the CI setup path still mutates the mounted checkout
-- unique checkout paths can accumulate on the runner host until they are cleaned
-  up by runner maintenance or a later cleanup mechanism
+- cleanup steps can still fail partially if the runner host or Docker daemon is
+  already in a broken state
 
 The long-term fix is a CI-specific setup flow that does not rewrite the mounted
 repository at all.

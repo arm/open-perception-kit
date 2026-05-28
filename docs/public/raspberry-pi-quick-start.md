@@ -71,7 +71,7 @@ sudo apt full-upgrade -y
 sudo rpi-eeprom-update -a
 ```
 
-Follow the link below to install Docker: 
+Follow the link below to install Docker:
 
 * [Debian Installation Guide](https://docs.docker.com/engine/install/debian/)
 

@@ -49,3 +49,20 @@ jobs:
           SONAR_PROJECT_VERSION: ${{ env.SONAR_PROJECT_VERSION }}
           SONAR_QUALITYGATE_WAIT: "true"
           BUILD_STRING: ${{ github.sha }}
+
+      - name: Cleanup isolated workspace
+        if: always()
+        shell: bash
+        run: |
+          checkout_dir="${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}"
+          compose_file="${checkout_dir}/${DOCKER_COMPOSE_FILE}"
+
+          if [ -d "$checkout_dir" ]; then
+            if [ -f "$compose_file" ]; then
+              docker compose -f "$compose_file" down --remove-orphans || true
+            fi
+
+            sudo chown -R "$(id -u):$(id -g)" "$checkout_dir" || true
+            chmod -R u+rwX "$checkout_dir" || true
+            rm -rf "$checkout_dir" || sudo rm -rf "$checkout_dir" || true
+          fi

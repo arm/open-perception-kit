@@ -27,6 +27,13 @@ jobs:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
 
+      - name: Prepare workspace permissions
+        run: |
+          if [ -n "${GITHUB_WORKSPACE:-}" ] && [ -d "$GITHUB_WORKSPACE" ]; then
+            sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" || true
+            chmod -R u+rwX "$GITHUB_WORKSPACE" || true
+          fi
+
       - name: Checkout
         uses: actions/checkout@v6
         with:
@@ -35,10 +42,10 @@ jobs:
           ref: ${{ github.head_ref || github.ref }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
-      - name: Build docker image 
+      - name: Build docker image
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-sonar-check
-          
+
       - name: SonarQube analysis
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-sonar-check
@@ -50,3 +57,20 @@ jobs:
           PR_KEY: ${{ github.event.pull_request.number }}
           PR_BRANCH: ${{ github.head_ref }}
           PR_BASE: ${{ github.base_ref }}
+
+      - name: Cleanup isolated workspace
+        if: always()
+        shell: bash
+        run: |
+          checkout_dir="${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}"
+          compose_file="${checkout_dir}/${DOCKER_COMPOSE_FILE}"
+
+          if [ -d "$checkout_dir" ]; then
+            if [ -f "$compose_file" ]; then
+              docker compose -f "$compose_file" down --remove-orphans || true
+            fi
+
+            sudo chown -R "$(id -u):$(id -g)" "$checkout_dir" || true
+            chmod -R u+rwX "$checkout_dir" || true
+            rm -rf "$checkout_dir" || sudo rm -rf "$checkout_dir" || true
+          fi
