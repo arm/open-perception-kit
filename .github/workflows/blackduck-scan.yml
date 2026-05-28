@@ -22,14 +22,17 @@ jobs:
     env:
       BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
       BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
-      DETECT_SCRIPT: ${{ github.workspace }}/detect-arm.sh
-      CONTAINER_SCAN_TARS_DIR: ${{ github.workspace }}/.bd-container-tars
+      CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
+          path: ${{ env.CI_CHECKOUT_PATH }}
           submodules: recursive
+
+      - name: Export isolated workspace root
+        run: echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
@@ -55,9 +58,10 @@ jobs:
       - name: Download Detect script
         run: |
           set -euo pipefail
-          curl -fsSL "https://artifactory.arm.com/artifactory/synopsys-blackduck.detect-arm/detect-arm.sh" -o "${DETECT_SCRIPT}"
-          head -n 1 "${DETECT_SCRIPT}" | grep -q '^#!' || { echo "Downloaded script is invalid" >&2; exit 3; }
-          chmod +x "${DETECT_SCRIPT}"
+          detect_script="${WORKSPACE_ROOT}/detect-arm.sh"
+          curl -fsSL "https://artifactory.arm.com/artifactory/synopsys-blackduck.detect-arm/detect-arm.sh" -o "${detect_script}"
+          head -n 1 "${detect_script}" | grep -q '^#!' || { echo "Downloaded script is invalid" >&2; exit 3; }
+          chmod +x "${detect_script}"
 
       - name: Resolve project and version names
         run: |
@@ -93,9 +97,10 @@ jobs:
           import re
           import subprocess
 
-          workspace = pathlib.Path(os.environ["GITHUB_WORKSPACE"]).resolve()
+          workspace = pathlib.Path(os.environ["WORKSPACE_ROOT"]).resolve()
           runner_temp = pathlib.Path(os.environ["RUNNER_TEMP"]).resolve()
           manifest_path = runner_temp / "bd-container-manifest.json"
+          run_suffix = f"{os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}"
 
           def slugify(value: str) -> str:
               value = value.strip().lower()
@@ -224,8 +229,8 @@ jobs:
                   "context": context,
                   "dockerfile": dockerfile,
                   "target": target,
-                  "image": f"blackduck-scan-{name}:{os.environ['GITHUB_SHA']}",
-                  "prepared_image": f"blackduck-scan-{name}:prepared-{os.environ['GITHUB_SHA']}",
+                  "image": f"blackduck-scan-{name}:{os.environ['GITHUB_SHA']}-{run_suffix}",
+                  "prepared_image": f"blackduck-scan-{name}:prepared-{os.environ['GITHUB_SHA']}-{run_suffix}",
                   "remote_user": data.get("remoteUser"),
                   "workspace_folder": data.get("workspaceFolder", "/work"),
                   "post_create_command": normalize_shell_command(data.get("postCreateCommand")),
@@ -288,12 +293,12 @@ jobs:
       - name: Prepare Meson wrap dependencies
         run: |
           set -euo pipefail
-          dev_image="perception-experience-kit-bd:${GITHUB_SHA}"
-          docker build -t "${dev_image}" --target pek-dev-base "${GITHUB_WORKSPACE}"
+          dev_image="perception-experience-kit-bd:${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          docker build -t "${dev_image}" --target pek-dev-base "${WORKSPACE_ROOT}"
 
           docker run --rm \
             -u "$(id -u):$(id -g)" \
-            -v "${GITHUB_WORKSPACE}:/work" \
+            -v "${WORKSPACE_ROOT}:/work" \
             -w /work \
             "${dev_image}" \
             bash -lc '
@@ -303,10 +308,28 @@ jobs:
                 curl -fsSL "https://github.com/microsoft/onnxruntime/releases/download/v1.24.4/onnxruntime-linux-x64-1.24.4.tgz" \
                   | tar -xzf - -C "$tmp_dir"
                 mkdir -p /work/deps/onnxruntime
-                rm -rf /work/deps/onnxruntime/include /work/deps/onnxruntime/lib
+                for stale_path in /work/deps/onnxruntime/include /work/deps/onnxruntime/lib; do
+                  case "$stale_path" in
+                    /work/deps/onnxruntime/*)
+                      rm -rf "$stale_path"
+                      ;;
+                    *)
+                      echo "Refusing to remove unexpected ONNX Runtime path: $stale_path" >&2
+                      exit 1
+                      ;;
+                  esac
+                done
                 cp -r "$tmp_dir/onnxruntime-linux-x64-1.24.4/include" /work/deps/onnxruntime/
                 cp -r "$tmp_dir/onnxruntime-linux-x64-1.24.4/lib" /work/deps/onnxruntime/
-                rm -rf "$tmp_dir"
+                case "$tmp_dir" in
+                  /tmp/*)
+                    rm -rf "$tmp_dir"
+                    ;;
+                  *)
+                    echo "Refusing to remove unexpected temporary directory: $tmp_dir" >&2
+                    exit 1
+                    ;;
+                esac
               fi
 
               meson subprojects download --sourcedir /work/development
@@ -325,7 +348,7 @@ jobs:
           import subprocess
 
           manifest_path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "bd-container-manifest.json"
-          workspace = pathlib.Path(os.environ["GITHUB_WORKSPACE"]).resolve()
+          workspace = pathlib.Path(os.environ["WORKSPACE_ROOT"]).resolve()
           entries = json.loads(manifest_path.read_text())
 
           for entry in entries:
@@ -333,7 +356,7 @@ jobs:
                   print(f"Skipping preparation for {entry['name']} because build failed")
                   continue
 
-              container_name = f"bd-prep-{entry['name']}-{os.environ['GITHUB_RUN_ID']}"
+              container_name = f"bd-prep-{entry['name']}-{os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}"
               workspace_folder = entry.get("workspace_folder") or "/work"
               post_create_command = entry.get("post_create_command")
               remote_user = entry.get("remote_user")
@@ -383,6 +406,7 @@ jobs:
         run: |
           set -euo pipefail
           bd_out="${RUNNER_TEMP}/bd-output"
+          detect_script="${WORKSPACE_ROOT}/detect-arm.sh"
 
           detect_common=(
             "--blackduck.url=${BLACKDUCK_URL}"
@@ -393,10 +417,10 @@ jobs:
             "--detect.timeout=1800"
           )
 
-          "${DETECT_SCRIPT}" "${detect_common[@]}" \
+          "${detect_script}" "${detect_common[@]}" \
             --detect.project.version.name="${SOURCE_VERSION}" \
             --detect.code.location.name="${PROJECT_NAME}/${SOURCE_VERSION}/source" \
-            --detect.source.path="${GITHUB_WORKSPACE}" \
+            --detect.source.path="${WORKSPACE_ROOT}" \
             --detect.output.path="${bd_out}/source" \
             --detect.tools=DETECTOR,SIGNATURE_SCAN \
             --detect.blackduck.signature.scanner.snippet.matching=SNIPPET_MATCHING \
@@ -406,8 +430,20 @@ jobs:
       - name: Run Black Duck container scans
         run: |
           set -euo pipefail
-          rm -rf "${CONTAINER_SCAN_TARS_DIR}"
-          mkdir -p "${CONTAINER_SCAN_TARS_DIR}"
+          workspace_root="${WORKSPACE_ROOT:-}"
+          container_scan_tars_dir="${workspace_root}/.bd-container-tars"
+
+          case "${container_scan_tars_dir}" in
+            "${GITHUB_WORKSPACE:-}"/repo-*/.bd-container-tars)
+              ;;
+            *)
+              echo "Refusing to reset unexpected Black Duck tar directory: ${container_scan_tars_dir}" >&2
+              exit 1
+              ;;
+          esac
+
+          rm -rf "${container_scan_tars_dir}"
+          mkdir -p "${container_scan_tars_dir}"
 
           python3 - <<'PY'
           import json
@@ -417,8 +453,10 @@ jobs:
           import subprocess
 
           manifest_path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "bd-container-manifest.json"
-          tar_dir = pathlib.Path(os.environ["CONTAINER_SCAN_TARS_DIR"]).resolve()
+          workspace = pathlib.Path(os.environ["WORKSPACE_ROOT"]).resolve()
+          tar_dir = workspace / ".bd-container-tars"
           bd_out = pathlib.Path(os.environ["RUNNER_TEMP"]) / "bd-output" / "containers"
+          detect_script = workspace / "detect-arm.sh"
           entries = json.loads(manifest_path.read_text())
 
           def version_slug(name: str) -> str:
@@ -445,7 +483,7 @@ jobs:
               subprocess.run(["docker", "save", "-o", str(image_tar), scan_image], check=True)
 
               detect_cmd = [
-                  os.environ["DETECT_SCRIPT"],
+                  str(detect_script),
                   f"--blackduck.url={os.environ['BLACKDUCK_URL']}",
                   f"--blackduck.api.token={os.environ['BLACKDUCK_TOKEN']}",
                   f"--detect.project.name={os.environ['PROJECT_NAME']}",
@@ -502,3 +540,47 @@ jobs:
             ${{ runner.temp }}/bd-output/**/bdio/**
           if-no-files-found: warn
           retention-days: 10
+
+      - name: Cleanup isolated workspace and Black Duck images
+        if: always()
+        shell: bash
+        run: |
+          workspace_root="${WORKSPACE_ROOT:-}"
+          expected_workspace_prefix="${GITHUB_WORKSPACE:-}/repo-"
+          run_suffix="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+
+          mapfile -t prep_containers < <(
+            docker ps -a --format '{{.ID}} {{.Names}}' \
+              | grep -E " bd-prep-.*-${run_suffix}$" \
+              | awk '{print $1}' \
+              || true
+          )
+
+          if [ "${#prep_containers[@]}" -gt 0 ]; then
+            docker rm -f "${prep_containers[@]}" || true
+          fi
+
+          mapfile -t run_images < <(
+            docker image ls --format '{{.Repository}}:{{.Tag}}' \
+              | grep -E "^blackduck-scan-.*:(prepared-)?${GITHUB_SHA}-${run_suffix}$|^perception-experience-kit-bd:${GITHUB_SHA}-${run_suffix}$" \
+              || true
+          )
+
+          if [ "${#run_images[@]}" -gt 0 ]; then
+            docker image rm -f "${run_images[@]}" || true
+          fi
+
+          case "${workspace_root}" in
+            "${expected_workspace_prefix}"*)
+              ;;
+            *)
+              echo "Skipping cleanup for unexpected WORKSPACE_ROOT='${workspace_root}'" >&2
+              exit 0
+              ;;
+          esac
+
+          if [ -d "${workspace_root}" ]; then
+            sudo chown -R "$(id -u):$(id -g)" "${workspace_root}" || true
+            chmod -R u+rwX "${workspace_root}" || true
+            rm -rf "${workspace_root}" || sudo rm -rf "${workspace_root}" || true
+          fi

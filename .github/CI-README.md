@@ -13,6 +13,11 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 - Runs the actual checks
 
+## Operational Notes
+
+- Self-hosted runner workspace isolation and the `/work` ownership hazard are
+  documented in [.github/ci/self-hosted-runner-workspace-isolation.md](ci/self-hosted-runner-workspace-isolation.md).
+
 ## Functionalities
 
 - **Triggers:** Runs on pull requests, manual dispatch, and nightly schedule.
