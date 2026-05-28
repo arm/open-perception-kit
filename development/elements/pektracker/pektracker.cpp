@@ -41,6 +41,10 @@ struct _GstPekTracker {
     gfloat kalmanProcessNoisePos;
     gfloat kalmanProcessNoiseVel;
     gfloat kalmanMeasurementNoisePos;
+    gboolean useKalman;
+    gboolean emitPredictedDetections;
+    gboolean emitTrace;
+    gchar *associationMode;
 
     gchar *inferId;
 
@@ -76,8 +80,41 @@ enum {
     PROP_KALMAN_PROCESS_NOISE_POS,
     PROP_KALMAN_PROCESS_NOISE_VEL,
     PROP_KALMAN_MEASUREMENT_NOISE_POS,
+    PROP_USE_KALMAN,
+    PROP_EMIT_PREDICTED_DETECTIONS,
+    PROP_EMIT_TRACE,
+    PROP_ASSOCIATION_MODE,
     PROP_INFER_ID,
 };
+
+static pek::tracker::AssociationMode
+associationModeFromString(const gchar *modeText) {
+    if (modeText == nullptr) {
+        return pek::tracker::Defaults::associationMode;
+    }
+
+    const std::string mode = modeText;
+    if (mode == "iou") {
+        return pek::tracker::AssociationMode::Iou;
+    }
+    if (mode == "embedding") {
+        return pek::tracker::AssociationMode::Embedding;
+    }
+    return pek::tracker::AssociationMode::Hybrid;
+}
+
+static const gchar *associationModeToString(pek::tracker::AssociationMode mode) {
+    switch (mode) {
+    case pek::tracker::AssociationMode::Iou:
+        return "iou";
+    case pek::tracker::AssociationMode::Embedding:
+        return "embedding";
+    case pek::tracker::AssociationMode::Hybrid:
+        return "hybrid";
+    }
+
+    return "hybrid";
+}
 
 static const gchar *gst_pektracker_get_effective_inferId(const GstPekTracker *self) {
     /* If user provided infer-id property, prefer it */
@@ -111,6 +148,10 @@ static pek::tracker::Config trackerConfigFromElement(const GstPekTracker *self) 
     config.kalmanProcessNoisePos = self->kalmanProcessNoisePos;
     config.kalmanProcessNoiseVel = self->kalmanProcessNoiseVel;
     config.kalmanMeasurementNoisePos = self->kalmanMeasurementNoisePos;
+    config.useKalman = self->useKalman;
+    config.emitPredictedDetections = self->emitPredictedDetections;
+    config.emitTrace = self->emitTrace;
+    config.associationMode = associationModeFromString(self->associationMode);
     config.inferId = gst_pektracker_get_effective_inferId(self);
     return config;
 }
@@ -229,6 +270,19 @@ static void gst_pektracker_set_property(GObject *o, guint id, const GValue *v, G
     case PROP_KALMAN_MEASUREMENT_NOISE_POS:
         self->kalmanMeasurementNoisePos = g_value_get_float(v);
         break;
+    case PROP_USE_KALMAN:
+        self->useKalman = g_value_get_boolean(v);
+        break;
+    case PROP_EMIT_PREDICTED_DETECTIONS:
+        self->emitPredictedDetections = g_value_get_boolean(v);
+        break;
+    case PROP_EMIT_TRACE:
+        self->emitTrace = g_value_get_boolean(v);
+        break;
+    case PROP_ASSOCIATION_MODE:
+        g_free(self->associationMode);
+        self->associationMode = g_value_dup_string(v);
+        break;
     case PROP_INFER_ID:
         g_free(self->inferId);
         self->inferId = g_value_dup_string(v);
@@ -295,6 +349,18 @@ static void gst_pektracker_get_property(GObject *o, guint id, GValue *v, GParamS
     case PROP_KALMAN_MEASUREMENT_NOISE_POS:
         g_value_set_float(v, self->kalmanMeasurementNoisePos);
         break;
+    case PROP_USE_KALMAN:
+        g_value_set_boolean(v, self->useKalman);
+        break;
+    case PROP_EMIT_PREDICTED_DETECTIONS:
+        g_value_set_boolean(v, self->emitPredictedDetections);
+        break;
+    case PROP_EMIT_TRACE:
+        g_value_set_boolean(v, self->emitTrace);
+        break;
+    case PROP_ASSOCIATION_MODE:
+        g_value_set_string(v, self->associationMode);
+        break;
     case PROP_INFER_ID:
         g_value_set_string(v, gst_pektracker_get_effective_inferId(self));
         break;
@@ -311,6 +377,9 @@ static void gst_pektracker_finalize(GObject *object) {
 
     g_free(self->embeddingContentType);
     self->embeddingContentType = nullptr;
+
+    g_free(self->associationMode);
+    self->associationMode = nullptr;
 
     g_free(self->inferId);
     self->inferId = nullptr;
@@ -523,6 +592,42 @@ static void gst_pektracker_class_init(GstPekTrackerClass *klass) {
 
     g_object_class_install_property(
         gobj,
+        PROP_USE_KALMAN,
+        g_param_spec_boolean("use-kalman",
+                             "Use Kalman",
+                             "Enable Kalman prediction and measurement smoothing",
+                             pek::tracker::Defaults::useKalman,
+                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
+        gobj,
+        PROP_EMIT_PREDICTED_DETECTIONS,
+        g_param_spec_boolean("emit-predicted-detections",
+                             "Emit predicted detections",
+                             "Append predicted-only tracks when detections are temporarily missing",
+                             pek::tracker::Defaults::emitPredictedDetections,
+                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
+        gobj,
+        PROP_EMIT_TRACE,
+        g_param_spec_boolean("emit-trace",
+                             "Emit trace",
+                             "Append trackTrace output for active tracks",
+                             pek::tracker::Defaults::emitTrace,
+                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
+        gobj,
+        PROP_ASSOCIATION_MODE,
+        g_param_spec_string("association-mode",
+                            "Association mode",
+                            "Association strategy: hybrid, iou, or embedding",
+                            associationModeToString(pek::tracker::Defaults::associationMode),
+                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
+        gobj,
         PROP_INFER_ID,
         g_param_spec_string("infer-id",
                             "ID of the inference element",
@@ -571,6 +676,11 @@ static void gst_pektracker_init(GstPekTracker *self) {
     self->kalmanProcessNoisePos = pek::tracker::Defaults::kalmanProcessNoisePos;
     self->kalmanProcessNoiseVel = pek::tracker::Defaults::kalmanProcessNoiseVel;
     self->kalmanMeasurementNoisePos = pek::tracker::Defaults::kalmanMeasurementNoisePos;
+    self->useKalman = pek::tracker::Defaults::useKalman;
+    self->emitPredictedDetections = pek::tracker::Defaults::emitPredictedDetections;
+    self->emitTrace = pek::tracker::Defaults::emitTrace;
+    self->associationMode =
+        g_strdup(associationModeToString(pek::tracker::Defaults::associationMode));
     self->inferId = nullptr;
 
     gst_video_info_init(&self->vinfo);

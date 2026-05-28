@@ -58,10 +58,15 @@ void Tracker::process(pek::Perception &perception, const Config &config) {
     trackingoutput::updateExistingDetectionsWithTrackingResult(writerContext,
                                                                resolvedTrackingAssignments);
     // Add predicted-only tracks into the prediction output layer.
-    trackingoutput::appendPredictedDetectionsFromTrackingResult(writerContext,
-                                                                resolvedTrackingAssignments);
+    if (config.emitPredictedDetections) {
+        trackingoutput::appendPredictedDetectionsFromTrackingResult(writerContext,
+                                                                    resolvedTrackingAssignments);
+    }
     // Add track trace for each active track.
-    trackingoutput::appendTraceLayerForActiveTracks(writerContext);
+    if (config.emitTrace) {
+        trackingoutput::appendTraceLayerForActiveTracks(writerContext);
+    }
 }
 
+<<<<<<< HEAD:development/elements/pektracker/Tracker.cpp
 } // namespace pek::tracker
