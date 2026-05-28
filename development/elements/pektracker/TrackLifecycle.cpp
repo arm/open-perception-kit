@@ -69,7 +69,7 @@ void applyMatchedDetection(DetectionIndex detectionIndex,
     track.hitStreak++;
     track.lastUpdateFrame = frameTrackingContext.currentFrameIndex;
 
-    amp::Perception::TrackTrace::Point resolvedPoint;
+    pek::Perception::TrackTrace::Point resolvedPoint;
     if (frameTrackingContext.config.useKalman) {
         resolvedPoint = trackstate::correctCenterWithMeasurement(
             track, track.lastDetection, frameTrackingContext.config);
@@ -147,7 +147,7 @@ bool tryRestoreDormantTrack(DetectionIndex detectionIndex,
     restoredTrack.hitStreak = std::max(1, frameTrackingContext.config.minHitsToConfirm);
     restoredTrack.lastUpdateFrame = frameTrackingContext.currentFrameIndex;
 
-    amp::Perception::TrackTrace::Point initPoint;
+    pek::Perception::TrackTrace::Point initPoint;
     if (frameTrackingContext.config.useKalman) {
         initPoint = trackstate::predictCenter(restoredTrack, frameTrackingContext.config);
         restoredTrack.predictedThisFrame = true;
@@ -185,7 +185,7 @@ void createTrackFromDetection(DetectionIndex detectionIndex,
         newTrack.hasEmbedding = true;
     }
 
-    amp::Perception::TrackTrace::Point initPoint;
+    pek::Perception::TrackTrace::Point initPoint;
     if (frameTrackingContext.config.useKalman) {
         initPoint = trackstate::predictCenter(newTrack, frameTrackingContext.config);
         newTrack.predictedThisFrame = true;

@@ -4,7 +4,7 @@
 
 #include "postproc/ScrfdParser.h"
 
-#include "amp/Perception.h"
+#include "pek/Perception.h"
 
 #include <algorithm>
 #include <cmath>
@@ -12,7 +12,7 @@
 #include <map>
 #include <vector>
 
-using namespace amp;
+using namespace pek;
 
 namespace {
 
@@ -101,29 +101,27 @@ inline float nhwcAt(const TensorView &tensor, size_t y, size_t x, size_t c) {
     return tensor.get((y * width + x) * channels + c);
 }
 
-static amp::Result<std::vector<FeatureMapGroup>>
-validateGroups(const amp::TensorParser::Input &input, size_t modelWidth, size_t modelHeight) {
+static pek::Result<std::vector<FeatureMapGroup>>
+validateGroups(const pek::TensorParser::Input &input, size_t modelWidth, size_t modelHeight) {
     std::map<size_t, FeatureMapGroup> groups;
 
-    for (size_t i = 0; i < amp::MaxTensorCount; ++i) {
+    for (size_t i = 0; i < pek::MaxTensorCount; ++i) {
         const TensorView *tensor = input.tensors[i];
         if (!tensor)
             continue;
 
         const auto shape = tensor->getShape();
         if (shape.dimensionCount != 4) {
-            return tl::unexpected(
-                AMP_ERROR(ErrorFlag::InvalidData,
-                          fmt::format("ScrfdParser: tensor {} must be NHWC [1,H,W,C], got {}",
-                                      i,
-                                      shape.toString())));
+            return tl::unexpected(PEK_ERROR(
+                ErrorFlag::InvalidData,
+                fmt::format(
+                    "ScrfdParser: tensor {} must be NHWC [1,H,W,C], got {}", i, shape.toString())));
         }
         if (shape.valueCount[0] != 1) {
-            return tl::unexpected(
-                AMP_ERROR(ErrorFlag::InvalidData,
-                          fmt::format("ScrfdParser: tensor {} batch must be 1, got {}",
-                                      i,
-                                      shape.valueCount[0])));
+            return tl::unexpected(PEK_ERROR(
+                ErrorFlag::InvalidData,
+                fmt::format(
+                    "ScrfdParser: tensor {} batch must be 1, got {}", i, shape.valueCount[0])));
         }
 
         const size_t height = static_cast<size_t>(shape.valueCount[1]);
@@ -132,7 +130,7 @@ validateGroups(const amp::TensorParser::Input &input, size_t modelWidth, size_t 
 
         if (height == 0 || width == 0 || modelWidth % width != 0 || modelHeight % height != 0) {
             return tl::unexpected(
-                AMP_ERROR(ErrorFlag::InvalidData,
+                PEK_ERROR(ErrorFlag::InvalidData,
                           fmt::format("ScrfdParser: tensor {} shape {} does not map cleanly to "
                                       "model size {}x{}",
                                       i,
@@ -145,7 +143,7 @@ validateGroups(const amp::TensorParser::Input &input, size_t modelWidth, size_t 
         const size_t strideY = modelHeight / height;
         if (strideX != strideY) {
             return tl::unexpected(
-                AMP_ERROR(ErrorFlag::InvalidData,
+                PEK_ERROR(ErrorFlag::InvalidData,
                           fmt::format("ScrfdParser: tensor {} shape {} implies non-square stride "
                                       "{}x{}",
                                       i,
@@ -161,7 +159,7 @@ validateGroups(const amp::TensorParser::Input &input, size_t modelWidth, size_t 
 
         if (channels % 10 == 0) {
             if (group.landmarks) {
-                return tl::unexpected(AMP_ERROR(
+                return tl::unexpected(PEK_ERROR(
                     ErrorFlag::InvalidData,
                     fmt::format("ScrfdParser: duplicate landmark tensor for stride {}", strideX)));
             }
@@ -169,7 +167,7 @@ validateGroups(const amp::TensorParser::Input &input, size_t modelWidth, size_t 
             group.anchorsPerCell = channels / 10;
         } else if (channels % 4 == 0) {
             if (group.boxes) {
-                return tl::unexpected(AMP_ERROR(
+                return tl::unexpected(PEK_ERROR(
                     ErrorFlag::InvalidData,
                     fmt::format("ScrfdParser: duplicate box tensor for stride {}", strideX)));
             }
@@ -177,7 +175,7 @@ validateGroups(const amp::TensorParser::Input &input, size_t modelWidth, size_t 
             group.anchorsPerCell = channels / 4;
         } else {
             if (group.scores) {
-                return tl::unexpected(AMP_ERROR(
+                return tl::unexpected(PEK_ERROR(
                     ErrorFlag::InvalidData,
                     fmt::format("ScrfdParser: duplicate score tensor for stride {}", strideX)));
             }
@@ -188,7 +186,7 @@ validateGroups(const amp::TensorParser::Input &input, size_t modelWidth, size_t 
 
     if (groups.empty()) {
         return tl::unexpected(
-            AMP_ERROR(ErrorFlag::InvalidData, "ScrfdParser: no output tensors were provided"));
+            PEK_ERROR(ErrorFlag::InvalidData, "ScrfdParser: no output tensors were provided"));
     }
 
     std::vector<FeatureMapGroup> ordered;
@@ -196,17 +194,16 @@ validateGroups(const amp::TensorParser::Input &input, size_t modelWidth, size_t 
     for (auto &[stride, group] : groups) {
         (void)stride;
         if (!group.scores || !group.boxes) {
-            return tl::unexpected(AMP_ERROR(
-                ErrorFlag::InvalidData,
-                fmt::format("ScrfdParser: missing score or box tensor for stride {}", group.stride)));
+            return tl::unexpected(
+                PEK_ERROR(ErrorFlag::InvalidData,
+                          fmt::format("ScrfdParser: missing score or box tensor for stride {}",
+                                      group.stride)));
         }
 
-        const size_t scoreAnchors =
-            static_cast<size_t>(group.scores->getShape().valueCount[3]);
-        const size_t boxAnchors =
-            static_cast<size_t>(group.boxes->getShape().valueCount[3]) / 4;
+        const size_t scoreAnchors = static_cast<size_t>(group.scores->getShape().valueCount[3]);
+        const size_t boxAnchors = static_cast<size_t>(group.boxes->getShape().valueCount[3]) / 4;
         if (scoreAnchors != boxAnchors) {
-            return tl::unexpected(AMP_ERROR(
+            return tl::unexpected(PEK_ERROR(
                 ErrorFlag::InvalidData,
                 fmt::format("ScrfdParser: score/box anchor mismatch at stride {}: {} vs {}",
                             group.stride,
@@ -217,7 +214,7 @@ validateGroups(const amp::TensorParser::Input &input, size_t modelWidth, size_t 
             const size_t kpsAnchors =
                 static_cast<size_t>(group.landmarks->getShape().valueCount[3]) / 10;
             if (kpsAnchors != scoreAnchors) {
-                return tl::unexpected(AMP_ERROR(
+                return tl::unexpected(PEK_ERROR(
                     ErrorFlag::InvalidData,
                     fmt::format("ScrfdParser: landmark anchor mismatch at stride {}: {} vs {}",
                                 group.stride,
@@ -240,8 +237,8 @@ validateGroups(const amp::TensorParser::Input &input, size_t modelWidth, size_t 
 
 } // namespace
 
-amp::Result<void> amp::ScrfdParser::parse(const amp::TensorParser::Input &input,
-                                          amp::Perception::Layer &detectionResult) {
+pek::Result<void> pek::ScrfdParser::parse(const pek::TensorParser::Input &input,
+                                          pek::Perception::Layer &detectionResult) {
     const float confThreshold =
         static_cast<float>(input.attributes.getDoubleOrDefault("confidenceThreshold", 0.5));
     const float iouThreshold =
@@ -258,7 +255,7 @@ amp::Result<void> amp::ScrfdParser::parse(const amp::TensorParser::Input &input,
 
     if (modelWidth == 0 || modelHeight == 0 || frameWidth == 0 || frameHeight == 0) {
         return tl::unexpected(
-            AMP_ERROR(ErrorFlag::InvalidData,
+            PEK_ERROR(ErrorFlag::InvalidData,
                       fmt::format("ScrfdParser: invalid image dimensions frame={}x{}, model={}x{}",
                                   frameWidth,
                                   frameHeight,
@@ -284,19 +281,17 @@ amp::Result<void> amp::ScrfdParser::parse(const amp::TensorParser::Input &input,
                     }
 
                     const size_t boxBase = anchor * 4;
-                    const float l = nhwcAt(*group.boxes, y, x, boxBase + 0) *
-                                    static_cast<float>(group.stride);
-                    const float t = nhwcAt(*group.boxes, y, x, boxBase + 1) *
-                                    static_cast<float>(group.stride);
-                    const float r = nhwcAt(*group.boxes, y, x, boxBase + 2) *
-                                    static_cast<float>(group.stride);
-                    const float b = nhwcAt(*group.boxes, y, x, boxBase + 3) *
-                                    static_cast<float>(group.stride);
+                    const float l =
+                        nhwcAt(*group.boxes, y, x, boxBase + 0) * static_cast<float>(group.stride);
+                    const float t =
+                        nhwcAt(*group.boxes, y, x, boxBase + 1) * static_cast<float>(group.stride);
+                    const float r =
+                        nhwcAt(*group.boxes, y, x, boxBase + 2) * static_cast<float>(group.stride);
+                    const float b =
+                        nhwcAt(*group.boxes, y, x, boxBase + 3) * static_cast<float>(group.stride);
 
-                    const float anchorCenterX =
-                        static_cast<float>(x * group.stride);
-                    const float anchorCenterY =
-                        static_cast<float>(y * group.stride);
+                    const float anchorCenterX = static_cast<float>(x * group.stride);
+                    const float anchorCenterY = static_cast<float>(y * group.stride);
 
                     float x1 = std::clamp(anchorCenterX - l, 0.0f, static_cast<float>(modelWidth));
                     float y1 = std::clamp(anchorCenterY - t, 0.0f, static_cast<float>(modelHeight));
@@ -329,8 +324,8 @@ amp::Result<void> amp::ScrfdParser::parse(const amp::TensorParser::Input &input,
         }
     }
 
-    detectionResult.detections = nonMaxSuppression(
-        detectionResult.detections, confThreshold, iouThreshold, maxDetections);
+    detectionResult.detections =
+        nonMaxSuppression(detectionResult.detections, confThreshold, iouThreshold, maxDetections);
     detectionResult.contentType = "humanFace";
 
     return {};
