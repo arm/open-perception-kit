@@ -24,8 +24,6 @@ jobs:
       BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       WORKSPACE_ROOT: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      DETECT_SCRIPT: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}/detect-arm.sh
-      CONTAINER_SCAN_TARS_DIR: ${{ github.workspace }}/repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}/.bd-container-tars
 
     steps:
       - name: Checkout repository
@@ -58,9 +56,10 @@ jobs:
       - name: Download Detect script
         run: |
           set -euo pipefail
-          curl -fsSL "https://artifactory.arm.com/artifactory/synopsys-blackduck.detect-arm/detect-arm.sh" -o "${DETECT_SCRIPT}"
-          head -n 1 "${DETECT_SCRIPT}" | grep -q '^#!' || { echo "Downloaded script is invalid" >&2; exit 3; }
-          chmod +x "${DETECT_SCRIPT}"
+          detect_script="${WORKSPACE_ROOT}/detect-arm.sh"
+          curl -fsSL "https://artifactory.arm.com/artifactory/synopsys-blackduck.detect-arm/detect-arm.sh" -o "${detect_script}"
+          head -n 1 "${detect_script}" | grep -q '^#!' || { echo "Downloaded script is invalid" >&2; exit 3; }
+          chmod +x "${detect_script}"
 
       - name: Resolve project and version names
         run: |
@@ -387,6 +386,7 @@ jobs:
         run: |
           set -euo pipefail
           bd_out="${RUNNER_TEMP}/bd-output"
+          detect_script="${WORKSPACE_ROOT}/detect-arm.sh"
 
           detect_common=(
             "--blackduck.url=${BLACKDUCK_URL}"
@@ -397,7 +397,7 @@ jobs:
             "--detect.timeout=1800"
           )
 
-          "${DETECT_SCRIPT}" "${detect_common[@]}" \
+          "${detect_script}" "${detect_common[@]}" \
             --detect.project.version.name="${SOURCE_VERSION}" \
             --detect.code.location.name="${PROJECT_NAME}/${SOURCE_VERSION}/source" \
             --detect.source.path="${WORKSPACE_ROOT}" \
@@ -410,8 +410,9 @@ jobs:
       - name: Run Black Duck container scans
         run: |
           set -euo pipefail
-          rm -rf "${CONTAINER_SCAN_TARS_DIR}"
-          mkdir -p "${CONTAINER_SCAN_TARS_DIR}"
+          container_scan_tars_dir="${WORKSPACE_ROOT}/.bd-container-tars"
+          rm -rf "${container_scan_tars_dir}"
+          mkdir -p "${container_scan_tars_dir}"
 
           python3 - <<'PY'
           import json
@@ -421,8 +422,10 @@ jobs:
           import subprocess
 
           manifest_path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "bd-container-manifest.json"
-          tar_dir = pathlib.Path(os.environ["CONTAINER_SCAN_TARS_DIR"]).resolve()
+          workspace = pathlib.Path(os.environ["WORKSPACE_ROOT"]).resolve()
+          tar_dir = workspace / ".bd-container-tars"
           bd_out = pathlib.Path(os.environ["RUNNER_TEMP"]) / "bd-output" / "containers"
+          detect_script = workspace / "detect-arm.sh"
           entries = json.loads(manifest_path.read_text())
 
           def version_slug(name: str) -> str:
@@ -449,7 +452,7 @@ jobs:
               subprocess.run(["docker", "save", "-o", str(image_tar), scan_image], check=True)
 
               detect_cmd = [
-                  os.environ["DETECT_SCRIPT"],
+                  str(detect_script),
                   f"--blackduck.url={os.environ['BLACKDUCK_URL']}",
                   f"--blackduck.api.token={os.environ['BLACKDUCK_TOKEN']}",
                   f"--detect.project.name={os.environ['PROJECT_NAME']}",

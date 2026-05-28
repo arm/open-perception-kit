@@ -13,8 +13,9 @@ jobs:
     name: Run quality checks in Docker
     runs-on: ubuntu-latest
     if: |
-      (github.event.pull_request.draft == false) ||
-      (github.event_name == 'pull_request' && github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.draft == false ||
+      (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
     env:
       python_ver: "3.12.1"
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
@@ -25,7 +26,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ github.head_ref }}
+          ref: ${{ github.head_ref || github.ref }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
       - name: Build docker image
