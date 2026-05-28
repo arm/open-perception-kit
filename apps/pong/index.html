@@ -42,10 +42,16 @@
                 <span class="metric-label">Confidence</span>
                 <span id="left-confidence" class="metric-value">n/a</span>
               </div>
+              <div>
+                <span class="metric-label">Locked ID</span>
+                <span id="left-track-id" class="metric-value">Unlocked</span>
+              </div>
             </div>
             <div class="calibration-actions">
               <button id="left-reset-calibration" type="button" class="button-secondary small-button">Reset auto
                 range</button>
+              <button id="left-reset-mapping" type="button" class="button-secondary small-button">Reset face
+                lock</button>
             </div>
           </article>
 
@@ -71,10 +77,16 @@
                 <span class="metric-label">Confidence</span>
                 <span id="right-confidence" class="metric-value">n/a</span>
               </div>
+              <div>
+                <span class="metric-label">Locked ID</span>
+                <span id="right-track-id" class="metric-value">Unlocked</span>
+              </div>
             </div>
             <div class="calibration-actions">
               <button id="right-reset-calibration" type="button" class="button-secondary small-button">Reset auto
                 range</button>
+              <button id="right-reset-mapping" type="button" class="button-secondary small-button">Reset face
+                lock</button>
             </div>
           </article>
         </div>
@@ -107,7 +119,7 @@
         </div>
 
         <div class="game-note" id="game-note">
-          Waiting for metadata. Put one detected face in each half of the source image.
+          Waiting for metadata. Put one tracked face in each half of the source image to lock each paddle.
         </div>
       </section>
 
@@ -147,9 +159,9 @@
               </label>
 
               <label class="field">
-                <span>Tracking window scale</span>
-                <input id="tracking-window-scale" type="range" min="1" max="2" step="0.05" value="2" />
-                <strong id="tracking-window-scale-value" class="field-value">2.00x</strong>
+                <span>Face filter alpha</span>
+                <input id="face-filter-alpha" type="range" min="0" max="1" step="0.01" value="0.20" />
+                <strong id="face-filter-alpha-value" class="field-value">0.20</strong>
               </label>
 
               <label class="switch-field" for="mirror-sides">
@@ -162,7 +174,10 @@
 
               <p class="helper-note">
                 Calibration is automatic and continuous. The game keeps learning the live minimum and
-                maximum face Y positions and maps that observed range to full paddle travel.
+                maximum face Y positions and maps that observed range to full paddle travel. Each paddle
+                uses its half only for the first tracked-face lock, then follows that locked ID anywhere
+                in the frame. Lower face-filter alpha reduces smoothing and lag. Both paddles may lock to
+                the same tracked face.
               </p>
             </div>
           </div>
@@ -209,7 +224,7 @@
               <span>Debug overlay</span>
               <span class="switch-row">
                 <input id="debug-overlay" type="checkbox" />
-                <span class="switch-copy">Show all detected faces plus the active paddle tracking windows</span>
+                <span class="switch-copy">Show all detected faces plus the active left and right lock planes</span>
               </span>
             </label>
           </div>

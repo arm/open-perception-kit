@@ -7,8 +7,6 @@ const PADDLE_MARGIN = 26;
 const MAX_BOUNCE_ANGLE = Math.PI / 3;
 const DEFAULT_FRAME_WIDTH = 1280;
 const DEFAULT_FRAME_HEIGHT = 720;
-const FACE_Y_FILTER_ALPHA = 0.2;
-const FACE_DISTANCE_WEIGHT = 0.35;
 
 const elements = {
   connectForm: document.getElementById("connect-form"),
@@ -35,16 +33,20 @@ const elements = {
   rightCalibration: document.getElementById("right-calibration"),
   leftConfidence: document.getElementById("left-confidence"),
   rightConfidence: document.getElementById("right-confidence"),
+  leftTrackId: document.getElementById("left-track-id"),
+  rightTrackId: document.getElementById("right-track-id"),
   leftResetCalibration: document.getElementById("left-reset-calibration"),
   rightResetCalibration: document.getElementById("right-reset-calibration"),
+  leftResetMapping: document.getElementById("left-reset-mapping"),
+  rightResetMapping: document.getElementById("right-reset-mapping"),
   ballSpeed: document.getElementById("ball-speed"),
   ballSpeedValue: document.getElementById("ball-speed-value"),
   paddleHeight: document.getElementById("paddle-height"),
   paddleHeightValue: document.getElementById("paddle-height-value"),
   holdTime: document.getElementById("hold-time"),
   holdTimeValue: document.getElementById("hold-time-value"),
-  trackingWindowScale: document.getElementById("tracking-window-scale"),
-  trackingWindowScaleValue: document.getElementById("tracking-window-scale-value"),
+  faceFilterAlpha: document.getElementById("face-filter-alpha"),
+  faceFilterAlphaValue: document.getElementById("face-filter-alpha-value"),
   mirrorSides: document.getElementById("mirror-sides"),
   debugOverlay: document.getElementById("debug-overlay"),
 };
@@ -75,7 +77,7 @@ const state = {
     ballSpeed: Number(elements.ballSpeed.value),
     paddleHeight: Number(elements.paddleHeight.value),
     holdTimeMs: Number(elements.holdTime.value),
-    trackingWindowScale: Number(elements.trackingWindowScale.value),
+    faceFilterAlpha: Number(elements.faceFilterAlpha.value),
     mirrorSides: elements.mirrorSides.checked,
     showDebugOverlay: elements.debugOverlay.checked,
     lastTickMs: performance.now(),
@@ -98,14 +100,10 @@ function createPlayer(side) {
     faceYNormalized: null,
     faceConfidence: null,
     faceCenterX: null,
+    activeTrackId: null,
+    lockedTrackId: null,
     assignedFaceIndex: null,
     lastSeenMs: 0,
-    lockActive: false,
-    lockCenterX: null,
-    lockWidth: null,
-    recentFaceWidths: [],
-    validRegionMinX: null,
-    validRegionMaxX: null,
     calibration: {
       top: null,
       bottom: null,
@@ -163,22 +161,24 @@ function getDefaultRegionBounds(side, frameWidth) {
     : { minX: splitX, maxX: frameWidth };
 }
 
-function getPlayerRegionBounds(player, side, frameWidth) {
-  if (player.lockActive && player.lockCenterX !== null && player.lockWidth !== null) {
-    const span = Math.max(player.lockWidth * state.game.trackingWindowScale, player.lockWidth);
-    return {
-      minX: clamp(player.lockCenterX - span / 2, 0, frameWidth),
-      maxX: clamp(player.lockCenterX + span / 2, 0, frameWidth),
-    };
-  }
-
-  return getDefaultRegionBounds(side, frameWidth);
-}
-
 function enrichFaces(faces) {
   return faces.map((face, index) => {
     const width = Math.max(Number(face.width ?? 0), 1);
     const height = Math.max(Number(face.height ?? 0), 1);
+    const attributes = face && typeof face.attributes === "object" ? face.attributes : {};
+    const text = typeof face.text === "string" ? face.text : "";
+    const textTrackMatch = text.match(/\bID:(\d+)\b/);
+    const textSimilarityMatch = text.match(/\bREID(?:-R)?:([0-9]*\.?[0-9]+)\b/);
+    const rawTrackId =
+      attributes.trackId ??
+      face.trackId ??
+      (textTrackMatch ? Number(textTrackMatch[1]) : null);
+    const rawSimilarity =
+      attributes.similarityIndex ??
+      attributes.similarity ??
+      attributes.reidSimilarity ??
+      face.similarityIndex ??
+      (textSimilarityMatch ? Number(textSimilarityMatch[1]) : null);
     return {
       ...face,
       index,
@@ -187,98 +187,65 @@ function enrichFaces(faces) {
       centerX: Number(face.x) + width / 2,
       centerY: Number(face.y) + height / 2,
       confidence: Number(face.confidence ?? 0),
+      trackId: Number.isFinite(Number(rawTrackId)) ? Number(rawTrackId) : null,
+      similarityIndex: Number.isFinite(Number(rawSimilarity)) ? Number(rawSimilarity) : null,
     };
   });
 }
 
-function chooseUnlockedFace(candidates) {
+function chooseBestFace(candidates) {
   if (candidates.length === 0) {
     return null;
   }
-
-  return candidates.reduce((best, current) =>
-    current.confidence > best.confidence ? current : best
-  );
-}
-
-function chooseLockedFace(candidates, player, regionBounds) {
-  if (candidates.length === 0) {
-    return null;
-  }
-
-  const referenceX = player.faceCenterX ?? player.lockCenterX ?? (regionBounds.minX + regionBounds.maxX) / 2;
-  const regionWidth = Math.max(regionBounds.maxX - regionBounds.minX, 1);
 
   return candidates.reduce((best, current) => {
-    const bestDistance = Math.abs(best.centerX - referenceX) / regionWidth;
-    const currentDistance = Math.abs(current.centerX - referenceX) / regionWidth;
-    const bestScore = best.confidence - bestDistance * FACE_DISTANCE_WEIGHT;
-    const currentScore = current.confidence - currentDistance * FACE_DISTANCE_WEIGHT;
-
-    if (currentScore !== bestScore) {
-      return currentScore > bestScore ? current : best;
-    }
     if (current.confidence !== best.confidence) {
       return current.confidence > best.confidence ? current : best;
     }
-    return currentDistance < bestDistance ? current : best;
+    return current.centerY < best.centerY ? current : best;
   });
 }
 
-function medianOfThree(values) {
-  const sorted = [...values].sort((a, b) => a - b);
-  return sorted[Math.floor(sorted.length / 2)];
-}
-
-function pushFaceWidthSample(player, width) {
-  player.recentFaceWidths.push(width);
-  if (player.recentFaceWidths.length > 3) {
-    player.recentFaceWidths.shift();
-  }
-
-  if (player.recentFaceWidths.length < 3) {
-    return width;
-  }
-
-  return medianOfThree(player.recentFaceWidths);
+function chooseInitialLockFace(candidates) {
+  return chooseBestFace(candidates.filter((face) => face.trackId !== null));
 }
 
 function assignFacesToPlayers(faces, dimensions) {
-  const usedFaceIndexes = new Set();
   const assignments = new Map();
   const orderedSides = ["left", "right"].sort((sideA, sideB) =>
-    Number(state.players[sideB].lockActive) - Number(state.players[sideA].lockActive)
+    Number(state.players[sideB].lockedTrackId !== null) - Number(state.players[sideA].lockedTrackId !== null)
   );
 
   for (const side of orderedSides) {
     const player = state.players[side];
-    const regionBounds = getPlayerRegionBounds(player, side, dimensions.width);
-    player.validRegionMinX = regionBounds.minX;
-    player.validRegionMaxX = regionBounds.maxX;
-
-    const candidates = faces.filter((face) =>
-      !usedFaceIndexes.has(face.index) &&
+    const regionBounds = getDefaultRegionBounds(side, dimensions.width);
+    const initialLockCandidates = faces.filter((face) =>
       face.centerX >= regionBounds.minX &&
       face.centerX <= regionBounds.maxX
     );
 
-    const selectedFace = player.lockActive
-      ? chooseLockedFace(candidates, player, regionBounds)
-      : chooseUnlockedFace(candidates);
+    let selectedFace = null;
+
+    if (player.lockedTrackId !== null) {
+      selectedFace = chooseBestFace(
+        faces.filter((face) => face.trackId !== null && face.trackId === player.lockedTrackId)
+      );
+    } else {
+      selectedFace = chooseInitialLockFace(initialLockCandidates);
+      if (selectedFace) {
+        player.lockedTrackId = selectedFace.trackId;
+      }
+    }
 
     if (!selectedFace) {
       player.assignedFaceIndex = null;
+      player.activeTrackId = null;
       continue;
     }
 
-    player.lockActive = true;
-    player.lockCenterX = selectedFace.centerX;
-    player.lockWidth = pushFaceWidthSample(player, selectedFace.width);
-    player.validRegionMinX = getPlayerRegionBounds(player, side, dimensions.width).minX;
-    player.validRegionMaxX = getPlayerRegionBounds(player, side, dimensions.width).maxX;
     player.assignedFaceIndex = selectedFace.index;
+    player.activeTrackId = selectedFace.trackId;
     assignments.set(side, selectedFace);
-    usedFaceIndexes.add(selectedFace.index);
   }
 
   return assignments;
@@ -317,6 +284,7 @@ function extractRectDetections(perception) {
       if (detection?.type === "Rect" && layer?.contentType === "humanFace" && detection.data) {
         faces.push({
           ...detection.data,
+          attributes: detection.data.attributes ?? null,
           contentType: layer.contentType,
         });
       }
@@ -424,7 +392,7 @@ function updatePlayersFromFaces(faces) {
     player.filteredFaceYNormalized = lowPass(
       player.filteredFaceYNormalized,
       rawNormalizedY,
-      FACE_Y_FILTER_ALPHA,
+      state.game.faceFilterAlpha,
     );
     const calibratedY = getCalibratedFaceY(player, player.filteredFaceYNormalized);
 
@@ -433,6 +401,7 @@ function updatePlayersFromFaces(faces) {
     player.faceCenterX = face.centerX;
     player.targetY = calibratedY * GAME_HEIGHT;
     player.faceConfidence = face.confidence;
+    player.activeTrackId = face.trackId;
     player.lastSeenMs = now;
   }
 }
@@ -448,13 +417,8 @@ function updatePlayerFallbacks(now) {
       player.faceYNormalized = null;
       player.faceConfidence = null;
       player.faceCenterX = null;
+      player.activeTrackId = null;
       player.assignedFaceIndex = null;
-      player.lockActive = false;
-      player.lockCenterX = null;
-      player.lockWidth = null;
-      player.recentFaceWidths = [];
-      player.validRegionMinX = null;
-      player.validRegionMaxX = null;
     }
   }
 }
@@ -474,6 +438,20 @@ function resetCalibration(side) {
   setGameNote(`${side === "left" ? "Left" : "Right"} auto-calibration reset. Move through your range again.`);
 }
 
+function resetPlayerMapping(side) {
+  const player = state.players[side];
+  player.lockedTrackId = null;
+  player.activeTrackId = null;
+  player.assignedFaceIndex = null;
+
+  state.latestFaces = state.latestFaces.map((face) =>
+    face.assignedSide === side ? { ...face, assignedSide: null } : face
+  );
+
+  renderSidebar(state.latestFaceCount);
+  setGameNote(`${side === "left" ? "Left" : "Right"} face lock reset. The next tracked face in that half can claim the paddle.`);
+}
+
 function connect(url) {
   disconnect();
   setStatus(`Connecting to ${url}...`, false);
@@ -483,7 +461,7 @@ function connect(url) {
 
   socket.onopen = () => {
     setStatus(`Connected to ${url}`, true);
-    setGameNote("Metadata live. Put one face in each half to control both rackets.");
+    setGameNote("Metadata live. Put one tracked face in each half to lock both paddles.");
   };
 
   socket.onmessage = (event) => {
@@ -513,7 +491,7 @@ function connect(url) {
     state.latestFaces = [];
     state.latestFaceCount = 0;
     setStatus(`Disconnected from ${url}`, false);
-    setGameNote("Metadata disconnected. Rackets will drift back to center after the hold timeout.");
+    setGameNote("Metadata disconnected. Paddle IDs stay locked until you reset the round.");
   };
 }
 
@@ -561,28 +539,8 @@ function resetBall(direction = Math.random() > 0.5 ? 1 : -1) {
 function resetRound() {
   state.scores.left = 0;
   state.scores.right = 0;
-  for (const player of Object.values(state.players)) {
-    player.centerY = GAME_HEIGHT / 2;
-    player.targetY = GAME_HEIGHT / 2;
-    player.rawFaceYNormalized = null;
-    player.filteredFaceYNormalized = null;
-    player.faceYNormalized = null;
-    player.faceConfidence = null;
-    player.faceCenterX = null;
-    player.assignedFaceIndex = null;
-    player.lockActive = false;
-    player.lockCenterX = null;
-    player.lockWidth = null;
-    player.recentFaceWidths = [];
-    player.validRegionMinX = null;
-    player.validRegionMaxX = null;
-    player.calibration.top = null;
-    player.calibration.bottom = null;
-  }
-  state.latestFaces = [];
-  state.latestFaceCount = 0;
   resetBall();
-  renderSidebar(0);
+  renderSidebar(state.latestFaceCount);
 }
 
 function toggleRunning() {
@@ -723,13 +681,10 @@ function projectYToGame(y) {
 }
 
 function drawTrackingRegion(side) {
-  const player = state.players[side];
-  const regionBounds = {
-    minX: player.validRegionMinX ?? getDefaultRegionBounds(side, state.frameDimensions.width).minX,
-    maxX: player.validRegionMaxX ?? getDefaultRegionBounds(side, state.frameDimensions.width).maxX,
-  };
+  const regionBounds = getDefaultRegionBounds(side, state.frameDimensions.width);
   const x = projectXToGame(regionBounds.minX);
   const width = projectXToGame(regionBounds.maxX) - x;
+  const player = state.players[side];
   const calibrationTop = player.calibration.top ?? 0;
   const calibrationBottom = player.calibration.bottom ?? 1;
   const y = projectYToGame(calibrationTop * state.frameDimensions.height);
@@ -756,7 +711,13 @@ function drawDetectedFace(face) {
   context.lineWidth = locked ? 3 : 2;
   context.strokeRect(x, y, width, height);
 
-  const label = locked ? `${face.assignedSide.toUpperCase()} ${(face.confidence * 100).toFixed(0)}%` : `${(face.confidence * 100).toFixed(0)}%`;
+  const identityLabel = face.trackId !== null ? `ID ${face.trackId}` : "ID ?";
+  const similarityLabel = face.similarityIndex !== null
+    ? `SIM ${Math.round(face.similarityIndex * 100)}%`
+    : "SIM n/a";
+  const label = locked
+    ? `${face.assignedSide.toUpperCase()} ${identityLabel} ${similarityLabel}`
+    : `${identityLabel} ${similarityLabel}`;
   context.font = "700 14px 'Avenir Next', 'Segoe UI', sans-serif";
   context.fillStyle = locked ? "rgba(84, 255, 140, 0.96)" : "rgba(255, 90, 90, 0.96)";
   context.fillText(label, x + 4, Math.max(16, y - 8));
@@ -833,6 +794,7 @@ function renderPlayerCard(side) {
   const rawYEl = side === "left" ? elements.leftRawY : elements.rightRawY;
   const calibrationEl = side === "left" ? elements.leftCalibration : elements.rightCalibration;
   const confidenceEl = side === "left" ? elements.leftConfidence : elements.rightConfidence;
+  const trackIdEl = side === "left" ? elements.leftTrackId : elements.rightTrackId;
   const hasFace = player.faceYNormalized !== null;
 
   presenceEl.textContent = hasFace ? "Tracking" : "No face";
@@ -842,6 +804,7 @@ function renderPlayerCard(side) {
   rawYEl.textContent = player.rawFaceYNormalized !== null ? formatPercent(player.rawFaceYNormalized) : "n/a";
   calibrationEl.textContent = describeCalibration(player);
   confidenceEl.textContent = hasFace ? formatNumber(player.faceConfidence, 3) : "n/a";
+  trackIdEl.textContent = player.lockedTrackId !== null ? String(player.lockedTrackId) : "Unlocked";
 }
 
 function renderScene() {
@@ -900,17 +863,17 @@ elements.holdTime.addEventListener("input", () => {
   elements.holdTimeValue.textContent = `${(state.game.holdTimeMs / 1000).toFixed(1)} s`;
 });
 
-elements.trackingWindowScale.addEventListener("input", () => {
-  state.game.trackingWindowScale = Number(elements.trackingWindowScale.value);
-  elements.trackingWindowScaleValue.textContent = `${state.game.trackingWindowScale.toFixed(2)}x`;
+elements.faceFilterAlpha.addEventListener("input", () => {
+  state.game.faceFilterAlpha = Number(elements.faceFilterAlpha.value);
+  elements.faceFilterAlphaValue.textContent = state.game.faceFilterAlpha.toFixed(2);
 });
 
 elements.mirrorSides.addEventListener("change", () => {
   state.game.mirrorSides = elements.mirrorSides.checked;
   setGameNote(
     state.game.mirrorSides
-      ? "Mirror mode is on. Left player follows the right half of the camera image and vice versa."
-      : "Mirror mode is off. Each player follows the matching half of the camera image."
+      ? "Mirror mode is on. Initial face-ID locks use the opposite camera half for each paddle."
+      : "Mirror mode is off. Initial face-ID locks use the matching camera half for each paddle."
   );
 });
 
@@ -926,12 +889,20 @@ elements.rightResetCalibration.addEventListener("click", () => {
   resetCalibration("right");
 });
 
+elements.leftResetMapping.addEventListener("click", () => {
+  resetPlayerMapping("left");
+});
+
+elements.rightResetMapping.addEventListener("click", () => {
+  resetPlayerMapping("right");
+});
+
 setStatus("Offline", false);
-setGameNote("Waiting for metadata. Put one detected face in each half of the source image.");
+setGameNote("Waiting for metadata. Put one tracked face in each half of the source image to lock each paddle.");
 elements.ballSpeedValue.textContent = `${state.game.ballSpeed} px/s`;
 elements.paddleHeightValue.textContent = `${state.game.paddleHeight} px`;
 elements.holdTimeValue.textContent = `${(state.game.holdTimeMs / 1000).toFixed(1)} s`;
-elements.trackingWindowScaleValue.textContent = `${state.game.trackingWindowScale.toFixed(2)}x`;
+elements.faceFilterAlphaValue.textContent = state.game.faceFilterAlpha.toFixed(2);
 resetBall();
 renderSidebar(0);
 requestAnimationFrame(tick);
