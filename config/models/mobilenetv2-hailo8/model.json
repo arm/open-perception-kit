@@ -11,7 +11,8 @@
 				224,
 				3
 			],
-			"dataKind": "ImageRgbChw"
+			"dataKind": "ImageRgbHwc",
+			"valueType": "Uint8"
 		}
 	]
 }
