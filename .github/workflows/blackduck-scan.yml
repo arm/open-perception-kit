@@ -509,51 +509,30 @@ jobs:
 
       - name: Cleanup isolated workspace and Black Duck images
         if: always()
+        shell: bash
         run: |
-          manifest_path="${RUNNER_TEMP}/bd-container-manifest.json"
+          run_suffix="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 
-          python3 - <<'PY'
-          import json
-          import os
-          import pathlib
-          import subprocess
-
-          manifest_path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "bd-container-manifest.json"
-          run_suffix = f"{os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}"
-          seen_images = set()
-
-          if manifest_path.exists():
-              entries = json.loads(manifest_path.read_text())
-              for entry in entries:
-                  container_name = f"bd-prep-{entry['name']}-{run_suffix}"
-                  subprocess.run(
-                      ["docker", "rm", "-f", container_name],
-                      check=False,
-                      stdout=subprocess.DEVNULL,
-                      stderr=subprocess.DEVNULL,
-                  )
-                  for key in ("prepared_image", "image"):
-                      image = entry.get(key)
-                      if image and image not in seen_images:
-                          subprocess.run(
-                              ["docker", "image", "rm", "-f", image],
-                              check=False,
-                              stdout=subprocess.DEVNULL,
-                              stderr=subprocess.DEVNULL,
-                          )
-                          seen_images.add(image)
-
-          dev_image = (
-              f"perception-experience-kit-bd:"
-              f"{os.environ['GITHUB_SHA']}-{os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}"
+          mapfile -t prep_containers < <(
+            docker ps -a --format '{{.ID}} {{.Names}}' \
+              | grep -E " bd-prep-.*-${run_suffix}$" \
+              | awk '{print $1}' \
+              || true
           )
-          subprocess.run(
-              ["docker", "image", "rm", "-f", dev_image],
-              check=False,
-              stdout=subprocess.DEVNULL,
-              stderr=subprocess.DEVNULL,
+
+          if [ "${#prep_containers[@]}" -gt 0 ]; then
+            docker rm -f "${prep_containers[@]}" || true
+          fi
+
+          mapfile -t run_images < <(
+            docker image ls --format '{{.Repository}}:{{.Tag}}' \
+              | grep -E "^blackduck-scan-.*:(prepared-)?${GITHUB_SHA}-${run_suffix}$|^perception-experience-kit-bd:${GITHUB_SHA}-${run_suffix}$" \
+              || true
           )
-          PY
+
+          if [ "${#run_images[@]}" -gt 0 ]; then
+            docker image rm -f "${run_images[@]}" || true
+          fi
 
           if [ -d "${WORKSPACE_ROOT}" ]; then
             sudo chown -R "$(id -u):$(id -g)" "${WORKSPACE_ROOT}" || true
