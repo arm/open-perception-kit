@@ -85,6 +85,18 @@ class DetectSecretsQualityFlowTests(unittest.TestCase):
         env["PYTHONPATH"] = str(PACKAGE_ROOT) + os.pathsep + env.get("PYTHONPATH", "")
         return self.run_cmd([self.test_python, "-m", "expkits_ci", *args], check=check, env=env)
 
+    def run_repo_python(self, code):
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(PACKAGE_ROOT) + os.pathsep + env.get("PYTHONPATH", "")
+        return subprocess.run(
+            [self.test_python, "-c", code],
+            cwd=REPO_ROOT,
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
     def commit_all(self, message="Seed repo for detect-secrets test"):
         self.run_cmd(["git", "add", "."])
         self.run_cmd(["git", "commit", "-m", message])
@@ -190,6 +202,18 @@ class DetectSecretsQualityFlowTests(unittest.TestCase):
         self.assertIn("[INFO]   resolved files: 2", result.stdout)
         self.assertIn("[INFO]   OK   secrets", result.stdout)
 
+    def test_repo_check_secrets_without_scope_returns_bool(self):
+        result = self.run_repo_python(
+            "from expkits_ci.quality_checks import QualityChecks; "
+            "scan_result = QualityChecks().check_secrets(files=None, baseline='.secrets.baseline'); "
+            "print(type(scan_result).__name__); "
+            "print(scan_result)"
+        )
+
+        self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+        output_lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        self.assertEqual(output_lines[-2:], ["bool", "True"])
+
 
 class StaticQualityConfigTests(unittest.TestCase):
     def test_repo_configs_enable_secret_scan_and_quality_report_artifacts(self):
@@ -206,6 +230,7 @@ class StaticQualityConfigTests(unittest.TestCase):
         self.assertIn("Upload quality report artifact (nightly)", workflow)
         self.assertIn("expkits-ci-quality-report-pr", workflow)
         self.assertIn("expkits-ci-quality-report-full", workflow)
+        self.assertEqual(pre_commit.count('--list-of-files "$@"'), 7)
 
     def test_execution_report_annotations_match_declared_python_floor(self):
         pyproject = PYPROJECT_FILE.read_text(encoding="utf-8")

@@ -3,30 +3,30 @@ repos:
     hooks:
       - id: branch-naming
         name: Branch Naming Convention
-        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --branch-naming --list-of-files $@' _
+        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --branch-naming --list-of-files "$@"' _
         language: system
       - id: commit-msg
         name: Commit Message Format
-        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --commit-msg --list-of-files $@' _
+        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --commit-msg --list-of-files "$@"' _
         language: system
         stages: [commit-msg]
       - id: clang-format
         name: Clang Format
-        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --clang-format --list-of-files $@' _
+        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --clang-format --list-of-files "$@"' _
         language: system
       - id: python-format
         name: Python Format (PEP-8)
-        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --python-format --list-of-files $@' _
+        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --python-format --list-of-files "$@"' _
         language: system
       - id: cmake-format
         name: CMake Format
-        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --cmake-format --list-of-files $@' _
+        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --cmake-format --list-of-files "$@"' _
         language: system
       - id: license-header
         name: License Header Check
-        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --license-header --list-of-files $@' _
+        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --license-header --list-of-files "$@"' _
         language: system
       - id: check-secrets
         name: Check for Secrets
-        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --check-secrets --list-of-files $@' _
+        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --check-secrets --list-of-files "$@"' _
         language: system

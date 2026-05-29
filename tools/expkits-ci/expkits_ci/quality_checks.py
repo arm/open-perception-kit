@@ -326,8 +326,8 @@ class QualityChecks:
         if files is None:
             # No explicit file set was provided, so scan all git-tracked files.
             try:
-                result = subprocess.run(["git", "ls-files"], capture_output=True, text=True, check=True)
-                files = result.stdout.strip().splitlines()
+                git_ls_files = subprocess.run(["git", "ls-files"], capture_output=True, text=True, check=True)
+                files = git_ls_files.stdout.strip().splitlines()
             except Exception as e:
                 logger.error(f"Failed to get git-tracked files: {e}")
                 result = False
