@@ -57,7 +57,7 @@ class GenericPostprocessOp : public pek::op::Op {
      * which populates OpChainContext.perception with detection/classification results.
      *
      * @param opChainContext Context containing output tensors and Perception object.
-     * @return Result indicating success or parsing error.
+     * @return Continue after successful parsing, or a parsing error.
      */
     virtual pek::Result<pek::op::OpSignal>
     process(pek::op::OpChainContext &opChainContext) override;

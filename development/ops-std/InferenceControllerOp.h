@@ -47,13 +47,13 @@ class InferenceControllerOp : public pek::op::Op {
      */
     virtual pek::Result<void> configure(const pek::AttributeMap &attributes) override;
     /**
-     * @brief Executes loop control logic: starts inference or signals completion.
+     * @brief Populates crop state for the following inference loop workers.
      *
      * Populates inference crop state for the following loop workers.
      * Loop transitions are controlled by OpSignal values returned from process().
      *
-     * @param opChainContext Context for loop control state.
-     * @return Result indicating success or processing error.
+     * @param opChainContext Context for shared inference state.
+     * @return Continue after populating crop state, or a processing error.
      */
     virtual pek::Result<pek::op::OpSignal>
     process(pek::op::OpChainContext &opChainContext) override;
