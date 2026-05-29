@@ -10,10 +10,13 @@ It ensures consistent code quality, formatting, and license compliance for all c
 - CMake formatting and checks
 - Shell script formatting and checks
 - License header checks and insertion
+- Secret scanning with `detect-secrets` and `.secrets.baseline`
 - Branch naming checks 
 - Commit message checks
 - Clang-format checks 
 - clang-tidy checks (advisory)
+- Default startup and final summary report with effective checks and file scope
+- Optional plain-text report artifact via `--report-file`
 - Run on all files, changed files, or a custom file list
 - Verbose logging and configurable output (stdout, file, both)
 - Integration with pre-commit hooks and CI pipelines is available in the ![Edge AI Experience Kits repository](https://github.com/Arm-Debug/edge-ai-zephyr-experience-kits/)
@@ -31,6 +34,8 @@ Example usage:
 ```bash
 expkits-ci --all-checks --commit-diff
 expkits-ci --python-format-check --cmake-format-check
+expkits-ci --check-secrets --list-of-files .github/workflows/pek-ci.yml
+expkits-ci --all-checks --pr-target-branch main --report-file artifacts/expkits-ci-report.txt
 expkits-ci --license-header --list-of-files src/main.cpp src/util.py
 ```
 

@@ -40,9 +40,18 @@ jobs:
         run: |
           docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-quality-check-full
 
+      - name: Upload quality report artifact (nightly)
+        if: ${{ always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: expkits-ci-quality-report-full
+          path: "${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.github/artifacts/expkits-ci-full-report.txt"
+          if-no-files-found: warn
+          retention-days: 10
+
       - name: Upload documentation artifact
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: pek-doc
           path: "${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/development/build/doc"
@@ -55,6 +64,15 @@ jobs:
         run: |
           export PULL_REQUEST_TARGET_BRANCH="${{ github.base_ref }}"
           docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-quality-check-pull-request
+
+      - name: Upload quality report artifact (PR)
+        if: ${{ always() && github.event_name == 'pull_request' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: expkits-ci-quality-report-pr
+          path: "${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.github/artifacts/expkits-ci-pr-report.txt"
+          if-no-files-found: warn
+          retention-days: 10
 
       - name: Perception Experience Kit release build and unit test run
         if: github.event_name == 'pull_request' || github.event_name == 'schedule' ||
@@ -71,7 +89,7 @@ jobs:
 
       - name: Upload Valgrind logs on failure
         if: ${{ steps.valgrind_checks.outcome == 'failure' }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: valgrind-logs
           path: |
