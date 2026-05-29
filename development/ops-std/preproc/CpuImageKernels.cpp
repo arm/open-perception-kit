@@ -792,18 +792,37 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Grayf32_Full(const ImageOpDesc &src,
     const size_t dstWidth = dst.surfaceWidth;
     const size_t dstHeight = dst.surfaceHeight;
 
+    const Colorf &mean = src.mean;
+    const Colorf &std = src.std;
+
     if (!srcPtr || !dstPtr)
         return false;
 
     constexpr float inv255 = 1.0f / 255.0f;
 
-    for (size_t y = 0; y < dstHeight; ++y) {
-        for (size_t x = 0; x < dstWidth; ++x) {
-            const uint8_t *p = srcPtr + (y * srcWidth + x) * 4;
-            const float r = static_cast<float>(p[2]) * inv255;
-            const float g = static_cast<float>(p[1]) * inv255;
-            const float b = static_cast<float>(p[0]) * inv255;
-            dstPtr[y * dstWidth + x] = 0.299f * r + 0.587f * g + 0.114f * b;
+    if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
+        for (size_t y = 0; y < dstHeight; ++y) {
+            for (size_t x = 0; x < dstWidth; ++x) {
+                const uint8_t *p = srcPtr + (y * srcWidth + x) * 4;
+                const float r = static_cast<float>(p[2]) * inv255;
+                const float g = static_cast<float>(p[1]) * inv255;
+                const float b = static_cast<float>(p[0]) * inv255;
+                dstPtr[y * dstWidth + x] = 0.299f * r + 0.587f * g + 0.114f * b;
+            }
+        }
+    } else {
+        constexpr float eps = 1e-12f;
+        const float invStd = 1.0f / std::max(std.r, eps);
+
+        for (size_t y = 0; y < dstHeight; ++y) {
+            for (size_t x = 0; x < dstWidth; ++x) {
+                const uint8_t *p = srcPtr + (y * srcWidth + x) * 4;
+                const float r = static_cast<float>(p[2]) * inv255;
+                const float g = static_cast<float>(p[1]) * inv255;
+                const float b = static_cast<float>(p[0]) * inv255;
+                const float gray = 0.299f * r + 0.587f * g + 0.114f * b;
+                dstPtr[y * dstWidth + x] = (gray - mean.r) * invStd;
+            }
         }
     }
 
@@ -830,23 +849,48 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Grayf32_Rect(const ImageOpDesc &src,
         dstRect.x + dstRect.width > dstWidth || dstRect.y + dstRect.height > dstHeight)
         return false;
 
+    const Colorf &mean = src.mean;
+    const Colorf &std = src.std;
+
     constexpr float inv255 = 1.0f / 255.0f;
 
     (void)sampling;
 
-    for (size_t dy = 0; dy < dstRect.height; ++dy) {
-        const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
-        const size_t dyi = dstRect.y + dy;
+    if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
+        for (size_t dy = 0; dy < dstRect.height; ++dy) {
+            const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+            const size_t dyi = dstRect.y + dy;
 
-        for (size_t dx = 0; dx < dstRect.width; ++dx) {
-            const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
-            const size_t dxi = dstRect.x + dx;
+            for (size_t dx = 0; dx < dstRect.width; ++dx) {
+                const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
+                const size_t dxi = dstRect.x + dx;
 
-            const uint8_t *p = srcPtr + (sy * srcWidth + sx) * 4;
-            const float r = static_cast<float>(p[2]) * inv255;
-            const float g = static_cast<float>(p[1]) * inv255;
-            const float b = static_cast<float>(p[0]) * inv255;
-            dstPtr[dyi * dstWidth + dxi] = 0.299f * r + 0.587f * g + 0.114f * b;
+                const uint8_t *p = srcPtr + (sy * srcWidth + sx) * 4;
+                const float r = static_cast<float>(p[2]) * inv255;
+                const float g = static_cast<float>(p[1]) * inv255;
+                const float b = static_cast<float>(p[0]) * inv255;
+                dstPtr[dyi * dstWidth + dxi] = 0.299f * r + 0.587f * g + 0.114f * b;
+            }
+        }
+    } else {
+        constexpr float eps = 1e-12f;
+        const float invStd = 1.0f / std::max(std.r, eps);
+
+        for (size_t dy = 0; dy < dstRect.height; ++dy) {
+            const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+            const size_t dyi = dstRect.y + dy;
+
+            for (size_t dx = 0; dx < dstRect.width; ++dx) {
+                const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
+                const size_t dxi = dstRect.x + dx;
+
+                const uint8_t *p = srcPtr + (sy * srcWidth + sx) * 4;
+                const float r = static_cast<float>(p[2]) * inv255;
+                const float g = static_cast<float>(p[1]) * inv255;
+                const float b = static_cast<float>(p[0]) * inv255;
+                const float gray = 0.299f * r + 0.587f * g + 0.114f * b;
+                dstPtr[dyi * dstWidth + dxi] = (gray - mean.r) * invStd;
+            }
         }
     }
 
