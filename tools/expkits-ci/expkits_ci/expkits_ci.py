@@ -386,7 +386,12 @@ def main():
     if args.clang_tidy_stats:
         args.verbose = True
 
-    logger = setup_expkits_logger(args.verbose, args.log_output, args.log_file)
+    try:
+        logger = setup_expkits_logger(args.verbose, args.log_output, args.log_file)
+    except FileExistsError as e:
+        print(f"[ERROR] {e}", file=sys.stderr)
+        raise SystemExit(2) from e
+
     logger.info("Starting Experience Kit CI checks...")
     logger.info(f"Arguments: {args}")
 

@@ -32,7 +32,7 @@ expkits-ci --help
 Example usage:
 
 ```bash
-expkits-ci --all-checks --commit-diff
+expkits-ci --all-checks
 expkits-ci --python-format-check --cmake-format-check
 expkits-ci --check-secrets --list-of-files .github/workflows/pek-ci.yml
 expkits-ci --all-checks --pr-target-branch main --report-file artifacts/expkits-ci-report.txt
@@ -41,13 +41,13 @@ expkits-ci --license-header --list-of-files src/main.cpp src/util.py
 
 ### clang-tidy
 
-clang-tidy is currently advisory. Build the project first so Meson generates
-`development/build/compile_commands.json`, then run clang-tidy on changed files
-or an explicit file list:
+Build the project first so Meson generates
+`development/build/compile_commands.json`, then run clang-tidy on all compiled
+files or on an explicit file list:
 
 ```bash
 ./scripts/build-elements.sh debug true
-expkits-ci --clang-tidy --commit-diff
+expkits-ci --clang-tidy
 expkits-ci --clang-tidy --list-of-files development/elements/pektracker/Tracker.cpp
 expkits-ci --clang-tidy-stats clang-tidy.log
 ```
@@ -65,6 +65,8 @@ some clang-tidy findings are extra local guidance rather than SonarQube parity.
 `--clang-tidy-stats` parses a saved clang-tidy log and reports how many
 diagnostics each clang-tidy check emitted. This is useful after increasing the
 enabled ruleset and running with `--log-output both --log-file clang-tidy.log`.
+When file logging is enabled, `expkits-ci` refuses to reuse an existing log file
+so statistics are not polluted by appended output from older runs.
 
 ## Installation
 

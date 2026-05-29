@@ -17,6 +17,7 @@ Checks: >
   -bugprone-reserved-identifier,
   -clang-analyzer-optin.core.EnumCastOutOfRange,
   -modernize-type-traits,
+  -modernize-use-auto,
   -modernize-use-constraints,
   -modernize-use-trailing-return-type,
   -modernize-use-using,
