@@ -102,12 +102,7 @@ Enter the `amp-dev-forge` folder in the terminal and run:
 From the container shell, run:
 
 ```bash
-./command_to_check_videos
-# TODO: create this script
-# TODO: the command detects the environment
-# TODO:   * if the user is in the container CLI, it executes the command directly
-# TODO:   * otherwise, it check if the container running and executes the command using docker exec 
-# TODO:   * if neither above is true, instruct the user to build and start the container
+./download_videos
 ```
 
 ### 4. Build PEK inside the Container
@@ -169,28 +164,28 @@ Congratulations, you have run your first Perception Kit pipeline!
 Pipeline testing and development are fully supported in Visual Studio Code (VS Code)
 Follow the links below for detailed instructions:
 
-* [Raspberry Pi 5](todo_rpi5_vscode.md)
-* [Windows](todo_vscode_windows.md)
-* [Mac](todo_vscode_mac.md)
-* [Linux](todo_vscode_linux.md)
+* [Raspberry Pi 5](docs1/public/raspberry-pi-quick-start.md)
+* [Windows](docs1/public/windows-quick-start.md)
+* [Mac](docs1/public/macos-quick-start.md)
+* [Linux](docs1/public/linux-quick-start.md)
 
 
 ## After first success
 
 Pick your next step.
 
-<!--
-TODO@ibori:
-I think the first column of the table should contain the links. I saw one user couldn't find the link in the table.
--->
 | Goal |  What it does |
 | --- | --- |
-| [Use your own input or output path](how-to/change-source-sink.md) | Keep the known pipeline and change the input or output. |
-| [Use live camera input](tutorials/run-camera-inference.md) | Move from packaged media to a USB or Raspberry Pi camera. |
-| [Add or adapt a model and OpChain](how-to/add-model-opchain.md) | Change the model after the source and output path work. |
-| [Feed inference into an application](how-to/use-output-in-app.md) | Capture inference output for downstream logic. |
-| [Use Hailo acceleration](tutorials/run-hailo-inference.md) | Add accelerator hardware. |
-| [Understand pipelines, models, and outputs](start-here/how-the-kit-works.md) | Read the pipeline, model, and output concepts when you need more detail. |
+| [Use your own input or output path](docs1/public/media-input.md) | Keep the known pipeline and change the input or output. |
+| [Use live camera input](docs1/public/camera-input.md) | Move from packaged media to a USB or Raspberry Pi camera. |
+| [Add or adapt a model and OpChain](docs1/public/bring-your-model.md) | Change the model after the source and output path work. |
+| [**Coming Soon:** Feed inference into an application](docs1/public/use-output-in-app.md) | Capture inference output for downstream logic. |
+| [TODO@ibori: shall be written. Use Hailo acceleration](docs1/public/run-hailo-inference.md) | Add accelerator hardware. |
+| [Understanding the repository structure](docs1/public/structural-basics.md) | How to get started with new components |
+| [Pipeline basics](docs1/public/runtime-basics.md) | Learn about inference pipeline priciples  |
+| [Custom postprocessing](docs1/public/custom-postprocessing.md) |    |
+
+
 
 ## If something goes wrong
 
