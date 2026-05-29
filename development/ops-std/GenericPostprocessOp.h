@@ -59,7 +59,8 @@ class GenericPostprocessOp : public pek::op::Op {
      * @param opChainContext Context containing output tensors and Perception object.
      * @return Result indicating success or parsing error.
      */
-    virtual pek::Result<void> process(pek::op::OpChainContext &opChainContext) override;
+    virtual pek::Result<pek::op::OpSignal>
+    process(pek::op::OpChainContext &opChainContext) override;
     /**
      * @brief Resolves upstream inference operation for model metadata.
      *

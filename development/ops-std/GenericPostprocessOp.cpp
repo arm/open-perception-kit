@@ -89,7 +89,8 @@ pek::Result<void> GenericPostprocessOp::configure(const pek::AttributeMap &attri
     return {};
 }
 
-pek::Result<void> GenericPostprocessOp::process(pek::op::OpChainContext &opChainContext) {
+pek::Result<pek::op::OpSignal>
+GenericPostprocessOp::process(pek::op::OpChainContext &opChainContext) {
     PEK_TRACE_SCOPE(fmt::format("std/Post/{}", opChainContext.inferenceInfo.modelFamily));
 
     pek::TensorParser::Input tensorParserInput(attributes);
@@ -110,7 +111,7 @@ pek::Result<void> GenericPostprocessOp::process(pek::op::OpChainContext &opChain
     rawDetectionLayer.inferElementId = opChainContext.inferenceInfo.inferElementId;
     auto parseResult = parser->parse(tensorParserInput, rawDetectionLayer);
     if (!parseResult) {
-        return parseResult;
+        return tl::unexpected(parseResult.error());
     }
 
     // set parent uids
@@ -131,5 +132,5 @@ pek::Result<void> GenericPostprocessOp::process(pek::op::OpChainContext &opChain
         opChainContext.hasRootLayer = true;
     }
 
-    return {};
+    return pek::op::OpSignal::Continue;
 }

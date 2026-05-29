@@ -62,7 +62,8 @@ class GenericImagePreprocessOp : public pek::op::Op {
      * @param opChainContext Context containing input image and tensor setup.
      * @return Result indicating success or preprocessing error.
      */
-    virtual pek::Result<void> process(pek::op::OpChainContext &opChainContext) override;
+    virtual pek::Result<pek::op::OpSignal>
+    process(pek::op::OpChainContext &opChainContext) override;
     /**
      * @brief Resolves the upstream inference operation to get model information.
      *

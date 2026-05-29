@@ -18,34 +18,12 @@ namespace pek::op {
 /**
  * @brief Execution context passed to each operation in an OpChain.
  *
- * OpChainContext carries all the mutable state shared across operations during execution.
- * It includes loop control flags, named bitmap views for inter-operation data flow, inference
- * tensor information, and the final Perception output structure. Operations read and modify
- * this context during their process() calls.
+ * OpChainContext carries the mutable data shared across operations during execution.
+ * It contains named bitmap views for inter-operation data flow, inference tensor information,
+ * and the final Perception output structure. Scheduler control is handled by OpChain and
+ * process() return signals rather than by mutable context flags.
  */
 struct OpChainContext {
-
-    /**
-     * @brief Loop group identifier for conditional looping.
-     *
-     * Used by operations with the same loopId to repeat execution when breakLoop is false.
-     * Multiple operations can share a loopId to form a loop group.
-     */
-    size_t loopId = 0;
-    /**
-     * @brief Flag to break out of the current loop group.
-     *
-     * When true, the OpChain stops re-executing operations in this loopId group.
-     * Operations typically set this to true when their processing is complete (e.g.,
-     * after finding an object of interest in video frames).
-     */
-    bool breakLoop = false;
-    /**
-     * @brief Flag to abort the entire chain execution.
-     *
-     * When true, all remaining operations are skipped and OpChain::execute() returns immediately.
-     */
-    bool abort = false;
 
     /**
      * @brief Named bitmap views for inter-operation image sharing.

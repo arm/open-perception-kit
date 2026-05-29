@@ -75,13 +75,12 @@ pek::Result<void> GenericImagePreprocessOp::configure(const pek::AttributeMap &a
     return {};
 }
 
-pek::Result<void> GenericImagePreprocessOp::process(pek::op::OpChainContext &opChainContext) {
+pek::Result<pek::op::OpSignal>
+GenericImagePreprocessOp::process(pek::op::OpChainContext &opChainContext) {
     PEK_TRACE_SCOPE(fmt::format("std/GenImgPre/{}", upcomingInferenceModel.modelFamily));
 
     if (opChainContext.inferenceImageCrops.size() == 0) {
-        //  nothing to infer on, we break the loop and move on
-        opChainContext.breakLoop = true;
-        return {};
+        return pek::op::OpSignal::BreakLoop;
     }
 
     pek::PixelRect cropRect = opChainContext.inferenceImageCrops.back();
@@ -159,7 +158,7 @@ pek::Result<void> GenericImagePreprocessOp::process(pek::op::OpChainContext &opC
     // call tensor building
     pek::Result<void> result = genericImageInputTensorBuilder.build(setup);
     if (result.has_value() == false) {
-        return result;
+        return tl::unexpected(result.error());
     }
 
     // debug
@@ -185,5 +184,5 @@ pek::Result<void> GenericImagePreprocessOp::process(pek::op::OpChainContext &opC
     opChainContext.inferenceInfo.contentType = upcomingInferenceModel.contentType;
     opChainContext.inferenceInfo.parentUuid = sourceUuid;
 
-    return {};
+    return pek::op::OpSignal::Continue;
 }

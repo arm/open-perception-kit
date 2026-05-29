@@ -171,72 +171,50 @@ pek::Result<void> OpChain::bind() {
 pek::Result<void> OpChain::execute(pek::op::OpChainContext &opChainContext) {
     size_t currentIndex = 0;
 
-    // reset loop control flags
-    opChainContext.breakLoop = false;
-    opChainContext.loopId = 0;
-    opChainContext.abort = false;
+    auto firstWorkerIndexForLoop = [this](size_t index, size_t loopId) {
+        size_t firstGroupIndex = index;
+        while (firstGroupIndex > 0 && opPtrs[firstGroupIndex - 1]->loopId == loopId) {
+            --firstGroupIndex;
+        }
 
-    // execute the chain
+        // Skip the controller op. Loop groups are validated to have at least two ops.
+        return firstGroupIndex + 1;
+    };
+
+    auto nextIndexAfterLoop = [this](size_t index, size_t loopId) {
+        while (index < opPtrs.size() && opPtrs[index]->loopId == loopId) {
+            ++index;
+        }
+        return index;
+    };
+
     while (currentIndex < opPtrs.size()) {
-        auto &op = opPtrs[currentIndex];
+        Op *op = opPtrs[currentIndex];
+        const size_t loopId = op->loopId;
 
-        // the current op must do its work
         auto result = op->process(opChainContext);
-        if (!result)
-            return result;
+        if (!result) {
+            return tl::unexpected(std::move(result.error()));
+        }
 
-        // abort the whole pipeline if Op requested it (e.g. audio buffering in progress)
-        if (opChainContext.abort) {
+        switch (*result) {
+        case OpSignal::AbortChain:
             return {};
-        }
-
-        // quit inference loop if Op requested it
-        if (opChainContext.breakLoop) {
-            size_t nextIndex = currentIndex;
-            while (opPtrs.size() > nextIndex) {
-                if (opPtrs[nextIndex]->loopId != opChainContext.loopId) {
-                    break;
-                }
-                nextIndex++;
-            }
-
-            opChainContext.breakLoop = false;
-            currentIndex = nextIndex;
+        case OpSignal::BreakLoop:
+            currentIndex =
+                (loopId == 0) ? currentIndex + 1 : nextIndexAfterLoop(currentIndex, loopId);
             continue;
+        case OpSignal::Continue:
+            break;
         }
 
-        // get current and next loopId
-        bool lastInChain = (currentIndex + 1 == opPtrs.size());
-        size_t loopId = opChainContext.loopId;
-        size_t nextLoopId = 0;
-        if (currentIndex + 1 < opPtrs.size())
-            nextLoopId = opPtrs[currentIndex + 1]->loopId;
+        const bool lastInChain = currentIndex + 1 == opPtrs.size();
+        const size_t nextLoopId = lastInChain ? 0 : opPtrs[currentIndex + 1]->loopId;
 
-        // continue if not in a loop group
-        if (loopId == 0) {
-            currentIndex++;
-            continue;
-        }
-
-        // loopId != 0 is guaranteed here; check if we reached the end of this loop group
-        if (lastInChain || nextLoopId != loopId) {
-            // loop back to the first worker op (one past the controller at the group head)
-            size_t firstGroupIndex = currentIndex;
-            while (true) {
-                if (opPtrs[firstGroupIndex]->loopId != loopId) {
-                    firstGroupIndex++;
-                    break;
-                }
-                if (!firstGroupIndex)
-                    break;
-                firstGroupIndex--;
-            }
-
-            // skip the controller op (validated at setup to always be first in the group)
-            firstGroupIndex++;
-            currentIndex = firstGroupIndex;
+        if (loopId != 0 && (lastInChain || nextLoopId != loopId)) {
+            currentIndex = firstWorkerIndexForLoop(currentIndex, loopId);
         } else {
-            currentIndex++;
+            ++currentIndex;
         }
     }
 

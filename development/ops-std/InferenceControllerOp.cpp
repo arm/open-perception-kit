@@ -27,7 +27,8 @@ pek::Result<void> InferenceControllerOp::configure(const pek::AttributeMap &attr
     return {};
 }
 
-pek::Result<void> InferenceControllerOp::process(pek::op::OpChainContext &opChainContext) {
+pek::Result<pek::op::OpSignal>
+InferenceControllerOp::process(pek::op::OpChainContext &opChainContext) {
     pek::BitmapView *pipelineVideoFrame = opChainContext.getBitmapView("pipelineVideoFrame");
 
     // TODO: later it can be also audio data not video only
@@ -35,10 +36,6 @@ pek::Result<void> InferenceControllerOp::process(pek::op::OpChainContext &opChai
         return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidOpChain,
                                         "InferenceControllerOp needs pipelineVideoFrame"));
     }
-
-    // we put the context into loop mode, if 0 or 1 inference is needed
-    // preprocessor will break in the 1st or 2nd iteration
-    opChainContext.loopId = loopId;
 
     opChainContext.inferenceInfo.modelFamily.clear();
     opChainContext.rootLayer.inferElementId =
@@ -64,7 +61,6 @@ pek::Result<void> InferenceControllerOp::process(pek::op::OpChainContext &opChai
         pek::PerceptionTools perception(*opChainContext.perception);
         auto rects = perception.getAllRectsWithContentType(contentType);
 
-        opChainContext.loopId = loopId;
         opChainContext.inferenceInfo.modelFamily = contentType;
 
         for (const auto &r : rects) {
@@ -79,5 +75,5 @@ pek::Result<void> InferenceControllerOp::process(pek::op::OpChainContext &opChai
         }
     }
 
-    return {};
+    return pek::op::OpSignal::Continue;
 }

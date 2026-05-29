@@ -19,7 +19,8 @@ class InferenceOp : public pek::op::Op {
 
     virtual pek::Result<void> configure(const pek::AttributeMap &attributes) override;
     virtual pek::Result<void> bind(size_t index, const std::vector<pek::op::Op *> &ops) override;
-    virtual pek::Result<void> process(pek::op::OpChainContext &opChainContext) override;
+    virtual pek::Result<pek::op::OpSignal>
+    process(pek::op::OpChainContext &opChainContext) override;
 
   private:
     std::unique_ptr<pek::extrch::Inference> inference;
