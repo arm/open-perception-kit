@@ -12,7 +12,7 @@ application.
 **Note:** This developer preview is for evaluation, early application
 development, and feedback.
 
-![Example WebRTC viewer showing sample video inference, model controls, performance metrics, and debug log](./static/img/10-browser-ui.png)
+![Example WebRTC viewer showing sample video inference, model controls, performance metrics, and debug log](docs1/static/img/10-browser-ui.png)
 
 ## Quick start: first inference on Raspberry Pi 5
 
@@ -155,7 +155,7 @@ Model** panel. If the toggle is off, enable it.
 > **Expected outcome:** YoloV11 identifies objects in the stock video stream by
 > drawing detection overlays in the viewer.
 
-![Final WebRTC success view showing inference overlays on the sample video stream](./static/img/10-browser-ui.png)
+![Final WebRTC success view showing inference overlays on the sample video stream](docs1/static/img/10-browser-ui.png)
 
 Congratulations, you have run your first Perception Kit pipeline!
 
