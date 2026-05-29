@@ -177,6 +177,41 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src
     return true;
 }
 
+bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgb8_Full_Hwc(const ImageOpDesc &src,
+                                                        const ImageOpDesc &dst,
+                                                        Sampling sampling) {
+    if (!canRunDirectFullKernel(src, dst)) {
+        return StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(src, dst, sampling);
+    }
+
+    (void)sampling;
+
+    const uint8_t *srcPtr = src.data;
+    const size_t srcWidth = src.surfaceWidth;
+
+    uint8_t *dstPtr = (uint8_t *)dst.data;
+    const size_t dstWidth = dst.surfaceWidth;
+    const size_t dstHeight = dst.surfaceHeight;
+
+    if (!srcPtr || !dstPtr)
+        return false;
+
+    constexpr size_t Cdst = 3;
+
+    for (size_t y = 0; y < dstHeight; ++y) {
+        for (size_t x = 0; x < dstWidth; ++x) {
+            const uint8_t *p = srcPtr + (y * srcWidth + x) * 4;
+            const size_t dstIndex = (y * dstWidth + x) * Cdst;
+
+            dstPtr[dstIndex + 0] = p[2];
+            dstPtr[dstIndex + 1] = p[1];
+            dstPtr[dstIndex + 2] = p[0];
+        }
+    }
+
+    return true;
+}
+
 bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(const ImageOpDesc &src,
                                                         const ImageOpDesc &dst,
                                                         Sampling sampling) {
@@ -217,6 +252,72 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(const ImageOpDesc &src,
             dstPtr[dstIndex + 0] = p[2];
             dstPtr[dstIndex + 1] = p[1];
             dstPtr[dstIndex + 2] = p[0];
+        }
+    }
+
+    return true;
+}
+
+bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf16_Full_Chw(const ImageOpDesc &src,
+                                                          const ImageOpDesc &dst,
+                                                          Sampling sampling) {
+    if (!canRunDirectFullKernel(src, dst)) {
+        return StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(src, dst, sampling);
+    }
+
+    (void)sampling;
+
+    const uint8_t *srcPtr = src.data;
+    const size_t srcWidth = src.surfaceWidth;
+
+    Float16 *dstPtr = (Float16 *)dst.data;
+    const size_t dstWidth = dst.surfaceWidth;
+    const size_t dstHeight = dst.surfaceHeight;
+
+    const Colorf &mean = src.mean;
+    const Colorf &std = src.std;
+
+    if (!srcPtr || !dstPtr)
+        return false;
+
+    constexpr float inv255 = 1.0f / 255.0f;
+    const size_t planeSize = dstWidth * dstHeight;
+
+    if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
+        for (size_t y = 0; y < dstHeight; ++y) {
+            for (size_t x = 0; x < dstWidth; ++x) {
+                const uint8_t *p = srcPtr + (y * srcWidth + x) * 4;
+                const size_t hw = y * dstWidth + x;
+
+                dstPtr[0 * planeSize + hw] = static_cast<Float16>(p[2] * inv255);
+                dstPtr[1 * planeSize + hw] = static_cast<Float16>(p[1] * inv255);
+                dstPtr[2 * planeSize + hw] = static_cast<Float16>(p[0] * inv255);
+            }
+        }
+    } else {
+        const auto [meanR, meanG, meanB, meanA] = mean;
+        const auto [stdR, stdG, stdB, stdA] = std;
+        (void)meanA;
+        (void)stdA;
+
+        constexpr float eps = 1e-12f;
+        const float invStdR = 1.0f / std::max(stdR, eps);
+        const float invStdG = 1.0f / std::max(stdG, eps);
+        const float invStdB = 1.0f / std::max(stdB, eps);
+
+        for (size_t y = 0; y < dstHeight; ++y) {
+            for (size_t x = 0; x < dstWidth; ++x) {
+                const uint8_t *p = srcPtr + (y * srcWidth + x) * 4;
+                const size_t hw = y * dstWidth + x;
+
+                const float r01 = p[2] * inv255;
+                const float g01 = p[1] * inv255;
+                const float b01 = p[0] * inv255;
+
+                dstPtr[0 * planeSize + hw] = static_cast<Float16>((r01 - meanR) * invStdR);
+                dstPtr[1 * planeSize + hw] = static_cast<Float16>((g01 - meanG) * invStdG);
+                dstPtr[2 * planeSize + hw] = static_cast<Float16>((b01 - meanB) * invStdB);
+            }
         }
     }
 
@@ -321,6 +422,68 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(const ImageOpDesc &src
     return true;
 }
 
+bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf32_Full_Hwc(const ImageOpDesc &src,
+                                                          const ImageOpDesc &dst,
+                                                          Sampling sampling) {
+    if (!canRunDirectFullKernel(src, dst)) {
+        return StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(src, dst, sampling);
+    }
+
+    (void)sampling;
+
+    const uint8_t *srcPtr = src.data;
+    const size_t srcWidth = src.surfaceWidth;
+
+    float *dstPtr = (float *)dst.data;
+    const size_t dstWidth = dst.surfaceWidth;
+    const size_t dstHeight = dst.surfaceHeight;
+
+    const Colorf &mean = src.mean;
+    const Colorf &std = src.std;
+
+    if (!srcPtr || !dstPtr)
+        return false;
+
+    constexpr float inv255 = 1.0f / 255.0f;
+    constexpr size_t C = 3;
+
+    if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
+        for (size_t y = 0; y < dstHeight; ++y) {
+            for (size_t x = 0; x < dstWidth; ++x) {
+                const uint8_t *p = srcPtr + (y * srcWidth + x) * 4;
+                float *q = dstPtr + (y * dstWidth + x) * C;
+
+                q[0] = p[2] * inv255;
+                q[1] = p[1] * inv255;
+                q[2] = p[0] * inv255;
+            }
+        }
+    } else {
+        const auto [meanR, meanG, meanB, meanA] = mean;
+        const auto [stdR, stdG, stdB, stdA] = std;
+        (void)meanA;
+        (void)stdA;
+
+        constexpr float eps = 1e-12f;
+        const float invStdR = 1.0f / std::max(stdR, eps);
+        const float invStdG = 1.0f / std::max(stdG, eps);
+        const float invStdB = 1.0f / std::max(stdB, eps);
+
+        for (size_t y = 0; y < dstHeight; ++y) {
+            for (size_t x = 0; x < dstWidth; ++x) {
+                const uint8_t *p = srcPtr + (y * srcWidth + x) * 4;
+                float *q = dstPtr + (y * dstWidth + x) * C;
+
+                q[0] = (p[2] * inv255 - meanR) * invStdR;
+                q[1] = (p[1] * inv255 - meanG) * invStdG;
+                q[2] = (p[0] * inv255 - meanB) * invStdB;
+            }
+        }
+    }
+
+    return true;
+}
+
 bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(const ImageOpDesc &src,
                                                           const ImageOpDesc &dst,
                                                           Sampling sampling) {
@@ -391,6 +554,68 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(const ImageOpDesc &src
                 q[0] = (p[2] * inv255 - meanR) * invStdR;
                 q[1] = (p[1] * inv255 - meanG) * invStdG;
                 q[2] = (p[0] * inv255 - meanB) * invStdB;
+            }
+        }
+    }
+
+    return true;
+}
+
+bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Rgbf16_Full_Hwc(const ImageOpDesc &src,
+                                                          const ImageOpDesc &dst,
+                                                          Sampling sampling) {
+    if (!canRunDirectFullKernel(src, dst)) {
+        return StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Hwc(src, dst, sampling);
+    }
+
+    (void)sampling;
+
+    const uint8_t *srcPtr = src.data;
+    const size_t srcWidth = src.surfaceWidth;
+
+    Float16 *dstPtr = (Float16 *)dst.data;
+    const size_t dstWidth = dst.surfaceWidth;
+    const size_t dstHeight = dst.surfaceHeight;
+
+    const Colorf &mean = src.mean;
+    const Colorf &std = src.std;
+
+    if (!srcPtr || !dstPtr)
+        return false;
+
+    constexpr float inv255 = 1.0f / 255.0f;
+    constexpr size_t C = 3;
+
+    if (pek::MeanStd::isDefaultMean(mean) && pek::MeanStd::isDefaultStd(std)) {
+        for (size_t y = 0; y < dstHeight; ++y) {
+            for (size_t x = 0; x < dstWidth; ++x) {
+                const uint8_t *p = srcPtr + (y * srcWidth + x) * 4;
+                Float16 *q = dstPtr + (y * dstWidth + x) * C;
+
+                q[0] = static_cast<Float16>(p[2] * inv255);
+                q[1] = static_cast<Float16>(p[1] * inv255);
+                q[2] = static_cast<Float16>(p[0] * inv255);
+            }
+        }
+    } else {
+        const auto [meanR, meanG, meanB, meanA] = mean;
+        const auto [stdR, stdG, stdB, stdA] = std;
+        (void)meanA;
+        (void)stdA;
+
+        constexpr float eps = 1e-12f;
+        const float invStdR = 1.0f / std::max(stdR, eps);
+        const float invStdG = 1.0f / std::max(stdG, eps);
+        const float invStdB = 1.0f / std::max(stdB, eps);
+
+        for (size_t y = 0; y < dstHeight; ++y) {
+            for (size_t x = 0; x < dstWidth; ++x) {
+                const uint8_t *p = srcPtr + (y * srcWidth + x) * 4;
+                Float16 *q = dstPtr + (y * dstWidth + x) * C;
+
+                q[0] = static_cast<Float16>((p[2] * inv255 - meanR) * invStdR);
+                q[1] = static_cast<Float16>((p[1] * inv255 - meanG) * invStdG);
+                q[2] = static_cast<Float16>((p[0] * inv255 - meanB) * invStdB);
             }
         }
     }
@@ -545,6 +770,83 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Gray8_Rect(const ImageOpDesc &src,
 
             const uint16_t y = static_cast<uint16_t>(77u * r + 150u * g + 29u * b + 128u);
             dstPtr[dyi * dstWidth + dxi] = static_cast<uint8_t>(y >> 8);
+        }
+    }
+
+    return true;
+}
+
+bool ImageOps::StretchBlit_Bgra8_Hwc_Full_Grayf32_Full(const ImageOpDesc &src,
+                                                       const ImageOpDesc &dst,
+                                                       Sampling sampling) {
+    if (!canRunDirectFullKernel(src, dst)) {
+        return StretchBlit_Bgra8_Hwc_Rect_Grayf32_Rect(src, dst, sampling);
+    }
+
+    (void)sampling;
+
+    const uint8_t *srcPtr = src.data;
+    const size_t srcWidth = src.surfaceWidth;
+
+    float *dstPtr = (float *)dst.data;
+    const size_t dstWidth = dst.surfaceWidth;
+    const size_t dstHeight = dst.surfaceHeight;
+
+    if (!srcPtr || !dstPtr)
+        return false;
+
+    constexpr float inv255 = 1.0f / 255.0f;
+
+    for (size_t y = 0; y < dstHeight; ++y) {
+        for (size_t x = 0; x < dstWidth; ++x) {
+            const uint8_t *p = srcPtr + (y * srcWidth + x) * 4;
+            const float r = static_cast<float>(p[2]) * inv255;
+            const float g = static_cast<float>(p[1]) * inv255;
+            const float b = static_cast<float>(p[0]) * inv255;
+            dstPtr[y * dstWidth + x] = 0.299f * r + 0.587f * g + 0.114f * b;
+        }
+    }
+
+    return true;
+}
+
+bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Grayf32_Rect(const ImageOpDesc &src,
+                                                       const ImageOpDesc &dst,
+                                                       Sampling sampling) {
+    const uint8_t *srcPtr = src.data;
+    const size_t srcWidth = src.surfaceWidth;
+    const size_t srcHeight = src.surfaceHeight;
+    const PixelRect &srcRect = src.rect;
+
+    float *dstPtr = (float *)dst.data;
+    const size_t dstWidth = dst.surfaceWidth;
+    const size_t dstHeight = dst.surfaceHeight;
+    const PixelRect &dstRect = dst.rect;
+
+    if (!srcPtr || !dstPtr)
+        return false;
+
+    if (srcRect.x + srcRect.width > srcWidth || srcRect.y + srcRect.height > srcHeight ||
+        dstRect.x + dstRect.width > dstWidth || dstRect.y + dstRect.height > dstHeight)
+        return false;
+
+    constexpr float inv255 = 1.0f / 255.0f;
+
+    (void)sampling;
+
+    for (size_t dy = 0; dy < dstRect.height; ++dy) {
+        const size_t sy = srcRect.y + (dy * srcRect.height) / dstRect.height;
+        const size_t dyi = dstRect.y + dy;
+
+        for (size_t dx = 0; dx < dstRect.width; ++dx) {
+            const size_t sx = srcRect.x + (dx * srcRect.width) / dstRect.width;
+            const size_t dxi = dstRect.x + dx;
+
+            const uint8_t *p = srcPtr + (sy * srcWidth + sx) * 4;
+            const float r = static_cast<float>(p[2]) * inv255;
+            const float g = static_cast<float>(p[1]) * inv255;
+            const float b = static_cast<float>(p[0]) * inv255;
+            dstPtr[dyi * dstWidth + dxi] = 0.299f * r + 0.587f * g + 0.114f * b;
         }
     }
 
