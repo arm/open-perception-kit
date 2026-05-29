@@ -2,7 +2,7 @@
 ################################################################
 # Copyright (C) 2025 Arm Limited. All rights reserved.
 ################################################################
-# Quick-start host prerequisite package checks.
+# Quick-start host prerequisite checks.
 ################################################################
 
 set -euo pipefail
@@ -12,12 +12,15 @@ usage() {
 Usage:
   check-prerequisites.sh [--check-only] [-h|--help]
 
-Checks the package prerequisites for the detected quick-start platform.
-Missing packages are installed by default. Use --check-only to report missing
-packages without installing them.
+Checks the prerequisites for the detected quick-start platform.
+Missing installable prerequisites are installed by default. Use --check-only to
+report failures without installing anything.
 
-The platform package arrays are intentionally empty for now. Fill them in after
-the minimal package sets are measured on clean target systems.
+Requirement format used below:
+  id|check_function|fallback packages|description
+
+The check function is the source of truth. Fallback packages are installed only
+when the check fails, so tools installed from non-distro sources are accepted.
 EOF
 }
 
@@ -54,136 +57,169 @@ if ! detect_output="$("${SCRIPT_DIR}/detect-environment.sh" --shell)"; then
 fi
 eval "$detect_output"
 
-# Platform package lists. Keep these empty until the minimal sets are known.
-PACKAGES_DEBIAN_13_X86=()
-PACKAGES_UBUNTU_24_04_X86=(
-    docker.io
-    docker-compose-v2
+# Prerequisite check functions.
+check_docker_cli() {
+    command -v docker > /dev/null 2>&1
+}
+
+check_docker_compose() {
+    command -v docker > /dev/null 2>&1 && docker compose version > /dev/null 2>&1
+}
+
+check_docker_access() {
+    command -v docker > /dev/null 2>&1 && docker info > /dev/null 2>&1
+}
+
+# Platform prerequisite lists. Keep most of these empty until the minimal sets
+# are known. A requirement can have no fallback package when it needs user action
+# instead of package installation, for example Docker group membership.
+PREREQS_DEBIAN_13_X86=()
+PREREQS_UBUNTU_24_04_X86=(
+    "docker-cli|check_docker_cli|docker.io|Docker CLI"
+    "docker-compose|check_docker_compose|docker-compose-v2|Docker Compose plugin"
+    "docker-access|check_docker_access||Docker daemon reachable by the current user"
 )
-PACKAGES_UBUNTU_26_04_X86=()
-PACKAGES_WSL=()
-PACKAGES_WSL_DEBIAN_13=()
-PACKAGES_WSL_UBUNTU_24_04=()
-PACKAGES_WSL_UBUNTU_26_04=()
-PACKAGES_RPI5=()
-PACKAGES_RPI5_HAILO8=()
-PACKAGES_RPI5_HAILO10=()
-PACKAGES_MACOS=()
-PACKAGES_LINUX_X86=()
+PREREQS_UBUNTU_26_04_X86=(
+    "docker-cli|check_docker_cli|docker.io|Docker CLI"
+    "docker-compose|check_docker_compose|docker-compose-v2|Docker Compose plugin"
+    "docker-access|check_docker_access||Docker daemon reachable by the current user"
+)
+PREREQS_WSL=()
+PREREQS_WSL_DEBIAN_13=()
+PREREQS_WSL_UBUNTU_24_04=()
+PREREQS_WSL_UBUNTU_26_04=()
+PREREQS_RPI5=()
+PREREQS_RPI5_HAILO8=()
+PREREQS_RPI5_HAILO10=()
+PREREQS_MACOS=()
+PREREQS_LINUX_X86=()
 
 PACKAGE_MANAGER=""
-SELECTED_PACKAGE_ARRAYS=()
-REQUIRED_PACKAGES=()
+SELECTED_PREREQ_ARRAYS=()
+REQUIRED_PREREQS=()
 MISSING_PACKAGES=()
+FAILED_MANUAL_PREREQS=()
 
-select_package_arrays() {
+select_prereq_arrays() {
     case "$PEK_PLATFORM_ID" in
         macos)
             PACKAGE_MANAGER="brew"
-            SELECTED_PACKAGE_ARRAYS=(PACKAGES_MACOS)
+            SELECTED_PREREQ_ARRAYS=(PREREQS_MACOS)
             ;;
         wsl)
             PACKAGE_MANAGER="apt"
-            SELECTED_PACKAGE_ARRAYS=(PACKAGES_WSL)
+            SELECTED_PREREQ_ARRAYS=(PREREQS_WSL)
             if [[ "$PEK_OS_ID" == "ubuntu" && "$PEK_OS_VERSION_ID" == "24.04" ]]; then
-                SELECTED_PACKAGE_ARRAYS+=(PACKAGES_WSL_UBUNTU_24_04)
+                SELECTED_PREREQ_ARRAYS+=(PREREQS_WSL_UBUNTU_24_04)
             elif [[ "$PEK_OS_ID" == "ubuntu" && "$PEK_OS_VERSION_ID" == "26.04" ]]; then
-                SELECTED_PACKAGE_ARRAYS+=(PACKAGES_WSL_UBUNTU_26_04)
+                SELECTED_PREREQ_ARRAYS+=(PREREQS_WSL_UBUNTU_26_04)
             elif [[ "$PEK_OS_ID" == "debian" && "$PEK_OS_VERSION_CODENAME" == "trixie" ]]; then
-                SELECTED_PACKAGE_ARRAYS+=(PACKAGES_WSL_DEBIAN_13)
+                SELECTED_PREREQ_ARRAYS+=(PREREQS_WSL_DEBIAN_13)
             fi
             ;;
         linux-x86_64)
             PACKAGE_MANAGER="apt"
             if [[ "$PEK_OS_ID" == "ubuntu" && "$PEK_OS_VERSION_ID" == "24.04" ]]; then
-                SELECTED_PACKAGE_ARRAYS=(PACKAGES_UBUNTU_24_04_X86)
+                SELECTED_PREREQ_ARRAYS=(PREREQS_UBUNTU_24_04_X86)
             elif [[ "$PEK_OS_ID" == "ubuntu" && "$PEK_OS_VERSION_ID" == "26.04" ]]; then
-                SELECTED_PACKAGE_ARRAYS=(PACKAGES_UBUNTU_26_04_X86)
+                SELECTED_PREREQ_ARRAYS=(PREREQS_UBUNTU_26_04_X86)
             elif [[ "$PEK_OS_ID" == "debian" && "$PEK_OS_VERSION_CODENAME" == "trixie" ]]; then
-                SELECTED_PACKAGE_ARRAYS=(PACKAGES_DEBIAN_13_X86)
+                SELECTED_PREREQ_ARRAYS=(PREREQS_DEBIAN_13_X86)
             else
-                SELECTED_PACKAGE_ARRAYS=(PACKAGES_LINUX_X86)
+                SELECTED_PREREQ_ARRAYS=(PREREQS_LINUX_X86)
             fi
             ;;
         rpi5 | rpi5-h10)
             PACKAGE_MANAGER="apt"
-            SELECTED_PACKAGE_ARRAYS=(PACKAGES_RPI5)
+            SELECTED_PREREQ_ARRAYS=(PREREQS_RPI5)
             if [[ "$PEK_PLATFORM_ID" == "rpi5-h10" ]]; then
-                SELECTED_PACKAGE_ARRAYS+=(PACKAGES_RPI5_HAILO10)
+                SELECTED_PREREQ_ARRAYS+=(PREREQS_RPI5_HAILO10)
             elif [[ "$PEK_HAILO_ARCH" == "hailo8" || "$PEK_HAILO_ARCH" == "hailo8l" || "$PEK_HAILO_ARCH" == "hailo-unknown" ]]; then
-                SELECTED_PACKAGE_ARRAYS+=(PACKAGES_RPI5_HAILO8)
+                SELECTED_PREREQ_ARRAYS+=(PREREQS_RPI5_HAILO8)
             fi
             ;;
         *)
-            echo "Error: no prerequisite package profile for platform '${PEK_PLATFORM_ID}'." >&2
+            echo "Error: no prerequisite profile for platform '${PEK_PLATFORM_ID}'." >&2
             exit 1
             ;;
     esac
 }
 
-append_unique_package() {
+append_unique_requirement() {
+    local requirement="$1"
+    local requirement_id="${requirement%%|*}"
+    local existing
+
+    for existing in "${REQUIRED_PREREQS[@]}"; do
+        if [[ "${existing%%|*}" == "$requirement_id" ]]; then
+            return
+        fi
+    done
+
+    REQUIRED_PREREQS+=("$requirement")
+}
+
+append_unique_missing_package() {
     local pkg="$1"
     local existing
 
-    for existing in "${REQUIRED_PACKAGES[@]}"; do
+    [[ -z "$pkg" ]] && return
+
+    for existing in "${MISSING_PACKAGES[@]}"; do
         if [[ "$existing" == "$pkg" ]]; then
             return
         fi
     done
 
-    REQUIRED_PACKAGES+=("$pkg")
+    MISSING_PACKAGES+=("$pkg")
 }
 
-collect_required_packages() {
+collect_required_prereqs() {
     local array_name
-    local packages
-    local pkg
+    local requirements
+    local requirement
 
-    REQUIRED_PACKAGES=()
+    REQUIRED_PREREQS=()
 
-    for array_name in "${SELECTED_PACKAGE_ARRAYS[@]}"; do
-        eval 'packages=("${'"$array_name"'[@]}")'
-        for pkg in "${packages[@]}"; do
-            append_unique_package "$pkg"
+    for array_name in "${SELECTED_PREREQ_ARRAYS[@]}"; do
+        eval 'requirements=("${'"$array_name"'[@]}")'
+        for requirement in "${requirements[@]}"; do
+            append_unique_requirement "$requirement"
         done
     done
 }
 
-apt_package_installed() {
-    dpkg-query -W -f='${Status}' "$1" 2> /dev/null | grep -q "install ok installed"
-}
-
-brew_package_installed() {
-    brew list --formula "$1" > /dev/null 2>&1
-}
-
-package_installed() {
-    case "$PACKAGE_MANAGER" in
-        apt)
-            apt_package_installed "$1"
-            ;;
-        brew)
-            brew_package_installed "$1"
-            ;;
-        *)
-            echo "Error: unsupported package manager '${PACKAGE_MANAGER}'." >&2
-            exit 1
-            ;;
-    esac
-}
-
-collect_missing_packages() {
+collect_missing_prereqs() {
+    local requirement
+    local requirement_id
+    local check_fn
+    local packages
+    local description
+    local package_list
     local pkg
 
     MISSING_PACKAGES=()
+    FAILED_MANUAL_PREREQS=()
 
-    for pkg in "${REQUIRED_PACKAGES[@]}"; do
-        if package_installed "$pkg"; then
-            echo "OK: package installed: $pkg"
-        else
-            echo "MISSING: package not installed: $pkg"
-            MISSING_PACKAGES+=("$pkg")
+    for requirement in "${REQUIRED_PREREQS[@]}"; do
+        IFS='|' read -r requirement_id check_fn packages description <<< "$requirement"
+
+        if "$check_fn"; then
+            echo "OK: ${description}"
+            continue
         fi
+
+        echo "MISSING: ${description}"
+
+        if [[ -z "$packages" ]]; then
+            FAILED_MANUAL_PREREQS+=("$requirement")
+            continue
+        fi
+
+        IFS=' ' read -r -a package_list <<< "$packages"
+        for pkg in "${package_list[@]}"; do
+            append_unique_missing_package "$pkg"
+        done
     done
 }
 
@@ -243,31 +279,59 @@ install_missing_packages() {
     esac
 }
 
-select_package_arrays
-collect_required_packages
+print_manual_failures() {
+    local requirement
+    local requirement_id
+    local check_fn
+    local packages
+    local description
+
+    [[ "${#FAILED_MANUAL_PREREQS[@]}" -eq 0 ]] && return
+
+    echo
+    echo "Prerequisites that need manual action:"
+    for requirement in "${FAILED_MANUAL_PREREQS[@]}"; do
+        IFS='|' read -r requirement_id check_fn packages description <<< "$requirement"
+        echo "  ${description}"
+        if [[ "$requirement_id" == "docker-access" ]]; then
+            echo "    Start Docker and confirm 'docker info' works without sudo."
+            if [[ "$PEK_PLATFORM_ID" == "linux-x86_64" || "$PEK_PLATFORM_ID" == rpi5* ]]; then
+                echo "    On Linux, this often means: sudo usermod -aG docker \"\$USER\""
+                echo "    Then log out and log back in."
+            fi
+        fi
+    done
+}
+
+select_prereq_arrays
+collect_required_prereqs
 
 echo "Prerequisite checks:"
 echo "  Platform: ${PEK_PLATFORM_NAME} (${PEK_PLATFORM_ID})"
 echo "  Package manager: ${PACKAGE_MANAGER}"
-echo "  Package arrays: ${SELECTED_PACKAGE_ARRAYS[*]}"
+echo "  Requirement arrays: ${SELECTED_PREREQ_ARRAYS[*]}"
 
-if [[ "${#REQUIRED_PACKAGES[@]}" -eq 0 ]]; then
+if [[ "${#REQUIRED_PREREQS[@]}" -eq 0 ]]; then
     echo
-    echo "No host packages are configured for this platform yet."
+    echo "No prerequisites are configured for this platform yet."
     exit 0
 fi
 
 echo
-collect_missing_packages
+collect_missing_prereqs
+print_manual_failures
 
 if [[ "${#MISSING_PACKAGES[@]}" -eq 0 ]]; then
-    echo
-    echo "All configured prerequisite packages are installed."
-    exit 0
+    if [[ "${#FAILED_MANUAL_PREREQS[@]}" -eq 0 ]]; then
+        echo
+        echo "All configured prerequisites are satisfied."
+        exit 0
+    fi
+    exit 1
 fi
 
 echo
-echo "Missing packages:"
+echo "Packages to install:"
 printf '  %s\n' "${MISSING_PACKAGES[@]}"
 
 if [[ "$CHECK_ONLY" == "true" ]]; then
@@ -277,3 +341,15 @@ fi
 echo
 echo "Installing missing packages..."
 install_missing_packages
+
+echo
+echo "Rechecking prerequisites..."
+collect_missing_prereqs
+print_manual_failures
+
+if [[ "${#MISSING_PACKAGES[@]}" -gt 0 || "${#FAILED_MANUAL_PREREQS[@]}" -gt 0 ]]; then
+    exit 1
+fi
+
+echo
+echo "All configured prerequisites are satisfied."
