@@ -106,10 +106,10 @@ bool isSupportedImageExtension(const std::string &extension) {
     return extension == ".png" || extension == ".jpg" || extension == ".jpeg";
 }
 
-} // namespace
-
-Result<std::vector<uint8_t>>
-Tools::loadImageFile(const std::string &path, size_t &outWidth, size_t &outHeight) {
+Result<std::vector<uint8_t>> loadImageFileChannels(const std::string &path,
+                                                   size_t &outWidth,
+                                                   size_t &outHeight,
+                                                   int requestedChannels) {
     outWidth = 0;
     outHeight = 0;
 
@@ -126,7 +126,6 @@ Tools::loadImageFile(const std::string &path, size_t &outWidth, size_t &outHeigh
     int width = 0;
     int height = 0;
     int channels = 0;
-    constexpr int requestedChannels = 3;
 
     stbi_uc *rawPixels = stbi_load(path.c_str(), &width, &height, &channels, requestedChannels);
     if (rawPixels == nullptr) {
@@ -149,7 +148,7 @@ Tools::loadImageFile(const std::string &path, size_t &outWidth, size_t &outHeigh
 
     const auto imageWidth = static_cast<size_t>(width);
     const auto imageHeight = static_cast<size_t>(height);
-    constexpr size_t bytesPerPixel = 3U;
+    const auto bytesPerPixel = static_cast<size_t>(requestedChannels);
 
     if (imageWidth > std::numeric_limits<size_t>::max() / imageHeight ||
         imageWidth * imageHeight > std::numeric_limits<size_t>::max() / bytesPerPixel) {
@@ -164,6 +163,32 @@ Tools::loadImageFile(const std::string &path, size_t &outWidth, size_t &outHeigh
     outWidth = imageWidth;
     outHeight = imageHeight;
     return result;
+}
+
+} // namespace
+
+Result<std::vector<uint8_t>>
+Tools::loadImageFile(const std::string &path, size_t &outWidth, size_t &outHeight) {
+    constexpr int requestedChannels = 3;
+    return loadImageFileChannels(path, outWidth, outHeight, requestedChannels);
+}
+
+Result<std::vector<uint8_t>>
+Tools::loadImageFileBgra(const std::string &path, size_t &outWidth, size_t &outHeight) {
+    constexpr int requestedChannels = 4;
+
+    auto rgbaPixels = loadImageFileChannels(path, outWidth, outHeight, requestedChannels);
+    if (!rgbaPixels) {
+        return rgbaPixels;
+    }
+
+    auto &pixels = *rgbaPixels;
+    constexpr size_t bytesPerPixel = 4U;
+    for (size_t i = 0; i < pixels.size(); i += bytesPerPixel) {
+        std::swap(pixels[i + 0U], pixels[i + 2U]);
+    }
+
+    return rgbaPixels;
 }
 
 std::atomic<uint64_t> pek::Uuid::counter{1};
