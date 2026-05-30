@@ -24,6 +24,7 @@
 #include "op/OpChainContext.h"
 
 #include "gst/PerceptionMeta.h"
+#include "mediaio/GstVideoFrame.h"
 #include "perf/PerformanceTracer.h"
 
 struct GstPekInferMembers {
@@ -192,10 +193,7 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     const size_t frameWidth = GST_VIDEO_INFO_WIDTH(&self->vinfo);
     const size_t frameHeight = GST_VIDEO_INFO_HEIGHT(&self->vinfo);
 
-    // NOTE: This assumes tightly packed RGB: stride == width*3.
-    // If you ever get padded stride, you'll need to map as GstVideoFrame instead.
-    uint8_t *rgb = (uint8_t *)map.data;
-    if (!rgb) {
+    if (map.data == nullptr) {
         gst_buffer_unmap(buf, &map);
         return GST_FLOW_OK;
     }
@@ -207,17 +205,30 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
         pek::PerceptionMeta::add(buf, perception);
     }
 
-    auto ret = pek::PerceptionMeta::mutate<GstFlowReturn>(
-        buf, [self, rgb, frameWidth, frameHeight](auto &perception) {
+    const size_t frameStride = GST_VIDEO_INFO_PLANE_STRIDE(&self->vinfo, 0);
+    auto mediaFrame =
+        pek::mediaio::gst::GstVideoFrame::takeMappedBuffer(buf,
+                                                           map,
+                                                           static_cast<uint32_t>(frameWidth),
+                                                           static_cast<uint32_t>(frameHeight),
+                                                           pek::DataKind::ImageBgraHwc,
+                                                           static_cast<uint32_t>(frameStride),
+                                                           pek::AccessMode::ReadWrite);
+    if (!mediaFrame) {
+        gst_buffer_unmap(buf, &map);
+        return GST_FLOW_OK;
+    }
+
+    std::shared_ptr<pek::mediaio::VideoFrame> sharedMediaFrame(std::move(mediaFrame));
+
+    auto ret =
+        pek::PerceptionMeta::mutate<GstFlowReturn>(buf, [self, sharedMediaFrame](auto &perception) {
             pek::op::OpChainContext opChainContext;
             opChainContext.inferenceInfo.inferElementId =
                 std::string(gst_pekinfer_get_effective_inferId(self));
 
-            pek::BitmapView pipelineFrame(
-                rgb, pek::DataKind::ImageBgraHwc, frameWidth, frameHeight);
-
             opChainContext.perception = &perception;
-            opChainContext.bitmapViews["pipelineVideoFrame"] = pipelineFrame;
+            opChainContext.videoFrames["pipelineVideoFrame"] = sharedMediaFrame;
 
             auto executeResult = self->m->executeOpChain(opChainContext);
             if (!executeResult) {
@@ -232,15 +243,12 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     if ((std::holds_alternative<GstFlowReturn>(ret) &&
          std::get<GstFlowReturn>(ret) != GST_FLOW_OK) ||
         std::holds_alternative<ME>(ret)) {
-        gst_buffer_unmap(buf, &map);
-
         GST_ELEMENT_ERROR(
             self, RESOURCE, FAILED, ("Error while executing op-chain."), ("%s", self->opChainPath));
 
         return GST_FLOW_ERROR;
     }
 
-    gst_buffer_unmap(buf, &map);
     return GST_FLOW_OK;
 }
 

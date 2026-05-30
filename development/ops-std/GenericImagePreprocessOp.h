@@ -24,11 +24,11 @@ namespace pek::stdop {
  * conversions (e.g., BGRA8 HWC to RGB float32 CHW).
  *
  * **Configuration Attributes:**
- * - `inputImageSourceName`: Name of the bitmap in OpChainContext.bitmapViews (e.g., "frame")
+ * - `inputImageSourceName`: Name of the media frame in OpChainContext.videoFrames
  * - `inputImageTensorIndex`: Index of the tensor in the inference model to populate
  *
  * **Typical Usage:**
- * 1. Upstream preprocessing operations populate OpChainContext.bitmapViews["frame"] with BGRA data
+ * 1. Upstream media input populates OpChainContext.videoFrames["pipelineVideoFrame"]
  * 2. This operation converts it to the model's input format
  * 3. Downstream inference operation uses the prepared tensor data
  */
@@ -53,9 +53,10 @@ class GenericImagePreprocessOp : public pek::op::Op {
      */
     virtual pek::Result<void> configure(const pek::AttributeMap &attributes) override;
     /**
-     * @brief Executes preprocessing: reads bitmap, converts format, prepares tensor data.
+     * @brief Executes preprocessing: maps a media video frame, converts format, prepares tensor
+     * data.
      *
-     * Reads image from OpChainContext.bitmapViews[inputImageSourceName],
+     * Reads image data from OpChainContext.videoFrames[inputImageSourceName],
      * converts to model input format using GenericImageTensorBuilder,
      * and stores tensor pointers for use by downstream inference.
      *

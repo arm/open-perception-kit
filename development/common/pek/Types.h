@@ -257,4 +257,23 @@ struct TensorFeedback {
     Mode mode = Mode::Copy;           ///< Feedback copy mode.
 };
 
+/**
+ * @brief Describes where externally supplied media or tensor memory is stored.
+ */
+enum class MemoryType {
+    Unknown = 0, ///< Memory backend is unspecified or unsupported.
+    Host,        ///< CPU-addressable host memory.
+    DmaBuf,      ///< Linux DMA-BUF file-descriptor backed memory.
+};
+
+/**
+ * @brief Describes permitted access for a non-owning memory view.
+ */
+enum class AccessMode {
+    Unknown = 0, ///< Access permissions are unspecified.
+    Read,        ///< Memory may be read but not written.
+    Write,       ///< Memory may be written but not read.
+    ReadWrite,   ///< Memory may be read and written.
+};
+
 } // namespace pek

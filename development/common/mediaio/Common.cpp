@@ -1,0 +1,125 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
+/**
+ * @file Common.cpp
+ * @brief Backend-neutral media IO primitive implementations.
+ */
+
+#include "mediaio/Common.h"
+
+namespace pek::mediaio {
+
+DmaBufSync::DmaBufSync(int acquireFenceFd, int releaseFenceFd) noexcept
+    : acquireFd(acquireFenceFd), releaseFd(releaseFenceFd) {}
+
+int DmaBufSync::acquireFenceFd() const noexcept {
+    return acquireFd;
+}
+
+int DmaBufSync::releaseFenceFd() const noexcept {
+    return releaseFd;
+}
+
+bool DmaBufSync::hasAcquireFence() const noexcept {
+    return acquireFd >= 0;
+}
+
+bool DmaBufSync::hasReleaseFence() const noexcept {
+    return releaseFd >= 0;
+}
+
+DataView DataView::host(void *data,
+                        size_t byteSize,
+                        pek::DataKind kind,
+                        uint32_t strideBytes,
+                        pek::AccessMode accessMode,
+                        size_t offsetBytes) noexcept {
+    DataView view;
+    view.memory = pek::MemoryType::Host;
+    view.access = accessMode;
+    view.dataKind = kind;
+    view.hostData = data;
+    view.dataByteSize = byteSize;
+    view.dataStrideBytes = strideBytes;
+    view.dataOffset = offsetBytes;
+    return view;
+}
+
+DataView DataView::dmaBuf(int fd,
+                          size_t byteSize,
+                          pek::DataKind kind,
+                          uint32_t strideBytes,
+                          size_t offsetBytes,
+                          pek::AccessMode accessMode,
+                          DmaBufSync sync) noexcept {
+    DataView view;
+    view.memory = pek::MemoryType::DmaBuf;
+    view.access = accessMode;
+    view.dataKind = kind;
+    view.dmaBufFd = fd;
+    view.dataByteSize = byteSize;
+    view.dataStrideBytes = strideBytes;
+    view.dataOffset = offsetBytes;
+    view.dmaBufSync = sync;
+    return view;
+}
+
+pek::MemoryType DataView::memoryType() const noexcept {
+    return memory;
+}
+
+pek::AccessMode DataView::accessMode() const noexcept {
+    return access;
+}
+
+pek::DataKind DataView::kind() const noexcept {
+    return dataKind;
+}
+
+const void *DataView::data() const noexcept {
+    return hostData;
+}
+
+void *DataView::mutableData() const noexcept {
+    return canWrite() ? hostData : nullptr;
+}
+
+int DataView::fd() const noexcept {
+    return dmaBufFd;
+}
+
+size_t DataView::offset() const noexcept {
+    return dataOffset;
+}
+
+size_t DataView::byteSize() const noexcept {
+    return dataByteSize;
+}
+
+uint32_t DataView::strideBytes() const noexcept {
+    return dataStrideBytes;
+}
+
+const DmaBufSync &DataView::sync() const noexcept {
+    return dmaBufSync;
+}
+
+bool DataView::hasHostData() const noexcept {
+    return memory == pek::MemoryType::Host && hostData != nullptr;
+}
+
+bool DataView::hasDmaBuf() const noexcept {
+    return memory == pek::MemoryType::DmaBuf && dmaBufFd >= 0;
+}
+
+bool DataView::canRead() const noexcept {
+    return access == pek::AccessMode::Read || access == pek::AccessMode::ReadWrite;
+}
+
+bool DataView::canWrite() const noexcept {
+    return access == pek::AccessMode::Write || access == pek::AccessMode::ReadWrite;
+}
+
+} // namespace pek::mediaio

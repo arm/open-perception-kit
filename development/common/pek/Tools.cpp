@@ -11,9 +11,24 @@
 #include <cmath>
 #include <cstdint>
 #include <dlfcn.h>
+#include <limits>
+#include <memory>
 #include <vector>
 
 using namespace pek;
+
+// ---
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+
+#pragma GCC diagnostic pop
 
 Result<DynamicLibraryHandle> Tools::DynamicLibraryOpen(const std::string &name) {
     std::vector<std::string> names;
@@ -75,17 +90,83 @@ Result<void *> Tools::DynamicLibraryGetSymbolRaw(DynamicLibraryHandle handle,
     return sym;
 }
 
+namespace {
+
+std::string imageExtension(const std::string &path) {
+    const auto separator = path.find_last_of("/\\");
+    const auto dot = path.find_last_of('.');
+    if (dot == std::string::npos || dot + 1 >= path.size() ||
+        (separator != std::string::npos && dot < separator)) {
+        return {};
+    }
+    return pek::utf8::toLowerAscii(path.substr(dot));
+}
+
+bool isSupportedImageExtension(const std::string &extension) {
+    return extension == ".png" || extension == ".jpg" || extension == ".jpeg";
+}
+
+} // namespace
+
+Result<std::vector<uint8_t>>
+Tools::loadImageFile(const std::string &path, size_t &outWidth, size_t &outHeight) {
+    outWidth = 0;
+    outHeight = 0;
+
+    const std::string extension = imageExtension(path);
+    if (!isSupportedImageExtension(extension)) {
+        return tl::make_unexpected(PEK_ERROR(
+            pek::ErrorFlag::NotSupported,
+            fmt::format("Unsupported image file extension '{}' for '{}'; supported extensions: "
+                        ".png, .jpg, .jpeg",
+                        extension.empty() ? "<none>" : extension,
+                        path)));
+    }
+
+    int width = 0;
+    int height = 0;
+    int channels = 0;
+    constexpr int requestedChannels = 3;
+
+    stbi_uc *rawPixels = stbi_load(path.c_str(), &width, &height, &channels, requestedChannels);
+    if (rawPixels == nullptr) {
+        return tl::make_unexpected(
+            PEK_ERROR(pek::ErrorFlag::FileOperationError,
+                      fmt::format("Failed to load image file '{}': {}",
+                                  path,
+                                  stbi_failure_reason() != nullptr ? stbi_failure_reason()
+                                                                   : "unknown error")));
+    }
+
+    auto pixels = std::unique_ptr<stbi_uc, decltype(&stbi_image_free)>(rawPixels, stbi_image_free);
+
+    if (width <= 0 || height <= 0) {
+        return tl::make_unexpected(PEK_ERROR(
+            pek::ErrorFlag::InvalidData,
+            fmt::format(
+                "Image file '{}' decoded to invalid dimensions {}x{}", path, width, height)));
+    }
+
+    const auto imageWidth = static_cast<size_t>(width);
+    const auto imageHeight = static_cast<size_t>(height);
+    constexpr size_t bytesPerPixel = 3U;
+
+    if (imageWidth > std::numeric_limits<size_t>::max() / imageHeight ||
+        imageWidth * imageHeight > std::numeric_limits<size_t>::max() / bytesPerPixel) {
+        return tl::make_unexpected(PEK_ERROR(
+            pek::ErrorFlag::InvalidData,
+            fmt::format("Image file '{}' dimensions are too large: {}x{}", path, width, height)));
+    }
+
+    const size_t byteCount = imageWidth * imageHeight * bytesPerPixel;
+    std::vector<uint8_t> result(pixels.get(), pixels.get() + byteCount);
+
+    outWidth = imageWidth;
+    outHeight = imageHeight;
+    return result;
+}
+
 std::atomic<uint64_t> pek::Uuid::counter{1};
-
-// ---
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
-
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb_image_write.h"
-
-#pragma GCC diagnostic pop
 
 bool Tools::savePngFromBgra(const std::string &path, const uint8_t *bgra, int width, int height) {
     if (!bgra || width <= 0 || height <= 0)

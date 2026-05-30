@@ -5,7 +5,7 @@ common = shared_library(
 
     'gst/Tools.cpp',
     'gst/TensorMeta.cpp',
-    
+
     'pek/Result.cpp',
     'pek/Tools.cpp',
     'pek/Labels.cpp',
@@ -23,8 +23,13 @@ common = shared_library(
     'op/OpChainDescriptor.cpp',
 
     'perf/PerformanceTracer.cpp',
+
+    'mediaio/Common.cpp',
+    'mediaio/VideoFrame.cpp',
+    'mediaio/GstVideoFrame.cpp',
+    'mediaio/PixelBufferVideoFrame.cpp',
   ],
-  include_directories: [ common_include ],  
+  include_directories: [ common_include ],
   cpp_args: ['-DFMT_HEADER_ONLY'],
   dependencies: [ pek_deps ],
   gnu_symbol_visibility: 'default',

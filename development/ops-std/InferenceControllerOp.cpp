@@ -29,12 +29,13 @@ pek::Result<void> InferenceControllerOp::configure(const pek::AttributeMap &attr
 
 pek::Result<pek::op::OpSignal>
 InferenceControllerOp::process(pek::op::OpChainContext &opChainContext) {
-    pek::BitmapView *pipelineVideoFrame = opChainContext.getBitmapView("pipelineVideoFrame");
+    auto *pipelineVideoFrame = opChainContext.getVideoFrame("pipelineVideoFrame");
 
     // TODO: later it can be also audio data not video only
     if (pipelineVideoFrame == nullptr) {
-        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidOpChain,
-                                        "InferenceControllerOp needs pipelineVideoFrame"));
+        return tl::unexpected(
+            PEK_ERROR(pek::ErrorFlag::InvalidOpChain,
+                      "InferenceControllerOp needs pipelineVideoFrame VideoFrame"));
     }
 
     opChainContext.inferenceInfo.modelFamily.clear();
@@ -44,16 +45,16 @@ InferenceControllerOp::process(pek::op::OpChainContext &opChainContext) {
     if (contentType.empty()) {
         // setup source VideoFrame object
         pek::Perception::VideoFrame videoFrame;
-        videoFrame.originalWidth = pipelineVideoFrame->width;
-        videoFrame.originalHeight = pipelineVideoFrame->height;
+        videoFrame.originalWidth = pipelineVideoFrame->width();
+        videoFrame.originalHeight = pipelineVideoFrame->height();
         opChainContext.inferenceSourceUuid = videoFrame.uuid;
         opChainContext.rootLayer.detections.emplace_back(videoFrame);
 
         pek::PixelRect rect;
         rect.x = 0;
         rect.y = 0;
-        rect.width = pipelineVideoFrame->width;
-        rect.height = pipelineVideoFrame->height;
+        rect.width = pipelineVideoFrame->width();
+        rect.height = pipelineVideoFrame->height();
         opChainContext.inferenceImageCrops.push_back(rect);
 
         opChainContext.inferenceImageCropUuids.push_back(videoFrame.uuid);

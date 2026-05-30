@@ -7,9 +7,12 @@
 #include "pek/Result.h"
 
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <ctime>
 #include <string>
+#include <type_traits>
+#include <vector>
 
 namespace pek {
 
@@ -62,6 +65,22 @@ struct Tools {
 
         return reinterpret_cast<FuncPtr>(*raw);
     }
+
+    /**
+     * @brief Loads a PNG or JPEG image file into tightly packed RGB pixels.
+     *
+     * The file format is inferred from the file name extension before decoding.
+     * Supported extensions are `.png`, `.jpg`, and `.jpeg`, case-insensitively.
+     * The returned buffer uses 8-bit RGB HWC order and contains
+     * `outWidth * outHeight * 3` bytes.
+     *
+     * @param path Image file path.
+     * @param outWidth Receives the decoded image width in pixels. Set to 0 on failure.
+     * @param outHeight Receives the decoded image height in pixels. Set to 0 on failure.
+     * @return RGB pixel buffer on success, error details on unsupported extension or load failure.
+     */
+    static Result<std::vector<uint8_t>>
+    loadImageFile(const std::string &path, size_t &outWidth, size_t &outHeight);
 
     /**
      * @brief Saves a BGRA image as PNG.
