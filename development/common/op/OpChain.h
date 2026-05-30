@@ -92,8 +92,8 @@ class OpChain {
     /**
      * @brief Executes the complete chain once.
      *
-     * Processes all operations in sequence. If operations have loopId values, their
-     * execution respects the OpChainContext breakLoop flag to continue or exit loops.
+     * Processes all operations in sequence. If operations have loopId values, OpChain
+     * uses OpSignal return values to continue, exit loop groups, or abort execution.
      *
      * @param opChainContext Mutable context passed to each operation's process() method.
      * @return Result indicating success or failure of execution.

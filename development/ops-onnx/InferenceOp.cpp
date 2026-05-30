@@ -55,7 +55,7 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
     return {};
 }
 
-pek::Result<void> InferenceOp::process(pek::op::OpChainContext &opChainContext) {
+pek::Result<pek::op::OpSignal> InferenceOp::process(pek::op::OpChainContext &opChainContext) {
     PEK_TRACE_SCOPE(fmt::format("onnx/Infer/{}", opChainContext.inferenceInfo.modelFamily));
 
     pek::BitmapView pipelineVideoFrame = opChainContext.bitmapViews["pipelineVideoFrame"];
@@ -63,7 +63,7 @@ pek::Result<void> InferenceOp::process(pek::op::OpChainContext &opChainContext) 
     // inference
     auto inferenceResult = inference->inference();
     if (!inferenceResult) {
-        return inferenceResult;
+        return tl::unexpected(inferenceResult.error());
     }
 
     // populate the context with views to the output tensors
@@ -74,7 +74,7 @@ pek::Result<void> InferenceOp::process(pek::op::OpChainContext &opChainContext) 
             i, inference->getOutputTensorDataAddress(i), inference->getOutputTensorFinalShape(i));
     }
 
-    return {};
+    return pek::op::OpSignal::Continue;
 }
 
 pek::Result<void> InferenceOp::bind(size_t index, const std::vector<pek::op::Op *> &ops) {

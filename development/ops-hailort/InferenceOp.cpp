@@ -48,13 +48,13 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
     return {};
 }
 
-pek::Result<void> InferenceOp::process(pek::op::OpChainContext &opChainContext) {
+pek::Result<pek::op::OpSignal> InferenceOp::process(pek::op::OpChainContext &opChainContext) {
     PEK_TRACE_SCOPE(fmt::format("hailort/Infer/{}", opChainContext.inferenceInfo.modelFamily));
 
     auto inferenceResult = inference->inference();
     if (!inferenceResult) {
         fmt::print("HailoRT inference error: {}\n", inferenceResult.error().toString());
-        return inferenceResult;
+        return tl::unexpected(inferenceResult.error());
     }
 
     const pek::Model &model = inference->getModel();
@@ -70,7 +70,7 @@ pek::Result<void> InferenceOp::process(pek::op::OpChainContext &opChainContext) 
             model.createOutputTensorView(i, outData, outShape);
     }
 
-    return {};
+    return pek::op::OpSignal::Continue;
 }
 
 pek::Result<void> InferenceOp::bind(size_t index, const std::vector<pek::op::Op *> &ops) {

@@ -48,6 +48,7 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
     return {};
 }
 
-pek::Result<void> InferenceOp::process(pek::op::OpChainContext &opCainContext) {
-    return {};
+pek::Result<pek::op::OpSignal> InferenceOp::process(pek::op::OpChainContext &opCainContext) {
+    (void)opCainContext;
+    return pek::op::OpSignal::Continue;
 }

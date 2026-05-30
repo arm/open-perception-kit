@@ -22,9 +22,9 @@ namespace pek::stdop {
  * - `contentType`: Content type descriptor for the inferred data (e.g., "image", "video")
  *
  * **Typical Usage:**
- * 1. Preprocessing operations populate OpChainContext.inferenceImageCrops with regions to infer
- * 2. Inference operation executes on these crops
- * 3. This controller signals loop completion by setting OpChainContext.breakLoop after inference
+ * 1. The controller populates OpChainContext.inferenceImageCrops with regions to infer
+ * 2. Preprocess, inference, and postprocess operations consume one crop per loop iteration
+ * 3. GenericImagePreprocessOp returns OpSignal::BreakLoop when no crops remain
  */
 class InferenceControllerOp : public pek::op::Op {
   public:
@@ -47,15 +47,16 @@ class InferenceControllerOp : public pek::op::Op {
      */
     virtual pek::Result<void> configure(const pek::AttributeMap &attributes) override;
     /**
-     * @brief Executes loop control logic: starts inference or signals completion.
+     * @brief Populates crop state for the following inference loop workers.
      *
-     * Manages OpChainContext.breakLoop and loop state transitions.
-     * When all inference crops have been processed, sets breakLoop to true.
+     * Populates inference crop state for the following loop workers.
+     * Loop transitions are controlled by OpSignal values returned from process().
      *
-     * @param opChainContext Context for loop control state.
-     * @return Result indicating success or processing error.
+     * @param opChainContext Context for shared inference state.
+     * @return Continue after populating crop state, or a processing error.
      */
-    virtual pek::Result<void> process(pek::op::OpChainContext &opChainContext) override;
+    virtual pek::Result<pek::op::OpSignal>
+    process(pek::op::OpChainContext &opChainContext) override;
     /**
      * @brief Resolves references to other operations if needed for inference control.
      *

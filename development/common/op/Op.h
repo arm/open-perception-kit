@@ -17,6 +17,15 @@
 namespace pek::op {
 
 /**
+ * @brief Scheduler signal returned by an operation after process() completes.
+ */
+enum class OpSignal {
+    Continue,  ///< Continue with the next operation in the chain.
+    BreakLoop, ///< Skip the rest of the current loop group.
+    AbortChain ///< Stop executing the current chain without reporting an error.
+};
+
+/**
  * @brief Interface for operations that provide tensor input/output information.
  *
  * Operations implementing this interface expose the inference model and tensor data
@@ -91,11 +100,12 @@ struct Op {
      *
      * Performs the operation's work (e.g., preprocessing, inference, postprocessing).
      * May read/write context state including bitmaps, tensors, and Perception objects.
+     * Scheduler control is returned explicitly as an OpSignal.
      *
      * @param opChainContext Mutable context for sharing state across operations.
-     * @return Result indicating success or failure of processing.
+     * @return Continue, loop-break, or abort signal, or an error on failure.
      */
-    virtual Result<void> process(OpChainContext &opChainContext) = 0;
+    virtual Result<OpSignal> process(OpChainContext &opChainContext) = 0;
 
     std::string libName; ///< Name of the shared library providing this operation.
     std::string opName;  ///< Name of the operation class within the library.

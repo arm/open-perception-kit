@@ -60,9 +60,11 @@ class GenericImagePreprocessOp : public pek::op::Op {
      * and stores tensor pointers for use by downstream inference.
      *
      * @param opChainContext Context containing input image and tensor setup.
-     * @return Result indicating success or preprocessing error.
+     * @return Continue after preparing a crop, BreakLoop when no crops remain, or a
+     * preprocessing error.
      */
-    virtual pek::Result<void> process(pek::op::OpChainContext &opChainContext) override;
+    virtual pek::Result<pek::op::OpSignal>
+    process(pek::op::OpChainContext &opChainContext) override;
     /**
      * @brief Resolves the upstream inference operation to get model information.
      *
