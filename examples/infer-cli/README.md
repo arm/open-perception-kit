@@ -24,10 +24,10 @@ meson compile -C /tmp/infer-cli-build
 ```
 
 To rebuild the main development tree, rebuild `infer-cli`, and copy the binary to
-`tools/infer-cli`:
+`examples/bin/infer-cli`:
 
 ```sh
-./examples/infer-cli/rebuild-to-tools.sh
+./examples/infer-cli/build.sh
 ```
 
 ## Run
@@ -36,10 +36,10 @@ To rebuild the main development tree, rebuild `infer-cli`, and copy the binary t
 /tmp/infer-cli-build/infer-cli /work/config/models/ultraface/opchain.json /work/data/images/my-image.jpg
 ```
 
-Or, after running the rebuild script:
+Or, after running the build script:
 
 ```sh
-./tools/infer-cli /work/config/models/ultraface/opchain.json /work/data/images/my-image.jpg
+./examples/bin/infer-cli /work/config/models/ultraface/opchain.json /work/data/images/my-image.jpg
 ```
 
 The first argument is the OpChain JSON file. The second argument is the input

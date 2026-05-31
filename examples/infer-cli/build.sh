@@ -11,7 +11,7 @@ REPO_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 BUILD_TYPE="${1:-debug}"
 ENABLE_TESTS="${2:-true}"
 INFER_CLI_BUILD_DIR="${INFER_CLI_BUILD_DIR:-/tmp/infer-cli-build}"
-TARGET_DIR="$REPO_ROOT/tools"
+TARGET_DIR="$REPO_ROOT/examples/bin"
 TARGET="$TARGET_DIR/infer-cli"
 
 usage() {
@@ -19,7 +19,7 @@ usage() {
 Usage: $0 [debug|release] [true|false]
 
 Rebuilds the PEK development tree, rebuilds the infer-cli example, and copies the
-resulting binary to tools/infer-cli.
+resulting binary to examples/bin/infer-cli.
 
 Arguments:
   debug|release  Main PEK build type. Default: debug.

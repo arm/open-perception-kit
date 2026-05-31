@@ -25,7 +25,7 @@ pek::Result<void> executeOpChain(const std::string &opchainPath,
                                  pek::Perception &perception) {
     // The first CLI argument is a normal OpChain JSON file. setupFromFile()
     // parses the descriptor, creates the configured ops, and prepares them for
-    // execution exactly like the GStreamer element would do.
+    // execution.
     pek::op::OpChain opChain;
     auto setupResult = opChain.setupFromFile(opchainPath);
     if (!setupResult) {
