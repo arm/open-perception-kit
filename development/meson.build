@@ -142,6 +142,7 @@ gtest_main_dep = gtest_cmake.dependency('gtest_main')
 
 # Subdirs
 subdir('common')
+subdir('api')
 subdir('elements/pekinfer')
 subdir('ops-onnx')
 subdir('ops-std')

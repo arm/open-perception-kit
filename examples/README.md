@@ -11,3 +11,5 @@ promoted later into `tools/`.
 
 - `infer-cli`: command-line image input proof of concept for loading an image file
   and wrapping it as a `mediaio::VideoFrame`, then executing an opchain and printing the result.
+- `pipeline-run`: C++ application facade proof of concept for loading a PEK
+  pipeline JSON through `pek::api::Pipeline` and receiving serialized perception JSON callbacks.
