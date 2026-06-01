@@ -593,9 +593,6 @@ class QualityChecks:
                         result = False
                     elif proc.stdout:
                         logger.debug(f"clang-tidy output for {f}:\n{proc.stdout}")
-                except subprocess.CalledProcessError as e:
-                    logger.error(f"clang-tidy failed for {f}: {e}")
-                    result = False
                 except Exception as e:
                     logger.error(f"Unknown error running clang-tidy on {f}: {e}")
                     result = False
