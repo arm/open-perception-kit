@@ -86,8 +86,6 @@ Enter the `amp-dev-forge` folder in the terminal and run:
 
 ```bash
 ./quick_start
-
-# TODO: Checks the host packages (on Debian, Ubuntu, Arch, RedHat, Fedora). If they aren't installed, gives instructions and terminates
 ```
 
 ### 3. Enter to the container command line
