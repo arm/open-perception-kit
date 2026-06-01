@@ -3,6 +3,9 @@ name: Python Dependency Audit
 on:
   workflow_call:
   workflow_dispatch:
+  pull_request:
+    branches: [ main, "feature/**", "sandbox/**" ]
+    types: [ labeled ]
   schedule:
     - cron: "0 3 * * *"
 
@@ -13,6 +16,9 @@ jobs:
   pip-audit:
     name: pip-audit (${{ matrix.package.name }})
     runs-on: ubuntu-latest
+    if: |
+      github.event_name != 'pull_request' ||
+      (github.event.action == 'labeled' && contains(github.event.label.name, 'run-python-audit'))
     strategy:
       fail-fast: false
       matrix:
@@ -25,6 +31,8 @@ jobs:
     steps:
       - name: Checkout branch
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.head_ref || github.ref }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
