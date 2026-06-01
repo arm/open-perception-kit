@@ -117,7 +117,7 @@ Result<std::string> expandPipelineDescription(const std::string &description) {
                 if (message.empty()) {
                     message = fmt::format("Environment variable '{}' is required", variableName);
                 }
-                return tl::make_unexpected(makeApiError(ErrorFlag::InvalidData, message));
+                return tl::make_unexpected(makeApiError(ErrorFlag::InvalidArgument, message));
             }
 
             expanded += value;
@@ -148,13 +148,13 @@ Result<std::string> loadPipelineDescriptionFromJsonFile(const std::string &path)
 
         if (!document.is_object()) {
             return tl::make_unexpected(makeApiError(
-                ErrorFlag::InvalidData,
+                ErrorFlag::InvalidPipeline,
                 fmt::format("PEK pipeline JSON '{}' must contain a root object", path)));
         }
 
         if (!document.contains("pipeline")) {
             return tl::make_unexpected(makeApiError(
-                ErrorFlag::InvalidData,
+                ErrorFlag::InvalidPipeline,
                 fmt::format("PEK pipeline JSON '{}' is missing required 'pipeline' field", path)));
         }
 
@@ -163,7 +163,7 @@ Result<std::string> loadPipelineDescriptionFromJsonFile(const std::string &path)
             auto description = pipeline.get<std::string>();
             if (description.empty()) {
                 return tl::make_unexpected(makeApiError(
-                    ErrorFlag::InvalidData,
+                    ErrorFlag::InvalidPipeline,
                     fmt::format("PEK pipeline JSON '{}' contains an empty 'pipeline' string",
                                 path)));
             }
@@ -172,7 +172,7 @@ Result<std::string> loadPipelineDescriptionFromJsonFile(const std::string &path)
 
         if (!pipeline.is_array()) {
             return tl::make_unexpected(makeApiError(
-                ErrorFlag::InvalidData,
+                ErrorFlag::InvalidPipeline,
                 fmt::format(
                     "PEK pipeline JSON '{}' field 'pipeline' must be a string or array of strings",
                     path)));
@@ -183,7 +183,7 @@ Result<std::string> loadPipelineDescriptionFromJsonFile(const std::string &path)
         for (const auto &partValue : pipeline) {
             if (!partValue.is_string()) {
                 return tl::make_unexpected(makeApiError(
-                    ErrorFlag::InvalidData,
+                    ErrorFlag::InvalidPipeline,
                     fmt::format(
                         "PEK pipeline JSON '{}' field 'pipeline' array must contain only strings",
                         path)));
@@ -203,7 +203,7 @@ Result<std::string> loadPipelineDescriptionFromJsonFile(const std::string &path)
 
         if (joined.empty()) {
             return tl::make_unexpected(makeApiError(
-                ErrorFlag::InvalidData,
+                ErrorFlag::InvalidPipeline,
                 fmt::format("PEK pipeline JSON '{}' contains an empty 'pipeline' array", path)));
         }
 
@@ -278,7 +278,7 @@ class Pipeline::Impl {
             if (parseError) {
                 g_error_free(parseError);
             }
-            return tl::make_unexpected(makeApiError(ErrorFlag::InvalidData, message));
+            return tl::make_unexpected(makeApiError(ErrorFlag::InvalidPipeline, message));
         }
 
         if (parseError) {
@@ -286,7 +286,7 @@ class Pipeline::Impl {
                                                       : "pipeline parsed with recoverable errors";
             g_error_free(parseError);
             gst_object_unref(parsed);
-            return tl::make_unexpected(makeApiError(ErrorFlag::InvalidData, message));
+            return tl::make_unexpected(makeApiError(ErrorFlag::InvalidPipeline, message));
         }
 
         pipeline = parsed;
@@ -307,13 +307,13 @@ class Pipeline::Impl {
     Result<void> setState(GstState state, const char *stateName) {
         if (!pipeline) {
             return tl::make_unexpected(
-                makeApiError(ErrorFlag::InvalidData, "No pipeline has been loaded"));
+                makeApiError(ErrorFlag::InvalidArgument, "No pipeline has been loaded"));
         }
 
         const GstStateChangeReturn ret = gst_element_set_state(pipeline, state);
         if (ret == GST_STATE_CHANGE_FAILURE) {
             return tl::make_unexpected(
-                makeApiError(ErrorFlag::SystemFailure,
+                makeApiError(ErrorFlag::RuntimeError,
                              fmt::format("Failed to set pipeline state to {}", stateName)));
         }
 
@@ -325,13 +325,13 @@ class Pipeline::Impl {
     Result<void> wait() {
         if (!pipeline) {
             return tl::make_unexpected(
-                makeApiError(ErrorFlag::InvalidData, "No pipeline has been loaded"));
+                makeApiError(ErrorFlag::InvalidArgument, "No pipeline has been loaded"));
         }
 
         GstBus *bus = gst_element_get_bus(pipeline);
         if (!bus) {
             return tl::make_unexpected(makeApiError(
-                ErrorFlag::SystemFailure, "Loaded element does not expose a GStreamer bus"));
+                ErrorFlag::RuntimeError, "Loaded element does not expose a GStreamer bus"));
         }
 
         while (true) {
@@ -356,7 +356,7 @@ class Pipeline::Impl {
                 gst_message_parse_error(message, &error, &debugInfo);
 
                 auto apiError =
-                    makeApiError(ErrorFlag::SystemFailure, gstErrorMessage(error, debugInfo));
+                    makeApiError(ErrorFlag::RuntimeError, gstErrorMessage(error, debugInfo));
                 emitError(apiError);
 
                 if (error) {
@@ -389,17 +389,17 @@ class Pipeline::Impl {
     Result<void> attachPerceptionProbe(const std::string &elementName, const std::string &padName) {
         if (!pipeline) {
             return tl::make_unexpected(
-                makeApiError(ErrorFlag::InvalidData, "No pipeline has been loaded"));
+                makeApiError(ErrorFlag::InvalidArgument, "No pipeline has been loaded"));
         }
         if (!GST_IS_BIN(pipeline)) {
             return tl::make_unexpected(
-                makeApiError(ErrorFlag::InvalidData, "Loaded pipeline is not a GStreamer bin"));
+                makeApiError(ErrorFlag::InvalidPipeline, "Loaded pipeline is not a GStreamer bin"));
         }
 
         GstElement *element = gst_bin_get_by_name(GST_BIN(pipeline), elementName.c_str());
         if (!element) {
             return tl::make_unexpected(makeApiError(
-                ErrorFlag::InvalidData,
+                ErrorFlag::InvalidArgument,
                 fmt::format("Element '{}' was not found in the pipeline", elementName)));
         }
 
@@ -407,7 +407,7 @@ class Pipeline::Impl {
         gst_object_unref(element);
         if (!pad) {
             return tl::make_unexpected(makeApiError(
-                ErrorFlag::InvalidData,
+                ErrorFlag::InvalidArgument,
                 fmt::format("Element '{}' does not have a static '{}' pad", elementName, padName)));
         }
 
@@ -587,7 +587,7 @@ class Pipeline::Impl {
             callback(serializedPerception);
         } catch (const std::exception &e) {
             emitError(
-                makeApiError(ErrorFlag::InvalidData,
+                makeApiError(ErrorFlag::RuntimeError,
                              fmt::format("Failed to serialize Perception metadata: {}", e.what())));
         }
     }

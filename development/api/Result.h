@@ -13,53 +13,31 @@
 namespace pek::api {
 
 /**
- * @brief Public API error categories.
+ * @brief Stable public API error categories.
  *
- * These values intentionally mirror the runtime error categories, but they live
- * in the API namespace so application headers do not need to include internal
- * PEK runtime headers.
+ * The API intentionally exposes a smaller taxonomy than the internal runtime.
+ * Detailed subsystem errors are converted to one of these categories while the
+ * human-readable detail remains available in Error::info.
  */
 enum class ErrorFlag {
     /// No error.
     Ok = 0,
-    /// Referenced file does not exist.
+    /// Caller supplied an invalid argument or called an operation in an invalid state.
+    InvalidArgument,
+    /// Pipeline text, metadata, or topology is invalid for the API operation.
+    InvalidPipeline,
+    /// Referenced file or directory does not exist.
     FileNotFound,
-    /// Generic filesystem read/write/open failure.
-    FileOperationError,
-    /// Input data is malformed or violates expected constraints.
-    InvalidData,
-    /// Unclassified error condition.
-    GenericError,
-    /// Model inspection/parsing failed.
-    ModelInspectError,
-    /// Inference runtime failed during startup/initialization.
-    InferenceRtStartupError,
-    /// Inference runtime failed while loading a model.
-    InferenceRtModelLoadError,
-    /// Inference runtime failed while running inference.
-    InferenceRtInferenceError,
-    /// Inference runtime error not covered by a dedicated category.
-    InferenceRtGenericError,
-    /// Requested operation is not supported.
-    NotSupported,
-    /// Source tensor or source setup is invalid.
-    ErrorWithSrcSetup,
-    /// Destination tensor or destination setup is invalid.
-    ErrorWithDstSetup,
-    /// Shape/size mismatch between expected and actual values.
-    SizeMismatch,
-    /// Model-defined image dimensions are invalid for current processing.
-    ImageModelDimensionError,
-    /// Input/output image dimensions are invalid.
-    ImageDimensionError,
-    /// Operating-system/runtime level failure.
-    SystemFailure,
-    /// Tensor creation/access/interpretation error.
-    TensorError,
-    /// Text/binary parsing failure.
+    /// Text, JSON, or pipeline-description parsing failed.
     ParseError,
-    /// OpChain descriptor or execution graph is invalid.
-    InvalidOpChain
+    /// Pipeline execution or external runtime operation failed.
+    RuntimeError,
+    /// Inference startup, model loading, or inference execution failed.
+    InferenceError,
+    /// Requested operation is not supported by this API/runtime.
+    NotSupported,
+    /// Unexpected implementation failure not covered by a more specific category.
+    InternalError
 };
 
 /**
@@ -80,7 +58,7 @@ struct Error {
     Error(ErrorFlag f, std::string i, std::source_location loc = std::source_location::current());
 
     /// Error category.
-    ErrorFlag flag = ErrorFlag::GenericError;
+    ErrorFlag flag = ErrorFlag::InternalError;
 
     /// Human-readable error detail.
     std::string info;
