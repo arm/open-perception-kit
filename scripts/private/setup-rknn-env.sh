@@ -18,15 +18,15 @@ unset VIRTUAL_ENV || true
 
 echo "[INFO] Ensuring uv is installed..."
 if ! command -v uv >/dev/null 2>&1; then
-	echo "[INFO] Installing uv..."
-	curl -LsSf https://astral.sh/uv/install.sh | sh
-	export PATH="$HOME/.local/bin:$PATH"
+    echo "[INFO] Installing uv..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="$HOME/.local/bin:$PATH"
 fi
 
 if ! command -v uv >/dev/null 2>&1; then
-	echo "[ERROR] uv not found in PATH"
-	echo 'Run: export PATH="$HOME/.local/bin:$PATH"'
-	exit 1
+    echo "[ERROR] uv not found in PATH"
+    echo 'Run: export PATH="$HOME/.local/bin:$PATH"'
+    exit 1
 fi
 
 echo "[INFO] Installing Python ${PYTHON_VERSION} via uv..."

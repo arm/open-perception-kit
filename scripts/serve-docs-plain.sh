@@ -9,8 +9,8 @@ DOCS_DIR="/work/docs/html"
 PORT=8080
 
 if [ ! -d "$DOCS_DIR" ]; then
-	echo "Documentation directory not found: $DOCS_DIR"
-	exit 1
+    echo "Documentation directory not found: $DOCS_DIR"
+    exit 1
 fi
 
 cd "$DOCS_DIR"

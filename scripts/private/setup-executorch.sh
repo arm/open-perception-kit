@@ -15,19 +15,19 @@ GETLIB_SH="$SELF_DIR/../../tools/executorchbuild/getlibthorch.sh"
 
 # --- Basic checks ---
 [[ -f "$BUILD_SH" ]] || {
-	echo "Missing: $BUILD_SH" >&2
-	exit 1
+    echo "Missing: $BUILD_SH" >&2
+    exit 1
 }
 [[ -f "$GETLIB_SH" ]] || {
-	echo "Missing: $GETLIB_SH" >&2
-	exit 1
+    echo "Missing: $GETLIB_SH" >&2
+    exit 1
 }
 
 run_in_script_dir() {
-	local script="$1"
-	local script_dir
-	script_dir="$(cd -- "$(dirname -- "$script")" && pwd)"
-	(cd -- "$script_dir" && bash "./$(basename -- "$script")")
+    local script="$1"
+    local script_dir
+    script_dir="$(cd -- "$(dirname -- "$script")" && pwd)"
+    (cd -- "$script_dir" && bash "./$(basename -- "$script")")
 }
 
 echo "PEK_EXECUTORCH=$PEK_EXECUTORCH"

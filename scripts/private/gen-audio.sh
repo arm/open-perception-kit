@@ -6,7 +6,7 @@
 set -euo pipefail
 
 usage() {
-	cat <<'EOF'
+    cat <<'EOF'
 Usage:
   gen-audio.sh <service_name> <out_compose_yaml> <out_env>
 
@@ -16,8 +16,8 @@ EOF
 }
 
 if [[ ${1:-} == "-h" || ${1:-} == "--help" ]]; then
-	usage
-	exit 0
+    usage
+    exit 0
 fi
 
 SERVICE_NAME="${1:-}"
@@ -25,8 +25,8 @@ OUT_COMPOSE="${2:-}"
 OUT_ENV="${3:-}"
 
 if [[ -z "$SERVICE_NAME" || -z "$OUT_COMPOSE" || -z "$OUT_ENV" ]]; then
-	usage >&2
-	exit 2
+    usage >&2
+    exit 2
 fi
 
 SND_DIR="/dev/snd"
@@ -36,46 +36,46 @@ MIC_DEVS=()
 touch "${OUT_ENV}"
 
 if [[ -d "$SND_DIR" ]]; then
-	IFS=$'\n'
-	read -r -d '' -a ALL_SND_DEVS < <(
-		find -L "$SND_DIR" \
-			-maxdepth 1 \
-			-type c \
-			-print 2>/dev/null |
-			sort -V || true
-		printf '\0'
-	)
-	read -r -d '' -a MIC_DEVS < <(
-		find -L "$SND_DIR" \
-			-maxdepth 1 \
-			-type c \
-			-name 'pcmC*D*c' \
-			-print 2>/dev/null |
-			sort -V || true
-		printf '\0'
-	)
+    IFS=$'\n'
+    read -r -d '' -a ALL_SND_DEVS < <(
+        find -L "$SND_DIR" \
+            -maxdepth 1 \
+            -type c \
+            -print 2>/dev/null |
+            sort -V || true
+        printf '\0'
+    )
+    read -r -d '' -a MIC_DEVS < <(
+        find -L "$SND_DIR" \
+            -maxdepth 1 \
+            -type c \
+            -name 'pcmC*D*c' \
+            -print 2>/dev/null |
+            sort -V || true
+        printf '\0'
+    )
 else
-	ALL_SND_DEVS=()
-	MIC_DEVS=()
+    ALL_SND_DEVS=()
+    MIC_DEVS=()
 fi
 
 for i in "${!MIC_DEVS[@]}"; do
-	echo "MIC${i}=${MIC_DEVS[$i]}" >>"$OUT_ENV"
+    echo "MIC${i}=${MIC_DEVS[$i]}" >>"$OUT_ENV"
 done
 echo "MIC_COUNT=${#MIC_DEVS[@]}" >>"$OUT_ENV"
 
 {
-	echo "services:"
-	echo "  ${SERVICE_NAME}:"
+    echo "services:"
+    echo "  ${SERVICE_NAME}:"
 
-	if [[ ${#ALL_SND_DEVS[@]} -eq 0 ]]; then
-		echo "    devices: []"
-		echo "No ALSA devices found. Generated empty audio override." >&2
-	else
-		echo "    devices:"
-		for DEV in "${ALL_SND_DEVS[@]}"; do
-			echo "      - ${DEV}:${DEV}"
-		done
-		echo "Generated microphone mapping for ${#MIC_DEVS[@]} capture device(s)." >&2
-	fi
+    if [[ ${#ALL_SND_DEVS[@]} -eq 0 ]]; then
+        echo "    devices: []"
+        echo "No ALSA devices found. Generated empty audio override." >&2
+    else
+        echo "    devices:"
+        for DEV in "${ALL_SND_DEVS[@]}"; do
+            echo "      - ${DEV}:${DEV}"
+        done
+        echo "Generated microphone mapping for ${#MIC_DEVS[@]} capture device(s)." >&2
+    fi
 } >"${OUT_COMPOSE}"
