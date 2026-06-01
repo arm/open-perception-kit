@@ -94,6 +94,25 @@ jobs:
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm
           pek-release-with-ut
 
+      - name: Run clang-tidy baseline check
+        if: github.event_name == 'pull_request' || github.event_name == 'schedule' ||
+          github.event_name == 'workflow_dispatch'
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-clang-tidy-baseline-check
+
+      - name: Upload clang-tidy logs
+        if: always() && (github.event_name == 'pull_request' || github.event_name == 'schedule' ||
+          github.event_name == 'workflow_dispatch')
+        uses: actions/upload-artifact@v7
+        with:
+          name: clang-tidy-baseline
+          path: |
+            ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/clang-tidy.log
+            ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/clang-tidy-stats.log
+            ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/clang-tidy-stats.json
+          if-no-files-found: warn
+          retention-days: 10
+
       - name: Run Valgrind checks
         id: valgrind_checks
         continue-on-error: true # Do not block PR until the initial ones are fixed

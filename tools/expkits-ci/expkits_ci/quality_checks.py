@@ -7,6 +7,7 @@ import re
 import sys
 import json
 import logging
+import datetime
 import shutil
 import shlex
 import subprocess
@@ -623,7 +624,147 @@ class QualityChecks:
         return check_counts, severity_counts
 
     @staticmethod
-    def report_clang_tidy_statistics(log_file) -> bool:
+    def clang_tidy_statistics_to_dict(log_file, check_counts, severity_counts):
+        """Convert parsed clang-tidy statistics into a stable JSON structure."""
+        return {
+            "schema": 1,
+            "source": log_file,
+            "generated_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "total": sum(check_counts.values()),
+            "levels": dict(sorted(severity_counts.items())),
+            "checks": dict(sorted(check_counts.items())),
+        }
+
+    @staticmethod
+    def write_clang_tidy_statistics_json(stats, output_file):
+        """Write clang-tidy statistics to JSON."""
+        output_dir = os.path.dirname(output_file)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(stats, f, indent=2, sort_keys=True)
+            f.write("\n")
+
+        logger.info("Wrote clang-tidy statistics JSON: %s", output_file)
+
+    @staticmethod
+    def _load_clang_tidy_baseline(baseline_file):
+        """Load accepted per-check clang-tidy baseline counts."""
+        with open(baseline_file, 'r', encoding='utf-8') as f:
+            baseline = json.load(f)
+
+        checks = baseline.get("checks")
+        if not isinstance(checks, dict):
+            raise ValueError("Baseline JSON must contain a 'checks' object.")
+
+        return baseline, {check: int(count) for check, count in checks.items()}
+
+    @staticmethod
+    def _compare_clang_tidy_checks(current_checks, baseline_checks):
+        """Compare current clang-tidy counts to accepted baseline counts."""
+        regressions = []
+        improvements = []
+        unchanged = []
+
+        for check in sorted(set(baseline_checks) | set(current_checks)):
+            accepted = baseline_checks.get(check, 0)
+            current = current_checks.get(check, 0)
+            delta = current - accepted
+            item = {
+                "check": check,
+                "accepted": accepted,
+                "current": current,
+                "delta": delta,
+            }
+            if delta > 0:
+                regressions.append(item)
+            elif delta < 0:
+                improvements.append(item)
+            else:
+                unchanged.append(item)
+
+        regressions.sort(key=lambda item: item["delta"], reverse=True)
+        improvements.sort(key=lambda item: item["delta"])
+        return regressions, improvements, unchanged
+
+    @staticmethod
+    def _log_clang_tidy_baseline_comparison(baseline_file, mode, regressions, improvements):
+        """Log clang-tidy baseline comparison results."""
+        logger.info("clang-tidy baseline comparison:")
+        logger.info("  baseline: %s", baseline_file)
+        logger.info("  mode: %s", mode)
+        if regressions:
+            logger.error("  result: FAILED (%d per-check regression(s))", len(regressions))
+            logger.error("%-55s %8s %8s %8s", "check", "accepted", "current", "delta")
+            logger.error("%-55s %8s %8s %8s", "-" * 55, "--------", "-------", "-----")
+            for item in regressions:
+                logger.error("%-55s %8d %8d %+8d",
+                             item["check"], item["accepted"], item["current"], item["delta"])
+        else:
+            logger.info("  result: PASSED")
+
+        if improvements:
+            logger.info("  improvements: %d check(s) below accepted baseline", len(improvements))
+
+    @staticmethod
+    def compare_clang_tidy_statistics_to_baseline(stats, baseline_file, mode="advisory"):
+        """Compare current clang-tidy per-check counts to an accepted baseline."""
+        if not os.path.isfile(baseline_file):
+            logger.error("Could not find clang-tidy baseline file: %s", baseline_file)
+            return False
+
+        try:
+            _, baseline_checks = QualityChecks._load_clang_tidy_baseline(baseline_file)
+        except Exception as e:
+            logger.error("Failed to load clang-tidy baseline file: %s", e)
+            return False
+
+        current_checks = {check: int(count) for check, count in stats.get("checks", {}).items()}
+        regressions, improvements, _ = QualityChecks._compare_clang_tidy_checks(current_checks, baseline_checks)
+        QualityChecks._log_clang_tidy_baseline_comparison(baseline_file, mode, regressions, improvements)
+
+        if mode == "enforce" and regressions:
+            return False
+
+        return True
+
+    @staticmethod
+    def update_clang_tidy_baseline(stats, baseline_file):
+        """Update baseline to current counts only when no per-check count regresses."""
+        if not os.path.isfile(baseline_file):
+            logger.error("Could not find clang-tidy baseline file: %s", baseline_file)
+            return False
+
+        try:
+            _, baseline_checks = QualityChecks._load_clang_tidy_baseline(baseline_file)
+        except Exception as e:
+            logger.error("Failed to load clang-tidy baseline file: %s", e)
+            return False
+
+        current_checks = {check: int(count) for check, count in stats.get("checks", {}).items() if int(count) > 0}
+        regressions, improvements, _ = QualityChecks._compare_clang_tidy_checks(current_checks, baseline_checks)
+        QualityChecks._log_clang_tidy_baseline_comparison(
+            baseline_file, "update-baseline", regressions, improvements)
+
+        if regressions:
+            logger.error("Refusing to update clang-tidy baseline because current counts exceed the existing baseline.")
+            return False
+
+        output_dir = os.path.dirname(baseline_file)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+
+        with open(baseline_file, 'w', encoding='utf-8') as f:
+            json.dump({"checks": dict(sorted(current_checks.items()))}, f, indent=2, sort_keys=True)
+            f.write("\n")
+
+        logger.info("Updated clang-tidy baseline: %s", baseline_file)
+        return True
+
+    @staticmethod
+    def report_clang_tidy_statistics(log_file, stats_output=None, baseline_file=None,
+                                     baseline_mode="advisory", update_baseline=False) -> bool:
         """Report clang-tidy diagnostic counts by check name from a log file."""
         logger.info("Creating clang-tidy statistics from: %s", log_file)
 
@@ -637,21 +778,38 @@ class QualityChecks:
             logger.error("Failed to parse clang-tidy log file: %s", e)
             return False
 
-        total_count = sum(check_counts.values())
+        stats = QualityChecks.clang_tidy_statistics_to_dict(log_file, check_counts, severity_counts)
+        total_count = stats["total"]
         if total_count == 0:
             logger.info("No clang-tidy diagnostics found.")
-            return True
+        else:
+            logger.info("clang-tidy diagnostics summary:")
+            logger.info("  total: %d", total_count)
+            for severity, count in sorted(severity_counts.items()):
+                logger.info("  %s: %d", severity, count)
 
-        logger.info("clang-tidy diagnostics summary:")
-        logger.info("  total: %d", total_count)
-        for severity, count in sorted(severity_counts.items()):
-            logger.info("  %s: %d", severity, count)
+            logger.info("")
+            logger.info("%-55s %8s", "check", "count")
+            logger.info("%-55s %8s", "-" * 55, "-----")
+            for check_name, count in check_counts.most_common():
+                logger.info("%-55s %8d", check_name, count)
 
-        logger.info("")
-        logger.info("%-55s %8s", "check", "count")
-        logger.info("%-55s %8s", "-" * 55, "-----")
-        for check_name, count in check_counts.most_common():
-            logger.info("%-55s %8d", check_name, count)
+        if stats_output:
+            try:
+                QualityChecks.write_clang_tidy_statistics_json(stats, stats_output)
+            except Exception as e:
+                logger.error("Failed to write clang-tidy statistics JSON: %s", e)
+                return False
+
+        if update_baseline:
+            if not baseline_file:
+                logger.error("--clang-tidy-update-baseline requires --clang-tidy-baseline.")
+                return False
+            return QualityChecks.update_clang_tidy_baseline(stats, baseline_file)
+
+        if baseline_file:
+            return QualityChecks.compare_clang_tidy_statistics_to_baseline(
+                stats, baseline_file, mode=baseline_mode)
 
         return True
 

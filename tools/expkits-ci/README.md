@@ -65,8 +65,33 @@ some clang-tidy findings are extra local guidance rather than SonarQube parity.
 `--clang-tidy-stats` parses a saved clang-tidy log and reports how many
 diagnostics each clang-tidy check emitted. This is useful after increasing the
 enabled ruleset and running with `--log-output both --log-file clang-tidy.log`.
-When file logging is enabled, `expkits-ci` refuses to reuse an existing log file
-so statistics are not polluted by appended output from older runs.
+Use `--clang-tidy-stats-output` to also write the statistics as JSON.
+
+CI can compare those statistics with a repository baseline:
+
+```bash
+expkits-ci --clang-tidy-stats clang-tidy.log \
+  --clang-tidy-stats-output clang-tidy-stats.json \
+  --clang-tidy-baseline .github/ci/baselines/clang-tidy-baseline.json \
+  --clang-tidy-baseline-mode enforce
+```
+
+Baseline comparison checks per-rule counts only. It does not enforce the total
+diagnostic count, so unrelated cleanup cannot hide a regression in another
+clang-tidy check.
+
+To lower the repository baseline after fixes, run:
+
+```bash
+expkits-ci --clang-tidy-stats clang-tidy.log \
+  --clang-tidy-baseline .github/ci/baselines/clang-tidy-baseline.json \
+  --clang-tidy-update-baseline
+```
+
+The update refuses to write the baseline if any current per-rule count is higher
+than the existing accepted count. When file logging is enabled, `expkits-ci`
+refuses to reuse an existing log file so statistics are not polluted by appended
+output from older runs.
 
 ## Installation
 

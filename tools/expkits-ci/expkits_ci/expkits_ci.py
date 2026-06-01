@@ -94,6 +94,14 @@ def setup_argument_parser(parser):
                             help="Path to clang-tidy. Defaults to PATH, then the active Python environment.")
     util_group.add_argument("--clang-tidy-stats", default=None, metavar="LOG_FILE",
                             help="Parse a clang-tidy log file and report diagnostic counts by check name.")
+    util_group.add_argument("--clang-tidy-stats-output", default=None, metavar="JSON_FILE",
+                            help="Write clang-tidy statistics to a JSON file.")
+    util_group.add_argument("--clang-tidy-baseline", default=None, metavar="JSON_FILE",
+                            help="Compare clang-tidy statistics against a baseline JSON file.")
+    util_group.add_argument("--clang-tidy-baseline-mode", choices=["advisory", "enforce"], default="advisory",
+                            help="Baseline comparison mode. 'enforce' fails if a per-check count exceeds baseline.")
+    util_group.add_argument("--clang-tidy-update-baseline", action="store_true",
+                            help="Update the clang-tidy baseline to current per-check counts if none exceed the existing baseline.")
 
 
 def setup_all_checks(args):
@@ -346,7 +354,12 @@ def perform_checks(checker, args, files, report):
         result = run_check(
             report,
             "clang-tidy stats",
-            lambda: checker.report_clang_tidy_statistics(args.clang_tidy_stats),
+            lambda: checker.report_clang_tidy_statistics(
+                args.clang_tidy_stats,
+                stats_output=args.clang_tidy_stats_output,
+                baseline_file=args.clang_tidy_baseline,
+                baseline_mode=args.clang_tidy_baseline_mode,
+                update_baseline=args.clang_tidy_update_baseline),
         ) and result
     if args.python_format or args.python_format_check:
         result = run_check(
