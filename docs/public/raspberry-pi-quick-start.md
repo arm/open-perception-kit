@@ -71,21 +71,11 @@ sudo apt full-upgrade -y
 sudo rpi-eeprom-update -a
 ```
 
-Follow the link below to install Docker:
+Follow the link below to install Docker: 
 
 * [Debian Installation Guide](https://docs.docker.com/engine/install/debian/)
 
 Install both Docker Engine and the Docker Compose plugin from the Debian guide so `docker compose` is available for later steps.
-Install the base packages:
-
-```bash
-sudo apt-get update
-sudo apt-get install -y git v4l-utils raspi-utils-core raspi-utils-dt
-sudo apt-get install -y rpicam-apps libcamera-dev libcamera-doc libcamera-tools
-sudo apt-get install -y gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-gl
-sudo apt-get install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-libcamera
-sudo apt-get install -y libcairo2-dev libssl-dev
-```
 
 If you use the Hailo 8 AI HAT, install the Hailo 8 stack:
 
@@ -113,7 +103,6 @@ Run in the **Raspberry Pi shell**:
 docker info
 docker --version
 docker compose version
-git --version
 ```
 
 If `docker info` fails with a permission error, add your user to the `docker` group and log out and back in:
@@ -132,7 +121,6 @@ hailortcli fw-control identify
 Expected result:
 
 - Docker prints a version.
-- Git prints a version.
 - `hailortcli` prints the Hailo device architecture, such as `HAILO8` or `HAILO10H`.
 
 If these checks fail, fix them before opening the project in VS Code. The Dev Container depends on the Pi host setup.

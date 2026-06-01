@@ -28,12 +28,12 @@ Use this for your own test media.
 - `data/images/` is the easiest place for still-image tests.
 - `data/videos/` is the easiest place for video-file tests.
 
-### `docs/` and `docs1/`
+### `docs/`
 These contain the project documentation.
 
 - `docs/public/` contains the Markdown source used by the current docs site.
 - `docs/static/` contains the images used by the docs.
-- `docs1/` contains the flatter Markdown documentation set.
+- `docs/` contains the Markdown documentation set.
 
 ### `scripts/`
 This contains the main helper scripts you are expected to run.
