@@ -41,6 +41,7 @@ InferenceControllerOp::process(pek::op::OpChainContext &opChainContext) {
     opChainContext.inferenceInfo.modelFamily.clear();
     opChainContext.rootLayer.inferElementId =
         "rootLayer_" + opChainContext.inferenceInfo.inferElementId;
+    opChainContext.rootLayer.contentType = "videoFrame";
 
     if (contentType.empty()) {
         // setup source VideoFrame object
