@@ -96,8 +96,8 @@ struct FeatureMapGroup {
 
 inline float nhwcAt(const TensorView &tensor, size_t y, size_t x, size_t c) {
     const auto shape = tensor.getShape();
-    const size_t width = static_cast<size_t>(shape.valueCount[2]);
-    const size_t channels = static_cast<size_t>(shape.valueCount[3]);
+    const size_t width = static_cast<size_t>(shape.dims[2]);
+    const size_t channels = static_cast<size_t>(shape.dims[3]);
     return tensor.get((y * width + x) * channels + c);
 }
 
@@ -111,22 +111,21 @@ validateGroups(const pek::TensorParser::Input &input, size_t modelWidth, size_t 
             continue;
 
         const auto shape = tensor->getShape();
-        if (shape.dimensionCount != 4) {
+        if (shape.rank != 4) {
             return tl::unexpected(PEK_ERROR(
                 ErrorFlag::InvalidData,
                 fmt::format(
                     "ScrfdParser: tensor {} must be NHWC [1,H,W,C], got {}", i, shape.toString())));
         }
-        if (shape.valueCount[0] != 1) {
+        if (shape.dims[0] != 1) {
             return tl::unexpected(PEK_ERROR(
                 ErrorFlag::InvalidData,
-                fmt::format(
-                    "ScrfdParser: tensor {} batch must be 1, got {}", i, shape.valueCount[0])));
+                fmt::format("ScrfdParser: tensor {} batch must be 1, got {}", i, shape.dims[0])));
         }
 
-        const size_t height = static_cast<size_t>(shape.valueCount[1]);
-        const size_t width = static_cast<size_t>(shape.valueCount[2]);
-        const size_t channels = static_cast<size_t>(shape.valueCount[3]);
+        const size_t height = static_cast<size_t>(shape.dims[1]);
+        const size_t width = static_cast<size_t>(shape.dims[2]);
+        const size_t channels = static_cast<size_t>(shape.dims[3]);
 
         if (height == 0 || width == 0 || modelWidth % width != 0 || modelHeight % height != 0) {
             return tl::unexpected(
@@ -200,8 +199,8 @@ validateGroups(const pek::TensorParser::Input &input, size_t modelWidth, size_t 
                                       group.stride)));
         }
 
-        const size_t scoreAnchors = static_cast<size_t>(group.scores->getShape().valueCount[3]);
-        const size_t boxAnchors = static_cast<size_t>(group.boxes->getShape().valueCount[3]) / 4;
+        const size_t scoreAnchors = static_cast<size_t>(group.scores->getShape().dims[3]);
+        const size_t boxAnchors = static_cast<size_t>(group.boxes->getShape().dims[3]) / 4;
         if (scoreAnchors != boxAnchors) {
             return tl::unexpected(PEK_ERROR(
                 ErrorFlag::InvalidData,
@@ -211,8 +210,7 @@ validateGroups(const pek::TensorParser::Input &input, size_t modelWidth, size_t 
                             boxAnchors)));
         }
         if (group.landmarks) {
-            const size_t kpsAnchors =
-                static_cast<size_t>(group.landmarks->getShape().valueCount[3]) / 10;
+            const size_t kpsAnchors = static_cast<size_t>(group.landmarks->getShape().dims[3]) / 10;
             if (kpsAnchors != scoreAnchors) {
                 return tl::unexpected(PEK_ERROR(
                     ErrorFlag::InvalidData,
@@ -237,8 +235,9 @@ validateGroups(const pek::TensorParser::Input &input, size_t modelWidth, size_t 
 
 } // namespace
 
-pek::Result<void> pek::ScrfdParser::parse(const pek::TensorParser::Input &input,
-                                          pek::Perception::Layer &detectionResult) {
+pek::Result<void>
+pek::stdop::postproc::ScrfdParser::parse(const pek::TensorParser::Input &input,
+                                         pek::Perception::Layer &detectionResult) {
     const float confThreshold =
         static_cast<float>(input.attributes.getDoubleOrDefault("confidenceThreshold", 0.5));
     const float iouThreshold =
