@@ -8,7 +8,7 @@
 set -euo pipefail
 
 usage() {
-    cat <<'EOF'
+    cat << 'EOF'
 Usage:
   start-container.sh [--recreate] [-h|--help]
 
@@ -31,19 +31,19 @@ RECREATE="false"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-    --recreate)
-        RECREATE="true"
-        ;;
-    -h | --help)
-        usage
-        exit 0
-        ;;
-    *)
-        echo "Error: unknown argument '${1}'" >&2
-        echo >&2
-        usage >&2
-        exit 2
-        ;;
+        --recreate)
+            RECREATE="true"
+            ;;
+        -h | --help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Error: unknown argument '${1}'" >&2
+            echo >&2
+            usage >&2
+            exit 2
+            ;;
     esac
     shift
 done
@@ -70,19 +70,19 @@ COMPOSE_FILES=(
 )
 
 require_docker() {
-    if ! command -v docker >/dev/null 2>&1; then
+    if ! command -v docker > /dev/null 2>&1; then
         echo "Error: docker is not installed or not on PATH." >&2
         echo "Install Docker for this platform, then rerun ./quick_start." >&2
         exit 1
     fi
 
-    if ! docker compose version >/dev/null 2>&1; then
+    if ! docker compose version > /dev/null 2>&1; then
         echo "Error: Docker Compose plugin is not available." >&2
         echo "Install the Docker Compose plugin so 'docker compose' works, then rerun ./quick_start." >&2
         exit 1
     fi
 
-    if ! docker info >/dev/null 2>&1; then
+    if ! docker info > /dev/null 2>&1; then
         echo "Error: Docker is installed but not usable by this user." >&2
         echo "Start Docker and confirm 'docker info' works without sudo, then rerun ./quick_start." >&2
         if [[ "${PEK_PLATFORM_ID}" == rpi5* || "${PEK_PLATFORM_ID}" == "linux-x86_64" ]]; then
@@ -94,11 +94,11 @@ require_docker() {
 }
 
 container_running() {
-    docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2>/dev/null | grep -q '^true$'
+    docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2> /dev/null | grep -q '^true$'
 }
 
 container_workdir_writable() {
-    docker exec -u devgoblin "${PEK_CONTAINER_NAME}" bash -lc 'test -w /work' >/dev/null 2>&1
+    docker exec -u devgoblin "${PEK_CONTAINER_NAME}" bash -lc 'test -w /work' > /dev/null 2>&1
 }
 
 print_enter_hint() {

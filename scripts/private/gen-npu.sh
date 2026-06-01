@@ -6,7 +6,7 @@
 set -euo pipefail
 
 usage() {
-    cat <<'EOF'
+    cat << 'EOF'
 Usage:
   gen-npu.sh <service_name> <out_compose_yaml> <out_env>
 
@@ -36,15 +36,15 @@ ALL_HAILO_DEVS=()
 
 IFS=$'\n'
 read -r -d '' -a ALL_HAILO_DEVS < <(
-    ls -1 /dev/hailo* 2>/dev/null |
+    ls -1 /dev/hailo* 2> /dev/null |
         sort -V || true
     printf '\0'
 )
 
 for i in "${!ALL_HAILO_DEVS[@]}"; do
-    echo "NPU${i}=${ALL_HAILO_DEVS[$i]}" >>"$OUT_ENV"
+    echo "NPU${i}=${ALL_HAILO_DEVS[$i]}" >> "$OUT_ENV"
 done
-echo "NPU_COUNT=${#ALL_HAILO_DEVS[@]}" >>"$OUT_ENV"
+echo "NPU_COUNT=${#ALL_HAILO_DEVS[@]}" >> "$OUT_ENV"
 
 {
     echo "services:"
@@ -65,4 +65,4 @@ echo "NPU_COUNT=${#ALL_HAILO_DEVS[@]}" >>"$OUT_ENV"
         done
         echo "Generated NPU mapping for ${#ALL_HAILO_DEVS[@]} device(s)." >&2
     fi
-} >"${OUT_COMPOSE}"
+} > "${OUT_COMPOSE}"

@@ -8,7 +8,7 @@
 set -euo pipefail
 
 usage() {
-    cat <<'EOF'
+    cat << 'EOF'
 Usage:
   ./run [pek-menu-args...]
   ./run --menu
@@ -73,18 +73,18 @@ fi
 
 cd "${SCRIPT_DIR}"
 
-if ! docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2>/dev/null | grep -q '^true$'; then
+if ! docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2> /dev/null | grep -q '^true$'; then
     echo "Container is not running: ${PEK_CONTAINER_NAME}"
     echo "Starting it now..."
     "${START_CONTAINER_SCRIPT}"
 fi
 
-if ! docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2>/dev/null | grep -q '^true$'; then
+if ! docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2> /dev/null | grep -q '^true$'; then
     echo "Error: container did not start: ${PEK_CONTAINER_NAME}" >&2
     exit 1
 fi
 
-if ! docker exec -u devgoblin "${PEK_CONTAINER_NAME}" bash -lc 'test -x /work/tools/pek-menu' >/dev/null 2>&1; then
+if ! docker exec -u devgoblin "${PEK_CONTAINER_NAME}" bash -lc 'test -x /work/tools/pek-menu' > /dev/null 2>&1; then
     echo "Error: /work/tools/pek-menu is missing or not executable in ${PEK_CONTAINER_NAME}." >&2
     echo "Run ./build first." >&2
     exit 1

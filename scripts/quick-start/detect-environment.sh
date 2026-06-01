@@ -14,7 +14,7 @@
 set -euo pipefail
 
 usage() {
-    cat <<'EOF'
+    cat << 'EOF'
 Usage:
   detect-environment.sh [--shell] [-h|--help]
 
@@ -40,7 +40,7 @@ read_file_or_empty() {
     local path="$1"
 
     if [[ -r "$path" ]]; then
-        tr -d '\0' <"$path"
+        tr -d '\0' < "$path"
     fi
 }
 
@@ -48,7 +48,7 @@ detect_os_release_field() {
     local field="$1"
 
     if [[ -r /etc/os-release ]]; then
-        (
+        (   
             . /etc/os-release
             printf "%s" "${!field:-}"
         )
@@ -59,10 +59,10 @@ is_wsl() {
     local text=""
 
     if [[ -r /proc/sys/kernel/osrelease ]]; then
-        text+="$(</proc/sys/kernel/osrelease)"
+        text+="$(< /proc/sys/kernel/osrelease)"
     fi
     if [[ -r /proc/version ]]; then
-        text+=" $(</proc/version)"
+        text+=" $(< /proc/version)"
     fi
 
     [[ "$text" =~ [Mm]icrosoft|WSL ]]
@@ -75,23 +75,23 @@ detect_rpi_model() {
 detect_hailo_arch() {
     local output=""
 
-    if command -v hailortcli >/dev/null 2>&1; then
-        output="$(hailortcli fw-control identify 2>/dev/null || true)"
-        if grep -qi "HAILO10" <<<"$output"; then
+    if command -v hailortcli > /dev/null 2>&1; then
+        output="$(hailortcli fw-control identify 2> /dev/null || true)"
+        if grep -qi "HAILO10" <<< "$output"; then
             printf "hailo10"
             return
         fi
-        if grep -qi "HAILO8L" <<<"$output"; then
+        if grep -qi "HAILO8L" <<< "$output"; then
             printf "hailo8l"
             return
         fi
-        if grep -qi "HAILO8" <<<"$output"; then
+        if grep -qi "HAILO8" <<< "$output"; then
             printf "hailo8"
             return
         fi
     fi
 
-    if ls /dev/hailo* >/dev/null 2>&1; then
+    if ls /dev/hailo* > /dev/null 2>&1; then
         printf "hailo-unknown"
         return
     fi
@@ -110,7 +110,7 @@ detect_environment() {
     PEK_HAILO_ARCH="$(detect_hailo_arch)"
     PEK_IN_CONTAINER="false"
 
-    if [[ -f /.dockerenv ]] || grep -qaE '/docker/|/containers/' /proc/1/cgroup 2>/dev/null; then
+    if [[ -f /.dockerenv ]] || grep -qaE '/docker/|/containers/' /proc/1/cgroup 2> /dev/null; then
         PEK_IN_CONTAINER="true"
     fi
 
@@ -122,46 +122,46 @@ detect_environment() {
     PEK_UNSUPPORTED_REASON=""
 
     case "$PEK_UNAME_S" in
-    Darwin)
-        PEK_PLATFORM_ID="macos"
-        PEK_PLATFORM_NAME="macOS"
-        PEK_CONTAINER_SERVICE="pek-dev-base"
-        PEK_CONTAINER_NAME="perception-experience-kit"
-        PEK_SUPPORTED="true"
-        ;;
-    Linux)
-        if is_wsl; then
-            PEK_PLATFORM_ID="wsl"
-            PEK_PLATFORM_NAME="Windows Subsystem for Linux"
+        Darwin)
+            PEK_PLATFORM_ID="macos"
+            PEK_PLATFORM_NAME="macOS"
             PEK_CONTAINER_SERVICE="pek-dev-base"
             PEK_CONTAINER_NAME="perception-experience-kit"
             PEK_SUPPORTED="true"
-        elif grep -qi "raspberry pi 5" <<<"$PEK_RPI_MODEL"; then
-            if [[ "$PEK_HAILO_ARCH" == "hailo10" ]]; then
-                PEK_PLATFORM_ID="rpi5-h10"
-                PEK_PLATFORM_NAME="Raspberry Pi 5 with Hailo 10"
-                PEK_CONTAINER_SERVICE="pek-dev-rpi5-h10"
-                PEK_CONTAINER_NAME="perception-experience-kit-rpi5-h10"
+            ;;
+        Linux)
+            if is_wsl; then
+                PEK_PLATFORM_ID="wsl"
+                PEK_PLATFORM_NAME="Windows Subsystem for Linux"
+                PEK_CONTAINER_SERVICE="pek-dev-base"
+                PEK_CONTAINER_NAME="perception-experience-kit"
+                PEK_SUPPORTED="true"
+            elif grep -qi "raspberry pi 5" <<< "$PEK_RPI_MODEL"; then
+                if [[ "$PEK_HAILO_ARCH" == "hailo10" ]]; then
+                    PEK_PLATFORM_ID="rpi5-h10"
+                    PEK_PLATFORM_NAME="Raspberry Pi 5 with Hailo 10"
+                    PEK_CONTAINER_SERVICE="pek-dev-rpi5-h10"
+                    PEK_CONTAINER_NAME="perception-experience-kit-rpi5-h10"
+                else
+                    PEK_PLATFORM_ID="rpi5"
+                    PEK_PLATFORM_NAME="Raspberry Pi 5"
+                    PEK_CONTAINER_SERVICE="pek-dev-rpi5-h8"
+                    PEK_CONTAINER_NAME="perception-experience-kit-rpi5"
+                fi
+                PEK_SUPPORTED="true"
+            elif [[ "$PEK_UNAME_M" == "x86_64" || "$PEK_UNAME_M" == "amd64" ]]; then
+                PEK_PLATFORM_ID="linux-x86_64"
+                PEK_PLATFORM_NAME="Linux x86_64"
+                PEK_CONTAINER_SERVICE="pek-dev-base"
+                PEK_CONTAINER_NAME="perception-experience-kit"
+                PEK_SUPPORTED="true"
             else
-                PEK_PLATFORM_ID="rpi5"
-                PEK_PLATFORM_NAME="Raspberry Pi 5"
-                PEK_CONTAINER_SERVICE="pek-dev-rpi5-h8"
-                PEK_CONTAINER_NAME="perception-experience-kit-rpi5"
+                PEK_UNSUPPORTED_REASON="Linux host is not Raspberry Pi 5 or x86_64."
             fi
-            PEK_SUPPORTED="true"
-        elif [[ "$PEK_UNAME_M" == "x86_64" || "$PEK_UNAME_M" == "amd64" ]]; then
-            PEK_PLATFORM_ID="linux-x86_64"
-            PEK_PLATFORM_NAME="Linux x86_64"
-            PEK_CONTAINER_SERVICE="pek-dev-base"
-            PEK_CONTAINER_NAME="perception-experience-kit"
-            PEK_SUPPORTED="true"
-        else
-            PEK_UNSUPPORTED_REASON="Linux host is not Raspberry Pi 5 or x86_64."
-        fi
-        ;;
-    *)
-        PEK_UNSUPPORTED_REASON="Kernel '$PEK_UNAME_S' is not supported by the quick-start flow."
-        ;;
+            ;;
+        *)
+            PEK_UNSUPPORTED_REASON="Kernel '$PEK_UNAME_S' is not supported by the quick-start flow."
+            ;;
     esac
 }
 
@@ -226,19 +226,19 @@ main() {
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-        --shell)
-            output="shell"
-            ;;
-        -h | --help)
-            usage
-            exit 0
-            ;;
-        *)
-            echo "Error: unknown argument '$1'" >&2
-            echo >&2
-            usage >&2
-            exit 2
-            ;;
+            --shell)
+                output="shell"
+                ;;
+            -h | --help)
+                usage
+                exit 0
+                ;;
+            *)
+                echo "Error: unknown argument '$1'" >&2
+                echo >&2
+                usage >&2
+                exit 2
+                ;;
         esac
         shift
     done

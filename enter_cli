@@ -8,7 +8,7 @@
 set -euo pipefail
 
 usage() {
-    cat <<'EOF'
+    cat << 'EOF'
 Usage:
   ./enter_cli [-h|--help]
 
@@ -43,20 +43,20 @@ eval "$detect_output"
 
 cd "${SCRIPT_DIR}"
 
-if ! docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2>/dev/null | grep -q '^true$'; then
+if ! docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2> /dev/null | grep -q '^true$'; then
     echo "Container is not running: ${PEK_CONTAINER_NAME}"
     echo "Starting it now..."
     "${START_CONTAINER_SCRIPT}"
 fi
 
-if docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2>/dev/null | grep -q '^true$' &&
-    ! docker exec -u devgoblin "${PEK_CONTAINER_NAME}" bash -lc 'test -w /work' >/dev/null 2>&1; then
+if docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2> /dev/null | grep -q '^true$' &&
+    ! docker exec -u devgoblin "${PEK_CONTAINER_NAME}" bash -lc 'test -w /work' > /dev/null 2>&1; then
     echo "Container /work is not writable as devgoblin."
     echo "Recreating it with the host UID/GID mapping..."
     "${START_CONTAINER_SCRIPT}" --recreate
 fi
 
-if ! docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2>/dev/null | grep -q '^true$'; then
+if ! docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2> /dev/null | grep -q '^true$'; then
     echo "Error: container did not start: ${PEK_CONTAINER_NAME}" >&2
     exit 1
 fi

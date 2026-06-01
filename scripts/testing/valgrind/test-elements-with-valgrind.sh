@@ -21,7 +21,7 @@ VALGRIND_ERROR_EXITCODE="${VALGRIND_ERROR_EXITCODE:-99}"
 NUM_FRAMES="${NUM_FRAMES:-30}"
 
 usage() {
-    cat <<EOF
+    cat << EOF
 Usage:
     test-elements-with-valgrind.sh [clean] [--pipeline <json-path>] [--gen-suppressions] [--show-3rd-party-warnings] [--verbose]
     test-elements-with-valgrind.sh [clean] [--pipeline <json-path>] [--gen-suppressions] [--suppressions-file <path>] [--verbose]
@@ -207,49 +207,49 @@ main() {
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-        clean)
-            do_clean="true"
-            shift
-            ;;
-        -p | --pipeline)
-            if [[ $# -lt 2 ]]; then
-                echo "Option $1 requires a JSON path argument." >&2
+            clean)
+                do_clean="true"
+                shift
+                ;;
+            -p | --pipeline)
+                if [[ $# -lt 2 ]]; then
+                    echo "Option $1 requires a JSON path argument." >&2
+                    usage >&2
+                    exit 2
+                fi
+                selected_pipeline="$2"
+                shift 2
+                ;;
+            --show-3rd-party-warnings)
+                use_3rd_party_suppressions="false"
+                shift
+                ;;
+            --suppressions-file)
+                if [[ $# -lt 2 ]]; then
+                    echo "Option $1 requires a file path argument." >&2
+                    usage >&2
+                    exit 2
+                fi
+                suppressions_file="$2"
+                shift 2
+                ;;
+            --gen-suppressions)
+                generate_suppressions="true"
+                shift
+                ;;
+            -v | --verbose)
+                verbose_output="true"
+                shift
+                ;;
+            -h | --help | help)
+                usage
+                exit 0
+                ;;
+            *)
+                echo "Unknown argument: $1" >&2
                 usage >&2
                 exit 2
-            fi
-            selected_pipeline="$2"
-            shift 2
-            ;;
-        --show-3rd-party-warnings)
-            use_3rd_party_suppressions="false"
-            shift
-            ;;
-        --suppressions-file)
-            if [[ $# -lt 2 ]]; then
-                echo "Option $1 requires a file path argument." >&2
-                usage >&2
-                exit 2
-            fi
-            suppressions_file="$2"
-            shift 2
-            ;;
-        --gen-suppressions)
-            generate_suppressions="true"
-            shift
-            ;;
-        -v | --verbose)
-            verbose_output="true"
-            shift
-            ;;
-        -h | --help | help)
-            usage
-            exit 0
-            ;;
-        *)
-            echo "Unknown argument: $1" >&2
-            usage >&2
-            exit 2
-            ;;
+                ;;
         esac
     done
 

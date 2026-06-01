@@ -28,7 +28,7 @@ if [[ ! -d "$BUILD_DIR" ]]; then
     exit 1
 fi
 
-if ! id "$OWNER_USER" >/dev/null 2>&1; then
+if ! id "$OWNER_USER" > /dev/null 2>&1; then
     echo "ERROR: user '$OWNER_USER' does not exist in this container." >&2
     exit 1
 fi

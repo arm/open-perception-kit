@@ -6,7 +6,7 @@
 set -euo pipefail
 
 usage() {
-    cat <<'EOF'
+    cat << 'EOF'
 Usage:
   run-console [up|down] [-h|--help]
 
@@ -56,7 +56,7 @@ is_running() {
     local ids
     ids="$(docker compose "${COMPOSE_FILES[@]}" ps -q || true)"
     [[ -z "${ids}" ]] && return 1
-    docker inspect -f '{{.State.Running}}' ${ids} 2>/dev/null | grep -q '^true$'
+    docker inspect -f '{{.State.Running}}' ${ids} 2> /dev/null | grep -q '^true$'
 }
 
 do_up() {
@@ -74,27 +74,27 @@ do_down() {
 cmd="${1:-}"
 
 case "${cmd}" in
--h | --help)
-    usage
-    exit 0
-    ;;
-up)
-    do_up
-    ;;
-down)
-    do_down
-    ;;
-"")
-    if is_running; then
-        do_down
-    else
+    -h | --help)
+        usage
+        exit 0
+        ;;
+    up)
         do_up
-    fi
-    ;;
-*)
-    echo "Error: unknown argument '${cmd}'" >&2
-    echo >&2
-    usage >&2
-    exit 2
-    ;;
+        ;;
+    down)
+        do_down
+        ;;
+    "")
+        if is_running; then
+            do_down
+        else
+            do_up
+        fi
+        ;;
+    *)
+        echo "Error: unknown argument '${cmd}'" >&2
+        echo >&2
+        usage >&2
+        exit 2
+        ;;
 esac

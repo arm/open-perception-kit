@@ -31,7 +31,7 @@ parse_extra_setup_args() {
     fi
 
     local IFS=,
-    read -r -a EXTRA_SETUP_ARGS <<<"$raw_args"
+    read -r -a EXTRA_SETUP_ARGS <<< "$raw_args"
 }
 
 parse_args() {
@@ -42,22 +42,22 @@ parse_args() {
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-        --extra-setup-args=*)
-            parse_extra_setup_args "${1#--extra-setup-args=}"
-            ;;
-        --extra-setup-args)
-            echo "--extra-setup-args requires the form --extra-setup-args=arg1,arg2=10" >&2
-            usage >&2
-            exit 2
-            ;;
-        --*)
-            echo "Unknown option: $1" >&2
-            usage >&2
-            exit 2
-            ;;
-        *)
-            POSITIONAL_ARGS+=("$1")
-            ;;
+            --extra-setup-args=*)
+                parse_extra_setup_args "${1#--extra-setup-args=}"
+                ;;
+            --extra-setup-args)
+                echo "--extra-setup-args requires the form --extra-setup-args=arg1,arg2=10" >&2
+                usage >&2
+                exit 2
+                ;;
+            --*)
+                echo "Unknown option: $1" >&2
+                usage >&2
+                exit 2
+                ;;
+            *)
+                POSITIONAL_ARGS+=("$1")
+                ;;
         esac
         shift
     done
@@ -89,7 +89,7 @@ debug() {
         meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat -Dtests="$enable_tests" "${EXTRA_SETUP_ARGS[@]}"
     else
         msg "Meson configure (keeping existing build dir)…"
-        meson configure "$BUILD_DIR" >/dev/null
+        meson configure "$BUILD_DIR" > /dev/null
     fi
 
     msg "Compiling.."
@@ -111,7 +111,7 @@ debug_with_executorch() {
         meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat --wrap-mode=forcefallback -Dexecutorch=enabled "${EXTRA_SETUP_ARGS[@]}"
     else
         msg "Meson configure (keeping existing build dir)…"
-        meson configure "$BUILD_DIR" >/dev/null
+        meson configure "$BUILD_DIR" > /dev/null
     fi
 
     msg "Compiling.."
@@ -143,7 +143,7 @@ release() {
             "${EXTRA_SETUP_ARGS[@]}"
     else
         msg "Meson configure (keeping existing build dir)…"
-        meson configure "$BUILD_DIR" >/dev/null
+        meson configure "$BUILD_DIR" > /dev/null
     fi
 
     msg "Compiling…"
@@ -174,7 +174,7 @@ clean() {
 
 # ---- help ----
 usage() {
-    cat <<EOF
+    cat << EOF
 
 Commands:
   clean ➡️ Clear all build artifacts.
@@ -191,25 +191,25 @@ if [[ $# -gt 0 ]]; then
     shift
 fi
 case "$cmd" in
-debug)
-    parse_args true "$@"
-    debug "${POSITIONAL_ARGS[0]:-false}"
-    ;;
-release)
-    parse_args true "$@"
-    release "${POSITIONAL_ARGS[0]:-false}"
-    ;;
-debug_with_executorch)
-    parse_args false "$@"
-    debug_with_executorch
-    ;;
-clean)
-    parse_args false "$@"
-    clean
-    ;;
-*)
-    echo "Unknown command: $cmd" >&2
-    usage >&2
-    exit 2
-    ;;
+    debug)
+        parse_args true "$@"
+        debug "${POSITIONAL_ARGS[0]:-false}"
+        ;;
+    release)
+        parse_args true "$@"
+        release "${POSITIONAL_ARGS[0]:-false}"
+        ;;
+    debug_with_executorch)
+        parse_args false "$@"
+        debug_with_executorch
+        ;;
+    clean)
+        parse_args false "$@"
+        clean
+        ;;
+    *)
+        echo "Unknown command: $cmd" >&2
+        usage >&2
+        exit 2
+        ;;
 esac

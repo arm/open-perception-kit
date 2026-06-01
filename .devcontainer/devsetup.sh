@@ -14,7 +14,7 @@ die() {
 append_once() {
     local needle="$1"
     local line="$2"
-    grep -Fqx "$needle" "$BASHRC" 2>/dev/null || echo "$line" >>"$BASHRC"
+    grep -Fqx "$needle" "$BASHRC" 2> /dev/null || echo "$line" >> "$BASHRC"
 }
 
 trap 'die "failed at line $LINENO"' ERR

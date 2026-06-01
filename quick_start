@@ -8,7 +8,7 @@
 set -euo pipefail
 
 usage() {
-    cat <<'EOF'
+    cat << 'EOF'
 Usage:
   ./quick_start [-h|--help]
 

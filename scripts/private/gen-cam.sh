@@ -6,7 +6,7 @@
 set -euo pipefail
 
 usage() {
-    cat <<'EOF'
+    cat << 'EOF'
 Usage:
   gen-cam.sh <service_name> <out_compose_yaml> <out_env>
 
@@ -35,21 +35,21 @@ ALL_MEDIA_DEVS=()
 ALL_SUBDEV_DEVS=()
 
 touch "${OUT_ENV}"
->"${OUT_ENV}"
+> "${OUT_ENV}"
 
 IFS=$'\n'
 read -r -d '' -a ALL_VIDEO_DEVS < <(
-    ls -1 /dev/video* 2>/dev/null |
+    ls -1 /dev/video* 2> /dev/null |
         sort -V || true
     printf '\0'
 )
 read -r -d '' -a ALL_MEDIA_DEVS < <(
-    ls -1 /dev/media* 2>/dev/null |
+    ls -1 /dev/media* 2> /dev/null |
         sort -V || true
     printf '\0'
 )
 read -r -d '' -a ALL_SUBDEV_DEVS < <(
-    ls -1 /dev/v4l-subdev* 2>/dev/null |
+    ls -1 /dev/v4l-subdev* 2> /dev/null |
         sort -V || true
     printf '\0'
 )
@@ -61,7 +61,7 @@ done
 
 if [[ -d "$V4L_DIR" ]]; then
     LINKS=()
-    IFS=$'\n' LINKS=($(ls -1 "$V4L_DIR"/*-video-index0 2>/dev/null | sort -V || true))
+    IFS=$'\n' LINKS=($(ls -1 "$V4L_DIR"/*-video-index0 2> /dev/null | sort -V || true))
 else
     LINKS=()
 fi
@@ -87,15 +87,15 @@ if [[ ${#LINKS[@]} -gt 0 ]]; then
     done
 
     for i in "${!CAM_DEVS[@]}"; do
-        echo "CAM${i}=${CAM_DEVS[$i]}" >>"$OUT_ENV"
+        echo "CAM${i}=${CAM_DEVS[$i]}" >> "$OUT_ENV"
     done
-    echo "CAM_COUNT=${#CAM_DEVS[@]}" >>"$OUT_ENV"
+    echo "CAM_COUNT=${#CAM_DEVS[@]}" >> "$OUT_ENV"
     echo "Generated camera mapping for ${#CAM_DEVS[@]} camera(s)."
 else
     for i in "${!ALL_VIDEO_DEVS[@]}"; do
-        echo "CAM${i}=${ALL_VIDEO_DEVS[$i]}" >>"$OUT_ENV"
+        echo "CAM${i}=${ALL_VIDEO_DEVS[$i]}" >> "$OUT_ENV"
     done
-    echo "CAM_COUNT=${#ALL_VIDEO_DEVS[@]}" >>"$OUT_ENV"
+    echo "CAM_COUNT=${#ALL_VIDEO_DEVS[@]}" >> "$OUT_ENV"
     echo "Generated camera mapping for ${#ALL_VIDEO_DEVS[@]} video node(s) (fallback)."
 fi
 
@@ -111,4 +111,4 @@ fi
             echo "      - ${DEV}:${DEV}"
         done
     fi
-} >"${OUT_COMPOSE}"
+} > "${OUT_COMPOSE}"

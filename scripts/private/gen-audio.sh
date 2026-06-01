@@ -6,7 +6,7 @@
 set -euo pipefail
 
 usage() {
-    cat <<'EOF'
+    cat << 'EOF'
 Usage:
   gen-audio.sh <service_name> <out_compose_yaml> <out_env>
 
@@ -41,7 +41,7 @@ if [[ -d "$SND_DIR" ]]; then
         find -L "$SND_DIR" \
             -maxdepth 1 \
             -type c \
-            -print 2>/dev/null |
+            -print 2> /dev/null |
             sort -V || true
         printf '\0'
     )
@@ -50,7 +50,7 @@ if [[ -d "$SND_DIR" ]]; then
             -maxdepth 1 \
             -type c \
             -name 'pcmC*D*c' \
-            -print 2>/dev/null |
+            -print 2> /dev/null |
             sort -V || true
         printf '\0'
     )
@@ -60,9 +60,9 @@ else
 fi
 
 for i in "${!MIC_DEVS[@]}"; do
-    echo "MIC${i}=${MIC_DEVS[$i]}" >>"$OUT_ENV"
+    echo "MIC${i}=${MIC_DEVS[$i]}" >> "$OUT_ENV"
 done
-echo "MIC_COUNT=${#MIC_DEVS[@]}" >>"$OUT_ENV"
+echo "MIC_COUNT=${#MIC_DEVS[@]}" >> "$OUT_ENV"
 
 {
     echo "services:"
@@ -78,4 +78,4 @@ echo "MIC_COUNT=${#MIC_DEVS[@]}" >>"$OUT_ENV"
         done
         echo "Generated microphone mapping for ${#MIC_DEVS[@]} capture device(s)." >&2
     fi
-} >"${OUT_COMPOSE}"
+} > "${OUT_COMPOSE}"

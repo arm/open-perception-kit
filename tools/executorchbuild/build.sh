@@ -29,12 +29,12 @@ install_py311_standalone() {
 
     arch="$(uname -m)"
     case "$arch" in
-    x86_64) pyarch="x86_64-unknown-linux-gnu" ;;
-    aarch64) pyarch="aarch64-unknown-linux-gnu" ;;
-    *)
-        echo "Unsupported arch for standalone download: ${arch}"
-        return 1
-        ;;
+        x86_64) pyarch="x86_64-unknown-linux-gnu" ;;
+        aarch64) pyarch="aarch64-unknown-linux-gnu" ;;
+        *)
+            echo "Unsupported arch for standalone download: ${arch}"
+            return 1
+            ;;
     esac
 
     # indygreg/python-build-standalone releases (GitHub)

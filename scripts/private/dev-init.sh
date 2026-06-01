@@ -6,7 +6,7 @@
 set -euo pipefail
 
 usage() {
-    cat <<'EOF'
+    cat << 'EOF'
 Usage:
 	dev-init.sh <service_name> <container_kind> <out_env>
 

@@ -8,7 +8,7 @@
 set -euo pipefail
 
 usage() {
-    cat <<'EOF'
+    cat << 'EOF'
 Usage:
   check-prerequisites.sh [--check-only] [-h|--help]
 
@@ -28,19 +28,19 @@ CHECK_ONLY="false"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-    --check-only)
-        CHECK_ONLY="true"
-        ;;
-    -h | --help)
-        usage
-        exit 0
-        ;;
-    *)
-        echo "Error: unknown argument '$1'" >&2
-        echo >&2
-        usage >&2
-        exit 2
-        ;;
+        --check-only)
+            CHECK_ONLY="true"
+            ;;
+        -h | --help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Error: unknown argument '$1'" >&2
+            echo >&2
+            usage >&2
+            exit 2
+            ;;
     esac
     shift
 done
@@ -59,15 +59,15 @@ eval "$detect_output"
 
 # Prerequisite check functions.
 check_docker_cli() {
-    command -v docker >/dev/null 2>&1
+    command -v docker > /dev/null 2>&1
 }
 
 check_docker_compose() {
-    command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1
+    command -v docker > /dev/null 2>&1 && docker compose version > /dev/null 2>&1
 }
 
 check_docker_access() {
-    command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1
+    command -v docker > /dev/null 2>&1 && docker info > /dev/null 2>&1
 }
 
 # Platform prerequisite lists. Keep most of these empty until the minimal sets
@@ -102,46 +102,46 @@ FAILED_MANUAL_PREREQS=()
 
 select_prereq_arrays() {
     case "$PEK_PLATFORM_ID" in
-    macos)
-        PACKAGE_MANAGER="brew"
-        SELECTED_PREREQ_ARRAYS=(PREREQS_MACOS)
-        ;;
-    wsl)
-        PACKAGE_MANAGER="apt"
-        SELECTED_PREREQ_ARRAYS=(PREREQS_WSL)
-        if [[ "$PEK_OS_ID" == "ubuntu" && "$PEK_OS_VERSION_ID" == "24.04" ]]; then
-            SELECTED_PREREQ_ARRAYS+=(PREREQS_WSL_UBUNTU_24_04)
-        elif [[ "$PEK_OS_ID" == "ubuntu" && "$PEK_OS_VERSION_ID" == "26.04" ]]; then
-            SELECTED_PREREQ_ARRAYS+=(PREREQS_WSL_UBUNTU_26_04)
-        elif [[ "$PEK_OS_ID" == "debian" && "$PEK_OS_VERSION_CODENAME" == "trixie" ]]; then
-            SELECTED_PREREQ_ARRAYS+=(PREREQS_WSL_DEBIAN_13)
-        fi
-        ;;
-    linux-x86_64)
-        PACKAGE_MANAGER="apt"
-        if [[ "$PEK_OS_ID" == "ubuntu" && "$PEK_OS_VERSION_ID" == "24.04" ]]; then
-            SELECTED_PREREQ_ARRAYS=(PREREQS_UBUNTU_24_04_X86)
-        elif [[ "$PEK_OS_ID" == "ubuntu" && "$PEK_OS_VERSION_ID" == "26.04" ]]; then
-            SELECTED_PREREQ_ARRAYS=(PREREQS_UBUNTU_26_04_X86)
-        elif [[ "$PEK_OS_ID" == "debian" && "$PEK_OS_VERSION_CODENAME" == "trixie" ]]; then
-            SELECTED_PREREQ_ARRAYS=(PREREQS_DEBIAN_13_X86)
-        else
-            SELECTED_PREREQ_ARRAYS=(PREREQS_LINUX_X86)
-        fi
-        ;;
-    rpi5 | rpi5-h10)
-        PACKAGE_MANAGER="apt"
-        SELECTED_PREREQ_ARRAYS=(PREREQS_RPI5)
-        if [[ "$PEK_PLATFORM_ID" == "rpi5-h10" ]]; then
-            SELECTED_PREREQ_ARRAYS+=(PREREQS_RPI5_HAILO10)
-        elif [[ "$PEK_HAILO_ARCH" == "hailo8" || "$PEK_HAILO_ARCH" == "hailo8l" || "$PEK_HAILO_ARCH" == "hailo-unknown" ]]; then
-            SELECTED_PREREQ_ARRAYS+=(PREREQS_RPI5_HAILO8)
-        fi
-        ;;
-    *)
-        echo "Error: no prerequisite profile for platform '${PEK_PLATFORM_ID}'." >&2
-        exit 1
-        ;;
+        macos)
+            PACKAGE_MANAGER="brew"
+            SELECTED_PREREQ_ARRAYS=(PREREQS_MACOS)
+            ;;
+        wsl)
+            PACKAGE_MANAGER="apt"
+            SELECTED_PREREQ_ARRAYS=(PREREQS_WSL)
+            if [[ "$PEK_OS_ID" == "ubuntu" && "$PEK_OS_VERSION_ID" == "24.04" ]]; then
+                SELECTED_PREREQ_ARRAYS+=(PREREQS_WSL_UBUNTU_24_04)
+            elif [[ "$PEK_OS_ID" == "ubuntu" && "$PEK_OS_VERSION_ID" == "26.04" ]]; then
+                SELECTED_PREREQ_ARRAYS+=(PREREQS_WSL_UBUNTU_26_04)
+            elif [[ "$PEK_OS_ID" == "debian" && "$PEK_OS_VERSION_CODENAME" == "trixie" ]]; then
+                SELECTED_PREREQ_ARRAYS+=(PREREQS_WSL_DEBIAN_13)
+            fi
+            ;;
+        linux-x86_64)
+            PACKAGE_MANAGER="apt"
+            if [[ "$PEK_OS_ID" == "ubuntu" && "$PEK_OS_VERSION_ID" == "24.04" ]]; then
+                SELECTED_PREREQ_ARRAYS=(PREREQS_UBUNTU_24_04_X86)
+            elif [[ "$PEK_OS_ID" == "ubuntu" && "$PEK_OS_VERSION_ID" == "26.04" ]]; then
+                SELECTED_PREREQ_ARRAYS=(PREREQS_UBUNTU_26_04_X86)
+            elif [[ "$PEK_OS_ID" == "debian" && "$PEK_OS_VERSION_CODENAME" == "trixie" ]]; then
+                SELECTED_PREREQ_ARRAYS=(PREREQS_DEBIAN_13_X86)
+            else
+                SELECTED_PREREQ_ARRAYS=(PREREQS_LINUX_X86)
+            fi
+            ;;
+        rpi5 | rpi5-h10)
+            PACKAGE_MANAGER="apt"
+            SELECTED_PREREQ_ARRAYS=(PREREQS_RPI5)
+            if [[ "$PEK_PLATFORM_ID" == "rpi5-h10" ]]; then
+                SELECTED_PREREQ_ARRAYS+=(PREREQS_RPI5_HAILO10)
+            elif [[ "$PEK_HAILO_ARCH" == "hailo8" || "$PEK_HAILO_ARCH" == "hailo8l" || "$PEK_HAILO_ARCH" == "hailo-unknown" ]]; then
+                SELECTED_PREREQ_ARRAYS+=(PREREQS_RPI5_HAILO8)
+            fi
+            ;;
+        *)
+            echo "Error: no prerequisite profile for platform '${PEK_PLATFORM_ID}'." >&2
+            exit 1
+            ;;
     esac
 }
 
@@ -202,7 +202,7 @@ collect_missing_prereqs() {
     FAILED_MANUAL_PREREQS=()
 
     for requirement in "${REQUIRED_PREREQS[@]}"; do
-        IFS='|' read -r requirement_id check_fn packages description <<<"$requirement"
+        IFS='|' read -r requirement_id check_fn packages description <<< "$requirement"
 
         if "$check_fn"; then
             echo "OK: ${description}"
@@ -216,7 +216,7 @@ collect_missing_prereqs() {
             continue
         fi
 
-        IFS=' ' read -r -a package_list <<<"$packages"
+        IFS=' ' read -r -a package_list <<< "$packages"
         for pkg in "${package_list[@]}"; do
             append_unique_missing_package "$pkg"
         done
@@ -228,7 +228,7 @@ sudo_prefix() {
         return
     fi
 
-    if ! command -v sudo >/dev/null 2>&1; then
+    if ! command -v sudo > /dev/null 2>&1; then
         echo "Error: sudo is required to install packages as a non-root user." >&2
         exit 1
     fi
@@ -239,7 +239,7 @@ sudo_prefix() {
 install_apt_packages() {
     local sudo_cmd
 
-    if ! command -v apt-get >/dev/null 2>&1; then
+    if ! command -v apt-get > /dev/null 2>&1; then
         echo "Error: apt-get is required for package installation on this platform." >&2
         exit 1
     fi
@@ -256,7 +256,7 @@ install_apt_packages() {
 }
 
 install_brew_packages() {
-    if ! command -v brew >/dev/null 2>&1; then
+    if ! command -v brew > /dev/null 2>&1; then
         echo "Error: Homebrew is required for package installation on macOS." >&2
         exit 1
     fi
@@ -266,16 +266,16 @@ install_brew_packages() {
 
 install_missing_packages() {
     case "$PACKAGE_MANAGER" in
-    apt)
-        install_apt_packages
-        ;;
-    brew)
-        install_brew_packages
-        ;;
-    *)
-        echo "Error: unsupported package manager '${PACKAGE_MANAGER}'." >&2
-        exit 1
-        ;;
+        apt)
+            install_apt_packages
+            ;;
+        brew)
+            install_brew_packages
+            ;;
+        *)
+            echo "Error: unsupported package manager '${PACKAGE_MANAGER}'." >&2
+            exit 1
+            ;;
     esac
 }
 
@@ -291,7 +291,7 @@ print_manual_failures() {
     echo
     echo "Prerequisites that need manual action:"
     for requirement in "${FAILED_MANUAL_PREREQS[@]}"; do
-        IFS='|' read -r requirement_id check_fn packages description <<<"$requirement"
+        IFS='|' read -r requirement_id check_fn packages description <<< "$requirement"
         echo "  ${description}"
         if [[ "$requirement_id" == "docker-access" ]]; then
             echo "    Start Docker and confirm 'docker info' works without sudo."

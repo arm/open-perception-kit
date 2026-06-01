@@ -6,7 +6,7 @@
 set -euo pipefail
 
 usage() {
-    cat <<'EOF'
+    cat << 'EOF'
 Usage:
   gen-shared-memory.sh <service_name> <out_compose_yaml> <out_env>
 
@@ -70,4 +70,4 @@ fi
         done
         echo "Generated shared_memory mounts: ${VOLUMES[*]}" >&2
     fi
-} >"${OUT_COMPOSE}"
+} > "${OUT_COMPOSE}"

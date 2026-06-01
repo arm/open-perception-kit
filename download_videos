@@ -8,7 +8,7 @@
 set -euo pipefail
 
 usage() {
-    cat <<'EOF'
+    cat << 'EOF'
 Usage:
   ./download_videos [-h|--help]
 
@@ -58,13 +58,13 @@ fi
 
 cd "${SCRIPT_DIR}"
 
-if ! docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2>/dev/null | grep -q '^true$'; then
+if ! docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2> /dev/null | grep -q '^true$'; then
     echo "Container is not running: ${PEK_CONTAINER_NAME}"
     echo "Starting it now..."
     "${START_CONTAINER_SCRIPT}"
 fi
 
-if ! docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2>/dev/null | grep -q '^true$'; then
+if ! docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2> /dev/null | grep -q '^true$'; then
     echo "Error: container did not start: ${PEK_CONTAINER_NAME}" >&2
     exit 1
 fi

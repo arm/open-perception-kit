@@ -21,12 +21,12 @@ if [[ "$(id -u)" -ne 0 ]]; then
 fi
 
 # Ensure group exists with HOST_GID
-if ! getent group "${HOST_GID}" >/dev/null; then
-    groupadd -g "${HOST_GID}" "${USERNAME}" 2>/dev/null || groupadd -g "${HOST_GID}" hostgroup
+if ! getent group "${HOST_GID}" > /dev/null; then
+    groupadd -g "${HOST_GID}" "${USERNAME}" 2> /dev/null || groupadd -g "${HOST_GID}" hostgroup
 fi
 
 # Ensure user exists
-if ! id -u "${USERNAME}" >/dev/null 2>&1; then
+if ! id -u "${USERNAME}" > /dev/null 2>&1; then
     useradd -m -s /bin/bash -u "${HOST_UID}" -g "${HOST_GID}" "${USERNAME}"
 fi
 

@@ -11,8 +11,8 @@ check_cmd() {
     local name="$1"
     local cmd="$2"
 
-    if command -v "$cmd" >/dev/null 2>&1; then
-        echo "OK: $name found: $($cmd --version 2>/dev/null | head -n 1)"
+    if command -v "$cmd" > /dev/null 2>&1; then
+        echo "OK: $name found: $($cmd --version 2> /dev/null | head -n 1)"
     else
         echo "ERROR: $name is not installed or not on PATH"
         failures=$((failures + 1))
@@ -20,7 +20,7 @@ check_cmd() {
 }
 
 check_docker() {
-    if command -v docker >/dev/null 2>&1; then
+    if command -v docker > /dev/null 2>&1; then
         echo "OK: Docker found: $(docker --version)"
     else
         echo "ERROR: Docker is not installed or not on PATH"
@@ -28,7 +28,7 @@ check_docker() {
         return
     fi
 
-    if docker info >/dev/null 2>&1; then
+    if docker info > /dev/null 2>&1; then
         echo "OK: Docker daemon is running"
     else
         echo "ERROR: Docker is installed but the daemon is not reachable"
@@ -37,9 +37,9 @@ check_docker() {
 }
 
 check_docker_compose() {
-    if docker compose version >/dev/null 2>&1; then
+    if docker compose version > /dev/null 2>&1; then
         echo "OK: Docker Compose found: $(docker compose version)"
-    elif command -v docker-compose >/dev/null 2>&1; then
+    elif command -v docker-compose > /dev/null 2>&1; then
         echo "OK: legacy docker-compose found: $(docker-compose --version)"
     else
         echo "ERROR: Docker Compose is not installed"
@@ -62,7 +62,7 @@ check_github_ssh_auth() {
 }
 
 is_raspberry_pi() {
-    grep -qi "raspberry pi" /proc/device-tree/model 2>/dev/null
+    grep -qi "raspberry pi" /proc/device-tree/model 2> /dev/null
 }
 
 check_rpi_supported_model() {
@@ -84,7 +84,7 @@ check_rpi_supported_model() {
 }
 
 is_raspberry_pi_5() {
-    grep -qi "raspberry pi 5" /proc/device-tree/model 2>/dev/null
+    grep -qi "raspberry pi 5" /proc/device-tree/model 2> /dev/null
 }
 
 check_debian_trixie_on_rpi5() {
@@ -141,7 +141,7 @@ check_rpi_packages() {
     local missing=()
 
     for pkg in "${packages[@]}"; do
-        if dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "install ok installed"; then
+        if dpkg-query -W -f='${Status}' "$pkg" 2> /dev/null | grep -q "install ok installed"; then
             echo "OK: package installed: $pkg"
         else
             echo "ERROR: package missing: $pkg"

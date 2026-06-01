@@ -6,7 +6,7 @@
 set -euo pipefail
 
 usage() {
-    cat <<'EOF'
+    cat << 'EOF'
 Usage:
   run-console-enter [-h]
 
@@ -37,7 +37,7 @@ DC_RICH="rich"
 cd "${REPO_ROOT}"
 
 # Check if container is running
-if ! docker inspect -f '{{.State.Running}}' pek-dev-rich >/dev/null 2>&1; then
+if ! docker inspect -f '{{.State.Running}}' pek-dev-rich > /dev/null 2>&1; then
     echo "Error: container 'pek-dev-rich' is not running." >&2
     echo "Please start it first by running: ./scripts/private/run-console" >&2
     exit 1

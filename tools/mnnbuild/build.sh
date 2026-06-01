@@ -17,7 +17,7 @@ INSTALL_PREFIX="/work/deps/mnn"
 #   JOBS=8                         (default: nproc)
 #   FULLY_STATIC_EXE=1             (Linux only; may require musl/static toolchain)
 MNN_REF="${MNN_REF:-master}"
-JOBS="${JOBS:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)}"
+JOBS="${JOBS:-$(getconf _NPROCESSORS_ONLN 2> /dev/null || echo 4)}"
 FULLY_STATIC_EXE="${FULLY_STATIC_EXE:-0}"
 
 # Resolve script directory (works even if invoked via symlink)
@@ -39,7 +39,7 @@ if [[ ! -d "${SRC_DIR}/.git" ]]; then
     git clone --depth 1 --branch "${MNN_REF}" https://github.com/alibaba/MNN.git "${SRC_DIR}"
 else
     echo "[mnn] Updating existing MNN repo..."
-    (
+    (   
         cd "${SRC_DIR}"
         git fetch --tags --prune
         git checkout "${MNN_REF}"
@@ -50,7 +50,7 @@ fi
 
 # --- Pick generator ---
 GENERATOR_ARGS=()
-if command -v ninja >/dev/null 2>&1; then
+if command -v ninja > /dev/null 2>&1; then
     GENERATOR_ARGS=(-G Ninja)
 fi
 
@@ -86,15 +86,15 @@ cmake --install "${BUILD_DIR}"
 # --- Report outputs ---
 echo
 echo "[mnn] Install contents:"
-ls -la "${INSTALL_PREFIX}/lib" 2>/dev/null || true
-ls -la "${INSTALL_PREFIX}/bin" 2>/dev/null || true
+ls -la "${INSTALL_PREFIX}/lib" 2> /dev/null || true
+ls -la "${INSTALL_PREFIX}/bin" 2> /dev/null || true
 
 if [[ -x "${INSTALL_PREFIX}/bin/MNNConvert" ]]; then
     echo
     echo "[mnn] Converter linkage check:"
-    if command -v ldd >/dev/null 2>&1; then
+    if command -v ldd > /dev/null 2>&1; then
         ldd "${INSTALL_PREFIX}/bin/MNNConvert" || true
-    elif command -v otool >/dev/null 2>&1; then
+    elif command -v otool > /dev/null 2>&1; then
         otool -L "${INSTALL_PREFIX}/bin/MNNConvert" || true
     else
         echo "  (No ldd/otool available)"

@@ -23,7 +23,7 @@ echo "Output: $OUT_DIR"
 echo "Running Doxygen API docs (using development/Doxyfile)..."
 DOXY_OUT_DIR="/work/development/build/doc/doxygen"
 mkdir -p "$DOXY_OUT_DIR"
-(
+(   
     cd /work/development
     doxygen Doxyfile
 )
@@ -49,7 +49,7 @@ PLANTUML_OUT_DIR="/work/docs/static/img"
 if [ -d "$PLANTUML_SRC_DIR" ]; then
     echo "Regenerating PlantUML figures from $PLANTUML_SRC_DIR..."
     mkdir -p "$PLANTUML_OUT_DIR"
-    if compgen -G "$PLANTUML_SRC_DIR"/*.puml >/dev/null; then
+    if compgen -G "$PLANTUML_SRC_DIR"/*.puml > /dev/null; then
         PLANTUML_JAR="${PLANTUML_JAR:-/opt/pek-deps/plantuml-mit-1.2026.2.jar}"
         if [ ! -f "$PLANTUML_JAR" ] && [ -f "/work/deps/plantuml-mit-1.2026.2.jar" ]; then
             PLANTUML_JAR="/work/deps/plantuml-mit-1.2026.2.jar"
@@ -98,7 +98,7 @@ fi
 echo "Rewriting internal links..."
 find "$OUT_DIR" -type f -name "*.html" -exec sed -i 's/\.md"/.html"/g' {} +
 
-cat >"$OUT_DIR/index.html" <<'EOF'
+cat > "$OUT_DIR/index.html" << 'EOF'
 <!doctype html>
 <html lang="en">
 <head>
