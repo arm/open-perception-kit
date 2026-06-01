@@ -10,7 +10,7 @@ rm -rf ./libtorch
 
 # Example for CPU-only Linux x86_64, adjust URL per your torch version/needs
 curl -L -o libtorch.tar.gz \
-    "https://download.pytorch.org/libtorch/cpu/libtorch-shared-with-deps-2.3.0%2Bcpu.zip" # URL example; pick matching version/arch
+	"https://download.pytorch.org/libtorch/cpu/libtorch-shared-with-deps-2.3.0%2Bcpu.zip" # URL example; pick matching version/arch
 
 # If it's a .zip:
 #apt-get update && apt-get install -y unzip

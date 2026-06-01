@@ -6,7 +6,7 @@
 set -euo pipefail
 
 usage() {
-    cat << 'EOF'
+	cat <<'EOF'
 Usage:
   run-console [up|down] [-h|--help]
 
@@ -42,59 +42,59 @@ cd "${REPO_ROOT}"
 
 # Compose files used for lifecycle commands
 COMPOSE_FILES=(
-    -f .devcontainer/docker-compose."${DC_RICH}".yaml
-    -f .devcontainer/docker-compose."${DC_RICH}".video.yaml
-    -f .devcontainer/docker-compose."${DC_RICH}".audio.yaml
-    -f .devcontainer/docker-compose."${DC_RICH}".npu.yaml
-    -f .devcontainer/docker-compose."${DC_RICH}".shared_memory.yaml
+	-f .devcontainer/docker-compose."${DC_RICH}".yaml
+	-f .devcontainer/docker-compose."${DC_RICH}".video.yaml
+	-f .devcontainer/docker-compose."${DC_RICH}".audio.yaml
+	-f .devcontainer/docker-compose."${DC_RICH}".npu.yaml
+	-f .devcontainer/docker-compose."${DC_RICH}".shared_memory.yaml
 )
 
 # Detect whether any service from this project is currently running
 is_running() {
-    # `docker compose ps -q` returns container IDs for services in the project.
-    # We count how many are in "running" state.
-    local ids
-    ids="$(docker compose "${COMPOSE_FILES[@]}" ps -q || true)"
-    [[ -z "${ids}" ]] && return 1
-    docker inspect -f '{{.State.Running}}' ${ids} 2> /dev/null | grep -q '^true$'
+	# `docker compose ps -q` returns container IDs for services in the project.
+	# We count how many are in "running" state.
+	local ids
+	ids="$(docker compose "${COMPOSE_FILES[@]}" ps -q || true)"
+	[[ -z "${ids}" ]] && return 1
+	docker inspect -f '{{.State.Running}}' ${ids} 2>/dev/null | grep -q '^true$'
 }
 
 do_up() {
-    ./scripts/private/dev-init.sh pek-dev-rich "$DC_RICH" "$DEV_ENV_FILE"
+	./scripts/private/dev-init.sh pek-dev-rich "$DC_RICH" "$DEV_ENV_FILE"
 
-    HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" \
-        docker compose "${COMPOSE_FILES[@]}" up -d --build
+	HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" \
+		docker compose "${COMPOSE_FILES[@]}" up -d --build
 }
 
 do_down() {
-    HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" \
-        docker compose "${COMPOSE_FILES[@]}" down
+	HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" \
+		docker compose "${COMPOSE_FILES[@]}" down
 }
 
 cmd="${1:-}"
 
 case "${cmd}" in
-    -h | --help)
-        usage
-        exit 0
-        ;;
-    up)
-        do_up
-        ;;
-    down)
-        do_down
-        ;;
-    "")
-        if is_running; then
-            do_down
-        else
-            do_up
-        fi
-        ;;
-    *)
-        echo "Error: unknown argument '${cmd}'" >&2
-        echo >&2
-        usage >&2
-        exit 2
-        ;;
+-h | --help)
+	usage
+	exit 0
+	;;
+up)
+	do_up
+	;;
+down)
+	do_down
+	;;
+"")
+	if is_running; then
+		do_down
+	else
+		do_up
+	fi
+	;;
+*)
+	echo "Error: unknown argument '${cmd}'" >&2
+	echo >&2
+	usage >&2
+	exit 2
+	;;
 esac

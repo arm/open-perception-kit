@@ -11,38 +11,38 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 DOCS_CONTENT_DIR="$REPO_ROOT/docs/public"
 DOCS_STATIC_DIR="$REPO_ROOT/docs/static"
 
-if command -v podman > /dev/null 2>&1; then
-    CONTAINER_ENGINE="podman"
-elif command -v docker > /dev/null 2>&1; then
-    CONTAINER_ENGINE="docker"
+if command -v podman >/dev/null 2>&1; then
+	CONTAINER_ENGINE="podman"
+elif command -v docker >/dev/null 2>&1; then
+	CONTAINER_ENGINE="docker"
 else
-    cat << 'EOF'
+	cat <<'EOF'
 Neither podman nor docker is installed.
 
 serve-docs.sh requires one of these container engines to run the local docs image.
 Install Podman or Docker, then run this script again.
 EOF
-    exit 1
+	exit 1
 fi
 
 is_logged_in_to_ghcr() {
-    if [ "$CONTAINER_ENGINE" = "podman" ]; then
-        podman login ghcr.io --get-login > /dev/null 2>&1
-        return
-    fi
+	if [ "$CONTAINER_ENGINE" = "podman" ]; then
+		podman login ghcr.io --get-login >/dev/null 2>&1
+		return
+	fi
 
-    local docker_config
-    docker_config="${DOCKER_CONFIG:-$HOME/.docker}/config.json"
+	local docker_config
+	docker_config="${DOCKER_CONFIG:-$HOME/.docker}/config.json"
 
-    if [ ! -f "$docker_config" ]; then
-        return 1
-    fi
+	if [ ! -f "$docker_config" ]; then
+		return 1
+	fi
 
-    grep -Eq '"ghcr\.io"' "$docker_config"
+	grep -Eq '"ghcr\.io"' "$docker_config"
 }
 
 if ! is_logged_in_to_ghcr; then
-    cat << EOF
+	cat <<EOF
 You must be logged into ghcr.io with $CONTAINER_ENGINE before serving the docs.
 
 Required login process:
@@ -62,21 +62,21 @@ If you are using podman directly, you can verify the login with:
 
 After the login succeeds, run this script again.
 EOF
-    exit 1
+	exit 1
 fi
 
 if [ ! -d "$DOCS_CONTENT_DIR" ]; then
-    printf 'Documentation content directory not found: %s\n' "$DOCS_CONTENT_DIR" >&2
-    exit 1
+	printf 'Documentation content directory not found: %s\n' "$DOCS_CONTENT_DIR" >&2
+	exit 1
 fi
 
 if [ ! -d "$DOCS_STATIC_DIR" ]; then
-    printf 'Documentation static directory not found: %s\n' "$DOCS_STATIC_DIR" >&2
-    exit 1
+	printf 'Documentation static directory not found: %s\n' "$DOCS_STATIC_DIR" >&2
+	exit 1
 fi
 
 printf 'Serving docs with %s on http://localhost:3003\n' "$CONTAINER_ENGINE"
 exec "$CONTAINER_ENGINE" run --rm -it -p 3003:3000 \
-    -v "$DOCS_CONTENT_DIR:/opt/docusaurus/content/docs" \
-    -v "$DOCS_STATIC_DIR:/opt/docusaurus/content/static" \
-    "$IMAGE"
+	-v "$DOCS_CONTENT_DIR:/opt/docusaurus/content/docs" \
+	-v "$DOCS_STATIC_DIR:/opt/docusaurus/content/static" \
+	"$IMAGE"

@@ -6,7 +6,7 @@
 set -euo pipefail
 
 usage() {
-    cat << 'EOF'
+	cat <<'EOF'
 Usage:
   gen-shared-memory.sh <service_name> <out_compose_yaml> <out_env>
 
@@ -22,8 +22,8 @@ EOF
 }
 
 if [[ ${1:-} == "-h" || ${1:-} == "--help" ]]; then
-    usage
-    exit 0
+	usage
+	exit 0
 fi
 
 SERVICE_NAME="${1:-}"
@@ -31,8 +31,8 @@ OUT_COMPOSE="${2:-}"
 OUT_ENV="${3:-}"
 
 if [[ -z "$SERVICE_NAME" || -z "$OUT_COMPOSE" || -z "$OUT_ENV" ]]; then
-    usage >&2
-    exit 2
+	usage >&2
+	exit 2
 fi
 
 # Keep signature consistent with other generators.
@@ -45,29 +45,29 @@ SHM_DIR="/dev/shm"
 VOLUMES=()
 
 if [[ -d "${DMA_HEAP_DIR}" ]]; then
-    VOLUMES+=("${DMA_HEAP_DIR}:${DMA_HEAP_DIR}")
+	VOLUMES+=("${DMA_HEAP_DIR}:${DMA_HEAP_DIR}")
 fi
 
 if [[ -e "${UDMABUF_DEV}" ]]; then
-    VOLUMES+=("${UDMABUF_DEV}:${UDMABUF_DEV}")
+	VOLUMES+=("${UDMABUF_DEV}:${UDMABUF_DEV}")
 fi
 
 if [[ -d "${SHM_DIR}" ]]; then
-    VOLUMES+=("${SHM_DIR}:${SHM_DIR}")
+	VOLUMES+=("${SHM_DIR}:${SHM_DIR}")
 fi
 
 {
-    echo "services:"
-    echo "  ${SERVICE_NAME}:"
+	echo "services:"
+	echo "  ${SERVICE_NAME}:"
 
-    if [[ ${#VOLUMES[@]} -eq 0 ]]; then
-        echo "    volumes: []"
-        echo "No shared-memory related paths found. Generated empty shared_memory override." >&2
-    else
-        echo "    volumes:"
-        for SPEC in "${VOLUMES[@]}"; do
-            echo "      - ${SPEC}"
-        done
-        echo "Generated shared_memory mounts: ${VOLUMES[*]}" >&2
-    fi
-} > "${OUT_COMPOSE}"
+	if [[ ${#VOLUMES[@]} -eq 0 ]]; then
+		echo "    volumes: []"
+		echo "No shared-memory related paths found. Generated empty shared_memory override." >&2
+	else
+		echo "    volumes:"
+		for SPEC in "${VOLUMES[@]}"; do
+			echo "      - ${SPEC}"
+		done
+		echo "Generated shared_memory mounts: ${VOLUMES[*]}" >&2
+	fi
+} >"${OUT_COMPOSE}"

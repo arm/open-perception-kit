@@ -11,7 +11,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"/../../
 
 sudo chown -R $(id -u):$(id -g) "/work/" || true
-sudo chmod +x ./tools/pek-menu ./scripts/serve-docs-plain.sh ./scripts/build-elements.sh ./scripts/gen-doc.sh ./.devcontainer/setup.sh ./.devcontainer/platform_init.sh 2> /dev/null || true
+sudo chmod +x ./tools/pek-menu ./scripts/serve-docs-plain.sh ./scripts/build-elements.sh ./scripts/gen-doc.sh ./.devcontainer/setup.sh ./.devcontainer/platform_init.sh 2>/dev/null || true
 
 .devcontainer/setup.sh
 .devcontainer/platform_init.sh pek-dev-base

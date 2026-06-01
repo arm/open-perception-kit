@@ -11,7 +11,7 @@ HTML_CONTENT_DIR="$OUT_DIR/public"
 TMP_DIR="$(mktemp -d)"
 
 cleanup() {
-    rm -rf "$TMP_DIR"
+	rm -rf "$TMP_DIR"
 }
 
 trap cleanup EXIT
@@ -23,18 +23,18 @@ echo "Output: $OUT_DIR"
 echo "Running Doxygen API docs (using development/Doxyfile)..."
 DOXY_OUT_DIR="/work/development/build/doc/doxygen"
 mkdir -p "$DOXY_OUT_DIR"
-(   
-    cd /work/development
-    doxygen Doxyfile
+(
+	cd /work/development
+	doxygen Doxyfile
 )
 
 # --- prepare output dir ---
 if [ -d "$OUT_DIR" ]; then
-    echo "Clearing existing output directory..."
-    rm -rf "${OUT_DIR:?}/"*
+	echo "Clearing existing output directory..."
+	rm -rf "${OUT_DIR:?}/"*
 else
-    echo "Creating output directory..."
-    mkdir -p "$OUT_DIR"
+	echo "Creating output directory..."
+	mkdir -p "$OUT_DIR"
 fi
 
 # --- prepare markdown sources for plain HTML generation ---
@@ -47,58 +47,58 @@ PLANTUML_SRC_DIR="/work/docs/static/plantuml"
 PLANTUML_OUT_DIR="/work/docs/static/img"
 
 if [ -d "$PLANTUML_SRC_DIR" ]; then
-    echo "Regenerating PlantUML figures from $PLANTUML_SRC_DIR..."
-    mkdir -p "$PLANTUML_OUT_DIR"
-    if compgen -G "$PLANTUML_SRC_DIR"/*.puml > /dev/null; then
-        PLANTUML_JAR="${PLANTUML_JAR:-/opt/pek-deps/plantuml-mit-1.2026.2.jar}"
-        if [ ! -f "$PLANTUML_JAR" ] && [ -f "/work/deps/plantuml-mit-1.2026.2.jar" ]; then
-            PLANTUML_JAR="/work/deps/plantuml-mit-1.2026.2.jar"
-        fi
-        if [ -f "$PLANTUML_JAR" ]; then
-            java -Djava.awt.headless=true -jar "$PLANTUML_JAR" -tpng "$PLANTUML_SRC_DIR"/*.puml -o "$PLANTUML_OUT_DIR"
-        else
-            echo "PlantUML JAR not found, skipping PlantUML figure generation."
-        fi
-    else
-        echo "No .puml files found in $PLANTUML_SRC_DIR, skipping PlantUML generation."
-    fi
+	echo "Regenerating PlantUML figures from $PLANTUML_SRC_DIR..."
+	mkdir -p "$PLANTUML_OUT_DIR"
+	if compgen -G "$PLANTUML_SRC_DIR"/*.puml >/dev/null; then
+		PLANTUML_JAR="${PLANTUML_JAR:-/opt/pek-deps/plantuml-mit-1.2026.2.jar}"
+		if [ ! -f "$PLANTUML_JAR" ] && [ -f "/work/deps/plantuml-mit-1.2026.2.jar" ]; then
+			PLANTUML_JAR="/work/deps/plantuml-mit-1.2026.2.jar"
+		fi
+		if [ -f "$PLANTUML_JAR" ]; then
+			java -Djava.awt.headless=true -jar "$PLANTUML_JAR" -tpng "$PLANTUML_SRC_DIR"/*.puml -o "$PLANTUML_OUT_DIR"
+		else
+			echo "PlantUML JAR not found, skipping PlantUML figure generation."
+		fi
+	else
+		echo "No .puml files found in $PLANTUML_SRC_DIR, skipping PlantUML generation."
+	fi
 else
-    echo "PlantUML source directory $PLANTUML_SRC_DIR not found, skipping PlantUML generation."
+	echo "PlantUML source directory $PLANTUML_SRC_DIR not found, skipping PlantUML generation."
 fi
 
 # --- convert markdown to html recursively ---
 echo "Converting Markdown files to HTML..."
 find "$PREPARED_SRC_DIR" -type f -name "*.md" -print0 | while IFS= read -r -d '' file; do
-    rel_path="${file#$PREPARED_SRC_DIR/}"
-    out_path="$HTML_CONTENT_DIR/${rel_path%.md}.html"
-    mkdir -p "$(dirname "$out_path")"
-    echo "Converting $rel_path -> ${rel_path%.md}.html"
-    pandoc --from markdown-yaml_metadata_block "$file" -s -o "$out_path"
+	rel_path="${file#$PREPARED_SRC_DIR/}"
+	out_path="$HTML_CONTENT_DIR/${rel_path%.md}.html"
+	mkdir -p "$(dirname "$out_path")"
+	echo "Converting $rel_path -> ${rel_path%.md}.html"
+	pandoc --from markdown-yaml_metadata_block "$file" -s -o "$out_path"
 done
 
 # --- copy images/assets ---
 echo "Copying assets (preserving structure)..."
 find "$SRC_DIR" -type f \( \
-    -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o \
-    -iname "*.gif" -o -iname "*.svg" -o -iname "*.webp" \
-    \) -print0 | while IFS= read -r -d '' file; do
-    rel_path="${file#$SRC_DIR/}"
-    out_path="$HTML_CONTENT_DIR/$rel_path"
-    mkdir -p "$(dirname "$out_path")"
-    cp -f "$file" "$out_path"
+	-iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o \
+	-iname "*.gif" -o -iname "*.svg" -o -iname "*.webp" \
+	\) -print0 | while IFS= read -r -d '' file; do
+	rel_path="${file#$SRC_DIR/}"
+	out_path="$HTML_CONTENT_DIR/$rel_path"
+	mkdir -p "$(dirname "$out_path")"
+	cp -f "$file" "$out_path"
 done
 
 if [ -d "/work/docs/static" ]; then
-    echo "Copying static assets..."
-    mkdir -p "$OUT_DIR/static"
-    cp -a /work/docs/static/. "$OUT_DIR/static/"
+	echo "Copying static assets..."
+	mkdir -p "$OUT_DIR/static"
+	cp -a /work/docs/static/. "$OUT_DIR/static/"
 fi
 
 # --- simple link rewrite: .md -> .html ---
 echo "Rewriting internal links..."
 find "$OUT_DIR" -type f -name "*.html" -exec sed -i 's/\.md"/.html"/g' {} +
 
-cat > "$OUT_DIR/index.html" << 'EOF'
+cat >"$OUT_DIR/index.html" <<'EOF'
 <!doctype html>
 <html lang="en">
 <head>

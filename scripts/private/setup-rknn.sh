@@ -18,19 +18,19 @@ ARCH="${1:-aarch64}"
 echo "[INFO] Using ARCH=${ARCH}"
 
 case "${ARCH}" in
-    aarch64 | armhf | armhf-uclibc) ;;
-    *)
-        echo "[ERROR] Unsupported ARCH: ${ARCH}"
-        echo "Supported: aarch64, armhf, armhf-uclibc"
-        exit 1
-        ;;
+aarch64 | armhf | armhf-uclibc) ;;
+*)
+	echo "[ERROR] Unsupported ARCH: ${ARCH}"
+	echo "Supported: aarch64, armhf, armhf-uclibc"
+	exit 1
+	;;
 esac
 
 need_cmd() {
-    if ! command -v "$1" > /dev/null 2>&1; then
-        echo "[ERROR] Required command not found: $1"
-        exit 1
-    fi
+	if ! command -v "$1" >/dev/null 2>&1; then
+		echo "[ERROR] Required command not found: $1"
+		exit 1
+	fi
 }
 
 need_cmd git
@@ -57,7 +57,7 @@ git remote add origin "${REPO_URL}"
 git config core.sparseCheckout true
 
 mkdir -p .git/info
-cat > .git/info/sparse-checkout << EOF
+cat >.git/info/sparse-checkout <<EOF
 rknpu2/runtime/Linux/librknn_api/include/*
 rknpu2/runtime/Linux/librknn_api/${ARCH}/*
 EOF
@@ -70,13 +70,13 @@ INCLUDE_DIR="${RUNTIME_DIR}/include"
 LIB_DIR="${RUNTIME_DIR}/${ARCH}"
 
 if [[ ! -d "${INCLUDE_DIR}" ]]; then
-    echo "[ERROR] Include dir not found: ${INCLUDE_DIR}"
-    exit 1
+	echo "[ERROR] Include dir not found: ${INCLUDE_DIR}"
+	exit 1
 fi
 
 if [[ ! -d "${LIB_DIR}" ]]; then
-    echo "[ERROR] Lib dir not found for ARCH=${ARCH}: ${LIB_DIR}"
-    exit 1
+	echo "[ERROR] Lib dir not found for ARCH=${ARCH}: ${LIB_DIR}"
+	exit 1
 fi
 
 echo "[INFO] Copying headers..."

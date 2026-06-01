@@ -8,8 +8,8 @@ set -euo pipefail
 # ---------- helpers ----------
 log() { echo -e "[setup.sh] $*"; }
 die() {
-        echo -e "[setup.sh] ERROR: $*" >&2
-                                                         exit 1
+	echo -e "[setup.sh] ERROR: $*" >&2
+	exit 1
 }
 
 trap 'die "failed at line $LINENO"' ERR
@@ -33,9 +33,9 @@ log "Container architecture: $ARCH"
 ORT_DIR="/opt/pek-deps/onnxruntime"
 
 if [[ -d "$ORT_DIR/include" && -d "$ORT_DIR/lib" ]]; then
-    log "Found ONNX Runtime in image: $ORT_DIR"
+	log "Found ONNX Runtime in image: $ORT_DIR"
 else
-    die "ONNX Runtime not found at $ORT_DIR. Install it via Dockerfile."
+	die "ONNX Runtime not found at $ORT_DIR. Install it via Dockerfile."
 fi
 
 # ---------- PlantUML JAR (verify only) ----------
@@ -43,11 +43,11 @@ WORK_PLANTUML_JAR="/work/deps/plantuml-mit-1.2026.2.jar"
 IMAGE_PLANTUML_JAR="/opt/pek-deps/plantuml-mit-1.2026.2.jar"
 
 if [[ -f "$WORK_PLANTUML_JAR" ]]; then
-    log "Found PlantUML JAR in workspace: $WORK_PLANTUML_JAR"
+	log "Found PlantUML JAR in workspace: $WORK_PLANTUML_JAR"
 elif [[ -f "$IMAGE_PLANTUML_JAR" ]]; then
-    log "Found PlantUML JAR in image: $IMAGE_PLANTUML_JAR"
+	log "Found PlantUML JAR in image: $IMAGE_PLANTUML_JAR"
 else
-    log "PlantUML JAR not found in workspace or image. Docs generation may skip PlantUML figures."
+	log "PlantUML JAR not found in workspace or image. Docs generation may skip PlantUML figures."
 fi
 
 log "Base setup.sh finished."

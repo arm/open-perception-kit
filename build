@@ -8,7 +8,7 @@
 set -euo pipefail
 
 usage() {
-    cat << 'EOF'
+	cat <<'EOF'
 Usage:
   ./build [-h|--help]
 
@@ -21,13 +21,13 @@ EOF
 }
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-    usage
-    exit 0
+	usage
+	exit 0
 elif [[ "${1:-}" != "" ]]; then
-    echo "Error: unknown argument '${1}'" >&2
-    echo >&2
-    usage >&2
-    exit 2
+	echo "Error: unknown argument '${1}'" >&2
+	echo >&2
+	usage >&2
+	exit 2
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -37,36 +37,36 @@ START_CONTAINER_SCRIPT="${SCRIPT_DIR}/scripts/quick-start/start-container.sh"
 BUILD_COMMAND='cd /work && ./scripts/build-elements.sh debug && test -x /work/tools/pek-menu && echo "Pipeline launcher is ready at /work/tools/pek-menu"'
 
 if ! detect_output="$("${DETECT_SCRIPT}" --shell)"; then
-    eval "$detect_output"
-    echo "Error: unsupported quick-start platform: ${PEK_PLATFORM_NAME:-unknown}" >&2
-    if [[ -n "${PEK_UNSUPPORTED_REASON:-}" ]]; then
-        echo "Reason: ${PEK_UNSUPPORTED_REASON}" >&2
-    fi
-    exit 1
+	eval "$detect_output"
+	echo "Error: unsupported quick-start platform: ${PEK_PLATFORM_NAME:-unknown}" >&2
+	if [[ -n "${PEK_UNSUPPORTED_REASON:-}" ]]; then
+		echo "Reason: ${PEK_UNSUPPORTED_REASON}" >&2
+	fi
+	exit 1
 fi
 eval "$detect_output"
 
 if [[ "${PEK_IN_CONTAINER}" == "true" ]]; then
-    if [[ ! -x /work/scripts/build-elements.sh ]]; then
-        echo "Error: /work/scripts/build-elements.sh is missing or not executable." >&2
-        exit 1
-    fi
+	if [[ ! -x /work/scripts/build-elements.sh ]]; then
+		echo "Error: /work/scripts/build-elements.sh is missing or not executable." >&2
+		exit 1
+	fi
 
-    bash -lc "${BUILD_COMMAND}"
-    exit 0
+	bash -lc "${BUILD_COMMAND}"
+	exit 0
 fi
 
 cd "${SCRIPT_DIR}"
 
-if ! docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2> /dev/null | grep -q '^true$'; then
-    echo "Container is not running: ${PEK_CONTAINER_NAME}"
-    echo "Starting it now..."
-    "${START_CONTAINER_SCRIPT}"
+if ! docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2>/dev/null | grep -q '^true$'; then
+	echo "Container is not running: ${PEK_CONTAINER_NAME}"
+	echo "Starting it now..."
+	"${START_CONTAINER_SCRIPT}"
 fi
 
-if ! docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2> /dev/null | grep -q '^true$'; then
-    echo "Error: container did not start: ${PEK_CONTAINER_NAME}" >&2
-    exit 1
+if ! docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2>/dev/null | grep -q '^true$'; then
+	echo "Error: container did not start: ${PEK_CONTAINER_NAME}" >&2
+	exit 1
 fi
 
 docker exec -u devgoblin --env-file devices.env "${PEK_CONTAINER_NAME}" bash -lc "${BUILD_COMMAND}"
