@@ -2,7 +2,7 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 
-#include "PerformanceTracer.h"
+#include "perf/PerformanceTracer.h"
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
@@ -11,7 +11,7 @@
 #include <sstream>
 #include <thread>
 
-namespace pek {
+namespace pek::perf {
 
 // ============================================================================
 // PerformanceTracer Implementation
@@ -470,4 +470,4 @@ PerformanceTracer *getGlobalTracer() {
     return g_global_tracer;
 }
 
-} // namespace pek
+} // namespace pek::perf

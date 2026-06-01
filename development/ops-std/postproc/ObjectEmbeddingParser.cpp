@@ -8,6 +8,7 @@
 #include <fmt/core.h>
 
 using namespace pek;
+using namespace pek::stdop::postproc;
 
 Result<void> ObjectEmbeddingParser::parse(const TensorParser::Input &input,
                                           Perception::Layer &detectionResult) {
@@ -19,13 +20,13 @@ Result<void> ObjectEmbeddingParser::parse(const TensorParser::Input &input,
     }
 
     const auto shape = input.tensors[0]->getShape();
-    if (shape.dimensionCount != 2 || shape.valueCount[0] != 1) {
+    if (shape.rank != 2 || shape.dims[0] != 1) {
         return tl::unexpected(PEK_ERROR(
             ErrorFlag::InvalidData,
             fmt::format("ObjectEmbeddingParser expects [1,N], got {}", shape.toString())));
     }
 
-    const size_t embeddingSize = shape.valueCount[1];
+    const size_t embeddingSize = shape.dims[1];
 
     Perception::ObjectEmbedding embedding;
     embedding.parentUuid = input.inferenceInfo.parentUuid;

@@ -15,6 +15,7 @@ pekinferpre = shared_module(
   sources: [
     'peksink.cpp',
     'http_server.cpp',
+    'webrtc_session.cpp',
     'webrtc_ws.cpp',
     'ctrl_ws.cpp',
     'utils.cpp',
@@ -27,4 +28,3 @@ pekinferpre = shared_module(
   link_with: [ common ],
   install: false
 )
-

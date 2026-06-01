@@ -11,14 +11,14 @@
 #include "pek/Types.h"
 #include "tl/expected.hpp"
 
-#include <PerformanceTracer.h>
+#include <perf/PerformanceTracer.h>
 
-using namespace pek;
+using namespace pek::stdop;
 
 InferenceControllerOp::InferenceControllerOp() {}
 InferenceControllerOp::~InferenceControllerOp() {}
 
-pek::Result<void> InferenceControllerOp::bind(size_t index, const std::vector<pek::Op *> &ops) {
+pek::Result<void> InferenceControllerOp::bind(size_t index, const std::vector<pek::op::Op *> &ops) {
     return {};
 }
 
@@ -27,7 +27,8 @@ pek::Result<void> InferenceControllerOp::configure(const pek::AttributeMap &attr
     return {};
 }
 
-pek::Result<void> InferenceControllerOp::process(pek::OpChainContext &opChainContext) {
+pek::Result<pek::op::OpSignal>
+InferenceControllerOp::process(pek::op::OpChainContext &opChainContext) {
     pek::BitmapView *pipelineVideoFrame = opChainContext.getBitmapView("pipelineVideoFrame");
 
     // TODO: later it can be also audio data not video only
@@ -36,17 +37,13 @@ pek::Result<void> InferenceControllerOp::process(pek::OpChainContext &opChainCon
                                         "InferenceControllerOp needs pipelineVideoFrame"));
     }
 
-    // we put the context into loop mode, if 0 or 1 inference is needed
-    // preprocessor will break in the 1st or 2nd iteration
-    opChainContext.loopId = loopId;
-
     opChainContext.inferenceInfo.modelFamily.clear();
     opChainContext.rootLayer.inferElementId =
         "rootLayer_" + opChainContext.inferenceInfo.inferElementId;
 
     if (contentType.empty()) {
         // setup source VideoFrame object
-        Perception::VideoFrame videoFrame;
+        pek::Perception::VideoFrame videoFrame;
         videoFrame.originalWidth = pipelineVideoFrame->width;
         videoFrame.originalHeight = pipelineVideoFrame->height;
         opChainContext.inferenceSourceUuid = videoFrame.uuid;
@@ -61,10 +58,9 @@ pek::Result<void> InferenceControllerOp::process(pek::OpChainContext &opChainCon
 
         opChainContext.inferenceImageCropUuids.push_back(videoFrame.uuid);
     } else {
-        PerceptionTools perception(*opChainContext.perception);
+        pek::PerceptionTools perception(*opChainContext.perception);
         auto rects = perception.getAllRectsWithContentType(contentType);
 
-        opChainContext.loopId = loopId;
         opChainContext.inferenceInfo.modelFamily = contentType;
 
         for (const auto &r : rects) {
@@ -79,5 +75,5 @@ pek::Result<void> InferenceControllerOp::process(pek::OpChainContext &opChainCon
         }
     }
 
-    return {};
+    return pek::op::OpSignal::Continue;
 }

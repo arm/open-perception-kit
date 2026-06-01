@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "KalmanFilter.h"
+#include "pek/KalmanFilter.h"
 #include "pek/Perception.h"
 
 #include <cstdint>
@@ -18,7 +18,7 @@ namespace pek::tracker {
 struct Config;
 
 struct TrackState {
-    using Kalman = KalmanFilter<4, 2, float>;
+    using Kalman = pek::KalmanFilter<4, 2, float>;
     uint64_t trackId = 0;
     pek::Perception::Rect lastDetection;
     std::string lastMatchDiagnostic = "NEW";

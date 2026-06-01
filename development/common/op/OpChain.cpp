@@ -10,15 +10,16 @@
 #include "op/Op.h"
 #include "op/OpChainDescriptor.h"
 
+#include <unordered_map>
 #include <unordered_set>
 
-using namespace pek;
+using namespace pek::op;
 
 const std::string &OpChain::getName() {
     return this->name;
 }
 
-pek::Result<void> OpChain::setupFromDescriptor(const pek::OpChainDescriptor &descriptor) {
+pek::Result<void> OpChain::setupFromDescriptor(const pek::op::OpChainDescriptor &descriptor) {
     name = descriptor.name;
 
     for (const auto &op : descriptor.ops) {
@@ -32,7 +33,7 @@ pek::Result<void> OpChain::setupFromDescriptor(const pek::OpChainDescriptor &des
         std::string libName = pek::utf8::split(op.id, "/")[0];
         std::string opName = pek::utf8::split(op.id, "/")[1];
 
-        pek::OpRef opRef;
+        pek::op::OpRef opRef;
         auto bindResult = opRef.bind(libName, opName);
         if (!bindResult) {
             return bindResult;
@@ -107,17 +108,39 @@ pek::Result<void> OpChain::validateGroupedLoopIds() {
     return {};
 }
 
+pek::Result<void> OpChain::validateLoopGroupSizes() {
+    std::unordered_map<size_t, size_t> groupOpCount;
+    for (Op *p : opPtrs) {
+        if (p->loopId != 0)
+            groupOpCount[p->loopId]++;
+    }
+    for (const auto &[id, count] : groupOpCount) {
+        if (count < 2)
+            return tl::make_unexpected(
+                PEK_ERROR(pek::ErrorFlag::InvalidOpChain,
+                          fmt::format("Loop group {} must contain at least 2 ops (controller + "
+                                      "one worker), but has {}",
+                                      id,
+                                      count)));
+    }
+    return {};
+}
+
 pek::Result<void> OpChain::validate() {
     auto validateLoopIdsResult = validateGroupedLoopIds();
     if (!validateLoopIdsResult) {
         return validateLoopIdsResult;
+    }
+    auto validateLoopGroupSizesResult = validateLoopGroupSizes();
+    if (!validateLoopGroupSizesResult) {
+        return validateLoopGroupSizesResult;
     }
     return {};
 }
 
 pek::Result<void> OpChain::setupFromFile(const std::string &filePath) {
     pek::log("Loading OpChain from file: [{}]\n", filePath);
-    auto descResult = pek::OpChainDescriptor::fromFile(filePath);
+    auto descResult = pek::op::OpChainDescriptor::fromFile(filePath);
     if (!descResult) {
         return tl::unexpected(std::move(descResult.error()));
     }
@@ -125,7 +148,7 @@ pek::Result<void> OpChain::setupFromFile(const std::string &filePath) {
     return setupFromDescriptor(*descResult);
 }
 
-void OpChain::add(pek::OpRef &opRef) {
+void OpChain::add(pek::op::OpRef &opRef) {
     opRefs.push_back(std::move(opRef));
 }
 
@@ -145,81 +168,53 @@ pek::Result<void> OpChain::bind() {
     return {};
 }
 
-pek::Result<void> OpChain::execute(pek::OpChainContext &opChainContext) {
+pek::Result<void> OpChain::execute(pek::op::OpChainContext &opChainContext) {
     size_t currentIndex = 0;
 
-    // reset loop control flags
-    opChainContext.breakLoop = false;
-    opChainContext.loopId = 0;
+    auto firstWorkerIndexForLoop = [this](size_t index, size_t loopId) {
+        size_t firstGroupIndex = index;
+        while (firstGroupIndex > 0 && opPtrs[firstGroupIndex - 1]->loopId == loopId) {
+            --firstGroupIndex;
+        }
 
-    // execute the chain
+        // Skip the controller op. Loop groups are validated to have at least two ops.
+        return firstGroupIndex + 1;
+    };
+
+    auto nextIndexAfterLoop = [this](size_t index, size_t loopId) {
+        while (index < opPtrs.size() && opPtrs[index]->loopId == loopId) {
+            ++index;
+        }
+        return index;
+    };
+
     while (currentIndex < opPtrs.size()) {
-        auto &op = opPtrs[currentIndex];
+        Op *op = opPtrs[currentIndex];
+        const size_t loopId = op->loopId;
 
-        // the current op must do its work
         auto result = op->process(opChainContext);
-        if (!result)
-            return result;
-
-        // quit inference loop if Op requested it
-        if (opChainContext.breakLoop) {
-            size_t nextIndex = currentIndex;
-            while (opPtrs.size() > nextIndex) {
-                if (opPtrs[nextIndex]->loopId != opChainContext.loopId) {
-                    break;
-                }
-                nextIndex++;
-            }
-
-            currentIndex = nextIndex;
-            continue;
+        if (!result) {
+            return tl::unexpected(std::move(result.error()));
         }
 
-        // get current and next loopId
-        bool lastInChain = (currentIndex + 1 == opPtrs.size());
-        size_t loopId = opChainContext.loopId;
-        size_t nextLoopId = 0;
-        if (currentIndex + 1 < opPtrs.size())
-            nextLoopId = opPtrs[currentIndex + 1]->loopId;
-
-        // continue if not in a loop group
-        if (loopId == 0) {
-            currentIndex++;
+        switch (*result) {
+        case OpSignal::AbortChain:
+            return {};
+        case OpSignal::BreakLoop:
+            currentIndex =
+                (loopId == 0) ? currentIndex + 1 : nextIndexAfterLoop(currentIndex, loopId);
             continue;
+        case OpSignal::Continue:
+            break;
         }
 
-        // check if next op is out of the loop
-        if (opChainContext.loopId) {
-            if (lastInChain || nextLoopId != loopId) {
-                // we must loop back to the head of the loop group
-                size_t firstGroupIndex = currentIndex;
-                assert(opPtrs[firstGroupIndex]->loopId == loopId);
-                while (true) {
-                    if (opPtrs[firstGroupIndex]->loopId != loopId) {
-                        firstGroupIndex++;
-                        break;
-                    }
+        const bool lastInChain = currentIndex + 1 == opPtrs.size();
+        const size_t nextLoopId = lastInChain ? 0 : opPtrs[currentIndex + 1]->loopId;
 
-                    if (!firstGroupIndex)
-                        break;
-
-                    firstGroupIndex--;
-                }
-
-                // skip controller Op
-                assert(opPtrs[firstGroupIndex]->loopId == loopId);
-                firstGroupIndex++;
-
-                currentIndex = firstGroupIndex;
-                assert(opPtrs[currentIndex]->loopId == loopId);
-
-            } else {
-                // nothing happened, just go on
-                currentIndex++;
-            }
+        if (loopId != 0 && (lastInChain || nextLoopId != loopId)) {
+            currentIndex = firstWorkerIndexForLoop(currentIndex, loopId);
         } else {
-            // not in loop, just go on
-            currentIndex++;
+            ++currentIndex;
         }
     }
 

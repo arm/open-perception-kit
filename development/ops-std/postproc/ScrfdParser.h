@@ -9,7 +9,7 @@
 #include "pek/TensorParser.h"
 #include "pek/TensorView.h"
 
-namespace pek {
+namespace pek::stdop::postproc {
 
 struct ScrfdParser : public pek::TensorParser {
 
@@ -17,4 +17,4 @@ struct ScrfdParser : public pek::TensorParser {
                                     pek::Perception::Layer &output) override;
 };
 
-} // namespace pek
+} // namespace pek::stdop::postproc

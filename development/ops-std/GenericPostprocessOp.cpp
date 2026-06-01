@@ -11,7 +11,7 @@
 
 #include "pek/Perception.h"
 #include "pek/Types.h"
-#include <PerformanceTracer.h>
+#include <perf/PerformanceTracer.h>
 
 // parser class headers
 #include "postproc/CameraContactParser.h"
@@ -28,7 +28,7 @@
 #include "postproc/YoloParser.h"
 // ... add new parser headers here
 
-using namespace pek;
+using namespace pek::stdop;
 
 namespace {
 
@@ -41,18 +41,19 @@ template <class T> ParserCreator make() {
 // parser registry
 const std::map<std::string, ParserCreator> &getParserRegistry() {
     static const std::map<std::string, ParserCreator> registry = {
-        {"CameraContactParser", make<pek::CameraContactParser>()},
-        {"DummyParser", make<pek::DummyParser>()},
-        {"GazeDetectionParser", make<pek::GazeDetectionParser>()},
-        {"ImageNetClassificationParser", make<pek::ImageNetClassificationParser>()},
-        {"ModNetSegmentationParser", make<pek::ModNetSegmentationParser>()},
-        {"ObjectEmbeddingParser", make<pek::ObjectEmbeddingParser>()},
-        {"PaddleOcrDetectionParser", make<pek::PaddleOcrDetectionParser>()},
-        {"PersonClassificationParser", make<pek::PersonClassificationParser>()},
-        {"RvmParser", make<pek::RvmParser>()},
-        {"ScrfdParser", make<pek::ScrfdParser>()},
-        {"UltrafaceParser", make<pek::UltraFaceParser>()},
-        {"YoloParser", make<pek::YoloParser>()},
+        {"CameraContactParser", make<pek::stdop::postproc::CameraContactParser>()},
+        {"DummyParser", make<pek::stdop::postproc::DummyParser>()},
+        {"GazeDetectionParser", make<pek::stdop::postproc::GazeDetectionParser>()},
+        {"ImageNetClassificationParser",
+         make<pek::stdop::postproc::ImageNetClassificationParser>()},
+        {"ModNetSegmentationParser", make<pek::stdop::postproc::ModNetSegmentationParser>()},
+        {"ObjectEmbeddingParser", make<pek::stdop::postproc::ObjectEmbeddingParser>()},
+        {"PaddleOcrDetectionParser", make<pek::stdop::postproc::PaddleOcrDetectionParser>()},
+        {"PersonClassificationParser", make<pek::stdop::postproc::PersonClassificationParser>()},
+        {"RvmParser", make<pek::stdop::postproc::RvmParser>()},
+        {"ScrfdParser", make<pek::stdop::postproc::ScrfdParser>()},
+        {"UltrafaceParser", make<pek::stdop::postproc::UltraFaceParser>()},
+        {"YoloParser", make<pek::stdop::postproc::YoloParser>()},
         // ... add new parsers here
     };
     return registry;
@@ -63,7 +64,7 @@ const std::map<std::string, ParserCreator> &getParserRegistry() {
 GenericPostprocessOp::GenericPostprocessOp() {}
 GenericPostprocessOp::~GenericPostprocessOp() {}
 
-pek::Result<void> GenericPostprocessOp::bind(size_t index, const std::vector<pek::Op *> &ops) {
+pek::Result<void> GenericPostprocessOp::bind(size_t index, const std::vector<pek::op::Op *> &ops) {
     return {};
 }
 
@@ -90,7 +91,8 @@ pek::Result<void> GenericPostprocessOp::configure(const pek::AttributeMap &attri
     return {};
 }
 
-pek::Result<void> GenericPostprocessOp::process(pek::OpChainContext &opChainContext) {
+pek::Result<pek::op::OpSignal>
+GenericPostprocessOp::process(pek::op::OpChainContext &opChainContext) {
     PEK_TRACE_SCOPE(fmt::format("std/Post/{}", opChainContext.inferenceInfo.modelFamily));
 
     pek::TensorParser::Input tensorParserInput(attributes);
@@ -111,13 +113,15 @@ pek::Result<void> GenericPostprocessOp::process(pek::OpChainContext &opChainCont
     rawDetectionLayer.inferElementId = opChainContext.inferenceInfo.inferElementId;
     auto parseResult = parser->parse(tensorParserInput, rawDetectionLayer);
     if (!parseResult) {
-        return parseResult;
+        return tl::unexpected(parseResult.error());
     }
 
     // set parent uids
     for (auto &det : rawDetectionLayer.detections) {
-        Perception::Object &obj = std::visit(
-            [](auto &v) -> Perception::Object & { return static_cast<Perception::Object &>(v); },
+        pek::Perception::Object &obj = std::visit(
+            [](auto &v) -> pek::Perception::Object & {
+                return static_cast<pek::Perception::Object &>(v);
+            },
             det);
 
         obj.parentUuid = opChainContext.inferenceSourceUuid;
@@ -130,5 +134,5 @@ pek::Result<void> GenericPostprocessOp::process(pek::OpChainContext &opChainCont
         opChainContext.hasRootLayer = true;
     }
 
-    return {};
+    return pek::op::OpSignal::Continue;
 }

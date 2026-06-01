@@ -13,6 +13,7 @@
 #include <vector>
 
 using namespace pek;
+using namespace pek::stdop::postproc;
 
 struct Det {
     float x1, y1, x2, y2, conf;
@@ -107,9 +108,7 @@ static void fillDetection(const std::vector<Det> &dets,
         rect.width = a.x2 - a.x1;
         rect.height = a.y2 - a.y1;
         rect.confidence = a.conf;
-        rect.classId = a.cls;
-        rect.label = pek::Labels::getLabel(pek::LabelType::Coco, a.cls);
-        rect.text = rect.label;
+        rect.text = pek::resources::Labels::getLabel(pek::resources::LabelType::Coco, a.cls);
 
         if (normalizeOutputCoordinates) {
             rect.x /= frameWidth;
@@ -151,8 +150,8 @@ static void processDetection(const pek::TensorParser::Input &input,
 
 // ----------------------------------------------------------------------------
 
-pek::Result<void> pek::YoloParser::parse(const pek::TensorParser::Input &input,
-                                         pek::Perception::Layer &detectionResult) {
+Result<void> YoloParser::parse(const pek::TensorParser::Input &input,
+                               pek::Perception::Layer &detectionResult) {
 
     const OutputFormat outputFormat = parseOutputFormat(input.attributes);
 
@@ -197,8 +196,7 @@ pek::Result<void> pek::YoloParser::parse(const pek::TensorParser::Input &input,
         assert(maxBboxesPerClass > 0);
 
         // Accept packed tensor shape [1, classCount, flat]
-        if (shape.dimensionCount != 3 || shape.valueCount[0] != 1 ||
-            shape.valueCount[1] != classCount) {
+        if (shape.rank != 3 || shape.dims[0] != 1 || shape.dims[1] != classCount) {
             return tl::unexpected(PEK_ERROR(
                 pek::ErrorFlag::InvalidData,
                 fmt::format("YoloParser: expected packed tensor shape [1,classCount,flat], got {}",
@@ -270,12 +268,12 @@ pek::Result<void> pek::YoloParser::parse(const pek::TensorParser::Input &input,
     } else if (outputFormat == OutputFormat::UltraliticsYolo) {
         // Assume tensor is [*, C, N] or [*, N, C] and the smaller one is C
         bool colFirst = true;
-        size_t C = shape.valueCount[1];
-        size_t N = shape.valueCount[2];
+        size_t C = shape.dims[1];
+        size_t N = shape.dims[2];
 
         if (C > N) {
-            C = shape.valueCount[2];
-            N = shape.valueCount[1];
+            C = shape.dims[2];
+            N = shape.dims[1];
             colFirst = false;
         }
 

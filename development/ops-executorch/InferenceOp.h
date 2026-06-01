@@ -10,20 +10,21 @@
 
 #include "Inference.h"
 
-namespace exct {
+namespace pek::extrch {
 
-class InferenceOp : public pek::Op {
+class InferenceOp : public pek::op::Op {
   public:
     InferenceOp();
     virtual ~InferenceOp();
 
     virtual pek::Result<void> configure(const pek::AttributeMap &attributes) override;
-    virtual pek::Result<void> bind(size_t index, const std::vector<pek::Op *> &ops) override;
-    virtual pek::Result<void> process(pek::OpChainContext &opChainContext) override;
+    virtual pek::Result<void> bind(size_t index, const std::vector<pek::op::Op *> &ops) override;
+    virtual pek::Result<pek::op::OpSignal>
+    process(pek::op::OpChainContext &opChainContext) override;
 
   private:
-    std::unique_ptr<exct::Inference> inference;
+    std::unique_ptr<pek::extrch::Inference> inference;
     std::string modelFamily;
 };
 
-} // namespace exct
+} // namespace pek::extrch

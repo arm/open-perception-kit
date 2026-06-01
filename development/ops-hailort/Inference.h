@@ -15,7 +15,7 @@
 #include "pek/Result.h"
 #include "pek/Shape.h"
 
-namespace hailort {
+namespace pek::hailo {
 
 struct Inference {
 
@@ -23,7 +23,7 @@ struct Inference {
     virtual ~Inference();
 
     pek::Result<void> setupFromJson(const std::string &filePath);
-    pek::Result<void> setup(const ModelDescriptor &modelDesc);
+    pek::Result<void> setup(const pek::ModelDescriptor &modelDesc);
 
     pek::Result<void>
     inference(std::chrono::milliseconds timeout = std::chrono::milliseconds(5000));
@@ -57,21 +57,21 @@ struct Inference {
         size_t byteCount = 0;
     };
 
-    static pek::Result<hailo_format_type_t> pekTypeToHailoType(pek::Tdt type);
-    static pek::Result<pek::Tdt> hailoTypeToPekType(hailo_format_type_t type);
+    static pek::Result<hailo_format_type_t> pekTypeToHailoType(pek::Dtype type);
+    static pek::Result<pek::Dtype> hailoTypeToPekType(hailo_format_type_t type);
     static pek::Result<pek::Shape> hailoVstreamToPekSize(const hailo_vstream_info_t &info,
                                                          size_t batchSize);
 
     static Buffer allocateBuffer(size_t byteCount);
 
     bool setupReady = false;
-    ModelDescriptor modelDescriptor;
+    pek::ModelDescriptor modelDescriptor;
     pek::Model model;
 
-    std::shared_ptr<hailort::VDevice> vdevice;
-    std::shared_ptr<hailort::InferModel> inferModel;
-    std::unique_ptr<hailort::ConfiguredInferModel> configuredInferModel;
-    std::unique_ptr<hailort::ConfiguredInferModel::Bindings> bindings;
+    std::shared_ptr<::hailort::VDevice> vdevice;
+    std::shared_ptr<::hailort::InferModel> inferModel;
+    std::unique_ptr<::hailort::ConfiguredInferModel> configuredInferModel;
+    std::unique_ptr<::hailort::ConfiguredInferModel::Bindings> bindings;
 
     Buffer inputBuffers[pek::MaxTensorCount];
     Buffer outputBuffers[pek::MaxTensorCount];
@@ -80,4 +80,4 @@ struct Inference {
     pek::Shape outputTensorFinalShapes[pek::MaxTensorCount];
 };
 
-} // namespace hailort
+} // namespace pek::hailo

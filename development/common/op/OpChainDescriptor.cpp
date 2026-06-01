@@ -6,7 +6,7 @@
 
 #include "pek/File.h"
 
-using namespace pek;
+using namespace pek::op;
 
 pek::Result<OpChainDescriptor> OpChainDescriptor::fromJson(const std::string &jsonString) {
 

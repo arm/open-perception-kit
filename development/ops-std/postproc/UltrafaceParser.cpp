@@ -10,6 +10,7 @@
 #include <vector>
 
 using namespace pek;
+using namespace pek::stdop::postproc;
 
 // IoU between two boxes (x,y = top-left, w,h = size)
 inline float iou(const Perception::Rect &a, const Perception::Rect &b) {
@@ -210,55 +211,53 @@ validateParseInput(const pek::TensorParser::Input &input) {
 
     const auto scoresShape = scores->getShape();
     const auto boxesShape = boxes->getShape();
-    if (scoresShape.dimensionCount != 3) {
-        return tl::unexpected(
-            PEK_ERROR(ErrorFlag::InvalidData,
-                      fmt::format("UltraFaceParser: scores tensor must be 3D, got {}D",
-                                  scoresShape.dimensionCount)));
+    if (scoresShape.rank != 3) {
+        return tl::unexpected(PEK_ERROR(
+            ErrorFlag::InvalidData,
+            fmt::format("UltraFaceParser: scores tensor must be 3D, got {}D", scoresShape.rank)));
     }
-    if (boxesShape.dimensionCount != 3) {
-        return tl::unexpected(
-            PEK_ERROR(ErrorFlag::InvalidData,
-                      fmt::format("UltraFaceParser: boxes tensor must be 3D, got {}D",
-                                  boxesShape.dimensionCount)));
+    if (boxesShape.rank != 3) {
+        return tl::unexpected(PEK_ERROR(
+            ErrorFlag::InvalidData,
+            fmt::format("UltraFaceParser: boxes tensor must be 3D, got {}D", boxesShape.rank)));
     }
-    if (scoresShape.valueCount[0] != 1) {
+    if (scoresShape.dims[0] != 1) {
         return tl::unexpected(
             PEK_ERROR(ErrorFlag::InvalidData,
                       fmt::format("UltraFaceParser: scores batch size must be 1, got {}",
-                                  scoresShape.valueCount[0])));
+                                  scoresShape.dims[0])));
     }
-    if (boxesShape.valueCount[0] != 1) {
+    if (boxesShape.dims[0] != 1) {
         return tl::unexpected(
             PEK_ERROR(ErrorFlag::InvalidData,
                       fmt::format("UltraFaceParser: boxes batch size must be 1, got {}",
-                                  boxesShape.valueCount[0])));
+                                  boxesShape.dims[0])));
     }
-    if (scoresShape.valueCount[2] != 2) {
+    if (scoresShape.dims[2] != 2) {
         return tl::unexpected(
             PEK_ERROR(ErrorFlag::InvalidData,
                       fmt::format("UltraFaceParser: scores tensor last dimension must be 2, got {}",
-                                  scoresShape.valueCount[2])));
+                                  scoresShape.dims[2])));
     }
-    if (boxesShape.valueCount[2] != 4) {
+    if (boxesShape.dims[2] != 4) {
         return tl::unexpected(
             PEK_ERROR(ErrorFlag::InvalidData,
                       fmt::format("UltraFaceParser: boxes tensor last dimension must be 4, got {}",
-                                  boxesShape.valueCount[2])));
+                                  boxesShape.dims[2])));
     }
-    if (scoresShape.valueCount[1] != boxesShape.valueCount[1]) {
+    if (scoresShape.dims[1] != boxesShape.dims[1]) {
         return tl::unexpected(
             PEK_ERROR(ErrorFlag::InvalidData,
                       fmt::format("UltraFaceParser: score and box counts differ: {} vs {}",
-                                  scoresShape.valueCount[1],
-                                  boxesShape.valueCount[1])));
+                                  scoresShape.dims[1],
+                                  boxesShape.dims[1])));
     }
 
     if (anchors.empty()) {
         anchors = generateAnchors(modelWidth, modelHeight);
     }
 
-    const size_t detectionCount = boxesShape.valueCount[1];
+    const size_t detectionCount = boxesShape.dims[1];
     if (anchors.size() != detectionCount) {
         return tl::unexpected(PEK_ERROR(
             ErrorFlag::InvalidData,
@@ -273,8 +272,8 @@ validateParseInput(const pek::TensorParser::Input &input) {
 
 // ----------------------------------------------------------------------------
 
-pek::Result<void> pek::UltraFaceParser::parse(const pek::TensorParser::Input &input,
-                                              pek::Perception::Layer &detectionResult) {
+Result<void> UltraFaceParser::parse(const pek::TensorParser::Input &input,
+                                    pek::Perception::Layer &detectionResult) {
 
     const float confThreshold =
         (float)input.attributes.getDoubleOrDefault("confidenceThreshold", 0.5);

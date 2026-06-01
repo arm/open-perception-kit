@@ -4,11 +4,16 @@
 
 #pragma once
 
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
+#include <stdexcept>
 #include <string>
 
 #include "pek/Color.h"
+
+namespace pek {
 
 #if defined(__arm__) || defined(__aarch64__)
 using f16_type = __fp16;
@@ -18,47 +23,98 @@ using f16_type = _Float16;
 #error Unsupported architecture
 #endif
 
-namespace pek {
-
+/// @brief Alias for uint8_t tensor element type.
 using Uint8 = uint8_t;
+/// @brief Alias for signed char tensor element type.
 using Int8 = signed char;
+/// @brief Alias for 16-bit float tensor element type.
 using Float16 = f16_type;
+/// @brief Alias for 32-bit float tensor element type.
 using Float32 = float;
+/// @brief Alias for 64-bit signed integer tensor element type.
 using Int64 = int64_t;
 
-// tensor data type
-enum class Tdt { Uint8, Int8, Float16, Float32, Int64 };
+/**
+ * @brief Tensor element data type.
+ */
+enum class Dtype { Uint8, Int8, Float16, Float32, Int64 };
 
+/// @brief Type-erased pointer to tensor data.
 using ValuePointer = void *;
 
-inline size_t getValueTypeByteSize(Tdt type) {
+/**
+ * @brief Returns the byte size of a single element of the given data type.
+ * @param type Tensor element data type.
+ * @return Byte size of one element.
+ */
+inline size_t getValueTypeByteSize(Dtype type) {
     switch (type) {
-    case Tdt::Int8:
+    case Dtype::Int8:
         return 1;
-    case Tdt::Uint8:
+    case Dtype::Uint8:
         return 1;
-    case Tdt::Float16:
+    case Dtype::Float16:
         return 2;
-    case Tdt::Float32:
+    case Dtype::Float32:
         return 4;
-    case Tdt::Int64:
+    case Dtype::Int64:
         return 8;
     }
-    return 0;
+    throw std::runtime_error("Unknown Dtype in getValueTypeByteSize()");
 }
 
+/**
+ * @brief Audio sample storage type.
+ */
+enum class AudioSampleType { U8, S16, S24, S32, F32 };
+
+/**
+ * @brief Returns the byte size of one audio sample of the given type.
+ * @param t Audio sample storage type.
+ * @return Byte size of one sample.
+ */
+inline size_t getAudioSampleByteSize(AudioSampleType t) {
+    switch (t) {
+    case AudioSampleType::U8:
+        return 1;
+    case AudioSampleType::S16:
+        return 2;
+    case AudioSampleType::S24:
+        return 3;
+    case AudioSampleType::S32:
+        return 4;
+    case AudioSampleType::F32:
+        return 4;
+    }
+    throw std::runtime_error("Unknown AudioSampleType in getAudioSampleByteSize()");
+}
+
+/**
+ * @brief Per-channel quantization scale and zero-point.
+ */
 struct QuantizationArgs {
-    float scale = 1.0f;
-    float zeroPoint = 0.0f;
+    float scale = 1.0f;     ///< Quantization scale factor.
+    float zeroPoint = 0.0f; ///< Quantization zero point.
 };
 
+/**
+ * @brief Per-channel normalisation mean and standard deviation helpers.
+ */
 struct MeanStd {
+    /**
+     * @brief Returns true if @p value equals the default mean (0, 0, 0).
+     * @param value Per-channel mean colour to test.
+     */
     static bool isDefaultMean(const pek::Colorf &value) {
         if (value.r != 0.0f || value.g != 0.0f || value.b != 0.0f)
             return false;
         return true;
     }
 
+    /**
+     * @brief Returns true if @p value equals the default std (1, 1, 1).
+     * @param value Per-channel standard deviation colour to test.
+     */
     static bool isDefaultStd(const pek::Colorf &value) {
         if (value.r != 1.0f || value.g != 1.0f || value.b != 1.0f)
             return false;
@@ -66,151 +122,139 @@ struct MeanStd {
     }
 };
 
-// ---
-
+/**
+ * @brief Indicates whether a tensor is used as model input or output.
+ */
 enum class TensorInOut { In, Out };
 
-// represents the type of data stored in an input tensor
+/**
+ * @brief Describes the semantic content stored in a tensor.
+ */
 enum class DataKind {
     Unknown = 0,
-    ImageRgbChw,  // RRRGGGBBB
-    ImageRgbHwc,  // RGBRGBRGB
-    ImageBgraHwc, // BGRABGRA
-    ImageGray,
+    ImageRgbChw,  ///< Planar RGB image, layout RRRGGGBBB.
+    ImageRgbHwc,  ///< Interleaved RGB image, layout RGBRGBRGB.
+    ImageBgraHwc, ///< Interleaved BGRA image, layout BGRABGRA.
+    ImageGray,    ///< Single-channel greyscale image.
 
-    RawTensorData, // raw (sometimes quantized) tensor data, e.g. output-tensor-content after
-                   // inference
+    AudioPcm,    ///< PCM audio samples.
+    AudioLogMel, ///< Log-mel audio samples.
 
-    Value,   // one scalar value (often used an an input tensor for some inference configuration)
-    Vector2, // 2 scalar values
-    Vector3, // 3 scalar values
-    Vector4, // 4 scalar values
+    RawTensorData, ///< Raw (possibly quantized) tensor data, e.g. a model output buffer.
 
-    AudioDUMMY,
-    TextDUMMY,
+    Value,   ///< Single scalar value.
+    Vector2, ///< Two scalar values.
+    Vector3, ///< Three scalar values.
+    Vector4  ///< Four scalar values.
 };
 
+/**
+ * @brief Returns true if @p kind represents a scalar or small vector data kind.
+ * @param kind DataKind to test.
+ */
 inline bool isScalarDataKind(DataKind kind) {
-    if (kind == DataKind::Value)
+    switch (kind) {
+    case DataKind::Value:
+    case DataKind::Vector2:
+    case DataKind::Vector3:
+    case DataKind::Vector4:
         return true;
-    if (kind == DataKind::Vector2)
-        return true;
-    if (kind == DataKind::Vector3)
-        return true;
-    if (kind == DataKind::Vector4)
-        return true;
-    return false;
+    default:
+        return false;
+    }
 }
 
+/**
+ * @brief Returns true if @p kind represents an image data kind.
+ * @param kind DataKind to test.
+ */
 inline bool isImageDataKind(DataKind kind) {
-    if (kind == DataKind::ImageRgbChw)
+    switch (kind) {
+    case DataKind::ImageRgbChw:
+    case DataKind::ImageRgbHwc:
+    case DataKind::ImageBgraHwc:
+    case DataKind::ImageGray:
         return true;
-    if (kind == DataKind::ImageRgbHwc)
-        return true;
-    if (kind == DataKind::ImageBgraHwc)
-        return true;
-    if (kind == DataKind::ImageGray)
-        return true;
-    return false;
+    default:
+        return false;
+    }
 }
 
+/// @brief Maximum number of input or output tensors per inference op.
 constexpr size_t MaxTensorCount = 16;
-constexpr int64_t InvalidTensorIndex = 0xdead;
+/// @brief Sentinel value for an uninitialised or invalid tensor index.
+constexpr size_t InvalidTensorIndex = std::numeric_limits<size_t>::max();
 
-// Information about the inference itself
-// sometimes these things are crucial for the parsing itself
+/**
+ * @brief Physical and model image dimensions associated with an inference.
+ */
 struct ImageInferenceMetadata {
-    // physical image dimensions the inference runs on
-    size_t width = 0, height = 0;
-    // the input tensor dimensions
-    size_t modelWidth = 0, modelHeight = 0;
+    size_t width = 0;       ///< Physical image width in pixels.
+    size_t height = 0;      ///< Physical image height in pixels.
+    size_t modelWidth = 0;  ///< Input tensor width expected by the model.
+    size_t modelHeight = 0; ///< Input tensor height expected by the model.
 };
 
+/**
+ * @brief Contextual information about a single inference execution.
+ */
 struct InferenceInfo {
-    uint64_t parentUuid;
-    std::string contentType;
-    std::string modelFamily;
-    std::string inferElementId;
-    ImageInferenceMetadata image;
+    uint64_t parentUuid = 0;      ///< UUID of the parent Perception frame.
+    std::string contentType;      ///< MIME-style content type identifier.
+    std::string modelFamily;      ///< Model family name, e.g. "yolov11".
+    std::string inferElementId;   ///< GStreamer element id of the originating pekinfer.
+    ImageInferenceMetadata image; ///< Image geometry for this inference.
 };
 
+/**
+ * @brief Axis-aligned pixel rectangle.
+ */
 struct PixelRect {
-    size_t x = 0, y = 0, width = 0, height = 0;
+    size_t x = 0;      ///< Left edge in pixels.
+    size_t y = 0;      ///< Top edge in pixels.
+    size_t width = 0;  ///< Width in pixels.
+    size_t height = 0; ///< Height in pixels.
 
+    /**
+     * @brief Returns true if the rectangle has zero area.
+     */
     bool isEmpty() const {
         return width == 0 || height == 0;
     }
 
+    /**
+     * @brief Returns true if the rectangle fits entirely within the given surface dimensions.
+     * @param surfaceWidth Surface width in pixels.
+     * @param surfaceHeight Surface height in pixels.
+     */
     bool fitsWithin(size_t surfaceWidth, size_t surfaceHeight) const {
         return x <= surfaceWidth && y <= surfaceHeight && width <= surfaceWidth - x &&
                height <= surfaceHeight - y;
     }
 };
 
-struct ImageLayoutDesc {
-    uint8_t *data = nullptr;
-    size_t byteCount = 0;
-
-    size_t surfaceWidth = 0;
-    size_t surfaceHeight = 0;
-    size_t surfaceStride = 0; // in bytes, NOT USED YET, we assume tightly packed for now
-
-    PixelRect rect;
-
-    DataKind kind = DataKind::Unknown;
-    pek::Tdt type = pek::Tdt::Float32;
-
-    pek::Colorf mean = {0.0f, 0.0f, 0.0f, 0.0f};
-    pek::Colorf std = {1.0f, 1.0f, 1.0f, 1.0f};
-
-    size_t getChannelCount() const {
-        switch (kind) {
-        case DataKind::ImageRgbChw:
-            return 3;
-        case DataKind::ImageRgbHwc:
-            return 3;
-        case DataKind::ImageBgraHwc:
-            return 4;
-        case DataKind::ImageGray:
-            return 1;
-        default:
-            return 0;
-        }
-    }
-
-    bool hasKnownImageStorage() const {
-        return getChannelCount() != 0;
-    }
-
-    bool rectIsFullSurface() const {
-        return rect.x == 0 && rect.y == 0 && rect.width == surfaceWidth &&
-               rect.height == surfaceHeight;
-    }
-
-    size_t getMinimumByteCountForFullSurface() const {
-        const size_t channelCount = getChannelCount();
-        const size_t valueSize = pek::getValueTypeByteSize(type);
-        if (channelCount == 0 || valueSize == 0)
-            return 0;
-        return surfaceWidth * surfaceHeight * channelCount * valueSize;
-    }
-
-    bool hasByteCountForFullSurface() const {
-        const size_t minimumByteCount = getMinimumByteCountForFullSurface();
-        if (minimumByteCount == 0)
-            return false;
-        return byteCount >= minimumByteCount;
-    }
+/**
+ * @brief Pixel sampling mode for image resizing operations.
+ */
+enum class Sampling {
+    Nearest, ///< Nearest-neighbour sampling.
+    Linear   ///< Bilinear sampling (reserved, not yet supported).
 };
 
-enum class Sampling { Nearest, Linear /* not supported yet */ };
-
+/**
+ * @brief Describes a tensor feedback loop, copying an output tensor back as a future input.
+ */
 struct TensorFeedback {
-    enum class Mode { Copy };
+    /**
+     * @brief Copy mode for the feedback operation.
+     */
+    enum class Mode {
+        Copy ///< Direct buffer copy.
+    };
 
-    size_t fromOutputTensorIndex = 0;
-    size_t toInputTensorIndex = 0;
-    Mode mode = Mode::Copy;
+    size_t fromOutputTensorIndex = 0; ///< Source output tensor index.
+    size_t toInputTensorIndex = 0;    ///< Destination input tensor index.
+    Mode mode = Mode::Copy;           ///< Feedback copy mode.
 };
 
 } // namespace pek

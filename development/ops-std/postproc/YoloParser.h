@@ -10,12 +10,24 @@
 #include "pek/TensorView.h"
 
 //
-namespace pek {
+namespace pek::stdop::postproc {
 
+/**
+ * @brief Yolo parser.
+ *
+ * Classic yolo object detection parser.
+ */
 struct YoloParser : public pek::TensorParser {
 
+    /**
+     * @brief Parses YOLO detection output tensor.
+     *
+     * @param input Input tensor and model information.
+     * @param output Perception layer populated with detected objects.
+     * @return Result indicating success or parsing error.
+     */
     virtual pek::Result<void> parse(const pek::TensorParser::Input &input,
                                     pek::Perception::Layer &output) override;
 };
 
-} // namespace pek
+} // namespace pek::stdop::postproc

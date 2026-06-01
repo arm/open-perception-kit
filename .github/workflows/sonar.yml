@@ -12,11 +12,14 @@ jobs:
     runs-on: self-hosted-ubuntu-latest-x64
 
     if: |
-        (github.event.pull_request.draft == false) ||
-        (github.event_name == 'pull_request' && github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+        github.event_name != 'pull_request' ||
+        github.event.pull_request.draft == false ||
+        (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
 
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
+      CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
 
     steps:
       - name: Log in to Docker Hub
@@ -31,11 +34,18 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           ref: ${{ github.head_ref || github.ref }}
+          path: ${{ env.CI_CHECKOUT_PATH }}
 
-      - name: Build docker image 
+      - name: Export isolated workspace root
+        shell: bash
+        run: echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
+
+      - name: Build docker image
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-sonar-check
-          
+
       - name: SonarQube analysis
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-sonar-check
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -45,3 +55,32 @@ jobs:
           PR_KEY: ${{ github.event.pull_request.number }}
           PR_BRANCH: ${{ github.head_ref }}
           PR_BASE: ${{ github.base_ref }}
+
+      - name: Cleanup isolated workspace
+        if: always()
+        shell: bash
+        run: |
+          workspace_root="${WORKSPACE_ROOT:-}"
+          expected_workspace_prefix="${GITHUB_WORKSPACE:-}/repo-"
+
+          case "${workspace_root}" in
+            "${expected_workspace_prefix}"*)
+              ;;
+            *)
+              echo "Skipping cleanup for unexpected WORKSPACE_ROOT='${workspace_root}'" >&2
+              exit 0
+              ;;
+          esac
+
+          if [ -d "${workspace_root}" ]; then
+            if [ -f "${workspace_root}/${DOCKER_COMPOSE_FILE}" ]; then
+              (
+                cd "${workspace_root}"
+                docker compose -f "${DOCKER_COMPOSE_FILE}" down --remove-orphans --rmi local || true
+              )
+            fi
+
+            sudo chown -R "$(id -u):$(id -g)" "${workspace_root}" || true
+            chmod -R u+rwX "${workspace_root}" || true
+            rm -rf "${workspace_root}" || sudo rm -rf "${workspace_root}" || true
+          fi

@@ -13,6 +13,7 @@
 #include <vector>
 
 using namespace pek;
+using namespace pek::stdop::postproc;
 
 // Softmax helper function
 static void softmax(const std::span<float> input, std::span<float> output) {
@@ -38,8 +39,8 @@ static void softmax(const std::span<float> input, std::span<float> output) {
     }
 }
 
-pek::Result<void> ImageNetClassificationParser::parse(const pek::TensorParser::Input &input,
-                                                      pek::Perception::Layer &detectionResult) {
+Result<void> ImageNetClassificationParser::parse(const pek::TensorParser::Input &input,
+                                                 pek::Perception::Layer &detectionResult) {
 
     if (!input.tensors[0]) {
         return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
@@ -47,26 +48,25 @@ pek::Result<void> ImageNetClassificationParser::parse(const pek::TensorParser::I
     }
 
     const auto shape = input.tensors[0]->getShape();
-    if (shape.dimensionCount != 2U) {
-        return tl::unexpected(
-            PEK_ERROR(pek::ErrorFlag::InvalidData,
-                      fmt::format("ImageNetClassificationParser: expected 2D tensor, got {}D",
-                                  shape.dimensionCount)));
+    if (shape.rank != 2U) {
+        return tl::unexpected(PEK_ERROR(
+            pek::ErrorFlag::InvalidData,
+            fmt::format("ImageNetClassificationParser: expected 2D tensor, got {}D", shape.rank)));
     }
-    if (shape.valueCount[0] != 1U) {
+    if (shape.dims[0] != 1U) {
         return tl::unexpected(
             PEK_ERROR(pek::ErrorFlag::InvalidData,
                       fmt::format("ImageNetClassificationParser: batch size must be 1, got {}",
-                                  shape.valueCount[0])));
+                                  shape.dims[0])));
     }
 
-    constexpr auto numClasses = Labels::getLabelCount(LabelType::ImageNet);
-    if (numClasses != shape.valueCount[1]) {
+    constexpr auto numClasses = resources::Labels::getLabelCount(resources::LabelType::ImageNet);
+    if (numClasses != shape.dims[1]) {
         return tl::unexpected(
             PEK_ERROR(pek::ErrorFlag::InvalidData,
                       fmt::format("ImageNetClassificationParser: expected {} classes, got {}",
                                   numClasses,
-                                  shape.valueCount[1])));
+                                  shape.dims[1])));
     }
 
     const int topK = input.attributes.getIntOrDefault("topK", 5);
@@ -117,7 +117,8 @@ pek::Result<void> ImageNetClassificationParser::parse(const pek::TensorParser::I
             candidate.w = 0.0f;                  // Not used
             candidate.h = 0.0f;                  // Not used
             candidate.confidence = confidence;
-            candidate.text = theImageNetLabels[classIdx];
+            candidate.text =
+                pek::resources::Labels::getLabel(pek::resources::LabelType::ImageNet, classIdx);
 
             classification.candidates.push_back(candidate);
         }

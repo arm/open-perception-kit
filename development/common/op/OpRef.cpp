@@ -8,7 +8,7 @@
 #include <fmt/format.h>
 #include <utility> // std::exchange
 
-using namespace pek;
+using namespace pek::op;
 
 OpRef::OpRef() = default;
 
@@ -97,6 +97,6 @@ pek::Result<void> OpRef::bind(const std::string &soName, const std::string &opNa
                       fmt::format("Cannot create op [{}] of library [{}]", opName, soName)));
     }
 
-    op = static_cast<pek::Op *>(raw);
+    op = static_cast<pek::op::Op *>(raw);
     return {}; // success
 }

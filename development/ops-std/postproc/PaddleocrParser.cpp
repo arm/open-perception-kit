@@ -11,9 +11,10 @@
 #include <fmt/core.h>
 
 using namespace pek;
+using namespace pek::stdop::postproc;
 
-pek::Result<void> PaddleOcrDetectionParser::parse(const pek::TensorParser::Input &input,
-                                                  pek::Perception::Layer &detectionResult) {
+Result<void> PaddleOcrDetectionParser::parse(const pek::TensorParser::Input &input,
+                                             pek::Perception::Layer &detectionResult) {
 
     const float thresholdLow = (float)input.attributes.getDoubleOrDefault("thresholdLow", 0.60f);
     const float thresholdHigh = (float)input.attributes.getDoubleOrDefault("thresholdHigh", 0.80f);
@@ -25,21 +26,19 @@ pek::Result<void> PaddleOcrDetectionParser::parse(const pek::TensorParser::Input
     }
 
     const auto shape = input.tensors[0]->getShape();
-    if (shape.dimensionCount != 4) {
-        return tl::unexpected(
-            PEK_ERROR(ErrorFlag::InvalidData,
-                      fmt::format("PaddleOcrDetectionParser: expected 4D tensor, got {}D",
-                                  shape.dimensionCount)));
+    if (shape.rank != 4) {
+        return tl::unexpected(PEK_ERROR(
+            ErrorFlag::InvalidData,
+            fmt::format("PaddleOcrDetectionParser: expected 4D tensor, got {}D", shape.rank)));
     }
-    if (shape.valueCount[1] != 1) {
-        return tl::unexpected(
-            PEK_ERROR(ErrorFlag::InvalidData,
-                      fmt::format("PaddleOcrDetectionParser: expected 1 channel, got {}",
-                                  shape.valueCount[1])));
+    if (shape.dims[1] != 1) {
+        return tl::unexpected(PEK_ERROR(
+            ErrorFlag::InvalidData,
+            fmt::format("PaddleOcrDetectionParser: expected 1 channel, got {}", shape.dims[1])));
     }
 
-    const size_t maskHeight = shape.valueCount[2];
-    const size_t maskWidth = shape.valueCount[3];
+    const size_t maskHeight = shape.dims[2];
+    const size_t maskWidth = shape.dims[3];
 
     detectionResult.detections.push_back(Perception::SegmentationMap());
     auto &sm = std::get<Perception::SegmentationMap>(detectionResult.detections.back());

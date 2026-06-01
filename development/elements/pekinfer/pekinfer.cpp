@@ -23,15 +23,15 @@
 #include "op/OpChain.h"
 #include "op/OpChainContext.h"
 
-#include "PerformanceTracer.h"
 #include "gst/PerceptionMeta.h"
+#include "perf/PerformanceTracer.h"
 
 struct GstPekInferMembers {
     // std::shared_ptr<onnx::Inference> onnxInference;
 
-    pek::OpChain opChain;
+    pek::op::OpChain opChain;
 
-    pek::Result<void> executeOpChain(pek::OpChainContext &opChainContext) {
+    pek::Result<void> executeOpChain(pek::op::OpChainContext &opChainContext) {
         return opChain.execute(opChainContext);
     }
 
@@ -101,7 +101,7 @@ static std::optional<fs::path> parent_dir_name(const fs::path &p) {
 
 static gboolean gst_pekinfer_start(GstBaseTransform *b) {
     auto *self = (GstPekInfer *)b;
-    static pek::PerformanceTracer *tracer = pek::getGlobalTracer();
+    static pek::perf::PerformanceTracer *tracer = pek::perf::getGlobalTracer();
     (void)tracer;
 
     self->m = new GstPekInferMembers();
@@ -116,7 +116,11 @@ static gboolean gst_pekinfer_start(GstBaseTransform *b) {
         fmt::print("Error while setting up op-chain [{}]: {}\n",
                    self->opChainPath,
                    setupResult.error().toString());
-        pek_abort();
+
+        GST_ELEMENT_ERROR(
+            self, RESOURCE, FAILED, ("Failed to setup op-chain."), ("%s", self->opChainPath));
+
+        return FALSE;
     }
 
     // Send model registration event downstream
@@ -205,7 +209,7 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
     auto ret = pek::PerceptionMeta::mutate<GstFlowReturn>(
         buf, [self, rgb, frameWidth, frameHeight](auto &perception) {
-            pek::OpChainContext opChainContext;
+            pek::op::OpChainContext opChainContext;
             opChainContext.inferenceInfo.inferElementId =
                 std::string(gst_pekinfer_get_effective_inferId(self));
 
@@ -229,7 +233,11 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
          std::get<GstFlowReturn>(ret) != GST_FLOW_OK) ||
         std::holds_alternative<ME>(ret)) {
         gst_buffer_unmap(buf, &map);
-        pek_abort();
+
+        GST_ELEMENT_ERROR(
+            self, RESOURCE, FAILED, ("Error while executing op-chain."), ("%s", self->opChainPath));
+
+        return GST_FLOW_ERROR;
     }
 
     gst_buffer_unmap(buf, &map);

@@ -5,7 +5,6 @@ services:
       service: pek-common-dev
 
     network_mode: bridge
-    container_name: pek-docs-base
     hostname: pek-docs-base
     build:
       context: ..
@@ -18,7 +17,6 @@ services:
       service: pek-common-dev
 
     network_mode: bridge
-    container_name: pek-dev-base
     hostname: pek-dev-base
     build:
       context: ..
@@ -27,7 +25,6 @@ services:
 
   pek-release-with-ut:
     <<: *pek-docs-base
-    container_name: pek-release-with-ut
     hostname: pek-release-with-ut
     command: |
       bash -c '
@@ -39,7 +36,6 @@ services:
 
   pek-valgrind-check:
     <<: *pek-docs-base
-    container_name: pek-valgrind-check
     hostname: pek-valgrind-check
     command: |
       bash -c '
@@ -50,7 +46,6 @@ services:
 
   pek-quality-check-pull-request:
     <<: *pek-dev-base
-    container_name: pek-quality-check-pull-request
     command: |
       bash -c '
         .devcontainer/devsetup.sh &&
@@ -61,7 +56,6 @@ services:
 
   pek-quality-check-full:
     <<: *pek-dev-base
-    container_name: pek-quality-check-full
     command: |
       bash -c '
         .devcontainer/devsetup.sh &&
@@ -75,7 +69,6 @@ services:
     extends: 
       file: ../compose.base.yaml
       service: pek-common-dev
-    container_name: pek-sonar-check
     hostname: pek-sonar-check
     network_mode: bridge
     build:
@@ -108,7 +101,6 @@ services:
     extends: 
       file: ../compose.base.yaml
       service: pek-common-dev
-    container_name: pek-sonar-check-release
     hostname: pek-sonar-check-release
     network_mode: bridge
     build:

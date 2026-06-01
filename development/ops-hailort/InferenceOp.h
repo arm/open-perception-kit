@@ -12,9 +12,9 @@
 
 #include "Inference.h"
 
-namespace hailort {
+namespace pek::hailo {
 
-class InferenceOp : public pek::Op, public pek::OpInterfaceInference {
+class InferenceOp : public pek::op::Op, public pek::op::OpInterfaceInference {
   public:
     InferenceOp();
     virtual ~InferenceOp();
@@ -22,13 +22,14 @@ class InferenceOp : public pek::Op, public pek::OpInterfaceInference {
     virtual const pek::Model &getModel() const override;
     virtual uint8_t *getTensorDataAddress(size_t index) const override;
 
-    virtual pek::Result<void> bind(size_t index, const std::vector<pek::Op *> &ops) override;
+    virtual pek::Result<void> bind(size_t index, const std::vector<pek::op::Op *> &ops) override;
     virtual pek::Result<void> configure(const pek::AttributeMap &attributes) override;
-    virtual pek::Result<void> process(pek::OpChainContext &opChainContext) override;
+    virtual pek::Result<pek::op::OpSignal>
+    process(pek::op::OpChainContext &opChainContext) override;
 
   private:
-    std::unique_ptr<hailort::Inference> inference;
+    std::unique_ptr<pek::hailo::Inference> inference;
     std::string modelFamily;
 };
 
-} // namespace hailort
+} // namespace pek::hailo

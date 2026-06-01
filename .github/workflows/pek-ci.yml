@@ -13,24 +13,30 @@ jobs:
     name: Run quality checks in Docker
     runs-on: ubuntu-latest
     if: |
-      (github.event.pull_request.draft == false) ||
-      (github.event_name == 'pull_request' && github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.draft == false ||
+      (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
     env:
       python_ver: "3.12.1"
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
+      CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ github.head_ref }}
+          ref: ${{ github.head_ref || github.ref }}
+          path: ${{ env.CI_CHECKOUT_PATH }}
 
       - name: Build docker image
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-docs-base
           pek-dev-base
 
       - name: Check Repo Quality gate (nightly)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: |
           docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-quality-check-full
 
@@ -39,25 +45,41 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: pek-doc
-          path: "${{ github.workspace }}/development/build/doc"
+          path: "${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/development/build/doc"
           if-no-files-found: warn
           retention-days: 10
 
       - name: Check Repo Quality gate (PR)
         if: github.event_name == 'pull_request'
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           export PULL_REQUEST_TARGET_BRANCH="${{ github.base_ref }}"
-          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-quality-check-pull-request
+          # The checkout auth includeIf rules do not apply inside our /work-mounted compose container.
+          git_basic_auth="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
+          export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic ${git_basic_auth}"
+          echo "::add-mask::${git_basic_auth}"
+          echo "::add-mask::${GIT_CONFIG_VALUE_0}"
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm \
+            -e GIT_CONFIG_COUNT \
+            -e GIT_CONFIG_KEY_0 \
+            -e GIT_CONFIG_VALUE_0 \
+            pek-quality-check-pull-request
 
       - name: Perception Experience Kit release build and unit test run
         if: github.event_name == 'pull_request' || github.event_name == 'schedule' ||
           github.event_name == 'workflow_dispatch'
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm
           pek-release-with-ut
 
       - name: Run Valgrind checks
         id: valgrind_checks
         continue-on-error: true # Do not block PR until the initial ones are fixed
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-valgrind-check
 
       - name: Upload Valgrind logs on failure
@@ -66,7 +88,7 @@ jobs:
         with:
           name: valgrind-logs
           path: |
-            ${{ github.workspace }}/scripts/testing/valgrind/logs
+            ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/scripts/testing/valgrind/logs
           if-no-files-found: warn
           retention-days: 10
 

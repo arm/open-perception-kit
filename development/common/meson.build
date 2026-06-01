@@ -8,8 +8,8 @@ common = shared_library(
     
     'pek/Result.cpp',
     'pek/Tools.cpp',
-    'pek/ImageNetLabels.cpp',
-    'pek/CocoLabels.cpp',
+    'pek/Labels.cpp',
+    'pek/Model.cpp',
     'pek/ModelDescriptor.cpp',
 
     'pek/AudioBuffer.cpp',
@@ -22,7 +22,7 @@ common = shared_library(
     'op/OpChainContext.cpp',
     'op/OpChainDescriptor.cpp',
 
-    'PerformanceTracer.cpp',
+    'perf/PerformanceTracer.cpp',
   ],
   include_directories: [ common_include ],  
   cpp_args: ['-DFMT_HEADER_ONLY'],

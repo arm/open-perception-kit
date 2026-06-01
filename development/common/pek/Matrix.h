@@ -12,6 +12,19 @@
 #include <initializer_list>
 #include <type_traits>
 
+namespace pek {
+
+/**
+ * @brief Fixed-size matrix with compile-time dimensions.
+ *
+ * Provides basic linear algebra operations for arithmetic element types,
+ * including addition, subtraction, scalar and matrix multiplication,
+ * transpose, identity, and inversion for square matrices.
+ *
+ * @tparam ROWS Matrix row count.
+ * @tparam COLS Matrix column count.
+ * @tparam T Element type.
+ */
 template <uint32_t ROWS, uint32_t COLS, typename T = double> class Matrix {
   private:
     template <typename Item> class RowProxy {
@@ -35,10 +48,17 @@ template <uint32_t ROWS, uint32_t COLS, typename T = double> class Matrix {
   public:
     static_assert(std::is_arithmetic<T>::value, "Matrix requires arithmetic type");
 
+    /**
+     * @brief Constructs a zero-initialized matrix.
+     */
     Matrix() {
         data.fill(static_cast<T>(0));
     }
 
+    /**
+     * @brief Constructs a matrix from nested initializer lists.
+     * @param values Row-major matrix values.
+     */
     Matrix(std::initializer_list<std::initializer_list<T>> values) : Matrix() {
         assert(values.size() == ROWS);
         size_t r = 0;
@@ -52,16 +72,31 @@ template <uint32_t ROWS, uint32_t COLS, typename T = double> class Matrix {
         }
     }
 
+    /**
+     * @brief Returns mutable row access proxy.
+     * @param r Row index.
+     * @return Row proxy for element access.
+     */
     RowProxy<T> operator[](size_t r) {
         assert(r < ROWS);
         return RowProxy<T>(&data[r * COLS]);
     }
 
+    /**
+     * @brief Returns const row access proxy.
+     * @param r Row index.
+     * @return Const row proxy for element access.
+     */
     RowProxy<const T> operator[](size_t r) const {
         assert(r < ROWS);
         return RowProxy<const T>(&data[r * COLS]);
     }
 
+    /**
+     * @brief Element-wise matrix addition.
+     * @param rhs Right-hand matrix.
+     * @return Sum matrix.
+     */
     Matrix operator+(const Matrix &rhs) const {
         Matrix out{};
         for (size_t i = 0; i < data.size(); ++i) {
@@ -70,6 +105,11 @@ template <uint32_t ROWS, uint32_t COLS, typename T = double> class Matrix {
         return out;
     }
 
+    /**
+     * @brief Element-wise matrix subtraction.
+     * @param rhs Right-hand matrix.
+     * @return Difference matrix.
+     */
     Matrix operator-(const Matrix &rhs) const {
         Matrix out{};
         for (size_t i = 0; i < data.size(); ++i) {
@@ -78,6 +118,11 @@ template <uint32_t ROWS, uint32_t COLS, typename T = double> class Matrix {
         return out;
     }
 
+    /**
+     * @brief In-place element-wise matrix addition.
+     * @param rhs Right-hand matrix.
+     * @return This matrix.
+     */
     Matrix &operator+=(const Matrix &rhs) {
         for (size_t i = 0; i < data.size(); ++i) {
             data[i] += rhs.data[i];
@@ -85,6 +130,11 @@ template <uint32_t ROWS, uint32_t COLS, typename T = double> class Matrix {
         return *this;
     }
 
+    /**
+     * @brief In-place element-wise matrix subtraction.
+     * @param rhs Right-hand matrix.
+     * @return This matrix.
+     */
     Matrix &operator-=(const Matrix &rhs) {
         for (size_t i = 0; i < data.size(); ++i) {
             data[i] -= rhs.data[i];
@@ -92,6 +142,11 @@ template <uint32_t ROWS, uint32_t COLS, typename T = double> class Matrix {
         return *this;
     }
 
+    /**
+     * @brief Scalar multiplication.
+     * @param scalar Scalar value.
+     * @return Scaled matrix.
+     */
     Matrix operator*(T scalar) const {
         Matrix out{};
         for (size_t i = 0; i < data.size(); ++i) {
@@ -100,6 +155,11 @@ template <uint32_t ROWS, uint32_t COLS, typename T = double> class Matrix {
         return out;
     }
 
+    /**
+     * @brief Scalar division.
+     * @param scalar Scalar value.
+     * @return Scaled matrix.
+     */
     Matrix operator/(T scalar) const {
         assert(scalar != static_cast<T>(0));
         Matrix out{};
@@ -109,6 +169,12 @@ template <uint32_t ROWS, uint32_t COLS, typename T = double> class Matrix {
         return out;
     }
 
+    /**
+     * @brief Matrix multiplication.
+     * @tparam C2 Right-hand matrix column count.
+     * @param rhs Right-hand matrix.
+     * @return Product matrix.
+     */
     template <uint32_t C2> Matrix<ROWS, C2, T> operator*(const Matrix<COLS, C2, T> &rhs) const {
         Matrix<ROWS, C2, T> out{};
         for (size_t r = 0; r < ROWS; ++r) {
@@ -123,6 +189,10 @@ template <uint32_t ROWS, uint32_t COLS, typename T = double> class Matrix {
         return out;
     }
 
+    /**
+     * @brief Returns transposed matrix.
+     * @return Transposed matrix.
+     */
     Matrix<COLS, ROWS, T> transpose() const {
         Matrix<COLS, ROWS, T> out{};
         for (size_t r = 0; r < ROWS; ++r) {
@@ -133,6 +203,12 @@ template <uint32_t ROWS, uint32_t COLS, typename T = double> class Matrix {
         return out;
     }
 
+    /**
+     * @brief Creates identity matrix for square dimensions.
+     * @tparam R Row count.
+     * @tparam C Column count.
+     * @return Identity matrix.
+     */
     template <uint32_t R = ROWS, uint32_t C = COLS>
     static typename std::enable_if<R == C, Matrix<R, C, T>>::type identity() {
         Matrix<R, C, T> out{};
@@ -142,6 +218,12 @@ template <uint32_t ROWS, uint32_t COLS, typename T = double> class Matrix {
         return out;
     }
 
+    /**
+     * @brief Computes matrix inverse using Gauss-Jordan elimination.
+     * @tparam R Row count.
+     * @tparam C Column count.
+     * @return Inverse matrix.
+     */
     template <uint32_t R = ROWS, uint32_t C = COLS>
     typename std::enable_if<(R == C), Matrix<R, C, T>>::type inv() const {
         Matrix<R, C, T> left = *this;
@@ -199,10 +281,18 @@ template <uint32_t ROWS, uint32_t COLS, typename T = double> class Matrix {
         return right;
     }
 
+    /**
+     * @brief Matrix row count.
+     * @return Compile-time row count.
+     */
     static constexpr uint32_t rows() {
         return ROWS;
     }
 
+    /**
+     * @brief Matrix column count.
+     * @return Compile-time column count.
+     */
     static constexpr uint32_t cols() {
         return COLS;
     }
@@ -211,7 +301,18 @@ template <uint32_t ROWS, uint32_t COLS, typename T = double> class Matrix {
     std::array<T, ROWS * COLS> data{};
 };
 
+/**
+ * @brief Scalar multiplication with scalar on the left side.
+ * @tparam ROWS Matrix row count.
+ * @tparam COLS Matrix column count.
+ * @tparam T Element type.
+ * @param scalar Scalar value.
+ * @param rhs Right-hand matrix.
+ * @return Scaled matrix.
+ */
 template <uint32_t ROWS, uint32_t COLS, typename T>
 Matrix<ROWS, COLS, T> operator*(T scalar, const Matrix<ROWS, COLS, T> &rhs) {
     return rhs * scalar;
 }
+
+} // namespace pek

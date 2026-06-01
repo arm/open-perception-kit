@@ -8,19 +8,66 @@
 #include "op/OpChainContext.h"
 #include "pek/Result.h"
 
-namespace pek {
+namespace pek::stdop {
 
-class InferenceControllerOp : public pek::Op {
+/**
+ * @brief Control operation for managing inference loop execution.
+ *
+ * InferenceControllerOp is an Op that orchestrates the inference loop lifecycle.
+ * It manages when inference begins, processes the inference output, and signals
+ * when to conclude the loop. Typically placed immediately after preprocessing
+ * and acts as a sentinel for loop control.
+ *
+ * **Configuration Attributes:**
+ * - `contentType`: Content type descriptor for the inferred data (e.g., "image", "video")
+ *
+ * **Typical Usage:**
+ * 1. The controller populates OpChainContext.inferenceImageCrops with regions to infer
+ * 2. Preprocess, inference, and postprocess operations consume one crop per loop iteration
+ * 3. GenericImagePreprocessOp returns OpSignal::BreakLoop when no crops remain
+ */
+class InferenceControllerOp : public pek::op::Op {
   public:
+    /**
+     * @brief Constructs an inference controller operation.
+     */
     InferenceControllerOp();
+    /**
+     * @brief Destroys the inference controller operation.
+     */
     virtual ~InferenceControllerOp();
 
+    /**
+     * @brief Configures the operation with content type metadata.
+     *
+     * Reads attributes: contentType for content-specific inference control.
+     *
+     * @param attributes Configuration map from OpChainDescriptor.
+     * @return Result indicating success or configuration error.
+     */
     virtual pek::Result<void> configure(const pek::AttributeMap &attributes) override;
-    virtual pek::Result<void> process(pek::OpChainContext &opChainContext) override;
-    virtual pek::Result<void> bind(size_t index, const std::vector<pek::Op *> &ops) override;
+    /**
+     * @brief Populates crop state for the following inference loop workers.
+     *
+     * Populates inference crop state for the following loop workers.
+     * Loop transitions are controlled by OpSignal values returned from process().
+     *
+     * @param opChainContext Context for shared inference state.
+     * @return Continue after populating crop state, or a processing error.
+     */
+    virtual pek::Result<pek::op::OpSignal>
+    process(pek::op::OpChainContext &opChainContext) override;
+    /**
+     * @brief Resolves references to other operations if needed for inference control.
+     *
+     * @param index Position of this operation in the OpChain.
+     * @param ops Vector of all operations in the chain.
+     * @return Result indicating success or binding error.
+     */
+    virtual pek::Result<void> bind(size_t index, const std::vector<pek::op::Op *> &ops) override;
 
   private:
     std::string contentType;
 };
 
-} // namespace pek
+} // namespace pek::stdop
