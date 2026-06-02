@@ -533,11 +533,24 @@ class QualityChecks:
             logger.error(f"Failed to read clang-tidy compile database files: {e}")
             return False
 
+        normalized_files = []
+        for f in files:
+            abs_path = f if os.path.isabs(f) else os.path.join(project_root, f)
+            abs_path = os.path.realpath(abs_path)
+            try:
+                rel_path = os.path.normpath(os.path.relpath(abs_path, project_root))
+            except ValueError:
+                continue
+            normalized_files.append((f, abs_path, rel_path))
+
         compile_database_files = [
-            f for f in files
-            if os.path.normpath(f) in compiled_files
+            abs_path for (_orig, abs_path, rel_path) in normalized_files
+            if rel_path in compiled_files
         ]
-        skipped_files = sorted(set(files) - set(compile_database_files))
+        skipped_files = sorted({
+            orig for (orig, _abs, rel_path) in normalized_files
+            if rel_path not in compiled_files
+        })
         if skipped_files:
             logger.info(
                 "Skipping %d C/C++ file(s) not listed in the active compile database.",
