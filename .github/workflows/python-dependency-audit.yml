@@ -1,0 +1,56 @@
+name: Python Dependency Audit
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main, "feature/**", "sandbox/**" ]
+    types: [ labeled, synchronize, reopened ]
+  schedule:
+    - cron: "0 3 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  pip-audit:
+    name: pip-audit (${{ matrix.package.name }})
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name != 'pull_request' ||
+      (
+        (github.event.action == 'labeled' && github.event.label.name == 'run-python-audit') ||
+        ((github.event.action == 'synchronize' || github.event.action == 'reopened') &&
+          contains(github.event.pull_request.labels.*.name, 'run-python-audit'))
+      )
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - name: expkits-ci
+            path: tools/expkits-ci
+          - name: plumber
+            path: tools/plumber
+
+    steps:
+      - name: Checkout current ref
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@v6
+
+      - name: Checkout pull request head
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: ${{ matrix.package.path }}/pyproject.toml
+
+      - name: Run pip-audit
+        uses: pypa/gh-action-pip-audit@v1.1.0
+        with:
+          inputs: ${{ matrix.package.path }}/
+          summary: true

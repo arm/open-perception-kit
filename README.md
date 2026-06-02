@@ -1,5 +1,7 @@
 # Perception Experience Kit (PEK)
 
+[![Python Dependency Audit](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/python-dependency-audit.yml/badge.svg?branch=main&event=schedule)](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/python-dependency-audit.yml)
+
 Perception Experience Kit (PEK) enables you to run AI-powered
 media-processing pipelines in a reproducible containerised environment.
 
