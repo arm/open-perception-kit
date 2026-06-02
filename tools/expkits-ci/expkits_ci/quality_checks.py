@@ -594,7 +594,7 @@ class QualityChecks:
                     elif proc.stdout:
                         logger.debug(f"clang-tidy output for {f}:\n{proc.stdout}")
                 except Exception as e:
-                    logger.error(f"Unknown error running clang-tidy on {f}: {e}")
+                    logger.error(f"Failed to run clang-tidy on {f}: {e}")
                     result = False
 
         if result:
