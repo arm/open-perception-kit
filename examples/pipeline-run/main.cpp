@@ -7,8 +7,11 @@
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 
+#include <atomic>
+#include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
+#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -77,14 +80,31 @@ int main(int argc, char **argv) {
     // callback probes. Moving it out of Result transfers that ownership into the
     // local variable used below.
     auto pipeline = std::move(*pipelineResult);
-    size_t perceptionCount = 0;
+    std::atomic_size_t perceptionCount{0};
+
+    // This condition variable is deliberately owned by the example, not by
+    // Pipeline. A ROS2 app could spin its executor here instead, and a GUI app
+    // could keep its normal UI event loop. The Pipeline only reports EOS/ERROR.
+    std::mutex completionMutex;
+    std::condition_variable completionCv;
+    bool completed = false;
+    bool failed = false;
+
+    auto markCompleted = [&](bool failure) {
+        {
+            std::lock_guard lock(completionMutex);
+            failed = failed || failure;
+            completed = true;
+        }
+        completionCv.notify_one();
+    };
 
     // onPerception() is the main reason this example exists. The API installs
     // internal probes that read Perception metadata from GStreamer buffers and
     // call this C++ callback with serialized JSON. No internal PEK Perception
     // type and no GstBuffer/GstMeta type is visible to the application.
     pipeline.onPerception([&perceptionCount](const std::string &perceptionJson) {
-        ++perceptionCount;
+        const size_t currentPerception = ++perceptionCount;
 
         // A pipeline can contain several inference stages. Each stage typically
         // adds one Perception layer. The public API gives us JSON, so the example
@@ -109,30 +129,39 @@ int main(int argc, char **argv) {
             fmt::print(stderr, "pipeline-run: failed to parse perception JSON: {}\n", e.what());
         }
 
-        fmt::print("Perception {}: layers=[{}]\n", perceptionCount, fmt::join(layerNames, ", "));
+        fmt::print("Perception {}: layers=[{}]\n", currentPerception, fmt::join(layerNames, ", "));
     });
 
-    // Errors observed by the pipeline bus are reported through the API-local
-    // Error type, so applications do not include internal PEK runtime headers.
-    pipeline.onError(
-        [](const pek::api::Error &error) { fmt::print(stderr, "{}\n", error.toString()); });
+    // Errors observed by Pipeline's internal bus watcher are reported through
+    // the API-local Error type. The callback may run from Pipeline's
+    // background thread, so the example only prints and signals completion.
+    pipeline.onError([&markCompleted](const pek::api::Error &error) {
+        fmt::print(stderr, "{}\n", error.toString());
+        markCompleted(true);
+    });
 
-    // start() moves the hidden GStreamer pipeline to PLAYING. For finite inputs,
-    // buffers now begin to flow and callbacks can fire. For live inputs, this
-    // would keep running until stopped from another thread or an error occurs.
+    // EOS is also delivered from Pipeline's internal bus watcher. The callback
+    // only signals the example-owned condition variable; the main thread keeps
+    // control over when to call stop().
+    pipeline.onEos([&markCompleted]() { markCompleted(false); });
+
+    // start() moves the hidden GStreamer pipeline to PLAYING and returns
+    // immediately. Buffers now begin to flow and callbacks can fire while the
+    // application keeps ownership of this thread.
     auto startResult = pipeline.start();
     if (!startResult) {
         fmt::print(stderr, "{}\n", startResult.error().toString());
         return 1;
     }
 
-    // wait() blocks on the hidden pipeline bus until EOS or ERROR. Image/video
-    // test pipelines with a bounded source eventually post EOS; camera pipelines
-    // generally do not unless stopped externally.
-    auto waitResult = pipeline.wait();
-    if (!waitResult) {
-        (void)pipeline.stop();
-        return 1;
+    // For this finite example we wait on our own condition variable until the
+    // callbacks report EOS or ERROR. A larger app would usually replace this
+    // block with its own control loop.
+    bool failedResult = false;
+    {
+        std::unique_lock lock(completionMutex);
+        completionCv.wait(lock, [&completed]() { return completed; });
+        failedResult = failed;
     }
 
     // stop() moves the pipeline back to NULL so GStreamer releases streaming
@@ -143,7 +172,8 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    fmt::print(
-        stderr, "pipeline-run: completed, received {} perception result(s)\n", perceptionCount);
-    return 0;
+    fmt::print(stderr,
+               "pipeline-run: completed, received {} perception result(s)\n",
+               perceptionCount.load());
+    return failedResult ? 1 : 0;
 }

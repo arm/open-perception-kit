@@ -12,11 +12,13 @@
 #include <gst/gst.h>
 
 #include <cctype>
+#include <condition_variable>
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
 #include <fstream>
 #include <mutex>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -256,6 +258,8 @@ class Pipeline::Impl {
         gulong id = 0;
     };
 
+    enum class TerminalState { None, Eos, Error, Stopped };
+
     ~Impl() {
         clearPipeline();
     }
@@ -320,58 +324,61 @@ class Pipeline::Impl {
         return {};
     }
 
-    // Block on the pipeline bus until EOS or ERROR. This is enough for simple
-    // finite examples; live apps can call start()/stop() from their own control flow.
-    Result<void> wait() {
+    Result<void> start() {
         if (!pipeline) {
             return tl::make_unexpected(
                 makeApiError(ErrorFlag::InvalidArgument, "No pipeline has been loaded"));
         }
 
-        GstBus *bus = gst_element_get_bus(pipeline);
-        if (!bus) {
-            return tl::make_unexpected(makeApiError(
-                ErrorFlag::RuntimeError, "Loaded element does not expose a GStreamer bus"));
+        auto watcherResult = startBusWatcher();
+        if (!watcherResult) {
+            return watcherResult;
         }
 
-        while (true) {
-            GstMessage *message = gst_bus_timed_pop_filtered(
-                bus,
-                GST_CLOCK_TIME_NONE,
-                static_cast<GstMessageType>(GST_MESSAGE_ERROR | GST_MESSAGE_EOS));
-
-            if (!message) {
-                continue;
-            }
-
-            if (GST_MESSAGE_TYPE(message) == GST_MESSAGE_EOS) {
-                gst_message_unref(message);
-                gst_object_unref(bus);
-                return {};
-            }
-
-            if (GST_MESSAGE_TYPE(message) == GST_MESSAGE_ERROR) {
-                GError *error = nullptr;
-                gchar *debugInfo = nullptr;
-                gst_message_parse_error(message, &error, &debugInfo);
-
-                auto apiError =
-                    makeApiError(ErrorFlag::RuntimeError, gstErrorMessage(error, debugInfo));
-                emitError(apiError);
-
-                if (error) {
-                    g_error_free(error);
-                }
-                if (debugInfo) {
-                    g_free(debugInfo);
-                }
-                gst_message_unref(message);
-                gst_object_unref(bus);
-                return tl::make_unexpected(std::move(apiError));
-            }
-
-            gst_message_unref(message);
+        auto stateResult = setState(GST_STATE_PLAYING, "PLAYING");
+        if (!stateResult) {
+            stopBusWatcher();
+            return stateResult;
         }
+
+        return {};
+    }
+
+    Result<void> stop() {
+        auto stateResult = setState(GST_STATE_NULL, "NULL");
+        stopBusWatcher();
+        return stateResult;
+    }
+
+    Result<void> wait() {
+        Error error;
+        bool hasError = false;
+
+        {
+            std::unique_lock lock(lifecycleMutex);
+            if (!pipeline) {
+                return tl::make_unexpected(
+                    makeApiError(ErrorFlag::InvalidArgument, "No pipeline has been loaded"));
+            }
+            if (!busThread.joinable() && terminalState == TerminalState::None) {
+                return tl::make_unexpected(
+                    makeApiError(ErrorFlag::InvalidArgument,
+                                 "Pipeline has not been started; call start() before wait()"));
+            }
+
+            lifecycleCv.wait(lock, [this]() { return terminalState != TerminalState::None; });
+            hasError = terminalState == TerminalState::Error;
+            if (hasError) {
+                error = terminalError;
+            }
+        }
+
+        joinBusWatcherIfNotCurrent();
+
+        if (hasError) {
+            return tl::make_unexpected(std::move(error));
+        }
+        return {};
     }
 
     void onPerception(Pipeline::PerceptionCallback callback) {
@@ -382,6 +389,11 @@ class Pipeline::Impl {
     void onError(Pipeline::ErrorCallback callback) {
         std::lock_guard lock(callbackMutex);
         errorCallback = std::move(callback);
+    }
+
+    void onEos(Pipeline::EosCallback callback) {
+        std::lock_guard lock(callbackMutex);
+        eosCallback = std::move(callback);
     }
 
     // Manual hook for users who want perception at a specific named element
@@ -426,9 +438,18 @@ class Pipeline::Impl {
     mutable std::mutex callbackMutex;
     Pipeline::PerceptionCallback perceptionCallback;
     Pipeline::ErrorCallback errorCallback;
+    Pipeline::EosCallback eosCallback;
+
+    std::mutex lifecycleMutex;
+    std::condition_variable lifecycleCv;
+    std::thread busThread;
+    bool busStopRequested = false;
+    TerminalState terminalState = TerminalState::None;
+    Error terminalError;
 
     // Release the current pipeline and any probes before loading a new one.
     void clearPipeline() {
+        stopBusWatcher();
         removeProbes();
         if (pipeline) {
             gst_element_set_state(pipeline, GST_STATE_NULL);
@@ -447,6 +468,161 @@ class Pipeline::Impl {
             }
         }
         probes.clear();
+    }
+
+    Result<void> startBusWatcher() {
+        std::thread oldThread;
+        {
+            std::unique_lock lock(lifecycleMutex);
+            if (busThread.joinable() && terminalState == TerminalState::None) {
+                return {};
+            }
+            if (busThread.joinable()) {
+                oldThread = std::move(busThread);
+            }
+        }
+
+        if (oldThread.joinable()) {
+            oldThread.join();
+        }
+
+        auto *watchedPipeline = GST_ELEMENT(gst_object_ref(pipeline));
+        {
+            std::lock_guard lock(lifecycleMutex);
+            busStopRequested = false;
+            terminalState = TerminalState::None;
+            terminalError = Error();
+            busThread = std::thread(&Pipeline::Impl::busLoop, this, watchedPipeline);
+        }
+        return {};
+    }
+
+    void stopBusWatcher() {
+        std::thread threadToJoin;
+        {
+            std::lock_guard lock(lifecycleMutex);
+            busStopRequested = true;
+            if (terminalState == TerminalState::None) {
+                terminalState = TerminalState::Stopped;
+                lifecycleCv.notify_all();
+            }
+
+            if (busThread.joinable() && busThread.get_id() != std::this_thread::get_id()) {
+                threadToJoin = std::move(busThread);
+            }
+        }
+
+        if (threadToJoin.joinable()) {
+            threadToJoin.join();
+        }
+    }
+
+    void joinBusWatcherIfNotCurrent() {
+        std::thread threadToJoin;
+        {
+            std::lock_guard lock(lifecycleMutex);
+            if (busThread.joinable() && busThread.get_id() != std::this_thread::get_id()) {
+                threadToJoin = std::move(busThread);
+            }
+        }
+
+        if (threadToJoin.joinable()) {
+            threadToJoin.join();
+        }
+    }
+
+    bool shouldStopBusWatcher() {
+        std::lock_guard lock(lifecycleMutex);
+        return busStopRequested;
+    }
+
+    void busLoop(GstElement *watchedPipeline) {
+        GstBus *bus = gst_element_get_bus(watchedPipeline);
+        if (!bus) {
+            gst_object_unref(watchedPipeline);
+            finishWithError(makeApiError(ErrorFlag::RuntimeError,
+                                         "Loaded element does not expose a GStreamer bus"));
+            return;
+        }
+
+        while (!shouldStopBusWatcher()) {
+            GstMessage *message = gst_bus_timed_pop_filtered(
+                bus,
+                100 * GST_MSECOND,
+                static_cast<GstMessageType>(GST_MESSAGE_ERROR | GST_MESSAGE_EOS));
+
+            if (!message) {
+                continue;
+            }
+
+            if (shouldStopBusWatcher()) {
+                gst_message_unref(message);
+                break;
+            }
+
+            if (GST_MESSAGE_TYPE(message) == GST_MESSAGE_EOS) {
+                gst_message_unref(message);
+                finishWithEos();
+                break;
+            }
+
+            if (GST_MESSAGE_TYPE(message) == GST_MESSAGE_ERROR) {
+                GError *error = nullptr;
+                gchar *debugInfo = nullptr;
+                gst_message_parse_error(message, &error, &debugInfo);
+
+                auto runtimeError =
+                    makeApiError(ErrorFlag::RuntimeError, gstErrorMessage(error, debugInfo));
+
+                if (error) {
+                    g_error_free(error);
+                }
+                if (debugInfo) {
+                    g_free(debugInfo);
+                }
+                gst_message_unref(message);
+                finishWithError(std::move(runtimeError));
+                break;
+            }
+
+            gst_message_unref(message);
+        }
+
+        gst_object_unref(bus);
+        gst_object_unref(watchedPipeline);
+    }
+
+    void finishWithEos() {
+        bool shouldEmit = false;
+        {
+            std::lock_guard lock(lifecycleMutex);
+            if (!busStopRequested && terminalState == TerminalState::None) {
+                terminalState = TerminalState::Eos;
+                shouldEmit = true;
+                lifecycleCv.notify_all();
+            }
+        }
+
+        if (shouldEmit) {
+            emitEos();
+        }
+    }
+
+    void finishWithError(Error error) {
+        bool shouldEmit = false;
+        {
+            std::lock_guard lock(lifecycleMutex);
+            if (!busStopRequested && terminalState == TerminalState::None) {
+                terminalState = TerminalState::Error;
+                terminalError = error;
+                shouldEmit = true;
+                lifecycleCv.notify_all();
+            }
+        }
+
+        if (shouldEmit) {
+            emitError(error);
+        }
     }
 
     // By default, observe final buffers at terminal elements. For a normal
@@ -603,6 +779,18 @@ class Pipeline::Impl {
             callback(error);
         }
     }
+
+    void emitEos() {
+        Pipeline::EosCallback callback;
+        {
+            std::lock_guard lock(callbackMutex);
+            callback = eosCallback;
+        }
+
+        if (callback) {
+            callback();
+        }
+    }
 };
 
 Pipeline::Pipeline() : impl(std::make_unique<Impl>()) {}
@@ -663,7 +851,7 @@ Result<void> Pipeline::loadFromJsonFile(const std::string &path) {
 }
 
 Result<void> Pipeline::start() {
-    return impl->setState(GST_STATE_PLAYING, "PLAYING");
+    return impl->start();
 }
 
 Result<void> Pipeline::pause() {
@@ -671,7 +859,7 @@ Result<void> Pipeline::pause() {
 }
 
 Result<void> Pipeline::stop() {
-    return impl->setState(GST_STATE_NULL, "NULL");
+    return impl->stop();
 }
 
 Result<void> Pipeline::wait() {
@@ -684,6 +872,10 @@ void Pipeline::onPerception(PerceptionCallback callback) {
 
 void Pipeline::onError(ErrorCallback callback) {
     impl->onError(std::move(callback));
+}
+
+void Pipeline::onEos(EosCallback callback) {
+    impl->onEos(std::move(callback));
 }
 
 Result<void> Pipeline::attachPerceptionProbe(const std::string &elementName,

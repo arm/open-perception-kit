@@ -36,6 +36,11 @@ class Pipeline {
     using ErrorCallback = std::function<void(const Error &)>;
 
     /**
+     * @brief Called when the pipeline posts EOS.
+     */
+    using EosCallback = std::function<void()>;
+
+    /**
      * @brief Constructs an empty pipeline wrapper.
      */
     Pipeline();
@@ -103,7 +108,10 @@ class Pipeline {
     Result<void> loadFromJsonFile(const std::string &path);
 
     /**
-     * @brief Starts pipeline playback by moving it to PLAYING.
+     * @brief Starts pipeline playback and returns immediately.
+     *
+     * Pipeline owns a small background bus watcher thread after start(). EOS
+     * and ERROR are reported through onEos(), onError(), and wait().
      */
     Result<void> start();
 
@@ -118,11 +126,10 @@ class Pipeline {
     Result<void> stop();
 
     /**
-     * @brief Blocks until the pipeline posts EOS or ERROR on its bus.
+     * @brief Blocks until the background bus watcher observes EOS, ERROR, or stop().
      *
-     * On ERROR, the configured ErrorCallback is invoked before the error is
-     * returned. Live pipelines may not return until an error occurs or another
-     * thread changes the pipeline state / sends EOS.
+     * This is a convenience helper for simple command-line tools. Applications
+     * with their own event loop can skip wait() and use onEos()/onError() instead.
      */
     Result<void> wait();
 
@@ -132,9 +139,14 @@ class Pipeline {
     void onPerception(PerceptionCallback callback);
 
     /**
-     * @brief Registers a callback for pipeline errors observed by wait().
+     * @brief Registers a callback for pipeline errors observed by the bus watcher.
      */
     void onError(ErrorCallback callback);
+
+    /**
+     * @brief Registers a callback for EOS observed by the bus watcher.
+     */
+    void onEos(EosCallback callback);
 
     /**
      * @brief Adds a Perception metadata probe to a named element pad.
