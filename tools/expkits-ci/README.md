@@ -47,8 +47,13 @@ files or on an explicit file list:
 
 ```bash
 ./scripts/build-elements.sh debug true
-expkits-ci --clang-tidy
-expkits-ci --clang-tidy --list-of-files development/elements/pektracker/Tracker.cpp
+rm -f clang-tidy.log
+expkits-ci --clang-tidy --log-output both --log-file clang-tidy.log
+rm -f clang-tidy.log
+expkits-ci --clang-tidy \
+  --list-of-files development/elements/pektracker/Tracker.cpp \
+  --log-output both \
+  --log-file clang-tidy.log
 expkits-ci --clang-tidy-stats clang-tidy.log
 ```
 
@@ -64,8 +69,9 @@ some clang-tidy findings are extra local guidance rather than SonarQube parity.
 
 `--clang-tidy-stats` parses a saved clang-tidy log and reports how many
 diagnostics each clang-tidy check emitted. This is useful after increasing the
-enabled ruleset and running with `--log-output both --log-file clang-tidy.log`.
-Use `--clang-tidy-stats-output` to also write the statistics as JSON.
+enabled ruleset and running clang-tidy with
+`--log-output both --log-file clang-tidy.log`. Use
+`--clang-tidy-stats-output` to also write the statistics as JSON.
 
 CI can compare those statistics with a repository baseline:
 

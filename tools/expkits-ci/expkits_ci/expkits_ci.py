@@ -119,6 +119,14 @@ def setup_all_checks(args):
     args.check_secrets = True
 
 
+def enable_implicit_verbose_logging(args):
+    """Enable verbose logging when selected operations need diagnostic details."""
+    if args.clang_tidy_stats:
+        args.verbose = True
+    if args.clang_tidy and args.log_output in ("file", "both"):
+        args.verbose = True
+
+
 def get_enabled_check_flags(args):
     """Return the effective check flags that will run in this invocation."""
     enabled_checks = []
@@ -396,8 +404,7 @@ def main():
     args = parser.parse_args()
     argcomplete.autocomplete(parser)
 
-    if args.clang_tidy_stats:
-        args.verbose = True
+    enable_implicit_verbose_logging(args)
 
     try:
         logger = setup_expkits_logger(args.verbose, args.log_output, args.log_file)

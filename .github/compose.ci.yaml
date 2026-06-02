@@ -45,7 +45,6 @@ services:
         source /work/tools/.venv/bin/activate &&
         rm -f clang-tidy.log clang-tidy-stats.log clang-tidy-stats.json &&
         expkits-ci \
-          --verbose \
           --clang-tidy \
           --clang-tidy-binary /opt/pek-venvs/devtools/bin/clang-tidy \
           --log-output both \
