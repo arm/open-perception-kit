@@ -46,6 +46,7 @@ FORMATTER_CASES = (
     FixtureCase("scripts/bad.sh", "shell/bad.sh.input", "shell/bad.sh.expected"),
 )
 
+
 def make_private_key_fixture():
     """Build a detectable synthetic private-key payload without checking in a PEM fixture."""
     payload_line = "".join([
