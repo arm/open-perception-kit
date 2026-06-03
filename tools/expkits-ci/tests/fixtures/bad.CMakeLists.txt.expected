@@ -1,0 +1,7 @@
+# Copyright (C) 2025 Arm Limited. All rights reserved.
+cmake_minimum_required(VERSION 3.20)
+project(expkits_ci_fixture LANGUAGES C CXX)
+
+add_library(fixture_lib STATIC src/main.c src/helper.cpp include/helper.hpp)
+target_include_directories(fixture_lib PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_sources(fixture_lib PRIVATE src/extra_a.c src/extra_b.c)
