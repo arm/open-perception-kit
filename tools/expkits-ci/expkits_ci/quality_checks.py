@@ -1014,6 +1014,33 @@ class QualityChecks:
 
         return None
 
+    @staticmethod
+    def stabilize_cmake_file(filename):
+        """Re-run cmake-format after header insertion so one autofix pass is stable."""
+        config_file = ".cmake-format.yaml"
+        if not os.path.isfile(config_file):
+            logger.debug(
+                f"Skipping post-header cmake-format for {filename}: {config_file} is unavailable."
+            )
+            return False
+
+        proc = subprocess.run(
+            ["cmake-format", "-c", config_file, "-i", filename],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            encoding="utf-8",
+        )
+
+        if proc.returncode == 0:
+            return True
+
+        logger.error(
+            f"cmake-format failed to stabilize {filename} after adding a license header."
+        )
+        if proc.stdout:
+            logger.error(proc.stdout)
+        return False
+
     def apply_license_header(self, filename, content):
         """Apply license header to a file, preserving shebang if present."""
         header = self.get_license_header(filename)
@@ -1036,11 +1063,14 @@ class QualityChecks:
         try:
             with open(filename, 'w', encoding='utf-8', newline="\n") as f:
                 f.write(new_content)
-                self.record_autofix(filename, "license-header", "added a missing header to")
         except Exception as e:
             logger.error(f"Error writing license header to {filename}: {e}")
             return False
 
+        if self.file_utils.is_file_in_group(filename, self.file_utils.file_endings["cmake"]):
+            self.stabilize_cmake_file(filename)
+
+        self.record_autofix(filename, "license-header", "added a missing header to")
         return True
 
     def check_license_header(self, files, format=True) -> bool:

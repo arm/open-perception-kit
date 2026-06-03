@@ -117,17 +117,55 @@ class TestQualityChecks(unittest.TestCase):
             target_file = Path(temp_dir) / "CMakeLists.txt"
             target_file.write_text(input_content, encoding="utf-8")
 
-            with patch.object(self.quality_checks, "get_license_header", return_value="# Synthetic header\n"):
-                with patch.object(self.quality_checks, "record_autofix") as record_autofix:
-                    result = self.quality_checks.apply_license_header(
-                        str(target_file),
-                        input_content,
-                    )
+            with patch("expkits_ci.quality_checks.os.path.isfile", return_value=False):
+                with patch.object(self.quality_checks, "get_license_header", return_value="# Synthetic header\n"):
+                    with patch.object(self.quality_checks, "record_autofix") as record_autofix:
+                        result = self.quality_checks.apply_license_header(
+                            str(target_file),
+                            input_content,
+                        )
             rendered = target_file.read_text(encoding="utf-8")
 
         self.assertTrue(result)
         self.assertTrue(rendered.startswith("# Synthetic header\ncmake_minimum_required"))
         self.assertNotIn("# Synthetic header\n\ncmake_minimum_required", rendered)
+        record_autofix.assert_called_once_with(
+            str(target_file),
+            "license-header",
+            "added a missing header to",
+        )
+
+    def test_apply_license_header_reformats_cmake_file_when_config_is_available(self):
+        input_content = (FIXTURE_ROOT / "bad.CMakeLists.txt.input").read_text(encoding="utf-8")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target_file = Path(temp_dir) / "CMakeLists.txt"
+            target_file.write_text(input_content, encoding="utf-8")
+
+            def fake_cmake_format(cmd, stdout=None, stderr=None, encoding=None):
+                self.assertEqual(
+                    cmd,
+                    ["cmake-format", "-c", ".cmake-format.yaml", "-i", str(target_file)],
+                )
+                target_file.write_text(
+                    "# Synthetic header\ncmake_minimum_required(VERSION 3.20)\n",
+                    encoding="utf-8",
+                )
+                return Mock(returncode=0, stdout="")
+
+            with patch("expkits_ci.quality_checks.os.path.isfile", return_value=True):
+                with patch.object(self.quality_checks, "get_license_header", return_value="# Synthetic header\n"):
+                    with patch("expkits_ci.quality_checks.subprocess.run", side_effect=fake_cmake_format) as subprocess_run:
+                        with patch.object(self.quality_checks, "record_autofix") as record_autofix:
+                            result = self.quality_checks.apply_license_header(
+                                str(target_file),
+                                input_content,
+                            )
+            rendered = target_file.read_text(encoding="utf-8")
+
+        self.assertTrue(result)
+        self.assertEqual(rendered, "# Synthetic header\ncmake_minimum_required(VERSION 3.20)\n")
+        self.assertEqual(subprocess_run.call_count, 1)
         record_autofix.assert_called_once_with(
             str(target_file),
             "license-header",
