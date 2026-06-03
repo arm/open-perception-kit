@@ -22,19 +22,52 @@ class DummyRepo:
         self.working_tree_dir = str(Path(__file__).resolve().parents[3])
 
 
-try:
-    import argcomplete  # noqa: F401
-except ModuleNotFoundError:
-    sys.modules["argcomplete"] = types.SimpleNamespace(
-        autocomplete=lambda *_args, **_kwargs: None,
-    )
+def import_expkits_ci_module():
+    try:
+        return importlib.import_module("expkits_ci.expkits_ci")
+    except ModuleNotFoundError:
+        stale_modules = {
+            module_name: sys.modules.pop(module_name, None)
+            for module_name in (
+                "expkits_ci",
+                "expkits_ci.expkits_ci",
+                "expkits_ci.expkits_log",
+                "expkits_ci.quality_checks",
+                "expkits_ci.file_utils",
+                "expkits_ci.license_template_manager",
+            )
+        }
+        try:
+            with patch.dict(
+                sys.modules,
+                {
+                    "argcomplete": types.SimpleNamespace(
+                        autocomplete=lambda *_args, **_kwargs: None,
+                    ),
+                    "git": types.SimpleNamespace(
+                        Repo=DummyRepo,
+                        GitCommandError=Exception,
+                        BadName=ValueError,
+                    ),
+                },
+            ):
+                return importlib.import_module("expkits_ci.expkits_ci")
+        finally:
+            for module_name in (
+                "expkits_ci.license_template_manager",
+                "expkits_ci.file_utils",
+                "expkits_ci.quality_checks",
+                "expkits_ci.expkits_log",
+                "expkits_ci.expkits_ci",
+                "expkits_ci",
+            ):
+                sys.modules.pop(module_name, None)
+            for module_name, module in stale_modules.items():
+                if module is not None:
+                    sys.modules[module_name] = module
 
-try:
-    import git  # noqa: F401
-except ModuleNotFoundError:
-    sys.modules["git"] = types.SimpleNamespace(Repo=DummyRepo, GitCommandError=Exception)
 
-expkits_ci_module = importlib.import_module("expkits_ci.expkits_ci")
+expkits_ci_module = import_expkits_ci_module()
 CheckResult = expkits_ci_module.CheckResult
 create_execution_report = expkits_ci_module.create_execution_report
 describe_file_scope = expkits_ci_module.describe_file_scope
