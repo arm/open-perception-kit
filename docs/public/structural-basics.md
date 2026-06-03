@@ -31,7 +31,7 @@ Use this for your own test media.
 ### `docs/`
 These contain the project documentation.
 
-- `README.md` the root of the documentation 
+- `README.md` is the root of the documentation.
 - `docs/public/` contains the Markdown source used by the current docs site.
 - `docs/static/` contains the images used by the docs.
 
