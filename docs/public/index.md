@@ -1,3 +1,9 @@
+---
+ sidebar_position: 1
+ sidebar_label: Get started
+ slug: /
+---
+
 # Arm Perception Kit CLI quick start
 
 The Arm Perception Kit helps Raspberry Pi developers get from setup to 
@@ -69,13 +75,14 @@ use the target Pi IP address.
 
 > **Expected outcome:** the host machine opens a shell on the target Pi.
 
-#### 1.1 Clone the repository 
+#### 1.2 Clone the repository 
 
 In the Raspberry Pi 5 terminal run:
 
+**Note 1: the name of the repo will be changed**
+**Note 2: this works only when public repository is released**
+
 ```bash
-# TODO: works only when public repository is released
-# TODO: the name shall be changed
 git clone https://github.com/Arm-Debug/amp-dev-forge.git
 cd amp-dev-forge
 ```
@@ -88,12 +95,12 @@ Enter the `amp-dev-forge` folder in the terminal and run:
 ./quick_start
 ```
 
-### 3. Enter to the container command line
+### 3. Enter the container command line
 
 ```bash
 ./enter_cli
 ```
-> **Expected outcome:** The prompt shows the `devgoblin` 
+> **Expected outcome:** The prompt shows `devgoblin` 
 
 #### 3.1 Optional: Download the stock videos
 
@@ -130,7 +137,7 @@ until you stop it with `Ctrl+C`.
 The target Pi serves the WebRTC inference viewer on port `9999`. Open it from
 the host machine while the pipeline terminal keeps running.
 
-#### 5.2
+#### 5.2 Open the WebRTC viewer
 
 On the host machine, open:
 
@@ -145,7 +152,7 @@ You can use the hostname instead if it resolves reliably on your network:
 > connection status, controls, the **Pipeline Output Model** panel, and the
 > debug log.
 
-#### 6.3 Check YoloV11
+#### 5.3 Check YoloV11
 
 In the WebRTC browser viewer, find **YoloV11** in the **Pipeline Output
 Model** panel. If the toggle is off, enable it.
@@ -178,9 +185,9 @@ Pick your next step.
 | [Use live camera input](docs/public/camera-input.md) | Move from packaged media to a USB or Raspberry Pi camera. |
 | [Add or adapt a model and OpChain](docs/public/bring-your-model.md) | Change the model after the source and output path work. |
 | [**Coming Soon:** Feed inference into an application](docs/public/use-output-in-app.md) | Capture inference output for downstream logic. |
-| [TODO@ibori: shall be written. Use Hailo acceleration](docs/public/run-hailo-inference.md) | Add accelerator hardware. |
+| [Use Hailo acceleration](docs/public/run-hailo-inference.md) | Add accelerator hardware. |
 | [Understanding the repository structure](docs/public/structural-basics.md) | How to get started with new components |
-| [Pipeline basics](docs/public/runtime-basics.md) | Learn about inference pipeline priciples  |
+| [Pipeline basics](docs/public/runtime-basics.md) | Learn about inference pipeline principles  |
 | [Custom postprocessing](docs/public/custom-postprocessing.md) |    |
 
 
@@ -197,4 +204,3 @@ Pick your next step.
 | Viewer does not load | Keep the pipeline terminal running, use the target Pi IP address, and check port `9999`. |
 | A model produces no overlay | Confirm the model and any upstream dependencies are enabled, then check the debug log or model state in the viewer. |
 
-For more symptoms, use [Troubleshooting](troubleshooting/index.md).
