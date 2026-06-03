@@ -1,5 +1,7 @@
 # Arm Perception Kit CLI quick start
 
+[![Python Dependency Audit](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/python-dependency-audit.yml/badge.svg?branch=main&event=schedule)](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/python-dependency-audit.yml)
+
 The Arm Perception Kit helps Raspberry Pi developers get from setup to 
 edge-vision inference without building the whole perception stack from scratch. 
 It gives you a fast path from a ready Raspberry Pi 5 to visible inference and 
