@@ -15,7 +15,7 @@ Usage:
 Detects the host environment for the PEK quick-start flow.
 
 This implementation detects the environment, runs the current prerequisite
-check placeholder, and starts the matching PEK base development container.
+check, and starts the matching PEK base development container.
 EOF
 }
 
