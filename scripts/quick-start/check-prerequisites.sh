@@ -70,10 +70,22 @@ check_docker_access() {
     command -v docker > /dev/null 2>&1 && docker info > /dev/null 2>&1
 }
 
+check_hailo8_package() {
+    dpkg-query -W -f='${Status}' hailo-all 2> /dev/null | grep -q "install ok installed"
+}
+
+check_hailo10_package() {
+    dpkg-query -W -f='${Status}' hailo-h10-all 2> /dev/null | grep -q "install ok installed"
+}
+
 # Platform prerequisite lists. Keep most of these empty until the minimal sets
 # are known. A requirement can have no fallback package when it needs user action
 # instead of package installation, for example Docker group membership.
-PREREQS_DEBIAN_13_X86=()
+PREREQS_DEBIAN_13_X86=(
+    "docker-cli|check_docker_cli|docker.io|Docker CLI"
+    "docker-compose|check_docker_compose|docker-compose|Docker Compose plugin"
+    "docker-access|check_docker_access||Docker daemon reachable by the current user"
+)
 PREREQS_UBUNTU_24_04_X86=(
     "docker-cli|check_docker_cli|docker.io|Docker CLI"
     "docker-compose|check_docker_compose|docker-compose-v2|Docker Compose plugin"
@@ -84,13 +96,33 @@ PREREQS_UBUNTU_26_04_X86=(
     "docker-compose|check_docker_compose|docker-compose-v2|Docker Compose plugin"
     "docker-access|check_docker_access||Docker daemon reachable by the current user"
 )
-PREREQS_WSL=()
+
+PREREQS_WSL=(
+    "docker-cli|check_docker_cli||Docker CLI from Docker Desktop WSL integration"
+    "docker-compose|check_docker_compose||Docker Compose plugin from Docker Desktop WSL integration"
+    "docker-access|check_docker_access||Docker Desktop engine reachable from WSL"
+)
 PREREQS_WSL_DEBIAN_13=()
 PREREQS_WSL_UBUNTU_24_04=()
 PREREQS_WSL_UBUNTU_26_04=()
-PREREQS_RPI5=()
-PREREQS_RPI5_HAILO8=()
-PREREQS_RPI5_HAILO10=()
+
+PREREQS_RPI5=(
+    "docker-cli|check_docker_cli|docker.io|Docker CLI"
+    "docker-compose|check_docker_compose|docker-compose|Docker Compose plugin"
+    "docker-access|check_docker_access||Docker daemon reachable by the current user"
+)
+PREREQS_RPI5_HAILO8=(
+    "docker-cli|check_docker_cli|docker.io|Docker CLI"
+    "docker-compose|check_docker_compose|docker-compose|Docker Compose plugin"
+    "docker-access|check_docker_access||Docker daemon reachable by the current user"
+    "hailo8-stack|check_hailo8_package|hailo-all|Hailo 8 software stack"
+)
+PREREQS_RPI5_HAILO10=(
+    "docker-cli|check_docker_cli|docker.io|Docker CLI"
+    "docker-compose|check_docker_compose|docker-compose|Docker Compose plugin"
+    "docker-access|check_docker_access||Docker daemon reachable by the current user"
+    "hailo10-stack|check_hailo10_package|hailo-h10-all|Hailo 10 software stack"
+)
 PREREQS_MACOS=()
 PREREQS_LINUX_X86=()
 
@@ -107,7 +139,7 @@ select_prereq_arrays() {
             SELECTED_PREREQ_ARRAYS=(PREREQS_MACOS)
             ;;
         wsl)
-            PACKAGE_MANAGER="apt"
+            PACKAGE_MANAGER="manual"
             SELECTED_PREREQ_ARRAYS=(PREREQS_WSL)
             if [[ "$PEK_OS_ID" == "ubuntu" && "$PEK_OS_VERSION_ID" == "24.04" ]]; then
                 SELECTED_PREREQ_ARRAYS+=(PREREQS_WSL_UBUNTU_24_04)
@@ -279,12 +311,21 @@ install_missing_packages() {
     esac
 }
 
+print_wsl_docker_desktop_hint() {
+    echo "    Install and start Docker Desktop for Windows."
+    echo "    Enable Settings > General > Use WSL 2 based engine."
+    echo "    Enable Settings > Resources > WSL Integration for this distro."
+    echo "    Reopen WSL, or run: wsl.exe --shutdown"
+    echo "    Verify: docker info && docker compose version"
+}
+
 print_manual_failures() {
     local requirement
     local requirement_id
     local check_fn
     local packages
     local description
+    local printed_wsl_docker_hint="false"
 
     [[ "${#FAILED_MANUAL_PREREQS[@]}" -eq 0 ]] && return
 
@@ -293,7 +334,12 @@ print_manual_failures() {
     for requirement in "${FAILED_MANUAL_PREREQS[@]}"; do
         IFS='|' read -r requirement_id check_fn packages description <<< "$requirement"
         echo "  ${description}"
-        if [[ "$requirement_id" == "docker-access" ]]; then
+        if [[ "$PEK_PLATFORM_ID" == "wsl" && "$requirement_id" == docker-* ]]; then
+            if [[ "$printed_wsl_docker_hint" != "true" ]]; then
+                print_wsl_docker_desktop_hint
+                printed_wsl_docker_hint="true"
+            fi
+        elif [[ "$requirement_id" == "docker-access" ]]; then
             echo "    Start Docker and confirm 'docker info' works without sudo."
             if [[ "$PEK_PLATFORM_ID" == "linux-x86_64" || "$PEK_PLATFORM_ID" == rpi5* ]]; then
                 echo "    On Linux, this often means: sudo usermod -aG docker \"\$USER\""

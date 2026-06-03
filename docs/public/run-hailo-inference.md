@@ -55,12 +55,14 @@ From the PEK repository on the Raspberry Pi, run:
 
 ```bash
 ./quick_start
+./download_videos
 ./build
 ```
 
 `./quick_start` starts the matching Raspberry Pi container and passes through
-the Hailo device when it is visible on the host. `./build` builds PEK inside
-that container.
+the Hailo device when it is visible on the host. `./build` builds 
+PEK inside that container. `./download_videos` downloads
+the stock videos, necessary for running the example pipelines.
 
 ## Run A Hailo Pipeline
 

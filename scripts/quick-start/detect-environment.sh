@@ -75,18 +75,27 @@ detect_rpi_model() {
 detect_hailo_arch() {
     local output=""
 
-    if command -v hailortcli > /dev/null 2>&1; then
-        output="$(hailortcli fw-control identify 2> /dev/null || true)"
-        if grep -qi "HAILO10" <<< "$output"; then
+    if command -v lspci > /dev/null 2>&1; then
+        output="$(lspci -nn -d 1e60: 2> /dev/null || true)"
+
+        if grep -Eqi '\[1e60:45c4\]|Hailo[- ]?10|H10' <<< "$output"; then
             printf "hailo10"
             return
         fi
-        if grep -qi "HAILO8L" <<< "$output"; then
+
+        if grep -Eqi 'Hailo[- ]?8L|HAILO8L' <<< "$output"; then
             printf "hailo8l"
             return
         fi
-        if grep -qi "HAILO8" <<< "$output"; then
+
+        # PCI ID 2864 identifies the Hailo-8 family; lspci may not expose 8L separately.
+        if grep -Eqi '\[1e60:2864\]|Hailo[- ]?8|HAILO8' <<< "$output"; then
             printf "hailo8"
+            return
+        fi
+
+        if [[ -n "$output" ]]; then
+            printf "hailo-unknown"
             return
         fi
     fi

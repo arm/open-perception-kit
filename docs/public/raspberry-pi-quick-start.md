@@ -61,7 +61,7 @@ ssh <username>@raspberrypi.local
 
 After login, you are in the **Raspberry Pi shell**. The next commands run on the Pi.
 
-## 4. Update The Pi And Install Base Packages
+## 4. Update The Pi And Install Packages
 
 Run in the **Raspberry Pi shell**:
 
