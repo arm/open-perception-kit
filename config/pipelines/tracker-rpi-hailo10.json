@@ -1,11 +1,11 @@
 {
-  "description": "Object tracking pipeline using the Hailo opchain with the default video source and peksink video sink.",
+  "description": "Object tracking pipeline using the Hailo 10 opchain with the default video source and peksink video sink.",
   "pipeline": [
     "filesrc location=/work/data/videos/GettyImages-1465682313.mov !",
     "decodebin !",
     "videoconvert !",
     "video/x-raw,format=BGRA !",
-    "pekinfer opchain-path=/work/config/opchains/tracking/opchain-hailo-v8.json active=true !",
+    "pekinfer opchain-path=/work/config/opchains/tracking/opchain-hailo-v10.json active=true !",
     "pektracker content-type=genericObject !",
     "pekperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
     "pekosd enabled=true !",

@@ -1,6 +1,6 @@
 {
-    "name": "FullTrackingHailo",
-    "description": "Detector + ReID micropipeline for `pektracker` using Hailo 8-compiled models.",
+    "name": "FullTrackingHailo10",
+    "description": "Detector + ReID micropipeline for `pektracker` using official Hailo 10-compiled YOLOv11n and RepVGG A0 person ReID models.",
     "ops": [
         {
             "id": "pek-std-ops/InferenceController",
@@ -16,7 +16,7 @@
         {
             "id": "pek-hailort-ops/Inference",
             "attributes": {
-                "modelDescriptor": "/work/config/models/yolov11-hailo8/model.json"
+                "modelDescriptor": "/work/config/models/yolov11-hailo10/model.json"
             }
         },
         {
@@ -51,7 +51,7 @@
         {
             "id": "pek-hailort-ops/Inference",
             "attributes": {
-                "modelDescriptor": "/work/config/models/osnet_x0_25-hailo8/model.json"
+                "modelDescriptor": "/work/config/models/repvgg_a0_person_reid_512-hailo10/model.json"
             }
         },
         {
