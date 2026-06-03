@@ -18,7 +18,7 @@ application.
 **Note:** This developer preview is for evaluation, early application
 development, and feedback.
 
-![Example WebRTC viewer showing sample video inference, model controls, performance metrics, and debug log](docs/static/img/10-browser-ui.png)
+![Example WebRTC viewer showing sample video inference, model controls, performance metrics, and debug log](../static/img/10-browser-ui.png)
 
 ## Quick start: first inference on Raspberry Pi 5
 
@@ -160,7 +160,7 @@ Model** panel. If the toggle is off, enable it.
 > **Expected outcome:** YoloV11 identifies objects in the stock video stream by
 > drawing detection overlays in the viewer.
 
-![Final WebRTC success view showing inference overlays on the sample video stream](docs/static/img/10-browser-ui.png)
+![Final WebRTC success view showing inference overlays on the sample video stream](../static/img/10-browser-ui.png)
 
 Congratulations, you have run your first Perception Kit pipeline!
 
@@ -169,10 +169,10 @@ Congratulations, you have run your first Perception Kit pipeline!
 Pipeline testing and development are fully supported in Visual Studio Code (VS Code)
 Follow the links below for detailed instructions:
 
-* [Raspberry Pi 5](docs/public/raspberry-pi-quick-start.md)
-* [Windows](docs/public/windows-quick-start.md)
-* [Mac](docs/public/macos-quick-start.md)
-* [Linux](docs/public/linux-quick-start.md)
+* [Raspberry Pi 5](../public/raspberry-pi-quick-start.md)
+* [Windows](../public/windows-quick-start.md)
+* [Mac](../public/macos-quick-start.md)
+* [Linux](../public/linux-quick-start.md)
 
 
 ## After first success
@@ -181,14 +181,14 @@ Pick your next step.
 
 | Goal |  What it does |
 | --- | --- |
-| [Use your own input or output path](docs/public/media-input.md) | Keep the known pipeline and change the input or output. |
-| [Use live camera input](docs/public/camera-input.md) | Move from packaged media to a USB or Raspberry Pi camera. |
-| [Add or adapt a model and OpChain](docs/public/bring-your-model.md) | Change the model after the source and output path work. |
-| [**Coming Soon:** Feed inference into an application](docs/public/use-output-in-app.md) | Capture inference output for downstream logic. |
-| [Use Hailo acceleration](docs/public/run-hailo-inference.md) | Add accelerator hardware. |
-| [Understanding the repository structure](docs/public/structural-basics.md) | How to get started with new components |
-| [Pipeline basics](docs/public/runtime-basics.md) | Learn about inference pipeline principles  |
-| [Custom postprocessing](docs/public/custom-postprocessing.md) |    |
+| [Use your own input or output path](../public/media-input.md) | Keep the known pipeline and change the input or output. |
+| [Use live camera input](../public/camera-input.md) | Move from packaged media to a USB or Raspberry Pi camera. |
+| [Add or adapt a model and OpChain](../public/bring-your-model.md) | Change the model after the source and output path work. |
+| [**Coming Soon:** Feed inference into an application](../public/use-output-in-app.md) | Capture inference output for downstream logic. |
+| [Use Hailo acceleration](../public/run-hailo-inference.md) | Add accelerator hardware. |
+| [Understanding the repository structure](../public/structural-basics.md) | How to get started with new components |
+| [Pipeline basics](../public/runtime-basics.md) | Learn about inference pipeline principles  |
+| [Custom postprocessing](../public/custom-postprocessing.md) |    |
 
 
 
