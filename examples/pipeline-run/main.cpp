@@ -20,8 +20,13 @@
 
 namespace {
 
+<<<<<<< HEAD:examples/pipeline-run/main.cpp
 // Keep the example-local helpers out of the global namespace. pipeline-run is
 // meant to demonstrate the application-facing API, not define reusable PEK
+=======
+// Keep the example-local helpers out of the global namespace. pipeline-exec is
+// meant to demonstrate the public PEK runtime API, not define reusable PEK
+>>>>>>> abf198c (runtime api):examples/pipeline-exec/main.cpp
 // utility functions.
 
 void printUsage(const char *programName) {
@@ -83,8 +88,8 @@ int main(int argc, char **argv) {
     std::atomic_size_t perceptionCount{0};
 
     // This condition variable is deliberately owned by the example, not by
-    // Pipeline. A ROS2 app could spin its executor here instead, and a GUI app
-    // could keep its normal UI event loop. The Pipeline only reports EOS/ERROR.
+    // Pipeline. A GUI app could keep its normal UI event loop. The Pipeline
+    // only reports EOS/ERROR.
     std::mutex completionMutex;
     std::condition_variable completionCv;
     bool completed = false;
@@ -133,9 +138,15 @@ int main(int argc, char **argv) {
     });
 
     // Errors observed by Pipeline's internal bus watcher are reported through
+<<<<<<< HEAD:examples/pipeline-run/main.cpp
     // the API-local Error type. The callback may run from Pipeline's
     // background thread, so the example only prints and signals completion.
     pipeline.onError([&markCompleted](const pek::api::Error &error) {
+=======
+    // the public pek::runtime::Error type. The callback may run from Pipeline's
+    // background thread, so the example only prints and signals completion.
+    pipeline.onError([&markCompleted](const pek::runtime::Error &error) {
+>>>>>>> abf198c (runtime api):examples/pipeline-exec/main.cpp
         fmt::print(stderr, "{}\n", error.toString());
         markCompleted(true);
     });
