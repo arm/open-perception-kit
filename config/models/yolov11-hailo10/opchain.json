@@ -1,0 +1,39 @@
+{
+	"name": "YoloV11n HAILO10",
+	"description": "Official Hailo 10H-compiled YoloV11n object detection model.",
+	"ops": [
+		{
+			"id": "pek-std-ops/InferenceController",
+			"attributes": {}
+		},
+		{
+			"id": "pek-std-ops/GenericImagePreprocess",
+			"attributes": {
+				"inputImageTensorIndex": 0,
+				"inputImageSourceName": "pipelineVideoFrame"
+			}
+		},
+		{
+			"id": "pek-hailort-ops/Inference",
+			"attributes": {
+				"modelDescriptor": "/work/config/models/yolov11-hailo10/model.json"
+			}
+		},
+		{
+			"id": "pek-std-ops/GenericPostprocess",
+			"attributes": {
+				"applyNms": false,
+				"parser": "YoloParser",
+				"outputFormat": "HailoYoloNMS",
+				"normalizeOutputCoordinates": false,
+				"coordinatesAreNormalized": true,
+				"confidenceThreshold": 0.5,
+				"maxDetections": 50,
+				"classCount": 80,
+				"maxBboxesPerClass": 100,
+				"coordOrder": "yxyx",
+				"debug": false
+			}
+		}
+	]
+}
