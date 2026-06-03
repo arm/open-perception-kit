@@ -112,34 +112,30 @@ class TestExpkitsCiCli(unittest.TestCase):
         self.assertTrue(args.check_secrets)
         self.assertFalse(args.clang_tidy)
 
-    def test_get_enabled_check_flags_reports_selected_checks_in_stable_order(self):
+    def test_get_enabled_check_flags_prefers_format_modes_over_check_modes(self):
         args = self.parse_args(
             "--check-secrets",
-            "--branch-naming",
-            "--commit-msg-ci",
             "--clang-format-check",
-            "--clang-tidy",
-            "--clang-tidy-stats",
-            "clang-tidy.log",
+            "--clang-format",
+            "--python-format-check",
             "--python-format",
             "--cmake-format-check",
+            "--cmake-format",
+            "--license-header-check",
             "--license-header",
             "--shell-format-check",
+            "--shell-format",
         )
 
         self.assertEqual(
             get_enabled_check_flags(args),
             [
                 "--check-secrets",
-                "--branch-naming",
-                "--commit-msg-ci",
-                "--clang-format-check",
-                "--clang-tidy",
-                "--clang-tidy-stats",
+                "--clang-format",
                 "--python-format",
-                "--cmake-format-check",
+                "--cmake-format",
                 "--license-header",
-                "--shell-format-check",
+                "--shell-format",
             ],
         )
 
@@ -161,11 +157,11 @@ class TestExpkitsCiCli(unittest.TestCase):
         self.assertTrue(needs_related_files(diff_args))
         self.assertEqual(describe_file_scope(diff_args), "git index diff against HEAD")
 
-    def test_execution_report_and_rendered_lines_reflect_status_and_pr_target(self):
-        args = self.parse_args("--all-checks", "--pr-target-branch", "main")
-        report = create_execution_report(args, "git diff against origin/main...HEAD", 7)
+    def test_execution_report_and_rendered_lines_reflect_enabled_checks_status_and_pr_target(self):
+        args = self.parse_args("--python-format-check", "--pr-target-branch", "main")
+        report = create_execution_report(args, describe_file_scope(args), 7)
         report.check_results = [
-            CheckResult("secrets", True),
+            CheckResult("python format", True),
             CheckResult("shell format", False),
         ]
 
@@ -177,11 +173,13 @@ class TestExpkitsCiCli(unittest.TestCase):
 
         self.assertEqual(plan_lines[0], "expkits-ci execution plan:")
         self.assertIn("  PR target branch: main", plan_lines)
-        self.assertIn("  enabled checks: none", plan_lines)
+        self.assertIn("  enabled checks: --python-format-check", plan_lines)
+        self.assertIn("  OK   python format", summary_lines)
         self.assertIn("  NOK  shell format", summary_lines)
         self.assertTrue(summary_lines[-1].endswith("NOK"))
         self.assertIn("execution plan:", detailed_lines)
         self.assertIn("  PR target branch: main", detailed_lines)
+        self.assertIn("    - --python-format-check", detailed_lines)
         self.assertIn("check results:", detailed_lines)
         self.assertIn("  NOK  shell format", detailed_lines)
         self.assertEqual(detailed_lines[-1], "overall: NOK")
@@ -288,6 +286,23 @@ class TestExpkitsCiCli(unittest.TestCase):
         self.assertEqual(result, 1)
         logged_errors = "\n".join(call.args[0] for call in logger.error.call_args_list)
         self.assertIn("One or more checks failed.", logged_errors)
+
+    def test_main_returns_one_with_autofix_guidance_when_checks_fail_after_file_updates(self):
+        checker = Mock()
+        checker.file_utils.get_related_files.return_value = ["safe.txt"]
+        checker.autofix_messages = ["safe.txt reformatted"]
+        logger = Mock()
+
+        with patch.object(expkits_ci_module, "QualityChecks", return_value=checker), \
+                patch.object(expkits_ci_module, "perform_checks", return_value=False), \
+                patch.object(expkits_ci_module, "setup_expkits_logger", return_value=logger), \
+                patch.object(expkits_ci_module.argcomplete, "autocomplete", return_value=None), \
+                patch.object(sys, "argv", ["expkits-ci", "--python-format", "--list-of-files", "safe.txt"]):
+            result = expkits_ci_module.main()
+
+        self.assertEqual(result, 1)
+        logged_errors = "\n".join(call.args[0] for call in logger.error.call_args_list)
+        self.assertIn("Repo checks updated files in place.", logged_errors)
 
 
 if __name__ == "__main__":

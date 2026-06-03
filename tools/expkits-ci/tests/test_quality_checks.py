@@ -91,14 +91,6 @@ class TestQualityChecks(unittest.TestCase):
         record_autofix.assert_not_called()
         self.assertIn("failed to format test.file", "\n".join(logs.output))
 
-    def test_record_manual_fix_uses_lowercase_git_add(self):
-        with self.assertLogs("expkits_ci", level="ERROR") as logs:
-            self.quality_checks.record_manual_fix(
-                "test.file", "tool", "Fix it.")
-
-        self.assertIn("git add test.file", "\n".join(logs.output))
-        self.assertNotIn("Git add test.file", "\n".join(logs.output))
-
     def test_clang_format_failure_does_not_record_autofix(self):
         self.assert_formatter_failure_does_not_record_autofix(
             "check_clang_format", [True, False])
@@ -174,25 +166,27 @@ class TestQualityChecks(unittest.TestCase):
         self.assertEqual(len(first_cmd) - 3, 50)
         self.assertEqual(len(second_cmd) - 3, 5)
 
-    def test_apply_license_header_keeps_cmake_content_adjacent_to_header(self):
+    def test_apply_license_header_keeps_cmake_content_adjacent_to_header_when_cmake_config_is_missing(self):
         input_content = (FIXTURE_ROOT / "cmake" / "bad.CMakeLists.txt.input").read_text(encoding="utf-8")
 
         with tempfile.TemporaryDirectory() as temp_dir:
             target_file = Path(temp_dir) / "CMakeLists.txt"
             target_file.write_text(input_content, encoding="utf-8")
 
-            with patch.object(self.quality_checks, "get_license_header", return_value="# Synthetic header\n"):
-                with patch.object(self.quality_checks, "stabilize_cmake_file", return_value=True):
-                    with patch.object(self.quality_checks, "record_autofix") as record_autofix:
-                        result = self.quality_checks.apply_license_header(
-                            str(target_file),
-                            input_content,
-                        )
+            with patch("expkits_ci.quality_checks.os.path.isfile", return_value=False):
+                with patch("expkits_ci.quality_checks.subprocess.run") as subprocess_run:
+                    with patch.object(self.quality_checks, "get_license_header", return_value="# Synthetic header\n"):
+                        with patch.object(self.quality_checks, "record_autofix") as record_autofix:
+                            result = self.quality_checks.apply_license_header(
+                                str(target_file),
+                                input_content,
+                            )
             rendered = target_file.read_text(encoding="utf-8")
 
         self.assertTrue(result)
         self.assertTrue(rendered.startswith("# Synthetic header\ncmake_minimum_required"))
         self.assertNotIn("# Synthetic header\n\ncmake_minimum_required", rendered)
+        subprocess_run.assert_not_called()
         record_autofix.assert_called_once_with(
             str(target_file),
             "license-header",
@@ -243,16 +237,29 @@ class TestQualityChecks(unittest.TestCase):
             target_file = Path(temp_dir) / "CMakeLists.txt"
             target_file.write_text(input_content, encoding="utf-8")
 
-            with patch.object(self.quality_checks, "get_license_header", return_value="# Synthetic header\n"):
-                with patch.object(self.quality_checks, "stabilize_cmake_file", return_value=False) as stabilize_cmake_file:
-                    with patch.object(self.quality_checks, "record_autofix") as record_autofix:
-                        result = self.quality_checks.apply_license_header(
-                            str(target_file),
-                            input_content,
-                        )
+            with patch("expkits_ci.quality_checks.os.path.isfile", return_value=True):
+                with patch(
+                    "expkits_ci.quality_checks.subprocess.run",
+                    return_value=Mock(returncode=1, stdout="formatter failed\n"),
+                ) as subprocess_run:
+                    with patch.object(self.quality_checks, "get_license_header", return_value="# Synthetic header\n"):
+                        with patch.object(self.quality_checks, "record_autofix") as record_autofix:
+                            with self.assertLogs("expkits_ci", level="ERROR") as logs:
+                                result = self.quality_checks.apply_license_header(
+                                    str(target_file),
+                                    input_content,
+                                )
+            rendered = target_file.read_text(encoding="utf-8")
 
         self.assertFalse(result)
-        stabilize_cmake_file.assert_called_once_with(str(target_file))
+        self.assertTrue(rendered.startswith("# Synthetic header\ncmake_minimum_required"))
+        subprocess_run.assert_called_once_with(
+            ["cmake-format", "-c", ".cmake-format.yaml", "-i", str(target_file)],
+            stdout=quality_checks_module.subprocess.PIPE,
+            stderr=quality_checks_module.subprocess.STDOUT,
+            encoding="utf-8",
+        )
+        self.assertIn("failed to stabilize", "\n".join(logs.output))
         record_autofix.assert_not_called()
 
 

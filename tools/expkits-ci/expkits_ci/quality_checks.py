@@ -1040,13 +1040,13 @@ class QualityChecks:
 
     @staticmethod
     def stabilize_cmake_file(filename):
-        """Re-run cmake-format after header insertion so one autofix pass is stable."""
+        """Re-run cmake-format after header insertion when the config is available."""
         config_file = ".cmake-format.yaml"
         if not os.path.isfile(config_file):
             logger.debug(
                 f"Skipping post-header cmake-format for {filename}: {config_file} is unavailable."
             )
-            return False
+            return True
 
         proc = subprocess.run(
             ["cmake-format", "-c", config_file, "-i", filename],
