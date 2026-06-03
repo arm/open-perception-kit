@@ -31,6 +31,11 @@ Follow the repository root `AGENTS.md` first.
 - For non-trivial tasks: inspect docs/examples first, make a short plan, and verify with the most specific command available.
 - State clearly what you verified and what you did not verify.
 
+## Tests and Fixtures
+- `tools/expkits-ci/tests/fixtures/` is test data.
+- Files there may be intentionally broken or secret-like.
+- Do not suggest fixing them unless the task is about fixtures or tests.
+
 ## Validation
 - Build: `./scripts/build-elements.sh debug [true|false]` or `./scripts/build-elements.sh release [true|false]`
 - Clean: `./scripts/build-elements.sh clean`

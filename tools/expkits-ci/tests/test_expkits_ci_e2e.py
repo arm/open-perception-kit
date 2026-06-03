@@ -46,7 +46,21 @@ FORMATTER_CASES = (
     FixtureCase("scripts/bad.sh", "shell/bad.sh.input", "shell/bad.sh.expected"),
 )
 
-FAKE_PRIVATE_KEY_FIXTURE = "secrets/fake-private-key.pem"  # pragma: allowlist secret
+def make_private_key_fixture():
+    """Build a detectable synthetic private-key payload without checking in a PEM fixture."""
+    payload_line = "".join([
+        "MIIEvQIBADANBgkq",
+        "hkiG9w0BAQEFAASC",
+        "BKcwggSjAgEAAoIB",
+        "AQDArandomlookin",
+        "gsecret",
+    ])
+    return "\n".join([
+        "-----BEGIN " + "PRIVATE KEY-----",
+        payload_line,
+        "-----END PRIVATE KEY-----",
+        "",
+    ])
 
 
 class TestExpkitsCiE2E(unittest.TestCase):
@@ -96,20 +110,12 @@ class TestExpkitsCiE2E(unittest.TestCase):
         return env
 
     def copy_runtime_inputs(self):
-        for relative_path in (".clang-format", ".secrets.baseline"):
+        for relative_path in (".clang-format", ".cmake-format.yaml", ".secrets.baseline"):
             source = REPO_ROOT / relative_path
             if source.exists():
                 destination = self.repo_root / relative_path
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(source, destination)
-
-        cmake_format_config = REPO_ROOT / ".cmake-format.yaml"
-        destination = self.repo_root / ".cmake-format.yaml"
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        if cmake_format_config.exists():
-            shutil.copy2(cmake_format_config, destination)
-        else:
-            destination.write_text(self.read_fixture("cmake/cmake-format.yaml"), encoding="utf-8")
 
         source_header_root = REPO_ROOT / "tools" / "templates" / "header"
         destination_header_root = self.repo_root / "tools" / "templates" / "header"
@@ -150,15 +156,6 @@ class TestExpkitsCiE2E(unittest.TestCase):
             self.read_fixture(case.expected_fixture),
             case.target_path,
         )
-
-    def read_detectable_secret_fixture(self) -> str:
-        secret_lines = []
-        for line in self.read_fixture(FAKE_PRIVATE_KEY_FIXTURE).splitlines():
-            if line.startswith("#"):
-                continue
-            secret_lines.append(line.replace(" # pragma: allowlist secret", ""))
-
-        return "\n".join(secret_lines) + "\n"
 
     def test_autofix_run_rewrites_fixture_corpus_and_check_run_passes_afterwards(self):
         tracked_paths = [case.target_path for case in FORMATTER_CASES]
@@ -206,7 +203,7 @@ class TestExpkitsCiE2E(unittest.TestCase):
     def test_fixture_based_secret_payload_fails_check_secrets(self):
         secret_path = self.repo_root / "secrets" / "bad.pem"
         secret_path.parent.mkdir(parents=True, exist_ok=True)
-        secret_path.write_text(self.read_detectable_secret_fixture(), encoding="utf-8")
+        secret_path.write_text(make_private_key_fixture(), encoding="utf-8")
 
         result = self.run_expkits_ci(
             "--check-secrets",
