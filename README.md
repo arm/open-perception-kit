@@ -145,7 +145,7 @@ You can use the hostname instead if it resolves reliably on your network:
 `http://<raspberry-pi-hostname>:9999`.
 
 > **Expected outcome:** the viewer loads and shows the sample video stream,
-> connection status, controls, the **Pipeline Output Model** panel, and the
+> connection status, controls, the **AI Models** panel, and the
 > debug log.
 
 #### 5.3 Check YoloV11
