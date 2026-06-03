@@ -38,10 +38,10 @@ FORMATTER_CASES = (
     FixtureCase("include/bad.h", "headers/bad.h.input", "headers/bad.h.expected"),
     FixtureCase("include/good.hpp", "headers/good.hpp", "headers/good.hpp"),
     FixtureCase("include/bad.hpp", "headers/bad.hpp.input", "headers/bad.hpp.expected"),
-    FixtureCase("cmake/good.cmake", "good.cmake", "good.cmake"),
-    FixtureCase("cmake/bad.cmake", "bad.cmake.input", "bad.cmake.expected"),
-    FixtureCase("cmake-good/CMakeLists.txt", "good.CMakeLists.txt", "good.CMakeLists.txt"),
-    FixtureCase("cmake-bad/CMakeLists.txt", "bad.CMakeLists.txt.input", "bad.CMakeLists.txt.expected"),
+    FixtureCase("cmake/good.cmake", "cmake/good.cmake", "cmake/good.cmake"),
+    FixtureCase("cmake/bad.cmake", "cmake/bad.cmake.input", "cmake/bad.cmake.expected"),
+    FixtureCase("cmake-good/CMakeLists.txt", "cmake/good.CMakeLists.txt", "cmake/good.CMakeLists.txt"),
+    FixtureCase("cmake-bad/CMakeLists.txt", "cmake/bad.CMakeLists.txt.input", "cmake/bad.CMakeLists.txt.expected"),
     FixtureCase("scripts/good.sh", "shell/good.sh", "shell/good.sh"),
     FixtureCase("scripts/bad.sh", "shell/bad.sh.input", "shell/bad.sh.expected"),
 )
@@ -109,7 +109,7 @@ class TestExpkitsCiE2E(unittest.TestCase):
         if cmake_format_config.exists():
             shutil.copy2(cmake_format_config, destination)
         else:
-            destination.write_text(self.read_fixture("cmake-format.yaml"), encoding="utf-8")
+            destination.write_text(self.read_fixture("cmake/cmake-format.yaml"), encoding="utf-8")
 
         source_header_root = REPO_ROOT / "tools" / "templates" / "header"
         destination_header_root = self.repo_root / "tools" / "templates" / "header"

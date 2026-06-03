@@ -111,7 +111,7 @@ class TestQualityChecks(unittest.TestCase):
         self.assertEqual(len(second_cmd) - 3, 5)
 
     def test_apply_license_header_keeps_cmake_content_adjacent_to_header(self):
-        input_content = (FIXTURE_ROOT / "bad.CMakeLists.txt.input").read_text(encoding="utf-8")
+        input_content = (FIXTURE_ROOT / "cmake" / "bad.CMakeLists.txt.input").read_text(encoding="utf-8")
 
         with tempfile.TemporaryDirectory() as temp_dir:
             target_file = Path(temp_dir) / "CMakeLists.txt"
@@ -136,7 +136,7 @@ class TestQualityChecks(unittest.TestCase):
         )
 
     def test_apply_license_header_reformats_cmake_file_when_config_is_available(self):
-        input_content = (FIXTURE_ROOT / "bad.CMakeLists.txt.input").read_text(encoding="utf-8")
+        input_content = (FIXTURE_ROOT / "cmake" / "bad.CMakeLists.txt.input").read_text(encoding="utf-8")
 
         with tempfile.TemporaryDirectory() as temp_dir:
             target_file = Path(temp_dir) / "CMakeLists.txt"
