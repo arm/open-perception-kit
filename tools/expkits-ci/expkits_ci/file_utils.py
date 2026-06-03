@@ -5,11 +5,9 @@
 import os
 import logging
 import itertools
-from git import Repo, GitCommandError, BadName
+from git import Repo, GitCommandError
 
 logger = logging.getLogger("expkits_ci")
-
-EXPECTED_REF_LOOKUP_ERRORS = (GitCommandError, BadName, ValueError)
 
 
 class FileUtils:
@@ -50,36 +48,6 @@ class FileUtils:
         return filtered
 
     @staticmethod
-    def resolve_target_branch_ref(repo, target_branch):
-        """Resolve a usable git ref for branch-delta comparison.
-
-        Prefer already-available refs so nested runtimes do not perform an
-        unnecessary fetch when the checkout already contains origin/<branch>.
-        """
-        candidate_refs = (f"origin/{target_branch}", target_branch)
-
-        for ref_name in candidate_refs:
-            try:
-                repo.commit(ref_name)
-                return ref_name
-            except EXPECTED_REF_LOOKUP_ERRORS:
-                continue
-
-        logger.info(
-            f"Could not find a local ref for '{target_branch}'. Fetching origin/{target_branch}."
-        )
-        repo.git.fetch("origin", target_branch)
-
-        for ref_name in candidate_refs:
-            try:
-                repo.commit(ref_name)
-                return ref_name
-            except EXPECTED_REF_LOOKUP_ERRORS:
-                continue
-
-        raise ValueError(f"Could not resolve target branch '{target_branch}' after fetch.")
-
-    @staticmethod
     def get_related_files(commit_diff=False, pr_target_branch=None, files=None, ignore_folder=None):
         """Get files to check based on the current git state or all files in a folder."""
         logger.info("Searching for files to check...")
@@ -93,8 +61,12 @@ class FileUtils:
             try:
                 repo = Repo(os.getcwd(), search_parent_directories=True)
                 if pr_target_branch:
-                    target_ref = FileUtils.resolve_target_branch_ref(repo, pr_target_branch)
-                    files = repo.git.diff(f"{target_ref}...HEAD", name_only=True).splitlines()
+                    try:
+                        repo.git.fetch("origin", pr_target_branch)
+                    except GitCommandError as e:
+                        logger.error(f"Could not fetch branch {pr_target_branch}: {e}")
+
+                    files = repo.git.diff(f"origin/{pr_target_branch}...HEAD", name_only=True).splitlines()
                 elif commit_diff:
                     files = [item.a_path for item in repo.index.diff("HEAD")]
                 else:
