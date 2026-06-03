@@ -88,6 +88,20 @@ def setup_argument_parser(parser):
                             help="Instead of general run on all files, run on the files in the given folder. This is useful for testing specific files.")
     util_group.add_argument("-if", "--ignore-folder", nargs='+', default=["deps", "development/build", ".git", ],
                             help="List of folders to ignore during checks.")
+    util_group.add_argument("--compile-commands-dir", default=None,
+                            help="Directory containing compile_commands.json for clang-tidy. Defaults to development/build.")
+    util_group.add_argument("--clang-tidy-binary", default=None,
+                            help="Path to clang-tidy. Defaults to PATH, then the active Python environment.")
+    util_group.add_argument("--clang-tidy-stats", default=None, metavar="LOG_FILE",
+                            help="Parse a clang-tidy log file and report diagnostic counts by check name.")
+    util_group.add_argument("--clang-tidy-stats-output", default=None, metavar="JSON_FILE",
+                            help="Write clang-tidy statistics to a JSON file.")
+    util_group.add_argument("--clang-tidy-baseline", default=None, metavar="JSON_FILE",
+                            help="Compare clang-tidy statistics against a baseline JSON file.")
+    util_group.add_argument("--clang-tidy-baseline-mode", choices=["advisory", "enforce"], default="advisory",
+                            help="Baseline comparison mode. 'enforce' fails if a per-check count exceeds baseline.")
+    util_group.add_argument("--clang-tidy-update-baseline", action="store_true",
+                            help="Update the clang-tidy baseline to current per-check counts if none exceed the existing baseline.")
 
 
 def setup_all_checks(args):
@@ -103,6 +117,14 @@ def setup_all_checks(args):
     args.shell_format_check = True
     args.license_header_check = True
     args.check_secrets = True
+
+
+def enable_implicit_verbose_logging(args):
+    """Enable verbose logging when selected operations need diagnostic details."""
+    if args.clang_tidy_stats:
+        args.verbose = True
+    if args.clang_tidy and args.log_output in ("file", "both"):
+        args.verbose = True
 
 
 def get_enabled_check_flags(args):
@@ -123,6 +145,8 @@ def get_enabled_check_flags(args):
         enabled_checks.append("--clang-format-check")
     if args.clang_tidy:
         enabled_checks.append("--clang-tidy")
+    if args.clang_tidy_stats:
+        enabled_checks.append("--clang-tidy-stats")
     if args.python_format:
         enabled_checks.append("--python-format")
     elif args.python_format_check:
@@ -143,8 +167,32 @@ def get_enabled_check_flags(args):
     return enabled_checks
 
 
+def needs_related_files(args):
+    """Return True when enabled checks need precomputed file lists."""
+    file_based_check_enabled = any([
+        args.check_secrets,
+        args.commit_msg,
+        args.commit_msg_ci,
+        args.clang_format,
+        args.clang_format_check,
+        args.clang_tidy,
+        args.python_format,
+        args.python_format_check,
+        args.cmake_format,
+        args.cmake_format_check,
+        args.shell_format,
+        args.shell_format_check,
+        args.license_header,
+        args.license_header_check,
+        args.all_checks,
+    ])
+    return file_based_check_enabled or bool(args.list_of_files) or args.commit_diff or args.pr_target_branch
+
+
 def describe_file_scope(args):
     """Describe how the file set will be resolved for the current run."""
+    if args.clang_tidy_stats and not needs_related_files(args):
+        return f"clang-tidy log statistics ({args.clang_tidy_stats})"
     if args.list_of_files:
         return f"explicit path list ({len(args.list_of_files)} input path(s))"
     if args.pr_target_branch:
@@ -302,7 +350,25 @@ def perform_checks(checker, args, files, report):
             lambda: checker.check_clang_format(files, format=args.clang_format, verbose=args.verbose),
         ) and result
     if args.clang_tidy:
-        result = run_check(report, "clang-tidy", lambda: checker.check_clang_tidy(files)) and result
+        result = run_check(
+            report,
+            "clang-tidy",
+            lambda: checker.check_clang_tidy(
+                files,
+                compile_commands_dir=args.compile_commands_dir,
+                clang_tidy_binary=args.clang_tidy_binary),
+        ) and result
+    if args.clang_tidy_stats:
+        result = run_check(
+            report,
+            "clang-tidy stats",
+            lambda: checker.report_clang_tidy_statistics(
+                args.clang_tidy_stats,
+                stats_output=args.clang_tidy_stats_output,
+                baseline_file=args.clang_tidy_baseline,
+                baseline_mode=args.clang_tidy_baseline_mode,
+                update_baseline=args.clang_tidy_update_baseline),
+        ) and result
     if args.python_format or args.python_format_check:
         result = run_check(
             report,
@@ -338,7 +404,14 @@ def main():
     args = parser.parse_args()
     argcomplete.autocomplete(parser)
 
-    logger = setup_expkits_logger(args.verbose, args.log_output, args.log_file)
+    enable_implicit_verbose_logging(args)
+
+    try:
+        logger = setup_expkits_logger(args.verbose, args.log_output, args.log_file)
+    except FileExistsError as e:
+        print(f"[ERROR] {e}", file=sys.stderr)
+        raise SystemExit(2) from e
+
     logger.info("Starting Experience Kit CI checks...")
     logger.info(f"Arguments: {args}")
 
@@ -348,16 +421,20 @@ def main():
 
     file_scope = describe_file_scope(args)
     checker = QualityChecks()
-    files = checker.file_utils.get_related_files(
-        commit_diff=args.commit_diff,
-        pr_target_branch=args.pr_target_branch,
-        files=args.list_of_files,
-        ignore_folder=args.ignore_folder)
+    needs_files = needs_related_files(args)
+    if needs_files:
+        files = checker.file_utils.get_related_files(
+            commit_diff=args.commit_diff,
+            pr_target_branch=args.pr_target_branch,
+            files=args.list_of_files,
+            ignore_folder=args.ignore_folder)
+    else:
+        files = []
 
     report = create_execution_report(args, file_scope, len(files))
     print_run_report(report, args.log_output, args.log_file)
 
-    if not files:
+    if needs_files and not files:
         logger.info("No files found to check.")
 
     result = perform_checks(checker, args, files, report)

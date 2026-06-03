@@ -34,6 +34,29 @@ services:
         meson test -C development/build --print-errorlogs
       '
 
+  pek-clang-tidy-baseline-check:
+    <<: *pek-dev-base
+    hostname: pek-clang-tidy-baseline-check
+    command: |
+      bash -c '
+        set -o pipefail &&
+        .devcontainer/devsetup.sh &&
+        .devcontainer/platform_init.sh pek-dev-base &&
+        source /work/tools/.venv/bin/activate &&
+        rm -f clang-tidy.log clang-tidy-stats.log clang-tidy-stats.json &&
+        expkits-ci \
+          --clang-tidy \
+          --clang-tidy-binary /opt/pek-venvs/devtools/bin/clang-tidy \
+          --log-output both \
+          --log-file clang-tidy.log &&
+        expkits-ci \
+          --clang-tidy-stats clang-tidy.log \
+          --clang-tidy-stats-output clang-tidy-stats.json \
+          --clang-tidy-baseline .github/ci/baselines/clang-tidy-baseline.json \
+          --clang-tidy-baseline-mode enforce \
+          | tee clang-tidy-stats.log
+      '
+
   pek-valgrind-check:
     <<: *pek-docs-base
     hostname: pek-valgrind-check
