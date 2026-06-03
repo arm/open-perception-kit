@@ -1,7 +1,7 @@
 ---
- sidebar_position: 1
- sidebar_label: Get started
- slug: /
+sidebar_position: 1
+sidebar_label: Get started
+slug: /
 ---
 
 # Arm Perception Kit CLI quick start
