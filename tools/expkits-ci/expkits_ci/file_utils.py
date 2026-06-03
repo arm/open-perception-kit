@@ -5,9 +5,11 @@
 import os
 import logging
 import itertools
-from git import Repo, GitCommandError
+from git import Repo, GitCommandError, BadName
 
 logger = logging.getLogger("expkits_ci")
+
+EXPECTED_REF_LOOKUP_ERRORS = (GitCommandError, BadName, ValueError)
 
 
 class FileUtils:
@@ -60,7 +62,7 @@ class FileUtils:
             try:
                 repo.commit(ref_name)
                 return ref_name
-            except Exception:
+            except EXPECTED_REF_LOOKUP_ERRORS:
                 continue
 
         logger.info(
@@ -72,7 +74,7 @@ class FileUtils:
             try:
                 repo.commit(ref_name)
                 return ref_name
-            except Exception:
+            except EXPECTED_REF_LOOKUP_ERRORS:
                 continue
 
         raise ValueError(f"Could not resolve target branch '{target_branch}' after fetch.")

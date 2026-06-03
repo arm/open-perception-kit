@@ -80,6 +80,15 @@ class QualityChecks:
         return False
 
     @staticmethod
+    def log_captured_tool_output(proc_stdout):
+        """Log captured formatter output line-by-line for check-only failures."""
+        if not proc_stdout:
+            return
+
+        for output_line in proc_stdout.rstrip().splitlines():
+            logger.error(output_line)
+
+    @staticmethod
     def get_detect_secrets_command():
         """Resolve the detect-secrets hook command from PATH or the active Python."""
         detect_secrets_hook = shutil.which("detect-secrets-hook")
@@ -425,7 +434,11 @@ class QualityChecks:
 
             try:
                 proc = subprocess.run(
-                    cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    encoding="utf-8",
+                )
 
                 if proc.returncode != 0:
                     result = False
@@ -434,6 +447,7 @@ class QualityChecks:
                         self.run_in_place_formatter(
                             format_cmd, filename, "clang-format")
                     else:
+                        self.log_captured_tool_output(proc.stdout)
                         self.record_manual_fix(
                             filename,
                             "clang-format",
@@ -943,7 +957,11 @@ class QualityChecks:
 
             try:
                 proc = subprocess.run(
-                    cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    encoding="utf-8",
+                )
 
                 if proc.returncode != 0:
                     result = False
@@ -952,6 +970,7 @@ class QualityChecks:
                         self.run_in_place_formatter(
                             format_cmd, filename, "cmake-format")
                     else:
+                        self.log_captured_tool_output(proc.stdout)
                         self.record_manual_fix(
                             filename,
                             "cmake-format",
@@ -983,7 +1002,11 @@ class QualityChecks:
             cmd = ["shfmt", *shfmt_args, "-d", filename]
             try:
                 proc = subprocess.run(
-                    cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    encoding="utf-8",
+                )
 
                 if proc.returncode != 0:
                     result = False
@@ -992,6 +1015,7 @@ class QualityChecks:
                         self.run_in_place_formatter(
                             format_cmd, filename, "shfmt")
                     else:
+                        self.log_captured_tool_output(proc.stdout)
                         self.record_manual_fix(
                             filename,
                             "shfmt",

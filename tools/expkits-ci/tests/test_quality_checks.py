@@ -21,12 +21,50 @@ class DummyRepo:
         self.working_tree_dir = str(Path(__file__).resolve().parents[3])
 
 
-sys.modules["argcomplete"] = types.SimpleNamespace(
-    autocomplete=lambda *_args, **_kwargs: None,
-)
-sys.modules["git"] = types.SimpleNamespace(Repo=DummyRepo, GitCommandError=Exception)
+def import_quality_checks_module():
+    try:
+        return importlib.import_module("expkits_ci.quality_checks")
+    except ModuleNotFoundError:
+        stale_modules = {
+            module_name: sys.modules.pop(module_name, None)
+            for module_name in (
+                "expkits_ci",
+                "expkits_ci.expkits_ci",
+                "expkits_ci.file_utils",
+                "expkits_ci.license_template_manager",
+                "expkits_ci.quality_checks",
+            )
+        }
+        try:
+            with patch.dict(
+                sys.modules,
+                {
+                    "argcomplete": types.SimpleNamespace(
+                        autocomplete=lambda *_args, **_kwargs: None,
+                    ),
+                    "git": types.SimpleNamespace(
+                        Repo=DummyRepo,
+                        GitCommandError=Exception,
+                        BadName=ValueError,
+                    ),
+                },
+            ):
+                return importlib.import_module("expkits_ci.quality_checks")
+        finally:
+            for module_name in (
+                "expkits_ci.quality_checks",
+                "expkits_ci.license_template_manager",
+                "expkits_ci.file_utils",
+                "expkits_ci.expkits_ci",
+                "expkits_ci",
+            ):
+                sys.modules.pop(module_name, None)
+            for module_name, module in stale_modules.items():
+                if module is not None:
+                    sys.modules[module_name] = module
 
-quality_checks_module = importlib.import_module("expkits_ci.quality_checks")
+
+quality_checks_module = import_quality_checks_module()
 QualityChecks = quality_checks_module.QualityChecks
 
 
@@ -72,6 +110,32 @@ class TestQualityChecks(unittest.TestCase):
     def test_shell_format_failure_does_not_record_autofix(self):
         self.assert_formatter_failure_does_not_record_autofix(
             "check_shell_format", [True])
+
+    def assert_formatter_check_logs_captured_output(self, method_name, check_args):
+        with patch.object(self.quality_checks, "record_manual_fix") as record_manual_fix:
+            with patch(
+                "expkits_ci.quality_checks.subprocess.run",
+                return_value=Mock(returncode=1, stdout="formatter diff\n", stderr=""),
+            ):
+                with self.assertLogs("expkits_ci", level="ERROR") as logs:
+                    result = getattr(self.quality_checks, method_name)(
+                        ["test.file"], *check_args)
+
+        self.assertFalse(result)
+        record_manual_fix.assert_called_once()
+        self.assertIn("formatter diff", "\n".join(logs.output))
+
+    def test_clang_format_check_logs_captured_output(self):
+        self.assert_formatter_check_logs_captured_output(
+            "check_clang_format", [False, False])
+
+    def test_cmake_format_check_logs_captured_output(self):
+        self.assert_formatter_check_logs_captured_output(
+            "check_cmake_format", [False, False])
+
+    def test_shell_format_check_logs_captured_output(self):
+        self.assert_formatter_check_logs_captured_output(
+            "check_shell_format", [False])
 
     def test_get_detect_secrets_command_prefers_path_binary(self):
         with patch("expkits_ci.quality_checks.shutil.which", return_value="/usr/bin/detect-secrets-hook"):
