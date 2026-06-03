@@ -1,2 +1,2 @@
 def add(lhs,rhs):
- return lhs + rhs
+  return lhs + rhs
