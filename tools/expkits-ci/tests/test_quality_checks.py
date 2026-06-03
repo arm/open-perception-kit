@@ -181,8 +181,8 @@ class TestQualityChecks(unittest.TestCase):
             target_file = Path(temp_dir) / "CMakeLists.txt"
             target_file.write_text(input_content, encoding="utf-8")
 
-            with patch("expkits_ci.quality_checks.os.path.isfile", return_value=False):
-                with patch.object(self.quality_checks, "get_license_header", return_value="# Synthetic header\n"):
+            with patch.object(self.quality_checks, "get_license_header", return_value="# Synthetic header\n"):
+                with patch.object(self.quality_checks, "stabilize_cmake_file", return_value=True):
                     with patch.object(self.quality_checks, "record_autofix") as record_autofix:
                         result = self.quality_checks.apply_license_header(
                             str(target_file),
@@ -235,6 +235,25 @@ class TestQualityChecks(unittest.TestCase):
             "license-header",
             "added a missing header to",
         )
+
+    def test_apply_license_header_does_not_record_autofix_when_cmake_stabilization_fails(self):
+        input_content = (FIXTURE_ROOT / "cmake" / "bad.CMakeLists.txt.input").read_text(encoding="utf-8")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target_file = Path(temp_dir) / "CMakeLists.txt"
+            target_file.write_text(input_content, encoding="utf-8")
+
+            with patch.object(self.quality_checks, "get_license_header", return_value="# Synthetic header\n"):
+                with patch.object(self.quality_checks, "stabilize_cmake_file", return_value=False) as stabilize_cmake_file:
+                    with patch.object(self.quality_checks, "record_autofix") as record_autofix:
+                        result = self.quality_checks.apply_license_header(
+                            str(target_file),
+                            input_content,
+                        )
+
+        self.assertFalse(result)
+        stabilize_cmake_file.assert_called_once_with(str(target_file))
+        record_autofix.assert_not_called()
 
 
 if __name__ == "__main__":

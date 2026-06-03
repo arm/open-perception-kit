@@ -1092,7 +1092,8 @@ class QualityChecks:
             return False
 
         if self.file_utils.is_file_in_group(filename, self.file_utils.file_endings["cmake"]):
-            self.stabilize_cmake_file(filename)
+            if not self.stabilize_cmake_file(filename):
+                return False
 
         self.record_autofix(filename, "license-header", "added a missing header to")
         return True
