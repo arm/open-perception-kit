@@ -125,6 +125,10 @@ class TestQualityChecks(unittest.TestCase):
         self.assert_formatter_check_logs_captured_output(
             "check_cmake_format", [False, False])
 
+    def test_python_format_check_logs_captured_output(self):
+        self.assert_formatter_check_logs_captured_output(
+            "check_python_format", [False, False])
+
     def test_shell_format_check_logs_captured_output(self):
         self.assert_formatter_check_logs_captured_output(
             "check_shell_format", [False])

@@ -921,11 +921,11 @@ class QualityChecks:
                             "autopep8",
                             "Reformat the file to match PEP-8.",
                         )
-                        logger.info(proc.stdout)
+                        self.log_captured_tool_output(proc.stdout)
                         result = False
                 elif proc.returncode != 0:
                     logger.error(f"autopep8 check failed for {f}.")
-                    logger.info(proc.stdout)
+                    self.log_captured_tool_output(proc.stdout)
                     logger.info(proc.stderr)
                     result = False
             except subprocess.CalledProcessError as e:
