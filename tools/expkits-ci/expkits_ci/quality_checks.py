@@ -912,8 +912,8 @@ class QualityChecks:
                             result = False
                         else:
                             logger.error(f"autopep8 failed to format {f}.")
-                            logger.info(proc.stdout)
-                            logger.info(proc.stderr)
+                            self.log_captured_tool_output(proc.stdout)
+                            self.log_captured_tool_output(proc.stderr)
                             result = False
                     else:
                         self.record_manual_fix(
@@ -926,7 +926,7 @@ class QualityChecks:
                 elif proc.returncode != 0:
                     logger.error(f"autopep8 check failed for {f}.")
                     self.log_captured_tool_output(proc.stdout)
-                    logger.info(proc.stderr)
+                    self.log_captured_tool_output(proc.stderr)
                     result = False
             except subprocess.CalledProcessError as e:
                 logger.error(f"Error running autopep8 on {f}: {e}")

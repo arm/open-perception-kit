@@ -129,6 +129,18 @@ class TestQualityChecks(unittest.TestCase):
         self.assert_formatter_check_logs_captured_output(
             "check_python_format", [False, False])
 
+    def test_python_format_check_logs_stderr_when_autopep8_errors(self):
+        with patch(
+            "expkits_ci.quality_checks.subprocess.run",
+            return_value=Mock(returncode=2, stdout="", stderr="autopep8 exploded\n"),
+        ):
+            with self.assertLogs("expkits_ci", level="ERROR") as logs:
+                result = self.quality_checks.check_python_format(
+                    ["test.file"], False, False)
+
+        self.assertFalse(result)
+        self.assertIn("autopep8 exploded", "\n".join(logs.output))
+
     def test_shell_format_check_logs_captured_output(self):
         self.assert_formatter_check_logs_captured_output(
             "check_shell_format", [False])
@@ -195,6 +207,14 @@ class TestQualityChecks(unittest.TestCase):
             str(target_file),
             "license-header",
             "added a missing header to",
+        )
+
+    def test_get_license_header_uses_literal_hash_borders_for_cmake_files(self):
+        self.assertEqual(
+            self.quality_checks.get_license_header("CMakeLists.txt"),
+            "################################################################\n"
+            "# Copyright (C) 2025 Arm Limited. All rights reserved.\n"
+            "################################################################\n",
         )
 
     def test_apply_license_header_reformats_cmake_file_when_config_is_available(self):
