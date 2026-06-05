@@ -12,6 +12,7 @@
 #include "mediaio/VideoFrame.h"
 
 #include <gst/gst.h>
+#include <gst/video/video.h>
 
 #include <memory>
 #include <span>
@@ -36,10 +37,9 @@ GstMapFlags gstMapFlagsFromAccessMode(pek::AccessMode mode) noexcept;
 /**
  * @brief GStreamer-backed VideoFrame implementation.
  *
- * GstVideoFrame hides GstBuffer ref/unref and GstMapInfo map/unmap handling.
- * Host-backed instances own a GStreamer map until destruction. DMA-BUF-backed
- * instances expose fd metadata and keep the originating buffer alive when one is
- * provided.
+ * GstVideoFrame hides GstBuffer ref/unref and GStreamer GstVideoFrame
+ * map/unmap handling. Instances are always CPU-mapped frames returned by
+ * mapGstBuffer().
  */
 class GstVideoFrame final : public pek::mediaio::VideoFrame {
   public:
@@ -55,80 +55,39 @@ class GstVideoFrame final : public pek::mediaio::VideoFrame {
     /// Move assignment is disabled so backend map ownership stays unambiguous.
     GstVideoFrame &operator=(GstVideoFrame &&) = delete;
 
-    /// Releases the owned GstMapInfo and GstBuffer reference, when present.
+    /// Releases the owned GStreamer map and GstBuffer reference, when present.
     ~GstVideoFrame() override;
 
     /**
-     * @brief Wraps an already mapped GstBuffer and takes ownership of the map.
-     *
-     * The caller must not call gst_buffer_unmap() after a successful call. The
-     * returned frame keeps its own GstBuffer reference and releases the map in
-     * the destructor.
-     *
-     * @param buffer Buffer that was mapped.
-     * @param map Existing GstMapInfo to take over.
-     * @param width Frame width in pixels.
-     * @param height Frame height in pixels.
-     * @param format Pixel layout represented by the mapped memory.
-     * @param strideBytes Row stride in bytes, or 0 for the default tight stride.
-     * @param accessMode Access mode granted by the existing map.
-     * @return Wrapped frame, or nullptr when buffer/map is invalid.
+     * @brief Returns true when any GstMemory in @p buffer is DMA-BUF-backed.
      */
-    static std::unique_ptr<GstVideoFrame>
-    takeMappedBuffer(GstBuffer *buffer,
-                     GstMapInfo map,
-                     uint32_t width,
-                     uint32_t height,
-                     pek::DataKind format = pek::DataKind::ImageBgraHwc,
-                     uint32_t strideBytes = 0,
-                     pek::AccessMode accessMode = pek::AccessMode::ReadWrite);
+    static bool hasDmaBufContent(GstBuffer *buffer) noexcept;
 
     /**
-     * @brief Maps a GstBuffer and returns a VideoFrame owning that mapping.
+     * @brief Returns true when @p buffer is backed by plain system memory.
+     *
+     * This is a non-mapping type check intended for routing decisions before
+     * mapGstBuffer() is attempted. It does not guarantee a future map cannot
+     * fail due to locking or access-mode constraints.
+     */
+    static bool hasDirectCpuAddress(GstBuffer *buffer) noexcept;
+
+    /**
+     * @brief Maps a video GstBuffer using negotiated GstVideoInfo.
+     *
+     * The returned frame owns a GstBuffer reference and the GStreamer video map.
+     * The map is released with gst_video_frame_unmap() and the buffer reference
+     * with gst_buffer_unref() when the shared frame is destroyed.
+     *
      * @param buffer Buffer to map.
-     * @param width Frame width in pixels.
-     * @param height Frame height in pixels.
-     * @param format Pixel layout represented by the mapped memory.
-     * @param strideBytes Row stride in bytes, or 0 for the default tight stride.
+     * @param videoInfo Negotiated video layout for the buffer.
      * @param accessMode Requested GStreamer map access.
      * @return Mapped frame, or nullptr if the buffer cannot be mapped.
      */
-    static std::unique_ptr<GstVideoFrame>
-    mapBuffer(GstBuffer *buffer,
-              uint32_t width,
-              uint32_t height,
-              pek::DataKind format = pek::DataKind::ImageBgraHwc,
-              uint32_t strideBytes = 0,
-              pek::AccessMode accessMode = pek::AccessMode::Read);
-
-    /**
-     * @brief Creates a descriptor-only frame for DMA-BUF backed video memory.
-     *
-     * The DMA-BUF file descriptor is borrowed. If buffer is non-null, the frame
-     * keeps a GstBuffer reference so the borrowed descriptor remains valid for
-     * the frame lifetime.
-     *
-     * @param buffer Optional originating GStreamer buffer.
-     * @param fd Borrowed DMA-BUF file descriptor.
-     * @param byteSize Number of bytes exposed by the plane.
-     * @param width Frame width in pixels.
-     * @param height Frame height in pixels.
-     * @param strideBytes Row stride in bytes.
-     * @param format Pixel layout represented by the DMA-BUF plane.
-     * @param offsetBytes Byte offset of the plane inside the DMA-BUF allocation.
-     * @param sync Borrowed synchronization fence metadata.
-     * @return DMA-BUF frame descriptor, or nullptr when fd is invalid.
-     */
-    static std::unique_ptr<GstVideoFrame>
-    fromDmaBuf(GstBuffer *buffer,
-               int fd,
-               size_t byteSize,
-               uint32_t width,
-               uint32_t height,
-               uint32_t strideBytes,
-               pek::DataKind format = pek::DataKind::ImageBgraHwc,
-               size_t offsetBytes = 0,
-               DmaBufSync sync = {});
+    static std::shared_ptr<GstVideoFrame>
+    mapGstBuffer(GstBuffer *buffer,
+                 const GstVideoInfo &videoInfo,
+                 pek::AccessMode accessMode = pek::AccessMode::Read);
 
     /** @copydoc pek::mediaio::VideoFrame::format() */
     pek::DataKind format() const noexcept override;
@@ -157,9 +116,9 @@ class GstVideoFrame final : public pek::mediaio::VideoFrame {
   private:
     /**
      * @brief Constructs a GStreamer-backed frame from prepared plane views.
-     * @param buffer Optional originating buffer to keep alive.
-     * @param mapped True when mapInfo must be released with gst_buffer_unmap().
-     * @param map Existing map metadata owned by this frame when mapped is true.
+     * @param buffer Originating buffer to keep alive.
+     * @param frameMap Existing video-frame map owned by this frame.
+     * @param videoInfo Video layout used for remapping this buffer.
      * @param memoryType Backing memory type exposed by the frame.
      * @param format Pixel layout represented by the frame.
      * @param width Frame width in pixels.
@@ -169,8 +128,8 @@ class GstVideoFrame final : public pek::mediaio::VideoFrame {
      * @param mappedAccessMode Access mode granted by the owned map.
      */
     GstVideoFrame(GstBuffer *buffer,
-                  bool mapped,
-                  GstMapInfo map,
+                  ::GstVideoFrame frameMap,
+                  GstVideoInfo videoInfo,
                   pek::MemoryType memoryType,
                   pek::DataKind format,
                   uint32_t width,
@@ -179,12 +138,16 @@ class GstVideoFrame final : public pek::mediaio::VideoFrame {
                   std::vector<DataView> planes,
                   pek::AccessMode mappedAccessMode) noexcept;
 
+    static std::unique_ptr<GstVideoFrame> mapGstBufferUnique(GstBuffer *buffer,
+                                                             const GstVideoInfo &videoInfo,
+                                                             pek::AccessMode accessMode);
+
     /// Referenced GStreamer buffer kept alive for this frame lifetime.
     GstBuffer *buffer = nullptr;
-    /// True when mapInfo is owned by this frame and must be unmapped.
-    bool ownsMap = false;
-    /// Owned GStreamer map information for host-backed mapped frames.
-    GstMapInfo mapInfo{};
+    /// Owned GStreamer video-frame map information for video mapped frames.
+    ::GstVideoFrame videoFrameMap{};
+    /// Video layout used when remapping the originating GstBuffer.
+    GstVideoInfo frameVideoInfo{};
 
     /// Backing memory type exposed by this frame.
     pek::MemoryType frameMemoryType = pek::MemoryType::Unknown;
@@ -201,75 +164,5 @@ class GstVideoFrame final : public pek::mediaio::VideoFrame {
     /// Access mode of the owned host map, or Unknown when not mapped.
     pek::AccessMode mappedAccess = pek::AccessMode::Unknown;
 };
-
-/**
- * @brief Takes ownership of an existing GstMapInfo and returns a VideoFrame.
- *
- * After passing a map to this function, the caller must not call
- * gst_buffer_unmap() for it. The returned VideoFrame releases it.
- *
- * @param buffer Buffer that was mapped.
- * @param map Existing GstMapInfo to take over.
- * @param width Frame width in pixels.
- * @param height Frame height in pixels.
- * @param format Pixel layout represented by the mapped memory.
- * @param strideBytes Row stride in bytes, or 0 for the default tight stride.
- * @param accessMode Access mode granted by the existing map.
- * @return Wrapped frame, or nullptr when buffer/map is invalid.
- */
-std::unique_ptr<pek::mediaio::VideoFrame>
-makeVideoFrameFromMappedBuffer(GstBuffer *buffer,
-                               GstMapInfo map,
-                               uint32_t width,
-                               uint32_t height,
-                               pek::DataKind format = pek::DataKind::ImageBgraHwc,
-                               uint32_t strideBytes = 0,
-                               pek::AccessMode accessMode = pek::AccessMode::ReadWrite);
-
-/**
- * @brief Maps a GstBuffer and returns a VideoFrame owning that mapping.
- * @param buffer Buffer to map.
- * @param width Frame width in pixels.
- * @param height Frame height in pixels.
- * @param format Pixel layout represented by the mapped memory.
- * @param strideBytes Row stride in bytes, or 0 for the default tight stride.
- * @param accessMode Requested GStreamer map access.
- * @return Mapped frame, or nullptr if the buffer cannot be mapped.
- */
-std::unique_ptr<pek::mediaio::VideoFrame>
-mapVideoFrame(GstBuffer *buffer,
-              uint32_t width,
-              uint32_t height,
-              pek::DataKind format = pek::DataKind::ImageBgraHwc,
-              uint32_t strideBytes = 0,
-              pek::AccessMode accessMode = pek::AccessMode::Read);
-
-/**
- * @brief Creates a DMA-BUF-backed VideoFrame descriptor.
- *
- * The fd is borrowed. If @p buffer is non-null, the VideoFrame keeps a ref to it
- * so the borrowed fd remains valid for the VideoFrame lifetime.
- *
- * @param buffer Optional originating GStreamer buffer.
- * @param fd Borrowed DMA-BUF file descriptor.
- * @param byteSize Number of bytes exposed by the plane.
- * @param width Frame width in pixels.
- * @param height Frame height in pixels.
- * @param strideBytes Row stride in bytes.
- * @param format Pixel layout represented by the DMA-BUF plane.
- * @param offsetBytes Byte offset of the plane inside the DMA-BUF allocation.
- * @param sync Borrowed synchronization fence metadata.
- * @return DMA-BUF frame descriptor, or nullptr when fd is invalid.
- */
-std::unique_ptr<pek::mediaio::VideoFrame>
-makeDmaBufVideoFrame(GstBuffer *buffer,
-                     int fd,
-                     size_t byteSize,
-                     uint32_t width,
-                     uint32_t height,
-                     uint32_t strideBytes,
-                     pek::DataKind format = pek::DataKind::ImageBgraHwc,
-                     size_t offsetBytes = 0,
-                     DmaBufSync sync = {});
 
 } // namespace pek::mediaio::gst

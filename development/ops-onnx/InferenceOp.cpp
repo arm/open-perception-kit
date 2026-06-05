@@ -57,27 +57,6 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
 pek::Result<pek::op::OpSignal> InferenceOp::process(pek::op::OpChainContext &opChainContext) {
     PEK_TRACE_SCOPE(fmt::format("onnx/Infer/{}", opChainContext.inferenceInfo.modelFamily));
 
-    auto *pipelineVideoFrame = opChainContext.getVideoFrame("pipelineVideoFrame");
-    if (pipelineVideoFrame == nullptr) {
-        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidOpChain,
-                                        "ONNX InferenceOp needs pipelineVideoFrame VideoFrame"));
-    }
-
-    auto mappedPipelineVideoFrame = pipelineVideoFrame->map(pek::AccessMode::Read);
-    if (!mappedPipelineVideoFrame) {
-        return tl::unexpected(
-            PEK_ERROR(pek::ErrorFlag::InvalidData,
-                      "ONNX InferenceOp failed to map pipelineVideoFrame VideoFrame"));
-    }
-
-    const auto mappedPlanes = mappedPipelineVideoFrame->planes();
-    if (mappedPlanes.empty() || !mappedPlanes.front().hasHostData() ||
-        !mappedPlanes.front().canRead()) {
-        return tl::unexpected(
-            PEK_ERROR(pek::ErrorFlag::InvalidData,
-                      "ONNX InferenceOp mapped pipelineVideoFrame has no readable host plane"));
-    }
-
     // inference
     auto inferenceResult = inference->inference();
     if (!inferenceResult) {

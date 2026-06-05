@@ -185,44 +185,50 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     if (!self->m)
         return GST_FLOW_OK;
 
-    GstMapInfo map;
-    if (!gst_buffer_map(buf, &map, GST_MAP_READWRITE)) {
-        GST_WARNING_OBJECT(self, "Failed to map buffer");
-        return GST_FLOW_OK;
-    }
-    const size_t frameWidth = GST_VIDEO_INFO_WIDTH(&self->vinfo);
-    const size_t frameHeight = GST_VIDEO_INFO_HEIGHT(&self->vinfo);
-
-    if (map.data == nullptr) {
-        gst_buffer_unmap(buf, &map);
-        return GST_FLOW_OK;
-    }
-
-    // try to get the perception meta
+    // Try to get the perception meta
     // it does not added yet -> add it
     if (auto perceptionMeta = pek::PerceptionMeta::get(buf); !perceptionMeta) {
         auto perception = std::make_shared<pek::Perception>();
-        pek::PerceptionMeta::add(buf, perception);
+        if (!pek::PerceptionMeta::add(buf, perception)) {
+            GST_WARNING_OBJECT(self, "Failed to attach PerceptionMeta");
+            return GST_FLOW_OK;
+        }
     }
 
-    const size_t frameStride = GST_VIDEO_INFO_PLANE_STRIDE(&self->vinfo, 0);
-    auto mediaFrame =
-        pek::mediaio::gst::GstVideoFrame::takeMappedBuffer(buf,
-                                                           map,
-                                                           static_cast<uint32_t>(frameWidth),
-                                                           static_cast<uint32_t>(frameHeight),
-                                                           pek::DataKind::ImageBgraHwc,
-                                                           static_cast<uint32_t>(frameStride),
-                                                           pek::AccessMode::ReadWrite);
-    if (!mediaFrame) {
-        gst_buffer_unmap(buf, &map);
-        return GST_FLOW_OK;
+    // Build the pipeline VideoFrame only from CPU-direct buffers for now. DMA-BUF-backed
+    // buffers are detected explicitly so future DMA-BUF support can be added without
+    // accidentally taking a slow or invalid CPU mapping path.
+    std::shared_ptr<pek::mediaio::VideoFrame> sharedMediaFrame;
+    if (pek::mediaio::gst::GstVideoFrame::hasDirectCpuAddress(buf)) {
+        sharedMediaFrame =
+            pek::mediaio::gst::GstVideoFrame::mapGstBuffer(buf, self->vinfo, pek::AccessMode::Read);
+        if (!sharedMediaFrame) {
+            GST_ELEMENT_ERROR(
+                self, RESOURCE, FAILED, ("Failed to map video buffer."), ("%s", self->opChainPath));
+            return GST_FLOW_ERROR;
+        }
+    } else if (pek::mediaio::gst::GstVideoFrame::hasDmaBufContent(buf)) {
+        GST_ELEMENT_ERROR(self,
+                          RESOURCE,
+                          FAILED,
+                          ("DMA-BUF video buffers are not supported by pekinfer yet."),
+                          ("%s", self->opChainPath));
+        return GST_FLOW_ERROR;
+    } else {
+        GST_ELEMENT_ERROR(self,
+                          RESOURCE,
+                          FAILED,
+                          ("Unsupported GstBuffer memory type."),
+                          ("%s", self->opChainPath));
+        return GST_FLOW_ERROR;
     }
 
-    std::shared_ptr<pek::mediaio::VideoFrame> sharedMediaFrame(std::move(mediaFrame));
-
+    // Mutate the PerceptionMeta while executing the op-chain. The mapped frame is
+    // passed through the op context and stays alive for the whole op-chain execution.
     auto ret =
         pek::PerceptionMeta::mutate<GstFlowReturn>(buf, [self, sharedMediaFrame](auto &perception) {
+            // Execute the op-chain with the provided context. The chain can read and mutate the
+            // perception and read the video frame, but not mutate it.
             pek::op::OpChainContext opChainContext;
             opChainContext.inferenceInfo.inferElementId =
                 std::string(gst_pekinfer_get_effective_inferId(self));
@@ -239,6 +245,8 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
             return GST_FLOW_OK;
         });
 
+    // Collapse op-chain failures and metadata mutation failures into a GStreamer
+    // element error so the pipeline fails consistently.
     using ME = pek::MetaError;
     if ((std::holds_alternative<GstFlowReturn>(ret) &&
          std::get<GstFlowReturn>(ret) != GST_FLOW_OK) ||
