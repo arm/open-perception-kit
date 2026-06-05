@@ -279,6 +279,16 @@ def rewrite_pipeline_piece(piece):
     if CAMERA_NAME and "libcamerasrc" in piece:
         piece = re.sub(r'camera-name=(?:"[^"]+"|[^ !]+)', f'camera-name="{CAMERA_NAME}"', piece)
 
+    if "pekosd" in piece:
+        trailing_bang = ""
+        stripped = piece.rstrip()
+        if stripped.endswith("!"):
+            stripped = stripped[:-1].rstrip()
+            trailing_bang = " !"
+
+        stripped = re.sub(r"\s+enable-perfdata=\S+", "", stripped)
+        piece = f"{stripped} enable-perfdata=false{trailing_bang}"
+
     if "peksink" not in piece:
         return piece
 
