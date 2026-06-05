@@ -102,7 +102,7 @@ Enter the `amp-dev-forge` folder in the terminal and run:
 ```
 > **Expected outcome:** The prompt shows `devgoblin` 
 
-#### 3.1 Optional: Download the stock videos
+#### 3.1 Download the stock videos
 
 From the container shell, run:
 
