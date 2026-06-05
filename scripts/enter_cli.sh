@@ -10,7 +10,7 @@ set -euo pipefail
 usage() {
     cat << 'EOF'
 Usage:
-  ./enter_cli [-h|--help]
+  ./scripts/enter_cli.sh [-h|--help]
 
 Starts the detected PEK base development container if it is not already running,
 then enters it with an interactive bash shell.
@@ -28,8 +28,9 @@ elif [[ "${1:-}" != "" ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DETECT_SCRIPT="${SCRIPT_DIR}/scripts/quick-start/detect-environment.sh"
-START_CONTAINER_SCRIPT="${SCRIPT_DIR}/scripts/quick-start/start-container.sh"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+DETECT_SCRIPT="${REPO_ROOT}/scripts/quick-start/detect-environment.sh"
+START_CONTAINER_SCRIPT="${REPO_ROOT}/scripts/quick-start/start-container.sh"
 
 if ! detect_output="$("${DETECT_SCRIPT}" --shell)"; then
     eval "$detect_output"
@@ -41,7 +42,7 @@ if ! detect_output="$("${DETECT_SCRIPT}" --shell)"; then
 fi
 eval "$detect_output"
 
-cd "${SCRIPT_DIR}"
+cd "${REPO_ROOT}"
 
 if ! docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2> /dev/null | grep -q '^true$'; then
     echo "Container is not running: ${PEK_CONTAINER_NAME}"

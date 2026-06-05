@@ -10,17 +10,17 @@ set -euo pipefail
 usage() {
     cat << 'EOF'
 Usage:
-  ./run [pek-menu-args...]
-  ./run --menu
-  ./run -h|--help
+  ./scripts/run.sh [pek-menu-args...]
+  ./scripts/run.sh --menu
+  ./scripts/run.sh -h|--help
 
 Runs /work/tools/pek-menu inside the PEK quick-start container.
 
 Defaults:
-  ./run              Runs the first sample pipeline: 01-full-onnx
-  ./run --menu       Opens the interactive pek-menu
-  ./run -l           Runs the last selected pipeline
-  ./run <pipeline>   Runs a pipeline by ID or JSON path
+  ./scripts/run.sh              Runs the first sample pipeline: 01-full-onnx
+  ./scripts/run.sh --menu       Opens the interactive pek-menu
+  ./scripts/run.sh -l           Runs the last selected pipeline
+  ./scripts/run.sh <pipeline>   Runs a pipeline by ID or JSON path
 
 If this command is run inside the PEK container, it calls pek-menu directly.
 If it is run on the host, it starts the matching quick-start container if
@@ -34,8 +34,9 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DETECT_SCRIPT="${SCRIPT_DIR}/scripts/quick-start/detect-environment.sh"
-START_CONTAINER_SCRIPT="${SCRIPT_DIR}/scripts/quick-start/start-container.sh"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+DETECT_SCRIPT="${REPO_ROOT}/scripts/quick-start/detect-environment.sh"
+START_CONTAINER_SCRIPT="${REPO_ROOT}/scripts/quick-start/start-container.sh"
 
 PEK_MENU_ARGS=("$@")
 if [[ $# -eq 0 ]]; then
@@ -63,7 +64,7 @@ eval "$detect_output"
 if [[ "${PEK_IN_CONTAINER}" == "true" ]]; then
     if [[ ! -x /work/tools/pek-menu ]]; then
         echo "Error: /work/tools/pek-menu is missing or not executable." >&2
-        echo "Run ./build first." >&2
+        echo "Run ./scripts/build.sh first." >&2
         exit 1
     fi
 
@@ -71,7 +72,7 @@ if [[ "${PEK_IN_CONTAINER}" == "true" ]]; then
     exec /work/tools/pek-menu "${PEK_MENU_ARGS[@]}"
 fi
 
-cd "${SCRIPT_DIR}"
+cd "${REPO_ROOT}"
 
 if ! docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2> /dev/null | grep -q '^true$'; then
     echo "Container is not running: ${PEK_CONTAINER_NAME}"
@@ -92,7 +93,7 @@ fi
 
 if ! docker exec -u devgoblin "${PEK_CONTAINER_NAME}" bash -lc 'test -x /work/tools/pek-menu' > /dev/null 2>&1; then
     echo "Error: /work/tools/pek-menu is missing or not executable in ${PEK_CONTAINER_NAME}." >&2
-    echo "Run ./build first." >&2
+    echo "Run ./scripts/build.sh first." >&2
     exit 1
 fi
 

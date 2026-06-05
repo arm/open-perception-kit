@@ -10,7 +10,7 @@ set -euo pipefail
 usage() {
     cat << 'EOF'
 Usage:
-  ./quick_start [-h|--help]
+  ./scripts/quick_start.sh [-h|--help]
 
 Detects the host environment for the PEK quick-start flow.
 
@@ -30,9 +30,10 @@ elif [[ "${1:-}" != "" ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DETECT_SCRIPT="${SCRIPT_DIR}/scripts/quick-start/detect-environment.sh"
-PREREQ_SCRIPT="${SCRIPT_DIR}/scripts/quick-start/check-prerequisites.sh"
-START_CONTAINER_SCRIPT="${SCRIPT_DIR}/scripts/quick-start/start-container.sh"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+DETECT_SCRIPT="${REPO_ROOT}/scripts/quick-start/detect-environment.sh"
+PREREQ_SCRIPT="${REPO_ROOT}/scripts/quick-start/check-prerequisites.sh"
+START_CONTAINER_SCRIPT="${REPO_ROOT}/scripts/quick-start/start-container.sh"
 
 "${DETECT_SCRIPT}"
 
