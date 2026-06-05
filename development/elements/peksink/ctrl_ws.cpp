@@ -27,6 +27,8 @@ CtrlWebSocket::CtrlWebSocket(_GstPekSink *self) : self_(self) {
         {"play_pause", std::bind(&CtrlWebSocket::play_pause, this, _1)},
         {"perf_overlay", std::bind(&CtrlWebSocket::enable_perf_overlay, this, _1)},
         {"model_toggle", std::bind(&CtrlWebSocket::model_toggle, this, _1)},
+        {"pipeline_restart", std::bind(&CtrlWebSocket::pipeline_restart, this, _1)},
+        {"pipeline_switch", std::bind(&CtrlWebSocket::pipeline_switch, this, _1)},
     };
 }
 
@@ -135,7 +137,17 @@ void CtrlWebSocket::report() {
     for (auto kv : status_reporters) {
         auto [name, reporter] = kv;
 
-        rep[name] = reporter->report();
+        auto report = reporter->report();
+        rep[name] = report;
+
+        if (name == "perception_data" && report.is_object()) {
+            if (report.contains("performance")) {
+                rep["performance"] = report["performance"];
+            }
+            if (report.contains("inference_output")) {
+                rep["inference_output"] = report["inference_output"];
+            }
+        }
     }
 
     send_to_all(rep.dump());
@@ -154,6 +166,19 @@ struct ToggleStateRequest {
 
 struct ToggleInvokeBox {
     std::shared_ptr<ToggleStateRequest> req;
+};
+
+struct RestartStateRequest {
+    GstElement *element = nullptr;
+
+    std::mutex m;
+    std::condition_variable cv;
+    bool done = false;
+    bool ok = false;
+};
+
+struct RestartInvokeBox {
+    std::shared_ptr<RestartStateRequest> req;
 };
 
 gboolean toggle_on_main(gpointer user_data) {
@@ -197,6 +222,40 @@ gboolean toggle_on_main(gpointer user_data) {
 
 void destroy_box(gpointer user_data) {
     delete static_cast<ToggleInvokeBox *>(user_data);
+}
+
+gboolean restart_on_main(gpointer user_data) {
+    auto *box = static_cast<RestartInvokeBox *>(user_data);
+    auto req = box->req;
+
+    bool ok = false;
+    if (req->element) {
+        auto ready_ret = gst_element_set_state(req->element, GST_STATE_READY);
+        gst_element_get_state(req->element, nullptr, nullptr, 3 * GST_SECOND);
+
+        auto playing_ret = gst_element_set_state(req->element, GST_STATE_PLAYING);
+        gst_element_get_state(req->element, nullptr, nullptr, 3 * GST_SECOND);
+
+        ok = ready_ret != GST_STATE_CHANGE_FAILURE && playing_ret != GST_STATE_CHANGE_FAILURE;
+    }
+
+    {
+        std::lock_guard<std::mutex> lk(req->m);
+        req->ok = ok;
+        req->done = true;
+    }
+    req->cv.notify_one();
+
+    if (req->element && GST_IS_PIPELINE(req->element)) { // NOSONAR
+        gst_object_unref(req->element);
+        req->element = nullptr;
+    }
+
+    return G_SOURCE_REMOVE;
+}
+
+void destroy_restart_box(gpointer user_data) {
+    delete static_cast<RestartInvokeBox *>(user_data);
 }
 
 // handle the play button presses on the html frontend
@@ -307,4 +366,66 @@ void CtrlWebSocket::model_toggle(const json &jsn) {
     } catch (const json::exception &e) {
         GST_ERROR_OBJECT(self_, "JSON parse error: %s", e.what());
     }
+}
+
+void CtrlWebSocket::pipeline_restart(const json &jsn) {
+    DBG("pipeline_restart: {}", jsn.dump());
+
+    GstElement *pipeline = get_top_pipeline(GST_ELEMENT(self_));
+    if (!pipeline) {
+        GST_WARNING_OBJECT(self_, "Pipeline restart requested, but no top-level pipeline was found");
+        send_to_all(
+            json{{"pipeline_restart",
+                  {{"available", false},
+                   {"requested", false},
+                   {"message", "Pipeline restart is not available for this launch."}}}}
+                .dump());
+        return;
+    }
+
+    send_to_all(json{{"pipeline_restart",
+                      {{"available", true}, {"requested", true}, {"message", "Restarting pipeline..."}}}}
+                    .dump());
+
+    auto req = std::make_shared<RestartStateRequest>();
+    req->element = pipeline;
+
+    auto *box = new RestartInvokeBox{req};
+    g_main_context_invoke_full(nullptr, G_PRIORITY_DEFAULT, restart_on_main, box, destroy_restart_box);
+
+    {
+        std::unique_lock<std::mutex> lk(req->m);
+        req->cv.wait_for(lk, std::chrono::seconds(8), [&] { return req->done; });
+    }
+
+    send_to_all(
+        json{{"pipeline_restart",
+              {{"available", true},
+               {"requested", false},
+               {"complete", req->done && req->ok},
+               {"message", req->done && req->ok ? "Pipeline restarted." : "Pipeline restart did not complete."}}}}
+            .dump());
+    report();
+}
+
+void CtrlWebSocket::pipeline_switch(const json &jsn) {
+    DBG("pipeline_switch: {}", jsn.dump());
+
+    std::string requested_pipeline;
+    try {
+        if (jsn.contains("pipeline") && jsn["pipeline"].is_string()) {
+            requested_pipeline = jsn["pipeline"].get<std::string>();
+        }
+    } catch (const json::exception &e) {
+        GST_WARNING_OBJECT(self_, "Pipeline switch JSON parse error: %s", e.what());
+    }
+
+    send_to_all(
+        json{{"pipeline_switch",
+              {{"available", false},
+               {"requested", false},
+               {"pipeline", requested_pipeline},
+               {"message",
+                "Switching to another pipeline preset needs the WebUI supervisor launch mode."}}}}
+            .dump());
 }

@@ -1,5 +1,5 @@
-import {createWebRtcClient} from './webrtc_client.js';
-import {resolveWebRtcTimingConfig} from './webrtc_config.js';
+import {createWebRtcClient} from './webrtc_client.js?v=chrome-freeze-pause-20260605';
+import {resolveWebRtcTimingConfig} from './webrtc_config.js?v=chrome-freeze-pause-20260605';
 
 // ===== UI ELEMENT REFERENCES =====
 const video = document.getElementById('video');
@@ -28,20 +28,33 @@ function setStatus(state, label, subtext) {
         case 'connecting':
         case 'reconnecting':
             overlay.classList.remove('hidden');
-            overlayText.textContent = 'Connecting…';
+            overlayText.textContent = document.body.classList.contains('is-pipeline-restarting')
+                ? 'Restarting'
+                : 'Connecting…';
             break;
         case 'connected':
-            overlay.classList.add('hidden');
+            if (!document.body.classList.contains('is-pipeline-restarting'))
+                overlay.classList.add('hidden');
             break;
         case 'disconnected':
             overlay.classList.remove('hidden');
-            overlayText.textContent = 'Disconnected – waiting for stream…';
+            overlayText.textContent = document.body.classList.contains('is-pipeline-restarting')
+                ? 'Restarting'
+                : 'Disconnected – waiting for stream…';
             break;
     }
 }
 
 function setStatusLine(text) {
     console.log("setStatusLine: " + text);
+    if (document.body.classList.contains('is-pipeline-restarting')) {
+        const textEl = statusLineEl.querySelector('.status-line-text');
+        if (textEl) {
+            textEl.textContent = 'Restarting Pipeline';
+        }
+        return;
+    }
+
     const textEl = statusLineEl.querySelector('.status-line-text');
     if (textEl) {
         textEl.textContent = text;
@@ -65,9 +78,17 @@ function appendLog(message, type = 'info') {
 const WS_PROTO = location.protocol === 'https:' ? 'wss' : 'ws';
 const WS_HOST = location.hostname;
 
-// Prefer configured wsPort, fallback to page port if missing
-const WS_PORT = (window.PEK_CONFIG && window.PEK_CONFIG.wsPort) ||
-    (location.port || (location.protocol === 'https:' ? 443 : 80));
+function fallbackWebRtcPort() {
+    const pagePort = Number.parseInt(location.port || '', 10);
+    if (pagePort === 9999 || pagePort === 10099) {
+        return 8000;
+    }
+
+    return location.port || (location.protocol === 'https:' ? 443 : 80);
+}
+
+// Prefer configured wsPort, fallback to child signaling port for supervised UI.
+const WS_PORT = (window.PEK_CONFIG && window.PEK_CONFIG.wsPort) || fallbackWebRtcPort();
 
 const SIGNALING_URL = `${WS_PROTO}://${WS_HOST}:${WS_PORT}/ws`;
 const WEBRTC_TIMING_CONFIG = resolveWebRtcTimingConfig(window.PEK_CONFIG || {});

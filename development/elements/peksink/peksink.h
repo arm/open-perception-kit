@@ -5,8 +5,11 @@
 #ifndef __PEKSINK_H__
 #define __PEKSINK_H__
 
+#include <chrono>
 #include <memory>
+#include <mutex>
 
+#include <pek/Perception.h>
 #include <pek/Tools.h>
 
 #include <gst/audio/audio.h>
@@ -58,6 +61,19 @@ class PerformanceOverlayStateReporter : public StatusReporter {
     nlohmann::json report() const override;
 };
 
+class PerceptionDataReporter : public StatusReporter {
+    mutable std::mutex mutex_;
+    nlohmann::json latest_ = {
+        {"performance", {{"lines", nlohmann::json::array()}}},
+        {"inference_output", {{"layers", nlohmann::json::array()}}},
+    };
+    std::chrono::steady_clock::time_point last_report_ = {};
+
+  public:
+    void set_perception(const pek::Perception &perception);
+    nlohmann::json report() const override;
+};
+
 struct GstPekPrivate {
     std::unique_ptr<PekSinkHttpServer> http_server;
 
@@ -67,6 +83,9 @@ struct GstPekPrivate {
     std::shared_ptr<ModelRegistry> model_registry;
     std::shared_ptr<PipelineStateReporter> pipeline_state_reporter;
     std::shared_ptr<PerformanceOverlayStateReporter> performance_overlay_state_reporter;
+    std::shared_ptr<PerceptionDataReporter> perception_data_reporter;
+
+    bool servers_started = false;
 };
 
 struct _GstPekSink {

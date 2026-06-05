@@ -2,8 +2,12 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 
+#include <algorithm>
+#include <cctype>
+#include <cstdlib>
 #include <format>
 #include <string>
+#include <vector>
 
 #include <nlohmann/json.hpp>
 
@@ -19,6 +23,60 @@
 using namespace httplib;
 using namespace nlohmann;
 
+namespace {
+
+std::vector<std::filesystem::path> pipeline_bases() {
+    return {
+        std::filesystem::current_path() / "config" / "pipelines",
+        std::filesystem::current_path() / ".." / "config" / "pipelines",
+        std::filesystem::path("/work") / "config" / "pipelines",
+    };
+}
+
+std::string pipeline_label_from_id(std::string id) {
+    std::replace(id.begin(), id.end(), '-', ' ');
+    std::replace(id.begin(), id.end(), '_', ' ');
+
+    bool next_upper = true;
+    for (auto &ch : id) {
+        if (std::isspace(static_cast<unsigned char>(ch))) {
+            next_upper = true;
+            continue;
+        }
+
+        if (next_upper) {
+            ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+            next_upper = false;
+        }
+    }
+
+    return id;
+}
+
+std::string current_pipeline_hint() {
+    if (const auto *env_pipeline = std::getenv("PEK_CURRENT_PIPELINE")) {
+        return env_pipeline;
+    }
+
+    for (const auto &base : pipeline_bases()) {
+        auto last_selection = base / ".last_selected_pipeline_id";
+        if (!std::filesystem::exists(last_selection)) {
+            continue;
+        }
+
+        std::ifstream ifs(last_selection);
+        std::string value;
+        std::getline(ifs, value);
+        if (!value.empty()) {
+            return value;
+        }
+    }
+
+    return "";
+}
+
+} // namespace
+
 PekSinkHttpServerError PekSinkHttpServer::setup() {
 
     http_server = std::make_unique<Server>();
@@ -32,6 +90,9 @@ PekSinkHttpServerError PekSinkHttpServer::setup() {
     // whose `name` field matches the requested name.
     http_server->Get("/api/model-info",
                      [this](const Request &req, Response &res) { get_model_info(req, res); });
+
+    http_server->Get("/api/pipelines",
+                     [this](const Request &req, Response &res) { get_pipelines(req, res); });
 
     auto ret = http_server->set_mount_point("/", self_->static_files_location);
     if (!ret) {
@@ -274,6 +335,63 @@ void PekSinkHttpServer::get_model_info(const Request &req, Response &res) {
             }
         }
     }
+
+    res.set_content(out.dump(), "application/json");
+}
+
+void PekSinkHttpServer::get_pipelines(const Request &req, Response &res) {
+    nlohmann::json out;
+    out["pipelines"] = nlohmann::json::array();
+    out["current"] = current_pipeline_hint();
+
+    std::filesystem::path selected_base;
+    for (const auto &base : pipeline_bases()) {
+        if (std::filesystem::exists(base) && std::filesystem::is_directory(base)) {
+            selected_base = base;
+            break;
+        }
+    }
+
+    if (selected_base.empty()) {
+        out["error"] = "config/pipelines directory not found";
+        res.status = 404;
+        res.set_content(out.dump(), "application/json");
+        return;
+    }
+
+    for (const auto &entry : std::filesystem::recursive_directory_iterator(selected_base)) {
+        if (!entry.is_regular_file() || entry.path().extension() != ".json") {
+            continue;
+        }
+
+        const auto filename = entry.path().filename().string();
+        if (filename.rfind("DISABLED_", 0) == 0) {
+            continue;
+        }
+
+        auto relative_path = std::filesystem::relative(entry.path(), selected_base);
+        auto id = relative_path.replace_extension("").generic_string();
+        nlohmann::json pipeline;
+        pipeline["id"] = id;
+        pipeline["path"] = entry.path().string();
+        pipeline["label"] = pipeline_label_from_id(entry.path().stem().string());
+
+        std::ifstream ifs(entry.path());
+        try {
+            auto parsed = nlohmann::json::parse(ifs);
+            if (parsed.contains("description") && parsed["description"].is_string()) {
+                pipeline["description"] = parsed["description"];
+            }
+        } catch (...) {
+            pipeline["description"] = "";
+        }
+
+        out["pipelines"].push_back(pipeline);
+    }
+
+    std::sort(out["pipelines"].begin(), out["pipelines"].end(), [](const auto &a, const auto &b) {
+        return a.value("id", "") < b.value("id", "");
+    });
 
     res.set_content(out.dump(), "application/json");
 }

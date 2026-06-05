@@ -26,6 +26,7 @@ class PekSinkHttpServer {
 
     void get_dynamic_config(const httplib::Request &req, httplib::Response &res);
     void get_model_info(const httplib::Request &req, httplib::Response &res);
+    void get_pipelines(const httplib::Request &req, httplib::Response &res);
 
     bool listen(const std::string &host, int port) {
         return http_server->listen(host, port);

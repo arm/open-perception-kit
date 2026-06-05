@@ -1,5 +1,5 @@
 
-import { ctrlSend } from "./ctrlws.js";
+import { ctrlSend } from "./ctrlws.js?v=chrome-freeze-pause-20260605";
 
 // handle Performance overlay toggle (checkbox)
 const enablePerfOverlayChk = document.getElementById('enablePerfOverlayChk');

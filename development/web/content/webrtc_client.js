@@ -98,8 +98,8 @@ class WebRtcClient {
         this.resetVideoElement(remoteStream);
 
         this.log(`Starting WebRTC session generation ${generation}: ${reason}`);
-        this.onStatus('connecting', 'Connecting', 'Connecting to signaling server...');
-        this.onStatusLine('Connecting to signaling server...');
+        this.onStatus('connecting', 'Connecting', 'Connecting Server');
+        this.onStatusLine('Connecting Server');
 
         session.pc = this.createPeerConnection(session);
         session.ws = this.createSignalingSocket(session);
@@ -140,7 +140,7 @@ class WebRtcClient {
                 this.observeVideoTrack(session, event.track);
                 this.markFrameHeartbeat(session, 'video track attached');
                 this.onStatus('connected', 'Connected', 'Receiving video stream');
-                this.onStatusLine('WebRTC connected. Video stream should be visible.');
+                this.onStatusLine('WebRTC connected');
             }
         };
 
@@ -235,7 +235,7 @@ class WebRtcClient {
 
             this.log('Signaling WebSocket closed. Scheduling reconnect.');
             this.onStatus('disconnected', 'Disconnected', 'Signaling closed - will retry...');
-            this.onStatusLine('Signaling connection closed. Will retry automatically.');
+            this.onStatusLine('Reconnecting');
 
             const delay = this.nextReconnectDelay();
             this.scheduleRestart(session, 'signaling closed', delay);
@@ -249,8 +249,8 @@ class WebRtcClient {
             return;
 
         try {
-            this.onStatus('connecting', 'Connecting', 'Creating offer and sending to server...');
-            this.onStatusLine('Creating offer and sending it to the signaling server...');
+            this.onStatus('connecting', 'Connecting', 'Connecting');
+            this.onStatusLine('Connecting');
 
             const offer = await session.pc.createOffer();
             if (!this.isCurrent(session))

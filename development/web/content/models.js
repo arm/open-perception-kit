@@ -3,7 +3,22 @@
  * Handles fetching and displaying registered AI models
  */
 
-import { ctrlSend } from "./ctrlws.js"
+import { ctrlSend } from "./ctrlws.js?v=chrome-freeze-pause-20260605"
+
+const MODEL_DEPENDENCY_GROUPS = [
+    {
+        parent: 'YoloV11',
+        children: ['OsnetX025Reid'],
+    },
+    {
+        parent: 'Ultraface',
+        children: ['CameraContact', 'GazeDetection'],
+    },
+];
+
+function modelKey(modelOrName) {
+    return String(modelOrName?.name || modelOrName || '').toLowerCase();
+}
 
 class ModelsManager {
     constructor() {
@@ -12,18 +27,9 @@ class ModelsManager {
         this._descriptionCache = new Map();
         this._infoPanel = this._createInfoPanel();
         this._activeInfoButton = null;
-
-        document.addEventListener('click', (event) => {
-            if (!this._infoPanel || this._infoPanel.style.display === 'none') {
-                return;
-            }
-
-            if (this._infoPanel.contains(event.target) || event.target.closest('.model-info-button')) {
-                return;
-            }
-
-            this._hideInfoPanel();
-        });
+        this._activeInfoKey = null;
+        this._infoRequestId = 0;
+        this._lastModelsSignature = '';
     }
 
     _createInfoPanel() {
@@ -33,6 +39,7 @@ class ModelsManager {
         panel.style.zIndex = '1000';
         panel.style.display = 'none';
         panel.className = 'model-info-panel';
+        panel.setAttribute('aria-hidden', 'true');
         document.body.appendChild(panel);
         return panel;
     }
@@ -41,15 +48,19 @@ class ModelsManager {
         if (!this._infoPanel) return;
 
         this._infoPanel.style.display = 'none';
+        this._infoPanel.setAttribute('aria-hidden', 'true');
         if (this._activeInfoButton) {
             this._activeInfoButton.setAttribute('aria-expanded', 'false');
         }
         this._activeInfoButton = null;
+        this._activeInfoKey = null;
+        this._infoRequestId += 1;
     }
 
     _showInfoPanel(buttonEl, text) {
         this._infoPanel.textContent = text || 'No description available';
         this._infoPanel.style.display = 'block';
+        this._infoPanel.setAttribute('aria-hidden', 'false');
 
         const rect = buttonEl.getBoundingClientRect();
         const panelRect = this._infoPanel.getBoundingClientRect();
@@ -115,6 +126,17 @@ class ModelsManager {
     render(models) {
         if (!this.container) return;
 
+        const nextSignature = JSON.stringify(models.map((model) => ({
+            active: Boolean(model.active),
+            element_name: model.element_name || '',
+            name: model.name || '',
+        })));
+        if (nextSignature === this._lastModelsSignature) {
+            return;
+        }
+        this._lastModelsSignature = nextSignature;
+        this._hideInfoPanel();
+
         // Clear container
         this.container.innerHTML = '';
 
@@ -128,14 +150,55 @@ class ModelsManager {
             return;
         }
 
-        // Sort models by name (which is the model_name) for consistent display
-        const sortedModels = [...models].sort((a, b) =>
-            a.name.localeCompare(b.name)
-        );
+        const modelByName = new Map(models.map((model) => [modelKey(model), model]));
+        const rendered = new Set();
+        const orderedModels = [];
+
+        MODEL_DEPENDENCY_GROUPS.forEach((group) => {
+            const parent = modelByName.get(modelKey(group.parent));
+            if (!parent) return;
+
+            orderedModels.push({
+                model: parent,
+                relation: {
+                    type: 'parent',
+                    childCount: group.children
+                        .map((childName) => modelByName.get(modelKey(childName)))
+                        .filter(Boolean).length,
+                },
+            });
+            rendered.add(modelKey(parent));
+
+            const children = group.children
+                .map((childName) => modelByName.get(modelKey(childName)))
+                .filter(Boolean);
+
+            children.forEach((child, index) => {
+                orderedModels.push({
+                    model: child,
+                    relation: {
+                        type: 'child',
+                        first: index === 0,
+                        last: index === children.length - 1,
+                    },
+                });
+                rendered.add(modelKey(child));
+            });
+        });
+
+        [...models]
+            .filter((model) => !rendered.has(modelKey(model)))
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .forEach((model) => {
+                orderedModels.push({
+                    model,
+                    relation: { type: 'standalone' },
+                });
+            });
 
         // Render each model
-        sortedModels.forEach(model => {
-            const modelItem = this.createModelItem(model);
+        orderedModels.forEach(({ model, relation }) => {
+            const modelItem = this.createModelItem(model, relation);
             this.container.appendChild(modelItem);
         });
     }
@@ -143,33 +206,59 @@ class ModelsManager {
     /**
      * Create a model item element
      */
-    createModelItem(model) {
+    createModelItem(model, relation = { type: 'standalone' }) {
         const item = document.createElement('div');
-        item.className = 'model-item';
+        item.className = `model-item model-item--${relation.type}`;
+        if (relation.first) item.classList.add('model-item--child-first');
+        if (relation.last) item.classList.add('model-item--child-last');
+        if (relation.type === 'parent' && relation.childCount) {
+            item.classList.add(`model-item--parent-${relation.childCount}-children`);
+        }
 
-        item.innerHTML = `
+        const toggleMarkup = `
+            <label class="model-toggle-switch" aria-label="Toggle ${model.name}">
+                <input type="checkbox" role="switch" ${model.active ? 'checked' : ''}>
+                <span class="model-toggle-track" aria-hidden="true">
+                    <span class="model-toggle-thumb"></span>
+                </span>
+            </label>
+        `;
+
+        const infoMarkup = `
+            <button class="model-info-button" type="button" aria-label="Show information for ${model.name}" aria-expanded="false">i</button>
+        `;
+
+        if (relation.type === 'parent') {
+            item.innerHTML = `
+                <div class="model-parent-toggle">
+                    ${toggleMarkup}
+                </div>
+                <div class="model-info">
+                    <div class="model-name">${model.name}</div>
+                </div>
+                <div class="model-actions">
+                    ${infoMarkup}
+                </div>
+            `;
+        } else {
+            item.innerHTML = `
             <div class="model-info">
                 <div class="model-name">${model.name}</div>
             </div>
             <div class="model-actions">
-                <label class="model-toggle-switch" aria-label="Toggle ${model.name}">
-                    <input type="checkbox" role="switch" ${model.active ? 'checked' : ''}>
-                    <span class="model-toggle-track" aria-hidden="true">
-                        <span class="model-toggle-thumb"></span>
-                    </span>
-                </label>
-                <button class="model-info-button" type="button" aria-label="Show information for ${model.name}" aria-expanded="false">i</button>
+                ${toggleMarkup}
+                ${infoMarkup}
             </div>
         `;
+        }
 
         const toggle = item.querySelector('input[type="checkbox"]');
         const infoButton = item.querySelector('.model-info-button');
+        const infoKey = modelKey(model);
 
-        infoButton.addEventListener('click', async (event) => {
-            event.stopPropagation();
-
-            if (this._activeInfoButton === infoButton && this._infoPanel.style.display !== 'none') {
-                this._hideInfoPanel();
+        const showInfo = async () => {
+            if (this._activeInfoKey === infoKey && this._infoPanel.style.display !== 'none') {
+                this._showInfoPanel(infoButton, this._infoPanel.textContent);
                 return;
             }
 
@@ -177,10 +266,35 @@ class ModelsManager {
                 this._activeInfoButton.setAttribute('aria-expanded', 'false');
             }
 
+            const requestId = ++this._infoRequestId;
+            this._activeInfoButton = infoButton;
+            this._activeInfoKey = infoKey;
+            infoButton.setAttribute('aria-expanded', 'true');
+
             const desc = await this._fetchDescription(model);
+            if (requestId !== this._infoRequestId || this._activeInfoKey !== infoKey) {
+                return;
+            }
+
             this._activeInfoButton = infoButton;
             infoButton.setAttribute('aria-expanded', 'true');
             this._showInfoPanel(infoButton, desc);
+        };
+
+        const hideInfo = () => {
+            if (this._activeInfoKey === infoKey) {
+                this._hideInfoPanel();
+            }
+        };
+
+        infoButton.addEventListener('pointerenter', showInfo);
+        infoButton.addEventListener('mouseenter', showInfo);
+        infoButton.addEventListener('pointerleave', hideInfo);
+        infoButton.addEventListener('mouseleave', hideInfo);
+
+        infoButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
         });
 
         toggle.addEventListener('change', () => {
@@ -247,4 +361,3 @@ class ModelsManager {
 }
 
 export const modelsManager = new ModelsManager();
-

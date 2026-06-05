@@ -5,86 +5,175 @@
     <meta charset="UTF-8" />
     <title>WebRTC Stream</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="style.css?v=chrome-freeze-pause-20260605" />
 </head>
 
 <body>
     <div class="card">
-        <div class="card-header">
-            <div class="title">
-                <span class="title-dot"></span>
-                WebRTC for Perception Experience Kit pipelines
-            </div>
-        </div>
-
         <div class="card-body">
-            <div class="sidebar">
+            <div id="sidePanel" class="sidebar">
+                <div class="sidebar-sticky-header">
+                    <div class="sidebar-title">Arm Perception &amp; Inference Kit</div>
 
-                <div class="sidebar-section">
-                    <div class="sidebar-section-title">Controls</div>
-                    <div class="controls-row">
-                        <div id="status-line" class="status-line status-line--compact connecting">
-                            <span class="status-line-dot" aria-hidden="true"></span>
-                            <span class="status-line-text">WebRTC connecting</span>
+                    <div class="sidebar-section sidebar-section--controls">
+                        <div class="controls-row">
+                            <div id="status-line" class="status-line status-line--compact connecting">
+                                <span class="status-line-dot" aria-hidden="true"></span>
+                                <span class="status-line-text">WebRTC connecting</span>
+                            </div>
+                            <div class="controls-actions">
+                                <button id="playPauseBtn" class="control-button control-button--primary" type="button"
+                                    aria-label="Pause pipeline">
+                                    <i id="playPauseIcon" class="video-control-icon fa-solid fa-pause" aria-hidden="true"></i>
+                                    <span class="video-control-text">Pause</span>
+                                </button>
+                                <button id="muteUnmuteBtn" type="button" aria-label="Unmute" style="display:none">
+                                    <span id="muteUnmuteIcon" class="video-control-icon">🔇</span>
+                                    <span class="video-control-text">Unmute</span>
+                                </button>
+                            </div>
                         </div>
-                        <div class="controls-actions">
-                            <button id="playPauseBtn" class="control-button control-button--primary" type="button"
-                                aria-label="Pause pipeline">
-                                <span id="playPauseIcon" class="video-control-icon">⏸</span>
-                                <span class="video-control-text">Pause</span>
-                            </button>
-                            <button id="muteUnmuteBtn" type="button" aria-label="Unmute" style="display:none">
-                                <span id="muteUnmuteIcon" class="video-control-icon">🔇</span>
-                                <span class="video-control-text">Unmute</span>
-                            </button>
+                        <div class="pipeline-switcher" aria-live="polite">
+                            <label class="pipeline-switcher-label" for="pipelineSelect">Pipeline</label>
+                            <div class="pipeline-switcher-row">
+                                <div class="pipeline-select-wrap">
+                                    <select id="pipelineSelect" class="pipeline-select" disabled>
+                                        <option>Loading pipelines...</option>
+                                    </select>
+                                    <i class="pipeline-select-icon fa-solid fa-chevron-down" aria-hidden="true"></i>
+                                </div>
+                                <button id="restartPipelineBtn"
+                                    class="control-button control-button--primary control-button--compact" type="button"
+                                    aria-label="Restart pipeline" disabled>
+                                    <i class="video-control-icon fa-solid fa-rotate-right" aria-hidden="true"></i>
+                                    <span class="video-control-text">Restart</span>
+                                </button>
+                            </div>
+                            <div id="pipelineSwitchStatus" class="pipeline-switcher-status"></div>
                         </div>
                     </div>
-                    <label class="perf-toggle-switch" aria-label="Toggle performance overlay">
-                        <input id="enablePerfOverlayChk" type="checkbox" role="switch">
-                        <span class="perf-toggle-track" aria-hidden="true">
-                            <span class="perf-toggle-thumb"></span>
-                        </span>
-                        <span class="perf-toggle-text">Performance overlay</span>
-                    </label>
                 </div>
 
-                <div class="sidebar-section sidebar-section--grow sidebar-section--models">
-                    <div class="sidebar-section-title">Pipeline Output Model</div>
-                    <div id="models-container" class="models-container">
-                        <div class="models-loading">
+                <div class="sidebar-scroll-area">
+                    <div class="sidebar-section sidebar-section--grow sidebar-section--models" data-model-selector-section>
+                        <div class="model-selector-header">
+                            <span class="sidebar-section-title">Model Selector</span>
+                        </div>
+                        <div id="modelSelectorPanel" class="model-selector-panel resizable-section-panel">
+                            <p class="sidebar-section-description">
+                                Select which models from the current pipeline are running on the source.
+                                Press i for information on specific models.
+                            </p>
+                            <div id="models-container" class="models-container">
+                                <div class="models-loading">
+                                    <div class="spinner"></div>
+                                    <span>Loading models...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div id="sidePanelResizeHandle" class="side-panel-resize-handle" aria-hidden="true"></div>
+            </div>
+
+            <main class="main-content">
+                <div class="video-wrapper">
+                    <video id="video" autoplay playsinline muted></video>
+                    <div id="video-overlay" class="video-overlay">
+                        <div class="overlay-chip">
                             <div class="spinner"></div>
-                            <span>Loading models...</span>
+                            <div id="overlay-text">Waiting for stream…</div>
                         </div>
                     </div>
+                    <button id="videoFullscreenBtn" class="video-fullscreen-button" type="button"
+                        aria-label="Fullscreen video" title="Fullscreen video">
+                        <i id="videoFullscreenIcon" class="fa-solid fa-up-right-and-down-left-from-center"
+                            aria-hidden="true"></i>
+                    </button>
                 </div>
 
-                <div class="sidebar-section">
-                    <div class="sidebar-section-title">Debug log</div>
-                    <div id="log" class="log"></div>
-                </div>
+                <div class="bottom-dock" aria-label="Pipeline data panels">
+                    <div id="bottomDockResizeHandle" class="bottom-dock-resize-handle" aria-hidden="true"></div>
+                    <div class="sidebar-section performance-metrics-section" data-performance-metrics-section>
+                        <div class="performance-metrics-header">
+                            <span class="sidebar-section-title">Performance Metrics</span>
+                            <button id="copyPerformanceMetricsBtn" class="section-copy-button" type="button"
+                                aria-label="Copy performance metrics">
+                                <i class="fa-solid fa-copy" aria-hidden="true"></i>
+                                <span>Copy</span>
+                            </button>
+                        </div>
+                        <div id="performanceMetricsPanel" class="performance-metrics-panel">
+                            <table class="performance-metrics-table">
+                                <thead>
+                                    <tr>
+                                        <th>Stage</th>
+                                        <th>Current</th>
+                                        <th>P95</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="performanceMetricsBody">
+                                    <tr>
+                                        <td colspan="3" class="performance-metrics-empty">No metrics yet</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
 
-            </div>
+                    <div class="sidebar-section inference-output-section" data-inference-output-section>
+                        <div class="inference-output-header">
+                            <span class="sidebar-section-title">Inference Output</span>
+                            <button id="copyInferenceOutputBtn" class="section-copy-button" type="button"
+                                aria-label="Copy inference output">
+                                <i class="fa-solid fa-copy" aria-hidden="true"></i>
+                                <span>Copy</span>
+                            </button>
+                        </div>
+                        <div id="inferenceOutputPanel" class="inference-output-panel">
+                            <div id="inferenceOutputBody" class="inference-output-body">
+                                <div class="inference-output-empty">No inference output yet</div>
+                            </div>
+                        </div>
+                    </div>
 
-            <div class="video-wrapper">
-                <video id="video" autoplay playsinline muted></video>
-                <div id="video-overlay" class="video-overlay">
-                    <div class="overlay-chip">
-                        <div class="spinner"></div>
-                        <div id="overlay-text">Waiting for stream…</div>
+                    <div class="sidebar-section debug-log-section" data-debug-log-section>
+                        <div class="debug-log-header">
+                            <span class="sidebar-section-title">Debug Log</span>
+                            <button id="copyDebugLogBtn" class="section-copy-button" type="button"
+                                aria-label="Copy debug log">
+                                <i class="fa-solid fa-copy" aria-hidden="true"></i>
+                                <span>Copy</span>
+                            </button>
+                        </div>
+                        <div id="log" class="log"></div>
+                        <textarea id="debugLogCopyBuffer" class="debug-log-copy-buffer" readonly
+                            aria-label="Debug log copy buffer"></textarea>
                     </div>
                 </div>
-            </div>
+            </main>
         </div>
     </div>
 
     <!-- Logic -->
-    <script type="module" src="/pek-config.js"></script>
-    <script type="module" src="/webrtc.js"></script>
-    <script type="module" src="/ctrlws.js"></script>
-    <script type="module" src="/models.js"></script>
-    <script type="module" src="/video-controls.js"></script>
-    <script type="module" src="/audio.js"></script>
-    <script type="module" src="/perf_overlay.js"></script>
+    <script src="/pek-config.js?v=chrome-freeze-pause-20260605"></script>
+    <script src="/chrome-fallback.js?v=chrome-freeze-pause-20260605"></script>
+    <script type="module" src="/webrtc.js?v=chrome-freeze-pause-20260605"></script>
+    <script type="module" src="/ctrlws.js?v=chrome-freeze-pause-20260605"></script>
+    <script type="module" src="/models.js?v=chrome-freeze-pause-20260605"></script>
+    <script type="module" src="/video-controls.js?v=chrome-freeze-pause-20260605"></script>
+    <script type="module" src="/pipeline-switcher.js?v=chrome-freeze-pause-20260605"></script>
+    <script type="module" src="/audio.js?v=chrome-freeze-pause-20260605"></script>
+    <script type="module" src="/model-selector.js?v=chrome-freeze-pause-20260605"></script>
+    <script type="module" src="/layout-resize.js?v=chrome-freeze-pause-20260605"></script>
+    <script type="module" src="/video-fullscreen.js?v=chrome-freeze-pause-20260605"></script>
+    <script type="module" src="/performance-metrics.js?v=chrome-freeze-pause-20260605"></script>
+    <script type="module" src="/inference-output.js?v=chrome-freeze-pause-20260605"></script>
+    <script type="module" src="/debug-log.js?v=chrome-freeze-pause-20260605"></script>
+    <script type="module" src="/sw-cleanup.js?v=chrome-freeze-pause-20260605"></script>
 </body>
 
 </html>
