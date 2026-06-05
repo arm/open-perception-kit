@@ -442,12 +442,21 @@ def main():
     write_report_file(report, args.report_file)
 
     if not result:
-        error_message = "One or more checks failed. Please review the logs for details. Use --verbose for more information."
+        if checker.autofix_messages:
+            error_message = (
+                "Repo checks updated files in place. Review the changes, git add them, "
+                "then rerun the check. See the errors above for the exact files."
+            )
+        else:
+            error_message = (
+                "One or more checks failed. Please review the logs for details. "
+                "Use --verbose for more information."
+            )
         logger.error(error_message)
-        raise RuntimeError(error_message)
+        return 1
 
-    return not result
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

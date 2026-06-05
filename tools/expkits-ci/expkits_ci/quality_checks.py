@@ -42,6 +42,51 @@ class QualityChecks:
     def __init__(self):
         self.license_template_manager = LicenseTemplateManager()
         self.file_utils = FileUtils()
+        self.autofix_messages = []
+
+    def record_autofix(self, filename, tool, action):
+        """Record an in-place fix and emit an actionable message."""
+        message = (
+            f"{tool} {action} {filename}. "
+            f"Review the change, git add {filename}, then rerun the check."
+        )
+        self.autofix_messages.append(message)
+        logger.error(message)
+
+    @staticmethod
+    def record_manual_fix(filename, tool, guidance):
+        """Emit an actionable message for check-only failures."""
+        logger.error(
+            f"{tool} requires changes in {filename}. "
+            f"{guidance} git add {filename}, then rerun the check."
+        )
+
+    def run_in_place_formatter(self, format_cmd, filename, tool, action="reformatted"):
+        """Run an in-place formatter and only record an autofix on success."""
+        proc = subprocess.run(
+            format_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            encoding="utf-8",
+        )
+
+        if proc.returncode == 0:
+            self.record_autofix(filename, tool, action)
+            return True
+
+        logger.error(f"{tool} failed to format {filename}.")
+        if proc.stdout:
+            logger.error(proc.stdout)
+        return False
+
+    @staticmethod
+    def log_captured_tool_output(proc_stdout):
+        """Log captured formatter output line-by-line for check-only failures."""
+        if not proc_stdout:
+            return
+
+        for output_line in proc_stdout.rstrip().splitlines():
+            logger.error(output_line)
 
     @staticmethod
     def get_detect_secrets_command():
@@ -389,16 +434,25 @@ class QualityChecks:
 
             try:
                 proc = subprocess.run(
-                    cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    encoding="utf-8",
+                )
 
                 if proc.returncode != 0:
-                    logger.error(f"clang-format check failed for {filename}: \n{proc.stdout.decode(encoding='utf-8')}")
                     result = False
                     if format:
                         format_cmd = ["clang-format", "-i", filename]
-                        subprocess.run(format_cmd)
-                        logger.info(
-                            f"Formatted {filename} using clang-format. Please check the file again.")
+                        self.run_in_place_formatter(
+                            format_cmd, filename, "clang-format")
+                    else:
+                        self.log_captured_tool_output(proc.stdout)
+                        self.record_manual_fix(
+                            filename,
+                            "clang-format",
+                            "Reformat the file with clang-format.",
+                        )
             except Exception as e:
                 result = False
                 logger.error(f"Error writing output to {filename}: {e}")
@@ -854,21 +908,25 @@ class QualityChecks:
                                               encoding="utf-8", cwd=project_root)
 
                         if proc.returncode == 0:
-                            logger.error(f"Formatted {f} using autopep8. Please check the file again.")
+                            self.record_autofix(f, "autopep8", "reformatted")
                             result = False
                         else:
                             logger.error(f"autopep8 failed to format {f}.")
-                            logger.info(proc.stdout)
-                            logger.info(proc.stderr)
+                            self.log_captured_tool_output(proc.stdout)
+                            self.log_captured_tool_output(proc.stderr)
                             result = False
                     else:
-                        logger.error(f"PEP-8 check failed for {f}. For details run with --verbose.")
-                        logger.info(proc.stdout)
+                        self.record_manual_fix(
+                            f,
+                            "autopep8",
+                            "Reformat the file to match PEP-8.",
+                        )
+                        self.log_captured_tool_output(proc.stdout)
                         result = False
                 elif proc.returncode != 0:
                     logger.error(f"autopep8 check failed for {f}.")
-                    logger.info(proc.stdout)
-                    logger.info(proc.stderr)
+                    self.log_captured_tool_output(proc.stdout)
+                    self.log_captured_tool_output(proc.stderr)
                     result = False
             except subprocess.CalledProcessError as e:
                 logger.error(f"Error running autopep8 on {f}: {e}")
@@ -899,17 +957,25 @@ class QualityChecks:
 
             try:
                 proc = subprocess.run(
-                    cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    encoding="utf-8",
+                )
 
                 if proc.returncode != 0:
-                    # If not formatting, show the diff
-                    logger.error(f"cmake-format check failed for {filename}.")
                     result = False
                     if format:
                         format_cmd = ["cmake-format", "-c", ".cmake-format.yaml", "-i", filename]
-                        subprocess.run(format_cmd)
-                        logger.info(
-                            f"Formatted {filename} using cmake-format.")
+                        self.run_in_place_formatter(
+                            format_cmd, filename, "cmake-format")
+                    else:
+                        self.log_captured_tool_output(proc.stdout)
+                        self.record_manual_fix(
+                            filename,
+                            "cmake-format",
+                            "Reformat the file with cmake-format.",
+                        )
             except Exception as e:
                 logger.error(f"Error writing output to {filename}: {e}")
                 result = False
@@ -936,17 +1002,25 @@ class QualityChecks:
             cmd = ["shfmt", *shfmt_args, "-d", filename]
             try:
                 proc = subprocess.run(
-                    cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    encoding="utf-8",
+                )
 
                 if proc.returncode != 0:
-                    # If not formatting, show the diff
-                    logger.error(f"shfmt check failed for {filename}.")
                     result = False
                     if format:
                         format_cmd = ["shfmt", *shfmt_args, "-w", filename]
-                        subprocess.run(format_cmd)
-                        logger.info(
-                            f"Formatted {filename} using shfmt.")
+                        self.run_in_place_formatter(
+                            format_cmd, filename, "shfmt")
+                    else:
+                        self.log_captured_tool_output(proc.stdout)
+                        self.record_manual_fix(
+                            filename,
+                            "shfmt",
+                            "Reformat the file with shfmt -i 4 -ci -sr -kp -w.",
+                        )
             except Exception as e:
                 logger.error(f"Error writing output to {filename}: {e}")
                 result = False
@@ -964,6 +1038,33 @@ class QualityChecks:
 
         return None
 
+    @staticmethod
+    def stabilize_cmake_file(filename):
+        """Re-run cmake-format after header insertion when the config is available."""
+        config_file = ".cmake-format.yaml"
+        if not os.path.isfile(config_file):
+            logger.debug(
+                f"Skipping post-header cmake-format for {filename}: {config_file} is unavailable."
+            )
+            return True
+
+        proc = subprocess.run(
+            ["cmake-format", "-c", config_file, "-i", filename],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            encoding="utf-8",
+        )
+
+        if proc.returncode == 0:
+            return True
+
+        logger.error(
+            f"cmake-format failed to stabilize {filename} after adding a license header."
+        )
+        if proc.stdout:
+            logger.error(proc.stdout)
+        return False
+
     def apply_license_header(self, filename, content):
         """Apply license header to a file, preserving shebang if present."""
         header = self.get_license_header(filename)
@@ -977,16 +1078,24 @@ class QualityChecks:
             # Preserve shebang as first line
             new_content = lines[0] + header + '\n' + ''.join(lines[1:])
         else:
-            new_content = header + '\n' + content
+            separator = '\n'
+            if self.file_utils.is_file_in_group(filename, self.file_utils.file_endings["cmake"]):
+                # Keep CMake headers formatter-stable so a second run does not rewrite spacing.
+                separator = ''
+            new_content = header + separator + content
 
         try:
             with open(filename, 'w', encoding='utf-8', newline="\n") as f:
                 f.write(new_content)
-                logger.info(f"License header added to {filename}")
         except Exception as e:
             logger.error(f"Error writing license header to {filename}: {e}")
             return False
 
+        if self.file_utils.is_file_in_group(filename, self.file_utils.file_endings["cmake"]):
+            if not self.stabilize_cmake_file(filename):
+                return False
+
+        self.record_autofix(filename, "license-header", "added a missing header to")
         return True
 
     def check_license_header(self, files, format=True) -> bool:
@@ -1020,9 +1129,11 @@ class QualityChecks:
                 result = False
                 self.apply_license_header(filename, content)
             else:
-                logger.error(f"License header missing in {filename}.")
-                logger.info(
-                    "Please add the license header to the file or use --license-header to add it automatically.")
+                self.record_manual_fix(
+                    filename,
+                    "license-header",
+                    "Add the missing Arm license header to the file.",
+                )
                 result = False
 
         if result:
