@@ -184,7 +184,8 @@ Pick your next step.
 | [Use Hailo acceleration](docs/public/run-hailo-inference.md) | Add accelerator hardware. |
 | [Understanding the repository structure](docs/public/structural-basics.md) | How to get started with new components |
 | [Pipeline basics](docs/public/runtime-basics.md) | Learn about inference pipeline principles  |
-| [Custom postprocessing](docs/public/custom-postprocessing.md) |    |
+| [Custom postprocessing](docs/public/custom-postprocessing.md) | Inference result postprocessing  |
+| [Permformance Measurement](docs/public/performance-measurement.md) | Measure the pipeline performance with Performix |
 
 
 
