@@ -42,6 +42,14 @@ webrtc_session_tests = executable(
   dependencies : [gtest_main_dep, gtest_dep, pek_deps],
 )
 
+runtime_pipeline_tests = executable(
+  'runtime_pipeline_tests',
+  ['runtime_pipeline_test.cpp'],
+  include_directories : [common_include, runtime_include],
+  dependencies : [gtest_main_dep, gtest_dep, pek_deps],
+  link_with : [pek_runtime, common],
+)
+
 node = find_program('node', required : false)
 
 test('pek_menu_tests', pek_menu_tests)
@@ -50,6 +58,7 @@ test('kalman_filter_tests', kalman_filter_tests)
 test('hungarian_tests', hungarian_tests)
 test('iou_tests', iou_tests)
 test('webrtc_session_tests', webrtc_session_tests)
+test('runtime_pipeline_tests', runtime_pipeline_tests)
 
 if node.found()
   test(

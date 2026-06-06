@@ -78,7 +78,7 @@ inline void from_json(const json &j, pek::Shape &s) {
             throw std::runtime_error("Too many dimensions for Shape (max 8)");
         }
         const int64_t dim = v.get<int64_t>();
-        if (dim < -1 || dim > std::numeric_limits<int>::max()) {
+        if (dim == 0 || dim < -1 || dim > std::numeric_limits<int>::max()) {
             throw std::runtime_error("Shape dimension must be -1 or a positive int");
         }
         s.dims[i] = static_cast<int>(dim);
