@@ -42,7 +42,7 @@ if [[ -d "$SND_DIR" ]]; then
             -maxdepth 1 \
             -type c \
             -print 2> /dev/null |
-             sort -V || true
+            sort -V || true
         printf '\0'
     )
     read -r -d '' -a MIC_DEVS < <(
@@ -51,7 +51,7 @@ if [[ -d "$SND_DIR" ]]; then
             -type c \
             -name 'pcmC*D*c' \
             -print 2> /dev/null |
-                sort -V || true
+            sort -V || true
         printf '\0'
     )
 else

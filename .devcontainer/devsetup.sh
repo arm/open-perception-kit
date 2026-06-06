@@ -8,13 +8,13 @@ set -euo pipefail
 log() { echo -e "[devsetup.sh] $*"; }
 die() {
     echo -e "[devsetup.sh] ERROR: $*" >&2
-               exit 1
+    exit 1
 }
 
 append_once() {
-     local needle="$1"
-     local line="$2"
-     grep -Fqx "$needle" "$BASHRC" 2> /dev/null || echo "$line" >> "$BASHRC"
+    local needle="$1"
+    local line="$2"
+    grep -Fqx "$needle" "$BASHRC" 2> /dev/null || echo "$line" >> "$BASHRC"
 }
 
 trap 'die "failed at line $LINENO"' ERR

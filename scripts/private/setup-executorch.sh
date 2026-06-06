@@ -6,7 +6,7 @@
 set -euo pipefail
 
 # --- Config (edit as needed) ---
-: "${PEK_EXECUTORCH:=1}"     # default if not already set; change to a path/value if needed
+: "${PEK_EXECUTORCH:=1}" # default if not already set; change to a path/value if needed
 
 # --- Resolve paths relative to THIS script's location ---
 SELF_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -14,13 +14,13 @@ BUILD_SH="$SELF_DIR/../../tools/executorchbuild/build.sh"
 GETLIB_SH="$SELF_DIR/../../tools/executorchbuild/getlibthorch.sh"
 
 # --- Basic checks ---
-[[ -f "$BUILD_SH" ]]  || {
-                           echo "Missing: $BUILD_SH" >&2
-                                                          exit 1
+[[ -f "$BUILD_SH" ]] || {
+    echo "Missing: $BUILD_SH" >&2
+    exit 1
 }
 [[ -f "$GETLIB_SH" ]] || {
-                           echo "Missing: $GETLIB_SH" >&2
-                                                           exit 1
+    echo "Missing: $GETLIB_SH" >&2
+    exit 1
 }
 
 run_in_script_dir() {

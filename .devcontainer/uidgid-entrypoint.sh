@@ -31,9 +31,9 @@ if ! id -u "${USERNAME}" > /dev/null 2>&1; then
 fi
 
 # Update user/group ids
-usermod  -u "${HOST_UID}" "${USERNAME}" || true
+usermod -u "${HOST_UID}" "${USERNAME}" || true
 groupmod -g "${HOST_GID}" "$(id -gn "${USERNAME}")" || true
-usermod  -g "${HOST_GID}" "${USERNAME}" || true
+usermod -g "${HOST_GID}" "${USERNAME}" || true
 
 # Fix home ownership (keep it cheap)
 chown -R "${HOST_UID}:${HOST_GID}" "/home/${USERNAME}" || true
