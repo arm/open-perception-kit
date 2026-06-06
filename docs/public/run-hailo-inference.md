@@ -54,14 +54,14 @@ container.
 From the PEK repository on the Raspberry Pi, run:
 
 ```bash
-./quick_start
-./download_videos
-./build
+./scripts/quick_start.sh
+./scripts/download_videos.sh
+./scripts/build.sh
 ```
 
-`./quick_start` starts the matching Raspberry Pi container and passes through
-the Hailo device when it is visible on the host. `./build` builds 
-PEK inside that container. `./download_videos` downloads
+`./scripts/quick_start.sh` starts the matching Raspberry Pi container and passes through
+the Hailo device when it is visible on the host. `./scripts/build.sh` builds 
+PEK inside that container. `./scripts/download_videos.sh` downloads
 the stock videos, necessary for running the example pipelines.
 
 ## Run A Hailo Pipeline
@@ -69,19 +69,19 @@ the stock videos, necessary for running the example pipelines.
 For Hailo 8, run:
 
 ```bash
-./run 02-full-onnx-hailo8
+./scripts/run.sh 02-full-onnx-hailo8
 ```
 
 For Hailo 8L hardware with Hailo 8L-compiled models, run:
 
 ```bash
-./run 03-full-onnx-hailo8l
+./scripts/run.sh 03-full-onnx-hailo8l
 ```
 
 For Hailo 10, run:
 
 ```bash
-./run 04-full-onnx-hailo10
+./scripts/run.sh 04-full-onnx-hailo10
 ```
 
 Keep the terminal running. Open the PEK browser UI from your normal computer:

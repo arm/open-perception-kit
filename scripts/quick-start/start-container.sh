@@ -72,19 +72,19 @@ COMPOSE_FILES=(
 require_docker() {
     if ! command -v docker > /dev/null 2>&1; then
         echo "Error: docker is not installed or not on PATH." >&2
-        echo "Install Docker for this platform, then rerun ./quick_start." >&2
+        echo "Install Docker for this platform, then rerun ./scripts/quick_start.sh." >&2
         exit 1
     fi
 
     if ! docker compose version > /dev/null 2>&1; then
         echo "Error: Docker Compose plugin is not available." >&2
-        echo "Install the Docker Compose plugin so 'docker compose' works, then rerun ./quick_start." >&2
+        echo "Install the Docker Compose plugin so 'docker compose' works, then rerun ./scripts/quick_start.sh." >&2
         exit 1
     fi
 
     if ! docker info > /dev/null 2>&1; then
         echo "Error: Docker is installed but not usable by this user." >&2
-        echo "Start Docker and confirm 'docker info' works without sudo, then rerun ./quick_start." >&2
+        echo "Start Docker and confirm 'docker info' works without sudo, then rerun ./scripts/quick_start.sh." >&2
         if [[ "${PEK_PLATFORM_ID}" == rpi5* || "${PEK_PLATFORM_ID}" == "linux-x86_64" ]]; then
             echo "On Linux, this often means running: sudo usermod -aG docker \"\$USER\""
             echo "After that, log out and log back in."
@@ -104,7 +104,7 @@ container_workdir_writable() {
 print_enter_hint() {
     echo "Container is running: ${PEK_CONTAINER_NAME}"
     echo "Enter it with:"
-    echo "  ./enter_cli"
+    echo "  ./scripts/enter_cli.sh"
     echo "       or"
     echo "  docker exec -it -u devgoblin --env-file devices.env -e TERM=\"\$TERM\" ${PEK_CONTAINER_NAME} bash"
 }

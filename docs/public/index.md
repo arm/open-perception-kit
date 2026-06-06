@@ -92,13 +92,13 @@ cd amp-dev-forge
 Enter the `amp-dev-forge` folder in the terminal and run:
 
 ```bash
-./quick_start
+./scripts/quick_start.sh
 ```
 
 ### 3. Enter the container command line
 
 ```bash
-./enter_cli
+./scripts/enter_cli.sh
 ```
 > **Expected outcome:** The prompt shows `devgoblin` 
 
@@ -107,7 +107,7 @@ Enter the `amp-dev-forge` folder in the terminal and run:
 From the container shell, run:
 
 ```bash
-./download_videos
+./scripts/download_videos.sh
 ```
 
 ### 4. Build PEK inside the Container
@@ -115,7 +115,7 @@ From the container shell, run:
 From the container shell, run:
 
 ```bash
-./build
+./scripts/build.sh
 ```
 > **Expected outcome:** setup and kit build complete without a blocking error,
 > and the terminal prints `Pipeline launcher is ready at /work/tools/pek-menu`.
@@ -125,7 +125,7 @@ From the container shell, run:
 #### 5.1 Start the inference pipeline inside the Container
 
 ```bash
-./run
+./scripts/run.sh
 ```
 
 Keep this terminal running. The command starts your first pipeline and runs
@@ -189,7 +189,7 @@ Pick your next step.
 | [Understanding the repository structure](../public/structural-basics.md) | How to get started with new components |
 | [Pipeline basics](../public/runtime-basics.md) | Learn about inference pipeline principles  |
 | [Custom postprocessing](../public/custom-postprocessing.md) | Inference result postprocessing  |
-| [Permformance Measurement](../public/performance-measurement.md) | Measure the pipeline performance with Performix |
+| [Performance Measurement](../public/performance-measurement.md) | Measure the pipeline performance with Performix |
 
 
 
