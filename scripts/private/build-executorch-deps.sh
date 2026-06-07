@@ -10,13 +10,13 @@ usage() {
 Build and stage ExecuTorch development files for PEK.
 
 Usage:
-  scripts/build-executorch-deps.sh [work-dir] [options]
+  scripts/private/build-executorch-deps.sh [work-dir] [options]
 
 Default:
-  scripts/build-executorch-deps.sh /work/var/executorch-build
+  scripts/private/build-executorch-deps.sh /work/var/executorch-build
 
 Options:
-  --work-dir DIR          Directory used for clone, venv, downloads, and build.
+  --work-dir DIR          Directory used for clone, venv, downloads, build, temp, and caches.
   --deps-dir DIR          Root dependency staging directory. Default: /work/deps
   --executorch-ref REF    ExecuTorch branch/tag/commit. Default: release/1.0
   --executorch-repo URL   ExecuTorch repository URL.
@@ -81,6 +81,7 @@ resolve_path() {
 safe_rm_rf() {
     local path="$1"
     local allow_work_dir="${2:-0}"
+
     case "${path}" in
         ""|"/"|".")
             die "refusing to remove unsafe path: ${path}"
@@ -183,7 +184,6 @@ export TMPDIR="${WORK_DIR}/tmp"
 export UV_CACHE_DIR="${WORK_DIR}/cache/uv"
 export PIP_CACHE_DIR="${WORK_DIR}/cache/pip"
 export XDG_CACHE_HOME="${WORK_DIR}/cache/xdg"
-
 export MAX_JOBS="${JOBS}"
 export CMAKE_BUILD_PARALLEL_LEVEL="${JOBS}"
 export USE_KINETO="${USE_KINETO:-0}"
@@ -289,9 +289,6 @@ copy_built_libraries() {
     log "Installing ExecuTorch to ${EXECUTORCH_INSTALL_DIR}"
     cmake --install "${BUILD_DIR}" --prefix "${EXECUTORCH_INSTALL_DIR}"
 
-    # ExecuTorch install rules may miss backend/kernel archives that PEK links
-    # with whole-archive. Copy all built binary artifacts so the staged SDK is
-    # self-contained for the current Meson integration.
     log "Copying built static/shared libraries into ${libdir}"
     while IFS= read -r artifact; do
         cp -f "${artifact}" "${libdir}/"
@@ -432,7 +429,7 @@ libtorch compatibility headers:
   ${LIBTORCH_INSTALL_DIR}
 
 Build PEK with:
-  ./scripts/build-elements.sh debug_with_executorch
+  PEK_EXECUTORCH=enabled ./scripts/build-elements.sh debug
 EOF
 }
 

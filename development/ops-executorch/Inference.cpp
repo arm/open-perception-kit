@@ -109,7 +109,7 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
         std::printf("Failed to query method names: error=%d\n", (int)names.error());
 
         return tl::unexpected{
-            PEK_ERROR(pek::ErrorFlag::ExecuTorchError,
+            PEK_ERROR(pek::ErrorFlag::InferenceRtGenericError,
                       fmt::format("Failed to query method names: error={}", (int)names.error()))};
     }
 
@@ -121,7 +121,7 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
             const auto mm = module.method_meta(method_name);
             if (!mm.ok()) {
                 return tl::unexpected{PEK_ERROR(
-                    pek::ErrorFlag::ExecuTorchError,
+                    pek::ErrorFlag::InferenceRtGenericError,
                     fmt::format("Failed to get data of forward(): error={}", (int)mm.error()))};
             }
 
@@ -130,7 +130,7 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
                 const auto tm = mm->input_tensor_meta(i);
                 if (!tm.ok()) {
                     return tl::unexpected{PEK_ERROR(
-                        pek::ErrorFlag::ExecuTorchError,
+                        pek::ErrorFlag::InferenceRtGenericError,
                         fmt::format("Failed to get data of input: error={}", (int)tm.error()))};
                 }
 
@@ -150,7 +150,7 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
                 const auto tm = mm->output_tensor_meta(i);
                 if (!tm.ok()) {
                     return tl::unexpected{PEK_ERROR(
-                        pek::ErrorFlag::ExecuTorchError,
+                        pek::ErrorFlag::InferenceRtGenericError,
                         fmt::format("Failed to get data of output: error={}", (int)tm.error()))};
                 }
 
@@ -167,12 +167,12 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
     }
 
     if (!haveForward) {
-        return tl::unexpected{
-            PEK_ERROR(pek::ErrorFlag::ExecuTorchError, fmt::format("No forward() in model"))};
+        return tl::unexpected{PEK_ERROR(pek::ErrorFlag::InferenceRtGenericError,
+                                        fmt::format("No forward() in model"))};
     }
 
     if (model.inputs.size() == 0 || model.outputs.size() == 0) {
-        return tl::unexpected{PEK_ERROR(pek::ErrorFlag::ExecuTorchError,
+        return tl::unexpected{PEK_ERROR(pek::ErrorFlag::InferenceRtGenericError,
                                         fmt::format("Model input/output config error"))};
     }
 
