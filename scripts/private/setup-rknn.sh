@@ -5,33 +5,136 @@
 
 set -euo pipefail
 
-WORK_DIR="/work"
-SRC_DIR="${WORK_DIR}/var/rknn-toolkit2"
-DST_DIR="${WORK_DIR}/rknn"
-DST_INCLUDE="${DST_DIR}/include"
-DST_LIB="${DST_DIR}/lib"
-
 REPO_URL="https://github.com/airockchip/rknn-toolkit2.git"
 BRANCH="${BRANCH:-master}"
-ARCH="${1:-aarch64}"
+WORK_DIR="${WORK_DIR:-/work/var/rknn-dev}"
+DEPS_DIR="${DEPS_DIR:-/work/deps}"
 
-echo "[INFO] Using ARCH=${ARCH}"
+usage() {
+    cat <<'EOF'
+Build and stage RKNN C/C++ runtime files for PEK.
 
-case "${ARCH}" in
-    aarch64 | armhf | armhf-uclibc) ;;
-    *)
-        echo "[ERROR] Unsupported ARCH: ${ARCH}"
-        echo "Supported: aarch64, armhf, armhf-uclibc"
-        exit 1
-        ;;
-esac
+Usage:
+  scripts/private/setup-rknn.sh [work-dir]
+
+Default:
+  scripts/private/setup-rknn.sh /work/var/rknn-dev
+
+Options:
+  --work-dir DIR    Directory used for clone, temp, and sparse checkout state.
+  --deps-dir DIR    Root dependency staging directory. Default: /work/deps.
+  --help            Show this help.
+
+Environment:
+  WORK_DIR    Same as the positional work-dir argument.
+  DEPS_DIR    Same as --deps-dir.
+  BRANCH      rknn-toolkit2 branch to fetch. Default: master.
+  RKNN_ARCH   Optional runtime architecture override. By default this is
+              detected from the current container architecture.
+
+Output:
+  $DEPS_DIR/rknn/include
+  $DEPS_DIR/rknn/lib
+EOF
+}
+
+die() {
+    echo "[ERROR] $*" >&2
+    exit 1
+}
+
+resolve_path() {
+    local path="$1"
+    local parent
+    local base
+
+    case "${path}" in
+        /*) ;;
+        *) path="${ORIGINAL_CWD}/${path}" ;;
+    esac
+
+    parent="$(dirname -- "${path}")"
+    base="$(basename -- "${path}")"
+    mkdir -p "${parent}"
+    parent="$(cd -- "${parent}" && pwd -P)"
+    printf '%s/%s\n' "${parent}" "${base}"
+}
+
+detect_rknn_arch() {
+    local machine
+    machine="$(uname -m)"
+
+    case "${machine}" in
+        aarch64 | arm64)
+            printf 'aarch64\n'
+            ;;
+        armhf | armv6l | armv7l | armv8l)
+            printf 'armhf\n'
+            ;;
+        *)
+            die "Unsupported container architecture: ${machine}. Supported RKNN runtimes: aarch64, armhf, armhf-uclibc"
+            ;;
+    esac
+}
 
 need_cmd() {
     if ! command -v "$1" > /dev/null 2>&1; then
-        echo "[ERROR] Required command not found: $1"
-        exit 1
+        die "Required command not found: $1"
     fi
 }
+
+ORIGINAL_CWD="$(pwd -P)"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --work-dir)
+            [[ $# -ge 2 ]] || die "--work-dir requires a value"
+            WORK_DIR="$2"
+            shift 2
+            ;;
+        --deps-dir)
+            [[ $# -ge 2 ]] || die "--deps-dir requires a value"
+            DEPS_DIR="$2"
+            shift 2
+            ;;
+        --help | -h)
+            usage
+            exit 0
+            ;;
+        --*)
+            die "Unknown option: $1"
+            ;;
+        *)
+            WORK_DIR="$1"
+            shift
+            ;;
+    esac
+done
+
+WORK_DIR="$(resolve_path "${WORK_DIR}")"
+DEPS_DIR="$(resolve_path "${DEPS_DIR}")"
+[[ "${WORK_DIR}" != "/" ]] || die "Refusing to use / as work directory"
+[[ "${DEPS_DIR}" != "/" ]] || die "Refusing to use / as deps directory"
+
+ARCH="${RKNN_ARCH:-$(detect_rknn_arch)}"
+case "${ARCH}" in
+    aarch64 | armhf | armhf-uclibc) ;;
+    *)
+        die "Unsupported RKNN_ARCH: ${ARCH}. Supported: aarch64, armhf, armhf-uclibc"
+        ;;
+esac
+
+SRC_DIR="${WORK_DIR}/rknn-toolkit2"
+STAGE_DIR="${WORK_DIR}/rknn-stage"
+STAGE_INCLUDE="${STAGE_DIR}/include"
+STAGE_LIB="${STAGE_DIR}/lib"
+DST_DIR="${DEPS_DIR}/rknn"
+DST_INCLUDE="${DST_DIR}/include"
+DST_LIB="${DST_DIR}/lib"
+
+echo "[INFO] Work dir: ${WORK_DIR}"
+echo "[INFO] Deps dir: ${DEPS_DIR}"
+echo "[INFO] Using RKNN runtime architecture: ${ARCH}"
 
 need_cmd git
 need_cmd cp
@@ -40,11 +143,11 @@ need_cmd mkdir
 
 echo "[INFO] Cleaning RKNN-specific dirs only..."
 rm -rf "${SRC_DIR}"
-rm -rf "${DST_DIR}"
+rm -rf "${STAGE_DIR}"
 
-mkdir -p "${WORK_DIR}/var"
-mkdir -p "${DST_INCLUDE}"
-mkdir -p "${DST_LIB}"
+mkdir -p "${WORK_DIR}"
+mkdir -p "${STAGE_INCLUDE}"
+mkdir -p "${STAGE_LIB}"
 
 echo "[INFO] Marking repo path as safe for git..."
 git config --global --add safe.directory "${SRC_DIR}" || true
@@ -80,10 +183,15 @@ if [[ ! -d "${LIB_DIR}" ]]; then
 fi
 
 echo "[INFO] Copying headers..."
-cp -r "${INCLUDE_DIR}/." "${DST_INCLUDE}/"
+cp -r "${INCLUDE_DIR}/." "${STAGE_INCLUDE}/"
 
 echo "[INFO] Copying libraries..."
-cp -r "${LIB_DIR}/." "${DST_LIB}/"
+cp -r "${LIB_DIR}/." "${STAGE_LIB}/"
+
+echo "[INFO] Staging RKNN runtime into ${DST_DIR}..."
+rm -rf "${DST_DIR}"
+mkdir -p "$(dirname -- "${DST_DIR}")"
+mv "${STAGE_DIR}" "${DST_DIR}"
 
 echo
 echo "[SUCCESS] RKNN C/C++ runtime files ready"
