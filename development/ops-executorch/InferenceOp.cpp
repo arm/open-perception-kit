@@ -7,8 +7,11 @@
 #include "pek/Result.h"
 #include "tl/expected.hpp"
 
+#include <cassert>
 #include <fmt/core.h>
 #include <memory>
+
+#include <perf/PerformanceTracer.h>
 
 using namespace pek::extrch;
 
@@ -43,12 +46,38 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
                                         fmt::format("Executorch startup error: {}", e.what())));
     }
 
-    // modelFamily = inference->getModel().modelFamily;
+    modelFamily = inference->getModel().modelFamily;
 
     return {};
 }
 
-pek::Result<pek::op::OpSignal> InferenceOp::process(pek::op::OpChainContext &opCainContext) {
-    (void)opCainContext;
+pek::Result<pek::op::OpSignal> InferenceOp::process(pek::op::OpChainContext &opChainContext) {
+    PEK_TRACE_SCOPE(fmt::format("extrch/Infer/{}", opChainContext.inferenceInfo.modelFamily));
+
+    // Preprocess has already written into Inference input buffers through OpInterfaceInference.
+    auto inferenceResult = inference->inference();
+    if (!inferenceResult) {
+        return tl::unexpected(inferenceResult.error());
+    }
+
+    // Publish non-owning output views for the next op, usually GenericPostprocess.
+    size_t outputTensorCount = inference->getModel().outputs.size();
+    opChainContext.inferenceOutputTensorCount = outputTensorCount;
+    for (size_t i = 0; i < outputTensorCount; i++) {
+        opChainContext.inferenceOutputTensors[i] = inference->getModel().createOutputTensorView(
+            i, inference->getOutputTensorDataAddress(i), inference->getOutputTensorFinalShape(i));
+    }
+
     return pek::op::OpSignal::Continue;
 }
+
+const pek::Model &InferenceOp::getModel() const {
+    assert(inference);
+    return inference->getModel();
+}
+
+uint8_t *InferenceOp::getTensorDataAddress(size_t index) const {
+    assert(inference);
+    return inference->getInputTensorDataAddress(index);
+}
+

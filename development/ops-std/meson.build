@@ -9,6 +9,7 @@ stdops = shared_module(
     'postproc/RvmParser.cpp',
     'postproc/DummyParser.cpp',
     'postproc/YoloParser.cpp',
+    'postproc/YoloXParser.cpp',
     'postproc/UltrafaceParser.cpp',
     'postproc/PaddleocrParser.cpp',
     'postproc/GazeDetectionParser.cpp',

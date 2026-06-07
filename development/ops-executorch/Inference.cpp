@@ -6,11 +6,14 @@
 
 #define EXECUTORCH_ENABLE_LOGGING 1
 
+#include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <cstdio>
 #include <executorch/extension/module/module.h>
 #include <executorch/extension/tensor/tensor_ptr_maker.h>
 #include <memory>
+#include <vector>
 
 #include "executorch/runtime/core/error.h"
 #include "fmt/base.h"
@@ -19,30 +22,50 @@
 #include "pek/String.h"
 #include "pek/Types.h"
 
-using ::executorch::aten::ScalarType;
-using ::executorch::extension::MethodMeta;
-using ::executorch::extension::Module;
-using ::executorch::runtime::Result;
-
-// ---
-
-static pek::Dtype to_pek_dtype(executorch::aten::ScalarType t) {
+static bool to_pek_dtype(executorch::aten::ScalarType t, pek::Dtype &outType) {
     using executorch::aten::ScalarType;
     switch (t) {
     case ScalarType::Byte:
-        return pek::Dtype::Uint8;
+        outType = pek::Dtype::Uint8;
+        return true;
     case ScalarType::Char:
-        return pek::Dtype::Int8;
+        outType = pek::Dtype::Int8;
+        return true;
     case ScalarType::Long:
-        return pek::Dtype::Int64;
+        outType = pek::Dtype::Int64;
+        return true;
     case ScalarType::Half:
-        return pek::Dtype::Float16;
+        outType = pek::Dtype::Float16;
+        return true;
     case ScalarType::Float:
-        return pek::Dtype::Float32;
+        outType = pek::Dtype::Float32;
+        return true;
     default:
-        assert(0);
+        return false;
     }
-    return pek::Dtype::Float32;
+}
+
+// ExecuTorch uses its own scalar type enum, but PEK descriptors use pek::Dtype.
+static bool to_executorch_dtype(pek::Dtype t, executorch::aten::ScalarType &outType) {
+    using executorch::aten::ScalarType;
+    switch (t) {
+    case pek::Dtype::Uint8:
+        outType = ScalarType::Byte;
+        return true;
+    case pek::Dtype::Int8:
+        outType = ScalarType::Char;
+        return true;
+    case pek::Dtype::Int64:
+        outType = ScalarType::Long;
+        return true;
+    case pek::Dtype::Float16:
+        outType = ScalarType::Half;
+        return true;
+    case pek::Dtype::Float32:
+        outType = ScalarType::Float;
+        return true;
+    }
+    return false;
 }
 
 template <typename SizesT> static pek::Shape to_pek_shape(const SizesT &sizes) {
@@ -50,7 +73,7 @@ template <typename SizesT> static pek::Shape to_pek_shape(const SizesT &sizes) {
 
     s.rank = static_cast<int>(sizes.size());
 
-    // IMPORTANT: make sure we don't overflow dims
+    // PEK Shape has fixed storage for 8 dimensions.
     const size_t maxDims = sizeof(s.dims) / sizeof(s.dims[0]);
     const size_t n = std::min(sizes.size(), maxDims);
 
@@ -60,12 +83,20 @@ template <typename SizesT> static pek::Shape to_pek_shape(const SizesT &sizes) {
         s.dims[i] = static_cast<int>(sizes[i]);
     }
 
-    // Optional: zero remaining dims for safety
     for (size_t i = n; i < maxDims; ++i) {
         s.dims[i] = 0;
     }
 
     return s;
+}
+
+static std::vector<executorch::aten::SizesType> to_executorch_shape(const pek::Shape &shape) {
+    std::vector<executorch::aten::SizesType> sizes;
+    sizes.reserve(shape.rank);
+    for (size_t i = 0; i < shape.rank; ++i) {
+        sizes.push_back(static_cast<executorch::aten::SizesType>(shape.dims[i]));
+    }
+    return sizes;
 }
 
 using namespace pek::extrch;
@@ -103,7 +134,7 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
     pek::Model model;
     model.engine = "executorch";
 
-    // method_names() forces program load on first call
+    // method_names() forces program load on first call.
     const auto names = module.method_names();
     if (!names.ok()) {
         std::printf("Failed to query method names: error=%d\n", (int)names.error());
@@ -118,6 +149,7 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
         if (method_name == "forward") {
             haveForward = true;
 
+            // PEK currently treats forward() as the only executable model entry point.
             const auto mm = module.method_meta(method_name);
             if (!mm.ok()) {
                 return tl::unexpected{PEK_ERROR(
@@ -136,9 +168,19 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
 
                 pek::ModelInput input;
                 input.name = fmt::format("input{}", i);
-                input.valueType = to_pek_dtype(tm->scalar_type());
+                if (!to_pek_dtype(tm->scalar_type(), input.valueType)) {
+                    return tl::unexpected{
+                        PEK_ERROR(pek::ErrorFlag::ModelInspectError,
+                                  fmt::format("cannot recognize input ExecuTorch type: {}",
+                                              static_cast<int>(tm->scalar_type())))};
+                }
 
                 auto sizes = tm->sizes();
+                if (sizes.size() < 1 || sizes.size() > pek::MaxTensorCount) {
+                    return tl::unexpected{
+                        PEK_ERROR(pek::ErrorFlag::ModelInspectError,
+                                  "input tensor size must be between 1 and 8")};
+                }
                 input.shape = to_pek_shape(sizes);
                 input.batch = (sizes.size() > 0) ? static_cast<int>(sizes[0]) : 0;
 
@@ -156,9 +198,19 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
 
                 pek::ModelOutput output;
                 output.name = fmt::format("output{}", i);
-                output.valueType = to_pek_dtype(tm->scalar_type());
+                if (!to_pek_dtype(tm->scalar_type(), output.valueType)) {
+                    return tl::unexpected{
+                        PEK_ERROR(pek::ErrorFlag::ModelInspectError,
+                                  fmt::format("cannot recognize output ExecuTorch type: {}",
+                                              static_cast<int>(tm->scalar_type())))};
+                }
 
                 auto sizes = tm->sizes();
+                if (sizes.size() < 1 || sizes.size() > pek::MaxTensorCount) {
+                    return tl::unexpected{
+                        PEK_ERROR(pek::ErrorFlag::ModelInspectError,
+                                  "output tensor size must be between 1 and 8")};
+                }
                 output.shape = to_pek_shape(sizes);
 
                 model.outputs.push_back(output);
@@ -205,6 +257,12 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
         return tl::make_unexpected(cmResult.error());
     }
 
+    // After this point, descriptor shapes/types are the PEK runtime contract.
+    if (model.inputs.size() > pek::MaxTensorCount || model.outputs.size() > pek::MaxTensorCount) {
+        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InferenceRtModelLoadError,
+                                        "model tensor count exceeds max supported"));
+    }
+
     setTensorSizes();
 
     this->setupReady = true;
@@ -216,8 +274,6 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
     printf("%s", modelLog.c_str());
     printf("========= ================== =========\n");
 
-    Forward();
-
     return {};
 }
 
@@ -226,6 +282,7 @@ void Inference::setTensorSizes() {
     inputTensors.resize(model.inputs.size());
 
     for (size_t i = 0; i < model.inputs.size(); i++) {
+        // Preprocess fills this buffer through getInputTensorDataAddress().
         size_t tensorValueCount = model.inputs[i].shape.getFullValueCount();
         size_t tensorByteCount =
             tensorValueCount * pek::getValueTypeByteSize(model.inputs[i].valueType);
@@ -233,37 +290,84 @@ void Inference::setTensorSizes() {
         fmt::print("Executorch input tensor prepared: {} bytes\n", tensorByteCount);
     }
 
-    outputTensors.resize(model.outputs.size());
-
-    for (size_t i = 0; i < model.outputs.size(); i++) {
-        size_t tensorValueCount = model.outputs[i].shape.getFullValueCount();
-        size_t tensorByteCount =
-            tensorValueCount * pek::getValueTypeByteSize(model.inputs[i].valueType);
-        outputTensors[i].resize(tensorByteCount);
-        fmt::print("Executorch output tensor prepared: {} bytes\n", tensorByteCount);
-    }
 }
 
-void Inference::Forward() {
+pek::Result<void> Inference::inference() {
     using executorch::extension::from_blob;
-    using executorch::extension::module::Module;
+    using executorch::runtime::EValue;
 
-    // Example input buffer (must match model dtype/shape)
-
-    // Create input tensor view over existing memory
-    auto x = from_blob(inputTensors[0].data(), {1, 3, 416, 416});
-
-    auto result = module->forward(x);
-    if (!result.ok()) {
-        auto err = result.error();
-        printf("Executorch forward failed: error code = %d\n", static_cast<int>(err));
-        return;
+    if (!setupReady || !module) {
+        return tl::unexpected(
+            PEK_ERROR(pek::ErrorFlag::InferenceRtInferenceError, "ExecuTorch model is not ready"));
     }
 
-    // Get first output as a Tensor, then get typed pointer
+    for (size_t i = 0; i < pek::MaxTensorCount; i++) {
+        outputTensorPointers[i] = nullptr;
+        outputTensorFinalShapes[i] = pek::Shape();
+    }
 
-    auto outTensor = result->at(0).toTensor();
-    const float *out = outTensor.const_data_ptr<float>();
+    std::vector<executorch::extension::TensorPtr> inputTensorRefs;
+    std::vector<EValue> inputValues;
+    inputTensorRefs.reserve(model.inputs.size());
+    inputValues.reserve(model.inputs.size());
 
-    std::printf("out[0]=%f\n", out[0]);
+    for (size_t i = 0; i < model.inputs.size(); i++) {
+        executorch::aten::ScalarType scalarType;
+        if (!to_executorch_dtype(model.inputs[i].valueType, scalarType)) {
+            return tl::unexpected{
+                PEK_ERROR(pek::ErrorFlag::InvalidData,
+                          fmt::format("unsupported ExecuTorch input dtype at index {}", i))};
+        }
+
+        // from_blob does not own data, so keep TensorPtr alive until forward() returns.
+        inputTensorRefs.push_back(from_blob(inputTensors[i].data(),
+                                            to_executorch_shape(model.inputs[i].shape),
+                                            scalarType));
+        inputValues.emplace_back(*inputTensorRefs.back());
+    }
+
+    auto result = module->forward(inputValues);
+    if (!result.ok()) {
+        return tl::unexpected{PEK_ERROR(
+            pek::ErrorFlag::InferenceRtInferenceError,
+            fmt::format("ExecuTorch forward failed: error={}", static_cast<int>(result.error())))};
+    }
+
+    // Keep returned EValues alive; TensorViews published below point into them.
+    lastOutputs = std::move(*result);
+    if (lastOutputs.size() != model.outputs.size()) {
+        return tl::unexpected{
+            PEK_ERROR(pek::ErrorFlag::InvalidData,
+                      fmt::format("ExecuTorch output count {} does not match model output count {}",
+                                  lastOutputs.size(),
+                                  model.outputs.size()))};
+    }
+
+    for (size_t i = 0; i < lastOutputs.size(); i++) {
+        if (!lastOutputs[i].isTensor()) {
+            return tl::unexpected{PEK_ERROR(
+                pek::ErrorFlag::InvalidData,
+                fmt::format("ExecuTorch output {} is not a tensor", i))};
+        }
+
+        const auto &tensor = lastOutputs[i].toTensor();
+        pek::Dtype outputType;
+        if (!to_pek_dtype(tensor.scalar_type(), outputType)) {
+            return tl::unexpected{
+                PEK_ERROR(pek::ErrorFlag::InvalidData,
+                          fmt::format("unsupported ExecuTorch output dtype at index {}", i))};
+        }
+
+        if (outputType != model.outputs[i].valueType) {
+            return tl::unexpected{
+                PEK_ERROR(pek::ErrorFlag::InvalidData,
+                          fmt::format("ExecuTorch output dtype mismatch at index {}", i))};
+        }
+
+        // Downstream postprocess receives non-owning views over these addresses.
+        outputTensorPointers[i] = static_cast<const uint8_t *>(tensor.const_data_ptr());
+        outputTensorFinalShapes[i] = to_pek_shape(tensor.sizes());
+    }
+
+    return {};
 }

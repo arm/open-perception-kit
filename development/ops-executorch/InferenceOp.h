@@ -10,12 +10,18 @@
 
 #include "Inference.h"
 
+#include <memory>
+
 namespace pek::extrch {
 
-class InferenceOp : public pek::op::Op {
+class InferenceOp : public pek::op::Op, public pek::op::OpInterfaceInference {
   public:
     InferenceOp();
     virtual ~InferenceOp();
+
+    // Exposes model/input buffer information to generic preprocess ops.
+    virtual const pek::Model &getModel() const override;
+    virtual uint8_t *getTensorDataAddress(size_t index) const override;
 
     virtual pek::Result<void> configure(const pek::AttributeMap &attributes) override;
     virtual pek::Result<void> bind(size_t index, const std::vector<pek::op::Op *> &ops) override;

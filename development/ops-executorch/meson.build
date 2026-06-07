@@ -77,8 +77,10 @@ endif
 
 executorch_dep = declare_dependency(
   compile_args: [
-    '-I' + executorch_include,
-    '-I' + libtorch_include,
+    '-isystem',
+    executorch_include,
+    '-isystem',
+    libtorch_include,
   ],
   link_args: [
       '-L' + executorch_libdir,
