@@ -7,11 +7,13 @@ endif
 executorch_root = meson.project_source_root() / '../deps/executorch'
 libtorch_root   = meson.project_source_root() / '../deps/libtorch'
 executorch_libdir = executorch_root / 'lib'
+executorch_include = executorch_root / 'include'
+libtorch_include = libtorch_root / 'include'
 
 executorch_dep = declare_dependency(
-  include_directories: [
-    include_directories('../deps/executorch/include'),
-    include_directories('../deps/libtorch/include'),
+  compile_args: [
+    '-I' + executorch_include,
+    '-I' + libtorch_include,
   ],
   link_args: [
       '-L' + executorch_libdir,
