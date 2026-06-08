@@ -1,4 +1,4 @@
-import { ctrlSend } from "./ctrlws.js?v=flat-model-toggles-20260608";
+import { ctrlSend } from "./ctrlws.js?v=dependency-toggle-lock-20260608";
 
 const select = document.getElementById("pipelineSelect");
 const actionButton = document.getElementById("restartPipelineBtn");

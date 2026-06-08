@@ -1467,6 +1467,18 @@ body.is-resizing-bottom-column * {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 8px 20px rgba(15, 23, 42, 0.25);
 }
 
+.model-item--dependency-forced .model-toggle-switch {
+  cursor: not-allowed;
+}
+
+.model-item--dependency-forced .model-toggle-track {
+  opacity: 0.72;
+}
+
+.model-item--dependency-forced .model-toggle-switch:hover .model-toggle-track {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 8px 20px rgba(15, 23, 42, 0.25);
+}
+
 .model-toggle-switch input:focus-visible+.model-toggle-track {
   outline: 2px solid rgba(96, 165, 250, 0.9);
   outline-offset: 3px;

@@ -3,7 +3,7 @@
  * Handles fetching and displaying registered AI models
  */
 
-import { ctrlSend } from "./ctrlws.js?v=flat-model-toggles-20260608"
+import { ctrlSend } from "./ctrlws.js?v=dependency-toggle-lock-20260608"
 
 const PREFERRED_MODEL_ORDER = [
     'YoloV11',
@@ -15,6 +15,65 @@ const PREFERRED_MODEL_ORDER = [
 
 function modelKey(modelOrName) {
     return String(modelOrName?.name || modelOrName || '').toLowerCase();
+}
+
+function modelStateKey(model) {
+    return modelKey(model?.element_name || model?.name);
+}
+
+function dependencyTokensForModel(modelName) {
+    const lowered = modelKey(modelName);
+
+    if (lowered.includes('cameracontact') || lowered.includes('gazedetection')) {
+        return ['ultraface'];
+    }
+
+    if (lowered.includes('osnetx025reid')) {
+        return ['yolov11'];
+    }
+
+    return [];
+}
+
+function modelNameMatchesDependency(name, token) {
+    const lowered = modelKey(name);
+
+    if (lowered === token) {
+        return true;
+    }
+
+    if (!lowered.startsWith(token) || lowered.length <= token.length) {
+        return false;
+    }
+
+    const separator = lowered[token.length];
+    return separator === ' ' || separator === '-' || separator === '_';
+}
+
+function buildForcedDependencyState(models) {
+    const forcedBy = new Map();
+
+    models.forEach((model) => {
+        if (!model.active) {
+            return;
+        }
+
+        dependencyTokensForModel(model.name).forEach((dependencyToken) => {
+            models.forEach((candidate) => {
+                if (
+                    modelStateKey(candidate) !== modelStateKey(model) &&
+                    modelNameMatchesDependency(candidate.name, dependencyToken)
+                ) {
+                    const key = modelStateKey(candidate);
+                    const children = forcedBy.get(key) || [];
+                    children.push(model.name);
+                    forcedBy.set(key, children);
+                }
+            });
+        });
+    });
+
+    return forcedBy;
 }
 
 function orderModels(models) {
@@ -138,9 +197,11 @@ class ModelsManager {
     render(models) {
         if (!this.container) return;
 
+        const forcedBy = buildForcedDependencyState(models);
         const nextSignature = JSON.stringify(models.map((model) => ({
             active: Boolean(model.active),
             element_name: model.element_name || '',
+            forcedBy: forcedBy.get(modelStateKey(model)) || [],
             name: model.name || '',
         })));
         if (nextSignature === this._lastModelsSignature) {
@@ -164,7 +225,7 @@ class ModelsManager {
 
         // Render each model
         orderModels(models).forEach((model) => {
-            const modelItem = this.createModelItem(model);
+            const modelItem = this.createModelItem(model, forcedBy.get(modelStateKey(model)) || []);
             this.container.appendChild(modelItem);
         });
     }
@@ -172,13 +233,22 @@ class ModelsManager {
     /**
      * Create a model item element
      */
-    createModelItem(model) {
+    createModelItem(model, forcedBy = []) {
         const item = document.createElement('div');
         item.className = 'model-item';
+        const isForced = forcedBy.length > 0;
+        const displayActive = Boolean(model.active || isForced);
+        if (isForced) {
+            item.classList.add('model-item--dependency-forced');
+        }
+
+        const toggleLabel = isForced
+            ? `${model.name} is required by ${forcedBy.join(', ')}`
+            : `Toggle ${model.name}`;
 
         const toggleMarkup = `
-            <label class="model-toggle-switch" aria-label="Toggle ${model.name}">
-                <input type="checkbox" role="switch" ${model.active ? 'checked' : ''}>
+            <label class="model-toggle-switch" aria-label="${toggleLabel}">
+                <input type="checkbox" role="switch" ${displayActive ? 'checked' : ''} ${isForced ? 'disabled aria-disabled="true"' : ''}>
                 <span class="model-toggle-track" aria-hidden="true">
                     <span class="model-toggle-thumb"></span>
                 </span>
@@ -245,6 +315,10 @@ class ModelsManager {
         });
 
         toggle.addEventListener('change', () => {
+            if (toggle.disabled) {
+                return;
+            }
+
             const shouldBeActive = toggle.checked;
             this.handleToggle(model, shouldBeActive, item, toggle);
         });

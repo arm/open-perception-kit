@@ -51,6 +51,65 @@
         return String(modelOrName?.name || modelOrName || "").toLowerCase();
     }
 
+    function modelStateKey(model) {
+        return modelKey(model?.element_name || model?.name);
+    }
+
+    function dependencyTokensForModel(modelName) {
+        const lowered = modelKey(modelName);
+
+        if (lowered.includes("cameracontact") || lowered.includes("gazedetection")) {
+            return ["ultraface"];
+        }
+
+        if (lowered.includes("osnetx025reid")) {
+            return ["yolov11"];
+        }
+
+        return [];
+    }
+
+    function modelNameMatchesDependency(name, token) {
+        const lowered = modelKey(name);
+
+        if (lowered === token) {
+            return true;
+        }
+
+        if (!lowered.startsWith(token) || lowered.length <= token.length) {
+            return false;
+        }
+
+        const separator = lowered[token.length];
+        return separator === " " || separator === "-" || separator === "_";
+    }
+
+    function buildForcedDependencyState(models) {
+        const forcedBy = new Map();
+
+        models.forEach((model) => {
+            if (!model.active) {
+                return;
+            }
+
+            dependencyTokensForModel(model.name).forEach((dependencyToken) => {
+                models.forEach((candidate) => {
+                    if (
+                        modelStateKey(candidate) !== modelStateKey(model) &&
+                        modelNameMatchesDependency(candidate.name, dependencyToken)
+                    ) {
+                        const key = modelStateKey(candidate);
+                        const children = forcedBy.get(key) || [];
+                        children.push(model.name);
+                        forcedBy.set(key, children);
+                    }
+                });
+            });
+        });
+
+        return forcedBy;
+    }
+
     function isStillEmpty() {
         const models = byId("models-container");
         const metrics = byId("performanceMetricsBody");
@@ -299,10 +358,16 @@
         });
     }
 
-    function toggleMarkup(model) {
+    function toggleMarkup(model, forcedBy = []) {
+        const isForced = forcedBy.length > 0;
+        const displayActive = Boolean(model.active || isForced);
+        const ariaLabel = isForced
+            ? `${model.name} is required by ${forcedBy.join(", ")}`
+            : `Toggle ${model.name}`;
+
         return `
-            <label class="model-toggle-switch" aria-label="Toggle ${escapeHtml(model.name)}">
-                <input type="checkbox" role="switch" ${model.active ? "checked" : ""}>
+            <label class="model-toggle-switch" aria-label="${escapeHtml(ariaLabel)}">
+                <input type="checkbox" role="switch" ${displayActive ? "checked" : ""} ${isForced ? "disabled aria-disabled=\"true\"" : ""}>
                 <span class="model-toggle-track" aria-hidden="true">
                     <span class="model-toggle-thumb"></span>
                 </span>
@@ -478,9 +543,11 @@
         if (!container || !Array.isArray(models)) return;
         attachModelInfoDelegates(container);
 
+        const forcedBy = buildForcedDependencyState(models);
         const nextSignature = JSON.stringify(models.map((model) => ({
             active: Boolean(model.active),
             element_name: model.element_name || "",
+            forcedBy: forcedBy.get(modelStateKey(model)) || [],
             name: model.name || "",
         })));
         if (nextSignature === lastModelsSignature) {
@@ -500,13 +567,22 @@
             modelInfoByKey.set(modelKey(model), model);
             const item = document.createElement("div");
             item.className = "model-item";
+            const forcedChildren = forcedBy.get(modelStateKey(model)) || [];
+            if (forcedChildren.length) {
+                item.classList.add("model-item--dependency-forced");
+            }
+
             item.innerHTML = `
                 <div class="model-info"><div class="model-name">${escapeHtml(model.name)}</div></div>
-                <div class="model-actions">${toggleMarkup(model)}${infoMarkup(model)}</div>
+                <div class="model-actions">${toggleMarkup(model, forcedChildren)}${infoMarkup(model)}</div>
             `;
 
             const toggle = item.querySelector("input[type='checkbox']");
             toggle?.addEventListener("change", () => {
+                if (toggle.disabled) {
+                    return;
+                }
+
                 sendControl({
                     type: "model_toggle",
                     name: model.element_name || model.name,
