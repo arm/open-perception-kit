@@ -868,6 +868,7 @@ def print_api_access_probe(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    configure_logging()
     args = parse_args(argv)
     token = os.environ.get("SONAR_TOKEN", "").strip()
     if not token:

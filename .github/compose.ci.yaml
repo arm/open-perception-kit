@@ -111,7 +111,7 @@ services:
       SONAR_QUALITYGATE_WAIT: ${SONAR_QUALITYGATE_WAIT:-false}
       PR_KEY: ${PR_KEY}
       PR_BRANCH: ${PR_BRANCH}
-      PR_BASE: ${PR_BASE} 
+      PR_BASE: ${PR_BASE}
     command: |
       bash -c '
         .devcontainer/devsetup.sh &&
