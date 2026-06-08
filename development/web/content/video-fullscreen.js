@@ -23,7 +23,7 @@ function setFullscreen(nextFullscreen) {
 
     if (button) {
         button.setAttribute('aria-label', isFullscreen ? 'Exit fullscreen video' : 'Fullscreen video');
-        button.setAttribute('title', isFullscreen ? 'Exit fullscreen video' : 'Fullscreen video');
+        button.dataset.tooltip = isFullscreen ? 'Exit Fullscreen' : 'Fullscreen';
     }
 
     if (icon) {

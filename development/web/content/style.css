@@ -240,6 +240,37 @@ video {
   transform: none;
 }
 
+.video-fullscreen-button[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  z-index: 13;
+  width: max-content;
+  max-width: 180px;
+  padding: 8px 10px;
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+  background: #000000;
+  color: var(--text);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.58);
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.2;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(3px);
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease;
+}
+
+.video-fullscreen-button[data-tooltip]:hover::after,
+.video-fullscreen-button[data-tooltip]:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 body.video-fullscreen .video-fullscreen-button {
   opacity: 0;
   pointer-events: none;
