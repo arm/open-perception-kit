@@ -51,10 +51,101 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
           SONAR_BRANCH: ${{ github.head_ref || github.ref_name }}
-          SONAR_QUALITYGATE_WAIT: "true"
+          SONAR_QUALITYGATE_WAIT: "false"
           PR_KEY: ${{ github.event.pull_request.number }}
           PR_BRANCH: ${{ github.head_ref }}
           PR_BASE: ${{ github.base_ref }}
+
+      - name: Probe Sonar API access
+        if: always()
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_BRANCH: ${{ github.head_ref || github.ref_name }}
+          PR_KEY: ${{ github.event.pull_request.number || '' }}
+          PR_BRANCH: ${{ github.head_ref || '' }}
+          PR_BASE: ${{ github.base_ref || '' }}
+        run: |
+          set -euo pipefail
+          probe_file="${RUNNER_TEMP}/sonar-api-access-probe.txt"
+
+          echo "=== Sonar API access probe ===" > "${probe_file}"
+
+          set +e
+          docker compose -f "${DOCKER_COMPOSE_FILE}" run --rm \
+            -e SONAR_TOKEN \
+            -e SONAR_HOST_URL \
+            -e SONAR_BRANCH \
+            -e PR_KEY \
+            -e PR_BRANCH \
+            -e PR_BASE \
+            pek-sonar-check \
+            python3 scripts/private/sonar_quality_gate_report.py \
+              --report-task-file /work/.scannerwork/report-task.txt \
+              --branch "${SONAR_BRANCH}" \
+              --probe-api-access \
+              >> "${probe_file}" 2>&1
+          probe_rc=$?
+          set -e
+
+          echo >> "${probe_file}"
+
+          cat "${probe_file}"
+          cat "${probe_file}" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${probe_rc}" -ne 0 ]; then
+            echo "Sonar API access probe exited with status ${probe_rc}" >&2
+          fi
+
+      - name: Report Sonar quality gate details
+        if: always()
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_BRANCH: ${{ github.head_ref || github.ref_name }}
+          PR_KEY: ${{ github.event.pull_request.number || '' }}
+          PR_BRANCH: ${{ github.head_ref || '' }}
+          PR_BASE: ${{ github.base_ref || '' }}
+        run: |
+          set -euo pipefail
+          # The Sonar container runs on a bind-mounted checkout and may leave parts of
+          # the workspace root-owned on self-hosted runners. Write the log report to
+          # RUNNER_TEMP so the host-side report step stays writable.
+          report_file="${RUNNER_TEMP}/sonar-quality-gate-report.txt"
+
+          set +e
+          docker compose -f "${DOCKER_COMPOSE_FILE}" run --rm \
+            -e SONAR_TOKEN \
+            -e SONAR_HOST_URL \
+            -e SONAR_BRANCH \
+            -e PR_KEY \
+            -e PR_BRANCH \
+            -e PR_BASE \
+            pek-sonar-check \
+            python3 scripts/private/sonar_quality_gate_report.py \
+              --report-task-file /work/.scannerwork/report-task.txt \
+              --branch "${SONAR_BRANCH}" \
+              > "${report_file}" 2>&1
+          report_rc=$?
+          set -e
+
+          cat "${report_file}"
+          cat "${report_file}" >> "$GITHUB_STEP_SUMMARY"
+
+          exit "${report_rc}"
+
+      - name: Upload Sonar quality gate report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: sonar-quality-gate-report
+          path: |
+            ${{ runner.temp }}/sonar-quality-gate-report.txt
+            ${{ runner.temp }}/sonar-api-access-probe.txt
+          if-no-files-found: warn
+          retention-days: 10
 
       - name: Cleanup isolated workspace
         if: always()
