@@ -793,6 +793,30 @@ def print_hotspots(
         log_info()
 
 
+def load_issue_snapshot(
+    ctx: ReportTaskContext,
+    token: str,
+    issue_limit: int,
+) -> IssuesSearchPayload:
+    return cast(
+        IssuesSearchPayload,
+        api_get_json(
+            ctx["serverUrl"],
+            "/api/issues/search",
+            token,
+            build_query(
+                ctx["branch"],
+                componentKeys=ctx["projectKey"],
+                resolved="false",
+                inNewCodePeriod="true",
+                ps=str(max(1, issue_limit)),
+                s="FILE_LINE",
+                asc="true",
+            ),
+        ),
+    )
+
+
 def print_api_access_probe(
     ctx: ReportTaskContext,
     analysis_id: str,
@@ -919,6 +943,29 @@ def main(argv: Sequence[str] | None = None) -> int:
     if isinstance(conditions, list):
         print_failed_conditions(cast(list[QualityGateCondition], conditions))
 
+    try:
+        issues = load_issue_snapshot(ctx, token, args.issue_limit)
+    except RuntimeError as exc:
+        if gate_status == "OK":
+            log_warning(f"Issue snapshot unavailable: {exc}")
+            log_info()
+            log_info("Sonar quality gate passed.")
+            return int(ExitCode.OK)
+        log_error(f"Issue snapshot unavailable: {exc}")
+        log_info()
+        return int(ExitCode.SCRIPT_ERROR)
+
+    print_issues(
+        issues,
+        ctx["projectKey"],
+        workspace_root,
+        ctx["serverUrl"],
+        token,
+        args.issue_limit,
+        args.snippet_context,
+        rule_cache,
+    )
+
     if gate_status == "OK":
         log_info("Sonar quality gate passed.")
         return int(ExitCode.OK)
@@ -952,40 +999,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     except RuntimeError as exc:
         log_warning(f"Security hotspot snapshot unavailable: {exc}")
         log_info()
-
-    try:
-        issues = cast(
-            IssuesSearchPayload,
-            api_get_json(
-                ctx["serverUrl"],
-                "/api/issues/search",
-                token,
-                build_query(
-                    ctx["branch"],
-                    componentKeys=ctx["projectKey"],
-                    resolved="false",
-                    inNewCodePeriod="true",
-                    ps=str(max(1, args.issue_limit)),
-                    s="FILE_LINE",
-                    asc="true",
-                ),
-            ),
-        )
-    except RuntimeError as exc:
-        log_error(f"Issue snapshot unavailable: {exc}")
-        log_info()
-        return int(ExitCode.SCRIPT_ERROR)
-
-    print_issues(
-        issues,
-        ctx["projectKey"],
-        workspace_root,
-        ctx["serverUrl"],
-        token,
-        args.issue_limit,
-        args.snippet_context,
-        rule_cache,
-    )
     return int(ExitCode.QUALITY_GATE_FAILED)
 
 
