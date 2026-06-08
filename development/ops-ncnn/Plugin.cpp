@@ -16,8 +16,8 @@ pek::op::Op *createOp(const std::string &opName) {
 
 // ---
 
-extern "C" void pek_delete_op_instance(void *opInstacnce) {
-    delete (pek::op::Op *)opInstacnce;
+extern "C" void pek_delete_op_instance(void *opInstance) {
+    delete static_cast<pek::op::Op *>(opInstance);
 }
 
 extern "C" void *pek_create_op_instance(const char *opName) {

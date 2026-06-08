@@ -121,7 +121,7 @@ add_feature_option_from_env() {
 
 collect_meson_args() {
     MESON_SETUP_ARGS=("${EXTRA_SETUP_ARGS[@]}")
-    MESON_CONFIGURE_ARGS=()
+    MESON_CONFIGURE_ARGS=("${EXTRA_SETUP_ARGS[@]}")
 
     add_feature_option_from_env "executorch" "PEK_EXECUTORCH"
     add_feature_option_from_env "hailort" "PEK_HAILORT"

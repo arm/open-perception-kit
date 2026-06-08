@@ -149,5 +149,5 @@ echo "[SUCCESS] NCNN conversion environment ready"
 echo "  venv -> ${VENV_DIR}"
 echo
 echo "Activate it with:"
-echo "  deactivate"
+echo "  # If already in a venv: deactivate"
 echo "  source ${VENV_DIR}/bin/activate"
