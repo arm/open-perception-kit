@@ -1,4 +1,4 @@
-import { ctrlSend } from "./ctrlws.js?v=chrome-freeze-pause-20260605";
+import { ctrlSend } from "./ctrlws.js?v=flat-model-toggles-20260608";
 
 const select = document.getElementById("pipelineSelect");
 const actionButton = document.getElementById("restartPipelineBtn");

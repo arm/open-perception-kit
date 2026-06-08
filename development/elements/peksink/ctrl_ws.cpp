@@ -15,10 +15,118 @@
 
 #include "auxiliary.h"
 #include "ctrl_ws.h"
+#include "model_reg.h"
 #include "peksink.h"
 #include "utils.h"
 
+#include <algorithm>
+#include <cctype>
+#include <set>
+#include <string>
+#include <vector>
+
 using namespace nlohmann;
+
+namespace {
+
+std::string lower_copy(const std::string &value) {
+    std::string ret = value;
+    std::transform(ret.begin(), ret.end(), ret.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return ret;
+}
+
+bool model_name_matches_dependency(const std::string &name, const std::string &token) {
+    const auto lowered = lower_copy(name);
+
+    if (lowered == token) {
+        return true;
+    }
+
+    if (lowered.rfind(token, 0) != 0 || lowered.size() <= token.size()) {
+        return false;
+    }
+
+    const char separator = lowered[token.size()];
+    return separator == ' ' || separator == '-' || separator == '_';
+}
+
+std::vector<std::string> dependency_tokens_for_model(const std::string &model_name) {
+    const auto lowered = lower_copy(model_name);
+
+    if (lowered.find("cameracontact") != std::string::npos ||
+        lowered.find("gazedetection") != std::string::npos) {
+        return {"ultraface"};
+    }
+
+    if (lowered.find("osnetx025reid") != std::string::npos) {
+        return {"yolov11"};
+    }
+
+    return {};
+}
+
+bool visible_model_active(const std::vector<ModelStatus> &statuses,
+                          const std::string &element_name,
+                          bool &active) {
+    for (const auto &status : statuses) {
+        if (status.element_name == element_name) {
+            active = status.active;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void set_model_element_active(GstElement *pipeline,
+                              const std::string &element_name,
+                              bool active,
+                              _GstPekSink *self) {
+    GstElement *element = get_element_by_name(GST_ELEMENT(pipeline), element_name);
+    if (!element) {
+        GST_WARNING_OBJECT(self, "Element not found: %s", element_name.c_str());
+        return;
+    }
+
+    g_object_set(element, "active", static_cast<gboolean>(active), NULL);
+    gst_object_unref(element);
+}
+
+void apply_model_runtime_state(GstElement *pipeline,
+                               const std::vector<ModelStatus> &statuses,
+                               _GstPekSink *self) {
+    std::set<std::string> required_elements;
+
+    for (const auto &status : statuses) {
+        if (!status.active) {
+            continue;
+        }
+
+        for (const auto &dependency_token : dependency_tokens_for_model(status.name)) {
+            for (const auto &candidate : statuses) {
+                if (candidate.element_name != status.element_name &&
+                    model_name_matches_dependency(candidate.name, dependency_token)) {
+                    required_elements.insert(candidate.element_name);
+                }
+            }
+        }
+    }
+
+    for (const auto &status : statuses) {
+        const bool runtime_active =
+            status.active || required_elements.find(status.element_name) != required_elements.end();
+        set_model_element_active(pipeline, status.element_name, runtime_active, self);
+        GST_INFO_OBJECT(self,
+                        "Set element %s active=%d (visible=%d)",
+                        status.element_name.c_str(),
+                        runtime_active,
+                        status.active);
+    }
+}
+
+} // namespace
 
 CtrlWebSocket::CtrlWebSocket(_GstPekSink *self) : self_(self) {
     using namespace std::placeholders;
@@ -337,31 +445,45 @@ void CtrlWebSocket::model_toggle(const json &jsn) {
             return;
         }
 
-        // Get the pipeline
         GstElement *pipeline = get_top_pipeline(GST_ELEMENT(self_));
         if (!pipeline) {
             GST_ERROR_OBJECT(self_, "Could not get pipeline");
             return;
         }
 
-        // Find the element by name
         GstElement *target_element = get_element_by_name(GST_ELEMENT(pipeline), element_name);
-        gst_object_unref(pipeline);
-
         if (!target_element) {
             GST_WARNING_OBJECT(self_, "Element not found: %s", element_name.c_str());
+            gst_object_unref(pipeline);
             return;
         }
 
-        gboolean active;
-        g_object_get(target_element, "active", &active, NULL);
-        active = !active;
-        g_object_set(target_element, "active", active, NULL);
+        bool active = false;
+        bool has_requested_active = false;
+        if (jsn.contains("active") && jsn["active"].is_boolean()) {
+            active = jsn["active"].get<bool>();
+            has_requested_active = true;
+        }
+
+        if (!has_requested_active) {
+            const auto current_statuses = self_->private_data->model_registry->snapshot();
+            if (!visible_model_active(current_statuses, element_name, active)) {
+                gboolean runtime_active = false;
+                g_object_get(target_element, "active", &runtime_active, NULL);
+                active = static_cast<bool>(runtime_active);
+            }
+
+            active = !active;
+        }
+
         gst_object_unref(target_element);
 
         self_->private_data->model_registry->toggle_model(element_name, active);
+        const auto statuses = self_->private_data->model_registry->snapshot();
+        apply_model_runtime_state(pipeline, statuses, self_);
+        gst_object_unref(pipeline);
 
-        GST_INFO_OBJECT(self_, "Set element %s active=%d", element_name.c_str(), active);
+        GST_INFO_OBJECT(self_, "Set visible model %s active=%d", element_name.c_str(), active);
 
     } catch (const json::exception &e) {
         GST_ERROR_OBJECT(self_, "JSON parse error: %s", e.what());

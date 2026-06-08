@@ -6,9 +6,12 @@
     const snapshotUrl = "/api/ctrl-snapshot";
     const pollMs = 1200;
     const takeoverDelayMs = 2200;
-    const dependencyGroups = [
-        { parent: "YoloV11", children: ["OsnetX025Reid"] },
-        { parent: "Ultraface", children: ["CameraContact", "GazeDetection"] },
+    const preferredModelOrder = [
+        "YoloV11",
+        "OsnetX025Reid",
+        "Ultraface",
+        "CameraContact",
+        "GazeDetection",
     ];
 
     let fallbackActive = forceFallback;
@@ -282,43 +285,18 @@
     }
 
     function orderModels(models) {
-        const modelByName = new Map(models.map((model) => [modelKey(model), model]));
-        const rendered = new Set();
-        const ordered = [];
+        const preferred = new Map(preferredModelOrder.map((name, index) => [modelKey(name), index]));
 
-        dependencyGroups.forEach((group) => {
-            const parent = modelByName.get(modelKey(group.parent));
-            if (!parent) return;
+        return [...models].sort((a, b) => {
+            const aOrder = preferred.get(modelKey(a));
+            const bOrder = preferred.get(modelKey(b));
 
-            const children = group.children
-                .map((childName) => modelByName.get(modelKey(childName)))
-                .filter(Boolean);
+            if (aOrder !== undefined || bOrder !== undefined) {
+                return (aOrder ?? Number.MAX_SAFE_INTEGER) - (bOrder ?? Number.MAX_SAFE_INTEGER);
+            }
 
-            ordered.push({
-                model: parent,
-                relation: { type: "parent", childCount: children.length },
-            });
-            rendered.add(modelKey(parent));
-
-            children.forEach((child, index) => {
-                ordered.push({
-                    model: child,
-                    relation: {
-                        type: "child",
-                        first: index === 0,
-                        last: index === children.length - 1,
-                    },
-                });
-                rendered.add(modelKey(child));
-            });
+            return String(a.name || "").localeCompare(String(b.name || ""));
         });
-
-        models
-            .filter((model) => !rendered.has(modelKey(model)))
-            .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")))
-            .forEach((model) => ordered.push({ model, relation: { type: "standalone" } }));
-
-        return ordered;
     }
 
     function toggleMarkup(model) {
@@ -518,32 +496,22 @@
 
         container.innerHTML = "";
         modelInfoByKey.clear();
-        orderModels(models).forEach(({ model, relation }) => {
+        orderModels(models).forEach((model) => {
             modelInfoByKey.set(modelKey(model), model);
             const item = document.createElement("div");
-            item.className = `model-item model-item--${relation.type}`;
-            if (relation.first) item.classList.add("model-item--child-first");
-            if (relation.last) item.classList.add("model-item--child-last");
-            if (relation.type === "parent" && relation.childCount) {
-                item.classList.add(`model-item--parent-${relation.childCount}-children`);
-            }
-
-            if (relation.type === "parent") {
-                item.innerHTML = `
-                    <div class="model-parent-toggle">${toggleMarkup(model)}</div>
-                    <div class="model-info"><div class="model-name">${escapeHtml(model.name)}</div></div>
-                    <div class="model-actions">${infoMarkup(model)}</div>
-                `;
-            } else {
-                item.innerHTML = `
-                    <div class="model-info"><div class="model-name">${escapeHtml(model.name)}</div></div>
-                    <div class="model-actions">${toggleMarkup(model)}${infoMarkup(model)}</div>
-                `;
-            }
+            item.className = "model-item";
+            item.innerHTML = `
+                <div class="model-info"><div class="model-name">${escapeHtml(model.name)}</div></div>
+                <div class="model-actions">${toggleMarkup(model)}${infoMarkup(model)}</div>
+            `;
 
             const toggle = item.querySelector("input[type='checkbox']");
             toggle?.addEventListener("change", () => {
-                sendControl({ type: "model_toggle", name: model.element_name || model.name });
+                sendControl({
+                    type: "model_toggle",
+                    name: model.element_name || model.name,
+                    active: toggle.checked,
+                });
             });
 
             primeModelInfoText(item.querySelector(".model-info-button"), model);

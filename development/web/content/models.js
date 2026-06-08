@@ -3,21 +3,33 @@
  * Handles fetching and displaying registered AI models
  */
 
-import { ctrlSend } from "./ctrlws.js?v=chrome-freeze-pause-20260605"
+import { ctrlSend } from "./ctrlws.js?v=flat-model-toggles-20260608"
 
-const MODEL_DEPENDENCY_GROUPS = [
-    {
-        parent: 'YoloV11',
-        children: ['OsnetX025Reid'],
-    },
-    {
-        parent: 'Ultraface',
-        children: ['CameraContact', 'GazeDetection'],
-    },
+const PREFERRED_MODEL_ORDER = [
+    'YoloV11',
+    'OsnetX025Reid',
+    'Ultraface',
+    'CameraContact',
+    'GazeDetection',
 ];
 
 function modelKey(modelOrName) {
     return String(modelOrName?.name || modelOrName || '').toLowerCase();
+}
+
+function orderModels(models) {
+    const preferred = new Map(PREFERRED_MODEL_ORDER.map((name, index) => [modelKey(name), index]));
+
+    return [...models].sort((a, b) => {
+        const aOrder = preferred.get(modelKey(a));
+        const bOrder = preferred.get(modelKey(b));
+
+        if (aOrder !== undefined || bOrder !== undefined) {
+            return (aOrder ?? Number.MAX_SAFE_INTEGER) - (bOrder ?? Number.MAX_SAFE_INTEGER);
+        }
+
+        return String(a.name || '').localeCompare(String(b.name || ''));
+    });
 }
 
 class ModelsManager {
@@ -150,55 +162,9 @@ class ModelsManager {
             return;
         }
 
-        const modelByName = new Map(models.map((model) => [modelKey(model), model]));
-        const rendered = new Set();
-        const orderedModels = [];
-
-        MODEL_DEPENDENCY_GROUPS.forEach((group) => {
-            const parent = modelByName.get(modelKey(group.parent));
-            if (!parent) return;
-
-            orderedModels.push({
-                model: parent,
-                relation: {
-                    type: 'parent',
-                    childCount: group.children
-                        .map((childName) => modelByName.get(modelKey(childName)))
-                        .filter(Boolean).length,
-                },
-            });
-            rendered.add(modelKey(parent));
-
-            const children = group.children
-                .map((childName) => modelByName.get(modelKey(childName)))
-                .filter(Boolean);
-
-            children.forEach((child, index) => {
-                orderedModels.push({
-                    model: child,
-                    relation: {
-                        type: 'child',
-                        first: index === 0,
-                        last: index === children.length - 1,
-                    },
-                });
-                rendered.add(modelKey(child));
-            });
-        });
-
-        [...models]
-            .filter((model) => !rendered.has(modelKey(model)))
-            .sort((a, b) => a.name.localeCompare(b.name))
-            .forEach((model) => {
-                orderedModels.push({
-                    model,
-                    relation: { type: 'standalone' },
-                });
-            });
-
         // Render each model
-        orderedModels.forEach(({ model, relation }) => {
-            const modelItem = this.createModelItem(model, relation);
+        orderModels(models).forEach((model) => {
+            const modelItem = this.createModelItem(model);
             this.container.appendChild(modelItem);
         });
     }
@@ -206,14 +172,9 @@ class ModelsManager {
     /**
      * Create a model item element
      */
-    createModelItem(model, relation = { type: 'standalone' }) {
+    createModelItem(model) {
         const item = document.createElement('div');
-        item.className = `model-item model-item--${relation.type}`;
-        if (relation.first) item.classList.add('model-item--child-first');
-        if (relation.last) item.classList.add('model-item--child-last');
-        if (relation.type === 'parent' && relation.childCount) {
-            item.classList.add(`model-item--parent-${relation.childCount}-children`);
-        }
+        item.className = 'model-item';
 
         const toggleMarkup = `
             <label class="model-toggle-switch" aria-label="Toggle ${model.name}">
@@ -228,20 +189,7 @@ class ModelsManager {
             <button class="model-info-button" type="button" aria-label="Show information for ${model.name}" aria-expanded="false">i</button>
         `;
 
-        if (relation.type === 'parent') {
-            item.innerHTML = `
-                <div class="model-parent-toggle">
-                    ${toggleMarkup}
-                </div>
-                <div class="model-info">
-                    <div class="model-name">${model.name}</div>
-                </div>
-                <div class="model-actions">
-                    ${infoMarkup}
-                </div>
-            `;
-        } else {
-            item.innerHTML = `
+        item.innerHTML = `
             <div class="model-info">
                 <div class="model-name">${model.name}</div>
             </div>
@@ -250,7 +198,6 @@ class ModelsManager {
                 ${infoMarkup}
             </div>
         `;
-        }
 
         const toggle = item.querySelector('input[type="checkbox"]');
         const infoButton = item.querySelector('.model-info-button');
@@ -320,7 +267,7 @@ class ModelsManager {
         item.classList.toggle('model-active', shouldBeActive);
 
         try {
-            ctrlSend({ type: "model_toggle", name: model.element_name });
+            ctrlSend({ type: "model_toggle", name: model.element_name, active: shouldBeActive });
 
         } catch (error) {
             console.error('Error toggling model:', error);

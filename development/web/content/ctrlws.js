@@ -1,9 +1,9 @@
 
-import {setPlayPause} from "./video-controls.js?v=chrome-freeze-pause-20260605"
-import {enableAudioButton} from "./audio.js?v=chrome-freeze-pause-20260605"
-import {modelsManager} from "./models.js?v=chrome-freeze-pause-20260605"
-import {renderPerformanceMetrics} from "./performance-metrics.js?v=chrome-freeze-pause-20260605"
-import {renderInferenceOutput} from "./inference-output.js?v=chrome-freeze-pause-20260605"
+import {setPlayPause} from "./video-controls.js?v=flat-model-toggles-20260608"
+import {enableAudioButton} from "./audio.js?v=flat-model-toggles-20260608"
+import {modelsManager} from "./models.js?v=flat-model-toggles-20260608"
+import {renderPerformanceMetrics} from "./performance-metrics.js?v=flat-model-toggles-20260608"
+import {renderInferenceOutput} from "./inference-output.js?v=flat-model-toggles-20260608"
 
 const CTRL_PROTO = location.protocol === 'https:' ? 'wss' : 'ws';
 const CTRL_HOST = location.hostname;
