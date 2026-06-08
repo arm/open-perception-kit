@@ -63,9 +63,14 @@ body.video-fullscreen .video-wrapper {
   display: grid;
   grid-template-rows: minmax(0, 1fr) var(--bottom-dock-height);
   background: #000000;
+  transition: grid-template-rows 0.2s ease;
 }
 
 body.is-resizing-layout .card-body {
+  transition: none;
+}
+
+body.is-resizing-layout .main-content {
   transition: none;
 }
 
@@ -82,15 +87,28 @@ body.output-panels-empty .main-content {
 }
 
 body.video-fullscreen .bottom-dock {
-  display: none;
+  display: flex;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.16s ease,
+    visibility 0s linear 0.16s;
 }
 
 body.video-fullscreen.fullscreen-outputs-enabled .bottom-dock {
-  display: flex;
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  transition:
+    opacity 0.16s ease,
+    visibility 0s;
 }
 
 body.video-fullscreen.fullscreen-outputs-enabled.output-panels-empty .bottom-dock {
-  display: none;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Stack on mobile/tablet */
