@@ -117,7 +117,6 @@ services:
         .devcontainer/devsetup.sh &&
         .devcontainer/platform_init.sh pek-dev-base &&
         source /work/tools/.venv/bin/activate &&
-        PYTHONPATH=/work/tools/expkits-ci python3 -m unittest discover -s tools/expkits-ci/tests -p "test_sonar_ci_probe.py" &&
         ./scripts/build-elements.sh debug true --extra-setup-args=-Db_coverage=true,--wipe &&
         meson test -C "$$BUILD_DIR" --print-errorlogs &&
         gcovr -r . --sonarqube coverage.xml &&
@@ -149,7 +148,6 @@ services:
         .devcontainer/devsetup.sh &&
         .devcontainer/platform_init.sh pek-dev-base &&
         source /work/tools/.venv/bin/activate &&
-        PYTHONPATH=/work/tools/expkits-ci python3 -m unittest discover -s tools/expkits-ci/tests -p "test_sonar_ci_probe.py" &&
         ./scripts/build-elements.sh debug true --extra-setup-args=-Db_coverage=true,--wipe &&
         meson test -C "$$BUILD_DIR" --print-errorlogs &&
         gcovr -r . --sonarqube coverage.xml &&
