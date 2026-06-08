@@ -1,6 +1,6 @@
 {
 	"name": "Ultraface",
-	"description": "Detects faces in the video frame and provides face crops. Required by CameraContact and GazeDetection when either of those models is enabled.",
+	"description": "Detects faces in the video frame and provides face crops.",
 	"ops": [
 		{
 			"id": "pek-std-ops/InferenceController",

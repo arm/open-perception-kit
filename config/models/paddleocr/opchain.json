@@ -1,6 +1,6 @@
 {
 	"name": "PadleOCR",
-	"description": "Detects text regions in the video frame using PaddleOCR-style text detection. Runs independently and does not require another model.",
+	"description": "Detects text regions in the video frame using PaddleOCR-style text detection.",
 	"ops": [
 		{
 			"id": "pek-std-ops/InferenceController",

@@ -1,6 +1,6 @@
 {
 	"name": "MobileNetV3RVM",
-	"description": "Runs Robust Video Matting to separate people from the background in real time. Runs independently and does not require another model.",
+	"description": "Runs Robust Video Matting to separate people from the background in real time.",
 	"ops": [
 		{
 			"id": "pek-std-ops/InferenceController",

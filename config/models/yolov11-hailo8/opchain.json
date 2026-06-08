@@ -1,6 +1,6 @@
 {
 	"name": "YoloV11 HAILO",
-	"description": "Hailo 8-compiled object detector that reports bounding boxes, class labels, and confidence scores. Required by OsnetX025Reid when ReID is enabled.",
+	"description": "Hailo 8-compiled object detector that reports bounding boxes, class labels, and confidence scores.",
 	"ops": [
 		{
 			"id": "pek-std-ops/InferenceController",

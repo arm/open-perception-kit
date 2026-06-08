@@ -1,6 +1,6 @@
 {
 	"name": "PersonClassification",
-	"description": "Classifies people in the frame and reports person-related attributes from the model output. Runs independently and does not require another model.",
+	"description": "Classifies people in the frame and reports person-related attributes from the model output.",
 	"ops": [
 		{
 			"id": "pek-std-ops/InferenceController",
