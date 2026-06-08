@@ -20,6 +20,9 @@ class WebRtcClient {
         this.backoffFactor = config.backoffFactor ?? 1.1;
         this.logFrameHeartbeats = config.logFrameHeartbeats ?? false;
         this.iceServers = config.iceServers || [{urls: 'stun:stun.l.google.com:19302'}];
+        this.pipelineRestartFailureThreshold = config.pipelineRestartFailureThreshold ?? 3;
+        this.pipelineRestartCooldownMs = config.pipelineRestartCooldownMs ?? 45000;
+        this.onRepeatedFailure = config.onRepeatedFailure || (() => false);
 
         this.setTimeout = config.setTimeout || globalThis.setTimeout.bind(globalThis);
         this.clearTimeout = config.clearTimeout || globalThis.clearTimeout.bind(globalThis);
@@ -38,6 +41,8 @@ class WebRtcClient {
         this.restartTimer = null;
         this.started = false;
         this.currentReconnectDelayMs = this.reconnectDelayMs;
+        this.consecutiveFailureCount = 0;
+        this.lastPipelineRestartAt = -Infinity;
     }
 
     start() {
@@ -67,6 +72,7 @@ class WebRtcClient {
             generation: this.generation,
             hasSession: Boolean(this.session),
             restartTimerCount: this.restartTimer ? 1 : 0,
+            consecutiveFailureCount: this.consecutiveFailureCount,
         };
     }
 
@@ -139,6 +145,7 @@ class WebRtcClient {
                 session.receivingVideo = true;
                 this.observeVideoTrack(session, event.track);
                 this.markFrameHeartbeat(session, 'video track attached');
+                this.noteConnectionHealthy('video track attached');
                 this.onStatus('connected', 'Connected', 'Receiving video stream');
                 this.onStatusLine('WebRTC connected');
             }
@@ -151,6 +158,7 @@ class WebRtcClient {
             const state = pc.iceConnectionState;
             this.log(`ICE connection state: ${state}`);
             if (state === 'connected' || state === 'completed') {
+                this.noteConnectionHealthy(`ICE ${state}`);
                 this.onStatus('connected', 'Connected', 'Peer connection is stable.');
             } else if (state === 'failed' || state === 'disconnected') {
                 this.onStatus('disconnected', 'Disconnected', 'Trying to recover connection...');
@@ -334,6 +342,7 @@ class WebRtcClient {
             return;
 
         session.lastFrameAt = this.now();
+        this.noteConnectionHealthy(source);
         if (this.logFrameHeartbeats || !isHighFrequencyHeartbeat(source))
             this.log(`Video heartbeat: ${source}`);
         this.armFrameWatchdog(session);
@@ -369,6 +378,12 @@ class WebRtcClient {
         if (!this.isCurrent(session) || this.restartTimer)
             return;
 
+        if (this.noteConnectionFailure(reason)) {
+            this.onStatus('reconnecting', 'Reconnecting', 'Restarting pipeline after repeated WebRTC failures...');
+            this.closeSession(session, reason);
+            return;
+        }
+
         this.log(`Scheduling WebRTC restart in ${delayMs}ms: ${reason}`);
         this.onStatus('reconnecting', 'Reconnecting', 'Re-establishing WebRTC connection...');
         this.closeSession(session, reason);
@@ -385,6 +400,48 @@ class WebRtcClient {
 
         this.log(`Restarting WebRTC: ${reason}`);
         this.startNewSession(reason);
+    }
+
+    noteConnectionFailure(reason) {
+        this.consecutiveFailureCount += 1;
+
+        const threshold = this.pipelineRestartFailureThreshold;
+        if (!threshold || this.consecutiveFailureCount < threshold)
+            return false;
+
+        const now = this.now();
+        if (now - this.lastPipelineRestartAt < this.pipelineRestartCooldownMs) {
+            this.log(
+                `Repeated WebRTC failures reached ${this.consecutiveFailureCount}, ` +
+                'but pipeline restart is cooling down.',
+                'error',
+            );
+            return false;
+        }
+
+        const failureCount = this.consecutiveFailureCount;
+        this.consecutiveFailureCount = 0;
+        this.lastPipelineRestartAt = now;
+
+        this.log(
+            `Repeated WebRTC failures reached ${failureCount}; requesting pipeline restart: ${reason}`,
+            'error',
+        );
+
+        try {
+            return Boolean(this.onRepeatedFailure({reason, failureCount}));
+        } catch (err) {
+            this.log(`Pipeline restart request hook failed: ${formatError(err)}`, 'error');
+            return false;
+        }
+    }
+
+    noteConnectionHealthy(source) {
+        if (!this.consecutiveFailureCount)
+            return;
+
+        this.log(`WebRTC connection healthy after ${source}; clearing failure count.`);
+        this.consecutiveFailureCount = 0;
     }
 
     closeCurrentSession(reason) {

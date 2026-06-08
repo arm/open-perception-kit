@@ -1,5 +1,5 @@
-import {createWebRtcClient} from './webrtc_client.js?v=chrome-freeze-pause-20260605';
-import {resolveWebRtcTimingConfig} from './webrtc_config.js?v=chrome-freeze-pause-20260605';
+import {createWebRtcClient} from './webrtc_client.js?v=auto-pipeline-restart-20260608';
+import {resolveWebRtcTimingConfig} from './webrtc_config.js?v=auto-pipeline-restart-20260608';
 
 // ===== UI ELEMENT REFERENCES =====
 const video = document.getElementById('video');
@@ -92,11 +92,98 @@ const WS_PORT = (window.PEK_CONFIG && window.PEK_CONFIG.wsPort) || fallbackWebRt
 
 const SIGNALING_URL = `${WS_PROTO}://${WS_HOST}:${WS_PORT}/ws`;
 const WEBRTC_TIMING_CONFIG = resolveWebRtcTimingConfig(window.PEK_CONFIG || {});
+const PIPELINE_RESTART_SESSION_KEY = "pekPipelineRestarting";
+let client = null;
+let repeatedFailureRestartInProgress = false;
 
-const client = createWebRtcClient({
+function setPipelineRestartUiBusy(busy) {
+    document.body.classList.toggle("is-pipeline-restarting", busy);
+
+    if (busy) {
+        sessionStorage.setItem(PIPELINE_RESTART_SESSION_KEY, "true");
+        setStatus('reconnecting', 'Reconnecting', 'Restarting pipeline after repeated connection failures...');
+        setStatusLine('Restarting Pipeline');
+        overlay?.classList.remove('hidden');
+        if (overlayText)
+            overlayText.textContent = 'Restarting';
+    } else {
+        sessionStorage.removeItem(PIPELINE_RESTART_SESSION_KEY);
+    }
+}
+
+function hasSupervisorRestartApi() {
+    return window.PEK_CONFIG?.supervised === true ||
+        Boolean(document.getElementById("pipelineSelect") && document.getElementById("restartPipelineBtn"));
+}
+
+function canStartRepeatedFailurePipelineRestart() {
+    return Boolean(
+        hasSupervisorRestartApi() &&
+        !repeatedFailureRestartInProgress &&
+        !document.body.classList.contains("is-pipeline-restarting") &&
+        sessionStorage.getItem(PIPELINE_RESTART_SESSION_KEY) !== "true"
+    );
+}
+
+async function requestPipelineRestartAfterRepeatedFailure(detail) {
+    if (!canStartRepeatedFailurePipelineRestart())
+        return false;
+
+    repeatedFailureRestartInProgress = true;
+    setPipelineRestartUiBusy(true);
+    window.dispatchEvent(new CustomEvent("pipeline-restart", {
+        detail: {available: true, requested: true, auto: true},
+    }));
+
+    appendLog(
+        `Restarting pipeline after ${detail.failureCount} repeated WebRTC connection failures ` +
+        `(${detail.reason}).`,
+        'error',
+    );
+
+    try {
+        const response = await fetch("/api/pipeline-restart", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: "{}",
+        });
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok || !result.complete) {
+            throw new Error(result.message || `pipeline restart failed: ${response.status}`);
+        }
+
+        appendLog(result.message || "Pipeline restarted after repeated WebRTC failures.");
+        window.dispatchEvent(new CustomEvent("pipeline-layout-reset"));
+        window.dispatchEvent(new CustomEvent("pipeline-restart", {
+            detail: {available: true, requested: false, complete: true, auto: true},
+        }));
+    } catch (error) {
+        appendLog(`Pipeline restart after repeated WebRTC failures failed: ${error.message || error}`, 'error');
+        window.dispatchEvent(new CustomEvent("pipeline-restart", {
+            detail: {available: true, requested: false, complete: false, auto: true},
+        }));
+    } finally {
+        repeatedFailureRestartInProgress = false;
+        setPipelineRestartUiBusy(false);
+        client?.reconnectNow('pipeline restart after repeated WebRTC failures');
+    }
+
+    return true;
+}
+
+client = createWebRtcClient({
     video,
     signalingUrl: SIGNALING_URL,
     ...WEBRTC_TIMING_CONFIG,
+    pipelineRestartFailureThreshold: window.PEK_CONFIG?.pipelineRestartFailureThreshold ?? 3,
+    onRepeatedFailure: (detail) => {
+        if (!canStartRepeatedFailurePipelineRestart())
+            return false;
+
+        requestPipelineRestartAfterRepeatedFailure(detail);
+        return true;
+    },
     logger: appendLog,
     onStatus: setStatus,
     onStatusLine: setStatusLine,
