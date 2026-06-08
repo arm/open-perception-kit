@@ -350,8 +350,17 @@ def load_report_task(report_task_file: Path, branch: str) -> ReportTaskContext:
             "The scanner step likely failed before uploading analysis."
         )
 
+    try:
+        report_task_lines = report_task_file.read_text(encoding="utf-8").splitlines()
+    except UnicodeDecodeError as exc:
+        raise RuntimeError(
+            f"Failed to decode report-task.txt as UTF-8: {report_task_file}"
+        ) from exc
+    except OSError as exc:
+        raise RuntimeError(f"Failed to read report-task.txt: {report_task_file}") from exc
+
     raw_data: dict[str, str] = {}
-    for raw_line in report_task_file.read_text(encoding="utf-8").splitlines():
+    for raw_line in report_task_lines:
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue
