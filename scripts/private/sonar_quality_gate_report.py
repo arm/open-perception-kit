@@ -94,7 +94,8 @@ def api_get_json(
             body = exc.read().decode("utf-8", errors="replace").strip()
             detail = f"HTTP {exc.code} {exc.reason}"
             if body:
-                detail = f"{detail} | {body}"
+                summary = summarize_probe_body(body)
+                detail = f"{detail} | {summary}" if summary else detail
             last_error = RuntimeError(f"Sonar API request failed for {api_path}: {detail}")
             if exc.code in {401, 403} and index + 1 < len(auth_headers):
                 continue
