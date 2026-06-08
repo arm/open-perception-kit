@@ -371,7 +371,8 @@ def print_failed_conditions(conditions: Sequence[dict[str, Any]]) -> None:
     failed_conditions = [
         condition
         for condition in conditions
-        if isinstance(condition, dict) and str(condition.get("status", "")).upper() != "OK"
+        if isinstance(condition, dict)
+        and str(condition.get("status", "")).upper() in {"ERROR", "WARN"}
     ]
     if not failed_conditions:
         return
