@@ -7,7 +7,7 @@ set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/Tencent/ncnn.git}"
 BRANCH="${BRANCH:-master}"
-WORK_DIR="${WORK_DIR:-/work/var/ncnn-dev}"
+WORK_DIR=""
 DEPS_DIR="${DEPS_DIR:-/work/deps}"
 BUILD_TYPE="${BUILD_TYPE:-Release}"
 JOBS="${JOBS:-$(getconf _NPROCESSORS_ONLN 2> /dev/null || echo 1)}"
@@ -20,10 +20,10 @@ usage() {
 Build and stage NCNN C/C++ development files for PEK.
 
 Usage:
-  scripts/private/setup-ncnn.sh [work-dir]
+  scripts/private/ncnn/setup-ncnn.sh <work-dir> [options]
 
-Default:
-  scripts/private/setup-ncnn.sh /work/var/ncnn-dev
+Example:
+  scripts/private/ncnn/setup-ncnn.sh /work/var/ncnn-dev
 
 Options:
   --work-dir DIR    Directory used for clone, build, temp, and staging state.
@@ -32,7 +32,6 @@ Options:
   --help            Show this help.
 
 Environment:
-  WORK_DIR          Same as the positional work-dir argument.
   DEPS_DIR          Same as --deps-dir.
   REPO_URL          NCNN repository URL. Default: https://github.com/Tencent/ncnn.git.
   BRANCH            NCNN branch/tag to fetch. Default: master.
@@ -77,12 +76,15 @@ need_cmd() {
 }
 
 ORIGINAL_CWD="$(pwd -P)"
+WORK_DIR_ARG_PROVIDED=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --work-dir)
             [[ $# -ge 2 ]] || die "--work-dir requires a value"
+            [[ "${WORK_DIR_ARG_PROVIDED}" -eq 0 ]] || die "work-dir specified more than once"
             WORK_DIR="$2"
+            WORK_DIR_ARG_PROVIDED=1
             shift 2
             ;;
         --deps-dir)
@@ -103,11 +105,18 @@ while [[ $# -gt 0 ]]; do
             die "Unknown option: $1"
             ;;
         *)
+            [[ "${WORK_DIR_ARG_PROVIDED}" -eq 0 ]] || die "work-dir specified more than once"
             WORK_DIR="$1"
+            WORK_DIR_ARG_PROVIDED=1
             shift
             ;;
     esac
 done
+
+if [[ "${WORK_DIR_ARG_PROVIDED}" -eq 0 || -z "${WORK_DIR}" ]]; then
+    usage >&2
+    die "work-dir argument is mandatory"
+fi
 
 WORK_DIR="$(resolve_path "${WORK_DIR}")"
 DEPS_DIR="$(resolve_path "${DEPS_DIR}")"

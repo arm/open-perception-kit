@@ -7,33 +7,28 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Build and stage ExecuTorch 1.3.1 development files for PEK.
+Build and stage ExecuTorch development files for PEK.
 
 Usage:
-  scripts/private/build-executorch-1.3.1-deps.sh [work-dir] [options]
+  scripts/private/executorch/setup-executorch-deps.sh <work-dir> [options]
 
-Default:
-  scripts/private/build-executorch-1.3.1-deps.sh /work/var/executorch-1.3.1-build
+Example:
+  scripts/private/executorch/setup-executorch-deps.sh /work/var/executorch-build
 
 Options:
-  --work-dir DIR          Directory used for source, venv, downloads, build, temp, and caches.
+  --work-dir DIR          Directory used for clone, venv, downloads, build, temp, and caches.
   --deps-dir DIR          Root dependency staging directory. Default: /work/deps
-  --executorch-url URL    ExecuTorch source archive URL. Default: official v1.3.1 tarball.
-  --executorch-git-url URL
-                          Git URL used only to recover pinned submodule commits.
-  --executorch-sha256 SHA Expected SHA-256 of the source archive. Optional.
+  --executorch-ref REF    ExecuTorch branch/tag/commit. Default: release/1.0
+  --executorch-repo URL   ExecuTorch repository URL.
   --jobs N                Build parallelism. Default: 1
   --keep-work-dir         Reuse the existing work directory instead of deleting it.
   --keep-build            Reuse the existing CMake build directory.
   --help                  Show this help.
 
 Environment:
-  WORK_DIR                Same as --work-dir.
   DEPS_DIR                Same as --deps-dir.
-  EXECUTORCH_ARCHIVE_URL  Same as --executorch-url.
-  EXECUTORCH_GIT_URL      Same as --executorch-git-url.
-  EXECUTORCH_ARCHIVE_SHA256
-                          Same as --executorch-sha256.
+  EXECUTORCH_REF          Same as --executorch-ref.
+  EXECUTORCH_REPO         Same as --executorch-repo.
   EXECUTORCH_INSTALL_DIR  Default: $DEPS_DIR/executorch
   LIBTORCH_INSTALL_DIR    Default: $DEPS_DIR/libtorch
   VENV_DIR                Default: $WORK_DIR/.venv
@@ -47,12 +42,8 @@ Output:
   $DEPS_DIR/executorch/lib
   $DEPS_DIR/libtorch/include
 
-The top-level ExecuTorch source is downloaded from the fixed archive. Git is
-used only after extraction to recover pinned submodule commits from the v1.3.1
-tag, because GitHub source archives do not include submodule contents.
-
-All source, build, venv, download, cache, and temporary state is kept under the
-selected work directory. The only intentional output outside it is DEPS_DIR.
+All clone, build, venv, download, cache, and temporary state is kept under
+the selected work directory. The only intentional output outside it is DEPS_DIR.
 EOF
 }
 
@@ -109,25 +100,26 @@ safe_rm_rf() {
 }
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
+PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/../../.." && pwd)"
 ORIGINAL_CWD="$(pwd -P)"
 
-WORK_DIR="${WORK_DIR:-/work/var/executorch-1.3.1-build}"
+WORK_DIR=""
 DEPS_DIR="${DEPS_DIR:-/work/deps}"
-EXECUTORCH_VERSION="1.3.1"
-EXECUTORCH_ARCHIVE_URL="${EXECUTORCH_ARCHIVE_URL:-https://github.com/pytorch/executorch/archive/refs/tags/v1.3.1.tar.gz}"
-EXECUTORCH_GIT_URL="${EXECUTORCH_GIT_URL:-https://github.com/pytorch/executorch.git}"
-EXECUTORCH_ARCHIVE_SHA256="${EXECUTORCH_ARCHIVE_SHA256:-}"
+EXECUTORCH_REPO="${EXECUTORCH_REPO:-https://github.com/pytorch/executorch.git}"
+EXECUTORCH_REF="${EXECUTORCH_REF:-release/1.0}"
 PYTHON_VERSION="${PYTHON_VERSION:-3.11}"
 JOBS="${JOBS:-1}"
 CLEAN_BUILD=1
 CLEAN_WORK_DIR=1
+WORK_DIR_ARG_PROVIDED=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --work-dir)
             [[ $# -ge 2 ]] || die "--work-dir requires a value"
+            [[ "${WORK_DIR_ARG_PROVIDED}" -eq 0 ]] || die "work-dir specified more than once"
             WORK_DIR="$2"
+            WORK_DIR_ARG_PROVIDED=1
             shift 2
             ;;
         --deps-dir)
@@ -135,19 +127,14 @@ while [[ $# -gt 0 ]]; do
             DEPS_DIR="$2"
             shift 2
             ;;
-        --executorch-url)
-            [[ $# -ge 2 ]] || die "--executorch-url requires a value"
-            EXECUTORCH_ARCHIVE_URL="$2"
+        --executorch-ref)
+            [[ $# -ge 2 ]] || die "--executorch-ref requires a value"
+            EXECUTORCH_REF="$2"
             shift 2
             ;;
-        --executorch-git-url)
-            [[ $# -ge 2 ]] || die "--executorch-git-url requires a value"
-            EXECUTORCH_GIT_URL="$2"
-            shift 2
-            ;;
-        --executorch-sha256)
-            [[ $# -ge 2 ]] || die "--executorch-sha256 requires a value"
-            EXECUTORCH_ARCHIVE_SHA256="$2"
+        --executorch-repo)
+            [[ $# -ge 2 ]] || die "--executorch-repo requires a value"
+            EXECUTORCH_REPO="$2"
             shift 2
             ;;
         --jobs)
@@ -171,11 +158,18 @@ while [[ $# -gt 0 ]]; do
             die "unknown option: $1"
             ;;
         *)
+            [[ "${WORK_DIR_ARG_PROVIDED}" -eq 0 ]] || die "work-dir specified more than once"
             WORK_DIR="$1"
+            WORK_DIR_ARG_PROVIDED=1
             shift
             ;;
     esac
 done
+
+if [[ "${WORK_DIR_ARG_PROVIDED}" -eq 0 || -z "${WORK_DIR}" ]]; then
+    usage >&2
+    die "work-dir argument is mandatory"
+fi
 
 WORK_DIR="$(resolve_path "${WORK_DIR}")"
 DEPS_DIR="$(resolve_path "${DEPS_DIR}")"
@@ -203,9 +197,7 @@ export MAX_JOBS="${JOBS}"
 export CMAKE_BUILD_PARALLEL_LEVEL="${JOBS}"
 export USE_KINETO="${USE_KINETO:-0}"
 
-need_cmd curl
 need_cmd git
-need_cmd tar
 need_cmd cmake
 
 if command -v ninja >/dev/null 2>&1; then
@@ -245,126 +237,23 @@ PY
     fi
 }
 
-verify_executorch_archive() {
-    local archive="$1"
-    local actual
-
-    [[ -n "${EXECUTORCH_ARCHIVE_SHA256}" ]] || return 0
-
-    if command -v sha256sum >/dev/null 2>&1; then
-        actual="$(sha256sum "${archive}" | awk '{print $1}')"
-    elif command -v shasum >/dev/null 2>&1; then
-        actual="$(shasum -a 256 "${archive}" | awk '{print $1}')"
-    else
-        die "cannot verify archive checksum: missing sha256sum or shasum"
-    fi
-
-    [[ "${actual}" == "${EXECUTORCH_ARCHIVE_SHA256}" ]] ||
-        die "ExecuTorch archive checksum mismatch: expected ${EXECUTORCH_ARCHIVE_SHA256}, got ${actual}"
-}
-
-prepare_executorch_source() {
-    local archive="${DOWNLOAD_DIR}/executorch-v${EXECUTORCH_VERSION}.tar.gz"
-    local extract_dir="${WORK_DIR}/executorch-${EXECUTORCH_VERSION}.extract"
-    local extracted_source="${extract_dir}/executorch-${EXECUTORCH_VERSION}"
-
-    log "Preparing ExecuTorch ${EXECUTORCH_VERSION} source: ${EXECUTORCH_DIR}"
+checkout_executorch() {
+    log "Preparing ExecuTorch source: ${EXECUTORCH_DIR}"
     mkdir -p "$(dirname -- "${EXECUTORCH_DIR}")"
-    mkdir -p "${DOWNLOAD_DIR}"
 
-    if [[ -e "${EXECUTORCH_DIR}" ]]; then
-        if [[ -f "${EXECUTORCH_DIR}/version.txt" ]] &&
-           [[ "$(tr -d '[:space:]' < "${EXECUTORCH_DIR}/version.txt")" == "${EXECUTORCH_VERSION}" ]]; then
-            log "Reusing existing ExecuTorch ${EXECUTORCH_VERSION} source"
-            return 0
+    if [[ ! -d "${EXECUTORCH_DIR}/.git" ]]; then
+        if [[ -e "${EXECUTORCH_DIR}" ]]; then
+            die "${EXECUTORCH_DIR} exists but is not a git checkout"
         fi
-
-        die "${EXECUTORCH_DIR} exists but is not an ExecuTorch ${EXECUTORCH_VERSION} source tree"
-    fi
-
-    if [[ ! -f "${archive}" ]]; then
-        log "Downloading ExecuTorch ${EXECUTORCH_VERSION}: ${EXECUTORCH_ARCHIVE_URL}"
-        curl --retry 5 --retry-all-errors -fL "${EXECUTORCH_ARCHIVE_URL}" -o "${archive}"
+        git clone --branch "${EXECUTORCH_REF}" "${EXECUTORCH_REPO}" "${EXECUTORCH_DIR}"
     else
-        log "Using cached ExecuTorch archive: ${archive}"
+        git -C "${EXECUTORCH_DIR}" fetch --tags origin "${EXECUTORCH_REF}"
+        git -C "${EXECUTORCH_DIR}" checkout "${EXECUTORCH_REF}"
     fi
 
-    verify_executorch_archive "${archive}"
-
-    safe_rm_rf "${extract_dir}"
-    mkdir -p "${extract_dir}"
-
-    log "Extracting ExecuTorch ${EXECUTORCH_VERSION} archive"
-    tar -xzf "${archive}" -C "${extract_dir}"
-
-    [[ -d "${extracted_source}" ]] ||
-        die "ExecuTorch archive did not contain expected directory: executorch-${EXECUTORCH_VERSION}"
-
-    mv "${extracted_source}" "${EXECUTORCH_DIR}"
-    safe_rm_rf "${extract_dir}"
-}
-
-source_externals_ready() {
-    local required_paths=(
-        third-party/json/CMakeLists.txt
-        third-party/gflags/CMakeLists.txt
-        third-party/flatbuffers/CMakeLists.txt
-        third-party/flatcc/CMakeLists.txt
-        backends/xnnpack/third-party/FXdiv/CMakeLists.txt
-        backends/xnnpack/third-party/cpuinfo/CMakeLists.txt
-        backends/xnnpack/third-party/pthreadpool/CMakeLists.txt
-        backends/xnnpack/third-party/XNNPACK/CMakeLists.txt
-    )
-
-    local path
-    for path in "${required_paths[@]}"; do
-        if [[ ! -f "${EXECUTORCH_DIR}/${path}" ]]; then
-            return 1
-        fi
-    done
-
-    return 0
-}
-
-populate_executorch_submodules() {
-    if source_externals_ready; then
-        log "ExecuTorch third-party sources are already populated"
-        return 0
-    fi
-
-    [[ -f "${EXECUTORCH_DIR}/.gitmodules" ]] ||
-        die "ExecuTorch source is missing .gitmodules; cannot recover third-party sources"
-
-    log "Populating ExecuTorch ${EXECUTORCH_VERSION} third-party sources from pinned tag metadata"
-    (
-        cd "${EXECUTORCH_DIR}"
-
-        if [[ ! -d .git ]]; then
-            git init
-        fi
-
-        if git remote get-url origin >/dev/null 2>&1; then
-            git remote set-url origin "${EXECUTORCH_GIT_URL}"
-        else
-            git remote add origin "${EXECUTORCH_GIT_URL}"
-        fi
-
-        git fetch --depth 1 origin "refs/tags/v${EXECUTORCH_VERSION}"
-        git reset --mixed FETCH_HEAD
-        git submodule sync --recursive
-        git submodule update --init --recursive \
-            third-party/json \
-            third-party/gflags \
-            third-party/flatbuffers \
-            third-party/flatcc \
-            backends/xnnpack/third-party/FP16 \
-            backends/xnnpack/third-party/FXdiv \
-            backends/xnnpack/third-party/XNNPACK \
-            backends/xnnpack/third-party/cpuinfo \
-            backends/xnnpack/third-party/pthreadpool
-    )
-
-    source_externals_ready || die "ExecuTorch third-party source population is incomplete"
+    log "Updating ExecuTorch externals"
+    git -C "${EXECUTORCH_DIR}" submodule sync --recursive
+    git -C "${EXECUTORCH_DIR}" submodule update --init --recursive
 }
 
 install_executorch_python_deps() {
@@ -556,9 +445,7 @@ EOF
 log "Project root: ${PROJECT_ROOT}"
 log "Work dir: ${WORK_DIR}"
 log "Deps dir: ${DEPS_DIR}"
-log "ExecuTorch version: ${EXECUTORCH_VERSION}"
-log "ExecuTorch archive URL: ${EXECUTORCH_ARCHIVE_URL}"
-log "ExecuTorch git URL for submodules: ${EXECUTORCH_GIT_URL}"
+log "ExecuTorch ref: ${EXECUTORCH_REF}"
 
 if [[ "${CLEAN_WORK_DIR}" -eq 1 ]]; then
     log "Deleting work dir before starting: ${WORK_DIR}"
@@ -570,8 +457,7 @@ mkdir -p "${TMPDIR}" "${UV_CACHE_DIR}" "${PIP_CACHE_DIR}" "${XDG_CACHE_HOME}"
 cd "${WORK_DIR}"
 
 create_venv
-prepare_executorch_source
-populate_executorch_submodules
+checkout_executorch
 install_executorch_python_deps
 configure_and_build_executorch
 copy_built_libraries

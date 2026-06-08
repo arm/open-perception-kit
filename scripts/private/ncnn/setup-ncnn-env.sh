@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-WORK_DIR="${WORK_DIR:-/work/var/ncnn-convert}"
+WORK_DIR=""
 PYTHON_VERSION="${PYTHON_VERSION:-3.11}"
 NCNN_CONVERSION_PACKAGES="${NCNN_CONVERSION_PACKAGES:-pnnx onnx onnxsim numpy}"
 
@@ -14,17 +14,16 @@ usage() {
 Create an NCNN model-conversion environment for PEK.
 
 Usage:
-  scripts/private/setup-ncnn-env.sh [work-dir]
+  scripts/private/ncnn/setup-ncnn-env.sh <work-dir> [options]
 
-Default:
-  scripts/private/setup-ncnn-env.sh /work/var/ncnn-convert
+Example:
+  scripts/private/ncnn/setup-ncnn-env.sh /work/var/ncnn-convert
 
 Options:
   --work-dir DIR    Directory used for the Python venv.
   --help            Show this help.
 
 Environment:
-  WORK_DIR                  Same as the positional work-dir argument.
   PYTHON_VERSION            Python major/minor version. Default: 3.11.
   NCNN_CONVERSION_PACKAGES  Pip packages to install. Default: pnnx onnx onnxsim numpy.
 
@@ -62,12 +61,15 @@ need_cmd() {
 }
 
 ORIGINAL_CWD="$(pwd -P)"
+WORK_DIR_ARG_PROVIDED=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --work-dir)
             [[ $# -ge 2 ]] || die "--work-dir requires a value"
+            [[ "${WORK_DIR_ARG_PROVIDED}" -eq 0 ]] || die "work-dir specified more than once"
             WORK_DIR="$2"
+            WORK_DIR_ARG_PROVIDED=1
             shift 2
             ;;
         --help | -h)
@@ -78,11 +80,18 @@ while [[ $# -gt 0 ]]; do
             die "Unknown option: $1"
             ;;
         *)
+            [[ "${WORK_DIR_ARG_PROVIDED}" -eq 0 ]] || die "work-dir specified more than once"
             WORK_DIR="$1"
+            WORK_DIR_ARG_PROVIDED=1
             shift
             ;;
     esac
 done
+
+if [[ "${WORK_DIR_ARG_PROVIDED}" -eq 0 || -z "${WORK_DIR}" ]]; then
+    usage >&2
+    die "work-dir argument is mandatory"
+fi
 
 WORK_DIR="$(resolve_path "${WORK_DIR}")"
 [[ "${WORK_DIR}" != "/" ]] || die "Refusing to use / as work directory"
