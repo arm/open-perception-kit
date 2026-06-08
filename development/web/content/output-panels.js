@@ -36,6 +36,8 @@ function persistVisibility() {
 }
 
 function applyVisibility() {
+    const visiblePanels = panelKeys.filter((key) => visibility[key] !== false);
+
     for (const key of panelKeys) {
         const panel = panels[key];
         const visible = visibility[key] !== false;
@@ -45,17 +47,26 @@ function applyVisibility() {
         }
 
         if (panel.button) {
+            const icon = panel.button.querySelector('i');
             panel.button.setAttribute('aria-pressed', visible ? 'true' : 'false');
             panel.button.setAttribute(
                 'aria-label',
                 `${visible ? 'Hide' : 'Show'} ${panel.label} output panel`
             );
+
+            if (icon) {
+                icon.className = visible
+                    ? 'fa-solid fa-eye'
+                    : 'fa-solid fa-eye-slash';
+            }
         }
     }
 
+    document.body.classList.toggle('output-panels-empty', visiblePanels.length === 0);
+
     window.dispatchEvent(new CustomEvent('output-panels-change', {
         detail: {
-            visiblePanels: panelKeys.filter((key) => visibility[key] !== false),
+            visiblePanels,
         },
     }));
 }
