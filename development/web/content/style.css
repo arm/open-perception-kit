@@ -564,11 +564,22 @@ body.side-panel-collapsed .side-panel-tab {
 }
 
 .sidebar-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: var(--text);
   font-size: 1.08rem;
   font-weight: 650;
   line-height: 1.2;
   margin: 0 0 18px;
+}
+
+.sidebar-title-icon {
+  display: block;
+  width: 1em;
+  height: 1em;
+  flex: 0 0 auto;
+  object-fit: contain;
 }
 
 .sidebar-sticky-header {

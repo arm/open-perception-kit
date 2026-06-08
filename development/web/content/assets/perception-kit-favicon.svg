@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640">
+  <style>
+    image {
+      filter: invert(1);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      image {
+        filter: none;
+      }
+    }
+  </style>
+  <image href="perception-kit-icon.png" width="640" height="640" />
+</svg>
