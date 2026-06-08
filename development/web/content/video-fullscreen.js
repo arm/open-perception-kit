@@ -6,7 +6,7 @@ const outputsIcon = document.getElementById('fullscreenOutputsIcon');
 
 let isFullscreen = false;
 let hideTimer = null;
-let outputsAvailable = !document.body.classList.contains('output-panels-empty');
+let outputsAvailable = true;
 let outputsInFullscreen = (
     localStorage.getItem('pek-video:fullscreen-outputs:v1') ??
     localStorage.getItem('pek-video:fullscreen-metrics:v1')
@@ -75,7 +75,7 @@ function setOutputsAvailable(available) {
     outputsAvailable = available;
 
     if (outputsButton) {
-        outputsButton.hidden = !outputsAvailable;
+        outputsButton.hidden = false;
     }
 
     notifyVideoLayoutChange();
@@ -118,9 +118,6 @@ button?.addEventListener('click', () => {
 });
 
 outputsButton?.addEventListener('click', () => {
-    if (!outputsAvailable)
-        return;
-
     setOutputsInFullscreen(!outputsInFullscreen);
 });
 
