@@ -264,6 +264,10 @@ video {
   line-height: 1;
 }
 
+.video-metrics-fullscreen-button i {
+  font-size: 1.5rem;
+}
+
 .video-gauge-icon--outline {
   color: #f8fafc;
   -webkit-text-fill-color: transparent;
