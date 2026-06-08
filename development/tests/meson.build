@@ -45,7 +45,7 @@ webrtc_session_tests = executable(
 runtime_pipeline_tests = executable(
   'runtime_pipeline_tests',
   ['runtime_pipeline_test.cpp'],
-  include_directories : [common_include, runtime_include],
+  include_directories : [common_include, include_directories('..')],
   dependencies : [gtest_main_dep, gtest_dep, pek_deps],
   link_with : [pek_runtime, common],
 )
