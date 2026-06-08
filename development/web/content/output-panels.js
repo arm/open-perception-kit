@@ -4,17 +4,17 @@ const panels = {
     inference: {
         button: document.getElementById('toggleInferenceOutput'),
         section: document.querySelector('[data-inference-output-section]'),
-        label: 'Inference',
+        label: 'Inference Output',
     },
     metrics: {
         button: document.getElementById('togglePerformanceOutput'),
         section: document.querySelector('[data-performance-metrics-section]'),
-        label: 'Performance',
+        label: 'Performance Metrics',
     },
     debug: {
         button: document.getElementById('toggleDebugOutput'),
         section: document.querySelector('[data-debug-log-section]'),
-        label: 'Debug',
+        label: 'Debug Log',
     },
 };
 
@@ -66,7 +66,7 @@ function applyVisibility() {
             panel.button.setAttribute('aria-pressed', visible ? 'true' : 'false');
             panel.button.setAttribute(
                 'aria-label',
-                `${visible ? 'Hide' : 'Show'} ${panel.label} output panel`
+                `${visible ? 'Hide' : 'Show'} ${panel.label}`
             );
 
             if (icon) {
