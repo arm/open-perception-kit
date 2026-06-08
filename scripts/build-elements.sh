@@ -125,6 +125,7 @@ collect_meson_args() {
 
     add_feature_option_from_env "executorch" "PEK_EXECUTORCH"
     add_feature_option_from_env "hailort" "PEK_HAILORT"
+    add_feature_option_from_env "ncnn" "PEK_NCNN"
 }
 
 # ---- build ----
@@ -214,6 +215,7 @@ Commands:
 Optional backend feature environment variables:
   PEK_EXECUTORCH=enabled|disabled|auto  or  executorch=enabled|disabled|auto
   PEK_HAILORT=enabled|disabled|auto     or  hailort=enabled|disabled|auto
+  PEK_NCNN=enabled|disabled|auto        or  ncnn=enabled|disabled|auto
 
 EOF
 }

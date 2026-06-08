@@ -157,6 +157,7 @@ subdir('pek-menu')
 # Optional subdirs decision tree is inside the subdir
 subdir('ops-hailort')
 subdir('ops-executorch')
+subdir('ops-ncnn')
 
 if get_option('tests')
   subdir('tests')
