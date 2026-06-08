@@ -19,15 +19,30 @@ const panels = {
 };
 
 const panelKeys = Object.keys(panels);
+const DEFAULT_VISIBILITY = {
+    inference: true,
+    metrics: false,
+    debug: false,
+};
 let visibility = readVisibility();
 
 function readVisibility() {
     try {
-        const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-        return Object.fromEntries(panelKeys.map((key) => [key, stored[key] !== false]));
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+            return { ...DEFAULT_VISIBILITY };
+        }
+
+        const stored = JSON.parse(raw);
+        return Object.fromEntries(
+            panelKeys.map((key) => [
+                key,
+                typeof stored[key] === 'boolean' ? stored[key] : DEFAULT_VISIBILITY[key],
+            ]),
+        );
     } catch {
         localStorage.removeItem(STORAGE_KEY);
-        return Object.fromEntries(panelKeys.map((key) => [key, true]));
+        return { ...DEFAULT_VISIBILITY };
     }
 }
 
