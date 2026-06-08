@@ -62,6 +62,12 @@ function visibleDockColumnKeys() {
 function configureDockColumnHandles() {
     const visibleKeys = visibleDockColumnKeys();
 
+    dockColumnKeys.forEach((key) => {
+        if (dockSections[key]) {
+            dockSections[key].style.gridArea = key;
+        }
+    });
+
     dockColumnHandles.forEach((handle, index) => {
         const leftKey = visibleKeys[index];
         const rightKey = visibleKeys[index + 1];
@@ -70,6 +76,9 @@ function configureDockColumnHandles() {
         handle.hidden = !active;
         if (active) {
             handle.dataset.bottomColumnResize = `${leftKey}-${rightKey}`;
+            handle.style.gridArea = `resize${index}`;
+        } else {
+            handle.style.gridArea = '';
         }
     });
 
@@ -77,13 +86,18 @@ function configureDockColumnHandles() {
         return;
 
     const columns = [];
+    const areas = [];
     visibleKeys.forEach((key, index) => {
         columns.push(`var(${dockColumnVariables[key]})`);
-        if (index < visibleKeys.length - 1)
+        areas.push(key);
+        if (index < visibleKeys.length - 1) {
             columns.push('10px');
+            areas.push(`resize${index}`);
+        }
     });
 
     dockPanels.style.gridTemplateColumns = columns.length ? columns.join(' ') : 'minmax(0, 1fr)';
+    dockPanels.style.gridTemplateAreas = areas.length ? `"${areas.join(' ')}"` : 'none';
 }
 
 function visibleDockColumnHandles() {
@@ -357,6 +371,13 @@ function startDockColumnResize(event) {
 restoreLayoutSizes();
 configureDockColumnHandles();
 scheduleDockColumnFit();
+
+if (dockPanels && 'ResizeObserver' in window) {
+    const dockPanelsResizeObserver = new ResizeObserver(() => {
+        scheduleDockColumnFit();
+    });
+    dockPanelsResizeObserver.observe(dockPanels);
+}
 
 sideHandle?.addEventListener('pointerdown', startSidebarResize);
 dockHandle?.addEventListener('pointerdown', startDockResize);
