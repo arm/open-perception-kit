@@ -30,27 +30,35 @@ async function writeClipboard(text) {
     }
 }
 
-function setButtonText(button, text) {
-    const label = button?.querySelector('span');
-    if (label) {
-        label.textContent = text;
-    } else if (button) {
-        button.textContent = text;
-    }
+function setButtonIcon(button, iconName) {
+    const icon = button?.querySelector('i');
+    if (!icon)
+        return;
+
+    icon.className = `fa-solid fa-${iconName}`;
+}
+
+function setButtonFeedback(button, state, label) {
+    button.dataset.copyState = state;
+    button.setAttribute('aria-label', label);
+    button.title = label;
+    setButtonIcon(button, state === 'copied' ? 'check' : 'copy');
 }
 
 export async function copyTextWithFeedback(button, text, emptyText = 'Empty', fallbackBuffer = null) {
     if (!button) return;
     if (!String(text || '').trim()) return;
 
-    const label = button.querySelector('span');
-    const originalText = label ? label.textContent : button.textContent;
+    const originalLabel = button.getAttribute('aria-label') || button.title || 'Copy';
+    if (button.copyFeedbackTimer) {
+        clearTimeout(button.copyFeedbackTimer);
+        button.copyFeedbackTimer = null;
+    }
     button.dataset.copyState = 'copying';
 
     try {
         await writeClipboard(text);
-        setButtonText(button, text ? 'Copied' : emptyText);
-        button.dataset.copyState = text ? 'copied' : 'empty';
+        setButtonFeedback(button, text ? 'copied' : 'empty', text ? 'Copied' : emptyText);
     } catch (error) {
         if (fallbackBuffer) {
             fallbackBuffer.value = text;
@@ -59,14 +67,13 @@ export async function copyTextWithFeedback(button, text, emptyText = 'Empty', fa
             fallbackBuffer.select();
             fallbackBuffer.setSelectionRange(0, fallbackBuffer.value.length);
         }
-        setButtonText(button, text ? 'Selected' : emptyText);
-        button.dataset.copyState = text ? 'selected' : 'empty';
+        setButtonFeedback(button, text ? 'copied' : 'empty', text ? 'Copied' : emptyText);
     }
 
-    setTimeout(() => {
-        setButtonText(button, originalText || 'Copy');
-        button.dataset.copyState = 'idle';
-    }, 2500);
+    button.copyFeedbackTimer = setTimeout(() => {
+        setButtonFeedback(button, 'idle', originalLabel);
+        button.copyFeedbackTimer = null;
+    }, 1500);
 }
 
 export function setCopyButtonAvailable(button, available) {

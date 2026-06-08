@@ -641,24 +641,43 @@
     }
 
     function flashCopyButton(button) {
-        const label = button?.querySelector("span");
-        if (!label) return;
-        const previous = label.textContent;
-        label.textContent = "Copied";
-        setTimeout(() => { label.textContent = previous; }, 900);
+        const icon = button?.querySelector("i");
+        if (!button || !icon) return;
+
+        const previousLabel = button.getAttribute("aria-label") || button.title || "Copy";
+        icon.className = "fa-solid fa-check";
+        button.dataset.copyState = "copied";
+        button.setAttribute("aria-label", "Copied");
+        button.title = "Copied";
+        setTimeout(() => {
+            icon.className = "fa-solid fa-copy";
+            button.dataset.copyState = "idle";
+            button.setAttribute("aria-label", previousLabel);
+            button.title = previousLabel;
+        }, 1500);
     }
 
     function attachCopyFallbacks() {
         const metricsButton = byId("copyPerformanceMetricsBtn");
         if (metricsButton && !metricsButton.dataset.classicFallbackCopy) {
             metricsButton.dataset.classicFallbackCopy = "true";
-            metricsButton.addEventListener("click", () => copyText(metricsButton, latestMetricsText));
+            metricsButton.addEventListener("click", (event) => {
+                if (!fallbackActive) return;
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                copyText(metricsButton, latestMetricsText);
+            }, true);
         }
 
         const inferenceButton = byId("copyInferenceOutputBtn");
         if (inferenceButton && !inferenceButton.dataset.classicFallbackCopy) {
             inferenceButton.dataset.classicFallbackCopy = "true";
-            inferenceButton.addEventListener("click", () => copyText(inferenceButton, latestInferenceText));
+            inferenceButton.addEventListener("click", (event) => {
+                if (!fallbackActive) return;
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                copyText(inferenceButton, latestInferenceText);
+            }, true);
         }
     }
 

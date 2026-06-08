@@ -824,8 +824,10 @@ button.inference-output-toggle:not(:disabled):hover {
 .section-copy-button {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 9px;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
   font-size: 0.72rem;
   border-color: rgba(226, 232, 240, 0.24);
   background: #050505;
@@ -835,8 +837,12 @@ button.inference-output-toggle:not(:disabled):hover {
 }
 
 .section-copy-button i {
-  font-size: 0.78rem;
+  font-size: 0.88rem;
   line-height: 1;
+}
+
+.section-copy-button[data-copy-state="copied"] i {
+  color: #ffffff;
 }
 
 .section-copy-button:not(:disabled):hover {

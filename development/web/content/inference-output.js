@@ -1,4 +1,4 @@
-import { copyTextWithFeedback, setCopyButtonAvailable } from './copy-utils.js?v=chrome-freeze-pause-20260605';
+import { copyTextWithFeedback, setCopyButtonAvailable } from './copy-utils.js?v=icon-copy-buttons-20260608';
 
 const section = document.querySelector('[data-inference-output-section]');
 const toggle = document.getElementById('inferenceOutputToggle');
