@@ -432,7 +432,7 @@ document.querySelector('.card-body')?.addEventListener('transitionend', (event) 
 });
 
 document.querySelector('.main-content')?.addEventListener('transitionend', (event) => {
-    if (event.propertyName === 'grid-template-rows') {
+    if (['--bottom-dock-current-height', 'grid-template-rows'].includes(event.propertyName)) {
         scheduleDockColumnFit();
     }
 });
