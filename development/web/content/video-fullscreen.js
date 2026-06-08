@@ -1,12 +1,15 @@
 const button = document.getElementById('videoFullscreenBtn');
 const icon = document.getElementById('videoFullscreenIcon');
 const controls = document.querySelector('.video-control-buttons');
-const metricsButton = document.getElementById('fullscreenMetricsBtn');
-const metricsIcon = document.getElementById('fullscreenMetricsIcon');
+const outputsButton = document.getElementById('fullscreenOutputsBtn');
+const outputsIcon = document.getElementById('fullscreenOutputsIcon');
 
 let isFullscreen = false;
 let hideTimer = null;
-let metricsInFullscreen = localStorage.getItem('pek-video:fullscreen-metrics:v1') === 'true';
+let outputsInFullscreen = (
+    localStorage.getItem('pek-video:fullscreen-outputs:v1') ??
+    localStorage.getItem('pek-video:fullscreen-metrics:v1')
+) === 'true';
 
 function setControlsVisible(visible) {
     document.body.classList.toggle('video-fullscreen-controls-visible', visible);
@@ -21,26 +24,26 @@ function scheduleHideControls(delay = 1300) {
     }, delay);
 }
 
-function setMetricsInFullscreen(enabled) {
-    metricsInFullscreen = enabled;
-    document.body.classList.toggle('fullscreen-metrics-enabled', metricsInFullscreen);
-    localStorage.setItem('pek-video:fullscreen-metrics:v1', metricsInFullscreen ? 'true' : 'false');
+function setOutputsInFullscreen(enabled) {
+    outputsInFullscreen = enabled;
+    document.body.classList.toggle('fullscreen-outputs-enabled', outputsInFullscreen);
+    localStorage.setItem('pek-video:fullscreen-outputs:v1', outputsInFullscreen ? 'true' : 'false');
 
-    if (metricsButton) {
-        metricsButton.setAttribute(
+    if (outputsButton) {
+        outputsButton.setAttribute(
             'aria-label',
-            metricsInFullscreen
-                ? 'Disable performance metrics in fullscreen'
-                : 'Enable performance metrics in fullscreen'
+            outputsInFullscreen
+                ? 'Hide outputs in fullscreen'
+                : 'Show outputs in fullscreen'
         );
-        metricsButton.setAttribute('aria-pressed', metricsInFullscreen ? 'true' : 'false');
-        metricsButton.dataset.tooltip = metricsInFullscreen
-            ? 'Disable performance metrics in fullscreen'
-            : 'Enable performance metrics in fullscreen';
+        outputsButton.setAttribute('aria-pressed', outputsInFullscreen ? 'true' : 'false');
+        outputsButton.dataset.tooltip = outputsInFullscreen
+            ? 'Hide outputs in fullscreen'
+            : 'Show outputs in fullscreen';
     }
 
-    if (metricsIcon) {
-        metricsIcon.className = metricsInFullscreen
+    if (outputsIcon) {
+        outputsIcon.className = outputsInFullscreen
             ? 'fa-solid fa-gauge'
             : 'fa-solid fa-gauge video-gauge-icon--outline';
     }
@@ -69,7 +72,7 @@ function setFullscreen(nextFullscreen) {
     }
 }
 
-setMetricsInFullscreen(metricsInFullscreen);
+setOutputsInFullscreen(outputsInFullscreen);
 
 button?.addEventListener('click', () => {
     const nextFullscreen = !isFullscreen;
@@ -79,8 +82,8 @@ button?.addEventListener('click', () => {
     }
 });
 
-metricsButton?.addEventListener('click', () => {
-    setMetricsInFullscreen(!metricsInFullscreen);
+outputsButton?.addEventListener('click', () => {
+    setOutputsInFullscreen(!outputsInFullscreen);
 });
 
 controls?.addEventListener('mouseenter', () => {

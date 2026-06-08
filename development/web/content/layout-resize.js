@@ -2,6 +2,7 @@ const root = document.documentElement;
 const sidePanel = document.getElementById('sidePanel');
 const sideHandle = document.getElementById('sidePanelResizeHandle');
 const dock = document.querySelector('.bottom-dock');
+const dockPanels = document.querySelector('.bottom-dock-panels');
 const dockHandle = document.getElementById('bottomDockResizeHandle');
 const dockColumnHandles = [...document.querySelectorAll('[data-bottom-column-resize]')];
 const dockSections = {
@@ -14,6 +15,16 @@ const sidebarStorageKey = 'pek-layout:sidebar-width:v1';
 const dockStorageKey = 'pek-layout:bottom-dock-height:v1';
 const dockColumnStorageKey = 'pek-layout:bottom-dock-columns:v1';
 const dockColumnKeys = ['metrics', 'inference', 'debug'];
+const dockColumnVariables = {
+    metrics: '--bottom-metrics-column',
+    inference: '--bottom-inference-column',
+    debug: '--bottom-debug-column',
+};
+const dockColumnWeights = {
+    metrics: 0.3,
+    inference: 0.34,
+    debug: 0.36,
+};
 let dockColumnFitFrame = null;
 
 function px(value) {
@@ -41,8 +52,42 @@ function dockLimits() {
     };
 }
 
+function visibleDockColumnKeys() {
+    return dockColumnKeys.filter((key) => {
+        const section = dockSections[key];
+        return section && !section.hidden && getComputedStyle(section).display !== 'none';
+    });
+}
+
+function configureDockColumnHandles() {
+    const visibleKeys = visibleDockColumnKeys();
+
+    dockColumnHandles.forEach((handle, index) => {
+        const leftKey = visibleKeys[index];
+        const rightKey = visibleKeys[index + 1];
+        const active = Boolean(leftKey && rightKey);
+
+        handle.hidden = !active;
+        if (active) {
+            handle.dataset.bottomColumnResize = `${leftKey}-${rightKey}`;
+        }
+    });
+
+    if (!dockPanels)
+        return;
+
+    const columns = [];
+    visibleKeys.forEach((key, index) => {
+        columns.push(`var(${dockColumnVariables[key]})`);
+        if (index < visibleKeys.length - 1)
+            columns.push('10px');
+    });
+
+    dockPanels.style.gridTemplateColumns = columns.length ? columns.join(' ') : 'minmax(0, 1fr)';
+}
+
 function visibleDockColumnHandles() {
-    return dockColumnHandles.filter((handle) => getComputedStyle(handle).display !== 'none');
+    return dockColumnHandles.filter((handle) => !handle.hidden && getComputedStyle(handle).display !== 'none');
 }
 
 function dockColumnHandleWidth() {
@@ -52,10 +97,10 @@ function dockColumnHandleWidth() {
 }
 
 function dockColumnAvailableWidth() {
-    if (!dock) return 0;
+    if (!dockPanels) return 0;
 
     const handleSpace = visibleDockColumnHandles().length * dockColumnHandleWidth();
-    return Math.max(0, dock.getBoundingClientRect().width - handleSpace);
+    return Math.max(0, dockPanels.getBoundingClientRect().width - handleSpace);
 }
 
 function dockColumnMinimums(available) {
@@ -69,20 +114,23 @@ function dockColumnMinimums(available) {
 
 function defaultDockColumnWidths() {
     const available = dockColumnAvailableWidth();
-    return {
-        metrics: available * 0.3,
-        inference: available * 0.34,
-        debug: available * 0.36,
-    };
+    const visibleKeys = visibleDockColumnKeys();
+    const totalWeight = visibleKeys.reduce((sum, key) => sum + dockColumnWeights[key], 0) || 1;
+
+    return Object.fromEntries(dockColumnKeys.map((key) => [
+        key,
+        visibleKeys.includes(key) ? available * dockColumnWeights[key] / totalWeight : 0,
+    ]));
 }
 
 function readDockColumnWidths() {
+    const visibleKeys = visibleDockColumnKeys();
     const measured = {};
     for (const key of dockColumnKeys) {
         measured[key] = dockSections[key]?.getBoundingClientRect().width || 0;
     }
 
-    if (dockColumnKeys.every((key) => measured[key] > 0))
+    if (visibleKeys.length && visibleKeys.every((key) => measured[key] > 0))
         return measured;
 
     return defaultDockColumnWidths();
@@ -90,24 +138,29 @@ function readDockColumnWidths() {
 
 function normalizeDockColumnWidths(widths) {
     const available = dockColumnAvailableWidth();
+    const visibleKeys = visibleDockColumnKeys();
     if (!available)
         return widths;
+    if (!visibleKeys.length)
+        return Object.fromEntries(dockColumnKeys.map((key) => [key, 0]));
 
     const minimums = dockColumnMinimums(available);
-    const minTotal = dockColumnKeys.reduce((sum, key) => sum + minimums[key], 0);
+    const minTotal = visibleKeys.reduce((sum, key) => sum + minimums[key], 0);
     const usableMinimums = minTotal > available
-        ? Object.fromEntries(dockColumnKeys.map((key) => [key, minimums[key] * available / minTotal]))
+        ? Object.fromEntries(visibleKeys.map((key) => [key, minimums[key] * available / minTotal]))
         : minimums;
 
     const next = Object.fromEntries(dockColumnKeys.map((key) => [
         key,
-        Math.max(usableMinimums[key], Number.isFinite(widths[key]) ? widths[key] : 0),
+        visibleKeys.includes(key)
+            ? Math.max(usableMinimums[key], Number.isFinite(widths[key]) ? widths[key] : 0)
+            : 0,
     ]));
 
-    let total = dockColumnKeys.reduce((sum, key) => sum + next[key], 0);
+    let total = visibleKeys.reduce((sum, key) => sum + next[key], 0);
     if (total > available) {
         let excess = total - available;
-        for (const key of ['inference', 'metrics', 'debug']) {
+        for (const key of ['inference', 'metrics', 'debug'].filter((item) => visibleKeys.includes(item))) {
             const shrinkable = Math.max(0, next[key] - usableMinimums[key]);
             const shrink = Math.min(shrinkable, excess);
             next[key] -= shrink;
@@ -116,14 +169,16 @@ function normalizeDockColumnWidths(widths) {
                 break;
         }
     } else if (total < available) {
-        next.debug += available - total;
+        next[visibleKeys[visibleKeys.length - 1]] += available - total;
     }
 
     return next;
 }
 
 function setDockColumnWidths(widths, persist = false) {
-    if (!dock || !visibleDockColumnHandles().length)
+    configureDockColumnHandles();
+
+    if (!dockPanels || !visibleDockColumnKeys().length)
         return;
 
     const next = normalizeDockColumnWidths(widths);
@@ -296,6 +351,7 @@ function startDockColumnResize(event) {
 }
 
 restoreLayoutSizes();
+configureDockColumnHandles();
 scheduleDockColumnFit();
 
 sideHandle?.addEventListener('pointerdown', startSidebarResize);
@@ -309,5 +365,10 @@ window.addEventListener('resize', () => {
     const currentDockHeight = px(getComputedStyle(root).getPropertyValue('--bottom-dock-height'));
     if (currentDockHeight) setDockHeight(currentDockHeight, true);
 
+    scheduleDockColumnFit(true);
+});
+
+window.addEventListener('output-panels-change', () => {
+    configureDockColumnHandles();
     scheduleDockColumnFit(true);
 });

@@ -77,14 +77,13 @@ body.video-fullscreen .bottom-dock {
   display: none;
 }
 
-body.video-fullscreen.fullscreen-metrics-enabled .bottom-dock {
+body.video-fullscreen.fullscreen-outputs-enabled .bottom-dock {
   position: absolute;
   top: 8px;
   right: 8px;
   z-index: 11;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  width: min(420px, calc(100vw - 16px));
+  display: flex;
+  width: min(680px, calc(100vw - 16px));
   height: min(200px, 30vh);
   min-height: 120px;
   border: 1px solid rgba(226, 232, 240, 0.18);
@@ -94,14 +93,17 @@ body.video-fullscreen.fullscreen-metrics-enabled .bottom-dock {
   backdrop-filter: blur(3px);
 }
 
-body.video-fullscreen.fullscreen-metrics-enabled .bottom-dock-resize-handle,
-body.video-fullscreen.fullscreen-metrics-enabled .bottom-dock-column-resize-handle,
-body.video-fullscreen.fullscreen-metrics-enabled .inference-output-section,
-body.video-fullscreen.fullscreen-metrics-enabled .debug-log-section {
+body.video-fullscreen.fullscreen-outputs-enabled .bottom-dock-resize-handle,
+body.video-fullscreen.fullscreen-outputs-enabled .bottom-dock-column-resize-handle,
+body.video-fullscreen.fullscreen-outputs-enabled .bottom-dock-header {
   display: none;
 }
 
-body.video-fullscreen.fullscreen-metrics-enabled .performance-metrics-section {
+body.video-fullscreen.fullscreen-outputs-enabled .bottom-dock-panels {
+  flex: 1;
+}
+
+body.video-fullscreen.fullscreen-outputs-enabled .bottom-dock .sidebar-section {
   display: flex;
   padding: 12px 14px 10px;
 }
@@ -264,7 +266,7 @@ video {
   line-height: 1;
 }
 
-.video-metrics-fullscreen-button i {
+.video-outputs-fullscreen-button i {
   font-size: 1.5rem;
 }
 
@@ -314,7 +316,7 @@ video {
   transform: translateY(0);
 }
 
-.video-metrics-fullscreen-button[aria-pressed="true"] {
+.video-outputs-fullscreen-button[aria-pressed="true"] {
   color: #ffffff;
   border-color: rgba(226, 232, 240, 0.42);
 }
@@ -623,6 +625,76 @@ body.video-fullscreen .side-panel-resize-handle {
 
 .bottom-dock {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 72px;
+  height: 100%;
+  max-height: none;
+  background: #000000;
+  border-top: 1px solid rgba(226, 232, 240, 0.28);
+  overflow: hidden;
+}
+
+.bottom-dock-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 16px 8px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.12);
+}
+
+.bottom-dock-title {
+  color: var(--text);
+  font-size: 0.96rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.output-panel-toggles {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.output-panel-toggles::-webkit-scrollbar {
+  display: none;
+}
+
+.output-panel-toggle {
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(226, 232, 240, 0.18);
+  background: #050505;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: none;
+}
+
+.output-panel-toggle[aria-pressed="true"] {
+  color: #ffffff;
+  border-color: rgba(226, 232, 240, 0.34);
+  background: #111111;
+}
+
+.output-panel-toggle:not(:disabled):hover {
+  color: #ffffff;
+  border-color: rgba(226, 232, 240, 0.42);
+  background: #111111;
+  box-shadow: none;
+  transform: none;
+}
+
+.bottom-dock-panels {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns:
     var(--bottom-metrics-column)
@@ -631,11 +703,6 @@ body.video-fullscreen .side-panel-resize-handle {
     10px
     var(--bottom-debug-column);
   align-items: stretch;
-  min-height: 72px;
-  height: 100%;
-  max-height: none;
-  background: #000000;
-  border-top: 1px solid rgba(226, 232, 240, 0.28);
   overflow: hidden;
 }
 
@@ -742,7 +809,7 @@ body.is-resizing-bottom-column .bottom-dock-column-resize-handle::before {
 }
 
 @media (max-width: 1100px) {
-  .bottom-dock {
+  .bottom-dock-panels {
     grid-template-columns: minmax(0, 1fr);
     max-height: none;
     overflow: visible;
