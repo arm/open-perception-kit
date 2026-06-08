@@ -1,6 +1,7 @@
 const button = document.getElementById('videoFullscreenBtn');
 const icon = document.getElementById('videoFullscreenIcon');
 const controls = document.querySelector('.video-control-buttons');
+const videoWrapper = document.querySelector('.video-wrapper');
 const outputsButton = document.getElementById('fullscreenOutputsBtn');
 const outputsIcon = document.getElementById('fullscreenOutputsIcon');
 
@@ -38,10 +39,26 @@ function setControlsVisible(visible) {
 function scheduleHideControls(delay = 1300) {
     window.clearTimeout(hideTimer);
     hideTimer = window.setTimeout(() => {
-        if (isFullscreen && !controls?.matches(':hover, :focus-within')) {
+        if (
+            isFullscreen &&
+            !controls?.matches(':hover, :focus-within') &&
+            !videoWrapper?.matches(':hover')
+        ) {
             setControlsVisible(false);
         }
     }, delay);
+}
+
+function isPointerInsideVideoWrapper(event, margin = 0) {
+    const rect = videoWrapper?.getBoundingClientRect();
+    if (!rect) return false;
+
+    return (
+        event.clientX >= rect.left - margin &&
+        event.clientX <= rect.right + margin &&
+        event.clientY >= rect.top - margin &&
+        event.clientY <= rect.bottom + margin
+    );
 }
 
 function setOutputsInFullscreen(enabled, { animate = true } = {}) {
@@ -144,11 +161,24 @@ controls?.addEventListener('mouseleave', () => {
     if (isFullscreen) scheduleHideControls(600);
 });
 
+videoWrapper?.addEventListener('mouseenter', () => {
+    if (isFullscreen) {
+        setControlsVisible(true);
+        scheduleHideControls();
+    }
+});
+
+videoWrapper?.addEventListener('mousemove', () => {
+    if (isFullscreen) {
+        setControlsVisible(true);
+        scheduleHideControls();
+    }
+});
+
 document.addEventListener('mousemove', (event) => {
     if (!isFullscreen) return;
 
-    const revealBand = Math.min(220, window.innerHeight * 0.22);
-    if (event.clientY >= window.innerHeight - revealBand) {
+    if (isPointerInsideVideoWrapper(event, 8)) {
         setControlsVisible(true);
         scheduleHideControls();
         return;
