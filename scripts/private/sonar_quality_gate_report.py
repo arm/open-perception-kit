@@ -396,8 +396,8 @@ def load_report_task(report_task_file: Path, branch: str) -> ReportTaskContext:
 def build_auth_headers(token: str) -> tuple[tuple[str, str], tuple[str, str]]:
     basic_token = base64.b64encode(f"{token}:".encode("utf-8")).decode("ascii")
     return (
-        ("bearer", f"Bearer {token}"),
         ("basic", f"Basic {basic_token}"),
+        ("bearer", f"Bearer {token}"),
     )
 
 
