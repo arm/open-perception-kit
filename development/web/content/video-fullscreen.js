@@ -1,8 +1,12 @@
 const button = document.getElementById('videoFullscreenBtn');
 const icon = document.getElementById('videoFullscreenIcon');
+const controls = document.querySelector('.video-control-buttons');
+const metricsButton = document.getElementById('fullscreenMetricsBtn');
+const metricsIcon = document.getElementById('fullscreenMetricsIcon');
 
 let isFullscreen = false;
 let hideTimer = null;
+let metricsInFullscreen = localStorage.getItem('pek-video:fullscreen-metrics:v1') === 'true';
 
 function setControlsVisible(visible) {
     document.body.classList.toggle('video-fullscreen-controls-visible', visible);
@@ -11,10 +15,35 @@ function setControlsVisible(visible) {
 function scheduleHideControls(delay = 1300) {
     window.clearTimeout(hideTimer);
     hideTimer = window.setTimeout(() => {
-        if (isFullscreen && document.activeElement !== button) {
+        if (isFullscreen && !controls?.matches(':hover, :focus-within')) {
             setControlsVisible(false);
         }
     }, delay);
+}
+
+function setMetricsInFullscreen(enabled) {
+    metricsInFullscreen = enabled;
+    document.body.classList.toggle('fullscreen-metrics-enabled', metricsInFullscreen);
+    localStorage.setItem('pek-video:fullscreen-metrics:v1', metricsInFullscreen ? 'true' : 'false');
+
+    if (metricsButton) {
+        metricsButton.setAttribute(
+            'aria-label',
+            metricsInFullscreen
+                ? 'Disable performance metrics in fullscreen'
+                : 'Enable performance metrics in fullscreen'
+        );
+        metricsButton.setAttribute('aria-pressed', metricsInFullscreen ? 'true' : 'false');
+        metricsButton.dataset.tooltip = metricsInFullscreen
+            ? 'Disable performance metrics in fullscreen'
+            : 'Enable performance metrics in fullscreen';
+    }
+
+    if (metricsIcon) {
+        metricsIcon.className = metricsInFullscreen
+            ? 'fa-solid fa-gauge'
+            : 'fa-solid fa-gauge video-gauge-icon--outline';
+    }
 }
 
 function setFullscreen(nextFullscreen) {
@@ -40,6 +69,8 @@ function setFullscreen(nextFullscreen) {
     }
 }
 
+setMetricsInFullscreen(metricsInFullscreen);
+
 button?.addEventListener('click', () => {
     const nextFullscreen = !isFullscreen;
     setFullscreen(nextFullscreen);
@@ -48,14 +79,18 @@ button?.addEventListener('click', () => {
     }
 });
 
-button?.addEventListener('mouseenter', () => {
+metricsButton?.addEventListener('click', () => {
+    setMetricsInFullscreen(!metricsInFullscreen);
+});
+
+controls?.addEventListener('mouseenter', () => {
     if (isFullscreen) {
         setControlsVisible(true);
         window.clearTimeout(hideTimer);
     }
 });
 
-button?.addEventListener('mouseleave', () => {
+controls?.addEventListener('mouseleave', () => {
     if (isFullscreen) scheduleHideControls(600);
 });
 
@@ -69,7 +104,7 @@ document.addEventListener('mousemove', (event) => {
         return;
     }
 
-    if (!button?.matches(':hover, :focus-visible')) {
+    if (!controls?.matches(':hover, :focus-within')) {
         scheduleHideControls(250);
     }
 });
