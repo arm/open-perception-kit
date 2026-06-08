@@ -322,8 +322,7 @@ struct AttributeMap {
      *
      * Returns default when key is missing or the stored type does not match.
      */
-    const std::string &getStringOrDefault(const std::string &key,
-                                          const std::string &defaultValue) const {
+    std::string getStringOrDefault(const std::string &key, const std::string &defaultValue) const {
         try {
             return getString(key);
         } catch (const AttributeError &error) {

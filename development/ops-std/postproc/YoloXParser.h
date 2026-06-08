@@ -11,8 +11,8 @@
 namespace pek::stdop::postproc {
 
 struct YoloXParser : public pek::TensorParser {
-    virtual pek::Result<void> parse(const pek::TensorParser::Input &input,
-                                    pek::Perception::Layer &output) override;
+    pek::Result<void> parse(const pek::TensorParser::Input &input,
+                            pek::Perception::Layer &output) override;
 };
 
 } // namespace pek::stdop::postproc

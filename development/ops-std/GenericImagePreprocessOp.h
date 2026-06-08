@@ -51,7 +51,7 @@ class GenericImagePreprocessOp : public pek::op::Op {
      * @param attributes Configuration map from OpChainDescriptor.
      * @return Result indicating success or configuration error.
      */
-    virtual pek::Result<void> configure(const pek::AttributeMap &attributes) override;
+    pek::Result<void> configure(const pek::AttributeMap &attributes) override;
     /**
      * @brief Executes preprocessing: maps a media video frame, converts format, prepares tensor
      * data.
@@ -64,8 +64,7 @@ class GenericImagePreprocessOp : public pek::op::Op {
      * @return Continue after preparing a crop, BreakLoop when no crops remain, or a
      * preprocessing error.
      */
-    virtual pek::Result<pek::op::OpSignal>
-    process(pek::op::OpChainContext &opChainContext) override;
+    pek::Result<pek::op::OpSignal> process(pek::op::OpChainContext &opChainContext) override;
     /**
      * @brief Resolves the upstream inference operation to get model information.
      *
@@ -76,7 +75,7 @@ class GenericImagePreprocessOp : public pek::op::Op {
      * @param ops Vector of all operations in the chain.
      * @return Result indicating success or binding error.
      */
-    virtual pek::Result<void> bind(size_t index, const std::vector<pek::op::Op *> &ops) override;
+    pek::Result<void> bind(size_t index, const std::vector<pek::op::Op *> &ops) override;
 
   private:
     std::string inputImageSourceName;
