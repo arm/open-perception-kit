@@ -50,40 +50,48 @@ function persistVisibility() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(visibility));
 }
 
-function applyVisibility() {
+function applyVisibility({ animate = false } = {}) {
     const visiblePanels = panelKeys.filter((key) => visibility[key] !== false);
 
-    for (const key of panelKeys) {
-        const panel = panels[key];
-        const visible = visibility[key] !== false;
+    const update = () => {
+        for (const key of panelKeys) {
+            const panel = panels[key];
+            const visible = visibility[key] !== false;
 
-        if (panel.section) {
-            panel.section.hidden = !visible;
-        }
+            if (panel.section) {
+                panel.section.hidden = !visible;
+            }
 
-        if (panel.button) {
-            const icon = panel.button.querySelector('i');
-            panel.button.setAttribute('aria-pressed', visible ? 'true' : 'false');
-            panel.button.setAttribute(
-                'aria-label',
-                `${visible ? 'Hide' : 'Show'} ${panel.label}`
-            );
+            if (panel.button) {
+                const icon = panel.button.querySelector('i');
+                panel.button.setAttribute('aria-pressed', visible ? 'true' : 'false');
+                panel.button.setAttribute(
+                    'aria-label',
+                    `${visible ? 'Hide' : 'Show'} ${panel.label}`
+                );
 
-            if (icon) {
-                icon.className = visible
-                    ? 'fa-solid fa-eye'
-                    : 'fa-solid fa-eye-slash';
+                if (icon) {
+                    icon.className = visible
+                        ? 'fa-solid fa-eye'
+                        : 'fa-solid fa-eye-slash';
+                }
             }
         }
+
+        document.body.classList.toggle('output-panels-empty', visiblePanels.length === 0);
+
+        window.dispatchEvent(new CustomEvent('output-panels-change', {
+            detail: {
+                visiblePanels,
+            },
+        }));
+    };
+
+    if (animate && window.animateBottomDockHeightChange) {
+        window.animateBottomDockHeightChange(update);
+    } else {
+        update();
     }
-
-    document.body.classList.toggle('output-panels-empty', visiblePanels.length === 0);
-
-    window.dispatchEvent(new CustomEvent('output-panels-change', {
-        detail: {
-            visiblePanels,
-        },
-    }));
 }
 
 for (const key of panelKeys) {
@@ -93,7 +101,7 @@ for (const key of panelKeys) {
             [key]: visibility[key] === false,
         };
         persistVisibility();
-        applyVisibility();
+        applyVisibility({ animate: true });
     });
 }
 

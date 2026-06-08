@@ -44,28 +44,36 @@ function scheduleHideControls(delay = 1300) {
     }, delay);
 }
 
-function setOutputsInFullscreen(enabled) {
-    outputsInFullscreen = enabled;
-    document.body.classList.toggle('fullscreen-outputs-enabled', outputsInFullscreen);
-    localStorage.setItem('pek-video:fullscreen-outputs:v1', outputsInFullscreen ? 'true' : 'false');
+function setOutputsInFullscreen(enabled, { animate = true } = {}) {
+    const update = () => {
+        outputsInFullscreen = enabled;
+        document.body.classList.toggle('fullscreen-outputs-enabled', outputsInFullscreen);
+        localStorage.setItem('pek-video:fullscreen-outputs:v1', outputsInFullscreen ? 'true' : 'false');
 
-    if (outputsButton) {
-        outputsButton.setAttribute(
-            'aria-label',
-            outputsInFullscreen
+        if (outputsButton) {
+            outputsButton.setAttribute(
+                'aria-label',
+                outputsInFullscreen
+                    ? 'Hide outputs in fullscreen'
+                    : 'Show outputs in fullscreen'
+            );
+            outputsButton.setAttribute('aria-pressed', outputsInFullscreen ? 'true' : 'false');
+            outputsButton.dataset.tooltip = outputsInFullscreen
                 ? 'Hide outputs in fullscreen'
-                : 'Show outputs in fullscreen'
-        );
-        outputsButton.setAttribute('aria-pressed', outputsInFullscreen ? 'true' : 'false');
-        outputsButton.dataset.tooltip = outputsInFullscreen
-            ? 'Hide outputs in fullscreen'
-            : 'Show outputs in fullscreen';
-    }
+                : 'Show outputs in fullscreen';
+        }
 
-    if (outputsIcon) {
-        outputsIcon.className = outputsInFullscreen
-            ? 'fa-solid fa-gauge'
-            : 'fa-solid fa-gauge video-gauge-icon--outline';
+        if (outputsIcon) {
+            outputsIcon.className = outputsInFullscreen
+                ? 'fa-solid fa-gauge'
+                : 'fa-solid fa-gauge video-gauge-icon--outline';
+        }
+    };
+
+    if (animate && window.animateBottomDockHeightChange) {
+        window.animateBottomDockHeightChange(update);
+    } else {
+        update();
     }
 
     notifyVideoLayoutChange();
@@ -106,7 +114,7 @@ function setFullscreen(nextFullscreen) {
     notifyVideoLayoutChange();
 }
 
-setOutputsInFullscreen(outputsInFullscreen);
+setOutputsInFullscreen(outputsInFullscreen, { animate: false });
 setOutputsAvailable(outputsAvailable);
 
 button?.addEventListener('click', () => {

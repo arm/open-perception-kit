@@ -27,6 +27,7 @@ const dockColumnWeights = {
 };
 let dockColumnFitFrame = null;
 let dockColumnTransitionFitFrame = null;
+let dockHeightAnimationFrame = null;
 
 function px(value) {
     const parsed = Number.parseFloat(value);
@@ -265,6 +266,71 @@ function setDockHeight(height, persist = false) {
         localStorage.setItem(dockStorageKey, String(Math.round(nextHeight)));
     }
 }
+
+function dockTargetHeight() {
+    const style = getComputedStyle(root);
+    const expandedHeight = px(style.getPropertyValue('--bottom-dock-height')) || 244;
+    const collapsedHeight = px(style.getPropertyValue('--bottom-dock-collapsed-height')) || 48;
+    const isFullscreen = document.body.classList.contains('video-fullscreen');
+    const outputsShown = document.body.classList.contains('fullscreen-outputs-enabled');
+    const outputsEmpty = document.body.classList.contains('output-panels-empty');
+
+    if (isFullscreen && !outputsShown)
+        return 0;
+
+    return outputsEmpty ? collapsedHeight : expandedHeight;
+}
+
+function easeOutCubic(progress) {
+    return 1 - Math.pow(1 - progress, 3);
+}
+
+function animateBottomDockHeightChange(change) {
+    const mainContent = document.querySelector('.main-content');
+    if (!mainContent || !dock) {
+        change();
+        return;
+    }
+
+    if (dockHeightAnimationFrame)
+        cancelAnimationFrame(dockHeightAnimationFrame);
+
+    const startHeight = dock.getBoundingClientRect().height;
+    mainContent.style.setProperty('--bottom-dock-current-height', `${startHeight}px`);
+
+    change();
+
+    const endHeight = dockTargetHeight();
+    if (Math.abs(startHeight - endHeight) < 1 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        mainContent.style.setProperty('--bottom-dock-current-height', `${endHeight}px`);
+        requestAnimationFrame(() => mainContent.style.removeProperty('--bottom-dock-current-height'));
+        scheduleDockColumnFit();
+        return;
+    }
+
+    const startedAt = performance.now();
+    const duration = 220;
+
+    const step = (now) => {
+        const progress = clamp((now - startedAt) / duration, 0, 1);
+        const nextHeight = startHeight + (endHeight - startHeight) * easeOutCubic(progress);
+        mainContent.style.setProperty('--bottom-dock-current-height', `${nextHeight}px`);
+
+        if (progress < 1) {
+            dockHeightAnimationFrame = requestAnimationFrame(step);
+            return;
+        }
+
+        dockHeightAnimationFrame = null;
+        mainContent.style.setProperty('--bottom-dock-current-height', `${endHeight}px`);
+        requestAnimationFrame(() => mainContent.style.removeProperty('--bottom-dock-current-height'));
+        scheduleDockColumnFit();
+    };
+
+    dockHeightAnimationFrame = requestAnimationFrame(step);
+}
+
+window.animateBottomDockHeightChange = animateBottomDockHeightChange;
 
 function restoreLayoutSizes() {
     const storedSidebarWidth = px(localStorage.getItem(sidebarStorageKey));
