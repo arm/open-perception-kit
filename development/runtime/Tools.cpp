@@ -51,9 +51,9 @@ ErrorFlag mapInternalErrorFlag(pek::ErrorFlag flag) noexcept {
 Error mapInternalError(const pek::Error &error) {
     const auto internalFlagName = magic_enum::enum_name(error.flag);
     Error runtimeError(mapInternalErrorFlag(error.flag),
-                   internalFlagName.empty()
-                       ? error.info
-                       : fmt::format("{}: {}", internalFlagName, error.info));
+                       internalFlagName.empty()
+                           ? error.info
+                           : fmt::format("{}: {}", internalFlagName, error.info));
     runtimeError.file = error.file;
     runtimeError.function = error.function;
     runtimeError.line = error.line;

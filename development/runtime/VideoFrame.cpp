@@ -36,11 +36,11 @@ Result<std::size_t> normalizedBgraStride(std::size_t width, std::size_t strideBy
         return tightStride;
     }
     if (strideBytes < tightStride) {
-        return tl::make_unexpected(Error(
-            ErrorFlag::InvalidArgument,
-            fmt::format("VideoFrame BGRA stride {} is smaller than tight stride {}",
-                        strideBytes,
-                        tightStride)));
+        return tl::make_unexpected(
+            Error(ErrorFlag::InvalidArgument,
+                  fmt::format("VideoFrame BGRA stride {} is smaller than tight stride {}",
+                              strideBytes,
+                              tightStride)));
     }
     return strideBytes;
 }
@@ -114,10 +114,8 @@ Result<VideoFrame> VideoFrame::copyBgra(const std::vector<std::uint8_t> &pixels,
                                         std::size_t width,
                                         std::size_t height,
                                         std::size_t strideBytes) {
-    return moveBgra(std::vector<std::uint8_t>(pixels.begin(), pixels.end()),
-                    width,
-                    height,
-                    strideBytes);
+    return moveBgra(
+        std::vector<std::uint8_t>(pixels.begin(), pixels.end()), width, height, strideBytes);
 }
 
 Result<VideoFrame> VideoFrame::borrowBgra(const std::uint8_t *data,
@@ -182,13 +180,13 @@ Result<VideoFrame> VideoFrame::moveBgra(std::vector<std::uint8_t> &&pixels,
         return tl::make_unexpected(std::move(validBuffer.error()));
     }
 
-    auto internalFrame = pek::mediaio::makeOwnedPixelBufferVideoFrame(
-        std::move(pixels),
-        static_cast<std::uint32_t>(width),
-        static_cast<std::uint32_t>(height),
-        pek::DataKind::ImageBgraHwc,
-        static_cast<std::uint32_t>(*normalizedStride),
-        pek::AccessMode::Read);
+    auto internalFrame =
+        pek::mediaio::makeOwnedPixelBufferVideoFrame(std::move(pixels),
+                                                     static_cast<std::uint32_t>(width),
+                                                     static_cast<std::uint32_t>(height),
+                                                     pek::DataKind::ImageBgraHwc,
+                                                     static_cast<std::uint32_t>(*normalizedStride),
+                                                     pek::AccessMode::Read);
 
     if (!internalFrame) {
         return tl::make_unexpected(

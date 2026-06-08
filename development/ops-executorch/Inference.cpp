@@ -177,9 +177,8 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
 
                 auto sizes = tm->sizes();
                 if (sizes.size() < 1 || sizes.size() > pek::MaxTensorCount) {
-                    return tl::unexpected{
-                        PEK_ERROR(pek::ErrorFlag::ModelInspectError,
-                                  "input tensor size must be between 1 and 8")};
+                    return tl::unexpected{PEK_ERROR(pek::ErrorFlag::ModelInspectError,
+                                                    "input tensor size must be between 1 and 8")};
                 }
                 input.shape = to_pek_shape(sizes);
                 input.batch = (sizes.size() > 0) ? static_cast<int>(sizes[0]) : 0;
@@ -207,9 +206,8 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
 
                 auto sizes = tm->sizes();
                 if (sizes.size() < 1 || sizes.size() > pek::MaxTensorCount) {
-                    return tl::unexpected{
-                        PEK_ERROR(pek::ErrorFlag::ModelInspectError,
-                                  "output tensor size must be between 1 and 8")};
+                    return tl::unexpected{PEK_ERROR(pek::ErrorFlag::ModelInspectError,
+                                                    "output tensor size must be between 1 and 8")};
                 }
                 output.shape = to_pek_shape(sizes);
 
@@ -289,7 +287,6 @@ void Inference::setTensorSizes() {
         inputTensors[i].resize(tensorByteCount);
         fmt::print("Executorch input tensor prepared: {} bytes\n", tensorByteCount);
     }
-
 }
 
 pek::Result<void> Inference::inference() {
@@ -320,9 +317,8 @@ pek::Result<void> Inference::inference() {
         }
 
         // from_blob does not own data, so keep TensorPtr alive until forward() returns.
-        inputTensorRefs.push_back(from_blob(inputTensors[i].data(),
-                                            to_executorch_shape(model.inputs[i].shape),
-                                            scalarType));
+        inputTensorRefs.push_back(from_blob(
+            inputTensors[i].data(), to_executorch_shape(model.inputs[i].shape), scalarType));
         inputValues.emplace_back(*inputTensorRefs.back());
     }
 
@@ -345,9 +341,9 @@ pek::Result<void> Inference::inference() {
 
     for (size_t i = 0; i < lastOutputs.size(); i++) {
         if (!lastOutputs[i].isTensor()) {
-            return tl::unexpected{PEK_ERROR(
-                pek::ErrorFlag::InvalidData,
-                fmt::format("ExecuTorch output {} is not a tensor", i))};
+            return tl::unexpected{
+                PEK_ERROR(pek::ErrorFlag::InvalidData,
+                          fmt::format("ExecuTorch output {} is not a tensor", i))};
         }
 
         const auto &tensor = lastOutputs[i].toTensor();

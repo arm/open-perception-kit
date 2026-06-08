@@ -80,4 +80,3 @@ uint8_t *InferenceOp::getTensorDataAddress(size_t index) const {
     assert(inference);
     return inference->getInputTensorDataAddress(index);
 }
-

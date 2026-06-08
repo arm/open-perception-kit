@@ -24,8 +24,8 @@
 #include "postproc/PersonClassificationParser.h"
 #include "postproc/RvmParser.h"
 #include "postproc/UltrafaceParser.h"
-#include "postproc/YoloXParser.h"
 #include "postproc/YoloParser.h"
+#include "postproc/YoloXParser.h"
 // ... add new parser headers here
 
 using namespace pek::stdop;

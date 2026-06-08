@@ -4,9 +4,9 @@
 
 #include "runtime/OpChain.h"
 
+#include "mediaio/VideoFrame.h"
 #include "op/OpChain.h"
 #include "op/OpChainContext.h"
-#include "mediaio/VideoFrame.h"
 #include "pek/Perception.h"
 #include "pek/PerceptionSerializer.h"
 #include "pek/Result.h"
@@ -59,9 +59,9 @@ ErrorFlag mapInternalErrorFlag(pek::ErrorFlag flag) noexcept {
 Error mapInternalError(const pek::Error &error) {
     const auto internalFlagName = magic_enum::enum_name(error.flag);
     Error runtimeError(mapInternalErrorFlag(error.flag),
-                   internalFlagName.empty()
-                       ? error.info
-                       : fmt::format("{}: {}", internalFlagName, error.info));
+                       internalFlagName.empty()
+                           ? error.info
+                           : fmt::format("{}: {}", internalFlagName, error.info));
     runtimeError.file = error.file;
     runtimeError.function = error.function;
     runtimeError.line = error.line;
@@ -117,9 +117,9 @@ Result<std::string> OpChain::run(const VideoFrame &frame, const std::string &inf
         const nlohmann::json perceptionJson = perception;
         return perceptionJson.dump();
     } catch (const std::exception &e) {
-        return tl::make_unexpected(Error(
-            ErrorFlag::RuntimeError,
-            fmt::format("Failed to serialize Perception metadata: {}", e.what())));
+        return tl::make_unexpected(
+            Error(ErrorFlag::RuntimeError,
+                  fmt::format("Failed to serialize Perception metadata: {}", e.what())));
     }
 }
 
