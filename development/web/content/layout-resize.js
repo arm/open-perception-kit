@@ -194,7 +194,7 @@ function restoreLayoutSizes() {
 
 function startSidebarResize(event) {
     if (event.button !== undefined && event.button !== 0) return;
-    if (!sidePanel || document.body.classList.contains('side-panel-collapsed')) return;
+    if (!sidePanel) return;
 
     event.preventDefault();
     const startX = event.clientX;

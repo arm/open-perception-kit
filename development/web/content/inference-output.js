@@ -1,7 +1,5 @@
 import { copyTextWithFeedback, setCopyButtonAvailable } from './copy-utils.js?v=icon-copy-buttons-20260608';
 
-const section = document.querySelector('[data-inference-output-section]');
-const toggle = document.getElementById('inferenceOutputToggle');
 const body = document.getElementById('inferenceOutputBody');
 const copyButton = document.getElementById('copyInferenceOutputBtn');
 let currentLayers = [];
@@ -10,13 +8,6 @@ const number = (value, digits = 2) => {
     if (typeof value !== 'number' || !Number.isFinite(value)) return '';
     return value.toFixed(digits);
 };
-
-function setExpanded(expanded) {
-    if (!section || !toggle) return;
-
-    section.classList.toggle('is-collapsed', !expanded);
-    toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-}
 
 function detectionSummary(detection) {
     const type = detection?.type || 'Detection';

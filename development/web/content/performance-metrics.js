@@ -1,21 +1,11 @@
 import { copyTextWithFeedback, setCopyButtonAvailable } from './copy-utils.js?v=icon-copy-buttons-20260608';
 
-const section = document.querySelector('[data-performance-metrics-section]');
-const toggle = document.getElementById('performanceMetricsToggle');
-const panel = document.getElementById('performanceMetricsPanel');
 const body = document.getElementById('performanceMetricsBody');
 const copyButton = document.getElementById('copyPerformanceMetricsBtn');
 
 const METRIC_RE = /^(.*?)\s*:\s*([0-9.]+ms)\s*(?:\(p95:\s*([0-9.]+ms)\))?$/;
 const FPS_RE = /^Pipeline\s*:?\s*([0-9.]+)\s+FPS$/;
 let currentRows = [];
-
-function setExpanded(expanded) {
-    if (!section || !toggle) return;
-
-    section.classList.toggle('is-collapsed', !expanded);
-    toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-}
 
 function parseMetricLine(line) {
     const text = String(line || '').replace(/[═]+/g, '').trim();
@@ -78,13 +68,6 @@ function getMetricsText() {
         'Stage\tCurrent\tP95',
         ...currentRows.map((row) => `${row.stage}\t${row.current}\t${row.p95}`),
     ].join('\n');
-}
-
-if (toggle && panel) {
-    toggle.addEventListener('click', () => {
-        const expanded = toggle.getAttribute('aria-expanded') !== 'false';
-        setExpanded(!expanded);
-    });
 }
 
 copyButton?.addEventListener('click', () => {

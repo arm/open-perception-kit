@@ -46,7 +46,6 @@ function setStatus(state, label, subtext) {
 }
 
 function setStatusLine(text) {
-    console.log("setStatusLine: " + text);
     if (document.body.classList.contains('is-pipeline-restarting')) {
         const textEl = statusLineEl.querySelector('.status-line-text');
         if (textEl) {

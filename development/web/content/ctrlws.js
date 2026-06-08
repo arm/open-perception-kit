@@ -1,7 +1,6 @@
 
 import {setPlayPause} from "./video-controls.js?v=chrome-freeze-pause-20260605"
 import {enableAudioButton} from "./audio.js?v=chrome-freeze-pause-20260605"
-import {setPerfOverlayButton} from "./perf_overlay.js?v=chrome-freeze-pause-20260605"
 import {modelsManager} from "./models.js?v=chrome-freeze-pause-20260605"
 import {renderPerformanceMetrics} from "./performance-metrics.js?v=chrome-freeze-pause-20260605"
 import {renderInferenceOutput} from "./inference-output.js?v=chrome-freeze-pause-20260605"
@@ -88,8 +87,8 @@ function connectCtrl(manual = false) {
         }));
     };
 
-    ctrl.onmessage = async (event) => {
-        handleCtrlData(JSON.parse(event.data), "websocket");
+    ctrl.onmessage = (event) => {
+        handleCtrlData(JSON.parse(event.data));
     };
 
     ctrl.onerror =
@@ -107,7 +106,7 @@ function connectCtrl(manual = false) {
     };
 } // connectCtrl
 
-function handleCtrlData(data, source = "unknown") {
+function handleCtrlData(data) {
     if (!data || data.error) return;
 
     lastCtrlMessageAt = Date.now();
@@ -115,7 +114,6 @@ function handleCtrlData(data, source = "unknown") {
         data.performance ??= data.perception_data.performance;
         data.inference_output ??= data.perception_data.inference_output;
     }
-    console.log(`ctrl.${source}: ` + JSON.stringify(data));
     window.dispatchEvent(new CustomEvent("ctrl-message", {
         detail: data,
     }));
@@ -135,10 +133,6 @@ function handleCtrlData(data, source = "unknown") {
     if (data.pipeline_state) {
         enableAudioButton(data.pipeline_state.audio);
         setPlayPause(data.pipeline_state.playing);
-    }
-
-    if (data.perf_overlay) {
-        setPerfOverlayButton(data.perf_overlay.enabled);
     }
 
     if (data.models) {
@@ -164,7 +158,7 @@ async function pollCtrlSnapshot(force = false) {
             cache: "no-store",
         });
         if (response.ok) {
-            handleCtrlData(await response.json(), "http-fallback");
+            handleCtrlData(await response.json());
         }
     } catch (error) {
         console.warn("Control HTTP fallback failed", error);

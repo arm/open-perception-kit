@@ -313,15 +313,11 @@ class ModelsManager {
             return;
         }
 
-        const previousActive = model.active;
-
         toggle.disabled = true;
         item.classList.add('model-pending');
 
         model.active = shouldBeActive;
         item.classList.toggle('model-active', shouldBeActive);
-
-        console.log(`Toggle model: ${model.name} from ${previousActive} to ${shouldBeActive}`);
 
         try {
             ctrlSend({ type: "model_toggle", name: model.element_name });
