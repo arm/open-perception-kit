@@ -13,6 +13,7 @@
   --radius: 12px;
   --sidebar-width: clamp(340px, 22vw, 430px);
   --bottom-dock-height: 244px;
+  --bottom-dock-collapsed-height: 48px;
   --bottom-metrics-column: minmax(230px, 0.9fr);
   --bottom-inference-column: minmax(260px, 1fr);
   --bottom-debug-column: minmax(280px, 1.05fr);
@@ -83,7 +84,7 @@ body.video-fullscreen.fullscreen-outputs-enabled .main-content {
 }
 
 body.output-panels-empty .main-content {
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) var(--bottom-dock-collapsed-height);
 }
 
 body.video-fullscreen.output-panels-empty:not(.fullscreen-outputs-enabled) .main-content {
@@ -91,7 +92,7 @@ body.video-fullscreen.output-panels-empty:not(.fullscreen-outputs-enabled) .main
 }
 
 body.video-fullscreen.fullscreen-outputs-enabled.output-panels-empty .main-content {
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) var(--bottom-dock-collapsed-height);
 }
 
 body.video-fullscreen .bottom-dock {
