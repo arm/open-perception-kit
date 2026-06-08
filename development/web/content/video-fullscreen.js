@@ -6,6 +6,7 @@ const outputsIcon = document.getElementById('fullscreenOutputsIcon');
 
 let isFullscreen = false;
 let hideTimer = null;
+let outputsAvailable = !document.body.classList.contains('output-panels-empty');
 let outputsInFullscreen = (
     localStorage.getItem('pek-video:fullscreen-outputs:v1') ??
     localStorage.getItem('pek-video:fullscreen-metrics:v1')
@@ -49,6 +50,14 @@ function setOutputsInFullscreen(enabled) {
     }
 }
 
+function setOutputsAvailable(available) {
+    outputsAvailable = available;
+
+    if (outputsButton) {
+        outputsButton.hidden = !outputsAvailable;
+    }
+}
+
 function setFullscreen(nextFullscreen) {
     isFullscreen = nextFullscreen;
     document.body.classList.toggle('video-fullscreen', isFullscreen);
@@ -73,6 +82,7 @@ function setFullscreen(nextFullscreen) {
 }
 
 setOutputsInFullscreen(outputsInFullscreen);
+setOutputsAvailable(outputsAvailable);
 
 button?.addEventListener('click', () => {
     const nextFullscreen = !isFullscreen;
@@ -83,7 +93,14 @@ button?.addEventListener('click', () => {
 });
 
 outputsButton?.addEventListener('click', () => {
+    if (!outputsAvailable)
+        return;
+
     setOutputsInFullscreen(!outputsInFullscreen);
+});
+
+window.addEventListener('output-panels-change', (event) => {
+    setOutputsAvailable((event.detail?.visiblePanels?.length || 0) > 0);
 });
 
 controls?.addEventListener('mouseenter', () => {

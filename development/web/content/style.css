@@ -269,6 +269,10 @@ video {
     0 10px 24px rgba(0, 0, 0, 0.38);
 }
 
+.video-control-button[hidden] {
+  display: none;
+}
+
 .video-control-button i {
   font-size: 1rem;
   line-height: 1;
