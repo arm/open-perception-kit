@@ -476,16 +476,6 @@
             if (infoButton.contains(event.relatedTarget)) return;
             if (activeInfoKey === infoButton.dataset.modelKey) hideModelInfo();
         });
-        container.addEventListener("focusin", (event) => {
-            const infoButton = event.target.closest?.(".model-info-button");
-            if (!infoButton || !container.contains(infoButton)) return;
-            showModelInfo(infoButton, modelForInfoButton(infoButton));
-        });
-        container.addEventListener("focusout", (event) => {
-            const infoButton = event.target.closest?.(".model-info-button");
-            if (!infoButton || !container.contains(infoButton)) return;
-            if (activeInfoKey === infoButton.dataset.modelKey) hideModelInfo();
-        });
         container.addEventListener("click", (event) => {
             const infoButton = event.target.closest?.(".model-info-button");
             if (!infoButton || !container.contains(infoButton)) return;
