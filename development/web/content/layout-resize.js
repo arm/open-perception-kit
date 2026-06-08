@@ -169,7 +169,11 @@ function normalizeDockColumnWidths(widths) {
                 break;
         }
     } else if (total < available) {
-        next[visibleKeys[visibleKeys.length - 1]] += available - total;
+        const extra = available - total;
+        const expandableTotal = visibleKeys.reduce((sum, key) => sum + next[key], 0) || 1;
+        for (const key of visibleKeys) {
+            next[key] += extra * next[key] / expandableTotal;
+        }
     }
 
     return next;
@@ -371,4 +375,9 @@ window.addEventListener('resize', () => {
 window.addEventListener('output-panels-change', () => {
     configureDockColumnHandles();
     scheduleDockColumnFit(true);
+});
+
+window.addEventListener('video-layout-change', () => {
+    configureDockColumnHandles();
+    scheduleDockColumnFit();
 });

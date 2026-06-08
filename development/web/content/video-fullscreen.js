@@ -12,6 +12,25 @@ let outputsInFullscreen = (
     localStorage.getItem('pek-video:fullscreen-metrics:v1')
 ) === 'true';
 
+function notifyVideoLayoutChange() {
+    window.dispatchEvent(new CustomEvent('video-layout-change', {
+        detail: {
+            isFullscreen,
+            outputsInFullscreen,
+            outputsAvailable,
+        },
+    }));
+    requestAnimationFrame(() => {
+        window.dispatchEvent(new CustomEvent('video-layout-change', {
+            detail: {
+                isFullscreen,
+                outputsInFullscreen,
+                outputsAvailable,
+            },
+        }));
+    });
+}
+
 function setControlsVisible(visible) {
     document.body.classList.toggle('video-fullscreen-controls-visible', visible);
 }
@@ -48,6 +67,8 @@ function setOutputsInFullscreen(enabled) {
             ? 'fa-solid fa-gauge'
             : 'fa-solid fa-gauge video-gauge-icon--outline';
     }
+
+    notifyVideoLayoutChange();
 }
 
 function setOutputsAvailable(available) {
@@ -56,6 +77,8 @@ function setOutputsAvailable(available) {
     if (outputsButton) {
         outputsButton.hidden = !outputsAvailable;
     }
+
+    notifyVideoLayoutChange();
 }
 
 function setFullscreen(nextFullscreen) {
@@ -79,6 +102,8 @@ function setFullscreen(nextFullscreen) {
     } else {
         window.clearTimeout(hideTimer);
     }
+
+    notifyVideoLayoutChange();
 }
 
 setOutputsInFullscreen(outputsInFullscreen);
