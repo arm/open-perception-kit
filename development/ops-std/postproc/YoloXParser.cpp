@@ -212,7 +212,8 @@ Result<void> YoloXParser::parse(const pek::TensorParser::Input &input,
         processedCandidateCount = grid.size();
     }
 
-    const size_t valuesPerCandidate = static_cast<size_t>(classCount + 5);
+    const size_t classValueOffset = 5;
+    const size_t valuesPerCandidate = static_cast<size_t>(classCount) + classValueOffset;
     auto getValue = [&](size_t candidate, size_t channel) -> float {
         if (rowMajor) {
             return tensor.get(candidate * valuesPerCandidate + channel);
@@ -248,7 +249,7 @@ Result<void> YoloXParser::parse(const pek::TensorParser::Input &input,
         int bestClass = -1;
         float bestClassScore = -std::numeric_limits<float>::infinity();
         for (int c = 0; c < classCount; ++c) {
-            float score = getValue(i, static_cast<size_t>(5 + c));
+            float score = getValue(i, classValueOffset + static_cast<size_t>(c));
             if (scoresAreLogits) {
                 score = sigmoid(score);
             }
