@@ -50,7 +50,6 @@ using ValuePointer = void *;
 inline size_t getValueTypeByteSize(Dtype type) {
     switch (type) {
     case Dtype::Int8:
-        return 1;
     case Dtype::Uint8:
         return 1;
     case Dtype::Float16:
@@ -82,7 +81,6 @@ inline size_t getAudioSampleByteSize(AudioSampleType t) {
     case AudioSampleType::S24:
         return 3;
     case AudioSampleType::S32:
-        return 4;
     case AudioSampleType::F32:
         return 4;
     }

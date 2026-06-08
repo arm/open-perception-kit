@@ -15,8 +15,8 @@
 
 using namespace pek::stdop;
 
-InferenceControllerOp::InferenceControllerOp() {}
-InferenceControllerOp::~InferenceControllerOp() {}
+InferenceControllerOp::InferenceControllerOp() = default;
+InferenceControllerOp::~InferenceControllerOp() = default;
 
 pek::Result<void> InferenceControllerOp::bind(size_t index, const std::vector<pek::op::Op *> &ops) {
     return {};

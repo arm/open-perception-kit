@@ -16,8 +16,8 @@
 
 using namespace pek::ncnnrt;
 
-InferenceOp::InferenceOp() {}
-InferenceOp::~InferenceOp() {}
+InferenceOp::InferenceOp() = default;
+InferenceOp::~InferenceOp() = default;
 
 pek::Result<void> InferenceOp::bind(size_t index, const std::vector<pek::op::Op *> &ops) {
     return {};

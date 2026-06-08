@@ -19,8 +19,8 @@
 
 using namespace pek::stdop;
 
-GenericImagePreprocessOp::GenericImagePreprocessOp() {}
-GenericImagePreprocessOp::~GenericImagePreprocessOp() {}
+GenericImagePreprocessOp::GenericImagePreprocessOp() = default;
+GenericImagePreprocessOp::~GenericImagePreprocessOp() = default;
 
 pek::Result<void> GenericImagePreprocessOp::bind(size_t index,
                                                  const std::vector<pek::op::Op *> &ops) {

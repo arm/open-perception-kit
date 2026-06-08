@@ -101,8 +101,8 @@ static std::vector<executorch::aten::SizesType> to_executorch_shape(const pek::S
 
 using namespace pek::extrch;
 
-Inference::Inference() {}
-Inference::~Inference() {}
+Inference::Inference() = default;
+Inference::~Inference() = default;
 
 pek::Result<void> Inference::setupFromJson(const std::string &filePath) {
 

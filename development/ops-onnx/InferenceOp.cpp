@@ -21,9 +21,9 @@
 
 using namespace pek::onnx;
 
-InferenceOp::InferenceOp() {}
+InferenceOp::InferenceOp() = default;
 
-InferenceOp::~InferenceOp() {}
+InferenceOp::~InferenceOp() = default;
 
 pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
     std::string modelDescPath;

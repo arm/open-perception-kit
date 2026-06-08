@@ -161,8 +161,8 @@ pek::Result<void> copyMatToDenseBuffer(const ncnn::Mat &mat, std::vector<uint8_t
 
 } // namespace
 
-Inference::Inference() {}
-Inference::~Inference() {}
+Inference::Inference() = default;
+Inference::~Inference() = default;
 
 std::string Inference::deriveBinPath(const std::string &paramPath) {
     const std::string suffix = ".param";

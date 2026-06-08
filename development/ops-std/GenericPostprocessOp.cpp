@@ -61,8 +61,8 @@ const std::map<std::string, ParserCreator> &getParserRegistry() {
 
 } // namespace
 
-GenericPostprocessOp::GenericPostprocessOp() {}
-GenericPostprocessOp::~GenericPostprocessOp() {}
+GenericPostprocessOp::GenericPostprocessOp() = default;
+GenericPostprocessOp::~GenericPostprocessOp() = default;
 
 pek::Result<void> GenericPostprocessOp::bind(size_t index, const std::vector<pek::op::Op *> &ops) {
     return {};

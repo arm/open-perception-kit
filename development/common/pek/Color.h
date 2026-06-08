@@ -22,7 +22,7 @@ using Color = uint32_t;
  */
 struct Colorf {
     /** @brief Constructs opaque white. */
-    Colorf() {}
+    Colorf() = default;
     /** @brief Constructs color from RGBA components. */
     Colorf(float r, float g, float b, float a) : r(r), g(g), b(b), a(a) {}
     /** @brief Constructs opaque color from RGB components. */

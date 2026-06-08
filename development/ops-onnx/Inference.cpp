@@ -30,7 +30,7 @@
 
 using namespace pek::onnx;
 
-Inference::Inference() {}
+Inference::Inference() = default;
 
 Inference::~Inference() {
     if (this->sessionOptions)
