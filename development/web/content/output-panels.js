@@ -1,15 +1,15 @@
 const STORAGE_KEY = 'pek-layout:output-panels:v1';
 
 const panels = {
-    metrics: {
-        button: document.getElementById('togglePerformanceOutput'),
-        section: document.querySelector('[data-performance-metrics-section]'),
-        label: 'Performance',
-    },
     inference: {
         button: document.getElementById('toggleInferenceOutput'),
         section: document.querySelector('[data-inference-output-section]'),
         label: 'Inference',
+    },
+    metrics: {
+        button: document.getElementById('togglePerformanceOutput'),
+        section: document.querySelector('[data-performance-metrics-section]'),
+        label: 'Performance',
     },
     debug: {
         button: document.getElementById('toggleDebugOutput'),

@@ -14,15 +14,15 @@ const dockSections = {
 const sidebarStorageKey = 'pek-layout:sidebar-width:v1';
 const dockStorageKey = 'pek-layout:bottom-dock-height:v1';
 const dockColumnStorageKey = 'pek-layout:bottom-dock-columns:v1';
-const dockColumnKeys = ['metrics', 'inference', 'debug'];
+const dockColumnKeys = ['inference', 'metrics', 'debug'];
 const dockColumnVariables = {
     metrics: '--bottom-metrics-column',
     inference: '--bottom-inference-column',
     debug: '--bottom-debug-column',
 };
 const dockColumnWeights = {
-    metrics: 0.3,
     inference: 0.34,
+    metrics: 0.3,
     debug: 0.36,
 };
 let dockColumnFitFrame = null;

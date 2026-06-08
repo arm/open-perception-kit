@@ -729,9 +729,9 @@ body.output-panels-empty .bottom-dock-panels {
   min-height: 0;
   display: grid;
   grid-template-columns:
-    var(--bottom-metrics-column)
-    10px
     var(--bottom-inference-column)
+    10px
+    var(--bottom-metrics-column)
     10px
     var(--bottom-debug-column);
   align-items: stretch;
