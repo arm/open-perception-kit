@@ -1341,7 +1341,7 @@ body.is-resizing-bottom-column * {
   flex: 1;
   min-width: 20px;
   height: 1px;
-  background: rgba(148, 163, 184, 0.2);
+  background: var(--model-tree-line);
 }
 
 .model-actions {
