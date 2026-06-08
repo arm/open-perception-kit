@@ -77,6 +77,7 @@ Use these pages when you need to understand how PEK is organized:
 
 - [Structural Basics](structural-basics.md)
 - [Runtime Basics](runtime-basics.md)
+- [C++ Coding Guidelines](cpp-coding-guidelines.md)
 - [Performance Measurement With Performix](performance-measurement.md)
 
 ## Optional Setup Pages
