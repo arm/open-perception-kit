@@ -1,6 +1,6 @@
 {
 	"name": "MobileNetV3RVM",
-	"description": "MobileNetV3 based RVM for real-time background removal.",
+	"description": "Runs Robust Video Matting to separate people from the background in real time. Runs independently and does not require another model.",
 	"ops": [
 		{
 			"id": "pek-std-ops/InferenceController",

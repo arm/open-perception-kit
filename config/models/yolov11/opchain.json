@@ -1,6 +1,6 @@
 {
 	"name": "YoloV11",
-	"description": "YoloV11 object detection model.",
+	"description": "Detects objects in the video frame and reports bounding boxes, class labels, and confidence scores. Required by OsnetX025Reid when ReID is enabled.",
 	"ops": [
 		{
 			"id": "pek-std-ops/InferenceController",

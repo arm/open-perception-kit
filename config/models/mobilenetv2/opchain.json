@@ -1,6 +1,6 @@
 {
 	"name": "ImageNet",
-	"description": "Whole-frame ImageNet classifier.",
+	"description": "Classifies the whole video frame against ImageNet categories and reports the top matches with confidence scores. Runs independently and does not require another model.",
 	"ops": [
 		{
 			"id": "pek-std-ops/InferenceController",

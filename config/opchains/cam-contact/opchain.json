@@ -1,6 +1,6 @@
 {
     "name": "CameraContactWithUltraface",
-    "description": "Two-stage camera-contact micropipeline: Ultraface face crop detection followed by camera-contact classification.",
+	"description": "Two-stage camera-contact pipeline: Ultraface first detects face crops, then CameraContact classifies whether each face is looking into the camera.",
     "ops": [
         {
             "id": "pek-std-ops/InferenceController",

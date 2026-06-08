@@ -1,6 +1,6 @@
 {
 	"name": "ImageNet Hailo",
-	"description": "Hailo 8-compiled variant of the MobileNetV2 ImageNet classifier.",
+	"description": "Hailo 8-compiled whole-frame ImageNet classifier that reports top category matches with confidence scores. Runs independently and does not require another model.",
 	"ops": [
 		{
 			"id": "pek-std-ops/InferenceController",
