@@ -13,6 +13,9 @@
   --radius: 12px;
   --sidebar-width: clamp(340px, 22vw, 430px);
   --bottom-dock-height: 244px;
+  --bottom-metrics-column: minmax(230px, 0.9fr);
+  --bottom-inference-column: minmax(260px, 1fr);
+  --bottom-debug-column: minmax(280px, 1.05fr);
 }
 
 * {
@@ -600,7 +603,12 @@ body.side-panel-collapsed .side-panel-tab {
 .bottom-dock {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(260px, 0.95fr) minmax(320px, 1.3fr) minmax(260px, 1fr);
+  grid-template-columns:
+    var(--bottom-metrics-column)
+    10px
+    var(--bottom-inference-column)
+    10px
+    var(--bottom-debug-column);
   align-items: stretch;
   min-height: 72px;
   height: 100%;
@@ -646,9 +654,30 @@ body.is-resizing-bottom-dock .bottom-dock-resize-handle::before {
   border-top: 0;
 }
 
-.bottom-dock .sidebar-section+.sidebar-section {
-  border-top: 0;
-  border-left: 1px solid rgba(226, 232, 240, 0.16);
+.bottom-dock-column-resize-handle {
+  position: relative;
+  min-width: 10px;
+  cursor: ew-resize;
+  touch-action: none;
+  user-select: none;
+  z-index: 5;
+}
+
+.bottom-dock-column-resize-handle::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: rgba(226, 232, 240, 0.16);
+  transform: translateX(-50%);
+  transition: background 0.15s ease;
+}
+
+.bottom-dock-column-resize-handle:hover::before,
+body.is-resizing-bottom-column .bottom-dock-column-resize-handle::before {
+  background: rgba(226, 232, 240, 0.42);
 }
 
 .bottom-dock .debug-log-header,
@@ -691,8 +720,12 @@ body.is-resizing-bottom-dock .bottom-dock-resize-handle::before {
     overflow: visible;
   }
 
-  .bottom-dock .sidebar-section+.sidebar-section {
-    border-left: 0;
+  .bottom-dock-column-resize-handle {
+    display: none;
+  }
+
+  .bottom-dock .inference-output-section,
+  .bottom-dock .debug-log-section {
     border-top: 1px solid rgba(226, 232, 240, 0.16);
   }
 }
@@ -1263,7 +1296,9 @@ body.is-resizing-bottom-dock * {
 }
 
 body.is-resizing-sidebar,
-body.is-resizing-sidebar * {
+body.is-resizing-sidebar *,
+body.is-resizing-bottom-column,
+body.is-resizing-bottom-column * {
   cursor: ew-resize !important;
   user-select: none;
 }

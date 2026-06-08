@@ -3,9 +3,18 @@ const sidePanel = document.getElementById('sidePanel');
 const sideHandle = document.getElementById('sidePanelResizeHandle');
 const dock = document.querySelector('.bottom-dock');
 const dockHandle = document.getElementById('bottomDockResizeHandle');
+const dockColumnHandles = [...document.querySelectorAll('[data-bottom-column-resize]')];
+const dockSections = {
+    metrics: document.querySelector('[data-performance-metrics-section]'),
+    inference: document.querySelector('[data-inference-output-section]'),
+    debug: document.querySelector('[data-debug-log-section]'),
+};
 
 const sidebarStorageKey = 'pek-layout:sidebar-width:v1';
 const dockStorageKey = 'pek-layout:bottom-dock-height:v1';
+const dockColumnStorageKey = 'pek-layout:bottom-dock-columns:v1';
+const dockColumnKeys = ['metrics', 'inference', 'debug'];
+let dockColumnFitFrame = null;
 
 function px(value) {
     const parsed = Number.parseFloat(value);
@@ -32,10 +41,120 @@ function dockLimits() {
     };
 }
 
+function visibleDockColumnHandles() {
+    return dockColumnHandles.filter((handle) => getComputedStyle(handle).display !== 'none');
+}
+
+function dockColumnHandleWidth() {
+    const handle = visibleDockColumnHandles()[0];
+    const width = handle ? handle.getBoundingClientRect().width : 10;
+    return width || 10;
+}
+
+function dockColumnAvailableWidth() {
+    if (!dock) return 0;
+
+    const handleSpace = visibleDockColumnHandles().length * dockColumnHandleWidth();
+    return Math.max(0, dock.getBoundingClientRect().width - handleSpace);
+}
+
+function dockColumnMinimums(available) {
+    const compact = available < 900;
+    return {
+        metrics: compact ? 180 : 220,
+        inference: compact ? 220 : 260,
+        debug: compact ? 220 : 260,
+    };
+}
+
+function defaultDockColumnWidths() {
+    const available = dockColumnAvailableWidth();
+    return {
+        metrics: available * 0.3,
+        inference: available * 0.34,
+        debug: available * 0.36,
+    };
+}
+
+function readDockColumnWidths() {
+    const measured = {};
+    for (const key of dockColumnKeys) {
+        measured[key] = dockSections[key]?.getBoundingClientRect().width || 0;
+    }
+
+    if (dockColumnKeys.every((key) => measured[key] > 0))
+        return measured;
+
+    return defaultDockColumnWidths();
+}
+
+function normalizeDockColumnWidths(widths) {
+    const available = dockColumnAvailableWidth();
+    if (!available)
+        return widths;
+
+    const minimums = dockColumnMinimums(available);
+    const minTotal = dockColumnKeys.reduce((sum, key) => sum + minimums[key], 0);
+    const usableMinimums = minTotal > available
+        ? Object.fromEntries(dockColumnKeys.map((key) => [key, minimums[key] * available / minTotal]))
+        : minimums;
+
+    const next = Object.fromEntries(dockColumnKeys.map((key) => [
+        key,
+        Math.max(usableMinimums[key], Number.isFinite(widths[key]) ? widths[key] : 0),
+    ]));
+
+    let total = dockColumnKeys.reduce((sum, key) => sum + next[key], 0);
+    if (total > available) {
+        let excess = total - available;
+        for (const key of ['inference', 'metrics', 'debug']) {
+            const shrinkable = Math.max(0, next[key] - usableMinimums[key]);
+            const shrink = Math.min(shrinkable, excess);
+            next[key] -= shrink;
+            excess -= shrink;
+            if (excess <= 0)
+                break;
+        }
+    } else if (total < available) {
+        next.debug += available - total;
+    }
+
+    return next;
+}
+
+function setDockColumnWidths(widths, persist = false) {
+    if (!dock || !visibleDockColumnHandles().length)
+        return;
+
+    const next = normalizeDockColumnWidths(widths);
+    root.style.setProperty('--bottom-metrics-column', `${Math.round(next.metrics)}px`);
+    root.style.setProperty('--bottom-inference-column', `${Math.round(next.inference)}px`);
+    root.style.setProperty('--bottom-debug-column', `${Math.round(next.debug)}px`);
+
+    if (persist) {
+        localStorage.setItem(dockColumnStorageKey, JSON.stringify({
+            metrics: Math.round(next.metrics),
+            inference: Math.round(next.inference),
+            debug: Math.round(next.debug),
+        }));
+    }
+}
+
+function scheduleDockColumnFit(persist = false) {
+    if (dockColumnFitFrame)
+        cancelAnimationFrame(dockColumnFitFrame);
+
+    dockColumnFitFrame = requestAnimationFrame(() => {
+        dockColumnFitFrame = null;
+        setDockColumnWidths(readDockColumnWidths(), persist);
+    });
+}
+
 function setSidebarWidth(width, persist = false) {
     const { min, max } = sidebarLimits();
     const nextWidth = clamp(width, min, max);
     root.style.setProperty('--sidebar-width', `${nextWidth}px`);
+    scheduleDockColumnFit(persist);
 
     if (persist) {
         localStorage.setItem(sidebarStorageKey, String(Math.round(nextWidth)));
@@ -61,6 +180,15 @@ function restoreLayoutSizes() {
     const storedDockHeight = px(localStorage.getItem(dockStorageKey));
     if (storedDockHeight) {
         setDockHeight(storedDockHeight);
+    }
+
+    try {
+        const storedDockColumns = JSON.parse(localStorage.getItem(dockColumnStorageKey) || 'null');
+        if (storedDockColumns && dockColumnKeys.every((key) => px(storedDockColumns[key]))) {
+            setDockColumnWidths(storedDockColumns);
+        }
+    } catch {
+        localStorage.removeItem(dockColumnStorageKey);
     }
 }
 
@@ -122,10 +250,57 @@ function startDockResize(event) {
     window.addEventListener('pointercancel', stop, { once: true });
 }
 
+function startDockColumnResize(event) {
+    if (event.button !== undefined && event.button !== 0) return;
+    if (!dock || !visibleDockColumnHandles().includes(event.currentTarget)) return;
+
+    const resizeTarget = event.currentTarget.dataset.bottomColumnResize;
+    const [leftKey, rightKey] = resizeTarget.split('-');
+    if (!dockSections[leftKey] || !dockSections[rightKey]) return;
+
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidths = readDockColumnWidths();
+    const pairWidth = startWidths[leftKey] + startWidths[rightKey];
+    const minimums = dockColumnMinimums(dockColumnAvailableWidth());
+    const pairMinimumTotal = minimums[leftKey] + minimums[rightKey];
+    const minScale = pairMinimumTotal > pairWidth ? pairWidth / pairMinimumTotal : 1;
+    const minLeft = minimums[leftKey] * minScale;
+    const minRight = minimums[rightKey] * minScale;
+
+    document.body.classList.add('is-resizing-layout', 'is-resizing-bottom-column');
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+
+    const move = (moveEvent) => {
+        const delta = moveEvent.clientX - startX;
+        const nextLeft = clamp(startWidths[leftKey] + delta, minLeft, pairWidth - minRight);
+        const nextWidths = {
+            ...startWidths,
+            [leftKey]: nextLeft,
+            [rightKey]: pairWidth - nextLeft,
+        };
+        setDockColumnWidths(nextWidths);
+    };
+
+    const stop = () => {
+        document.body.classList.remove('is-resizing-layout', 'is-resizing-bottom-column');
+        setDockColumnWidths(readDockColumnWidths(), true);
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', stop);
+        window.removeEventListener('pointercancel', stop);
+    };
+
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', stop, { once: true });
+    window.addEventListener('pointercancel', stop, { once: true });
+}
+
 restoreLayoutSizes();
+scheduleDockColumnFit();
 
 sideHandle?.addEventListener('pointerdown', startSidebarResize);
 dockHandle?.addEventListener('pointerdown', startDockResize);
+dockColumnHandles.forEach((handle) => handle.addEventListener('pointerdown', startDockColumnResize));
 
 window.addEventListener('resize', () => {
     const currentSidebarWidth = px(getComputedStyle(root).getPropertyValue('--sidebar-width'));
@@ -133,4 +308,6 @@ window.addEventListener('resize', () => {
 
     const currentDockHeight = px(getComputedStyle(root).getPropertyValue('--bottom-dock-height'));
     if (currentDockHeight) setDockHeight(currentDockHeight, true);
+
+    scheduleDockColumnFit(true);
 });
