@@ -31,9 +31,8 @@ EOF
 }
 
 case "$BUILD_TYPE" in
-    debug|release)
-        ;;
-    -h|--help)
+    debug | release) ;;
+    -h | --help)
         usage
         exit 0
         ;;
@@ -45,8 +44,7 @@ case "$BUILD_TYPE" in
 esac
 
 case "$ENABLE_TESTS" in
-    true|false)
-        ;;
+    true | false) ;;
     *)
         echo "ENABLE_TESTS must be true or false, got: $ENABLE_TESTS" >&2
         usage >&2

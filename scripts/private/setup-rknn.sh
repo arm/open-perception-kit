@@ -11,7 +11,7 @@ WORK_DIR="${WORK_DIR:-/work/var/rknn-dev}"
 DEPS_DIR="${DEPS_DIR:-/work/deps}"
 
 usage() {
-    cat <<'EOF'
+    cat << 'EOF'
 Build and stage RKNN C/C++ runtime files for PEK.
 
 Usage:

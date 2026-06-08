@@ -16,7 +16,7 @@ NCNN_BUILD_TOOLS="${NCNN_BUILD_TOOLS:-OFF}"
 NCNN_SHARED_LIBS="${NCNN_SHARED_LIBS:-OFF}"
 
 usage() {
-    cat <<'EOF'
+    cat << 'EOF'
 Build and stage NCNN C/C++ development files for PEK.
 
 Usage:

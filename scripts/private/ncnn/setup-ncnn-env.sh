@@ -10,7 +10,7 @@ PYTHON_VERSION="${PYTHON_VERSION:-3.11}"
 NCNN_CONVERSION_PACKAGES="${NCNN_CONVERSION_PACKAGES:-pnnx onnx onnxsim numpy}"
 
 usage() {
-    cat <<'EOF'
+    cat << 'EOF'
 Create an NCNN model-conversion environment for PEK.
 
 Usage:
@@ -126,7 +126,7 @@ uv venv --python "${PYTHON_VERSION}" --seed "${VENV_DIR}"
 # shellcheck disable=SC1090
 source "${VENV_DIR}/bin/activate"
 
-python - "${PYTHON_VERSION}" <<'PY'
+python - "${PYTHON_VERSION}" << 'PY'
 import sys
 expected = tuple(int(part) for part in sys.argv[1].split(".")[:2])
 if sys.version_info[:2] != expected:
@@ -146,7 +146,7 @@ if [[ ! -x "${VENV_DIR}/bin/pnnx" ]]; then
     die "pnnx command was not installed into ${VENV_DIR}/bin"
 fi
 
-python - <<'PY'
+python - << 'PY'
 import importlib
 for name in ("pnnx", "onnx", "numpy"):
     importlib.import_module(name)

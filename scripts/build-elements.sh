@@ -82,10 +82,10 @@ normalize_feature_value() {
     local value="$2"
 
     case "$value" in
-        enabled|enable|true|1|yes|on)
+        enabled | enable | true | 1 | yes | on)
             printf "enabled"
             ;;
-        disabled|disable|false|0|no|off)
+        disabled | disable | false | 0 | no | off)
             printf "disabled"
             ;;
         auto)

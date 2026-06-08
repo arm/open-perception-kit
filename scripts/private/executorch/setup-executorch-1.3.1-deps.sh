@@ -6,7 +6,7 @@
 set -euo pipefail
 
 usage() {
-    cat <<'EOF'
+    cat << 'EOF'
 Build and stage ExecuTorch 1.3.1 development files for PEK.
 
 Usage:
@@ -65,7 +65,7 @@ die() {
 }
 
 need_cmd() {
-    command -v "$1" >/dev/null 2>&1 || die "missing required command: $1"
+    command -v "$1" > /dev/null 2>&1 || die "missing required command: $1"
 }
 
 resolve_path() {
@@ -90,7 +90,7 @@ safe_rm_rf() {
     local allow_work_dir="${2:-0}"
 
     case "${path}" in
-        ""|"/"|".")
+        "" | "/" | ".")
             die "refusing to remove unsafe path: ${path}"
             ;;
     esac
@@ -165,7 +165,7 @@ while [[ $# -gt 0 ]]; do
             CLEAN_BUILD=0
             shift
             ;;
-        --help|-h)
+        --help | -h)
             usage
             exit 0
             ;;
@@ -217,7 +217,7 @@ need_cmd git
 need_cmd tar
 need_cmd cmake
 
-if command -v ninja >/dev/null 2>&1; then
+if command -v ninja > /dev/null 2>&1; then
     CMAKE_GENERATOR_ARGS=(-G Ninja)
 else
     need_cmd make
@@ -228,7 +228,7 @@ create_venv() {
     log "Preparing Python ${PYTHON_VERSION} venv: ${VENV_DIR}"
     mkdir -p "${WORK_DIR}"
 
-    if command -v uv >/dev/null 2>&1; then
+    if command -v uv > /dev/null 2>&1; then
         (cd "${WORK_DIR}" && uv venv --no-project --python "${PYTHON_VERSION}" --seed "${VENV_DIR}")
     else
         local pybin
@@ -239,15 +239,15 @@ create_venv() {
 
     # shellcheck disable=SC1091
     source "${VENV_DIR}/bin/activate"
-    python - <<'PY'
+    python - << 'PY'
 import sys
 if sys.version_info[:2] != (3, 11):
     raise SystemExit(f"ExecuTorch build requires Python 3.11, got {sys.version.split()[0]}")
 PY
 
-    if python -m pip --version >/dev/null 2>&1; then
+    if python -m pip --version > /dev/null 2>&1; then
         (cd "${WORK_DIR}" && python -m pip install --upgrade pip)
-    elif command -v uv >/dev/null 2>&1; then
+    elif command -v uv > /dev/null 2>&1; then
         (cd "${WORK_DIR}" && uv pip install --python "${VENV_DIR}/bin/python" --upgrade pip)
     else
         die "pip is unavailable in ${VENV_DIR}; install Python venv support or use uv"
@@ -260,9 +260,9 @@ verify_executorch_archive() {
 
     [[ -n "${EXECUTORCH_ARCHIVE_SHA256}" ]] || return 0
 
-    if command -v sha256sum >/dev/null 2>&1; then
+    if command -v sha256sum > /dev/null 2>&1; then
         actual="$(sha256sum "${archive}" | awk '{print $1}')"
-    elif command -v shasum >/dev/null 2>&1; then
+    elif command -v shasum > /dev/null 2>&1; then
         actual="$(shasum -a 256 "${archive}" | awk '{print $1}')"
     else
         die "cannot verify archive checksum: missing sha256sum or shasum"
@@ -283,7 +283,7 @@ prepare_executorch_source() {
 
     if [[ -e "${EXECUTORCH_DIR}" ]]; then
         if [[ -f "${EXECUTORCH_DIR}/version.txt" ]] &&
-           [[ "$(tr -d '[:space:]' < "${EXECUTORCH_DIR}/version.txt")" == "${EXECUTORCH_VERSION}" ]]; then
+            [[ "$(tr -d '[:space:]' < "${EXECUTORCH_DIR}/version.txt")" == "${EXECUTORCH_VERSION}" ]]; then
             log "Reusing existing ExecuTorch ${EXECUTORCH_VERSION} source"
             return 0
         fi
@@ -345,14 +345,14 @@ populate_executorch_submodules() {
         die "ExecuTorch source is missing .gitmodules; cannot recover third-party sources"
 
     log "Populating ExecuTorch ${EXECUTORCH_VERSION} third-party sources from pinned tag metadata"
-    (
+    (   
         cd "${EXECUTORCH_DIR}"
 
         if [[ ! -d .git ]]; then
             git init
         fi
 
-        if git remote get-url origin >/dev/null 2>&1; then
+        if git remote get-url origin > /dev/null 2>&1; then
             git remote set-url origin "${EXECUTORCH_GIT_URL}"
         else
             git remote add origin "${EXECUTORCH_GIT_URL}"
@@ -458,7 +458,8 @@ copy_libtorch_from_venv() {
     source "${VENV_DIR}/bin/activate"
 
     local torch_root
-    torch_root="$(python - <<'PY'
+    torch_root="$(
+                  python - << 'PY'
 import importlib.util
 from pathlib import Path
 
@@ -468,7 +469,7 @@ if spec and spec.origin:
     if (root / "include").is_dir():
         print(root)
 PY
-)"
+    )"
 
     [[ -n "${torch_root}" ]] || return 1
 
@@ -547,7 +548,7 @@ validate_staged_files() {
 }
 
 print_summary() {
-    cat <<EOF
+    cat << EOF
 
 ExecuTorch development files are ready.
 
