@@ -681,7 +681,7 @@
         setCopyAvailable(byId("copyInferenceOutputBtn"), Boolean(latestInferenceText));
 
         if (!layers.length) {
-            body.innerHTML = '<div class="inference-output-empty">No inference output yet</div>';
+            body.innerHTML = '<div class="inference-output-empty">No inference output yet, enable a model to see inference here.</div>';
             return;
         }
 
