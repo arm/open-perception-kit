@@ -26,6 +26,7 @@ const dockColumnWeights = {
     debug: 0.36,
 };
 let dockColumnFitFrame = null;
+let dockColumnTransitionFitFrame = null;
 
 function px(value) {
     const parsed = Number.parseFloat(value);
@@ -223,6 +224,27 @@ function scheduleDockColumnFit(persist = false) {
     });
 }
 
+function fitDockColumnsDuringTransition(duration = 260) {
+    const startedAt = performance.now();
+
+    if (dockColumnTransitionFitFrame)
+        cancelAnimationFrame(dockColumnTransitionFitFrame);
+
+    const fit = () => {
+        setDockColumnWidths(readDockColumnWidths());
+
+        if (performance.now() - startedAt < duration) {
+            dockColumnTransitionFitFrame = requestAnimationFrame(fit);
+            return;
+        }
+
+        dockColumnTransitionFitFrame = null;
+        scheduleDockColumnFit();
+    };
+
+    dockColumnTransitionFitFrame = requestAnimationFrame(fit);
+}
+
 function setSidebarWidth(width, persist = false) {
     const { min, max } = sidebarLimits();
     const nextWidth = clamp(width, min, max);
@@ -400,5 +422,17 @@ window.addEventListener('output-panels-change', () => {
 
 window.addEventListener('video-layout-change', () => {
     configureDockColumnHandles();
-    scheduleDockColumnFit();
+    fitDockColumnsDuringTransition();
+});
+
+document.querySelector('.card-body')?.addEventListener('transitionend', (event) => {
+    if (event.propertyName === 'grid-template-columns') {
+        scheduleDockColumnFit();
+    }
+});
+
+document.querySelector('.main-content')?.addEventListener('transitionend', (event) => {
+    if (event.propertyName === 'grid-template-rows') {
+        scheduleDockColumnFit();
+    }
 });

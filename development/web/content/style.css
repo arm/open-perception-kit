@@ -637,6 +637,8 @@ body.video-fullscreen .side-panel-resize-handle {
   min-height: 72px;
   height: 100%;
   max-height: none;
+  width: 100%;
+  max-width: 100%;
   background: #000000;
   border-top: 1px solid rgba(226, 232, 240, 0.28);
   overflow: hidden;
@@ -721,6 +723,8 @@ body.output-panels-empty .bottom-dock-panels {
 
 .bottom-dock-panels {
   flex: 1;
+  width: 100%;
+  max-width: 100%;
   min-height: 0;
   display: grid;
   grid-template-columns:
@@ -768,9 +772,11 @@ body.is-resizing-bottom-dock .bottom-dock-resize-handle::before {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  max-width: 100%;
   min-height: 0;
   padding: 14px 16px 8px;
   border-top: 0;
+  overflow: hidden;
 }
 
 .bottom-dock-column-resize-handle {
@@ -878,6 +884,7 @@ body.is-resizing-bottom-column .bottom-dock-column-resize-handle::before {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-width: 0;
   margin-bottom: 12px;
 }
 
@@ -886,10 +893,15 @@ body.is-resizing-bottom-column .bottom-dock-column-resize-handle::before {
 .performance-metrics-header > .sidebar-section-title,
 .inference-output-header > .sidebar-section-title {
   margin-bottom: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .section-copy-button {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   width: 30px;
