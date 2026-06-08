@@ -3,7 +3,7 @@
  * Handles fetching and displaying registered AI models
  */
 
-import { ctrlSend } from "./ctrlws.js?v=dependency-toggle-lock-20260608"
+import { ctrlSend } from "./ctrlws.js?v=disabled-toggle-tooltip-20260608"
 
 const PREFERRED_MODEL_ORDER = [
     'YoloV11',
@@ -247,7 +247,7 @@ class ModelsManager {
             : `Toggle ${model.name}`;
 
         const toggleMarkup = `
-            <label class="model-toggle-switch" aria-label="${toggleLabel}">
+            <label class="model-toggle-switch" aria-label="${toggleLabel}" ${isForced ? 'data-tooltip="Cannot be disabled as this model is required by an enabled model."' : ''}>
                 <input type="checkbox" role="switch" ${displayActive ? 'checked' : ''} ${isForced ? 'disabled aria-disabled="true"' : ''}>
                 <span class="model-toggle-track" aria-hidden="true">
                     <span class="model-toggle-thumb"></span>

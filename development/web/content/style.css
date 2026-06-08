@@ -1428,11 +1428,42 @@ body.is-resizing-bottom-column * {
 }
 
 .model-toggle-switch {
+  position: relative;
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
   cursor: pointer;
   user-select: none;
+}
+
+.model-toggle-switch[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 9px);
+  z-index: 20;
+  width: max-content;
+  max-width: 220px;
+  padding: 8px 10px;
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+  background: #000000;
+  color: var(--text);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.58);
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.2;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(3px);
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease;
+}
+
+.model-toggle-switch[data-tooltip]:hover::after {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .model-toggle-switch input {

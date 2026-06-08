@@ -366,7 +366,7 @@
             : `Toggle ${model.name}`;
 
         return `
-            <label class="model-toggle-switch" aria-label="${escapeHtml(ariaLabel)}">
+            <label class="model-toggle-switch" aria-label="${escapeHtml(ariaLabel)}" ${isForced ? 'data-tooltip="Cannot be disabled as this model is required by an enabled model."' : ""}>
                 <input type="checkbox" role="switch" ${displayActive ? "checked" : ""} ${isForced ? "disabled aria-disabled=\"true\"" : ""}>
                 <span class="model-toggle-track" aria-hidden="true">
                     <span class="model-toggle-thumb"></span>
