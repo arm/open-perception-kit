@@ -20,6 +20,13 @@
     let pipelineById = new Map();
     let currentPipelineId = "";
     let pipelineActionBusy = false;
+    let lastModelsSignature = "";
+    let infoPanel = null;
+    let activeInfoButton = null;
+    let activeInfoKey = null;
+    let infoRequestId = 0;
+    const descriptionCache = new Map();
+    const modelInfoByKey = new Map();
     window.PEK_FEED_PAUSED = Boolean(window.PEK_FEED_PAUSED);
     let currentPlaying = !window.PEK_FEED_PAUSED;
     let lastPauseToggleAt = 0;
@@ -326,12 +333,193 @@
     }
 
     function infoMarkup(model) {
-        return `<button class="model-info-button" type="button" aria-label="Information for ${escapeHtml(model.name)}">i</button>`;
+        return `<button class="model-info-button" type="button" data-model-key="${escapeHtml(modelKey(model))}" data-info-text="${escapeHtml(model.description || "Loading information...")}" aria-label="Information for ${escapeHtml(model.name)}" aria-expanded="false">i</button>`;
+    }
+
+    function getInfoPanel() {
+        if (infoPanel)
+            return infoPanel;
+
+        infoPanel = byId("model-info-panel");
+        if (!infoPanel) {
+            infoPanel = document.createElement("div");
+            infoPanel.id = "model-info-panel";
+            document.body.appendChild(infoPanel);
+        }
+
+        infoPanel.className = "model-info-panel";
+        infoPanel.style.position = "fixed";
+        infoPanel.style.zIndex = "1000";
+        infoPanel.style.display = "none";
+        infoPanel.setAttribute("aria-hidden", "true");
+        return infoPanel;
+    }
+
+    function hideModelInfo() {
+        const panel = getInfoPanel();
+        panel.style.display = "none";
+        panel.setAttribute("aria-hidden", "true");
+
+        if (activeInfoButton) {
+            activeInfoButton.setAttribute("aria-expanded", "false");
+        }
+        activeInfoButton = null;
+        activeInfoKey = null;
+        infoRequestId += 1;
+    }
+
+    function positionModelInfo(button, text) {
+        const panel = getInfoPanel();
+        panel.textContent = text || "No description available";
+        panel.style.display = "block";
+        panel.setAttribute("aria-hidden", "false");
+
+        const rect = button.getBoundingClientRect();
+        const panelRect = panel.getBoundingClientRect();
+        const gap = 10;
+
+        let left = rect.right + gap;
+        let top = rect.top + (rect.height - panelRect.height) / 2;
+
+        if (left + panelRect.width > window.innerWidth - 12) {
+            left = Math.max(8, rect.left - panelRect.width - gap);
+        }
+        if (top < 8) {
+            top = 8;
+        }
+        if (top + panelRect.height > window.innerHeight - 8) {
+            top = Math.max(8, window.innerHeight - panelRect.height - 8);
+        }
+
+        panel.style.left = `${left}px`;
+        panel.style.top = `${top}px`;
+    }
+
+    async function fetchModelDescription(model) {
+        const cacheKey = `${model.name || ""}::${model.element_name || ""}`;
+        if (descriptionCache.has(cacheKey)) {
+            return descriptionCache.get(cacheKey);
+        }
+
+        const lookupCandidates = [model.name, model.element_name].filter(
+            (value, index, array) => value && array.indexOf(value) === index
+        );
+
+        for (const lookupName of lookupCandidates) {
+            try {
+                const response = await fetch(`/api/model-info?name=${encodeURIComponent(lookupName)}`, { cache: "no-store" });
+                if (!response.ok) continue;
+
+                const payload = await response.json();
+                const description = payload.description || payload.opchain?.description || payload.model?.description || "";
+                if (description) {
+                    descriptionCache.set(cacheKey, description);
+                    return description;
+                }
+            } catch {
+                // Fall back to inline model description below.
+            }
+        }
+
+        const fallbackDescription = model.description || model.desc || "";
+        descriptionCache.set(cacheKey, fallbackDescription);
+        return fallbackDescription;
+    }
+
+    async function showModelInfo(infoButton, model) {
+        if (!infoButton || !model)
+            return;
+
+        const key = modelKey(model);
+        if (activeInfoKey === key && getInfoPanel().style.display !== "none") {
+            positionModelInfo(infoButton, getInfoPanel().textContent);
+            return;
+        }
+
+        if (activeInfoButton) {
+            activeInfoButton.setAttribute("aria-expanded", "false");
+        }
+
+        const requestId = ++infoRequestId;
+        activeInfoButton = infoButton;
+        activeInfoKey = key;
+        infoButton.setAttribute("aria-expanded", "true");
+
+        const description = await fetchModelDescription(model);
+        if (requestId !== infoRequestId || activeInfoKey !== key) {
+            return;
+        }
+
+        activeInfoButton = infoButton;
+        infoButton.setAttribute("aria-expanded", "true");
+        positionModelInfo(infoButton, description);
+    }
+
+    function modelForInfoButton(infoButton) {
+        return modelInfoByKey.get(infoButton?.dataset.modelKey || "") || null;
+    }
+
+    function attachModelInfoDelegates(container) {
+        if (!container || container.dataset.classicInfoHover === "true")
+            return;
+
+        container.dataset.classicInfoHover = "true";
+        container.addEventListener("mouseover", (event) => {
+            const infoButton = event.target.closest?.(".model-info-button");
+            if (!infoButton || !container.contains(infoButton)) return;
+            if (infoButton.contains(event.relatedTarget)) return;
+            showModelInfo(infoButton, modelForInfoButton(infoButton));
+        });
+        container.addEventListener("mouseout", (event) => {
+            const infoButton = event.target.closest?.(".model-info-button");
+            if (!infoButton || !container.contains(infoButton)) return;
+            if (infoButton.contains(event.relatedTarget)) return;
+            if (activeInfoKey === infoButton.dataset.modelKey) hideModelInfo();
+        });
+        container.addEventListener("focusin", (event) => {
+            const infoButton = event.target.closest?.(".model-info-button");
+            if (!infoButton || !container.contains(infoButton)) return;
+            showModelInfo(infoButton, modelForInfoButton(infoButton));
+        });
+        container.addEventListener("focusout", (event) => {
+            const infoButton = event.target.closest?.(".model-info-button");
+            if (!infoButton || !container.contains(infoButton)) return;
+            if (activeInfoKey === infoButton.dataset.modelKey) hideModelInfo();
+        });
+        container.addEventListener("click", (event) => {
+            const infoButton = event.target.closest?.(".model-info-button");
+            if (!infoButton || !container.contains(infoButton)) return;
+            event.preventDefault();
+            event.stopPropagation();
+        });
+    }
+
+    function primeModelInfoText(infoButton, model) {
+        if (!infoButton)
+            return;
+
+        fetchModelDescription(model).then((description) => {
+            if (infoButton.isConnected) {
+                infoButton.dataset.infoText = description || "No description available";
+            }
+        });
     }
 
     function renderModels(models) {
         const container = byId("models-container");
         if (!container || !Array.isArray(models)) return;
+        attachModelInfoDelegates(container);
+
+        const nextSignature = JSON.stringify(models.map((model) => ({
+            active: Boolean(model.active),
+            element_name: model.element_name || "",
+            name: model.name || "",
+        })));
+        if (nextSignature === lastModelsSignature) {
+            return;
+        }
+        lastModelsSignature = nextSignature;
+        hideModelInfo();
 
         if (!models.length) {
             container.innerHTML = '<div class="models-empty">No models registered yet</div>';
@@ -339,7 +527,9 @@
         }
 
         container.innerHTML = "";
+        modelInfoByKey.clear();
         orderModels(models).forEach(({ model, relation }) => {
+            modelInfoByKey.set(modelKey(model), model);
             const item = document.createElement("div");
             item.className = `model-item model-item--${relation.type}`;
             if (relation.first) item.classList.add("model-item--child-first");
@@ -366,10 +556,7 @@
                 sendControl({ type: "model_toggle", name: model.element_name || model.name });
             });
 
-            const info = item.querySelector(".model-info-button");
-            if (model.description) {
-                info.title = model.description;
-            }
+            primeModelInfoText(item.querySelector(".model-info-button"), model);
 
             container.appendChild(item);
         });
