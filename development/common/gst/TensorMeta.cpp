@@ -59,7 +59,7 @@ GType GstMetaTensor_get_type(void) {
 
 const GstMetaInfo *GstMetaTensor_get_info(void) {
     static const GstMetaInfo *mi = NULL;
-    auto *miLocation = static_cast<void *>(&mi);
+    auto *miLocation = &mi;
     if (g_once_init_enter_pointer(miLocation)) {
         const GstMetaInfo *info = gst_meta_register(GST_META_TENSOR_TYPE,
                                                     "GstMetaTensor",

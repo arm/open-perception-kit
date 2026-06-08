@@ -68,7 +68,7 @@ template <class Traits> class Meta {
     static const GstMetaInfo *info() {
         static const GstMetaInfo *mi = nullptr;
 
-        auto *miLocation = static_cast<void *>(&mi);
+        auto *miLocation = &mi;
         if (g_once_init_enter_pointer(miLocation)) {
             const char *name = Traits::meta_name().data();
 
