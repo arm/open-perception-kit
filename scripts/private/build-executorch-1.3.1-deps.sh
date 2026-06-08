@@ -109,7 +109,7 @@ safe_rm_rf() {
 }
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
+PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
 ORIGINAL_CWD="$(pwd -P)"
 
 WORK_DIR="${WORK_DIR:-/work/var/executorch-1.3.1-build}"
