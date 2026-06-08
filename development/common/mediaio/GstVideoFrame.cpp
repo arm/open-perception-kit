@@ -26,7 +26,8 @@ std::atomic_uint64_t gMapCount{0};
 std::atomic_uint64_t gUnmapCount{0};
 
 bool lifetimeDebugEnabled() noexcept {
-    const char *value = std::getenv("PEK_GSTVIDEOFRAME_DEBUG_LIFETIME");
+    const char *value =
+        std::getenv("PEK_GSTVIDEOFRAME_DEBUG_LIFETIME"); // NOLINT(concurrency-mt-unsafe)
     return value != nullptr && value[0] != '\0' && value[0] != '0';
 }
 

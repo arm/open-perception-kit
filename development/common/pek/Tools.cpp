@@ -41,15 +41,15 @@ Result<DynamicLibraryHandle> Tools::DynamicLibraryOpen(const std::string &name) 
     void *handle = nullptr;
 
     for (const auto &n : names) {
-        dlerror();
+        dlerror(); // NOLINT(concurrency-mt-unsafe)
 
-        handle = dlopen(n.c_str(), RTLD_NOW);
+        handle = dlopen(n.c_str(), RTLD_NOW); // NOLINT(concurrency-mt-unsafe)
 
         if (handle) {
             break;
         }
 
-        const char *err = dlerror();
+        const char *err = dlerror(); // NOLINT(concurrency-mt-unsafe)
         if (!err) {
             err = "unknown error";
         }
@@ -78,11 +78,11 @@ Result<void *> Tools::DynamicLibraryGetSymbolRaw(DynamicLibraryHandle handle,
             PEK_ERROR(pek::ErrorFlag::SystemFailure, "Null dynamic library handle"));
     }
 
-    dlerror(); // clear old errors
+    dlerror(); // NOLINT(concurrency-mt-unsafe) clear old errors
 
     void *sym = dlsym(handle, symbolName.c_str());
 
-    if (const char *err = dlerror(); err != nullptr) {
+    if (const char *err = dlerror(); err != nullptr) { // NOLINT(concurrency-mt-unsafe)
         std::string errorInfo = fmt::format("Symbol [{}] lookup error: {}", symbolName, err);
         return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::SystemFailure, errorInfo));
     }

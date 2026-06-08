@@ -8,6 +8,7 @@
 #include "pek/Perception.h"
 #include "pek/TensorView.h"
 #include "pek/Types.h"
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <map>
@@ -89,7 +90,7 @@ struct OpChainContext {
      *
      * Up to MaxTensorCount tensors, indexed by tensor index in the model.
      */
-    pek::TensorView inferenceOutputTensors[pek::MaxTensorCount];
+    std::array<pek::TensorView, pek::MaxTensorCount> inferenceOutputTensors{};
     /**
      * @brief Information about the last inference execution (timing, etc.).
      */
