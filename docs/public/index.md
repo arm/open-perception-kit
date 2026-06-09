@@ -77,10 +77,7 @@ use the target Pi IP address.
 
 #### 1.2 Clone the repository 
 
-- [Structural Basics](structural-basics.md)
-- [Runtime Basics](runtime-basics.md)
-- [C++ Coding Guidelines](cpp-coding-guidelines.md)
-- [Performance Measurement With Performix](performance-measurement.md)
+- In the Raspberry Pi 5 terminal run:
 
 **Note 1: the name of the repo will be changed**
 **Note 2: this works only when public repository is released**
