@@ -81,6 +81,10 @@ Important input metadata includes:
 - value type
 - normalization, if required by the model
 
+For NCNN descriptors, use the `.param` file as `modelFile`; the runtime loads the sibling `.bin`
+file with the same basename. NCNN input/output blob names are read from the model; keep JSON
+tensor descriptors in the same order as the model's formal inputs and outputs.
+
 The easiest workflow is to copy one of the existing model folders and then adjust only the fields that differ.
 
 ## Creating the micropipeline

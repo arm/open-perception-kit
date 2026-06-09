@@ -57,8 +57,9 @@ pek::Result<void> Model::applyModelFromDescriptor(const ModelDescriptor &modelDe
 
     // INPUT tensors
     if (inputs.size() != modelDescriptor.inputTensors.size()) {
-        return tl::make_unexpected(PEK_ERROR(
-            pek::ErrorFlag::InvalidData, "input tensor count must be the same in ONNX and json"));
+        return tl::make_unexpected(
+            PEK_ERROR(pek::ErrorFlag::InvalidData,
+                      "input tensor count must be the same in runtime model and json"));
     }
 
     for (size_t i = 0; i < modelDescriptor.inputTensors.size(); i++) {
@@ -119,7 +120,7 @@ pek::Result<void> Model::applyModelFromDescriptor(const ModelDescriptor &modelDe
                 } else {
                     return tl::make_unexpected(
                         PEK_ERROR(pek::ErrorFlag::InvalidData,
-                                  "if shape is provided in input tensor, the onnx static shape "
+                                  "if shape is provided in input tensor, the runtime static shape "
                                   "must match, tip: you can skip shape in this case"));
                 }
             }
@@ -138,12 +139,12 @@ pek::Result<void> Model::applyModelFromDescriptor(const ModelDescriptor &modelDe
         if (outputs.size() != modelDescriptor.outputTensors.size()) {
             return tl::make_unexpected(
                 PEK_ERROR(pek::ErrorFlag::InvalidData,
-                          "output tensor count must be the same in ONNX and json"));
+                          "output tensor count must be the same in runtime model and json"));
         }
         if (inputs.size() != modelDescriptor.inputTensors.size()) {
             return tl::make_unexpected(
                 PEK_ERROR(pek::ErrorFlag::InvalidData,
-                          "input tensor count must be the same in ONNX and json"));
+                          "input tensor count must be the same in runtime model and json"));
         }
     } else {
         if (modelDescriptor.outputTensors.size()) {
@@ -180,7 +181,7 @@ pek::Result<void> Model::applyModelFromDescriptor(const ModelDescriptor &modelDe
                 if (modelDescriptor.outputTensors[i].shape != this->outputs[i].shape) {
                     return tl::make_unexpected(
                         PEK_ERROR(pek::ErrorFlag::InvalidData,
-                                  "if shape is provided in output tensor, the onnx static shape "
+                                  "if shape is provided in output tensor, the runtime static shape "
                                   "must match, tip: you can skip shape in this case"));
                 }
             }

@@ -4,13 +4,16 @@
 
 #pragma once
 
-#include "pek/BitmapView.h"
+#include "mediaio/VideoFrame.h"
 #include "pek/Perception.h"
 #include "pek/TensorView.h"
 #include "pek/Types.h"
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <memory>
+#include <string>
 #include <vector>
 
 namespace pek::op {
@@ -19,32 +22,46 @@ namespace pek::op {
  * @brief Execution context passed to each operation in an OpChain.
  *
  * OpChainContext carries the mutable data shared across operations during execution.
- * It contains named bitmap views for inter-operation data flow, inference tensor information,
+ * It contains named video frames for inter-operation media flow, inference tensor information,
  * and the final Perception output structure. Scheduler control is handled by OpChain and
  * process() return signals rather than by mutable context flags.
  */
 struct OpChainContext {
 
     /**
-     * @brief Named bitmap views for inter-operation image sharing.
+     * @brief Named media video frames for backend-aware frame sharing.
      *
-     * Operations can store processed video frames or intermediate images here by name
-     * (e.g., "frame", "inference_input") and retrieve them later in the chain.
+     * VideoFrame preserves backend lifetime, memory type, nanosecond timestamp,
+     * and explicit mapping semantics across the OpChain execution.
      */
-    std::map<std::string, pek::BitmapView> bitmapViews;
+    std::map<std::string, std::shared_ptr<pek::mediaio::VideoFrame>> videoFrames;
 
     /**
-     * @brief Retrieves a named bitmap view by name.
+     * @brief Retrieves a named media video frame by name.
      *
-     * @param name Name of the bitmap view.
-     * @return Pointer to the BitmapView, or nullptr if not found.
+     * @param name Name of the video frame.
+     * @return Pointer to the VideoFrame, or nullptr if not found.
      */
-    pek::BitmapView *getBitmapView(const std::string &name) {
-        auto it = bitmapViews.find(name);
-        if (it == bitmapViews.end()) {
+    pek::mediaio::VideoFrame *getVideoFrame(const std::string &name) {
+        auto it = videoFrames.find(name);
+        if (it == videoFrames.end()) {
             return nullptr;
         }
-        return &it->second;
+        return it->second.get();
+    }
+
+    /**
+     * @brief Retrieves a named media video frame by name.
+     *
+     * @param name Name of the video frame.
+     * @return Pointer to the VideoFrame, or nullptr if not found.
+     */
+    const pek::mediaio::VideoFrame *getVideoFrame(const std::string &name) const {
+        auto it = videoFrames.find(name);
+        if (it == videoFrames.end()) {
+            return nullptr;
+        }
+        return it->second.get();
     }
 
     /**
@@ -73,7 +90,7 @@ struct OpChainContext {
      *
      * Up to MaxTensorCount tensors, indexed by tensor index in the model.
      */
-    pek::TensorView inferenceOutputTensors[pek::MaxTensorCount];
+    std::array<pek::TensorView, pek::MaxTensorCount> inferenceOutputTensors{};
     /**
      * @brief Information about the last inference execution (timing, etc.).
      */

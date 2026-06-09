@@ -127,7 +127,7 @@ struct Inference {
     bool setupReady = false;
 
     static bool onnxTypeToUniflowType(ONNXTensorElementDataType onnxType, pek::Dtype &outType);
-    static std::vector<size_t>
+    static std::vector<int64_t>
     getTensorShape(const Ort::Session &session, pek::TensorInOut tensorInOut, int tensorIndex);
     static pek::Result<pek::Model> inspectModel(const Ort::Session &session);
 

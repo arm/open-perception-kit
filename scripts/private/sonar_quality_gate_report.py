@@ -401,6 +401,35 @@ def build_auth_headers(token: str) -> tuple[tuple[str, str], tuple[str, str]]:
     )
 
 
+def summarize_probe_errors(errors: Any) -> str:
+    if not isinstance(errors, list):
+        return ""
+
+    messages: list[str] = []
+    for item in errors:
+        if not isinstance(item, dict):
+            continue
+        message = str(item.get("msg", "")).strip()
+        if message:
+            messages.append(message)
+    return "; ".join(messages)[:160] if messages else ""
+
+
+def summarize_probe_payload(payload: Any, fallback: str) -> str:
+    if not isinstance(payload, dict):
+        return fallback[:160]
+
+    probe_payload = cast(ProbeBodyPayload, payload)
+    error_summary = summarize_probe_errors(probe_payload.get("errors"))
+    if error_summary:
+        return error_summary
+
+    keys = sorted(str(key) for key in payload.keys())
+    if keys:
+        return f"keys={', '.join(keys[:6])}"
+    return fallback[:160]
+
+
 def summarize_probe_body(body: str) -> str:
     compact_body = " ".join(body.split())
     if not compact_body:
@@ -411,25 +440,7 @@ def summarize_probe_body(body: str) -> str:
     except json.JSONDecodeError:
         return compact_body[:160]
 
-    if isinstance(payload, dict):
-        probe_payload = cast(ProbeBodyPayload, payload)
-        errors = probe_payload.get("errors")
-        if isinstance(errors, list):
-            messages = []
-            for item in errors:
-                if not isinstance(item, dict):
-                    continue
-                message = str(item.get("msg", "")).strip()
-                if message:
-                    messages.append(message)
-            if messages:
-                return "; ".join(messages)[:160]
-
-        keys = sorted(str(key) for key in payload.keys())
-        if keys:
-            return f"keys={', '.join(keys[:6])}"
-
-    return compact_body[:160]
+    return summarize_probe_payload(payload, compact_body)
 
 
 def probe_api_access(
@@ -650,6 +661,38 @@ def print_failed_conditions(conditions: Sequence[QualityGateCondition]) -> None:
     log_info()
 
 
+def format_secondary_location(location: Any, project_key: str) -> str | None:
+    if not isinstance(location, dict):
+        return None
+
+    component = str(location.get("component", "")).strip()
+    message = str(location.get("msg", "")).strip()
+    line_number = extract_line_number(location)
+    display_location = format_location(project_key, component, line_number)
+    if message and message != "+1":
+        return f"{display_location} {message}"
+    return display_location
+
+
+def collect_flow_secondary_locations(flow: Any, project_key: str, limit: int) -> list[str]:
+    if limit <= 0 or not isinstance(flow, dict):
+        return []
+
+    locations = flow.get("locations")
+    if not isinstance(locations, list):
+        return []
+
+    secondary_locations: list[str] = []
+    for location in locations:
+        display_location = format_secondary_location(location, project_key)
+        if display_location is None:
+            continue
+        secondary_locations.append(display_location)
+        if len(secondary_locations) >= limit:
+            break
+    return secondary_locations
+
+
 def collect_secondary_locations(
     issue: IssuePayload,
     project_key: str,
@@ -661,25 +704,10 @@ def collect_secondary_locations(
 
     secondary_locations: list[str] = []
     for flow in flows:
-        if not isinstance(flow, dict):
-            continue
-        locations = flow.get("locations")
-        if not isinstance(locations, list):
-            continue
-
-        for location in locations:
-            if not isinstance(location, dict):
-                continue
-            component = str(location.get("component", "")).strip()
-            message = str(location.get("msg", "")).strip()
-            line_number = extract_line_number(location)
-            display_location = format_location(project_key, component, line_number)
-            if message and message != "+1":
-                secondary_locations.append(f"{display_location} {message}")
-            else:
-                secondary_locations.append(display_location)
-            if len(secondary_locations) >= limit:
-                return secondary_locations
+        remaining = limit - len(secondary_locations)
+        secondary_locations.extend(collect_flow_secondary_locations(flow, project_key, remaining))
+        if len(secondary_locations) >= limit:
+            return secondary_locations
 
     return secondary_locations
 
@@ -876,13 +904,10 @@ def print_api_access_probe(
     log_info()
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    configure_logging()
-    args = parse_args(argv)
-    token = os.environ.get("SONAR_TOKEN", "").strip()
-    if not token:
-        return fail("Required environment variable is missing: SONAR_TOKEN")
-
+def load_compute_engine_task(
+    args: argparse.Namespace,
+    token: str,
+) -> tuple[ReportTaskContext, ComputeEngineTaskPayload] | int:
     try:
         ctx = load_report_task(args.report_task_file, args.branch)
         task = wait_for_task(
@@ -895,9 +920,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     except RuntimeError as exc:
         return fail(f"Sonar report error: {exc}")
 
-    workspace_root = args.report_task_file.resolve().parent.parent
-    rule_cache: dict[str, str] = {}
+    return ctx, task
 
+
+def print_report_header(ctx: ReportTaskContext) -> None:
     log_info("Sonar quality gate report")
     log_info(f"Project: {ctx['projectKey']}")
     if ctx["branch"]:
@@ -907,6 +933,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     log_info(f"CE task id: {ctx['ceTaskId']}")
     log_info()
 
+
+def extract_analysis_id(task: ComputeEngineTaskPayload) -> str | int:
     task_status = str(task.get("status", "UNKNOWN")).upper()
     log_info(f"Compute-engine status: {task_status}")
     if task_status != "SUCCESS":
@@ -917,19 +945,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     analysis_id = str(task.get("analysisId", "")).strip()
     if not analysis_id:
         return fail("Sonar report error: compute-engine task completed without an analysisId.")
+    return analysis_id
 
-    if args.probe_api_access:
-        print_api_access_probe(
-            ctx,
-            analysis_id,
-            token,
-            args.issue_limit,
-            args.hotspot_limit,
-        )
-        return int(ExitCode.OK)
 
+def load_quality_gate(
+    ctx: ReportTaskContext,
+    token: str,
+    analysis_id: str,
+) -> QualityGatePayload | int:
     try:
-        quality_gate = cast(
+        return cast(
             QualityGatePayload,
             api_get_json(
                 ctx["serverUrl"],
@@ -941,20 +966,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     except RuntimeError as exc:
         return fail(f"Sonar report error: {exc}")
 
-    project_status = quality_gate.get("projectStatus")
-    if not isinstance(project_status, dict):
-        return fail("Sonar report error: quality gate response is missing projectStatus.")
 
-    gate_status = str(project_status.get("status", "UNKNOWN")).upper()
-    log_info(f"Quality gate status: {gate_status}")
-    log_info()
-
-    conditions = project_status.get("conditions")
-    if isinstance(conditions, list):
-        print_failed_conditions(cast(list[QualityGateCondition], conditions))
-
+def print_issue_snapshot_or_error(
+    ctx: ReportTaskContext,
+    token: str,
+    workspace_root: Path,
+    gate_status: str,
+    issue_limit: int,
+    snippet_context: int,
+    rule_cache: dict[str, str],
+) -> int | None:
     try:
-        issues = load_issue_snapshot(ctx, token, args.issue_limit)
+        issues = load_issue_snapshot(ctx, token, issue_limit)
     except RuntimeError as exc:
         if gate_status == "OK":
             log_warning(f"Issue snapshot unavailable: {exc}")
@@ -971,15 +994,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         workspace_root,
         ctx["serverUrl"],
         token,
-        args.issue_limit,
-        args.snippet_context,
+        issue_limit,
+        snippet_context,
         rule_cache,
     )
+    return None
 
-    if gate_status == "OK":
-        log_info("Sonar quality gate passed.")
-        return int(ExitCode.OK)
 
+def print_hotspot_snapshot_or_warning(
+    ctx: ReportTaskContext,
+    token: str,
+    workspace_root: Path,
+    hotspot_limit: int,
+    snippet_context: int,
+    rule_cache: dict[str, str],
+) -> None:
     try:
         hotspots = cast(
             HotspotsSearchPayload,
@@ -992,7 +1021,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     projectKey=ctx["projectKey"],
                     status="TO_REVIEW",
                     inNewCodePeriod="true",
-                    ps=str(max(1, args.hotspot_limit)),
+                    ps=str(max(1, hotspot_limit)),
                 ),
             ),
         )
@@ -1002,14 +1031,97 @@ def main(argv: Sequence[str] | None = None) -> int:
             workspace_root,
             ctx["serverUrl"],
             token,
-            args.hotspot_limit,
-            args.snippet_context,
+            hotspot_limit,
+            snippet_context,
             rule_cache,
         )
     except RuntimeError as exc:
         log_warning(f"Security hotspot snapshot unavailable: {exc}")
         log_info()
+
+
+def report_quality_gate(
+    args: argparse.Namespace,
+    ctx: ReportTaskContext,
+    token: str,
+    workspace_root: Path,
+    analysis_id: str,
+    rule_cache: dict[str, str],
+) -> int:
+    quality_gate = load_quality_gate(ctx, token, analysis_id)
+    if isinstance(quality_gate, int):
+        return quality_gate
+
+    project_status = quality_gate.get("projectStatus")
+    if not isinstance(project_status, dict):
+        return fail("Sonar report error: quality gate response is missing projectStatus.")
+
+    gate_status = str(project_status.get("status", "UNKNOWN")).upper()
+    log_info(f"Quality gate status: {gate_status}")
+    log_info()
+
+    conditions = project_status.get("conditions")
+    if isinstance(conditions, list):
+        print_failed_conditions(cast(list[QualityGateCondition], conditions))
+
+    issue_error = print_issue_snapshot_or_error(
+        ctx,
+        token,
+        workspace_root,
+        gate_status,
+        args.issue_limit,
+        args.snippet_context,
+        rule_cache,
+    )
+    if issue_error is not None:
+        return issue_error
+
+    if gate_status == "OK":
+        log_info("Sonar quality gate passed.")
+        return int(ExitCode.OK)
+
+    print_hotspot_snapshot_or_warning(
+        ctx,
+        token,
+        workspace_root,
+        args.hotspot_limit,
+        args.snippet_context,
+        rule_cache,
+    )
     return int(ExitCode.QUALITY_GATE_FAILED)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    configure_logging()
+    args = parse_args(argv)
+    token = os.environ.get("SONAR_TOKEN", "").strip()
+    if not token:
+        return fail("Required environment variable is missing: SONAR_TOKEN")
+
+    loaded_task = load_compute_engine_task(args, token)
+    if isinstance(loaded_task, int):
+        return loaded_task
+    ctx, task = loaded_task
+
+    workspace_root = args.report_task_file.resolve().parent.parent
+    rule_cache: dict[str, str] = {}
+
+    print_report_header(ctx)
+    analysis_id = extract_analysis_id(task)
+    if isinstance(analysis_id, int):
+        return analysis_id
+
+    if args.probe_api_access:
+        print_api_access_probe(
+            ctx,
+            analysis_id,
+            token,
+            args.issue_limit,
+            args.hotspot_limit,
+        )
+        return int(ExitCode.OK)
+
+    return report_quality_gate(args, ctx, token, workspace_root, analysis_id, rule_cache)
 
 
 if __name__ == "__main__":

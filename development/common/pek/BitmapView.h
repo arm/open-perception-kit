@@ -20,7 +20,7 @@ namespace pek {
 struct BitmapView {
 
     /** @brief Constructs an empty bitmap view. */
-    BitmapView() {}
+    BitmapView() = default;
 
     /**
      * @brief Constructs a view over external pixel memory.

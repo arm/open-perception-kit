@@ -11,6 +11,7 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -76,7 +77,11 @@ inline void from_json(const json &j, pek::Shape &s) {
         if (i >= 8) {
             throw std::runtime_error("Too many dimensions for Shape (max 8)");
         }
-        s.dims[i] = v.get<size_t>();
+        const int64_t dim = v.get<int64_t>();
+        if (dim == 0 || dim < -1 || dim > std::numeric_limits<int>::max()) {
+            throw std::runtime_error("Shape dimension must be -1 or a positive int");
+        }
+        s.dims[i] = static_cast<int>(dim);
         ++i;
     }
     s.rank = i;
