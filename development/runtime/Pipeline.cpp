@@ -18,6 +18,7 @@
 #include <filesystem>
 #include <fstream>
 #include <mutex>
+#include <source_location>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -34,8 +35,10 @@ void ensureGstInitialized() {
     std::call_once(once, []() { gst_init(nullptr, nullptr); });
 }
 
-Error makeError(ErrorFlag flag, const std::string &message) {
-    return Error(flag, message);
+Error makeError(ErrorFlag flag,
+                const std::string &message,
+                std::source_location loc = std::source_location::current()) {
+    return Error(flag, message, loc);
 }
 
 std::string gstErrorMessage(GError *error, const gchar *debugInfo) {
