@@ -40,9 +40,18 @@ jobs:
         run: |
           docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-quality-check-full
 
+      - name: Upload quality report artifact (nightly)
+        if: ${{ always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: expkits-ci-quality-report-full
+          path: "${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.github/artifacts/expkits-ci-full-report.txt"
+          if-no-files-found: warn
+          retention-days: 10
+
       - name: Upload documentation artifact
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: pek-doc
           path: "${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/development/build/doc"
@@ -69,12 +78,40 @@ jobs:
             -e GIT_CONFIG_VALUE_0 \
             pek-quality-check-pull-request
 
+      - name: Upload quality report artifact (PR)
+        if: ${{ always() && github.event_name == 'pull_request' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: expkits-ci-quality-report-pr
+          path: "${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.github/artifacts/expkits-ci-pr-report.txt"
+          if-no-files-found: warn
+          retention-days: 10
+
       - name: Perception Experience Kit release build and unit test run
         if: github.event_name == 'pull_request' || github.event_name == 'schedule' ||
           github.event_name == 'workflow_dispatch'
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm
           pek-release-with-ut
+
+      - name: Run clang-tidy baseline check
+        if: github.event_name == 'pull_request' || github.event_name == 'schedule' ||
+          github.event_name == 'workflow_dispatch'
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-clang-tidy-baseline-check
+
+      - name: Upload clang-tidy logs
+        if: always() && (github.event_name == 'pull_request' || github.event_name == 'schedule' ||
+          github.event_name == 'workflow_dispatch')
+        uses: actions/upload-artifact@v7
+        with:
+          name: clang-tidy-baseline
+          path: |
+            ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/clang-tidy.log
+            ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/clang-tidy-stats.log
+            ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/clang-tidy-stats.json
+          if-no-files-found: warn
+          retention-days: 10
 
       - name: Run Valgrind checks
         id: valgrind_checks
@@ -84,7 +121,7 @@ jobs:
 
       - name: Upload Valgrind logs on failure
         if: ${{ steps.valgrind_checks.outcome == 'failure' }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: valgrind-logs
           path: |

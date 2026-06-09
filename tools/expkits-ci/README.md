@@ -10,10 +10,13 @@ It ensures consistent code quality, formatting, and license compliance for all c
 - CMake formatting and checks
 - Shell script formatting and checks
 - License header checks and insertion
+- Secret scanning with `detect-secrets` and `.secrets.baseline`
 - Branch naming checks 
 - Commit message checks
 - Clang-format checks 
 - clang-tidy checks (advisory)
+- Default startup and final summary report with effective checks and file scope
+- Optional plain-text report artifact via `--report-file`
 - Run on all files, changed files, or a custom file list
 - Verbose logging and configurable output (stdout, file, both)
 - Integration with pre-commit hooks and CI pipelines is available in the ![Edge AI Experience Kits repository](https://github.com/Arm-Debug/edge-ai-zephyr-experience-kits/)
@@ -29,10 +32,72 @@ expkits-ci --help
 Example usage:
 
 ```bash
-expkits-ci --all-checks --commit-diff
+expkits-ci --all-checks
 expkits-ci --python-format-check --cmake-format-check
+expkits-ci --check-secrets --list-of-files .github/workflows/pek-ci.yml
+expkits-ci --all-checks --pr-target-branch main --report-file artifacts/expkits-ci-report.txt
 expkits-ci --license-header --list-of-files src/main.cpp src/util.py
 ```
+
+### clang-tidy
+
+Build the project first so Meson generates
+`development/build/compile_commands.json`, then run clang-tidy on all compiled
+files or on an explicit file list:
+
+```bash
+./scripts/build-elements.sh debug true
+rm -f clang-tidy.log
+expkits-ci --clang-tidy --log-output both --log-file clang-tidy.log
+rm -f clang-tidy.log
+expkits-ci --clang-tidy \
+  --list-of-files development/elements/pektracker/Tracker.cpp \
+  --log-output both \
+  --log-file clang-tidy.log
+expkits-ci --clang-tidy-stats clang-tidy.log
+```
+
+By default, `expkits-ci` uses `development/build/compile_commands.json`. Use
+`--compile-commands-dir` only when checking against a different build
+directory. If `clang-tidy` is not on `PATH`, `expkits-ci` also checks the active
+Python environment; CI can pass `--clang-tidy-binary` explicitly if needed.
+Files not listed directly in the active compile database are skipped.
+
+The repository `.clang-tidy` policy starts with a small SonarQube-aligned
+advisory set. Some SonarQube rules have no exact clang-tidy equivalent, and
+some clang-tidy findings are extra local guidance rather than SonarQube parity.
+
+`--clang-tidy-stats` parses a saved clang-tidy log and reports how many
+diagnostics each clang-tidy check emitted. This is useful after increasing the
+enabled ruleset and running clang-tidy with
+`--log-output both --log-file clang-tidy.log`. Use
+`--clang-tidy-stats-output` to also write the statistics as JSON.
+
+CI can compare those statistics with a repository baseline:
+
+```bash
+expkits-ci --clang-tidy-stats clang-tidy.log \
+  --clang-tidy-stats-output clang-tidy-stats.json \
+  --clang-tidy-baseline .github/ci/baselines/clang-tidy-baseline.json \
+  --clang-tidy-baseline-mode enforce
+```
+
+Baseline comparison checks per-rule counts only. It does not enforce the total
+diagnostic count, so unrelated cleanup cannot hide a regression in another
+clang-tidy check.
+
+To lower the repository baseline after fixes, run:
+
+```bash
+expkits-ci --clang-tidy-stats clang-tidy.log \
+  --clang-tidy-baseline .github/ci/baselines/clang-tidy-baseline.json \
+  --clang-tidy-update-baseline
+```
+
+The update refuses to write the baseline if any current per-rule count is higher
+than the existing accepted count. When file logging is enabled, `expkits-ci`
+refuses to reuse an existing log file so statistics are not polluted by appended
+output from older runs.
 
 ## Installation
 

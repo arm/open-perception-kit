@@ -48,9 +48,14 @@ class FileUtils:
         return filtered
 
     @staticmethod
-    def get_related_files(commit_diff=False, pr_target_branch=None, files=[], ignore_folder=[]):
+    def get_related_files(commit_diff=False, pr_target_branch=None, files=None, ignore_folder=None):
         """Get files to check based on the current git state or all files in a folder."""
         logger.info("Searching for files to check...")
+
+        if files is None:
+            files = []
+        if ignore_folder is None:
+            ignore_folder = []
 
         if not files:
             try:

@@ -34,6 +34,29 @@ services:
         meson test -C development/build --print-errorlogs
       '
 
+  pek-clang-tidy-baseline-check:
+    <<: *pek-dev-base
+    hostname: pek-clang-tidy-baseline-check
+    command: |
+      bash -c '
+        set -o pipefail &&
+        .devcontainer/devsetup.sh &&
+        .devcontainer/platform_init.sh pek-dev-base &&
+        source /work/tools/.venv/bin/activate &&
+        rm -f clang-tidy.log clang-tidy-stats.log clang-tidy-stats.json &&
+        expkits-ci \
+          --clang-tidy \
+          --clang-tidy-binary /opt/pek-venvs/devtools/bin/clang-tidy \
+          --log-output both \
+          --log-file clang-tidy.log &&
+        expkits-ci \
+          --clang-tidy-stats clang-tidy.log \
+          --clang-tidy-stats-output clang-tidy-stats.json \
+          --clang-tidy-baseline .github/ci/baselines/clang-tidy-baseline.json \
+          --clang-tidy-baseline-mode enforce \
+          | tee clang-tidy-stats.log
+      '
+
   pek-valgrind-check:
     <<: *pek-docs-base
     hostname: pek-valgrind-check
@@ -50,8 +73,10 @@ services:
       bash -c '
         .devcontainer/devsetup.sh &&
         .devcontainer/platform_init.sh pek-dev-base &&
+        mkdir -p /work/.github/artifacts &&
         source /work/tools/.venv/bin/activate &&
-        expkits-ci --all-checks --pr-target-branch ${PULL_REQUEST_TARGET_BRANCH}
+        expkits-ci --all-checks --pr-target-branch ${PULL_REQUEST_TARGET_BRANCH} \
+          --report-file /work/.github/artifacts/expkits-ci-pr-report.txt
       '
 
   pek-quality-check-full:
@@ -60,9 +85,11 @@ services:
       bash -c '
         .devcontainer/devsetup.sh &&
         .devcontainer/platform_init.sh pek-dev-base &&
+        mkdir -p /work/.github/artifacts &&
         ./scripts/gen-doc.sh &&
         source /work/tools/.venv/bin/activate &&
-        expkits-ci --clang-format-check --python-format-check --cmake-format-check --shell-format-check --license-header-check
+        expkits-ci --clang-format-check --python-format-check --cmake-format-check --shell-format-check --license-header-check --check-secrets \
+          --report-file /work/.github/artifacts/expkits-ci-full-report.txt
       '
 
   pek-sonar-check:

@@ -5,9 +5,15 @@
 import os
 import re
 import sys
+import json
 import logging
+import datetime
+import shutil
+import shlex
 import subprocess
+import tempfile
 import requests
+from collections import Counter
 from git import Repo, GitCommandError
 
 from expkits_ci.license_template_manager import LicenseTemplateManager
@@ -21,10 +27,81 @@ class QualityChecks:
 
     # Constants
     JIRA_PROJECTS = ["EXPKITS"]
+    CLANG_TIDY_DIAGNOSTIC_RE = re.compile(
+        r"^(?:\[[A-Z]+\]\s*)?.+?:\d+:\d+:\s+(warning|error):\s+.+\s+\[([A-Za-z0-9_.-]+)\]\s*$")
+    # TODO: known issue also described here:
+    # https://github.com/llvm/llvm-project/pull/111453
+    # For future use other zephyr supported static code analysis should be used
+    # https://docs.zephyrproject.org/latest/develop/sca/index.html
+    CLANG_TIDY_FILTERED_FLAGS = [
+        "-fno-reorder-functions",
+        "-mfp16-format=ieee",
+        "-fno-defer-pop"
+    ]
 
     def __init__(self):
         self.license_template_manager = LicenseTemplateManager()
         self.file_utils = FileUtils()
+        self.autofix_messages = []
+
+    def record_autofix(self, filename, tool, action):
+        """Record an in-place fix and emit an actionable message."""
+        message = (
+            f"{tool} {action} {filename}. "
+            f"Review the change, git add {filename}, then rerun the check."
+        )
+        self.autofix_messages.append(message)
+        logger.error(message)
+
+    @staticmethod
+    def record_manual_fix(filename, tool, guidance):
+        """Emit an actionable message for check-only failures."""
+        logger.error(
+            f"{tool} requires changes in {filename}. "
+            f"{guidance} git add {filename}, then rerun the check."
+        )
+
+    def run_in_place_formatter(self, format_cmd, filename, tool, action="reformatted"):
+        """Run an in-place formatter and only record an autofix on success."""
+        proc = subprocess.run(
+            format_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            encoding="utf-8",
+        )
+
+        if proc.returncode == 0:
+            self.record_autofix(filename, tool, action)
+            return True
+
+        logger.error(f"{tool} failed to format {filename}.")
+        if proc.stdout:
+            logger.error(proc.stdout)
+        return False
+
+    @staticmethod
+    def log_captured_tool_output(proc_stdout):
+        """Log captured formatter output line-by-line for check-only failures."""
+        if not proc_stdout:
+            return
+
+        for output_line in proc_stdout.rstrip().splitlines():
+            logger.error(output_line)
+
+    @staticmethod
+    def get_detect_secrets_command():
+        """Resolve the detect-secrets hook command from PATH or the active Python."""
+        detect_secrets_hook = shutil.which("detect-secrets-hook")
+        if detect_secrets_hook:
+            return [detect_secrets_hook]
+
+        return [sys.executable, "-m", "detect_secrets.pre_commit_hook"]
+
+    @staticmethod
+    def iter_file_batches(files, batch_size=50):
+        """Yield deterministic file batches to keep secret scans reasonably fast."""
+        for start in range(0, len(files), batch_size):
+            yield files[start:start + batch_size]
 
     @staticmethod
     def check_branch_naming() -> bool:
@@ -307,22 +384,33 @@ class QualityChecks:
         if not os.path.isfile(baseline):
             logger.error(f"Baseline file {baseline} not found!")
             return False
-        if not files:
-            # No files specified, check all git-tracked files
+        if files is None:
+            # No explicit file set was provided, so scan all git-tracked files.
             try:
-                result = subprocess.run(["git", "ls-files"], capture_output=True, text=True, check=True)
-                files = result.stdout.strip().splitlines()
+                git_ls_files = subprocess.run(["git", "ls-files"], capture_output=True, text=True, check=True)
+                files = git_ls_files.stdout.strip().splitlines()
             except Exception as e:
                 logger.error(f"Failed to get git-tracked files: {e}")
                 result = False
                 return result
-        for file in files:
-            if os.path.isfile(file):
-                try:
-                    subprocess.run(["detect-secrets-hook", "--baseline", baseline, file], check=True)
-                except subprocess.CalledProcessError:
-                    logger.error(f"Secrets detected in {file}")
-                    result = False
+
+        existing_files = [file for file in files if os.path.isfile(file)]
+        detect_secrets_command = self.get_detect_secrets_command()
+
+        for file_batch in self.iter_file_batches(existing_files):
+            cmd = [*detect_secrets_command, "--baseline", baseline, *file_batch]
+            proc = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                encoding="utf-8",
+            )
+            if proc.returncode != 0:
+                logger.error("Secrets detected in scanned files.")
+                if proc.stdout:
+                    for output_line in proc.stdout.rstrip().splitlines():
+                        logger.error(output_line)
+                result = False
         if result:
             logger.info("No secrets detected.")
         return result
@@ -346,16 +434,25 @@ class QualityChecks:
 
             try:
                 proc = subprocess.run(
-                    cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    encoding="utf-8",
+                )
 
                 if proc.returncode != 0:
-                    logger.error(f"clang-format check failed for {filename}: \n{proc.stdout.decode(encoding='utf-8')}")
                     result = False
                     if format:
                         format_cmd = ["clang-format", "-i", filename]
-                        subprocess.run(format_cmd)
-                        logger.info(
-                            f"Formatted {filename} using clang-format. Please check the file again.")
+                        self.run_in_place_formatter(
+                            format_cmd, filename, "clang-format")
+                    else:
+                        self.log_captured_tool_output(proc.stdout)
+                        self.record_manual_fix(
+                            filename,
+                            "clang-format",
+                            "Reformat the file with clang-format.",
+                        )
             except Exception as e:
                 result = False
                 logger.error(f"Error writing output to {filename}: {e}")
@@ -365,20 +462,102 @@ class QualityChecks:
 
         return result
 
-    def remove_flags_from_file(self, file_path, flags):
-        """Remove specific flag words from a file by simple text replacement."""
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            for flag in flags:
-                content = content.replace(flag, '')
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(content)
-            logger.info(f"Removed flags from {file_path}")
-        except Exception as e:
-            logger.error(f"Error removing flags from {file_path}: {e}")
+    @staticmethod
+    def _resolve_clang_tidy_binary(clang_tidy_binary=None):
+        """Resolve clang-tidy from an override, PATH, or the active Python environment."""
+        if clang_tidy_binary:
+            return clang_tidy_binary
 
-    def check_clang_tidy(self, files) -> bool:
+        clang_tidy = shutil.which("clang-tidy")
+        if clang_tidy:
+            return clang_tidy
+
+        venv_clang_tidy = os.path.join(os.path.dirname(sys.executable), "clang-tidy")
+        if os.path.isfile(venv_clang_tidy) and os.access(venv_clang_tidy, os.X_OK):
+            return venv_clang_tidy
+
+        return None
+
+    def _resolve_compile_commands_dir(self, compile_commands_dir=None):
+        """Resolve the compile database directory used by clang-tidy."""
+        project_root = self.file_utils.get_project_root()
+
+        if compile_commands_dir:
+            if os.path.isabs(compile_commands_dir):
+                candidate_dir = compile_commands_dir
+            else:
+                candidate_dir = os.path.join(project_root, compile_commands_dir)
+        else:
+            candidate_dir = os.path.join(project_root, "development", "build")
+
+        compile_commands_path = os.path.join(candidate_dir, "compile_commands.json")
+        if os.path.isfile(compile_commands_path):
+            logger.info(f"Using clang-tidy compile database: {compile_commands_path}")
+            return candidate_dir
+
+        logger.error("Could not find compile_commands.json for clang-tidy.")
+        logger.error(f"Checked path: {compile_commands_path}")
+        logger.error("Build the project first, for example with: ./scripts/build-elements.sh debug true")
+        return None
+
+    @staticmethod
+    def _filter_compile_command_flags(compile_commands_path, output_dir, flags):
+        """Write a filtered compile_commands.json copy for clang-tidy compatibility."""
+        filtered_compile_commands_path = os.path.join(output_dir, "compile_commands.json")
+
+        with open(compile_commands_path, 'r', encoding='utf-8') as f:
+            compile_commands = json.load(f)
+
+        flags_to_remove = set(flags)
+        for entry in compile_commands:
+            if "arguments" in entry:
+                entry["arguments"] = [
+                    arg for arg in entry["arguments"]
+                    if arg not in flags_to_remove
+                ]
+            if "command" in entry:
+                command = shlex.split(entry["command"])
+                command = [
+                    arg for arg in command
+                    if arg not in flags_to_remove
+                ]
+                entry["command"] = shlex.join(command)
+
+        with open(filtered_compile_commands_path, 'w', encoding='utf-8') as f:
+            json.dump(compile_commands, f, indent=2)
+
+        logger.info(f"Prepared filtered clang-tidy compile database: {filtered_compile_commands_path}")
+        return output_dir
+
+    @staticmethod
+    def _compile_database_files(compile_commands_path, project_root):
+        """Return files covered by the current compile database."""
+        with open(compile_commands_path, 'r', encoding='utf-8') as f:
+            compile_commands = json.load(f)
+
+        compiled_files = set()
+        project_root = os.path.realpath(project_root)
+
+        for entry in compile_commands:
+            file_path = entry.get("file")
+            directory = entry.get("directory")
+            if not file_path or not directory:
+                continue
+
+            if not os.path.isabs(file_path):
+                file_path = os.path.join(directory, file_path)
+
+            file_path = os.path.realpath(file_path)
+            try:
+                rel_path = os.path.relpath(file_path, project_root)
+            except ValueError:
+                continue
+
+            compiled_files.add(os.path.normpath(rel_path))
+
+        return compiled_files
+
+    def check_clang_tidy(self, files, compile_commands_dir=None, clang_tidy_binary=None) -> bool:
         """Check clang-tidy validity to files under folder."""
         logger.info("Checking clang-tidy validity...")
 
@@ -390,46 +569,313 @@ class QualityChecks:
             logger.info("No C/C++ files found to check with clang-tidy.")
             return result
 
-        # TODO: known issue also described here:
-        # https://github.com/llvm/llvm-project/pull/111453
-        # For future use other zephyr supported static code analysis should be used
-        # https://docs.zephyrproject.org/latest/develop/sca/index.html
+        clang_tidy = self._resolve_clang_tidy_binary(clang_tidy_binary)
+        if not clang_tidy:
+            logger.error("Could not find clang-tidy. Install it or pass --clang-tidy-binary.")
+            return False
 
-        flags_to_filter = [
-            "-fno-reorder-functions",
-            "-mfp16-format=ieee",
-            "-fno-defer-pop"
-        ]
-        compile_config_path = os.path.join(self.file_utils.get_project_root(), "workspace", "build")
+        compile_config_path = self._resolve_compile_commands_dir(compile_commands_dir)
+        if not compile_config_path:
+            return False
         compile_commands_path = os.path.join(compile_config_path, "compile_commands.json")
-        self.remove_flags_from_file(compile_commands_path, flags_to_filter)
+        project_root = self.file_utils.get_project_root()
 
+        try:
+            compiled_files = self._compile_database_files(
+                compile_commands_path, project_root)
+        except Exception as e:
+            logger.error(f"Failed to read clang-tidy compile database files: {e}")
+            return False
+
+        normalized_files = []
         for f in files:
+            abs_path = f if os.path.isabs(f) else os.path.join(project_root, f)
+            abs_path = os.path.realpath(abs_path)
             try:
-                # Run clang-tidy on each file
-                cmd = ["clang-tidy", f, "-p", compile_config_path]
+                rel_path = os.path.normpath(os.path.relpath(abs_path, project_root))
+            except ValueError:
+                continue
+            normalized_files.append((f, abs_path, rel_path))
 
-                proc = subprocess.run(
-                    cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8")
+        compile_database_files = [
+            abs_path for (_orig, abs_path, rel_path) in normalized_files
+            if rel_path in compiled_files
+        ]
+        skipped_files = sorted({
+            orig for (orig, _abs, rel_path) in normalized_files
+            if rel_path not in compiled_files
+        })
+        if skipped_files:
+            logger.info(
+                "Skipping %d C/C++ file(s) not listed in the active compile database.",
+                len(skipped_files))
+            for skipped_file in skipped_files:
+                logger.debug(f"Skipped clang-tidy file not in compile database: {skipped_file}")
+        files = compile_database_files
 
-                if proc.returncode != 0:
-                    logger.error(f"clang-tidy check failed for {f}.")
-                    logger.error(proc.stdout)
-                    logger.error(proc.stderr)
-                    result = False
-                elif proc.stdout:
-                    logger.debug(f"clang-tidy output for {f}:\n{proc.stdout}")
-            except subprocess.CalledProcessError as e:
-                logger.error(f"clang-tidy failed for {f}: {e}")
-                result = False
+        if not files:
+            logger.info("No C/C++ files listed in the active compile database.")
+            return result
+
+        with tempfile.TemporaryDirectory(prefix="expkits-clang-tidy-") as filtered_compile_config_path:
+            try:
+                filtered_compile_config_path = self._filter_compile_command_flags(
+                    compile_commands_path, filtered_compile_config_path, self.CLANG_TIDY_FILTERED_FLAGS)
             except Exception as e:
-                logger.error(f"Unknown error running clang-tidy on {f}: {e}")
-                result = False
+                logger.error(f"Failed to prepare clang-tidy compile database: {e}")
+                return False
+
+            # Pass --config-file explicitly so the project's .clang-tidy at the
+            # repo root is always used, regardless of clang-tidy's auto-discovery
+            # walk from the source file directory. This protects against stray
+            # nested .clang-tidy files shadowing the root one and makes the
+            # effective config deterministic.
+            project_clang_tidy_config = os.path.join(project_root, ".clang-tidy")
+            config_file_args = []
+            if os.path.isfile(project_clang_tidy_config):
+                config_file_args = [f"--config-file={project_clang_tidy_config}"]
+            else:
+                logger.warning(
+                    "No .clang-tidy config file found at project root; "
+                    "HeaderFilterRegex may not apply.")
+
+            for f in files:
+                try:
+                    cmd = [
+                        clang_tidy,
+                        f,
+                        "-p",
+                        filtered_compile_config_path,
+                        *config_file_args,
+                        "--extra-arg=-DFMT_CONSTEVAL="
+                    ]
+
+                    proc = subprocess.run(
+                        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8")
+
+                    if proc.returncode != 0:
+                        logger.error(f"clang-tidy check failed for {f}.")
+                        logger.error(proc.stdout)
+                        logger.error(proc.stderr)
+                        result = False
+                    elif proc.stdout:
+                        logger.debug(f"clang-tidy output for {f}:\n{proc.stdout}")
+                except Exception as e:
+                    logger.error(f"Failed to run clang-tidy on {f}: {e}")
+                    result = False
 
         if result:
             logger.info("All files passed clang-tidy check.")
 
         return result
+
+    @staticmethod
+    def parse_clang_tidy_statistics(log_file):
+        """Parse clang-tidy diagnostics from a log file and count them by check name."""
+        check_counts = Counter()
+        severity_counts = Counter()
+
+        with open(log_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                match = QualityChecks.CLANG_TIDY_DIAGNOSTIC_RE.match(line.rstrip())
+                if not match:
+                    continue
+
+                severity, check_name = match.groups()
+                severity_counts[severity] += 1
+                check_counts[check_name] += 1
+
+        return check_counts, severity_counts
+
+    @staticmethod
+    def clang_tidy_statistics_to_dict(log_file, check_counts, severity_counts):
+        """Convert parsed clang-tidy statistics into a stable JSON structure."""
+        return {
+            "schema": 1,
+            "source": log_file,
+            "generated_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "total": sum(check_counts.values()),
+            "levels": dict(sorted(severity_counts.items())),
+            "checks": dict(sorted(check_counts.items())),
+        }
+
+    @staticmethod
+    def write_clang_tidy_statistics_json(stats, output_file):
+        """Write clang-tidy statistics to JSON."""
+        output_dir = os.path.dirname(output_file)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(stats, f, indent=2, sort_keys=True)
+            f.write("\n")
+
+        logger.info("Wrote clang-tidy statistics JSON: %s", output_file)
+
+    @staticmethod
+    def _load_clang_tidy_baseline(baseline_file):
+        """Load accepted per-check clang-tidy baseline counts."""
+        with open(baseline_file, 'r', encoding='utf-8') as f:
+            baseline = json.load(f)
+
+        checks = baseline.get("checks")
+        if not isinstance(checks, dict):
+            raise ValueError("Baseline JSON must contain a 'checks' object.")
+
+        return baseline, {check: int(count) for check, count in checks.items()}
+
+    @staticmethod
+    def _compare_clang_tidy_checks(current_checks, baseline_checks):
+        """Compare current clang-tidy counts to accepted baseline counts."""
+        regressions = []
+        improvements = []
+        unchanged = []
+
+        for check in sorted(set(baseline_checks) | set(current_checks)):
+            accepted = baseline_checks.get(check, 0)
+            current = current_checks.get(check, 0)
+            delta = current - accepted
+            item = {
+                "check": check,
+                "accepted": accepted,
+                "current": current,
+                "delta": delta,
+            }
+            if delta > 0:
+                regressions.append(item)
+            elif delta < 0:
+                improvements.append(item)
+            else:
+                unchanged.append(item)
+
+        regressions.sort(key=lambda item: item["delta"], reverse=True)
+        improvements.sort(key=lambda item: item["delta"])
+        return regressions, improvements, unchanged
+
+    @staticmethod
+    def _log_clang_tidy_baseline_comparison(baseline_file, mode, regressions, improvements):
+        """Log clang-tidy baseline comparison results."""
+        logger.info("clang-tidy baseline comparison:")
+        logger.info("  baseline: %s", baseline_file)
+        logger.info("  mode: %s", mode)
+        if regressions:
+            logger.error("  result: FAILED (%d per-check regression(s))", len(regressions))
+            logger.error("%-55s %8s %8s %8s", "check", "accepted", "current", "delta")
+            logger.error("%-55s %8s %8s %8s", "-" * 55, "--------", "-------", "-----")
+            for item in regressions:
+                logger.error("%-55s %8d %8d %+8d",
+                             item["check"], item["accepted"], item["current"], item["delta"])
+        else:
+            logger.info("  result: PASSED")
+
+        if improvements:
+            logger.info("  improvements: %d check(s) below accepted baseline", len(improvements))
+
+    @staticmethod
+    def compare_clang_tidy_statistics_to_baseline(stats, baseline_file, mode="advisory"):
+        """Compare current clang-tidy per-check counts to an accepted baseline."""
+        if not os.path.isfile(baseline_file):
+            logger.error("Could not find clang-tidy baseline file: %s", baseline_file)
+            return False
+
+        try:
+            _, baseline_checks = QualityChecks._load_clang_tidy_baseline(baseline_file)
+        except Exception as e:
+            logger.error("Failed to load clang-tidy baseline file: %s", e)
+            return False
+
+        current_checks = {check: int(count) for check, count in stats.get("checks", {}).items()}
+        regressions, improvements, _ = QualityChecks._compare_clang_tidy_checks(current_checks, baseline_checks)
+        QualityChecks._log_clang_tidy_baseline_comparison(baseline_file, mode, regressions, improvements)
+
+        if mode == "enforce" and regressions:
+            return False
+
+        return True
+
+    @staticmethod
+    def update_clang_tidy_baseline(stats, baseline_file):
+        """Update baseline to current counts only when no per-check count regresses."""
+        if not os.path.isfile(baseline_file):
+            logger.error("Could not find clang-tidy baseline file: %s", baseline_file)
+            return False
+
+        try:
+            _, baseline_checks = QualityChecks._load_clang_tidy_baseline(baseline_file)
+        except Exception as e:
+            logger.error("Failed to load clang-tidy baseline file: %s", e)
+            return False
+
+        current_checks = {check: int(count) for check, count in stats.get("checks", {}).items() if int(count) > 0}
+        regressions, improvements, _ = QualityChecks._compare_clang_tidy_checks(current_checks, baseline_checks)
+        QualityChecks._log_clang_tidy_baseline_comparison(
+            baseline_file, "update-baseline", regressions, improvements)
+
+        if regressions:
+            logger.error("Refusing to update clang-tidy baseline because current counts exceed the existing baseline.")
+            return False
+
+        output_dir = os.path.dirname(baseline_file)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+
+        with open(baseline_file, 'w', encoding='utf-8') as f:
+            json.dump({"checks": dict(sorted(current_checks.items()))}, f, indent=2, sort_keys=True)
+            f.write("\n")
+
+        logger.info("Updated clang-tidy baseline: %s", baseline_file)
+        return True
+
+    @staticmethod
+    def report_clang_tidy_statistics(log_file, stats_output=None, baseline_file=None,
+                                     baseline_mode="advisory", update_baseline=False) -> bool:
+        """Report clang-tidy diagnostic counts by check name from a log file."""
+        logger.info("Creating clang-tidy statistics from: %s", log_file)
+
+        if not os.path.isfile(log_file):
+            logger.error("Could not find clang-tidy log file: %s", log_file)
+            return False
+
+        try:
+            check_counts, severity_counts = QualityChecks.parse_clang_tidy_statistics(log_file)
+        except Exception as e:
+            logger.error("Failed to parse clang-tidy log file: %s", e)
+            return False
+
+        stats = QualityChecks.clang_tidy_statistics_to_dict(log_file, check_counts, severity_counts)
+        total_count = stats["total"]
+        if total_count == 0:
+            logger.info("No clang-tidy diagnostics found.")
+        else:
+            logger.info("clang-tidy diagnostics summary:")
+            logger.info("  total: %d", total_count)
+            for severity, count in sorted(severity_counts.items()):
+                logger.info("  %s: %d", severity, count)
+
+            logger.info("")
+            logger.info("%-55s %8s", "check", "count")
+            logger.info("%-55s %8s", "-" * 55, "-----")
+            for check_name, count in check_counts.most_common():
+                logger.info("%-55s %8d", check_name, count)
+
+        if stats_output:
+            try:
+                QualityChecks.write_clang_tidy_statistics_json(stats, stats_output)
+            except Exception as e:
+                logger.error("Failed to write clang-tidy statistics JSON: %s", e)
+                return False
+
+        if update_baseline:
+            if not baseline_file:
+                logger.error("--clang-tidy-update-baseline requires --clang-tidy-baseline.")
+                return False
+            return QualityChecks.update_clang_tidy_baseline(stats, baseline_file)
+
+        if baseline_file:
+            return QualityChecks.compare_clang_tidy_statistics_to_baseline(
+                stats, baseline_file, mode=baseline_mode)
+
+        return True
 
     def check_python_format(self, files, format, verbose=False) -> bool:
         """Check PEP-8 compliance for Python files."""
@@ -462,21 +908,25 @@ class QualityChecks:
                                               encoding="utf-8", cwd=project_root)
 
                         if proc.returncode == 0:
-                            logger.error(f"Formatted {f} using autopep8. Please check the file again.")
+                            self.record_autofix(f, "autopep8", "reformatted")
                             result = False
                         else:
                             logger.error(f"autopep8 failed to format {f}.")
-                            logger.info(proc.stdout)
-                            logger.info(proc.stderr)
+                            self.log_captured_tool_output(proc.stdout)
+                            self.log_captured_tool_output(proc.stderr)
                             result = False
                     else:
-                        logger.error(f"PEP-8 check failed for {f}. For details run with --verbose.")
-                        logger.info(proc.stdout)
+                        self.record_manual_fix(
+                            f,
+                            "autopep8",
+                            "Reformat the file to match PEP-8.",
+                        )
+                        self.log_captured_tool_output(proc.stdout)
                         result = False
                 elif proc.returncode != 0:
                     logger.error(f"autopep8 check failed for {f}.")
-                    logger.info(proc.stdout)
-                    logger.info(proc.stderr)
+                    self.log_captured_tool_output(proc.stdout)
+                    self.log_captured_tool_output(proc.stderr)
                     result = False
             except subprocess.CalledProcessError as e:
                 logger.error(f"Error running autopep8 on {f}: {e}")
@@ -507,17 +957,25 @@ class QualityChecks:
 
             try:
                 proc = subprocess.run(
-                    cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    encoding="utf-8",
+                )
 
                 if proc.returncode != 0:
-                    # If not formatting, show the diff
-                    logger.error(f"cmake-format check failed for {filename}.")
                     result = False
                     if format:
                         format_cmd = ["cmake-format", "-c", ".cmake-format.yaml", "-i", filename]
-                        subprocess.run(format_cmd)
-                        logger.info(
-                            f"Formatted {filename} using cmake-format.")
+                        self.run_in_place_formatter(
+                            format_cmd, filename, "cmake-format")
+                    else:
+                        self.log_captured_tool_output(proc.stdout)
+                        self.record_manual_fix(
+                            filename,
+                            "cmake-format",
+                            "Reformat the file with cmake-format.",
+                        )
             except Exception as e:
                 logger.error(f"Error writing output to {filename}: {e}")
                 result = False
@@ -544,17 +1002,25 @@ class QualityChecks:
             cmd = ["shfmt", *shfmt_args, "-d", filename]
             try:
                 proc = subprocess.run(
-                    cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    encoding="utf-8",
+                )
 
                 if proc.returncode != 0:
-                    # If not formatting, show the diff
-                    logger.error(f"shfmt check failed for {filename}.")
                     result = False
                     if format:
                         format_cmd = ["shfmt", *shfmt_args, "-w", filename]
-                        subprocess.run(format_cmd)
-                        logger.info(
-                            f"Formatted {filename} using shfmt.")
+                        self.run_in_place_formatter(
+                            format_cmd, filename, "shfmt")
+                    else:
+                        self.log_captured_tool_output(proc.stdout)
+                        self.record_manual_fix(
+                            filename,
+                            "shfmt",
+                            "Reformat the file with shfmt -i 4 -ci -sr -kp -w.",
+                        )
             except Exception as e:
                 logger.error(f"Error writing output to {filename}: {e}")
                 result = False
@@ -572,6 +1038,33 @@ class QualityChecks:
 
         return None
 
+    @staticmethod
+    def stabilize_cmake_file(filename):
+        """Re-run cmake-format after header insertion when the config is available."""
+        config_file = ".cmake-format.yaml"
+        if not os.path.isfile(config_file):
+            logger.debug(
+                f"Skipping post-header cmake-format for {filename}: {config_file} is unavailable."
+            )
+            return True
+
+        proc = subprocess.run(
+            ["cmake-format", "-c", config_file, "-i", filename],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            encoding="utf-8",
+        )
+
+        if proc.returncode == 0:
+            return True
+
+        logger.error(
+            f"cmake-format failed to stabilize {filename} after adding a license header."
+        )
+        if proc.stdout:
+            logger.error(proc.stdout)
+        return False
+
     def apply_license_header(self, filename, content):
         """Apply license header to a file, preserving shebang if present."""
         header = self.get_license_header(filename)
@@ -585,16 +1078,24 @@ class QualityChecks:
             # Preserve shebang as first line
             new_content = lines[0] + header + '\n' + ''.join(lines[1:])
         else:
-            new_content = header + '\n' + content
+            separator = '\n'
+            if self.file_utils.is_file_in_group(filename, self.file_utils.file_endings["cmake"]):
+                # Keep CMake headers formatter-stable so a second run does not rewrite spacing.
+                separator = ''
+            new_content = header + separator + content
 
         try:
             with open(filename, 'w', encoding='utf-8', newline="\n") as f:
                 f.write(new_content)
-                logger.info(f"License header added to {filename}")
         except Exception as e:
             logger.error(f"Error writing license header to {filename}: {e}")
             return False
 
+        if self.file_utils.is_file_in_group(filename, self.file_utils.file_endings["cmake"]):
+            if not self.stabilize_cmake_file(filename):
+                return False
+
+        self.record_autofix(filename, "license-header", "added a missing header to")
         return True
 
     def check_license_header(self, files, format=True) -> bool:
@@ -628,9 +1129,11 @@ class QualityChecks:
                 result = False
                 self.apply_license_header(filename, content)
             else:
-                logger.error(f"License header missing in {filename}.")
-                logger.info(
-                    "Please add the license header to the file or use --license-header to add it automatically.")
+                self.record_manual_fix(
+                    filename,
+                    "license-header",
+                    "Add the missing Arm license header to the file.",
+                )
                 result = False
 
         if result:
