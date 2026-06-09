@@ -77,7 +77,7 @@ use the target Pi IP address.
 
 #### 1.2 Clone the repository 
 
-- In the Raspberry Pi 5 terminal run:
+In the Raspberry Pi 5 terminal run:
 
 **Note 1: the name of the repo will be changed**
 **Note 2: this works only when public repository is released**
