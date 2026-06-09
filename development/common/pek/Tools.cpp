@@ -309,4 +309,3 @@ bool Tools::savePngFromRgbChwF32(const std::string &path,
                           static_cast<int>(width) * 4) != 0;
 }
 
-/* i love war agains ci */
