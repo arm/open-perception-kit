@@ -20,11 +20,6 @@ const dockColumnVariables = {
     inference: '--bottom-inference-column',
     debug: '--bottom-debug-column',
 };
-const dockColumnWeights = {
-    inference: 0.34,
-    metrics: 0.3,
-    debug: 0.36,
-};
 let dockColumnFitFrame = null;
 let dockColumnTransitionFitFrame = null;
 let dockHeightAnimationFrame = null;
@@ -131,11 +126,11 @@ function dockColumnMinimums(available) {
 function defaultDockColumnWidths() {
     const available = dockColumnAvailableWidth();
     const visibleKeys = visibleDockColumnKeys();
-    const totalWeight = visibleKeys.reduce((sum, key) => sum + dockColumnWeights[key], 0) || 1;
+    const evenWidth = visibleKeys.length ? available / visibleKeys.length : 0;
 
     return Object.fromEntries(dockColumnKeys.map((key) => [
         key,
-        visibleKeys.includes(key) ? available * dockColumnWeights[key] / totalWeight : 0,
+        visibleKeys.includes(key) ? evenWidth : 0,
     ]));
 }
 
@@ -202,6 +197,33 @@ function setDockColumnWidths(widths, persist = false) {
         return;
 
     const next = normalizeDockColumnWidths(widths);
+    root.style.setProperty('--bottom-metrics-column', `${Math.round(next.metrics)}px`);
+    root.style.setProperty('--bottom-inference-column', `${Math.round(next.inference)}px`);
+    root.style.setProperty('--bottom-debug-column', `${Math.round(next.debug)}px`);
+
+    if (persist) {
+        localStorage.setItem(dockColumnStorageKey, JSON.stringify({
+            metrics: Math.round(next.metrics),
+            inference: Math.round(next.inference),
+            debug: Math.round(next.debug),
+        }));
+    }
+}
+
+function setEqualDockColumnWidths(persist = false) {
+    configureDockColumnHandles();
+
+    if (!dockPanels)
+        return;
+
+    const available = dockColumnAvailableWidth();
+    const visibleKeys = visibleDockColumnKeys();
+    const evenWidth = visibleKeys.length ? available / visibleKeys.length : 0;
+    const next = Object.fromEntries(dockColumnKeys.map((key) => [
+        key,
+        visibleKeys.includes(key) ? evenWidth : 0,
+    ]));
+
     root.style.setProperty('--bottom-metrics-column', `${Math.round(next.metrics)}px`);
     root.style.setProperty('--bottom-inference-column', `${Math.round(next.inference)}px`);
     root.style.setProperty('--bottom-debug-column', `${Math.round(next.debug)}px`);
@@ -458,7 +480,11 @@ function startDockColumnResize(event) {
 
 restoreLayoutSizes();
 configureDockColumnHandles();
-scheduleDockColumnFit();
+if (visibleDockColumnKeys().length > 1) {
+    setEqualDockColumnWidths();
+} else {
+    scheduleDockColumnFit();
+}
 
 if (dockPanels && 'ResizeObserver' in window) {
     const dockPanelsResizeObserver = new ResizeObserver(() => {
@@ -481,8 +507,14 @@ window.addEventListener('resize', () => {
     scheduleDockColumnFit(true);
 });
 
-window.addEventListener('output-panels-change', () => {
+window.addEventListener('output-panels-change', (event) => {
     configureDockColumnHandles();
+    const visiblePanelCount = event.detail?.visiblePanels?.length || 0;
+    if (visiblePanelCount > 1) {
+        requestAnimationFrame(() => setEqualDockColumnWidths(true));
+        return;
+    }
+
     scheduleDockColumnFit(true);
 });
 
