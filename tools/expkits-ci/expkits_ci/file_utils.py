@@ -48,29 +48,41 @@ class FileUtils:
         return filtered
 
     @staticmethod
+    def discover_git_files(repo, commit_diff=False, pr_target_branch=None):
+        if pr_target_branch:
+            try:
+                repo.git.fetch("origin", pr_target_branch)
+            except GitCommandError as e:
+                logger.error(f"Could not fetch branch {pr_target_branch}: {e}")
+            return repo.git.diff(f"origin/{pr_target_branch}...HEAD", name_only=True).splitlines()
+
+        if commit_diff:
+            return [item.a_path for item in repo.index.diff("HEAD")]
+
+        return repo.git.ls_files().splitlines()
+
+    @staticmethod
+    def filter_existing_files(files, ignore_folder):
+        return [
+            f for f in files
+            if os.path.exists(f) and (
+                f.endswith(".git/COMMIT_EDITMSG")
+                or not any(f.startswith(skip) for skip in ignore_folder)
+            )
+        ]
+
+    @staticmethod
     def get_related_files(commit_diff=False, pr_target_branch=None, files=None, ignore_folder=None):
         """Get files to check based on the current git state or all files in a folder."""
         logger.info("Searching for files to check...")
 
-        if files is None:
-            files = []
-        if ignore_folder is None:
-            ignore_folder = []
+        files = [] if files is None else files
+        ignore_folder = [] if ignore_folder is None else ignore_folder
 
         if not files:
             try:
                 repo = Repo(os.getcwd(), search_parent_directories=True)
-                if pr_target_branch:
-                    try:
-                        repo.git.fetch("origin", pr_target_branch)
-                    except GitCommandError as e:
-                        logger.error(f"Could not fetch branch {pr_target_branch}: {e}")
-
-                    files = repo.git.diff(f"origin/{pr_target_branch}...HEAD", name_only=True).splitlines()
-                elif commit_diff:
-                    files = [item.a_path for item in repo.index.diff("HEAD")]
-                else:
-                    files = repo.git.ls_files().splitlines()
+                files = FileUtils.discover_git_files(repo, commit_diff, pr_target_branch)
             except GitCommandError as e:
                 logger.error(f"Could not get git files: {e}")
                 raise
@@ -78,13 +90,7 @@ class FileUtils:
                 logger.error(f"Unexpected error getting git files: {e}")
                 raise
 
-        existing_files = [
-            f for f in files
-            if os.path.exists(f) and (
-                f.endswith(".git/COMMIT_EDITMSG")
-                or not any(f.startswith(skip) for skip in ignore_folder)
-            )
-        ]
+        existing_files = FileUtils.filter_existing_files(files, ignore_folder)
         logger.info(f"Number of files to check: {len(existing_files)}")
 
         return existing_files

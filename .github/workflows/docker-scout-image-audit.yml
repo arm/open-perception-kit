@@ -91,7 +91,10 @@ jobs:
         run: |
           set -euo pipefail
           image_ref="${COMPOSE_PROJECT_NAME}-${{ matrix.image.service }}:latest"
-          docker image inspect "${image_ref}" >/dev/null 2>&1
+          if ! docker image inspect "${image_ref}" >/dev/null 2>&1; then
+            echo "Expected compose-built image tag '${image_ref}' was not found for service '${{ matrix.image.service }}'." >&2
+            exit 1
+          fi
           mkdir -p ".github/artifacts/docker-scout/${{ matrix.image.service }}"
           echo "image_ref=${image_ref}" >> "$GITHUB_OUTPUT"
 
@@ -326,7 +329,16 @@ jobs:
         run: |
           set +e
           checkout_path="${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}"
+          expected_workspace_prefix="${{ github.workspace }}/repo-"
           image_ref="${{ steps.resolve-image.outputs.image_ref }}"
+          case "${checkout_path}" in
+            "${expected_workspace_prefix}"*)
+              ;;
+            *)
+              echo "Skipping cleanup for unexpected checkout_path='${checkout_path}'" >&2
+              exit 0
+              ;;
+          esac
           if [ -n "$image_ref" ]; then
             docker image rm -f "$image_ref" || true
           fi
