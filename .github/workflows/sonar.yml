@@ -85,6 +85,7 @@ jobs:
             python3 scripts/private/sonar_quality_gate_report.py \
               --report-task-file /work/.scannerwork/report-task.txt \
               --branch "${SONAR_BRANCH}" \
+              --pull-request-key "${PR_KEY}" \
               --probe-api-access \
               >> "${probe_file}" 2>&1
           probe_rc=$?
@@ -137,6 +138,7 @@ jobs:
             python3 scripts/private/sonar_quality_gate_report.py \
               --report-task-file /work/.scannerwork/report-task.txt \
               --branch "${SONAR_BRANCH}" \
+              --pull-request-key "${PR_KEY}" \
               > "${report_file}" 2>&1
           report_rc=$?
           set -e

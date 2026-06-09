@@ -38,6 +38,7 @@ class ReportTaskContext(TypedDict, total=False):
     ceTaskId: str
     dashboardUrl: str
     projectKey: str
+    pullRequest: str
     serverUrl: str
 
 
@@ -263,6 +264,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--report-task-file", type=Path, required=True)
     parser.add_argument("--branch", default="")
+    parser.add_argument("--pull-request-key", default="")
     parser.add_argument("--timeout-seconds", type=int, default=300)
     parser.add_argument("--poll-interval-seconds", type=int, default=5)
     parser.add_argument("--issue-limit", type=int, default=25)
@@ -343,7 +345,11 @@ def api_get_json(
     raise RuntimeError(f"Sonar API request failed for {api_path}: no authentication methods succeeded")
 
 
-def load_report_task(report_task_file: Path, branch: str) -> ReportTaskContext:
+def load_report_task(
+    report_task_file: Path,
+    branch: str,
+    pull_request_key: str,
+) -> ReportTaskContext:
     if not report_task_file.exists():
         raise RuntimeError(
             "Sonar analysis did not produce report-task.txt. "
@@ -387,6 +393,9 @@ def load_report_task(report_task_file: Path, branch: str) -> ReportTaskContext:
         "projectKey": raw_data["projectKey"],
         "serverUrl": server_url,
     }
+    pull_request = pull_request_key.strip()
+    if pull_request:
+        data["pullRequest"] = pull_request
     dashboard_url = raw_data.get("dashboardUrl", "").strip()
     if dashboard_url:
         data["dashboardUrl"] = dashboard_url
@@ -527,9 +536,15 @@ def short_component(project_key: str, component: str) -> str:
     return component
 
 
-def build_query(branch: str, **params: str) -> dict[str, str]:
+def build_query(
+    branch: str = "",
+    pull_request: str = "",
+    **params: str,
+) -> dict[str, str]:
     query = {key: value for key, value in params.items() if value}
-    if branch:
+    if pull_request:
+        query["pullRequest"] = pull_request
+    elif branch:
         query["branch"] = branch
     return query
 
@@ -851,7 +866,8 @@ def load_issue_snapshot(
             "/api/issues/search",
             token,
             build_query(
-                ctx["branch"],
+                branch=ctx.get("branch", ""),
+                pull_request=ctx.get("pullRequest", ""),
                 componentKeys=ctx["projectKey"],
                 resolved="false",
                 inNewCodePeriod="true",
@@ -872,7 +888,9 @@ def print_api_access_probe(
 ) -> None:
     log_info("Sonar API access probe")
     log_info(f"Project: {ctx['projectKey']}")
-    if ctx["branch"]:
+    if ctx.get("pullRequest"):
+        log_info(f"Pull request: #{ctx['pullRequest']}")
+    if ctx.get("branch"):
         log_info(f"Branch: {ctx['branch']}")
     log_info()
 
@@ -888,7 +906,8 @@ def print_api_access_probe(
         (
             "/api/issues/search",
             build_query(
-                ctx["branch"],
+                branch=ctx.get("branch", ""),
+                pull_request=ctx.get("pullRequest", ""),
                 componentKeys=ctx["projectKey"],
                 resolved="false",
                 inNewCodePeriod="true",
@@ -898,7 +917,8 @@ def print_api_access_probe(
         (
             "/api/hotspots/search",
             build_query(
-                ctx["branch"],
+                branch=ctx.get("branch", ""),
+                pull_request=ctx.get("pullRequest", ""),
                 projectKey=ctx["projectKey"],
                 status="TO_REVIEW",
                 inNewCodePeriod="true",
@@ -916,7 +936,9 @@ def print_api_access_probe(
 def print_report_header(ctx: ReportTaskContext) -> None:
     log_info("Sonar quality gate report")
     log_info(f"Project: {ctx['projectKey']}")
-    if ctx["branch"]:
+    if ctx.get("pullRequest"):
+        log_info(f"Pull request: #{ctx['pullRequest']}")
+    if ctx.get("branch"):
         log_info(f"Branch: {ctx['branch']}")
     if ctx.get("dashboardUrl"):
         log_info(f"Dashboard: {ctx['dashboardUrl']}")
@@ -991,7 +1013,8 @@ def report_issue_and_hotspot_snapshots(
                 "/api/hotspots/search",
                 token,
                 build_query(
-                    ctx["branch"],
+                    branch=ctx.get("branch", ""),
+                    pull_request=ctx.get("pullRequest", ""),
                     projectKey=ctx["projectKey"],
                     status="TO_REVIEW",
                     inNewCodePeriod="true",
@@ -1024,7 +1047,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         return fail("Required environment variable is missing: SONAR_TOKEN")
 
     try:
-        ctx = load_report_task(args.report_task_file, args.branch)
+        ctx = load_report_task(
+            args.report_task_file,
+            args.branch,
+            args.pull_request_key,
+        )
         task = wait_for_task(
             ctx["serverUrl"],
             ctx["ceTaskId"],

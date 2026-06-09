@@ -120,8 +120,16 @@ services:
         ./scripts/build-elements.sh debug true --extra-setup-args=-Db_coverage=true,--wipe &&
         meson test -C "$$BUILD_DIR" --print-errorlogs &&
         gcovr -r . --sonarqube coverage.xml &&
-        sonar-scanner -Dsonar.qualitygate.wait="$${SONAR_QUALITYGATE_WAIT}" \
-          -Dsonar.branch.name="$$SONAR_BRANCH"
+        if [ -n "$$PR_KEY" ] && [ -n "$$PR_BRANCH" ] && [ -n "$$PR_BASE" ]; then
+          sonar_scope_args=(
+            -Dsonar.pullrequest.key="$$PR_KEY"
+            -Dsonar.pullrequest.branch="$$PR_BRANCH"
+            -Dsonar.pullrequest.base="$$PR_BASE"
+          )
+        else
+          sonar_scope_args=(-Dsonar.branch.name="$$SONAR_BRANCH")
+        fi &&
+        sonar-scanner -Dsonar.qualitygate.wait="$${SONAR_QUALITYGATE_WAIT}" "$${sonar_scope_args[@]}"
       '
 
   pek-sonar-check-release:
