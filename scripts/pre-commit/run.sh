@@ -3,7 +3,7 @@
 # Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
 
-set -euo pipefail
+set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
@@ -115,11 +115,13 @@ build_delta_command() {
     local files=()
     local target_ref=""
 
-    mapfile -d '' -t files < <(get_staged_files)
+    repo_checks_load_null_delimited_paths get_staged_files
+    files=("${REPO_CHECKS_LOADED_PATHS[@]}")
 
     if [ "${#files[@]}" -eq 0 ]; then
         target_ref="$(resolve_delta_target_ref)"
-        mapfile -d '' -t files < <(get_branch_delta_files "${target_ref}")
+        repo_checks_load_null_delimited_paths get_branch_delta_files "${target_ref}"
+        files=("${REPO_CHECKS_LOADED_PATHS[@]}")
     fi
 
     REPO_CHECKS_COMMAND=(expkits-ci --verbose --branch-naming)

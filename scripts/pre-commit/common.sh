@@ -25,6 +25,15 @@ repo_checks_die() {
     exit 1
 }
 
+repo_checks_remove_file() {
+    local path="${1:-}"
+    [ -n "${path}" ] && rm -f "${path}"
+}
+
+repo_checks_create_temp_file() {
+    mktemp "${TMPDIR:-/tmp}/repo-checks.XXXXXX"
+}
+
 repo_checks_resolve_repo_root() {
     local script_dir="$1"
     repo_checks_git_without_hook_env -C "${script_dir}" rev-parse --show-toplevel
@@ -79,6 +88,46 @@ repo_checks_image_name() {
     printf '%s\n' "${repo_name}-repo-checks"
 }
 
+# Keep the host-side flow compatible with older Bash releases by avoiding
+# Bash 4+ helpers such as mapfile and namerefs.
+repo_checks_load_lines() {
+    local tmp_file=""
+    local line=""
+
+    REPO_CHECKS_LOADED_LINES=()
+    tmp_file="$(repo_checks_create_temp_file)" || repo_checks_die "Could not create a temporary file."
+
+    if ! "$@" > "${tmp_file}"; then
+        repo_checks_remove_file "${tmp_file}"
+        return 1
+    fi
+
+    while IFS= read -r line || [ -n "${line}" ]; do
+        REPO_CHECKS_LOADED_LINES+=("${line}")
+    done < "${tmp_file}"
+
+    repo_checks_remove_file "${tmp_file}"
+}
+
+repo_checks_load_null_delimited_paths() {
+    local tmp_file=""
+    local path=""
+
+    REPO_CHECKS_LOADED_PATHS=()
+    tmp_file="$(repo_checks_create_temp_file)" || repo_checks_die "Could not create a temporary file."
+
+    if ! "$@" > "${tmp_file}"; then
+        repo_checks_remove_file "${tmp_file}"
+        return 1
+    fi
+
+    while IFS= read -r -d '' path; do
+        REPO_CHECKS_LOADED_PATHS+=("${path}")
+    done < "${tmp_file}"
+
+    repo_checks_remove_file "${tmp_file}"
+}
+
 repo_checks_build_image() {
     local repo_root="$1"
     local image_name=""
@@ -95,18 +144,13 @@ repo_checks_build_image() {
         "${repo_root}"
 }
 
-repo_checks_append_mount_if_external() {
-    local repo_root="$1"
-    local common_dir="$2"
-    local -n mount_args_ref="$3"
+repo_checks_require_built_image() {
+    local image_name="$1"
 
-    case "${common_dir}" in
-        "${repo_root}" | "${repo_root}"/*)
-            return
-            ;;
-    esac
-
-    mount_args_ref+=(-v "${common_dir}:${common_dir}")
+    if ! docker image inspect "${image_name}" > /dev/null 2>&1; then
+        repo_checks_die \
+            "Repo-checks image '${image_name}' is not built yet. From the repository root, run ./scripts/pre-commit/setup.sh first."
+    fi
 }
 
 repo_checks_run_image() {
@@ -118,9 +162,16 @@ repo_checks_run_image() {
     shift
 
     image_name="$(repo_checks_image_name "${repo_root}")"
+    repo_checks_require_built_image "${image_name}"
     common_dir="$(repo_checks_git_common_dir "${repo_root}")"
     mount_args=(-v "${repo_root}:${repo_root}")
-    repo_checks_append_mount_if_external "${repo_root}" "${common_dir}" mount_args
+    case "${common_dir}" in
+        "${repo_root}" | "${repo_root}"/*)
+            ;;
+        *)
+            mount_args+=(-v "${common_dir}:${common_dir}")
+            ;;
+    esac
 
     docker run --rm \
         --user "$(id -u):$(id -g)" \

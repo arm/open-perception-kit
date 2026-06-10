@@ -4,7 +4,7 @@ This folder owns the host-side pre-commit container flow for `amp-dev-forge`.
 
 ## Scope
 
-This branch intentionally keeps the rollout narrow:
+This folder intentionally keeps the rollout narrow:
 
 - host shell setup and hook installation
 - dedicated Docker runtime for the local quality checks
