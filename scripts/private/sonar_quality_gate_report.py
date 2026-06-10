@@ -689,7 +689,13 @@ def print_failed_conditions(conditions: Sequence[QualityGateCondition]) -> None:
     log_info()
 
 
-def iter_secondary_location_entries(issue: IssuePayload) -> Sequence[IssueLocationPayload]:
+def iter_secondary_location_entries(
+    issue: IssuePayload,
+    limit: int,
+) -> Sequence[IssueLocationPayload]:
+    if limit <= 0:
+        return []
+
     flows = issue.get("flows")
     if not isinstance(flows, list):
         return []
@@ -706,6 +712,8 @@ def iter_secondary_location_entries(issue: IssuePayload) -> Sequence[IssueLocati
             for location in flow_locations
             if isinstance(location, dict)
         )
+        if len(locations) >= limit:
+            return locations[:limit]
     return locations
 
 
@@ -728,7 +736,7 @@ def collect_secondary_locations(
     limit: int = 3,
 ) -> list[str]:
     secondary_locations: list[str] = []
-    for location in iter_secondary_location_entries(issue):
+    for location in iter_secondary_location_entries(issue, limit):
         secondary_locations.append(format_secondary_location(project_key, location))
         if len(secondary_locations) >= limit:
             break

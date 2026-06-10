@@ -50,10 +50,7 @@ class FileUtils:
     @staticmethod
     def discover_git_files(repo, commit_diff=False, pr_target_branch=None):
         if pr_target_branch:
-            try:
-                repo.git.fetch("origin", pr_target_branch)
-            except GitCommandError as e:
-                logger.error(f"Could not fetch branch {pr_target_branch}: {e}")
+            repo.git.fetch("origin", pr_target_branch)
             return repo.git.diff(f"origin/{pr_target_branch}...HEAD", name_only=True).splitlines()
 
         if commit_diff:
