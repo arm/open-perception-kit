@@ -46,8 +46,6 @@ sys.modules[spec.name] = module
 spec.loader.exec_module(module)
 
 for case in module.FORMATTER_CASES:
-    if case.input_fixture.startswith("shell/"):
-        continue
     print(f"{case.target_path}|{case.input_fixture}|{case.expected_fixture}")
 PY
 }

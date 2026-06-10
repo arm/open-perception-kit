@@ -7,7 +7,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        git && \
+        git \
+        shfmt && \
     rm -rf /var/lib/apt/lists/*
 
 COPY tools/expkits-ci /tmp/pek-tools/expkits-ci

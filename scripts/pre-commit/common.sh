@@ -166,8 +166,7 @@ repo_checks_run_image() {
     common_dir="$(repo_checks_git_common_dir "${repo_root}")"
     mount_args=(-v "${repo_root}:${repo_root}")
     case "${common_dir}" in
-        "${repo_root}" | "${repo_root}"/*)
-            ;;
+        "${repo_root}" | "${repo_root}"/*) ;;
         *)
             mount_args+=(-v "${common_dir}:${common_dir}")
             ;;

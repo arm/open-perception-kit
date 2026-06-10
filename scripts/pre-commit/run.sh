@@ -135,6 +135,7 @@ build_delta_command() {
         --clang-format
         --python-format
         --cmake-format
+        --shell-format
         --license-header
         --check-secrets
         --list-of-files
@@ -150,6 +151,7 @@ build_full_command() {
         --clang-format
         --python-format
         --cmake-format
+        --shell-format
         --license-header
         --check-secrets
     )
