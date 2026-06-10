@@ -49,7 +49,7 @@ jobs:
       - name: Write publish summary
         shell: bash
         run: |
-          cat <<EOF >> "$GITHUB_STEP_SUMMARY"
+          cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
           ## Summary
 
           - Published ref: `${{ inputs.publish_ref || github.sha }}`

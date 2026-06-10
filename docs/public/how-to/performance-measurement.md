@@ -1,6 +1,8 @@
 ---
-sidebar_position: 8
+title: Performance Measurement With Performix
+sidebar_position: 7
 sidebar_label: Performance Measurement
+description: Set up SSH access and use Performix to measure a Perception XPK pipeline on the target device.
 ---
 
 # Performance Measurement With Performix
@@ -116,4 +118,4 @@ After running a recipe by clicking `Run Recipe`, you will get the measurement re
 
 ![Performix results](/img/performix-results.jpg)
 
-[Back to How-To Guides](index.md)
+[Back to How-To Guides](/how-to)

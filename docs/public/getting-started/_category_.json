@@ -1,4 +1,10 @@
 {
   "position": 1,
-  "label": "Get Started"
+  "label": "Get Started",
+  "link": {
+    "type": "generated-index",
+    "slug": "/getting-started",
+    "title": "Get Started",
+    "description": "Choose the right setup path for Perception XPK and prepare your development environment."
+  }
 }

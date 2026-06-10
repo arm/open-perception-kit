@@ -1,6 +1,8 @@
 ---
-sidebar_position: 2
+title: Structural Basics
+sidebar_position: 1
 sidebar_label: Structural Basics
+description: Learn where Perception XPK stores models, opchains, pipelines, media, scripts, source code, and docs.
 ---
 
 # Structural Basics
@@ -126,4 +128,4 @@ By the end of this page, you should have:
 
 Success looks like this: you can decide where to add a model, where to edit a pipeline, and whether your task stays in configuration or requires runtime code changes.
 
-[Back to Concepts](index.md)
+[Back to Concepts](/concepts)

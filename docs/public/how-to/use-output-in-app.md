@@ -1,6 +1,8 @@
 ---
-sidebar_position: 7
+title: Feed Inference Into An Application
+sidebar_position: 6
 sidebar_label: App Output
+description: Placeholder for the planned workflow to consume Perception XPK inference results from an application.
 ---
 
 # Feed Inference Into An Application
@@ -44,4 +46,4 @@ Until this page is implemented, start with the working runtime paths:
 The target content is **to be implemented**. The page exists so links from the
 quick-start flow resolve cleanly while the application-output guide is prepared.
 
-[Back to How-To Guides](index.md)
+[Back to How-To Guides](/how-to)

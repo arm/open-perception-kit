@@ -1,6 +1,8 @@
 ---
-sidebar_position: 6
+title: Raspberry Pi SSH Setup
+sidebar_position: 5
 sidebar_label: Raspberry Pi SSH
+description: Enable and test SSH so VS Code and terminal sessions can connect to a Raspberry Pi target.
 ---
 
 # Raspberry Pi SSH Setup
@@ -123,4 +125,4 @@ ssh <username>@raspberrypi.local
 
 Do this only after the password-based connection already works.
 
-[Back to Get Started](index.md)
+[Back to Get Started](/getting-started)

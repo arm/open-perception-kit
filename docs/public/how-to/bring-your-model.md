@@ -1,6 +1,8 @@
 ---
-sidebar_position: 5
+title: Bring Your Model
+sidebar_position: 4
 sidebar_label: Bring Your Model
+description: Add a model through descriptors, OpChains, parser selection, and pipeline presets before changing runtime code.
 ---
 
 # Bring Your Model
@@ -232,4 +234,4 @@ By the end of this page, you should have:
 
 Success looks like this: PEK can load the model, the pipeline runs, the selected parser matches the outputs, and the result appears correctly in the runtime.
 
-[Back to How-To Guides](index.md)
+[Back to How-To Guides](/how-to)

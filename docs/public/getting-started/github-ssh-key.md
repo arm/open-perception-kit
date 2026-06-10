@@ -1,6 +1,8 @@
 ---
-sidebar_position: 7
+title: GitHub SSH Key Setup
+sidebar_position: 6
 sidebar_label: GitHub SSH Key
+description: Create and register a GitHub SSH key when you need to clone Perception XPK with SSH.
 ---
 
 # GitHub SSH Key Setup
@@ -86,4 +88,4 @@ You can now clone with SSH:
 git clone git@github.com:Arm-Debug/amp-dev-forge.git
 ```
 
-[Back to Get Started](index.md)
+[Back to Get Started](/getting-started)

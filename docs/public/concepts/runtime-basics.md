@@ -1,6 +1,8 @@
 ---
-sidebar_position: 3
+title: Runtime Basics
+sidebar_position: 2
 sidebar_label: Runtime Basics
+description: Understand how GStreamer pipelines, OpChains, model descriptors, and Perception results fit together at runtime.
 ---
 
 # Runtime Basics
@@ -193,4 +195,4 @@ By the end of this page, you should have:
 
 Success looks like this: you can inspect a runtime issue or integration task and quickly decide whether the change belongs in a pipeline preset, an OpChain, or a model descriptor.
 
-[Back to Concepts](index.md)
+[Back to Concepts](/concepts)

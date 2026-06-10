@@ -1,6 +1,8 @@
 ---
-sidebar_position: 5
+title: macOS Quick Start
+sidebar_position: 4
 sidebar_label: macOS
+description: Set up Perception XPK on macOS with Docker Desktop and a local VS Code Dev Container.
 ---
 
 # macOS Quick Start
@@ -134,4 +136,4 @@ To run the last selected pipeline again, run in the **Docker shell**:
 - If the browser opens but no result appears, enable a model in the **AI Models** panel.
 - If you connect from this Mac to a Raspberry Pi later, allow VS Code local network access in macOS **Settings > Privacy & Security > Local Network**.
 
-[Back to Get Started](index.md)
+[Back to Get Started](/getting-started)
