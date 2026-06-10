@@ -26,8 +26,8 @@ struct UltraFaceParser : public pek::TensorParser {
      * @param output Perception layer populated with detected faces.
      * @return Result indicating success or parsing error.
      */
-    virtual pek::Result<void> parse(const pek::TensorParser::Input &input,
-                                    pek::Perception::Layer &output) override;
+    pek::Result<void> parse(const pek::TensorParser::Input &input,
+                            pek::Perception::Layer &output) override;
 };
 
 } // namespace pek::stdop::postproc

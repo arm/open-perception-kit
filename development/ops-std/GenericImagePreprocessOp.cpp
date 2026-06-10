@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <fmt/core.h>
+#include <memory>
 
 #include "pek/Perception.h"
 #include "pek/Result.h"
@@ -18,8 +19,8 @@
 
 using namespace pek::stdop;
 
-GenericImagePreprocessOp::GenericImagePreprocessOp() {}
-GenericImagePreprocessOp::~GenericImagePreprocessOp() {}
+GenericImagePreprocessOp::GenericImagePreprocessOp() = default;
+GenericImagePreprocessOp::~GenericImagePreprocessOp() = default;
 
 pek::Result<void> GenericImagePreprocessOp::bind(size_t index,
                                                  const std::vector<pek::op::Op *> &ops) {
@@ -89,24 +90,13 @@ GenericImagePreprocessOp::process(pek::op::OpChainContext &opChainContext) {
     opChainContext.inferenceSourceUuid = opChainContext.inferenceImageCropUuids.back();
     opChainContext.inferenceImageCropUuids.pop_back();
 
-    pek::BitmapView *pipelineVideoFrame = opChainContext.getBitmapView("pipelineVideoFrame");
+    auto *pipelineVideoFrame = opChainContext.getVideoFrame(inputImageSourceName);
 
     if (pipelineVideoFrame == nullptr) {
-        return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InvalidOpChain,
-                                             "GenericImagePreprocessOp needs pipelineVideoFrame"));
+        return tl::make_unexpected(PEK_ERROR(
+            pek::ErrorFlag::InvalidOpChain,
+            fmt::format("GenericImagePreprocessOp needs VideoFrame '{}'", inputImageSourceName)));
     }
-
-    // setup tensor data source
-    pek::TensorBuilder::Setup setup;
-    setup.imageSourceDesc.data = pipelineVideoFrame->data;
-    setup.imageSourceDesc.surfaceWidth = pipelineVideoFrame->width;
-    setup.imageSourceDesc.surfaceHeight = pipelineVideoFrame->height;
-    setup.imageSourceDesc.rect = cropRect;
-    setup.imageSourceDesc.byteCount = pipelineVideoFrame->width * pipelineVideoFrame->height * 4;
-    setup.imageSourceDesc.kind = pek::DataKind::ImageBgraHwc;
-    setup.imageSourceDesc.type = pek::Dtype::Uint8;
-    setup.imageSourceDesc.mean = upcomingInferenceModel.inputs[inputImageTensorIndex].mean;
-    setup.imageSourceDesc.std = upcomingInferenceModel.inputs[inputImageTensorIndex].std;
 
     size_t modelWidth, modelHeight;
     if (false == upcomingInferenceModel.inputs[inputImageTensorIndex].tryGetImageTensorSize(
@@ -114,6 +104,43 @@ GenericImagePreprocessOp::process(pek::op::OpChainContext &opChainContext) {
         return tl::make_unexpected(
             PEK_ERROR(pek::ErrorFlag::InvalidData, "tensor seems not to be an image"));
     }
+
+    const pek::mediaio::VideoFrame *readableVideoFrame = pipelineVideoFrame;
+    std::unique_ptr<pek::mediaio::VideoFrame> mappedPipelineVideoFrame;
+    auto readablePlanes = readableVideoFrame->planes();
+    if (readablePlanes.empty() || !readablePlanes.front().hasHostData() ||
+        !readablePlanes.front().canRead()) {
+        mappedPipelineVideoFrame = pipelineVideoFrame->map(pek::AccessMode::Read);
+        if (!mappedPipelineVideoFrame) {
+            return tl::make_unexpected(
+                PEK_ERROR(pek::ErrorFlag::InvalidData,
+                          "GenericImagePreprocessOp failed to map pipelineVideoFrame VideoFrame"));
+        }
+
+        readableVideoFrame = mappedPipelineVideoFrame.get();
+        readablePlanes = readableVideoFrame->planes();
+        if (readablePlanes.empty() || !readablePlanes.front().hasHostData() ||
+            !readablePlanes.front().canRead()) {
+            return tl::make_unexpected(
+                PEK_ERROR(pek::ErrorFlag::InvalidData,
+                          "GenericImagePreprocessOp VideoFrame has no readable host plane"));
+        }
+    }
+    const auto &pipelineVideoPlane = readablePlanes.front();
+
+    // setup tensor data source
+    pek::TensorBuilder::Setup setup;
+    setup.imageSourceDesc.data =
+        const_cast<uint8_t *>(static_cast<const uint8_t *>(pipelineVideoPlane.data()));
+    setup.imageSourceDesc.surfaceWidth = readableVideoFrame->width();
+    setup.imageSourceDesc.surfaceHeight = readableVideoFrame->height();
+    setup.imageSourceDesc.surfaceStride = pipelineVideoPlane.strideBytes();
+    setup.imageSourceDesc.rect = cropRect;
+    setup.imageSourceDesc.byteCount = pipelineVideoPlane.byteSize();
+    setup.imageSourceDesc.kind = readableVideoFrame->format();
+    setup.imageSourceDesc.type = pek::Dtype::Uint8;
+    setup.imageSourceDesc.mean = upcomingInferenceModel.inputs[inputImageTensorIndex].mean;
+    setup.imageSourceDesc.std = upcomingInferenceModel.inputs[inputImageTensorIndex].std;
 
     // debug
     if (false) {

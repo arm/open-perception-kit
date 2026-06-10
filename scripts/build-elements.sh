@@ -14,6 +14,8 @@ TESTS_BUILD_DIR="$PROJECT_ROOT/build-test"
 PEK_MENU=$PROJECT_ROOT/build/meson-out/pek-menu
 PEK_MENU_OUT=/work/tools/pek-menu
 EXTRA_SETUP_ARGS=()
+MESON_SETUP_ARGS=()
+MESON_CONFIGURE_ARGS=()
 
 mkdir -p "$BUILD_DIR"
 
@@ -75,6 +77,57 @@ parse_args() {
     fi
 }
 
+normalize_feature_value() {
+    local name="$1"
+    local value="$2"
+
+    case "$value" in
+        enabled | enable | true | 1 | yes | on)
+            printf "enabled"
+            ;;
+        disabled | disable | false | 0 | no | off)
+            printf "disabled"
+            ;;
+        auto)
+            printf "auto"
+            ;;
+        *)
+            echo "Invalid value for $name: $value (expected enabled, disabled, or auto)" >&2
+            exit 2
+            ;;
+    esac
+}
+
+add_feature_option_from_env() {
+    local option_name="$1"
+    local env_name="$2"
+    local raw_value="${!env_name:-}"
+    local short_value="${!option_name:-}"
+    local normalized_value
+
+    if [[ -n "$short_value" ]]; then
+        raw_value="$short_value"
+    fi
+
+    if [[ -z "$raw_value" ]]; then
+        return
+    fi
+
+    normalized_value="$(normalize_feature_value "$env_name/$option_name" "$raw_value")"
+    MESON_SETUP_ARGS+=("-D${option_name}=${normalized_value}")
+    MESON_CONFIGURE_ARGS+=("-D${option_name}=${normalized_value}")
+    msg "Meson feature from environment: ${option_name}=${normalized_value}"
+}
+
+collect_meson_args() {
+    MESON_SETUP_ARGS=("${EXTRA_SETUP_ARGS[@]}")
+    MESON_CONFIGURE_ARGS=("${EXTRA_SETUP_ARGS[@]}")
+
+    add_feature_option_from_env "executorch" "PEK_EXECUTORCH"
+    add_feature_option_from_env "hailort" "PEK_HAILORT"
+    add_feature_option_from_env "ncnn" "PEK_NCNN"
+}
+
 # ---- build ----
 debug() {
     need meson
@@ -86,10 +139,10 @@ debug() {
 
     if ! meson_build_is_configured "$BUILD_DIR"; then
         msg "Meson setup.."
-        meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat -Dtests="$enable_tests" "${EXTRA_SETUP_ARGS[@]}"
+        meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat -Dtests="$enable_tests" "${MESON_SETUP_ARGS[@]}"
     else
         msg "Meson configure (keeping existing build dir)…"
-        meson configure "$BUILD_DIR" > /dev/null
+        meson configure "$BUILD_DIR" "${MESON_CONFIGURE_ARGS[@]}" > /dev/null
     fi
 
     msg "Compiling.."
@@ -98,28 +151,6 @@ debug() {
     cp "$PEK_MENU" "$PEK_MENU_OUT"
 
     msg_end "DEBUG compilation DONE → $BUILD_DIR"
-}
-
-debug_with_executorch() {
-    need meson
-    need ninja
-
-    msg_begin "Starting DEBUG build with ExecuTorch in directory: $PROJECT_ROOT"
-
-    if ! meson_build_is_configured "$BUILD_DIR"; then
-        msg "Meson setup.."
-        meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat --wrap-mode=forcefallback -Dexecutorch=enabled "${EXTRA_SETUP_ARGS[@]}"
-    else
-        msg "Meson configure (keeping existing build dir)…"
-        meson configure "$BUILD_DIR" > /dev/null
-    fi
-
-    msg "Compiling.."
-    meson compile -C "$BUILD_DIR"
-
-    cp "$PEK_MENU" "$PEK_MENU_OUT"
-
-    msg_end "DEBUG compilation with ExecuTorch DONE → $BUILD_DIR"
 }
 
 release() {
@@ -140,10 +171,10 @@ release() {
             -Doptimization=3 \
             --layout=flat \
             -Dtests="$enable_tests" \
-            "${EXTRA_SETUP_ARGS[@]}"
+            "${MESON_SETUP_ARGS[@]}"
     else
         msg "Meson configure (keeping existing build dir)…"
-        meson configure "$BUILD_DIR" > /dev/null
+        meson configure "$BUILD_DIR" "${MESON_CONFIGURE_ARGS[@]}" > /dev/null
     fi
 
     msg "Compiling…"
@@ -179,8 +210,12 @@ usage() {
 Commands:
   clean ➡️ Clear all build artifacts.
   debug [true|false] [--extra-setup-args=arg1,arg2=10] ➡️ Build elements in debug. Optional: enable/disable tests (default: false).
-  debug_with_executorch [--extra-setup-args=arg1,arg2=10] ➡️ Build elements in debug with ExecuTorch.
   release [true|false] [--extra-setup-args=arg1,arg2=10] ➡️ Build elements in release. Optional: enable/disable tests (default: false).
+
+Optional backend feature environment variables:
+  PEK_EXECUTORCH=enabled|disabled|auto  or  executorch=enabled|disabled|auto
+  PEK_HAILORT=enabled|disabled|auto     or  hailort=enabled|disabled|auto
+  PEK_NCNN=enabled|disabled|auto        or  ncnn=enabled|disabled|auto
 
 EOF
 }
@@ -193,15 +228,13 @@ fi
 case "$cmd" in
     debug)
         parse_args true "$@"
+        collect_meson_args
         debug "${POSITIONAL_ARGS[0]:-false}"
         ;;
     release)
         parse_args true "$@"
+        collect_meson_args
         release "${POSITIONAL_ARGS[0]:-false}"
-        ;;
-    debug_with_executorch)
-        parse_args false "$@"
-        debug_with_executorch
         ;;
     clean)
         parse_args false "$@"
