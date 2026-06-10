@@ -1,0 +1,37 @@
+name: Sync Repository Rulesets
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/rulesets/*.json"
+      - ".github/workflows/sync-rulesets.yml"
+      - "scripts/ci/sync-rulesets.sh"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync-rulesets:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Validate checked-in ruleset JSON
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in .github/rulesets/*.json; do
+            jq empty "${file}"
+          done
+
+      - name: Apply repository rulesets
+        env:
+          RULESET_ADMIN_GITHUB_TOKEN: ${{ secrets.RULESET_ADMIN_GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash ./scripts/ci/sync-rulesets.sh "${GITHUB_REPOSITORY}" ".github/rulesets"

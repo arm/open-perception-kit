@@ -18,6 +18,7 @@ For anything beyond a tiny local edit:
 
 Read these first before making substantial changes:
 
+- [Branching policy](docs/public/branching-policy.md)
 - [Engineering starting point](docs/public/how-to/deep-dives/engineering.md)
 - [Structural basics](docs/public/how-to/deep-dives/structural-basics.md)
 - [Runtime basics](docs/public/how-to/deep-dives/runtime.md)
@@ -110,6 +111,7 @@ Ground doc changes in checked-in code and config.
 
 ## Important repository facts
 
+- Branching and merge flow are documented in `docs/public/branching-policy.md`.
 - The active runtime code lives under `development/`.
 - Video-processing elements currently assume `BGRA` caps unless the task explicitly changes the contract.
 - `PerceptionMeta` is the current metadata type.

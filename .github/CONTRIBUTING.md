@@ -3,17 +3,6 @@
 ## Contribution rules
 
 - Format code according to the repository configuration. The `expkits-ci` tool should help with this.
-- Name branches as `feature/EXPKITS-xxxx/any-descriptive-string`.
-- Use this commit message structure:
-	- first line: short description
-	- second line: `Task: EXPKITS-xxxx`
-	- remaining lines: optional details
+- Follow the repository branching workflow in `docs/public/branching-policy.md`.
+- Pull requests no longer use a checked-in template. The PR description is generated automatically by GitHub Copilot when the PR is opened, reopened, synchronized, or marked ready for review.
 - For pull requests, CI can be rerun by adding the `run-pek-ci` label.
-
-## Example
-
-- Branch: `feature/EXPKITS-1234/update-pr-template`
-- Commit message:
-  - `Update PR template rules`
-  - `Task: EXPKITS-1234`
-  - `Add contribution examples and clarify CI rerun instructions.`

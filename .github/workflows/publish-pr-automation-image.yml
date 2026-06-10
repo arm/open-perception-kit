@@ -1,0 +1,62 @@
+name: Publish PR Automation Image
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "Dockerfile"
+      - "pr-automation-image.env"
+      - "scripts/build-pr-automation-image.sh"
+      - ".github/workflows/publish-pr-automation-image.yml"
+      - ".github/workflows/pr-bookkeeping.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY_IMAGE: ${{ vars.ARTIFACTORY_DOCKER_REGISTRY }}/pek-pr-automation
+
+jobs:
+  build-test-push:
+    runs-on: self-hosted-ubuntu-latest-x64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Log in to Artifactory
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ vars.ARTIFACTORY_DOCKER_REGISTRY }}
+          username: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
+          password: ${{ secrets.PEK_ARTIFACTORY_API_KEY }} # pragma: allowlist secret
+
+      - name: Build PR automation image
+        id: build_image
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash ./scripts/build-pr-automation-image.sh ./pr-automation-image.env "${REGISTRY_IMAGE}"
+
+      - name: Run smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --entrypoint bash "${{ steps.build_image.outputs.image_ref }}" -lc 'copilot --help >/dev/null'
+
+      - name: Tag and push PR automation image
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          docker push "${{ steps.build_image.outputs.image_ref }}"
+
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            docker tag "${{ steps.build_image.outputs.image_ref }}" "${REGISTRY_IMAGE}:latest"
+            docker push "${REGISTRY_IMAGE}:latest"
+          fi
+
+      - name: Log out from Artifactory
+        if: always()
+        run: docker logout "${{ vars.ARTIFACTORY_DOCKER_REGISTRY }}" || true

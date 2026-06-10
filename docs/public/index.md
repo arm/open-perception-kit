@@ -190,6 +190,7 @@ Pick your next step.
 | [Pipeline basics](../public/runtime-basics.md) | Learn about inference pipeline principles  |
 | [Custom postprocessing](../public/custom-postprocessing.md) | Inference result postprocessing  |
 | [Performance Measurement](../public/performance-measurement.md) | Measure the pipeline performance with Performix |
+| [Branching policy](../public/branching-policy.md) | Repository branching model for contributors and automation |
 
 
 
@@ -204,4 +205,3 @@ Pick your next step.
 | Pipeline exits immediately | Rerun `docker exec -it perception-experience-kit-rpi5 bash -lc 'cd /work && /work/tools/pek-menu 01-full-onnx'` and inspect the first missing plugin, model, or file. |
 | Viewer does not load | Keep the pipeline terminal running, use the target Pi IP address, and check port `9999`. |
 | A model produces no overlay | Confirm the model and any upstream dependencies are enabled, then check the debug log or model state in the viewer. |
-
