@@ -46,8 +46,17 @@ The host-only wrapper keeps the existing local hook intent:
 - `clang-format`
 - `python-format`
 - `cmake-format`
+- `shell-format`
 - `license-header`
 - `check-secrets`
+
+Light mapping:
+
+- Dev Container pre-commit hook: this is the local truth for the pre-commit bundle.
+- Host `./scripts/pre-commit/run.sh`: runs the same pre-commit-stage checks on the host through the dedicated container.
+- Host `./scripts/pre-commit/run.sh commit-msg <path>`: mirrors the `commit-msg` hook path.
+- CI PR quality: broader validation path, today driven through `expkits-ci --all-checks` on the PR diff.
+- CI full quality: check-only CI run for the formatter/license/secrets bundle on the full tracked tree.
 
 The wrapper builds a dedicated runtime image up front and then reuses it for
 hook execution. There is no hidden image rebuild during a normal commit.

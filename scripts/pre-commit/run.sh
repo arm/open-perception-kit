@@ -131,6 +131,7 @@ build_delta_command() {
         return
     fi
 
+    # Keep this bundle aligned with the local pre-commit hook set in .pre-commit-config.yaml.
     REPO_CHECKS_COMMAND+=(
         --clang-format
         --python-format
