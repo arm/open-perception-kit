@@ -469,14 +469,32 @@ def write_missing_reports(
     markdown_output: Path,
     json_output: Path,
 ) -> None:
+    write_unavailable_reports(
+        service=service,
+        sarif_file=sarif_file,
+        markdown_output=markdown_output,
+        json_output=json_output,
+        summary_message="No `cves.sarif.json` file was produced for this job, so component resolution is unavailable.",
+    )
+
+
+def write_unavailable_reports(
+    service: str,
+    sarif_file: Path,
+    markdown_output: Path,
+    json_output: Path,
+    summary_message: str,
+    warning_detail: str = "",
+) -> None:
     payload = {
         "service": service,
         "sarif_file": str(sarif_file),
-        "sarif_present": False,
+        "sarif_present": sarif_file.exists(),
         "finding_count": 0,
         "component_count": 0,
         "severity_counts": empty_severity_counts(),
         "components": [],
+        "warning_detail": warning_detail,
     }
     json_output.parent.mkdir(parents=True, exist_ok=True)
     markdown_output.parent.mkdir(parents=True, exist_ok=True)
@@ -486,7 +504,7 @@ def write_missing_reports(
             [
                 f"# Docker Scout Component Report for `{service}`",
                 "",
-                "No `cves.sarif.json` file was produced for this job, so component resolution is unavailable.",
+                summary_message,
                 "",
             ]
         ),
@@ -494,7 +512,10 @@ def write_missing_reports(
     )
     print(f"### Docker Scout component report ({service})")
     print("")
-    print("No SARIF file was produced for this job, so component resolution is unavailable.")
+    print(summary_message)
+    if warning_detail:
+        print("")
+        print(f"Warning: {warning_detail}")
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -512,7 +533,21 @@ def main(argv: Sequence[str] | None = None) -> None:
         )
         return
 
-    data = json.loads(sarif_file.read_text(encoding="utf-8"))
+    try:
+        data = json.loads(sarif_file.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, ValueError) as exc:
+        write_unavailable_reports(
+            service=args.service,
+            sarif_file=sarif_file,
+            markdown_output=markdown_output,
+            json_output=json_output,
+            summary_message=(
+                "The `cves.sarif.json` file could not be parsed, so component resolution is unavailable."
+            ),
+            warning_detail=f"Failed to parse SARIF: {type(exc).__name__}: {exc}",
+        )
+        return
+
     if not isinstance(data, dict):
         data = {}
     findings: list[dict] = []

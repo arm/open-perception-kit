@@ -294,7 +294,7 @@ jobs:
               -e TRIVY_JAVA_DB_REPOSITORY="$TRIVY_JAVA_DB_REPOSITORY" \
               -e TRIVY_CACHE_DIR=/tmp/trivy-cache \
               -v "$TRIVY_CACHE_DIR:/tmp/trivy-cache" \
-              aquasec/trivy:latest \
+              aquasec/trivy:0.71.0 \
               image --download-java-db-only \
               >> "$log_file" 2>&1; then
               echo "status=success" >> "$log_file"
