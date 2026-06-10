@@ -2,6 +2,7 @@
 
 [![Python Dependency Audit](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/python-dependency-audit.yml/badge.svg?branch=main&event=schedule)](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/python-dependency-audit.yml)
 [![Docker Scout Image Audit](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/docker-scout-image-audit.yml/badge.svg?branch=main&event=schedule)](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/docker-scout-image-audit.yml?query=branch%3Amain+event%3Aschedule)
+[![Sonar Quality Gate](https://sonarqube.mobilestudio.aws.arm.com/api/project_badges/measure?project=LinuxVisionKitPek&metric=alert_status)](https://sonarqube.mobilestudio.aws.arm.com/dashboard?id=LinuxVisionKitPek)
 
 The Arm Perception Kit helps Raspberry Pi developers get from setup to 
 edge-vision inference without building the whole perception stack from scratch. 
