@@ -70,22 +70,22 @@ code .
 
 In VS Code:
 
-![VS Code opened in the PEK repository](../static/img/04-starting-point-vscode.png)
+![VS Code opened in the PEK repository](/img/04-starting-point-vscode.png)
 
 1. Open the Command Palette with `Ctrl+Shift+P`.
 2. Run **Dev Containers: Reopen in Container**.
 
-![VS Code command palette showing Reopen in Container](../static/img/05-reopen-in-container.png)
+![VS Code command palette showing Reopen in Container](/img/05-reopen-in-container.png)
 
 3. Choose **PC perception-experience-kit**.
 
-![VS Code Dev Container selection dialog](../static/img/06-reopen-in-container2.png)
+![VS Code Dev Container selection dialog](/img/06-reopen-in-container2.png)
 
 4. Wait for the container to finish building.
 
 Expected result: VS Code reloads into the Dev Container.
 
-![VS Code terminal inside the Dev Container](../static/img/07-in-container-new-console.png)
+![VS Code terminal inside the Dev Container](/img/07-in-container-new-console.png)
 
 ## 3. Build PEK
 
@@ -99,7 +99,7 @@ Run in the **Docker shell**:
 
 You can also use the VS Code task **00 Build Project**.
 
-![VS Code build task for PEK](../static/img/08-build-project.png)
+![VS Code build task for PEK](/img/08-build-project.png)
 
 Expected result: the build finishes without errors and `tools/pek-menu` exists.
 
@@ -114,7 +114,7 @@ Run in the **Docker shell**:
 You can also use the VS Code task **00 Run project and select pipeline** and choose `01-full-onnx`.
 On Linux with a USB camera exposed as `/dev/video0`, choose `06-full-onnx-usb-cam` for a live camera source enabled by default.
 
-![PEK pipeline selection view](../static/img/09-select-pipeline.png)
+![PEK pipeline selection view](/img/09-select-pipeline.png)
 
 Expected result: the pipeline starts and keeps running in the terminal. Leave that terminal open.
 
@@ -128,7 +128,7 @@ http://localhost:9999
 
 In the **AI Models** panel, enable one model first. For example, enable `yolov11` or `mobilenetv2`.
 
-![PEK browser UI after opening the web view](../static/img/10-browser-ui.png)
+![PEK browser UI after opening the web view](/img/10-browser-ui.png)
 
 Expected result: the page shows the PEK view and enabling a model produces an overlay or result. The default quick-start pipeline uses checked-in sample media; `06-full-onnx-usb-cam` uses a USB camera at `/dev/video0`.
 
@@ -149,4 +149,4 @@ To run the last selected pipeline again, run in the **Docker shell**:
 - If the browser opens but no result appears, enable a model in the **AI Models** panel.
 - If you see a path error, confirm that VS Code opened the repository folder, not its parent folder.
 
-[Back to README](index.md)
+[Back to Get Started](index.md)

@@ -1,5 +1,5 @@
 ---
-sidebar_position: 10
+sidebar_position: 2
 sidebar_label: Structural Basics
 ---
 
@@ -31,9 +31,12 @@ Use this for your own test media.
 ### `docs/`
 These contain the project documentation.
 
-- `docs/public/index.md` is the root of the documentation.
-- `docs/public/` contains the Markdown source used by the current docs site.
-- `docs/static/` contains the images used by the docs.
+- `docs/public/index.md` is the root landing page.
+- `docs/public/getting-started/` contains setup and quick-start pages.
+- `docs/public/how-to/` contains practical task guides.
+- `docs/public/concepts/` contains conceptual background pages.
+- `docs/public/docs-config.json` defines the docs site label, navigation, and sidebar grouping.
+- `docs/public/static/` contains shared images and other static assets used by the docs site.
 
 ### `scripts/`
 This contains the main helper scripts you are expected to run.
@@ -123,4 +126,4 @@ By the end of this page, you should have:
 
 Success looks like this: you can decide where to add a model, where to edit a pipeline, and whether your task stays in configuration or requires runtime code changes.
 
-[Back to README](index.md)
+[Back to Concepts](index.md)

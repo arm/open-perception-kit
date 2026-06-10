@@ -1,5 +1,5 @@
 ---
-sidebar_position: 11
+sidebar_position: 3
 sidebar_label: Runtime Basics
 ---
 
@@ -180,7 +180,7 @@ Use:
 
 ## Where to look next
 
-- [Bring Your Model](bring-your-model.md)
+- [Bring Your Model](../how-to/bring-your-model.md)
 - [Structural Basics](structural-basics.md)
 
 ## What should you have at the end of this document?
@@ -193,4 +193,4 @@ By the end of this page, you should have:
 
 Success looks like this: you can inspect a runtime issue or integration task and quickly decide whether the change belongs in a pipeline preset, an OpChain, or a model descriptor.
 
-[Back to README](index.md)
+[Back to Concepts](index.md)

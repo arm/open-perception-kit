@@ -1,5 +1,5 @@
 ---
-sidebar_position: 9
+sidebar_position: 4
 sidebar_label: Hailo Inference
 ---
 
@@ -111,4 +111,4 @@ hailortcli fw-control identify
 If the host cannot see the Hailo device, PEK inside the container will not be
 able to use it.
 
-[Back to README](index.md)
+[Back to How-To Guides](index.md)

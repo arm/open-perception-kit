@@ -1,5 +1,5 @@
 ---
-sidebar_position: 8
+sidebar_position: 5
 sidebar_label: Bring Your Model
 ---
 
@@ -232,4 +232,4 @@ By the end of this page, you should have:
 
 Success looks like this: PEK can load the model, the pipeline runs, the selected parser matches the outputs, and the result appears correctly in the runtime.
 
-[Back to README](index.md)
+[Back to How-To Guides](index.md)

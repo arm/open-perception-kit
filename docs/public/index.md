@@ -1,6 +1,9 @@
 ---
+title: Perception XPK
+description: Start here to set up Perception XPK and run your first edge-vision inference pipeline.
 sidebar_position: 1
-sidebar_label: Get started
+sidebar_label: Overview
+displayed_sidebar: null
 slug: /
 ---
 
@@ -18,7 +21,7 @@ application.
 **Note:** This developer preview is for evaluation, early application
 development, and feedback.
 
-![Example WebRTC viewer showing sample video inference, model controls, performance metrics, and debug log](../static/img/10-browser-ui.png)
+![Example WebRTC viewer showing sample video inference, model controls, performance metrics, and debug log](/img/10-browser-ui.png)
 
 ## Quick start: first inference on Raspberry Pi 5
 
@@ -160,7 +163,7 @@ Model** panel. If the toggle is off, enable it.
 > **Expected outcome:** YoloV11 identifies objects in the stock video stream by
 > drawing detection overlays in the viewer.
 
-![Final WebRTC success view showing inference overlays on the sample video stream](../static/img/10-browser-ui.png)
+![Final WebRTC success view showing inference overlays on the sample video stream](/img/10-browser-ui.png)
 
 Congratulations, you have run your first Perception Kit pipeline!
 
@@ -169,10 +172,10 @@ Congratulations, you have run your first Perception Kit pipeline!
 Pipeline testing and development are fully supported in Visual Studio Code (VS Code)
 Follow the links below for detailed instructions:
 
-* [Raspberry Pi 5](../public/raspberry-pi-quick-start.md)
-* [Windows](../public/windows-quick-start.md)
-* [Mac](../public/macos-quick-start.md)
-* [Linux](../public/linux-quick-start.md)
+* [Raspberry Pi 5](getting-started/raspberry-pi-quick-start.md)
+* [Windows](getting-started/windows-quick-start.md)
+* [Mac](getting-started/macos-quick-start.md)
+* [Linux](getting-started/linux-quick-start.md)
 
 
 ## After first success
@@ -181,15 +184,15 @@ Pick your next step.
 
 | Goal |  What it does |
 | --- | --- |
-| [Use your own input or output path](../public/media-input.md) | Keep the known pipeline and change the input or output. |
-| [Use live camera input](../public/camera-input.md) | Move from packaged media to a USB or Raspberry Pi camera. |
-| [Add or adapt a model and OpChain](../public/bring-your-model.md) | Change the model after the source and output path work. |
-| [**Coming Soon:** Feed inference into an application](../public/use-output-in-app.md) | Capture inference output for downstream logic. |
-| [Use Hailo acceleration](../public/run-hailo-inference.md) | Add accelerator hardware. |
-| [Understanding the repository structure](../public/structural-basics.md) | How to get started with new components |
-| [Pipeline basics](../public/runtime-basics.md) | Learn about inference pipeline principles  |
-| [Custom postprocessing](../public/custom-postprocessing.md) | Inference result postprocessing  |
-| [Performance Measurement](../public/performance-measurement.md) | Measure the pipeline performance with Performix |
+| [Use your own input or output path](how-to/media-input.md) | Keep the known pipeline and change the input or output. |
+| [Use live camera input](how-to/camera-input.md) | Move from packaged media to a USB or Raspberry Pi camera. |
+| [Add or adapt a model and OpChain](how-to/bring-your-model.md) | Change the model after the source and output path work. |
+| [**Coming Soon:** Feed inference into an application](how-to/use-output-in-app.md) | Capture inference output for downstream logic. |
+| [Use Hailo acceleration](how-to/run-hailo-inference.md) | Add accelerator hardware. |
+| [Understanding the repository structure](concepts/structural-basics.md) | How to get started with new components |
+| [Pipeline basics](concepts/runtime-basics.md) | Learn about inference pipeline principles  |
+| [Custom postprocessing](how-to/custom-postprocessing.md) | Inference result postprocessing  |
+| [Performance Measurement](how-to/performance-measurement.md) | Measure the pipeline performance with Performix |
 
 
 
@@ -204,4 +207,3 @@ Pick your next step.
 | Pipeline exits immediately | Rerun `docker exec -it perception-experience-kit-rpi5 bash -lc 'cd /work && /work/tools/pek-menu 01-full-onnx'` and inspect the first missing plugin, model, or file. |
 | Viewer does not load | Keep the pipeline terminal running, use the target Pi IP address, and check port `9999`. |
 | A model produces no overlay | Confirm the model and any upstream dependencies are enabled, then check the debug log or model state in the viewer. |
-

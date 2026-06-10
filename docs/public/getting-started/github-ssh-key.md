@@ -1,5 +1,5 @@
 ---
-sidebar_position: 14
+sidebar_position: 7
 sidebar_label: GitHub SSH Key
 ---
 
@@ -86,4 +86,4 @@ You can now clone with SSH:
 git clone git@github.com:Arm-Debug/amp-dev-forge.git
 ```
 
-[Back to README](index.md)
+[Back to Get Started](index.md)

@@ -1,5 +1,5 @@
 ---
-sidebar_position: 13
+sidebar_position: 6
 sidebar_label: Raspberry Pi SSH
 ---
 
@@ -123,4 +123,4 @@ ssh <username>@raspberrypi.local
 
 Do this only after the password-based connection already works.
 
-[Back to README](index.md)
+[Back to Get Started](index.md)

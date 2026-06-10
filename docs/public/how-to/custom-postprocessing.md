@@ -1,5 +1,5 @@
 ---
-sidebar_position: 9
+sidebar_position: 6
 sidebar_label: Custom Postprocessing
 ---
 
@@ -284,4 +284,4 @@ By the end of this page, you should have:
 
 Success looks like this: your model outputs are translated into the right `Perception` structure, and the runtime can consume those results without guessing.
 
-[Back to README](index.md)
+[Back to How-To Guides](index.md)

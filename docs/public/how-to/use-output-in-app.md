@@ -1,5 +1,5 @@
 ---
-sidebar_position: 8
+sidebar_position: 7
 sidebar_label: App Output
 ---
 
@@ -34,9 +34,9 @@ Until this page is implemented, start with the working runtime paths:
 
 - [Use Your Own Media](media-input.md) to keep a known pipeline and change input.
 - [Use A Camera](camera-input.md) to run live camera inference.
-- [Runtime Basics](runtime-basics.md) to understand the pipeline and output
+- [Runtime Basics](../concepts/runtime-basics.md) to understand the pipeline and output
   elements.
-- [Structural Basics](structural-basics.md) to understand where configuration
+- [Structural Basics](../concepts/structural-basics.md) to understand where configuration
   and runtime code live.
 
 ## Status
@@ -44,4 +44,4 @@ Until this page is implemented, start with the working runtime paths:
 The target content is **to be implemented**. The page exists so links from the
 quick-start flow resolve cleanly while the application-output guide is prepared.
 
-[Back to README](index.md)
+[Back to How-To Guides](index.md)
