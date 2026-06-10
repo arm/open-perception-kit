@@ -43,17 +43,21 @@ services:
         .devcontainer/devsetup.sh &&
         .devcontainer/platform_init.sh pek-dev-base &&
         source /work/tools/.venv/bin/activate &&
-        pr_target_args=() &&
-        if [ -n "${PULL_REQUEST_TARGET_BRANCH:-}" ]; then
-          pr_target_args=(--pr-target-branch "${PULL_REQUEST_TARGET_BRANCH}")
-        fi &&
         rm -f clang-tidy.log clang-tidy-stats.log clang-tidy-stats.json &&
-        expkits-ci \
-          --clang-tidy \
-          "${pr_target_args[@]}" \
-          --clang-tidy-binary /opt/pek-venvs/devtools/bin/clang-tidy \
-          --log-output both \
-          --log-file clang-tidy.log &&
+        if [ -n "$${PULL_REQUEST_TARGET_BRANCH:-}" ]; then
+          expkits-ci \
+            --clang-tidy \
+            --pr-target-branch "$${PULL_REQUEST_TARGET_BRANCH}" \
+            --clang-tidy-binary /opt/pek-venvs/devtools/bin/clang-tidy \
+            --log-output both \
+            --log-file clang-tidy.log;
+        else
+          expkits-ci \
+            --clang-tidy \
+            --clang-tidy-binary /opt/pek-venvs/devtools/bin/clang-tidy \
+            --log-output both \
+            --log-file clang-tidy.log;
+        fi &&
         expkits-ci \
           --clang-tidy-stats clang-tidy.log \
           --clang-tidy-stats-output clang-tidy-stats.json \
