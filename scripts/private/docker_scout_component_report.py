@@ -274,10 +274,15 @@ def derive_component_hints(purl: str, locations: list[str]) -> list[ComponentHin
 
 
 def extract_locations(result: dict) -> list[str]:
+    locations = result.get("locations")
+    if not isinstance(locations, list):
+        return []
+
     return unique_strings(
         (
             ((location.get("physicalLocation") or {}).get("artifactLocation") or {}).get("uri", "")
-            for location in result.get("locations") or []
+            for location in locations
+            if isinstance(location, dict)
         )
     )
 
