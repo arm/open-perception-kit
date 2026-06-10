@@ -224,12 +224,15 @@ class StaticQualityConfigTests(unittest.TestCase):
         self.assertIn("- id: check-secrets", pre_commit)
         self.assertIn("--check-secrets --list-of-files", pre_commit)
         self.assertIn("expkits-ci --all-checks --pr-target-branch ${PULL_REQUEST_TARGET_BRANCH}", compose)
+        self.assertIn("pr_target_args=(--pr-target-branch \"${PULL_REQUEST_TARGET_BRANCH}\")", compose)
         self.assertIn("--report-file /work/.github/artifacts/expkits-ci-pr-report.txt", compose)
         self.assertIn("--report-file /work/.github/artifacts/expkits-ci-full-report.txt", compose)
         self.assertIn("Upload quality report artifact (PR)", workflow)
         self.assertIn("Upload quality report artifact (nightly)", workflow)
         self.assertIn("expkits-ci-quality-report-pr", workflow)
         self.assertIn("expkits-ci-quality-report-full", workflow)
+        self.assertIn("export PULL_REQUEST_TARGET_BRANCH=\"${{ github.base_ref }}\"", workflow)
+        self.assertIn("-e PULL_REQUEST_TARGET_BRANCH", workflow)
         self.assertEqual(pre_commit.count('--list-of-files "$@"'), 7)
 
     def test_execution_report_annotations_match_declared_python_floor(self):
