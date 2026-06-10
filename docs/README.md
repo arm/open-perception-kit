@@ -4,13 +4,13 @@ The Arm docs site source lives in `docs/public`. The docs config is `docs/public
 
 ## Run Locally
 
-First, make sure you can authenticate with docker by following [this guide](https://docs.staging.devplatform.arm.com/arm-docs-github-action/getting-started/docker-auth/).
+First, make sure you can authenticate with your container engine by following [this guide](https://docs.staging.devplatform.arm.com/arm-docs-github-action/getting-started/docker-auth/).
 
-Make sure you are logged in and authenticated with docker:
+Make sure you are logged in and authenticated with Docker or Podman:
 
-```bash
-echo <your github token> | docker login ghcr.io -u <your github username> --password-stdin
-```
+    echo <your github token> | docker login ghcr.io -u <your github username> --password-stdin
+    # or
+    echo <your github token> | podman login ghcr.io -u <your github username> --password-stdin
 
 From the repository root, run:
 
@@ -20,27 +20,15 @@ From the repository root, run:
 
 The script serves `docs/public` with the Arm docs preview image and keeps `docs/public/static` available for `/img/...` paths. It preserves the existing local script URL, `http://localhost:3003`.
 
-If you need to run the container manually, the equivalent Linux command is:
+If you need to run the container manually, the equivalent command is:
 
-```bash
-docker run --rm -it --network host --pull always \
-  -v "$(pwd)/docs/public":/workspace/docs-site:ro \
-  ghcr.io/arm-debug/arm-docs-github-action/local:latest
-```
-
-On macOS, use port mapping instead:
-
-```bash
-docker run --rm -it --pull always -p 3000:3000 \
-  -v "$(pwd)/docs/public":/workspace/docs-site:ro \
-  ghcr.io/arm-debug/arm-docs-github-action/local:latest
-```
+    docker run --rm -it --pull always -p 3003:3000 \
+      -v "$(pwd)/docs/public":/workspace/docs-site:ro \
+      ghcr.io/arm-debug/arm-docs-github-action/local:latest
 
 Then open:
 
-```text
-http://localhost:3003
-```
+    http://localhost:3003
 
 Stop the preview server with `Ctrl+C`.
 
