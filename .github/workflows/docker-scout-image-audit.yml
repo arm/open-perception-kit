@@ -42,9 +42,6 @@ jobs:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-${{ matrix.image.service }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      TRIVY_CACHE_DIR: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.cache/trivy
-      DOCKER_SCOUT_CACHE_DIR: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.cache/docker-scout
-      TRIVY_JAVA_DB_REPOSITORY: mirror.gcr.io/aquasec/trivy-java-db:1
 
     steps:
       - name: Checkout current ref
@@ -267,6 +264,16 @@ jobs:
                   error_type=type(exc).__name__,
               )
           PY
+
+      - name: Export Docker Scout cache settings
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: |
+          set -euo pipefail
+          {
+            echo "TRIVY_CACHE_DIR=${PWD}/.cache/trivy"
+            echo "DOCKER_SCOUT_CACHE_DIR=${PWD}/.cache/docker-scout"
+            echo "TRIVY_JAVA_DB_REPOSITORY=mirror.gcr.io/aquasec/trivy-java-db:1"
+          } >> "$GITHUB_ENV"
 
       - name: Prewarm Trivy Java DB cache
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
