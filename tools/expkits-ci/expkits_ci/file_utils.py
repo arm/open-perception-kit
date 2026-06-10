@@ -48,9 +48,27 @@ class FileUtils:
         return filtered
 
     @staticmethod
+    def has_remote_branch_ref(repo, pr_target_branch):
+        remote_ref = f"refs/remotes/origin/{pr_target_branch}"
+        try:
+            repo.git.rev_parse("--verify", remote_ref)
+            return True
+        except GitCommandError:
+            return False
+
+    @staticmethod
     def discover_git_files(repo, commit_diff=False, pr_target_branch=None):
         if pr_target_branch:
-            repo.git.fetch("origin", pr_target_branch)
+            try:
+                repo.git.fetch("origin", pr_target_branch)
+            except GitCommandError as exc:
+                if not FileUtils.has_remote_branch_ref(repo, pr_target_branch):
+                    raise
+                logger.warning(
+                    "Could not refresh origin/%s, using the existing local ref instead: %s",
+                    pr_target_branch,
+                    exc,
+                )
             return repo.git.diff(f"origin/{pr_target_branch}...HEAD", name_only=True).splitlines()
 
         if commit_diff:

@@ -134,6 +134,29 @@ def optional_string(value: object) -> str:
     return str(value)
 
 
+def dict_value(value: object) -> dict:
+    if isinstance(value, dict):
+        return value
+    return {}
+
+
+def list_value(value: object) -> list:
+    if isinstance(value, list):
+        return value
+    return []
+
+
+def string_list(value: object) -> list[str]:
+    return [item for item in list_value(value) if isinstance(item, str)]
+
+
+def first_string(values: object) -> str:
+    for item in list_value(values):
+        if isinstance(item, str):
+            return item
+    return ""
+
+
 def strip_prefix(value: str, prefix: str) -> str:
     if value.startswith(prefix):
         return value[len(prefix):]
@@ -274,14 +297,10 @@ def derive_component_hints(purl: str, locations: list[str]) -> list[ComponentHin
 
 
 def extract_locations(result: dict) -> list[str]:
-    locations = result.get("locations")
-    if not isinstance(locations, list):
-        return []
-
     return unique_strings(
         (
-            ((location.get("physicalLocation") or {}).get("artifactLocation") or {}).get("uri", "")
-            for location in locations
+            dict_value(dict_value(location.get("physicalLocation")).get("artifactLocation")).get("uri", "")
+            for location in list_value(result.get("locations"))
             if isinstance(location, dict)
         )
     )
@@ -494,19 +513,28 @@ def main(argv: Sequence[str] | None = None) -> None:
         return
 
     data = json.loads(sarif_file.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        data = {}
     findings: list[dict] = []
 
-    for run in data.get("runs", []):
+    for run in list_value(data.get("runs")):
+        if not isinstance(run, dict):
+            continue
+
         rules = {
-            rule.get("id", ""): rule
-            for rule in run.get("tool", {}).get("driver", {}).get("rules", [])
+            optional_string(rule.get("id")): rule
+            for rule in list_value(dict_value(dict_value(run.get("tool")).get("driver")).get("rules"))
+            if isinstance(rule, dict) and optional_string(rule.get("id"))
         }
 
-        for result in run.get("results", []):
-            rule_id = result.get("ruleId", "")
+        for result in list_value(run.get("results")):
+            if not isinstance(result, dict):
+                continue
+
+            rule_id = optional_string(result.get("ruleId"))
             rule = rules.get(rule_id, {})
-            properties = rule.get("properties") or {}
-            purl = (properties.get("purls") or [""])[0]
+            properties = dict_value(rule.get("properties"))
+            purl = first_string(properties.get("purls"))
             locations = extract_locations(result)
             hints = derive_component_hints(purl, locations)
             primary_hint = hints[0]
@@ -516,7 +544,7 @@ def main(argv: Sequence[str] | None = None) -> None:
                     "cve": rule_id,
                     "severity": normalize_severity(
                         properties.get("cvssV3_severity"),
-                        properties.get("tags"),
+                        string_list(properties.get("tags")),
                     ),
                     "score": optional_string(properties.get("security-severity")),
                     "package": purl,
