@@ -41,7 +41,7 @@ jobs:
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-${{ matrix.image.service }}
-      COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.image.service }}
+      COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
 
     steps:
       - name: Checkout current ref
@@ -299,7 +299,13 @@ jobs:
             >> "$GITHUB_STEP_SUMMARY"
 
       - name: Write report metadata
-        if: always()
+        if: |
+          always() &&
+          !cancelled() &&
+          (
+            steps.checkout-current-ref.conclusion == 'success' ||
+            steps.checkout-pr-head.conclusion == 'success'
+          )
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: |
           mkdir -p ".github/artifacts/docker-scout/${{ matrix.image.service }}"
