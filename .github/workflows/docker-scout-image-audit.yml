@@ -290,8 +290,10 @@ jobs:
               echo "java_db_repository=$TRIVY_JAVA_DB_REPOSITORY"
             } >> "$log_file"
             if docker run --rm \
+              --user "$(id -u):$(id -g)" \
               -e TRIVY_JAVA_DB_REPOSITORY="$TRIVY_JAVA_DB_REPOSITORY" \
-              -v "$TRIVY_CACHE_DIR:/root/.cache/trivy" \
+              -e TRIVY_CACHE_DIR=/tmp/trivy-cache \
+              -v "$TRIVY_CACHE_DIR:/tmp/trivy-cache" \
               aquasec/trivy:latest \
               image --download-java-db-only \
               >> "$log_file" 2>&1; then
