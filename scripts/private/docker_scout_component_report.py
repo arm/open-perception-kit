@@ -8,7 +8,6 @@ from __future__ import annotations
 import argparse
 import html
 import json
-import re
 import sys
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
@@ -16,8 +15,6 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from urllib.parse import quote, unquote
 
-PYTHON_DIST_INFO_PATTERN = re.compile(r"/([^/]+?)-\d[^/]*\.dist-info/")
-PYTHON_PACKAGE_PATTERN = re.compile(r"/(?:site|dist)-packages/([^/]+)/")
 SEVERITY_SEQUENCE = ("CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN")
 SEVERITY_ORDER = {
     "CRITICAL": 0,
@@ -192,19 +189,37 @@ def binary_name(path: str) -> str:
     return candidate.name
 
 
+def dist_info_distribution_name(path: str) -> str:
+    for part in PurePosixPath(path).parts:
+        if not part.endswith(".dist-info"):
+            continue
+
+        stem = part[: -len(".dist-info")]
+        name, separator, version = stem.rpartition("-")
+        if not separator or not version or not version[0].isdigit():
+            continue
+        return name
+    return ""
+
+
+def python_package_directory_name(path: str) -> str:
+    parts = PurePosixPath(path).parts
+    for index, part in enumerate(parts[:-1]):
+        if part not in {"site-packages", "dist-packages"}:
+            continue
+
+        component = parts[index + 1]
+        if component.endswith((".dist-info", ".egg-info")):
+            return ""
+        return component
+    return ""
+
+
 def python_component_name(path: str) -> str:
-    match = PYTHON_DIST_INFO_PATTERN.search(path)
-    if match:
-        return match.group(1)
-
-    match = PYTHON_PACKAGE_PATTERN.search(path)
-    if not match:
-        return ""
-
-    component = match.group(1)
-    if component.endswith((".dist-info", ".egg-info")):
-        return ""
-    return component
+    component = dist_info_distribution_name(path)
+    if component:
+        return component
+    return python_package_directory_name(path)
 
 
 def derive_component_hints(purl: str, locations: list[str]) -> list[ComponentHint]:
