@@ -9,19 +9,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../common.sh"
 
 REPO_ROOT="$(repo_checks_resolve_repo_root "${SCRIPT_DIR}")"
+WORK_DIR=""
 SMOKE_TMP_PARENT="${REPO_CHECKS_SMOKE_TMP_PARENT:-}"
 if [ -n "${SMOKE_TMP_PARENT}" ]; then
     mkdir -p "${SMOKE_TMP_PARENT}"
     WORK_DIR="$(mktemp -d "${SMOKE_TMP_PARENT%/}/repo-checks-smoke.XXXXXX")"
 else
-    WORK_DIR="$(mktemp -d)"
+    WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/repo-checks-smoke.XXXXXX")"
 fi
 SMOKE_REPO="${WORK_DIR}/repo"
 FIXTURE_ROOT="${REPO_ROOT}/tools/expkits-ci/tests/fixtures"
 PRECOMMIT_CASES=()
 
 cleanup() {
-    rm -rf "${WORK_DIR}"
+    [ -n "${WORK_DIR:-}" ] && rm -rf "${WORK_DIR}"
 }
 
 trap cleanup EXIT
@@ -53,6 +54,7 @@ PY
 copy_runtime_files() {
     mkdir -p "${SMOKE_REPO}/scripts/pre-commit" "${SMOKE_REPO}/tools"
 
+    [ -f "${REPO_ROOT}/.dockerignore" ] && cp "${REPO_ROOT}/.dockerignore" "${SMOKE_REPO}/"
     cp "${REPO_ROOT}/.clang-format" "${SMOKE_REPO}/"
     cp "${REPO_ROOT}/.cmake-format.yaml" "${SMOKE_REPO}/"
     cp "${REPO_ROOT}/.secrets.baseline" "${SMOKE_REPO}/"
@@ -157,9 +159,11 @@ init_smoke_repo() {
 
 run_smoke() {
     local case_entry=""
+    local setup_output=""
 
     pushd "${SMOKE_REPO}" > /dev/null
 
+    ./scripts/pre-commit/setup.sh
     ./scripts/pre-commit/setup.sh
     assert_hook_is_portable "pre-commit"
     assert_hook_is_portable "commit-msg"
@@ -202,6 +206,22 @@ EOF
         echo "Expected invalid commit message validation to fail." >&2
         exit 1
     fi
+
+    cat > .git/hooks/pre-commit << 'EOF'
+#!/usr/bin/env bash
+echo "custom hook"
+EOF
+    chmod +x .git/hooks/pre-commit
+
+    if setup_output="$(./scripts/pre-commit/setup.sh 2>&1)"; then
+        echo "Expected setup.sh to refuse overwriting an unknown pre-commit hook." >&2
+        exit 1
+    fi
+
+    printf '%s\n' "${setup_output}" | grep -Fq "Refusing to overwrite existing hook" || {
+        echo "Expected setup.sh to explain why it refused the unknown hook." >&2
+        exit 1
+    }
 
     popd > /dev/null
 }

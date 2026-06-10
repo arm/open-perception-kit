@@ -9,6 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
 REPO_ROOT="$(repo_checks_resolve_repo_root "${SCRIPT_DIR}")"
+REPO_CHECKS_HOOK_MARKER="# repo-checks-managed-hook"
 
 usage() {
     cat << EOF
@@ -27,12 +28,36 @@ build_repo_checks_image() {
     repo_checks_build_image "${REPO_ROOT}"
 }
 
+hook_is_repo_checks_managed() {
+    local hook_path="$1"
+
+    [ -f "${hook_path}" ] || return 1
+    grep -Fqx "${REPO_CHECKS_HOOK_MARKER}" "${hook_path}" && return 0
+    grep -Fq 'exec "${REPO_ROOT}/scripts/pre-commit/run.sh"' "${hook_path}"
+}
+
+ensure_hook_is_safe_to_replace() {
+    local hook_path="$1"
+
+    if [ ! -e "${hook_path}" ] || [ ! -s "${hook_path}" ]; then
+        return
+    fi
+
+    hook_is_repo_checks_managed "${hook_path}" && return
+
+    repo_checks_die \
+        "Refusing to overwrite existing hook at ${hook_path}. Move it aside or merge it manually."
+}
+
 write_hook() {
     local hook_path="$1"
     local hook_mode="${2:-}"
 
+    ensure_hook_is_safe_to_replace "${hook_path}"
+
     cat > "${hook_path}" << 'EOF'
 #!/usr/bin/env bash
+# repo-checks-managed-hook
 set -euo pipefail
 
 git_without_hook_env() {
