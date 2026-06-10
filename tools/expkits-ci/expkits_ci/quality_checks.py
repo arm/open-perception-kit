@@ -953,8 +953,13 @@ class QualityChecks:
             return result
 
         for filename in files:
-            # Keep the repo-root config path explicit for the cmake-format CLI.
-            cmd = ["cmake-format", "-c", ".cmake-format.yaml", "--check", filename]  # NOSONAR
+            cmd = [
+                "cmake-format",
+                "-c",
+                ".cmake-format.yaml",  # NOSONAR: keep the repo-root config literal inline for cmake-format.
+                "--check",
+                filename,
+            ]
 
             try:
                 proc = subprocess.run(
@@ -967,7 +972,13 @@ class QualityChecks:
                 if proc.returncode != 0:
                     result = False
                     if format:
-                        format_cmd = ["cmake-format", "-c", ".cmake-format.yaml", "-i", filename]  # NOSONAR
+                        format_cmd = [
+                            "cmake-format",
+                            "-c",
+                            ".cmake-format.yaml",  # NOSONAR: keep the repo-root config literal inline for cmake-format.
+                            "-i",
+                            filename,
+                        ]
                         self.run_in_place_formatter(
                             format_cmd, filename, "cmake-format")
                     else:
@@ -1042,8 +1053,7 @@ class QualityChecks:
     @staticmethod
     def stabilize_cmake_file(filename):
         """Re-run cmake-format after header insertion when the config is available."""
-        # Keep the repo-root config path explicit for the cmake-format CLI.
-        config_file = ".cmake-format.yaml"  # NOSONAR
+        config_file = ".cmake-format.yaml"  # NOSONAR: keep the repo-root config literal inline for cmake-format.
         if not os.path.isfile(config_file):
             logger.debug(
                 f"Skipping post-header cmake-format for {filename}: {config_file} is unavailable."
