@@ -42,6 +42,9 @@ jobs:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}-${{ matrix.image.service }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      TRIVY_CACHE_DIR: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.cache/trivy
+      DOCKER_SCOUT_CACHE_DIR: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.cache/docker-scout
+      TRIVY_JAVA_DB_REPOSITORY: mirror.gcr.io/aquasec/trivy-java-db:1
 
     steps:
       - name: Checkout current ref
@@ -265,9 +268,45 @@ jobs:
               )
           PY
 
+      - name: Prewarm Trivy Java DB cache
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: |
+          set -euo pipefail
+          artifact_dir=".github/artifacts/docker-scout/${{ matrix.image.service }}"
+          log_file="$artifact_dir/trivy-java-db-prewarm.txt"
+          mkdir -p "$artifact_dir" "$TRIVY_CACHE_DIR" "$DOCKER_SCOUT_CACHE_DIR"
+          : > "$log_file"
+          for attempt in 1 2 3; do
+            {
+              echo "attempt=$attempt"
+              echo "cache_dir=$TRIVY_CACHE_DIR"
+              echo "java_db_repository=$TRIVY_JAVA_DB_REPOSITORY"
+            } >> "$log_file"
+            if docker run --rm \
+              -e TRIVY_JAVA_DB_REPOSITORY="$TRIVY_JAVA_DB_REPOSITORY" \
+              -v "$TRIVY_CACHE_DIR:/root/.cache/trivy" \
+              aquasec/trivy:latest \
+              image --download-java-db-only \
+              >> "$log_file" 2>&1; then
+              echo "status=success" >> "$log_file"
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "status=failure" >> "$log_file"
+              cat "$log_file"
+              exit 1
+            fi
+            echo "retry_in_seconds=$((attempt * 5))" >> "$log_file"
+            sleep $((attempt * 5))
+          done
+
       - name: Run Docker Scout CVE audit
         id: docker-scout
         uses: docker/scout-action@v1
+        env:
+          TRIVY_CACHE_DIR: ${{ env.TRIVY_CACHE_DIR }}
+          DOCKER_SCOUT_CACHE_DIR: ${{ env.DOCKER_SCOUT_CACHE_DIR }}
+          TRIVY_JAVA_DB_REPOSITORY: ${{ env.TRIVY_JAVA_DB_REPOSITORY }}
         with:
           command: cves
           image: local://${{ steps.resolve-image.outputs.image_ref }}
@@ -317,6 +356,7 @@ jobs:
           scout_summary=github-job-summary
           sarif_file=cves.sarif.json
           scout_prepare=scout-prepare.txt
+          trivy_java_db_prewarm=trivy-java-db-prewarm.txt
           component_report_markdown=component-report.md
           component_report_json=component-report.json
           EOF
