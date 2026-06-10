@@ -53,6 +53,7 @@ write_hook() {
     local hook_path="$1"
     local hook_mode="${2:-}"
 
+    mkdir -p "$(dirname "${hook_path}")"
     ensure_hook_is_safe_to_replace "${hook_path}"
 
     cat > "${hook_path}" << 'EOF'

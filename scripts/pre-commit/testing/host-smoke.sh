@@ -121,6 +121,15 @@ assert_hook_is_portable() {
     fi
 }
 
+assert_hook_exists() {
+    local hook_path="$1"
+
+    [ -x "${hook_path}" ] || {
+        echo "Expected hook to exist at ${hook_path}." >&2
+        exit 1
+    }
+}
+
 stage_cases() {
     local targets=()
     local case_entry=""
@@ -159,6 +168,7 @@ init_smoke_repo() {
 
 run_smoke() {
     local case_entry=""
+    local custom_hooks_dir=""
     local setup_output=""
 
     pushd "${SMOKE_REPO}" > /dev/null
@@ -207,11 +217,18 @@ EOF
         exit 1
     fi
 
-    cat > .git/hooks/pre-commit << 'EOF'
+    git config core.hooksPath .githooks
+    custom_hooks_dir="${SMOKE_REPO}/.githooks"
+    rm -rf "${custom_hooks_dir}"
+    ./scripts/pre-commit/setup.sh
+    assert_hook_exists "${custom_hooks_dir}/pre-commit"
+    assert_hook_exists "${custom_hooks_dir}/commit-msg"
+
+    cat > "${custom_hooks_dir}/pre-commit" << 'EOF'
 #!/usr/bin/env bash
 echo "custom hook"
 EOF
-    chmod +x .git/hooks/pre-commit
+    chmod +x "${custom_hooks_dir}/pre-commit"
 
     if setup_output="$(./scripts/pre-commit/setup.sh 2>&1)"; then
         echo "Expected setup.sh to refuse overwriting an unknown pre-commit hook." >&2
