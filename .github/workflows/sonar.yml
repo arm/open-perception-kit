@@ -61,9 +61,6 @@ jobs:
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_PROJECT_ANALYSIS_TOKEN: ${{ secrets.SONAR_PROJECT_ANALYSIS_TOKEN }}
-          SONAR_GLOBAL_ANALYSIS_TOKEN: ${{ secrets.SONAR_GLOBAL_ANALYSIS_TOKEN }}
-          SONAR_USER_TOKEN: ${{ secrets.SONAR_USER_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
           SONAR_BRANCH: ${{ github.head_ref || github.ref_name }}
           PR_KEY: ${{ github.event.pull_request.number || '' }}
@@ -76,49 +73,23 @@ jobs:
 
           echo "=== Sonar API access probe ===" > "${probe_file}"
 
-          probe_rc=0
-
-          run_probe() {
-            local token_name="$1"
-            local token_value="$2"
-
-            {
-              echo
-              echo "=== ${token_name} ==="
-            } >> "${probe_file}"
-
-            if [ -z "${token_value}" ]; then
-              echo "Token is not configured." >> "${probe_file}"
-              return
-            fi
-
-            set +e
-            SONAR_TOKEN="${token_value}" docker compose -f "${DOCKER_COMPOSE_FILE}" run --rm \
-              -e SONAR_TOKEN \
-              -e SONAR_HOST_URL \
-              -e SONAR_BRANCH \
-              -e PR_KEY \
-              -e PR_BRANCH \
-              -e PR_BASE \
-              pek-sonar-check \
-              python3 scripts/private/sonar_quality_gate_report.py \
-                --report-task-file /work/.scannerwork/report-task.txt \
-                --branch "${SONAR_BRANCH}" \
-                --pull-request-key "${PR_KEY}" \
-                --probe-api-access \
-                >> "${probe_file}" 2>&1
-            run_probe_rc=$?
-            set -e
-
-            if [ "${run_probe_rc}" -ne 0 ]; then
-              probe_rc="${run_probe_rc}"
-            fi
-          }
-
-          run_probe "SONAR_TOKEN" "${SONAR_TOKEN}"
-          run_probe "SONAR_PROJECT_ANALYSIS_TOKEN" "${SONAR_PROJECT_ANALYSIS_TOKEN}"
-          run_probe "SONAR_GLOBAL_ANALYSIS_TOKEN" "${SONAR_GLOBAL_ANALYSIS_TOKEN}"
-          run_probe "SONAR_USER_TOKEN" "${SONAR_USER_TOKEN}"
+          set +e
+          docker compose -f "${DOCKER_COMPOSE_FILE}" run --rm \
+            -e SONAR_TOKEN \
+            -e SONAR_HOST_URL \
+            -e SONAR_BRANCH \
+            -e PR_KEY \
+            -e PR_BRANCH \
+            -e PR_BASE \
+            pek-sonar-check \
+            python3 scripts/private/sonar_quality_gate_report.py \
+              --report-task-file /work/.scannerwork/report-task.txt \
+              --branch "${SONAR_BRANCH}" \
+              --pull-request-key "${PR_KEY}" \
+              --probe-api-access \
+              >> "${probe_file}" 2>&1
+          probe_rc=$?
+          set -e
 
           echo >> "${probe_file}"
 
