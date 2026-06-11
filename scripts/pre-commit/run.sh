@@ -50,15 +50,26 @@ get_branch_delta_files() {
 
 resolve_ref() {
     local ref_name="$1"
-    local candidates=(
-        "${ref_name}"
-        "refs/heads/${ref_name}"
-        "refs/remotes/origin/${ref_name}"
-    )
+    local candidates=()
     local candidate=""
 
+    case "${ref_name}" in
+        refs/*)
+            candidates=("${ref_name}")
+            ;;
+        origin/*)
+            candidates=("refs/remotes/${ref_name}")
+            ;;
+        *)
+            candidates=(
+                "refs/heads/${ref_name}"
+                "refs/remotes/origin/${ref_name}"
+            )
+            ;;
+    esac
+
     for candidate in "${candidates[@]}"; do
-        if repo_checks_git_without_hook_env -C "${REPO_ROOT}" rev-parse --verify --quiet "${candidate}" > /dev/null; then
+        if repo_checks_git_without_hook_env -C "${REPO_ROOT}" show-ref --verify --quiet -- "${candidate}"; then
             printf '%s\n' "${candidate}"
             return 0
         fi
