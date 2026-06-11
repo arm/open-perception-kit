@@ -8,9 +8,9 @@ First, make sure you can authenticate with your container engine by following [t
 
 Make sure you are logged in and authenticated with Docker or Podman:
 
-    echo <your github token> | docker login ghcr.io -u <your github username> --password-stdin
+    echo "YOUR_GITHUB_TOKEN" | docker login ghcr.io -u "YOUR_GITHUB_USERNAME" --password-stdin
     # or
-    echo <your github token> | podman login ghcr.io -u <your github username> --password-stdin
+    echo "YOUR_GITHUB_TOKEN" | podman login ghcr.io -u "YOUR_GITHUB_USERNAME" --password-stdin
 
 From the repository root, run:
 
