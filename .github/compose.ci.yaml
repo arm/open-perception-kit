@@ -23,6 +23,13 @@ services:
       dockerfile: Dockerfile
       target: pek-dev-base
 
+  pek-pre-commit-runtime:
+    network_mode: bridge
+    hostname: pek-pre-commit-runtime
+    build:
+      context: ..
+      dockerfile: scripts/pre-commit/runtime/Dockerfile
+
   pek-release-with-ut:
     <<: *pek-docs-base
     hostname: pek-release-with-ut
