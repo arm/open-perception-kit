@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - "main"
+      - "feature/EXPKITS-864/docs-ci-changes"
     tags-ignore:
       - "**"
     paths:
