@@ -53,5 +53,5 @@ jobs:
           ## Summary
 
           - Published ref: `${{ inputs.publish_ref || github.sha }}`
-          - Site URL: [https://docs.staging.devplatform.arm.com/perception-xpk](https://docs.staging.devplatform.arm.com/perception-xpk)`
+          - Site URL: [https://docs.staging.devplatform.arm.com/perception-xpk](https://docs.staging.devplatform.arm.com/perception-xpk)
           EOF
