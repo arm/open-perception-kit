@@ -169,6 +169,7 @@ init_smoke_repo() {
 run_smoke() {
     local case_entry=""
     local custom_hooks_dir=""
+    local launcher_dir=""
     local setup_output=""
 
     pushd "${SMOKE_REPO}" > /dev/null
@@ -219,10 +220,18 @@ EOF
 
     git config core.hooksPath .githooks
     custom_hooks_dir="${SMOKE_REPO}/.githooks"
+    launcher_dir="${WORK_DIR}/launcher"
     rm -rf "${custom_hooks_dir}"
-    ./scripts/pre-commit/setup.sh
+    mkdir -p "${launcher_dir}"
+    pushd "${launcher_dir}" > /dev/null
+    "${SMOKE_REPO}/scripts/pre-commit/setup.sh"
+    popd > /dev/null
     assert_hook_exists "${custom_hooks_dir}/pre-commit"
     assert_hook_exists "${custom_hooks_dir}/commit-msg"
+    [ ! -e "${launcher_dir}/.githooks" ] || {
+        echo "Expected setup.sh not to install hooks relative to the caller working directory." >&2
+        exit 1
+    }
 
     cat > "${custom_hooks_dir}/pre-commit" << 'EOF'
 #!/usr/bin/env bash
@@ -230,10 +239,13 @@ echo "custom hook"
 EOF
     chmod +x "${custom_hooks_dir}/pre-commit"
 
-    if setup_output="$(./scripts/pre-commit/setup.sh 2>&1)"; then
+    pushd "${launcher_dir}" > /dev/null
+    if setup_output="$("${SMOKE_REPO}/scripts/pre-commit/setup.sh" 2>&1)"; then
+        popd > /dev/null
         echo "Expected setup.sh to refuse overwriting an unknown pre-commit hook." >&2
         exit 1
     fi
+    popd > /dev/null
 
     printf '%s\n' "${setup_output}" | grep -Fq "Refusing to overwrite existing hook" || {
         echo "Expected setup.sh to explain why it refused the unknown hook." >&2

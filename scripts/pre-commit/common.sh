@@ -41,7 +41,17 @@ repo_checks_resolve_repo_root() {
 
 repo_checks_git_hooks_dir() {
     local repo_root="$1"
-    repo_checks_git_without_hook_env -C "${repo_root}" rev-parse --git-path hooks
+    local hooks_dir=""
+
+    hooks_dir="$(repo_checks_git_without_hook_env -C "${repo_root}" rev-parse --git-path hooks)"
+    case "${hooks_dir}" in
+        /*)
+            printf '%s\n' "${hooks_dir}"
+            ;;
+        *)
+            printf '%s\n' "${repo_root}/${hooks_dir}"
+            ;;
+    esac
 }
 
 repo_checks_git_common_dir() {
