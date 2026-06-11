@@ -30,6 +30,9 @@ Checks: >
   -modernize-use-std-print,
   -modernize-use-integer-sign-comparison,
   -modernize-use-starts-ends-with,
+  -bugprone-branch-clone,
+  -modernize-use-override,
+  -modernize-use-equals-default,
   -performance-enum-size,
   -performance-no-int-to-ptr
 WarningsAsErrors: ''

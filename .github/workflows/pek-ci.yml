@@ -31,8 +31,8 @@ jobs:
 
       - name: Build docker image
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-docs-base
-          pek-dev-base
+        run: |
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-docs-base pek-dev-base
 
       - name: Check Repo Quality gate (nightly)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -42,7 +42,7 @@ jobs:
 
       - name: Upload quality report artifact (nightly)
         if: ${{ always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: expkits-ci-quality-report-full
           path: "${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.github/artifacts/expkits-ci-full-report.txt"
@@ -51,7 +51,7 @@ jobs:
 
       - name: Upload documentation artifact
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: pek-doc
           path: "${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/development/build/doc"
@@ -80,7 +80,7 @@ jobs:
 
       - name: Upload quality report artifact (PR)
         if: ${{ always() && github.event_name == 'pull_request' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: expkits-ci-quality-report-pr
           path: "${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.github/artifacts/expkits-ci-pr-report.txt"
@@ -98,7 +98,27 @@ jobs:
         if: github.event_name == 'pull_request' || github.event_name == 'schedule' ||
           github.event_name == 'workflow_dispatch'
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-clang-tidy-baseline-check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            export PULL_REQUEST_TARGET_BRANCH="${{ github.base_ref }}"
+            # The checkout auth includeIf rules do not apply inside our /work-mounted compose container.
+            git_basic_auth="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+            export GIT_CONFIG_COUNT=1
+            export GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
+            export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic ${git_basic_auth}"
+            echo "::add-mask::${git_basic_auth}"
+            echo "::add-mask::${GIT_CONFIG_VALUE_0}"
+            docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm \
+              -e PULL_REQUEST_TARGET_BRANCH \
+              -e GIT_CONFIG_COUNT \
+              -e GIT_CONFIG_KEY_0 \
+              -e GIT_CONFIG_VALUE_0 \
+              pek-clang-tidy-baseline-check
+          else
+            docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-clang-tidy-baseline-check
+          fi
 
       - name: Upload clang-tidy logs
         if: always() && (github.event_name == 'pull_request' || github.event_name == 'schedule' ||
@@ -121,7 +141,7 @@ jobs:
 
       - name: Upload Valgrind logs on failure
         if: ${{ steps.valgrind_checks.outcome == 'failure' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: valgrind-logs
           path: |

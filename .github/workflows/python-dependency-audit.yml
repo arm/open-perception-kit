@@ -15,7 +15,7 @@ permissions:
 jobs:
   pip-audit:
     name: pip-audit (${{ matrix.package.name }})
-    runs-on: ubuntu-latest
+    runs-on: self-hosted-ubuntu-latest-x64
     if: |
       github.event_name != 'pull_request' ||
       (
