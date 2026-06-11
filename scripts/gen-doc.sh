@@ -94,6 +94,13 @@ if [ -d "/work/docs/public/static" ]; then
     cp -a /work/docs/public/static/. "$OUT_DIR/static/"
 fi
 
+if [ -d "/work/docs/public/static/img" ]; then
+    echo "Creating root-level /img alias for plain HTML output..."
+    rm -rf "$OUT_DIR/img"
+    mkdir -p "$OUT_DIR/img"
+    cp -a /work/docs/public/static/img/. "$OUT_DIR/img/"
+fi
+
 # --- simple link rewrite: .md -> .html ---
 echo "Rewriting internal links..."
 find "$OUT_DIR" -type f -name "*.html" -exec sed -i 's/\.md"/.html"/g' {} +
