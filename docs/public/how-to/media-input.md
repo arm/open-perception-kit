@@ -1,6 +1,8 @@
 ---
-sidebar_position: 7
+title: Use Your Own Media
+sidebar_position: 1
 sidebar_label: Use Your Own Media
+description: Replace sample media with your own images, videos, or streams while keeping a known-good pipeline intact.
 ---
 
 # Use Your Own Media
@@ -75,4 +77,4 @@ For ready-to-run live camera presets, use:
 - `05-full-onnx-raspicam` for a Raspberry Pi camera.
 - `06-full-onnx-usb-cam` for a USB camera at `/dev/video0`.
 
-[Back to README](index.md)
+[Back to How-To Guides](/how-to)

@@ -1,6 +1,8 @@
 ---
-sidebar_position: 9
+title: Custom Postprocessing
+sidebar_position: 5
 sidebar_label: Custom Postprocessing
+description: Add a parser when a model's output tensors do not fit an existing Perception XPK postprocessor.
 ---
 
 # Custom Postprocessing
@@ -284,4 +286,4 @@ By the end of this page, you should have:
 
 Success looks like this: your model outputs are translated into the right `Perception` structure, and the runtime can consume those results without guessing.
 
-[Back to README](index.md)
+[Back to How-To Guides](/how-to)

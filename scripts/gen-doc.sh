@@ -43,8 +43,8 @@ echo "Preparing Markdown sources for plain HTML output..."
 python3 /work/scripts/private/prepare_plain_docs.py "$SRC_DIR" "$PREPARED_SRC_DIR"
 
 # --- regenerate png figures (if any .puml exist) ---
-PLANTUML_SRC_DIR="/work/docs/static/plantuml"
-PLANTUML_OUT_DIR="/work/docs/static/img"
+PLANTUML_SRC_DIR="/work/docs/public/static/plantuml"
+PLANTUML_OUT_DIR="/work/docs/public/static/img"
 
 if [ -d "$PLANTUML_SRC_DIR" ]; then
     echo "Regenerating PlantUML figures from $PLANTUML_SRC_DIR..."
@@ -88,10 +88,17 @@ find "$SRC_DIR" -type f \( \
     cp -f "$file" "$out_path"
 done
 
-if [ -d "/work/docs/static" ]; then
+if [ -d "/work/docs/public/static" ]; then
     echo "Copying static assets..."
     mkdir -p "$OUT_DIR/static"
-    cp -a /work/docs/static/. "$OUT_DIR/static/"
+    cp -a /work/docs/public/static/. "$OUT_DIR/static/"
+fi
+
+if [ -d "/work/docs/public/static/img" ]; then
+    echo "Creating root-level /img alias for plain HTML output..."
+    rm -rf "$OUT_DIR/img"
+    mkdir -p "$OUT_DIR/img"
+    cp -a /work/docs/public/static/img/. "$OUT_DIR/img/"
 fi
 
 # --- simple link rewrite: .md -> .html ---

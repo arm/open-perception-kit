@@ -1,6 +1,8 @@
 ---
-sidebar_position: 12
+title: Performance Measurement With Performix
+sidebar_position: 7
 sidebar_label: Performance Measurement
+description: Set up SSH access and use Performix to measure a Perception XPK pipeline on the target device.
 ---
 
 # Performance Measurement With Performix
@@ -85,7 +87,7 @@ If SSH does not work:
 
 In Performix the SSH setup is very similar.
 
-![Performix SSH setup](../static/img/performix-ssh.jpg)
+![Performix SSH setup](/img/performix-ssh.jpg)
 
 After clicking 'Add Target' you have to populate the form with information:
 - Host: 127.0.0.1 or the IP address of the target device
@@ -110,10 +112,10 @@ Now here is an example of setting up one that works:
 
 The `Run Recipe` button executes the target application and performs the measurement.
 
-![Performix recipe setup](../static/img/performix-recipe.jpg)
+![Performix recipe setup](/img/performix-recipe.jpg)
 
 After running a recipe by clicking `Run Recipe`, you will get the measurement results.
 
-![Performix results](../static/img/performix-results.jpg)
+![Performix results](/img/performix-results.jpg)
 
-[Back to README](index.md)
+[Back to How-To Guides](/how-to)

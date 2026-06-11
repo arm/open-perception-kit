@@ -1,6 +1,8 @@
 ---
-sidebar_position: 9
+title: Run Hailo Inference
+sidebar_position: 3
 sidebar_label: Hailo Inference
+description: Prepare supported Hailo hardware on Raspberry Pi 5 and run the matching accelerated pipeline.
 ---
 
 # Run Hailo Inference On Raspberry Pi 5
@@ -111,4 +113,4 @@ hailortcli fw-control identify
 If the host cannot see the Hailo device, PEK inside the container will not be
 able to use it.
 
-[Back to README](index.md)
+[Back to How-To Guides](/how-to)
