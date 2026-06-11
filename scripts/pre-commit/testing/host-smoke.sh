@@ -8,6 +8,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../common.sh"
 
+if ! command -v python3 > /dev/null 2>&1; then
+    repo_checks_die "host-smoke.sh requires python3 on the host to load expkits-ci fixtures."
+fi
+
 REPO_ROOT="$(repo_checks_resolve_repo_root "${SCRIPT_DIR}")"
 WORK_DIR=""
 SMOKE_TMP_PARENT="${REPO_CHECKS_SMOKE_TMP_PARENT:-}"
@@ -164,6 +168,7 @@ init_smoke_repo() {
 run_smoke() {
     local case_entry=""
     local custom_hooks_dir=""
+    local default_user=""
     local launcher_dir=""
     local setup_output=""
     local temp_parent=""
@@ -175,6 +180,11 @@ run_smoke() {
 
     ./scripts/pre-commit/setup.sh
     ./scripts/pre-commit/setup.sh
+    default_user="$(docker image inspect "$(repo_checks_image_name "${SMOKE_REPO}")" --format '{{.Config.User}}')"
+    [ "${default_user}" = "repo-checks" ] || {
+        echo "Expected the repo-checks runtime image to default to a non-root user." >&2
+        exit 1
+    }
     assert_hook_is_portable "pre-commit"
     assert_hook_is_portable "commit-msg"
 

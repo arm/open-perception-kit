@@ -14,4 +14,16 @@ RUN apt-get update && \
 COPY tools/expkits-ci /tmp/pek-tools/expkits-ci
 
 RUN python3 -m pip install --no-cache-dir /tmp/pek-tools/expkits-ci && \
-    rm -rf /tmp/pek-tools
+    rm -rf /tmp/pek-tools && \
+    groupadd --system repo-checks && \
+    useradd \
+        --system \
+        --gid repo-checks \
+        --create-home \
+        --home-dir /home/repo-checks \
+        --shell /bin/sh \
+        repo-checks
+
+ENV HOME=/home/repo-checks
+
+USER repo-checks
