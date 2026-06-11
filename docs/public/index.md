@@ -21,6 +21,9 @@ application.
 **Note:** This developer preview is for evaluation, early application
 development, and feedback.
 
+<!-- BEGIN GENERATED DOCS BUILD INFO -->
+<!-- END GENERATED DOCS BUILD INFO -->
+
 ![Example WebRTC viewer showing sample video inference, model controls, performance metrics, and debug log](/img/10-browser-ui.png)
 
 ## Quick start: first inference on Raspberry Pi 5
