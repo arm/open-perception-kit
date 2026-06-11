@@ -39,6 +39,14 @@ hook_is_repo_checks_managed() {
 ensure_hook_is_safe_to_replace() {
     local hook_path="$1"
 
+    if [ -L "${hook_path}" ]; then
+        repo_checks_die "Refusing to overwrite symlinked hook at ${hook_path}."
+    fi
+
+    if [ -e "${hook_path}" ] && [ ! -f "${hook_path}" ]; then
+        repo_checks_die "Refusing to overwrite non-file hook at ${hook_path}."
+    fi
+
     if [ ! -e "${hook_path}" ] || [ ! -s "${hook_path}" ]; then
         return
     fi

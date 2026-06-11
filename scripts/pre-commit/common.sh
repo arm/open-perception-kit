@@ -30,8 +30,42 @@ repo_checks_remove_file() {
     [ -n "${path}" ] && rm -f "${path}"
 }
 
+repo_checks_resolve_temp_parent() {
+    local tmp_parent="${1:-${TMPDIR:-/tmp}}"
+
+    mkdir -p -- "${tmp_parent}" || return 1
+    (   
+        cd -- "${tmp_parent}" > /dev/null &&
+            pwd
+    )
+}
+
 repo_checks_create_temp_file() {
-    mktemp "${TMPDIR:-/tmp}/repo-checks.XXXXXX"
+    local tmp_parent="${1:-${TMPDIR:-/tmp}}"
+    local resolved_tmp_parent=""
+    local temp_name=""
+
+    resolved_tmp_parent="$(repo_checks_resolve_temp_parent "${tmp_parent}")" || return 1
+    temp_name="$(
+        cd -- "${resolved_tmp_parent}" > /dev/null &&
+            mktemp "repo-checks.XXXXXX"
+    )" || return 1
+
+    printf '%s\n' "${resolved_tmp_parent}/${temp_name}"
+}
+
+repo_checks_create_temp_dir() {
+    local tmp_parent="${1:-${TMPDIR:-/tmp}}"
+    local resolved_tmp_parent=""
+    local temp_name=""
+
+    resolved_tmp_parent="$(repo_checks_resolve_temp_parent "${tmp_parent}")" || return 1
+    temp_name="$(
+        cd -- "${resolved_tmp_parent}" > /dev/null &&
+            mktemp -d "repo-checks.XXXXXX"
+    )" || return 1
+
+    printf '%s\n' "${resolved_tmp_parent}/${temp_name}"
 }
 
 repo_checks_resolve_repo_root() {
@@ -184,7 +218,7 @@ repo_checks_run_image() {
 
     docker run --rm \
         --user "$(id -u):$(id -g)" \
-        -e HOME=/tmp/repo-checks-home \
+        -e HOME=/tmp \
         -w "${repo_root}" \
         "${mount_args[@]}" \
         "${image_name}" \

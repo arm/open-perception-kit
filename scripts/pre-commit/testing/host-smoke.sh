@@ -11,12 +11,7 @@ source "${SCRIPT_DIR}/../common.sh"
 REPO_ROOT="$(repo_checks_resolve_repo_root "${SCRIPT_DIR}")"
 WORK_DIR=""
 SMOKE_TMP_PARENT="${REPO_CHECKS_SMOKE_TMP_PARENT:-}"
-if [ -n "${SMOKE_TMP_PARENT}" ]; then
-    mkdir -p "${SMOKE_TMP_PARENT}"
-    WORK_DIR="$(mktemp -d "${SMOKE_TMP_PARENT%/}/repo-checks-smoke.XXXXXX")"
-else
-    WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/repo-checks-smoke.XXXXXX")"
-fi
+WORK_DIR="$(repo_checks_create_temp_dir "${SMOKE_TMP_PARENT:-${TMPDIR:-/tmp}}")"
 SMOKE_REPO="${WORK_DIR}/repo"
 FIXTURE_ROOT="${REPO_ROOT}/tools/expkits-ci/tests/fixtures"
 PRECOMMIT_CASES=()
@@ -171,6 +166,10 @@ run_smoke() {
     local custom_hooks_dir=""
     local launcher_dir=""
     local setup_output=""
+    local temp_parent=""
+    local temp_file=""
+    local temp_dir=""
+    local symlink_target=""
 
     pushd "${SMOKE_REPO}" > /dev/null
 
@@ -194,6 +193,21 @@ run_smoke() {
     git commit --no-verify -m "Record clean fixture snapshot" -m "Task: EXPKITS-941" > /dev/null
     ./scripts/pre-commit/run.sh
     ./scripts/pre-commit/run.sh full
+    repo_checks_run_image "${SMOKE_REPO}" python3 -c \
+        'from pathlib import Path; import os; path = Path(os.environ["HOME"]) / "repo-checks-home-smoke"; path.write_text("ok"); print(path.read_text())' \
+        > /dev/null
+
+    temp_parent="${WORK_DIR}/-temp-parent"
+    temp_file="$(repo_checks_create_temp_file "${temp_parent}")"
+    [ -f "${temp_file}" ] || {
+        echo "Expected repo_checks_create_temp_file to create a file under a dash-prefixed temp parent." >&2
+        exit 1
+    }
+    temp_dir="$(repo_checks_create_temp_dir "${temp_parent}")"
+    [ -d "${temp_dir}" ] || {
+        echo "Expected repo_checks_create_temp_dir to create a directory under a dash-prefixed temp parent." >&2
+        exit 1
+    }
 
     write_secret_file
     git add secrets/bad.pem
@@ -249,6 +263,28 @@ EOF
 
     printf '%s\n' "${setup_output}" | grep -Fq "Refusing to overwrite existing hook" || {
         echo "Expected setup.sh to explain why it refused the unknown hook." >&2
+        exit 1
+    }
+
+    symlink_target="${WORK_DIR}/external-pre-commit"
+    printf '%s\n' "external hook" > "${symlink_target}"
+    rm -f -- "${custom_hooks_dir}/pre-commit"
+    ln -s "${symlink_target}" "${custom_hooks_dir}/pre-commit"
+
+    pushd "${launcher_dir}" > /dev/null
+    if setup_output="$("${SMOKE_REPO}/scripts/pre-commit/setup.sh" 2>&1)"; then
+        popd > /dev/null
+        echo "Expected setup.sh to refuse overwriting a symlinked pre-commit hook." >&2
+        exit 1
+    fi
+    popd > /dev/null
+
+    printf '%s\n' "${setup_output}" | grep -Fq "Refusing to overwrite symlinked hook" || {
+        echo "Expected setup.sh to explain why it refused the symlinked hook." >&2
+        exit 1
+    }
+    grep -Fqx "external hook" "${symlink_target}" || {
+        echo "Expected setup.sh not to modify the symlink target." >&2
         exit 1
     }
 
