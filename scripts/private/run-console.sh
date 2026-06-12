@@ -37,6 +37,7 @@ DC_RICH="rich"
 
 export HOST_UID="$(id -u)"
 export HOST_GID="$(id -g)"
+export WEBRTC_HOST_IP="${WEBRTC_HOST_IP:-"$("${SCRIPT_DIR}/detect-webrtc-host-ip.sh")"}"
 
 cd "${REPO_ROOT}"
 
@@ -62,12 +63,14 @@ is_running() {
 do_up() {
     ./scripts/private/dev-init.sh pek-dev-rich "$DC_RICH" "$DEV_ENV_FILE"
 
-    HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" \
+    echo "Using WebRTC host IP: ${WEBRTC_HOST_IP}"
+
+    HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" WEBRTC_HOST_IP="${WEBRTC_HOST_IP}" \
         docker compose "${COMPOSE_FILES[@]}" up -d --build
 }
 
 do_down() {
-    HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" \
+    HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" WEBRTC_HOST_IP="${WEBRTC_HOST_IP}" \
         docker compose "${COMPOSE_FILES[@]}" down
 }
 

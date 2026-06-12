@@ -1,10 +1,37 @@
 services:
+  coturn:
+    image: coturn/coturn:latest
+    network_mode: bridge
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "49000-49050:49000-49050/udp"
+    command:
+      - --listening-port=3478
+      - --fingerprint
+      - --lt-cred-mech
+      - --user=test:test123
+      - --realm=pek.local
+      - --external-ip=${WEBRTC_HOST_IP}
+      - --min-port=49000
+      - --max-port=49050
+      - --no-cli
+      - --no-tls
+      - --no-dtls
+      - --log-file=stdout
+
   pek-dev-base:
     extends: 
       file: ../compose.base.yaml
       service: pek-common-dev
 
     network_mode: bridge
+    depends_on:
+      - coturn
+    environment:
+      - WEBRTC_HOST_IP=${WEBRTC_HOST_IP}
+      - PEK_WEBRTC_TURN_USERNAME=test
+      - PEK_WEBRTC_TURN_CREDENTIAL=test123
     container_name: perception-experience-kit
     hostname: perception-experience-kit
     build:
