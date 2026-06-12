@@ -1,0 +1,35 @@
+{
+  "reviewProfile": {
+    "model": "gpt-5.2-codex",
+    "reasoningEffort": "high",
+    "conceptualSensitivity": "medium"
+  },
+  "categories": [
+    { "id": "note", "label": "Note", "severity": "note" },
+    { "id": "impl_easy", "label": "Implementation issue", "severity": "major" },
+    { "id": "conceptual", "label": "Conceptual issue", "severity": "major" }
+  ],
+  "inlineSuggestions": {
+    "enabled": true,
+    "maxChangedLines": 8,
+    "maxFilesTouched": 1,
+    "minConfidence": 0.85
+  },
+  "conceptualReview": {
+    "enabled": true,
+    "minRiskScore": 0.45,
+    "includeRefactorIdeas": true
+  },
+  "decisionPolicy": {
+    "approveWhenNoFindings": false,
+    "requestChangesAtSeverity": "major"
+  },
+  "scope": {
+    "includeGlobs": ["**/*"],
+    "excludeGlobs": ["development/build/**", "subprojects/**", ".git/**"]
+  },
+  "diffSource": {
+    "mode": "base_branch",
+    "baseBranch": "origin/main"
+  }
+}

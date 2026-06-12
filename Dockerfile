@@ -287,24 +287,6 @@ WORKDIR /work
 ENTRYPOINT ["/work/scripts/private/deployment-process.sh"]
 
 ######################################################################
-################### PR automation CI container #######################
-######################################################################
-FROM node:22-bookworm-slim AS pek-pr-automation
-
-ENV DEBIAN_FRONTEND=noninteractive
-
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-
-RUN set -eux; \
-  apt-get update; \
-  apt-get install -y --no-install-recommends bash git ca-certificates curl jq; \
-  rm -rf /var/lib/apt/lists/*
-
-RUN curl -fsSL https://gh.io/copilot-install | bash
-
-WORKDIR /work
-
-######################################################################
 ###################### Deployment container ##########################
 ######################################################################
 FROM pek-dev-base AS pek-dev-sonar

@@ -1,0 +1,64 @@
+name: Codex Review
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: codex-review-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: self-hosted-ubuntu-latest-x64
+    container:
+      image: ${{ vars.ARTIFACTORY_DOCKER_REGISTRY }}/codex-reviewer:8eccab23ccdb0205f6a399768365464fd1b016a1
+      credentials:
+        username: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
+        password: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
+
+    steps:
+      - name: Checkout pull request head
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Run codex-reviewer
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
+          GITHUB_TOKEN: ${{ github.token }}
+          CODEX_REVIEWER__DIFF_SOURCE__BASE_BRANCH: origin/${{ github.base_ref || github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          /app/scripts/docker-entrypoint.sh \
+            --config .github/codex-reviewer/config.base-branch.json \
+            --instructions-path .github/instructions/codex-review.instructions.md \
+            --output-dir codex-reviewer-out \
+            --mock false \
+            --dry-run false \
+            --codex-bypass-sandbox
+
+      - name: Add review summary to workflow summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f codex-reviewer-out/review_summary.md ]; then
+            cat codex-reviewer-out/review_summary.md >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+      - name: Upload review artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-reviewer-out
+          path: codex-reviewer-out
+          if-no-files-found: warn
