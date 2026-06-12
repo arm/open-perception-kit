@@ -15,9 +15,42 @@
 #include "peksink.h"
 #include <filesystem>
 #include <fstream>
+#include <string>
 
 using namespace httplib;
 using namespace nlohmann;
+
+static std::string without_webrtc_url_slashes(std::string url) {
+    const auto scheme_end = url.find("://");
+    if (scheme_end != std::string::npos) {
+        url.erase(scheme_end + 1, 2);
+    }
+    return url;
+}
+
+static json browser_ice_server_from_url(const char *server_url) {
+    if (!server_url || server_url[0] == '\0') {
+        return nullptr;
+    }
+
+    std::string url = without_webrtc_url_slashes(server_url);
+    json ice_server;
+
+    const auto scheme_end = url.find(':');
+    const auto at = url.find('@');
+    if (scheme_end != std::string::npos && at != std::string::npos && at > scheme_end + 1) {
+        const auto credentials = url.substr(scheme_end + 1, at - scheme_end - 1);
+        const auto colon = credentials.find(':');
+        if (colon != std::string::npos) {
+            ice_server["username"] = credentials.substr(0, colon);
+            ice_server["credential"] = credentials.substr(colon + 1);
+            url.erase(scheme_end + 1, at - scheme_end);
+        }
+    }
+
+    ice_server["urls"] = url;
+    return ice_server;
+}
 
 PekSinkHttpServerError PekSinkHttpServer::setup() {
 
@@ -77,10 +110,25 @@ PekSinkHttpServerError PekSinkHttpServer::stop() {
 }
 
 void PekSinkHttpServer::get_dynamic_config(const Request &req, Response &res) {
-    std::string js = "window.PEK_CONFIG = "
-                     "{ wsPort: " +
-                     std::to_string(self_->ws_port) + "," +
-                     "ctrlPort: " + std::to_string(self_->ctrl_port) + "};";
+    json config = {
+        {"wsPort", self_->ws_port},
+        {"ctrlPort", self_->ctrl_port},
+    };
+
+    json ice_servers = json::array();
+    if (auto stun_server = browser_ice_server_from_url(self_->webrtc_stun_server);
+        !stun_server.is_null()) {
+        ice_servers.push_back(stun_server);
+    }
+    if (auto turn_server = browser_ice_server_from_url(self_->webrtc_turn_server);
+        !turn_server.is_null()) {
+        ice_servers.push_back(turn_server);
+    }
+    if (!ice_servers.empty()) {
+        config["webrtc"]["iceServers"] = ice_servers;
+    }
+
+    std::string js = "window.PEK_CONFIG = " + config.dump() + ";";
     res.set_content(js, "application/javascript");
 }
 

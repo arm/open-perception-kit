@@ -2,6 +2,57 @@ export function createWebRtcClient(config) {
     return new WebRtcClient(config);
 }
 
+async function dumpSelectedCandidatePair(pc) {
+    if (!pc || typeof pc.getStats !== 'function')
+        return;
+
+    const stats = await pc.getStats();
+
+    let selectedPair = null;
+    const localCandidates = new Map();
+    const remoteCandidates = new Map();
+
+    stats.forEach(report => {
+        if (report.type === "local-candidate") {
+            localCandidates.set(report.id, report);
+        }
+
+        if (report.type === "remote-candidate") {
+            remoteCandidates.set(report.id, report);
+        }
+
+        if (report.type === "candidate-pair" && report.selected) {
+            selectedPair = report;
+        }
+    });
+
+    if (!selectedPair) {
+        console.log("No selected ICE candidate pair yet");
+        return;
+    }
+
+    const local = localCandidates.get(selectedPair.localCandidateId);
+    const remote = remoteCandidates.get(selectedPair.remoteCandidateId);
+
+    console.log("SELECTED ICE PAIR:", selectedPair);
+    console.log("LOCAL CANDIDATE:", local);
+    console.log("REMOTE CANDIDATE:", remote);
+}
+
+
+async function dumpAllCandidatePairs(pc) {
+    if (!pc || typeof pc.getStats !== 'function')
+        return;
+
+    const stats = await pc.getStats();
+
+    stats.forEach(report => {
+        if (report.type === "candidate-pair") {
+            console.log("CANDIDATE PAIR:", report);
+        }
+    });
+}
+
 class WebRtcClient {
     constructor(config) {
         this.video = requireConfig(config, 'video');
@@ -106,7 +157,9 @@ class WebRtcClient {
     }
 
     createPeerConnection(session) {
-        const pc = this.RTCPeerConnectionFactory({iceServers: this.iceServers});
+        const pc = this.RTCPeerConnectionFactory({
+            iceServers: this.iceServers
+        });
 
         pc.addTransceiver('video', {direction: 'recvonly'});
         pc.addTransceiver('audio', {direction: 'recvonly'});
@@ -114,6 +167,8 @@ class WebRtcClient {
         pc.onicecandidate = (event) => {
             if (!this.isCurrent(session) || !event.candidate)
                 return;
+
+            console.log("Candidate: " + event.candidate.candidate)
 
             if (session.ws && session.ws.readyState === this.openState) {
                 try {
@@ -129,6 +184,7 @@ class WebRtcClient {
         pc.ontrack = (event) => {
             if (!this.isCurrent(session))
                 return;
+
 
             this.log(`Received track kind=${event.track.kind}`);
             session.remoteStream.addTrack(event.track);
@@ -147,6 +203,13 @@ class WebRtcClient {
         pc.oniceconnectionstatechange = () => {
             if (!this.isCurrent(session))
                 return;
+
+            console.log("ICE state:", pc.iceConnectionState);
+
+            setTimeout(() => {
+                dumpSelectedCandidatePair(pc);
+            }, 1000);
+            setTimeout(() => dumpAllCandidatePairs(pc), 3000);
 
             const state = pc.iceConnectionState;
             this.log(`ICE connection state: ${state}`);

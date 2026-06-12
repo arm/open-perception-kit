@@ -1,5 +1,5 @@
 import {createWebRtcClient} from './webrtc_client.js';
-import {resolveWebRtcTimingConfig} from './webrtc_config.js';
+import {resolveWebRtcIceConfig, resolveWebRtcTimingConfig} from './webrtc_config.js';
 
 // ===== UI ELEMENT REFERENCES =====
 const video = document.getElementById('video');
@@ -71,11 +71,13 @@ const WS_PORT = (window.PEK_CONFIG && window.PEK_CONFIG.wsPort) ||
 
 const SIGNALING_URL = `${WS_PROTO}://${WS_HOST}:${WS_PORT}/ws`;
 const WEBRTC_TIMING_CONFIG = resolveWebRtcTimingConfig(window.PEK_CONFIG || {});
+const WEBRTC_ICE_CONFIG = resolveWebRtcIceConfig(window.PEK_CONFIG || {});
 
 const client = createWebRtcClient({
     video,
     signalingUrl: SIGNALING_URL,
     ...WEBRTC_TIMING_CONFIG,
+    ...WEBRTC_ICE_CONFIG,
     logger: appendLog,
     onStatus: setStatus,
     onStatusLine: setStatusLine,
