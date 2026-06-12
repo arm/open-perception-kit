@@ -6,7 +6,7 @@ services:
     ports:
       - "3478:3478/udp"
       - "3478:3478/tcp"
-      - "49000-49050:49000-49050/udp"
+      - "${PEK_WEBRTC_TURN_MIN_PORT:-49000}-${PEK_WEBRTC_TURN_MAX_PORT:-49050}:${PEK_WEBRTC_TURN_MIN_PORT:-49000}-${PEK_WEBRTC_TURN_MAX_PORT:-49050}/udp"
     command:
       - --listening-port=3478
       - --fingerprint
@@ -14,8 +14,8 @@ services:
       - --user=test:test123
       - --realm=pek.local
       - --external-ip=${WEBRTC_HOST_IP}
-      - --min-port=49000
-      - --max-port=49050
+      - --min-port=${PEK_WEBRTC_TURN_MIN_PORT:-49000}
+      - --max-port=${PEK_WEBRTC_TURN_MAX_PORT:-49050}
       - --no-cli
       - --no-tls
       - --no-dtls
@@ -55,6 +55,8 @@ services:
       - WEBRTC_HOST_IP=${WEBRTC_HOST_IP}
       - PEK_WEBRTC_TURN_USERNAME=test
       - PEK_WEBRTC_TURN_CREDENTIAL=test123
+      - PEK_WEBRTC_TURN_MIN_PORT=${PEK_WEBRTC_TURN_MIN_PORT:-49000}
+      - PEK_WEBRTC_TURN_MAX_PORT=${PEK_WEBRTC_TURN_MAX_PORT:-49050}
 
     volumes:
       - /run/user/${HOST_UID}:/run/user/${HOST_UID}

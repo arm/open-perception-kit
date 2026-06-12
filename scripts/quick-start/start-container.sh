@@ -114,6 +114,8 @@ cd "${REPO_ROOT}"
 export HOST_UID="$(id -u)"
 export HOST_GID="$(id -g)"
 export WEBRTC_HOST_IP="${WEBRTC_HOST_IP:-"$("${REPO_ROOT}/scripts/private/detect-webrtc-host-ip.sh")"}"
+export PEK_WEBRTC_TURN_MIN_PORT="${PEK_WEBRTC_TURN_MIN_PORT:-49000}"
+export PEK_WEBRTC_TURN_MAX_PORT="${PEK_WEBRTC_TURN_MAX_PORT:-49050}"
 
 require_docker
 
@@ -133,6 +135,7 @@ echo "  Platform: ${PEK_PLATFORM_NAME} (${PEK_PLATFORM_ID})"
 echo "  Service:  ${PEK_CONTAINER_SERVICE}"
 echo "  Name:     ${PEK_CONTAINER_NAME}"
 echo "  WebRTC:   ${WEBRTC_HOST_IP}"
+echo "  TURN:     ${PEK_WEBRTC_TURN_MIN_PORT}-${PEK_WEBRTC_TURN_MAX_PORT}/udp"
 
 if [[ "${PEK_PLATFORM_ID}" == rpi5* ]]; then
     echo "  Hailo:    ${PEK_HAILO_ARCH}"
