@@ -1,6 +1,8 @@
 ---
-sidebar_position: 6
+title: Use A Camera
+sidebar_position: 2
 sidebar_label: Use A Camera
+description: Switch a working Perception XPK pipeline to a USB camera or Raspberry Pi camera source.
 ---
 
 # Use A Camera
@@ -126,4 +128,4 @@ Expected result: the browser shows camera input instead of the checked-in sample
 - Keep the output format conversion to `BGRA`; PEK video elements expect that format in the normal path.
 - Stop the running pipeline with `Ctrl+C` before starting it again.
 
-[Back to README](index.md)
+[Back to How-To Guides](/how-to)

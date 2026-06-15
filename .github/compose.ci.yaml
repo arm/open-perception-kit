@@ -44,11 +44,20 @@ services:
         .devcontainer/platform_init.sh pek-dev-base &&
         source /work/tools/.venv/bin/activate &&
         rm -f clang-tidy.log clang-tidy-stats.log clang-tidy-stats.json &&
-        expkits-ci \
-          --clang-tidy \
-          --clang-tidy-binary /opt/pek-venvs/devtools/bin/clang-tidy \
-          --log-output both \
-          --log-file clang-tidy.log &&
+        if [ -n "$${PULL_REQUEST_TARGET_BRANCH:-}" ]; then
+          expkits-ci \
+            --clang-tidy \
+            --pr-target-branch "$${PULL_REQUEST_TARGET_BRANCH}" \
+            --clang-tidy-binary /opt/pek-venvs/devtools/bin/clang-tidy \
+            --log-output both \
+            --log-file clang-tidy.log;
+        else
+          expkits-ci \
+            --clang-tidy \
+            --clang-tidy-binary /opt/pek-venvs/devtools/bin/clang-tidy \
+            --log-output both \
+            --log-file clang-tidy.log;
+        fi &&
         expkits-ci \
           --clang-tidy-stats clang-tidy.log \
           --clang-tidy-stats-output clang-tidy-stats.json \
@@ -120,8 +129,16 @@ services:
         ./scripts/build-elements.sh debug true --extra-setup-args=-Db_coverage=true,--wipe &&
         meson test -C "$$BUILD_DIR" --print-errorlogs &&
         gcovr -r . --sonarqube coverage.xml &&
-        sonar-scanner -Dsonar.qualitygate.wait="$${SONAR_QUALITYGATE_WAIT}" \
-          -Dsonar.branch.name="$$SONAR_BRANCH"
+        if [ -n "$$PR_KEY" ] && [ -n "$$PR_BRANCH" ] && [ -n "$$PR_BASE" ]; then
+          sonar_scope_args=(
+            -Dsonar.pullrequest.key="$$PR_KEY"
+            -Dsonar.pullrequest.branch="$$PR_BRANCH"
+            -Dsonar.pullrequest.base="$$PR_BASE"
+          )
+        else
+          sonar_scope_args=(-Dsonar.branch.name="$$SONAR_BRANCH")
+        fi &&
+        sonar-scanner -Dsonar.qualitygate.wait="$${SONAR_QUALITYGATE_WAIT}" "$${sonar_scope_args[@]}"
       '
 
   pek-sonar-check-release:

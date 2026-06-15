@@ -1,6 +1,8 @@
 ---
-sidebar_position: 8
+title: Feed Inference Into An Application
+sidebar_position: 6
 sidebar_label: App Output
+description: Placeholder for the planned workflow to consume Perception XPK inference results from an application.
 ---
 
 # Feed Inference Into An Application
@@ -34,9 +36,9 @@ Until this page is implemented, start with the working runtime paths:
 
 - [Use Your Own Media](media-input.md) to keep a known pipeline and change input.
 - [Use A Camera](camera-input.md) to run live camera inference.
-- [Runtime Basics](runtime-basics.md) to understand the pipeline and output
+- [Runtime Basics](../concepts/runtime-basics.md) to understand the pipeline and output
   elements.
-- [Structural Basics](structural-basics.md) to understand where configuration
+- [Structural Basics](../concepts/structural-basics.md) to understand where configuration
   and runtime code live.
 
 ## Status
@@ -44,4 +46,4 @@ Until this page is implemented, start with the working runtime paths:
 The target content is **to be implemented**. The page exists so links from the
 quick-start flow resolve cleanly while the application-output guide is prepared.
 
-[Back to README](index.md)
+[Back to How-To Guides](/how-to)

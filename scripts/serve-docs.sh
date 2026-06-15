@@ -5,11 +5,11 @@
 
 set -euo pipefail
 
-IMAGE="ghcr.io/arm-debug/edge-ai-docs/local-development:v0.0.2"
+IMAGE="${DOCS_IMAGE:-ghcr.io/arm-debug/arm-docs-github-action/local:latest}"
+PORT="${DOCS_PORT:-3003}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-DOCS_CONTENT_DIR="$REPO_ROOT/docs/public"
-DOCS_STATIC_DIR="$REPO_ROOT/docs/static"
+DOCS_ROOT_DIR="$REPO_ROOT/docs/public"
 
 if command -v podman > /dev/null 2>&1; then
     CONTAINER_ENGINE="podman"
@@ -19,7 +19,7 @@ else
     cat << 'EOF'
 Neither podman nor docker is installed.
 
-serve-docs.sh requires one of these container engines to run the local docs image.
+serve-docs.sh requires one of these container engines to run the Arm docs preview image.
 Install Podman or Docker, then run this script again.
 EOF
     exit 1
@@ -65,18 +65,32 @@ EOF
     exit 1
 fi
 
-if [ ! -d "$DOCS_CONTENT_DIR" ]; then
-    printf 'Documentation content directory not found: %s\n' "$DOCS_CONTENT_DIR" >&2
+if [ ! -d "$DOCS_ROOT_DIR" ]; then
+    printf 'Documentation root directory not found: %s\n' "$DOCS_ROOT_DIR" >&2
     exit 1
 fi
 
-if [ ! -d "$DOCS_STATIC_DIR" ]; then
-    printf 'Documentation static directory not found: %s\n' "$DOCS_STATIC_DIR" >&2
+if [ ! -f "$DOCS_ROOT_DIR/docs-config.json" ]; then
+    printf 'Documentation config not found: %s\n' "$DOCS_ROOT_DIR/docs-config.json" >&2
     exit 1
 fi
 
-printf 'Serving docs with %s on http://localhost:3003\n' "$CONTAINER_ENGINE"
-exec "$CONTAINER_ENGINE" run --rm -it -p 3003:3000 \
-    -v "$DOCS_CONTENT_DIR:/opt/docusaurus/content/docs" \
-    -v "$DOCS_STATIC_DIR:/opt/docusaurus/content/static" \
-    "$IMAGE"
+if [ ! -d "$DOCS_ROOT_DIR/static" ]; then
+    printf 'Documentation static directory not found: %s\n' "$DOCS_ROOT_DIR/static" >&2
+    exit 1
+fi
+
+container_args=(run --rm)
+
+if [ -t 0 ] && [ -t 1 ]; then
+    container_args+=(-it)
+fi
+
+container_args+=(-p "$PORT:3000")
+
+container_args+=(--pull always)
+container_args+=(-v "$DOCS_ROOT_DIR:/workspace/docs-site:ro")
+container_args+=("$IMAGE")
+
+printf 'Serving docs from %s with %s on http://localhost:%s\n' "$DOCS_ROOT_DIR" "$CONTAINER_ENGINE" "$PORT"
+exec "$CONTAINER_ENGINE" "${container_args[@]}"
