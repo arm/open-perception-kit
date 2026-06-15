@@ -17,7 +17,7 @@ jobs:
   review:
     runs-on: self-hosted-ubuntu-latest-x64
     container:
-      image: ${{ vars.ARTIFACTORY_DOCKER_REGISTRY }}/codex-reviewer:8eccab23ccdb0205f6a399768365464fd1b016a1
+      image: ${{ vars.ARTIFACTORY_DOCKER_REGISTRY }}/codex-reviewer:c145e722446706b163bd6a7d6a831664c7bb3b1b
       credentials:
         username: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
         password: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
