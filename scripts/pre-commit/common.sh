@@ -27,7 +27,7 @@ repo_checks_die() {
 
 repo_checks_remove_file() {
     local path="${1:-}"
-    [ -n "${path}" ] && rm -f "${path}"
+    [ -n "${path}" ] && rm -f -- "${path}"
 }
 
 repo_checks_resolve_temp_parent() {
