@@ -21,7 +21,21 @@ FIXTURE_ROOT="${REPO_ROOT}/tools/expkits-ci/tests/fixtures"
 PRECOMMIT_CASES=()
 
 cleanup() {
-    [ -n "${WORK_DIR:-}" ] && rm -rf "${WORK_DIR}"
+    local work_dir="${WORK_DIR:-}"
+
+    [ -n "${work_dir}" ] || return
+    [ ! -L "${work_dir}" ] || repo_checks_die "Refusing to clean up symlinked work directory: ${work_dir}"
+
+    case "$(basename -- "${work_dir}")" in
+        repo-checks.*) ;;
+        *)
+            repo_checks_die "Refusing to clean up unexpected work directory: ${work_dir}"
+            ;;
+    esac
+
+    [ -d "${work_dir}" ] || return
+    find "${work_dir}" -mindepth 1 -delete
+    rmdir -- "${work_dir}"
 }
 
 trap cleanup EXIT
@@ -245,7 +259,10 @@ EOF
     git config core.hooksPath .githooks
     custom_hooks_dir="${SMOKE_REPO}/.githooks"
     launcher_dir="${WORK_DIR}/launcher"
-    rm -rf "${custom_hooks_dir}"
+    [ ! -e "${custom_hooks_dir}" ] || {
+        echo "Expected the custom hooks directory to be absent before setup." >&2
+        exit 1
+    }
     mkdir -p "${launcher_dir}"
     pushd "${launcher_dir}" > /dev/null
     "${SMOKE_REPO}/scripts/pre-commit/setup.sh"
