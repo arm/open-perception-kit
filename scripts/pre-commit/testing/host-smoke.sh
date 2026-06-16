@@ -16,6 +16,7 @@ REPO_ROOT="$(repo_checks_resolve_repo_root "${SCRIPT_DIR}")"
 WORK_DIR=""
 SMOKE_TMP_PARENT="${REPO_CHECKS_SMOKE_TMP_PARENT:-}"
 WORK_DIR="$(repo_checks_create_temp_dir "${SMOKE_TMP_PARENT:-${TMPDIR:-/tmp}}")"
+export REPO_CHECKS_IMAGE_NAME="repo-checks-smoke:$(basename -- "${WORK_DIR}")"
 SMOKE_REPO="${WORK_DIR}/repo"
 FIXTURE_ROOT="${REPO_ROOT}/tools/expkits-ci/tests/fixtures"
 PRECOMMIT_CASES=()
