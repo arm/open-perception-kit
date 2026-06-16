@@ -119,7 +119,13 @@ repo_checks_check_docker_setup() {
 
 repo_checks_image_name() {
     local repo_root="$1"
+    local image_name="${REPO_CHECKS_IMAGE_NAME:-}"
     local repo_name=""
+
+    if [ -n "${image_name}" ]; then
+        printf '%s\n' "${image_name}"
+        return
+    fi
 
     repo_name="$(basename "${repo_root}")"
     repo_name="$(

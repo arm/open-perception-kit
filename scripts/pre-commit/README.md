@@ -61,6 +61,10 @@ Light mapping:
 The wrapper builds a dedicated runtime image up front and then reuses it for
 hook execution. There is no hidden image rebuild during a normal commit.
 
+If you keep multiple local clones with the same checkout directory name, set
+`REPO_CHECKS_IMAGE_NAME=<unique-tag>` for both `setup.sh` and `run.sh` to
+avoid local Docker image tag collisions between checkouts.
+
 To keep local worktree checkouts working, the runtime mounts both the working
 tree and the external git common directory when `.git` points outside the
 checkout.
