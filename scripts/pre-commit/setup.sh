@@ -23,11 +23,6 @@ EOF
 
 trap 'repo_checks_on_error "${LINENO}"' ERR
 
-build_repo_checks_image() {
-    echo "Building repo-checks image..."
-    repo_checks_build_image "${REPO_ROOT}"
-}
-
 hook_is_repo_checks_managed() {
     local hook_path="$1"
 
@@ -93,31 +88,17 @@ EOF
     chmod +x "${hook_path}"
 }
 
-install_pre_commit_hook() {
+install_hook() {
+    local hook_name="$1"
+    local hook_mode="${2:-}"
     local hooks_dir=""
     local hook_path=""
 
     hooks_dir="$(repo_checks_git_hooks_dir "${REPO_ROOT}")"
-    hook_path="${hooks_dir}/pre-commit"
+    hook_path="${hooks_dir}/${hook_name}"
 
-    write_hook "${hook_path}"
-    echo "Installed pre-commit hook: ${hook_path}"
-}
-
-install_commit_msg_hook() {
-    local hooks_dir=""
-    local hook_path=""
-
-    hooks_dir="$(repo_checks_git_hooks_dir "${REPO_ROOT}")"
-    hook_path="${hooks_dir}/commit-msg"
-
-    write_hook "${hook_path}" "commit-msg"
-    echo "Installed commit-msg hook: ${hook_path}"
-}
-
-install_hooks() {
-    install_pre_commit_hook
-    install_commit_msg_hook
+    write_hook "${hook_path}" "${hook_mode}"
+    echo "Installed ${hook_name} hook: ${hook_path}"
 }
 
 if [ $# -gt 0 ]; then
@@ -134,5 +115,7 @@ if [ $# -gt 0 ]; then
 fi
 
 repo_checks_check_docker_setup
-build_repo_checks_image
-install_hooks
+echo "Building repo-checks image..."
+repo_checks_build_image "${REPO_ROOT}"
+install_hook "pre-commit"
+install_hook "commit-msg" "commit-msg"

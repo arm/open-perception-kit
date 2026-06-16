@@ -39,15 +39,6 @@ run_repo_checks_command() {
     repo_checks_run_image "${REPO_ROOT}" "${REPO_CHECKS_COMMAND[@]}"
 }
 
-get_staged_files() {
-    repo_checks_git_without_hook_env -C "${REPO_ROOT}" diff --cached --name-only --diff-filter=ACMR -z
-}
-
-get_branch_delta_files() {
-    local target_ref="$1"
-    repo_checks_git_without_hook_env -C "${REPO_ROOT}" diff --name-only --diff-filter=ACMR -z "${target_ref}...HEAD"
-}
-
 resolve_ref() {
     local ref_name="$1"
     local candidates=()
@@ -126,12 +117,14 @@ build_delta_command() {
     local files=()
     local target_ref=""
 
-    repo_checks_load_null_delimited_paths get_staged_files
+    repo_checks_load_null_delimited_paths \
+        repo_checks_git_without_hook_env -C "${REPO_ROOT}" diff --cached --name-only --diff-filter=ACMR -z
     files=("${REPO_CHECKS_LOADED_PATHS[@]}")
 
     if [ "${#files[@]}" -eq 0 ]; then
         target_ref="$(resolve_delta_target_ref)"
-        repo_checks_load_null_delimited_paths get_branch_delta_files "${target_ref}"
+        repo_checks_load_null_delimited_paths \
+            repo_checks_git_without_hook_env -C "${REPO_ROOT}" diff --name-only --diff-filter=ACMR -z "${target_ref}...HEAD"
         files=("${REPO_CHECKS_LOADED_PATHS[@]}")
     fi
 
