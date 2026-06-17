@@ -15,12 +15,7 @@ concurrency:
 
 jobs:
   review:
-    runs-on: self-hosted-ubuntu-latest-x64
-    container:
-      image: ${{ vars.ARTIFACTORY_DOCKER_REGISTRY }}/codex-reviewer:c145e722446706b163bd6a7d6a831664c7bb3b1b
-      credentials:
-        username: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
-        password: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
+    runs-on: [self-hosted, Linux, X64]
 
     steps:
       - name: Checkout pull request head
@@ -31,34 +26,22 @@ jobs:
           persist-credentials: false
 
       - name: Run codex-reviewer
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
-          GITHUB_TOKEN: ${{ github.token }}
-          CODEX_REVIEWER__DIFF_SOURCE__BASE_BRANCH: origin/${{ github.base_ref || github.ref_name }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          /app/scripts/docker-entrypoint.sh \
-            --config .github/codex-reviewer/config.base-branch.json \
-            --instructions-path .github/instructions/codex-review.instructions.md \
-            --output-dir codex-reviewer-out \
-            --mock false \
-            --dry-run false \
-            --codex-bypass-sandbox
-
-      - name: Add review summary to workflow summary
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -f codex-reviewer-out/review_summary.md ]; then
-            cat codex-reviewer-out/review_summary.md >> "${GITHUB_STEP_SUMMARY}"
-          fi
+        id: review
+        uses: Arm-Debug/codex-reviewer@v0.2.0
+        with:
+          openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
+          github-token: ${{ github.token }}
+          config-path: .github/codex-reviewer/config.base-branch.json
+          instructions-path: .github/instructions/codex-review.instructions.md
+          base-branch: origin/${{ github.base_ref || github.ref_name }}
+          output-dir: codex-reviewer-out
+          publish-review: "true"
+          codex-bypass-sandbox: "true"
 
       - name: Upload review artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: codex-reviewer-out
-          path: codex-reviewer-out
+          path: ${{ steps.review.outputs.output-dir }}
           if-no-files-found: warn
