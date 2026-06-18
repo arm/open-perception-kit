@@ -19,4 +19,10 @@ Do not focus on:
 
 When a finding is uncertain, say so clearly.
 
-Prefer fewer, higher-confidence findings over broad speculation.
+Prefer complete coverage of concrete issues over minimal reporting.
+
+Do not suppress lower-severity findings when they are directly supported by the
+changed code, configuration, or documentation.
+
+If the same change introduces multiple distinct concrete risks, report each one
+separately instead of collapsing them into a single broad summary.

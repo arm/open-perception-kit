@@ -2,7 +2,7 @@
   "reviewProfile": {
     "model": "gpt-5.3-codex",
     "reasoningEffort": "high",
-    "conceptualSensitivity": "medium"
+    "conceptualSensitivity": "high"
   },
   "categories": [
     {
@@ -24,12 +24,12 @@
   "inlineSuggestions": {
     "enabled": true,
     "maxChangedLines": 8,
-    "maxFilesTouched": 1,
-    "minConfidence": 0.85
+    "maxFilesTouched": 2,
+    "minConfidence": 0.75
   },
   "conceptualReview": {
     "enabled": true,
-    "minRiskScore": 0.45,
+    "minRiskScore": 0.3,
     "includeRefactorIdeas": true
   },
   "decisionPolicy": {
