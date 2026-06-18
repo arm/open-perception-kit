@@ -35,6 +35,8 @@ jobs:
           instructions-path: .github/instructions/codex-review.instructions.md
           base-branch: origin/${{ github.base_ref || github.ref_name }}
           output-dir: codex-reviewer-out
+          # openai/codex-action defaults to drop-sudo, which does not fit this self-hosted runner setup.
+          safety-strategy: unsafe
           publish-review: "true"
           codex-bypass-sandbox: "true"
 
