@@ -5,7 +5,7 @@ set -euo pipefail
 repo_slug="${1:-${GITHUB_REPOSITORY:-}}"
 ruleset_dir="${2:-.github/rulesets}"
 api_url="${GITHUB_API_URL:-https://api.github.com}"
-api_version="${GITHUB_API_VERSION:-2026-03-10}"
+api_version="${GITHUB_API_VERSION:-2022-11-28}"
 token="${RULESET_ADMIN_GITHUB_TOKEN:-}"
 
 if [ -z "${repo_slug}" ] || [[ "${repo_slug}" != */* ]]; then
@@ -52,7 +52,7 @@ auth_headers=(
 fetch_rulesets() {
     curl --fail --silent --show-error \
         "${auth_headers[@]}" \
-        "${api_url}/repos/${repo_slug}/rulesets?includes_parents=false"
+        "${api_url}/repos/${repo_slug}/rulesets?includes_parents=false&per_page=100"
 }
 
 existing_rulesets="$(fetch_rulesets)"

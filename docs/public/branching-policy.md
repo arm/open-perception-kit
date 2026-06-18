@@ -23,8 +23,8 @@ The checked-in ruleset allows these branch families:
 - `feature/EXPKITS-<integer>...`
 - `bugfix/EXPKITS-<integer>...`
 - `hotfix/EXPKITS-<integer>...`
+- `dependabot/<name>...`
 - `sandbox/<name>...`
-
 Examples:
 
 - `feature/EXPKITS-1234/add-camera-contact-parser`
