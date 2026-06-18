@@ -1,13 +1,25 @@
 {
   "reviewProfile": {
-    "model": "gpt-5.2-codex",
+    "model": "gpt-5.3-codex",
     "reasoningEffort": "high",
     "conceptualSensitivity": "medium"
   },
   "categories": [
-    { "id": "note", "label": "Note", "severity": "note" },
-    { "id": "impl_easy", "label": "Implementation issue", "severity": "major" },
-    { "id": "conceptual", "label": "Conceptual issue", "severity": "major" }
+    {
+      "id": "note",
+      "label": "Note",
+      "severity": "note"
+    },
+    {
+      "id": "impl_easy",
+      "label": "Implementation issue",
+      "severity": "major"
+    },
+    {
+      "id": "conceptual",
+      "label": "Conceptual issue",
+      "severity": "major"
+    }
   ],
   "inlineSuggestions": {
     "enabled": true,
@@ -25,8 +37,14 @@
     "requestChangesAtSeverity": "major"
   },
   "scope": {
-    "includeGlobs": ["**/*"],
-    "excludeGlobs": ["development/build/**", "subprojects/**", ".git/**"]
+    "includeGlobs": [
+      "**/*"
+    ],
+    "excludeGlobs": [
+      "development/build/**",
+      "subprojects/**",
+      ".git/**"
+    ]
   },
   "diffSource": {
     "mode": "base_branch",
