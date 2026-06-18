@@ -17,7 +17,7 @@
       "parameters": {
         "name": "Allowed gitflow branch names",
         "operator": "regex",
-        "pattern": "^(main|develop|feature/EXPKITS-[0-9]+.*|bugfix/EXPKITS-[0-9]+.*|hotfix/EXPKITS-[0-9]+.*)$",
+"pattern": "^(main|develop|feature/EXPKITS-[0-9]+.*|bugfix/EXPKITS-[0-9]+.*|hotfix/EXPKITS-[0-9]+.*|dependabot/.+)$",
         "negate": false
       }
     }
