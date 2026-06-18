@@ -27,7 +27,7 @@ jobs:
 
       - name: Run codex-reviewer
         id: review
-        uses: Arm-Debug/codex-reviewer@v0.2.0
+        uses: Arm-Debug/codex-reviewer@v0.2.1
         with:
           openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
           github-token: ${{ github.token }}
