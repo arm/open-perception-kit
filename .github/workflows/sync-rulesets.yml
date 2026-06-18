@@ -14,11 +14,25 @@ permissions:
 
 jobs:
   sync-rulesets:
-    runs-on: ubuntu-latest
+    # Temporarily disabled until the repository ruleset rollout is resumed.
+    if: ${{ false }}
+    runs-on: [self-hosted, Linux, X64]
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Require ruleset admin token
+        shell: bash
+        env:
+          RULESET_ADMIN_GITHUB_TOKEN: ${{ secrets.RULESET_ADMIN_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RULESET_ADMIN_GITHUB_TOKEN}" ]; then
+            echo "Missing required secret RULESET_ADMIN_GITHUB_TOKEN." >&2
+            echo "Configure a GitHub App installation token or fine-grained PAT with repository administration write access." >&2
+            exit 1
+          fi
 
       - name: Validate checked-in ruleset JSON
         shell: bash

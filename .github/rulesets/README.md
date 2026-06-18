@@ -8,7 +8,7 @@ Files:
 - `branch-naming-gitflow.json`
   - Restricts branch names to the agreed gitflow-style naming policy:
     `main`, `develop`, `feature/EXPKITS-*`, `bugfix/EXPKITS-*`, and
-    `hotfix/EXPKITS-*`.
+    `hotfix/EXPKITS-*`, plus `sandbox/*` for temporary sandbox branches.
 - `protect-main-and-develop.json`
   - Protects `main` and `develop` so updates must go through pull requests.
   - Requires reviews and disallows squash merges on those branches.

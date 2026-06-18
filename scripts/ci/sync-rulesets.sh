@@ -6,7 +6,7 @@ repo_slug="${1:-${GITHUB_REPOSITORY:-}}"
 ruleset_dir="${2:-.github/rulesets}"
 api_url="${GITHUB_API_URL:-https://api.github.com}"
 api_version="${GITHUB_API_VERSION:-2026-03-10}"
-token="${RULESET_ADMIN_GITHUB_TOKEN:-${GITHUB_TOKEN:-}}"
+token="${RULESET_ADMIN_GITHUB_TOKEN:-}"
 
 if [ -z "${repo_slug}" ] || [[ "${repo_slug}" != */* ]]; then
     echo "Usage: scripts/ci/sync-rulesets.sh <owner/repo> [ruleset-dir]" >&2
@@ -20,6 +20,7 @@ fi
 
 if [ -z "${token}" ]; then
     echo "Missing RULESET_ADMIN_GITHUB_TOKEN." >&2
+    echo "No fallback to GITHUB_TOKEN is supported for ruleset administration." >&2
     echo "Use a GitHub App installation token or fine-grained PAT with Administration: write on the repository." >&2
     exit 1
 fi
@@ -75,7 +76,7 @@ for ruleset_file in "${ruleset_files[@]}"; do
             '.[]
             | select(.source_type == "Repository")
             | select(.name == $name and .target == $target)
-            | .id' \
+            | (.id // empty)' \
             <<<"${existing_rulesets}" \
             | head -n 1
     )"

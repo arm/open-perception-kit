@@ -23,12 +23,14 @@ The checked-in ruleset allows these branch families:
 - `feature/EXPKITS-<integer>...`
 - `bugfix/EXPKITS-<integer>...`
 - `hotfix/EXPKITS-<integer>...`
+- `sandbox/<name>...`
 
 Examples:
 
 - `feature/EXPKITS-1234/add-camera-contact-parser`
 - `bugfix/EXPKITS-5678/fix-ui-timeout`
 - `hotfix/EXPKITS-9012/fix-release-crash`
+- `sandbox/codex-review-smoke`
 
 ## Branch purpose
 
@@ -69,6 +71,15 @@ Use `hotfix/*` only for urgent fixes to something already released on `main`.
 - Branch from `main`
 - Open a pull request into `main`
 - After the fix reaches `main`, merge the same change back into `develop`
+
+### `sandbox/*`
+
+Use `sandbox/*` for temporary CI, workflow, or integration experiments that
+still need repository automation to run.
+
+- Branch from `develop` unless the experiment requires a different base
+- Do not treat `sandbox/*` as a long-lived branch family
+- Open the pull request into the branch that matches the experiment goal
 
 ## Normal flow
 

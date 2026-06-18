@@ -15,7 +15,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 ## What does `.github/workflows/codex-review.yml` do?
 
-- Uses the reusable `Arm-Debug/codex-reviewer@v0.2.0` GitHub Action to run a Codex review on PR open, reopen, synchronize, and ready-for-review events
+- Uses the reusable `Arm-Debug/codex-reviewer` GitHub Action to run a Codex review on PR open, reopen, synchronize, and ready-for-review events
 - Requires `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` and the workflow `GITHUB_TOKEN`
 - Uses the checked-in `codex-reviewer` config under `.github/codex-reviewer/`
 - Uses repository-specific review guidance from `.github/instructions/codex-review.instructions.md`
@@ -24,6 +24,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 ## What does `.github/workflows/sync-rulesets.yml` do?
 
+- Currently disabled.
 - Validates the checked-in JSON files under `.github/rulesets/`
 - Applies repository rulesets from those JSON files on pushes to `main` and on manual dispatch
 - Requires `RULESET_ADMIN_GITHUB_TOKEN` with repository administration write access
