@@ -80,20 +80,20 @@ static std::string default_turn_server() {
         return value;
     }
 
-    if (auto host = env_or_empty("WEBRTC_HOST_IP"); !host.empty()) {
-        auto username = env_or_empty("PEK_WEBRTC_TURN_USERNAME");
-        auto credential = env_or_empty("PEK_WEBRTC_TURN_CREDENTIAL");
-        if (username.empty()) {
-            username = "test";
-        }
-        if (credential.empty()) {
-            credential = "test123";
-        }
-        return "turn://" + username + ":" + credential + "@" + host + ":3478";
+    const auto host = env_or_empty("WEBRTC_HOST_IP");
+    if (host.empty()) {
+        return "";
     }
 
-    return "";
+    auto username = env_or_empty("PEK_WEBRTC_TURN_USERNAME");
+    auto credential = env_or_empty("PEK_WEBRTC_TURN_CREDENTIAL");
+    if (username.empty() || credential.empty()) {
+        return "";
+    }
+
+    return "turn://" + username + ":" + credential + "@" + host + ":3478";
 }
+
 nlohmann::json PipelineStateReporter::report() const {
     nlohmann::json ret;
 

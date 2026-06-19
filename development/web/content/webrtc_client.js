@@ -168,7 +168,7 @@ class WebRtcClient {
             if (!this.isCurrent(session) || !event.candidate)
                 return;
 
-            console.log("Candidate: " + event.candidate.candidate)
+            console.log("Candidate: " + event.candidate.candidate);
 
             if (session.ws && session.ws.readyState === this.openState) {
                 try {
@@ -206,10 +206,16 @@ class WebRtcClient {
 
             console.log("ICE state:", pc.iceConnectionState);
 
-            setTimeout(() => {
-                dumpSelectedCandidatePair(pc);
+            this.setTimeout(() => {
+                if (this.isCurrent(session)) {
+                    dumpSelectedCandidatePair(pc).catch(() => {});
+                }
             }, 1000);
-            setTimeout(() => dumpAllCandidatePairs(pc), 3000);
+            this.setTimeout(() => {
+                if (this.isCurrent(session)) {
+                    dumpAllCandidatePairs(pc).catch(() => {});
+                }
+            }, 3000);
 
             const state = pc.iceConnectionState;
             this.log(`ICE connection state: ${state}`);

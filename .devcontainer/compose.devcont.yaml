@@ -10,7 +10,7 @@ services:
       - --listening-port=3478
       - --fingerprint
       - --lt-cred-mech
-      - --user=test:test123
+      - --user=${PEK_WEBRTC_TURN_USERNAME:-test}:${PEK_WEBRTC_TURN_CREDENTIAL:-test123}
       - --realm=pek.local
       - --external-ip=${WEBRTC_HOST_IP}
       - --min-port=${PEK_WEBRTC_TURN_MIN_PORT:-49000}
@@ -30,8 +30,8 @@ services:
       - coturn
     environment:
       - WEBRTC_HOST_IP=${WEBRTC_HOST_IP}
-      - PEK_WEBRTC_TURN_USERNAME=test
-      - PEK_WEBRTC_TURN_CREDENTIAL=test123
+      - PEK_WEBRTC_TURN_USERNAME=${PEK_WEBRTC_TURN_USERNAME:-test}
+      - PEK_WEBRTC_TURN_CREDENTIAL=${PEK_WEBRTC_TURN_CREDENTIAL:-test123}
       - PEK_WEBRTC_TURN_MIN_PORT=${PEK_WEBRTC_TURN_MIN_PORT:-49000}
       - PEK_WEBRTC_TURN_MAX_PORT=${PEK_WEBRTC_TURN_MAX_PORT:-49050}
     container_name: perception-experience-kit
