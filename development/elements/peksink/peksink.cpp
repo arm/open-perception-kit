@@ -85,14 +85,19 @@ static std::string default_turn_server() {
         return "";
     }
 
-    auto username = env_or_empty("PEK_WEBRTC_TURN_USERNAME");
-    auto credential = env_or_empty("PEK_WEBRTC_TURN_CREDENTIAL");
+    const auto username = env_or_empty("PEK_WEBRTC_TURN_USERNAME");
+    const auto credential = env_or_empty("PEK_WEBRTC_TURN_CREDENTIAL");
     if (username.empty() || credential.empty()) {
         return "";
     }
 
-    return "turn://" + username + ":" + credential + "@" + host + ":3478";
-}
+    gchar *esc_user = g_uri_escape_string(username.c_str(), nullptr, TRUE);
+    gchar *esc_cred = g_uri_escape_string(credential.c_str(), nullptr, TRUE);
+    std::string url = "turn://" + std::string(esc_user ? esc_user : "") + ":" +
+                      std::string(esc_cred ? esc_cred : "") + "@" + host + ":3478";
+    g_free(esc_user);
+    g_free(esc_cred);
+    return url;
 
 nlohmann::json PipelineStateReporter::report() const {
     nlohmann::json ret;
