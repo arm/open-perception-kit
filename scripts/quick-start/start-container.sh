@@ -113,7 +113,7 @@ cd "${REPO_ROOT}"
 
 export HOST_UID="$(id -u)"
 export HOST_GID="$(id -g)"
-export WEBRTC_HOST_IP="${WEBRTC_HOST_IP:-"$("${REPO_ROOT}/scripts/private/detect-webrtc-host-ip.sh")"}"
+export WEBRTC_HOST_IP="${WEBRTC_HOST_IP:-"$(bash "${REPO_ROOT}/scripts/private/detect-webrtc-host-ip.sh")"}"
 export PEK_WEBRTC_TURN_MIN_PORT="${PEK_WEBRTC_TURN_MIN_PORT:-49000}"
 export PEK_WEBRTC_TURN_MAX_PORT="${PEK_WEBRTC_TURN_MAX_PORT:-49050}"
 

@@ -1,6 +1,6 @@
 services:
   coturn:
-    image: coturn/coturn:latest
+    image: coturn/coturn:4.13.1
     network_mode: bridge
     ports:
       - "3478:3478/udp"

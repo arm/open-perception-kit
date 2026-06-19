@@ -204,8 +204,6 @@ class WebRtcClient {
             if (!this.isCurrent(session))
                 return;
 
-            console.log("ICE state:", pc.iceConnectionState);
-
             this.setTimeout(() => {
                 if (this.isCurrent(session)) {
                     dumpSelectedCandidatePair(pc).catch(() => {});
