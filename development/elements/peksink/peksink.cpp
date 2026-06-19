@@ -98,6 +98,7 @@ static std::string default_turn_server() {
     g_free(esc_user);
     g_free(esc_cred);
     return url;
+}
 
 nlohmann::json PipelineStateReporter::report() const {
     nlohmann::json ret;
