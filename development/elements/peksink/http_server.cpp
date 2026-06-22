@@ -41,8 +41,18 @@ static json browser_ice_server_from_url(const char *server_url) {
         const auto credentials = url.substr(scheme_end + 1, at - scheme_end - 1);
         const auto colon = credentials.find(':');
         if (colon != std::string::npos) {
-            ice_server["username"] = credentials.substr(0, colon);
-            ice_server["credential"] = credentials.substr(colon + 1);
+            const auto username_enc = credentials.substr(0, colon);
+            const auto credential_enc = credentials.substr(colon + 1);
+
+            gchar *username = g_uri_unescape_string(username_enc.c_str(), nullptr);
+            gchar *credential = g_uri_unescape_string(credential_enc.c_str(), nullptr);
+
+            ice_server["username"] = username ? username : username_enc;
+            ice_server["credential"] = credential ? credential : credential_enc;
+
+            g_free(username);
+            g_free(credential);
+
             url.erase(scheme_end + 1, at - scheme_end);
         }
     }
