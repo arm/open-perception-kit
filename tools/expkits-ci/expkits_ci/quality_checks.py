@@ -38,6 +38,14 @@ class QualityChecks:
         "-mfp16-format=ieee",
         "-fno-defer-pop"
     ]
+    MERGE_COMMIT_HEADLINE_RE = re.compile(
+        r"^Merge (?:(?:(?:remote-tracking )?branch|tag) '[^']+'(?: into .+)?|pull request #\d+\b.*)$",
+        re.IGNORECASE,
+    )
+    COPILOT_AUTOFIX_TRAILER_RE = re.compile(
+        r"^Co-authored-by:\s+Copilot Autofix powered by AI <.+@users\.noreply\.github\.com>$",
+        re.IGNORECASE,
+    )
 
     def __init__(self):
         self.license_template_manager = LicenseTemplateManager()
@@ -158,6 +166,32 @@ class QualityChecks:
         return filtered_lines
 
     @staticmethod
+    def render_commit_message_for_log(commit_msg, filtered_lines):
+        """Render the most actionable commit message content for error logs."""
+        if filtered_lines:
+            return "\n".join(filtered_lines)
+
+        raw_message = commit_msg.rstrip()
+        return raw_message or "<empty>"
+
+    @staticmethod
+    def allows_missing_jira_reference(filtered_lines):
+        """Allow a narrow set of generated commits to omit the JIRA line."""
+        if not filtered_lines or not filtered_lines[0]:
+            return False
+
+        if QualityChecks.MERGE_COMMIT_HEADLINE_RE.match(filtered_lines[0]):
+            return True
+
+        if len(filtered_lines) < 2:
+            return False
+
+        return all(
+            QualityChecks.COPILOT_AUTOFIX_TRAILER_RE.match(line)
+            for line in filtered_lines[1:]
+        )
+
+    @staticmethod
     def check_commit_message(files=None) -> bool:
         """Check commit message format. If a file is provided and looks like a commit message file, read from it."""
         logger.info("Checking commit message format...")
@@ -209,10 +243,29 @@ class QualityChecks:
         filtered_lines = QualityChecks.filter_comment_lines(commit_msg)
 
         if len(filtered_lines) < 2:
+            if not filtered_lines:
+                logger.error(
+                    "Commit message must have at least two lines: a description and a reference to a JIRA ticket.")
+                logger.info("Example:")
+                logger.info("  Add new feature for X\n  Task: EXPKITS-1234")
+                logger.info(
+                    "The current commit message is:\n"
+                    + QualityChecks.render_commit_message_for_log(commit_msg, filtered_lines))
+                logger.info(
+                    "Please rename your commit accordingly. Hint: git commit --amend")
+                return False
+
+            if QualityChecks.allows_missing_jira_reference(filtered_lines):
+                logger.info("Commit message format is valid.")
+                return True
+
             logger.error(
                 "Commit message must have at least two lines: a description and a reference to a JIRA ticket.")
             logger.info("Example:")
             logger.info("  Add new feature for X\n  Task: EXPKITS-1234")
+            logger.info(
+                "The current commit message is:\n"
+                + QualityChecks.render_commit_message_for_log(commit_msg, filtered_lines))
             logger.info(
                 "Please rename your commit accordingly. Hint: git commit --amend")
             return False
@@ -220,7 +273,14 @@ class QualityChecks:
         if not filtered_lines[0]:
             logger.error(
                 "First line of commit message must be a non-empty description.")
+            logger.info(
+                "The current commit message is:\n"
+                + QualityChecks.render_commit_message_for_log(commit_msg, filtered_lines))
             return False
+
+        if QualityChecks.allows_missing_jira_reference(filtered_lines):
+            logger.info("Commit message format is valid.")
+            return True
 
         # Second line: <bug|task>: JIRA-XXXX
         jira_pattern = r"^(Bug|Task): (%s)-\d+$" % "|".join(QualityChecks.JIRA_PROJECTS)
@@ -229,6 +289,9 @@ class QualityChecks:
                 f"Second line must match \"<Bug|Task>: JIRA-XXXX\" with a valid JIRA project.")
             logger.info("Example:")
             logger.info(f"  Task: {QualityChecks.JIRA_PROJECTS[0]}-1234")
+            logger.info(
+                "The current commit message is:\n"
+                + QualityChecks.render_commit_message_for_log(commit_msg, filtered_lines))
             return False
 
         logger.info("Commit message format is valid.")
@@ -301,21 +364,43 @@ class QualityChecks:
             filtered_lines = QualityChecks.filter_comment_lines(commit.message)
 
             if len(filtered_lines) < 2:
+                if not filtered_lines:
+                    logger.error(
+                        f"[{sha}] Commit message must have at least two lines: "
+                        "a description and a reference to a JIRA ticket.")
+                    logger.error("Example:")
+                    logger.error("  Add new feature for X\n  Task: EXPKITS-1234")
+                    logger.error(
+                        "The current commit message is:\n"
+                        + QualityChecks.render_commit_message_for_log(commit.message, filtered_lines))
+                    result = False
+                    continue
+
+                if QualityChecks.allows_missing_jira_reference(filtered_lines):
+                    logger.info(f"[{sha}] Commit message format is valid.")
+                    continue
+
                 logger.error(
                     f"[{sha}] Commit message must have at least two lines: "
                     "a description and a reference to a JIRA ticket.")
                 logger.error("Example:")
                 logger.error("  Add new feature for X\n  Task: EXPKITS-1234")
                 logger.error(
-                    "The current commit message is:\n" + "\n".join(filtered_lines))
+                    "The current commit message is:\n"
+                    + QualityChecks.render_commit_message_for_log(commit.message, filtered_lines))
                 result = False
                 continue
 
             if not filtered_lines[0]:
                 logger.error(f"[{sha}] First line of commit message must be a non-empty description.")
                 logger.error(
-                    "The current commit message is:\n" + "\n".join(filtered_lines))
+                    "The current commit message is:\n"
+                    + QualityChecks.render_commit_message_for_log(commit.message, filtered_lines))
                 result = False
+                continue
+
+            if QualityChecks.allows_missing_jira_reference(filtered_lines):
+                logger.info(f"[{sha}] Commit message format is valid.")
                 continue
 
             if not re.match(jira_pattern, filtered_lines[1], re.IGNORECASE):
@@ -324,7 +409,8 @@ class QualityChecks:
                 logger.error("Example:")
                 logger.error(f"  Task: {QualityChecks.JIRA_PROJECTS[0]}-1234")
                 logger.error(
-                    "The current commit message is:\n" + "\n".join(filtered_lines))
+                    "The current commit message is:\n"
+                    + QualityChecks.render_commit_message_for_log(commit.message, filtered_lines))
                 result = False
                 continue
 

@@ -232,9 +232,18 @@ class StaticQualityConfigTests(unittest.TestCase):
         self.assertIn("Upload quality report artifact (nightly)", workflow)
         self.assertIn("expkits-ci-quality-report-pr", workflow)
         self.assertIn("expkits-ci-quality-report-full", workflow)
+        self.assertNotIn("pr-quality-gate:", workflow)
+        self.assertNotIn("Finalize PR quality gate result", workflow)
+        self.assertIn("git_basic_auth=", workflow)
         self.assertIn("export PULL_REQUEST_TARGET_BRANCH=\"${{ github.base_ref }}\"", workflow)
         self.assertIn("-e PULL_REQUEST_TARGET_BRANCH", workflow)
-        self.assertEqual(pre_commit.count('--list-of-files "$@"'), 7)
+        self.assertIn(
+            "if: ${{ !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'schedule' ||",
+            workflow,
+        )
+        self.assertIn("if: ${{ !cancelled() }}", workflow)
+        self.assertIn("if: ${{ !cancelled() && steps.valgrind_checks.outcome == 'failure' }}", workflow)
+        self.assertEqual(pre_commit.count('--list-of-files "$@"'), 8)
 
     def test_execution_report_annotations_match_declared_python_floor(self):
         pyproject = PYPROJECT_FILE.read_text(encoding="utf-8")
