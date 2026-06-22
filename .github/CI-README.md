@@ -22,12 +22,11 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Uploads `codex-reviewer-out` artifacts, including the generated prompt, raw JSON output, normalized review output, summary markdown, publish payload, and GitHub publish result
 - Lets the reusable `codex-reviewer` action publish the generated review summary and inline review comments to the PR from its generated JSON contract
 
-## What does `.github/workflows/sync-rulesets.yml` do?
+## What does `.github/workflows/workflow-audit.yml` do?
 
-- Currently disabled.
-- Validates the checked-in JSON files under `.github/rulesets/`
-- Applies repository rulesets from those JSON files on pushes to `main` and on manual dispatch
-- Requires `RULESET_ADMIN_GITHUB_TOKEN` with repository administration write access
+- Runs a minimal dependency freshness report for external GitHub Actions used by repository workflows
+- Compares the current `uses:` refs against the latest GitHub release/tag for each action repository
+- Publishes one simple Markdown report and a lightweight JSON snapshot in the `workflow-dependency-freshness` artifact
 
 ## Operational Notes
 

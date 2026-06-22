@@ -145,6 +145,20 @@ class TestQualityChecks(unittest.TestCase):
         self.assert_formatter_check_logs_captured_output(
             "check_shell_format", [False])
 
+    def test_check_branch_naming_accepts_feature_branch_with_or_without_suffix(self):
+        valid_branches = [
+            "feature/EXPKITS-1234",
+            "feature/EXPKITS-1234/ticket-description",  # pragma: allowlist secret
+        ]
+
+        for branch_name in valid_branches:
+            with self.subTest(branch_name=branch_name):
+                fake_repo = Mock()
+                fake_repo.active_branch.name = branch_name
+
+                with patch.object(quality_checks_module, "Repo", return_value=fake_repo):
+                    self.assertTrue(QualityChecks.check_branch_naming())
+
     def test_get_detect_secrets_command_prefers_path_binary(self):
         with patch("expkits_ci.quality_checks.shutil.which", return_value="/usr/bin/detect-secrets-hook"):
             self.assertEqual(
@@ -285,6 +299,54 @@ class TestQualityChecks(unittest.TestCase):
         )
         self.assertIn("failed to stabilize", "\n".join(logs.output))
         record_autofix.assert_not_called()
+
+    def make_repo_with_head_commit(self, message, hexsha="a" * 40):
+        commit = types.SimpleNamespace(message=message, hexsha=hexsha)
+        return types.SimpleNamespace(head=types.SimpleNamespace(commit=commit))
+
+    def test_check_commit_messages_on_ci_allows_merge_commit_without_task_line(self):
+        repo = self.make_repo_with_head_commit("Merge branch 'main' into feature/EXPKITS-973/pr-quality-gate\n")
+
+        with patch("expkits_ci.quality_checks.Repo", return_value=repo):
+            result = self.quality_checks.check_commit_messages_on_ci()
+
+        self.assertTrue(result)
+
+    def test_check_commit_messages_on_ci_rejects_non_git_generated_merge_subject_without_task_line(self):
+        repo = self.make_repo_with_head_commit("Merge branch optimization\n")
+
+        with patch("expkits_ci.quality_checks.Repo", return_value=repo):
+            result = self.quality_checks.check_commit_messages_on_ci()
+
+        self.assertFalse(result)
+
+    def test_check_commit_messages_on_ci_allows_copilot_autofix_commit_without_task_line(self):
+        repo = self.make_repo_with_head_commit(
+            "Escaping URI string for TURN server\n\n"
+            "Co-authored-by: Copilot Autofix powered by AI "
+            "<175728472+Copilot@users.noreply.github.com>\n"
+        )
+
+        with patch("expkits_ci.quality_checks.Repo", return_value=repo):
+            result = self.quality_checks.check_commit_messages_on_ci()
+
+        self.assertTrue(result)
+
+    def test_check_commit_messages_on_ci_rejects_regular_commit_without_task_line(self):
+        repo = self.make_repo_with_head_commit("Regular fix without jira line\n")
+
+        with patch("expkits_ci.quality_checks.Repo", return_value=repo):
+            result = self.quality_checks.check_commit_messages_on_ci()
+
+        self.assertFalse(result)
+
+    def test_render_commit_message_for_log_falls_back_to_raw_message(self):
+        rendered = self.quality_checks.render_commit_message_for_log(
+            "# template hint\n# another hint\n",
+            [],
+        )
+
+        self.assertEqual(rendered, "# template hint\n# another hint")
 
 
 if __name__ == "__main__":
