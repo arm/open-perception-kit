@@ -125,11 +125,11 @@ class QualityChecks:
             logger.error(f"Could not get current branch name. {e}")
             return False
 
-        jira_pattern = r"^feature/(%s)-\d+/.+" % "|".join(
+        jira_pattern = r"^feature/(%s)-\d+(?:/.+)?$" % "|".join(
             QualityChecks.JIRA_PROJECTS)
         result = False
         # main branch -> should not be used for development
-        # feature branch: feature/PROJECT-1234/something-something
+        # feature branch: feature/PROJECT-1234[/something-something]
         if re.match(jira_pattern, branch) or (branch == "main"):
             result = True
         # sandbox branch: sandbox/whatever
@@ -140,6 +140,7 @@ class QualityChecks:
             logger.error(f"Invalid branch name: \"{branch}\"")
             logger.info("Valid formats:")
             for proj in QualityChecks.JIRA_PROJECTS:
+                logger.info(f"  feature/{proj}-1234")
                 logger.info(f"  feature/{proj}-1234/ticket-description")
             logger.info("  sandbox/whatever")
             logger.info(

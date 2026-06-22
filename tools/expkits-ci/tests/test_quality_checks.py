@@ -145,6 +145,20 @@ class TestQualityChecks(unittest.TestCase):
         self.assert_formatter_check_logs_captured_output(
             "check_shell_format", [False])
 
+    def test_check_branch_naming_accepts_feature_branch_with_or_without_suffix(self):
+        valid_branches = [
+            "feature/EXPKITS-1234",
+            "feature/EXPKITS-1234/ticket-description",  # pragma: allowlist secret
+        ]
+
+        for branch_name in valid_branches:
+            with self.subTest(branch_name=branch_name):
+                fake_repo = Mock()
+                fake_repo.active_branch.name = branch_name
+
+                with patch.object(quality_checks_module, "Repo", return_value=fake_repo):
+                    self.assertTrue(QualityChecks.check_branch_naming())
+
     def test_get_detect_secrets_command_prefers_path_binary(self):
         with patch("expkits_ci.quality_checks.shutil.which", return_value="/usr/bin/detect-secrets-hook"):
             self.assertEqual(
