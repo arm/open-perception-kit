@@ -1,0 +1,29 @@
+{
+  "siteLabel": "Perception XPK",
+  "navbarItems": [
+    {
+      "activeBaseRegex": "^/getting-started",
+      "label": "Get Started",
+      "to": "/getting-started",
+      "position": "left"
+    },
+    {
+      "activeBaseRegex": "^/how-to",
+      "label": "How-To Guides",
+      "to": "/how-to",
+      "position": "left"
+    },
+    {
+      "activeBaseRegex": "^/concepts",
+      "label": "Concepts",
+      "to": "/concepts",
+      "position": "left"
+    }
+  ],
+  "sidebarIDs": ["getting-started", "how-to", "concepts"],
+  "sidebarDirectoryMap": {
+    "getting-started": ["getting-started"],
+    "how-to": ["how-to"],
+    "concepts": ["concepts"]
+  }
+}

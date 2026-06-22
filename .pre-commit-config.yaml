@@ -22,6 +22,10 @@ repos:
         name: CMake Format
         entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --cmake-format --list-of-files "$@"' _
         language: system
+      - id: shell-format
+        name: Shell Format
+        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --shell-format --list-of-files "$@"' _
+        language: system
       - id: license-header
         name: License Header Check
         entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --license-header --list-of-files "$@"' _

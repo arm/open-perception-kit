@@ -59,14 +59,15 @@ GType GstMetaTensor_get_type(void) {
 
 const GstMetaInfo *GstMetaTensor_get_info(void) {
     static const GstMetaInfo *mi = NULL;
-    if (g_once_init_enter(&mi)) {
+    auto *miLocation = &mi;
+    if (g_once_init_enter_pointer(miLocation)) {
         const GstMetaInfo *info = gst_meta_register(GST_META_TENSOR_TYPE,
                                                     "GstMetaTensor",
                                                     sizeof(GstMetaTensor),
                                                     GstMetaTensor_init,
                                                     GstMetaTensor_free,
                                                     GstMetaTensor_transform);
-        g_once_init_leave(&mi, info);
+        g_once_init_leave_pointer(miLocation, const_cast<GstMetaInfo *>(info));
     }
     return mi;
 }

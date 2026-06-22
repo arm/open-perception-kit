@@ -17,8 +17,7 @@ namespace pek::perf {
 // PerformanceTracer Implementation
 // ============================================================================
 
-PerformanceTracer::PerformanceTracer()
-    : cycle_count_(0), auto_calculate_stats_(true), max_measurements_per_key_(1000) {}
+PerformanceTracer::PerformanceTracer() = default;
 
 PerformanceTracer::~PerformanceTracer() = default;
 
@@ -312,9 +311,7 @@ void PerformanceTracer::printSummary() const {
 // PerformanceMonitor Implementation
 // ============================================================================
 
-PerformanceMonitor::PerformanceMonitor(PerformanceTracer *tracer)
-    : tracer_(tracer), display_mode_(DisplayMode::DETAILED),
-      refresh_interval_(std::chrono::milliseconds(1000)) {}
+PerformanceMonitor::PerformanceMonitor(PerformanceTracer *tracer) : tracer_(tracer) {}
 
 PerformanceMonitor::~PerformanceMonitor() = default;
 

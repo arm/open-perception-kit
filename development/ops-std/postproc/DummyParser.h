@@ -26,8 +26,8 @@ struct DummyParser : public pek::TensorParser {
      * @param output Empty Perception layer.
      * @return Always success.
      */
-    virtual pek::Result<void> parse(const pek::TensorParser::Input &input,
-                                    pek::Perception::Layer &output) override;
+    pek::Result<void> parse(const pek::TensorParser::Input &input,
+                            pek::Perception::Layer &output) override;
 };
 
 } // namespace pek::stdop::postproc

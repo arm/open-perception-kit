@@ -1,0 +1,168 @@
+/*************************************************************
+ * Copyright (C) 2025 Arm Limited. All rights reserved.
+ *************************************************************/
+
+/**
+ * @file GstVideoFrame.h
+ * @brief GStreamer-backed implementation of the mediaio VideoFrame interface.
+ */
+
+#pragma once
+
+#include "mediaio/VideoFrame.h"
+
+#include <gst/gst.h>
+#include <gst/video/video.h>
+
+#include <memory>
+#include <span>
+#include <vector>
+
+namespace pek::mediaio::gst {
+
+/**
+ * @brief Converts GstMapFlags to the matching PEK access mode.
+ * @param flags GStreamer map flags.
+ * @return Read, Write, ReadWrite, or Unknown when no read/write flag is set.
+ */
+pek::AccessMode accessModeFromGstMapFlags(GstMapFlags flags) noexcept;
+
+/**
+ * @brief Converts a PEK access mode to GStreamer map flags.
+ * @param mode Requested PEK access mode.
+ * @return GStreamer map flags. Unknown falls back to GST_MAP_READ.
+ */
+GstMapFlags gstMapFlagsFromAccessMode(pek::AccessMode mode) noexcept;
+
+/**
+ * @brief GStreamer-backed VideoFrame implementation.
+ *
+ * GstVideoFrame hides GstBuffer ref/unref and GStreamer GstVideoFrame
+ * map/unmap handling. Instances are always CPU-mapped frames returned by
+ * mapGstBuffer().
+ */
+class GstVideoFrame final : public pek::mediaio::VideoFrame {
+  public:
+    /// Copying is disabled because the object owns backend references and maps.
+    GstVideoFrame(const GstVideoFrame &) = delete;
+
+    /// Copy assignment is disabled because the object owns backend references and maps.
+    GstVideoFrame &operator=(const GstVideoFrame &) = delete;
+
+    /// Moving is disabled so DataView pointers and backend map ownership stay stable.
+    GstVideoFrame(GstVideoFrame &&) = delete;
+
+    /// Move assignment is disabled so backend map ownership stays unambiguous.
+    GstVideoFrame &operator=(GstVideoFrame &&) = delete;
+
+    /// Releases the owned GStreamer map and GstBuffer reference, when present.
+    ~GstVideoFrame() override;
+
+    /**
+     * @brief Returns true when any GstMemory in @p buffer is DMA-BUF-backed.
+     */
+    static bool hasDmaBufContent(GstBuffer *buffer) noexcept;
+
+    /**
+     * @brief Returns true when @p buffer is backed by plain system memory.
+     *
+     * This is a non-mapping type check intended for routing decisions before
+     * mapGstBuffer() is attempted. It does not guarantee a future map cannot
+     * fail due to locking or access-mode constraints.
+     */
+    static bool hasDirectCpuAddress(GstBuffer *buffer) noexcept;
+
+    /**
+     * @brief Maps a video GstBuffer using negotiated GstVideoInfo.
+     *
+     * The returned frame owns a GstBuffer reference and the GStreamer video map.
+     * The map is released with gst_video_frame_unmap() and the buffer reference
+     * with gst_buffer_unref() when the shared frame is destroyed.
+     *
+     * @param buffer Buffer to map.
+     * @param videoInfo Negotiated video layout for the buffer.
+     * @param accessMode Requested GStreamer map access.
+     * @return Mapped frame, or nullptr if the buffer cannot be mapped.
+     */
+    static std::shared_ptr<GstVideoFrame>
+    mapGstBuffer(GstBuffer *buffer,
+                 const GstVideoInfo &videoInfo,
+                 pek::AccessMode accessMode = pek::AccessMode::Read);
+
+    /** @copydoc pek::mediaio::VideoFrame::format() */
+    pek::DataKind format() const noexcept override;
+
+    /** @copydoc pek::mediaio::VideoFrame::width() */
+    uint32_t width() const noexcept override;
+
+    /** @copydoc pek::mediaio::VideoFrame::height() */
+    uint32_t height() const noexcept override;
+
+    /** @copydoc pek::mediaio::VideoFrame::timestampNs() */
+    TimestampNs timestampNs() const noexcept override;
+
+    /** @copydoc pek::mediaio::VideoFrame::memoryType() */
+    pek::MemoryType memoryType() const noexcept override;
+
+    /** @copydoc pek::mediaio::VideoFrame::planes() */
+    std::span<const DataView> planes() const noexcept override;
+
+    /** @copydoc pek::mediaio::VideoFrame::canMap() */
+    bool canMap(pek::AccessMode mode) const noexcept override;
+
+    /** @copydoc pek::mediaio::VideoFrame::map() */
+    std::unique_ptr<pek::mediaio::VideoFrame> map(pek::AccessMode mode) const override;
+
+  private:
+    /**
+     * @brief Constructs a GStreamer-backed frame from prepared plane views.
+     * @param buffer Originating buffer to keep alive.
+     * @param frameMap Existing video-frame map owned by this frame.
+     * @param videoInfo Video layout used for remapping this buffer.
+     * @param memoryType Backing memory type exposed by the frame.
+     * @param format Pixel layout represented by the frame.
+     * @param width Frame width in pixels.
+     * @param height Frame height in pixels.
+     * @param timestampNs Presentation timestamp in nanoseconds.
+     * @param planes Prepared plane views exposed by the frame.
+     * @param mappedAccessMode Access mode granted by the owned map.
+     */
+    GstVideoFrame(GstBuffer *buffer,
+                  ::GstVideoFrame frameMap,
+                  GstVideoInfo videoInfo,
+                  pek::MemoryType memoryType,
+                  pek::DataKind format,
+                  uint32_t width,
+                  uint32_t height,
+                  TimestampNs timestampNs,
+                  std::vector<DataView> planes,
+                  pek::AccessMode mappedAccessMode) noexcept;
+
+    static std::unique_ptr<GstVideoFrame> mapGstBufferUnique(GstBuffer *buffer,
+                                                             const GstVideoInfo &videoInfo,
+                                                             pek::AccessMode accessMode);
+
+    /// Referenced GStreamer buffer kept alive for this frame lifetime.
+    GstBuffer *buffer = nullptr;
+    /// Owned GStreamer video-frame map information for video mapped frames.
+    ::GstVideoFrame videoFrameMap{};
+    /// Video layout used when remapping the originating GstBuffer.
+    GstVideoInfo frameVideoInfo{};
+
+    /// Backing memory type exposed by this frame.
+    pek::MemoryType frameMemoryType = pek::MemoryType::Unknown;
+    /// Pixel layout represented by this frame.
+    pek::DataKind frameFormat = pek::DataKind::Unknown;
+    /// Frame width in pixels.
+    uint32_t frameWidth = 0;
+    /// Frame height in pixels.
+    uint32_t frameHeight = 0;
+    /// Presentation timestamp in nanoseconds.
+    TimestampNs frameTimestampNs;
+    /// Plane views exposed by this frame.
+    std::vector<DataView> framePlanes;
+    /// Access mode of the owned host map, or Unknown when not mapped.
+    pek::AccessMode mappedAccess = pek::AccessMode::Unknown;
+};
+
+} // namespace pek::mediaio::gst

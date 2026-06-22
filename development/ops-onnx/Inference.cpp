@@ -30,7 +30,7 @@
 
 using namespace pek::onnx;
 
-Inference::Inference() {}
+Inference::Inference() = default;
 
 Inference::~Inference() {
     if (this->sessionOptions)
@@ -297,9 +297,7 @@ pek::Result<void> Inference::inference() {
         outputTensorFinalShapes[i] = pek::Shape();
     if (false == model.useDynamicOutput) {
         for (size_t i = 0; i < api.outputTensorVector.size(); i++) {
-            std::vector<size_t> onnxShape =
-                getTensorShape(*this->session, pek::TensorInOut::Out, i);
-            outputTensorFinalShapes[i].setFrom(onnxShape);
+            outputTensorFinalShapes[i] = model.outputs[i].shape;
         }
     } else {
         for (size_t i = 0; i < dynamicOutputData.size(); i++) {
@@ -378,14 +376,14 @@ pek::Result<void> Inference::inference() {
     return {};
 }
 
-std::vector<size_t> Inference::getTensorShape(const Ort::Session &session,
-                                              pek::TensorInOut tensorInOut,
-                                              int tensorIndex) {
+std::vector<int64_t> Inference::getTensorShape(const Ort::Session &session,
+                                               pek::TensorInOut tensorInOut,
+                                               int tensorIndex) {
     Ort::TypeInfo ti = (tensorInOut == pek::TensorInOut::In)
                            ? session.GetInputTypeInfo(tensorIndex)
                            : session.GetOutputTypeInfo(tensorIndex);
     auto tensor = ti.GetTensorTypeAndShapeInfo();
-    std::vector<size_t> dims;
+    std::vector<int64_t> dims;
     for (const auto &a : tensor.GetShape())
         dims.push_back(a);
     return dims;
@@ -423,7 +421,7 @@ pek::Result<pek::Model> Inference::inspectModel(const Ort::Session &session) {
         model.inputs[i].valueType = tensorValueType;
 
         // shape
-        std::vector<size_t> onnxDims = getTensorShape(session, pek::TensorInOut::In, i);
+        std::vector<int64_t> onnxDims = getTensorShape(session, pek::TensorInOut::In, i);
         if (onnxDims.size() < 1 || onnxDims.size() > 8) {
             return tl::unexpected{PEK_ERROR(pek::ErrorFlag::ModelInspectError,
                                             "input tensor size must be between 1 and 8")};
@@ -456,7 +454,7 @@ pek::Result<pek::Model> Inference::inspectModel(const Ort::Session &session) {
         model.outputs[i].valueType = tensorValueType;
 
         // shape
-        std::vector<size_t> onnxDims = getTensorShape(session, pek::TensorInOut::Out, i);
+        std::vector<int64_t> onnxDims = getTensorShape(session, pek::TensorInOut::Out, i);
         if (onnxDims.size() < 1 || onnxDims.size() > 8) {
             return tl::unexpected{PEK_ERROR(pek::ErrorFlag::ModelInspectError,
                                             "output tensor size must be between 1 and 8")};
