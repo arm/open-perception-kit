@@ -393,10 +393,8 @@ It is intended to catch routine defects such as:
 
 - analyzer-detected correctness issues
 - suspicious bug-prone constructs
-- missing `override`
 - accidental use of `NULL`
 - avoidable range-copy overhead
-- missing braces around statements
 - uninitialized variables
 - narrowing conversions
 
