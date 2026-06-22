@@ -18,6 +18,9 @@ Notes:
 - These JSON files are source-of-truth drafts; GitHub does not apply them
   automatically just because they exist in the repository unless
   `.github/workflows/sync-rulesets.yml` is enabled and has the required token.
+- When the sync workflow runs successfully, it creates, updates, and deletes
+  repository-owned rulesets to match the checked-in JSON files in this
+  directory.
 - The contributor-facing branching workflow is documented in
   `docs/public/branching-policy.md`.
 - Branch-name enforcement should come from the GitHub ruleset once it is
