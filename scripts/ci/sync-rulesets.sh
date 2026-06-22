@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+################################################################
+# Copyright (C) 2025 Arm Limited. All rights reserved.
+################################################################
 
 set -euo pipefail
 
@@ -25,12 +28,12 @@ if [ -z "${token}" ]; then
     exit 1
 fi
 
-if ! command -v curl >/dev/null 2>&1; then
+if ! command -v curl > /dev/null 2>&1; then
     echo "curl is required." >&2
     exit 1
 fi
 
-if ! command -v jq >/dev/null 2>&1; then
+if ! command -v jq > /dev/null 2>&1; then
     echo "jq is required." >&2
     exit 1
 fi
@@ -77,8 +80,8 @@ for ruleset_file in "${ruleset_files[@]}"; do
             | select(.source_type == "Repository")
             | select(.name == $name and .target == $target)
             | (.id // empty)' \
-            <<<"${existing_rulesets}" \
-            | head -n 1
+            <<< "${existing_rulesets}" |
+              head -n 1
     )"
 
     if [ -n "${existing_id}" ]; then
@@ -89,7 +92,7 @@ for ruleset_file in "${ruleset_files[@]}"; do
             -H "Content-Type: application/json" \
             "${api_url}/repos/${repo_slug}/rulesets/${existing_id}" \
             --data "${ruleset_payload}" \
-            >/dev/null
+            > /dev/null
     else
         echo "Creating ruleset '${ruleset_name}' from ${ruleset_file}"
         curl --fail --silent --show-error \
@@ -98,7 +101,7 @@ for ruleset_file in "${ruleset_files[@]}"; do
             -H "Content-Type: application/json" \
             "${api_url}/repos/${repo_slug}/rulesets" \
             --data "${ruleset_payload}" \
-            >/dev/null
+            > /dev/null
     fi
 
     existing_rulesets="$(fetch_rulesets)"
