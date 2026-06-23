@@ -28,21 +28,24 @@ jobs:
 
       - name: Debug npm registry config
         shell: bash
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ github.workspace }}/.npmrc
         run: |
           echo "pwd=$(pwd)"
           echo "workspace=${GITHUB_WORKSPACE}"
+          echo "NPM_CONFIG_USERCONFIG=${NPM_CONFIG_USERCONFIG}"
           echo "repo .npmrc:"
           if [ -f "${GITHUB_WORKSPACE}/.npmrc" ]; then
             sed -e 's/_authToken=.*/_authToken=[REDACTED]/' "${GITHUB_WORKSPACE}/.npmrc"
           else
             echo "not found"
           fi
-          echo "npm userconfig=$(npm config get userconfig)"
-          echo "npm registry=$(npm config get registry)"
 
       - name: Run codex-reviewer
         id: review
         uses: Arm-Debug/codex-reviewer@v0.2.1
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ github.workspace }}/.npmrc
         with:
           openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
           github-token: ${{ github.token }}
