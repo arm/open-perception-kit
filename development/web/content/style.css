@@ -216,7 +216,7 @@ body.video-fullscreen.fullscreen-outputs-enabled.output-panels-empty .bottom-doc
   content: "";
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 10;
   background: #000000;
   opacity: 0;
   pointer-events: none;
@@ -228,7 +228,7 @@ body.video-fullscreen.fullscreen-outputs-enabled.output-panels-empty .bottom-doc
   position: absolute;
   left: 50%;
   top: 50%;
-  z-index: 2;
+  z-index: 11;
   transform: translate(-50%, -50%);
   color: var(--text-muted);
   font-size: 0.86rem;
@@ -248,6 +248,7 @@ body.video-feed-hidden .video-wrapper::after {
 
 body.video-feed-hidden .region-canvas,
 body.video-feed-hidden .region-overlay,
+body.video-feed-hidden .video-freeze-frame,
 body.video-feed-hidden #video {
   opacity: 0;
   pointer-events: none;
