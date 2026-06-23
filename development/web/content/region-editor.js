@@ -530,7 +530,6 @@ function renderOverlay() {
     overlay.classList.toggle('is-drawing', drawing);
     overlay.classList.toggle('is-editing', Boolean(editDrag));
 
-    renderDetections();
     renderRectangle(region, 'region-outline region-outline--selected');
     renderRectangle(normaliseRectangle(draftStart, draftEnd), 'region-preview-rect');
 
