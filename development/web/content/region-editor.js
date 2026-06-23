@@ -158,6 +158,14 @@ function scaledDimensions(dimensions, scale = pendingScale) {
     };
 }
 
+function syncPendingScaleFromSlider() {
+    if (!scaleSlider)
+        return pendingScale;
+
+    pendingScale = clamp(Number(scaleSlider.value) / 100, 0.1, 1);
+    return pendingScale;
+}
+
 function composedRegionForPipeline(rectangle = region) {
     if (!rectangle)
         return null;
@@ -701,6 +709,7 @@ async function updatePipelineCrop(roi) {
 }
 
 applyCropButton?.addEventListener('click', () => {
+    syncPendingScaleFromSlider();
     const scaleChanged = Math.abs(pendingScale - activeScale) >= 0.005;
     if (!region && !scaleChanged)
         return;
@@ -708,13 +717,17 @@ applyCropButton?.addEventListener('click', () => {
 });
 
 clearCropButton?.addEventListener('click', () => {
+    syncPendingScaleFromSlider();
     updatePipelineCrop(null);
 });
 
-scaleSlider?.addEventListener('input', () => {
-    pendingScale = clamp(Number(scaleSlider.value) / 100, 0.1, 1);
+function handleScaleSliderChange() {
+    syncPendingScaleFromSlider();
     render();
-});
+}
+
+scaleSlider?.addEventListener('input', handleScaleSliderChange);
+scaleSlider?.addEventListener('change', handleScaleSliderChange);
 
 overlay?.addEventListener('pointerdown', (event) => {
     const target = event.target;
