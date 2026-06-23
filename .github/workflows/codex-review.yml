@@ -27,6 +27,17 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Fetch existing Codex review findings
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+        run: |
+          mkdir -p codex-review/out
+          python3 ./codex-review/scripts/fetch-review-state.py \
+            --output codex-review/out/existing-findings.json
+
       - name: Render Codex review prompt
         shell: bash
         env:
@@ -36,8 +47,8 @@ jobs:
           REVIEW_PR_NUMBER: ${{ github.event.pull_request.number || '' }}
           REVIEW_PR_TITLE: ${{ github.event.pull_request.title || '' }}
           REVIEW_PR_URL: ${{ github.event.pull_request.html_url || '' }}
+          REVIEW_EXISTING_FINDINGS_FILE: codex-review/out/existing-findings.json
         run: |
-          mkdir -p codex-review/out
           ./codex-review/scripts/render-prompt.sh codex-review/out/review.prompt.md
 
       - name: Run Codex review

@@ -14,6 +14,8 @@ from pathlib import Path
 
 MARKER = "<!-- codex-review-comment -->"
 INLINE_MARKER = "<!-- codex-review-inline -->"
+STATE_MARKER = "<!-- codex-review-state "
+FINDING_MARKER = "<!-- codex-review-finding "
 MAX_INLINE_SUGGESTION_LINES = 4
 
 
@@ -30,6 +32,16 @@ def format_location(finding):
 
 def format_markdown(review):
     findings = review.get("findings", [])
+    state_payload = json.dumps(
+        {
+            "summary": review["summary"],
+            "overall_recommendation": review["overall_recommendation"],
+            "overall_score": review["overall_score"],
+            "overall_confidence": review["overall_confidence"],
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    )
     lines = [
         MARKER,
         "## Codex Review",
@@ -39,6 +51,8 @@ def format_markdown(review):
         f"Overall confidence: **{review['overall_confidence']:.2f}**",
         "",
         review["summary"],
+        "",
+        f"{STATE_MARKER}{state_payload} -->",
         "",
     ]
 
@@ -53,26 +67,47 @@ def format_markdown(review):
         return "\n".join(lines) + "\n"
 
     lines.extend(["### Findings", ""])
-    for index, finding in enumerate(findings, start=1):
+    for finding in findings:
+        metadata_payload = json.dumps(
+            {
+                "title": finding["title"],
+                "severity": finding["severity"],
+                "score": finding["score"],
+                "confidence": finding["confidence"],
+                "path": finding["path"],
+                "start_line": finding.get("start_line"),
+                "end_line": finding.get("end_line"),
+                "body": finding["body"],
+                "suggestion": finding.get("suggestion"),
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        )
         lines.extend(
             [
-                f"{index}. **[{finding['severity']}] {finding['title']}**",
-                f"   Location: `{format_location(finding)}`",
-                f"   Score: `{finding['score']:.2f}`",
-                f"   Confidence: `{finding['confidence']:.2f}`",
-                f"   {finding['body']}",
+                f"- [ ] **[{finding['severity']}] {finding['title']}**",
+                f"  Location: `{format_location(finding)}`",
+                f"  Score: `{finding['score']:.2f}`",
+                f"  Confidence: `{finding['confidence']:.2f}`",
+                f"  {finding['body']}",
             ]
         )
         suggestion = finding.get("suggestion")
         if suggestion:
-            lines.append(f"   Suggested direction: {suggestion}")
-        lines.append("")
+            lines.append(f"  Suggested direction: {suggestion}")
+        lines.extend(
+            [
+                f"{FINDING_MARKER}{metadata_payload} -->",
+                "",
+            ]
+        )
 
     return "\n".join(lines).rstrip() + "\n"
 
 
 def build_inline_comment_body(finding):
     suggestion = finding.get("suggestion")
+    use_inline_block = is_inline_suggestion_applicable(finding)
     lines = [
         INLINE_MARKER,
         f"**[{finding['severity']}] {finding['title']}**",
@@ -84,26 +119,46 @@ def build_inline_comment_body(finding):
     ]
 
     if suggestion:
-        lines.extend(
-            [
-                "",
-                "```suggestion",
-                suggestion.rstrip("\n"),
-                "```",
-            ]
-        )
+        if use_inline_block:
+            lines.extend(
+                [
+                    "",
+                    "```suggestion",
+                    suggestion.rstrip("\n"),
+                    "```",
+                ]
+            )
+        else:
+            lines.extend(
+                [
+                    "",
+                    "Suggested change:",
+                    "",
+                    "```text",
+                    suggestion.rstrip("\n"),
+                    "```",
+                ]
+            )
 
     return "\n".join(lines) + "\n"
 
 
-def list_pull_comments(repository, pr_number, token):
-    comments_url = f"https://api.github.com/repos/{repository}/pulls/{pr_number}/comments?per_page=100"
-    return json.loads(github_api_request(comments_url, token))
+def list_paginated_items(url, token):
+    items = []
+    page = 1
+    separator = "&" if "?" in url else "?"
 
+    while True:
+        page_url = f"{url}{separator}per_page=100&page={page}"
+        page_items = json.loads(github_api_request(page_url, token))
+        if not page_items:
+            break
+        items.extend(page_items)
+        if len(page_items) < 100:
+            break
+        page += 1
 
-def delete_review_comment(repository, comment_id, token):
-    delete_url = f"https://api.github.com/repos/{repository}/pulls/comments/{comment_id}"
-    github_api_request(delete_url, token, method="DELETE")
+    return items
 
 
 def is_inline_suggestion_applicable(finding):
@@ -127,17 +182,18 @@ def is_inline_suggestion_applicable(finding):
     )
 
 
-def reset_inline_comments(repository, pr_number, token):
-    for comment in list_pull_comments(repository, pr_number, token):
-        if INLINE_MARKER in comment.get("body", ""):
-            delete_review_comment(repository, comment["id"], token)
+def is_location_comment_applicable(finding):
+    return bool(
+        finding.get("path")
+        and finding.get("start_line") is not None
+    )
 
 
 def publish_inline_comments(repository, pr_number, token, commit_id, findings):
     comments_url = f"https://api.github.com/repos/{repository}/pulls/{pr_number}/comments"
     count = 0
     for finding in findings:
-        if not is_inline_suggestion_applicable(finding):
+        if not is_location_comment_applicable(finding):
             continue
         payload = {
             "body": build_inline_comment_body(finding),
@@ -172,7 +228,7 @@ def github_api_request(url, token, method="GET", payload=None):
 
 def upsert_issue_comment(repository, pr_number, token, body):
     comments_url = f"https://api.github.com/repos/{repository}/issues/{pr_number}/comments"
-    comments = json.loads(github_api_request(comments_url, token))
+    comments = list_paginated_items(comments_url, token)
     for comment in comments:
         if MARKER in comment.get("body", ""):
             edit_url = f"https://api.github.com/repos/{repository}/issues/comments/{comment['id']}"
@@ -214,7 +270,6 @@ def main():
     try:
         upsert_issue_comment(repository, pr_number, token, markdown)
         if head_sha:
-            reset_inline_comments(repository, pr_number, token)
             publish_inline_comments(
                 repository,
                 pr_number,

@@ -1,6 +1,5 @@
 Review for real bugs, regressions, risky behavior changes, and missing validation that are supported by the changed code.
 Use the checked-out repository and git directly during the review.
-When a finding is uncertain, say so clearly.
 Prefer complete coverage of concrete issues over minimal reporting.
 Do not suppress lower-severity findings when they are directly supported by the changed code, configuration, or documentation.
 If the same change introduces multiple distinct concrete risks, report each one separately instead of collapsing them into a single broad summary.
@@ -32,8 +31,7 @@ Context:
 
 Scoring and output requirements:
 - Return JSON that matches the provided schema exactly.
-- Each finding must be concrete and directly supported by the git diff, commit
-  range, or changed files you inspected.
+- Each finding must be concrete and directly supported by the git diff, commit range, or changed files you inspected.
 - `severity` must be one of `note`, `major`, or `critical`.
 - `score` must be a float from `0.0` to `1.0` that reflects impact and urgency.
 - `confidence` must be a float from `0.0` to `1.0`.
@@ -41,10 +39,22 @@ Scoring and output requirements:
 - Use `request_changes` when any finding is major or critical enough to block  merge safely.
 - Use repo-relative file paths.
 - Set `start_line` and `end_line` when the issue maps to a changed location.
-- Set `suggestion` to `null` unless you can provide a small concrete code change
-  that is directly applicable as a GitHub suggestion at the reported location.
+- Set `suggestion` to `null` unless you can provide a small concrete code change that is directly applicable as a GitHub suggestion at the reported location.
 - Use `suggestion` only for replacements that touch at most 4 lines. For larger
   changes, describe the fix in `body` and leave `suggestion` as `null`.
 - When `suggestion` is present, provide only the replacement code snippet without
   markdown fences or explanation text.
 - Keep `summary` and each finding `body` concise but complete.
+
+Existing review findings may be available on disk at:
+- `@@EXISTING_FINDINGS_FILE@@`
+
+If that file exists, read it directly before you finalize the review. If it
+does not exist, proceed without prior review state.
+
+- Do not report findings that are meaningfully the same as an existing finding
+  with `drop` set to `false`.
+- Findings with `drop` set to `true` were explicitly dismissed by a human.
+- Dismissed findings must not count toward the verdict.
+- Do not resurrect dismissed findings unless the current code introduces a
+  materially different issue that should be treated as a new finding.

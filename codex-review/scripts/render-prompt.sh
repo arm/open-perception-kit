@@ -21,6 +21,7 @@ repository="${REVIEW_REPOSITORY:-${GITHUB_REPOSITORY:-$(basename "$(git rev-pars
 pr_number="${REVIEW_PR_NUMBER:-}"
 pr_title="${REVIEW_PR_TITLE:-}"
 pr_url="${REVIEW_PR_URL:-}"
+existing_findings_file="${REVIEW_EXISTING_FINDINGS_FILE:-codex-review/out/existing-findings.json}"
 
 if [ -z "${head_sha}" ]; then
     head_sha="$(git rev-parse "${head_ref}")"
@@ -58,6 +59,7 @@ head_sha="$(fill_empty "${head_sha}" "(not provided)")"
 pr_number="$(fill_empty "${pr_number}" "(not a pull request run)")"
 pr_title="$(fill_empty "$(normalize_text "${pr_title}")" "(not provided)")"
 pr_url="$(fill_empty "${pr_url}" "(not provided)")"
+existing_findings_file="$(fill_empty "${existing_findings_file}" "codex-review/out/existing-findings.json")"
 
 sed \
     -e "s|@@REPOSITORY@@|$(escape_sed_replacement "${repository}")|g" \
@@ -67,4 +69,5 @@ sed \
     -e "s|@@PR_NUMBER@@|$(escape_sed_replacement "${pr_number}")|g" \
     -e "s|@@PR_TITLE@@|$(escape_sed_replacement "${pr_title}")|g" \
     -e "s|@@PR_URL@@|$(escape_sed_replacement "${pr_url}")|g" \
+    -e "s|@@EXISTING_FINDINGS_FILE@@|$(escape_sed_replacement "${existing_findings_file}")|g" \
     "${template_path}" > "${output_path}"

@@ -42,5 +42,5 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - **init-workspace:** Prepares the workspace and environment.
 - **build-changed-applications:** Builds only the applications changed in a PR.
 - **build-all-applications:** Builds all applications (nightly or manual trigger).
-- **Codex review:** A separate workflow runs `Arm-Debug/codex-reviewer@v0.2.1`, uploads the generated artifacts for the PR, and publishes the summary plus inline review comments back to GitHub.
+- **Codex review:** A separate workflow runs codex review, uploads the generated artifacts for the PR, and publishes the summary plus inline review comments back to GitHub.
 - **Ruleset sync:** A separate workflow applies the checked-in repository ruleset drafts to GitHub after they are merged to `main`.
