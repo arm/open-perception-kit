@@ -574,9 +574,9 @@ function renderButtons() {
     }
 
     if (removeButton) {
-        removeButton.hidden = !region;
-        removeButton.disabled = cropInProgress;
-        removeButton.dataset.tooltip = 'Delete region';
+        removeButton.hidden = !roiPipelineAvailable;
+        removeButton.disabled = cropInProgress || !region;
+        removeButton.dataset.tooltip = removeButton.disabled ? 'No region to delete' : 'Delete region';
         removeButton.setAttribute('aria-label', 'Delete region');
     }
 
@@ -592,8 +592,9 @@ function renderButtons() {
     }
 
     if (clearCropButton) {
-        clearCropButton.hidden = !roiPipelineAvailable || !activeCrop;
-        clearCropButton.disabled = cropInProgress;
+        clearCropButton.hidden = !roiPipelineAvailable;
+        clearCropButton.disabled = cropInProgress || !activeCrop;
+        clearCropButton.dataset.tooltip = clearCropButton.disabled ? 'No saved crop to clear' : 'Clear crop';
         clearCropButton.setAttribute('aria-pressed', activeCrop ? 'true' : 'false');
     }
 
