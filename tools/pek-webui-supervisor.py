@@ -193,26 +193,43 @@ def read_websocket_text_frame(sock):
     return payload.decode("utf-8", errors="replace")
 
 
-def fetch_ctrl_snapshot(timeout=3):
+def write_websocket_text_frame(sock, text):
+    payload = text.encode("utf-8")
+    mask = os.urandom(4)
+    length = len(payload)
+
+    if length < 126:
+        header = bytes([0x81, 0x80 | length])
+    elif length < 65536:
+        header = bytes([0x81, 0x80 | 126]) + length.to_bytes(2, "big")
+    else:
+        header = bytes([0x81, 0x80 | 127]) + length.to_bytes(8, "big")
+
+    masked_payload = bytes(byte ^ mask[index % 4] for index, byte in enumerate(payload))
+    sock.sendall(header + mask + masked_payload)
+
+
+def connect_ctrl_websocket(timeout=3):
     key = base64.b64encode(os.urandom(16)).decode("ascii")
     expected_accept = base64.b64encode(
         hashlib.sha1((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode("ascii")).digest()
     ).decode("ascii")
 
-    with socket.create_connection(("127.0.0.1", CTRL_PORT), timeout=timeout) as sock:
-        sock.settimeout(timeout)
-        request = (
-            "GET /ws HTTP/1.1\r\n"
-            f"Host: 127.0.0.1:{CTRL_PORT}\r\n"
-            "Upgrade: websocket\r\n"
-            "Connection: Upgrade\r\n"
-            f"Sec-WebSocket-Key: {key}\r\n"
-            "Sec-WebSocket-Version: 13\r\n"
-            "Origin: http://127.0.0.1\r\n"
-            "\r\n"
-        )
-        sock.sendall(request.encode("ascii"))
+    sock = socket.create_connection(("127.0.0.1", CTRL_PORT), timeout=timeout)
+    sock.settimeout(timeout)
+    request = (
+        "GET /ws HTTP/1.1\r\n"
+        f"Host: 127.0.0.1:{CTRL_PORT}\r\n"
+        "Upgrade: websocket\r\n"
+        "Connection: Upgrade\r\n"
+        f"Sec-WebSocket-Key: {key}\r\n"
+        "Sec-WebSocket-Version: 13\r\n"
+        "Origin: http://127.0.0.1\r\n"
+        "\r\n"
+    )
+    sock.sendall(request.encode("ascii"))
 
+    try:
         response = bytearray()
         while b"\r\n\r\n" not in response:
             response.extend(sock.recv(4096))
@@ -220,8 +237,60 @@ def fetch_ctrl_snapshot(timeout=3):
         header_text = response.decode("iso-8859-1", errors="replace")
         if " 101 " not in header_text or expected_accept not in header_text:
             raise ConnectionError("control websocket handshake failed")
+        return sock
+    except Exception:
+        sock.close()
+        raise
 
+
+def fetch_ctrl_snapshot(timeout=3):
+    with connect_ctrl_websocket(timeout) as sock:
         return json.loads(read_websocket_text_frame(sock))
+
+
+def active_model_states_from_snapshot(snapshot):
+    states = {}
+    for model in snapshot.get("models", []):
+        element_name = model.get("element_name")
+        if element_name:
+            states[element_name] = bool(model.get("active"))
+    return states
+
+
+def fetch_active_model_states(timeout=1):
+    try:
+        return active_model_states_from_snapshot(fetch_ctrl_snapshot(timeout))
+    except Exception as exc:
+        print(f"[supervisor] could not capture model state: {exc}", flush=True)
+        return {}
+
+
+def restore_model_states(states, attempts=8, timeout=1):
+    if not states:
+        return
+
+    last_error = None
+    for attempt in range(attempts):
+        try:
+            with connect_ctrl_websocket(timeout) as sock:
+                # Drain the initial status frame before sending commands.
+                read_websocket_text_frame(sock)
+                for element_name, active in states.items():
+                    write_websocket_text_frame(
+                        sock,
+                        json.dumps({
+                            "type": "model_toggle",
+                            "name": element_name,
+                            "active": active,
+                        }),
+                    )
+                    time.sleep(0.05)
+            return
+        except Exception as exc:
+            last_error = exc
+            time.sleep(0.35 + (attempt * 0.1))
+
+    print(f"[supervisor] could not restore model state: {last_error}", flush=True)
 
 
 def resolve_pipeline(pipeline_id):
@@ -633,6 +702,12 @@ class PipelineSupervisor:
 
     def switch_to(self, source_path):
         with self.lock:
+            existing_process = self.process
+            had_running_pipeline = existing_process is not None and existing_process.poll() is None
+
+        preserved_model_states = fetch_active_model_states() if had_running_pipeline else {}
+
+        with self.lock:
             self.switching = True
             active_roi = dict(self.roi) if self.roi else None
             active_scale = self.resolution_scale
@@ -659,6 +734,7 @@ class PipelineSupervisor:
                 self.last_message = f"Started {source_path.stem}."
 
             time.sleep(2.0)
+            restore_model_states(preserved_model_states)
 
             with self.lock:
                 if self.process and self.process.poll() is not None:
