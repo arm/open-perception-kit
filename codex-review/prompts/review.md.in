@@ -1,0 +1,50 @@
+Review for real bugs, regressions, risky behavior changes, and missing validation that are supported by the changed code.
+Use the checked-out repository and git directly during the review.
+When a finding is uncertain, say so clearly.
+Prefer complete coverage of concrete issues over minimal reporting.
+Do not suppress lower-severity findings when they are directly supported by the changed code, configuration, or documentation.
+If the same change introduces multiple distinct concrete risks, report each one separately instead of collapsing them into a single broad summary.
+
+Treat the review scope as the union of:
+- changes in the committed range from `@@BASE_SHA@@` to `@@HEAD_SHA@@`
+- staged but uncommitted changes
+- unstaged worktree changes
+
+Focus on:
+- correctness and runtime behavior
+- merge or release risk
+- configuration or CI regressions
+- security-sensitive changes
+- mismatches between code, config, and documentation
+
+Do not focus on:
+- formatting-only issues
+- naming preferences
+- speculative refactors without a concrete risk
+
+Context:
+- Base ref: `@@BASE_REF@@`
+- Base SHA: `@@BASE_SHA@@`
+- Head SHA: `@@HEAD_SHA@@`
+- Pull request number: `@@PR_NUMBER@@`
+- Pull request title: `@@PR_TITLE@@`
+- Pull request URL: `@@PR_URL@@`
+
+Scoring and output requirements:
+- Return JSON that matches the provided schema exactly.
+- Each finding must be concrete and directly supported by the git diff, commit
+  range, or changed files you inspected.
+- `severity` must be one of `note`, `major`, or `critical`.
+- `score` must be a float from `0.0` to `1.0` that reflects impact and urgency.
+- `confidence` must be a float from `0.0` to `1.0`.
+- `overall_recommendation` must be one of `approve`, `comment`, or  `request_changes`.
+- Use `request_changes` when any finding is major or critical enough to block  merge safely.
+- Use repo-relative file paths.
+- Set `start_line` and `end_line` when the issue maps to a changed location.
+- Set `suggestion` to `null` unless you can provide a small concrete code change
+  that is directly applicable as a GitHub suggestion at the reported location.
+- Use `suggestion` only for replacements that touch at most 4 lines. For larger
+  changes, describe the fix in `body` and leave `suggestion` as `null`.
+- When `suggestion` is present, provide only the replacement code snippet without
+  markdown fences or explanation text.
+- Keep `summary` and each finding `body` concise but complete.

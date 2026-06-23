@@ -15,12 +15,14 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 ## What does `.github/workflows/codex-review.yml` do?
 
-- Uses the reusable `Arm-Debug/codex-reviewer` GitHub Action to run a Codex review on PR open, reopen, synchronize, and ready-for-review events
+- Uses `openai/codex-action` directly to run a Codex review on PR open, reopen, synchronize, and ready-for-review events
 - Requires `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` and the workflow `GITHUB_TOKEN`
-- Uses the checked-in `codex-reviewer` config under `.github/codex-reviewer/`
-- Uses repository-specific review guidance from `.github/instructions/codex-review.instructions.md`
-- Uploads `codex-reviewer-out` artifacts, including the generated prompt, raw JSON output, normalized review output, summary markdown, publish payload, and GitHub publish result
-- Lets the reusable `codex-reviewer` action publish the generated review summary and inline review comments to the PR from its generated JSON contract
+- Uses the checked-in review assets under `codex-review/`
+- Keeps prompt templates in `codex-review/prompts/`
+- Keeps schemas in `codex-review/schemas/`
+- Keeps shared scripts in `codex-review/scripts/`
+- Uploads `codex-review-out` artifacts, including the rendered prompt, raw JSON output, and summary markdown
+- Publishes one upserted PR summary comment from the structured review output
 
 ## What does `.github/workflows/workflow-audit.yml` do?
 

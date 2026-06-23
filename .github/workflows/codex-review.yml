@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
   pull-requests: write
 
 concurrency:
@@ -26,42 +27,61 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Debug npm registry config
+      - name: Render Codex review prompt
         shell: bash
         env:
-          NPM_CONFIG_USERCONFIG: ${{ github.workspace }}/.npmrc
+          REVIEW_BASE_REF: origin/${{ github.base_ref || github.ref_name }}
+          REVIEW_HEAD_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+          REVIEW_REPOSITORY: ${{ github.repository }}
+          REVIEW_PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+          REVIEW_PR_TITLE: ${{ github.event.pull_request.title || '' }}
+          REVIEW_PR_URL: ${{ github.event.pull_request.html_url || '' }}
         run: |
-          echo "pwd=$(pwd)"
-          echo "workspace=${GITHUB_WORKSPACE}"
-          echo "NPM_CONFIG_USERCONFIG=${NPM_CONFIG_USERCONFIG}"
-          echo "repo .npmrc:"
-          if [ -f "${GITHUB_WORKSPACE}/.npmrc" ]; then
-            sed -e 's/_authToken=.*/_authToken=[REDACTED]/' "${GITHUB_WORKSPACE}/.npmrc"
-          else
-            echo "not found"
-          fi
+          mkdir -p codex-review/out
+          ./codex-review/scripts/render-prompt.sh codex-review/out/review.prompt.md
 
-      - name: Run codex-reviewer
+      - name: Run Codex review
         id: review
-        uses: Arm-Debug/codex-reviewer@v0.2.1
+        uses: openai/codex-action@v1
         env:
           NPM_CONFIG_USERCONFIG: ${{ github.workspace }}/.npmrc
         with:
           openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
-          github-token: ${{ github.token }}
-          config-path: .github/codex-reviewer/config.base-branch.json
-          instructions-path: .github/instructions/codex-review.instructions.md
-          base-branch: origin/${{ github.base_ref || github.ref_name }}
-          output-dir: codex-reviewer-out
-          # openai/codex-action defaults to drop-sudo, which does not fit this self-hosted runner setup.
+          responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses
+          model: gpt-5.3-codex
+          sandbox: danger-full-access
           safety-strategy: unsafe
-          publish-review: "true"
-          codex-bypass-sandbox: "true"
+          prompt-file: codex-review/out/review.prompt.md
+          output-schema-file: codex-review/schemas/review.schema.json
+          output-file: codex-review/out/review.json
+
+      - name: Render review summary
+        if: ${{ success() }}
+        shell: bash
+        run: |
+          python3 ./codex-review/scripts/publish-review.py \
+            --input codex-review/out/review.json \
+            --markdown-out codex-review/out/review-summary.md
+          cat codex-review/out/review-summary.md >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Publish review summary comment
+        if: ${{ success() && github.event_name == 'pull_request' }}
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python3 ./codex-review/scripts/publish-review.py \
+            --input codex-review/out/review.json \
+            --markdown-out codex-review/out/review-summary.md \
+            --publish-pr-comment
 
       - name: Upload review artifacts
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: codex-reviewer-out
-          path: ${{ steps.review.outputs.output-dir }}
+          name: codex-review-out
+          path: codex-review/out
           if-no-files-found: warn
