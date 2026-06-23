@@ -15,6 +15,7 @@ let draftStart = null;
 let draftEnd = null;
 let drawing = false;
 let drawingPointerId = null;
+let editDrag = null;
 let renderFrame = null;
 let latestInferenceOutput = null;
 let cropInProgress = false;
@@ -70,7 +71,7 @@ function svgRect(rectangle) {
     };
 }
 
-function eventPoint(event) {
+function eventPoint(event, clampToContent = false) {
     const bounds = wrapperRect();
     const rect = videoContentRect();
     const x = event.clientX - bounds.left;
@@ -82,6 +83,12 @@ function eventPoint(event) {
         y < rect.top ||
         y > rect.top + rect.height
     ) {
+        if (clampToContent) {
+            return {
+                x: clamp((x - rect.left) / rect.width),
+                y: clamp((y - rect.top) / rect.height),
+            };
+        }
         return null;
     }
 
@@ -112,7 +119,7 @@ function normaliseRectangle(start, end) {
     return { x: left, y: top, width, height };
 }
 
-function regionPoints(rectangle) {
+function regionHandles(rectangle) {
     if (!rectangle)
         return [];
 
@@ -124,16 +131,64 @@ function regionPoints(rectangle) {
     const middleY = (top + bottom) / 2;
 
     return [
-        { x: left, y: top },
-        { x: middleX, y: top },
-        { x: right, y: top },
-        { x: right, y: middleY },
-        { x: right, y: bottom },
-        { x: middleX, y: bottom },
-        { x: left, y: bottom },
-        { x: left, y: middleY },
-        { x: middleX, y: middleY },
+        { id: 'nw', x: left, y: top },
+        { id: 'n', x: middleX, y: top },
+        { id: 'ne', x: right, y: top },
+        { id: 'e', x: right, y: middleY },
+        { id: 'se', x: right, y: bottom },
+        { id: 's', x: middleX, y: bottom },
+        { id: 'sw', x: left, y: bottom },
+        { id: 'w', x: left, y: middleY },
+        { id: 'move', x: middleX, y: middleY },
     ];
+}
+
+function resizedRegion(startRegion, handle, startPoint, point) {
+    if (!startRegion || !startPoint || !point)
+        return startRegion;
+
+    if (handle === 'move') {
+        const nextX = clamp(
+            startRegion.x + point.x - startPoint.x,
+            0,
+            1 - startRegion.width
+        );
+        const nextY = clamp(
+            startRegion.y + point.y - startPoint.y,
+            0,
+            1 - startRegion.height
+        );
+        return {
+            ...startRegion,
+            x: nextX,
+            y: nextY,
+        };
+    }
+
+    let left = startRegion.x;
+    let right = startRegion.x + startRegion.width;
+    let top = startRegion.y;
+    let bottom = startRegion.y + startRegion.height;
+
+    if (handle.includes('w')) {
+        left = clamp(point.x, 0, right - MIN_CROP_SIZE);
+    }
+    if (handle.includes('e')) {
+        right = clamp(point.x, left + MIN_CROP_SIZE, 1);
+    }
+    if (handle.includes('n')) {
+        top = clamp(point.y, 0, bottom - MIN_CROP_SIZE);
+    }
+    if (handle.includes('s')) {
+        bottom = clamp(point.y, top + MIN_CROP_SIZE, 1);
+    }
+
+    return {
+        x: left,
+        y: top,
+        width: right - left,
+        height: bottom - top,
+    };
 }
 
 function pointInRegion(point, rectangle = region) {
@@ -410,21 +465,23 @@ function renderOverlay() {
     const bounds = wrapperRect();
     overlay.setAttribute('viewBox', `0 0 ${bounds.width} ${bounds.height}`);
     overlay.replaceChildren();
-    overlay.classList.toggle('is-interactive', drawing);
+    overlay.classList.toggle('is-interactive', drawing || Boolean(region));
     overlay.classList.toggle('is-drawing', drawing);
+    overlay.classList.toggle('is-editing', Boolean(editDrag));
 
     renderDetections();
     renderRectangle(region, 'region-outline region-outline--selected');
     renderRectangle(normaliseRectangle(draftStart, draftEnd), 'region-preview-rect');
 
     if (region) {
-        for (const point of regionPoints(region)) {
-            const positioned = svgPoint(point);
+        for (const handle of regionHandles(region)) {
+            const positioned = svgPoint(handle);
             overlay.appendChild(element('circle', {
-                class: 'region-edit-point',
+                class: `region-edit-point region-edit-point--${handle.id}`,
                 cx: positioned.x,
                 cy: positioned.y,
-                r: 4,
+                r: handle.id === 'move' ? 6 : 4,
+                'data-region-handle': handle.id,
             }));
         }
     }
@@ -467,11 +524,20 @@ function render() {
     window.dispatchEvent(new CustomEvent('regions-change'));
 }
 
+function releaseOverlayPointer(pointerId) {
+    try {
+        overlay?.releasePointerCapture?.(pointerId);
+    } catch (error) {
+        // The capture may already be gone if the browser cancelled the pointer.
+    }
+}
+
 function startDrawing() {
     if (!roiPipelineAvailable || cropInProgress)
         return;
 
     region = null;
+    editDrag = null;
     draftStart = null;
     draftEnd = null;
     drawing = true;
@@ -482,6 +548,7 @@ function startDrawing() {
 function stopDrawing() {
     drawing = false;
     drawingPointerId = null;
+    editDrag = null;
     draftStart = null;
     draftEnd = null;
     render();
@@ -520,6 +587,7 @@ async function updatePipelineCrop(roi) {
         draftEnd = null;
         drawing = false;
         drawingPointerId = null;
+        editDrag = null;
 
         window.dispatchEvent(new CustomEvent('pipeline-restart', {
             detail: {
@@ -550,6 +618,32 @@ clearCropButton?.addEventListener('click', () => {
 });
 
 overlay?.addEventListener('pointerdown', (event) => {
+    const target = event.target;
+    if (
+        region &&
+        !cropInProgress &&
+        target instanceof SVGCircleElement &&
+        target.classList.contains('region-edit-point')
+    ) {
+        const point = eventPoint(event, true);
+        if (!point)
+            return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        drawing = false;
+        drawingPointerId = null;
+        editDrag = {
+            pointerId: event.pointerId,
+            handle: target.dataset.regionHandle,
+            startPoint: point,
+            startRegion: { ...region },
+        };
+        overlay.setPointerCapture?.(event.pointerId);
+        render();
+        return;
+    }
+
     if (!drawing)
         return;
 
@@ -566,10 +660,20 @@ overlay?.addEventListener('pointerdown', (event) => {
 });
 
 overlay?.addEventListener('pointermove', (event) => {
+    if (editDrag && editDrag.pointerId === event.pointerId) {
+        const point = eventPoint(event, true);
+        if (!point)
+            return;
+
+        region = resizedRegion(editDrag.startRegion, editDrag.handle, editDrag.startPoint, point);
+        render();
+        return;
+    }
+
     if (!drawing || drawingPointerId !== event.pointerId || !draftStart)
         return;
 
-    const point = eventPoint(event);
+    const point = eventPoint(event, true);
     if (!point)
         return;
 
@@ -578,6 +682,13 @@ overlay?.addEventListener('pointermove', (event) => {
 });
 
 function finishPointerDrawing(event) {
+    if (editDrag && editDrag.pointerId === event.pointerId) {
+        editDrag = null;
+        releaseOverlayPointer(event.pointerId);
+        render();
+        return;
+    }
+
     if (!drawing || drawingPointerId !== event.pointerId)
         return;
 
@@ -586,6 +697,7 @@ function finishPointerDrawing(event) {
         region = drawnRegion;
     }
 
+    releaseOverlayPointer(event.pointerId);
     stopDrawing();
 }
 
@@ -597,7 +709,7 @@ window.addEventListener('keydown', (event) => {
     if (['input', 'textarea', 'select'].includes(activeTag) || document.activeElement?.isContentEditable)
         return;
 
-    if (event.key === 'Escape' && drawing) {
+    if (event.key === 'Escape' && (drawing || editDrag)) {
         event.preventDefault();
         stopDrawing();
         return;

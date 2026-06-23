@@ -283,6 +283,10 @@ video {
   cursor: crosshair;
 }
 
+.region-overlay.is-editing {
+  cursor: grabbing;
+}
+
 .region-outline {
   fill: rgba(255, 255, 255, 0.02);
   stroke: #ffffff;
@@ -323,12 +327,40 @@ video {
   fill: #facc15;
   stroke: #000000;
   stroke-width: 1.5;
-  pointer-events: none;
+  pointer-events: auto;
   vector-effect: non-scaling-stroke;
 }
 
 .region-edit-point:hover {
   fill: #fde68a;
+}
+
+.region-edit-point--move {
+  cursor: grab;
+}
+
+.region-edit-point--move:active {
+  cursor: grabbing;
+}
+
+.region-edit-point--n,
+.region-edit-point--s {
+  cursor: ns-resize;
+}
+
+.region-edit-point--e,
+.region-edit-point--w {
+  cursor: ew-resize;
+}
+
+.region-edit-point--nw,
+.region-edit-point--se {
+  cursor: nwse-resize;
+}
+
+.region-edit-point--ne,
+.region-edit-point--sw {
+  cursor: nesw-resize;
 }
 
 .video-overlay {
