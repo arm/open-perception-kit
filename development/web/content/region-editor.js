@@ -1,4 +1,4 @@
-const addButton = document.getElementById('addRegionBtn');
+const drawButton = document.getElementById('addRegionBtn');
 const removeButton = document.getElementById('removeRegionBtn');
 const applyCropButton = document.getElementById('applyRoiCropBtn');
 const clearCropButton = document.getElementById('clearRoiCropBtn');
@@ -7,18 +7,16 @@ const video = document.getElementById('video');
 const canvas = document.getElementById('regionCanvas');
 const overlay = document.getElementById('regionOverlay');
 
-const CLOSE_DISTANCE_PX = 16;
 const MIN_CROP_SIZE = 0.02;
 const roiPipelineAvailable = Boolean(window.PEK_CONFIG?.supervised && window.PEK_CONFIG?.roiPipeline);
-const regions = [];
-let draftPoints = [];
+
+let region = null;
+let draftStart = null;
+let draftEnd = null;
 let drawing = false;
-let pointerPoint = null;
-let selectedRegionIndex = -1;
+let drawingPointerId = null;
 let renderFrame = null;
 let latestInferenceOutput = null;
-let draggedPoint = null;
-let suppressNextClick = false;
 let cropInProgress = false;
 let activeCrop = null;
 
@@ -57,6 +55,21 @@ function svgPoint(point) {
     };
 }
 
+function svgRect(rectangle) {
+    const topLeft = svgPoint({ x: rectangle.x, y: rectangle.y });
+    const bottomRight = svgPoint({
+        x: rectangle.x + rectangle.width,
+        y: rectangle.y + rectangle.height,
+    });
+
+    return {
+        x: topLeft.x,
+        y: topLeft.y,
+        width: bottomRight.x - topLeft.x,
+        height: bottomRight.y - topLeft.y,
+    };
+}
+
 function eventPoint(event) {
     const bounds = wrapperRect();
     const rect = videoContentRect();
@@ -78,88 +91,61 @@ function eventPoint(event) {
     };
 }
 
-function pointDistance(a, b) {
-    const start = svgPoint(a);
-    const end = svgPoint(b);
-    return Math.hypot(start.x - end.x, start.y - end.y);
-}
-
 function clamp(value, min = 0, max = 1) {
     return Math.min(Math.max(value, min), max);
 }
 
-function pointInRegion(point, region) {
-    let inside = false;
-    for (let index = 0, previous = region.length - 1; index < region.length; previous = index++) {
-        const current = region[index];
-        const last = region[previous];
-        const intersects = (
-            current.y > point.y
-        ) !== (
-            last.y > point.y
-        ) && point.x < (last.x - current.x) * (point.y - current.y) / (last.y - current.y) + current.x;
-
-        if (intersects) {
-            inside = !inside;
-        }
-    }
-
-    return inside;
-}
-
-function regionAtPoint(point) {
-    for (let index = regions.length - 1; index >= 0; index -= 1) {
-        if (pointInRegion(point, regions[index])) {
-            return index;
-        }
-    }
-
-    return -1;
-}
-
-function selectedRegion() {
-    if (selectedRegionIndex >= 0)
-        return regions[selectedRegionIndex] || null;
-    if (regions.length === 1)
-        return regions[0];
-    return null;
-}
-
-function regionBounds(region) {
-    if (!Array.isArray(region) || !region.length)
+function normaliseRectangle(start, end) {
+    if (!start || !end)
         return null;
 
-    const xs = region.map((point) => clamp(point.x));
-    const ys = region.map((point) => clamp(point.y));
-    const left = Math.min(...xs);
-    const right = Math.max(...xs);
-    const top = Math.min(...ys);
-    const bottom = Math.max(...ys);
+    const left = clamp(Math.min(start.x, end.x));
+    const right = clamp(Math.max(start.x, end.x));
+    const top = clamp(Math.min(start.y, end.y));
+    const bottom = clamp(Math.max(start.y, end.y));
+    const width = right - left;
+    const height = bottom - top;
 
-    return {
-        x: left,
-        y: top,
-        width: right - left,
-        height: bottom - top,
-    };
+    if (width < MIN_CROP_SIZE || height < MIN_CROP_SIZE)
+        return null;
+
+    return { x: left, y: top, width, height };
 }
 
-function selectedCropBounds() {
-    const bounds = regionBounds(selectedRegion());
-    if (!bounds)
-        return null;
-    if (bounds.width < MIN_CROP_SIZE || bounds.height < MIN_CROP_SIZE)
-        return null;
-    return bounds;
+function regionPoints(rectangle) {
+    if (!rectangle)
+        return [];
+
+    const left = rectangle.x;
+    const right = rectangle.x + rectangle.width;
+    const top = rectangle.y;
+    const bottom = rectangle.y + rectangle.height;
+    const middleX = (left + right) / 2;
+    const middleY = (top + bottom) / 2;
+
+    return [
+        { x: left, y: top },
+        { x: middleX, y: top },
+        { x: right, y: top },
+        { x: right, y: middleY },
+        { x: right, y: bottom },
+        { x: middleX, y: bottom },
+        { x: left, y: bottom },
+        { x: left, y: middleY },
+        { x: middleX, y: middleY },
+    ];
 }
 
-function pointsAttribute(points) {
-    return points
-        .map((point) => {
-            const positioned = svgPoint(point);
-            return `${positioned.x.toFixed(1)},${positioned.y.toFixed(1)}`;
-        })
-        .join(' ');
+function pointInRegion(point, rectangle = region) {
+    if (!point || !rectangle)
+        return false;
+
+    return (
+        point.x >= rectangle.x &&
+        point.x <= rectangle.x + rectangle.width &&
+        point.y >= rectangle.y &&
+        point.y <= rectangle.y + rectangle.height
+    );
 }
 
 function element(name, attributes = {}) {
@@ -194,6 +180,29 @@ function sourceDimensions(output = latestInferenceOutput) {
     };
 }
 
+function detectionSamplePoints(x, y, width, height, dimensions) {
+    const frameWidth = Math.max(1, dimensions.width);
+    const frameHeight = Math.max(1, dimensions.height);
+    const left = x / frameWidth;
+    const right = (x + width) / frameWidth;
+    const top = y / frameHeight;
+    const bottom = (y + height) / frameHeight;
+    const middleX = (left + right) / 2;
+    const middleY = (top + bottom) / 2;
+
+    return [
+        { x: left, y: top },
+        { x: middleX, y: top },
+        { x: right, y: top },
+        { x: right, y: middleY },
+        { x: right, y: bottom },
+        { x: middleX, y: bottom },
+        { x: left, y: bottom },
+        { x: left, y: middleY },
+        { x: middleX, y: middleY },
+    ];
+}
+
 function detectionRect(detection, dimensions) {
     const data = detection?.data || {};
     if (detection?.type !== 'Rect')
@@ -220,51 +229,19 @@ function detectionRect(detection, dimensions) {
     };
 }
 
-function detectionSamplePoints(x, y, width, height, dimensions) {
-    const frameWidth = Math.max(1, dimensions.width);
-    const frameHeight = Math.max(1, dimensions.height);
-    const left = x / frameWidth;
-    const right = (x + width) / frameWidth;
-    const top = y / frameHeight;
-    const bottom = (y + height) / frameHeight;
-    const middleX = (left + right) / 2;
-    const middleY = (top + bottom) / 2;
-
-    return [
-        { x: left, y: top },
-        { x: middleX, y: top },
-        { x: right, y: top },
-        { x: right, y: middleY },
-        { x: right, y: bottom },
-        { x: middleX, y: bottom },
-        { x: left, y: bottom },
-        { x: left, y: middleY },
-        { x: middleX, y: middleY },
-    ];
-}
-
-function detectionFullyInsideRegion(rect) {
-    if (!regions.length)
-        return true;
-
-    return regions.some((region) => (
-        rect.samplePoints.every((point) => pointInRegion(point, region))
-    ));
-}
-
-function detectionAllowedByRegions(detection, dimensions = sourceDimensions()) {
-    if (!regions.length)
+function detectionAllowedByRegion(detection, dimensions = sourceDimensions()) {
+    if (!region)
         return true;
 
     const rect = detectionRect(detection, dimensions);
     if (!rect)
         return false;
 
-    return detectionFullyInsideRegion(rect);
+    return rect.samplePoints.every((point) => pointInRegion(point));
 }
 
 function filterInferenceOutput(output) {
-    if (!regions.length || !Array.isArray(output?.layers))
+    if (!region || !Array.isArray(output?.layers))
         return output;
 
     const dimensions = sourceDimensions(output);
@@ -274,7 +251,7 @@ function filterInferenceOutput(output) {
             .map((layer) => {
                 const detections = Array.isArray(layer.detections) ? layer.detections : [];
                 const filteredDetections = detections.filter((detection) => (
-                    detectionAllowedByRegions(detection, dimensions)
+                    detectionAllowedByRegion(detection, dimensions)
                 ));
 
                 return {
@@ -290,7 +267,7 @@ function filterInferenceOutput(output) {
 }
 
 window.PEK_REGION_FILTER = {
-    hasRegions: () => regions.length > 0,
+    hasRegions: () => Boolean(region),
     filterInferenceOutput,
 };
 
@@ -307,7 +284,7 @@ function renderDetections() {
             const rect = detectionRect(detection, dimensions);
             if (!rect)
                 continue;
-            if (!detectionAllowedByRegions(detection, dimensions))
+            if (!detectionAllowedByRegion(detection, dimensions))
                 continue;
 
             overlay.appendChild(element('rect', {
@@ -349,7 +326,7 @@ function sizeCanvasForDisplay() {
 }
 
 function drawVideoFrame() {
-    if (!video || !canvas || !regions.length) {
+    if (!video || !canvas || !region) {
         renderFrame = null;
         return;
     }
@@ -363,6 +340,7 @@ function drawVideoFrame() {
 
     const { bounds, ratio } = sizing;
     const rect = videoContentRect();
+    const selectedRect = svgRect(region);
     context.save();
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
     context.clearRect(0, 0, bounds.width, bounds.height);
@@ -373,23 +351,10 @@ function drawVideoFrame() {
         context.filter = 'grayscale(1) brightness(0.72)';
         context.drawImage(video, rect.left, rect.top, rect.width, rect.height);
         context.filter = 'none';
-
-        for (const region of regions) {
-            context.save();
-            region.forEach((point, index) => {
-                const positioned = svgPoint(point);
-                if (index === 0) {
-                    context.beginPath();
-                    context.moveTo(positioned.x, positioned.y);
-                    return;
-                }
-                context.lineTo(positioned.x, positioned.y);
-            });
-            context.closePath();
-            context.clip();
-            context.drawImage(video, rect.left, rect.top, rect.width, rect.height);
-            context.restore();
-        }
+        context.beginPath();
+        context.rect(selectedRect.x, selectedRect.y, selectedRect.width, selectedRect.height);
+        context.clip();
+        context.drawImage(video, rect.left, rect.top, rect.width, rect.height);
     } catch (error) {
         console.warn('Region canvas render failed', error);
         context.filter = 'none';
@@ -404,11 +369,11 @@ function renderRegionCanvas() {
     if (!video || !canvas)
         return;
 
-    const hasRegions = regions.length > 0;
-    video.classList.toggle('has-regions', hasRegions);
-    canvas.classList.toggle('is-visible', hasRegions);
+    const hasRegion = Boolean(region);
+    video.classList.toggle('has-regions', hasRegion);
+    canvas.classList.toggle('is-visible', hasRegion);
 
-    if (!hasRegions) {
+    if (!hasRegion) {
         if (renderFrame) {
             cancelAnimationFrame(renderFrame);
             renderFrame = null;
@@ -422,6 +387,22 @@ function renderRegionCanvas() {
     }
 }
 
+function renderRectangle(rectangle, className) {
+    if (!overlay || !rectangle)
+        return;
+
+    const positioned = svgRect(rectangle);
+    overlay.appendChild(element('rect', {
+        class: className,
+        x: positioned.x,
+        y: positioned.y,
+        width: positioned.width,
+        height: positioned.height,
+        rx: 0,
+        ry: 0,
+    }));
+}
+
 function renderOverlay() {
     if (!overlay)
         return;
@@ -429,80 +410,45 @@ function renderOverlay() {
     const bounds = wrapperRect();
     overlay.setAttribute('viewBox', `0 0 ${bounds.width} ${bounds.height}`);
     overlay.replaceChildren();
-    overlay.classList.toggle('is-interactive', drawing || regions.length > 0);
+    overlay.classList.toggle('is-interactive', drawing);
     overlay.classList.toggle('is-drawing', drawing);
 
     renderDetections();
+    renderRectangle(region, 'region-outline region-outline--selected');
+    renderRectangle(normaliseRectangle(draftStart, draftEnd), 'region-preview-rect');
 
-    regions.forEach((region, index) => {
-        overlay.appendChild(element('polygon', {
-            class: index === selectedRegionIndex
-                ? 'region-outline region-outline--selected'
-                : 'region-outline',
-            points: pointsAttribute(region),
-        }));
-    });
-
-    const selectedRegion = regions[selectedRegionIndex];
-    if (!drawing && selectedRegion) {
-        selectedRegion.forEach((point, index) => {
+    if (region) {
+        for (const point of regionPoints(region)) {
             const positioned = svgPoint(point);
             overlay.appendChild(element('circle', {
                 class: 'region-edit-point',
                 cx: positioned.x,
                 cy: positioned.y,
-                r: 5,
-                'data-region-index': selectedRegionIndex,
-                'data-point-index': index,
+                r: 4,
             }));
-        });
-    }
-
-    const previewPoints = pointerPoint && draftPoints.length
-        ? [...draftPoints, pointerPoint]
-        : draftPoints;
-
-    if (previewPoints.length > 1) {
-        overlay.appendChild(element('polyline', {
-            class: 'region-preview-line',
-            points: pointsAttribute(previewPoints),
-        }));
-    }
-
-    for (const [index, point] of draftPoints.entries()) {
-        const positioned = svgPoint(point);
-        overlay.appendChild(element('circle', {
-            class: index === 0 ? 'region-point region-point--start' : 'region-point',
-            cx: positioned.x,
-            cy: positioned.y,
-            r: index === 0 ? 6 : 4,
-        }));
+        }
     }
 }
 
 function renderButtons() {
-    if (removeButton) {
-        removeButton.hidden = regions.length === 0;
-        removeButton.dataset.tooltip = selectedRegionIndex >= 0
-            ? 'Remove selected region'
-            : 'Remove region';
-        removeButton.setAttribute(
-            'aria-label',
-            selectedRegionIndex >= 0 ? 'Remove selected region' : 'Remove region'
-        );
+    if (drawButton) {
+        drawButton.hidden = !roiPipelineAvailable;
+        drawButton.disabled = cropInProgress;
+        drawButton.setAttribute('aria-pressed', drawing ? 'true' : 'false');
+        drawButton.dataset.tooltip = drawing ? 'Drawing region' : region ? 'Replace region' : 'Draw crop region';
     }
 
-    addButton?.setAttribute('aria-pressed', drawing ? 'true' : 'false');
+    if (removeButton) {
+        removeButton.hidden = !region;
+        removeButton.disabled = cropInProgress;
+        removeButton.dataset.tooltip = 'Delete region';
+        removeButton.setAttribute('aria-label', 'Delete region');
+    }
 
-    const cropBounds = selectedCropBounds();
     if (applyCropButton) {
-        applyCropButton.hidden = !roiPipelineAvailable;
-        applyCropButton.disabled = cropInProgress || !cropBounds;
-        applyCropButton.dataset.tooltip = cropInProgress
-            ? 'Applying crop...'
-            : cropBounds
-                ? 'Crop pipeline'
-                : 'Select region first';
+        applyCropButton.hidden = !roiPipelineAvailable || !region;
+        applyCropButton.disabled = cropInProgress || !region;
+        applyCropButton.dataset.tooltip = cropInProgress ? 'Restarting...' : 'Restart with region';
     }
 
     if (clearCropButton) {
@@ -521,42 +467,33 @@ function render() {
     window.dispatchEvent(new CustomEvent('regions-change'));
 }
 
-function startRegion() {
+function startDrawing() {
+    if (!roiPipelineAvailable || cropInProgress)
+        return;
+
+    region = null;
+    draftStart = null;
+    draftEnd = null;
     drawing = true;
-    selectedRegionIndex = -1;
-    draftPoints = [];
-    pointerPoint = null;
+    drawingPointerId = null;
     render();
 }
 
 function stopDrawing() {
     drawing = false;
-    draftPoints = [];
-    pointerPoint = null;
+    drawingPointerId = null;
+    draftStart = null;
+    draftEnd = null;
     render();
 }
 
-function completeRegion() {
-    if (draftPoints.length >= 3) {
-        regions.push([...draftPoints]);
-        selectedRegionIndex = regions.length - 1;
-    }
-
-    stopDrawing();
-}
-
-addButton?.addEventListener('click', () => {
-    startRegion();
+drawButton?.addEventListener('click', () => {
+    startDrawing();
 });
 
 removeButton?.addEventListener('click', () => {
-    if (!regions.length)
-        return;
-
-    const removeIndex = selectedRegionIndex >= 0 ? selectedRegionIndex : regions.length - 1;
-    regions.splice(removeIndex, 1);
-    selectedRegionIndex = -1;
-    render();
+    region = null;
+    stopDrawing();
 });
 
 async function updatePipelineCrop(roi) {
@@ -578,12 +515,11 @@ async function updatePipelineCrop(roi) {
         }
 
         activeCrop = payload.roi || null;
-        if (roi) {
-            regions.length = 0;
-            selectedRegionIndex = -1;
-            draftPoints = [];
-            pointerPoint = null;
-        }
+        region = null;
+        draftStart = null;
+        draftEnd = null;
+        drawing = false;
+        drawingPointerId = null;
 
         window.dispatchEvent(new CustomEvent('pipeline-restart', {
             detail: {
@@ -604,10 +540,9 @@ async function updatePipelineCrop(roi) {
 }
 
 applyCropButton?.addEventListener('click', () => {
-    const cropBounds = selectedCropBounds();
-    if (!cropBounds)
+    if (!region)
         return;
-    updatePipelineCrop(cropBounds);
+    updatePipelineCrop(region);
 });
 
 clearCropButton?.addEventListener('click', () => {
@@ -615,107 +550,65 @@ clearCropButton?.addEventListener('click', () => {
 });
 
 overlay?.addEventListener('pointerdown', (event) => {
-    const target = event.target;
-    if (!(target instanceof SVGCircleElement) || !target.classList.contains('region-edit-point'))
+    if (!drawing)
         return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    draggedPoint = {
-        pointerId: event.pointerId,
-        regionIndex: Number(target.dataset.regionIndex),
-        pointIndex: Number(target.dataset.pointIndex),
-    };
-    suppressNextClick = true;
-    target.setPointerCapture?.(event.pointerId);
-});
-
-window.addEventListener('keydown', (event) => {
-    if (!['Backspace', 'Delete'].includes(event.key) || selectedRegionIndex < 0)
-        return;
-
-    const activeTag = document.activeElement?.tagName?.toLowerCase();
-    if (['input', 'textarea', 'select'].includes(activeTag) || document.activeElement?.isContentEditable)
-        return;
-
-    event.preventDefault();
-    regions.splice(selectedRegionIndex, 1);
-    selectedRegionIndex = -1;
-    render();
-});
-
-overlay?.addEventListener('click', (event) => {
-    if (suppressNextClick) {
-        suppressNextClick = false;
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-    }
 
     const point = eventPoint(event);
-
-    if (drawing) {
-        if (!point)
-            return;
-
-        if (
-            draftPoints.length >= 3 &&
-            pointDistance(point, draftPoints[0]) <= CLOSE_DISTANCE_PX
-        ) {
-            completeRegion();
-            return;
-        }
-
-        draftPoints.push(point);
-        pointerPoint = null;
-        render();
+    if (!point)
         return;
-    }
 
-    selectedRegionIndex = point ? regionAtPoint(point) : -1;
+    event.preventDefault();
+    draftStart = point;
+    draftEnd = point;
+    drawingPointerId = event.pointerId;
+    overlay.setPointerCapture?.(event.pointerId);
     render();
 });
 
 overlay?.addEventListener('pointermove', (event) => {
-    if (draggedPoint) {
-        const point = eventPoint(event);
-        const region = regions[draggedPoint.regionIndex];
-        if (point && region?.[draggedPoint.pointIndex]) {
-            region[draggedPoint.pointIndex] = {
-                x: clamp(point.x),
-                y: clamp(point.y),
-            };
-            selectedRegionIndex = draggedPoint.regionIndex;
-            render();
-        }
+    if (!drawing || drawingPointerId !== event.pointerId || !draftStart)
+        return;
+
+    const point = eventPoint(event);
+    if (!point)
+        return;
+
+    draftEnd = point;
+    renderOverlay();
+});
+
+function finishPointerDrawing(event) {
+    if (!drawing || drawingPointerId !== event.pointerId)
+        return;
+
+    const drawnRegion = normaliseRectangle(draftStart, draftEnd);
+    if (drawnRegion) {
+        region = drawnRegion;
+    }
+
+    stopDrawing();
+}
+
+overlay?.addEventListener('pointerup', finishPointerDrawing);
+overlay?.addEventListener('pointercancel', finishPointerDrawing);
+
+window.addEventListener('keydown', (event) => {
+    const activeTag = document.activeElement?.tagName?.toLowerCase();
+    if (['input', 'textarea', 'select'].includes(activeTag) || document.activeElement?.isContentEditable)
+        return;
+
+    if (event.key === 'Escape' && drawing) {
+        event.preventDefault();
+        stopDrawing();
         return;
     }
 
-    if (!drawing || !draftPoints.length)
-        return;
-
-    pointerPoint = eventPoint(event);
-    renderOverlay();
+    if (['Backspace', 'Delete'].includes(event.key) && region) {
+        event.preventDefault();
+        region = null;
+        stopDrawing();
+    }
 });
-
-overlay?.addEventListener('pointerleave', () => {
-    if (draggedPoint)
-        return;
-
-    pointerPoint = null;
-    renderOverlay();
-});
-
-function stopPointDrag() {
-    if (!draggedPoint)
-        return;
-
-    draggedPoint = null;
-    render();
-}
-
-window.addEventListener('pointerup', stopPointDrag);
-window.addEventListener('pointercancel', stopPointDrag);
 
 video?.addEventListener('loadedmetadata', render);
 video?.addEventListener('loadeddata', render);
