@@ -26,6 +26,20 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Debug npm registry config
+        shell: bash
+        run: |
+          echo "pwd=$(pwd)"
+          echo "workspace=${GITHUB_WORKSPACE}"
+          echo "repo .npmrc:"
+          if [ -f "${GITHUB_WORKSPACE}/.npmrc" ]; then
+            sed -e 's/_authToken=.*/_authToken=[REDACTED]/' "${GITHUB_WORKSPACE}/.npmrc"
+          else
+            echo "not found"
+          fi
+          echo "npm userconfig=$(npm config get userconfig)"
+          echo "npm registry=$(npm config get registry)"
+
       - name: Run codex-reviewer
         id: review
         uses: Arm-Debug/codex-reviewer@v0.2.1
