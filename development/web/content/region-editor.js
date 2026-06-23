@@ -2,12 +2,17 @@ const drawButton = document.getElementById('addRegionBtn');
 const removeButton = document.getElementById('removeRegionBtn');
 const applyCropButton = document.getElementById('applyRoiCropBtn');
 const clearCropButton = document.getElementById('clearRoiCropBtn');
+const resolutionControl = document.getElementById('roiResolutionControl');
+const resolutionText = document.getElementById('roiResolutionText');
+const scaleSlider = document.getElementById('roiScaleSlider');
+const scaleValue = document.getElementById('roiScaleValue');
 const wrapper = document.querySelector('.video-wrapper');
 const video = document.getElementById('video');
 const canvas = document.getElementById('regionCanvas');
 const overlay = document.getElementById('regionOverlay');
 
 const MIN_CROP_SIZE = 0.02;
+const DEFAULT_DIMENSIONS = { width: 1536, height: 864 };
 const roiPipelineAvailable = Boolean(window.PEK_CONFIG?.supervised && window.PEK_CONFIG?.roiPipeline);
 
 let region = null;
@@ -20,6 +25,9 @@ let renderFrame = null;
 let latestInferenceOutput = null;
 let cropInProgress = false;
 let activeCrop = null;
+let activeScale = 1;
+let pendingScale = 1;
+let pipelineSourceDimensions = { ...DEFAULT_DIMENSIONS };
 
 function wrapperRect() {
     return wrapper?.getBoundingClientRect() || new DOMRect(0, 0, 0, 0);
@@ -117,6 +125,49 @@ function normaliseRectangle(start, end) {
         return null;
 
     return { x: left, y: top, width, height };
+}
+
+function roundDimension(value) {
+    return Math.max(1, Math.round(value));
+}
+
+function formatDimensions(dimensions) {
+    return `${roundDimension(dimensions.width)}x${roundDimension(dimensions.height)}`;
+}
+
+function regionBaseDimensions(rectangle = region) {
+    const pipelineRegion = rectangle
+        ? composedRegionForPipeline(rectangle)
+        : activeCrop;
+
+    if (!pipelineRegion)
+        return pipelineSourceDimensions;
+
+    return {
+        width: pipelineSourceDimensions.width * pipelineRegion.width,
+        height: pipelineSourceDimensions.height * pipelineRegion.height,
+    };
+}
+
+function scaledDimensions(dimensions, scale = pendingScale) {
+    return {
+        width: dimensions.width * scale,
+        height: dimensions.height * scale,
+    };
+}
+
+function composedRegionForPipeline(rectangle = region) {
+    if (!rectangle)
+        return null;
+    if (!activeCrop)
+        return rectangle;
+
+    return {
+        x: activeCrop.x + rectangle.x * activeCrop.width,
+        y: activeCrop.y + rectangle.y * activeCrop.height,
+        width: rectangle.width * activeCrop.width,
+        height: rectangle.height * activeCrop.height,
+    };
 }
 
 function regionHandles(rectangle) {
@@ -488,6 +539,24 @@ function renderOverlay() {
 }
 
 function renderButtons() {
+    if (resolutionControl) {
+        resolutionControl.hidden = !roiPipelineAvailable;
+    }
+    if (scaleSlider) {
+        scaleSlider.disabled = cropInProgress;
+        scaleSlider.value = String(Math.round(pendingScale * 100));
+    }
+    if (scaleValue) {
+        scaleValue.textContent = `${Math.round(pendingScale * 100)}%`;
+    }
+    if (resolutionText) {
+        const base = regionBaseDimensions();
+        const scaled = scaledDimensions(base);
+        resolutionText.textContent = pendingScale < 0.999
+            ? `${formatDimensions(base)} -> ${formatDimensions(scaled)}`
+            : formatDimensions(base);
+    }
+
     if (drawButton) {
         drawButton.hidden = !roiPipelineAvailable;
         drawButton.disabled = cropInProgress;
@@ -503,9 +572,12 @@ function renderButtons() {
     }
 
     if (applyCropButton) {
-        applyCropButton.hidden = !roiPipelineAvailable || !region;
-        applyCropButton.disabled = cropInProgress || !region;
-        applyCropButton.dataset.tooltip = cropInProgress ? 'Restarting...' : 'Restart with region';
+        const scaleChanged = Math.abs(pendingScale - activeScale) >= 0.005;
+        applyCropButton.hidden = !roiPipelineAvailable || (!region && !scaleChanged);
+        applyCropButton.disabled = cropInProgress || (!region && !scaleChanged);
+        applyCropButton.dataset.tooltip = cropInProgress
+            ? 'Restarting...'
+            : 'Restart and apply current region and resolution scaling';
     }
 
     if (clearCropButton) {
@@ -574,7 +646,7 @@ async function updatePipelineCrop(roi) {
         const response = await fetch('/api/pipeline-roi', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ roi }),
+            body: JSON.stringify({ roi, resolutionScale: pendingScale }),
         });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok || payload.complete === false) {
@@ -582,6 +654,14 @@ async function updatePipelineCrop(roi) {
         }
 
         activeCrop = payload.roi || null;
+        activeScale = Number(payload.resolutionScale) || pendingScale;
+        pendingScale = activeScale;
+        if (payload.resolution?.source?.width && payload.resolution?.source?.height) {
+            pipelineSourceDimensions = {
+                width: payload.resolution.source.width,
+                height: payload.resolution.source.height,
+            };
+        }
         region = null;
         draftStart = null;
         draftEnd = null;
@@ -596,6 +676,7 @@ async function updatePipelineCrop(roi) {
                 complete: true,
                 message: payload.message || '',
                 roi: activeCrop,
+                resolutionScale: activeScale,
             },
         }));
     } catch (error) {
@@ -608,13 +689,19 @@ async function updatePipelineCrop(roi) {
 }
 
 applyCropButton?.addEventListener('click', () => {
-    if (!region)
+    const scaleChanged = Math.abs(pendingScale - activeScale) >= 0.005;
+    if (!region && !scaleChanged)
         return;
-    updatePipelineCrop(region);
+    updatePipelineCrop(composedRegionForPipeline(region));
 });
 
 clearCropButton?.addEventListener('click', () => {
     updatePipelineCrop(null);
+});
+
+scaleSlider?.addEventListener('input', () => {
+    pendingScale = clamp(Number(scaleSlider.value) / 100, 0.1, 1);
+    render();
 });
 
 overlay?.addEventListener('pointerdown', (event) => {
@@ -745,6 +832,14 @@ async function loadCropStatus() {
             return;
         const status = await response.json();
         activeCrop = status.roi || null;
+        activeScale = Number(status.resolutionScale) || 1;
+        pendingScale = activeScale;
+        if (status.resolution?.source?.width && status.resolution?.source?.height) {
+            pipelineSourceDimensions = {
+                width: status.resolution.source.width,
+                height: status.resolution.source.height,
+            };
+        }
         render();
     } catch (error) {
         console.warn('Pipeline crop status unavailable', error);
@@ -754,6 +849,10 @@ async function loadCropStatus() {
 window.addEventListener('pipeline-restart', (event) => {
     if (event.detail?.roi !== undefined) {
         activeCrop = event.detail.roi;
+        if (event.detail.resolutionScale !== undefined) {
+            activeScale = Number(event.detail.resolutionScale) || activeScale;
+            pendingScale = activeScale;
+        }
         render();
         return;
     }

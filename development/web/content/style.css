@@ -393,6 +393,55 @@ video {
   gap: 10px;
 }
 
+.roi-resolution-control {
+  display: grid;
+  grid-template-columns: minmax(86px, auto) 128px;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 4px 10px;
+  min-height: 42px;
+  padding: 6px 10px;
+  border: 1px solid rgba(226, 232, 240, 0.24);
+  border-radius: 8px;
+  background: #050505;
+  color: #f8fafc;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 10px 24px rgba(0, 0, 0, 0.38);
+}
+
+.roi-resolution-control[hidden] {
+  display: none;
+}
+
+.roi-resolution-text {
+  grid-column: 1 / -1;
+  min-width: 0;
+  color: #f8fafc;
+  font-size: 0.74rem;
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.roi-scale-label {
+  display: contents;
+}
+
+#roiScaleValue {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.roi-scale-slider {
+  width: 128px;
+  height: 18px;
+  margin: 0;
+  accent-color: #facc15;
+}
+
 .video-control-button {
   position: relative;
   width: 42px;

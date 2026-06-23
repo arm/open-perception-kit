@@ -39,6 +39,8 @@ ONNXRUNTIME_ROOT = os.environ.get("PEK_ONNXRUNTIME_ROOT", str(ROOT / "deps/onnxr
 SOURCE_MODE = os.environ.get("PEK_SUPERVISOR_SOURCE", "raspicam")
 ROI_MIN_FRACTION = 0.02
 ROI_MIN_PIXELS = 32
+RESOLUTION_SCALE_MIN = 0.1
+RESOLUTION_SCALE_MAX = 1.0
 
 
 PROCESSING_MARKERS = (
@@ -385,6 +387,24 @@ def normalise_roi(roi):
     }
 
 
+def normalise_resolution_scale(scale, fallback=1.0):
+    if scale is None:
+        return fallback
+
+    try:
+        value = float(scale)
+    except (TypeError, ValueError):
+        raise ValueError("Resolution scale must be a number.") from None
+
+    if not math.isfinite(value):
+        raise ValueError("Resolution scale must be a finite number.")
+
+    if value > 1.0:
+        value /= 100.0
+
+    return round(min(max(value, RESOLUTION_SCALE_MIN), RESOLUTION_SCALE_MAX), 4)
+
+
 def roi_pixel_crop(roi, source_width, source_height):
     pixel_width = max(ROI_MIN_PIXELS, min(source_width, round(roi["width"] * source_width)))
     pixel_height = max(ROI_MIN_PIXELS, min(source_height, round(roi["height"] * source_height)))
@@ -403,40 +423,88 @@ def roi_pixel_crop(roi, source_width, source_height):
     }
 
 
-def apply_roi_crop(data, roi):
-    if not roi:
-        return None
+def transform_dimensions(source_width, source_height, roi, resolution_scale):
+    crop = None
+    base_width = source_width
+    base_height = source_height
 
+    if roi:
+        crop = roi_pixel_crop(roi, source_width, source_height)
+        base_width = crop["width"]
+        base_height = crop["height"]
+
+    output_width = max(ROI_MIN_PIXELS, min(base_width, round(base_width * resolution_scale)))
+    output_height = max(ROI_MIN_PIXELS, min(base_height, round(base_height * resolution_scale)))
+
+    return {
+        "source": {"width": source_width, "height": source_height},
+        "crop": crop,
+        "base": {"width": base_width, "height": base_height},
+        "output": {"width": output_width, "height": output_height},
+        "resolutionScale": resolution_scale,
+    }
+
+
+def apply_roi_transform(data, roi, resolution_scale):
     pipeline = data.get("pipeline")
     if not isinstance(pipeline, list):
-        raise ValueError("ROI crop requires a list-based pipeline.")
+        if roi or resolution_scale < 0.9999:
+            raise ValueError("ROI transform requires a list-based pipeline.")
+        return None
+
+    if not roi and resolution_scale >= 0.9999:
+        return None
 
     processing_index = first_processing_index(pipeline)
     dimensions = source_dimensions_from_pipeline(pipeline, processing_index)
     if not dimensions:
-        raise ValueError("ROI crop needs source width and height in the pipeline caps.")
+        raise ValueError("ROI transform needs source width and height in the pipeline caps.")
 
     source_width, source_height = dimensions
-    crop = roi_pixel_crop(roi, source_width, source_height)
+    transform = transform_dimensions(source_width, source_height, roi, resolution_scale)
     insert_index = roi_insert_index(pipeline, processing_index)
-    crop_stage = [
-        (
+
+    transform_stage = []
+    if transform["crop"]:
+        crop = transform["crop"]
+        transform_stage.append(
             "videocrop name=pekroicrop "
             f"left={crop['left']} right={crop['right']} top={crop['top']} bottom={crop['bottom']} !"
-        ),
-        f"video/x-raw,width={crop['width']},height={crop['height']} !",
-    ]
+        )
+        transform_stage.append(f"video/x-raw,width={transform['base']['width']},height={transform['base']['height']} !")
+
+    if resolution_scale < 0.9999:
+        transform_stage.extend([
+            "videoscale !",
+            f"video/x-raw,width={transform['output']['width']},height={transform['output']['height']} !",
+        ])
 
     data["pipeline"] = [
         *pipeline[:insert_index],
-        *crop_stage,
+        *transform_stage,
         *pipeline[insert_index:],
     ]
     data["supervisor-roi"] = {
         "normalised": roi,
-        "crop": crop,
+        "transform": transform,
     }
-    return crop
+    return transform
+
+
+def resolution_info_for(source_path, roi=None, resolution_scale=1.0):
+    with source_path.open("r", encoding="utf-8") as handle:
+        data = json.load(handle)
+
+    apply_source_mode(data)
+    pipeline = data.get("pipeline")
+    if not isinstance(pipeline, list):
+        return None
+
+    dimensions = source_dimensions_from_pipeline(pipeline, first_processing_index(pipeline))
+    if not dimensions:
+        return None
+
+    return transform_dimensions(dimensions[0], dimensions[1], roi, resolution_scale)
 
 
 def apply_source_mode(data):
@@ -451,12 +519,12 @@ def apply_source_mode(data):
     data["pipeline"] = [*source, *pipeline[first_processing_index(pipeline):]]
 
 
-def prepared_pipeline_file(source_path, roi=None):
+def prepared_pipeline_file(source_path, roi=None, resolution_scale=1.0):
     with source_path.open("r", encoding="utf-8") as handle:
         data = json.load(handle)
 
     apply_source_mode(data)
-    apply_roi_crop(data, roi)
+    apply_roi_transform(data, roi, resolution_scale)
 
     pipeline = data.get("pipeline")
     if isinstance(pipeline, list):
@@ -516,6 +584,7 @@ class PipelineSupervisor:
         self.current_source = None
         self.current_prepared = None
         self.roi = None
+        self.resolution_scale = 1.0
         self.last_message = ""
         self.switching = False
         self.initial_pipeline = initial_pipeline
@@ -527,15 +596,21 @@ class PipelineSupervisor:
     def status(self):
         with self.lock:
             running = self.process is not None and self.process.poll() is None
+            current_source = self.current_source
+            active_roi = dict(self.roi) if self.roi else None
+            active_scale = self.resolution_scale
+            resolution = resolution_info_for(current_source, active_roi, active_scale) if current_source else None
             return {
                 "running": running,
                 "switching": self.switching,
-                "current": str(self.current_source) if self.current_source else "",
+                "current": str(current_source) if current_source else "",
                 "message": self.last_message,
                 "sourceMode": SOURCE_MODE,
                 "wsPort": WS_PORT,
                 "ctrlPort": CTRL_PORT,
-                "roi": self.roi,
+                "roi": active_roi,
+                "resolutionScale": active_scale,
+                "resolution": resolution,
             }
 
     def start_initial(self):
@@ -560,10 +635,11 @@ class PipelineSupervisor:
         with self.lock:
             self.switching = True
             active_roi = dict(self.roi) if self.roi else None
+            active_scale = self.resolution_scale
             self.last_message = f"Switching to {source_path.stem}..."
 
         try:
-            prepared = prepared_pipeline_file(source_path, active_roi)
+            prepared = prepared_pipeline_file(source_path, active_roi, active_scale)
             env = os.environ.copy()
             env["PEK_CURRENT_PIPELINE"] = str(source_path)
             env["PEK_ONNXRUNTIME_ROOT"] = ONNXRUNTIME_ROOT
@@ -606,43 +682,52 @@ class PipelineSupervisor:
 
         return self.switch_to(source)
 
-    def set_roi(self, roi):
-        normalised = normalise_roi(roi)
+    def set_pipeline_settings(self, roi=None, resolution_scale=None):
+        normalised = normalise_roi(roi) if roi else None
         with self.lock:
             source = self.current_source
             previous_roi = self.roi
+            previous_scale = self.resolution_scale
             self.roi = normalised
+            self.resolution_scale = normalise_resolution_scale(resolution_scale, self.resolution_scale)
 
         if not source:
             with self.lock:
                 self.roi = previous_roi
+                self.resolution_scale = previous_scale
             return False, "No pipeline is currently selected."
 
         ok, message = self.switch_to(source)
         if not ok:
             with self.lock:
                 self.roi = previous_roi
+                self.resolution_scale = previous_scale
             self.switch_to(source)
         return ok, message
 
-    def clear_roi(self):
+    def clear_roi(self, resolution_scale=None):
         with self.lock:
             source = self.current_source
             previous_roi = self.roi
+            previous_scale = self.resolution_scale
             had_roi = previous_roi is not None
             self.roi = None
+            self.resolution_scale = normalise_resolution_scale(resolution_scale, self.resolution_scale)
+            scale_changed = self.resolution_scale != previous_scale
 
         if not source:
             with self.lock:
                 self.roi = previous_roi
+                self.resolution_scale = previous_scale
             return False, "No pipeline is currently selected."
-        if not had_roi:
+        if not had_roi and not scale_changed:
             return True, "No crop is active."
 
         ok, message = self.switch_to(source)
         if not ok:
             with self.lock:
                 self.roi = previous_roi
+                self.resolution_scale = previous_scale
             self.switch_to(source)
         return ok, message
 
@@ -733,10 +818,11 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 payload = self.read_json_payload()
                 roi = payload.get("roi")
+                resolution_scale = payload.get("resolutionScale", payload.get("scale"))
                 if roi is None or payload.get("enabled") is False:
-                    ok, message = SUPERVISOR.clear_roi()
+                    ok, message = SUPERVISOR.clear_roi(resolution_scale)
                 else:
-                    ok, message = SUPERVISOR.set_roi(roi)
+                    ok, message = SUPERVISOR.set_pipeline_settings(roi, resolution_scale)
             except json.JSONDecodeError:
                 json_response(self, {"available": False, "message": "Invalid crop request."}, status=400)
                 return
@@ -744,12 +830,15 @@ class Handler(BaseHTTPRequestHandler):
                 json_response(self, {"available": False, "message": str(exc)}, status=400)
                 return
 
+            status_payload = SUPERVISOR.status()
             json_response(
                 self,
                 {
                     "available": True,
                     "complete": ok,
-                    "roi": SUPERVISOR.status().get("roi"),
+                    "roi": status_payload.get("roi"),
+                    "resolutionScale": status_payload.get("resolutionScale"),
+                    "resolution": status_payload.get("resolution"),
                     "message": message,
                 },
                 status=200 if ok else 500,

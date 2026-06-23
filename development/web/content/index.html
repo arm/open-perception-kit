@@ -95,6 +95,14 @@
                         </div>
                     </div>
                     <div class="region-control-buttons" aria-label="Video regions">
+                        <div id="roiResolutionControl" class="roi-resolution-control" hidden>
+                            <output id="roiResolutionText" class="roi-resolution-text" for="roiScaleSlider">--</output>
+                            <label class="roi-scale-label" for="roiScaleSlider">
+                                <span id="roiScaleValue">100%</span>
+                                <input id="roiScaleSlider" class="roi-scale-slider" type="range"
+                                    min="10" max="100" step="1" value="100" />
+                            </label>
+                        </div>
                         <button id="addRegionBtn" class="video-control-button" type="button"
                             aria-label="Draw crop region" data-tooltip="Draw crop region">
                             <i class="fa-solid fa-crop-simple" aria-hidden="true"></i>
@@ -104,7 +112,8 @@
                             <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
                         </button>
                         <button id="applyRoiCropBtn" class="video-control-button" type="button"
-                            aria-label="Restart pipeline with selected region" data-tooltip="Restart with region" hidden disabled>
+                            aria-label="Restart and apply current region and resolution scaling"
+                            data-tooltip="Restart and apply current region and resolution scaling" hidden disabled>
                             <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
                         </button>
                         <button id="clearRoiCropBtn" class="video-control-button" type="button"
