@@ -19,6 +19,7 @@ gst_dep      = dependency('gstreamer-1.0',        required: true)
 gstbase_dep  = dependency('gstreamer-base-1.0',   required: true)
 gstv_dep     = dependency('gstreamer-video-1.0',  required: true)
 gsta_dep     = dependency('gstreamer-audio-1.0',  required: true)
+gstalloc_dep = dependency('gstreamer-allocators-1.0', required: true)
 
 glib_dep     = dependency('glib-2.0',             required: true)
 gobject_dep  = dependency('gobject-2.0',          required: true)
@@ -113,7 +114,7 @@ add_project_arguments(pek_defs, language: 'cpp')
 
 pek_deps = [
   stb_dep,
-  gst_dep, gstbase_dep, gstv_dep, gsta_dep,
+  gst_dep, gstbase_dep, gstv_dep, gsta_dep, gstalloc_dep,
   glib_dep, gobject_dep,
   webrtc_dep, sdp_dep,
   fmt_dep, nlohmann_dep, nlohmann_dep, magic_enum_dep, tl_expected_dep, httplib_dep
@@ -142,6 +143,7 @@ gtest_main_dep = gtest_cmake.dependency('gtest_main')
 
 # Subdirs
 subdir('common')
+subdir('runtime')
 subdir('elements/pekinfer')
 subdir('ops-onnx')
 subdir('ops-std')
@@ -155,8 +157,8 @@ subdir('pek-menu')
 # Optional subdirs decision tree is inside the subdir
 subdir('ops-hailort')
 subdir('ops-executorch')
+subdir('ops-ncnn')
 
 if get_option('tests')
   subdir('tests')
 endif
-

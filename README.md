@@ -1,6 +1,10 @@
 # Arm Perception Kit CLI quick start
 
 [![Python Dependency Audit](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/python-dependency-audit.yml/badge.svg?branch=main&event=schedule)](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/python-dependency-audit.yml)
+[![Docker Scout Image Audit](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/docker-scout-image-audit.yml/badge.svg?branch=main&event=schedule)](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/docker-scout-image-audit.yml?query=branch%3Amain+event%3Aschedule)
+[![Workflow Dependency Freshness](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/workflow-audit.yml/badge.svg?branch=main&event=schedule)](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/workflow-audit.yml?query=branch%3Amain+event%3Aschedule)
+
+The workflow dependency freshness badge links to the workflow runs, where each run publishes a simple Markdown report and lightweight JSON snapshot in the `workflow-dependency-freshness` artifact.
 
 The Arm Perception Kit helps Raspberry Pi developers get from setup to 
 edge-vision inference without building the whole perception stack from scratch. 
@@ -14,7 +18,7 @@ application.
 **Note:** This developer preview is for evaluation, early application
 development, and feedback.
 
-![Example WebRTC viewer showing sample video inference, model controls, performance metrics, and debug log](docs/static/img/10-browser-ui.png)
+![Example WebRTC viewer showing sample video inference, model controls, performance metrics, and debug log](docs/public/static/img/10-browser-ui.png)
 
 ## Quick start: first inference on Raspberry Pi 5
 
@@ -156,7 +160,7 @@ Model** panel. If the toggle is off, enable it.
 > **Expected outcome:** YoloV11 identifies objects in the stock video stream by
 > drawing detection overlays in the viewer.
 
-![Final WebRTC success view showing inference overlays on the sample video stream](docs/static/img/10-browser-ui.png)
+![Final WebRTC success view showing inference overlays on the sample video stream](docs/public/static/img/10-browser-ui.png)
 
 Congratulations, you have run your first Perception Kit pipeline!
 
@@ -165,10 +169,10 @@ Congratulations, you have run your first Perception Kit pipeline!
 Pipeline testing and development are fully supported in Visual Studio Code (VS Code)
 Follow the links below for detailed instructions:
 
-* [Raspberry Pi 5](docs/public/raspberry-pi-quick-start.md)
-* [Windows](docs/public/windows-quick-start.md)
-* [Mac](docs/public/macos-quick-start.md)
-* [Linux](docs/public/linux-quick-start.md)
+* [Raspberry Pi 5](docs/public/getting-started/raspberry-pi-quick-start.md)
+* [Windows](docs/public/getting-started/windows-quick-start.md)
+* [Mac](docs/public/getting-started/macos-quick-start.md)
+* [Linux](docs/public/getting-started/linux-quick-start.md)
 
 
 ## After first success
@@ -177,15 +181,15 @@ Pick your next step.
 
 | Goal |  What it does |
 | --- | --- |
-| [Use your own input or output path](docs/public/media-input.md) | Keep the known pipeline and change the input or output. |
-| [Use live camera input](docs/public/camera-input.md) | Move from packaged media to a USB or Raspberry Pi camera. |
-| [Add or adapt a model and OpChain](docs/public/bring-your-model.md) | Change the model after the source and output path work. |
-| [**Coming Soon:** Feed inference into an application](docs/public/use-output-in-app.md) | Capture inference output for downstream logic. |
-| [Use Hailo acceleration](docs/public/run-hailo-inference.md) | Add accelerator hardware. |
-| [Understanding the repository structure](docs/public/structural-basics.md) | How to get started with new components |
-| [Pipeline basics](docs/public/runtime-basics.md) | Learn about inference pipeline principles  |
-| [Custom postprocessing](docs/public/custom-postprocessing.md) | Inference result postprocessing  |
-| [Performance Measurement](docs/public/performance-measurement.md) | Measure the pipeline performance with Performix |
+| [Use your own input or output path](docs/public/how-to/media-input.md) | Keep the known pipeline and change the input or output. |
+| [Use live camera input](docs/public/how-to/camera-input.md) | Move from packaged media to a USB or Raspberry Pi camera. |
+| [Add or adapt a model and OpChain](docs/public/how-to/bring-your-model.md) | Change the model after the source and output path work. |
+| [**Coming Soon:** Feed inference into an application](docs/public/how-to/use-output-in-app.md) | Capture inference output for downstream logic. |
+| [Use Hailo acceleration](docs/public/how-to/run-hailo-inference.md) | Add accelerator hardware. |
+| [Understanding the repository structure](docs/public/concepts/structural-basics.md) | How to get started with new components |
+| [Pipeline basics](docs/public/concepts/runtime-basics.md) | Learn about inference pipeline principles  |
+| [Custom postprocessing](docs/public/how-to/custom-postprocessing.md) | Inference result postprocessing  |
+| [Performance Measurement](docs/public/how-to/performance-measurement.md) | Measure the pipeline performance with Performix |
 
 
 
@@ -200,4 +204,3 @@ Pick your next step.
 | Pipeline exits immediately | Rerun `docker exec -it perception-experience-kit-rpi5 bash -lc 'cd /work && /work/tools/pek-menu 01-full-onnx'` and inspect the first missing plugin, model, or file. |
 | Viewer does not load | Keep the pipeline terminal running, use the target Pi IP address, and check port `9999`. |
 | A model produces no overlay | Confirm the model and any upstream dependencies are enabled, then check the debug log or model state in the viewer. |
-

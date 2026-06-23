@@ -13,7 +13,6 @@
 #include "gst/gstpad.h"
 #include "op/OpChainContext.h"
 #include "pek/AttributeMap.h"
-#include "pek/BitmapView.h"
 #include "pek/ModelDescriptor.h"
 #include "pek/TensorView.h"
 #include "pek/Tools.h"
@@ -22,9 +21,9 @@
 
 using namespace pek::onnx;
 
-InferenceOp::InferenceOp() {}
+InferenceOp::InferenceOp() = default;
 
-InferenceOp::~InferenceOp() {}
+InferenceOp::~InferenceOp() = default;
 
 pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
     std::string modelDescPath;
@@ -57,8 +56,6 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
 
 pek::Result<pek::op::OpSignal> InferenceOp::process(pek::op::OpChainContext &opChainContext) {
     PEK_TRACE_SCOPE(fmt::format("onnx/Infer/{}", opChainContext.inferenceInfo.modelFamily));
-
-    pek::BitmapView pipelineVideoFrame = opChainContext.bitmapViews["pipelineVideoFrame"];
 
     // inference
     auto inferenceResult = inference->inference();

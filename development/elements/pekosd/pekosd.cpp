@@ -8,6 +8,7 @@
 #include "pek/Bitmap.h"
 #include "pek/Color.h"
 #include "pek/Perception.h"
+#include "pek/Tools.h"
 
 #include <algorithm>
 #include <cassert>
@@ -27,9 +28,6 @@
 #include <gst/gst.h>
 #include <gst/video/gstvideofilter.h>
 #include <gst/video/video.h>
-
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
 
 #ifndef PACKAGE
 #define PACKAGE "pek-elements"
@@ -173,64 +171,60 @@ static bool gst_pek_osd_load_bg_image(GstPekOsd *self) {
         return false;
     }
 
-    int width = 0;
-    int height = 0;
-    int channels = 0;
-
-    constexpr int requestedChannels = STBI_rgb_alpha;
-    constexpr size_t bytesPerPixel = 4U;
-
-    stbi_uc *rawPixels =
-        stbi_load(self->bgImagePath, &width, &height, &channels, requestedChannels);
-    if (rawPixels == nullptr) {
+    size_t imageWidth = 0;
+    size_t imageHeight = 0;
+    auto loadedPixels = pek::Tools::loadImageFile(self->bgImagePath, imageWidth, imageHeight);
+    if (!loadedPixels) {
         GST_WARNING_OBJECT(self,
                            "Failed to load bg-image '%s': %s",
                            self->bgImagePath,
-                           stbi_failure_reason() != nullptr ? stbi_failure_reason()
-                                                            : "unknown error");
+                           loadedPixels.error().toString().c_str());
         return false;
     }
 
-    auto pixels = std::unique_ptr<stbi_uc, decltype(&stbi_image_free)>(rawPixels, stbi_image_free);
-
-    if (width <= 0 || height <= 0) {
-        GST_WARNING_OBJECT(self, "Invalid bg-image '%s': invalid dimensions", self->bgImagePath);
-        return false;
-    }
-
-    const auto imageWidth = static_cast<size_t>(width);
-    const auto imageHeight = static_cast<size_t>(height);
+    constexpr size_t srcBytesPerPixel = 3U;
+    constexpr size_t dstBytesPerPixel = 4U;
 
     if (imageWidth > std::numeric_limits<size_t>::max() / imageHeight ||
-        imageWidth * imageHeight > std::numeric_limits<size_t>::max() / bytesPerPixel) {
+        imageWidth * imageHeight > std::numeric_limits<size_t>::max() / dstBytesPerPixel) {
         GST_WARNING_OBJECT(self, "Invalid bg-image '%s': dimensions too large", self->bgImagePath);
         return false;
     }
 
     const size_t pixelCount = imageWidth * imageHeight;
-    const size_t byteCount = pixelCount * bytesPerPixel;
+    const size_t srcByteCount = pixelCount * srcBytesPerPixel;
+    const size_t dstByteCount = pixelCount * dstBytesPerPixel;
+    const auto pixels = std::move(*loadedPixels);
+
+    if (pixels.size() != srcByteCount) {
+        GST_WARNING_OBJECT(
+            self, "Invalid bg-image '%s': decoded byte count mismatch", self->bgImagePath);
+        return false;
+    }
 
     pek::Bitmap bitmap;
     bitmap.realloc(pek::Bitmap::Type::Uint32, imageWidth, imageHeight);
 
-    std::span<const stbi_uc> srcPixels(rawPixels, byteCount);
-    std::span<uint8_t> dstPixels(bitmap.getMutableData(), byteCount);
+    std::span<const uint8_t> srcPixels(pixels.data(), pixels.size());
+    std::span<uint8_t> dstPixels(bitmap.getMutableData(), dstByteCount);
 
     for (size_t y = 0; y < imageHeight; ++y) {
         for (size_t x = 0; x < imageWidth; ++x) {
-            const size_t outIdx = (y * imageWidth + x) * bytesPerPixel;
+            const size_t srcIdx = (y * imageWidth + x) * srcBytesPerPixel;
+            const size_t dstIdx = (y * imageWidth + x) * dstBytesPerPixel;
 
-            // Convert RGBA from stb_image to BGRA expected by downstream code.
-            dstPixels[outIdx + 0U] = srcPixels[outIdx + 2U]; // B
-            dstPixels[outIdx + 1U] = srcPixels[outIdx + 1U]; // G
-            dstPixels[outIdx + 2U] = srcPixels[outIdx + 0U]; // R
-            dstPixels[outIdx + 3U] = srcPixels[outIdx + 3U]; // A
+            // Convert RGB from Tools::loadImageFile to BGRA expected by downstream code.
+            dstPixels[dstIdx + 0U] = srcPixels[srcIdx + 2U]; // B
+            dstPixels[dstIdx + 1U] = srcPixels[srcIdx + 1U]; // G
+            dstPixels[dstIdx + 2U] = srcPixels[srcIdx + 0U]; // R
+            dstPixels[dstIdx + 3U] = 255U;                   // A
         }
     }
 
     self->bgImage = std::move(bitmap);
 
-    GST_INFO_OBJECT(self, "Loaded bg-image '%s' (%dx%d)", self->bgImagePath, width, height);
+    GST_INFO_OBJECT(
+        self, "Loaded bg-image '%s' (%zux%zu)", self->bgImagePath, imageWidth, imageHeight);
     return true;
 }
 

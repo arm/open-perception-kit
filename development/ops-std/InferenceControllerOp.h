@@ -45,7 +45,7 @@ class InferenceControllerOp : public pek::op::Op {
      * @param attributes Configuration map from OpChainDescriptor.
      * @return Result indicating success or configuration error.
      */
-    virtual pek::Result<void> configure(const pek::AttributeMap &attributes) override;
+    pek::Result<void> configure(const pek::AttributeMap &attributes) override;
     /**
      * @brief Populates crop state for the following inference loop workers.
      *
@@ -55,8 +55,7 @@ class InferenceControllerOp : public pek::op::Op {
      * @param opChainContext Context for shared inference state.
      * @return Continue after populating crop state, or a processing error.
      */
-    virtual pek::Result<pek::op::OpSignal>
-    process(pek::op::OpChainContext &opChainContext) override;
+    pek::Result<pek::op::OpSignal> process(pek::op::OpChainContext &opChainContext) override;
     /**
      * @brief Resolves references to other operations if needed for inference control.
      *
@@ -64,7 +63,7 @@ class InferenceControllerOp : public pek::op::Op {
      * @param ops Vector of all operations in the chain.
      * @return Result indicating success or binding error.
      */
-    virtual pek::Result<void> bind(size_t index, const std::vector<pek::op::Op *> &ops) override;
+    pek::Result<void> bind(size_t index, const std::vector<pek::op::Op *> &ops) override;
 
   private:
     std::string contentType;

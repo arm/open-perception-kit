@@ -1,5 +1,5 @@
-import {createWebRtcClient} from './webrtc_client.js?v=auto-pipeline-restart-20260608';
-import {resolveWebRtcTimingConfig} from './webrtc_config.js?v=auto-pipeline-restart-20260608';
+import {createWebRtcClient} from './webrtc_client.js';
+import {resolveWebRtcIceConfig, resolveWebRtcTimingConfig} from './webrtc_config.js';
 
 // ===== UI ELEMENT REFERENCES =====
 const video = document.getElementById('video');
@@ -91,6 +91,7 @@ const WS_PORT = (window.PEK_CONFIG && window.PEK_CONFIG.wsPort) || fallbackWebRt
 
 const SIGNALING_URL = `${WS_PROTO}://${WS_HOST}:${WS_PORT}/ws`;
 const WEBRTC_TIMING_CONFIG = resolveWebRtcTimingConfig(window.PEK_CONFIG || {});
+const WEBRTC_ICE_CONFIG = resolveWebRtcIceConfig(window.PEK_CONFIG || {});
 const PIPELINE_RESTART_SESSION_KEY = "pekPipelineRestarting";
 let client = null;
 let repeatedFailureRestartInProgress = false;
@@ -175,6 +176,7 @@ client = createWebRtcClient({
     video,
     signalingUrl: SIGNALING_URL,
     ...WEBRTC_TIMING_CONFIG,
+    ...WEBRTC_ICE_CONFIG,
     pipelineRestartFailureThreshold: window.PEK_CONFIG?.pipelineRestartFailureThreshold ?? 3,
     onRepeatedFailure: (detail) => {
         if (!canStartRepeatedFailurePipelineRestart())

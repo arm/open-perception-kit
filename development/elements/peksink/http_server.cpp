@@ -75,6 +75,48 @@ std::string current_pipeline_hint() {
     return "";
 }
 
+std::string without_webrtc_url_slashes(std::string url) {
+    const auto scheme_end = url.find("://");
+    if (scheme_end != std::string::npos) {
+        url.erase(scheme_end + 1, 2);
+    }
+    return url;
+}
+
+json browser_ice_server_from_url(const char *server_url) {
+    if (!server_url || server_url[0] == '\0') {
+        return nullptr;
+    }
+
+    std::string url = without_webrtc_url_slashes(server_url);
+    json ice_server;
+
+    const auto scheme_end = url.find(':');
+    const auto at = url.find('@');
+    if (scheme_end != std::string::npos && at != std::string::npos && at > scheme_end + 1) {
+        const auto credentials = url.substr(scheme_end + 1, at - scheme_end - 1);
+        const auto colon = credentials.find(':');
+        if (colon != std::string::npos) {
+            const auto username_enc = credentials.substr(0, colon);
+            const auto credential_enc = credentials.substr(colon + 1);
+
+            gchar *username = g_uri_unescape_string(username_enc.c_str(), nullptr);
+            gchar *credential = g_uri_unescape_string(credential_enc.c_str(), nullptr);
+
+            ice_server["username"] = username ? username : username_enc;
+            ice_server["credential"] = credential ? credential : credential_enc;
+
+            g_free(username);
+            g_free(credential);
+
+            url.erase(scheme_end + 1, at - scheme_end);
+        }
+    }
+
+    ice_server["urls"] = url;
+    return ice_server;
+}
+
 } // namespace
 
 PekSinkHttpServerError PekSinkHttpServer::setup() {
@@ -138,10 +180,25 @@ PekSinkHttpServerError PekSinkHttpServer::stop() {
 }
 
 void PekSinkHttpServer::get_dynamic_config(const Request &req, Response &res) {
-    std::string js = "window.PEK_CONFIG = "
-                     "{ wsPort: " +
-                     std::to_string(self_->ws_port) + "," +
-                     "ctrlPort: " + std::to_string(self_->ctrl_port) + "};";
+    json config = {
+        {"wsPort", self_->ws_port},
+        {"ctrlPort", self_->ctrl_port},
+    };
+
+    json ice_servers = json::array();
+    if (auto stun_server = browser_ice_server_from_url(self_->webrtc_stun_server);
+        !stun_server.is_null()) {
+        ice_servers.push_back(stun_server);
+    }
+    if (auto turn_server = browser_ice_server_from_url(self_->webrtc_turn_server);
+        !turn_server.is_null()) {
+        ice_servers.push_back(turn_server);
+    }
+    if (!ice_servers.empty()) {
+        config["webrtc"]["iceServers"] = ice_servers;
+    }
+
+    std::string js = "window.PEK_CONFIG = " + config.dump() + ";";
     res.set_content(js, "application/javascript");
 }
 

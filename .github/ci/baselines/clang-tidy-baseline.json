@@ -1,6 +1,5 @@
 {
   "checks": {
-    "bugprone-branch-clone": 68,
     "bugprone-empty-catch": 8,
     "bugprone-implicit-widening-of-multiplication-result": 11,
     "bugprone-multi-level-implicit-pointer-conversion": 15,
@@ -20,9 +19,7 @@
     "modernize-redundant-void-arg": 3,
     "modernize-use-default-member-init": 45,
     "modernize-use-emplace": 23,
-    "modernize-use-equals-default": 119,
     "modernize-use-nullptr": 5,
-    "modernize-use-override": 60,
     "performance-avoid-endl": 9,
     "performance-for-range-copy": 2,
     "performance-inefficient-vector-operation": 2,
