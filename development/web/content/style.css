@@ -1637,6 +1637,29 @@ body.is-resizing-bottom-column * {
   flex-shrink: 0;
 }
 
+.model-tensor-slot[hidden] {
+  display: none;
+}
+
+.model-tensor-select {
+  width: 86px;
+  height: 26px;
+  padding: 3px 24px 3px 8px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 999px;
+  background: #050505;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.72rem;
+  line-height: 1;
+  appearance: none;
+}
+
+.model-tensor-select:focus {
+  outline: 2px solid rgba(96, 165, 250, 0.9);
+  outline-offset: 2px;
+}
+
 .model-toggle-switch {
   position: relative;
   display: inline-flex;

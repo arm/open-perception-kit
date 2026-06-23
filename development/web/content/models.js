@@ -96,6 +96,7 @@ class ModelsManager {
         this.container = document.getElementById('models-container');
         this.updateInterval = null;
         this._descriptionCache = new Map();
+        this._modelDetailsCache = new Map();
         this._infoPanel = this._createInfoPanel();
         this._activeInfoButton = null;
         this._activeInfoKey = null;
@@ -156,10 +157,26 @@ class ModelsManager {
     }
 
     async _fetchDescription(model) {
-        // Return cached if available
-        const descriptionKey = `${model.name}::${model.element_name || ''}`;
-        if (this._descriptionCache.has(descriptionKey))
-            return this._descriptionCache.get(descriptionKey);
+        const details = await this._fetchModelDetails(model);
+        const desc = details?.description || details?.opchain?.description || details?.model?.description || '';
+        if (desc)
+            return desc;
+
+        const fallback = model.description || model.desc || '';
+        this._descriptionCache.set(this._modelCacheKey(model), fallback);
+        return fallback;
+    }
+
+    _modelCacheKey(model) {
+        return `${model.name}::${model.element_name || ''}`;
+    }
+
+    async _fetchModelDetails(model) {
+        const cacheKey = this._modelCacheKey(model);
+        if (this._modelDetailsCache.has(cacheKey))
+            return this._modelDetailsCache.get(cacheKey);
+        if (this._descriptionCache.has(cacheKey))
+            return { description: this._descriptionCache.get(cacheKey) };
 
         const lookupCandidates = [model.name, model.element_name].filter(
             (value, index, array) => value && array.indexOf(value) === index
@@ -174,20 +191,56 @@ class ModelsManager {
                 }
 
                 const j = await resp.json();
-                const desc = j.description || j.opchain?.description || j.model?.description || '';
-                if (desc) {
-                    this._descriptionCache.set(descriptionKey, desc);
-                    return desc;
+                if (!j.error) {
+                    this._modelDetailsCache.set(cacheKey, j);
+                    const desc = j.description || j.opchain?.description || j.model?.description || '';
+                    if (desc)
+                        this._descriptionCache.set(cacheKey, desc);
+                    return j;
                 }
             }
         } catch (e) {
             // ignore
         }
 
-        // Fallback to any inline description field from the model object
-        const fallback = model.description || model.desc || '';
-        this._descriptionCache.set(descriptionKey, fallback);
+        const fallback = { description: model.description || model.desc || '' };
+        this._modelDetailsCache.set(cacheKey, fallback);
         return fallback;
+    }
+
+    _tensorOptionsForDetails(details) {
+        const options = details?.tensorInputOptions || details?.tensorSizeOptions || details?.inputTensorOptions;
+        if (!Array.isArray(options))
+            return [];
+
+        return options.filter((option) => option && option.value && option.label);
+    }
+
+    async _hydrateTensorSelect(model, item) {
+        const slot = item.querySelector('.model-tensor-slot');
+        if (!slot)
+            return;
+
+        const details = await this._fetchModelDetails(model);
+        const options = this._tensorOptionsForDetails(details);
+        if (!options.length) {
+            slot.hidden = true;
+            slot.replaceChildren();
+            return;
+        }
+
+        const select = document.createElement('select');
+        select.className = 'model-tensor-select';
+        select.setAttribute('aria-label', `${model.name} tensor size`);
+        options.forEach((option) => {
+            const optionElement = document.createElement('option');
+            optionElement.value = option.value;
+            optionElement.textContent = option.label;
+            select.append(optionElement);
+        });
+
+        slot.replaceChildren(select);
+        slot.hidden = false;
     }
 
 
@@ -203,6 +256,7 @@ class ModelsManager {
             element_name: model.element_name || '',
             forcedBy: forcedBy.get(modelStateKey(model)) || [],
             name: model.name || '',
+            tensorOptionsKnown: this._modelDetailsCache.has(this._modelCacheKey(model)),
         })));
         if (nextSignature === this._lastModelsSignature) {
             return;
@@ -265,6 +319,7 @@ class ModelsManager {
             </div>
             <div class="model-actions">
                 ${toggleMarkup}
+                <span class="model-tensor-slot" hidden></span>
                 ${infoMarkup}
             </div>
         `;
@@ -272,6 +327,7 @@ class ModelsManager {
         const toggle = item.querySelector('input[type="checkbox"]');
         const infoButton = item.querySelector('.model-info-button');
         const infoKey = modelKey(model);
+        this._hydrateTensorSelect(model, item);
 
         const showInfo = async () => {
             if (this._activeInfoKey === infoKey && this._infoPanel.style.display !== 'none') {

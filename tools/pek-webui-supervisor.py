@@ -613,6 +613,68 @@ def prepared_pipeline_file(source_path, roi=None, resolution_scale=1.0):
     return Path(temp.name)
 
 
+def normalise_tensor_option(option):
+    if isinstance(option, str):
+        return {"label": option, "value": option}
+
+    if not isinstance(option, dict):
+        return None
+
+    value = option.get("value") or option.get("id") or option.get("name")
+    width = option.get("width")
+    height = option.get("height")
+    shape = option.get("shape")
+
+    if not value and width and height:
+        value = f"{width}x{height}"
+    if not value and isinstance(shape, list):
+        image_dims = [dim for dim in shape if isinstance(dim, int) and dim > 4]
+        if len(image_dims) >= 2:
+            value = f"{image_dims[-1]}x{image_dims[-2]}"
+
+    if not value:
+        return None
+
+    label = option.get("label") or option.get("description") or str(value)
+    normalised = {"label": str(label), "value": str(value)}
+    if width and height:
+        normalised["width"] = width
+        normalised["height"] = height
+    if shape:
+        normalised["shape"] = shape
+    return normalised
+
+
+def tensor_input_options(data):
+    for key in ("tensorInputOptions", "tensorSizeOptions", "inputTensorOptions"):
+        raw_options = data.get(key)
+        if not isinstance(raw_options, list):
+            continue
+
+        options = [
+            normalised
+            for normalised in (normalise_tensor_option(option) for option in raw_options)
+            if normalised
+        ]
+        if options:
+            return options
+
+    return []
+
+
+def enrich_model_info(data):
+    if not isinstance(data, dict):
+        return data
+
+    options = tensor_input_options(data)
+    if options:
+        enriched = dict(data)
+        enriched["tensorInputOptions"] = options
+        return enriched
+
+    return data
+
+
 def model_info(name):
     for base in (MODELS_ROOT, OPCHAINS_ROOT):
         direct = base / name
@@ -620,7 +682,7 @@ def model_info(name):
             path = direct / filename
             if path.exists():
                 with path.open("r", encoding="utf-8") as handle:
-                    return json.load(handle)
+                    return enrich_model_info(json.load(handle))
 
         if not base.exists():
             continue
@@ -630,7 +692,7 @@ def model_info(name):
                 with path.open("r", encoding="utf-8") as handle:
                     data = json.load(handle)
                 if data.get("name") == name:
-                    return data
+                    return enrich_model_info(data)
             except Exception:
                 pass
 
@@ -639,7 +701,7 @@ def model_info(name):
                 with path.open("r", encoding="utf-8") as handle:
                     data = json.load(handle)
                 if data.get("name") == name:
-                    return data
+                    return enrich_model_info(data)
             except Exception:
                 pass
 
