@@ -4,10 +4,13 @@ const controls = document.querySelector('.video-control-buttons');
 const videoWrapper = document.querySelector('.video-wrapper');
 const outputsButton = document.getElementById('fullscreenOutputsBtn');
 const outputsIcon = document.getElementById('fullscreenOutputsIcon');
+const videoFeedButton = document.getElementById('toggleVideoFeedBtn');
+const videoFeedIcon = document.getElementById('toggleVideoFeedIcon');
 
 let isFullscreen = false;
 let hideTimer = null;
 let outputsAvailable = true;
+let videoFeedHidden = localStorage.getItem('pek-video:feed-hidden:v1') === 'true';
 let outputsInFullscreen = (
     localStorage.getItem('pek-video:fullscreen-outputs:v1') ??
     localStorage.getItem('pek-video:fullscreen-metrics:v1')
@@ -19,6 +22,7 @@ function notifyVideoLayoutChange() {
             isFullscreen,
             outputsInFullscreen,
             outputsAvailable,
+            videoFeedHidden,
         },
     }));
     requestAnimationFrame(() => {
@@ -27,6 +31,7 @@ function notifyVideoLayoutChange() {
                 isFullscreen,
                 outputsInFullscreen,
                 outputsAvailable,
+                videoFeedHidden,
             },
         }));
     });
@@ -59,6 +64,24 @@ function isPointerInsideVideoWrapper(event, margin = 0) {
         event.clientY >= rect.top - margin &&
         event.clientY <= rect.bottom + margin
     );
+}
+
+function setVideoFeedHidden(hidden) {
+    videoFeedHidden = hidden;
+    document.body.classList.toggle('video-feed-hidden', videoFeedHidden);
+    localStorage.setItem('pek-video:feed-hidden:v1', videoFeedHidden ? 'true' : 'false');
+
+    if (videoFeedButton) {
+        videoFeedButton.setAttribute('aria-label', videoFeedHidden ? 'Show video feed' : 'Hide video feed');
+        videoFeedButton.setAttribute('aria-pressed', videoFeedHidden ? 'true' : 'false');
+        videoFeedButton.dataset.tooltip = videoFeedHidden ? 'Show video feed' : 'Hide video feed';
+    }
+
+    if (videoFeedIcon) {
+        videoFeedIcon.className = videoFeedHidden ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash';
+    }
+
+    notifyVideoLayoutChange();
 }
 
 function setOutputsInFullscreen(enabled, { animate = true } = {}) {
@@ -131,6 +154,7 @@ function setFullscreen(nextFullscreen) {
     notifyVideoLayoutChange();
 }
 
+setVideoFeedHidden(videoFeedHidden);
 setOutputsInFullscreen(outputsInFullscreen, { animate: false });
 setOutputsAvailable(outputsAvailable);
 
@@ -144,6 +168,10 @@ button?.addEventListener('click', () => {
 
 outputsButton?.addEventListener('click', () => {
     setOutputsInFullscreen(!outputsInFullscreen);
+});
+
+videoFeedButton?.addEventListener('click', () => {
+    setVideoFeedHidden(!videoFeedHidden);
 });
 
 window.addEventListener('output-panels-change', (event) => {

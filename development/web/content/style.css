@@ -212,6 +212,47 @@ body.video-fullscreen.fullscreen-outputs-enabled.output-panels-empty .bottom-doc
   justify-content: center;
 }
 
+.video-wrapper::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: #000000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.video-wrapper::after {
+  content: "Video feed hidden";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  transform: translate(-50%, -50%);
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+body.video-feed-hidden .video-wrapper::before {
+  opacity: 1;
+}
+
+body.video-feed-hidden .video-wrapper::after {
+  opacity: 1;
+}
+
+body.video-feed-hidden .region-canvas,
+body.video-feed-hidden .region-overlay,
+body.video-feed-hidden #video {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* Smaller minimum on mobile */
 @media (max-width: 900px) {
   .video-wrapper {
