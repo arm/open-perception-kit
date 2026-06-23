@@ -362,7 +362,7 @@ def rewrite_pipeline_piece(piece):
 
         stripped = re.sub(r"\s+enable-perfdata=\S+", "", stripped)
         stripped = re.sub(r"\s+enabled=\S+", "", stripped)
-        piece = f"{stripped} enabled=false enable-perfdata=false{trailing_bang}"
+        piece = f"{stripped} enabled=true enable-perfdata=false{trailing_bang}"
 
     if "peksink" not in piece:
         return piece
