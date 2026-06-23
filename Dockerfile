@@ -16,46 +16,32 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # Show base info (helps reading logs)
 RUN set -eux; uname -a; cat /etc/os-release; dpkg --print-architecture
 
-# Always start with update
-RUN set -eux; \
-  apt-get update; \
-  rm -rf /var/lib/apt/lists/*
-
 # Minimal core tools (runtime + build)
 RUN set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
   ca-certificates curl wget sudo unzip gnupg \
   build-essential meson ninja-build pkg-config cmake \
-  libssl-dev libfmt-dev libfftw3-dev libsoup-3.0-dev libjson-glib-dev libcairo2-dev zip python3 python3-pip; \
-  rm -rf /var/lib/apt/lists/*
-
-# LLDB 17 for Colima
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        lldb-17 && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN ln -sf /usr/bin/lldb-17 /usr/local/bin/lldb && \
-    ln -sf /usr/bin/lldb-server-17 /usr/local/bin/lldb-server
-				  	  			
-# GStreamer core + base
-RUN set -eux; \
-  apt-get update; \
-  apt-get install -y --no-install-recommends \
+  libssl-dev libfmt-dev libfftw3-dev libsoup-3.0-dev libjson-glib-dev libcairo2-dev zip python3 python3-pip \
+  lldb-17 \
+  pre-commit \
   libgstreamer1.0-dev gstreamer1.0-tools gstreamer1.0-x gstreamer1.0-gl \
   libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base \
   libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-bad \
   gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly  \
-  gstreamer1.0-nice gstreamer1.0-pipewire; \
-  rm -rf /var/lib/apt/lists/*
-
-# Profiling tools
-RUN set -eux; \
-  apt-get update; \
-  apt-get install -y --no-install-recommends \
+  gstreamer1.0-nice gstreamer1.0-pipewire \
+  git shfmt clang-format ssh \
+  python3-dev python3-venv python3-gi python3-gst-1.0 \
   valgrind; \
   rm -rf /var/lib/apt/lists/*
+
+RUN set -eux; \
+  curl --proto "=https" -LsSf https://astral.sh/uv/install.sh | \
+  env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh; \
+  uv --version
+
+RUN ln -sf /usr/bin/lldb-17 /usr/local/bin/lldb && \
+    ln -sf /usr/bin/lldb-server-17 /usr/local/bin/lldb-server
 
 # Clean apt cache
 RUN set -eux; update-ca-certificates || true
@@ -125,9 +111,7 @@ USER root
 RUN set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  git shfmt clang-format ssh \
-  openjdk-25-jdk graphviz pandoc pre-commit doxygen \
-  python3-dev python3-venv python3-gi python3-gst-1.0 \
+  openjdk-25-jdk graphviz pandoc doxygen \
   libffi-dev zlib1g-dev libbz2-dev liblzma-dev libsqlite3-dev v4l-utils; \
   rm -rf /var/lib/apt/lists/*
 
@@ -152,7 +136,7 @@ WORKDIR /work
 ######################################################################
 #################### PC Base Development Container ###################
 ######################################################################
-FROM pek-docs-base AS pek-dev-base
+FROM pek-base AS pek-dev-base
 
 ARG USERNAME=devgoblin
 
@@ -176,13 +160,6 @@ RUN set -eux; \
   fi; \
   rm -rf /var/lib/apt/lists/*
 
-# Install Firefox for Perception Experience Kit's web-based UI and testing in case docker port forwarding fails.
-RUN set -eux; \
-  apt-get update; \
-  apt-get install -y --no-install-recommends \
-  firefox-esr; \
-  rm -rf /var/lib/apt/lists/*
-
 # Install Python dev tool dependencies into an image-owned virtual environment.
 COPY tools/expkits-ci /tmp/pek-tools/expkits-ci
 COPY tools/plumber /tmp/pek-tools/plumber
@@ -201,14 +178,13 @@ WORKDIR /work
 ######################################################################
 ###################### RPI5 Development Container ####################
 ######################################################################
-FROM pek-dev-base AS pek-dev-rpi5-h8
+FROM pek-dev-base AS pek-dev-rpi5
 # The base stage switches to a non-root user; return to root for apt/system changes.
 ARG USERNAME=devgoblin
 
 USER root
 # Add Raspberry Pi repository
 RUN set -eux; \
-  apt-get update; \
   # TODO: use key
   echo "deb [arch=arm64 trusted=yes] https://archive.raspberrypi.com/debian trixie main" \
   > /etc/apt/sources.list.d/raspberrypi.list
@@ -220,6 +196,18 @@ RUN set -eux; \
   libcamera-tools libcamera-dev libcamera-ipa libcamera-v4l2 rpicam-apps \
   alsa-utils gstreamer1.0-libcamera gstreamer1.0-alsa; \
   rm -rf /var/lib/apt/lists/*
+
+USER ${USERNAME}
+WORKDIR /work
+
+######################################################################
+################# RPI5 Development Container (Hailo 8) ###############
+######################################################################
+FROM pek-dev-rpi5 AS pek-dev-rpi5-h8
+# The base stage switches to a non-root user; return to root for apt/system changes.
+ARG USERNAME=devgoblin
+
+USER root
 
 RUN set -eux; \
   apt-get update && apt-get install -y --no-install-recommends \
@@ -233,25 +221,11 @@ WORKDIR /work
 ######################################################################
 ################### RPI5 Development Container (H10) #################
 ######################################################################
-FROM pek-dev-base AS pek-dev-rpi5-h10
+FROM pek-dev-rpi5 AS pek-dev-rpi5-h10
 # The base stage switches to a non-root user; return to root for apt/system changes.
 ARG USERNAME=devgoblin
 
 USER root
-# Add Raspberry Pi repository
-RUN set -eux; \
-  apt-get update; \
-  # TODO: use key
-  echo "deb [arch=arm64 trusted=yes] https://archive.raspberrypi.com/debian trixie main" \
-  > /etc/apt/sources.list.d/raspberrypi.list
-
-# Camera and graphics libraries
-RUN set -eux; \
-  apt-get update && apt-get install -y --no-install-recommends \
-  libv4l-dev libgl1-mesa-dri libglx-mesa0 libegl1 libgbm1 libdrm2 mesa-utils libdrm-dev libgbm-dev \
-  libcamera-tools libcamera-dev libcamera-ipa libcamera-v4l2 rpicam-apps \
-  alsa-utils gstreamer1.0-libcamera gstreamer1.0-alsa; \
-  rm -rf /var/lib/apt/lists/*
 
 # Hailo H10 user-space stack only.
 # Kernel driver packages (DKMS / h10-hailort-pcie-driver) are host-level and

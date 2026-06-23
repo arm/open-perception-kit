@@ -15,9 +15,10 @@ Usage:
 Builds and starts the PEK quick-start container selected by host detection.
 
 Platform mapping:
-  Raspberry Pi 5          -> pek-dev-rpi5-h8
+  Raspberry Pi 5           -> pek-dev-rpi5
+  Raspberry Pi 5 + Hailo 8 -> pek-dev-rpi5-h8
   Raspberry Pi 5 + Hailo10 -> pek-dev-rpi5-h10
-  WSL/Linux x86_64/macOS  -> pek-dev-base
+  WSL/Linux x86_64/macOS   -> pek-dev-base
 
 The script uses the checked-in devcontainer compose files and generated device
 overrides. It does not start pek-dev-rich.

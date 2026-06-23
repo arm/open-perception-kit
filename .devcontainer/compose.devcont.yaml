@@ -15,7 +15,7 @@ services:
         USER_UID: ${HOST_UID:-1000}
         USER_GID: ${HOST_GID:-1000}
 
-  pek-dev-rpi5-h8:
+  pek-dev-rpi5:
     extends: 
       file: ../compose.base.yaml
       service: pek-common-dev
@@ -24,6 +24,23 @@ services:
     ports: []
     container_name: perception-experience-kit-rpi5
     hostname: perception-experience-kit-rpi5
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: pek-dev-rpi5
+      args:
+        USER_UID: ${HOST_UID:-1000}
+        USER_GID: ${HOST_GID:-1000}
+
+  pek-dev-rpi5-h8:
+    extends:
+      file: ../compose.base.yaml
+      service: pek-common-dev
+
+    network_mode: host
+    ports: []
+    container_name: perception-experience-kit-rpi5-h8
+    hostname: perception-experience-kit-rpi5-h8
     build:
       context: ..
       dockerfile: Dockerfile

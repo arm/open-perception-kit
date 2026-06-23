@@ -22,6 +22,8 @@ Detects the quick-start host environment.
 
 Supported host classes:
   rpi5         Raspberry Pi 5 running Linux
+  rpi5-h8      Raspberry Pi 5 with Hailo 8 or Hailo 8L
+  rpi5-h10     Raspberry Pi 5 with Hailo 10
   linux-x86_64 Generic x86_64 Linux host
   wsl          Windows Subsystem for Linux
   macos        macOS host
@@ -151,10 +153,15 @@ detect_environment() {
                     PEK_PLATFORM_NAME="Raspberry Pi 5 with Hailo 10"
                     PEK_CONTAINER_SERVICE="pek-dev-rpi5-h10"
                     PEK_CONTAINER_NAME="perception-experience-kit-rpi5-h10"
+                elif [[ "$PEK_HAILO_ARCH" == "hailo8" || "$PEK_HAILO_ARCH" == "hailo8l" || "$PEK_HAILO_ARCH" == "hailo-unknown" ]]; then
+                    PEK_PLATFORM_ID="rpi5-h8"
+                    PEK_PLATFORM_NAME="Raspberry Pi 5 with Hailo 8"
+                    PEK_CONTAINER_SERVICE="pek-dev-rpi5-h8"
+                    PEK_CONTAINER_NAME="perception-experience-kit-rpi5-h8"
                 else
                     PEK_PLATFORM_ID="rpi5"
                     PEK_PLATFORM_NAME="Raspberry Pi 5"
-                    PEK_CONTAINER_SERVICE="pek-dev-rpi5-h8"
+                    PEK_CONTAINER_SERVICE="pek-dev-rpi5"
                     PEK_CONTAINER_NAME="perception-experience-kit-rpi5"
                 fi
                 PEK_SUPPORTED="true"
