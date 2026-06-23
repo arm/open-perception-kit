@@ -57,6 +57,7 @@ Thumbs.db
 # -------------------------
 # Devcontainer / Docker
 # -------------------------
+.env
 devices.env
 .devcontainer/.env
 .devcontainer/devices.env

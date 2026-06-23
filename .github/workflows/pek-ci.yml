@@ -88,15 +88,15 @@ jobs:
           retention-days: 10
 
       - name: Perception Experience Kit release build and unit test run
-        if: github.event_name == 'pull_request' || github.event_name == 'schedule' ||
-          github.event_name == 'workflow_dispatch'
+        if: ${{ !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'schedule' ||
+          github.event_name == 'workflow_dispatch') }}
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm
           pek-release-with-ut
 
       - name: Run clang-tidy baseline check
-        if: github.event_name == 'pull_request' || github.event_name == 'schedule' ||
-          github.event_name == 'workflow_dispatch'
+        if: ${{ !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'schedule' ||
+          github.event_name == 'workflow_dispatch') }}
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -135,12 +135,13 @@ jobs:
 
       - name: Run Valgrind checks
         id: valgrind_checks
+        if: ${{ !cancelled() }}
         continue-on-error: true # Do not block PR until the initial ones are fixed
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-valgrind-check
 
       - name: Upload Valgrind logs on failure
-        if: ${{ steps.valgrind_checks.outcome == 'failure' }}
+        if: ${{ !cancelled() && steps.valgrind_checks.outcome == 'failure' }}
         uses: actions/upload-artifact@v6
         with:
           name: valgrind-logs

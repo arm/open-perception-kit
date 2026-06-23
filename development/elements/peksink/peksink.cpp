@@ -32,7 +32,9 @@ g++ -fPIC -shared -o libgstpeksink.so peksink.cpp \
 
 #include <nlohmann/json.hpp>
 
+#include <cstdlib>
 #include <memory>
+#include <string>
 
 #ifndef PACKAGE
 #define PACKAGE "peksink"
@@ -52,7 +54,52 @@ enum {
     PROP_WS_PORT,
     PROP_CTRL_PORT,
     PROP_STATIC_FILES,
+    PROP_WEBRTC_STUN_SERVER,
+    PROP_WEBRTC_TURN_SERVER,
 };
+
+static std::string env_or_empty(const char *name) {
+    const char *value = std::getenv(name);
+    return value ? value : "";
+}
+
+static std::string default_stun_server() {
+    if (auto value = env_or_empty("PEK_WEBRTC_STUN_SERVER"); !value.empty()) {
+        return value;
+    }
+
+    if (auto host = env_or_empty("WEBRTC_HOST_IP"); !host.empty()) {
+        return "stun://" + host + ":3478";
+    }
+
+    return "stun://stun.l.google.com:19302";
+}
+
+static std::string default_turn_server() {
+    if (auto value = env_or_empty("PEK_WEBRTC_TURN_SERVER"); !value.empty()) {
+        return value;
+    }
+
+    const auto host = env_or_empty("WEBRTC_HOST_IP");
+    if (host.empty()) {
+        return "";
+    }
+
+    const auto username = env_or_empty("PEK_WEBRTC_TURN_USERNAME");
+    const auto credential = env_or_empty("PEK_WEBRTC_TURN_CREDENTIAL");
+    if (username.empty() || credential.empty()) {
+        return "";
+    }
+
+    gchar *esc_user = g_uri_escape_string(username.c_str(), nullptr, TRUE);
+    gchar *esc_cred = g_uri_escape_string(credential.c_str(), nullptr, TRUE);
+    std::string url = "turn://" + std::string(esc_user ? esc_user : "") + ":" +
+                      std::string(esc_cred ? esc_cred : "") + "@" + host + ":3478";
+    g_free(esc_user);
+    g_free(esc_cred);
+    return url;
+}
+
 nlohmann::json PipelineStateReporter::report() const {
     nlohmann::json ret;
 
@@ -129,6 +176,14 @@ gst_pek_sink_set_property(GObject *object, guint prop_id, const GValue *value, G
         g_free(self->static_files_location);
         self->static_files_location = g_value_dup_string(value);
         break;
+    case PROP_WEBRTC_STUN_SERVER:
+        g_free(self->webrtc_stun_server);
+        self->webrtc_stun_server = g_value_dup_string(value);
+        break;
+    case PROP_WEBRTC_TURN_SERVER:
+        g_free(self->webrtc_turn_server);
+        self->webrtc_turn_server = g_value_dup_string(value);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         return;
@@ -153,6 +208,12 @@ gst_pek_sink_get_property(GObject *object, guint prop_id, GValue *value, GParamS
         break;
     case PROP_STATIC_FILES:
         g_value_set_string(value, self->static_files_location);
+        break;
+    case PROP_WEBRTC_STUN_SERVER:
+        g_value_set_string(value, self->webrtc_stun_server);
+        break;
+    case PROP_WEBRTC_TURN_SERVER:
+        g_value_set_string(value, self->webrtc_turn_server);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -358,6 +419,8 @@ static void gst_pek_sink_finalize(GObject *object) {
     // Free properties
     g_clear_pointer(&self->host, g_free);
     g_clear_pointer(&self->static_files_location, g_free);
+    g_clear_pointer(&self->webrtc_stun_server, g_free);
+    g_clear_pointer(&self->webrtc_turn_server, g_free);
 
     // Free private data
     delete self->private_data;
@@ -560,6 +623,8 @@ static void gst_pek_sink_init(GstPekSink *self) {
     /* defaults */
     self->host = g_strdup("0.0.0.0");
     self->static_files_location = g_strdup(PEK_DEFAULT_STATIC_FILES_LOCATION);
+    self->webrtc_stun_server = g_strdup(default_stun_server().c_str());
+    self->webrtc_turn_server = g_strdup(default_turn_server().c_str());
     self->http_port = 9999;
     self->ws_port = 8000;
     self->ctrl_port = 8001;
@@ -630,6 +695,21 @@ static void gst_pek_sink_class_init(GstPekSinkClass *klass) {
                             "Location of the static files for HTTP Server",
                             PEK_DEFAULT_STATIC_FILES_LOCATION,
                             kRW));
+    g_object_class_install_property(
+        gobject_class,
+        PROP_WEBRTC_STUN_SERVER,
+        g_param_spec_string("webrtc-stun-server",
+                            "WebRTC STUN Server",
+                            "STUN server URL passed to webrtcbin, for example stun://host:3478",
+                            nullptr,
+                            kRW));
+    g_object_class_install_property(gobject_class,
+                                    PROP_WEBRTC_TURN_SERVER,
+                                    g_param_spec_string("webrtc-turn-server",
+                                                        "WebRTC TURN Server",
+                                                        "TURN server URL passed to webrtcbin",
+                                                        nullptr,
+                                                        kRW));
 
     /* pads */
     gst_element_class_add_static_pad_template(element_class, &v_sink_template);

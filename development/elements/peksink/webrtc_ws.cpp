@@ -379,14 +379,13 @@ void WebRtcWebSocket::on_open(connection_hdl hdl) {
         return;
     }
 
-    g_object_set(ctx->webrtcbin,
-                 "stun-server",
-                 STUN_SERVER,
-                 "latency",
-                 200u,
-                 "reuse-source-pads",
-                 FALSE,
-                 nullptr);
+    g_object_set(ctx->webrtcbin, "latency", 200u, "reuse-source-pads", FALSE, nullptr);
+    if (self_->webrtc_stun_server && self_->webrtc_stun_server[0] != '\0') {
+        g_object_set(ctx->webrtcbin, "stun-server", self_->webrtc_stun_server, nullptr);
+    }
+    if (self_->webrtc_turn_server && self_->webrtc_turn_server[0] != '\0') {
+        g_object_set(ctx->webrtcbin, "turn-server", self_->webrtc_turn_server, nullptr);
+    }
 
     // WebRTC callbacks (per client webrtcbin!)
     ctx->onn_id = g_signal_connect_data(ctx->webrtcbin,
