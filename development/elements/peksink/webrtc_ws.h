@@ -33,8 +33,6 @@
 
 #include "webrtc_session.h"
 
-#define STUN_SERVER "stun://stun.l.google.com:19302"
-
 enum class WebRtcSockerError {
     OK,
 };
