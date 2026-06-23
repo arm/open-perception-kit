@@ -96,7 +96,11 @@
                     </div>
                     <div class="region-control-buttons" aria-label="Video regions">
                         <div id="roiResolutionControl" class="roi-resolution-control" hidden>
-                            <output id="roiResolutionText" class="roi-resolution-text" for="roiScaleSlider">--</output>
+                            <output id="roiResolutionText" class="roi-resolution-text" for="roiScaleSlider">
+                                <span id="roiBaseResolutionText">--</span>
+                                <i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i>
+                                <span id="roiScaledResolutionText">--</span>
+                            </output>
                             <label class="roi-scale-label" for="roiScaleSlider">
                                 <span id="roiScaleValue">100%</span>
                                 <input id="roiScaleSlider" class="roi-scale-slider" type="range"
@@ -113,7 +117,7 @@
                         </button>
                         <button id="applyRoiCropBtn" class="video-control-button" type="button"
                             aria-label="Restart and apply current region and resolution scaling"
-                            data-tooltip="Restart and apply current region and resolution scaling" hidden disabled>
+                            data-tooltip="Restart and apply current region and resolution scaling" disabled>
                             <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
                         </button>
                         <button id="clearRoiCropBtn" class="video-control-button" type="button"

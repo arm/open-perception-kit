@@ -394,15 +394,13 @@ video {
 }
 
 .roi-resolution-control {
-  display: grid;
-  grid-template-columns: minmax(86px, auto) 128px;
-  grid-template-rows: auto auto;
+  display: flex;
   align-items: center;
-  gap: 4px 10px;
-  min-height: 42px;
-  padding: 6px 10px;
+  gap: 8px;
+  height: 42px;
+  padding: 0 12px;
   border: 1px solid rgba(226, 232, 240, 0.24);
-  border-radius: 8px;
+  border-radius: 999px;
   background: #050505;
   color: #f8fafc;
   box-shadow:
@@ -415,8 +413,10 @@ video {
 }
 
 .roi-resolution-text {
-  grid-column: 1 / -1;
-  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 148px;
   color: #f8fafc;
   font-size: 0.74rem;
   font-weight: 650;
@@ -424,11 +424,22 @@ video {
   white-space: nowrap;
 }
 
+.roi-resolution-text i {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1;
+}
+
 .roi-scale-label {
-  display: contents;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 120px;
 }
 
 #roiScaleValue {
+  min-width: 34px;
+  text-align: right;
   color: var(--text-muted);
   font-size: 0.72rem;
   font-weight: 650;
@@ -436,7 +447,7 @@ video {
 }
 
 .roi-scale-slider {
-  width: 128px;
+  width: 80px;
   height: 18px;
   margin: 0;
   accent-color: #facc15;

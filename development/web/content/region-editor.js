@@ -4,6 +4,8 @@ const applyCropButton = document.getElementById('applyRoiCropBtn');
 const clearCropButton = document.getElementById('clearRoiCropBtn');
 const resolutionControl = document.getElementById('roiResolutionControl');
 const resolutionText = document.getElementById('roiResolutionText');
+const baseResolutionText = document.getElementById('roiBaseResolutionText');
+const scaledResolutionText = document.getElementById('roiScaledResolutionText');
 const scaleSlider = document.getElementById('roiScaleSlider');
 const scaleValue = document.getElementById('roiScaleValue');
 const wrapper = document.querySelector('.video-wrapper');
@@ -549,12 +551,19 @@ function renderButtons() {
     if (scaleValue) {
         scaleValue.textContent = `${Math.round(pendingScale * 100)}%`;
     }
-    if (resolutionText) {
+    if (resolutionText || baseResolutionText || scaledResolutionText) {
         const base = regionBaseDimensions();
         const scaled = scaledDimensions(base);
-        resolutionText.textContent = pendingScale < 0.999
-            ? `${formatDimensions(base)} -> ${formatDimensions(scaled)}`
-            : formatDimensions(base);
+        if (baseResolutionText)
+            baseResolutionText.textContent = formatDimensions(base);
+        if (scaledResolutionText)
+            scaledResolutionText.textContent = formatDimensions(scaled);
+        if (resolutionText) {
+            resolutionText.setAttribute(
+                'aria-label',
+                `Input ${formatDimensions(base)}, scaled to ${formatDimensions(scaled)}`,
+            );
+        }
     }
 
     if (drawButton) {
@@ -573,11 +582,13 @@ function renderButtons() {
 
     if (applyCropButton) {
         const scaleChanged = Math.abs(pendingScale - activeScale) >= 0.005;
-        applyCropButton.hidden = !roiPipelineAvailable || (!region && !scaleChanged);
+        applyCropButton.hidden = !roiPipelineAvailable;
         applyCropButton.disabled = cropInProgress || (!region && !scaleChanged);
         applyCropButton.dataset.tooltip = cropInProgress
             ? 'Restarting...'
-            : 'Restart and apply current region and resolution scaling';
+            : applyCropButton.disabled
+                ? 'No region or resolution changes to apply'
+                : 'Restart and apply current region and resolution scaling';
     }
 
     if (clearCropButton) {
