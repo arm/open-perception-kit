@@ -86,11 +86,31 @@
             <main class="main-content">
                 <div class="video-wrapper">
                     <video id="video" autoplay playsinline muted></video>
+                    <canvas id="regionCanvas" class="region-canvas" aria-hidden="true"></canvas>
+                    <svg id="regionOverlay" class="region-overlay" aria-hidden="true"></svg>
                     <div id="video-overlay" class="video-overlay">
                         <div class="overlay-chip">
                             <div class="spinner"></div>
                             <div id="overlay-text">Waiting for stream…</div>
                         </div>
+                    </div>
+                    <div class="region-control-buttons" aria-label="Video regions">
+                        <button id="addRegionBtn" class="video-control-button" type="button"
+                            aria-label="Add region" data-tooltip="Add region">
+                            <i class="fa-solid fa-draw-polygon" aria-hidden="true"></i>
+                        </button>
+                        <button id="removeRegionBtn" class="video-control-button" type="button"
+                            aria-label="Remove region" data-tooltip="Remove region" hidden>
+                            <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+                        </button>
+                        <button id="applyRoiCropBtn" class="video-control-button" type="button"
+                            aria-label="Crop pipeline to selected region" data-tooltip="Crop pipeline" hidden disabled>
+                            <i class="fa-solid fa-crop-simple" aria-hidden="true"></i>
+                        </button>
+                        <button id="clearRoiCropBtn" class="video-control-button" type="button"
+                            aria-label="Clear pipeline crop" data-tooltip="Clear crop" hidden>
+                            <i class="fa-solid fa-expand" aria-hidden="true"></i>
+                        </button>
                     </div>
                     <div class="video-control-buttons" aria-label="Video display controls">
                         <button id="fullscreenOutputsBtn"
@@ -201,18 +221,19 @@
 
     <!-- Logic -->
     <script src="/pek-config.js?v=disabled-toggle-tooltip-20260608"></script>
-    <script src="/chrome-fallback.js?v=disabled-toggle-tooltip-20260608"></script>
+    <script src="/chrome-fallback.js?v=region-pause-filter-20260609"></script>
     <script type="module" src="/webrtc.js?v=auto-pipeline-restart-20260608"></script>
     <script type="module" src="/ctrlws.js?v=disabled-toggle-tooltip-20260608"></script>
     <script type="module" src="/models.js?v=disabled-toggle-tooltip-20260608"></script>
-    <script type="module" src="/video-controls.js?v=disabled-toggle-tooltip-20260608"></script>
+    <script type="module" src="/video-controls.js?v=region-pause-filter-20260609"></script>
     <script type="module" src="/pipeline-switcher.js?v=disabled-toggle-tooltip-20260608"></script>
     <script type="module" src="/audio.js?v=disabled-toggle-tooltip-20260608"></script>
     <script type="module" src="/output-panels.js?v=dock-height-animator-20260608"></script>
     <script type="module" src="/layout-resize.js?v=equal-output-columns-20260609"></script>
     <script type="module" src="/video-fullscreen.js?v=fullscreen-hover-20260608"></script>
+    <script type="module" src="/region-editor.js?v=region-pause-filter-20260609"></script>
     <script type="module" src="/performance-metrics.js?v=webui-cleanup-20260608"></script>
-    <script type="module" src="/inference-output.js?v=webui-cleanup-20260608"></script>
+    <script type="module" src="/inference-output.js?v=region-pause-filter-20260609"></script>
     <script type="module" src="/debug-log.js?v=webui-cleanup-20260608"></script>
     <script type="module" src="/sw-cleanup.js?v=disabled-toggle-tooltip-20260608"></script>
 </body>

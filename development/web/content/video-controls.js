@@ -22,6 +22,12 @@ const renderPlayPause = () => {
     playBtn.style.opacity = "";
 };
 
+const dispatchPauseState = () => {
+    window.dispatchEvent(new CustomEvent("feed-pause-change", {
+        detail: { paused: Boolean(window.PEK_FEED_PAUSED) },
+    }));
+};
+
 const freezeFeedFrame = () => {
     if (!video) return;
 
@@ -86,6 +92,7 @@ const requestPlayPause = async (event) => {
     }
 
     renderPlayPause();
+    dispatchPauseState();
 };
 
 playBtn?.addEventListener("pointerdown", requestPlayPause);

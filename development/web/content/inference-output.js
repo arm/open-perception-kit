@@ -3,6 +3,7 @@ import { copyTextWithFeedback, setCopyButtonAvailable } from './copy-utils.js?v=
 const body = document.getElementById('inferenceOutputBody');
 const copyButton = document.getElementById('copyInferenceOutputBtn');
 let currentLayers = [];
+let latestOutput = null;
 
 const number = (value, digits = 2) => {
     if (typeof value !== 'number' || !Number.isFinite(value)) return '';
@@ -108,8 +109,20 @@ function renderLayer(layer) {
 export function renderInferenceOutput(output) {
     if (!body) return;
 
-    const layers = Array.isArray(output?.layers)
-        ? output.layers.filter((layer) => layer.model || layer.contentType || layer.engine)
+    latestOutput = output || latestOutput;
+    if (window.PEK_FEED_PAUSED) {
+        currentLayers = [];
+        updateCopyButtonState();
+        body.innerHTML = '<div class="inference-output-empty">Inference paused.</div>';
+        return;
+    }
+
+    const filteredOutput = window.PEK_REGION_FILTER?.filterInferenceOutput
+        ? window.PEK_REGION_FILTER.filterInferenceOutput(output)
+        : output;
+
+    const layers = Array.isArray(filteredOutput?.layers)
+        ? filteredOutput.layers.filter((layer) => layer.model || layer.contentType || layer.engine)
         : [];
     currentLayers = layers;
     updateCopyButtonState();
@@ -151,13 +164,6 @@ function getInferenceText() {
     }).join('\n\n');
 }
 
-if (toggle) {
-    toggle.addEventListener('click', () => {
-        const expanded = toggle.getAttribute('aria-expanded') !== 'false';
-        setExpanded(!expanded);
-    });
-}
-
 copyButton?.addEventListener('click', () => {
     copyTextWithFeedback(copyButton, getInferenceText());
 });
@@ -166,6 +172,14 @@ window.addEventListener('ctrl-message', (event) => {
     if (event.detail?.inference_output) {
         renderInferenceOutput(event.detail.inference_output);
     }
+});
+
+window.addEventListener('feed-pause-change', () => {
+    renderInferenceOutput(latestOutput);
+});
+
+window.addEventListener('regions-change', () => {
+    renderInferenceOutput(latestOutput);
 });
 
 updateCopyButtonState();

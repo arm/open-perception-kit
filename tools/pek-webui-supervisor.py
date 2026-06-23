@@ -4,6 +4,7 @@ import argparse
 import base64
 import hashlib
 import json
+import math
 import mimetypes
 import os
 import re
@@ -36,6 +37,8 @@ CTRL_PORT = int(os.environ.get("PEK_CHILD_CTRL_PORT", "8001"))
 CAMERA_NAME = os.environ.get("PEK_CAMERA_NAME", "")
 ONNXRUNTIME_ROOT = os.environ.get("PEK_ONNXRUNTIME_ROOT", str(ROOT / "deps/onnxruntime"))
 SOURCE_MODE = os.environ.get("PEK_SUPERVISOR_SOURCE", "raspicam")
+ROI_MIN_FRACTION = 0.02
+ROI_MIN_PIXELS = 32
 
 
 PROCESSING_MARKERS = (
@@ -287,7 +290,8 @@ def rewrite_pipeline_piece(piece):
             trailing_bang = " !"
 
         stripped = re.sub(r"\s+enable-perfdata=\S+", "", stripped)
-        piece = f"{stripped} enable-perfdata=false{trailing_bang}"
+        stripped = re.sub(r"\s+enabled=\S+", "", stripped)
+        piece = f"{stripped} enabled=false enable-perfdata=false{trailing_bang}"
 
     if "peksink" not in piece:
         return piece
@@ -312,6 +316,129 @@ def first_processing_index(pipeline):
     return 0
 
 
+def parse_cap_dimension(piece, name):
+    pattern = rf"(?:^|[, !]){re.escape(name)}=(?:\(int\))?([0-9]+)"
+    matches = re.findall(pattern, piece)
+    if not matches:
+        return None
+
+    return int(matches[-1])
+
+
+def source_dimensions_from_pipeline(pipeline, stop_index):
+    width = None
+    height = None
+
+    for piece in pipeline[:stop_index]:
+        if not isinstance(piece, str):
+            continue
+
+        parsed_width = parse_cap_dimension(piece, "width")
+        parsed_height = parse_cap_dimension(piece, "height")
+        if parsed_width:
+            width = parsed_width
+        if parsed_height:
+            height = parsed_height
+
+    if width and height:
+        return width, height
+
+    return None
+
+
+def roi_insert_index(pipeline, processing_index):
+    for index, piece in enumerate(pipeline[:processing_index]):
+        if isinstance(piece, str) and "videoconvert" in piece:
+            return index
+
+    return processing_index
+
+
+def normalise_roi(roi):
+    if not isinstance(roi, dict):
+        raise ValueError("Crop region is missing.")
+
+    values = {}
+    for key in ("x", "y", "width", "height"):
+        try:
+            value = float(roi[key])
+        except (KeyError, TypeError, ValueError):
+            raise ValueError("Crop region must include x, y, width and height.") from None
+
+        if not math.isfinite(value):
+            raise ValueError("Crop region values must be finite numbers.")
+        values[key] = value
+
+    x = min(max(values["x"], 0.0), 1.0)
+    y = min(max(values["y"], 0.0), 1.0)
+    width = min(max(values["width"], 0.0), 1.0 - x)
+    height = min(max(values["height"], 0.0), 1.0 - y)
+
+    if width < ROI_MIN_FRACTION or height < ROI_MIN_FRACTION:
+        raise ValueError("Crop region is too small.")
+
+    return {
+        "x": round(x, 6),
+        "y": round(y, 6),
+        "width": round(width, 6),
+        "height": round(height, 6),
+    }
+
+
+def roi_pixel_crop(roi, source_width, source_height):
+    pixel_width = max(ROI_MIN_PIXELS, min(source_width, round(roi["width"] * source_width)))
+    pixel_height = max(ROI_MIN_PIXELS, min(source_height, round(roi["height"] * source_height)))
+    pixel_x = min(max(0, round(roi["x"] * source_width)), max(0, source_width - pixel_width))
+    pixel_y = min(max(0, round(roi["y"] * source_height)), max(0, source_height - pixel_height))
+
+    return {
+        "left": pixel_x,
+        "right": max(0, source_width - pixel_x - pixel_width),
+        "top": pixel_y,
+        "bottom": max(0, source_height - pixel_y - pixel_height),
+        "width": pixel_width,
+        "height": pixel_height,
+        "sourceWidth": source_width,
+        "sourceHeight": source_height,
+    }
+
+
+def apply_roi_crop(data, roi):
+    if not roi:
+        return None
+
+    pipeline = data.get("pipeline")
+    if not isinstance(pipeline, list):
+        raise ValueError("ROI crop requires a list-based pipeline.")
+
+    processing_index = first_processing_index(pipeline)
+    dimensions = source_dimensions_from_pipeline(pipeline, processing_index)
+    if not dimensions:
+        raise ValueError("ROI crop needs source width and height in the pipeline caps.")
+
+    source_width, source_height = dimensions
+    crop = roi_pixel_crop(roi, source_width, source_height)
+    insert_index = roi_insert_index(pipeline, processing_index)
+    crop_stage = [
+        (
+            "videocrop name=pekroicrop "
+            f"left={crop['left']} right={crop['right']} top={crop['top']} bottom={crop['bottom']} !"
+        ),
+        f"video/x-raw,width={crop['width']},height={crop['height']} !",
+    ]
+
+    data["pipeline"] = [
+        *pipeline[:insert_index],
+        *crop_stage,
+        *pipeline[insert_index:],
+    ]
+    data["supervisor-roi"] = {
+        "normalised": roi,
+        "crop": crop,
+    }
+    return crop
+
+
 def apply_source_mode(data):
     if SOURCE_MODE != "raspicam":
         return
@@ -324,11 +451,12 @@ def apply_source_mode(data):
     data["pipeline"] = [*source, *pipeline[first_processing_index(pipeline):]]
 
 
-def prepared_pipeline_file(source_path):
+def prepared_pipeline_file(source_path, roi=None):
     with source_path.open("r", encoding="utf-8") as handle:
         data = json.load(handle)
 
     apply_source_mode(data)
+    apply_roi_crop(data, roi)
 
     pipeline = data.get("pipeline")
     if isinstance(pipeline, list):
@@ -387,6 +515,7 @@ class PipelineSupervisor:
         self.process = None
         self.current_source = None
         self.current_prepared = None
+        self.roi = None
         self.last_message = ""
         self.switching = False
         self.initial_pipeline = initial_pipeline
@@ -406,6 +535,7 @@ class PipelineSupervisor:
                 "sourceMode": SOURCE_MODE,
                 "wsPort": WS_PORT,
                 "ctrlPort": CTRL_PORT,
+                "roi": self.roi,
             }
 
     def start_initial(self):
@@ -429,10 +559,11 @@ class PipelineSupervisor:
     def switch_to(self, source_path):
         with self.lock:
             self.switching = True
+            active_roi = dict(self.roi) if self.roi else None
             self.last_message = f"Switching to {source_path.stem}..."
 
         try:
-            prepared = prepared_pipeline_file(source_path)
+            prepared = prepared_pipeline_file(source_path, active_roi)
             env = os.environ.copy()
             env["PEK_CURRENT_PIPELINE"] = str(source_path)
             env["PEK_ONNXRUNTIME_ROOT"] = ONNXRUNTIME_ROOT
@@ -458,6 +589,10 @@ class PipelineSupervisor:
                     self.last_message = f"{source_path.stem} exited while starting."
                     return False, self.last_message
                 return True, self.last_message
+        except Exception as exc:
+            with self.lock:
+                self.last_message = f"Could not start {source_path.stem}: {exc}"
+            return False, self.last_message
         finally:
             with self.lock:
                 self.switching = False
@@ -470,6 +605,46 @@ class PipelineSupervisor:
             return False, "No pipeline is currently selected."
 
         return self.switch_to(source)
+
+    def set_roi(self, roi):
+        normalised = normalise_roi(roi)
+        with self.lock:
+            source = self.current_source
+            previous_roi = self.roi
+            self.roi = normalised
+
+        if not source:
+            with self.lock:
+                self.roi = previous_roi
+            return False, "No pipeline is currently selected."
+
+        ok, message = self.switch_to(source)
+        if not ok:
+            with self.lock:
+                self.roi = previous_roi
+            self.switch_to(source)
+        return ok, message
+
+    def clear_roi(self):
+        with self.lock:
+            source = self.current_source
+            previous_roi = self.roi
+            had_roi = previous_roi is not None
+            self.roi = None
+
+        if not source:
+            with self.lock:
+                self.roi = previous_roi
+            return False, "No pipeline is currently selected."
+        if not had_roi:
+            return True, "No crop is active."
+
+        ok, message = self.switch_to(source)
+        if not ok:
+            with self.lock:
+                self.roi = previous_roi
+            self.switch_to(source)
+        return ok, message
 
 
 SUPERVISOR = None
@@ -485,6 +660,11 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         print(f"[supervisor] {self.address_string()} - {fmt % args}", flush=True)
 
+    def read_json_payload(self):
+        length = int(self.headers.get("Content-Length", "0"))
+        body = self.rfile.read(length).decode("utf-8") if length else "{}"
+        return json.loads(body)
+
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
 
@@ -499,7 +679,10 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/pek-config.js":
             text_response(
                 self,
-                f"window.PEK_CONFIG = {{ wsPort: {WS_PORT}, ctrlPort: {CTRL_PORT}, ctrlProxyPath: '/ctrl-ws', supervised: true }};",
+                (
+                    f"window.PEK_CONFIG = {{ wsPort: {WS_PORT}, ctrlPort: {CTRL_PORT}, "
+                    "ctrlProxyPath: '/ctrl-ws', supervised: true, roiPipeline: true };"
+                ),
                 content_type="application/javascript",
             )
             return
@@ -546,14 +729,39 @@ class Handler(BaseHTTPRequestHandler):
             )
             return
 
+        if parsed.path == "/api/pipeline-roi":
+            try:
+                payload = self.read_json_payload()
+                roi = payload.get("roi")
+                if roi is None or payload.get("enabled") is False:
+                    ok, message = SUPERVISOR.clear_roi()
+                else:
+                    ok, message = SUPERVISOR.set_roi(roi)
+            except json.JSONDecodeError:
+                json_response(self, {"available": False, "message": "Invalid crop request."}, status=400)
+                return
+            except ValueError as exc:
+                json_response(self, {"available": False, "message": str(exc)}, status=400)
+                return
+
+            json_response(
+                self,
+                {
+                    "available": True,
+                    "complete": ok,
+                    "roi": SUPERVISOR.status().get("roi"),
+                    "message": message,
+                },
+                status=200 if ok else 500,
+            )
+            return
+
         if parsed.path != "/api/pipeline-switch":
             json_response(self, {"error": "not found"}, status=404)
             return
 
-        length = int(self.headers.get("Content-Length", "0"))
-        body = self.rfile.read(length).decode("utf-8") if length else "{}"
         try:
-            payload = json.loads(body)
+            payload = self.read_json_payload()
         except json.JSONDecodeError:
             json_response(self, {"available": False, "message": "Invalid switch request."}, status=400)
             return

@@ -20,6 +20,7 @@
     let controlQueue = [];
     let latestMetricsText = "";
     let latestInferenceText = "";
+    let latestInferenceOutput = null;
     let pipelineById = new Map();
     let currentPipelineId = "";
     let pipelineActionBusy = false;
@@ -705,8 +706,20 @@
         const body = byId("inferenceOutputBody");
         if (!body) return;
 
-        const layers = Array.isArray(output?.layers)
-            ? output.layers.filter((layer) => layer.model || layer.contentType || layer.engine)
+        latestInferenceOutput = output || latestInferenceOutput;
+        if (window.PEK_FEED_PAUSED) {
+            latestInferenceText = "";
+            setCopyAvailable(byId("copyInferenceOutputBtn"), false);
+            body.innerHTML = '<div class="inference-output-empty">Inference paused.</div>';
+            return;
+        }
+
+        const filteredOutput = window.PEK_REGION_FILTER?.filterInferenceOutput
+            ? window.PEK_REGION_FILTER.filterInferenceOutput(output)
+            : output;
+
+        const layers = Array.isArray(filteredOutput?.layers)
+            ? filteredOutput.layers.filter((layer) => layer.model || layer.contentType || layer.engine)
             : [];
 
         const copyable = layers.filter((layer) => {
@@ -828,6 +841,9 @@
 
         window.PEK_FEED_PAUSED = !nextPlaying;
         renderPlayPause(nextPlaying);
+        window.dispatchEvent(new CustomEvent("feed-pause-change", {
+            detail: { paused: !nextPlaying },
+        }));
     }
 
     function attachControlFallbacks() {
@@ -962,6 +978,12 @@
 
     attachCopyFallbacks();
     attachControlFallbacks();
+    window.addEventListener("feed-pause-change", () => {
+        renderInference(latestInferenceOutput);
+    });
+    window.addEventListener("regions-change", () => {
+        renderInference(latestInferenceOutput);
+    });
     loadPipelines();
     setTimeout(() => {
         if (isStillEmpty()) fallbackActive = true;

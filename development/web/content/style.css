@@ -230,6 +230,25 @@ video {
   background: #000;
 }
 
+.region-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  display: none;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  pointer-events: none;
+}
+
+.region-canvas.is-visible {
+  display: block;
+}
+
+#video.has-regions {
+  opacity: 0;
+}
+
 .video-freeze-frame {
   position: absolute;
   inset: 0;
@@ -246,9 +265,94 @@ video {
   display: block;
 }
 
+.region-overlay {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  z-index: 9;
+  pointer-events: none;
+}
+
+.region-overlay.is-interactive {
+  pointer-events: auto;
+}
+
+.region-overlay.is-drawing {
+  cursor: crosshair;
+}
+
+.region-outline {
+  fill: rgba(255, 255, 255, 0.02);
+  stroke: #ffffff;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.region-outline--selected {
+  stroke: #facc15;
+}
+
+.region-detection-box {
+  fill: none;
+  stroke: #ef4444;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.region-detection-label {
+  fill: #ffffff;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.82);
+  stroke-width: 4;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.region-preview-line {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.72);
+  stroke-width: 2;
+  stroke-dasharray: 6 6;
+  vector-effect: non-scaling-stroke;
+}
+
+.region-point {
+  fill: #ffffff;
+  stroke: rgba(0, 0, 0, 0.72);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.region-point--start {
+  fill: #ffffff;
+  stroke: #ffffff;
+  stroke-width: 3;
+}
+
+.region-edit-point {
+  fill: #facc15;
+  stroke: #000000;
+  stroke-width: 1.5;
+  cursor: grab;
+  pointer-events: auto;
+  vector-effect: non-scaling-stroke;
+}
+
+.region-edit-point:hover {
+  fill: #fde68a;
+}
+
+.region-edit-point:active {
+  cursor: grabbing;
+}
+
 .video-overlay {
   position: absolute;
   inset: 0;
+  z-index: 11;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -259,6 +363,16 @@ video {
   position: absolute;
   right: 18px;
   bottom: 18px;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.region-control-buttons {
+  position: absolute;
+  right: 18px;
+  top: 18px;
   z-index: 12;
   display: flex;
   align-items: center;
@@ -341,9 +455,31 @@ video {
   transform: translateY(0);
 }
 
+.region-control-buttons .video-control-button[data-tooltip]::after {
+  top: calc(100% + 10px);
+  bottom: auto;
+  transform: translateY(-3px);
+}
+
+.region-control-buttons .video-control-button[data-tooltip]:hover::after,
+.region-control-buttons .video-control-button[data-tooltip]:focus-visible::after {
+  transform: translateY(0);
+}
+
 .video-outputs-fullscreen-button[aria-pressed="true"] {
   color: #ffffff;
   border-color: rgba(226, 232, 240, 0.42);
+}
+
+.region-control-buttons .video-control-button[aria-pressed="true"] {
+  color: #ffffff;
+  border-color: rgba(226, 232, 240, 0.48);
+  background: #111111;
+}
+
+.region-control-buttons #clearRoiCropBtn[aria-pressed="true"] {
+  color: #facc15;
+  border-color: rgba(250, 204, 21, 0.55);
 }
 
 body.video-fullscreen .video-control-buttons {
