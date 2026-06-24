@@ -3,17 +3,11 @@
 ## Contribution rules
 
 - Format code according to the repository configuration. The `expkits-ci` tool should help with this.
-- Name branches as `feature/EXPKITS-xxxx/any-descriptive-string`.
+- Name branches as `feature/EXPKITS-1234` or `feature/EXPKITS-1234/short-description`.
 - Use this commit message structure:
-	- first line: short description
-	- second line: `Task: EXPKITS-xxxx`
-	- remaining lines: optional details
+  - first line: short description
+  - second line: `Task: EXPKITS-1234`
+  - remaining lines: optional details
+- Use a pull request title in the form `EXPKITS-1234: short summary`.
+- Fill out the pull request template with `Goal`, `Change`, and `Testing`.
 - For pull requests, CI can be rerun by adding the `run-pek-ci` label.
-
-## Example
-
-- Branch: `feature/EXPKITS-1234/update-pr-template`
-- Commit message:
-  - `Update PR template rules`
-  - `Task: EXPKITS-1234`
-  - `Add contribution examples and clarify CI rerun instructions.`
