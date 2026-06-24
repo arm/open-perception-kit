@@ -9,6 +9,7 @@ import os
 import re
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -18,15 +19,16 @@ INLINE_MARKER = "<!-- codex-review-inline -->"
 INLINE_STATE_MARKER = "<!-- codex-review-inline-state "
 STATE_MARKER = "<!-- codex-review-state "
 MAX_INLINE_SUGGESTION_LINES = 4
-SEVERITY_BADGES = {
-    "note": "![note](https://img.shields.io/badge/severity-note-1f6feb?style=flat-square)",
-    "major": "![major](https://img.shields.io/badge/severity-major-f59e0b?style=flat-square)",
-    "critical": "![critical](https://img.shields.io/badge/severity-critical-dc2626?style=flat-square)",
+BADGE_LABEL_COLOR = "202938"
+SEVERITY_COLORS = {
+    "note": "1f6feb",
+    "major": "d97706",
+    "critical": "dc2626",
 }
-RECOMMENDATION_BADGES = {
-    "approve": "![approve](https://img.shields.io/badge/recommendation-approve-15803d?style=flat-square)",
-    "comment": "![comment](https://img.shields.io/badge/recommendation-comment-1f6feb?style=flat-square)",
-    "request_changes": "![request_changes](https://img.shields.io/badge/recommendation-request__changes-dc2626?style=flat-square)",
+RECOMMENDATION_COLORS = {
+    "approve": "15803d",
+    "comment": "2563eb",
+    "request_changes": "dc2626",
 }
 
 
@@ -58,12 +60,59 @@ def normalize_title(title):
     return " ".join(str(title).split())
 
 
+def make_badge(label, message, color):
+    label_text = urllib.parse.quote(str(label), safe="")
+    message_text = urllib.parse.quote(str(message), safe="")
+    return (
+        f"![{label}: {message}]"
+        f"(https://img.shields.io/badge/{label_text}-{message_text}-{color}"
+        f"?style=flat&labelColor={BADGE_LABEL_COLOR})"
+    )
+
+
 def severity_badge(severity):
-    return SEVERITY_BADGES.get(severity, f"**{severity.upper()}**")
+    color = SEVERITY_COLORS.get(severity)
+    if color is None:
+        return f"**{severity.upper()}**"
+    return make_badge("severity", severity.upper(), color)
+
+
+def severity_count_badge(severity, count):
+    color = SEVERITY_COLORS.get(severity)
+    if color is None:
+        return f"**{severity.upper()}: {count}**"
+    return make_badge(severity.upper(), count, color)
 
 
 def recommendation_badge(recommendation):
-    return RECOMMENDATION_BADGES.get(recommendation, f"**{recommendation}**")
+    color = RECOMMENDATION_COLORS.get(recommendation)
+    if color is None:
+        return f"**{recommendation}**"
+    return make_badge("recommendation", recommendation.replace("_", " ").upper(), color)
+
+
+def score_badge(score):
+    if score >= 0.85:
+        color = "dc2626"
+    elif score >= 0.60:
+        color = "d97706"
+    elif score >= 0.30:
+        color = "2563eb"
+    else:
+        color = "15803d"
+    return make_badge("score", f"{score:.2f}", color)
+
+
+def confidence_badge(confidence):
+    if confidence >= 0.85:
+        color = "15803d"
+    elif confidence >= 0.60:
+        color = "2563eb"
+    elif confidence >= 0.30:
+        color = "d97706"
+    else:
+        color = "dc2626"
+    return make_badge("confidence", f"{confidence:.2f}", color)
 
 
 def summarize_findings(findings):
@@ -93,11 +142,10 @@ def format_markdown(review):
         MARKER,
         "## Codex Review",
         "",
-        f"Recommendation: {recommendation_badge(review['overall_recommendation'])}",
-        f"Overall score: **{review['overall_score']:.2f}**",
-        f"Overall confidence: **{review['overall_confidence']:.2f}**",
+        recommendation_badge(review["overall_recommendation"]),
+        f"{score_badge(review['overall_score'])} {confidence_badge(review['overall_confidence'])}",
         "",
-        f"Findings: {severity_badge('critical')} `{counts['critical']}`  {severity_badge('major')} `{counts['major']}`  {severity_badge('note')} `{counts['note']}`",
+        f"Findings: {severity_count_badge('critical', counts['critical'])} {severity_count_badge('major', counts['major'])} {severity_count_badge('note', counts['note'])}",
         "",
         review["summary"],
         "",
@@ -162,14 +210,11 @@ def build_inline_comment_body(finding, dismissed=False):
         f"{INLINE_STATE_MARKER}{state_payload} -->",
         f"- [{checkbox}] dismiss",
         "",
-        f"{severity_badge(finding['severity'])} **{finding['title']}**",
+        f"{severity_badge(finding['severity'])} {score_badge(finding['score'])} {confidence_badge(finding['confidence'])} **{finding['title']}**",
         "",
         f"Location: `{format_location(finding)}`",
         "",
         finding["body"],
-        "",
-        f"Score: `{finding['score']:.2f}`",
-        f"Confidence: `{finding['confidence']:.2f}`",
     ]
 
     if suggestion:

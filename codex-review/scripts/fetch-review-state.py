@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import re
+import sys
 import urllib.request
 from pathlib import Path
 
@@ -73,7 +74,13 @@ def extract_state_metadata(body: str):
     for line in body.splitlines():
         if line.startswith(STATE_MARKER) and line.endswith(" -->"):
             payload = line[len(STATE_MARKER):-4].strip()
-            return json.loads(payload)
+            try:
+                return json.loads(payload)
+            except json.JSONDecodeError:
+                print(
+                    "Ignoring malformed Codex review state marker JSON.",
+                    file=sys.stderr,
+                )
     return dict(EMPTY_STATE)
 
 
@@ -81,7 +88,13 @@ def extract_inline_metadata(body: str):
     for line in body.splitlines():
         if line.startswith(INLINE_STATE_MARKER) and line.endswith(" -->"):
             payload = line[len(INLINE_STATE_MARKER):-4].strip()
-            return json.loads(payload)
+            try:
+                return json.loads(payload)
+            except json.JSONDecodeError:
+                print(
+                    "Ignoring malformed Codex inline state marker JSON.",
+                    file=sys.stderr,
+                )
     return None
 
 
