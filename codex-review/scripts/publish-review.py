@@ -4,10 +4,8 @@
 ################################################################
 
 import argparse
-import base64
 import json
 import os
-import re
 import sys
 import urllib.error
 import urllib.parse
@@ -16,9 +14,6 @@ from pathlib import Path
 
 
 MARKER = "<!-- codex-review-comment -->"
-INLINE_MARKER = "<!-- codex-review-inline -->"
-INLINE_STATE_MARKER = "<!-- codex-review-inline-state "
-STATE_MARKER = "<!-- codex-review-state "
 MAX_INLINE_SUGGESTION_LINES = 4
 BADGE_LABEL_COLOR = "202938"
 SEVERITY_COLORS = {
@@ -31,19 +26,6 @@ RECOMMENDATION_COLORS = {
     "comment": "2563eb",
     "request_changes": "dc2626",
 }
-
-
-def current_run_id():
-    run_id = os.environ.get("GITHUB_RUN_ID")
-    run_attempt = os.environ.get("GITHUB_RUN_ATTEMPT")
-    if run_id and run_attempt:
-        return f"{run_id}.{run_attempt}"
-    if run_id:
-        return run_id
-    head_sha = os.environ.get("GITHUB_HEAD_SHA")
-    if head_sha:
-        return head_sha
-    return "manual"
 
 
 def format_location(finding):
@@ -128,17 +110,6 @@ def summarize_findings(findings):
 def format_markdown(review):
     findings = review.get("findings", [])
     counts = summarize_findings(findings)
-    state_payload = json.dumps(
-        {
-            "run_id": current_run_id(),
-            "summary": review["summary"],
-            "overall_recommendation": review["overall_recommendation"],
-            "overall_score": review["overall_score"],
-            "overall_confidence": review["overall_confidence"],
-        },
-        separators=(",", ":"),
-        sort_keys=True,
-    )
     lines = [
         MARKER,
         "## Codex Review",
@@ -149,75 +120,15 @@ def format_markdown(review):
         f"Findings: {severity_count_badge('critical', counts['critical'])} {severity_count_badge('major', counts['major'])} {severity_count_badge('note', counts['note'])}",
         "",
         review["summary"],
-        "",
-        f"{STATE_MARKER}{state_payload} -->",
     ]
 
     return "\n".join(lines).rstrip() + "\n"
 
 
-def make_inline_comment_key(path, start_line, end_line, title):
-    if not path or start_line is None or end_line is None or not title:
-        return None
-    try:
-        normalized_start_line = int(start_line)
-        normalized_end_line = int(end_line)
-    except (TypeError, ValueError):
-        return None
-    return json.dumps(
-        {
-            "end_line": normalized_end_line,
-            "path": path,
-            "start_line": normalized_start_line,
-            "title": normalize_title(title),
-        },
-        separators=(",", ":"),
-        sort_keys=True,
-    )
-
-
-def inline_comment_key_from_finding(finding):
-    start_line = finding.get("start_line")
-    end_line = finding.get("end_line") if finding.get("end_line") is not None else start_line
-    return make_inline_comment_key(
-        finding.get("path"),
-        start_line,
-        end_line,
-        finding.get("title"),
-    )
-
-
-def inline_state_payload(finding):
-    return {
-        "run_id": current_run_id(),
-        "title": normalize_title(finding["title"]),
-        "severity": finding["severity"],
-        "score": finding["score"],
-        "confidence": finding["confidence"],
-        "path": finding["path"],
-        "start_line": finding["start_line"],
-        "end_line": finding.get("end_line") if finding.get("end_line") is not None else finding["start_line"],
-        "body": finding["body"],
-        "suggestion": finding.get("suggestion"),
-    }
-
-
-def build_inline_comment_body(finding, dismissed=False):
+def build_inline_comment_body(finding):
     suggestion = finding.get("suggestion")
     use_inline_block = is_inline_suggestion_applicable(finding)
-    state_payload = base64.b64encode(
-        json.dumps(
-            inline_state_payload(finding),
-            separators=(",", ":"),
-            sort_keys=True,
-        ).encode("utf-8")
-    ).decode("ascii")
-    checkbox = "x" if dismissed else " "
     lines = [
-        INLINE_MARKER,
-        f"{INLINE_STATE_MARKER}{state_payload} -->",
-        f"- [{checkbox}] dismiss",
-        "",
         f"{severity_badge(finding['severity'])} {score_badge(finding['score'])} {confidence_badge(finding['confidence'])} **{finding['title']}**",
         "",
         f"Location: `{format_location(finding)}`",
@@ -301,68 +212,6 @@ def is_location_comment_applicable(finding):
     )
 
 
-def parse_inline_state_marker(body):
-    for line in body.splitlines():
-        if line.startswith(INLINE_STATE_MARKER) and line.endswith(" -->"):
-            payload = line[len(INLINE_STATE_MARKER):-4]
-            try:
-                decoded_payload = base64.b64decode(payload, validate=True).decode("utf-8")
-                return json.loads(decoded_payload)
-            except (ValueError, UnicodeDecodeError, json.JSONDecodeError):
-                return None
-    return None
-
-
-def extract_inline_title(body):
-    match = re.search(r"^\S.*\*\*(.*?)\*\*$", body, re.MULTILINE)
-    if match:
-        return normalize_title(match.group(1))
-    return None
-
-
-def extract_dismissed(body):
-    for line in body.splitlines():
-        match = re.match(r"^- \[([ xX])\] dismiss\s*$", line.strip())
-        if match:
-            return match.group(1).lower() == "x"
-    return False
-
-
-def inline_comment_key_from_comment(comment):
-    body = comment.get("body", "")
-    metadata = parse_inline_state_marker(body)
-    if metadata is not None:
-        return make_inline_comment_key(
-            metadata.get("path"),
-            metadata.get("start_line"),
-            metadata.get("end_line"),
-            metadata.get("title"),
-        )
-
-    start_line = comment.get("start_line")
-    end_line = comment.get("line")
-    if start_line is None:
-        start_line = comment.get("original_start_line")
-    if end_line is None:
-        end_line = comment.get("original_line")
-    if start_line is None:
-        start_line = end_line
-    if end_line is None:
-        end_line = start_line
-
-    return make_inline_comment_key(
-        comment.get("path"),
-        start_line,
-        end_line,
-        extract_inline_title(body),
-    )
-
-
-def update_review_comment(repository, comment_id, token, body):
-    edit_url = f"https://api.github.com/repos/{repository}/pulls/comments/{comment_id}"
-    github_api_request(edit_url, token, method="PATCH", payload={"body": body})
-
-
 def create_issue_comment(repository, pr_number, token, body):
     comments_url = f"https://api.github.com/repos/{repository}/issues/{pr_number}/comments"
     github_api_request(comments_url, token, method="POST", payload={"body": body})
@@ -370,23 +219,11 @@ def create_issue_comment(repository, pr_number, token, body):
 
 def publish_inline_comments(repository, pr_number, token, commit_id, findings):
     comments_url = f"https://api.github.com/repos/{repository}/pulls/{pr_number}/comments"
-    existing_comments = {}
-    for comment in list_pull_comments(repository, pr_number, token):
-        if INLINE_MARKER not in comment.get("body", ""):
-            continue
-        comment_key = inline_comment_key_from_comment(comment)
-        if comment_key is None:
-            continue
-        existing_comments[comment_key] = comment
-
     count = 0
     for finding in findings:
         if not is_location_comment_applicable(finding):
             continue
-        comment_key = inline_comment_key_from_finding(finding)
-        existing_comment = existing_comments.get(comment_key) if comment_key else None
-        dismissed = extract_dismissed(existing_comment.get("body", "")) if existing_comment else False
-        comment_body = build_inline_comment_body(finding, dismissed=dismissed)
+        comment_body = build_inline_comment_body(finding)
         payload = {
             "body": comment_body,
             "commit_id": commit_id,
@@ -398,11 +235,7 @@ def publish_inline_comments(repository, pr_number, token, commit_id, findings):
             payload["start_line"] = finding["start_line"]
             payload["start_side"] = "RIGHT"
         try:
-            if existing_comment is not None:
-                if existing_comment.get("body", "") != comment_body:
-                    update_review_comment(repository, existing_comment["id"], token, comment_body)
-            else:
-                github_api_request(comments_url, token, method="POST", payload=payload)
+            github_api_request(comments_url, token, method="POST", payload=payload)
             count += 1
         except (urllib.error.HTTPError, urllib.error.URLError) as exc:
             print(

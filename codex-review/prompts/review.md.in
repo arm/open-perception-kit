@@ -45,16 +45,3 @@ Scoring and output requirements:
 - When `suggestion` is present, provide only the replacement code snippet without
   markdown fences or explanation text.
 - Keep `summary` and each finding `body` concise but complete.
-
-Existing review findings may be available on disk at:
-- `@@EXISTING_FINDINGS_FILE@@`
-
-If that file exists, read it directly before you finalize the review. If it
-does not exist, proceed without prior review state.
-
-- Do not report findings that are meaningfully the same as an existing finding
-  with `drop` set to `false`.
-- Findings with `drop` set to `true` were explicitly dismissed by a human.
-- Dismissed findings must not count toward the verdict.
-- Do not resurrect dismissed findings unless the current code introduces a
-  materially different issue that should be treated as a new finding.

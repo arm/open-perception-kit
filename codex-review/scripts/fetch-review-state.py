@@ -7,7 +7,6 @@ import argparse
 import base64
 import json
 import os
-import re
 import sys
 import urllib.error
 import urllib.request
@@ -109,14 +108,6 @@ def extract_inline_metadata(body: str):
     return None
 
 
-def extract_dismissed(body: str):
-    for line in body.splitlines():
-        match = re.match(r"^- \[([ xX])\] dismiss\s*$", line.strip())
-        if match:
-            return match.group(1).lower() == "x"
-    return False
-
-
 def extract_findings(comments, run_id: str):
     findings_by_key = {}
 
@@ -150,7 +141,6 @@ def extract_findings(comments, run_id: str):
             "end_line": metadata.get("end_line"),
             "body": metadata["body"],
             "suggestion": metadata.get("suggestion"),
-            "drop": extract_dismissed(body),
         }
         key = json.dumps(
             {
