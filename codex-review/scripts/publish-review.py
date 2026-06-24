@@ -388,12 +388,24 @@ def publish_inline_comments(repository, pr_number, token, commit_id, findings):
         if finding.get("end_line") is not None and finding["end_line"] != finding["start_line"]:
             payload["start_line"] = finding["start_line"]
             payload["start_side"] = "RIGHT"
-        if existing_comment is not None:
-            if existing_comment.get("body", "") != comment_body:
-                update_review_comment(repository, existing_comment["id"], token, comment_body)
-        else:
-            github_api_request(comments_url, token, method="POST", payload=payload)
-        count += 1
+        try:
+            if existing_comment is not None:
+                if existing_comment.get("body", "") != comment_body:
+                    update_review_comment(repository, existing_comment["id"], token, comment_body)
+            else:
+                github_api_request(comments_url, token, method="POST", payload=payload)
+            count += 1
+        except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+            print(
+                "Skipping Codex inline comment publish/update for "
+                f"{finding['path']}:{finding['start_line']} "
+                f"({finding['title']}): {exc}",
+                file=sys.stderr,
+            )
+            if isinstance(exc, urllib.error.HTTPError):
+                body = exc.read().decode("utf-8", errors="replace")
+                if body:
+                    print(body, file=sys.stderr)
     return count
 
 

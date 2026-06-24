@@ -8,6 +8,7 @@ import json
 import os
 import re
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -24,6 +25,14 @@ EMPTY_STATE = {
     "overall_confidence": 0,
     "findings": [],
 }
+REQUIRED_INLINE_METADATA_FIELDS = (
+    "title",
+    "severity",
+    "score",
+    "confidence",
+    "path",
+    "body",
+)
 
 
 def github_api_request(url: str, token: str) -> str:
@@ -118,6 +127,16 @@ def extract_findings(comments, run_id: str):
             continue
         if metadata.get("run_id") != run_id:
             continue
+        missing_fields = [
+            field for field in REQUIRED_INLINE_METADATA_FIELDS if field not in metadata
+        ]
+        if missing_fields:
+            print(
+                "Ignoring Codex inline comment with incomplete state metadata: "
+                + ", ".join(missing_fields),
+                file=sys.stderr,
+            )
+            continue
 
         finding = {
             "title": metadata["title"],
@@ -162,7 +181,16 @@ def main():
         output_path.write_text(json.dumps(EMPTY_STATE, indent=2), encoding="utf-8")
         return
 
-    issue_comments = list_issue_comments(repository, pr_number, token)
+    try:
+        issue_comments = list_issue_comments(repository, pr_number, token)
+    except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+        print(
+            f"Failed to fetch existing Codex summary comments; proceeding with empty state: {exc}",
+            file=sys.stderr,
+        )
+        output_path.write_text(json.dumps(EMPTY_STATE, indent=2), encoding="utf-8")
+        return
+
     summary_comments = [comment for comment in issue_comments if MARKER in comment.get("body", "")]
     if not summary_comments:
         output_path.write_text(json.dumps(EMPTY_STATE, indent=2), encoding="utf-8")
@@ -175,7 +203,16 @@ def main():
         output_path.write_text(json.dumps(EMPTY_STATE, indent=2), encoding="utf-8")
         return
 
-    pull_comments = list_pull_comments(repository, pr_number, token)
+    try:
+        pull_comments = list_pull_comments(repository, pr_number, token)
+    except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+        print(
+            f"Failed to fetch existing Codex inline comments; proceeding without prior findings: {exc}",
+            file=sys.stderr,
+        )
+        output_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
+        return
+
     state["findings"] = extract_findings(pull_comments, run_id)
     output_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
 
