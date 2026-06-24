@@ -41,7 +41,7 @@ Scoring and output requirements:
 - Use repo-relative file paths.
 - Set `start_line` and `end_line` when the issue maps to a changed location.
 - Set `suggestion` to `null` unless you can provide a small concrete code change that is directly applicable as a GitHub suggestion at the reported location.
-- Use `suggestion` only for replacements that touch at most 4 lines. For larger
+- Use `suggestion` only for replacements that touch at most 10 lines. For larger
   changes, describe the fix in `body` and leave `suggestion` as `null`.
 - When `suggestion` is present, provide only the replacement code snippet without
   markdown fences or explanation text.
