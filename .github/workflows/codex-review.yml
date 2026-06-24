@@ -35,7 +35,7 @@ jobs:
       - name: Render Codex review prompt
         shell: bash
         env:
-REVIEW_BASE_REF: ${{ github.event.inputs.base_ref || (github.base_ref && format('origin/{0}', github.base_ref)) || 'origin/main' }}
+          REVIEW_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_ref || format('origin/{0}', github.base_ref) }}
           REVIEW_HEAD_REF: ${{ github.event.pull_request.head.sha || github.sha }}
           REVIEW_REPOSITORY: ${{ github.repository }}
           REVIEW_PR_NUMBER: ${{ github.event.pull_request.number || '' }}
