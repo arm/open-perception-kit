@@ -7,6 +7,12 @@ option('executorch',
   description : 'Enable ExecuTorch integration'
 )
 
+option('ncnn',
+  type : 'feature',
+  value : 'auto',
+  description : 'Enable NCNN integration (ops-ncnn)'
+)
+
 option('hailort',
   type : 'feature',
   value : 'auto',

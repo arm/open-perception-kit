@@ -8,8 +8,8 @@ set -euo pipefail
 # ---------- helpers ----------
 log() { echo -e "[setup.sh] $*"; }
 die() {
-        echo -e "[setup.sh] ERROR: $*" >&2
-                                                         exit 1
+    echo -e "[setup.sh] ERROR: $*" >&2
+    exit 1
 }
 
 trap 'die "failed at line $LINENO"' ERR

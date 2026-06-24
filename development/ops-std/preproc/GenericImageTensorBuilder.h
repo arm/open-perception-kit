@@ -20,7 +20,7 @@ struct GenericImageTensorBuilder : public pek::TensorBuilder {
      * @param setup Source and destination image layout descriptors used for conversion.
      * @return Success on supported conversion; error when kind/type combination is unsupported.
      */
-    virtual pek::Result<void> build(const TensorBuilder::Setup &setup) override;
+    pek::Result<void> build(const TensorBuilder::Setup &setup) override;
 };
 
 } // namespace pek::stdop::preproc

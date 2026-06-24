@@ -43,18 +43,16 @@ struct TimingMeasurement {
 
 struct TimingStats {
     std::string key;
-    size_t count;
-    std::chrono::nanoseconds total;
-    std::chrono::nanoseconds min;
-    std::chrono::nanoseconds max;
-    std::chrono::nanoseconds avg;
-    std::chrono::nanoseconds p50;
-    std::chrono::nanoseconds p95;
-    std::chrono::nanoseconds p99;
+    size_t count = 0;
+    std::chrono::nanoseconds total{0};
+    std::chrono::nanoseconds min{std::chrono::nanoseconds::max()};
+    std::chrono::nanoseconds max{0};
+    std::chrono::nanoseconds avg{0};
+    std::chrono::nanoseconds p50{0};
+    std::chrono::nanoseconds p95{0};
+    std::chrono::nanoseconds p99{0};
 
-    TimingStats()
-        : count(0), total(0), min(std::chrono::nanoseconds::max()), max(0), avg(0), p50(0), p95(0),
-          p99(0) {}
+    TimingStats() = default;
 
     double avg_ms() const {
         return std::chrono::duration<double, std::milli>(avg).count();
@@ -239,9 +237,9 @@ class PerformanceTracer {
     std::map<std::string, TimingStats> stats_cache_;
 
     // Configuration
-    size_t cycle_count_;
-    bool auto_calculate_stats_;
-    size_t max_measurements_per_key_;
+    size_t cycle_count_ = 0;
+    bool auto_calculate_stats_ = true;
+    size_t max_measurements_per_key_ = 1000;
 
     // Callbacks
     mutable std::mutex callback_mutex_;
@@ -307,9 +305,9 @@ class PerformanceMonitor {
 
   private:
     PerformanceTracer *tracer_;
-    DisplayMode display_mode_;
+    DisplayMode display_mode_ = DisplayMode::DETAILED;
     std::vector<std::string> monitored_keys_;
-    std::chrono::milliseconds refresh_interval_;
+    std::chrono::milliseconds refresh_interval_{1000};
 
     std::string formatCompact() const;
     std::string formatDetailed() const;

@@ -3,11 +3,17 @@
 ################################################################
 
 import logging
+import os
 import sys
 
 
 def setup_expkits_logger(verbose=False, log_output="stdout", log_file="expkits_ci.log"):
     """Set up the logger based on the provided configuration."""
+    if log_output in ("file", "both") and os.path.exists(log_file):
+        raise FileExistsError(
+            f"Log file already exists: {log_file}. "
+            "Remove it or choose a different --log-file path.")
+
     logger = logging.getLogger("expkits_ci")
     logger.handlers = []
     logger.propagate = False

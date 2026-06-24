@@ -1,7 +1,9 @@
 ################################################################
 # Copyright (C) 2025 Arm Limited. All rights reserved.
 ################################################################
+import sys
+
 from . import main
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

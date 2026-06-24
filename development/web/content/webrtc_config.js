@@ -8,3 +8,11 @@ export function resolveWebRtcTimingConfig(pekConfig = {}) {
         backoffFactor: webrtcConfig.backoffFactor ?? 1.1,
     };
 }
+
+export function resolveWebRtcIceConfig(pekConfig = {}) {
+    const webrtcConfig = pekConfig.webrtc || {};
+
+    return {
+        iceServers: webrtcConfig.iceServers ?? [{urls: 'stun:stun.l.google.com:19302'}],
+    };
+}

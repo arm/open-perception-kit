@@ -23,7 +23,7 @@ struct Bitmap {
     enum class Type { Uint8, Uint32 };
 
     /** @brief Constructs an empty bitmap. */
-    Bitmap() {}
+    Bitmap() = default;
 
     /**
      * @brief Constructs and allocates a bitmap of the given type and dimensions.

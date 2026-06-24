@@ -26,6 +26,7 @@
 #include "postproc/ScrfdParser.h"
 #include "postproc/UltrafaceParser.h"
 #include "postproc/YoloParser.h"
+#include "postproc/YoloXParser.h"
 // ... add new parser headers here
 
 using namespace pek::stdop;
@@ -53,6 +54,7 @@ const std::map<std::string, ParserCreator> &getParserRegistry() {
         {"RvmParser", make<pek::stdop::postproc::RvmParser>()},
         {"ScrfdParser", make<pek::stdop::postproc::ScrfdParser>()},
         {"UltrafaceParser", make<pek::stdop::postproc::UltraFaceParser>()},
+        {"YoloXParser", make<pek::stdop::postproc::YoloXParser>()},
         {"YoloParser", make<pek::stdop::postproc::YoloParser>()},
         // ... add new parsers here
     };
@@ -61,8 +63,8 @@ const std::map<std::string, ParserCreator> &getParserRegistry() {
 
 } // namespace
 
-GenericPostprocessOp::GenericPostprocessOp() {}
-GenericPostprocessOp::~GenericPostprocessOp() {}
+GenericPostprocessOp::GenericPostprocessOp() = default;
+GenericPostprocessOp::~GenericPostprocessOp() = default;
 
 pek::Result<void> GenericPostprocessOp::bind(size_t index, const std::vector<pek::op::Op *> &ops) {
     return {};

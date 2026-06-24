@@ -13,6 +13,12 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 - Runs the actual checks
 
+## What does `.github/workflows/workflow-audit.yml` do?
+
+- Runs a minimal dependency freshness report for external GitHub Actions used by repository workflows
+- Compares the current `uses:` refs against the latest GitHub release/tag for each action repository
+- Publishes one simple Markdown report and a lightweight JSON snapshot in the `workflow-dependency-freshness` artifact
+
 ## Operational Notes
 
 - Self-hosted runner workspace isolation and the `/work` ownership hazard are

@@ -57,6 +57,7 @@ Thumbs.db
 # -------------------------
 # Devcontainer / Docker
 # -------------------------
+.env
 devices.env
 .devcontainer/.env
 .devcontainer/devices.env
@@ -116,3 +117,6 @@ coverage.xml
 # Valgrind logs (might not only be files with .log extension, so the whole directory is ignored)
 # -------------------------
 scripts/testing/valgrind/logs
+
+# Example build outputs
+examples/bin/

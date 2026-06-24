@@ -19,13 +19,12 @@ class InferenceOp : public pek::op::Op, public pek::op::OpInterfaceInference {
     InferenceOp();
     virtual ~InferenceOp();
 
-    virtual const pek::Model &getModel() const override;
-    virtual uint8_t *getTensorDataAddress(size_t index) const override;
+    const pek::Model &getModel() const override;
+    uint8_t *getTensorDataAddress(size_t index) const override;
 
-    virtual pek::Result<void> bind(size_t index, const std::vector<pek::op::Op *> &ops) override;
-    virtual pek::Result<void> configure(const pek::AttributeMap &attributes) override;
-    virtual pek::Result<pek::op::OpSignal>
-    process(pek::op::OpChainContext &opChainContext) override;
+    pek::Result<void> bind(size_t index, const std::vector<pek::op::Op *> &ops) override;
+    pek::Result<void> configure(const pek::AttributeMap &attributes) override;
+    pek::Result<pek::op::OpSignal> process(pek::op::OpChainContext &opChainContext) override;
 
   private:
     std::unique_ptr<pek::hailo::Inference> inference;
