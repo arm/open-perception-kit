@@ -212,9 +212,26 @@ def is_location_comment_applicable(finding):
     )
 
 
-def create_issue_comment(repository, pr_number, token, body):
-    comments_url = f"https://api.github.com/repos/{repository}/issues/{pr_number}/comments"
-    github_api_request(comments_url, token, method="POST", payload={"body": body})
+def review_event(recommendation):
+    mapping = {
+        "approve": "APPROVE",
+        "comment": "APPROVE",
+        "request_changes": "REQUEST_CHANGES",
+    }
+    return mapping.get(recommendation, "COMMENT")
+
+
+def create_pull_review(repository, pr_number, token, body, recommendation):
+    reviews_url = f"https://api.github.com/repos/{repository}/pulls/{pr_number}/reviews"
+    github_api_request(
+        reviews_url,
+        token,
+        method="POST",
+        payload={
+            "body": body,
+            "event": review_event(recommendation),
+        },
+    )
 
 
 def publish_inline_comments(repository, pr_number, token, commit_id, findings):
@@ -279,7 +296,7 @@ def main():
     parser.add_argument(
         "--publish-pr-comment",
         action="store_true",
-        help="Publish a pull request summary comment and inline comments using GitHub env vars.",
+        help="Publish a pull request review body and inline comments using GitHub env vars.",
     )
     args = parser.parse_args()
 
@@ -303,7 +320,13 @@ def main():
         sys.exit(1)
 
     try:
-        create_issue_comment(repository, pr_number, token, markdown)
+        create_pull_review(
+            repository,
+            pr_number,
+            token,
+            markdown,
+            review.get("overall_recommendation", "comment"),
+        )
         if head_sha:
             publish_inline_comments(
                 repository,
@@ -313,7 +336,7 @@ def main():
                 review.get("findings", []),
             )
     except urllib.error.HTTPError as exc:
-        print(f"Failed to publish Codex review comment: {exc}", file=sys.stderr)
+        print(f"Failed to publish Codex review: {exc}", file=sys.stderr)
         body = exc.read().decode("utf-8", errors="replace")
         if body:
             print(body, file=sys.stderr)
