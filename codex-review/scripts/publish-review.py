@@ -4,6 +4,7 @@
 ################################################################
 
 import argparse
+import base64
 import json
 import os
 import re
@@ -204,11 +205,13 @@ def inline_state_payload(finding):
 def build_inline_comment_body(finding, dismissed=False):
     suggestion = finding.get("suggestion")
     use_inline_block = is_inline_suggestion_applicable(finding)
-    state_payload = json.dumps(
-        inline_state_payload(finding),
-        separators=(",", ":"),
-        sort_keys=True,
-    )
+    state_payload = base64.b64encode(
+        json.dumps(
+            inline_state_payload(finding),
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+    ).decode("ascii")
     checkbox = "x" if dismissed else " "
     lines = [
         INLINE_MARKER,

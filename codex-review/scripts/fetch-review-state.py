@@ -4,6 +4,7 @@
 ################################################################
 
 import argparse
+import base64
 import json
 import os
 import re
@@ -98,8 +99,9 @@ def extract_inline_metadata(body: str):
         if line.startswith(INLINE_STATE_MARKER) and line.endswith(" -->"):
             payload = line[len(INLINE_STATE_MARKER):-4].strip()
             try:
-                return json.loads(payload)
-            except json.JSONDecodeError:
+                decoded_payload = base64.b64decode(payload, validate=True).decode("utf-8")
+                return json.loads(decoded_payload)
+            except (ValueError, UnicodeDecodeError, json.JSONDecodeError):
                 print(
                     "Ignoring malformed Codex inline state marker JSON.",
                     file=sys.stderr,
