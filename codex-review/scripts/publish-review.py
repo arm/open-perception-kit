@@ -174,7 +174,7 @@ def is_inline_suggestion_applicable(finding):
 
     effective_end_line = end_line if end_line is not None else start_line
     touched_lines = (effective_end_line - start_line) + 1
-    suggestion_lines = len(suggestion.rstrip("\n").splitlines()) if suggestion else 0
+    suggestion_lines = len(suggestion.rstrip("\n").splitlines())
 
     return bool(
         touched_lines <= MAX_INLINE_SUGGESTION_LINES
