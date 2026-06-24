@@ -16,6 +16,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 ## What does `.github/workflows/codex-review.yml` do?
 
 - Uses `openai/codex-action` directly to run a Codex review on PR open, reopen, synchronize, and ready-for-review events
+- Supports `workflow_dispatch` manual runs with a configurable `base_ref` input for the diff baseline
 - Requires `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` and the workflow `GITHUB_TOKEN`
 - Uses the checked-in review assets under `codex-review/`
 - Keeps prompt templates in `codex-review/prompts/`

@@ -4,6 +4,12 @@ on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
   workflow_dispatch:
+    inputs:
+      base_ref:
+        description: Branch or ref to diff against for manual runs
+        required: false
+        default: origin/main
+        type: string
 
 permissions:
   contents: read
@@ -30,7 +36,7 @@ jobs:
       - name: Render Codex review prompt
         shell: bash
         env:
-          REVIEW_BASE_REF: origin/${{ github.base_ref || github.ref_name }}
+          REVIEW_BASE_REF: ${{ github.event.inputs.base_ref || format('origin/{0}', github.base_ref) || 'origin/main' }}
           REVIEW_HEAD_REF: ${{ github.event.pull_request.head.sha || github.sha }}
           REVIEW_REPOSITORY: ${{ github.repository }}
           REVIEW_PR_NUMBER: ${{ github.event.pull_request.number || '' }}
