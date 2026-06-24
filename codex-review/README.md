@@ -8,6 +8,10 @@ publishes:
 - one fresh summary comment per run
 - fresh inline review comments for the current findings
 
+The workflow-scoped npm mirror config for `openai/codex-action` lives in
+`codex-review/.npmrc`, so normal repo-root npm usage is not forced onto the
+internal registry.
+
 Structure:
 
 - `prompts/`: checked-in review prompt templates
