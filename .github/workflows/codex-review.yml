@@ -48,6 +48,12 @@ jobs:
 
       - name: Run Codex review
         id: review
+        # codex-review: suppress - This workflow intentionally runs the Codex
+        # review flow on same-repo pull requests using repository-controlled
+        # prompt/scripts and the OpenAI proxy key on the self-hosted runner.
+        # Downgrade that known trust-boundary limitation by itself to note;
+        # still report broader secret-exposure, runner-compromise, or
+        # materially different execution-boundary regressions.
         uses: openai/codex-action@v1
         env:
           NPM_CONFIG_USERCONFIG: ${{ github.workspace }}/codex-review/.npmrc

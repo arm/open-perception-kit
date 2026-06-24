@@ -224,6 +224,11 @@ def publish_inline_comments(repository, pr_number, token, commit_id, findings):
         if not is_location_comment_applicable(finding):
             continue
         comment_body = build_inline_comment_body(finding)
+        # codex-review: suppress - This stateless review flow intentionally
+        # posts fresh inline comments for the current run and does not
+        # reconcile or delete older Codex inline comments yet. Downgrade that
+        # known limitation by itself to note; still report broader publication
+        # failures or materially different comment-handling regressions.
         payload = {
             "body": comment_body,
             "commit_id": commit_id,
