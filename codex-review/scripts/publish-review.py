@@ -158,11 +158,16 @@ def format_markdown(review):
 def make_inline_comment_key(path, start_line, end_line, title):
     if not path or start_line is None or end_line is None or not title:
         return None
+    try:
+        normalized_start_line = int(start_line)
+        normalized_end_line = int(end_line)
+    except (TypeError, ValueError):
+        return None
     return json.dumps(
         {
-            "end_line": int(end_line),
+            "end_line": normalized_end_line,
             "path": path,
-            "start_line": int(start_line),
+            "start_line": normalized_start_line,
             "title": normalize_title(title),
         },
         separators=(",", ":"),
