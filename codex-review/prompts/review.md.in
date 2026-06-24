@@ -39,7 +39,10 @@ Scoring and output requirements:
 - `overall_recommendation` must be one of `approve`, `comment`, or  `request_changes`.
 - Use `request_changes` when any finding is major or critical enough to block  merge safely.
 - Use repo-relative file paths.
-- Set `start_line` and `end_line` when the issue maps to a changed location.
+- Set `start_line`, `end_line`, and `diff_side` when the issue maps to a changed location.
+- Set `diff_side` to `RIGHT` when the finding refers to lines present in the new/current version of the diff.
+- Set `diff_side` to `LEFT` when the finding refers to deleted or removed old-side content in the diff.
+- Set `diff_side` to `null` when the finding does not map cleanly to one diff side.
 - Set `suggestion` to `null` unless you can provide a small concrete code change that is directly applicable as a GitHub suggestion at the reported location.
 - Use `suggestion` only for replacements that touch at most 10 lines. For larger
   changes, describe the fix in `body` and leave `suggestion` as `null`.
@@ -47,5 +50,5 @@ Scoring and output requirements:
   markdown fences or explanation text.
 - Keep `summary` and each finding `body` concise but complete.
 - Be generous in reporting distinct supported findings; under-reporting is worse than returning a longer but still concrete finding list.
-- Honor checked-in suppression markers of the form `codex-review: suppress - <reason>` when they are placed directly above or beside the relevant code or config.
-- When such a marker is present and the finding is otherwise valid, downgrade that exact issue to `note` instead of escalating it, but still report broader regressions, trust-boundary problems, or materially different risks around it at their supported severity.
+- Honor checked-in suppression markers of the form `<codex-review:suppress> <reason>` for local cases and `<codex-review:suppress-begin> <reason>` ... `<codex-review:suppress-end>` for multi-line blocks.
+- When a finding falls entirely within such a marked line or block and is otherwise valid, downgrade that exact issue to `note` instead of escalating it, but still report broader regressions, trust-boundary problems, or materially different risks around it at their supported severity.

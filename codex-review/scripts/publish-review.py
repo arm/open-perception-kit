@@ -32,11 +32,13 @@ def format_location(finding):
     start_line = finding.get("start_line")
     end_line = finding.get("end_line")
     path = finding["path"]
+    diff_side = finding.get("diff_side")
+    side_suffix = f" ({diff_side})" if diff_side in {"LEFT", "RIGHT"} else ""
     if start_line is None:
-        return path
+        return f"{path}{side_suffix}"
     if end_line is None or end_line == start_line:
-        return f"{path}:L{start_line}"
-    return f"{path}:L{start_line}-L{end_line}"
+        return f"{path}:L{start_line}{side_suffix}"
+    return f"{path}:L{start_line}-L{end_line}{side_suffix}"
 
 
 def normalize_title(title):
@@ -184,6 +186,13 @@ def list_pull_comments(repository, pr_number, token):
     return list_paginated_items(comments_url, token)
 
 
+def review_diff_side(finding):
+    diff_side = finding.get("diff_side")
+    if diff_side in {"LEFT", "RIGHT"}:
+        return diff_side
+    return "RIGHT"
+
+
 def is_inline_suggestion_applicable(finding):
     suggestion = finding.get("suggestion")
     start_line = finding.get("start_line")
@@ -192,6 +201,7 @@ def is_inline_suggestion_applicable(finding):
         suggestion
         and finding.get("path")
         and start_line is not None
+        and review_diff_side(finding) == "RIGHT"
     ):
         return False
 
@@ -209,6 +219,7 @@ def is_location_comment_applicable(finding):
     return bool(
         finding.get("path")
         and finding.get("start_line") is not None
+        and finding.get("diff_side") in {"LEFT", "RIGHT"}
     )
 
 
@@ -252,11 +263,11 @@ def publish_inline_comments(repository, pr_number, token, commit_id, findings):
             "commit_id": commit_id,
             "path": finding["path"],
             "line": finding["end_line"] if finding.get("end_line") is not None else finding["start_line"],
-            "side": "RIGHT",
+            "side": review_diff_side(finding),
         }
         if finding.get("end_line") is not None and finding["end_line"] != finding["start_line"]:
             payload["start_line"] = finding["start_line"]
-            payload["start_side"] = "RIGHT"
+            payload["start_side"] = review_diff_side(finding)
         try:
             github_api_request(comments_url, token, method="POST", payload=payload)
             count += 1
