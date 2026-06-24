@@ -64,7 +64,7 @@ def extract_findings(body: str):
     current_checked = None
 
     for line in body.splitlines():
-        checkbox_match = re.match(r"^- \[[ xX]\] ", line)
+        checkbox_match = re.match(r"^- \[([ xX])\] ", line)
         if checkbox_match:
             current_checked = checkbox_match.group(1).lower() == "x"
             continue
