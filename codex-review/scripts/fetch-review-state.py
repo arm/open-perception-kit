@@ -5,15 +5,16 @@
 
 import argparse
 import json
-import re
 import os
+import re
 import urllib.request
 from pathlib import Path
 
 
 MARKER = "<!-- codex-review-comment -->"
+INLINE_MARKER = "<!-- codex-review-inline -->"
+INLINE_STATE_MARKER = "<!-- codex-review-inline-state "
 STATE_MARKER = "<!-- codex-review-state "
-FINDING_MARKER = "<!-- codex-review-finding "
 
 EMPTY_STATE = {
     "summary": "",
@@ -38,17 +39,34 @@ def github_api_request(url: str, token: str) -> str:
         return response.read().decode("utf-8")
 
 
-def list_issue_comments(repository: str, pr_number: str, token: str):
-    comments = []
+def list_paginated_items(url: str, token: str):
+    items = []
     page = 1
+    separator = "&" if "?" in url else "?"
     while True:
-        url = f"https://api.github.com/repos/{repository}/issues/{pr_number}/comments?per_page=100&page={page}"
-        batch = json.loads(github_api_request(url, token))
-        comments.extend(batch)
+        page_url = f"{url}{separator}per_page=100&page={page}"
+        batch = json.loads(github_api_request(page_url, token))
+        if not batch:
+            break
+        items.extend(batch)
         if len(batch) < 100:
             break
         page += 1
-    return comments
+    return items
+
+
+def list_issue_comments(repository: str, pr_number: str, token: str):
+    return list_paginated_items(
+        f"https://api.github.com/repos/{repository}/issues/{pr_number}/comments",
+        token,
+    )
+
+
+def list_pull_comments(repository: str, pr_number: str, token: str):
+    return list_paginated_items(
+        f"https://api.github.com/repos/{repository}/pulls/{pr_number}/comments",
+        token,
+    )
 
 
 def extract_state_metadata(body: str):
@@ -59,23 +77,60 @@ def extract_state_metadata(body: str):
     return dict(EMPTY_STATE)
 
 
-def extract_findings(body: str):
-    findings = []
-    current_checked = None
-
+def extract_inline_metadata(body: str):
     for line in body.splitlines():
-        checkbox_match = re.match(r"^- \[([ xX])\] ", line)
-        if checkbox_match:
-            current_checked = checkbox_match.group(1).lower() == "x"
-            continue
-        if line.startswith(FINDING_MARKER) and line.endswith(" -->"):
-            payload = line[len(FINDING_MARKER):-4].strip()
-            finding = json.loads(payload)
-            finding["drop"] = bool(current_checked)
-            findings.append(finding)
-            current_checked = None
+        if line.startswith(INLINE_STATE_MARKER) and line.endswith(" -->"):
+            payload = line[len(INLINE_STATE_MARKER):-4].strip()
+            return json.loads(payload)
+    return None
 
-    return findings
+
+def extract_dismissed(body: str):
+    for line in body.splitlines():
+        match = re.match(r"^- \[([ xX])\] dismiss\s*$", line.strip())
+        if match:
+            return match.group(1).lower() == "x"
+    return False
+
+
+def extract_findings(comments, run_id: str):
+    findings_by_key = {}
+
+    for comment in comments:
+        body = comment.get("body", "")
+        if INLINE_MARKER not in body:
+            continue
+        metadata = extract_inline_metadata(body)
+        if metadata is None:
+            continue
+        if metadata.get("run_id") != run_id:
+            continue
+
+        finding = {
+            "title": metadata["title"],
+            "severity": metadata["severity"],
+            "score": metadata["score"],
+            "confidence": metadata["confidence"],
+            "path": metadata["path"],
+            "start_line": metadata.get("start_line"),
+            "end_line": metadata.get("end_line"),
+            "body": metadata["body"],
+            "suggestion": metadata.get("suggestion"),
+            "drop": extract_dismissed(body),
+        }
+        key = json.dumps(
+            {
+                "path": finding["path"],
+                "start_line": finding["start_line"],
+                "end_line": finding["end_line"],
+                "title": finding["title"],
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        findings_by_key[key] = finding
+
+    return list(findings_by_key.values())
 
 
 def main():
@@ -94,16 +149,21 @@ def main():
         output_path.write_text(json.dumps(EMPTY_STATE, indent=2), encoding="utf-8")
         return
 
-    comments = list_issue_comments(repository, pr_number, token)
-    target_comment = next((comment for comment in comments if MARKER in comment.get("body", "")), None)
-
-    if target_comment is None:
+    issue_comments = list_issue_comments(repository, pr_number, token)
+    summary_comments = [comment for comment in issue_comments if MARKER in comment.get("body", "")]
+    if not summary_comments:
         output_path.write_text(json.dumps(EMPTY_STATE, indent=2), encoding="utf-8")
         return
 
-    body = target_comment.get("body", "")
-    state = extract_state_metadata(body)
-    state["findings"] = extract_findings(body)
+    target_comment = summary_comments[-1]
+    state = extract_state_metadata(target_comment.get("body", ""))
+    run_id = state.get("run_id")
+    if not run_id:
+        output_path.write_text(json.dumps(EMPTY_STATE, indent=2), encoding="utf-8")
+        return
+
+    pull_comments = list_pull_comments(repository, pr_number, token)
+    state["findings"] = extract_findings(pull_comments, run_id)
     output_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
 
 

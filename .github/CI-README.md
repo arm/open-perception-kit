@@ -21,8 +21,11 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Keeps prompt templates in `codex-review/prompts/`
 - Keeps schemas in `codex-review/schemas/`
 - Keeps shared scripts in `codex-review/scripts/`
-- Uploads `codex-review-out` artifacts, including the rendered prompt, raw JSON output, and summary markdown
-- Publishes one upserted PR summary comment from the structured review output
+- Fetches the latest prior Codex review state before each run and passes it to the prompt as an optional on-disk JSON file
+- Uploads `codex-review-out` artifacts, including the fetched prior state, rendered prompt, raw JSON output, and summary markdown
+- Publishes a fresh PR summary comment for each run from the structured review output
+- Reuses matching Codex inline review comments on reruns by updating them in place instead of reposting duplicates
+- Stores the per-finding Codex state on inline comments, including a `dismiss` checkbox that contributors can toggle in the GitHub UI
 
 ## What does `.github/workflows/workflow-audit.yml` do?
 
@@ -42,5 +45,5 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - **init-workspace:** Prepares the workspace and environment.
 - **build-changed-applications:** Builds only the applications changed in a PR.
 - **build-all-applications:** Builds all applications (nightly or manual trigger).
-- **Codex review:** A separate workflow runs codex review, uploads the generated artifacts for the PR, and publishes the summary plus inline review comments back to GitHub.
+- **Codex review:** A separate workflow runs codex review, uploads the generated artifacts for the PR, posts a fresh summary comment for each run, and reconciles Codex inline review comments back to GitHub.
 - **Ruleset sync:** A separate workflow applies the checked-in repository ruleset drafts to GitHub after they are merged to `main`.
