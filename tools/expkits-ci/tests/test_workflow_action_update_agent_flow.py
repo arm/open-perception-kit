@@ -184,7 +184,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("sleep 60", action_text)
         self.assertIn("sleep 120", action_text)
 
-    def test_codex_review_workflow_uses_proxy_only_auth(self):
+    def test_codex_review_workflow_prefers_direct_openai_key_with_proxy_fallback(self):
         workflow_text = CODEX_REVIEW_WORKFLOW_FILE.read_text(encoding="utf-8")
 
         self.assertNotIn("Resolve Codex review credentials", workflow_text)
@@ -193,9 +193,12 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("runs-on: ubuntu-latest", workflow_text)
         self.assertIn("safety-strategy: unsafe", workflow_text)
         self.assertIn("./.github/actions/openai-codex-run", workflow_text)
-        self.assertIn("openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}", workflow_text)
         self.assertIn(
-            "responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses",
+            "openai-api-key: ${{ secrets.OPENAI_API_KEY || secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
+            workflow_text,
+        )
+        self.assertIn(
+            "responses-api-endpoint: ${{ secrets.OPENAI_API_KEY && '' || 'https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses' }}",
             workflow_text,
         )
 
