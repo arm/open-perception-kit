@@ -53,8 +53,7 @@ jobs:
         with:
           openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
           responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses
-          model: gpt-5.4
-          effort: xhigh
+          model: gpt-5.5
           sandbox: danger-full-access
           safety-strategy: unsafe
           prompt-file: codex-review/out/review.prompt.md
