@@ -7,6 +7,8 @@ publishes:
 
 - one fresh summary comment per run
 - fresh inline review comments for the current findings
+- structured hidden state markers in the published comments, so other automation
+  can safely consume the latest Codex review result for the current PR head
 
 The workflow-scoped npm mirror config for `openai/codex-action` lives in
 `codex-review/.npmrc`, so normal repo-root npm usage is not forced onto the

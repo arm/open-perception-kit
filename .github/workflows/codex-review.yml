@@ -22,7 +22,7 @@ concurrency:
 jobs:
   review:
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout pull request head
@@ -45,13 +45,11 @@ jobs:
           mkdir -p codex-review/out
           ./codex-review/scripts/render-prompt.sh codex-review/out/review.prompt.md
 
-      # <codex-review:suppress-begin> Intentional current self-hosted Codex
-      # review trust boundary for same-repo pull requests.
+      # <codex-review:suppress-begin> Intentional current Codex review trust
+      # boundary for same-repo pull requests.
       - name: Run Codex review
         id: review
-        uses: openai/codex-action@v1
-        env:
-          NPM_CONFIG_USERCONFIG: ${{ github.workspace }}/codex-review/.npmrc
+        uses: ./.github/actions/openai-codex-run
         with:
           openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
           responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses

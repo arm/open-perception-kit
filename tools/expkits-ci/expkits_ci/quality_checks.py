@@ -248,7 +248,7 @@ class QualityChecks:
                 logger.error(
                     "Commit message must have at least two lines: a description and a reference to a JIRA ticket.")
                 logger.info("Example:")
-                logger.info("  Add new feature for X\n  Task: EXPKITS-1234")
+                logger.info("  Add new feature for X\n  Task: EXPKITS-4242")
                 logger.info(
                     "The current commit message is:\n"
                     + QualityChecks.render_commit_message_for_log(commit_msg, filtered_lines))
@@ -263,7 +263,7 @@ class QualityChecks:
             logger.error(
                 "Commit message must have at least two lines: a description and a reference to a JIRA ticket.")
             logger.info("Example:")
-            logger.info("  Add new feature for X\n  Task: EXPKITS-1234")
+            logger.info("  Add new feature for X\n  Task: EXPKITS-4242")
             logger.info(
                 "The current commit message is:\n"
                 + QualityChecks.render_commit_message_for_log(commit_msg, filtered_lines))
@@ -370,7 +370,7 @@ class QualityChecks:
                         f"[{sha}] Commit message must have at least two lines: "
                         "a description and a reference to a JIRA ticket.")
                     logger.error("Example:")
-                    logger.error("  Add new feature for X\n  Task: EXPKITS-1234")
+                    logger.error("  Add new feature for X\n  Task: EXPKITS-4242")
                     logger.error(
                         "The current commit message is:\n"
                         + QualityChecks.render_commit_message_for_log(commit.message, filtered_lines))
@@ -385,7 +385,7 @@ class QualityChecks:
                     f"[{sha}] Commit message must have at least two lines: "
                     "a description and a reference to a JIRA ticket.")
                 logger.error("Example:")
-                logger.error("  Add new feature for X\n  Task: EXPKITS-1234")
+                logger.error("  Add new feature for X\n  Task: EXPKITS-4242")
                 logger.error(
                     "The current commit message is:\n"
                     + QualityChecks.render_commit_message_for_log(commit.message, filtered_lines))

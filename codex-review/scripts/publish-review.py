@@ -4,6 +4,7 @@
 ################################################################
 
 import argparse
+import base64
 import json
 import os
 import sys
@@ -14,6 +15,9 @@ from pathlib import Path
 
 
 MARKER = "<!-- codex-review-comment -->"
+STATE_MARKER = "<!-- codex-review-state "
+INLINE_MARKER = "<!-- codex-review-inline -->"
+INLINE_STATE_MARKER = "<!-- codex-review-inline-state "
 MAX_INLINE_SUGGESTION_LINES = 10
 BADGE_LABEL_COLOR = "202938"
 SEVERITY_COLORS = {
@@ -109,11 +113,57 @@ def summarize_findings(findings):
     return counts
 
 
-def format_markdown(review):
+def review_state_metadata(review, run_id, head_sha):
+    metadata = {
+        "summary": review["summary"],
+        "overall_recommendation": review["overall_recommendation"],
+        "overall_score": review["overall_score"],
+        "overall_confidence": review["overall_confidence"],
+        "findings": [],
+    }
+    if run_id:
+        metadata["run_id"] = run_id
+    if head_sha:
+        metadata["head_sha"] = head_sha
+    return metadata
+
+
+def review_state_marker(payload, marker):
+    return f"{marker}{json.dumps(payload, separators=(',', ':'), sort_keys=True)} -->"
+
+
+def inline_state_marker(payload):
+    encoded_payload = base64.b64encode(
+        json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    ).decode("ascii")
+    return f"{INLINE_STATE_MARKER}{encoded_payload} -->"
+
+
+def inline_state_metadata(finding, run_id):
+    metadata = {
+        "run_id": run_id,
+        "title": finding["title"],
+        "severity": finding["severity"],
+        "score": finding["score"],
+        "confidence": finding["confidence"],
+        "path": finding["path"],
+        "body": finding["body"],
+    }
+    if "start_line" in finding:
+        metadata["start_line"] = finding.get("start_line")
+    if "end_line" in finding:
+        metadata["end_line"] = finding.get("end_line")
+    if "suggestion" in finding:
+        metadata["suggestion"] = finding.get("suggestion")
+    return metadata
+
+
+def format_markdown(review, *, run_id="", head_sha=""):
     findings = review.get("findings", [])
     counts = summarize_findings(findings)
     lines = [
         MARKER,
+        review_state_marker(review_state_metadata(review, run_id, head_sha), STATE_MARKER),
         "## Codex Review",
         "",
         recommendation_badge(review["overall_recommendation"]),
@@ -127,10 +177,12 @@ def format_markdown(review):
     return "\n".join(lines).rstrip() + "\n"
 
 
-def build_inline_comment_body(finding):
+def build_inline_comment_body(finding, *, run_id):
     suggestion = finding.get("suggestion")
     use_inline_block = is_inline_suggestion_applicable(finding)
     lines = [
+        INLINE_MARKER,
+        inline_state_marker(inline_state_metadata(finding, run_id)),
         f"{severity_badge(finding['severity'])} {score_badge(finding['score'])} {confidence_badge(finding['confidence'])} **{finding['title']}**",
         "",
         f"Location: `{format_location(finding)}`",
@@ -250,11 +302,12 @@ def create_pull_review(repository, pr_number, token, body, recommendation):
 
 def publish_inline_comments(repository, pr_number, token, commit_id, findings):
     comments_url = f"https://api.github.com/repos/{repository}/pulls/{pr_number}/comments"
+    run_id = os.environ.get("GITHUB_RUN_ID", "")
     count = 0
     for finding in findings:
         if not is_location_comment_applicable(finding):
             continue
-        comment_body = build_inline_comment_body(finding)
+        comment_body = build_inline_comment_body(finding, run_id=run_id)
         # <codex-review:suppress> This stateless review flow intentionally posts
         # fresh inline comments for the current run and does not reconcile or
         # delete older Codex inline comments yet.
@@ -313,7 +366,9 @@ def main():
     args = parser.parse_args()
 
     review = json.loads(Path(args.input).read_text(encoding="utf-8"))
-    markdown = format_markdown(review)
+    run_id = os.environ.get("GITHUB_RUN_ID", "")
+    head_sha = os.environ.get("GITHUB_HEAD_SHA") or os.environ.get("GITHUB_SHA", "")
+    markdown = format_markdown(review, run_id=run_id, head_sha=head_sha)
     Path(args.markdown_out).write_text(markdown, encoding="utf-8")
 
     if not args.publish_pr_comment:

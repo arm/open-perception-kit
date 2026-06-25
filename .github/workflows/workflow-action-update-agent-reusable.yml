@@ -1,0 +1,294 @@
+name: Workflow Action Update Agent Reusable
+
+on:
+  workflow_call:
+    inputs:
+      source_run_id:
+        description: GitHub Actions run ID to repair.
+        required: false
+        default: ""
+        type: string
+      target_branch:
+        description: Optional branch to open the repair PR against. Defaults to the source run head branch.
+        required: false
+        default: ""
+        type: string
+      ticket_id:
+        description: JIRA ticket ID used for the repair branch and commit metadata.
+        required: false
+        default: EXPKITS-1234
+        type: string
+      profile_path:
+        description: Repair profile JSON path relative to the repository root.
+        required: false
+        default: .github/ci/workflow-action-update-agent/profile.json
+        type: string
+      source_artifact_name:
+        description: Optional artifact from the current workflow run to inject into the repair context.
+        required: false
+        default: ""
+        type: string
+    secrets:
+      EXPKITS_AGENT_TOKEN:
+        required: false
+      OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS:
+        required: false
+
+permissions: {}
+
+concurrency:
+  group: workflow-action-update-agent-${{ inputs.source_run_id || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Resolve repair inputs
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      should_run: ${{ steps.resolve.outputs.should_run }}
+      skip_reason: ${{ steps.resolve.outputs.skip_reason }}
+      source_run_id: ${{ steps.resolve.outputs.source_run_id }}
+      source_run_url: ${{ steps.resolve.outputs.source_run_url }}
+      source_workflow_name: ${{ steps.resolve.outputs.source_workflow_name }}
+      target_branch: ${{ steps.resolve.outputs.target_branch }}
+      ticket_id: ${{ steps.resolve.outputs.ticket_id }}
+      repair_branch: ${{ steps.resolve.outputs.repair_branch }}
+      codex_model: ${{ steps.resolve.outputs.codex_model }}
+      codex_effort: ${{ steps.resolve.outputs.codex_effort }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - id: resolve
+        uses: ./.github/actions/workflow-action-update-agent-helper
+        with:
+          command: resolve-inputs
+          profile-path: ${{ inputs.profile_path || '.github/ci/workflow-action-update-agent/profile.json' }}
+          source-run-id: ${{ inputs.source_run_id || '' }}
+          target-branch: ${{ inputs.target_branch || '' }}
+          ticket-id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
+          current-ref-name: ${{ github.head_ref || github.ref_name }}
+        env:
+          GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+
+      - name: Summarize skipped run
+        if: steps.resolve.outputs.should_run != 'true'
+        run: |
+          {
+            echo "### Workflow Action Update Agent"
+            echo
+            echo "Skipped: ${{ steps.resolve.outputs.skip_reason }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  codex-fix:
+    name: Generate repair patch with Codex
+    needs: prepare
+    if: needs.prepare.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      has_changes: ${{ steps.patch.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ref: ${{ needs.prepare.outputs.target_branch }}
+
+      - uses: ./.github/actions/workflow-action-update-agent-helper
+        env:
+          GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+        with:
+          command: collect-context
+          source-run-id: ${{ needs.prepare.outputs.source_run_id }}
+          source-run-url: ${{ needs.prepare.outputs.source_run_url }}
+          source-workflow-name: ${{ needs.prepare.outputs.source_workflow_name }}
+
+      - name: Download source artifact context
+        if: ${{ inputs.source_artifact_name != '' }}
+        uses: actions/download-artifact@v6
+        with:
+          name: ${{ inputs.source_artifact_name }}
+          path: .codex/workflow-action-update-agent/artifacts/${{ inputs.source_artifact_name }}
+
+      - uses: ./.github/actions/workflow-action-update-agent-helper
+        with:
+          command: build-markdown
+          profile-path: ${{ inputs.profile_path || '.github/ci/workflow-action-update-agent/profile.json' }}
+          source-run-id: ${{ needs.prepare.outputs.source_run_id }}
+          source-run-url: ${{ needs.prepare.outputs.source_run_url }}
+          source-workflow-name: ${{ needs.prepare.outputs.source_workflow_name }}
+          target-branch: ${{ needs.prepare.outputs.target_branch }}
+          repair-branch: ${{ needs.prepare.outputs.repair_branch }}
+          ticket-id: ${{ needs.prepare.outputs.ticket_id }}
+
+      - name: Apply deterministic workflow freshness patch
+        if: ${{ inputs.source_artifact_name == 'workflow-dependency-freshness' }}
+        run: |
+          set -euo pipefail
+          python3 scripts/private/apply_workflow_freshness_updates.py \
+            --repo-root . \
+            --report-json .codex/workflow-action-update-agent/artifacts/workflow-dependency-freshness/workflow-dependency-freshness.json
+          printf 'Deterministic workflow freshness patch applied.\n' > "${{ runner.temp }}/workflow-action-update-agent-codex-output.md"
+
+      - name: Require Codex proxy credentials
+        if: ${{ inputs.source_artifact_name != 'workflow-dependency-freshness' }}
+        env:
+          OPENAI_PROXY_KEY_VALUE: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
+        run: |
+          set -euo pipefail
+          if [ -n "${OPENAI_PROXY_KEY_VALUE}" ]; then
+            exit 0
+          fi
+          echo "OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS is required for workflow-action-update-agent Codex runs." >&2
+          exit 1
+
+      - name: Run Codex
+        if: ${{ inputs.source_artifact_name != 'workflow-dependency-freshness' }}
+        uses: ./.github/actions/openai-codex-run
+        with:
+          openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
+          responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses
+          model: ${{ needs.prepare.outputs.codex_model }}
+          effort: ${{ needs.prepare.outputs.codex_effort }}
+          prompt-file: .codex/workflow-action-update-agent/goal.md
+          output-file: ${{ runner.temp }}/workflow-action-update-agent-codex-output.md
+          sandbox: workspace-write
+          # Retries run in the same job. Keep Codex on the runner's initial
+          # privilege model so the official action can bootstrap its proxy on
+          # every attempt.
+          safety-strategy: unsafe
+          allow-bots: true
+          allow-bot-users: github-actions[bot]
+          codex-args: '["--ignore-rules"]'
+
+      - name: Run static regression tests
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_detect_secrets_quality_flow.py'
+          python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_workflow_action_update_agent_flow.py'
+          python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_workflow_freshness_patch.py'
+
+      - id: patch
+        uses: ./.github/actions/workflow-action-update-agent-helper
+        with:
+          command: package-patch
+          patch-file: ${{ runner.temp }}/workflow-action-update-agent.patch
+          diffstat-file: ${{ runner.temp }}/workflow-action-update-agent.diffstat.txt
+
+      - name: Upload repair artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: workflow-action-update-agent-repair
+          path: |
+            ${{ runner.temp }}/workflow-action-update-agent.patch
+            ${{ runner.temp }}/workflow-action-update-agent.diffstat.txt
+            ${{ runner.temp }}/workflow-action-update-agent-codex-output.md
+            .codex/workflow-action-update-agent
+          if-no-files-found: warn
+          retention-days: 10
+
+      - if: steps.patch.outputs.has_changes != 'true'
+        uses: ./.github/actions/workflow-action-update-agent-helper
+        with:
+          command: require-generated-patch
+          source-run-id: ${{ needs.prepare.outputs.source_run_id }}
+
+  open-pr:
+    name: Open repair PR
+    needs: [prepare, codex-fix]
+    if: needs.prepare.outputs.should_run == 'true' && needs['codex-fix'].outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      pr_number: ${{ steps.pr.outputs.pr_number }}
+      head_sha: ${{ steps.branch.outputs.head_sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ref: ${{ needs.prepare.outputs.target_branch }}
+          token: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+
+      - uses: actions/download-artifact@v6
+        with:
+          name: workflow-action-update-agent-repair
+          path: ${{ runner.temp }}/workflow-action-update-agent-repair
+
+      - id: branch
+        uses: ./.github/actions/workflow-action-update-agent-helper
+        with:
+          command: apply-patch-and-push
+          profile-path: ${{ inputs.profile_path || '.github/ci/workflow-action-update-agent/profile.json' }}
+          patch-root: ${{ runner.temp }}/workflow-action-update-agent-repair
+          repair-branch: ${{ needs.prepare.outputs.repair_branch }}
+          source-run-id: ${{ needs.prepare.outputs.source_run_id }}
+          source-run-url: ${{ needs.prepare.outputs.source_run_url }}
+          source-workflow-name: ${{ needs.prepare.outputs.source_workflow_name }}
+          ticket-id: ${{ needs.prepare.outputs.ticket_id }}
+          body-file: ${{ runner.temp }}/workflow-action-update-agent-pr-body.md
+          pr-title-file: ${{ runner.temp }}/workflow-action-update-agent-pr-title.txt
+          commit-subject-file: ${{ runner.temp }}/workflow-action-update-agent-commit-subject.txt
+          commit-notes-file: ${{ runner.temp }}/workflow-action-update-agent-commit-notes.txt
+
+      - id: pr
+        uses: ./.github/actions/workflow-action-update-agent-helper
+        with:
+          command: create-draft-pr
+          profile-path: ${{ inputs.profile_path || '.github/ci/workflow-action-update-agent/profile.json' }}
+          body-file: ${{ runner.temp }}/workflow-action-update-agent-pr-body.md
+          pr-title-file: ${{ runner.temp }}/workflow-action-update-agent-pr-title.txt
+          target-branch: ${{ needs.prepare.outputs.target_branch }}
+          repair-branch: ${{ needs.prepare.outputs.repair_branch }}
+        env:
+          GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+
+  verify-pr:
+    name: Wait for repair PR workflows
+    needs: [prepare, open-pr]
+    if: needs.prepare.outputs.should_run == 'true' && needs['open-pr'].result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/workflow-action-update-agent-helper
+        env:
+          GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+        with:
+          command: wait-for-pr-workflows
+          profile-path: ${{ inputs.profile_path || '.github/ci/workflow-action-update-agent/profile.json' }}
+          pr-number: ${{ needs['open-pr'].outputs.pr_number }}
+          repair-branch: ${{ needs.prepare.outputs.repair_branch }}
+          head-sha: ${{ needs['open-pr'].outputs.head_sha }}
+
+  merge-pr:
+    name: Merge repair PR
+    needs: [prepare, open-pr, verify-pr]
+    if: needs.prepare.outputs.should_run == 'true' && needs['verify-pr'].result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/workflow-action-update-agent-helper
+        with:
+          command: merge-pr
+          pr-number: ${{ needs['open-pr'].outputs.pr_number }}
+        env:
+          GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}

@@ -1,0 +1,210 @@
+name: Workflow Action Update Agent Helper
+description: Runs the workflow action update agent helper with structured inputs.
+
+inputs:
+  command:
+    description: Helper command to run.
+    required: true
+  profile-path:
+    description: Repair profile JSON path relative to the repo root.
+    required: false
+    default: .github/ci/workflow-action-update-agent/profile.json
+  current-ref-name:
+    description: Current Git ref name for fallback target-branch selection.
+    required: false
+    default: ""
+  source-run-id:
+    description: Source GitHub Actions run ID.
+    required: false
+    default: ""
+  source-run-url:
+    description: Source GitHub Actions run URL.
+    required: false
+    default: ""
+  source-workflow-name:
+    description: Source workflow display name.
+    required: false
+    default: ""
+  target-branch:
+    description: Repair PR base branch.
+    required: false
+    default: ""
+  ticket-id:
+    description: Ticket ID used for repair branch and commit metadata.
+    required: false
+    default: ""
+  repair-branch:
+    description: Repair branch name.
+    required: false
+    default: ""
+  context-root:
+    description: Context root where runtime markdown and artifacts live.
+    required: false
+    default: .codex/workflow-action-update-agent
+  patch-root:
+    description: Artifact root containing the generated patch.
+    required: false
+    default: ""
+  patch-file:
+    description: Output path for the packaged patch file.
+    required: false
+    default: ""
+  diffstat-file:
+    description: Output path for the packaged diffstat file.
+    required: false
+    default: ""
+  body-file:
+    description: Output path for the rendered PR body.
+    required: false
+    default: ""
+  pr-title-file:
+    description: Output path for the rendered PR title.
+    required: false
+    default: ""
+  commit-subject-file:
+    description: Output path for the rendered commit subject.
+    required: false
+    default: ""
+  commit-notes-file:
+    description: Output path for the rendered commit notes.
+    required: false
+    default: ""
+  pr-number:
+    description: Pull request number to merge.
+    required: false
+    default: ""
+  head-sha:
+    description: Head SHA of the repair branch PR.
+    required: false
+    default: ""
+
+outputs:
+  should_run:
+    description: Whether the repair flow should continue.
+    value: ${{ steps.helper.outputs.should_run }}
+  skip_reason:
+    description: Skip reason when should_run is false.
+    value: ${{ steps.helper.outputs.skip_reason }}
+  source_run_id:
+    description: Normalized source run ID.
+    value: ${{ steps.helper.outputs.source_run_id }}
+  source_run_url:
+    description: Source run URL.
+    value: ${{ steps.helper.outputs.source_run_url }}
+  source_workflow_name:
+    description: Source workflow name.
+    value: ${{ steps.helper.outputs.source_workflow_name }}
+  target_branch:
+    description: Resolved repair target branch.
+    value: ${{ steps.helper.outputs.target_branch }}
+  ticket_id:
+    description: Normalized ticket ID.
+    value: ${{ steps.helper.outputs.ticket_id }}
+  repair_branch:
+    description: Planned repair branch.
+    value: ${{ steps.helper.outputs.repair_branch }}
+  codex_model:
+    description: Codex model resolved from the repair profile.
+    value: ${{ steps.helper.outputs.codex_model }}
+  codex_effort:
+    description: Codex reasoning effort resolved from the repair profile.
+    value: ${{ steps.helper.outputs.codex_effort }}
+  has_changes:
+    description: Whether Codex produced repository changes.
+    value: ${{ steps.helper.outputs.has_changes }}
+  head_sha:
+    description: Repair branch head SHA.
+    value: ${{ steps.helper.outputs.head_sha }}
+  pr_number:
+    description: Generated repair PR number.
+    value: ${{ steps.helper.outputs.pr_number }}
+
+runs:
+  using: composite
+  steps:
+    - id: helper
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        helper="scripts/private/workflow_action_update_agent.py"
+        command="${{ inputs.command }}"
+
+        case "${command}" in
+          resolve-inputs)
+            python3 "${helper}" resolve-inputs \
+              --profile-path "${{ inputs.profile-path }}" \
+              --source-run-id "${{ inputs.source-run-id }}" \
+              --target-branch "${{ inputs.target-branch }}" \
+              --ticket-id "${{ inputs.ticket-id }}" \
+              --current-ref-name "${{ inputs.current-ref-name }}" \
+              --github-output "${GITHUB_OUTPUT}"
+            ;;
+          collect-context)
+            python3 "${helper}" collect-context \
+              --context-root "${{ inputs.context-root }}" \
+              --source-run-id "${{ inputs.source-run-id }}" \
+              --source-run-url "${{ inputs.source-run-url }}" \
+              --source-workflow-name "${{ inputs.source-workflow-name }}"
+            ;;
+          build-markdown)
+            python3 "${helper}" build-markdown \
+              --profile-path "${{ inputs.profile-path }}" \
+              --context-root "${{ inputs.context-root }}" \
+              --source-run-id "${{ inputs.source-run-id }}" \
+              --source-run-url "${{ inputs.source-run-url }}" \
+              --source-workflow-name "${{ inputs.source-workflow-name }}" \
+              --target-branch "${{ inputs.target-branch }}" \
+              --repair-branch "${{ inputs.repair-branch }}" \
+              --ticket-id "${{ inputs.ticket-id }}"
+            ;;
+          package-patch)
+            python3 "${helper}" package-patch \
+              --patch-file "${{ inputs.patch-file }}" \
+              --diffstat-file "${{ inputs.diffstat-file }}" \
+              --github-output "${GITHUB_OUTPUT}"
+            ;;
+          require-generated-patch)
+            python3 "${helper}" require-generated-patch \
+              --source-run-id "${{ inputs.source-run-id }}"
+            ;;
+          apply-patch-and-push)
+            python3 "${helper}" apply-patch-and-push \
+              --profile-path "${{ inputs.profile-path }}" \
+              --patch-root "${{ inputs.patch-root }}" \
+              --repair-branch "${{ inputs.repair-branch }}" \
+              --source-run-id "${{ inputs.source-run-id }}" \
+              --source-run-url "${{ inputs.source-run-url }}" \
+              --source-workflow-name "${{ inputs.source-workflow-name }}" \
+              --ticket-id "${{ inputs.ticket-id }}" \
+              --body-file "${{ inputs.body-file }}" \
+              --pr-title-file "${{ inputs.pr-title-file }}" \
+              --commit-subject-file "${{ inputs.commit-subject-file }}" \
+              --commit-notes-file "${{ inputs.commit-notes-file }}" \
+              --github-output "${GITHUB_OUTPUT}"
+            ;;
+          create-draft-pr)
+            python3 "${helper}" create-draft-pr \
+              --profile-path "${{ inputs.profile-path }}" \
+              --body-file "${{ inputs.body-file }}" \
+              --pr-title-file "${{ inputs.pr-title-file }}" \
+              --target-branch "${{ inputs.target-branch }}" \
+              --repair-branch "${{ inputs.repair-branch }}" \
+              --github-output "${GITHUB_OUTPUT}"
+            ;;
+          wait-for-pr-workflows)
+            python3 "${helper}" wait-for-pr-workflows \
+              --profile-path "${{ inputs.profile-path }}" \
+              --pr-number "${{ inputs.pr-number }}" \
+              --repair-branch "${{ inputs.repair-branch }}" \
+              --head-sha "${{ inputs.head-sha }}"
+            ;;
+          merge-pr)
+            python3 "${helper}" merge-pr \
+              --pr-number "${{ inputs.pr-number }}"
+            ;;
+          *)
+            echo "Unsupported workflow action update agent helper command: ${command}" >&2
+            exit 1
+            ;;
+        esac

@@ -147,8 +147,8 @@ class TestQualityChecks(unittest.TestCase):
 
     def test_check_branch_naming_accepts_feature_branch_with_or_without_suffix(self):
         valid_branches = [
-            "feature/EXPKITS-1234",
-            "feature/EXPKITS-1234/ticket-description",  # pragma: allowlist secret
+            "feature/EXPKITS-4242",
+            "feature/EXPKITS-4242/ticket-description",  # pragma: allowlist secret
         ]
 
         for branch_name in valid_branches:

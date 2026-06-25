@@ -42,6 +42,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--repo-root", type=Path, default=Path("."))
     parser.add_argument("--markdown-output", required=True, type=Path)
     parser.add_argument("--json-output", type=Path)
+    parser.add_argument("--github-output", type=Path)
     parser.add_argument("--summary-limit", type=int, default=6)
     parser.add_argument("--api-url", default=os.environ.get("GITHUB_API_URL", DEFAULT_API_URL))
     parser.add_argument(
@@ -277,6 +278,16 @@ def render_json(entries: list[dict[str, object]]) -> str:
     return json.dumps(payload, indent=2, sort_keys=True) + "\n"
 
 
+def write_github_outputs(github_output: Path, entries: list[dict[str, object]]) -> None:
+    behind_latest = sum(str(entry["status"]) in BEHIND_STATUSES for entry in entries)
+    needs_review = sum(str(entry["status"]) in REVIEW_STATUSES for entry in entries)
+    with github_output.open("a", encoding="utf-8") as output_file:
+        output_file.write(f"tracked_refs={len(entries)}\n")
+        output_file.write(f"behind_latest={behind_latest}\n")
+        output_file.write(f"needs_review={needs_review}\n")
+        output_file.write(f"requires_repair={'true' if behind_latest > 0 else 'false'}\n")
+
+
 def main() -> int:
     args = parse_args()
     token = os.environ.get("GITHUB_TOKEN")
@@ -302,6 +313,9 @@ def main() -> int:
     if args.json_output is not None:
         args.json_output.parent.mkdir(parents=True, exist_ok=True)
         args.json_output.write_text(render_json(entries), encoding="utf-8")
+    if args.github_output is not None:
+        args.github_output.parent.mkdir(parents=True, exist_ok=True)
+        write_github_outputs(args.github_output, entries)
     sys.stdout.write(render_summary(entries, args.summary_limit))
     return 0
 

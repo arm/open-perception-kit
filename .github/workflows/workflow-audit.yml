@@ -4,17 +4,28 @@ run-name: Workflow dependency freshness for ${{ github.ref_name }}
 on:
   workflow_call:
   workflow_dispatch:
+    inputs:
+      ticket_id:
+        description: JIRA ticket ID used for the repair branch and commit metadata.
+        required: false
+        default: EXPKITS-1234
+        type: string
+      repair_profile_path:
+        description: Repair profile JSON path relative to the repository root.
+        required: false
+        default: .github/ci/workflow-action-update-agent/workflow-audit-profile.json
+        type: string
   pull_request:
     branches: [ main, "feature/**", "sandbox/**" ]
     paths:
       - ".github/workflows/**"
       - "scripts/private/workflow_audit_report.py"
+      - ".github/ci/workflow-action-update-agent/**"
     types: [ opened, synchronize, reopened, ready_for_review ]
   schedule:
     - cron: "0 5 * * *"
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: workflow-audit-${{ github.ref }}
@@ -27,11 +38,20 @@ jobs:
     if: |
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      tracked_refs: ${{ steps.report.outputs.tracked_refs }}
+      behind_latest: ${{ steps.report.outputs.behind_latest }}
+      needs_review: ${{ steps.report.outputs.needs_review }}
+      requires_repair: ${{ steps.report.outputs.requires_repair }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
       - name: Render workflow dependency freshness report
+        id: report
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_API_URL: ${{ github.api_url }}
@@ -42,6 +62,7 @@ jobs:
             --repo-root . \
             --markdown-output "${RUNNER_TEMP}/workflow-dependency-freshness.md" \
             --json-output "${RUNNER_TEMP}/workflow-dependency-freshness.json" \
+            --github-output "${GITHUB_OUTPUT}" \
             --summary-limit 10 \
             >> "${GITHUB_STEP_SUMMARY}"
 
@@ -55,3 +76,22 @@ jobs:
             ${{ runner.temp }}/workflow-dependency-freshness.json
           if-no-files-found: warn
           retention-days: 10
+
+  repair-workflow-dependency-freshness:
+    name: Repair workflow dependency freshness
+    needs: workflow-dependency-freshness
+    if: |
+      needs.workflow-dependency-freshness.outputs.requires_repair == 'true' &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: write
+    uses: ./.github/workflows/workflow-action-update-agent-reusable.yml
+    with:
+      source_run_id: ${{ github.run_id }}
+      target_branch: ${{ github.ref_name }}
+      ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
+      profile_path: ${{ inputs.repair_profile_path || '.github/ci/workflow-action-update-agent/workflow-audit-profile.json' }}
+      source_artifact_name: workflow-dependency-freshness
+    secrets: inherit

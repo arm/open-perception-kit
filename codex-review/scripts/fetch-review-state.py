@@ -17,12 +17,15 @@ MARKER = "<!-- codex-review-comment -->"
 INLINE_MARKER = "<!-- codex-review-inline -->"
 INLINE_STATE_MARKER = "<!-- codex-review-inline-state "
 STATE_MARKER = "<!-- codex-review-state "
+DEFAULT_AUTHOR_LOGINS = {"github-actions", "github-actions[bot]"}
 
 EMPTY_STATE = {
     "summary": "",
-    "overall_recommendation": "comment",
+    "overall_recommendation": "",
     "overall_score": 0,
     "overall_confidence": 0,
+    "run_id": "",
+    "head_sha": "",
     "findings": [],
 }
 REQUIRED_INLINE_METADATA_FIELDS = (
@@ -79,6 +82,16 @@ def list_pull_comments(repository: str, pr_number: str, token: str):
     )
 
 
+def allowed_author_logins():
+    configured = os.environ.get("CODEX_REVIEW_AUTHOR_LOGINS", "")
+    logins = {entry.strip() for entry in configured.split(",") if entry.strip()}
+    return logins | DEFAULT_AUTHOR_LOGINS if logins else set(DEFAULT_AUTHOR_LOGINS)
+
+
+def comment_author_login(comment) -> str:
+    return str(dict(comment.get("user") or {}).get("login") or "")
+
+
 def extract_state_metadata(body: str):
     for line in body.splitlines():
         if line.startswith(STATE_MARKER) and line.endswith(" -->"):
@@ -108,12 +121,14 @@ def extract_inline_metadata(body: str):
     return None
 
 
-def extract_findings(comments, run_id: str):
+def extract_findings(comments, run_id: str, author_logins):
     findings_by_key = {}
 
     for comment in comments:
         body = comment.get("body", "")
         if INLINE_MARKER not in body:
+            continue
+        if comment_author_login(comment) not in author_logins:
             continue
         metadata = extract_inline_metadata(body)
         if metadata is None:
@@ -168,6 +183,7 @@ def main():
     token = os.environ.get("GITHUB_TOKEN")
     repository = os.environ.get("GITHUB_REPOSITORY")
     pr_number = os.environ.get("GITHUB_PR_NUMBER")
+    author_logins = allowed_author_logins()
 
     if not token or not repository or not pr_number:
         output_path.write_text(json.dumps(EMPTY_STATE, indent=2), encoding="utf-8")
@@ -183,7 +199,11 @@ def main():
         output_path.write_text(json.dumps(EMPTY_STATE, indent=2), encoding="utf-8")
         return
 
-    summary_comments = [comment for comment in issue_comments if MARKER in comment.get("body", "")]
+    summary_comments = [
+        comment
+        for comment in issue_comments
+        if MARKER in comment.get("body", "") and comment_author_login(comment) in author_logins
+    ]
     if not summary_comments:
         output_path.write_text(json.dumps(EMPTY_STATE, indent=2), encoding="utf-8")
         return
@@ -205,7 +225,7 @@ def main():
         output_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
         return
 
-    state["findings"] = extract_findings(pull_comments, run_id)
+    state["findings"] = extract_findings(pull_comments, run_id, author_logins)
     output_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
 
 

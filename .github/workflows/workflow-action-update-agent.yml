@@ -1,0 +1,48 @@
+name: Workflow Action Update Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: GitHub Actions run ID to repair
+        required: true
+        type: string
+      target_branch:
+        description: Optional branch to open the repair PR against. Defaults to the source run head branch.
+        required: false
+        default: ""
+        type: string
+      ticket_id:
+        description: JIRA ticket ID used for the repair branch and commit metadata.
+        required: false
+        default: EXPKITS-1234
+        type: string
+      profile_path:
+        description: Repair profile JSON path relative to the repository root.
+        required: false
+        default: .github/ci/workflow-action-update-agent/profile.json
+        type: string
+  workflow_run:
+    workflows: ["Perception Experience Kit CI Pipeline"]
+    types: [completed]
+
+permissions: {}
+
+concurrency:
+  group: workflow-action-update-agent-dispatch-${{ github.event.workflow_run.head_sha || inputs.source_run_id || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  run-workflow-action-update-agent:
+    name: Run workflow action update agent
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: write
+    uses: ./.github/workflows/workflow-action-update-agent-reusable.yml
+    with:
+      source_run_id: ${{ inputs.source_run_id || github.event.workflow_run.id || '' }}
+      target_branch: ${{ inputs.target_branch || '' }}
+      ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
+      profile_path: ${{ inputs.profile_path || '.github/ci/workflow-action-update-agent/profile.json' }}
+    secrets: inherit
