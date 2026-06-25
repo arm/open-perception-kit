@@ -78,7 +78,7 @@ jobs:
           retention-days: 10
 
   repair-workflow-dependency-freshness:
-    name: Repair workflow dependency freshness
+    name: Repair workflow dependency freshness (nightly/manual only)
     needs: workflow-dependency-freshness
     if: |
       needs.workflow-dependency-freshness.outputs.requires_repair == 'true' &&

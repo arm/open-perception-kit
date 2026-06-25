@@ -61,20 +61,16 @@ CODEX_REVIEW_PUBLISH = load_python_module(CODEX_REVIEW_PUBLISH_SCRIPT, "codex_re
 
 
 class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
-    def test_dispatch_wrapper_calls_reusable_workflow_with_minimal_inputs(self):
+    def test_manual_wrapper_calls_reusable_workflow_with_minimal_inputs(self):
         workflow = load_yaml(WORKFLOW_FILE)
         dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
-        workflow_run = workflow["on"]["workflow_run"]
         job = workflow["jobs"]["run-workflow-action-update-agent"]
 
         self.assertEqual(
             set(dispatch_inputs.keys()),
             {"source_run_id", "target_branch", "ticket_id", "profile_path"},
         )
-        self.assertEqual(
-            workflow_run["workflows"],
-            ["Perception Experience Kit CI Pipeline"],
-        )
+        self.assertNotIn("workflow_run", workflow["on"])
         self.assertEqual(job["uses"], "./.github/workflows/workflow-action-update-agent-reusable.yml")
         self.assertEqual(
             set(job["with"].keys()),
@@ -509,10 +505,12 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn(".github/ci/workflow-action-update-agent/profile.json", readme)
         self.assertIn(".github/ci/workflow-action-update-agent/workflow-audit-profile.json", readme)
         self.assertIn("single nightly pipeline", readme)
+        self.assertIn("only reruns the report job", readme)
         self.assertIn("building blocks", readme)
         self.assertIn("OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS", readme)
         self.assertIn("EXPKITS_AGENT_TOKEN", readme)
         self.assertIn("waits for the profile-defined validation workflows", readme)
+        self.assertIn("manual fallback caller", readme)
         self.assertNotIn("workflow-action-update-agent-freshness.yml", readme)
         self.assertNotIn("validate_changed_workflows.py", readme)
         self.assertNotIn("workflow-changed-validation.yml", readme)

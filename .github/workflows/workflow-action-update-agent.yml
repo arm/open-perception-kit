@@ -1,4 +1,4 @@
-name: Workflow Action Update Agent
+name: Workflow Action Update Agent (Manual)
 
 on:
   workflow_dispatch:
@@ -22,14 +22,11 @@ on:
         required: false
         default: .github/ci/workflow-action-update-agent/profile.json
         type: string
-  workflow_run:
-    workflows: ["Perception Experience Kit CI Pipeline"]
-    types: [completed]
 
 permissions: {}
 
 concurrency:
-  group: workflow-action-update-agent-dispatch-${{ github.event.workflow_run.head_sha || inputs.source_run_id || github.run_id }}
+  group: workflow-action-update-agent-dispatch-${{ inputs.source_run_id || github.run_id }}
   cancel-in-progress: false
 
 jobs:

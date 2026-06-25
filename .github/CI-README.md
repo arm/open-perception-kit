@@ -32,13 +32,13 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Compares the current `uses:` refs against the latest GitHub release/tag for each action repository
 - Publishes one simple Markdown report and a lightweight JSON snapshot in the `workflow-dependency-freshness` artifact
 - On nightly schedule and manual dispatch, stays a single nightly pipeline by handing any auto-fixable freshness delta directly into the reusable repair core instead of spawning a second standalone workflow
+- On pull requests, only reruns the report job so repair PR validation can confirm the same evidence without recursively opening more repair PRs
 - Keeps the originating report artifact as the repair starting point, so the generated PR still carries the original evidence trail, badge, and bot metadata
 
 ## What does `.github/workflows/workflow-action-update-agent.yml` do?
 
-- Acts as the thin caller workflow for the Codex-based repair flow
-- Accepts a source run ID manually or reacts to a failing `Perception Experience Kit CI Pipeline` workflow run
-- Forwards execution into the reusable workflow implementation with inherited secrets plus a selected repair profile
+- Acts as the manual fallback caller for the reusable repair core
+- Accepts a source run ID manually and forwards execution into the reusable workflow implementation with inherited secrets plus a selected repair profile
 
 ## What does `.github/workflows/workflow-action-update-agent-reusable.yml` do?
 
