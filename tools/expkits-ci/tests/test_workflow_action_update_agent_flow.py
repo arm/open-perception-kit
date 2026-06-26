@@ -463,11 +463,12 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
         report_job = workflow["jobs"]["workflow-dependency-freshness"]
         repair_job = workflow["jobs"]["repair-workflow-dependency-freshness"]
+        stabilize_job = workflow["jobs"]["stabilize-existing-pr"]
         report_steps = step_map(report_job)
 
         self.assertEqual(
             set(dispatch_inputs.keys()),
-            {"ticket_id", "repair_profile_path"},
+            {"ticket_id", "repair_profile_path", "stabilize_pr_number", "stabilize_head_sha"},
         )
         self.assertIn("requires_repair", report_job["outputs"])
         self.assertIn("behind_latest", report_job["outputs"])
@@ -483,8 +484,17 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             repair_job["with"]["profile_path"],
             "${{ inputs.repair_profile_path || '.github/ci/workflow-action-update-agent/workflow-audit-profile.json' }}",
         )
+        self.assertIn("inputs.stabilize_pr_number == ''", report_job["if"])
+        self.assertIn("inputs.stabilize_pr_number == ''", repair_job["if"])
         self.assertIn("needs.workflow-dependency-freshness.outputs.requires_repair == 'true'", repair_job["if"])
         self.assertIn("github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'", repair_job["if"])
+        self.assertEqual(stabilize_job["uses"], "./.github/workflows/codex-stabilize-pr.yml")
+        self.assertEqual(
+            stabilize_job["if"],
+            "${{ github.event_name == 'workflow_dispatch' && inputs.stabilize_pr_number != '' }}",
+        )
+        self.assertEqual(stabilize_job["with"]["pr_number"], "${{ inputs.stabilize_pr_number }}")
+        self.assertEqual(stabilize_job["with"]["head_sha"], "${{ inputs.stabilize_head_sha || '' }}")
 
     def test_wait_for_review_state_returns_observed_recommendation(self):
         with mock.patch.object(

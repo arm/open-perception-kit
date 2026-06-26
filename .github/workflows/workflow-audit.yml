@@ -15,6 +15,16 @@ on:
         required: false
         default: .github/ci/workflow-action-update-agent/workflow-audit-profile.json
         type: string
+      stabilize_pr_number:
+        description: Optional PR number to stabilize instead of running a freshness scan.
+        required: false
+        default: ""
+        type: string
+      stabilize_head_sha:
+        description: Optional PR head SHA to pin the stabilization attempt to.
+        required: false
+        default: ""
+        type: string
   pull_request:
     branches: [ main, "feature/**", "sandbox/**" ]
     paths:
@@ -36,6 +46,7 @@ jobs:
     name: workflow dependency freshness
     runs-on: ubuntu-latest
     if: |
+      (github.event_name != 'workflow_dispatch' || inputs.stabilize_pr_number == '') &&
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository
     permissions:
@@ -81,6 +92,7 @@ jobs:
     name: Repair workflow dependency freshness (nightly/manual only)
     needs: workflow-dependency-freshness
     if: |
+      inputs.stabilize_pr_number == '' &&
       needs.workflow-dependency-freshness.outputs.requires_repair == 'true' &&
       (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     permissions:
@@ -94,4 +106,19 @@ jobs:
       ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
       profile_path: ${{ inputs.repair_profile_path || '.github/ci/workflow-action-update-agent/workflow-audit-profile.json' }}
       source_artifact_name: workflow-dependency-freshness
+    secrets: inherit
+
+  stabilize-existing-pr:
+    name: Stabilize existing PR (manual only)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.stabilize_pr_number != '' }}
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: ./.github/workflows/codex-stabilize-pr.yml
+    with:
+      pr_number: ${{ inputs.stabilize_pr_number }}
+      head_sha: ${{ inputs.stabilize_head_sha || '' }}
+      source_run_id: ""
+      ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
+      profile_path: ${{ inputs.repair_profile_path || '.github/ci/workflow-action-update-agent/workflow-audit-profile.json' }}
     secrets: inherit
