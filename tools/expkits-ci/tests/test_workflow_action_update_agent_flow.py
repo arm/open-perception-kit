@@ -484,17 +484,18 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             repair_job["with"]["profile_path"],
             "${{ inputs.repair_profile_path || '.github/ci/workflow-action-update-agent/workflow-audit-profile.json' }}",
         )
-        self.assertIn("inputs.stabilize_pr_number == ''", report_job["if"])
-        self.assertIn("inputs.stabilize_pr_number == ''", repair_job["if"])
+        self.assertIn("github.event.inputs.stabilize_pr_number == ''", report_job["if"])
+        self.assertIn("github.event.inputs.stabilize_pr_number == ''", repair_job["if"])
         self.assertIn("needs.workflow-dependency-freshness.outputs.requires_repair == 'true'", repair_job["if"])
-        self.assertIn("github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'", repair_job["if"])
+        self.assertIn("github.event_name == 'schedule'", repair_job["if"])
+        self.assertIn("github.event_name == 'workflow_dispatch'", repair_job["if"])
         self.assertEqual(stabilize_job["uses"], "./.github/workflows/codex-stabilize-pr.yml")
         self.assertEqual(
             stabilize_job["if"],
-            "${{ github.event_name == 'workflow_dispatch' && inputs.stabilize_pr_number != '' }}",
+            "${{ github.event_name == 'workflow_dispatch' && github.event.inputs.stabilize_pr_number != '' }}",
         )
-        self.assertEqual(stabilize_job["with"]["pr_number"], "${{ inputs.stabilize_pr_number }}")
-        self.assertEqual(stabilize_job["with"]["head_sha"], "${{ inputs.stabilize_head_sha || '' }}")
+        self.assertEqual(stabilize_job["with"]["pr_number"], "${{ github.event.inputs.stabilize_pr_number }}")
+        self.assertEqual(stabilize_job["with"]["head_sha"], "${{ github.event.inputs.stabilize_head_sha || '' }}")
 
     def test_wait_for_review_state_returns_observed_recommendation(self):
         with mock.patch.object(

@@ -46,9 +46,8 @@ jobs:
     name: workflow dependency freshness
     runs-on: ubuntu-latest
     if: |
-      (github.event_name != 'workflow_dispatch' || inputs.stabilize_pr_number == '') &&
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.full_name == github.repository
+      (github.event_name != 'workflow_dispatch' || github.event.inputs.stabilize_pr_number == '') &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     permissions:
       actions: read
       contents: read
@@ -92,9 +91,11 @@ jobs:
     name: Repair workflow dependency freshness (nightly/manual only)
     needs: workflow-dependency-freshness
     if: |
-      inputs.stabilize_pr_number == '' &&
       needs.workflow-dependency-freshness.outputs.requires_repair == 'true' &&
-      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+      (
+        github.event_name == 'schedule' ||
+        (github.event_name == 'workflow_dispatch' && github.event.inputs.stabilize_pr_number == '')
+      )
     permissions:
       actions: read
       contents: write
@@ -110,14 +111,14 @@ jobs:
 
   stabilize-existing-pr:
     name: Stabilize existing PR (manual only)
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.stabilize_pr_number != '' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.stabilize_pr_number != '' }}
     permissions:
       contents: write
       pull-requests: write
     uses: ./.github/workflows/codex-stabilize-pr.yml
     with:
-      pr_number: ${{ inputs.stabilize_pr_number }}
-      head_sha: ${{ inputs.stabilize_head_sha || '' }}
+      pr_number: ${{ github.event.inputs.stabilize_pr_number }}
+      head_sha: ${{ github.event.inputs.stabilize_head_sha || '' }}
       source_run_id: ""
       ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
       profile_path: ${{ inputs.repair_profile_path || '.github/ci/workflow-action-update-agent/workflow-audit-profile.json' }}
