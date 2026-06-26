@@ -21,7 +21,7 @@ REVIEW_BASE_REF="${base_ref}" \
     ./codex-review/scripts/render-prompt.sh "${output_dir}/review.prompt.md"
 
 codex exec \
-    --model "${CODEX_MODEL:-gpt-5.3-codex}" \
+    --model "${CODEX_MODEL:-gpt-5.5}" \
     --sandbox danger-full-access \
     --output-schema "codex-review/schemas/review.schema.json" \
     --output-last-message "${output_dir}/review.json" \

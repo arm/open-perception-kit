@@ -17,7 +17,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 - Uses the local `openai-codex-run` wrapper around `openai/codex-action` to run a Codex review on PR open, reopen, synchronize, and ready-for-review events
 - Supports `workflow_dispatch` manual runs with a configurable `base_ref` input for the diff baseline
-- Uses `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` plus the Arm OpenAI proxy endpoint, and also requires the workflow `GITHUB_TOKEN`
+- Uses `OPENAI_API_KEY` when present, otherwise falls back to `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` plus the Arm OpenAI proxy endpoint, and also requires the workflow `GITHUB_TOKEN`
 - Uses the checked-in review assets under `codex-review/`
 - Keeps prompt templates in `codex-review/prompts/`
 - Keeps schemas in `codex-review/schemas/`
@@ -44,11 +44,10 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 - Contains the core repair engine behind the caller workflow
 - Resolves source-run metadata, downloads logs and artifacts, and creates `goal.md` plus the companion Markdown context files under `.codex/workflow-action-update-agent/`
-- Runs Codex in CI to generate a minimal repair patch from that failure context
-- Applies workflow freshness report updates directly when the source artifact is `workflow-dependency-freshness`, and validates that the target refs resolve before it rewrites `uses:` entries
+- Runs Codex in CI to generate a minimal repair patch from that failure context, including nightly workflow freshness repairs seeded from the report artifact
 - Opens a draft repair PR, applies the profile-defined rerun label, waits for the profile-defined validation workflows plus any structured review outcome they publish, and merges on success
 - Stays orchestration-thin by delegating repo-specific helper commands to a local composite action and flow policy to the repair profile
-- Uses `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` plus the Arm OpenAI proxy endpoint for the Codex step so the repair flow stays on the same enterprise Codex trust boundary as `codex-review`
+- Uses `OPENAI_API_KEY` when present, otherwise falls back to `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` plus the Arm OpenAI proxy endpoint for the Codex step so the repair flow matches `codex-review`
 - Leaves npm on the default registry for GitHub-hosted repair runs, but lets callers opt into a workflow-scoped npm config when they really run inside an internal network
 - Retries transient Codex capacity failures before giving up the repair run
 - Supports the optional `EXPKITS_AGENT_TOKEN` secret so checkout, push, PR, and merge operations can run under a PAT or GitHub App token instead of the default `GITHUB_TOKEN`

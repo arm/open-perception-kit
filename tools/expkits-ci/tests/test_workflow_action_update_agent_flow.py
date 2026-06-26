@@ -36,7 +36,6 @@ WORKFLOW_AUDIT_PROFILE_FILE = MARKDOWN_TEMPLATE_ROOT / "workflow-audit-profile.j
 PULL_REQUEST_TEMPLATE = REPO_ROOT / ".github/PULL_REQUEST_TEMPLATE.md"
 FRESHNESS_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/workflow-action-update-agent-freshness.yml"
 CHANGED_VALIDATION_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/workflow-changed-validation.yml"
-FRESHNESS_PATCH_SCRIPT = REPO_ROOT / "scripts/private/apply_workflow_freshness_updates.py"
 CHANGED_WORKFLOW_VALIDATION_SCRIPT = REPO_ROOT / "scripts/private/validate_changed_workflows.py"
 REPAIR_BRANCH = "feature/EXPKITS-4242/bot-workflow-action-update-agent-run-12345"  # pragma: allowlist secret
 
@@ -123,14 +122,20 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("./.github/actions/openai-codex-run", workflow_text)
         self.assertIn("allow-bots: true", workflow_text)
         self.assertIn("allow-bot-users: github-actions[bot]", workflow_text)
-        self.assertIn("Require Codex proxy credentials", workflow_text)
+        self.assertIn("Require Codex credentials", workflow_text)
+        self.assertIn("OPENAI_API_KEY", workflow_text)
         self.assertIn("OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS", workflow_text)
-        self.assertNotIn("OPENAI_API_KEY_VALUE", workflow_text)
-        self.assertIn("Apply deterministic workflow freshness patch", workflow_text)
-        self.assertIn("inputs.source_artifact_name == 'workflow-dependency-freshness'", workflow_text)
-        self.assertIn("test_workflow_freshness_patch.py", workflow_text)
+        self.assertIn("OPENAI_API_KEY_VALUE", workflow_text)
+        self.assertNotIn("Apply deterministic workflow freshness patch", workflow_text)
+        self.assertNotIn("test_workflow_freshness_patch.py", workflow_text)
         self.assertIn(
-            "responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses", workflow_text)
+            "openai-api-key: ${{ secrets.OPENAI_API_KEY || secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
+            workflow_text,
+        )
+        self.assertIn(
+            "responses-api-endpoint: ${{ secrets.OPENAI_API_KEY && '' || 'https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses' }}",
+            workflow_text,
+        )
         self.assertIn("model: ${{ needs.prepare.outputs.codex_model }}", workflow_text)
         self.assertIn("effort: ${{ needs.prepare.outputs.codex_effort }}", workflow_text)
         self.assertIn("safety-strategy: unsafe", workflow_text)
@@ -233,7 +238,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 outputs["repair_branch"],
                 REPAIR_BRANCH,
             )
-            self.assertEqual(outputs["codex_model"], "gpt-5.3-codex")
+            self.assertEqual(outputs["codex_model"], "gpt-5.5")
             self.assertEqual(outputs["codex_effort"], "")
 
     def test_audit_profile_allows_non_failure_source_run_and_configures_validation(self):
@@ -261,7 +266,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(codex_review["workflow_name"], "Codex Review")
         self.assertEqual(codex_review["review_state_script"], "codex-review/scripts/fetch-review-state.py")
         self.assertEqual(codex_review["allowed_review_recommendations"], ["approve", "comment"])
-        self.assertEqual(profile["codex_model"], "gpt-5.3-codex")
+        self.assertEqual(profile["codex_model"], "gpt-5.5")
         self.assertEqual(profile["codex_effort"], "")
 
     def test_profile_drives_markdown_context_files_and_validation_commands(self):
@@ -508,6 +513,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("only reruns the report job", readme)
         self.assertIn("building blocks", readme)
         self.assertIn("OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS", readme)
+        self.assertIn("OPENAI_API_KEY", readme)
         self.assertIn("EXPKITS_AGENT_TOKEN", readme)
         self.assertIn("waits for the profile-defined validation workflows", readme)
         self.assertIn("manual fallback caller", readme)
@@ -519,7 +525,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_experiment_files_are_absent_from_minimal_branch(self):
         self.assertFalse(FRESHNESS_WORKFLOW_FILE.exists())
         self.assertFalse(CHANGED_VALIDATION_WORKFLOW_FILE.exists())
-        self.assertTrue(FRESHNESS_PATCH_SCRIPT.exists())
+        self.assertFalse((REPO_ROOT / "scripts/private/apply_workflow_freshness_updates.py").exists())
         self.assertFalse(CHANGED_WORKFLOW_VALIDATION_SCRIPT.exists())
 
 
