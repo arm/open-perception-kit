@@ -87,7 +87,9 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         workflow = load_yaml(REUSABLE_WORKFLOW_FILE)
         inputs = workflow["on"]["workflow_call"]["inputs"]
         codex_job = workflow["jobs"]["codex-fix"]
+        stabilize_job = workflow["jobs"]["stabilize-pr"]
         codex_steps = step_map(codex_job)
+        stabilize_steps = step_map(stabilize_job)
 
         self.assertEqual(
             set(inputs.keys()),
@@ -115,22 +117,15 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 "require-generated-patch",
                 "apply-patch-and-push",
                 "create-draft-pr",
-                "wait-for-pr-workflows",
-                "merge-pr",
+                "stabilize-pr",
             },
         )
         self.assertEqual(codex_job["runs-on"], ["self-hosted", "Linux", "X64"])
+        self.assertEqual(stabilize_job["runs-on"], ["self-hosted", "Linux", "X64"])
         self.assertIn("Download source artifact context", codex_steps)
-        self.assertIn("Bootstrap Codex proxy", codex_steps)
         self.assertIn("Run Codex", codex_steps)
+        self.assertIn("Prime Codex CLI", stabilize_steps)
         self.assertNotIn("Apply deterministic workflow freshness patch", codex_steps)
-
-        bootstrap_step = codex_steps["Bootstrap Codex proxy"]
-        self.assertEqual(bootstrap_step["uses"], "./.github/actions/codex-proxy-bootstrap")
-        self.assertEqual(
-            bootstrap_step["with"]["api-key"],
-            "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
-        )
 
         codex_step = codex_steps["Run Codex"]
         self.assertEqual(codex_step["uses"], "openai/codex-action@v1")
@@ -148,6 +143,15 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(
             codex_steps["Download source artifact context"]["if"],
             "${{ inputs.source_artifact_name != '' }}",
+        )
+        self.assertEqual(stabilize_steps["Prime Codex CLI"]["uses"], "openai/codex-action@v1")
+        self.assertEqual(
+            stabilize_steps["Prime Codex CLI"]["with"]["codex-home"],
+            "${{ runner.temp }}/codex-home/${{ github.run_id }}-stabilize",
+        )
+        self.assertEqual(
+            stabilize_steps["Prime Codex CLI"]["with"]["safety-strategy"],
+            "unsafe",
         )
 
     def test_helper_action_exposes_structured_outputs(self):
@@ -255,7 +259,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
         self.assertEqual(codex_review["workflow_name"], "Codex Review")
         self.assertEqual(codex_review["review_state_script"], "codex-review/scripts/fetch-review-state.py")
-        self.assertEqual(codex_review["allowed_review_recommendations"], ["approve", "comment"])
+        self.assertEqual(codex_review["allowed_review_recommendations"], ["approve"])
         self.assertEqual(profile["codex_model"], "gpt-5.3-codex")
 
     def test_profile_drives_markdown_context_files_and_validation_commands(self):
@@ -416,7 +420,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("needs.workflow-dependency-freshness.outputs.requires_repair == 'true'", repair_job["if"])
         self.assertIn("github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'", repair_job["if"])
 
-    def test_wait_for_review_state_accepts_non_blocking_recommendation(self):
+    def test_wait_for_review_state_returns_observed_recommendation(self):
         with mock.patch.object(
             HELPER,
             "read_review_state",
@@ -426,34 +430,86 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 "overall_recommendation": "comment",
             },
         ):
-            HELPER.wait_for_review_state(
+            review_state = HELPER.wait_for_review_state(
                 pr_number="123",
                 workflow_name="Codex Review",
                 review_state_script="codex-review/scripts/fetch-review-state.py",
-                allowed_review_recommendations=["approve", "comment"],
                 expected_run_id="28000000001",
                 head_sha="deadbeef",
             )
+        self.assertEqual(review_state["overall_recommendation"], "comment")
 
-    def test_wait_for_review_state_rejects_requested_changes(self):
-        with mock.patch.object(
-            HELPER,
-            "read_review_state",
-            return_value={
+    def test_ensure_allowed_review_recommendation_rejects_requested_changes(self):
+        with self.assertRaisesRegex(RuntimeError, "request_changes"):
+            HELPER.ensure_allowed_review_recommendation(
+                pr_number="123",
+                workflow_name="Codex Review",
+                review_state={"overall_recommendation": "request_changes"},
+                allowed_review_recommendations=["approve"],
+            )
+
+    def test_stabilize_pr_pushes_followup_commit_until_review_approves(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            context_root = Path(temp_dir) / "context"
+            args = argparse.Namespace(
+                profile_path=str(PROFILE_FILE),
+                pr_number="123",
+                repair_branch=REPAIR_BRANCH,
+                head_sha="deadbeef",
+                ticket_id="EXPKITS-4242",
+                source_run_id="12345",
+                context_root=str(context_root),
+            )
+            first_review_state = {
                 "run_id": "28000000001",
                 "head_sha": "deadbeef",
-                "overall_recommendation": "request_changes",
-            },
-        ):
-            with self.assertRaisesRegex(RuntimeError, "request_changes"):
-                HELPER.wait_for_review_state(
-                    pr_number="123",
-                    workflow_name="Codex Review",
-                    review_state_script="codex-review/scripts/fetch-review-state.py",
-                    allowed_review_recommendations=["approve", "comment"],
-                    expected_run_id="28000000001",
-                    head_sha="deadbeef",
-                )
+                "overall_recommendation": "comment",
+                "summary": "Tighten the PR stabilization loop.",
+                "findings": [{"title": "Loop", "path": ".github/workflows/example.yml", "body": "Retry it."}],
+            }
+            second_review_state = {
+                "run_id": "28000000002",
+                "head_sha": "feedface",
+                "overall_recommendation": "approve",
+                "summary": "Looks good.",
+                "findings": [],
+            }
+            run_command_result = mock.Mock(returncode=0, stdout="", stderr="")
+
+            with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
+                with mock.patch.object(HELPER, "run_command", return_value=run_command_result):
+                    with mock.patch.object(
+                        HELPER,
+                        "wait_for_workflow_run",
+                        side_effect=["review-1", "review-2", "pek-2", "sonar-2"],
+                    ) as wait_for_workflow_run:
+                        with mock.patch.object(
+                            HELPER,
+                            "wait_for_review_state",
+                            side_effect=[first_review_state, second_review_state],
+                        ):
+                            with mock.patch.object(HELPER, "run_codex_fix_prompt") as run_codex_fix_prompt:
+                                with mock.patch.object(HELPER, "run_validation_commands") as run_validation_commands:
+                                    with mock.patch.object(
+                                        HELPER,
+                                        "commit_review_fix",
+                                        return_value="feedface",
+                                    ) as commit_review_fix:
+                                        with mock.patch.object(HELPER, "merge_pr") as merge_pr:
+                                            result = HELPER.command_stabilize_pr(args)
+
+            self.assertEqual(result, 0)
+            self.assertEqual(wait_for_workflow_run.call_count, 4)
+            run_codex_fix_prompt.assert_called_once()
+            run_validation_commands.assert_called_once()
+            commit_review_fix.assert_called_once()
+            merge_pr.assert_called_once_with("123")
+            self.assertTrue((context_root / "review-state.json").is_file())
+            self.assertTrue((context_root / "stabilize-goal.md").is_file())
+            self.assertIn(
+                "turn the latest standard Codex Review into `approve`",
+                (context_root / "stabilize-goal.md").read_text(encoding="utf-8"),
+            )
 
     def test_workflow_audit_report_writes_repair_outputs(self):
         entries = [

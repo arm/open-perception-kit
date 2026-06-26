@@ -30,8 +30,7 @@
       "workflow_name": "Codex Review",
       "review_state_script": "codex-review/scripts/fetch-review-state.py",
       "allowed_review_recommendations": [
-        "approve",
-        "comment"
+        "approve"
       ]
     },
     {

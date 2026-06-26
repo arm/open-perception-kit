@@ -200,6 +200,16 @@ runs:
             python3 "${helper}" merge-pr \
               --pr-number "${{ inputs.pr-number }}"
             ;;
+          stabilize-pr)
+            python3 "${helper}" stabilize-pr \
+              --profile-path "${{ inputs.profile-path }}" \
+              --pr-number "${{ inputs.pr-number }}" \
+              --repair-branch "${{ inputs.repair-branch }}" \
+              --head-sha "${{ inputs.head-sha }}" \
+              --ticket-id "${{ inputs.ticket-id }}" \
+              --source-run-id "${{ inputs.source-run-id }}" \
+              --context-root "${{ inputs.context-root }}"
+            ;;
           *)
             echo "Unsupported workflow action update agent helper command: ${command}" >&2
             exit 1

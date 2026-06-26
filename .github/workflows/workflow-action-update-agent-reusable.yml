@@ -126,15 +126,6 @@ jobs:
           repair-branch: ${{ needs.prepare.outputs.repair_branch }}
           ticket-id: ${{ needs.prepare.outputs.ticket_id }}
 
-      - name: Bootstrap Codex proxy
-        uses: ./.github/actions/codex-proxy-bootstrap
-        with:
-          api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
-          responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses
-          codex-home: ${{ runner.temp }}/codex-home/${{ github.run_id }}
-          run-id: ${{ github.run_id }}
-          npm-userconfig-path: ${{ github.workspace }}/codex-review/.npmrc
-
       - name: Run Codex
         uses: openai/codex-action@v1
         env:
@@ -233,43 +224,43 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
 
-  verify-pr:
-    name: Wait for repair PR workflows
+  stabilize-pr:
+    name: Stabilize and merge repair PR
     needs: [prepare, open-pr]
     if: needs.prepare.outputs.should_run == 'true' && needs['open-pr'].result == 'success'
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 180
     permissions:
       actions: read
-      contents: read
-      pull-requests: read
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: ./.github/actions/workflow-action-update-agent-helper
-        env:
-          GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
-        with:
-          command: wait-for-pr-workflows
-          profile-path: ${{ inputs.profile_path || '.github/ci/workflow-action-update-agent/profile.json' }}
-          pr-number: ${{ needs['open-pr'].outputs.pr_number }}
-          repair-branch: ${{ needs.prepare.outputs.repair_branch }}
-          head-sha: ${{ needs['open-pr'].outputs.head_sha }}
-
-  merge-pr:
-    name: Merge repair PR
-    needs: [prepare, open-pr, verify-pr]
-    if: needs.prepare.outputs.should_run == 'true' && needs['verify-pr'].result == 'success'
-    runs-on: ubuntu-latest
-    permissions:
       contents: write
       pull-requests: write
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ref: ${{ needs.prepare.outputs.repair_branch }}
+          token: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+
+      - name: Prime Codex CLI
+        uses: openai/codex-action@v1
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ github.workspace }}/codex-review/.npmrc
+        with:
+          openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
+          responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses
+          codex-home: ${{ runner.temp }}/codex-home/${{ github.run_id }}-stabilize
+          safety-strategy: unsafe
 
       - uses: ./.github/actions/workflow-action-update-agent-helper
-        with:
-          command: merge-pr
-          pr-number: ${{ needs['open-pr'].outputs.pr_number }}
         env:
           GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+          CODEX_HOME: ${{ runner.temp }}/codex-home/${{ github.run_id }}-stabilize
+        with:
+          command: stabilize-pr
+          profile-path: ${{ inputs.profile_path || '.github/ci/workflow-action-update-agent/profile.json' }}
+          pr-number: ${{ needs['open-pr'].outputs.pr_number }}
+          repair-branch: ${{ needs.prepare.outputs.repair_branch }}
+          head-sha: ${{ needs['open-pr'].outputs.head_sha }}
+          ticket-id: ${{ needs.prepare.outputs.ticket_id }}
+          source-run-id: ${{ needs.prepare.outputs.source_run_id }}

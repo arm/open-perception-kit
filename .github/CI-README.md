@@ -46,7 +46,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Resolves source-run metadata, downloads logs and artifacts, and creates `goal.md` plus the companion Markdown context files under `.codex/workflow-action-update-agent/`
 - Feeds the collected failure state and any downloaded artifact context into Codex so the patch is generated from the report instead of from inline workflow logic
 - Runs Codex on the same self-hosted runner path as `codex-review`, with the same `openai/codex-action` integration and npm proxy config, to generate the repair patch
-- Opens a draft repair PR, applies the profile-defined rerun label, waits for the profile-defined validation workflows plus any structured review outcome they publish, and merges on success
+- Opens a draft repair PR, applies the profile-defined rerun label, then keeps a single stabilization loop: wait for the standard Codex review, feed non-approve findings back into Codex on the same branch, rerun validation, and merge only after the latest PR head is fully green
 - Stays orchestration-thin by delegating repo-specific helper commands to a local composite action and flow policy to the repair profile
 - Uses `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` and `codex-review/.npmrc` for the Codex step so the repair flow matches `codex-review`
 - Supports the optional `EXPKITS_AGENT_TOKEN` secret so checkout, push, PR, and merge operations can run under a PAT or GitHub App token instead of the default `GITHUB_TOKEN`
@@ -55,7 +55,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 - Holds the small repo-specific building blocks that would otherwise bloat the workflow YAML
 - Loads the selected repair profile, resolves source-run inputs, collects workflow evidence, builds runtime Markdown inputs, and renders repair PR metadata
-- Packages repository changes, pushes repair branches, opens draft PRs, waits for profile-defined validation workflows, and merges successful repairs
+- Packages repository changes, pushes repair branches, opens draft PRs, and owns the stabilization loop that waits on review state, generates follow-up fixes, reruns local validation, and merges successful repairs
 - Reuses `.github/PULL_REQUEST_TEMPLATE.md` through explicit marker sections instead of brittle free-text replacement, and injects the repair CI badge only for bot-authored PRs
 - Provides the reusable PR-lifecycle lego layer that future caller workflows can build on without dragging in the current experiment branches
 
@@ -72,12 +72,6 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Wraps the Python helper behind one local composite action so the reusable workflow stays declarative and avoids repeating long inline `python3 ...` run blocks
 - Exposes stable outputs such as `should_run`, `repair_branch`, `codex_model`, `has_changes`, `head_sha`, and `pr_number`
 - Gives future caller workflows the same helper API without copying shell glue
-
-## What does `.github/actions/codex-proxy-bootstrap/` do?
-
-- Starts `codex-responses-api-proxy` in a per-run `codex-home` before `openai/codex-action`
-- Keeps the repair workflow on the same official action path while avoiding self-hosted runners that do not grant passwordless sudo
-- Reuses one tiny bootstrap lego instead of repeating the same proxy-start shell in the repair flow
 
 ## Operational Notes
 
