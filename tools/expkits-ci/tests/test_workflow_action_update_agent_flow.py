@@ -182,6 +182,20 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("review_run_id", action["outputs"])
         self.assertIn("${{ github.action_path }}", action["runs"]["steps"][0]["run"])
 
+    def test_helper_script_uses_github_workspace_as_repo_root(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with mock.patch.dict(os.environ, {"GITHUB_WORKSPACE": temp_dir}, clear=False):
+                workspace_helper = load_python_module(
+                    HELPER_SCRIPT,
+                    "workflow_action_update_agent_workspace_root",
+                )
+
+        self.assertEqual(workspace_helper.REPO_ROOT, Path(temp_dir).resolve())
+        self.assertEqual(
+            workspace_helper.resolve_repo_path(".github/ci/workflow-action-update-agent/profile.json"),
+            Path(temp_dir).resolve() / ".github/ci/workflow-action-update-agent/profile.json",
+        )
+
     def test_codex_review_workflow_matches_main_self_hosted_proxy_flow(self):
         workflow = load_yaml(CODEX_REVIEW_WORKFLOW_FILE)
         review_job = workflow["jobs"]["review"]

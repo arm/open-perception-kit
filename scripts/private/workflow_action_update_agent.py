@@ -23,7 +23,8 @@ from pathlib import Path
 
 
 TICKET_RE = re.compile(r"^[A-Z][A-Z0-9]*-[0-9]+$")
-REPO_ROOT = Path(__file__).resolve().parents[2]
+GITHUB_WORKSPACE = os.environ.get("GITHUB_WORKSPACE", "").strip()
+REPO_ROOT = Path(GITHUB_WORKSPACE).resolve() if GITHUB_WORKSPACE else Path(__file__).resolve().parents[2]
 DEFAULT_PROFILE_PATH = REPO_ROOT / ".github/ci/workflow-action-update-agent/profile.json"
 PR_TEMPLATE_PATH = REPO_ROOT / ".github/PULL_REQUEST_TEMPLATE.md"
 MARKDOWN_TEMPLATE_ROOT = REPO_ROOT / ".github/ci/workflow-action-update-agent"
