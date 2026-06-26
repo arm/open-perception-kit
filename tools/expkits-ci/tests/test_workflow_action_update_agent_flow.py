@@ -36,6 +36,7 @@ WORKFLOW_AUDIT_PROFILE_FILE = MARKDOWN_TEMPLATE_ROOT / "workflow-audit-profile.j
 PULL_REQUEST_TEMPLATE = REPO_ROOT / ".github/PULL_REQUEST_TEMPLATE.md"
 FRESHNESS_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/workflow-action-update-agent-freshness.yml"
 CHANGED_VALIDATION_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/workflow-changed-validation.yml"
+FRESHNESS_PATCH_SCRIPT = REPO_ROOT / "scripts/private/apply_workflow_freshness_updates.py"
 CHANGED_WORKFLOW_VALIDATION_SCRIPT = REPO_ROOT / "scripts/private/validate_changed_workflows.py"
 REPAIR_BRANCH = "feature/EXPKITS-4242/bot-workflow-action-update-agent-run-12345"  # pragma: allowlist secret
 
@@ -126,15 +127,22 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("OPENAI_API_KEY", workflow_text)
         self.assertIn("OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS", workflow_text)
         self.assertIn("OPENAI_API_KEY_VALUE", workflow_text)
-        self.assertNotIn("Apply deterministic workflow freshness patch", workflow_text)
-        self.assertNotIn("test_workflow_freshness_patch.py", workflow_text)
+        self.assertIn("Apply deterministic workflow freshness patch", workflow_text)
+        self.assertIn("inputs.source_artifact_name == 'workflow-dependency-freshness'", workflow_text)
+        self.assertIn("test_workflow_freshness_patch.py", workflow_text)
         self.assertIn("Run Codex with direct OpenAI key", workflow_text)
         self.assertIn("Run Codex with proxy key", workflow_text)
         self.assertIn("id: codex-auth", workflow_text)
         self.assertIn("echo \"use_direct=true\" >> \"${GITHUB_OUTPUT}\"", workflow_text)
         self.assertIn("echo \"use_direct=false\" >> \"${GITHUB_OUTPUT}\"", workflow_text)
-        self.assertIn("if: ${{ steps.codex-auth.outputs.use_direct == 'true' }}", workflow_text)
-        self.assertIn("if: ${{ steps.codex-auth.outputs.use_direct != 'true' }}", workflow_text)
+        self.assertIn(
+            "if: ${{ inputs.source_artifact_name != 'workflow-dependency-freshness' && steps.codex-auth.outputs.use_direct == 'true' }}",
+            workflow_text,
+        )
+        self.assertIn(
+            "if: ${{ inputs.source_artifact_name != 'workflow-dependency-freshness' && steps.codex-auth.outputs.use_direct != 'true' }}",
+            workflow_text,
+        )
         self.assertIn("openai-api-key: ${{ secrets.OPENAI_API_KEY }}", workflow_text)
         self.assertIn("openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}", workflow_text)
         self.assertIn(
@@ -535,7 +543,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_experiment_files_are_absent_from_minimal_branch(self):
         self.assertFalse(FRESHNESS_WORKFLOW_FILE.exists())
         self.assertFalse(CHANGED_VALIDATION_WORKFLOW_FILE.exists())
-        self.assertFalse((REPO_ROOT / "scripts/private/apply_workflow_freshness_updates.py").exists())
+        self.assertTrue(FRESHNESS_PATCH_SCRIPT.exists())
         self.assertFalse(CHANGED_WORKFLOW_VALIDATION_SCRIPT.exists())
 
 

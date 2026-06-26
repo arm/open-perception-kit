@@ -129,8 +129,18 @@ jobs:
           repair-branch: ${{ needs.prepare.outputs.repair_branch }}
           ticket-id: ${{ needs.prepare.outputs.ticket_id }}
 
+      - name: Apply deterministic workflow freshness patch
+        if: ${{ inputs.source_artifact_name == 'workflow-dependency-freshness' }}
+        run: |
+          set -euo pipefail
+          python3 scripts/private/apply_workflow_freshness_updates.py \
+            --repo-root . \
+            --report-json .codex/workflow-action-update-agent/artifacts/workflow-dependency-freshness/workflow-dependency-freshness.json
+          printf 'Deterministic workflow freshness patch applied.\n' > "${{ runner.temp }}/workflow-action-update-agent-codex-output.md"
+
       - id: codex-auth
         name: Require Codex credentials
+        if: ${{ inputs.source_artifact_name != 'workflow-dependency-freshness' }}
         env:
           OPENAI_API_KEY_VALUE: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_PROXY_KEY_VALUE: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
@@ -148,7 +158,7 @@ jobs:
           exit 1
 
       - name: Run Codex with direct OpenAI key
-        if: ${{ steps.codex-auth.outputs.use_direct == 'true' }}
+        if: ${{ inputs.source_artifact_name != 'workflow-dependency-freshness' && steps.codex-auth.outputs.use_direct == 'true' }}
         uses: ./.github/actions/openai-codex-run
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -166,7 +176,7 @@ jobs:
           codex-args: '["--ignore-rules"]'
 
       - name: Run Codex with proxy key
-        if: ${{ steps.codex-auth.outputs.use_direct != 'true' }}
+        if: ${{ inputs.source_artifact_name != 'workflow-dependency-freshness' && steps.codex-auth.outputs.use_direct != 'true' }}
         uses: ./.github/actions/openai-codex-run
         with:
           openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
@@ -189,6 +199,7 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_detect_secrets_quality_flow.py'
           python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_workflow_action_update_agent_flow.py'
+          python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_workflow_freshness_patch.py'
 
       - id: patch
         uses: ./.github/actions/workflow-action-update-agent-helper
