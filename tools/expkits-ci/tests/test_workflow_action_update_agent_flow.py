@@ -180,6 +180,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("pr_number", action["outputs"])
         self.assertIn("review_recommendation", action["outputs"])
         self.assertIn("review_run_id", action["outputs"])
+        self.assertIn("${{ github.action_path }}", action["runs"]["steps"][0]["run"])
 
     def test_codex_review_workflow_matches_main_self_hosted_proxy_flow(self):
         workflow = load_yaml(CODEX_REVIEW_WORKFLOW_FILE)
@@ -222,8 +223,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             list(steps),
             [
                 "Checkout workflow helpers",
+                "Snapshot workflow helper bundle",
                 "Resolve PR details",
                 "Checkout PR head",
+                "Restore workflow helper bundle",
                 "Prepare stabilization context",
                 "Run Codex stabilization",
                 "Run stabilization validation",
@@ -251,17 +254,31 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             steps["Resolve PR details"]["with"]["command"],
             "resolve-pr-details",
         )
+        self.assertEqual(steps["Snapshot workflow helper bundle"]["shell"], "bash")
+        self.assertEqual(steps["Restore workflow helper bundle"]["shell"], "bash")
         self.assertEqual(
             steps["Prepare stabilization context"]["with"]["command"],
             "prepare-stabilization-context",
+        )
+        self.assertEqual(
+            steps["Prepare stabilization context"]["uses"],
+            "./.workflow-action-update-agent-helper/.github/actions/workflow-action-update-agent-helper",
         )
         self.assertEqual(
             steps["Run stabilization validation"]["with"]["command"],
             "run-validation",
         )
         self.assertEqual(
+            steps["Run stabilization validation"]["uses"],
+            "./.workflow-action-update-agent-helper/.github/actions/workflow-action-update-agent-helper",
+        )
+        self.assertEqual(
             steps["Commit stabilization fix"]["with"]["command"],
             "commit-review-fix",
+        )
+        self.assertEqual(
+            steps["Commit stabilization fix"]["uses"],
+            "./.workflow-action-update-agent-helper/.github/actions/workflow-action-update-agent-helper",
         )
 
     def test_resolve_inputs_uses_profile_branch_template(self):

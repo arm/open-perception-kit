@@ -99,6 +99,20 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
+      - name: Snapshot workflow helper bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle_root="${RUNNER_TEMP}/workflow-action-update-agent-helper"
+          rm -rf "${bundle_root}"
+          mkdir -p \
+            "${bundle_root}/.github/actions/workflow-action-update-agent-helper" \
+            "${bundle_root}/scripts/private"
+          cp .github/actions/workflow-action-update-agent-helper/action.yml \
+            "${bundle_root}/.github/actions/workflow-action-update-agent-helper/action.yml"
+          cp scripts/private/workflow_action_update_agent.py \
+            "${bundle_root}/scripts/private/workflow_action_update_agent.py"
+
       - name: Resolve PR details
         id: pr
         uses: ./.github/actions/workflow-action-update-agent-helper
@@ -116,9 +130,21 @@ jobs:
           ref: ${{ inputs.head_sha || steps.pr.outputs.head_sha }}
           token: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
 
+      - name: Restore workflow helper bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          helper_root=".workflow-action-update-agent-helper"
+          bundle_root="${RUNNER_TEMP}/workflow-action-update-agent-helper"
+          if ! grep -qxF "/${helper_root}/" .git/info/exclude 2>/dev/null; then
+            printf '/%s/\n' "${helper_root}" >> .git/info/exclude
+          fi
+          rm -rf "${helper_root}"
+          cp -R "${bundle_root}" "${helper_root}"
+
       - name: Prepare stabilization context
         id: context
-        uses: ./.github/actions/workflow-action-update-agent-helper
+        uses: ./.workflow-action-update-agent-helper/.github/actions/workflow-action-update-agent-helper
         env:
           GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
         with:
@@ -145,14 +171,14 @@ jobs:
 
       - if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
         name: Run stabilization validation
-        uses: ./.github/actions/workflow-action-update-agent-helper
+        uses: ./.workflow-action-update-agent-helper/.github/actions/workflow-action-update-agent-helper
         with:
           command: run-validation
           profile-path: ${{ inputs.profile_path }}
 
       - if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
         name: Commit stabilization fix
-        uses: ./.github/actions/workflow-action-update-agent-helper
+        uses: ./.workflow-action-update-agent-helper/.github/actions/workflow-action-update-agent-helper
         with:
           command: commit-review-fix
           context-root: ${{ inputs.context_root }}

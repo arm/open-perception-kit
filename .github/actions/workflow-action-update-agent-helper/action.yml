@@ -130,7 +130,7 @@ runs:
       run: |
         set -euo pipefail
 
-        helper="scripts/private/workflow_action_update_agent.py"
+        helper="${{ github.action_path }}/../../../scripts/private/workflow_action_update_agent.py"
         command="${{ inputs.command }}"
 
         case "${command}" in
