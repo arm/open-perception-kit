@@ -45,7 +45,7 @@ jobs:
     if: ${{ inputs.pr_number == '' }}
     name: Run workflow action update agent
     permissions:
-      actions: read
+      actions: write
       contents: write
       pull-requests: write
     uses: ./.github/workflows/workflow-action-update-agent-reusable.yml

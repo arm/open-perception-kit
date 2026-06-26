@@ -91,6 +91,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertNotIn("source_workflow_conclusion", repair_job["with"])
         self.assertNotIn("source_head_branch", repair_job["with"])
         self.assertNotIn("source_head_repository", repair_job["with"])
+        self.assertEqual(repair_job["permissions"]["actions"], "write")
         self.assertEqual(repair_job["secrets"], "inherit")
         self.assertEqual(stabilize_job["secrets"], "inherit")
 
@@ -484,6 +485,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             repair_job["with"]["profile_path"],
             "${{ inputs.repair_profile_path || '.github/ci/workflow-action-update-agent/workflow-audit-profile.json' }}",
         )
+        self.assertEqual(repair_job["permissions"]["actions"], "write")
         self.assertIn("github.event.inputs.stabilize_pr_number == ''", report_job["if"])
         self.assertIn("github.event.inputs.stabilize_pr_number == ''", repair_job["if"])
         self.assertIn("needs.workflow-dependency-freshness.outputs.requires_repair == 'true'", repair_job["if"])

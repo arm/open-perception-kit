@@ -97,7 +97,7 @@ jobs:
         (github.event_name == 'workflow_dispatch' && github.event.inputs.stabilize_pr_number == '')
       )
     permissions:
-      actions: read
+      actions: write
       contents: write
       pull-requests: write
     uses: ./.github/workflows/workflow-action-update-agent-reusable.yml
