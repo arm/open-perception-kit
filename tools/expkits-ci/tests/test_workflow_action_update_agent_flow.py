@@ -25,6 +25,7 @@ CODEX_REVIEW_PUBLISH_SCRIPT = REPO_ROOT / "codex-review/scripts/publish-review.p
 CI_README = REPO_ROOT / ".github/CI-README.md"
 HELPER_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent.py"
 HELPER_ACTION_FILE = REPO_ROOT / ".github/actions/workflow-action-update-agent-helper/action.yml"
+CODEX_PROXY_BOOTSTRAP_ACTION_FILE = REPO_ROOT / ".github/actions/codex-proxy-bootstrap/action.yml"
 OPENAI_CODEX_RUN_ACTION_FILE = REPO_ROOT / ".github/actions/openai-codex-run/action.yml"
 MARKDOWN_TEMPLATE_ROOT = REPO_ROOT / ".github/ci/workflow-action-update-agent"
 GOAL_TEMPLATE = MARKDOWN_TEMPLATE_ROOT / "goal.md"
@@ -120,8 +121,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertNotIn("source_workflow_conclusion", workflow_text)
         self.assertNotIn("source_head_branch", workflow_text)
         self.assertNotIn("source_head_repository", workflow_text)
+        self.assertIn("./.github/actions/codex-proxy-bootstrap", workflow_text)
         self.assertNotIn("./.github/actions/openai-codex-run", workflow_text)
         self.assertIn("runs-on: [self-hosted, Linux, X64]", workflow_text)
+        self.assertIn("CODEX_HOME_DIR", workflow_text)
         self.assertIn("NPM_CONFIG_USERCONFIG", workflow_text)
         self.assertIn("Require Codex proxy credentials", workflow_text)
         self.assertNotIn("OPENAI_API_KEY", workflow_text)
@@ -143,6 +146,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses",
             workflow_text,
         )
+        self.assertIn("codex-home: ${{ env.CODEX_HOME_DIR }}", workflow_text)
         self.assertIn("model: ${{ needs.prepare.outputs.codex_model }}", workflow_text)
         self.assertIn("sandbox: danger-full-access", workflow_text)
         self.assertIn("safety-strategy: unsafe", workflow_text)
@@ -171,11 +175,23 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_openai_codex_run_action_is_absent_from_minimal_branch(self):
         self.assertFalse(OPENAI_CODEX_RUN_ACTION_FILE.exists())
 
+    def test_codex_proxy_bootstrap_action_starts_proxy_without_sudo(self):
+        action = load_yaml(CODEX_PROXY_BOOTSTRAP_ACTION_FILE)
+        action_text = CODEX_PROXY_BOOTSTRAP_ACTION_FILE.read_text(encoding="utf-8")
+
+        self.assertEqual(action["runs"]["using"], "composite")
+        self.assertIn("actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f", action_text)
+        self.assertIn("codex-responses-api-proxy", action_text)
+        self.assertIn("server_info_file", action_text)
+        self.assertNotIn("sudo ", action_text)
+
     def test_codex_review_workflow_matches_main_self_hosted_proxy_flow(self):
         workflow_text = CODEX_REVIEW_WORKFLOW_FILE.read_text(encoding="utf-8")
 
         self.assertIn("NPM_CONFIG_USERCONFIG", workflow_text)
         self.assertIn("runs-on: [self-hosted, Linux, X64]", workflow_text)
+        self.assertIn("./.github/actions/codex-proxy-bootstrap", workflow_text)
+        self.assertIn("CODEX_HOME_DIR", workflow_text)
         self.assertIn("safety-strategy: unsafe", workflow_text)
         self.assertIn("uses: openai/codex-action@v1", workflow_text)
         self.assertIn("Run Codex review", workflow_text)
@@ -189,6 +205,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertNotIn("OPENAI_API_KEY_VALUE", workflow_text)
         self.assertNotIn("openai-api-key: ${{ secrets.OPENAI_API_KEY }}", workflow_text)
         self.assertIn("openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}", workflow_text)
+        self.assertIn("codex-home: ${{ env.CODEX_HOME_DIR }}", workflow_text)
         self.assertIn(
             "responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses",
             workflow_text,
@@ -489,6 +506,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertTrue(PROFILE_FILE.is_file())
         self.assertTrue(WORKFLOW_AUDIT_PROFILE_FILE.is_file())
         self.assertTrue(HELPER_ACTION_FILE.is_file())
+        self.assertTrue(CODEX_PROXY_BOOTSTRAP_ACTION_FILE.is_file())
         self.assertTrue(PULL_REQUEST_TEMPLATE.is_file())
 
     def test_ci_readme_documents_core_legos_only(self):
@@ -499,6 +517,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn(".github/workflows/workflow-audit.yml", readme)
         self.assertIn(".github/workflows/codex-review.yml", readme)
         self.assertIn(".github/actions/workflow-action-update-agent-helper/", readme)
+        self.assertIn(".github/actions/codex-proxy-bootstrap/", readme)
         self.assertIn(".github/ci/workflow-action-update-agent/profile.json", readme)
         self.assertIn(".github/ci/workflow-action-update-agent/workflow-audit-profile.json", readme)
         self.assertIn("single nightly pipeline", readme)
@@ -510,6 +529,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS", readme)
         self.assertIn("EXPKITS_AGENT_TOKEN", readme)
         self.assertIn("deterministic workflow freshness patch", readme)
+        self.assertIn("passwordless sudo", readme)
         self.assertIn("waits for the profile-defined validation workflows", readme)
         self.assertIn("manual fallback caller", readme)
         self.assertNotIn("workflow-action-update-agent-freshness.yml", readme)

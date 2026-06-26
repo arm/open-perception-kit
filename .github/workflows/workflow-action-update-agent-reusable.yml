@@ -88,6 +88,8 @@ jobs:
     if: needs.prepare.outputs.should_run == 'true'
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 45
+    env:
+      CODEX_HOME_DIR: ${{ runner.temp }}/codex-home/${{ github.run_id }}
     permissions:
       actions: read
       contents: read
@@ -148,6 +150,16 @@ jobs:
           echo "OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS is required for workflow-action-update-agent Codex runs." >&2
           exit 1
 
+      - name: Bootstrap Codex proxy
+        if: ${{ inputs.source_artifact_name != 'workflow-dependency-freshness' }}
+        uses: ./.github/actions/codex-proxy-bootstrap
+        with:
+          api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
+          responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses
+          codex-home: ${{ env.CODEX_HOME_DIR }}
+          run-id: ${{ github.run_id }}
+          npm-userconfig-path: ${{ github.workspace }}/codex-review/.npmrc
+
       - name: Run Codex
         if: ${{ inputs.source_artifact_name != 'workflow-dependency-freshness' }}
         uses: openai/codex-action@v1
@@ -157,6 +169,7 @@ jobs:
           openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
           responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses
           model: ${{ needs.prepare.outputs.codex_model }}
+          codex-home: ${{ env.CODEX_HOME_DIR }}
           prompt-file: .codex/workflow-action-update-agent/goal.md
           output-file: ${{ runner.temp }}/workflow-action-update-agent-codex-output.md
           sandbox: danger-full-access

@@ -23,6 +23,8 @@ jobs:
   review:
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: [self-hosted, Linux, X64]
+    env:
+      CODEX_HOME_DIR: ${{ runner.temp }}/codex-home/${{ github.run_id }}
 
     steps:
       - name: Checkout pull request head
@@ -45,6 +47,15 @@ jobs:
           mkdir -p codex-review/out
           ./codex-review/scripts/render-prompt.sh codex-review/out/review.prompt.md
 
+      - name: Bootstrap Codex proxy
+        uses: ./.github/actions/codex-proxy-bootstrap
+        with:
+          api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
+          responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses
+          codex-home: ${{ env.CODEX_HOME_DIR }}
+          run-id: ${{ github.run_id }}
+          npm-userconfig-path: ${{ github.workspace }}/codex-review/.npmrc
+
       # <codex-review:suppress-begin> Intentional current self-hosted Codex
       # review trust boundary for same-repo pull requests.
       - name: Run Codex review
@@ -56,6 +67,7 @@ jobs:
           openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
           responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses
           model: gpt-5.3-codex
+          codex-home: ${{ env.CODEX_HOME_DIR }}
           sandbox: danger-full-access
           safety-strategy: unsafe
           prompt-file: codex-review/out/review.prompt.md

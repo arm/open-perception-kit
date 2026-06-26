@@ -16,6 +16,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 ## What does `.github/workflows/codex-review.yml` do?
 
 - Runs Codex review on a self-hosted runner through the official `openai/codex-action@v1` path used on `main`
+- Boots a local Responses API proxy through `.github/actions/codex-proxy-bootstrap/` first, so self-hosted nodes without passwordless sudo still stay on the same official action path
 - Supports `workflow_dispatch` manual runs with a configurable `base_ref` input for the diff baseline
 - Uses `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS`, the Arm OpenAI proxy endpoint, and the checked-in `codex-review/.npmrc` npm config
 - Uses the checked-in review assets under `codex-review/`
@@ -45,6 +46,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Contains the core repair engine behind the caller workflow
 - Resolves source-run metadata, downloads logs and artifacts, and creates `goal.md` plus the companion Markdown context files under `.codex/workflow-action-update-agent/`
 - Runs Codex on the same self-hosted runner path as `codex-review`, with the same `openai/codex-action` integration and npm proxy config, to generate a minimal repair patch from that failure context
+- Boots the same local Responses API proxy first, so repair runs avoid the `openai/codex-action` passwordless sudo assumption on self-hosted nodes
 - Uses a deterministic workflow freshness patch for `workflow-dependency-freshness` artifacts instead of calling Codex for simple `uses:` ref bumps
 - Opens a draft repair PR, applies the profile-defined rerun label, waits for the profile-defined validation workflows plus any structured review outcome they publish, and merges on success
 - Stays orchestration-thin by delegating repo-specific helper commands to a local composite action and flow policy to the repair profile
@@ -72,6 +74,12 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Wraps the Python helper behind one local composite action so the reusable workflow stays declarative and avoids repeating long inline `python3 ...` run blocks
 - Exposes stable outputs such as `should_run`, `repair_branch`, `codex_model`, `codex_effort`, `has_changes`, `head_sha`, and `pr_number`
 - Gives future caller workflows the same helper API without copying shell glue
+
+## What does `.github/actions/codex-proxy-bootstrap/` do?
+
+- Starts `codex-responses-api-proxy` in a per-run `codex-home` before `openai/codex-action`
+- Keeps `codex-review` and the repair workflow on the same official action path while avoiding self-hosted runners that do not grant passwordless sudo
+- Reuses one tiny bootstrap lego instead of repeating the same proxy-start shell in both workflows
 
 ## Operational Notes
 
