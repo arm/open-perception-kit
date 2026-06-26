@@ -115,6 +115,12 @@ outputs:
   pr_number:
     description: Generated repair PR number.
     value: ${{ steps.helper.outputs.pr_number }}
+  review_recommendation:
+    description: Review recommendation observed for the active PR.
+    value: ${{ steps.helper.outputs.review_recommendation }}
+  review_run_id:
+    description: Review run ID observed for the active PR.
+    value: ${{ steps.helper.outputs.review_run_id }}
 
 runs:
   using: composite
@@ -187,6 +193,32 @@ runs:
               --pr-title-file "${{ inputs.pr-title-file }}" \
               --target-branch "${{ inputs.target-branch }}" \
               --repair-branch "${{ inputs.repair-branch }}" \
+              --github-output "${GITHUB_OUTPUT}"
+            ;;
+          resolve-pr-details)
+            python3 "${helper}" resolve-pr-details \
+              --pr-number "${{ inputs.pr-number }}" \
+              --github-output "${GITHUB_OUTPUT}"
+            ;;
+          prepare-stabilization-context)
+            python3 "${helper}" prepare-stabilization-context \
+              --profile-path "${{ inputs.profile-path }}" \
+              --pr-number "${{ inputs.pr-number }}" \
+              --head-sha "${{ inputs.head-sha }}" \
+              --source-run-id "${{ inputs.source-run-id }}" \
+              --context-root "${{ inputs.context-root }}" \
+              --github-output "${GITHUB_OUTPUT}"
+            ;;
+          run-validation)
+            python3 "${helper}" run-validation \
+              --profile-path "${{ inputs.profile-path }}"
+            ;;
+          commit-review-fix)
+            python3 "${helper}" commit-review-fix \
+              --context-root "${{ inputs.context-root }}" \
+              --pr-number "${{ inputs.pr-number }}" \
+              --repair-branch "${{ inputs.repair-branch }}" \
+              --ticket-id "${{ inputs.ticket-id }}" \
               --github-output "${GITHUB_OUTPUT}"
             ;;
           wait-for-pr-workflows)

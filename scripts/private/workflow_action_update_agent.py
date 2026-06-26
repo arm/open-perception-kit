@@ -33,6 +33,8 @@ PROMPT_CONTEXT_FILES_TOKEN = "{{PROMPT_CONTEXT_FILES}}"
 VALIDATION_COMMANDS_TOKEN = "{{VALIDATION_COMMANDS}}"
 WAIT_TIMEOUT_SECONDS = 1800
 STABILIZATION_MAX_ATTEMPTS = 5
+STABILIZER_WORKFLOW_FILE = "codex-stabilize-pr.yml"
+STABILIZER_WORKFLOW_NAME = "Codex Stabilize PR"
 
 
 def run_command(
@@ -386,6 +388,106 @@ def read_json_file(path: Path) -> dict[str, object]:
     if not isinstance(payload, dict):
         raise ValueError(f"Expected JSON object in {path}.")
     return payload
+
+
+def read_pr_details(pr_number: str) -> dict[str, str]:
+    payload = parse_json_command(
+        ["gh", "pr", "view", pr_number, "--json", "headRefName,headRefOid,baseRefName"],
+    )
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"Unexpected PR payload for PR #{pr_number}.")
+    return {
+        "repair_branch": str(payload.get("headRefName") or ""),
+        "head_sha": str(payload.get("headRefOid") or ""),
+        "target_branch": str(payload.get("baseRefName") or ""),
+    }
+
+
+def wait_for_dispatched_workflow_run(
+    *,
+    repository: str,
+    workflow_file: str,
+    dispatch_nonce: str,
+) -> str:
+    deadline = time.time() + WAIT_TIMEOUT_SECONDS
+
+    while time.time() < deadline:
+        payload = parse_json_command(
+            [
+                "gh",
+                "api",
+                f"repos/{repository}/actions/workflows/{workflow_file}/runs?event=workflow_dispatch&per_page=20",
+            ],
+        )
+        workflow_runs = payload.get("workflow_runs", []) if isinstance(payload, dict) else []
+        candidates: list[tuple[datetime, str]] = []
+        for run in workflow_runs:
+            if not isinstance(run, dict):
+                continue
+            display_title = str(run.get("display_title") or "")
+            created_at = str(run.get("created_at") or "")
+            if dispatch_nonce not in display_title or not created_at:
+                continue
+            candidates.append((parse_timestamp(created_at), str(run.get("id") or "")))
+
+        candidates.sort(reverse=True)
+        if candidates:
+            return candidates[0][1]
+
+        time.sleep(5)
+
+    raise RuntimeError(
+        f"Timed out waiting for dispatched {workflow_file} run containing nonce '{dispatch_nonce}'.",
+    )
+
+
+def dispatch_stabilizer_workflow(
+    *,
+    repository: str,
+    pr_number: str,
+    head_sha: str,
+    source_run_id: str,
+    ticket_id: str,
+    profile_path: str,
+    context_root: str,
+    dispatch_ref: str,
+    dispatch_nonce: str,
+) -> str:
+    command = [
+        "gh",
+        "workflow",
+        "run",
+        STABILIZER_WORKFLOW_FILE,
+        "--ref",
+        dispatch_ref,
+        "-f",
+        f"pr_number={pr_number}",
+        "-f",
+        f"head_sha={head_sha}",
+        "-f",
+        f"source_run_id={source_run_id}",
+        "-f",
+        f"ticket_id={ticket_id}",
+        "-f",
+        f"profile_path={profile_path}",
+        "-f",
+        f"context_root={context_root}",
+        "-f",
+        f"dispatch_nonce={dispatch_nonce}",
+    ]
+    run_command(command, capture_output=True)
+    run_id = wait_for_dispatched_workflow_run(
+        repository=repository,
+        workflow_file=STABILIZER_WORKFLOW_FILE,
+        dispatch_nonce=dispatch_nonce,
+    )
+    print(f"Watching {STABILIZER_WORKFLOW_NAME} run {run_id} for PR #{pr_number}")
+    wait_for_workflow_run_completion(
+        repository=repository,
+        workflow_name=STABILIZER_WORKFLOW_NAME,
+        run_id=run_id,
+    )
+    return run_id
 
 
 def build_markdown_documents(
@@ -892,6 +994,7 @@ def build_stabilize_prompt(
         Goal: address the latest standard Codex Review findings on PR #{pr_number} and leave the current repair branch with only the minimal repository changes needed to turn the review into `approve`.
 
         Read these first:
+        - `.github/ci/workflow-action-update-agent/context.md`
         - `.github/ci/workflow-action-update-agent/ponytail-review.md`
         - `.github/ci/workflow-action-update-agent/constraints.md`
         - `.github/PULL_REQUEST_TEMPLATE.md`
@@ -945,43 +1048,6 @@ def write_stabilization_context(
     return prompt_path
 
 
-def run_codex_fix_prompt(*, prompt_path: Path, output_path: Path, model: str) -> None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    prompt_text = prompt_path.read_text(encoding="utf-8")
-    command = [
-        "codex",
-        "exec",
-        "--skip-git-repo-check",
-        "--cd",
-        str(REPO_ROOT),
-        "--output-last-message",
-        str(output_path),
-        "--sandbox",
-        "danger-full-access",
-    ]
-    if model:
-        command.extend(["--model", model])
-
-    for attempt in range(1, 4):
-        result = subprocess.run(
-            command,
-            input=prompt_text,
-            text=True,
-            check=False,
-            env=dict(os.environ),
-        )
-        if result.returncode == 0:
-            return
-        if attempt == 3:
-            raise RuntimeError(f"codex exec failed after {attempt} attempts.")
-        sleep_seconds = 30 * attempt
-        print(
-            f"codex exec failed with exit code {result.returncode}; retrying in {sleep_seconds} seconds.",
-            file=sys.stderr,
-        )
-        time.sleep(sleep_seconds)
-
-
 def run_validation_commands(commands: list[str]) -> None:
     for command in commands:
         print(f"Running validation command: {command}")
@@ -1021,17 +1087,93 @@ def commit_review_fix(
     return run_command(["git", "rev-parse", "HEAD"], capture_output=True).stdout.strip()
 
 
+def command_resolve_pr_details(args: argparse.Namespace) -> int:
+    write_outputs(read_pr_details(args.pr_number), args.github_output)
+    return 0
+
+
+def command_prepare_stabilization_context(args: argparse.Namespace) -> int:
+    profile = load_profile(args.profile_path)
+    context_root = Path(args.context_root)
+    review_workflow, _ = split_validation_workflows(profile)
+    if review_workflow is None:
+        raise RuntimeError("Stabilization requires a validation workflow with review_state_script.")
+
+    pr_details = read_pr_details(args.pr_number)
+    repair_branch = pr_details["repair_branch"]
+    head_sha = args.head_sha or pr_details["head_sha"]
+    if not repair_branch or not head_sha:
+        raise RuntimeError(f"Unable to resolve repair branch and head SHA for PR #{args.pr_number}.")
+
+    review_state = read_review_state(
+        state_script=str(review_workflow["review_state_script"]),
+        pr_number=args.pr_number,
+    )
+    review_head_sha = str(review_state.get("head_sha") or "").strip()
+    recommendation = str(review_state.get("overall_recommendation") or "").strip().lower()
+    if not recommendation:
+        raise RuntimeError(f"Latest review state for PR #{args.pr_number} did not contain a recommendation.")
+    if review_head_sha and review_head_sha != head_sha:
+        raise RuntimeError(
+            f"Latest review state head SHA {review_head_sha} did not match expected head SHA {head_sha} for PR #{args.pr_number}.",
+        )
+
+    write_stabilization_context(
+        context_root=context_root,
+        review_state=review_state,
+        prompt_text=build_stabilize_prompt(
+            profile=profile,
+            pr_number=args.pr_number,
+            repair_branch=repair_branch,
+            source_run_id=args.source_run_id,
+            workflow_name=str(review_workflow["workflow_name"]),
+            review_state=review_state,
+        ),
+    )
+    write_outputs(
+        {
+            "repair_branch": repair_branch,
+            "head_sha": head_sha,
+            "target_branch": pr_details["target_branch"],
+            "review_recommendation": recommendation,
+            "review_run_id": str(review_state.get("run_id") or "").strip(),
+            "codex_model": profile_optional_string(profile, "codex_model"),
+        },
+        args.github_output,
+    )
+    return 0
+
+
+def command_run_validation(args: argparse.Namespace) -> int:
+    profile = load_profile(args.profile_path)
+    run_validation_commands(profile_string_list(profile, "validation_commands"))
+    return 0
+
+
+def command_commit_review_fix(args: argparse.Namespace) -> int:
+    context_root = Path(args.context_root)
+    review_state = read_json_file(context_root / "review-state.json")
+    head_sha = commit_review_fix(
+        pr_number=args.pr_number,
+        repair_branch=args.repair_branch,
+        ticket_id=args.ticket_id,
+        review_state=review_state,
+    )
+    if not head_sha:
+        raise RuntimeError(
+            f"Codex produced no repository changes for PR #{args.pr_number} during stabilization.",
+        )
+    write_outputs({"head_sha": head_sha}, args.github_output)
+    return 0
+
+
 def command_stabilize_pr(args: argparse.Namespace) -> int:
     profile = load_profile(args.profile_path)
     repository = os.environ["GITHUB_REPOSITORY"]
     context_root = Path(args.context_root)
-    model = profile_optional_string(profile, "codex_model")
-    validation_commands = profile_string_list(profile, "validation_commands")
+    dispatch_ref = os.environ.get("GITHUB_REF_NAME", "main")
     review_workflow, other_workflows = split_validation_workflows(profile)
     head_sha = args.head_sha
-
-    run_command(["git", "config", "user.name", "github-actions[bot]"])
-    run_command(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"])
 
     for attempt in range(1, STABILIZATION_MAX_ATTEMPTS + 1):
         print(f"Stabilization attempt {attempt}/{STABILIZATION_MAX_ATTEMPTS} for PR #{args.pr_number} at {head_sha}")
@@ -1057,35 +1199,18 @@ def command_stabilize_pr(args: argparse.Namespace) -> int:
             ]
             recommendation = str(review_state.get("overall_recommendation") or "").strip().lower()
             if recommendation not in allowed_recommendations:
-                prompt_path = write_stabilization_context(
-                    context_root=context_root,
-                    review_state=review_state,
-                    prompt_text=build_stabilize_prompt(
-                        profile=profile,
-                        pr_number=args.pr_number,
-                        repair_branch=args.repair_branch,
-                        source_run_id=args.source_run_id,
-                        workflow_name=str(review_workflow["workflow_name"]),
-                        review_state=review_state,
-                    ),
-                )
-                run_codex_fix_prompt(
-                    prompt_path=prompt_path,
-                    output_path=context_root / "stabilize-output.md",
-                    model=model,
-                )
-                run_validation_commands(validation_commands)
-                head_sha = commit_review_fix(
+                dispatch_stabilizer_workflow(
+                    repository=repository,
                     pr_number=args.pr_number,
-                    repair_branch=args.repair_branch,
+                    head_sha=head_sha,
+                    source_run_id=args.source_run_id,
                     ticket_id=args.ticket_id,
-                    review_state=review_state,
+                    profile_path=args.profile_path,
+                    context_root=str(context_root),
+                    dispatch_ref=dispatch_ref,
+                    dispatch_nonce=f"pr-{args.pr_number}-attempt-{attempt}-{int(time.time())}",
                 )
-                if not head_sha:
-                    raise RuntimeError(
-                        f"{review_workflow['workflow_name']} requested more changes for PR #{args.pr_number}, "
-                        "but Codex produced no repository changes.",
-                    )
+                head_sha = read_pr_details(args.pr_number)["head_sha"]
                 continue
 
             ensure_allowed_review_recommendation(
@@ -1212,6 +1337,32 @@ def build_parser() -> argparse.ArgumentParser:
     merge_pr = subparsers.add_parser("merge-pr")
     merge_pr.add_argument("--pr-number", required=True)
     merge_pr.set_defaults(func=command_merge_pr)
+
+    resolve_pr_details = subparsers.add_parser("resolve-pr-details")
+    resolve_pr_details.add_argument("--pr-number", required=True)
+    resolve_pr_details.add_argument("--github-output", default=os.environ.get("GITHUB_OUTPUT", ""))
+    resolve_pr_details.set_defaults(func=command_resolve_pr_details)
+
+    prepare_stabilization_context = subparsers.add_parser("prepare-stabilization-context")
+    prepare_stabilization_context.add_argument("--profile-path", default=str(DEFAULT_PROFILE_PATH.relative_to(REPO_ROOT)))
+    prepare_stabilization_context.add_argument("--pr-number", required=True)
+    prepare_stabilization_context.add_argument("--head-sha", default="")
+    prepare_stabilization_context.add_argument("--source-run-id", default="")
+    prepare_stabilization_context.add_argument("--context-root", default=".codex/workflow-action-update-agent")
+    prepare_stabilization_context.add_argument("--github-output", default=os.environ.get("GITHUB_OUTPUT", ""))
+    prepare_stabilization_context.set_defaults(func=command_prepare_stabilization_context)
+
+    run_validation = subparsers.add_parser("run-validation")
+    run_validation.add_argument("--profile-path", default=str(DEFAULT_PROFILE_PATH.relative_to(REPO_ROOT)))
+    run_validation.set_defaults(func=command_run_validation)
+
+    commit_review_fix_parser = subparsers.add_parser("commit-review-fix")
+    commit_review_fix_parser.add_argument("--context-root", default=".codex/workflow-action-update-agent")
+    commit_review_fix_parser.add_argument("--pr-number", required=True)
+    commit_review_fix_parser.add_argument("--repair-branch", required=True)
+    commit_review_fix_parser.add_argument("--ticket-id", required=True)
+    commit_review_fix_parser.add_argument("--github-output", default=os.environ.get("GITHUB_OUTPUT", ""))
+    commit_review_fix_parser.set_defaults(func=command_commit_review_fix)
 
     stabilize_pr = subparsers.add_parser("stabilize-pr")
     stabilize_pr.add_argument("--profile-path", default=str(DEFAULT_PROFILE_PATH.relative_to(REPO_ROOT)))

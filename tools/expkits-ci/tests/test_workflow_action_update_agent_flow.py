@@ -17,6 +17,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[3]
 WORKFLOW_FILE = REPO_ROOT / ".github/workflows/workflow-action-update-agent.yml"
 REUSABLE_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/workflow-action-update-agent-reusable.yml"
+STABILIZER_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/codex-stabilize-pr.yml"
 WORKFLOW_AUDIT_FILE = REPO_ROOT / ".github/workflows/workflow-audit.yml"
 CODEX_REVIEW_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/codex-review.yml"
 WORKFLOW_AUDIT_REPORT_SCRIPT = REPO_ROOT / "scripts/private/workflow_audit_report.py"
@@ -26,6 +27,7 @@ HELPER_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent.py"
 HELPER_ACTION_FILE = REPO_ROOT / ".github/actions/workflow-action-update-agent-helper/action.yml"
 MARKDOWN_TEMPLATE_ROOT = REPO_ROOT / ".github/ci/workflow-action-update-agent"
 GOAL_TEMPLATE = MARKDOWN_TEMPLATE_ROOT / "goal.md"
+CONTEXT_TEMPLATE = MARKDOWN_TEMPLATE_ROOT / "context.md"
 PONYTAIL_TEMPLATE = MARKDOWN_TEMPLATE_ROOT / "ponytail-review.md"
 CONSTRAINTS_TEMPLATE = MARKDOWN_TEMPLATE_ROOT / "constraints.md"
 VALIDATION_TEMPLATE = MARKDOWN_TEMPLATE_ROOT / "validation.md"
@@ -121,10 +123,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             },
         )
         self.assertEqual(codex_job["runs-on"], ["self-hosted", "Linux", "X64"])
-        self.assertEqual(stabilize_job["runs-on"], ["self-hosted", "Linux", "X64"])
+        self.assertEqual(stabilize_job["runs-on"], "ubuntu-latest")
         self.assertIn("Download source artifact context", codex_steps)
         self.assertIn("Run Codex", codex_steps)
-        self.assertIn("Prime Codex CLI", stabilize_steps)
+        self.assertNotIn("Prime Codex CLI", stabilize_steps)
         self.assertNotIn("Apply deterministic workflow freshness patch", codex_steps)
 
         codex_step = codex_steps["Run Codex"]
@@ -144,14 +146,11 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             codex_steps["Download source artifact context"]["if"],
             "${{ inputs.source_artifact_name != '' }}",
         )
-        self.assertEqual(stabilize_steps["Prime Codex CLI"]["uses"], "openai/codex-action@v1")
+        self.assertEqual(stabilize_job["permissions"]["actions"], "write")
+        self.assertEqual(stabilize_steps["Checkout workflow helpers"]["uses"], "actions/checkout@v6")
         self.assertEqual(
-            stabilize_steps["Prime Codex CLI"]["with"]["codex-home"],
-            "${{ runner.temp }}/codex-home/${{ github.run_id }}-stabilize",
-        )
-        self.assertEqual(
-            stabilize_steps["Prime Codex CLI"]["with"]["safety-strategy"],
-            "unsafe",
+            stabilize_steps["Stabilize repair PR"]["uses"],
+            "./.github/actions/workflow-action-update-agent-helper",
         )
 
     def test_helper_action_exposes_structured_outputs(self):
@@ -169,6 +168,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("has_changes", action["outputs"])
         self.assertIn("head_sha", action["outputs"])
         self.assertIn("pr_number", action["outputs"])
+        self.assertIn("review_recommendation", action["outputs"])
+        self.assertIn("review_run_id", action["outputs"])
 
     def test_codex_review_workflow_matches_main_self_hosted_proxy_flow(self):
         workflow = load_yaml(CODEX_REVIEW_WORKFLOW_FILE)
@@ -197,6 +198,61 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(codex_step["with"]["sandbox"], "danger-full-access")
         self.assertEqual(codex_step["with"]["safety-strategy"], "unsafe")
         self.assertNotIn("codex-home", codex_step["with"])
+
+    def test_stabilizer_workflow_uses_canonical_codex_review_shape(self):
+        workflow = load_yaml(STABILIZER_WORKFLOW_FILE)
+        call_inputs = workflow["on"]["workflow_call"]["inputs"]
+        dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
+        job = workflow["jobs"]["stabilize"]
+        steps = step_map(job)
+
+        self.assertEqual(set(call_inputs.keys()), set(dispatch_inputs.keys()))
+        self.assertEqual(job["runs-on"], ["self-hosted", "Linux", "X64"])
+        self.assertEqual(
+            list(steps),
+            [
+                "Checkout workflow helpers",
+                "Resolve PR details",
+                "Checkout PR head",
+                "Prepare stabilization context",
+                "Run Codex stabilization",
+                "Run stabilization validation",
+                "Commit stabilization fix",
+                "Upload stabilization artifacts",
+            ],
+        )
+        codex_step = steps["Run Codex stabilization"]
+        self.assertEqual(codex_step["uses"], "openai/codex-action@v1")
+        self.assertEqual(
+            codex_step["with"]["openai-api-key"],
+            "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
+        )
+        self.assertEqual(
+            codex_step["with"]["responses-api-endpoint"],
+            "https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses",
+        )
+        self.assertEqual(codex_step["with"]["sandbox"], "danger-full-access")
+        self.assertEqual(codex_step["with"]["safety-strategy"], "unsafe")
+        self.assertEqual(
+            codex_step["with"]["prompt-file"],
+            "${{ inputs.context_root }}/stabilize-goal.md",
+        )
+        self.assertEqual(
+            steps["Resolve PR details"]["with"]["command"],
+            "resolve-pr-details",
+        )
+        self.assertEqual(
+            steps["Prepare stabilization context"]["with"]["command"],
+            "prepare-stabilization-context",
+        )
+        self.assertEqual(
+            steps["Run stabilization validation"]["with"]["command"],
+            "run-validation",
+        )
+        self.assertEqual(
+            steps["Commit stabilization fix"]["with"]["command"],
+            "commit-review-fix",
+        )
 
     def test_resolve_inputs_uses_profile_branch_template(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -292,6 +348,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             inventory = (context_root / "file-inventory.md").read_text(encoding="utf-8")
 
             self.assertIn("# Workflow Action Update Agent", goal)
+            self.assertTrue(CONTEXT_TEMPLATE.is_file())
             for path in profile["prompt_context_files"]:
                 self.assertIn(f"- `{path}`", goal)
             for command in profile["validation_commands"]:
@@ -495,7 +552,11 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             }
             run_command_result = mock.Mock(returncode=0, stdout="", stderr="")
 
-            with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
+            with mock.patch.dict(
+                os.environ,
+                {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge", "GITHUB_REF_NAME": "feature/test"},
+                clear=False,
+            ):
                 with mock.patch.object(HELPER, "run_command", return_value=run_command_result):
                     with mock.patch.object(
                         HELPER,
@@ -507,28 +568,73 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                             "wait_for_review_state",
                             side_effect=[first_review_state, second_review_state],
                         ):
-                            with mock.patch.object(HELPER, "run_codex_fix_prompt") as run_codex_fix_prompt:
-                                with mock.patch.object(HELPER, "run_validation_commands") as run_validation_commands:
-                                    with mock.patch.object(
-                                        HELPER,
-                                        "commit_review_fix",
-                                        return_value="feedface",
-                                    ) as commit_review_fix:
-                                        with mock.patch.object(HELPER, "merge_pr") as merge_pr:
-                                            result = HELPER.command_stabilize_pr(args)
+                            with mock.patch.object(
+                                HELPER,
+                                "dispatch_stabilizer_workflow",
+                                return_value="stabilize-1",
+                            ) as dispatch_stabilizer_workflow:
+                                with mock.patch.object(
+                                    HELPER,
+                                    "read_pr_details",
+                                    return_value={
+                                        "repair_branch": REPAIR_BRANCH,
+                                        "head_sha": "feedface",
+                                        "target_branch": "main",
+                                    },
+                                ) as read_pr_details:
+                                    with mock.patch.object(HELPER, "merge_pr") as merge_pr:
+                                        result = HELPER.command_stabilize_pr(args)
 
             self.assertEqual(result, 0)
             self.assertEqual(wait_for_workflow_run.call_count, 4)
-            run_codex_fix_prompt.assert_called_once()
-            run_validation_commands.assert_called_once()
-            commit_review_fix.assert_called_once()
+            dispatch_stabilizer_workflow.assert_called_once()
+            read_pr_details.assert_called_once_with("123")
             merge_pr.assert_called_once_with("123")
+
+    def test_prepare_stabilization_context_writes_prompt_and_outputs(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            context_root = Path(temp_dir) / "context"
+            output_file = Path(temp_dir) / "outputs.txt"
+            args = argparse.Namespace(
+                profile_path=str(PROFILE_FILE),
+                pr_number="123",
+                head_sha="deadbeef",
+                source_run_id="12345",
+                context_root=str(context_root),
+                github_output=str(output_file),
+            )
+            review_state = {
+                "run_id": "28000000001",
+                "head_sha": "deadbeef",
+                "overall_recommendation": "comment",
+                "summary": "Tighten the loop.",
+                "findings": [],
+            }
+
+            with mock.patch.object(
+                HELPER,
+                "read_pr_details",
+                return_value={
+                    "repair_branch": REPAIR_BRANCH,
+                    "head_sha": "deadbeef",
+                    "target_branch": "main",
+                },
+            ):
+                with mock.patch.object(HELPER, "read_review_state", return_value=review_state):
+                    result = HELPER.command_prepare_stabilization_context(args)
+
+            self.assertEqual(result, 0)
+            outputs = dict(
+                line.split("=", 1)
+                for line in output_file.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            )
+            self.assertEqual(outputs["repair_branch"], REPAIR_BRANCH)
+            self.assertEqual(outputs["head_sha"], "deadbeef")
+            self.assertEqual(outputs["review_recommendation"], "comment")
+            self.assertEqual(outputs["codex_model"], "gpt-5.3-codex")
             self.assertTrue((context_root / "review-state.json").is_file())
             self.assertTrue((context_root / "stabilize-goal.md").is_file())
-            self.assertIn(
-                "turn the latest standard Codex Review into `approve`",
-                (context_root / "stabilize-goal.md").read_text(encoding="utf-8"),
-            )
 
     def test_workflow_audit_report_writes_repair_outputs(self):
         entries = [

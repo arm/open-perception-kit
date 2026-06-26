@@ -1,0 +1,172 @@
+name: Codex Stabilize PR
+run-name: Codex stabilize PR #${{ inputs.pr_number }} ${{ inputs.dispatch_nonce || github.run_id }}
+
+on:
+  workflow_call:
+    inputs:
+      pr_number:
+        description: Pull request number to stabilize.
+        required: true
+        type: string
+      head_sha:
+        description: Optional PR head SHA to pin the stabilization attempt to.
+        required: false
+        default: ""
+        type: string
+      source_run_id:
+        description: Optional source run ID for prompt context.
+        required: false
+        default: ""
+        type: string
+      ticket_id:
+        description: Ticket ID used for follow-up commit metadata.
+        required: false
+        default: EXPKITS-1234
+        type: string
+      profile_path:
+        description: Repair profile JSON path relative to the repository root.
+        required: false
+        default: .github/ci/workflow-action-update-agent/profile.json
+        type: string
+      context_root:
+        description: Context root where runtime markdown and artifacts live.
+        required: false
+        default: .codex/workflow-action-update-agent
+        type: string
+      dispatch_nonce:
+        description: Optional unique nonce for dispatch correlation.
+        required: false
+        default: ""
+        type: string
+    secrets:
+      EXPKITS_AGENT_TOKEN:
+        required: false
+      OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS:
+        required: false
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to stabilize.
+        required: true
+        type: string
+      head_sha:
+        description: Optional PR head SHA to pin the stabilization attempt to.
+        required: false
+        default: ""
+        type: string
+      source_run_id:
+        description: Optional source run ID for prompt context.
+        required: false
+        default: ""
+        type: string
+      ticket_id:
+        description: Ticket ID used for follow-up commit metadata.
+        required: false
+        default: EXPKITS-1234
+        type: string
+      profile_path:
+        description: Repair profile JSON path relative to the repository root.
+        required: false
+        default: .github/ci/workflow-action-update-agent/profile.json
+        type: string
+      context_root:
+        description: Context root where runtime markdown and artifacts live.
+        required: false
+        default: .codex/workflow-action-update-agent
+        type: string
+      dispatch_nonce:
+        description: Optional unique nonce for dispatch correlation.
+        required: false
+        default: ""
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: codex-stabilize-pr-${{ inputs.pr_number }}
+  cancel-in-progress: false
+
+jobs:
+  stabilize:
+    runs-on: [self-hosted, Linux, X64]
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout workflow helpers
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Resolve PR details
+        id: pr
+        uses: ./.github/actions/workflow-action-update-agent-helper
+        env:
+          GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+        with:
+          command: resolve-pr-details
+          pr-number: ${{ inputs.pr_number }}
+
+      - name: Checkout PR head
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ref: ${{ inputs.head_sha || steps.pr.outputs.head_sha }}
+          token: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+
+      - name: Prepare stabilization context
+        id: context
+        uses: ./.github/actions/workflow-action-update-agent-helper
+        env:
+          GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+        with:
+          command: prepare-stabilization-context
+          profile-path: ${{ inputs.profile_path }}
+          pr-number: ${{ inputs.pr_number }}
+          head-sha: ${{ inputs.head_sha || steps.pr.outputs.head_sha }}
+          source-run-id: ${{ inputs.source_run_id }}
+          context-root: ${{ inputs.context_root }}
+
+      - name: Run Codex stabilization
+        if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
+        uses: openai/codex-action@v1
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ github.workspace }}/codex-review/.npmrc
+        with:
+          openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
+          responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses
+          model: ${{ steps.context.outputs.codex_model }}
+          sandbox: danger-full-access
+          safety-strategy: unsafe
+          prompt-file: ${{ inputs.context_root }}/stabilize-goal.md
+          output-file: ${{ runner.temp }}/workflow-action-update-agent-stabilize-output.md
+
+      - if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
+        name: Run stabilization validation
+        uses: ./.github/actions/workflow-action-update-agent-helper
+        with:
+          command: run-validation
+          profile-path: ${{ inputs.profile_path }}
+
+      - if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
+        name: Commit stabilization fix
+        uses: ./.github/actions/workflow-action-update-agent-helper
+        with:
+          command: commit-review-fix
+          context-root: ${{ inputs.context_root }}
+          pr-number: ${{ inputs.pr_number }}
+          repair-branch: ${{ steps.pr.outputs.repair_branch }}
+          ticket-id: ${{ inputs.ticket_id }}
+
+      - name: Upload stabilization artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: codex-stabilize-pr-${{ inputs.pr_number }}
+          path: |
+            ${{ runner.temp }}/workflow-action-update-agent-stabilize-output.md
+            ${{ inputs.context_root }}
+          if-no-files-found: warn
+          retention-days: 10
