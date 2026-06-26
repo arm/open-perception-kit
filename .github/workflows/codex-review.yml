@@ -47,12 +47,26 @@ jobs:
 
       # <codex-review:suppress-begin> Intentional current Codex review trust
       # boundary for same-repo pull requests.
-      - name: Run Codex review
+      - name: Run Codex review with direct OpenAI key
         id: review
+        if: ${{ secrets.OPENAI_API_KEY != '' }}
         uses: ./.github/actions/openai-codex-run
         with:
-          openai-api-key: ${{ secrets.OPENAI_API_KEY || secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
-          responses-api-endpoint: ${{ secrets.OPENAI_API_KEY && '' || 'https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses' }}
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          model: gpt-5.5
+          sandbox: danger-full-access
+          safety-strategy: unsafe
+          prompt-file: codex-review/out/review.prompt.md
+          output-schema-file: codex-review/schemas/review.schema.json
+          output-file: codex-review/out/review.json
+
+      - name: Run Codex review with proxy key
+        id: review-proxy
+        if: ${{ secrets.OPENAI_API_KEY == '' }}
+        uses: ./.github/actions/openai-codex-run
+        with:
+          openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
+          responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses
           model: gpt-5.5
           sandbox: danger-full-access
           safety-strategy: unsafe

@@ -128,12 +128,14 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("OPENAI_API_KEY_VALUE", workflow_text)
         self.assertNotIn("Apply deterministic workflow freshness patch", workflow_text)
         self.assertNotIn("test_workflow_freshness_patch.py", workflow_text)
+        self.assertIn("Run Codex with direct OpenAI key", workflow_text)
+        self.assertIn("Run Codex with proxy key", workflow_text)
+        self.assertIn("if: ${{ secrets.OPENAI_API_KEY != '' }}", workflow_text)
+        self.assertIn("if: ${{ secrets.OPENAI_API_KEY == '' }}", workflow_text)
+        self.assertIn("openai-api-key: ${{ secrets.OPENAI_API_KEY }}", workflow_text)
+        self.assertIn("openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}", workflow_text)
         self.assertIn(
-            "openai-api-key: ${{ secrets.OPENAI_API_KEY || secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
-            workflow_text,
-        )
-        self.assertIn(
-            "responses-api-endpoint: ${{ secrets.OPENAI_API_KEY && '' || 'https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses' }}",
+            "responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses",
             workflow_text,
         )
         self.assertIn("model: ${{ needs.prepare.outputs.codex_model }}", workflow_text)
@@ -194,12 +196,14 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("runs-on: ubuntu-latest", workflow_text)
         self.assertIn("safety-strategy: unsafe", workflow_text)
         self.assertIn("./.github/actions/openai-codex-run", workflow_text)
+        self.assertIn("Run Codex review with direct OpenAI key", workflow_text)
+        self.assertIn("Run Codex review with proxy key", workflow_text)
+        self.assertIn("if: ${{ secrets.OPENAI_API_KEY != '' }}", workflow_text)
+        self.assertIn("if: ${{ secrets.OPENAI_API_KEY == '' }}", workflow_text)
+        self.assertIn("openai-api-key: ${{ secrets.OPENAI_API_KEY }}", workflow_text)
+        self.assertIn("openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}", workflow_text)
         self.assertIn(
-            "openai-api-key: ${{ secrets.OPENAI_API_KEY || secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
-            workflow_text,
-        )
-        self.assertIn(
-            "responses-api-endpoint: ${{ secrets.OPENAI_API_KEY && '' || 'https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses' }}",
+            "responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses",
             workflow_text,
         )
 
