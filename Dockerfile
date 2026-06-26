@@ -99,41 +99,6 @@ ENV LD_LIBRARY_PATH=""
 ENV LD_LIBRARY_PATH=/opt/pek-deps/onnxruntime/lib
 
 ######################################################################
-################# Minimal container with docs and CI #################
-######################################################################
-FROM pek-base AS pek-docs-base
-
-ARG USERNAME=devgoblin
-
-USER root
-
-# Dev / CI tools required for docs and quality checks
-RUN set -eux; \
-  apt-get update; \
-  apt-get install -y --no-install-recommends \
-  openjdk-25-jdk graphviz pandoc doxygen \
-  libffi-dev zlib1g-dev libbz2-dev liblzma-dev libsqlite3-dev v4l-utils; \
-  rm -rf /var/lib/apt/lists/*
-
-# uv (Python package manager) for dev/CI tooling
-RUN set -eux; \
-  curl --proto "=https" -LsSf https://astral.sh/uv/install.sh | \
-  env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh; \
-  uv --version
-
-# Install PlantUML JAR into image layers for docs generation and SBOM visibility.
-ARG PLANTUML_VERSION=1.2026.2
-RUN set -eux; \
-  mkdir -p /opt/pek-deps; \
-  wget --secure-protocol=TLSv1_2 \
-    "https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}/plantuml-mit-${PLANTUML_VERSION}.jar" \
-    -O "/opt/pek-deps/plantuml-mit-${PLANTUML_VERSION}.jar"
-
-USER ${USERNAME}
-WORKDIR /work
-
-
-######################################################################
 #################### PC Base Development Container ###################
 ######################################################################
 FROM pek-base AS pek-dev-base
@@ -171,6 +136,34 @@ RUN set -eux; \
   rm -rf /tmp/pek-tools
 
 ENV PEK_DEVTOOLS_VENV=/opt/pek-venvs/devtools
+
+USER ${USERNAME}
+WORKDIR /work
+
+######################################################################
+############### Development container with docs and CI ################
+######################################################################
+FROM pek-dev-base AS pek-docs-base
+
+ARG USERNAME=devgoblin
+
+USER root
+
+# Dev / CI tools required for docs and quality checks
+RUN set -eux; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends \
+  openjdk-25-jdk graphviz pandoc doxygen \
+  libffi-dev zlib1g-dev libbz2-dev liblzma-dev libsqlite3-dev v4l-utils; \
+  rm -rf /var/lib/apt/lists/*
+
+# Install PlantUML JAR into image layers for docs generation and SBOM visibility.
+ARG PLANTUML_VERSION=1.2026.2
+RUN set -eux; \
+  mkdir -p /opt/pek-deps; \
+  wget --secure-protocol=TLSv1_2 \
+    "https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}/plantuml-mit-${PLANTUML_VERSION}.jar" \
+    -O "/opt/pek-deps/plantuml-mit-${PLANTUML_VERSION}.jar"
 
 USER ${USERNAME}
 WORKDIR /work
