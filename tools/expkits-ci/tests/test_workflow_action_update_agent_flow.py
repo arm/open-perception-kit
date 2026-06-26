@@ -124,7 +124,6 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("./.github/actions/codex-proxy-bootstrap", workflow_text)
         self.assertNotIn("./.github/actions/openai-codex-run", workflow_text)
         self.assertIn("runs-on: [self-hosted, Linux, X64]", workflow_text)
-        self.assertIn("CODEX_HOME_DIR", workflow_text)
         self.assertIn("NPM_CONFIG_USERCONFIG", workflow_text)
         self.assertIn("Require Codex proxy credentials", workflow_text)
         self.assertNotIn("OPENAI_API_KEY", workflow_text)
@@ -146,7 +145,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses",
             workflow_text,
         )
-        self.assertIn("codex-home: ${{ env.CODEX_HOME_DIR }}", workflow_text)
+        self.assertIn("codex-home: ${{ runner.temp }}/codex-home/${{ github.run_id }}", workflow_text)
         self.assertIn("model: ${{ needs.prepare.outputs.codex_model }}", workflow_text)
         self.assertIn("sandbox: danger-full-access", workflow_text)
         self.assertIn("safety-strategy: unsafe", workflow_text)
@@ -191,7 +190,6 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("NPM_CONFIG_USERCONFIG", workflow_text)
         self.assertIn("runs-on: [self-hosted, Linux, X64]", workflow_text)
         self.assertIn("./.github/actions/codex-proxy-bootstrap", workflow_text)
-        self.assertIn("CODEX_HOME_DIR", workflow_text)
         self.assertIn("safety-strategy: unsafe", workflow_text)
         self.assertIn("uses: openai/codex-action@v1", workflow_text)
         self.assertIn("Run Codex review", workflow_text)
@@ -205,7 +203,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertNotIn("OPENAI_API_KEY_VALUE", workflow_text)
         self.assertNotIn("openai-api-key: ${{ secrets.OPENAI_API_KEY }}", workflow_text)
         self.assertIn("openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}", workflow_text)
-        self.assertIn("codex-home: ${{ env.CODEX_HOME_DIR }}", workflow_text)
+        self.assertIn("codex-home: ${{ runner.temp }}/codex-home/${{ github.run_id }}", workflow_text)
         self.assertIn(
             "responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses",
             workflow_text,
