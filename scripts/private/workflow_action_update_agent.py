@@ -16,6 +16,7 @@ import tempfile
 import textwrap
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 from datetime import datetime
@@ -1204,6 +1205,30 @@ def commit_review_fix(
     ticket_id: str,
     review_state: dict[str, object],
 ) -> str:
+    push_token = os.environ.get("GH_TOKEN", "").strip()
+    if not push_token:
+        raise RuntimeError(
+            "EXPKITS_AGENT_TOKEN must be provided as GH_TOKEN when pushing stabilization commits."
+        )
+    repository = os.environ.get("GITHUB_REPOSITORY", "").strip()
+    if not repository:
+        raise RuntimeError("GITHUB_REPOSITORY is required to push stabilization commits.")
+    server_url = os.environ.get("GITHUB_SERVER_URL", "https://github.com").strip()
+    parsed_server_url = urllib.parse.urlparse(server_url)
+    if parsed_server_url.scheme != "https" or not parsed_server_url.netloc:
+        raise RuntimeError(f"Unsupported GITHUB_SERVER_URL for token-authenticated push: {server_url}")
+
+    run_command(["git", "config", "user.name", "github-actions[bot]"])
+    run_command(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"])
+    run_command(
+        [
+            "git",
+            "remote",
+            "set-url",
+            "origin",
+            f"https://x-access-token:{push_token}@{parsed_server_url.netloc}/{repository}.git",
+        ]
+    )
     run_command(["git", "add", "-A"])
     if run_command(["git", "diff", "--cached", "--quiet"], check=False).returncode == 0:
         return ""

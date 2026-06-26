@@ -316,6 +316,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "commit-review-fix",
         )
         self.assertEqual(
+            steps["Commit stabilization fix"]["env"]["GH_TOKEN"],
+            "${{ secrets.EXPKITS_AGENT_TOKEN }}",
+        )
+        self.assertEqual(
             steps["Commit stabilization fix"]["uses"],
             "./.workflow-action-update-agent-helper/.github/actions/workflow-action-update-agent-helper",
         )
@@ -801,6 +805,57 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 if line.strip()
             )
             self.assertEqual(outputs["review_recommendation"], "request_changes")
+
+    def test_commit_review_fix_uses_pat_remote_and_bot_identity(self):
+        review_state = {"run_id": "28000000001", "summary": "Fix the findings."}
+        run_command_result = mock.Mock(returncode=1, stdout="", stderr="")
+
+        with mock.patch.dict(
+            os.environ,
+            {
+                "GH_TOKEN": "pat-token",
+                "GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge",
+                "GITHUB_SERVER_URL": "https://github.com",
+            },
+            clear=False,
+        ):
+            with mock.patch.object(
+                    HELPER,
+                    "run_command",
+                    side_effect=[
+                        mock.Mock(returncode=0, stdout="", stderr=""),
+                        mock.Mock(returncode=0, stdout="", stderr=""),
+                    mock.Mock(returncode=0, stdout="", stderr=""),
+                        mock.Mock(returncode=0, stdout="", stderr=""),
+                        run_command_result,
+                        mock.Mock(returncode=0, stdout="", stderr=""),
+                        mock.Mock(returncode=0, stdout="", stderr=""),
+                        mock.Mock(returncode=0, stdout="feedface\n", stderr=""),
+                    ],
+                ) as run_command:
+                    head_sha = HELPER.commit_review_fix(
+                        pr_number="169",
+                        repair_branch=REPAIR_BRANCH,
+                    ticket_id="EXPKITS-1234",
+                    review_state=review_state,
+                )
+
+        self.assertEqual(head_sha, "feedface")
+        self.assertEqual(run_command.call_args_list[0].args[0], ["git", "config", "user.name", "github-actions[bot]"])
+        self.assertEqual(
+            run_command.call_args_list[1].args[0],
+            ["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"],
+        )
+        self.assertEqual(
+            run_command.call_args_list[2].args[0],
+            [
+                "git",
+                "remote",
+                "set-url",
+                "origin",
+                "https://x-access-token:pat-token@github.com/Arm-Debug/amp-dev-forge.git",
+            ],
+        )
 
     def test_workflow_audit_report_writes_repair_outputs(self):
         entries = [

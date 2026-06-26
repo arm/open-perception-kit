@@ -179,6 +179,8 @@ jobs:
       - if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
         name: Commit stabilization fix
         uses: ./.workflow-action-update-agent-helper/.github/actions/workflow-action-update-agent-helper
+        env:
+          GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN }}
         with:
           command: commit-review-fix
           context-root: ${{ inputs.context_root }}

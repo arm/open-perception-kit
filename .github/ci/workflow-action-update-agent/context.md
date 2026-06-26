@@ -39,6 +39,7 @@ The reference implementation is `.github/workflows/codex-review.yml` on `main`.
 - The workflow that performs a stabilization attempt needs to be separately dispatchable so the parent loop can reuse it, and maintainers can manually run it against any PR.
 - The branch under test still needs to be able to exercise the stabilizer workflow before merge. Use the current workflow ref for branch validation, but keep the Codex action shape aligned with the `main` canonical workflow.
 - If a stabilizer job checks out the PR head into the workspace root, any later local action lookup will resolve against the PR branch contents. Snapshot the helper bundle before the checkout and restore it under an ignored workspace path so the latest helper logic still drives the job.
+- Stabilizer follow-up commits must push with `EXPKITS_AGENT_TOKEN`, not the workflow `github.token`, otherwise the PR branch update may not retrigger the normal `pull_request` workflows.
 
 ## Expected Flow
 
