@@ -15,6 +15,9 @@ import sys
 import tempfile
 import textwrap
 import time
+import urllib.error
+import urllib.request
+import zipfile
 from datetime import datetime
 from pathlib import Path
 
@@ -67,6 +70,39 @@ def run_shell_command(command: str, *, env: dict[str, str] | None = None) -> Non
 def parse_json_command(args: list[str]) -> object:
     completed = run_command(args, capture_output=True)
     return json.loads(completed.stdout)
+
+
+def github_api_base_url() -> str:
+    return os.environ.get("GITHUB_API_URL", "https://api.github.com").rstrip("/")
+
+
+def github_api_token() -> str:
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN", "")
+    if not token:
+        raise RuntimeError("GITHUB_TOKEN or GH_TOKEN is required for GitHub API access.")
+    return token
+
+
+def github_api_request(url: str) -> bytes:
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {github_api_token()}",
+            "User-Agent": "workflow-action-update-agent",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    with urllib.request.urlopen(request) as response:
+        return response.read()
+
+
+def github_api_json(endpoint_or_url: str) -> object:
+    if endpoint_or_url.startswith("http://") or endpoint_or_url.startswith("https://"):
+        url = endpoint_or_url
+    else:
+        url = f"{github_api_base_url()}/{endpoint_or_url.lstrip('/')}"
+    return json.loads(github_api_request(url))
 
 
 def write_outputs(values: dict[str, str], output_path: str | None = None) -> None:
@@ -391,15 +427,18 @@ def read_json_file(path: Path) -> dict[str, object]:
 
 
 def read_pr_details(pr_number: str) -> dict[str, str]:
-    payload = parse_json_command(
-        ["gh", "pr", "view", pr_number, "--json", "headRefName,headRefOid,baseRefName"],
-    )
+    repository = os.environ.get("GITHUB_REPOSITORY", "")
+    if not repository:
+        raise RuntimeError("GITHUB_REPOSITORY is required to resolve PR details.")
+    payload = github_api_json(f"repos/{repository}/pulls/{pr_number}")
     if not isinstance(payload, dict):
         raise RuntimeError(f"Unexpected PR payload for PR #{pr_number}.")
+    head = dict(payload.get("head") or {})
+    base = dict(payload.get("base") or {})
     return {
-        "repair_branch": str(payload.get("headRefName") or ""),
-        "head_sha": str(payload.get("headRefOid") or ""),
-        "target_branch": str(payload.get("baseRefName") or ""),
+        "repair_branch": str(head.get("ref") or ""),
+        "head_sha": str(head.get("sha") or ""),
+        "target_branch": str(base.get("ref") or ""),
     }
 
 
@@ -410,12 +449,8 @@ def find_latest_workflow_run_for_head(
     repair_branch: str,
     head_sha: str,
 ) -> str:
-    payload = parse_json_command(
-        [
-            "gh",
-            "api",
-            f"repos/{repository}/actions/workflows/{workflow_file}/runs?branch={repair_branch}&event=pull_request&per_page=20",
-        ],
+    payload = github_api_json(
+        f"repos/{repository}/actions/workflows/{workflow_file}/runs?branch={repair_branch}&event=pull_request&per_page=20",
     )
     workflow_runs = payload.get("workflow_runs", []) if isinstance(payload, dict) else []
     candidates: list[tuple[datetime, str]] = []
@@ -435,21 +470,28 @@ def read_review_artifact_state(*, repository: str, run_id: str, head_sha: str) -
         return dict()
 
     with tempfile.TemporaryDirectory(prefix="workflow-action-update-agent-review-artifact-") as temp_dir:
-        run_command(
-            [
-                "gh",
-                "run",
-                "download",
-                run_id,
-                "--repo",
-                repository,
-                "-n",
-                "codex-review-out",
-                "-D",
-                temp_dir,
-            ],
-        )
-        artifact_root = Path(temp_dir)
+        payload = github_api_json(f"repos/{repository}/actions/runs/{run_id}/artifacts?per_page=100")
+        artifacts = payload.get("artifacts", []) if isinstance(payload, dict) else []
+        archive_url = ""
+        for artifact in artifacts:
+            if not isinstance(artifact, dict):
+                continue
+            if str(artifact.get("name") or "") != "codex-review-out":
+                continue
+            if bool(artifact.get("expired")):
+                continue
+            archive_url = str(artifact.get("archive_download_url") or "")
+            if archive_url:
+                break
+        if not archive_url:
+            return dict()
+
+        zip_path = Path(temp_dir) / "codex-review-out.zip"
+        zip_path.write_bytes(github_api_request(archive_url))
+        artifact_root = Path(temp_dir) / "artifact"
+        artifact_root.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(zip_path) as archive:
+            archive.extractall(artifact_root)
         review_json = next(iter(sorted(artifact_root.rglob("review.json"))), None)
         if review_json is None:
             return dict()
