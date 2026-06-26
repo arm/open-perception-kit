@@ -5,7 +5,18 @@ on:
     inputs:
       source_run_id:
         description: GitHub Actions run ID to repair
-        required: true
+        required: false
+        default: ""
+        type: string
+      pr_number:
+        description: Optional PR number to stabilize instead of running a new repair flow.
+        required: false
+        default: ""
+        type: string
+      head_sha:
+        description: Optional PR head SHA to pin stabilization to.
+        required: false
+        default: ""
         type: string
       target_branch:
         description: Optional branch to open the repair PR against. Defaults to the source run head branch.
@@ -26,11 +37,12 @@ on:
 permissions: {}
 
 concurrency:
-  group: workflow-action-update-agent-dispatch-${{ inputs.source_run_id || github.run_id }}
+  group: workflow-action-update-agent-dispatch-${{ inputs.pr_number || inputs.source_run_id || github.run_id }}
   cancel-in-progress: false
 
 jobs:
   run-workflow-action-update-agent:
+    if: ${{ inputs.pr_number == '' }}
     name: Run workflow action update agent
     permissions:
       actions: read
@@ -40,6 +52,21 @@ jobs:
     with:
       source_run_id: ${{ inputs.source_run_id || github.event.workflow_run.id || '' }}
       target_branch: ${{ inputs.target_branch || '' }}
+      ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
+      profile_path: ${{ inputs.profile_path || '.github/ci/workflow-action-update-agent/profile.json' }}
+    secrets: inherit
+
+  run-codex-stabilizer:
+    if: ${{ inputs.pr_number != '' }}
+    name: Run Codex stabilizer
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: ./.github/workflows/codex-stabilize-pr.yml
+    with:
+      pr_number: ${{ inputs.pr_number }}
+      head_sha: ${{ inputs.head_sha || '' }}
+      source_run_id: ${{ inputs.source_run_id || '' }}
       ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
       profile_path: ${{ inputs.profile_path || '.github/ci/workflow-action-update-agent/profile.json' }}
     secrets: inherit

@@ -68,22 +68,31 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_manual_wrapper_calls_reusable_workflow_with_minimal_inputs(self):
         workflow = load_yaml(WORKFLOW_FILE)
         dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
-        job = workflow["jobs"]["run-workflow-action-update-agent"]
+        repair_job = workflow["jobs"]["run-workflow-action-update-agent"]
+        stabilize_job = workflow["jobs"]["run-codex-stabilizer"]
 
         self.assertEqual(
             set(dispatch_inputs.keys()),
-            {"source_run_id", "target_branch", "ticket_id", "profile_path"},
+            {"source_run_id", "pr_number", "head_sha", "target_branch", "ticket_id", "profile_path"},
         )
         self.assertNotIn("workflow_run", workflow["on"])
-        self.assertEqual(job["uses"], "./.github/workflows/workflow-action-update-agent-reusable.yml")
+        self.assertEqual(repair_job["uses"], "./.github/workflows/workflow-action-update-agent-reusable.yml")
+        self.assertEqual(stabilize_job["uses"], "./.github/workflows/codex-stabilize-pr.yml")
+        self.assertEqual(repair_job["if"], "${{ inputs.pr_number == '' }}")
+        self.assertEqual(stabilize_job["if"], "${{ inputs.pr_number != '' }}")
         self.assertEqual(
-            set(job["with"].keys()),
+            set(repair_job["with"].keys()),
             {"source_run_id", "target_branch", "ticket_id", "profile_path"},
         )
-        self.assertNotIn("source_workflow_conclusion", job["with"])
-        self.assertNotIn("source_head_branch", job["with"])
-        self.assertNotIn("source_head_repository", job["with"])
-        self.assertEqual(job["secrets"], "inherit")
+        self.assertEqual(
+            set(stabilize_job["with"].keys()),
+            {"pr_number", "head_sha", "source_run_id", "ticket_id", "profile_path"},
+        )
+        self.assertNotIn("source_workflow_conclusion", repair_job["with"])
+        self.assertNotIn("source_head_branch", repair_job["with"])
+        self.assertNotIn("source_head_repository", repair_job["with"])
+        self.assertEqual(repair_job["secrets"], "inherit")
+        self.assertEqual(stabilize_job["secrets"], "inherit")
 
     def test_reusable_workflow_uses_profile_and_composite_action(self):
         workflow = load_yaml(REUSABLE_WORKFLOW_FILE)
@@ -496,6 +505,36 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             )
         self.assertEqual(review_state["overall_recommendation"], "comment")
 
+    def test_wait_for_review_state_falls_back_to_review_artifact(self):
+        with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
+            with mock.patch.object(
+                HELPER,
+                "read_review_state",
+                return_value=HELPER.read_json_file(Path("/dev/null")) if False else {
+                    "run_id": "",
+                    "head_sha": "",
+                    "overall_recommendation": "",
+                },
+            ):
+                with mock.patch.object(
+                    HELPER,
+                    "read_review_artifact_state",
+                    return_value={
+                        "run_id": "28000000001",
+                        "head_sha": "deadbeef",
+                        "overall_recommendation": "request_changes",
+                    },
+                ):
+                    review_state = HELPER.wait_for_review_state(
+                        pr_number="123",
+                        workflow_name="Codex Review",
+                        review_state_script="codex-review/scripts/fetch-review-state.py",
+                        expected_run_id="28000000001",
+                        head_sha="deadbeef",
+                    )
+
+        self.assertEqual(review_state["overall_recommendation"], "request_changes")
+
     def test_wait_for_workflow_run_completion_polls_actions_api_instead_of_gh_watch(self):
         with mock.patch.object(
             HELPER,
@@ -635,6 +674,64 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             self.assertEqual(outputs["codex_model"], "gpt-5.3-codex")
             self.assertTrue((context_root / "review-state.json").is_file())
             self.assertTrue((context_root / "stabilize-goal.md").is_file())
+
+    def test_prepare_stabilization_context_falls_back_to_review_artifact(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            context_root = Path(temp_dir) / "context"
+            output_file = Path(temp_dir) / "outputs.txt"
+            args = argparse.Namespace(
+                profile_path=str(PROFILE_FILE),
+                pr_number="123",
+                head_sha="deadbeef",
+                source_run_id="12345",
+                context_root=str(context_root),
+                github_output=str(output_file),
+            )
+
+            with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
+                with mock.patch.object(
+                    HELPER,
+                    "read_pr_details",
+                    return_value={
+                        "repair_branch": REPAIR_BRANCH,
+                        "head_sha": "deadbeef",
+                        "target_branch": "main",
+                    },
+                ):
+                    with mock.patch.object(
+                        HELPER,
+                        "read_review_state",
+                        return_value={
+                            "run_id": "",
+                            "head_sha": "",
+                            "overall_recommendation": "",
+                        },
+                    ):
+                        with mock.patch.object(
+                            HELPER,
+                            "find_latest_workflow_run_for_head",
+                            return_value="28000000001",
+                        ):
+                            with mock.patch.object(
+                                HELPER,
+                                "read_review_artifact_state",
+                                return_value={
+                                    "run_id": "28000000001",
+                                    "head_sha": "deadbeef",
+                                    "overall_recommendation": "request_changes",
+                                    "summary": "Fallback summary",
+                                    "findings": [],
+                                },
+                            ):
+                                result = HELPER.command_prepare_stabilization_context(args)
+
+            self.assertEqual(result, 0)
+            outputs = dict(
+                line.split("=", 1)
+                for line in output_file.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            )
+            self.assertEqual(outputs["review_recommendation"], "request_changes")
 
     def test_workflow_audit_report_writes_repair_outputs(self):
         entries = [

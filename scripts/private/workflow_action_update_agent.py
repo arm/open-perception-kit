@@ -403,6 +403,62 @@ def read_pr_details(pr_number: str) -> dict[str, str]:
     }
 
 
+def find_latest_workflow_run_for_head(
+    *,
+    repository: str,
+    workflow_file: str,
+    repair_branch: str,
+    head_sha: str,
+) -> str:
+    payload = parse_json_command(
+        [
+            "gh",
+            "api",
+            f"repos/{repository}/actions/workflows/{workflow_file}/runs?branch={repair_branch}&event=pull_request&per_page=20",
+        ],
+    )
+    workflow_runs = payload.get("workflow_runs", []) if isinstance(payload, dict) else []
+    candidates: list[tuple[datetime, str]] = []
+    for run in workflow_runs:
+        if not isinstance(run, dict):
+            continue
+        created_at = str(run.get("created_at") or "")
+        if not created_at or str(run.get("head_sha") or "") != head_sha:
+            continue
+        candidates.append((parse_timestamp(created_at), str(run.get("id") or "")))
+    candidates.sort(reverse=True)
+    return candidates[0][1] if candidates else ""
+
+
+def read_review_artifact_state(*, repository: str, run_id: str, head_sha: str) -> dict[str, object]:
+    if not run_id:
+        return dict()
+
+    with tempfile.TemporaryDirectory(prefix="workflow-action-update-agent-review-artifact-") as temp_dir:
+        run_command(
+            [
+                "gh",
+                "run",
+                "download",
+                run_id,
+                "--repo",
+                repository,
+                "-n",
+                "codex-review-out",
+                "-D",
+                temp_dir,
+            ],
+        )
+        artifact_root = Path(temp_dir)
+        review_json = next(iter(sorted(artifact_root.rglob("review.json"))), None)
+        if review_json is None:
+            return dict()
+        review_state = read_json_file(review_json)
+        review_state["run_id"] = run_id
+        review_state["head_sha"] = head_sha
+        return review_state
+
+
 def wait_for_dispatched_workflow_run(
     *,
     repository: str,
@@ -916,6 +972,21 @@ def wait_for_review_state(
         observed_run_id = str(review_state.get("run_id") or "")
         observed_head_sha = str(review_state.get("head_sha") or "")
         recommendation = str(review_state.get("overall_recommendation") or "").strip().lower()
+        repository = os.environ.get("GITHUB_REPOSITORY", "")
+
+        if repository:
+            artifact_state = read_review_artifact_state(
+                repository=repository,
+                run_id=expected_run_id,
+                head_sha=head_sha,
+            )
+            artifact_recommendation = str(artifact_state.get("overall_recommendation") or "").strip().lower()
+            if artifact_recommendation:
+                print(
+                    f"Observed {workflow_name} recommendation {artifact_recommendation} from artifact for run {expected_run_id} "
+                    f"on PR #{pr_number}"
+                )
+                return artifact_state
 
         if observed_run_id != expected_run_id:
             time.sleep(15)
@@ -1098,6 +1169,7 @@ def command_prepare_stabilization_context(args: argparse.Namespace) -> int:
     review_workflow, _ = split_validation_workflows(profile)
     if review_workflow is None:
         raise RuntimeError("Stabilization requires a validation workflow with review_state_script.")
+    repository = os.environ.get("GITHUB_REPOSITORY", "")
 
     pr_details = read_pr_details(args.pr_number)
     repair_branch = pr_details["repair_branch"]
@@ -1111,6 +1183,21 @@ def command_prepare_stabilization_context(args: argparse.Namespace) -> int:
     )
     review_head_sha = str(review_state.get("head_sha") or "").strip()
     recommendation = str(review_state.get("overall_recommendation") or "").strip().lower()
+    if (not recommendation or (review_head_sha and review_head_sha != head_sha)) and repository:
+        review_run_id = find_latest_workflow_run_for_head(
+            repository=repository,
+            workflow_file=str(review_workflow["workflow_file"]),
+            repair_branch=repair_branch,
+            head_sha=head_sha,
+        )
+        if review_run_id:
+            review_state = read_review_artifact_state(
+                repository=repository,
+                run_id=review_run_id,
+                head_sha=head_sha,
+            )
+            review_head_sha = str(review_state.get("head_sha") or "").strip()
+            recommendation = str(review_state.get("overall_recommendation") or "").strip().lower()
     if not recommendation:
         raise RuntimeError(f"Latest review state for PR #{args.pr_number} did not contain a recommendation.")
     if review_head_sha and review_head_sha != head_sha:
