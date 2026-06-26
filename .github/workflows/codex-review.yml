@@ -45,11 +45,23 @@ jobs:
           mkdir -p codex-review/out
           ./codex-review/scripts/render-prompt.sh codex-review/out/review.prompt.md
 
+      - id: codex-auth
+        name: Select Codex credential path
+        shell: bash
+        env:
+          OPENAI_API_KEY_VALUE: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -n "${OPENAI_API_KEY_VALUE}" ]; then
+            echo "use_direct=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "use_direct=false" >> "${GITHUB_OUTPUT}"
+          fi
+
       # <codex-review:suppress-begin> Intentional current Codex review trust
       # boundary for same-repo pull requests.
       - name: Run Codex review with direct OpenAI key
         id: review
-        if: ${{ secrets.OPENAI_API_KEY != '' }}
+        if: ${{ steps.codex-auth.outputs.use_direct == 'true' }}
         uses: ./.github/actions/openai-codex-run
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -62,7 +74,7 @@ jobs:
 
       - name: Run Codex review with proxy key
         id: review-proxy
-        if: ${{ secrets.OPENAI_API_KEY == '' }}
+        if: ${{ steps.codex-auth.outputs.use_direct != 'true' }}
         uses: ./.github/actions/openai-codex-run
         with:
           openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}

@@ -129,20 +129,26 @@ jobs:
           repair-branch: ${{ needs.prepare.outputs.repair_branch }}
           ticket-id: ${{ needs.prepare.outputs.ticket_id }}
 
-      - name: Require Codex credentials
+      - id: codex-auth
+        name: Require Codex credentials
         env:
           OPENAI_API_KEY_VALUE: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_PROXY_KEY_VALUE: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
         run: |
           set -euo pipefail
-          if [ -n "${OPENAI_API_KEY_VALUE}" ] || [ -n "${OPENAI_PROXY_KEY_VALUE}" ]; then
+          if [ -n "${OPENAI_API_KEY_VALUE}" ]; then
+            echo "use_direct=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          if [ -n "${OPENAI_PROXY_KEY_VALUE}" ]; then
+            echo "use_direct=false" >> "${GITHUB_OUTPUT}"
             exit 0
           fi
           echo "OPENAI_API_KEY or OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS is required for workflow-action-update-agent Codex runs." >&2
           exit 1
 
       - name: Run Codex with direct OpenAI key
-        if: ${{ secrets.OPENAI_API_KEY != '' }}
+        if: ${{ steps.codex-auth.outputs.use_direct == 'true' }}
         uses: ./.github/actions/openai-codex-run
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -160,7 +166,7 @@ jobs:
           codex-args: '["--ignore-rules"]'
 
       - name: Run Codex with proxy key
-        if: ${{ secrets.OPENAI_API_KEY == '' }}
+        if: ${{ steps.codex-auth.outputs.use_direct != 'true' }}
         uses: ./.github/actions/openai-codex-run
         with:
           openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
