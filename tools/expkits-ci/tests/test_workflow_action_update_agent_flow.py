@@ -439,6 +439,25 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             )
         self.assertEqual(review_state["overall_recommendation"], "comment")
 
+    def test_wait_for_workflow_run_completion_polls_actions_api_instead_of_gh_watch(self):
+        with mock.patch.object(
+            HELPER,
+            "parse_json_command",
+            side_effect=[
+                {"status": "in_progress", "conclusion": None},
+                {"status": "completed", "conclusion": "success"},
+            ],
+        ) as parse_json_command:
+            with mock.patch.object(HELPER.time, "sleep") as sleep:
+                HELPER.wait_for_workflow_run_completion(
+                    repository="Arm-Debug/amp-dev-forge",
+                    workflow_name="Codex Review",
+                    run_id="28232063832",
+                )
+
+        self.assertEqual(parse_json_command.call_count, 2)
+        sleep.assert_called_once_with(15)
+
     def test_ensure_allowed_review_recommendation_rejects_requested_changes(self):
         with self.assertRaisesRegex(RuntimeError, "request_changes"):
             HELPER.ensure_allowed_review_recommendation(

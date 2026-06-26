@@ -740,12 +740,41 @@ def wait_for_workflow_run(
                     "Repository policy prevented unattended verification of the generated repair PR.",
                 )
             print(f"Watching {workflow_name} run {run_id} for {repair_branch}")
-            run_command(["gh", "run", "watch", run_id, "--repo", repository, "--exit-status"])
+            wait_for_workflow_run_completion(
+                repository=repository,
+                workflow_name=workflow_name,
+                run_id=run_id,
+            )
             return run_id
 
         time.sleep(15)
 
     raise RuntimeError(f"Timed out waiting for {workflow_name} on {repair_branch}")
+
+
+def wait_for_workflow_run_completion(*, repository: str, workflow_name: str, run_id: str) -> None:
+    deadline = time.time() + WAIT_TIMEOUT_SECONDS
+
+    while time.time() < deadline:
+        payload = parse_json_command(["gh", "api", f"repos/{repository}/actions/runs/{run_id}"])
+        if not isinstance(payload, dict):
+            raise RuntimeError(f"Unexpected workflow run payload for run {run_id}.")
+
+        status = str(payload.get("status") or "")
+        conclusion = str(payload.get("conclusion") or "")
+        if status != "completed":
+            time.sleep(15)
+            continue
+        if conclusion == "success":
+            return
+        if conclusion == "action_required":
+            raise RuntimeError(
+                f"{workflow_name} run {run_id} is waiting for manual approval (conclusion: action_required).\n"
+                "Repository policy prevented unattended verification of the generated repair PR.",
+            )
+        raise RuntimeError(f"{workflow_name} run {run_id} concluded with '{conclusion}'.")
+
+    raise RuntimeError(f"Timed out waiting for {workflow_name} run {run_id} to complete.")
 
 
 def read_review_state(*, state_script: str, pr_number: str) -> dict[str, object]:
