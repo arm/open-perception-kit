@@ -851,24 +851,25 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         ):
             with mock.patch.object(
                     HELPER,
-                    "run_command",
-                    side_effect=[
-                        mock.Mock(returncode=0, stdout="", stderr=""),
-                        mock.Mock(returncode=0, stdout="", stderr=""),
+                "run_command",
+                side_effect=[
+                    mock.Mock(returncode=0, stdout="", stderr=""),
+                    mock.Mock(returncode=0, stdout="", stderr=""),
                     mock.Mock(returncode=0, stdout="", stderr=""),
                         mock.Mock(returncode=0, stdout="", stderr=""),
                         run_command_result,
                         mock.Mock(returncode=0, stdout="", stderr=""),
                         mock.Mock(returncode=0, stdout="", stderr=""),
-                        mock.Mock(returncode=0, stdout="feedface\n", stderr=""),
-                    ],
-                ) as run_command:
+                    mock.Mock(returncode=0, stdout="feedface\n", stderr=""),
+                ],
+            ) as run_command:
+                with mock.patch.object(HELPER, "github_api_json", return_value={"login": "pat-user"}):
                     head_sha = HELPER.commit_review_fix(
                         pr_number="169",
                         repair_branch=REPAIR_BRANCH,
-                    ticket_id="EXPKITS-1234",
-                    review_state=review_state,
-                )
+                        ticket_id="EXPKITS-1234",
+                        review_state=review_state,
+                    )
 
         self.assertEqual(head_sha, "feedface")
         self.assertEqual(run_command.call_args_list[0].args[0], ["git", "config", "user.name", "github-actions[bot]"])
@@ -883,7 +884,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 "remote",
                 "set-url",
                 "origin",
-                "https://x-access-token:pat-token@github.com/Arm-Debug/amp-dev-forge.git",
+                "https://pat-user:pat-token@github.com/Arm-Debug/amp-dev-forge.git",
             ],
         )
 

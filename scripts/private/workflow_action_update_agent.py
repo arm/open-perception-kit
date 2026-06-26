@@ -1217,6 +1217,10 @@ def commit_review_fix(
     parsed_server_url = urllib.parse.urlparse(server_url)
     if parsed_server_url.scheme != "https" or not parsed_server_url.netloc:
         raise RuntimeError(f"Unsupported GITHUB_SERVER_URL for token-authenticated push: {server_url}")
+    user_payload = github_api_json("user")
+    push_actor = str(user_payload.get("login") or "").strip() if isinstance(user_payload, dict) else ""
+    if not push_actor:
+        raise RuntimeError("Unable to resolve PAT owner login for stabilization push.")
 
     run_command(["git", "config", "user.name", "github-actions[bot]"])
     run_command(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"])
@@ -1226,7 +1230,7 @@ def commit_review_fix(
             "remote",
             "set-url",
             "origin",
-            f"https://x-access-token:{push_token}@{parsed_server_url.netloc}/{repository}.git",
+            f"https://{push_actor}:{push_token}@{parsed_server_url.netloc}/{repository}.git",
         ]
     )
     run_command(["git", "add", "-A"])
