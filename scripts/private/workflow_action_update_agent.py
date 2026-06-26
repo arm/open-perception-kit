@@ -481,7 +481,7 @@ def find_latest_workflow_run_for_head(
     head_sha: str,
 ) -> str:
     payload = github_api_json(
-        f"repos/{repository}/actions/workflows/{workflow_file}/runs?branch={repair_branch}&event=pull_request&per_page=20",
+        f"repos/{repository}/actions/workflows/{workflow_file}/runs?branch={repair_branch}&per_page=20",
     )
     workflow_runs = payload.get("workflow_runs", []) if isinstance(payload, dict) else []
     candidates: list[tuple[datetime, str]] = []

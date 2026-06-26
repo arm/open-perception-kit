@@ -627,6 +627,36 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(parse_json_command.call_count, 2)
         sleep.assert_called_once_with(15)
 
+    def test_find_latest_workflow_run_for_head_accepts_manual_review_runs(self):
+        with mock.patch.object(
+            HELPER,
+            "github_api_json",
+            return_value={
+                "workflow_runs": [
+                    {
+                        "id": "28235500001",
+                        "event": "workflow_dispatch",
+                        "head_sha": "deadbeef",
+                        "created_at": "2026-06-26T11:40:00Z",
+                    },
+                    {
+                        "id": "28235400001",
+                        "event": "pull_request",
+                        "head_sha": "deadbeef",
+                        "created_at": "2026-06-26T11:35:00Z",
+                    },
+                ]
+            },
+        ):
+            run_id = HELPER.find_latest_workflow_run_for_head(
+                repository="Arm-Debug/amp-dev-forge",
+                workflow_file="codex-review.yml",
+                repair_branch=REPAIR_BRANCH,
+                head_sha="deadbeef",
+            )
+
+        self.assertEqual(run_id, "28235500001")
+
     def test_ensure_allowed_review_recommendation_rejects_requested_changes(self):
         with self.assertRaisesRegex(RuntimeError, "request_changes"):
             HELPER.ensure_allowed_review_recommendation(
