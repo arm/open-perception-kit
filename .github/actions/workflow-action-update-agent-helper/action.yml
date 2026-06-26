@@ -106,9 +106,6 @@ outputs:
   codex_model:
     description: Codex model resolved from the repair profile.
     value: ${{ steps.helper.outputs.codex_model }}
-  codex_effort:
-    description: Codex reasoning effort resolved from the repair profile.
-    value: ${{ steps.helper.outputs.codex_effort }}
   has_changes:
     description: Whether Codex produced repository changes.
     value: ${{ steps.helper.outputs.has_changes }}

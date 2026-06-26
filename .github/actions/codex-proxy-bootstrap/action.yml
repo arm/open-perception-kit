@@ -35,7 +35,6 @@ runs:
         node-version: "24"
 
     - name: Start Codex Responses API proxy
-      if: ${{ inputs.api-key != '' }}
       shell: bash
       env:
         INPUT_API_KEY: ${{ inputs.api-key }}
@@ -46,6 +45,11 @@ runs:
         CODEX_VERSION: ${{ inputs.codex-version }}
       run: |
         set -euo pipefail
+
+        if [ -z "$INPUT_API_KEY" ]; then
+          echo "api-key is required for codex-proxy-bootstrap." >&2
+          exit 1
+        fi
 
         if [ -n "$INPUT_NPM_USERCONFIG_PATH" ]; then
           export NPM_CONFIG_USERCONFIG="$INPUT_NPM_USERCONFIG_PATH"

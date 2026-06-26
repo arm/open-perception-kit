@@ -494,7 +494,6 @@ def command_resolve_inputs(args: argparse.Namespace) -> int:
             "ticket_id": ticket_id,
             "repair_branch": repair_branch,
             "codex_model": profile_optional_string(profile, "codex_model"),
-            "codex_effort": profile_optional_string(profile, "codex_effort"),
         },
         args.github_output,
     )

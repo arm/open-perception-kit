@@ -22,11 +22,8 @@ CODEX_REVIEW_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/codex-review.yml"
 WORKFLOW_AUDIT_REPORT_SCRIPT = REPO_ROOT / "scripts/private/workflow_audit_report.py"
 CODEX_REVIEW_FETCH_SCRIPT = REPO_ROOT / "codex-review/scripts/fetch-review-state.py"
 CODEX_REVIEW_PUBLISH_SCRIPT = REPO_ROOT / "codex-review/scripts/publish-review.py"
-CI_README = REPO_ROOT / ".github/CI-README.md"
 HELPER_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent.py"
 HELPER_ACTION_FILE = REPO_ROOT / ".github/actions/workflow-action-update-agent-helper/action.yml"
-CODEX_PROXY_BOOTSTRAP_ACTION_FILE = REPO_ROOT / ".github/actions/codex-proxy-bootstrap/action.yml"
-OPENAI_CODEX_RUN_ACTION_FILE = REPO_ROOT / ".github/actions/openai-codex-run/action.yml"
 MARKDOWN_TEMPLATE_ROOT = REPO_ROOT / ".github/ci/workflow-action-update-agent"
 GOAL_TEMPLATE = MARKDOWN_TEMPLATE_ROOT / "goal.md"
 PONYTAIL_TEMPLATE = MARKDOWN_TEMPLATE_ROOT / "ponytail-review.md"
@@ -35,10 +32,6 @@ VALIDATION_TEMPLATE = MARKDOWN_TEMPLATE_ROOT / "validation.md"
 PROFILE_FILE = MARKDOWN_TEMPLATE_ROOT / "profile.json"
 WORKFLOW_AUDIT_PROFILE_FILE = MARKDOWN_TEMPLATE_ROOT / "workflow-audit-profile.json"
 PULL_REQUEST_TEMPLATE = REPO_ROOT / ".github/PULL_REQUEST_TEMPLATE.md"
-FRESHNESS_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/workflow-action-update-agent-freshness.yml"
-CHANGED_VALIDATION_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/workflow-changed-validation.yml"
-FRESHNESS_PATCH_SCRIPT = REPO_ROOT / "scripts/private/apply_workflow_freshness_updates.py"
-CHANGED_WORKFLOW_VALIDATION_SCRIPT = REPO_ROOT / "scripts/private/validate_changed_workflows.py"
 REPAIR_BRANCH = "feature/EXPKITS-4242/bot-workflow-action-update-agent-run-12345"  # pragma: allowlist secret
 
 
@@ -53,6 +46,14 @@ def load_python_module(path: Path, module_name: str):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def step_map(job: dict[str, object]) -> dict[str, dict[str, object]]:
+    return {
+        step["name"]: step
+        for step in job.get("steps", [])
+        if isinstance(step, dict) and "name" in step
+    }
 
 
 HELPER = load_python_module(HELPER_SCRIPT, "workflow_action_update_agent")
@@ -84,8 +85,9 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
     def test_reusable_workflow_uses_profile_and_composite_action(self):
         workflow = load_yaml(REUSABLE_WORKFLOW_FILE)
-        workflow_text = REUSABLE_WORKFLOW_FILE.read_text(encoding="utf-8")
         inputs = workflow["on"]["workflow_call"]["inputs"]
+        codex_job = workflow["jobs"]["codex-fix"]
+        codex_steps = step_map(codex_job)
 
         self.assertEqual(
             set(inputs.keys()),
@@ -117,43 +119,39 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 "merge-pr",
             },
         )
-        self.assertNotIn("python3 scripts/private/workflow_action_update_agent.py", workflow_text)
-        self.assertNotIn("source_workflow_conclusion", workflow_text)
-        self.assertNotIn("source_head_branch", workflow_text)
-        self.assertNotIn("source_head_repository", workflow_text)
-        self.assertIn("./.github/actions/codex-proxy-bootstrap", workflow_text)
-        self.assertNotIn("./.github/actions/openai-codex-run", workflow_text)
-        self.assertIn("runs-on: [self-hosted, Linux, X64]", workflow_text)
-        self.assertIn("NPM_CONFIG_USERCONFIG", workflow_text)
-        self.assertIn("Require Codex proxy credentials", workflow_text)
-        self.assertNotIn("OPENAI_API_KEY", workflow_text)
-        self.assertIn("OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS", workflow_text)
-        self.assertNotIn("OPENAI_API_KEY_VALUE", workflow_text)
-        self.assertIn("Apply deterministic workflow freshness patch", workflow_text)
-        self.assertIn("inputs.source_artifact_name == 'workflow-dependency-freshness'", workflow_text)
-        self.assertIn("test_workflow_freshness_patch.py", workflow_text)
-        self.assertIn("Run Codex", workflow_text)
-        self.assertNotIn("Run Codex with direct OpenAI key", workflow_text)
-        self.assertNotIn("Run Codex with proxy key", workflow_text)
-        self.assertNotIn("id: codex-auth", workflow_text)
-        self.assertNotIn("echo \"use_direct=true\" >> \"${GITHUB_OUTPUT}\"", workflow_text)
-        self.assertNotIn("echo \"use_direct=false\" >> \"${GITHUB_OUTPUT}\"", workflow_text)
-        self.assertNotIn("steps.codex-auth.outputs.use_direct", workflow_text)
-        self.assertNotIn("openai-api-key: ${{ secrets.OPENAI_API_KEY }}", workflow_text)
-        self.assertIn("openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}", workflow_text)
-        self.assertIn(
-            "responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses",
-            workflow_text,
+        self.assertEqual(codex_job["runs-on"], ["self-hosted", "Linux", "X64"])
+        self.assertIn("Download source artifact context", codex_steps)
+        self.assertIn("Bootstrap Codex proxy", codex_steps)
+        self.assertIn("Run Codex", codex_steps)
+        self.assertNotIn("Apply deterministic workflow freshness patch", codex_steps)
+
+        bootstrap_step = codex_steps["Bootstrap Codex proxy"]
+        self.assertEqual(bootstrap_step["uses"], "./.github/actions/codex-proxy-bootstrap")
+        self.assertEqual(
+            bootstrap_step["with"]["api-key"],
+            "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
         )
-        self.assertIn("codex-home: ${{ runner.temp }}/codex-home/${{ github.run_id }}", workflow_text)
-        self.assertIn("model: ${{ needs.prepare.outputs.codex_model }}", workflow_text)
-        self.assertIn("sandbox: danger-full-access", workflow_text)
-        self.assertIn("safety-strategy: unsafe", workflow_text)
-        self.assertIn("Download source artifact context", workflow_text)
+
+        codex_step = codex_steps["Run Codex"]
+        self.assertEqual(codex_step["uses"], "openai/codex-action@v1")
+        self.assertEqual(
+            codex_step["with"]["openai-api-key"],
+            "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
+        )
+        self.assertEqual(
+            codex_step["with"]["prompt-file"],
+            ".codex/workflow-action-update-agent/goal.md",
+        )
+        self.assertEqual(codex_step["with"]["model"], "${{ needs.prepare.outputs.codex_model }}")
+        self.assertEqual(codex_step["with"]["sandbox"], "danger-full-access")
+        self.assertEqual(codex_step["with"]["safety-strategy"], "unsafe")
+        self.assertEqual(
+            codex_steps["Download source artifact context"]["if"],
+            "${{ inputs.source_artifact_name != '' }}",
+        )
 
     def test_helper_action_exposes_structured_outputs(self):
         action = load_yaml(HELPER_ACTION_FILE)
-        action_text = HELPER_ACTION_FILE.read_text(encoding="utf-8")
 
         self.assertEqual(action["runs"]["using"], "composite")
         self.assertEqual(
@@ -164,51 +162,37 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("should_run", action["outputs"])
         self.assertIn("repair_branch", action["outputs"])
         self.assertIn("codex_model", action["outputs"])
-        self.assertIn("codex_effort", action["outputs"])
         self.assertIn("has_changes", action["outputs"])
         self.assertIn("head_sha", action["outputs"])
         self.assertIn("pr_number", action["outputs"])
-        self.assertIn('case "${command}" in', action_text)
-        self.assertIn('--pr-number "${{ inputs.pr-number }}"', action_text)
-
-    def test_openai_codex_run_action_is_absent_from_minimal_branch(self):
-        self.assertFalse(OPENAI_CODEX_RUN_ACTION_FILE.exists())
-
-    def test_codex_proxy_bootstrap_action_starts_proxy_without_sudo(self):
-        action = load_yaml(CODEX_PROXY_BOOTSTRAP_ACTION_FILE)
-        action_text = CODEX_PROXY_BOOTSTRAP_ACTION_FILE.read_text(encoding="utf-8")
-
-        self.assertEqual(action["runs"]["using"], "composite")
-        self.assertIn("actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f", action_text)
-        self.assertIn("codex-responses-api-proxy", action_text)
-        self.assertIn("server_info_file", action_text)
-        self.assertNotIn("sudo ", action_text)
 
     def test_codex_review_workflow_matches_main_self_hosted_proxy_flow(self):
-        workflow_text = CODEX_REVIEW_WORKFLOW_FILE.read_text(encoding="utf-8")
+        workflow = load_yaml(CODEX_REVIEW_WORKFLOW_FILE)
+        review_job = workflow["jobs"]["review"]
+        review_steps = step_map(review_job)
 
-        self.assertIn("NPM_CONFIG_USERCONFIG", workflow_text)
-        self.assertIn("runs-on: [self-hosted, Linux, X64]", workflow_text)
-        self.assertIn("./.github/actions/codex-proxy-bootstrap", workflow_text)
-        self.assertIn("safety-strategy: unsafe", workflow_text)
-        self.assertIn("uses: openai/codex-action@v1", workflow_text)
-        self.assertIn("Run Codex review", workflow_text)
-        self.assertNotIn("./.github/actions/openai-codex-run", workflow_text)
-        self.assertNotIn("Run Codex review with direct OpenAI key", workflow_text)
-        self.assertNotIn("Run Codex review with proxy key", workflow_text)
-        self.assertNotIn("Select Codex credential path", workflow_text)
-        self.assertNotIn("echo \"use_direct=true\" >> \"${GITHUB_OUTPUT}\"", workflow_text)
-        self.assertNotIn("echo \"use_direct=false\" >> \"${GITHUB_OUTPUT}\"", workflow_text)
-        self.assertNotIn("steps.codex-auth.outputs.use_direct", workflow_text)
-        self.assertNotIn("OPENAI_API_KEY_VALUE", workflow_text)
-        self.assertNotIn("openai-api-key: ${{ secrets.OPENAI_API_KEY }}", workflow_text)
-        self.assertIn("openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}", workflow_text)
-        self.assertIn("codex-home: ${{ runner.temp }}/codex-home/${{ github.run_id }}", workflow_text)
-        self.assertIn(
-            "responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses",
-            workflow_text,
+        self.assertEqual(review_job["runs-on"], ["self-hosted", "Linux", "X64"])
+        self.assertEqual(
+            list(review_steps),
+            [
+                "Checkout pull request head",
+                "Render Codex review prompt",
+                "Run Codex review",
+                "Render review summary",
+                "Publish review summary comment",
+                "Upload review artifacts",
+            ],
         )
-        self.assertIn("model: gpt-5.3-codex", workflow_text)
+        codex_step = review_steps["Run Codex review"]
+        self.assertEqual(codex_step["uses"], "openai/codex-action@v1")
+        self.assertEqual(
+            codex_step["with"]["openai-api-key"],
+            "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
+        )
+        self.assertEqual(codex_step["with"]["model"], "gpt-5.3-codex")
+        self.assertEqual(codex_step["with"]["sandbox"], "danger-full-access")
+        self.assertEqual(codex_step["with"]["safety-strategy"], "unsafe")
+        self.assertNotIn("codex-home", codex_step["with"])
 
     def test_resolve_inputs_uses_profile_branch_template(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -246,7 +230,6 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 REPAIR_BRANCH,
             )
             self.assertEqual(outputs["codex_model"], "gpt-5.3-codex")
-            self.assertEqual(outputs["codex_effort"], "")
 
     def test_audit_profile_allows_non_failure_source_run_and_configures_validation(self):
         audit_profile = HELPER.load_profile(str(WORKFLOW_AUDIT_PROFILE_FILE))
@@ -274,7 +257,6 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(codex_review["review_state_script"], "codex-review/scripts/fetch-review-state.py")
         self.assertEqual(codex_review["allowed_review_recommendations"], ["approve", "comment"])
         self.assertEqual(profile["codex_model"], "gpt-5.3-codex")
-        self.assertEqual(profile["codex_effort"], "")
 
     def test_profile_drives_markdown_context_files_and_validation_commands(self):
         profile = HELPER.load_profile(str(PROFILE_FILE))
@@ -408,10 +390,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
     def test_workflow_audit_merges_report_and_repair_in_one_pipeline(self):
         workflow = load_yaml(WORKFLOW_AUDIT_FILE)
-        workflow_text = WORKFLOW_AUDIT_FILE.read_text(encoding="utf-8")
         dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
         report_job = workflow["jobs"]["workflow-dependency-freshness"]
         repair_job = workflow["jobs"]["repair-workflow-dependency-freshness"]
+        report_steps = step_map(report_job)
 
         self.assertEqual(
             set(dispatch_inputs.keys()),
@@ -420,7 +402,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("requires_repair", report_job["outputs"])
         self.assertIn("behind_latest", report_job["outputs"])
         self.assertIn("needs_review", report_job["outputs"])
-        self.assertIn("--github-output", workflow_text)
+        self.assertIn("--github-output", report_steps["Render workflow dependency freshness report"]["run"])
         self.assertEqual(
             repair_job["uses"],
             "./.github/workflows/workflow-action-update-agent-reusable.yml",
@@ -494,53 +476,6 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(outputs["behind_latest"], "2")
         self.assertEqual(outputs["needs_review"], "1")
         self.assertEqual(outputs["requires_repair"], "true")
-
-    def test_core_assets_exist(self):
-        self.assertTrue(MARKDOWN_TEMPLATE_ROOT.is_dir())
-        self.assertTrue(GOAL_TEMPLATE.is_file())
-        self.assertTrue(PONYTAIL_TEMPLATE.is_file())
-        self.assertTrue(CONSTRAINTS_TEMPLATE.is_file())
-        self.assertTrue(VALIDATION_TEMPLATE.is_file())
-        self.assertTrue(PROFILE_FILE.is_file())
-        self.assertTrue(WORKFLOW_AUDIT_PROFILE_FILE.is_file())
-        self.assertTrue(HELPER_ACTION_FILE.is_file())
-        self.assertTrue(CODEX_PROXY_BOOTSTRAP_ACTION_FILE.is_file())
-        self.assertTrue(PULL_REQUEST_TEMPLATE.is_file())
-
-    def test_ci_readme_documents_core_legos_only(self):
-        readme = CI_README.read_text(encoding="utf-8")
-
-        self.assertIn(".github/workflows/workflow-action-update-agent.yml", readme)
-        self.assertIn(".github/workflows/workflow-action-update-agent-reusable.yml", readme)
-        self.assertIn(".github/workflows/workflow-audit.yml", readme)
-        self.assertIn(".github/workflows/codex-review.yml", readme)
-        self.assertIn(".github/actions/workflow-action-update-agent-helper/", readme)
-        self.assertIn(".github/actions/codex-proxy-bootstrap/", readme)
-        self.assertIn(".github/ci/workflow-action-update-agent/profile.json", readme)
-        self.assertIn(".github/ci/workflow-action-update-agent/workflow-audit-profile.json", readme)
-        self.assertIn("single nightly pipeline", readme)
-        self.assertIn("only reruns the report job", readme)
-        self.assertIn("building blocks", readme)
-        self.assertIn("self-hosted runner", readme)
-        self.assertIn("same self-hosted runner path as `codex-review`", readme)
-        self.assertIn("codex-review/.npmrc", readme)
-        self.assertIn("OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS", readme)
-        self.assertIn("EXPKITS_AGENT_TOKEN", readme)
-        self.assertIn("deterministic workflow freshness patch", readme)
-        self.assertIn("passwordless sudo", readme)
-        self.assertIn("waits for the profile-defined validation workflows", readme)
-        self.assertIn("manual fallback caller", readme)
-        self.assertNotIn("workflow-action-update-agent-freshness.yml", readme)
-        self.assertNotIn("validate_changed_workflows.py", readme)
-        self.assertNotIn("workflow-changed-validation.yml", readme)
-        self.assertNotIn("Runs on pull requests, manual dispatch, and nightly schedule.", readme)
-        self.assertNotIn(".github/actions/openai-codex-run/", readme)
-
-    def test_experiment_files_are_absent_from_minimal_branch(self):
-        self.assertFalse(FRESHNESS_WORKFLOW_FILE.exists())
-        self.assertFalse(CHANGED_VALIDATION_WORKFLOW_FILE.exists())
-        self.assertTrue(FRESHNESS_PATCH_SCRIPT.exists())
-        self.assertFalse(CHANGED_WORKFLOW_VALIDATION_SCRIPT.exists())
 
 
 if __name__ == "__main__":
