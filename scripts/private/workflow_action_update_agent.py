@@ -98,6 +98,35 @@ def github_api_request(url: str) -> bytes:
         return response.read()
 
 
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
+        return None
+
+
+def download_github_archive(url: str) -> bytes:
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {github_api_token()}",
+            "User-Agent": "workflow-action-update-agent",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    opener = urllib.request.build_opener(_NoRedirectHandler)
+    try:
+        with opener.open(request) as response:
+            return response.read()
+    except urllib.error.HTTPError as exc:
+        if exc.code not in {301, 302, 303, 307, 308}:
+            raise
+        location = exc.headers.get("Location", "")
+        if not location:
+            raise
+        with urllib.request.urlopen(location) as response:
+            return response.read()
+
+
 def github_api_json(endpoint_or_url: str) -> object:
     if endpoint_or_url.startswith("http://") or endpoint_or_url.startswith("https://"):
         url = endpoint_or_url
@@ -488,7 +517,7 @@ def read_review_artifact_state(*, repository: str, run_id: str, head_sha: str) -
             return dict()
 
         zip_path = Path(temp_dir) / "codex-review-out.zip"
-        zip_path.write_bytes(github_api_request(archive_url))
+        zip_path.write_bytes(download_github_archive(archive_url))
         artifact_root = Path(temp_dir) / "artifact"
         artifact_root.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(zip_path) as archive:

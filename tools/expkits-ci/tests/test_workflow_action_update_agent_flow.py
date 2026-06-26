@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import tempfile
 import textwrap
+import urllib.error
 import unittest
 from unittest import mock
 
@@ -195,6 +196,30 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             workspace_helper.resolve_repo_path(".github/ci/workflow-action-update-agent/profile.json"),
             Path(temp_dir).resolve() / ".github/ci/workflow-action-update-agent/profile.json",
         )
+
+    def test_download_github_archive_follows_redirect_location(self):
+        redirect_error = urllib.error.HTTPError(
+            url="https://api.github.com/repos/Arm-Debug/amp-dev-forge/actions/artifacts/1/zip",
+            code=302,
+            msg="Found",
+            hdrs={"Location": "https://objects.githubusercontent.com/archive.zip"},
+            fp=None,
+        )
+        opener = mock.Mock()
+        opener.open.side_effect = redirect_error
+        redirect_response = mock.MagicMock()
+        redirect_response.__enter__.return_value = redirect_response
+        redirect_response.read.return_value = b"zip-bytes"
+
+        with mock.patch.dict(os.environ, {"GH_TOKEN": "test-token"}, clear=False):
+            with mock.patch("urllib.request.build_opener", return_value=opener):
+                with mock.patch("urllib.request.urlopen", return_value=redirect_response) as urlopen:
+                    result = HELPER.download_github_archive(
+                        "https://api.github.com/repos/Arm-Debug/amp-dev-forge/actions/artifacts/1/zip",
+                    )
+
+        self.assertEqual(result, b"zip-bytes")
+        self.assertEqual(urlopen.call_args.args[0], "https://objects.githubusercontent.com/archive.zip")
 
     def test_codex_review_workflow_matches_main_self_hosted_proxy_flow(self):
         workflow = load_yaml(CODEX_REVIEW_WORKFLOW_FILE)
