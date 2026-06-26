@@ -15,9 +15,9 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 ## What does `.github/workflows/codex-review.yml` do?
 
-- Uses the local `openai-codex-run` wrapper around `openai/codex-action` to run a Codex review on PR open, reopen, synchronize, and ready-for-review events
+- Runs Codex review on a self-hosted runner through the official `openai/codex-action@v1` path used on `main`
 - Supports `workflow_dispatch` manual runs with a configurable `base_ref` input for the diff baseline
-- Uses `OPENAI_API_KEY` when present, otherwise falls back to `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` plus the Arm OpenAI proxy endpoint, and also requires the workflow `GITHUB_TOKEN`
+- Uses `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS`, the Arm OpenAI proxy endpoint, and the checked-in `codex-review/.npmrc` npm config
 - Uses the checked-in review assets under `codex-review/`
 - Keeps prompt templates in `codex-review/prompts/`
 - Keeps schemas in `codex-review/schemas/`
@@ -44,12 +44,11 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 - Contains the core repair engine behind the caller workflow
 - Resolves source-run metadata, downloads logs and artifacts, and creates `goal.md` plus the companion Markdown context files under `.codex/workflow-action-update-agent/`
-- Runs Codex in CI to generate a minimal repair patch from that failure context, including nightly workflow freshness repairs seeded from the report artifact
+- Runs Codex on the same self-hosted runner path as `codex-review`, with the same `openai/codex-action` integration and npm proxy config, to generate a minimal repair patch from that failure context
+- Uses a deterministic workflow freshness patch for `workflow-dependency-freshness` artifacts instead of calling Codex for simple `uses:` ref bumps
 - Opens a draft repair PR, applies the profile-defined rerun label, waits for the profile-defined validation workflows plus any structured review outcome they publish, and merges on success
 - Stays orchestration-thin by delegating repo-specific helper commands to a local composite action and flow policy to the repair profile
-- Uses `OPENAI_API_KEY` when present, otherwise falls back to `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` plus the Arm OpenAI proxy endpoint for the Codex step so the repair flow matches `codex-review`
-- Leaves npm on the default registry for GitHub-hosted repair runs, but lets callers opt into a workflow-scoped npm config when they really run inside an internal network
-- Retries transient Codex capacity failures before giving up the repair run
+- Uses `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` and `codex-review/.npmrc` for the Codex step so the repair flow matches `codex-review`
 - Supports the optional `EXPKITS_AGENT_TOKEN` secret so checkout, push, PR, and merge operations can run under a PAT or GitHub App token instead of the default `GITHUB_TOKEN`
 
 ## What does `scripts/private/workflow_action_update_agent.py` do?
@@ -73,14 +72,6 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Wraps the Python helper behind one local composite action so the reusable workflow stays declarative and avoids repeating long inline `python3 ...` run blocks
 - Exposes stable outputs such as `should_run`, `repair_branch`, `codex_model`, `codex_effort`, `has_changes`, `head_sha`, and `pr_number`
 - Gives future caller workflows the same helper API without copying shell glue
-
-## What does `.github/actions/openai-codex-run/` do?
-
-- Wraps `openai/codex-action` behind one reusable composite action for repository workflows
-- Can optionally pin a workflow-scoped npm mirror config through `NPM_CONFIG_USERCONFIG`
-- Retries transient Codex high-demand failures with backoff instead of failing the repair flow on the first temporary API blip
-- Reuses one retry wrapper across workflows, but callers that need multiple attempts inside one hosted-runner job should pass `unsafe` so the official action can re-bootstrap its proxy on every retry
-- Uses an isolated `codex-home` per retry attempt so proxy/config state from one failed attempt cannot poison the next one
 
 ## Operational Notes
 

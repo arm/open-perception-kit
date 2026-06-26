@@ -22,7 +22,7 @@ concurrency:
 jobs:
   review:
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
 
     steps:
       - name: Checkout pull request head
@@ -45,41 +45,17 @@ jobs:
           mkdir -p codex-review/out
           ./codex-review/scripts/render-prompt.sh codex-review/out/review.prompt.md
 
-      - id: codex-auth
-        name: Select Codex credential path
-        shell: bash
-        env:
-          OPENAI_API_KEY_VALUE: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          if [ -n "${OPENAI_API_KEY_VALUE}" ]; then
-            echo "use_direct=true" >> "${GITHUB_OUTPUT}"
-          else
-            echo "use_direct=false" >> "${GITHUB_OUTPUT}"
-          fi
-
-      # <codex-review:suppress-begin> Intentional current Codex review trust
-      # boundary for same-repo pull requests.
-      - name: Run Codex review with direct OpenAI key
+      # <codex-review:suppress-begin> Intentional current self-hosted Codex
+      # review trust boundary for same-repo pull requests.
+      - name: Run Codex review
         id: review
-        if: ${{ steps.codex-auth.outputs.use_direct == 'true' }}
-        uses: ./.github/actions/openai-codex-run
-        with:
-          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-          model: gpt-5.5
-          sandbox: danger-full-access
-          safety-strategy: unsafe
-          prompt-file: codex-review/out/review.prompt.md
-          output-schema-file: codex-review/schemas/review.schema.json
-          output-file: codex-review/out/review.json
-
-      - name: Run Codex review with proxy key
-        id: review-proxy
-        if: ${{ steps.codex-auth.outputs.use_direct != 'true' }}
-        uses: ./.github/actions/openai-codex-run
+        uses: openai/codex-action@v1
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ github.workspace }}/codex-review/.npmrc
         with:
           openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
           responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses
-          model: gpt-5.5
+          model: gpt-5.3-codex
           sandbox: danger-full-access
           safety-strategy: unsafe
           prompt-file: codex-review/out/review.prompt.md

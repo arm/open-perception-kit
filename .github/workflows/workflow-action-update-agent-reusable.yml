@@ -31,8 +31,6 @@ on:
     secrets:
       EXPKITS_AGENT_TOKEN:
         required: false
-      OPENAI_API_KEY:
-        required: false
       OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS:
         required: false
 
@@ -88,7 +86,7 @@ jobs:
     name: Generate repair patch with Codex
     needs: prepare
     if: needs.prepare.outputs.should_run == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 45
     permissions:
       actions: read
@@ -138,61 +136,31 @@ jobs:
             --report-json .codex/workflow-action-update-agent/artifacts/workflow-dependency-freshness/workflow-dependency-freshness.json
           printf 'Deterministic workflow freshness patch applied.\n' > "${{ runner.temp }}/workflow-action-update-agent-codex-output.md"
 
-      - id: codex-auth
-        name: Require Codex credentials
+      - name: Require Codex proxy credentials
         if: ${{ inputs.source_artifact_name != 'workflow-dependency-freshness' }}
         env:
-          OPENAI_API_KEY_VALUE: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_PROXY_KEY_VALUE: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
         run: |
           set -euo pipefail
-          if [ -n "${OPENAI_API_KEY_VALUE}" ]; then
-            echo "use_direct=true" >> "${GITHUB_OUTPUT}"
-            exit 0
-          fi
           if [ -n "${OPENAI_PROXY_KEY_VALUE}" ]; then
-            echo "use_direct=false" >> "${GITHUB_OUTPUT}"
             exit 0
           fi
-          echo "OPENAI_API_KEY or OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS is required for workflow-action-update-agent Codex runs." >&2
+          echo "OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS is required for workflow-action-update-agent Codex runs." >&2
           exit 1
 
-      - name: Run Codex with direct OpenAI key
-        if: ${{ inputs.source_artifact_name != 'workflow-dependency-freshness' && steps.codex-auth.outputs.use_direct == 'true' }}
-        uses: ./.github/actions/openai-codex-run
-        with:
-          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-          model: ${{ needs.prepare.outputs.codex_model }}
-          effort: ${{ needs.prepare.outputs.codex_effort }}
-          prompt-file: .codex/workflow-action-update-agent/goal.md
-          output-file: ${{ runner.temp }}/workflow-action-update-agent-codex-output.md
-          sandbox: workspace-write
-          # Retries run in the same job. Keep Codex on the runner's initial
-          # privilege model so the official action can bootstrap its proxy on
-          # every attempt.
-          safety-strategy: unsafe
-          allow-bots: true
-          allow-bot-users: github-actions[bot]
-          codex-args: '["--ignore-rules"]'
-
-      - name: Run Codex with proxy key
-        if: ${{ inputs.source_artifact_name != 'workflow-dependency-freshness' && steps.codex-auth.outputs.use_direct != 'true' }}
-        uses: ./.github/actions/openai-codex-run
+      - name: Run Codex
+        if: ${{ inputs.source_artifact_name != 'workflow-dependency-freshness' }}
+        uses: openai/codex-action@v1
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ github.workspace }}/codex-review/.npmrc
         with:
           openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
           responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses
           model: ${{ needs.prepare.outputs.codex_model }}
-          effort: ${{ needs.prepare.outputs.codex_effort }}
           prompt-file: .codex/workflow-action-update-agent/goal.md
           output-file: ${{ runner.temp }}/workflow-action-update-agent-codex-output.md
-          sandbox: workspace-write
-          # Retries run in the same job. Keep Codex on the runner's initial
-          # privilege model so the official action can bootstrap its proxy on
-          # every attempt.
+          sandbox: danger-full-access
           safety-strategy: unsafe
-          allow-bots: true
-          allow-bot-users: github-actions[bot]
-          codex-args: '["--ignore-rules"]'
 
       - name: Run static regression tests
         run: |
