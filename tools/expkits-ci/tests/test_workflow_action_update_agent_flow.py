@@ -165,6 +165,14 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             stabilize_steps["Stabilize repair PR"]["uses"],
             "./.github/actions/workflow-action-update-agent-helper",
         )
+        self.assertEqual(
+            stabilize_steps["Stabilize repair PR"]["env"]["GITHUB_TOKEN"],
+            "${{ github.token }}",
+        )
+        self.assertEqual(
+            stabilize_steps["Stabilize repair PR"]["env"]["GH_TOKEN"],
+            "${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}",
+        )
 
     def test_helper_action_exposes_structured_outputs(self):
         action = load_yaml(HELPER_ACTION_FILE)

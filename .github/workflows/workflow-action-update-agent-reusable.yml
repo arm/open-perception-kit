@@ -244,6 +244,7 @@ jobs:
       - name: Stabilize repair PR
         uses: ./.github/actions/workflow-action-update-agent-helper
         env:
+          GITHUB_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
         with:
           command: stabilize-pr
