@@ -87,8 +87,7 @@ enum {
     PROP_INFER_ID,
 };
 
-static pek::tracker::AssociationMode
-associationModeFromString(const gchar *modeText) {
+static pek::tracker::AssociationMode associationModeFromString(const gchar *modeText) {
     if (modeText == nullptr) {
         return pek::tracker::Defaults::associationMode;
     }

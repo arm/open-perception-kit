@@ -8,7 +8,6 @@
 
 #include <gst/gst.h>
 
-
 bool WebSocketWriter::validate(PekCommConnectionHdl hdl) {
     if (!m_ws) {
         return false;
@@ -98,7 +97,9 @@ bool WebSocketWriter::publish(const std::string &json_str) {
         websocketpp::lib::error_code ec;
         m_ws->send(*it, json_str, websocketpp::frame::opcode::text, ec);
         if (ec) {
-            GST_INFO_OBJECT(self(), "Dropping pekcomm WebSocket client after send error: %s", ec.message().c_str());
+            GST_INFO_OBJECT(self(),
+                            "Dropping pekcomm WebSocket client after send error: %s",
+                            ec.message().c_str());
             it = m_connections.erase(it);
         } else {
             ++it;

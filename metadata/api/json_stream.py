@@ -1,3 +1,7 @@
+################################################################
+# Copyright (C) 2025 Arm Limited. All rights reserved.
+################################################################
+
 """Thin TCP client for AMP newline-delimited JSON transport messages."""
 
 from __future__ import annotations

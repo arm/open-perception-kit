@@ -7,6 +7,7 @@ const PADDLE_MARGIN = 26;
 const MAX_BOUNCE_ANGLE = Math.PI / 3;
 const DEFAULT_FRAME_WIDTH = 1280;
 const DEFAULT_FRAME_HEIGHT = 720;
+const RANDOM_UINT32_RANGE = 0x100000000;
 
 const elements = {
   connectForm: document.getElementById("connect-form"),
@@ -52,6 +53,7 @@ const elements = {
 };
 
 const context = elements.canvas.getContext("2d");
+const randomValues = new Uint32Array(1);
 
 const state = {
   socket: null,
@@ -146,6 +148,49 @@ function formatPercent(value) {
   return `${Math.round(value * 100)}%`;
 }
 
+function gameplayRandom() {
+  window.crypto.getRandomValues(randomValues);
+  return randomValues[0] / RANDOM_UINT32_RANGE;
+}
+
+function trimTextTokenValue(value) {
+  let end = value.length;
+  while (end > 0 && ",;)]}".includes(value[end - 1])) {
+    end -= 1;
+  }
+  return value.slice(0, end);
+}
+
+function parseTextNumberToken(text, prefixes) {
+  let token = "";
+
+  for (const char of text) {
+    if (char <= " ") {
+      const value = parseNumberFromToken(token, prefixes);
+      if (value !== null) {
+        return value;
+      }
+      token = "";
+      continue;
+    }
+
+    token += char;
+  }
+
+  return parseNumberFromToken(token, prefixes);
+}
+
+function parseNumberFromToken(token, prefixes) {
+  for (const prefix of prefixes) {
+    if (token.startsWith(prefix)) {
+      const value = Number(trimTextTokenValue(token.slice(prefix.length)));
+      return Number.isFinite(value) ? value : null;
+    }
+  }
+
+  return null;
+}
+
 function getControlledHalf(side) {
   if (!state.game.mirrorSides) {
     return side;
@@ -167,18 +212,18 @@ function enrichFaces(faces) {
     const height = Math.max(Number(face.height ?? 0), 1);
     const attributes = face && typeof face.attributes === "object" ? face.attributes : {};
     const text = typeof face.text === "string" ? face.text : "";
-    const textTrackMatch = text.match(/\bID:(\d+)\b/);
-    const textSimilarityMatch = text.match(/\bREID(?:-R)?:([0-9]*\.?[0-9]+)\b/);
+    const textTrackId = parseTextNumberToken(text, ["ID:"]);
+    const textSimilarity = parseTextNumberToken(text, ["REID:", "REID-R:"]);
     const rawTrackId =
       attributes.trackId ??
       face.trackId ??
-      (textTrackMatch ? Number(textTrackMatch[1]) : null);
+      textTrackId;
     const rawSimilarity =
       attributes.similarityIndex ??
       attributes.similarity ??
       attributes.reidSimilarity ??
       face.similarityIndex ??
-      (textSimilarityMatch ? Number(textSimilarityMatch[1]) : null);
+      textSimilarity;
     return {
       ...face,
       index,
@@ -517,9 +562,9 @@ function syncBallVelocity() {
   const magnitude = Math.hypot(ball.vx, ball.vy);
 
   if (magnitude === 0) {
-    const direction = Math.random() > 0.5 ? 1 : -1;
+    const direction = gameplayRandom() > 0.5 ? 1 : -1;
     ball.vx = direction * state.game.ballSpeed;
-    ball.vy = (Math.random() * 2 - 1) * state.game.ballSpeed * 0.4;
+    ball.vy = (gameplayRandom() * 2 - 1) * state.game.ballSpeed * 0.4;
     return;
   }
 
@@ -528,8 +573,8 @@ function syncBallVelocity() {
   ball.vy *= scale;
 }
 
-function resetBall(direction = Math.random() > 0.5 ? 1 : -1) {
-  const angle = (Math.random() * 0.8 - 0.4) * MAX_BOUNCE_ANGLE;
+function resetBall(direction = gameplayRandom() > 0.5 ? 1 : -1) {
+  const angle = (gameplayRandom() * 0.8 - 0.4) * MAX_BOUNCE_ANGLE;
   state.game.ball.x = GAME_WIDTH / 2;
   state.game.ball.y = GAME_HEIGHT / 2;
   state.game.ball.vx = Math.cos(angle) * state.game.ballSpeed * direction;

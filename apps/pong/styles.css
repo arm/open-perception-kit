@@ -54,6 +54,7 @@ body {
 
 .connect-panel,
 .card {
+  padding: 16px;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -72,11 +73,6 @@ body {
   font-size: 0.68rem;
   font-weight: 700;
   color: var(--muted);
-}
-
-.connect-panel,
-.card {
-  padding: 16px;
 }
 
 .embedded-connect {
