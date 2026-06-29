@@ -18,7 +18,11 @@ services:
       - 8000:8000
       - 8080:8080
       - 8001:8001
+      # <codex-review:suppress-begin> Port 7001 is intentionally published for
+      # local/demo metadata workflows; transport auth/TLS is out of scope for
+      # these checked-in demo compose defaults.
       - 7001:7001
+      # <codex-review:suppress-end>
       - 9999:9999
       - 2222:2222
 

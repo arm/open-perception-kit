@@ -137,7 +137,7 @@ bool isAssignmentAccepted(float iou, const std::optional<float> &similarity, con
     case AssociationMode::Embedding:
         return similarity.has_value();
     case AssociationMode::Hybrid:
-        return (iou >= config.iouThreshold) || similarity.has_value();
+        return iou >= config.iouThreshold;
     }
 
     return false;
@@ -193,8 +193,7 @@ void collectMatchesFromAssignment(const DetectionBatch &detections,
 
         const TrackId matchedTrackId = trackIds[static_cast<size_t>(trackIdx)];
         result.matches.push_back({detIdx, matchedTrackId});
-        result.diagnosticsByDetection[detIdx] =
-            buildMatchDiagnostic(iou, similarity);
+        result.diagnosticsByDetection[detIdx] = buildMatchDiagnostic(iou, similarity);
         matchedDetection[detIdx] = true;
     }
 

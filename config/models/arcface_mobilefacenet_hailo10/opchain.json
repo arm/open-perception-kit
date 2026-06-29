@@ -3,26 +3,26 @@
     "description": "Hailo 10-compiled ArcFace MobileFaceNet face embedding model.",
     "ops": [
         {
-            "id": "amp-std-ops/InferenceController",
+            "id": "pek-std-ops/InferenceController",
             "attributes": {
                 "contentType": "humanFace"
             }
         },
         {
-            "id": "amp-std-ops/GenericImagePreprocess",
+            "id": "pek-std-ops/GenericImagePreprocess",
             "attributes": {
                 "inputImageTensorIndex": 0,
                 "inputImageSourceName": "pipelineVideoFrame"
             }
         },
         {
-            "id": "amp-hailort-ops/Inference",
+            "id": "pek-hailort-ops/Inference",
             "attributes": {
                 "modelDescriptor": "/work/config/models/arcface_mobilefacenet_hailo10/model.json"
             }
         },
         {
-            "id": "amp-std-ops/GenericPostprocess",
+            "id": "pek-std-ops/GenericPostprocess",
             "attributes": {
                 "parser": "ObjectEmbeddingParser"
             }
