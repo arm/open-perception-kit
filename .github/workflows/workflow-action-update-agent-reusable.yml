@@ -134,7 +134,6 @@ jobs:
           openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
           responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses
           model: ${{ needs.prepare.outputs.codex_model }}
-          codex-home: ${{ runner.temp }}/codex-home/${{ github.run_id }}
           prompt-file: .codex/workflow-action-update-agent/goal.md
           output-file: ${{ runner.temp }}/workflow-action-update-agent-codex-output.md
           sandbox: danger-full-access

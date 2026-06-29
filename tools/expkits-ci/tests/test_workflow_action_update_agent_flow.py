@@ -165,6 +165,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(codex_step["with"]["model"], "${{ needs.prepare.outputs.codex_model }}")
         self.assertEqual(codex_step["with"]["sandbox"], "danger-full-access")
         self.assertEqual(codex_step["with"]["safety-strategy"], "unsafe")
+        self.assertNotIn("codex-home", codex_step["with"])
         self.assertEqual(
             codex_steps["Download source artifact context"]["if"],
             "${{ inputs.source_artifact_name != '' }}",
@@ -376,6 +377,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             codex_step["with"]["prompt-file"],
             "${{ inputs.context_root }}/stabilize-goal.md",
         )
+        self.assertNotIn("codex-home", codex_step["with"])
         self.assertEqual(
             steps["Resolve PR details"]["with"]["command"],
             "resolve-pr-details",

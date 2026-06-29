@@ -27,6 +27,7 @@ The reference implementation is `.github/workflows/codex-review.yml` on `main`.
   - `model: gpt-5.3-codex`
   - `sandbox: danger-full-access`
   - `safety-strategy: unsafe`
+- Do not add repair-specific `codex-home` overrides or runner-specific `sudo` preflights around that call. If the runner works for `Codex Review` on `main`, reuse that exact action shape.
 - The stabilizer should copy this shape and change only the prompt/output files and the follow-up validation/commit steps.
 
 ## Discoveries
