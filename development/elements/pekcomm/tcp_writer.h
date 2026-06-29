@@ -17,10 +17,14 @@ class TcpWriter : public Writer {
     int m_listen_fd = -1;
     int m_client_fd = -1;
 
+    std::string m_pending;
+    size_t m_pending_offset = 0;
+
     std::recursive_mutex m_io_lock;
 
     int check_client();
     void close_client();
+    void clear_pending();
 
   protected:
     bool io_open() override;

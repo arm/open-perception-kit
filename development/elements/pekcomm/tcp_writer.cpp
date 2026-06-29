@@ -24,9 +24,14 @@ class TcpError : public std::runtime_error {
     explicit TcpError(const std::string &err) : std::runtime_error(err) {}
 };
 
-static bool send_all(int fd, const std::string &data) {
-    size_t off = 0;
+enum class SendResult {
+    Sent,
+    Backpressure,
+    Disconnected,
+    Error,
+};
 
+static SendResult send_all(int fd, const std::string &data, size_t &off) {
     while (off < data.size()) {
         ssize_t n = ::send(fd, data.data() + off, data.size() - off, MSG_NOSIGNAL);
         if (n > 0) {
@@ -36,10 +41,16 @@ static bool send_all(int fd, const std::string &data) {
         if (n < 0 && errno == EINTR)
             continue;
 
-        return false;
+        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+            return SendResult::Backpressure;
+
+        if (n < 0 && (errno == EPIPE || errno == ECONNRESET || errno == ENOTCONN))
+            return SendResult::Disconnected;
+
+        return SendResult::Error;
     }
 
-    return true;
+    return SendResult::Sent;
 }
 
 bool TcpWriter::io_open() {
@@ -55,7 +66,7 @@ bool TcpWriter::io_open() {
             throw TcpError("tcp-port is not set");
         }
 
-        struct addrinfo hints {};
+        struct addrinfo hints{};
         hints.ai_socktype = SOCK_STREAM;
         hints.ai_family = AF_UNSPEC;
         hints.ai_flags = AI_PASSIVE;
@@ -64,8 +75,11 @@ bool TcpWriter::io_open() {
         struct addrinfo *result_raw = nullptr;
         const int gai_rc = getaddrinfo(m_host.c_str(), port_str.c_str(), &hints, &result_raw);
         if (gai_rc != 0) {
-            GST_INFO_OBJECT(
-                self(), "Failed to resolve TCP bind address '%s:%u': %s", m_host.c_str(), m_port, gai_strerror(gai_rc));
+            GST_INFO_OBJECT(self(),
+                            "Failed to resolve TCP bind address '%s:%u': %s",
+                            m_host.c_str(),
+                            m_port,
+                            gai_strerror(gai_rc));
             throw TcpError("getaddrinfo failed");
         }
 
@@ -87,15 +101,21 @@ bool TcpWriter::io_open() {
                 }
 
                 m_listen_fd = fd;
-                GST_INFO_OBJECT(self(), "Listening for TCP metadata clients on '%s:%u'", m_host.c_str(), m_port);
+                GST_INFO_OBJECT(self(),
+                                "Listening for TCP metadata clients on '%s:%u'",
+                                m_host.c_str(),
+                                m_port);
                 return true;
             }
 
             close(fd);
         }
 
-        GST_INFO_OBJECT(
-            self(), "Failed to bind TCP metadata server on '%s:%u': %s", m_host.c_str(), m_port, g_strerror(errno));
+        GST_INFO_OBJECT(self(),
+                        "Failed to bind TCP metadata server on '%s:%u': %s",
+                        m_host.c_str(),
+                        m_port,
+                        g_strerror(errno));
         throw TcpError("bind/listen failed");
 
     } catch (const TcpError &) {
@@ -108,6 +128,12 @@ void TcpWriter::close_client() {
         close(m_client_fd);
         m_client_fd = -1;
     }
+    clear_pending();
+}
+
+void TcpWriter::clear_pending() {
+    m_pending.clear();
+    m_pending_offset = 0;
 }
 
 void TcpWriter::io_close() {
@@ -137,7 +163,8 @@ int TcpWriter::check_client() {
                 (void)fcntl(accepted_fd, F_SETFL, flags | O_NONBLOCK);
             }
             m_client_fd = accepted_fd;
-            GST_INFO_OBJECT(self(), "Accepted TCP metadata client on '%s:%u'", m_host.c_str(), m_port);
+            GST_INFO_OBJECT(
+                self(), "Accepted TCP metadata client on '%s:%u'", m_host.c_str(), m_port);
         } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
             GST_DEBUG_OBJECT(self(), "TCP accept error: %s", g_strerror(errno));
         }
@@ -153,21 +180,51 @@ bool TcpWriter::publish(const std::string &json_str) {
     bool ret = false;
 
     if (auto fd = check_client(); fd >= 0) {
-        const bool ok = send_all(fd, json_str);
+        SendResult send_result = SendResult::Sent;
+        bool dropped_frame = false;
+
+        if (!m_pending.empty()) {
+            send_result = send_all(fd, m_pending, m_pending_offset);
+            if (send_result == SendResult::Sent) {
+                clear_pending();
+            } else {
+                dropped_frame = true;
+            }
+        }
+
+        if (send_result == SendResult::Sent) {
+            size_t offset = 0;
+            send_result = send_all(fd, json_str, offset);
+            if (send_result == SendResult::Backpressure) {
+                m_pending = json_str;
+                m_pending_offset = offset;
+            }
+        }
+
+        const int send_errno = errno;
         close(fd);
 
-        if (!ok) {
-            if (errno == EPIPE || errno == ECONNRESET || errno == ENOTCONN || errno == EAGAIN ||
-                errno == EWOULDBLOCK) {
-                GST_INFO_OBJECT(
-                    self(), "TCP metadata client on '%s:%u' disconnected", m_host.c_str(), m_port);
-                std::lock_guard g(m_io_lock);
-                close_client();
-            } else {
-                GST_DEBUG_OBJECT(self(), "TCP write error: %s", g_strerror(errno));
-            }
-        } else {
+        if (send_result == SendResult::Sent) {
             ret = true;
+        } else if (send_result == SendResult::Backpressure) {
+            if (dropped_frame) {
+                GST_DEBUG_OBJECT(self(),
+                                 "TCP metadata client on '%s:%u' backpressured; dropping frame",
+                                 m_host.c_str(),
+                                 m_port);
+            } else {
+                GST_DEBUG_OBJECT(self(),
+                                 "TCP metadata client on '%s:%u' backpressured; deferring frame",
+                                 m_host.c_str(),
+                                 m_port);
+            }
+        } else if (send_result == SendResult::Disconnected) {
+            GST_INFO_OBJECT(
+                self(), "TCP metadata client on '%s:%u' disconnected", m_host.c_str(), m_port);
+            std::lock_guard g(m_io_lock);
+            close_client();
+        } else {
+            GST_DEBUG_OBJECT(self(), "TCP write error: %s", g_strerror(send_errno));
         }
     }
 

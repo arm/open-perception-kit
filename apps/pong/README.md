@@ -39,7 +39,7 @@ http://127.0.0.1:8088/
 The page connects to AMP metadata over WebSocket. The current default value in the UI is:
 
 ```text
-ws://127.0.0.1:7001
+ws://127.0.0.1:7001/ws
 ```
 
 If your metadata stream is exposed on a different host or port, change the field in the app before pressing `Connect`.

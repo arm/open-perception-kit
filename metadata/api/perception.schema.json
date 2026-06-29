@@ -176,8 +176,17 @@
             "classId": {
               "type": "integer"
             },
+            "label": {
+              "type": "string"
+            },
             "text": {
               "type": "string"
+            },
+            "attributes": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
             }
           }
         }
