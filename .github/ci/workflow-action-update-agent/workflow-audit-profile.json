@@ -30,6 +30,9 @@
       "workflow_file": "codex-review.yml",
       "workflow_name": "Codex Review",
       "review_state_script": "codex-review/scripts/fetch-review-state.py",
+      "workflow_dispatch_inputs": {
+        "base_ref": "origin/{target_branch}"
+      },
       "allowed_review_recommendations": [
         "approve"
       ]
@@ -40,11 +43,23 @@
     },
     {
       "workflow_file": "pek-ci.yml",
-      "workflow_name": "Perception Experience Kit CI Pipeline"
+      "workflow_name": "Perception Experience Kit CI Pipeline",
+      "workflow_dispatch_inputs": {
+        "pr_number": "{pr_number}",
+        "pr_base_ref": "{target_branch}",
+        "pr_head_ref": "{repair_branch}",
+        "pr_head_sha": "{head_sha}"
+      }
     },
     {
       "workflow_file": "sonar.yml",
-      "workflow_name": "Sonar"
+      "workflow_name": "Sonar",
+      "workflow_dispatch_inputs": {
+        "pr_number": "{pr_number}",
+        "pr_base_ref": "{target_branch}",
+        "pr_head_ref": "{repair_branch}",
+        "pr_head_sha": "{head_sha}"
+      }
     }
   ]
 }

@@ -235,7 +235,10 @@ class StaticQualityConfigTests(unittest.TestCase):
         self.assertNotIn("pr-quality-gate:", workflow)
         self.assertNotIn("Finalize PR quality gate result", workflow)
         self.assertIn("git_basic_auth=", workflow)
-        self.assertIn("export PULL_REQUEST_TARGET_BRANCH=\"${{ github.base_ref }}\"", workflow)
+        self.assertIn(
+            "export PULL_REQUEST_TARGET_BRANCH=\"${{ github.event.inputs.pr_base_ref || github.base_ref }}\"",
+            workflow,
+        )
         self.assertIn("-e PULL_REQUEST_TARGET_BRANCH", workflow)
         self.assertIn(
             "if: ${{ !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'schedule' ||",

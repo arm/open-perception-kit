@@ -2,6 +2,27 @@ name: Perception Experience Kit CI Pipeline
 
 on:
   workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Optional PR number to run the PR validation path manually.
+        required: false
+        default: ""
+        type: string
+      pr_base_ref:
+        description: Optional PR base branch for manual PR-context runs.
+        required: false
+        default: ""
+        type: string
+      pr_head_ref:
+        description: Optional PR head branch for manual PR-context runs.
+        required: false
+        default: ""
+        type: string
+      pr_head_sha:
+        description: Optional PR head SHA for manual PR-context runs.
+        required: false
+        default: ""
+        type: string
   pull_request:
     branches: [ main, "feature/**", "sandbox/**" ]
     types: [ opened, synchronize, reopened, ready_for_review, labeled ]
@@ -26,7 +47,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ github.head_ref || github.ref }}
+          ref: ${{ github.event.inputs.pr_head_sha || github.event.inputs.pr_head_ref || github.head_ref || github.ref }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
       - name: Build docker image
@@ -35,13 +56,13 @@ jobs:
           docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-docs-base pek-dev-base
 
       - name: Check Repo Quality gate (nightly)
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number == '') }}
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: |
           docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-quality-check-full
 
       - name: Upload quality report artifact (nightly)
-        if: ${{ always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+        if: ${{ always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number == '')) }}
         uses: actions/upload-artifact@v6
         with:
           name: expkits-ci-quality-report-full
@@ -50,7 +71,7 @@ jobs:
           retention-days: 10
 
       - name: Upload documentation artifact
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number == '') }}
         uses: actions/upload-artifact@v6
         with:
           name: pek-doc
@@ -59,12 +80,12 @@ jobs:
           retention-days: 10
 
       - name: Check Repo Quality gate (PR)
-        if: github.event_name == 'pull_request'
+        if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '') }}
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          export PULL_REQUEST_TARGET_BRANCH="${{ github.base_ref }}"
+          export PULL_REQUEST_TARGET_BRANCH="${{ github.event.inputs.pr_base_ref || github.base_ref }}"
           # The checkout auth includeIf rules do not apply inside our /work-mounted compose container.
           git_basic_auth="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
           export GIT_CONFIG_COUNT=1
@@ -79,7 +100,7 @@ jobs:
             pek-quality-check-pull-request
 
       - name: Upload quality report artifact (PR)
-        if: ${{ always() && github.event_name == 'pull_request' }}
+        if: ${{ always() && (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '')) }}
         uses: actions/upload-artifact@v6
         with:
           name: expkits-ci-quality-report-pr
@@ -101,8 +122,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            export PULL_REQUEST_TARGET_BRANCH="${{ github.base_ref }}"
+          if [ "${{ github.event_name }}" = "pull_request" ] || [ -n "${{ github.event.inputs.pr_number }}" ]; then
+            export PULL_REQUEST_TARGET_BRANCH="${{ github.event.inputs.pr_base_ref || github.base_ref }}"
             # The checkout auth includeIf rules do not apply inside our /work-mounted compose container.
             git_basic_auth="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
             export GIT_CONFIG_COUNT=1

@@ -19,7 +19,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -40,6 +40,7 @@ WAIT_TIMEOUT_SECONDS = 1800
 STABILIZATION_MAX_ATTEMPTS = 5
 STABILIZER_WORKFLOW_FILE = "codex-stabilize-pr.yml"
 STABILIZER_WORKFLOW_NAME = "Codex Stabilize PR"
+PULL_REQUEST_RUN_GRACE_SECONDS = 60
 
 
 def run_command(
@@ -238,6 +239,7 @@ def profile_validation_workflows(profile: dict[str, object]) -> list[dict[str, o
         workflow_name = item.get("workflow_name")
         review_state_script = item.get("review_state_script", "")
         allowed_review_recommendations = item.get("allowed_review_recommendations", [])
+        workflow_dispatch_inputs = item.get("workflow_dispatch_inputs", {})
         if not isinstance(workflow_file, str) or not workflow_file.strip():
             raise ValueError("Each validation workflow must define a non-empty 'workflow_file'.")
         if not isinstance(workflow_name, str) or not workflow_name.strip():
@@ -248,6 +250,10 @@ def profile_validation_workflows(profile: dict[str, object]) -> list[dict[str, o
         if not isinstance(allowed_review_recommendations, list):
             raise ValueError(
                 "Each validation workflow 'allowed_review_recommendations' value must be a JSON array when present.")
+        if not isinstance(workflow_dispatch_inputs, dict):
+            raise ValueError(
+                "Each validation workflow 'workflow_dispatch_inputs' value must be a JSON object when present."
+            )
         if review_state_script:
             if not allowed_review_recommendations:
                 raise ValueError(
@@ -264,6 +270,17 @@ def profile_validation_workflows(profile: dict[str, object]) -> list[dict[str, o
             raise ValueError(
                 "Each validation workflow with 'allowed_review_recommendations' must also define 'review_state_script'."
             )
+        normalized_dispatch_inputs: dict[str, str] = {}
+        for input_name, input_value in workflow_dispatch_inputs.items():
+            if not isinstance(input_name, str) or not input_name.strip():
+                raise ValueError(
+                    "Each validation workflow 'workflow_dispatch_inputs' key must be a non-empty string."
+                )
+            if not isinstance(input_value, str) or not input_value.strip():
+                raise ValueError(
+                    "Each validation workflow 'workflow_dispatch_inputs' value must be a non-empty string."
+                )
+            normalized_dispatch_inputs[input_name.strip()] = input_value.strip()
         parsed.append(
             {
                 "workflow_file": workflow_file,
@@ -273,6 +290,7 @@ def profile_validation_workflows(profile: dict[str, object]) -> list[dict[str, o
                     str(recommendation).strip().lower()
                     for recommendation in allowed_review_recommendations
                 ],
+                "workflow_dispatch_inputs": normalized_dispatch_inputs,
             }
         )
     return parsed
@@ -473,6 +491,82 @@ def read_pr_details(pr_number: str) -> dict[str, str]:
     }
 
 
+def build_validation_dispatch_context(
+    *,
+    pr_number: str,
+    repair_branch: str,
+    head_sha: str,
+    target_branch: str,
+    source_run_id: str,
+    ticket_id: str,
+) -> dict[str, str]:
+    return {
+        "pr_number": pr_number,
+        "repair_branch": repair_branch,
+        "head_ref": repair_branch,
+        "head_sha": head_sha,
+        "target_branch": target_branch,
+        "source_run_id": source_run_id,
+        "ticket_id": ticket_id,
+    }
+
+
+def render_validation_workflow_dispatch_inputs(
+    *,
+    workflow: dict[str, object],
+    dispatch_context: dict[str, str],
+) -> dict[str, str]:
+    raw_inputs = workflow.get("workflow_dispatch_inputs", {})
+    if not isinstance(raw_inputs, dict):
+        return {}
+    return {
+        str(name): format_profile_template(str(template), dispatch_context)
+        for name, template in raw_inputs.items()
+    }
+
+
+def find_latest_workflow_run_candidate(
+    *,
+    repository: str,
+    workflow_file: str,
+    repair_branch: str,
+    head_sha: str,
+    events: list[str] | None = None,
+    created_after: datetime | None = None,
+) -> dict[str, str]:
+    payload = github_api_json(
+        f"repos/{repository}/actions/workflows/{workflow_file}/runs?branch={repair_branch}&per_page=20",
+    )
+    workflow_runs = payload.get("workflow_runs", []) if isinstance(payload, dict) else []
+    candidates: list[tuple[datetime, dict[str, str]]] = []
+    allowed_events = set(events or [])
+    for run in workflow_runs:
+        if not isinstance(run, dict):
+            continue
+        created_at = str(run.get("created_at") or "")
+        event = str(run.get("event") or "")
+        if not created_at or str(run.get("head_sha") or "") != head_sha:
+            continue
+        if allowed_events and event not in allowed_events:
+            continue
+        if created_after is not None and parse_timestamp(created_at) < created_after:
+            continue
+        candidates.append(
+            (
+                parse_timestamp(created_at),
+                {
+                    "id": str(run.get("id") or ""),
+                    "event": event,
+                    "status": str(run.get("status") or ""),
+                    "conclusion": str(run.get("conclusion") or ""),
+                    "created_at": created_at,
+                },
+            )
+        )
+    candidates.sort(reverse=True)
+    return candidates[0][1] if candidates else {}
+
+
 def find_latest_workflow_run_for_head(
     *,
     repository: str,
@@ -480,20 +574,13 @@ def find_latest_workflow_run_for_head(
     repair_branch: str,
     head_sha: str,
 ) -> str:
-    payload = github_api_json(
-        f"repos/{repository}/actions/workflows/{workflow_file}/runs?branch={repair_branch}&per_page=20",
+    candidate = find_latest_workflow_run_candidate(
+        repository=repository,
+        workflow_file=workflow_file,
+        repair_branch=repair_branch,
+        head_sha=head_sha,
     )
-    workflow_runs = payload.get("workflow_runs", []) if isinstance(payload, dict) else []
-    candidates: list[tuple[datetime, str]] = []
-    for run in workflow_runs:
-        if not isinstance(run, dict):
-            continue
-        created_at = str(run.get("created_at") or "")
-        if not created_at or str(run.get("head_sha") or "") != head_sha:
-            continue
-        candidates.append((parse_timestamp(created_at), str(run.get("id") or "")))
-    candidates.sort(reverse=True)
-    return candidates[0][1] if candidates else ""
+    return str(candidate.get("id") or "")
 
 
 def read_review_artifact_state(*, repository: str, run_id: str, head_sha: str) -> dict[str, object]:
@@ -568,6 +655,118 @@ def wait_for_dispatched_workflow_run(
     raise RuntimeError(
         f"Timed out waiting for dispatched {workflow_file} run containing nonce '{dispatch_nonce}'.",
     )
+
+
+def wait_for_existing_workflow_run(
+    *,
+    repository: str,
+    workflow_file: str,
+    repair_branch: str,
+    head_sha: str,
+    timeout_seconds: int,
+) -> dict[str, str]:
+    deadline = time.time() + timeout_seconds
+
+    while time.time() < deadline:
+        candidate = find_latest_workflow_run_candidate(
+            repository=repository,
+            workflow_file=workflow_file,
+            repair_branch=repair_branch,
+            head_sha=head_sha,
+            events=["pull_request"],
+        )
+        if candidate:
+            return candidate
+        time.sleep(5)
+
+    return {}
+
+
+def dispatch_validation_workflow(
+    *,
+    repository: str,
+    workflow_file: str,
+    workflow_name: str,
+    repair_branch: str,
+    head_sha: str,
+    workflow_inputs: dict[str, str],
+) -> str:
+    dispatched_after = datetime.now(timezone.utc) - timedelta(seconds=5)
+    command = [
+        "gh",
+        "workflow",
+        "run",
+        workflow_file,
+        "--ref",
+        repair_branch,
+    ]
+    for key, value in workflow_inputs.items():
+        command.extend(["-f", f"{key}={value}"])
+    run_command(command, capture_output=True)
+
+    deadline = time.time() + WAIT_TIMEOUT_SECONDS
+    while time.time() < deadline:
+        candidate = find_latest_workflow_run_candidate(
+            repository=repository,
+            workflow_file=workflow_file,
+            repair_branch=repair_branch,
+            head_sha=head_sha,
+            events=["workflow_dispatch"],
+            created_after=dispatched_after,
+        )
+        if candidate:
+            run_id = str(candidate.get("id") or "")
+            print(f"Watching {workflow_name} run {run_id} for {repair_branch}")
+            wait_for_workflow_run_completion(
+                repository=repository,
+                workflow_name=workflow_name,
+                run_id=run_id,
+            )
+            return run_id
+        time.sleep(5)
+
+    raise RuntimeError(f"Timed out waiting for dispatched {workflow_name} on {repair_branch}")
+
+
+def ensure_validation_workflow_run(
+    *,
+    repository: str,
+    workflow: dict[str, object],
+    repair_branch: str,
+    head_sha: str,
+    dispatch_context: dict[str, str],
+) -> tuple[str, str]:
+    workflow_file = str(workflow.get("workflow_file") or "")
+    workflow_name = str(workflow.get("workflow_name") or workflow_file)
+    existing_run = wait_for_existing_workflow_run(
+        repository=repository,
+        workflow_file=workflow_file,
+        repair_branch=repair_branch,
+        head_sha=head_sha,
+        timeout_seconds=PULL_REQUEST_RUN_GRACE_SECONDS,
+    )
+    if existing_run:
+        run_id = str(existing_run.get("id") or "")
+        print(f"Watching {workflow_name} run {run_id} for {repair_branch}")
+        wait_for_workflow_run_completion(
+            repository=repository,
+            workflow_name=workflow_name,
+            run_id=run_id,
+        )
+        return run_id, str(existing_run.get("event") or "pull_request")
+
+    run_id = dispatch_validation_workflow(
+        repository=repository,
+        workflow_file=workflow_file,
+        workflow_name=workflow_name,
+        repair_branch=repair_branch,
+        head_sha=head_sha,
+        workflow_inputs=render_validation_workflow_dispatch_inputs(
+            workflow=workflow,
+            dispatch_context=dispatch_context,
+        ),
+    )
+    return run_id, "workflow_dispatch"
 
 
 def dispatch_stabilizer_workflow(
@@ -929,60 +1128,6 @@ def merge_pr(pr_number: str) -> None:
     run_command(["gh", "pr", "merge", pr_number, "--merge", "--delete-branch"])
 
 
-def wait_for_workflow_run(
-    repository: str,
-    workflow_file: str,
-    workflow_name: str,
-    repair_branch: str,
-    head_sha: str,
-) -> str:
-    deadline = time.time() + WAIT_TIMEOUT_SECONDS
-
-    while time.time() < deadline:
-        payload = parse_json_command(
-            [
-                "gh",
-                "api",
-                f"repos/{repository}/actions/workflows/{workflow_file}/runs?branch={repair_branch}&event=pull_request&per_page=20",
-            ],
-        )
-        workflow_runs = payload.get("workflow_runs", []) if isinstance(payload, dict) else []
-        candidates: list[tuple[datetime, str, str]] = []
-        for run in workflow_runs:
-            if not isinstance(run, dict):
-                continue
-            created_at = str(run.get("created_at") or "")
-            if not created_at or str(run.get("head_sha") or "") != head_sha:
-                continue
-            candidates.append(
-                (
-                    parse_timestamp(created_at),
-                    str(run.get("id") or ""),
-                    str(run.get("conclusion") or ""),
-                )
-            )
-
-        candidates.sort(reverse=True)
-        if candidates:
-            _, run_id, run_conclusion = candidates[0]
-            if run_conclusion == "action_required":
-                raise RuntimeError(
-                    f"{workflow_name} run {run_id} for {repair_branch} is waiting for manual approval (conclusion: action_required).\n"
-                    "Repository policy prevented unattended verification of the generated repair PR.",
-                )
-            print(f"Watching {workflow_name} run {run_id} for {repair_branch}")
-            wait_for_workflow_run_completion(
-                repository=repository,
-                workflow_name=workflow_name,
-                run_id=run_id,
-            )
-            return run_id
-
-        time.sleep(15)
-
-    raise RuntimeError(f"Timed out waiting for {workflow_name} on {repair_branch}")
-
-
 def wait_for_workflow_run_completion(*, repository: str, workflow_name: str, run_id: str) -> None:
     deadline = time.time() + WAIT_TIMEOUT_SECONDS
 
@@ -1076,6 +1221,46 @@ def wait_for_review_state(
         time.sleep(15)
 
     raise RuntimeError(f"Timed out waiting for {workflow_name} recommendation on PR #{pr_number}")
+
+
+def publish_review_state_to_pr(
+    *,
+    pr_number: str,
+    head_sha: str,
+    review_state: dict[str, object],
+) -> None:
+    script_path = resolve_repo_path("codex-review/scripts/publish-review.py")
+    if not script_path.is_file():
+        raise ValueError(f"Codex review publish script is missing: {script_path}")
+
+    env = dict(os.environ)
+    if not env.get("GITHUB_TOKEN"):
+        env["GITHUB_TOKEN"] = env.get("GH_TOKEN", "")
+    if not env.get("GITHUB_TOKEN"):
+        raise RuntimeError("GITHUB_TOKEN or GH_TOKEN is required to publish Codex review state.")
+    env["GITHUB_PR_NUMBER"] = pr_number
+    env["GITHUB_HEAD_SHA"] = head_sha
+    env["GITHUB_RUN_ID"] = str(review_state.get("run_id") or "")
+
+    with tempfile.TemporaryDirectory(prefix="workflow-action-update-agent-publish-review-") as temp_dir:
+        input_path = Path(temp_dir) / "review.json"
+        markdown_path = Path(temp_dir) / "review-summary.md"
+        input_path.write_text(
+            json.dumps(review_state, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        run_command(
+            [
+                "python3",
+                str(script_path),
+                "--input",
+                str(input_path),
+                "--markdown-out",
+                str(markdown_path),
+                "--publish-pr-comment",
+            ],
+            env=env,
+        )
 
 
 def ensure_allowed_review_recommendation(
@@ -1361,18 +1546,29 @@ def command_stabilize_pr(args: argparse.Namespace) -> int:
     context_root = Path(args.context_root)
     dispatch_ref = os.environ.get("GITHUB_REF_NAME", "main")
     review_workflow, other_workflows = split_validation_workflows(profile)
-    head_sha = args.head_sha
+    pr_details = read_pr_details(args.pr_number)
+    repair_branch = pr_details["repair_branch"] or args.repair_branch
+    target_branch = pr_details["target_branch"]
+    head_sha = args.head_sha or pr_details["head_sha"]
 
     for attempt in range(1, STABILIZATION_MAX_ATTEMPTS + 1):
         print(f"Stabilization attempt {attempt}/{STABILIZATION_MAX_ATTEMPTS} for PR #{args.pr_number} at {head_sha}")
+        dispatch_context = build_validation_dispatch_context(
+            pr_number=args.pr_number,
+            repair_branch=repair_branch,
+            head_sha=head_sha,
+            target_branch=target_branch,
+            source_run_id=args.source_run_id,
+            ticket_id=args.ticket_id,
+        )
 
         if review_workflow is not None:
-            review_run_id = wait_for_workflow_run(
-                repository,
-                str(review_workflow["workflow_file"]),
-                str(review_workflow["workflow_name"]),
-                args.repair_branch,
-                head_sha,
+            review_run_id, review_run_event = ensure_validation_workflow_run(
+                repository=repository,
+                workflow=review_workflow,
+                repair_branch=repair_branch,
+                head_sha=head_sha,
+                dispatch_context=dispatch_context,
             )
             review_state = wait_for_review_state(
                 pr_number=args.pr_number,
@@ -1381,6 +1577,12 @@ def command_stabilize_pr(args: argparse.Namespace) -> int:
                 expected_run_id=review_run_id,
                 head_sha=head_sha,
             )
+            if review_run_event == "workflow_dispatch":
+                publish_review_state_to_pr(
+                    pr_number=args.pr_number,
+                    head_sha=head_sha,
+                    review_state=review_state,
+                )
             allowed_recommendations = [
                 str(recommendation).strip().lower()
                 for recommendation in review_workflow.get("allowed_review_recommendations", [])
@@ -1398,7 +1600,10 @@ def command_stabilize_pr(args: argparse.Namespace) -> int:
                     dispatch_ref=dispatch_ref,
                     dispatch_nonce=f"pr-{args.pr_number}-attempt-{attempt}-{int(time.time())}",
                 )
-                head_sha = read_pr_details(args.pr_number)["head_sha"]
+                pr_details = read_pr_details(args.pr_number)
+                repair_branch = pr_details["repair_branch"] or repair_branch
+                target_branch = pr_details["target_branch"]
+                head_sha = pr_details["head_sha"]
                 continue
 
             ensure_allowed_review_recommendation(
@@ -1409,12 +1614,12 @@ def command_stabilize_pr(args: argparse.Namespace) -> int:
             )
 
         for workflow in other_workflows:
-            wait_for_workflow_run(
-                repository,
-                str(workflow["workflow_file"]),
-                str(workflow["workflow_name"]),
-                args.repair_branch,
-                head_sha,
+            ensure_validation_workflow_run(
+                repository=repository,
+                workflow=workflow,
+                repair_branch=repair_branch,
+                head_sha=head_sha,
+                dispatch_context=dispatch_context,
             )
 
         merge_pr(args.pr_number)
@@ -1428,13 +1633,22 @@ def command_stabilize_pr(args: argparse.Namespace) -> int:
 def command_wait_for_pr_workflows(args: argparse.Namespace) -> int:
     profile = load_profile(args.profile_path)
     repository = os.environ["GITHUB_REPOSITORY"]
+    pr_details = read_pr_details(args.pr_number)
+    dispatch_context = build_validation_dispatch_context(
+        pr_number=args.pr_number,
+        repair_branch=pr_details["repair_branch"] or args.repair_branch,
+        head_sha=args.head_sha,
+        target_branch=pr_details["target_branch"],
+        source_run_id="",
+        ticket_id="",
+    )
     for workflow in profile_validation_workflows(profile):
-        run_id = wait_for_workflow_run(
-            repository,
-            str(workflow["workflow_file"]),
-            str(workflow["workflow_name"]),
-            args.repair_branch,
-            args.head_sha,
+        run_id, run_event = ensure_validation_workflow_run(
+            repository=repository,
+            workflow=workflow,
+            repair_branch=pr_details["repair_branch"] or args.repair_branch,
+            head_sha=args.head_sha,
+            dispatch_context=dispatch_context,
         )
         review_state_script = str(workflow.get("review_state_script") or "")
         if review_state_script:
@@ -1445,6 +1659,12 @@ def command_wait_for_pr_workflows(args: argparse.Namespace) -> int:
                 expected_run_id=run_id,
                 head_sha=args.head_sha,
             )
+            if run_event == "workflow_dispatch":
+                publish_review_state_to_pr(
+                    pr_number=args.pr_number,
+                    head_sha=args.head_sha,
+                    review_state=review_state,
+                )
             ensure_allowed_review_recommendation(
                 pr_number=args.pr_number,
                 workflow_name=str(workflow["workflow_name"]),

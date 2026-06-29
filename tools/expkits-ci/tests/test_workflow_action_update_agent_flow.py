@@ -21,6 +21,8 @@ REUSABLE_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/workflow-action-update-a
 STABILIZER_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/codex-stabilize-pr.yml"
 WORKFLOW_AUDIT_FILE = REPO_ROOT / ".github/workflows/workflow-audit.yml"
 CODEX_REVIEW_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/codex-review.yml"
+PEK_CI_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/pek-ci.yml"
+SONAR_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/sonar.yml"
 WORKFLOW_AUDIT_REPORT_SCRIPT = REPO_ROOT / "scripts/private/workflow_audit_report.py"
 CODEX_REVIEW_FETCH_SCRIPT = REPO_ROOT / "codex-review/scripts/fetch-review-state.py"
 CODEX_REVIEW_PUBLISH_SCRIPT = REPO_ROOT / "codex-review/scripts/publish-review.py"
@@ -249,6 +251,26 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(codex_step["with"]["safety-strategy"], "unsafe")
         self.assertNotIn("codex-home", codex_step["with"])
 
+    def test_standard_validation_workflows_accept_manual_pr_context(self):
+        pek_ci = load_yaml(PEK_CI_WORKFLOW_FILE)
+        sonar = load_yaml(SONAR_WORKFLOW_FILE)
+        pek_inputs = pek_ci["on"]["workflow_dispatch"]["inputs"]
+        sonar_inputs = sonar["on"]["workflow_dispatch"]["inputs"]
+        pek_steps = step_map(pek_ci["jobs"]["quality-checks"])
+        sonar_steps = step_map(sonar["jobs"]["build-and-sonar"])
+
+        self.assertEqual(
+            set(pek_inputs.keys()),
+            {"pr_number", "pr_base_ref", "pr_head_ref", "pr_head_sha"},
+        )
+        self.assertEqual(
+            set(sonar_inputs.keys()),
+            {"pr_number", "pr_base_ref", "pr_head_ref", "pr_head_sha"},
+        )
+        self.assertIn("github.event.inputs.pr_head_sha", pek_ci["jobs"]["quality-checks"]["steps"][0]["with"]["ref"])
+        self.assertIn("github.event.inputs.pr_head_ref", sonar_steps["Checkout"]["with"]["ref"])
+        self.assertIn("github.event.inputs.pr_number", sonar_steps["SonarQube analysis"]["env"]["PR_KEY"])
+
     def test_stabilizer_workflow_uses_canonical_codex_review_shape(self):
         workflow = load_yaml(STABILIZER_WORKFLOW_FILE)
         call_inputs = workflow["on"]["workflow_call"]["inputs"]
@@ -382,10 +404,27 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         codex_review = next(
             item for item in validation_workflows if item["workflow_file"] == "codex-review.yml"
         )
+        pek_ci = next(
+            item for item in validation_workflows if item["workflow_file"] == "pek-ci.yml"
+        )
+        sonar = next(
+            item for item in validation_workflows if item["workflow_file"] == "sonar.yml"
+        )
 
         self.assertEqual(codex_review["workflow_name"], "Codex Review")
         self.assertEqual(codex_review["review_state_script"], "codex-review/scripts/fetch-review-state.py")
         self.assertEqual(codex_review["allowed_review_recommendations"], ["approve"])
+        self.assertEqual(codex_review["workflow_dispatch_inputs"], {"base_ref": "origin/{target_branch}"})
+        self.assertEqual(
+            pek_ci["workflow_dispatch_inputs"],
+            {
+                "pr_number": "{pr_number}",
+                "pr_base_ref": "{target_branch}",
+                "pr_head_ref": "{repair_branch}",
+                "pr_head_sha": "{head_sha}",
+            },
+        )
+        self.assertEqual(pek_ci["workflow_dispatch_inputs"], sonar["workflow_dispatch_inputs"])
         self.assertEqual(profile["codex_model"], "gpt-5.3-codex")
 
     def test_profile_drives_markdown_context_files_and_validation_commands(self):
@@ -702,9 +741,14 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 with mock.patch.object(HELPER, "run_command", return_value=run_command_result):
                     with mock.patch.object(
                         HELPER,
-                        "wait_for_workflow_run",
-                        side_effect=["review-1", "review-2", "pek-2", "sonar-2"],
-                    ) as wait_for_workflow_run:
+                        "ensure_validation_workflow_run",
+                        side_effect=[
+                            ("review-1", "pull_request"),
+                            ("review-2", "workflow_dispatch"),
+                            ("pek-2", "workflow_dispatch"),
+                            ("sonar-2", "workflow_dispatch"),
+                        ],
+                    ) as ensure_validation_workflow_run:
                         with mock.patch.object(
                             HELPER,
                             "wait_for_review_state",
@@ -718,19 +762,35 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                                 with mock.patch.object(
                                     HELPER,
                                     "read_pr_details",
-                                    return_value={
-                                        "repair_branch": REPAIR_BRANCH,
-                                        "head_sha": "feedface",
-                                        "target_branch": "main",
-                                    },
+                                    side_effect=[
+                                        {
+                                            "repair_branch": REPAIR_BRANCH,
+                                            "head_sha": "deadbeef",
+                                            "target_branch": "main",
+                                        },
+                                        {
+                                            "repair_branch": REPAIR_BRANCH,
+                                            "head_sha": "feedface",
+                                            "target_branch": "main",
+                                        },
+                                    ],
                                 ) as read_pr_details:
-                                    with mock.patch.object(HELPER, "merge_pr") as merge_pr:
-                                        result = HELPER.command_stabilize_pr(args)
+                                    with mock.patch.object(
+                                        HELPER,
+                                        "publish_review_state_to_pr",
+                                    ) as publish_review_state_to_pr:
+                                        with mock.patch.object(HELPER, "merge_pr") as merge_pr:
+                                            result = HELPER.command_stabilize_pr(args)
 
             self.assertEqual(result, 0)
-            self.assertEqual(wait_for_workflow_run.call_count, 4)
+            self.assertEqual(ensure_validation_workflow_run.call_count, 4)
             dispatch_stabilizer_workflow.assert_called_once()
-            read_pr_details.assert_called_once_with("123")
+            self.assertEqual(read_pr_details.call_args_list, [mock.call("123"), mock.call("123")])
+            publish_review_state_to_pr.assert_called_once_with(
+                pr_number="123",
+                head_sha="feedface",
+                review_state=second_review_state,
+            )
             merge_pr.assert_called_once_with("123")
 
     def test_prepare_stabilization_context_writes_prompt_and_outputs(self):
@@ -887,6 +947,36 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 "https://pat-user:pat-token@github.com/Arm-Debug/amp-dev-forge.git",
             ],
         )
+
+    def test_publish_review_state_to_pr_reuses_publish_script(self):
+        review_state = {
+            "run_id": "28000000001",
+            "summary": "Looks good.",
+            "overall_recommendation": "approve",
+            "overall_score": 0.1,
+            "overall_confidence": 0.9,
+            "findings": [],
+        }
+
+        with mock.patch.dict(
+            os.environ,
+            {
+                "GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge",
+                "GH_TOKEN": "pat-token",
+            },
+            clear=False,
+        ):
+            with mock.patch.object(HELPER, "run_command") as run_command:
+                HELPER.publish_review_state_to_pr(
+                    pr_number="169",
+                    head_sha="deadbeef",
+                    review_state=review_state,
+                )
+
+        self.assertEqual(run_command.call_args.args[0][0:2], ["python3", str(CODEX_REVIEW_PUBLISH_SCRIPT)])
+        self.assertEqual(run_command.call_args.kwargs["env"]["GITHUB_PR_NUMBER"], "169")
+        self.assertEqual(run_command.call_args.kwargs["env"]["GITHUB_HEAD_SHA"], "deadbeef")
+        self.assertEqual(run_command.call_args.kwargs["env"]["GITHUB_RUN_ID"], "28000000001")
 
     def test_workflow_audit_report_writes_repair_outputs(self):
         entries = [
