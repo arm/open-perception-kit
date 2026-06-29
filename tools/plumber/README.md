@@ -11,9 +11,9 @@ At a high level:
   - can **save** the incoming NDJSON as Ground Truth
   - can **check** a pipeline run against previously saved Ground Truth
 
-PekComm can publish the stream either to a file/FIFO or to a WebSocket endpoint. Plumber currently consumes the file/FIFO mode, while browser applications can consume the WebSocket mode directly.
+PekComm can publish the stream to a file/FIFO, a WebSocket endpoint, or a raw TCP socket. Plumber currently consumes the file/FIFO mode, while browser applications can consume the WebSocket mode directly.
 
-PekComm writes one JSON object per message. In file/FIFO mode each object is newline-delimited; in WebSocket mode each object is sent as one text message.
+PekComm writes one JSON object per message. In file/FIFO and TCP modes each object is newline-delimited; in WebSocket mode each object is sent as one text message.
 
 ## Architecture
 
@@ -35,10 +35,15 @@ PekComm (GStreamer element)
    |      |
    |      \--> check mode -> compares pipeline output to Ground Truth
    |
-   \--> WebSocket mode
+   +--> WebSocket mode
           |  JSON text messages
           v
        browser or another WebSocket client
+   |
+   \--> TCP mode
+          |  NDJSON over TCP
+          v
+       TCP client
 ```
 
 ## Components
@@ -51,7 +56,7 @@ Relevant properties:
 
 - `method`
   - publishing method
-  - supported values: `file`, `websocket`
+  - supported values: `file`, `websocket`, `tcp`
   - default: `file`
 - `file-name`
   - output target path used when `method=file`
@@ -64,6 +69,12 @@ Relevant properties:
   - WebSocket path used when `method=websocket`
   - must start with `/`
   - default: `/ws`
+- `tcp-host`
+  - bind host used when `method=tcp`
+  - default: `127.0.0.1`
+- `tcp-port`
+  - listen port used when `method=tcp`
+  - default: `7001`
 
 Example GObject properties for Plumber/FIFO use:
 
@@ -75,6 +86,12 @@ Example GObject properties for browser/WebSocket use:
 - `method=websocket`
 - `ws-port=8080`
 - `endpoint=/ws`
+
+Example GObject properties for raw TCP use:
+
+- `method=tcp`
+- `tcp-host=127.0.0.1`
+- `tcp-port=7001`
 
 ### Plumber
 
@@ -91,7 +108,8 @@ PekComm writes serialized Perception JSON objects:
 
 - file/FIFO mode writes **NDJSON**: one complete JSON object per line
 - WebSocket mode sends one complete JSON object per text message
-- the object shape is the same in both modes
+- TCP mode writes **NDJSON**: one complete JSON object per line
+- the object shape is the same in all modes
 
 Example:
 
@@ -186,6 +204,14 @@ pekcomm method=websocket ws-port=8080 endpoint=/ws
 
 The resulting WebSocket URL is `ws://<host>:<ws-port><endpoint>`, for example `ws://127.0.0.1:8080/ws`.
 
+For raw TCP clients, configure PekComm with a bind host and port:
+
+```text
+pekcomm method=tcp tcp-host=127.0.0.1 tcp-port=7001
+```
+
+TCP clients receive newline-delimited JSON from the configured host and port.
+
 ## Typical Workflow
 
 ### 1. Record Ground Truth
@@ -202,6 +228,6 @@ This allows regression testing of pipeline output across code changes.
 
 - FIFO output is used for communication between PekComm and Plumber.
 - WebSocket output is useful for browser frontends and live monitoring tools.
+- TCP output is useful for clients that consume raw newline-delimited metadata without WebSocket framing.
 - Ground Truth is stored as NDJSON.
 - NDJSON is used by Plumber because it is simple, stream-friendly, and easy to process line by line.
-
