@@ -8,7 +8,7 @@ Hailo 8-compiled variant of the YOLOv11 detector.
 - Post processor: `YoloParser`
 - Supported Perception result: `Perception::Rect` in a `genericObject` layer
 - Note: this `.hef` is the compiled Hailo version of the original ONNX model
-- Typical pairing: `config/pipelines/03-full-onnx-hailo8l.json` and `config/opchains/tracking/opchain-hailo.json`
+- Typical pairing: `config/pipelines/03-full-onnx-hailo8l.json`
 
 Example export commands:
 

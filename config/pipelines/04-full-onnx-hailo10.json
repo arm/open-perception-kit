@@ -14,6 +14,7 @@
     "pekinfer opchain-path=/work/config/models/modnet/opchain.json active=false !",
     "pekinfer opchain-path=/work/config/models/osnet_x0_25/opchain.json active=false !",
     "pekinfer opchain-path=/work/config/models/osnet_x0_25-hailo10/opchain.json active=false !",
+    "pekinfer opchain-path=/work/config/opchains/face-embedding/opchain-hailo10.json active=false !",
     "pekinfer opchain-path=/work/config/models/paddleocr/opchain.json active=false !",
     "pekinfer opchain-path=/work/config/models/personclassification/opchain.json active=false !",
     "pekinfer opchain-path=/work/config/models/rvm/opchain.json active=false !",

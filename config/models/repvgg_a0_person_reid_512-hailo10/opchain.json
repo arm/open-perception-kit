@@ -1,0 +1,31 @@
+{
+    "name": "RepVGGA0PersonReID512 HAILO10",
+    "description": "Official Hailo 10H-compiled RepVGG A0 person ReID model.",
+    "ops": [
+        {
+            "id": "pek-std-ops/InferenceController",
+            "attributes": {
+                "contentType": "genericObject"
+            }
+        },
+        {
+            "id": "pek-std-ops/GenericImagePreprocess",
+            "attributes": {
+                "inputImageTensorIndex": 0,
+                "inputImageSourceName": "pipelineVideoFrame"
+            }
+        },
+        {
+            "id": "pek-hailort-ops/Inference",
+            "attributes": {
+                "modelDescriptor": "/work/config/models/repvgg_a0_person_reid_512-hailo10/model.json"
+            }
+        },
+        {
+            "id": "pek-std-ops/GenericPostprocess",
+            "attributes": {
+                "parser": "ObjectEmbeddingParser"
+            }
+        }
+    ]
+}
