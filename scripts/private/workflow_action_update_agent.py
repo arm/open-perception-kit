@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 import re
@@ -127,6 +128,13 @@ def download_github_archive(url: str) -> bytes:
             raise
         with urllib.request.urlopen(location) as response:
             return response.read()
+
+
+def extract_archive_bytes(archive_bytes: bytes, destination: Path) -> list[Path]:
+    destination.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
+        archive.extractall(destination)
+    return sorted(path for path in destination.rglob("*") if path.is_file())
 
 
 def github_api_json(endpoint_or_url: str) -> object:
@@ -950,29 +958,56 @@ def command_collect_context(args: argparse.Namespace) -> int:
     artifact_root.mkdir(parents=True, exist_ok=True)
 
     repository = os.environ["GITHUB_REPOSITORY"]
-    run_json = parse_json_command(["gh", "api", f"repos/{repository}/actions/runs/{args.source_run_id}"])
+    run_json = github_api_json(f"repos/{repository}/actions/runs/{args.source_run_id}")
     (context_root / "source-run.json").write_text(
         json.dumps(run_json, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
 
-    log_result = run_command(
-        ["gh", "run", "view", args.source_run_id, "--repo", repository, "--log"],
-        capture_output=True,
-        check=False,
-    )
-    if log_result.returncode == 0:
-        (context_root / "source-run.log").write_text(log_result.stdout, encoding="utf-8")
-    else:
+    try:
+        log_archive = download_github_archive(
+            f"{github_api_base_url()}/repos/{repository}/actions/runs/{args.source_run_id}/logs",
+        )
+        with tempfile.TemporaryDirectory(prefix="workflow-action-update-agent-run-logs-") as temp_dir:
+            log_root = Path(temp_dir) / "logs"
+            log_files = extract_archive_bytes(log_archive, log_root)
+            if log_files:
+                with (context_root / "source-run.log").open("w", encoding="utf-8") as output_file:
+                    for log_file in log_files:
+                        relative_name = log_file.relative_to(log_root).as_posix()
+                        log_text = log_file.read_text(encoding="utf-8", errors="replace")
+                        output_file.write(f"===== {relative_name} =====\n")
+                        output_file.write(log_text)
+                        if not log_text.endswith("\n"):
+                            output_file.write("\n")
+                        output_file.write("\n")
+            else:
+                raise RuntimeError("Run log archive did not contain any files.")
+    except (OSError, RuntimeError, urllib.error.HTTPError, urllib.error.URLError, zipfile.BadZipFile):
         (context_root / "source-run.log").write_text(
             f"Run logs were unavailable for {args.source_run_url}\n",
             encoding="utf-8",
         )
 
-    run_command(
-        ["gh", "run", "download", args.source_run_id, "--repo", repository, "--dir", str(artifact_root)],
-        check=False,
-    )
+    try:
+        payload = github_api_json(f"repos/{repository}/actions/runs/{args.source_run_id}/artifacts?per_page=100")
+        artifacts = payload.get("artifacts", []) if isinstance(payload, dict) else []
+        for artifact in artifacts:
+            if not isinstance(artifact, dict):
+                continue
+            if bool(artifact.get("expired")):
+                continue
+            archive_url = str(artifact.get("archive_download_url") or "")
+            artifact_name = str(artifact.get("name") or "").strip()
+            artifact_id = str(artifact.get("id") or "").strip()
+            if not archive_url or not artifact_name:
+                continue
+            destination = artifact_root / artifact_name
+            if destination.exists():
+                destination = artifact_root / f"{artifact_name}-{artifact_id or 'artifact'}"
+            extract_archive_bytes(download_github_archive(archive_url), destination)
+    except (OSError, RuntimeError, urllib.error.HTTPError, urllib.error.URLError, zipfile.BadZipFile):
+        pass
     return 0
 
 

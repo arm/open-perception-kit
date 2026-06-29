@@ -43,6 +43,7 @@ The reference implementation is `.github/workflows/codex-review.yml` on `main`.
 - Draft PRs only trigger the heavy `pek-ci` and `sonar` jobs on the initial labeled/opened path. Later `synchronize` events do not exercise the same jobs while the PR stays draft, so the repair loop needs a deterministic manual PR-context bootstrap for those standard workflows.
 - Plain `workflow_dispatch` on `pek-ci.yml` is not equivalent to PR validation: without explicit PR context it runs the nightly/full quality gate and can report unrelated baseline noise. Manual repair validation must pass PR metadata so the standard PR path runs.
 - Manual `Codex Review` runs still need their artifact state published back onto the PR if we want the PR review state to reflect the latest head without waiting for a native `pull_request` run.
+- At least one self-hosted repair runner does not have the `gh` CLI on `PATH`. The self-hosted Codex patch-generation path must use GitHub REST downloads for run metadata, logs, and artifacts instead of assuming `gh run view/download` exists.
 
 ## Expected Flow
 

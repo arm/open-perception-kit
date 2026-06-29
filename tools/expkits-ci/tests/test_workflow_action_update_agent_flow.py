@@ -3,6 +3,7 @@
 ################################################################
 
 import argparse
+import io
 import importlib.util
 import os
 from pathlib import Path
@@ -11,6 +12,7 @@ import textwrap
 import urllib.error
 import unittest
 from unittest import mock
+import zipfile
 
 import yaml
 
@@ -59,6 +61,14 @@ def step_map(job: dict[str, object]) -> dict[str, dict[str, object]]:
         for step in job.get("steps", [])
         if isinstance(step, dict) and "name" in step
     }
+
+
+def build_zip_archive(files: dict[str, str]) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        for path, content in files.items():
+            archive.writestr(path, content)
+    return buffer.getvalue()
 
 
 HELPER = load_python_module(HELPER_SCRIPT, "workflow_action_update_agent")
@@ -230,6 +240,53 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
         self.assertEqual(result, b"zip-bytes")
         self.assertEqual(urlopen.call_args.args[0], "https://objects.githubusercontent.com/archive.zip")
+
+    def test_collect_context_uses_github_api_archives_on_self_hosted(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            context_root = Path(temp_dir) / "context"
+            args = argparse.Namespace(
+                context_root=str(context_root),
+                source_run_id="12345",
+                source_run_url="https://github.com/Arm-Debug/amp-dev-forge/actions/runs/12345",
+                source_workflow_name="Workflow dependency freshness",
+            )
+            log_archive = build_zip_archive({"logs/job.txt": "hello from logs\n"})
+            artifact_archive = build_zip_archive({"report.md": "# report\n"})
+
+            with mock.patch.dict(
+                os.environ,
+                {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge", "GH_TOKEN": "test-token"},
+                clear=False,
+            ):
+                with mock.patch.object(
+                    HELPER,
+                    "github_api_json",
+                    side_effect=[
+                        {"id": 12345, "name": "Workflow dependency freshness"},
+                        {
+                            "artifacts": [
+                                {
+                                    "name": "workflow-dependency-freshness",
+                                    "archive_download_url": "https://api.github.com/artifacts/1/zip",
+                                    "id": 1,
+                                    "expired": False,
+                                }
+                            ]
+                        },
+                    ],
+                ):
+                    with mock.patch.object(
+                        HELPER,
+                        "download_github_archive",
+                        side_effect=[log_archive, artifact_archive],
+                    ):
+                        result = HELPER.command_collect_context(args)
+            self.assertEqual(result, 0)
+            self.assertTrue((context_root / "source-run.json").is_file())
+            self.assertIn("hello from logs", (context_root / "source-run.log").read_text(encoding="utf-8"))
+            self.assertTrue(
+                (context_root / "artifacts/workflow-dependency-freshness/report.md").is_file()
+            )
 
     def test_codex_review_workflow_matches_main_self_hosted_proxy_flow(self):
         workflow = load_yaml(CODEX_REVIEW_WORKFLOW_FILE)
