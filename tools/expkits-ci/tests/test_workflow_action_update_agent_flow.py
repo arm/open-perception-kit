@@ -391,8 +391,11 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertLess(inject_call, agents_import)
         self.assertIn("class ReviewResult", source)
         self.assertIn("output_type=ReviewResult", source)
-        self.assertIn("git checkout", source)
-        self.assertIn("git switch", source)
+        self.assertIn("import shlex", source)
+        self.assertIn("def split_shell_commands", source)
+        self.assertIn("def find_subcommand", source)
+        self.assertIn('"checkout"', source)
+        self.assertIn('"switch"', source)
         self.assertIn("git diff, git show, git log, or git ls-tree", source)
 
     def test_openai_agent_runtime_dependencies_are_pinned(self):

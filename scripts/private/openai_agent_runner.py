@@ -10,6 +10,7 @@ import asyncio
 import fnmatch
 import json
 import os
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -19,16 +20,23 @@ from typing import Literal
 DEFAULT_OPENAI_BASE_URL = "https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1"
 MAX_TOOL_OUTPUT_CHARS = 24000
 MAX_LIST_FILES = 400
-FORBIDDEN_SHELL_PATTERNS = (
-    "git commit",
-    "git push",
-    "git reset",
+FORBIDDEN_GIT_SUBCOMMANDS = {
+    "commit",
+    "push",
+    "reset",
     # Checkout and switch mutate the active worktree even with --detach.
     # Agents can inspect refs safely with git diff, git show, git log, or git ls-tree.
-    "git checkout",
-    "git switch",
-    "gh pr",
-    "gh repo",
+    "checkout",
+    "switch",
+}
+FORBIDDEN_GH_SUBCOMMANDS = {
+    "pr",
+    "repo",
+}
+SHELL_COMMAND_SEPARATORS = (
+    "&&",
+    "||",
+    ";",
 )
 
 
@@ -107,12 +115,51 @@ def truncate_tool_output(output: str) -> str:
     )
 
 
+def split_shell_commands(command: str) -> list[list[str]]:
+    normalized = command.replace("\n", ";")
+    for separator in SHELL_COMMAND_SEPARATORS:
+        normalized = normalized.replace(separator, ";")
+    commands: list[list[str]] = []
+    for part in normalized.split(";"):
+        stripped = part.strip()
+        if not stripped:
+            continue
+        try:
+            commands.append(shlex.split(stripped))
+        except ValueError:
+            commands.append(stripped.split())
+    return commands
+
+
+def find_subcommand(words: list[str], binary: str) -> str | None:
+    if not words or words[0] != binary:
+        return None
+    index = 1
+    option_args = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "-R", "--repo"}
+    while index < len(words):
+        word = words[index]
+        if word in option_args:
+            index += 2
+            continue
+        if word.startswith("-"):
+            index += 1
+            continue
+        return word
+    return None
+
+
 def reject_unsafe_shell_command(command: str) -> None:
-    normalized = " ".join(command.lower().split())
-    for pattern in FORBIDDEN_SHELL_PATTERNS:
-        if pattern in normalized:
+    for words in split_shell_commands(command.lower()):
+        git_subcommand = find_subcommand(words, "git")
+        if git_subcommand in FORBIDDEN_GIT_SUBCOMMANDS:
             raise ValueError(
-                f"Command is intentionally blocked for this agent step: {pattern}. "
+                f"Command is intentionally blocked for this agent step: git {git_subcommand}. "
+                "Leave branch, commit, push, and PR lifecycle actions to the surrounding workflow."
+            )
+        gh_subcommand = find_subcommand(words, "gh")
+        if gh_subcommand in FORBIDDEN_GH_SUBCOMMANDS:
+            raise ValueError(
+                f"Command is intentionally blocked for this agent step: gh {gh_subcommand}. "
                 "Leave branch, commit, push, and PR lifecycle actions to the surrounding workflow."
             )
 
