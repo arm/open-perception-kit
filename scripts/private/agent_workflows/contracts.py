@@ -10,7 +10,7 @@ from enum import Enum
 
 
 DEFAULT_OPENAI_BASE_URL = "https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1"
-DEFAULT_AGENT_MODEL = "gpt-5.3-codex"
+DEFAULT_AGENT_MODEL_CONFIG_PATH = ".github/agent-workflows/runtime/agent-models.json"
 OPENAI_API_KEY_ENV = "OPENAI_API_KEY"  # pragma: allowlist secret
 OPENAI_PROXY_KEY_ENV = "OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"
 OPENAI_BASE_URL_ENV = "OPENAI_BASE_URL"
@@ -22,6 +22,19 @@ class AgentCommand(str, Enum):
     REVIEW = "run-review"
     REPAIR = "run-repair"
     STABILIZATION = "run-stabilization"
+
+
+class AgentInstance(str, Enum):
+    REVIEW = "review"
+    REPAIR = "repair"
+    STABILIZATION = "stabilization"
+
+
+AGENT_COMMAND_DEFAULT_INSTANCES = {
+    AgentCommand.REVIEW: AgentInstance.REVIEW,
+    AgentCommand.REPAIR: AgentInstance.REPAIR,
+    AgentCommand.STABILIZATION: AgentInstance.STABILIZATION,
+}
 
 
 class ReviewRecommendation(str, Enum):

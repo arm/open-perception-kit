@@ -5,9 +5,12 @@ repair, and stabilization workflows.
 
 ## Guardrails
 
-- Keep reusable contracts in `contracts.py`; do not duplicate model defaults,
-  OpenAI proxy env names, recommendations, severities, diff sides, or review
-  false-positive guards in individual modules.
+- Keep reusable contracts in `contracts.py`; do not duplicate OpenAI proxy env
+  names, recommendations, severities, diff sides, or review false-positive
+  guards in individual modules.
+- Resolve agent models through `model_config.py` and the checked-in
+  `.github/agent-workflows/runtime/agent-models.json` file. Do not introduce
+  per-workflow hardcoded model names.
 - Keep `truststore.inject_into_ssl()` before importing `agents`, `openai`, or
   `httpx` through the SDK stack.
 - Agent tools may inspect files and run validation, but must not own branch,

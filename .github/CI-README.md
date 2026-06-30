@@ -55,6 +55,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 - Provides the shared Python OpenAI Agents SDK entrypoint for review, repair, and stabilization jobs
 - Sets the Arm OpenAI proxy base URL, maps `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` into `OPENAI_API_KEY`, disables Agents SDK tracing, and injects `truststore` before importing OpenAI libraries
+- Resolves the model from `.github/agent-workflows/runtime/agent-models.json` by agent instance, while still accepting an explicit `--model` override from trusted workflow plumbing
 - Runs from the workflow-local `.agent-workflows/openai-agent-venv` environment so Ubuntu's externally managed system Python is left untouched
 - Writes structured Agent review JSON for `agent-review` and lets repair/stabilization agents inspect the repo, run validation commands, and apply minimal patches without owning branch or PR lifecycle operations
 
@@ -71,7 +72,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Stores the static Markdown prompt templates plus the repair profile JSON files used by the repair agent core
 - The default profile lives at `.github/agent-workflows/workflow-repair/profiles/profile.json`
 - The nightly workflow-freshness profile lives at `.github/agent-workflows/workflow-repair/profiles/workflow-audit-profile.json`
-- Keeps long review and constraint text out of the workflow YAML and Python helper while letting the profile carry flow-specific policy such as validation workflows, labels, prompt context files, and the agent model selection
+- Keeps long review and constraint text out of the workflow YAML and Python helper while letting the profile carry flow-specific policy such as validation workflows, labels, prompt context files, and the model config path
 - Lets the helper still generate the final `.agent-workflows/workflow-action-update-agent/*.md` files on the fly at runtime, so callers reuse the same core without checking generated prompt files into git
 
 ## What does `.github/actions/workflow-action-update-agent-helper/` do?

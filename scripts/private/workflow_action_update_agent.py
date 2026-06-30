@@ -24,6 +24,14 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from agent_workflows.contracts import AgentInstance  # noqa: E402
+from agent_workflows.model_config import resolve_agent_model  # noqa: E402
+
+
 TICKET_RE = re.compile(r"^[A-Z][A-Z0-9]*-[0-9]+$")
 GITHUB_WORKSPACE = os.environ.get("GITHUB_WORKSPACE", "").strip()
 REPO_ROOT = Path(GITHUB_WORKSPACE).resolve() if GITHUB_WORKSPACE else Path(__file__).resolve().parents[2]
@@ -197,7 +205,7 @@ def load_profile(profile_path: str = "") -> dict[str, object]:
         "commit_subject_template",
         "commit_notes_template",
         "pr_description_template",
-        "agent_model",
+        "agent_model_config",
     )
     required_list_keys = (
         "prompt_context_files",
@@ -226,6 +234,13 @@ def profile_string(profile: dict[str, object], key: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"Profile key '{key}' must be a non-empty string.")
     return value
+
+
+def profile_agent_model(profile: dict[str, object], agent_instance: AgentInstance) -> str:
+    return resolve_agent_model(
+        resolve_repo_path(profile_string(profile, "agent_model_config")),
+        agent_instance,
+    )
 
 
 def profile_optional_string(profile: dict[str, object], key: str, default: str = "") -> str:
@@ -952,7 +967,7 @@ def command_resolve_inputs(args: argparse.Namespace) -> int:
             "target_branch": target_branch,
             "ticket_id": ticket_id,
             "repair_branch": repair_branch,
-            "agent_model": profile_string(profile, "agent_model"),
+            "agent_model": profile_agent_model(profile, AgentInstance.REPAIR),
         },
         args.github_output,
     )
@@ -1531,7 +1546,7 @@ def command_prepare_stabilization_context(args: argparse.Namespace) -> int:
             "target_branch": pr_details["target_branch"],
             "review_recommendation": recommendation,
             "review_run_id": str(review_state.get("run_id") or "").strip(),
-            "agent_model": profile_string(profile, "agent_model"),
+            "agent_model": profile_agent_model(profile, AgentInstance.STABILIZATION),
         },
         args.github_output,
     )

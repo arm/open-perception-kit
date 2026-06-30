@@ -64,7 +64,8 @@ jobs:
           OPENAI_AGENTS_DISABLE_TRACING: "1"
         run: |
           .agent-workflows/openai-agent-venv/bin/python scripts/private/agent_workflows/openai_agent_runner.py run-review \
-            --model gpt-5.3-codex \
+            --agent-instance review \
+            --model-config-file .github/agent-workflows/runtime/agent-models.json \
             --prompt-file .github/agent-workflows/review/out/review.prompt.md \
             --schema-file .github/agent-workflows/review/schemas/review.schema.json \
             --output-file .github/agent-workflows/review/out/review.json

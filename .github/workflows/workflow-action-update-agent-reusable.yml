@@ -142,6 +142,8 @@ jobs:
           OPENAI_AGENTS_DISABLE_TRACING: "1"
         run: |
           .agent-workflows/openai-agent-venv/bin/python scripts/private/agent_workflows/openai_agent_runner.py run-repair \
+            --agent-instance repair \
+            --model-config-file .github/agent-workflows/runtime/agent-models.json \
             --model "${{ needs.prepare.outputs.agent_model }}" \
             --prompt-file .agent-workflows/workflow-action-update-agent/goal.md \
             --output-file "${{ runner.temp }}/workflow-action-update-agent-agent-output.md"

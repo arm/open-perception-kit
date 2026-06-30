@@ -122,10 +122,14 @@ jobs:
             "${bundle_root}/scripts/private/agent_workflows/contracts.py"
           cp scripts/private/agent_workflows/openai_agent_runner.py \
             "${bundle_root}/scripts/private/agent_workflows/openai_agent_runner.py"
+          cp scripts/private/agent_workflows/model_config.py \
+            "${bundle_root}/scripts/private/agent_workflows/model_config.py"
           cp scripts/private/agent_workflows/review_output.py \
             "${bundle_root}/scripts/private/agent_workflows/review_output.py"
           cp .github/agent-workflows/runtime/requirements-openai-agents.txt \
             "${bundle_root}/.github/agent-workflows/runtime/requirements-openai-agents.txt"
+          cp .github/agent-workflows/runtime/agent-models.json \
+            "${bundle_root}/.github/agent-workflows/runtime/agent-models.json"
           cp -R .github/agent-workflows/review/prompts/. "${bundle_root}/.github/agent-workflows/review/prompts"
           cp -R .github/agent-workflows/review/schemas/. "${bundle_root}/.github/agent-workflows/review/schemas"
           cp -R .github/agent-workflows/review/scripts/. "${bundle_root}/.github/agent-workflows/review/scripts"
@@ -193,6 +197,8 @@ jobs:
           OPENAI_AGENTS_DISABLE_TRACING: "1"
         run: |
           .agent-workflows/openai-agent-venv/bin/python .workflow-action-update-agent-helper/scripts/private/agent_workflows/openai_agent_runner.py run-stabilization \
+            --agent-instance stabilization \
+            --model-config-file .workflow-action-update-agent-helper/.github/agent-workflows/runtime/agent-models.json \
             --model "${{ steps.context.outputs.agent_model }}" \
             --prompt-file "${{ inputs.context_root }}/stabilize-goal.md" \
             --output-file "${{ runner.temp }}/workflow-action-update-agent-stabilize-output.md"

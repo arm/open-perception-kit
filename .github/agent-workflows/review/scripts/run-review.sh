@@ -37,11 +37,19 @@ python3 -m venv "${agent_venv}"
 "${agent_venv}/bin/python" -m pip install --upgrade pip
 "${agent_venv}/bin/python" -m pip install -r .github/agent-workflows/runtime/requirements-openai-agents.txt
 
-"${agent_venv}/bin/python" scripts/private/agent_workflows/openai_agent_runner.py run-review \
-    --model "${AGENT_MODEL:-gpt-5.3-codex}" \
-    --prompt-file "${output_dir}/review.prompt.md" \
-    --schema-file ".github/agent-workflows/review/schemas/review.schema.json" \
+agent_args=(
+    run-review
+    --agent-instance review
+    --model-config-file .github/agent-workflows/runtime/agent-models.json
+    --prompt-file "${output_dir}/review.prompt.md"
+    --schema-file ".github/agent-workflows/review/schemas/review.schema.json"
     --output-file "${output_dir}/review.json"
+)
+if [[ -n "${AGENT_REVIEW_MODEL:-}" ]]; then
+    agent_args+=(--model "${AGENT_REVIEW_MODEL}")
+fi
+
+"${agent_venv}/bin/python" scripts/private/agent_workflows/openai_agent_runner.py "${agent_args[@]}"
 
 python3 ./.github/agent-workflows/review/scripts/publish-review.py \
     --input "${output_dir}/review.json" \

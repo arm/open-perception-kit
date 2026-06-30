@@ -12,6 +12,10 @@ layout.
 - Keep prompt text and profile policy in checked-in files under
   `.github/agent-workflows/`; do not embed long prompts in workflow YAML or
   Python helpers.
+- Keep concrete model names in
+  `.github/agent-workflows/runtime/agent-models.json`. Profiles and workflows
+  should refer to the config path and agent instance instead of duplicating
+  model strings.
 - Keep review markers, recommendation names, severity names, author defaults,
   and GitHub API identity in `.github/agent-workflows/review/scripts/review_contract.py`.
   Publish and fetch scripts must import that contract instead of duplicating

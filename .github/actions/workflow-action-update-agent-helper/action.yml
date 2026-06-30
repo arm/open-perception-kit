@@ -104,7 +104,7 @@ outputs:
     description: Planned repair branch.
     value: ${{ steps.helper.outputs.repair_branch }}
   agent_model:
-    description: Agent model resolved from the repair profile.
+    description: Agent model resolved for the active agent instance.
     value: ${{ steps.helper.outputs.agent_model }}
   has_changes:
     description: Whether Agent produced repository changes.

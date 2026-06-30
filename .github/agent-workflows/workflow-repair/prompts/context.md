@@ -27,7 +27,7 @@ The reference implementation is `.github/workflows/agent-review.yml`.
   - `OPENAI_BASE_URL` is `https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1`
   - `OPENAI_AGENTS_DISABLE_TRACING` is `1`
   - `truststore.inject_into_ssl()` runs before importing `agents`, `openai`, or `httpx`
-  - `model` comes from the workflow or repair profile, defaulting to `gpt-5.3-codex`
+  - `model` comes from `.github/agent-workflows/runtime/agent-models.json` by agent instance
 - Do not add repair-specific SDK home overrides or runner-specific `sudo` preflights around that call. If the runner works for `Agent Review`, reuse that exact SDK runner shape.
 - The stabilizer should copy this shape and change only the prompt/output files and the follow-up validation/commit steps.
 

@@ -17,8 +17,10 @@ from pathlib import Path
 
 from contracts import (
     AgentCommand,
-    DEFAULT_AGENT_MODEL,
+    AGENT_COMMAND_DEFAULT_INSTANCES,
+    DEFAULT_AGENT_MODEL_CONFIG_PATH,
     DEFAULT_OPENAI_BASE_URL,
+    AgentInstance,
     DiffSide,
     OPENAI_AGENTS_DISABLE_TRACING_ENV,
     OPENAI_AGENTS_DISABLE_TRACING_VALUE,
@@ -28,6 +30,7 @@ from contracts import (
     ReviewRecommendation,
     ReviewSeverity,
 )
+from model_config import resolve_agent_model
 from review_output import filter_invalid_right_side_findings
 
 
@@ -314,6 +317,14 @@ def validate_schema_file(path_value: str) -> None:
     json.loads(schema_path.read_text(encoding="utf-8"))
 
 
+def resolve_runner_model(args: argparse.Namespace) -> str:
+    return resolve_agent_model(
+        args.model_config_file,
+        AgentInstance(args.agent_instance),
+        override_model=args.model,
+    )
+
+
 def workflow_instruction(command: AgentCommand) -> str:
     base = (
         "You are running inside the amp-dev-forge GitHub Actions checkout. "
@@ -341,7 +352,7 @@ async def run_review(args: argparse.Namespace) -> int:
     agent = Agent(
         name="OpenAI SDK Agent Review",
         instructions=workflow_instruction(AgentCommand.REVIEW),
-        model=args.model,
+        model=args.resolved_model,
         output_type=ReviewResult,
         tools=[read_repo_file, list_repo_files, run_shell_command],
     )
@@ -368,7 +379,7 @@ async def run_patch_agent(args: argparse.Namespace) -> int:
     agent = Agent(
         name="OpenAI SDK Workflow Repair Agent",
         instructions=workflow_instruction(AgentCommand(args.command)),
-        model=args.model,
+        model=args.resolved_model,
         tools=[read_repo_file, list_repo_files, run_shell_command, apply_unified_diff],
     )
     result = await Runner.run(
@@ -385,6 +396,7 @@ async def run_command(args: argparse.Namespace) -> int:
     global RUN_CONTEXT
     configure_openai_environment()
     RUN_CONTEXT = AgentRunContext(Path(args.repo_root), args.command_timeout)
+    args.resolved_model = resolve_runner_model(args)
     if AgentCommand(args.command) is AgentCommand.REVIEW:
         return await run_review(args)
     return await run_patch_agent(args)
@@ -398,7 +410,13 @@ def build_parser() -> argparse.ArgumentParser:
         subparser = subparsers.add_parser(command.value)
         subparser.add_argument("--prompt-file", required=True)
         subparser.add_argument("--output-file", required=True)
-        subparser.add_argument("--model", default=DEFAULT_AGENT_MODEL)
+        subparser.add_argument("--model", default="")
+        subparser.add_argument("--model-config-file", default=DEFAULT_AGENT_MODEL_CONFIG_PATH)
+        subparser.add_argument(
+            "--agent-instance",
+            choices=[instance.value for instance in AgentInstance],
+            default=AGENT_COMMAND_DEFAULT_INSTANCES[command].value,
+        )
         subparser.add_argument("--repo-root", default=os.getcwd())
         subparser.add_argument("--max-turns", type=int, default=20)
         subparser.add_argument("--command-timeout", type=int, default=300)

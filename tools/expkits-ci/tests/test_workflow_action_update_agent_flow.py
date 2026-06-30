@@ -5,6 +5,7 @@
 import argparse
 import io
 import importlib.util
+import json
 import os
 from pathlib import Path
 import sys
@@ -33,8 +34,10 @@ AGENT_REVIEW_FETCH_SCRIPT = REPO_ROOT / ".github/agent-workflows/review/scripts/
 AGENT_REVIEW_PUBLISH_SCRIPT = REPO_ROOT / ".github/agent-workflows/review/scripts/publish-review.py"
 AGENT_REVIEW_RUN_SCRIPT = REPO_ROOT / ".github/agent-workflows/review/scripts/run-review.sh"
 AGENT_REQUIREMENTS_FILE = REPO_ROOT / ".github/agent-workflows/runtime/requirements-openai-agents.txt"
+AGENT_MODEL_CONFIG_FILE = REPO_ROOT / ".github/agent-workflows/runtime/agent-models.json"
 OPENAI_AGENT_RUNNER_SCRIPT = REPO_ROOT / "scripts/private/agent_workflows/openai_agent_runner.py"
 OPENAI_AGENT_CONTRACTS_SCRIPT = REPO_ROOT / "scripts/private/agent_workflows/contracts.py"
+OPENAI_AGENT_MODEL_CONFIG_SCRIPT = REPO_ROOT / "scripts/private/agent_workflows/model_config.py"
 OPENAI_AGENT_REVIEW_OUTPUT_SCRIPT = REPO_ROOT / "scripts/private/agent_workflows/review_output.py"
 HELPER_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent.py"
 HELPER_ACTION_FILE = REPO_ROOT / ".github/actions/workflow-action-update-agent-helper/action.yml"
@@ -123,6 +126,7 @@ WORKFLOW_AUDIT_REPORT = load_python_module(WORKFLOW_AUDIT_REPORT_SCRIPT, "workfl
 AGENT_REVIEW_FETCH = load_review_script_module(AGENT_REVIEW_FETCH_SCRIPT, "agent_review_fetch_review_state")
 AGENT_REVIEW_PUBLISH = load_review_script_module(AGENT_REVIEW_PUBLISH_SCRIPT, "agent_review_publish_review")
 OPENAI_AGENT_CONTRACTS = load_agent_workflow_module(OPENAI_AGENT_CONTRACTS_SCRIPT, "openai_agent_contracts")
+OPENAI_AGENT_MODEL_CONFIG = load_agent_workflow_module(OPENAI_AGENT_MODEL_CONFIG_SCRIPT, "openai_agent_model_config")
 AGENT_REVIEW_OUTPUT = load_agent_workflow_module(OPENAI_AGENT_REVIEW_OUTPUT_SCRIPT, "agent_review_output")
 
 
@@ -216,6 +220,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             agent_step["run"],
         )
         self.assertIn("--prompt-file .agent-workflows/workflow-action-update-agent/goal.md", agent_step["run"])
+        self.assertIn("--agent-instance repair", agent_step["run"])
+        self.assertIn("--model-config-file .github/agent-workflows/runtime/agent-models.json", agent_step["run"])
         self.assertIn("--model \"${{ needs.prepare.outputs.agent_model }}\"", agent_step["run"])
         self.assertEqual(
             agent_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],
@@ -386,6 +392,9 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         self.assertIn("--schema-file .github/agent-workflows/review/schemas/review.schema.json", agent_step["run"])
         self.assertIn("--output-file .github/agent-workflows/review/out/review.json", agent_step["run"])
+        self.assertIn("--agent-instance review", agent_step["run"])
+        self.assertIn("--model-config-file .github/agent-workflows/runtime/agent-models.json", agent_step["run"])
+        self.assertNotIn("--model gpt-", agent_step["run"])
         self.assertEqual(
             agent_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],
             "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
@@ -431,6 +440,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             GOAL_TEMPLATE,
             PROFILE_FILE,
             WORKFLOW_AUDIT_PROFILE_FILE,
+            AGENT_MODEL_CONFIG_FILE,
+            OPENAI_AGENT_MODEL_CONFIG_SCRIPT,
         ]
         forbidden = [
             "codex-review",
@@ -442,6 +453,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             ".github/ci/workflow-action-update-agent",
             "scripts/private/openai_agent_runner.py",
             "requirements-agent.txt",
+            "gpt-5.3-codex",
         ]
 
         for path in searched_files:
@@ -456,6 +468,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn(
             'DEFAULT_OPENAI_BASE_URL = "https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1"',
             contracts_source,
+        )
+        self.assertEqual(
+            OPENAI_AGENT_CONTRACTS.DEFAULT_AGENT_MODEL_CONFIG_PATH,
+            ".github/agent-workflows/runtime/agent-models.json",
         )
         self.assertEqual(OPENAI_AGENT_CONTRACTS.OPENAI_AGENTS_DISABLE_TRACING_VALUE, "1")
         self.assertEqual(OPENAI_AGENT_CONTRACTS.OPENAI_API_KEY_ENV, "OPENAI_API_KEY")
@@ -476,6 +492,9 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("import shlex", source)
         self.assertIn("def split_shell_commands", source)
         self.assertIn("def find_subcommand", source)
+        self.assertIn("resolve_runner_model", source)
+        self.assertIn("--agent-instance", source)
+        self.assertIn("--model-config-file", source)
         self.assertIn('"checkout"', source)
         self.assertIn('"switch"', source)
         self.assertIn("git diff, git show, git log, or git ls-tree", source)
@@ -652,6 +671,35 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             },
         )
 
+    def test_agent_models_are_centralized_and_resolved_per_instance(self):
+        model_config = json.loads(AGENT_MODEL_CONFIG_FILE.read_text(encoding="utf-8"))
+
+        self.assertEqual(model_config["default_agent_model"], "gpt-5.5")
+        self.assertEqual(set(model_config["agents"]), {"review", "repair", "stabilization"})
+        for agent_name, agent_config in model_config["agents"].items():
+            self.assertEqual(agent_config, {"model": "gpt-5.5"}, agent_name)
+
+        self.assertEqual(
+            OPENAI_AGENT_MODEL_CONFIG.resolve_agent_model(AGENT_MODEL_CONFIG_FILE, "review"),
+            "gpt-5.5",
+        )
+        self.assertEqual(
+            OPENAI_AGENT_MODEL_CONFIG.resolve_agent_model(AGENT_MODEL_CONFIG_FILE, "repair"),
+            "gpt-5.5",
+        )
+        self.assertEqual(
+            OPENAI_AGENT_MODEL_CONFIG.resolve_agent_model(AGENT_MODEL_CONFIG_FILE, "stabilization"),
+            "gpt-5.5",
+        )
+        self.assertEqual(
+            OPENAI_AGENT_MODEL_CONFIG.resolve_agent_model(
+                AGENT_MODEL_CONFIG_FILE,
+                "review",
+                override_model="gpt-override",
+            ),
+            "gpt-override",
+        )
+
     def test_local_review_runner_uses_shared_sdk_script(self):
         content = AGENT_REVIEW_RUN_SCRIPT.read_text(encoding="utf-8")
 
@@ -659,7 +707,12 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn('export REVIEW_BASE_REF="${base_ref}"', content)
         self.assertIn('export REVIEW_HEAD_REF="${REVIEW_HEAD_REF:-HEAD}"', content)
         self.assertIn('export REVIEW_REPOSITORY="${REVIEW_REPOSITORY:-local-checkout}"', content)
-        self.assertIn('--model "${AGENT_MODEL:-gpt-5.3-codex}"', content)
+        self.assertIn("--agent-instance review", content)
+        self.assertIn("--model-config-file .github/agent-workflows/runtime/agent-models.json", content)
+        self.assertIn('if [[ -n "${AGENT_REVIEW_MODEL:-}" ]]; then', content)
+        self.assertIn('agent_args+=(--model "${AGENT_REVIEW_MODEL}")', content)
+        self.assertNotIn("gpt-5.3-codex", content)
+        self.assertNotIn("${AGENT_MODEL", content)
         self.assertNotIn("CODEX_MODEL", content)
         self.assertIn(
             'export OPENAI_API_KEY="${OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS}"',
@@ -675,7 +728,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             content,
         )
         self.assertIn(
-            '"${agent_venv}/bin/python" scripts/private/agent_workflows/openai_agent_runner.py run-review',
+            '"${agent_venv}/bin/python" scripts/private/agent_workflows/openai_agent_runner.py "${agent_args[@]}"',
             content,
         )
         self.assertIn("--schema-file \".github/agent-workflows/review/schemas/review.schema.json\"", content)
@@ -731,8 +784,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         snapshot_step = steps["Snapshot workflow helper bundle"]
         self.assertIn("cp scripts/private/agent_workflows/contracts.py", snapshot_step["run"])
         self.assertIn("cp scripts/private/agent_workflows/openai_agent_runner.py", snapshot_step["run"])
+        self.assertIn("cp scripts/private/agent_workflows/model_config.py", snapshot_step["run"])
         self.assertIn("cp scripts/private/agent_workflows/review_output.py", snapshot_step["run"])
         self.assertIn("cp .github/agent-workflows/runtime/requirements-openai-agents.txt", snapshot_step["run"])
+        self.assertIn("cp .github/agent-workflows/runtime/agent-models.json", snapshot_step["run"])
         self.assertIn(
             'cp -R .github/agent-workflows/review/prompts/. "${bundle_root}/.github/agent-workflows/review/prompts"',
             snapshot_step["run"],
@@ -772,6 +827,12 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             agent_step["run"],
         )
         self.assertIn("--prompt-file \"${{ inputs.context_root }}/stabilize-goal.md\"", agent_step["run"])
+        self.assertIn("--agent-instance stabilization", agent_step["run"])
+        self.assertIn(
+            "--model-config-file .workflow-action-update-agent-helper/.github/agent-workflows/runtime/agent-models.json",
+            agent_step["run"],
+        )
+        self.assertIn("--model \"${{ steps.context.outputs.agent_model }}\"", agent_step["run"])
         self.assertEqual(
             agent_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],
             "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
@@ -863,7 +924,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 outputs["repair_branch"],
                 REPAIR_BRANCH,
             )
-            self.assertEqual(outputs["agent_model"], "gpt-5.3-codex")
+            self.assertEqual(outputs["agent_model"], "gpt-5.5")
 
     def test_audit_profile_allows_non_failure_source_run_and_configures_validation(self):
         audit_profile = HELPER.load_profile(str(WORKFLOW_AUDIT_PROFILE_FILE))
@@ -910,7 +971,11 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             },
         )
         self.assertEqual(pek_ci["workflow_dispatch_inputs"], sonar["workflow_dispatch_inputs"])
-        self.assertEqual(profile["agent_model"], "gpt-5.3-codex")
+        self.assertNotIn("agent_model", profile)
+        self.assertEqual(
+            profile["agent_model_config"],
+            ".github/agent-workflows/runtime/agent-models.json",
+        )
 
     def test_profile_drives_markdown_context_files_and_validation_commands(self):
         profile = HELPER.load_profile(str(PROFILE_FILE))
@@ -1353,7 +1418,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             self.assertEqual(outputs["repair_branch"], REPAIR_BRANCH)
             self.assertEqual(outputs["head_sha"], "deadbeef")
             self.assertEqual(outputs["review_recommendation"], "comment")
-            self.assertEqual(outputs["agent_model"], "gpt-5.3-codex")
+            self.assertEqual(outputs["agent_model"], "gpt-5.5")
             self.assertTrue((context_root / "review-state.json").is_file())
             self.assertTrue((context_root / "stabilize-goal.md").is_file())
 
