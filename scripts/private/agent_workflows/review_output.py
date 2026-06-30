@@ -8,23 +8,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-
-REMOVED_REVIEW_CONTRACT_TOKENS = (
-    "codex-review",
-    "codex-stabilize-pr.yml",
-    "codex_model",
-    "CODEX_REVIEW",
-    "openai/codex-action@v1",
-    "codex exec",
-)
-KNOWN_AVAILABLE_ACTION_REFS = (
-    "actions/checkout@v6",
-    "actions/upload-artifact@v6",
-)
-ACTION_UNAVAILABLE_CLAIM_MARKERS = (
-    "currently published major version",
-    "non-existent",
-    "unable to resolve action",
+from contracts import (
+    DiffSide,
+    ReviewRecommendation,
+    ReviewSeverity,
+    UNSUPPORTED_REVIEW_CLAIM_GUARDS,
 )
 
 
@@ -58,7 +46,7 @@ def filter_invalid_right_side_findings(payload: dict[str, Any], repo_root: Path)
 
 
 def _has_invalid_right_side_anchor(finding: dict[str, Any], repo_root: Path) -> bool:
-    if finding.get("diff_side") != "RIGHT":
+    if finding.get("diff_side") != DiffSide.RIGHT.value:
         return False
 
     path = finding.get("path")
@@ -86,9 +74,9 @@ def _has_invalid_right_side_anchor(finding: dict[str, Any], repo_root: Path) -> 
     finding_text = _finding_text(finding)
     anchor_text = _anchor_text(lines, start_line, end_line)
     return any(
-        token in finding_text and token not in anchor_text
-        for token in REMOVED_REVIEW_CONTRACT_TOKENS
-    ) or _claims_known_available_action_ref_is_missing(finding_text)
+        guard.matches(finding_text=finding_text, anchor_text=anchor_text)
+        for guard in UNSUPPORTED_REVIEW_CLAIM_GUARDS
+    )
 
 
 def _resolve_repo_path(repo_root: Path, path_value: str) -> Path:
@@ -104,13 +92,6 @@ def _finding_text(finding: dict[str, Any]) -> str:
     return "\n".join(
         str(finding.get(field) or "")
         for field in ("title", "body", "suggestion")
-    )
-
-
-def _claims_known_available_action_ref_is_missing(finding_text: str) -> bool:
-    normalized = finding_text.lower()
-    return any(action_ref in normalized for action_ref in KNOWN_AVAILABLE_ACTION_REFS) and any(
-        marker in normalized for marker in ACTION_UNAVAILABLE_CLAIM_MARKERS
     )
 
 
@@ -130,11 +111,12 @@ def _recommendation_for_findings(findings: list[dict[str, Any]]) -> str:
         for finding in findings
         if isinstance(finding, dict)
     }
-    if severities.intersection({"major", "critical"}):
-        return "request_changes"
+    blocking_severities = {ReviewSeverity.MAJOR.value, ReviewSeverity.CRITICAL.value}
+    if severities.intersection(blocking_severities):
+        return ReviewRecommendation.REQUEST_CHANGES.value
     if findings:
-        return "comment"
-    return "approve"
+        return ReviewRecommendation.COMMENT.value
+    return ReviewRecommendation.APPROVE.value
 
 
 def _summary_for_filtered_findings(findings: list[dict[str, Any]], dropped_count: int) -> str:
@@ -149,12 +131,13 @@ def _summary_for_filtered_findings(findings: list[dict[str, Any]], dropped_count
     major_count = sum(
         1
         for finding in findings
-        if isinstance(finding, dict) and str(finding.get("severity", "")) in {"major", "critical"}
+        if isinstance(finding, dict)
+        and str(finding.get("severity", "")) in {ReviewSeverity.MAJOR.value, ReviewSeverity.CRITICAL.value}
     )
     note_count = sum(
         1
         for finding in findings
-        if isinstance(finding, dict) and str(finding.get("severity", "")) == "note"
+        if isinstance(finding, dict) and str(finding.get("severity", "")) == ReviewSeverity.NOTE.value
     )
     if major_count:
         return (

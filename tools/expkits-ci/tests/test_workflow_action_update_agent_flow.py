@@ -34,6 +34,7 @@ AGENT_REVIEW_PUBLISH_SCRIPT = REPO_ROOT / ".github/agent-workflows/review/script
 AGENT_REVIEW_RUN_SCRIPT = REPO_ROOT / ".github/agent-workflows/review/scripts/run-review.sh"
 AGENT_REQUIREMENTS_FILE = REPO_ROOT / ".github/agent-workflows/runtime/requirements-openai-agents.txt"
 OPENAI_AGENT_RUNNER_SCRIPT = REPO_ROOT / "scripts/private/agent_workflows/openai_agent_runner.py"
+OPENAI_AGENT_CONTRACTS_SCRIPT = REPO_ROOT / "scripts/private/agent_workflows/contracts.py"
 OPENAI_AGENT_REVIEW_OUTPUT_SCRIPT = REPO_ROOT / "scripts/private/agent_workflows/review_output.py"
 HELPER_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent.py"
 HELPER_ACTION_FILE = REPO_ROOT / ".github/actions/workflow-action-update-agent-helper/action.yml"
@@ -61,8 +62,27 @@ def load_python_module(path: Path, module_name: str):
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Unable to load module {module_name} from {path}")
     module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
     spec.loader.exec_module(module)
     return module
+
+
+def load_agent_workflow_module(path: Path, module_name: str):
+    module_path = str(OPENAI_AGENT_RUNNER_SCRIPT.parent)
+    sys.path.insert(0, module_path)
+    try:
+        return load_python_module(path, module_name)
+    finally:
+        sys.path.remove(module_path)
+
+
+def load_review_script_module(path: Path, module_name: str):
+    module_path = str(AGENT_REVIEW_PUBLISH_SCRIPT.parent)
+    sys.path.insert(0, module_path)
+    try:
+        return load_python_module(path, module_name)
+    finally:
+        sys.path.remove(module_path)
 
 
 def step_map(job: dict[str, object]) -> dict[str, dict[str, object]]:
@@ -100,9 +120,10 @@ def load_openai_agent_runner_with_fake_sdk():
 
 HELPER = load_python_module(HELPER_SCRIPT, "workflow_action_update_agent")
 WORKFLOW_AUDIT_REPORT = load_python_module(WORKFLOW_AUDIT_REPORT_SCRIPT, "workflow_audit_report")
-AGENT_REVIEW_FETCH = load_python_module(AGENT_REVIEW_FETCH_SCRIPT, "agent_review_fetch_review_state")
-AGENT_REVIEW_PUBLISH = load_python_module(AGENT_REVIEW_PUBLISH_SCRIPT, "agent_review_publish_review")
-AGENT_REVIEW_OUTPUT = load_python_module(OPENAI_AGENT_REVIEW_OUTPUT_SCRIPT, "agent_review_output")
+AGENT_REVIEW_FETCH = load_review_script_module(AGENT_REVIEW_FETCH_SCRIPT, "agent_review_fetch_review_state")
+AGENT_REVIEW_PUBLISH = load_review_script_module(AGENT_REVIEW_PUBLISH_SCRIPT, "agent_review_publish_review")
+OPENAI_AGENT_CONTRACTS = load_agent_workflow_module(OPENAI_AGENT_CONTRACTS_SCRIPT, "openai_agent_contracts")
+AGENT_REVIEW_OUTPUT = load_agent_workflow_module(OPENAI_AGENT_REVIEW_OUTPUT_SCRIPT, "agent_review_output")
 
 
 class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
@@ -430,19 +451,21 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
     def test_openai_agent_runner_uses_arm_proxy_truststore_and_tracing_contract(self):
         source = OPENAI_AGENT_RUNNER_SCRIPT.read_text(encoding="utf-8")
+        contracts_source = OPENAI_AGENT_CONTRACTS_SCRIPT.read_text(encoding="utf-8")
 
         self.assertIn(
             'DEFAULT_OPENAI_BASE_URL = "https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1"',
-            source,
+            contracts_source,
         )
-        self.assertIn('os.environ.setdefault("OPENAI_AGENTS_DISABLE_TRACING", "1")', source)
-        self.assertIn(
-            (
-                "os.environ[\"OPENAI_API_KEY\"] = "
-                "os.environ[\"OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS\"]"
-            ),
-            source,
+        self.assertEqual(OPENAI_AGENT_CONTRACTS.OPENAI_AGENTS_DISABLE_TRACING_VALUE, "1")
+        self.assertEqual(OPENAI_AGENT_CONTRACTS.OPENAI_API_KEY_ENV, "OPENAI_API_KEY")
+        self.assertEqual(
+            OPENAI_AGENT_CONTRACTS.OPENAI_PROXY_KEY_ENV,
+            "OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS",
         )
+        self.assertIn("ReviewRecommendation", source)
+        self.assertIn("ReviewSeverity", source)
+        self.assertIn("DiffSide", source)
         truststore_import = source.index("import truststore")
         inject_call = source.index("truststore.inject_into_ssl()")
         agents_import = source.index("from agents import")
@@ -476,6 +499,16 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             runner.reject_unsafe_shell_command('echo ok && git push')
         with self.assertRaisesRegex(ValueError, "Unsupported shell syntax"):
             runner.reject_unsafe_shell_command("echo ok | git push")
+
+    def test_openai_agent_runner_validates_review_schema_file_argument(self):
+        runner = load_openai_agent_runner_with_fake_sdk()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            schema_file = Path(temp_dir) / "review.schema.json"
+            schema_file.write_text('{"type":"object"}\n', encoding="utf-8")
+
+            runner.validate_schema_file(str(schema_file))
+            with self.assertRaisesRegex(ValueError, "Review schema file does not exist"):
+                runner.validate_schema_file(str(Path(temp_dir) / "missing.schema.json"))
 
     def test_agent_review_output_drops_invalid_right_side_anchors(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -696,6 +729,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             ],
         )
         snapshot_step = steps["Snapshot workflow helper bundle"]
+        self.assertIn("cp scripts/private/agent_workflows/contracts.py", snapshot_step["run"])
         self.assertIn("cp scripts/private/agent_workflows/openai_agent_runner.py", snapshot_step["run"])
         self.assertIn("cp scripts/private/agent_workflows/review_output.py", snapshot_step["run"])
         self.assertIn("cp .github/agent-workflows/runtime/requirements-openai-agents.txt", snapshot_step["run"])
@@ -1010,6 +1044,21 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn(AGENT_REVIEW_PUBLISH.INLINE_MARKER, inline_comment)
         self.assertIn(AGENT_REVIEW_PUBLISH.INLINE_STATE_MARKER, inline_comment)
         self.assertEqual(AGENT_REVIEW_FETCH.EMPTY_STATE["overall_recommendation"], "")
+        self.assertEqual(AGENT_REVIEW_PUBLISH.MARKER, AGENT_REVIEW_FETCH.MARKER)
+        self.assertEqual(AGENT_REVIEW_PUBLISH.STATE_MARKER, AGENT_REVIEW_FETCH.STATE_MARKER)
+        self.assertEqual(AGENT_REVIEW_PUBLISH.INLINE_MARKER, AGENT_REVIEW_FETCH.INLINE_MARKER)
+        self.assertEqual(
+            AGENT_REVIEW_PUBLISH.INLINE_STATE_MARKER,
+            AGENT_REVIEW_FETCH.INLINE_STATE_MARKER,
+        )
+        self.assertNotIn(
+            'MARKER = "<!-- agent-review-comment -->"',
+            AGENT_REVIEW_PUBLISH_SCRIPT.read_text(encoding="utf-8"),
+        )
+        self.assertNotIn(
+            'MARKER = "<!-- agent-review-comment -->"',
+            AGENT_REVIEW_FETCH_SCRIPT.read_text(encoding="utf-8"),
+        )
 
     def test_agent_review_fetch_accepts_default_github_actions_authors(self):
         with mock.patch.dict(os.environ, {}, clear=True):

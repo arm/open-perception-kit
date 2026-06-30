@@ -13,23 +13,24 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+from review_contract import (
+    DiffSide,
+    GITHUB_API_VERSION,
+    GITHUB_REVIEW_EVENTS,
+    GITHUB_USER_AGENT,
+    INLINE_MARKER,
+    INLINE_STATE_MARKER,
+    MARKER,
+    RECOMMENDATION_COLORS,
+    SEVERITY_COLORS,
+    STATE_MARKER,
+    ReviewRecommendation,
+    ReviewSeverity,
+)
 
-MARKER = "<!-- agent-review-comment -->"
-STATE_MARKER = "<!-- agent-review-state "
-INLINE_MARKER = "<!-- agent-review-inline -->"
-INLINE_STATE_MARKER = "<!-- agent-review-inline-state "
+
 MAX_INLINE_SUGGESTION_LINES = 10
 BADGE_LABEL_COLOR = "202938"
-SEVERITY_COLORS = {
-    "note": "1f6feb",
-    "major": "d97706",
-    "critical": "dc2626",
-}
-RECOMMENDATION_COLORS = {
-    "approve": "15803d",
-    "comment": "2563eb",
-    "request_changes": "dc2626",
-}
 
 
 def format_location(finding):
@@ -37,16 +38,12 @@ def format_location(finding):
     end_line = finding.get("end_line")
     path = finding["path"]
     diff_side = finding.get("diff_side")
-    side_suffix = f" ({diff_side})" if diff_side in {"LEFT", "RIGHT"} else ""
+    side_suffix = f" ({diff_side})" if diff_side in {DiffSide.LEFT.value, DiffSide.RIGHT.value} else ""
     if start_line is None:
         return f"{path}{side_suffix}"
     if end_line is None or end_line == start_line:
         return f"{path}:L{start_line}{side_suffix}"
     return f"{path}:L{start_line}-L{end_line}{side_suffix}"
-
-
-def normalize_title(title):
-    return " ".join(str(title).split())
 
 
 def make_badge(label, message, color):
@@ -105,7 +102,7 @@ def confidence_badge(confidence):
 
 
 def summarize_findings(findings):
-    counts = {"critical": 0, "major": 0, "note": 0}
+    counts = {severity.value: 0 for severity in ReviewSeverity}
     for finding in findings:
         severity = finding.get("severity")
         if severity in counts:
@@ -215,34 +212,11 @@ def build_inline_comment_body(finding, *, run_id):
     return "\n".join(lines) + "\n"
 
 
-def list_paginated_items(url, token):
-    items = []
-    page = 1
-    separator = "&" if "?" in url else "?"
-
-    while True:
-        page_url = f"{url}{separator}per_page=100&page={page}"
-        page_items = json.loads(github_api_request(page_url, token))
-        if not page_items:
-            break
-        items.extend(page_items)
-        if len(page_items) < 100:
-            break
-        page += 1
-
-    return items
-
-
-def list_pull_comments(repository, pr_number, token):
-    comments_url = f"https://api.github.com/repos/{repository}/pulls/{pr_number}/comments"
-    return list_paginated_items(comments_url, token)
-
-
 def review_diff_side(finding):
     diff_side = finding.get("diff_side")
-    if diff_side in {"LEFT", "RIGHT"}:
+    if diff_side in {DiffSide.LEFT.value, DiffSide.RIGHT.value}:
         return diff_side
-    return "RIGHT"
+    return DiffSide.RIGHT.value
 
 
 def is_inline_suggestion_applicable(finding):
@@ -253,7 +227,7 @@ def is_inline_suggestion_applicable(finding):
         suggestion
         and finding.get("path")
         and start_line is not None
-        and review_diff_side(finding) == "RIGHT"
+        and review_diff_side(finding) == DiffSide.RIGHT.value
     ):
         return False
 
@@ -271,20 +245,12 @@ def is_location_comment_applicable(finding):
     return bool(
         finding.get("path")
         and finding.get("start_line") is not None
-        and finding.get("diff_side") in {"LEFT", "RIGHT"}
+        and finding.get("diff_side") in {DiffSide.LEFT.value, DiffSide.RIGHT.value}
     )
 
 
 def review_event(recommendation):
-    # <agent-review:suppress> This workflow intentionally maps internal
-    # `comment` recommendations to GitHub approvals so non-blocking reviews land
-    # as accepted-with-comments in the PR UI.
-    mapping = {
-        "approve": "APPROVE",
-        "comment": "APPROVE",
-        "request_changes": "REQUEST_CHANGES",
-    }
-    return mapping.get(recommendation, "COMMENT")
+    return GITHUB_REVIEW_EVENTS.get(recommendation, "COMMENT")
 
 
 def create_pull_review(repository, pr_number, token, body, recommendation):
@@ -343,8 +309,8 @@ def github_api_request(url, token, method="GET", payload=None):
     headers = {
         "Accept": "application/vnd.github+json",
         "Authorization": f"Bearer {token}",
-        "User-Agent": "amp-dev-forge-agent-review",
-        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": GITHUB_USER_AGENT,
+        "X-GitHub-Api-Version": GITHUB_API_VERSION,
     }
     if payload is not None:
         data = json.dumps(payload).encode("utf-8")
@@ -392,7 +358,7 @@ def main():
             pr_number,
             token,
             markdown,
-            review.get("overall_recommendation", "comment"),
+            review.get("overall_recommendation", ReviewRecommendation.COMMENT.value),
         )
         if head_sha:
             publish_inline_comments(

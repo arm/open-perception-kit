@@ -12,12 +12,15 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-
-MARKER = "<!-- agent-review-comment -->"
-INLINE_MARKER = "<!-- agent-review-inline -->"
-INLINE_STATE_MARKER = "<!-- agent-review-inline-state "
-STATE_MARKER = "<!-- agent-review-state "
-DEFAULT_AUTHOR_LOGINS = {"github-actions", "github-actions[bot]"}
+from review_contract import (
+    DEFAULT_AUTHOR_LOGINS,
+    GITHUB_API_VERSION,
+    GITHUB_USER_AGENT,
+    INLINE_MARKER,
+    INLINE_STATE_MARKER,
+    MARKER,
+    STATE_MARKER,
+)
 
 EMPTY_STATE = {
     "summary": "",
@@ -44,8 +47,8 @@ def github_api_request(url: str, token: str) -> str:
         headers={
             "Accept": "application/vnd.github+json",
             "Authorization": f"Bearer {token}",
-            "User-Agent": "amp-dev-forge-agent-review",
-            "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": GITHUB_USER_AGENT,
+            "X-GitHub-Api-Version": GITHUB_API_VERSION,
         },
     )
     with urllib.request.urlopen(request) as response:
@@ -85,7 +88,7 @@ def list_pull_comments(repository: str, pr_number: str, token: str):
 def allowed_author_logins():
     configured = os.environ.get("AGENT_REVIEW_AUTHOR_LOGINS", "")
     logins = {entry.strip() for entry in configured.split(",") if entry.strip()}
-    return logins | DEFAULT_AUTHOR_LOGINS if logins else set(DEFAULT_AUTHOR_LOGINS)
+    return logins | set(DEFAULT_AUTHOR_LOGINS) if logins else set(DEFAULT_AUTHOR_LOGINS)
 
 
 def comment_author_login(comment) -> str:
