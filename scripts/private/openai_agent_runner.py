@@ -23,6 +23,8 @@ FORBIDDEN_SHELL_PATTERNS = (
     "git commit",
     "git push",
     "git reset",
+    # Checkout and switch mutate the active worktree even with --detach.
+    # Agents can inspect refs safely with git diff, git show, git log, or git ls-tree.
     "git checkout",
     "git switch",
     "gh pr",
