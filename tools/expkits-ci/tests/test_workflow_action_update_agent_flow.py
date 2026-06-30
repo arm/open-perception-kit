@@ -539,6 +539,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         skip_step = steps["Write stabilization skip artifact"]
         self.assertEqual(skip_step["if"], "${{ steps.context.outputs.review_recommendation == 'approve' }}")
+        self.assertIn('mkdir -p "${{ runner.temp }}"', skip_step["run"])
         self.assertIn("workflow-action-update-agent-stabilize-output.md", skip_step["run"])
         self.assertIn("No stabilization agent run was needed", skip_step["run"])
         self.assertEqual(
