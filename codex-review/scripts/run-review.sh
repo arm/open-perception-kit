@@ -10,10 +10,11 @@ output_dir="${2:-codex-review/out}"
 
 mkdir -p "${output_dir}"
 
-REVIEW_BASE_REF="${base_ref}" \
-    REVIEW_HEAD_REF="${REVIEW_HEAD_REF:-HEAD}" \
-    REVIEW_REPOSITORY="${REVIEW_REPOSITORY:-local-checkout}" \
-    ./codex-review/scripts/render-prompt.sh "${output_dir}/review.prompt.md"
+export REVIEW_BASE_REF="${base_ref}"
+export REVIEW_HEAD_REF="${REVIEW_HEAD_REF:-HEAD}"
+export REVIEW_REPOSITORY="${REVIEW_REPOSITORY:-local-checkout}"
+
+./codex-review/scripts/render-prompt.sh "${output_dir}/review.prompt.md"
 
 agent_venv="${CODEX_REVIEW_AGENT_VENV:-.codex/openai-agent-venv}"
 

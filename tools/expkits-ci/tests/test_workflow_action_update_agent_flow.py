@@ -409,6 +409,9 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         content = CODEX_REVIEW_RUN_SCRIPT.read_text(encoding="utf-8")
 
         self.assertIn('agent_venv="${CODEX_REVIEW_AGENT_VENV:-.codex/openai-agent-venv}"', content)
+        self.assertIn('export REVIEW_BASE_REF="${base_ref}"', content)
+        self.assertIn('export REVIEW_HEAD_REF="${REVIEW_HEAD_REF:-HEAD}"', content)
+        self.assertIn('export REVIEW_REPOSITORY="${REVIEW_REPOSITORY:-local-checkout}"', content)
         self.assertIn(
             'export OPENAI_API_KEY="${OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS}"',
             content,
