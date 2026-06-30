@@ -32,6 +32,17 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Fetch Agent review base ref
+        shell: bash
+        env:
+          REVIEW_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_ref || format('origin/{0}', github.base_ref) }}
+        run: |
+          set -euo pipefail
+          if [[ "${REVIEW_BASE_REF}" == origin/* ]]; then
+            base_branch="${REVIEW_BASE_REF#origin/}"
+            git fetch --no-tags origin "+refs/heads/${base_branch}:refs/remotes/origin/${base_branch}"
+          fi
+
       - name: Render Agent review prompt
         shell: bash
         env:

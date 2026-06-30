@@ -369,6 +369,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             list(review_steps),
             [
                 "Checkout pull request head",
+                "Fetch Agent review base ref",
                 "Render Agent review prompt",
                 "Install OpenAI agent runtime",
                 "Run OpenAI SDK review",
@@ -383,6 +384,14 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "python3 -m venv .agent-workflows/openai-agent-venv\n"
             ".agent-workflows/openai-agent-venv/bin/python -m pip install --upgrade pip\n"
             ".agent-workflows/openai-agent-venv/bin/python -m pip install -r .github/agent-workflows/runtime/requirements-openai-agents.txt\n",
+        )
+        fetch_step = review_steps["Fetch Agent review base ref"]
+        self.assertEqual(fetch_step["shell"], "bash")
+        self.assertIn("REVIEW_BASE_REF", fetch_step["env"])
+        self.assertIn('if [[ "${REVIEW_BASE_REF}" == origin/* ]]; then', fetch_step["run"])
+        self.assertIn(
+            'git fetch --no-tags origin "+refs/heads/${base_branch}:refs/remotes/origin/${base_branch}"',
+            fetch_step["run"],
         )
         agent_step = review_steps["Run OpenAI SDK review"]
         self.assertEqual(agent_step["shell"], "bash")
