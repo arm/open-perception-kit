@@ -387,10 +387,19 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         fetch_step = review_steps["Fetch Agent review base ref"]
         self.assertEqual(fetch_step["shell"], "bash")
+        self.assertEqual(fetch_step["env"]["GITHUB_TOKEN"], "${{ github.token }}")
         self.assertIn("REVIEW_BASE_REF", fetch_step["env"])
         self.assertIn('if [[ "${REVIEW_BASE_REF}" == origin/* ]]; then', fetch_step["run"])
         self.assertIn(
-            'git fetch --no-tags origin "+refs/heads/${base_branch}:refs/remotes/origin/${base_branch}"',
+            'auth_header="$(printf \'x-access-token:%s\' "${GITHUB_TOKEN}" | base64 -w 0)"',
+            fetch_step["run"],
+        )
+        self.assertIn(
+            'git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic ${auth_header}"',
+            fetch_step["run"],
+        )
+        self.assertIn(
+            'fetch --no-tags origin "+refs/heads/${base_branch}:refs/remotes/origin/${base_branch}"',
             fetch_step["run"],
         )
         agent_step = review_steps["Run OpenAI SDK review"]

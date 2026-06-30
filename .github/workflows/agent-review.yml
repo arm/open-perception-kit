@@ -35,12 +35,15 @@ jobs:
       - name: Fetch Agent review base ref
         shell: bash
         env:
+          GITHUB_TOKEN: ${{ github.token }}
           REVIEW_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_ref || format('origin/{0}', github.base_ref) }}
         run: |
           set -euo pipefail
           if [[ "${REVIEW_BASE_REF}" == origin/* ]]; then
             base_branch="${REVIEW_BASE_REF#origin/}"
-            git fetch --no-tags origin "+refs/heads/${base_branch}:refs/remotes/origin/${base_branch}"
+            auth_header="$(printf 'x-access-token:%s' "${GITHUB_TOKEN}" | base64 -w 0)"
+            git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic ${auth_header}" \
+              fetch --no-tags origin "+refs/heads/${base_branch}:refs/remotes/origin/${base_branch}"
           fi
 
       - name: Render Agent review prompt
