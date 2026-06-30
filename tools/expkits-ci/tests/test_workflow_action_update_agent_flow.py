@@ -32,6 +32,7 @@ AGENT_REVIEW_PUBLISH_SCRIPT = REPO_ROOT / ".github/agent-workflows/review/script
 AGENT_REVIEW_RUN_SCRIPT = REPO_ROOT / ".github/agent-workflows/review/scripts/run-review.sh"
 AGENT_REQUIREMENTS_FILE = REPO_ROOT / ".github/agent-workflows/runtime/requirements-openai-agents.txt"
 OPENAI_AGENT_RUNNER_SCRIPT = REPO_ROOT / "scripts/private/agent_workflows/openai_agent_runner.py"
+OPENAI_AGENT_REVIEW_OUTPUT_SCRIPT = REPO_ROOT / "scripts/private/agent_workflows/review_output.py"
 HELPER_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent.py"
 HELPER_ACTION_FILE = REPO_ROOT / ".github/actions/workflow-action-update-agent-helper/action.yml"
 WORKFLOW_REPAIR_ROOT = REPO_ROOT / ".github/agent-workflows/workflow-repair"
@@ -82,6 +83,7 @@ HELPER = load_python_module(HELPER_SCRIPT, "workflow_action_update_agent")
 WORKFLOW_AUDIT_REPORT = load_python_module(WORKFLOW_AUDIT_REPORT_SCRIPT, "workflow_audit_report")
 AGENT_REVIEW_FETCH = load_python_module(AGENT_REVIEW_FETCH_SCRIPT, "agent_review_fetch_review_state")
 AGENT_REVIEW_PUBLISH = load_python_module(AGENT_REVIEW_PUBLISH_SCRIPT, "agent_review_publish_review")
+AGENT_REVIEW_OUTPUT = load_python_module(OPENAI_AGENT_REVIEW_OUTPUT_SCRIPT, "agent_review_output")
 
 
 class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
@@ -435,6 +437,54 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn('"checkout"', source)
         self.assertIn('"switch"', source)
         self.assertIn("git diff, git show, git log, or git ls-tree", source)
+        self.assertIn("filter_invalid_right_side_findings", source)
+
+    def test_agent_review_output_drops_invalid_right_side_anchors(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            workflow_path = repo_root / ".github/workflows/workflow-audit.yml"
+            workflow_path.parent.mkdir(parents=True)
+            workflow_path.write_text("name: Workflow audit\njobs: {}\n", encoding="utf-8")
+
+            payload = {
+                "summary": "Reviewed workflow changes.",
+                "overall_recommendation": "request_changes",
+                "overall_score": 0.92,
+                "overall_confidence": 0.87,
+                "findings": [
+                    {
+                        "title": "Impossible stale workflow path",
+                        "severity": "major",
+                        "score": 0.92,
+                        "confidence": 0.94,
+                        "path": ".github/workflows/workflow-audit.yml",
+                        "diff_side": "RIGHT",
+                        "start_line": 367,
+                        "end_line": 367,
+                        "body": "This line does not exist in the current checkout.",
+                        "suggestion": None,
+                    },
+                    {
+                        "title": "Supported note",
+                        "severity": "note",
+                        "score": 0.32,
+                        "confidence": 0.81,
+                        "path": ".github/workflows/workflow-audit.yml",
+                        "diff_side": "RIGHT",
+                        "start_line": 1,
+                        "end_line": 1,
+                        "body": "This line exists in the current checkout.",
+                        "suggestion": None,
+                    },
+                ],
+            }
+
+            filtered = AGENT_REVIEW_OUTPUT.filter_invalid_right_side_findings(payload, repo_root)
+
+        self.assertEqual(filtered["overall_recommendation"], "comment")
+        self.assertEqual(filtered["overall_score"], 0.32)
+        self.assertIn("Omitted 1 unsupported finding", filtered["summary"])
+        self.assertEqual([finding["title"] for finding in filtered["findings"]], ["Supported note"])
 
     def test_openai_agent_runtime_dependencies_are_pinned(self):
         requirements = AGENT_REQUIREMENTS_FILE.read_text(encoding="utf-8").splitlines()
@@ -527,6 +577,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         snapshot_step = steps["Snapshot workflow helper bundle"]
         self.assertIn("cp scripts/private/agent_workflows/openai_agent_runner.py", snapshot_step["run"])
+        self.assertIn("cp scripts/private/agent_workflows/review_output.py", snapshot_step["run"])
         self.assertIn("cp .github/agent-workflows/runtime/requirements-openai-agents.txt", snapshot_step["run"])
         self.assertIn(
             'cp -R .github/agent-workflows/review/prompts/. "${bundle_root}/.github/agent-workflows/review/prompts"',

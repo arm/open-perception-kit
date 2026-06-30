@@ -120,6 +120,8 @@ jobs:
             "${bundle_root}/scripts/private/workflow_action_update_agent.py"
           cp scripts/private/agent_workflows/openai_agent_runner.py \
             "${bundle_root}/scripts/private/agent_workflows/openai_agent_runner.py"
+          cp scripts/private/agent_workflows/review_output.py \
+            "${bundle_root}/scripts/private/agent_workflows/review_output.py"
           cp .github/agent-workflows/runtime/requirements-openai-agents.txt \
             "${bundle_root}/.github/agent-workflows/runtime/requirements-openai-agents.txt"
           cp -R .github/agent-workflows/review/prompts/. "${bundle_root}/.github/agent-workflows/review/prompts"

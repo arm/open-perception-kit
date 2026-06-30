@@ -16,6 +16,8 @@ import sys
 from pathlib import Path
 from typing import Literal
 
+from review_output import filter_invalid_right_side_findings
+
 
 DEFAULT_OPENAI_BASE_URL = "https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1"
 MAX_TOOL_OUTPUT_CHARS = 24000
@@ -320,6 +322,7 @@ async def run_review(args: argparse.Namespace) -> int:
         payload = ReviewResult.model_validate_json(review).model_dump(mode="json")
     else:
         payload = ReviewResult.model_validate(review).model_dump(mode="json")
+    payload = filter_invalid_right_side_findings(payload, require_run_context().repo_root)
     write_json(Path(args.output_file), payload)
     return 0
 
