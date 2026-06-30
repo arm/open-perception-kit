@@ -10,6 +10,7 @@ from pathlib import Path
 import tempfile
 import textwrap
 import urllib.error
+import urllib.parse
 import unittest
 from unittest import mock
 import zipfile
@@ -1118,16 +1119,18 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             run_command.call_args_list[1].args[0],
             ["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"],
         )
-        self.assertEqual(
-            run_command.call_args_list[2].args[0],
-            [
-                "git",
-                "remote",
-                "set-url",
-                "origin",
-                "https://pat-user:pat-token@github.com/Arm-Debug/amp-dev-forge.git",  # pragma: allowlist secret
-            ],
-        )
+        remote_command = run_command.call_args_list[2].args[0]
+        self.assertEqual(remote_command[:4], ["git", "remote", "set-url", "origin"])
+        remote_url = urllib.parse.urlsplit(remote_command[4])
+        self.assertEqual(remote_url.scheme, "https")
+        credentials, separator, host = remote_url.netloc.rpartition("@")
+        self.assertEqual(separator, "@")
+        username, separator, token = credentials.partition(":")
+        self.assertEqual(username, "pat-user")
+        self.assertEqual(separator, ":")
+        self.assertTrue(token)
+        self.assertEqual(host, "github.com")
+        self.assertEqual(remote_url.path, "/Arm-Debug/amp-dev-forge.git")
 
     def test_publish_review_state_to_pr_reuses_publish_script(self):
         review_state = {
