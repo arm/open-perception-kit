@@ -110,6 +110,37 @@ def summarize_findings(findings):
     return counts
 
 
+def format_finding_details(findings):
+    if not findings:
+        return ["No findings."]
+
+    lines = []
+    for index, finding in enumerate(findings, start=1):
+        lines.extend(
+            [
+                f"{index}. {severity_badge(finding['severity'])} **{finding['title']}**",
+                f"   Location: `{format_location(finding)}`",
+                f"   Score: `{finding['score']:.2f}` Confidence: `{finding['confidence']:.2f}`",
+                f"   {finding['body']}",
+            ]
+        )
+        suggestion = finding.get("suggestion")
+        if suggestion:
+            lines.extend(
+                [
+                    "   Suggested change:",
+                    "",
+                    "   ```text",
+                    *[f"   {line}" for line in suggestion.rstrip("\n").splitlines()],
+                    "   ```",
+                ]
+            )
+        lines.append("")
+    while lines and lines[-1] == "":
+        lines.pop()
+    return lines
+
+
 def review_state_metadata(review, run_id, head_sha):
     metadata = {
         "summary": review["summary"],
@@ -169,6 +200,10 @@ def format_markdown(review, *, run_id="", head_sha=""):
         f"Findings: {severity_count_badge('critical', counts['critical'])} {severity_count_badge('major', counts['major'])} {severity_count_badge('note', counts['note'])}",
         "",
         review["summary"],
+        "",
+        "### Findings",
+        "",
+        *format_finding_details(findings),
     ]
 
     return "\n".join(lines).rstrip() + "\n"

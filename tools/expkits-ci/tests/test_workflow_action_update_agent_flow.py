@@ -375,10 +375,13 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
     def test_agent_review_workflow_uses_openai_sdk_proxy_flow(self):
         workflow = load_yaml(AGENT_REVIEW_WORKFLOW_FILE)
+        dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
         review_job = workflow["jobs"]["review"]
         review_steps = step_map(review_job)
 
         self.assertEqual(review_job["runs-on"], ["self-hosted", "Linux", "X64"])
+        self.assertIn("base_ref", dispatch_inputs)
+        self.assertIn("head_ref", dispatch_inputs)
         self.assertEqual(
             list(review_steps),
             [
@@ -399,6 +402,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             ".agent-workflows/openai-agent-venv/bin/python -m pip install --upgrade pip\n"
             ".agent-workflows/openai-agent-venv/bin/python -m pip install -r .github/agent-workflows/runtime/requirements-openai-agents.txt\n",
         )
+        checkout_step = review_steps["Checkout pull request head"]
+        self.assertIn("github.event.inputs.head_ref", checkout_step["with"]["ref"])
         fetch_step = review_steps["Fetch Agent review base ref"]
         self.assertEqual(fetch_step["shell"], "bash")
         self.assertEqual(fetch_step["env"]["GITHUB_TOKEN"], "${{ github.token }}")
@@ -1001,7 +1006,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             ".github/agent-workflows/review/scripts/fetch-review-state.py",
         )
         self.assertEqual(agent_review["allowed_review_recommendations"], ["approve"])
-        self.assertEqual(agent_review["workflow_dispatch_inputs"], {"base_ref": "origin/{target_branch}"})
+        self.assertEqual(
+            agent_review["workflow_dispatch_inputs"],
+            {"base_ref": "origin/{target_branch}", "head_ref": "{repair_branch}"},
+        )
         self.assertEqual(
             pek_ci["workflow_dispatch_inputs"],
             {
@@ -1150,6 +1158,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
         self.assertIn(AGENT_REVIEW_PUBLISH.MARKER, markdown)
         self.assertIn(AGENT_REVIEW_PUBLISH.STATE_MARKER, markdown)
+        self.assertIn("### Findings", markdown)
+        self.assertIn("**Minor note**", markdown)
+        self.assertIn("Location: `.github/workflows/example.yml:L12 (RIGHT)`", markdown)
+        self.assertIn("Nit: keep names aligned.", markdown)
         self.assertIn(AGENT_REVIEW_PUBLISH.INLINE_MARKER, inline_comment)
         self.assertIn(AGENT_REVIEW_PUBLISH.INLINE_STATE_MARKER, inline_comment)
         self.assertEqual(AGENT_REVIEW_FETCH.EMPTY_STATE["overall_recommendation"], "")

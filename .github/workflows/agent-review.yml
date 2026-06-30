@@ -10,6 +10,11 @@ on:
         required: false
         default: origin/main
         type: string
+      head_ref:
+        description: Branch, SHA, or ref to review for manual runs
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -28,7 +33,7 @@ jobs:
       - name: Checkout pull request head
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.head_ref || github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -50,7 +55,7 @@ jobs:
         shell: bash
         env:
           REVIEW_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_ref || format('origin/{0}', github.base_ref) }}
-          REVIEW_HEAD_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+          REVIEW_HEAD_REF: ${{ github.event_name == 'workflow_dispatch' && 'HEAD' || github.event.pull_request.head.sha || github.sha }}
           REVIEW_REPOSITORY: ${{ github.repository }}
           REVIEW_PR_NUMBER: ${{ github.event.pull_request.number || '' }}
           REVIEW_PR_TITLE: ${{ github.event.pull_request.title || '' }}

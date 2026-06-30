@@ -31,7 +31,8 @@
       "workflow_name": "Agent Review",
       "review_state_script": ".github/agent-workflows/review/scripts/fetch-review-state.py",
       "workflow_dispatch_inputs": {
-        "base_ref": "origin/{target_branch}"
+        "base_ref": "origin/{target_branch}",
+        "head_ref": "{repair_branch}"
       },
       "allowed_review_recommendations": [
         "approve"
