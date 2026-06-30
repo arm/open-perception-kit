@@ -118,23 +118,29 @@ def truncate_tool_output(output: str) -> str:
 
 
 def split_shell_commands(command: str) -> list[list[str]]:
-    normalized = command.replace("\n", ";")
-    for separator in SHELL_COMMAND_SEPARATORS:
-        normalized = normalized.replace(separator, ";")
+    lexer = shlex.shlex(command.replace("\n", ";"), posix=True, punctuation_chars=";&|<>")
+    lexer.whitespace_split = True
     commands: list[list[str]] = []
-    for part in normalized.split(";"):
-        stripped = part.strip()
-        if not stripped:
+    current: list[str] = []
+    for word in lexer:
+        if word in SHELL_COMMAND_SEPARATORS:
+            if current:
+                commands.append(current)
+                current = []
             continue
-        try:
-            commands.append(shlex.split(stripped))
-        except ValueError:
-            commands.append(stripped.split())
+        if any(character in word for character in ";&|<>"):
+            raise ValueError(
+                f"Unsupported shell syntax in agent command: {word}. "
+                "Use simple commands separated by &&, ||, semicolon, or newline."
+            )
+        current.append(word)
+    if current:
+        commands.append(current)
     return commands
 
 
 def find_subcommand(words: list[str], binary: str) -> str | None:
-    if not words or words[0] != binary:
+    if not words or Path(words[0]).name != binary:
         return None
     index = 1
     option_args = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "-R", "--repo"}
@@ -151,7 +157,8 @@ def find_subcommand(words: list[str], binary: str) -> str | None:
 
 
 def reject_unsafe_shell_command(command: str) -> None:
-    for words in split_shell_commands(command.lower()):
+    for words in split_shell_commands(command):
+        words = [word.lower() for word in words]
         git_subcommand = find_subcommand(words, "git")
         if git_subcommand in FORBIDDEN_GIT_SUBCOMMANDS:
             raise ValueError(
@@ -208,23 +215,31 @@ def run_shell_command(command: str) -> str:
 
     context = require_run_context()
     reject_unsafe_shell_command(command)
-    completed = subprocess.run(
-        command,
-        cwd=context.repo_root,
-        shell=True,
-        executable="/bin/bash",
-        text=True,
-        capture_output=True,
-        timeout=context.command_timeout,
-        check=False,
-    )
-    output_parts = [
-        f"exit_code={completed.returncode}",
-        "--- stdout ---",
-        completed.stdout.rstrip(),
-        "--- stderr ---",
-        completed.stderr.rstrip(),
-    ]
+    output_parts: list[str] = []
+    exit_code = 0
+    for words in split_shell_commands(command):
+        completed = subprocess.run(
+            words,
+            cwd=context.repo_root,
+            text=True,
+            capture_output=True,
+            timeout=context.command_timeout,
+            check=False,
+        )
+        exit_code = completed.returncode
+        output_parts.extend(
+            [
+                f"$ {shlex.join(words)}",
+                f"exit_code={completed.returncode}",
+                "--- stdout ---",
+                completed.stdout.rstrip(),
+                "--- stderr ---",
+                completed.stderr.rstrip(),
+            ]
+        )
+        if completed.returncode != 0:
+            break
+    output_parts.insert(0, f"exit_code={exit_code}")
     return truncate_tool_output("\n".join(output_parts).rstrip() + "\n")
 
 

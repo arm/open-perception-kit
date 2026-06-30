@@ -7,8 +7,10 @@ import io
 import importlib.util
 import os
 from pathlib import Path
+import sys
 import tempfile
 import textwrap
+import types
 import urllib.error
 import urllib.parse
 import unittest
@@ -77,6 +79,23 @@ def build_zip_archive(files: dict[str, str]) -> bytes:
         for path, content in files.items():
             archive.writestr(path, content)
     return buffer.getvalue()
+
+
+def load_openai_agent_runner_with_fake_sdk():
+    fake_agents = types.SimpleNamespace(
+        Agent=object,
+        RunConfig=object,
+        Runner=object,
+        function_tool=lambda function: function,
+    )
+    fake_truststore = types.SimpleNamespace(inject_into_ssl=lambda: None)
+    module_path = str(OPENAI_AGENT_RUNNER_SCRIPT.parent)
+    with mock.patch.dict(sys.modules, {"agents": fake_agents, "truststore": fake_truststore}):
+        sys.path.insert(0, module_path)
+        try:
+            return load_python_module(OPENAI_AGENT_RUNNER_SCRIPT, "openai_agent_runner_fake_sdk")
+        finally:
+            sys.path.remove(module_path)
 
 
 HELPER = load_python_module(HELPER_SCRIPT, "workflow_action_update_agent")
@@ -438,6 +457,25 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn('"switch"', source)
         self.assertIn("git diff, git show, git log, or git ls-tree", source)
         self.assertIn("filter_invalid_right_side_findings", source)
+
+    def test_openai_agent_runner_executes_simple_commands_without_shell_expansion(self):
+        runner = load_openai_agent_runner_with_fake_sdk()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            runner.RUN_CONTEXT = runner.AgentRunContext(Path(temp_dir), 10)
+            output = runner.run_shell_command('echo "$(git push)" && git diff --check')
+
+        self.assertIn("$ echo '$(git push)'", output)
+        self.assertIn("$(git push)", output)
+        self.assertIn("$ git diff --check", output)
+
+    def test_openai_agent_runner_blocks_mutating_git_commands_after_shell_splitting(self):
+        runner = load_openai_agent_runner_with_fake_sdk()
+
+        runner.reject_unsafe_shell_command('echo "git push" && git diff --check')
+        with self.assertRaisesRegex(ValueError, "git push"):
+            runner.reject_unsafe_shell_command('echo ok && git push')
+        with self.assertRaisesRegex(ValueError, "Unsupported shell syntax"):
+            runner.reject_unsafe_shell_command("echo ok | git push")
 
     def test_agent_review_output_drops_invalid_right_side_anchors(self):
         with tempfile.TemporaryDirectory() as temp_dir:
