@@ -546,6 +546,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         runner = load_openai_agent_runner_with_fake_sdk()
 
         runner.reject_unsafe_shell_command('echo "git push" && git diff --check')
+        runner.reject_unsafe_shell_command("git apply --check /tmp/example.patch")
         with self.assertRaisesRegex(ValueError, "git push"):
             runner.reject_unsafe_shell_command('echo ok && git push')
         with self.assertRaisesRegex(ValueError, "Unsupported shell syntax"):
