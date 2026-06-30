@@ -82,7 +82,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   codex-fix:
-    name: Generate repair patch with Codex
+    name: Generate repair patch with OpenAI SDK agent
     needs: prepare
     if: needs.prepare.outputs.should_run == 'true'
     runs-on: [self-hosted, Linux, X64]
@@ -126,18 +126,22 @@ jobs:
           repair-branch: ${{ needs.prepare.outputs.repair_branch }}
           ticket-id: ${{ needs.prepare.outputs.ticket_id }}
 
-      - name: Run Codex
-        uses: openai/codex-action@v1
+      - name: Install OpenAI agent runtime
+        shell: bash
+        run: python3 -m pip install --user -r codex-review/requirements-agent.txt
+
+      - name: Run OpenAI SDK repair agent
+        shell: bash
         env:
-          NPM_CONFIG_USERCONFIG: ${{ github.workspace }}/codex-review/.npmrc
-        with:
-          openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
-          responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses
-          model: ${{ needs.prepare.outputs.codex_model }}
-          prompt-file: .codex/workflow-action-update-agent/goal.md
-          output-file: ${{ runner.temp }}/workflow-action-update-agent-codex-output.md
-          sandbox: danger-full-access
-          safety-strategy: unsafe
+          OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
+          OPENAI_BASE_URL: https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1
+          OPENAI_AGENTS_DISABLE_TRACING: "1"
+        run: |
+          python3 scripts/private/openai_agent_runner.py run-repair \
+            --model "${{ needs.prepare.outputs.codex_model }}" \
+            --prompt-file .codex/workflow-action-update-agent/goal.md \
+            --output-file "${{ runner.temp }}/workflow-action-update-agent-codex-output.md"
 
       - name: Run static regression tests
         run: |

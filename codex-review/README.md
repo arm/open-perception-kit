@@ -2,7 +2,8 @@
 
 This directory owns the repository-specific Codex review flow.
 
-The GitHub workflow renders the review prompt, runs `openai/codex-action`, then
+The GitHub workflow renders the review prompt, runs the shared Python OpenAI
+Agents SDK runner, then
 publishes:
 
 - one fresh summary comment per run
@@ -10,9 +11,10 @@ publishes:
 - structured hidden state markers in the published comments, so other automation
   can safely consume the latest Codex review result for the current PR head
 
-The workflow-scoped npm mirror config for `openai/codex-action` lives in
-`codex-review/.npmrc`, so normal repo-root npm usage is not forced onto the
-internal registry.
+The workflow-scoped OpenAI agent runtime pins live in
+`codex-review/requirements-agent.txt`. The runner uses the Arm OpenAI proxy,
+disables Agents SDK tracing, and injects `truststore` before importing OpenAI
+libraries.
 
 Structure:
 
@@ -20,4 +22,5 @@ Structure:
 - `schemas/`: structured output schemas for Codex review runs
 - `scripts/`: shared helper scripts for prompt rendering, local review runs, and
   publishing review output
+- `requirements-agent.txt`: pinned OpenAI agent runtime dependencies
 - `out/`: local and CI-generated review artifacts

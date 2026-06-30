@@ -28,6 +28,9 @@ SONAR_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/sonar.yml"
 WORKFLOW_AUDIT_REPORT_SCRIPT = REPO_ROOT / "scripts/private/workflow_audit_report.py"
 CODEX_REVIEW_FETCH_SCRIPT = REPO_ROOT / "codex-review/scripts/fetch-review-state.py"
 CODEX_REVIEW_PUBLISH_SCRIPT = REPO_ROOT / "codex-review/scripts/publish-review.py"
+CODEX_REVIEW_RUN_SCRIPT = REPO_ROOT / "codex-review/scripts/run-review.sh"
+AGENT_REQUIREMENTS_FILE = REPO_ROOT / "codex-review/requirements-agent.txt"
+OPENAI_AGENT_RUNNER_SCRIPT = REPO_ROOT / "scripts/private/openai_agent_runner.py"
 HELPER_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent.py"
 HELPER_ACTION_FILE = REPO_ROOT / ".github/actions/workflow-action-update-agent-helper/action.yml"
 MARKDOWN_TEMPLATE_ROOT = REPO_ROOT / ".github/ci/workflow-action-update-agent"
@@ -148,24 +151,34 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(codex_job["runs-on"], ["self-hosted", "Linux", "X64"])
         self.assertEqual(stabilize_job["runs-on"], "ubuntu-latest")
         self.assertIn("Download source artifact context", codex_steps)
-        self.assertIn("Run Codex", codex_steps)
+        self.assertIn("Install OpenAI agent runtime", codex_steps)
+        self.assertIn("Run OpenAI SDK repair agent", codex_steps)
         self.assertNotIn("Prime Codex CLI", stabilize_steps)
         self.assertNotIn("Apply deterministic workflow freshness patch", codex_steps)
 
-        codex_step = codex_steps["Run Codex"]
-        self.assertEqual(codex_step["uses"], "openai/codex-action@v1")
+        install_step = codex_steps["Install OpenAI agent runtime"]
         self.assertEqual(
-            codex_step["with"]["openai-api-key"],
+            install_step["run"],
+            "python3 -m pip install --user -r codex-review/requirements-agent.txt",
+        )
+        codex_step = codex_steps["Run OpenAI SDK repair agent"]
+        self.assertEqual(codex_step["shell"], "bash")
+        self.assertIn("openai_agent_runner.py run-repair", codex_step["run"])
+        self.assertIn("--prompt-file .codex/workflow-action-update-agent/goal.md", codex_step["run"])
+        self.assertIn("--model \"${{ needs.prepare.outputs.codex_model }}\"", codex_step["run"])
+        self.assertEqual(
+            codex_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],
             "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
         )
         self.assertEqual(
-            codex_step["with"]["prompt-file"],
-            ".codex/workflow-action-update-agent/goal.md",
+            codex_step["env"]["OPENAI_API_KEY"],
+            "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
         )
-        self.assertEqual(codex_step["with"]["model"], "${{ needs.prepare.outputs.codex_model }}")
-        self.assertEqual(codex_step["with"]["sandbox"], "danger-full-access")
-        self.assertEqual(codex_step["with"]["safety-strategy"], "unsafe")
-        self.assertNotIn("codex-home", codex_step["with"])
+        self.assertEqual(
+            codex_step["env"]["OPENAI_BASE_URL"],
+            "https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1",
+        )
+        self.assertEqual(codex_step["env"]["OPENAI_AGENTS_DISABLE_TRACING"], "1")
         self.assertEqual(
             codex_steps["Download source artifact context"]["if"],
             "${{ inputs.source_artifact_name != '' }}",
@@ -289,7 +302,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 (context_root / "artifacts/workflow-dependency-freshness/report.md").is_file()
             )
 
-    def test_codex_review_workflow_matches_main_self_hosted_proxy_flow(self):
+    def test_codex_review_workflow_uses_openai_sdk_proxy_flow(self):
         workflow = load_yaml(CODEX_REVIEW_WORKFLOW_FILE)
         review_job = workflow["jobs"]["review"]
         review_steps = step_map(review_job)
@@ -300,22 +313,94 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             [
                 "Checkout pull request head",
                 "Render Codex review prompt",
-                "Run Codex review",
+                "Install OpenAI agent runtime",
+                "Run OpenAI SDK review",
                 "Render review summary",
                 "Publish review summary comment",
                 "Upload review artifacts",
             ],
         )
-        codex_step = review_steps["Run Codex review"]
-        self.assertEqual(codex_step["uses"], "openai/codex-action@v1")
+        install_step = review_steps["Install OpenAI agent runtime"]
         self.assertEqual(
-            codex_step["with"]["openai-api-key"],
+            install_step["run"],
+            "python3 -m pip install --user -r codex-review/requirements-agent.txt",
+        )
+        codex_step = review_steps["Run OpenAI SDK review"]
+        self.assertEqual(codex_step["shell"], "bash")
+        self.assertIn("openai_agent_runner.py run-review", codex_step["run"])
+        self.assertIn("--schema-file codex-review/schemas/review.schema.json", codex_step["run"])
+        self.assertIn("--output-file codex-review/out/review.json", codex_step["run"])
+        self.assertEqual(
+            codex_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],
             "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
         )
-        self.assertEqual(codex_step["with"]["model"], "gpt-5.3-codex")
-        self.assertEqual(codex_step["with"]["sandbox"], "danger-full-access")
-        self.assertEqual(codex_step["with"]["safety-strategy"], "unsafe")
-        self.assertNotIn("codex-home", codex_step["with"])
+        self.assertEqual(
+            codex_step["env"]["OPENAI_API_KEY"],
+            "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
+        )
+        self.assertEqual(
+            codex_step["env"]["OPENAI_BASE_URL"],
+            "https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1",
+        )
+        self.assertEqual(codex_step["env"]["OPENAI_AGENTS_DISABLE_TRACING"], "1")
+
+    def test_openai_sdk_runner_replaces_codex_action_and_cli_paths(self):
+        searched_files = [
+            CODEX_REVIEW_WORKFLOW_FILE,
+            REUSABLE_WORKFLOW_FILE,
+            STABILIZER_WORKFLOW_FILE,
+            CODEX_REVIEW_RUN_SCRIPT,
+        ]
+
+        for path in searched_files:
+            content = path.read_text(encoding="utf-8")
+            self.assertNotIn("openai/codex-action@v1", content, path)
+            self.assertNotIn("codex exec", content, path)
+            self.assertIn("openai_agent_runner.py", content, path)
+
+    def test_openai_agent_runner_uses_arm_proxy_truststore_and_tracing_contract(self):
+        source = OPENAI_AGENT_RUNNER_SCRIPT.read_text(encoding="utf-8")
+
+        self.assertIn(
+            'DEFAULT_OPENAI_BASE_URL = "https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1"',
+            source,
+        )
+        self.assertIn('os.environ.setdefault("OPENAI_AGENTS_DISABLE_TRACING", "1")', source)
+        self.assertIn(
+            (
+                "os.environ[\"OPENAI_API_KEY\"] = "
+                "os.environ[\"OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS\"]"
+            ),
+            source,
+        )
+        truststore_import = source.index("import truststore")
+        inject_call = source.index("truststore.inject_into_ssl()")
+        agents_import = source.index("from agents import")
+        self.assertLess(truststore_import, agents_import)
+        self.assertLess(inject_call, agents_import)
+        self.assertIn("class ReviewResult", source)
+        self.assertIn("output_type=ReviewResult", source)
+
+    def test_openai_agent_runtime_dependencies_are_pinned(self):
+        requirements = AGENT_REQUIREMENTS_FILE.read_text(encoding="utf-8").splitlines()
+
+        self.assertEqual(
+            set(requirements),
+            {
+                "openai-agents==0.17.7",
+                "openai==2.44.0",
+                "pydantic==2.13.4",
+                "truststore==0.10.4",
+            },
+        )
+
+    def test_local_review_runner_uses_shared_sdk_script(self):
+        content = CODEX_REVIEW_RUN_SCRIPT.read_text(encoding="utf-8")
+
+        self.assertIn("python3 -m pip install --user -r codex-review/requirements-agent.txt", content)
+        self.assertIn("scripts/private/openai_agent_runner.py run-review", content)
+        self.assertIn("--schema-file \"codex-review/schemas/review.schema.json\"", content)
+        self.assertNotIn("command -v codex", content)
 
     def test_standard_validation_workflows_accept_manual_pr_context(self):
         pek_ci = load_yaml(PEK_CI_WORKFLOW_FILE)
@@ -355,34 +440,43 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 "Checkout PR head",
                 "Restore workflow helper bundle",
                 "Prepare stabilization context",
-                "Run Codex stabilization",
+                "Install OpenAI agent runtime",
+                "Run OpenAI SDK stabilization agent",
                 "Run stabilization validation",
                 "Commit stabilization fix",
                 "Upload stabilization artifacts",
             ],
         )
-        codex_step = steps["Run Codex stabilization"]
-        self.assertEqual(codex_step["uses"], "openai/codex-action@v1")
+        snapshot_step = steps["Snapshot workflow helper bundle"]
+        self.assertIn("openai_agent_runner.py", snapshot_step["run"])
+        self.assertIn("requirements-agent.txt", snapshot_step["run"])
+        install_step = steps["Install OpenAI agent runtime"]
         self.assertEqual(
-            codex_step["with"]["openai-api-key"],
+            install_step["run"],
+            "python3 -m pip install --user -r .workflow-action-update-agent-helper/codex-review/requirements-agent.txt",
+        )
+        codex_step = steps["Run OpenAI SDK stabilization agent"]
+        self.assertEqual(codex_step["shell"], "bash")
+        self.assertIn("openai_agent_runner.py run-stabilization", codex_step["run"])
+        self.assertIn("--prompt-file \"${{ inputs.context_root }}/stabilize-goal.md\"", codex_step["run"])
+        self.assertEqual(
+            codex_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],
             "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
         )
         self.assertEqual(
-            codex_step["with"]["responses-api-endpoint"],
-            "https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses",
+            codex_step["env"]["OPENAI_API_KEY"],
+            "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
         )
-        self.assertEqual(codex_step["with"]["sandbox"], "danger-full-access")
-        self.assertEqual(codex_step["with"]["safety-strategy"], "unsafe")
         self.assertEqual(
-            codex_step["with"]["prompt-file"],
-            "${{ inputs.context_root }}/stabilize-goal.md",
+            codex_step["env"]["OPENAI_BASE_URL"],
+            "https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1",
         )
-        self.assertNotIn("codex-home", codex_step["with"])
+        self.assertEqual(codex_step["env"]["OPENAI_AGENTS_DISABLE_TRACING"], "1")
         self.assertEqual(
             steps["Resolve PR details"]["with"]["command"],
             "resolve-pr-details",
         )
-        self.assertEqual(steps["Snapshot workflow helper bundle"]["shell"], "bash")
+        self.assertEqual(snapshot_step["shell"], "bash")
         self.assertEqual(steps["Restore workflow helper bundle"]["shell"], "bash")
         self.assertEqual(
             steps["Prepare stabilization context"]["with"]["command"],
@@ -983,10 +1077,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                     mock.Mock(returncode=0, stdout="", stderr=""),
                     mock.Mock(returncode=0, stdout="", stderr=""),
                     mock.Mock(returncode=0, stdout="", stderr=""),
-                        mock.Mock(returncode=0, stdout="", stderr=""),
-                        run_command_result,
-                        mock.Mock(returncode=0, stdout="", stderr=""),
-                        mock.Mock(returncode=0, stdout="", stderr=""),
+                    mock.Mock(returncode=0, stdout="", stderr=""),
+                    run_command_result,
+                    mock.Mock(returncode=0, stdout="", stderr=""),
+                    mock.Mock(returncode=0, stdout="", stderr=""),
                     mock.Mock(returncode=0, stdout="feedface\n", stderr=""),
                 ],
             ) as run_command:
@@ -1011,7 +1105,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 "remote",
                 "set-url",
                 "origin",
-                "https://pat-user:pat-token@github.com/Arm-Debug/amp-dev-forge.git",
+                "https://pat-user:pat-token@github.com/Arm-Debug/amp-dev-forge.git",  # pragma: allowlist secret
             ],
         )
 

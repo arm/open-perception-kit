@@ -15,9 +15,9 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 ## What does `.github/workflows/codex-review.yml` do?
 
-- Runs Codex review on a self-hosted runner through the official `openai/codex-action@v1` path used on `main`
+- Runs Codex review on a self-hosted runner through the shared Python OpenAI Agents SDK runner
 - Supports `workflow_dispatch` manual runs with a configurable `base_ref` input for the diff baseline
-- Uses `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS`, the Arm OpenAI proxy endpoint, and the checked-in `codex-review/.npmrc` npm config
+- Uses `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS`, the Arm OpenAI proxy endpoint, and tracing-disabled Agents SDK execution
 - Uses the checked-in review assets under `codex-review/`
 - Keeps prompt templates in `codex-review/prompts/`
 - Keeps schemas in `codex-review/schemas/`
@@ -44,12 +44,18 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 - Contains the core repair engine behind the caller workflow
 - Resolves source-run metadata, downloads logs and artifacts, and creates `goal.md` plus the companion Markdown context files under `.codex/workflow-action-update-agent/`
-- Feeds the collected failure state and any downloaded artifact context into Codex so the patch is generated from the report instead of from inline workflow logic
-- Runs Codex on the same self-hosted runner path as `codex-review`, with the same `openai/codex-action` integration and npm proxy config, to generate the repair patch
-- Opens a draft repair PR, applies the profile-defined rerun label, then keeps a single stabilization loop: wait for the standard Codex review, feed non-approve findings back into Codex on the same branch, rerun validation, and merge only after the latest PR head is fully green
+- Feeds the collected failure state and any downloaded artifact context into the OpenAI SDK repair agent so the patch is generated from the report instead of from inline workflow logic
+- Runs the same shared Python OpenAI Agents SDK path as `codex-review`, with the Arm proxy and tracing disabled, to generate the repair patch
+- Opens a draft repair PR, applies the profile-defined rerun label, then keeps a single stabilization loop: wait for the standard Codex review, feed non-approve findings back into the SDK agent on the same branch, rerun validation, and merge only after the latest PR head is fully green
 - Stays orchestration-thin by delegating repo-specific helper commands to a local composite action and flow policy to the repair profile
-- Uses `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` and `codex-review/.npmrc` for the Codex step so the repair flow matches `codex-review`
+- Uses `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` for the OpenAI SDK step so the repair flow matches `codex-review`
 - Supports the optional `EXPKITS_AGENT_TOKEN` secret so checkout, push, PR, and merge operations can run under a PAT or GitHub App token instead of the default `GITHUB_TOKEN`
+
+## What does `scripts/private/openai_agent_runner.py` do?
+
+- Provides the shared Python OpenAI Agents SDK entrypoint for review, repair, and stabilization jobs
+- Sets the Arm OpenAI proxy base URL, maps `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` into `OPENAI_API_KEY`, disables Agents SDK tracing, and injects `truststore` before importing OpenAI libraries
+- Writes structured Codex review JSON for `codex-review` and lets repair/stabilization agents inspect the repo, run validation commands, and apply minimal patches without owning branch or PR lifecycle operations
 
 ## What does `scripts/private/workflow_action_update_agent.py` do?
 

@@ -106,12 +106,17 @@ jobs:
           bundle_root="${RUNNER_TEMP}/workflow-action-update-agent-helper"
           rm -rf "${bundle_root}"
           mkdir -p \
+            "${bundle_root}/codex-review" \
             "${bundle_root}/.github/actions/workflow-action-update-agent-helper" \
             "${bundle_root}/scripts/private"
           cp .github/actions/workflow-action-update-agent-helper/action.yml \
             "${bundle_root}/.github/actions/workflow-action-update-agent-helper/action.yml"
           cp scripts/private/workflow_action_update_agent.py \
             "${bundle_root}/scripts/private/workflow_action_update_agent.py"
+          cp scripts/private/openai_agent_runner.py \
+            "${bundle_root}/scripts/private/openai_agent_runner.py"
+          cp codex-review/requirements-agent.txt \
+            "${bundle_root}/codex-review/requirements-agent.txt"
 
       - name: Resolve PR details
         id: pr
@@ -155,19 +160,24 @@ jobs:
           source-run-id: ${{ inputs.source_run_id }}
           context-root: ${{ inputs.context_root }}
 
-      - name: Run Codex stabilization
+      - name: Install OpenAI agent runtime
         if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
-        uses: openai/codex-action@v1
+        shell: bash
+        run: python3 -m pip install --user -r .workflow-action-update-agent-helper/codex-review/requirements-agent.txt
+
+      - name: Run OpenAI SDK stabilization agent
+        if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
+        shell: bash
         env:
-          NPM_CONFIG_USERCONFIG: ${{ github.workspace }}/codex-review/.npmrc
-        with:
-          openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
-          responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses
-          model: ${{ steps.context.outputs.codex_model }}
-          sandbox: danger-full-access
-          safety-strategy: unsafe
-          prompt-file: ${{ inputs.context_root }}/stabilize-goal.md
-          output-file: ${{ runner.temp }}/workflow-action-update-agent-stabilize-output.md
+          OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
+          OPENAI_BASE_URL: https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1
+          OPENAI_AGENTS_DISABLE_TRACING: "1"
+        run: |
+          python3 .workflow-action-update-agent-helper/scripts/private/openai_agent_runner.py run-stabilization \
+            --model "${{ steps.context.outputs.codex_model }}" \
+            --prompt-file "${{ inputs.context_root }}/stabilize-goal.md" \
+            --output-file "${{ runner.temp }}/workflow-action-update-agent-stabilize-output.md"
 
       - if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
         name: Run stabilization validation

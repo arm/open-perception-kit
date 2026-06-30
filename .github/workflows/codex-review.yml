@@ -45,22 +45,26 @@ jobs:
           mkdir -p codex-review/out
           ./codex-review/scripts/render-prompt.sh codex-review/out/review.prompt.md
 
-      # <codex-review:suppress-begin> Intentional current self-hosted Codex
+      - name: Install OpenAI agent runtime
+        shell: bash
+        run: python3 -m pip install --user -r codex-review/requirements-agent.txt
+
+      # <codex-review:suppress-begin> Intentional current self-hosted OpenAI
       # review trust boundary for same-repo pull requests.
-      - name: Run Codex review
+      - name: Run OpenAI SDK review
         id: review
-        uses: openai/codex-action@v1
+        shell: bash
         env:
-          NPM_CONFIG_USERCONFIG: ${{ github.workspace }}/codex-review/.npmrc
-        with:
-          openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
-          responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses
-          model: gpt-5.3-codex
-          sandbox: danger-full-access
-          safety-strategy: unsafe
-          prompt-file: codex-review/out/review.prompt.md
-          output-schema-file: codex-review/schemas/review.schema.json
-          output-file: codex-review/out/review.json
+          OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
+          OPENAI_BASE_URL: https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1
+          OPENAI_AGENTS_DISABLE_TRACING: "1"
+        run: |
+          python3 scripts/private/openai_agent_runner.py run-review \
+            --model gpt-5.3-codex \
+            --prompt-file codex-review/out/review.prompt.md \
+            --schema-file codex-review/schemas/review.schema.json \
+            --output-file codex-review/out/review.json
       # <codex-review:suppress-end>
 
       - name: Render review summary

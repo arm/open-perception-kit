@@ -5,11 +5,6 @@
 
 set -Eeuo pipefail
 
-if ! command -v codex > /dev/null 2>&1; then
-    echo "codex CLI is required in PATH." >&2
-    exit 1
-fi
-
 base_ref="${1:-origin/main}"
 output_dir="${2:-codex-review/out}"
 
@@ -20,12 +15,13 @@ REVIEW_BASE_REF="${base_ref}" \
     REVIEW_REPOSITORY="${REVIEW_REPOSITORY:-local-checkout}" \
     ./codex-review/scripts/render-prompt.sh "${output_dir}/review.prompt.md"
 
-codex exec \
+python3 -m pip install --user -r codex-review/requirements-agent.txt
+
+python3 scripts/private/openai_agent_runner.py run-review \
     --model "${CODEX_MODEL:-gpt-5.3-codex}" \
-    --sandbox danger-full-access \
-    --output-schema "codex-review/schemas/review.schema.json" \
-    --output-last-message "${output_dir}/review.json" \
-    < "${output_dir}/review.prompt.md"
+    --prompt-file "${output_dir}/review.prompt.md" \
+    --schema-file "codex-review/schemas/review.schema.json" \
+    --output-file "${output_dir}/review.json"
 
 python3 ./codex-review/scripts/publish-review.py \
     --input "${output_dir}/review.json" \

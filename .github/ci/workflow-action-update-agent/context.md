@@ -7,27 +7,27 @@
 
 ## Hard Rules
 
-- Reuse the `main` branch `Codex Review` invocation pattern for any Codex-in-CI step: checkout, render prompt, run `openai/codex-action@v1`, then publish or consume structured output.
+- Reuse the `Codex Review` invocation pattern for any OpenAI-in-CI step: checkout, render prompt, run the shared Python OpenAI Agents SDK runner, then publish or consume structured output.
 - Keep workflow YAML orchestration-thin. Repo-specific logic belongs in `scripts/private/workflow_action_update_agent.py` behind `.github/actions/workflow-action-update-agent-helper/`.
 - Keep runtime prompt files under `.codex/workflow-action-update-agent/`; do not check generated prompt artifacts into git.
 - Keep the stabilization loop focused on review findings only. It must not rewrite unrelated workflow plumbing.
 - Prefer API polling over log scraping or annotation fetches when waiting for workflow completion.
 - Functional tests should assert behavior and contract, not implementation trivia.
 
-## Canonical Codex Call
+## Canonical OpenAI SDK Call
 
-The reference implementation is `.github/workflows/codex-review.yml` on `main`.
+The reference implementation is `.github/workflows/codex-review.yml`.
 
 - Runner: `[self-hosted, Linux, X64]`
-- Prompt preparation stays outside the action in checked-in scripts.
-- Codex invocation stays the official action call:
-  - `uses: openai/codex-action@v1`
-  - `openai-api-key: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}`
-  - `responses-api-endpoint: https://openai-api-proxy.geo.arm.com/api/providers/openai/v1/responses`
-  - `model: gpt-5.3-codex`
-  - `sandbox: danger-full-access`
-  - `safety-strategy: unsafe`
-- Do not add repair-specific `codex-home` overrides or runner-specific `sudo` preflights around that call. If the runner works for `Codex Review` on `main`, reuse that exact action shape.
+- Prompt preparation stays outside the SDK runner in checked-in scripts.
+- Agent runtime dependencies are installed from `codex-review/requirements-agent.txt`.
+- OpenAI invocation stays in `scripts/private/openai_agent_runner.py`:
+  - `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` is mapped to `OPENAI_API_KEY`
+  - `OPENAI_BASE_URL` is `https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1`
+  - `OPENAI_AGENTS_DISABLE_TRACING` is `1`
+  - `truststore.inject_into_ssl()` runs before importing `agents`, `openai`, or `httpx`
+  - `model` comes from the workflow or repair profile, defaulting to `gpt-5.3-codex`
+- Do not add repair-specific SDK home overrides or runner-specific `sudo` preflights around that call. If the runner works for `Codex Review`, reuse that exact SDK runner shape.
 - The stabilizer should copy this shape and change only the prompt/output files and the follow-up validation/commit steps.
 
 ## Discoveries
@@ -36,9 +36,10 @@ The reference implementation is `.github/workflows/codex-review.yml` on `main`.
 - `codex-review/scripts/publish-review.py` can publish a `request_changes` recommendation while the workflow run itself still concludes `success`. The stabilizer must look at structured review state, not only at workflow success/failure.
 - Waiting on Actions runs via `gh api repos/{repo}/actions/runs/{id}` is more reliable than `gh run watch` for unattended polling.
 - Fetching check-run annotations with the PAT was blocked by `HTTP 403: Resource not accessible by personal access token`; polling workflow runs avoids that permission edge.
-- Self-hosted runner behavior is not perfectly uniform. At least one runner hit a passworded `sudo` path inside the Codex action proxy hardening step, so the repair flow should keep the official action call shape and keep extra runner-specific workarounds out of the canonical review policy.
+- Self-hosted runner behavior is not perfectly uniform. Python OpenAI clients can fail corporate CA validation when they use the `certifi` bundle, so the runner injects the system trust store with `truststore` before importing OpenAI libraries.
+- Agents SDK tracing is disabled in CI unless tracing is explicitly configured for this environment; otherwise the SDK may try to send traces outside the Arm proxy path.
 - The workflow that performs a stabilization attempt needs to be separately dispatchable so the parent loop can reuse it, and maintainers can manually run it against any PR.
-- The branch under test still needs to be able to exercise the stabilizer workflow before merge. Use the current workflow ref for branch validation, but keep the Codex action shape aligned with the `main` canonical workflow.
+- The branch under test still needs to be able to exercise the stabilizer workflow before merge. Use the current workflow ref for branch validation, but keep the SDK runner shape aligned with the canonical review workflow.
 - If a stabilizer job checks out the PR head into the workspace root, any later local action lookup will resolve against the PR branch contents. Snapshot the helper bundle before the checkout and restore it under an ignored workspace path so the latest helper logic still drives the job.
 - Stabilizer follow-up commits must push with `EXPKITS_AGENT_TOKEN`, not the workflow `github.token`, otherwise the PR branch update may not retrigger the normal `pull_request` workflows.
 - Draft PRs only trigger the heavy `pek-ci` and `sonar` jobs on the initial labeled/opened path. Later `synchronize` events do not exercise the same jobs while the PR stays draft, so the repair loop needs a deterministic manual PR-context bootstrap for those standard workflows.
@@ -59,4 +60,4 @@ The reference implementation is `.github/workflows/codex-review.yml` on `main`.
 ## Token Notes
 
 - `EXPKITS_AGENT_TOKEN` needs enough scope to open/edit/merge PRs, push the repair branch, and dispatch workflows.
-- `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` is the credential used by the canonical self-hosted Codex action call.
+- `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` is the credential used by the canonical self-hosted OpenAI SDK runner.
