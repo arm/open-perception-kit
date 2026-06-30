@@ -1161,8 +1161,16 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
             self.assertEqual(result, 0)
             self.assertEqual(ensure_validation_workflow_run.call_count, 4)
+            self.assertEqual(
+                [call.kwargs["head_sha"] for call in ensure_validation_workflow_run.call_args_list],
+                ["deadbeef", "feedface", "feedface", "feedface"],
+            )
             dispatch_stabilizer_workflow.assert_called_once()
             self.assertEqual(read_pr_details.call_args_list, [mock.call("123"), mock.call("123")])
+            self.assertEqual(
+                publish_review_state_to_pr.call_args.kwargs["review_state"]["run_id"],
+                "28000000002",
+            )
             publish_review_state_to_pr.assert_called_once_with(
                 pr_number="123",
                 head_sha="feedface",

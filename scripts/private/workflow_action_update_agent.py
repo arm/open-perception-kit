@@ -1625,6 +1625,8 @@ def command_stabilize_pr(args: argparse.Namespace) -> int:
                 repair_branch = pr_details["repair_branch"] or repair_branch
                 target_branch = pr_details["target_branch"]
                 head_sha = pr_details["head_sha"]
+                # The stabilizer may have pushed a new commit. Restart the
+                # loop so that the head gets a fresh Agent Review before merge.
                 continue
 
             ensure_allowed_review_recommendation(
