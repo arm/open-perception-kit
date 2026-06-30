@@ -44,12 +44,7 @@ def filter_invalid_right_side_findings(payload: dict[str, Any], repo_root: Path)
         (float(finding.get("score", 0.0)) for finding in kept_findings if isinstance(finding, dict)),
         default=0.0,
     )
-    suffix = (
-        f" Omitted {dropped_count} unsupported finding"
-        f"{'' if dropped_count == 1 else 's'} whose RIGHT-side file anchors do not exist"
-        " in the current checkout."
-    )
-    filtered["summary"] = str(filtered.get("summary", "")).rstrip() + suffix
+    filtered["summary"] = _summary_for_filtered_findings(kept_findings, dropped_count)
     return filtered
 
 
@@ -124,3 +119,34 @@ def _recommendation_for_findings(findings: list[dict[str, Any]]) -> str:
     if findings:
         return "comment"
     return "approve"
+
+
+def _summary_for_filtered_findings(findings: list[dict[str, Any]], dropped_count: int) -> str:
+    suffix = (
+        f"Omitted {dropped_count} unsupported RIGHT-side finding"
+        f"{'' if dropped_count == 1 else 's'} whose anchors are not supported"
+        " by the current checkout."
+    )
+    if not findings:
+        return f"No supported findings remain after filtering. {suffix}"
+
+    major_count = sum(
+        1
+        for finding in findings
+        if isinstance(finding, dict) and str(finding.get("severity", "")) in {"major", "critical"}
+    )
+    note_count = sum(
+        1
+        for finding in findings
+        if isinstance(finding, dict) and str(finding.get("severity", "")) == "note"
+    )
+    if major_count:
+        return (
+            f"Review kept {len(findings)} supported finding"
+            f"{'' if len(findings) == 1 else 's'}, including {major_count} blocking finding"
+            f"{'' if major_count == 1 else 's'}. {suffix}"
+        )
+    return (
+        f"Review kept {note_count} supported non-blocking finding"
+        f"{'' if note_count == 1 else 's'}. {suffix}"
+    )

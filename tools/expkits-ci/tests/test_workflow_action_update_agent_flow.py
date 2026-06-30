@@ -521,7 +521,13 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
         self.assertEqual(filtered["overall_recommendation"], "comment")
         self.assertEqual(filtered["overall_score"], 0.32)
-        self.assertIn("Omitted 1 unsupported finding", filtered["summary"])
+        self.assertEqual(
+            filtered["summary"],
+            (
+                "Review kept 1 supported non-blocking finding. "
+                "Omitted 1 unsupported RIGHT-side finding whose anchors are not supported by the current checkout."
+            ),
+        )
         self.assertEqual([finding["title"] for finding in filtered["findings"]], ["Supported note"])
 
     def test_agent_review_output_drops_stale_contract_findings_not_supported_by_anchor(self):
@@ -558,6 +564,13 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             filtered = AGENT_REVIEW_OUTPUT.filter_invalid_right_side_findings(payload, repo_root)
 
         self.assertEqual(filtered["overall_recommendation"], "approve")
+        self.assertEqual(
+            filtered["summary"],
+            (
+                "No supported findings remain after filtering. "
+                "Omitted 1 unsupported RIGHT-side finding whose anchors are not supported by the current checkout."
+            ),
+        )
         self.assertEqual(filtered["findings"], [])
 
     def test_openai_agent_runtime_dependencies_are_pinned(self):
