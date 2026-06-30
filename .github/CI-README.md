@@ -55,6 +55,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 - Provides the shared Python OpenAI Agents SDK entrypoint for review, repair, and stabilization jobs
 - Sets the Arm OpenAI proxy base URL, maps `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` into `OPENAI_API_KEY`, disables Agents SDK tracing, and injects `truststore` before importing OpenAI libraries
+- Runs from the workflow-local `.codex/openai-agent-venv` environment so Ubuntu's externally managed system Python is left untouched
 - Writes structured Codex review JSON for `codex-review` and lets repair/stabilization agents inspect the repo, run validation commands, and apply minimal patches without owning branch or PR lifecycle operations
 
 ## What does `scripts/private/workflow_action_update_agent.py` do?

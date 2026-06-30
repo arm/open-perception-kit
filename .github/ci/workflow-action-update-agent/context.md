@@ -20,7 +20,8 @@ The reference implementation is `.github/workflows/codex-review.yml`.
 
 - Runner: `[self-hosted, Linux, X64]`
 - Prompt preparation stays outside the SDK runner in checked-in scripts.
-- Agent runtime dependencies are installed from `codex-review/requirements-agent.txt`.
+- Agent runtime dependencies are installed from `codex-review/requirements-agent.txt`
+  into `.codex/openai-agent-venv`.
 - OpenAI invocation stays in `scripts/private/openai_agent_runner.py`:
   - `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` is mapped to `OPENAI_API_KEY`
   - `OPENAI_BASE_URL` is `https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1`

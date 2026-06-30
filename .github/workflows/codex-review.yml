@@ -47,7 +47,10 @@ jobs:
 
       - name: Install OpenAI agent runtime
         shell: bash
-        run: python3 -m pip install --user -r codex-review/requirements-agent.txt
+        run: |
+          python3 -m venv .codex/openai-agent-venv
+          .codex/openai-agent-venv/bin/python -m pip install --upgrade pip
+          .codex/openai-agent-venv/bin/python -m pip install -r codex-review/requirements-agent.txt
 
       # <codex-review:suppress-begin> Intentional current self-hosted OpenAI
       # review trust boundary for same-repo pull requests.
@@ -60,7 +63,7 @@ jobs:
           OPENAI_BASE_URL: https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1
           OPENAI_AGENTS_DISABLE_TRACING: "1"
         run: |
-          python3 scripts/private/openai_agent_runner.py run-review \
+          .codex/openai-agent-venv/bin/python scripts/private/openai_agent_runner.py run-review \
             --model gpt-5.3-codex \
             --prompt-file codex-review/out/review.prompt.md \
             --schema-file codex-review/schemas/review.schema.json \

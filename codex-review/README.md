@@ -12,9 +12,9 @@ publishes:
   can safely consume the latest Codex review result for the current PR head
 
 The workflow-scoped OpenAI agent runtime pins live in
-`codex-review/requirements-agent.txt`. The runner uses the Arm OpenAI proxy,
-disables Agents SDK tracing, and injects `truststore` before importing OpenAI
-libraries.
+`codex-review/requirements-agent.txt` and are installed into
+`.codex/openai-agent-venv`. The runner uses the Arm OpenAI proxy, disables
+Agents SDK tracing, and injects `truststore` before importing OpenAI libraries.
 
 Structure:
 

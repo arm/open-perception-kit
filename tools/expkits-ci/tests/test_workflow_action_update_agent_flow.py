@@ -159,11 +159,16 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         install_step = codex_steps["Install OpenAI agent runtime"]
         self.assertEqual(
             install_step["run"],
-            "python3 -m pip install --user -r codex-review/requirements-agent.txt",
+            "python3 -m venv .codex/openai-agent-venv\n"
+            ".codex/openai-agent-venv/bin/python -m pip install --upgrade pip\n"
+            ".codex/openai-agent-venv/bin/python -m pip install -r codex-review/requirements-agent.txt\n",
         )
         codex_step = codex_steps["Run OpenAI SDK repair agent"]
         self.assertEqual(codex_step["shell"], "bash")
-        self.assertIn("openai_agent_runner.py run-repair", codex_step["run"])
+        self.assertIn(
+            ".codex/openai-agent-venv/bin/python scripts/private/openai_agent_runner.py run-repair",
+            codex_step["run"],
+        )
         self.assertIn("--prompt-file .codex/workflow-action-update-agent/goal.md", codex_step["run"])
         self.assertIn("--model \"${{ needs.prepare.outputs.codex_model }}\"", codex_step["run"])
         self.assertEqual(
@@ -323,11 +328,16 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         install_step = review_steps["Install OpenAI agent runtime"]
         self.assertEqual(
             install_step["run"],
-            "python3 -m pip install --user -r codex-review/requirements-agent.txt",
+            "python3 -m venv .codex/openai-agent-venv\n"
+            ".codex/openai-agent-venv/bin/python -m pip install --upgrade pip\n"
+            ".codex/openai-agent-venv/bin/python -m pip install -r codex-review/requirements-agent.txt\n",
         )
         codex_step = review_steps["Run OpenAI SDK review"]
         self.assertEqual(codex_step["shell"], "bash")
-        self.assertIn("openai_agent_runner.py run-review", codex_step["run"])
+        self.assertIn(
+            ".codex/openai-agent-venv/bin/python scripts/private/openai_agent_runner.py run-review",
+            codex_step["run"],
+        )
         self.assertIn("--schema-file codex-review/schemas/review.schema.json", codex_step["run"])
         self.assertIn("--output-file codex-review/out/review.json", codex_step["run"])
         self.assertEqual(
@@ -397,10 +407,13 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_local_review_runner_uses_shared_sdk_script(self):
         content = CODEX_REVIEW_RUN_SCRIPT.read_text(encoding="utf-8")
 
-        self.assertIn("python3 -m pip install --user -r codex-review/requirements-agent.txt", content)
-        self.assertIn("scripts/private/openai_agent_runner.py run-review", content)
+        self.assertIn('agent_venv="${CODEX_REVIEW_AGENT_VENV:-.codex/openai-agent-venv}"', content)
+        self.assertIn('python3 -m venv "${agent_venv}"', content)
+        self.assertIn('"${agent_venv}/bin/python" -m pip install -r codex-review/requirements-agent.txt', content)
+        self.assertIn('"${agent_venv}/bin/python" scripts/private/openai_agent_runner.py run-review', content)
         self.assertIn("--schema-file \"codex-review/schemas/review.schema.json\"", content)
         self.assertNotIn("command -v codex", content)
+        self.assertNotIn("pip install --user", content)
 
     def test_standard_validation_workflows_accept_manual_pr_context(self):
         pek_ci = load_yaml(PEK_CI_WORKFLOW_FILE)
@@ -453,11 +466,18 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         install_step = steps["Install OpenAI agent runtime"]
         self.assertEqual(
             install_step["run"],
-            "python3 -m pip install --user -r .workflow-action-update-agent-helper/codex-review/requirements-agent.txt",
+            "python3 -m venv .codex/openai-agent-venv\n"
+            ".codex/openai-agent-venv/bin/python -m pip install --upgrade pip\n"
+            ".codex/openai-agent-venv/bin/python -m pip install -r "
+            ".workflow-action-update-agent-helper/codex-review/requirements-agent.txt\n",
         )
         codex_step = steps["Run OpenAI SDK stabilization agent"]
         self.assertEqual(codex_step["shell"], "bash")
-        self.assertIn("openai_agent_runner.py run-stabilization", codex_step["run"])
+        self.assertIn(
+            ".codex/openai-agent-venv/bin/python "
+            ".workflow-action-update-agent-helper/scripts/private/openai_agent_runner.py run-stabilization",
+            codex_step["run"],
+        )
         self.assertIn("--prompt-file \"${{ inputs.context_root }}/stabilize-goal.md\"", codex_step["run"])
         self.assertEqual(
             codex_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],

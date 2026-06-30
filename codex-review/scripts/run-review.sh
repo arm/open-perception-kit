@@ -15,9 +15,13 @@ REVIEW_BASE_REF="${base_ref}" \
     REVIEW_REPOSITORY="${REVIEW_REPOSITORY:-local-checkout}" \
     ./codex-review/scripts/render-prompt.sh "${output_dir}/review.prompt.md"
 
-python3 -m pip install --user -r codex-review/requirements-agent.txt
+agent_venv="${CODEX_REVIEW_AGENT_VENV:-.codex/openai-agent-venv}"
 
-python3 scripts/private/openai_agent_runner.py run-review \
+python3 -m venv "${agent_venv}"
+"${agent_venv}/bin/python" -m pip install --upgrade pip
+"${agent_venv}/bin/python" -m pip install -r codex-review/requirements-agent.txt
+
+"${agent_venv}/bin/python" scripts/private/openai_agent_runner.py run-review \
     --model "${CODEX_MODEL:-gpt-5.3-codex}" \
     --prompt-file "${output_dir}/review.prompt.md" \
     --schema-file "codex-review/schemas/review.schema.json" \

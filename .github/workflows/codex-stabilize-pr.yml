@@ -163,7 +163,10 @@ jobs:
       - name: Install OpenAI agent runtime
         if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
         shell: bash
-        run: python3 -m pip install --user -r .workflow-action-update-agent-helper/codex-review/requirements-agent.txt
+        run: |
+          python3 -m venv .codex/openai-agent-venv
+          .codex/openai-agent-venv/bin/python -m pip install --upgrade pip
+          .codex/openai-agent-venv/bin/python -m pip install -r .workflow-action-update-agent-helper/codex-review/requirements-agent.txt
 
       - name: Run OpenAI SDK stabilization agent
         if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
@@ -174,7 +177,7 @@ jobs:
           OPENAI_BASE_URL: https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1
           OPENAI_AGENTS_DISABLE_TRACING: "1"
         run: |
-          python3 .workflow-action-update-agent-helper/scripts/private/openai_agent_runner.py run-stabilization \
+          .codex/openai-agent-venv/bin/python .workflow-action-update-agent-helper/scripts/private/openai_agent_runner.py run-stabilization \
             --model "${{ steps.context.outputs.codex_model }}" \
             --prompt-file "${{ inputs.context_root }}/stabilize-goal.md" \
             --output-file "${{ runner.temp }}/workflow-action-update-agent-stabilize-output.md"
