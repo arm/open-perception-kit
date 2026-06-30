@@ -409,6 +409,14 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         content = CODEX_REVIEW_RUN_SCRIPT.read_text(encoding="utf-8")
 
         self.assertIn('agent_venv="${CODEX_REVIEW_AGENT_VENV:-.codex/openai-agent-venv}"', content)
+        self.assertIn(
+            'export OPENAI_API_KEY="${OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS}"',
+            content,
+        )
+        self.assertIn(
+            "OpenAI SDK review requires OPENAI_API_KEY or OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS.",
+            content,
+        )
         self.assertIn('python3 -m venv "${agent_venv}"', content)
         self.assertIn('"${agent_venv}/bin/python" -m pip install -r codex-review/requirements-agent.txt', content)
         self.assertIn('"${agent_venv}/bin/python" scripts/private/openai_agent_runner.py run-review', content)

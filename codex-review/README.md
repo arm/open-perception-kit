@@ -15,6 +15,8 @@ The workflow-scoped OpenAI agent runtime pins live in
 `codex-review/requirements-agent.txt` and are installed into
 `.codex/openai-agent-venv`. The runner uses the Arm OpenAI proxy, disables
 Agents SDK tracing, and injects `truststore` before importing OpenAI libraries.
+Local runs use the same SDK path and require either `OPENAI_API_KEY` or
+`OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS`; Codex CLI login state is not reused.
 
 Structure:
 
