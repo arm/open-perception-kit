@@ -470,10 +470,14 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             ],
         )
         snapshot_step = steps["Snapshot workflow helper bundle"]
-        self.assertIn('cp -R scripts/private/. "${bundle_root}/scripts/private"', snapshot_step["run"])
-        self.assertIn('cp -R codex-review/. "${bundle_root}/codex-review"', snapshot_step["run"])
-        self.assertNotIn("cp scripts/private/openai_agent_runner.py", snapshot_step["run"])
-        self.assertNotIn("cp codex-review/requirements-agent.txt", snapshot_step["run"])
+        self.assertIn("cp scripts/private/openai_agent_runner.py", snapshot_step["run"])
+        self.assertIn("cp codex-review/requirements-agent.txt", snapshot_step["run"])
+        self.assertIn('cp -R codex-review/prompts/. "${bundle_root}/codex-review/prompts"', snapshot_step["run"])
+        self.assertIn('cp -R codex-review/schemas/. "${bundle_root}/codex-review/schemas"', snapshot_step["run"])
+        self.assertIn('cp -R codex-review/scripts/. "${bundle_root}/codex-review/scripts"', snapshot_step["run"])
+        self.assertNotIn('cp -R codex-review/. "${bundle_root}/codex-review"', snapshot_step["run"])
+        self.assertNotIn("codex-review/out", snapshot_step["run"])
+        self.assertNotIn('cp -R scripts/private/. "${bundle_root}/scripts/private"', snapshot_step["run"])
         install_step = steps["Install OpenAI agent runtime"]
         self.assertEqual(
             install_step["run"],

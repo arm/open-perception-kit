@@ -106,13 +106,22 @@ jobs:
           bundle_root="${RUNNER_TEMP}/workflow-action-update-agent-helper"
           rm -rf "${bundle_root}"
           mkdir -p \
-            "${bundle_root}/codex-review" \
+            "${bundle_root}/codex-review/prompts" \
+            "${bundle_root}/codex-review/schemas" \
+            "${bundle_root}/codex-review/scripts" \
             "${bundle_root}/.github/actions/workflow-action-update-agent-helper" \
             "${bundle_root}/scripts/private"
           cp .github/actions/workflow-action-update-agent-helper/action.yml \
             "${bundle_root}/.github/actions/workflow-action-update-agent-helper/action.yml"
-          cp -R scripts/private/. "${bundle_root}/scripts/private"
-          cp -R codex-review/. "${bundle_root}/codex-review"
+          cp scripts/private/workflow_action_update_agent.py \
+            "${bundle_root}/scripts/private/workflow_action_update_agent.py"
+          cp scripts/private/openai_agent_runner.py \
+            "${bundle_root}/scripts/private/openai_agent_runner.py"
+          cp codex-review/requirements-agent.txt \
+            "${bundle_root}/codex-review/requirements-agent.txt"
+          cp -R codex-review/prompts/. "${bundle_root}/codex-review/prompts"
+          cp -R codex-review/schemas/. "${bundle_root}/codex-review/schemas"
+          cp -R codex-review/scripts/. "${bundle_root}/codex-review/scripts"
 
       - name: Resolve PR details
         id: pr
