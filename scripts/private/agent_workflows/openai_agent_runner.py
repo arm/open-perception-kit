@@ -36,14 +36,19 @@ from review_output import filter_invalid_right_side_findings
 
 MAX_TOOL_OUTPUT_CHARS = 24000
 MAX_LIST_FILES = 400
-FORBIDDEN_GIT_SUBCOMMANDS = {
-    "commit",
-    "push",
-    "reset",
-    # Checkout and switch mutate the active worktree even with --detach.
-    # Agents can inspect refs safely with git diff, git show, git log, or git ls-tree.
-    "checkout",
-    "switch",
+READ_ONLY_GIT_SUBCOMMANDS = {
+    "cat-file",
+    "diff",
+    "grep",
+    "log",
+    "ls-tree",
+    "merge-base",
+    "rev-parse",
+    "show",
+    "status",
+}
+FORBIDDEN_GIT_OPTIONS = {
+    "--output",
 }
 FORBIDDEN_GH_SUBCOMMANDS = {
     "pr",
@@ -170,14 +175,34 @@ def find_subcommand(words: list[str], binary: str) -> str | None:
     return None
 
 
+def has_forbidden_git_option(words: list[str]) -> bool:
+    return any(
+        word == option or word.startswith(f"{option}=")
+        for word in words
+        for option in FORBIDDEN_GIT_OPTIONS
+    )
+
+
+def is_allowed_git_command(words: list[str]) -> bool:
+    git_subcommand = find_subcommand(words, "git")
+    if git_subcommand is None:
+        return True
+    if has_forbidden_git_option(words):
+        return False
+    if git_subcommand == "apply":
+        return "--check" in words
+    return git_subcommand in READ_ONLY_GIT_SUBCOMMANDS
+
+
 def reject_unsafe_shell_command(command: str) -> None:
     for words in split_shell_commands(command):
         words = [word.lower() for word in words]
         git_subcommand = find_subcommand(words, "git")
-        if git_subcommand in FORBIDDEN_GIT_SUBCOMMANDS:
+        if git_subcommand is not None and not is_allowed_git_command(words):
             raise ValueError(
                 f"Command is intentionally blocked for this agent step: git {git_subcommand}. "
-                "Leave branch, commit, push, and PR lifecycle actions to the surrounding workflow."
+                "Use read-only git commands from the shell tool and leave repository mutation "
+                "to the patch tool or surrounding workflow."
             )
         gh_subcommand = find_subcommand(words, "gh")
         if gh_subcommand in FORBIDDEN_GH_SUBCOMMANDS:

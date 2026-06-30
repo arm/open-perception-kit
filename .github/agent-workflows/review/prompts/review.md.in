@@ -1,8 +1,8 @@
 Review for real bugs, regressions, risky behavior changes, and missing validation that are supported by the changed code.
 Use the checked-out repository and git directly during the review.
-Prefer complete coverage of concrete issues over minimal reporting.
-When in doubt between omitting a concrete supported issue and reporting it, prefer reporting it.
-Do not suppress lower-severity findings when they are directly supported by the changed code, configuration, or documentation.
+Prefer complete coverage of concrete, verified issues over minimal reporting.
+When evidence is incomplete, inspect more; if the claim remains unsupported or contradicted by the current checkout, omit it.
+Do not suppress lower-severity findings when they are directly supported by the changed code, configuration, or documentation and not contradicted by current evidence.
 If the same change introduces multiple distinct concrete risks, report each one separately instead of collapsing them into a single broad summary.
 
 Treat the review scope as the union of:
@@ -51,6 +51,6 @@ Scoring and output requirements:
 - When `suggestion` is present, provide only the replacement code snippet without
   markdown fences or explanation text.
 - Keep `summary` and each finding `body` concise but complete.
-- Be generous in reporting distinct supported findings; under-reporting is worse than returning a longer but still concrete finding list.
+- Be complete when reporting distinct supported findings, but prefer omission over unsupported or contradicted findings.
 - Honor checked-in suppression markers of the form `<agent-review:suppress> <reason>` for local cases and `<agent-review:suppress-begin> <reason>` ... `<agent-review:suppress-end>` for multi-line blocks.
 - When a finding falls entirely within such a marked line or block and is otherwise valid, downgrade that exact issue to `note` instead of escalating it, but still report broader regressions, trust-boundary problems, or materially different risks around it at their supported severity.

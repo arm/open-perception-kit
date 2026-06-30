@@ -33,6 +33,7 @@ WORKFLOW_AUDIT_REPORT_SCRIPT = REPO_ROOT / "scripts/private/workflow_audit_repor
 AGENT_REVIEW_FETCH_SCRIPT = REPO_ROOT / ".github/agent-workflows/review/scripts/fetch-review-state.py"
 AGENT_REVIEW_PUBLISH_SCRIPT = REPO_ROOT / ".github/agent-workflows/review/scripts/publish-review.py"
 AGENT_REVIEW_RUN_SCRIPT = REPO_ROOT / ".github/agent-workflows/review/scripts/run-review.sh"
+AGENT_REVIEW_PROMPT_TEMPLATE = REPO_ROOT / ".github/agent-workflows/review/prompts/review.md.in"
 AGENT_REQUIREMENTS_FILE = REPO_ROOT / ".github/agent-workflows/runtime/requirements-openai-agents.txt"
 AGENT_MODEL_CONFIG_FILE = REPO_ROOT / ".github/agent-workflows/runtime/agent-models.json"
 OPENAI_AGENT_RUNNER_SCRIPT = REPO_ROOT / "scripts/private/agent_workflows/openai_agent_runner.py"
@@ -532,9 +533,12 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("resolve_runner_model", source)
         self.assertIn("--agent-instance", source)
         self.assertIn("--model-config-file", source)
-        self.assertIn('"checkout"', source)
-        self.assertIn('"switch"', source)
-        self.assertIn("git diff, git show, git log, or git ls-tree", source)
+        self.assertIn("READ_ONLY_GIT_SUBCOMMANDS", source)
+        self.assertIn("FORBIDDEN_GIT_OPTIONS", source)
+        self.assertIn("def is_allowed_git_command", source)
+        self.assertIn("def has_forbidden_git_option", source)
+        self.assertIn('"apply"', source)
+        self.assertIn('["git", "apply", "--whitespace=nowarn"]', source)
         self.assertIn("filter_invalid_right_side_findings", source)
 
     def test_openai_agent_runner_executes_simple_commands_without_shell_expansion(self):
@@ -551,11 +555,36 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         runner = load_openai_agent_runner_with_fake_sdk()
 
         runner.reject_unsafe_shell_command('echo "git push" && git diff --check')
-        runner.reject_unsafe_shell_command("git apply --check /tmp/example.patch")
+        for command in (
+            "git diff --check",
+            "git show HEAD",
+            "git log --oneline -1",
+            "git status --short",
+            "git ls-tree HEAD",
+            "git grep agent-review",
+            "git rev-parse HEAD",
+            "git merge-base HEAD origin/main",
+            "git cat-file -t HEAD",
+            "git apply --check /tmp/example.patch",
+        ):
+            runner.reject_unsafe_shell_command(command)
         with self.assertRaisesRegex(ValueError, "git push"):
             runner.reject_unsafe_shell_command('echo ok && git push')
         with self.assertRaisesRegex(ValueError, "Unsupported shell syntax"):
             runner.reject_unsafe_shell_command("echo ok | git push")
+        for command in (
+            "git apply /tmp/example.patch",
+            "git add -A",
+            "git clean -fd",
+            "git branch -D stale-branch",
+            "git remote set-url origin https://example.invalid/repo.git",
+            "git restore .",
+            "git tag -d v0.0.0",
+            "git config alias.publish push",
+            "git diff --output=/tmp/diff.patch",
+        ):
+            with self.assertRaisesRegex(ValueError, "Command is intentionally blocked"):
+                runner.reject_unsafe_shell_command(command)
 
     def test_openai_agent_runner_validates_review_schema_file_argument(self):
         runner = load_openai_agent_runner_with_fake_sdk()
@@ -772,6 +801,16 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("--schema-file \".github/agent-workflows/review/schemas/review.schema.json\"", content)
         self.assertNotIn("command -v codex", content)
         self.assertNotIn("pip install --user", content)
+
+    def test_agent_review_prompt_omits_unsupported_or_contradicted_claims(self):
+        content = AGENT_REVIEW_PROMPT_TEMPLATE.read_text(encoding="utf-8")
+
+        self.assertIn("Prefer complete coverage of concrete, verified issues", content)
+        self.assertIn("unsupported or contradicted by the current checkout, omit it", content)
+        self.assertIn("prefer omission over unsupported or contradicted findings", content)
+        self.assertIn("<agent-review:suppress>", content)
+        self.assertIn("<agent-review:suppress-begin>", content)
+        self.assertNotIn("under-reporting is worse", content)
 
     def test_standard_validation_workflows_accept_manual_pr_context(self):
         pek_ci = load_yaml(PEK_CI_WORKFLOW_FILE)
