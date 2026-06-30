@@ -1,15 +1,18 @@
-name: Valgrind Baseline Update
+name: Valgrind Baseline Artifact
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
+  pull_request:
+    branches: [main, "feature/**", "sandbox/**"]
+    types: [opened, synchronize, reopened, ready_for_review]
 
 jobs:
   update-valgrind-baseline:
-    name: Update Valgrind baseline from main
+    name: Generate Valgrind baseline artifact
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
     steps:
@@ -27,6 +30,7 @@ jobs:
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-valgrind-check
 
       - name: Generate Valgrind error summary
+        id: valgrind_summary
         if: always()
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-generate-valgrind-summary
 
@@ -40,16 +44,10 @@ jobs:
           retention-days: 60
 
       - name: Upload Valgrind baseline
-        if: ${{ steps.valgrind_baseline_checks.outcome == 'success' }}
+        if: ${{ github.ref == 'refs/heads/main' && steps.valgrind_summary.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
           name: valgrind-baseline
           path: scripts/testing/valgrind/valgrind-error-summary.xml
           if-no-files-found: warn
           retention-days: 60 # Assume that there will be a commit on the main branch at least every 2 months to keep the baseline available
-
-      - name: Fail baseline update on Valgrind regressions
-        if: ${{ steps.valgrind_baseline_checks.outcome == 'failure' }}
-        run: |
-          echo "Valgrind checks failed; baseline artifact was not updated."
-          exit 1

@@ -10,6 +10,7 @@ Usage:
 
 import argparse
 import logging
+import re
 import xml.etree.ElementTree as ET
 from copy import deepcopy
 from pathlib import Path
@@ -17,6 +18,25 @@ from pathlib import Path
 
 LOGGER = logging.getLogger(__name__)
 VALGRIND_XML_GLOB = "*.valgrind.*.xml"
+HEX_ADDRESS_RE = re.compile(r"0x[0-9a-fA-F]+")
+LOSS_RECORD_RE = re.compile(r"loss record [0-9,]+ of [0-9,]+")
+VOLATILE_TEXT_BY_TAG = {
+    "ip": "0xADDR",
+    "tid": "THREAD",
+}
+STABLE_HEX_TEXT_TAGS = {
+    "unique",
+}
+FINGERPRINT_IGNORED_TAGS = {
+    "ip",
+    "tid",
+    "unique",
+}
+FRAME_SYMBOL_TAGS = {
+    "fn",
+    "file",
+    "line",
+}
 
 
 def iter_xml_files(logs_dir: Path) -> list[Path]:
@@ -24,14 +44,96 @@ def iter_xml_files(logs_dir: Path) -> list[Path]:
     return sorted(path for path in logs_dir.rglob(VALGRIND_XML_GLOB) if path.is_file())
 
 
+def normalize_text(tag: str, text: str | None) -> str | None:
+    """Return text with volatile Valgrind values replaced by stable markers."""
+    if text is None:
+        return None
+
+    stripped = text.strip()
+    if not stripped:
+        return text
+
+    if tag in VOLATILE_TEXT_BY_TAG:
+        return VOLATILE_TEXT_BY_TAG[tag]
+    if tag in STABLE_HEX_TEXT_TAGS:
+        return stripped
+
+    normalized = LOSS_RECORD_RE.sub("loss record N of N", stripped)
+    return HEX_ADDRESS_RE.sub("0xADDR", normalized)
+
+
+def normalize_error(error: ET.Element) -> ET.Element:
+    """Return a copy of a Valgrind error with volatile fields normalized."""
+    normalized = deepcopy(error)
+
+    for element in normalized.iter():
+        element.text = normalize_text(element.tag, element.text)
+        element.tail = normalize_text(element.tag, element.tail)
+        for name, value in element.attrib.items():
+            element.attrib[name] = HEX_ADDRESS_RE.sub("0xADDR", value)
+
+    for source_frame, normalized_frame in zip(error.iter("frame"), normalized.iter("frame")):
+        if frame_has_symbol(source_frame):
+            continue
+
+        source_ip = source_frame.findtext("ip")
+        normalized_ip = normalized_frame.find("ip")
+        if source_ip is not None and normalized_ip is not None:
+            normalized_ip.text = source_ip.strip()
+
+    return normalized
+
+
+def frame_has_symbol(frame: ET.Element) -> bool:
+    """Return whether a Valgrind stack frame has stable symbol metadata."""
+    return any(frame.find(tag) is not None for tag in FRAME_SYMBOL_TAGS)
+
+
+def element_fingerprint(element: ET.Element) -> tuple:
+    """Return a stable identity tuple for a Valgrind XML element."""
+    children = [
+        element_fingerprint(child)
+        for child in element
+        if child.tag not in FINGERPRINT_IGNORED_TAGS
+    ]
+    if element.tag == "frame" and not frame_has_symbol(element):
+        ip = element.findtext("ip")
+        if ip is not None:
+            children.append(("ip", (), ip.strip(), ()))
+
+    attributes = tuple(sorted(element.attrib.items()))
+    text = "" if element.text is None else normalize_text(element.tag, element.text).strip()
+    return (element.tag, attributes, text, tuple(children))
+
+
+def require_complete_valgrind_xml(root: ET.Element, xml_path: Path) -> None:
+    """Raise if a Valgrind XML log is not a completed Valgrind run."""
+    if root.tag != "valgrindoutput":
+        raise ValueError(f"unexpected Valgrind XML root in {xml_path}: {root.tag!r}")
+
+    status_states = [
+        state.text.strip()
+        for state in root.findall("./status/state")
+        if state.text is not None and state.text.strip()
+    ]
+    if not status_states:
+        raise ValueError(f"incomplete Valgrind XML in {xml_path}: no status states found")
+    if status_states[-1] != "FINISHED":
+        raise ValueError(
+            f"incomplete Valgrind XML in {xml_path}: final status is {status_states[-1]!r}"
+        )
+
+
 def collect_errors(logs_dir: Path, output: Path) -> ET.Element:
-    """Collect all Valgrind <error> elements from XML logs."""
+    """Collect unique normalized Valgrind <error> elements from XML logs."""
     root = ET.Element("valgrindoutput")
 
     xml_files = [path for path in iter_xml_files(logs_dir) if path.resolve() != output.resolve()]
 
     total_logs = 0
     total_errors = 0
+    duplicate_errors = 0
+    seen_errors = set()
 
     for xml_path in xml_files:
         try:
@@ -42,17 +144,26 @@ def collect_errors(logs_dir: Path, output: Path) -> ET.Element:
             raise ValueError(f"malformed XML in {xml_path}: {exc}") from exc
 
         source_root = tree.getroot()
+        require_complete_valgrind_xml(source_root, xml_path)
+        total_logs += 1
         errors = list(source_root.findall(".//error"))
         if not errors and source_root.tag != "error":
             continue
 
-        total_logs += 1
         for error in errors or [source_root]:
-            root.append(deepcopy(error))
             total_errors += 1
+            fingerprint = element_fingerprint(error)
+            if fingerprint in seen_errors:
+                duplicate_errors += 1
+                continue
+
+            seen_errors.add(fingerprint)
+            root.append(normalize_error(error))
 
     root.set("source_logs", str(total_logs))
-    root.set("collected_errors", str(total_errors))
+    root.set("raw_errors", str(total_errors))
+    root.set("duplicate_errors", str(duplicate_errors))
+    root.set("collected_errors", str(len(root)))
     return root
 
 
