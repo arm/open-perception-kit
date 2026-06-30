@@ -199,7 +199,6 @@ jobs:
           .agent-workflows/openai-agent-venv/bin/python .workflow-action-update-agent-helper/scripts/private/agent_workflows/openai_agent_runner.py run-stabilization \
             --agent-instance stabilization \
             --model-config-file .workflow-action-update-agent-helper/.github/agent-workflows/runtime/agent-models.json \
-            --model "${{ steps.context.outputs.agent_model }}" \
             --prompt-file "${{ inputs.context_root }}/stabilize-goal.md" \
             --output-file "${{ runner.temp }}/workflow-action-update-agent-stabilize-output.md"
 

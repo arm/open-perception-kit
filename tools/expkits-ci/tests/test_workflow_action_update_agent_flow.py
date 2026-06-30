@@ -222,7 +222,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("--prompt-file .agent-workflows/workflow-action-update-agent/goal.md", agent_step["run"])
         self.assertIn("--agent-instance repair", agent_step["run"])
         self.assertIn("--model-config-file .github/agent-workflows/runtime/agent-models.json", agent_step["run"])
-        self.assertIn("--model \"${{ needs.prepare.outputs.agent_model }}\"", agent_step["run"])
+        self.assertNotIn("--model \"${{ needs.prepare.outputs.agent_model }}\"", agent_step["run"])
         self.assertEqual(
             agent_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],
             "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
@@ -850,7 +850,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "--model-config-file .workflow-action-update-agent-helper/.github/agent-workflows/runtime/agent-models.json",
             agent_step["run"],
         )
-        self.assertIn("--model \"${{ steps.context.outputs.agent_model }}\"", agent_step["run"])
+        self.assertNotIn("--model \"${{ steps.context.outputs.agent_model }}\"", agent_step["run"])
         self.assertEqual(
             agent_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],
             "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
