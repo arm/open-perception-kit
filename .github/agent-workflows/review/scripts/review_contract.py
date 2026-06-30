@@ -44,7 +44,8 @@ RECOMMENDATION_COLORS = {
 }
 GITHUB_REVIEW_EVENTS = {
     ReviewRecommendation.APPROVE.value: "APPROVE",
-    # Non-blocking Agent comments should land as accepted-with-comments in PR UI.
+    # <agent-review:suppress> Non-blocking Agent comments intentionally land as
+    # accepted-with-comments in PR UI instead of leaving a pending review state.
     ReviewRecommendation.COMMENT.value: "APPROVE",
     ReviewRecommendation.REQUEST_CHANGES.value: "REQUEST_CHANGES",
 }

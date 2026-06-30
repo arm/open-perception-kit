@@ -790,7 +790,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "resolve-pr-details",
         )
         self.assertEqual(snapshot_step["shell"], "bash")
-        self.assertEqual(steps["Restore workflow helper bundle"]["shell"], "bash")
+        restore_step = steps["Restore workflow helper bundle"]
+        self.assertEqual(restore_step["shell"], "bash")
+        self.assertIn('mkdir -p "${helper_root}"', restore_step["run"])
+        self.assertIn('cp -R "${bundle_root}/." "${helper_root}"', restore_step["run"])
         self.assertEqual(
             steps["Prepare stabilization context"]["with"]["command"],
             "prepare-stabilization-context",

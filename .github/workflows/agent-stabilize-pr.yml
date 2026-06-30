@@ -159,7 +159,8 @@ jobs:
             printf '/%s/\n' "${helper_root}" >> .git/info/exclude
           fi
           rm -rf "${helper_root}"
-          cp -R "${bundle_root}" "${helper_root}"
+          mkdir -p "${helper_root}"
+          cp -R "${bundle_root}/." "${helper_root}"
 
       - name: Prepare stabilization context
         id: context
