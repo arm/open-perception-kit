@@ -173,7 +173,7 @@ jobs:
           GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
         with:
           command: prepare-stabilization-context
-          profile-path: ${{ inputs.profile_path }}
+          profile-path: .workflow-action-update-agent-helper/${{ inputs.profile_path }}
           pr-number: ${{ inputs.pr_number }}
           head-sha: ${{ inputs.head_sha || steps.pr.outputs.head_sha }}
           source-run-id: ${{ inputs.source_run_id }}
@@ -207,7 +207,7 @@ jobs:
         uses: ./.workflow-action-update-agent-helper/.github/actions/workflow-action-update-agent-helper
         with:
           command: run-validation
-          profile-path: ${{ inputs.profile_path }}
+          profile-path: .workflow-action-update-agent-helper/${{ inputs.profile_path }}
 
       - if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
         name: Commit stabilization fix

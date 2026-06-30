@@ -295,6 +295,12 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             workspace_helper.resolve_repo_path(".github/agent-workflows/workflow-repair/profiles/profile.json"),
             Path(temp_dir).resolve() / ".github/agent-workflows/workflow-repair/profiles/profile.json",
         )
+        self.assertEqual(
+            workspace_helper.profile_config_root(
+                ".workflow-action-update-agent-helper/.github/agent-workflows/workflow-repair/profiles/profile.json",
+            ),
+            Path(temp_dir).resolve() / ".workflow-action-update-agent-helper",
+        )
 
     def test_download_github_archive_follows_redirect_location(self):
         redirect_error = urllib.error.HTTPError(
@@ -886,12 +892,20 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "prepare-stabilization-context",
         )
         self.assertEqual(
+            steps["Prepare stabilization context"]["with"]["profile-path"],
+            ".workflow-action-update-agent-helper/${{ inputs.profile_path }}",
+        )
+        self.assertEqual(
             steps["Prepare stabilization context"]["uses"],
             "./.workflow-action-update-agent-helper/.github/actions/workflow-action-update-agent-helper",
         )
         self.assertEqual(
             steps["Run stabilization validation"]["with"]["command"],
             "run-validation",
+        )
+        self.assertEqual(
+            steps["Run stabilization validation"]["with"]["profile-path"],
+            ".workflow-action-update-agent-helper/${{ inputs.profile_path }}",
         )
         self.assertEqual(
             steps["Run stabilization validation"]["uses"],

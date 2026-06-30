@@ -34,10 +34,11 @@ from agent_workflows.model_config import resolve_agent_model  # noqa: E402
 
 TICKET_RE = re.compile(r"^[A-Z][A-Z0-9]*-[0-9]+$")
 GITHUB_WORKSPACE = os.environ.get("GITHUB_WORKSPACE", "").strip()
-REPO_ROOT = Path(GITHUB_WORKSPACE).resolve() if GITHUB_WORKSPACE else Path(__file__).resolve().parents[2]
-DEFAULT_PROFILE_PATH = REPO_ROOT / ".github/agent-workflows/workflow-repair/profiles/profile.json"
+HELPER_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(GITHUB_WORKSPACE).resolve() if GITHUB_WORKSPACE else HELPER_ROOT
+DEFAULT_PROFILE_PATH = HELPER_ROOT / ".github/agent-workflows/workflow-repair/profiles/profile.json"
 PR_TEMPLATE_PATH = REPO_ROOT / ".github/PULL_REQUEST_TEMPLATE.md"
-MARKDOWN_TEMPLATE_ROOT = REPO_ROOT / ".github/agent-workflows/workflow-repair/prompts"
+MARKDOWN_TEMPLATE_ROOT = HELPER_ROOT / ".github/agent-workflows/workflow-repair/prompts"
 PR_AUTOMATION_START = "<!-- workflow-action-update-agent:automation:start -->"
 PR_AUTOMATION_END = "<!-- workflow-action-update-agent:automation:end -->"
 PR_DESCRIPTION_START = "<!-- workflow-action-update-agent:description:start -->"
@@ -182,12 +183,33 @@ def resolve_repo_path(path_value: str) -> Path:
     return (REPO_ROOT / path).resolve()
 
 
+def default_profile_path_argument() -> str:
+    try:
+        return str(DEFAULT_PROFILE_PATH.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(DEFAULT_PROFILE_PATH)
+
+
+def profile_config_root(profile_path: str) -> Path:
+    path = resolve_repo_path(profile_path or default_profile_path_argument())
+    try:
+        relative_parts = path.relative_to(REPO_ROOT).parts
+    except ValueError:
+        return path.parent
+
+    marker_parts = Path(".github/agent-workflows/workflow-repair/profiles").parts
+    for index in range(0, len(relative_parts) - len(marker_parts) + 1):
+        if relative_parts[index:index + len(marker_parts)] == marker_parts:
+            return REPO_ROOT.joinpath(*relative_parts[:index]).resolve()
+    return REPO_ROOT
+
+
 def load_json_file(path: Path) -> object:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
 def load_profile(profile_path: str = "") -> dict[str, object]:
-    path = resolve_repo_path(profile_path or str(DEFAULT_PROFILE_PATH.relative_to(REPO_ROOT)))
+    path = resolve_repo_path(profile_path or default_profile_path_argument())
     if not path.is_file():
         raise ValueError(f"Workflow action update agent profile is missing: {path}")
 
@@ -236,9 +258,12 @@ def profile_string(profile: dict[str, object], key: str) -> str:
     return value
 
 
-def profile_agent_model(profile: dict[str, object], agent_instance: AgentInstance) -> str:
+def profile_agent_model(profile: dict[str, object], agent_instance: AgentInstance, profile_path: str = "") -> str:
+    model_config_path = Path(profile_string(profile, "agent_model_config"))
+    if not model_config_path.is_absolute():
+        model_config_path = profile_config_root(profile_path) / model_config_path
     return resolve_agent_model(
-        resolve_repo_path(profile_string(profile, "agent_model_config")),
+        model_config_path,
         agent_instance,
     )
 
@@ -967,7 +992,7 @@ def command_resolve_inputs(args: argparse.Namespace) -> int:
             "target_branch": target_branch,
             "ticket_id": ticket_id,
             "repair_branch": repair_branch,
-            "agent_model": profile_agent_model(profile, AgentInstance.REPAIR),
+            "agent_model": profile_agent_model(profile, AgentInstance.REPAIR, args.profile_path),
         },
         args.github_output,
     )
@@ -1547,7 +1572,7 @@ def command_prepare_stabilization_context(args: argparse.Namespace) -> int:
             "target_branch": pr_details["target_branch"],
             "review_recommendation": recommendation,
             "review_run_id": str(review_state.get("run_id") or "").strip(),
-            "agent_model": profile_agent_model(profile, AgentInstance.STABILIZATION),
+            "agent_model": profile_agent_model(profile, AgentInstance.STABILIZATION, args.profile_path),
         },
         args.github_output,
     )
@@ -1721,7 +1746,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     resolve_inputs = subparsers.add_parser("resolve-inputs")
-    resolve_inputs.add_argument("--profile-path", default=str(DEFAULT_PROFILE_PATH.relative_to(REPO_ROOT)))
+    resolve_inputs.add_argument("--profile-path", default=default_profile_path_argument())
     resolve_inputs.add_argument("--source-run-id", default="")
     resolve_inputs.add_argument("--target-branch", default="")
     resolve_inputs.add_argument("--ticket-id", required=True)
@@ -1737,7 +1762,7 @@ def build_parser() -> argparse.ArgumentParser:
     collect_context.set_defaults(func=command_collect_context)
 
     build_markdown = subparsers.add_parser("build-markdown")
-    build_markdown.add_argument("--profile-path", default=str(DEFAULT_PROFILE_PATH.relative_to(REPO_ROOT)))
+    build_markdown.add_argument("--profile-path", default=default_profile_path_argument())
     build_markdown.add_argument("--context-root", default=".agent-workflows/workflow-action-update-agent")
     build_markdown.add_argument("--source-run-id", required=True)
     build_markdown.add_argument("--source-run-url", required=True)
@@ -1758,7 +1783,7 @@ def build_parser() -> argparse.ArgumentParser:
     require_generated_patch.set_defaults(func=command_require_generated_patch)
 
     apply_patch_and_push = subparsers.add_parser("apply-patch-and-push")
-    apply_patch_and_push.add_argument("--profile-path", default=str(DEFAULT_PROFILE_PATH.relative_to(REPO_ROOT)))
+    apply_patch_and_push.add_argument("--profile-path", default=default_profile_path_argument())
     apply_patch_and_push.add_argument("--patch-root", required=True)
     apply_patch_and_push.add_argument("--repair-branch", required=True)
     apply_patch_and_push.add_argument("--source-run-id", required=True)
@@ -1773,7 +1798,7 @@ def build_parser() -> argparse.ArgumentParser:
     apply_patch_and_push.set_defaults(func=command_apply_patch_and_push)
 
     create_draft_pr = subparsers.add_parser("create-draft-pr")
-    create_draft_pr.add_argument("--profile-path", default=str(DEFAULT_PROFILE_PATH.relative_to(REPO_ROOT)))
+    create_draft_pr.add_argument("--profile-path", default=default_profile_path_argument())
     create_draft_pr.add_argument("--body-file", required=True)
     create_draft_pr.add_argument("--pr-title-file", required=True)
     create_draft_pr.add_argument("--target-branch", required=True)
@@ -1793,7 +1818,7 @@ def build_parser() -> argparse.ArgumentParser:
     prepare_stabilization_context = subparsers.add_parser("prepare-stabilization-context")
     prepare_stabilization_context.add_argument(
         "--profile-path",
-        default=str(DEFAULT_PROFILE_PATH.relative_to(REPO_ROOT)),
+        default=default_profile_path_argument(),
     )
     prepare_stabilization_context.add_argument("--pr-number", required=True)
     prepare_stabilization_context.add_argument("--head-sha", default="")
@@ -1806,7 +1831,7 @@ def build_parser() -> argparse.ArgumentParser:
     prepare_stabilization_context.set_defaults(func=command_prepare_stabilization_context)
 
     run_validation = subparsers.add_parser("run-validation")
-    run_validation.add_argument("--profile-path", default=str(DEFAULT_PROFILE_PATH.relative_to(REPO_ROOT)))
+    run_validation.add_argument("--profile-path", default=default_profile_path_argument())
     run_validation.set_defaults(func=command_run_validation)
 
     commit_review_fix_parser = subparsers.add_parser("commit-review-fix")
@@ -1818,7 +1843,7 @@ def build_parser() -> argparse.ArgumentParser:
     commit_review_fix_parser.set_defaults(func=command_commit_review_fix)
 
     stabilize_pr = subparsers.add_parser("stabilize-pr")
-    stabilize_pr.add_argument("--profile-path", default=str(DEFAULT_PROFILE_PATH.relative_to(REPO_ROOT)))
+    stabilize_pr.add_argument("--profile-path", default=default_profile_path_argument())
     stabilize_pr.add_argument("--pr-number", required=True)
     stabilize_pr.add_argument("--repair-branch", required=True)
     stabilize_pr.add_argument("--head-sha", required=True)
@@ -1828,7 +1853,7 @@ def build_parser() -> argparse.ArgumentParser:
     stabilize_pr.set_defaults(func=command_stabilize_pr)
 
     wait_for_workflows = subparsers.add_parser("wait-for-pr-workflows")
-    wait_for_workflows.add_argument("--profile-path", default=str(DEFAULT_PROFILE_PATH.relative_to(REPO_ROOT)))
+    wait_for_workflows.add_argument("--profile-path", default=default_profile_path_argument())
     wait_for_workflows.add_argument("--pr-number", required=True)
     wait_for_workflows.add_argument("--repair-branch", required=True)
     wait_for_workflows.add_argument("--head-sha", required=True)
