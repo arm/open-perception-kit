@@ -1252,6 +1252,12 @@ def wait_for_review_state(
         recommendation = str(review_state.get("overall_recommendation") or "").strip().lower()
         repository = os.environ.get("GITHUB_REPOSITORY", "")
 
+        if observed_run_id == expected_run_id and observed_head_sha == head_sha and recommendation:
+            print(
+                f"Observed {workflow_name} recommendation {recommendation} from run {observed_run_id} for PR #{pr_number}"
+            )
+            return review_state
+
         if repository:
             artifact_state = read_review_artifact_state(
                 repository=repository,
@@ -1272,11 +1278,6 @@ def wait_for_review_state(
         if observed_head_sha != head_sha:
             time.sleep(15)
             continue
-        if recommendation:
-            print(
-                f"Observed {workflow_name} recommendation {recommendation} from run {observed_run_id} for PR #{pr_number}"
-            )
-            return review_state
 
         time.sleep(15)
 

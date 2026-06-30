@@ -112,8 +112,16 @@ def load_openai_agent_runner_with_fake_sdk():
         function_tool=lambda function: function,
     )
     fake_truststore = types.SimpleNamespace(inject_into_ssl=lambda: None)
+    fake_pydantic = types.SimpleNamespace(
+        BaseModel=object,
+        ConfigDict=lambda **_kwargs: {},
+        Field=lambda *args, **_kwargs: args[0] if args else None,
+    )
     module_path = str(OPENAI_AGENT_RUNNER_SCRIPT.parent)
-    with mock.patch.dict(sys.modules, {"agents": fake_agents, "truststore": fake_truststore}):
+    with mock.patch.dict(
+        sys.modules,
+        {"agents": fake_agents, "truststore": fake_truststore, "pydantic": fake_pydantic},
+    ):
         sys.path.insert(0, module_path)
         try:
             return load_python_module(OPENAI_AGENT_RUNNER_SCRIPT, "openai_agent_runner_fake_sdk")
@@ -1193,22 +1201,28 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(stabilize_job["with"]["head_sha"], "${{ github.event.inputs.stabilize_head_sha || '' }}")
 
     def test_wait_for_review_state_returns_observed_recommendation(self):
-        with mock.patch.object(
-            HELPER,
-            "read_review_state",
-            return_value={
-                "run_id": "28000000001",
-                "head_sha": "deadbeef",
-                "overall_recommendation": "comment",
-            },
-        ):
-            review_state = HELPER.wait_for_review_state(
-                pr_number="123",
-                workflow_name="Agent Review",
-                review_state_script=".github/agent-workflows/review/scripts/fetch-review-state.py",
-                expected_run_id="28000000001",
-                head_sha="deadbeef",
-            )
+        with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
+            with mock.patch.object(
+                HELPER,
+                "read_review_state",
+                return_value={
+                    "run_id": "28000000001",
+                    "head_sha": "deadbeef",
+                    "overall_recommendation": "comment",
+                },
+            ):
+                with mock.patch.object(
+                    HELPER,
+                    "read_review_artifact_state",
+                    side_effect=AssertionError("artifact fallback should not run when comment state is fresh"),
+                ):
+                    review_state = HELPER.wait_for_review_state(
+                        pr_number="123",
+                        workflow_name="Agent Review",
+                        review_state_script=".github/agent-workflows/review/scripts/fetch-review-state.py",
+                        expected_run_id="28000000001",
+                        head_sha="deadbeef",
+                    )
         self.assertEqual(review_state["overall_recommendation"], "comment")
 
     def test_wait_for_review_state_falls_back_to_review_artifact(self):
