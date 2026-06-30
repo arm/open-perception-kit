@@ -1025,6 +1025,11 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             profile["agent_model_config"],
             ".github/agent-workflows/runtime/agent-models.json",
         )
+        self.assertEqual(HELPER.profile_config_root(str(PROFILE_FILE)), REPO_ROOT)
+        self.assertEqual(
+            HELPER.profile_agent_model(profile, HELPER.AgentInstance.REPAIR, str(PROFILE_FILE)),
+            "gpt-5.5",
+        )
 
     def test_profile_drives_markdown_context_files_and_validation_commands(self):
         profile = HELPER.load_profile(str(PROFILE_FILE))
