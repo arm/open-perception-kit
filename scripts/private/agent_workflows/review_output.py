@@ -17,6 +17,15 @@ REMOVED_REVIEW_CONTRACT_TOKENS = (
     "openai/codex-action@v1",
     "codex exec",
 )
+KNOWN_AVAILABLE_ACTION_REFS = (
+    "actions/checkout@v6",
+    "actions/upload-artifact@v6",
+)
+ACTION_UNAVAILABLE_CLAIM_MARKERS = (
+    "currently published major version",
+    "non-existent",
+    "unable to resolve action",
+)
 
 
 def filter_invalid_right_side_findings(payload: dict[str, Any], repo_root: Path) -> dict[str, Any]:
@@ -79,7 +88,7 @@ def _has_invalid_right_side_anchor(finding: dict[str, Any], repo_root: Path) -> 
     return any(
         token in finding_text and token not in anchor_text
         for token in REMOVED_REVIEW_CONTRACT_TOKENS
-    )
+    ) or _claims_known_available_action_ref_is_missing(finding_text)
 
 
 def _resolve_repo_path(repo_root: Path, path_value: str) -> Path:
@@ -95,6 +104,13 @@ def _finding_text(finding: dict[str, Any]) -> str:
     return "\n".join(
         str(finding.get(field) or "")
         for field in ("title", "body", "suggestion")
+    )
+
+
+def _claims_known_available_action_ref_is_missing(finding_text: str) -> bool:
+    normalized = finding_text.lower()
+    return any(action_ref in normalized for action_ref in KNOWN_AVAILABLE_ACTION_REFS) and any(
+        marker in normalized for marker in ACTION_UNAVAILABLE_CLAIM_MARKERS
     )
 
 

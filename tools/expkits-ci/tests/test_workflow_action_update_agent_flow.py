@@ -573,6 +573,39 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         self.assertEqual(filtered["findings"], [])
 
+    def test_agent_review_output_drops_known_available_action_ref_claims(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            workflow_path = repo_root / ".github/workflows/agent-review.yml"
+            workflow_path.parent.mkdir(parents=True)
+            workflow_path.write_text("uses: actions/checkout@v6\n", encoding="utf-8")
+
+            payload = {
+                "summary": "Reviewed workflow changes.",
+                "overall_recommendation": "request_changes",
+                "overall_score": 0.9,
+                "overall_confidence": 0.96,
+                "findings": [
+                    {
+                        "title": "Checkout action is non-existent",
+                        "severity": "major",
+                        "score": 0.9,
+                        "confidence": 0.96,
+                        "path": ".github/workflows/agent-review.yml",
+                        "diff_side": "RIGHT",
+                        "start_line": 1,
+                        "end_line": 1,
+                        "body": "The currently published major version is v4; actions/checkout@v6 is non-existent.",
+                        "suggestion": "uses: actions/checkout@v4",
+                    },
+                ],
+            }
+
+            filtered = AGENT_REVIEW_OUTPUT.filter_invalid_right_side_findings(payload, repo_root)
+
+        self.assertEqual(filtered["overall_recommendation"], "approve")
+        self.assertEqual(filtered["findings"], [])
+
     def test_openai_agent_runtime_dependencies_are_pinned(self):
         requirements = AGENT_REQUIREMENTS_FILE.read_text(encoding="utf-8").splitlines()
 
