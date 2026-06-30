@@ -13,10 +13,10 @@ import urllib.request
 from pathlib import Path
 
 
-MARKER = "<!-- codex-review-comment -->"
-INLINE_MARKER = "<!-- codex-review-inline -->"
-INLINE_STATE_MARKER = "<!-- codex-review-inline-state "
-STATE_MARKER = "<!-- codex-review-state "
+MARKER = "<!-- agent-review-comment -->"
+INLINE_MARKER = "<!-- agent-review-inline -->"
+INLINE_STATE_MARKER = "<!-- agent-review-inline-state "
+STATE_MARKER = "<!-- agent-review-state "
 DEFAULT_AUTHOR_LOGINS = {"github-actions", "github-actions[bot]"}
 
 EMPTY_STATE = {
@@ -44,7 +44,7 @@ def github_api_request(url: str, token: str) -> str:
         headers={
             "Accept": "application/vnd.github+json",
             "Authorization": f"Bearer {token}",
-            "User-Agent": "amp-dev-forge-codex-review",
+            "User-Agent": "amp-dev-forge-agent-review",
             "X-GitHub-Api-Version": "2022-11-28",
         },
     )
@@ -83,7 +83,7 @@ def list_pull_comments(repository: str, pr_number: str, token: str):
 
 
 def allowed_author_logins():
-    configured = os.environ.get("CODEX_REVIEW_AUTHOR_LOGINS", "")
+    configured = os.environ.get("AGENT_REVIEW_AUTHOR_LOGINS", "")
     logins = {entry.strip() for entry in configured.split(",") if entry.strip()}
     return logins | DEFAULT_AUTHOR_LOGINS if logins else set(DEFAULT_AUTHOR_LOGINS)
 
@@ -100,7 +100,7 @@ def extract_state_metadata(body: str):
                 return json.loads(payload)
             except json.JSONDecodeError:
                 print(
-                    "Ignoring malformed Codex review state marker JSON.",
+                    "Ignoring malformed Agent review state marker JSON.",
                     file=sys.stderr,
                 )
     return dict(EMPTY_STATE)
@@ -115,7 +115,7 @@ def extract_inline_metadata(body: str):
                 return json.loads(decoded_payload)
             except (ValueError, UnicodeDecodeError, json.JSONDecodeError):
                 print(
-                    "Ignoring malformed Codex inline state marker JSON.",
+                    "Ignoring malformed Agent inline state marker JSON.",
                     file=sys.stderr,
                 )
     return None
@@ -140,7 +140,7 @@ def extract_findings(comments, run_id: str, author_logins):
         ]
         if missing_fields:
             print(
-                "Ignoring Codex inline comment with incomplete state metadata: "
+                "Ignoring Agent inline comment with incomplete state metadata: "
                 + ", ".join(missing_fields),
                 file=sys.stderr,
             )
@@ -193,7 +193,7 @@ def main():
         issue_comments = list_issue_comments(repository, pr_number, token)
     except (urllib.error.HTTPError, urllib.error.URLError) as exc:
         print(
-            f"Failed to fetch existing Codex summary comments; proceeding with empty state: {exc}",
+            f"Failed to fetch existing Agent summary comments; proceeding with empty state: {exc}",
             file=sys.stderr,
         )
         output_path.write_text(json.dumps(EMPTY_STATE, indent=2), encoding="utf-8")
@@ -219,7 +219,7 @@ def main():
         pull_comments = list_pull_comments(repository, pr_number, token)
     except (urllib.error.HTTPError, urllib.error.URLError) as exc:
         print(
-            f"Failed to fetch existing Codex inline comments; proceeding without prior findings: {exc}",
+            f"Failed to fetch existing Agent inline comments; proceeding without prior findings: {exc}",
             file=sys.stderr,
         )
         output_path.write_text(json.dumps(state, indent=2), encoding="utf-8")

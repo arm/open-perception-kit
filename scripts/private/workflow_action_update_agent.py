@@ -27,9 +27,9 @@ from pathlib import Path
 TICKET_RE = re.compile(r"^[A-Z][A-Z0-9]*-[0-9]+$")
 GITHUB_WORKSPACE = os.environ.get("GITHUB_WORKSPACE", "").strip()
 REPO_ROOT = Path(GITHUB_WORKSPACE).resolve() if GITHUB_WORKSPACE else Path(__file__).resolve().parents[2]
-DEFAULT_PROFILE_PATH = REPO_ROOT / ".github/ci/workflow-action-update-agent/profile.json"
+DEFAULT_PROFILE_PATH = REPO_ROOT / ".github/agent-workflows/workflow-repair/profiles/profile.json"
 PR_TEMPLATE_PATH = REPO_ROOT / ".github/PULL_REQUEST_TEMPLATE.md"
-MARKDOWN_TEMPLATE_ROOT = REPO_ROOT / ".github/ci/workflow-action-update-agent"
+MARKDOWN_TEMPLATE_ROOT = REPO_ROOT / ".github/agent-workflows/workflow-repair/prompts"
 PR_AUTOMATION_START = "<!-- workflow-action-update-agent:automation:start -->"
 PR_AUTOMATION_END = "<!-- workflow-action-update-agent:automation:end -->"
 PR_DESCRIPTION_START = "<!-- workflow-action-update-agent:description:start -->"
@@ -37,10 +37,23 @@ PR_DESCRIPTION_END = "<!-- workflow-action-update-agent:description:end -->"
 DISPLAY_NAME_TOKEN = "{{DISPLAY_NAME}}"
 PROMPT_CONTEXT_FILES_TOKEN = "{{PROMPT_CONTEXT_FILES}}"
 VALIDATION_COMMANDS_TOKEN = "{{VALIDATION_COMMANDS}}"
+CONTEXT_ROOT_TOKEN = "{{CONTEXT_ROOT}}"
+PR_NUMBER_TOKEN = "{{PR_NUMBER}}"
+REPAIR_BRANCH_TOKEN = "{{REPAIR_BRANCH}}"
+REVIEW_RECOMMENDATION_TOKEN = "{{REVIEW_RECOMMENDATION}}"
+REVIEW_RUN_ID_TOKEN = "{{REVIEW_RUN_ID}}"
+REVIEW_STATE_JSON_TOKEN = "{{REVIEW_STATE_JSON}}"
+REVIEW_SUMMARY_TOKEN = "{{REVIEW_SUMMARY}}"
+REVIEW_WORKFLOW_NAME_TOKEN = "{{REVIEW_WORKFLOW_NAME}}"
+SOURCE_RUN_ID_TOKEN = "{{SOURCE_RUN_ID}}"
+SOURCE_RUN_URL_TOKEN = "{{SOURCE_RUN_URL}}"
+SOURCE_WORKFLOW_NAME_TOKEN = "{{SOURCE_WORKFLOW_NAME}}"
+TARGET_BRANCH_TOKEN = "{{TARGET_BRANCH}}"
+TICKET_ID_TOKEN = "{{TICKET_ID}}"
 WAIT_TIMEOUT_SECONDS = 1800
 STABILIZATION_MAX_ATTEMPTS = 5
-STABILIZER_WORKFLOW_FILE = "codex-stabilize-pr.yml"
-STABILIZER_WORKFLOW_NAME = "Codex Stabilize PR"
+STABILIZER_WORKFLOW_FILE = "agent-stabilize-pr.yml"
+STABILIZER_WORKFLOW_NAME = "Agent Stabilize PR"
 PULL_REQUEST_RUN_GRACE_SECONDS = 60
 
 
@@ -184,6 +197,7 @@ def load_profile(profile_path: str = "") -> dict[str, object]:
         "commit_subject_template",
         "commit_notes_template",
         "pr_description_template",
+        "agent_model",
     )
     required_list_keys = (
         "prompt_context_files",
@@ -602,7 +616,7 @@ def read_review_artifact_state(*, repository: str, run_id: str, head_sha: str) -
         for artifact in artifacts:
             if not isinstance(artifact, dict):
                 continue
-            if str(artifact.get("name") or "") != "codex-review-out":
+            if str(artifact.get("name") or "") != "agent-review-out":
                 continue
             if bool(artifact.get("expired")):
                 continue
@@ -612,7 +626,7 @@ def read_review_artifact_state(*, repository: str, run_id: str, head_sha: str) -
         if not archive_url:
             return dict()
 
-        zip_path = Path(temp_dir) / "codex-review-out.zip"
+        zip_path = Path(temp_dir) / "agent-review-out.zip"
         zip_path.write_bytes(download_github_archive(archive_url))
         artifact_root = Path(temp_dir) / "artifact"
         artifact_root.mkdir(parents=True, exist_ok=True)
@@ -829,6 +843,7 @@ def dispatch_stabilizer_workflow(
 def build_markdown_documents(
     *,
     profile: dict[str, object],
+    context_root: Path,
     source_run_id: str,
     source_run_url: str,
     source_workflow_name: str,
@@ -843,32 +858,26 @@ def build_markdown_documents(
 
     return {
         "file-inventory.md": file_inventory,
-        "failure-context.md": f"""
-            # Failure Context
-
-            - Source workflow: {source_workflow_name}
-            - Source run ID: {source_run_id}
-            - Source run URL: {source_run_url}
-            - Repair target branch: {target_branch}
-            - Planned repair branch: {repair_branch}
-            - Ticket ID: {ticket_id}
-
-            Primary evidence files:
-
-            - `.codex/workflow-action-update-agent/source-run.json`
-            - `.codex/workflow-action-update-agent/source-run.log`
-            - `.codex/workflow-action-update-agent/file-inventory.md`
-
-            Downloaded artifacts, if any, are under `.codex/workflow-action-update-agent/artifacts/`.
-        """,
+        "failure-context.md": render_markdown_template(
+            "failure-context.md.in",
+            {
+                CONTEXT_ROOT_TOKEN: context_root.as_posix(),
+                REPAIR_BRANCH_TOKEN: repair_branch,
+                SOURCE_RUN_ID_TOKEN: source_run_id,
+                SOURCE_RUN_URL_TOKEN: source_run_url,
+                SOURCE_WORKFLOW_NAME_TOKEN: source_workflow_name,
+                TARGET_BRANCH_TOKEN: target_branch,
+                TICKET_ID_TOKEN: ticket_id,
+            },
+        ),
         "ponytail-review.md": load_markdown_template("ponytail-review.md"),
         "constraints.md": load_markdown_template("constraints.md"),
         "validation.md": render_markdown_template(
-            "validation.md",
+            "validation.md.in",
             {VALIDATION_COMMANDS_TOKEN: validation_commands},
         ),
         "goal.md": render_markdown_template(
-            "goal.md",
+            "repair-goal.md.in",
             {
                 DISPLAY_NAME_TOKEN: profile_string(profile, "display_name"),
                 PROMPT_CONTEXT_FILES_TOKEN: prompt_context_files,
@@ -943,7 +952,7 @@ def command_resolve_inputs(args: argparse.Namespace) -> int:
             "target_branch": target_branch,
             "ticket_id": ticket_id,
             "repair_branch": repair_branch,
-            "codex_model": profile_optional_string(profile, "codex_model"),
+            "agent_model": profile_string(profile, "agent_model"),
         },
         args.github_output,
     )
@@ -1022,6 +1031,7 @@ def command_build_markdown(args: argparse.Namespace) -> int:
 
     documents = build_markdown_documents(
         profile=profile,
+        context_root=context_root,
         source_run_id=args.source_run_id,
         source_run_url=args.source_run_url,
         source_workflow_name=args.source_workflow_name,
@@ -1061,7 +1071,7 @@ def command_package_patch(args: argparse.Namespace) -> int:
 
 
 def command_require_generated_patch(args: argparse.Namespace) -> int:
-    print(f"Codex did not produce repository changes for source run {args.source_run_id}.", file=sys.stderr)
+    print(f"Agent did not produce repository changes for source run {args.source_run_id}.", file=sys.stderr)
     return 1
 
 
@@ -1264,15 +1274,15 @@ def publish_review_state_to_pr(
     head_sha: str,
     review_state: dict[str, object],
 ) -> None:
-    script_path = resolve_repo_path("codex-review/scripts/publish-review.py")
+    script_path = resolve_repo_path(".github/agent-workflows/review/scripts/publish-review.py")
     if not script_path.is_file():
-        raise ValueError(f"Codex review publish script is missing: {script_path}")
+        raise ValueError(f"Agent review publish script is missing: {script_path}")
 
     env = dict(os.environ)
     if not env.get("GITHUB_TOKEN"):
         env["GITHUB_TOKEN"] = env.get("GH_TOKEN", "")
     if not env.get("GITHUB_TOKEN"):
-        raise RuntimeError("GITHUB_TOKEN or GH_TOKEN is required to publish Codex review state.")
+        raise RuntimeError("GITHUB_TOKEN or GH_TOKEN is required to publish Agent review state.")
     env["GITHUB_PR_NUMBER"] = pr_number
     env["GITHUB_HEAD_SHA"] = head_sha
     env["GITHUB_RUN_ID"] = str(review_state.get("run_id") or "")
@@ -1338,6 +1348,7 @@ def split_validation_workflows(
 def build_stabilize_prompt(
     *,
     profile: dict[str, object],
+    context_root: Path,
     pr_number: str,
     repair_branch: str,
     source_run_id: str,
@@ -1351,49 +1362,23 @@ def build_stabilize_prompt(
     validation_commands = render_bullet_list(profile_string_list(profile, "validation_commands"))
     review_state_json = json.dumps(review_state, indent=2, sort_keys=True)
 
-    return textwrap.dedent(
-        f"""
-        # {profile_string(profile, "display_name")} Stabilization
-
-        Goal: address the latest standard Codex Review findings on PR #{pr_number} and leave the current repair branch with only the minimal repository changes needed to turn the review into `approve`.
-
-        Read these first:
-        - `.github/ci/workflow-action-update-agent/context.md`
-        - `.github/ci/workflow-action-update-agent/ponytail-review.md`
-        - `.github/ci/workflow-action-update-agent/constraints.md`
-        - `.github/PULL_REQUEST_TEMPLATE.md`
-        - `.github/workflows/codex-review.yml`
-
-        Relevant repo context files:
-        {prompt_context_files}
-
-        Then inspect `.codex/workflow-action-update-agent/review-state.json`.
-
-        Context:
-        - Source run ID: {source_run_id}
-        - PR number: {pr_number}
-        - Repair branch: {repair_branch}
-        - Review workflow: {workflow_name}
-        - Review run ID: {review_run_id}
-        - Review recommendation: {review_recommendation}
-        - Review summary: {review_summary}
-
-        Validation commands that will run after your edits:
-        {validation_commands}
-
-        Review state JSON:
-
-        ```json
-        {review_state_json}
-        ```
-
-        Instructions:
-        - Fix only the issues needed to turn the latest standard Codex Review into `approve`.
-        - Keep the diff minimal and focused on the review findings.
-        - Do not create commits, branches, pull requests, or change unrelated workflow plumbing.
-        - If the review findings are insufficient for a safe fix, leave the tree unchanged and explain exactly why in your final message.
-        """
-    ).strip() + "\n"
+    return render_markdown_template(
+        "stabilize-goal.md.in",
+        {
+            CONTEXT_ROOT_TOKEN: context_root.as_posix(),
+            DISPLAY_NAME_TOKEN: profile_string(profile, "display_name"),
+            PR_NUMBER_TOKEN: pr_number,
+            PROMPT_CONTEXT_FILES_TOKEN: prompt_context_files,
+            REPAIR_BRANCH_TOKEN: repair_branch,
+            REVIEW_RECOMMENDATION_TOKEN: review_recommendation,
+            REVIEW_RUN_ID_TOKEN: review_run_id,
+            REVIEW_STATE_JSON_TOKEN: review_state_json,
+            REVIEW_SUMMARY_TOKEN: review_summary,
+            REVIEW_WORKFLOW_NAME_TOKEN: workflow_name,
+            SOURCE_RUN_ID_TOKEN: source_run_id,
+            VALIDATION_COMMANDS_TOKEN: validation_commands,
+        },
+    )
 
 
 def write_stabilization_context(
@@ -1461,14 +1446,14 @@ def commit_review_fix(
         "git",
         "commit",
         "-m",
-        f"[bot] Address Codex Review findings on PR #{pr_number}",
+        f"[bot] Address Agent Review findings on PR #{pr_number}",
         "-m",
         f"Task: {ticket_id}",
     ]
 
     review_run_id = str(review_state.get("run_id") or "").strip()
     if review_run_id:
-        commit_command.extend(["-m", f"Codex Review run: {review_run_id}"])
+        commit_command.extend(["-m", f"Agent Review run: {review_run_id}"])
 
     review_summary = str(review_state.get("summary") or "").strip()
     if review_summary:
@@ -1531,6 +1516,7 @@ def command_prepare_stabilization_context(args: argparse.Namespace) -> int:
         review_state=review_state,
         prompt_text=build_stabilize_prompt(
             profile=profile,
+            context_root=context_root,
             pr_number=args.pr_number,
             repair_branch=repair_branch,
             source_run_id=args.source_run_id,
@@ -1545,7 +1531,7 @@ def command_prepare_stabilization_context(args: argparse.Namespace) -> int:
             "target_branch": pr_details["target_branch"],
             "review_recommendation": recommendation,
             "review_run_id": str(review_state.get("run_id") or "").strip(),
-            "codex_model": profile_optional_string(profile, "codex_model"),
+            "agent_model": profile_string(profile, "agent_model"),
         },
         args.github_output,
     )
@@ -1569,7 +1555,7 @@ def command_commit_review_fix(args: argparse.Namespace) -> int:
     )
     if not head_sha:
         raise RuntimeError(
-            f"Codex produced no repository changes for PR #{args.pr_number} during stabilization.",
+            f"Agent produced no repository changes for PR #{args.pr_number} during stabilization.",
         )
     write_outputs({"head_sha": head_sha}, args.github_output)
     return 0
@@ -1726,7 +1712,7 @@ def build_parser() -> argparse.ArgumentParser:
     resolve_inputs.set_defaults(func=command_resolve_inputs)
 
     collect_context = subparsers.add_parser("collect-context")
-    collect_context.add_argument("--context-root", default=".codex/workflow-action-update-agent")
+    collect_context.add_argument("--context-root", default=".agent-workflows/workflow-action-update-agent")
     collect_context.add_argument("--source-run-id", required=True)
     collect_context.add_argument("--source-run-url", required=True)
     collect_context.add_argument("--source-workflow-name", required=True)
@@ -1734,7 +1720,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     build_markdown = subparsers.add_parser("build-markdown")
     build_markdown.add_argument("--profile-path", default=str(DEFAULT_PROFILE_PATH.relative_to(REPO_ROOT)))
-    build_markdown.add_argument("--context-root", default=".codex/workflow-action-update-agent")
+    build_markdown.add_argument("--context-root", default=".agent-workflows/workflow-action-update-agent")
     build_markdown.add_argument("--source-run-id", required=True)
     build_markdown.add_argument("--source-run-url", required=True)
     build_markdown.add_argument("--source-workflow-name", required=True)
@@ -1787,11 +1773,17 @@ def build_parser() -> argparse.ArgumentParser:
     resolve_pr_details.set_defaults(func=command_resolve_pr_details)
 
     prepare_stabilization_context = subparsers.add_parser("prepare-stabilization-context")
-    prepare_stabilization_context.add_argument("--profile-path", default=str(DEFAULT_PROFILE_PATH.relative_to(REPO_ROOT)))
+    prepare_stabilization_context.add_argument(
+        "--profile-path",
+        default=str(DEFAULT_PROFILE_PATH.relative_to(REPO_ROOT)),
+    )
     prepare_stabilization_context.add_argument("--pr-number", required=True)
     prepare_stabilization_context.add_argument("--head-sha", default="")
     prepare_stabilization_context.add_argument("--source-run-id", default="")
-    prepare_stabilization_context.add_argument("--context-root", default=".codex/workflow-action-update-agent")
+    prepare_stabilization_context.add_argument(
+        "--context-root",
+        default=".agent-workflows/workflow-action-update-agent",
+    )
     prepare_stabilization_context.add_argument("--github-output", default=os.environ.get("GITHUB_OUTPUT", ""))
     prepare_stabilization_context.set_defaults(func=command_prepare_stabilization_context)
 
@@ -1800,7 +1792,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_validation.set_defaults(func=command_run_validation)
 
     commit_review_fix_parser = subparsers.add_parser("commit-review-fix")
-    commit_review_fix_parser.add_argument("--context-root", default=".codex/workflow-action-update-agent")
+    commit_review_fix_parser.add_argument("--context-root", default=".agent-workflows/workflow-action-update-agent")
     commit_review_fix_parser.add_argument("--pr-number", required=True)
     commit_review_fix_parser.add_argument("--repair-branch", required=True)
     commit_review_fix_parser.add_argument("--ticket-id", required=True)
@@ -1814,7 +1806,7 @@ def build_parser() -> argparse.ArgumentParser:
     stabilize_pr.add_argument("--head-sha", required=True)
     stabilize_pr.add_argument("--ticket-id", required=True)
     stabilize_pr.add_argument("--source-run-id", required=True)
-    stabilize_pr.add_argument("--context-root", default=".codex/workflow-action-update-agent")
+    stabilize_pr.add_argument("--context-root", default=".agent-workflows/workflow-action-update-agent")
     stabilize_pr.set_defaults(func=command_stabilize_pr)
 
     wait_for_workflows = subparsers.add_parser("wait-for-pr-workflows")

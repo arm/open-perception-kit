@@ -1,5 +1,5 @@
-name: Codex Stabilize PR
-run-name: Codex stabilize PR #${{ inputs.pr_number }} ${{ inputs.dispatch_nonce || github.run_id }}
+name: Agent Stabilize PR
+run-name: Agent stabilize PR #${{ inputs.pr_number }} ${{ inputs.dispatch_nonce || github.run_id }}
 
 on:
   workflow_call:
@@ -26,12 +26,12 @@ on:
       profile_path:
         description: Repair profile JSON path relative to the repository root.
         required: false
-        default: .github/ci/workflow-action-update-agent/profile.json
+        default: .github/agent-workflows/workflow-repair/profiles/profile.json
         type: string
       context_root:
         description: Context root where runtime markdown and artifacts live.
         required: false
-        default: .codex/workflow-action-update-agent
+        default: .agent-workflows/workflow-action-update-agent
         type: string
       dispatch_nonce:
         description: Optional unique nonce for dispatch correlation.
@@ -67,12 +67,12 @@ on:
       profile_path:
         description: Repair profile JSON path relative to the repository root.
         required: false
-        default: .github/ci/workflow-action-update-agent/profile.json
+        default: .github/agent-workflows/workflow-repair/profiles/profile.json
         type: string
       context_root:
         description: Context root where runtime markdown and artifacts live.
         required: false
-        default: .codex/workflow-action-update-agent
+        default: .agent-workflows/workflow-action-update-agent
         type: string
       dispatch_nonce:
         description: Optional unique nonce for dispatch correlation.
@@ -83,7 +83,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: codex-stabilize-pr-${{ inputs.pr_number }}
+  group: agent-stabilize-pr-${{ inputs.pr_number }}
   cancel-in-progress: false
 
 jobs:
@@ -106,22 +106,27 @@ jobs:
           bundle_root="${RUNNER_TEMP}/workflow-action-update-agent-helper"
           rm -rf "${bundle_root}"
           mkdir -p \
-            "${bundle_root}/codex-review/prompts" \
-            "${bundle_root}/codex-review/schemas" \
-            "${bundle_root}/codex-review/scripts" \
+            "${bundle_root}/.github/agent-workflows/runtime" \
+            "${bundle_root}/.github/agent-workflows/review/prompts" \
+            "${bundle_root}/.github/agent-workflows/review/schemas" \
+            "${bundle_root}/.github/agent-workflows/review/scripts" \
+            "${bundle_root}/.github/agent-workflows/workflow-repair/prompts" \
+            "${bundle_root}/.github/agent-workflows/workflow-repair/profiles" \
             "${bundle_root}/.github/actions/workflow-action-update-agent-helper" \
-            "${bundle_root}/scripts/private"
+            "${bundle_root}/scripts/private/agent_workflows"
           cp .github/actions/workflow-action-update-agent-helper/action.yml \
             "${bundle_root}/.github/actions/workflow-action-update-agent-helper/action.yml"
           cp scripts/private/workflow_action_update_agent.py \
             "${bundle_root}/scripts/private/workflow_action_update_agent.py"
-          cp scripts/private/openai_agent_runner.py \
-            "${bundle_root}/scripts/private/openai_agent_runner.py"
-          cp codex-review/requirements-agent.txt \
-            "${bundle_root}/codex-review/requirements-agent.txt"
-          cp -R codex-review/prompts/. "${bundle_root}/codex-review/prompts"
-          cp -R codex-review/schemas/. "${bundle_root}/codex-review/schemas"
-          cp -R codex-review/scripts/. "${bundle_root}/codex-review/scripts"
+          cp scripts/private/agent_workflows/openai_agent_runner.py \
+            "${bundle_root}/scripts/private/agent_workflows/openai_agent_runner.py"
+          cp .github/agent-workflows/runtime/requirements-openai-agents.txt \
+            "${bundle_root}/.github/agent-workflows/runtime/requirements-openai-agents.txt"
+          cp -R .github/agent-workflows/review/prompts/. "${bundle_root}/.github/agent-workflows/review/prompts"
+          cp -R .github/agent-workflows/review/schemas/. "${bundle_root}/.github/agent-workflows/review/schemas"
+          cp -R .github/agent-workflows/review/scripts/. "${bundle_root}/.github/agent-workflows/review/scripts"
+          cp -R .github/agent-workflows/workflow-repair/prompts/. "${bundle_root}/.github/agent-workflows/workflow-repair/prompts"
+          cp -R .github/agent-workflows/workflow-repair/profiles/. "${bundle_root}/.github/agent-workflows/workflow-repair/profiles"
 
       - name: Resolve PR details
         id: pr
@@ -169,9 +174,9 @@ jobs:
         if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
         shell: bash
         run: |
-          python3 -m venv .codex/openai-agent-venv
-          .codex/openai-agent-venv/bin/python -m pip install --upgrade pip
-          .codex/openai-agent-venv/bin/python -m pip install -r .workflow-action-update-agent-helper/codex-review/requirements-agent.txt
+          python3 -m venv .agent-workflows/openai-agent-venv
+          .agent-workflows/openai-agent-venv/bin/python -m pip install --upgrade pip
+          .agent-workflows/openai-agent-venv/bin/python -m pip install -r .workflow-action-update-agent-helper/.github/agent-workflows/runtime/requirements-openai-agents.txt
 
       - name: Run OpenAI SDK stabilization agent
         if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
@@ -182,8 +187,8 @@ jobs:
           OPENAI_BASE_URL: https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1
           OPENAI_AGENTS_DISABLE_TRACING: "1"
         run: |
-          .codex/openai-agent-venv/bin/python .workflow-action-update-agent-helper/scripts/private/openai_agent_runner.py run-stabilization \
-            --model "${{ steps.context.outputs.codex_model }}" \
+          .agent-workflows/openai-agent-venv/bin/python .workflow-action-update-agent-helper/scripts/private/agent_workflows/openai_agent_runner.py run-stabilization \
+            --model "${{ steps.context.outputs.agent_model }}" \
             --prompt-file "${{ inputs.context_root }}/stabilize-goal.md" \
             --output-file "${{ runner.temp }}/workflow-action-update-agent-stabilize-output.md"
 
@@ -212,14 +217,14 @@ jobs:
         run: |
           mkdir -p "${{ runner.temp }}"
           printf '%s\n' \
-            "No stabilization agent run was needed because Codex Review approved the PR head." \
+            "No stabilization agent run was needed because Agent Review approved the PR head." \
             >"${{ runner.temp }}/workflow-action-update-agent-stabilize-output.md"
 
       - name: Upload stabilization artifacts
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: codex-stabilize-pr-${{ inputs.pr_number }}
+          name: agent-stabilize-pr-${{ inputs.pr_number }}
           path: |
             ${{ runner.temp }}/workflow-action-update-agent-stabilize-output.md
             ${{ inputs.context_root }}

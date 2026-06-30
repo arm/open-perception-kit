@@ -1,4 +1,4 @@
-name: Codex Review
+name: Agent Review
 
 on:
   pull_request:
@@ -16,7 +16,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: codex-review-${{ github.event.pull_request.number || github.ref }}
+  group: agent-review-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -32,7 +32,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Render Codex review prompt
+      - name: Render Agent review prompt
         shell: bash
         env:
           REVIEW_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_ref || format('origin/{0}', github.base_ref) }}
@@ -42,17 +42,17 @@ jobs:
           REVIEW_PR_TITLE: ${{ github.event.pull_request.title || '' }}
           REVIEW_PR_URL: ${{ github.event.pull_request.html_url || '' }}
         run: |
-          mkdir -p codex-review/out
-          ./codex-review/scripts/render-prompt.sh codex-review/out/review.prompt.md
+          mkdir -p .github/agent-workflows/review/out
+          ./.github/agent-workflows/review/scripts/render-prompt.sh .github/agent-workflows/review/out/review.prompt.md
 
       - name: Install OpenAI agent runtime
         shell: bash
         run: |
-          python3 -m venv .codex/openai-agent-venv
-          .codex/openai-agent-venv/bin/python -m pip install --upgrade pip
-          .codex/openai-agent-venv/bin/python -m pip install -r codex-review/requirements-agent.txt
+          python3 -m venv .agent-workflows/openai-agent-venv
+          .agent-workflows/openai-agent-venv/bin/python -m pip install --upgrade pip
+          .agent-workflows/openai-agent-venv/bin/python -m pip install -r .github/agent-workflows/runtime/requirements-openai-agents.txt
 
-      # <codex-review:suppress-begin> Intentional current self-hosted OpenAI
+      # <agent-review:suppress-begin> Intentional current self-hosted OpenAI
       # review trust boundary for same-repo pull requests.
       - name: Run OpenAI SDK review
         id: review
@@ -63,21 +63,21 @@ jobs:
           OPENAI_BASE_URL: https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1
           OPENAI_AGENTS_DISABLE_TRACING: "1"
         run: |
-          .codex/openai-agent-venv/bin/python scripts/private/openai_agent_runner.py run-review \
+          .agent-workflows/openai-agent-venv/bin/python scripts/private/agent_workflows/openai_agent_runner.py run-review \
             --model gpt-5.3-codex \
-            --prompt-file codex-review/out/review.prompt.md \
-            --schema-file codex-review/schemas/review.schema.json \
-            --output-file codex-review/out/review.json
-      # <codex-review:suppress-end>
+            --prompt-file .github/agent-workflows/review/out/review.prompt.md \
+            --schema-file .github/agent-workflows/review/schemas/review.schema.json \
+            --output-file .github/agent-workflows/review/out/review.json
+      # <agent-review:suppress-end>
 
       - name: Render review summary
         if: ${{ success() }}
         shell: bash
         run: |
-          python3 ./codex-review/scripts/publish-review.py \
-            --input codex-review/out/review.json \
-            --markdown-out codex-review/out/review-summary.md
-          cat codex-review/out/review-summary.md >> "${GITHUB_STEP_SUMMARY}"
+          python3 ./.github/agent-workflows/review/scripts/publish-review.py \
+            --input .github/agent-workflows/review/out/review.json \
+            --markdown-out .github/agent-workflows/review/out/review-summary.md
+          cat .github/agent-workflows/review/out/review-summary.md >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Publish review summary comment
         if: ${{ success() && github.event_name == 'pull_request' }}
@@ -88,15 +88,15 @@ jobs:
           GITHUB_PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          python3 ./codex-review/scripts/publish-review.py \
-            --input codex-review/out/review.json \
-            --markdown-out codex-review/out/review-summary.md \
+          python3 ./.github/agent-workflows/review/scripts/publish-review.py \
+            --input .github/agent-workflows/review/out/review.json \
+            --markdown-out .github/agent-workflows/review/out/review-summary.md \
             --publish-pr-comment
 
       - name: Upload review artifacts
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: codex-review-out
-          path: codex-review/out
+          name: agent-review-out
+          path: .github/agent-workflows/review/out
           if-no-files-found: warn

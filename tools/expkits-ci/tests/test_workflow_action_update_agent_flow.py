@@ -21,27 +21,30 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[3]
 WORKFLOW_FILE = REPO_ROOT / ".github/workflows/workflow-action-update-agent.yml"
 REUSABLE_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/workflow-action-update-agent-reusable.yml"
-STABILIZER_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/codex-stabilize-pr.yml"
+STABILIZER_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/agent-stabilize-pr.yml"
 WORKFLOW_AUDIT_FILE = REPO_ROOT / ".github/workflows/workflow-audit.yml"
-CODEX_REVIEW_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/codex-review.yml"
+AGENT_REVIEW_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/agent-review.yml"
 PEK_CI_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/pek-ci.yml"
 SONAR_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/sonar.yml"
 WORKFLOW_AUDIT_REPORT_SCRIPT = REPO_ROOT / "scripts/private/workflow_audit_report.py"
-CODEX_REVIEW_FETCH_SCRIPT = REPO_ROOT / "codex-review/scripts/fetch-review-state.py"
-CODEX_REVIEW_PUBLISH_SCRIPT = REPO_ROOT / "codex-review/scripts/publish-review.py"
-CODEX_REVIEW_RUN_SCRIPT = REPO_ROOT / "codex-review/scripts/run-review.sh"
-AGENT_REQUIREMENTS_FILE = REPO_ROOT / "codex-review/requirements-agent.txt"
-OPENAI_AGENT_RUNNER_SCRIPT = REPO_ROOT / "scripts/private/openai_agent_runner.py"
+AGENT_REVIEW_FETCH_SCRIPT = REPO_ROOT / ".github/agent-workflows/review/scripts/fetch-review-state.py"
+AGENT_REVIEW_PUBLISH_SCRIPT = REPO_ROOT / ".github/agent-workflows/review/scripts/publish-review.py"
+AGENT_REVIEW_RUN_SCRIPT = REPO_ROOT / ".github/agent-workflows/review/scripts/run-review.sh"
+AGENT_REQUIREMENTS_FILE = REPO_ROOT / ".github/agent-workflows/runtime/requirements-openai-agents.txt"
+OPENAI_AGENT_RUNNER_SCRIPT = REPO_ROOT / "scripts/private/agent_workflows/openai_agent_runner.py"
 HELPER_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent.py"
 HELPER_ACTION_FILE = REPO_ROOT / ".github/actions/workflow-action-update-agent-helper/action.yml"
-MARKDOWN_TEMPLATE_ROOT = REPO_ROOT / ".github/ci/workflow-action-update-agent"
-GOAL_TEMPLATE = MARKDOWN_TEMPLATE_ROOT / "goal.md"
-CONTEXT_TEMPLATE = MARKDOWN_TEMPLATE_ROOT / "context.md"
-PONYTAIL_TEMPLATE = MARKDOWN_TEMPLATE_ROOT / "ponytail-review.md"
-CONSTRAINTS_TEMPLATE = MARKDOWN_TEMPLATE_ROOT / "constraints.md"
-VALIDATION_TEMPLATE = MARKDOWN_TEMPLATE_ROOT / "validation.md"
-PROFILE_FILE = MARKDOWN_TEMPLATE_ROOT / "profile.json"
-WORKFLOW_AUDIT_PROFILE_FILE = MARKDOWN_TEMPLATE_ROOT / "workflow-audit-profile.json"
+WORKFLOW_REPAIR_ROOT = REPO_ROOT / ".github/agent-workflows/workflow-repair"
+PROMPT_TEMPLATE_ROOT = WORKFLOW_REPAIR_ROOT / "prompts"
+PROFILE_ROOT = WORKFLOW_REPAIR_ROOT / "profiles"
+GOAL_TEMPLATE = PROMPT_TEMPLATE_ROOT / "repair-goal.md.in"
+STABILIZE_GOAL_TEMPLATE = PROMPT_TEMPLATE_ROOT / "stabilize-goal.md.in"
+CONTEXT_TEMPLATE = PROMPT_TEMPLATE_ROOT / "context.md"
+PONYTAIL_TEMPLATE = PROMPT_TEMPLATE_ROOT / "ponytail-review.md"
+CONSTRAINTS_TEMPLATE = PROMPT_TEMPLATE_ROOT / "constraints.md"
+VALIDATION_TEMPLATE = PROMPT_TEMPLATE_ROOT / "validation.md.in"
+PROFILE_FILE = PROFILE_ROOT / "profile.json"
+WORKFLOW_AUDIT_PROFILE_FILE = PROFILE_ROOT / "workflow-audit-profile.json"
 PULL_REQUEST_TEMPLATE = REPO_ROOT / ".github/PULL_REQUEST_TEMPLATE.md"
 REPAIR_BRANCH = "feature/EXPKITS-4242/bot-workflow-action-update-agent-run-12345"  # pragma: allowlist secret
 
@@ -77,8 +80,8 @@ def build_zip_archive(files: dict[str, str]) -> bytes:
 
 HELPER = load_python_module(HELPER_SCRIPT, "workflow_action_update_agent")
 WORKFLOW_AUDIT_REPORT = load_python_module(WORKFLOW_AUDIT_REPORT_SCRIPT, "workflow_audit_report")
-CODEX_REVIEW_FETCH = load_python_module(CODEX_REVIEW_FETCH_SCRIPT, "codex_review_fetch_review_state")
-CODEX_REVIEW_PUBLISH = load_python_module(CODEX_REVIEW_PUBLISH_SCRIPT, "codex_review_publish_review")
+AGENT_REVIEW_FETCH = load_python_module(AGENT_REVIEW_FETCH_SCRIPT, "agent_review_fetch_review_state")
+AGENT_REVIEW_PUBLISH = load_python_module(AGENT_REVIEW_PUBLISH_SCRIPT, "agent_review_publish_review")
 
 
 class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
@@ -86,7 +89,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         workflow = load_yaml(WORKFLOW_FILE)
         dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
         repair_job = workflow["jobs"]["run-workflow-action-update-agent"]
-        stabilize_job = workflow["jobs"]["run-codex-stabilizer"]
+        stabilize_job = workflow["jobs"]["run-agent-stabilizer"]
 
         self.assertEqual(
             set(dispatch_inputs.keys()),
@@ -94,7 +97,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         self.assertNotIn("workflow_run", workflow["on"])
         self.assertEqual(repair_job["uses"], "./.github/workflows/workflow-action-update-agent-reusable.yml")
-        self.assertEqual(stabilize_job["uses"], "./.github/workflows/codex-stabilize-pr.yml")
+        self.assertEqual(stabilize_job["uses"], "./.github/workflows/agent-stabilize-pr.yml")
         self.assertEqual(repair_job["if"], "${{ inputs.pr_number == '' }}")
         self.assertEqual(stabilize_job["if"], "${{ inputs.pr_number != '' }}")
         self.assertEqual(
@@ -115,9 +118,9 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_reusable_workflow_uses_profile_and_composite_action(self):
         workflow = load_yaml(REUSABLE_WORKFLOW_FILE)
         inputs = workflow["on"]["workflow_call"]["inputs"]
-        codex_job = workflow["jobs"]["codex-fix"]
+        agent_job = workflow["jobs"]["agent-fix"]
         stabilize_job = workflow["jobs"]["stabilize-pr"]
-        codex_steps = step_map(codex_job)
+        agent_steps = step_map(agent_job)
         stabilize_steps = step_map(stabilize_job)
 
         self.assertEqual(
@@ -126,7 +129,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         self.assertEqual(
             inputs["profile_path"]["default"],
-            ".github/ci/workflow-action-update-agent/profile.json",
+            ".github/agent-workflows/workflow-repair/profiles/profile.json",
         )
         self.assertEqual(inputs["source_artifact_name"]["default"], "")
 
@@ -149,44 +152,44 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 "stabilize-pr",
             },
         )
-        self.assertEqual(codex_job["runs-on"], ["self-hosted", "Linux", "X64"])
+        self.assertEqual(agent_job["runs-on"], ["self-hosted", "Linux", "X64"])
         self.assertEqual(stabilize_job["runs-on"], "ubuntu-latest")
-        self.assertIn("Download source artifact context", codex_steps)
-        self.assertIn("Install OpenAI agent runtime", codex_steps)
-        self.assertIn("Run OpenAI SDK repair agent", codex_steps)
-        self.assertNotIn("Prime Codex CLI", stabilize_steps)
-        self.assertNotIn("Apply deterministic workflow freshness patch", codex_steps)
+        self.assertIn("Download source artifact context", agent_steps)
+        self.assertIn("Install OpenAI agent runtime", agent_steps)
+        self.assertIn("Run OpenAI SDK repair agent", agent_steps)
+        self.assertNotIn("Prime OpenAI SDK CLI", stabilize_steps)
+        self.assertNotIn("Apply deterministic workflow freshness patch", agent_steps)
 
-        install_step = codex_steps["Install OpenAI agent runtime"]
+        install_step = agent_steps["Install OpenAI agent runtime"]
         self.assertEqual(
             install_step["run"],
-            "python3 -m venv .codex/openai-agent-venv\n"
-            ".codex/openai-agent-venv/bin/python -m pip install --upgrade pip\n"
-            ".codex/openai-agent-venv/bin/python -m pip install -r codex-review/requirements-agent.txt\n",
+            "python3 -m venv .agent-workflows/openai-agent-venv\n"
+            ".agent-workflows/openai-agent-venv/bin/python -m pip install --upgrade pip\n"
+            ".agent-workflows/openai-agent-venv/bin/python -m pip install -r .github/agent-workflows/runtime/requirements-openai-agents.txt\n",
         )
-        codex_step = codex_steps["Run OpenAI SDK repair agent"]
-        self.assertEqual(codex_step["shell"], "bash")
+        agent_step = agent_steps["Run OpenAI SDK repair agent"]
+        self.assertEqual(agent_step["shell"], "bash")
         self.assertIn(
-            ".codex/openai-agent-venv/bin/python scripts/private/openai_agent_runner.py run-repair",
-            codex_step["run"],
+            ".agent-workflows/openai-agent-venv/bin/python scripts/private/agent_workflows/openai_agent_runner.py run-repair",
+            agent_step["run"],
         )
-        self.assertIn("--prompt-file .codex/workflow-action-update-agent/goal.md", codex_step["run"])
-        self.assertIn("--model \"${{ needs.prepare.outputs.codex_model }}\"", codex_step["run"])
+        self.assertIn("--prompt-file .agent-workflows/workflow-action-update-agent/goal.md", agent_step["run"])
+        self.assertIn("--model \"${{ needs.prepare.outputs.agent_model }}\"", agent_step["run"])
         self.assertEqual(
-            codex_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],
+            agent_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],
             "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
         )
         self.assertEqual(
-            codex_step["env"]["OPENAI_API_KEY"],
+            agent_step["env"]["OPENAI_API_KEY"],
             "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
         )
         self.assertEqual(
-            codex_step["env"]["OPENAI_BASE_URL"],
+            agent_step["env"]["OPENAI_BASE_URL"],
             "https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1",
         )
-        self.assertEqual(codex_step["env"]["OPENAI_AGENTS_DISABLE_TRACING"], "1")
+        self.assertEqual(agent_step["env"]["OPENAI_AGENTS_DISABLE_TRACING"], "1")
         self.assertEqual(
-            codex_steps["Download source artifact context"]["if"],
+            agent_steps["Download source artifact context"]["if"],
             "${{ inputs.source_artifact_name != '' }}",
         )
         self.assertEqual(stabilize_job["permissions"]["actions"], "write")
@@ -210,12 +213,12 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(action["runs"]["using"], "composite")
         self.assertEqual(
             action["inputs"]["profile-path"]["default"],
-            ".github/ci/workflow-action-update-agent/profile.json",
+            ".github/agent-workflows/workflow-repair/profiles/profile.json",
         )
         self.assertIn("command", action["inputs"])
         self.assertIn("should_run", action["outputs"])
         self.assertIn("repair_branch", action["outputs"])
-        self.assertIn("codex_model", action["outputs"])
+        self.assertIn("agent_model", action["outputs"])
         self.assertIn("has_changes", action["outputs"])
         self.assertIn("head_sha", action["outputs"])
         self.assertIn("pr_number", action["outputs"])
@@ -233,8 +236,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
         self.assertEqual(workspace_helper.REPO_ROOT, Path(temp_dir).resolve())
         self.assertEqual(
-            workspace_helper.resolve_repo_path(".github/ci/workflow-action-update-agent/profile.json"),
-            Path(temp_dir).resolve() / ".github/ci/workflow-action-update-agent/profile.json",
+            workspace_helper.resolve_repo_path(".github/agent-workflows/workflow-repair/profiles/profile.json"),
+            Path(temp_dir).resolve() / ".github/agent-workflows/workflow-repair/profiles/profile.json",
         )
 
     def test_download_github_archive_follows_redirect_location(self):
@@ -308,8 +311,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 (context_root / "artifacts/workflow-dependency-freshness/report.md").is_file()
             )
 
-    def test_codex_review_workflow_uses_openai_sdk_proxy_flow(self):
-        workflow = load_yaml(CODEX_REVIEW_WORKFLOW_FILE)
+    def test_agent_review_workflow_uses_openai_sdk_proxy_flow(self):
+        workflow = load_yaml(AGENT_REVIEW_WORKFLOW_FILE)
         review_job = workflow["jobs"]["review"]
         review_steps = step_map(review_job)
 
@@ -318,7 +321,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             list(review_steps),
             [
                 "Checkout pull request head",
-                "Render Codex review prompt",
+                "Render Agent review prompt",
                 "Install OpenAI agent runtime",
                 "Run OpenAI SDK review",
                 "Render review summary",
@@ -329,38 +332,38 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         install_step = review_steps["Install OpenAI agent runtime"]
         self.assertEqual(
             install_step["run"],
-            "python3 -m venv .codex/openai-agent-venv\n"
-            ".codex/openai-agent-venv/bin/python -m pip install --upgrade pip\n"
-            ".codex/openai-agent-venv/bin/python -m pip install -r codex-review/requirements-agent.txt\n",
+            "python3 -m venv .agent-workflows/openai-agent-venv\n"
+            ".agent-workflows/openai-agent-venv/bin/python -m pip install --upgrade pip\n"
+            ".agent-workflows/openai-agent-venv/bin/python -m pip install -r .github/agent-workflows/runtime/requirements-openai-agents.txt\n",
         )
-        codex_step = review_steps["Run OpenAI SDK review"]
-        self.assertEqual(codex_step["shell"], "bash")
+        agent_step = review_steps["Run OpenAI SDK review"]
+        self.assertEqual(agent_step["shell"], "bash")
         self.assertIn(
-            ".codex/openai-agent-venv/bin/python scripts/private/openai_agent_runner.py run-review",
-            codex_step["run"],
+            ".agent-workflows/openai-agent-venv/bin/python scripts/private/agent_workflows/openai_agent_runner.py run-review",
+            agent_step["run"],
         )
-        self.assertIn("--schema-file codex-review/schemas/review.schema.json", codex_step["run"])
-        self.assertIn("--output-file codex-review/out/review.json", codex_step["run"])
+        self.assertIn("--schema-file .github/agent-workflows/review/schemas/review.schema.json", agent_step["run"])
+        self.assertIn("--output-file .github/agent-workflows/review/out/review.json", agent_step["run"])
         self.assertEqual(
-            codex_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],
+            agent_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],
             "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
         )
         self.assertEqual(
-            codex_step["env"]["OPENAI_API_KEY"],
+            agent_step["env"]["OPENAI_API_KEY"],
             "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
         )
         self.assertEqual(
-            codex_step["env"]["OPENAI_BASE_URL"],
+            agent_step["env"]["OPENAI_BASE_URL"],
             "https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1",
         )
-        self.assertEqual(codex_step["env"]["OPENAI_AGENTS_DISABLE_TRACING"], "1")
+        self.assertEqual(agent_step["env"]["OPENAI_AGENTS_DISABLE_TRACING"], "1")
 
-    def test_openai_sdk_runner_replaces_codex_action_and_cli_paths(self):
+    def test_openai_sdk_runner_replaces_legacy_action_and_cli_paths(self):
         searched_files = [
-            CODEX_REVIEW_WORKFLOW_FILE,
+            AGENT_REVIEW_WORKFLOW_FILE,
             REUSABLE_WORKFLOW_FILE,
             STABILIZER_WORKFLOW_FILE,
-            CODEX_REVIEW_RUN_SCRIPT,
+            AGENT_REVIEW_RUN_SCRIPT,
         ]
 
         for path in searched_files:
@@ -368,6 +371,41 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             self.assertNotIn("openai/codex-action@v1", content, path)
             self.assertNotIn("codex exec", content, path)
             self.assertIn("openai_agent_runner.py", content, path)
+
+    def test_agent_workflow_contracts_do_not_use_legacy_codex_names(self):
+        searched_files = [
+            WORKFLOW_FILE,
+            REUSABLE_WORKFLOW_FILE,
+            STABILIZER_WORKFLOW_FILE,
+            WORKFLOW_AUDIT_FILE,
+            AGENT_REVIEW_WORKFLOW_FILE,
+            HELPER_ACTION_FILE,
+            HELPER_SCRIPT,
+            AGENT_REVIEW_FETCH_SCRIPT,
+            AGENT_REVIEW_PUBLISH_SCRIPT,
+            AGENT_REVIEW_RUN_SCRIPT,
+            CONTEXT_TEMPLATE,
+            CONSTRAINTS_TEMPLATE,
+            GOAL_TEMPLATE,
+            PROFILE_FILE,
+            WORKFLOW_AUDIT_PROFILE_FILE,
+        ]
+        forbidden = [
+            "codex-review",
+            "codex-stabilize",
+            "Codex Review",
+            "Codex Stabilize",
+            "codex_model",
+            "CODEX_REVIEW",
+            ".github/ci/workflow-action-update-agent",
+            "scripts/private/openai_agent_runner.py",
+            "requirements-agent.txt",
+        ]
+
+        for path in searched_files:
+            content = path.read_text(encoding="utf-8")
+            for token in forbidden:
+                self.assertNotIn(token, content, f"{token} leaked in {path}")
 
     def test_openai_agent_runner_uses_arm_proxy_truststore_and_tracing_contract(self):
         source = OPENAI_AGENT_RUNNER_SCRIPT.read_text(encoding="utf-8")
@@ -412,12 +450,14 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
 
     def test_local_review_runner_uses_shared_sdk_script(self):
-        content = CODEX_REVIEW_RUN_SCRIPT.read_text(encoding="utf-8")
+        content = AGENT_REVIEW_RUN_SCRIPT.read_text(encoding="utf-8")
 
-        self.assertIn('agent_venv="${CODEX_REVIEW_AGENT_VENV:-.codex/openai-agent-venv}"', content)
+        self.assertIn('agent_venv="${AGENT_REVIEW_AGENT_VENV:-.agent-workflows/openai-agent-venv}"', content)
         self.assertIn('export REVIEW_BASE_REF="${base_ref}"', content)
         self.assertIn('export REVIEW_HEAD_REF="${REVIEW_HEAD_REF:-HEAD}"', content)
         self.assertIn('export REVIEW_REPOSITORY="${REVIEW_REPOSITORY:-local-checkout}"', content)
+        self.assertIn('--model "${AGENT_MODEL:-gpt-5.3-codex}"', content)
+        self.assertNotIn("CODEX_MODEL", content)
         self.assertIn(
             'export OPENAI_API_KEY="${OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS}"',
             content,
@@ -427,9 +467,15 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             content,
         )
         self.assertIn('python3 -m venv "${agent_venv}"', content)
-        self.assertIn('"${agent_venv}/bin/python" -m pip install -r codex-review/requirements-agent.txt', content)
-        self.assertIn('"${agent_venv}/bin/python" scripts/private/openai_agent_runner.py run-review', content)
-        self.assertIn("--schema-file \"codex-review/schemas/review.schema.json\"", content)
+        self.assertIn(
+            '"${agent_venv}/bin/python" -m pip install -r .github/agent-workflows/runtime/requirements-openai-agents.txt',
+            content,
+        )
+        self.assertIn(
+            '"${agent_venv}/bin/python" scripts/private/agent_workflows/openai_agent_runner.py run-review',
+            content,
+        )
+        self.assertIn("--schema-file \".github/agent-workflows/review/schemas/review.schema.json\"", content)
         self.assertNotIn("command -v codex", content)
         self.assertNotIn("pip install --user", content)
 
@@ -453,7 +499,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("github.event.inputs.pr_head_ref", sonar_steps["Checkout"]["with"]["ref"])
         self.assertIn("github.event.inputs.pr_number", sonar_steps["SonarQube analysis"]["env"]["PR_KEY"])
 
-    def test_stabilizer_workflow_uses_canonical_codex_review_shape(self):
+    def test_stabilizer_workflow_uses_canonical_agent_review_shape(self):
         workflow = load_yaml(STABILIZER_WORKFLOW_FILE)
         call_inputs = workflow["on"]["workflow_call"]["inputs"]
         dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
@@ -480,43 +526,60 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             ],
         )
         snapshot_step = steps["Snapshot workflow helper bundle"]
-        self.assertIn("cp scripts/private/openai_agent_runner.py", snapshot_step["run"])
-        self.assertIn("cp codex-review/requirements-agent.txt", snapshot_step["run"])
-        self.assertIn('cp -R codex-review/prompts/. "${bundle_root}/codex-review/prompts"', snapshot_step["run"])
-        self.assertIn('cp -R codex-review/schemas/. "${bundle_root}/codex-review/schemas"', snapshot_step["run"])
-        self.assertIn('cp -R codex-review/scripts/. "${bundle_root}/codex-review/scripts"', snapshot_step["run"])
-        self.assertNotIn('cp -R codex-review/. "${bundle_root}/codex-review"', snapshot_step["run"])
-        self.assertNotIn("codex-review/out", snapshot_step["run"])
+        self.assertIn("cp scripts/private/agent_workflows/openai_agent_runner.py", snapshot_step["run"])
+        self.assertIn("cp .github/agent-workflows/runtime/requirements-openai-agents.txt", snapshot_step["run"])
+        self.assertIn(
+            'cp -R .github/agent-workflows/review/prompts/. "${bundle_root}/.github/agent-workflows/review/prompts"',
+            snapshot_step["run"],
+        )
+        self.assertIn(
+            'cp -R .github/agent-workflows/review/schemas/. "${bundle_root}/.github/agent-workflows/review/schemas"',
+            snapshot_step["run"],
+        )
+        self.assertIn(
+            'cp -R .github/agent-workflows/review/scripts/. "${bundle_root}/.github/agent-workflows/review/scripts"',
+            snapshot_step["run"],
+        )
+        self.assertIn(
+            'cp -R .github/agent-workflows/workflow-repair/prompts/. "${bundle_root}/.github/agent-workflows/workflow-repair/prompts"',
+            snapshot_step["run"],
+        )
+        self.assertIn(
+            'cp -R .github/agent-workflows/workflow-repair/profiles/. "${bundle_root}/.github/agent-workflows/workflow-repair/profiles"',
+            snapshot_step["run"],
+        )
+        self.assertNotIn('cp -R agent-review/. "${bundle_root}/agent-review"', snapshot_step["run"])
+        self.assertNotIn(".github/agent-workflows/review/out", snapshot_step["run"])
         self.assertNotIn('cp -R scripts/private/. "${bundle_root}/scripts/private"', snapshot_step["run"])
         install_step = steps["Install OpenAI agent runtime"]
         self.assertEqual(
             install_step["run"],
-            "python3 -m venv .codex/openai-agent-venv\n"
-            ".codex/openai-agent-venv/bin/python -m pip install --upgrade pip\n"
-            ".codex/openai-agent-venv/bin/python -m pip install -r "
-            ".workflow-action-update-agent-helper/codex-review/requirements-agent.txt\n",
+            "python3 -m venv .agent-workflows/openai-agent-venv\n"
+            ".agent-workflows/openai-agent-venv/bin/python -m pip install --upgrade pip\n"
+            ".agent-workflows/openai-agent-venv/bin/python -m pip install -r "
+            ".workflow-action-update-agent-helper/.github/agent-workflows/runtime/requirements-openai-agents.txt\n",
         )
-        codex_step = steps["Run OpenAI SDK stabilization agent"]
-        self.assertEqual(codex_step["shell"], "bash")
+        agent_step = steps["Run OpenAI SDK stabilization agent"]
+        self.assertEqual(agent_step["shell"], "bash")
         self.assertIn(
-            ".codex/openai-agent-venv/bin/python "
-            ".workflow-action-update-agent-helper/scripts/private/openai_agent_runner.py run-stabilization",
-            codex_step["run"],
+            ".agent-workflows/openai-agent-venv/bin/python "
+            ".workflow-action-update-agent-helper/scripts/private/agent_workflows/openai_agent_runner.py run-stabilization",
+            agent_step["run"],
         )
-        self.assertIn("--prompt-file \"${{ inputs.context_root }}/stabilize-goal.md\"", codex_step["run"])
+        self.assertIn("--prompt-file \"${{ inputs.context_root }}/stabilize-goal.md\"", agent_step["run"])
         self.assertEqual(
-            codex_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],
+            agent_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],
             "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
         )
         self.assertEqual(
-            codex_step["env"]["OPENAI_API_KEY"],
+            agent_step["env"]["OPENAI_API_KEY"],
             "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
         )
         self.assertEqual(
-            codex_step["env"]["OPENAI_BASE_URL"],
+            agent_step["env"]["OPENAI_BASE_URL"],
             "https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1",
         )
-        self.assertEqual(codex_step["env"]["OPENAI_AGENTS_DISABLE_TRACING"], "1")
+        self.assertEqual(agent_step["env"]["OPENAI_AGENTS_DISABLE_TRACING"], "1")
         self.assertEqual(
             steps["Resolve PR details"]["with"]["command"],
             "resolve-pr-details",
@@ -592,7 +655,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 outputs["repair_branch"],
                 REPAIR_BRANCH,
             )
-            self.assertEqual(outputs["codex_model"], "gpt-5.3-codex")
+            self.assertEqual(outputs["agent_model"], "gpt-5.3-codex")
 
     def test_audit_profile_allows_non_failure_source_run_and_configures_validation(self):
         audit_profile = HELPER.load_profile(str(WORKFLOW_AUDIT_PROFILE_FILE))
@@ -606,14 +669,14 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         validation_workflows = audit_profile["validation_workflows"]
         self.assertEqual(
             [item["workflow_file"] for item in validation_workflows],
-            ["codex-review.yml", "workflow-audit.yml", "pek-ci.yml", "sonar.yml"],
+            ["agent-review.yml", "workflow-audit.yml", "pek-ci.yml", "sonar.yml"],
         )
 
-    def test_codex_review_gate_is_profile_driven(self):
+    def test_agent_review_gate_is_profile_driven(self):
         profile = HELPER.load_profile(str(PROFILE_FILE))
         validation_workflows = HELPER.profile_validation_workflows(profile)
-        codex_review = next(
-            item for item in validation_workflows if item["workflow_file"] == "codex-review.yml"
+        agent_review = next(
+            item for item in validation_workflows if item["workflow_file"] == "agent-review.yml"
         )
         pek_ci = next(
             item for item in validation_workflows if item["workflow_file"] == "pek-ci.yml"
@@ -622,10 +685,13 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             item for item in validation_workflows if item["workflow_file"] == "sonar.yml"
         )
 
-        self.assertEqual(codex_review["workflow_name"], "Codex Review")
-        self.assertEqual(codex_review["review_state_script"], "codex-review/scripts/fetch-review-state.py")
-        self.assertEqual(codex_review["allowed_review_recommendations"], ["approve"])
-        self.assertEqual(codex_review["workflow_dispatch_inputs"], {"base_ref": "origin/{target_branch}"})
+        self.assertEqual(agent_review["workflow_name"], "Agent Review")
+        self.assertEqual(
+            agent_review["review_state_script"],
+            ".github/agent-workflows/review/scripts/fetch-review-state.py",
+        )
+        self.assertEqual(agent_review["allowed_review_recommendations"], ["approve"])
+        self.assertEqual(agent_review["workflow_dispatch_inputs"], {"base_ref": "origin/{target_branch}"})
         self.assertEqual(
             pek_ci["workflow_dispatch_inputs"],
             {
@@ -636,7 +702,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             },
         )
         self.assertEqual(pek_ci["workflow_dispatch_inputs"], sonar["workflow_dispatch_inputs"])
-        self.assertEqual(profile["codex_model"], "gpt-5.3-codex")
+        self.assertEqual(profile["agent_model"], "gpt-5.3-codex")
 
     def test_profile_drives_markdown_context_files_and_validation_commands(self):
         profile = HELPER.load_profile(str(PROFILE_FILE))
@@ -674,6 +740,17 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             for command in profile["validation_commands"]:
                 self.assertIn(f"- `{command}`", validation)
             self.assertIn("- `artifacts/summary.txt`", inventory)
+
+    def test_stabilization_prompt_is_loaded_from_checked_in_template(self):
+        source = HELPER_SCRIPT.read_text(encoding="utf-8")
+
+        self.assertTrue(STABILIZE_GOAL_TEMPLATE.is_file())
+        self.assertIn('render_markdown_template(\n        "stabilize-goal.md.in"', source)
+        self.assertNotIn("Goal: address the latest standard Agent Review findings", source)
+        self.assertIn(
+            "Goal: address the latest standard Agent Review findings",
+            STABILIZE_GOAL_TEMPLATE.read_text(encoding="utf-8"),
+        )
 
     def test_marker_based_pr_rendering_is_profile_driven(self):
         profile = HELPER.load_profile(str(PROFILE_FILE))
@@ -725,7 +802,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(subject.strip(), "[bot] Repair workflow failures from run 12345")
         self.assertIn("Source workflow: Perception Experience Kit CI Pipeline", notes)
 
-    def test_codex_review_publish_and_fetch_scripts_share_structured_state(self):
+    def test_agent_review_publish_and_fetch_scripts_share_structured_state(self):
         review = {
             "summary": "Looks fine with one minor note.",
             "overall_recommendation": "comment",
@@ -747,25 +824,25 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             ],
         }
 
-        markdown = CODEX_REVIEW_PUBLISH.format_markdown(
+        markdown = AGENT_REVIEW_PUBLISH.format_markdown(
             review,
             run_id="28000000001",
             head_sha="deadbeef",
         )
-        inline_comment = CODEX_REVIEW_PUBLISH.build_inline_comment_body(
+        inline_comment = AGENT_REVIEW_PUBLISH.build_inline_comment_body(
             review["findings"][0],
             run_id="28000000001",
         )
 
-        self.assertIn(CODEX_REVIEW_PUBLISH.MARKER, markdown)
-        self.assertIn(CODEX_REVIEW_PUBLISH.STATE_MARKER, markdown)
-        self.assertIn(CODEX_REVIEW_PUBLISH.INLINE_MARKER, inline_comment)
-        self.assertIn(CODEX_REVIEW_PUBLISH.INLINE_STATE_MARKER, inline_comment)
-        self.assertEqual(CODEX_REVIEW_FETCH.EMPTY_STATE["overall_recommendation"], "")
+        self.assertIn(AGENT_REVIEW_PUBLISH.MARKER, markdown)
+        self.assertIn(AGENT_REVIEW_PUBLISH.STATE_MARKER, markdown)
+        self.assertIn(AGENT_REVIEW_PUBLISH.INLINE_MARKER, inline_comment)
+        self.assertIn(AGENT_REVIEW_PUBLISH.INLINE_STATE_MARKER, inline_comment)
+        self.assertEqual(AGENT_REVIEW_FETCH.EMPTY_STATE["overall_recommendation"], "")
 
-    def test_codex_review_fetch_accepts_default_github_actions_authors(self):
+    def test_agent_review_fetch_accepts_default_github_actions_authors(self):
         with mock.patch.dict(os.environ, {}, clear=True):
-            author_logins = CODEX_REVIEW_FETCH.allowed_author_logins()
+            author_logins = AGENT_REVIEW_FETCH.allowed_author_logins()
 
         self.assertEqual(author_logins, {"github-actions", "github-actions[bot]"})
 
@@ -793,7 +870,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(repair_job["with"]["source_artifact_name"], "workflow-dependency-freshness")
         self.assertEqual(
             repair_job["with"]["profile_path"],
-            "${{ inputs.repair_profile_path || '.github/ci/workflow-action-update-agent/workflow-audit-profile.json' }}",
+            "${{ inputs.repair_profile_path || '.github/agent-workflows/workflow-repair/profiles/workflow-audit-profile.json' }}",
         )
         self.assertEqual(repair_job["permissions"]["actions"], "write")
         self.assertIn("github.event.inputs.stabilize_pr_number == ''", report_job["if"])
@@ -801,7 +878,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("needs.workflow-dependency-freshness.outputs.requires_repair == 'true'", repair_job["if"])
         self.assertIn("github.event_name == 'schedule'", repair_job["if"])
         self.assertIn("github.event_name == 'workflow_dispatch'", repair_job["if"])
-        self.assertEqual(stabilize_job["uses"], "./.github/workflows/codex-stabilize-pr.yml")
+        self.assertEqual(stabilize_job["uses"], "./.github/workflows/agent-stabilize-pr.yml")
         self.assertEqual(
             stabilize_job["if"],
             "${{ github.event_name == 'workflow_dispatch' && github.event.inputs.stabilize_pr_number != '' }}",
@@ -821,8 +898,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         ):
             review_state = HELPER.wait_for_review_state(
                 pr_number="123",
-                workflow_name="Codex Review",
-                review_state_script="codex-review/scripts/fetch-review-state.py",
+                workflow_name="Agent Review",
+                review_state_script=".github/agent-workflows/review/scripts/fetch-review-state.py",
                 expected_run_id="28000000001",
                 head_sha="deadbeef",
             )
@@ -850,8 +927,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 ):
                     review_state = HELPER.wait_for_review_state(
                         pr_number="123",
-                        workflow_name="Codex Review",
-                        review_state_script="codex-review/scripts/fetch-review-state.py",
+                        workflow_name="Agent Review",
+                        review_state_script=".github/agent-workflows/review/scripts/fetch-review-state.py",
                         expected_run_id="28000000001",
                         head_sha="deadbeef",
                     )
@@ -870,7 +947,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             with mock.patch.object(HELPER.time, "sleep") as sleep:
                 HELPER.wait_for_workflow_run_completion(
                     repository="Arm-Debug/amp-dev-forge",
-                    workflow_name="Codex Review",
+                    workflow_name="Agent Review",
                     run_id="28232063832",
                 )
 
@@ -900,7 +977,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         ):
             run_id = HELPER.find_latest_workflow_run_for_head(
                 repository="Arm-Debug/amp-dev-forge",
-                workflow_file="codex-review.yml",
+                workflow_file="agent-review.yml",
                 repair_branch=REPAIR_BRANCH,
                 head_sha="deadbeef",
             )
@@ -911,7 +988,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "request_changes"):
             HELPER.ensure_allowed_review_recommendation(
                 pr_number="123",
-                workflow_name="Codex Review",
+                workflow_name="Agent Review",
                 review_state={"overall_recommendation": "request_changes"},
                 allowed_review_recommendations=["approve"],
             )
@@ -1045,7 +1122,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             self.assertEqual(outputs["repair_branch"], REPAIR_BRANCH)
             self.assertEqual(outputs["head_sha"], "deadbeef")
             self.assertEqual(outputs["review_recommendation"], "comment")
-            self.assertEqual(outputs["codex_model"], "gpt-5.3-codex")
+            self.assertEqual(outputs["agent_model"], "gpt-5.3-codex")
             self.assertTrue((context_root / "review-state.json").is_file())
             self.assertTrue((context_root / "stabilize-goal.md").is_file())
 
@@ -1186,7 +1263,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                     review_state=review_state,
                 )
 
-        self.assertEqual(run_command.call_args.args[0][0:2], ["python3", str(CODEX_REVIEW_PUBLISH_SCRIPT)])
+        self.assertEqual(run_command.call_args.args[0][0:2], ["python3", str(AGENT_REVIEW_PUBLISH_SCRIPT)])
         self.assertEqual(run_command.call_args.kwargs["env"]["GITHUB_PR_NUMBER"], "169")
         self.assertEqual(run_command.call_args.kwargs["env"]["GITHUB_HEAD_SHA"], "deadbeef")
         self.assertEqual(run_command.call_args.kwargs["env"]["GITHUB_RUN_ID"], "28000000001")

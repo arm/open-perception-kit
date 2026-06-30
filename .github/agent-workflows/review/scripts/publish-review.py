@@ -14,10 +14,10 @@ import urllib.request
 from pathlib import Path
 
 
-MARKER = "<!-- codex-review-comment -->"
-STATE_MARKER = "<!-- codex-review-state "
-INLINE_MARKER = "<!-- codex-review-inline -->"
-INLINE_STATE_MARKER = "<!-- codex-review-inline-state "
+MARKER = "<!-- agent-review-comment -->"
+STATE_MARKER = "<!-- agent-review-state "
+INLINE_MARKER = "<!-- agent-review-inline -->"
+INLINE_STATE_MARKER = "<!-- agent-review-inline-state "
 MAX_INLINE_SUGGESTION_LINES = 10
 BADGE_LABEL_COLOR = "202938"
 SEVERITY_COLORS = {
@@ -164,7 +164,7 @@ def format_markdown(review, *, run_id="", head_sha=""):
     lines = [
         MARKER,
         review_state_marker(review_state_metadata(review, run_id, head_sha), STATE_MARKER),
-        "## Codex Review",
+        "## Agent Review",
         "",
         recommendation_badge(review["overall_recommendation"]),
         f"{score_badge(review['overall_score'])} {confidence_badge(review['overall_confidence'])}",
@@ -276,7 +276,7 @@ def is_location_comment_applicable(finding):
 
 
 def review_event(recommendation):
-    # <codex-review:suppress> This workflow intentionally maps internal
+    # <agent-review:suppress> This workflow intentionally maps internal
     # `comment` recommendations to GitHub approvals so non-blocking reviews land
     # as accepted-with-comments in the PR UI.
     mapping = {
@@ -308,9 +308,9 @@ def publish_inline_comments(repository, pr_number, token, commit_id, findings):
         if not is_location_comment_applicable(finding):
             continue
         comment_body = build_inline_comment_body(finding, run_id=run_id)
-        # <codex-review:suppress> This stateless review flow intentionally posts
+        # <agent-review:suppress> This stateless review flow intentionally posts
         # fresh inline comments for the current run and does not reconcile or
-        # delete older Codex inline comments yet.
+        # delete older Agent inline comments yet.
         payload = {
             "body": comment_body,
             "commit_id": commit_id,
@@ -326,7 +326,7 @@ def publish_inline_comments(repository, pr_number, token, commit_id, findings):
             count += 1
         except (urllib.error.HTTPError, urllib.error.URLError) as exc:
             print(
-                "Skipping Codex inline comment publish/update for "
+                "Skipping Agent inline comment publish/update for "
                 f"{finding['path']}:{finding['start_line']} "
                 f"({finding['title']}): {exc}",
                 file=sys.stderr,
@@ -343,7 +343,7 @@ def github_api_request(url, token, method="GET", payload=None):
     headers = {
         "Accept": "application/vnd.github+json",
         "Authorization": f"Bearer {token}",
-        "User-Agent": "amp-dev-forge-codex-review",
+        "User-Agent": "amp-dev-forge-agent-review",
         "X-GitHub-Api-Version": "2022-11-28",
     }
     if payload is not None:
@@ -356,7 +356,7 @@ def github_api_request(url, token, method="GET", payload=None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", required=True, help="Structured Codex review JSON file.")
+    parser.add_argument("--input", required=True, help="Structured Agent review JSON file.")
     parser.add_argument("--markdown-out", required=True, help="Rendered markdown output path.")
     parser.add_argument(
         "--publish-pr-comment",
@@ -403,7 +403,7 @@ def main():
                 review.get("findings", []),
             )
     except urllib.error.HTTPError as exc:
-        print(f"Failed to publish Codex review: {exc}", file=sys.stderr)
+        print(f"Failed to publish Agent review: {exc}", file=sys.stderr)
         body = exc.read().decode("utf-8", errors="replace")
         if body:
             print(body, file=sys.stderr)

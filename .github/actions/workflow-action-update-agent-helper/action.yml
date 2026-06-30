@@ -8,7 +8,7 @@ inputs:
   profile-path:
     description: Repair profile JSON path relative to the repo root.
     required: false
-    default: .github/ci/workflow-action-update-agent/profile.json
+    default: .github/agent-workflows/workflow-repair/profiles/profile.json
   current-ref-name:
     description: Current Git ref name for fallback target-branch selection.
     required: false
@@ -40,7 +40,7 @@ inputs:
   context-root:
     description: Context root where runtime markdown and artifacts live.
     required: false
-    default: .codex/workflow-action-update-agent
+    default: .agent-workflows/workflow-action-update-agent
   patch-root:
     description: Artifact root containing the generated patch.
     required: false
@@ -103,11 +103,11 @@ outputs:
   repair_branch:
     description: Planned repair branch.
     value: ${{ steps.helper.outputs.repair_branch }}
-  codex_model:
-    description: Codex model resolved from the repair profile.
-    value: ${{ steps.helper.outputs.codex_model }}
+  agent_model:
+    description: Agent model resolved from the repair profile.
+    value: ${{ steps.helper.outputs.agent_model }}
   has_changes:
-    description: Whether Codex produced repository changes.
+    description: Whether Agent produced repository changes.
     value: ${{ steps.helper.outputs.has_changes }}
   head_sha:
     description: Repair branch head SHA.

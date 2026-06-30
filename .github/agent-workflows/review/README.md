@@ -1,6 +1,6 @@
-# Codex Review
+# Agent Review
 
-This directory owns the repository-specific Codex review flow.
+This directory owns the repository-specific Agent review flow.
 
 The GitHub workflow renders the review prompt, runs the shared Python OpenAI
 Agents SDK runner, then
@@ -9,20 +9,20 @@ publishes:
 - one fresh summary comment per run
 - fresh inline review comments for the current findings
 - structured hidden state markers in the published comments, so other automation
-  can safely consume the latest Codex review result for the current PR head
+  can safely consume the latest Agent review result for the current PR head
 
 The workflow-scoped OpenAI agent runtime pins live in
-`codex-review/requirements-agent.txt` and are installed into
-`.codex/openai-agent-venv`. The runner uses the Arm OpenAI proxy, disables
+`.github/agent-workflows/runtime/requirements-openai-agents.txt` and are installed into
+`.agent-workflows/openai-agent-venv`. The runner uses the Arm OpenAI proxy, disables
 Agents SDK tracing, and injects `truststore` before importing OpenAI libraries.
 Local runs use the same SDK path and require either `OPENAI_API_KEY` or
-`OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS`; Codex CLI login state is not reused.
+`OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS`; OpenAI SDK CLI login state is not reused.
 
 Structure:
 
 - `prompts/`: checked-in review prompt templates
-- `schemas/`: structured output schemas for Codex review runs
+- `schemas/`: structured output schemas for Agent review runs
 - `scripts/`: shared helper scripts for prompt rendering, local review runs, and
   publishing review output
-- `requirements-agent.txt`: pinned OpenAI agent runtime dependencies
+- `../runtime/requirements-openai-agents.txt`: pinned OpenAI agent runtime dependencies
 - `out/`: local and CI-generated review artifacts

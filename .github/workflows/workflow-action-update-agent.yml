@@ -31,7 +31,7 @@ on:
       profile_path:
         description: Repair profile JSON path relative to the repository root.
         required: false
-        default: .github/ci/workflow-action-update-agent/profile.json
+        default: .github/agent-workflows/workflow-repair/profiles/profile.json
         type: string
 
 permissions: {}
@@ -53,20 +53,20 @@ jobs:
       source_run_id: ${{ inputs.source_run_id || github.event.workflow_run.id || '' }}
       target_branch: ${{ inputs.target_branch || '' }}
       ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
-      profile_path: ${{ inputs.profile_path || '.github/ci/workflow-action-update-agent/profile.json' }}
+      profile_path: ${{ inputs.profile_path || '.github/agent-workflows/workflow-repair/profiles/profile.json' }}
     secrets: inherit
 
-  run-codex-stabilizer:
+  run-agent-stabilizer:
     if: ${{ inputs.pr_number != '' }}
-    name: Run Codex stabilizer
+    name: Run agent stabilizer
     permissions:
       contents: write
       pull-requests: write
-    uses: ./.github/workflows/codex-stabilize-pr.yml
+    uses: ./.github/workflows/agent-stabilize-pr.yml
     with:
       pr_number: ${{ inputs.pr_number }}
       head_sha: ${{ inputs.head_sha || '' }}
       source_run_id: ${{ inputs.source_run_id || '' }}
       ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
-      profile_path: ${{ inputs.profile_path || '.github/ci/workflow-action-update-agent/profile.json' }}
+      profile_path: ${{ inputs.profile_path || '.github/agent-workflows/workflow-repair/profiles/profile.json' }}
     secrets: inherit

@@ -50,5 +50,5 @@ Scoring and output requirements:
   markdown fences or explanation text.
 - Keep `summary` and each finding `body` concise but complete.
 - Be generous in reporting distinct supported findings; under-reporting is worse than returning a longer but still concrete finding list.
-- Honor checked-in suppression markers of the form `<codex-review:suppress> <reason>` for local cases and `<codex-review:suppress-begin> <reason>` ... `<codex-review:suppress-end>` for multi-line blocks.
+- Honor checked-in suppression markers of the form `<agent-review:suppress> <reason>` for local cases and `<agent-review:suppress-begin> <reason>` ... `<agent-review:suppress-end>` for multi-line blocks.
 - When a finding falls entirely within such a marked line or block and is otherwise valid, downgrade that exact issue to `note` instead of escalating it, but still report broader regressions, trust-boundary problems, or materially different risks around it at their supported severity.

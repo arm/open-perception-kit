@@ -6,7 +6,7 @@
 set -Eeuo pipefail
 
 base_ref="${1:-origin/main}"
-output_dir="${2:-codex-review/out}"
+output_dir="${2:-.github/agent-workflows/review/out}"
 
 mkdir -p "${output_dir}"
 
@@ -14,9 +14,9 @@ export REVIEW_BASE_REF="${base_ref}"
 export REVIEW_HEAD_REF="${REVIEW_HEAD_REF:-HEAD}"
 export REVIEW_REPOSITORY="${REVIEW_REPOSITORY:-local-checkout}"
 
-./codex-review/scripts/render-prompt.sh "${output_dir}/review.prompt.md"
+./.github/agent-workflows/review/scripts/render-prompt.sh "${output_dir}/review.prompt.md"
 
-agent_venv="${CODEX_REVIEW_AGENT_VENV:-.codex/openai-agent-venv}"
+agent_venv="${AGENT_REVIEW_AGENT_VENV:-.agent-workflows/openai-agent-venv}"
 
 if [[ -z "${OPENAI_API_KEY:-}" && -n "${OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS:-}" ]]; then
     export OPENAI_API_KEY="${OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS}"
@@ -35,15 +35,15 @@ fi
 
 python3 -m venv "${agent_venv}"
 "${agent_venv}/bin/python" -m pip install --upgrade pip
-"${agent_venv}/bin/python" -m pip install -r codex-review/requirements-agent.txt
+"${agent_venv}/bin/python" -m pip install -r .github/agent-workflows/runtime/requirements-openai-agents.txt
 
-"${agent_venv}/bin/python" scripts/private/openai_agent_runner.py run-review \
-    --model "${CODEX_MODEL:-gpt-5.3-codex}" \
+"${agent_venv}/bin/python" scripts/private/agent_workflows/openai_agent_runner.py run-review \
+    --model "${AGENT_MODEL:-gpt-5.3-codex}" \
     --prompt-file "${output_dir}/review.prompt.md" \
-    --schema-file "codex-review/schemas/review.schema.json" \
+    --schema-file ".github/agent-workflows/review/schemas/review.schema.json" \
     --output-file "${output_dir}/review.json"
 
-python3 ./codex-review/scripts/publish-review.py \
+python3 ./.github/agent-workflows/review/scripts/publish-review.py \
     --input "${output_dir}/review.json" \
     --markdown-out "${output_dir}/review-summary.md"
 
