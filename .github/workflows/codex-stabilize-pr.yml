@@ -206,6 +206,14 @@ jobs:
           repair-branch: ${{ steps.pr.outputs.repair_branch }}
           ticket-id: ${{ inputs.ticket_id }}
 
+      - name: Write stabilization skip artifact
+        if: ${{ steps.context.outputs.review_recommendation == 'approve' }}
+        shell: bash
+        run: |
+          cat >"${{ runner.temp }}/workflow-action-update-agent-stabilize-output.md" <<'EOF'
+          No stabilization agent run was needed because Codex Review approved the PR head.
+          EOF
+
       - name: Upload stabilization artifacts
         if: always()
         uses: actions/upload-artifact@v6

@@ -466,6 +466,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 "Run OpenAI SDK stabilization agent",
                 "Run stabilization validation",
                 "Commit stabilization fix",
+                "Write stabilization skip artifact",
                 "Upload stabilization artifacts",
             ],
         )
@@ -533,6 +534,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             steps["Commit stabilization fix"]["with"]["command"],
             "commit-review-fix",
         )
+        skip_step = steps["Write stabilization skip artifact"]
+        self.assertEqual(skip_step["if"], "${{ steps.context.outputs.review_recommendation == 'approve' }}")
+        self.assertIn("workflow-action-update-agent-stabilize-output.md", skip_step["run"])
+        self.assertIn("No stabilization agent run was needed", skip_step["run"])
         self.assertEqual(
             steps["Commit stabilization fix"]["env"]["GH_TOKEN"],
             "${{ secrets.EXPKITS_AGENT_TOKEN }}",
