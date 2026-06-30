@@ -9,6 +9,16 @@ from pathlib import Path
 from typing import Any
 
 
+REMOVED_REVIEW_CONTRACT_TOKENS = (
+    "codex-review",
+    "codex-stabilize-pr.yml",
+    "codex_model",
+    "CODEX_REVIEW",
+    "openai/codex-action@v1",
+    "codex exec",
+)
+
+
 def filter_invalid_right_side_findings(payload: dict[str, Any], repo_root: Path) -> dict[str, Any]:
     """Drop findings that claim RIGHT-side anchors absent from the checkout."""
 
@@ -58,14 +68,23 @@ def _has_invalid_right_side_anchor(finding: dict[str, Any], repo_root: Path) -> 
     if not file_path.is_file():
         return True
 
-    line_count = len(file_path.read_text(encoding="utf-8", errors="replace").splitlines())
+    lines = file_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    line_count = len(lines)
     start_line = finding.get("start_line")
     end_line = finding.get("end_line")
     if isinstance(start_line, int) and start_line > line_count:
         return True
     if isinstance(end_line, int) and end_line > line_count:
         return True
-    return isinstance(start_line, int) and isinstance(end_line, int) and end_line < start_line
+    if isinstance(start_line, int) and isinstance(end_line, int) and end_line < start_line:
+        return True
+
+    finding_text = _finding_text(finding)
+    anchor_text = _anchor_text(lines, start_line, end_line)
+    return any(
+        token in finding_text and token not in anchor_text
+        for token in REMOVED_REVIEW_CONTRACT_TOKENS
+    )
 
 
 def _resolve_repo_path(repo_root: Path, path_value: str) -> Path:
@@ -75,6 +94,23 @@ def _resolve_repo_path(repo_root: Path, path_value: str) -> Path:
     if resolved != root and root not in resolved.parents:
         raise ValueError(f"Path escapes repository root: {path_value}")
     return resolved
+
+
+def _finding_text(finding: dict[str, Any]) -> str:
+    return "\n".join(
+        str(finding.get(field) or "")
+        for field in ("title", "body", "suggestion")
+    )
+
+
+def _anchor_text(lines: list[str], start_line: Any, end_line: Any) -> str:
+    if not isinstance(start_line, int):
+        return "\n".join(lines)
+    if not isinstance(end_line, int):
+        end_line = start_line
+    first = max(start_line - 1, 0)
+    last = max(end_line, start_line)
+    return "\n".join(lines[first:last])
 
 
 def _recommendation_for_findings(findings: list[dict[str, Any]]) -> str:

@@ -524,6 +524,42 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("Omitted 1 unsupported finding", filtered["summary"])
         self.assertEqual([finding["title"] for finding in filtered["findings"]], ["Supported note"])
 
+    def test_agent_review_output_drops_stale_contract_findings_not_supported_by_anchor(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            profile_path = repo_root / ".github/agent-workflows/workflow-repair/profiles/profile.json"
+            profile_path.parent.mkdir(parents=True)
+            profile_path.write_text(
+                '"review_state_script": ".github/agent-workflows/review/scripts/fetch-review-state.py",\n',
+                encoding="utf-8",
+            )
+
+            payload = {
+                "summary": "Reviewed workflow changes.",
+                "overall_recommendation": "request_changes",
+                "overall_score": 0.9,
+                "overall_confidence": 0.96,
+                "findings": [
+                    {
+                        "title": "Profile still points to codex-review",
+                        "severity": "major",
+                        "score": 0.9,
+                        "confidence": 0.96,
+                        "path": ".github/agent-workflows/workflow-repair/profiles/profile.json",
+                        "diff_side": "RIGHT",
+                        "start_line": 1,
+                        "end_line": 1,
+                        "body": "`review_state_script` is still set to `codex-review/scripts/fetch-review-state.py`.",
+                        "suggestion": None,
+                    },
+                ],
+            }
+
+            filtered = AGENT_REVIEW_OUTPUT.filter_invalid_right_side_findings(payload, repo_root)
+
+        self.assertEqual(filtered["overall_recommendation"], "approve")
+        self.assertEqual(filtered["findings"], [])
+
     def test_openai_agent_runtime_dependencies_are_pinned(self):
         requirements = AGENT_REQUIREMENTS_FILE.read_text(encoding="utf-8").splitlines()
 
