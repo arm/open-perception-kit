@@ -111,12 +111,8 @@ jobs:
             "${bundle_root}/scripts/private"
           cp .github/actions/workflow-action-update-agent-helper/action.yml \
             "${bundle_root}/.github/actions/workflow-action-update-agent-helper/action.yml"
-          cp scripts/private/workflow_action_update_agent.py \
-            "${bundle_root}/scripts/private/workflow_action_update_agent.py"
-          cp scripts/private/openai_agent_runner.py \
-            "${bundle_root}/scripts/private/openai_agent_runner.py"
-          cp codex-review/requirements-agent.txt \
-            "${bundle_root}/codex-review/requirements-agent.txt"
+          cp -R scripts/private/. "${bundle_root}/scripts/private"
+          cp -R codex-review/. "${bundle_root}/codex-review"
 
       - name: Resolve PR details
         id: pr

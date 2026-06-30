@@ -470,8 +470,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             ],
         )
         snapshot_step = steps["Snapshot workflow helper bundle"]
-        self.assertIn("openai_agent_runner.py", snapshot_step["run"])
-        self.assertIn("requirements-agent.txt", snapshot_step["run"])
+        self.assertIn('cp -R scripts/private/. "${bundle_root}/scripts/private"', snapshot_step["run"])
+        self.assertIn('cp -R codex-review/. "${bundle_root}/codex-review"', snapshot_step["run"])
+        self.assertNotIn("cp scripts/private/openai_agent_runner.py", snapshot_step["run"])
+        self.assertNotIn("cp codex-review/requirements-agent.txt", snapshot_step["run"])
         install_step = steps["Install OpenAI agent runtime"]
         self.assertEqual(
             install_step["run"],
