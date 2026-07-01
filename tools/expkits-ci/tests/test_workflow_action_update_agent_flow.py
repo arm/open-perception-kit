@@ -207,6 +207,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         stabilize_job = workflow["jobs"]["stabilize-pr"]
         agent_steps = step_map(agent_job)
         stabilize_steps = step_map(stabilize_job)
+        agent_step_names = [
+            step.get("name") or step.get("id") or step.get("uses")
+            for step in agent_job["steps"]
+        ]
 
         self.assertEqual(
             set(inputs.keys()),
@@ -242,6 +246,14 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("Download source artifact context", agent_steps)
         self.assertIn("Install OpenAI agent runtime", agent_steps)
         self.assertIn("Run OpenAI SDK repair agent", agent_steps)
+        self.assertLess(
+            agent_step_names.index("Run static regression tests"),
+            agent_step_names.index("Run OpenAI SDK repair agent"),
+        )
+        self.assertLess(
+            agent_step_names.index("Run OpenAI SDK repair agent"),
+            agent_step_names.index("patch"),
+        )
         self.assertNotIn("Prime OpenAI SDK CLI", stabilize_steps)
         self.assertNotIn("Apply deterministic workflow freshness patch", agent_steps)
 
