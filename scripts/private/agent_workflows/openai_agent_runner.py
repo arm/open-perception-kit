@@ -15,7 +15,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-from contracts import (
+if __package__ in (None, ""):  # pragma: no cover - used for direct script execution.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    __package__ = "agent_workflows"
+
+from .contracts import (
     AgentCommand,
     AGENT_COMMAND_DEFAULT_INSTANCES,
     DEFAULT_AGENT_MODEL_CONFIG_PATH,
@@ -30,8 +34,8 @@ from contracts import (
     ReviewRecommendation,
     ReviewSeverity,
 )
-from model_config import resolve_agent_model
-from review_output import filter_invalid_right_side_findings
+from .model_config import resolve_agent_model
+from .review_output import filter_invalid_right_side_findings
 
 
 MAX_TOOL_OUTPUT_CHARS = 24000

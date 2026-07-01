@@ -28,5 +28,6 @@ repair, and stabilization workflows.
 For changes here, run at least:
 
 - `python3 -m py_compile scripts/private/agent_workflows/*.py scripts/private/workflow_action_update_agent.py`
+- `python3 -m mypy --config-file .github/agent-workflows/runtime/mypy.ini`
 - `python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_workflow_action_update_agent_flow.py'`
 - `git diff --check`

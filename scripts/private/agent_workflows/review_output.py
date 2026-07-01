@@ -6,9 +6,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 from typing import Any
 
-from contracts import (
+if __package__ in (None, ""):  # pragma: no cover - used for direct script imports.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    __package__ = "agent_workflows"
+
+from .contracts import (
     DiffSide,
     ReviewRecommendation,
     ReviewSeverity,

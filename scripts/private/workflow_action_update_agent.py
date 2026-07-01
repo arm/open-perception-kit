@@ -358,6 +358,18 @@ def profile_validation_workflows(profile: dict[str, object]) -> list[dict[str, o
     return parsed
 
 
+def workflow_allowed_review_recommendations(workflow: dict[str, object]) -> list[str]:
+    recommendations = workflow.get("allowed_review_recommendations", [])
+    if not isinstance(recommendations, list):
+        raise ValueError(
+            "Validation workflow 'allowed_review_recommendations' value must be a JSON array."
+        )
+    return [
+        str(recommendation).strip().lower()
+        for recommendation in recommendations
+    ]
+
+
 def format_profile_template(template: str, values: dict[str, str]) -> str:
     try:
         return template.format_map(values)
@@ -1645,10 +1657,7 @@ def command_stabilize_pr(args: argparse.Namespace) -> int:
                     head_sha=head_sha,
                     review_state=review_state,
                 )
-            allowed_recommendations = [
-                str(recommendation).strip().lower()
-                for recommendation in review_workflow.get("allowed_review_recommendations", [])
-            ]
+            allowed_recommendations = workflow_allowed_review_recommendations(review_workflow)
             recommendation = str(review_state.get("overall_recommendation") or "").strip().lower()
             if recommendation not in allowed_recommendations:
                 dispatch_stabilizer_workflow(
@@ -1733,10 +1742,7 @@ def command_wait_for_pr_workflows(args: argparse.Namespace) -> int:
                 pr_number=args.pr_number,
                 workflow_name=str(workflow["workflow_name"]),
                 review_state=review_state,
-                allowed_review_recommendations=[
-                    str(recommendation).strip().lower()
-                    for recommendation in workflow.get("allowed_review_recommendations", [])
-                ],
+                allowed_review_recommendations=workflow_allowed_review_recommendations(workflow),
             )
     return 0
 

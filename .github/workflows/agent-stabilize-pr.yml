@@ -118,6 +118,8 @@ jobs:
             "${bundle_root}/.github/actions/workflow-action-update-agent-helper/action.yml"
           cp scripts/private/workflow_action_update_agent.py \
             "${bundle_root}/scripts/private/workflow_action_update_agent.py"
+          cp scripts/private/agent_workflows/__init__.py \
+            "${bundle_root}/scripts/private/agent_workflows/__init__.py"
           cp scripts/private/agent_workflows/contracts.py \
             "${bundle_root}/scripts/private/agent_workflows/contracts.py"
           cp scripts/private/agent_workflows/openai_agent_runner.py \

@@ -71,6 +71,12 @@ jobs:
           .agent-workflows/openai-agent-venv/bin/python -m pip install --upgrade pip
           .agent-workflows/openai-agent-venv/bin/python -m pip install -r .github/agent-workflows/runtime/requirements-openai-agents.txt
 
+      - name: Run Agent workflow static analysis
+        shell: bash
+        run: |
+          .agent-workflows/openai-agent-venv/bin/python -m pip install -r .github/agent-workflows/runtime/requirements-static-analysis.txt
+          .agent-workflows/openai-agent-venv/bin/python -m mypy --config-file .github/agent-workflows/runtime/mypy.ini
+
       # <agent-review:suppress-begin> Intentional current self-hosted OpenAI
       # review trust boundary for same-repo pull requests.
       - name: Run OpenAI SDK review

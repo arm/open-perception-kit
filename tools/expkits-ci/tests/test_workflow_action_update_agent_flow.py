@@ -2,7 +2,10 @@
 # Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
 
+from __future__ import annotations
+
 import argparse
+from email.message import Message
 import io
 import importlib.util
 import json
@@ -16,6 +19,7 @@ import urllib.error
 import urllib.parse
 import unittest
 from unittest import mock
+from typing import Any
 import zipfile
 
 import yaml
@@ -35,8 +39,11 @@ AGENT_REVIEW_PUBLISH_SCRIPT = REPO_ROOT / ".github/agent-workflows/review/script
 AGENT_REVIEW_RUN_SCRIPT = REPO_ROOT / ".github/agent-workflows/review/scripts/run-review.sh"
 AGENT_REVIEW_PROMPT_TEMPLATE = REPO_ROOT / ".github/agent-workflows/review/prompts/review.md.in"
 AGENT_REQUIREMENTS_FILE = REPO_ROOT / ".github/agent-workflows/runtime/requirements-openai-agents.txt"
+AGENT_STATIC_REQUIREMENTS_FILE = REPO_ROOT / ".github/agent-workflows/runtime/requirements-static-analysis.txt"
+AGENT_MYPY_CONFIG_FILE = REPO_ROOT / ".github/agent-workflows/runtime/mypy.ini"
 AGENT_MODEL_CONFIG_FILE = REPO_ROOT / ".github/agent-workflows/runtime/agent-models.json"
 OPENAI_AGENT_RUNNER_SCRIPT = REPO_ROOT / "scripts/private/agent_workflows/openai_agent_runner.py"
+OPENAI_AGENT_INIT_FILE = REPO_ROOT / "scripts/private/agent_workflows/__init__.py"
 OPENAI_AGENT_CONTRACTS_SCRIPT = REPO_ROOT / "scripts/private/agent_workflows/contracts.py"
 OPENAI_AGENT_MODEL_CONFIG_SCRIPT = REPO_ROOT / "scripts/private/agent_workflows/model_config.py"
 OPENAI_AGENT_REVIEW_OUTPUT_SCRIPT = REPO_ROOT / "scripts/private/agent_workflows/review_output.py"
@@ -57,7 +64,7 @@ PULL_REQUEST_TEMPLATE = REPO_ROOT / ".github/PULL_REQUEST_TEMPLATE.md"
 REPAIR_BRANCH = "feature/EXPKITS-4242/bot-workflow-action-update-agent-run-12345"  # pragma: allowlist secret
 
 
-def load_yaml(path: Path) -> dict[str, object]:
+def load_yaml(path: Path) -> Any:
     return yaml.load(path.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
 
 
@@ -72,7 +79,7 @@ def load_python_module(path: Path, module_name: str):
 
 
 def load_agent_workflow_module(path: Path, module_name: str):
-    module_path = str(OPENAI_AGENT_RUNNER_SCRIPT.parent)
+    module_path = str(OPENAI_AGENT_RUNNER_SCRIPT.parent.parent)
     sys.path.insert(0, module_path)
     try:
         return load_python_module(path, module_name)
@@ -89,12 +96,19 @@ def load_review_script_module(path: Path, module_name: str):
         sys.path.remove(module_path)
 
 
-def step_map(job: dict[str, object]) -> dict[str, dict[str, object]]:
+def step_map(job: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {
         step["name"]: step
         for step in job.get("steps", [])
         if isinstance(step, dict) and "name" in step
     }
+
+
+def http_headers(values: dict[str, str] | None = None) -> Message[str, str]:
+    headers: Message[str, str] = Message()
+    for key, value in (values or {}).items():
+        headers[key] = value
+    return headers
 
 
 def build_zip_archive(files: dict[str, str]) -> bytes:
@@ -118,14 +132,17 @@ def load_openai_agent_runner_with_fake_sdk():
         ConfigDict=lambda **_kwargs: {},
         Field=lambda *args, **_kwargs: args[0] if args else None,
     )
-    module_path = str(OPENAI_AGENT_RUNNER_SCRIPT.parent)
+    module_path = str(OPENAI_AGENT_RUNNER_SCRIPT.parent.parent)
     with mock.patch.dict(
         sys.modules,
         {"agents": fake_agents, "truststore": fake_truststore, "pydantic": fake_pydantic},
     ):
         sys.path.insert(0, module_path)
         try:
-            return load_python_module(OPENAI_AGENT_RUNNER_SCRIPT, "openai_agent_runner_fake_sdk")
+            return load_python_module(
+                OPENAI_AGENT_RUNNER_SCRIPT,
+                "agent_workflows.openai_agent_runner_fake_sdk",
+            )
         finally:
             sys.path.remove(module_path)
 
@@ -134,9 +151,18 @@ HELPER = load_python_module(HELPER_SCRIPT, "workflow_action_update_agent")
 WORKFLOW_AUDIT_REPORT = load_python_module(WORKFLOW_AUDIT_REPORT_SCRIPT, "workflow_audit_report")
 AGENT_REVIEW_FETCH = load_review_script_module(AGENT_REVIEW_FETCH_SCRIPT, "agent_review_fetch_review_state")
 AGENT_REVIEW_PUBLISH = load_review_script_module(AGENT_REVIEW_PUBLISH_SCRIPT, "agent_review_publish_review")
-OPENAI_AGENT_CONTRACTS = load_agent_workflow_module(OPENAI_AGENT_CONTRACTS_SCRIPT, "openai_agent_contracts")
-OPENAI_AGENT_MODEL_CONFIG = load_agent_workflow_module(OPENAI_AGENT_MODEL_CONFIG_SCRIPT, "openai_agent_model_config")
-AGENT_REVIEW_OUTPUT = load_agent_workflow_module(OPENAI_AGENT_REVIEW_OUTPUT_SCRIPT, "agent_review_output")
+OPENAI_AGENT_CONTRACTS = load_agent_workflow_module(
+    OPENAI_AGENT_CONTRACTS_SCRIPT,
+    "agent_workflows.contracts",
+)
+OPENAI_AGENT_MODEL_CONFIG = load_agent_workflow_module(
+    OPENAI_AGENT_MODEL_CONFIG_SCRIPT,
+    "agent_workflows.model_config",
+)
+AGENT_REVIEW_OUTPUT = load_agent_workflow_module(
+    OPENAI_AGENT_REVIEW_OUTPUT_SCRIPT,
+    "agent_workflows.review_output",
+)
 
 
 class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
@@ -245,6 +271,15 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1",
         )
         self.assertEqual(agent_step["env"]["OPENAI_AGENTS_DISABLE_TRACING"], "1")
+        static_regression_step = agent_steps["Run static regression tests"]
+        self.assertIn(
+            ".agent-workflows/openai-agent-venv/bin/python -m pip install -r .github/agent-workflows/runtime/requirements-static-analysis.txt",
+            static_regression_step["run"],
+        )
+        self.assertIn(
+            ".agent-workflows/openai-agent-venv/bin/python -m mypy --config-file .github/agent-workflows/runtime/mypy.ini",
+            static_regression_step["run"],
+        )
         self.assertEqual(
             agent_steps["Download source artifact context"]["if"],
             "${{ inputs.source_artifact_name != '' }}",
@@ -308,7 +343,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             url="https://api.github.com/repos/Arm-Debug/amp-dev-forge/actions/artifacts/1/zip",
             code=302,
             msg="Found",
-            hdrs={"Location": "https://objects.githubusercontent.com/archive.zip"},
+            hdrs=http_headers({"Location": "https://objects.githubusercontent.com/archive.zip"}),
             fp=None,
         )
         opener = mock.Mock()
@@ -390,6 +425,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 "Fetch Agent review base ref",
                 "Render Agent review prompt",
                 "Install OpenAI agent runtime",
+                "Run Agent workflow static analysis",
                 "Run OpenAI SDK review",
                 "Render review summary",
                 "Publish review summary comment",
@@ -402,6 +438,16 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "python3 -m venv .agent-workflows/openai-agent-venv\n"
             ".agent-workflows/openai-agent-venv/bin/python -m pip install --upgrade pip\n"
             ".agent-workflows/openai-agent-venv/bin/python -m pip install -r .github/agent-workflows/runtime/requirements-openai-agents.txt\n",
+        )
+        static_step = review_steps["Run Agent workflow static analysis"]
+        self.assertEqual(static_step["shell"], "bash")
+        self.assertIn(
+            ".agent-workflows/openai-agent-venv/bin/python -m pip install -r .github/agent-workflows/runtime/requirements-static-analysis.txt",
+            static_step["run"],
+        )
+        self.assertIn(
+            ".agent-workflows/openai-agent-venv/bin/python -m mypy --config-file .github/agent-workflows/runtime/mypy.ini",
+            static_step["run"],
         )
         checkout_step = review_steps["Checkout pull request head"]
         self.assertIn("github.event.inputs.head_ref", checkout_step["with"]["ref"])
@@ -483,7 +529,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             GOAL_TEMPLATE,
             PROFILE_FILE,
             WORKFLOW_AUDIT_PROFILE_FILE,
+            AGENT_STATIC_REQUIREMENTS_FILE,
+            AGENT_MYPY_CONFIG_FILE,
             AGENT_MODEL_CONFIG_FILE,
+            OPENAI_AGENT_INIT_FILE,
             OPENAI_AGENT_MODEL_CONFIG_SCRIPT,
         ]
         forbidden = [
@@ -743,6 +792,17 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             },
         )
 
+    def test_agent_static_analysis_dependencies_are_pinned(self):
+        requirements = AGENT_STATIC_REQUIREMENTS_FILE.read_text(encoding="utf-8").splitlines()
+
+        self.assertEqual(
+            set(requirements),
+            {
+                "mypy==1.16.1",
+                "types-PyYAML==6.0.12.20250516",
+            },
+        )
+
     def test_agent_models_are_centralized_and_resolved_per_instance(self):
         model_config = json.loads(AGENT_MODEL_CONFIG_FILE.read_text(encoding="utf-8"))
 
@@ -864,6 +924,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             ],
         )
         snapshot_step = steps["Snapshot workflow helper bundle"]
+        self.assertIn("cp scripts/private/agent_workflows/__init__.py", snapshot_step["run"])
         self.assertIn("cp scripts/private/agent_workflows/contracts.py", snapshot_step["run"])
         self.assertIn("cp scripts/private/agent_workflows/openai_agent_runner.py", snapshot_step["run"])
         self.assertIn("cp scripts/private/agent_workflows/model_config.py", snapshot_step["run"])
@@ -1174,7 +1235,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("Source workflow: Perception Experience Kit CI Pipeline", notes)
 
     def test_agent_review_publish_and_fetch_scripts_share_structured_state(self):
-        review = {
+        review: dict[str, Any] = {
             "summary": "Looks fine with one minor note.",
             "overall_recommendation": "comment",
             "overall_score": 0.3,
@@ -1403,7 +1464,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 "https://api.github.com/repos/Arm-Debug/amp-dev-forge/pulls/175/reviews",
                 422,
                 "Validation Failed",
-                hdrs=None,
+                hdrs=http_headers(),
                 fp=io.BytesIO(b'{"message":"Validation Failed"}'),
             )
 
@@ -1456,7 +1517,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                     "https://api.github.com/repos/Arm-Debug/amp-dev-forge/pulls/175/reviews",
                     422,
                     "Validation Failed",
-                    hdrs=None,
+                    hdrs=http_headers(),
                     fp=io.BytesIO(b'{"message":"Validation Failed"}'),
                 )
 

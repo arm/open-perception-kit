@@ -9,12 +9,14 @@ import argparse
 import json
 from dataclasses import dataclass
 from pathlib import Path
+import sys
 from typing import Any
 
-try:
-    from .contracts import AgentInstance, DEFAULT_AGENT_MODEL_CONFIG_PATH
-except ImportError:  # pragma: no cover - used when executed as a standalone script.
-    from contracts import AgentInstance, DEFAULT_AGENT_MODEL_CONFIG_PATH
+if __package__ in (None, ""):  # pragma: no cover - used for direct script execution.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    __package__ = "agent_workflows"
+
+from .contracts import AgentInstance, DEFAULT_AGENT_MODEL_CONFIG_PATH
 
 
 @dataclass(frozen=True)
