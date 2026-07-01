@@ -734,6 +734,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             repo_tools.reject_unsafe_shell_command('echo ok && git push')
         with self.assertRaisesRegex(ValueError, "Unsupported shell syntax"):
             repo_tools.reject_unsafe_shell_command("echo ok | git push")
+        with self.assertRaisesRegex(ValueError, "Unsupported shell syntax"):
+            repo_tools.reject_unsafe_shell_command("git diff --check || true")
         for command in (
             "git apply /tmp/example.patch",
             "git add -A",

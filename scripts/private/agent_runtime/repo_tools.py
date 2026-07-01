@@ -35,7 +35,6 @@ FORBIDDEN_GH_SUBCOMMANDS = {
 }
 SHELL_COMMAND_SEPARATORS = (
     "&&",
-    "||",
     ";",
 )
 
@@ -94,7 +93,7 @@ def split_shell_commands(command: str) -> list[list[str]]:
         if any(character in word for character in ";&|<>"):
             raise ValueError(
                 f"Unsupported shell syntax in agent command: {word}. "
-                "Use simple commands separated by &&, ||, semicolon, or newline."
+                "Use simple commands separated by &&, semicolon, or newline."
             )
         current.append(word)
     if current:
