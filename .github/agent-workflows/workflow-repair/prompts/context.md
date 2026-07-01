@@ -18,7 +18,7 @@
 
 The reference implementation is `.github/workflows/agent-review.yml`.
 
-- Runner: `self-hosted-ubuntu-latest`
+- Runner: `self-hosted-ubuntu-latest-ephemeral`
 - Prompt preparation stays outside the SDK runner in checked-in scripts.
 - Agent runtime dependencies are installed from `.github/agent-workflows/runtime/requirements-openai-agents.txt`
   into `.agent-workflows/openai-agent-venv`.

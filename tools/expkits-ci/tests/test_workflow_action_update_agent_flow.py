@@ -62,7 +62,7 @@ PROFILE_FILE = PROFILE_ROOT / "profile.json"
 WORKFLOW_AUDIT_PROFILE_FILE = PROFILE_ROOT / "workflow-audit-profile.json"
 PULL_REQUEST_TEMPLATE = REPO_ROOT / ".github/PULL_REQUEST_TEMPLATE.md"
 REPAIR_BRANCH = "feature/EXPKITS-4242/bot-workflow-action-update-agent-run-12345"  # pragma: allowlist secret
-OPENAI_AGENT_RUNNER_LABEL = "self-hosted-ubuntu-latest"
+OPENAI_AGENT_RUNNER_LABEL = "self-hosted-ubuntu-latest-ephemeral"
 
 
 def load_yaml(path: Path) -> Any:

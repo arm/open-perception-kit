@@ -85,7 +85,7 @@ jobs:
     name: Generate repair patch with OpenAI SDK agent
     needs: prepare
     if: needs.prepare.outputs.should_run == 'true'
-    runs-on: self-hosted-ubuntu-latest
+    runs-on: self-hosted-ubuntu-latest-ephemeral
     timeout-minutes: 45
     permissions:
       actions: read

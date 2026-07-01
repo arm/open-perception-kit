@@ -88,7 +88,7 @@ concurrency:
 
 jobs:
   stabilize:
-    runs-on: self-hosted-ubuntu-latest
+    runs-on: self-hosted-ubuntu-latest-ephemeral
     permissions:
       contents: write
       pull-requests: write
