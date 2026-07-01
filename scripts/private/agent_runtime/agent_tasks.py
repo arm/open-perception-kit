@@ -101,15 +101,16 @@ class AgentWorkflowTask(ABC):
         del args
 
     def output_type(self) -> Any:
+        """Return the optional structured SDK output type for this workflow task."""
         return None
 
     @abstractmethod
     def tools(self) -> list[Any]:
-        raise NotImplementedError
+        raise NotImplementedError("AgentWorkflowTask subclasses must define tools.")
 
     @abstractmethod
     def write_result(self, final_output: object, args: argparse.Namespace) -> int:
-        raise NotImplementedError
+        raise NotImplementedError("AgentWorkflowTask subclasses must define result writing.")
 
     async def run(self, args: argparse.Namespace) -> int:
         self.validate_args(args)

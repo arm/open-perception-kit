@@ -644,6 +644,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn('"apply"', tools_source)
         self.assertIn('["git", "apply", "--whitespace=nowarn"]', tools_source)
         self.assertIn("class TaskEstimate", estimator_source)
+        self.assertIn("class TaskEstimatorAgent", estimator_source)
         self.assertIn("async def estimate_task_fit", estimator_source)
         self.assertIn("def build_task_manifest", estimator_source)
         self.assertIn("class AgentTaskSettings", task_config_source)
@@ -657,6 +658,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertNotIn("def parse_agent_command", task_config_source)
         self.assertFalse((OPENAI_AGENT_RUNNER_SCRIPT.parent / "task_registry.py").exists())
         self.assertIn("get_agent_task", runner_source)
+        self.assertIn("validate_agent_task_registry", runner_source)
         self.assertIn("resolve_task_settings", runner_source)
         self.assertIn("--agent-instance", runner_source)
         self.assertIn("--model-config-file", runner_source)
@@ -665,6 +667,35 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertNotIn("read_repo_file", runner_source)
         self.assertNotIn("TaskEstimate", runner_source)
         self.assertNotIn("AGENT_TASK_LIMITS", contracts_source)
+
+    def test_agent_task_registry_is_enforced_against_central_config(self):
+        runner = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_RUNNER_SCRIPT,
+            "agent_runtime.openai_agent_runner_fake_sdk_registry",
+        )
+        configured_commands = set(
+            json.loads(AGENT_TASK_CONFIG_FILE.read_text(encoding="utf-8"))["tasks"]
+        )
+        registered_commands = {task.command.value for task in runner.iter_agent_tasks()}
+
+        self.assertEqual(registered_commands, configured_commands)
+        runner.validate_agent_task_registry(AGENT_TASK_CONFIG_FILE)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "agent-tasks.json"
+            payload = json.loads(AGENT_TASK_CONFIG_FILE.read_text(encoding="utf-8"))
+            del payload["tasks"]["run-repair"]
+            config_path.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "Agent task registry and config do not match"):
+                runner.validate_agent_task_registry(config_path)
+
+        original_tasks = runner.AGENT_TASKS
+        try:
+            runner.AGENT_TASKS = (original_tasks[0], original_tasks[0], *original_tasks[1:])
+            with self.assertRaisesRegex(ValueError, "duplicate commands"):
+                runner.validate_agent_task_registry(AGENT_TASK_CONFIG_FILE)
+        finally:
+            runner.AGENT_TASKS = original_tasks
 
     def test_openai_agent_runner_executes_simple_commands_without_shell_expansion(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(

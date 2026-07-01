@@ -32,6 +32,7 @@ from .repo_tools import set_run_context
 from .sdk_runtime import configure_openai_environment
 from .task_config import (
     AgentTaskSettings,
+    load_agent_task_config,
     resolve_agent_task_settings,
 )
 
@@ -52,6 +53,43 @@ def get_agent_task(command: str | AgentCommand) -> AgentWorkflowTask:
         if task.command is parsed_command:
             return task
     raise ValueError(f"Unsupported agent command: {parsed_command.value}")
+
+
+def validate_agent_task_registry(task_config_file: str | Path) -> None:
+    commands = [task.command for task in AGENT_TASKS]
+    duplicate_commands = sorted(
+        {
+            command.value
+            for index, command in enumerate(commands)
+            if command in commands[:index]
+        }
+    )
+    if duplicate_commands:
+        raise ValueError(
+            "Agent task registry has duplicate commands: "
+            + ", ".join(duplicate_commands)
+        )
+
+    configured_commands = set(load_agent_task_config(task_config_file).tasks)
+    registered_commands = set(commands)
+    missing_tasks = sorted(
+        command.value
+        for command in configured_commands - registered_commands
+    )
+    unconfigured_tasks = sorted(
+        command.value
+        for command in registered_commands - configured_commands
+    )
+    if missing_tasks or unconfigured_tasks:
+        details = []
+        if missing_tasks:
+            details.append("missing Python task(s): " + ", ".join(missing_tasks))
+        if unconfigured_tasks:
+            details.append("missing config task(s): " + ", ".join(unconfigured_tasks))
+        raise ValueError(
+            "Agent task registry and config do not match: "
+            + "; ".join(details)
+        )
 
 
 def resolve_runner_model(args: argparse.Namespace) -> str:
@@ -123,6 +161,7 @@ def resolve_task_settings(args: argparse.Namespace) -> AgentTaskSettings:
 async def run_command(args: argparse.Namespace) -> int:
     configure_openai_environment()
     set_run_context(Path(args.repo_root), args.command_timeout)
+    validate_agent_task_registry(args.task_config_file)
     args.task_settings = resolve_task_settings(args)
     args.agent_instance = args.agent_instance or args.task_settings.agent_instance.value
     args.resolved_model = resolve_runner_model(args)

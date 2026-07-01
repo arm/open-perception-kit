@@ -192,6 +192,32 @@ def task_estimator_instruction() -> str:
     )
 
 
+class TaskEstimatorAgent:
+    agent_name = "OpenAI SDK Agent Task Estimator"
+
+    def build_agent(self, resolved_model: str) -> Agent:
+        return Agent(
+            name=self.agent_name,
+            instructions=task_estimator_instruction(),
+            model=resolved_model,
+            output_type=TaskEstimate,
+        )
+
+    async def run(
+        self,
+        manifest: dict[str, Any],
+        settings: AgentTaskSettings,
+        resolved_model: str,
+    ) -> TaskEstimate:
+        result = await Runner.run(
+            self.build_agent(resolved_model),
+            json.dumps(manifest, indent=2, sort_keys=True),
+            max_turns=settings.task_estimate_turns,
+            run_config=RunConfig(tracing_disabled=True),
+        )
+        return coerce_model_output(TaskEstimate, result.final_output)
+
+
 def task_estimate_block_reasons(
     manifest: dict[str, Any],
     estimate: TaskEstimate,
@@ -214,19 +240,7 @@ async def estimate_task_fit(
     resolved_model: str,
 ) -> None:
     manifest = build_task_manifest(command, prompt, settings, resolved_model)
-    estimator = Agent(
-        name="OpenAI SDK Agent Task Estimator",
-        instructions=task_estimator_instruction(),
-        model=resolved_model,
-        output_type=TaskEstimate,
-    )
-    result = await Runner.run(
-        estimator,
-        json.dumps(manifest, indent=2, sort_keys=True),
-        max_turns=settings.task_estimate_turns,
-        run_config=RunConfig(tracing_disabled=True),
-    )
-    estimate = coerce_model_output(TaskEstimate, result.final_output)
+    estimate = await TaskEstimatorAgent().run(manifest, settings, resolved_model)
     block_reasons = task_estimate_block_reasons(manifest, estimate)
     if block_reasons:
         split = estimate.split_recommendation or "Split the change or task into a smaller focused agent run."
