@@ -60,6 +60,7 @@ if ! detect_output="$("${SCRIPT_DIR}/detect-environment.sh" --shell)"; then
     exit 1
 fi
 eval "$detect_output"
+export PEK_DEV_BASE_CONTAINER_NAME PEK_DEV_RPI5_H8_CONTAINER_NAME PEK_DEV_RPI5_H10_CONTAINER_NAME
 
 COMPOSE_FILES=(
     -f .devcontainer/compose.devcont.yaml
