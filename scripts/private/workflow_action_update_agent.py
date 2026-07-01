@@ -28,17 +28,24 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from agent_workflows.contracts import AgentInstance  # noqa: E402
-from agent_workflows.model_config import resolve_agent_model  # noqa: E402
+from agent_runtime.contracts import (  # noqa: E402
+    AgentInstance,
+    load_json_object,
+    load_json_value,
+    require_list,
+    require_non_empty_string,
+    require_object,
+)
+from agent_runtime.model_config import resolve_agent_model  # noqa: E402
 
 
 TICKET_RE = re.compile(r"^[A-Z][A-Z0-9]*-[0-9]+$")
 GITHUB_WORKSPACE = os.environ.get("GITHUB_WORKSPACE", "").strip()
 HELPER_ROOT = Path(__file__).resolve().parents[2]
 REPO_ROOT = Path(GITHUB_WORKSPACE).resolve() if GITHUB_WORKSPACE else HELPER_ROOT
-DEFAULT_PROFILE_PATH = HELPER_ROOT / ".github/agent-workflows/workflow-repair/profiles/profile.json"
+DEFAULT_PROFILE_PATH = HELPER_ROOT / ".github/agent-runtime/repair/profiles/profile.json"
 PR_TEMPLATE_PATH = REPO_ROOT / ".github/PULL_REQUEST_TEMPLATE.md"
-MARKDOWN_TEMPLATE_ROOT = HELPER_ROOT / ".github/agent-workflows/workflow-repair/prompts"
+MARKDOWN_TEMPLATE_ROOT = HELPER_ROOT / ".github/agent-runtime/repair/prompts"
 PR_AUTOMATION_START = "<!-- workflow-action-update-agent:automation:start -->"
 PR_AUTOMATION_END = "<!-- workflow-action-update-agent:automation:end -->"
 PR_DESCRIPTION_START = "<!-- workflow-action-update-agent:description:start -->"
@@ -197,7 +204,7 @@ def profile_config_root(profile_path: str) -> Path:
     except ValueError:
         return path.parent
 
-    marker_parts = Path(".github/agent-workflows/workflow-repair/profiles").parts
+    marker_parts = Path(".github/agent-runtime/repair/profiles").parts
     for index in range(0, len(relative_parts) - len(marker_parts) + 1):
         if relative_parts[index:index + len(marker_parts)] == marker_parts:
             return REPO_ROOT.joinpath(*relative_parts[:index]).resolve()
@@ -205,17 +212,14 @@ def profile_config_root(profile_path: str) -> Path:
 
 
 def load_json_file(path: Path) -> object:
-    return json.loads(path.read_text(encoding="utf-8"))
+    return load_json_value(path)
 
 
 def load_profile(profile_path: str = "") -> dict[str, object]:
     path = resolve_repo_path(profile_path or default_profile_path_argument())
     if not path.is_file():
         raise ValueError(f"Workflow action update agent profile is missing: {path}")
-
-    profile = load_json_file(path)
-    if not isinstance(profile, dict):
-        raise ValueError(f"Workflow action update agent profile must be a JSON object: {path}")
+    profile = load_json_object(path, "Workflow action update agent profile")
 
     required_string_keys = (
         "display_name",
@@ -252,10 +256,10 @@ def profile_bool(profile: dict[str, object], key: str, default: bool) -> bool:
 
 
 def profile_string(profile: dict[str, object], key: str) -> str:
-    value = profile.get(key)
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"Profile key '{key}' must be a non-empty string.")
-    return value
+    try:
+        return require_non_empty_string(profile.get(key), key)
+    except ValueError as exc:
+        raise ValueError(f"Profile key '{key}' must be a non-empty string.") from exc
 
 
 def profile_agent_model(profile: dict[str, object], agent_instance: AgentInstance, profile_path: str = "") -> str:
@@ -278,10 +282,10 @@ def profile_optional_string(profile: dict[str, object], key: str, default: str =
 
 
 def profile_list(profile: dict[str, object], key: str) -> list[object]:
-    value = profile.get(key)
-    if not isinstance(value, list):
-        raise ValueError(f"Profile key '{key}' must be a JSON array.")
-    return value
+    try:
+        return require_list(profile.get(key), key)
+    except ValueError as exc:
+        raise ValueError(f"Profile key '{key}' must be a JSON array.") from exc
 
 
 def profile_string_list(profile: dict[str, object], key: str) -> list[str]:
@@ -295,13 +299,15 @@ def profile_validation_workflows(profile: dict[str, object]) -> list[dict[str, o
     workflows = profile_list(profile, "validation_workflows")
     parsed: list[dict[str, object]] = []
     for item in workflows:
-        if not isinstance(item, dict):
-            raise ValueError("Profile key 'validation_workflows' must contain only JSON objects.")
-        workflow_file = item.get("workflow_file")
-        workflow_name = item.get("workflow_name")
-        review_state_script = item.get("review_state_script", "")
-        allowed_review_recommendations = item.get("allowed_review_recommendations", [])
-        workflow_dispatch_inputs = item.get("workflow_dispatch_inputs", {})
+        try:
+            workflow = require_object(item, "validation_workflows[]")
+        except ValueError as exc:
+            raise ValueError("Profile key 'validation_workflows' must contain only JSON objects.") from exc
+        workflow_file = workflow.get("workflow_file")
+        workflow_name = workflow.get("workflow_name")
+        review_state_script = workflow.get("review_state_script", "")
+        allowed_review_recommendations = workflow.get("allowed_review_recommendations", [])
+        workflow_dispatch_inputs = workflow.get("workflow_dispatch_inputs", {})
         if not isinstance(workflow_file, str) or not workflow_file.strip():
             raise ValueError("Each validation workflow must define a non-empty 'workflow_file'.")
         if not isinstance(workflow_name, str) or not workflow_name.strip():
@@ -380,6 +386,18 @@ def format_profile_template(template: str, values: dict[str, str]) -> str:
 
 def render_bullet_list(items: list[str]) -> str:
     return "\n".join(f"- `{item}`" for item in items)
+
+
+def profile_markdown_list(profile: dict[str, object], key: str) -> str:
+    return render_bullet_list(profile_string_list(profile, key))
+
+
+def profile_prompt_replacements(profile: dict[str, object]) -> dict[str, str]:
+    return {
+        DISPLAY_NAME_TOKEN: profile_string(profile, "display_name"),
+        PROMPT_CONTEXT_FILES_TOKEN: profile_markdown_list(profile, "prompt_context_files"),
+        VALIDATION_COMMANDS_TOKEN: profile_markdown_list(profile, "validation_commands"),
+    }
 
 
 def render_repair_ci_badge(repair_branch: str) -> str:
@@ -905,8 +923,7 @@ def build_markdown_documents(
     artifact_files: list[str],
 ) -> dict[str, str]:
     file_inventory = "# File Inventory\n\n" + "\n".join(f"- `{item}`" for item in artifact_files)
-    prompt_context_files = render_bullet_list(profile_string_list(profile, "prompt_context_files"))
-    validation_commands = render_bullet_list(profile_string_list(profile, "validation_commands"))
+    prompt_replacements = profile_prompt_replacements(profile)
 
     return {
         "file-inventory.md": file_inventory,
@@ -926,14 +943,11 @@ def build_markdown_documents(
         "constraints.md": load_markdown_template("constraints.md"),
         "validation.md": render_markdown_template(
             "validation.md.in",
-            {VALIDATION_COMMANDS_TOKEN: validation_commands},
+            {VALIDATION_COMMANDS_TOKEN: prompt_replacements[VALIDATION_COMMANDS_TOKEN]},
         ),
         "goal.md": render_markdown_template(
             "repair-goal.md.in",
-            {
-                DISPLAY_NAME_TOKEN: profile_string(profile, "display_name"),
-                PROMPT_CONTEXT_FILES_TOKEN: prompt_context_files,
-            },
+            prompt_replacements,
         ),
     }
 
@@ -1327,7 +1341,7 @@ def publish_review_state_to_pr(
     head_sha: str,
     review_state: dict[str, object],
 ) -> None:
-    script_path = resolve_repo_path(".github/agent-workflows/review/scripts/publish-review.py")
+    script_path = resolve_repo_path(".github/agent-runtime/review/scripts/publish-review.py")
     if not script_path.is_file():
         raise ValueError(f"Agent review publish script is missing: {script_path}")
 
@@ -1411,17 +1425,12 @@ def build_stabilize_prompt(
     review_summary = str(review_state.get("summary") or "").strip() or "No summary provided."
     review_recommendation = str(review_state.get("overall_recommendation") or "").strip() or "unknown"
     review_run_id = str(review_state.get("run_id") or "").strip() or "unknown"
-    prompt_context_files = render_bullet_list(profile_string_list(profile, "prompt_context_files"))
-    validation_commands = render_bullet_list(profile_string_list(profile, "validation_commands"))
     review_state_json = json.dumps(review_state, indent=2, sort_keys=True)
-
-    return render_markdown_template(
-        "stabilize-goal.md.in",
+    replacements = profile_prompt_replacements(profile)
+    replacements.update(
         {
             CONTEXT_ROOT_TOKEN: context_root.as_posix(),
-            DISPLAY_NAME_TOKEN: profile_string(profile, "display_name"),
             PR_NUMBER_TOKEN: pr_number,
-            PROMPT_CONTEXT_FILES_TOKEN: prompt_context_files,
             REPAIR_BRANCH_TOKEN: repair_branch,
             REVIEW_RECOMMENDATION_TOKEN: review_recommendation,
             REVIEW_RUN_ID_TOKEN: review_run_id,
@@ -1429,8 +1438,12 @@ def build_stabilize_prompt(
             REVIEW_SUMMARY_TOKEN: review_summary,
             REVIEW_WORKFLOW_NAME_TOKEN: workflow_name,
             SOURCE_RUN_ID_TOKEN: source_run_id,
-            VALIDATION_COMMANDS_TOKEN: validation_commands,
-        },
+        }
+    )
+
+    return render_markdown_template(
+        "stabilize-goal.md.in",
+        replacements,
     )
 
 
@@ -1761,7 +1774,7 @@ def build_parser() -> argparse.ArgumentParser:
     resolve_inputs.set_defaults(func=command_resolve_inputs)
 
     collect_context = subparsers.add_parser("collect-context")
-    collect_context.add_argument("--context-root", default=".agent-workflows/workflow-action-update-agent")
+    collect_context.add_argument("--context-root", default=".agent-runtime/workflow-action-update-agent")
     collect_context.add_argument("--source-run-id", required=True)
     collect_context.add_argument("--source-run-url", required=True)
     collect_context.add_argument("--source-workflow-name", required=True)
@@ -1769,7 +1782,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     build_markdown = subparsers.add_parser("build-markdown")
     build_markdown.add_argument("--profile-path", default=default_profile_path_argument())
-    build_markdown.add_argument("--context-root", default=".agent-workflows/workflow-action-update-agent")
+    build_markdown.add_argument("--context-root", default=".agent-runtime/workflow-action-update-agent")
     build_markdown.add_argument("--source-run-id", required=True)
     build_markdown.add_argument("--source-run-url", required=True)
     build_markdown.add_argument("--source-workflow-name", required=True)
@@ -1831,7 +1844,7 @@ def build_parser() -> argparse.ArgumentParser:
     prepare_stabilization_context.add_argument("--source-run-id", default="")
     prepare_stabilization_context.add_argument(
         "--context-root",
-        default=".agent-workflows/workflow-action-update-agent",
+        default=".agent-runtime/workflow-action-update-agent",
     )
     prepare_stabilization_context.add_argument("--github-output", default=os.environ.get("GITHUB_OUTPUT", ""))
     prepare_stabilization_context.set_defaults(func=command_prepare_stabilization_context)
@@ -1841,7 +1854,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_validation.set_defaults(func=command_run_validation)
 
     commit_review_fix_parser = subparsers.add_parser("commit-review-fix")
-    commit_review_fix_parser.add_argument("--context-root", default=".agent-workflows/workflow-action-update-agent")
+    commit_review_fix_parser.add_argument("--context-root", default=".agent-runtime/workflow-action-update-agent")
     commit_review_fix_parser.add_argument("--pr-number", required=True)
     commit_review_fix_parser.add_argument("--repair-branch", required=True)
     commit_review_fix_parser.add_argument("--ticket-id", required=True)
@@ -1855,7 +1868,7 @@ def build_parser() -> argparse.ArgumentParser:
     stabilize_pr.add_argument("--head-sha", required=True)
     stabilize_pr.add_argument("--ticket-id", required=True)
     stabilize_pr.add_argument("--source-run-id", required=True)
-    stabilize_pr.add_argument("--context-root", default=".agent-workflows/workflow-action-update-agent")
+    stabilize_pr.add_argument("--context-root", default=".agent-runtime/workflow-action-update-agent")
     stabilize_pr.set_defaults(func=command_stabilize_pr)
 
     wait_for_workflows = subparsers.add_parser("wait-for-pr-workflows")

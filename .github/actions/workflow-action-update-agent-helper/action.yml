@@ -8,7 +8,7 @@ inputs:
   profile-path:
     description: Repair profile JSON path relative to the repo root.
     required: false
-    default: .github/agent-workflows/workflow-repair/profiles/profile.json
+    default: .github/agent-runtime/repair/profiles/profile.json
   current-ref-name:
     description: Current Git ref name for fallback target-branch selection.
     required: false
@@ -40,7 +40,7 @@ inputs:
   context-root:
     description: Context root where runtime markdown and artifacts live.
     required: false
-    default: .agent-workflows/workflow-action-update-agent
+    default: .agent-runtime/workflow-action-update-agent
   patch-root:
     description: Artifact root containing the generated patch.
     required: false

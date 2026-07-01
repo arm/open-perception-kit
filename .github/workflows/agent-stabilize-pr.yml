@@ -26,12 +26,12 @@ on:
       profile_path:
         description: Repair profile JSON path relative to the repository root.
         required: false
-        default: .github/agent-workflows/workflow-repair/profiles/profile.json
+        default: .github/agent-runtime/repair/profiles/profile.json
         type: string
       context_root:
         description: Context root where runtime markdown and artifacts live.
         required: false
-        default: .agent-workflows/workflow-action-update-agent
+        default: .agent-runtime/workflow-action-update-agent
         type: string
       dispatch_nonce:
         description: Optional unique nonce for dispatch correlation.
@@ -67,12 +67,12 @@ on:
       profile_path:
         description: Repair profile JSON path relative to the repository root.
         required: false
-        default: .github/agent-workflows/workflow-repair/profiles/profile.json
+        default: .github/agent-runtime/repair/profiles/profile.json
         type: string
       context_root:
         description: Context root where runtime markdown and artifacts live.
         required: false
-        default: .agent-workflows/workflow-action-update-agent
+        default: .agent-runtime/workflow-action-update-agent
         type: string
       dispatch_nonce:
         description: Optional unique nonce for dispatch correlation.
@@ -106,37 +106,31 @@ jobs:
           bundle_root="${RUNNER_TEMP}/workflow-action-update-agent-helper"
           rm -rf "${bundle_root}"
           mkdir -p \
-            "${bundle_root}/.github/agent-workflows/runtime" \
-            "${bundle_root}/.github/agent-workflows/review/prompts" \
-            "${bundle_root}/.github/agent-workflows/review/schemas" \
-            "${bundle_root}/.github/agent-workflows/review/scripts" \
-            "${bundle_root}/.github/agent-workflows/workflow-repair/prompts" \
-            "${bundle_root}/.github/agent-workflows/workflow-repair/profiles" \
+            "${bundle_root}/.github/agent-runtime/runtime" \
+            "${bundle_root}/.github/agent-runtime/review/prompts" \
+            "${bundle_root}/.github/agent-runtime/review/schemas" \
+            "${bundle_root}/.github/agent-runtime/review/scripts" \
+            "${bundle_root}/.github/agent-runtime/repair/prompts" \
+            "${bundle_root}/.github/agent-runtime/repair/profiles" \
             "${bundle_root}/.github/actions/workflow-action-update-agent-helper" \
-            "${bundle_root}/scripts/private/agent_workflows"
+            "${bundle_root}/scripts/private/agent_runtime"
           cp .github/actions/workflow-action-update-agent-helper/action.yml \
             "${bundle_root}/.github/actions/workflow-action-update-agent-helper/action.yml"
           cp scripts/private/workflow_action_update_agent.py \
             "${bundle_root}/scripts/private/workflow_action_update_agent.py"
-          cp scripts/private/agent_workflows/__init__.py \
-            "${bundle_root}/scripts/private/agent_workflows/__init__.py"
-          cp scripts/private/agent_workflows/contracts.py \
-            "${bundle_root}/scripts/private/agent_workflows/contracts.py"
-          cp scripts/private/agent_workflows/openai_agent_runner.py \
-            "${bundle_root}/scripts/private/agent_workflows/openai_agent_runner.py"
-          cp scripts/private/agent_workflows/model_config.py \
-            "${bundle_root}/scripts/private/agent_workflows/model_config.py"
-          cp scripts/private/agent_workflows/review_output.py \
-            "${bundle_root}/scripts/private/agent_workflows/review_output.py"
-          cp .github/agent-workflows/runtime/requirements-openai-agents.txt \
-            "${bundle_root}/.github/agent-workflows/runtime/requirements-openai-agents.txt"
-          cp .github/agent-workflows/runtime/agent-models.json \
-            "${bundle_root}/.github/agent-workflows/runtime/agent-models.json"
-          cp -R .github/agent-workflows/review/prompts/. "${bundle_root}/.github/agent-workflows/review/prompts"
-          cp -R .github/agent-workflows/review/schemas/. "${bundle_root}/.github/agent-workflows/review/schemas"
-          cp -R .github/agent-workflows/review/scripts/. "${bundle_root}/.github/agent-workflows/review/scripts"
-          cp -R .github/agent-workflows/workflow-repair/prompts/. "${bundle_root}/.github/agent-workflows/workflow-repair/prompts"
-          cp -R .github/agent-workflows/workflow-repair/profiles/. "${bundle_root}/.github/agent-workflows/workflow-repair/profiles"
+          cp -R scripts/private/agent_runtime/. \
+            "${bundle_root}/scripts/private/agent_runtime"
+          cp .github/agent-runtime/runtime/requirements-openai-agents.txt \
+            "${bundle_root}/.github/agent-runtime/runtime/requirements-openai-agents.txt"
+          cp .github/agent-runtime/runtime/agent-models.json \
+            "${bundle_root}/.github/agent-runtime/runtime/agent-models.json"
+          cp .github/agent-runtime/runtime/agent-tasks.json \
+            "${bundle_root}/.github/agent-runtime/runtime/agent-tasks.json"
+          cp -R .github/agent-runtime/review/prompts/. "${bundle_root}/.github/agent-runtime/review/prompts"
+          cp -R .github/agent-runtime/review/schemas/. "${bundle_root}/.github/agent-runtime/review/schemas"
+          cp -R .github/agent-runtime/review/scripts/. "${bundle_root}/.github/agent-runtime/review/scripts"
+          cp -R .github/agent-runtime/repair/prompts/. "${bundle_root}/.github/agent-runtime/repair/prompts"
+          cp -R .github/agent-runtime/repair/profiles/. "${bundle_root}/.github/agent-runtime/repair/profiles"
 
       - name: Resolve PR details
         id: pr
@@ -185,24 +179,20 @@ jobs:
         if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
         shell: bash
         run: |
-          python3 -m venv .agent-workflows/openai-agent-venv
-          .agent-workflows/openai-agent-venv/bin/python -m pip install --upgrade pip
-          .agent-workflows/openai-agent-venv/bin/python -m pip install -r .workflow-action-update-agent-helper/.github/agent-workflows/runtime/requirements-openai-agents.txt
+          python3 -m venv .agent-runtime/openai-agent-venv
+          .agent-runtime/openai-agent-venv/bin/python -m pip install --upgrade pip
+          .agent-runtime/openai-agent-venv/bin/python -m pip install -r .workflow-action-update-agent-helper/.github/agent-runtime/runtime/requirements-openai-agents.txt
 
       - name: Run OpenAI SDK stabilization agent
         if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
         shell: bash
         env:
           OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
-          OPENAI_BASE_URL: https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1
-          OPENAI_AGENTS_DISABLE_TRACING: "1"
         run: |
-          .agent-workflows/openai-agent-venv/bin/python .workflow-action-update-agent-helper/scripts/private/agent_workflows/openai_agent_runner.py run-stabilization \
-            --agent-instance stabilization \
-            --model-config-file .workflow-action-update-agent-helper/.github/agent-workflows/runtime/agent-models.json \
+          .agent-runtime/openai-agent-venv/bin/python .workflow-action-update-agent-helper/scripts/private/agent_runtime/openai_agent_runner.py run-stabilization \
+            --model-config-file .workflow-action-update-agent-helper/.github/agent-runtime/runtime/agent-models.json \
+            --task-config-file .workflow-action-update-agent-helper/.github/agent-runtime/runtime/agent-tasks.json \
             --prompt-file "${{ inputs.context_root }}/stabilize-goal.md" \
-            --max-turns 30 \
             --output-file "${{ runner.temp }}/workflow-action-update-agent-stabilize-output.md"
 
       - if: ${{ steps.context.outputs.review_recommendation != 'approve' }}

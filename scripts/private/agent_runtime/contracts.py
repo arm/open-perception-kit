@@ -7,15 +7,76 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+import json
+from pathlib import Path
+from typing import Any, TypeVar
 
 
 DEFAULT_OPENAI_BASE_URL = "https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1"
-DEFAULT_AGENT_MODEL_CONFIG_PATH = ".github/agent-workflows/runtime/agent-models.json"
+DEFAULT_AGENT_MODEL_CONFIG_PATH = ".github/agent-runtime/runtime/agent-models.json"
+DEFAULT_AGENT_TASK_CONFIG_PATH = ".github/agent-runtime/runtime/agent-tasks.json"
 OPENAI_API_KEY_ENV = "OPENAI_API_KEY"  # pragma: allowlist secret
 OPENAI_PROXY_KEY_ENV = "OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"
 OPENAI_BASE_URL_ENV = "OPENAI_BASE_URL"
 OPENAI_AGENTS_DISABLE_TRACING_ENV = "OPENAI_AGENTS_DISABLE_TRACING"
 OPENAI_AGENTS_DISABLE_TRACING_VALUE = "1"
+
+EnumValue = TypeVar("EnumValue", bound=Enum)
+
+
+def load_json_value(config_file: str | Path) -> Any:
+    path = Path(config_file)
+    if not path.is_file():
+        raise ValueError(f"JSON file does not exist: {path}")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def load_json_object(config_file: str | Path, config_name: str) -> dict[str, Any]:
+    path = Path(config_file)
+    payload = load_json_value(path)
+    if not isinstance(payload, dict):
+        raise ValueError(f"{config_name} must be a JSON object: {path}")
+    return payload
+
+
+def require_object(value: Any, field_name: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ValueError(f"Config field '{field_name}' must be an object.")
+    return value
+
+
+def require_list(value: Any, field_name: str) -> list[Any]:
+    if not isinstance(value, list):
+        raise ValueError(f"Config field '{field_name}' must be a JSON array.")
+    return value
+
+
+def require_non_empty_string(value: Any, field_name: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"Config field '{field_name}' must be a non-empty string.")
+    return value.strip()
+
+
+def require_positive_int(value: Any, field_name: str) -> int:
+    if not isinstance(value, int) or value <= 0:
+        raise ValueError(f"Config field '{field_name}' must be a positive integer.")
+    return value
+
+
+def optional_positive_int(value: Any, field_name: str) -> int | None:
+    if value is None:
+        return None
+    return require_positive_int(value, field_name)
+
+
+def parse_enum_value(enum_type: type[EnumValue], value: str | EnumValue, field_name: str) -> EnumValue:
+    if isinstance(value, enum_type):
+        return value
+    try:
+        return enum_type(value)
+    except ValueError as exc:
+        allowed = ", ".join(str(item.value) for item in enum_type)
+        raise ValueError(f"Unsupported {field_name} '{value}'. Expected one of: {allowed}.") from exc
 
 
 class AgentCommand(str, Enum):
@@ -28,41 +89,6 @@ class AgentInstance(str, Enum):
     REVIEW = "review"
     REPAIR = "repair"
     STABILIZATION = "stabilization"
-
-
-AGENT_COMMAND_DEFAULT_INSTANCES = {
-    AgentCommand.REVIEW: AgentInstance.REVIEW,
-    AgentCommand.REPAIR: AgentInstance.REPAIR,
-    AgentCommand.STABILIZATION: AgentInstance.STABILIZATION,
-}
-
-
-@dataclass(frozen=True)
-class AgentTaskLimits:
-    """Execution budget and preflight size limits for one agent task type."""
-
-    max_turns: int
-    max_prompt_chars: int
-    max_review_files: int | None = None
-    max_review_changed_lines: int | None = None
-
-
-AGENT_TASK_LIMITS = {
-    AgentCommand.REVIEW: AgentTaskLimits(
-        max_turns=40,
-        max_prompt_chars=180_000,
-        max_review_files=120,
-        max_review_changed_lines=10_000,
-    ),
-    AgentCommand.REPAIR: AgentTaskLimits(
-        max_turns=30,
-        max_prompt_chars=140_000,
-    ),
-    AgentCommand.STABILIZATION: AgentTaskLimits(
-        max_turns=30,
-        max_prompt_chars=120_000,
-    ),
-}
 
 
 class ReviewRecommendation(str, Enum):

@@ -3,9 +3,9 @@
 Goal: address the latest standard Agent Review findings on PR #{{PR_NUMBER}} and leave the current repair branch with only the minimal repository changes needed to turn the review into `approve`.
 
 Read these first:
-- `.github/agent-workflows/workflow-repair/prompts/context.md`
-- `.github/agent-workflows/workflow-repair/prompts/ponytail-review.md`
-- `.github/agent-workflows/workflow-repair/prompts/constraints.md`
+- `.github/agent-runtime/repair/prompts/context.md`
+- `.github/agent-runtime/repair/prompts/ponytail-review.md`
+- `.github/agent-runtime/repair/prompts/constraints.md`
 - `.github/PULL_REQUEST_TEMPLATE.md`
 - `.github/workflows/agent-review.yml`
 

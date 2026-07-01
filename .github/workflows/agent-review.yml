@@ -61,21 +61,21 @@ jobs:
           REVIEW_PR_TITLE: ${{ github.event.pull_request.title || '' }}
           REVIEW_PR_URL: ${{ github.event.pull_request.html_url || '' }}
         run: |
-          mkdir -p .github/agent-workflows/review/out
-          ./.github/agent-workflows/review/scripts/render-prompt.sh .github/agent-workflows/review/out/review.prompt.md
+          mkdir -p .github/agent-runtime/review/out
+          ./.github/agent-runtime/review/scripts/render-prompt.sh .github/agent-runtime/review/out/review.prompt.md
 
       - name: Install OpenAI agent runtime
         shell: bash
         run: |
-          python3 -m venv .agent-workflows/openai-agent-venv
-          .agent-workflows/openai-agent-venv/bin/python -m pip install --upgrade pip
-          .agent-workflows/openai-agent-venv/bin/python -m pip install -r .github/agent-workflows/runtime/requirements-openai-agents.txt
+          python3 -m venv .agent-runtime/openai-agent-venv
+          .agent-runtime/openai-agent-venv/bin/python -m pip install --upgrade pip
+          .agent-runtime/openai-agent-venv/bin/python -m pip install -r .github/agent-runtime/runtime/requirements-openai-agents.txt
 
       - name: Run Agent workflow static analysis
         shell: bash
         run: |
-          .agent-workflows/openai-agent-venv/bin/python -m pip install -r .github/agent-workflows/runtime/requirements-static-analysis.txt
-          .agent-workflows/openai-agent-venv/bin/python -m mypy --config-file .github/agent-workflows/runtime/mypy.ini
+          .agent-runtime/openai-agent-venv/bin/python -m pip install -r .github/agent-runtime/runtime/requirements-static-analysis.txt
+          .agent-runtime/openai-agent-venv/bin/python -m mypy --config-file .github/agent-runtime/runtime/mypy.ini
 
       # <agent-review:suppress-begin> Intentional current self-hosted OpenAI
       # review trust boundary for same-repo pull requests.
@@ -84,27 +84,21 @@ jobs:
         shell: bash
         env:
           OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
-          OPENAI_BASE_URL: https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1
-          OPENAI_AGENTS_DISABLE_TRACING: "1"
         run: |
-          .agent-workflows/openai-agent-venv/bin/python scripts/private/agent_workflows/openai_agent_runner.py run-review \
-            --agent-instance review \
-            --model-config-file .github/agent-workflows/runtime/agent-models.json \
-            --prompt-file .github/agent-workflows/review/out/review.prompt.md \
-            --schema-file .github/agent-workflows/review/schemas/review.schema.json \
-            --max-turns 40 \
-            --output-file .github/agent-workflows/review/out/review.json
+          .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/openai_agent_runner.py run-review \
+            --prompt-file .github/agent-runtime/review/out/review.prompt.md \
+            --schema-file .github/agent-runtime/review/schemas/review.schema.json \
+            --output-file .github/agent-runtime/review/out/review.json
       # <agent-review:suppress-end>
 
       - name: Render review summary
         if: ${{ success() }}
         shell: bash
         run: |
-          python3 ./.github/agent-workflows/review/scripts/publish-review.py \
-            --input .github/agent-workflows/review/out/review.json \
-            --markdown-out .github/agent-workflows/review/out/review-summary.md
-          cat .github/agent-workflows/review/out/review-summary.md >> "${GITHUB_STEP_SUMMARY}"
+          python3 ./.github/agent-runtime/review/scripts/publish-review.py \
+            --input .github/agent-runtime/review/out/review.json \
+            --markdown-out .github/agent-runtime/review/out/review-summary.md
+          cat .github/agent-runtime/review/out/review-summary.md >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Publish review summary comment
         if: ${{ success() && github.event_name == 'pull_request' }}
@@ -116,9 +110,9 @@ jobs:
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REVIEW_BASE_REF: ${{ format('origin/{0}', github.base_ref) }}
         run: |
-          python3 ./.github/agent-workflows/review/scripts/publish-review.py \
-            --input .github/agent-workflows/review/out/review.json \
-            --markdown-out .github/agent-workflows/review/out/review-summary.md \
+          python3 ./.github/agent-runtime/review/scripts/publish-review.py \
+            --input .github/agent-runtime/review/out/review.json \
+            --markdown-out .github/agent-runtime/review/out/review-summary.md \
             --publish-pr-comment
 
       - name: Upload review artifacts
@@ -126,5 +120,5 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: agent-review-out
-          path: .github/agent-workflows/review/out
+          path: .github/agent-runtime/review/out
           if-no-files-found: warn

@@ -4,13 +4,13 @@ Goal: repair a CI or workflow regression from the source GitHub Actions run and 
 
 Read these first:
 
-- `.agent-workflows/workflow-action-update-agent/ponytail-review.md`
-- `.agent-workflows/workflow-action-update-agent/constraints.md`
-- `.agent-workflows/workflow-action-update-agent/failure-context.md`
-- `.agent-workflows/workflow-action-update-agent/validation.md`
-- `.agent-workflows/workflow-action-update-agent/file-inventory.md`
+- `.agent-runtime/workflow-action-update-agent/ponytail-review.md`
+- `.agent-runtime/workflow-action-update-agent/constraints.md`
+- `.agent-runtime/workflow-action-update-agent/failure-context.md`
+- `.agent-runtime/workflow-action-update-agent/validation.md`
+- `.agent-runtime/workflow-action-update-agent/file-inventory.md`
 {{PROMPT_CONTEXT_FILES}}
 
-Then inspect `.agent-workflows/workflow-action-update-agent/source-run.log` and the relevant text files under `.agent-workflows/workflow-action-update-agent/artifacts/`.
+Then inspect `.agent-runtime/workflow-action-update-agent/source-run.log` and the relevant text files under `.agent-runtime/workflow-action-update-agent/artifacts/`.
 
 Produce the minimal repo changes needed to address the regression. If the evidence is insufficient for a safe fix, leave the tree unchanged and explain exactly why in your final message.

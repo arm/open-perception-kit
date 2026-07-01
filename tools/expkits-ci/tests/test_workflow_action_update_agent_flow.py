@@ -35,22 +35,34 @@ AGENT_REVIEW_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/agent-review.yml"
 PEK_CI_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/pek-ci.yml"
 SONAR_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/sonar.yml"
 WORKFLOW_AUDIT_REPORT_SCRIPT = REPO_ROOT / "scripts/private/workflow_audit_report.py"
-AGENT_REVIEW_FETCH_SCRIPT = REPO_ROOT / ".github/agent-workflows/review/scripts/fetch-review-state.py"
-AGENT_REVIEW_PUBLISH_SCRIPT = REPO_ROOT / ".github/agent-workflows/review/scripts/publish-review.py"
-AGENT_REVIEW_RUN_SCRIPT = REPO_ROOT / ".github/agent-workflows/review/scripts/run-review.sh"
-AGENT_REVIEW_PROMPT_TEMPLATE = REPO_ROOT / ".github/agent-workflows/review/prompts/review.md.in"
-AGENT_REQUIREMENTS_FILE = REPO_ROOT / ".github/agent-workflows/runtime/requirements-openai-agents.txt"
-AGENT_STATIC_REQUIREMENTS_FILE = REPO_ROOT / ".github/agent-workflows/runtime/requirements-static-analysis.txt"
-AGENT_MYPY_CONFIG_FILE = REPO_ROOT / ".github/agent-workflows/runtime/mypy.ini"
-AGENT_MODEL_CONFIG_FILE = REPO_ROOT / ".github/agent-workflows/runtime/agent-models.json"
-OPENAI_AGENT_RUNNER_SCRIPT = REPO_ROOT / "scripts/private/agent_workflows/openai_agent_runner.py"
-OPENAI_AGENT_INIT_FILE = REPO_ROOT / "scripts/private/agent_workflows/__init__.py"
-OPENAI_AGENT_CONTRACTS_SCRIPT = REPO_ROOT / "scripts/private/agent_workflows/contracts.py"
-OPENAI_AGENT_MODEL_CONFIG_SCRIPT = REPO_ROOT / "scripts/private/agent_workflows/model_config.py"
-OPENAI_AGENT_REVIEW_OUTPUT_SCRIPT = REPO_ROOT / "scripts/private/agent_workflows/review_output.py"
+AGENT_REVIEW_FETCH_SCRIPT = REPO_ROOT / ".github/agent-runtime/review/scripts/fetch-review-state.py"
+AGENT_REVIEW_PUBLISH_SCRIPT = REPO_ROOT / ".github/agent-runtime/review/scripts/publish-review.py"
+AGENT_REVIEW_RUN_SCRIPT = REPO_ROOT / ".github/agent-runtime/review/scripts/run-review.sh"
+AGENT_REVIEW_PROMPT_TEMPLATE = REPO_ROOT / ".github/agent-runtime/review/prompts/review.md.in"
+AGENT_REQUIREMENTS_FILE = REPO_ROOT / ".github/agent-runtime/runtime/requirements-openai-agents.txt"
+AGENT_STATIC_REQUIREMENTS_FILE = REPO_ROOT / ".github/agent-runtime/runtime/requirements-static-analysis.txt"
+AGENT_MYPY_CONFIG_FILE = REPO_ROOT / ".github/agent-runtime/runtime/mypy.ini"
+AGENT_MODEL_CONFIG_FILE = REPO_ROOT / ".github/agent-runtime/runtime/agent-models.json"
+AGENT_TASK_CONFIG_FILE = REPO_ROOT / ".github/agent-runtime/runtime/agent-tasks.json"
+OPENAI_AGENT_RUNNER_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/openai_agent_runner.py"
+OPENAI_AGENT_INIT_FILE = REPO_ROOT / "scripts/private/agent_runtime/__init__.py"
+OPENAI_AGENT_TASKS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/agent_tasks.py"
+OPENAI_AGENT_CONTRACTS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/contracts.py"
+OPENAI_AGENT_REPO_TOOLS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/repo_tools.py"
+OPENAI_AGENT_SDK_RUNTIME_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/sdk_runtime.py"
+OPENAI_AGENT_TASK_CONFIG_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/task_config.py"
+OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/task_estimator.py"
+OPENAI_AGENT_MODEL_CONFIG_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/model_config.py"
+OPENAI_AGENT_REVIEW_OUTPUT_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review_output.py"
+OPENAI_AGENT_WORKFLOW_PY_FILES = sorted((REPO_ROOT / "scripts/private/agent_runtime").glob("*.py"))
+OPENAI_AGENT_WORKFLOW_POLICY_FILES = [
+    path
+    for path in OPENAI_AGENT_WORKFLOW_PY_FILES
+    if path != OPENAI_AGENT_CONTRACTS_SCRIPT
+]
 HELPER_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent.py"
 HELPER_ACTION_FILE = REPO_ROOT / ".github/actions/workflow-action-update-agent-helper/action.yml"
-WORKFLOW_REPAIR_ROOT = REPO_ROOT / ".github/agent-workflows/workflow-repair"
+WORKFLOW_REPAIR_ROOT = REPO_ROOT / ".github/agent-runtime/repair"
 PROMPT_TEMPLATE_ROOT = WORKFLOW_REPAIR_ROOT / "prompts"
 PROFILE_ROOT = WORKFLOW_REPAIR_ROOT / "profiles"
 GOAL_TEMPLATE = PROMPT_TEMPLATE_ROOT / "repair-goal.md.in"
@@ -123,7 +135,7 @@ def build_zip_archive(files: dict[str, str]) -> bytes:
     return buffer.getvalue()
 
 
-def load_openai_agent_runner_with_fake_sdk():
+def load_agent_workflow_module_with_fake_sdk(path: Path, module_name: str):
     fake_agents = types.SimpleNamespace(
         Agent=object,
         RunConfig=object,
@@ -143,10 +155,7 @@ def load_openai_agent_runner_with_fake_sdk():
     ):
         sys.path.insert(0, module_path)
         try:
-            return load_python_module(
-                OPENAI_AGENT_RUNNER_SCRIPT,
-                "agent_workflows.openai_agent_runner_fake_sdk",
-            )
+            return load_python_module(path, module_name)
         finally:
             sys.path.remove(module_path)
 
@@ -157,15 +166,19 @@ AGENT_REVIEW_FETCH = load_review_script_module(AGENT_REVIEW_FETCH_SCRIPT, "agent
 AGENT_REVIEW_PUBLISH = load_review_script_module(AGENT_REVIEW_PUBLISH_SCRIPT, "agent_review_publish_review")
 OPENAI_AGENT_CONTRACTS = load_agent_workflow_module(
     OPENAI_AGENT_CONTRACTS_SCRIPT,
-    "agent_workflows.contracts",
+    "agent_runtime.contracts",
 )
 OPENAI_AGENT_MODEL_CONFIG = load_agent_workflow_module(
     OPENAI_AGENT_MODEL_CONFIG_SCRIPT,
-    "agent_workflows.model_config",
+    "agent_runtime.model_config",
+)
+OPENAI_AGENT_TASK_CONFIG = load_agent_workflow_module(
+    OPENAI_AGENT_TASK_CONFIG_SCRIPT,
+    "agent_runtime.task_config",
 )
 AGENT_REVIEW_OUTPUT = load_agent_workflow_module(
     OPENAI_AGENT_REVIEW_OUTPUT_SCRIPT,
-    "agent_workflows.review_output",
+    "agent_runtime.review_output",
 )
 
 
@@ -218,7 +231,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         self.assertEqual(
             inputs["profile_path"]["default"],
-            ".github/agent-workflows/workflow-repair/profiles/profile.json",
+            ".github/agent-runtime/repair/profiles/profile.json",
         )
         self.assertEqual(inputs["source_artifact_name"]["default"], "")
 
@@ -258,43 +271,37 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertNotIn("Apply deterministic workflow freshness patch", agent_steps)
 
         install_step = agent_steps["Install OpenAI agent runtime"]
-        self.assertEqual(
+        self.assertEqual(install_step["shell"], "bash")
+        self.assertIn("python3 -m venv .agent-runtime/openai-agent-venv", install_step["run"])
+        self.assertIn(
+            ".agent-runtime/openai-agent-venv/bin/python -m pip install -r .github/agent-runtime/runtime/requirements-openai-agents.txt",
             install_step["run"],
-            "python3 -m venv .agent-workflows/openai-agent-venv\n"
-            ".agent-workflows/openai-agent-venv/bin/python -m pip install --upgrade pip\n"
-            ".agent-workflows/openai-agent-venv/bin/python -m pip install -r .github/agent-workflows/runtime/requirements-openai-agents.txt\n",
         )
         agent_step = agent_steps["Run OpenAI SDK repair agent"]
         self.assertEqual(agent_step["shell"], "bash")
-        self.assertIn(
-            ".agent-workflows/openai-agent-venv/bin/python scripts/private/agent_workflows/openai_agent_runner.py run-repair",
-            agent_step["run"],
-        )
-        self.assertIn("--prompt-file .agent-workflows/workflow-action-update-agent/goal.md", agent_step["run"])
-        self.assertIn("--agent-instance repair", agent_step["run"])
-        self.assertIn("--model-config-file .github/agent-workflows/runtime/agent-models.json", agent_step["run"])
-        self.assertIn(f"--max-turns {OPENAI_PATCH_MAX_TURNS}", agent_step["run"])
-        self.assertNotIn("--model \"${{ needs.prepare.outputs.agent_model }}\"", agent_step["run"])
         self.assertEqual(
             agent_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],
             "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
         )
-        self.assertEqual(
-            agent_step["env"]["OPENAI_API_KEY"],
-            "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
+        self.assertIn(
+            ".agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/openai_agent_runner.py run-repair",
+            agent_step["run"],
         )
+        self.assertIn("--prompt-file .agent-runtime/workflow-action-update-agent/goal.md", agent_step["run"])
         self.assertEqual(
-            agent_step["env"]["OPENAI_BASE_URL"],
-            "https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1",
+            agent_step["run"].count("${{ runner.temp }}/workflow-action-update-agent-agent-output.md"),
+            1,
         )
-        self.assertEqual(agent_step["env"]["OPENAI_AGENTS_DISABLE_TRACING"], "1")
+        self.assertNotIn("--agent-instance", agent_step["run"])
+        self.assertNotIn("--max-turns", agent_step["run"])
+        self.assertNotIn("--model", agent_step["run"])
         static_regression_step = agent_steps["Run static regression tests"]
         self.assertIn(
-            ".agent-workflows/openai-agent-venv/bin/python -m pip install -r .github/agent-workflows/runtime/requirements-static-analysis.txt",
+            ".agent-runtime/openai-agent-venv/bin/python -m pip install -r .github/agent-runtime/runtime/requirements-static-analysis.txt",
             static_regression_step["run"],
         )
         self.assertIn(
-            ".agent-workflows/openai-agent-venv/bin/python -m mypy --config-file .github/agent-workflows/runtime/mypy.ini",
+            ".agent-runtime/openai-agent-venv/bin/python -m mypy --config-file .github/agent-runtime/runtime/mypy.ini",
             static_regression_step["run"],
         )
         self.assertEqual(
@@ -322,7 +329,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(action["runs"]["using"], "composite")
         self.assertEqual(
             action["inputs"]["profile-path"]["default"],
-            ".github/agent-workflows/workflow-repair/profiles/profile.json",
+            ".github/agent-runtime/repair/profiles/profile.json",
         )
         self.assertIn("command", action["inputs"])
         self.assertIn("should_run", action["outputs"])
@@ -345,12 +352,12 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
         self.assertEqual(workspace_helper.REPO_ROOT, Path(temp_dir).resolve())
         self.assertEqual(
-            workspace_helper.resolve_repo_path(".github/agent-workflows/workflow-repair/profiles/profile.json"),
-            Path(temp_dir).resolve() / ".github/agent-workflows/workflow-repair/profiles/profile.json",
+            workspace_helper.resolve_repo_path(".github/agent-runtime/repair/profiles/profile.json"),
+            Path(temp_dir).resolve() / ".github/agent-runtime/repair/profiles/profile.json",
         )
         self.assertEqual(
             workspace_helper.profile_config_root(
-                ".workflow-action-update-agent-helper/.github/agent-workflows/workflow-repair/profiles/profile.json",
+                ".workflow-action-update-agent-helper/.github/agent-runtime/repair/profiles/profile.json",
             ),
             Path(temp_dir).resolve() / ".workflow-action-update-agent-helper",
         )
@@ -450,20 +457,20 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             ],
         )
         install_step = review_steps["Install OpenAI agent runtime"]
-        self.assertEqual(
+        self.assertEqual(install_step["shell"], "bash")
+        self.assertIn("python3 -m venv .agent-runtime/openai-agent-venv", install_step["run"])
+        self.assertIn(
+            ".agent-runtime/openai-agent-venv/bin/python -m pip install -r .github/agent-runtime/runtime/requirements-openai-agents.txt",
             install_step["run"],
-            "python3 -m venv .agent-workflows/openai-agent-venv\n"
-            ".agent-workflows/openai-agent-venv/bin/python -m pip install --upgrade pip\n"
-            ".agent-workflows/openai-agent-venv/bin/python -m pip install -r .github/agent-workflows/runtime/requirements-openai-agents.txt\n",
         )
         static_step = review_steps["Run Agent workflow static analysis"]
         self.assertEqual(static_step["shell"], "bash")
         self.assertIn(
-            ".agent-workflows/openai-agent-venv/bin/python -m pip install -r .github/agent-workflows/runtime/requirements-static-analysis.txt",
+            ".agent-runtime/openai-agent-venv/bin/python -m pip install -r .github/agent-runtime/runtime/requirements-static-analysis.txt",
             static_step["run"],
         )
         self.assertIn(
-            ".agent-workflows/openai-agent-venv/bin/python -m mypy --config-file .github/agent-workflows/runtime/mypy.ini",
+            ".agent-runtime/openai-agent-venv/bin/python -m mypy --config-file .github/agent-runtime/runtime/mypy.ini",
             static_step["run"],
         )
         checkout_step = review_steps["Checkout pull request head"]
@@ -487,29 +494,29 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         agent_step = review_steps["Run OpenAI SDK review"]
         self.assertEqual(agent_step["shell"], "bash")
-        self.assertIn(
-            ".agent-workflows/openai-agent-venv/bin/python scripts/private/agent_workflows/openai_agent_runner.py run-review",
-            agent_step["run"],
-        )
-        self.assertIn("--schema-file .github/agent-workflows/review/schemas/review.schema.json", agent_step["run"])
-        self.assertIn("--output-file .github/agent-workflows/review/out/review.json", agent_step["run"])
-        self.assertIn("--agent-instance review", agent_step["run"])
-        self.assertIn("--model-config-file .github/agent-workflows/runtime/agent-models.json", agent_step["run"])
-        self.assertIn(f"--max-turns {OPENAI_REVIEW_MAX_TURNS}", agent_step["run"])
-        self.assertNotIn("--model gpt-", agent_step["run"])
         self.assertEqual(
             agent_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],
             "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
         )
-        self.assertEqual(
-            agent_step["env"]["OPENAI_API_KEY"],
-            "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
+        self.assertIn(
+            ".agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/openai_agent_runner.py run-review",
+            agent_step["run"],
         )
         self.assertEqual(
-            agent_step["env"]["OPENAI_BASE_URL"],
-            "https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1",
+            agent_step["run"].count("--schema-file .github/agent-runtime/review/schemas/review.schema.json"),
+            1,
         )
-        self.assertEqual(agent_step["env"]["OPENAI_AGENTS_DISABLE_TRACING"], "1")
+        self.assertEqual(
+            agent_step["run"].count("--output-file .github/agent-runtime/review/out/review.json"),
+            1,
+        )
+        self.assertEqual(
+            agent_step["run"].count("--prompt-file .github/agent-runtime/review/out/review.prompt.md"),
+            1,
+        )
+        self.assertNotIn("--agent-instance", agent_step["run"])
+        self.assertNotIn("--max-turns", agent_step["run"])
+        self.assertNotIn("--model", agent_step["run"])
         publish_step = review_steps["Publish review summary comment"]
         self.assertEqual(
             publish_step["env"]["REVIEW_BASE_REF"],
@@ -528,7 +535,12 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             content = path.read_text(encoding="utf-8")
             self.assertNotIn("openai/codex-action@v1", content, path)
             self.assertNotIn("codex exec", content, path)
-            self.assertIn("openai_agent_runner.py", content, path)
+            self.assertNotIn("openai-agent-runtime", content, path)
+            self.assertNotIn("openai_agent_runtime.sh", content, path)
+        self.assertFalse((REPO_ROOT / ".github/actions/openai-agent-runtime/action.yml").exists())
+        self.assertFalse((REPO_ROOT / "scripts/private/agent_runtime/openai_agent_runtime.sh").exists())
+        for path in searched_files:
+            self.assertIn("openai_agent_runner.py", path.read_text(encoding="utf-8"), path)
 
     def test_agent_workflow_contracts_do_not_use_legacy_codex_names(self):
         searched_files = [
@@ -550,8 +562,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             AGENT_STATIC_REQUIREMENTS_FILE,
             AGENT_MYPY_CONFIG_FILE,
             AGENT_MODEL_CONFIG_FILE,
+            AGENT_TASK_CONFIG_FILE,
             OPENAI_AGENT_INIT_FILE,
             OPENAI_AGENT_MODEL_CONFIG_SCRIPT,
+            *OPENAI_AGENT_WORKFLOW_POLICY_FILES,
         ]
         forbidden = [
             "codex-review",
@@ -562,6 +576,11 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "CODEX_REVIEW",
             ".github/ci/workflow-action-update-agent",
             "scripts/private/openai_agent_runner.py",
+            ".github/agent-workflows",
+            ".agent-workflows",
+            "scripts/private/agent_workflows",
+            "agent_workflows",
+            "workflow-repair",
             "requirements-agent.txt",
             "gpt-5.3-codex",
         ]
@@ -572,7 +591,13 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 self.assertNotIn(token, content, f"{token} leaked in {path}")
 
     def test_openai_agent_runner_uses_arm_proxy_truststore_and_tracing_contract(self):
-        source = OPENAI_AGENT_RUNNER_SCRIPT.read_text(encoding="utf-8")
+        runner_source = OPENAI_AGENT_RUNNER_SCRIPT.read_text(encoding="utf-8")
+        sdk_source = OPENAI_AGENT_SDK_RUNTIME_SCRIPT.read_text(encoding="utf-8")
+        task_source = OPENAI_AGENT_TASKS_SCRIPT.read_text(encoding="utf-8")
+        tools_source = OPENAI_AGENT_REPO_TOOLS_SCRIPT.read_text(encoding="utf-8")
+        estimator_source = OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT.read_text(encoding="utf-8")
+        task_config_source = OPENAI_AGENT_TASK_CONFIG_SCRIPT.read_text(encoding="utf-8")
+        model_config_source = OPENAI_AGENT_MODEL_CONFIG_SCRIPT.read_text(encoding="utf-8")
         contracts_source = OPENAI_AGENT_CONTRACTS_SCRIPT.read_text(encoding="utf-8")
 
         self.assertIn(
@@ -581,7 +606,11 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         self.assertEqual(
             OPENAI_AGENT_CONTRACTS.DEFAULT_AGENT_MODEL_CONFIG_PATH,
-            ".github/agent-workflows/runtime/agent-models.json",
+            ".github/agent-runtime/runtime/agent-models.json",
+        )
+        self.assertEqual(
+            OPENAI_AGENT_CONTRACTS.DEFAULT_AGENT_TASK_CONFIG_PATH,
+            ".github/agent-runtime/runtime/agent-tasks.json",
         )
         self.assertEqual(OPENAI_AGENT_CONTRACTS.OPENAI_AGENTS_DISABLE_TRACING_VALUE, "1")
         self.assertEqual(OPENAI_AGENT_CONTRACTS.OPENAI_API_KEY_ENV, "OPENAI_API_KEY")
@@ -589,48 +618,74 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             OPENAI_AGENT_CONTRACTS.OPENAI_PROXY_KEY_ENV,
             "OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS",
         )
-        self.assertIn("ReviewRecommendation", source)
-        self.assertIn("ReviewSeverity", source)
-        self.assertIn("DiffSide", source)
-        truststore_import = source.index("import truststore")
-        inject_call = source.index("truststore.inject_into_ssl()")
-        agents_import = source.index("from agents import")
+        self.assertIn("ReviewRecommendation", task_source)
+        self.assertIn("ReviewSeverity", task_source)
+        self.assertIn("DiffSide", task_source)
+        truststore_import = sdk_source.index("import truststore")
+        inject_call = sdk_source.index("truststore.inject_into_ssl()")
+        agents_import = sdk_source.index("from agents import")
         self.assertLess(truststore_import, agents_import)
         self.assertLess(inject_call, agents_import)
-        self.assertIn("class ReviewResult", source)
-        self.assertIn("output_type=ReviewResult", source)
-        self.assertIn("import shlex", source)
-        self.assertIn("def split_shell_commands", source)
-        self.assertIn("def find_subcommand", source)
-        self.assertIn("resolve_runner_model", source)
-        self.assertIn("--agent-instance", source)
-        self.assertIn("--model-config-file", source)
-        self.assertIn("READ_ONLY_GIT_SUBCOMMANDS", source)
-        self.assertIn("FORBIDDEN_GIT_OPTIONS", source)
-        self.assertIn("def is_allowed_git_command", source)
-        self.assertIn("def has_forbidden_git_option", source)
-        self.assertIn('"apply"', source)
-        self.assertIn('["git", "apply", "--whitespace=nowarn"]', source)
-        self.assertIn("filter_invalid_right_side_findings", source)
-        self.assertIn("TaskEstimate", source)
-        self.assertIn("estimate_task_fit", source)
-        self.assertIn("build_task_manifest", source)
-        self.assertIn("AGENT_TASK_LIMITS", contracts_source)
+        self.assertIn("def configure_openai_environment", sdk_source)
+        self.assertIn("class AgentWorkflowTask", task_source)
+        self.assertIn("class ReviewAgentTask", task_source)
+        self.assertIn("class RepairAgentTask", task_source)
+        self.assertIn("class StabilizationAgentTask", task_source)
+        self.assertIn("class ReviewResult", task_source)
+        self.assertIn("return ReviewResult", task_source)
+        self.assertIn("filter_invalid_right_side_findings", task_source)
+        self.assertIn("import shlex", tools_source)
+        self.assertIn("def split_shell_commands", tools_source)
+        self.assertIn("def find_subcommand", tools_source)
+        self.assertIn("READ_ONLY_GIT_SUBCOMMANDS", tools_source)
+        self.assertIn("FORBIDDEN_GIT_OPTIONS", tools_source)
+        self.assertIn("def is_allowed_git_command", tools_source)
+        self.assertIn("def has_forbidden_git_option", tools_source)
+        self.assertIn('"apply"', tools_source)
+        self.assertIn('["git", "apply", "--whitespace=nowarn"]', tools_source)
+        self.assertIn("class TaskEstimate", estimator_source)
+        self.assertIn("async def estimate_task_fit", estimator_source)
+        self.assertIn("def build_task_manifest", estimator_source)
+        self.assertIn("class AgentTaskSettings", task_config_source)
+        self.assertIn("def resolve_agent_task_settings", task_config_source)
+        self.assertIn("from .contracts import", model_config_source)
+        self.assertIn("from .contracts import", task_config_source)
+        self.assertNotIn("def require_non_empty_string", model_config_source)
+        self.assertNotIn("def require_non_empty_string", task_config_source)
+        self.assertNotIn("def parse_agent_instance", model_config_source)
+        self.assertNotIn("def parse_agent_instance", task_config_source)
+        self.assertNotIn("def parse_agent_command", task_config_source)
+        self.assertFalse((OPENAI_AGENT_RUNNER_SCRIPT.parent / "task_registry.py").exists())
+        self.assertIn("get_agent_task", runner_source)
+        self.assertIn("resolve_task_settings", runner_source)
+        self.assertIn("--agent-instance", runner_source)
+        self.assertIn("--model-config-file", runner_source)
+        self.assertIn("--task-config-file", runner_source)
+        self.assertNotIn("ReviewResult", runner_source)
+        self.assertNotIn("read_repo_file", runner_source)
+        self.assertNotIn("TaskEstimate", runner_source)
+        self.assertNotIn("AGENT_TASK_LIMITS", contracts_source)
 
     def test_openai_agent_runner_executes_simple_commands_without_shell_expansion(self):
-        runner = load_openai_agent_runner_with_fake_sdk()
+        repo_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_REPO_TOOLS_SCRIPT,
+            "agent_runtime.repo_tools_fake_sdk_commands",
+        )
         with tempfile.TemporaryDirectory() as temp_dir:
-            runner.RUN_CONTEXT = runner.AgentRunContext(Path(temp_dir), 10)
-            output = runner.run_shell_command('echo "$(git push)" && git diff --check')
+            repo_tools.set_run_context(Path(temp_dir), 10)
+            output = repo_tools.run_shell_command('echo "$(git push)" && git diff --check')
 
         self.assertIn("$ echo '$(git push)'", output)
         self.assertIn("$(git push)", output)
         self.assertIn("$ git diff --check", output)
 
     def test_openai_agent_runner_blocks_mutating_git_commands_after_shell_splitting(self):
-        runner = load_openai_agent_runner_with_fake_sdk()
+        repo_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_REPO_TOOLS_SCRIPT,
+            "agent_runtime.repo_tools_fake_sdk_git_guards",
+        )
 
-        runner.reject_unsafe_shell_command('echo "git push" && git diff --check')
+        repo_tools.reject_unsafe_shell_command('echo "git push" && git diff --check')
         for command in (
             "git diff --check",
             "git show HEAD",
@@ -643,11 +698,11 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "git cat-file -t HEAD",
             "git apply --check /tmp/example.patch",
         ):
-            runner.reject_unsafe_shell_command(command)
+            repo_tools.reject_unsafe_shell_command(command)
         with self.assertRaisesRegex(ValueError, "git push"):
-            runner.reject_unsafe_shell_command('echo ok && git push')
+            repo_tools.reject_unsafe_shell_command('echo ok && git push')
         with self.assertRaisesRegex(ValueError, "Unsupported shell syntax"):
-            runner.reject_unsafe_shell_command("echo ok | git push")
+            repo_tools.reject_unsafe_shell_command("echo ok | git push")
         for command in (
             "git apply /tmp/example.patch",
             "git add -A",
@@ -660,52 +715,75 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "git diff --output=/tmp/diff.patch",
         ):
             with self.assertRaisesRegex(ValueError, "Command is intentionally blocked"):
-                runner.reject_unsafe_shell_command(command)
+                repo_tools.reject_unsafe_shell_command(command)
 
     def test_openai_agent_runner_validates_review_schema_file_argument(self):
-        runner = load_openai_agent_runner_with_fake_sdk()
+        agent_tasks = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_TASKS_SCRIPT,
+            "agent_runtime.agent_tasks_fake_sdk_schema",
+        )
         with tempfile.TemporaryDirectory() as temp_dir:
             schema_file = Path(temp_dir) / "review.schema.json"
             schema_file.write_text('{"type":"object"}\n', encoding="utf-8")
 
-            runner.validate_schema_file(str(schema_file))
+            agent_tasks.validate_schema_file(str(schema_file))
             with self.assertRaisesRegex(ValueError, "Review schema file does not exist"):
-                runner.validate_schema_file(str(Path(temp_dir) / "missing.schema.json"))
+                agent_tasks.validate_schema_file(str(Path(temp_dir) / "missing.schema.json"))
 
     def test_openai_agent_runner_uses_type_specific_turn_defaults(self):
-        runner = load_openai_agent_runner_with_fake_sdk()
-
-        args = argparse.Namespace(max_turns=None)
-        self.assertEqual(runner.resolve_agent_max_turns(runner.AgentCommand.REVIEW, args), OPENAI_REVIEW_MAX_TURNS)
-        self.assertEqual(runner.resolve_agent_max_turns(runner.AgentCommand.REPAIR, args), OPENAI_PATCH_MAX_TURNS)
+        args = argparse.Namespace(max_turns=None, task_config_file=str(AGENT_TASK_CONFIG_FILE))
         self.assertEqual(
-            runner.resolve_agent_max_turns(runner.AgentCommand.STABILIZATION, args),
+            OPENAI_AGENT_TASK_CONFIG.resolve_agent_max_turns(OPENAI_AGENT_CONTRACTS.AgentCommand.REVIEW, args),
+            OPENAI_REVIEW_MAX_TURNS,
+        )
+        self.assertEqual(
+            OPENAI_AGENT_TASK_CONFIG.resolve_agent_max_turns(OPENAI_AGENT_CONTRACTS.AgentCommand.REPAIR, args),
+            OPENAI_PATCH_MAX_TURNS,
+        )
+        self.assertEqual(
+            OPENAI_AGENT_TASK_CONFIG.resolve_agent_max_turns(
+                OPENAI_AGENT_CONTRACTS.AgentCommand.STABILIZATION,
+                args,
+            ),
             OPENAI_PATCH_MAX_TURNS,
         )
 
         args.max_turns = 12
-        self.assertEqual(runner.resolve_agent_max_turns(runner.AgentCommand.REVIEW, args), 12)
+        self.assertEqual(
+            OPENAI_AGENT_TASK_CONFIG.resolve_agent_max_turns(OPENAI_AGENT_CONTRACTS.AgentCommand.REVIEW, args),
+            12,
+        )
 
     def test_openai_agent_runner_blocks_prompt_that_exceeds_task_limit(self):
-        runner = load_openai_agent_runner_with_fake_sdk()
+        estimator = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT,
+            "agent_runtime.task_estimator_fake_sdk_prompt_limit",
+        )
+        set_run_context = estimator.require_run_context.__globals__["set_run_context"]
         with tempfile.TemporaryDirectory() as temp_dir:
-            runner.RUN_CONTEXT = runner.AgentRunContext(Path(temp_dir), 10)
-            args = argparse.Namespace(
-                agent_instance="repair",
-                resolved_model="gpt-test",
-                max_turns=None,
-                max_prompt_chars=10,
-                max_review_files=None,
-                max_review_changed_lines=None,
+            set_run_context(Path(temp_dir), 10)
+            settings = OPENAI_AGENT_TASK_CONFIG.resolve_agent_task_settings(
+                AGENT_TASK_CONFIG_FILE,
+                OPENAI_AGENT_CONTRACTS.AgentCommand.REPAIR,
+                max_prompt_chars_override=10,
             )
 
-            manifest = runner.build_task_manifest(runner.AgentCommand.REPAIR, "x" * 11, args)
-            reasons = runner.deterministic_task_limit_violations(manifest)
+            manifest = estimator.build_task_manifest(
+                OPENAI_AGENT_CONTRACTS.AgentCommand.REPAIR,
+                "x" * 11,
+                settings,
+                "gpt-test",
+            )
+            reasons = estimator.deterministic_task_limit_violations(manifest)
 
         self.assertIn("prompt has 11 characters", reasons[0])
 
     def test_openai_agent_runner_blocks_review_diff_that_exceeds_file_limit(self):
-        runner = load_openai_agent_runner_with_fake_sdk()
+        estimator = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT,
+            "agent_runtime.task_estimator_fake_sdk_review_limit",
+        )
+        set_run_context = estimator.require_run_context.__globals__["set_run_context"]
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)
             subprocess.run(["git", "init"], cwd=repo_root, check=True, capture_output=True)
@@ -726,23 +804,28 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             subprocess.run(["git", "commit", "-m", "change"], cwd=repo_root, check=True, capture_output=True)
             head_sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo_root, text=True).strip()
 
-            runner.RUN_CONTEXT = runner.AgentRunContext(repo_root, 10)
-            args = argparse.Namespace(
-                agent_instance="review",
-                resolved_model="gpt-test",
-                max_turns=None,
-                max_prompt_chars=None,
-                max_review_files=2,
-                max_review_changed_lines=None,
+            set_run_context(repo_root, 10)
+            settings = OPENAI_AGENT_TASK_CONFIG.resolve_agent_task_settings(
+                AGENT_TASK_CONFIG_FILE,
+                OPENAI_AGENT_CONTRACTS.AgentCommand.REVIEW,
+                max_review_files_override=2,
             )
             prompt = f"- Base SHA: `{base_sha}`\n- Head SHA: `{head_sha}`\n"
-            manifest = runner.build_task_manifest(runner.AgentCommand.REVIEW, prompt, args)
-            reasons = runner.deterministic_task_limit_violations(manifest)
+            manifest = estimator.build_task_manifest(
+                OPENAI_AGENT_CONTRACTS.AgentCommand.REVIEW,
+                prompt,
+                settings,
+                "gpt-test",
+            )
+            reasons = estimator.deterministic_task_limit_violations(manifest)
 
         self.assertIn("review scope touches 3 files", reasons[0])
 
     def test_openai_agent_runner_blocks_estimated_turn_overrun(self):
-        runner = load_openai_agent_runner_with_fake_sdk()
+        estimator = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT,
+            "agent_runtime.task_estimator_fake_sdk_turn_limit",
+        )
         manifest = {
             "prompt_chars": 10,
             "limits": {
@@ -763,7 +846,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             split_recommendation="Split by workflow.",
         )
 
-        reasons = runner.task_estimate_block_reasons(manifest, cast(Any, estimate))
+        reasons = estimator.task_estimate_block_reasons(manifest, cast(Any, estimate))
 
         self.assertEqual(
             reasons,
@@ -826,10 +909,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_agent_review_output_drops_stale_contract_findings_not_supported_by_anchor(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)
-            profile_path = repo_root / ".github/agent-workflows/workflow-repair/profiles/profile.json"
+            profile_path = repo_root / ".github/agent-runtime/repair/profiles/profile.json"
             profile_path.parent.mkdir(parents=True)
             profile_path.write_text(
-                '"review_state_script": ".github/agent-workflows/review/scripts/fetch-review-state.py",\n',
+                '"review_state_script": ".github/agent-runtime/review/scripts/fetch-review-state.py",\n',
                 encoding="utf-8",
             )
 
@@ -844,7 +927,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                         "severity": "major",
                         "score": 0.9,
                         "confidence": 0.96,
-                        "path": ".github/agent-workflows/workflow-repair/profiles/profile.json",
+                        "path": ".github/agent-runtime/repair/profiles/profile.json",
                         "diff_side": "RIGHT",
                         "start_line": 1,
                         "end_line": 1,
@@ -952,40 +1035,62 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "gpt-override",
         )
 
+    def test_agent_tasks_are_centrally_configured_per_command(self):
+        task_config = json.loads(AGENT_TASK_CONFIG_FILE.read_text(encoding="utf-8"))
+
+        self.assertEqual(set(task_config["tasks"]), {"run-review", "run-repair", "run-stabilization"})
+        self.assertEqual(task_config["tasks"]["run-review"]["agent_instance"], "review")
+        self.assertEqual(task_config["tasks"]["run-review"]["max_turns"], OPENAI_REVIEW_MAX_TURNS)
+        self.assertEqual(task_config["tasks"]["run-review"]["task_estimate_turns"], 3)
+        self.assertEqual(task_config["tasks"]["run-review"]["max_prompt_chars"], 180000)
+        self.assertEqual(task_config["tasks"]["run-review"]["max_review_files"], 120)
+        self.assertEqual(task_config["tasks"]["run-review"]["max_review_changed_lines"], 10000)
+        self.assertEqual(task_config["tasks"]["run-repair"]["agent_instance"], "repair")
+        self.assertEqual(task_config["tasks"]["run-repair"]["max_turns"], OPENAI_PATCH_MAX_TURNS)
+        self.assertEqual(task_config["tasks"]["run-stabilization"]["agent_instance"], "stabilization")
+        self.assertEqual(task_config["tasks"]["run-stabilization"]["max_turns"], OPENAI_PATCH_MAX_TURNS)
+
+        settings = OPENAI_AGENT_TASK_CONFIG.resolve_agent_task_settings(
+            AGENT_TASK_CONFIG_FILE,
+            "run-review",
+            max_turns_override=12,
+            max_review_files_override=2,
+        )
+        self.assertEqual(settings.agent_instance.value, "review")
+        self.assertEqual(settings.max_turns, 12)
+        self.assertEqual(settings.max_review_files, 2)
+        self.assertEqual(settings.max_review_changed_lines, 10000)
+
     def test_local_review_runner_uses_shared_sdk_script(self):
         content = AGENT_REVIEW_RUN_SCRIPT.read_text(encoding="utf-8")
 
-        self.assertIn('agent_venv="${AGENT_REVIEW_AGENT_VENV:-.agent-workflows/openai-agent-venv}"', content)
+        self.assertIn('agent_venv="${AGENT_REVIEW_AGENT_VENV:-.agent-runtime/openai-agent-venv}"', content)
         self.assertIn('export REVIEW_BASE_REF="${base_ref}"', content)
         self.assertIn('export REVIEW_HEAD_REF="${REVIEW_HEAD_REF:-HEAD}"', content)
         self.assertIn('export REVIEW_REPOSITORY="${REVIEW_REPOSITORY:-local-checkout}"', content)
-        self.assertIn("--agent-instance review", content)
-        self.assertIn("--model-config-file .github/agent-workflows/runtime/agent-models.json", content)
+        self.assertIn('python3 -m venv "${agent_venv}"', content)
+        self.assertIn(
+            '"${agent_venv}/bin/python" -m pip install -r .github/agent-runtime/runtime/requirements-openai-agents.txt',
+            content,
+        )
+        self.assertIn("run-review", content)
+        self.assertIn(
+            '"${agent_venv}/bin/python" scripts/private/agent_runtime/openai_agent_runner.py "${agent_args[@]}"',
+            content,
+        )
+        self.assertNotIn("--command run-review", content)
+        self.assertNotIn("--agent-instance review", content)
+        self.assertNotIn("--model-config-file .github/agent-runtime/runtime/agent-models.json", content)
+        self.assertNotIn("--task-config-file .github/agent-runtime/runtime/agent-tasks.json", content)
         self.assertIn('if [[ -n "${AGENT_REVIEW_MODEL:-}" ]]; then', content)
         self.assertIn('agent_args+=(--model "${AGENT_REVIEW_MODEL}")', content)
         self.assertNotIn("gpt-5.3-codex", content)
         self.assertNotIn("${AGENT_MODEL", content)
         self.assertNotIn("CODEX_MODEL", content)
-        self.assertIn(
-            'export OPENAI_API_KEY="${OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS}"',
-            content,
-        )
-        self.assertIn(
-            "OpenAI SDK review requires OPENAI_API_KEY or OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS.",
-            content,
-        )
-        self.assertIn('python3 -m venv "${agent_venv}"', content)
-        self.assertIn(
-            '"${agent_venv}/bin/python" -m pip install -r .github/agent-workflows/runtime/requirements-openai-agents.txt',
-            content,
-        )
-        self.assertIn(
-            '"${agent_venv}/bin/python" scripts/private/agent_workflows/openai_agent_runner.py "${agent_args[@]}"',
-            content,
-        )
-        self.assertIn("--schema-file \".github/agent-workflows/review/schemas/review.schema.json\"", content)
+        self.assertIn("--schema-file \".github/agent-runtime/review/schemas/review.schema.json\"", content)
         self.assertNotIn("command -v codex", content)
         self.assertNotIn("pip install --user", content)
+        self.assertNotIn("OPENAI_API_KEY=", content)
 
     def test_agent_review_prompt_omits_unsupported_or_contradicted_claims(self):
         content = AGENT_REVIEW_PROMPT_TEMPLATE.read_text(encoding="utf-8")
@@ -1044,72 +1149,68 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             ],
         )
         snapshot_step = steps["Snapshot workflow helper bundle"]
-        self.assertIn("cp scripts/private/agent_workflows/__init__.py", snapshot_step["run"])
-        self.assertIn("cp scripts/private/agent_workflows/contracts.py", snapshot_step["run"])
-        self.assertIn("cp scripts/private/agent_workflows/openai_agent_runner.py", snapshot_step["run"])
-        self.assertIn("cp scripts/private/agent_workflows/model_config.py", snapshot_step["run"])
-        self.assertIn("cp scripts/private/agent_workflows/review_output.py", snapshot_step["run"])
-        self.assertIn("cp .github/agent-workflows/runtime/requirements-openai-agents.txt", snapshot_step["run"])
-        self.assertIn("cp .github/agent-workflows/runtime/agent-models.json", snapshot_step["run"])
+        self.assertIn('cp -R scripts/private/agent_runtime/.', snapshot_step["run"])
+        self.assertNotIn("openai-agent-runtime", snapshot_step["run"])
+        self.assertIn("cp .github/agent-runtime/runtime/requirements-openai-agents.txt", snapshot_step["run"])
+        self.assertIn("cp .github/agent-runtime/runtime/agent-models.json", snapshot_step["run"])
+        self.assertIn("cp .github/agent-runtime/runtime/agent-tasks.json", snapshot_step["run"])
         self.assertIn(
-            'cp -R .github/agent-workflows/review/prompts/. "${bundle_root}/.github/agent-workflows/review/prompts"',
+            'cp -R .github/agent-runtime/review/prompts/. "${bundle_root}/.github/agent-runtime/review/prompts"',
             snapshot_step["run"],
         )
         self.assertIn(
-            'cp -R .github/agent-workflows/review/schemas/. "${bundle_root}/.github/agent-workflows/review/schemas"',
+            'cp -R .github/agent-runtime/review/schemas/. "${bundle_root}/.github/agent-runtime/review/schemas"',
             snapshot_step["run"],
         )
         self.assertIn(
-            'cp -R .github/agent-workflows/review/scripts/. "${bundle_root}/.github/agent-workflows/review/scripts"',
+            'cp -R .github/agent-runtime/review/scripts/. "${bundle_root}/.github/agent-runtime/review/scripts"',
             snapshot_step["run"],
         )
         self.assertIn(
-            'cp -R .github/agent-workflows/workflow-repair/prompts/. "${bundle_root}/.github/agent-workflows/workflow-repair/prompts"',
+            'cp -R .github/agent-runtime/repair/prompts/. "${bundle_root}/.github/agent-runtime/repair/prompts"',
             snapshot_step["run"],
         )
         self.assertIn(
-            'cp -R .github/agent-workflows/workflow-repair/profiles/. "${bundle_root}/.github/agent-workflows/workflow-repair/profiles"',
+            'cp -R .github/agent-runtime/repair/profiles/. "${bundle_root}/.github/agent-runtime/repair/profiles"',
             snapshot_step["run"],
         )
         self.assertNotIn('cp -R agent-review/. "${bundle_root}/agent-review"', snapshot_step["run"])
-        self.assertNotIn(".github/agent-workflows/review/out", snapshot_step["run"])
+        self.assertNotIn(".github/agent-runtime/review/out", snapshot_step["run"])
         self.assertNotIn('cp -R scripts/private/. "${bundle_root}/scripts/private"', snapshot_step["run"])
         install_step = steps["Install OpenAI agent runtime"]
-        self.assertEqual(
+        self.assertEqual(install_step["shell"], "bash")
+        self.assertIn("python3 -m venv .agent-runtime/openai-agent-venv", install_step["run"])
+        self.assertIn(
+            ".agent-runtime/openai-agent-venv/bin/python -m pip install -r .workflow-action-update-agent-helper/.github/agent-runtime/runtime/requirements-openai-agents.txt",
             install_step["run"],
-            "python3 -m venv .agent-workflows/openai-agent-venv\n"
-            ".agent-workflows/openai-agent-venv/bin/python -m pip install --upgrade pip\n"
-            ".agent-workflows/openai-agent-venv/bin/python -m pip install -r "
-            ".workflow-action-update-agent-helper/.github/agent-workflows/runtime/requirements-openai-agents.txt\n",
         )
         agent_step = steps["Run OpenAI SDK stabilization agent"]
         self.assertEqual(agent_step["shell"], "bash")
-        self.assertIn(
-            ".agent-workflows/openai-agent-venv/bin/python "
-            ".workflow-action-update-agent-helper/scripts/private/agent_workflows/openai_agent_runner.py run-stabilization",
-            agent_step["run"],
-        )
-        self.assertIn("--prompt-file \"${{ inputs.context_root }}/stabilize-goal.md\"", agent_step["run"])
-        self.assertIn("--agent-instance stabilization", agent_step["run"])
-        self.assertIn(f"--max-turns {OPENAI_PATCH_MAX_TURNS}", agent_step["run"])
-        self.assertIn(
-            "--model-config-file .workflow-action-update-agent-helper/.github/agent-workflows/runtime/agent-models.json",
-            agent_step["run"],
-        )
-        self.assertNotIn("--model \"${{ steps.context.outputs.agent_model }}\"", agent_step["run"])
         self.assertEqual(
             agent_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],
             "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
         )
-        self.assertEqual(
-            agent_step["env"]["OPENAI_API_KEY"],
-            "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
+        self.assertIn(
+            ".agent-runtime/openai-agent-venv/bin/python .workflow-action-update-agent-helper/scripts/private/agent_runtime/openai_agent_runner.py run-stabilization",
+            agent_step["run"],
         )
-        self.assertEqual(
-            agent_step["env"]["OPENAI_BASE_URL"],
-            "https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1",
+        self.assertIn(
+            "--model-config-file "
+            ".workflow-action-update-agent-helper/.github/agent-runtime/runtime/agent-models.json",
+            agent_step["run"],
         )
-        self.assertEqual(agent_step["env"]["OPENAI_AGENTS_DISABLE_TRACING"], "1")
+        self.assertIn(
+            "--task-config-file "
+            ".workflow-action-update-agent-helper/.github/agent-runtime/runtime/agent-tasks.json",
+            agent_step["run"],
+        )
+        self.assertIn('--prompt-file "${{ inputs.context_root }}/stabilize-goal.md"', agent_step["run"])
+        self.assertIn(
+            '--output-file "${{ runner.temp }}/workflow-action-update-agent-stabilize-output.md"',
+            agent_step["run"],
+        )
+        self.assertNotIn("--agent-instance", agent_step["run"])
+        self.assertNotIn("--max-turns", agent_step["run"])
         self.assertEqual(
             steps["Resolve PR details"]["with"]["command"],
             "resolve-pr-details",
@@ -1229,7 +1330,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(agent_review["workflow_name"], "Agent Review")
         self.assertEqual(
             agent_review["review_state_script"],
-            ".github/agent-workflows/review/scripts/fetch-review-state.py",
+            ".github/agent-runtime/review/scripts/fetch-review-state.py",
         )
         self.assertEqual(agent_review["allowed_review_recommendations"], ["approve"])
         self.assertEqual(
@@ -1249,7 +1350,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertNotIn("agent_model", profile)
         self.assertEqual(
             profile["agent_model_config"],
-            ".github/agent-workflows/runtime/agent-models.json",
+            ".github/agent-runtime/runtime/agent-models.json",
         )
         self.assertEqual(HELPER.profile_config_root(str(PROFILE_FILE)), REPO_ROOT)
         self.assertEqual(
@@ -1733,7 +1834,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(repair_job["with"]["source_artifact_name"], "workflow-dependency-freshness")
         self.assertEqual(
             repair_job["with"]["profile_path"],
-            "${{ inputs.repair_profile_path || '.github/agent-workflows/workflow-repair/profiles/workflow-audit-profile.json' }}",
+            "${{ inputs.repair_profile_path || '.github/agent-runtime/repair/profiles/workflow-audit-profile.json' }}",
         )
         self.assertEqual(repair_job["permissions"]["actions"], "write")
         self.assertIn("github.event.inputs.stabilize_pr_number == ''", report_job["if"])
@@ -1768,7 +1869,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                     review_state = HELPER.wait_for_review_state(
                         pr_number="123",
                         workflow_name="Agent Review",
-                        review_state_script=".github/agent-workflows/review/scripts/fetch-review-state.py",
+                        review_state_script=".github/agent-runtime/review/scripts/fetch-review-state.py",
                         expected_run_id="28000000001",
                         head_sha="deadbeef",
                     )
@@ -1797,7 +1898,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                     review_state = HELPER.wait_for_review_state(
                         pr_number="123",
                         workflow_name="Agent Review",
-                        review_state_script=".github/agent-workflows/review/scripts/fetch-review-state.py",
+                        review_state_script=".github/agent-runtime/review/scripts/fetch-review-state.py",
                         expected_run_id="28000000001",
                         head_sha="deadbeef",
                     )

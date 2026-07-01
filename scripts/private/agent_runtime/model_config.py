@@ -6,17 +6,22 @@
 from __future__ import annotations
 
 import argparse
-import json
 from dataclasses import dataclass
 from pathlib import Path
 import sys
-from typing import Any
 
 if __package__ in (None, ""):  # pragma: no cover - used for direct script execution.
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    __package__ = "agent_workflows"
+    __package__ = "agent_runtime"
 
-from .contracts import AgentInstance, DEFAULT_AGENT_MODEL_CONFIG_PATH
+from .contracts import (
+    AgentInstance,
+    DEFAULT_AGENT_MODEL_CONFIG_PATH,
+    load_json_object,
+    parse_enum_value,
+    require_non_empty_string,
+    require_object,
+)
 
 
 @dataclass(frozen=True)
@@ -30,46 +35,20 @@ class AgentModelConfig:
     agents: dict[AgentInstance, AgentModelEntry]
 
 
-def require_non_empty_string(value: Any, field_name: str) -> str:
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"Agent model config field '{field_name}' must be a non-empty string.")
-    return value.strip()
-
-
-def parse_agent_instance(value: str | AgentInstance) -> AgentInstance:
-    if isinstance(value, AgentInstance):
-        return value
-    try:
-        return AgentInstance(value)
-    except ValueError as exc:
-        allowed = ", ".join(instance.value for instance in AgentInstance)
-        raise ValueError(f"Unsupported agent instance '{value}'. Expected one of: {allowed}.") from exc
-
-
 def load_agent_model_config(config_file: str | Path) -> AgentModelConfig:
-    path = Path(config_file)
-    if not path.is_file():
-        raise ValueError(f"Agent model config file does not exist: {path}")
-
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
-        raise ValueError(f"Agent model config must be a JSON object: {path}")
-
+    payload = load_json_object(config_file, "Agent model config")
     default_agent_model = require_non_empty_string(
         payload.get("default_agent_model"),
         "default_agent_model",
     )
-    agents_payload = payload.get("agents", {})
-    if not isinstance(agents_payload, dict):
-        raise ValueError("Agent model config field 'agents' must be an object.")
+    agents_payload = require_object(payload.get("agents", {}), "agents")
 
     agents: dict[AgentInstance, AgentModelEntry] = {}
     for raw_instance, raw_entry in agents_payload.items():
-        instance = parse_agent_instance(raw_instance)
-        if not isinstance(raw_entry, dict):
-            raise ValueError(f"Agent model config entry '{raw_instance}' must be an object.")
+        instance = parse_enum_value(AgentInstance, raw_instance, "agent instance")
+        entry = require_object(raw_entry, f"agents.{raw_instance}")
         agents[instance] = AgentModelEntry(
-            model=require_non_empty_string(raw_entry.get("model"), f"agents.{raw_instance}.model"),
+            model=require_non_empty_string(entry.get("model"), f"agents.{raw_instance}.model"),
         )
 
     return AgentModelConfig(default_agent_model=default_agent_model, agents=agents)
@@ -85,7 +64,7 @@ def resolve_agent_model(
     if override:
         return override
 
-    instance = parse_agent_instance(agent_instance)
+    instance = parse_enum_value(AgentInstance, agent_instance, "agent instance")
     config = load_agent_model_config(config_file)
     entry = config.agents.get(instance)
     if entry is None:

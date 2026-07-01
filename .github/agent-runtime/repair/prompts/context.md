@@ -9,7 +9,7 @@
 
 - Reuse the `Agent Review` invocation pattern for any OpenAI-in-CI step: checkout, render prompt, run the shared Python OpenAI Agents SDK runner, then publish or consume structured output.
 - Keep workflow YAML orchestration-thin. Repo-specific logic belongs in `scripts/private/workflow_action_update_agent.py` behind `.github/actions/workflow-action-update-agent-helper/`.
-- Keep runtime prompt files under `.agent-workflows/workflow-action-update-agent/`; do not check generated prompt artifacts into git.
+- Keep runtime prompt files under `.agent-runtime/workflow-action-update-agent/`; do not check generated prompt artifacts into git.
 - Keep the stabilization loop focused on review findings only. It must not rewrite unrelated workflow plumbing.
 - Prefer API polling over log scraping or annotation fetches when waiting for workflow completion.
 - Functional tests should assert behavior and contract, not implementation trivia.
@@ -23,21 +23,22 @@ The reference implementation is `.github/workflows/agent-review.yml`.
   main review, repair, or stabilization agent run. Oversized tasks must be
   split instead of pushing the main agent past its turn budget.
 - Prompt preparation stays outside the SDK runner in checked-in scripts.
-- Agent runtime dependencies are installed from `.github/agent-workflows/runtime/requirements-openai-agents.txt`
-  into `.agent-workflows/openai-agent-venv`.
-- OpenAI invocation stays in `scripts/private/agent_workflows/openai_agent_runner.py`:
+- Agent runtime dependencies are installed from `.github/agent-runtime/runtime/requirements-openai-agents.txt`
+  into `.agent-runtime/openai-agent-venv`.
+- OpenAI invocation stays in `scripts/private/agent_runtime/openai_agent_runner.py`:
   - `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` is mapped to `OPENAI_API_KEY`
   - `OPENAI_BASE_URL` is `https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1`
   - `OPENAI_AGENTS_DISABLE_TRACING` is `1`
   - `truststore.inject_into_ssl()` runs before importing `agents`, `openai`, or `httpx`
-  - `model` comes from `.github/agent-workflows/runtime/agent-models.json` by agent instance
+  - `model` comes from `.github/agent-runtime/runtime/agent-models.json` by agent instance
+  - task limits and default task-to-agent-instance mapping come from `.github/agent-runtime/runtime/agent-tasks.json`
 - Do not add repair-specific SDK home overrides or runner-specific `sudo` preflights around that call. If the runner works for `Agent Review`, reuse that exact SDK runner shape.
 - The stabilizer should copy this shape and change only the prompt/output files and the follow-up validation/commit steps.
 
 ## Discoveries
 
 - The useful gate is the standard `Agent Review` workflow on the repair PR. Repair-specific review logic should not fork that policy.
-- `.github/agent-workflows/review/scripts/publish-review.py` can publish a `request_changes` recommendation while the workflow run itself still concludes `success`. The stabilizer must look at structured review state, not only at workflow success/failure.
+- `.github/agent-runtime/review/scripts/publish-review.py` can publish a `request_changes` recommendation while the workflow run itself still concludes `success`. The stabilizer must look at structured review state, not only at workflow success/failure.
 - Waiting on Actions runs via `gh api repos/{repo}/actions/runs/{id}` is more reliable than `gh run watch` for unattended polling.
 - Fetching check-run annotations with the PAT was blocked by `HTTP 403: Resource not accessible by personal access token`; polling workflow runs avoids that permission edge.
 - Self-hosted runner behavior is not perfectly uniform. Python OpenAI clients can fail corporate CA validation when they use the `certifi` bundle, so the runner injects the system trust store with `truststore` before importing OpenAI libraries.

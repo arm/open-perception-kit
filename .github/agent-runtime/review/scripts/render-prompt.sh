@@ -11,7 +11,7 @@ if [ $# -lt 1 ] || [ $# -gt 2 ]; then
 fi
 
 output_path="$1"
-template_path="${2:-.github/agent-workflows/review/prompts/review.md.in}"
+template_path="${2:-.github/agent-runtime/review/prompts/review.md.in}"
 
 base_ref="${REVIEW_BASE_REF:-origin/main}"
 head_ref="${REVIEW_HEAD_REF:-HEAD}"

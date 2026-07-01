@@ -21,7 +21,7 @@ on:
       profile_path:
         description: Repair profile JSON path relative to the repository root.
         required: false
-        default: .github/agent-workflows/workflow-repair/profiles/profile.json
+        default: .github/agent-runtime/repair/profiles/profile.json
         type: string
       source_artifact_name:
         description: Optional artifact from the current workflow run to inject into the repair context.
@@ -64,7 +64,7 @@ jobs:
         uses: ./.github/actions/workflow-action-update-agent-helper
         with:
           command: resolve-inputs
-          profile-path: ${{ inputs.profile_path || '.github/agent-workflows/workflow-repair/profiles/profile.json' }}
+          profile-path: ${{ inputs.profile_path || '.github/agent-runtime/repair/profiles/profile.json' }}
           source-run-id: ${{ inputs.source_run_id || '' }}
           target-branch: ${{ inputs.target_branch || '' }}
           ticket-id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
@@ -113,12 +113,12 @@ jobs:
         uses: actions/download-artifact@v6
         with:
           name: ${{ inputs.source_artifact_name }}
-          path: .agent-workflows/workflow-action-update-agent/artifacts/${{ inputs.source_artifact_name }}
+          path: .agent-runtime/workflow-action-update-agent/artifacts/${{ inputs.source_artifact_name }}
 
       - uses: ./.github/actions/workflow-action-update-agent-helper
         with:
           command: build-markdown
-          profile-path: ${{ inputs.profile_path || '.github/agent-workflows/workflow-repair/profiles/profile.json' }}
+          profile-path: ${{ inputs.profile_path || '.github/agent-runtime/repair/profiles/profile.json' }}
           source-run-id: ${{ needs.prepare.outputs.source_run_id }}
           source-run-url: ${{ needs.prepare.outputs.source_run_url }}
           source-workflow-name: ${{ needs.prepare.outputs.source_workflow_name }}
@@ -129,15 +129,15 @@ jobs:
       - name: Install OpenAI agent runtime
         shell: bash
         run: |
-          python3 -m venv .agent-workflows/openai-agent-venv
-          .agent-workflows/openai-agent-venv/bin/python -m pip install --upgrade pip
-          .agent-workflows/openai-agent-venv/bin/python -m pip install -r .github/agent-workflows/runtime/requirements-openai-agents.txt
+          python3 -m venv .agent-runtime/openai-agent-venv
+          .agent-runtime/openai-agent-venv/bin/python -m pip install --upgrade pip
+          .agent-runtime/openai-agent-venv/bin/python -m pip install -r .github/agent-runtime/runtime/requirements-openai-agents.txt
 
       - name: Run static regression tests
         run: |
           set -euo pipefail
-          .agent-workflows/openai-agent-venv/bin/python -m pip install -r .github/agent-workflows/runtime/requirements-static-analysis.txt
-          .agent-workflows/openai-agent-venv/bin/python -m mypy --config-file .github/agent-workflows/runtime/mypy.ini
+          .agent-runtime/openai-agent-venv/bin/python -m pip install -r .github/agent-runtime/runtime/requirements-static-analysis.txt
+          .agent-runtime/openai-agent-venv/bin/python -m mypy --config-file .github/agent-runtime/runtime/mypy.ini
           python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_detect_secrets_quality_flow.py'
           python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_workflow_action_update_agent_flow.py'
 
@@ -145,15 +145,9 @@ jobs:
         shell: bash
         env:
           OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
-          OPENAI_BASE_URL: https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1
-          OPENAI_AGENTS_DISABLE_TRACING: "1"
         run: |
-          .agent-workflows/openai-agent-venv/bin/python scripts/private/agent_workflows/openai_agent_runner.py run-repair \
-            --agent-instance repair \
-            --model-config-file .github/agent-workflows/runtime/agent-models.json \
-            --prompt-file .agent-workflows/workflow-action-update-agent/goal.md \
-            --max-turns 30 \
+          .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/openai_agent_runner.py run-repair \
+            --prompt-file .agent-runtime/workflow-action-update-agent/goal.md \
             --output-file "${{ runner.temp }}/workflow-action-update-agent-agent-output.md"
 
       - id: patch
@@ -172,7 +166,7 @@ jobs:
             ${{ runner.temp }}/workflow-action-update-agent.patch
             ${{ runner.temp }}/workflow-action-update-agent.diffstat.txt
             ${{ runner.temp }}/workflow-action-update-agent-agent-output.md
-            .agent-workflows/workflow-action-update-agent
+            .agent-runtime/workflow-action-update-agent
           if-no-files-found: warn
           retention-days: 10
 
@@ -210,7 +204,7 @@ jobs:
         uses: ./.github/actions/workflow-action-update-agent-helper
         with:
           command: apply-patch-and-push
-          profile-path: ${{ inputs.profile_path || '.github/agent-workflows/workflow-repair/profiles/profile.json' }}
+          profile-path: ${{ inputs.profile_path || '.github/agent-runtime/repair/profiles/profile.json' }}
           patch-root: ${{ runner.temp }}/workflow-action-update-agent-repair
           repair-branch: ${{ needs.prepare.outputs.repair_branch }}
           source-run-id: ${{ needs.prepare.outputs.source_run_id }}
@@ -226,7 +220,7 @@ jobs:
         uses: ./.github/actions/workflow-action-update-agent-helper
         with:
           command: create-draft-pr
-          profile-path: ${{ inputs.profile_path || '.github/agent-workflows/workflow-repair/profiles/profile.json' }}
+          profile-path: ${{ inputs.profile_path || '.github/agent-runtime/repair/profiles/profile.json' }}
           body-file: ${{ runner.temp }}/workflow-action-update-agent-pr-body.md
           pr-title-file: ${{ runner.temp }}/workflow-action-update-agent-pr-title.txt
           target-branch: ${{ needs.prepare.outputs.target_branch }}
@@ -258,7 +252,7 @@ jobs:
           GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
         with:
           command: stabilize-pr
-          profile-path: ${{ inputs.profile_path || '.github/agent-workflows/workflow-repair/profiles/profile.json' }}
+          profile-path: ${{ inputs.profile_path || '.github/agent-runtime/repair/profiles/profile.json' }}
           pr-number: ${{ needs['open-pr'].outputs.pr_number }}
           repair-branch: ${{ needs.prepare.outputs.repair_branch }}
           head-sha: ${{ needs['open-pr'].outputs.head_sha }}
