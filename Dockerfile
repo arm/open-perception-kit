@@ -268,7 +268,7 @@ ENV SONAR_HOST_URL="https://sonarqube.mobilestudio.aws.arm.com" \
     PATH=/opt/sonar/sonar-scanner-${SONAR_SCANNER_VERSION}/bin:${PATH}
 
 RUN set -eux; \
-    apt-get update; apt-get install -y --no-install-recommends gcovr; \
+    apt-get update; apt-get install -y --no-install-recommends gcovr openjdk-25-jdk; \
     rm -rf /var/lib/apt/lists/*; \
     mkdir -p /opt/sonar; \
     curl --proto "=https" -fsSLo /tmp/sonar-scanner.zip \
