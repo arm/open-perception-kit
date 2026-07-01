@@ -62,6 +62,7 @@ PROFILE_FILE = PROFILE_ROOT / "profile.json"
 WORKFLOW_AUDIT_PROFILE_FILE = PROFILE_ROOT / "workflow-audit-profile.json"
 PULL_REQUEST_TEMPLATE = REPO_ROOT / ".github/PULL_REQUEST_TEMPLATE.md"
 REPAIR_BRANCH = "feature/EXPKITS-4242/bot-workflow-action-update-agent-run-12345"  # pragma: allowlist secret
+OPENAI_AGENT_RUNNER_LABEL = "self-hosted-ubuntu-latest"
 
 
 def load_yaml(path: Path) -> Any:
@@ -233,7 +234,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 "stabilize-pr",
             },
         )
-        self.assertEqual(agent_job["runs-on"], ["self-hosted", "Linux", "X64"])
+        self.assertEqual(agent_job["runs-on"], OPENAI_AGENT_RUNNER_LABEL)
         self.assertEqual(stabilize_job["runs-on"], "ubuntu-latest")
         self.assertIn("Download source artifact context", agent_steps)
         self.assertIn("Install OpenAI agent runtime", agent_steps)
@@ -415,7 +416,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         review_job = workflow["jobs"]["review"]
         review_steps = step_map(review_job)
 
-        self.assertEqual(review_job["runs-on"], ["self-hosted", "Linux", "X64"])
+        self.assertEqual(review_job["runs-on"], OPENAI_AGENT_RUNNER_LABEL)
         self.assertIn("base_ref", dispatch_inputs)
         self.assertIn("head_ref", dispatch_inputs)
         self.assertEqual(
@@ -905,7 +906,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         steps = step_map(job)
 
         self.assertEqual(set(call_inputs.keys()), set(dispatch_inputs.keys()))
-        self.assertEqual(job["runs-on"], ["self-hosted", "Linux", "X64"])
+        self.assertEqual(job["runs-on"], OPENAI_AGENT_RUNNER_LABEL)
         self.assertEqual(
             list(steps),
             [

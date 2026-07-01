@@ -88,7 +88,7 @@ concurrency:
 
 jobs:
   stabilize:
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: self-hosted-ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
