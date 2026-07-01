@@ -446,6 +446,11 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1",
         )
         self.assertEqual(agent_step["env"]["OPENAI_AGENTS_DISABLE_TRACING"], "1")
+        publish_step = review_steps["Publish review summary comment"]
+        self.assertEqual(
+            publish_step["env"]["REVIEW_BASE_REF"],
+            "${{ format('origin/{0}', github.base_ref) }}",
+        )
 
     def test_openai_sdk_runner_replaces_legacy_action_and_cli_paths(self):
         searched_files = [
@@ -1224,6 +1229,297 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             'MARKER = "<!-- agent-review-comment -->"',
             AGENT_REVIEW_FETCH_SCRIPT.read_text(encoding="utf-8"),
         )
+
+    def test_agent_review_publish_submits_inline_findings_with_review(self):
+        finding = {
+            "title": "Blocking note",
+            "severity": "major",
+            "score": 0.78,
+            "confidence": 0.9,
+            "path": ".github/workflows/example.yml",
+            "diff_side": "RIGHT",
+            "start_line": 12,
+            "end_line": 14,
+            "body": "Keep the blocking finding attached to the submitted review.",
+            "suggestion": "name: Example\non: pull_request\njobs: {}",
+        }
+        calls = []
+
+        def fake_github_api_request(url, token, method="GET", payload=None):
+            calls.append(
+                {
+                    "url": url,
+                    "token": token,
+                    "method": method,
+                    "payload": payload,
+                }
+            )
+            return "{}"
+
+        with mock.patch.object(
+            AGENT_REVIEW_PUBLISH,
+            "github_api_request",
+            fake_github_api_request,
+        ):
+            AGENT_REVIEW_PUBLISH.create_pull_review(
+                "Arm-Debug/amp-dev-forge",
+                "175",
+                "token",
+                "review body",
+                "request_changes",
+                commit_id="deadbeef",
+                findings=[finding],
+                run_id="28000000001",
+            )
+
+        self.assertEqual(len(calls), 1)
+        call = calls[0]
+        self.assertEqual(
+            call["url"],
+            "https://api.github.com/repos/Arm-Debug/amp-dev-forge/pulls/175/reviews",
+        )
+        self.assertEqual(call["method"], "POST")
+        self.assertEqual(call["token"], "token")
+        self.assertEqual(call["payload"]["body"], "review body")
+        self.assertEqual(call["payload"]["event"], "REQUEST_CHANGES")
+        self.assertEqual(call["payload"]["commit_id"], "deadbeef")
+        self.assertEqual(len(call["payload"]["comments"]), 1)
+        comment = call["payload"]["comments"][0]
+        self.assertEqual(comment["path"], ".github/workflows/example.yml")
+        self.assertEqual(comment["line"], 14)
+        self.assertEqual(comment["side"], "RIGHT")
+        self.assertEqual(comment["start_line"], 12)
+        self.assertEqual(comment["start_side"], "RIGHT")
+        self.assertIn(AGENT_REVIEW_PUBLISH.INLINE_MARKER, comment["body"])
+        self.assertIn(AGENT_REVIEW_PUBLISH.INLINE_STATE_MARKER, comment["body"])
+
+    def test_agent_review_publish_collapses_left_ranges_to_single_anchor(self):
+        finding = {
+            "title": "Deleted line note",
+            "severity": "major",
+            "score": 0.78,
+            "confidence": 0.9,
+            "path": ".github/workflows/example.yml",
+            "diff_side": "LEFT",
+            "start_line": 12,
+            "end_line": 14,
+            "body": "Anchor deleted-code findings without risking the whole review batch.",
+        }
+
+        comment = AGENT_REVIEW_PUBLISH.build_review_comment_payload(
+            finding,
+            run_id="28000000001",
+        )
+
+        self.assertEqual(comment["path"], ".github/workflows/example.yml")
+        self.assertEqual(comment["line"], 14)
+        self.assertEqual(comment["side"], "LEFT")
+        self.assertNotIn("start_line", comment)
+        self.assertNotIn("start_side", comment)
+        self.assertIn(AGENT_REVIEW_PUBLISH.INLINE_MARKER, comment["body"])
+
+    def test_agent_review_publish_filters_inline_comments_against_local_diff(self):
+        diff_text = textwrap.dedent(
+            """\
+            diff --git a/src/example.py b/src/example.py
+            index 1111111..2222222 100644
+            --- a/src/example.py
+            +++ b/src/example.py
+            @@ -10,3 +10,4 @@
+             context
+            -old_value = 1
+            +new_value = 1
+            +extra_value = 2
+            """
+        )
+        diff_anchors = AGENT_REVIEW_PUBLISH.parse_diff_comment_anchors(diff_text)
+        findings = [
+            {
+                "title": "Valid right range",
+                "severity": "major",
+                "score": 0.78,
+                "confidence": 0.9,
+                "path": "src/example.py",
+                "diff_side": "RIGHT",
+                "start_line": 11,
+                "end_line": 12,
+                "body": "Both added lines are present in the diff.",
+            },
+            {
+                "title": "Invalid right range",
+                "severity": "major",
+                "score": 0.78,
+                "confidence": 0.9,
+                "path": "src/example.py",
+                "diff_side": "RIGHT",
+                "start_line": 99,
+                "end_line": 99,
+                "body": "This stale line is not present in the diff.",
+            },
+            {
+                "title": "Valid left line",
+                "severity": "major",
+                "score": 0.78,
+                "confidence": 0.9,
+                "path": "src/example.py",
+                "diff_side": "LEFT",
+                "start_line": 11,
+                "end_line": 11,
+                "body": "The deleted line is present in the diff.",
+            },
+        ]
+
+        comments = AGENT_REVIEW_PUBLISH.build_review_comment_payloads(
+            findings,
+            run_id="28000000001",
+            diff_anchors=diff_anchors,
+        )
+
+        self.assertIn(("src/example.py", "RIGHT", 10), diff_anchors)
+        self.assertIn(("src/example.py", "LEFT", 11), diff_anchors)
+        self.assertEqual([comment["line"] for comment in comments], [12, 11])
+        self.assertEqual(comments[0]["side"], "RIGHT")
+        self.assertEqual(comments[0]["start_line"], 11)
+        self.assertEqual(comments[1]["side"], "LEFT")
+        self.assertNotIn("start_line", comments[1])
+
+    def test_agent_review_publish_does_not_fallback_after_diff_validated_anchors(self):
+        finding = {
+            "title": "Blocking note",
+            "severity": "major",
+            "score": 0.78,
+            "confidence": 0.9,
+            "path": ".github/workflows/example.yml",
+            "diff_side": "RIGHT",
+            "start_line": 12,
+            "end_line": 12,
+            "body": "A validated anchor should fail loudly if GitHub rejects it.",
+        }
+        calls = []
+
+        def fake_submit_pull_review(repository, pr_number, token, payload):
+            calls.append(payload)
+            raise urllib.error.HTTPError(
+                "https://api.github.com/repos/Arm-Debug/amp-dev-forge/pulls/175/reviews",
+                422,
+                "Validation Failed",
+                hdrs=None,
+                fp=io.BytesIO(b'{"message":"Validation Failed"}'),
+            )
+
+        with mock.patch.object(
+            AGENT_REVIEW_PUBLISH,
+            "submit_pull_review",
+            fake_submit_pull_review,
+        ):
+            with self.assertRaises(urllib.error.HTTPError):
+                AGENT_REVIEW_PUBLISH.create_pull_review(
+                    "Arm-Debug/amp-dev-forge",
+                    "175",
+                    "token",
+                    "review body",
+                    "request_changes",
+                    commit_id="deadbeef",
+                    findings=[finding],
+                    run_id="28000000001",
+                    diff_anchors={(".github/workflows/example.yml", "RIGHT", 12)},
+                )
+
+        self.assertEqual(len(calls), 1)
+        self.assertIn("comments", calls[0])
+
+    def test_agent_review_publish_keeps_review_when_inline_anchor_is_rejected(self):
+        finding = {
+            "title": "Blocking note",
+            "severity": "major",
+            "score": 0.78,
+            "confidence": 0.9,
+            "path": ".github/workflows/example.yml",
+            "diff_side": "RIGHT",
+            "start_line": 12,
+            "end_line": 12,
+            "body": "Keep the blocking review even when an inline anchor is stale.",
+        }
+        calls = []
+
+        def fake_submit_pull_review(repository, pr_number, token, payload):
+            calls.append(
+                {
+                    "repository": repository,
+                    "pr_number": pr_number,
+                    "token": token,
+                    "payload": payload,
+                }
+            )
+            if len(calls) == 1:
+                raise urllib.error.HTTPError(
+                    "https://api.github.com/repos/Arm-Debug/amp-dev-forge/pulls/175/reviews",
+                    422,
+                    "Validation Failed",
+                    hdrs=None,
+                    fp=io.BytesIO(b'{"message":"Validation Failed"}'),
+                )
+
+        with mock.patch.object(
+            AGENT_REVIEW_PUBLISH,
+            "submit_pull_review",
+            fake_submit_pull_review,
+        ), mock.patch.object(AGENT_REVIEW_PUBLISH.sys, "stderr", io.StringIO()):
+            AGENT_REVIEW_PUBLISH.create_pull_review(
+                "Arm-Debug/amp-dev-forge",
+                "175",
+                "token",
+                "review body",
+                "request_changes",
+                commit_id="deadbeef",
+                findings=[finding],
+                run_id="28000000001",
+            )
+
+        self.assertEqual(len(calls), 2)
+        self.assertIn("comments", calls[0]["payload"])
+        self.assertEqual(calls[1]["payload"]["body"], "review body")
+        self.assertEqual(calls[1]["payload"]["event"], "REQUEST_CHANGES")
+        self.assertEqual(calls[1]["payload"]["commit_id"], "deadbeef")
+        self.assertNotIn("comments", calls[1]["payload"])
+
+    def test_agent_review_fetch_reads_state_from_pull_review_bodies(self):
+        issue_comment = {
+            "body": "unrelated",
+            "user": {"login": "github-actions[bot]"},
+            "created_at": "2026-06-30T10:00:00Z",
+        }
+        stale_review = {
+            "body": (
+                f"{AGENT_REVIEW_FETCH.MARKER}\n"
+                f"{AGENT_REVIEW_FETCH.STATE_MARKER}"
+                '{"overall_recommendation":"comment","summary":"old","overall_score":0.1,'
+                '"overall_confidence":0.2,"findings":[],"run_id":"old"} -->\n'
+            ),
+            "user": {"login": "github-actions[bot]"},
+            "submitted_at": "2026-06-30T10:01:00Z",
+        }
+        latest_review = {
+            "body": (
+                f"{AGENT_REVIEW_FETCH.MARKER}\n"
+                f"{AGENT_REVIEW_FETCH.STATE_MARKER}"
+                '{"overall_recommendation":"approve","summary":"new","overall_score":0.9,'
+                '"overall_confidence":0.8,"findings":[],"run_id":"new"} -->\n'
+            ),
+            "user": {"login": "github-actions[bot]"},
+            "submitted_at": "2026-06-30T10:02:00Z",
+        }
+
+        comments = AGENT_REVIEW_FETCH.summary_state_comments(
+            [issue_comment],
+            [latest_review, stale_review],
+            {"github-actions[bot]"},
+        )
+        state = AGENT_REVIEW_FETCH.extract_state_metadata(comments[-1]["body"])
+
+        self.assertEqual(state["summary"], "new")
+        self.assertEqual(state["overall_recommendation"], "approve")
+        self.assertEqual(state["run_id"], "new")
 
     def test_agent_review_fetch_accepts_default_github_actions_authors(self):
         with mock.patch.dict(os.environ, {}, clear=True):

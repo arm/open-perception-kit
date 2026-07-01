@@ -107,6 +107,7 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REVIEW_BASE_REF: ${{ format('origin/{0}', github.base_ref) }}
         run: |
           python3 ./.github/agent-workflows/review/scripts/publish-review.py \
             --input .github/agent-workflows/review/out/review.json \

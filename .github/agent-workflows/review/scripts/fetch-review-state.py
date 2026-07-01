@@ -85,6 +85,13 @@ def list_pull_comments(repository: str, pr_number: str, token: str):
     )
 
 
+def list_pull_reviews(repository: str, pr_number: str, token: str):
+    return list_paginated_items(
+        f"https://api.github.com/repos/{repository}/pulls/{pr_number}/reviews",
+        token,
+    )
+
+
 def allowed_author_logins():
     configured = os.environ.get("AGENT_REVIEW_AUTHOR_LOGINS", "")
     logins = {entry.strip() for entry in configured.split(",") if entry.strip()}
@@ -122,6 +129,23 @@ def extract_inline_metadata(body: str):
                     file=sys.stderr,
                 )
     return None
+
+
+def comment_timestamp(comment) -> str:
+    for field in ("submitted_at", "created_at", "updated_at"):
+        value = str(comment.get(field) or "")
+        if value:
+            return value
+    return ""
+
+
+def summary_state_comments(issue_comments, pull_reviews, author_logins):
+    comments = [
+        comment
+        for comment in [*issue_comments, *pull_reviews]
+        if MARKER in comment.get("body", "") and comment_author_login(comment) in author_logins
+    ]
+    return sorted(comments, key=comment_timestamp)
 
 
 def extract_findings(comments, run_id: str, author_logins):
@@ -192,21 +216,24 @@ def main():
         output_path.write_text(json.dumps(EMPTY_STATE, indent=2), encoding="utf-8")
         return
 
+    issue_comments = []
+    pull_reviews = []
     try:
         issue_comments = list_issue_comments(repository, pr_number, token)
     except (urllib.error.HTTPError, urllib.error.URLError) as exc:
         print(
-            f"Failed to fetch existing Agent summary comments; proceeding with empty state: {exc}",
+            f"Failed to fetch existing Agent issue comments; proceeding without them: {exc}",
             file=sys.stderr,
         )
-        output_path.write_text(json.dumps(EMPTY_STATE, indent=2), encoding="utf-8")
-        return
+    try:
+        pull_reviews = list_pull_reviews(repository, pr_number, token)
+    except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+        print(
+            f"Failed to fetch existing Agent pull reviews; proceeding without them: {exc}",
+            file=sys.stderr,
+        )
 
-    summary_comments = [
-        comment
-        for comment in issue_comments
-        if MARKER in comment.get("body", "") and comment_author_login(comment) in author_logins
-    ]
+    summary_comments = summary_state_comments(issue_comments, pull_reviews, author_logins)
     if not summary_comments:
         output_path.write_text(json.dumps(EMPTY_STATE, indent=2), encoding="utf-8")
         return

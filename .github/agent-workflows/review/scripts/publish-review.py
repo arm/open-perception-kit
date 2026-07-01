@@ -7,6 +7,8 @@ import argparse
 import base64
 import json
 import os
+import re
+import subprocess
 import sys
 import urllib.error
 import urllib.parse
@@ -31,6 +33,10 @@ from review_contract import (
 
 MAX_INLINE_SUGGESTION_LINES = 10
 BADGE_LABEL_COLOR = "202938"
+DIFF_HUNK_RE = re.compile(
+    r"^@@ -(?P<old_start>\d+)(?:,(?P<old_count>\d+))? "
+    r"\+(?P<new_start>\d+)(?:,(?P<new_count>\d+))? @@"
+)
 
 
 def format_location(finding):
@@ -284,59 +290,219 @@ def is_location_comment_applicable(finding):
     )
 
 
+def diff_path_from_header(value):
+    if value == "/dev/null":
+        return None
+    if value.startswith("a/") or value.startswith("b/"):
+        return value[2:]
+    return value
+
+
+def parse_diff_comment_anchors(diff_text):
+    anchors = set()
+    old_path = None
+    new_path = None
+    old_line = None
+    new_line = None
+
+    for line in diff_text.splitlines():
+        if line.startswith("diff --git "):
+            old_path = None
+            new_path = None
+            old_line = None
+            new_line = None
+            continue
+        if line.startswith("--- "):
+            old_path = diff_path_from_header(line[4:].split("\t", 1)[0])
+            old_line = None
+            new_line = None
+            continue
+        if line.startswith("+++ "):
+            new_path = diff_path_from_header(line[4:].split("\t", 1)[0])
+            old_line = None
+            new_line = None
+            continue
+        match = DIFF_HUNK_RE.match(line)
+        if match:
+            old_line = int(match.group("old_start"))
+            new_line = int(match.group("new_start"))
+            continue
+        if old_line is None or new_line is None:
+            continue
+        if line.startswith("\\"):
+            continue
+        old_anchor_path = old_path or new_path
+        new_anchor_path = new_path or old_path
+        if line.startswith("-"):
+            if old_anchor_path is not None:
+                anchors.add((old_anchor_path, DiffSide.LEFT.value, old_line))
+            old_line += 1
+            continue
+        if line.startswith("+"):
+            if new_anchor_path is not None:
+                anchors.add((new_anchor_path, DiffSide.RIGHT.value, new_line))
+            new_line += 1
+            continue
+        if line.startswith(" "):
+            if new_anchor_path is not None:
+                anchors.add((new_anchor_path, DiffSide.RIGHT.value, new_line))
+            old_line += 1
+            new_line += 1
+
+    return anchors
+
+
+def review_base_ref_from_env():
+    review_base_ref = os.environ.get("REVIEW_BASE_REF")
+    if review_base_ref:
+        return review_base_ref
+    github_base_ref = os.environ.get("GITHUB_BASE_REF")
+    if github_base_ref:
+        return f"origin/{github_base_ref}"
+    return ""
+
+
+def build_diff_comment_anchors(base_ref, head_ref="HEAD"):
+    if not base_ref:
+        return None
+    try:
+        completed = subprocess.run(
+            ["git", "diff", "--no-ext-diff", f"{base_ref}...{head_ref}"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        print(
+            f"Failed to build Agent review diff anchors from {base_ref}...{head_ref}: {exc}",
+            file=sys.stderr,
+        )
+        return None
+    return parse_diff_comment_anchors(completed.stdout)
+
+
+def is_review_comment_payload_anchored(comment, diff_anchors):
+    path = comment["path"]
+    side = comment["side"]
+    line = comment["line"]
+    if "start_line" not in comment:
+        return (path, side, line) in diff_anchors
+    start_line = comment["start_line"]
+    start_side = comment["start_side"]
+    if start_side != side or start_line > line:
+        return False
+    return all(
+        (path, side, candidate) in diff_anchors
+        for candidate in range(start_line, line + 1)
+    )
+
+
+def filter_review_comment_payloads_for_diff(comments, diff_anchors):
+    if diff_anchors is None:
+        return comments
+    return [
+        comment
+        for comment in comments
+        if is_review_comment_payload_anchored(comment, diff_anchors)
+    ]
+
+
 def review_event(recommendation):
     return GITHUB_REVIEW_EVENTS.get(recommendation, "COMMENT")
 
 
-def create_pull_review(repository, pr_number, token, body, recommendation):
+def is_review_comment_validation_error(exc):
+    return getattr(exc, "code", None) == 422
+
+
+def build_review_comment_payload(finding, *, run_id):
+    side = review_diff_side(finding)
+    payload = {
+        "body": build_inline_comment_body(finding, run_id=run_id),
+        "path": finding["path"],
+        "line": finding["end_line"]
+        if finding.get("end_line") is not None
+        else finding["start_line"],
+        "side": side,
+    }
+    # A single invalid anchor rejects the whole batched review. Keep deleted
+    # LEFT-side findings on one stable deleted line instead of risking a range.
+    if (
+        side == DiffSide.RIGHT.value
+        and finding.get("end_line") is not None
+        and finding["end_line"] != finding["start_line"]
+    ):
+        payload["start_line"] = finding["start_line"]
+        payload["start_side"] = side
+    return payload
+
+
+def build_review_comment_payloads(findings, *, run_id, diff_anchors=None):
+    comments = []
+    for finding in findings:
+        if not is_location_comment_applicable(finding):
+            continue
+        comments.append(build_review_comment_payload(finding, run_id=run_id))
+    return filter_review_comment_payloads_for_diff(comments, diff_anchors)
+
+
+def submit_pull_review(repository, pr_number, token, payload):
     reviews_url = f"https://api.github.com/repos/{repository}/pulls/{pr_number}/reviews"
     github_api_request(
         reviews_url,
         token,
         method="POST",
-        payload={
-            "body": body,
-            "event": review_event(recommendation),
-        },
+        payload=payload,
     )
 
 
-def publish_inline_comments(repository, pr_number, token, commit_id, findings):
-    comments_url = f"https://api.github.com/repos/{repository}/pulls/{pr_number}/comments"
-    run_id = os.environ.get("GITHUB_RUN_ID", "")
-    count = 0
-    for finding in findings:
-        if not is_location_comment_applicable(finding):
-            continue
-        comment_body = build_inline_comment_body(finding, run_id=run_id)
-        # <agent-review:suppress> This stateless review flow intentionally posts
-        # fresh inline comments for the current run and does not reconcile or
-        # delete older Agent inline comments yet.
-        payload = {
-            "body": comment_body,
-            "commit_id": commit_id,
-            "path": finding["path"],
-            "line": finding["end_line"] if finding.get("end_line") is not None else finding["start_line"],
-            "side": review_diff_side(finding),
+def create_pull_review(
+    repository,
+    pr_number,
+    token,
+    body,
+    recommendation,
+    *,
+    commit_id="",
+    findings=None,
+    run_id="",
+    diff_anchors=None,
+):
+    payload = {
+        "body": body,
+        "event": review_event(recommendation),
+    }
+    if commit_id:
+        payload["commit_id"] = commit_id
+    comments = build_review_comment_payloads(
+        findings or [],
+        run_id=run_id,
+        diff_anchors=diff_anchors,
+    )
+    if comments:
+        payload["comments"] = comments
+    try:
+        submit_pull_review(repository, pr_number, token, payload)
+    except urllib.error.HTTPError as exc:
+        if (
+            not comments
+            or diff_anchors is not None
+            or not is_review_comment_validation_error(exc)
+        ):
+            raise
+        print(
+            "Failed to attach Agent inline comments to the pull request review; "
+            "retrying with the review body only.",
+            file=sys.stderr,
+        )
+        details = exc.read().decode("utf-8", errors="replace")
+        if details:
+            print(details, file=sys.stderr)
+        fallback_payload = {
+            key: value for key, value in payload.items() if key != "comments"
         }
-        if finding.get("end_line") is not None and finding["end_line"] != finding["start_line"]:
-            payload["start_line"] = finding["start_line"]
-            payload["start_side"] = review_diff_side(finding)
-        try:
-            github_api_request(comments_url, token, method="POST", payload=payload)
-            count += 1
-        except (urllib.error.HTTPError, urllib.error.URLError) as exc:
-            print(
-                "Skipping Agent inline comment publish/update for "
-                f"{finding['path']}:{finding['start_line']} "
-                f"({finding['title']}): {exc}",
-                file=sys.stderr,
-            )
-            if isinstance(exc, urllib.error.HTTPError):
-                body = exc.read().decode("utf-8", errors="replace")
-                if body:
-                    print(body, file=sys.stderr)
-    return count
+        submit_pull_review(repository, pr_number, token, fallback_payload)
 
 
 def github_api_request(url, token, method="GET", payload=None):
@@ -387,6 +553,8 @@ def main():
         )
         sys.exit(1)
 
+    diff_anchors = build_diff_comment_anchors(review_base_ref_from_env())
+
     try:
         create_pull_review(
             repository,
@@ -394,15 +562,11 @@ def main():
             token,
             markdown,
             review.get("overall_recommendation", ReviewRecommendation.COMMENT.value),
+            commit_id=head_sha or "",
+            findings=review.get("findings", []),
+            run_id=run_id,
+            diff_anchors=diff_anchors,
         )
-        if head_sha:
-            publish_inline_comments(
-                repository,
-                pr_number,
-                token,
-                head_sha,
-                review.get("findings", []),
-            )
     except urllib.error.HTTPError as exc:
         print(f"Failed to publish Agent review: {exc}", file=sys.stderr)
         body = exc.read().decode("utf-8", errors="replace")
