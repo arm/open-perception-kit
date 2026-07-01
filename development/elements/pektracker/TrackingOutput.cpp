@@ -77,6 +77,7 @@ void applyAssignedTrackToDetection(pek::Perception::Rect &rect,
 
     rect.x = track->lastDetection.x;
     rect.y = track->lastDetection.y;
+    rect.attributes["trackId"] = std::to_string(trackId);
     appendTrackTextIfEnabled(rect, trackId, *track, context.config);
 }
 

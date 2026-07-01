@@ -1,0 +1,64 @@
+{
+    "name": "FullTrackingHailo10",
+    "description": "Detector + ReID micropipeline for `pektracker` using official Hailo 10-compiled YOLOv11n and RepVGG A0 person ReID models.",
+    "ops": [
+        {
+            "id": "pek-std-ops/InferenceController",
+            "attributes": {}
+        },
+        {
+            "id": "pek-std-ops/GenericImagePreprocess",
+            "attributes": {
+                "inputImageTensorIndex": 0,
+                "inputImageSourceName": "pipelineVideoFrame"
+            }
+        },
+        {
+            "id": "pek-hailort-ops/Inference",
+            "attributes": {
+                "modelDescriptor": "/work/config/models/yolov11-hailo10/model.json"
+            }
+        },
+        {
+            "id": "pek-std-ops/GenericPostprocess",
+            "attributes": {
+                "applyNms": false,
+                "parser": "YoloParser",
+                "outputFormat": "HailoYoloNMS",
+                "normalizeOutputCoordinates": false,
+                "coordinatesAreNormalized": true,
+                "confidenceThreshold": 0.5,
+                "maxDetections": 50,
+                "classCount": 80,
+                "maxBboxesPerClass": 100,
+                "coordOrder": "yxyx",
+                "debug": false
+            }
+        },
+        {
+            "id": "pek-std-ops/InferenceController",
+            "attributes": {
+                "contentType": "genericObject"
+            }
+        },
+        {
+            "id": "pek-std-ops/GenericImagePreprocess",
+            "attributes": {
+                "inputImageTensorIndex": 0,
+                "inputImageSourceName": "pipelineVideoFrame"
+            }
+        },
+        {
+            "id": "pek-hailort-ops/Inference",
+            "attributes": {
+                "modelDescriptor": "/work/config/models/repvgg_a0_person_reid_512-hailo10/model.json"
+            }
+        },
+        {
+            "id": "pek-std-ops/GenericPostprocess",
+            "attributes": {
+                "parser": "ObjectEmbeddingParser"
+            }
+        }
+    ]
+}

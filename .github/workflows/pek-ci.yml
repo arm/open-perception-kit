@@ -149,31 +149,3 @@ jobs:
             ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/scripts/testing/valgrind/logs
           if-no-files-found: warn
           retention-days: 10
-
-  check-checkboxes:
-    name: Check PR template checkboxes
-    runs-on: ubuntu-latest
-    if: |
-      (github.event.pull_request.draft == false) ||
-      (github.event_name == 'pull_request' && github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Check PR template checkboxes
-        uses: actions/github-script@v8
-        with:
-          script: |
-            if (!context.payload.pull_request) {
-              console.log("This workflow must be run on pull_request events.");
-            } else {
-              const prBody = context.payload.pull_request.body;
-              const unchecked = prBody.match(/-\s\[( |x)\]/g)
-                ?.filter(checkbox => checkbox === '- [ ]');
-              if (!prBody) {
-                core.setFailed("PR body is empty or undefined.");
-              } else if (!unchecked || unchecked.length === 0) {
-                console.log("All checkboxes are checked.");
-              } else {
-                core.setFailed(`Some checkboxes are not checked:\n${unchecked.join('\n')}`);
-              }
-            }

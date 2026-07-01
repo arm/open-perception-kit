@@ -1,5 +1,6 @@
 {
-  "description": "Every available ONNX model with the default video source and peksink video sink.",
+  "description": "Every available ONNX model with the main camera source, WebSocket metadata streaming, and peksink video sink.",
+  "loop": true,
   "pipeline": [
     "filesrc location=/work/data/videos/GettyImages-1140581459.mov !",
     "decodebin !",
@@ -17,6 +18,7 @@
     "pekinfer opchain-path=/work/config/models/rvm/opchain.json active=false !",
     "pektracker content-type=genericObject !",
     "pekperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
+    "pekcomm method=websocket ws-port=7001 endpoint=/ws !",
     "pekosd enabled=true bg-image=\"/work/data/images/GettyImages-1298072556-thumbnail.jpg\" !",
     "peksink name=sink"
   ],

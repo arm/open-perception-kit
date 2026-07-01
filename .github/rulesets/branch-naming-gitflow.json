@@ -1,0 +1,25 @@
+{
+  "name": "Gitflow branch naming",
+  "target": "branch",
+  "enforcement": "active",
+  "bypass_actors": [],
+  "conditions": {
+    "ref_name": {
+      "include": [
+        "~ALL"
+      ],
+      "exclude": []
+    }
+  },
+  "rules": [
+    {
+      "type": "branch_name_pattern",
+      "parameters": {
+        "name": "Allowed gitflow branch names",
+        "operator": "regex",
+        "pattern": "^(main|develop|feature/EXPKITS-[0-9]+.*|bugfix/EXPKITS-[0-9]+.*|hotfix/EXPKITS-[0-9]+.*|dependabot/.+|sandbox/.+)$",
+        "negate": false
+      }
+    }
+  ]
+}

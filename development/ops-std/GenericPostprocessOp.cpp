@@ -23,6 +23,7 @@
 #include "postproc/PaddleocrParser.h"
 #include "postproc/PersonClassificationParser.h"
 #include "postproc/RvmParser.h"
+#include "postproc/ScrfdParser.h"
 #include "postproc/UltrafaceParser.h"
 #include "postproc/YoloParser.h"
 #include "postproc/YoloXParser.h"
@@ -51,6 +52,7 @@ const std::map<std::string, ParserCreator> &getParserRegistry() {
         {"PaddleOcrDetectionParser", make<pek::stdop::postproc::PaddleOcrDetectionParser>()},
         {"PersonClassificationParser", make<pek::stdop::postproc::PersonClassificationParser>()},
         {"RvmParser", make<pek::stdop::postproc::RvmParser>()},
+        {"ScrfdParser", make<pek::stdop::postproc::ScrfdParser>()},
         {"UltrafaceParser", make<pek::stdop::postproc::UltraFaceParser>()},
         {"YoloXParser", make<pek::stdop::postproc::YoloXParser>()},
         {"YoloParser", make<pek::stdop::postproc::YoloParser>()},

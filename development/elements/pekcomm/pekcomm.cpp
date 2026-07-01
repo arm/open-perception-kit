@@ -15,6 +15,8 @@
 #include <gst/gst.h>
 
 #include "file_writer.h"
+#include "tcp_writer.h"
+#include "websocket_writer.h"
 #include "writer.h"
 
 #include <gst/PerceptionMeta.h>
@@ -30,12 +32,15 @@ G_DECLARE_FINAL_TYPE(GstPekComm, gst_pek_comm, GST, PEK_COMM, GstBaseTransform)
 
 typedef enum {
 
-    // can be extended: MQTT, REST, database, etc...
     GST_PEK_COMM_METHOD_FILE = 1,
+    GST_PEK_COMM_METHOD_WEBSOCKET = 2,
+    GST_PEK_COMM_METHOD_TCP = 3,
 } GstPekCommMethod;
 
 struct GstPekCommPrivate {
     std::unique_ptr<Writer> writer;
+    bool started = false;
+    bool writer_open = false;
 };
 
 struct _GstPekComm {
@@ -43,6 +48,10 @@ struct _GstPekComm {
 
     GstPekCommMethod method;
     gchar *file_name;
+    guint ws_port;
+    gchar *endpoint;
+    gchar *tcp_host;
+    guint tcp_port;
 
     uint64_t frame_counter;
 
@@ -63,12 +72,19 @@ enum class PekCommProps : guint {
     PROP_0,
     PROP_METHOD,
     PROP_FILE_NAME,
+    PROP_WS_PORT,
+    PROP_ENDPOINT,
+    PROP_TCP_HOST,
+    PROP_TCP_PORT,
 };
 
 static GType gst_pek_comm_method_get_type(void) {
     static GType t = 0;
-    static std::vector<GEnumValue> values = {{GST_PEK_COMM_METHOD_FILE, "file", "file"},
-                                             {0, nullptr, nullptr}};
+    static std::vector<GEnumValue> values = {
+        {GST_PEK_COMM_METHOD_FILE, "file", "file"},
+        {GST_PEK_COMM_METHOD_WEBSOCKET, "websocket", "websocket"},
+        {GST_PEK_COMM_METHOD_TCP, "tcp", "tcp"},
+        {0, nullptr, nullptr}};
 
     if (g_once_init_enter(&t)) {
         GType tmp = g_enum_register_static("GstPekCommMethod", values.data());
@@ -79,21 +95,86 @@ static GType gst_pek_comm_method_get_type(void) {
 
 /* ----------------------- Helpers ----------------------- */
 
+static const char *gst_pek_comm_method_name(GstPekCommMethod method) {
+    switch (method) {
+    case GST_PEK_COMM_METHOD_FILE:
+        return "file";
+    case GST_PEK_COMM_METHOD_WEBSOCKET:
+        return "websocket";
+    case GST_PEK_COMM_METHOD_TCP:
+        return "tcp";
+    default:
+        return "unknown";
+    }
+}
+
+static void gst_pek_comm_report_open_failure(GstPekComm *self, bool fatal) {
+    const char *method = gst_pek_comm_method_name(self->method);
+    const char *endpoint = self->endpoint ? self->endpoint : "";
+    const char *tcp_host = self->tcp_host ? self->tcp_host : "";
+    const char *file_name = self->file_name ? self->file_name : "";
+
+    if (fatal) {
+        GST_ELEMENT_ERROR(self,
+                          RESOURCE,
+                          OPEN_WRITE,
+                          ("Failed to open pekcomm metadata writer"),
+                          ("method=%s file-name='%s' ws-port=%u endpoint='%s' "
+                           "tcp-host='%s' tcp-port=%u",
+                           method,
+                           file_name,
+                           self->ws_port,
+                           endpoint,
+                           tcp_host,
+                           self->tcp_port));
+    } else {
+        GST_ELEMENT_WARNING(self,
+                            RESOURCE,
+                            OPEN_WRITE,
+                            ("Failed to reopen pekcomm metadata writer"),
+                            ("method=%s file-name='%s' ws-port=%u endpoint='%s' "
+                             "tcp-host='%s' tcp-port=%u",
+                             method,
+                             file_name,
+                             self->ws_port,
+                             endpoint,
+                             tcp_host,
+                             self->tcp_port));
+    }
+}
+
 static bool gst_pek_comm_open_io(GstPekComm *self) {
     if (self->priv->writer) {
         self->priv->writer->stop();
     }
+    self->priv->writer_open = false;
 
-    auto ret = true;
+    auto ret = false;
     switch (self->method) {
     case GST_PEK_COMM_METHOD_FILE:
         self->priv->writer = std::make_unique<FileWriter>(self, self->file_name, 5);
         ret = self->priv->writer->start();
-
+        break;
+    case GST_PEK_COMM_METHOD_WEBSOCKET:
+        self->priv->writer = std::make_unique<WebSocketWriter>(
+            self, static_cast<uint16_t>(self->ws_port), self->endpoint ? self->endpoint : "/ws", 5);
+        ret = self->priv->writer->start();
+        break;
+    case GST_PEK_COMM_METHOD_TCP:
+        self->priv->writer = std::make_unique<TcpWriter>(
+            self, self->tcp_host ? self->tcp_host : "", static_cast<uint16_t>(self->tcp_port), 5);
+        ret = self->priv->writer->start();
         break;
     default:
-        // intentionally does nothing
+        GST_WARNING_OBJECT(
+            self, "Unknown pekcomm publishing method: %d", static_cast<int>(self->method));
         break;
+    }
+
+    if (ret) {
+        self->priv->writer_open = true;
+    } else {
+        self->priv->writer.reset();
     }
 
     return ret;
@@ -103,19 +184,37 @@ static void gst_pek_comm_close_io(GstPekComm *self) {
     if (self->priv->writer) {
         self->priv->writer->stop();
     }
+    self->priv->writer.reset();
+    self->priv->writer_open = false;
+}
+
+static void gst_pek_comm_reopen_if_started(GstPekComm *self) {
+    if (!self->priv->started) {
+        return;
+    }
+
+    if (!gst_pek_comm_open_io(self)) {
+        gst_pek_comm_report_open_failure(self, false);
+    }
 }
 /* ----------------------- GstBaseTransform vfuncs ----------------------- */
 
 static gboolean gst_pek_comm_start(GstBaseTransform *trans) {
     GstPekComm *self = GST_PEK_COMM(trans);
 
-    gst_pek_comm_open_io(self);
+    self->priv->started = true;
+    if (!gst_pek_comm_open_io(self)) {
+        self->priv->started = false;
+        gst_pek_comm_report_open_failure(self, true);
+        return FALSE;
+    }
 
     return TRUE;
 }
 
 static gboolean gst_pek_comm_stop(GstBaseTransform *trans) {
     GstPekComm *self = GST_PEK_COMM(trans);
+    self->priv->started = false;
     gst_pek_comm_close_io(self);
 
     return TRUE;
@@ -124,7 +223,8 @@ static gboolean gst_pek_comm_stop(GstBaseTransform *trans) {
 static GstFlowReturn gst_pek_comm_transform_ip(GstBaseTransform *trans, GstBuffer *buf) {
     GstPekComm *self = GST_PEK_COMM(trans);
 
-    if (self->priv && self->priv->writer && self->priv->writer->check_running()) {
+    if (self->priv && self->priv->writer_open && self->priv->writer &&
+        self->priv->writer->check_running()) {
         auto p = pek::PerceptionMeta::read(buf);
         PekCommJob j = {
             .frame_counter = self->frame_counter,
@@ -151,7 +251,7 @@ gst_pek_comm_set_property(GObject *object, guint prop_id, const GValue *value, G
         self->method = (GstPekCommMethod)g_value_get_enum(value);
 
         /* Reopen on method change */
-        (void)gst_pek_comm_open_io(self);
+        gst_pek_comm_reopen_if_started(self);
         break;
 
     case PekCommProps::PROP_FILE_NAME:
@@ -162,7 +262,35 @@ gst_pek_comm_set_property(GObject *object, guint prop_id, const GValue *value, G
         }
 
         /* Reopen on name change */
-        (void)gst_pek_comm_open_io(self);
+        gst_pek_comm_reopen_if_started(self);
+        break;
+
+    case PekCommProps::PROP_WS_PORT:
+        self->ws_port = g_value_get_uint(value);
+        gst_pek_comm_reopen_if_started(self);
+        break;
+
+    case PekCommProps::PROP_ENDPOINT:
+        g_free(self->endpoint);
+        self->endpoint = g_value_dup_string(value);
+        if (self->endpoint == nullptr) {
+            self->endpoint = g_strdup("/ws");
+        }
+        gst_pek_comm_reopen_if_started(self);
+        break;
+
+    case PekCommProps::PROP_TCP_HOST:
+        g_free(self->tcp_host);
+        self->tcp_host = g_value_dup_string(value);
+        if (self->tcp_host == nullptr) {
+            self->tcp_host = g_strdup("127.0.0.1");
+        }
+        gst_pek_comm_reopen_if_started(self);
+        break;
+
+    case PekCommProps::PROP_TCP_PORT:
+        self->tcp_port = g_value_get_uint(value);
+        gst_pek_comm_reopen_if_started(self);
         break;
 
     default:
@@ -184,6 +312,22 @@ gst_pek_comm_get_property(GObject *object, guint prop_id, GValue *value, GParamS
         g_value_set_string(value, self->file_name);
         break;
 
+    case PekCommProps::PROP_WS_PORT:
+        g_value_set_uint(value, self->ws_port);
+        break;
+
+    case PekCommProps::PROP_ENDPOINT:
+        g_value_set_string(value, self->endpoint);
+        break;
+
+    case PekCommProps::PROP_TCP_HOST:
+        g_value_set_string(value, self->tcp_host);
+        break;
+
+    case PekCommProps::PROP_TCP_PORT:
+        g_value_set_uint(value, self->tcp_port);
+        break;
+
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -198,6 +342,8 @@ static void gst_pek_comm_finalize(GObject *object) {
     delete self->priv;
 
     g_clear_pointer(&self->file_name, g_free);
+    g_clear_pointer(&self->endpoint, g_free);
+    g_clear_pointer(&self->tcp_host, g_free);
 
     G_OBJECT_CLASS(gst_pek_comm_parent_class)->finalize(object);
 }
@@ -217,7 +363,7 @@ static void gst_pek_comm_class_init(GstPekCommClass *klass) {
                                     static_cast<guint>(PekCommProps::PROP_METHOD),
                                     g_param_spec_enum("method",
                                                       "Method",
-                                                      "Publishing method: file",
+                                                      "Publishing method: file, websocket, or tcp",
                                                       gst_pek_comm_method_get_type(),
                                                       GST_PEK_COMM_METHOD_FILE,
                                                       kRW));
@@ -226,6 +372,32 @@ static void gst_pek_comm_class_init(GstPekCommClass *klass) {
         gobject_class,
         static_cast<guint>(PekCommProps::PROP_FILE_NAME),
         g_param_spec_string("file-name", "File name", "File path ('-' - std out)", "-", kRW));
+
+    g_object_class_install_property(
+        gobject_class,
+        static_cast<guint>(PekCommProps::PROP_WS_PORT),
+        g_param_spec_uint(
+            "ws-port", "WebSocket port", "Port used when method=websocket", 1, 65535, 8002, kRW));
+
+    g_object_class_install_property(gobject_class,
+                                    static_cast<guint>(PekCommProps::PROP_ENDPOINT),
+                                    g_param_spec_string("endpoint",
+                                                        "WebSocket endpoint",
+                                                        "Endpoint path used when method=websocket",
+                                                        "/ws",
+                                                        kRW));
+
+    g_object_class_install_property(
+        gobject_class,
+        static_cast<guint>(PekCommProps::PROP_TCP_HOST),
+        g_param_spec_string(
+            "tcp-host", "TCP host", "Bind host used when method=tcp", "127.0.0.1", kRW));
+
+    g_object_class_install_property(
+        gobject_class,
+        static_cast<guint>(PekCommProps::PROP_TCP_PORT),
+        g_param_spec_uint(
+            "tcp-port", "TCP port", "Listen port used when method=tcp", 1, 65535, 7001, kRW));
 
     /* Add pad templates so the element has sink/src pads */
     gst_element_class_add_pad_template(element_class, gst_static_pad_template_get(&sink_template));
@@ -237,16 +409,21 @@ static void gst_pek_comm_class_init(GstPekCommClass *klass) {
     bt_class->stop = gst_pek_comm_stop;
     bt_class->transform_ip = gst_pek_comm_transform_ip;
 
-    gst_element_class_set_static_metadata(element_class,
-                                          "PekComm metadata publisher",
-                                          "Filter/Metadata",
-                                          "Reads buffer metadata and publishes it (FIFO/file)",
-                                          "Arm Limited");
+    gst_element_class_set_static_metadata(
+        element_class,
+        "PekComm metadata publisher",
+        "Filter/Metadata",
+        "Reads buffer metadata and publishes it (FIFO/file/WebSocket/TCP)",
+        "Arm Limited");
 }
 
 static void gst_pek_comm_init(GstPekComm *self) {
     self->method = GST_PEK_COMM_METHOD_FILE;
     self->file_name = g_strdup("-");
+    self->ws_port = 8002;
+    self->endpoint = g_strdup("/ws");
+    self->tcp_host = g_strdup("127.0.0.1");
+    self->tcp_port = 7001;
     self->frame_counter = 0L;
 
     self->priv = new GstPekCommPrivate{};

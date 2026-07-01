@@ -168,6 +168,7 @@ Common presets include:
 - `gaze-detection.json` - gaze-estimation demo.
 - `tracker-pc.json` - ONNX tracking demo.
 - `tracker-rpi-hailo8.json` - Hailo 8 tracking demo.
+- `tracker-rpi-hailo10.json` - Hailo 10 tracking demo.
 
 Pipeline files often contain `alternative-source-*` and `alternative-sink-*` sections. Use those as templates when switching from the default sample media to a camera, video file, or different sink.
 

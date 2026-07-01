@@ -1,0 +1,19 @@
+{
+    "name": "scrfd_2_5g",
+    "modelFamily": "scrfd",
+    "contentType": "humanFace",
+    "modelFile": "scrfd_2.5g.hef",
+    "dynamicOutput": true,
+    "inputTensors": [
+        {
+            "shape": [
+                1,
+                640,
+                640,
+                3
+            ],
+            "dataKind": "ImageRgbHwc",
+            "valueType": "Uint8"
+        }
+    ]
+}

@@ -18,6 +18,7 @@ For anything beyond a tiny local edit:
 
 Read these first before making substantial changes:
 
+- [Contribution rules](.github/CONTRIBUTING.md)
 - [Engineering starting point](docs/public/how-to/deep-dives/engineering.md)
 - [Structural basics](docs/public/how-to/deep-dives/structural-basics.md)
 - [Runtime basics](docs/public/how-to/deep-dives/runtime.md)
@@ -100,6 +101,24 @@ Start in:
 
 Only do this after the `Perception` structure and parser output are clear.
 
+### Add or modify an app under `apps/`
+Start in:
+
+- `apps/<app-name>/`
+- `metadata/AGENTS.md` if the app consumes AMP JSON metadata
+
+Prefer simple, self-contained app code unless there is already an established shared pattern to reuse.
+
+For browser apps that consume metadata:
+
+- route on `layer.contentType` and `detection.type`, not layer order
+- define the coordinate-space policy explicitly before mapping detections into UI or gameplay
+- use `VideoFrame` dimensions when available and treat other dimension recovery as heuristic
+- treat left/right assignment and mirrored-camera behavior as app-level logic
+- add smoothing and dropout handling before using metadata for realtime control
+- document whether control uses rectangle center, edge, or another anchor point
+- keep app-specific assumptions in the app README so they do not become implicit contract
+
 ### Update docs
 Ground doc changes in checked-in code and config.
 
@@ -110,6 +129,7 @@ Ground doc changes in checked-in code and config.
 
 ## Important repository facts
 
+- Branch and commit-message rules are documented in `.github/CONTRIBUTING.md`.
 - The active runtime code lives under `development/`.
 - Video-processing elements currently assume `BGRA` caps unless the task explicitly changes the contract.
 - `PerceptionMeta` is the current metadata type.

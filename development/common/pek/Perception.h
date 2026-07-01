@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <fmt/core.h>
+#include <map>
 #include <stdint.h>
 #include <string>
 #include <variant>
@@ -54,7 +55,9 @@ struct Perception {
         float x = 0.0f, y = 0.0f, width = 0.0f, height = 0.0f;
         float confidence = 0.0f;
         int classId = -1;
+        std::string label;
         std::string text;
+        std::map<std::string, std::string> attributes;
     };
 
     // full-crop classification result
