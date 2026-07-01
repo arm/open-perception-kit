@@ -85,7 +85,7 @@ jobs:
     name: Generate repair patch with OpenAI SDK agent
     needs: prepare
     if: needs.prepare.outputs.should_run == 'true'
-    runs-on: self-hosted-ubuntu-latest-ephemeral
+    runs-on: self-hosted-ubuntu-latest
     timeout-minutes: 45
     permissions:
       actions: read
@@ -145,6 +145,7 @@ jobs:
             --agent-instance repair \
             --model-config-file .github/agent-workflows/runtime/agent-models.json \
             --prompt-file .agent-workflows/workflow-action-update-agent/goal.md \
+            --max-turns 30 \
             --output-file "${{ runner.temp }}/workflow-action-update-agent-agent-output.md"
 
       - name: Run static regression tests

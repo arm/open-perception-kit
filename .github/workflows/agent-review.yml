@@ -27,7 +27,7 @@ concurrency:
 jobs:
   review:
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
-    runs-on: self-hosted-ubuntu-latest-ephemeral
+    runs-on: self-hosted-ubuntu-latest
 
     steps:
       - name: Checkout pull request head
@@ -93,6 +93,7 @@ jobs:
             --model-config-file .github/agent-workflows/runtime/agent-models.json \
             --prompt-file .github/agent-workflows/review/out/review.prompt.md \
             --schema-file .github/agent-workflows/review/schemas/review.schema.json \
+            --max-turns 40 \
             --output-file .github/agent-workflows/review/out/review.json
       # <agent-review:suppress-end>
 

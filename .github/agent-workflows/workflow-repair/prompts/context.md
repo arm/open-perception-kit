@@ -18,7 +18,10 @@
 
 The reference implementation is `.github/workflows/agent-review.yml`.
 
-- Runner: `self-hosted-ubuntu-latest-ephemeral`
+- Runner: `self-hosted-ubuntu-latest`
+- The shared runner performs a generic task-estimation agent call before the
+  main review, repair, or stabilization agent run. Oversized tasks must be
+  split instead of pushing the main agent past its turn budget.
 - Prompt preparation stays outside the SDK runner in checked-in scripts.
 - Agent runtime dependencies are installed from `.github/agent-workflows/runtime/requirements-openai-agents.txt`
   into `.agent-workflows/openai-agent-venv`.

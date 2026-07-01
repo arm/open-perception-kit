@@ -37,6 +37,34 @@ AGENT_COMMAND_DEFAULT_INSTANCES = {
 }
 
 
+@dataclass(frozen=True)
+class AgentTaskLimits:
+    """Execution budget and preflight size limits for one agent task type."""
+
+    max_turns: int
+    max_prompt_chars: int
+    max_review_files: int | None = None
+    max_review_changed_lines: int | None = None
+
+
+AGENT_TASK_LIMITS = {
+    AgentCommand.REVIEW: AgentTaskLimits(
+        max_turns=40,
+        max_prompt_chars=180_000,
+        max_review_files=120,
+        max_review_changed_lines=10_000,
+    ),
+    AgentCommand.REPAIR: AgentTaskLimits(
+        max_turns=30,
+        max_prompt_chars=140_000,
+    ),
+    AgentCommand.STABILIZATION: AgentTaskLimits(
+        max_turns=30,
+        max_prompt_chars=120_000,
+    ),
+}
+
+
 class ReviewRecommendation(str, Enum):
     APPROVE = "approve"
     COMMENT = "comment"

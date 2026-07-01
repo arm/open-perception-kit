@@ -11,6 +11,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import textwrap
@@ -19,7 +20,7 @@ import urllib.error
 import urllib.parse
 import unittest
 from unittest import mock
-from typing import Any
+from typing import Any, cast
 import zipfile
 
 import yaml
@@ -62,7 +63,9 @@ PROFILE_FILE = PROFILE_ROOT / "profile.json"
 WORKFLOW_AUDIT_PROFILE_FILE = PROFILE_ROOT / "workflow-audit-profile.json"
 PULL_REQUEST_TEMPLATE = REPO_ROOT / ".github/PULL_REQUEST_TEMPLATE.md"
 REPAIR_BRANCH = "feature/EXPKITS-4242/bot-workflow-action-update-agent-run-12345"  # pragma: allowlist secret
-OPENAI_AGENT_RUNNER_LABEL = "self-hosted-ubuntu-latest-ephemeral"
+OPENAI_AGENT_RUNNER_LABEL = "self-hosted-ubuntu-latest"
+OPENAI_REVIEW_MAX_TURNS = 40
+OPENAI_PATCH_MAX_TURNS = 30
 
 
 def load_yaml(path: Path) -> Any:
@@ -258,6 +261,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("--prompt-file .agent-workflows/workflow-action-update-agent/goal.md", agent_step["run"])
         self.assertIn("--agent-instance repair", agent_step["run"])
         self.assertIn("--model-config-file .github/agent-workflows/runtime/agent-models.json", agent_step["run"])
+        self.assertIn(f"--max-turns {OPENAI_PATCH_MAX_TURNS}", agent_step["run"])
         self.assertNotIn("--model \"${{ needs.prepare.outputs.agent_model }}\"", agent_step["run"])
         self.assertEqual(
             agent_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],
@@ -479,6 +483,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("--output-file .github/agent-workflows/review/out/review.json", agent_step["run"])
         self.assertIn("--agent-instance review", agent_step["run"])
         self.assertIn("--model-config-file .github/agent-workflows/runtime/agent-models.json", agent_step["run"])
+        self.assertIn(f"--max-turns {OPENAI_REVIEW_MAX_TURNS}", agent_step["run"])
         self.assertNotIn("--model gpt-", agent_step["run"])
         self.assertEqual(
             agent_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],
@@ -595,6 +600,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn('"apply"', source)
         self.assertIn('["git", "apply", "--whitespace=nowarn"]', source)
         self.assertIn("filter_invalid_right_side_findings", source)
+        self.assertIn("TaskEstimate", source)
+        self.assertIn("estimate_task_fit", source)
+        self.assertIn("build_task_manifest", source)
+        self.assertIn("AGENT_TASK_LIMITS", contracts_source)
 
     def test_openai_agent_runner_executes_simple_commands_without_shell_expansion(self):
         runner = load_openai_agent_runner_with_fake_sdk()
@@ -650,6 +659,104 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             runner.validate_schema_file(str(schema_file))
             with self.assertRaisesRegex(ValueError, "Review schema file does not exist"):
                 runner.validate_schema_file(str(Path(temp_dir) / "missing.schema.json"))
+
+    def test_openai_agent_runner_uses_type_specific_turn_defaults(self):
+        runner = load_openai_agent_runner_with_fake_sdk()
+
+        args = argparse.Namespace(max_turns=None)
+        self.assertEqual(runner.resolve_agent_max_turns(runner.AgentCommand.REVIEW, args), OPENAI_REVIEW_MAX_TURNS)
+        self.assertEqual(runner.resolve_agent_max_turns(runner.AgentCommand.REPAIR, args), OPENAI_PATCH_MAX_TURNS)
+        self.assertEqual(
+            runner.resolve_agent_max_turns(runner.AgentCommand.STABILIZATION, args),
+            OPENAI_PATCH_MAX_TURNS,
+        )
+
+        args.max_turns = 12
+        self.assertEqual(runner.resolve_agent_max_turns(runner.AgentCommand.REVIEW, args), 12)
+
+    def test_openai_agent_runner_blocks_prompt_that_exceeds_task_limit(self):
+        runner = load_openai_agent_runner_with_fake_sdk()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            runner.RUN_CONTEXT = runner.AgentRunContext(Path(temp_dir), 10)
+            args = argparse.Namespace(
+                agent_instance="repair",
+                resolved_model="gpt-test",
+                max_turns=None,
+                max_prompt_chars=10,
+                max_review_files=None,
+                max_review_changed_lines=None,
+            )
+
+            manifest = runner.build_task_manifest(runner.AgentCommand.REPAIR, "x" * 11, args)
+            reasons = runner.deterministic_task_limit_violations(manifest)
+
+        self.assertIn("prompt has 11 characters", reasons[0])
+
+    def test_openai_agent_runner_blocks_review_diff_that_exceeds_file_limit(self):
+        runner = load_openai_agent_runner_with_fake_sdk()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            subprocess.run(["git", "init"], cwd=repo_root, check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "agent@example.invalid"],
+                cwd=repo_root,
+                check=True,
+            )
+            subprocess.run(["git", "config", "user.name", "Agent"], cwd=repo_root, check=True)
+            (repo_root / "README.md").write_text("base\n", encoding="utf-8")
+            subprocess.run(["git", "add", "README.md"], cwd=repo_root, check=True)
+            subprocess.run(["git", "commit", "-m", "base"], cwd=repo_root, check=True, capture_output=True)
+            base_sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo_root, text=True).strip()
+
+            for index in range(3):
+                (repo_root / f"file-{index}.txt").write_text(f"{index}\n", encoding="utf-8")
+            subprocess.run(["git", "add", "."], cwd=repo_root, check=True)
+            subprocess.run(["git", "commit", "-m", "change"], cwd=repo_root, check=True, capture_output=True)
+            head_sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo_root, text=True).strip()
+
+            runner.RUN_CONTEXT = runner.AgentRunContext(repo_root, 10)
+            args = argparse.Namespace(
+                agent_instance="review",
+                resolved_model="gpt-test",
+                max_turns=None,
+                max_prompt_chars=None,
+                max_review_files=2,
+                max_review_changed_lines=None,
+            )
+            prompt = f"- Base SHA: `{base_sha}`\n- Head SHA: `{head_sha}`\n"
+            manifest = runner.build_task_manifest(runner.AgentCommand.REVIEW, prompt, args)
+            reasons = runner.deterministic_task_limit_violations(manifest)
+
+        self.assertIn("review scope touches 3 files", reasons[0])
+
+    def test_openai_agent_runner_blocks_estimated_turn_overrun(self):
+        runner = load_openai_agent_runner_with_fake_sdk()
+        manifest = {
+            "prompt_chars": 10,
+            "limits": {
+                "max_turns": OPENAI_REVIEW_MAX_TURNS,
+                "max_prompt_chars": 100,
+                "max_review_files": None,
+                "max_review_changed_lines": None,
+            },
+            "git_metrics": {
+                "total_diff_files": 0,
+                "total_diff_changed_lines": 0,
+            },
+        }
+        estimate = types.SimpleNamespace(
+            fits=True,
+            estimated_turns=OPENAI_REVIEW_MAX_TURNS + 1,
+            reason="Needs more exploration.",
+            split_recommendation="Split by workflow.",
+        )
+
+        reasons = runner.task_estimate_block_reasons(manifest, cast(Any, estimate))
+
+        self.assertEqual(
+            reasons,
+            [f"estimator expects {OPENAI_REVIEW_MAX_TURNS + 1} turns, above the {OPENAI_REVIEW_MAX_TURNS} turn limit"],
+        )
 
     def test_agent_review_output_drops_invalid_right_side_anchors(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -972,6 +1079,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         self.assertIn("--prompt-file \"${{ inputs.context_root }}/stabilize-goal.md\"", agent_step["run"])
         self.assertIn("--agent-instance stabilization", agent_step["run"])
+        self.assertIn(f"--max-turns {OPENAI_PATCH_MAX_TURNS}", agent_step["run"])
         self.assertIn(
             "--model-config-file .workflow-action-update-agent-helper/.github/agent-workflows/runtime/agent-models.json",
             agent_step["run"],

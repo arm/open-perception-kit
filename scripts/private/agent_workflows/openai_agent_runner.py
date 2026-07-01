@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from dataclasses import dataclass
 import fnmatch
 import json
 import os
@@ -14,6 +15,7 @@ import shlex
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 if __package__ in (None, ""):  # pragma: no cover - used for direct script execution.
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -22,6 +24,7 @@ if __package__ in (None, ""):  # pragma: no cover - used for direct script execu
 from .contracts import (
     AgentCommand,
     AGENT_COMMAND_DEFAULT_INSTANCES,
+    AGENT_TASK_LIMITS,
     DEFAULT_AGENT_MODEL_CONFIG_PATH,
     DEFAULT_OPENAI_BASE_URL,
     AgentInstance,
@@ -40,6 +43,9 @@ from .review_output import filter_invalid_right_side_findings
 
 MAX_TOOL_OUTPUT_CHARS = 24000
 MAX_LIST_FILES = 400
+MAX_TASK_MANIFEST_PROMPT_HEAD_CHARS = 6000
+MAX_TASK_MANIFEST_PROMPT_TAIL_CHARS = 3000
+DEFAULT_TASK_ESTIMATE_TURNS = 3
 READ_ONLY_GIT_SUBCOMMANDS = {
     "cat-file",
     "diff",
@@ -104,6 +110,24 @@ class ReviewResult(BaseModel):
     overall_score: float = Field(ge=0.0, le=1.0)
     overall_confidence: float = Field(ge=0.0, le=1.0)
     findings: list[ReviewFinding]
+
+
+class TaskEstimate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    fits: bool
+    estimated_turns: int = Field(ge=1)
+    confidence: float = Field(ge=0.0, le=1.0)
+    reason: str = Field(min_length=1)
+    split_recommendation: str | None = None
+
+
+@dataclass(frozen=True)
+class DiffStats:
+    files: int = 0
+    changed_lines: int = 0
+    binary_files: int = 0
+    error: str = ""
 
 
 class AgentRunContext:
@@ -327,6 +351,238 @@ def read_prompt(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def compact_prompt_excerpt(prompt: str) -> str:
+    if len(prompt) <= MAX_TASK_MANIFEST_PROMPT_HEAD_CHARS + MAX_TASK_MANIFEST_PROMPT_TAIL_CHARS:
+        return prompt
+    omitted_chars = len(prompt) - MAX_TASK_MANIFEST_PROMPT_HEAD_CHARS - MAX_TASK_MANIFEST_PROMPT_TAIL_CHARS
+    return (
+        prompt[:MAX_TASK_MANIFEST_PROMPT_HEAD_CHARS]
+        + f"\n\n[omitted {omitted_chars} prompt characters]\n\n"
+        + prompt[-MAX_TASK_MANIFEST_PROMPT_TAIL_CHARS:]
+    )
+
+
+def parse_prompt_context_value(prompt: str, label: str) -> str:
+    prefix = f"- {label}: `"
+    for line in prompt.splitlines():
+        if line.startswith(prefix) and line.endswith("`"):
+            return line[len(prefix):-1]
+    return ""
+
+
+def is_usable_prompt_ref(value: str) -> bool:
+    return bool(value and not value.startswith("(") and "not provided" not in value)
+
+
+def parse_numstat(output: str) -> DiffStats:
+    files = 0
+    changed_lines = 0
+    binary_files = 0
+    for line in output.splitlines():
+        if not line.strip():
+            continue
+        parts = line.split("\t", 2)
+        if len(parts) < 3:
+            continue
+        files += 1
+        added, deleted = parts[0], parts[1]
+        if added == "-" or deleted == "-":
+            binary_files += 1
+            continue
+        changed_lines += int(added) + int(deleted)
+    return DiffStats(files=files, changed_lines=changed_lines, binary_files=binary_files)
+
+
+def collect_numstat(context: AgentRunContext, diff_args: list[str]) -> DiffStats:
+    completed = subprocess.run(
+        ["git", "diff", "--numstat", *diff_args],
+        cwd=context.repo_root,
+        text=True,
+        capture_output=True,
+        timeout=context.command_timeout,
+        check=False,
+    )
+    if completed.returncode != 0:
+        return DiffStats(error=(completed.stderr or completed.stdout).strip())
+    return parse_numstat(completed.stdout)
+
+
+def collect_git_task_metrics(command: AgentCommand, prompt: str, context: AgentRunContext) -> dict[str, Any]:
+    base_sha = parse_prompt_context_value(prompt, "Base SHA")
+    head_sha = parse_prompt_context_value(prompt, "Head SHA")
+    diff_scopes: dict[str, dict[str, Any]] = {}
+
+    if is_usable_prompt_ref(base_sha) and is_usable_prompt_ref(head_sha) and base_sha != head_sha:
+        diff_scopes["prompt_range"] = collect_numstat(context, [base_sha, head_sha]).__dict__
+    diff_scopes["staged"] = collect_numstat(context, ["--cached"]).__dict__
+    diff_scopes["unstaged"] = collect_numstat(context, []).__dict__
+
+    total_files = 0
+    total_changed_lines = 0
+    total_binary_files = 0
+    for stats in diff_scopes.values():
+        if stats.get("error"):
+            continue
+        total_files += int(stats["files"])
+        total_changed_lines += int(stats["changed_lines"])
+        total_binary_files += int(stats["binary_files"])
+
+    return {
+        "base_sha": base_sha,
+        "head_sha": head_sha,
+        "diff_scopes": diff_scopes,
+        "total_diff_files": total_files,
+        "total_diff_changed_lines": total_changed_lines,
+        "total_binary_files": total_binary_files,
+        "diff_limits_apply": command is AgentCommand.REVIEW,
+    }
+
+
+def positive_limit(value: int | None, default: int, name: str) -> int:
+    resolved = default if value is None else value
+    if resolved <= 0:
+        raise ValueError(f"{name} must be a positive integer.")
+    return resolved
+
+
+def optional_positive_limit(value: int | None, default: int | None, name: str) -> int | None:
+    resolved = default if value is None else value
+    if resolved is not None and resolved <= 0:
+        raise ValueError(f"{name} must be a positive integer.")
+    return resolved
+
+
+def resolve_agent_max_turns(command: AgentCommand, args: argparse.Namespace) -> int:
+    return positive_limit(args.max_turns, AGENT_TASK_LIMITS[command].max_turns, "--max-turns")
+
+
+def build_task_manifest(command: AgentCommand, prompt: str, args: argparse.Namespace) -> dict[str, Any]:
+    context = require_run_context()
+    limits = AGENT_TASK_LIMITS[command]
+    max_turns = resolve_agent_max_turns(command, args)
+    max_prompt_chars = positive_limit(
+        args.max_prompt_chars,
+        limits.max_prompt_chars,
+        "--max-prompt-chars",
+    )
+    max_review_files = optional_positive_limit(
+        args.max_review_files,
+        limits.max_review_files,
+        "--max-review-files",
+    )
+    max_review_changed_lines = optional_positive_limit(
+        args.max_review_changed_lines,
+        limits.max_review_changed_lines,
+        "--max-review-changed-lines",
+    )
+    prompt_lines = prompt.count("\n") + (1 if prompt else 0)
+    return {
+        "command": command.value,
+        "agent_instance": args.agent_instance,
+        "model": args.resolved_model,
+        "prompt_chars": len(prompt),
+        "prompt_lines": prompt_lines,
+        "prompt_excerpt": compact_prompt_excerpt(prompt),
+        "limits": {
+            "max_turns": max_turns,
+            "max_prompt_chars": max_prompt_chars,
+            "max_review_files": max_review_files,
+            "max_review_changed_lines": max_review_changed_lines,
+        },
+        "git_metrics": collect_git_task_metrics(command, prompt, context),
+    }
+
+
+def deterministic_task_limit_violations(manifest: dict[str, Any]) -> list[str]:
+    limits = manifest["limits"]
+    git_metrics = manifest["git_metrics"]
+    violations: list[str] = []
+
+    prompt_chars = int(manifest["prompt_chars"])
+    max_prompt_chars = int(limits["max_prompt_chars"])
+    if prompt_chars > max_prompt_chars:
+        violations.append(
+            f"prompt has {prompt_chars} characters, above the {max_prompt_chars} character limit"
+        )
+
+    max_review_files = limits.get("max_review_files")
+    if max_review_files is not None:
+        total_diff_files = int(git_metrics["total_diff_files"])
+        if total_diff_files > int(max_review_files):
+            violations.append(
+                f"review scope touches {total_diff_files} files, above the {max_review_files} file limit"
+            )
+
+    max_review_changed_lines = limits.get("max_review_changed_lines")
+    if max_review_changed_lines is not None:
+        total_changed_lines = int(git_metrics["total_diff_changed_lines"])
+        if total_changed_lines > int(max_review_changed_lines):
+            violations.append(
+                "review scope changes "
+                f"{total_changed_lines} lines, above the {max_review_changed_lines} line limit"
+            )
+
+    return violations
+
+
+def task_estimator_instruction() -> str:
+    return (
+        "You are a preflight estimator for amp-dev-forge agent tasks. "
+        "Decide whether the requested task can reasonably finish within the provided turn and size limits. "
+        "Do not solve, review, or edit the task. Use the manifest metrics, prompt excerpt, and hard limits only. "
+        "Set fits=false when the task is too broad, too large, ambiguous enough to require substantial exploration, "
+        "or likely needs more turns than the configured limit. If splitting is needed, explain the smallest useful split."
+    )
+
+
+def coerce_task_estimate(output: object) -> TaskEstimate:
+    if isinstance(output, TaskEstimate):
+        return output
+    if isinstance(output, str):
+        return TaskEstimate.model_validate_json(output)
+    return TaskEstimate.model_validate(output)
+
+
+def task_estimate_block_reasons(
+    manifest: dict[str, Any],
+    estimate: TaskEstimate,
+) -> list[str]:
+    max_turns = int(manifest["limits"]["max_turns"])
+    reasons = deterministic_task_limit_violations(manifest)
+    if estimate.estimated_turns > max_turns:
+        reasons.append(
+            f"estimator expects {estimate.estimated_turns} turns, above the {max_turns} turn limit"
+        )
+    if not estimate.fits:
+        reasons.append(f"estimator marked task as not fitting: {estimate.reason}")
+    return reasons
+
+
+async def estimate_task_fit(command: AgentCommand, prompt: str, args: argparse.Namespace) -> None:
+    manifest = build_task_manifest(command, prompt, args)
+    estimator = Agent(
+        name="OpenAI SDK Agent Task Estimator",
+        instructions=task_estimator_instruction(),
+        model=args.resolved_model,
+        output_type=TaskEstimate,
+    )
+    result = await Runner.run(
+        estimator,
+        json.dumps(manifest, indent=2, sort_keys=True),
+        max_turns=positive_limit(args.task_estimate_turns, DEFAULT_TASK_ESTIMATE_TURNS, "--task-estimate-turns"),
+        run_config=RunConfig(tracing_disabled=True),
+    )
+    estimate = coerce_task_estimate(result.final_output)
+    block_reasons = task_estimate_block_reasons(manifest, estimate)
+    if block_reasons:
+        split = estimate.split_recommendation or "Split the change or task into a smaller focused agent run."
+        raise RuntimeError(
+            f"Agent task is too large for {command.value}: "
+            + "; ".join(block_reasons)
+            + f". Recommendation: {split}"
+        )
+
+
 def write_text(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
@@ -378,6 +634,7 @@ def workflow_instruction(command: AgentCommand) -> str:
 async def run_review(args: argparse.Namespace) -> int:
     validate_schema_file(args.schema_file)
     prompt = read_prompt(Path(args.prompt_file))
+    await estimate_task_fit(AgentCommand.REVIEW, prompt, args)
     agent = Agent(
         name="OpenAI SDK Agent Review",
         instructions=workflow_instruction(AgentCommand.REVIEW),
@@ -388,7 +645,7 @@ async def run_review(args: argparse.Namespace) -> int:
     result = await Runner.run(
         agent,
         prompt,
-        max_turns=args.max_turns,
+        max_turns=resolve_agent_max_turns(AgentCommand.REVIEW, args),
         run_config=RunConfig(tracing_disabled=True),
     )
     review = result.final_output
@@ -404,17 +661,19 @@ async def run_review(args: argparse.Namespace) -> int:
 
 
 async def run_patch_agent(args: argparse.Namespace) -> int:
+    command = AgentCommand(args.command)
     prompt = read_prompt(Path(args.prompt_file))
+    await estimate_task_fit(command, prompt, args)
     agent = Agent(
         name="OpenAI SDK Workflow Repair Agent",
-        instructions=workflow_instruction(AgentCommand(args.command)),
+        instructions=workflow_instruction(command),
         model=args.resolved_model,
         tools=[read_repo_file, list_repo_files, run_shell_command, apply_unified_diff],
     )
     result = await Runner.run(
         agent,
         prompt,
-        max_turns=args.max_turns,
+        max_turns=resolve_agent_max_turns(command, args),
         run_config=RunConfig(tracing_disabled=True),
     )
     write_text(Path(args.output_file), str(result.final_output).rstrip() + "\n")
@@ -447,7 +706,36 @@ def build_parser() -> argparse.ArgumentParser:
             default=AGENT_COMMAND_DEFAULT_INSTANCES[command].value,
         )
         subparser.add_argument("--repo-root", default=os.getcwd())
-        subparser.add_argument("--max-turns", type=int, default=20)
+        subparser.add_argument(
+            "--max-turns",
+            type=int,
+            default=None,
+            help="Maximum main-agent turns. Defaults to the command-specific limit.",
+        )
+        subparser.add_argument(
+            "--task-estimate-turns",
+            type=int,
+            default=DEFAULT_TASK_ESTIMATE_TURNS,
+            help="Maximum turns for the generic preflight task estimator.",
+        )
+        subparser.add_argument(
+            "--max-prompt-chars",
+            type=int,
+            default=None,
+            help="Maximum prompt size before the estimator blocks the main agent run.",
+        )
+        subparser.add_argument(
+            "--max-review-files",
+            type=int,
+            default=None,
+            help="Maximum changed file count for review tasks.",
+        )
+        subparser.add_argument(
+            "--max-review-changed-lines",
+            type=int,
+            default=None,
+            help="Maximum changed line count for review tasks.",
+        )
         subparser.add_argument("--command-timeout", type=int, default=300)
         if command is AgentCommand.REVIEW:
             subparser.add_argument("--schema-file", required=False, default="")
