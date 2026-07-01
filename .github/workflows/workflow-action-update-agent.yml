@@ -54,7 +54,7 @@ jobs:
       target_branch: ${{ inputs.target_branch || '' }}
       ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
       profile_path: ${{ inputs.profile_path || '.github/agent-runtime/repair/profiles/profile.json' }}
-    secrets: inherit
+    secrets: inherit # pragma: allowlist secret
 
   run-agent-stabilizer:
     if: ${{ inputs.pr_number != '' }}
@@ -69,4 +69,4 @@ jobs:
       source_run_id: ${{ inputs.source_run_id || '' }}
       ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
       profile_path: ${{ inputs.profile_path || '.github/agent-runtime/repair/profiles/profile.json' }}
-    secrets: inherit
+    secrets: inherit # pragma: allowlist secret

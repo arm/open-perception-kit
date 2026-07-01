@@ -107,7 +107,7 @@ jobs:
       ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
       profile_path: ${{ inputs.repair_profile_path || '.github/agent-runtime/repair/profiles/workflow-audit-profile.json' }}
       source_artifact_name: workflow-dependency-freshness
-    secrets: inherit
+    secrets: inherit # pragma: allowlist secret
 
   stabilize-existing-pr:
     name: Stabilize existing PR (manual only)
@@ -122,4 +122,4 @@ jobs:
       source_run_id: ""
       ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
       profile_path: ${{ inputs.repair_profile_path || '.github/agent-runtime/repair/profiles/workflow-audit-profile.json' }}
-    secrets: inherit
+    secrets: inherit # pragma: allowlist secret
