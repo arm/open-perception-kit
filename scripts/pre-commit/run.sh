@@ -119,13 +119,13 @@ build_delta_command() {
 
     repo_checks_load_null_delimited_paths \
         repo_checks_git_without_hook_env -C "${REPO_ROOT}" diff --cached --name-only --diff-filter=ACMR -z
-    files=("${REPO_CHECKS_LOADED_PATHS[@]}")
+    files=("${REPO_CHECKS_LOADED_PATHS[@]+"${REPO_CHECKS_LOADED_PATHS[@]}"}")
 
     if [ "${#files[@]}" -eq 0 ]; then
         target_ref="$(resolve_delta_target_ref)"
         repo_checks_load_null_delimited_paths \
             repo_checks_git_without_hook_env -C "${REPO_ROOT}" diff --name-only --diff-filter=ACMR -z "${target_ref}...HEAD"
-        files=("${REPO_CHECKS_LOADED_PATHS[@]}")
+        files=("${REPO_CHECKS_LOADED_PATHS[@]+"${REPO_CHECKS_LOADED_PATHS[@]}"}")
     fi
 
     REPO_CHECKS_COMMAND=(expkits-ci --verbose --branch-naming)
