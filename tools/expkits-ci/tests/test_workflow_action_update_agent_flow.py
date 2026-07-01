@@ -308,6 +308,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             agent_steps["Download source artifact context"]["if"],
             "${{ inputs.source_artifact_name != '' }}",
         )
+        self.assertEqual(
+            agent_steps["Download source artifact context"]["with"]["path"],
+            ".agent-runtime/workflow-action-update-agent/artifacts/${{ inputs.source_artifact_name }}",
+        )
         self.assertEqual(stabilize_job["permissions"]["actions"], "write")
         self.assertEqual(stabilize_steps["Checkout workflow helpers"]["uses"], "actions/checkout@v6")
         self.assertEqual(
@@ -1014,6 +1018,95 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
         self.assertEqual(filtered["overall_recommendation"], "approve")
         self.assertEqual(filtered["findings"], [])
+
+    def test_agent_review_output_drops_verified_agent_runtime_artifact_context_claims(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            workflow_path = repo_root / ".github/workflows/workflow-action-update-agent-reusable.yml"
+            workflow_path.parent.mkdir(parents=True)
+            workflow_path.write_text(
+                "\n".join(
+                    [
+                        "- name: Download source artifact context",
+                        "  uses: actions/download-artifact@v6",
+                        "  with:",
+                        "    path: .agent-runtime/workflow-action-update-agent/artifacts/${{ inputs.source_artifact_name }}",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            payload = {
+                "summary": "Reviewed workflow changes.",
+                "overall_recommendation": "request_changes",
+                "overall_score": 0.7,
+                "overall_confidence": 0.9,
+                "findings": [
+                    {
+                        "title": "Optional source artifacts are downloaded outside the agent context",
+                        "severity": "major",
+                        "score": 0.7,
+                        "confidence": 0.9,
+                        "path": ".github/workflows/workflow-action-update-agent-reusable.yml",
+                        "diff_side": "RIGHT",
+                        "start_line": 4,
+                        "end_line": 4,
+                        "body": (
+                            "The artifact is outside the agent context, but omit the finding if "
+                            "`.agent-runtime/workflow-action-update-agent/artifacts/...` is matched."
+                        ),
+                        "suggestion": None,
+                    },
+                ],
+            }
+
+            filtered = AGENT_REVIEW_OUTPUT.filter_invalid_right_side_findings(payload, repo_root)
+
+        self.assertEqual(filtered["overall_recommendation"], "approve")
+        self.assertEqual(filtered["findings"], [])
+
+    def test_agent_review_output_keeps_artifact_context_claims_without_anchor_evidence(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            workflow_path = repo_root / ".github/workflows/workflow-action-update-agent-reusable.yml"
+            workflow_path.parent.mkdir(parents=True)
+            workflow_path.write_text(
+                "\n".join(
+                    [
+                        "- name: Download source artifact context",
+                        "  uses: actions/download-artifact@v6",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            payload = {
+                "summary": "Reviewed workflow changes.",
+                "overall_recommendation": "request_changes",
+                "overall_score": 0.7,
+                "overall_confidence": 0.9,
+                "findings": [
+                    {
+                        "title": "Optional source artifacts are downloaded outside the agent context",
+                        "severity": "major",
+                        "score": 0.7,
+                        "confidence": 0.9,
+                        "path": ".github/workflows/workflow-action-update-agent-reusable.yml",
+                        "diff_side": "RIGHT",
+                        "start_line": 2,
+                        "end_line": 2,
+                        "body": (
+                            "The artifact is outside the agent context, but omit the finding if "
+                            "`.agent-runtime/workflow-action-update-agent/artifacts/...` is matched."
+                        ),
+                        "suggestion": None,
+                    },
+                ],
+            }
+
+            filtered = AGENT_REVIEW_OUTPUT.filter_invalid_right_side_findings(payload, repo_root)
+
+        self.assertEqual(filtered, payload)
 
     def test_openai_agent_runtime_dependencies_are_pinned(self):
         requirements = AGENT_REQUIREMENTS_FILE.read_text(encoding="utf-8").splitlines()

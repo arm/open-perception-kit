@@ -116,6 +116,7 @@ class UnsupportedReviewClaimGuard:
     evidence_tokens: tuple[str, ...]
     claim_markers: tuple[str, ...] = ()
     require_token_absent_from_anchor: bool = False
+    require_token_present_in_anchor: bool = False
 
     def matches(self, *, finding_text: str, anchor_text: str) -> bool:
         normalized_finding = finding_text.lower()
@@ -127,6 +128,11 @@ class UnsupportedReviewClaimGuard:
         if self.require_token_absent_from_anchor:
             return any(
                 token.lower() in normalized_finding and token.lower() not in normalized_anchor
+                for token in self.evidence_tokens
+            )
+        if self.require_token_present_in_anchor:
+            return any(
+                token.lower() in normalized_finding and token.lower() in normalized_anchor
                 for token in self.evidence_tokens
             )
         return True
@@ -156,5 +162,16 @@ UNSUPPORTED_REVIEW_CLAIM_GUARDS = (
             "non-existent",
             "unable to resolve action",
         ),
+    ),
+    UnsupportedReviewClaimGuard(
+        name="verified agent runtime artifact context",
+        evidence_tokens=(
+            ".agent-runtime/workflow-action-update-agent/artifacts",
+        ),
+        claim_markers=(
+            "outside the agent context",
+            "downloaded outside",
+        ),
+        require_token_present_in_anchor=True,
     ),
 )
