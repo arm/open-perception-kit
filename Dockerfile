@@ -97,6 +97,8 @@ ENV GST_DEBUG=2 \
 
 ENV LD_LIBRARY_PATH=""
 ENV LD_LIBRARY_PATH=/opt/pek-deps/onnxruntime/lib
+# ---- SSH agent socket mapping ----
+ENV SSH_AUTH_SOCK=/ssh-agent
 
 ######################################################################
 #################### PC Base Development Container ###################
@@ -341,8 +343,6 @@ RUN mkdir -p /home/${USERNAME}/.config && \
   ln -sfn /home/${USERNAME}/configs/nvchad_2026_04 /home/${USERNAME}/.config/nvim && \
   chown -R ${USER_UID}:${USER_GID} /home/${USERNAME}/.config /home/${USERNAME}/.zshrc
 
-# ---- SSH agent socket mapping ----
-ENV SSH_AUTH_SOCK=/ssh-agent
 ENV SHELL=/bin/zsh
 
 ENTRYPOINT ["/usr/local/bin/uidgid-entrypoint"]

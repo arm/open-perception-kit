@@ -36,6 +36,9 @@ services:
       - PEK_WEBRTC_TURN_MAX_PORT=${PEK_WEBRTC_TURN_MAX_PORT:-49050}
     container_name: perception-experience-kit
     hostname: perception-experience-kit
+    volumes:
+      - ${SSH_AUTH_SOCK}:/ssh-agent
+
     build:
       context: ..
       dockerfile: Dockerfile
