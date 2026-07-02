@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from importlib import metadata as importlib_metadata
 from pathlib import Path
 import sys
 from typing import Any
@@ -98,6 +99,12 @@ def _has_invalid_right_side_anchor(
         verified_model=verified_model,
     ):
         return True
+    if _claims_installed_requirement_unavailable(
+        path_value=path,
+        finding_text=finding_text,
+        anchor_text=anchor_text,
+    ):
+        return True
     return any(
         guard.matches(finding_text=finding_text, anchor_text=anchor_text)
         for guard in UNSUPPORTED_REVIEW_CLAIM_GUARDS
@@ -147,6 +154,62 @@ def _claims_verified_model_unavailable(*, finding_text: str, anchor_text: str, v
             "fail at runtime",
         )
     )
+
+
+def _claims_installed_requirement_unavailable(
+    *,
+    path_value: str,
+    finding_text: str,
+    anchor_text: str,
+) -> bool:
+    if not path_value.endswith(".github/agent-runtime/runtime/requirements-openai-agents.txt"):
+        return False
+
+    normalized_finding = finding_text.lower()
+    if not any(
+        marker in normalized_finding
+        for marker in (
+            "not valid published",
+            "not available",
+            "unavailable",
+            "no matching distribution",
+            "fail during dependency installation",
+            "will fail",
+        )
+    ):
+        return False
+
+    pinned_versions = _pinned_requirements(anchor_text)
+    claimed_versions = {
+        name: version
+        for name, version in pinned_versions.items()
+        if name in normalized_finding or name.replace("-", "_") in normalized_finding or version in normalized_finding
+    }
+    if not claimed_versions:
+        return False
+
+    for name, expected_version in claimed_versions.items():
+        try:
+            installed_version = importlib_metadata.version(name)
+        except importlib_metadata.PackageNotFoundError:
+            return False
+        if installed_version != expected_version:
+            return False
+    return True
+
+
+def _pinned_requirements(requirements_text: str) -> dict[str, str]:
+    pinned_versions: dict[str, str] = {}
+    for raw_line in requirements_text.splitlines():
+        line = raw_line.split("#", 1)[0].strip()
+        if "==" not in line:
+            continue
+        name, version = line.split("==", 1)
+        name = name.strip().lower().replace("_", "-")
+        version = version.split(";", 1)[0].strip()
+        if name and version:
+            pinned_versions[name] = version
+    return pinned_versions
 
 
 def _recommendation_for_findings(findings: list[dict[str, Any]]) -> str:

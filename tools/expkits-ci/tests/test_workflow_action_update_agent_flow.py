@@ -1263,6 +1263,64 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(filtered["overall_recommendation"], "approve")
         self.assertEqual(filtered["findings"], [])
 
+    def test_agent_review_output_drops_verified_requirement_availability_claims(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            requirements_path = repo_root / ".github/agent-runtime/runtime/requirements-openai-agents.txt"
+            requirements_path.parent.mkdir(parents=True)
+            requirements_path.write_text(
+                "\n".join(
+                    [
+                        "openai-agents==0.17.7",
+                        "openai==2.44.0",
+                        "pydantic==2.13.4",
+                        "truststore==0.10.4",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            installed_versions = {
+                "openai-agents": "0.17.7",
+                "openai": "2.44.0",
+                "pydantic": "2.13.4",
+            }
+
+            payload = {
+                "summary": "Reviewed workflow changes.",
+                "overall_recommendation": "request_changes",
+                "overall_score": 0.78,
+                "overall_confidence": 0.86,
+                "findings": [
+                    {
+                        "title": "Pinned OpenAI runtime dependencies are unavailable",
+                        "severity": "major",
+                        "score": 0.78,
+                        "confidence": 0.86,
+                        "path": ".github/agent-runtime/runtime/requirements-openai-agents.txt",
+                        "diff_side": "RIGHT",
+                        "start_line": 1,
+                        "end_line": 3,
+                        "body": (
+                            "openai-agents==0.17.7, openai==2.44.0, and pydantic==2.13.4 "
+                            "are not valid published versions, so pip install will fail during "
+                            "dependency installation."
+                        ),
+                        "suggestion": None,
+                    },
+                ],
+            }
+
+            with mock.patch.object(
+                AGENT_REVIEW_OUTPUT.importlib_metadata,
+                "version",
+                side_effect=lambda name: installed_versions[name],
+            ):
+                filtered = AGENT_REVIEW_OUTPUT.filter_invalid_right_side_findings(payload, repo_root)
+
+        self.assertEqual(filtered["overall_recommendation"], "approve")
+        self.assertEqual(filtered["findings"], [])
+
     def test_agent_review_output_drops_verified_agent_runtime_artifact_context_claims(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)
