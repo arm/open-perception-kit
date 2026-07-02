@@ -27,11 +27,9 @@ async function waitForVideo(page) {
     timeout: 60000,
   });
 
-  await page.waitForFunction(() => {
-    const video = document.querySelector('#video');
-    const track = video?.srcObject?.getVideoTracks?.()[0];
-    return track?.readyState === 'live' && !track.muted;
-  }, undefined, { timeout: 60000 });
+  await page.waitForFunction(videoTrackIsLive, undefined, { timeout: 60000 });
+
+  await page.waitForFunction(videoFrameIsRendered, undefined, { timeout: 60000 });
 }
 
 async function setModel(page, name, enabled) {
@@ -63,6 +61,44 @@ function escapeRegExp(value) {
 
 async function backendModelState(page, name) {
   return page.evaluate(readBackendModelState, name);
+}
+
+function videoTrackIsLive() {
+  const video = document.querySelector('#video');
+  const track = video?.srcObject?.getVideoTracks?.()[0];
+  return track?.readyState === 'live' && !track.muted;
+}
+
+function videoFrameIsRendered() {
+  const video = document.querySelector('#video');
+  if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
+    return false;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 16;
+  canvas.height = 16;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  if (!context) {
+    return false;
+  }
+
+  try {
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+    let min = 765;
+    let max = 0;
+
+    for (let index = 0; index < data.length; index += 4) {
+      const luma = data[index] + data[index + 1] + data[index + 2];
+      min = Math.min(min, luma);
+      max = Math.max(max, luma);
+    }
+
+    return max > 30 && max - min > 10;
+  } catch {
+    return false;
+  }
 }
 
 function readBackendModelState(modelName) {

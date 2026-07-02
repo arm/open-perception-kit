@@ -11,15 +11,18 @@ test('PEK browser UI toggles ONNX models', async ({ page }) => {
   const modelNames = await page.locator('#models-container .model-name').allTextContents();
   expect(modelNames.length).toBeGreaterThan(0);
 
+  await waitForVideo(page);
+
   for (const name of modelNames) {
     await setModel(page, name, false);
   }
 
   await page.waitForTimeout(3000);
-  await waitForVideo(page);
 
   for (const name of modelNames) {
+    await waitForVideo(page);
     await setModel(page, name, true);
+    await waitForVideo(page);
     await page.waitForTimeout(2000);
     await setModel(page, name, false);
   }

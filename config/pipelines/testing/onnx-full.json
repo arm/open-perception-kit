@@ -1,5 +1,5 @@
 {
-  "description": "Test the ONNX YOLO pipeline with a simple pipeline that decodes a JPEG image, runs inference on the YOLOv11 model, and sends the output to a fakesink.",
+  "description": "Test the ONNX model pipeline with a simple pipeline that decodes a JPEG image, renders model output overlays, and streams the result to peksink.",
   "pipeline": [
     "filesrc location=/work/data/images/GettyImages-1140581459-thumbnail.jpg !",
     "jpegdec !",
@@ -12,6 +12,7 @@
     "pekinfer opchain-path=/work/config/models/osnet_x0_25/opchain.json active=true !",
     "pekinfer opchain-path=/work/config/models/rvm/opchain.json active=true !",
     "pektracker content-type=genericObject !",
+    "pekosd enabled=true bg-image=\"/work/data/images/GettyImages-1298072556-thumbnail.jpg\" !",
     "peksink name=sink"
   ]
 }
