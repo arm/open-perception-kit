@@ -1,7 +1,9 @@
 # This file contains the valgrind related workflow with all the possible steps.
 # The workflow behaves slightly differently when it is called from the main branch on a new commit and when it is called from a side branch on a pull request.
 # When it is called for a PR all of the steps shall be evaluated except the valgrind baseline update.
-# When it is called for a new commit on the main branch the workflow shall only evaluate the steps necessary for the new valgrind baseline summary creation.
+# When it is called for a new commit on the main branch or manually from a
+# branch, the workflow shall evaluate the steps necessary for the new valgrind
+# baseline summary creation.
 
 name: Valgrind Baseline Artifact
 
@@ -14,23 +16,32 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
 
 jobs:
-  update-valgrind-baseline:
-    name: Generate Valgrind baseline artifact
+  valgrind-workflow:
+    name: Valgrind related workflow
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     permissions:
-      # write permission is needed because in case the baseline valgrind artifact does not exist,
-      # this workflow will try to trigger the main workflow to make it available.
-      actions: write
+      actions: read
       contents: read
+      artifact-metadata: write
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
-      VALGRIND_BASELINE_BRANCH: main
+      # <codex-review:suppress-begin>
+      # For the rare scenarios when the PR target branch is not the main, but the jobs will still need to pass the baseline artifacts can be created manually.
+      VALGRIND_BASELINE_BRANCH: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || 'main' }}
+      # <codex-review:suppress-end>
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           fetch-tags: true
+
+      - name: Run Valgrind Python unit tests
+        run: |
+          python3 -m unittest \
+            scripts/testing/valgrind/test_ci_locate_valgrind_baseline_artifact.py \
+            scripts/testing/valgrind/test_compare_valgrind_results.py \
+            scripts/testing/valgrind/test_summarize_valgrind_output.py
 
       - name: Build docker image
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-docs-base
@@ -64,7 +75,7 @@ jobs:
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-generate-valgrind-summary
 
       - name: Compare Valgrind results to baseline
-        if: ${{ !cancelled() && github.event_name == 'pull_request' && steps.valgrind_checks.outcome == 'success' && steps.valgrind_summary.outcome == 'success' }}
+        if: ${{ github.event_name == 'pull_request' && steps.valgrind_checks.outcome == 'success' && steps.valgrind_summary.outcome == 'success' }}
         id: valgrind_compare
         run: |
           python3 scripts/testing/valgrind/compare-valgrind-results.py \
@@ -72,7 +83,7 @@ jobs:
             --current scripts/testing/valgrind/valgrind-error-summary.xml
 
       - name: Upload Valgrind raw logs
-        if: ${{ steps.valgrind_checks.outcome == 'failure' || steps.valgrind_summary.outcome == 'failure' || steps.valgrind_compare.outcome == 'failure' }}
+        if: ${{ always() && !cancelled() && (steps.valgrind_checks.outcome == 'failure' || steps.valgrind_summary.outcome == 'failure' || steps.valgrind_compare.outcome == 'failure') }}
         uses: actions/upload-artifact@v7
         with:
           name: valgrind-baseline-logs
@@ -81,7 +92,7 @@ jobs:
           retention-days: 5
 
       - name: Upload Valgrind baseline
-        if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && steps.valgrind_summary.outcome == 'success' }}
+        if: ${{ github.event_name != 'pull_request' && startsWith(github.ref, 'refs/heads/') && (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main') && steps.valgrind_checks.outcome == 'success' && steps.valgrind_summary.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
           name: valgrind-baseline

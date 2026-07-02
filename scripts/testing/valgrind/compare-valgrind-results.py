@@ -13,6 +13,7 @@ Usage:
 """
 
 import argparse
+import collections
 import logging
 import sys
 import xml.etree.ElementTree as ET
@@ -22,14 +23,18 @@ from pathlib import Path
 LOGGER = logging.getLogger(__name__)
 
 
-def _frame_fingerprint(frame: ET.Element) -> str:
+def _frame_fingerprint(frame: ET.Element, frame_index: int) -> str:
     """Create a stable fingerprint for a single Valgrind stack frame."""
     parts: list[str] = []
-    for tag in ("ip", "obj", "fn", "dir", "file"):
+    for tag in ("obj", "fn", "dir", "file"):
         value = frame.findtext(tag)
         if value:
             parts.append(f"{tag}={value}")
-    return ";".join(parts)
+
+    if parts:
+        return ";".join(parts)
+
+    return f"unsymbolized[{frame_index}]"
 
 
 def _error_fingerprint(error: ET.Element) -> str:
@@ -40,13 +45,13 @@ def _error_fingerprint(error: ET.Element) -> str:
     """
     parts: list[str] = [f"kind={error.findtext('kind', default='')}"]
 
-    xwhat_text = error.findtext("xwhat/text")
-    if xwhat_text:
-        parts.append(f"xwhat={xwhat_text}")
+    what_text = error.findtext("xwhat/text") or error.findtext("what")
+    if what_text:
+        parts.append(f"what={what_text}")
 
     frames = [
-        _frame_fingerprint(frame)
-        for frame in error.findall("stack/frame")
+        _frame_fingerprint(frame, frame_index)
+        for frame_index, frame in enumerate(error.findall(".//stack/frame"))
     ]
     if frames:
         parts.append("stack=" + "|".join(frames))
@@ -54,8 +59,8 @@ def _error_fingerprint(error: ET.Element) -> str:
     return "||".join(parts)
 
 
-def load_summary(path: Path) -> set[str]:
-    """Load a fingerprint set from a Valgrind XML summary file."""
+def load_summary(path: Path) -> collections.Counter[str]:
+    """Load fingerprint counts from a Valgrind XML summary file."""
     try:
         data = path.read_text(encoding="utf-8")
     except OSError as exc:
@@ -69,16 +74,17 @@ def load_summary(path: Path) -> set[str]:
         sys.exit(2)
 
     if root.tag != "valgrindoutput":
-        LOGGER.warning(
-            "Warning: unexpected XML root element in %s: %s",
+        LOGGER.error(
+            "Error: unexpected XML root element in %s: %s",
             path,
             root.tag,
         )
+        sys.exit(2)
 
-    return {
+    return collections.Counter(
         _error_fingerprint(error)
         for error in root.findall(".//error")
-    }
+    )
 
 
 def main() -> None:
@@ -108,16 +114,21 @@ def main() -> None:
     new_errors = current - baseline
     fixed_errors = baseline - current
 
-    LOGGER.info("Baseline errors : %d", len(baseline))
-    LOGGER.info("Current errors  : %d", len(current))
-    LOGGER.info("New errors      : %d", len(new_errors))
-    LOGGER.info("Fixed errors    : %d", len(fixed_errors))
+    baseline_count = sum(baseline.values())
+    current_count = sum(current.values())
+    new_error_count = sum(new_errors.values())
+    fixed_error_count = sum(fixed_errors.values())
+
+    LOGGER.info("Baseline errors : %d", baseline_count)
+    LOGGER.info("Current errors  : %d", current_count)
+    LOGGER.info("New errors      : %d", new_error_count)
+    LOGGER.info("Fixed errors    : %d", fixed_error_count)
 
     if fixed_errors:
         LOGGER.info("")
         LOGGER.info("Fixed errors (present in baseline, absent in current):")
-        for err in sorted(fixed_errors):
-            kind, *frames = err.split("|")
+        for err in sorted(fixed_errors.elements()):
+            kind, *frames = err.split("||")
             LOGGER.info("  [FIXED] %s", kind)
             for frame in frames:
                 LOGGER.info("            %s", frame)
@@ -125,8 +136,8 @@ def main() -> None:
     if new_errors:
         LOGGER.info("")
         LOGGER.info("New errors (absent in baseline, present in current):")
-        for err in sorted(new_errors):
-            kind, *frames = err.split("|")
+        for err in sorted(new_errors.elements()):
+            kind, *frames = err.split("||")
             LOGGER.info("  [NEW] %s", kind)
             for frame in frames:
                 LOGGER.info("          %s", frame)
@@ -136,7 +147,7 @@ def main() -> None:
         )
         LOGGER.error(
             "FAILED: %d new Valgrind error(s) introduced compared to the baseline.",
-            len(new_errors),
+            new_error_count,
         )
         sys.exit(1)
 

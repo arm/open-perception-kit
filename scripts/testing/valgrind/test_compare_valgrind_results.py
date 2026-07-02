@@ -4,6 +4,7 @@
 ################################################################
 
 import importlib.util
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -35,7 +36,7 @@ class TestCompareValgrindResults(unittest.TestCase):
             self.write_summary(baseline, self.error_xml(line=10))
             self.write_summary(current, self.error_xml(line=42))
 
-            self.assertEqual(compare.load_summary(current) - compare.load_summary(baseline), set())
+            self.assertFalse(compare.load_summary(current) - compare.load_summary(baseline))
 
     def test_changed_symbol_creates_new_error(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -61,9 +62,22 @@ class TestCompareValgrindResults(unittest.TestCase):
             new_errors = compare.load_summary(current) - compare.load_summary(baseline)
 
         self.assertEqual(len(new_errors), 1)
-        self.assertIn("xwhat=8 bytes lost", next(iter(new_errors)))
+        self.assertIn("what=8 bytes lost", next(iter(new_errors)))
 
-    def test_changed_unsymbolized_ip_creates_new_error(self):
+    def test_changed_what_text_creates_new_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            baseline = tmp / "baseline.xml"
+            current = tmp / "current.xml"
+            self.write_summary(baseline, self.what_error_xml(what="Invalid read of size 4"))
+            self.write_summary(current, self.what_error_xml(what="Invalid read of size 8"))
+
+            new_errors = compare.load_summary(current) - compare.load_summary(baseline)
+
+        self.assertEqual(len(new_errors), 1)
+        self.assertIn("what=Invalid read of size 8", next(iter(new_errors)))
+
+    def test_changed_unsymbolized_ip_is_ignored_when_stack_shape_matches(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
             baseline = tmp / "baseline.xml"
@@ -71,10 +85,117 @@ class TestCompareValgrindResults(unittest.TestCase):
             self.write_summary(baseline, self.unsymbolized_error_xml(ip="0x123456"))
             self.write_summary(current, self.unsymbolized_error_xml(ip="0xabcdef"))
 
+            self.assertFalse(compare.load_summary(current) - compare.load_summary(baseline))
+
+    def test_added_matching_unsymbolized_error_count_creates_new_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            baseline = tmp / "baseline.xml"
+            current = tmp / "current.xml"
+            self.write_summary(baseline, self.unsymbolized_error_xml(ip="0x123456"))
+            self.write_summary(
+                current,
+                "\n".join(
+                    (
+                        self.unsymbolized_error_xml(ip="0xabcdef"),
+                        self.unsymbolized_error_xml(ip="0xfedcba"),
+                    )
+                ),
+            )
+
+            new_errors = compare.load_summary(current) - compare.load_summary(baseline)
+
+        self.assertEqual(sum(new_errors.values()), 1)
+        self.assertIn("stack=unsymbolized[0]", next(iter(new_errors)))
+
+    def test_unsymbolized_frame_depth_creates_new_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            baseline = tmp / "baseline.xml"
+            current = tmp / "current.xml"
+            self.write_summary(
+                baseline,
+                self.unsymbolized_error_xml(frame_ips=("0x123456",)),
+            )
+            self.write_summary(
+                current,
+                self.unsymbolized_error_xml(frame_ips=("0xabcdef", "0xfedcba")),
+            )
+
             new_errors = compare.load_summary(current) - compare.load_summary(baseline)
 
         self.assertEqual(len(new_errors), 1)
-        self.assertIn("ip=0xabcdef", next(iter(new_errors)))
+        self.assertIn("stack=unsymbolized[0]|unsymbolized[1]", next(iter(new_errors)))
+
+    def test_changed_unsymbolized_object_creates_new_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            baseline = tmp / "baseline.xml"
+            current = tmp / "current.xml"
+            self.write_summary(
+                baseline,
+                self.unsymbolized_error_xml(obj="/work/development/build/meson-out/libold.so"),
+            )
+            self.write_summary(
+                current,
+                self.unsymbolized_error_xml(obj="/work/development/build/meson-out/libnew.so"),
+            )
+
+            new_errors = compare.load_summary(current) - compare.load_summary(baseline)
+
+        self.assertEqual(len(new_errors), 1)
+        self.assertIn("obj=/work/development/build/meson-out/libnew.so", next(iter(new_errors)))
+
+    def test_non_valgrind_xml_exits_with_input_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            summary = Path(tmpdir) / "summary.xml"
+            summary.write_text("<not-valgrindoutput />", encoding="utf-8")
+
+            with self.assertRaises(SystemExit) as context:
+                compare.load_summary(summary)
+
+        self.assertEqual(context.exception.code, 2)
+
+    def test_cli_exits_zero_when_no_new_errors(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            baseline = tmp / "baseline.xml"
+            current = tmp / "current.xml"
+            self.write_summary(baseline, self.error_xml(line=10))
+            self.write_summary(current, self.error_xml(line=42))
+
+            result = self.run_cli(baseline, current)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("PASSED: No new Valgrind errors compared to the baseline.", result.stderr)
+
+    def test_cli_exits_one_and_reports_new_errors(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            baseline = tmp / "baseline.xml"
+            current = tmp / "current.xml"
+            self.write_summary(baseline, self.error_xml(function="old_fn"))
+            self.write_summary(current, self.error_xml(function="new_fn"))
+
+            result = self.run_cli(baseline, current)
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("New errors      : 1", result.stderr)
+        self.assertIn("FAILED: 1 new Valgrind error(s) introduced compared to the baseline.", result.stderr)
+        self.assertIn("fn=new_fn", result.stderr)
+
+    def test_cli_exits_two_for_invalid_input(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            baseline = tmp / "baseline.xml"
+            current = tmp / "current.xml"
+            baseline.write_text("<not-valgrindoutput />", encoding="utf-8")
+            self.write_summary(current, self.error_xml())
+
+            result = self.run_cli(baseline, current)
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("Error: unexpected XML root element", result.stderr)
 
     @staticmethod
     def error_xml(function="example_fn", line=10, xwhat="4 bytes lost") -> str:
@@ -95,14 +216,41 @@ class TestCompareValgrindResults(unittest.TestCase):
         """
 
     @staticmethod
-    def unsymbolized_error_xml(ip: str) -> str:
+    def unsymbolized_error_xml(
+        ip: str = "0x123456",
+        obj: str = "",
+        frame_ips: tuple[str, ...] | None = None,
+    ) -> str:
+        frame_ips = frame_ips or (ip,)
+        frames = "\n".join(
+            f"""
+              <frame>
+                <ip>{frame_ip}</ip>
+                {f"<obj>{obj}</obj>" if obj else ""}
+              </frame>
+            """
+            for frame_ip in frame_ips
+        )
         return f"""
           <error>
             <kind>Leak_DefinitelyLost</kind>
             <xwhat><text>4 bytes lost</text></xwhat>
             <stack>
+              {frames}
+            </stack>
+          </error>
+        """
+
+    @staticmethod
+    def what_error_xml(what: str) -> str:
+        return f"""
+          <error>
+            <kind>InvalidRead</kind>
+            <what>{what}</what>
+            <stack>
               <frame>
-                <ip>{ip}</ip>
+                <fn>example_fn</fn>
+                <file>example.cpp</file>
               </frame>
             </stack>
           </error>
@@ -117,6 +265,22 @@ class TestCompareValgrindResults(unittest.TestCase):
             </valgrindoutput>
             """,
             encoding="utf-8",
+        )
+
+    @staticmethod
+    def run_cli(baseline: Path, current: Path) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT_PATH),
+                "--baseline",
+                str(baseline),
+                "--current",
+                str(current),
+            ],
+            check=False,
+            text=True,
+            capture_output=True,
         )
 
 
