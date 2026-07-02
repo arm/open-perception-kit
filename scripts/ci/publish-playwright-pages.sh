@@ -535,6 +535,30 @@ EOF
     }
   };
 
+  const updateBackLink = () => {
+    const link = document.querySelector('.pek-report-back');
+    if (!link) {
+      return;
+    }
+    if (!link.dataset.indexHref) {
+      link.dataset.indexHref = link.getAttribute('href') || '';
+      link.dataset.indexText = link.textContent || 'Back to report index';
+    }
+
+    const params = new URLSearchParams(location.hash.startsWith('#?') ? location.hash.slice(2) : '');
+    if (!params.has('testId')) {
+      link.href = link.dataset.indexHref;
+      link.textContent = link.dataset.indexText;
+      return;
+    }
+
+    params.delete('testId');
+    params.delete('run');
+    params.delete('anchor');
+    link.href = `${location.pathname}${location.search}${params.toString() ? `#?${params}` : ''}`;
+    link.textContent = 'Back to tests';
+  };
+
   const init = () => {
     if (document.getElementById(rootId)) {
       return;
@@ -573,6 +597,7 @@ EOF
     const refresh = () => {
       rebuild();
       linkSourceReferences();
+      updateBackLink();
     };
 
     const scheduleRefresh = () => {
@@ -590,6 +615,8 @@ EOF
       top.hidden = window.scrollY < 240;
       syncRoot();
     }, { passive: true });
+    window.addEventListener('hashchange', updateBackLink);
+    window.addEventListener('popstate', updateBackLink);
     new MutationObserver((mutations) => {
       if (mutations.every((mutation) => root.contains(mutation.target))) {
         return;
