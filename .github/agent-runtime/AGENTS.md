@@ -23,6 +23,10 @@ dependency pins. Executable GitHub Actions workflows live only under
   and GitHub API identity in `scripts/private/agent_runtime/contracts.py`.
   Publish and fetch helpers must import that contract instead of duplicating
   marker strings.
+- Delete obsolete Agent runtime code, stale tests, removed scripts, and old
+  workflow entrypoints when replacing a path. Do not keep legacy aliases,
+  compatibility wrappers, or duplicate implementations unless they are part of
+  the current supported Agent runtime contract and have focused tests.
 - Before reporting a GitHub Action ref as unavailable, verify it from current
   workflow logs or upstream tags. `actions/checkout@v6` and
   `actions/upload-artifact@v6` are valid in this workflow family.
