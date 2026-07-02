@@ -1562,6 +1562,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         sonar_inputs = sonar["on"]["workflow_dispatch"]["inputs"]
         pek_steps = step_map(pek_ci["jobs"]["quality-checks"])
         sonar_steps = step_map(sonar["jobs"]["build-and-sonar"])
+        expected_label_gate = "github.event.action != 'labeled' || github.event.label.name == 'run-pek-ci'"
+        expected_draft_override = "github.event.action == 'labeled' && github.event.label.name == 'run-pek-ci'"
 
         self.assertEqual(
             set(pek_inputs.keys()),
@@ -1573,6 +1575,15 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         self.assertIn("Resolve manual PR context", pek_steps)
         self.assertIn("Resolve manual PR context", sonar_steps)
+        for job_name in ("linux-quick-start-build-test", "rpi5-quick-start-build-test", "quality-checks"):
+            job_condition = pek_ci["jobs"][job_name]["if"]
+            self.assertIn(expected_label_gate, job_condition)
+            self.assertIn(expected_draft_override, job_condition)
+            self.assertNotIn("contains(github.event.label.name, 'run-pek-ci')", job_condition)
+        sonar_condition = sonar["jobs"]["build-and-sonar"]["if"]
+        self.assertIn(expected_label_gate, sonar_condition)
+        self.assertIn(expected_draft_override, sonar_condition)
+        self.assertNotIn("contains(github.event.label.name, 'run-pek-ci')", sonar_condition)
         self.assertIn("inputs.pr_head_sha", pek_steps["Checkout"]["with"]["ref"])
         self.assertIn("steps.manual_pr.outputs.head_sha", pek_steps["Checkout"]["with"]["ref"])
         self.assertIn("inputs.pr_head_sha", sonar_steps["Checkout"]["with"]["ref"])
