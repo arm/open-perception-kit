@@ -154,15 +154,17 @@ EOF
     <h2>Pull Requests</h2>
     <ul>
 EOF
-        find "${SITE_DIR}/prs" -mindepth 1 -maxdepth 1 -type d 2> /dev/null |
-            sort -V |
-            while IFS= read -r pr_dir; do
-                pr_number="${pr_dir##*/}"
-                [ -f "${pr_dir}/index.html" ] || continue
-                printf '      <li><a href="prs/%s/">PR #%s</a></li>\n' \
-                    "$(printf '%s' "${pr_number}" | html_escape)" \
-                    "$(printf '%s' "${pr_number}" | html_escape)"
-            done
+        if [ -d "${SITE_DIR}/prs" ]; then
+            find "${SITE_DIR}/prs" -mindepth 1 -maxdepth 1 -type d |
+                sort -V |
+                while IFS= read -r pr_dir; do
+                    pr_number="${pr_dir##*/}"
+                    [ -f "${pr_dir}/index.html" ] || continue
+                    printf '      <li><a href="prs/%s/">PR #%s</a></li>\n' \
+                        "$(printf '%s' "${pr_number}" | html_escape)" \
+                        "$(printf '%s' "${pr_number}" | html_escape)"
+                done
+        fi
         cat << 'EOF'
     </ul>
   </body>
@@ -174,22 +176,19 @@ EOF
 download_report_artifact() {
     local artifact_name=""
     local artifact_dir="$1"
-    local attempt=""
 
     require_env UPSTREAM_RUN_ID
     require_env UPSTREAM_RUN_ATTEMPT
 
-    for attempt in $(seq "${UPSTREAM_RUN_ATTEMPT}" -1 1); do
-        artifact_name="rpi-browser-smoke-${UPSTREAM_RUN_ID}-${attempt}"
-        if gh run download "${UPSTREAM_RUN_ID}" \
-            --repo "${GITHUB_REPOSITORY}" \
-            --name "${artifact_name}" \
-            --dir "${artifact_dir}" > /dev/null 2>&1; then
-            return
-        fi
-    done
+    artifact_name="rpi-browser-smoke-${UPSTREAM_RUN_ID}-${UPSTREAM_RUN_ATTEMPT}"
+    if gh run download "${UPSTREAM_RUN_ID}" \
+        --repo "${GITHUB_REPOSITORY}" \
+        --name "${artifact_name}" \
+        --dir "${artifact_dir}" > /dev/null 2>&1; then
+        return
+    fi
 
-    echo "No Playwright browser smoke artifact found for run ${UPSTREAM_RUN_ID}."
+    echo "No Playwright browser smoke artifact found for run ${UPSTREAM_RUN_ID} attempt ${UPSTREAM_RUN_ATTEMPT}."
     return 1
 }
 
@@ -210,8 +209,24 @@ publish_report() {
     require_env UPSTREAM_EVENT
     require_env UPSTREAM_HEAD_BRANCH
     require_env UPSTREAM_HEAD_SHA
+    require_env UPSTREAM_CONCLUSION
+
+    case "${UPSTREAM_CONCLUSION}" in
+        success | failure) ;;
+        *)
+            echo "Skipping Playwright report from ${UPSTREAM_CONCLUSION} upstream run."
+            set_output deploy false
+            return
+            ;;
+    esac
 
     if [ "${UPSTREAM_EVENT}" = "pull_request" ]; then
+        if [ -n "${UPSTREAM_HEAD_REPOSITORY:-}" ] &&
+            [ "${UPSTREAM_HEAD_REPOSITORY}" != "${GITHUB_REPOSITORY}" ]; then
+            echo "Skipping PR Playwright report from untrusted repository: ${UPSTREAM_HEAD_REPOSITORY}."
+            set_output deploy false
+            return
+        fi
         if [ -z "${UPSTREAM_PR_NUMBER:-}" ]; then
             echo "No PR number found for upstream run; skipping Pages publish."
             set_output deploy false

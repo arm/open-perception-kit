@@ -22,7 +22,9 @@ concurrency:
 jobs:
   publish-report:
     name: Publish latest Playwright report
-    if: github.event_name == 'workflow_run'
+    if: |
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -38,6 +40,7 @@ jobs:
           UPSTREAM_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           UPSTREAM_EVENT: ${{ github.event.workflow_run.event }}
           UPSTREAM_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          UPSTREAM_HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
           UPSTREAM_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           UPSTREAM_PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
           UPSTREAM_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}

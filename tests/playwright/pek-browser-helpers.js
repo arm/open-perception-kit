@@ -66,7 +66,7 @@ async function backendModelState(page, name) {
 function videoTrackIsLive() {
   const video = document.querySelector('#video');
   const track = video?.srcObject?.getVideoTracks?.()[0];
-  return track?.readyState === 'live' && !track.muted;
+  return track?.readyState === 'live' && !track.muted && video.currentTime > 0;
 }
 
 function readBackendModelState(modelName) {
