@@ -300,6 +300,36 @@ write_report_shell_assets() {
 .pek-report-back:hover {
   text-decoration: underline;
 }
+.pek-report-float {
+  align-items: center;
+  bottom: 16px;
+  display: flex;
+  gap: 8px;
+  position: fixed;
+  right: 16px;
+  z-index: 1000;
+}
+.pek-report-jump,
+.pek-report-top {
+  background: var(--color-canvas-default);
+  border: 1px solid var(--color-border-default);
+  border-radius: 6px;
+  color: var(--color-fg-default);
+  font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  height: 32px;
+}
+.pek-report-jump {
+  max-width: 240px;
+  padding: 0 28px 0 8px;
+}
+.pek-report-top {
+  cursor: pointer;
+  padding: 0 10px;
+}
+.pek-report-jump[hidden],
+.pek-report-top[hidden] {
+  display: none;
+}
 @media (max-width: 640px) {
   .pek-report-bar {
     padding: 12px 16px 0;
@@ -317,7 +347,125 @@ write_report_shell_assets() {
   .pek-report-meta {
     white-space: normal;
   }
+  .pek-report-float {
+    bottom: 10px;
+    right: 10px;
+  }
+  .pek-report-jump {
+    max-width: 180px;
+  }
 }
+EOF
+    cat << 'EOF' > "${SITE_DIR}/report-shell.js"
+(() => {
+  const rootId = 'pek-report-tools';
+  const selectors = [
+    ['.chip-header', (element) => element.textContent],
+    ['.test-file-title', (element) => element.textContent],
+    ['.test-error-container', () => 'Errors'],
+    ['.metadata-view', () => 'Metadata'],
+    ['video', () => 'Video'],
+    ['img.screenshot', () => 'Screenshot'],
+    ['[id^="attachment-"]', (element) => element.id.replace(/^attachment-/, 'Attachment: ')]
+  ];
+
+  const clean = (text) => (text || '').replace(/\s+/g, ' ').trim();
+
+  const ensureId = (element, index) => {
+    if (element.id) {
+      return element.id;
+    }
+    if (!element.dataset.pekSectionId) {
+      element.dataset.pekSectionId = `pek-report-section-${index}`;
+    }
+    element.id = element.dataset.pekSectionId;
+    return element.id;
+  };
+
+  const collectSections = () => {
+    const seen = new Set();
+    const sections = [];
+
+    for (const [selector, labelFor] of selectors) {
+      for (const element of document.querySelectorAll(selector)) {
+        if (seen.has(element) || element.closest(`#${rootId}`)) {
+          continue;
+        }
+        const label = clean(labelFor(element));
+        if (!label) {
+          continue;
+        }
+        seen.add(element);
+        sections.push({ element, id: ensureId(element, sections.length), label });
+        if (sections.length >= 40) {
+          return sections;
+        }
+      }
+    }
+
+    return sections;
+  };
+
+  const init = () => {
+    if (document.getElementById(rootId)) {
+      return;
+    }
+
+    const root = document.createElement('div');
+    const jump = document.createElement('select');
+    const top = document.createElement('button');
+    let rebuildTimer = 0;
+
+    root.id = rootId;
+    root.className = 'pek-report-float';
+    jump.className = 'pek-report-jump';
+    jump.setAttribute('aria-label', 'Jump to report section');
+    top.className = 'pek-report-top';
+    top.type = 'button';
+    top.textContent = 'Top';
+    top.hidden = true;
+    root.append(jump, top);
+    document.body.append(root);
+
+    const rebuild = () => {
+      const sections = collectSections();
+      jump.replaceChildren(new Option('Jump', ''));
+      for (const section of sections) {
+        jump.add(new Option(section.label, section.id));
+      }
+      jump.hidden = sections.length === 0;
+    };
+
+    const scheduleRebuild = () => {
+      clearTimeout(rebuildTimer);
+      rebuildTimer = setTimeout(rebuild, 250);
+    };
+
+    jump.addEventListener('change', () => {
+      const target = document.getElementById(jump.value);
+      jump.value = '';
+      target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    top.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    window.addEventListener('scroll', () => {
+      top.hidden = window.scrollY < 240;
+    }, { passive: true });
+    new MutationObserver((mutations) => {
+      if (mutations.every((mutation) => root.contains(mutation.target))) {
+        return;
+      }
+      scheduleRebuild();
+    }).observe(document.body, { childList: true, subtree: true });
+
+    rebuild();
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
 EOF
 }
 
@@ -435,21 +583,25 @@ decorate_playwright_report() {
     local meta_html="$4"
     local css_href=""
     local index_file="${report_dir}/index.html"
+    local js_href=""
     local tmp_file=""
 
     [ -f "${index_file}" ] || return
     grep -q 'class="pek-report-bar"' "${index_file}" && return
 
     css_href="${back_href}report-shell.css"
+    js_href="${back_href}report-shell.js"
     tmp_file="$(mktemp)"
     awk \
         -v css_href="$(printf '%s' "${css_href}" | html_escape)" \
+        -v js_href="$(printf '%s' "${js_href}" | html_escape)" \
         -v title="$(printf '%s' "${title}" | html_escape)" \
         -v back_href="$(printf '%s' "${back_href}" | html_escape)" \
         -v meta_html="${meta_html}" \
         '
         /<\/head>/ && !linked {
             print "    <link rel=\"stylesheet\" href=\"" css_href "\">"
+            print "    <script src=\"" js_href "\" defer></script>"
             linked = 1
         }
         { print }
