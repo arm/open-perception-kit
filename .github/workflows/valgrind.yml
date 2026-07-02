@@ -1,3 +1,8 @@
+# This file contains the valgrind related workflow with all the possible steps.
+# The workflow behaves slightly differently when it is called from the main branch on a new commit and when it is called from a side branch on a pull request.
+# When it is called for a PR all of the steps shall be evaluated except the valgrind baseline update.
+# When it is called for a new commit on the main branch the workflow shall only evaluate the steps necessary for the new valgrind baseline summary creation.
+
 name: Valgrind Baseline Artifact
 
 on:
@@ -13,8 +18,14 @@ jobs:
     name: Generate Valgrind baseline artifact
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    permissions:
+      # write permission is needed because in case the baseline valgrind artifact does not exist,
+      # this workflow will try to trigger the main workflow to make it available.
+      actions: write
+      contents: read
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
+      VALGRIND_BASELINE_BRANCH: main
     steps:
       - uses: actions/checkout@v6
         with:
@@ -24,9 +35,27 @@ jobs:
       - name: Build docker image
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-docs-base
 
+      - name: Locate latest Valgrind baseline artifact
+        if: github.event_name == 'pull_request'
+        id: valgrind_baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/testing/valgrind/ci-locate-valgrind-baseline-artifact.sh
+
+      - name: Download Valgrind baseline artifact
+        if: github.event_name == 'pull_request'
+        uses: actions/download-artifact@v8
+        with:
+          name: valgrind-baseline
+          path: scripts/testing/valgrind/baseline
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.valgrind_baseline.outputs.run-id }}
+
+      - name: Clear stale Valgrind logs
+        run: find scripts/testing/valgrind/logs -name "*.valgrind.*.xml" -delete 2>/dev/null || true
+
       - name: Run Valgrind checks
-        id: valgrind_baseline_checks
-        continue-on-error: true
+        id: valgrind_checks
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-valgrind-check
 
       - name: Generate Valgrind error summary
@@ -34,20 +63,30 @@ jobs:
         if: always()
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-generate-valgrind-summary
 
-      - name: Upload Valgrind raw logs # update raw logs for debugging purposes
-        if: always()
+      - name: Compare Valgrind results to baseline
+        if: ${{ !cancelled() && github.event_name == 'pull_request' && steps.valgrind_checks.outcome == 'success' && steps.valgrind_summary.outcome == 'success' }}
+        id: valgrind_compare
+        run: |
+          python3 scripts/testing/valgrind/compare-valgrind-results.py \
+            --baseline scripts/testing/valgrind/baseline/valgrind-error-summary.xml \
+            --current scripts/testing/valgrind/valgrind-error-summary.xml
+
+      - name: Upload Valgrind raw logs
+        if: ${{ steps.valgrind_checks.outcome == 'failure' || steps.valgrind_summary.outcome == 'failure' || steps.valgrind_compare.outcome == 'failure' }}
         uses: actions/upload-artifact@v7
         with:
           name: valgrind-baseline-logs
           path: scripts/testing/valgrind/logs
           if-no-files-found: warn
-          retention-days: 60
+          retention-days: 5
 
       - name: Upload Valgrind baseline
-        if: ${{ github.ref == 'refs/heads/main' && steps.valgrind_summary.outcome == 'success' }}
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && steps.valgrind_summary.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
           name: valgrind-baseline
           path: scripts/testing/valgrind/valgrind-error-summary.xml
           if-no-files-found: warn
-          retention-days: 60 # Assume that there will be a commit on the main branch at least every 2 months to keep the baseline available
+          # Assume that there will be a commit on the main branch at least every 2 months
+          # to keep the baseline available.
+          retention-days: 60

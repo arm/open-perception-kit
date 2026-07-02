@@ -72,6 +72,7 @@ run_valgrind_all() {
     local generate_suppressions="${4:-false}"
     local verbose_output="${5:-false}"
     local fail_count=0
+    local valgrind_error_count=0
     local total_count=0
 
     mkdir -p "$LOG_DIR"
@@ -183,13 +184,18 @@ run_valgrind_all() {
             msg "Logs: $log_glob (including child processes)"
         else
             rc=$?
-            fail_count=$((fail_count + 1))
-            msg "FAILED ($rc): $pipeline"
+            if [[ "$rc" == "$VALGRIND_ERROR_EXITCODE" ]]; then
+                valgrind_error_count=$((valgrind_error_count + 1))
+                msg "VALGRIND ERRORS ($rc): $pipeline"
+            else
+                fail_count=$((fail_count + 1))
+                msg "FAILED ($rc): $pipeline"
+            fi
             msg "Logs: $log_glob (including child processes)"
         fi
     done
 
-    msg "Completed $total_count pipeline(s), failures: $fail_count"
+    msg "Completed $total_count pipeline(s), failures: $fail_count, valgrind error reports: $valgrind_error_count"
 
     if ((fail_count > 0)); then
         return 1
