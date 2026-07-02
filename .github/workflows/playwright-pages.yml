@@ -1,0 +1,92 @@
+name: Publish Playwright Reports
+
+on:
+  workflow_run:
+    workflows: ["Perception Experience Kit CI Pipeline"]
+    types: [completed]
+  schedule:
+    - cron: "30 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+  id-token: write
+  pages: write
+  pull-requests: read
+
+concurrency:
+  group: playwright-pages
+  cancel-in-progress: false
+
+jobs:
+  publish-report:
+    name: Publish latest Playwright report
+    if: github.event_name == 'workflow_run'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout publisher
+        uses: actions/checkout@v6
+
+      - name: Update Pages content
+        id: pages
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          UPSTREAM_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          UPSTREAM_EVENT: ${{ github.event.workflow_run.event }}
+          UPSTREAM_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          UPSTREAM_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          UPSTREAM_PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          UPSTREAM_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: scripts/ci/publish-playwright-pages.sh publish
+
+      - name: Configure Pages
+        if: steps.pages.outputs.deploy == 'true'
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages artifact
+        if: steps.pages.outputs.deploy == 'true'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _playwright_pages_site
+
+      - name: Deploy Pages
+        if: steps.pages.outputs.deploy == 'true'
+        id: deployment
+        uses: actions/deploy-pages@v5
+
+  cleanup-closed-pr-reports:
+    name: Clean closed PR reports
+    if: github.event_name != 'workflow_run'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout publisher
+        uses: actions/checkout@v6
+
+      - name: Remove old closed PR reports
+        id: pages
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: scripts/ci/publish-playwright-pages.sh cleanup
+
+      - name: Configure Pages
+        if: steps.pages.outputs.deploy == 'true'
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages artifact
+        if: steps.pages.outputs.deploy == 'true'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _playwright_pages_site
+
+      - name: Deploy Pages
+        if: steps.pages.outputs.deploy == 'true'
+        id: deployment
+        uses: actions/deploy-pages@v5

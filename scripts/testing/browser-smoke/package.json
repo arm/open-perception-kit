@@ -1,0 +1,7 @@
+{
+  "name": "pek-browser-smoke",
+  "private": true,
+  "dependencies": {
+    "@playwright/test": "1.61.0"
+  }
+}

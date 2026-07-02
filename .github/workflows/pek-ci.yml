@@ -29,8 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 0
-          fetch-tags: true
+          fetch-depth: 1
           ref: ${{ github.head_ref || github.ref }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
@@ -86,8 +85,7 @@ jobs:
       # ponytail: RPI runner drops checkout@v6 temp includeIf credentials during fetch; retry v6 after runner image update.
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 0
-          fetch-tags: true
+          fetch-depth: 1
           ref: ${{ github.head_ref || github.ref }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
@@ -102,6 +100,25 @@ jobs:
       - name: Build quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: ./scripts/build.sh
+
+      - name: Browser smoke test with local data
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          BROWSER_SMOKE_BROWSERS: chromium,firefox,webkit
+          BROWSER_SMOKE_REBUILD: "1"
+          NUM_FRAMES: "45000"
+        run: ./scripts/testing/browser-smoke.sh
+
+      - name: Upload RPI browser smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: rpi-browser-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/test-results/playwright
+            ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/playwright-report
+          if-no-files-found: ignore
+          retention-days: 10
 
       - name: Clean quick-start workspace
         if: always()
@@ -257,4 +274,3 @@ jobs:
             ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/scripts/testing/valgrind/logs
           if-no-files-found: warn
           retention-days: 10
-
