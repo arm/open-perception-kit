@@ -176,10 +176,15 @@ def split_shell_commands(command: str) -> list[ParsedShellCommand]:
                 stdout_append = word == SHELL_REDIRECT_STDOUT_APPEND
             index += 2
             continue
-        if word == "2" and tokens[index + 1:index + 3] == [">&", "1"]:
-            stderr_to_stdout = True
-            index += 3
-            continue
+        if word == "2":
+            if tokens[index + 1:index + 3] == [">&", "1"]:
+                stderr_to_stdout = True
+                index += 3
+                continue
+            if tokens[index + 1:index + 4] == [">", "&", "1"]:
+                stderr_to_stdout = True
+                index += 4
+                continue
         if any(character in word for character in ";&|<>"):
             raise ValueError(
                 f"Unsupported shell syntax in agent command: {word}. "

@@ -821,6 +821,20 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("$ cat < out.txt", output)
         self.assertIn("two", output)
 
+    def test_openai_agent_runner_merges_stderr_into_stdout(self):
+        repo_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_REPO_TOOLS_SCRIPT,
+            "agent_runtime.repo_tools_fake_sdk_stderr_redirection",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_tools.set_run_context(Path(temp_dir), 10)
+            output = repo_tools.run_shell_command("ls missing-workflow-agent-file 2>&1")
+
+        self.assertIn("$ ls missing-workflow-agent-file 2>&1", output)
+        self.assertIn("--- stdout ---", output)
+        self.assertIn("missing-workflow-agent-file", output)
+        self.assertIn("--- stderr ---\n", output)
+
     def test_openai_agent_runner_rejects_redirection_outside_repo(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_REPO_TOOLS_SCRIPT,
