@@ -446,6 +446,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(review_job["runs-on"], OPENAI_AGENT_RUNNER_LABEL)
         self.assertIn("base_ref", dispatch_inputs)
         self.assertIn("head_ref", dispatch_inputs)
+        self.assertEqual(dispatch_inputs["head_ref"]["default"], "")
+        self.assertIn("defaults to the workflow run SHA", dispatch_inputs["head_ref"]["description"])
         self.assertEqual(
             list(review_steps),
             [
@@ -459,6 +461,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 "Publish review summary comment",
                 "Upload review artifacts",
             ],
+        )
+        selected_head_ref = (
+            "${{ github.event_name == 'workflow_dispatch' && "
+            "(github.event.inputs.head_ref || github.sha) || github.event.pull_request.head.sha || github.sha }}"
         )
         install_step = review_steps["Install OpenAI agent runtime"]
         self.assertEqual(install_step["shell"], "bash")
@@ -478,7 +484,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             static_step["run"],
         )
         checkout_step = review_steps["Checkout pull request head"]
-        self.assertIn("github.event.inputs.head_ref", checkout_step["with"]["ref"])
+        self.assertEqual(checkout_step["with"]["ref"], selected_head_ref)
         fetch_step = review_steps["Fetch Agent review base ref"]
         self.assertEqual(fetch_step["shell"], "bash")
         self.assertEqual(fetch_step["env"]["GITHUB_TOKEN"], "${{ github.token }}")
@@ -496,6 +502,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             'fetch --no-tags origin "+refs/heads/${base_branch}:refs/remotes/origin/${base_branch}"',
             fetch_step["run"],
         )
+        render_step = review_steps["Render Agent review prompt"]
+        self.assertEqual(render_step["env"]["REVIEW_HEAD_REF"], selected_head_ref)
         agent_step = review_steps["Run OpenAI SDK review"]
         self.assertEqual(agent_step["shell"], "bash")
         self.assertEqual(
