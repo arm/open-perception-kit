@@ -20,7 +20,7 @@ cd "$REPO_ROOT"
 detect_output="$("${SCRIPT_DIR}/detect-environment.sh" --shell 2> /dev/null)" || true
 if [[ -n "$detect_output" ]]; then
     eval "$detect_output"
-    export PEK_DEV_BASE_CONTAINER_NAME PEK_DEV_RPI5_H8_CONTAINER_NAME PEK_DEV_RPI5_H10_CONTAINER_NAME
+    export PEK_DEV_BASE_CONTAINER_NAME PEK_DEV_RPI5_CONTAINER_NAME PEK_DEV_RPI5_H8_CONTAINER_NAME PEK_DEV_RPI5_H10_CONTAINER_NAME
 fi
 
 for compose_file in \
