@@ -140,18 +140,6 @@ class UnsupportedReviewClaimGuard:
 
 UNSUPPORTED_REVIEW_CLAIM_GUARDS = (
     UnsupportedReviewClaimGuard(
-        name="removed legacy review contract",
-        evidence_tokens=(
-            "codex-review",
-            "codex-stabilize-pr.yml",
-            "codex_model",
-            "CODEX_REVIEW",
-            "openai/codex-action@v1",
-            "codex exec",
-        ),
-        require_token_absent_from_anchor=True,
-    ),
-    UnsupportedReviewClaimGuard(
         name="verified available action ref",
         evidence_tokens=(
             "actions/checkout@v6",

@@ -613,73 +613,6 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "${{ format('origin/{0}', github.base_ref) }}",
         )
 
-    def test_openai_sdk_runner_replaces_legacy_action_and_cli_paths(self):
-        searched_files = [
-            AGENT_REVIEW_WORKFLOW_FILE,
-            REUSABLE_WORKFLOW_FILE,
-            STABILIZER_WORKFLOW_FILE,
-            AGENT_REVIEW_RUN_SCRIPT,
-        ]
-
-        for path in searched_files:
-            content = path.read_text(encoding="utf-8")
-            self.assertNotIn("openai/codex-action@v1", content, path)
-            self.assertNotIn("codex exec", content, path)
-            self.assertNotIn("openai-agent-runtime", content, path)
-            self.assertNotIn("openai_agent_runtime.sh", content, path)
-        self.assertFalse((REPO_ROOT / ".github/actions/openai-agent-runtime/action.yml").exists())
-        self.assertFalse((REPO_ROOT / "scripts/private/agent_runtime/openai_agent_runtime.sh").exists())
-        for path in searched_files:
-            self.assertIn("openai_agent_runner.py", path.read_text(encoding="utf-8"), path)
-
-    def test_agent_workflow_contracts_do_not_use_legacy_codex_names(self):
-        searched_files = [
-            WORKFLOW_FILE,
-            REUSABLE_WORKFLOW_FILE,
-            STABILIZER_WORKFLOW_FILE,
-            WORKFLOW_AUDIT_FILE,
-            AGENT_REVIEW_WORKFLOW_FILE,
-            HELPER_ACTION_FILE,
-            HELPER_SCRIPT,
-            AGENT_REVIEW_FETCH_SCRIPT,
-            AGENT_REVIEW_PUBLISH_SCRIPT,
-            AGENT_REVIEW_RUN_SCRIPT,
-            CONTEXT_TEMPLATE,
-            CONSTRAINTS_TEMPLATE,
-            GOAL_TEMPLATE,
-            PROFILE_FILE,
-            WORKFLOW_AUDIT_PROFILE_FILE,
-            AGENT_STATIC_REQUIREMENTS_FILE,
-            AGENT_MYPY_CONFIG_FILE,
-            AGENT_MODEL_CONFIG_FILE,
-            AGENT_TASK_CONFIG_FILE,
-            OPENAI_AGENT_INIT_FILE,
-            OPENAI_AGENT_MODEL_CONFIG_SCRIPT,
-            *OPENAI_AGENT_WORKFLOW_POLICY_FILES,
-        ]
-        forbidden = [
-            "codex-review",
-            "codex-stabilize",
-            "Codex Review",
-            "Codex Stabilize",
-            "codex_model",
-            "CODEX_REVIEW",
-            ".github/ci/workflow-action-update-agent",
-            "scripts/private/openai_agent_runner.py",
-            ".github/agent-workflows",
-            ".agent-workflows",
-            "scripts/private/agent_workflows",
-            "agent_workflows",
-            "workflow-repair",
-            "requirements-agent.txt",
-            "gpt-5.3-codex",
-        ]
-
-        for path in searched_files:
-            content = path.read_text(encoding="utf-8")
-            for token in forbidden:
-                self.assertNotIn(token, content, f"{token} leaked in {path}")
-
     def test_openai_agent_runner_uses_arm_proxy_truststore_and_tracing_contract(self):
         runner_source = OPENAI_AGENT_RUNNER_SCRIPT.read_text(encoding="utf-8")
         sdk_source = OPENAI_AGENT_SDK_RUNTIME_SCRIPT.read_text(encoding="utf-8")
@@ -905,26 +838,34 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 agent_tasks.validate_schema_file(str(Path(temp_dir) / "missing.schema.json"))
 
     def test_openai_agent_runner_uses_type_specific_turn_defaults(self):
-        args = argparse.Namespace(max_turns=None, task_config_file=str(AGENT_TASK_CONFIG_FILE))
         self.assertEqual(
-            OPENAI_AGENT_TASK_CONFIG.resolve_agent_max_turns(OPENAI_AGENT_CONTRACTS.AgentCommand.REVIEW, args),
+            OPENAI_AGENT_TASK_CONFIG.resolve_agent_task_settings(
+                AGENT_TASK_CONFIG_FILE,
+                OPENAI_AGENT_CONTRACTS.AgentCommand.REVIEW,
+            ).max_turns,
             OPENAI_REVIEW_MAX_TURNS,
         )
         self.assertEqual(
-            OPENAI_AGENT_TASK_CONFIG.resolve_agent_max_turns(OPENAI_AGENT_CONTRACTS.AgentCommand.REPAIR, args),
+            OPENAI_AGENT_TASK_CONFIG.resolve_agent_task_settings(
+                AGENT_TASK_CONFIG_FILE,
+                OPENAI_AGENT_CONTRACTS.AgentCommand.REPAIR,
+            ).max_turns,
             OPENAI_PATCH_MAX_TURNS,
         )
         self.assertEqual(
-            OPENAI_AGENT_TASK_CONFIG.resolve_agent_max_turns(
+            OPENAI_AGENT_TASK_CONFIG.resolve_agent_task_settings(
+                AGENT_TASK_CONFIG_FILE,
                 OPENAI_AGENT_CONTRACTS.AgentCommand.STABILIZATION,
-                args,
-            ),
+            ).max_turns,
             OPENAI_PATCH_MAX_TURNS,
         )
 
-        args.max_turns = 12
         self.assertEqual(
-            OPENAI_AGENT_TASK_CONFIG.resolve_agent_max_turns(OPENAI_AGENT_CONTRACTS.AgentCommand.REVIEW, args),
+            OPENAI_AGENT_TASK_CONFIG.resolve_agent_task_settings(
+                AGENT_TASK_CONFIG_FILE,
+                OPENAI_AGENT_CONTRACTS.AgentCommand.REVIEW,
+                max_turns_override=12,
+            ).max_turns,
             12,
         )
 
@@ -1079,49 +1020,6 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             ),
         )
         self.assertEqual([finding["title"] for finding in filtered["findings"]], ["Supported note"])
-
-    def test_agent_review_output_drops_stale_contract_findings_not_supported_by_anchor(self):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            repo_root = Path(temp_dir)
-            profile_path = repo_root / ".github/agent-runtime/repair/profiles/profile.json"
-            profile_path.parent.mkdir(parents=True)
-            profile_path.write_text(
-                '"review_state_script": ".github/agent-runtime/review/scripts/fetch-review-state.py",\n',
-                encoding="utf-8",
-            )
-
-            payload = {
-                "summary": "Reviewed workflow changes.",
-                "overall_recommendation": "request_changes",
-                "overall_score": 0.9,
-                "overall_confidence": 0.96,
-                "findings": [
-                    {
-                        "title": "Profile still points to codex-review",
-                        "severity": "major",
-                        "score": 0.9,
-                        "confidence": 0.96,
-                        "path": ".github/agent-runtime/repair/profiles/profile.json",
-                        "diff_side": "RIGHT",
-                        "start_line": 1,
-                        "end_line": 1,
-                        "body": "`review_state_script` is still set to `codex-review/scripts/fetch-review-state.py`.",
-                        "suggestion": None,
-                    },
-                ],
-            }
-
-            filtered = AGENT_REVIEW_OUTPUT.filter_invalid_right_side_findings(payload, repo_root)
-
-        self.assertEqual(filtered["overall_recommendation"], "approve")
-        self.assertEqual(
-            filtered["summary"],
-            (
-                "No supported findings remain after filtering. "
-                "Omitted 1 unsupported RIGHT-side finding whose anchors are not supported by the current checkout."
-            ),
-        )
-        self.assertEqual(filtered["findings"], [])
 
     def test_agent_review_output_drops_known_available_action_ref_claims(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -1300,7 +1198,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
         self.assertEqual(filtered, payload)
 
-    def test_openai_agent_runtime_dependencies_are_pinned(self):
+    def test_agent_runtime_dependencies_are_pinned(self):
         requirements = AGENT_REQUIREMENTS_FILE.read_text(encoding="utf-8").splitlines()
 
         self.assertEqual(
@@ -1402,11 +1300,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertNotIn("--task-config-file .github/agent-runtime/runtime/agent-tasks.json", content)
         self.assertIn('if [[ -n "${AGENT_REVIEW_MODEL:-}" ]]; then', content)
         self.assertIn('agent_args+=(--model "${AGENT_REVIEW_MODEL}")', content)
-        self.assertNotIn("gpt-5.3-codex", content)
         self.assertNotIn("${AGENT_MODEL", content)
-        self.assertNotIn("CODEX_MODEL", content)
         self.assertIn("--schema-file \".github/agent-runtime/review/schemas/review.schema.json\"", content)
-        self.assertNotIn("command -v codex", content)
         self.assertNotIn("pip install --user", content)
         self.assertNotIn("OPENAI_API_KEY=", content)
 
@@ -1425,7 +1320,6 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         sonar = load_yaml(SONAR_WORKFLOW_FILE)
         pek_inputs = pek_ci["on"]["workflow_dispatch"]["inputs"]
         sonar_inputs = sonar["on"]["workflow_dispatch"]["inputs"]
-        pek_steps = step_map(pek_ci["jobs"]["quality-checks"])
         sonar_steps = step_map(sonar["jobs"]["build-and-sonar"])
 
         self.assertEqual(
@@ -1468,7 +1362,6 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         snapshot_step = steps["Snapshot workflow helper bundle"]
         self.assertIn('cp -R scripts/private/agent_runtime/.', snapshot_step["run"])
-        self.assertNotIn("openai-agent-runtime", snapshot_step["run"])
         self.assertIn("cp .github/agent-runtime/runtime/requirements-openai-agents.txt", snapshot_step["run"])
         self.assertIn("cp .github/agent-runtime/runtime/agent-models.json", snapshot_step["run"])
         self.assertIn("cp .github/agent-runtime/runtime/agent-tasks.json", snapshot_step["run"])

@@ -6,9 +6,8 @@ dependency pins. Executable GitHub Actions workflows live only under
 
 ## Guardrails
 
-- Keep this area Agent-branded. Do not reintroduce `codex-review`,
-  `codex-stabilize`, `codex_model`, `CODEX_REVIEW`, `openai/codex-action@v1`,
-  or `codex exec` contracts.
+- Keep this area Agent-branded. Do not reintroduce predecessor workflow,
+  model, action, or runner contracts.
 - Keep prompt text and profile policy in checked-in files under
   `.github/agent-runtime/`; do not embed long prompts in workflow YAML or
   Python helpers.

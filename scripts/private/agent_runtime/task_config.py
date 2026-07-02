@@ -5,14 +5,12 @@
 
 from __future__ import annotations
 
-import argparse
 from dataclasses import dataclass
 from pathlib import Path
 
 from .contracts import (
     AgentCommand,
     AgentInstance,
-    DEFAULT_AGENT_TASK_CONFIG_PATH,
     load_json_object,
     optional_positive_int,
     parse_enum_value,
@@ -145,17 +143,3 @@ def resolve_agent_task_settings(
             "--max-review-changed-lines",
         ),
     )
-
-
-def resolve_agent_max_turns(command: AgentCommand, args: argparse.Namespace) -> int:
-    settings = resolve_agent_task_settings(
-        getattr(args, "task_config_file", DEFAULT_AGENT_TASK_CONFIG_PATH),
-        command,
-        agent_instance_override=getattr(args, "agent_instance", None),
-        max_turns_override=getattr(args, "max_turns", None),
-        task_estimate_turns_override=getattr(args, "task_estimate_turns", None),
-        max_prompt_chars_override=getattr(args, "max_prompt_chars", None),
-        max_review_files_override=getattr(args, "max_review_files", None),
-        max_review_changed_lines_override=getattr(args, "max_review_changed_lines", None),
-    )
-    return settings.max_turns

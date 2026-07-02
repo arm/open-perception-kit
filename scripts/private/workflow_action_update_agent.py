@@ -131,7 +131,7 @@ def github_api_request(url: str) -> bytes:
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
+    def redirect_request(self, _req, _fp, _code, _msg, _headers, _newurl):  # noqa: ANN001
         return None
 
 
@@ -299,15 +299,6 @@ def profile_agent_model(profile: dict[str, object], agent_instance: AgentInstanc
         model_config_path,
         agent_instance,
     )
-
-
-def profile_optional_string(profile: dict[str, object], key: str, default: str = "") -> str:
-    value = profile.get(key, default)
-    if value in (None, ""):
-        return default
-    if not isinstance(value, str):
-        raise ValueError(f"Profile key '{key}' must be a string when present.")
-    return value.strip()
 
 
 def profile_list(profile: dict[str, object], key: str) -> list[object]:
