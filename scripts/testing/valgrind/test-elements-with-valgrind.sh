@@ -102,6 +102,7 @@ run_valgrind_all() {
         --track-origins=yes
         --trace-children=yes
         --error-exitcode="$VALGRIND_ERROR_EXITCODE"
+        --xml=yes
     )
 
     if [[ "$use_3rd_party_suppressions" == "true" ]]; then
@@ -164,25 +165,27 @@ run_valgrind_all() {
     for pipeline in "${pipelines[@]}"; do
         local base
         local log_file
+        local log_glob
         local rc=0
 
         base="$(basename "$pipeline" .json)"
-        log_file="$LOG_DIR/${base}.valgrind.log"
+        log_file="$LOG_DIR/${base}.valgrind.%p.xml"
+        log_glob="${log_file//%p/*}"
 
         total_count=$((total_count + 1))
         msg "[$total_count/${#pipelines[@]}] Running valgrind for $pipeline"
 
         if valgrind \
             "${valgrind_args[@]}" \
-            --log-file="$log_file.%p" \
+            --xml-file="$log_file" \
             "$PEK_MENU" "$pipeline"; then
             msg "PASSED: $pipeline"
-            msg "Logs: $log_file.* (including child processes)"
+            msg "Logs: $log_glob (including child processes)"
         else
             rc=$?
             fail_count=$((fail_count + 1))
             msg "FAILED ($rc): $pipeline"
-            msg "Logs: $log_file.* (including child processes)"
+            msg "Logs: $log_glob (including child processes)"
         fi
     done
 
