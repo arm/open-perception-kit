@@ -141,6 +141,7 @@ run_phase() {
     local phase="$1"
     local pipeline="$2"
     local spec="$3"
+    local browsers="${4:-${BROWSER_SMOKE_BROWSERS}}"
     local status=0
     local pid_file="/tmp/pek-browser-smoke-${phase}.pid"
     local pipeline_pid=""
@@ -171,7 +172,7 @@ run_phase() {
         "${mount_args[@]}" \
         -e CI=true \
         -e PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
-        -e BROWSER_SMOKE_BROWSERS="${BROWSER_SMOKE_BROWSERS}" \
+        -e BROWSER_SMOKE_BROWSERS="${browsers}" \
         -e PLAYWRIGHT_HTML_OPEN=never \
         -e PLAYWRIGHT_HTML_OUTPUT_DIR="playwright-report/${phase}" \
         "${image_name}" \
@@ -229,13 +230,21 @@ wait_for_pipeline_start() {
 }
 
 browser_smoke_status=0
+browser_smoke_browsers="$(
+    printf '%s' "${BROWSER_SMOKE_BROWSERS}" |
+        tr ',' '\n' |
+        sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e '/^$/d'
+)"
 
 run_phase "sink-only" \
     "config/pipelines/testing/only-peksink.json" \
     "tests/playwright/pek-browser-sink.spec.js" || browser_smoke_status=$?
 
-run_phase "onnx-full" \
-    "config/pipelines/testing/onnx-full.json" \
-    "tests/playwright/pek-browser-models.spec.js" || browser_smoke_status=$?
+while IFS= read -r browser; do
+    run_phase "onnx-full-${browser}" \
+        "config/pipelines/testing/onnx-full.json" \
+        "tests/playwright/pek-browser-models.spec.js" \
+        "${browser}" || browser_smoke_status=$?
+done <<< "${browser_smoke_browsers}"
 
 exit "${browser_smoke_status}"
