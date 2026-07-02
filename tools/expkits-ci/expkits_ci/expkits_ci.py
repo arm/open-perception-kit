@@ -104,8 +104,6 @@ def setup_argument_parser(parser):
                             help="Baseline comparison mode. 'enforce' fails if a per-check count exceeds baseline.")
     util_group.add_argument("--clang-tidy-update-baseline", action="store_true",
                             help="Update the clang-tidy baseline to current per-check counts if none exceed the existing baseline.")
-    util_group.add_argument("--static-analysis-staged", default=False, action="store_true",
-                            help="Check staged removed/renamed paths when running Agent runtime static analysis.")
 
 
 def setup_all_checks(args):
@@ -408,7 +406,6 @@ def perform_checks(checker, args, files, report):
             lambda: checker.check_agent_runtime_static_analysis(
                 files,
                 pr_target_branch=args.pr_target_branch,
-                staged=args.static_analysis_staged,
             ),
         ) and result
 

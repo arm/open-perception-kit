@@ -1,4 +1,4 @@
-# Ponytail Review
+# Minimal Change Policy
 
 Apply this decision ladder before you change anything:
 

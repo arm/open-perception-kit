@@ -67,13 +67,13 @@ Market1501
      - Input Resolution (HxWxC)
      - Params (M)
      - OPS (G)
-
-
-
-
-
-
-
+   
+   
+   
+   
+   
+   
+   
 
    * - osnet_x1_0
      - 94.4
@@ -84,13 +84,13 @@ Market1501
      - 256x128x3
      - 2.19
      - 1.98
-
-
-
-
-
-
-
+   
+   
+   
+   
+   
+   
+   
 
    * - repvgg_a0_person_reid_512
      - 89.9

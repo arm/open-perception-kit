@@ -104,7 +104,7 @@ jobs:
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      # ponytail: RPI runner drops checkout@v6 temp includeIf credentials during fetch; retry v6 after runner image update.
+      # RPI runner drops checkout@v6 temp includeIf credentials during fetch; retry v6 after runner image update.
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0

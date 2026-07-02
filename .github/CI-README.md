@@ -36,13 +36,11 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Runs a minimal dependency freshness report for external GitHub Actions used by repository workflows
 - Compares the current `uses:` refs against the latest GitHub release/tag for each action repository
 - Publishes one simple Markdown report and a lightweight JSON snapshot in the `workflow-dependency-freshness` artifact
-- On nightly schedule and manual dispatch, stays a single nightly pipeline by handing any auto-fixable freshness delta directly into the reusable repair core instead of spawning a second standalone workflow
-- On pull requests, only reruns the report job so repair PR validation can confirm the same evidence without recursively opening more repair PRs
-- Keeps the originating report artifact as the repair starting point, so the generated PR still carries the original evidence trail, badge, and bot metadata
+- On pull requests, reruns only the report job so workflow changes can validate the same dependency evidence without opening repair PRs
 
 ## What does `.github/workflows/workflow-action-update-agent.yml` do?
 
-- Acts as the manual fallback caller for the reusable repair core
+- Acts as the manual caller for the reusable repair core
 - Accepts a source run ID manually and forwards execution into the reusable workflow implementation with inherited secrets plus a selected repair profile
 
 ## What does `.github/workflows/workflow-action-update-agent-reusable.yml` do?
@@ -71,7 +69,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Loads the selected repair profile, resolves source-run inputs, collects workflow evidence, builds runtime Markdown inputs, and renders repair PR metadata
 - Packages repository changes, pushes repair branches, opens draft PRs, and owns the stabilization loop that waits on review state, generates follow-up fixes, reruns local validation, and merges successful repairs
 - Reuses `.github/PULL_REQUEST_TEMPLATE.md` through explicit marker sections instead of brittle free-text replacement, and injects the repair CI badge only for bot-authored PRs
-- Provides the reusable PR-lifecycle lego layer that future caller workflows can build on without dragging in the current experiment branches
+- Provides the PR-lifecycle layer used by the checked-in repair and stabilization workflows
 
 ## What does `.github/agent-runtime/repair/` do?
 
@@ -86,7 +84,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 - Wraps the Python helper behind one local composite action so the reusable workflow stays declarative and avoids repeating long inline `python3 ...` run blocks
 - Exposes stable outputs such as `should_run`, `repair_branch`, `agent_model`, `has_changes`, `head_sha`, and `pr_number`
-- Gives future caller workflows the same helper API without copying shell glue
+- Keeps the workflow YAML from copying long helper command blocks
 
 ## Operational Notes
 

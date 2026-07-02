@@ -225,17 +225,6 @@ runs:
               --ticket-id "${{ inputs.ticket-id }}" \
               --github-output "${GITHUB_OUTPUT}"
             ;;
-          wait-for-pr-workflows)
-            python3 "${helper}" wait-for-pr-workflows \
-              --profile-path "${{ inputs.profile-path }}" \
-              --pr-number "${{ inputs.pr-number }}" \
-              --repair-branch "${{ inputs.repair-branch }}" \
-              --head-sha "${{ inputs.head-sha }}"
-            ;;
-          merge-pr)
-            python3 "${helper}" merge-pr \
-              --pr-number "${{ inputs.pr-number }}"
-            ;;
           stabilize-pr)
             stabilize_args=(
               --profile-path "${{ inputs.profile-path }}"

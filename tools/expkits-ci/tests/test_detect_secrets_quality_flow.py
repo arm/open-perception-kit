@@ -225,7 +225,6 @@ class StaticQualityConfigTests(unittest.TestCase):
         self.assertIn("--check-secrets --list-of-files", pre_commit)
         self.assertNotIn("- id: agent-runtime-static-analysis", pre_commit)
         self.assertNotIn("--agent-runtime-static-analysis", pre_commit)
-        self.assertNotIn("--static-analysis-staged", pre_commit)
         self.assertIn("expkits-ci --all-checks --pr-target-branch ${PULL_REQUEST_TARGET_BRANCH}", compose)
         self.assertIn("--agent-runtime-static-analysis", compose)
         self.assertIn('if [ -n "$${PULL_REQUEST_TARGET_BRANCH:-}" ]; then', compose)

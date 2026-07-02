@@ -4,7 +4,7 @@ Goal: repair a CI or workflow regression from the source GitHub Actions run and 
 
 Read these first:
 
-- `.agent-runtime/workflow-action-update-agent/ponytail-review.md`
+- `.agent-runtime/workflow-action-update-agent/minimal-change-policy.md`
 - `.agent-runtime/workflow-action-update-agent/constraints.md`
 - `.agent-runtime/workflow-action-update-agent/failure-context.md`
 - `.agent-runtime/workflow-action-update-agent/validation.md`

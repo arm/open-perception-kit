@@ -5,26 +5,11 @@ on:
   workflow_call:
   workflow_dispatch:
     inputs:
-      ticket_id:
-        description: JIRA ticket ID used for the repair branch and commit metadata.
+      summary_limit:
+        description: Maximum number of action refs to list in the step summary.
         required: false
-        default: EXPKITS-1234
-        type: string
-      repair_profile_path:
-        description: Repair profile JSON path relative to the repository root.
-        required: false
-        default: .github/agent-runtime/repair/profiles/workflow-audit-profile.json
-        type: string
-      stabilize_pr_number:
-        description: Optional PR number to stabilize instead of running a freshness scan.
-        required: false
-        default: ""
-        type: string
-      stabilize_head_sha:
-        description: Optional PR head SHA to pin the stabilization attempt to.
-        required: false
-        default: ""
-        type: string
+        default: "10"
+        type: number
   pull_request:
     branches: [ main, "feature/**", "sandbox/**" ]
     paths:
@@ -46,22 +31,15 @@ jobs:
     name: workflow dependency freshness
     runs-on: ubuntu-latest
     if: |
-      (github.event_name != 'workflow_dispatch' || github.event.inputs.stabilize_pr_number == '') &&
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     permissions:
       actions: read
       contents: read
-    outputs:
-      tracked_refs: ${{ steps.report.outputs.tracked_refs }}
-      behind_latest: ${{ steps.report.outputs.behind_latest }}
-      needs_review: ${{ steps.report.outputs.needs_review }}
-      requires_repair: ${{ steps.report.outputs.requires_repair }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
       - name: Render workflow dependency freshness report
-        id: report
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_API_URL: ${{ github.api_url }}
@@ -72,8 +50,7 @@ jobs:
             --repo-root . \
             --markdown-output "${RUNNER_TEMP}/workflow-dependency-freshness.md" \
             --json-output "${RUNNER_TEMP}/workflow-dependency-freshness.json" \
-            --github-output "${GITHUB_OUTPUT}" \
-            --summary-limit 10 \
+            --summary-limit "${{ github.event_name == 'workflow_dispatch' && inputs.summary_limit || 10 }}" \
             >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Upload workflow dependency freshness artifact
@@ -86,19 +63,3 @@ jobs:
             ${{ runner.temp }}/workflow-dependency-freshness.json
           if-no-files-found: warn
           retention-days: 10
-
-  stabilize-existing-pr:
-    name: Stabilize existing PR (manual only)
-    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.stabilize_pr_number != '' }}
-    permissions:
-      actions: read
-      contents: write
-      pull-requests: write
-    uses: ./.github/workflows/agent-stabilize-pr.yml
-    with:
-      pr_number: ${{ github.event.inputs.stabilize_pr_number }}
-      head_sha: ${{ github.event.inputs.stabilize_head_sha || '' }}
-      source_run_id: ""
-      ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
-      profile_path: ${{ inputs.repair_profile_path || '.github/agent-runtime/repair/profiles/workflow-audit-profile.json' }}
-    secrets: inherit # pragma: allowlist secret

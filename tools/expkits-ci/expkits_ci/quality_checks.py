@@ -576,22 +576,13 @@ class QualityChecks:
             "Could not inspect PR diff for Agent runtime static analysis.",
         )
 
-    @classmethod
-    def should_run_agent_runtime_static_analysis_for_staged_changes(cls):
-        return cls.should_run_agent_runtime_static_analysis_for_name_status_command(
-            ["git", "diff", "--cached", "--name-status", "-z"],
-            "Could not inspect staged files for Agent runtime static analysis.",
-        )
-
     @staticmethod
-    def check_agent_runtime_static_analysis(files=None, pr_target_branch=None, staged=False) -> bool:
+    def check_agent_runtime_static_analysis(files=None, pr_target_branch=None) -> bool:
         """Run the shared Agent runtime static analysis gate when relevant files changed."""
         files = files or []
         should_run = QualityChecks.should_run_agent_runtime_static_analysis(files)
         if not should_run and pr_target_branch:
             should_run = QualityChecks.should_run_agent_runtime_static_analysis_for_base_ref(pr_target_branch)
-        if not should_run and staged:
-            should_run = QualityChecks.should_run_agent_runtime_static_analysis_for_staged_changes()
         if not should_run:
             logger.info("No Agent runtime files found for static analysis.")
             return True
@@ -607,8 +598,6 @@ class QualityChecks:
         command = [sys.executable, script_path]
         if pr_target_branch:
             command.extend(["--base-ref", f"origin/{pr_target_branch}"])
-        elif staged:
-            command.append("--staged")
 
         proc = subprocess.run(
             command,

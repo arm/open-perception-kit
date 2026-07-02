@@ -71,7 +71,6 @@ PROFILE_ROOT = WORKFLOW_REPAIR_ROOT / "profiles"
 GOAL_TEMPLATE = PROMPT_TEMPLATE_ROOT / "repair-goal.md.in"
 STABILIZE_GOAL_TEMPLATE = PROMPT_TEMPLATE_ROOT / "stabilize-goal.md.in"
 CONTEXT_TEMPLATE = PROMPT_TEMPLATE_ROOT / "context.md"
-PONYTAIL_TEMPLATE = PROMPT_TEMPLATE_ROOT / "ponytail-review.md"
 CONSTRAINTS_TEMPLATE = PROMPT_TEMPLATE_ROOT / "constraints.md"
 VALIDATION_TEMPLATE = PROMPT_TEMPLATE_ROOT / "validation.md.in"
 PROFILE_FILE = PROFILE_ROOT / "profile.json"
@@ -2435,34 +2434,23 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
         self.assertEqual(author_logins, {"github-actions", "github-actions[bot]"})
 
-    def test_workflow_audit_reports_freshness_and_keeps_manual_stabilization_only(self):
+    def test_workflow_audit_reports_freshness_only(self):
         workflow = load_yaml(WORKFLOW_AUDIT_FILE)
         dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
         report_job = workflow["jobs"]["workflow-dependency-freshness"]
-        stabilize_job = workflow["jobs"]["stabilize-existing-pr"]
         report_steps = step_map(report_job)
 
         self.assertEqual(
             set(workflow["jobs"].keys()),
-            {"workflow-dependency-freshness", "stabilize-existing-pr"},
+            {"workflow-dependency-freshness"},
         )
         self.assertEqual(
             set(dispatch_inputs.keys()),
-            {"ticket_id", "repair_profile_path", "stabilize_pr_number", "stabilize_head_sha"},
+            {"summary_limit"},
         )
-        self.assertIn("requires_repair", report_job["outputs"])
-        self.assertIn("behind_latest", report_job["outputs"])
-        self.assertIn("needs_review", report_job["outputs"])
-        self.assertIn("--github-output", report_steps["Render workflow dependency freshness report"]["run"])
-        self.assertIn("github.event.inputs.stabilize_pr_number == ''", report_job["if"])
-        self.assertEqual(stabilize_job["uses"], "./.github/workflows/agent-stabilize-pr.yml")
-        self.assertEqual(stabilize_job["permissions"]["actions"], "read")
-        self.assertEqual(
-            stabilize_job["if"],
-            "${{ github.event_name == 'workflow_dispatch' && github.event.inputs.stabilize_pr_number != '' }}",
-        )
-        self.assertEqual(stabilize_job["with"]["pr_number"], "${{ github.event.inputs.stabilize_pr_number }}")
-        self.assertEqual(stabilize_job["with"]["head_sha"], "${{ github.event.inputs.stabilize_head_sha || '' }}")
+        self.assertNotIn("outputs", report_job)
+        self.assertIn("--summary-limit", report_steps["Render workflow dependency freshness report"]["run"])
+        self.assertNotIn("--github-output", report_steps["Render workflow dependency freshness report"]["run"])
 
     def test_wait_for_review_state_returns_observed_recommendation(self):
         with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
@@ -3145,28 +3133,6 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(run_command.call_args.kwargs["env"]["GITHUB_PR_NUMBER"], "169")
         self.assertEqual(run_command.call_args.kwargs["env"]["GITHUB_HEAD_SHA"], "deadbeef")
         self.assertEqual(run_command.call_args.kwargs["env"]["GITHUB_RUN_ID"], "28000000001")
-
-    def test_workflow_audit_report_writes_repair_outputs(self):
-        entries = [
-            {"status": "behind"},
-            {"status": "different"},
-            {"status": "pinned"},
-            {"status": "up-to-date"},
-        ]
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            output_path = Path(temp_dir) / "github-output.txt"
-            WORKFLOW_AUDIT_REPORT.write_github_outputs(output_path, entries)
-            outputs = dict(
-                line.split("=", 1)
-                for line in output_path.read_text(encoding="utf-8").splitlines()
-                if line.strip()
-            )
-
-        self.assertEqual(outputs["tracked_refs"], "4")
-        self.assertEqual(outputs["behind_latest"], "2")
-        self.assertEqual(outputs["needs_review"], "1")
-        self.assertEqual(outputs["requires_repair"], "true")
 
 
 if __name__ == "__main__":

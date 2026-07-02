@@ -1182,7 +1182,7 @@ def build_markdown_documents(
                 TICKET_ID_TOKEN: ticket_id,
             },
         ),
-        "ponytail-review.md": load_markdown_template("ponytail-review.md"),
+        "minimal-change-policy.md": load_markdown_template("minimal-change-policy.md"),
         "constraints.md": load_markdown_template("constraints.md"),
         "validation.md": render_markdown_template(
             "validation.md.in",
@@ -1469,11 +1469,6 @@ def command_create_draft_pr(args: argparse.Namespace) -> int:
         run_command(["gh", "pr", "edit", pr_number, "--add-label", label])
 
     write_outputs({"pr_number": pr_number}, args.github_output)
-    return 0
-
-
-def command_merge_pr(args: argparse.Namespace) -> int:
-    merge_pr(args.pr_number)
     return 0
 
 
@@ -2009,50 +2004,6 @@ def command_stabilize_pr(args: argparse.Namespace) -> int:
     )
 
 
-def command_wait_for_pr_workflows(args: argparse.Namespace) -> int:
-    profile = load_profile(args.profile_path)
-    repository = os.environ["GITHUB_REPOSITORY"]
-    pr_details = read_pr_details(args.pr_number)
-    dispatch_context = build_validation_dispatch_context(
-        pr_number=args.pr_number,
-        repair_branch=pr_details["repair_branch"] or args.repair_branch,
-        head_sha=args.head_sha,
-        target_branch=pr_details["target_branch"],
-        source_run_id="",
-        ticket_id="",
-    )
-    for workflow in profile_validation_workflows(profile):
-        run_id, run_event = ensure_validation_workflow_run(
-            repository=repository,
-            workflow=workflow,
-            repair_branch=pr_details["repair_branch"] or args.repair_branch,
-            head_sha=args.head_sha,
-            dispatch_context=dispatch_context,
-        )
-        review_state_script = str(workflow.get("review_state_script") or "")
-        if review_state_script:
-            review_state = wait_for_review_state(
-                pr_number=args.pr_number,
-                workflow_name=str(workflow["workflow_name"]),
-                review_state_script=review_state_script,
-                expected_run_id=run_id,
-                head_sha=args.head_sha,
-            )
-            if run_event == "workflow_dispatch":
-                publish_review_state_to_pr(
-                    pr_number=args.pr_number,
-                    head_sha=args.head_sha,
-                    review_state=review_state,
-                )
-            ensure_allowed_review_recommendation(
-                pr_number=args.pr_number,
-                workflow_name=str(workflow["workflow_name"]),
-                review_state=review_state,
-                allowed_review_recommendations=workflow_allowed_review_recommendations(workflow),
-            )
-    return 0
-
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Workflow Action Update Agent helper utility.")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -2118,10 +2069,6 @@ def build_parser() -> argparse.ArgumentParser:
     create_draft_pr.add_argument("--github-output", default=os.environ.get("GITHUB_OUTPUT", ""))
     create_draft_pr.set_defaults(func=command_create_draft_pr)
 
-    merge_pr = subparsers.add_parser("merge-pr")
-    merge_pr.add_argument("--pr-number", required=True)
-    merge_pr.set_defaults(func=command_merge_pr)
-
     resolve_pr_details = subparsers.add_parser("resolve-pr-details")
     resolve_pr_details.add_argument("--pr-number", required=True)
     resolve_pr_details.add_argument("--github-output", default=os.environ.get("GITHUB_OUTPUT", ""))
@@ -2164,13 +2111,6 @@ def build_parser() -> argparse.ArgumentParser:
     stabilize_pr.add_argument("--context-root", default=".agent-runtime/workflow-action-update-agent")
     stabilize_pr.add_argument("--merge-when-stable", action="store_true")
     stabilize_pr.set_defaults(func=command_stabilize_pr)
-
-    wait_for_workflows = subparsers.add_parser("wait-for-pr-workflows")
-    wait_for_workflows.add_argument("--profile-path", default=default_profile_path_argument())
-    wait_for_workflows.add_argument("--pr-number", required=True)
-    wait_for_workflows.add_argument("--repair-branch", required=True)
-    wait_for_workflows.add_argument("--head-sha", required=True)
-    wait_for_workflows.set_defaults(func=command_wait_for_pr_workflows)
 
     return parser
 
