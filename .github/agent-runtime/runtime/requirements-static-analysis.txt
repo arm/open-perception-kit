@@ -1,2 +1,4 @@
 mypy==1.16.1
+pyflakes==3.3.2
 types-PyYAML==6.0.12.20250516
+vulture==2.14

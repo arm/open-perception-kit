@@ -223,7 +223,10 @@ class StaticQualityConfigTests(unittest.TestCase):
 
         self.assertIn("- id: check-secrets", pre_commit)
         self.assertIn("--check-secrets --list-of-files", pre_commit)
+        self.assertIn("- id: agent-runtime-static-analysis", pre_commit)
+        self.assertIn("--agent-runtime-static-analysis --static-analysis-staged --list-of-files", pre_commit)
         self.assertIn("expkits-ci --all-checks --pr-target-branch ${PULL_REQUEST_TARGET_BRANCH}", compose)
+        self.assertIn("--agent-runtime-static-analysis", compose)
         self.assertIn('if [ -n "$${PULL_REQUEST_TARGET_BRANCH:-}" ]; then', compose)
         self.assertIn('--pr-target-branch "$${PULL_REQUEST_TARGET_BRANCH}"', compose)
         self.assertIn("--report-file /work/.github/artifacts/expkits-ci-pr-report.txt", compose)
@@ -246,7 +249,12 @@ class StaticQualityConfigTests(unittest.TestCase):
         )
         self.assertIn("if: ${{ !cancelled() }}", workflow)
         self.assertIn("if: ${{ !cancelled() && steps.valgrind_checks.outcome == 'failure' }}", workflow)
-        self.assertEqual(pre_commit.count('--list-of-files "$@"'), 8)
+        self.assertEqual(pre_commit.count('--list-of-files "$@"'), 9)
+
+        pyproject = PYPROJECT_FILE.read_text(encoding="utf-8")
+        self.assertIn('"mypy==1.16.1"', pyproject)
+        self.assertIn('"pyflakes==3.3.2"', pyproject)
+        self.assertIn('"vulture==2.14"', pyproject)
 
     def test_execution_report_annotations_match_declared_python_floor(self):
         pyproject = PYPROJECT_FILE.read_text(encoding="utf-8")

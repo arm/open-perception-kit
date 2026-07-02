@@ -137,7 +137,7 @@ jobs:
         run: |
           set -euo pipefail
           .agent-runtime/openai-agent-venv/bin/python -m pip install -r .github/agent-runtime/runtime/requirements-static-analysis.txt
-          .agent-runtime/openai-agent-venv/bin/python -m mypy --config-file .github/agent-runtime/runtime/mypy.ini
+          .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/static_analysis.py
           python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_detect_secrets_quality_flow.py'
           python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_workflow_action_update_agent_flow.py'
 

@@ -46,6 +46,19 @@ class QualityChecks:
         r"^Co-authored-by:\s+Copilot Autofix powered by AI <.+@users\.noreply\.github\.com>$",
         re.IGNORECASE,
     )
+    AGENT_RUNTIME_STATIC_TRIGGER_PREFIXES = (
+        ".github/agent-runtime/",
+        "scripts/private/agent_runtime/",
+        ".github/workflows/agent-review.yml",
+        ".github/workflows/agent-stabilize-pr.yml",
+        ".github/workflows/workflow-action-update-agent",
+        ".github/actions/workflow-action-update-agent-helper/",
+    )
+    AGENT_RUNTIME_STATIC_TRIGGER_FILES = (
+        "scripts/private/workflow_action_update_agent.py",
+        "tools/expkits-ci/tests/test_workflow_action_update_agent_flow.py",
+        "tools/expkits-ci/pyproject.toml",
+    )
 
     def __init__(self):
         self.license_template_manager = LicenseTemplateManager()
@@ -501,6 +514,112 @@ class QualityChecks:
         if result:
             logger.info("No secrets detected.")
         return result
+
+    @classmethod
+    def is_agent_runtime_static_file(cls, filename):
+        normalized = filename.replace(os.sep, "/")
+        return normalized in cls.AGENT_RUNTIME_STATIC_TRIGGER_FILES or any(
+            normalized.startswith(prefix)
+            for prefix in cls.AGENT_RUNTIME_STATIC_TRIGGER_PREFIXES
+        )
+
+    @classmethod
+    def should_run_agent_runtime_static_analysis(cls, files):
+        return any(cls.is_agent_runtime_static_file(filename) for filename in files or [])
+
+    @staticmethod
+    def name_status_paths(name_status_output):
+        tokens = [token for token in name_status_output.split("\0") if token]
+        paths = []
+        index = 0
+        while index < len(tokens):
+            status = tokens[index]
+            index += 1
+            if status.startswith("R") or status.startswith("C"):
+                if index + 1 >= len(tokens):
+                    break
+                paths.extend([tokens[index], tokens[index + 1]])
+                index += 2
+                continue
+            if index >= len(tokens):
+                break
+            paths.append(tokens[index])
+            index += 1
+        return paths
+
+    @classmethod
+    def should_run_agent_runtime_static_analysis_for_name_status_command(cls, command, failure_message):
+        proc = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            encoding="utf-8",
+        )
+        if proc.returncode != 0:
+            if proc.stdout:
+                cls.log_captured_tool_output(proc.stdout)
+            logger.error(failure_message)
+            return True
+        return cls.should_run_agent_runtime_static_analysis(cls.name_status_paths(proc.stdout))
+
+    @classmethod
+    def should_run_agent_runtime_static_analysis_for_base_ref(cls, pr_target_branch):
+        return cls.should_run_agent_runtime_static_analysis_for_name_status_command(
+            ["git", "diff", "--name-status", "-z", f"origin/{pr_target_branch}...HEAD"],
+            "Could not inspect PR diff for Agent runtime static analysis.",
+        )
+
+    @classmethod
+    def should_run_agent_runtime_static_analysis_for_staged_changes(cls):
+        return cls.should_run_agent_runtime_static_analysis_for_name_status_command(
+            ["git", "diff", "--cached", "--name-status", "-z"],
+            "Could not inspect staged files for Agent runtime static analysis.",
+        )
+
+    @staticmethod
+    def check_agent_runtime_static_analysis(files=None, pr_target_branch=None, staged=False) -> bool:
+        """Run the shared Agent runtime static analysis gate when relevant files changed."""
+        files = files or []
+        should_run = QualityChecks.should_run_agent_runtime_static_analysis(files)
+        if not should_run and pr_target_branch:
+            should_run = QualityChecks.should_run_agent_runtime_static_analysis_for_base_ref(pr_target_branch)
+        if not should_run and staged:
+            should_run = QualityChecks.should_run_agent_runtime_static_analysis_for_staged_changes()
+        if not should_run:
+            logger.info("No Agent runtime files found for static analysis.")
+            return True
+
+        logger.info("Running Agent runtime static analysis...")
+        script_path = os.path.join(
+            FileUtils.get_project_root(),
+            "scripts",
+            "private",
+            "agent_runtime",
+            "static_analysis.py",
+        )
+        command = [sys.executable, script_path]
+        if pr_target_branch:
+            command.extend(["--base-ref", f"origin/{pr_target_branch}"])
+        elif staged:
+            command.append("--staged")
+
+        proc = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            encoding="utf-8",
+        )
+        if proc.returncode != 0:
+            if proc.stdout:
+                QualityChecks.log_captured_tool_output(proc.stdout)
+            logger.error("Agent runtime static analysis failed.")
+            return False
+        if proc.stdout:
+            for output_line in proc.stdout.rstrip().splitlines():
+                logger.info(output_line)
+
+        logger.info("Agent runtime static analysis passed.")
+        return True
 
     def check_clang_format(self, files, format, verbose=False) -> bool:
         """Check clang-format validity to files under folder using clang-format."""

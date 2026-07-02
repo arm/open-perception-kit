@@ -54,6 +54,7 @@ OPENAI_AGENT_TASK_CONFIG_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/tas
 OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/task_estimator.py"
 OPENAI_AGENT_MODEL_CONFIG_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/model_config.py"
 OPENAI_AGENT_REVIEW_OUTPUT_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review_output.py"
+OPENAI_AGENT_STATIC_ANALYSIS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/static_analysis.py"
 OPENAI_AGENT_WORKFLOW_PY_FILES = sorted((REPO_ROOT / "scripts/private/agent_runtime").glob("*.py"))
 OPENAI_AGENT_WORKFLOW_POLICY_FILES = [
     path
@@ -180,6 +181,10 @@ AGENT_REVIEW_OUTPUT = load_agent_workflow_module(
     OPENAI_AGENT_REVIEW_OUTPUT_SCRIPT,
     "agent_runtime.review_output",
 )
+OPENAI_AGENT_STATIC_ANALYSIS = load_agent_workflow_module(
+    OPENAI_AGENT_STATIC_ANALYSIS_SCRIPT,
+    "agent_runtime.static_analysis",
+)
 
 
 class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
@@ -301,7 +306,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             static_regression_step["run"],
         )
         self.assertIn(
-            ".agent-runtime/openai-agent-venv/bin/python -m mypy --config-file .github/agent-runtime/runtime/mypy.ini",
+            ".agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/static_analysis.py",
             static_regression_step["run"],
         )
         self.assertEqual(
@@ -558,7 +563,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             static_step["run"],
         )
         self.assertIn(
-            ".agent-runtime/openai-agent-venv/bin/python -m mypy --config-file .github/agent-runtime/runtime/mypy.ini",
+            ".agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/static_analysis.py --base-ref \"${REVIEW_BASE_REF}\"",
             static_step["run"],
         )
         checkout_step = review_steps["Checkout pull request head"]
@@ -1218,8 +1223,31 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             set(requirements),
             {
                 "mypy==1.16.1",
+                "pyflakes==3.3.2",
                 "types-PyYAML==6.0.12.20250516",
+                "vulture==2.14",
             },
+        )
+
+    def test_agent_static_analysis_derives_removed_paths_from_name_status(self):
+        name_status = "\0".join(
+            [
+                "R100",
+                "tools/retired-runner.py",
+                "tools/agent-runner.py",
+                "D",
+                "scripts/private/unused_helper.py",
+                "",
+            ]
+        )
+
+        self.assertEqual(
+            OPENAI_AGENT_STATIC_ANALYSIS.parse_removed_or_renamed_paths(name_status),
+            ["tools/retired-runner.py", "scripts/private/unused_helper.py"],
+        )
+        self.assertEqual(
+            OPENAI_AGENT_STATIC_ANALYSIS.reference_tokens_for_removed_path("tools/retired-runner.py"),
+            {"tools/retired-runner.py", "tools/retired-runner"},
         )
 
     def test_agent_models_are_centralized_and_resolved_per_instance(self):

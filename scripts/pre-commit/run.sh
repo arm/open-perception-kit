@@ -143,6 +143,8 @@ build_delta_command() {
         --shell-format
         --license-header
         --check-secrets
+        --agent-runtime-static-analysis
+        --static-analysis-staged
         --list-of-files
         "${files[@]}"
     )
@@ -159,6 +161,7 @@ build_full_command() {
         --shell-format
         --license-header
         --check-secrets
+        --agent-runtime-static-analysis
     )
 }
 
