@@ -134,6 +134,56 @@ jobs:
           rm -rf -- "$checkout_path"
           exit "$cleanup_status"
 
+  publish-rpi-browser-smoke-report:
+    name: Publish RPI browser smoke report preview
+    needs: rpi5-quick-start-build-test
+    if: |
+      always() &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      needs.rpi5-quick-start-build-test.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
+      pages: write
+      pull-requests: read
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout publisher
+        uses: actions/checkout@v6
+
+      - name: Update Pages content
+        id: pages
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          UPSTREAM_CONCLUSION: ${{ needs.rpi5-quick-start-build-test.result }}
+          UPSTREAM_EVENT: ${{ github.event_name }}
+          UPSTREAM_HEAD_BRANCH: ${{ github.head_ref || github.ref_name }}
+          UPSTREAM_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          UPSTREAM_PR_NUMBER: ${{ github.event.pull_request.number }}
+          UPSTREAM_RUN_ATTEMPT: ${{ github.run_attempt }}
+          UPSTREAM_RUN_ID: ${{ github.run_id }}
+        run: scripts/ci/publish-playwright-pages.sh publish
+
+      - name: Configure Pages
+        if: steps.pages.outputs.deploy == 'true'
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages artifact
+        if: steps.pages.outputs.deploy == 'true'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _playwright_pages_site
+
+      - name: Deploy Pages
+        if: steps.pages.outputs.deploy == 'true'
+        id: deployment
+        uses: actions/deploy-pages@v5
+
   quality-checks:
     name: Run quality checks in Docker
     runs-on: ubuntu-latest
