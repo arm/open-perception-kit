@@ -228,28 +228,10 @@ EOF
 
 write_report_shell_assets() {
     cat << 'EOF' > "${SITE_DIR}/report-shell.css"
-:root {
-  --pek-report-bg: #ffffff;
-  --pek-report-fg: #24292f;
-  --pek-report-muted: #57606a;
-  --pek-report-border: #d0d7de;
-  --pek-report-panel: #f6f8fa;
-  --pek-report-accent: #0969da;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --pek-report-bg: #0d1117;
-    --pek-report-fg: #e6edf3;
-    --pek-report-muted: #8b949e;
-    --pek-report-border: #30363d;
-    --pek-report-panel: #161b22;
-    --pek-report-accent: #58a6ff;
-  }
-}
 .pek-report-bar {
-  background: var(--pek-report-bg);
-  border-bottom: 1px solid var(--pek-report-border);
-  color: var(--pek-report-fg);
+  background: var(--color-canvas-default);
+  border-bottom: 1px solid var(--color-border-default);
+  color: var(--color-fg-default);
   font: 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   padding: 16px 24px;
 }
@@ -268,21 +250,22 @@ write_report_shell_assets() {
   overflow-wrap: anywhere;
 }
 .pek-report-meta {
-  color: var(--pek-report-muted);
+  color: var(--color-fg-muted);
   font-size: 12px;
   line-height: 18px;
 }
 .pek-report-back {
-  background: var(--pek-report-panel);
-  border: 1px solid var(--pek-report-border);
+  background: var(--color-btn-bg);
+  border: 1px solid var(--color-btn-border);
   border-radius: 6px;
-  color: var(--pek-report-accent);
+  color: var(--color-accent-fg);
   flex: none;
   padding: 6px 10px;
   text-decoration: none;
 }
 .pek-report-back:hover {
-  background: var(--pek-report-bg);
+  background: var(--color-btn-hover-bg);
+  border-color: var(--color-btn-hover-border);
 }
 @media (max-width: 640px) {
   .pek-report-bar {
