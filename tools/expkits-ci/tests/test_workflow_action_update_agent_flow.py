@@ -580,6 +580,9 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         review_steps = step_map(review_job)
 
         self.assertIn("labeled", pull_request_trigger["types"])
+        self.assertEqual(workflow["permissions"]["actions"], "read")
+        self.assertEqual(workflow["permissions"]["contents"], "read")
+        self.assertEqual(workflow["permissions"]["pull-requests"], "write")
         self.assertEqual(review_job["runs-on"], OPENAI_AGENT_RUNNER_LABEL)
         self.assertIn("github.event.action != 'labeled'", review_job["if"])
         self.assertIn("github.event.label.name == 'agent-autorepair'", review_job["if"])
