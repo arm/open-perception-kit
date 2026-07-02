@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 import subprocess
+import sys
 from typing import Any
 
 from .contracts import AgentCommand
@@ -220,10 +221,16 @@ class TaskEstimatorAgent:
 
 def task_estimate_block_reasons(
     manifest: dict[str, Any],
+) -> list[str]:
+    return deterministic_task_limit_violations(manifest)
+
+
+def task_estimate_advisory_reasons(
+    manifest: dict[str, Any],
     estimate: TaskEstimate,
 ) -> list[str]:
     max_turns = int(manifest["limits"]["max_turns"])
-    reasons = deterministic_task_limit_violations(manifest)
+    reasons: list[str] = []
     if estimate.estimated_turns > max_turns:
         reasons.append(
             f"estimator expects {estimate.estimated_turns} turns, above the {max_turns} turn limit"
@@ -240,12 +247,26 @@ async def estimate_task_fit(
     resolved_model: str,
 ) -> None:
     manifest = build_task_manifest(command, prompt, settings, resolved_model)
-    estimate = await TaskEstimatorAgent().run(manifest, settings, resolved_model)
-    block_reasons = task_estimate_block_reasons(manifest, estimate)
+    block_reasons = task_estimate_block_reasons(manifest)
     if block_reasons:
-        split = estimate.split_recommendation or "Split the change or task into a smaller focused agent run."
         raise RuntimeError(
             f"Agent task is too large for {command.value}: "
             + "; ".join(block_reasons)
-            + f". Recommendation: {split}"
+            + ". Recommendation: Split the change or task into a smaller focused agent run."
+        )
+
+    try:
+        estimate = await TaskEstimatorAgent().run(manifest, settings, resolved_model)
+    except Exception as exc:  # noqa: BLE001
+        print(f"Agent task estimator advisory unavailable: {exc}", file=sys.stderr)
+        return
+
+    advisory_reasons = task_estimate_advisory_reasons(manifest, estimate)
+    if advisory_reasons:
+        split = estimate.split_recommendation or "Split the change or task into a smaller focused agent run."
+        print(
+            f"Agent task estimator advisory for {command.value}: "
+            + "; ".join(advisory_reasons)
+            + f". Recommendation: {split}",
+            file=sys.stderr,
         )

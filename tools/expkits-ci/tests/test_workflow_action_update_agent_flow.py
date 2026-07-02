@@ -965,7 +965,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
         self.assertIn("review scope touches 3 files", reasons[0])
 
-    def test_openai_agent_runner_blocks_estimated_turn_overrun(self):
+    def test_openai_agent_runner_reports_estimated_turn_overrun_as_advisory(self):
         estimator = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT,
             "agent_runtime.task_estimator_fake_sdk_turn_limit",
@@ -990,10 +990,12 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             split_recommendation="Split by workflow.",
         )
 
-        reasons = estimator.task_estimate_block_reasons(manifest, cast(Any, estimate))
+        block_reasons = estimator.task_estimate_block_reasons(manifest)
+        advisory_reasons = estimator.task_estimate_advisory_reasons(manifest, cast(Any, estimate))
 
+        self.assertEqual(block_reasons, [])
         self.assertEqual(
-            reasons,
+            advisory_reasons,
             [f"estimator expects {OPENAI_REVIEW_MAX_TURNS + 1} turns, above the {OPENAI_REVIEW_MAX_TURNS} turn limit"],
         )
 
