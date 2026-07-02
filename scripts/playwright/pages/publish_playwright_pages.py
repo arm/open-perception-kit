@@ -66,6 +66,10 @@ def require_env(name: str) -> str:
     return value
 
 
+def dry_run_enabled() -> bool:
+    return env("PLAYWRIGHT_PAGES_DRY_RUN") == "1"
+
+
 def set_output(name: str, value: str) -> None:
     output = env("GITHUB_OUTPUT")
     if output:
@@ -130,6 +134,15 @@ def git_with_auth_maybe(args: list[str], site_dir: Path, auth_header: str,
 
 
 def checkout_site_branch(site_dir: Path, storage_branch: str) -> None:
+    if dry_run_enabled():
+        if site_dir.exists():
+            shutil.rmtree(site_dir)
+        site_dir.mkdir(parents=True)
+        run(["git", "-C", str(site_dir), "init", "-b", storage_branch], quiet=True)
+        run(["git", "-C", str(site_dir), "config", "user.name", "local-playwright-pages"])
+        run(["git", "-C", str(site_dir), "config", "user.email", "local@example.invalid"])
+        return
+
     repository = require_env("GITHUB_REPOSITORY")
     auth_header = git_auth_header()
     print(f"::add-mask::{auth_header}")
@@ -166,8 +179,12 @@ def push_site_branch(site_dir: Path, storage_branch: str) -> bool:
     if diff.returncode == 0:
         return False
 
-    auth_header = git_auth_header()
     run(["git", "-C", str(site_dir), "commit", "-m", "Update Playwright report pages"])
+    if dry_run_enabled():
+        print(f"Dry-run: generated Playwright Pages site at {site_dir}")
+        return True
+
+    auth_header = git_auth_header()
     git_with_auth(["push", "origin", f"HEAD:{storage_branch}"], site_dir, auth_header)
     return True
 
@@ -460,6 +477,15 @@ def build_report_index_meta_text(branch: str, head_sha: str, run_id: str, run_at
 
 
 def download_report_artifact(artifact_dir: Path, repository: str, run_id: str, run_attempt: str) -> bool:
+    local_report_dir = env("PLAYWRIGHT_PAGES_LOCAL_REPORT_DIR")
+    if local_report_dir:
+        source = Path(local_report_dir)
+        if not (source / "index.html").is_file():
+            raise PublishError(f"Local Playwright report not found: {source}")
+        target = artifact_dir / "local-artifact" / "playwright-report"
+        shutil.copytree(source, target)
+        return True
+
     artifact_name = f"rpi-browser-smoke-{run_id}-{run_attempt}"
     result = subprocess.run(
         ["gh", "run", "download", run_id, "--repo", repository, "--name", artifact_name, "--dir", str(artifact_dir)],

@@ -22,7 +22,7 @@ the browser engines Playwright supports.
 - `browser-smoke/run.sh` is the local and CI entrypoint for the browser smoke
   run.
 - `pages/` publishes Playwright HTML reports to GitHub Pages.
-- `pages/publish.sh` is the GitHub Actions entrypoint for report publish and
+- `pages/run.sh` is the local and GitHub Actions entrypoint for report publish and
   cleanup.
 - `pages/assets/` contains the CSS and JavaScript injected into published
   reports.
@@ -72,16 +72,34 @@ browser phases into one Playwright HTML report.
 The Pages publisher consumes the `rpi-browser-smoke-<run-id>-<attempt>` artifact
 from GitHub Actions and updates the persistent Pages site.
 
-The workflow entrypoints are:
+The workflow entrypoints run the publisher inside a small Docker image:
 
 ```bash
-./scripts/playwright/pages/publish.sh publish
-./scripts/playwright/pages/publish.sh cleanup
+./scripts/playwright/pages/run.sh publish
+./scripts/playwright/pages/run.sh cleanup
 ```
 
 `publish` is intended for `workflow_run` events from the PEK CI workflow.
 `cleanup` is intended for scheduled or manual cleanup of closed PR reports after
 the retention window.
+
+Run a local publish dry-run from an existing `playwright-report/` directory:
+
+```bash
+PLAYWRIGHT_PAGES_DRY_RUN=1 \
+PLAYWRIGHT_PAGES_LOCAL_REPORT_DIR=playwright-report \
+PLAYWRIGHT_PAGES_SITE_DIR=tmp/playwright-pages-local \
+GITHUB_REPOSITORY=Arm-Debug/amp-dev-forge \
+UPSTREAM_CONCLUSION=success \
+UPSTREAM_EVENT=pull_request \
+UPSTREAM_HEAD_BRANCH="$(git branch --show-current)" \
+UPSTREAM_HEAD_REPOSITORY=Arm-Debug/amp-dev-forge \
+UPSTREAM_HEAD_SHA="$(git rev-parse HEAD)" \
+UPSTREAM_PR_NUMBER=181 \
+UPSTREAM_RUN_ATTEMPT=local \
+UPSTREAM_RUN_ID=local \
+./scripts/playwright/pages/run.sh publish
+```
 
 The publisher is implemented in Python so the HTML generation, source-link
 mapping, retention decisions, and Playwright report injection points can be unit

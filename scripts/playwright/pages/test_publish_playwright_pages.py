@@ -5,6 +5,7 @@
 
 import datetime as dt
 import importlib.util
+import os
 import sys
 import tempfile
 import unittest
@@ -149,6 +150,28 @@ class TestPublishPlaywrightPages(unittest.TestCase):
         self.assertFalse(publish.should_prune_closed_pr("MERGED", "2026-07-02T00:01:00Z", cutoff))
         self.assertFalse(publish.should_prune_closed_pr("OPEN", "2026-07-01T23:59:00Z", cutoff))
         self.assertFalse(publish.should_prune_closed_pr("CLOSED", "", cutoff))
+
+    def test_download_report_artifact_uses_local_report_dir(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            local_report = root / "playwright-report"
+            local_report.mkdir()
+            (local_report / "index.html").write_text("<html></html>", encoding="utf-8")
+
+            with patch.dict(os.environ, {"PLAYWRIGHT_PAGES_LOCAL_REPORT_DIR": str(local_report)}):
+                self.assertTrue(publish.download_report_artifact(root / "artifact", "repo", "run", "attempt"))
+
+            self.assertTrue((root / "artifact" / "local-artifact" / "playwright-report" / "index.html").is_file())
+
+    def test_dry_run_site_branch_does_not_need_github_token(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = Path(tmpdir)
+            with patch.dict(os.environ, {"PLAYWRIGHT_PAGES_DRY_RUN": "1"}, clear=True):
+                publish.checkout_site_branch(site_dir, "local-pages")
+                (site_dir / "index.html").write_text("<html></html>", encoding="utf-8")
+
+                self.assertTrue(publish.push_site_branch(site_dir, "local-pages"))
+                self.assertTrue((site_dir / ".git").is_dir())
 
 
 if __name__ == "__main__":
