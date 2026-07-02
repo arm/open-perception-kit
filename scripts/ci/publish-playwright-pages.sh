@@ -382,36 +382,9 @@ EOF
     } > "${report_dir}/index.html"
 }
 
-read_report_html_file() {
-    local report_dir="$1"
-    local file_name="$2"
-    local fallback="$3"
-    local html_file="${report_dir}/${file_name}"
-
-    if [ -f "${html_file}" ]; then
-        cat "${html_file}"
-    else
-        printf '%s' "${fallback}" | html_escape
-    fi
-}
-
-write_report_row() {
-    local href="$1"
-    local title_html="$2"
-    local meta_html="$3"
-
-    printf '          <div class="report-link"><span><span class="report-title">%s</span><span class="report-meta">%s</span></span><a class="badge" href="%s">Open</a></div>\n' \
-        "${title_html}" \
-        "${meta_html}" \
-        "$(printf '%s' "${href}" | html_escape)"
-}
-
 write_site_index() {
-    local meta_html=""
     local pr_dir=""
     local pr_number=""
-    local repo_url="https://github.com/${GITHUB_REPOSITORY}"
-    local title_html=""
 
     {
         write_index_head "${PRODUCT_TITLE}" "report-index.css"
@@ -425,8 +398,7 @@ write_site_index() {
         <div class="report-list">
 EOF
         if [ -f "${SITE_DIR}/nightly/index.html" ]; then
-            meta_html="$(read_report_html_file "${SITE_DIR}/nightly" "report-source-meta.html" "Scheduled main run")"
-            write_report_row "nightly/" "Latest nightly" "${meta_html}"
+            echo '          <a class="report-link" href="nightly/"><span><span class="report-title">Latest nightly</span><span class="report-meta">Scheduled main run</span></span><span class="badge">Open</span></a>'
         else
             echo '          <div class="empty">No nightly report published yet.</div>'
         fi
@@ -443,9 +415,9 @@ EOF
                 while IFS= read -r pr_dir; do
                     pr_number="${pr_dir##*/}"
                     [ -f "${pr_dir}/index.html" ] || continue
-                    title_html="$(html_anchor "${repo_url}/pull/${pr_number}" "PR #${pr_number}")"
-                    meta_html="$(read_report_html_file "${pr_dir}" "report-source-meta.html" "Latest published pull request report")"
-                    write_report_row "prs/${pr_number}/" "${title_html}" "${meta_html}"
+                    printf '          <a class="report-link" href="prs/%s/"><span><span class="report-title">PR #%s</span><span class="report-meta">Latest published pull request report</span></span><span class="badge">Open</span></a>\n' \
+                        "$(printf '%s' "${pr_number}" | html_escape)" \
+                        "$(printf '%s' "${pr_number}" | html_escape)"
                 done
         fi
         cat << 'EOF'
