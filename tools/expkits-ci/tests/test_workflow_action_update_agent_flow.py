@@ -387,23 +387,33 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         opener = mock.Mock()
         opener.open.side_effect = redirect_error
-        redirect_response = mock.MagicMock()
-        redirect_response.__enter__.return_value = redirect_response
+        redirect_response = mock.MagicMock(status=200, reason="OK")
         redirect_response.read.return_value = b"zip-bytes"
+        redirect_connection = mock.MagicMock()
+        redirect_connection.getresponse.return_value = redirect_response
 
         with mock.patch.dict(os.environ, {"GH_TOKEN": "test-token"}, clear=False):
             with mock.patch("urllib.request.build_opener", return_value=opener):
-                with mock.patch("urllib.request.urlopen", return_value=redirect_response) as urlopen:
+                with mock.patch("http.client.HTTPSConnection", return_value=redirect_connection) as connection:
                     result = HELPER.download_github_archive(
                         "https://api.github.com/repos/Arm-Debug/amp-dev-forge/actions/artifacts/1/zip",
                     )
 
         self.assertEqual(result, b"zip-bytes")
-        self.assertEqual(urlopen.call_args.args[0].full_url, "https://objects.githubusercontent.com/archive.zip")
+        connection.assert_called_once_with("objects.githubusercontent.com", timeout=60)
+        redirect_connection.request.assert_called_once_with(
+            "GET",
+            "/archive.zip",
+            headers={"User-Agent": "workflow-action-update-agent"},
+        )
+        redirect_connection.close.assert_called_once_with()
 
     def test_download_github_archive_rejects_unsafe_redirect_location(self):
+        cleartext_location = urllib.parse.urlunsplit(
+            ("http", "objects.githubusercontent.com", "/archive.zip", "", "")
+        )
         for location in (
-            "http://objects.githubusercontent.com/archive.zip",
+            cleartext_location,
             "https://example.com/archive.zip",
         ):
             with self.subTest(location=location):

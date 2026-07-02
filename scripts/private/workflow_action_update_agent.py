@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import http.client
 import io
 import json
 import os
@@ -76,6 +77,7 @@ GITHUB_ARCHIVE_REDIRECT_HOST_SUFFIXES = (
     ".blob.core.windows.net",
     ".githubusercontent.com",
 )
+GITHUB_ARCHIVE_DOWNLOAD_TIMEOUT_SECONDS = 60
 
 
 def run_command(
@@ -152,14 +154,37 @@ def github_archive_api_url(url: str) -> str:
     return url
 
 
-def github_archive_redirect_url(url: str) -> str:
+def github_archive_redirect_parts(url: str) -> tuple[str, str]:
     parsed = urllib.parse.urlsplit(url)
     if parsed.scheme != "https":
         raise ValueError("GitHub archive redirect URL must use https.")
     hostname = url_hostname(url)
     if not any(hostname.endswith(suffix) for suffix in GITHUB_ARCHIVE_REDIRECT_HOST_SUFFIXES):
         raise ValueError("GitHub archive redirect URL must use a GitHub artifact host.")
-    return url
+    path = urllib.parse.urlunsplit(("", "", parsed.path or "/", parsed.query, ""))
+    return hostname, path
+
+
+def github_archive_redirect_bytes(url: str) -> bytes:
+    hostname, path = github_archive_redirect_parts(url)
+    connection = http.client.HTTPSConnection(
+        hostname,
+        timeout=GITHUB_ARCHIVE_DOWNLOAD_TIMEOUT_SECONDS,
+    )
+    try:
+        connection.request(
+            "GET",
+            path,
+            headers={"User-Agent": "workflow-action-update-agent"},
+        )
+        response = connection.getresponse()
+        if response.status != 200:
+            raise RuntimeError(
+                f"GitHub archive redirect download failed with HTTP {response.status} {response.reason}"
+            )
+        return response.read()
+    finally:
+        connection.close()
 
 
 def github_api_token() -> str:
@@ -209,9 +234,7 @@ def download_github_archive(url: str) -> bytes:
         location = exc.headers.get("Location", "")
         if not location:
             raise
-        redirect_request = urllib.request.Request(github_archive_redirect_url(location))
-        with urllib.request.urlopen(redirect_request) as response:
-            return response.read()
+        return github_archive_redirect_bytes(location)
 
 
 def extract_archive_bytes(archive_bytes: bytes, destination: Path) -> list[Path]:
