@@ -573,12 +573,16 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
     def test_agent_review_workflow_uses_openai_sdk_proxy_flow(self):
         workflow = load_yaml(AGENT_REVIEW_WORKFLOW_FILE)
+        pull_request_trigger = workflow["on"]["pull_request"]
         dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
         review_job = workflow["jobs"]["review"]
         auto_stabilize_job = workflow["jobs"]["auto-stabilize-pr"]
         review_steps = step_map(review_job)
 
+        self.assertIn("labeled", pull_request_trigger["types"])
         self.assertEqual(review_job["runs-on"], OPENAI_AGENT_RUNNER_LABEL)
+        self.assertIn("github.event.action != 'labeled'", review_job["if"])
+        self.assertIn("github.event.label.name == 'agent-autorepair'", review_job["if"])
         self.assertEqual(auto_stabilize_job["needs"], "review")
         self.assertEqual(
             auto_stabilize_job["uses"],
@@ -587,6 +591,12 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("github.event_name == 'pull_request'", auto_stabilize_job["if"])
         self.assertIn("needs.review.result == 'success'", auto_stabilize_job["if"])
         self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", auto_stabilize_job["if"])
+        self.assertIn(
+            "contains(github.event.pull_request.labels.*.name, 'agent-autorepair')",
+            auto_stabilize_job["if"],
+        )
+        self.assertIn("github.event.action != 'labeled'", auto_stabilize_job["if"])
+        self.assertIn("github.event.label.name == 'agent-autorepair'", auto_stabilize_job["if"])
         self.assertEqual(auto_stabilize_job["permissions"]["actions"], "read")
         self.assertEqual(auto_stabilize_job["permissions"]["contents"], "write")
         self.assertEqual(auto_stabilize_job["permissions"]["pull-requests"], "write")
