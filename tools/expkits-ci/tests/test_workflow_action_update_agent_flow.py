@@ -2602,6 +2602,52 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             self.assertEqual(ensure_validation_workflow_run.call_count, 3)
             merge_pr.assert_not_called()
 
+    def test_read_pr_details_returns_same_repository_branch_details(self):
+        with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
+            with mock.patch.object(
+                HELPER,
+                "github_api_json",
+                return_value={
+                    "head": {
+                        "ref": REPAIR_BRANCH,
+                        "sha": "feedface",
+                        "repo": {"full_name": "Arm-Debug/amp-dev-forge"},
+                    },
+                    "base": {
+                        "ref": "main",
+                        "repo": {"full_name": "Arm-Debug/amp-dev-forge"},
+                    },
+                },
+            ) as github_api_json:
+                details = HELPER.read_pr_details("175")
+
+        self.assertEqual(github_api_json.call_args.args[0], "repos/Arm-Debug/amp-dev-forge/pulls/175")
+        self.assertEqual(details["repair_branch"], REPAIR_BRANCH)
+        self.assertEqual(details["head_sha"], "feedface")
+        self.assertEqual(details["target_branch"], "main")
+        self.assertEqual(details["head_repository"], "Arm-Debug/amp-dev-forge")
+        self.assertEqual(details["base_repository"], "Arm-Debug/amp-dev-forge")
+
+    def test_read_pr_details_rejects_fork_pull_request_stabilization(self):
+        with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
+            with mock.patch.object(
+                HELPER,
+                "github_api_json",
+                return_value={
+                    "head": {
+                        "ref": "feature/fork-branch",
+                        "sha": "feedface",
+                        "repo": {"full_name": "contributor/amp-dev-forge"},
+                    },
+                    "base": {
+                        "ref": "main",
+                        "repo": {"full_name": "Arm-Debug/amp-dev-forge"},
+                    },
+                },
+            ):
+                with self.assertRaisesRegex(RuntimeError, "only supports same-repository pull requests"):
+                    HELPER.read_pr_details("175")
+
     def test_prepare_stabilization_context_writes_prompt_and_outputs(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             context_root = Path(temp_dir) / "context"

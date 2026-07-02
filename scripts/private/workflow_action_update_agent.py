@@ -670,10 +670,21 @@ def read_pr_details(pr_number: str) -> dict[str, str]:
         raise RuntimeError(f"Unexpected PR payload for PR #{pr_number}.")
     head = dict(payload.get("head") or {})
     base = dict(payload.get("base") or {})
+    head_repository = str(dict(head.get("repo") or {}).get("full_name") or "").strip()
+    base_repository = str(dict(base.get("repo") or {}).get("full_name") or "").strip()
+    if not head_repository:
+        raise RuntimeError(f"Unable to resolve head repository for PR #{pr_number}.")
+    if head_repository != repository:
+        raise RuntimeError(
+            "Agent PR stabilization only supports same-repository pull requests; "
+            f"PR #{pr_number} head repository is '{head_repository}', expected '{repository}'."
+        )
     return {
         "repair_branch": str(head.get("ref") or ""),
         "head_sha": str(head.get("sha") or ""),
         "target_branch": str(base.get("ref") or ""),
+        "head_repository": head_repository,
+        "base_repository": base_repository,
     }
 
 
