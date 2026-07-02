@@ -268,9 +268,9 @@ write_report_shell_assets() {
 }
 .pek-report-title {
   flex: none;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
-  line-height: 20px;
+  line-height: 24px;
   overflow-wrap: anywhere;
 }
 .pek-report-meta {
