@@ -1472,6 +1472,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         sonar = load_yaml(SONAR_WORKFLOW_FILE)
         pek_inputs = pek_ci["on"]["workflow_dispatch"]["inputs"]
         sonar_inputs = sonar["on"]["workflow_dispatch"]["inputs"]
+        pek_steps = step_map(pek_ci["jobs"]["quality-checks"])
         sonar_steps = step_map(sonar["jobs"]["build-and-sonar"])
 
         self.assertEqual(
@@ -1482,9 +1483,18 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             set(sonar_inputs.keys()),
             {"pr_number", "pr_base_ref", "pr_head_ref", "pr_head_sha"},
         )
-        self.assertIn("inputs.pr_head_sha", pek_ci["jobs"]["quality-checks"]["steps"][0]["with"]["ref"])
-        self.assertIn("github.event.inputs.pr_head_ref", sonar_steps["Checkout"]["with"]["ref"])
-        self.assertIn("github.event.inputs.pr_number", sonar_steps["SonarQube analysis"]["env"]["PR_KEY"])
+        self.assertIn("Resolve manual PR context", pek_steps)
+        self.assertIn("Resolve manual PR context", sonar_steps)
+        self.assertIn("inputs.pr_head_sha", pek_steps["Checkout"]["with"]["ref"])
+        self.assertIn("steps.manual_pr.outputs.head_sha", pek_steps["Checkout"]["with"]["ref"])
+        self.assertIn("inputs.pr_head_sha", sonar_steps["Checkout"]["with"]["ref"])
+        self.assertIn("steps.manual_pr.outputs.head_sha", sonar_steps["Checkout"]["with"]["ref"])
+        self.assertIn(
+            "steps.manual_pr.outputs.base_ref",
+            pek_steps["Check Repo Quality gate (PR)"]["run"],
+        )
+        self.assertIn("inputs.pr_number", sonar_steps["SonarQube analysis"]["env"]["PR_KEY"])
+        self.assertIn("steps.manual_pr.outputs.base_ref", sonar_steps["SonarQube analysis"]["env"]["PR_BASE"])
 
     def test_stabilizer_workflow_uses_canonical_agent_review_shape(self):
         workflow = load_yaml(STABILIZER_WORKFLOW_FILE)

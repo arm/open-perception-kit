@@ -49,12 +49,27 @@ jobs:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
 
+      - name: Resolve manual PR context
+        id: manual_pr
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          pr_number="${{ inputs.pr_number }}"
+          repo="${{ github.repository }}"
+          {
+            echo "base_ref=$(gh pr view "${pr_number}" --repo "${repo}" --json baseRefName --jq .baseRefName)"
+            echo "head_ref=$(gh pr view "${pr_number}" --repo "${repo}" --json headRefName --jq .headRefName)"
+            echo "head_sha=$(gh pr view "${pr_number}" --repo "${repo}" --json headRefOid --jq .headRefOid)"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Checkout
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ github.event.inputs.pr_head_sha || github.event.inputs.pr_head_ref || github.head_ref || github.ref }}
+          ref: ${{ inputs.pr_head_sha || steps.manual_pr.outputs.head_sha || inputs.pr_head_ref || steps.manual_pr.outputs.head_ref || github.head_ref || github.ref }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
       - name: Export isolated workspace root
@@ -71,11 +86,11 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_BRANCH: ${{ github.event.inputs.pr_head_ref || github.head_ref || github.ref_name }}
+          SONAR_BRANCH: ${{ inputs.pr_head_ref || steps.manual_pr.outputs.head_ref || github.head_ref || github.ref_name }}
           SONAR_QUALITYGATE_WAIT: "false"
-          PR_KEY: ${{ github.event.inputs.pr_number || github.event.pull_request.number || '' }}
-          PR_BRANCH: ${{ github.event.inputs.pr_head_ref || github.head_ref || '' }}
-          PR_BASE: ${{ github.event.inputs.pr_base_ref || github.base_ref || '' }}
+          PR_KEY: ${{ inputs.pr_number || github.event.pull_request.number || '' }}
+          PR_BRANCH: ${{ inputs.pr_head_ref || steps.manual_pr.outputs.head_ref || github.head_ref || '' }}
+          PR_BASE: ${{ inputs.pr_base_ref || steps.manual_pr.outputs.base_ref || github.base_ref || '' }}
 
       - name: Probe Sonar API access
         if: always()
@@ -83,10 +98,10 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_BRANCH: ${{ github.event.inputs.pr_head_ref || github.head_ref || github.ref_name }}
-          PR_KEY: ${{ github.event.inputs.pr_number || github.event.pull_request.number || '' }}
-          PR_BRANCH: ${{ github.event.inputs.pr_head_ref || github.head_ref || '' }}
-          PR_BASE: ${{ github.event.inputs.pr_base_ref || github.base_ref || '' }}
+          SONAR_BRANCH: ${{ inputs.pr_head_ref || steps.manual_pr.outputs.head_ref || github.head_ref || github.ref_name }}
+          PR_KEY: ${{ inputs.pr_number || github.event.pull_request.number || '' }}
+          PR_BRANCH: ${{ inputs.pr_head_ref || steps.manual_pr.outputs.head_ref || github.head_ref || '' }}
+          PR_BASE: ${{ inputs.pr_base_ref || steps.manual_pr.outputs.base_ref || github.base_ref || '' }}
         run: |
           set -euo pipefail
           probe_file="${RUNNER_TEMP}/sonar-api-access-probe.txt"
@@ -135,10 +150,10 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_BRANCH: ${{ github.event.inputs.pr_head_ref || github.head_ref || github.ref_name }}
-          PR_KEY: ${{ github.event.inputs.pr_number || github.event.pull_request.number || '' }}
-          PR_BRANCH: ${{ github.event.inputs.pr_head_ref || github.head_ref || '' }}
-          PR_BASE: ${{ github.event.inputs.pr_base_ref || github.base_ref || '' }}
+          SONAR_BRANCH: ${{ inputs.pr_head_ref || steps.manual_pr.outputs.head_ref || github.head_ref || github.ref_name }}
+          PR_KEY: ${{ inputs.pr_number || github.event.pull_request.number || '' }}
+          PR_BRANCH: ${{ inputs.pr_head_ref || steps.manual_pr.outputs.head_ref || github.head_ref || '' }}
+          PR_BASE: ${{ inputs.pr_base_ref || steps.manual_pr.outputs.base_ref || github.base_ref || '' }}
         run: |
           set -euo pipefail
           # The Sonar container runs on a bind-mounted checkout and may leave parts of

@@ -9,8 +9,8 @@ on:
         default: ""
         type: string
       pr_base_ref:
-        description: Required PR base branch when pr_number is set for manual PR-context runs.
-        required: true
+        description: Optional PR base branch override for manual PR-context runs.
+        required: false
         default: ""
         type: string
       pr_head_ref:
@@ -151,11 +151,27 @@ jobs:
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      - uses: actions/checkout@v6
+      - name: Resolve manual PR context
+        id: manual_pr
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          pr_number="${{ inputs.pr_number }}"
+          repo="${{ github.repository }}"
+          {
+            echo "base_ref=$(gh pr view "${pr_number}" --repo "${repo}" --json baseRefName --jq .baseRefName)"
+            echo "head_ref=$(gh pr view "${pr_number}" --repo "${repo}" --json headRefName --jq .headRefName)"
+            echo "head_sha=$(gh pr view "${pr_number}" --repo "${repo}" --json headRefOid --jq .headRefOid)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ inputs.pr_head_sha || inputs.pr_head_ref || github.head_ref || github.ref }}
+          ref: ${{ inputs.pr_head_sha || steps.manual_pr.outputs.head_sha || inputs.pr_head_ref || steps.manual_pr.outputs.head_ref || github.head_ref || github.ref }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
       - name: Build docker image
@@ -193,7 +209,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          export PULL_REQUEST_TARGET_BRANCH="${{ inputs.pr_base_ref || github.base_ref }}"
+          export PULL_REQUEST_TARGET_BRANCH="${{ inputs.pr_base_ref || steps.manual_pr.outputs.base_ref || github.base_ref }}"
           # The checkout auth includeIf rules do not apply inside our /work-mounted compose container.
           git_basic_auth="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
           export GIT_CONFIG_COUNT=1
@@ -231,7 +247,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ] || [ -n "${{ inputs.pr_number }}" ]; then
-            export PULL_REQUEST_TARGET_BRANCH="${{ inputs.pr_base_ref || github.base_ref }}"
+            export PULL_REQUEST_TARGET_BRANCH="${{ inputs.pr_base_ref || steps.manual_pr.outputs.base_ref || github.base_ref }}"
             # The checkout auth includeIf rules do not apply inside our /work-mounted compose container.
             git_basic_auth="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
             export GIT_CONFIG_COUNT=1
