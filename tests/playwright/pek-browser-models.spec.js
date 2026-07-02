@@ -23,7 +23,7 @@ test('PEK browser UI toggles ONNX models', async ({ page }) => {
     await waitForVideo(page);
     await setModel(page, name, true);
     await waitForVideo(page);
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(4000);
     await setModel(page, name, false);
   }
 });

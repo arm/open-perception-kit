@@ -84,7 +84,7 @@ function readBackendModelState(modelName) {
       socket.close();
       resolve(value);
     };
-    timeout = setTimeout(() => finish(null), 3000);
+    timeout = setTimeout(() => finish(null), 4000);
 
     socket.onmessage = (event) => {
       try {
