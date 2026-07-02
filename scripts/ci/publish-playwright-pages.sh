@@ -289,6 +289,13 @@ write_report_shell_assets() {
 .pek-report-meta a:hover {
   text-decoration: underline;
 }
+.pek-source-link {
+  color: var(--color-accent-fg);
+  text-decoration: none;
+}
+.pek-source-link:hover {
+  text-decoration: underline;
+}
 .pek-report-back {
   border-radius: 6px;
   color: var(--color-accent-fg);
@@ -392,6 +399,51 @@ EOF
   ];
 
   const clean = (text) => (text || '').replace(/\s+/g, ' ').trim();
+  const sourcePattern = /(^|[^\w/.:-])((?:[\w.-]+\/)*[\w.-]+\.(?:c|cc|cpp|cxx|h|hh|hpp|js|jsx|mjs|cjs|ts|tsx|py|sh|bash|cmake|txt|json|ya?ml|md):\d+(?::\d+)?)/g;
+  let sourceConfig;
+
+  const getSourceConfig = () => {
+    if (sourceConfig) {
+      return sourceConfig;
+    }
+
+    const bar = document.querySelector('.pek-report-bar');
+    const repository = bar?.dataset.repository;
+    const commit = bar?.dataset.commit;
+    if (!repository || !commit) {
+      return undefined;
+    }
+
+    try {
+      sourceConfig = {
+        repository,
+        commit,
+        files: JSON.parse(document.getElementById('pek-report-source-map')?.textContent || '{}')
+      };
+    } catch {
+      sourceConfig = { repository, commit, files: {} };
+    }
+    return sourceConfig;
+  };
+
+  const sourcePathFor = (file) => {
+    const source = getSourceConfig();
+    if (!source) {
+      return '';
+    }
+    const path = file.replace(/^\.\//, '');
+    return path.includes('/') ? path : (source.files[path] || '');
+  };
+
+  const sourceHref = (file, line) => {
+    const source = getSourceConfig();
+    const path = sourcePathFor(file);
+    if (!source || !path) {
+      return '';
+    }
+    const encodedPath = path.split('/').map(encodeURIComponent).join('/');
+    return `https://github.com/${source.repository}/blob/${source.commit}/${encodedPath}#L${line}`;
+  };
 
   const ensureId = (element, index) => {
     if (element.id) {
@@ -426,6 +478,62 @@ EOF
     }
 
     return sections;
+  };
+
+  const linkSourceReferences = () => {
+    if (!getSourceConfig()) {
+      return;
+    }
+
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) => {
+        const parent = node.parentElement;
+        if (!parent || parent.closest('a,button,script,select,style,textarea,#pek-report-tools')) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        sourcePattern.lastIndex = 0;
+        return sourcePattern.test(node.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      }
+    });
+    const nodes = [];
+    let node;
+
+    while ((node = walker.nextNode())) {
+      nodes.push(node);
+    }
+
+    for (const textNode of nodes) {
+      const fragment = document.createDocumentFragment();
+      const text = textNode.nodeValue;
+      let changed = false;
+      let last = 0;
+      let match;
+
+      sourcePattern.lastIndex = 0;
+      while ((match = sourcePattern.exec(text))) {
+        const reference = match[2];
+        const start = match.index + match[0].indexOf(reference);
+        const [, file, line] = reference.match(/^(.*):(\d+)(?::\d+)?$/) || [];
+        const href = file && line ? sourceHref(file, line) : '';
+        if (!href) {
+          continue;
+        }
+
+        fragment.append(document.createTextNode(text.slice(last, start)));
+        const link = document.createElement('a');
+        link.className = 'pek-source-link';
+        link.href = href;
+        link.textContent = reference;
+        fragment.append(link);
+        last = start + reference.length;
+        changed = true;
+      }
+
+      if (changed) {
+        fragment.append(document.createTextNode(text.slice(last)));
+        textNode.replaceWith(fragment);
+      }
+    }
   };
 
   const init = () => {
@@ -463,9 +571,14 @@ EOF
       syncRoot();
     };
 
-    const scheduleRebuild = () => {
+    const refresh = () => {
+      rebuild();
+      linkSourceReferences();
+    };
+
+    const scheduleRefresh = () => {
       clearTimeout(rebuildTimer);
-      rebuildTimer = setTimeout(rebuild, 250);
+      rebuildTimer = setTimeout(refresh, 250);
     };
 
     jump.addEventListener('change', () => {
@@ -482,10 +595,10 @@ EOF
       if (mutations.every((mutation) => root.contains(mutation.target))) {
         return;
       }
-      scheduleRebuild();
+      scheduleRefresh();
     }).observe(document.body, { childList: true, subtree: true });
 
-    rebuild();
+    refresh();
   };
 
   if (document.readyState === 'loading') {
@@ -495,6 +608,58 @@ EOF
   }
 })();
 EOF
+}
+
+source_file_list() {
+    if [ -n "${UPSTREAM_HEAD_SHA:-}" ]; then
+        if git cat-file -e "${UPSTREAM_HEAD_SHA}^{tree}" 2> /dev/null; then
+            git ls-tree -r --name-only "${UPSTREAM_HEAD_SHA}"
+            return
+        fi
+        if git fetch --depth=1 origin "${UPSTREAM_HEAD_SHA}" > /dev/null 2>&1 &&
+            git cat-file -e "${UPSTREAM_HEAD_SHA}^{tree}" 2> /dev/null; then
+            git ls-tree -r --name-only "${UPSTREAM_HEAD_SHA}"
+            return
+        fi
+    fi
+
+    git ls-files
+}
+
+build_source_map_json() {
+    source_file_list | awk -F/ '
+        {
+            path = $0
+            base = $NF
+            if (base != "CMakeLists.txt" &&
+                path !~ /\.(c|cc|cpp|cxx|h|hh|hpp|js|jsx|mjs|cjs|ts|tsx|py|sh|bash|cmake|txt|json|ya?ml|md)$/) {
+                next
+            }
+            count[base]++
+            paths[base] = path
+        }
+        END {
+            printf "{"
+            for (base in paths) {
+                if (count[base] != 1) {
+                    continue
+                }
+                if (printed) {
+                    printf ","
+                }
+                printf "%s:%s", json(base), json(paths[base])
+                printed = 1
+            }
+            printf "}"
+        }
+        function json(value) {
+            gsub(/\\/, "\\\\", value)
+            gsub(/"/, "\\\"", value)
+            gsub(/\t/, "\\t", value)
+            gsub(/\r/, "\\r", value)
+            return "\"" value "\""
+        }
+    '
 }
 
 write_index_head() {
@@ -612,6 +777,9 @@ decorate_playwright_report() {
     local css_href=""
     local index_file="${report_dir}/index.html"
     local js_href=""
+    local repository_attr=""
+    local source_map_json=""
+    local source_sha_attr=""
     local tmp_file=""
 
     [ -f "${index_file}" ] || return
@@ -619,6 +787,9 @@ decorate_playwright_report() {
 
     css_href="${back_href}report-shell.css"
     js_href="${back_href}report-shell.js"
+    repository_attr="$(printf '%s' "${GITHUB_REPOSITORY:-}" | html_escape)"
+    source_sha_attr="$(printf '%s' "${UPSTREAM_HEAD_SHA:-}" | html_escape)"
+    source_map_json="$(build_source_map_json)"
     tmp_file="$(mktemp)"
     awk \
         -v css_href="$(printf '%s' "${css_href}" | html_escape)" \
@@ -626,6 +797,9 @@ decorate_playwright_report() {
         -v title="$(printf '%s' "${title}" | html_escape)" \
         -v back_href="$(printf '%s' "${back_href}" | html_escape)" \
         -v meta_html="${meta_html}" \
+        -v repository_attr="${repository_attr}" \
+        -v source_map_json="${source_map_json}" \
+        -v source_sha_attr="${source_sha_attr}" \
         '
         /<\/head>/ && !linked {
             print "    <link rel=\"stylesheet\" href=\"" css_href "\">"
@@ -634,7 +808,8 @@ decorate_playwright_report() {
         }
         { print }
         /<body[^>]*>/ && !decorated {
-            print "    <div class=\"pek-report-bar\"><div class=\"pek-report-bar-inner\"><div class=\"pek-report-info\"><span class=\"pek-report-title\">" title "</span><span class=\"pek-report-meta\">" meta_html "</span></div><a class=\"pek-report-back\" href=\"" back_href "\">Back to report index</a></div></div>"
+            print "    <script type=\"application/json\" id=\"pek-report-source-map\">" source_map_json "</script>"
+            print "    <div class=\"pek-report-bar\" data-repository=\"" repository_attr "\" data-commit=\"" source_sha_attr "\"><div class=\"pek-report-bar-inner\"><div class=\"pek-report-info\"><span class=\"pek-report-title\">" title "</span><span class=\"pek-report-meta\">" meta_html "</span></div><a class=\"pek-report-back\" href=\"" back_href "\">Back to report index</a></div></div>"
             decorated = 1
         }
         ' "${index_file}" > "${tmp_file}"
