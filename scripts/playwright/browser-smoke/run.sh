@@ -8,12 +8,12 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/../pre-commit/common.sh"
+source "${SCRIPT_DIR}/../../pre-commit/common.sh"
 
 usage() {
     cat << 'EOF'
 Usage:
-  ./scripts/testing/browser-smoke.sh [-h|--help]
+  ./scripts/playwright/browser-smoke/run.sh [-h|--help]
 
 Prerequisites:
   ./scripts/quick-start/start-container.sh --recreate
@@ -38,7 +38,7 @@ elif [[ "${1:-}" != "" ]]; then
 fi
 
 REPO_ROOT="$(repo_checks_resolve_repo_root "${SCRIPT_DIR}")"
-RUNTIME_DOCKERFILE="${REPO_ROOT}/scripts/testing/browser-smoke/Dockerfile"
+RUNTIME_DOCKERFILE="${SCRIPT_DIR}/Dockerfile"
 
 PLAYWRIGHT_VERSION="1.61.0"
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-http://127.0.0.1:9999}"
@@ -104,7 +104,7 @@ build_browser_smoke_image_if_needed() {
     docker build \
         -f "${RUNTIME_DOCKERFILE}" \
         -t "${image_name}" \
-        "${REPO_ROOT}/scripts/testing/browser-smoke"
+        "${SCRIPT_DIR}"
 }
 
 repo_checks_check_docker_setup
