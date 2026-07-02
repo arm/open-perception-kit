@@ -101,6 +101,7 @@ html_anchor() {
 }
 
 write_index_assets() {
+    rm -f "${SITE_DIR}/favicon.svg"
     cat << 'EOF' > "${SITE_DIR}/report-index.css"
 :root {
   --bg: #ffffff;
@@ -243,20 +244,6 @@ section {
     align-self: flex-start;
   }
 }
-EOF
-    cat << 'EOF' > "${SITE_DIR}/favicon.svg"
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <style>
-    rect { fill: #0969da; }
-    text { fill: #ffffff; font: 700 18px system-ui, sans-serif; }
-    @media (prefers-color-scheme: dark) {
-      rect { fill: #58a6ff; }
-      text { fill: #0d1117; }
-    }
-  </style>
-  <rect width="32" height="32" rx="6"/>
-  <text x="16" y="22" text-anchor="middle">P</text>
-</svg>
 EOF
 }
 
@@ -716,7 +703,6 @@ build_source_map_json() {
 write_index_head() {
     local title="$1"
     local css_href="$2"
-    local favicon_href="${3:-favicon.svg}"
 
     cat << EOF
 <!doctype html>
@@ -726,7 +712,6 @@ write_index_head() {
     <meta name="color-scheme" content="dark light">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>$(printf '%s' "${title}" | html_escape)</title>
-    <link rel="icon" type="image/svg+xml" href="$(printf '%s' "${favicon_href}" | html_escape)">
     <link rel="stylesheet" href="$(printf '%s' "${css_href}" | html_escape)">
   </head>
   <body>
@@ -749,7 +734,7 @@ write_report_index() {
     local phase=""
 
     {
-        write_index_head "${title} - Playwright report" "${back_href}report-index.css" "${back_href}favicon.svg"
+        write_index_head "${title} - Playwright report" "${back_href}report-index.css"
         cat << EOF
       <header>
         <div class="eyebrow">Playwright</div>
@@ -856,7 +841,6 @@ decorate_playwright_report() {
     local back_href="$3"
     local meta_html="$4"
     local css_href=""
-    local favicon_href=""
     local index_file="${report_dir}/index.html"
     local js_href=""
     local page_title=""
@@ -869,7 +853,6 @@ decorate_playwright_report() {
     grep -q 'class="pek-report-bar"' "${index_file}" && return
 
     css_href="${back_href}report-shell.css"
-    favicon_href="${back_href}favicon.svg"
     js_href="${back_href}report-shell.js"
     page_title="${title} - Playwright report"
     repository_attr="$(printf '%s' "${GITHUB_REPOSITORY:-}" | html_escape)"
@@ -878,7 +861,6 @@ decorate_playwright_report() {
     tmp_file="$(mktemp)"
     awk \
         -v css_href="$(printf '%s' "${css_href}" | html_escape)" \
-        -v favicon_href="$(printf '%s' "${favicon_href}" | html_escape)" \
         -v js_href="$(printf '%s' "${js_href}" | html_escape)" \
         -v page_title="$(printf '%s' "${page_title}" | html_escape)" \
         -v title="$(printf '%s' "${title}" | html_escape)" \
@@ -893,7 +875,7 @@ decorate_playwright_report() {
             titled = 1
         }
         /<\/head>/ && !linked {
-            sub(/<\/head>/, "    <link rel=\"icon\" type=\"image/svg+xml\" href=\"" favicon_href "\">\n    <link rel=\"stylesheet\" href=\"" css_href "\">\n    <script src=\"" js_href "\" defer></script>\n  </head>")
+            sub(/<\/head>/, "    <link rel=\"stylesheet\" href=\"" css_href "\">\n    <script src=\"" js_href "\" defer></script>\n  </head>")
             linked = 1
         }
         { print }
