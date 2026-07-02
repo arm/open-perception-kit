@@ -302,29 +302,51 @@ write_report_shell_assets() {
 }
 .pek-report-float {
   align-items: center;
+  background: var(--color-canvas-subtle);
+  border: 1px solid var(--color-border-default);
+  border-radius: 6px;
+  box-shadow: var(--color-shadow-large);
   bottom: 16px;
   display: flex;
-  gap: 8px;
+  gap: 4px;
+  padding: 4px;
   position: fixed;
   right: 16px;
   z-index: 1000;
 }
 .pek-report-jump,
 .pek-report-top {
-  background: var(--color-canvas-default);
-  border: 1px solid var(--color-border-default);
-  border-radius: 6px;
-  color: var(--color-fg-default);
-  font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-  height: 32px;
+  background-color: var(--color-btn-bg);
+  border: 1px solid var(--color-btn-border);
+  border-radius: 4px;
+  color: var(--color-btn-text);
+  font: 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  height: 24px;
 }
 .pek-report-jump {
-  max-width: 240px;
-  padding: 0 28px 0 8px;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 11px) 9px, calc(100% - 7px) 9px;
+  background-repeat: no-repeat;
+  background-size: 4px 4px;
+  max-width: 220px;
+  padding: 1px 22px 1px 8px;
 }
 .pek-report-top {
   cursor: pointer;
-  padding: 0 10px;
+  padding: 1px 8px;
+}
+.pek-report-jump:hover,
+.pek-report-top:hover {
+  background-color: var(--color-btn-hover-bg);
+  border-color: var(--color-btn-hover-border, var(--color-btn-border));
+}
+.pek-report-jump:focus,
+.pek-report-top:focus {
+  border-color: var(--color-btn-focus-border, var(--color-accent-emphasis));
+  box-shadow: var(--color-btn-focus-shadow, var(--color-primer-shadow-focus));
+  outline: none;
 }
 .pek-report-jump[hidden],
 .pek-report-top[hidden] {
@@ -352,7 +374,7 @@ write_report_shell_assets() {
     right: 10px;
   }
   .pek-report-jump {
-    max-width: 180px;
+    max-width: calc(100vw - 88px);
   }
 }
 EOF
@@ -427,6 +449,10 @@ EOF
     root.append(jump, top);
     document.body.append(root);
 
+    const syncRoot = () => {
+      root.hidden = jump.hidden && top.hidden;
+    };
+
     const rebuild = () => {
       const sections = collectSections();
       jump.replaceChildren(new Option('Jump', ''));
@@ -434,6 +460,7 @@ EOF
         jump.add(new Option(section.label, section.id));
       }
       jump.hidden = sections.length === 0;
+      syncRoot();
     };
 
     const scheduleRebuild = () => {
@@ -449,6 +476,7 @@ EOF
     top.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
     window.addEventListener('scroll', () => {
       top.hidden = window.scrollY < 240;
+      syncRoot();
     }, { passive: true });
     new MutationObserver((mutations) => {
       if (mutations.every((mutation) => root.contains(mutation.target))) {
