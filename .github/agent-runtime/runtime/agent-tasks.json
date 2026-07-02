@@ -6,7 +6,7 @@
       "task_estimate_turns": 3,
       "max_prompt_chars": 180000,
       "max_review_files": 120,
-      "max_review_changed_lines": 12000
+      "max_review_changed_lines": 15000
     },
     "run-repair": {
       "agent_instance": "repair",

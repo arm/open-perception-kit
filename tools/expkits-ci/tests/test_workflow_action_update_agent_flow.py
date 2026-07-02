@@ -1513,7 +1513,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(task_config["tasks"]["run-review"]["task_estimate_turns"], 3)
         self.assertEqual(task_config["tasks"]["run-review"]["max_prompt_chars"], 180000)
         self.assertEqual(task_config["tasks"]["run-review"]["max_review_files"], 120)
-        self.assertEqual(task_config["tasks"]["run-review"]["max_review_changed_lines"], 12000)
+        self.assertEqual(task_config["tasks"]["run-review"]["max_review_changed_lines"], 15000)
         self.assertEqual(task_config["tasks"]["run-repair"]["agent_instance"], "repair")
         self.assertEqual(task_config["tasks"]["run-repair"]["max_turns"], OPENAI_PATCH_MAX_TURNS)
         self.assertEqual(task_config["tasks"]["run-stabilization"]["agent_instance"], "stabilization")
@@ -1528,7 +1528,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(settings.agent_instance.value, "review")
         self.assertEqual(settings.max_turns, 12)
         self.assertEqual(settings.max_review_files, 2)
-        self.assertEqual(settings.max_review_changed_lines, 12000)
+        self.assertEqual(settings.max_review_changed_lines, 15000)
 
     def test_local_review_runner_uses_shared_sdk_script(self):
         content = AGENT_REVIEW_RUN_SCRIPT.read_text(encoding="utf-8")

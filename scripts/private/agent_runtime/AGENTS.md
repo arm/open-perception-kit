@@ -26,6 +26,9 @@ review, repair, and stabilization GitHub Actions workflows.
 - Agent tools may inspect files and run validation, but must not own branch,
   commit, push, PR, or merge lifecycle. Those steps belong to the surrounding
   workflow/helper.
+- Delete obsolete runtime code, stale tests, removed scripts, and compatibility
+  wrappers when replacing behavior. Do not leave legacy aliases or duplicate
+  implementations outside the current supported contract.
 - Do not execute agent-provided commands with `shell=True`. Keep validation
   commands tokenized and reject unsupported shell syntax, mutating git
   subcommands, and PR/repo lifecycle `gh` subcommands.
