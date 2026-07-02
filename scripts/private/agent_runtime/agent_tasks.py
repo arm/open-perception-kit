@@ -155,7 +155,11 @@ class ReviewAgentTask(AgentWorkflowTask):
 
     def write_result(self, final_output: object, args: argparse.Namespace) -> int:
         payload = coerce_model_output(ReviewResult, final_output).model_dump(mode="json")
-        payload = filter_invalid_right_side_findings(payload, require_run_context().repo_root)
+        payload = filter_invalid_right_side_findings(
+            payload,
+            require_run_context().repo_root,
+            verified_model=args.resolved_model,
+        )
         write_json(Path(args.output_file), payload)
         return 0
 

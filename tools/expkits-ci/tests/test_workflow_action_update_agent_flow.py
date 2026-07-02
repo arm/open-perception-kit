@@ -724,6 +724,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("class ReviewResult", task_source)
         self.assertIn("return ReviewResult", task_source)
         self.assertIn("filter_invalid_right_side_findings", task_source)
+        self.assertIn("verified_model=args.resolved_model", task_source)
         self.assertIn("import shlex", tools_source)
         self.assertIn("def split_shell_commands", tools_source)
         self.assertIn("def run_parsed_shell_command", tools_source)
@@ -1152,6 +1153,61 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
             filtered = AGENT_REVIEW_OUTPUT.filter_invalid_right_side_findings(payload, repo_root)
 
+        self.assertEqual(filtered["overall_recommendation"], "approve")
+        self.assertEqual(filtered["findings"], [])
+
+    def test_agent_review_output_drops_verified_model_availability_claims(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            model_config_path = repo_root / ".github/agent-runtime/runtime/agent-models.json"
+            model_config_path.parent.mkdir(parents=True)
+            model_config_path.write_text(
+                json.dumps(
+                    {
+                        "default_agent_model": "gpt-5.5",
+                        "agents": {
+                            "review": {"model": "gpt-5.5"},
+                            "repair": {"model": "gpt-5.5"},
+                            "stabilization": {"model": "gpt-5.5"},
+                        },
+                    },
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+
+            payload = {
+                "summary": "Reviewed workflow changes.",
+                "overall_recommendation": "request_changes",
+                "overall_score": 0.78,
+                "overall_confidence": 0.86,
+                "findings": [
+                    {
+                        "title": "Default agent model is set to an unavailable-looking future model",
+                        "severity": "major",
+                        "score": 0.78,
+                        "confidence": 0.86,
+                        "path": ".github/agent-runtime/runtime/agent-models.json",
+                        "diff_side": "RIGHT",
+                        "start_line": 1,
+                        "end_line": 12,
+                        "body": (
+                            "All agent instances now default to `gpt-5.5`, so jobs will fail at runtime "
+                            "unless the proxy exposes this exact model."
+                        ),
+                        "suggestion": None,
+                    },
+                ],
+            }
+
+            unverified = AGENT_REVIEW_OUTPUT.filter_invalid_right_side_findings(payload, repo_root)
+            filtered = AGENT_REVIEW_OUTPUT.filter_invalid_right_side_findings(
+                payload,
+                repo_root,
+                verified_model="gpt-5.5",
+            )
+
+        self.assertEqual(unverified, payload)
         self.assertEqual(filtered["overall_recommendation"], "approve")
         self.assertEqual(filtered["findings"], [])
 

@@ -21,7 +21,12 @@ from .contracts import (
 )
 
 
-def filter_invalid_right_side_findings(payload: dict[str, Any], repo_root: Path) -> dict[str, Any]:
+def filter_invalid_right_side_findings(
+    payload: dict[str, Any],
+    repo_root: Path,
+    *,
+    verified_model: str = "",
+) -> dict[str, Any]:
     """Drop findings that claim RIGHT-side anchors absent from the checkout."""
 
     findings = payload.get("findings")
@@ -31,7 +36,11 @@ def filter_invalid_right_side_findings(payload: dict[str, Any], repo_root: Path)
     kept_findings: list[dict[str, Any]] = []
     dropped_count = 0
     for finding in findings:
-        if isinstance(finding, dict) and _has_invalid_right_side_anchor(finding, repo_root):
+        if isinstance(finding, dict) and _has_invalid_right_side_anchor(
+            finding,
+            repo_root,
+            verified_model=verified_model,
+        ):
             dropped_count += 1
             continue
         kept_findings.append(finding)
@@ -50,7 +59,12 @@ def filter_invalid_right_side_findings(payload: dict[str, Any], repo_root: Path)
     return filtered
 
 
-def _has_invalid_right_side_anchor(finding: dict[str, Any], repo_root: Path) -> bool:
+def _has_invalid_right_side_anchor(
+    finding: dict[str, Any],
+    repo_root: Path,
+    *,
+    verified_model: str = "",
+) -> bool:
     if finding.get("diff_side") != DiffSide.RIGHT.value:
         return False
 
@@ -78,6 +92,12 @@ def _has_invalid_right_side_anchor(finding: dict[str, Any], repo_root: Path) -> 
 
     finding_text = _finding_text(finding)
     anchor_text = _anchor_text(lines, start_line, end_line)
+    if _claims_verified_model_unavailable(
+        finding_text=finding_text,
+        anchor_text=anchor_text,
+        verified_model=verified_model,
+    ):
+        return True
     return any(
         guard.matches(finding_text=finding_text, anchor_text=anchor_text)
         for guard in UNSUPPORTED_REVIEW_CLAIM_GUARDS
@@ -108,6 +128,25 @@ def _anchor_text(lines: list[str], start_line: Any, end_line: Any) -> str:
     first = max(start_line - 1, 0)
     last = max(end_line, start_line)
     return "\n".join(lines[first:last])
+
+
+def _claims_verified_model_unavailable(*, finding_text: str, anchor_text: str, verified_model: str) -> bool:
+    normalized_model = verified_model.strip().lower()
+    if not normalized_model:
+        return False
+    normalized_finding = finding_text.lower()
+    normalized_anchor = anchor_text.lower()
+    if normalized_model not in normalized_finding or normalized_model not in normalized_anchor:
+        return False
+    return any(
+        marker in normalized_finding
+        for marker in (
+            "unavailable",
+            "unsupported model",
+            "future model",
+            "fail at runtime",
+        )
+    )
 
 
 def _recommendation_for_findings(findings: list[dict[str, Any]]) -> str:
