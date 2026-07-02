@@ -307,7 +307,7 @@ def write_report_index(report_dir: Path, title: str, back_href: str) -> None:
             """        </div>
       </section>
 """,
-            f'      <a class="back-link" href="{html_escape(back_href)}">Back to report index</a>\n',
+            f'      <a class="back-link" href="{html_escape(back_href)}index.html">Back to report index</a>\n',
             write_index_footer(),
         ]
     )
@@ -426,7 +426,7 @@ def decorate_playwright_report(
         f'data-commit="{html_escape(head_sha)}"><div class="pek-report-bar-inner">'
         f'<div class="pek-report-info"><span class="pek-report-title">{html_escape(title)}</span>'
         f'<span class="pek-report-meta">{meta_html}</span></div>'
-        f'<a class="pek-report-back" href="{html_escape(back_href)}">Back to report index</a></div></div>'
+        f'<a class="pek-report-back" href="{html_escape(back_href)}index.html">Back to report index</a></div></div>'
     )
 
     content = inject_once(r"<title>.*?</title>", f"<title>{page_title}</title>", content, "<title>")

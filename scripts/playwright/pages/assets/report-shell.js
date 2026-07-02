@@ -140,7 +140,7 @@
     for (const element of document.querySelectorAll('.test-case-location, .test-result-path')) {
       const reference = sourceReferenceFrom(element.textContent);
       if (reference) {
-        replaceWithSourceLink(element, reference, element.classList.contains('test-result-path') ? '\\u2014 ' : '');
+        replaceWithSourceLink(element, reference, element.classList.contains('test-result-path') ? '\u2014 ' : '');
       }
     }
   };

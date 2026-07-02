@@ -70,6 +70,7 @@ class TestPublishPlaywrightPages(unittest.TestCase):
             self.assertIn('<link rel="stylesheet" href="../../report-shell.css">', content)
             self.assertIn('<script src="../../report-shell.js" defer></script>', content)
             self.assertIn('class="pek-report-bar"', content)
+            self.assertIn('href="../../index.html"', content)
             self.assertIn('data-repository="Arm-Debug/amp-dev-forge"', content)
             self.assertIn('data-commit="commit-for-test"', content)
             self.assertIn('id="pek-report-source-map"', content)
