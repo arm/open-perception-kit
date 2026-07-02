@@ -84,7 +84,7 @@ function videoFrameIsRendered() {
     return true;
   }
 
-  return video.currentTime > 0;
+  return true;
 }
 
 function readBackendModelState(modelName) {
