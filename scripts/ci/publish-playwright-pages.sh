@@ -230,52 +230,66 @@ EOF
 write_report_shell_assets() {
     cat << 'EOF' > "${SITE_DIR}/report-shell.css"
 .pek-report-bar {
-  background: var(--color-canvas-default);
-  border-bottom: 1px solid var(--color-border-default);
   color: var(--color-fg-default);
   font: 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-  padding: 16px 24px;
+  padding: 12px 24px 0;
 }
 .pek-report-bar-inner {
   align-items: center;
   display: flex;
-  gap: 16px;
+  gap: 8px 16px;
   justify-content: space-between;
-  margin: 0 auto;
-  max-width: 1200px;
+  min-width: 0;
+}
+.pek-report-info {
+  align-items: baseline;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
 }
 .pek-report-title {
-  font-size: 20px;
+  flex: none;
+  font-size: 14px;
   font-weight: 600;
-  line-height: 28px;
+  line-height: 20px;
   overflow-wrap: anywhere;
 }
 .pek-report-meta {
   color: var(--color-fg-muted);
   font-size: 12px;
-  line-height: 18px;
+  line-height: 20px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .pek-report-back {
-  background: var(--color-btn-bg);
-  border: 1px solid var(--color-btn-border);
   border-radius: 6px;
   color: var(--color-accent-fg);
   flex: none;
-  padding: 6px 10px;
+  line-height: 20px;
+  padding: 0;
   text-decoration: none;
 }
 .pek-report-back:hover {
-  background: var(--color-btn-hover-bg);
-  border-color: var(--color-btn-hover-border);
+  text-decoration: underline;
 }
 @media (max-width: 640px) {
   .pek-report-bar {
-    padding: 12px;
+    padding: 12px 16px 0;
   }
   .pek-report-bar-inner {
     align-items: flex-start;
     flex-direction: column;
     gap: 10px;
+  }
+  .pek-report-info {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0;
+  }
+  .pek-report-meta {
+    white-space: normal;
   }
 }
 EOF
@@ -414,7 +428,7 @@ decorate_playwright_report() {
         }
         { print }
         /<body[^>]*>/ && !decorated {
-            print "    <div class=\"pek-report-bar\"><div class=\"pek-report-bar-inner\"><div><div class=\"pek-report-title\">" title "</div><div class=\"pek-report-meta\">" meta "</div></div><a class=\"pek-report-back\" href=\"" back_href "\">Back to report index</a></div></div>"
+            print "    <div class=\"pek-report-bar\"><div class=\"pek-report-bar-inner\"><div class=\"pek-report-info\"><span class=\"pek-report-title\">" title "</span><span class=\"pek-report-meta\">" meta "</span></div><a class=\"pek-report-back\" href=\"" back_href "\">Back to report index</a></div></div>"
             decorated = 1
         }
         ' "${index_file}" > "${tmp_file}"
