@@ -99,6 +99,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+          persist-credentials: false
 
       - name: Snapshot workflow helper bundle
         shell: bash
@@ -147,6 +148,7 @@ jobs:
           fetch-tags: true
           ref: ${{ inputs.head_sha || steps.pr.outputs.head_sha }}
           token: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+          persist-credentials: false
 
       - name: Restore workflow helper bundle
         shell: bash
@@ -202,24 +204,32 @@ jobs:
 
       - if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
         name: Run stabilization validation
-        uses: ./.workflow-action-update-agent-helper/.github/actions/workflow-action-update-agent-helper
-        with:
-          command: run-validation
-          profile-path: .workflow-action-update-agent-helper/${{ inputs.profile_path }}
+        shell: bash
+        env:
+          GH_TOKEN: ""
+          GITHUB_TOKEN: ""
+          OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS: ""
+          OPENAI_API_KEY: ""
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
+          ACTIONS_ID_TOKEN_REQUEST_URL: ""
+        run: |
+          python3 "${RUNNER_TEMP}/workflow-action-update-agent-helper/scripts/private/workflow_action_update_agent.py" run-validation \
+            --profile-path "${RUNNER_TEMP}/workflow-action-update-agent-helper/${{ inputs.profile_path }}"
 
       - if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
         name: Commit stabilization fix
-        uses: ./.workflow-action-update-agent-helper/.github/actions/workflow-action-update-agent-helper
         # <agent-review:suppress-begin> Stabilization pushes intentionally require
         # the agent token so follow-up commits retrigger PR workflows.
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN }}
-        with:
-          command: commit-review-fix
-          context-root: ${{ inputs.context_root }}
-          pr-number: ${{ inputs.pr_number }}
-          repair-branch: ${{ steps.pr.outputs.repair_branch }}
-          ticket-id: ${{ inputs.ticket_id }}
+        run: |
+          python3 "${RUNNER_TEMP}/workflow-action-update-agent-helper/scripts/private/workflow_action_update_agent.py" commit-review-fix \
+            --context-root "${{ inputs.context_root }}" \
+            --pr-number "${{ inputs.pr_number }}" \
+            --repair-branch "${{ steps.pr.outputs.repair_branch }}" \
+            --ticket-id "${{ inputs.ticket_id }}"
         # <agent-review:suppress-end>
 
       - name: Write stabilization skip artifact

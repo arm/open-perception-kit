@@ -78,6 +78,21 @@ GITHUB_ARCHIVE_REDIRECT_HOST_SUFFIXES = (
     ".githubusercontent.com",
 )
 GITHUB_ARCHIVE_DOWNLOAD_TIMEOUT_SECONDS = 60
+VALIDATION_ENV_BLOCKLIST = (
+    "GITHUB_ENV",
+    "GITHUB_OUTPUT",
+    "GITHUB_PATH",
+    "GITHUB_STEP_SUMMARY",
+)
+VALIDATION_ENV_SENSITIVE_FRAGMENTS = (
+    "AUTH",
+    "CREDENTIAL",
+    "KEY",
+    "PASS",
+    "PRIVATE_KEY",
+    "SECRET",
+    "TOKEN",
+)
 
 
 def run_command(
@@ -105,6 +120,16 @@ def run_shell_command(command: str, *, env: dict[str, str] | None = None) -> Non
         executable="/bin/bash",
         env=env,
     )
+
+
+def validation_command_environment() -> dict[str, str]:
+    blocked_names = set(VALIDATION_ENV_BLOCKLIST)
+    return {
+        key: value
+        for key, value in os.environ.items()
+        if key.upper() not in blocked_names
+        and not any(fragment in key.upper() for fragment in VALIDATION_ENV_SENSITIVE_FRAGMENTS)
+    }
 
 
 def parse_json_command(args: list[str]) -> object:
@@ -1712,9 +1737,10 @@ def write_stabilization_context(
 
 
 def run_validation_commands(commands: list[str]) -> None:
+    env = validation_command_environment()
     for command in commands:
         print(f"Running validation command: {command}")
-        run_shell_command(command)
+        run_shell_command(command, env=env)
 
 
 def commit_review_fix(

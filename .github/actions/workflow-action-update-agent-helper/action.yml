@@ -213,18 +213,6 @@ runs:
               --context-root "${{ inputs.context-root }}" \
               --github-output "${GITHUB_OUTPUT}"
             ;;
-          run-validation)
-            python3 "${helper}" run-validation \
-              --profile-path "${{ inputs.profile-path }}"
-            ;;
-          commit-review-fix)
-            python3 "${helper}" commit-review-fix \
-              --context-root "${{ inputs.context-root }}" \
-              --pr-number "${{ inputs.pr-number }}" \
-              --repair-branch "${{ inputs.repair-branch }}" \
-              --ticket-id "${{ inputs.ticket-id }}" \
-              --github-output "${GITHUB_OUTPUT}"
-            ;;
           stabilize-pr)
             stabilize_args=(
               --profile-path "${{ inputs.profile-path }}"

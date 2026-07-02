@@ -1673,6 +1673,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(set(call_inputs.keys()), set(dispatch_inputs.keys()))
         self.assertEqual(job["runs-on"], OPENAI_AGENT_RUNNER_LABEL)
         self.assertEqual(job["permissions"]["actions"], "read")
+        self.assertEqual(steps["Checkout workflow helpers"]["with"]["persist-credentials"], "false")
+        self.assertEqual(steps["Checkout PR head"]["with"]["persist-credentials"], "false")
         self.assertEqual(
             list(steps),
             [
@@ -1774,34 +1776,38 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             steps["Prepare stabilization context"]["uses"],
             "./.workflow-action-update-agent-helper/.github/actions/workflow-action-update-agent-helper",
         )
-        self.assertEqual(
-            steps["Run stabilization validation"]["with"]["command"],
-            "run-validation",
+        validation_step = steps["Run stabilization validation"]
+        self.assertEqual(validation_step["shell"], "bash")
+        self.assertNotIn("uses", validation_step)
+        self.assertEqual(validation_step["env"]["GH_TOKEN"], "")
+        self.assertEqual(validation_step["env"]["GITHUB_TOKEN"], "")
+        self.assertEqual(validation_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"], "")
+        self.assertEqual(validation_step["env"]["OPENAI_API_KEY"], "")
+        self.assertIn(
+            '${RUNNER_TEMP}/workflow-action-update-agent-helper/scripts/private/workflow_action_update_agent.py" run-validation',
+            validation_step["run"],
         )
-        self.assertEqual(
-            steps["Run stabilization validation"]["with"]["profile-path"],
-            ".workflow-action-update-agent-helper/${{ inputs.profile_path }}",
+        self.assertIn(
+            '--profile-path "${RUNNER_TEMP}/workflow-action-update-agent-helper/${{ inputs.profile_path }}"',
+            validation_step["run"],
         )
-        self.assertEqual(
-            steps["Run stabilization validation"]["uses"],
-            "./.workflow-action-update-agent-helper/.github/actions/workflow-action-update-agent-helper",
+        commit_step = steps["Commit stabilization fix"]
+        self.assertEqual(commit_step["shell"], "bash")
+        self.assertNotIn("uses", commit_step)
+        self.assertIn(
+            '${RUNNER_TEMP}/workflow-action-update-agent-helper/scripts/private/workflow_action_update_agent.py" commit-review-fix',
+            commit_step["run"],
         )
-        self.assertEqual(
-            steps["Commit stabilization fix"]["with"]["command"],
-            "commit-review-fix",
-        )
+        self.assertIn('--context-root "${{ inputs.context_root }}"', commit_step["run"])
+        self.assertIn('--pr-number "${{ inputs.pr_number }}"', commit_step["run"])
         skip_step = steps["Write stabilization skip artifact"]
         self.assertEqual(skip_step["if"], "${{ steps.context.outputs.review_recommendation == 'approve' }}")
         self.assertIn('mkdir -p "${{ runner.temp }}"', skip_step["run"])
         self.assertIn("workflow-action-update-agent-stabilize-output.md", skip_step["run"])
         self.assertIn("No stabilization agent run was needed", skip_step["run"])
         self.assertEqual(
-            steps["Commit stabilization fix"]["env"]["GH_TOKEN"],
+            commit_step["env"]["GH_TOKEN"],
             "${{ secrets.EXPKITS_AGENT_TOKEN }}",
-        )
-        self.assertEqual(
-            steps["Commit stabilization fix"]["uses"],
-            "./.workflow-action-update-agent-helper/.github/actions/workflow-action-update-agent-helper",
         )
 
     def test_resolve_inputs_uses_profile_branch_template(self):
@@ -1936,6 +1942,41 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             for command in profile["validation_commands"]:
                 self.assertIn(f"- `{command}`", validation)
             self.assertIn("- `artifacts/summary.txt`", inventory)
+
+    def test_validation_commands_strip_privileged_environment(self):
+        env = {
+            "PATH": "/usr/bin",
+            "GITHUB_WORKSPACE": "/work",
+            "GH_TOKEN": "x",
+            "GITHUB_TOKEN": "x",
+            "OPENAI_API_KEY": "x",
+            "OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS": "x",
+            "ACTIONS_RUNTIME_TOKEN": "x",
+            "ACTIONS_ID_TOKEN_REQUEST_TOKEN": "x",
+            "ACTIONS_ID_TOKEN_REQUEST_URL": "https://example.invalid",
+            "GIT_ASKPASS": "/tmp/askpass",
+            "SSH_AUTH_SOCK": "/tmp/ssh.sock",
+            "GITHUB_ENV": "/tmp/github-env",
+            "GITHUB_OUTPUT": "/tmp/github-output",
+            "GITHUB_PATH": "/tmp/github-path",
+            "GITHUB_STEP_SUMMARY": "/tmp/github-summary",
+        }
+
+        with mock.patch.dict(os.environ, env, clear=True):
+            with mock.patch.object(HELPER, "run_shell_command") as run_shell_command:
+                HELPER.run_validation_commands(["python3 -m unittest", "git diff --check"])
+
+        self.assertEqual(
+            [call.args[0] for call in run_shell_command.call_args_list],
+            ["python3 -m unittest", "git diff --check"],
+        )
+        blocked_keys = set(env) - {"PATH", "GITHUB_WORKSPACE"}
+        for call in run_shell_command.call_args_list:
+            command_env = call.kwargs["env"]
+            self.assertEqual(command_env["PATH"], "/usr/bin")
+            self.assertEqual(command_env["GITHUB_WORKSPACE"], "/work")
+            for key in blocked_keys:
+                self.assertNotIn(key, command_env)
 
     def test_stabilization_prompt_is_loaded_from_checked_in_template(self):
         source = HELPER_SCRIPT.read_text(encoding="utf-8")
