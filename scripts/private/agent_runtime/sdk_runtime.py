@@ -6,8 +6,28 @@
 from __future__ import annotations
 
 import os
+import sys
 from typing import TypeVar
 
+
+MIN_AGENT_RUNTIME_PYTHON = (3, 10)
+
+
+def require_supported_python() -> None:
+    if sys.version_info < MIN_AGENT_RUNTIME_PYTHON:
+        current_version = ".".join(str(part) for part in sys.version_info[:3])
+        required_version = ".".join(str(part) for part in MIN_AGENT_RUNTIME_PYTHON)
+        raise RuntimeError(
+            "OpenAI Agent runtime requires Python "
+            f"{required_version} or newer; found Python {current_version}."
+        )
+
+
+require_supported_python()
+
+# Keep the contract import after the version guard: shared contract modules use
+# the Agent runtime's Python 3.10 syntax.
+# autopep8: off
 from .contracts import (
     DEFAULT_OPENAI_BASE_URL,
     OPENAI_AGENTS_DISABLE_TRACING_ENV,
@@ -16,6 +36,7 @@ from .contracts import (
     OPENAI_BASE_URL_ENV,
     OPENAI_PROXY_KEY_ENV,
 )
+# autopep8: on
 
 
 def configure_openai_defaults() -> None:

@@ -64,6 +64,11 @@ jobs:
           mkdir -p .github/agent-runtime/review/out
           ./.github/agent-runtime/review/scripts/render-prompt.sh .github/agent-runtime/review/out/review.prompt.md
 
+      - name: Set up Agent Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+
       - name: Install OpenAI agent runtime
         shell: bash
         run: |

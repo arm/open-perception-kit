@@ -263,8 +263,13 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(agent_job["runs-on"], OPENAI_AGENT_RUNNER_LABEL)
         self.assertEqual(stabilize_job["runs-on"], "ubuntu-latest")
         self.assertIn("Download source artifact context", agent_steps)
+        self.assertIn("Set up Agent Python", agent_steps)
         self.assertIn("Install OpenAI agent runtime", agent_steps)
         self.assertIn("Run OpenAI SDK repair agent", agent_steps)
+        self.assertLess(
+            agent_step_names.index("Set up Agent Python"),
+            agent_step_names.index("Install OpenAI agent runtime"),
+        )
         self.assertLess(
             agent_step_names.index("Run static regression tests"),
             agent_step_names.index("Run OpenAI SDK repair agent"),
@@ -276,6 +281,9 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertNotIn("Prime OpenAI SDK CLI", stabilize_steps)
         self.assertNotIn("Apply deterministic workflow freshness patch", agent_steps)
 
+        python_step = agent_steps["Set up Agent Python"]
+        self.assertEqual(python_step["uses"], "actions/setup-python@v6")
+        self.assertEqual(python_step["with"]["python-version"], "3.10")
         install_step = agent_steps["Install OpenAI agent runtime"]
         self.assertEqual(install_step["shell"], "bash")
         self.assertIn("python3 -m venv .agent-runtime/openai-agent-venv", install_step["run"])
@@ -598,6 +606,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 "Checkout pull request head",
                 "Fetch Agent review base ref",
                 "Render Agent review prompt",
+                "Set up Agent Python",
                 "Install OpenAI agent runtime",
                 "Run Agent workflow static analysis",
                 "Run OpenAI SDK review",
@@ -610,6 +619,9 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "${{ github.event_name == 'workflow_dispatch' && "
             "(github.event.inputs.head_ref || github.sha) || github.event.pull_request.head.sha || github.sha }}"
         )
+        python_step = review_steps["Set up Agent Python"]
+        self.assertEqual(python_step["uses"], "actions/setup-python@v6")
+        self.assertEqual(python_step["with"]["python-version"], "3.10")
         install_step = review_steps["Install OpenAI agent runtime"]
         self.assertEqual(install_step["shell"], "bash")
         self.assertIn("python3 -m venv .agent-runtime/openai-agent-venv", install_step["run"])
@@ -710,9 +722,12 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("ReviewRecommendation", task_source)
         self.assertIn("ReviewSeverity", task_source)
         self.assertIn("DiffSide", task_source)
+        python_guard = sdk_source.index("require_supported_python()")
         truststore_import = sdk_source.index("import truststore")
         inject_call = sdk_source.index("truststore.inject_into_ssl()")
         agents_import = sdk_source.index("from agents import")
+        self.assertIn("MIN_AGENT_RUNTIME_PYTHON = (3, 10)", sdk_source)
+        self.assertLess(python_guard, truststore_import)
         self.assertLess(truststore_import, agents_import)
         self.assertLess(inject_call, agents_import)
         self.assertIn("def configure_openai_environment", sdk_source)
@@ -1436,7 +1451,9 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn('export REVIEW_BASE_REF="${base_ref}"', content)
         self.assertIn('export REVIEW_HEAD_REF="${REVIEW_HEAD_REF:-HEAD}"', content)
         self.assertIn('export REVIEW_REPOSITORY="${REVIEW_REPOSITORY:-local-checkout}"', content)
-        self.assertIn('python3 -m venv "${agent_venv}"', content)
+        self.assertIn('agent_python="${AGENT_REVIEW_PYTHON:-${AGENT_RUNTIME_PYTHON:-python3}}"', content)
+        self.assertIn("Agent review requires Python 3.10 or newer", content)
+        self.assertIn('"${agent_python}" -m venv "${agent_venv}"', content)
         self.assertIn(
             '"${agent_venv}/bin/python" -m pip install -r .github/agent-runtime/runtime/requirements-openai-agents.txt',
             content,
@@ -1515,6 +1532,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 "Checkout PR head",
                 "Restore workflow helper bundle",
                 "Prepare stabilization context",
+                "Set up Agent Python",
                 "Install OpenAI agent runtime",
                 "Run OpenAI SDK stabilization agent",
                 "Run stabilization validation",
@@ -1551,6 +1569,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertNotIn('cp -R agent-review/. "${bundle_root}/agent-review"', snapshot_step["run"])
         self.assertNotIn(".github/agent-runtime/review/out", snapshot_step["run"])
         self.assertNotIn('cp -R scripts/private/. "${bundle_root}/scripts/private"', snapshot_step["run"])
+        python_step = steps["Set up Agent Python"]
+        self.assertEqual(python_step["if"], "${{ steps.context.outputs.review_recommendation != 'approve' }}")
+        self.assertEqual(python_step["uses"], "actions/setup-python@v6")
+        self.assertEqual(python_step["with"]["python-version"], "3.10")
         install_step = steps["Install OpenAI agent runtime"]
         self.assertEqual(install_step["shell"], "bash")
         self.assertIn("python3 -m venv .agent-runtime/openai-agent-venv", install_step["run"])
