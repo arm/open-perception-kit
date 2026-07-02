@@ -141,7 +141,8 @@ jobs:
       always() &&
       github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
-      needs.rpi5-quick-start-build-test.result != 'skipped'
+      needs.rpi5-quick-start-build-test.result != 'skipped' &&
+      needs.rpi5-quick-start-build-test.result != 'cancelled'
     runs-on: ubuntu-latest
     permissions:
       actions: read
