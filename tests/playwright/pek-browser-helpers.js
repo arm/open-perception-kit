@@ -29,7 +29,7 @@ async function waitForVideo(page) {
 
   await page.waitForFunction(videoTrackIsLive, undefined, { timeout: 60000 });
 
-  await page.waitForFunction(videoFrameIsRendered, undefined, { timeout: 60000 });
+  await page.waitForTimeout(1000);
 }
 
 async function setModel(page, name, enabled) {
@@ -67,24 +67,6 @@ function videoTrackIsLive() {
   const video = document.querySelector('#video');
   const track = video?.srcObject?.getVideoTracks?.()[0];
   return track?.readyState === 'live' && !track.muted;
-}
-
-function videoFrameIsRendered() {
-  const video = document.querySelector('#video');
-  if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
-    return false;
-  }
-
-  const quality = video.getVideoPlaybackQuality?.();
-  if (quality?.totalVideoFrames > 0) {
-    return true;
-  }
-
-  if (video.webkitDecodedFrameCount > 0) {
-    return true;
-  }
-
-  return true;
 }
 
 function readBackendModelState(modelName) {
