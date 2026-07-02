@@ -182,6 +182,7 @@ section {
 .report-title {
   display: block;
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 .report-meta {
   color: var(--muted);
@@ -202,6 +203,96 @@ section {
   color: var(--accent);
   display: inline-block;
   margin-top: 18px;
+}
+@media (max-width: 640px) {
+  main {
+    padding: 20px 12px 32px;
+  }
+  h1 {
+    font-size: 22px;
+    line-height: 30px;
+  }
+  .report-link,
+  .empty {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+  }
+  .badge {
+    align-self: flex-start;
+  }
+}
+EOF
+}
+
+write_report_shell_assets() {
+    cat << 'EOF' > "${SITE_DIR}/report-shell.css"
+:root {
+  --pek-report-bg: #ffffff;
+  --pek-report-fg: #24292f;
+  --pek-report-muted: #57606a;
+  --pek-report-border: #d0d7de;
+  --pek-report-panel: #f6f8fa;
+  --pek-report-accent: #0969da;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --pek-report-bg: #0d1117;
+    --pek-report-fg: #e6edf3;
+    --pek-report-muted: #8b949e;
+    --pek-report-border: #30363d;
+    --pek-report-panel: #161b22;
+    --pek-report-accent: #58a6ff;
+  }
+}
+.pek-report-bar {
+  background: var(--pek-report-bg);
+  border-bottom: 1px solid var(--pek-report-border);
+  color: var(--pek-report-fg);
+  font: 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  padding: 16px 24px;
+}
+.pek-report-bar-inner {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin: 0 auto;
+  max-width: 1200px;
+}
+.pek-report-title {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 28px;
+  overflow-wrap: anywhere;
+}
+.pek-report-meta {
+  color: var(--pek-report-muted);
+  font-size: 12px;
+  line-height: 18px;
+}
+.pek-report-back {
+  background: var(--pek-report-panel);
+  border: 1px solid var(--pek-report-border);
+  border-radius: 6px;
+  color: var(--pek-report-accent);
+  flex: none;
+  padding: 6px 10px;
+  text-decoration: none;
+}
+.pek-report-back:hover {
+  background: var(--pek-report-bg);
+}
+@media (max-width: 640px) {
+  .pek-report-bar {
+    padding: 12px;
+  }
+  .pek-report-bar-inner {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
 }
 EOF
 }
@@ -315,6 +406,39 @@ EOF
     } > "${SITE_DIR}/index.html"
 }
 
+decorate_playwright_report() {
+    local report_dir="$1"
+    local title="$2"
+    local back_href="$3"
+    local meta="$4"
+    local css_href=""
+    local index_file="${report_dir}/index.html"
+    local tmp_file=""
+
+    [ -f "${index_file}" ] || return
+    grep -q 'class="pek-report-bar"' "${index_file}" && return
+
+    css_href="${back_href}report-shell.css"
+    tmp_file="$(mktemp)"
+    awk \
+        -v css_href="$(printf '%s' "${css_href}" | html_escape)" \
+        -v title="$(printf '%s' "${title}" | html_escape)" \
+        -v back_href="$(printf '%s' "${back_href}" | html_escape)" \
+        -v meta="$(printf '%s' "${meta}" | html_escape)" \
+        '
+        /<\/head>/ && !linked {
+            print "    <link rel=\"stylesheet\" href=\"" css_href "\">"
+            linked = 1
+        }
+        { print }
+        /<body[^>]*>/ && !decorated {
+            print "    <div class=\"pek-report-bar\"><div class=\"pek-report-bar-inner\"><div><div class=\"pek-report-title\">" title "</div><div class=\"pek-report-meta\">" meta "</div></div><a class=\"pek-report-back\" href=\"" back_href "\">Back to report index</a></div></div>"
+            decorated = 1
+        }
+        ' "${index_file}" > "${tmp_file}"
+    mv "${tmp_file}" "${index_file}"
+}
+
 download_report_artifact() {
     local artifact_name=""
     local artifact_dir="$1"
@@ -343,6 +467,8 @@ prune_report_for_pages() {
 
 publish_report() {
     local artifact_dir=""
+    local back_href=""
+    local meta=""
     local report_dir=""
     local target=""
     local title=""
@@ -376,6 +502,7 @@ publish_report() {
         fi
         target="${SITE_DIR}/prs/${UPSTREAM_PR_NUMBER}"
         title="PR #${UPSTREAM_PR_NUMBER} Playwright report"
+        back_href="../../"
     else
         if [ "${UPSTREAM_EVENT}" != "schedule" ] || [ "${UPSTREAM_HEAD_BRANCH}" != "main" ]; then
             echo "Skipping non-PR Playwright report from ${UPSTREAM_EVENT} on ${UPSTREAM_HEAD_BRANCH}."
@@ -384,7 +511,9 @@ publish_report() {
         fi
         target="${SITE_DIR}/nightly"
         title="Nightly Playwright report"
+        back_href="../"
     fi
+    meta="${UPSTREAM_HEAD_BRANCH} @ ${UPSTREAM_HEAD_SHA:0:12} | run ${UPSTREAM_RUN_ID} attempt ${UPSTREAM_RUN_ATTEMPT}"
 
     artifact_dir="$(mktemp -d)"
     if ! download_report_artifact "${artifact_dir}"; then
@@ -404,12 +533,11 @@ publish_report() {
     mkdir -p "${target}"
     cp -a "${report_dir}/." "${target}/"
     prune_report_for_pages "${target}"
+    write_report_shell_assets
     if [ ! -f "${target}/index.html" ]; then
-        if [ "${UPSTREAM_EVENT}" = "pull_request" ]; then
-            write_report_index "${target}" "${title}" "../../"
-        else
-            write_report_index "${target}" "${title}" "../"
-        fi
+        write_report_index "${target}" "${title}" "${back_href}"
+    else
+        decorate_playwright_report "${target}" "${title}" "${back_href}" "${meta}"
     fi
     printf '%s\n' "${UPSTREAM_HEAD_SHA}" > "${target}/commit.txt"
     touch "${SITE_DIR}/.nojekyll"
