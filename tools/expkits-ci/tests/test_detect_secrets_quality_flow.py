@@ -240,7 +240,7 @@ class StaticQualityConfigTests(unittest.TestCase):
         self.assertNotIn("Finalize PR quality gate result", workflow)
         self.assertIn("git_basic_auth=", workflow)
         self.assertIn(
-            "export PULL_REQUEST_TARGET_BRANCH=\"${{ github.event.inputs.pr_base_ref || github.base_ref }}\"",
+            "export PULL_REQUEST_TARGET_BRANCH=\"${{ inputs.pr_base_ref || github.base_ref }}\"",
             workflow,
         )
         self.assertIn("-e PULL_REQUEST_TARGET_BRANCH", workflow)

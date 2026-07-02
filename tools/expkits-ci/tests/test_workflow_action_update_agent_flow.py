@@ -1421,7 +1421,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             set(sonar_inputs.keys()),
             {"pr_number", "pr_base_ref", "pr_head_ref", "pr_head_sha"},
         )
-        self.assertIn("github.event.inputs.pr_head_sha", pek_ci["jobs"]["quality-checks"]["steps"][0]["with"]["ref"])
+        self.assertIn("inputs.pr_head_sha", pek_ci["jobs"]["quality-checks"]["steps"][0]["with"]["ref"])
         self.assertIn("github.event.inputs.pr_head_ref", sonar_steps["Checkout"]["with"]["ref"])
         self.assertIn("github.event.inputs.pr_number", sonar_steps["SonarQube analysis"]["env"]["PR_KEY"])
 
