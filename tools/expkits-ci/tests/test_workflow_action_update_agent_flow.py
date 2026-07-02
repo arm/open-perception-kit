@@ -1808,6 +1808,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
         self.assertIn(AGENT_REVIEW_PUBLISH.MARKER, markdown)
         self.assertIn(AGENT_REVIEW_PUBLISH.STATE_MARKER, markdown)
+        self.assertIn('"finding_count":1', markdown)
+        self.assertNotIn('"findings":[]', markdown)
         self.assertIn("### Findings", markdown)
         self.assertIn("**Minor note**", markdown)
         self.assertIn("Location: `.github/workflows/example.yml:L12 (RIGHT)`", markdown)
@@ -2122,6 +2124,86 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(state["overall_recommendation"], "approve")
         self.assertEqual(state["run_id"], "new")
 
+    def test_agent_review_fetch_preserves_marker_count_when_extra_inline_findings_are_recovered(self):
+        expected_finding = {
+            "title": "Expected finding",
+            "severity": "major",
+            "score": 0.7,
+            "confidence": 0.9,
+            "path": ".github/workflows/example.yml",
+            "diff_side": "RIGHT",
+            "start_line": 12,
+            "end_line": 12,
+            "body": "Fix the expected issue.",
+        }
+        extra_finding = {
+            "title": "Extra finding",
+            "severity": "note",
+            "score": 0.2,
+            "confidence": 0.8,
+            "path": ".github/workflows/extra.yml",
+            "diff_side": "RIGHT",
+            "start_line": 4,
+            "end_line": 4,
+            "body": "This UI comment was not counted by the summary marker.",
+        }
+        summary_body = AGENT_REVIEW_PUBLISH.format_markdown(
+            {
+                "summary": "One counted finding.",
+                "overall_recommendation": "request_changes",
+                "overall_score": 0.7,
+                "overall_confidence": 0.9,
+                "findings": [expected_finding],
+            },
+            run_id="28000000001",
+            head_sha="deadbeef",
+        )
+        pull_comments = [
+            {
+                "body": AGENT_REVIEW_PUBLISH.build_inline_comment_body(finding, run_id="28000000001"),
+                "user": {"login": "github-actions[bot]"},
+                "created_at": "2026-06-30T10:03:00Z",
+            }
+            for finding in (expected_finding, extra_finding)
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "review-state.json"
+            with mock.patch.dict(
+                os.environ,
+                {
+                    "GITHUB_TOKEN": "token",
+                    "GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge",
+                    "GITHUB_PR_NUMBER": "123",
+                },
+                clear=False,
+            ):
+                with mock.patch.object(AGENT_REVIEW_FETCH, "list_issue_comments", return_value=[]):
+                    with mock.patch.object(
+                        AGENT_REVIEW_FETCH,
+                        "list_pull_reviews",
+                        return_value=[
+                            {
+                                "body": summary_body,
+                                "user": {"login": "github-actions[bot]"},
+                                "submitted_at": "2026-06-30T10:02:00Z",
+                            }
+                        ],
+                    ):
+                        with mock.patch.object(AGENT_REVIEW_FETCH, "list_pull_comments", return_value=pull_comments):
+                            with mock.patch.object(
+                                AGENT_REVIEW_FETCH.sys,
+                                "argv",
+                                ["fetch-review-state.py", "--output", str(output_path)],
+                            ):
+                                AGENT_REVIEW_FETCH.main()
+
+            state = json.loads(output_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(state["finding_count"], 1)
+        self.assertTrue(state["finding_count_available"])
+        self.assertEqual(len(state["findings"]), 2)
+
     def test_agent_review_fetch_accepts_default_github_actions_authors(self):
         with mock.patch.dict(os.environ, {}, clear=True):
             author_logins = AGENT_REVIEW_FETCH.allowed_author_logins()
@@ -2176,13 +2258,14 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 return_value={
                     "run_id": "28000000001",
                     "head_sha": "deadbeef",
-                    "overall_recommendation": "comment",
+                    "overall_recommendation": "approve",
+                    "findings": [],
                 },
             ):
                 with mock.patch.object(
                     HELPER,
                     "read_review_artifact_state",
-                    side_effect=AssertionError("artifact fallback should not run when comment state is fresh"),
+                    return_value={},
                 ):
                     review_state = HELPER.wait_for_review_state(
                         pr_number="123",
@@ -2191,17 +2274,19 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                         expected_run_id="28000000001",
                         head_sha="deadbeef",
                     )
-        self.assertEqual(review_state["overall_recommendation"], "comment")
+        self.assertEqual(review_state["overall_recommendation"], "approve")
 
     def test_wait_for_review_state_falls_back_to_review_artifact(self):
         with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
             with mock.patch.object(
                 HELPER,
                 "read_review_state",
-                return_value=HELPER.read_json_file(Path("/dev/null")) if False else {
-                    "run_id": "",
-                    "head_sha": "",
-                    "overall_recommendation": "",
+                return_value={
+                    "run_id": "28000000001",
+                    "head_sha": "deadbeef",
+                    "overall_recommendation": "request_changes",
+                    "finding_count": 1,
+                    "findings": [],
                 },
             ):
                 with mock.patch.object(
@@ -2211,6 +2296,13 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                         "run_id": "28000000001",
                         "head_sha": "deadbeef",
                         "overall_recommendation": "request_changes",
+                        "findings": [
+                            {
+                                "title": "Blocking finding",
+                                "path": ".github/workflows/example.yml",
+                                "body": "Fix it.",
+                            }
+                        ],
                     },
                 ):
                     review_state = HELPER.wait_for_review_state(
@@ -2222,6 +2314,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                     )
 
         self.assertEqual(review_state["overall_recommendation"], "request_changes")
+        self.assertEqual(review_state["findings"][0]["title"], "Blocking finding")
 
     def test_wait_for_workflow_run_completion_polls_actions_api_instead_of_gh_watch(self):
         with mock.patch.object(
@@ -2394,7 +2487,14 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 "head_sha": "deadbeef",
                 "overall_recommendation": "comment",
                 "summary": "Tighten the loop.",
-                "findings": [],
+                "finding_count": 1,
+                "findings": [
+                    {
+                        "title": "Loop",
+                        "path": ".github/workflows/example.yml",
+                        "body": "Tighten the loop.",
+                    }
+                ],
             }
 
             with mock.patch.object(
@@ -2467,7 +2567,13 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                                     "head_sha": "deadbeef",
                                     "overall_recommendation": "request_changes",
                                     "summary": "Fallback summary",
-                                    "findings": [],
+                                    "findings": [
+                                        {
+                                            "title": "Fallback finding",
+                                            "path": ".github/workflows/example.yml",
+                                            "body": "Use canonical artifact details.",
+                                        }
+                                    ],
                                 },
                             ):
                                 result = HELPER.command_prepare_stabilization_context(args)
@@ -2479,6 +2585,164 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 if line.strip()
             )
             self.assertEqual(outputs["review_recommendation"], "request_changes")
+
+    def test_prepare_stabilization_context_rejects_summary_only_non_approve_state(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            context_root = Path(temp_dir) / "context"
+            output_file = Path(temp_dir) / "outputs.txt"
+            args = argparse.Namespace(
+                profile_path=str(PROFILE_FILE),
+                pr_number="123",
+                head_sha="deadbeef",
+                source_run_id="12345",
+                context_root=str(context_root),
+                github_output=str(output_file),
+            )
+            review_state = {
+                "run_id": "28000000001",
+                "head_sha": "deadbeef",
+                "overall_recommendation": "request_changes",
+                "summary": "Fix the workflow.",
+                "finding_count": 1,
+                "findings": [],
+            }
+
+            with mock.patch.object(
+                HELPER,
+                "read_pr_details",
+                return_value={
+                    "repair_branch": REPAIR_BRANCH,
+                    "head_sha": "deadbeef",
+                    "target_branch": "main",
+                },
+            ):
+                with mock.patch.object(HELPER, "read_review_state", return_value=review_state):
+                    with self.assertRaisesRegex(RuntimeError, "complete actionable findings"):
+                        HELPER.command_prepare_stabilization_context(args)
+
+    def test_prepare_stabilization_context_rejects_partial_fallback_findings(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            context_root = Path(temp_dir) / "context"
+            output_file = Path(temp_dir) / "outputs.txt"
+            args = argparse.Namespace(
+                profile_path=str(PROFILE_FILE),
+                pr_number="123",
+                head_sha="deadbeef",
+                source_run_id="12345",
+                context_root=str(context_root),
+                github_output=str(output_file),
+            )
+            review_state = {
+                "run_id": "28000000001",
+                "head_sha": "deadbeef",
+                "overall_recommendation": "request_changes",
+                "summary": "Fix both workflow issues.",
+                "finding_count": 2,
+                "findings": [
+                    {
+                        "title": "First recovered finding",
+                        "path": ".github/workflows/example.yml",
+                        "body": "Only one inline comment was recovered.",
+                    }
+                ],
+            }
+
+            with mock.patch.object(
+                HELPER,
+                "read_pr_details",
+                return_value={
+                    "repair_branch": REPAIR_BRANCH,
+                    "head_sha": "deadbeef",
+                    "target_branch": "main",
+                },
+            ):
+                with mock.patch.object(HELPER, "read_review_state", return_value=review_state):
+                    with self.assertRaisesRegex(RuntimeError, "recovered_findings=1"):
+                        HELPER.command_prepare_stabilization_context(args)
+
+    def test_review_state_fallback_requires_positive_complete_finding_count(self):
+        fallback_state = HELPER.normalize_review_state(
+            {
+                "run_id": "28000000001",
+                "head_sha": "deadbeef",
+                "overall_recommendation": "request_changes",
+                "finding_count": 0,
+                "findings": [
+                    {
+                        "title": "Unexpected inline finding",
+                        "path": ".github/workflows/example.yml",
+                        "body": "A non-approve fallback with count zero is inconsistent.",
+                    }
+                ],
+            }
+        )
+
+        self.assertFalse(
+            HELPER.review_state_can_drive_stabilization(
+                fallback_state,
+                source="pull request state",
+            )
+        )
+        self.assertTrue(
+            HELPER.review_state_can_drive_stabilization(
+                fallback_state,
+                source="artifact",
+            )
+        )
+
+    def test_review_state_fallback_requires_exact_marker_count(self):
+        fallback_state = HELPER.normalize_review_state(
+            {
+                "run_id": "28000000001",
+                "head_sha": "deadbeef",
+                "overall_recommendation": "request_changes",
+                "finding_count": 1,
+                "findings": [
+                    {
+                        "title": "Expected finding",
+                        "path": ".github/workflows/example.yml",
+                        "body": "The counted finding.",
+                    },
+                    {
+                        "title": "Unexpected extra finding",
+                        "path": ".github/workflows/extra.yml",
+                        "body": "Extra UI state must not become canonical.",
+                    },
+                ],
+            }
+        )
+
+        self.assertFalse(
+            HELPER.review_state_can_drive_stabilization(
+                fallback_state,
+                source="pull request state",
+            )
+        )
+
+    def test_review_state_fallback_does_not_trust_availability_without_valid_count(self):
+        fallback_state = HELPER.normalize_review_state(
+            {
+                "run_id": "28000000001",
+                "head_sha": "deadbeef",
+                "overall_recommendation": "request_changes",
+                "finding_count_available": True,
+                "findings": [
+                    {
+                        "title": "Recovered finding",
+                        "path": ".github/workflows/example.yml",
+                        "body": "A count availability flag without a count is not enough.",
+                    }
+                ],
+            }
+        )
+
+        self.assertFalse(fallback_state["finding_count_available"])
+        self.assertFalse(
+            HELPER.review_state_can_drive_stabilization(
+                fallback_state,
+                source="pull request state",
+            )
+        )
 
     def test_commit_review_fix_uses_pat_remote_and_bot_identity(self):
         review_state = {"run_id": "28000000001", "summary": "Fix the findings."}

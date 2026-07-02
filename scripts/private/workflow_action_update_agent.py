@@ -704,6 +704,148 @@ def find_latest_workflow_run_for_head(
     return str(candidate.get("id") or "")
 
 
+def normalize_review_state(review_state: object) -> dict[str, object]:
+    if not isinstance(review_state, dict):
+        return {}
+    normalized = dict(review_state)
+    findings = normalized.get("findings")
+    if not isinstance(findings, list):
+        findings = []
+    normalized["findings"] = findings
+    finding_count = normalized.get("finding_count")
+    has_explicit_finding_count = (
+        isinstance(finding_count, int)
+        and not isinstance(finding_count, bool)
+        and finding_count >= 0
+    )
+    if not has_explicit_finding_count:
+        finding_count = len(findings)
+    normalized["finding_count"] = finding_count
+    finding_count_available = normalized.get("finding_count_available")
+    if isinstance(finding_count_available, bool):
+        finding_count_available = finding_count_available and has_explicit_finding_count
+    else:
+        finding_count_available = has_explicit_finding_count
+    normalized["finding_count_available"] = finding_count_available
+    return normalized
+
+
+def review_state_recommendation(review_state: dict[str, object]) -> str:
+    return str(review_state.get("overall_recommendation") or "").strip().lower()
+
+
+def review_state_findings(review_state: dict[str, object]) -> list[object]:
+    findings = review_state.get("findings")
+    return findings if isinstance(findings, list) else []
+
+
+def review_state_finding_count(review_state: dict[str, object]) -> int:
+    finding_count = review_state.get("finding_count")
+    if isinstance(finding_count, int) and not isinstance(finding_count, bool) and finding_count >= 0:
+        return finding_count
+    return len(review_state_findings(review_state))
+
+
+def review_state_finding_count_available(review_state: dict[str, object]) -> bool:
+    return review_state.get("finding_count_available") is True
+
+
+def review_state_matches_head(review_state: dict[str, object], *, run_id: str, head_sha: str) -> bool:
+    return bool(
+        run_id
+        and head_sha
+        and str(review_state.get("run_id") or "") == run_id
+        and str(review_state.get("head_sha") or "") == head_sha
+    )
+
+
+def review_state_can_drive_stabilization(review_state: dict[str, object], *, source: str) -> bool:
+    recommendation = review_state_recommendation(review_state)
+    if not recommendation:
+        return False
+    if recommendation == "approve":
+        return True
+    findings = review_state_findings(review_state)
+    if source == "artifact":
+        return bool(findings)
+    finding_count = review_state_finding_count(review_state)
+    return bool(
+        findings
+        and review_state_finding_count_available(review_state)
+        and finding_count > 0
+        and len(findings) == finding_count
+    )
+
+
+def review_state_requires_findings(review_state: dict[str, object], *, source: str) -> bool:
+    recommendation = review_state_recommendation(review_state)
+    return bool(
+        recommendation
+        and recommendation != "approve"
+        and not review_state_can_drive_stabilization(review_state, source=source)
+    )
+
+
+def missing_review_findings_error_message(
+    *,
+    pr_number: str,
+    workflow_name: str,
+    review_state: dict[str, object],
+    source: str,
+) -> str:
+    recommendation = review_state_recommendation(review_state) or "unknown"
+    run_id = str(review_state.get("run_id") or "unknown")
+    finding_count = str(review_state_finding_count(review_state))
+    finding_count_available = str(review_state_finding_count_available(review_state)).lower()
+    recovered_findings = str(len(review_state_findings(review_state)))
+    return (
+        f"{workflow_name} {source} for PR #{pr_number} run {run_id} was '{recommendation}' "
+        f"with finding_count={finding_count}, finding_count_available={finding_count_available}, "
+        f"and recovered_findings={recovered_findings}, "
+        "but complete actionable findings were not available. The stabilizer will not run from "
+        "summary-only or partial Agent Review state; rerun Agent Review or wait for the "
+        "agent-review-out artifact."
+    )
+
+
+def resolve_canonical_review_state(
+    *,
+    repository: str,
+    pr_number: str,
+    workflow_name: str,
+    run_id: str,
+    head_sha: str,
+    fallback_state: dict[str, object],
+) -> tuple[dict[str, object], str]:
+    normalized_fallback = normalize_review_state(fallback_state)
+    if repository and run_id:
+        artifact_state = normalize_review_state(
+            read_review_artifact_state(
+                repository=repository,
+                run_id=run_id,
+                head_sha=head_sha,
+            )
+        )
+        if artifact_state:
+            if review_state_can_drive_stabilization(artifact_state, source="artifact"):
+                return artifact_state, "artifact"
+            if review_state_requires_findings(artifact_state, source="artifact"):
+                raise RuntimeError(
+                    missing_review_findings_error_message(
+                        pr_number=pr_number,
+                        workflow_name=workflow_name,
+                        review_state=artifact_state,
+                        source="artifact",
+                    )
+                )
+
+    if review_state_matches_head(normalized_fallback, run_id=run_id, head_sha=head_sha):
+        if review_state_can_drive_stabilization(normalized_fallback, source="pull request state"):
+            return normalized_fallback, "pull request state"
+
+    return {}, ""
+
+
 def read_review_artifact_state(*, repository: str, run_id: str, head_sha: str) -> dict[str, object]:
     if not run_id:
         return dict()
@@ -733,7 +875,7 @@ def read_review_artifact_state(*, repository: str, run_id: str, head_sha: str) -
         review_state = read_json_file(review_json)
         review_state["run_id"] = run_id
         review_state["head_sha"] = head_sha
-        return review_state
+        return normalize_review_state(review_state)
 
 
 def wait_for_dispatched_workflow_run(
@@ -1317,36 +1459,38 @@ def wait_for_review_state(
     head_sha: str,
 ) -> dict[str, object]:
     deadline = time.time() + WAIT_TIMEOUT_SECONDS
+    last_non_actionable_state: dict[str, object] = {}
 
     while time.time() < deadline:
-        review_state = read_review_state(
-            state_script=review_state_script,
-            pr_number=pr_number,
+        review_state = normalize_review_state(
+            read_review_state(
+                state_script=review_state_script,
+                pr_number=pr_number,
+            )
         )
         observed_run_id = str(review_state.get("run_id") or "")
         observed_head_sha = str(review_state.get("head_sha") or "")
-        recommendation = str(review_state.get("overall_recommendation") or "").strip().lower()
         repository = os.environ.get("GITHUB_REPOSITORY", "")
 
-        if observed_run_id == expected_run_id and observed_head_sha == head_sha and recommendation:
+        canonical_state, source = resolve_canonical_review_state(
+            repository=repository,
+            pr_number=pr_number,
+            workflow_name=workflow_name,
+            run_id=expected_run_id,
+            head_sha=head_sha,
+            fallback_state=review_state,
+        )
+        if canonical_state:
+            recommendation = review_state_recommendation(canonical_state)
             print(
-                f"Observed {workflow_name} recommendation {recommendation} from run {observed_run_id} for PR #{pr_number}"
+                f"Observed {workflow_name} recommendation {recommendation} from {source} "
+                f"for run {expected_run_id} on PR #{pr_number}"
             )
-            return review_state
+            return canonical_state
 
-        if repository:
-            artifact_state = read_review_artifact_state(
-                repository=repository,
-                run_id=expected_run_id,
-                head_sha=head_sha,
-            )
-            artifact_recommendation = str(artifact_state.get("overall_recommendation") or "").strip().lower()
-            if artifact_recommendation:
-                print(
-                    f"Observed {workflow_name} recommendation {artifact_recommendation} from artifact for run {expected_run_id} "
-                    f"on PR #{pr_number}"
-                )
-                return artifact_state
+        if review_state_matches_head(review_state, run_id=expected_run_id, head_sha=head_sha):
+            if review_state_requires_findings(review_state, source="pull request state"):
+                last_non_actionable_state = review_state
 
         if observed_run_id != expected_run_id:
             time.sleep(15)
@@ -1357,7 +1501,15 @@ def wait_for_review_state(
 
         time.sleep(15)
 
-    raise RuntimeError(f"Timed out waiting for {workflow_name} recommendation on PR #{pr_number}")
+    message = f"Timed out waiting for {workflow_name} canonical review state on PR #{pr_number}"
+    if last_non_actionable_state:
+        message += "\n" + missing_review_findings_error_message(
+            pr_number=pr_number,
+            workflow_name=workflow_name,
+            review_state=last_non_actionable_state,
+            source="pull request state",
+        )
+    raise RuntimeError(message)
 
 
 def publish_review_state_to_pr(
@@ -1574,13 +1726,33 @@ def command_prepare_stabilization_context(args: argparse.Namespace) -> int:
     if not repair_branch or not head_sha:
         raise RuntimeError(f"Unable to resolve repair branch and head SHA for PR #{args.pr_number}.")
 
-    review_state = read_review_state(
-        state_script=str(review_workflow["review_state_script"]),
-        pr_number=args.pr_number,
+    review_state = normalize_review_state(
+        read_review_state(
+            state_script=str(review_workflow["review_state_script"]),
+            pr_number=args.pr_number,
+        )
     )
+    review_state_source = "pull request state"
     review_head_sha = str(review_state.get("head_sha") or "").strip()
     recommendation = str(review_state.get("overall_recommendation") or "").strip().lower()
-    if (not recommendation or (review_head_sha and review_head_sha != head_sha)) and repository:
+    review_run_id = str(review_state.get("run_id") or "").strip()
+
+    if recommendation and review_head_sha == head_sha and review_run_id:
+        canonical_state, canonical_source = resolve_canonical_review_state(
+            repository=repository,
+            pr_number=args.pr_number,
+            workflow_name=str(review_workflow["workflow_name"]),
+            run_id=review_run_id,
+            head_sha=head_sha,
+            fallback_state=review_state,
+        )
+        if canonical_state:
+            review_state = canonical_state
+            review_state_source = canonical_source
+            review_head_sha = str(review_state.get("head_sha") or "").strip()
+            recommendation = review_state_recommendation(review_state)
+
+    if (not recommendation or not review_head_sha or review_head_sha != head_sha) and repository:
         review_run_id = find_latest_workflow_run_for_head(
             repository=repository,
             workflow_file=str(review_workflow["workflow_file"]),
@@ -1588,18 +1760,35 @@ def command_prepare_stabilization_context(args: argparse.Namespace) -> int:
             head_sha=head_sha,
         )
         if review_run_id:
-            review_state = read_review_artifact_state(
+            canonical_state, canonical_source = resolve_canonical_review_state(
                 repository=repository,
+                pr_number=args.pr_number,
+                workflow_name=str(review_workflow["workflow_name"]),
                 run_id=review_run_id,
                 head_sha=head_sha,
+                fallback_state=review_state,
             )
-            review_head_sha = str(review_state.get("head_sha") or "").strip()
-            recommendation = str(review_state.get("overall_recommendation") or "").strip().lower()
+            if canonical_state:
+                review_state = canonical_state
+                review_state_source = canonical_source
+                review_head_sha = str(review_state.get("head_sha") or "").strip()
+                recommendation = review_state_recommendation(review_state)
     if not recommendation:
         raise RuntimeError(f"Latest review state for PR #{args.pr_number} did not contain a recommendation.")
-    if review_head_sha and review_head_sha != head_sha:
+    if not review_head_sha:
+        raise RuntimeError(f"Latest review state for PR #{args.pr_number} did not contain a head SHA.")
+    if review_head_sha != head_sha:
         raise RuntimeError(
             f"Latest review state head SHA {review_head_sha} did not match expected head SHA {head_sha} for PR #{args.pr_number}.",
+        )
+    if review_state_requires_findings(review_state, source=review_state_source):
+        raise RuntimeError(
+            missing_review_findings_error_message(
+                pr_number=args.pr_number,
+                workflow_name=str(review_workflow["workflow_name"]),
+                review_state=review_state,
+                source=review_state_source,
+            )
         )
 
     write_stabilization_context(

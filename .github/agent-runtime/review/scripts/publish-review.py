@@ -148,12 +148,15 @@ def format_finding_details(findings):
 
 
 def review_state_metadata(review, run_id, head_sha):
+    findings = review.get("findings", [])
+    if not isinstance(findings, list):
+        findings = []
     metadata = {
         "summary": review["summary"],
         "overall_recommendation": review["overall_recommendation"],
         "overall_score": review["overall_score"],
         "overall_confidence": review["overall_confidence"],
-        "findings": [],
+        "finding_count": len(findings),
     }
     if run_id:
         metadata["run_id"] = run_id

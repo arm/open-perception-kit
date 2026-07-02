@@ -29,6 +29,8 @@ EMPTY_STATE = {
     "overall_confidence": 0,
     "run_id": "",
     "head_sha": "",
+    "finding_count": 0,
+    "finding_count_available": False,
     "findings": [],
 }
 REQUIRED_INLINE_METADATA_FIELDS = (
@@ -102,12 +104,37 @@ def comment_author_login(comment) -> str:
     return str(dict(comment.get("user") or {}).get("login") or "")
 
 
+def normalize_state_metadata(state):
+    if not isinstance(state, dict):
+        return dict(EMPTY_STATE)
+
+    normalized = dict(EMPTY_STATE)
+    normalized.update(state)
+
+    findings = normalized.get("findings")
+    if not isinstance(findings, list):
+        findings = []
+    normalized["findings"] = findings
+
+    finding_count = normalized.get("finding_count")
+    has_explicit_finding_count = (
+        isinstance(finding_count, int)
+        and not isinstance(finding_count, bool)
+        and finding_count >= 0
+    )
+    if not has_explicit_finding_count:
+        finding_count = len(findings)
+    normalized["finding_count"] = finding_count
+    normalized["finding_count_available"] = has_explicit_finding_count
+    return normalized
+
+
 def extract_state_metadata(body: str):
     for line in body.splitlines():
         if line.startswith(STATE_MARKER) and line.endswith(" -->"):
             payload = line[len(STATE_MARKER):-4].strip()
             try:
-                return json.loads(payload)
+                return normalize_state_metadata(json.loads(payload))
             except json.JSONDecodeError:
                 print(
                     "Ignoring malformed Agent review state marker JSON.",
@@ -256,6 +283,8 @@ def main():
         return
 
     state["findings"] = extract_findings(pull_comments, run_id, author_logins)
+    if state.get("finding_count_available") is not True:
+        state["finding_count"] = len(state["findings"])
     output_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
 
 
