@@ -188,6 +188,13 @@ download_report_artifact() {
     fi
 }
 
+prune_report_for_pages() {
+    local report_dir="$1"
+
+    # GitHub rejects large git blobs; videos/screenshots stay, trace zips do not.
+    find "${report_dir}" -path '*/data/*.zip' -type f -delete
+}
+
 publish_report() {
     local artifact_dir=""
     local report_dir=""
@@ -234,6 +241,7 @@ publish_report() {
     rm -rf "${target}"
     mkdir -p "${target}"
     cp -a "${report_dir}/." "${target}/"
+    prune_report_for_pages "${target}"
     if [ "${UPSTREAM_EVENT}" = "pull_request" ]; then
         write_report_index "${target}" "${title}" "../../"
     else

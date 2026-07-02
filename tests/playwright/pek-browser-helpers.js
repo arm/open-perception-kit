@@ -39,11 +39,13 @@ async function setModel(page, name, enabled) {
     has: page.locator('.model-name', { hasText: new RegExp(`^${escapeRegExp(name)}$`) }),
   });
   const toggle = model.getByRole('switch');
+  const toggleControl = model.locator('.model-toggle-switch');
 
   await expect(model).toHaveCount(1);
+  await expect(toggleControl).toBeVisible();
 
   if ((await toggle.isChecked()) !== enabled) {
-    await toggle.click();
+    await toggleControl.click();
   }
 
   if (enabled) {
