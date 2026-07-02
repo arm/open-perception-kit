@@ -9,8 +9,8 @@ on:
         default: ""
         type: string
       pr_base_ref:
-        description: Optional PR base branch for manual PR-context runs.
-        required: false
+        description: Required PR base branch when pr_number is set for manual PR-context runs.
+        required: true
         default: ""
         type: string
       pr_head_ref:
