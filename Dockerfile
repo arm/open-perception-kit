@@ -20,19 +20,17 @@ RUN set -eux; \
   dpkg --print-architecture; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  ca-certificates curl wget sudo unzip gnupg \
-  build-essential meson ninja-build pkg-config cmake \
-  libssl-dev libfmt-dev libfftw3-dev libsoup-3.0-dev libjson-glib-dev libcairo2-dev zip python3 python3-pip \
-  lldb-17 \
-  pre-commit \
-  libgstreamer1.0-dev gstreamer1.0-tools gstreamer1.0-x gstreamer1.0-gl \
-  libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base \
-  libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-bad \
-  gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly  \
-  gstreamer1.0-nice gstreamer1.0-pipewire \
-  git shfmt clang-format ssh \
-  python3-dev python3-venv python3-gi python3-gst-1.0 \
-  valgrind; \
+  build-essential ca-certificates clang-format cmake curl git gnupg \
+  gstreamer1.0-gl gstreamer1.0-nice gstreamer1.0-pipewire \
+  gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
+  gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
+  gstreamer1.0-tools gstreamer1.0-x libcairo2-dev libfftw3-dev \
+  libfmt-dev libgstreamer-plugins-bad1.0-dev \
+  libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
+  libjson-glib-dev libsoup-3.0-dev libssl-dev lldb-17 meson \
+  ninja-build pkg-config pre-commit python3 python3-dev python3-gi \
+  python3-gst-1.0 python3-pip python3-venv shfmt ssh sudo unzip \
+  valgrind wget zip; \
   rm -rf /var/lib/apt/lists/*; \
   curl --proto "=https" -LsSf https://astral.sh/uv/install.sh | \
   env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh; \
@@ -105,8 +103,8 @@ USER root
 RUN set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  locales bash-completion mc vim nano gdb clangd net-tools zsh \
-  openssh-client less ripgrep fd-find tmux; \
+  bash-completion clangd fd-find gdb less locales mc nano net-tools \
+  openssh-client ripgrep tmux vim zsh; \
   rm -rf /var/lib/apt/lists/*
 
 # libav can sometimes be the troublemaker; probe then install
@@ -147,8 +145,8 @@ USER root
 RUN set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  openjdk-25-jdk graphviz pandoc doxygen \
-  libffi-dev zlib1g-dev libbz2-dev liblzma-dev libsqlite3-dev v4l-utils; \
+  doxygen graphviz libbz2-dev libffi-dev liblzma-dev libsqlite3-dev \
+  openjdk-25-jdk pandoc v4l-utils zlib1g-dev; \
   rm -rf /var/lib/apt/lists/*
 
 # Install PlantUML JAR into image layers for docs generation and SBOM visibility.
@@ -175,9 +173,10 @@ RUN set -eux; \
 # Camera and graphics libraries
 RUN set -eux; \
   apt-get update && apt-get install -y --no-install-recommends \
-  libv4l-dev libgl1-mesa-dri libglx-mesa0 libegl1 libgbm1 libdrm2 mesa-utils libdrm-dev libgbm-dev \
-  libcamera-tools libcamera-dev libcamera-ipa libcamera-v4l2 rpicam-apps \
-  alsa-utils gstreamer1.0-libcamera gstreamer1.0-alsa; \
+  alsa-utils gstreamer1.0-alsa gstreamer1.0-libcamera \
+  libcamera-dev libcamera-ipa libcamera-tools libcamera-v4l2 \
+  libdrm-dev libdrm2 libegl1 libgbm-dev libgbm1 libgl1-mesa-dri \
+  libglx-mesa0 libv4l-dev mesa-utils rpicam-apps; \
   rm -rf /var/lib/apt/lists/*
 
 USER ${USERNAME}
@@ -215,9 +214,8 @@ USER root
 # fail in container builds because they require host kernel/module tooling.
 RUN set -eux; \
   apt-get update && apt-get install -y --no-install-recommends \
-  h10-hailort python3-h10-hailort \
-  hailo-tappas-core python3-hailo-tappas \
-  hailo-models rpicam-apps-hailo-postprocess; \
+  h10-hailort hailo-models hailo-tappas-core python3-h10-hailort \
+  python3-hailo-tappas rpicam-apps-hailo-postprocess; \
   rm -rf /var/lib/apt/lists/*
 
 USER ${USERNAME}
@@ -275,9 +273,9 @@ USER root
 # ---- Basic packages for development ----
 RUN apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-  xz-utils powerline fonts-powerline eza bat clangd gosu \
-  lua5.1 luarocks tree-sitter-cli wl-clipboard \
-  iproute2 iputils-ping traceroute iputils-arping dnsutils tcpdump nmap; \
+  bat clangd dnsutils eza fonts-powerline gosu iproute2 \
+  iputils-arping iputils-ping lua5.1 luarocks nmap powerline tcpdump \
+  traceroute tree-sitter-cli wl-clipboard xz-utils; \
   rm -rf /var/lib/apt/lists/*
 
 RUN luarocks install jsregexp
