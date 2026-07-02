@@ -45,12 +45,13 @@ std::vector<pek::Perception::Rect> predictTrackBoxes(ActiveTrackMap &activeTrack
 
     for (auto &[trackId, track] : activeTracks) {
         (void)trackId;
-        const auto predictedPoint = trackstate::predictCenter(track, config);
-        track.predictedThisFrame = true;
-
         auto predictedRect = track.lastDetection;
-        predictedRect.x = predictedPoint.x - (predictedRect.width * 0.5f);
-        predictedRect.y = predictedPoint.y - (predictedRect.height * 0.5f);
+        if (config.useKalman) {
+            const auto predictedPoint = trackstate::predictCenter(track, config);
+            track.predictedThisFrame = true;
+            predictedRect.x = predictedPoint.x - (predictedRect.width * 0.5f);
+            predictedRect.y = predictedPoint.y - (predictedRect.height * 0.5f);
+        }
         predictedTrackBoxes.push_back(predictedRect);
     }
 
@@ -92,6 +93,17 @@ float computeAssociationCost(float iou,
                              const Config &config) {
     const float iouCost = 1.0f - iou;
 
+    if (config.associationMode == AssociationMode::Iou) {
+        return iouCost;
+    }
+
+    if (config.associationMode == AssociationMode::Embedding) {
+        if (!similarity.has_value()) {
+            return 1.0f;
+        }
+        return 1.0f - (((*similarity) + 1.0f) * 0.5f);
+    }
+
     if (!config.useEmbeddings || config.embeddingWeight <= 0.0f || !similarity.has_value()) {
         return iouCost;
     }
@@ -116,6 +128,19 @@ std::string buildMatchDiagnostic(float iou, const std::optional<float> &similari
         return fmt::format("REID:{:.2f}", *similarity);
     }
     return fmt::format("IOU:{:.2f}", iou);
+}
+
+bool isAssignmentAccepted(float iou, const std::optional<float> &similarity, const Config &config) {
+    switch (config.associationMode) {
+    case AssociationMode::Iou:
+        return iou >= config.iouThreshold;
+    case AssociationMode::Embedding:
+        return similarity.has_value();
+    case AssociationMode::Hybrid:
+        return iou >= config.iouThreshold;
+    }
+
+    return false;
 }
 
 void buildAssociationMatrices(const DetectionBatch &detections,
@@ -161,14 +186,14 @@ void collectMatchesFromAssignment(const DetectionBatch &detections,
         }
 
         const float iou = iouMatrix[detIdx][static_cast<size_t>(trackIdx)];
-        if (iou < config.iouThreshold) {
+        const auto &similarity = similarityMatrix[detIdx][static_cast<size_t>(trackIdx)];
+        if (!isAssignmentAccepted(iou, similarity, config)) {
             continue;
         }
 
         const TrackId matchedTrackId = trackIds[static_cast<size_t>(trackIdx)];
         result.matches.push_back({detIdx, matchedTrackId});
-        result.diagnosticsByDetection[detIdx] =
-            buildMatchDiagnostic(iou, similarityMatrix[detIdx][static_cast<size_t>(trackIdx)]);
+        result.diagnosticsByDetection[detIdx] = buildMatchDiagnostic(iou, similarity);
         matchedDetection[detIdx] = true;
     }
 

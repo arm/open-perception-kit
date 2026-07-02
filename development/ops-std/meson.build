@@ -18,6 +18,7 @@ stdops = shared_module(
     'postproc/ImageNetClassificationParser.cpp',
     'postproc/ObjectEmbeddingParser.cpp',
     'postproc/ModNetSegmentationParser.cpp',
+    'postproc/ScrfdParser.cpp',
 
     'preproc/GenericImageTensorBuilder.cpp',
     'preproc/CpuImageKernels.cpp'

@@ -83,6 +83,21 @@ services:
         ./scripts/testing/valgrind/test-elements-with-valgrind.sh clean --pipeline only-onnx-yolo
       '
 
+  pek-generate-valgrind-summary:
+    <<: *pek-docs-base
+    hostname: pek-generate-valgrind-summary
+    command: |
+      bash -c '
+        if find scripts/testing/valgrind/logs -name "*.valgrind.*.xml" -print -quit 2>/dev/null | grep -q .; then
+          python3 scripts/testing/valgrind/summarize-valgrind-output.py \
+            --logs-dir scripts/testing/valgrind/logs \
+            --output scripts/testing/valgrind/valgrind-error-summary.xml;
+        else
+          echo "No valgrind log files found; refusing to publish a new baseline." >&2;
+          exit 1;
+        fi
+      '
+
   pek-quality-check-pull-request:
     <<: *pek-dev-base
     command: |

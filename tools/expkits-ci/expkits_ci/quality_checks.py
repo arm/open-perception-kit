@@ -46,6 +46,10 @@ class QualityChecks:
         r"^Co-authored-by:\s+Copilot Autofix powered by AI <.+@users\.noreply\.github\.com>$",
         re.IGNORECASE,
     )
+    JIRA_SUBJECT_PREFIX_RE = re.compile(
+        r"^(%s)-\d+\b.+" % "|".join(JIRA_PROJECTS),
+        re.IGNORECASE,
+    )
     AGENT_RUNTIME_STATIC_TRIGGER_PREFIXES = (
         ".github/agent-runtime/",
         "scripts/private/agent_runtime/",
@@ -391,6 +395,9 @@ class QualityChecks:
                     continue
 
                 if QualityChecks.allows_missing_jira_reference(filtered_lines):
+                    logger.info(f"[{sha}] Commit message format is valid.")
+                    continue
+                if QualityChecks.JIRA_SUBJECT_PREFIX_RE.match(filtered_lines[0]):
                     logger.info(f"[{sha}] Commit message format is valid.")
                     continue
 

@@ -1,0 +1,19 @@
+{
+    "name": "arcface_mobilefacenet",
+    "modelFamily": "reid",
+    "contentType": "humanFace",
+    "modelFile": "arcface_mobilefacenet.hef",
+    "dynamicOutput": true,
+    "inputTensors": [
+        {
+            "shape": [
+                1,
+                112,
+                112,
+                3
+            ],
+            "dataKind": "ImageRgbHwc",
+            "valueType": "Uint8"
+        }
+    ]
+}

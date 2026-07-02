@@ -69,9 +69,16 @@ void applyMatchedDetection(DetectionIndex detectionIndex,
     track.hitStreak++;
     track.lastUpdateFrame = frameTrackingContext.currentFrameIndex;
 
-    const auto smoothedPoint = trackstate::correctCenterWithMeasurement(
-        track, track.lastDetection, frameTrackingContext.config);
-    trackstate::appendTracePoint(track, smoothedPoint, frameTrackingContext.config);
+    pek::Perception::TrackTrace::Point resolvedPoint;
+    if (frameTrackingContext.config.useKalman) {
+        resolvedPoint = trackstate::correctCenterWithMeasurement(
+            track, track.lastDetection, frameTrackingContext.config);
+    } else {
+        resolvedPoint = {track.lastDetection.x + (track.lastDetection.width * 0.5f),
+                         track.lastDetection.y + (track.lastDetection.height * 0.5f)};
+        track.predictedThisFrame = false;
+    }
+    trackstate::appendTracePoint(track, resolvedPoint, frameTrackingContext.config);
 
     const auto diagnosticIt =
         frameTrackingContext.association.diagnosticsByDetection.find(detectionIndex);
@@ -86,8 +93,8 @@ void applyMatchedDetection(DetectionIndex detectionIndex,
         track.hasEmbedding = true;
     }
 
-    track.lastDetection.x = smoothedPoint.x - (track.lastDetection.width * 0.5f);
-    track.lastDetection.y = smoothedPoint.y - (track.lastDetection.height * 0.5f);
+    track.lastDetection.x = resolvedPoint.x - (track.lastDetection.width * 0.5f);
+    track.lastDetection.y = resolvedPoint.y - (track.lastDetection.height * 0.5f);
     result.assignedTrackByDetection[detectionIndex] = trackId;
 }
 
@@ -140,8 +147,15 @@ bool tryRestoreDormantTrack(DetectionIndex detectionIndex,
     restoredTrack.hitStreak = std::max(1, frameTrackingContext.config.minHitsToConfirm);
     restoredTrack.lastUpdateFrame = frameTrackingContext.currentFrameIndex;
 
-    const auto initPoint = trackstate::predictCenter(restoredTrack, frameTrackingContext.config);
-    restoredTrack.predictedThisFrame = true;
+    pek::Perception::TrackTrace::Point initPoint;
+    if (frameTrackingContext.config.useKalman) {
+        initPoint = trackstate::predictCenter(restoredTrack, frameTrackingContext.config);
+        restoredTrack.predictedThisFrame = true;
+    } else {
+        initPoint = {restoredTrack.lastDetection.x + (restoredTrack.lastDetection.width * 0.5f),
+                     restoredTrack.lastDetection.y + (restoredTrack.lastDetection.height * 0.5f)};
+        restoredTrack.predictedThisFrame = false;
+    }
     trackstate::appendTracePoint(restoredTrack, initPoint, frameTrackingContext.config);
     restoredTrack.lastDetection.x = initPoint.x - (restoredTrack.lastDetection.width * 0.5f);
     restoredTrack.lastDetection.y = initPoint.y - (restoredTrack.lastDetection.height * 0.5f);
@@ -171,8 +185,15 @@ void createTrackFromDetection(DetectionIndex detectionIndex,
         newTrack.hasEmbedding = true;
     }
 
-    const auto initPoint = trackstate::predictCenter(newTrack, frameTrackingContext.config);
-    newTrack.predictedThisFrame = true;
+    pek::Perception::TrackTrace::Point initPoint;
+    if (frameTrackingContext.config.useKalman) {
+        initPoint = trackstate::predictCenter(newTrack, frameTrackingContext.config);
+        newTrack.predictedThisFrame = true;
+    } else {
+        initPoint = {newTrack.lastDetection.x + (newTrack.lastDetection.width * 0.5f),
+                     newTrack.lastDetection.y + (newTrack.lastDetection.height * 0.5f)};
+        newTrack.predictedThisFrame = false;
+    }
     trackstate::appendTracePoint(newTrack, initPoint, frameTrackingContext.config);
 
     newTrack.lastDetection.x = initPoint.x - (newTrack.lastDetection.width * 0.5f);
@@ -210,12 +231,16 @@ void updatePredictedOnlyTracks(const FrameTrackingContext &frameTrackingContext,
             continue;
         }
 
-        Perception::TrackTrace::Point predictedPoint;
-        if (track.predictedThisFrame && track.kalmanInitialized) {
-            const auto &state = track.kalman.state();
-            predictedPoint = {state[0][0], state[1][0]};
-        } else {
-            predictedPoint = trackstate::predictCenter(track, frameTrackingContext.config);
+        Perception::TrackTrace::Point predictedPoint{
+            track.lastDetection.x + (track.lastDetection.width * 0.5f),
+            track.lastDetection.y + (track.lastDetection.height * 0.5f)};
+        if (frameTrackingContext.config.useKalman) {
+            if (track.predictedThisFrame && track.kalmanInitialized) {
+                const auto &state = track.kalman.state();
+                predictedPoint = {state[0][0], state[1][0]};
+            } else {
+                predictedPoint = trackstate::predictCenter(track, frameTrackingContext.config);
+            }
         }
 
         track.lastDetection.x = predictedPoint.x - (track.lastDetection.width * 0.5f);
@@ -223,11 +248,14 @@ void updatePredictedOnlyTracks(const FrameTrackingContext &frameTrackingContext,
         trackstate::appendTracePoint(track, predictedPoint, frameTrackingContext.config);
 
         track.missedFrames++;
-        if (track.missedFrames <= frameTrackingContext.config.maxMissedFrames) {
+        if (track.missedFrames <= frameTrackingContext.config.maxMissedFrames &&
+            frameTrackingContext.config.emitPredictedDetections) {
             track.lastMatchDiagnostic = "PRED";
             result.predictedOnlyTrackIds.push_back(trackId);
         } else {
-            result.tracksToRemove.push_back(trackId);
+            if (track.missedFrames > frameTrackingContext.config.maxMissedFrames) {
+                result.tracksToRemove.push_back(trackId);
+            }
         }
     }
 }

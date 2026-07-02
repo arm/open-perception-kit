@@ -1,0 +1,742 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://amp-dev-forge.local/metadata/api/perception.schema.json",
+  "title": "AMP Perception Payload",
+  "description": "Schema for the JSON emitted by development/common/pek/PerceptionSerializer.cpp.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "perfdata",
+    "layers"
+  ],
+  "properties": {
+    "perfdata": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "layers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/layer"
+      }
+    }
+  },
+  "$defs": {
+    "objectFields": {
+      "type": "object",
+      "required": [
+        "uuid",
+        "parentUuid",
+        "creationTsNs"
+      ],
+      "properties": {
+        "uuid": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "parentUuid": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "creationTsNs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "videoFrameData": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/$defs/objectFields"
+        },
+        {
+          "type": "object",
+          "required": [
+            "originalWidth",
+            "originalHeight",
+            "sourceCropLeft",
+            "sourceCropRight",
+            "sourceCropTop",
+            "sourceCropBottom",
+            "letterboxLeft",
+            "letterboxRight",
+            "letterboxTop",
+            "letterboxBottom"
+          ],
+          "properties": {
+            "originalWidth": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "originalHeight": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "sourceCropLeft": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "sourceCropRight": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "sourceCropTop": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "sourceCropBottom": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "letterboxLeft": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "letterboxRight": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "letterboxTop": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "letterboxBottom": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      ]
+    },
+    "audioFrameData": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/$defs/objectFields"
+        },
+        {
+          "type": "object",
+          "required": [
+            "originalChannels",
+            "originalFrequency",
+            "originalSampleCount"
+          ],
+          "properties": {
+            "originalChannels": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "originalFrequency": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "originalSampleCount": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      ]
+    },
+    "rectData": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/$defs/objectFields"
+        },
+        {
+          "type": "object",
+          "required": [
+            "x",
+            "y",
+            "width",
+            "height",
+            "confidence",
+            "classId"
+          ],
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "width": {
+              "type": "number"
+            },
+            "height": {
+              "type": "number"
+            },
+            "confidence": {
+              "type": "number"
+            },
+            "classId": {
+              "type": "integer"
+            },
+            "label": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "attributes": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "classificationCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "confidence",
+        "classId",
+        "text",
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
+      "properties": {
+        "confidence": {
+          "type": "number"
+        },
+        "classId": {
+          "type": "integer"
+        },
+        "text": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        }
+      }
+    },
+    "classificationData": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/$defs/objectFields"
+        },
+        {
+          "type": "object",
+          "required": [
+            "candidates"
+          ],
+          "properties": {
+            "candidates": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/classificationCandidate"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "yawPitchData": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/$defs/objectFields"
+        },
+        {
+          "type": "object",
+          "required": [
+            "confidence",
+            "yaw",
+            "pitch"
+          ],
+          "properties": {
+            "confidence": {
+              "type": "number"
+            },
+            "yaw": {
+              "type": "number"
+            },
+            "pitch": {
+              "type": "number"
+            }
+          }
+        }
+      ]
+    },
+    "localizedTextData": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/$defs/objectFields"
+        },
+        {
+          "type": "object",
+          "required": [
+            "x",
+            "y",
+            "w",
+            "h",
+            "text"
+          ],
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "w": {
+              "type": "number"
+            },
+            "h": {
+              "type": "number"
+            },
+            "text": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "bitmapData": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "width",
+            "height",
+            "type",
+            "encoding"
+          ],
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "Uint8",
+                "Uint32"
+              ]
+            },
+            "encoding": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "width",
+            "height",
+            "type",
+            "encoding",
+            "raw_size",
+            "compressed_size",
+            "data_b64"
+          ],
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "Uint8",
+                "Uint32"
+              ]
+            },
+            "encoding": {
+              "type": "string",
+              "enum": [
+                "base64",
+                "zlib+base64"
+              ]
+            },
+            "raw_size": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "compressed_size": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "data_b64": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "segmentationMapData": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/$defs/objectFields"
+        },
+        {
+          "type": "object",
+          "required": [
+            "bitmap"
+          ],
+          "properties": {
+            "bitmap": {
+              "$ref": "#/$defs/bitmapData"
+            }
+          }
+        }
+      ]
+    },
+    "personClassificationData": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/$defs/objectFields"
+        },
+        {
+          "type": "object",
+          "required": [
+            "yesConfidence",
+            "noConfidence"
+          ],
+          "properties": {
+            "yesConfidence": {
+              "type": "number"
+            },
+            "noConfidence": {
+              "type": "number"
+            }
+          }
+        }
+      ]
+    },
+    "trackTracePoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y"
+      ],
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      }
+    },
+    "trackTraceData": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/$defs/objectFields"
+        },
+        {
+          "type": "object",
+          "required": [
+            "trackId",
+            "points"
+          ],
+          "properties": {
+            "trackId": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "points": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/trackTracePoint"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "objectEmbeddingData": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/$defs/objectFields"
+        },
+        {
+          "type": "object",
+          "required": [
+            "values"
+          ],
+          "properties": {
+            "values": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "videoFrameDetection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "VideoFrame"
+        },
+        "data": {
+          "$ref": "#/$defs/videoFrameData"
+        }
+      }
+    },
+    "audioFrameDetection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "AudioFrame"
+        },
+        "data": {
+          "$ref": "#/$defs/audioFrameData"
+        }
+      }
+    },
+    "rectDetection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "Rect"
+        },
+        "data": {
+          "$ref": "#/$defs/rectData"
+        }
+      }
+    },
+    "classificationDetection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "Classification"
+        },
+        "data": {
+          "$ref": "#/$defs/classificationData"
+        }
+      }
+    },
+    "yawPitchDetection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "YawPitch"
+        },
+        "data": {
+          "$ref": "#/$defs/yawPitchData"
+        }
+      }
+    },
+    "localizedTextDetection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "LocalizedText"
+        },
+        "data": {
+          "$ref": "#/$defs/localizedTextData"
+        }
+      }
+    },
+    "segmentationMapDetection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "SegmentationMap"
+        },
+        "data": {
+          "$ref": "#/$defs/segmentationMapData"
+        }
+      }
+    },
+    "personClassificationDetection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "PersonClassification"
+        },
+        "data": {
+          "$ref": "#/$defs/personClassificationData"
+        }
+      }
+    },
+    "trackTraceDetection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "TrackTrace"
+        },
+        "data": {
+          "$ref": "#/$defs/trackTraceData"
+        }
+      }
+    },
+    "objectEmbeddingDetection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "ObjectEmbedding"
+        },
+        "data": {
+          "$ref": "#/$defs/objectEmbeddingData"
+        }
+      }
+    },
+    "detection": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/rectDetection"
+        },
+        {
+          "$ref": "#/$defs/yawPitchDetection"
+        },
+        {
+          "$ref": "#/$defs/localizedTextDetection"
+        },
+        {
+          "$ref": "#/$defs/segmentationMapDetection"
+        },
+        {
+          "$ref": "#/$defs/videoFrameDetection"
+        },
+        {
+          "$ref": "#/$defs/classificationDetection"
+        },
+        {
+          "$ref": "#/$defs/audioFrameDetection"
+        },
+        {
+          "$ref": "#/$defs/objectEmbeddingDetection"
+        },
+        {
+          "$ref": "#/$defs/trackTraceDetection"
+        },
+        {
+          "$ref": "#/$defs/personClassificationDetection"
+        }
+      ]
+    },
+    "layer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "engine",
+        "model",
+        "tags",
+        "labelFamily",
+        "contentType",
+        "compositingMode",
+        "detections",
+        "infer-id"
+      ],
+      "properties": {
+        "engine": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "string"
+        },
+        "labelFamily": {
+          "type": "string"
+        },
+        "contentType": {
+          "type": "string"
+        },
+        "compositingMode": {
+          "type": "string"
+        },
+        "detections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/detection"
+          }
+        },
+        "infer-id": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

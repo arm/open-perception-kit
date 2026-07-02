@@ -412,6 +412,14 @@ class TestQualityChecks(unittest.TestCase):
 
         self.assertTrue(result)
 
+    def test_check_commit_messages_on_ci_allows_jira_subject_prefix_without_task_line(self):
+        repo = self.make_repo_with_head_commit("EXPKITS-1234 Keep workflow repair scoped\n")
+
+        with patch("expkits_ci.quality_checks.Repo", return_value=repo):
+            result = self.quality_checks.check_commit_messages_on_ci()
+
+        self.assertTrue(result)
+
     def test_check_commit_messages_on_ci_rejects_non_git_generated_merge_subject_without_task_line(self):
         repo = self.make_repo_with_head_commit("Merge branch optimization\n")
 

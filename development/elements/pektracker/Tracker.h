@@ -16,6 +16,8 @@
 
 namespace pek::tracker {
 
+enum class AssociationMode { Hybrid, Iou, Embedding };
+
 namespace Defaults {
 inline constexpr const char *contentType = "genericObject";
 inline constexpr float iouThreshold = 0.3f;
@@ -36,6 +38,10 @@ inline constexpr float kalmanProcessNoisePos = 0.1f;
 inline constexpr float kalmanProcessNoiseVel = 0.05f;
 inline constexpr float kalmanMeasurementNoisePos = 20.0f;
 inline constexpr const char *inferId = "";
+inline constexpr bool useKalman = true;
+inline constexpr bool emitPredictedDetections = true;
+inline constexpr bool emitTrace = true;
+inline constexpr AssociationMode associationMode = AssociationMode::Hybrid;
 } // namespace Defaults
 
 struct Config {
@@ -58,6 +64,10 @@ struct Config {
     float kalmanProcessNoiseVel = Defaults::kalmanProcessNoiseVel;
     float kalmanMeasurementNoisePos = Defaults::kalmanMeasurementNoisePos;
     std::string inferId = Defaults::inferId;
+    bool useKalman = Defaults::useKalman;
+    bool emitPredictedDetections = Defaults::emitPredictedDetections;
+    bool emitTrace = Defaults::emitTrace;
+    AssociationMode associationMode = Defaults::associationMode;
 };
 
 using TrackId = uint64_t;
