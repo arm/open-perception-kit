@@ -34,7 +34,3 @@ repos:
         name: Check for Secrets
         entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --check-secrets --list-of-files "$@"' _
         language: system
-      - id: agent-runtime-static-analysis
-        name: Agent Runtime Static Analysis
-        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --agent-runtime-static-analysis --static-analysis-staged --list-of-files "$@"' _
-        language: system
