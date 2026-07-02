@@ -285,6 +285,7 @@ def main():
     state["findings"] = extract_findings(pull_comments, run_id, author_logins)
     if state.get("finding_count_available") is not True:
         state["finding_count"] = len(state["findings"])
+        state["finding_count_available"] = True
     output_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
 
 
