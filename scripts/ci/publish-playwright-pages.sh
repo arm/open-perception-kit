@@ -90,6 +90,149 @@ html_escape() {
     sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g'
 }
 
+write_index_assets() {
+    cat << 'EOF' > "${SITE_DIR}/report-index.css"
+:root {
+  --bg: #ffffff;
+  --fg: #24292f;
+  --muted: #57606a;
+  --border: #d0d7de;
+  --panel: #f6f8fa;
+  --accent: #0969da;
+  --pass: #1a7f37;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --fg: #e6edf3;
+    --muted: #8b949e;
+    --border: #30363d;
+    --panel: #161b22;
+    --accent: #58a6ff;
+    --pass: #3fb950;
+  }
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+main {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 32px 24px 48px;
+}
+header {
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+}
+h1 {
+  font-size: 28px;
+  line-height: 36px;
+  margin: 0;
+}
+h2 {
+  font-size: 18px;
+  line-height: 28px;
+  margin: 0 0 12px;
+}
+p {
+  color: var(--muted);
+  margin: 8px 0 0;
+}
+section {
+  margin-top: 24px;
+}
+.eyebrow {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.report-list {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.report-link,
+.empty {
+  align-items: center;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+.report-link:first-child,
+.empty:first-child {
+  border-top: 0;
+}
+.report-link {
+  color: var(--fg);
+  text-decoration: none;
+}
+.report-link:hover {
+  background: var(--bg);
+}
+.report-title {
+  display: block;
+  font-weight: 600;
+}
+.report-meta {
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
+  margin-top: 2px;
+}
+.badge {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--pass);
+  flex: none;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+}
+.back-link {
+  color: var(--accent);
+  display: inline-block;
+  margin-top: 18px;
+}
+EOF
+}
+
+write_index_head() {
+    local title="$1"
+    local css_href="$2"
+
+    cat << EOF
+<!doctype html>
+<html lang="en" style="scrollbar-gutter: stable both-edges;">
+  <head>
+    <meta charset="utf-8">
+    <meta name="color-scheme" content="dark light">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>$(printf '%s' "${title}" | html_escape)</title>
+    <link rel="stylesheet" href="$(printf '%s' "${css_href}" | html_escape)">
+  </head>
+  <body>
+    <main>
+EOF
+}
+
+write_index_footer() {
+    cat << 'EOF'
+    </main>
+  </body>
+</html>
+EOF
+}
+
 write_report_index() {
     local report_dir="$1"
     local title="$2"
@@ -97,33 +240,31 @@ write_report_index() {
     local phase=""
 
     {
+        write_index_head "${title}" "${back_href}report-index.css"
         cat << EOF
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>$(printf '%s' "${title}" | html_escape)</title>
-  </head>
-  <body>
-    <h1>$(printf '%s' "${title}" | html_escape)</h1>
-    <ul>
+      <header>
+        <div class="eyebrow">Playwright</div>
+        <h1>$(printf '%s' "${title}" | html_escape)</h1>
+        <p>Open a report section below.</p>
+      </header>
+      <section>
+        <h2>Report sections</h2>
+        <div class="report-list">
 EOF
         for phase in "${report_dir}"/*; do
             [ -f "${phase}/index.html" ] || continue
             phase="${phase##*/}"
-            printf '      <li><a href="%s/">%s</a></li>\n' \
+            printf '          <a class="report-link" href="%s/"><span><span class="report-title">%s</span><span class="report-meta">Playwright report</span></span><span class="badge">Open</span></a>\n' \
                 "$(printf '%s' "${phase}" | html_escape)" \
                 "$(printf '%s' "${phase}" | html_escape)"
         done
         cat << 'EOF'
-    </ul>
+        </div>
+      </section>
 EOF
-        printf '    <p><a href="%s">Back to report index</a></p>\n' \
+        printf '      <a class="back-link" href="%s">Back to report index</a>\n' \
             "$(printf '%s' "${back_href}" | html_escape)"
-        cat << 'EOF'
-  </body>
-</html>
-EOF
+        write_index_footer
     } > "${report_dir}/index.html"
 }
 
@@ -132,27 +273,28 @@ write_site_index() {
     local pr_number=""
 
     {
+        write_index_head "PEK Playwright Reports" "report-index.css"
         cat << 'EOF'
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>PEK Playwright Reports</title>
-  </head>
-  <body>
-    <h1>PEK Playwright Reports</h1>
-    <h2>Nightly</h2>
-    <ul>
+      <header>
+        <div class="eyebrow">Perception Experience Kit</div>
+        <h1>Playwright reports</h1>
+        <p>Published browser smoke reports with video attachments.</p>
+      </header>
+      <section>
+        <h2>Nightly</h2>
+        <div class="report-list">
 EOF
         if [ -f "${SITE_DIR}/nightly/index.html" ]; then
-            echo '      <li><a href="nightly/">latest nightly</a></li>'
+            echo '          <a class="report-link" href="nightly/"><span><span class="report-title">Latest nightly</span><span class="report-meta">Scheduled main run</span></span><span class="badge">Open</span></a>'
         else
-            echo '      <li>No nightly report published yet.</li>'
+            echo '          <div class="empty">No nightly report published yet.</div>'
         fi
         cat << 'EOF'
-    </ul>
-    <h2>Pull Requests</h2>
-    <ul>
+        </div>
+      </section>
+      <section>
+        <h2>Pull Requests</h2>
+        <div class="report-list">
 EOF
         if [ -d "${SITE_DIR}/prs" ]; then
             find "${SITE_DIR}/prs" -mindepth 1 -maxdepth 1 -type d |
@@ -160,16 +302,16 @@ EOF
                 while IFS= read -r pr_dir; do
                     pr_number="${pr_dir##*/}"
                     [ -f "${pr_dir}/index.html" ] || continue
-                    printf '      <li><a href="prs/%s/">PR #%s</a></li>\n' \
+                    printf '          <a class="report-link" href="prs/%s/"><span><span class="report-title">PR #%s</span><span class="report-meta">Latest published pull request report</span></span><span class="badge">Open</span></a>\n' \
                         "$(printf '%s' "${pr_number}" | html_escape)" \
                         "$(printf '%s' "${pr_number}" | html_escape)"
                 done
         fi
         cat << 'EOF'
-    </ul>
-  </body>
-</html>
+        </div>
+      </section>
 EOF
+        write_index_footer
     } > "${SITE_DIR}/index.html"
 }
 
@@ -271,6 +413,7 @@ publish_report() {
     fi
     printf '%s\n' "${UPSTREAM_HEAD_SHA}" > "${target}/commit.txt"
     touch "${SITE_DIR}/.nojekyll"
+    write_index_assets
     write_site_index
 
     push_or_skip_site_branch
@@ -313,6 +456,7 @@ cleanup_closed_pr_reports() {
     done
 
     if [ "${changed}" = "true" ]; then
+        write_index_assets
         write_site_index
         push_or_skip_site_branch
         set_output deploy true
