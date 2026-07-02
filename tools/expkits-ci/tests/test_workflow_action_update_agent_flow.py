@@ -2499,7 +2499,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 },
             ):
                 with mock.patch.object(HELPER, "read_review_state", return_value=review_state):
-                    result = HELPER.command_prepare_stabilization_context(args)
+                    with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": ""}, clear=False):
+                        result = HELPER.command_prepare_stabilization_context(args)
 
             self.assertEqual(result, 0)
             outputs = dict(
@@ -2609,8 +2610,9 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 },
             ):
                 with mock.patch.object(HELPER, "read_review_state", return_value=review_state):
-                    with self.assertRaisesRegex(RuntimeError, "complete actionable findings"):
-                        HELPER.command_prepare_stabilization_context(args)
+                    with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": ""}, clear=False):
+                        with self.assertRaisesRegex(RuntimeError, "complete actionable findings"):
+                            HELPER.command_prepare_stabilization_context(args)
 
     def test_prepare_stabilization_context_rejects_partial_fallback_findings(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -2649,8 +2651,9 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 },
             ):
                 with mock.patch.object(HELPER, "read_review_state", return_value=review_state):
-                    with self.assertRaisesRegex(RuntimeError, "recovered_findings=1"):
-                        HELPER.command_prepare_stabilization_context(args)
+                    with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": ""}, clear=False):
+                        with self.assertRaisesRegex(RuntimeError, "recovered_findings=1"):
+                            HELPER.command_prepare_stabilization_context(args)
 
     def test_review_state_fallback_requires_positive_complete_finding_count(self):
         fallback_state = HELPER.normalize_review_state(
