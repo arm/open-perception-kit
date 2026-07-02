@@ -760,9 +760,24 @@ EOF
     } > "${report_dir}/index.html"
 }
 
+pr_report_title() {
+    local pr_number="$1"
+    local title=""
+
+    if [ -n "${GITHUB_REPOSITORY:-}" ]; then
+        title="$(gh pr view "${pr_number}" --repo "${GITHUB_REPOSITORY}" --json title --jq '.title' 2> /dev/null || true)"
+    fi
+    if [ -n "${title}" ]; then
+        printf 'PR #%s - %s' "${pr_number}" "${title}"
+    else
+        printf 'PR #%s' "${pr_number}"
+    fi
+}
+
 write_site_index() {
     local pr_dir=""
     local pr_number=""
+    local pr_title=""
 
     {
         write_index_head "${PRODUCT_TITLE}" "report-index.css"
@@ -793,9 +808,10 @@ EOF
                 while IFS= read -r pr_dir; do
                     pr_number="${pr_dir##*/}"
                     [ -f "${pr_dir}/index.html" ] || continue
-                    printf '          <a class="report-link" href="prs/%s/"><span><span class="report-title">PR #%s</span><span class="report-meta">Latest published pull request report</span></span><span class="badge">Open</span></a>\n' \
+                    pr_title="$(pr_report_title "${pr_number}")"
+                    printf '          <a class="report-link" href="prs/%s/"><span><span class="report-title">%s</span><span class="report-meta">Latest published pull request report</span></span><span class="badge">Open</span></a>\n' \
                         "$(printf '%s' "${pr_number}" | html_escape)" \
-                        "$(printf '%s' "${pr_number}" | html_escape)"
+                        "$(printf '%s' "${pr_title}" | html_escape)"
                 done
         fi
         cat << 'EOF'
