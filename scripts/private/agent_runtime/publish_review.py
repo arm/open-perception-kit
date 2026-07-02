@@ -3,6 +3,8 @@
 # Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
 
+from __future__ import annotations
+
 import argparse
 import base64
 import json
@@ -15,7 +17,11 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-from review_contract import (
+if __package__ in (None, ""):  # pragma: no cover - used for direct script execution.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    __package__ = "agent_runtime"
+
+from .contracts import (
     DiffSide,
     GITHUB_API_VERSION,
     GITHUB_REVIEW_EVENTS,
@@ -198,6 +204,13 @@ def inline_state_metadata(finding, run_id):
 def format_markdown(review, *, run_id="", head_sha=""):
     findings = review.get("findings", [])
     counts = summarize_findings(findings)
+    finding_badges = " ".join(
+        [
+            severity_count_badge("critical", counts["critical"]),
+            severity_count_badge("major", counts["major"]),
+            severity_count_badge("note", counts["note"]),
+        ]
+    )
     lines = [
         MARKER,
         review_state_marker(review_state_metadata(review, run_id, head_sha), STATE_MARKER),
@@ -206,7 +219,7 @@ def format_markdown(review, *, run_id="", head_sha=""):
         recommendation_badge(review["overall_recommendation"]),
         f"{score_badge(review['overall_score'])} {confidence_badge(review['overall_confidence'])}",
         "",
-        f"Findings: {severity_count_badge('critical', counts['critical'])} {severity_count_badge('major', counts['major'])} {severity_count_badge('note', counts['note'])}",
+        f"Findings: {finding_badges}",
         "",
         review["summary"],
         "",
@@ -221,10 +234,17 @@ def format_markdown(review, *, run_id="", head_sha=""):
 def build_inline_comment_body(finding, *, run_id):
     suggestion = finding.get("suggestion")
     use_inline_block = is_inline_suggestion_applicable(finding)
+    finding_badges = " ".join(
+        [
+            severity_badge(finding["severity"]),
+            score_badge(finding["score"]),
+            confidence_badge(finding["confidence"]),
+        ]
+    )
     lines = [
         INLINE_MARKER,
         inline_state_marker(inline_state_metadata(finding, run_id)),
-        f"{severity_badge(finding['severity'])} {score_badge(finding['score'])} {confidence_badge(finding['confidence'])} **{finding['title']}**",
+        f"{finding_badges} **{finding['title']}**",
         "",
         f"Location: `{format_location(finding)}`",
         "",

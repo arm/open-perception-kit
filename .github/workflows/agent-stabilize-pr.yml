@@ -110,7 +110,6 @@ jobs:
             "${bundle_root}/.github/agent-runtime/runtime" \
             "${bundle_root}/.github/agent-runtime/review/prompts" \
             "${bundle_root}/.github/agent-runtime/review/schemas" \
-            "${bundle_root}/.github/agent-runtime/review/scripts" \
             "${bundle_root}/.github/agent-runtime/repair/prompts" \
             "${bundle_root}/.github/agent-runtime/repair/profiles" \
             "${bundle_root}/.github/actions/workflow-action-update-agent-helper" \
@@ -129,7 +128,6 @@ jobs:
             "${bundle_root}/.github/agent-runtime/runtime/agent-tasks.json"
           cp -R .github/agent-runtime/review/prompts/. "${bundle_root}/.github/agent-runtime/review/prompts"
           cp -R .github/agent-runtime/review/schemas/. "${bundle_root}/.github/agent-runtime/review/schemas"
-          cp -R .github/agent-runtime/review/scripts/. "${bundle_root}/.github/agent-runtime/review/scripts"
           cp -R .github/agent-runtime/repair/prompts/. "${bundle_root}/.github/agent-runtime/repair/prompts"
           cp -R .github/agent-runtime/repair/profiles/. "${bundle_root}/.github/agent-runtime/repair/profiles"
 

@@ -2,8 +2,8 @@
 
 This directory owns the repository-specific Agent review flow.
 
-The GitHub workflow renders the review prompt, runs the shared Python OpenAI
-Agents SDK runner, then
+The GitHub workflow calls the shared Python Agent runtime to render the review
+prompt, runs the OpenAI Agents SDK runner, then
 publishes:
 
 - one fresh summary comment per run
@@ -22,7 +22,8 @@ Structure:
 
 - `prompts/`: checked-in review prompt templates
 - `schemas/`: structured output schemas for Agent review runs
-- `scripts/`: shared helper scripts for prompt rendering, local review runs, and
-  publishing review output
+- `../../../scripts/private/agent_runtime/`: shared helper modules for prompt
+  rendering, local review runs, review-state fetching, and publishing review
+  output
 - `../runtime/requirements-openai-agents.txt`: pinned OpenAI agent runtime dependencies
 - `out/`: local and CI-generated review artifacts

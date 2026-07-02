@@ -27,7 +27,7 @@
     {
       "workflow_file": "agent-review.yml",
       "workflow_name": "Agent Review",
-      "review_state_script": ".github/agent-runtime/review/scripts/fetch-review-state.py",
+      "review_state_script": "scripts/private/agent_runtime/fetch_review_state.py",
       "workflow_dispatch_inputs": {
         "base_ref": "origin/{target_branch}",
         "head_ref": "{repair_branch}"

@@ -1594,7 +1594,7 @@ def publish_review_state_to_pr(
     head_sha: str,
     review_state: dict[str, object],
 ) -> None:
-    script_path = resolve_repo_path(".github/agent-runtime/review/scripts/publish-review.py")
+    script_path = resolve_repo_path("scripts/private/agent_runtime/publish_review.py")
     if not script_path.is_file():
         raise ValueError(f"Agent review publish script is missing: {script_path}")
 

@@ -21,7 +21,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Uses the checked-in review assets under `.github/agent-runtime/review/`
 - Keeps prompt templates in `.github/agent-runtime/review/prompts/`
 - Keeps schemas in `.github/agent-runtime/review/schemas/`
-- Keeps shared scripts in `.github/agent-runtime/review/scripts/`
+- Reuses shared helper modules from `scripts/private/agent_runtime/`
 - Uploads `agent-review-out` artifacts, including the rendered prompt, raw JSON output, and summary markdown
 - Publishes a fresh PR summary comment for each run from the structured review output
 - Publishes fresh inline review comments for the current findings without prior-state reconciliation

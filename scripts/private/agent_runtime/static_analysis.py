@@ -16,9 +16,6 @@ if __package__ in (None, ""):  # pragma: no cover - used for direct script execu
 
 
 AGENT_STATIC_PYTHON_PATHS = (
-    ".github/agent-runtime/review/scripts/fetch-review-state.py",
-    ".github/agent-runtime/review/scripts/publish-review.py",
-    ".github/agent-runtime/review/scripts/review_contract.py",
     "scripts/private/agent_runtime",
     "scripts/private/workflow_action_update_agent.py",
     "tools/expkits-ci/tests/test_workflow_action_update_agent_flow.py",

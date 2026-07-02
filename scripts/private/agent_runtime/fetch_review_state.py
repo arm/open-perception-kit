@@ -3,6 +3,8 @@
 # Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
 
+from __future__ import annotations
+
 import argparse
 import base64
 import json
@@ -12,7 +14,11 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from review_contract import (
+if __package__ in (None, ""):  # pragma: no cover - used for direct script execution.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    __package__ = "agent_runtime"
+
+from .contracts import (
     DEFAULT_AUTHOR_LOGINS,
     GITHUB_API_VERSION,
     GITHUB_USER_AGENT,

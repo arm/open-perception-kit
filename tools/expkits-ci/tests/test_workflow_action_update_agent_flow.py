@@ -35,9 +35,11 @@ AGENT_REVIEW_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/agent-review.yml"
 PEK_CI_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/pek-ci.yml"
 SONAR_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/sonar.yml"
 WORKFLOW_AUDIT_REPORT_SCRIPT = REPO_ROOT / "scripts/private/workflow_audit_report.py"
-AGENT_REVIEW_FETCH_SCRIPT = REPO_ROOT / ".github/agent-runtime/review/scripts/fetch-review-state.py"
-AGENT_REVIEW_PUBLISH_SCRIPT = REPO_ROOT / ".github/agent-runtime/review/scripts/publish-review.py"
-AGENT_REVIEW_RUN_SCRIPT = REPO_ROOT / ".github/agent-runtime/review/scripts/run-review.sh"
+AGENT_REVIEW_ROOT = REPO_ROOT / ".github/agent-runtime/review"
+AGENT_REVIEW_FETCH_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/fetch_review_state.py"
+AGENT_REVIEW_PUBLISH_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/publish_review.py"
+AGENT_REVIEW_RUN_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/run_review.py"
+AGENT_REVIEW_PROMPT_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review_prompt.py"
 AGENT_REVIEW_PROMPT_TEMPLATE = REPO_ROOT / ".github/agent-runtime/review/prompts/review.md.in"
 AGENT_REQUIREMENTS_FILE = REPO_ROOT / ".github/agent-runtime/runtime/requirements-openai-agents.txt"
 AGENT_STATIC_REQUIREMENTS_FILE = REPO_ROOT / ".github/agent-runtime/runtime/requirements-static-analysis.txt"
@@ -104,15 +106,6 @@ def load_agent_workflow_module(path: Path, module_name: str):
         sys.path.remove(module_path)
 
 
-def load_review_script_module(path: Path, module_name: str):
-    module_path = str(AGENT_REVIEW_PUBLISH_SCRIPT.parent)
-    sys.path.insert(0, module_path)
-    try:
-        return load_python_module(path, module_name)
-    finally:
-        sys.path.remove(module_path)
-
-
 def step_map(job: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {
         step["name"]: step
@@ -163,11 +156,21 @@ def load_agent_workflow_module_with_fake_sdk(path: Path, module_name: str):
 
 HELPER = load_python_module(HELPER_SCRIPT, "workflow_action_update_agent")
 WORKFLOW_AUDIT_REPORT = load_python_module(WORKFLOW_AUDIT_REPORT_SCRIPT, "workflow_audit_report")
-AGENT_REVIEW_FETCH = load_review_script_module(AGENT_REVIEW_FETCH_SCRIPT, "agent_review_fetch_review_state")
-AGENT_REVIEW_PUBLISH = load_review_script_module(AGENT_REVIEW_PUBLISH_SCRIPT, "agent_review_publish_review")
 OPENAI_AGENT_CONTRACTS = load_agent_workflow_module(
     OPENAI_AGENT_CONTRACTS_SCRIPT,
     "agent_runtime.contracts",
+)
+AGENT_REVIEW_FETCH = load_agent_workflow_module(
+    AGENT_REVIEW_FETCH_SCRIPT,
+    "agent_runtime.fetch_review_state",
+)
+AGENT_REVIEW_PUBLISH = load_agent_workflow_module(
+    AGENT_REVIEW_PUBLISH_SCRIPT,
+    "agent_runtime.publish_review",
+)
+AGENT_REVIEW_PROMPT = load_agent_workflow_module(
+    AGENT_REVIEW_PROMPT_SCRIPT,
+    "agent_runtime.review_prompt",
 )
 OPENAI_AGENT_MODEL_CONFIG = load_agent_workflow_module(
     OPENAI_AGENT_MODEL_CONFIG_SCRIPT,
@@ -618,8 +621,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             [
                 "Checkout pull request head",
                 "Fetch Agent review base ref",
-                "Render Agent review prompt",
                 "Set up Agent Python",
+                "Render Agent review prompt",
                 "Install OpenAI agent runtime",
                 "Run Agent workflow static analysis",
                 "Run OpenAI SDK review",
@@ -673,6 +676,14 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         render_step = review_steps["Render Agent review prompt"]
         self.assertEqual(render_step["env"]["REVIEW_HEAD_REF"], selected_head_ref)
+        self.assertIn(
+            "python3 scripts/private/agent_runtime/review_prompt.py",
+            render_step["run"],
+        )
+        self.assertIn(
+            "--output .github/agent-runtime/review/out/review.prompt.md",
+            render_step["run"],
+        )
         agent_step = review_steps["Run OpenAI SDK review"]
         self.assertEqual(agent_step["shell"], "bash")
         self.assertEqual(
@@ -702,6 +713,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(
             publish_step["env"]["REVIEW_BASE_REF"],
             "${{ format('origin/{0}', github.base_ref) }}",
+        )
+        self.assertIn(
+            ".agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/publish_review.py",
+            publish_step["run"],
         )
 
     def test_openai_agent_runner_uses_arm_proxy_truststore_and_tracing_contract(self):
@@ -1518,32 +1533,86 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_local_review_runner_uses_shared_sdk_script(self):
         content = AGENT_REVIEW_RUN_SCRIPT.read_text(encoding="utf-8")
 
-        self.assertIn('agent_venv="${AGENT_REVIEW_AGENT_VENV:-.agent-runtime/openai-agent-venv}"', content)
-        self.assertIn('export REVIEW_BASE_REF="${base_ref}"', content)
-        self.assertIn('export REVIEW_HEAD_REF="${REVIEW_HEAD_REF:-HEAD}"', content)
-        self.assertIn('export REVIEW_REPOSITORY="${REVIEW_REPOSITORY:-local-checkout}"', content)
-        self.assertIn('agent_python="${AGENT_REVIEW_PYTHON:-${AGENT_RUNTIME_PYTHON:-python3}}"', content)
+        self.assertIn('"AGENT_REVIEW_AGENT_VENV", ".agent-runtime/openai-agent-venv"', content)
+        self.assertIn('os.environ["REVIEW_BASE_REF"] = args.base_ref', content)
+        self.assertIn('os.environ.setdefault("REVIEW_HEAD_REF", "HEAD")', content)
+        self.assertIn('os.environ.setdefault("REVIEW_REPOSITORY", "local-checkout")', content)
+        self.assertIn('"AGENT_REVIEW_PYTHON"', content)
+        self.assertIn('"AGENT_RUNTIME_PYTHON", "python3"', content)
         self.assertIn("Agent review requires Python 3.10 or newer", content)
-        self.assertIn('"${agent_python}" -m venv "${agent_venv}"', content)
+        self.assertIn('run_command([agent_python, "-m", "venv", str(agent_venv)])', content)
         self.assertIn(
-            '"${agent_venv}/bin/python" -m pip install -r .github/agent-runtime/runtime/requirements-openai-agents.txt',
+            '".github/agent-runtime/runtime/requirements-openai-agents.txt"',
             content,
         )
         self.assertIn("run-review", content)
         self.assertIn(
-            '"${agent_venv}/bin/python" scripts/private/agent_runtime/openai_agent_runner.py "${agent_args[@]}"',
+            '"scripts/private/agent_runtime/openai_agent_runner.py"',
             content,
         )
         self.assertNotIn("--command run-review", content)
         self.assertNotIn("--agent-instance review", content)
         self.assertNotIn("--model-config-file .github/agent-runtime/runtime/agent-models.json", content)
         self.assertNotIn("--task-config-file .github/agent-runtime/runtime/agent-tasks.json", content)
-        self.assertIn('if [[ -n "${AGENT_REVIEW_MODEL:-}" ]]; then', content)
-        self.assertIn('agent_args+=(--model "${AGENT_REVIEW_MODEL}")', content)
+        self.assertIn('if os.environ.get("AGENT_REVIEW_MODEL"):', content)
+        self.assertIn('agent_args.extend(["--model", os.environ["AGENT_REVIEW_MODEL"]])', content)
         self.assertNotIn("${AGENT_MODEL", content)
-        self.assertIn("--schema-file \".github/agent-runtime/review/schemas/review.schema.json\"", content)
+        self.assertIn('".github/agent-runtime/review/schemas/review.schema.json"', content)
+        self.assertIn('"scripts/private/agent_runtime/publish_review.py"', content)
         self.assertNotIn("pip install --user", content)
         self.assertNotIn("OPENAI_API_KEY=", content)
+
+    def test_review_runtime_assets_do_not_own_scripts(self):
+        self.assertFalse((AGENT_REVIEW_ROOT / "scripts").exists())
+        self.assertTrue(AGENT_REVIEW_PROMPT_SCRIPT.is_file())
+        self.assertTrue(AGENT_REVIEW_FETCH_SCRIPT.is_file())
+        self.assertTrue(AGENT_REVIEW_PUBLISH_SCRIPT.is_file())
+        self.assertTrue(AGENT_REVIEW_RUN_SCRIPT.is_file())
+
+    def test_agent_review_prompt_renderer_uses_runtime_context(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            template = temp_path / "review.md.in"
+            output = temp_path / "review.prompt.md"
+            template.write_text(
+                "\n".join(
+                    [
+                        "@@REPOSITORY@@",
+                        "@@BASE_REF@@",
+                        "@@BASE_SHA@@",
+                        "@@HEAD_SHA@@",
+                        "@@PR_NUMBER@@",
+                        "@@PR_TITLE@@",
+                        "@@PR_URL@@",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            with mock.patch.dict(
+                os.environ,
+                {
+                    "REVIEW_REPOSITORY": "Arm-Debug/amp-dev-forge",
+                    "REVIEW_BASE_REF": "origin/main",
+                    "REVIEW_BASE_SHA": "base-sha",
+                    "REVIEW_HEAD_SHA": "head-sha",
+                    "REVIEW_PR_NUMBER": "175",
+                    "REVIEW_PR_TITLE": "Line one\nline two",
+                    "REVIEW_PR_URL": "https://github.com/Arm-Debug/amp-dev-forge/pull/175",
+                },
+                clear=False,
+            ):
+                AGENT_REVIEW_PROMPT.render_prompt(output_path=output, template_path=template)
+
+            rendered = output.read_text(encoding="utf-8")
+
+        self.assertIn("Arm-Debug/amp-dev-forge", rendered)
+        self.assertIn("origin/main", rendered)
+        self.assertIn("base-sha", rendered)
+        self.assertIn("head-sha", rendered)
+        self.assertIn("175", rendered)
+        self.assertIn("Line one line two", rendered)
+        self.assertIn("https://github.com/Arm-Debug/amp-dev-forge/pull/175", rendered)
 
     def test_agent_review_prompt_omits_unsupported_or_contradicted_claims(self):
         content = AGENT_REVIEW_PROMPT_TEMPLATE.read_text(encoding="utf-8")
@@ -1634,10 +1703,6 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         self.assertIn(
             'cp -R .github/agent-runtime/review/schemas/. "${bundle_root}/.github/agent-runtime/review/schemas"',
-            snapshot_step["run"],
-        )
-        self.assertIn(
-            'cp -R .github/agent-runtime/review/scripts/. "${bundle_root}/.github/agent-runtime/review/scripts"',
             snapshot_step["run"],
         )
         self.assertIn(
@@ -1808,7 +1873,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(agent_review["workflow_name"], "Agent Review")
         self.assertEqual(
             agent_review["review_state_script"],
-            ".github/agent-runtime/review/scripts/fetch-review-state.py",
+            "scripts/private/agent_runtime/fetch_review_state.py",
         )
         self.assertEqual(agent_review["allowed_review_recommendations"], ["approve"])
         self.assertEqual(
@@ -2354,7 +2419,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                             with mock.patch.object(
                                 AGENT_REVIEW_FETCH.sys,
                                 "argv",
-                                ["fetch-review-state.py", "--output", str(output_path)],
+                                ["fetch_review_state.py", "--output", str(output_path)],
                             ):
                                 AGENT_REVIEW_FETCH.main()
 
@@ -2419,7 +2484,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                     review_state = HELPER.wait_for_review_state(
                         pr_number="123",
                         workflow_name="Agent Review",
-                        review_state_script=".github/agent-runtime/review/scripts/fetch-review-state.py",
+                        review_state_script="scripts/private/agent_runtime/fetch_review_state.py",
                         expected_run_id="28000000001",
                         head_sha="deadbeef",
                     )
@@ -2457,7 +2522,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                     review_state = HELPER.wait_for_review_state(
                         pr_number="123",
                         workflow_name="Agent Review",
-                        review_state_script=".github/agent-runtime/review/scripts/fetch-review-state.py",
+                        review_state_script="scripts/private/agent_runtime/fetch_review_state.py",
                         expected_run_id="28000000001",
                         head_sha="deadbeef",
                     )

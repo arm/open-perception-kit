@@ -20,6 +20,13 @@ OPENAI_PROXY_KEY_ENV = "OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"
 OPENAI_BASE_URL_ENV = "OPENAI_BASE_URL"
 OPENAI_AGENTS_DISABLE_TRACING_ENV = "OPENAI_AGENTS_DISABLE_TRACING"
 OPENAI_AGENTS_DISABLE_TRACING_VALUE = "1"
+MARKER = "<!-- agent-review-comment -->"
+STATE_MARKER = "<!-- agent-review-state "
+INLINE_MARKER = "<!-- agent-review-inline -->"
+INLINE_STATE_MARKER = "<!-- agent-review-inline-state "
+DEFAULT_AUTHOR_LOGINS = frozenset({"github-actions", "github-actions[bot]"})
+GITHUB_API_VERSION = "2022-11-28"
+GITHUB_USER_AGENT = "amp-dev-forge-agent-review"
 
 EnumValue = TypeVar("EnumValue", bound=Enum)
 
@@ -106,6 +113,25 @@ class ReviewSeverity(str, Enum):
 class DiffSide(str, Enum):
     LEFT = "LEFT"
     RIGHT = "RIGHT"
+
+
+SEVERITY_COLORS = {
+    ReviewSeverity.NOTE.value: "1f6feb",
+    ReviewSeverity.MAJOR.value: "d97706",
+    ReviewSeverity.CRITICAL.value: "dc2626",
+}
+RECOMMENDATION_COLORS = {
+    ReviewRecommendation.APPROVE.value: "15803d",
+    ReviewRecommendation.COMMENT.value: "2563eb",
+    ReviewRecommendation.REQUEST_CHANGES.value: "dc2626",
+}
+GITHUB_REVIEW_EVENTS = {
+    ReviewRecommendation.APPROVE.value: "APPROVE",
+    # <agent-review:suppress> Non-blocking Agent comments intentionally land as
+    # accepted-with-comments in PR UI instead of leaving a pending review state.
+    ReviewRecommendation.COMMENT.value: "APPROVE",
+    ReviewRecommendation.REQUEST_CHANGES.value: "REQUEST_CHANGES",
+}
 
 
 @dataclass(frozen=True)

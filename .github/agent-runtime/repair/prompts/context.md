@@ -44,7 +44,7 @@ The reference implementation is `.github/workflows/agent-review.yml`.
 ## Discoveries
 
 - The useful gate is the standard `Agent Review` workflow on the PR. Repair-specific review logic should not fork that policy.
-- `.github/agent-runtime/review/scripts/publish-review.py` can publish a `request_changes` recommendation while the workflow run itself still concludes `success`. The stabilizer must look at structured review state, not only at workflow success/failure.
+- `scripts/private/agent_runtime/publish_review.py` can publish a `request_changes` recommendation while the workflow run itself still concludes `success`. The stabilizer must look at structured review state, not only at workflow success/failure.
 - Waiting on Actions runs via `gh api repos/{repo}/actions/runs/{id}` is more reliable than `gh run watch` for unattended polling.
 - Fetching check-run annotations with the PAT was blocked by `HTTP 403: Resource not accessible by personal access token`; polling workflow runs avoids that permission edge.
 - Self-hosted runner behavior is not perfectly uniform. Python OpenAI clients can fail corporate CA validation when they use the `certifi` bundle, so the runner injects the system trust store with `truststore` before importing OpenAI libraries.

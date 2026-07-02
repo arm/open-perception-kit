@@ -20,8 +20,8 @@ dependency pins. Executable GitHub Actions workflows live only under
   Python modules. Workflow YAML may create the venv and call that runner, but
   must not duplicate task-specific OpenAI logic or turn/model defaults.
 - Keep review markers, recommendation names, severity names, author defaults,
-  and GitHub API identity in `.github/agent-runtime/review/scripts/review_contract.py`.
-  Publish and fetch scripts must import that contract instead of duplicating
+  and GitHub API identity in `scripts/private/agent_runtime/contracts.py`.
+  Publish and fetch helpers must import that contract instead of duplicating
   marker strings.
 - Before reporting a GitHub Action ref as unavailable, verify it from current
   workflow logs or upstream tags. `actions/checkout@v6` and
@@ -34,7 +34,7 @@ dependency pins. Executable GitHub Actions workflows live only under
 
 For changes here, run at least:
 
-- `find scripts/private/agent_runtime .github/agent-runtime/review/scripts -name '*.py' -print0 | xargs -0 python3 -m py_compile scripts/private/workflow_action_update_agent.py`
+- `find scripts/private/agent_runtime -name '*.py' -print0 | xargs -0 python3 -m py_compile scripts/private/workflow_action_update_agent.py`
 - `python3 scripts/private/agent_runtime/static_analysis.py`
 - `python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_workflow_action_update_agent_flow.py'`
 - `git diff --check`

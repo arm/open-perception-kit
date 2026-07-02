@@ -57,6 +57,11 @@ jobs:
               fetch --no-tags origin "+refs/heads/${base_branch}:refs/remotes/origin/${base_branch}"
           fi
 
+      - name: Set up Agent Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+
       - name: Render Agent review prompt
         shell: bash
         env:
@@ -68,12 +73,8 @@ jobs:
           REVIEW_PR_URL: ${{ github.event.pull_request.html_url || '' }}
         run: |
           mkdir -p .github/agent-runtime/review/out
-          ./.github/agent-runtime/review/scripts/render-prompt.sh .github/agent-runtime/review/out/review.prompt.md
-
-      - name: Set up Agent Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.10"
+          python3 scripts/private/agent_runtime/review_prompt.py \
+            --output .github/agent-runtime/review/out/review.prompt.md
 
       - name: Install OpenAI agent runtime
         shell: bash
@@ -108,7 +109,7 @@ jobs:
         if: ${{ success() }}
         shell: bash
         run: |
-          python3 ./.github/agent-runtime/review/scripts/publish-review.py \
+          .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/publish_review.py \
             --input .github/agent-runtime/review/out/review.json \
             --markdown-out .github/agent-runtime/review/out/review-summary.md
           cat .github/agent-runtime/review/out/review-summary.md >> "${GITHUB_STEP_SUMMARY}"
@@ -123,7 +124,7 @@ jobs:
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REVIEW_BASE_REF: ${{ format('origin/{0}', github.base_ref) }}
         run: |
-          python3 ./.github/agent-runtime/review/scripts/publish-review.py \
+          .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/publish_review.py \
             --input .github/agent-runtime/review/out/review.json \
             --markdown-out .github/agent-runtime/review/out/review-summary.md \
             --publish-pr-comment
