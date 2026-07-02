@@ -37,7 +37,7 @@ services:
     container_name: perception-experience-kit
     hostname: perception-experience-kit
     volumes:
-      - ${SSH_AUTH_SOCK}:/ssh-agent
+      - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
 
     build:
       context: ..
