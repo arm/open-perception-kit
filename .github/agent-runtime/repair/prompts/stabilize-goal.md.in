@@ -1,6 +1,6 @@
 # {{DISPLAY_NAME}} Stabilization
 
-Goal: address the latest standard Agent Review findings on PR #{{PR_NUMBER}} and leave the current repair branch with only the minimal repository changes needed to turn the review into `approve`.
+Goal: address the latest standard Agent Review findings on PR #{{PR_NUMBER}} and leave the current PR branch with only the minimal repository changes needed to turn the review into `approve`.
 
 Read these first:
 - `.github/agent-runtime/repair/prompts/context.md`
@@ -17,7 +17,7 @@ Then inspect `{{CONTEXT_ROOT}}/review-state.json`.
 Context:
 - Source run ID: {{SOURCE_RUN_ID}}
 - PR number: {{PR_NUMBER}}
-- Repair branch: {{REPAIR_BRANCH}}
+- PR branch: {{REPAIR_BRANCH}}
 - Review workflow: {{REVIEW_WORKFLOW_NAME}}
 - Review run ID: {{REVIEW_RUN_ID}}
 - Review recommendation: {{REVIEW_RECOMMENDATION}}

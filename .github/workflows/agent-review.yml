@@ -124,3 +124,23 @@ jobs:
           name: agent-review-out
           path: .github/agent-runtime/review/out
           if-no-files-found: warn
+
+  auto-stabilize-pr:
+    name: Auto repair Agent Review findings
+    needs: review
+    if: |
+      github.event_name == 'pull_request' &&
+      needs.review.result == 'success' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: write
+    uses: ./.github/workflows/agent-stabilize-pr.yml
+    with:
+      pr_number: ${{ github.event.pull_request.number }}
+      head_sha: ${{ github.event.pull_request.head.sha }}
+      source_run_id: ${{ github.run_id }}
+      ticket_id: EXPKITS-1234
+      profile_path: .github/agent-runtime/repair/profiles/profile.json
+    secrets: inherit # pragma: allowlist secret

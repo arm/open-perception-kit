@@ -215,6 +215,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertNotIn("source_head_branch", repair_job["with"])
         self.assertNotIn("source_head_repository", repair_job["with"])
         self.assertEqual(repair_job["permissions"]["actions"], "write")
+        self.assertEqual(stabilize_job["permissions"]["actions"], "read")
         self.assertEqual(repair_job["secrets"], "inherit")
         self.assertEqual(stabilize_job["secrets"], "inherit")
 
@@ -331,6 +332,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             stabilize_steps["Stabilize repair PR"]["env"]["GH_TOKEN"],
             "${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}",
         )
+        self.assertEqual(
+            stabilize_steps["Stabilize repair PR"]["with"]["merge-when-stable"],
+            "true",
+        )
 
     def test_helper_action_exposes_structured_outputs(self):
         action = load_yaml(HELPER_ACTION_FILE)
@@ -341,6 +346,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             ".github/agent-runtime/repair/profiles/profile.json",
         )
         self.assertIn("command", action["inputs"])
+        self.assertEqual(action["inputs"]["merge-when-stable"]["default"], "false")
         self.assertIn("should_run", action["outputs"])
         self.assertIn("repair_branch", action["outputs"])
         self.assertIn("agent_model", action["outputs"])
@@ -524,9 +530,27 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         workflow = load_yaml(AGENT_REVIEW_WORKFLOW_FILE)
         dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
         review_job = workflow["jobs"]["review"]
+        auto_stabilize_job = workflow["jobs"]["auto-stabilize-pr"]
         review_steps = step_map(review_job)
 
         self.assertEqual(review_job["runs-on"], OPENAI_AGENT_RUNNER_LABEL)
+        self.assertEqual(auto_stabilize_job["needs"], "review")
+        self.assertEqual(
+            auto_stabilize_job["uses"],
+            "./.github/workflows/agent-stabilize-pr.yml",
+        )
+        self.assertIn("github.event_name == 'pull_request'", auto_stabilize_job["if"])
+        self.assertIn("needs.review.result == 'success'", auto_stabilize_job["if"])
+        self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", auto_stabilize_job["if"])
+        self.assertEqual(auto_stabilize_job["permissions"]["actions"], "read")
+        self.assertEqual(auto_stabilize_job["permissions"]["contents"], "write")
+        self.assertEqual(auto_stabilize_job["permissions"]["pull-requests"], "write")
+        self.assertEqual(auto_stabilize_job["with"]["pr_number"], "${{ github.event.pull_request.number }}")
+        self.assertEqual(auto_stabilize_job["with"]["head_sha"], "${{ github.event.pull_request.head.sha }}")
+        self.assertEqual(auto_stabilize_job["with"]["source_run_id"], "${{ github.run_id }}")
+        self.assertEqual(auto_stabilize_job["with"]["profile_path"],
+                         ".github/agent-runtime/repair/profiles/profile.json")
+        self.assertEqual(auto_stabilize_job["secrets"], "inherit")
         self.assertIn("base_ref", dispatch_inputs)
         self.assertIn("head_ref", dispatch_inputs)
         self.assertEqual(dispatch_inputs["head_ref"]["default"], "")
@@ -1371,6 +1395,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
         self.assertEqual(set(call_inputs.keys()), set(dispatch_inputs.keys()))
         self.assertEqual(job["runs-on"], OPENAI_AGENT_RUNNER_LABEL)
+        self.assertEqual(job["permissions"]["actions"], "read")
         self.assertEqual(
             list(steps),
             [
@@ -2131,14 +2156,17 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
         self.assertEqual(author_logins, {"github-actions", "github-actions[bot]"})
 
-    def test_workflow_audit_merges_report_and_repair_in_one_pipeline(self):
+    def test_workflow_audit_reports_freshness_and_keeps_manual_stabilization_only(self):
         workflow = load_yaml(WORKFLOW_AUDIT_FILE)
         dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
         report_job = workflow["jobs"]["workflow-dependency-freshness"]
-        repair_job = workflow["jobs"]["repair-workflow-dependency-freshness"]
         stabilize_job = workflow["jobs"]["stabilize-existing-pr"]
         report_steps = step_map(report_job)
 
+        self.assertEqual(
+            set(workflow["jobs"].keys()),
+            {"workflow-dependency-freshness", "stabilize-existing-pr"},
+        )
         self.assertEqual(
             set(dispatch_inputs.keys()),
             {"ticket_id", "repair_profile_path", "stabilize_pr_number", "stabilize_head_sha"},
@@ -2147,23 +2175,9 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("behind_latest", report_job["outputs"])
         self.assertIn("needs_review", report_job["outputs"])
         self.assertIn("--github-output", report_steps["Render workflow dependency freshness report"]["run"])
-        self.assertEqual(
-            repair_job["uses"],
-            "./.github/workflows/workflow-action-update-agent-reusable.yml",
-        )
-        self.assertEqual(repair_job["with"]["source_run_id"], "${{ github.run_id }}")
-        self.assertEqual(repair_job["with"]["source_artifact_name"], "workflow-dependency-freshness")
-        self.assertEqual(
-            repair_job["with"]["profile_path"],
-            "${{ inputs.repair_profile_path || '.github/agent-runtime/repair/profiles/workflow-audit-profile.json' }}",
-        )
-        self.assertEqual(repair_job["permissions"]["actions"], "write")
         self.assertIn("github.event.inputs.stabilize_pr_number == ''", report_job["if"])
-        self.assertIn("github.event.inputs.stabilize_pr_number == ''", repair_job["if"])
-        self.assertIn("needs.workflow-dependency-freshness.outputs.requires_repair == 'true'", repair_job["if"])
-        self.assertIn("github.event_name == 'schedule'", repair_job["if"])
-        self.assertIn("github.event_name == 'workflow_dispatch'", repair_job["if"])
         self.assertEqual(stabilize_job["uses"], "./.github/workflows/agent-stabilize-pr.yml")
+        self.assertEqual(stabilize_job["permissions"]["actions"], "read")
         self.assertEqual(
             stabilize_job["if"],
             "${{ github.event_name == 'workflow_dispatch' && github.event.inputs.stabilize_pr_number != '' }}",
@@ -2306,6 +2320,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 ticket_id="EXPKITS-4242",
                 source_run_id="12345",
                 context_root=str(context_root),
+                merge_when_stable=True,
             )
             first_review_state = {
                 "run_id": "28000000001",
@@ -2390,6 +2405,60 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 review_state=second_review_state,
             )
             merge_pr.assert_called_once_with("123")
+
+    def test_stabilize_pr_skips_merge_without_merge_flag(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            context_root = Path(temp_dir) / "context"
+            args = argparse.Namespace(
+                profile_path=str(PROFILE_FILE),
+                pr_number="123",
+                repair_branch=REPAIR_BRANCH,
+                head_sha="feedface",
+                ticket_id="EXPKITS-4242",
+                source_run_id="12345",
+                context_root=str(context_root),
+                merge_when_stable=False,
+            )
+            review_state = {
+                "run_id": "28000000002",
+                "head_sha": "feedface",
+                "overall_recommendation": "approve",
+                "summary": "Looks good.",
+                "findings": [],
+            }
+            run_command_result = mock.Mock(returncode=0, stdout="", stderr="")
+
+            with mock.patch.dict(
+                os.environ,
+                {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge", "GITHUB_REF_NAME": "feature/test"},
+                clear=False,
+            ):
+                with mock.patch.object(HELPER, "run_command", return_value=run_command_result):
+                    with mock.patch.object(
+                        HELPER,
+                        "ensure_validation_workflow_run",
+                        side_effect=[
+                            ("review-1", "pull_request"),
+                            ("pek-1", "pull_request"),
+                            ("sonar-1", "pull_request"),
+                        ],
+                    ) as ensure_validation_workflow_run:
+                        with mock.patch.object(HELPER, "wait_for_review_state", return_value=review_state):
+                            with mock.patch.object(
+                                HELPER,
+                                "read_pr_details",
+                                return_value={
+                                    "repair_branch": REPAIR_BRANCH,
+                                    "head_sha": "feedface",
+                                    "target_branch": "main",
+                                },
+                            ):
+                                with mock.patch.object(HELPER, "merge_pr") as merge_pr:
+                                    result = HELPER.command_stabilize_pr(args)
+
+            self.assertEqual(result, 0)
+            self.assertEqual(ensure_validation_workflow_run.call_count, 3)
+            merge_pr.assert_not_called()
 
     def test_prepare_stabilization_context_writes_prompt_and_outputs(self):
         with tempfile.TemporaryDirectory() as temp_dir:

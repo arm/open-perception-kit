@@ -1913,7 +1913,10 @@ def command_stabilize_pr(args: argparse.Namespace) -> int:
                 dispatch_context=dispatch_context,
             )
 
-        merge_pr(args.pr_number)
+        if args.merge_when_stable:
+            merge_pr(args.pr_number)
+        else:
+            print(f"PR #{args.pr_number} is stable; merge skipped.")
         return 0
 
     raise RuntimeError(
@@ -2074,6 +2077,7 @@ def build_parser() -> argparse.ArgumentParser:
     stabilize_pr.add_argument("--ticket-id", required=True)
     stabilize_pr.add_argument("--source-run-id", required=True)
     stabilize_pr.add_argument("--context-root", default=".agent-runtime/workflow-action-update-agent")
+    stabilize_pr.add_argument("--merge-when-stable", action="store_true")
     stabilize_pr.set_defaults(func=command_stabilize_pr)
 
     wait_for_workflows = subparsers.add_parser("wait-for-pr-workflows")

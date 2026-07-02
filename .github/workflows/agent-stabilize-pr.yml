@@ -90,6 +90,7 @@ jobs:
   stabilize:
     runs-on: self-hosted-ubuntu-latest
     permissions:
+      actions: read
       contents: write
       pull-requests: write
     steps:

@@ -2,8 +2,11 @@
 
 ## Goal
 
-- Keep one repair pipeline only: detect workflow freshness or CI regressions, generate the minimal patch, open a draft PR, wait for the normal PR checks and the normal Agent review, stabilize if review requests changes, then merge.
-- Keep the repair flow reusable so later callers can plug in a different report source, such as Docker image freshness, without re-implementing PR lifecycle logic.
+- Keep one automatic repair path only: same-repository pull requests run the
+  standard `Agent Review`, then automatically stabilize that PR head when the
+  review is not `approve`.
+- Keep manual PR stabilization dispatchable for maintainers. The automatic path
+  must not open separate repair PRs or merge the PR.
 
 ## Hard Rules
 
@@ -11,6 +14,9 @@
 - Keep workflow YAML orchestration-thin. Repo-specific logic belongs in `scripts/private/workflow_action_update_agent.py` behind `.github/actions/workflow-action-update-agent-helper/`.
 - Keep runtime prompt files under `.agent-runtime/workflow-action-update-agent/`; do not check generated prompt artifacts into git.
 - Keep the stabilization loop focused on review findings only. It must not rewrite unrelated workflow plumbing.
+- Follow-up stabilization commits must rely on the next normal PR `Agent Review`
+  run for proof. If the new review finds a new issue, the next PR event runs
+  stabilization again.
 - Prefer API polling over log scraping or annotation fetches when waiting for workflow completion.
 - Functional tests should assert behavior and contract, not implementation trivia.
 
@@ -37,7 +43,7 @@ The reference implementation is `.github/workflows/agent-review.yml`.
 
 ## Discoveries
 
-- The useful gate is the standard `Agent Review` workflow on the repair PR. Repair-specific review logic should not fork that policy.
+- The useful gate is the standard `Agent Review` workflow on the PR. Repair-specific review logic should not fork that policy.
 - `.github/agent-runtime/review/scripts/publish-review.py` can publish a `request_changes` recommendation while the workflow run itself still concludes `success`. The stabilizer must look at structured review state, not only at workflow success/failure.
 - Waiting on Actions runs via `gh api repos/{repo}/actions/runs/{id}` is more reliable than `gh run watch` for unattended polling.
 - Fetching check-run annotations with the PAT was blocked by `HTTP 403: Resource not accessible by personal access token`; polling workflow runs avoids that permission edge.
@@ -54,15 +60,15 @@ The reference implementation is `.github/workflows/agent-review.yml`.
 
 ## Expected Flow
 
-1. Source workflow or report produces the repair context.
-2. Repair workflow generates a patch and opens a draft PR.
-3. Standard PR workflows run, including the normal `Agent Review`.
-4. If Agent review recommends anything other than `approve`, dispatch the dedicated stabilizer workflow for that PR head.
-5. The stabilizer workflow applies the minimal follow-up patch, reruns configured validation commands, and pushes one follow-up commit.
-6. The parent loop waits for fresh PR workflows on the new head and repeats until Agent review approves or the max attempts are exhausted.
-7. Merge only after the latest PR head is green.
+1. A same-repository PR is opened, reopened, synchronized, or marked ready for review.
+2. The standard `Agent Review` workflow reviews the current PR head and publishes canonical review state.
+3. The same workflow invokes the dedicated stabilizer workflow for that PR head.
+4. If Agent Review already approves, the stabilizer writes a skip artifact and exits.
+5. If Agent Review reports findings, the stabilizer applies the minimal follow-up patch, reruns configured validation commands, and pushes one follow-up commit.
+6. The push retriggers normal PR workflows, including `Agent Review`; any new or remaining finding starts the next stabilization attempt for the new head.
+7. The loop stops when the latest PR head receives an `approve` Agent Review. Maintainers still own final merge.
 
 ## Token Notes
 
-- `EXPKITS_AGENT_TOKEN` needs enough scope to open/edit/merge PRs, push the repair branch, and dispatch workflows.
+- `EXPKITS_AGENT_TOKEN` needs enough scope to push PR follow-up commits and dispatch workflows.
 - `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` is the credential used by the canonical self-hosted OpenAI SDK runner.

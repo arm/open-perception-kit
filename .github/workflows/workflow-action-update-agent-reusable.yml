@@ -258,3 +258,4 @@ jobs:
           head-sha: ${{ needs['open-pr'].outputs.head_sha }}
           ticket-id: ${{ needs.prepare.outputs.ticket_id }}
           source-run-id: ${{ needs.prepare.outputs.source_run_id }}
+          merge-when-stable: "true"

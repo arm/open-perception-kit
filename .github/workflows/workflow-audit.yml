@@ -87,32 +87,11 @@ jobs:
           if-no-files-found: warn
           retention-days: 10
 
-  repair-workflow-dependency-freshness:
-    name: Repair workflow dependency freshness (nightly/manual only)
-    needs: workflow-dependency-freshness
-    if: |
-      needs.workflow-dependency-freshness.outputs.requires_repair == 'true' &&
-      (
-        github.event_name == 'schedule' ||
-        (github.event_name == 'workflow_dispatch' && github.event.inputs.stabilize_pr_number == '')
-      )
-    permissions:
-      actions: write
-      contents: write
-      pull-requests: write
-    uses: ./.github/workflows/workflow-action-update-agent-reusable.yml
-    with:
-      source_run_id: ${{ github.run_id }}
-      target_branch: ${{ github.ref_name }}
-      ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
-      profile_path: ${{ inputs.repair_profile_path || '.github/agent-runtime/repair/profiles/workflow-audit-profile.json' }}
-      source_artifact_name: workflow-dependency-freshness
-    secrets: inherit # pragma: allowlist secret
-
   stabilize-existing-pr:
     name: Stabilize existing PR (manual only)
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.stabilize_pr_number != '' }}
     permissions:
+      actions: read
       contents: write
       pull-requests: write
     uses: ./.github/workflows/agent-stabilize-pr.yml

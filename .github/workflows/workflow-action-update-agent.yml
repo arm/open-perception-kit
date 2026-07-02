@@ -60,6 +60,7 @@ jobs:
     if: ${{ inputs.pr_number != '' }}
     name: Run agent stabilizer
     permissions:
+      actions: read
       contents: write
       pull-requests: write
     uses: ./.github/workflows/agent-stabilize-pr.yml

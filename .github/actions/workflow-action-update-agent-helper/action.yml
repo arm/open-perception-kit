@@ -77,6 +77,10 @@ inputs:
     description: Head SHA of the repair branch PR.
     required: false
     default: ""
+  merge-when-stable:
+    description: Merge the PR after stabilization and validation succeed.
+    required: false
+    default: "false"
 
 outputs:
   should_run:
@@ -233,14 +237,23 @@ runs:
               --pr-number "${{ inputs.pr-number }}"
             ;;
           stabilize-pr)
-            python3 "${helper}" stabilize-pr \
-              --profile-path "${{ inputs.profile-path }}" \
-              --pr-number "${{ inputs.pr-number }}" \
-              --repair-branch "${{ inputs.repair-branch }}" \
-              --head-sha "${{ inputs.head-sha }}" \
-              --ticket-id "${{ inputs.ticket-id }}" \
-              --source-run-id "${{ inputs.source-run-id }}" \
+            stabilize_args=(
+              --profile-path "${{ inputs.profile-path }}"
+              --pr-number "${{ inputs.pr-number }}"
+              --repair-branch "${{ inputs.repair-branch }}"
+              --head-sha "${{ inputs.head-sha }}"
+              --ticket-id "${{ inputs.ticket-id }}"
+              --source-run-id "${{ inputs.source-run-id }}"
               --context-root "${{ inputs.context-root }}"
+            )
+            merge_when_stable="${{ inputs.merge-when-stable }}"
+            if [[ "${merge_when_stable}" == "true" ]]; then
+              stabilize_args+=(--merge-when-stable)
+            elif [[ "${merge_when_stable}" != "false" ]]; then
+              echo "merge-when-stable must be 'true' or 'false'." >&2
+              exit 1
+            fi
+            python3 "${helper}" stabilize-pr "${stabilize_args[@]}"
             ;;
           *)
             echo "Unsupported workflow action update agent helper command: ${command}" >&2
