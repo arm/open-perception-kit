@@ -726,11 +726,13 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("filter_invalid_right_side_findings", task_source)
         self.assertIn("import shlex", tools_source)
         self.assertIn("def split_shell_commands", tools_source)
+        self.assertIn("def run_parsed_shell_command", tools_source)
         self.assertIn("def find_subcommand", tools_source)
         self.assertIn("READ_ONLY_GIT_SUBCOMMANDS", tools_source)
         self.assertIn("FORBIDDEN_GIT_OPTIONS", tools_source)
         self.assertIn("def is_allowed_git_command", tools_source)
         self.assertIn("def has_forbidden_git_option", tools_source)
+        self.assertNotIn("shell=True", tools_source)
         self.assertIn('"apply"', tools_source)
         self.assertIn('["git", "apply", "--whitespace=nowarn"]', tools_source)
         self.assertIn("class TaskEstimate", estimator_source)
@@ -800,6 +802,35 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("$(git push)", output)
         self.assertIn("$ git diff --check", output)
 
+    def test_openai_agent_runner_executes_tokenized_pipelines_and_redirection(self):
+        repo_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_REPO_TOOLS_SCRIPT,
+            "agent_runtime.repo_tools_fake_sdk_pipeline_commands",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            repo_tools.set_run_context(repo_root, 10)
+            output = repo_tools.run_shell_command(
+                "printf 'one\\ntwo\\n' | sed -n 2p > out.txt; cat < out.txt"
+            )
+
+            written_output = (repo_root / "out.txt").read_text(encoding="utf-8")
+
+        self.assertEqual(written_output, "two\n")
+        self.assertIn("$ printf 'one\\ntwo\\n' | sed -n 2p > out.txt", output)
+        self.assertIn("$ cat < out.txt", output)
+        self.assertIn("two", output)
+
+    def test_openai_agent_runner_rejects_redirection_outside_repo(self):
+        repo_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_REPO_TOOLS_SCRIPT,
+            "agent_runtime.repo_tools_fake_sdk_redirection_guard",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_tools.set_run_context(Path(temp_dir) / "repo", 10)
+            with self.assertRaisesRegex(ValueError, "escapes repository root"):
+                repo_tools.run_shell_command("printf bad > ../outside.txt")
+
     def test_openai_agent_runner_blocks_mutating_git_commands_after_shell_splitting(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_REPO_TOOLS_SCRIPT,
@@ -818,14 +849,19 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "git merge-base HEAD origin/main",
             "git cat-file -t HEAD",
             "git apply --check /tmp/example.patch",
+            "git diff --check | sed -n 1,20p",
         ):
             repo_tools.reject_unsafe_shell_command(command)
         with self.assertRaisesRegex(ValueError, "git push"):
             repo_tools.reject_unsafe_shell_command('echo ok && git push')
-        with self.assertRaisesRegex(ValueError, "Unsupported shell syntax"):
+        with self.assertRaisesRegex(ValueError, "git push"):
             repo_tools.reject_unsafe_shell_command("echo ok | git push")
         with self.assertRaisesRegex(ValueError, "Unsupported shell syntax"):
             repo_tools.reject_unsafe_shell_command("git diff --check || true")
+        with self.assertRaisesRegex(ValueError, "Unsupported empty command"):
+            repo_tools.reject_unsafe_shell_command("git diff --check |")
+        with self.assertRaisesRegex(ValueError, "redirection requires a command"):
+            repo_tools.reject_unsafe_shell_command("> out.txt")
         for command in (
             "git apply /tmp/example.patch",
             "git add -A",
