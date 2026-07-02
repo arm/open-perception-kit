@@ -161,9 +161,38 @@ def download_github_archive(url: str) -> bytes:
 
 def extract_archive_bytes(archive_bytes: bytes, destination: Path) -> list[Path]:
     destination.mkdir(parents=True, exist_ok=True)
+    destination_root = destination.resolve()
     with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
-        archive.extractall(destination)
+        members: list[tuple[zipfile.ZipInfo, Path]] = []
+        for member in archive.infolist():
+            target = archive_member_destination(
+                destination=destination_root,
+                member_name=member.filename,
+            )
+            if target == destination_root and not member.is_dir():
+                raise RuntimeError(f"Archive member targets destination root: {member.filename}")
+            members.append((member, target))
+        for member, target in members:
+            if member.is_dir():
+                target.mkdir(parents=True, exist_ok=True)
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with archive.open(member) as source_file:
+                with target.open("wb") as output_file:
+                    shutil.copyfileobj(source_file, output_file)
     return sorted(path for path in destination.rglob("*") if path.is_file())
+
+
+def archive_member_destination(*, destination: Path, member_name: str) -> Path:
+    if not member_name:
+        raise RuntimeError("Archive member has an empty path.")
+    member_path = Path(member_name)
+    if member_path.is_absolute():
+        raise RuntimeError(f"Archive member escapes destination: {member_name}")
+    target = (destination / member_path).resolve()
+    if target != destination and destination not in target.parents:
+        raise RuntimeError(f"Archive member escapes destination: {member_name}")
+    return target
 
 
 def github_api_json(endpoint_or_url: str) -> object:
@@ -696,12 +725,8 @@ def read_review_artifact_state(*, repository: str, run_id: str, head_sha: str) -
         if not archive_url:
             return dict()
 
-        zip_path = Path(temp_dir) / "agent-review-out.zip"
-        zip_path.write_bytes(download_github_archive(archive_url))
         artifact_root = Path(temp_dir) / "artifact"
-        artifact_root.mkdir(parents=True, exist_ok=True)
-        with zipfile.ZipFile(zip_path) as archive:
-            archive.extractall(artifact_root)
+        extract_archive_bytes(download_github_archive(archive_url), artifact_root)
         review_json = next(iter(sorted(artifact_root.rglob("review.json"))), None)
         if review_json is None:
             return dict()

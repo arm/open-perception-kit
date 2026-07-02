@@ -390,6 +390,84 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(result, b"zip-bytes")
         self.assertEqual(urlopen.call_args.args[0], "https://objects.githubusercontent.com/archive.zip")
 
+    def test_extract_archive_bytes_rejects_members_outside_destination(self):
+        for member_template in ("../outside.txt", "{temp_root}/outside.txt"):
+            with self.subTest(member_template=member_template):
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    temp_root = Path(temp_dir)
+                    destination = temp_root / "destination"
+                    member_name = member_template.format(temp_root=temp_root)
+                    archive = build_zip_archive(
+                        {
+                            "logs/job.txt": "hello from logs\n",
+                            member_name: "owned\n",
+                        }
+                    )
+
+                    with self.assertRaisesRegex(RuntimeError, "escapes destination"):
+                        HELPER.extract_archive_bytes(archive, destination)
+
+                    self.assertFalse((temp_root / "outside.txt").exists())
+                    self.assertFalse((destination / "logs/job.txt").exists())
+
+    def test_extract_archive_bytes_returns_extracted_files(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            destination = Path(temp_dir) / "destination"
+            archive = build_zip_archive(
+                {
+                    "logs/job.txt": "hello from logs\n",
+                    "artifact/report.md": "# report\n",
+                }
+            )
+
+            extracted = HELPER.extract_archive_bytes(archive, destination)
+
+        self.assertEqual(
+            [path.relative_to(destination).as_posix() for path in extracted],
+            ["artifact/report.md", "logs/job.txt"],
+        )
+
+    def test_workflow_helper_does_not_use_unsafe_zip_extractall(self):
+        content = HELPER_SCRIPT.read_text(encoding="utf-8")
+
+        self.assertNotIn(".extractall(", content)
+
+    def test_read_review_artifact_state_uses_safe_archive_extraction(self):
+        archive = build_zip_archive(
+            {
+                "nested/review.json": json.dumps(
+                    {
+                        "overall_recommendation": "approve",
+                        "summary": "Looks good.",
+                    }
+                )
+            }
+        )
+
+        with mock.patch.object(
+            HELPER,
+            "github_api_json",
+            return_value={
+                "artifacts": [
+                    {
+                        "name": "agent-review-out",
+                        "archive_download_url": "https://api.github.com/artifacts/1/zip",
+                        "expired": False,
+                    }
+                ]
+            },
+        ):
+            with mock.patch.object(HELPER, "download_github_archive", return_value=archive):
+                review_state = HELPER.read_review_artifact_state(
+                    repository="Arm-Debug/amp-dev-forge",
+                    run_id="28000000001",
+                    head_sha="deadbeef",
+                )
+
+        self.assertEqual(review_state["overall_recommendation"], "approve")
+        self.assertEqual(review_state["run_id"], "28000000001")
+        self.assertEqual(review_state["head_sha"], "deadbeef")
+
     def test_collect_context_uses_github_api_archives_on_self_hosted(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             context_root = Path(temp_dir) / "context"
