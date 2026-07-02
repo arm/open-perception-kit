@@ -247,10 +247,12 @@ publish_report() {
     mkdir -p "${target}"
     cp -a "${report_dir}/." "${target}/"
     prune_report_for_pages "${target}"
-    if [ "${UPSTREAM_EVENT}" = "pull_request" ]; then
-        write_report_index "${target}" "${title}" "../../"
-    else
-        write_report_index "${target}" "${title}" "../"
+    if [ ! -f "${target}/index.html" ]; then
+        if [ "${UPSTREAM_EVENT}" = "pull_request" ]; then
+            write_report_index "${target}" "${title}" "../../"
+        else
+            write_report_index "${target}" "${title}" "../"
+        fi
     fi
     printf '%s\n' "${UPSTREAM_HEAD_SHA}" > "${target}/commit.txt"
     touch "${SITE_DIR}/.nojekyll"

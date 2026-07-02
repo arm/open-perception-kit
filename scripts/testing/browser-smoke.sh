@@ -123,7 +123,8 @@ if ! docker exec -u devgoblin "${PEK_CONTAINER_NAME}" bash -lc 'test -x /work/to
     exit 1
 fi
 
-mkdir -p test-results/playwright playwright-report
+rm -rf playwright-report test-results/playwright
+mkdir -p test-results/playwright/blob-report
 
 image_name="$(browser_smoke_image_name)"
 build_browser_smoke_image_if_needed "${image_name}"
@@ -173,17 +174,38 @@ run_phase() {
         -e CI=true \
         -e PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
         -e BROWSER_SMOKE_BROWSERS="${browsers}" \
-        -e PLAYWRIGHT_HTML_OPEN=never \
-        -e PLAYWRIGHT_HTML_OUTPUT_DIR="playwright-report/${phase}" \
+        -e PLAYWRIGHT_BLOB_OUTPUT_DIR="test-results/playwright/blob-report" \
+        -e PLAYWRIGHT_BLOB_OUTPUT_NAME="${phase}.zip" \
+        -e PWTEST_BLOB_DO_NOT_REMOVE=1 \
         "${image_name}" \
         playwright test -c tests/playwright/pek-browser-smoke.config.js \
-        --reporter=line,html \
+        --reporter=line,blob \
         --output="test-results/playwright/${phase}" \
         "${spec}" || status=$?
 
     stop_pipeline "${pid_file}" "${pipeline_pid}"
     ACTIVE_PID_FILE=""
     ACTIVE_PIPELINE_PID=""
+
+    return "${status}"
+}
+
+merge_reports() {
+    local status=0
+
+    docker run --rm \
+        --user "$(id -u):$(id -g)" \
+        -e HOME=/tmp \
+        -w "${REPO_ROOT}" \
+        "${mount_args[@]}" \
+        -e PLAYWRIGHT_HTML_OPEN=never \
+        -e PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report \
+        "${image_name}" \
+        playwright merge-reports --reporter=html test-results/playwright/blob-report || status=$?
+
+    if [ "${status}" -eq 0 ]; then
+        rm -rf test-results/playwright/blob-report
+    fi
 
     return "${status}"
 }
@@ -246,5 +268,7 @@ while IFS= read -r browser; do
         "tests/playwright/pek-browser-models.spec.js" \
         "${browser}" || browser_smoke_status=$?
 done <<< "${browser_smoke_browsers}"
+
+merge_reports || browser_smoke_status=$?
 
 exit "${browser_smoke_status}"
