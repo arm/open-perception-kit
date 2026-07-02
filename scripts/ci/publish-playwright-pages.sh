@@ -791,6 +791,7 @@ pr_report_title() {
 }
 
 write_site_index() {
+    local nightly_meta=""
     local pr_meta=""
     local pr_dir=""
     local pr_number=""
@@ -808,7 +809,12 @@ write_site_index() {
         <div class="report-list">
 EOF
         if [ -f "${SITE_DIR}/nightly/index.html" ]; then
-            echo '          <a class="report-link" href="nightly/"><span><span class="report-title">Latest nightly</span><span class="report-meta">Scheduled main run</span></span><span class="badge">Open</span></a>'
+            nightly_meta="Scheduled main run"
+            if [ -f "${SITE_DIR}/nightly/report-index-meta.txt" ]; then
+                nightly_meta="$(head -n 1 "${SITE_DIR}/nightly/report-index-meta.txt")"
+            fi
+            printf '          <a class="report-link" href="nightly/"><span><span class="report-title">Latest nightly</span><span class="report-meta">%s</span></span><span class="badge">Open</span></a>\n' \
+                "$(printf '%s' "${nightly_meta}" | html_escape)"
         else
             echo '          <div class="empty">No nightly report published yet.</div>'
         fi
