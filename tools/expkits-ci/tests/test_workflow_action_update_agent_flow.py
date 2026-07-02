@@ -845,6 +845,67 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "escapes repository root"):
                 repo_tools.run_shell_command("printf bad > ../outside.txt")
 
+    def test_openai_agent_runner_applies_safe_unified_diff(self):
+        repo_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_REPO_TOOLS_SCRIPT,
+            "agent_runtime.repo_tools_fake_sdk_patch_guard_safe",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            target = repo_root / "example.txt"
+            target.write_text("old\n", encoding="utf-8")
+            repo_tools.set_run_context(repo_root, 10)
+
+            output = repo_tools.apply_unified_diff(
+                textwrap.dedent(
+                    """\
+                    diff --git a/example.txt b/example.txt
+                    --- a/example.txt
+                    +++ b/example.txt
+                    @@ -1 +1 @@
+                    -old
+                    +new
+                    """
+                )
+            )
+
+            self.assertIn("exit_code=0", output)
+            self.assertEqual(target.read_text(encoding="utf-8"), "new\n")
+
+    def test_openai_agent_runner_rejects_patch_paths_outside_safe_tree(self):
+        repo_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_REPO_TOOLS_SCRIPT,
+            "agent_runtime.repo_tools_fake_sdk_patch_guard_reject",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / "repo"
+            repo_root.mkdir()
+            repo_tools.set_run_context(repo_root, 10)
+
+            git_metadata_patch = textwrap.dedent(
+                """\
+                diff --git a/.git/config b/.git/config
+                --- a/.git/config
+                +++ b/.git/config
+                @@ -0,0 +1 @@
+                +unsafe
+                """
+            )
+            with self.assertRaisesRegex(ValueError, "Patch path targets git metadata"):
+                repo_tools.apply_unified_diff(git_metadata_patch)
+
+            escaping_patch = textwrap.dedent(
+                """\
+                diff --git a/../outside.txt b/../outside.txt
+                --- a/../outside.txt
+                +++ b/../outside.txt
+                @@ -0,0 +1 @@
+                +unsafe
+                """
+            )
+            with self.assertRaisesRegex(ValueError, "escapes repository root"):
+                repo_tools.apply_unified_diff(escaping_patch)
+
     def test_openai_agent_runner_blocks_mutating_git_commands_after_shell_splitting(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_REPO_TOOLS_SCRIPT,
