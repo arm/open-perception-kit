@@ -13,11 +13,11 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Show base info (helps reading logs)
-RUN set -eux; uname -a; cat /etc/os-release; dpkg --print-architecture
-
-# Minimal core tools (runtime + build)
+# Base info, minimal core tools, and PEK dependency assets.
 RUN set -eux; \
+  uname -a; \
+  cat /etc/os-release; \
+  dpkg --print-architecture; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
   ca-certificates curl wget sudo unzip gnupg \
@@ -33,21 +33,13 @@ RUN set -eux; \
   git shfmt clang-format ssh \
   python3-dev python3-venv python3-gi python3-gst-1.0 \
   valgrind; \
-  rm -rf /var/lib/apt/lists/*
-
-RUN set -eux; \
+  rm -rf /var/lib/apt/lists/*; \
   curl --proto "=https" -LsSf https://astral.sh/uv/install.sh | \
   env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh; \
-  uv --version
-
-RUN ln -sf /usr/bin/lldb-17 /usr/local/bin/lldb && \
-    ln -sf /usr/bin/lldb-server-17 /usr/local/bin/lldb-server
-
-# Clean apt cache
-RUN set -eux; update-ca-certificates || true
-
-# Install ONNX Runtime into image layers for reproducible builds and SBOM visibility.
-RUN set -eux; \
+  uv --version; \
+  ln -sf /usr/bin/lldb-17 /usr/local/bin/lldb; \
+  ln -sf /usr/bin/lldb-server-17 /usr/local/bin/lldb-server; \
+  update-ca-certificates || true; \
   arch="$(uname -m)"; \
   case "$arch" in \
   x86_64) ort_arch="x64" ;; \
