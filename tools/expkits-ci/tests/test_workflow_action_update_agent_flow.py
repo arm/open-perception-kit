@@ -399,7 +399,34 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                     )
 
         self.assertEqual(result, b"zip-bytes")
-        self.assertEqual(urlopen.call_args.args[0], "https://objects.githubusercontent.com/archive.zip")
+        self.assertEqual(urlopen.call_args.args[0].full_url, "https://objects.githubusercontent.com/archive.zip")
+
+    def test_download_github_archive_rejects_unsafe_redirect_location(self):
+        for location in (
+            "http://objects.githubusercontent.com/archive.zip",
+            "https://example.com/archive.zip",
+        ):
+            with self.subTest(location=location):
+                redirect_error = urllib.error.HTTPError(
+                    url="https://api.github.com/repos/Arm-Debug/amp-dev-forge/actions/artifacts/1/zip",
+                    code=302,
+                    msg="Found",
+                    hdrs=http_headers({"Location": location}),
+                    fp=None,
+                )
+                opener = mock.Mock()
+                opener.open.side_effect = redirect_error
+
+                with mock.patch.dict(os.environ, {"GH_TOKEN": "test-token"}, clear=False):
+                    with mock.patch("urllib.request.build_opener", return_value=opener):
+                        with self.assertRaisesRegex(ValueError, "GitHub archive redirect URL"):
+                            HELPER.download_github_archive(
+                                "https://api.github.com/repos/Arm-Debug/amp-dev-forge/actions/artifacts/1/zip",
+                            )
+
+    def test_github_api_json_requires_relative_endpoint(self):
+        with self.assertRaisesRegex(ValueError, "must be relative"):
+            HELPER.github_api_json("https://api.github.com/user")
 
     def test_extract_archive_bytes_rejects_members_outside_destination(self):
         for member_template in ("../outside.txt", "{temp_root}/outside.txt"):

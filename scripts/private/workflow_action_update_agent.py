@@ -71,6 +71,11 @@ STABILIZATION_MAX_ATTEMPTS = 5
 STABILIZER_WORKFLOW_FILE = "agent-stabilize-pr.yml"
 STABILIZER_WORKFLOW_NAME = "Agent Stabilize PR"
 PULL_REQUEST_RUN_GRACE_SECONDS = 60
+GITHUB_ARCHIVE_REDIRECT_HOST_SUFFIXES = (
+    ".actions.githubusercontent.com",
+    ".blob.core.windows.net",
+    ".githubusercontent.com",
+)
 
 
 def run_command(
@@ -109,6 +114,54 @@ def github_api_base_url() -> str:
     return os.environ.get("GITHUB_API_URL", "https://api.github.com").rstrip("/")
 
 
+def url_hostname(url: str) -> str:
+    hostname = urllib.parse.urlsplit(url).hostname
+    if not hostname:
+        raise ValueError(f"URL is missing a hostname: {url}")
+    return hostname.lower()
+
+
+def github_api_hostname() -> str:
+    return url_hostname(github_api_base_url())
+
+
+def github_api_endpoint_url(endpoint: str) -> str:
+    parsed = urllib.parse.urlsplit(endpoint)
+    if parsed.scheme or parsed.netloc:
+        raise ValueError("GitHub API endpoint must be relative.")
+    return f"{github_api_base_url()}/{endpoint.lstrip('/')}"
+
+
+def github_archive_api_url(url: str) -> str:
+    parsed = urllib.parse.urlsplit(url)
+    if parsed.scheme != "https":
+        raise ValueError("GitHub archive API URL must use https.")
+    if url_hostname(url) != github_api_hostname():
+        raise ValueError("GitHub archive API URL must use the configured GitHub API host.")
+    base_path = urllib.parse.urlsplit(github_api_base_url()).path.rstrip("/")
+    path = parsed.path
+    if base_path:
+        if not path.startswith(f"{base_path}/"):
+            raise ValueError("GitHub archive API URL must use the configured GitHub API path.")
+        path = path[len(base_path):]
+    if not (
+        re.fullmatch(r"/repos/[^/]+/[^/]+/actions/artifacts/\d+/zip", path)
+        or re.fullmatch(r"/repos/[^/]+/[^/]+/actions/runs/\d+/logs", path)
+    ):
+        raise ValueError(f"Unsupported GitHub archive API path: {path}")
+    return url
+
+
+def github_archive_redirect_url(url: str) -> str:
+    parsed = urllib.parse.urlsplit(url)
+    if parsed.scheme != "https":
+        raise ValueError("GitHub archive redirect URL must use https.")
+    hostname = url_hostname(url)
+    if not any(hostname.endswith(suffix) for suffix in GITHUB_ARCHIVE_REDIRECT_HOST_SUFFIXES):
+        raise ValueError("GitHub archive redirect URL must use a GitHub artifact host.")
+    return url
+
+
 def github_api_token() -> str:
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN", "")
     if not token:
@@ -136,8 +189,9 @@ class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
 
 
 def download_github_archive(url: str) -> bytes:
+    archive_url = github_archive_api_url(url)
     request = urllib.request.Request(
-        url,
+        archive_url,
         headers={
             "Accept": "application/vnd.github+json",
             "Authorization": f"Bearer {github_api_token()}",
@@ -155,7 +209,8 @@ def download_github_archive(url: str) -> bytes:
         location = exc.headers.get("Location", "")
         if not location:
             raise
-        with urllib.request.urlopen(location) as response:
+        redirect_request = urllib.request.Request(github_archive_redirect_url(location))
+        with urllib.request.urlopen(redirect_request) as response:
             return response.read()
 
 
@@ -196,11 +251,7 @@ def archive_member_destination(*, destination: Path, member_name: str) -> Path:
 
 
 def github_api_json(endpoint_or_url: str) -> object:
-    if endpoint_or_url.startswith("http://") or endpoint_or_url.startswith("https://"):
-        url = endpoint_or_url
-    else:
-        url = f"{github_api_base_url()}/{endpoint_or_url.lstrip('/')}"
-    return json.loads(github_api_request(url))
+    return json.loads(github_api_request(github_api_endpoint_url(endpoint_or_url)))
 
 
 def write_outputs(values: dict[str, str], output_path: str | None = None) -> None:
