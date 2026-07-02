@@ -775,6 +775,7 @@ pr_report_title() {
 }
 
 write_site_index() {
+    local pr_meta=""
     local pr_dir=""
     local pr_number=""
     local pr_title=""
@@ -809,9 +810,14 @@ EOF
                     pr_number="${pr_dir##*/}"
                     [ -f "${pr_dir}/index.html" ] || continue
                     pr_title="$(pr_report_title "${pr_number}")"
-                    printf '          <a class="report-link" href="prs/%s/"><span><span class="report-title">%s</span><span class="report-meta">Latest published pull request report</span></span><span class="badge">Open</span></a>\n' \
+                    pr_meta="Latest publish"
+                    if [ -f "${pr_dir}/report-index-meta.txt" ]; then
+                        pr_meta="$(head -n 1 "${pr_dir}/report-index-meta.txt")"
+                    fi
+                    printf '          <a class="report-link" href="prs/%s/"><span><span class="report-title">%s</span><span class="report-meta">%s</span></span><span class="badge">Open</span></a>\n' \
                         "$(printf '%s' "${pr_number}" | html_escape)" \
-                        "$(printf '%s' "${pr_title}" | html_escape)"
+                        "$(printf '%s' "${pr_title}" | html_escape)" \
+                        "$(printf '%s' "${pr_meta}" | html_escape)"
                 done
         fi
         cat << 'EOF'
@@ -890,6 +896,20 @@ build_source_meta_html() {
     printf ' attempt %s' "$(printf '%s' "${UPSTREAM_RUN_ATTEMPT}" | html_escape)"
 }
 
+build_source_meta_text() {
+    printf '%s @ %s | run %s attempt %s' \
+        "${UPSTREAM_HEAD_BRANCH}" \
+        "${UPSTREAM_HEAD_SHA:0:12}" \
+        "${UPSTREAM_RUN_ID}" \
+        "${UPSTREAM_RUN_ATTEMPT}"
+}
+
+build_report_index_meta_text() {
+    printf 'Latest publish - %s - %s' \
+        "$(build_source_meta_text)" \
+        "$(date -u '+%Y-%m-%d %H:%M:%SZ')"
+}
+
 download_report_artifact() {
     local artifact_name=""
     local artifact_dir="$1"
@@ -919,6 +939,7 @@ prune_report_for_pages() {
 publish_report() {
     local artifact_dir=""
     local back_href=""
+    local index_meta_text=""
     local meta_html=""
     local source_meta_html=""
     local report_dir=""
@@ -965,6 +986,7 @@ publish_report() {
         title="${PRODUCT_TITLE}"
         back_href="../"
     fi
+    index_meta_text="$(build_report_index_meta_text)"
     meta_html="$(build_report_meta_html)"
     source_meta_html="$(build_source_meta_html)"
 
@@ -986,6 +1008,7 @@ publish_report() {
     mkdir -p "${target}"
     cp -a "${report_dir}/." "${target}/"
     prune_report_for_pages "${target}"
+    printf '%s\n' "${index_meta_text}" > "${target}/report-index-meta.txt"
     printf '%s\n' "${meta_html}" > "${target}/report-meta.html"
     printf '%s\n' "${source_meta_html}" > "${target}/report-source-meta.html"
     write_report_shell_assets
