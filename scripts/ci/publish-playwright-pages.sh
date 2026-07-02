@@ -11,6 +11,7 @@ MODE="${1:-}"
 STORAGE_BRANCH="${PLAYWRIGHT_PAGES_STORAGE_BRANCH:-playwright-pages}"
 SITE_DIR="${PLAYWRIGHT_PAGES_SITE_DIR:-_playwright_pages_site}"
 RETENTION_DAYS="${PLAYWRIGHT_PAGES_RETENTION_DAYS:-10}"
+PRODUCT_TITLE="Arm Perception kit"
 
 usage() {
     echo "Usage: scripts/ci/publish-playwright-pages.sh publish|cleanup" >&2
@@ -319,7 +320,6 @@ write_report_index() {
       <header>
         <div class="eyebrow">Playwright</div>
         <h1>$(printf '%s' "${title}" | html_escape)</h1>
-        <p>Open a report section below.</p>
       </header>
       <section>
         <h2>Report sections</h2>
@@ -347,12 +347,11 @@ write_site_index() {
     local pr_number=""
 
     {
-        write_index_head "PEK Playwright Reports" "report-index.css"
+        write_index_head "${PRODUCT_TITLE}" "report-index.css"
         cat << 'EOF'
       <header>
-        <div class="eyebrow">Perception Experience Kit</div>
-        <h1>Playwright reports</h1>
-        <p>Published browser smoke reports with video attachments.</p>
+        <div class="eyebrow">Playwright reports</div>
+        <h1>Arm Perception kit</h1>
       </header>
       <section>
         <h2>Nightly</h2>
@@ -452,6 +451,7 @@ publish_report() {
     local artifact_dir=""
     local back_href=""
     local meta=""
+    local report_context=""
     local report_dir=""
     local target=""
     local title=""
@@ -484,7 +484,8 @@ publish_report() {
             return
         fi
         target="${SITE_DIR}/prs/${UPSTREAM_PR_NUMBER}"
-        title="PR #${UPSTREAM_PR_NUMBER} Playwright report"
+        title="${PRODUCT_TITLE}"
+        report_context="PR #${UPSTREAM_PR_NUMBER}"
         back_href="../../"
     else
         if [ "${UPSTREAM_EVENT}" != "schedule" ] || [ "${UPSTREAM_HEAD_BRANCH}" != "main" ]; then
@@ -493,10 +494,11 @@ publish_report() {
             return
         fi
         target="${SITE_DIR}/nightly"
-        title="Nightly Playwright report"
+        title="${PRODUCT_TITLE}"
+        report_context="Nightly"
         back_href="../"
     fi
-    meta="${UPSTREAM_HEAD_BRANCH} @ ${UPSTREAM_HEAD_SHA:0:12} | run ${UPSTREAM_RUN_ID} attempt ${UPSTREAM_RUN_ATTEMPT}"
+    meta="${report_context} | ${UPSTREAM_HEAD_BRANCH} @ ${UPSTREAM_HEAD_SHA:0:12} | run ${UPSTREAM_RUN_ID} attempt ${UPSTREAM_RUN_ATTEMPT}"
 
     artifact_dir="$(mktemp -d)"
     if ! download_report_artifact "${artifact_dir}"; then
