@@ -174,18 +174,23 @@ EOF
 download_report_artifact() {
     local artifact_name=""
     local artifact_dir="$1"
+    local attempt=""
 
     require_env UPSTREAM_RUN_ID
     require_env UPSTREAM_RUN_ATTEMPT
 
-    artifact_name="rpi-browser-smoke-${UPSTREAM_RUN_ID}-${UPSTREAM_RUN_ATTEMPT}"
-    if ! gh run download "${UPSTREAM_RUN_ID}" \
-        --repo "${GITHUB_REPOSITORY}" \
-        --name "${artifact_name}" \
-        --dir "${artifact_dir}" > /dev/null 2>&1; then
-        echo "No Playwright browser smoke artifact found for run ${UPSTREAM_RUN_ID}."
-        return 1
-    fi
+    for attempt in $(seq "${UPSTREAM_RUN_ATTEMPT}" -1 1); do
+        artifact_name="rpi-browser-smoke-${UPSTREAM_RUN_ID}-${attempt}"
+        if gh run download "${UPSTREAM_RUN_ID}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --name "${artifact_name}" \
+            --dir "${artifact_dir}" > /dev/null 2>&1; then
+            return
+        fi
+    done
+
+    echo "No Playwright browser smoke artifact found for run ${UPSTREAM_RUN_ID}."
+    return 1
 }
 
 prune_report_for_pages() {

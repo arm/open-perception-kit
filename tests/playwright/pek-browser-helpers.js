@@ -75,30 +75,16 @@ function videoFrameIsRendered() {
     return false;
   }
 
-  const canvas = document.createElement('canvas');
-  canvas.width = 16;
-  canvas.height = 16;
-  const context = canvas.getContext('2d', { willReadFrequently: true });
-  if (!context) {
-    return false;
+  const quality = video.getVideoPlaybackQuality?.();
+  if (quality?.totalVideoFrames > 0) {
+    return true;
   }
 
-  try {
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
-    let min = 765;
-    let max = 0;
-
-    for (let index = 0; index < data.length; index += 4) {
-      const luma = data[index] + data[index + 1] + data[index + 2];
-      min = Math.min(min, luma);
-      max = Math.max(max, luma);
-    }
-
-    return max > 30 && max - min > 10;
-  } catch {
-    return false;
+  if (video.webkitDecodedFrameCount > 0) {
+    return true;
   }
+
+  return video.currentTime > 0;
 }
 
 function readBackendModelState(modelName) {

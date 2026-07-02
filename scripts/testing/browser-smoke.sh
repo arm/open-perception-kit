@@ -228,10 +228,14 @@ wait_for_pipeline_start() {
     return 1
 }
 
+browser_smoke_status=0
+
 run_phase "sink-only" \
     "config/pipelines/testing/only-peksink.json" \
-    "tests/playwright/pek-browser-sink.spec.js"
+    "tests/playwright/pek-browser-sink.spec.js" || browser_smoke_status=$?
 
 run_phase "onnx-full" \
     "config/pipelines/testing/onnx-full.json" \
-    "tests/playwright/pek-browser-models.spec.js"
+    "tests/playwright/pek-browser-models.spec.js" || browser_smoke_status=$?
+
+exit "${browser_smoke_status}"
