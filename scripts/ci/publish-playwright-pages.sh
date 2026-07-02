@@ -293,6 +293,9 @@ write_report_shell_assets() {
   color: var(--color-accent-fg);
   text-decoration: none;
 }
+.test-file-path-link.pek-source-link .test-file-path {
+  color: var(--color-accent-fg);
+}
 .pek-source-link:hover {
   text-decoration: underline;
 }
@@ -399,7 +402,7 @@ EOF
   ];
 
   const clean = (text) => (text || '').replace(/\s+/g, ' ').trim();
-  const sourcePattern = /(^|[^\w/.:-])((?:[\w.-]+\/)*[\w.-]+\.(?:c|cc|cpp|cxx|h|hh|hpp|js|jsx|mjs|cjs|ts|tsx|py|sh|bash|cmake|txt|json|ya?ml|md):\d+(?::\d+)?)/g;
+  const sourceRefPattern = /((?:[\w.-]+\/)*[\w.-]+\.(?:c|cc|cpp|cxx|h|hh|hpp|js|jsx|mjs|cjs|ts|tsx|py|sh|bash|cmake|txt|json|ya?ml|md))(?:\:(\d+)(?:\:\d+)?)?/;
   let sourceConfig;
 
   const getSourceConfig = () => {
@@ -432,7 +435,7 @@ EOF
       return '';
     }
     const path = file.replace(/^\.\//, '');
-    return path.includes('/') ? path : (source.files[path] || '');
+    return source.files[path] || '';
   };
 
   const sourceHref = (file, line) => {
@@ -442,7 +445,16 @@ EOF
       return '';
     }
     const encodedPath = path.split('/').map(encodeURIComponent).join('/');
-    return `https://github.com/${source.repository}/blob/${source.commit}/${encodedPath}#L${line}`;
+    return `https://github.com/${source.repository}/blob/${source.commit}/${encodedPath}${line ? `#L${line}` : ''}`;
+  };
+
+  const sourceReferenceFrom = (text) => {
+    const match = clean(text).match(sourceRefPattern);
+    if (!match) {
+      return undefined;
+    }
+    const href = sourceHref(match[1], match[2]);
+    return href ? { href, text: match[0] } : undefined;
   };
 
   const ensureId = (element, index) => {
@@ -480,58 +492,45 @@ EOF
     return sections;
   };
 
+  const replaceWithSourceLink = (element, reference, prefix = '') => {
+    if (element.dataset.pekSourceLinked) {
+      return;
+    }
+    const link = document.createElement('a');
+    link.className = 'pek-source-link';
+    link.href = reference.href;
+    link.textContent = reference.text;
+    link.addEventListener('click', (event) => event.stopPropagation());
+    element.replaceChildren(document.createTextNode(prefix), link);
+    element.dataset.pekSourceLinked = 'true';
+  };
+
   const linkSourceReferences = () => {
     if (!getSourceConfig()) {
       return;
     }
 
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
-      acceptNode: (node) => {
-        const parent = node.parentElement;
-        if (!parent || parent.closest('a,button,script,select,style,textarea,#pek-report-tools')) {
-          return NodeFilter.FILTER_REJECT;
-        }
-        sourcePattern.lastIndex = 0;
-        return sourcePattern.test(node.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    for (const element of document.querySelectorAll('.chip-header-allow-selection')) {
+      const reference = sourceReferenceFrom(element.textContent);
+      if (reference) {
+        replaceWithSourceLink(element, reference);
       }
-    });
-    const nodes = [];
-    let node;
-
-    while ((node = walker.nextNode())) {
-      nodes.push(node);
     }
 
-    for (const textNode of nodes) {
-      const fragment = document.createDocumentFragment();
-      const text = textNode.nodeValue;
-      let changed = false;
-      let last = 0;
-      let match;
-
-      sourcePattern.lastIndex = 0;
-      while ((match = sourcePattern.exec(text))) {
-        const reference = match[2];
-        const start = match.index + match[0].indexOf(reference);
-        const [, file, line] = reference.match(/^(.*):(\d+)(?::\d+)?$/) || [];
-        const href = file && line ? sourceHref(file, line) : '';
-        if (!href) {
-          continue;
-        }
-
-        fragment.append(document.createTextNode(text.slice(last, start)));
-        const link = document.createElement('a');
-        link.className = 'pek-source-link';
-        link.href = href;
-        link.textContent = reference;
-        fragment.append(link);
-        last = start + reference.length;
-        changed = true;
+    for (const link of document.querySelectorAll('.test-file-path-link')) {
+      const reference = sourceReferenceFrom(link.textContent);
+      if (reference && !link.dataset.pekSourceLinked) {
+        link.href = reference.href;
+        link.classList.add('pek-source-link');
+        link.addEventListener('click', (event) => event.stopPropagation());
+        link.dataset.pekSourceLinked = 'true';
       }
+    }
 
-      if (changed) {
-        fragment.append(document.createTextNode(text.slice(last)));
-        textNode.replaceWith(fragment);
+    for (const element of document.querySelectorAll('.test-case-location, .test-result-path')) {
+      const reference = sourceReferenceFrom(element.textContent);
+      if (reference) {
+        replaceWithSourceLink(element, reference, element.classList.contains('test-result-path') ? '— ' : '');
       }
     }
   };
@@ -637,20 +636,31 @@ build_source_map_json() {
             }
             count[base]++
             paths[base] = path
+            files[path] = path
         }
         END {
             printf "{"
+            for (path in files) {
+                emit(path, path)
+            }
             for (base in paths) {
                 if (count[base] != 1) {
                     continue
                 }
-                if (printed) {
-                    printf ","
-                }
-                printf "%s:%s", json(base), json(paths[base])
-                printed = 1
+                emit(base, paths[base])
             }
             printf "}"
+        }
+        function emit(key, value) {
+            if (emitted[key]) {
+                return
+            }
+            if (printed) {
+                printf ","
+            }
+            printf "%s:%s", json(key), json(value)
+            emitted[key] = 1
+            printed = 1
         }
         function json(value) {
             gsub(/\\/, "\\\\", value)
