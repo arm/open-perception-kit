@@ -36,6 +36,16 @@ if [[ "${PLAYWRIGHT_PAGES_REBUILD:-}" == "1" ]] || ! docker image inspect "${IMA
     docker build -f "${SCRIPT_DIR}/Dockerfile" -t "${IMAGE_NAME}" "${SCRIPT_DIR}"
 fi
 
+if [[ -n "${PLAYWRIGHT_PAGES_LOCAL_REPORT_DIR:-}" ]]; then
+    PLAYWRIGHT_PAGES_LOCAL_REPORT_DIR="$(realpath "${PLAYWRIGHT_PAGES_LOCAL_REPORT_DIR}")"
+fi
+PLAYWRIGHT_PAGES_SITE_PARENT=""
+if [[ -n "${PLAYWRIGHT_PAGES_SITE_DIR:-}" ]]; then
+    PLAYWRIGHT_PAGES_SITE_DIR="$(realpath -m "${PLAYWRIGHT_PAGES_SITE_DIR}")"
+    PLAYWRIGHT_PAGES_SITE_PARENT="$(dirname "${PLAYWRIGHT_PAGES_SITE_DIR}")"
+    mkdir -p "${PLAYWRIGHT_PAGES_SITE_PARENT}"
+fi
+
 env_args=(-e HOME=/tmp)
 pass_env() {
     local name="$1"
@@ -65,20 +75,27 @@ for name in \
 done
 
 mount_args=(-v "${REPO_ROOT}:${REPO_ROOT}")
-add_git_mount() {
+add_path_mount() {
     local path="$1"
+    local mode="${2:-}"
     case "${path}" in
         "${REPO_ROOT}" | "${REPO_ROOT}"/*) ;;
-        *) mount_args+=(-v "${path}:${path}") ;;
+        *) mount_args+=(-v "${path}:${path}${mode}") ;;
     esac
 }
 git_dir="$(git -C "${REPO_ROOT}" rev-parse --path-format=absolute --git-dir)"
 git_common_dir="$(git -C "${REPO_ROOT}" rev-parse --path-format=absolute --git-common-dir)"
-add_git_mount "${git_common_dir}"
+add_path_mount "${git_common_dir}"
 case "${git_dir}" in
     "${git_common_dir}" | "${git_common_dir}"/*) ;;
-    *) add_git_mount "${git_dir}" ;;
+    *) add_path_mount "${git_dir}" ;;
 esac
+if [[ -n "${PLAYWRIGHT_PAGES_LOCAL_REPORT_DIR:-}" ]]; then
+    add_path_mount "${PLAYWRIGHT_PAGES_LOCAL_REPORT_DIR}" ":ro"
+fi
+if [[ -n "${PLAYWRIGHT_PAGES_SITE_DIR:-}" ]]; then
+    add_path_mount "${PLAYWRIGHT_PAGES_SITE_PARENT}"
+fi
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
     output_dir="$(dirname "${GITHUB_OUTPUT}")"
     mount_args+=(-v "${output_dir}:${output_dir}")
