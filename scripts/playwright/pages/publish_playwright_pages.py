@@ -23,6 +23,7 @@ PRODUCT_TITLE = "Arm Perception kit"
 INDEX_HTML = "index.html"
 REPORT_INDEX_META = "report-index-meta.txt"
 MAX_REPORT_BYTES = 500 * 1024 * 1024
+PRUNED_REPORT_DATA_SUFFIXES = {".webm", ".zip"}
 SCRIPT_DIR = Path(__file__).resolve().parent
 ASSET_DIR = SCRIPT_DIR / "assets"
 SOURCE_EXTENSIONS = {
@@ -519,9 +520,26 @@ def find_playwright_report(artifact_dir: Path) -> Path | None:
 
 
 def prune_report_for_pages(report_dir: Path) -> None:
-    for path in report_dir.rglob("data/*.zip"):
-        if path.is_file():
+    for path in report_dir.rglob("data/*"):
+        if path.is_file() and path.suffix in PRUNED_REPORT_DATA_SUFFIXES:
             path.unlink()
+
+
+def is_pruned_report_data(path: Path) -> bool:
+    return path.parent.name == "data" and path.suffix in PRUNED_REPORT_DATA_SUFFIXES
+
+
+def copy_pruned_report_for_pages(report_dir: Path, target: Path) -> None:
+    copy_report(report_dir, target)
+    prune_report_for_pages(target)
+
+
+def restore_report_videos_for_deploy(report_dir: Path, target: Path) -> None:
+    for source in report_dir.rglob("data/*.webm"):
+        if source.is_file():
+            destination = target / source.relative_to(report_dir)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
 
 
 def validate_report_for_pages(report_dir: Path) -> None:
@@ -529,7 +547,7 @@ def validate_report_for_pages(report_dir: Path) -> None:
     for path in report_dir.rglob("*"):
         if path.is_symlink():
             raise PublishError(f"Playwright report contains unsupported symlink: {path.relative_to(report_dir)}")
-        if path.is_file():
+        if path.is_file() and not is_pruned_report_data(path):
             total += path.stat().st_size
             if total > MAX_REPORT_BYTES:
                 raise PublishError(
@@ -596,10 +614,9 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
             set_output("deploy", "false")
             return
 
-        prune_report_for_pages(report_dir)
         validate_report_for_pages(report_dir)
         checkout_site_branch(site_dir, storage_branch)
-        copy_report(report_dir, target)
+        copy_pruned_report_for_pages(report_dir, target)
         (target / REPORT_INDEX_META).write_text(f"{index_meta_text}\n", encoding="utf-8")
         (target / "report-meta.html").write_text(f"{meta_html}\n", encoding="utf-8")
         (target / "report-source-meta.html").write_text(f"{source_meta_html}\n", encoding="utf-8")
@@ -623,6 +640,7 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
 
         changed = push_site_branch(site_dir, storage_branch)
         set_output("deploy", "true" if changed else "false")
+        restore_report_videos_for_deploy(report_dir, target)
 
 
 def parse_github_time(value: str) -> dt.datetime:

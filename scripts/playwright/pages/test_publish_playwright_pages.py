@@ -195,13 +195,14 @@ class TestPublishPlaywrightPages(unittest.TestCase):
         self.assertIn("/tree/feature%2Ftest-branch", meta)
         self.assertIn(">feature/test-branch</a>", meta)
 
-    def test_prune_report_for_pages_removes_nested_and_top_level_zip_data(self):
+    def test_prune_report_for_pages_removes_large_binary_data(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             report_dir = Path(tmpdir)
             top_zip = report_dir / "data" / "top.zip"
             nested_zip = report_dir / "phase" / "data" / "nested.zip"
+            video = report_dir / "data" / "video.webm"
             kept_json = report_dir / "data" / "trace.json"
-            for path in [top_zip, nested_zip, kept_json]:
+            for path in [top_zip, nested_zip, video, kept_json]:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text("data", encoding="utf-8")
 
@@ -209,7 +210,26 @@ class TestPublishPlaywrightPages(unittest.TestCase):
 
             self.assertFalse(top_zip.exists())
             self.assertFalse(nested_zip.exists())
+            self.assertFalse(video.exists())
             self.assertTrue(kept_json.exists())
+
+    def test_copy_pruned_report_for_pages_keeps_source_videos_for_deploy_overlay(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            report_dir = root / "report"
+            target = root / "site"
+            video = report_dir / "data" / "video.webm"
+            video.parent.mkdir(parents=True)
+            video.write_text("video", encoding="utf-8")
+
+            publish.copy_pruned_report_for_pages(report_dir, target)
+
+            self.assertTrue(video.exists())
+            self.assertFalse((target / "data" / "video.webm").exists())
+
+            publish.restore_report_videos_for_deploy(report_dir, target)
+
+            self.assertEqual((target / "data" / "video.webm").read_text(encoding="utf-8"), "video")
 
     def test_validate_report_for_pages_rejects_symlinks(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -227,6 +247,16 @@ class TestPublishPlaywrightPages(unittest.TestCase):
             (report_dir / "large.bin").write_bytes(b"1234")
 
             with patch.object(publish, "MAX_REPORT_BYTES", 3), self.assertRaises(publish.PublishError):
+                publish.validate_report_for_pages(report_dir)
+
+    def test_validate_report_for_pages_ignores_deploy_only_video_size(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            report_dir = Path(tmpdir)
+            video = report_dir / "data" / "video.webm"
+            video.parent.mkdir(parents=True)
+            video.write_bytes(b"1234")
+
+            with patch.object(publish, "MAX_REPORT_BYTES", 3):
                 publish.validate_report_for_pages(report_dir)
 
     def test_parse_retention_days_rejects_invalid_values(self):
