@@ -73,6 +73,8 @@ devices.env
 # Log files
 # -------------------------
 *.log
+playwright-report/
+test-results/
 
 uv.lock
 # -------------------------

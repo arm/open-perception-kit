@@ -38,6 +38,7 @@ jobs:
           - service: pek-docs-base
           - service: pek-dev-base
           - service: pek-pre-commit-runtime
+          - service: pek-playwright-pages
 
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
