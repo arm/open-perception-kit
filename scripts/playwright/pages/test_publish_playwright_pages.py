@@ -211,6 +211,24 @@ class TestPublishPlaywrightPages(unittest.TestCase):
             self.assertFalse(nested_zip.exists())
             self.assertTrue(kept_json.exists())
 
+    def test_validate_report_for_pages_rejects_symlinks(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            report_dir = Path(tmpdir)
+            target = report_dir / "target.txt"
+            target.write_text("data", encoding="utf-8")
+            (report_dir / "link.txt").symlink_to(target)
+
+            with self.assertRaises(publish.PublishError):
+                publish.validate_report_for_pages(report_dir)
+
+    def test_validate_report_for_pages_rejects_oversized_reports(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            report_dir = Path(tmpdir)
+            (report_dir / "large.bin").write_bytes(b"1234")
+
+            with patch.object(publish, "MAX_REPORT_BYTES", 3), self.assertRaises(publish.PublishError):
+                publish.validate_report_for_pages(report_dir)
+
     def test_parse_retention_days_rejects_invalid_values(self):
         self.assertEqual(publish.parse_retention_days("10"), 10)
         with self.assertRaises(publish.PublishError):

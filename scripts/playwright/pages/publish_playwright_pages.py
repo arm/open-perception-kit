@@ -22,6 +22,7 @@ from urllib.parse import quote
 PRODUCT_TITLE = "Arm Perception kit"
 INDEX_HTML = "index.html"
 REPORT_INDEX_META = "report-index-meta.txt"
+MAX_REPORT_BYTES = 500 * 1024 * 1024
 SCRIPT_DIR = Path(__file__).resolve().parent
 ASSET_DIR = SCRIPT_DIR / "assets"
 SOURCE_EXTENSIONS = {
@@ -523,6 +524,19 @@ def prune_report_for_pages(report_dir: Path) -> None:
             path.unlink()
 
 
+def validate_report_for_pages(report_dir: Path) -> None:
+    total = 0
+    for path in report_dir.rglob("*"):
+        if path.is_symlink():
+            raise PublishError(f"Playwright report contains unsupported symlink: {path.relative_to(report_dir)}")
+        if path.is_file():
+            total += path.stat().st_size
+            if total > MAX_REPORT_BYTES:
+                raise PublishError(
+                    f"Playwright report exceeds publish limit after pruning: {total} bytes > {MAX_REPORT_BYTES} bytes"
+                )
+
+
 def copy_report(report_dir: Path, target: Path) -> None:
     if target.exists():
         shutil.rmtree(target)
@@ -582,9 +596,10 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
             set_output("deploy", "false")
             return
 
+        prune_report_for_pages(report_dir)
+        validate_report_for_pages(report_dir)
         checkout_site_branch(site_dir, storage_branch)
         copy_report(report_dir, target)
-        prune_report_for_pages(target)
         (target / REPORT_INDEX_META).write_text(f"{index_meta_text}\n", encoding="utf-8")
         (target / "report-meta.html").write_text(f"{meta_html}\n", encoding="utf-8")
         (target / "report-source-meta.html").write_text(f"{source_meta_html}\n", encoding="utf-8")
