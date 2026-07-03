@@ -111,7 +111,7 @@ services:
       '
 
   pek-quality-check-full:
-    <<: *pek-dev-base
+    <<: *pek-docs-base
     command: |
       bash -c '
         .devcontainer/devsetup.sh &&
