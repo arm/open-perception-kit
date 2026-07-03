@@ -94,11 +94,28 @@ jobs:
       contents: write
       pull-requests: write
     steps:
+      - name: Resolve helper checkout ref
+        id: helper_ref
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+        run: |
+          set -euo pipefail
+          if [ -n "${{ inputs.head_sha }}" ]; then
+            echo "head_sha=${{ inputs.head_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            gh pr view "${{ inputs.pr_number }}" \
+              --repo "${{ github.repository }}" \
+              --json headRefOid \
+              --jq '"head_sha=" + .headRefOid' >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout workflow helpers
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
           fetch-tags: true
+          ref: ${{ steps.helper_ref.outputs.head_sha }}
           persist-credentials: false
 
       - name: Snapshot workflow helper bundle

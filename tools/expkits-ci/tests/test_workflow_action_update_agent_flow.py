@@ -1951,11 +1951,13 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(set(call_inputs.keys()), set(dispatch_inputs.keys()))
         self.assertEqual(job["runs-on"], OPENAI_AGENT_RUNNER_LABEL)
         self.assertEqual(job["permissions"]["actions"], "read")
+        self.assertEqual(steps["Checkout workflow helpers"]["with"]["ref"], "${{ steps.helper_ref.outputs.head_sha }}")
         self.assertEqual(steps["Checkout workflow helpers"]["with"]["persist-credentials"], "false")
         self.assertEqual(steps["Checkout PR head"]["with"]["persist-credentials"], "false")
         self.assertEqual(
             list(steps),
             [
+                "Resolve helper checkout ref",
                 "Checkout workflow helpers",
                 "Snapshot workflow helper bundle",
                 "Resolve PR details",
@@ -1971,6 +1973,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 "Upload stabilization artifacts",
             ],
         )
+        helper_ref_step = steps["Resolve helper checkout ref"]
+        self.assertIn("inputs.head_sha", helper_ref_step["run"])
+        self.assertIn("gh pr view", helper_ref_step["run"])
+        self.assertIn("headRefOid", helper_ref_step["run"])
         snapshot_step = steps["Snapshot workflow helper bundle"]
         self.assertIn('cp -R scripts/private/agent_runtime/.', snapshot_step["run"])
         self.assertIn("cp .github/agent-runtime/runtime/requirements-openai-agents.txt", snapshot_step["run"])
