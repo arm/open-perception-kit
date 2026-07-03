@@ -162,12 +162,13 @@ class TestPublishPlaywrightPages(unittest.TestCase):
 
             self.assertEqual(publish.read_first_line(path, "fallback"), "fallback")
 
-    def test_source_file_list_fails_when_requested_sha_is_unavailable(self):
+    def test_source_file_list_falls_back_when_requested_sha_is_unavailable(self):
         with patch.object(publish, "run_maybe", side_effect=[Mock(returncode=1), Mock(returncode=1)]), \
                 patch.object(publish, "capture") as capture:
-            with self.assertRaisesRegex(publish.PublishError, "Cannot resolve source tree"):
-                publish.source_file_list("missing-commit")
-            capture.assert_not_called()
+            capture.return_value = "tests/playwright/example.spec.js\n"
+
+            self.assertEqual(publish.source_file_list("missing-commit"), ["tests/playwright/example.spec.js"])
+            capture.assert_called_once_with(["git", "ls-files"])
 
     def test_report_index_meta_text_is_human_readable(self):
         now = dt.datetime(2026, 7, 2, 20, 30, tzinfo=dt.timezone.utc)

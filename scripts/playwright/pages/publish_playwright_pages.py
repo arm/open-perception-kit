@@ -230,7 +230,7 @@ def source_file_list(head_sha: str) -> list[str]:
     if run_maybe(["git", "fetch", "--depth=1", "origin", head_sha], quiet=True).returncode == 0:
         if run_maybe(["git", "cat-file", "-e", f"{head_sha}^{{tree}}"], quiet=True).returncode == 0:
             return capture(["git", "ls-tree", "-r", "--name-only", head_sha]).splitlines()
-    raise PublishError(f"Cannot resolve source tree for commit: {head_sha}")
+    return capture(["git", "ls-files"]).splitlines()
 
 
 def is_source_path(path: str) -> bool:
