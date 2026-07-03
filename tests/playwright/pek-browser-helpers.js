@@ -1,5 +1,13 @@
 const { expect } = require('@playwright/test');
 
+const MODEL_OUTPUT_VISIBLE_MS = 4000;
+const MODELS_OFF_VISIBLE_MS = 3000;
+const MODEL_ITEM = '.model-item';
+const MODEL_NAME = '.model-name';
+const MODELS_CONTAINER = '#models-container';
+const NO_MODELS_TEXT = 'No models registered yet';
+const STATUS_LINE = '#status-line';
+
 async function openPekUi(page) {
   await expect.poll(async () => {
     try {
@@ -12,8 +20,8 @@ async function openPekUi(page) {
 
   await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 60000 });
 
-  await expect(page.locator('#status-line')).toBeVisible();
-  await expect(page.locator('#models-container')).toBeVisible();
+  await expect(page.locator(STATUS_LINE)).toBeVisible();
+  await expect(page.locator(MODELS_CONTAINER)).toBeVisible();
 
   const config = await page.evaluate(() => window.PEK_CONFIG);
   expect(config).toEqual(expect.objectContaining({
@@ -23,7 +31,7 @@ async function openPekUi(page) {
 }
 
 async function waitForVideo(page) {
-  await expect(page.locator('#status-line')).toContainText(/connected|video/i, {
+  await expect(page.locator(STATUS_LINE)).toContainText(/connected|video/i, {
     timeout: 60000,
   });
 
@@ -32,9 +40,48 @@ async function waitForVideo(page) {
   await page.waitForTimeout(1000);
 }
 
+async function registeredModelNames(page) {
+  const modelItems = page.locator(`${MODELS_CONTAINER} ${MODEL_ITEM}`);
+  await expect(modelItems.first()).toBeVisible({ timeout: 90000 });
+
+  const names = (await page.locator(`${MODELS_CONTAINER} ${MODEL_NAME}`).allTextContents())
+    .map((name) => name.trim())
+    .filter(Boolean);
+  expect(names.length).toBeGreaterThan(0);
+  return names;
+}
+
+async function expectSinkOnlyData(page) {
+  await expect(page.locator(MODELS_CONTAINER)).toContainText(NO_MODELS_TEXT, {
+    timeout: 30000,
+  });
+  await waitForVideo(page);
+}
+
+async function holdAllModelsOff(page, modelNames) {
+  await setModels(page, modelNames, false);
+  await page.waitForTimeout(MODELS_OFF_VISIBLE_MS);
+}
+
+async function exerciseModelsOneAtATime(page, modelNames) {
+  for (const name of modelNames) {
+    await waitForVideo(page);
+    await setModel(page, name, true);
+    await waitForVideo(page);
+    await page.waitForTimeout(MODEL_OUTPUT_VISIBLE_MS);
+    await setModel(page, name, false);
+  }
+}
+
+async function setModels(page, modelNames, enabled) {
+  for (const name of modelNames) {
+    await setModel(page, name, enabled);
+  }
+}
+
 async function setModel(page, name, enabled) {
-  const model = page.locator('.model-item').filter({
-    has: page.locator('.model-name', { hasText: new RegExp(`^${escapeRegExp(name)}$`) }),
+  const model = page.locator(MODEL_ITEM).filter({
+    has: page.locator(MODEL_NAME, { hasText: new RegExp(`^${escapeRegExp(name)}$`) }),
   });
   const toggle = model.getByRole('switch');
   const toggleControl = model.locator('.model-toggle-switch');
@@ -104,7 +151,10 @@ function readBackendModelState(modelName) {
 }
 
 module.exports = {
+  expectSinkOnlyData,
+  exerciseModelsOneAtATime,
+  holdAllModelsOff,
   openPekUi,
-  setModel,
+  registeredModelNames,
   waitForVideo,
 };
