@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -70,6 +71,29 @@ VALIDATION_ENV_SENSITIVE_FRAGMENTS = (
     "SECRET",
     "TOKEN",
 )
+VALIDATION_COMMAND_ALLOWLIST = {
+    (
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/expkits-ci/tests",
+        "-p",
+        "test_detect_secrets_quality_flow.py",
+    ),
+    (
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/expkits-ci/tests",
+        "-p",
+        "test_workflow_action_update_agent_flow.py",
+    ),
+    ("git", "diff", "--stat"),
+}
 
 
 def run_command(
@@ -88,15 +112,18 @@ def run_command(
     )
 
 
-def run_shell_command(command: str, *, env: dict[str, str] | None = None) -> None:
-    subprocess.run(
-        command,
-        check=True,
-        text=True,
-        shell=True,
-        executable="/bin/bash",
-        env=env,
-    )
+def validation_command_args(command: str) -> list[str]:
+    try:
+        args = shlex.split(command)
+    except ValueError as exc:
+        raise ValueError(f"Validation command is not valid argv text: {command}") from exc
+    if tuple(args) not in VALIDATION_COMMAND_ALLOWLIST:
+        raise ValueError(f"Validation command is not in the trusted allowlist: {command}")
+    return args
+
+
+def run_validation_command(command: str, *, env: dict[str, str] | None = None) -> None:
+    run_command(validation_command_args(command), env=env)
 
 
 def validation_command_environment() -> dict[str, str]:

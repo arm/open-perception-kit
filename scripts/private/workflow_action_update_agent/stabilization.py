@@ -52,7 +52,7 @@ from .runtime import (
     render_markdown_template,
     resolve_repo_path,
     run_command,
-    run_shell_command,
+    run_validation_command,
     validation_command_environment,
     workflow_allowed_review_recommendations,
     write_json_file,
@@ -288,7 +288,7 @@ def run_validation_commands(commands: list[str]) -> None:
     env = validation_command_environment()
     for command in commands:
         print(f"Running validation command: {command}")
-        run_shell_command(command, env=env)
+        run_validation_command(command, env=env)
 
 
 def commit_review_fix(

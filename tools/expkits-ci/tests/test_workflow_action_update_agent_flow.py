@@ -2303,20 +2303,83 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         }
 
         with mock.patch.dict(os.environ, env, clear=True):
-            with mock.patch.object(HELPER_STABILIZATION, "run_shell_command") as run_shell_command:
-                HELPER_STABILIZATION.run_validation_commands(["python3 -m unittest", "git diff --check"])
+            with mock.patch.object(HELPER_STABILIZATION, "run_validation_command") as run_validation_command:
+                HELPER_STABILIZATION.run_validation_commands(
+                    [
+                        "python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_detect_secrets_quality_flow.py'",
+                        "git diff --stat",
+                    ]
+                )
 
         self.assertEqual(
-            [call.args[0] for call in run_shell_command.call_args_list],
-            ["python3 -m unittest", "git diff --check"],
+            [call.args[0] for call in run_validation_command.call_args_list],
+            [
+                "python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_detect_secrets_quality_flow.py'",
+                "git diff --stat",
+            ],
         )
         blocked_keys = set(env) - {"PATH", "GITHUB_WORKSPACE"}
-        for call in run_shell_command.call_args_list:
+        for call in run_validation_command.call_args_list:
             command_env = call.kwargs["env"]
             self.assertEqual(command_env["PATH"], "/usr/bin")
             self.assertEqual(command_env["GITHUB_WORKSPACE"], "/work")
             for key in blocked_keys:
                 self.assertNotIn(key, command_env)
+
+    def test_validation_commands_run_without_shell_and_reject_untrusted_commands(self):
+        with mock.patch.object(HELPER_RUNTIME, "run_command") as run_command:
+            HELPER_RUNTIME.run_validation_command(
+                "python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_workflow_action_update_agent_flow.py'",
+                env={"PATH": "/usr/bin"},
+            )
+
+        self.assertEqual(
+            run_command.call_args.args[0],
+            [
+                "python3",
+                "-m",
+                "unittest",
+                "discover",
+                "-s",
+                "tools/expkits-ci/tests",
+                "-p",
+                "test_workflow_action_update_agent_flow.py",
+            ],
+        )
+        self.assertEqual(run_command.call_args.kwargs["env"], {"PATH": "/usr/bin"})
+
+        with self.assertRaisesRegex(ValueError, "trusted allowlist"):
+            HELPER_RUNTIME.run_validation_command("python3 -c 'print(1)'")
+
+    def test_profile_validation_commands_are_trusted_argv(self):
+        profile = HELPER_RUNTIME.load_profile(str(PROFILE_FILE))
+
+        self.assertEqual(
+            [HELPER_RUNTIME.validation_command_args(command) for command in profile["validation_commands"]],
+            [
+                [
+                    "python3",
+                    "-m",
+                    "unittest",
+                    "discover",
+                    "-s",
+                    "tools/expkits-ci/tests",
+                    "-p",
+                    "test_detect_secrets_quality_flow.py",
+                ],
+                [
+                    "python3",
+                    "-m",
+                    "unittest",
+                    "discover",
+                    "-s",
+                    "tools/expkits-ci/tests",
+                    "-p",
+                    "test_workflow_action_update_agent_flow.py",
+                ],
+                ["git", "diff", "--stat"],
+            ],
+        )
 
     def test_stabilization_prompt_is_loaded_from_checked_in_template(self):
         source = HELPER_STABILIZATION_SCRIPT.read_text(encoding="utf-8")
