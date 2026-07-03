@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import argparse
-from abc import ABC, abstractmethod
 import json
 from pathlib import Path
 from typing import Any
@@ -15,8 +14,9 @@ from .contracts import AgentCommand, DiffSide, ReviewRecommendation, ReviewSever
 from .repo_tools import apply_unified_diff, list_repo_files, read_repo_file, run_shell_command
 from .review_output import filter_invalid_right_side_findings
 from .repo_tools import require_run_context
-from .sdk_runtime import Agent, BaseModel, ConfigDict, Field, RunConfig, Runner, coerce_model_output
+from .sdk_runtime import BaseModel, ConfigDict, Field, coerce_model_output
 from .task_estimator import estimate_task_fit
+from .workflow_task import AgentWorkflowTask
 
 
 class ReviewFinding(BaseModel):
@@ -90,54 +90,25 @@ def workflow_instruction(command: AgentCommand) -> str:
     )
 
 
-class AgentWorkflowTask(ABC):
+class ConfiguredAgentWorkflowTask(AgentWorkflowTask):
     command: AgentCommand
-    agent_name: str
 
-    def add_cli_arguments(self, parser: argparse.ArgumentParser) -> None:
-        del parser
-
-    def validate_args(self, args: argparse.Namespace) -> None:
-        del args
-
-    def output_type(self) -> Any:
-        """Return the optional structured SDK output type for this workflow task."""
-        return None
-
-    @abstractmethod
-    def tools(self) -> list[Any]:
-        raise NotImplementedError("AgentWorkflowTask subclasses must define tools.")
-
-    @abstractmethod
-    def write_result(self, final_output: object, args: argparse.Namespace) -> int:
-        raise NotImplementedError("AgentWorkflowTask subclasses must define result writing.")
+    def instructions(self) -> str:
+        return workflow_instruction(self.command)
 
     async def run(self, args: argparse.Namespace) -> int:
         self.validate_args(args)
         prompt = read_prompt(Path(args.prompt_file))
         await estimate_task_fit(self.command, prompt, args.task_settings, args.resolved_model)
-
-        agent_kwargs: dict[str, Any] = {
-            "name": self.agent_name,
-            "instructions": workflow_instruction(self.command),
-            "model": args.resolved_model,
-            "tools": self.tools(),
-        }
-        output_type = self.output_type()
-        if output_type is not None:
-            agent_kwargs["output_type"] = output_type
-
-        agent = Agent(**agent_kwargs)
-        result = await Runner.run(
-            agent,
+        final_output = await self.run_agent(
             prompt,
+            model=args.resolved_model,
             max_turns=args.task_settings.max_turns,
-            run_config=RunConfig(tracing_disabled=True),
         )
-        return self.write_result(result.final_output, args)
+        return self.write_result(final_output, args)
 
 
-class ReviewAgentTask(AgentWorkflowTask):
+class ReviewAgentTask(ConfiguredAgentWorkflowTask):
     command = AgentCommand.REVIEW
     agent_name = "OpenAI SDK Agent Review"
 
@@ -164,7 +135,7 @@ class ReviewAgentTask(AgentWorkflowTask):
         return 0
 
 
-class PatchAgentTask(AgentWorkflowTask):
+class PatchAgentTask(ConfiguredAgentWorkflowTask):
     def tools(self) -> list[Any]:
         return [read_repo_file, list_repo_files, run_shell_command, apply_unified_diff]
 

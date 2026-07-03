@@ -23,11 +23,6 @@ on:
         required: false
         default: .github/agent-runtime/repair/profiles/profile.json
         type: string
-      source_artifact_name:
-        description: Optional artifact from the current workflow run to inject into the repair context.
-        required: false
-        default: ""
-        type: string
     secrets:
       EXPKITS_AGENT_TOKEN:
         required: false
@@ -98,6 +93,7 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           ref: ${{ needs.prepare.outputs.target_branch }}
+          persist-credentials: false
 
       - uses: ./.github/actions/workflow-action-update-agent-helper
         env:
@@ -107,13 +103,6 @@ jobs:
           source-run-id: ${{ needs.prepare.outputs.source_run_id }}
           source-run-url: ${{ needs.prepare.outputs.source_run_url }}
           source-workflow-name: ${{ needs.prepare.outputs.source_workflow_name }}
-
-      - name: Download source artifact context
-        if: ${{ inputs.source_artifact_name != '' }}
-        uses: actions/download-artifact@v6
-        with:
-          name: ${{ inputs.source_artifact_name }}
-          path: .agent-runtime/workflow-action-update-agent/artifacts/${{ inputs.source_artifact_name }}
 
       - uses: ./.github/actions/workflow-action-update-agent-helper
         with:

@@ -16,7 +16,7 @@ if __package__ in (None, ""):  # pragma: no cover - used for direct script execu
     __package__ = "agent_runtime"
 
 from .agent_tasks import (
-    AgentWorkflowTask,
+    ConfiguredAgentWorkflowTask,
     RepairAgentTask,
     ReviewAgentTask,
     StabilizationAgentTask,
@@ -36,18 +36,18 @@ from .task_config import (
     resolve_agent_task_settings,
 )
 
-AGENT_TASKS: tuple[AgentWorkflowTask, ...] = (
+AGENT_TASKS: tuple[ConfiguredAgentWorkflowTask, ...] = (
     ReviewAgentTask(),
     RepairAgentTask(),
     StabilizationAgentTask(),
 )
 
 
-def iter_agent_tasks() -> tuple[AgentWorkflowTask, ...]:
+def iter_agent_tasks() -> tuple[ConfiguredAgentWorkflowTask, ...]:
     return AGENT_TASKS
 
 
-def get_agent_task(command: str | AgentCommand) -> AgentWorkflowTask:
+def get_agent_task(command: str | AgentCommand) -> ConfiguredAgentWorkflowTask:
     parsed_command = AgentCommand(command)
     for task in AGENT_TASKS:
         if task.command is parsed_command:

@@ -15,10 +15,10 @@ dependency pins. Executable GitHub Actions workflows live only under
   `.github/agent-runtime/runtime/agent-models.json`. Profiles and workflow YAML
   should refer to the config path and agent instance instead of duplicating
   model strings.
-- Keep OpenAI proxy defaults, task dispatch, model resolution, and output
-  handling in `scripts/private/agent_runtime/openai_agent_runner.py` and its
-  Python modules. Workflow YAML may create the venv and call that runner, but
-  must not duplicate task-specific OpenAI logic or turn/model defaults.
+- Keep OpenAI proxy defaults, task dispatch, model resolution, task estimation,
+  and output handling in `scripts/private/agent_runtime/` modules. Workflow YAML
+  may create the venv and call that runner, but must not duplicate
+  task-specific OpenAI logic or turn/model defaults.
 - Keep review markers, recommendation names, severity names, author defaults,
   and GitHub API identity in `scripts/private/agent_runtime/contracts.py`.
   Publish and fetch helpers must import that contract instead of duplicating
@@ -45,4 +45,5 @@ For changes here, run at least:
 
 If a change touches dependency pins, review publication, stabilization, or the
 OpenAI runner, also run the Agent Review workflow on the PR and inspect the
-`agent-review-out/review.json` artifact.
+`agent-review-out/review.json` artifact. The PR summary and inline comments are
+UI/index state, not the canonical machine-readable review state.

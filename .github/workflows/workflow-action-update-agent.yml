@@ -50,7 +50,7 @@ jobs:
       pull-requests: write
     uses: ./.github/workflows/workflow-action-update-agent-reusable.yml
     with:
-      source_run_id: ${{ inputs.source_run_id || github.event.workflow_run.id || '' }}
+      source_run_id: ${{ inputs.source_run_id || '' }}
       target_branch: ${{ inputs.target_branch || '' }}
       ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
       profile_path: ${{ inputs.profile_path || '.github/agent-runtime/repair/profiles/profile.json' }}

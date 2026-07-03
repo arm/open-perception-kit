@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import argparse
 from dataclasses import dataclass
 import json
 import subprocess
@@ -13,8 +14,9 @@ from typing import Any
 
 from .contracts import AgentCommand
 from .repo_tools import AgentRunContext, require_run_context
-from .sdk_runtime import Agent, BaseModel, ConfigDict, Field, RunConfig, Runner, coerce_model_output
+from .sdk_runtime import BaseModel, ConfigDict, Field, coerce_model_output
 from .task_config import AgentTaskSettings
+from .workflow_task import AgentWorkflowTask
 
 
 MAX_TASK_MANIFEST_PROMPT_HEAD_CHARS = 6000
@@ -201,16 +203,21 @@ def task_estimator_instruction() -> str:
     )
 
 
-class TaskEstimatorAgent:
+class TaskEstimatorWorkflowTask(AgentWorkflowTask):
     agent_name = "OpenAI SDK Agent Task Estimator"
 
-    def build_agent(self, resolved_model: str) -> Agent:
-        return Agent(
-            name=self.agent_name,
-            instructions=task_estimator_instruction(),
-            model=resolved_model,
-            output_type=TaskEstimate,
-        )
+    def instructions(self) -> str:
+        return task_estimator_instruction()
+
+    def output_type(self) -> Any:
+        return TaskEstimate
+
+    def tools(self) -> list[Any]:
+        return []
+
+    def write_result(self, final_output: object, args: argparse.Namespace) -> int:
+        del final_output, args
+        raise RuntimeError("Task estimator is a preflight task and does not write standalone results.")
 
     async def run(
         self,
@@ -218,13 +225,12 @@ class TaskEstimatorAgent:
         settings: AgentTaskSettings,
         resolved_model: str,
     ) -> TaskEstimate:
-        result = await Runner.run(
-            self.build_agent(resolved_model),
+        final_output = await self.run_agent(
             json.dumps(manifest, indent=2, sort_keys=True),
+            model=resolved_model,
             max_turns=settings.task_estimate_turns,
-            run_config=RunConfig(tracing_disabled=True),
         )
-        return coerce_model_output(TaskEstimate, result.final_output)
+        return coerce_model_output(TaskEstimate, final_output)
 
 
 def task_estimate_block_reasons(
@@ -265,7 +271,7 @@ async def estimate_task_fit(
 
     deterministic_advisory_reasons = deterministic_task_advisory_reasons(manifest)
     try:
-        estimate = await TaskEstimatorAgent().run(manifest, settings, resolved_model)
+        estimate = await TaskEstimatorWorkflowTask().run(manifest, settings, resolved_model)
     except Exception as exc:  # noqa: BLE001
         if deterministic_advisory_reasons:
             print(

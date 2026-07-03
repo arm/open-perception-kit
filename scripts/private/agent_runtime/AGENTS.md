@@ -8,9 +8,10 @@ review, repair, and stabilization GitHub Actions workflows.
 - Keep reusable contracts in `contracts.py`; do not duplicate OpenAI proxy env
   names, recommendations, severities, diff sides, or review false-positive
   guards in individual modules.
-- Define workflow agents through `AgentWorkflowTask` subclasses and register
-  them in `openai_agent_runner.py`; keep the matching central task settings in
-  `.github/agent-runtime/runtime/agent-tasks.json`.
+- Define the shared task interface in `workflow_task.py`. User-facing workflow
+  agents should extend `ConfiguredAgentWorkflowTask` in `agent_tasks.py` and
+  register in `openai_agent_runner.py`; keep the matching central task settings
+  in `.github/agent-runtime/runtime/agent-tasks.json`.
 - Resolve agent models through `model_config.py` and the checked-in
   `.github/agent-runtime/runtime/agent-models.json` file. Do not introduce
   per-workflow-YAML hardcoded model names.
@@ -38,9 +39,9 @@ review, repair, and stabilization GitHub Actions workflows.
 
 ## Adding a Workflow Agent
 
-1. Add one `AgentWorkflowTask` subclass in `agent_tasks.py` or a focused module
-   imported by that file. The subclass owns task-specific CLI arguments,
-   validation, tools, output type, and result writing.
+1. Add one `ConfiguredAgentWorkflowTask` subclass in `agent_tasks.py` or a
+   focused module imported by that file. The subclass owns task-specific CLI
+   arguments, validation, tools, output type, and result writing.
 2. Add exactly one entry for the command to `AGENT_TASKS` in
    `openai_agent_runner.py`.
 3. Add the same command to `.github/agent-runtime/runtime/agent-tasks.json`
@@ -51,8 +52,9 @@ review, repair, and stabilization GitHub Actions workflows.
 5. Extend `tools/expkits-ci/tests/test_workflow_action_update_agent_flow.py`
    so the new command is covered by the central registry/config enforcement.
 
-The generic preflight size estimator lives separately in `task_estimator.py` as
-shared runtime service; it should not be copied into individual workflow tasks.
+The generic preflight size estimator lives in `task_estimator.py` as a
+`TaskEstimatorWorkflowTask`; it should not be copied into individual workflow
+tasks.
 
 ## Validation
 

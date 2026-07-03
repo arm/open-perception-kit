@@ -270,12 +270,16 @@ def format_parsed_shell_command(parsed_command: ParsedShellCommand) -> str:
     return command_text
 
 
-def resolve_mutable_repo_path(context: AgentRunContext, path_value: str, operation: str) -> Path:
+def resolve_safe_repo_path(context: AgentRunContext, path_value: str, operation: str) -> Path:
     path = context.resolve_repo_path(path_value)
     relative = path.relative_to(context.repo_root).as_posix()
     if relative == GIT_METADATA_DIR or relative.startswith(GIT_METADATA_PREFIX):
         raise ValueError(f"{operation} path targets git metadata: {path_value}")
     return path
+
+
+def resolve_mutable_repo_path(context: AgentRunContext, path_value: str, operation: str) -> Path:
+    return resolve_safe_repo_path(context, path_value, operation)
 
 
 def resolve_redirection_path(context: AgentRunContext, path_value: str) -> Path:
@@ -372,12 +376,26 @@ def run_parsed_shell_command(parsed_command: ParsedShellCommand, context: AgentR
     )
 
 
+def reject_git_metadata_shell_arguments(parsed_command: ParsedShellCommand, context: AgentRunContext) -> None:
+    for words in parsed_command.pipeline:
+        for word in words:
+            if not word or word.startswith("-") or "://" in word:
+                continue
+            try:
+                path = context.resolve_repo_path(word)
+                relative = path.relative_to(context.repo_root).as_posix()
+            except ValueError:
+                continue
+            if relative == GIT_METADATA_DIR or relative.startswith(GIT_METADATA_PREFIX):
+                raise ValueError(f"Command argument targets git metadata: {word}")
+
+
 @function_tool
 def read_repo_file(path: str, start_line: int | None = None, end_line: int | None = None) -> str:
     """Read a UTF-8 text file from the checked-out repository."""
 
     context = require_run_context()
-    file_path = context.resolve_repo_path(path)
+    file_path = resolve_safe_repo_path(context, path, "Read")
     lines = file_path.read_text(encoding="utf-8").splitlines()
     first = max((start_line or 1) - 1, 0)
     last = end_line if end_line is not None else len(lines)
@@ -417,6 +435,7 @@ def run_shell_command(command: str) -> str:
     output_parts: list[str] = []
     exit_code = 0
     for parsed_command in split_shell_commands(command):
+        reject_git_metadata_shell_arguments(parsed_command, context)
         completed = run_parsed_shell_command(parsed_command, context)
         exit_code = completed.returncode
         output_parts.extend(

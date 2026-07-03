@@ -8,8 +8,10 @@ publishes:
 
 - one fresh summary comment per run
 - fresh inline review comments for the current findings
-- structured hidden state markers in the published comments, so other automation
-  can safely consume the latest Agent review result for the current PR head
+- the `agent-review-out/review.json` artifact as the canonical
+  machine-readable review state for the current PR head
+- lightweight hidden state markers in the published comments for UI indexing and
+  fallback discovery only
 
 The workflow-scoped OpenAI agent runtime pins live in
 `.github/agent-runtime/runtime/requirements-openai-agents.txt` and are installed into

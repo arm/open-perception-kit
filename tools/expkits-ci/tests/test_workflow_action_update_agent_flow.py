@@ -48,6 +48,7 @@ AGENT_MODEL_CONFIG_FILE = REPO_ROOT / ".github/agent-runtime/runtime/agent-model
 AGENT_TASK_CONFIG_FILE = REPO_ROOT / ".github/agent-runtime/runtime/agent-tasks.json"
 OPENAI_AGENT_RUNNER_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/openai_agent_runner.py"
 OPENAI_AGENT_INIT_FILE = REPO_ROOT / "scripts/private/agent_runtime/__init__.py"
+OPENAI_AGENT_WORKFLOW_TASK_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/workflow_task.py"
 OPENAI_AGENT_TASKS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/agent_tasks.py"
 OPENAI_AGENT_CONTRACTS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/contracts.py"
 OPENAI_AGENT_REPO_TOOLS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/repo_tools.py"
@@ -235,13 +236,12 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
         self.assertEqual(
             set(inputs.keys()),
-            {"source_run_id", "target_branch", "ticket_id", "profile_path", "source_artifact_name"},
+            {"source_run_id", "target_branch", "ticket_id", "profile_path"},
         )
         self.assertEqual(
             inputs["profile_path"]["default"],
             ".github/agent-runtime/repair/profiles/profile.json",
         )
-        self.assertEqual(inputs["source_artifact_name"]["default"], "")
 
         helper_steps = []
         for job in workflow["jobs"].values():
@@ -264,10 +264,11 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         self.assertEqual(agent_job["runs-on"], OPENAI_AGENT_RUNNER_LABEL)
         self.assertEqual(stabilize_job["runs-on"], "ubuntu-latest")
-        self.assertIn("Download source artifact context", agent_steps)
+        self.assertNotIn("Download source artifact context", agent_steps)
         self.assertIn("Set up Agent Python", agent_steps)
         self.assertIn("Install OpenAI agent runtime", agent_steps)
         self.assertIn("Run OpenAI SDK repair agent", agent_steps)
+        self.assertEqual(agent_job["steps"][0]["with"]["persist-credentials"], "false")
         self.assertLess(
             agent_step_names.index("Set up Agent Python"),
             agent_step_names.index("Install OpenAI agent runtime"),
@@ -319,14 +320,6 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn(
             ".agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/static_analysis.py",
             static_regression_step["run"],
-        )
-        self.assertEqual(
-            agent_steps["Download source artifact context"]["if"],
-            "${{ inputs.source_artifact_name != '' }}",
-        )
-        self.assertEqual(
-            agent_steps["Download source artifact context"]["with"]["path"],
-            ".agent-runtime/workflow-action-update-agent/artifacts/${{ inputs.source_artifact_name }}",
         )
         self.assertEqual(stabilize_job["permissions"]["actions"], "write")
         self.assertEqual(stabilize_steps["Checkout workflow helpers"]["uses"], "actions/checkout@v6")
@@ -721,6 +714,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_openai_agent_runner_uses_arm_proxy_truststore_and_tracing_contract(self):
         runner_source = OPENAI_AGENT_RUNNER_SCRIPT.read_text(encoding="utf-8")
         sdk_source = OPENAI_AGENT_SDK_RUNTIME_SCRIPT.read_text(encoding="utf-8")
+        workflow_task_source = OPENAI_AGENT_WORKFLOW_TASK_SCRIPT.read_text(encoding="utf-8")
         task_source = OPENAI_AGENT_TASKS_SCRIPT.read_text(encoding="utf-8")
         tools_source = OPENAI_AGENT_REPO_TOOLS_SCRIPT.read_text(encoding="utf-8")
         estimator_source = OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT.read_text(encoding="utf-8")
@@ -758,10 +752,12 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertLess(truststore_import, agents_import)
         self.assertLess(inject_call, agents_import)
         self.assertIn("def configure_openai_environment", sdk_source)
-        self.assertIn("class AgentWorkflowTask", task_source)
+        self.assertIn("class AgentWorkflowTask", workflow_task_source)
+        self.assertIn("class ConfiguredAgentWorkflowTask", task_source)
         self.assertIn("class ReviewAgentTask", task_source)
         self.assertIn("class RepairAgentTask", task_source)
         self.assertIn("class StabilizationAgentTask", task_source)
+        self.assertIn("from .workflow_task import AgentWorkflowTask", task_source)
         self.assertIn("class ReviewResult", task_source)
         self.assertIn("return ReviewResult", task_source)
         self.assertIn("filter_invalid_right_side_findings", task_source)
@@ -778,7 +774,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn('"apply"', tools_source)
         self.assertIn('["git", "apply", "--whitespace=nowarn"]', tools_source)
         self.assertIn("class TaskEstimate", estimator_source)
-        self.assertIn("class TaskEstimatorAgent", estimator_source)
+        self.assertIn("class TaskEstimatorWorkflowTask", estimator_source)
+        self.assertIn("from .workflow_task import AgentWorkflowTask", estimator_source)
         self.assertIn("async def estimate_task_fit", estimator_source)
         self.assertIn("def build_task_manifest", estimator_source)
         self.assertIn("class AgentTaskSettings", task_config_source)
@@ -830,6 +827,20 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 runner.validate_agent_task_registry(AGENT_TASK_CONFIG_FILE)
         finally:
             runner.AGENT_TASKS = original_tasks
+
+    def test_task_estimator_uses_agent_workflow_task_contract(self):
+        estimator = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT,
+            "agent_runtime.task_estimator_fake_contract",
+        )
+        agent_tasks = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_TASKS_SCRIPT,
+            "agent_runtime.agent_tasks_fake_contract",
+        )
+
+        self.assertTrue(issubclass(estimator.TaskEstimatorWorkflowTask, estimator.AgentWorkflowTask))
+        self.assertTrue(issubclass(agent_tasks.ConfiguredAgentWorkflowTask, agent_tasks.AgentWorkflowTask))
+        self.assertTrue(issubclass(agent_tasks.ReviewAgentTask, agent_tasks.AgentWorkflowTask))
 
     def test_openai_agent_runner_executes_simple_commands_without_shell_expansion(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
@@ -886,6 +897,25 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             repo_tools.set_run_context(Path(temp_dir) / "repo", 10)
             with self.assertRaisesRegex(ValueError, "escapes repository root"):
                 repo_tools.run_shell_command("printf bad > ../outside.txt")
+
+    def test_openai_agent_runner_rejects_git_metadata_reads(self):
+        repo_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_REPO_TOOLS_SCRIPT,
+            "agent_runtime.repo_tools_fake_sdk_metadata_read_guard",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            git_dir = repo_root / ".git"
+            git_dir.mkdir()
+            (git_dir / "config").write_text("credential = unsafe\n", encoding="utf-8")
+            repo_tools.set_run_context(repo_root, 10)
+
+            with self.assertRaisesRegex(ValueError, "Read path targets git metadata"):
+                repo_tools.read_repo_file(".git/config")
+            with self.assertRaisesRegex(ValueError, "Command argument targets git metadata"):
+                repo_tools.run_shell_command("cat .git/config")
+            with self.assertRaisesRegex(ValueError, "Shell redirection path targets git metadata"):
+                repo_tools.run_shell_command("cat < .git/config")
 
     def test_openai_agent_runner_applies_safe_unified_diff(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
@@ -1351,15 +1381,14 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_agent_review_output_drops_verified_agent_runtime_artifact_context_claims(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)
-            workflow_path = repo_root / ".github/workflows/workflow-action-update-agent-reusable.yml"
-            workflow_path.parent.mkdir(parents=True)
-            workflow_path.write_text(
+            prompt_path = repo_root / ".github/agent-runtime/repair/prompts/repair-goal.md.in"
+            prompt_path.parent.mkdir(parents=True)
+            prompt_path.write_text(
                 "\n".join(
                     [
-                        "- name: Download source artifact context",
-                        "  uses: actions/download-artifact@v6",
-                        "  with:",
-                        "    path: .agent-runtime/workflow-action-update-agent/artifacts/${{ inputs.source_artifact_name }}",
+                        "Read the generated context files first.",
+                        "Then inspect `.agent-runtime/workflow-action-update-agent/source-run.log`.",
+                        "Relevant text artifacts are under `.agent-runtime/workflow-action-update-agent/artifacts/`.",
                     ]
                 ),
                 encoding="utf-8",
@@ -1376,10 +1405,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                         "severity": "major",
                         "score": 0.7,
                         "confidence": 0.9,
-                        "path": ".github/workflows/workflow-action-update-agent-reusable.yml",
+                        "path": ".github/agent-runtime/repair/prompts/repair-goal.md.in",
                         "diff_side": "RIGHT",
-                        "start_line": 4,
-                        "end_line": 4,
+                        "start_line": 3,
+                        "end_line": 3,
                         "body": (
                             "The artifact is outside the agent context, but omit the finding if "
                             "`.agent-runtime/workflow-action-update-agent/artifacts/...` is matched."
@@ -1397,13 +1426,13 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_agent_review_output_keeps_artifact_context_claims_without_anchor_evidence(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)
-            workflow_path = repo_root / ".github/workflows/workflow-action-update-agent-reusable.yml"
-            workflow_path.parent.mkdir(parents=True)
-            workflow_path.write_text(
+            prompt_path = repo_root / ".github/agent-runtime/repair/prompts/repair-goal.md.in"
+            prompt_path.parent.mkdir(parents=True)
+            prompt_path.write_text(
                 "\n".join(
                     [
-                        "- name: Download source artifact context",
-                        "  uses: actions/download-artifact@v6",
+                        "Read the generated context files first.",
+                        "Then inspect `.agent-runtime/workflow-action-update-agent/source-run.log`.",
                     ]
                 ),
                 encoding="utf-8",
@@ -1420,7 +1449,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                         "severity": "major",
                         "score": 0.7,
                         "confidence": 0.9,
-                        "path": ".github/workflows/workflow-action-update-agent-reusable.yml",
+                        "path": ".github/agent-runtime/repair/prompts/repair-goal.md.in",
                         "diff_side": "RIGHT",
                         "start_line": 2,
                         "end_line": 2,
