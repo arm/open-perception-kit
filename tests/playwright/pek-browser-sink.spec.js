@@ -1,0 +1,8 @@
+const { test } = require('@playwright/test');
+
+const { expectSinkOnlyData, openPekUi } = require('./pek-browser-helpers');
+
+test('PEK browser UI receives sink-only local data', async ({ page }) => {
+  await openPekUi(page);
+  await expectSinkOnlyData(page);
+});

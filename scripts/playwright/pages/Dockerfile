@@ -1,0 +1,11 @@
+FROM python:3.13-slim-trixie
+
+ARG GH_DEBIAN_VERSION=2.46.0-3
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates gh="${GH_DEBIAN_VERSION}" git; \
+    rm -rf /var/lib/apt/lists/*; \
+    test "$(gh --version | awk 'NR == 1 {print $3}')" = "${GH_DEBIAN_VERSION%%-*}"
+
+USER 65532:65532

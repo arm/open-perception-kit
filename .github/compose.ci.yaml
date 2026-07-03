@@ -30,6 +30,13 @@ services:
       context: ..
       dockerfile: scripts/pre-commit/runtime/Dockerfile
 
+  pek-playwright-pages:
+    network_mode: bridge
+    hostname: pek-playwright-pages
+    build:
+      context: ..
+      dockerfile: scripts/playwright/pages/Dockerfile
+
   pek-release-with-ut:
     <<: *pek-docs-base
     hostname: pek-release-with-ut

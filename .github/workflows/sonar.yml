@@ -35,10 +35,10 @@ jobs:
     if: |
         github.event_name != 'pull_request' ||
         (
-          (github.event.action != 'labeled' || github.event.label.name == 'run-pek-ci') &&
+          (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
           (
             github.event.pull_request.draft == false ||
-            (github.event.action == 'labeled' && github.event.label.name == 'run-pek-ci')
+            (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
           )
         )
 
