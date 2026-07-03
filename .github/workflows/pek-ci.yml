@@ -242,6 +242,7 @@ jobs:
           echo "::add-mask::${git_basic_auth}"
           echo "::add-mask::${GIT_CONFIG_VALUE_0}"
           docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm \
+            -e PULL_REQUEST_TARGET_BRANCH \
             -e GIT_CONFIG_COUNT \
             -e GIT_CONFIG_KEY_0 \
             -e GIT_CONFIG_VALUE_0 \

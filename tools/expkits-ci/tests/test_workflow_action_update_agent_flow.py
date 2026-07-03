@@ -1910,6 +1910,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "steps.manual_pr.outputs.base_ref",
             pek_steps["Check Repo Quality gate (PR)"]["run"],
         )
+        self.assertIn(
+            "-e PULL_REQUEST_TARGET_BRANCH",
+            pek_steps["Check Repo Quality gate (PR)"]["run"],
+        )
         self.assertIn("inputs.pr_number", sonar_steps["SonarQube analysis"]["env"]["PR_KEY"])
         self.assertIn("steps.manual_pr.outputs.base_ref", sonar_steps["SonarQube analysis"]["env"]["PR_BASE"])
 
