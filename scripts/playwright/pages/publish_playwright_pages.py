@@ -19,6 +19,8 @@ from pathlib import Path
 
 
 PRODUCT_TITLE = "Arm Perception kit"
+INDEX_HTML = "index.html"
+REPORT_INDEX_META = "report-index-meta.txt"
 SCRIPT_DIR = Path(__file__).resolve().parent
 ASSET_DIR = SCRIPT_DIR / "assets"
 SOURCE_EXTENSIONS = {
@@ -294,12 +296,12 @@ def write_report_index(report_dir: Path, title: str, back_href: str) -> None:
 """,
     ]
     for phase in sorted(report_dir.iterdir()):
-        if not (phase / "index.html").is_file():
+        if not (phase / INDEX_HTML).is_file():
             continue
         phase_name = phase.name
         parts.append(
             '          <a class="report-link" href="'
-            f'{html_escape(phase_name)}/"><span><span class="report-title">{html_escape(phase_name)}</span>'
+            f'{html_escape(phase_name)}/{INDEX_HTML}"><span><span class="report-title">{html_escape(phase_name)}</span>'
             '<span class="report-meta">Playwright report</span></span><span class="badge">Open</span></a>\n'
         )
     parts.extend(
@@ -307,11 +309,11 @@ def write_report_index(report_dir: Path, title: str, back_href: str) -> None:
             """        </div>
       </section>
 """,
-            f'      <a class="back-link" href="{html_escape(back_href)}index.html">Back to report index</a>\n',
+            f'      <a class="back-link" href="{html_escape(back_href)}{INDEX_HTML}">Back to report index</a>\n',
             write_index_footer(),
         ]
     )
-    (report_dir / "index.html").write_text("".join(parts), encoding="utf-8")
+    (report_dir / INDEX_HTML).write_text("".join(parts), encoding="utf-8")
 
 
 def pr_report_title(pr_number: str, repository: str) -> str:
@@ -348,10 +350,10 @@ def write_site_index(site_dir: Path, repository: str) -> None:
 """,
     ]
     nightly = site_dir / "nightly"
-    if (nightly / "index.html").is_file():
-        meta = read_first_line(nightly / "report-index-meta.txt", "Scheduled main run")
+    if (nightly / INDEX_HTML).is_file():
+        meta = read_first_line(nightly / REPORT_INDEX_META, "Scheduled main run")
         parts.append(
-            '          <a class="report-link" href="nightly/"><span><span class="report-title">'
+            f'          <a class="report-link" href="nightly/{INDEX_HTML}"><span><span class="report-title">'
             f'Latest nightly</span><span class="report-meta">{html_escape(meta)}</span></span>'
             '<span class="badge">Open</span></a>\n'
         )
@@ -370,12 +372,12 @@ def write_site_index(site_dir: Path, repository: str) -> None:
     if prs_dir.is_dir():
         pr_dirs = [path for path in prs_dir.iterdir() if path.is_dir() and path.name.isdigit()]
         for pr_dir in sorted(pr_dirs, key=lambda path: int(path.name)):
-            if not (pr_dir / "index.html").is_file():
+            if not (pr_dir / INDEX_HTML).is_file():
                 continue
-            meta = read_first_line(pr_dir / "report-index-meta.txt", "Published report")
+            meta = read_first_line(pr_dir / REPORT_INDEX_META, "Published report")
             title = pr_report_title(pr_dir.name, repository)
             parts.append(
-                f'          <a class="report-link" href="prs/{html_escape(pr_dir.name)}/"><span>'
+                f'          <a class="report-link" href="prs/{html_escape(pr_dir.name)}/{INDEX_HTML}"><span>'
                 f'<span class="report-title">{html_escape(title)}</span>'
                 f'<span class="report-meta">{html_escape(meta)}</span></span><span class="badge">Open</span></a>\n'
             )
@@ -388,7 +390,7 @@ def write_site_index(site_dir: Path, repository: str) -> None:
             write_index_footer(),
         ]
     )
-    (site_dir / "index.html").write_text("".join(parts), encoding="utf-8")
+    (site_dir / INDEX_HTML).write_text("".join(parts), encoding="utf-8")
 
 
 def inject_once(pattern: str, replacement, content: str, label: str) -> str:
@@ -409,7 +411,7 @@ def decorate_playwright_report(
     head_sha: str,
     source_map_json: str,
 ) -> bool:
-    index_file = report_dir / "index.html"
+    index_file = report_dir / INDEX_HTML
     if not index_file.is_file():
         return False
 
@@ -426,7 +428,7 @@ def decorate_playwright_report(
         f'data-commit="{html_escape(head_sha)}"><div class="pek-report-bar-inner">'
         f'<div class="pek-report-info"><span class="pek-report-title">{html_escape(title)}</span>'
         f'<span class="pek-report-meta">{meta_html}</span></div>'
-        f'<a class="pek-report-back" href="{html_escape(back_href)}index.html">Back to report index</a></div></div>'
+        f'<a class="pek-report-back" href="{html_escape(back_href)}{INDEX_HTML}">Back to report index</a></div></div>'
     )
 
     content = inject_once(r"<title>.*?</title>", f"<title>{page_title}</title>", content, "<title>")
@@ -480,7 +482,7 @@ def download_report_artifact(artifact_dir: Path, repository: str, run_id: str, r
     local_report_dir = env("PLAYWRIGHT_PAGES_LOCAL_REPORT_DIR")
     if local_report_dir:
         source = Path(local_report_dir)
-        if not (source / "index.html").is_file():
+        if not (source / INDEX_HTML).is_file():
             raise PublishError(f"Local Playwright report not found: {source}")
         target = artifact_dir / "local-artifact" / "playwright-report"
         shutil.copytree(source, target)
@@ -575,11 +577,11 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
         checkout_site_branch(site_dir, storage_branch)
         copy_report(report_dir, target)
         prune_report_for_pages(target)
-        (target / "report-index-meta.txt").write_text(f"{index_meta_text}\n", encoding="utf-8")
+        (target / REPORT_INDEX_META).write_text(f"{index_meta_text}\n", encoding="utf-8")
         (target / "report-meta.html").write_text(f"{meta_html}\n", encoding="utf-8")
         (target / "report-source-meta.html").write_text(f"{source_meta_html}\n", encoding="utf-8")
         write_report_shell_assets(site_dir)
-        if not (target / "index.html").is_file():
+        if not (target / INDEX_HTML).is_file():
             write_report_index(target, PRODUCT_TITLE, back_href)
         else:
             decorate_playwright_report(
@@ -610,6 +612,19 @@ def should_prune_closed_pr(state: str, closed_at: str, cutoff: dt.datetime) -> b
     return parse_github_time(closed_at) <= cutoff
 
 
+def pr_state(repository: str, pr_number: str) -> dict | None:
+    result = subprocess.run(
+        ["gh", "pr", "view", pr_number, "--repo", repository, "--json", "state,closedAt"],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        return None
+    return json.loads(result.stdout)
+
+
 def cleanup_closed_pr_reports(site_dir: Path, storage_branch: str, retention_days: int) -> None:
     repository = require_env("GITHUB_REPOSITORY")
     checkout_site_branch(site_dir, storage_branch)
@@ -621,16 +636,9 @@ def cleanup_closed_pr_reports(site_dir: Path, storage_branch: str, retention_day
         for pr_dir in prs_dir.iterdir():
             if not pr_dir.is_dir() or not pr_dir.name.isdigit():
                 continue
-            result = subprocess.run(
-                ["gh", "pr", "view", pr_dir.name, "--repo", repository, "--json", "state,closedAt"],
-                check=False,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                text=True,
-            )
-            if result.returncode != 0 or not result.stdout.strip():
+            pr_data = pr_state(repository, pr_dir.name)
+            if not pr_data:
                 continue
-            pr_data = json.loads(result.stdout)
             if should_prune_closed_pr(pr_data.get("state", ""), pr_data.get("closedAt", ""), cutoff):
                 shutil.rmtree(pr_dir)
                 changed = True

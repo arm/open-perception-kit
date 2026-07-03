@@ -113,6 +113,7 @@ class TestPublishPlaywrightPages(unittest.TestCase):
 
             content = (site_dir / "index.html").read_text(encoding="utf-8")
             self.assertIn("Latest nightly", content)
+            self.assertIn('href="nightly/index.html"', content)
             self.assertIn("main @ commit-for-t", content)
             self.assertIn("Pull Requests", content)
 
@@ -129,7 +130,7 @@ class TestPublishPlaywrightPages(unittest.TestCase):
 
             content = (site_dir / "index.html").read_text(encoding="utf-8")
             self.assertIn("PR #181 - Browser smoke", content)
-            self.assertIn('href="prs/181/"', content)
+            self.assertIn('href="prs/181/index.html"', content)
 
     def test_report_index_meta_text_is_human_readable(self):
         now = dt.datetime(2026, 7, 2, 20, 30, tzinfo=dt.timezone.utc)

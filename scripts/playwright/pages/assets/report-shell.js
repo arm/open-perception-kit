@@ -11,8 +11,10 @@
   ];
 
   const clean = (text) => (text || '').replace(/\s+/g, ' ').trim();
-  const sourceRefPattern =
-    /((?:[\w.-]+\/)*[\w.-]+\.(?:c|cc|cpp|cxx|h|hh|hpp|js|jsx|mjs|cjs|ts|tsx|py|sh|bash|cmake|txt|json|ya?ml|md))(?:\:(\d+)(?:\:\d+)?)?/;
+  const sourceExtensions = new Set([
+    'c', 'cc', 'cpp', 'cxx', 'h', 'hh', 'hpp', 'js', 'jsx', 'mjs', 'cjs',
+    'ts', 'tsx', 'py', 'sh', 'bash', 'cmake', 'txt', 'json', 'yaml', 'yml', 'md'
+  ]);
   let sourceConfig;
 
   const getSourceConfig = () => {
@@ -55,16 +57,53 @@
       return '';
     }
     const encodedPath = path.split('/').map(encodeURIComponent).join('/');
-    return `https://github.com/${source.repository}/blob/${source.commit}/${encodedPath}${line ? `#L${line}` : ''}`;
+    const lineSuffix = line ? `#L${line}` : '';
+    return `https://github.com/${source.repository}/blob/${source.commit}/${encodedPath}${lineSuffix}`;
+  };
+
+  const isSourceTokenChar = (char) => {
+    const code = char.charCodeAt(0);
+    return (code >= 48 && code <= 57) ||
+      (code >= 65 && code <= 90) ||
+      (code >= 97 && code <= 122) ||
+      char === '_' ||
+      char === '-' ||
+      char === '.' ||
+      char === '/' ||
+      char === ':';
+  };
+
+  const trimSourceToken = (token) => {
+    let start = 0;
+    let end = token.length;
+    while (start < end && !isSourceTokenChar(token[start])) {
+      start += 1;
+    }
+    while (end > start && !isSourceTokenChar(token[end - 1])) {
+      end -= 1;
+    }
+    return token.slice(start, end);
+  };
+
+  const sourceReferenceFromToken = (token) => {
+    const reference = trimSourceToken(token);
+    const [file, line] = reference.split(':');
+    const extension = file?.slice(file.lastIndexOf('.') + 1).toLowerCase();
+    if (!extension || !sourceExtensions.has(extension)) {
+      return undefined;
+    }
+    const href = sourceHref(file, /^\d+$/.test(line || '') ? line : '');
+    return href ? { href, text: reference } : undefined;
   };
 
   const sourceReferenceFrom = (text) => {
-    const match = clean(text).match(sourceRefPattern);
-    if (!match) {
-      return undefined;
+    for (const token of clean(text).split(/\s+/)) {
+      const reference = sourceReferenceFromToken(token);
+      if (reference) {
+        return reference;
+      }
     }
-    const href = sourceHref(match[1], match[2]);
-    return href ? { href, text: match[0] } : undefined;
+    return undefined;
   };
 
   const ensureId = (element, index) => {
@@ -165,7 +204,9 @@
     params.delete('testId');
     params.delete('run');
     params.delete('anchor');
-    link.href = `${location.pathname}${location.search}${params.toString() ? `#?${params}` : ''}`;
+    const hash = params.toString();
+    const hashSuffix = hash ? `#?${hash}` : '';
+    link.href = `${location.pathname}${location.search}${hashSuffix}`;
     link.textContent = 'Back to tests';
   };
 
