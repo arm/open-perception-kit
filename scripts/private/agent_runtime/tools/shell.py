@@ -82,6 +82,8 @@ def split_shell_commands(command: str) -> list[ParsedShellCommand]:
         if current:
             append_pipeline_segment()
         if pipeline:
+            if stderr_to_stdout and len(pipeline) > 1:
+                raise ValueError("stderr redirection with pipelines is not supported in agent commands.")
             commands.append(
                 ParsedShellCommand(
                     pipeline=pipeline,
