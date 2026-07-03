@@ -13,7 +13,7 @@ RUN set -eux; \
         *) echo "Unsupported GitHub CLI architecture: ${arch}" >&2; exit 1 ;; \
     esac; \
     tmp_dir="$(mktemp -d)"; \
-    curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
+    curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --tlsv1.2 \
         "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_${gh_arch}.tar.gz" | tar -xz -C "${tmp_dir}"; \
     mv "${tmp_dir}/gh_${GH_VERSION}_${gh_arch}/bin/gh" /usr/local/bin/gh; \
     rm -rf "${tmp_dir}"; \
