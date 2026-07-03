@@ -6,16 +6,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import fnmatch
 from pathlib import Path
 import shlex
 import subprocess
 
-from .sdk_runtime import function_tool
+from ..runtime_context import AgentRunContext
+from .paths import GIT_METADATA_DIR, GIT_METADATA_PREFIX, resolve_redirection_path
 
-
-MAX_TOOL_OUTPUT_CHARS = 24000
-MAX_LIST_FILES = 400
 READ_ONLY_GIT_SUBCOMMANDS = {
     "cat-file",
     "diff",
@@ -42,11 +39,6 @@ SHELL_PIPE_SEPARATOR = "|"
 SHELL_REDIRECT_STDIN = "<"
 SHELL_REDIRECT_STDOUT = ">"
 SHELL_REDIRECT_STDOUT_APPEND = ">>"
-GIT_METADATA_DIR = ".git"
-GIT_METADATA_PREFIX = f"{GIT_METADATA_DIR}/"
-PATCH_PATH_PREFIXES = ("a/", "b/")
-PATCH_FILE_HEADER_PREFIXES = ("--- ", "+++ ")
-PATCH_MOVE_HEADER_PREFIXES = ("rename from ", "rename to ", "copy from ", "copy to ")
 
 
 @dataclass(frozen=True)
@@ -63,46 +55,6 @@ class ShellCommandResult:
     returncode: int
     stdout: str
     stderr: str
-
-
-class AgentRunContext:
-    def __init__(self, repo_root: Path, command_timeout: int) -> None:
-        self.repo_root = repo_root.resolve()
-        self.command_timeout = command_timeout
-
-    def resolve_repo_path(self, path_value: str) -> Path:
-        path = Path(path_value)
-        if path.is_absolute():
-            resolved = path.resolve()
-        else:
-            resolved = (self.repo_root / path).resolve()
-        if resolved != self.repo_root and self.repo_root not in resolved.parents:
-            raise ValueError(f"Path escapes repository root: {path_value}")
-        return resolved
-
-
-RUN_CONTEXT: AgentRunContext | None = None
-
-
-def set_run_context(repo_root: Path, command_timeout: int) -> AgentRunContext:
-    global RUN_CONTEXT
-    RUN_CONTEXT = AgentRunContext(repo_root, command_timeout)
-    return RUN_CONTEXT
-
-
-def require_run_context() -> AgentRunContext:
-    if RUN_CONTEXT is None:
-        raise RuntimeError("Agent run context has not been configured.")
-    return RUN_CONTEXT
-
-
-def truncate_tool_output(output: str) -> str:
-    if len(output) <= MAX_TOOL_OUTPUT_CHARS:
-        return output
-    return (
-        output[:MAX_TOOL_OUTPUT_CHARS]
-        + f"\n\n[truncated {len(output) - MAX_TOOL_OUTPUT_CHARS} characters]\n"
-    )
 
 
 def split_shell_commands(command: str) -> list[ParsedShellCommand]:
@@ -270,65 +222,6 @@ def format_parsed_shell_command(parsed_command: ParsedShellCommand) -> str:
     return command_text
 
 
-def resolve_safe_repo_path(context: AgentRunContext, path_value: str, operation: str) -> Path:
-    path = context.resolve_repo_path(path_value)
-    relative = path.relative_to(context.repo_root).as_posix()
-    if relative == GIT_METADATA_DIR or relative.startswith(GIT_METADATA_PREFIX):
-        raise ValueError(f"{operation} path targets git metadata: {path_value}")
-    return path
-
-
-def resolve_mutable_repo_path(context: AgentRunContext, path_value: str, operation: str) -> Path:
-    return resolve_safe_repo_path(context, path_value, operation)
-
-
-def resolve_redirection_path(context: AgentRunContext, path_value: str) -> Path:
-    return resolve_mutable_repo_path(context, path_value, "Shell redirection")
-
-
-def normalize_patch_path(path_value: str) -> str | None:
-    if path_value == "/dev/null":
-        return None
-    for prefix in PATCH_PATH_PREFIXES:
-        if path_value.startswith(prefix):
-            return path_value[len(prefix):]
-    return path_value
-
-
-def patch_header_paths(patch: str) -> list[str]:
-    paths: list[str] = []
-    for line in patch.splitlines():
-        if line.startswith("diff --git "):
-            try:
-                words = shlex.split(line)
-            except ValueError as exc:
-                raise ValueError(f"Unable to parse patch file header: {line}") from exc
-            if len(words) != 4:
-                raise ValueError(f"Unsupported patch file header: {line}")
-            paths.extend(path for path in (normalize_patch_path(words[2]), normalize_patch_path(words[3])) if path)
-            continue
-        for prefix in PATCH_FILE_HEADER_PREFIXES:
-            if line.startswith(prefix):
-                path_text = line[len(prefix):].split("\t", 1)[0]
-                normalized = normalize_patch_path(path_text)
-                if normalized:
-                    paths.append(normalized)
-                break
-        for prefix in PATCH_MOVE_HEADER_PREFIXES:
-            if line.startswith(prefix):
-                paths.append(line[len(prefix):])
-                break
-    return sorted(set(paths))
-
-
-def validate_patch_paths(context: AgentRunContext, patch: str) -> None:
-    paths = patch_header_paths(patch)
-    if not paths:
-        raise ValueError("Patch does not contain any file paths.")
-    for path in paths:
-        resolve_mutable_repo_path(context, path, "Patch")
-
-
 def run_parsed_shell_command(parsed_command: ParsedShellCommand, context: AgentRunContext) -> ShellCommandResult:
     input_text: str | None = None
     if parsed_command.stdin_path:
@@ -388,92 +281,3 @@ def reject_git_metadata_shell_arguments(parsed_command: ParsedShellCommand, cont
                 continue
             if relative == GIT_METADATA_DIR or relative.startswith(GIT_METADATA_PREFIX):
                 raise ValueError(f"Command argument targets git metadata: {word}")
-
-
-@function_tool
-def read_repo_file(path: str, start_line: int | None = None, end_line: int | None = None) -> str:
-    """Read a UTF-8 text file from the checked-out repository."""
-
-    context = require_run_context()
-    file_path = resolve_safe_repo_path(context, path, "Read")
-    lines = file_path.read_text(encoding="utf-8").splitlines()
-    first = max((start_line or 1) - 1, 0)
-    last = end_line if end_line is not None else len(lines)
-    numbered = [
-        f"{line_number}: {line}"
-        for line_number, line in enumerate(lines[first:last], start=first + 1)
-    ]
-    return truncate_tool_output("\n".join(numbered))
-
-
-@function_tool
-def list_repo_files(pattern: str = "**/*") -> str:
-    """List repository files matching a glob pattern."""
-
-    context = require_run_context()
-    matches: list[str] = []
-    for path in context.repo_root.rglob("*"):
-        if not path.is_file():
-            continue
-        relative = path.relative_to(context.repo_root).as_posix()
-        if GIT_METADATA_PREFIX in relative or relative.startswith(GIT_METADATA_PREFIX):
-            continue
-        if pattern == "**/*" or fnmatch.fnmatch(relative, pattern):
-            matches.append(relative)
-        if len(matches) >= MAX_LIST_FILES:
-            matches.append(f"[truncated after {MAX_LIST_FILES} files]")
-            break
-    return "\n".join(sorted(matches))
-
-
-@function_tool
-def run_shell_command(command: str) -> str:
-    """Run a read, build, or validation shell command in the repository root."""
-
-    context = require_run_context()
-    reject_unsafe_shell_command(command)
-    output_parts: list[str] = []
-    exit_code = 0
-    for parsed_command in split_shell_commands(command):
-        reject_git_metadata_shell_arguments(parsed_command, context)
-        completed = run_parsed_shell_command(parsed_command, context)
-        exit_code = completed.returncode
-        output_parts.extend(
-            [
-                f"$ {format_parsed_shell_command(parsed_command)}",
-                f"exit_code={completed.returncode}",
-                "--- stdout ---",
-                completed.stdout.rstrip(),
-                "--- stderr ---",
-                completed.stderr.rstrip(),
-            ]
-        )
-        if completed.returncode != 0:
-            break
-    output_parts.insert(0, f"exit_code={exit_code}")
-    return truncate_tool_output("\n".join(output_parts).rstrip() + "\n")
-
-
-@function_tool
-def apply_unified_diff(patch: str) -> str:
-    """Apply a unified git diff patch to the repository working tree."""
-
-    context = require_run_context()
-    validate_patch_paths(context, patch)
-    completed = subprocess.run(
-        ["git", "apply", "--whitespace=nowarn"],
-        cwd=context.repo_root,
-        input=patch,
-        text=True,
-        capture_output=True,
-        timeout=context.command_timeout,
-        check=False,
-    )
-    output_parts = [
-        f"exit_code={completed.returncode}",
-        "--- stdout ---",
-        completed.stdout.rstrip(),
-        "--- stderr ---",
-        completed.stderr.rstrip(),
-    ]
-    return truncate_tool_output("\n".join(output_parts).rstrip() + "\n")

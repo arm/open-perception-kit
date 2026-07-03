@@ -4,12 +4,12 @@ on:
   workflow_call:
     inputs:
       source_run_id:
-        description: GitHub Actions run ID to repair.
+        description: GitHub Actions run ID to repair. The source run must belong to a PR with the repair authorization label.
         required: false
         default: ""
         type: string
       target_branch:
-        description: Optional branch to open the repair PR against. Defaults to the source run head branch.
+        description: Optional branch to open the repair PR against. Defaults to the authorized source PR head branch.
         required: false
         default: ""
         type: string
@@ -21,7 +21,7 @@ on:
       profile_path:
         description: Repair profile JSON path relative to the repository root.
         required: false
-        default: .github/agent-runtime/repair/profiles/profile.json
+        default: .github/agent-runtime/workflow-action-update-agent/profiles/profile.json
         type: string
     secrets:
       EXPKITS_AGENT_TOKEN:
@@ -46,6 +46,7 @@ jobs:
       should_run: ${{ steps.resolve.outputs.should_run }}
       skip_reason: ${{ steps.resolve.outputs.skip_reason }}
       source_run_id: ${{ steps.resolve.outputs.source_run_id }}
+      source_pr_number: ${{ steps.resolve.outputs.source_pr_number }}
       source_run_url: ${{ steps.resolve.outputs.source_run_url }}
       source_workflow_name: ${{ steps.resolve.outputs.source_workflow_name }}
       target_branch: ${{ steps.resolve.outputs.target_branch }}
@@ -59,7 +60,7 @@ jobs:
         uses: ./.github/actions/workflow-action-update-agent-helper
         with:
           command: resolve-inputs
-          profile-path: ${{ inputs.profile_path || '.github/agent-runtime/repair/profiles/profile.json' }}
+          profile-path: ${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}
           source-run-id: ${{ inputs.source_run_id || '' }}
           target-branch: ${{ inputs.target_branch || '' }}
           ticket-id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
@@ -107,8 +108,9 @@ jobs:
       - uses: ./.github/actions/workflow-action-update-agent-helper
         with:
           command: build-markdown
-          profile-path: ${{ inputs.profile_path || '.github/agent-runtime/repair/profiles/profile.json' }}
+          profile-path: ${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}
           source-run-id: ${{ needs.prepare.outputs.source_run_id }}
+          source-pr-number: ${{ needs.prepare.outputs.source_pr_number }}
           source-run-url: ${{ needs.prepare.outputs.source_run_url }}
           source-workflow-name: ${{ needs.prepare.outputs.source_workflow_name }}
           target-branch: ${{ needs.prepare.outputs.target_branch }}
@@ -147,7 +149,7 @@ jobs:
       - id: patch
         uses: ./.github/actions/workflow-action-update-agent-helper
         with:
-          command: package-patch
+          command: package-repository-changes
           patch-file: ${{ runner.temp }}/workflow-action-update-agent.patch
           diffstat-file: ${{ runner.temp }}/workflow-action-update-agent.diffstat.txt
 
@@ -167,7 +169,7 @@ jobs:
       - if: steps.patch.outputs.has_changes != 'true'
         uses: ./.github/actions/workflow-action-update-agent-helper
         with:
-          command: require-generated-patch
+          command: require-generated-changes
           source-run-id: ${{ needs.prepare.outputs.source_run_id }}
 
   open-pr:
@@ -197,11 +199,13 @@ jobs:
       - id: branch
         uses: ./.github/actions/workflow-action-update-agent-helper
         with:
-          command: apply-patch-and-push
-          profile-path: ${{ inputs.profile_path || '.github/agent-runtime/repair/profiles/profile.json' }}
+          command: apply-repair-changes-and-push
+          profile-path: ${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}
           patch-root: ${{ runner.temp }}/workflow-action-update-agent-repair
           repair-branch: ${{ needs.prepare.outputs.repair_branch }}
+          target-branch: ${{ needs.prepare.outputs.target_branch }}
           source-run-id: ${{ needs.prepare.outputs.source_run_id }}
+          source-pr-number: ${{ needs.prepare.outputs.source_pr_number }}
           source-run-url: ${{ needs.prepare.outputs.source_run_url }}
           source-workflow-name: ${{ needs.prepare.outputs.source_workflow_name }}
           ticket-id: ${{ needs.prepare.outputs.ticket_id }}
@@ -214,7 +218,7 @@ jobs:
         uses: ./.github/actions/workflow-action-update-agent-helper
         with:
           command: create-draft-pr
-          profile-path: ${{ inputs.profile_path || '.github/agent-runtime/repair/profiles/profile.json' }}
+          profile-path: ${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}
           body-file: ${{ runner.temp }}/workflow-action-update-agent-pr-body.md
           pr-title-file: ${{ runner.temp }}/workflow-action-update-agent-pr-title.txt
           target-branch: ${{ needs.prepare.outputs.target_branch }}
@@ -246,7 +250,7 @@ jobs:
           GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
         with:
           command: stabilize-pr
-          profile-path: ${{ inputs.profile_path || '.github/agent-runtime/repair/profiles/profile.json' }}
+          profile-path: ${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}
           pr-number: ${{ needs['open-pr'].outputs.pr_number }}
           repair-branch: ${{ needs.prepare.outputs.repair_branch }}
           head-sha: ${{ needs['open-pr'].outputs.head_sha }}

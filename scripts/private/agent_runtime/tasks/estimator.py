@@ -12,11 +12,11 @@ import subprocess
 import sys
 from typing import Any
 
-from .contracts import AgentCommand
-from .repo_tools import AgentRunContext, require_run_context
-from .sdk_runtime import BaseModel, ConfigDict, Field, coerce_model_output
-from .task_config import AgentTaskSettings
-from .workflow_task import AgentWorkflowTask
+from ..config.task import AgentTaskSettings
+from ..contracts import AgentCommand
+from ..runtime_context import AgentRunContext, require_run_context
+from ..sdk_runtime import BaseModel, ConfigDict, Field, coerce_model_output
+from .base import AgentWorkflowTask
 
 
 MAX_TASK_MANIFEST_PROMPT_HEAD_CHARS = 6000

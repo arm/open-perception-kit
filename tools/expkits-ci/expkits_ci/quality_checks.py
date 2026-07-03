@@ -53,13 +53,13 @@ class QualityChecks:
     AGENT_RUNTIME_STATIC_TRIGGER_PREFIXES = (
         ".github/agent-runtime/",
         "scripts/private/agent_runtime/",
+        "scripts/private/workflow_action_update_agent/",
         ".github/workflows/agent-review.yml",
         ".github/workflows/agent-stabilize-pr.yml",
         ".github/workflows/workflow-action-update-agent",
         ".github/actions/workflow-action-update-agent-helper/",
     )
     AGENT_RUNTIME_STATIC_TRIGGER_FILES = (
-        "scripts/private/workflow_action_update_agent.py",
         "tools/expkits-ci/tests/test_workflow_action_update_agent_flow.py",
         "tools/expkits-ci/pyproject.toml",
     )

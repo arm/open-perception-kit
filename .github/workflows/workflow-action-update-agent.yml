@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       source_run_id:
-        description: GitHub Actions run ID to repair
+        description: GitHub Actions run ID to repair. The source run must belong to a PR with the repair authorization label.
         required: false
         default: ""
         type: string
@@ -19,7 +19,7 @@ on:
         default: ""
         type: string
       target_branch:
-        description: Optional branch to open the repair PR against. Defaults to the source run head branch.
+        description: Optional branch to open the repair PR against. Defaults to the authorized source PR head branch.
         required: false
         default: ""
         type: string
@@ -31,7 +31,7 @@ on:
       profile_path:
         description: Repair profile JSON path relative to the repository root.
         required: false
-        default: .github/agent-runtime/repair/profiles/profile.json
+        default: .github/agent-runtime/workflow-action-update-agent/profiles/profile.json
         type: string
 
 permissions: {}
@@ -53,7 +53,7 @@ jobs:
       source_run_id: ${{ inputs.source_run_id || '' }}
       target_branch: ${{ inputs.target_branch || '' }}
       ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
-      profile_path: ${{ inputs.profile_path || '.github/agent-runtime/repair/profiles/profile.json' }}
+      profile_path: ${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}
     secrets: inherit # pragma: allowlist secret
 
   run-agent-stabilizer:
@@ -69,5 +69,5 @@ jobs:
       head_sha: ${{ inputs.head_sha || '' }}
       source_run_id: ${{ inputs.source_run_id || '' }}
       ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
-      profile_path: ${{ inputs.profile_path || '.github/agent-runtime/repair/profiles/profile.json' }}
+      profile_path: ${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}
     secrets: inherit # pragma: allowlist secret

@@ -11,34 +11,25 @@ import json
 import os
 import sys
 import urllib.error
-import urllib.request
 from pathlib import Path
 
 if __package__ in (None, ""):  # pragma: no cover - used for direct script execution.
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    __package__ = "agent_runtime"
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    __package__ = "agent_runtime.review"
 
-from .contracts import (
+from ..contracts import (
     DEFAULT_AUTHOR_LOGINS,
-    GITHUB_API_VERSION,
-    GITHUB_USER_AGENT,
     INLINE_MARKER,
     INLINE_STATE_MARKER,
     MARKER,
     STATE_MARKER,
 )
-
-EMPTY_STATE = {
-    "summary": "",
-    "overall_recommendation": "",
-    "overall_score": 0,
-    "overall_confidence": 0,
-    "run_id": "",
-    "head_sha": "",
-    "finding_count": 0,
-    "finding_count_available": False,
-    "findings": [],
-}
+from ..github_api import (
+    github_api_endpoint_url,
+    github_api_query_endpoint,
+    list_paginated_items,
+)
+from .state import EMPTY_REVIEW_STATE, normalize_review_summary_state
 REQUIRED_INLINE_METADATA_FIELDS = (
     "title",
     "severity",
@@ -49,54 +40,39 @@ REQUIRED_INLINE_METADATA_FIELDS = (
 )
 
 
-def github_api_request(url: str, token: str) -> str:
-    request = urllib.request.Request(
-        url,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "Authorization": f"Bearer {token}",
-            "User-Agent": GITHUB_USER_AGENT,
-            "X-GitHub-Api-Version": GITHUB_API_VERSION,
-        },
-    )
-    with urllib.request.urlopen(request) as response:
-        return response.read().decode("utf-8")
-
-
-def list_paginated_items(url: str, token: str):
-    items = []
-    page = 1
-    separator = "&" if "?" in url else "?"
-    while True:
-        page_url = f"{url}{separator}per_page=100&page={page}"
-        batch = json.loads(github_api_request(page_url, token))
-        if not batch:
-            break
-        items.extend(batch)
-        if len(batch) < 100:
-            break
-        page += 1
-    return items
-
-
 def list_issue_comments(repository: str, pr_number: str, token: str):
     return list_paginated_items(
-        f"https://api.github.com/repos/{repository}/issues/{pr_number}/comments",
-        token,
+        github_api_endpoint_url(
+            github_api_query_endpoint(
+                f"repos/{repository}/issues/{pr_number}/comments",
+                {"per_page": 100},
+            )
+        ),
+        token=token,
     )
 
 
 def list_pull_comments(repository: str, pr_number: str, token: str):
     return list_paginated_items(
-        f"https://api.github.com/repos/{repository}/pulls/{pr_number}/comments",
-        token,
+        github_api_endpoint_url(
+            github_api_query_endpoint(
+                f"repos/{repository}/pulls/{pr_number}/comments",
+                {"per_page": 100},
+            )
+        ),
+        token=token,
     )
 
 
 def list_pull_reviews(repository: str, pr_number: str, token: str):
     return list_paginated_items(
-        f"https://api.github.com/repos/{repository}/pulls/{pr_number}/reviews",
-        token,
+        github_api_endpoint_url(
+            github_api_query_endpoint(
+                f"repos/{repository}/pulls/{pr_number}/reviews",
+                {"per_page": 100},
+            )
+        ),
+        token=token,
     )
 
 
@@ -110,43 +86,18 @@ def comment_author_login(comment) -> str:
     return str(dict(comment.get("user") or {}).get("login") or "")
 
 
-def normalize_state_metadata(state):
-    if not isinstance(state, dict):
-        return dict(EMPTY_STATE)
-
-    normalized = dict(EMPTY_STATE)
-    normalized.update(state)
-
-    findings = normalized.get("findings")
-    if not isinstance(findings, list):
-        findings = []
-    normalized["findings"] = findings
-
-    finding_count = normalized.get("finding_count")
-    has_explicit_finding_count = (
-        isinstance(finding_count, int)
-        and not isinstance(finding_count, bool)
-        and finding_count >= 0
-    )
-    if not has_explicit_finding_count:
-        finding_count = len(findings)
-    normalized["finding_count"] = finding_count
-    normalized["finding_count_available"] = has_explicit_finding_count
-    return normalized
-
-
 def extract_state_metadata(body: str):
     for line in body.splitlines():
         if line.startswith(STATE_MARKER) and line.endswith(" -->"):
             payload = line[len(STATE_MARKER):-4].strip()
             try:
-                return normalize_state_metadata(json.loads(payload))
+                return normalize_review_summary_state(json.loads(payload))
             except json.JSONDecodeError:
                 print(
                     "Ignoring malformed Agent review state marker JSON.",
                     file=sys.stderr,
                 )
-    return dict(EMPTY_STATE)
+    return dict(EMPTY_REVIEW_STATE)
 
 
 def extract_inline_metadata(body: str):
@@ -246,7 +197,7 @@ def main():
     author_logins = allowed_author_logins()
 
     if not token or not repository or not pr_number:
-        output_path.write_text(json.dumps(EMPTY_STATE, indent=2), encoding="utf-8")
+        output_path.write_text(json.dumps(EMPTY_REVIEW_STATE, indent=2), encoding="utf-8")
         return
 
     issue_comments = []
@@ -268,14 +219,14 @@ def main():
 
     summary_comments = summary_state_comments(issue_comments, pull_reviews, author_logins)
     if not summary_comments:
-        output_path.write_text(json.dumps(EMPTY_STATE, indent=2), encoding="utf-8")
+        output_path.write_text(json.dumps(EMPTY_REVIEW_STATE, indent=2), encoding="utf-8")
         return
 
     target_comment = summary_comments[-1]
     state = extract_state_metadata(target_comment.get("body", ""))
     run_id = state.get("run_id")
     if not run_id:
-        output_path.write_text(json.dumps(EMPTY_STATE, indent=2), encoding="utf-8")
+        output_path.write_text(json.dumps(EMPTY_REVIEW_STATE, indent=2), encoding="utf-8")
         return
 
     try:

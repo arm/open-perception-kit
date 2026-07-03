@@ -11,10 +11,10 @@ from pathlib import Path
 import sys
 
 if __package__ in (None, ""):  # pragma: no cover - used for direct script execution.
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    __package__ = "agent_runtime"
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    __package__ = "agent_runtime.config"
 
-from .contracts import (
+from ..contracts import (
     AgentInstance,
     DEFAULT_AGENT_MODEL_CONFIG_PATH,
     load_json_object,

@@ -73,7 +73,7 @@ jobs:
           REVIEW_PR_URL: ${{ github.event.pull_request.html_url || '' }}
         run: |
           mkdir -p .github/agent-runtime/review/out
-          python3 scripts/private/agent_runtime/review_prompt.py \
+          python3 scripts/private/agent_runtime/review/prompt.py \
             --output .github/agent-runtime/review/out/review.prompt.md
 
       - name: Install OpenAI agent runtime
@@ -109,7 +109,7 @@ jobs:
         if: ${{ success() }}
         shell: bash
         run: |
-          .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/publish_review.py \
+          .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/review/publish.py \
             --input .github/agent-runtime/review/out/review.json \
             --markdown-out .github/agent-runtime/review/out/review-summary.md
           cat .github/agent-runtime/review/out/review-summary.md >> "${GITHUB_STEP_SUMMARY}"
@@ -124,7 +124,7 @@ jobs:
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REVIEW_BASE_REF: ${{ format('origin/{0}', github.base_ref) }}
         run: |
-          .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/publish_review.py \
+          .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/review/publish.py \
             --input .github/agent-runtime/review/out/review.json \
             --markdown-out .github/agent-runtime/review/out/review-summary.md \
             --publish-pr-comment
@@ -156,5 +156,5 @@ jobs:
       head_sha: ${{ github.event.pull_request.head.sha }}
       source_run_id: ${{ github.run_id }}
       ticket_id: EXPKITS-1234
-      profile_path: .github/agent-runtime/repair/profiles/profile.json
+      profile_path: .github/agent-runtime/workflow-action-update-agent/profiles/profile.json
     secrets: inherit # pragma: allowlist secret

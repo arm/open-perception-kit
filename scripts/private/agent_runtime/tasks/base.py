@@ -9,7 +9,7 @@ import argparse
 from abc import ABC, abstractmethod
 from typing import Any
 
-from .sdk_runtime import Agent, RunConfig, Runner
+from ..sdk_runtime import Agent, RunConfig, Runner
 
 
 class AgentWorkflowTask(ABC):

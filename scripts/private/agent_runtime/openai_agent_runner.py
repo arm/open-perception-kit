@@ -15,11 +15,10 @@ if __package__ in (None, ""):  # pragma: no cover - used for direct script execu
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     __package__ = "agent_runtime"
 
-from .agent_tasks import (
+from .tasks.configured import (
     ConfiguredAgentWorkflowTask,
-    RepairAgentTask,
+    RepositoryEditAgentTask,
     ReviewAgentTask,
-    StabilizationAgentTask,
 )
 from .contracts import (
     AgentCommand,
@@ -27,10 +26,10 @@ from .contracts import (
     DEFAULT_AGENT_TASK_CONFIG_PATH,
     AgentInstance,
 )
-from .model_config import resolve_agent_model
-from .repo_tools import set_run_context
+from .config.model import resolve_agent_model
+from .runtime_context import set_run_context
 from .sdk_runtime import configure_openai_environment
-from .task_config import (
+from .config.task import (
     AgentTaskSettings,
     load_agent_task_config,
     resolve_agent_task_settings,
@@ -38,8 +37,14 @@ from .task_config import (
 
 AGENT_TASKS: tuple[ConfiguredAgentWorkflowTask, ...] = (
     ReviewAgentTask(),
-    RepairAgentTask(),
-    StabilizationAgentTask(),
+    RepositoryEditAgentTask(
+        command=AgentCommand.REPAIR,
+        agent_name="OpenAI SDK Workflow Repair Agent",
+    ),
+    RepositoryEditAgentTask(
+        command=AgentCommand.STABILIZATION,
+        agent_name="OpenAI SDK Workflow Stabilization Agent",
+    ),
 )
 
 

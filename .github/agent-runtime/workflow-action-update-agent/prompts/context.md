@@ -2,18 +2,24 @@
 
 ## Goal
 
-- Keep one automatic repair path only: same-repository pull requests run the
-  standard `Agent Review`, then automatically stabilize that PR head when the
-  review is not `approve`.
+- Keep one automatic PR-head repair path only: same-repository pull requests run
+  the standard `Agent Review`, then automatically stabilize that PR head when
+  the review is not `approve`.
 - Keep manual PR stabilization dispatchable for maintainers. The automatic path
   must not open separate repair PRs or merge the PR.
+- Keep source-run repair PR creation separate from stabilization: it is only for
+  bounded work outside the source PR branch's direct stabilization scope, and it
+  requires the source PR to carry the profile-defined authorization label.
 
 ## Hard Rules
 
 - Reuse the `Agent Review` invocation pattern for any OpenAI-in-CI step: checkout, render prompt, run the shared Python OpenAI Agents SDK runner, then publish or consume structured output.
-- Keep workflow YAML orchestration-thin. Repo-specific logic belongs in `scripts/private/workflow_action_update_agent.py` behind `.github/actions/workflow-action-update-agent-helper/`.
+- Keep workflow YAML orchestration-thin. Repo-specific logic belongs in the `scripts/private/workflow_action_update_agent/` package behind `.github/actions/workflow-action-update-agent-helper/`.
 - Keep runtime prompt files under `.agent-runtime/workflow-action-update-agent/`; do not check generated prompt artifacts into git.
 - Keep the stabilization loop focused on review findings only. It must not rewrite unrelated workflow plumbing.
+- Keep repair PR tasks bounded by source-run evidence and an explicit Definition
+  of Done. If the source run is not associated with an authorized source PR, do
+  not open a repair PR.
 - Follow-up stabilization commits must rely on the next normal PR `Agent Review`
   run for proof. If the new review finds a new issue, the next PR event runs
   stabilization again.
@@ -44,7 +50,7 @@ The reference implementation is `.github/workflows/agent-review.yml`.
 ## Discoveries
 
 - The useful gate is the standard `Agent Review` workflow on the PR. Repair-specific review logic should not fork that policy.
-- `scripts/private/agent_runtime/publish_review.py` can publish a `request_changes` recommendation while the workflow run itself still concludes `success`. The stabilizer must look at structured review state, not only at workflow success/failure.
+- `scripts/private/agent_runtime/review/publish.py` can publish a `request_changes` recommendation while the workflow run itself still concludes `success`. The stabilizer must look at structured review state, not only at workflow success/failure.
 - Waiting on Actions runs via `gh api repos/{repo}/actions/runs/{id}` is more reliable than `gh run watch` for unattended polling.
 - Fetching check-run annotations with the PAT was blocked by `HTTP 403: Resource not accessible by personal access token`; polling workflow runs avoids that permission edge.
 - Self-hosted runner behavior is not perfectly uniform. Python OpenAI clients can fail corporate CA validation when they use the `certifi` bundle, so the runner injects the system trust store with `truststore` before importing OpenAI libraries.
@@ -53,6 +59,9 @@ The reference implementation is `.github/workflows/agent-review.yml`.
 - The branch under test still needs to be able to exercise the stabilizer workflow before merge. Use the current workflow ref for branch validation, but keep the SDK runner shape aligned with the canonical review workflow.
 - If a stabilizer job checks out the PR head into the workspace root, any later local action lookup will resolve against the PR branch contents. Snapshot the helper bundle before the checkout and restore it under an ignored workspace path so the latest helper logic still drives the job.
 - Stabilizer follow-up commits must push with `EXPKITS_AGENT_TOKEN`, not the workflow `github.token`, otherwise the PR branch update may not retrigger the normal `pull_request` workflows.
+- Source-run repair PRs are opt-in from the source PR via the profile-defined
+  authorization label. This prevents a failed run from opening a separate repair
+  PR unless maintainers explicitly allowed that path.
 - Draft PRs only trigger the heavy `pek-ci` and `sonar` jobs on the initial labeled/opened path. Later `synchronize` events do not exercise the same jobs while the PR stays draft, so the repair loop needs a deterministic manual PR-context bootstrap for those standard workflows.
 - Plain `workflow_dispatch` on `pek-ci.yml` is not equivalent to PR validation: without explicit PR context it runs the nightly/full quality gate and can report unrelated baseline noise. Manual repair validation must pass PR metadata so the standard PR path runs.
 - Manual `Agent Review` runs still need their artifact state published back onto the PR if we want the PR review state to reflect the latest head without waiting for a native `pull_request` run.

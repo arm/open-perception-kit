@@ -50,7 +50,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Resolves source-run metadata, downloads logs and artifacts, and creates `goal.md` plus the companion Markdown context files under `.agent-runtime/workflow-action-update-agent/`
 - Feeds the collected failure state and any downloaded artifact context into the OpenAI SDK repair agent so the patch is generated from the report instead of from inline workflow logic
 - Runs the same shared Python OpenAI Agents SDK path as `agent-review`, with the Arm proxy and tracing disabled, to generate the repair patch
-- Opens a draft repair PR, applies the profile-defined rerun label, then keeps a single stabilization loop: wait for the standard Agent review, feed non-approve findings back into the SDK agent on the same branch, rerun validation, and merge only after the latest PR head is fully green
+- Opens a draft repair PR only when the source run belongs to a PR carrying the profile-defined repair authorization label, applies the profile-defined rerun label, then keeps a single stabilization loop: wait for the standard Agent review, feed non-approve findings back into the SDK agent on the same branch, rerun validation, and merge only after the latest PR head is fully green
 - Stays orchestration-thin by delegating repo-specific helper commands to a local composite action and flow policy to the repair profile
 - Uses `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` for the OpenAI SDK step so the repair flow matches `agent-review`
 - Supports the optional `EXPKITS_AGENT_TOKEN` secret so checkout, push, PR, and merge operations can run under a PAT or GitHub App token instead of the default `GITHUB_TOKEN`
@@ -64,7 +64,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Runs from the workflow-local `.agent-runtime/openai-agent-venv` environment so Ubuntu's externally managed system Python is left untouched
 - Writes structured Agent review JSON for `agent-review` and lets repair/stabilization agents inspect the repo, run validation commands, and apply minimal patches without owning branch or PR lifecycle operations
 
-## What does `scripts/private/workflow_action_update_agent.py` do?
+## What does `scripts/private/workflow_action_update_agent/` do?
 
 - Holds the small repo-specific building blocks that would otherwise bloat the workflow YAML
 - Loads the selected repair profile, resolves source-run inputs, collects workflow evidence, builds runtime Markdown inputs, and renders repair PR metadata
@@ -72,11 +72,11 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Reuses `.github/PULL_REQUEST_TEMPLATE.md` through explicit marker sections instead of brittle free-text replacement, and injects the repair CI badge only for bot-authored PRs
 - Provides the PR-lifecycle layer used by the checked-in repair and stabilization workflows
 
-## What does `.github/agent-runtime/repair/` do?
+## What does `.github/agent-runtime/workflow-action-update-agent/` do?
 
 - Stores the static Markdown prompt templates plus the repair profile JSON files used by the repair agent core
-- The default profile lives at `.github/agent-runtime/repair/profiles/profile.json`
-- The nightly workflow-freshness profile lives at `.github/agent-runtime/repair/profiles/workflow-audit-profile.json`
+- The default profile lives at `.github/agent-runtime/workflow-action-update-agent/profiles/profile.json`
+- The nightly workflow-freshness profile lives at `.github/agent-runtime/workflow-action-update-agent/profiles/workflow-audit-profile.json`
 - Runtime task limits and default task-to-agent-instance mapping live in `.github/agent-runtime/runtime/agent-tasks.json`
 - Keeps long review and constraint text out of the workflow YAML and Python helper while letting the profile carry flow-specific policy such as validation workflows, labels, prompt context files, and the model config path
 - Lets the helper still generate the final `.agent-runtime/workflow-action-update-agent/*.md` files on the fly at runtime, so callers reuse the same core without checking generated prompt files into git

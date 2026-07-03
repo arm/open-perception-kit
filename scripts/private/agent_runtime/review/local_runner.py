@@ -13,10 +13,10 @@ import subprocess
 import sys
 
 if __package__ in (None, ""):  # pragma: no cover - used for direct script execution.
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    __package__ = "agent_runtime"
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    __package__ = "agent_runtime.review"
 
-from .review_prompt import render_prompt
+from .prompt import render_prompt
 
 
 def run_command(command: list[str]) -> None:
@@ -101,7 +101,7 @@ def main() -> int:
     run_command(
         [
             str(venv_python),
-            "scripts/private/agent_runtime/publish_review.py",
+            "scripts/private/agent_runtime/review/publish.py",
             "--input",
             str(output_dir / "review.json"),
             "--markdown-out",

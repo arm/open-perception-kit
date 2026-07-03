@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 from email.message import Message
 import io
+import importlib
 import importlib.util
 import json
 import os
@@ -35,11 +36,17 @@ AGENT_REVIEW_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/agent-review.yml"
 PEK_CI_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/pek-ci.yml"
 SONAR_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/sonar.yml"
 WORKFLOW_AUDIT_REPORT_SCRIPT = REPO_ROOT / "scripts/private/workflow_audit_report.py"
+QUALITY_CHECKS_SCRIPT = REPO_ROOT / "tools/expkits-ci/expkits_ci/quality_checks.py"
 AGENT_REVIEW_ROOT = REPO_ROOT / ".github/agent-runtime/review"
-AGENT_REVIEW_FETCH_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/fetch_review_state.py"
-AGENT_REVIEW_PUBLISH_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/publish_review.py"
-AGENT_REVIEW_RUN_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/run_review.py"
-AGENT_REVIEW_PROMPT_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review_prompt.py"
+AGENT_REVIEW_FETCH_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/fetch.py"
+AGENT_REVIEW_PUBLISH_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/publish.py"
+AGENT_REVIEW_RUN_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/local_runner.py"
+AGENT_REVIEW_PROMPT_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/prompt.py"
+AGENT_REVIEW_COMMENTS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/comments.py"
+AGENT_REVIEW_DIFF_ANCHORS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/diff_anchors.py"
+AGENT_REVIEW_GITHUB_PUBLISH_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/github_publish.py"
+AGENT_REVIEW_MARKDOWN_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/markdown.py"
+AGENT_REVIEW_STATE_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/state.py"
 AGENT_REVIEW_PROMPT_TEMPLATE = REPO_ROOT / ".github/agent-runtime/review/prompts/review.md.in"
 AGENT_REQUIREMENTS_FILE = REPO_ROOT / ".github/agent-runtime/runtime/requirements-openai-agents.txt"
 AGENT_STATIC_REQUIREMENTS_FILE = REPO_ROOT / ".github/agent-runtime/runtime/requirements-static-analysis.txt"
@@ -48,27 +55,36 @@ AGENT_MODEL_CONFIG_FILE = REPO_ROOT / ".github/agent-runtime/runtime/agent-model
 AGENT_TASK_CONFIG_FILE = REPO_ROOT / ".github/agent-runtime/runtime/agent-tasks.json"
 OPENAI_AGENT_RUNNER_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/openai_agent_runner.py"
 OPENAI_AGENT_INIT_FILE = REPO_ROOT / "scripts/private/agent_runtime/__init__.py"
-OPENAI_AGENT_WORKFLOW_TASK_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/workflow_task.py"
-OPENAI_AGENT_TASKS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/agent_tasks.py"
+OPENAI_AGENT_WORKFLOW_TASK_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/tasks/base.py"
+OPENAI_AGENT_TASKS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/tasks/configured.py"
 OPENAI_AGENT_CONTRACTS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/contracts.py"
-OPENAI_AGENT_REPO_TOOLS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/repo_tools.py"
+OPENAI_AGENT_GITHUB_API_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/github_api.py"
+OPENAI_AGENT_GITHUB_ACTIONS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/github_actions.py"
+OPENAI_AGENT_REPO_TOOLS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/tools/repo.py"
+OPENAI_AGENT_SHELL_TOOLS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/tools/shell.py"
+OPENAI_AGENT_PATH_TOOLS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/tools/paths.py"
+OPENAI_AGENT_RUNTIME_CONTEXT_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/runtime_context.py"
 OPENAI_AGENT_SDK_RUNTIME_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/sdk_runtime.py"
-OPENAI_AGENT_TASK_CONFIG_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/task_config.py"
-OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/task_estimator.py"
-OPENAI_AGENT_MODEL_CONFIG_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/model_config.py"
-OPENAI_AGENT_REVIEW_OUTPUT_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review_output.py"
+OPENAI_AGENT_TASK_CONFIG_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/config/task.py"
+OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/tasks/estimator.py"
+OPENAI_AGENT_MODEL_CONFIG_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/config/model.py"
+OPENAI_AGENT_REVIEW_OUTPUT_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/output_filter.py"
 OPENAI_AGENT_STATIC_ANALYSIS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/static_analysis.py"
-OPENAI_AGENT_WORKFLOW_PY_FILES = sorted((REPO_ROOT / "scripts/private/agent_runtime").glob("*.py"))
+OPENAI_AGENT_WORKFLOW_PY_FILES = sorted((REPO_ROOT / "scripts/private/agent_runtime").rglob("*.py"))
 OPENAI_AGENT_WORKFLOW_POLICY_FILES = [
     path
     for path in OPENAI_AGENT_WORKFLOW_PY_FILES
     if path != OPENAI_AGENT_CONTRACTS_SCRIPT
 ]
-HELPER_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent.py"
+HELPER_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent/cli.py"
+HELPER_RUNTIME_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent/runtime.py"
+HELPER_REPAIR_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent/repair.py"
+HELPER_GITHUB_WORKFLOWS_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent/github_workflows.py"
+HELPER_STABILIZATION_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent/stabilization.py"
 HELPER_ACTION_FILE = REPO_ROOT / ".github/actions/workflow-action-update-agent-helper/action.yml"
-WORKFLOW_REPAIR_ROOT = REPO_ROOT / ".github/agent-runtime/repair"
-PROMPT_TEMPLATE_ROOT = WORKFLOW_REPAIR_ROOT / "prompts"
-PROFILE_ROOT = WORKFLOW_REPAIR_ROOT / "profiles"
+WORKFLOW_AUTOMATION_ROOT = REPO_ROOT / ".github/agent-runtime/workflow-action-update-agent"
+PROMPT_TEMPLATE_ROOT = WORKFLOW_AUTOMATION_ROOT / "prompts"
+PROFILE_ROOT = WORKFLOW_AUTOMATION_ROOT / "profiles"
 GOAL_TEMPLATE = PROMPT_TEMPLATE_ROOT / "repair-goal.md.in"
 STABILIZE_GOAL_TEMPLATE = PROMPT_TEMPLATE_ROOT / "stabilize-goal.md.in"
 CONTEXT_TEMPLATE = PROMPT_TEMPLATE_ROOT / "context.md"
@@ -77,6 +93,8 @@ VALIDATION_TEMPLATE = PROMPT_TEMPLATE_ROOT / "validation.md.in"
 PROFILE_FILE = PROFILE_ROOT / "profile.json"
 WORKFLOW_AUDIT_PROFILE_FILE = PROFILE_ROOT / "workflow-audit-profile.json"
 PULL_REQUEST_TEMPLATE = REPO_ROOT / ".github/PULL_REQUEST_TEMPLATE.md"
+WORKFLOW_AUTOMATION_AGENTS_FILE = WORKFLOW_AUTOMATION_ROOT / "AGENTS.md"
+HELPER_AGENTS_FILE = HELPER_SCRIPT.parent / "AGENTS.md"
 REPAIR_BRANCH = "feature/EXPKITS-4242/bot-workflow-action-update-agent-run-12345"  # pragma: allowlist secret
 OPENAI_AGENT_RUNNER_LABEL = "self-hosted-ubuntu-latest"
 OPENAI_REVIEW_MAX_TURNS = 60
@@ -97,11 +115,73 @@ def load_python_module(path: Path, module_name: str):
     return module
 
 
+def load_quality_checks_module():
+    sentinel = object()
+    previous_modules: dict[str, object] = {}
+
+    def install_module(name: str, module: types.ModuleType) -> None:
+        previous_modules[name] = sys.modules.get(name, sentinel)
+        sys.modules[name] = module
+
+    package = types.ModuleType("expkits_ci")
+    package.__path__ = []  # type: ignore[attr-defined]
+    license_module = types.ModuleType("expkits_ci.license_template_manager")
+    file_utils_module = types.ModuleType("expkits_ci.file_utils")
+    git_module = types.ModuleType("git")
+    requests_module = types.ModuleType("requests")
+
+    class LicenseTemplateManager:
+        pass
+
+    class FileUtils:
+        @staticmethod
+        def get_project_root() -> str:
+            return str(REPO_ROOT)
+
+    class GitCommandError(Exception):
+        pass
+
+    class Repo:
+        pass
+
+    license_module.LicenseTemplateManager = LicenseTemplateManager  # type: ignore[attr-defined]
+    file_utils_module.FileUtils = FileUtils  # type: ignore[attr-defined]
+    git_module.Repo = Repo  # type: ignore[attr-defined]
+    git_module.GitCommandError = GitCommandError  # type: ignore[attr-defined]
+
+    for name, module in (
+        ("expkits_ci", package),
+        ("expkits_ci.license_template_manager", license_module),
+        ("expkits_ci.file_utils", file_utils_module),
+        ("git", git_module),
+        ("requests", requests_module),
+    ):
+        install_module(name, module)
+
+    try:
+        return load_python_module(QUALITY_CHECKS_SCRIPT, "quality_checks_under_test")
+    finally:
+        for name, previous in previous_modules.items():
+            if previous is sentinel:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = previous  # type: ignore[assignment]
+
+
 def load_agent_workflow_module(path: Path, module_name: str):
     module_path = str(OPENAI_AGENT_RUNNER_SCRIPT.parent.parent)
     sys.path.insert(0, module_path)
     try:
         return load_python_module(path, module_name)
+    finally:
+        sys.path.remove(module_path)
+
+
+def load_workflow_helper_module(module_name: str):
+    module_path = str(HELPER_SCRIPT.parent.parent)
+    sys.path.insert(0, module_path)
+    try:
+        return importlib.import_module(module_name)
     finally:
         sys.path.remove(module_path)
 
@@ -154,40 +234,75 @@ def load_agent_workflow_module_with_fake_sdk(path: Path, module_name: str):
             sys.path.remove(module_path)
 
 
-HELPER = load_python_module(HELPER_SCRIPT, "workflow_action_update_agent")
 WORKFLOW_AUDIT_REPORT = load_python_module(WORKFLOW_AUDIT_REPORT_SCRIPT, "workflow_audit_report")
 OPENAI_AGENT_CONTRACTS = load_agent_workflow_module(
     OPENAI_AGENT_CONTRACTS_SCRIPT,
     "agent_runtime.contracts",
 )
+OPENAI_AGENT_GITHUB_API = load_agent_workflow_module(
+    OPENAI_AGENT_GITHUB_API_SCRIPT,
+    "agent_runtime.github_api",
+)
+OPENAI_AGENT_GITHUB_ACTIONS = load_agent_workflow_module(
+    OPENAI_AGENT_GITHUB_ACTIONS_SCRIPT,
+    "agent_runtime.github_actions",
+)
+AGENT_REVIEW_STATE = load_agent_workflow_module(
+    AGENT_REVIEW_STATE_SCRIPT,
+    "agent_runtime.review.state",
+)
 AGENT_REVIEW_FETCH = load_agent_workflow_module(
     AGENT_REVIEW_FETCH_SCRIPT,
-    "agent_runtime.fetch_review_state",
+    "agent_runtime.review.fetch",
 )
 AGENT_REVIEW_PUBLISH = load_agent_workflow_module(
     AGENT_REVIEW_PUBLISH_SCRIPT,
-    "agent_runtime.publish_review",
+    "agent_runtime.review.publish",
+)
+AGENT_REVIEW_COMMENTS = load_agent_workflow_module(
+    AGENT_REVIEW_COMMENTS_SCRIPT,
+    "agent_runtime.review.comments",
+)
+AGENT_REVIEW_DIFF_ANCHORS = load_agent_workflow_module(
+    AGENT_REVIEW_DIFF_ANCHORS_SCRIPT,
+    "agent_runtime.review.diff_anchors",
+)
+AGENT_REVIEW_GITHUB_PUBLISH = load_agent_workflow_module(
+    AGENT_REVIEW_GITHUB_PUBLISH_SCRIPT,
+    "agent_runtime.review.github_publish",
+)
+AGENT_REVIEW_MARKDOWN = load_agent_workflow_module(
+    AGENT_REVIEW_MARKDOWN_SCRIPT,
+    "agent_runtime.review.markdown",
 )
 AGENT_REVIEW_PROMPT = load_agent_workflow_module(
     AGENT_REVIEW_PROMPT_SCRIPT,
-    "agent_runtime.review_prompt",
+    "agent_runtime.review.prompt",
 )
 OPENAI_AGENT_MODEL_CONFIG = load_agent_workflow_module(
     OPENAI_AGENT_MODEL_CONFIG_SCRIPT,
-    "agent_runtime.model_config",
+    "agent_runtime.config.model",
 )
 OPENAI_AGENT_TASK_CONFIG = load_agent_workflow_module(
     OPENAI_AGENT_TASK_CONFIG_SCRIPT,
-    "agent_runtime.task_config",
+    "agent_runtime.config.task",
 )
 AGENT_REVIEW_OUTPUT = load_agent_workflow_module(
     OPENAI_AGENT_REVIEW_OUTPUT_SCRIPT,
-    "agent_runtime.review_output",
+    "agent_runtime.review.output_filter",
 )
 OPENAI_AGENT_STATIC_ANALYSIS = load_agent_workflow_module(
     OPENAI_AGENT_STATIC_ANALYSIS_SCRIPT,
     "agent_runtime.static_analysis",
 )
+OPENAI_AGENT_RUNTIME_CONTEXT = load_agent_workflow_module(
+    OPENAI_AGENT_RUNTIME_CONTEXT_SCRIPT,
+    "agent_runtime.runtime_context",
+)
+HELPER_RUNTIME = load_workflow_helper_module("workflow_action_update_agent.runtime")
+HELPER_REPAIR = load_workflow_helper_module("workflow_action_update_agent.repair")
+HELPER_GITHUB_WORKFLOWS = load_workflow_helper_module("workflow_action_update_agent.github_workflows")
+HELPER_STABILIZATION = load_workflow_helper_module("workflow_action_update_agent.stabilization")
 
 
 class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
@@ -240,7 +355,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         self.assertEqual(
             inputs["profile_path"]["default"],
-            ".github/agent-runtime/repair/profiles/profile.json",
+            ".github/agent-runtime/workflow-action-update-agent/profiles/profile.json",
         )
 
         helper_steps = []
@@ -255,12 +370,21 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 "resolve-inputs",
                 "collect-context",
                 "build-markdown",
-                "package-patch",
-                "require-generated-patch",
-                "apply-patch-and-push",
+                "package-repository-changes",
+                "require-generated-changes",
+                "apply-repair-changes-and-push",
                 "create-draft-pr",
                 "stabilize-pr",
             },
+        )
+        apply_step = next(
+            step
+            for step in workflow["jobs"]["open-pr"]["steps"]
+            if step.get("with", {}).get("command") == "apply-repair-changes-and-push"
+        )
+        self.assertEqual(
+            apply_step["with"]["target-branch"],
+            "${{ needs.prepare.outputs.target_branch }}",
         )
         self.assertEqual(agent_job["runs-on"], OPENAI_AGENT_RUNNER_LABEL)
         self.assertEqual(stabilize_job["runs-on"], "ubuntu-latest")
@@ -346,11 +470,12 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(action["runs"]["using"], "composite")
         self.assertEqual(
             action["inputs"]["profile-path"]["default"],
-            ".github/agent-runtime/repair/profiles/profile.json",
+            ".github/agent-runtime/workflow-action-update-agent/profiles/profile.json",
         )
         self.assertIn("command", action["inputs"])
         self.assertEqual(action["inputs"]["merge-when-stable"]["default"], "false")
         self.assertIn("should_run", action["outputs"])
+        self.assertIn("source_pr_number", action["outputs"])
         self.assertIn("repair_branch", action["outputs"])
         self.assertIn("agent_model", action["outputs"])
         self.assertIn("has_changes", action["outputs"])
@@ -364,18 +489,19 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             with mock.patch.dict(os.environ, {"GITHUB_WORKSPACE": temp_dir}, clear=False):
                 workspace_helper = load_python_module(
-                    HELPER_SCRIPT,
+                    HELPER_RUNTIME_SCRIPT,
                     "workflow_action_update_agent_workspace_root",
                 )
 
         self.assertEqual(workspace_helper.REPO_ROOT, Path(temp_dir).resolve())
         self.assertEqual(
-            workspace_helper.resolve_repo_path(".github/agent-runtime/repair/profiles/profile.json"),
-            Path(temp_dir).resolve() / ".github/agent-runtime/repair/profiles/profile.json",
+            workspace_helper.resolve_repo_path(
+                ".github/agent-runtime/workflow-action-update-agent/profiles/profile.json"),
+            Path(temp_dir).resolve() / ".github/agent-runtime/workflow-action-update-agent/profiles/profile.json",
         )
         self.assertEqual(
             workspace_helper.profile_config_root(
-                ".workflow-action-update-agent-helper/.github/agent-runtime/repair/profiles/profile.json",
+                ".workflow-action-update-agent-helper/.github/agent-runtime/workflow-action-update-agent/profiles/profile.json",
             ),
             Path(temp_dir).resolve() / ".workflow-action-update-agent-helper",
         )
@@ -398,7 +524,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         with mock.patch.dict(os.environ, {"GH_TOKEN": "test-token"}, clear=False):
             with mock.patch("urllib.request.build_opener", return_value=opener):
                 with mock.patch("http.client.HTTPSConnection", return_value=redirect_connection) as connection:
-                    result = HELPER.download_github_archive(
+                    result = OPENAI_AGENT_GITHUB_API.download_github_archive(
                         "https://api.github.com/repos/Arm-Debug/amp-dev-forge/actions/artifacts/1/zip",
                     )
 
@@ -407,7 +533,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         redirect_connection.request.assert_called_once_with(
             "GET",
             "/archive.zip",
-            headers={"User-Agent": "workflow-action-update-agent"},
+            headers={"User-Agent": OPENAI_AGENT_CONTRACTS.GITHUB_USER_AGENT},
         )
         redirect_connection.close.assert_called_once_with()
 
@@ -433,13 +559,36 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 with mock.patch.dict(os.environ, {"GH_TOKEN": "test-token"}, clear=False):
                     with mock.patch("urllib.request.build_opener", return_value=opener):
                         with self.assertRaisesRegex(ValueError, "GitHub archive redirect URL"):
-                            HELPER.download_github_archive(
+                            OPENAI_AGENT_GITHUB_API.download_github_archive(
                                 "https://api.github.com/repos/Arm-Debug/amp-dev-forge/actions/artifacts/1/zip",
                             )
 
     def test_github_api_json_requires_relative_endpoint(self):
         with self.assertRaisesRegex(ValueError, "must be relative"):
-            HELPER.github_api_json("https://api.github.com/user")
+            OPENAI_AGENT_GITHUB_API.github_api_json("https://api.github.com/user")
+
+    def test_github_api_headers_distinguish_required_and_optional_auth(self):
+        with mock.patch.dict(os.environ, {"GH_TOKEN": "env-token"}, clear=True):
+            required_headers = OPENAI_AGENT_GITHUB_API.github_api_headers(token="")
+            optional_headers = OPENAI_AGENT_GITHUB_API.github_api_headers(
+                token=None,
+                require_token=False,
+            )
+
+        self.assertEqual(required_headers["Authorization"], "Bearer env-token")
+        self.assertNotIn("Authorization", optional_headers)
+
+    def test_github_api_query_endpoint_encodes_parameters(self):
+        endpoint = OPENAI_AGENT_GITHUB_API.github_api_query_endpoint(
+            "repos/Arm-Debug/amp-dev-forge/actions/workflows/agent-review.yml/runs",
+            {"branch": "feature/with space&marker", "per_page": 20},
+        )
+
+        self.assertEqual(
+            endpoint,
+            "repos/Arm-Debug/amp-dev-forge/actions/workflows/agent-review.yml/runs"
+            "?branch=feature%2Fwith+space%26marker&per_page=20",
+        )
 
     def test_extract_archive_bytes_rejects_members_outside_destination(self):
         for member_template in ("../outside.txt", "{temp_root}/outside.txt"):
@@ -456,7 +605,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                     )
 
                     with self.assertRaisesRegex(RuntimeError, "escapes destination"):
-                        HELPER.extract_archive_bytes(archive, destination)
+                        OPENAI_AGENT_GITHUB_API.extract_archive_bytes(archive, destination)
 
                     self.assertFalse((temp_root / "outside.txt").exists())
                     self.assertFalse((destination / "logs/job.txt").exists())
@@ -471,7 +620,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 }
             )
 
-            extracted = HELPER.extract_archive_bytes(archive, destination)
+            extracted = OPENAI_AGENT_GITHUB_API.extract_archive_bytes(archive, destination)
 
         self.assertEqual(
             [path.relative_to(destination).as_posix() for path in extracted],
@@ -479,7 +628,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
 
     def test_workflow_helper_does_not_use_unsafe_zip_extractall(self):
-        content = HELPER_SCRIPT.read_text(encoding="utf-8")
+        content = OPENAI_AGENT_GITHUB_API_SCRIPT.read_text(encoding="utf-8")
 
         self.assertNotIn(".extractall(", content)
 
@@ -496,7 +645,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
 
         with mock.patch.object(
-            HELPER,
+            AGENT_REVIEW_STATE,
             "github_api_json",
             return_value={
                 "artifacts": [
@@ -508,8 +657,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 ]
             },
         ):
-            with mock.patch.object(HELPER, "download_github_archive", return_value=archive):
-                review_state = HELPER.read_review_artifact_state(
+            with mock.patch.object(AGENT_REVIEW_STATE, "download_github_archive", return_value=archive):
+                review_state = AGENT_REVIEW_STATE.read_review_artifact_state(
                     repository="Arm-Debug/amp-dev-forge",
                     run_id="28000000001",
                     head_sha="deadbeef",
@@ -537,7 +686,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 clear=False,
             ):
                 with mock.patch.object(
-                    HELPER,
+                    OPENAI_AGENT_GITHUB_ACTIONS,
                     "github_api_json",
                     side_effect=[
                         {"id": 12345, "name": "Workflow dependency freshness"},
@@ -554,11 +703,11 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                     ],
                 ):
                     with mock.patch.object(
-                        HELPER,
+                        OPENAI_AGENT_GITHUB_ACTIONS,
                         "download_github_archive",
                         side_effect=[log_archive, artifact_archive],
                     ):
-                        result = HELPER.command_collect_context(args)
+                        result = HELPER_REPAIR.command_collect_context(args)
             self.assertEqual(result, 0)
             self.assertTrue((context_root / "source-run.json").is_file())
             self.assertIn("hello from logs", (context_root / "source-run.log").read_text(encoding="utf-8"))
@@ -602,7 +751,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(auto_stabilize_job["with"]["head_sha"], "${{ github.event.pull_request.head.sha }}")
         self.assertEqual(auto_stabilize_job["with"]["source_run_id"], "${{ github.run_id }}")
         self.assertEqual(auto_stabilize_job["with"]["profile_path"],
-                         ".github/agent-runtime/repair/profiles/profile.json")
+                         ".github/agent-runtime/workflow-action-update-agent/profiles/profile.json")
         self.assertEqual(auto_stabilize_job["secrets"], "inherit")
         self.assertIn("base_ref", dispatch_inputs)
         self.assertIn("head_ref", dispatch_inputs)
@@ -669,7 +818,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         render_step = review_steps["Render Agent review prompt"]
         self.assertEqual(render_step["env"]["REVIEW_HEAD_REF"], selected_head_ref)
         self.assertIn(
-            "python3 scripts/private/agent_runtime/review_prompt.py",
+            "python3 scripts/private/agent_runtime/review/prompt.py",
             render_step["run"],
         )
         self.assertIn(
@@ -707,7 +856,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "${{ format('origin/{0}', github.base_ref) }}",
         )
         self.assertIn(
-            ".agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/publish_review.py",
+            ".agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/review/publish.py",
             publish_step["run"],
         )
 
@@ -717,6 +866,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         workflow_task_source = OPENAI_AGENT_WORKFLOW_TASK_SCRIPT.read_text(encoding="utf-8")
         task_source = OPENAI_AGENT_TASKS_SCRIPT.read_text(encoding="utf-8")
         tools_source = OPENAI_AGENT_REPO_TOOLS_SCRIPT.read_text(encoding="utf-8")
+        shell_tools_source = OPENAI_AGENT_SHELL_TOOLS_SCRIPT.read_text(encoding="utf-8")
+        path_tools_source = OPENAI_AGENT_PATH_TOOLS_SCRIPT.read_text(encoding="utf-8")
         estimator_source = OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT.read_text(encoding="utf-8")
         task_config_source = OPENAI_AGENT_TASK_CONFIG_SCRIPT.read_text(encoding="utf-8")
         model_config_source = OPENAI_AGENT_MODEL_CONFIG_SCRIPT.read_text(encoding="utf-8")
@@ -755,33 +906,33 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("class AgentWorkflowTask", workflow_task_source)
         self.assertIn("class ConfiguredAgentWorkflowTask", task_source)
         self.assertIn("class ReviewAgentTask", task_source)
-        self.assertIn("class RepairAgentTask", task_source)
-        self.assertIn("class StabilizationAgentTask", task_source)
-        self.assertIn("from .workflow_task import AgentWorkflowTask", task_source)
+        self.assertEqual(task_source.count("class RepositoryEditAgentTask"), 1)
+        self.assertIn("from .base import AgentWorkflowTask", task_source)
         self.assertIn("class ReviewResult", task_source)
         self.assertIn("return ReviewResult", task_source)
         self.assertIn("filter_invalid_right_side_findings", task_source)
         self.assertIn("verified_model=args.resolved_model", task_source)
-        self.assertIn("import shlex", tools_source)
-        self.assertIn("def split_shell_commands", tools_source)
-        self.assertIn("def run_parsed_shell_command", tools_source)
-        self.assertIn("def find_subcommand", tools_source)
-        self.assertIn("READ_ONLY_GIT_SUBCOMMANDS", tools_source)
-        self.assertIn("FORBIDDEN_GIT_OPTIONS", tools_source)
-        self.assertIn("def is_allowed_git_command", tools_source)
-        self.assertIn("def has_forbidden_git_option", tools_source)
-        self.assertNotIn("shell=True", tools_source)
-        self.assertIn('"apply"', tools_source)
+        self.assertIn("import shlex", shell_tools_source)
+        self.assertIn("def split_shell_commands", shell_tools_source)
+        self.assertIn("def run_parsed_shell_command", shell_tools_source)
+        self.assertIn("def find_subcommand", shell_tools_source)
+        self.assertIn("READ_ONLY_GIT_SUBCOMMANDS", shell_tools_source)
+        self.assertIn("FORBIDDEN_GIT_OPTIONS", shell_tools_source)
+        self.assertIn("def is_allowed_git_command", shell_tools_source)
+        self.assertIn("def has_forbidden_git_option", shell_tools_source)
+        self.assertNotIn("shell=True", shell_tools_source)
+        self.assertIn('"apply"', shell_tools_source)
+        self.assertIn("def validate_patch_paths", path_tools_source)
         self.assertIn('["git", "apply", "--whitespace=nowarn"]', tools_source)
         self.assertIn("class TaskEstimate", estimator_source)
         self.assertIn("class TaskEstimatorWorkflowTask", estimator_source)
-        self.assertIn("from .workflow_task import AgentWorkflowTask", estimator_source)
+        self.assertIn("from .base import AgentWorkflowTask", estimator_source)
         self.assertIn("async def estimate_task_fit", estimator_source)
         self.assertIn("def build_task_manifest", estimator_source)
         self.assertIn("class AgentTaskSettings", task_config_source)
         self.assertIn("def resolve_agent_task_settings", task_config_source)
-        self.assertIn("from .contracts import", model_config_source)
-        self.assertIn("from .contracts import", task_config_source)
+        self.assertIn("from ..contracts import", model_config_source)
+        self.assertIn("from ..contracts import", task_config_source)
         self.assertNotIn("def require_non_empty_string", model_config_source)
         self.assertNotIn("def require_non_empty_string", task_config_source)
         self.assertNotIn("def parse_agent_instance", model_config_source)
@@ -799,6 +950,36 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertNotIn("TaskEstimate", runner_source)
         self.assertNotIn("AGENT_TASK_LIMITS", contracts_source)
 
+    def test_agent_runtime_static_analysis_triggers_for_new_helper_package_files(self):
+        quality_checks = load_quality_checks_module()
+
+        self.assertTrue(
+            quality_checks.QualityChecks.should_run_agent_runtime_static_analysis(
+                ["scripts/private/workflow_action_update_agent/cli.py"],
+            )
+        )
+        self.assertTrue(
+            quality_checks.QualityChecks.should_run_agent_runtime_static_analysis(
+                ["scripts/private/agent_runtime/openai_agent_runner.py"],
+            )
+        )
+        self.assertFalse(
+            quality_checks.QualityChecks.should_run_agent_runtime_static_analysis(
+                ["scripts/private/unrelated_helper.py"],
+            )
+        )
+
+    def test_workflow_action_update_agent_ownership_roots_have_agents_docs(self):
+        helper_agents = HELPER_AGENTS_FILE.read_text(encoding="utf-8")
+        workflow_agents = WORKFLOW_AUTOMATION_AGENTS_FILE.read_text(encoding="utf-8")
+
+        self.assertIn("Workflow Action Update Agent helper commands", helper_agents)
+        self.assertIn("agent_runtime.github_api", helper_agents)
+        self.assertIn("agent_runtime.github_actions", helper_agents)
+        self.assertIn("prompt templates", workflow_agents)
+        self.assertIn(".github/agent-runtime/runtime/agent-models.json", workflow_agents)
+        self.assertIn("scripts/private/workflow_action_update_agent/", workflow_agents)
+
     def test_agent_task_registry_is_enforced_against_central_config(self):
         runner = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_RUNNER_SCRIPT,
@@ -810,6 +991,12 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         registered_commands = {task.command.value for task in runner.iter_agent_tasks()}
 
         self.assertEqual(registered_commands, configured_commands)
+        edit_tasks = [
+            task
+            for task in runner.iter_agent_tasks()
+            if task.command in {OPENAI_AGENT_CONTRACTS.AgentCommand.REPAIR, OPENAI_AGENT_CONTRACTS.AgentCommand.STABILIZATION}
+        ]
+        self.assertEqual({type(task).__name__ for task in edit_tasks}, {"RepositoryEditAgentTask"})
         runner.validate_agent_task_registry(AGENT_TASK_CONFIG_FILE)
 
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -831,24 +1018,25 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_task_estimator_uses_agent_workflow_task_contract(self):
         estimator = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT,
-            "agent_runtime.task_estimator_fake_contract",
+            "agent_runtime.tasks.estimator_fake_contract",
         )
         agent_tasks = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_TASKS_SCRIPT,
-            "agent_runtime.agent_tasks_fake_contract",
+            "agent_runtime.tasks.configured_fake_contract",
         )
 
         self.assertTrue(issubclass(estimator.TaskEstimatorWorkflowTask, estimator.AgentWorkflowTask))
         self.assertTrue(issubclass(agent_tasks.ConfiguredAgentWorkflowTask, agent_tasks.AgentWorkflowTask))
         self.assertTrue(issubclass(agent_tasks.ReviewAgentTask, agent_tasks.AgentWorkflowTask))
+        self.assertTrue(issubclass(agent_tasks.RepositoryEditAgentTask, agent_tasks.AgentWorkflowTask))
 
     def test_openai_agent_runner_executes_simple_commands_without_shell_expansion(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_REPO_TOOLS_SCRIPT,
-            "agent_runtime.repo_tools_fake_sdk_commands",
+            "agent_runtime.tools.repo_fake_sdk_commands",
         )
         with tempfile.TemporaryDirectory() as temp_dir:
-            repo_tools.set_run_context(Path(temp_dir), 10)
+            OPENAI_AGENT_RUNTIME_CONTEXT.set_run_context(Path(temp_dir), 10)
             output = repo_tools.run_shell_command('echo "$(git push)" && git diff --check')
 
         self.assertIn("$ echo '$(git push)'", output)
@@ -858,11 +1046,11 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_openai_agent_runner_executes_tokenized_pipelines_and_redirection(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_REPO_TOOLS_SCRIPT,
-            "agent_runtime.repo_tools_fake_sdk_pipeline_commands",
+            "agent_runtime.tools.repo_fake_sdk_pipeline_commands",
         )
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)
-            repo_tools.set_run_context(repo_root, 10)
+            OPENAI_AGENT_RUNTIME_CONTEXT.set_run_context(repo_root, 10)
             output = repo_tools.run_shell_command(
                 "printf 'one\\ntwo\\n' | sed -n 2p > out.txt; cat < out.txt"
             )
@@ -877,10 +1065,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_openai_agent_runner_merges_stderr_into_stdout(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_REPO_TOOLS_SCRIPT,
-            "agent_runtime.repo_tools_fake_sdk_stderr_redirection",
+            "agent_runtime.tools.repo_fake_sdk_stderr_redirection",
         )
         with tempfile.TemporaryDirectory() as temp_dir:
-            repo_tools.set_run_context(Path(temp_dir), 10)
+            OPENAI_AGENT_RUNTIME_CONTEXT.set_run_context(Path(temp_dir), 10)
             output = repo_tools.run_shell_command("ls missing-workflow-agent-file 2>&1")
 
         self.assertIn("$ ls missing-workflow-agent-file 2>&1", output)
@@ -891,24 +1079,24 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_openai_agent_runner_rejects_redirection_outside_repo(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_REPO_TOOLS_SCRIPT,
-            "agent_runtime.repo_tools_fake_sdk_redirection_guard",
+            "agent_runtime.tools.repo_fake_sdk_redirection_guard",
         )
         with tempfile.TemporaryDirectory() as temp_dir:
-            repo_tools.set_run_context(Path(temp_dir) / "repo", 10)
+            OPENAI_AGENT_RUNTIME_CONTEXT.set_run_context(Path(temp_dir) / "repo", 10)
             with self.assertRaisesRegex(ValueError, "escapes repository root"):
                 repo_tools.run_shell_command("printf bad > ../outside.txt")
 
     def test_openai_agent_runner_rejects_git_metadata_reads(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_REPO_TOOLS_SCRIPT,
-            "agent_runtime.repo_tools_fake_sdk_metadata_read_guard",
+            "agent_runtime.tools.repo_fake_sdk_metadata_read_guard",
         )
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)
             git_dir = repo_root / ".git"
             git_dir.mkdir()
             (git_dir / "config").write_text("credential = unsafe\n", encoding="utf-8")
-            repo_tools.set_run_context(repo_root, 10)
+            OPENAI_AGENT_RUNTIME_CONTEXT.set_run_context(repo_root, 10)
 
             with self.assertRaisesRegex(ValueError, "Read path targets git metadata"):
                 repo_tools.read_repo_file(".git/config")
@@ -920,13 +1108,13 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_openai_agent_runner_applies_safe_unified_diff(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_REPO_TOOLS_SCRIPT,
-            "agent_runtime.repo_tools_fake_sdk_patch_guard_safe",
+            "agent_runtime.tools.repo_fake_sdk_patch_guard_safe",
         )
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)
             target = repo_root / "example.txt"
             target.write_text("old\n", encoding="utf-8")
-            repo_tools.set_run_context(repo_root, 10)
+            OPENAI_AGENT_RUNTIME_CONTEXT.set_run_context(repo_root, 10)
 
             output = repo_tools.apply_unified_diff(
                 textwrap.dedent(
@@ -947,12 +1135,12 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_openai_agent_runner_rejects_patch_paths_outside_safe_tree(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_REPO_TOOLS_SCRIPT,
-            "agent_runtime.repo_tools_fake_sdk_patch_guard_reject",
+            "agent_runtime.tools.repo_fake_sdk_patch_guard_reject",
         )
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir) / "repo"
             repo_root.mkdir()
-            repo_tools.set_run_context(repo_root, 10)
+            OPENAI_AGENT_RUNTIME_CONTEXT.set_run_context(repo_root, 10)
 
             git_metadata_patch = textwrap.dedent(
                 """\
@@ -981,7 +1169,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_openai_agent_runner_blocks_mutating_git_commands_after_shell_splitting(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_REPO_TOOLS_SCRIPT,
-            "agent_runtime.repo_tools_fake_sdk_git_guards",
+            "agent_runtime.tools.repo_fake_sdk_git_guards",
         )
 
         repo_tools.reject_unsafe_shell_command('echo "git push" && git diff --check')
@@ -1026,7 +1214,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_openai_agent_runner_validates_review_schema_file_argument(self):
         agent_tasks = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_TASKS_SCRIPT,
-            "agent_runtime.agent_tasks_fake_sdk_schema",
+            "agent_runtime.tasks.configured_fake_sdk_schema",
         )
         with tempfile.TemporaryDirectory() as temp_dir:
             schema_file = Path(temp_dir) / "review.schema.json"
@@ -1071,7 +1259,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_openai_agent_runner_blocks_prompt_that_exceeds_task_limit(self):
         estimator = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT,
-            "agent_runtime.task_estimator_fake_sdk_prompt_limit",
+            "agent_runtime.tasks.estimator_fake_sdk_prompt_limit",
         )
         set_run_context = estimator.require_run_context.__globals__["set_run_context"]
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -1095,7 +1283,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_openai_agent_runner_reports_review_diff_limits_as_advisory(self):
         estimator = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT,
-            "agent_runtime.task_estimator_fake_sdk_review_limit",
+            "agent_runtime.tasks.estimator_fake_sdk_review_limit",
         )
         set_run_context = estimator.require_run_context.__globals__["set_run_context"]
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -1148,7 +1336,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_openai_agent_runner_reports_estimated_turn_overrun_as_advisory(self):
         estimator = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT,
-            "agent_runtime.task_estimator_fake_sdk_turn_limit",
+            "agent_runtime.tasks.estimator_fake_sdk_turn_limit",
         )
         manifest = {
             "prompt_chars": 10,
@@ -1381,7 +1569,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_agent_review_output_drops_verified_agent_runtime_artifact_context_claims(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)
-            prompt_path = repo_root / ".github/agent-runtime/repair/prompts/repair-goal.md.in"
+            prompt_path = repo_root / ".github/agent-runtime/workflow-action-update-agent/prompts/repair-goal.md.in"
             prompt_path.parent.mkdir(parents=True)
             prompt_path.write_text(
                 "\n".join(
@@ -1405,7 +1593,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                         "severity": "major",
                         "score": 0.7,
                         "confidence": 0.9,
-                        "path": ".github/agent-runtime/repair/prompts/repair-goal.md.in",
+                        "path": ".github/agent-runtime/workflow-action-update-agent/prompts/repair-goal.md.in",
                         "diff_side": "RIGHT",
                         "start_line": 3,
                         "end_line": 3,
@@ -1426,7 +1614,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_agent_review_output_keeps_artifact_context_claims_without_anchor_evidence(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)
-            prompt_path = repo_root / ".github/agent-runtime/repair/prompts/repair-goal.md.in"
+            prompt_path = repo_root / ".github/agent-runtime/workflow-action-update-agent/prompts/repair-goal.md.in"
             prompt_path.parent.mkdir(parents=True)
             prompt_path.write_text(
                 "\n".join(
@@ -1449,7 +1637,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                         "severity": "major",
                         "score": 0.7,
                         "confidence": 0.9,
-                        "path": ".github/agent-runtime/repair/prompts/repair-goal.md.in",
+                        "path": ".github/agent-runtime/workflow-action-update-agent/prompts/repair-goal.md.in",
                         "diff_side": "RIGHT",
                         "start_line": 2,
                         "end_line": 2,
@@ -1596,7 +1784,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn('agent_args.extend(["--model", os.environ["AGENT_REVIEW_MODEL"]])', content)
         self.assertNotIn("${AGENT_MODEL", content)
         self.assertIn('".github/agent-runtime/review/schemas/review.schema.json"', content)
-        self.assertIn('"scripts/private/agent_runtime/publish_review.py"', content)
+        self.assertIn('"scripts/private/agent_runtime/review/publish.py"', content)
         self.assertNotIn("pip install --user", content)
         self.assertNotIn("OPENAI_API_KEY=", content)
 
@@ -1753,11 +1941,11 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             snapshot_step["run"],
         )
         self.assertIn(
-            'cp -R .github/agent-runtime/repair/prompts/. "${bundle_root}/.github/agent-runtime/repair/prompts"',
+            'cp -R .github/agent-runtime/workflow-action-update-agent/prompts/. "${bundle_root}/.github/agent-runtime/workflow-action-update-agent/prompts"',
             snapshot_step["run"],
         )
         self.assertIn(
-            'cp -R .github/agent-runtime/repair/profiles/. "${bundle_root}/.github/agent-runtime/repair/profiles"',
+            'cp -R .github/agent-runtime/workflow-action-update-agent/profiles/. "${bundle_root}/.github/agent-runtime/workflow-action-update-agent/profiles"',
             snapshot_step["run"],
         )
         self.assertNotIn('cp -R agent-review/. "${bundle_root}/agent-review"', snapshot_step["run"])
@@ -1830,7 +2018,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(validation_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"], "")
         self.assertEqual(validation_step["env"]["OPENAI_API_KEY"], "")
         self.assertIn(
-            '${RUNNER_TEMP}/workflow-action-update-agent-helper/scripts/private/workflow_action_update_agent.py" run-validation',
+            "python3 -m workflow_action_update_agent run-validation",
             validation_step["run"],
         )
         self.assertIn(
@@ -1841,7 +2029,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(commit_step["shell"], "bash")
         self.assertNotIn("uses", commit_step)
         self.assertIn(
-            '${RUNNER_TEMP}/workflow-action-update-agent-helper/scripts/private/workflow_action_update_agent.py" commit-review-fix',
+            "python3 -m workflow_action_update_agent commit-review-fix",
             commit_step["run"],
         )
         self.assertIn('--context-root "${{ inputs.context_root }}"', commit_step["run"])
@@ -1873,11 +2061,19 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 "conclusion": "failure",
                 "head_branch": "feature/example/topic",
                 "head_repository": {"full_name": "Arm-Debug/amp-dev-forge"},
+                "pull_requests": [{"number": 169}],
             }
 
-            with mock.patch.object(HELPER, "parse_json_command", return_value=run_payload):
+            with mock.patch.object(
+                OPENAI_AGENT_GITHUB_ACTIONS,
+                "github_api_json",
+                side_effect=[
+                    run_payload,
+                    {"labels": [{"name": "agent-autorepair"}]},
+                ],
+            ):
                 with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
-                    result = HELPER.command_resolve_inputs(args)
+                    result = HELPER_REPAIR.command_resolve_inputs(args)
 
             self.assertEqual(result, 0)
             outputs = dict(
@@ -1886,6 +2082,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 if line.strip()
             )
             self.assertEqual(outputs["should_run"], "true")
+            self.assertEqual(outputs["source_pr_number"], "169")
             self.assertEqual(outputs["target_branch"], "feature/example/topic")
             self.assertEqual(
                 outputs["repair_branch"],
@@ -1893,14 +2090,90 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             )
             self.assertEqual(outputs["agent_model"], "gpt-5.5")
 
-    def test_audit_profile_allows_non_failure_source_run_and_configures_validation(self):
-        audit_profile = HELPER.load_profile(str(WORKFLOW_AUDIT_PROFILE_FILE))
+    def test_resolve_inputs_requires_source_pr_authorization_label(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_file = Path(temp_dir) / "outputs.txt"
+            args = argparse.Namespace(
+                profile_path=str(PROFILE_FILE),
+                source_run_id="12345",
+                target_branch="",
+                ticket_id="EXPKITS-4242",
+                current_ref_name="main",
+                github_output=str(output_file),
+            )
+            run_payload = {
+                "html_url": "https://github.com/Arm-Debug/amp-dev-forge/actions/runs/12345",
+                "name": "Perception Experience Kit CI Pipeline",
+                "conclusion": "failure",
+                "head_branch": "feature/example/topic",
+                "head_repository": {"full_name": "Arm-Debug/amp-dev-forge"},
+                "pull_requests": [{"number": 169}],
+            }
 
-        self.assertFalse(HELPER.profile_bool(audit_profile, "require_failure_conclusion", True))
+            with mock.patch.object(
+                OPENAI_AGENT_GITHUB_ACTIONS,
+                "github_api_json",
+                side_effect=[
+                    run_payload,
+                    {"labels": [{"name": "run-pek-ci"}]},
+                ],
+            ):
+                with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
+                    result = HELPER_REPAIR.command_resolve_inputs(args)
+
+            self.assertEqual(result, 0)
+            outputs = dict(
+                line.split("=", 1)
+                for line in output_file.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            )
+            self.assertEqual(outputs["should_run"], "false")
+            self.assertEqual(outputs["source_pr_number"], "")
+            self.assertEqual(outputs["repair_branch"], "")
+            self.assertIn("agent-autorepair", outputs["skip_reason"])
+
+    def test_resolve_inputs_requires_source_pull_request(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_file = Path(temp_dir) / "outputs.txt"
+            args = argparse.Namespace(
+                profile_path=str(PROFILE_FILE),
+                source_run_id="12345",
+                target_branch="",
+                ticket_id="EXPKITS-4242",
+                current_ref_name="main",
+                github_output=str(output_file),
+            )
+            run_payload = {
+                "html_url": "https://github.com/Arm-Debug/amp-dev-forge/actions/runs/12345",
+                "name": "Perception Experience Kit CI Pipeline",
+                "conclusion": "failure",
+                "head_branch": "feature/example/topic",
+                "head_repository": {"full_name": "Arm-Debug/amp-dev-forge"},
+                "pull_requests": [],
+            }
+
+            with mock.patch.object(OPENAI_AGENT_GITHUB_ACTIONS, "github_api_json", return_value=run_payload):
+                with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
+                    result = HELPER_REPAIR.command_resolve_inputs(args)
+
+            self.assertEqual(result, 0)
+            outputs = dict(
+                line.split("=", 1)
+                for line in output_file.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            )
+            self.assertEqual(outputs["should_run"], "false")
+            self.assertEqual(outputs["skip_reason"], "Source workflow run is not associated with a pull request.")
+
+    def test_audit_profile_allows_non_failure_source_run_and_configures_validation(self):
+        audit_profile = HELPER_RUNTIME.load_profile(str(WORKFLOW_AUDIT_PROFILE_FILE))
+
+        self.assertFalse(HELPER_RUNTIME.profile_bool(audit_profile, "require_failure_conclusion", True))
         self.assertEqual(
             audit_profile["repair_branch_template"],
             "feature/{ticket_id}/bot-workflow-dependency-freshness-{source_run_id}",
         )
+        self.assertEqual(audit_profile["repair_authorization_label"], "agent-autorepair")
         self.assertEqual(audit_profile["pr_trigger_label"], "run-pek-ci")
         validation_workflows = audit_profile["validation_workflows"]
         self.assertEqual(
@@ -1909,8 +2182,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
 
     def test_agent_review_gate_is_profile_driven(self):
-        profile = HELPER.load_profile(str(PROFILE_FILE))
-        validation_workflows = HELPER.profile_validation_workflows(profile)
+        profile = HELPER_RUNTIME.load_profile(str(PROFILE_FILE))
+        validation_workflows = HELPER_RUNTIME.profile_validation_workflows(profile)
         agent_review = next(
             item for item in validation_workflows if item["workflow_file"] == "agent-review.yml"
         )
@@ -1924,7 +2197,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(agent_review["workflow_name"], "Agent Review")
         self.assertEqual(
             agent_review["review_state_script"],
-            "scripts/private/agent_runtime/fetch_review_state.py",
+            "scripts/private/agent_runtime/review/fetch.py",
         )
         self.assertEqual(agent_review["allowed_review_recommendations"], ["approve"])
         self.assertEqual(
@@ -1946,14 +2219,14 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             profile["agent_model_config"],
             ".github/agent-runtime/runtime/agent-models.json",
         )
-        self.assertEqual(HELPER.profile_config_root(str(PROFILE_FILE)), REPO_ROOT)
+        self.assertEqual(HELPER_RUNTIME.profile_config_root(str(PROFILE_FILE)), REPO_ROOT)
         self.assertEqual(
-            HELPER.profile_agent_model(profile, HELPER.AgentInstance.REPAIR, str(PROFILE_FILE)),
+            HELPER_RUNTIME.profile_agent_model(profile, HELPER_RUNTIME.AgentInstance.REPAIR, str(PROFILE_FILE)),
             "gpt-5.5",
         )
 
     def test_profile_drives_markdown_context_files_and_validation_commands(self):
-        profile = HELPER.load_profile(str(PROFILE_FILE))
+        profile = HELPER_RUNTIME.load_profile(str(PROFILE_FILE))
 
         with tempfile.TemporaryDirectory() as temp_dir:
             context_root = Path(temp_dir) / "context"
@@ -1967,6 +2240,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 profile_path=str(PROFILE_FILE),
                 context_root=str(context_root),
                 source_run_id="12345",
+                source_pr_number="169",
                 source_run_url="https://github.com/Arm-Debug/amp-dev-forge/actions/runs/12345",
                 source_workflow_name="Perception Experience Kit CI Pipeline",
                 target_branch="main",
@@ -1974,7 +2248,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 ticket_id="EXPKITS-4242",
             )
 
-            result = HELPER.command_build_markdown(args)
+            result = HELPER_REPAIR.command_build_markdown(args)
 
             self.assertEqual(result, 0)
             goal = (context_root / "goal.md").read_text(encoding="utf-8")
@@ -1982,7 +2256,11 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             inventory = (context_root / "file-inventory.md").read_text(encoding="utf-8")
 
             self.assertIn("# Workflow Action Update Agent", goal)
+            self.assertIn("explicitly authorized on the source PR", goal)
             self.assertTrue(CONTEXT_TEMPLATE.is_file())
+            failure_context = (context_root / "failure-context.md").read_text(encoding="utf-8")
+            self.assertIn("Source PR: #169", failure_context)
+            self.assertIn("Required source PR authorization label: `agent-autorepair`", failure_context)
             for path in profile["prompt_context_files"]:
                 self.assertIn(f"- `{path}`", goal)
             for command in profile["validation_commands"]:
@@ -2009,8 +2287,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         }
 
         with mock.patch.dict(os.environ, env, clear=True):
-            with mock.patch.object(HELPER, "run_shell_command") as run_shell_command:
-                HELPER.run_validation_commands(["python3 -m unittest", "git diff --check"])
+            with mock.patch.object(HELPER_STABILIZATION, "run_shell_command") as run_shell_command:
+                HELPER_STABILIZATION.run_validation_commands(["python3 -m unittest", "git diff --check"])
 
         self.assertEqual(
             [call.args[0] for call in run_shell_command.call_args_list],
@@ -2025,7 +2303,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 self.assertNotIn(key, command_env)
 
     def test_stabilization_prompt_is_loaded_from_checked_in_template(self):
-        source = HELPER_SCRIPT.read_text(encoding="utf-8")
+        source = HELPER_STABILIZATION_SCRIPT.read_text(encoding="utf-8")
 
         self.assertTrue(STABILIZE_GOAL_TEMPLATE.is_file())
         self.assertIn('render_markdown_template(\n        "stabilize-goal.md.in"', source)
@@ -2036,21 +2314,21 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
 
     def test_marker_based_pr_rendering_is_profile_driven(self):
-        profile = HELPER.load_profile(str(PROFILE_FILE))
-        rendered = HELPER.render_pr_body_from_template(
+        profile = HELPER_RUNTIME.load_profile(str(PROFILE_FILE))
+        rendered = HELPER_REPAIR.render_pr_body_from_template(
             template_text=textwrap.dedent(
                 f"""
                 # Pull Request
 
-                {HELPER.PR_AUTOMATION_START}
+                {HELPER_RUNTIME.PR_AUTOMATION_START}
                 old automation text
-                {HELPER.PR_AUTOMATION_END}
+                {HELPER_RUNTIME.PR_AUTOMATION_END}
 
                 ## Description
 
-                {HELPER.PR_DESCRIPTION_START}
+                {HELPER_RUNTIME.PR_DESCRIPTION_START}
                 old description
-                {HELPER.PR_DESCRIPTION_END}
+                {HELPER_RUNTIME.PR_DESCRIPTION_END}
 
                 - [ ] I have tested these changes locally.
                 """
@@ -2060,9 +2338,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             automation_name=profile["automation_name"],
         )
 
-        body, title, subject, notes = HELPER.render_repair_metadata_values(
+        body, title, subject, notes = HELPER_REPAIR.render_repair_metadata_values(
             profile=profile,
             source_run_id="12345",
+            source_pr_number="169",
             source_run_url="https://github.com/Arm-Debug/amp-dev-forge/actions/runs/12345",
             source_workflow_name="Perception Experience Kit CI Pipeline",
             repair_branch=REPAIR_BRANCH,
@@ -2072,18 +2351,80 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
         self.assertIn("Automation actor: `workflow-action-update-agent` bot run using `EXPKITS_AGENT_TOKEN`.", rendered)
         self.assertIn(
-            HELPER.render_repair_ci_badge(REPAIR_BRANCH),
+            HELPER_REPAIR.render_repair_ci_badge(REPAIR_BRANCH),
             rendered,
         )
         self.assertIn(REPAIR_BRANCH, rendered)
         self.assertIn("Generated description", rendered)
         self.assertIn("- [ ] I have tested these changes locally.", rendered)
         self.assertIn("run-pek-ci", body)
-        self.assertIn(HELPER.PR_AUTOMATION_START, body)
-        self.assertIn(HELPER.PR_DESCRIPTION_START, body)
+        self.assertIn("Source PR: #169", body)
+        self.assertIn("Authorization label: `agent-autorepair`", body)
+        self.assertIn("Definition of Done", body)
+        self.assertIn("The repair branch is based on `main`", body)
+        self.assertIn(HELPER_RUNTIME.PR_AUTOMATION_START, body)
+        self.assertIn(HELPER_RUNTIME.PR_DESCRIPTION_START, body)
+        self.assertEqual(
+            HELPER_REPAIR.render_repair_ci_badge(REPAIR_BRANCH),
+            "[![Perception Experience Kit CI Pipeline]"
+            "(https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/pek-ci.yml/badge.svg"
+            f"?branch={REPAIR_BRANCH})]"
+            "(https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/pek-ci.yml)",
+        )
         self.assertEqual(title.strip(), "[bot] Repair workflow failures from run 12345")
         self.assertEqual(subject.strip(), "[bot] Repair workflow failures from run 12345")
         self.assertIn("Source workflow: Perception Experience Kit CI Pipeline", notes)
+
+    def test_apply_repair_changes_passes_target_branch_to_metadata_renderer(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            patch_root = temp_root / "artifact"
+            patch_root.mkdir()
+            (patch_root / "workflow-action-update-agent.patch").write_text(
+                "diff --git a/README.md b/README.md\n",
+                encoding="utf-8",
+            )
+            output_file = temp_root / "outputs.txt"
+            body_file = temp_root / "body.md"
+            title_file = temp_root / "title.txt"
+            subject_file = temp_root / "subject.txt"
+            notes_file = temp_root / "notes.txt"
+            subject_file.write_text("[bot] Repair workflow failures from run 12345\n", encoding="utf-8")
+            notes_file.write_text("Source workflow: CI\n", encoding="utf-8")
+            args = argparse.Namespace(
+                profile_path=str(PROFILE_FILE),
+                patch_root=str(patch_root),
+                repair_branch=REPAIR_BRANCH,
+                target_branch="main",
+                source_run_id="12345",
+                source_pr_number="169",
+                source_run_url="https://github.com/Arm-Debug/amp-dev-forge/actions/runs/12345",
+                source_workflow_name="CI",
+                ticket_id="EXPKITS-4242",
+                body_file=str(body_file),
+                pr_title_file=str(title_file),
+                commit_subject_file=str(subject_file),
+                commit_notes_file=str(notes_file),
+                github_output=str(output_file),
+            )
+
+            def fake_run_command(command, *, capture_output=False, check=True, env=None):  # noqa: ANN001
+                del capture_output, check, env
+                stdout = "feedface\n" if command == ["git", "rev-parse", "HEAD"] else ""
+                return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
+
+            with mock.patch.object(HELPER_REPAIR, "run_command", side_effect=fake_run_command):
+                with mock.patch.object(HELPER_REPAIR, "write_repair_metadata_files") as write_metadata:
+                    result = HELPER_REPAIR.command_apply_repair_changes_and_push(args)
+
+            self.assertEqual(result, 0)
+            self.assertEqual(write_metadata.call_args.kwargs["target_branch"], "main")
+            outputs = dict(
+                line.split("=", 1)
+                for line in output_file.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            )
+            self.assertEqual(outputs["head_sha"], "feedface")
 
     def test_agent_review_publish_and_fetch_scripts_share_structured_state(self):
         review: dict[str, Any] = {
@@ -2107,32 +2448,32 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             ],
         }
 
-        markdown = AGENT_REVIEW_PUBLISH.format_markdown(
+        markdown = AGENT_REVIEW_MARKDOWN.format_markdown(
             review,
             run_id="28000000001",
             head_sha="deadbeef",
         )
-        inline_comment = AGENT_REVIEW_PUBLISH.build_inline_comment_body(
+        inline_comment = AGENT_REVIEW_COMMENTS.build_inline_comment_body(
             review["findings"][0],
             run_id="28000000001",
         )
 
-        self.assertIn(AGENT_REVIEW_PUBLISH.MARKER, markdown)
-        self.assertIn(AGENT_REVIEW_PUBLISH.STATE_MARKER, markdown)
+        self.assertIn(OPENAI_AGENT_CONTRACTS.MARKER, markdown)
+        self.assertIn(OPENAI_AGENT_CONTRACTS.STATE_MARKER, markdown)
         self.assertIn('"finding_count":1', markdown)
         self.assertNotIn('"findings":[]', markdown)
         self.assertIn("### Findings", markdown)
         self.assertIn("**Minor note**", markdown)
         self.assertIn("Location: `.github/workflows/example.yml:L12 (RIGHT)`", markdown)
         self.assertIn("Nit: keep names aligned.", markdown)
-        self.assertIn(AGENT_REVIEW_PUBLISH.INLINE_MARKER, inline_comment)
-        self.assertIn(AGENT_REVIEW_PUBLISH.INLINE_STATE_MARKER, inline_comment)
-        self.assertEqual(AGENT_REVIEW_FETCH.EMPTY_STATE["overall_recommendation"], "")
-        self.assertEqual(AGENT_REVIEW_PUBLISH.MARKER, AGENT_REVIEW_FETCH.MARKER)
-        self.assertEqual(AGENT_REVIEW_PUBLISH.STATE_MARKER, AGENT_REVIEW_FETCH.STATE_MARKER)
-        self.assertEqual(AGENT_REVIEW_PUBLISH.INLINE_MARKER, AGENT_REVIEW_FETCH.INLINE_MARKER)
+        self.assertIn(OPENAI_AGENT_CONTRACTS.INLINE_MARKER, inline_comment)
+        self.assertIn(OPENAI_AGENT_CONTRACTS.INLINE_STATE_MARKER, inline_comment)
+        self.assertEqual(AGENT_REVIEW_STATE.EMPTY_REVIEW_STATE["overall_recommendation"], "")
+        self.assertEqual(OPENAI_AGENT_CONTRACTS.MARKER, AGENT_REVIEW_FETCH.MARKER)
+        self.assertEqual(OPENAI_AGENT_CONTRACTS.STATE_MARKER, AGENT_REVIEW_FETCH.STATE_MARKER)
+        self.assertEqual(OPENAI_AGENT_CONTRACTS.INLINE_MARKER, AGENT_REVIEW_FETCH.INLINE_MARKER)
         self.assertEqual(
-            AGENT_REVIEW_PUBLISH.INLINE_STATE_MARKER,
+            OPENAI_AGENT_CONTRACTS.INLINE_STATE_MARKER,
             AGENT_REVIEW_FETCH.INLINE_STATE_MARKER,
         )
         self.assertNotIn(
@@ -2171,11 +2512,11 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             return "{}"
 
         with mock.patch.object(
-            AGENT_REVIEW_PUBLISH,
+            AGENT_REVIEW_GITHUB_PUBLISH,
             "github_api_request",
             fake_github_api_request,
         ):
-            AGENT_REVIEW_PUBLISH.create_pull_review(
+            AGENT_REVIEW_GITHUB_PUBLISH.create_pull_review(
                 "Arm-Debug/amp-dev-forge",
                 "175",
                 "token",
@@ -2190,7 +2531,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         call = calls[0]
         self.assertEqual(
             call["url"],
-            "https://api.github.com/repos/Arm-Debug/amp-dev-forge/pulls/175/reviews",
+            "repos/Arm-Debug/amp-dev-forge/pulls/175/reviews",
         )
         self.assertEqual(call["method"], "POST")
         self.assertEqual(call["token"], "token")
@@ -2204,8 +2545,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(comment["side"], "RIGHT")
         self.assertEqual(comment["start_line"], 12)
         self.assertEqual(comment["start_side"], "RIGHT")
-        self.assertIn(AGENT_REVIEW_PUBLISH.INLINE_MARKER, comment["body"])
-        self.assertIn(AGENT_REVIEW_PUBLISH.INLINE_STATE_MARKER, comment["body"])
+        self.assertIn(OPENAI_AGENT_CONTRACTS.INLINE_MARKER, comment["body"])
+        self.assertIn(OPENAI_AGENT_CONTRACTS.INLINE_STATE_MARKER, comment["body"])
 
     def test_agent_review_publish_collapses_left_ranges_to_single_anchor(self):
         finding = {
@@ -2220,7 +2561,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "body": "Anchor deleted-code findings without risking the whole review batch.",
         }
 
-        comment = AGENT_REVIEW_PUBLISH.build_review_comment_payload(
+        comment = AGENT_REVIEW_COMMENTS.build_review_comment_payload(
             finding,
             run_id="28000000001",
         )
@@ -2230,7 +2571,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(comment["side"], "LEFT")
         self.assertNotIn("start_line", comment)
         self.assertNotIn("start_side", comment)
-        self.assertIn(AGENT_REVIEW_PUBLISH.INLINE_MARKER, comment["body"])
+        self.assertIn(OPENAI_AGENT_CONTRACTS.INLINE_MARKER, comment["body"])
 
     def test_agent_review_publish_filters_inline_comments_against_local_diff(self):
         diff_text = textwrap.dedent(
@@ -2246,7 +2587,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             +extra_value = 2
             """
         )
-        diff_anchors = AGENT_REVIEW_PUBLISH.parse_diff_comment_anchors(diff_text)
+        diff_anchors = AGENT_REVIEW_DIFF_ANCHORS.parse_diff_comment_anchors(diff_text)
         findings = [
             {
                 "title": "Valid right range",
@@ -2283,7 +2624,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             },
         ]
 
-        comments = AGENT_REVIEW_PUBLISH.build_review_comment_payloads(
+        comments = AGENT_REVIEW_COMMENTS.build_review_comment_payloads(
             findings,
             run_id="28000000001",
             diff_anchors=diff_anchors,
@@ -2322,12 +2663,12 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             )
 
         with mock.patch.object(
-            AGENT_REVIEW_PUBLISH,
+            AGENT_REVIEW_GITHUB_PUBLISH,
             "submit_pull_review",
             fake_submit_pull_review,
         ):
             with self.assertRaises(urllib.error.HTTPError):
-                AGENT_REVIEW_PUBLISH.create_pull_review(
+                AGENT_REVIEW_GITHUB_PUBLISH.create_pull_review(
                     "Arm-Debug/amp-dev-forge",
                     "175",
                     "token",
@@ -2375,11 +2716,11 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 )
 
         with mock.patch.object(
-            AGENT_REVIEW_PUBLISH,
+            AGENT_REVIEW_GITHUB_PUBLISH,
             "submit_pull_review",
             fake_submit_pull_review,
-        ), mock.patch.object(AGENT_REVIEW_PUBLISH.sys, "stderr", io.StringIO()):
-            AGENT_REVIEW_PUBLISH.create_pull_review(
+        ), mock.patch.object(AGENT_REVIEW_GITHUB_PUBLISH.sys, "stderr", io.StringIO()):
+            AGENT_REVIEW_GITHUB_PUBLISH.create_pull_review(
                 "Arm-Debug/amp-dev-forge",
                 "175",
                 "token",
@@ -2458,7 +2799,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "end_line": 4,
             "body": "This UI comment was not counted by the summary marker.",
         }
-        summary_body = AGENT_REVIEW_PUBLISH.format_markdown(
+        summary_body = AGENT_REVIEW_MARKDOWN.format_markdown(
             {
                 "summary": "One counted finding.",
                 "overall_recommendation": "request_changes",
@@ -2471,7 +2812,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         pull_comments = [
             {
-                "body": AGENT_REVIEW_PUBLISH.build_inline_comment_body(finding, run_id="28000000001"),
+                "body": AGENT_REVIEW_COMMENTS.build_inline_comment_body(finding, run_id="28000000001"),
                 "user": {"login": "github-actions[bot]"},
                 "created_at": "2026-06-30T10:03:00Z",
             }
@@ -2505,7 +2846,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                             with mock.patch.object(
                                 AGENT_REVIEW_FETCH.sys,
                                 "argv",
-                                ["fetch_review_state.py", "--output", str(output_path)],
+                                ["fetch.py", "--output", str(output_path)],
                             ):
                                 AGENT_REVIEW_FETCH.main()
 
@@ -2524,6 +2865,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_workflow_audit_reports_freshness_only(self):
         workflow = load_yaml(WORKFLOW_AUDIT_FILE)
         dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
+        pull_request_paths = workflow["on"]["pull_request"]["paths"]
         report_job = workflow["jobs"]["workflow-dependency-freshness"]
         report_steps = step_map(report_job)
 
@@ -2536,13 +2878,39 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             {"summary_limit"},
         )
         self.assertNotIn("outputs", report_job)
+        self.assertIn("scripts/private/agent_runtime/github_api.py", pull_request_paths)
         self.assertIn("--summary-limit", report_steps["Render workflow dependency freshness report"]["run"])
         self.assertNotIn("--github-output", report_steps["Render workflow dependency freshness report"]["run"])
+
+    def test_workflow_audit_fetch_latest_ref_uses_shared_github_api_client(self):
+        with mock.patch.object(
+            WORKFLOW_AUDIT_REPORT,
+            "github_api_json_or_empty",
+            side_effect=[{}, [{"name": "v6"}]],
+        ) as github_api_json_or_empty:
+            latest_ref, latest_source = WORKFLOW_AUDIT_REPORT.fetch_latest_ref(
+                None,
+                "actions/checkout",
+            )
+
+        self.assertEqual(latest_ref, "v6")
+        self.assertEqual(latest_source, "tag")
+        self.assertEqual(
+            [call.args[0] for call in github_api_json_or_empty.call_args_list],
+            [
+                "repos/actions/checkout/releases/latest",
+                "repos/actions/checkout/tags?per_page=1",
+            ],
+        )
+        self.assertEqual(
+            [call.kwargs["token"] for call in github_api_json_or_empty.call_args_list],
+            [None, None],
+        )
 
     def test_wait_for_review_state_returns_observed_recommendation(self):
         with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
             with mock.patch.object(
-                HELPER,
+                HELPER_STABILIZATION,
                 "read_review_state",
                 return_value={
                     "run_id": "28000000001",
@@ -2552,14 +2920,14 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 },
             ):
                 with mock.patch.object(
-                    HELPER,
+                    AGENT_REVIEW_STATE,
                     "read_review_artifact_state",
                     return_value={},
                 ):
-                    review_state = HELPER.wait_for_review_state(
+                    review_state = HELPER_STABILIZATION.wait_for_review_state(
                         pr_number="123",
                         workflow_name="Agent Review",
-                        review_state_script="scripts/private/agent_runtime/fetch_review_state.py",
+                        review_state_script="scripts/private/agent_runtime/review/fetch.py",
                         expected_run_id="28000000001",
                         head_sha="deadbeef",
                     )
@@ -2568,7 +2936,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_wait_for_review_state_falls_back_to_review_artifact(self):
         with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
             with mock.patch.object(
-                HELPER,
+                HELPER_STABILIZATION,
                 "read_review_state",
                 return_value={
                     "run_id": "28000000001",
@@ -2579,7 +2947,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 },
             ):
                 with mock.patch.object(
-                    HELPER,
+                    AGENT_REVIEW_STATE,
                     "read_review_artifact_state",
                     return_value={
                         "run_id": "28000000001",
@@ -2594,10 +2962,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                         ],
                     },
                 ):
-                    review_state = HELPER.wait_for_review_state(
+                    review_state = HELPER_STABILIZATION.wait_for_review_state(
                         pr_number="123",
                         workflow_name="Agent Review",
-                        review_state_script="scripts/private/agent_runtime/fetch_review_state.py",
+                        review_state_script="scripts/private/agent_runtime/review/fetch.py",
                         expected_run_id="28000000001",
                         head_sha="deadbeef",
                     )
@@ -2607,26 +2975,26 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
     def test_wait_for_workflow_run_completion_polls_actions_api_instead_of_gh_watch(self):
         with mock.patch.object(
-            HELPER,
-            "parse_json_command",
+            OPENAI_AGENT_GITHUB_ACTIONS,
+            "github_api_json",
             side_effect=[
                 {"status": "in_progress", "conclusion": None},
                 {"status": "completed", "conclusion": "success"},
             ],
-        ) as parse_json_command:
-            with mock.patch.object(HELPER.time, "sleep") as sleep:
-                HELPER.wait_for_workflow_run_completion(
+        ) as github_api_json:
+            with mock.patch.object(OPENAI_AGENT_GITHUB_ACTIONS.time, "sleep") as sleep:
+                HELPER_GITHUB_WORKFLOWS.wait_for_workflow_run_completion(
                     repository="Arm-Debug/amp-dev-forge",
                     workflow_name="Agent Review",
                     run_id="28232063832",
                 )
 
-        self.assertEqual(parse_json_command.call_count, 2)
+        self.assertEqual(github_api_json.call_count, 2)
         sleep.assert_called_once_with(15)
 
     def test_find_latest_workflow_run_for_head_accepts_manual_review_runs(self):
         with mock.patch.object(
-            HELPER,
+            OPENAI_AGENT_GITHUB_ACTIONS,
             "github_api_json",
             return_value={
                 "workflow_runs": [
@@ -2645,10 +3013,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 ]
             },
         ):
-            run_id = HELPER.find_latest_workflow_run_for_head(
+            run_id = OPENAI_AGENT_GITHUB_ACTIONS.find_latest_workflow_run_for_head(
                 repository="Arm-Debug/amp-dev-forge",
                 workflow_file="agent-review.yml",
-                repair_branch=REPAIR_BRANCH,
+                branch=REPAIR_BRANCH,
                 head_sha="deadbeef",
             )
 
@@ -2656,7 +3024,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
     def test_ensure_allowed_review_recommendation_rejects_requested_changes(self):
         with self.assertRaisesRegex(RuntimeError, "request_changes"):
-            HELPER.ensure_allowed_review_recommendation(
+            HELPER_STABILIZATION.ensure_allowed_review_recommendation(
                 pr_number="123",
                 workflow_name="Agent Review",
                 review_state={"overall_recommendation": "request_changes"},
@@ -2697,9 +3065,9 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge", "GITHUB_REF_NAME": "feature/test"},
                 clear=False,
             ):
-                with mock.patch.object(HELPER, "run_command", return_value=run_command_result):
+                with mock.patch.object(HELPER_STABILIZATION, "run_command", return_value=run_command_result):
                     with mock.patch.object(
-                        HELPER,
+                        HELPER_STABILIZATION,
                         "ensure_validation_workflow_run",
                         side_effect=[
                             ("review-1", "pull_request"),
@@ -2709,17 +3077,17 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                         ],
                     ) as ensure_validation_workflow_run:
                         with mock.patch.object(
-                            HELPER,
+                            HELPER_STABILIZATION,
                             "wait_for_review_state",
                             side_effect=[first_review_state, second_review_state],
                         ):
                             with mock.patch.object(
-                                HELPER,
+                                HELPER_STABILIZATION,
                                 "dispatch_stabilizer_workflow",
                                 return_value="stabilize-1",
                             ) as dispatch_stabilizer_workflow:
                                 with mock.patch.object(
-                                    HELPER,
+                                    HELPER_STABILIZATION,
                                     "read_pr_details",
                                     side_effect=[
                                         {
@@ -2735,11 +3103,11 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                                     ],
                                 ) as read_pr_details:
                                     with mock.patch.object(
-                                        HELPER,
+                                        HELPER_STABILIZATION,
                                         "publish_review_state_to_pr",
                                     ) as publish_review_state_to_pr:
-                                        with mock.patch.object(HELPER, "merge_pr") as merge_pr:
-                                            result = HELPER.command_stabilize_pr(args)
+                                        with mock.patch.object(HELPER_STABILIZATION, "merge_pr") as merge_pr:
+                                            result = HELPER_STABILIZATION.command_stabilize_pr(args)
 
             self.assertEqual(result, 0)
             self.assertEqual(ensure_validation_workflow_run.call_count, 4)
@@ -2787,9 +3155,9 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge", "GITHUB_REF_NAME": "feature/test"},
                 clear=False,
             ):
-                with mock.patch.object(HELPER, "run_command", return_value=run_command_result):
+                with mock.patch.object(HELPER_STABILIZATION, "run_command", return_value=run_command_result):
                     with mock.patch.object(
-                        HELPER,
+                        HELPER_STABILIZATION,
                         "ensure_validation_workflow_run",
                         side_effect=[
                             ("review-1", "pull_request"),
@@ -2797,9 +3165,9 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                             ("sonar-1", "pull_request"),
                         ],
                     ) as ensure_validation_workflow_run:
-                        with mock.patch.object(HELPER, "wait_for_review_state", return_value=review_state):
+                        with mock.patch.object(HELPER_STABILIZATION, "wait_for_review_state", return_value=review_state):
                             with mock.patch.object(
-                                HELPER,
+                                HELPER_STABILIZATION,
                                 "read_pr_details",
                                 return_value={
                                     "repair_branch": REPAIR_BRANCH,
@@ -2807,8 +3175,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                                     "target_branch": "main",
                                 },
                             ):
-                                with mock.patch.object(HELPER, "merge_pr") as merge_pr:
-                                    result = HELPER.command_stabilize_pr(args)
+                                with mock.patch.object(HELPER_STABILIZATION, "merge_pr") as merge_pr:
+                                    result = HELPER_STABILIZATION.command_stabilize_pr(args)
 
             self.assertEqual(result, 0)
             self.assertEqual(ensure_validation_workflow_run.call_count, 3)
@@ -2817,7 +3185,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_read_pr_details_returns_same_repository_branch_details(self):
         with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
             with mock.patch.object(
-                HELPER,
+                OPENAI_AGENT_GITHUB_ACTIONS,
                 "github_api_json",
                 return_value={
                     "head": {
@@ -2831,7 +3199,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                     },
                 },
             ) as github_api_json:
-                details = HELPER.read_pr_details("175")
+                details = OPENAI_AGENT_GITHUB_ACTIONS.read_pr_details("175")
 
         self.assertEqual(github_api_json.call_args.args[0], "repos/Arm-Debug/amp-dev-forge/pulls/175")
         self.assertEqual(details["repair_branch"], REPAIR_BRANCH)
@@ -2843,7 +3211,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
     def test_read_pr_details_rejects_fork_pull_request_stabilization(self):
         with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
             with mock.patch.object(
-                HELPER,
+                OPENAI_AGENT_GITHUB_ACTIONS,
                 "github_api_json",
                 return_value={
                     "head": {
@@ -2858,7 +3226,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 },
             ):
                 with self.assertRaisesRegex(RuntimeError, "only supports same-repository pull requests"):
-                    HELPER.read_pr_details("175")
+                    OPENAI_AGENT_GITHUB_ACTIONS.read_pr_details("175")
 
     def test_prepare_stabilization_context_writes_prompt_and_outputs(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -2888,7 +3256,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             }
 
             with mock.patch.object(
-                HELPER,
+                HELPER_STABILIZATION,
                 "read_pr_details",
                 return_value={
                     "repair_branch": REPAIR_BRANCH,
@@ -2896,9 +3264,9 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                     "target_branch": "main",
                 },
             ):
-                with mock.patch.object(HELPER, "read_review_state", return_value=review_state):
+                with mock.patch.object(HELPER_STABILIZATION, "read_review_state", return_value=review_state):
                     with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": ""}, clear=False):
-                        result = HELPER.command_prepare_stabilization_context(args)
+                        result = HELPER_STABILIZATION.command_prepare_stabilization_context(args)
 
             self.assertEqual(result, 0)
             outputs = dict(
@@ -2928,7 +3296,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
             with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
                 with mock.patch.object(
-                    HELPER,
+                    HELPER_STABILIZATION,
                     "read_pr_details",
                     return_value={
                         "repair_branch": REPAIR_BRANCH,
@@ -2937,7 +3305,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                     },
                 ):
                     with mock.patch.object(
-                        HELPER,
+                        HELPER_STABILIZATION,
                         "read_review_state",
                         return_value={
                             "run_id": "",
@@ -2946,12 +3314,12 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                         },
                     ):
                         with mock.patch.object(
-                            HELPER,
+                            HELPER_STABILIZATION,
                             "find_latest_workflow_run_for_head",
                             return_value="28000000001",
                         ):
                             with mock.patch.object(
-                                HELPER,
+                                AGENT_REVIEW_STATE,
                                 "read_review_artifact_state",
                                 return_value={
                                     "run_id": "28000000001",
@@ -2967,7 +3335,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                                     ],
                                 },
                             ):
-                                result = HELPER.command_prepare_stabilization_context(args)
+                                result = HELPER_STABILIZATION.command_prepare_stabilization_context(args)
 
             self.assertEqual(result, 0)
             outputs = dict(
@@ -2999,7 +3367,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             }
 
             with mock.patch.object(
-                HELPER,
+                HELPER_STABILIZATION,
                 "read_pr_details",
                 return_value={
                     "repair_branch": REPAIR_BRANCH,
@@ -3007,10 +3375,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                     "target_branch": "main",
                 },
             ):
-                with mock.patch.object(HELPER, "read_review_state", return_value=review_state):
+                with mock.patch.object(HELPER_STABILIZATION, "read_review_state", return_value=review_state):
                     with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": ""}, clear=False):
                         with self.assertRaisesRegex(RuntimeError, "complete actionable findings"):
-                            HELPER.command_prepare_stabilization_context(args)
+                            HELPER_STABILIZATION.command_prepare_stabilization_context(args)
 
     def test_prepare_stabilization_context_rejects_partial_fallback_findings(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -3040,7 +3408,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             }
 
             with mock.patch.object(
-                HELPER,
+                HELPER_STABILIZATION,
                 "read_pr_details",
                 return_value={
                     "repair_branch": REPAIR_BRANCH,
@@ -3048,13 +3416,13 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                     "target_branch": "main",
                 },
             ):
-                with mock.patch.object(HELPER, "read_review_state", return_value=review_state):
+                with mock.patch.object(HELPER_STABILIZATION, "read_review_state", return_value=review_state):
                     with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": ""}, clear=False):
                         with self.assertRaisesRegex(RuntimeError, "recovered_findings=1"):
-                            HELPER.command_prepare_stabilization_context(args)
+                            HELPER_STABILIZATION.command_prepare_stabilization_context(args)
 
     def test_review_state_fallback_requires_positive_complete_finding_count(self):
-        fallback_state = HELPER.normalize_review_state(
+        fallback_state = AGENT_REVIEW_STATE.normalize_review_state(
             {
                 "run_id": "28000000001",
                 "head_sha": "deadbeef",
@@ -3071,20 +3439,20 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
 
         self.assertFalse(
-            HELPER.review_state_can_drive_stabilization(
+            AGENT_REVIEW_STATE.review_state_can_drive_stabilization(
                 fallback_state,
                 source="pull request state",
             )
         )
         self.assertTrue(
-            HELPER.review_state_can_drive_stabilization(
+            AGENT_REVIEW_STATE.review_state_can_drive_stabilization(
                 fallback_state,
                 source="artifact",
             )
         )
 
     def test_review_state_fallback_requires_exact_marker_count(self):
-        fallback_state = HELPER.normalize_review_state(
+        fallback_state = AGENT_REVIEW_STATE.normalize_review_state(
             {
                 "run_id": "28000000001",
                 "head_sha": "deadbeef",
@@ -3106,14 +3474,14 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
 
         self.assertFalse(
-            HELPER.review_state_can_drive_stabilization(
+            AGENT_REVIEW_STATE.review_state_can_drive_stabilization(
                 fallback_state,
                 source="pull request state",
             )
         )
 
     def test_review_state_fallback_does_not_trust_availability_without_valid_count(self):
-        fallback_state = HELPER.normalize_review_state(
+        fallback_state = AGENT_REVIEW_STATE.normalize_review_state(
             {
                 "run_id": "28000000001",
                 "head_sha": "deadbeef",
@@ -3131,7 +3499,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
         self.assertFalse(fallback_state["finding_count_available"])
         self.assertFalse(
-            HELPER.review_state_can_drive_stabilization(
+            AGENT_REVIEW_STATE.review_state_can_drive_stabilization(
                 fallback_state,
                 source="pull request state",
             )
@@ -3151,7 +3519,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             clear=False,
         ):
             with mock.patch.object(
-                    HELPER,
+                    HELPER_STABILIZATION,
                 "run_command",
                 side_effect=[
                     mock.Mock(returncode=0, stdout="", stderr=""),
@@ -3164,8 +3532,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                     mock.Mock(returncode=0, stdout="feedface\n", stderr=""),
                 ],
             ) as run_command:
-                with mock.patch.object(HELPER, "github_api_json", return_value={"login": "pat-user"}):
-                    head_sha = HELPER.commit_review_fix(
+                with mock.patch.object(HELPER_STABILIZATION, "github_api_json", return_value={"login": "pat-user"}):
+                    head_sha = HELPER_STABILIZATION.commit_review_fix(
                         pr_number="169",
                         repair_branch=REPAIR_BRANCH,
                         ticket_id="EXPKITS-1234",
@@ -3209,8 +3577,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             },
             clear=False,
         ):
-            with mock.patch.object(HELPER, "run_command") as run_command:
-                HELPER.publish_review_state_to_pr(
+            with mock.patch.object(HELPER_STABILIZATION, "run_command") as run_command:
+                HELPER_STABILIZATION.publish_review_state_to_pr(
                     pr_number="169",
                     head_sha="deadbeef",
                     review_state=review_state,

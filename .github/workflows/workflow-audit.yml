@@ -15,7 +15,8 @@ on:
     paths:
       - ".github/workflows/**"
       - "scripts/private/workflow_audit_report.py"
-      - ".github/agent-runtime/repair/**"
+      - "scripts/private/agent_runtime/github_api.py"
+      - ".github/agent-runtime/workflow-action-update-agent/**"
     types: [ opened, synchronize, reopened, ready_for_review ]
   schedule:
     - cron: "0 5 * * *"

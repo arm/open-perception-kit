@@ -8,13 +8,17 @@ inputs:
   profile-path:
     description: Repair profile JSON path relative to the repo root.
     required: false
-    default: .github/agent-runtime/repair/profiles/profile.json
+    default: .github/agent-runtime/workflow-action-update-agent/profiles/profile.json
   current-ref-name:
     description: Current Git ref name for fallback target-branch selection.
     required: false
     default: ""
   source-run-id:
-    description: Source GitHub Actions run ID.
+    description: Source GitHub Actions run ID. External repair PR creation requires an authorized source PR.
+    required: false
+    default: ""
+  source-pr-number:
+    description: Pull request number associated with the source GitHub Actions run.
     required: false
     default: ""
   source-run-url:
@@ -92,6 +96,9 @@ outputs:
   source_run_id:
     description: Normalized source run ID.
     value: ${{ steps.helper.outputs.source_run_id }}
+  source_pr_number:
+    description: Pull request number associated with the source GitHub Actions run.
+    value: ${{ steps.helper.outputs.source_pr_number }}
   source_run_url:
     description: Source run URL.
     value: ${{ steps.helper.outputs.source_run_url }}
@@ -134,12 +141,16 @@ runs:
       run: |
         set -euo pipefail
 
-        helper="${{ github.action_path }}/../../../scripts/private/workflow_action_update_agent.py"
+        helper_root="${{ github.action_path }}/../../../scripts/private"
         command="${{ inputs.command }}"
+        run_helper() {
+          PYTHONPATH="${helper_root}${PYTHONPATH:+:${PYTHONPATH}}" \
+            python3 -m workflow_action_update_agent "$@"
+        }
 
         case "${command}" in
           resolve-inputs)
-            python3 "${helper}" resolve-inputs \
+            run_helper resolve-inputs \
               --profile-path "${{ inputs.profile-path }}" \
               --source-run-id "${{ inputs.source-run-id }}" \
               --target-branch "${{ inputs.target-branch }}" \
@@ -148,39 +159,42 @@ runs:
               --github-output "${GITHUB_OUTPUT}"
             ;;
           collect-context)
-            python3 "${helper}" collect-context \
+            run_helper collect-context \
               --context-root "${{ inputs.context-root }}" \
               --source-run-id "${{ inputs.source-run-id }}" \
               --source-run-url "${{ inputs.source-run-url }}" \
               --source-workflow-name "${{ inputs.source-workflow-name }}"
             ;;
           build-markdown)
-            python3 "${helper}" build-markdown \
+            run_helper build-markdown \
               --profile-path "${{ inputs.profile-path }}" \
               --context-root "${{ inputs.context-root }}" \
               --source-run-id "${{ inputs.source-run-id }}" \
+              --source-pr-number "${{ inputs.source-pr-number }}" \
               --source-run-url "${{ inputs.source-run-url }}" \
               --source-workflow-name "${{ inputs.source-workflow-name }}" \
               --target-branch "${{ inputs.target-branch }}" \
               --repair-branch "${{ inputs.repair-branch }}" \
               --ticket-id "${{ inputs.ticket-id }}"
             ;;
-          package-patch)
-            python3 "${helper}" package-patch \
+          package-repository-changes)
+            run_helper package-repository-changes \
               --patch-file "${{ inputs.patch-file }}" \
               --diffstat-file "${{ inputs.diffstat-file }}" \
               --github-output "${GITHUB_OUTPUT}"
             ;;
-          require-generated-patch)
-            python3 "${helper}" require-generated-patch \
+          require-generated-changes)
+            run_helper require-generated-changes \
               --source-run-id "${{ inputs.source-run-id }}"
             ;;
-          apply-patch-and-push)
-            python3 "${helper}" apply-patch-and-push \
+          apply-repair-changes-and-push)
+            run_helper apply-repair-changes-and-push \
               --profile-path "${{ inputs.profile-path }}" \
               --patch-root "${{ inputs.patch-root }}" \
               --repair-branch "${{ inputs.repair-branch }}" \
+              --target-branch "${{ inputs.target-branch }}" \
               --source-run-id "${{ inputs.source-run-id }}" \
+              --source-pr-number "${{ inputs.source-pr-number }}" \
               --source-run-url "${{ inputs.source-run-url }}" \
               --source-workflow-name "${{ inputs.source-workflow-name }}" \
               --ticket-id "${{ inputs.ticket-id }}" \
@@ -191,7 +205,7 @@ runs:
               --github-output "${GITHUB_OUTPUT}"
             ;;
           create-draft-pr)
-            python3 "${helper}" create-draft-pr \
+            run_helper create-draft-pr \
               --profile-path "${{ inputs.profile-path }}" \
               --body-file "${{ inputs.body-file }}" \
               --pr-title-file "${{ inputs.pr-title-file }}" \
@@ -200,12 +214,12 @@ runs:
               --github-output "${GITHUB_OUTPUT}"
             ;;
           resolve-pr-details)
-            python3 "${helper}" resolve-pr-details \
+            run_helper resolve-pr-details \
               --pr-number "${{ inputs.pr-number }}" \
               --github-output "${GITHUB_OUTPUT}"
             ;;
           prepare-stabilization-context)
-            python3 "${helper}" prepare-stabilization-context \
+            run_helper prepare-stabilization-context \
               --profile-path "${{ inputs.profile-path }}" \
               --pr-number "${{ inputs.pr-number }}" \
               --head-sha "${{ inputs.head-sha }}" \
@@ -230,7 +244,7 @@ runs:
               echo "merge-when-stable must be 'true' or 'false'." >&2
               exit 1
             fi
-            python3 "${helper}" stabilize-pr "${stabilize_args[@]}"
+            run_helper stabilize-pr "${stabilize_args[@]}"
             ;;
           *)
             echo "Unsupported workflow action update agent helper command: ${command}" >&2

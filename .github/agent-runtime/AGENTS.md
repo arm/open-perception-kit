@@ -38,7 +38,7 @@ dependency pins. Executable GitHub Actions workflows live only under
 
 For changes here, run at least:
 
-- `find scripts/private/agent_runtime -name '*.py' -print0 | xargs -0 python3 -m py_compile scripts/private/workflow_action_update_agent.py`
+- `find scripts/private/agent_runtime scripts/private/workflow_action_update_agent -name '*.py' -print0 | xargs -0 python3 -m py_compile`
 - `python3 scripts/private/agent_runtime/static_analysis.py`
 - `python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_workflow_action_update_agent_flow.py'`
 - `git diff --check`

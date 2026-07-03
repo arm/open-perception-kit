@@ -10,13 +10,13 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .contracts import AgentCommand, DiffSide, ReviewRecommendation, ReviewSeverity, load_json_value
-from .repo_tools import apply_unified_diff, list_repo_files, read_repo_file, run_shell_command
-from .review_output import filter_invalid_right_side_findings
-from .repo_tools import require_run_context
-from .sdk_runtime import BaseModel, ConfigDict, Field, coerce_model_output
-from .task_estimator import estimate_task_fit
-from .workflow_task import AgentWorkflowTask
+from ..contracts import AgentCommand, DiffSide, ReviewRecommendation, ReviewSeverity, load_json_value
+from ..review.output_filter import filter_invalid_right_side_findings
+from ..runtime_context import require_run_context
+from ..sdk_runtime import BaseModel, ConfigDict, Field, coerce_model_output
+from ..tools.repo import apply_unified_diff, list_repo_files, read_repo_file, run_shell_command
+from .base import AgentWorkflowTask
+from .estimator import estimate_task_fit
 
 
 class ReviewFinding(BaseModel):
@@ -135,20 +135,14 @@ class ReviewAgentTask(ConfiguredAgentWorkflowTask):
         return 0
 
 
-class PatchAgentTask(ConfiguredAgentWorkflowTask):
+class RepositoryEditAgentTask(ConfiguredAgentWorkflowTask):
+    def __init__(self, *, command: AgentCommand, agent_name: str) -> None:
+        self.command = command
+        self.agent_name = agent_name
+
     def tools(self) -> list[Any]:
         return [read_repo_file, list_repo_files, run_shell_command, apply_unified_diff]
 
     def write_result(self, final_output: object, args: argparse.Namespace) -> int:
         write_text(Path(args.output_file), str(final_output).rstrip() + "\n")
         return 0
-
-
-class RepairAgentTask(PatchAgentTask):
-    command = AgentCommand.REPAIR
-    agent_name = "OpenAI SDK Workflow Repair Agent"
-
-
-class StabilizationAgentTask(PatchAgentTask):
-    command = AgentCommand.STABILIZATION
-    agent_name = "OpenAI SDK Workflow Stabilization Agent"

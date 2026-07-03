@@ -17,7 +17,7 @@ if __package__ in (None, ""):  # pragma: no cover - used for direct script execu
 
 AGENT_STATIC_PYTHON_PATHS = (
     "scripts/private/agent_runtime",
-    "scripts/private/workflow_action_update_agent.py",
+    "scripts/private/workflow_action_update_agent",
     "tools/expkits-ci/tests/test_workflow_action_update_agent_flow.py",
 )
 AGENT_STATIC_REFERENCE_PATHS = (
