@@ -79,17 +79,16 @@ jobs:
       - name: Install OpenAI agent runtime
         shell: bash
         run: |
-          python3 -m venv .agent-runtime/openai-agent-venv
-          .agent-runtime/openai-agent-venv/bin/python -m pip install --upgrade pip
-          .agent-runtime/openai-agent-venv/bin/python -m pip install -r .github/agent-runtime/runtime/requirements-openai-agents.txt
+          python3 scripts/private/agent_runtime/setup_runtime.py \
+            --install-package ./tools/expkits-ci
 
       - name: Run Agent workflow static analysis
         shell: bash
         env:
           REVIEW_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_ref || format('origin/{0}', github.base_ref) }}
         run: |
-          .agent-runtime/openai-agent-venv/bin/python -m pip install -r .github/agent-runtime/runtime/requirements-static-analysis.txt
-          .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/static_analysis.py --base-ref "${REVIEW_BASE_REF}"
+          PYTHONPATH="${GITHUB_WORKSPACE}/tools/expkits-ci${PYTHONPATH:+:${PYTHONPATH}}" \
+            .agent-runtime/openai-agent-venv/bin/python -m expkits_ci.agent_static_analysis --base-ref "${REVIEW_BASE_REF}"
 
       # <agent-review:suppress-begin> Intentional current self-hosted OpenAI
       # review trust boundary for same-repo pull requests.

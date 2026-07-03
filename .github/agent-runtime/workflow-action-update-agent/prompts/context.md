@@ -5,8 +5,10 @@
 - Keep one automatic PR-head repair path only: same-repository pull requests run
   the standard `Agent Review`, then automatically stabilize that PR head when
   the review is not `approve`.
-- Keep manual PR stabilization dispatchable for maintainers. The automatic path
-  must not open separate repair PRs or merge the PR.
+- Keep manual PR stabilization available only through
+  `.github/workflows/workflow-action-update-agent.yml`. The callable
+  `.github/workflows/agent-stabilize-pr.yml` worker must not expose its own
+  public dispatch path.
 - Keep source-run repair PR creation separate from stabilization: it is only for
   bounded work outside the source PR branch's direct stabilization scope, and it
   requires the source PR to carry the profile-defined authorization label.
@@ -14,7 +16,7 @@
 ## Hard Rules
 
 - Reuse the `Agent Review` invocation pattern for any OpenAI-in-CI step: checkout, render prompt, run the shared Python OpenAI Agents SDK runner, then publish or consume structured output.
-- Keep workflow YAML orchestration-thin. Repo-specific logic belongs in the `scripts/private/workflow_action_update_agent/` package behind `.github/actions/workflow-action-update-agent-helper/`.
+- Keep workflow YAML orchestration-thin. Repo-specific logic belongs in the `scripts/private/workflow_action_update_agent/` package behind direct `python3 -m workflow_action_update_agent ...` workflow calls.
 - Keep runtime prompt files under `.agent-runtime/workflow-action-update-agent/`; do not check generated prompt artifacts into git.
 - Keep the stabilization loop focused on review findings only. It must not rewrite unrelated workflow plumbing.
 - Keep repair PR tasks bounded by source-run evidence and an explicit Definition
@@ -31,12 +33,14 @@
 The reference implementation is `.github/workflows/agent-review.yml`.
 
 - Runner: `self-hosted-ubuntu-latest`
-- The shared runner performs a generic task-estimation agent call before the
+- The shared runner performs deterministic prompt/diff size checks before the
   main review, repair, or stabilization agent run. Oversized tasks must be
   split instead of pushing the main agent past its turn budget.
 - Prompt preparation stays outside the SDK runner in checked-in scripts.
-- Agent runtime dependencies are installed from `.github/agent-runtime/runtime/requirements-openai-agents.txt`
-  into `.agent-runtime/openai-agent-venv`.
+- Agent runtime dependencies are installed by
+  `scripts/private/agent_runtime/setup_runtime.py` from
+  `.github/agent-runtime/runtime/requirements-openai-agents.txt` into
+  `.agent-runtime/openai-agent-venv`.
 - OpenAI invocation stays in `scripts/private/agent_runtime/openai_agent_runner.py`:
   - `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` is mapped to `OPENAI_API_KEY`
   - `OPENAI_BASE_URL` is `https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1`
@@ -55,7 +59,10 @@ The reference implementation is `.github/workflows/agent-review.yml`.
 - Fetching check-run annotations with the PAT was blocked by `HTTP 403: Resource not accessible by personal access token`; polling workflow runs avoids that permission edge.
 - Self-hosted runner behavior is not perfectly uniform. Python OpenAI clients can fail corporate CA validation when they use the `certifi` bundle, so the runner injects the system trust store with `truststore` before importing OpenAI libraries.
 - Agents SDK tracing is disabled in CI unless tracing is explicitly configured for this environment; otherwise the SDK may try to send traces outside the Arm proxy path.
-- The workflow that performs a stabilization attempt needs to be separately dispatchable so the parent loop can reuse it, and maintainers can manually run it against any PR.
+- Stabilization attempts run through the callable `agent-stabilize-pr.yml`
+  worker. External dispatch, including loop-triggered follow-up stabilization,
+  goes through the manual front door workflow so there is only one public
+  entrypoint.
 - The branch under test still needs to be able to exercise the stabilizer workflow before merge. Use the current workflow ref for branch validation, but keep the SDK runner shape aligned with the canonical review workflow.
 - If a stabilizer job checks out the PR head into the workspace root, any later local action lookup will resolve against the PR branch contents. Snapshot the helper bundle before the checkout and restore it under an ignored workspace path so the latest helper logic still drives the job.
 - Stabilizer follow-up commits must push with `EXPKITS_AGENT_TOKEN`, not the workflow `github.token`, otherwise the PR branch update may not retrigger the normal `pull_request` workflows.
@@ -64,7 +71,9 @@ The reference implementation is `.github/workflows/agent-review.yml`.
   PR unless maintainers explicitly allowed that path.
 - Draft PRs only trigger the heavy `pek-ci` and `sonar` jobs on the initial labeled/opened path. Later `synchronize` events do not exercise the same jobs while the PR stays draft, so the repair loop needs a deterministic manual PR-context bootstrap for those standard workflows.
 - Plain `workflow_dispatch` on `pek-ci.yml` is not equivalent to PR validation: without explicit PR context it runs the nightly/full quality gate and can report unrelated baseline noise. Manual repair validation must pass PR metadata so the standard PR path runs.
-- Manual `Agent Review` runs still need their artifact state published back onto the PR if we want the PR review state to reflect the latest head without waiting for a native `pull_request` run.
+- Manual `Agent Review` runs may publish fresh PR comments for human visibility,
+  but the stabilizer must consume only the `agent-review-out/review.json`
+  artifact as machine-readable review state.
 - At least one self-hosted repair runner does not have the `gh` CLI on `PATH`. The self-hosted agent patch-generation path must use GitHub REST downloads for run metadata, logs, and artifacts instead of assuming `gh run view/download` exists.
 
 ## Expected Flow

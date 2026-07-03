@@ -13,7 +13,11 @@ the Workflow Action Update Agent repair and stabilization flows.
   model names or turn limits in profiles or workflows.
 - Keep profile paths, labels, validation workflow names, and prompt context
   files aligned with `scripts/private/workflow_action_update_agent/` and
-  `.github/actions/workflow-action-update-agent-helper/action.yml`.
+  direct `python3 -m workflow_action_update_agent ...` workflow calls.
+- Keep public manual stabilization inputs on
+  `.github/workflows/workflow-action-update-agent.yml`; profiles may point at
+  the callable stabilizer worker, but must not create a second public
+  stabilizer entrypoint.
 - Treat generated `.agent-runtime/workflow-action-update-agent/` files as
   runtime artifacts. Do not check generated context, logs, artifacts, or agent
   outputs into this directory.
@@ -24,6 +28,9 @@ the Workflow Action Update Agent repair and stabilization flows.
 
 For changes here, run at least:
 
-- `python3 scripts/private/agent_runtime/static_analysis.py`
+- `PYTHONPATH=tools/expkits-ci python3 -m expkits_ci.agent_static_analysis`
+- `python3 -m unittest discover -s scripts/private/tests`
+- `python3 -m unittest discover -s scripts/private/agent_runtime/tests`
+- `python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_agent_static_analysis.py'`
 - `python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_workflow_action_update_agent_flow.py'`
 - `git diff --check`

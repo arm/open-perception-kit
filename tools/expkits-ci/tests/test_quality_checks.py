@@ -212,11 +212,14 @@ class TestQualityChecks(unittest.TestCase):
             subprocess_run.call_args.args[0],
             [
                 sys.executable,
-                "/work/scripts/private/agent_runtime/static_analysis.py",
+                "-m",
+                "expkits_ci.agent_static_analysis",
                 "--base-ref",
                 "origin/main",
             ],
         )
+        self.assertEqual(subprocess_run.call_args.kwargs["cwd"], "/work")
+        self.assertIn("/work/tools/expkits-ci", subprocess_run.call_args.kwargs["env"]["PYTHONPATH"])
 
     def test_agent_runtime_static_analysis_checks_deleted_pr_paths(self):
         with patch.object(quality_checks_module.FileUtils, "get_project_root", return_value="/work"):
@@ -241,11 +244,14 @@ class TestQualityChecks(unittest.TestCase):
             subprocess_run.call_args_list[1].args[0],
             [
                 sys.executable,
-                "/work/scripts/private/agent_runtime/static_analysis.py",
+                "-m",
+                "expkits_ci.agent_static_analysis",
                 "--base-ref",
                 "origin/main",
             ],
         )
+        self.assertEqual(subprocess_run.call_args_list[1].kwargs["cwd"], "/work")
+        self.assertIn("/work/tools/expkits-ci", subprocess_run.call_args_list[1].kwargs["env"]["PYTHONPATH"])
 
     def test_apply_license_header_keeps_cmake_content_adjacent_to_header_when_cmake_config_is_missing(self):
         input_content = (FIXTURE_ROOT / "cmake" / "bad.CMakeLists.txt.input").read_text(encoding="utf-8")

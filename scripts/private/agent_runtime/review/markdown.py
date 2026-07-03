@@ -12,10 +12,8 @@ from ..contracts import (
     MARKER,
     RECOMMENDATION_COLORS,
     SEVERITY_COLORS,
-    STATE_MARKER,
     ReviewSeverity,
 )
-from .markers import review_state_marker, review_state_metadata
 from .values import required_float
 
 BADGE_LABEL_COLOR = "202938"
@@ -145,7 +143,6 @@ def format_markdown(review: dict[str, object], *, run_id: str = "", head_sha: st
     )
     lines = [
         MARKER,
-        review_state_marker(review_state_metadata(review, run_id, head_sha), STATE_MARKER),
         "## Agent Review",
         "",
         recommendation_badge(str(review["overall_recommendation"])),

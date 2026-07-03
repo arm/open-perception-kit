@@ -3,7 +3,6 @@
     "run-review": {
       "agent_instance": "review",
       "max_turns": 60,
-      "task_estimate_turns": 3,
       "max_prompt_chars": 180000,
       "max_review_files": 120,
       "max_review_changed_lines": 15000
@@ -11,13 +10,11 @@
     "run-repair": {
       "agent_instance": "repair",
       "max_turns": 30,
-      "task_estimate_turns": 3,
       "max_prompt_chars": 140000
     },
     "run-stabilization": {
       "agent_instance": "stabilization",
       "max_turns": 30,
-      "task_estimate_turns": 3,
       "max_prompt_chars": 120000
     }
   }

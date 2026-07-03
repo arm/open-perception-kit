@@ -31,7 +31,9 @@ from .stabilization import (
     command_commit_review_fix,
     command_prepare_stabilization_context,
     command_resolve_pr_details,
+    command_restore_helper_bundle,
     command_run_validation,
+    command_snapshot_helper_bundle,
     command_stabilize_pr,
 )
 
@@ -108,6 +110,15 @@ def build_parser() -> argparse.ArgumentParser:
     resolve_pr_details.add_argument("--pr-number", required=True)
     resolve_pr_details.add_argument("--github-output", default=os.environ.get("GITHUB_OUTPUT", ""))
     resolve_pr_details.set_defaults(func=command_resolve_pr_details)
+
+    snapshot_helper_bundle = subparsers.add_parser("snapshot-helper-bundle")
+    snapshot_helper_bundle.add_argument("--bundle-root", required=True)
+    snapshot_helper_bundle.set_defaults(func=command_snapshot_helper_bundle)
+
+    restore_helper_bundle = subparsers.add_parser("restore-helper-bundle")
+    restore_helper_bundle.add_argument("--bundle-root", required=True)
+    restore_helper_bundle.add_argument("--helper-root", default=".workflow-action-update-agent-helper")
+    restore_helper_bundle.set_defaults(func=command_restore_helper_bundle)
 
     prepare_stabilization_context = subparsers.add_parser("prepare-stabilization-context")
     prepare_stabilization_context.add_argument(

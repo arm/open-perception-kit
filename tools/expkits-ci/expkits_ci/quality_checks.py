@@ -52,14 +52,18 @@ class QualityChecks:
     )
     AGENT_RUNTIME_STATIC_TRIGGER_PREFIXES = (
         ".github/agent-runtime/",
+        "scripts/private/github_api.py",
         "scripts/private/agent_runtime/",
+        "scripts/private/tests/",
         "scripts/private/workflow_action_update_agent/",
         ".github/workflows/agent-review.yml",
         ".github/workflows/agent-stabilize-pr.yml",
         ".github/workflows/workflow-action-update-agent",
-        ".github/actions/workflow-action-update-agent-helper/",
     )
     AGENT_RUNTIME_STATIC_TRIGGER_FILES = (
+        "tools/expkits-ci/agent-workflows-mypy.ini",
+        "tools/expkits-ci/expkits_ci/agent_static_analysis.py",
+        "tools/expkits-ci/tests/test_agent_static_analysis.py",
         "tools/expkits-ci/tests/test_workflow_action_update_agent_flow.py",
         "tools/expkits-ci/pyproject.toml",
     )
@@ -587,20 +591,23 @@ class QualityChecks:
             logger.info("No Agent runtime files found for static analysis.")
             return True
 
-        logger.info("Running Agent runtime static analysis...")
-        script_path = os.path.join(
-            FileUtils.get_project_root(),
-            "scripts",
-            "private",
-            "agent_runtime",
-            "static_analysis.py",
-        )
-        command = [sys.executable, script_path]
+        logger.info("Running Agent workflow static analysis...")
+        project_root = FileUtils.get_project_root()
+        command = [sys.executable, "-m", "expkits_ci.agent_static_analysis"]
         if pr_target_branch:
             command.extend(["--base-ref", f"origin/{pr_target_branch}"])
 
+        environment = os.environ.copy()
+        expkits_ci_root = os.path.join(project_root, "tools", "expkits-ci")
+        environment["PYTHONPATH"] = (
+            expkits_ci_root
+            if not environment.get("PYTHONPATH")
+            else os.pathsep.join([expkits_ci_root, environment["PYTHONPATH"]])
+        )
         proc = subprocess.run(
             command,
+            cwd=project_root,
+            env=environment,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             encoding="utf-8",
@@ -608,13 +615,13 @@ class QualityChecks:
         if proc.returncode != 0:
             if proc.stdout:
                 QualityChecks.log_captured_tool_output(proc.stdout)
-            logger.error("Agent runtime static analysis failed.")
+            logger.error("Agent workflow static analysis failed.")
             return False
         if proc.stdout:
             for output_line in proc.stdout.rstrip().splitlines():
                 logger.info(output_line)
 
-        logger.info("Agent runtime static analysis passed.")
+        logger.info("Agent workflow static analysis passed.")
         return True
 
     def check_clang_format(self, files, format, verbose=False) -> bool:

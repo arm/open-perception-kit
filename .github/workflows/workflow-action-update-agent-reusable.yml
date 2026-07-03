@@ -57,16 +57,20 @@ jobs:
       - uses: actions/checkout@v6
 
       - id: resolve
-        uses: ./.github/actions/workflow-action-update-agent-helper
-        with:
-          command: resolve-inputs
-          profile-path: ${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}
-          source-run-id: ${{ inputs.source_run_id || '' }}
-          target-branch: ${{ inputs.target_branch || '' }}
-          ticket-id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
-          current-ref-name: ${{ github.head_ref || github.ref_name }}
+        name: Resolve repair inputs
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+        run: |
+          set -euo pipefail
+          PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private${PYTHONPATH:+:${PYTHONPATH}}" \
+            python3 -m workflow_action_update_agent resolve-inputs \
+            --profile-path "${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}" \
+            --source-run-id "${{ inputs.source_run_id || '' }}" \
+            --target-branch "${{ inputs.target_branch || '' }}" \
+            --ticket-id "${{ inputs.ticket_id || 'EXPKITS-1234' }}" \
+            --current-ref-name "${{ github.head_ref || github.ref_name }}" \
+            --github-output "${GITHUB_OUTPUT}"
 
       - name: Summarize skipped run
         if: steps.resolve.outputs.should_run != 'true'
@@ -96,26 +100,32 @@ jobs:
           ref: ${{ needs.prepare.outputs.target_branch }}
           persist-credentials: false
 
-      - uses: ./.github/actions/workflow-action-update-agent-helper
+      - name: Collect source run context
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
-        with:
-          command: collect-context
-          source-run-id: ${{ needs.prepare.outputs.source_run_id }}
-          source-run-url: ${{ needs.prepare.outputs.source_run_url }}
-          source-workflow-name: ${{ needs.prepare.outputs.source_workflow_name }}
+        run: |
+          set -euo pipefail
+          PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private${PYTHONPATH:+:${PYTHONPATH}}" \
+            python3 -m workflow_action_update_agent collect-context \
+            --source-run-id "${{ needs.prepare.outputs.source_run_id }}" \
+            --source-run-url "${{ needs.prepare.outputs.source_run_url }}" \
+            --source-workflow-name "${{ needs.prepare.outputs.source_workflow_name }}"
 
-      - uses: ./.github/actions/workflow-action-update-agent-helper
-        with:
-          command: build-markdown
-          profile-path: ${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}
-          source-run-id: ${{ needs.prepare.outputs.source_run_id }}
-          source-pr-number: ${{ needs.prepare.outputs.source_pr_number }}
-          source-run-url: ${{ needs.prepare.outputs.source_run_url }}
-          source-workflow-name: ${{ needs.prepare.outputs.source_workflow_name }}
-          target-branch: ${{ needs.prepare.outputs.target_branch }}
-          repair-branch: ${{ needs.prepare.outputs.repair_branch }}
-          ticket-id: ${{ needs.prepare.outputs.ticket_id }}
+      - name: Build repair prompt inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private${PYTHONPATH:+:${PYTHONPATH}}" \
+            python3 -m workflow_action_update_agent build-markdown \
+            --profile-path "${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}" \
+            --source-run-id "${{ needs.prepare.outputs.source_run_id }}" \
+            --source-pr-number "${{ needs.prepare.outputs.source_pr_number }}" \
+            --source-run-url "${{ needs.prepare.outputs.source_run_url }}" \
+            --source-workflow-name "${{ needs.prepare.outputs.source_workflow_name }}" \
+            --target-branch "${{ needs.prepare.outputs.target_branch }}" \
+            --repair-branch "${{ needs.prepare.outputs.repair_branch }}" \
+            --ticket-id "${{ needs.prepare.outputs.ticket_id }}"
 
       - name: Set up Agent Python
         uses: actions/setup-python@v6
@@ -125,15 +135,17 @@ jobs:
       - name: Install OpenAI agent runtime
         shell: bash
         run: |
-          python3 -m venv .agent-runtime/openai-agent-venv
-          .agent-runtime/openai-agent-venv/bin/python -m pip install --upgrade pip
-          .agent-runtime/openai-agent-venv/bin/python -m pip install -r .github/agent-runtime/runtime/requirements-openai-agents.txt
+          python3 scripts/private/agent_runtime/setup_runtime.py \
+            --install-package ./tools/expkits-ci
 
       - name: Run static regression tests
         run: |
           set -euo pipefail
-          .agent-runtime/openai-agent-venv/bin/python -m pip install -r .github/agent-runtime/runtime/requirements-static-analysis.txt
-          .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/static_analysis.py
+          PYTHONPATH="${GITHUB_WORKSPACE}/tools/expkits-ci${PYTHONPATH:+:${PYTHONPATH}}" \
+            .agent-runtime/openai-agent-venv/bin/python -m expkits_ci.agent_static_analysis
+          python3 -m unittest discover -s scripts/private/tests
+          python3 -m unittest discover -s scripts/private/agent_runtime/tests
+          python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_agent_static_analysis.py'
           python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_detect_secrets_quality_flow.py'
           python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_workflow_action_update_agent_flow.py'
 
@@ -147,11 +159,15 @@ jobs:
             --output-file "${{ runner.temp }}/workflow-action-update-agent-agent-output.md"
 
       - id: patch
-        uses: ./.github/actions/workflow-action-update-agent-helper
-        with:
-          command: package-repository-changes
-          patch-file: ${{ runner.temp }}/workflow-action-update-agent.patch
-          diffstat-file: ${{ runner.temp }}/workflow-action-update-agent.diffstat.txt
+        name: Package repository changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private${PYTHONPATH:+:${PYTHONPATH}}" \
+            python3 -m workflow_action_update_agent package-repository-changes \
+            --patch-file "${{ runner.temp }}/workflow-action-update-agent.patch" \
+            --diffstat-file "${{ runner.temp }}/workflow-action-update-agent.diffstat.txt" \
+            --github-output "${GITHUB_OUTPUT}"
 
       - name: Upload repair artifacts
         if: always()
@@ -167,10 +183,13 @@ jobs:
           retention-days: 10
 
       - if: steps.patch.outputs.has_changes != 'true'
-        uses: ./.github/actions/workflow-action-update-agent-helper
-        with:
-          command: require-generated-changes
-          source-run-id: ${{ needs.prepare.outputs.source_run_id }}
+        name: Require generated changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private${PYTHONPATH:+:${PYTHONPATH}}" \
+            python3 -m workflow_action_update_agent require-generated-changes \
+            --source-run-id "${{ needs.prepare.outputs.source_run_id }}"
 
   open-pr:
     name: Open repair PR
@@ -197,34 +216,42 @@ jobs:
           path: ${{ runner.temp }}/workflow-action-update-agent-repair
 
       - id: branch
-        uses: ./.github/actions/workflow-action-update-agent-helper
-        with:
-          command: apply-repair-changes-and-push
-          profile-path: ${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}
-          patch-root: ${{ runner.temp }}/workflow-action-update-agent-repair
-          repair-branch: ${{ needs.prepare.outputs.repair_branch }}
-          target-branch: ${{ needs.prepare.outputs.target_branch }}
-          source-run-id: ${{ needs.prepare.outputs.source_run_id }}
-          source-pr-number: ${{ needs.prepare.outputs.source_pr_number }}
-          source-run-url: ${{ needs.prepare.outputs.source_run_url }}
-          source-workflow-name: ${{ needs.prepare.outputs.source_workflow_name }}
-          ticket-id: ${{ needs.prepare.outputs.ticket_id }}
-          body-file: ${{ runner.temp }}/workflow-action-update-agent-pr-body.md
-          pr-title-file: ${{ runner.temp }}/workflow-action-update-agent-pr-title.txt
-          commit-subject-file: ${{ runner.temp }}/workflow-action-update-agent-commit-subject.txt
-          commit-notes-file: ${{ runner.temp }}/workflow-action-update-agent-commit-notes.txt
+        name: Apply repair changes and push branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private${PYTHONPATH:+:${PYTHONPATH}}" \
+            python3 -m workflow_action_update_agent apply-repair-changes-and-push \
+            --profile-path "${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}" \
+            --patch-root "${{ runner.temp }}/workflow-action-update-agent-repair" \
+            --repair-branch "${{ needs.prepare.outputs.repair_branch }}" \
+            --target-branch "${{ needs.prepare.outputs.target_branch }}" \
+            --source-run-id "${{ needs.prepare.outputs.source_run_id }}" \
+            --source-pr-number "${{ needs.prepare.outputs.source_pr_number }}" \
+            --source-run-url "${{ needs.prepare.outputs.source_run_url }}" \
+            --source-workflow-name "${{ needs.prepare.outputs.source_workflow_name }}" \
+            --ticket-id "${{ needs.prepare.outputs.ticket_id }}" \
+            --body-file "${{ runner.temp }}/workflow-action-update-agent-pr-body.md" \
+            --pr-title-file "${{ runner.temp }}/workflow-action-update-agent-pr-title.txt" \
+            --commit-subject-file "${{ runner.temp }}/workflow-action-update-agent-commit-subject.txt" \
+            --commit-notes-file "${{ runner.temp }}/workflow-action-update-agent-commit-notes.txt" \
+            --github-output "${GITHUB_OUTPUT}"
 
       - id: pr
-        uses: ./.github/actions/workflow-action-update-agent-helper
-        with:
-          command: create-draft-pr
-          profile-path: ${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}
-          body-file: ${{ runner.temp }}/workflow-action-update-agent-pr-body.md
-          pr-title-file: ${{ runner.temp }}/workflow-action-update-agent-pr-title.txt
-          target-branch: ${{ needs.prepare.outputs.target_branch }}
-          repair-branch: ${{ needs.prepare.outputs.repair_branch }}
+        name: Create draft repair PR
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+        run: |
+          set -euo pipefail
+          PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private${PYTHONPATH:+:${PYTHONPATH}}" \
+            python3 -m workflow_action_update_agent create-draft-pr \
+            --profile-path "${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}" \
+            --body-file "${{ runner.temp }}/workflow-action-update-agent-pr-body.md" \
+            --pr-title-file "${{ runner.temp }}/workflow-action-update-agent-pr-title.txt" \
+            --target-branch "${{ needs.prepare.outputs.target_branch }}" \
+            --repair-branch "${{ needs.prepare.outputs.repair_branch }}" \
+            --github-output "${GITHUB_OUTPUT}"
 
   stabilize-pr:
     name: Stabilize and merge repair PR
@@ -244,16 +271,18 @@ jobs:
           fetch-tags: true
 
       - name: Stabilize repair PR
-        uses: ./.github/actions/workflow-action-update-agent-helper
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
-        with:
-          command: stabilize-pr
-          profile-path: ${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}
-          pr-number: ${{ needs['open-pr'].outputs.pr_number }}
-          repair-branch: ${{ needs.prepare.outputs.repair_branch }}
-          head-sha: ${{ needs['open-pr'].outputs.head_sha }}
-          ticket-id: ${{ needs.prepare.outputs.ticket_id }}
-          source-run-id: ${{ needs.prepare.outputs.source_run_id }}
-          merge-when-stable: "true"
+        run: |
+          set -euo pipefail
+          PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private${PYTHONPATH:+:${PYTHONPATH}}" \
+            python3 -m workflow_action_update_agent stabilize-pr \
+            --profile-path "${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}" \
+            --pr-number "${{ needs['open-pr'].outputs.pr_number }}" \
+            --repair-branch "${{ needs.prepare.outputs.repair_branch }}" \
+            --head-sha "${{ needs['open-pr'].outputs.head_sha }}" \
+            --ticket-id "${{ needs.prepare.outputs.ticket_id }}" \
+            --source-run-id "${{ needs.prepare.outputs.source_run_id }}" \
+            --merge-when-stable

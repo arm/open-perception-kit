@@ -1,4 +1,5 @@
 name: Workflow Action Update Agent (Manual)
+run-name: Workflow Action Update Agent ${{ inputs.dispatch_nonce || inputs.pr_number || inputs.source_run_id || github.run_id }}
 
 on:
   workflow_dispatch:
@@ -32,6 +33,16 @@ on:
         description: Repair profile JSON path relative to the repository root.
         required: false
         default: .github/agent-runtime/workflow-action-update-agent/profiles/profile.json
+        type: string
+      context_root:
+        description: Context root where runtime markdown and artifacts live.
+        required: false
+        default: .agent-runtime/workflow-action-update-agent
+        type: string
+      dispatch_nonce:
+        description: Optional unique nonce for dispatch correlation.
+        required: false
+        default: ""
         type: string
 
 permissions: {}
@@ -70,4 +81,6 @@ jobs:
       source_run_id: ${{ inputs.source_run_id || '' }}
       ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
       profile_path: ${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}
+      context_root: ${{ inputs.context_root || '.agent-runtime/workflow-action-update-agent' }}
+      dispatch_nonce: ${{ inputs.dispatch_nonce || '' }}
     secrets: inherit # pragma: allowlist secret

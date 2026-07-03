@@ -175,20 +175,26 @@ jobs:
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
+      - name: Checkout workflow helpers
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          path: workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+          persist-credentials: false
+
       - name: Resolve manual PR context
         id: manual_pr
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        working-directory: ${{ github.workspace }}/workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          pr_number="${{ inputs.pr_number }}"
-          repo="${{ github.repository }}"
-          {
-            echo "base_ref=$(gh pr view "${pr_number}" --repo "${repo}" --json baseRefName --jq .baseRefName)"
-            echo "head_ref=$(gh pr view "${pr_number}" --repo "${repo}" --json headRefName --jq .headRefName)"
-            echo "head_sha=$(gh pr view "${pr_number}" --repo "${repo}" --json headRefOid --jq .headRefOid)"
-          } >> "$GITHUB_OUTPUT"
+          python3 scripts/private/github_pr_context.py \
+            --pr-number "${{ inputs.pr_number }}" \
+            --repo "${{ github.repository }}" \
+            --github-output "${GITHUB_OUTPUT}"
 
       - name: Checkout
         uses: actions/checkout@v6
@@ -234,13 +240,8 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           export PULL_REQUEST_TARGET_BRANCH="${{ inputs.pr_base_ref || steps.manual_pr.outputs.base_ref || github.base_ref }}"
-          # The checkout auth includeIf rules do not apply inside our /work-mounted compose container.
-          git_basic_auth="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
-          export GIT_CONFIG_COUNT=1
-          export GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
-          export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic ${git_basic_auth}"
-          echo "::add-mask::${git_basic_auth}"
-          echo "::add-mask::${GIT_CONFIG_VALUE_0}"
+          source scripts/private/ci_git_auth_env.sh
+          configure_github_git_auth_env "$GITHUB_TOKEN"
           docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm \
             -e PULL_REQUEST_TARGET_BRANCH \
             -e GIT_CONFIG_COUNT \
@@ -273,13 +274,8 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ] || [ -n "${{ inputs.pr_number }}" ]; then
             export PULL_REQUEST_TARGET_BRANCH="${{ inputs.pr_base_ref || steps.manual_pr.outputs.base_ref || github.base_ref }}"
-            # The checkout auth includeIf rules do not apply inside our /work-mounted compose container.
-            git_basic_auth="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
-            export GIT_CONFIG_COUNT=1
-            export GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
-            export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic ${git_basic_auth}"
-            echo "::add-mask::${git_basic_auth}"
-            echo "::add-mask::${GIT_CONFIG_VALUE_0}"
+            source scripts/private/ci_git_auth_env.sh
+            configure_github_git_auth_env "$GITHUB_TOKEN"
             docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm \
               -e PULL_REQUEST_TARGET_BRANCH \
               -e GIT_CONFIG_COUNT \

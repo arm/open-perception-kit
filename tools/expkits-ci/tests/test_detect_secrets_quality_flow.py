@@ -237,9 +237,11 @@ class StaticQualityConfigTests(unittest.TestCase):
         self.assertIn("expkits-ci-quality-report-full", workflow)
         self.assertNotIn("pr-quality-gate:", workflow)
         self.assertNotIn("Finalize PR quality gate result", workflow)
-        self.assertIn("git_basic_auth=", workflow)
+        self.assertNotIn("git_basic_auth=", workflow)
+        self.assertIn("source scripts/private/ci_git_auth_env.sh", workflow)
         self.assertIn("Resolve manual PR context", workflow)
-        self.assertIn("gh pr view", workflow)
+        self.assertIn("python3 scripts/private/github_pr_context.py", workflow)
+        self.assertNotIn("gh pr view", workflow)
         self.assertIn(
             "export PULL_REQUEST_TARGET_BRANCH=\"${{ inputs.pr_base_ref || steps.manual_pr.outputs.base_ref || github.base_ref }}\"",
             workflow,

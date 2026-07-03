@@ -21,7 +21,7 @@ import urllib.error
 import urllib.parse
 import unittest
 from unittest import mock
-from typing import Any, cast
+from typing import Any
 import zipfile
 
 import yaml
@@ -49,8 +49,7 @@ AGENT_REVIEW_MARKDOWN_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review
 AGENT_REVIEW_STATE_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/state.py"
 AGENT_REVIEW_PROMPT_TEMPLATE = REPO_ROOT / ".github/agent-runtime/review/prompts/review.md.in"
 AGENT_REQUIREMENTS_FILE = REPO_ROOT / ".github/agent-runtime/runtime/requirements-openai-agents.txt"
-AGENT_STATIC_REQUIREMENTS_FILE = REPO_ROOT / ".github/agent-runtime/runtime/requirements-static-analysis.txt"
-AGENT_MYPY_CONFIG_FILE = REPO_ROOT / ".github/agent-runtime/runtime/mypy.ini"
+AGENT_MYPY_CONFIG_FILE = REPO_ROOT / "tools/expkits-ci/agent-workflows-mypy.ini"
 AGENT_MODEL_CONFIG_FILE = REPO_ROOT / ".github/agent-runtime/runtime/agent-models.json"
 AGENT_TASK_CONFIG_FILE = REPO_ROOT / ".github/agent-runtime/runtime/agent-tasks.json"
 OPENAI_AGENT_RUNNER_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/openai_agent_runner.py"
@@ -58,7 +57,6 @@ OPENAI_AGENT_INIT_FILE = REPO_ROOT / "scripts/private/agent_runtime/__init__.py"
 OPENAI_AGENT_WORKFLOW_TASK_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/tasks/base.py"
 OPENAI_AGENT_TASKS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/tasks/configured.py"
 OPENAI_AGENT_CONTRACTS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/contracts.py"
-OPENAI_AGENT_GITHUB_API_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/github_api.py"
 OPENAI_AGENT_GITHUB_ACTIONS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/github_actions.py"
 OPENAI_AGENT_REPO_TOOLS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/tools/repo.py"
 OPENAI_AGENT_SHELL_TOOLS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/tools/shell.py"
@@ -69,7 +67,6 @@ OPENAI_AGENT_TASK_CONFIG_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/con
 OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/tasks/estimator.py"
 OPENAI_AGENT_MODEL_CONFIG_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/config/model.py"
 OPENAI_AGENT_REVIEW_OUTPUT_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/output_filter.py"
-OPENAI_AGENT_STATIC_ANALYSIS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/static_analysis.py"
 OPENAI_AGENT_WORKFLOW_PY_FILES = sorted((REPO_ROOT / "scripts/private/agent_runtime").rglob("*.py"))
 OPENAI_AGENT_WORKFLOW_POLICY_FILES = [
     path
@@ -81,7 +78,6 @@ HELPER_RUNTIME_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agen
 HELPER_REPAIR_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent/repair.py"
 HELPER_GITHUB_WORKFLOWS_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent/github_workflows.py"
 HELPER_STABILIZATION_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent/stabilization.py"
-HELPER_ACTION_FILE = REPO_ROOT / ".github/actions/workflow-action-update-agent-helper/action.yml"
 WORKFLOW_AUTOMATION_ROOT = REPO_ROOT / ".github/agent-runtime/workflow-action-update-agent"
 PROMPT_TEMPLATE_ROOT = WORKFLOW_AUTOMATION_ROOT / "prompts"
 PROFILE_ROOT = WORKFLOW_AUTOMATION_ROOT / "profiles"
@@ -239,10 +235,6 @@ OPENAI_AGENT_CONTRACTS = load_agent_workflow_module(
     OPENAI_AGENT_CONTRACTS_SCRIPT,
     "agent_runtime.contracts",
 )
-OPENAI_AGENT_GITHUB_API = load_agent_workflow_module(
-    OPENAI_AGENT_GITHUB_API_SCRIPT,
-    "agent_runtime.github_api",
-)
 OPENAI_AGENT_GITHUB_ACTIONS = load_agent_workflow_module(
     OPENAI_AGENT_GITHUB_ACTIONS_SCRIPT,
     "agent_runtime.github_actions",
@@ -291,10 +283,6 @@ AGENT_REVIEW_OUTPUT = load_agent_workflow_module(
     OPENAI_AGENT_REVIEW_OUTPUT_SCRIPT,
     "agent_runtime.review.output_filter",
 )
-OPENAI_AGENT_STATIC_ANALYSIS = load_agent_workflow_module(
-    OPENAI_AGENT_STATIC_ANALYSIS_SCRIPT,
-    "agent_runtime.static_analysis",
-)
 OPENAI_AGENT_RUNTIME_CONTEXT = load_agent_workflow_module(
     OPENAI_AGENT_RUNTIME_CONTEXT_SCRIPT,
     "agent_runtime.runtime_context",
@@ -314,7 +302,16 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
         self.assertEqual(
             set(dispatch_inputs.keys()),
-            {"source_run_id", "pr_number", "head_sha", "target_branch", "ticket_id", "profile_path"},
+            {
+                "source_run_id",
+                "pr_number",
+                "head_sha",
+                "target_branch",
+                "ticket_id",
+                "profile_path",
+                "context_root",
+                "dispatch_nonce",
+            },
         )
         self.assertNotIn("workflow_run", workflow["on"])
         self.assertEqual(repair_job["uses"], "./.github/workflows/workflow-action-update-agent-reusable.yml")
@@ -327,7 +324,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         self.assertEqual(
             set(stabilize_job["with"].keys()),
-            {"pr_number", "head_sha", "source_run_id", "ticket_id", "profile_path"},
+            {"pr_number", "head_sha", "source_run_id", "ticket_id", "profile_path", "context_root", "dispatch_nonce"},
         )
         self.assertNotIn("source_workflow_conclusion", repair_job["with"])
         self.assertNotIn("source_head_branch", repair_job["with"])
@@ -337,12 +334,16 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(repair_job["secrets"], "inherit")
         self.assertEqual(stabilize_job["secrets"], "inherit")
 
-    def test_reusable_workflow_uses_profile_and_composite_action(self):
+    def test_reusable_workflow_uses_profile_and_direct_helper_commands(self):
         workflow = load_yaml(REUSABLE_WORKFLOW_FILE)
         inputs = workflow["on"]["workflow_call"]["inputs"]
+        prepare_job = workflow["jobs"]["prepare"]
         agent_job = workflow["jobs"]["agent-fix"]
+        open_pr_job = workflow["jobs"]["open-pr"]
         stabilize_job = workflow["jobs"]["stabilize-pr"]
+        prepare_steps = step_map(prepare_job)
         agent_steps = step_map(agent_job)
+        open_pr_steps = step_map(open_pr_job)
         stabilize_steps = step_map(stabilize_job)
         agent_step_names = [
             step.get("name") or step.get("id") or step.get("uses")
@@ -358,33 +359,32 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             ".github/agent-runtime/workflow-action-update-agent/profiles/profile.json",
         )
 
-        helper_steps = []
+        workflow_source = REUSABLE_WORKFLOW_FILE.read_text(encoding="utf-8")
+        self.assertNotIn("./.github/actions/workflow-action-update-agent-helper", workflow_source)
         for job in workflow["jobs"].values():
             for step in job["steps"]:
-                if step.get("uses") == "./.github/actions/workflow-action-update-agent-helper":
-                    helper_steps.append(step["with"]["command"])
+                self.assertNotEqual(
+                    step.get("uses"),
+                    "./.github/actions/workflow-action-update-agent-helper",
+                )
 
-        self.assertEqual(
-            set(helper_steps),
-            {
-                "resolve-inputs",
-                "collect-context",
-                "build-markdown",
-                "package-repository-changes",
-                "require-generated-changes",
-                "apply-repair-changes-and-push",
-                "create-draft-pr",
-                "stabilize-pr",
-            },
-        )
-        apply_step = next(
-            step
-            for step in workflow["jobs"]["open-pr"]["steps"]
-            if step.get("with", {}).get("command") == "apply-repair-changes-and-push"
-        )
-        self.assertEqual(
-            apply_step["with"]["target-branch"],
-            "${{ needs.prepare.outputs.target_branch }}",
+        output_steps = {
+            "Resolve repair inputs": "resolve-inputs",
+            "Package repository changes": "package-repository-changes",
+            "Apply repair changes and push branch": "apply-repair-changes-and-push",
+            "Create draft repair PR": "create-draft-pr",
+        }
+        all_steps = {**prepare_steps, **agent_steps, **open_pr_steps, **stabilize_steps}
+        for step_name, command in output_steps.items():
+            run = all_steps[step_name]["run"]
+            self.assertIn(f"python3 -m workflow_action_update_agent {command}", run)
+            self.assertIn('--github-output "${GITHUB_OUTPUT}"', run)
+            self.assertIn('PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private', run)
+
+        apply_step_run = open_pr_steps["Apply repair changes and push branch"]["run"]
+        self.assertIn(
+            '--target-branch "${{ needs.prepare.outputs.target_branch }}"',
+            apply_step_run,
         )
         self.assertEqual(agent_job["runs-on"], OPENAI_AGENT_RUNNER_LABEL)
         self.assertEqual(stabilize_job["runs-on"], "ubuntu-latest")
@@ -403,7 +403,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         self.assertLess(
             agent_step_names.index("Run OpenAI SDK repair agent"),
-            agent_step_names.index("patch"),
+            agent_step_names.index("Package repository changes"),
         )
         self.assertNotIn("Prime OpenAI SDK CLI", stabilize_steps)
         self.assertNotIn("Apply deterministic workflow freshness patch", agent_steps)
@@ -413,11 +413,9 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(python_step["with"]["python-version"], "3.10")
         install_step = agent_steps["Install OpenAI agent runtime"]
         self.assertEqual(install_step["shell"], "bash")
-        self.assertIn("python3 -m venv .agent-runtime/openai-agent-venv", install_step["run"])
-        self.assertIn(
-            ".agent-runtime/openai-agent-venv/bin/python -m pip install -r .github/agent-runtime/runtime/requirements-openai-agents.txt",
-            install_step["run"],
-        )
+        self.assertIn("python3 scripts/private/agent_runtime/setup_runtime.py", install_step["run"])
+        self.assertIn("--install-package ./tools/expkits-ci", install_step["run"])
+        self.assertNotIn("python3 -m venv .agent-runtime/openai-agent-venv", install_step["run"])
         agent_step = agent_steps["Run OpenAI SDK repair agent"]
         self.assertEqual(agent_step["shell"], "bash")
         self.assertEqual(
@@ -437,19 +435,29 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertNotIn("--max-turns", agent_step["run"])
         self.assertNotIn("--model", agent_step["run"])
         static_regression_step = agent_steps["Run static regression tests"]
+        self.assertNotIn("pip install ./tools/expkits-ci", static_regression_step["run"])
         self.assertIn(
-            ".agent-runtime/openai-agent-venv/bin/python -m pip install -r .github/agent-runtime/runtime/requirements-static-analysis.txt",
+            ".agent-runtime/openai-agent-venv/bin/python -m expkits_ci.agent_static_analysis",
             static_regression_step["run"],
         )
         self.assertIn(
-            ".agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/static_analysis.py",
+            "python3 -m unittest discover -s scripts/private/tests",
+            static_regression_step["run"],
+        )
+        self.assertIn(
+            "python3 -m unittest discover -s scripts/private/agent_runtime/tests",
+            static_regression_step["run"],
+        )
+        self.assertIn(
+            "python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_agent_static_analysis.py'",
             static_regression_step["run"],
         )
         self.assertEqual(stabilize_job["permissions"]["actions"], "write")
         self.assertEqual(stabilize_steps["Checkout workflow helpers"]["uses"], "actions/checkout@v6")
+        stabilize_run = stabilize_steps["Stabilize repair PR"]["run"]
         self.assertEqual(
-            stabilize_steps["Stabilize repair PR"]["uses"],
-            "./.github/actions/workflow-action-update-agent-helper",
+            stabilize_steps["Stabilize repair PR"]["shell"],
+            "bash",
         )
         self.assertEqual(
             stabilize_steps["Stabilize repair PR"]["env"]["GITHUB_TOKEN"],
@@ -459,31 +467,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             stabilize_steps["Stabilize repair PR"]["env"]["GH_TOKEN"],
             "${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}",
         )
-        self.assertEqual(
-            stabilize_steps["Stabilize repair PR"]["with"]["merge-when-stable"],
-            "true",
-        )
-
-    def test_helper_action_exposes_structured_outputs(self):
-        action = load_yaml(HELPER_ACTION_FILE)
-
-        self.assertEqual(action["runs"]["using"], "composite")
-        self.assertEqual(
-            action["inputs"]["profile-path"]["default"],
-            ".github/agent-runtime/workflow-action-update-agent/profiles/profile.json",
-        )
-        self.assertIn("command", action["inputs"])
-        self.assertEqual(action["inputs"]["merge-when-stable"]["default"], "false")
-        self.assertIn("should_run", action["outputs"])
-        self.assertIn("source_pr_number", action["outputs"])
-        self.assertIn("repair_branch", action["outputs"])
-        self.assertIn("agent_model", action["outputs"])
-        self.assertIn("has_changes", action["outputs"])
-        self.assertIn("head_sha", action["outputs"])
-        self.assertIn("pr_number", action["outputs"])
-        self.assertIn("review_recommendation", action["outputs"])
-        self.assertIn("review_run_id", action["outputs"])
-        self.assertIn("${{ github.action_path }}", action["runs"]["steps"][0]["run"])
+        self.assertIn("python3 -m workflow_action_update_agent stabilize-pr", stabilize_run)
+        self.assertIn("--merge-when-stable", stabilize_run)
 
     def test_helper_script_uses_github_workspace_as_repo_root(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -505,132 +490,6 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             ),
             Path(temp_dir).resolve() / ".workflow-action-update-agent-helper",
         )
-
-    def test_download_github_archive_follows_redirect_location(self):
-        redirect_error = urllib.error.HTTPError(
-            url="https://api.github.com/repos/Arm-Debug/amp-dev-forge/actions/artifacts/1/zip",
-            code=302,
-            msg="Found",
-            hdrs=http_headers({"Location": "https://objects.githubusercontent.com/archive.zip"}),
-            fp=None,
-        )
-        opener = mock.Mock()
-        opener.open.side_effect = redirect_error
-        redirect_response = mock.MagicMock(status=200, reason="OK")
-        redirect_response.read.return_value = b"zip-bytes"
-        redirect_connection = mock.MagicMock()
-        redirect_connection.getresponse.return_value = redirect_response
-
-        with mock.patch.dict(os.environ, {"GH_TOKEN": "test-token"}, clear=False):
-            with mock.patch("urllib.request.build_opener", return_value=opener):
-                with mock.patch("http.client.HTTPSConnection", return_value=redirect_connection) as connection:
-                    result = OPENAI_AGENT_GITHUB_API.download_github_archive(
-                        "https://api.github.com/repos/Arm-Debug/amp-dev-forge/actions/artifacts/1/zip",
-                    )
-
-        self.assertEqual(result, b"zip-bytes")
-        connection.assert_called_once_with("objects.githubusercontent.com", timeout=60)
-        redirect_connection.request.assert_called_once_with(
-            "GET",
-            "/archive.zip",
-            headers={"User-Agent": OPENAI_AGENT_CONTRACTS.GITHUB_USER_AGENT},
-        )
-        redirect_connection.close.assert_called_once_with()
-
-    def test_download_github_archive_rejects_unsafe_redirect_location(self):
-        cleartext_location = urllib.parse.urlunsplit(
-            ("http", "objects.githubusercontent.com", "/archive.zip", "", "")
-        )
-        for location in (
-            cleartext_location,
-            "https://example.com/archive.zip",
-        ):
-            with self.subTest(location=location):
-                redirect_error = urllib.error.HTTPError(
-                    url="https://api.github.com/repos/Arm-Debug/amp-dev-forge/actions/artifacts/1/zip",
-                    code=302,
-                    msg="Found",
-                    hdrs=http_headers({"Location": location}),
-                    fp=None,
-                )
-                opener = mock.Mock()
-                opener.open.side_effect = redirect_error
-
-                with mock.patch.dict(os.environ, {"GH_TOKEN": "test-token"}, clear=False):
-                    with mock.patch("urllib.request.build_opener", return_value=opener):
-                        with self.assertRaisesRegex(ValueError, "GitHub archive redirect URL"):
-                            OPENAI_AGENT_GITHUB_API.download_github_archive(
-                                "https://api.github.com/repos/Arm-Debug/amp-dev-forge/actions/artifacts/1/zip",
-                            )
-
-    def test_github_api_json_requires_relative_endpoint(self):
-        with self.assertRaisesRegex(ValueError, "must be relative"):
-            OPENAI_AGENT_GITHUB_API.github_api_json("https://api.github.com/user")
-
-    def test_github_api_headers_distinguish_required_and_optional_auth(self):
-        with mock.patch.dict(os.environ, {"GH_TOKEN": "env-token"}, clear=True):
-            required_headers = OPENAI_AGENT_GITHUB_API.github_api_headers(token="")
-            optional_headers = OPENAI_AGENT_GITHUB_API.github_api_headers(
-                token=None,
-                require_token=False,
-            )
-
-        self.assertEqual(required_headers["Authorization"], "Bearer env-token")
-        self.assertNotIn("Authorization", optional_headers)
-
-    def test_github_api_query_endpoint_encodes_parameters(self):
-        endpoint = OPENAI_AGENT_GITHUB_API.github_api_query_endpoint(
-            "repos/Arm-Debug/amp-dev-forge/actions/workflows/agent-review.yml/runs",
-            {"branch": "feature/with space&marker", "per_page": 20},
-        )
-
-        self.assertEqual(
-            endpoint,
-            "repos/Arm-Debug/amp-dev-forge/actions/workflows/agent-review.yml/runs"
-            "?branch=feature%2Fwith+space%26marker&per_page=20",
-        )
-
-    def test_extract_archive_bytes_rejects_members_outside_destination(self):
-        for member_template in ("../outside.txt", "{temp_root}/outside.txt"):
-            with self.subTest(member_template=member_template):
-                with tempfile.TemporaryDirectory() as temp_dir:
-                    temp_root = Path(temp_dir)
-                    destination = temp_root / "destination"
-                    member_name = member_template.format(temp_root=temp_root)
-                    archive = build_zip_archive(
-                        {
-                            "logs/job.txt": "hello from logs\n",
-                            member_name: "owned\n",
-                        }
-                    )
-
-                    with self.assertRaisesRegex(RuntimeError, "escapes destination"):
-                        OPENAI_AGENT_GITHUB_API.extract_archive_bytes(archive, destination)
-
-                    self.assertFalse((temp_root / "outside.txt").exists())
-                    self.assertFalse((destination / "logs/job.txt").exists())
-
-    def test_extract_archive_bytes_returns_extracted_files(self):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            destination = Path(temp_dir) / "destination"
-            archive = build_zip_archive(
-                {
-                    "logs/job.txt": "hello from logs\n",
-                    "artifact/report.md": "# report\n",
-                }
-            )
-
-            extracted = OPENAI_AGENT_GITHUB_API.extract_archive_bytes(archive, destination)
-
-        self.assertEqual(
-            [path.relative_to(destination).as_posix() for path in extracted],
-            ["artifact/report.md", "logs/job.txt"],
-        )
-
-    def test_workflow_helper_does_not_use_unsafe_zip_extractall(self):
-        content = OPENAI_AGENT_GITHUB_API_SCRIPT.read_text(encoding="utf-8")
-
-        self.assertNotIn(".extractall(", content)
 
     def test_read_review_artifact_state_uses_safe_archive_extraction(self):
         archive = build_zip_archive(
@@ -781,19 +640,14 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(python_step["with"]["python-version"], "3.10")
         install_step = review_steps["Install OpenAI agent runtime"]
         self.assertEqual(install_step["shell"], "bash")
-        self.assertIn("python3 -m venv .agent-runtime/openai-agent-venv", install_step["run"])
-        self.assertIn(
-            ".agent-runtime/openai-agent-venv/bin/python -m pip install -r .github/agent-runtime/runtime/requirements-openai-agents.txt",
-            install_step["run"],
-        )
+        self.assertIn("python3 scripts/private/agent_runtime/setup_runtime.py", install_step["run"])
+        self.assertIn("--install-package ./tools/expkits-ci", install_step["run"])
+        self.assertNotIn("python3 -m venv .agent-runtime/openai-agent-venv", install_step["run"])
         static_step = review_steps["Run Agent workflow static analysis"]
         self.assertEqual(static_step["shell"], "bash")
+        self.assertNotIn("pip install ./tools/expkits-ci", static_step["run"])
         self.assertIn(
-            ".agent-runtime/openai-agent-venv/bin/python -m pip install -r .github/agent-runtime/runtime/requirements-static-analysis.txt",
-            static_step["run"],
-        )
-        self.assertIn(
-            ".agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/static_analysis.py --base-ref \"${REVIEW_BASE_REF}\"",
+            ".agent-runtime/openai-agent-venv/bin/python -m expkits_ci.agent_static_analysis --base-ref \"${REVIEW_BASE_REF}\"",
             static_step["run"],
         )
         checkout_step = review_steps["Checkout pull request head"]
@@ -924,11 +778,11 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn('"apply"', shell_tools_source)
         self.assertIn("def validate_patch_paths", path_tools_source)
         self.assertIn('["git", "apply", "--whitespace=nowarn"]', tools_source)
-        self.assertIn("class TaskEstimate", estimator_source)
-        self.assertIn("class TaskEstimatorWorkflowTask", estimator_source)
-        self.assertIn("from .base import AgentWorkflowTask", estimator_source)
         self.assertIn("async def estimate_task_fit", estimator_source)
         self.assertIn("def build_task_manifest", estimator_source)
+        self.assertIn("def deterministic_task_limit_violations", estimator_source)
+        self.assertNotIn("TaskEstimatorWorkflowTask", estimator_source)
+        self.assertNotIn("run_agent(", estimator_source)
         self.assertIn("class AgentTaskSettings", task_config_source)
         self.assertIn("def resolve_agent_task_settings", task_config_source)
         self.assertIn("from ..contracts import", model_config_source)
@@ -945,6 +799,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("--agent-instance", runner_source)
         self.assertIn("--model-config-file", runner_source)
         self.assertIn("--task-config-file", runner_source)
+        self.assertNotIn("--task-estimate-turns", runner_source)
         self.assertNotIn("ReviewResult", runner_source)
         self.assertNotIn("read_repo_file", runner_source)
         self.assertNotIn("TaskEstimate", runner_source)
@@ -963,6 +818,16 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 ["scripts/private/agent_runtime/openai_agent_runner.py"],
             )
         )
+        self.assertTrue(
+            quality_checks.QualityChecks.should_run_agent_runtime_static_analysis(
+                ["scripts/private/tests/test_github_api.py"],
+            )
+        )
+        self.assertTrue(
+            quality_checks.QualityChecks.should_run_agent_runtime_static_analysis(
+                ["tools/expkits-ci/tests/test_agent_static_analysis.py"],
+            )
+        )
         self.assertFalse(
             quality_checks.QualityChecks.should_run_agent_runtime_static_analysis(
                 ["scripts/private/unrelated_helper.py"],
@@ -974,7 +839,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         workflow_agents = WORKFLOW_AUTOMATION_AGENTS_FILE.read_text(encoding="utf-8")
 
         self.assertIn("Workflow Action Update Agent helper commands", helper_agents)
-        self.assertIn("agent_runtime.github_api", helper_agents)
+        self.assertIn("scripts/private/github_api.py", helper_agents)
         self.assertIn("agent_runtime.github_actions", helper_agents)
         self.assertIn("prompt templates", workflow_agents)
         self.assertIn(".github/agent-runtime/runtime/agent-models.json", workflow_agents)
@@ -1015,7 +880,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         finally:
             runner.AGENT_TASKS = original_tasks
 
-    def test_task_estimator_uses_agent_workflow_task_contract(self):
+    def test_task_estimator_uses_deterministic_preflight_only(self):
         estimator = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT,
             "agent_runtime.tasks.estimator_fake_contract",
@@ -1025,7 +890,8 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "agent_runtime.tasks.configured_fake_contract",
         )
 
-        self.assertTrue(issubclass(estimator.TaskEstimatorWorkflowTask, estimator.AgentWorkflowTask))
+        self.assertFalse(hasattr(estimator, "TaskEstimatorWorkflowTask"))
+        self.assertFalse(hasattr(estimator, "TaskEstimate"))
         self.assertTrue(issubclass(agent_tasks.ConfiguredAgentWorkflowTask, agent_tasks.AgentWorkflowTask))
         self.assertTrue(issubclass(agent_tasks.ReviewAgentTask, agent_tasks.AgentWorkflowTask))
         self.assertTrue(issubclass(agent_tasks.RepositoryEditAgentTask, agent_tasks.AgentWorkflowTask))
@@ -1294,117 +1160,6 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 max_turns_override=12,
             ).max_turns,
             12,
-        )
-
-    def test_openai_agent_runner_blocks_prompt_that_exceeds_task_limit(self):
-        estimator = load_agent_workflow_module_with_fake_sdk(
-            OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT,
-            "agent_runtime.tasks.estimator_fake_sdk_prompt_limit",
-        )
-        set_run_context = estimator.require_run_context.__globals__["set_run_context"]
-        with tempfile.TemporaryDirectory() as temp_dir:
-            set_run_context(Path(temp_dir), 10)
-            settings = OPENAI_AGENT_TASK_CONFIG.resolve_agent_task_settings(
-                AGENT_TASK_CONFIG_FILE,
-                OPENAI_AGENT_CONTRACTS.AgentCommand.REPAIR,
-                max_prompt_chars_override=10,
-            )
-
-            manifest = estimator.build_task_manifest(
-                OPENAI_AGENT_CONTRACTS.AgentCommand.REPAIR,
-                "x" * 11,
-                settings,
-                "gpt-test",
-            )
-            reasons = estimator.deterministic_task_limit_violations(manifest)
-
-        self.assertIn("prompt has 11 characters", reasons[0])
-
-    def test_openai_agent_runner_reports_review_diff_limits_as_advisory(self):
-        estimator = load_agent_workflow_module_with_fake_sdk(
-            OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT,
-            "agent_runtime.tasks.estimator_fake_sdk_review_limit",
-        )
-        set_run_context = estimator.require_run_context.__globals__["set_run_context"]
-        with tempfile.TemporaryDirectory() as temp_dir:
-            repo_root = Path(temp_dir)
-            subprocess.run(["git", "init"], cwd=repo_root, check=True, capture_output=True)
-            subprocess.run(
-                ["git", "config", "user.email", "agent@example.invalid"],
-                cwd=repo_root,
-                check=True,
-            )
-            subprocess.run(["git", "config", "user.name", "Agent"], cwd=repo_root, check=True)
-            (repo_root / "README.md").write_text("base\n", encoding="utf-8")
-            subprocess.run(["git", "add", "README.md"], cwd=repo_root, check=True)
-            subprocess.run(["git", "commit", "-m", "base"], cwd=repo_root, check=True, capture_output=True)
-            base_sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo_root, text=True).strip()
-
-            for index in range(3):
-                (repo_root / f"file-{index}.txt").write_text(f"{index}\n", encoding="utf-8")
-            subprocess.run(["git", "add", "."], cwd=repo_root, check=True)
-            subprocess.run(["git", "commit", "-m", "change"], cwd=repo_root, check=True, capture_output=True)
-            head_sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo_root, text=True).strip()
-
-            set_run_context(repo_root, 10)
-            settings = OPENAI_AGENT_TASK_CONFIG.resolve_agent_task_settings(
-                AGENT_TASK_CONFIG_FILE,
-                OPENAI_AGENT_CONTRACTS.AgentCommand.REVIEW,
-                max_review_files_override=2,
-                max_review_changed_lines_override=2,
-            )
-            prompt = f"- Base SHA: `{base_sha}`\n- Head SHA: `{head_sha}`\n"
-            manifest = estimator.build_task_manifest(
-                OPENAI_AGENT_CONTRACTS.AgentCommand.REVIEW,
-                prompt,
-                settings,
-                "gpt-test",
-            )
-            reasons = estimator.deterministic_task_limit_violations(manifest)
-            estimate = types.SimpleNamespace(
-                fits=True,
-                estimated_turns=1,
-                reason="Review can continue.",
-                split_recommendation=None,
-            )
-            advisory_reasons = estimator.task_estimate_advisory_reasons(manifest, cast(Any, estimate))
-
-        self.assertEqual(reasons, [])
-        self.assertIn("review scope touches 3 files", advisory_reasons[0])
-        self.assertIn("review scope changes 3 lines", advisory_reasons[1])
-
-    def test_openai_agent_runner_reports_estimated_turn_overrun_as_advisory(self):
-        estimator = load_agent_workflow_module_with_fake_sdk(
-            OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT,
-            "agent_runtime.tasks.estimator_fake_sdk_turn_limit",
-        )
-        manifest = {
-            "prompt_chars": 10,
-            "limits": {
-                "max_turns": OPENAI_REVIEW_MAX_TURNS,
-                "max_prompt_chars": 100,
-                "max_review_files": None,
-                "max_review_changed_lines": None,
-            },
-            "git_metrics": {
-                "total_diff_files": 0,
-                "total_diff_changed_lines": 0,
-            },
-        }
-        estimate = types.SimpleNamespace(
-            fits=True,
-            estimated_turns=OPENAI_REVIEW_MAX_TURNS + 1,
-            reason="Needs more exploration.",
-            split_recommendation="Split by workflow.",
-        )
-
-        block_reasons = estimator.task_estimate_block_reasons(manifest)
-        advisory_reasons = estimator.task_estimate_advisory_reasons(manifest, cast(Any, estimate))
-
-        self.assertEqual(block_reasons, [])
-        self.assertEqual(
-            advisory_reasons,
-            [f"estimator expects {OPENAI_REVIEW_MAX_TURNS + 1} turns, above the {OPENAI_REVIEW_MAX_TURNS} turn limit"],
         )
 
     def test_agent_review_output_drops_invalid_right_side_anchors(self):
@@ -1708,38 +1463,16 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
 
     def test_agent_static_analysis_dependencies_are_pinned(self):
-        requirements = AGENT_STATIC_REQUIREMENTS_FILE.read_text(encoding="utf-8").splitlines()
+        pyproject = (REPO_ROOT / "tools/expkits-ci/pyproject.toml").read_text(encoding="utf-8")
 
-        self.assertEqual(
-            set(requirements),
-            {
-                "mypy==1.16.1",
-                "pyflakes==3.3.2",
-                "types-PyYAML==6.0.12.20250516",
-                "vulture==2.14",
-            },
-        )
-
-    def test_agent_static_analysis_derives_removed_paths_from_name_status(self):
-        name_status = "\0".join(
-            [
-                "R100",
-                "tools/retired-runner.py",
-                "tools/agent-runner.py",
-                "D",
-                "scripts/private/unused_helper.py",
-                "",
-            ]
-        )
-
-        self.assertEqual(
-            OPENAI_AGENT_STATIC_ANALYSIS.parse_removed_or_renamed_paths(name_status),
-            ["tools/retired-runner.py", "scripts/private/unused_helper.py"],
-        )
-        self.assertEqual(
-            OPENAI_AGENT_STATIC_ANALYSIS.reference_tokens_for_removed_path("tools/retired-runner.py"),
-            {"tools/retired-runner.py", "tools/retired-runner"},
-        )
+        self.assertFalse((REPO_ROOT / ".github/agent-runtime/runtime/requirements-static-analysis.txt").exists())
+        for requirement in (
+            '"mypy==1.16.1"',
+            '"pyflakes==3.3.2"',
+            '"types-PyYAML==6.0.12.20250516"',
+            '"vulture==2.14"',
+        ):
+            self.assertIn(requirement, pyproject)
 
     def test_agent_models_are_centralized_and_resolved_per_instance(self):
         model_config = json.loads(AGENT_MODEL_CONFIG_FILE.read_text(encoding="utf-8"))
@@ -1776,7 +1509,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(set(task_config["tasks"]), {"run-review", "run-repair", "run-stabilization"})
         self.assertEqual(task_config["tasks"]["run-review"]["agent_instance"], "review")
         self.assertEqual(task_config["tasks"]["run-review"]["max_turns"], OPENAI_REVIEW_MAX_TURNS)
-        self.assertEqual(task_config["tasks"]["run-review"]["task_estimate_turns"], 3)
+        self.assertNotIn("task_estimate_turns", task_config["tasks"]["run-review"])
         self.assertEqual(task_config["tasks"]["run-review"]["max_prompt_chars"], 180000)
         self.assertEqual(task_config["tasks"]["run-review"]["max_review_files"], 120)
         self.assertEqual(task_config["tasks"]["run-review"]["max_review_changed_lines"], 15000)
@@ -1914,6 +1647,13 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         self.assertIn("Resolve manual PR context", pek_steps)
         self.assertIn("Resolve manual PR context", sonar_steps)
+        self.assertIn("Checkout workflow helpers", pek_steps)
+        self.assertIn("Checkout workflow helpers", sonar_steps)
+        for steps in (pek_steps, sonar_steps):
+            resolver_run = steps["Resolve manual PR context"]["run"]
+            self.assertIn("python3 scripts/private/github_pr_context.py", resolver_run)
+            self.assertIn('--github-output "${GITHUB_OUTPUT}"', resolver_run)
+            self.assertNotIn("gh pr view", resolver_run)
         for job_name in ("linux-quick-start-build-test", "rpi5-quick-start-build-test", "quality-checks"):
             job_condition = pek_ci["jobs"][job_name]["if"]
             self.assertIn(expected_label_gate, job_condition)
@@ -1938,17 +1678,33 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "-e PULL_REQUEST_TARGET_BRANCH",
             pek_steps["Check Repo Quality gate (PR)"]["run"],
         )
+        self.assertIn(
+            "source scripts/private/ci_git_auth_env.sh",
+            pek_steps["Check Repo Quality gate (PR)"]["run"],
+        )
+        self.assertIn(
+            "source scripts/private/ci_git_auth_env.sh",
+            pek_steps["Run clang-tidy baseline check"]["run"],
+        )
         self.assertIn("inputs.pr_number", sonar_steps["SonarQube analysis"]["env"]["PR_KEY"])
         self.assertIn("steps.manual_pr.outputs.base_ref", sonar_steps["SonarQube analysis"]["env"]["PR_BASE"])
+        self.assertIn(
+            "python3 scripts/private/sonar_quality_gate_workflow.py probe-api-access",
+            sonar_steps["Probe Sonar API access"]["run"],
+        )
+        self.assertIn(
+            "python3 scripts/private/sonar_quality_gate_workflow.py report-quality-gate",
+            sonar_steps["Report Sonar quality gate details"]["run"],
+        )
 
     def test_stabilizer_workflow_uses_canonical_agent_review_shape(self):
         workflow = load_yaml(STABILIZER_WORKFLOW_FILE)
         call_inputs = workflow["on"]["workflow_call"]["inputs"]
-        dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
         job = workflow["jobs"]["stabilize"]
         steps = step_map(job)
 
-        self.assertEqual(set(call_inputs.keys()), set(dispatch_inputs.keys()))
+        self.assertNotIn("workflow_dispatch", workflow["on"])
+        self.assertIn("dispatch_nonce", call_inputs)
         self.assertEqual(job["runs-on"], OPENAI_AGENT_RUNNER_LABEL)
         self.assertEqual(job["permissions"]["actions"], "read")
         self.assertEqual(steps["Checkout workflow helpers"]["with"]["ref"], "${{ steps.helper_ref.outputs.head_sha }}")
@@ -1978,26 +1734,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("gh pr view", helper_ref_step["run"])
         self.assertIn("headRefOid", helper_ref_step["run"])
         snapshot_step = steps["Snapshot workflow helper bundle"]
-        self.assertIn('cp -R scripts/private/agent_runtime/.', snapshot_step["run"])
-        self.assertIn("cp .github/agent-runtime/runtime/requirements-openai-agents.txt", snapshot_step["run"])
-        self.assertIn("cp .github/agent-runtime/runtime/agent-models.json", snapshot_step["run"])
-        self.assertIn("cp .github/agent-runtime/runtime/agent-tasks.json", snapshot_step["run"])
-        self.assertIn(
-            'cp -R .github/agent-runtime/review/prompts/. "${bundle_root}/.github/agent-runtime/review/prompts"',
-            snapshot_step["run"],
-        )
-        self.assertIn(
-            'cp -R .github/agent-runtime/review/schemas/. "${bundle_root}/.github/agent-runtime/review/schemas"',
-            snapshot_step["run"],
-        )
-        self.assertIn(
-            'cp -R .github/agent-runtime/workflow-action-update-agent/prompts/. "${bundle_root}/.github/agent-runtime/workflow-action-update-agent/prompts"',
-            snapshot_step["run"],
-        )
-        self.assertIn(
-            'cp -R .github/agent-runtime/workflow-action-update-agent/profiles/. "${bundle_root}/.github/agent-runtime/workflow-action-update-agent/profiles"',
-            snapshot_step["run"],
-        )
+        self.assertIn("python3 -m workflow_action_update_agent snapshot-helper-bundle", snapshot_step["run"])
+        self.assertIn('--bundle-root "${RUNNER_TEMP}/workflow-action-update-agent-helper"', snapshot_step["run"])
+        self.assertNotIn("cp -R", snapshot_step["run"])
+        self.assertNotIn("cp scripts/private/github_api.py", snapshot_step["run"])
         self.assertNotIn('cp -R agent-review/. "${bundle_root}/agent-review"', snapshot_step["run"])
         self.assertNotIn(".github/agent-runtime/review/out", snapshot_step["run"])
         self.assertNotIn('cp -R scripts/private/. "${bundle_root}/scripts/private"', snapshot_step["run"])
@@ -2007,11 +1747,15 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(python_step["with"]["python-version"], "3.10")
         install_step = steps["Install OpenAI agent runtime"]
         self.assertEqual(install_step["shell"], "bash")
-        self.assertIn("python3 -m venv .agent-runtime/openai-agent-venv", install_step["run"])
         self.assertIn(
-            ".agent-runtime/openai-agent-venv/bin/python -m pip install -r .workflow-action-update-agent-helper/.github/agent-runtime/runtime/requirements-openai-agents.txt",
+            "python3 .workflow-action-update-agent-helper/scripts/private/agent_runtime/setup_runtime.py",
             install_step["run"],
         )
+        self.assertIn(
+            "--requirements-file .workflow-action-update-agent-helper/.github/agent-runtime/runtime/requirements-openai-agents.txt",
+            install_step["run"],
+        )
+        self.assertNotIn("python3 -m venv .agent-runtime/openai-agent-venv", install_step["run"])
         agent_step = steps["Run OpenAI SDK stabilization agent"]
         self.assertEqual(agent_step["shell"], "bash")
         self.assertEqual(
@@ -2039,27 +1783,30 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         self.assertNotIn("--agent-instance", agent_step["run"])
         self.assertNotIn("--max-turns", agent_step["run"])
-        self.assertEqual(
-            steps["Resolve PR details"]["with"]["command"],
-            "resolve-pr-details",
-        )
+        resolve_pr_step = steps["Resolve PR details"]
+        self.assertEqual(resolve_pr_step["shell"], "bash")
+        self.assertIn("python3 -m workflow_action_update_agent resolve-pr-details", resolve_pr_step["run"])
+        self.assertIn('--pr-number "${{ inputs.pr_number }}"', resolve_pr_step["run"])
+        self.assertIn('--github-output "${GITHUB_OUTPUT}"', resolve_pr_step["run"])
         self.assertEqual(snapshot_step["shell"], "bash")
         restore_step = steps["Restore workflow helper bundle"]
         self.assertEqual(restore_step["shell"], "bash")
-        self.assertIn('mkdir -p "${helper_root}"', restore_step["run"])
-        self.assertIn('cp -R "${bundle_root}/." "${helper_root}"', restore_step["run"])
-        self.assertEqual(
-            steps["Prepare stabilization context"]["with"]["command"],
-            "prepare-stabilization-context",
+        self.assertIn("restore-helper-bundle", restore_step["run"])
+        self.assertIn('--helper-root ".workflow-action-update-agent-helper"', restore_step["run"])
+        self.assertNotIn('cp -R "${bundle_root}/." "${helper_root}"', restore_step["run"])
+        context_step = steps["Prepare stabilization context"]
+        self.assertEqual(context_step["shell"], "bash")
+        self.assertNotIn("uses", context_step)
+        self.assertIn("python3 -m workflow_action_update_agent prepare-stabilization-context", context_step["run"])
+        self.assertIn(
+            'PYTHONPATH="${GITHUB_WORKSPACE}/.workflow-action-update-agent-helper/scripts/private',
+            context_step["run"],
         )
-        self.assertEqual(
-            steps["Prepare stabilization context"]["with"]["profile-path"],
-            ".workflow-action-update-agent-helper/${{ inputs.profile_path }}",
+        self.assertIn(
+            '--profile-path ".workflow-action-update-agent-helper/${{ inputs.profile_path }}"',
+            context_step["run"],
         )
-        self.assertEqual(
-            steps["Prepare stabilization context"]["uses"],
-            "./.workflow-action-update-agent-helper/.github/actions/workflow-action-update-agent-helper",
-        )
+        self.assertIn('--github-output "${GITHUB_OUTPUT}"', context_step["run"])
         validation_step = steps["Run stabilization validation"]
         self.assertEqual(validation_step["shell"], "bash")
         self.assertNotIn("uses", validation_step)
@@ -2397,6 +2144,32 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                     "unittest",
                     "discover",
                     "-s",
+                    "scripts/private/tests",
+                ],
+                [
+                    "python3",
+                    "-m",
+                    "unittest",
+                    "discover",
+                    "-s",
+                    "scripts/private/agent_runtime/tests",
+                ],
+                [
+                    "python3",
+                    "-m",
+                    "unittest",
+                    "discover",
+                    "-s",
+                    "tools/expkits-ci/tests",
+                    "-p",
+                    "test_agent_static_analysis.py",
+                ],
+                [
+                    "python3",
+                    "-m",
+                    "unittest",
+                    "discover",
+                    "-s",
                     "tools/expkits-ci/tests",
                     "-p",
                     "test_detect_secrets_quality_flow.py",
@@ -2539,7 +2312,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             )
             self.assertEqual(outputs["head_sha"], "feedface")
 
-    def test_agent_review_publish_and_fetch_scripts_share_structured_state(self):
+    def test_agent_review_publish_comments_do_not_carry_machine_state(self):
         review: dict[str, Any] = {
             "summary": "Looks fine with one minor note.",
             "overall_recommendation": "comment",
@@ -2572,29 +2345,23 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
 
         self.assertIn(OPENAI_AGENT_CONTRACTS.MARKER, markdown)
-        self.assertIn(OPENAI_AGENT_CONTRACTS.STATE_MARKER, markdown)
-        self.assertIn('"finding_count":1', markdown)
-        self.assertNotIn('"findings":[]', markdown)
+        self.assertFalse(hasattr(OPENAI_AGENT_CONTRACTS, "STATE_MARKER"))
+        self.assertFalse(hasattr(OPENAI_AGENT_CONTRACTS, "INLINE_STATE_MARKER"))
+        self.assertNotIn("agent-review-state", markdown)
+        self.assertNotIn('"finding_count":1', markdown)
         self.assertIn("### Findings", markdown)
         self.assertIn("**Minor note**", markdown)
         self.assertIn("Location: `.github/workflows/example.yml:L12 (RIGHT)`", markdown)
         self.assertIn("Nit: keep names aligned.", markdown)
         self.assertIn(OPENAI_AGENT_CONTRACTS.INLINE_MARKER, inline_comment)
-        self.assertIn(OPENAI_AGENT_CONTRACTS.INLINE_STATE_MARKER, inline_comment)
+        self.assertNotIn("agent-review-inline-state", inline_comment)
         self.assertEqual(AGENT_REVIEW_STATE.EMPTY_REVIEW_STATE["overall_recommendation"], "")
-        self.assertEqual(OPENAI_AGENT_CONTRACTS.MARKER, AGENT_REVIEW_FETCH.MARKER)
-        self.assertEqual(OPENAI_AGENT_CONTRACTS.STATE_MARKER, AGENT_REVIEW_FETCH.STATE_MARKER)
-        self.assertEqual(OPENAI_AGENT_CONTRACTS.INLINE_MARKER, AGENT_REVIEW_FETCH.INLINE_MARKER)
-        self.assertEqual(
-            OPENAI_AGENT_CONTRACTS.INLINE_STATE_MARKER,
-            AGENT_REVIEW_FETCH.INLINE_STATE_MARKER,
-        )
         self.assertNotIn(
             'MARKER = "<!-- agent-review-comment -->"',
-            AGENT_REVIEW_PUBLISH_SCRIPT.read_text(encoding="utf-8"),
+            AGENT_REVIEW_FETCH_SCRIPT.read_text(encoding="utf-8"),
         )
         self.assertNotIn(
-            'MARKER = "<!-- agent-review-comment -->"',
+            "agent-review-inline-state",
             AGENT_REVIEW_FETCH_SCRIPT.read_text(encoding="utf-8"),
         )
 
@@ -2659,7 +2426,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(comment["start_line"], 12)
         self.assertEqual(comment["start_side"], "RIGHT")
         self.assertIn(OPENAI_AGENT_CONTRACTS.INLINE_MARKER, comment["body"])
-        self.assertIn(OPENAI_AGENT_CONTRACTS.INLINE_STATE_MARKER, comment["body"])
+        self.assertNotIn("agent-review-inline-state", comment["body"])
 
     def test_agent_review_publish_collapses_left_ranges_to_single_anchor(self):
         finding = {
@@ -2851,87 +2618,20 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(calls[1]["payload"]["commit_id"], "deadbeef")
         self.assertNotIn("comments", calls[1]["payload"])
 
-    def test_agent_review_fetch_reads_state_from_pull_review_bodies(self):
-        issue_comment = {
-            "body": "unrelated",
-            "user": {"login": "github-actions[bot]"},
-            "created_at": "2026-06-30T10:00:00Z",
+    def test_agent_review_fetch_reads_latest_review_artifact_only(self):
+        artifact_state = {
+            "run_id": "28000000001",
+            "head_sha": "deadbeef",
+            "overall_recommendation": "request_changes",
+            "summary": "Artifact summary.",
+            "findings": [
+                {
+                    "title": "Artifact finding",
+                    "path": ".github/workflows/example.yml",
+                    "body": "Only the artifact is machine state.",
+                }
+            ],
         }
-        stale_review = {
-            "body": (
-                f"{AGENT_REVIEW_FETCH.MARKER}\n"
-                f"{AGENT_REVIEW_FETCH.STATE_MARKER}"
-                '{"overall_recommendation":"comment","summary":"old","overall_score":0.1,'
-                '"overall_confidence":0.2,"findings":[],"run_id":"old"} -->\n'
-            ),
-            "user": {"login": "github-actions[bot]"},
-            "submitted_at": "2026-06-30T10:01:00Z",
-        }
-        latest_review = {
-            "body": (
-                f"{AGENT_REVIEW_FETCH.MARKER}\n"
-                f"{AGENT_REVIEW_FETCH.STATE_MARKER}"
-                '{"overall_recommendation":"approve","summary":"new","overall_score":0.9,'
-                '"overall_confidence":0.8,"findings":[],"run_id":"new"} -->\n'
-            ),
-            "user": {"login": "github-actions[bot]"},
-            "submitted_at": "2026-06-30T10:02:00Z",
-        }
-
-        comments = AGENT_REVIEW_FETCH.summary_state_comments(
-            [issue_comment],
-            [latest_review, stale_review],
-            {"github-actions[bot]"},
-        )
-        state = AGENT_REVIEW_FETCH.extract_state_metadata(comments[-1]["body"])
-
-        self.assertEqual(state["summary"], "new")
-        self.assertEqual(state["overall_recommendation"], "approve")
-        self.assertEqual(state["run_id"], "new")
-
-    def test_agent_review_fetch_preserves_marker_count_when_extra_inline_findings_are_recovered(self):
-        expected_finding = {
-            "title": "Expected finding",
-            "severity": "major",
-            "score": 0.7,
-            "confidence": 0.9,
-            "path": ".github/workflows/example.yml",
-            "diff_side": "RIGHT",
-            "start_line": 12,
-            "end_line": 12,
-            "body": "Fix the expected issue.",
-        }
-        extra_finding = {
-            "title": "Extra finding",
-            "severity": "note",
-            "score": 0.2,
-            "confidence": 0.8,
-            "path": ".github/workflows/extra.yml",
-            "diff_side": "LEFT",
-            "start_line": 4,
-            "end_line": 4,
-            "body": "This UI comment was not counted by the summary marker.",
-        }
-        summary_body = AGENT_REVIEW_MARKDOWN.format_markdown(
-            {
-                "summary": "One counted finding.",
-                "overall_recommendation": "request_changes",
-                "overall_score": 0.7,
-                "overall_confidence": 0.9,
-                "findings": [expected_finding],
-            },
-            run_id="28000000001",
-            head_sha="deadbeef",
-        )
-        pull_comments = [
-            {
-                "body": AGENT_REVIEW_COMMENTS.build_inline_comment_body(finding, run_id="28000000001"),
-                "user": {"login": "github-actions[bot]"},
-                "created_at": "2026-06-30T10:03:00Z",
-            }
-            for finding in (expected_finding, extra_finding)
-        ]
-
         with tempfile.TemporaryDirectory() as temp_dir:
             output_path = Path(temp_dir) / "review-state.json"
             with mock.patch.dict(
@@ -2943,19 +2643,21 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 },
                 clear=False,
             ):
-                with mock.patch.object(AGENT_REVIEW_FETCH, "list_issue_comments", return_value=[]):
+                with mock.patch.object(
+                    AGENT_REVIEW_FETCH,
+                    "read_pr_details",
+                    return_value={"repair_branch": REPAIR_BRANCH, "head_sha": "deadbeef"},
+                ) as read_pr_details:
                     with mock.patch.object(
                         AGENT_REVIEW_FETCH,
-                        "list_pull_reviews",
-                        return_value=[
-                            {
-                                "body": summary_body,
-                                "user": {"login": "github-actions[bot]"},
-                                "submitted_at": "2026-06-30T10:02:00Z",
-                            }
-                        ],
-                    ):
-                        with mock.patch.object(AGENT_REVIEW_FETCH, "list_pull_comments", return_value=pull_comments):
+                        "find_latest_workflow_run_for_head",
+                        return_value="28000000001",
+                    ) as find_latest_workflow_run_for_head:
+                        with mock.patch.object(
+                            AGENT_REVIEW_FETCH,
+                            "read_review_artifact_state",
+                            return_value=artifact_state,
+                        ) as read_review_artifact_state:
                             with mock.patch.object(
                                 AGENT_REVIEW_FETCH.sys,
                                 "argv",
@@ -2965,21 +2667,20 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
             state = json.loads(output_path.read_text(encoding="utf-8"))
 
-        self.assertEqual(state["finding_count"], 1)
-        self.assertTrue(state["finding_count_available"])
-        self.assertEqual(len(state["findings"]), 2)
-        recovered_extra = next(
-            finding
-            for finding in state["findings"]
-            if finding["title"] == "Extra finding"
+        self.assertEqual(state["overall_recommendation"], "request_changes")
+        self.assertEqual(state["findings"][0]["title"], "Artifact finding")
+        read_pr_details.assert_called_once_with("123")
+        find_latest_workflow_run_for_head.assert_called_once_with(
+            repository="Arm-Debug/amp-dev-forge",
+            workflow_file="agent-review.yml",
+            branch=REPAIR_BRANCH,
+            head_sha="deadbeef",
         )
-        self.assertEqual(recovered_extra["diff_side"], "LEFT")
-
-    def test_agent_review_fetch_accepts_default_github_actions_authors(self):
-        with mock.patch.dict(os.environ, {}, clear=True):
-            author_logins = AGENT_REVIEW_FETCH.allowed_author_logins()
-
-        self.assertEqual(author_logins, {"github-actions", "github-actions[bot]"})
+        read_review_artifact_state.assert_called_once_with(
+            repository="Arm-Debug/amp-dev-forge",
+            run_id="28000000001",
+            head_sha="deadbeef",
+        )
 
     def test_workflow_audit_reports_freshness_only(self):
         workflow = load_yaml(WORKFLOW_AUDIT_FILE)
@@ -2997,7 +2698,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             {"summary_limit"},
         )
         self.assertNotIn("outputs", report_job)
-        self.assertIn("scripts/private/agent_runtime/github_api.py", pull_request_paths)
+        self.assertIn("scripts/private/github_api.py", pull_request_paths)
         self.assertIn("--summary-limit", report_steps["Render workflow dependency freshness report"]["run"])
         self.assertNotIn("--github-output", report_steps["Render workflow dependency freshness report"]["run"])
 
@@ -3110,6 +2811,40 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
         self.assertEqual(github_api_json.call_count, 2)
         sleep.assert_called_once_with(15)
+
+    def test_stabilizer_dispatch_uses_manual_front_door_workflow(self):
+        with mock.patch.object(HELPER_GITHUB_WORKFLOWS, "dispatch_workflow_run") as dispatch_workflow_run:
+            with mock.patch.object(
+                HELPER_GITHUB_WORKFLOWS,
+                "wait_for_dispatched_workflow_run",
+                return_value="28000000001",
+            ) as wait_for_dispatched_workflow_run:
+                with mock.patch.object(HELPER_GITHUB_WORKFLOWS, "wait_for_workflow_run_completion"):
+                    run_id = HELPER_GITHUB_WORKFLOWS.dispatch_stabilizer_workflow(
+                        repository="Arm-Debug/amp-dev-forge",
+                        pr_number="175",
+                        head_sha="deadbeef",
+                        source_run_id="12345",
+                        ticket_id="EXPKITS-1234",
+                        profile_path=".github/agent-runtime/workflow-action-update-agent/profiles/profile.json",
+                        context_root=".agent-runtime/workflow-action-update-agent",
+                        dispatch_ref="feature/test",
+                        dispatch_nonce="nonce-1",
+                    )
+
+        self.assertEqual(run_id, "28000000001")
+        self.assertEqual(
+            dispatch_workflow_run.call_args.kwargs["workflow_file"],
+            "workflow-action-update-agent.yml",
+        )
+        self.assertNotEqual(
+            dispatch_workflow_run.call_args.kwargs["workflow_file"],
+            "agent-stabilize-pr.yml",
+        )
+        self.assertEqual(
+            wait_for_dispatched_workflow_run.call_args.kwargs["workflow_file"],
+            "workflow-action-update-agent.yml",
+        )
 
     def test_find_latest_workflow_run_for_head_accepts_manual_review_runs(self):
         with mock.patch.object(
@@ -3499,7 +3234,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                         with self.assertRaisesRegex(RuntimeError, "complete actionable findings"):
                             HELPER_STABILIZATION.command_prepare_stabilization_context(args)
 
-    def test_prepare_stabilization_context_rejects_partial_fallback_findings(self):
+    def test_prepare_stabilization_context_accepts_artifact_findings_without_comment_reconciliation(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             context_root = Path(temp_dir) / "context"
             output_file = Path(temp_dir) / "outputs.txt"
@@ -3515,13 +3250,12 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 "run_id": "28000000001",
                 "head_sha": "deadbeef",
                 "overall_recommendation": "request_changes",
-                "summary": "Fix both workflow issues.",
-                "finding_count": 2,
+                "summary": "Fix the workflow issue.",
                 "findings": [
                     {
-                        "title": "First recovered finding",
+                        "title": "Artifact finding",
                         "path": ".github/workflows/example.yml",
-                        "body": "Only one inline comment was recovered.",
+                        "body": "Use the canonical review artifact.",
                     }
                 ],
             }
@@ -3537,11 +3271,13 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             ):
                 with mock.patch.object(HELPER_STABILIZATION, "read_review_state", return_value=review_state):
                     with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": ""}, clear=False):
-                        with self.assertRaisesRegex(RuntimeError, "recovered_findings=1"):
-                            HELPER_STABILIZATION.command_prepare_stabilization_context(args)
+                        result = HELPER_STABILIZATION.command_prepare_stabilization_context(args)
 
-    def test_review_state_fallback_requires_positive_complete_finding_count(self):
-        fallback_state = AGENT_REVIEW_STATE.normalize_review_state(
+            self.assertEqual(result, 0)
+            self.assertTrue((context_root / "review-state.json").is_file())
+
+    def test_review_state_artifact_source_drives_non_approve_with_findings(self):
+        artifact_state = AGENT_REVIEW_STATE.normalize_review_state(
             {
                 "run_id": "28000000001",
                 "head_sha": "deadbeef",
@@ -3557,69 +3293,33 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             }
         )
 
-        self.assertFalse(
-            AGENT_REVIEW_STATE.review_state_can_drive_stabilization(
-                fallback_state,
-                source="pull request state",
-            )
-        )
         self.assertTrue(
             AGENT_REVIEW_STATE.review_state_can_drive_stabilization(
-                fallback_state,
+                artifact_state,
                 source="artifact",
             )
         )
 
-    def test_review_state_fallback_requires_exact_marker_count(self):
-        fallback_state = AGENT_REVIEW_STATE.normalize_review_state(
+    def test_review_state_non_artifact_source_cannot_drive_non_approve_state(self):
+        comment_state = AGENT_REVIEW_STATE.normalize_review_state(
             {
                 "run_id": "28000000001",
                 "head_sha": "deadbeef",
                 "overall_recommendation": "request_changes",
                 "finding_count": 1,
-                "findings": [
-                    {
-                        "title": "Expected finding",
-                        "path": ".github/workflows/example.yml",
-                        "body": "The counted finding.",
-                    },
-                    {
-                        "title": "Unexpected extra finding",
-                        "path": ".github/workflows/extra.yml",
-                        "body": "Extra UI state must not become canonical.",
-                    },
-                ],
-            }
-        )
-
-        self.assertFalse(
-            AGENT_REVIEW_STATE.review_state_can_drive_stabilization(
-                fallback_state,
-                source="pull request state",
-            )
-        )
-
-    def test_review_state_fallback_does_not_trust_availability_without_valid_count(self):
-        fallback_state = AGENT_REVIEW_STATE.normalize_review_state(
-            {
-                "run_id": "28000000001",
-                "head_sha": "deadbeef",
-                "overall_recommendation": "request_changes",
                 "finding_count_available": True,
                 "findings": [
                     {
                         "title": "Recovered finding",
                         "path": ".github/workflows/example.yml",
-                        "body": "A count availability flag without a count is not enough.",
+                        "body": "PR comment state is UI only.",
                     }
                 ],
             }
         )
-
-        self.assertFalse(fallback_state["finding_count_available"])
         self.assertFalse(
             AGENT_REVIEW_STATE.review_state_can_drive_stabilization(
-                fallback_state,
+                comment_state,
                 source="pull request state",
             )
         )

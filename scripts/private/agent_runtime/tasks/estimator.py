@@ -5,9 +5,7 @@
 
 from __future__ import annotations
 
-import argparse
 from dataclasses import dataclass
-import json
 import subprocess
 import sys
 from typing import Any
@@ -15,22 +13,10 @@ from typing import Any
 from ..config.task import AgentTaskSettings
 from ..contracts import AgentCommand
 from ..runtime_context import AgentRunContext, require_run_context
-from ..sdk_runtime import BaseModel, ConfigDict, Field, coerce_model_output
-from .base import AgentWorkflowTask
 
 
 MAX_TASK_MANIFEST_PROMPT_HEAD_CHARS = 6000
 MAX_TASK_MANIFEST_PROMPT_TAIL_CHARS = 3000
-
-
-class TaskEstimate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    fits: bool
-    estimated_turns: int = Field(ge=1)
-    confidence: float = Field(ge=0.0, le=1.0)
-    reason: str = Field(min_length=1)
-    split_recommendation: str | None = None
 
 
 @dataclass(frozen=True)
@@ -192,47 +178,6 @@ def deterministic_task_advisory_reasons(manifest: dict[str, Any]) -> list[str]:
     return reasons
 
 
-def task_estimator_instruction() -> str:
-    return (
-        "You are a preflight estimator for amp-dev-forge agent tasks. "
-        "Decide whether the requested task can reasonably finish within the provided turn and size limits. "
-        "Do not solve, review, or edit the task. Use the manifest metrics, prompt excerpt, "
-        "prompt hard limit, and advisory review-size limits only. "
-        "Set fits=false when the task is too broad, too large, ambiguous enough to require substantial exploration, "
-        "or likely needs more turns than the configured limit. If splitting is needed, explain the smallest useful split."
-    )
-
-
-class TaskEstimatorWorkflowTask(AgentWorkflowTask):
-    agent_name = "OpenAI SDK Agent Task Estimator"
-
-    def instructions(self) -> str:
-        return task_estimator_instruction()
-
-    def output_type(self) -> Any:
-        return TaskEstimate
-
-    def tools(self) -> list[Any]:
-        return []
-
-    def write_result(self, final_output: object, args: argparse.Namespace) -> int:
-        del final_output, args
-        raise RuntimeError("Task estimator is a preflight task and does not write standalone results.")
-
-    async def run(
-        self,
-        manifest: dict[str, Any],
-        settings: AgentTaskSettings,
-        resolved_model: str,
-    ) -> TaskEstimate:
-        final_output = await self.run_agent(
-            json.dumps(manifest, indent=2, sort_keys=True),
-            model=resolved_model,
-            max_turns=settings.task_estimate_turns,
-        )
-        return coerce_model_output(TaskEstimate, final_output)
-
-
 def task_estimate_block_reasons(
     manifest: dict[str, Any],
 ) -> list[str]:
@@ -241,17 +186,8 @@ def task_estimate_block_reasons(
 
 def task_estimate_advisory_reasons(
     manifest: dict[str, Any],
-    estimate: TaskEstimate,
 ) -> list[str]:
-    max_turns = int(manifest["limits"]["max_turns"])
-    reasons = deterministic_task_advisory_reasons(manifest)
-    if estimate.estimated_turns > max_turns:
-        reasons.append(
-            f"estimator expects {estimate.estimated_turns} turns, above the {max_turns} turn limit"
-        )
-    if not estimate.fits:
-        reasons.append(f"estimator marked task as not fitting: {estimate.reason}")
-    return reasons
+    return deterministic_task_advisory_reasons(manifest)
 
 
 async def estimate_task_fit(
@@ -269,26 +205,11 @@ async def estimate_task_fit(
             + ". Recommendation: Split the change or task into a smaller focused agent run."
         )
 
-    deterministic_advisory_reasons = deterministic_task_advisory_reasons(manifest)
-    try:
-        estimate = await TaskEstimatorWorkflowTask().run(manifest, settings, resolved_model)
-    except Exception as exc:  # noqa: BLE001
-        if deterministic_advisory_reasons:
-            print(
-                f"Agent task estimator advisory for {command.value}: "
-                + "; ".join(deterministic_advisory_reasons)
-                + ". Recommendation: Continue the run, but keep the task focused and call out split points.",
-                file=sys.stderr,
-            )
-        print(f"Agent task estimator advisory unavailable: {exc}", file=sys.stderr)
-        return
-
-    advisory_reasons = task_estimate_advisory_reasons(manifest, estimate)
+    advisory_reasons = task_estimate_advisory_reasons(manifest)
     if advisory_reasons:
-        split = estimate.split_recommendation or "Split the change or task into a smaller focused agent run."
         print(
-            f"Agent task estimator advisory for {command.value}: "
+            f"Agent task size advisory for {command.value}: "
             + "; ".join(advisory_reasons)
-            + f". Recommendation: {split}",
+            + ". Recommendation: Continue the run, but keep the task focused and call out split points.",
             file=sys.stderr,
         )

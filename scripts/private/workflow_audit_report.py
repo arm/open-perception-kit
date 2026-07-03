@@ -17,7 +17,7 @@ from urllib.parse import quote
 if __package__ in (None, ""):  # pragma: no cover - used for direct script execution.
     sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from agent_runtime.github_api import (  # noqa: E402
+from github_api import (  # noqa: E402
     github_api_base_url,
     github_api_json_or_empty,
     github_api_query_endpoint,

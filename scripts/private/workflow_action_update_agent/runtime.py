@@ -53,8 +53,8 @@ TICKET_ID_TOKEN = "{{TICKET_ID}}"
 REPAIR_AUTHORIZATION_LABEL_TOKEN = "{{REPAIR_AUTHORIZATION_LABEL}}"
 WAIT_TIMEOUT_SECONDS = 1800
 STABILIZATION_MAX_ATTEMPTS = 5
-STABILIZER_WORKFLOW_FILE = "agent-stabilize-pr.yml"
-STABILIZER_WORKFLOW_NAME = "Agent Stabilize PR"
+STABILIZER_ENTRYPOINT_WORKFLOW_FILE = "workflow-action-update-agent.yml"
+STABILIZER_ENTRYPOINT_WORKFLOW_NAME = "Workflow Action Update Agent"
 PULL_REQUEST_RUN_GRACE_SECONDS = 60
 VALIDATION_ENV_BLOCKLIST = (
     "GITHUB_ENV",
@@ -72,6 +72,32 @@ VALIDATION_ENV_SENSITIVE_FRAGMENTS = (
     "TOKEN",
 )
 VALIDATION_COMMAND_ALLOWLIST = {
+    (
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/private/tests",
+    ),
+    (
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/private/agent_runtime/tests",
+    ),
+    (
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/expkits-ci/tests",
+        "-p",
+        "test_agent_static_analysis.py",
+    ),
     (
         "python3",
         "-m",

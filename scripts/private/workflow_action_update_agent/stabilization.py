@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import tempfile
 import time
 import urllib.parse
@@ -15,12 +16,13 @@ from pathlib import Path
 
 from agent_runtime.contracts import AgentInstance
 from agent_runtime.github_actions import find_latest_workflow_run_for_head, read_pr_details
-from agent_runtime.github_api import github_api_json
+from github_api import github_api_json
 from agent_runtime.review.state import (
     missing_review_findings_error_message,
     normalize_review_state,
     read_json_file,
     resolve_canonical_review_state,
+    review_state_can_drive_stabilization,
     review_state_matches_head,
     review_state_recommendation,
     review_state_requires_findings,
@@ -112,14 +114,14 @@ def wait_for_review_state(
     last_non_actionable_state: dict[str, object] = {}
 
     while time.time() < deadline:
-        review_state = normalize_review_state(
+        latest_artifact_state = normalize_review_state(
             read_review_state(
                 state_script=review_state_script,
                 pr_number=pr_number,
             )
         )
-        observed_run_id = str(review_state.get("run_id") or "")
-        observed_head_sha = str(review_state.get("head_sha") or "")
+        observed_run_id = str(latest_artifact_state.get("run_id") or "")
+        observed_head_sha = str(latest_artifact_state.get("head_sha") or "")
         repository = os.environ.get("GITHUB_REPOSITORY", "")
 
         canonical_state, source = resolve_review_state_for_run(
@@ -128,7 +130,7 @@ def wait_for_review_state(
             workflow_name=workflow_name,
             run_id=expected_run_id,
             head_sha=head_sha,
-            fallback_state=review_state,
+            fallback_state=latest_artifact_state,
         )
         if canonical_state:
             recommendation = review_state_recommendation(canonical_state)
@@ -138,9 +140,16 @@ def wait_for_review_state(
             )
             return canonical_state
 
-        if review_state_matches_head(review_state, run_id=expected_run_id, head_sha=head_sha):
-            if review_state_requires_findings(review_state, source="pull request state"):
-                last_non_actionable_state = review_state
+        if review_state_matches_head(latest_artifact_state, run_id=expected_run_id, head_sha=head_sha):
+            if review_state_requires_findings(latest_artifact_state, source="artifact"):
+                last_non_actionable_state = latest_artifact_state
+            elif review_state_can_drive_stabilization(latest_artifact_state, source="artifact"):
+                recommendation = review_state_recommendation(latest_artifact_state)
+                print(
+                    f"Observed {workflow_name} recommendation {recommendation} from artifact "
+                    f"for run {expected_run_id} on PR #{pr_number}"
+                )
+                return latest_artifact_state
 
         if observed_run_id != expected_run_id:
             time.sleep(15)
@@ -157,7 +166,7 @@ def wait_for_review_state(
             pr_number=pr_number,
             workflow_name=workflow_name,
             review_state=last_non_actionable_state,
-            source="pull request state",
+            source="artifact",
         )
     raise RuntimeError(message)
 
@@ -284,6 +293,63 @@ def write_stabilization_context(
     return prompt_path
 
 
+def copy_required_path(source: Path, destination: Path) -> None:
+    if not source.exists():
+        raise ValueError(f"Required helper bundle source is missing: {source}")
+    if source.is_dir():
+        shutil.copytree(source, destination, dirs_exist_ok=True)
+        return
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, destination)
+
+
+def snapshot_helper_bundle(*, bundle_root: Path) -> None:
+    if bundle_root.exists():
+        shutil.rmtree(bundle_root)
+
+    copy_required_path(resolve_repo_path("scripts/private/github_api.py"),
+                       bundle_root / "scripts/private/github_api.py")
+    copy_required_path(
+        resolve_repo_path("scripts/private/workflow_action_update_agent"),
+        bundle_root / "scripts/private/workflow_action_update_agent",
+    )
+    copy_required_path(
+        resolve_repo_path("scripts/private/agent_runtime"),
+        bundle_root / "scripts/private/agent_runtime",
+    )
+    for runtime_file in (
+        "requirements-openai-agents.txt",
+        "agent-models.json",
+        "agent-tasks.json",
+    ):
+        copy_required_path(
+            resolve_repo_path(f".github/agent-runtime/runtime/{runtime_file}"),
+            bundle_root / f".github/agent-runtime/runtime/{runtime_file}",
+        )
+    for directory in (
+        ".github/agent-runtime/review/prompts",
+        ".github/agent-runtime/review/schemas",
+        ".github/agent-runtime/workflow-action-update-agent/prompts",
+        ".github/agent-runtime/workflow-action-update-agent/profiles",
+    ):
+        copy_required_path(resolve_repo_path(directory), bundle_root / directory)
+
+
+def restore_helper_bundle(*, bundle_root: Path, helper_root: Path) -> None:
+    if not bundle_root.is_dir():
+        raise ValueError(f"Workflow helper bundle is missing: {bundle_root}")
+    exclude_file = Path(".git/info/exclude")
+    helper_pattern = f"/{helper_root.as_posix().strip('/')}/"
+    existing_excludes = exclude_file.read_text(encoding="utf-8") if exclude_file.is_file() else ""
+    if helper_pattern not in existing_excludes.splitlines():
+        exclude_file.parent.mkdir(parents=True, exist_ok=True)
+        with exclude_file.open("a", encoding="utf-8") as output:
+            output.write(f"{helper_pattern}\n")
+    if helper_root.exists():
+        shutil.rmtree(helper_root)
+    shutil.copytree(bundle_root, helper_root)
+
+
 def run_validation_commands(commands: list[str]) -> None:
     env = validation_command_environment()
     for command in commands:
@@ -377,7 +443,7 @@ def command_prepare_stabilization_context(args: argparse.Namespace) -> int:
             pr_number=args.pr_number,
         )
     )
-    review_state_source = "pull request state"
+    review_state_source = "artifact"
     review_head_sha = str(review_state.get("head_sha") or "").strip()
     recommendation = str(review_state.get("overall_recommendation") or "").strip().lower()
     review_run_id = str(review_state.get("run_id") or "").strip()
@@ -459,6 +525,19 @@ def command_prepare_stabilization_context(args: argparse.Namespace) -> int:
             "agent_model": profile_agent_model(profile, AgentInstance.STABILIZATION, args.profile_path),
         },
         args.github_output,
+    )
+    return 0
+
+
+def command_snapshot_helper_bundle(args: argparse.Namespace) -> int:
+    snapshot_helper_bundle(bundle_root=Path(args.bundle_root))
+    return 0
+
+
+def command_restore_helper_bundle(args: argparse.Namespace) -> int:
+    restore_helper_bundle(
+        bundle_root=Path(args.bundle_root),
+        helper_root=Path(args.helper_root),
     )
     return 0
 

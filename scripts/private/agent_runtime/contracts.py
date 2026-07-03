@@ -21,12 +21,7 @@ OPENAI_BASE_URL_ENV = "OPENAI_BASE_URL"
 OPENAI_AGENTS_DISABLE_TRACING_ENV = "OPENAI_AGENTS_DISABLE_TRACING"
 OPENAI_AGENTS_DISABLE_TRACING_VALUE = "1"
 MARKER = "<!-- agent-review-comment -->"
-STATE_MARKER = "<!-- agent-review-state "
 INLINE_MARKER = "<!-- agent-review-inline -->"
-INLINE_STATE_MARKER = "<!-- agent-review-inline-state "
-DEFAULT_AUTHOR_LOGINS = frozenset({"github-actions", "github-actions[bot]"})
-GITHUB_API_VERSION = "2022-11-28"
-GITHUB_USER_AGENT = "amp-dev-forge-agent-review"
 
 EnumValue = TypeVar("EnumValue", bound=Enum)
 

@@ -24,7 +24,6 @@ from ..contracts import (
 class AgentTaskConfigEntry:
     agent_instance: AgentInstance
     max_turns: int
-    task_estimate_turns: int
     max_prompt_chars: int
     max_review_files: int | None = None
     max_review_changed_lines: int | None = None
@@ -40,7 +39,6 @@ class AgentTaskSettings:
     command: AgentCommand
     agent_instance: AgentInstance
     max_turns: int
-    task_estimate_turns: int
     max_prompt_chars: int
     max_review_files: int | None = None
     max_review_changed_lines: int | None = None
@@ -61,10 +59,6 @@ def load_agent_task_config(config_file: str | Path) -> AgentTaskConfig:
                 "agent instance",
             ),
             max_turns=require_positive_int(entry.get("max_turns"), f"tasks.{raw_command}.max_turns"),
-            task_estimate_turns=require_positive_int(
-                entry.get("task_estimate_turns"),
-                f"tasks.{raw_command}.task_estimate_turns",
-            ),
             max_prompt_chars=require_positive_int(
                 entry.get("max_prompt_chars"),
                 f"tasks.{raw_command}.max_prompt_chars",
@@ -102,7 +96,6 @@ def resolve_agent_task_settings(
     *,
     agent_instance_override: str | None = None,
     max_turns_override: int | None = None,
-    task_estimate_turns_override: int | None = None,
     max_prompt_chars_override: int | None = None,
     max_review_files_override: int | None = None,
     max_review_changed_lines_override: int | None = None,
@@ -122,11 +115,6 @@ def resolve_agent_task_settings(
         command=parsed_command,
         agent_instance=agent_instance,
         max_turns=positive_limit(max_turns_override, entry.max_turns, "--max-turns"),
-        task_estimate_turns=positive_limit(
-            task_estimate_turns_override,
-            entry.task_estimate_turns,
-            "--task-estimate-turns",
-        ),
         max_prompt_chars=positive_limit(
             max_prompt_chars_override,
             entry.max_prompt_chars,

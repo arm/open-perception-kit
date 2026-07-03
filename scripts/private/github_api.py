@@ -18,7 +18,8 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-from .contracts import GITHUB_API_VERSION, GITHUB_USER_AGENT
+GITHUB_API_VERSION = "2022-11-28"
+GITHUB_USER_AGENT = "amp-dev-forge-github-api"
 
 GITHUB_ARCHIVE_REDIRECT_HOST_SUFFIXES = (
     ".actions.githubusercontent.com",

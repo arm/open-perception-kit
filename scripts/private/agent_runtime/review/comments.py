@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from ..contracts import DiffSide, INLINE_MARKER
 from .markdown import confidence_badge, format_location, score_badge, severity_badge
-from .markers import inline_state_marker, inline_state_metadata
 from .values import required_float, required_int
 
 MAX_INLINE_SUGGESTION_LINES = 10
@@ -63,7 +62,6 @@ def build_inline_comment_body(finding: dict[str, object], *, run_id: str) -> str
     )
     lines = [
         INLINE_MARKER,
-        inline_state_marker(inline_state_metadata(finding, run_id)),
         f"{finding_badges} **{finding['title']}**",
         "",
         f"Location: `{format_location(finding)}`",

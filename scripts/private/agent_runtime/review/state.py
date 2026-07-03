@@ -9,7 +9,7 @@ from pathlib import Path
 import tempfile
 
 from ..contracts import load_json_value
-from ..github_api import (
+from github_api import (
     download_github_archive,
     extract_archive_bytes,
     github_api_json,
@@ -106,15 +106,7 @@ def review_state_can_drive_stabilization(review_state: dict[str, object], *, sou
     if recommendation == "approve":
         return True
     findings = review_state_findings(review_state)
-    if source == "artifact":
-        return bool(findings)
-    finding_count = review_state_finding_count(review_state)
-    return bool(
-        findings
-        and review_state_finding_count_available(review_state)
-        and finding_count > 0
-        and len(findings) == finding_count
-    )
+    return bool(source == "artifact" and findings)
 
 
 def review_state_requires_findings(review_state: dict[str, object], *, source: str) -> bool:
@@ -194,7 +186,6 @@ def resolve_canonical_review_state(
     head_sha: str,
     fallback_state: dict[str, object],
 ) -> tuple[dict[str, object], str]:
-    normalized_fallback = normalize_review_state(fallback_state)
     if repository and run_id:
         artifact_state = normalize_review_state(
             read_review_artifact_state(
@@ -215,9 +206,5 @@ def resolve_canonical_review_state(
                         source="artifact",
                     )
                 )
-
-    if review_state_matches_head(normalized_fallback, run_id=run_id, head_sha=head_sha):
-        if review_state_can_drive_stabilization(normalized_fallback, source="pull request state"):
-            return normalized_fallback, "pull request state"
 
     return {}, ""

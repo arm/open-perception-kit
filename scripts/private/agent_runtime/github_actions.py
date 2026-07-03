@@ -16,7 +16,7 @@ from typing import TypeVar
 import urllib.error
 import zipfile
 
-from .github_api import (
+from github_api import (
     download_github_archive,
     extract_archive_bytes,
     github_api_base_url,

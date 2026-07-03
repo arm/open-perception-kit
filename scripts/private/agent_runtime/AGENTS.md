@@ -18,10 +18,10 @@ review, repair, and stabilization GitHub Actions workflows.
 - Keep model/task/profile config validation helpers in `contracts.py`; do not
   duplicate JSON object, enum, string, list, or positive integer checks in
   individual config readers.
-- Keep OpenAI proxy defaults, task dispatch, model resolution, and output
-  handling in the Python runtime modules. Workflow YAML and local scripts may
-  install the venv and call `openai_agent_runner.py`, but must not duplicate
-  task-specific OpenAI logic or model/turn defaults.
+- Keep OpenAI proxy defaults, task dispatch, model resolution, runtime setup,
+  and output handling in the Python runtime modules. Workflow YAML and local
+  scripts may call `setup_runtime.py` and `openai_agent_runner.py`, but must not
+  duplicate venv setup, task-specific OpenAI logic, or model/turn defaults.
 - Keep `truststore.inject_into_ssl()` before importing `agents`, `openai`, or
   `httpx` through the SDK stack.
 - Agent tools may inspect files and run validation, but must not own branch,
@@ -49,18 +49,22 @@ review, repair, and stabilization GitHub Actions workflows.
 4. Wire workflow YAML or local scripts to call
    `openai_agent_runner.py <command>` and pass only prompt/output/config paths.
    Do not duplicate model names, max-turn values, or agent instances in YAML.
-5. Extend `tools/expkits-ci/tests/test_workflow_action_update_agent_flow.py`
-   so the new command is covered by the central registry/config enforcement.
+5. Extend the focused `scripts/private/agent_runtime/tests/` tests and the
+   workflow-level `tools/expkits-ci/tests/test_workflow_action_update_agent_flow.py`
+   checks so the new command is covered by central registry/config enforcement.
 
-The generic preflight size estimator lives in `tasks/estimator.py` as a
-`TaskEstimatorWorkflowTask`; it should not be copied into individual workflow
-tasks.
+The generic preflight size guard lives in `tasks/estimator.py` and must stay
+deterministic. Do not add a separate agent that estimates whether to run the
+main agent.
 
 ## Validation
 
 For changes here, run at least:
 
 - `find scripts/private/agent_runtime scripts/private/workflow_action_update_agent -name '*.py' -print0 | xargs -0 python3 -m py_compile`
-- `python3 scripts/private/agent_runtime/static_analysis.py`
+- `PYTHONPATH=tools/expkits-ci python3 -m expkits_ci.agent_static_analysis`
+- `python3 -m unittest discover -s scripts/private/tests`
+- `python3 -m unittest discover -s scripts/private/agent_runtime/tests`
+- `python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_agent_static_analysis.py'`
 - `python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_workflow_action_update_agent_flow.py'`
 - `git diff --check`

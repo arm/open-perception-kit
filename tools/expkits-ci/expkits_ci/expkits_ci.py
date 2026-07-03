@@ -71,7 +71,7 @@ def setup_argument_parser(parser):
     check_group.add_argument("-sc", "--check-secrets", default=False,
                              action="store_true", help="Check for secrets in files.")
     check_group.add_argument("--agent-runtime-static-analysis", default=False,
-                             action="store_true", help="Run Agent runtime mypy, pyflakes, vulture, and stale-reference checks.")
+                             action="store_true", help="Run Agent workflow mypy, pyflakes, vulture, and stale-reference checks.")
 
     util_group = parser.add_argument_group('Utility Options', 'General script and logging options.')
     util_group.add_argument("-v", "--verbose", default=False, action="store_true", help="Enable verbose output.")
@@ -402,7 +402,7 @@ def perform_checks(checker, args, files, report):
     if args.agent_runtime_static_analysis:
         result = run_check(
             report,
-            "Agent runtime static analysis",
+            "Agent workflow static analysis",
             lambda: checker.check_agent_runtime_static_analysis(
                 files,
                 pr_target_branch=args.pr_target_branch,

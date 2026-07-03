@@ -17,8 +17,8 @@ from agent_runtime.github_actions import (
 
 from .runtime import (
     PULL_REQUEST_RUN_GRACE_SECONDS,
-    STABILIZER_WORKFLOW_FILE,
-    STABILIZER_WORKFLOW_NAME,
+    STABILIZER_ENTRYPOINT_WORKFLOW_FILE,
+    STABILIZER_ENTRYPOINT_WORKFLOW_NAME,
     WAIT_TIMEOUT_SECONDS,
     format_profile_template,
     run_command,
@@ -173,7 +173,7 @@ def dispatch_stabilizer_workflow(
     dispatch_nonce: str,
 ) -> str:
     dispatch_workflow_run(
-        workflow_file=STABILIZER_WORKFLOW_FILE,
+        workflow_file=STABILIZER_ENTRYPOINT_WORKFLOW_FILE,
         ref=dispatch_ref,
         workflow_inputs={
             "pr_number": pr_number,
@@ -187,14 +187,14 @@ def dispatch_stabilizer_workflow(
     )
     run_id = wait_for_dispatched_workflow_run(
         repository=repository,
-        workflow_file=STABILIZER_WORKFLOW_FILE,
+        workflow_file=STABILIZER_ENTRYPOINT_WORKFLOW_FILE,
         dispatch_nonce=dispatch_nonce,
         timeout_seconds=WAIT_TIMEOUT_SECONDS,
     )
-    print(f"Watching {STABILIZER_WORKFLOW_NAME} run {run_id} for PR #{pr_number}")
+    print(f"Watching {STABILIZER_ENTRYPOINT_WORKFLOW_NAME} run {run_id} for PR #{pr_number}")
     wait_for_workflow_run_completion(
         repository=repository,
-        workflow_name=STABILIZER_WORKFLOW_NAME,
+        workflow_name=STABILIZER_ENTRYPOINT_WORKFLOW_NAME,
         run_id=run_id,
     )
     return run_id

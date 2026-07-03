@@ -12,17 +12,25 @@ from pathlib import Path
 
 if __package__ in (None, ""):  # pragma: no cover - used for direct script execution.
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    __package__ = "agent_runtime"
+    __package__ = "expkits_ci"
 
 
 AGENT_STATIC_PYTHON_PATHS = (
+    "scripts/private/github_api.py",
+    "scripts/private/github_pr_context.py",
+    "scripts/private/sonar_quality_gate_workflow.py",
     "scripts/private/agent_runtime",
+    "scripts/private/tests",
     "scripts/private/workflow_action_update_agent",
+    "tools/expkits-ci/expkits_ci/agent_static_analysis.py",
+    "tools/expkits-ci/tests/test_agent_static_analysis.py",
     "tools/expkits-ci/tests/test_workflow_action_update_agent_flow.py",
 )
 AGENT_STATIC_REFERENCE_PATHS = (
     ".github",
     "scripts/private",
+    "tools/expkits-ci/agent-workflows-mypy.ini",
+    "tools/expkits-ci/tests/test_agent_static_analysis.py",
     "tools/expkits-ci/tests/test_workflow_action_update_agent_flow.py",
     ".gitignore",
 )
@@ -66,7 +74,7 @@ def run_mypy(repo_root: Path) -> bool:
             "-m",
             "mypy",
             "--config-file",
-            ".github/agent-runtime/runtime/mypy.ini",
+            "tools/expkits-ci/agent-workflows-mypy.ini",
         ],
         "mypy",
     )
@@ -199,7 +207,7 @@ def check_removed_reference_leaks(repo_root: Path, *, base_ref: str, staged: boo
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run Agent runtime static analysis.")
+    parser = argparse.ArgumentParser(description="Run Agent workflow static analysis.")
     parser.add_argument("--repo-root", default=".")
     parser.add_argument("--base-ref", default="")
     parser.add_argument("--staged", action="store_true")

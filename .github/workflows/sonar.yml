@@ -54,20 +54,26 @@ jobs:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
 
+      - name: Checkout workflow helpers
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          path: workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+          persist-credentials: false
+
       - name: Resolve manual PR context
         id: manual_pr
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number != '' }}
+        working-directory: ${{ github.workspace }}/workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          pr_number="${{ inputs.pr_number }}"
-          repo="${{ github.repository }}"
-          {
-            echo "base_ref=$(gh pr view "${pr_number}" --repo "${repo}" --json baseRefName --jq .baseRefName)"
-            echo "head_ref=$(gh pr view "${pr_number}" --repo "${repo}" --json headRefName --jq .headRefName)"
-            echo "head_sha=$(gh pr view "${pr_number}" --repo "${repo}" --json headRefOid --jq .headRefOid)"
-          } >> "$GITHUB_OUTPUT"
+          python3 scripts/private/github_pr_context.py \
+            --pr-number "${{ inputs.pr_number }}" \
+            --repo "${{ github.repository }}" \
+            --github-output "${GITHUB_OUTPUT}"
 
       - name: Checkout
         uses: actions/checkout@v6
@@ -109,45 +115,8 @@ jobs:
           PR_BASE: ${{ inputs.pr_base_ref || steps.manual_pr.outputs.base_ref || github.base_ref || '' }}
         run: |
           set -euo pipefail
-          probe_file="${RUNNER_TEMP}/sonar-api-access-probe.txt"
-          summary_probe_lines=80
-
-          echo "=== Sonar API access probe ===" > "${probe_file}"
-
-          set +e
-          docker compose -f "${DOCKER_COMPOSE_FILE}" run --rm \
-            -e SONAR_TOKEN \
-            -e SONAR_HOST_URL \
-            -e SONAR_BRANCH \
-            -e PR_KEY \
-            -e PR_BRANCH \
-            -e PR_BASE \
-            pek-sonar-check \
-            python3 scripts/private/sonar_quality_gate_report.py \
-              --report-task-file /work/.scannerwork/report-task.txt \
-              --branch "${SONAR_BRANCH}" \
-              --pull-request-key "${PR_KEY}" \
-              --probe-api-access \
-              >> "${probe_file}" 2>&1
-          probe_rc=$?
-          set -e
-
-          echo >> "${probe_file}"
-
-          cat "${probe_file}"
-          {
-            echo "### Sonar API access probe"
-            echo
-            echo "Full probe output is available in the \`sonar-quality-gate-report\` artifact."
-            echo
-            echo '```text'
-            tail -n "${summary_probe_lines}" "${probe_file}"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          if [ "${probe_rc}" -ne 0 ]; then
-            echo "Sonar API access probe exited with status ${probe_rc}" >&2
-          fi
+          python3 scripts/private/sonar_quality_gate_workflow.py probe-api-access || \
+            echo "Sonar API access probe exited with status $?" >&2
 
       - name: Report Sonar quality gate details
         if: always()
@@ -161,41 +130,7 @@ jobs:
           PR_BASE: ${{ inputs.pr_base_ref || steps.manual_pr.outputs.base_ref || github.base_ref || '' }}
         run: |
           set -euo pipefail
-          # The Sonar container runs on a bind-mounted checkout and may leave parts of
-          # the workspace root-owned on self-hosted runners. Write the log report to
-          # RUNNER_TEMP so the host-side report step stays writable.
-          report_file="${RUNNER_TEMP}/sonar-quality-gate-report.txt"
-          summary_report_lines=160
-
-          set +e
-          docker compose -f "${DOCKER_COMPOSE_FILE}" run --rm \
-            -e SONAR_TOKEN \
-            -e SONAR_HOST_URL \
-            -e SONAR_BRANCH \
-            -e PR_KEY \
-            -e PR_BRANCH \
-            -e PR_BASE \
-            pek-sonar-check \
-            python3 scripts/private/sonar_quality_gate_report.py \
-              --report-task-file /work/.scannerwork/report-task.txt \
-              --branch "${SONAR_BRANCH}" \
-              --pull-request-key "${PR_KEY}" \
-              > "${report_file}" 2>&1
-          report_rc=$?
-          set -e
-
-          cat "${report_file}"
-          {
-            echo "### Sonar quality gate report"
-            echo
-            echo "Full report is available in the \`sonar-quality-gate-report\` artifact."
-            echo
-            echo '```text'
-            tail -n "${summary_report_lines}" "${report_file}"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          exit "${report_rc}"
+          python3 scripts/private/sonar_quality_gate_workflow.py report-quality-gate
 
       - name: Upload Sonar quality gate report
         if: always()

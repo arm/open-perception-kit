@@ -124,12 +124,6 @@ def add_common_task_arguments(subparser: argparse.ArgumentParser) -> None:
         help="Maximum main-agent turns. Defaults to the command-specific task config limit.",
     )
     subparser.add_argument(
-        "--task-estimate-turns",
-        type=int,
-        default=None,
-        help="Maximum turns for the generic preflight task estimator.",
-    )
-    subparser.add_argument(
         "--max-prompt-chars",
         type=int,
         default=None,
@@ -156,7 +150,6 @@ def resolve_task_settings(args: argparse.Namespace) -> AgentTaskSettings:
         AgentCommand(args.command),
         agent_instance_override=args.agent_instance,
         max_turns_override=args.max_turns,
-        task_estimate_turns_override=args.task_estimate_turns,
         max_prompt_chars_override=args.max_prompt_chars,
         max_review_files_override=args.max_review_files,
         max_review_changed_lines_override=args.max_review_changed_lines,

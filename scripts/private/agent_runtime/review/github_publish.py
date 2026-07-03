@@ -9,7 +9,7 @@ import sys
 import urllib.error
 
 from ..contracts import GITHUB_REVIEW_EVENTS
-from ..github_api import github_api_request
+from github_api import github_api_request
 from .comments import build_review_comment_payloads
 
 
