@@ -1961,12 +1961,12 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "ACTIONS_RUNTIME_TOKEN": "x",
             "ACTIONS_ID_TOKEN_REQUEST_TOKEN": "x",
             "ACTIONS_ID_TOKEN_REQUEST_URL": "https://example.invalid",
-            "GIT_ASKPASS": "/tmp/askpass",
-            "SSH_AUTH_SOCK": "/tmp/ssh.sock",
-            "GITHUB_ENV": "/tmp/github-env",
-            "GITHUB_OUTPUT": "/tmp/github-output",
-            "GITHUB_PATH": "/tmp/github-path",
-            "GITHUB_STEP_SUMMARY": "/tmp/github-summary",
+            "GIT_ASKPASS": "/runner-private/askpass",
+            "SSH_AUTH_SOCK": "/runner-private/ssh.sock",
+            "GITHUB_ENV": "/runner-private/github-env",
+            "GITHUB_OUTPUT": "/runner-private/github-output",
+            "GITHUB_PATH": "/runner-private/github-path",
+            "GITHUB_STEP_SUMMARY": "/runner-private/github-summary",
         }
 
         with mock.patch.dict(os.environ, env, clear=True):
