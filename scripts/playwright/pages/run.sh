@@ -65,6 +65,20 @@ for name in \
 done
 
 mount_args=(-v "${REPO_ROOT}:${REPO_ROOT}")
+add_git_mount() {
+    local path="$1"
+    case "${path}" in
+        "${REPO_ROOT}" | "${REPO_ROOT}"/*) ;;
+        *) mount_args+=(-v "${path}:${path}") ;;
+    esac
+}
+git_dir="$(git -C "${REPO_ROOT}" rev-parse --path-format=absolute --git-dir)"
+git_common_dir="$(git -C "${REPO_ROOT}" rev-parse --path-format=absolute --git-common-dir)"
+add_git_mount "${git_common_dir}"
+case "${git_dir}" in
+    "${git_common_dir}" | "${git_common_dir}"/*) ;;
+    *) add_git_mount "${git_dir}" ;;
+esac
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
     output_dir="$(dirname "${GITHUB_OUTPUT}")"
     mount_args+=(-v "${output_dir}:${output_dir}")

@@ -46,6 +46,8 @@ BROWSER_SMOKE_BROWSERS="${BROWSER_SMOKE_BROWSERS:-chromium}"
 NUM_FRAMES="${NUM_FRAMES:-12000}"
 ACTIVE_PID_FILE=""
 ACTIVE_PIPELINE_PID=""
+PIPELINE_STOP_TIMEOUT_SECONDS=30
+PIPELINE_KILL_TIMEOUT_SECONDS=10
 
 cd "${REPO_ROOT}"
 
@@ -213,15 +215,54 @@ merge_reports() {
 stop_pipeline() {
     local pid_file="$1"
     local pipeline_pid="$2"
+    local attempt=""
 
     docker exec -e BROWSER_SMOKE_PID_FILE="${pid_file}" "${PEK_CONTAINER_NAME}" bash -lc '
         pid="$(cat "$BROWSER_SMOKE_PID_FILE" 2> /dev/null || true)"
         if [ -n "$pid" ] && kill -0 "$pid" 2> /dev/null; then
             kill -INT "$pid"
         fi
+    ' 2> /dev/null || true
+    for attempt in $(seq 1 "${PIPELINE_STOP_TIMEOUT_SECONDS}"); do
+        if ! kill -0 "${pipeline_pid}" 2> /dev/null; then
+            wait "${pipeline_pid}" 2> /dev/null || true
+            docker exec -e BROWSER_SMOKE_PID_FILE="${pid_file}" "${PEK_CONTAINER_NAME}" bash -lc '
+                rm -f "$BROWSER_SMOKE_PID_FILE"
+            ' 2> /dev/null || true
+            return
+        fi
+        sleep 1
+    done
+
+    echo "Warning: pipeline did not stop after SIGINT; forcing shutdown." >&2
+    docker exec -e BROWSER_SMOKE_PID_FILE="${pid_file}" "${PEK_CONTAINER_NAME}" bash -lc '
+        pid="$(cat "$BROWSER_SMOKE_PID_FILE" 2> /dev/null || true)"
+        if [ -n "$pid" ] && kill -0 "$pid" 2> /dev/null; then
+            kill -TERM "$pid"
+        fi
+    ' 2> /dev/null || true
+    for attempt in $(seq 1 "${PIPELINE_KILL_TIMEOUT_SECONDS}"); do
+        if ! kill -0 "${pipeline_pid}" 2> /dev/null; then
+            wait "${pipeline_pid}" 2> /dev/null || true
+            docker exec -e BROWSER_SMOKE_PID_FILE="${pid_file}" "${PEK_CONTAINER_NAME}" bash -lc '
+                rm -f "$BROWSER_SMOKE_PID_FILE"
+            ' 2> /dev/null || true
+            return
+        fi
+        sleep 1
+    done
+
+    docker exec -e BROWSER_SMOKE_PID_FILE="${pid_file}" "${PEK_CONTAINER_NAME}" bash -lc '
+        pid="$(cat "$BROWSER_SMOKE_PID_FILE" 2> /dev/null || true)"
+        if [ -n "$pid" ] && kill -0 "$pid" 2> /dev/null; then
+            kill -KILL "$pid"
+        fi
+    ' 2> /dev/null || true
+    kill -KILL "${pipeline_pid}" 2> /dev/null || true
+    wait "${pipeline_pid}" 2> /dev/null || true
+    docker exec -e BROWSER_SMOKE_PID_FILE="${pid_file}" "${PEK_CONTAINER_NAME}" bash -lc '
         rm -f "$BROWSER_SMOKE_PID_FILE"
     ' 2> /dev/null || true
-    wait "${pipeline_pid}" 2> /dev/null || true
 }
 
 wait_for_pipeline_start() {
@@ -254,9 +295,18 @@ wait_for_pipeline_start() {
 browser_smoke_status=0
 browser_smoke_browsers="$(
     printf '%s' "${BROWSER_SMOKE_BROWSERS}" |
+        tr '[:upper:]' '[:lower:]' |
         tr ',' '\n' |
         sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e '/^$/d'
 )"
+
+[ -n "${browser_smoke_browsers}" ] || repo_checks_die "BROWSER_SMOKE_BROWSERS did not contain any browser."
+while IFS= read -r browser; do
+    case "${browser}" in
+        chromium | firefox | webkit) ;;
+        *) repo_checks_die "Unsupported BROWSER_SMOKE_BROWSERS entry: ${browser}" ;;
+    esac
+done <<< "${browser_smoke_browsers}"
 
 run_phase "sink-only" \
     "config/pipelines/testing/only-peksink.json" \

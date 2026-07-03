@@ -183,6 +183,41 @@ class TestPublishPlaywrightPages(unittest.TestCase):
 
         self.assertEqual(text, "feature/example @ commit-for-t | run 123 attempt 2 | Jul 02, 2026 20:30 UTC")
 
+    def test_build_source_meta_html_encodes_branch_link(self):
+        meta = publish.build_source_meta_html(
+            "Arm-Debug/amp-dev-forge",
+            "feature/test-branch",
+            "commit-for-test",
+            "123",
+            "1",
+        )
+
+        self.assertIn("/tree/feature%2Ftest-branch", meta)
+        self.assertIn(">feature/test-branch</a>", meta)
+
+    def test_prune_report_for_pages_removes_nested_and_top_level_zip_data(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            report_dir = Path(tmpdir)
+            top_zip = report_dir / "data" / "top.zip"
+            nested_zip = report_dir / "phase" / "data" / "nested.zip"
+            kept_json = report_dir / "data" / "trace.json"
+            for path in [top_zip, nested_zip, kept_json]:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("data", encoding="utf-8")
+
+            publish.prune_report_for_pages(report_dir)
+
+            self.assertFalse(top_zip.exists())
+            self.assertFalse(nested_zip.exists())
+            self.assertTrue(kept_json.exists())
+
+    def test_parse_retention_days_rejects_invalid_values(self):
+        self.assertEqual(publish.parse_retention_days("10"), 10)
+        with self.assertRaises(publish.PublishError):
+            publish.parse_retention_days("ten")
+        with self.assertRaises(publish.PublishError):
+            publish.parse_retention_days("-1")
+
     def test_should_prune_closed_pr_after_retention_cutoff(self):
         cutoff = dt.datetime(2026, 7, 2, tzinfo=dt.timezone.utc)
 
@@ -202,6 +237,42 @@ class TestPublishPlaywrightPages(unittest.TestCase):
                 self.assertTrue(publish.download_report_artifact(root / "artifact", "repo", "run", "attempt"))
 
             self.assertTrue((root / "artifact" / "local-artifact" / "playwright-report" / "index.html").is_file())
+
+    def test_publish_report_skips_deploy_output_when_site_branch_is_unchanged(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            local_report = root / "playwright-report"
+            site_dir = root / "site"
+            output = root / "github-output"
+            local_report.mkdir()
+            (local_report / "index.html").write_text(
+                "<!doctype html><html><head><title>Playwright</title></head><body></body></html>",
+                encoding="utf-8",
+            )
+
+            def checkout(path, _storage_branch):
+                path.mkdir(parents=True)
+
+            env = {
+                "GITHUB_OUTPUT": str(output),
+                "GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge",
+                "PLAYWRIGHT_PAGES_LOCAL_REPORT_DIR": str(local_report),
+                "UPSTREAM_CONCLUSION": "success",
+                "UPSTREAM_EVENT": "pull_request",
+                "UPSTREAM_HEAD_BRANCH": "feature/test",
+                "UPSTREAM_HEAD_REPOSITORY": "Arm-Debug/amp-dev-forge",
+                "UPSTREAM_HEAD_SHA": "commit-for-test",
+                "UPSTREAM_PR_NUMBER": "181",
+                "UPSTREAM_RUN_ATTEMPT": "1",
+                "UPSTREAM_RUN_ID": "123",
+            }
+            with patch.dict(os.environ, env, clear=True), \
+                    patch.object(publish, "checkout_site_branch", side_effect=checkout), \
+                    patch.object(publish, "build_source_map_json", return_value="{}"), \
+                    patch.object(publish, "push_site_branch", return_value=False):
+                publish.publish_report(site_dir, "playwright-pages")
+
+            self.assertIn("deploy=false\n", output.read_text(encoding="utf-8"))
 
     def test_dry_run_site_branch_does_not_need_github_token(self):
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -33,6 +33,9 @@ jobs:
       - name: Checkout publisher
         uses: actions/checkout@v6
 
+      - name: Run publisher unit tests
+        run: python3 -m unittest scripts/playwright/pages/test_publish_playwright_pages.py
+
       - name: Update Pages content
         id: pages
         env:
@@ -72,6 +75,9 @@ jobs:
     steps:
       - name: Checkout publisher
         uses: actions/checkout@v6
+
+      - name: Run publisher unit tests
+        run: python3 -m unittest scripts/playwright/pages/test_publish_playwright_pages.py
 
       - name: Remove old closed PR reports
         id: pages

@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from urllib.parse import quote
 
 
 PRODUCT_TITLE = "Arm Perception kit"
@@ -452,9 +453,10 @@ def decorate_playwright_report(
 
 def build_source_meta_html(repository: str, branch: str, head_sha: str, run_id: str, run_attempt: str) -> str:
     repo_url = f"https://github.com/{repository}"
+    branch_url = quote(branch, safe="")
     return "".join(
         [
-            html_anchor(f"{repo_url}/tree/{branch}", branch),
+            html_anchor(f"{repo_url}/tree/{branch_url}", branch),
             " @ ",
             html_anchor(f"{repo_url}/commit/{head_sha}", head_sha[:12]),
             " | ",
@@ -516,7 +518,7 @@ def find_playwright_report(artifact_dir: Path) -> Path | None:
 
 
 def prune_report_for_pages(report_dir: Path) -> None:
-    for path in report_dir.glob("*/data/*.zip"):
+    for path in report_dir.rglob("data/*.zip"):
         if path.is_file():
             path.unlink()
 
@@ -604,8 +606,8 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
         write_index_assets(site_dir)
         write_site_index(site_dir, repository)
 
-        push_site_branch(site_dir, storage_branch)
-        set_output("deploy", "true")
+        changed = push_site_branch(site_dir, storage_branch)
+        set_output("deploy", "true" if changed else "false")
 
 
 def parse_github_time(value: str) -> dt.datetime:
@@ -652,10 +654,20 @@ def cleanup_closed_pr_reports(site_dir: Path, storage_branch: str, retention_day
     if changed:
         write_index_assets(site_dir)
         write_site_index(site_dir, repository)
-        push_site_branch(site_dir, storage_branch)
-        set_output("deploy", "true")
+        pushed = push_site_branch(site_dir, storage_branch)
+        set_output("deploy", "true" if pushed else "false")
     else:
         set_output("deploy", "false")
+
+
+def parse_retention_days(value: str) -> int:
+    try:
+        days = int(value)
+    except ValueError as error:
+        raise PublishError(f"PLAYWRIGHT_PAGES_RETENTION_DAYS must be an integer: {value}") from error
+    if days < 0:
+        raise PublishError("PLAYWRIGHT_PAGES_RETENTION_DAYS must be zero or greater.")
+    return days
 
 
 def main(argv: list[str]) -> int:
@@ -665,7 +677,7 @@ def main(argv: list[str]) -> int:
 
     storage_branch = env("PLAYWRIGHT_PAGES_STORAGE_BRANCH", "playwright-pages")
     site_dir = Path(env("PLAYWRIGHT_PAGES_SITE_DIR", "_playwright_pages_site"))
-    retention_days = int(env("PLAYWRIGHT_PAGES_RETENTION_DAYS", "10"))
+    retention_days = parse_retention_days(env("PLAYWRIGHT_PAGES_RETENTION_DAYS", "10"))
 
     try:
         if argv[1] == "publish":
