@@ -195,6 +195,10 @@ def html_escape(value: str) -> str:
     return html.escape(str(value), quote=True)
 
 
+def script_json(value: str) -> str:
+    return value.replace("</", "<\\/")
+
+
 def html_anchor(href: str, text: str) -> str:
     return f'<a href="{html_escape(href)}">{html_escape(text)}</a>'
 
@@ -219,13 +223,14 @@ def write_report_shell_assets(site_dir: Path) -> None:
 
 
 def source_file_list(head_sha: str) -> list[str]:
-    if head_sha:
+    if not head_sha:
+        return capture(["git", "ls-files"]).splitlines()
+    if run_maybe(["git", "cat-file", "-e", f"{head_sha}^{{tree}}"], quiet=True).returncode == 0:
+        return capture(["git", "ls-tree", "-r", "--name-only", head_sha]).splitlines()
+    if run_maybe(["git", "fetch", "--depth=1", "origin", head_sha], quiet=True).returncode == 0:
         if run_maybe(["git", "cat-file", "-e", f"{head_sha}^{{tree}}"], quiet=True).returncode == 0:
             return capture(["git", "ls-tree", "-r", "--name-only", head_sha]).splitlines()
-        if run_maybe(["git", "fetch", "--depth=1", "origin", head_sha], quiet=True).returncode == 0:
-            if run_maybe(["git", "cat-file", "-e", f"{head_sha}^{{tree}}"], quiet=True).returncode == 0:
-                return capture(["git", "ls-tree", "-r", "--name-only", head_sha]).splitlines()
-    return capture(["git", "ls-files"]).splitlines()
+    raise PublishError(f"Cannot resolve source tree for commit: {head_sha}")
 
 
 def is_source_path(path: str) -> bool:
@@ -334,7 +339,8 @@ def pr_report_title(pr_number: str, repository: str) -> str:
 def read_first_line(path: Path, default: str) -> str:
     if not path.is_file():
         return default
-    return path.read_text(encoding="utf-8").splitlines()[0]
+    lines = path.read_text(encoding="utf-8").splitlines()
+    return lines[0] if lines else default
 
 
 def write_site_index(site_dir: Path, repository: str) -> None:
@@ -423,7 +429,7 @@ def decorate_playwright_report(
     js_href = f"{back_href}report-shell.js"
     page_title = html_escape(f"{title} - Playwright report")
     report_bar = (
-        f'    <script type="application/json" id="pek-report-source-map">{source_map_json}</script>\n'
+        f'    <script type="application/json" id="pek-report-source-map">{script_json(source_map_json)}</script>\n'
         f'    <div class="pek-report-bar" data-repository="{html_escape(repository)}" '
         f'data-commit="{html_escape(head_sha)}"><div class="pek-report-bar-inner">'
         f'<div class="pek-report-info"><span class="pek-report-title">{html_escape(title)}</span>'

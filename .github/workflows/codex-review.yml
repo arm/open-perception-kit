@@ -22,7 +22,7 @@ concurrency:
 jobs:
   review:
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
-    runs-on: self-hosted-ubuntu-latest-x64
+    runs-on: [self-hosted, Linux, X64, self-hosted-ubuntu-latest-x64]
 
     steps:
       - name: Checkout pull request head

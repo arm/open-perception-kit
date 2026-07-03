@@ -10,7 +10,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 SCRIPT_PATH = Path(__file__).with_name("publish_playwright_pages.py")
@@ -75,6 +75,29 @@ class TestPublishPlaywrightPages(unittest.TestCase):
             self.assertIn('data-commit="commit-for-test"', content)
             self.assertIn('id="pek-report-source-map"', content)
 
+    def test_decorate_playwright_report_escapes_source_map_script_tag(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            report_dir = Path(tmpdir)
+            index = report_dir / "index.html"
+            index.write_text(
+                "<!doctype html><html><head><title>Playwright</title></head><body></body></html>",
+                encoding="utf-8",
+            )
+
+            publish.decorate_playwright_report(
+                report_dir,
+                "Arm Perception kit",
+                "../../",
+                "Nightly",
+                "Arm-Debug/amp-dev-forge",
+                "commit-for-test",
+                '{"bad":"</script><script>alert(1)</script>"}',
+            )
+
+            content = index.read_text(encoding="utf-8")
+            self.assertIn('<\\/script><script>alert(1)<\\/script>', content)
+            self.assertNotIn('{"bad":"</script><script>', content)
+
     def test_decorate_playwright_report_fails_when_report_markup_moves(self):
         cases = {
             "title": "<!doctype html><html><head></head><body></body></html>",
@@ -131,6 +154,20 @@ class TestPublishPlaywrightPages(unittest.TestCase):
             content = (site_dir / "index.html").read_text(encoding="utf-8")
             self.assertIn("PR #181 - Browser smoke", content)
             self.assertIn('href="prs/181/index.html"', content)
+
+    def test_read_first_line_uses_default_for_empty_file(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "report-index-meta.txt"
+            path.write_text("", encoding="utf-8")
+
+            self.assertEqual(publish.read_first_line(path, "fallback"), "fallback")
+
+    def test_source_file_list_fails_when_requested_sha_is_unavailable(self):
+        with patch.object(publish, "run_maybe", side_effect=[Mock(returncode=1), Mock(returncode=1)]), \
+                patch.object(publish, "capture") as capture:
+            with self.assertRaisesRegex(publish.PublishError, "Cannot resolve source tree"):
+                publish.source_file_list("missing-commit")
+            capture.assert_not_called()
 
     def test_report_index_meta_text_is_human_readable(self):
         now = dt.datetime(2026, 7, 2, 20, 30, tzinfo=dt.timezone.utc)
