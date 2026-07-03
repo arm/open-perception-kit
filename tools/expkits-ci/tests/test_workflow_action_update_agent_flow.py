@@ -1062,7 +1062,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
 
         self.assertIn("prompt has 11 characters", reasons[0])
 
-    def test_openai_agent_runner_blocks_review_diff_that_exceeds_file_limit(self):
+    def test_openai_agent_runner_reports_review_diff_limits_as_advisory(self):
         estimator = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT,
             "agent_runtime.task_estimator_fake_sdk_review_limit",
@@ -1093,6 +1093,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 AGENT_TASK_CONFIG_FILE,
                 OPENAI_AGENT_CONTRACTS.AgentCommand.REVIEW,
                 max_review_files_override=2,
+                max_review_changed_lines_override=2,
             )
             prompt = f"- Base SHA: `{base_sha}`\n- Head SHA: `{head_sha}`\n"
             manifest = estimator.build_task_manifest(
@@ -1102,8 +1103,17 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
                 "gpt-test",
             )
             reasons = estimator.deterministic_task_limit_violations(manifest)
+            estimate = types.SimpleNamespace(
+                fits=True,
+                estimated_turns=1,
+                reason="Review can continue.",
+                split_recommendation=None,
+            )
+            advisory_reasons = estimator.task_estimate_advisory_reasons(manifest, cast(Any, estimate))
 
-        self.assertIn("review scope touches 3 files", reasons[0])
+        self.assertEqual(reasons, [])
+        self.assertIn("review scope touches 3 files", advisory_reasons[0])
+        self.assertIn("review scope changes 3 lines", advisory_reasons[1])
 
     def test_openai_agent_runner_reports_estimated_turn_overrun_as_advisory(self):
         estimator = load_agent_workflow_module_with_fake_sdk(

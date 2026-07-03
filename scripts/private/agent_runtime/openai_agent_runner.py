@@ -134,13 +134,13 @@ def add_common_task_arguments(subparser: argparse.ArgumentParser) -> None:
         "--max-review-files",
         type=int,
         default=None,
-        help="Maximum changed file count for review tasks.",
+        help="Advisory changed file count for review tasks.",
     )
     subparser.add_argument(
         "--max-review-changed-lines",
         type=int,
         default=None,
-        help="Maximum changed line count for review tasks.",
+        help="Advisory changed line count for review tasks.",
     )
     subparser.add_argument("--command-timeout", type=int, default=300)
 

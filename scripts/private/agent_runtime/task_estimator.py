@@ -153,7 +153,6 @@ def build_task_manifest(
 
 def deterministic_task_limit_violations(manifest: dict[str, Any]) -> list[str]:
     limits = manifest["limits"]
-    git_metrics = manifest["git_metrics"]
     violations: list[str] = []
 
     prompt_chars = int(manifest["prompt_chars"])
@@ -163,11 +162,19 @@ def deterministic_task_limit_violations(manifest: dict[str, Any]) -> list[str]:
             f"prompt has {prompt_chars} characters, above the {max_prompt_chars} character limit"
         )
 
+    return violations
+
+
+def deterministic_task_advisory_reasons(manifest: dict[str, Any]) -> list[str]:
+    limits = manifest["limits"]
+    git_metrics = manifest["git_metrics"]
+    reasons: list[str] = []
+
     max_review_files = limits.get("max_review_files")
     if max_review_files is not None:
         total_diff_files = int(git_metrics["total_diff_files"])
         if total_diff_files > int(max_review_files):
-            violations.append(
+            reasons.append(
                 f"review scope touches {total_diff_files} files, above the {max_review_files} file limit"
             )
 
@@ -175,19 +182,20 @@ def deterministic_task_limit_violations(manifest: dict[str, Any]) -> list[str]:
     if max_review_changed_lines is not None:
         total_changed_lines = int(git_metrics["total_diff_changed_lines"])
         if total_changed_lines > int(max_review_changed_lines):
-            violations.append(
+            reasons.append(
                 "review scope changes "
                 f"{total_changed_lines} lines, above the {max_review_changed_lines} line limit"
             )
 
-    return violations
+    return reasons
 
 
 def task_estimator_instruction() -> str:
     return (
         "You are a preflight estimator for amp-dev-forge agent tasks. "
         "Decide whether the requested task can reasonably finish within the provided turn and size limits. "
-        "Do not solve, review, or edit the task. Use the manifest metrics, prompt excerpt, and hard limits only. "
+        "Do not solve, review, or edit the task. Use the manifest metrics, prompt excerpt, "
+        "prompt hard limit, and advisory review-size limits only. "
         "Set fits=false when the task is too broad, too large, ambiguous enough to require substantial exploration, "
         "or likely needs more turns than the configured limit. If splitting is needed, explain the smallest useful split."
     )
@@ -230,7 +238,7 @@ def task_estimate_advisory_reasons(
     estimate: TaskEstimate,
 ) -> list[str]:
     max_turns = int(manifest["limits"]["max_turns"])
-    reasons: list[str] = []
+    reasons = deterministic_task_advisory_reasons(manifest)
     if estimate.estimated_turns > max_turns:
         reasons.append(
             f"estimator expects {estimate.estimated_turns} turns, above the {max_turns} turn limit"
@@ -255,9 +263,17 @@ async def estimate_task_fit(
             + ". Recommendation: Split the change or task into a smaller focused agent run."
         )
 
+    deterministic_advisory_reasons = deterministic_task_advisory_reasons(manifest)
     try:
         estimate = await TaskEstimatorAgent().run(manifest, settings, resolved_model)
     except Exception as exc:  # noqa: BLE001
+        if deterministic_advisory_reasons:
+            print(
+                f"Agent task estimator advisory for {command.value}: "
+                + "; ".join(deterministic_advisory_reasons)
+                + ". Recommendation: Continue the run, but keep the task focused and call out split points.",
+                file=sys.stderr,
+            )
         print(f"Agent task estimator advisory unavailable: {exc}", file=sys.stderr)
         return
 
