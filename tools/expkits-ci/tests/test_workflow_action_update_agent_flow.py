@@ -1062,6 +1062,22 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn("$ cat < out.txt", output)
         self.assertIn("two", output)
 
+    def test_openai_agent_runner_feeds_pipeline_stdout_to_next_stage_stdin(self):
+        repo_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_REPO_TOOLS_SCRIPT,
+            "agent_runtime.tools.repo_fake_sdk_pipeline_stdin",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            OPENAI_AGENT_RUNTIME_CONTEXT.set_run_context(Path(temp_dir), 10)
+            output = repo_tools.run_shell_command(
+                "printf 'alpha\\nbeta\\n' | head -n 1; printf 'alpha\\nbeta\\n' | grep beta"
+            )
+
+        self.assertIn("$ printf 'alpha\\nbeta\\n' | head -n 1", output)
+        self.assertIn("$ printf 'alpha\\nbeta\\n' | grep beta", output)
+        self.assertIn("--- stdout ---\nalpha\n", output)
+        self.assertIn("--- stdout ---\nbeta\n", output)
+
     def test_openai_agent_runner_merges_stderr_into_stdout(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_REPO_TOOLS_SCRIPT,

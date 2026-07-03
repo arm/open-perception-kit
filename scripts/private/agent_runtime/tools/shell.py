@@ -223,9 +223,9 @@ def format_parsed_shell_command(parsed_command: ParsedShellCommand) -> str:
 
 
 def run_parsed_shell_command(parsed_command: ParsedShellCommand, context: AgentRunContext) -> ShellCommandResult:
-    input_text: str | None = None
+    stage_input: str | None = None
     if parsed_command.stdin_path:
-        input_text = resolve_redirection_path(context, parsed_command.stdin_path).read_text(encoding="utf-8")
+        stage_input = resolve_redirection_path(context, parsed_command.stdin_path).read_text(encoding="utf-8")
     output_path: Path | None = None
     if parsed_command.stdout_path:
         output_path = resolve_redirection_path(context, parsed_command.stdout_path)
@@ -237,7 +237,7 @@ def run_parsed_shell_command(parsed_command: ParsedShellCommand, context: AgentR
         completed = subprocess.run(
             words,
             cwd=context.repo_root,
-            input=input_text,
+            input=stage_input,
             text=True,
             capture_output=True,
             timeout=context.command_timeout,
@@ -251,7 +251,7 @@ def run_parsed_shell_command(parsed_command: ParsedShellCommand, context: AgentR
             stderr_text = ""
         if stderr_text:
             stderr_parts.append(stderr_text.rstrip())
-        input_text = stdout_text
+        stage_input = stdout_text
         if completed.returncode != 0:
             break
 
