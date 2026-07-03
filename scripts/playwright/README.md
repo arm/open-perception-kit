@@ -83,6 +83,37 @@ The workflow entrypoints run the publisher inside a small Docker image:
 `cleanup` is intended for scheduled or manual cleanup of closed PR reports after
 the retention window.
 
+### Report persistence
+
+GitHub Pages deployments are immutable artifacts, so the publisher stores the
+current report index in the `playwright-pages` storage branch.
+
+Publish flow:
+
+- Download the `rpi-browser-smoke-<run-id>-<attempt>` artifact.
+- Check out `playwright-pages` into `_playwright_pages_site`.
+- Update only the affected report path:
+  - `prs/<number>/` for PR reports.
+  - `nightly/` for scheduled `main` reports.
+- Rebuild the top-level `index.html`.
+- Commit and push `playwright-pages`.
+- Deploy `_playwright_pages_site` as the GitHub Pages artifact.
+
+Concurrency:
+
+- The workflow uses the `playwright-pages` concurrency group.
+- `cancel-in-progress: false` keeps publish jobs queued instead of canceling
+  one that is already updating the index.
+- This avoids racing two pushes to the same storage branch.
+
+Why this is better than manual artifact handling:
+
+- Failed test runs can still publish their reports.
+- PR, nightly, index, and cleanup updates use the same code path.
+- Old closed PR reports can be pruned by the scheduled cleanup job.
+- The Pages site does not depend on manually downloading and re-uploading ZIP
+  artifacts.
+
 Run a local publish dry-run from an existing `playwright-report/` directory:
 
 ```bash
