@@ -54,6 +54,8 @@ def inline_state_metadata(finding: dict[str, object], run_id: str) -> dict[str, 
         metadata["start_line"] = finding.get("start_line")
     if "end_line" in finding:
         metadata["end_line"] = finding.get("end_line")
+    if "diff_side" in finding:
+        metadata["diff_side"] = finding.get("diff_side")
     if "suggestion" in finding:
         metadata["suggestion"] = finding.get("suggestion")
     return metadata

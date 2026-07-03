@@ -2810,7 +2810,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "score": 0.2,
             "confidence": 0.8,
             "path": ".github/workflows/extra.yml",
-            "diff_side": "RIGHT",
+            "diff_side": "LEFT",
             "start_line": 4,
             "end_line": 4,
             "body": "This UI comment was not counted by the summary marker.",
@@ -2871,6 +2871,12 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(state["finding_count"], 1)
         self.assertTrue(state["finding_count_available"])
         self.assertEqual(len(state["findings"]), 2)
+        recovered_extra = next(
+            finding
+            for finding in state["findings"]
+            if finding["title"] == "Extra finding"
+        )
+        self.assertEqual(recovered_extra["diff_side"], "LEFT")
 
     def test_agent_review_fetch_accepts_default_github_actions_authors(self):
         with mock.patch.dict(os.environ, {}, clear=True):

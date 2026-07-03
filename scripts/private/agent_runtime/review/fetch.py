@@ -163,6 +163,7 @@ def extract_findings(comments, run_id: str, author_logins):
             "score": metadata["score"],
             "confidence": metadata["confidence"],
             "path": metadata["path"],
+            "diff_side": metadata.get("diff_side"),
             "start_line": metadata.get("start_line"),
             "end_line": metadata.get("end_line"),
             "body": metadata["body"],
