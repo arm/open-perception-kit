@@ -139,8 +139,13 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       github.event_name != 'pull_request' ||
-      github.event.pull_request.draft == false ||
-      (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+      (
+        (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
+        (
+          github.event.pull_request.draft == false ||
+          (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+        )
+      )
     env:
       python_ver: "3.12.1"
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
