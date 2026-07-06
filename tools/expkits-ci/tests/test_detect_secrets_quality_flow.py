@@ -243,7 +243,7 @@ class StaticQualityConfigTests(unittest.TestCase):
         self.assertIn("python3 scripts/private/github_pr_context.py", workflow)
         self.assertNotIn("gh pr view", workflow)
         self.assertIn(
-            "export PULL_REQUEST_TARGET_BRANCH=\"${{ inputs.pr_base_ref || steps.manual_pr.outputs.base_ref || github.base_ref }}\"",
+            "export PULL_REQUEST_TARGET_BRANCH=\"${{ steps.manual_pr.outputs.base_ref || github.base_ref }}\"",
             workflow,
         )
         self.assertIn("-e PULL_REQUEST_TARGET_BRANCH", workflow)

@@ -1652,6 +1652,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         for steps in (pek_steps, sonar_steps):
             resolver_run = steps["Resolve manual PR context"]["run"]
             self.assertIn("python3 scripts/private/github_pr_context.py", resolver_run)
+            self.assertIn('--pr-number "${{ github.event.inputs.pr_number }}"', resolver_run)
+            self.assertIn('--base-ref-override "${{ github.event.inputs.pr_base_ref }}"', resolver_run)
+            self.assertIn('--head-ref-override "${{ github.event.inputs.pr_head_ref }}"', resolver_run)
+            self.assertIn('--head-sha-override "${{ github.event.inputs.pr_head_sha }}"', resolver_run)
             self.assertIn('--github-output "${GITHUB_OUTPUT}"', resolver_run)
             self.assertNotIn("gh pr view", resolver_run)
         for job_name in ("linux-quick-start-build-test", "rpi5-quick-start-build-test", "quality-checks"):
@@ -1663,13 +1667,14 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertIn(expected_draft_override, sonar_condition)
         for checkout_step in (linux_checkout, rpi_checkout):
             checkout_ref = checkout_step["with"]["ref"]
-            self.assertIn("inputs.pr_head_sha", checkout_ref)
-            self.assertIn("inputs.pr_head_ref", checkout_ref)
+            self.assertIn("github.event_name == 'workflow_dispatch'", checkout_ref)
+            self.assertIn("github.event.inputs.pr_head_sha", checkout_ref)
+            self.assertIn("github.event.inputs.pr_head_ref", checkout_ref)
             self.assertIn("github.head_ref", checkout_ref)
-        self.assertIn("inputs.pr_head_sha", pek_steps["Checkout"]["with"]["ref"])
         self.assertIn("steps.manual_pr.outputs.head_sha", pek_steps["Checkout"]["with"]["ref"])
-        self.assertIn("inputs.pr_head_sha", sonar_steps["Checkout"]["with"]["ref"])
+        self.assertNotIn("github.event.inputs.pr_head_sha", pek_steps["Checkout"]["with"]["ref"])
         self.assertIn("steps.manual_pr.outputs.head_sha", sonar_steps["Checkout"]["with"]["ref"])
+        self.assertNotIn("github.event.inputs.pr_head_sha", sonar_steps["Checkout"]["with"]["ref"])
         self.assertIn(
             "steps.manual_pr.outputs.base_ref",
             pek_steps["Check Repo Quality gate (PR)"]["run"],
@@ -1686,7 +1691,14 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             "source scripts/private/ci_git_auth_env.sh",
             pek_steps["Run clang-tidy baseline check"]["run"],
         )
-        self.assertIn("inputs.pr_number", sonar_steps["SonarQube analysis"]["env"]["PR_KEY"])
+        self.assertIn(
+            "github.event.inputs.pr_number",
+            pek_steps["Run clang-tidy baseline check"]["env"]["PR_CONTEXT_RUN"],
+        )
+        self.assertNotIn("${{ inputs.", PEK_CI_WORKFLOW_FILE.read_text(encoding="utf-8"))
+        self.assertNotIn("${{ inputs.", SONAR_WORKFLOW_FILE.read_text(encoding="utf-8"))
+        self.assertIn("steps.manual_pr.outputs.pr_number", sonar_steps["SonarQube analysis"]["env"]["PR_KEY"])
+        self.assertIn("steps.manual_pr.outputs.head_ref", sonar_steps["SonarQube analysis"]["env"]["SONAR_BRANCH"])
         self.assertIn("steps.manual_pr.outputs.base_ref", sonar_steps["SonarQube analysis"]["env"]["PR_BASE"])
         self.assertIn(
             "python3 scripts/private/sonar_quality_gate_workflow.py probe-api-access",

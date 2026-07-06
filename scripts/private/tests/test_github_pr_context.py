@@ -61,11 +61,59 @@ class GithubPrContextTests(unittest.TestCase):
         self.assertEqual(
             context,
             {
+                "pr_number": "175",
                 "base_ref": "main",
                 "head_ref": "feature/test",
                 "head_sha": "deadbeef",
             },
         )
+
+    def test_resolve_pr_context_applies_explicit_manual_overrides(self):
+        with mock.patch.object(
+            github_pr_context.subprocess,
+            "run",
+            return_value=subprocess.CompletedProcess(
+                ["gh"],
+                0,
+                stdout='{"baseRefName":"main","headRefName":"feature/test","headRefOid":"deadbeef"}',
+                stderr="",
+            ),
+        ):
+            context = github_pr_context.resolve_pr_context(
+                pr_number="175",
+                repo="Arm-Debug/amp-dev-forge",
+                base_ref_override="release/next",
+                head_ref_override="repair/pr-175",
+                head_sha_override="feedface",
+            )
+
+        self.assertEqual(
+            context,
+            {
+                "pr_number": "175",
+                "base_ref": "release/next",
+                "head_ref": "repair/pr-175",
+                "head_sha": "feedface",
+            },
+        )
+
+    def test_resolve_pr_context_rejects_sha_override_without_matching_head_ref(self):
+        with mock.patch.object(
+            github_pr_context.subprocess,
+            "run",
+            return_value=subprocess.CompletedProcess(
+                ["gh"],
+                0,
+                stdout='{"baseRefName":"main","headRefName":"feature/test","headRefOid":"deadbeef"}',
+                stderr="",
+            ),
+        ):
+            with self.assertRaisesRegex(ValueError, "head-ref-override"):
+                github_pr_context.resolve_pr_context(
+                    pr_number="175",
+                    repo="Arm-Debug/amp-dev-forge",
+                    head_sha_override="feedface",
+                )
 
     def test_write_outputs_uses_github_output_format(self):
         with tempfile.TemporaryDirectory() as temp_dir:
