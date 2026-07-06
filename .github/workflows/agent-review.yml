@@ -154,6 +154,6 @@ jobs:
       pr_number: ${{ github.event.pull_request.number }}
       head_sha: ${{ github.event.pull_request.head.sha }}
       source_run_id: ${{ github.run_id }}
-      ticket_id: EXPKITS-1234
+      ticket_id: EXPKITS-1007
       profile_path: .github/agent-runtime/workflow-action-update-agent/profiles/profile.json
     secrets: inherit # pragma: allowlist secret

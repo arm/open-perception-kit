@@ -21,7 +21,7 @@ on:
       ticket_id:
         description: Ticket ID used for follow-up commit metadata.
         required: false
-        default: EXPKITS-1234
+        default: EXPKITS-1007
         type: string
       profile_path:
         description: Repair profile JSON path relative to the repository root.

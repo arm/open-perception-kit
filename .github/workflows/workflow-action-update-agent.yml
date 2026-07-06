@@ -27,7 +27,7 @@ on:
       ticket_id:
         description: JIRA ticket ID used for the repair branch and commit metadata.
         required: false
-        default: EXPKITS-1234
+        default: EXPKITS-1007
         type: string
       profile_path:
         description: Repair profile JSON path relative to the repository root.
@@ -63,7 +63,7 @@ jobs:
     with:
       source_run_id: ${{ inputs.source_run_id || '' }}
       target_branch: ${{ inputs.target_branch || '' }}
-      ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
+      ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1007' }}
       profile_path: ${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}
     secrets: inherit # pragma: allowlist secret
 
@@ -79,7 +79,7 @@ jobs:
       pr_number: ${{ inputs.pr_number }}
       head_sha: ${{ inputs.head_sha || '' }}
       source_run_id: ${{ inputs.source_run_id || '' }}
-      ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1234' }}
+      ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1007' }}
       profile_path: ${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}
       context_root: ${{ inputs.context_root || '.agent-runtime/workflow-action-update-agent' }}
       dispatch_nonce: ${{ inputs.dispatch_nonce || '' }}

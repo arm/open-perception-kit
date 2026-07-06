@@ -138,7 +138,7 @@ class WorkflowActionUpdateAgentStabilizationTests(unittest.TestCase):
                         pr_number="175",
                         head_sha="deadbeef",
                         source_run_id="12345",
-                        ticket_id="EXPKITS-1234",
+                        ticket_id="EXPKITS-1007",
                         profile_path=".github/agent-runtime/workflow-action-update-agent/profiles/profile.json",
                         context_root=".agent-runtime/workflow-action-update-agent",
                         dispatch_ref="feature/test",
@@ -620,7 +620,7 @@ class WorkflowActionUpdateAgentStabilizationTests(unittest.TestCase):
                     head_sha = HELPER_STABILIZATION.commit_review_fix(
                         pr_number="169",
                         repair_branch=REPAIR_BRANCH,
-                        ticket_id="EXPKITS-1234",
+                        ticket_id="EXPKITS-1007",
                         review_state=review_state,
                     )
 
