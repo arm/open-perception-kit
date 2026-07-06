@@ -32,32 +32,12 @@ def step_summary_path() -> Path | None:
     return Path(value) if value else None
 
 
-def compose_report_command(*, probe_api_access: bool) -> list[str]:
+def quality_gate_report_command(*, probe_api_access: bool) -> list[str]:
     command = [
-        "docker",
-        "compose",
-        "-f",
-        os.environ.get("DOCKER_COMPOSE_FILE", ".github/compose.ci.yaml"),
-        "run",
-        "--rm",
-        "--entrypoint",
-        "python3",
-        "-e",
-        "SONAR_TOKEN",
-        "-e",
-        "SONAR_HOST_URL",
-        "-e",
-        "SONAR_BRANCH",
-        "-e",
-        "PR_KEY",
-        "-e",
-        "PR_BRANCH",
-        "-e",
-        "PR_BASE",
-        "pek-sonar-check",
+        sys.executable,
         "scripts/private/sonar_quality_gate_report.py",
         "--report-task-file",
-        "/work/.scannerwork/report-task.txt",
+        ".scannerwork/report-task.txt",
         "--branch",
         os.environ.get("SONAR_BRANCH", ""),
         "--pull-request-key",
@@ -94,7 +74,7 @@ def run_report(*, report_file: Path, title: str, summary_lines: int, probe_api_a
 
     with report_file.open(mode) as output:
         completed = run_command(
-            compose_report_command(probe_api_access=probe_api_access),
+            quality_gate_report_command(probe_api_access=probe_api_access),
             stdout=output,
             stderr=subprocess.STDOUT,
             check=False,

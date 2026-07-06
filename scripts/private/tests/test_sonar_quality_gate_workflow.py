@@ -29,26 +29,24 @@ sonar_quality_gate_workflow = load_module()
 
 
 class SonarQualityGateWorkflowTests(unittest.TestCase):
-    def test_compose_report_command_runs_report_script_directly(self):
+    def test_quality_gate_report_command_runs_report_script_directly(self):
         with mock.patch.dict(
             os.environ,
             {
-                "DOCKER_COMPOSE_FILE": ".github/compose.ci.yaml",
                 "SONAR_BRANCH": "feature/test",
                 "PR_KEY": "101",
             },
             clear=False,
         ):
-            command = sonar_quality_gate_workflow.compose_report_command(probe_api_access=True)
+            command = sonar_quality_gate_workflow.quality_gate_report_command(probe_api_access=True)
 
-        self.assertEqual(command[:4], ["docker", "compose", "-f", ".github/compose.ci.yaml"])
-        self.assertNotIn("--no-deps", command)
-        self.assertIn("--entrypoint", command)
-        self.assertEqual(command[command.index("--entrypoint") + 1], "python3")
-        service_index = command.index("pek-sonar-check")
-        self.assertEqual(command[service_index + 1], "scripts/private/sonar_quality_gate_report.py")
+        self.assertEqual(command[0], sonar_quality_gate_workflow.sys.executable)
+        self.assertEqual(command[1], "scripts/private/sonar_quality_gate_report.py")
+        self.assertNotIn("docker", command)
+        self.assertNotIn("pek-sonar-check", command)
         self.assertNotIn("bash", command)
         self.assertIn("scripts/private/sonar_quality_gate_report.py", command)
+        self.assertIn(".scannerwork/report-task.txt", command)
         self.assertIn("--branch", command)
         self.assertIn("feature/test", command)
         self.assertIn("--pull-request-key", command)
