@@ -40,7 +40,7 @@ class WorkflowActionUpdateAgentRuntimeProfileTests(unittest.TestCase):
         self.assertFalse(HELPER_RUNTIME.profile_bool(audit_profile, "require_failure_conclusion", True))
         self.assertEqual(
             audit_profile["repair_branch_template"],
-            "feature/{ticket_id}/bot-workflow-dependency-freshness-{source_run_id}",
+            "feature/{task_ref}/bot-workflow-dependency-freshness-{source_run_id}",
         )
         self.assertEqual(audit_profile["repair_authorization_label"], "agent-autorepair")
         self.assertEqual(audit_profile["pr_trigger_label"], "run-pek-ci")
@@ -149,6 +149,23 @@ class WorkflowActionUpdateAgentRuntimeProfileTests(unittest.TestCase):
             self.assertEqual(command_env["GITHUB_WORKSPACE"], "/work")
             for key in blocked_keys:
                 self.assertNotIn(key, command_env)
+
+    def test_task_ref_resolution_accepts_single_ref_and_rejects_missing_or_conflicting_refs(self):
+        self.assertEqual(
+            HELPER_RUNTIME.resolve_task_ref(
+                "feature/TASK-1/update-workflow-agent",
+                purpose="test",
+            ),
+            "TASK-1",
+        )
+        with self.assertRaisesRegex(ValueError, "requires a task reference"):
+            HELPER_RUNTIME.resolve_task_ref("feature/no-reference", purpose="test")
+        with self.assertRaisesRegex(ValueError, "conflicting task references"):
+            HELPER_RUNTIME.resolve_task_ref(
+                "feature/TASK-1/update-workflow-agent",
+                "TASK-2: different title",
+                purpose="test",
+            )
 
     def test_validation_commands_run_without_shell_and_reject_untrusted_commands(self):
         with mock.patch.object(HELPER_RUNTIME, "run_command") as run_command:

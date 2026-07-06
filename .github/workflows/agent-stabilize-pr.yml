@@ -18,10 +18,10 @@ on:
         required: false
         default: ""
         type: string
-      ticket_id:
-        description: Ticket ID used for follow-up commit metadata.
+      task_ref:
+        description: Optional task reference used for follow-up commit metadata. If omitted, the helper resolves it from PR metadata.
         required: false
-        default: EXPKITS-1007
+        default: ""
         type: string
       profile_path:
         description: Repair profile JSON path relative to the repository root.
@@ -190,7 +190,7 @@ jobs:
             --context-root "${{ inputs.context_root }}" \
             --pr-number "${{ inputs.pr_number }}" \
             --repair-branch "${{ steps.pr.outputs.repair_branch }}" \
-            --ticket-id "${{ inputs.ticket_id }}"
+            --task-ref "${{ inputs.task_ref }}"
         # <agent-review:suppress-end>
 
       - name: Write stabilization skip artifact

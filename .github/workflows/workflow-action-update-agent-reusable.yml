@@ -13,10 +13,10 @@ on:
         required: false
         default: ""
         type: string
-      ticket_id:
-        description: JIRA ticket ID used for the repair branch and commit metadata.
+      task_ref:
+        description: Optional task reference used for repair branch and commit metadata. If omitted, the helper resolves it from branch metadata when a repair actually runs.
         required: false
-        default: EXPKITS-1007
+        default: ""
         type: string
       profile_path:
         description: Repair profile JSON path relative to the repository root.
@@ -50,7 +50,7 @@ jobs:
       source_run_url: ${{ steps.resolve.outputs.source_run_url }}
       source_workflow_name: ${{ steps.resolve.outputs.source_workflow_name }}
       target_branch: ${{ steps.resolve.outputs.target_branch }}
-      ticket_id: ${{ steps.resolve.outputs.ticket_id }}
+      task_ref: ${{ steps.resolve.outputs.task_ref }}
       repair_branch: ${{ steps.resolve.outputs.repair_branch }}
       agent_model: ${{ steps.resolve.outputs.agent_model }}
     steps:
@@ -68,7 +68,7 @@ jobs:
             --profile-path "${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}" \
             --source-run-id "${{ inputs.source_run_id || '' }}" \
             --target-branch "${{ inputs.target_branch || '' }}" \
-            --ticket-id "${{ inputs.ticket_id || 'EXPKITS-1007' }}" \
+            --task-ref "${{ inputs.task_ref || '' }}" \
             --current-ref-name "${{ github.head_ref || github.ref_name }}" \
             --github-output "${GITHUB_OUTPUT}"
 
@@ -125,7 +125,7 @@ jobs:
             --source-workflow-name "${{ needs.prepare.outputs.source_workflow_name }}" \
             --target-branch "${{ needs.prepare.outputs.target_branch }}" \
             --repair-branch "${{ needs.prepare.outputs.repair_branch }}" \
-            --ticket-id "${{ needs.prepare.outputs.ticket_id }}"
+            --task-ref "${{ needs.prepare.outputs.task_ref }}"
 
       - name: Set up Agent Python
         uses: actions/setup-python@v6
@@ -228,7 +228,7 @@ jobs:
             --source-pr-number "${{ needs.prepare.outputs.source_pr_number }}" \
             --source-run-url "${{ needs.prepare.outputs.source_run_url }}" \
             --source-workflow-name "${{ needs.prepare.outputs.source_workflow_name }}" \
-            --ticket-id "${{ needs.prepare.outputs.ticket_id }}" \
+            --task-ref "${{ needs.prepare.outputs.task_ref }}" \
             --body-file "${{ runner.temp }}/workflow-action-update-agent-pr-body.md" \
             --pr-title-file "${{ runner.temp }}/workflow-action-update-agent-pr-title.txt" \
             --commit-subject-file "${{ runner.temp }}/workflow-action-update-agent-commit-subject.txt" \
@@ -281,6 +281,6 @@ jobs:
             --pr-number "${{ needs['open-pr'].outputs.pr_number }}" \
             --repair-branch "${{ needs.prepare.outputs.repair_branch }}" \
             --head-sha "${{ needs['open-pr'].outputs.head_sha }}" \
-            --ticket-id "${{ needs.prepare.outputs.ticket_id }}" \
+            --task-ref "${{ needs.prepare.outputs.task_ref }}" \
             --source-run-id "${{ needs.prepare.outputs.source_run_id }}" \
             --merge-when-stable

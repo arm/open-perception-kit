@@ -32,7 +32,7 @@ def build_validation_dispatch_context(
     head_sha: str,
     target_branch: str,
     source_run_id: str,
-    ticket_id: str,
+    task_ref: str,
 ) -> dict[str, str]:
     return {
         "pr_number": pr_number,
@@ -41,7 +41,7 @@ def build_validation_dispatch_context(
         "head_sha": head_sha,
         "target_branch": target_branch,
         "source_run_id": source_run_id,
-        "ticket_id": ticket_id,
+        "task_ref": task_ref,
     }
 
 
@@ -166,7 +166,7 @@ def dispatch_stabilizer_workflow(
     pr_number: str,
     head_sha: str,
     source_run_id: str,
-    ticket_id: str,
+    task_ref: str,
     profile_path: str,
     context_root: str,
     dispatch_ref: str,
@@ -179,7 +179,7 @@ def dispatch_stabilizer_workflow(
             "pr_number": pr_number,
             "head_sha": head_sha,
             "source_run_id": source_run_id,
-            "ticket_id": ticket_id,
+            "task_ref": task_ref,
             "profile_path": profile_path,
             "context_root": context_root,
             "dispatch_nonce": dispatch_nonce,

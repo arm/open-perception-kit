@@ -53,6 +53,7 @@ def read_pr_details(pr_number: str) -> dict[str, str]:
             f"PR #{pr_number} head repository is '{head_repository}', expected '{repository}'."
         )
     return {
+        "title": str(payload.get("title") or ""),
         "repair_branch": str(head.get("ref") or ""),
         "head_sha": str(head.get("sha") or ""),
         "target_branch": str(base.get("ref") or ""),

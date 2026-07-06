@@ -52,6 +52,7 @@ from .runtime import (
     profile_validation_commands,
     profile_validation_workflows,
     render_markdown_template,
+    resolve_task_ref,
     resolve_repo_path,
     run_command,
     run_validation_command,
@@ -361,7 +362,7 @@ def commit_review_fix(
     *,
     pr_number: str,
     repair_branch: str,
-    ticket_id: str,
+    task_ref: str,
     review_state: dict[str, object],
 ) -> str:
     push_token = os.environ.get("GH_TOKEN", "").strip()
@@ -402,7 +403,7 @@ def commit_review_fix(
         "-m",
         f"[bot] Address Agent Review findings on PR #{pr_number}",
         "-m",
-        f"Task: {ticket_id}",
+        f"Task: {task_ref}",
     ]
 
     review_run_id = str(review_state.get("run_id") or "").strip()
@@ -551,10 +552,16 @@ def command_run_validation(args: argparse.Namespace) -> int:
 def command_commit_review_fix(args: argparse.Namespace) -> int:
     context_root = Path(args.context_root)
     review_state = read_json_file(context_root / "review-state.json")
+    pr_details = read_pr_details(args.pr_number)
+    task_ref = resolve_task_ref(
+        args.task_ref,
+        pr_details.get("title", ""),
+        purpose="Stabilization commit creation",
+    )
     head_sha = commit_review_fix(
         pr_number=args.pr_number,
         repair_branch=args.repair_branch,
-        ticket_id=args.ticket_id,
+        task_ref=task_ref,
         review_state=review_state,
     )
     if not head_sha:
@@ -575,6 +582,11 @@ def command_stabilize_pr(args: argparse.Namespace) -> int:
     repair_branch = pr_details["repair_branch"] or args.repair_branch
     target_branch = pr_details["target_branch"]
     head_sha = args.head_sha or pr_details["head_sha"]
+    task_ref = resolve_task_ref(
+        args.task_ref,
+        pr_details.get("title", ""),
+        purpose="Stabilization workflow dispatch",
+    )
 
     for attempt in range(1, STABILIZATION_MAX_ATTEMPTS + 1):
         print(f"Stabilization attempt {attempt}/{STABILIZATION_MAX_ATTEMPTS} for PR #{args.pr_number} at {head_sha}")
@@ -584,7 +596,7 @@ def command_stabilize_pr(args: argparse.Namespace) -> int:
             head_sha=head_sha,
             target_branch=target_branch,
             source_run_id=args.source_run_id,
-            ticket_id=args.ticket_id,
+            task_ref=task_ref,
         )
 
         if review_workflow is not None:
@@ -616,7 +628,7 @@ def command_stabilize_pr(args: argparse.Namespace) -> int:
                     pr_number=args.pr_number,
                     head_sha=head_sha,
                     source_run_id=args.source_run_id,
-                    ticket_id=args.ticket_id,
+                    task_ref=task_ref,
                     profile_path=args.profile_path,
                     context_root=str(context_root),
                     dispatch_ref=dispatch_ref,

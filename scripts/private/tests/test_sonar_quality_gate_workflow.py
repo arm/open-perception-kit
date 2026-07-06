@@ -35,7 +35,7 @@ class SonarQualityGateWorkflowTests(unittest.TestCase):
             {
                 "DOCKER_COMPOSE_FILE": ".github/compose.ci.yaml",
                 "SONAR_BRANCH": "feature/test",
-                "PR_KEY": "175",
+                "PR_KEY": "101",
             },
             clear=False,
         ):
@@ -52,7 +52,7 @@ class SonarQualityGateWorkflowTests(unittest.TestCase):
         self.assertIn("--branch", command)
         self.assertIn("feature/test", command)
         self.assertIn("--pull-request-key", command)
-        self.assertIn("175", command)
+        self.assertIn("101", command)
         self.assertIn("--probe-api-access", command)
 
     def test_append_summary_writes_report_tail(self):

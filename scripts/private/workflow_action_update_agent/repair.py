@@ -37,8 +37,7 @@ from .runtime import (
     SOURCE_RUN_URL_TOKEN,
     SOURCE_WORKFLOW_NAME_TOKEN,
     TARGET_BRANCH_TOKEN,
-    TICKET_ID_TOKEN,
-    TICKET_RE,
+    TASK_REF_TOKEN,
     VALIDATION_COMMANDS_TOKEN,
     format_profile_template,
     load_markdown_template,
@@ -49,6 +48,7 @@ from .runtime import (
     profile_string,
     profile_string_list,
     render_markdown_template,
+    resolve_task_ref,
     run_command,
     write_json_file,
     write_outputs,
@@ -85,7 +85,7 @@ def build_profile_context(
     source_workflow_name: str,
     repair_branch: str,
     target_branch: str,
-    ticket_id: str,
+    task_ref: str,
 ) -> dict[str, str]:
     context = {
         "automation_name": profile_string(profile, "automation_name"),
@@ -95,7 +95,7 @@ def build_profile_context(
         "source_workflow_name": source_workflow_name,
         "repair_branch": repair_branch,
         "target_branch": target_branch,
-        "ticket_id": ticket_id,
+        "task_ref": task_ref,
         "repair_authorization_label": profile_string(profile, "repair_authorization_label"),
         "pr_trigger_label": profile_string(profile, "pr_trigger_label"),
     }
@@ -153,7 +153,7 @@ def render_repair_metadata_values(
     source_workflow_name: str,
     repair_branch: str,
     target_branch: str = "",
-    ticket_id: str = "",
+    task_ref: str = "",
 ) -> tuple[str, str, str, str]:
     context = build_profile_context(
         profile,
@@ -163,7 +163,7 @@ def render_repair_metadata_values(
         source_workflow_name=source_workflow_name,
         repair_branch=repair_branch,
         target_branch=target_branch,
-        ticket_id=ticket_id,
+        task_ref=task_ref,
     )
     description = format_profile_template(profile_string(profile, "pr_description_template"), context)
     pr_title = format_profile_template(profile_string(profile, "pr_title_template"), context)
@@ -187,7 +187,7 @@ def write_repair_metadata_files(
     source_workflow_name: str,
     repair_branch: str,
     target_branch: str,
-    ticket_id: str,
+    task_ref: str,
     body_file: str,
     pr_title_file: str,
     commit_subject_file: str,
@@ -201,7 +201,7 @@ def write_repair_metadata_files(
         source_workflow_name=source_workflow_name,
         repair_branch=repair_branch,
         target_branch=target_branch,
-        ticket_id=ticket_id,
+        task_ref=task_ref,
     )
     Path(body_file).write_text(body, encoding="utf-8")
     Path(pr_title_file).write_text(pr_title, encoding="utf-8")
@@ -219,7 +219,7 @@ def build_markdown_documents(
     source_workflow_name: str,
     target_branch: str,
     repair_branch: str,
-    ticket_id: str,
+    task_ref: str,
     artifact_files: list[str],
 ) -> dict[str, str]:
     file_inventory = "# File Inventory\n\n" + "\n".join(f"- `{item}`" for item in artifact_files)
@@ -232,7 +232,7 @@ def build_markdown_documents(
         source_workflow_name=source_workflow_name,
         repair_branch=repair_branch,
         target_branch=target_branch,
-        ticket_id=ticket_id,
+        task_ref=task_ref,
     )
 
     return {
@@ -248,7 +248,7 @@ def build_markdown_documents(
                 SOURCE_RUN_URL_TOKEN: source_run_url,
                 SOURCE_WORKFLOW_NAME_TOKEN: source_workflow_name,
                 TARGET_BRANCH_TOKEN: target_branch,
-                TICKET_ID_TOKEN: ticket_id,
+                TASK_REF_TOKEN: task_ref,
             },
         ),
         "minimal-change-policy.md": load_markdown_template("minimal-change-policy.md"),
@@ -269,9 +269,7 @@ def build_markdown_documents(
 
 def command_resolve_inputs(args: argparse.Namespace) -> int:
     profile = load_profile(args.profile_path)
-    ticket_id = args.ticket_id
-    if not TICKET_RE.match(ticket_id):
-        raise ValueError("ticket_id must match PROJECT-1234.")
+    task_ref = ""
 
     repository = os.environ["GITHUB_REPOSITORY"]
     current_ref_name = args.current_ref_name or "main"
@@ -328,6 +326,13 @@ def command_resolve_inputs(args: argparse.Namespace) -> int:
                     f"'{authorization_label}' label for external repair PR creation."
                 )
             else:
+                task_ref = resolve_task_ref(
+                    args.task_ref,
+                    target_branch,
+                    source_head_branch,
+                    current_ref_name,
+                    purpose="Repair branch creation",
+                )
                 repair_branch = format_profile_template(
                     profile_string(profile, "repair_branch_template"),
                     build_profile_context(
@@ -338,7 +343,7 @@ def command_resolve_inputs(args: argparse.Namespace) -> int:
                         source_workflow_name=source_workflow_name,
                         repair_branch="",
                         target_branch=target_branch,
-                        ticket_id=ticket_id,
+                        task_ref=task_ref,
                     ),
                 )
 
@@ -351,7 +356,7 @@ def command_resolve_inputs(args: argparse.Namespace) -> int:
             "source_run_url": source_run_url,
             "source_workflow_name": source_workflow_name,
             "target_branch": target_branch,
-            "ticket_id": ticket_id,
+            "task_ref": task_ref,
             "repair_branch": repair_branch,
             "agent_model": profile_agent_model(profile, AgentInstance.REPAIR, args.profile_path),
         },
@@ -386,6 +391,7 @@ def command_collect_context(args: argparse.Namespace) -> int:
 
 def command_build_markdown(args: argparse.Namespace) -> int:
     profile = load_profile(args.profile_path)
+    task_ref = resolve_task_ref(args.task_ref, purpose="Repair prompt generation")
     context_root = Path(args.context_root)
     artifact_files = sorted(
         path.relative_to(context_root).as_posix()
@@ -402,7 +408,7 @@ def command_build_markdown(args: argparse.Namespace) -> int:
         source_workflow_name=args.source_workflow_name,
         target_branch=args.target_branch,
         repair_branch=args.repair_branch,
-        ticket_id=args.ticket_id,
+        task_ref=task_ref,
         artifact_files=artifact_files,
     )
 
@@ -442,6 +448,7 @@ def command_require_generated_changes(args: argparse.Namespace) -> int:
 
 def command_apply_repair_changes_and_push(args: argparse.Namespace) -> int:
     profile = load_profile(args.profile_path)
+    task_ref = resolve_task_ref(args.task_ref, purpose="Repair commit creation")
     patch_root = Path(args.patch_root)
     patch_file = next(iter(sorted(patch_root.rglob("workflow-action-update-agent.patch"))), None)
     if patch_file is None:
@@ -462,7 +469,7 @@ def command_apply_repair_changes_and_push(args: argparse.Namespace) -> int:
         source_workflow_name=args.source_workflow_name,
         repair_branch=args.repair_branch,
         target_branch=args.target_branch,
-        ticket_id=args.ticket_id,
+        task_ref=task_ref,
         body_file=args.body_file,
         pr_title_file=args.pr_title_file,
         commit_subject_file=args.commit_subject_file,
@@ -482,7 +489,7 @@ def command_apply_repair_changes_and_push(args: argparse.Namespace) -> int:
         "-m",
         commit_subject,
         "-m",
-        f"Task: {args.ticket_id}",
+        f"Task: {task_ref}",
     ]
     if commit_notes:
         commit_command.extend(["-m", commit_notes])

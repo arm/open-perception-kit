@@ -39,7 +39,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
                 "pr_number",
                 "head_sha",
                 "target_branch",
-                "ticket_id",
+                "task_ref",
                 "profile_path",
                 "context_root",
                 "dispatch_nonce",
@@ -50,13 +50,16 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertEqual(stabilize_job["uses"], "./.github/workflows/agent-stabilize-pr.yml")
         self.assertEqual(repair_job["if"], "${{ inputs.pr_number == '' }}")
         self.assertEqual(stabilize_job["if"], "${{ inputs.pr_number != '' }}")
+        self.assertEqual(dispatch_inputs["task_ref"]["default"], "")
+        self.assertEqual(repair_job["with"]["task_ref"], "${{ inputs.task_ref || '' }}")
+        self.assertEqual(stabilize_job["with"]["task_ref"], "${{ inputs.task_ref || '' }}")
         self.assertEqual(
             set(repair_job["with"].keys()),
-            {"source_run_id", "target_branch", "ticket_id", "profile_path"},
+            {"source_run_id", "target_branch", "task_ref", "profile_path"},
         )
         self.assertEqual(
             set(stabilize_job["with"].keys()),
-            {"pr_number", "head_sha", "source_run_id", "ticket_id", "profile_path", "context_root", "dispatch_nonce"},
+            {"pr_number", "head_sha", "source_run_id", "task_ref", "profile_path", "context_root", "dispatch_nonce"},
         )
         self.assertNotIn("source_workflow_conclusion", repair_job["with"])
         self.assertNotIn("source_head_branch", repair_job["with"])
@@ -84,12 +87,13 @@ class AgentWorkflowContractTests(unittest.TestCase):
 
         self.assertEqual(
             set(inputs.keys()),
-            {"source_run_id", "target_branch", "ticket_id", "profile_path"},
+            {"source_run_id", "target_branch", "task_ref", "profile_path"},
         )
         self.assertEqual(
             inputs["profile_path"]["default"],
             ".github/agent-runtime/workflow-action-update-agent/profiles/profile.json",
         )
+        self.assertEqual(inputs["task_ref"]["default"], "")
 
         output_steps = {
             "Resolve repair inputs": "resolve-inputs",

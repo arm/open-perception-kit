@@ -135,10 +135,10 @@ class WorkflowActionUpdateAgentStabilizationTests(unittest.TestCase):
                 with mock.patch.object(HELPER_GITHUB_WORKFLOWS, "wait_for_workflow_run_completion"):
                     run_id = HELPER_GITHUB_WORKFLOWS.dispatch_stabilizer_workflow(
                         repository="Arm-Debug/amp-dev-forge",
-                        pr_number="175",
+                        pr_number="101",
                         head_sha="deadbeef",
                         source_run_id="12345",
-                        ticket_id="EXPKITS-1007",
+                        task_ref="TASK-1",
                         profile_path=".github/agent-runtime/workflow-action-update-agent/profiles/profile.json",
                         context_root=".agent-runtime/workflow-action-update-agent",
                         dispatch_ref="feature/test",
@@ -206,7 +206,7 @@ class WorkflowActionUpdateAgentStabilizationTests(unittest.TestCase):
                 pr_number="123",
                 repair_branch=REPAIR_BRANCH,
                 head_sha="deadbeef",
-                ticket_id="EXPKITS-4242",
+                task_ref="TASK-1",
                 source_run_id="12345",
                 context_root=str(context_root),
                 merge_when_stable=True,
@@ -303,7 +303,7 @@ class WorkflowActionUpdateAgentStabilizationTests(unittest.TestCase):
                 pr_number="123",
                 repair_branch=REPAIR_BRANCH,
                 head_sha="feedface",
-                ticket_id="EXPKITS-4242",
+                task_ref="TASK-1",
                 source_run_id="12345",
                 context_root=str(context_root),
                 merge_when_stable=False,
@@ -355,6 +355,7 @@ class WorkflowActionUpdateAgentStabilizationTests(unittest.TestCase):
                 OPENAI_AGENT_GITHUB_ACTIONS,
                 "github_api_json",
                 return_value={
+                    "title": "TASK-1: sample stabilization",
                     "head": {
                         "ref": REPAIR_BRANCH,
                         "sha": "feedface",
@@ -366,12 +367,13 @@ class WorkflowActionUpdateAgentStabilizationTests(unittest.TestCase):
                     },
                 },
             ) as github_api_json:
-                details = OPENAI_AGENT_GITHUB_ACTIONS.read_pr_details("175")
+                details = OPENAI_AGENT_GITHUB_ACTIONS.read_pr_details("101")
 
-        self.assertEqual(github_api_json.call_args.args[0], "repos/Arm-Debug/amp-dev-forge/pulls/175")
+        self.assertEqual(github_api_json.call_args.args[0], "repos/Arm-Debug/amp-dev-forge/pulls/101")
         self.assertEqual(details["repair_branch"], REPAIR_BRANCH)
         self.assertEqual(details["head_sha"], "feedface")
         self.assertEqual(details["target_branch"], "main")
+        self.assertEqual(details["title"], "TASK-1: sample stabilization")
         self.assertEqual(details["head_repository"], "Arm-Debug/amp-dev-forge")
         self.assertEqual(details["base_repository"], "Arm-Debug/amp-dev-forge")
 
@@ -393,7 +395,7 @@ class WorkflowActionUpdateAgentStabilizationTests(unittest.TestCase):
                 },
             ):
                 with self.assertRaisesRegex(RuntimeError, "only supports same-repository pull requests"):
-                    OPENAI_AGENT_GITHUB_ACTIONS.read_pr_details("175")
+                    OPENAI_AGENT_GITHUB_ACTIONS.read_pr_details("101")
 
     def test_prepare_stabilization_context_writes_prompt_and_outputs(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -620,7 +622,7 @@ class WorkflowActionUpdateAgentStabilizationTests(unittest.TestCase):
                     head_sha = HELPER_STABILIZATION.commit_review_fix(
                         pr_number="169",
                         repair_branch=REPAIR_BRANCH,
-                        ticket_id="EXPKITS-1007",
+                        task_ref="TASK-1",
                         review_state=review_state,
                     )
 

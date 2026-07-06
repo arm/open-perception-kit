@@ -23,6 +23,7 @@ from agent_workflow_test_support import (  # noqa: E402
     OPENAI_AGENT_GITHUB_ACTIONS,
     PROFILE_FILE,
     REPAIR_BRANCH,
+    SAMPLE_TASK_REF,
     build_zip_archive,
     load_python_module,
 )
@@ -114,7 +115,7 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
                 profile_path=str(PROFILE_FILE),
                 source_run_id="12345",
                 target_branch="",
-                ticket_id="EXPKITS-4242",
+                task_ref="",
                 current_ref_name="main",
                 github_output=str(output_file),
             )
@@ -122,7 +123,7 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
                 "html_url": "https://github.com/Arm-Debug/amp-dev-forge/actions/runs/12345",
                 "name": "Perception Experience Kit CI Pipeline",
                 "conclusion": "failure",
-                "head_branch": "feature/example/topic",
+                "head_branch": f"feature/{SAMPLE_TASK_REF}/topic",
                 "head_repository": {"full_name": "Arm-Debug/amp-dev-forge"},
                 "pull_requests": [{"number": 169}],
             }
@@ -146,12 +147,71 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
             )
             self.assertEqual(outputs["should_run"], "true")
             self.assertEqual(outputs["source_pr_number"], "169")
-            self.assertEqual(outputs["target_branch"], "feature/example/topic")
+            self.assertEqual(outputs["target_branch"], f"feature/{SAMPLE_TASK_REF}/topic")
+            self.assertEqual(outputs["task_ref"], SAMPLE_TASK_REF)
             self.assertEqual(
                 outputs["repair_branch"],
                 REPAIR_BRANCH,
             )
             self.assertEqual(outputs["agent_model"], "gpt-5.5")
+
+    def test_resolve_inputs_skips_local_run_without_source_run_or_task_ref(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_file = Path(temp_dir) / "outputs.txt"
+            args = argparse.Namespace(
+                profile_path=str(PROFILE_FILE),
+                source_run_id="",
+                target_branch="",
+                task_ref="",
+                current_ref_name="main",
+                github_output=str(output_file),
+            )
+
+            with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
+                result = HELPER_REPAIR.command_resolve_inputs(args)
+
+            self.assertEqual(result, 0)
+            outputs = dict(
+                line.split("=", 1)
+                for line in output_file.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            )
+            self.assertEqual(outputs["should_run"], "false")
+            self.assertEqual(outputs["skip_reason"], "No source run ID was provided.")
+            self.assertEqual(outputs["task_ref"], "")
+            self.assertEqual(outputs["repair_branch"], "")
+
+    def test_resolve_inputs_fails_when_repair_run_has_no_task_ref_source(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_file = Path(temp_dir) / "outputs.txt"
+            args = argparse.Namespace(
+                profile_path=str(PROFILE_FILE),
+                source_run_id="12345",
+                target_branch="",
+                task_ref="",
+                current_ref_name="main",
+                github_output=str(output_file),
+            )
+            run_payload = {
+                "html_url": "https://github.com/Arm-Debug/amp-dev-forge/actions/runs/12345",
+                "name": "Perception Experience Kit CI Pipeline",
+                "conclusion": "failure",
+                "head_branch": "feature/no-task-ref",
+                "head_repository": {"full_name": "Arm-Debug/amp-dev-forge"},
+                "pull_requests": [{"number": 169}],
+            }
+
+            with mock.patch.object(
+                OPENAI_AGENT_GITHUB_ACTIONS,
+                "github_api_json",
+                side_effect=[
+                    run_payload,
+                    {"labels": [{"name": "agent-autorepair"}]},
+                ],
+            ):
+                with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
+                    with self.assertRaisesRegex(ValueError, "requires a task reference"):
+                        HELPER_REPAIR.command_resolve_inputs(args)
 
     def test_resolve_inputs_requires_source_pr_authorization_label(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -160,7 +220,7 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
                 profile_path=str(PROFILE_FILE),
                 source_run_id="12345",
                 target_branch="",
-                ticket_id="EXPKITS-4242",
+                task_ref="TASK-1",
                 current_ref_name="main",
                 github_output=str(output_file),
             )
@@ -202,7 +262,7 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
                 profile_path=str(PROFILE_FILE),
                 source_run_id="12345",
                 target_branch="",
-                ticket_id="EXPKITS-4242",
+                task_ref="TASK-1",
                 current_ref_name="main",
                 github_output=str(output_file),
             )
@@ -248,7 +308,7 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
                 source_workflow_name="Perception Experience Kit CI Pipeline",
                 target_branch="main",
                 repair_branch=REPAIR_BRANCH,
-                ticket_id="EXPKITS-4242",
+                task_ref="TASK-1",
             )
 
             result = HELPER_REPAIR.command_build_markdown(args)
@@ -303,7 +363,7 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
             source_workflow_name="Perception Experience Kit CI Pipeline",
             repair_branch=REPAIR_BRANCH,
             target_branch="main",
-            ticket_id="EXPKITS-4242",
+            task_ref="TASK-1",
         )
 
         self.assertIn("Automation actor: `workflow-action-update-agent` bot run using `EXPKITS_AGENT_TOKEN`.", rendered)
@@ -357,7 +417,7 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
                 source_pr_number="169",
                 source_run_url="https://github.com/Arm-Debug/amp-dev-forge/actions/runs/12345",
                 source_workflow_name="CI",
-                ticket_id="EXPKITS-4242",
+                task_ref="TASK-1",
                 body_file=str(body_file),
                 pr_title_file=str(title_file),
                 commit_subject_file=str(subject_file),

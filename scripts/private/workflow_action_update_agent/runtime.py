@@ -20,7 +20,9 @@ from agent_runtime.contracts import (
 )
 from agent_runtime.config.model import resolve_agent_model
 
-TICKET_RE = re.compile(r"^[A-Z][A-Z0-9]*-[0-9]+$")
+TASK_REF_PATTERN = r"[A-Z][A-Z0-9]*-[0-9]+"
+TASK_REF_RE = re.compile(rf"^{TASK_REF_PATTERN}$")
+TASK_REF_SCAN_RE = re.compile(rf"(?<![A-Z0-9])({TASK_REF_PATTERN})(?![A-Z0-9])")
 GITHUB_WORKSPACE = os.environ.get("GITHUB_WORKSPACE", "").strip()
 HELPER_ROOT = Path(__file__).resolve().parents[3]
 REPO_ROOT = Path(GITHUB_WORKSPACE).resolve() if GITHUB_WORKSPACE else HELPER_ROOT
@@ -48,7 +50,7 @@ SOURCE_PR_NUMBER_TOKEN = "{{SOURCE_PR_NUMBER}}"
 SOURCE_RUN_URL_TOKEN = "{{SOURCE_RUN_URL}}"
 SOURCE_WORKFLOW_NAME_TOKEN = "{{SOURCE_WORKFLOW_NAME}}"
 TARGET_BRANCH_TOKEN = "{{TARGET_BRANCH}}"
-TICKET_ID_TOKEN = "{{TICKET_ID}}"
+TASK_REF_TOKEN = "{{TASK_REF}}"
 REPAIR_AUTHORIZATION_LABEL_TOKEN = "{{REPAIR_AUTHORIZATION_LABEL}}"
 WAIT_TIMEOUT_SECONDS = 1800
 STABILIZATION_MAX_ATTEMPTS = 5
@@ -163,6 +165,29 @@ def validation_command_environment() -> dict[str, str]:
         if key.upper() not in blocked_names
         and not any(fragment in key.upper() for fragment in VALIDATION_ENV_SENSITIVE_FRAGMENTS)
     }
+
+
+def task_refs_from_text(value: str) -> list[str]:
+    text = value.strip()
+    if TASK_REF_RE.fullmatch(text):
+        return [text]
+    return TASK_REF_SCAN_RE.findall(text)
+
+
+def resolve_task_ref(*values: str, purpose: str) -> str:
+    refs: list[str] = []
+    for value in values:
+        refs.extend(task_refs_from_text(str(value or "")))
+
+    unique_refs = sorted(set(refs))
+    if not unique_refs:
+        raise ValueError(f"{purpose} requires a task reference matching PROJECT-1234.")
+    if len(unique_refs) > 1:
+        raise ValueError(
+            f"{purpose} found conflicting task references: "
+            + ", ".join(unique_refs)
+        )
+    return unique_refs[0]
 
 
 def write_outputs(values: dict[str, str], output_path: str | None = None) -> None:

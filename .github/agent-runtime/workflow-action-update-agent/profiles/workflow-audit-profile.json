@@ -2,7 +2,7 @@
   "display_name": "Workflow Dependency Freshness Repair",
   "automation_name": "workflow-dependency-freshness-repair",
   "require_failure_conclusion": false,
-  "repair_branch_template": "feature/{ticket_id}/bot-workflow-dependency-freshness-{source_run_id}",
+  "repair_branch_template": "feature/{task_ref}/bot-workflow-dependency-freshness-{source_run_id}",
   "repair_branch_guard_regex": "^feature/[^/]+/bot-workflow-dependency-freshness-",
   "repair_authorization_label": "agent-autorepair",
   "pr_trigger_label": "run-pek-ci",

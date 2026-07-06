@@ -425,9 +425,9 @@ class AgentRuntimeReviewPipelineTests(unittest.TestCase):
                     "REVIEW_BASE_REF": "origin/main",
                     "REVIEW_BASE_SHA": "base-sha",
                     "REVIEW_HEAD_SHA": "head-sha",
-                    "REVIEW_PR_NUMBER": "175",
+                    "REVIEW_PR_NUMBER": "101",
                     "REVIEW_PR_TITLE": "Line one\nline two",
-                    "REVIEW_PR_URL": "https://github.com/Arm-Debug/amp-dev-forge/pull/175",
+                    "REVIEW_PR_URL": "https://github.com/Arm-Debug/amp-dev-forge/pull/101",
                 },
                 clear=False,
             ):
@@ -439,9 +439,9 @@ class AgentRuntimeReviewPipelineTests(unittest.TestCase):
         self.assertIn("origin/main", rendered)
         self.assertIn("base-sha", rendered)
         self.assertIn("head-sha", rendered)
-        self.assertIn("175", rendered)
+        self.assertIn("101", rendered)
         self.assertIn("Line one line two", rendered)
-        self.assertIn("https://github.com/Arm-Debug/amp-dev-forge/pull/175", rendered)
+        self.assertIn("https://github.com/Arm-Debug/amp-dev-forge/pull/101", rendered)
 
     def test_agent_review_prompt_omits_unsupported_or_contradicted_claims(self):
         content = AGENT_REVIEW_PROMPT_TEMPLATE.read_text(encoding="utf-8")
@@ -539,7 +539,7 @@ class AgentRuntimeReviewPipelineTests(unittest.TestCase):
         ):
             AGENT_REVIEW_GITHUB_PUBLISH.create_pull_review(
                 "Arm-Debug/amp-dev-forge",
-                "175",
+                "101",
                 "token",
                 "review body",
                 "request_changes",
@@ -552,7 +552,7 @@ class AgentRuntimeReviewPipelineTests(unittest.TestCase):
         call = calls[0]
         self.assertEqual(
             call["url"],
-            "repos/Arm-Debug/amp-dev-forge/pulls/175/reviews",
+            "repos/Arm-Debug/amp-dev-forge/pulls/101/reviews",
         )
         self.assertEqual(call["method"], "POST")
         self.assertEqual(call["token"], "token")
@@ -676,7 +676,7 @@ class AgentRuntimeReviewPipelineTests(unittest.TestCase):
         def fake_submit_pull_review(repository, pr_number, token, payload):
             calls.append(payload)
             raise urllib.error.HTTPError(
-                "https://api.github.com/repos/Arm-Debug/amp-dev-forge/pulls/175/reviews",
+                "https://api.github.com/repos/Arm-Debug/amp-dev-forge/pulls/101/reviews",
                 422,
                 "Validation Failed",
                 hdrs=http_headers(),
@@ -691,7 +691,7 @@ class AgentRuntimeReviewPipelineTests(unittest.TestCase):
             with self.assertRaises(urllib.error.HTTPError):
                 AGENT_REVIEW_GITHUB_PUBLISH.create_pull_review(
                     "Arm-Debug/amp-dev-forge",
-                    "175",
+                    "101",
                     "token",
                     "review body",
                     "request_changes",
@@ -729,7 +729,7 @@ class AgentRuntimeReviewPipelineTests(unittest.TestCase):
             )
             if len(calls) == 1:
                 raise urllib.error.HTTPError(
-                    "https://api.github.com/repos/Arm-Debug/amp-dev-forge/pulls/175/reviews",
+                    "https://api.github.com/repos/Arm-Debug/amp-dev-forge/pulls/101/reviews",
                     422,
                     "Validation Failed",
                     hdrs=http_headers(),
@@ -743,7 +743,7 @@ class AgentRuntimeReviewPipelineTests(unittest.TestCase):
         ), mock.patch.object(AGENT_REVIEW_GITHUB_PUBLISH.sys, "stderr", io.StringIO()):
             AGENT_REVIEW_GITHUB_PUBLISH.create_pull_review(
                 "Arm-Debug/amp-dev-forge",
-                "175",
+                "101",
                 "token",
                 "review body",
                 "request_changes",

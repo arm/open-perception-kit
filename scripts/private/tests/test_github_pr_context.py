@@ -41,7 +41,7 @@ class GithubPrContextTests(unittest.TestCase):
             ),
         ) as run:
             context = github_pr_context.resolve_pr_context(
-                pr_number="175",
+                pr_number="101",
                 repo="Arm-Debug/amp-dev-forge",
             )
 
@@ -51,7 +51,7 @@ class GithubPrContextTests(unittest.TestCase):
                 "gh",
                 "pr",
                 "view",
-                "175",
+                "101",
                 "--repo",
                 "Arm-Debug/amp-dev-forge",
                 "--json",
@@ -61,7 +61,7 @@ class GithubPrContextTests(unittest.TestCase):
         self.assertEqual(
             context,
             {
-                "pr_number": "175",
+                "pr_number": "101",
                 "base_ref": "main",
                 "head_ref": "feature/test",
                 "head_sha": "deadbeef",
@@ -80,19 +80,19 @@ class GithubPrContextTests(unittest.TestCase):
             ),
         ):
             context = github_pr_context.resolve_pr_context(
-                pr_number="175",
+                pr_number="101",
                 repo="Arm-Debug/amp-dev-forge",
                 base_ref_override="release/next",
-                head_ref_override="repair/pr-175",
+                head_ref_override="repair/pr-sample",
                 head_sha_override="feedface",
             )
 
         self.assertEqual(
             context,
             {
-                "pr_number": "175",
+                "pr_number": "101",
                 "base_ref": "release/next",
-                "head_ref": "repair/pr-175",
+                "head_ref": "repair/pr-sample",
                 "head_sha": "feedface",
             },
         )
@@ -110,7 +110,7 @@ class GithubPrContextTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(ValueError, "head-ref-override"):
                 github_pr_context.resolve_pr_context(
-                    pr_number="175",
+                    pr_number="101",
                     repo="Arm-Debug/amp-dev-forge",
                     head_sha_override="feedface",
                 )

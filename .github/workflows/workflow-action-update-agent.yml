@@ -24,10 +24,10 @@ on:
         required: false
         default: ""
         type: string
-      ticket_id:
-        description: JIRA ticket ID used for the repair branch and commit metadata.
+      task_ref:
+        description: Optional task reference used for repair branch and commit metadata. If omitted, the helper resolves it from branch or PR metadata when a repair actually runs.
         required: false
-        default: EXPKITS-1007
+        default: ""
         type: string
       profile_path:
         description: Repair profile JSON path relative to the repository root.
@@ -63,7 +63,7 @@ jobs:
     with:
       source_run_id: ${{ inputs.source_run_id || '' }}
       target_branch: ${{ inputs.target_branch || '' }}
-      ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1007' }}
+      task_ref: ${{ inputs.task_ref || '' }}
       profile_path: ${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}
     secrets: inherit # pragma: allowlist secret
 
@@ -79,7 +79,7 @@ jobs:
       pr_number: ${{ inputs.pr_number }}
       head_sha: ${{ inputs.head_sha || '' }}
       source_run_id: ${{ inputs.source_run_id || '' }}
-      ticket_id: ${{ inputs.ticket_id || 'EXPKITS-1007' }}
+      task_ref: ${{ inputs.task_ref || '' }}
       profile_path: ${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}
       context_root: ${{ inputs.context_root || '.agent-runtime/workflow-action-update-agent' }}
       dispatch_nonce: ${{ inputs.dispatch_nonce || '' }}
