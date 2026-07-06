@@ -37,17 +37,27 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
                     "workflow_action_update_agent_workspace_root",
                 )
 
-        self.assertEqual(workspace_helper.REPO_ROOT, Path(temp_dir).resolve())
+        workspace_root = Path(temp_dir).resolve()
+        default_profile_path = ".github/agent-runtime/workflow-action-update-agent/profiles/profile.json"
+
+        self.assertEqual(workspace_helper.REPO_ROOT, workspace_root)
         self.assertEqual(
-            workspace_helper.resolve_repo_path(
-                ".github/agent-runtime/workflow-action-update-agent/profiles/profile.json"),
-            Path(temp_dir).resolve() / ".github/agent-runtime/workflow-action-update-agent/profiles/profile.json",
+            workspace_helper.DEFAULT_PROFILE_PATH,
+            workspace_root / default_profile_path,
+        )
+        self.assertEqual(
+            workspace_helper.default_profile_path_argument(),
+            default_profile_path,
+        )
+        self.assertEqual(
+            workspace_helper.resolve_repo_path(default_profile_path),
+            workspace_root / default_profile_path,
         )
         self.assertEqual(
             workspace_helper.profile_config_root(
                 ".workflow-action-update-agent-helper/.github/agent-runtime/workflow-action-update-agent/profiles/profile.json",
             ),
-            Path(temp_dir).resolve() / ".workflow-action-update-agent-helper",
+            workspace_root / ".workflow-action-update-agent-helper",
         )
 
     def test_collect_context_uses_github_api_archives_on_self_hosted(self):
