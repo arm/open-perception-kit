@@ -132,6 +132,81 @@ class AgentRuntimeReviewPipelineTests(unittest.TestCase):
         self.assertEqual(outputs["finding_count"], "1")
         self.assertTrue(markdown_written)
 
+    def test_agent_review_github_outputs_use_diff_anchor_filter(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            workflow_path = repo_root / ".github/workflows/example.yml"
+            workflow_path.parent.mkdir(parents=True)
+            workflow_path.write_text("name: example\n", encoding="utf-8")
+            review_path = repo_root / "review.json"
+            markdown_path = repo_root / "review.md"
+            output_path = repo_root / "outputs.txt"
+            review_path.write_text(
+                json.dumps(
+                    {
+                        "summary": "Review summary.",
+                        "overall_recommendation": "request_changes",
+                        "overall_score": 0.7,
+                        "overall_confidence": 0.8,
+                        "findings": [
+                            {
+                                "title": "Line exists outside PR diff",
+                                "severity": "major",
+                                "score": 0.7,
+                                "confidence": 0.8,
+                                "path": ".github/workflows/example.yml",
+                                "diff_side": "RIGHT",
+                                "start_line": 1,
+                                "end_line": 1,
+                                "body": "The line exists but is not changed by this PR.",
+                                "suggestion": None,
+                            },
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with mock.patch.object(AGENT_REVIEW_PUBLISH.Path, "cwd", return_value=repo_root):
+                with mock.patch.object(
+                    AGENT_REVIEW_PUBLISH,
+                    "review_base_ref_from_env",
+                    return_value="origin/main",
+                ):
+                    with mock.patch.object(
+                        AGENT_REVIEW_PUBLISH,
+                        "build_diff_comment_anchors",
+                        return_value=set(),
+                    ) as build_diff_comment_anchors:
+                        with mock.patch.object(
+                            AGENT_REVIEW_PUBLISH.sys,
+                            "argv",
+                            [
+                                "publish.py",
+                                "--input",
+                                str(review_path),
+                                "--markdown-out",
+                                str(markdown_path),
+                                "--github-output",
+                                str(output_path),
+                            ],
+                        ):
+                            result = AGENT_REVIEW_PUBLISH.main()
+
+            outputs = dict(
+                line.split("=", 1)
+                for line in output_path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            )
+            filtered = json.loads(review_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(result, 0)
+        build_diff_comment_anchors.assert_called_once_with("origin/main")
+        self.assertEqual(outputs["recommendation"], "approve")
+        self.assertEqual(outputs["finding_count"], "0")
+        self.assertEqual(filtered["overall_recommendation"], "approve")
+        self.assertEqual(filtered["findings"], [])
+
     def test_agent_review_output_drops_invalid_right_side_anchors(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)

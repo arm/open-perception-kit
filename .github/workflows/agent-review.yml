@@ -110,6 +110,8 @@ jobs:
         id: render
         if: ${{ success() }}
         shell: bash
+        env:
+          REVIEW_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_ref || format('origin/{0}', github.base_ref) }}
         run: |
           .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/review/publish.py \
             --input .github/agent-runtime/review/out/review.json \

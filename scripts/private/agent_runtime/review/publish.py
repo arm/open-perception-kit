@@ -61,7 +61,7 @@ def main() -> int:
     args = parser.parse_args()
 
     diff_anchors = None
-    if args.publish_pr_comment:
+    if args.publish_pr_comment or args.github_output:
         diff_anchors = build_diff_comment_anchors(review_base_ref_from_env())
 
     review = load_filtered_review(Path(args.input), Path.cwd(), diff_anchors=diff_anchors)

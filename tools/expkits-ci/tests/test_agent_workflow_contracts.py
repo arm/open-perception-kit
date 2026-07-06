@@ -352,6 +352,10 @@ class AgentWorkflowContractTests(unittest.TestCase):
         publish_step = review_steps["Publish review summary comment"]
         render_summary_step = review_steps["Render review summary"]
         self.assertEqual(render_summary_step["id"], "render")
+        self.assertEqual(
+            render_summary_step["env"]["REVIEW_BASE_REF"],
+            "${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_ref || format('origin/{0}', github.base_ref) }}",
+        )
         self.assertIn('--github-output "${GITHUB_OUTPUT}"', render_summary_step["run"])
         self.assertEqual(
             publish_step["env"]["REVIEW_BASE_REF"],
