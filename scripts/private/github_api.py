@@ -150,30 +150,6 @@ def github_api_json_or_empty(
         return {}
 
 
-def list_paginated_items(url: str, *, token: str | None = None) -> list[object]:
-    items: list[object] = []
-    next_url: str | None = url
-    while next_url:
-        request = urllib.request.Request(
-            next_url,
-            headers=github_api_headers(token=token),
-        )
-        with urllib.request.urlopen(request) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-            if isinstance(payload, list):
-                items.extend(payload)
-            link_header = response.headers.get("Link", "")
-        next_url = ""
-        for part in link_header.split(","):
-            if 'rel="next"' not in part:
-                continue
-            match = re.search(r"<([^>]+)>", part)
-            if match:
-                next_url = match.group(1)
-                break
-    return items
-
-
 def github_archive_api_url(url: str) -> str:
     parsed = urllib.parse.urlsplit(url)
     if parsed.scheme != "https":

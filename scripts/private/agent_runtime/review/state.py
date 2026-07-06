@@ -82,15 +82,6 @@ def review_state_finding_count_available(review_state: dict[str, object]) -> boo
     return review_state.get("finding_count_available") is True
 
 
-def review_state_matches_head(review_state: dict[str, object], *, run_id: str, head_sha: str) -> bool:
-    return bool(
-        run_id
-        and head_sha
-        and str(review_state.get("run_id") or "") == run_id
-        and str(review_state.get("head_sha") or "") == head_sha
-    )
-
-
 def review_state_can_drive_stabilization(review_state: dict[str, object], *, source: str) -> bool:
     recommendation = review_state_recommendation(review_state)
     if not recommendation:

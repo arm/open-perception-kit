@@ -10,7 +10,6 @@ import json
 import os
 import shutil
 import tempfile
-import time
 import urllib.parse
 from pathlib import Path
 
@@ -22,8 +21,6 @@ from agent_runtime.review.state import (
     normalize_review_state,
     read_json_file,
     resolve_canonical_review_state,
-    review_state_can_drive_stabilization,
-    review_state_matches_head,
     review_state_recommendation,
     review_state_requires_findings,
 )
@@ -38,7 +35,6 @@ from .runtime import (
     REVIEW_SUMMARY_TOKEN,
     REVIEW_WORKFLOW_NAME_TOKEN,
     SOURCE_RUN_ID_TOKEN,
-    WAIT_TIMEOUT_SECONDS,
     load_profile,
     profile_agent_model,
     profile_prompt_replacements,
@@ -95,75 +91,6 @@ def resolve_review_state_for_run(
         head_sha=head_sha,
         fallback_state=fallback_state,
     )
-
-
-def wait_for_review_state(
-    *,
-    pr_number: str,
-    workflow_name: str,
-    review_state_script: str,
-    expected_run_id: str,
-    head_sha: str,
-) -> dict[str, object]:
-    deadline = time.time() + WAIT_TIMEOUT_SECONDS
-    last_non_actionable_state: dict[str, object] = {}
-
-    while time.time() < deadline:
-        latest_artifact_state = normalize_review_state(
-            read_review_state(
-                state_script=review_state_script,
-                pr_number=pr_number,
-            )
-        )
-        observed_run_id = str(latest_artifact_state.get("run_id") or "")
-        observed_head_sha = str(latest_artifact_state.get("head_sha") or "")
-        repository = os.environ.get("GITHUB_REPOSITORY", "")
-
-        canonical_state, source = resolve_review_state_for_run(
-            repository=repository,
-            pr_number=pr_number,
-            workflow_name=workflow_name,
-            run_id=expected_run_id,
-            head_sha=head_sha,
-            fallback_state=latest_artifact_state,
-        )
-        if canonical_state:
-            recommendation = review_state_recommendation(canonical_state)
-            print(
-                f"Observed {workflow_name} recommendation {recommendation} from {source} "
-                f"for run {expected_run_id} on PR #{pr_number}"
-            )
-            return canonical_state
-
-        if review_state_matches_head(latest_artifact_state, run_id=expected_run_id, head_sha=head_sha):
-            if review_state_requires_findings(latest_artifact_state, source="artifact"):
-                last_non_actionable_state = latest_artifact_state
-            elif review_state_can_drive_stabilization(latest_artifact_state, source="artifact"):
-                recommendation = review_state_recommendation(latest_artifact_state)
-                print(
-                    f"Observed {workflow_name} recommendation {recommendation} from artifact "
-                    f"for run {expected_run_id} on PR #{pr_number}"
-                )
-                return latest_artifact_state
-
-        if observed_run_id != expected_run_id:
-            time.sleep(15)
-            continue
-        if observed_head_sha != head_sha:
-            time.sleep(15)
-            continue
-
-        time.sleep(15)
-
-    message = f"Timed out waiting for {workflow_name} canonical review state on PR #{pr_number}"
-    if last_non_actionable_state:
-        message += "\n" + missing_review_findings_error_message(
-            pr_number=pr_number,
-            workflow_name=workflow_name,
-            review_state=last_non_actionable_state,
-            source="artifact",
-        )
-    raise RuntimeError(message)
 
 
 def build_stabilize_prompt(

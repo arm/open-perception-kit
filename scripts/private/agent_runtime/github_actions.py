@@ -6,13 +6,9 @@
 from __future__ import annotations
 
 import os
-import subprocess
 import tempfile
-import time
-from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import TypeVar
 import urllib.error
 import zipfile
 
@@ -23,11 +19,6 @@ from github_api import (
     github_api_json,
     github_api_query_endpoint,
 )
-
-DEFAULT_ACTIONS_TIMEOUT_SECONDS = 1800
-POLL_INTERVAL_SECONDS = 5
-COMPLETION_POLL_INTERVAL_SECONDS = 15
-PollResult = TypeVar("PollResult")
 
 
 def parse_timestamp(value: str) -> datetime:
@@ -168,35 +159,6 @@ def download_workflow_run_artifacts(*, repository: str, run_id: str, artifact_ro
         return
 
 
-def dispatch_workflow_run(*, workflow_file: str, ref: str, workflow_inputs: dict[str, str]) -> None:
-    command = [
-        "gh",
-        "workflow",
-        "run",
-        workflow_file,
-        "--ref",
-        ref,
-    ]
-    for key, value in workflow_inputs.items():
-        command.extend(["-f", f"{key}={value}"])
-    subprocess.run(command, check=True, text=True, capture_output=True)
-
-
-def poll_until(
-    callback: Callable[[], PollResult],
-    *,
-    timeout_seconds: int,
-    interval_seconds: int = POLL_INTERVAL_SECONDS,
-) -> PollResult | None:
-    deadline = time.monotonic() + timeout_seconds
-    while time.monotonic() < deadline:
-        result = callback()
-        if result:
-            return result
-        time.sleep(interval_seconds)
-    return None
-
-
 def find_latest_workflow_run_candidate(
     *,
     repository: str,
@@ -257,72 +219,3 @@ def find_latest_workflow_run_for_head(
         head_sha=head_sha,
     )
     return str(candidate.get("id") or "")
-
-
-def wait_for_dispatched_workflow_run(
-    *,
-    repository: str,
-    workflow_file: str,
-    dispatch_nonce: str,
-    timeout_seconds: int = DEFAULT_ACTIONS_TIMEOUT_SECONDS,
-) -> str:
-    def latest_dispatched_run_id() -> str:
-        payload = github_api_json(
-            github_api_query_endpoint(
-                f"repos/{repository}/actions/workflows/{workflow_file}/runs",
-                {"event": "workflow_dispatch", "per_page": 20},
-            ),
-        )
-        workflow_runs = payload.get("workflow_runs", []) if isinstance(payload, dict) else []
-        candidates: list[tuple[datetime, str]] = []
-        for run in workflow_runs:
-            if not isinstance(run, dict):
-                continue
-            display_title = str(run.get("display_title") or "")
-            created_at = str(run.get("created_at") or "")
-            if dispatch_nonce not in display_title or not created_at:
-                continue
-            candidates.append((parse_timestamp(created_at), str(run.get("id") or "")))
-
-        if not candidates:
-            return ""
-        return max(candidates, key=lambda item: item[0])[1]
-
-    run_id = poll_until(latest_dispatched_run_id, timeout_seconds=timeout_seconds)
-    if run_id:
-        return str(run_id)
-    raise RuntimeError(f"Timed out waiting for dispatched {workflow_file} run containing nonce '{dispatch_nonce}'.")
-
-
-def wait_for_workflow_run_completion(
-    *,
-    repository: str,
-    workflow_name: str,
-    run_id: str,
-    timeout_seconds: int = DEFAULT_ACTIONS_TIMEOUT_SECONDS,
-) -> None:
-    def completed_successfully() -> bool:
-        payload = github_api_json(f"repos/{repository}/actions/runs/{run_id}")
-        if not isinstance(payload, dict):
-            raise RuntimeError(f"Unexpected workflow run payload for run {run_id}.")
-
-        status = str(payload.get("status") or "")
-        conclusion = str(payload.get("conclusion") or "")
-        if status != "completed":
-            return False
-        if conclusion == "success":
-            return True
-        if conclusion == "action_required":
-            raise RuntimeError(
-                f"{workflow_name} run {run_id} is waiting for manual approval (conclusion: action_required).\n"
-                "Repository policy prevented unattended verification of the generated repair PR.",
-            )
-        raise RuntimeError(f"{workflow_name} run {run_id} concluded with '{conclusion}'.")
-
-    if poll_until(
-        completed_successfully,
-        timeout_seconds=timeout_seconds,
-        interval_seconds=COMPLETION_POLL_INTERVAL_SECONDS,
-    ):
-        return
-    raise RuntimeError(f"Timed out waiting for {workflow_name} run {run_id} to complete.")
