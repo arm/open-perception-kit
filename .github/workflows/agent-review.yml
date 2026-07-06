@@ -144,7 +144,7 @@ jobs:
   review-gate:
     name: Agent Review gate
     needs: review
-    if: ${{ always() && needs.review.result != 'skipped' && needs.review.result != 'cancelled' }}
+    if: ${{ always() && needs.review.result != 'cancelled' }}
     runs-on: ubuntu-latest
     permissions: {}
     steps:
@@ -154,8 +154,19 @@ jobs:
           REVIEW_RESULT: ${{ needs.review.result }}
           REVIEW_RECOMMENDATION: ${{ needs.review.outputs.recommendation }}
           REVIEW_FINDING_COUNT: ${{ needs.review.outputs.finding_count }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || '' }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
+          if [ "${REVIEW_RESULT}" = "skipped" ]; then
+            if [ "${EVENT_NAME}" = "pull_request" ] && [ "${HEAD_REPOSITORY}" != "${REPOSITORY}" ]; then
+              echo "Agent Review skipped unsupported fork pull request head ${HEAD_REPOSITORY}."
+              exit 0
+            fi
+            echo "Agent Review job was skipped unexpectedly."
+            exit 1
+          fi
           if [ "${REVIEW_RESULT}" != "success" ]; then
             echo "Agent Review job result was ${REVIEW_RESULT}."
             exit 1

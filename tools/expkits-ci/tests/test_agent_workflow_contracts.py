@@ -196,9 +196,18 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertEqual(review_gate_job["runs-on"], "ubuntu-latest")
         self.assertEqual(review_gate_job["permissions"], {})
         self.assertIn("always()", review_gate_job["if"])
+        self.assertNotIn("needs.review.result != 'skipped'", review_gate_job["if"])
         self.assertIn("needs.review.result != 'cancelled'", review_gate_job["if"])
         review_gate_steps = step_map(review_gate_job)
         gate_run = review_gate_steps["Require Agent Review approval"]["run"]
+        gate_env = review_gate_steps["Require Agent Review approval"]["env"]
+        self.assertEqual(gate_env["EVENT_NAME"], "${{ github.event_name }}")
+        self.assertEqual(gate_env["HEAD_REPOSITORY"], "${{ github.event.pull_request.head.repo.full_name || '' }}")
+        self.assertEqual(gate_env["REPOSITORY"], "${{ github.repository }}")
+        self.assertIn('if [ "${REVIEW_RESULT}" = "skipped" ]; then', gate_run)
+        self.assertIn('[ "${EVENT_NAME}" = "pull_request" ] && [ "${HEAD_REPOSITORY}" != "${REPOSITORY}" ]', gate_run)
+        self.assertIn("unsupported fork pull request", gate_run)
+        self.assertIn("Agent Review job was skipped unexpectedly.", gate_run)
         self.assertIn('if [ "${REVIEW_RESULT}" != "success" ]; then', gate_run)
         self.assertIn('if [ "${REVIEW_RECOMMENDATION}" != "approve" ]; then', gate_run)
         self.assertEqual(
