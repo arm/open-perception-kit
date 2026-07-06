@@ -32,24 +32,21 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
         self.assertIn("$(git push)", output)
         self.assertIn("$ git diff --check", output)
 
-    def test_openai_agent_runner_executes_tokenized_pipelines_and_redirection(self):
+    def test_openai_agent_runner_executes_tokenized_pipelines_and_stdin_redirection(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_REPO_TOOLS_SCRIPT,
             "agent_runtime.tools.repo_fake_sdk_pipeline_commands",
         )
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)
+            (repo_root / "input.txt").write_text("one\ntwo\n", encoding="utf-8")
             OPENAI_AGENT_RUNTIME_CONTEXT.set_run_context(repo_root, 10)
-            output = repo_tools.run_shell_command(
-                "printf 'one\\ntwo\\n' | sed -n 2p > out.txt; cat < out.txt"
-            )
+            output = repo_tools.run_shell_command("cat < input.txt | sed -n 2p")
 
-            written_output = (repo_root / "out.txt").read_text(encoding="utf-8")
+            self.assertFalse((repo_root / "out.txt").exists())
 
-        self.assertEqual(written_output, "two\n")
-        self.assertIn("$ printf 'one\\ntwo\\n' | sed -n 2p > out.txt", output)
-        self.assertIn("$ cat < out.txt", output)
-        self.assertIn("two", output)
+        self.assertIn("$ cat < input.txt | sed -n 2p", output)
+        self.assertIn("--- stdout ---\ntwo\n", output)
 
     def test_openai_agent_runner_feeds_pipeline_stdout_to_next_stage_stdin(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
@@ -111,9 +108,24 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
             "agent_runtime.tools.repo_fake_sdk_redirection_guard",
         )
         with tempfile.TemporaryDirectory() as temp_dir:
-            OPENAI_AGENT_RUNTIME_CONTEXT.set_run_context(Path(temp_dir) / "repo", 10)
+            repo_root = Path(temp_dir) / "repo"
+            repo_root.mkdir()
+            (Path(temp_dir) / "outside.txt").write_text("outside\n", encoding="utf-8")
+            OPENAI_AGENT_RUNTIME_CONTEXT.set_run_context(repo_root, 10)
             with self.assertRaisesRegex(ValueError, "escapes repository root"):
-                repo_tools.run_shell_command("printf bad > ../outside.txt")
+                repo_tools.run_shell_command("cat < ../outside.txt")
+
+    def test_openai_agent_runner_rejects_stdout_redirection(self):
+        repo_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_REPO_TOOLS_SCRIPT,
+            "agent_runtime.tools.repo_fake_sdk_stdout_redirection_guard",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            OPENAI_AGENT_RUNTIME_CONTEXT.set_run_context(Path(temp_dir), 10)
+            with self.assertRaisesRegex(ValueError, "stdout redirection is not supported"):
+                repo_tools.run_shell_command("printf bad > out.txt")
+            with self.assertRaisesRegex(ValueError, "stdout redirection is not supported"):
+                repo_tools.run_shell_command("printf bad >> out.txt")
 
     def test_openai_agent_runner_rejects_git_metadata_reads(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
@@ -131,7 +143,7 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
                 repo_tools.read_repo_file(".git/config")
             with self.assertRaisesRegex(ValueError, "Command argument targets git metadata"):
                 repo_tools.run_shell_command("cat .git/config")
-            with self.assertRaisesRegex(ValueError, "Shell redirection path targets git metadata"):
+            with self.assertRaisesRegex(ValueError, "Shell stdin redirection path targets git metadata"):
                 repo_tools.run_shell_command("cat < .git/config")
 
     def test_openai_agent_runner_omits_symlinked_git_metadata_from_file_listing(self):
@@ -191,6 +203,33 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
             self.assertIn("exit_code=0", output)
             self.assertEqual(target.read_text(encoding="utf-8"), "new\n")
 
+    def test_openai_agent_runner_applies_safe_quoted_unified_diff(self):
+        repo_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_REPO_TOOLS_SCRIPT,
+            "agent_runtime.tools.repo_fake_sdk_patch_guard_quoted_safe",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            target = repo_root / "example path.txt"
+            target.write_text("old\n", encoding="utf-8")
+            OPENAI_AGENT_RUNTIME_CONTEXT.set_run_context(repo_root, 10)
+
+            output = repo_tools.apply_unified_diff(
+                textwrap.dedent(
+                    """\
+                    diff --git "a/example path.txt" "b/example path.txt"
+                    --- "a/example path.txt"
+                    +++ "b/example path.txt"
+                    @@ -1 +1 @@
+                    -old
+                    +new
+                    """
+                )
+            )
+
+            self.assertIn("exit_code=0", output)
+            self.assertEqual(target.read_text(encoding="utf-8"), "new\n")
+
     def test_openai_agent_runner_rejects_patch_paths_outside_safe_tree(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_REPO_TOOLS_SCRIPT,
@@ -225,6 +264,30 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "escapes repository root"):
                 repo_tools.apply_unified_diff(escaping_patch)
 
+            quoted_escaping_patch = textwrap.dedent(
+                """\
+                diff --git "a/safe.txt" "b/../outside.txt"
+                --- "a/safe.txt"
+                +++ "b/../outside.txt"
+                @@ -0,0 +1 @@
+                +unsafe
+                """
+            )
+            with self.assertRaisesRegex(ValueError, "escapes repository root"):
+                repo_tools.apply_unified_diff(quoted_escaping_patch)
+
+            escaped_quoted_patch = textwrap.dedent(
+                """\
+                diff --git "a/safe.txt" "b/escaped.txt"
+                --- "a/safe.txt"
+                +++ "b/escaped\\040path.txt"
+                @@ -0,0 +1 @@
+                +unsafe
+                """
+            )
+            with self.assertRaisesRegex(ValueError, "Escaped patch paths are not supported"):
+                repo_tools.apply_unified_diff(escaped_quoted_patch)
+
     def test_openai_agent_runner_blocks_mutating_git_commands_after_shell_splitting(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_REPO_TOOLS_SCRIPT,
@@ -254,7 +317,7 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
             repo_tools.reject_unsafe_shell_command("git diff --check || true")
         with self.assertRaisesRegex(ValueError, "Unsupported empty command"):
             repo_tools.reject_unsafe_shell_command("git diff --check |")
-        with self.assertRaisesRegex(ValueError, "redirection requires a command"):
+        with self.assertRaisesRegex(ValueError, "stdout redirection is not supported"):
             repo_tools.reject_unsafe_shell_command("> out.txt")
         for command in (
             "git apply /tmp/example.patch",

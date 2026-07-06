@@ -11,7 +11,7 @@ import shlex
 import subprocess
 
 from ..runtime_context import AgentRunContext
-from .paths import is_git_metadata_path, resolve_redirection_path
+from .paths import is_git_metadata_path, resolve_stdin_redirection_path
 
 READ_ONLY_GIT_SUBCOMMANDS = {
     "cat-file",
@@ -37,16 +37,13 @@ SHELL_COMMAND_SEPARATORS = (
 )
 SHELL_PIPE_SEPARATOR = "|"
 SHELL_REDIRECT_STDIN = "<"
-SHELL_REDIRECT_STDOUT = ">"
-SHELL_REDIRECT_STDOUT_APPEND = ">>"
+SHELL_UNSUPPORTED_STDOUT_REDIRECTS = (">", ">>")
 
 
 @dataclass(frozen=True)
 class ParsedShellCommand:
     pipeline: list[list[str]]
     stdin_path: str | None = None
-    stdout_path: str | None = None
-    stdout_append: bool = False
     stderr_to_stdout: bool = False
 
 
@@ -66,8 +63,6 @@ def split_shell_commands(command: str) -> list[ParsedShellCommand]:
     current: list[str] = []
 
     stdin_path: str | None = None
-    stdout_path: str | None = None
-    stdout_append = False
     stderr_to_stdout = False
 
     def append_pipeline_segment() -> None:
@@ -78,7 +73,7 @@ def split_shell_commands(command: str) -> list[ParsedShellCommand]:
         current = []
 
     def append_command() -> None:
-        nonlocal pipeline, stdin_path, stdout_path, stdout_append, stderr_to_stdout
+        nonlocal pipeline, stdin_path, stderr_to_stdout
         if current:
             append_pipeline_segment()
         if pipeline:
@@ -88,18 +83,14 @@ def split_shell_commands(command: str) -> list[ParsedShellCommand]:
                 ParsedShellCommand(
                     pipeline=pipeline,
                     stdin_path=stdin_path,
-                    stdout_path=stdout_path,
-                    stdout_append=stdout_append,
                     stderr_to_stdout=stderr_to_stdout,
                 )
             )
             pipeline = []
             stdin_path = None
-            stdout_path = None
-            stdout_append = False
             stderr_to_stdout = False
             return
-        if stdin_path or stdout_path or stderr_to_stdout:
+        if stdin_path or stderr_to_stdout:
             raise ValueError("Shell redirection requires a command in agent commands.")
 
     index = 0
@@ -118,21 +109,20 @@ def split_shell_commands(command: str) -> list[ParsedShellCommand]:
                 raise ValueError("Unsupported empty command in agent shell pipeline.")
             index += 1
             continue
-        if word in {SHELL_REDIRECT_STDIN, SHELL_REDIRECT_STDOUT, SHELL_REDIRECT_STDOUT_APPEND}:
+        if word in SHELL_UNSUPPORTED_STDOUT_REDIRECTS:
+            raise ValueError(
+                "stdout redirection is not supported in agent shell commands. "
+                "Use apply_unified_diff for repository changes."
+            )
+        if word == SHELL_REDIRECT_STDIN:
             if index + 1 >= len(tokens):
                 raise ValueError(f"Missing path after shell redirection operator: {word}")
             target_path = tokens[index + 1]
             if any(character in target_path for character in ";&|<>"):
                 raise ValueError(f"Unsupported shell redirection path in agent command: {target_path}")
-            if word == SHELL_REDIRECT_STDIN:
-                if stdin_path is not None:
-                    raise ValueError("Multiple stdin redirections are not supported in agent commands.")
-                stdin_path = target_path
-            else:
-                if stdout_path is not None:
-                    raise ValueError("Multiple stdout redirections are not supported in agent commands.")
-                stdout_path = target_path
-                stdout_append = word == SHELL_REDIRECT_STDOUT_APPEND
+            if stdin_path is not None:
+                raise ValueError("Multiple stdin redirections are not supported in agent commands.")
+            stdin_path = target_path
             index += 2
             continue
         if word == "2" and index + 1 < len(tokens):
@@ -147,7 +137,7 @@ def split_shell_commands(command: str) -> list[ParsedShellCommand]:
         if any(character in word for character in ";&|<>"):
             raise ValueError(
                 f"Unsupported shell syntax in agent command: {word}. "
-                "Use simple commands, pipelines, or file redirection."
+                "Use simple commands, pipelines, or stdin file redirection."
             )
         current.append(word)
         index += 1
@@ -211,14 +201,13 @@ def reject_unsafe_shell_command(command: str) -> None:
 
 
 def format_parsed_shell_command(parsed_command: ParsedShellCommand) -> str:
-    command_text = f" {SHELL_PIPE_SEPARATOR} ".join(
-        shlex.join(words) for words in parsed_command.pipeline
-    )
-    if parsed_command.stdin_path:
-        command_text = f"{command_text} {SHELL_REDIRECT_STDIN} {shlex.quote(parsed_command.stdin_path)}"
-    if parsed_command.stdout_path:
-        redirect = SHELL_REDIRECT_STDOUT_APPEND if parsed_command.stdout_append else SHELL_REDIRECT_STDOUT
-        command_text = f"{command_text} {redirect} {shlex.quote(parsed_command.stdout_path)}"
+    command_segments = []
+    for index, words in enumerate(parsed_command.pipeline):
+        command_segment = shlex.join(words)
+        if index == 0 and parsed_command.stdin_path:
+            command_segment = f"{command_segment} {SHELL_REDIRECT_STDIN} {shlex.quote(parsed_command.stdin_path)}"
+        command_segments.append(command_segment)
+    command_text = f" {SHELL_PIPE_SEPARATOR} ".join(command_segments)
     if parsed_command.stderr_to_stdout:
         command_text = f"{command_text} 2>&1"
     return command_text
@@ -227,10 +216,10 @@ def format_parsed_shell_command(parsed_command: ParsedShellCommand) -> str:
 def run_parsed_shell_command(parsed_command: ParsedShellCommand, context: AgentRunContext) -> ShellCommandResult:
     stage_input: str | None = None
     if parsed_command.stdin_path:
-        stage_input = resolve_redirection_path(context, parsed_command.stdin_path).read_text(encoding="utf-8")
-    output_path: Path | None = None
-    if parsed_command.stdout_path:
-        output_path = resolve_redirection_path(context, parsed_command.stdout_path)
+        stage_input = resolve_stdin_redirection_path(
+            context,
+            parsed_command.stdin_path,
+        ).read_text(encoding="utf-8")
 
     stdout_text = ""
     stderr_parts: list[str] = []
@@ -256,13 +245,6 @@ def run_parsed_shell_command(parsed_command: ParsedShellCommand, context: AgentR
         stage_input = stdout_text
         if completed.returncode != 0:
             break
-
-    if output_path is not None:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        mode = "a" if parsed_command.stdout_append else "w"
-        with output_path.open(mode, encoding="utf-8") as output_file:
-            output_file.write(stdout_text)
-        stdout_text = ""
 
     return ShellCommandResult(
         returncode=exit_code,

@@ -15,6 +15,7 @@ GIT_METADATA_PREFIX = f"{GIT_METADATA_DIR}/"
 PATCH_PATH_PREFIXES = ("a/", "b/")
 PATCH_FILE_HEADER_PREFIXES = ("--- ", "+++ ")
 PATCH_MOVE_HEADER_PREFIXES = ("rename from ", "rename to ", "copy from ", "copy to ")
+PATCH_QUOTE_CHARS = ('"', "'")
 
 
 def is_git_metadata_path(relative_path: str) -> bool:
@@ -38,11 +39,26 @@ def resolve_mutable_repo_path(context: AgentRunContext, path_value: str, operati
     return resolve_safe_repo_path(context, path_value, operation)
 
 
-def resolve_redirection_path(context: AgentRunContext, path_value: str) -> Path:
-    return resolve_mutable_repo_path(context, path_value, "Shell redirection")
+def resolve_stdin_redirection_path(context: AgentRunContext, path_value: str) -> Path:
+    return resolve_safe_repo_path(context, path_value, "Shell stdin redirection")
+
+
+def parse_patch_path(path_value: str) -> str:
+    if path_value.startswith(PATCH_QUOTE_CHARS):
+        if "\\" in path_value:
+            raise ValueError(f"Escaped patch paths are not supported: {path_value}")
+        try:
+            words = shlex.split(path_value)
+        except ValueError as exc:
+            raise ValueError(f"Unable to parse quoted patch path: {path_value}") from exc
+        if len(words) != 1:
+            raise ValueError(f"Unsupported quoted patch path: {path_value}")
+        return words[0]
+    return path_value
 
 
 def normalize_patch_path(path_value: str) -> str | None:
+    path_value = parse_patch_path(path_value)
     if path_value == "/dev/null":
         return None
     for prefix in PATCH_PATH_PREFIXES:
@@ -72,7 +88,9 @@ def patch_header_paths(patch: str) -> list[str]:
                 break
         for prefix in PATCH_MOVE_HEADER_PREFIXES:
             if line.startswith(prefix):
-                paths.append(line[len(prefix):])
+                normalized = normalize_patch_path(line[len(prefix):])
+                if normalized:
+                    paths.append(normalized)
                 break
     return sorted(set(paths))
 
