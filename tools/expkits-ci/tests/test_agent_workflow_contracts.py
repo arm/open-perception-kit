@@ -196,6 +196,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertEqual(review_gate_job["runs-on"], "ubuntu-latest")
         self.assertEqual(review_gate_job["permissions"], {})
         self.assertIn("always()", review_gate_job["if"])
+        self.assertIn("needs.review.result != 'cancelled'", review_gate_job["if"])
         review_gate_steps = step_map(review_gate_job)
         gate_run = review_gate_steps["Require Agent Review approval"]["run"]
         self.assertIn('if [ "${REVIEW_RESULT}" != "success" ]; then', gate_run)

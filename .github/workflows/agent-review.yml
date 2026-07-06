@@ -144,7 +144,7 @@ jobs:
   review-gate:
     name: Agent Review gate
     needs: review
-    if: ${{ always() && needs.review.result != 'skipped' }}
+    if: ${{ always() && needs.review.result != 'skipped' && needs.review.result != 'cancelled' }}
     runs-on: ubuntu-latest
     permissions: {}
     steps:
