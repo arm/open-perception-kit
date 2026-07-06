@@ -14,6 +14,7 @@ import sys
 
 PROBE_REPORT = "sonar-api-access-probe.txt"
 QUALITY_REPORT = "sonar-quality-gate-report.txt"
+REPORT_TASK_FILE = ".scannerwork/report-task.txt"
 
 
 def run_command(args: list[str], *, stdout=None, stderr=None, check: bool = True) -> subprocess.CompletedProcess[bytes]:
@@ -33,11 +34,15 @@ def step_summary_path() -> Path | None:
 
 
 def quality_gate_report_command(*, probe_api_access: bool) -> list[str]:
+    # Sonar analysis runs in pek-sonar-check with the repository bind-mounted as
+    # .:/work, so /work/.scannerwork/report-task.txt is this host checkout path.
+    # The report helper is stdlib-only; keep it host-side instead of adding a
+    # second compose entrypoint for reporting.
     command = [
         sys.executable,
         "scripts/private/sonar_quality_gate_report.py",
         "--report-task-file",
-        ".scannerwork/report-task.txt",
+        REPORT_TASK_FILE,
         "--branch",
         os.environ.get("SONAR_BRANCH", ""),
         "--pull-request-key",

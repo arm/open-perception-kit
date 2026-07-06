@@ -5,15 +5,19 @@
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 import os
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 from unittest import mock
 
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "sonar_quality_gate_workflow.py"
+REPO_ROOT = MODULE_PATH.parents[2]
+REPORT_MODULE_PATH = MODULE_PATH.parent / "sonar_quality_gate_report.py"
 
 
 def load_module():
@@ -52,6 +56,27 @@ class SonarQualityGateWorkflowTests(unittest.TestCase):
         self.assertIn("--pull-request-key", command)
         self.assertIn("101", command)
         self.assertIn("--probe-api-access", command)
+
+    def test_host_report_task_path_matches_compose_work_bind_mount(self):
+        compose_base = (REPO_ROOT / "compose.base.yaml").read_text(encoding="utf-8")
+
+        command = sonar_quality_gate_workflow.quality_gate_report_command(probe_api_access=False)
+
+        self.assertIn("- .:/work", compose_base)
+        self.assertIn(".scannerwork/report-task.txt", command)
+        self.assertNotIn("/work/.scannerwork/report-task.txt", command)
+
+    def test_quality_gate_report_script_stays_stdlib_only(self):
+        module = ast.parse(REPORT_MODULE_PATH.read_text(encoding="utf-8"))
+        imported_roots = set()
+        for node in ast.walk(module):
+            if isinstance(node, ast.Import):
+                imported_roots.update(alias.name.split(".", 1)[0] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                imported_roots.add(node.module.split(".", 1)[0])
+
+        external_imports = sorted(imported_roots - sys.stdlib_module_names - {"__future__"})
+        self.assertEqual(external_imports, [])
 
     def test_append_summary_writes_report_tail(self):
         with tempfile.TemporaryDirectory() as temp_dir:
