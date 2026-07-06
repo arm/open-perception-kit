@@ -126,6 +126,9 @@ class AgentRuntimeContractTests(unittest.TestCase):
         self.assertIn("--agent-instance", runner_source)
         self.assertIn("--model-config-file", runner_source)
         self.assertIn("--task-config-file", runner_source)
+        self.assertNotRegex(runner_source, r"(^|\s)--model(\s|=|$)")
+        self.assertNotIn("--override-model", model_config_source)
+        self.assertNotIn("override_model", model_config_source)
         self.assertNotIn("--task-estimate-turns", runner_source)
         self.assertNotIn("ReviewResult", runner_source)
         self.assertNotIn("read_repo_file", runner_source)
@@ -272,14 +275,6 @@ class AgentRuntimeContractTests(unittest.TestCase):
         self.assertEqual(
             OPENAI_AGENT_MODEL_CONFIG.resolve_agent_model(AGENT_MODEL_CONFIG_FILE, "stabilization"),
             "gpt-5.5",
-        )
-        self.assertEqual(
-            OPENAI_AGENT_MODEL_CONFIG.resolve_agent_model(
-                AGENT_MODEL_CONFIG_FILE,
-                "review",
-                override_model="gpt-override",
-            ),
-            "gpt-override",
         )
 
     def test_agent_tasks_are_centrally_configured_per_command(self):

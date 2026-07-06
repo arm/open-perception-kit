@@ -153,7 +153,11 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
                 outputs["repair_branch"],
                 REPAIR_BRANCH,
             )
-            self.assertEqual(outputs["agent_model"], "gpt-5.5")
+            self.assertNotIn("agent_model", outputs)
+            self.assertEqual(
+                outputs["agent_model_config_file"],
+                ".github/agent-runtime/runtime/agent-models.json",
+            )
 
     def test_resolve_inputs_skips_local_run_without_source_run_or_task_ref(self):
         with tempfile.TemporaryDirectory() as temp_dir:

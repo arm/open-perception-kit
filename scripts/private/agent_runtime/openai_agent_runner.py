@@ -101,14 +101,12 @@ def resolve_runner_model(args: argparse.Namespace) -> str:
     return resolve_agent_model(
         args.model_config_file,
         AgentInstance(args.agent_instance) if args.agent_instance else args.task_settings.agent_instance,
-        override_model=args.model,
     )
 
 
 def add_common_task_arguments(subparser: argparse.ArgumentParser) -> None:
     subparser.add_argument("--prompt-file", required=True)
     subparser.add_argument("--output-file", required=True)
-    subparser.add_argument("--model", default="")
     subparser.add_argument("--model-config-file", default=DEFAULT_AGENT_MODEL_CONFIG_PATH)
     subparser.add_argument("--task-config-file", default=DEFAULT_AGENT_TASK_CONFIG_PATH)
     subparser.add_argument(

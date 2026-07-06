@@ -4,19 +4,23 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'scripts/private/tests'))
 from agent_workflow_test_support import (  # noqa: E402
+    AGENT_MODEL_CONFIG_FILE,
     AGENT_REVIEW_WORKFLOW_FILE,
     OPENAI_AGENT_RUNNER_LABEL,
     PEK_CI_WORKFLOW_FILE,
+    PROFILE_FILE,
     REUSABLE_WORKFLOW_FILE,
     SONAR_WORKFLOW_FILE,
     STABILIZER_WORKFLOW_FILE,
     WORKFLOW_AUDIT_FILE,
+    WORKFLOW_AUDIT_PROFILE_FILE,
     WORKFLOW_FILE,
     load_quality_checks_module,
     load_yaml,
@@ -25,6 +29,9 @@ from agent_workflow_test_support import (  # noqa: E402
 
 
 class AgentWorkflowContractTests(unittest.TestCase):
+    def assert_no_direct_model_flag(self, run: str) -> None:
+        self.assertNotRegex(run, r"(^|\s)--model(\s|=|$)")
+
     def test_manual_wrapper_calls_reusable_workflow_with_minimal_inputs(self):
         workflow = load_yaml(WORKFLOW_FILE)
         dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
@@ -145,6 +152,10 @@ class AgentWorkflowContractTests(unittest.TestCase):
             ".agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/openai_agent_runner.py run-repair",
             agent_step["run"],
         )
+        self.assertIn(
+            '--model-config-file "${{ needs.prepare.outputs.agent_model_config_file }}"',
+            agent_step["run"],
+        )
         self.assertIn("--prompt-file .agent-runtime/workflow-action-update-agent/goal.md", agent_step["run"])
         self.assertEqual(
             agent_step["run"].count("${{ runner.temp }}/workflow-action-update-agent-agent-output.md"),
@@ -152,7 +163,12 @@ class AgentWorkflowContractTests(unittest.TestCase):
         )
         self.assertNotIn("--agent-instance", agent_step["run"])
         self.assertNotIn("--max-turns", agent_step["run"])
-        self.assertNotIn("--model", agent_step["run"])
+        self.assert_no_direct_model_flag(agent_step["run"])
+        self.assertEqual(
+            prepare_job["outputs"]["agent_model_config_file"],
+            "${{ steps.resolve.outputs.agent_model_config_file }}",
+        )
+        self.assertNotIn("agent_model", prepare_job["outputs"])
         static_regression_step = agent_steps["Run static regression tests"]
         self.assertIn(
             ".agent-runtime/openai-agent-venv/bin/python -m expkits_ci.agent_static_analysis",
@@ -216,6 +232,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         )
         workflow_source = AGENT_REVIEW_WORKFLOW_FILE.read_text(encoding="utf-8")
         self.assertNotIn("agent-repair", workflow_source)
+        self.assertNotIn("gpt-", workflow_source)
         self.assertIn("github.event.action != 'labeled'", review_job["if"])
         self.assertIn("github.event.label.name == 'agent-stabilize'", review_job["if"])
         self.assertEqual(auto_stabilize_job["needs"], "review")
@@ -330,7 +347,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         )
         self.assertNotIn("--agent-instance", agent_step["run"])
         self.assertNotIn("--max-turns", agent_step["run"])
-        self.assertNotIn("--model", agent_step["run"])
+        self.assert_no_direct_model_flag(agent_step["run"])
         publish_step = review_steps["Publish review summary comment"]
         render_summary_step = review_steps["Render review summary"]
         self.assertEqual(render_summary_step["id"], "render")
@@ -541,8 +558,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
             agent_step["run"],
         )
         self.assertIn(
-            "--model-config-file "
-            ".workflow-action-update-agent-helper/.github/agent-runtime/runtime/agent-models.json",
+            '--model-config-file "${{ steps.context.outputs.agent_model_config_file }}"',
             agent_step["run"],
         )
         self.assertIn(
@@ -557,6 +573,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         )
         self.assertNotIn("--agent-instance", agent_step["run"])
         self.assertNotIn("--max-turns", agent_step["run"])
+        self.assert_no_direct_model_flag(agent_step["run"])
         resolve_pr_step = steps["Resolve PR details"]
         self.assertEqual(resolve_pr_step["shell"], "bash")
         self.assertIn("python3 -m workflow_action_update_agent resolve-pr-details", resolve_pr_step["run"])
@@ -613,6 +630,37 @@ class AgentWorkflowContractTests(unittest.TestCase):
             commit_step["env"]["GH_TOKEN"],
             "${{ secrets.EXPKITS_AGENT_TOKEN }}",
         )
+
+    def test_agent_model_contract_is_centralized(self):
+        model_config = json.loads(AGENT_MODEL_CONFIG_FILE.read_text(encoding="utf-8"))
+        workflows = {
+            "agent-review": AGENT_REVIEW_WORKFLOW_FILE,
+            "agent-stabilize-pr": STABILIZER_WORKFLOW_FILE,
+            "workflow-action-update-agent-reusable": REUSABLE_WORKFLOW_FILE,
+        }
+
+        self.assertEqual(set(model_config["agents"]), {"review", "repair", "stabilization"})
+        self.assertIsInstance(model_config["default_agent_model"], str)
+        self.assertTrue(model_config["default_agent_model"].strip())
+        for agent_name, agent_config in model_config["agents"].items():
+            self.assertEqual(set(agent_config), {"model"}, agent_name)
+            self.assertIsInstance(agent_config["model"], str)
+            self.assertTrue(agent_config["model"].strip(), agent_name)
+
+        for profile_file in (PROFILE_FILE, WORKFLOW_AUDIT_PROFILE_FILE):
+            profile = json.loads(profile_file.read_text(encoding="utf-8"))
+            with self.subTest(profile=profile_file.name):
+                self.assertNotIn("agent_model", profile)
+                self.assertEqual(
+                    profile["agent_model_config"],
+                    ".github/agent-runtime/runtime/agent-models.json",
+                )
+
+        for workflow_name, workflow_file in workflows.items():
+            workflow_source = workflow_file.read_text(encoding="utf-8")
+            with self.subTest(workflow=workflow_name):
+                self.assertNotIn("gpt-", workflow_source)
+                self.assertNotRegex(workflow_source, r"(^|\s)--model(\s|=|$)")
 
     def test_workflow_audit_reports_freshness_only(self):
         workflow = load_yaml(WORKFLOW_AUDIT_FILE)

@@ -295,12 +295,24 @@ def profile_string(profile: dict[str, object], key: str) -> str:
         raise ValueError(f"Profile key '{key}' must be a non-empty string.") from exc
 
 
-def profile_agent_model(profile: dict[str, object], agent_instance: AgentInstance, profile_path: str = "") -> str:
+def profile_agent_model_config_path(profile: dict[str, object], profile_path: str = "") -> Path:
     model_config_path = Path(profile_string(profile, "agent_model_config"))
     if not model_config_path.is_absolute():
         model_config_path = profile_config_root(profile_path) / model_config_path
+    return model_config_path.resolve()
+
+
+def profile_agent_model_config_file(profile: dict[str, object], profile_path: str = "") -> str:
+    model_config_path = profile_agent_model_config_path(profile, profile_path)
+    try:
+        return model_config_path.relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return model_config_path.as_posix()
+
+
+def profile_agent_model(profile: dict[str, object], agent_instance: AgentInstance, profile_path: str = "") -> str:
     return resolve_agent_model(
-        model_config_path,
+        profile_agent_model_config_path(profile, profile_path),
         agent_instance,
     )
 

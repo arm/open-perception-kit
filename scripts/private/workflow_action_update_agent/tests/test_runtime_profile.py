@@ -76,6 +76,17 @@ class WorkflowActionUpdateAgentRuntimeProfileTests(unittest.TestCase):
             profile["agent_model_config"],
             ".github/agent-runtime/runtime/agent-models.json",
         )
+        self.assertEqual(
+            HELPER_RUNTIME.profile_agent_model_config_file(profile, str(PROFILE_FILE)),
+            ".github/agent-runtime/runtime/agent-models.json",
+        )
+        self.assertEqual(
+            HELPER_RUNTIME.profile_agent_model_config_file(
+                profile,
+                ".workflow-action-update-agent-helper/.github/agent-runtime/workflow-action-update-agent/profiles/profile.json",
+            ),
+            ".workflow-action-update-agent-helper/.github/agent-runtime/runtime/agent-models.json",
+        )
         self.assertEqual(HELPER_RUNTIME.profile_config_root(str(PROFILE_FILE)), REPO_ROOT)
         self.assertEqual(
             HELPER_RUNTIME.profile_agent_model(profile, HELPER_RUNTIME.AgentInstance.REPAIR, str(PROFILE_FILE)),

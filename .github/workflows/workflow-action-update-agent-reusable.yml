@@ -52,7 +52,7 @@ jobs:
       target_branch: ${{ steps.resolve.outputs.target_branch }}
       task_ref: ${{ steps.resolve.outputs.task_ref }}
       repair_branch: ${{ steps.resolve.outputs.repair_branch }}
-      agent_model: ${{ steps.resolve.outputs.agent_model }}
+      agent_model_config_file: ${{ steps.resolve.outputs.agent_model_config_file }}
     steps:
       - uses: actions/checkout@v6
 
@@ -153,6 +153,7 @@ jobs:
           OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
         run: |
           .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/openai_agent_runner.py run-repair \
+            --model-config-file "${{ needs.prepare.outputs.agent_model_config_file }}" \
             --prompt-file .agent-runtime/workflow-action-update-agent/goal.md \
             --output-file "${{ runner.temp }}/workflow-action-update-agent-agent-output.md"
 

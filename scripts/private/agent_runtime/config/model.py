@@ -57,13 +57,7 @@ def load_agent_model_config(config_file: str | Path) -> AgentModelConfig:
 def resolve_agent_model(
     config_file: str | Path,
     agent_instance: str | AgentInstance,
-    *,
-    override_model: str = "",
 ) -> str:
-    override = override_model.strip()
-    if override:
-        return override
-
     instance = parse_enum_value(AgentInstance, agent_instance, "agent instance")
     config = load_agent_model_config(config_file)
     entry = config.agents.get(instance)
@@ -76,7 +70,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Resolve an Agent workflow model from runtime config.")
     parser.add_argument("agent_instance", choices=[instance.value for instance in AgentInstance])
     parser.add_argument("--config-file", default=DEFAULT_AGENT_MODEL_CONFIG_PATH)
-    parser.add_argument("--override-model", default="")
     return parser
 
 
@@ -86,7 +79,6 @@ def main() -> int:
         resolve_agent_model(
             args.config_file,
             args.agent_instance,
-            override_model=args.override_model,
         ),
     )
     return 0

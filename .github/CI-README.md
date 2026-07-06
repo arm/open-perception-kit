@@ -69,7 +69,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 - Provides the shared Python OpenAI Agents SDK entrypoint for review, repair, and stabilization jobs
 - Sets the Arm OpenAI proxy base URL, maps `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` into `OPENAI_API_KEY`, disables Agents SDK tracing, and injects `truststore` before importing OpenAI libraries
-- Resolves the model from `.github/agent-runtime/runtime/agent-models.json` by agent instance, while still accepting an explicit `--model` override from trusted workflow plumbing
+- Resolves the model from `.github/agent-runtime/runtime/agent-models.json` by agent instance; workflow plumbing passes config paths, not concrete model names
 - Resolves task ownership and limits from `.github/agent-runtime/runtime/agent-tasks.json`, then dispatches through checked-in task classes instead of embedding task-specific behavior in the generic entrypoint
 - Runs from the workflow-local `.agent-runtime/openai-agent-venv` environment created by `setup_runtime.py` so Ubuntu's externally managed system Python is left untouched
 - Writes structured Agent review JSON for `agent-review` and lets repair/stabilization agents inspect the repo, run validation commands, and apply minimal patches without owning branch or PR lifecycle operations

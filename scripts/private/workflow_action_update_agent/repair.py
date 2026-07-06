@@ -43,6 +43,7 @@ from .runtime import (
     load_markdown_template,
     load_profile,
     profile_agent_model,
+    profile_agent_model_config_file,
     profile_bool,
     profile_prompt_replacements,
     profile_string,
@@ -349,6 +350,7 @@ def command_resolve_inputs(args: argparse.Namespace) -> int:
                     ),
                 )
 
+    profile_agent_model(profile, AgentInstance.REPAIR, args.profile_path)
     write_outputs(
         {
             "should_run": "true" if should_run else "false",
@@ -360,7 +362,7 @@ def command_resolve_inputs(args: argparse.Namespace) -> int:
             "target_branch": target_branch,
             "task_ref": task_ref,
             "repair_branch": repair_branch,
-            "agent_model": profile_agent_model(profile, AgentInstance.REPAIR, args.profile_path),
+            "agent_model_config_file": profile_agent_model_config_file(profile, args.profile_path),
         },
         args.github_output,
     )

@@ -164,7 +164,11 @@ class WorkflowActionUpdateAgentStabilizationTests(unittest.TestCase):
             self.assertEqual(outputs["repair_branch"], REPAIR_BRANCH)
             self.assertEqual(outputs["head_sha"], "deadbeef")
             self.assertEqual(outputs["review_recommendation"], "comment")
-            self.assertEqual(outputs["agent_model"], "gpt-5.5")
+            self.assertNotIn("agent_model", outputs)
+            self.assertEqual(
+                outputs["agent_model_config_file"],
+                ".github/agent-runtime/runtime/agent-models.json",
+            )
             self.assertTrue((context_root / "review-state.json").is_file())
             self.assertTrue((context_root / "stabilize-goal.md").is_file())
 
