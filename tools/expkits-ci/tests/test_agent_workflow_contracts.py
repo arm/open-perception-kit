@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'scripts/private/te
 from agent_workflow_test_support import (  # noqa: E402
     AGENT_MODEL_CONFIG_FILE,
     AGENT_REVIEW_WORKFLOW_FILE,
+    AGENT_TASK_CONFIG_FILE,
     OPENAI_AGENT_RUNNER_LABEL,
     PEK_CI_WORKFLOW_FILE,
     PROFILE_FILE,
@@ -32,6 +33,16 @@ from agent_workflow_test_support import (  # noqa: E402
 class AgentWorkflowContractTests(unittest.TestCase):
     def assert_no_direct_model_flag(self, run: str) -> None:
         self.assertNotRegex(run, r"(^|\s)--model(\s|=|$)")
+
+    def assert_no_direct_task_config_flags(self, run: str) -> None:
+        for flag in (
+            "--agent-instance",
+            "--max-turns",
+            "--max-prompt-chars",
+            "--max-review-files",
+            "--max-review-changed-lines",
+        ):
+            self.assertNotIn(flag, run)
 
     def test_manual_wrapper_calls_reusable_workflow_with_minimal_inputs(self):
         workflow = load_yaml(WORKFLOW_FILE)
@@ -165,17 +176,24 @@ class AgentWorkflowContractTests(unittest.TestCase):
             '--model-config-file "${{ needs.prepare.outputs.agent_model_config_file }}"',
             agent_step["run"],
         )
+        self.assertIn(
+            '--task-config-file "${{ needs.prepare.outputs.agent_task_config_file }}"',
+            agent_step["run"],
+        )
         self.assertIn("--prompt-file .agent-runtime/workflow-action-update-agent/goal.md", agent_step["run"])
         self.assertEqual(
             agent_step["run"].count("${{ runner.temp }}/workflow-action-update-agent-agent-output.md"),
             1,
         )
-        self.assertNotIn("--agent-instance", agent_step["run"])
-        self.assertNotIn("--max-turns", agent_step["run"])
+        self.assert_no_direct_task_config_flags(agent_step["run"])
         self.assert_no_direct_model_flag(agent_step["run"])
         self.assertEqual(
             prepare_job["outputs"]["agent_model_config_file"],
             "${{ steps.resolve.outputs.agent_model_config_file }}",
+        )
+        self.assertEqual(
+            prepare_job["outputs"]["agent_task_config_file"],
+            "${{ steps.resolve.outputs.agent_task_config_file }}",
         )
         self.assertNotIn("agent_model", prepare_job["outputs"])
         static_regression_step = agent_steps["Run static regression tests"]
@@ -344,6 +362,10 @@ class AgentWorkflowContractTests(unittest.TestCase):
             agent_step["run"],
         )
         self.assertEqual(
+            agent_step["run"].count("--model-config-file .github/agent-runtime/runtime/agent-models.json"),
+            1,
+        )
+        self.assertEqual(
             agent_step["run"].count("--schema-file .github/agent-runtime/review/schemas/review.schema.json"),
             1,
         )
@@ -355,8 +377,11 @@ class AgentWorkflowContractTests(unittest.TestCase):
             agent_step["run"].count("--prompt-file .github/agent-runtime/review/out/review.prompt.md"),
             1,
         )
-        self.assertNotIn("--agent-instance", agent_step["run"])
-        self.assertNotIn("--max-turns", agent_step["run"])
+        self.assertEqual(
+            agent_step["run"].count("--task-config-file .github/agent-runtime/runtime/agent-tasks.json"),
+            1,
+        )
+        self.assert_no_direct_task_config_flags(agent_step["run"])
         self.assert_no_direct_model_flag(agent_step["run"])
         publish_step = review_steps["Publish review summary comment"]
         render_summary_step = review_steps["Render review summary"]
@@ -601,8 +626,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
             agent_step["run"],
         )
         self.assertIn(
-            "--task-config-file "
-            ".workflow-action-update-agent-helper/.github/agent-runtime/runtime/agent-tasks.json",
+            '--task-config-file "${{ steps.context.outputs.agent_task_config_file }}"',
             agent_step["run"],
         )
         self.assertIn('--prompt-file "${{ inputs.context_root }}/stabilize-goal.md"', agent_step["run"])
@@ -610,8 +634,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
             '--output-file "${{ runner.temp }}/workflow-action-update-agent-stabilize-output.md"',
             agent_step["run"],
         )
-        self.assertNotIn("--agent-instance", agent_step["run"])
-        self.assertNotIn("--max-turns", agent_step["run"])
+        self.assert_no_direct_task_config_flags(agent_step["run"])
         self.assert_no_direct_model_flag(agent_step["run"])
         resolve_pr_step = steps["Resolve PR details"]
         self.assertEqual(resolve_pr_step["shell"], "bash")
@@ -670,8 +693,9 @@ class AgentWorkflowContractTests(unittest.TestCase):
             "${{ secrets.EXPKITS_AGENT_TOKEN }}",
         )
 
-    def test_agent_model_contract_is_centralized(self):
+    def test_agent_runtime_config_contracts_are_centralized(self):
         model_config = json.loads(AGENT_MODEL_CONFIG_FILE.read_text(encoding="utf-8"))
+        task_config = json.loads(AGENT_TASK_CONFIG_FILE.read_text(encoding="utf-8"))
         workflows = {
             "agent-review": AGENT_REVIEW_WORKFLOW_FILE,
             "agent-stabilize-pr": STABILIZER_WORKFLOW_FILE,
@@ -694,12 +718,38 @@ class AgentWorkflowContractTests(unittest.TestCase):
                     profile["agent_model_config"],
                     ".github/agent-runtime/runtime/agent-models.json",
                 )
+                self.assertEqual(
+                    profile["agent_task_config"],
+                    ".github/agent-runtime/runtime/agent-tasks.json",
+                )
+
+        self.assertEqual(set(task_config["tasks"]), {"run-review", "run-repair", "run-stabilization"})
+        for command, settings in task_config["tasks"].items():
+            with self.subTest(command=command):
+                self.assertEqual(
+                    set(settings) - {"max_review_files", "max_review_changed_lines"},
+                    {"agent_instance", "max_turns", "max_prompt_chars"},
+                )
+                self.assertIsInstance(settings["agent_instance"], str)
+                self.assertIsInstance(settings["max_turns"], int)
+                self.assertGreater(settings["max_turns"], 0)
+                self.assertIsInstance(settings["max_prompt_chars"], int)
+                self.assertGreater(settings["max_prompt_chars"], 0)
 
         for workflow_name, workflow_file in workflows.items():
             workflow_source = workflow_file.read_text(encoding="utf-8")
             with self.subTest(workflow=workflow_name):
                 self.assertNotIn("gpt-", workflow_source)
                 self.assertNotRegex(workflow_source, r"(^|\s)--model(\s|=|$)")
+                self.assert_no_direct_task_config_flags(workflow_source)
+                self.assertEqual(
+                    workflow_source.count("--model-config-file"),
+                    workflow_source.count("openai_agent_runner.py "),
+                )
+                self.assertEqual(
+                    workflow_source.count("--task-config-file"),
+                    workflow_source.count("openai_agent_runner.py "),
+                )
 
     def test_workflow_audit_reports_freshness_only(self):
         workflow = load_yaml(WORKFLOW_AUDIT_FILE)

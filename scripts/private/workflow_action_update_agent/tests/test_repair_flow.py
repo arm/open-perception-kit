@@ -158,6 +158,10 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
                 outputs["agent_model_config_file"],
                 ".github/agent-runtime/runtime/agent-models.json",
             )
+            self.assertEqual(
+                outputs["agent_task_config_file"],
+                ".github/agent-runtime/runtime/agent-tasks.json",
+            )
 
     def test_resolve_inputs_skips_local_run_without_source_run_or_task_ref(self):
         with tempfile.TemporaryDirectory() as temp_dir:

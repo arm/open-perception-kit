@@ -32,6 +32,7 @@ class WorkflowActionUpdateAgentRuntimeProfileTests(unittest.TestCase):
         self.assertIn("agent_runtime.github_actions", helper_agents)
         self.assertIn("prompt templates", workflow_agents)
         self.assertIn(".github/agent-runtime/runtime/agent-models.json", workflow_agents)
+        self.assertIn(".github/agent-runtime/runtime/agent-tasks.json", workflow_agents)
         self.assertIn("scripts/private/workflow_action_update_agent/", workflow_agents)
 
     def test_audit_profile_allows_non_failure_source_run_and_configures_repair_label(self):
@@ -77,8 +78,16 @@ class WorkflowActionUpdateAgentRuntimeProfileTests(unittest.TestCase):
             ".github/agent-runtime/runtime/agent-models.json",
         )
         self.assertEqual(
+            profile["agent_task_config"],
+            ".github/agent-runtime/runtime/agent-tasks.json",
+        )
+        self.assertEqual(
             HELPER_RUNTIME.profile_agent_model_config_file(profile, str(PROFILE_FILE)),
             ".github/agent-runtime/runtime/agent-models.json",
+        )
+        self.assertEqual(
+            HELPER_RUNTIME.profile_agent_task_config_file(profile, str(PROFILE_FILE)),
+            ".github/agent-runtime/runtime/agent-tasks.json",
         )
         self.assertEqual(
             HELPER_RUNTIME.profile_agent_model_config_file(
@@ -87,10 +96,34 @@ class WorkflowActionUpdateAgentRuntimeProfileTests(unittest.TestCase):
             ),
             ".workflow-action-update-agent-helper/.github/agent-runtime/runtime/agent-models.json",
         )
+        self.assertEqual(
+            HELPER_RUNTIME.profile_agent_task_config_file(
+                profile,
+                ".workflow-action-update-agent-helper/.github/agent-runtime/workflow-action-update-agent/profiles/profile.json",
+            ),
+            ".workflow-action-update-agent-helper/.github/agent-runtime/runtime/agent-tasks.json",
+        )
         self.assertEqual(HELPER_RUNTIME.profile_config_root(str(PROFILE_FILE)), REPO_ROOT)
         self.assertEqual(
             HELPER_RUNTIME.profile_agent_model(profile, HELPER_RUNTIME.AgentInstance.REPAIR, str(PROFILE_FILE)),
             "gpt-5.5",
+        )
+        HELPER_RUNTIME.profile_agent_task_settings(
+            profile,
+            HELPER_RUNTIME.AgentCommand.REPAIR,
+            str(PROFILE_FILE),
+        )
+        self.assertEqual(
+            HELPER_RUNTIME.profile_agent_runtime_config_outputs(
+                profile,
+                agent_instance=HELPER_RUNTIME.AgentInstance.REPAIR,
+                command=HELPER_RUNTIME.AgentCommand.REPAIR,
+                profile_path=str(PROFILE_FILE),
+            ),
+            {
+                "agent_model_config_file": ".github/agent-runtime/runtime/agent-models.json",
+                "agent_task_config_file": ".github/agent-runtime/runtime/agent-tasks.json",
+            },
         )
 
     def test_validation_commands_strip_privileged_environment(self):

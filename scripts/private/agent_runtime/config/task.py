@@ -77,17 +77,11 @@ def load_agent_task_config(config_file: str | Path) -> AgentTaskConfig:
 
 
 def positive_limit(value: int | None, default: int, name: str) -> int:
-    resolved = default if value is None else value
-    if resolved <= 0:
-        raise ValueError(f"{name} must be a positive integer.")
-    return resolved
+    return require_positive_int(default if value is None else value, name)
 
 
 def optional_positive_limit(value: int | None, default: int | None, name: str) -> int | None:
-    resolved = default if value is None else value
-    if resolved is not None and resolved <= 0:
-        raise ValueError(f"{name} must be a positive integer.")
-    return resolved
+    return optional_positive_int(default if value is None else value, name)
 
 
 def resolve_agent_task_settings(

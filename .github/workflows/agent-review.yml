@@ -101,6 +101,8 @@ jobs:
           OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
         run: |
           .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/openai_agent_runner.py run-review \
+            --model-config-file .github/agent-runtime/runtime/agent-models.json \
+            --task-config-file .github/agent-runtime/runtime/agent-tasks.json \
             --prompt-file .github/agent-runtime/review/out/review.prompt.md \
             --schema-file .github/agent-runtime/review/schemas/review.schema.json \
             --output-file .github/agent-runtime/review/out/review.json

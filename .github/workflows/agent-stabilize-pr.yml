@@ -157,7 +157,7 @@ jobs:
         run: |
           .agent-runtime/openai-agent-venv/bin/python .workflow-action-update-agent-helper/scripts/private/agent_runtime/openai_agent_runner.py run-stabilization \
             --model-config-file "${{ steps.context.outputs.agent_model_config_file }}" \
-            --task-config-file .workflow-action-update-agent-helper/.github/agent-runtime/runtime/agent-tasks.json \
+            --task-config-file "${{ steps.context.outputs.agent_task_config_file }}" \
             --prompt-file "${{ inputs.context_root }}/stabilize-goal.md" \
             --output-file "${{ runner.temp }}/workflow-action-update-agent-stabilize-output.md"
 

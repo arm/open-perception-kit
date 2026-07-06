@@ -20,7 +20,7 @@ from agent_runtime.github_actions import (
     source_pull_request_numbers,
     write_workflow_run_log_file,
 )
-from agent_runtime.contracts import AgentInstance
+from agent_runtime.contracts import AgentCommand, AgentInstance
 
 from .runtime import (
     CONTEXT_ROOT_TOKEN,
@@ -42,8 +42,7 @@ from .runtime import (
     format_profile_template,
     load_markdown_template,
     load_profile,
-    profile_agent_model,
-    profile_agent_model_config_file,
+    profile_agent_runtime_config_outputs,
     profile_bool,
     profile_prompt_replacements,
     profile_string,
@@ -350,7 +349,12 @@ def command_resolve_inputs(args: argparse.Namespace) -> int:
                     ),
                 )
 
-    profile_agent_model(profile, AgentInstance.REPAIR, args.profile_path)
+    runtime_config_outputs = profile_agent_runtime_config_outputs(
+        profile,
+        agent_instance=AgentInstance.REPAIR,
+        command=AgentCommand.REPAIR,
+        profile_path=args.profile_path,
+    )
     write_outputs(
         {
             "should_run": "true" if should_run else "false",
@@ -362,7 +366,7 @@ def command_resolve_inputs(args: argparse.Namespace) -> int:
             "target_branch": target_branch,
             "task_ref": task_ref,
             "repair_branch": repair_branch,
-            "agent_model_config_file": profile_agent_model_config_file(profile, args.profile_path),
+            **runtime_config_outputs,
         },
         args.github_output,
     )

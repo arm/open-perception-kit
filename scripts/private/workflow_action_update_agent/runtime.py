@@ -14,12 +14,14 @@ from collections.abc import Callable
 from pathlib import Path
 
 from agent_runtime.contracts import (
+    AgentCommand,
     AgentInstance,
     load_json_object,
     require_list,
     require_non_empty_string,
 )
 from agent_runtime.config.model import resolve_agent_model
+from agent_runtime.config.task import AgentTaskSettings, resolve_agent_task_settings
 
 TASK_REF_PATTERN = r"[A-Z][A-Z0-9]*-[0-9]+"
 TASK_REF_RE = re.compile(rf"^{TASK_REF_PATTERN}$")
@@ -254,6 +256,7 @@ def load_profile(profile_path: str = "") -> dict[str, object]:
         "commit_notes_template",
         "pr_description_template",
         "agent_model_config",
+        "agent_task_config",
         "validation_command_set",
     )
     required_list_keys = (
@@ -295,19 +298,27 @@ def profile_string(profile: dict[str, object], key: str) -> str:
         raise ValueError(f"Profile key '{key}' must be a non-empty string.") from exc
 
 
+def profile_runtime_config_path(profile: dict[str, object], key: str, profile_path: str = "") -> Path:
+    config_path = Path(profile_string(profile, key))
+    if not config_path.is_absolute():
+        config_path = profile_config_root(profile_path) / config_path
+    return config_path.resolve()
+
+
+def profile_runtime_config_file(profile: dict[str, object], key: str, profile_path: str = "") -> str:
+    config_path = profile_runtime_config_path(profile, key, profile_path)
+    try:
+        return config_path.relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return config_path.as_posix()
+
+
 def profile_agent_model_config_path(profile: dict[str, object], profile_path: str = "") -> Path:
-    model_config_path = Path(profile_string(profile, "agent_model_config"))
-    if not model_config_path.is_absolute():
-        model_config_path = profile_config_root(profile_path) / model_config_path
-    return model_config_path.resolve()
+    return profile_runtime_config_path(profile, "agent_model_config", profile_path)
 
 
 def profile_agent_model_config_file(profile: dict[str, object], profile_path: str = "") -> str:
-    model_config_path = profile_agent_model_config_path(profile, profile_path)
-    try:
-        return model_config_path.relative_to(REPO_ROOT).as_posix()
-    except ValueError:
-        return model_config_path.as_posix()
+    return profile_runtime_config_file(profile, "agent_model_config", profile_path)
 
 
 def profile_agent_model(profile: dict[str, object], agent_instance: AgentInstance, profile_path: str = "") -> str:
@@ -315,6 +326,40 @@ def profile_agent_model(profile: dict[str, object], agent_instance: AgentInstanc
         profile_agent_model_config_path(profile, profile_path),
         agent_instance,
     )
+
+
+def profile_agent_task_config_path(profile: dict[str, object], profile_path: str = "") -> Path:
+    return profile_runtime_config_path(profile, "agent_task_config", profile_path)
+
+
+def profile_agent_task_config_file(profile: dict[str, object], profile_path: str = "") -> str:
+    return profile_runtime_config_file(profile, "agent_task_config", profile_path)
+
+
+def profile_agent_task_settings(
+    profile: dict[str, object],
+    command: AgentCommand,
+    profile_path: str = "",
+) -> AgentTaskSettings:
+    return resolve_agent_task_settings(
+        profile_agent_task_config_path(profile, profile_path),
+        command,
+    )
+
+
+def profile_agent_runtime_config_outputs(
+    profile: dict[str, object],
+    *,
+    agent_instance: AgentInstance,
+    command: AgentCommand,
+    profile_path: str = "",
+) -> dict[str, str]:
+    profile_agent_model(profile, agent_instance, profile_path)
+    profile_agent_task_settings(profile, command, profile_path)
+    return {
+        "agent_model_config_file": profile_agent_model_config_file(profile, profile_path),
+        "agent_task_config_file": profile_agent_task_config_file(profile, profile_path),
+    }
 
 
 def profile_list(profile: dict[str, object], key: str) -> list[object]:

@@ -15,6 +15,7 @@
     "The generated repair PR receives the `{pr_trigger_label}` label for standard PR validation."
   ],
   "agent_model_config": ".github/agent-runtime/runtime/agent-models.json",
+  "agent_task_config": ".github/agent-runtime/runtime/agent-tasks.json",
   "prompt_context_files": [
     ".github/agent-runtime/workflow-action-update-agent/prompts/context.md",
     ".github/ci/workflow-release-review.md",

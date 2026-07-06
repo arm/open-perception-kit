@@ -53,6 +53,7 @@ jobs:
       task_ref: ${{ steps.resolve.outputs.task_ref }}
       repair_branch: ${{ steps.resolve.outputs.repair_branch }}
       agent_model_config_file: ${{ steps.resolve.outputs.agent_model_config_file }}
+      agent_task_config_file: ${{ steps.resolve.outputs.agent_task_config_file }}
     steps:
       - uses: actions/checkout@v6
 
@@ -154,6 +155,7 @@ jobs:
         run: |
           .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/openai_agent_runner.py run-repair \
             --model-config-file "${{ needs.prepare.outputs.agent_model_config_file }}" \
+            --task-config-file "${{ needs.prepare.outputs.agent_task_config_file }}" \
             --prompt-file .agent-runtime/workflow-action-update-agent/goal.md \
             --output-file "${{ runner.temp }}/workflow-action-update-agent-agent-output.md"
 

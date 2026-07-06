@@ -169,6 +169,10 @@ class WorkflowActionUpdateAgentStabilizationTests(unittest.TestCase):
                 outputs["agent_model_config_file"],
                 ".github/agent-runtime/runtime/agent-models.json",
             )
+            self.assertEqual(
+                outputs["agent_task_config_file"],
+                ".github/agent-runtime/runtime/agent-tasks.json",
+            )
             self.assertTrue((context_root / "review-state.json").is_file())
             self.assertTrue((context_root / "stabilize-goal.md").is_file())
 

@@ -13,7 +13,7 @@ import tempfile
 import urllib.parse
 from pathlib import Path
 
-from agent_runtime.contracts import AgentInstance
+from agent_runtime.contracts import AgentCommand, AgentInstance
 from agent_runtime.github_actions import find_latest_workflow_run_for_head, read_pr_details
 from github_api import github_api_json
 from agent_runtime.review.state import (
@@ -36,8 +36,7 @@ from .runtime import (
     REVIEW_WORKFLOW_NAME_TOKEN,
     SOURCE_RUN_ID_TOKEN,
     load_profile,
-    profile_agent_model,
-    profile_agent_model_config_file,
+    profile_agent_runtime_config_outputs,
     profile_prompt_replacements,
     profile_validation_commands,
     push_head_to_remote_branch,
@@ -363,7 +362,12 @@ def command_prepare_stabilization_context(args: argparse.Namespace) -> int:
             review_state=review_state,
         ),
     )
-    profile_agent_model(profile, AgentInstance.STABILIZATION, args.profile_path)
+    runtime_config_outputs = profile_agent_runtime_config_outputs(
+        profile,
+        agent_instance=AgentInstance.STABILIZATION,
+        command=AgentCommand.STABILIZATION,
+        profile_path=args.profile_path,
+    )
     write_outputs(
         {
             "repair_branch": repair_branch,
@@ -371,7 +375,7 @@ def command_prepare_stabilization_context(args: argparse.Namespace) -> int:
             "target_branch": pr_details["target_branch"],
             "review_recommendation": recommendation,
             "review_run_id": str(review_state.get("run_id") or "").strip(),
-            "agent_model_config_file": profile_agent_model_config_file(profile, args.profile_path),
+            **runtime_config_outputs,
         },
         args.github_output,
     )
