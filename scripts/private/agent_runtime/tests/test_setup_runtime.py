@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+import sys
 import unittest
 from unittest import mock
 
@@ -38,7 +39,7 @@ class SetupRuntimeTests(unittest.TestCase):
         self.assertEqual(
             [call.args[0] for call in run_command.call_args_list],
             [
-                ["python3", "-m", "venv", ".agent-runtime/openai-agent-venv"],
+                [sys.executable, "-m", "venv", ".agent-runtime/openai-agent-venv"],
                 [
                     ".agent-runtime/openai-agent-venv/bin/python",
                     "-m",

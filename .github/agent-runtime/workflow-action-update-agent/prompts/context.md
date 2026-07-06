@@ -87,7 +87,9 @@ The reference implementation is `.github/workflows/agent-review.yml`.
 4. If Agent Review already approves, the stabilizer writes a skip artifact and exits.
 5. If Agent Review reports findings, the stabilizer applies the minimal follow-up patch, reruns configured validation commands, and pushes one follow-up commit.
 6. The push retriggers normal PR workflows, including `Agent Review`; any new or remaining finding starts the next stabilization attempt for the new head.
-7. The loop stops when the latest PR head receives an `approve` Agent Review. Maintainers still own final merge.
+7. Direct source-PR stabilization stops when the latest PR head receives an
+   `approve` Agent Review. Generated repair PRs may merge automatically only
+   through the workflow helper after the latest head is fully stable.
 
 ## Token Notes
 

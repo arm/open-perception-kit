@@ -69,19 +69,17 @@ def main() -> int:
     )
     require_agent_python(agent_python)
 
-    run_command([agent_python, "-m", "venv", str(agent_venv)])
-    venv_python = agent_venv / "bin/python"
-    run_command([str(venv_python), "-m", "pip", "install", "--upgrade", "pip"])
     run_command(
         [
-            str(venv_python),
-            "-m",
-            "pip",
-            "install",
-            "-r",
+            agent_python,
+            "scripts/private/agent_runtime/setup_runtime.py",
+            "--venv-path",
+            str(agent_venv),
+            "--requirements-file",
             ".github/agent-runtime/runtime/requirements-openai-agents.txt",
         ]
     )
+    venv_python = agent_venv / "bin/python"
 
     agent_args = [
         str(venv_python),

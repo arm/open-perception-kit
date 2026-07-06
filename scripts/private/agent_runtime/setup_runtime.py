@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -28,7 +29,7 @@ def setup_agent_runtime(
     requirements_file: Path,
     install_packages: list[str],
 ) -> None:
-    run_command(["python3", "-m", "venv", str(venv_path)])
+    run_command([sys.executable, "-m", "venv", str(venv_path)])
     python = venv_python(venv_path)
     run_command([str(python), "-m", "pip", "install", "--upgrade", "pip"])
     run_command([str(python), "-m", "pip", "install", "-r", str(requirements_file)])

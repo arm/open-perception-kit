@@ -143,11 +143,9 @@ jobs:
           set -euo pipefail
           PYTHONPATH="${GITHUB_WORKSPACE}/tools/expkits-ci${PYTHONPATH:+:${PYTHONPATH}}" \
             .agent-runtime/openai-agent-venv/bin/python -m expkits_ci.agent_static_analysis
-          python3 -m unittest discover -s scripts/private/tests
-          python3 -m unittest discover -s scripts/private/agent_runtime/tests
-          python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_agent_static_analysis.py'
-          python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_detect_secrets_quality_flow.py'
-          python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_workflow_action_update_agent_flow.py'
+          PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private:${GITHUB_WORKSPACE}/tools/expkits-ci${PYTHONPATH:+:${PYTHONPATH}}" \
+            python3 -m workflow_action_update_agent run-validation \
+            --profile-path "${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}"
 
       - name: Run OpenAI SDK repair agent
         shell: bash
