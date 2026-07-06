@@ -26,9 +26,10 @@ def filter_invalid_right_side_findings(
     payload: dict[str, Any],
     repo_root: Path,
     *,
+    diff_anchors: set[tuple[str, str, int]] | None = None,
     verified_model: str = "",
 ) -> dict[str, Any]:
-    """Drop findings that claim RIGHT-side anchors absent from the checkout."""
+    """Drop findings that claim anchors absent from the checkout or PR diff."""
 
     findings = payload.get("findings")
     if not isinstance(findings, list):
@@ -40,6 +41,7 @@ def filter_invalid_right_side_findings(
         if isinstance(finding, dict) and _has_invalid_right_side_anchor(
             finding,
             repo_root,
+            diff_anchors=diff_anchors,
             verified_model=verified_model,
         ):
             dropped_count += 1
@@ -64,8 +66,12 @@ def _has_invalid_right_side_anchor(
     finding: dict[str, Any],
     repo_root: Path,
     *,
+    diff_anchors: set[tuple[str, str, int]] | None = None,
     verified_model: str = "",
 ) -> bool:
+    if _has_invalid_diff_anchor(finding, diff_anchors):
+        return True
+
     if finding.get("diff_side") != DiffSide.RIGHT.value:
         return False
 
@@ -108,6 +114,33 @@ def _has_invalid_right_side_anchor(
     return any(
         guard.matches(finding_text=finding_text, anchor_text=anchor_text)
         for guard in UNSUPPORTED_REVIEW_CLAIM_GUARDS
+    )
+
+
+def _has_invalid_diff_anchor(
+    finding: dict[str, Any],
+    diff_anchors: set[tuple[str, str, int]] | None,
+) -> bool:
+    if diff_anchors is None:
+        return False
+
+    diff_side = finding.get("diff_side")
+    if diff_side not in {DiffSide.LEFT.value, DiffSide.RIGHT.value}:
+        return False
+
+    path = finding.get("path")
+    start_line = finding.get("start_line")
+    end_line = finding.get("end_line")
+    if not isinstance(path, str) or not path or not isinstance(start_line, int):
+        return True
+    if end_line is None:
+        end_line = start_line
+    if not isinstance(end_line, int) or end_line < start_line:
+        return True
+
+    return any(
+        (path, str(diff_side), line_number) not in diff_anchors
+        for line_number in range(start_line, end_line + 1)
     )
 
 
@@ -228,9 +261,9 @@ def _recommendation_for_findings(findings: list[dict[str, Any]]) -> str:
 
 def _summary_for_filtered_findings(findings: list[dict[str, Any]], dropped_count: int) -> str:
     suffix = (
-        f"Omitted {dropped_count} unsupported RIGHT-side finding"
+        f"Omitted {dropped_count} unsupported review finding"
         f"{'' if dropped_count == 1 else 's'} whose anchors are not supported"
-        " by the current checkout."
+        " by the current checkout or PR diff."
     )
     if not findings:
         return f"No supported findings remain after filtering. {suffix}"

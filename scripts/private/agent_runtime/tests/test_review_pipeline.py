@@ -122,10 +122,60 @@ class AgentRuntimeReviewPipelineTests(unittest.TestCase):
             filtered["summary"],
             (
                 "Review kept 1 supported non-blocking finding. "
-                "Omitted 1 unsupported RIGHT-side finding whose anchors are not supported by the current checkout."
+                "Omitted 1 unsupported review finding whose anchors are not supported by the current checkout or PR diff."
             ),
         )
         self.assertEqual([finding["title"] for finding in filtered["findings"]], ["Supported note"])
+
+    def test_agent_review_output_drops_right_side_findings_outside_pr_diff(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            workflow_path = repo_root / ".github/workflows/pek-ci.yml"
+            workflow_path.parent.mkdir(parents=True)
+            workflow_path.write_text("\n".join(f"line {index}" for index in range(1, 310)), encoding="utf-8")
+
+            payload = {
+                "summary": "Reviewed workflow changes.",
+                "overall_recommendation": "request_changes",
+                "overall_score": 0.74,
+                "overall_confidence": 0.82,
+                "findings": [
+                    {
+                        "title": "Body-only blocking finding",
+                        "severity": "major",
+                        "score": 0.74,
+                        "confidence": 0.82,
+                        "path": ".github/workflows/pek-ci.yml",
+                        "diff_side": "RIGHT",
+                        "start_line": 296,
+                        "end_line": 296,
+                        "body": "The line exists in the checkout but is not part of the PR diff.",
+                        "suggestion": "line 296",
+                    },
+                    {
+                        "title": "Supported blocking finding",
+                        "severity": "major",
+                        "score": 0.72,
+                        "confidence": 0.8,
+                        "path": ".github/workflows/pek-ci.yml",
+                        "diff_side": "RIGHT",
+                        "start_line": 285,
+                        "end_line": 285,
+                        "body": "This line is part of the PR diff.",
+                        "suggestion": None,
+                    },
+                ],
+            }
+
+            filtered = AGENT_REVIEW_OUTPUT.filter_invalid_right_side_findings(
+                payload,
+                repo_root,
+                diff_anchors={(".github/workflows/pek-ci.yml", "RIGHT", 285)},
+            )
+
+        self.assertEqual(filtered["overall_recommendation"], "request_changes")
+        self.assertEqual([finding["title"] for finding in filtered["findings"]], ["Supported blocking finding"])
+        self.assertIn("PR diff", filtered["summary"])
 
     def test_agent_review_publish_filters_output_before_rendering(self):
         with tempfile.TemporaryDirectory() as temp_dir:

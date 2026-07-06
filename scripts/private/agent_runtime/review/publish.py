@@ -24,9 +24,14 @@ from .markdown import format_markdown
 from .output_filter import filter_invalid_right_side_findings
 
 
-def load_filtered_review(input_path: Path, repo_root: Path) -> dict[str, Any]:
+def load_filtered_review(
+    input_path: Path,
+    repo_root: Path,
+    *,
+    diff_anchors: set[tuple[str, str, int]] | None = None,
+) -> dict[str, Any]:
     review = json.loads(input_path.read_text(encoding="utf-8"))
-    filtered = filter_invalid_right_side_findings(review, repo_root)
+    filtered = filter_invalid_right_side_findings(review, repo_root, diff_anchors=diff_anchors)
     if filtered != review:
         input_path.write_text(json.dumps(filtered, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return filtered
@@ -43,7 +48,11 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    review = load_filtered_review(Path(args.input), Path.cwd())
+    diff_anchors = None
+    if args.publish_pr_comment:
+        diff_anchors = build_diff_comment_anchors(review_base_ref_from_env())
+
+    review = load_filtered_review(Path(args.input), Path.cwd(), diff_anchors=diff_anchors)
     run_id = os.environ.get("GITHUB_RUN_ID", "")
     head_sha = os.environ.get("GITHUB_HEAD_SHA") or os.environ.get("GITHUB_SHA") or ""
     markdown = format_markdown(review, run_id=run_id, head_sha=head_sha)
@@ -63,8 +72,6 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
-
-    diff_anchors = build_diff_comment_anchors(review_base_ref_from_env())
 
     try:
         findings = review.get("findings", [])
