@@ -1198,6 +1198,43 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         self.assertEqual([finding["title"] for finding in filtered["findings"]], ["Supported note"])
 
+    def test_agent_review_publish_filters_output_before_rendering(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            review_path = repo_root / "review.json"
+            review_path.write_text(
+                json.dumps(
+                    {
+                        "summary": "Reviewed workflow changes.",
+                        "overall_recommendation": "request_changes",
+                        "overall_score": 0.92,
+                        "overall_confidence": 0.87,
+                        "findings": [
+                            {
+                                "title": "Impossible stale workflow path",
+                                "severity": "major",
+                                "score": 0.92,
+                                "confidence": 0.94,
+                                "path": ".github/workflows/missing.yml",
+                                "diff_side": "RIGHT",
+                                "start_line": 1,
+                                "end_line": 1,
+                                "body": "This line does not exist in the current checkout.",
+                                "suggestion": None,
+                            },
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            filtered = AGENT_REVIEW_PUBLISH.load_filtered_review(review_path, repo_root)
+            persisted = json.loads(review_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(filtered["overall_recommendation"], "approve")
+        self.assertEqual(filtered["findings"], [])
+        self.assertEqual(persisted, filtered)
+
     def test_agent_review_output_drops_known_available_action_ref_claims(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)

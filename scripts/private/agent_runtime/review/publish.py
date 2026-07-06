@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import sys
+from typing import Any
 import urllib.error
 
 if __package__ in (None, ""):  # pragma: no cover - used for direct script execution.
@@ -20,6 +21,15 @@ from ..contracts import ReviewRecommendation
 from .diff_anchors import build_diff_comment_anchors, review_base_ref_from_env
 from .github_publish import create_pull_review
 from .markdown import format_markdown
+from .output_filter import filter_invalid_right_side_findings
+
+
+def load_filtered_review(input_path: Path, repo_root: Path) -> dict[str, Any]:
+    review = json.loads(input_path.read_text(encoding="utf-8"))
+    filtered = filter_invalid_right_side_findings(review, repo_root)
+    if filtered != review:
+        input_path.write_text(json.dumps(filtered, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return filtered
 
 
 def main() -> int:
@@ -33,7 +43,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    review = json.loads(Path(args.input).read_text(encoding="utf-8"))
+    review = load_filtered_review(Path(args.input), Path.cwd())
     run_id = os.environ.get("GITHUB_RUN_ID", "")
     head_sha = os.environ.get("GITHUB_HEAD_SHA") or os.environ.get("GITHUB_SHA") or ""
     markdown = format_markdown(review, run_id=run_id, head_sha=head_sha)
