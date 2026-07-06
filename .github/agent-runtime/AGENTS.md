@@ -42,8 +42,9 @@ For changes here, run at least:
 - `PYTHONPATH=tools/expkits-ci python3 -m expkits_ci.agent_static_analysis`
 - `python3 -m unittest discover -s scripts/private/tests`
 - `python3 -m unittest discover -s scripts/private/agent_runtime/tests`
+- `python3 -m unittest discover -s scripts/private/workflow_action_update_agent/tests`
 - `python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_agent_static_analysis.py'`
-- `python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_workflow_action_update_agent_flow.py'`
+- `python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_agent_workflow_contracts.py'`
 - `git diff --check`
 
 If a change touches dependency pins, review publication, stabilization, or the

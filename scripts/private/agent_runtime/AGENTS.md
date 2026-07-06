@@ -50,7 +50,7 @@ review, repair, and stabilization GitHub Actions workflows.
    `openai_agent_runner.py <command>` and pass only prompt/output/config paths.
    Do not duplicate model names, max-turn values, or agent instances in YAML.
 5. Extend the focused `scripts/private/agent_runtime/tests/` tests and the
-   workflow-level `tools/expkits-ci/tests/test_workflow_action_update_agent_flow.py`
+   workflow-level `tools/expkits-ci/tests/test_agent_workflow_contracts.py`
    checks so the new command is covered by central registry/config enforcement.
 
 The generic preflight size guard lives in `tasks/estimator.py` and must stay
@@ -65,6 +65,7 @@ For changes here, run at least:
 - `PYTHONPATH=tools/expkits-ci python3 -m expkits_ci.agent_static_analysis`
 - `python3 -m unittest discover -s scripts/private/tests`
 - `python3 -m unittest discover -s scripts/private/agent_runtime/tests`
+- `python3 -m unittest discover -s scripts/private/workflow_action_update_agent/tests`
 - `python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_agent_static_analysis.py'`
-- `python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_workflow_action_update_agent_flow.py'`
+- `python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_agent_workflow_contracts.py'`
 - `git diff --check`

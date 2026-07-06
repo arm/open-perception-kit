@@ -64,7 +64,7 @@ class QualityChecks:
         "tools/expkits-ci/agent-workflows-mypy.ini",
         "tools/expkits-ci/expkits_ci/agent_static_analysis.py",
         "tools/expkits-ci/tests/test_agent_static_analysis.py",
-        "tools/expkits-ci/tests/test_workflow_action_update_agent_flow.py",
+        "tools/expkits-ci/tests/test_agent_workflow_contracts.py",
         "tools/expkits-ci/pyproject.toml",
     )
 
