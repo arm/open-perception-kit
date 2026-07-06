@@ -8,6 +8,7 @@ from email.message import Message
 import importlib
 import io
 from pathlib import Path
+import stat
 import sys
 import tempfile
 import urllib.error
@@ -31,6 +32,18 @@ def http_headers(values: dict[str, str] | None = None) -> Message[str, str]:
 def build_zip_archive(files: dict[str, str]) -> bytes:
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:
+        for path, content in files.items():
+            archive.writestr(path, content)
+    return buffer.getvalue()
+
+
+def build_zip_archive_with_symlink(*, link_name: str, link_target: str, files: dict[str, str]) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        link_info = zipfile.ZipInfo(link_name)
+        link_info.create_system = 3
+        link_info.external_attr = (stat.S_IFLNK | 0o777) << 16
+        archive.writestr(link_info, link_target)
         for path, content in files.items():
             archive.writestr(path, content)
     return buffer.getvalue()
@@ -140,6 +153,26 @@ class GitHubApiTests(unittest.TestCase):
 
                     self.assertFalse((temp_root / "outside.txt").exists())
                     self.assertFalse((destination / "logs/job.txt").exists())
+
+    def test_extract_archive_bytes_rejects_symlink_members_before_writes(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            destination = temp_root / "destination"
+            outside = temp_root / "outside.txt"
+            archive = build_zip_archive_with_symlink(
+                link_name="logs/link",
+                link_target="../outside.txt",
+                files={
+                    "logs/link/owned.txt": "owned\n",
+                    "logs/job.txt": "hello from logs\n",
+                },
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "Archive member is a symlink"):
+                github_api.extract_archive_bytes(archive, destination)
+
+            self.assertFalse(outside.exists())
+            self.assertFalse((destination / "logs/job.txt").exists())
 
     def test_extract_archive_bytes_returns_extracted_files(self):
         with tempfile.TemporaryDirectory() as temp_dir:

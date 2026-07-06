@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -267,12 +268,18 @@ def archive_member_destination(*, destination: Path, member_name: str) -> Path:
     return target
 
 
+def archive_member_is_symlink(member: zipfile.ZipInfo) -> bool:
+    return stat.S_ISLNK(member.external_attr >> 16)
+
+
 def extract_archive_bytes(archive_bytes: bytes, destination: Path) -> list[Path]:
     destination.mkdir(parents=True, exist_ok=True)
     destination_root = destination.resolve()
     with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
         members: list[tuple[zipfile.ZipInfo, Path]] = []
         for member in archive.infolist():
+            if archive_member_is_symlink(member):
+                raise RuntimeError(f"Archive member is a symlink: {member.filename}")
             target = archive_member_destination(
                 destination=destination_root,
                 member_name=member.filename,
