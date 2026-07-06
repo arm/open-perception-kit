@@ -47,7 +47,9 @@ from .runtime import (
     profile_prompt_replacements,
     profile_string,
     profile_string_list,
+    push_head_to_remote_branch,
     render_markdown_template,
+    remote_branch_force_lease,
     resolve_task_ref,
     run_command,
     write_json_file,
@@ -446,6 +448,17 @@ def command_require_generated_changes(args: argparse.Namespace) -> int:
     return 1
 
 
+def existing_pr_number_for_branch(branch: str) -> str:
+    result = run_command(
+        ["gh", "pr", "view", branch, "--json", "number", "--jq", ".number"],
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return ""
+    return result.stdout.strip()
+
+
 def command_apply_repair_changes_and_push(args: argparse.Namespace) -> int:
     profile = load_profile(args.profile_path)
     task_ref = resolve_task_ref(args.task_ref, purpose="Repair commit creation")
@@ -478,7 +491,8 @@ def command_apply_repair_changes_and_push(args: argparse.Namespace) -> int:
 
     run_command(["git", "config", "user.name", "github-actions[bot]"])
     run_command(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"])
-    run_command(["git", "checkout", "-b", args.repair_branch])
+    branch_lease = remote_branch_force_lease(args.repair_branch, command_runner=run_command)
+    run_command(["git", "checkout", "-B", args.repair_branch])
     run_command(["git", "apply", "--index", str(patch_file)])
 
     commit_subject = Path(args.commit_subject_file).read_text(encoding="utf-8").strip()
@@ -494,7 +508,7 @@ def command_apply_repair_changes_and_push(args: argparse.Namespace) -> int:
     if commit_notes:
         commit_command.extend(["-m", commit_notes])
     run_command(commit_command)
-    run_command(["git", "push", "--set-upstream", "origin", args.repair_branch])
+    push_head_to_remote_branch(args.repair_branch, branch_lease=branch_lease, command_runner=run_command)
 
     head_sha = run_command(["git", "rev-parse", "HEAD"], capture_output=True).stdout.strip()
     write_outputs({"head_sha": head_sha}, args.github_output)
@@ -504,29 +518,44 @@ def command_apply_repair_changes_and_push(args: argparse.Namespace) -> int:
 def command_create_draft_pr(args: argparse.Namespace) -> int:
     profile = load_profile(args.profile_path)
     pr_title = Path(args.pr_title_file).read_text(encoding="utf-8").strip()
-    pr_number = ""
-
-    run_command(
-        [
-            "gh",
-            "pr",
-            "create",
-            "--draft",
-            "--base",
-            args.target_branch,
-            "--head",
-            args.repair_branch,
-            "--title",
-            pr_title,
-            "--body-file",
-            args.body_file,
-        ],
-        capture_output=True,
-    )
-    pr_number = run_command(
-        ["gh", "pr", "view", args.repair_branch, "--json", "number", "--jq", ".number"],
-        capture_output=True,
-    ).stdout.strip()
+    pr_number = existing_pr_number_for_branch(args.repair_branch)
+    if pr_number:
+        run_command(
+            [
+                "gh",
+                "pr",
+                "edit",
+                pr_number,
+                "--base",
+                args.target_branch,
+                "--title",
+                pr_title,
+                "--body-file",
+                args.body_file,
+            ],
+            capture_output=True,
+        )
+    else:
+        run_command(
+            [
+                "gh",
+                "pr",
+                "create",
+                "--draft",
+                "--base",
+                args.target_branch,
+                "--head",
+                args.repair_branch,
+                "--title",
+                pr_title,
+                "--body-file",
+                args.body_file,
+            ],
+            capture_output=True,
+        )
+        pr_number = existing_pr_number_for_branch(args.repair_branch)
+        if not pr_number:
+            raise RuntimeError(f"Created repair PR for {args.repair_branch}, but could not resolve its number.")
 
     label = profile_string(profile, "pr_trigger_label")
     if label:

@@ -425,9 +425,23 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
                 github_output=str(output_file),
             )
 
+            commands = []
+
             def fake_run_command(command, *, capture_output=False, check=True, env=None):  # noqa: ANN001
                 del capture_output, check, env
-                stdout = "feedface\n" if command == ["git", "rev-parse", "HEAD"] else ""
+                commands.append(command)
+                if command == [
+                    "git",
+                    "ls-remote",
+                    "--heads",
+                    "origin",
+                    f"refs/heads/{REPAIR_BRANCH}",
+                ]:
+                    stdout = "cafebabe\trefs/heads/" + REPAIR_BRANCH + "\n"
+                elif command == ["git", "rev-parse", "HEAD"]:
+                    stdout = "feedface\n"
+                else:
+                    stdout = ""
                 return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
 
             with mock.patch.object(HELPER_REPAIR, "run_command", side_effect=fake_run_command):
@@ -436,12 +450,135 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
 
             self.assertEqual(result, 0)
             self.assertEqual(write_metadata.call_args.kwargs["target_branch"], "main")
+            self.assertIn(["git", "checkout", "-B", REPAIR_BRANCH], commands)
+            self.assertIn(
+                [
+                    "git",
+                    "push",
+                    f"--force-with-lease=refs/heads/{REPAIR_BRANCH}:cafebabe",
+                    "--set-upstream",
+                    "origin",
+                    f"HEAD:refs/heads/{REPAIR_BRANCH}",
+                ],
+                commands,
+            )
             outputs = dict(
                 line.split("=", 1)
                 for line in output_file.read_text(encoding="utf-8").splitlines()
                 if line.strip()
             )
             self.assertEqual(outputs["head_sha"], "feedface")
+
+    def test_create_draft_pr_updates_existing_repair_pr(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            output_file = temp_root / "outputs.txt"
+            body_file = temp_root / "body.md"
+            title_file = temp_root / "title.txt"
+            body_file.write_text("body\n", encoding="utf-8")
+            title_file.write_text("Repair title\n", encoding="utf-8")
+            args = argparse.Namespace(
+                profile_path=str(PROFILE_FILE),
+                body_file=str(body_file),
+                pr_title_file=str(title_file),
+                target_branch="main",
+                repair_branch=REPAIR_BRANCH,
+                github_output=str(output_file),
+            )
+            commands = []
+
+            def fake_run_command(command, *, capture_output=False, check=True, env=None):  # noqa: ANN001
+                del capture_output, check, env
+                commands.append(command)
+                stdout = "42\n" if command[:3] == ["gh", "pr", "view"] else ""
+                return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
+
+            with mock.patch.object(HELPER_REPAIR, "run_command", side_effect=fake_run_command):
+                result = HELPER_REPAIR.command_create_draft_pr(args)
+
+            self.assertEqual(result, 0)
+            self.assertFalse(any(command[:3] == ["gh", "pr", "create"] for command in commands))
+            self.assertIn(
+                [
+                    "gh",
+                    "pr",
+                    "edit",
+                    "42",
+                    "--base",
+                    "main",
+                    "--title",
+                    "Repair title",
+                    "--body-file",
+                    str(body_file),
+                ],
+                commands,
+            )
+            self.assertIn(["gh", "pr", "edit", "42", "--add-label", "run-pek-ci"], commands)
+            outputs = dict(
+                line.split("=", 1)
+                for line in output_file.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            )
+            self.assertEqual(outputs["pr_number"], "42")
+
+    def test_create_draft_pr_creates_when_repair_pr_is_missing(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            output_file = temp_root / "outputs.txt"
+            body_file = temp_root / "body.md"
+            title_file = temp_root / "title.txt"
+            body_file.write_text("body\n", encoding="utf-8")
+            title_file.write_text("Repair title\n", encoding="utf-8")
+            args = argparse.Namespace(
+                profile_path=str(PROFILE_FILE),
+                body_file=str(body_file),
+                pr_title_file=str(title_file),
+                target_branch="main",
+                repair_branch=REPAIR_BRANCH,
+                github_output=str(output_file),
+            )
+            commands = []
+            pr_view_calls = 0
+
+            def fake_run_command(command, *, capture_output=False, check=True, env=None):  # noqa: ANN001
+                nonlocal pr_view_calls
+                del capture_output, check, env
+                commands.append(command)
+                if command[:3] == ["gh", "pr", "view"]:
+                    pr_view_calls += 1
+                    if pr_view_calls == 1:
+                        return subprocess.CompletedProcess(command, 1, stdout="", stderr="not found\n")
+                    return subprocess.CompletedProcess(command, 0, stdout="43\n", stderr="")
+                return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+            with mock.patch.object(HELPER_REPAIR, "run_command", side_effect=fake_run_command):
+                result = HELPER_REPAIR.command_create_draft_pr(args)
+
+            self.assertEqual(result, 0)
+            self.assertIn(
+                [
+                    "gh",
+                    "pr",
+                    "create",
+                    "--draft",
+                    "--base",
+                    "main",
+                    "--head",
+                    REPAIR_BRANCH,
+                    "--title",
+                    "Repair title",
+                    "--body-file",
+                    str(body_file),
+                ],
+                commands,
+            )
+            self.assertIn(["gh", "pr", "edit", "43", "--add-label", "run-pek-ci"], commands)
+            outputs = dict(
+                line.split("=", 1)
+                for line in output_file.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            )
+            self.assertEqual(outputs["pr_number"], "43")
 
 
 if __name__ == "__main__":

@@ -43,7 +43,9 @@ from .runtime import (
     profile_agent_model,
     profile_prompt_replacements,
     profile_validation_commands,
+    push_head_to_remote_branch,
     render_markdown_template,
+    remote_branch_force_lease,
     resolve_task_ref,
     resolve_repo_path,
     run_command,
@@ -311,6 +313,7 @@ def commit_review_fix(
             f"https://{push_actor}:{push_token}@{parsed_server_url.netloc}/{repository}.git",
         ]
     )
+    branch_lease = remote_branch_force_lease(repair_branch, command_runner=run_command)
     run_command(["git", "add", "-A"])
     if run_command(["git", "diff", "--cached", "--quiet"], check=False).returncode == 0:
         return ""
@@ -333,7 +336,7 @@ def commit_review_fix(
         commit_command.extend(["-m", review_summary])
 
     run_command(commit_command)
-    run_command(["git", "push", "origin", f"HEAD:{repair_branch}"])
+    push_head_to_remote_branch(repair_branch, branch_lease=branch_lease, command_runner=run_command)
     return run_command(["git", "rev-parse", "HEAD"], capture_output=True).stdout.strip()
 
 

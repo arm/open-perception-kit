@@ -388,19 +388,26 @@ class WorkflowActionUpdateAgentStabilizationTests(unittest.TestCase):
             },
             clear=False,
         ):
+            def fake_run_command(command, *, capture_output=False, check=True, env=None):  # noqa: ANN001
+                del capture_output, check, env
+                if command == [
+                    "git",
+                    "ls-remote",
+                    "--heads",
+                    "origin",
+                    f"refs/heads/{REPAIR_BRANCH}",
+                ]:
+                    return mock.Mock(returncode=0, stdout=f"cafebabe\trefs/heads/{REPAIR_BRANCH}\n", stderr="")
+                if command == ["git", "diff", "--cached", "--quiet"]:
+                    return run_command_result
+                if command == ["git", "rev-parse", "HEAD"]:
+                    return mock.Mock(returncode=0, stdout="feedface\n", stderr="")
+                return mock.Mock(returncode=0, stdout="", stderr="")
+
             with mock.patch.object(
-                    HELPER_STABILIZATION,
+                HELPER_STABILIZATION,
                 "run_command",
-                side_effect=[
-                    mock.Mock(returncode=0, stdout="", stderr=""),
-                    mock.Mock(returncode=0, stdout="", stderr=""),
-                    mock.Mock(returncode=0, stdout="", stderr=""),
-                    mock.Mock(returncode=0, stdout="", stderr=""),
-                    run_command_result,
-                    mock.Mock(returncode=0, stdout="", stderr=""),
-                    mock.Mock(returncode=0, stdout="", stderr=""),
-                    mock.Mock(returncode=0, stdout="feedface\n", stderr=""),
-                ],
+                side_effect=fake_run_command,
             ) as run_command:
                 with mock.patch.object(HELPER_STABILIZATION, "github_api_json", return_value={"login": "pat-user"}):
                     head_sha = HELPER_STABILIZATION.commit_review_fix(
@@ -428,6 +435,17 @@ class WorkflowActionUpdateAgentStabilizationTests(unittest.TestCase):
         self.assertTrue(token)
         self.assertEqual(host, "github.com")
         self.assertEqual(remote_url.path, "/Arm-Debug/amp-dev-forge.git")
+        self.assertEqual(
+            run_command.call_args_list[7].args[0],
+            [
+                "git",
+                "push",
+                f"--force-with-lease=refs/heads/{REPAIR_BRANCH}:cafebabe",
+                "--set-upstream",
+                "origin",
+                f"HEAD:refs/heads/{REPAIR_BRANCH}",
+            ],
+        )
 
 
 if __name__ == "__main__":
