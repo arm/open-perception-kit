@@ -68,7 +68,7 @@ class SonarQualityGateWorkflowTests(unittest.TestCase):
 
     def test_quality_gate_report_script_stays_stdlib_only(self):
         module = ast.parse(REPORT_MODULE_PATH.read_text(encoding="utf-8"))
-        imported_roots = set()
+        imported_roots: set[str] = set()
         for node in ast.walk(module):
             if isinstance(node, ast.Import):
                 imported_roots.update(alias.name.split(".", 1)[0] for alias in node.names)
