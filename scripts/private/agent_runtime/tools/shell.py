@@ -25,11 +25,26 @@ READ_ONLY_GIT_SUBCOMMANDS = {
     "status",
 }
 FORBIDDEN_GIT_OPTIONS = {
+    "-C",
+    "-c",
+    "--exec-path",
+    "--git-dir",
+    "--namespace",
     "--output",
+    "--super-prefix",
+    "--work-tree",
 }
 FORBIDDEN_GH_SUBCOMMANDS = {
     "pr",
     "repo",
+}
+BINARY_OPTIONS_WITH_VALUES = {
+    "git": FORBIDDEN_GIT_OPTIONS,
+    "gh": {
+        "-R",
+        "--hostname",
+        "--repo",
+    },
 }
 SHELL_COMMAND_SEPARATORS = (
     "&&",
@@ -145,15 +160,27 @@ def split_shell_commands(command: str) -> list[ParsedShellCommand]:
     return commands
 
 
+def option_has_inline_value(word: str, option: str) -> bool:
+    if option.startswith("--"):
+        return word.startswith(f"{option}=")
+    return word.startswith(option) and word != option
+
+
 def find_subcommand(words: list[str], binary: str) -> str | None:
     if not words or Path(words[0]).name != binary:
         return None
     index = 1
-    option_args = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "-R", "--repo"}
+    options_with_values = BINARY_OPTIONS_WITH_VALUES.get(binary, set())
     while index < len(words):
         word = words[index]
-        if word in option_args:
+        if word == "--":
+            index += 1
+            continue
+        if word in options_with_values:
             index += 2
+            continue
+        if any(option_has_inline_value(word, option) for option in options_with_values):
+            index += 1
             continue
         if word.startswith("-"):
             index += 1
@@ -164,7 +191,9 @@ def find_subcommand(words: list[str], binary: str) -> str | None:
 
 def has_forbidden_git_option(words: list[str]) -> bool:
     return any(
-        word == option or word.startswith(f"{option}=")
+        word == option
+        or word.startswith(f"{option}=")
+        or (not option.startswith("--") and word.startswith(option) and word != option)
         for word in words
         for option in FORBIDDEN_GIT_OPTIONS
     )

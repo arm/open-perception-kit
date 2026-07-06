@@ -313,6 +313,14 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
             repo_tools.reject_unsafe_shell_command('echo ok && git push')
         with self.assertRaisesRegex(ValueError, "git push"):
             repo_tools.reject_unsafe_shell_command("echo ok | git push")
+        with self.assertRaisesRegex(ValueError, "git push"):
+            repo_tools.reject_unsafe_shell_command("git -c core.quotepath=false push")
+        with self.assertRaisesRegex(ValueError, "git push"):
+            repo_tools.reject_unsafe_shell_command("git -C . push")
+        with self.assertRaisesRegex(ValueError, "git push"):
+            repo_tools.reject_unsafe_shell_command("git --work-tree . push")
+        with self.assertRaisesRegex(ValueError, "Command is intentionally blocked"):
+            repo_tools.reject_unsafe_shell_command("git -c core.quotepath false push")
         with self.assertRaisesRegex(ValueError, "Unsupported shell syntax"):
             repo_tools.reject_unsafe_shell_command("git diff --check || true")
         with self.assertRaisesRegex(ValueError, "Unsupported empty command"):
@@ -328,6 +336,10 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
             "git restore .",
             "git tag -d v0.0.0",
             "git config alias.publish push",
+            "git -c core.quotepath=false status --short",
+            "git -C . status --short",
+            "git --git-dir=.git status --short",
+            "git --work-tree . status --short",
             "git diff --output=/tmp/diff.patch",
         ):
             with self.assertRaisesRegex(ValueError, "Command is intentionally blocked"):
