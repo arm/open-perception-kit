@@ -493,7 +493,7 @@ def command_apply_repair_changes_and_push(args: argparse.Namespace) -> int:
     run_command(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"])
     branch_lease = remote_branch_force_lease(args.repair_branch, command_runner=run_command)
     run_command(["git", "checkout", "-B", args.repair_branch])
-    run_command(["git", "apply", "--index", str(patch_file)])
+    run_command(["git", "apply", "--binary", "--index", str(patch_file)])
 
     commit_subject = Path(args.commit_subject_file).read_text(encoding="utf-8").strip()
     commit_notes = Path(args.commit_notes_file).read_text(encoding="utf-8").strip()

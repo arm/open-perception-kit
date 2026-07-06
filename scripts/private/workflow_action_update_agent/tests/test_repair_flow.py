@@ -454,6 +454,16 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
             self.assertIn(
                 [
                     "git",
+                    "apply",
+                    "--binary",
+                    "--index",
+                    str(patch_root / "workflow-action-update-agent.patch"),
+                ],
+                commands,
+            )
+            self.assertIn(
+                [
+                    "git",
                     "push",
                     f"--force-with-lease=refs/heads/{REPAIR_BRANCH}:cafebabe",
                     "--set-upstream",
