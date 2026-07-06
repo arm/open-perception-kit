@@ -29,7 +29,7 @@ sonar_quality_gate_workflow = load_module()
 
 
 class SonarQualityGateWorkflowTests(unittest.TestCase):
-    def test_compose_report_command_keeps_sonar_wrapper_in_script(self):
+    def test_compose_report_command_runs_report_script_directly(self):
         with mock.patch.dict(
             os.environ,
             {
@@ -42,6 +42,12 @@ class SonarQualityGateWorkflowTests(unittest.TestCase):
             command = sonar_quality_gate_workflow.compose_report_command(probe_api_access=True)
 
         self.assertEqual(command[:4], ["docker", "compose", "-f", ".github/compose.ci.yaml"])
+        self.assertIn("--no-deps", command)
+        self.assertIn("--entrypoint", command)
+        self.assertEqual(command[command.index("--entrypoint") + 1], "python3")
+        service_index = command.index("pek-sonar-check")
+        self.assertEqual(command[service_index + 1], "scripts/private/sonar_quality_gate_report.py")
+        self.assertNotIn("bash", command)
         self.assertIn("scripts/private/sonar_quality_gate_report.py", command)
         self.assertIn("--branch", command)
         self.assertIn("feature/test", command)
