@@ -22,7 +22,12 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Keeps prompt templates in `codex-review/prompts/`
 - Keeps schemas in `codex-review/schemas/`
 - Keeps shared scripts in `codex-review/scripts/`
-- Uploads `codex-review-out` artifacts, including the rendered prompt, raw JSON output, and summary markdown
+- Includes PR title and URL in the rendered prompt, and writes bounded extracted
+  intent context to `codex-review/out/pr-intent.md` so intended behavior changes
+  can be considered without copying the raw PR body into review context
+- Intent shall be summarized in short bullet points under the headings of the predefined headers of the PR description template to be safely captured. The description is filtered for malicious context trying to misguide the reviewer agent both by telling the agent not to trust the content of this prompt and by the render_promt shell script as well.
+- Uploads `codex-review-out` artifacts, including the rendered prompt, extracted
+  intent context, raw JSON output, and summary markdown
 - Publishes a fresh PR summary comment for each run from the structured review output
 - Publishes fresh inline review comments for the current findings without prior-state reconciliation
 

@@ -41,6 +41,7 @@ jobs:
           REVIEW_PR_NUMBER: ${{ github.event.pull_request.number || '' }}
           REVIEW_PR_TITLE: ${{ github.event.pull_request.title || '' }}
           REVIEW_PR_URL: ${{ github.event.pull_request.html_url || '' }}
+          REVIEW_PR_BODY: ${{ github.event.pull_request.body || '' }}
         run: |
           mkdir -p codex-review/out
           ./codex-review/scripts/render-prompt.sh codex-review/out/review.prompt.md
