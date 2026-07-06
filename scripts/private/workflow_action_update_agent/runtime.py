@@ -53,10 +53,6 @@ TARGET_BRANCH_TOKEN = "{{TARGET_BRANCH}}"
 TASK_REF_TOKEN = "{{TASK_REF}}"
 REPAIR_AUTHORIZATION_LABEL_TOKEN = "{{REPAIR_AUTHORIZATION_LABEL}}"
 WAIT_TIMEOUT_SECONDS = 1800
-STABILIZATION_MAX_ATTEMPTS = 5
-STABILIZER_ENTRYPOINT_WORKFLOW_FILE = "workflow-action-update-agent.yml"
-STABILIZER_ENTRYPOINT_WORKFLOW_NAME = "Workflow Action Update Agent"
-PULL_REQUEST_RUN_GRACE_SECONDS = 60
 AGENT_WORKFLOW_VALIDATION_COMMAND_SET = "agent-workflow-python"
 CANONICAL_VALIDATION_COMMAND_SETS = {
     AGENT_WORKFLOW_VALIDATION_COMMAND_SET: (
@@ -69,41 +65,10 @@ CANONICAL_VALIDATION_COMMAND_SETS = {
         "git diff --stat",
     ),
 }
-CANONICAL_VALIDATION_WORKFLOWS: dict[str, dict[str, object]] = {
-    "agent-review": {
-        "workflow_file": "agent-review.yml",
-        "workflow_name": "Agent Review",
-        "review_state_script": "scripts/private/agent_runtime/review/fetch.py",
-        "workflow_dispatch_inputs": {
-            "base_ref": "origin/{target_branch}",
-            "head_ref": "{repair_branch}",
-        },
-        "allowed_review_recommendations": ["approve"],
-    },
-    "workflow-audit": {
-        "workflow_file": "workflow-audit.yml",
-        "workflow_name": "Workflow Dependency Freshness",
-    },
-    "pek-ci": {
-        "workflow_file": "pek-ci.yml",
-        "workflow_name": "Perception Experience Kit CI Pipeline",
-        "workflow_dispatch_inputs": {
-            "pr_number": "{pr_number}",
-            "pr_base_ref": "{target_branch}",
-            "pr_head_ref": "{repair_branch}",
-            "pr_head_sha": "{head_sha}",
-        },
-    },
-    "sonar": {
-        "workflow_file": "sonar.yml",
-        "workflow_name": "Sonar",
-        "workflow_dispatch_inputs": {
-            "pr_number": "{pr_number}",
-            "pr_base_ref": "{target_branch}",
-            "pr_head_ref": "{repair_branch}",
-            "pr_head_sha": "{head_sha}",
-        },
-    },
+STANDARD_AGENT_REVIEW_WORKFLOW: dict[str, str] = {
+    "workflow_file": "agent-review.yml",
+    "workflow_name": "Agent Review",
+    "review_state_script": "scripts/private/agent_runtime/review/fetch.py",
 }
 VALIDATION_ENV_BLOCKLIST = (
     "GITHUB_ENV",
@@ -255,7 +220,6 @@ def load_profile(profile_path: str = "") -> dict[str, object]:
     required_list_keys = (
         "prompt_context_files",
         "repair_definition_of_done",
-        "validation_workflows",
     )
     optional_bool_keys = ("require_failure_conclusion",)
     allowed_keys = set(required_string_keys) | set(required_list_keys) | set(optional_bool_keys)
@@ -274,7 +238,6 @@ def load_profile(profile_path: str = "") -> dict[str, object]:
         if key in profile:
             profile_bool(profile, key, True)
 
-    profile_validation_workflows(profile)
     profile_validation_commands(profile)
     return profile
 
@@ -326,103 +289,8 @@ def profile_validation_commands(profile: dict[str, object]) -> list[str]:
     return list(commands)
 
 
-def canonical_validation_workflow(workflow_id: str) -> dict[str, object]:
-    workflow = CANONICAL_VALIDATION_WORKFLOWS.get(workflow_id)
-    if workflow is None:
-        allowed = ", ".join(sorted(CANONICAL_VALIDATION_WORKFLOWS))
-        raise ValueError(f"Unknown validation workflow '{workflow_id}'. Expected one of: {allowed}.")
-
-    normalized = dict(workflow)
-    normalized["workflow_id"] = workflow_id
-    dispatch_inputs = workflow.get("workflow_dispatch_inputs", {})
-    normalized["workflow_dispatch_inputs"] = dict(dispatch_inputs) if isinstance(dispatch_inputs, dict) else {}
-    recommendations = workflow.get("allowed_review_recommendations", [])
-    normalized["allowed_review_recommendations"] = list(recommendations) if isinstance(recommendations, list) else []
-    normalized.setdefault("review_state_script", "")
-    return normalized
-
-
-def profile_validation_workflows(profile: dict[str, object]) -> list[dict[str, object]]:
-    workflow_ids = profile_string_list(profile, "validation_workflows")
-    parsed: list[dict[str, object]] = []
-    seen_workflow_ids: set[str] = set()
-    for workflow_id in workflow_ids:
-        if workflow_id in seen_workflow_ids:
-            raise ValueError(f"Profile key 'validation_workflows' contains duplicate workflow '{workflow_id}'.")
-        seen_workflow_ids.add(workflow_id)
-        workflow = canonical_validation_workflow(workflow_id)
-        workflow_file = workflow.get("workflow_file")
-        workflow_name = workflow.get("workflow_name")
-        review_state_script = workflow.get("review_state_script", "")
-        allowed_review_recommendations = workflow.get("allowed_review_recommendations", [])
-        workflow_dispatch_inputs = workflow.get("workflow_dispatch_inputs", {})
-        if not isinstance(workflow_file, str) or not workflow_file.strip():
-            raise ValueError("Each validation workflow must define a non-empty 'workflow_file'.")
-        if not isinstance(workflow_name, str) or not workflow_name.strip():
-            raise ValueError("Each validation workflow must define a non-empty 'workflow_name'.")
-        if review_state_script and (not isinstance(review_state_script, str) or not review_state_script.strip()):
-            raise ValueError(
-                "Each validation workflow 'review_state_script' value must be a non-empty string when present.")
-        if not isinstance(allowed_review_recommendations, list):
-            raise ValueError(
-                "Each validation workflow 'allowed_review_recommendations' value must be a JSON array when present.")
-        if not isinstance(workflow_dispatch_inputs, dict):
-            raise ValueError(
-                "Each validation workflow 'workflow_dispatch_inputs' value must be a JSON object when present."
-            )
-        if review_state_script:
-            if not allowed_review_recommendations:
-                raise ValueError(
-                    "Each validation workflow with a 'review_state_script' must define 'allowed_review_recommendations'."
-                )
-            if not all(
-                isinstance(recommendation, str) and recommendation.strip()
-                for recommendation in allowed_review_recommendations
-            ):
-                raise ValueError(
-                    "Each validation workflow 'allowed_review_recommendations' value must contain only non-empty strings."
-                )
-        elif allowed_review_recommendations:
-            raise ValueError(
-                "Each validation workflow with 'allowed_review_recommendations' must also define 'review_state_script'."
-            )
-        normalized_dispatch_inputs: dict[str, str] = {}
-        for input_name, input_value in workflow_dispatch_inputs.items():
-            if not isinstance(input_name, str) or not input_name.strip():
-                raise ValueError(
-                    "Each validation workflow 'workflow_dispatch_inputs' key must be a non-empty string."
-                )
-            if not isinstance(input_value, str) or not input_value.strip():
-                raise ValueError(
-                    "Each validation workflow 'workflow_dispatch_inputs' value must be a non-empty string."
-                )
-            normalized_dispatch_inputs[input_name.strip()] = input_value.strip()
-        parsed.append(
-            {
-                "workflow_file": workflow_file,
-                "workflow_id": workflow_id,
-                "workflow_name": workflow_name,
-                "review_state_script": str(review_state_script or ""),
-                "allowed_review_recommendations": [
-                    str(recommendation).strip().lower()
-                    for recommendation in allowed_review_recommendations
-                ],
-                "workflow_dispatch_inputs": normalized_dispatch_inputs,
-            }
-        )
-    return parsed
-
-
-def workflow_allowed_review_recommendations(workflow: dict[str, object]) -> list[str]:
-    recommendations = workflow.get("allowed_review_recommendations", [])
-    if not isinstance(recommendations, list):
-        raise ValueError(
-            "Validation workflow 'allowed_review_recommendations' value must be a JSON array."
-        )
-    return [
-        str(recommendation).strip().lower()
-        for recommendation in recommendations
-    ]
+def standard_agent_review_workflow() -> dict[str, str]:
+    return dict(STANDARD_AGENT_REVIEW_WORKFLOW)
 
 
 def format_profile_template(template: str, values: dict[str, str]) -> str:

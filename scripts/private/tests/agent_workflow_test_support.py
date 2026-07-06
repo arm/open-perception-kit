@@ -269,5 +269,4 @@ OPENAI_AGENT_RUNTIME_CONTEXT = load_agent_workflow_module(
 )
 HELPER_RUNTIME = load_workflow_helper_module("workflow_action_update_agent.runtime")
 HELPER_REPAIR = load_workflow_helper_module("workflow_action_update_agent.repair")
-HELPER_GITHUB_WORKFLOWS = load_workflow_helper_module("workflow_action_update_agent.github_workflows")
 HELPER_STABILIZATION = load_workflow_helper_module("workflow_action_update_agent.stabilization")

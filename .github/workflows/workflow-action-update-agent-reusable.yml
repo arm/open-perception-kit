@@ -197,9 +197,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    outputs:
-      pr_number: ${{ steps.pr.outputs.pr_number }}
-      head_sha: ${{ steps.branch.outputs.head_sha }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -250,37 +247,3 @@ jobs:
             --target-branch "${{ needs.prepare.outputs.target_branch }}" \
             --repair-branch "${{ needs.prepare.outputs.repair_branch }}" \
             --github-output "${GITHUB_OUTPUT}"
-
-  stabilize-pr:
-    name: Stabilize and merge repair PR
-    needs: [prepare, open-pr]
-    if: needs.prepare.outputs.should_run == 'true' && needs['open-pr'].result == 'success'
-    runs-on: ubuntu-latest
-    timeout-minutes: 180
-    permissions:
-      actions: write
-      contents: write
-      pull-requests: write
-    steps:
-      - name: Checkout workflow helpers
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-
-      - name: Stabilize repair PR
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
-        run: |
-          set -euo pipefail
-          PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private${PYTHONPATH:+:${PYTHONPATH}}" \
-            python3 -m workflow_action_update_agent stabilize-pr \
-            --profile-path "${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}" \
-            --pr-number "${{ needs['open-pr'].outputs.pr_number }}" \
-            --repair-branch "${{ needs.prepare.outputs.repair_branch }}" \
-            --head-sha "${{ needs['open-pr'].outputs.head_sha }}" \
-            --task-ref "${{ needs.prepare.outputs.task_ref }}" \
-            --source-run-id "${{ needs.prepare.outputs.source_run_id }}" \
-            --merge-when-stable

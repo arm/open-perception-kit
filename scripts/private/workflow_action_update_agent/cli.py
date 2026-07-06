@@ -34,7 +34,6 @@ from .stabilization import (
     command_restore_helper_bundle,
     command_run_validation,
     command_snapshot_helper_bundle,
-    command_stabilize_pr,
 )
 
 
@@ -146,17 +145,6 @@ def build_parser() -> argparse.ArgumentParser:
     commit_review_fix_parser.add_argument("--task-ref", default="")
     commit_review_fix_parser.add_argument("--github-output", default=os.environ.get("GITHUB_OUTPUT", ""))
     commit_review_fix_parser.set_defaults(func=command_commit_review_fix)
-
-    stabilize_pr = subparsers.add_parser("stabilize-pr")
-    stabilize_pr.add_argument("--profile-path", default=default_profile_path_argument())
-    stabilize_pr.add_argument("--pr-number", required=True)
-    stabilize_pr.add_argument("--repair-branch", required=True)
-    stabilize_pr.add_argument("--head-sha", required=True)
-    stabilize_pr.add_argument("--task-ref", default="")
-    stabilize_pr.add_argument("--source-run-id", required=True)
-    stabilize_pr.add_argument("--context-root", default=".agent-runtime/workflow-action-update-agent")
-    stabilize_pr.add_argument("--merge-when-stable", action="store_true")
-    stabilize_pr.set_defaults(func=command_stabilize_pr)
 
     return parser
 

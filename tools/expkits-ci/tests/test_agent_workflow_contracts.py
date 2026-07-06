@@ -11,7 +11,6 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'scripts/private/tests'))
 from agent_workflow_test_support import (  # noqa: E402
     AGENT_REVIEW_WORKFLOW_FILE,
-    HELPER_RUNTIME,
     OPENAI_AGENT_RUNNER_LABEL,
     PEK_CI_WORKFLOW_FILE,
     REUSABLE_WORKFLOW_FILE,
@@ -75,16 +74,15 @@ class AgentWorkflowContractTests(unittest.TestCase):
         prepare_job = workflow["jobs"]["prepare"]
         agent_job = workflow["jobs"]["agent-fix"]
         open_pr_job = workflow["jobs"]["open-pr"]
-        stabilize_job = workflow["jobs"]["stabilize-pr"]
         prepare_steps = step_map(prepare_job)
         agent_steps = step_map(agent_job)
         open_pr_steps = step_map(open_pr_job)
-        stabilize_steps = step_map(stabilize_job)
         agent_step_names = [
             step.get("name") or step.get("id") or step.get("uses")
             for step in agent_job["steps"]
         ]
 
+        self.assertEqual(set(workflow["jobs"]), {"prepare", "agent-fix", "open-pr"})
         self.assertEqual(
             set(inputs.keys()),
             {"source_run_id", "target_branch", "task_ref", "profile_path"},
@@ -101,7 +99,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
             "Apply repair changes and push branch": "apply-repair-changes-and-push",
             "Create draft repair PR": "create-draft-pr",
         }
-        all_steps = {**prepare_steps, **agent_steps, **open_pr_steps, **stabilize_steps}
+        all_steps = {**prepare_steps, **agent_steps, **open_pr_steps}
         for step_name, command in output_steps.items():
             run = all_steps[step_name]["run"]
             self.assertIn(f"python3 -m workflow_action_update_agent {command}", run)
@@ -114,7 +112,6 @@ class AgentWorkflowContractTests(unittest.TestCase):
             apply_step_run,
         )
         self.assertEqual(agent_job["runs-on"], OPENAI_AGENT_RUNNER_LABEL)
-        self.assertEqual(stabilize_job["runs-on"], "ubuntu-latest")
         self.assertIn("Set up Agent Python", agent_steps)
         self.assertIn("Install OpenAI agent runtime", agent_steps)
         self.assertIn("Run OpenAI SDK repair agent", agent_steps)
@@ -173,23 +170,11 @@ class AgentWorkflowContractTests(unittest.TestCase):
             "--profile-path \"${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}\"",
             static_regression_step["run"],
         )
-        self.assertEqual(stabilize_job["permissions"]["actions"], "write")
-        self.assertEqual(stabilize_steps["Checkout workflow helpers"]["uses"], "actions/checkout@v6")
-        stabilize_run = stabilize_steps["Stabilize repair PR"]["run"]
-        self.assertEqual(
-            stabilize_steps["Stabilize repair PR"]["shell"],
-            "bash",
-        )
-        self.assertEqual(
-            stabilize_steps["Stabilize repair PR"]["env"]["GITHUB_TOKEN"],
-            "${{ github.token }}",
-        )
-        self.assertEqual(
-            stabilize_steps["Stabilize repair PR"]["env"]["GH_TOKEN"],
-            "${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}",
-        )
-        self.assertIn("python3 -m workflow_action_update_agent stabilize-pr", stabilize_run)
-        self.assertIn("--merge-when-stable", stabilize_run)
+        workflow_source = REUSABLE_WORKFLOW_FILE.read_text(encoding="utf-8")
+        self.assertNotIn("agent-stabilize-pr.yml", workflow_source)
+        self.assertNotIn("stabilize-pr", workflow_source)
+        self.assertNotIn("merge-when-stable", workflow_source)
+        self.assertNotIn("merge_pr", workflow_source)
 
     def test_agent_review_workflow_uses_openai_sdk_proxy_flow(self):
         workflow = load_yaml(AGENT_REVIEW_WORKFLOW_FILE)
@@ -379,14 +364,6 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertEqual(
             set(sonar_inputs.keys()),
             {"pr_number", "pr_base_ref", "pr_head_ref", "pr_head_sha"},
-        )
-        self.assertEqual(
-            set(HELPER_RUNTIME.canonical_validation_workflow("pek-ci")["workflow_dispatch_inputs"].keys()),
-            set(pek_inputs.keys()),
-        )
-        self.assertEqual(
-            set(HELPER_RUNTIME.canonical_validation_workflow("sonar")["workflow_dispatch_inputs"].keys()),
-            set(sonar_inputs.keys()),
         )
         self.assertIn("Resolve manual PR context", pek_steps)
         self.assertIn("Resolve manual PR context", sonar_steps)

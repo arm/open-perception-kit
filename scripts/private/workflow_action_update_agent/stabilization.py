@@ -28,12 +28,6 @@ from agent_runtime.review.state import (
     review_state_requires_findings,
 )
 
-from .github_workflows import (
-    build_validation_dispatch_context,
-    dispatch_stabilizer_workflow,
-    ensure_validation_workflow_run,
-    merge_pr,
-)
 from .runtime import (
     CONTEXT_ROOT_TOKEN,
     PR_NUMBER_TOKEN,
@@ -44,20 +38,18 @@ from .runtime import (
     REVIEW_SUMMARY_TOKEN,
     REVIEW_WORKFLOW_NAME_TOKEN,
     SOURCE_RUN_ID_TOKEN,
-    STABILIZATION_MAX_ATTEMPTS,
     WAIT_TIMEOUT_SECONDS,
     load_profile,
     profile_agent_model,
     profile_prompt_replacements,
     profile_validation_commands,
-    profile_validation_workflows,
     render_markdown_template,
     resolve_task_ref,
     resolve_repo_path,
     run_command,
     run_validation_command,
+    standard_agent_review_workflow,
     validation_command_environment,
-    workflow_allowed_review_recommendations,
     write_json_file,
     write_outputs,
 )
@@ -170,80 +162,6 @@ def wait_for_review_state(
             source="artifact",
         )
     raise RuntimeError(message)
-
-
-def publish_review_state_to_pr(
-    *,
-    pr_number: str,
-    head_sha: str,
-    review_state: dict[str, object],
-) -> None:
-    script_path = resolve_repo_path("scripts/private/agent_runtime/review/publish.py")
-    if not script_path.is_file():
-        raise ValueError(f"Agent review publish script is missing: {script_path}")
-
-    env = dict(os.environ)
-    if not env.get("GITHUB_TOKEN"):
-        env["GITHUB_TOKEN"] = env.get("GH_TOKEN", "")
-    if not env.get("GITHUB_TOKEN"):
-        raise RuntimeError("GITHUB_TOKEN or GH_TOKEN is required to publish Agent review state.")
-    env["GITHUB_PR_NUMBER"] = pr_number
-    env["GITHUB_HEAD_SHA"] = head_sha
-    env["GITHUB_RUN_ID"] = str(review_state.get("run_id") or "")
-
-    with tempfile.TemporaryDirectory(prefix="workflow-action-update-agent-publish-review-") as temp_dir:
-        input_path = Path(temp_dir) / "review.json"
-        markdown_path = Path(temp_dir) / "review-summary.md"
-        write_json_file(input_path, review_state)
-        run_command(
-            [
-                "python3",
-                str(script_path),
-                "--input",
-                str(input_path),
-                "--markdown-out",
-                str(markdown_path),
-                "--publish-pr-comment",
-            ],
-            env=env,
-        )
-
-
-def ensure_allowed_review_recommendation(
-    *,
-    pr_number: str,
-    workflow_name: str,
-    review_state: dict[str, object],
-    allowed_review_recommendations: list[str],
-) -> None:
-    recommendation = str(review_state.get("overall_recommendation") or "").strip().lower()
-    if recommendation in allowed_review_recommendations:
-        return
-    raise RuntimeError(
-        f"{workflow_name} recommendation for PR #{pr_number} was '{recommendation}', "
-        f"expected one of {', '.join(allowed_review_recommendations)}.",
-    )
-
-
-def split_validation_workflows(
-    profile: dict[str, object],
-) -> tuple[dict[str, object] | None, list[dict[str, object]]]:
-    workflows = profile_validation_workflows(profile)
-    review_workflows = [
-        workflow
-        for workflow in workflows
-        if str(workflow.get("review_state_script") or "")
-    ]
-    if len(review_workflows) > 1:
-        raise ValueError("Only one validation workflow with review_state_script is supported.")
-
-    review_workflow = review_workflows[0] if review_workflows else None
-    other_workflows = [
-        workflow
-        for workflow in workflows
-        if workflow is not review_workflow
-    ]
-    return review_workflow, other_workflows
 
 
 def build_stabilize_prompt(
@@ -427,9 +345,7 @@ def command_resolve_pr_details(args: argparse.Namespace) -> int:
 def command_prepare_stabilization_context(args: argparse.Namespace) -> int:
     profile = load_profile(args.profile_path)
     context_root = Path(args.context_root)
-    review_workflow, _ = split_validation_workflows(profile)
-    if review_workflow is None:
-        raise RuntimeError("Stabilization requires a validation workflow with review_state_script.")
+    review_workflow = standard_agent_review_workflow()
     repository = os.environ.get("GITHUB_REPOSITORY", "")
 
     pr_details = read_pr_details(args.pr_number)
@@ -570,100 +486,3 @@ def command_commit_review_fix(args: argparse.Namespace) -> int:
         )
     write_outputs({"head_sha": head_sha}, args.github_output)
     return 0
-
-
-def command_stabilize_pr(args: argparse.Namespace) -> int:
-    profile = load_profile(args.profile_path)
-    repository = os.environ["GITHUB_REPOSITORY"]
-    context_root = Path(args.context_root)
-    dispatch_ref = os.environ.get("GITHUB_REF_NAME", "main")
-    review_workflow, other_workflows = split_validation_workflows(profile)
-    pr_details = read_pr_details(args.pr_number)
-    repair_branch = pr_details["repair_branch"] or args.repair_branch
-    target_branch = pr_details["target_branch"]
-    head_sha = args.head_sha or pr_details["head_sha"]
-    task_ref = resolve_task_ref(
-        args.task_ref,
-        pr_details.get("title", ""),
-        purpose="Stabilization workflow dispatch",
-    )
-
-    for attempt in range(1, STABILIZATION_MAX_ATTEMPTS + 1):
-        print(f"Stabilization attempt {attempt}/{STABILIZATION_MAX_ATTEMPTS} for PR #{args.pr_number} at {head_sha}")
-        dispatch_context = build_validation_dispatch_context(
-            pr_number=args.pr_number,
-            repair_branch=repair_branch,
-            head_sha=head_sha,
-            target_branch=target_branch,
-            source_run_id=args.source_run_id,
-            task_ref=task_ref,
-        )
-
-        if review_workflow is not None:
-            review_run_id, review_run_event = ensure_validation_workflow_run(
-                repository=repository,
-                workflow=review_workflow,
-                repair_branch=repair_branch,
-                head_sha=head_sha,
-                dispatch_context=dispatch_context,
-            )
-            review_state = wait_for_review_state(
-                pr_number=args.pr_number,
-                workflow_name=str(review_workflow["workflow_name"]),
-                review_state_script=str(review_workflow["review_state_script"]),
-                expected_run_id=review_run_id,
-                head_sha=head_sha,
-            )
-            if review_run_event == "workflow_dispatch":
-                publish_review_state_to_pr(
-                    pr_number=args.pr_number,
-                    head_sha=head_sha,
-                    review_state=review_state,
-                )
-            allowed_recommendations = workflow_allowed_review_recommendations(review_workflow)
-            recommendation = str(review_state.get("overall_recommendation") or "").strip().lower()
-            if recommendation not in allowed_recommendations:
-                dispatch_stabilizer_workflow(
-                    repository=repository,
-                    pr_number=args.pr_number,
-                    head_sha=head_sha,
-                    source_run_id=args.source_run_id,
-                    task_ref=task_ref,
-                    profile_path=args.profile_path,
-                    context_root=str(context_root),
-                    dispatch_ref=dispatch_ref,
-                    dispatch_nonce=f"pr-{args.pr_number}-attempt-{attempt}-{int(time.time())}",
-                )
-                pr_details = read_pr_details(args.pr_number)
-                repair_branch = pr_details["repair_branch"] or repair_branch
-                target_branch = pr_details["target_branch"]
-                head_sha = pr_details["head_sha"]
-                # The stabilizer may have pushed a new commit. Restart the
-                # loop so that the head gets a fresh Agent Review before merge.
-                continue
-
-            ensure_allowed_review_recommendation(
-                pr_number=args.pr_number,
-                workflow_name=str(review_workflow["workflow_name"]),
-                review_state=review_state,
-                allowed_review_recommendations=allowed_recommendations,
-            )
-
-        for workflow in other_workflows:
-            ensure_validation_workflow_run(
-                repository=repository,
-                workflow=workflow,
-                repair_branch=repair_branch,
-                head_sha=head_sha,
-                dispatch_context=dispatch_context,
-            )
-
-        if args.merge_when_stable:
-            merge_pr(args.pr_number)
-        else:
-            print(f"PR #{args.pr_number} is stable; merge skipped.")
-        return 0
-
-    raise RuntimeError(
-        f"Exceeded {STABILIZATION_MAX_ATTEMPTS} stabilization attempts for PR #{args.pr_number}.",
-    )

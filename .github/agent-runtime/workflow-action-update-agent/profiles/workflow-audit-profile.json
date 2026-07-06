@@ -13,7 +13,7 @@
   "repair_definition_of_done": [
     "The original report artifact remains the starting evidence.",
     "Only outdated workflow refs identified by the source run are updated.",
-    "The configured PR validation workflows rerun before merge."
+    "The generated repair PR receives the `{pr_trigger_label}` label for standard PR validation."
   ],
   "agent_model_config": ".github/agent-runtime/runtime/agent-models.json",
   "prompt_context_files": [
@@ -26,11 +26,5 @@
     ".github/workflows/sonar.yml",
     ".github/compose.ci.yaml"
   ],
-  "validation_command_set": "agent-workflow-python",
-  "validation_workflows": [
-    "agent-review",
-    "workflow-audit",
-    "pek-ci",
-    "sonar"
-  ]
+  "validation_command_set": "agent-workflow-python"
 }

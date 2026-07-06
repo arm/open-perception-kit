@@ -12,12 +12,11 @@ orchestration layer around the shared `agent_runtime` package.
 - Keep prompt text and profile policy in
   `.github/agent-runtime/workflow-action-update-agent/`; do not embed long
   prompts, model names, workflow limits, or profile defaults in this package.
-- Keep branch, commit, push, PR creation, PR merge, and workflow dispatch logic
-  here rather than in Agent tools. Agent tools may inspect files and apply a
-  working-tree patch only.
-- Route stabilization dispatches through
-  `.github/workflows/workflow-action-update-agent.yml`; the
-  `agent-stabilize-pr.yml` workflow is a `workflow_call` worker.
+- Keep branch, commit, push, and PR creation logic here rather than in Agent
+  tools. Agent tools may inspect files and apply a working-tree patch only.
+- Do not add helper-driven stabilization dispatch loops. Public manual
+  stabilization goes through `.github/workflows/workflow-action-update-agent.yml`;
+  `agent-stabilize-pr.yml` is a `workflow_call` worker.
 - Treat Agent Review PR comments as UI/log output. Stabilization may only use
   `agent-review-out/review.json` artifact state as machine-readable review
   input.

@@ -51,11 +51,11 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Resolves source-run metadata, downloads logs and artifacts, and creates `goal.md` plus the companion Markdown context files under `.agent-runtime/workflow-action-update-agent/`
 - Feeds the collected failure state and any downloaded artifact context into the OpenAI SDK repair agent so the patch is generated from the report instead of from inline workflow logic
 - Runs the same shared Python OpenAI Agents SDK path as `agent-review`, with the Arm proxy and tracing disabled, to generate the repair patch
-- Opens a draft repair PR only when the source run belongs to a PR carrying the profile-defined repair authorization label, applies the profile-defined rerun label, then keeps a single stabilization loop: wait for the standard Agent review, feed non-approve findings back into the SDK agent on the same branch, rerun validation, and merge only after the latest PR head is fully green
+- Opens a draft repair PR only when the source run belongs to a PR carrying the profile-defined repair authorization label, then applies the profile-defined rerun label so normal PR validation can run outside the repair creation flow
 - Stays orchestration-thin by delegating repo-specific helper commands to `scripts/private/workflow_action_update_agent/` and flow policy to the repair profile
-- Dispatches follow-up stabilization attempts through the manual front door; `.github/workflows/agent-stabilize-pr.yml` is a `workflow_call` worker only
+- Does not dispatch stabilization or merge the draft repair PR it opens; `.github/workflows/agent-stabilize-pr.yml` remains a `workflow_call` worker for explicit current-PR stabilization
 - Uses `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` for the OpenAI SDK step so the repair flow matches `agent-review`
-- Supports the optional `EXPKITS_AGENT_TOKEN` secret so checkout, push, PR, and merge operations can run under a PAT or GitHub App token instead of the default `GITHUB_TOKEN`
+- Supports the optional `EXPKITS_AGENT_TOKEN` secret so checkout, push, and PR operations can run under a PAT or GitHub App token instead of the default `GITHUB_TOKEN`
 
 ## What shared workflow plumbing lives under `scripts/private/`?
 
@@ -76,7 +76,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 - Holds the small repo-specific building blocks that would otherwise bloat the workflow YAML
 - Loads the selected repair profile, resolves source-run inputs, collects workflow evidence, builds runtime Markdown inputs, and renders repair PR metadata
-- Packages repository changes, pushes repair branches, opens draft PRs, and owns the stabilization loop that waits on canonical review artifact state, generates follow-up fixes, reruns local validation, and merges successful repairs
+- Packages repository changes, pushes repair branches, opens draft PRs, and prepares current-PR stabilization context from canonical review artifact state
 - Reuses `.github/PULL_REQUEST_TEMPLATE.md` through explicit marker sections instead of brittle free-text replacement, and injects the repair CI badge only for bot-authored PRs
 - Provides the PR-lifecycle layer used by the checked-in repair and stabilization workflows
 
@@ -86,7 +86,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - The default profile lives at `.github/agent-runtime/workflow-action-update-agent/profiles/profile.json`
 - The nightly workflow-freshness profile lives at `.github/agent-runtime/workflow-action-update-agent/profiles/workflow-audit-profile.json`
 - Runtime task limits and default task-to-agent-instance mapping live in `.github/agent-runtime/runtime/agent-tasks.json`
-- Keeps long review and constraint text out of the workflow YAML and Python helper while letting the profile carry flow-specific policy such as labels, prompt context files, the model config path, canonical validation workflow IDs, and a canonical validation command set name
+- Keeps long review and constraint text out of the workflow YAML and Python helper while letting the profile carry flow-specific policy such as labels, prompt context files, the model config path, and a canonical validation command set name
 - Lets the helper still generate the final `.agent-runtime/workflow-action-update-agent/*.md` files on the fly at runtime, so callers reuse the same core without checking generated prompt files into git
 
 ## How do workflow-action-update-agent helper commands run?
