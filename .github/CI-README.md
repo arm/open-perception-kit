@@ -27,6 +27,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Treats `agent-review-out/review.json` as the canonical machine-readable review state
 - Publishes a fresh PR summary comment for each run from the structured review output
 - Publishes fresh inline review comments for the current findings without prior-state reconciliation
+- Uses the `agent-stabilize` label only for current-PR Agent Review finding stabilization
 
 ## What does `.github/agent-runtime/` do?
 
@@ -52,6 +53,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Feeds the collected failure state and any downloaded artifact context into the OpenAI SDK repair agent so the patch is generated from the report instead of from inline workflow logic
 - Runs the same shared Python OpenAI Agents SDK path as `agent-review`, with the Arm proxy and tracing disabled, to generate the repair patch
 - Opens a draft repair PR only when the source run belongs to a PR carrying the profile-defined repair authorization label, then applies the profile-defined rerun label so normal PR validation can run outside the repair creation flow
+- The default repair authorization label is `agent-repair`; it does not trigger current-PR stabilization
 - Stays orchestration-thin by delegating repo-specific helper commands to `scripts/private/workflow_action_update_agent/` and flow policy to the repair profile
 - Does not dispatch stabilization or merge the draft repair PR it opens; `.github/workflows/agent-stabilize-pr.yml` remains a `workflow_call` worker for explicit current-PR stabilization
 - Uses `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` for the OpenAI SDK step so the repair flow matches `agent-review`

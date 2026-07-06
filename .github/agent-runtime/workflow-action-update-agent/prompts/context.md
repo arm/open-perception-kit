@@ -2,18 +2,19 @@
 
 ## Goal
 
-- Keep one automatic PR-head repair path only: same-repository pull requests run
-  the standard `Agent Review`, then automatically stabilize that PR head when
-  the review is not `approve`.
+- Keep one automatic PR-head stabilization path only: same-repository pull
+  requests run the standard `Agent Review`; PRs that carry the
+  `agent-stabilize` label may then stabilize that PR head when the review is
+  not `approve`.
 - Keep manual PR stabilization available only through
   `.github/workflows/workflow-action-update-agent.yml`. The callable
   `.github/workflows/agent-stabilize-pr.yml` worker must not expose its own
   public dispatch path.
 - Keep source-run repair PR creation separate from stabilization and merge: it
   is only for bounded work outside the source PR branch's direct stabilization
-  scope, requires the source PR to carry the profile-defined authorization
-  label, and ends after the draft repair PR is opened and labeled for normal PR
-  validation.
+  scope, requires the source PR to carry the profile-defined repair
+  authorization label, and ends after the draft repair PR is opened and labeled
+  for normal PR validation.
 
 ## Hard Rules
 
@@ -24,6 +25,9 @@
   `scripts/private/workflow_action_update_agent/runtime.py`.
 - Keep runtime prompt files under `.agent-runtime/workflow-action-update-agent/`; do not check generated prompt artifacts into git.
 - Keep the stabilization loop focused on review findings only. It must not rewrite unrelated workflow plumbing.
+- Keep labels role-specific: `agent-repair` authorizes source-run repair PR
+  creation, while `agent-stabilize` triggers current-PR Agent Review finding
+  stabilization. Do not treat either label as an alias for the other.
 - Keep repair PR tasks bounded by source-run evidence and an explicit Definition
   of Done. If the source run is not associated with an authorized source PR, do
   not open a repair PR.
@@ -86,7 +90,8 @@ The reference implementation is `.github/workflows/agent-review.yml`.
 
 1. A same-repository PR is opened, reopened, synchronized, or marked ready for review.
 2. The standard `Agent Review` workflow reviews the current PR head and publishes canonical review state.
-3. The same workflow invokes the dedicated stabilizer workflow for that PR head.
+3. If the PR carries `agent-stabilize`, the same workflow invokes the
+   dedicated stabilizer workflow for that PR head.
 4. If Agent Review already approves, the stabilizer writes a skip artifact and exits.
 5. If Agent Review reports findings, the stabilizer applies the minimal follow-up patch, reruns configured validation commands, and pushes one follow-up commit.
 6. The push retriggers normal PR workflows, including `Agent Review`; any new or remaining finding starts the next stabilization attempt for the new head.
@@ -94,8 +99,9 @@ The reference implementation is `.github/workflows/agent-review.yml`.
    `approve` Agent Review.
 8. If a source-run repair creates a draft repair PR, that flow ends after the
    repair branch, draft PR, and validation label are created. If someone later
-   adds the stabilization label to that repair PR, it is treated as ordinary
-   current-PR stabilization, not as a continuation of the source-run repair.
+   adds the `agent-stabilize` label to that repair PR, it is treated as
+   ordinary current-PR stabilization, not as a continuation of the source-run
+   repair.
 
 ## Token Notes
 

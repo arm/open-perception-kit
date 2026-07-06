@@ -3,7 +3,7 @@
   "automation_name": "workflow-action-update-agent",
   "repair_branch_template": "feature/{task_ref}/bot-workflow-action-update-agent-run-{source_run_id}",
   "repair_branch_guard_regex": "^feature/[^/]+/bot-workflow-action-update-agent-run-",
-  "repair_authorization_label": "agent-autorepair",
+  "repair_authorization_label": "agent-repair",
   "pr_trigger_label": "run-pek-ci",
   "pr_title_template": "[bot] Repair workflow failures from run {source_run_id}",
   "commit_subject_template": "[bot] Repair workflow failures from run {source_run_id}",

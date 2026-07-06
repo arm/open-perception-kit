@@ -133,7 +133,7 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
                 "github_api_json",
                 side_effect=[
                     run_payload,
-                    {"labels": [{"name": "agent-autorepair"}]},
+                    {"labels": [{"name": "agent-repair"}]},
                 ],
             ):
                 with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
@@ -206,7 +206,7 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
                 "github_api_json",
                 side_effect=[
                     run_payload,
-                    {"labels": [{"name": "agent-autorepair"}]},
+                    {"labels": [{"name": "agent-repair"}]},
                 ],
             ):
                 with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
@@ -253,7 +253,7 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
             self.assertEqual(outputs["should_run"], "false")
             self.assertEqual(outputs["source_pr_number"], "")
             self.assertEqual(outputs["repair_branch"], "")
-            self.assertIn("agent-autorepair", outputs["skip_reason"])
+            self.assertIn("agent-repair", outputs["skip_reason"])
 
     def test_resolve_inputs_requires_source_pull_request(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -323,7 +323,7 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
             self.assertTrue(CONTEXT_TEMPLATE.is_file())
             failure_context = (context_root / "failure-context.md").read_text(encoding="utf-8")
             self.assertIn("Source PR: #169", failure_context)
-            self.assertIn("Required source PR authorization label: `agent-autorepair`", failure_context)
+            self.assertIn("Required source PR authorization label: `agent-repair`", failure_context)
             for path in profile["prompt_context_files"]:
                 self.assertIn(f"- `{path}`", goal)
             for command in HELPER_RUNTIME.profile_validation_commands(profile):
@@ -376,7 +376,7 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
         self.assertIn("- [ ] I have tested these changes locally.", rendered)
         self.assertIn("run-pek-ci", body)
         self.assertIn("Source PR: #169", body)
-        self.assertIn("Authorization label: `agent-autorepair`", body)
+        self.assertIn("Authorization label: `agent-repair`", body)
         self.assertIn("Definition of Done", body)
         self.assertIn("The repair branch is based on `main`", body)
         self.assertIn(HELPER_RUNTIME.PR_AUTOMATION_START, body)

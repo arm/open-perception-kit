@@ -204,8 +204,10 @@ class AgentWorkflowContractTests(unittest.TestCase):
             review_gate_steps["Require Agent Review approval"]["env"]["REVIEW_RECOMMENDATION"],
             "${{ needs.review.outputs.recommendation }}",
         )
+        workflow_source = AGENT_REVIEW_WORKFLOW_FILE.read_text(encoding="utf-8")
+        self.assertNotIn("agent-repair", workflow_source)
         self.assertIn("github.event.action != 'labeled'", review_job["if"])
-        self.assertIn("github.event.label.name == 'agent-autorepair'", review_job["if"])
+        self.assertIn("github.event.label.name == 'agent-stabilize'", review_job["if"])
         self.assertEqual(auto_stabilize_job["needs"], "review")
         self.assertEqual(
             auto_stabilize_job["uses"],
@@ -215,11 +217,11 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertIn("needs.review.result == 'success'", auto_stabilize_job["if"])
         self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", auto_stabilize_job["if"])
         self.assertIn(
-            "contains(github.event.pull_request.labels.*.name, 'agent-autorepair')",
+            "contains(github.event.pull_request.labels.*.name, 'agent-stabilize')",
             auto_stabilize_job["if"],
         )
         self.assertIn("github.event.action != 'labeled'", auto_stabilize_job["if"])
-        self.assertIn("github.event.label.name == 'agent-autorepair'", auto_stabilize_job["if"])
+        self.assertIn("github.event.label.name == 'agent-stabilize'", auto_stabilize_job["if"])
         self.assertEqual(auto_stabilize_job["permissions"]["actions"], "read")
         self.assertEqual(auto_stabilize_job["permissions"]["contents"], "write")
         self.assertEqual(auto_stabilize_job["permissions"]["pull-requests"], "write")

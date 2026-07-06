@@ -31,7 +31,7 @@ jobs:
       github.event_name != 'pull_request' ||
       (
         github.event.pull_request.head.repo.full_name == github.repository &&
-        (github.event.action != 'labeled' || github.event.label.name == 'agent-autorepair')
+        (github.event.action != 'labeled' || github.event.label.name == 'agent-stabilize')
       )
     runs-on: self-hosted-ubuntu-latest
     outputs:
@@ -167,14 +167,14 @@ jobs:
           echo "Agent Review approved this head."
 
   auto-stabilize-pr:
-    name: Auto repair Agent Review findings
+    name: Auto stabilize Agent Review findings
     needs: review
     if: |
       github.event_name == 'pull_request' &&
       needs.review.result == 'success' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
-      contains(github.event.pull_request.labels.*.name, 'agent-autorepair') &&
-      (github.event.action != 'labeled' || github.event.label.name == 'agent-autorepair')
+      contains(github.event.pull_request.labels.*.name, 'agent-stabilize') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'agent-stabilize')
     permissions:
       actions: read
       contents: write

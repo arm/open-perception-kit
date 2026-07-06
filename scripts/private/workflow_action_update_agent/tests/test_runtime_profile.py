@@ -42,11 +42,12 @@ class WorkflowActionUpdateAgentRuntimeProfileTests(unittest.TestCase):
             audit_profile["repair_branch_template"],
             "feature/{task_ref}/bot-workflow-dependency-freshness-{source_run_id}",
         )
-        self.assertEqual(audit_profile["repair_authorization_label"], "agent-autorepair")
+        self.assertEqual(audit_profile["repair_authorization_label"], "agent-repair")
         self.assertEqual(audit_profile["pr_trigger_label"], "run-pek-ci")
         audit_profile_source = WORKFLOW_AUDIT_PROFILE_FILE.read_text(encoding="utf-8")
         self.assertEqual(audit_profile["validation_command_set"], "agent-workflow-python")
         self.assertIn("standard PR validation", audit_profile["repair_definition_of_done"][-1])
+        self.assertNotIn("agent-stabilize", audit_profile_source)
         self.assertNotIn("validation_workflows", audit_profile)
         self.assertNotIn("workflow_dispatch_inputs", audit_profile_source)
         self.assertNotIn("validation_workflows", audit_profile_source)
@@ -58,6 +59,7 @@ class WorkflowActionUpdateAgentRuntimeProfileTests(unittest.TestCase):
 
         self.assertEqual(profile["validation_command_set"], "agent-workflow-python")
         self.assertIn("standard PR validation", profile["repair_definition_of_done"][-1])
+        self.assertNotIn("agent-stabilize", profile_source)
         self.assertNotIn("validation_workflows", profile)
         self.assertNotIn("validation_workflows", profile_source)
         self.assertNotIn("workflow_dispatch_inputs", profile_source)
