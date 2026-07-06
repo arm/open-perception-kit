@@ -162,8 +162,8 @@ jobs:
           set -euo pipefail
           if [ "${REVIEW_RESULT}" = "skipped" ]; then
             if [ "${EVENT_NAME}" = "pull_request" ] && [ "${HEAD_REPOSITORY}" != "${REPOSITORY}" ]; then
-              echo "Agent Review skipped unsupported fork pull request head ${HEAD_REPOSITORY}."
-              exit 0
+              echo "Agent Review skipped unsupported fork pull request head ${HEAD_REPOSITORY}; the gate cannot pass without a review."
+              exit 1
             fi
             echo "Agent Review job was skipped unexpectedly."
             exit 1

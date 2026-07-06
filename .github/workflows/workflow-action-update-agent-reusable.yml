@@ -214,6 +214,8 @@ jobs:
       - id: branch
         name: Apply repair changes and push branch
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
         run: |
           set -euo pipefail
           PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private${PYTHONPATH:+:${PYTHONPATH}}" \

@@ -115,6 +115,14 @@ class AgentWorkflowContractTests(unittest.TestCase):
             self.assertIn('PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private', run)
 
         apply_step_run = open_pr_steps["Apply repair changes and push branch"]["run"]
+        self.assertEqual(
+            open_pr_steps["Apply repair changes and push branch"]["env"]["GH_TOKEN"],
+            "${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}",
+        )
+        self.assertEqual(
+            open_pr_steps["Create draft repair PR"]["env"]["GH_TOKEN"],
+            "${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}",
+        )
         self.assertIn(
             '--target-branch "${{ needs.prepare.outputs.target_branch }}"',
             apply_step_run,
@@ -224,6 +232,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertIn('if [ "${REVIEW_RESULT}" = "skipped" ]; then', gate_run)
         self.assertIn('[ "${EVENT_NAME}" = "pull_request" ] && [ "${HEAD_REPOSITORY}" != "${REPOSITORY}" ]', gate_run)
         self.assertIn("unsupported fork pull request", gate_run)
+        self.assertIn("the gate cannot pass without a review", gate_run)
         self.assertIn("Agent Review job was skipped unexpectedly.", gate_run)
         self.assertIn('if [ "${REVIEW_RESULT}" != "success" ]; then', gate_run)
         self.assertIn('if [ "${REVIEW_RECOMMENDATION}" != "approve" ]; then', gate_run)
