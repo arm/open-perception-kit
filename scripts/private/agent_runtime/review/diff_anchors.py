@@ -73,6 +73,8 @@ def parse_diff_comment_anchors(diff_text: str) -> set[tuple[str, str, int]]:
             new_line += 1
             continue
         if line.startswith(" "):
+            if old_anchor_path is not None:
+                anchors.add((old_anchor_path, DiffSide.LEFT.value, old_line))
             if new_anchor_path is not None:
                 anchors.add((new_anchor_path, DiffSide.RIGHT.value, new_line))
             old_line += 1

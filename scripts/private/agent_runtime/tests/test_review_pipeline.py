@@ -310,6 +310,50 @@ class AgentRuntimeReviewPipelineTests(unittest.TestCase):
         self.assertEqual([finding["title"] for finding in filtered["findings"]], ["Supported blocking finding"])
         self.assertIn("PR diff", filtered["summary"])
 
+    def test_agent_review_output_keeps_left_ranges_spanning_context_lines(self):
+        diff_text = textwrap.dedent(
+            """\
+            diff --git a/src/example.py b/src/example.py
+            index 1111111..2222222 100644
+            --- a/src/example.py
+            +++ b/src/example.py
+            @@ -2,3 +2,3 @@
+             context_before
+            -old_value = 1
+            +new_value = 1
+             context_after
+            """
+        )
+        payload = {
+            "summary": "Reviewed deleted code.",
+            "overall_recommendation": "request_changes",
+            "overall_score": 0.74,
+            "overall_confidence": 0.82,
+            "findings": [
+                {
+                    "title": "Supported left-side range",
+                    "severity": "major",
+                    "score": 0.74,
+                    "confidence": 0.82,
+                    "path": "src/example.py",
+                    "diff_side": "LEFT",
+                    "start_line": 2,
+                    "end_line": 3,
+                    "body": "The finding spans old-side context plus the deleted line.",
+                    "suggestion": None,
+                },
+            ],
+        }
+
+        filtered = AGENT_REVIEW_OUTPUT.filter_invalid_right_side_findings(
+            payload,
+            Path.cwd(),
+            diff_anchors=AGENT_REVIEW_DIFF_ANCHORS.parse_diff_comment_anchors(diff_text),
+        )
+
+        self.assertEqual(filtered["overall_recommendation"], "request_changes")
+        self.assertEqual([finding["title"] for finding in filtered["findings"]], ["Supported left-side range"])
+
     def test_agent_review_publish_filters_output_before_rendering(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)
@@ -835,6 +879,7 @@ class AgentRuntimeReviewPipelineTests(unittest.TestCase):
         )
 
         self.assertIn(("src/example.py", "RIGHT", 10), diff_anchors)
+        self.assertIn(("src/example.py", "LEFT", 10), diff_anchors)
         self.assertIn(("src/example.py", "LEFT", 11), diff_anchors)
         self.assertEqual([comment["line"] for comment in comments], [12, 11])
         self.assertEqual(comments[0]["side"], "RIGHT")
