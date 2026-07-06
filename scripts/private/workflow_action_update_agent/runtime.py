@@ -211,8 +211,6 @@ def load_profile(profile_path: str = "") -> dict[str, object]:
     if not path.is_file():
         raise ValueError(f"Workflow action update agent profile is missing: {path}")
     profile = load_json_object(path, "Workflow action update agent profile")
-    if "validation_commands" in profile:
-        raise ValueError("Profile key 'validation_commands' is obsolete; use 'validation_command_set'.")
 
     required_string_keys = (
         "display_name",
@@ -233,11 +231,22 @@ def load_profile(profile_path: str = "") -> dict[str, object]:
         "repair_definition_of_done",
         "validation_workflows",
     )
+    optional_bool_keys = ("require_failure_conclusion",)
+    allowed_keys = set(required_string_keys) | set(required_list_keys) | set(optional_bool_keys)
+    unsupported_keys = sorted(set(profile) - allowed_keys)
+    if unsupported_keys:
+        raise ValueError(
+            "Workflow action update agent profile contains unsupported keys: "
+            + ", ".join(unsupported_keys)
+        )
 
     for key in required_string_keys:
         profile_string(profile, key)
     for key in required_list_keys:
         profile_list(profile, key)
+    for key in optional_bool_keys:
+        if key in profile:
+            profile_bool(profile, key, True)
 
     profile_validation_workflows(profile)
     profile_validation_commands(profile)

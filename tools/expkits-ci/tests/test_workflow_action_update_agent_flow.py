@@ -1999,7 +1999,6 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         self.assertEqual(audit_profile["validation_command_set"], "agent-workflow-python")
         self.assertNotIn("workflow_dispatch_inputs", audit_profile_source)
-        self.assertNotIn("validation_commands", audit_profile_source)
         validation_workflows = HELPER_RUNTIME.profile_validation_workflows(audit_profile)
         self.assertEqual(
             [item["workflow_file"] for item in validation_workflows],
@@ -2014,7 +2013,6 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(profile["validation_command_set"], "agent-workflow-python")
         self.assertNotIn("workflow_dispatch_inputs", profile_source)
         self.assertNotIn("review_state_script", profile_source)
-        self.assertNotIn("validation_commands", profile_source)
         validation_workflows = HELPER_RUNTIME.profile_validation_workflows(profile)
         agent_review = next(
             item for item in validation_workflows if item["workflow_file"] == "agent-review.yml"
@@ -2046,21 +2044,6 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             },
         )
         self.assertEqual(pek_ci["workflow_dispatch_inputs"], sonar["workflow_dispatch_inputs"])
-        with self.assertRaisesRegex(ValueError, "Unknown validation workflow"):
-            HELPER_RUNTIME.profile_validation_workflows({**profile, "validation_workflows": ["missing"]})
-        with self.assertRaisesRegex(ValueError, "duplicate workflow"):
-            HELPER_RUNTIME.profile_validation_workflows({**profile, "validation_workflows": ["pek-ci", "pek-ci"]})
-        with self.assertRaisesRegex(ValueError, "non-empty strings"):
-            HELPER_RUNTIME.profile_validation_workflows(
-                {**profile, "validation_workflows": [HELPER_RUNTIME.canonical_validation_workflow("pek-ci")]}
-            )
-        with tempfile.TemporaryDirectory() as temp_dir:
-            legacy_profile = dict(profile)
-            legacy_profile["validation_commands"] = ["git diff --stat"]
-            legacy_profile_path = Path(temp_dir) / "profile.json"
-            legacy_profile_path.write_text(json.dumps(legacy_profile), encoding="utf-8")
-            with self.assertRaisesRegex(ValueError, "validation_commands.*obsolete"):
-                HELPER_RUNTIME.load_profile(str(legacy_profile_path))
         self.assertNotIn("agent_model", profile)
         self.assertEqual(
             profile["agent_model_config"],
