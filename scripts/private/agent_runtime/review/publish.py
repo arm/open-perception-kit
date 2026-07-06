@@ -37,10 +37,22 @@ def load_filtered_review(
     return filtered
 
 
+def write_github_outputs(review: dict[str, Any], output_path: Path) -> None:
+    findings = review.get("findings", [])
+    finding_count = len(findings) if isinstance(findings, list) else 0
+    recommendation = str(
+        review.get("overall_recommendation", ReviewRecommendation.COMMENT.value)
+    ).strip().lower()
+    with output_path.open("a", encoding="utf-8") as output_file:
+        output_file.write(f"recommendation={recommendation}\n")
+        output_file.write(f"finding_count={finding_count}\n")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", required=True, help="Structured Agent review JSON file.")
     parser.add_argument("--markdown-out", required=True, help="Rendered markdown output path.")
+    parser.add_argument("--github-output", default="", help="Optional GitHub Actions output file.")
     parser.add_argument(
         "--publish-pr-comment",
         action="store_true",
@@ -57,6 +69,8 @@ def main() -> int:
     head_sha = os.environ.get("GITHUB_HEAD_SHA") or os.environ.get("GITHUB_SHA") or ""
     markdown = format_markdown(review, run_id=run_id, head_sha=head_sha)
     Path(args.markdown_out).write_text(markdown, encoding="utf-8")
+    if args.github_output:
+        write_github_outputs(review, Path(args.github_output))
 
     if not args.publish_pr_comment:
         return 0

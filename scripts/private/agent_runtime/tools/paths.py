@@ -17,10 +17,19 @@ PATCH_FILE_HEADER_PREFIXES = ("--- ", "+++ ")
 PATCH_MOVE_HEADER_PREFIXES = ("rename from ", "rename to ", "copy from ", "copy to ")
 
 
+def is_git_metadata_path(relative_path: str) -> bool:
+    return (
+        relative_path == GIT_METADATA_DIR
+        or relative_path.startswith(GIT_METADATA_PREFIX)
+        or f"/{GIT_METADATA_PREFIX}" in relative_path
+        or relative_path.endswith(f"/{GIT_METADATA_DIR}")
+    )
+
+
 def resolve_safe_repo_path(context: AgentRunContext, path_value: str, operation: str) -> Path:
     path = context.resolve_repo_path(path_value)
     relative = path.relative_to(context.repo_root).as_posix()
-    if relative == GIT_METADATA_DIR or relative.startswith(GIT_METADATA_PREFIX):
+    if is_git_metadata_path(relative):
         raise ValueError(f"{operation} path targets git metadata: {path_value}")
     return path
 

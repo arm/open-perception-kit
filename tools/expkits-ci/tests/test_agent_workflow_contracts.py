@@ -181,6 +181,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         pull_request_trigger = workflow["on"]["pull_request"]
         dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
         review_job = workflow["jobs"]["review"]
+        review_gate_job = workflow["jobs"]["review-gate"]
         auto_stabilize_job = workflow["jobs"]["auto-stabilize-pr"]
         review_steps = step_map(review_job)
 
@@ -189,6 +190,20 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertEqual(workflow["permissions"]["contents"], "read")
         self.assertEqual(workflow["permissions"]["pull-requests"], "write")
         self.assertEqual(review_job["runs-on"], OPENAI_AGENT_RUNNER_LABEL)
+        self.assertEqual(review_job["outputs"]["recommendation"], "${{ steps.render.outputs.recommendation }}")
+        self.assertEqual(review_job["outputs"]["finding_count"], "${{ steps.render.outputs.finding_count }}")
+        self.assertEqual(review_gate_job["needs"], "review")
+        self.assertEqual(review_gate_job["runs-on"], "ubuntu-latest")
+        self.assertEqual(review_gate_job["permissions"], {})
+        self.assertIn("always()", review_gate_job["if"])
+        review_gate_steps = step_map(review_gate_job)
+        gate_run = review_gate_steps["Require Agent Review approval"]["run"]
+        self.assertIn('if [ "${REVIEW_RESULT}" != "success" ]; then', gate_run)
+        self.assertIn('if [ "${REVIEW_RECOMMENDATION}" != "approve" ]; then', gate_run)
+        self.assertEqual(
+            review_gate_steps["Require Agent Review approval"]["env"]["REVIEW_RECOMMENDATION"],
+            "${{ needs.review.outputs.recommendation }}",
+        )
         self.assertIn("github.event.action != 'labeled'", review_job["if"])
         self.assertIn("github.event.label.name == 'agent-autorepair'", review_job["if"])
         self.assertEqual(auto_stabilize_job["needs"], "review")
@@ -305,6 +320,9 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertNotIn("--max-turns", agent_step["run"])
         self.assertNotIn("--model", agent_step["run"])
         publish_step = review_steps["Publish review summary comment"]
+        render_summary_step = review_steps["Render review summary"]
+        self.assertEqual(render_summary_step["id"], "render")
+        self.assertIn('--github-output "${GITHUB_OUTPUT}"', render_summary_step["run"])
         self.assertEqual(
             publish_step["env"]["REVIEW_BASE_REF"],
             "${{ format('origin/{0}', github.base_ref) }}",

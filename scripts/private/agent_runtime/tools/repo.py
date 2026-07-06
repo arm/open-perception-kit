@@ -10,7 +10,7 @@ import subprocess
 
 from ..runtime_context import require_run_context
 from ..sdk_runtime import function_tool
-from .paths import GIT_METADATA_PREFIX, resolve_safe_repo_path, validate_patch_paths
+from .paths import is_git_metadata_path, resolve_safe_repo_path, validate_patch_paths
 from .shell import (
     format_parsed_shell_command,
     reject_git_metadata_shell_arguments,
@@ -58,7 +58,13 @@ def list_repo_files(pattern: str = "**/*") -> str:
         if not path.is_file():
             continue
         relative = path.relative_to(context.repo_root).as_posix()
-        if GIT_METADATA_PREFIX in relative or relative.startswith(GIT_METADATA_PREFIX):
+        if is_git_metadata_path(relative):
+            continue
+        try:
+            resolved_relative = path.resolve().relative_to(context.repo_root).as_posix()
+        except ValueError:
+            continue
+        if is_git_metadata_path(resolved_relative):
             continue
         if pattern == "**/*" or fnmatch.fnmatch(relative, pattern):
             matches.append(relative)

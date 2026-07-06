@@ -134,6 +134,36 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Shell redirection path targets git metadata"):
                 repo_tools.run_shell_command("cat < .git/config")
 
+    def test_openai_agent_runner_omits_symlinked_git_metadata_from_file_listing(self):
+        repo_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_REPO_TOOLS_SCRIPT,
+            "agent_runtime.tools.repo_fake_sdk_metadata_list_guard",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / "repo"
+            repo_root.mkdir()
+            git_dir = repo_root / ".git"
+            git_dir.mkdir()
+            (git_dir / "config").write_text("credential = unsafe\n", encoding="utf-8")
+            (repo_root / "safe.txt").write_text("safe\n", encoding="utf-8")
+            (repo_root / "safe-link.txt").symlink_to(repo_root / "safe.txt")
+            (repo_root / "metadata-link").symlink_to(git_dir / "config")
+            nested_dir = repo_root / "nested"
+            nested_dir.mkdir()
+            (nested_dir / "metadata-link").symlink_to(git_dir / "config")
+            outside_file = Path(temp_dir) / "outside.txt"
+            outside_file.write_text("outside\n", encoding="utf-8")
+            (repo_root / "outside-link").symlink_to(outside_file)
+            OPENAI_AGENT_RUNTIME_CONTEXT.set_run_context(repo_root, 10)
+
+            output = repo_tools.list_repo_files()
+
+        self.assertIn("safe.txt", output)
+        self.assertIn("safe-link.txt", output)
+        self.assertNotIn("metadata-link", output)
+        self.assertNotIn("outside-link", output)
+        self.assertNotIn(".git/config", output)
+
     def test_openai_agent_runner_applies_safe_unified_diff(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_REPO_TOOLS_SCRIPT,

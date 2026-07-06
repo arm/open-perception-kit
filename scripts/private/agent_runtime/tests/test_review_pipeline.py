@@ -74,6 +74,64 @@ class AgentRuntimeReviewPipelineTests(unittest.TestCase):
         self.assertEqual(review_state["run_id"], "28000000001")
         self.assertEqual(review_state["head_sha"], "deadbeef")
 
+    def test_agent_review_publish_writes_github_outputs_from_filtered_review(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            review_path = temp_path / "review.json"
+            markdown_path = temp_path / "review.md"
+            output_path = temp_path / "outputs.txt"
+            review_path.write_text(
+                json.dumps(
+                    {
+                        "summary": "Fix the findings.",
+                        "overall_recommendation": "request_changes",
+                        "overall_score": 0.78,
+                        "overall_confidence": 0.88,
+                        "findings": [
+                            {
+                                "title": "Finding",
+                                "severity": "major",
+                                "score": 0.78,
+                                "confidence": 0.88,
+                                "path": ".github/workflows/agent-review.yml",
+                                "diff_side": "RIGHT",
+                                "start_line": 1,
+                                "end_line": 1,
+                                "body": "Fix it.",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with mock.patch.object(
+                AGENT_REVIEW_PUBLISH.sys,
+                "argv",
+                [
+                    "publish.py",
+                    "--input",
+                    str(review_path),
+                    "--markdown-out",
+                    str(markdown_path),
+                    "--github-output",
+                    str(output_path),
+                ],
+            ):
+                result = AGENT_REVIEW_PUBLISH.main()
+
+            outputs = dict(
+                line.split("=", 1)
+                for line in output_path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            )
+            markdown_written = markdown_path.is_file()
+
+        self.assertEqual(result, 0)
+        self.assertEqual(outputs["recommendation"], "request_changes")
+        self.assertEqual(outputs["finding_count"], "1")
+        self.assertTrue(markdown_written)
+
     def test_agent_review_output_drops_invalid_right_side_anchors(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)

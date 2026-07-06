@@ -11,7 +11,7 @@ import shlex
 import subprocess
 
 from ..runtime_context import AgentRunContext
-from .paths import GIT_METADATA_DIR, GIT_METADATA_PREFIX, resolve_redirection_path
+from .paths import is_git_metadata_path, resolve_redirection_path
 
 READ_ONLY_GIT_SUBCOMMANDS = {
     "cat-file",
@@ -281,5 +281,5 @@ def reject_git_metadata_shell_arguments(parsed_command: ParsedShellCommand, cont
                 relative = path.relative_to(context.repo_root).as_posix()
             except ValueError:
                 continue
-            if relative == GIT_METADATA_DIR or relative.startswith(GIT_METADATA_PREFIX):
+            if is_git_metadata_path(relative):
                 raise ValueError(f"Command argument targets git metadata: {word}")

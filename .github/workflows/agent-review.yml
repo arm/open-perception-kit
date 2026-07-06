@@ -34,6 +34,9 @@ jobs:
         (github.event.action != 'labeled' || github.event.label.name == 'agent-autorepair')
       )
     runs-on: self-hosted-ubuntu-latest
+    outputs:
+      recommendation: ${{ steps.render.outputs.recommendation }}
+      finding_count: ${{ steps.render.outputs.finding_count }}
 
     steps:
       - name: Checkout pull request head
@@ -105,12 +108,14 @@ jobs:
       # <agent-review:suppress-end>
 
       - name: Render review summary
+        id: render
         if: ${{ success() }}
         shell: bash
         run: |
           .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/review/publish.py \
             --input .github/agent-runtime/review/out/review.json \
-            --markdown-out .github/agent-runtime/review/out/review-summary.md
+            --markdown-out .github/agent-runtime/review/out/review-summary.md \
+            --github-output "${GITHUB_OUTPUT}"
           cat .github/agent-runtime/review/out/review-summary.md >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Publish review summary comment
@@ -135,6 +140,31 @@ jobs:
           name: agent-review-out
           path: .github/agent-runtime/review/out
           if-no-files-found: warn
+
+  review-gate:
+    name: Agent Review gate
+    needs: review
+    if: ${{ always() && needs.review.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Require Agent Review approval
+        shell: bash
+        env:
+          REVIEW_RESULT: ${{ needs.review.result }}
+          REVIEW_RECOMMENDATION: ${{ needs.review.outputs.recommendation }}
+          REVIEW_FINDING_COUNT: ${{ needs.review.outputs.finding_count }}
+        run: |
+          set -euo pipefail
+          if [ "${REVIEW_RESULT}" != "success" ]; then
+            echo "Agent Review job result was ${REVIEW_RESULT}."
+            exit 1
+          fi
+          if [ "${REVIEW_RECOMMENDATION}" != "approve" ]; then
+            echo "Agent Review recommendation was ${REVIEW_RECOMMENDATION:-unknown} with finding_count=${REVIEW_FINDING_COUNT:-unknown}."
+            exit 1
+          fi
+          echo "Agent Review approved this head."
 
   auto-stabilize-pr:
     name: Auto repair Agent Review findings
