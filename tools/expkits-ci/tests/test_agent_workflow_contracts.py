@@ -452,6 +452,24 @@ class AgentWorkflowContractTests(unittest.TestCase):
             sonar_steps["Report Sonar quality gate details"]["run"],
         )
 
+    def test_modified_validation_workflows_use_canonical_artifact_upload_major(self):
+        workflows = {
+            "agent-review": load_yaml(AGENT_REVIEW_WORKFLOW_FILE),
+            "agent-stabilize-pr": load_yaml(STABILIZER_WORKFLOW_FILE),
+            "pek-ci": load_yaml(PEK_CI_WORKFLOW_FILE),
+            "sonar": load_yaml(SONAR_WORKFLOW_FILE),
+            "workflow-action-update-agent-reusable": load_yaml(REUSABLE_WORKFLOW_FILE),
+            "workflow-audit": load_yaml(WORKFLOW_AUDIT_FILE),
+            "workflow-action-update-agent": load_yaml(WORKFLOW_FILE),
+        }
+
+        for workflow_name, workflow in workflows.items():
+            for job in workflow["jobs"].values():
+                for step in job.get("steps", []):
+                    with self.subTest(workflow=workflow_name, step=step.get("name")):
+                        if step.get("uses", "").startswith("actions/upload-artifact@"):
+                            self.assertEqual(step["uses"], "actions/upload-artifact@v6")
+
     def test_stabilizer_workflow_uses_canonical_agent_review_shape(self):
         workflow = load_yaml(STABILIZER_WORKFLOW_FILE)
         call_inputs = workflow["on"]["workflow_call"]["inputs"]
