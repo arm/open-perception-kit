@@ -40,7 +40,6 @@ QUALITY_CHECKS_SCRIPT = REPO_ROOT / "tools/expkits-ci/expkits_ci/quality_checks.
 AGENT_REVIEW_ROOT = REPO_ROOT / ".github/agent-runtime/review"
 AGENT_REVIEW_FETCH_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/fetch.py"
 AGENT_REVIEW_PUBLISH_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/publish.py"
-AGENT_REVIEW_RUN_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/local_runner.py"
 AGENT_REVIEW_PROMPT_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/prompt.py"
 AGENT_REVIEW_COMMENTS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/comments.py"
 AGENT_REVIEW_DIFF_ANCHORS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/diff_anchors.py"
@@ -1549,43 +1548,11 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         self.assertEqual(settings.max_review_files, 2)
         self.assertEqual(settings.max_review_changed_lines, 15000)
 
-    def test_local_review_runner_uses_shared_sdk_script(self):
-        content = AGENT_REVIEW_RUN_SCRIPT.read_text(encoding="utf-8")
-
-        self.assertIn('"AGENT_REVIEW_AGENT_VENV", ".agent-runtime/openai-agent-venv"', content)
-        self.assertIn('os.environ["REVIEW_BASE_REF"] = args.base_ref', content)
-        self.assertIn('os.environ.setdefault("REVIEW_HEAD_REF", "HEAD")', content)
-        self.assertIn('os.environ.setdefault("REVIEW_REPOSITORY", "local-checkout")', content)
-        self.assertIn('"AGENT_REVIEW_PYTHON"', content)
-        self.assertIn('"AGENT_RUNTIME_PYTHON", "python3"', content)
-        self.assertIn("Agent review requires Python 3.10 or newer", content)
-        self.assertIn('"scripts/private/agent_runtime/setup_runtime.py"', content)
-        self.assertIn('"--venv-path"', content)
-        self.assertIn("str(agent_venv)", content)
-        self.assertIn(
-            '".github/agent-runtime/runtime/requirements-openai-agents.txt"',
-            content,
-        )
-        self.assertIn("run-review", content)
-        self.assertIn(
-            '"scripts/private/agent_runtime/openai_agent_runner.py"',
-            content,
-        )
-        self.assertNotIn("--command run-review", content)
-        self.assertNotIn("--agent-instance review", content)
-        self.assertNotIn("--model-config-file .github/agent-runtime/runtime/agent-models.json", content)
-        self.assertNotIn("--task-config-file .github/agent-runtime/runtime/agent-tasks.json", content)
-        self.assertIn('if os.environ.get("AGENT_REVIEW_MODEL"):', content)
-        self.assertIn('agent_args.extend(["--model", os.environ["AGENT_REVIEW_MODEL"]])', content)
-        self.assertIn('".github/agent-runtime/review/schemas/review.schema.json"', content)
-        self.assertIn('"scripts/private/agent_runtime/review/publish.py"', content)
-
     def test_review_runtime_assets_do_not_own_scripts(self):
         self.assertFalse((AGENT_REVIEW_ROOT / "scripts").exists())
         self.assertTrue(AGENT_REVIEW_PROMPT_SCRIPT.is_file())
         self.assertTrue(AGENT_REVIEW_FETCH_SCRIPT.is_file())
         self.assertTrue(AGENT_REVIEW_PUBLISH_SCRIPT.is_file())
-        self.assertTrue(AGENT_REVIEW_RUN_SCRIPT.is_file())
 
     def test_agent_review_prompt_renderer_uses_runtime_context(self):
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -62,14 +62,6 @@ def normalize_review_state(review_state: object) -> dict[str, object]:
     return normalized
 
 
-def normalize_review_summary_state(review_state: object) -> dict[str, object]:
-    if not isinstance(review_state, dict):
-        return dict(EMPTY_REVIEW_STATE)
-    normalized = dict(EMPTY_REVIEW_STATE)
-    normalized.update(normalize_review_state(review_state))
-    return normalized
-
-
 def review_state_recommendation(review_state: dict[str, object]) -> str:
     return str(review_state.get("overall_recommendation") or "").strip().lower()
 
