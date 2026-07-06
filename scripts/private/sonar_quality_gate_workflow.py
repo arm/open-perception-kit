@@ -40,7 +40,6 @@ def compose_report_command(*, probe_api_access: bool) -> list[str]:
         os.environ.get("DOCKER_COMPOSE_FILE", ".github/compose.ci.yaml"),
         "run",
         "--rm",
-        "--no-deps",
         "--entrypoint",
         "python3",
         "-e",

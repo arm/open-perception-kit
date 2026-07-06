@@ -42,7 +42,7 @@ class SonarQualityGateWorkflowTests(unittest.TestCase):
             command = sonar_quality_gate_workflow.compose_report_command(probe_api_access=True)
 
         self.assertEqual(command[:4], ["docker", "compose", "-f", ".github/compose.ci.yaml"])
-        self.assertIn("--no-deps", command)
+        self.assertNotIn("--no-deps", command)
         self.assertIn("--entrypoint", command)
         self.assertEqual(command[command.index("--entrypoint") + 1], "python3")
         service_index = command.index("pek-sonar-check")
