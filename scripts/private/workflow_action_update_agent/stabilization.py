@@ -49,7 +49,7 @@ from .runtime import (
     load_profile,
     profile_agent_model,
     profile_prompt_replacements,
-    profile_string_list,
+    profile_validation_commands,
     profile_validation_workflows,
     render_markdown_template,
     resolve_repo_path,
@@ -544,7 +544,7 @@ def command_restore_helper_bundle(args: argparse.Namespace) -> int:
 
 def command_run_validation(args: argparse.Namespace) -> int:
     profile = load_profile(args.profile_path)
-    run_validation_commands(profile_string_list(profile, "validation_commands"))
+    run_validation_commands(profile_validation_commands(profile))
     return 0
 
 

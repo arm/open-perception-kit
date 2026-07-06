@@ -17,6 +17,9 @@
 
 - Reuse the `Agent Review` invocation pattern for any OpenAI-in-CI step: checkout, render prompt, run the shared Python OpenAI Agents SDK runner, then publish or consume structured output.
 - Keep workflow YAML orchestration-thin. Repo-specific logic belongs in the `scripts/private/workflow_action_update_agent/` package behind direct `python3 -m workflow_action_update_agent ...` workflow calls.
+- Keep validation plumbing canonical. Profiles select workflow IDs and command set
+  names; concrete workflow files, dispatch inputs, review-state scripts, and
+  local validation commands live in `scripts/private/workflow_action_update_agent/runtime.py`.
 - Keep runtime prompt files under `.agent-runtime/workflow-action-update-agent/`; do not check generated prompt artifacts into git.
 - Keep the stabilization loop focused on review findings only. It must not rewrite unrelated workflow plumbing.
 - Keep repair PR tasks bounded by source-run evidence and an explicit Definition

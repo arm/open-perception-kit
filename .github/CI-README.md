@@ -86,7 +86,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - The default profile lives at `.github/agent-runtime/workflow-action-update-agent/profiles/profile.json`
 - The nightly workflow-freshness profile lives at `.github/agent-runtime/workflow-action-update-agent/profiles/workflow-audit-profile.json`
 - Runtime task limits and default task-to-agent-instance mapping live in `.github/agent-runtime/runtime/agent-tasks.json`
-- Keeps long review and constraint text out of the workflow YAML and Python helper while letting the profile carry flow-specific policy such as validation workflows, labels, prompt context files, and the model config path
+- Keeps long review and constraint text out of the workflow YAML and Python helper while letting the profile carry flow-specific policy such as labels, prompt context files, the model config path, canonical validation workflow IDs, and a canonical validation command set name
 - Lets the helper still generate the final `.agent-runtime/workflow-action-update-agent/*.md` files on the fly at runtime, so callers reuse the same core without checking generated prompt files into git
 
 ## How do workflow-action-update-agent helper commands run?

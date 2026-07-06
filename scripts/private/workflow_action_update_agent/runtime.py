@@ -17,7 +17,6 @@ from agent_runtime.contracts import (
     load_json_object,
     require_list,
     require_non_empty_string,
-    require_object,
 )
 from agent_runtime.config.model import resolve_agent_model
 
@@ -56,6 +55,53 @@ STABILIZATION_MAX_ATTEMPTS = 5
 STABILIZER_ENTRYPOINT_WORKFLOW_FILE = "workflow-action-update-agent.yml"
 STABILIZER_ENTRYPOINT_WORKFLOW_NAME = "Workflow Action Update Agent"
 PULL_REQUEST_RUN_GRACE_SECONDS = 60
+AGENT_WORKFLOW_VALIDATION_COMMAND_SET = "agent-workflow-python"
+CANONICAL_VALIDATION_COMMAND_SETS = {
+    AGENT_WORKFLOW_VALIDATION_COMMAND_SET: (
+        "python3 -m unittest discover -s scripts/private/tests",
+        "python3 -m unittest discover -s scripts/private/agent_runtime/tests",
+        "python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_agent_static_analysis.py'",
+        "python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_detect_secrets_quality_flow.py'",
+        "python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_workflow_action_update_agent_flow.py'",
+        "git diff --stat",
+    ),
+}
+CANONICAL_VALIDATION_WORKFLOWS: dict[str, dict[str, object]] = {
+    "agent-review": {
+        "workflow_file": "agent-review.yml",
+        "workflow_name": "Agent Review",
+        "review_state_script": "scripts/private/agent_runtime/review/fetch.py",
+        "workflow_dispatch_inputs": {
+            "base_ref": "origin/{target_branch}",
+            "head_ref": "{repair_branch}",
+        },
+        "allowed_review_recommendations": ["approve"],
+    },
+    "workflow-audit": {
+        "workflow_file": "workflow-audit.yml",
+        "workflow_name": "Workflow Dependency Freshness",
+    },
+    "pek-ci": {
+        "workflow_file": "pek-ci.yml",
+        "workflow_name": "Perception Experience Kit CI Pipeline",
+        "workflow_dispatch_inputs": {
+            "pr_number": "{pr_number}",
+            "pr_base_ref": "{target_branch}",
+            "pr_head_ref": "{repair_branch}",
+            "pr_head_sha": "{head_sha}",
+        },
+    },
+    "sonar": {
+        "workflow_file": "sonar.yml",
+        "workflow_name": "Sonar",
+        "workflow_dispatch_inputs": {
+            "pr_number": "{pr_number}",
+            "pr_base_ref": "{target_branch}",
+            "pr_head_ref": "{repair_branch}",
+            "pr_head_sha": "{head_sha}",
+        },
+    },
+}
 VALIDATION_ENV_BLOCKLIST = (
     "GITHUB_ENV",
     "GITHUB_OUTPUT",
@@ -72,53 +118,9 @@ VALIDATION_ENV_SENSITIVE_FRAGMENTS = (
     "TOKEN",
 )
 VALIDATION_COMMAND_ALLOWLIST = {
-    (
-        "python3",
-        "-m",
-        "unittest",
-        "discover",
-        "-s",
-        "scripts/private/tests",
-    ),
-    (
-        "python3",
-        "-m",
-        "unittest",
-        "discover",
-        "-s",
-        "scripts/private/agent_runtime/tests",
-    ),
-    (
-        "python3",
-        "-m",
-        "unittest",
-        "discover",
-        "-s",
-        "tools/expkits-ci/tests",
-        "-p",
-        "test_agent_static_analysis.py",
-    ),
-    (
-        "python3",
-        "-m",
-        "unittest",
-        "discover",
-        "-s",
-        "tools/expkits-ci/tests",
-        "-p",
-        "test_detect_secrets_quality_flow.py",
-    ),
-    (
-        "python3",
-        "-m",
-        "unittest",
-        "discover",
-        "-s",
-        "tools/expkits-ci/tests",
-        "-p",
-        "test_workflow_action_update_agent_flow.py",
-    ),
-    ("git", "diff", "--stat"),
+    tuple(shlex.split(command))
+    for commands in CANONICAL_VALIDATION_COMMAND_SETS.values()
+    for command in commands
 }
 
 
@@ -209,6 +211,8 @@ def load_profile(profile_path: str = "") -> dict[str, object]:
     if not path.is_file():
         raise ValueError(f"Workflow action update agent profile is missing: {path}")
     profile = load_json_object(path, "Workflow action update agent profile")
+    if "validation_commands" in profile:
+        raise ValueError("Profile key 'validation_commands' is obsolete; use 'validation_command_set'.")
 
     required_string_keys = (
         "display_name",
@@ -222,11 +226,11 @@ def load_profile(profile_path: str = "") -> dict[str, object]:
         "commit_notes_template",
         "pr_description_template",
         "agent_model_config",
+        "validation_command_set",
     )
     required_list_keys = (
         "prompt_context_files",
         "repair_definition_of_done",
-        "validation_commands",
         "validation_workflows",
     )
 
@@ -236,6 +240,7 @@ def load_profile(profile_path: str = "") -> dict[str, object]:
         profile_list(profile, key)
 
     profile_validation_workflows(profile)
+    profile_validation_commands(profile)
     return profile
 
 
@@ -277,14 +282,40 @@ def profile_string_list(profile: dict[str, object], key: str) -> list[str]:
     return [str(item) for item in items]
 
 
+def profile_validation_commands(profile: dict[str, object]) -> list[str]:
+    command_set = profile_string(profile, "validation_command_set")
+    commands = CANONICAL_VALIDATION_COMMAND_SETS.get(command_set)
+    if commands is None:
+        allowed = ", ".join(sorted(CANONICAL_VALIDATION_COMMAND_SETS))
+        raise ValueError(f"Unknown validation_command_set '{command_set}'. Expected one of: {allowed}.")
+    return list(commands)
+
+
+def canonical_validation_workflow(workflow_id: str) -> dict[str, object]:
+    workflow = CANONICAL_VALIDATION_WORKFLOWS.get(workflow_id)
+    if workflow is None:
+        allowed = ", ".join(sorted(CANONICAL_VALIDATION_WORKFLOWS))
+        raise ValueError(f"Unknown validation workflow '{workflow_id}'. Expected one of: {allowed}.")
+
+    normalized = dict(workflow)
+    normalized["workflow_id"] = workflow_id
+    dispatch_inputs = workflow.get("workflow_dispatch_inputs", {})
+    normalized["workflow_dispatch_inputs"] = dict(dispatch_inputs) if isinstance(dispatch_inputs, dict) else {}
+    recommendations = workflow.get("allowed_review_recommendations", [])
+    normalized["allowed_review_recommendations"] = list(recommendations) if isinstance(recommendations, list) else []
+    normalized.setdefault("review_state_script", "")
+    return normalized
+
+
 def profile_validation_workflows(profile: dict[str, object]) -> list[dict[str, object]]:
-    workflows = profile_list(profile, "validation_workflows")
+    workflow_ids = profile_string_list(profile, "validation_workflows")
     parsed: list[dict[str, object]] = []
-    for item in workflows:
-        try:
-            workflow = require_object(item, "validation_workflows[]")
-        except ValueError as exc:
-            raise ValueError("Profile key 'validation_workflows' must contain only JSON objects.") from exc
+    seen_workflow_ids: set[str] = set()
+    for workflow_id in workflow_ids:
+        if workflow_id in seen_workflow_ids:
+            raise ValueError(f"Profile key 'validation_workflows' contains duplicate workflow '{workflow_id}'.")
+        seen_workflow_ids.add(workflow_id)
+        workflow = canonical_validation_workflow(workflow_id)
         workflow_file = workflow.get("workflow_file")
         workflow_name = workflow.get("workflow_name")
         review_state_script = workflow.get("review_state_script", "")
@@ -334,6 +365,7 @@ def profile_validation_workflows(profile: dict[str, object]) -> list[dict[str, o
         parsed.append(
             {
                 "workflow_file": workflow_file,
+                "workflow_id": workflow_id,
                 "workflow_name": workflow_name,
                 "review_state_script": str(review_state_script or ""),
                 "allowed_review_recommendations": [
@@ -370,11 +402,15 @@ def profile_markdown_list(profile: dict[str, object], key: str) -> str:
     return "\n".join(f"- `{item}`" for item in profile_string_list(profile, key))
 
 
+def markdown_list(items: list[str]) -> str:
+    return "\n".join(f"- `{item}`" for item in items)
+
+
 def profile_prompt_replacements(profile: dict[str, object]) -> dict[str, str]:
     return {
         DISPLAY_NAME_TOKEN: profile_string(profile, "display_name"),
         PROMPT_CONTEXT_FILES_TOKEN: profile_markdown_list(profile, "prompt_context_files"),
-        VALIDATION_COMMANDS_TOKEN: profile_markdown_list(profile, "validation_commands"),
+        VALIDATION_COMMANDS_TOKEN: markdown_list(profile_validation_commands(profile)),
     }
 
 

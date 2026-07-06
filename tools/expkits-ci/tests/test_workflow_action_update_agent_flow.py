@@ -1645,6 +1645,14 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             set(sonar_inputs.keys()),
             {"pr_number", "pr_base_ref", "pr_head_ref", "pr_head_sha"},
         )
+        self.assertEqual(
+            set(HELPER_RUNTIME.canonical_validation_workflow("pek-ci")["workflow_dispatch_inputs"].keys()),
+            set(pek_inputs.keys()),
+        )
+        self.assertEqual(
+            set(HELPER_RUNTIME.canonical_validation_workflow("sonar")["workflow_dispatch_inputs"].keys()),
+            set(sonar_inputs.keys()),
+        )
         self.assertIn("Resolve manual PR context", pek_steps)
         self.assertIn("Resolve manual PR context", sonar_steps)
         self.assertIn("Checkout workflow helpers", pek_steps)
@@ -1984,14 +1992,29 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         )
         self.assertEqual(audit_profile["repair_authorization_label"], "agent-autorepair")
         self.assertEqual(audit_profile["pr_trigger_label"], "run-pek-ci")
-        validation_workflows = audit_profile["validation_workflows"]
+        audit_profile_source = WORKFLOW_AUDIT_PROFILE_FILE.read_text(encoding="utf-8")
+        self.assertEqual(
+            audit_profile["validation_workflows"],
+            ["agent-review", "workflow-audit", "pek-ci", "sonar"],
+        )
+        self.assertEqual(audit_profile["validation_command_set"], "agent-workflow-python")
+        self.assertNotIn("workflow_dispatch_inputs", audit_profile_source)
+        self.assertNotIn("validation_commands", audit_profile_source)
+        validation_workflows = HELPER_RUNTIME.profile_validation_workflows(audit_profile)
         self.assertEqual(
             [item["workflow_file"] for item in validation_workflows],
             ["agent-review.yml", "workflow-audit.yml", "pek-ci.yml", "sonar.yml"],
         )
 
-    def test_agent_review_gate_is_profile_driven(self):
+    def test_agent_review_gate_uses_canonical_validation_workflows(self):
         profile = HELPER_RUNTIME.load_profile(str(PROFILE_FILE))
+        profile_source = PROFILE_FILE.read_text(encoding="utf-8")
+
+        self.assertEqual(profile["validation_workflows"], ["agent-review", "pek-ci", "sonar"])
+        self.assertEqual(profile["validation_command_set"], "agent-workflow-python")
+        self.assertNotIn("workflow_dispatch_inputs", profile_source)
+        self.assertNotIn("review_state_script", profile_source)
+        self.assertNotIn("validation_commands", profile_source)
         validation_workflows = HELPER_RUNTIME.profile_validation_workflows(profile)
         agent_review = next(
             item for item in validation_workflows if item["workflow_file"] == "agent-review.yml"
@@ -2023,6 +2046,21 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             },
         )
         self.assertEqual(pek_ci["workflow_dispatch_inputs"], sonar["workflow_dispatch_inputs"])
+        with self.assertRaisesRegex(ValueError, "Unknown validation workflow"):
+            HELPER_RUNTIME.profile_validation_workflows({**profile, "validation_workflows": ["missing"]})
+        with self.assertRaisesRegex(ValueError, "duplicate workflow"):
+            HELPER_RUNTIME.profile_validation_workflows({**profile, "validation_workflows": ["pek-ci", "pek-ci"]})
+        with self.assertRaisesRegex(ValueError, "non-empty strings"):
+            HELPER_RUNTIME.profile_validation_workflows(
+                {**profile, "validation_workflows": [HELPER_RUNTIME.canonical_validation_workflow("pek-ci")]}
+            )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            legacy_profile = dict(profile)
+            legacy_profile["validation_commands"] = ["git diff --stat"]
+            legacy_profile_path = Path(temp_dir) / "profile.json"
+            legacy_profile_path.write_text(json.dumps(legacy_profile), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "validation_commands.*obsolete"):
+                HELPER_RUNTIME.load_profile(str(legacy_profile_path))
         self.assertNotIn("agent_model", profile)
         self.assertEqual(
             profile["agent_model_config"],
@@ -2072,7 +2110,7 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
             self.assertIn("Required source PR authorization label: `agent-autorepair`", failure_context)
             for path in profile["prompt_context_files"]:
                 self.assertIn(f"- `{path}`", goal)
-            for command in profile["validation_commands"]:
+            for command in HELPER_RUNTIME.profile_validation_commands(profile):
                 self.assertIn(f"- `{command}`", validation)
             self.assertIn("- `artifacts/summary.txt`", inventory)
 
@@ -2148,7 +2186,10 @@ class WorkflowActionUpdateAgentStaticTests(unittest.TestCase):
         profile = HELPER_RUNTIME.load_profile(str(PROFILE_FILE))
 
         self.assertEqual(
-            [HELPER_RUNTIME.validation_command_args(command) for command in profile["validation_commands"]],
+            [
+                HELPER_RUNTIME.validation_command_args(command)
+                for command in HELPER_RUNTIME.profile_validation_commands(profile)
+            ],
             [
                 [
                     "python3",

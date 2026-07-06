@@ -26,50 +26,11 @@
     ".github/workflows/sonar.yml",
     ".github/compose.ci.yaml"
   ],
-  "validation_commands": [
-    "python3 -m unittest discover -s scripts/private/tests",
-    "python3 -m unittest discover -s scripts/private/agent_runtime/tests",
-    "python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_agent_static_analysis.py'",
-    "python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_detect_secrets_quality_flow.py'",
-    "python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_workflow_action_update_agent_flow.py'",
-    "git diff --stat"
-  ],
+  "validation_command_set": "agent-workflow-python",
   "validation_workflows": [
-    {
-      "workflow_file": "agent-review.yml",
-      "workflow_name": "Agent Review",
-      "review_state_script": "scripts/private/agent_runtime/review/fetch.py",
-      "workflow_dispatch_inputs": {
-        "base_ref": "origin/{target_branch}",
-        "head_ref": "{repair_branch}"
-      },
-      "allowed_review_recommendations": [
-        "approve"
-      ]
-    },
-    {
-      "workflow_file": "workflow-audit.yml",
-      "workflow_name": "Workflow Dependency Freshness"
-    },
-    {
-      "workflow_file": "pek-ci.yml",
-      "workflow_name": "Perception Experience Kit CI Pipeline",
-      "workflow_dispatch_inputs": {
-        "pr_number": "{pr_number}",
-        "pr_base_ref": "{target_branch}",
-        "pr_head_ref": "{repair_branch}",
-        "pr_head_sha": "{head_sha}"
-      }
-    },
-    {
-      "workflow_file": "sonar.yml",
-      "workflow_name": "Sonar",
-      "workflow_dispatch_inputs": {
-        "pr_number": "{pr_number}",
-        "pr_base_ref": "{target_branch}",
-        "pr_head_ref": "{repair_branch}",
-        "pr_head_sha": "{head_sha}"
-      }
-    }
+    "agent-review",
+    "workflow-audit",
+    "pek-ci",
+    "sonar"
   ]
 }

@@ -11,9 +11,10 @@ the Workflow Action Update Agent repair and stabilization flows.
   `.github/agent-runtime/runtime/agent-models.json` and
   `.github/agent-runtime/runtime/agent-tasks.json`; do not hardcode concrete
   model names or turn limits in profiles or workflows.
-- Keep profile paths, labels, validation workflow names, and prompt context
-  files aligned with `scripts/private/workflow_action_update_agent/` and
-  direct `python3 -m workflow_action_update_agent ...` workflow calls.
+- Profiles may select validation workflow IDs and validation command set names
+  from `scripts/private/workflow_action_update_agent/runtime.py`; do not inline
+  workflow files, dispatch inputs, review-state scripts, or validation command
+  lists in profiles.
 - Keep public manual stabilization inputs on
   `.github/workflows/workflow-action-update-agent.yml`; profiles may point at
   the callable stabilizer worker, but must not create a second public
