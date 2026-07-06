@@ -18,6 +18,7 @@ from agent_workflow_test_support import (  # noqa: E402
     PROFILE_FILE,
     REUSABLE_WORKFLOW_FILE,
     SONAR_WORKFLOW_FILE,
+    STABILIZER_LABEL_WORKFLOW_FILE,
     STABILIZER_WORKFLOW_FILE,
     WORKFLOW_AUDIT_FILE,
     WORKFLOW_AUDIT_PROFILE_FILE,
@@ -201,7 +202,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         auto_stabilize_job = workflow["jobs"]["auto-stabilize-pr"]
         review_steps = step_map(review_job)
 
-        self.assertIn("labeled", pull_request_trigger["types"])
+        self.assertNotIn("labeled", pull_request_trigger["types"])
         self.assertEqual(workflow["permissions"]["actions"], "read")
         self.assertEqual(workflow["permissions"]["contents"], "read")
         self.assertEqual(workflow["permissions"]["pull-requests"], "write")
@@ -233,8 +234,8 @@ class AgentWorkflowContractTests(unittest.TestCase):
         workflow_source = AGENT_REVIEW_WORKFLOW_FILE.read_text(encoding="utf-8")
         self.assertNotIn("agent-repair", workflow_source)
         self.assertNotIn("gpt-", workflow_source)
-        self.assertIn("github.event.action != 'labeled'", review_job["if"])
-        self.assertIn("github.event.label.name == 'agent-stabilize'", review_job["if"])
+        self.assertNotIn("github.event.action", review_job["if"])
+        self.assertNotIn("github.event.label", review_job["if"])
         self.assertEqual(auto_stabilize_job["needs"], "review")
         self.assertEqual(
             auto_stabilize_job["uses"],
@@ -247,8 +248,8 @@ class AgentWorkflowContractTests(unittest.TestCase):
             "contains(github.event.pull_request.labels.*.name, 'agent-stabilize')",
             auto_stabilize_job["if"],
         )
-        self.assertIn("github.event.action != 'labeled'", auto_stabilize_job["if"])
-        self.assertIn("github.event.label.name == 'agent-stabilize'", auto_stabilize_job["if"])
+        self.assertNotIn("github.event.action", auto_stabilize_job["if"])
+        self.assertNotIn("github.event.label", auto_stabilize_job["if"])
         self.assertEqual(auto_stabilize_job["permissions"]["actions"], "read")
         self.assertEqual(auto_stabilize_job["permissions"]["contents"], "write")
         self.assertEqual(auto_stabilize_job["permissions"]["pull-requests"], "write")
@@ -360,6 +361,30 @@ class AgentWorkflowContractTests(unittest.TestCase):
             ".agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/review/publish.py",
             publish_step["run"],
         )
+
+    def test_agent_stabilize_label_workflow_is_separate_from_review_gate(self):
+        workflow = load_yaml(STABILIZER_LABEL_WORKFLOW_FILE)
+        job = workflow["jobs"]["run-agent-stabilizer"]
+
+        self.assertEqual(workflow["on"]["pull_request"]["types"], ["labeled"])
+        self.assertEqual(workflow["permissions"], {})
+        self.assertEqual(set(workflow["jobs"]), {"run-agent-stabilizer"})
+        self.assertNotIn("review-gate", workflow["jobs"])
+        self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", job["if"])
+        self.assertIn("github.event.label.name == 'agent-stabilize'", job["if"])
+        self.assertEqual(job["uses"], "./.github/workflows/agent-stabilize-pr.yml")
+        self.assertEqual(job["permissions"]["actions"], "read")
+        self.assertEqual(job["permissions"]["contents"], "write")
+        self.assertEqual(job["permissions"]["pull-requests"], "write")
+        self.assertEqual(job["with"]["pr_number"], "${{ github.event.pull_request.number }}")
+        self.assertEqual(job["with"]["head_sha"], "${{ github.event.pull_request.head.sha }}")
+        self.assertEqual(job["with"]["task_ref"], "${{ github.event.pull_request.title }}")
+        self.assertEqual(
+            job["with"]["profile_path"],
+            ".github/agent-runtime/workflow-action-update-agent/profiles/profile.json",
+        )
+        self.assertNotIn("source_run_id", job["with"])
+        self.assertEqual(job["secrets"], "inherit")
 
     def test_agent_runtime_static_analysis_triggers_for_new_helper_package_files(self):
         quality_checks = load_quality_checks_module()
@@ -479,6 +504,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
     def test_modified_validation_workflows_use_canonical_artifact_upload_major(self):
         workflows = {
             "agent-review": load_yaml(AGENT_REVIEW_WORKFLOW_FILE),
+            "agent-stabilize-pr-on-label": load_yaml(STABILIZER_LABEL_WORKFLOW_FILE),
             "agent-stabilize-pr": load_yaml(STABILIZER_WORKFLOW_FILE),
             "pek-ci": load_yaml(PEK_CI_WORKFLOW_FILE),
             "sonar": load_yaml(SONAR_WORKFLOW_FILE),

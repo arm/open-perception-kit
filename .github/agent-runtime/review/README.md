@@ -13,6 +13,11 @@ publishes:
 - UI-only comment markers that identify Agent Review comments without storing
   machine-readable review state in PR comments
 
+The Agent Review workflow does not run on pull request label changes. The
+`agent-stabilize` label is handled by a separate label-triggered workflow that
+calls the shared stabilizer from the latest canonical review artifact, so
+unrelated labels do not create or overwrite Agent Review gate checks.
+
 The workflow-scoped OpenAI agent runtime pins live in
 `.github/agent-runtime/runtime/requirements-openai-agents.txt` and are installed into
 `.agent-runtime/openai-agent-venv` by

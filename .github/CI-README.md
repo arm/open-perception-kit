@@ -27,7 +27,16 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Treats `agent-review-out/review.json` as the canonical machine-readable review state
 - Publishes a fresh PR summary comment for each run from the structured review output
 - Publishes fresh inline review comments for the current findings without prior-state reconciliation
-- Uses the `agent-stabilize` label only for current-PR Agent Review finding stabilization
+- Does not run on pull request label changes, so unrelated labels cannot overwrite
+  the Agent Review gate check
+
+## What does `.github/workflows/agent-stabilize-pr-on-label.yml` do?
+
+- Handles the `agent-stabilize` pull request label only for current-PR Agent
+  Review finding stabilization
+- Calls the shared `.github/workflows/agent-stabilize-pr.yml` workflow using the
+  latest canonical `agent-review-out/review.json` artifact for the PR head
+- Ignores unrelated labels and does not create an Agent Review gate check
 
 ## What does `.github/agent-runtime/` do?
 

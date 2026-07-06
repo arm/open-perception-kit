@@ -22,6 +22,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 WORKFLOW_FILE = REPO_ROOT / ".github/workflows/workflow-action-update-agent.yml"
 REUSABLE_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/workflow-action-update-agent-reusable.yml"
 STABILIZER_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/agent-stabilize-pr.yml"
+STABILIZER_LABEL_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/agent-stabilize-pr-on-label.yml"
 WORKFLOW_AUDIT_FILE = REPO_ROOT / ".github/workflows/workflow-audit.yml"
 AGENT_REVIEW_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/agent-review.yml"
 PEK_CI_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/pek-ci.yml"
