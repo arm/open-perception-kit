@@ -14,8 +14,11 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tests'))
 from agent_workflow_test_support import (  # noqa: E402
     HELPER_AGENTS_FILE,
-    HELPER_RUNTIME,
+    HELPER_PROFILE,
+    HELPER_REVIEW_WORKFLOW,
     HELPER_STABILIZATION,
+    HELPER_TASK_REFS,
+    HELPER_VALIDATION,
     PROFILE_FILE,
     REPO_ROOT,
     WORKFLOW_AUDIT_PROFILE_FILE,
@@ -23,23 +26,30 @@ from agent_workflow_test_support import (  # noqa: E402
 )
 
 
-class WorkflowActionUpdateAgentRuntimeProfileTests(unittest.TestCase):
+class WorkflowActionUpdateAgentProfileContractTests(unittest.TestCase):
     def test_workflow_action_update_agent_ownership_roots_have_agents_docs(self):
         helper_agents = HELPER_AGENTS_FILE.read_text(encoding="utf-8")
         workflow_agents = WORKFLOW_AUTOMATION_AGENTS_FILE.read_text(encoding="utf-8")
 
         self.assertIn("Workflow Action Update Agent helper commands", helper_agents)
         self.assertIn("scripts/private/github_api.py", helper_agents)
-        self.assertIn("agent_runtime.github_actions", helper_agents)
+        self.assertIn("github_actions.py", helper_agents)
+        self.assertIn("profile.py", helper_agents)
+        self.assertIn("validation.py", helper_agents)
+        self.assertIn("templates.py", helper_agents)
+        self.assertNotIn("workflow_action_update_agent/runtime.py", helper_agents)
         self.assertIn("prompt templates", workflow_agents)
         self.assertIn(".github/agent-runtime/runtime/agent-models.json", workflow_agents)
         self.assertIn(".github/agent-runtime/runtime/agent-tasks.json", workflow_agents)
         self.assertIn("scripts/private/workflow_action_update_agent/", workflow_agents)
+        self.assertIn("workflow_action_update_agent/profile.py", workflow_agents)
+        self.assertIn("workflow_action_update_agent/validation.py", workflow_agents)
+        self.assertNotIn("workflow_action_update_agent/runtime.py", workflow_agents)
 
     def test_audit_profile_allows_non_failure_source_run_and_configures_repair_label(self):
-        audit_profile = HELPER_RUNTIME.load_profile(str(WORKFLOW_AUDIT_PROFILE_FILE))
+        audit_profile = HELPER_PROFILE.load_profile(str(WORKFLOW_AUDIT_PROFILE_FILE))
 
-        self.assertFalse(HELPER_RUNTIME.profile_bool(audit_profile, "require_failure_conclusion", True))
+        self.assertFalse(HELPER_PROFILE.profile_bool(audit_profile, "require_failure_conclusion", True))
         self.assertEqual(
             audit_profile["repair_branch_template"],
             "feature/{task_ref}/bot-workflow-dependency-freshness-{source_run_id}",
@@ -55,9 +65,9 @@ class WorkflowActionUpdateAgentRuntimeProfileTests(unittest.TestCase):
         self.assertNotIn("validation_workflows", audit_profile_source)
 
     def test_agent_review_state_shape_is_canonical_helper_contract(self):
-        profile = HELPER_RUNTIME.load_profile(str(PROFILE_FILE))
+        profile = HELPER_PROFILE.load_profile(str(PROFILE_FILE))
         profile_source = PROFILE_FILE.read_text(encoding="utf-8")
-        agent_review = HELPER_RUNTIME.standard_agent_review_workflow()
+        agent_review = HELPER_REVIEW_WORKFLOW.standard_agent_review_workflow()
 
         self.assertEqual(profile["validation_command_set"], "agent-workflow-python")
         self.assertIn("standard PR validation", profile["repair_definition_of_done"][-1])
@@ -83,41 +93,41 @@ class WorkflowActionUpdateAgentRuntimeProfileTests(unittest.TestCase):
             ".github/agent-runtime/runtime/agent-tasks.json",
         )
         self.assertEqual(
-            HELPER_RUNTIME.profile_agent_model_config_file(profile, str(PROFILE_FILE)),
+            HELPER_PROFILE.profile_agent_model_config_file(profile, str(PROFILE_FILE)),
             ".github/agent-runtime/runtime/agent-models.json",
         )
         self.assertEqual(
-            HELPER_RUNTIME.profile_agent_task_config_file(profile, str(PROFILE_FILE)),
+            HELPER_PROFILE.profile_agent_task_config_file(profile, str(PROFILE_FILE)),
             ".github/agent-runtime/runtime/agent-tasks.json",
         )
         self.assertEqual(
-            HELPER_RUNTIME.profile_agent_model_config_file(
+            HELPER_PROFILE.profile_agent_model_config_file(
                 profile,
                 ".workflow-action-update-agent-helper/.github/agent-runtime/workflow-action-update-agent/profiles/profile.json",
             ),
             ".workflow-action-update-agent-helper/.github/agent-runtime/runtime/agent-models.json",
         )
         self.assertEqual(
-            HELPER_RUNTIME.profile_agent_task_config_file(
+            HELPER_PROFILE.profile_agent_task_config_file(
                 profile,
                 ".workflow-action-update-agent-helper/.github/agent-runtime/workflow-action-update-agent/profiles/profile.json",
             ),
             ".workflow-action-update-agent-helper/.github/agent-runtime/runtime/agent-tasks.json",
         )
-        self.assertEqual(HELPER_RUNTIME.profile_config_root(str(PROFILE_FILE)), REPO_ROOT)
+        self.assertEqual(HELPER_PROFILE.profile_config_root(str(PROFILE_FILE)), REPO_ROOT)
         self.assertEqual(
-            HELPER_RUNTIME.profile_agent_model(profile, HELPER_RUNTIME.AgentInstance.REPAIR, str(PROFILE_FILE)),
+            HELPER_PROFILE.profile_agent_model(profile, HELPER_PROFILE.AgentInstance.REPAIR, str(PROFILE_FILE)),
             "gpt-5.5",
         )
-        HELPER_RUNTIME.profile_agent_task_settings(
+        HELPER_PROFILE.profile_agent_task_settings(
             profile,
-            HELPER_RUNTIME.AgentCommand.REPAIR,
+            HELPER_PROFILE.AgentCommand.REPAIR,
             str(PROFILE_FILE),
         )
         self.assertEqual(
-            HELPER_RUNTIME.profile_agent_runtime_config_outputs(
+            HELPER_PROFILE.profile_agent_runtime_config_outputs(
                 profile,
-                command=HELPER_RUNTIME.AgentCommand.REPAIR,
+                command=HELPER_PROFILE.AgentCommand.REPAIR,
                 profile_path=str(PROFILE_FILE),
             ),
             {
@@ -127,7 +137,7 @@ class WorkflowActionUpdateAgentRuntimeProfileTests(unittest.TestCase):
         )
         self.assertNotIn(
             "agent_instance",
-            inspect.signature(HELPER_RUNTIME.profile_agent_runtime_config_outputs).parameters,
+            inspect.signature(HELPER_PROFILE.profile_agent_runtime_config_outputs).parameters,
         )
 
     def test_validation_commands_strip_privileged_environment(self):
@@ -175,24 +185,24 @@ class WorkflowActionUpdateAgentRuntimeProfileTests(unittest.TestCase):
 
     def test_task_ref_resolution_accepts_single_ref_and_rejects_missing_or_conflicting_refs(self):
         self.assertEqual(
-            HELPER_RUNTIME.resolve_task_ref(
+            HELPER_TASK_REFS.resolve_task_ref(
                 "feature/TASK-1/update-workflow-agent",
                 purpose="test",
             ),
             "TASK-1",
         )
         with self.assertRaisesRegex(ValueError, "requires a task reference"):
-            HELPER_RUNTIME.resolve_task_ref("feature/no-reference", purpose="test")
+            HELPER_TASK_REFS.resolve_task_ref("feature/no-reference", purpose="test")
         with self.assertRaisesRegex(ValueError, "conflicting task references"):
-            HELPER_RUNTIME.resolve_task_ref(
+            HELPER_TASK_REFS.resolve_task_ref(
                 "feature/TASK-1/update-workflow-agent",
                 "TASK-2: different title",
                 purpose="test",
             )
 
     def test_validation_commands_run_without_shell_and_reject_untrusted_commands(self):
-        with mock.patch.object(HELPER_RUNTIME, "run_command") as run_command:
-            HELPER_RUNTIME.run_validation_command(
+        with mock.patch.object(HELPER_VALIDATION, "run_command") as run_command:
+            HELPER_VALIDATION.run_validation_command(
                 "python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_agent_workflow_contracts.py'",
                 env={"PATH": "/usr/bin"},
             )
@@ -213,15 +223,15 @@ class WorkflowActionUpdateAgentRuntimeProfileTests(unittest.TestCase):
         self.assertEqual(run_command.call_args.kwargs["env"], {"PATH": "/usr/bin"})
 
         with self.assertRaisesRegex(ValueError, "trusted allowlist"):
-            HELPER_RUNTIME.run_validation_command("python3 -c 'print(1)'")
+            HELPER_VALIDATION.run_validation_command("python3 -c 'print(1)'")
 
     def test_profile_validation_commands_are_trusted_argv(self):
-        profile = HELPER_RUNTIME.load_profile(str(PROFILE_FILE))
+        profile = HELPER_PROFILE.load_profile(str(PROFILE_FILE))
 
         self.assertEqual(
             [
-                HELPER_RUNTIME.validation_command_args(command)
-                for command in HELPER_RUNTIME.profile_validation_commands(profile)
+                HELPER_VALIDATION.validation_command_args(command)
+                for command in HELPER_PROFILE.profile_validation_commands(profile)
             ],
             [
                 [

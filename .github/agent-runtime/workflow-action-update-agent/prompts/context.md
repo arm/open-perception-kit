@@ -22,7 +22,8 @@
 - Keep workflow YAML orchestration-thin. Repo-specific logic belongs in the `scripts/private/workflow_action_update_agent/` package behind direct `python3 -m workflow_action_update_agent ...` workflow calls.
 - Keep validation plumbing canonical. Profiles select command set names and
   labels; concrete review-state scripts and local validation commands live in
-  `scripts/private/workflow_action_update_agent/runtime.py`.
+  `scripts/private/workflow_action_update_agent/review_workflow.py` and
+  `scripts/private/workflow_action_update_agent/validation.py`.
 - Keep runtime prompt files under `.agent-runtime/workflow-action-update-agent/`; do not check generated prompt artifacts into git.
 - Keep the stabilization loop focused on review findings only. It must not rewrite unrelated workflow plumbing.
 - Keep labels role-specific: `agent-repair` authorizes source-run repair PR

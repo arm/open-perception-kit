@@ -26,7 +26,7 @@ from .repair import (
     command_require_generated_changes,
     command_resolve_inputs,
 )
-from .runtime import default_profile_path_argument
+from .paths import default_profile_path_argument
 from .stabilization import (
     command_commit_review_fix,
     command_prepare_stabilization_context,

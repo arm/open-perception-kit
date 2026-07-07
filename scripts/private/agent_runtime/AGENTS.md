@@ -22,6 +22,9 @@ review, repair, and stabilization GitHub Actions workflows.
   and output handling in the Python runtime modules. Workflow YAML and local
   scripts may call `setup_runtime.py` and `openai_agent_runner.py`, but must not
   duplicate venv setup, task-specific OpenAI logic, or model/turn defaults.
+- Keep shared GitHub Actions run and PR lookup helpers in
+  `scripts/private/github_actions.py`, beside `scripts/private/github_api.py`;
+  they are repository workflow plumbing, not OpenAI runtime internals.
 - Keep `truststore.inject_into_ssl()` before importing `agents`, `openai`, or
   `httpx` through the SDK stack.
 - Agent tools may inspect files and run validation, but must not own branch,

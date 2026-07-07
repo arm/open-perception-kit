@@ -18,7 +18,7 @@ from agent_workflow_test_support import (  # noqa: E402
     AGENT_REVIEW_STATE,
     HELPER_STABILIZATION,
     HELPER_STABILIZATION_SCRIPT,
-    OPENAI_AGENT_GITHUB_ACTIONS,
+    GITHUB_ACTIONS,
     PROFILE_FILE,
     REPAIR_BRANCH,
     STABILIZE_GOAL_TEMPLATE,
@@ -39,7 +39,7 @@ class WorkflowActionUpdateAgentStabilizationTests(unittest.TestCase):
 
     def test_find_latest_workflow_run_for_head_accepts_manual_review_runs(self):
         with mock.patch.object(
-            OPENAI_AGENT_GITHUB_ACTIONS,
+            GITHUB_ACTIONS,
             "github_api_json",
             return_value={
                 "workflow_runs": [
@@ -58,7 +58,7 @@ class WorkflowActionUpdateAgentStabilizationTests(unittest.TestCase):
                 ]
             },
         ):
-            run_id = OPENAI_AGENT_GITHUB_ACTIONS.find_latest_workflow_run_for_head(
+            run_id = GITHUB_ACTIONS.find_latest_workflow_run_for_head(
                 repository="Arm-Debug/amp-dev-forge",
                 workflow_file="agent-review.yml",
                 branch=REPAIR_BRANCH,
@@ -70,7 +70,7 @@ class WorkflowActionUpdateAgentStabilizationTests(unittest.TestCase):
     def test_read_pr_details_returns_same_repository_branch_details(self):
         with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
             with mock.patch.object(
-                OPENAI_AGENT_GITHUB_ACTIONS,
+                GITHUB_ACTIONS,
                 "github_api_json",
                 return_value={
                     "title": "TASK-1: sample stabilization",
@@ -85,7 +85,7 @@ class WorkflowActionUpdateAgentStabilizationTests(unittest.TestCase):
                     },
                 },
             ) as github_api_json:
-                details = OPENAI_AGENT_GITHUB_ACTIONS.read_pr_details("101")
+                details = GITHUB_ACTIONS.read_pr_details("101")
 
         self.assertEqual(github_api_json.call_args.args[0], "repos/Arm-Debug/amp-dev-forge/pulls/101")
         self.assertEqual(details["repair_branch"], REPAIR_BRANCH)
@@ -98,7 +98,7 @@ class WorkflowActionUpdateAgentStabilizationTests(unittest.TestCase):
     def test_read_pr_details_rejects_fork_pull_request_stabilization(self):
         with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
             with mock.patch.object(
-                OPENAI_AGENT_GITHUB_ACTIONS,
+                GITHUB_ACTIONS,
                 "github_api_json",
                 return_value={
                     "head": {
@@ -113,7 +113,19 @@ class WorkflowActionUpdateAgentStabilizationTests(unittest.TestCase):
                 },
             ):
                 with self.assertRaisesRegex(RuntimeError, "only supports same-repository pull requests"):
-                    OPENAI_AGENT_GITHUB_ACTIONS.read_pr_details("101")
+                    GITHUB_ACTIONS.read_pr_details("101")
+
+    def test_snapshot_helper_bundle_includes_root_github_helpers(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            bundle_root = Path(temp_dir) / "bundle"
+
+            HELPER_STABILIZATION.snapshot_helper_bundle(bundle_root=bundle_root)
+
+            self.assertTrue((bundle_root / "scripts/private/github_api.py").is_file())
+            self.assertTrue((bundle_root / "scripts/private/github_actions.py").is_file())
+            self.assertTrue(
+                (bundle_root / "scripts/private/workflow_action_update_agent/profile.py").is_file()
+            )
 
     def test_prepare_stabilization_context_writes_prompt_and_outputs(self):
         with tempfile.TemporaryDirectory() as temp_dir:

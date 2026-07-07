@@ -47,7 +47,7 @@ OPENAI_AGENT_RUNNER_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/openai_a
 OPENAI_AGENT_WORKFLOW_TASK_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/tasks/base.py"
 OPENAI_AGENT_TASKS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/tasks/configured.py"
 OPENAI_AGENT_CONTRACTS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/contracts.py"
-OPENAI_AGENT_GITHUB_ACTIONS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/github_actions.py"
+GITHUB_ACTIONS_SCRIPT = REPO_ROOT / "scripts/private/github_actions.py"
 OPENAI_AGENT_REPO_TOOLS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/tools/repo.py"
 OPENAI_AGENT_SHELL_TOOLS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/tools/shell.py"
 OPENAI_AGENT_PATH_TOOLS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/tools/paths.py"
@@ -58,7 +58,13 @@ OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/
 OPENAI_AGENT_MODEL_CONFIG_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/config/model.py"
 OPENAI_AGENT_REVIEW_OUTPUT_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/output_filter.py"
 HELPER_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent/cli.py"
-HELPER_RUNTIME_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent/runtime.py"
+HELPER_PROFILE_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent/profile.py"
+HELPER_PATHS_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent/paths.py"
+HELPER_PROCESS_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent/process.py"
+HELPER_TASK_REFS_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent/task_refs.py"
+HELPER_TEMPLATES_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent/templates.py"
+HELPER_VALIDATION_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent/validation.py"
+HELPER_REVIEW_WORKFLOW_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent/review_workflow.py"
 HELPER_STABILIZATION_SCRIPT = REPO_ROOT / "scripts/private/workflow_action_update_agent/stabilization.py"
 WORKFLOW_AUTOMATION_ROOT = REPO_ROOT / ".github/agent-runtime/workflow-action-update-agent"
 PROMPT_TEMPLATE_ROOT = WORKFLOW_AUTOMATION_ROOT / "prompts"
@@ -216,10 +222,7 @@ OPENAI_AGENT_CONTRACTS = load_agent_workflow_module(
     OPENAI_AGENT_CONTRACTS_SCRIPT,
     "agent_runtime.contracts",
 )
-OPENAI_AGENT_GITHUB_ACTIONS = load_agent_workflow_module(
-    OPENAI_AGENT_GITHUB_ACTIONS_SCRIPT,
-    "agent_runtime.github_actions",
-)
+GITHUB_ACTIONS = load_python_module(GITHUB_ACTIONS_SCRIPT, "github_actions")
 AGENT_REVIEW_STATE = load_agent_workflow_module(
     AGENT_REVIEW_STATE_SCRIPT,
     "agent_runtime.review.state",
@@ -268,6 +271,12 @@ OPENAI_AGENT_RUNTIME_CONTEXT = load_agent_workflow_module(
     OPENAI_AGENT_RUNTIME_CONTEXT_SCRIPT,
     "agent_runtime.runtime_context",
 )
-HELPER_RUNTIME = load_workflow_helper_module("workflow_action_update_agent.runtime")
+HELPER_PATHS = load_workflow_helper_module("workflow_action_update_agent.paths")
+HELPER_PROCESS = load_workflow_helper_module("workflow_action_update_agent.process")
+HELPER_PROFILE = load_workflow_helper_module("workflow_action_update_agent.profile")
+HELPER_REVIEW_WORKFLOW = load_workflow_helper_module("workflow_action_update_agent.review_workflow")
+HELPER_TASK_REFS = load_workflow_helper_module("workflow_action_update_agent.task_refs")
+HELPER_TEMPLATES = load_workflow_helper_module("workflow_action_update_agent.templates")
+HELPER_VALIDATION = load_workflow_helper_module("workflow_action_update_agent.validation")
 HELPER_REPAIR = load_workflow_helper_module("workflow_action_update_agent.repair")
 HELPER_STABILIZATION = load_workflow_helper_module("workflow_action_update_agent.stabilization")

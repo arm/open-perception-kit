@@ -13,7 +13,7 @@ import sys
 import textwrap
 from pathlib import Path
 
-from agent_runtime.github_actions import (
+from github_actions import (
     authorized_source_pr_number,
     download_workflow_run_artifacts,
     read_pr_details,
@@ -23,9 +23,21 @@ from agent_runtime.github_actions import (
 )
 from agent_runtime.contracts import AgentCommand
 
-from .runtime import (
+from .git_remote import push_head_to_remote_branch, remote_branch_force_lease
+from .github_output import write_outputs
+from .json_files import write_json_file
+from .paths import PR_TEMPLATE_PATH
+from .process import run_command
+from .profile import (
+    load_profile,
+    profile_agent_runtime_config_outputs,
+    profile_bool,
+    profile_string,
+    profile_string_list,
+)
+from .task_refs import resolve_task_ref
+from .templates import (
     CONTEXT_ROOT_TOKEN,
-    PR_TEMPLATE_PATH,
     PR_AUTOMATION_END,
     PR_AUTOMATION_START,
     PR_DESCRIPTION_END,
@@ -42,19 +54,8 @@ from .runtime import (
     VALIDATION_COMMANDS_TOKEN,
     format_profile_template,
     load_markdown_template,
-    load_profile,
-    profile_agent_runtime_config_outputs,
-    profile_bool,
     profile_prompt_replacements,
-    profile_string,
-    profile_string_list,
-    push_head_to_remote_branch,
     render_markdown_template,
-    remote_branch_force_lease,
-    resolve_task_ref,
-    run_command,
-    write_json_file,
-    write_outputs,
 )
 
 

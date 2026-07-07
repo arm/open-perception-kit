@@ -15,7 +15,7 @@ if __package__ in (None, ""):  # pragma: no cover - used for direct script execu
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     __package__ = "agent_runtime.review"
 
-from ..github_actions import find_latest_workflow_run_for_head, read_pr_details
+from github_actions import find_latest_workflow_run_for_head, read_pr_details
 from .state import EMPTY_REVIEW_STATE, read_review_artifact_state
 
 

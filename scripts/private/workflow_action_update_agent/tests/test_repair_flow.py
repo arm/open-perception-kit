@@ -18,9 +18,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tests'))
 from agent_workflow_test_support import (  # noqa: E402
     CONTEXT_TEMPLATE,
     HELPER_REPAIR,
-    HELPER_RUNTIME,
-    HELPER_RUNTIME_SCRIPT,
-    OPENAI_AGENT_GITHUB_ACTIONS,
+    HELPER_PROFILE,
+    HELPER_PATHS_SCRIPT,
+    HELPER_TEMPLATES,
+    GITHUB_ACTIONS,
     PROFILE_FILE,
     REPAIR_BRANCH,
     SAMPLE_TASK_REF,
@@ -34,7 +35,7 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             with mock.patch.dict(os.environ, {"GITHUB_WORKSPACE": temp_dir}, clear=False):
                 workspace_helper = load_python_module(
-                    HELPER_RUNTIME_SCRIPT,
+                    HELPER_PATHS_SCRIPT,
                     "workflow_action_update_agent_workspace_root",
                 )
 
@@ -79,7 +80,7 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
                 clear=False,
             ):
                 with mock.patch.object(
-                    OPENAI_AGENT_GITHUB_ACTIONS,
+                    GITHUB_ACTIONS,
                     "github_api_json",
                     side_effect=[
                         {"id": 12345, "name": "Workflow dependency freshness"},
@@ -96,7 +97,7 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
                     ],
                 ):
                     with mock.patch.object(
-                        OPENAI_AGENT_GITHUB_ACTIONS,
+                        GITHUB_ACTIONS,
                         "download_github_archive",
                         side_effect=[log_archive, artifact_archive],
                     ):
@@ -129,7 +130,7 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
             }
 
             with mock.patch.object(
-                OPENAI_AGENT_GITHUB_ACTIONS,
+                GITHUB_ACTIONS,
                 "github_api_json",
                 side_effect=[
                     run_payload,
@@ -230,7 +231,7 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
             }
 
             with mock.patch.object(
-                OPENAI_AGENT_GITHUB_ACTIONS,
+                GITHUB_ACTIONS,
                 "github_api_json",
                 side_effect=[
                     run_payload,
@@ -262,7 +263,7 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
             }
 
             with mock.patch.object(
-                OPENAI_AGENT_GITHUB_ACTIONS,
+                GITHUB_ACTIONS,
                 "github_api_json",
                 side_effect=[
                     run_payload,
@@ -303,7 +304,7 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
                 "pull_requests": [],
             }
 
-            with mock.patch.object(OPENAI_AGENT_GITHUB_ACTIONS, "github_api_json", return_value=run_payload):
+            with mock.patch.object(GITHUB_ACTIONS, "github_api_json", return_value=run_payload):
                 with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
                     result = HELPER_REPAIR.command_resolve_inputs(args)
 
@@ -317,7 +318,7 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
             self.assertEqual(outputs["skip_reason"], "Source workflow run is not associated with a pull request.")
 
     def test_profile_drives_markdown_context_files_and_validation_commands(self):
-        profile = HELPER_RUNTIME.load_profile(str(PROFILE_FILE))
+        profile = HELPER_PROFILE.load_profile(str(PROFILE_FILE))
 
         with tempfile.TemporaryDirectory() as temp_dir:
             context_root = Path(temp_dir) / "context"
@@ -354,26 +355,26 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
             self.assertIn("Required source PR authorization label: `agent-repair`", failure_context)
             for path in profile["prompt_context_files"]:
                 self.assertIn(f"- `{path}`", goal)
-            for command in HELPER_RUNTIME.profile_validation_commands(profile):
+            for command in HELPER_PROFILE.profile_validation_commands(profile):
                 self.assertIn(f"- `{command}`", validation)
             self.assertIn("- `artifacts/summary.txt`", inventory)
 
     def test_marker_based_pr_rendering_is_profile_driven(self):
-        profile = HELPER_RUNTIME.load_profile(str(PROFILE_FILE))
+        profile = HELPER_PROFILE.load_profile(str(PROFILE_FILE))
         rendered = HELPER_REPAIR.render_pr_body_from_template(
             template_text=textwrap.dedent(
                 f"""
                 # Pull Request
 
-                {HELPER_RUNTIME.PR_AUTOMATION_START}
+                {HELPER_TEMPLATES.PR_AUTOMATION_START}
                 old automation text
-                {HELPER_RUNTIME.PR_AUTOMATION_END}
+                {HELPER_TEMPLATES.PR_AUTOMATION_END}
 
                 ## Description
 
-                {HELPER_RUNTIME.PR_DESCRIPTION_START}
+                {HELPER_TEMPLATES.PR_DESCRIPTION_START}
                 old description
-                {HELPER_RUNTIME.PR_DESCRIPTION_END}
+                {HELPER_TEMPLATES.PR_DESCRIPTION_END}
 
                 - [ ] I have tested these changes locally.
                 """
@@ -407,8 +408,8 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
         self.assertIn("Authorization label: `agent-repair`", body)
         self.assertIn("Definition of Done", body)
         self.assertIn("The repair branch is based on `main`", body)
-        self.assertIn(HELPER_RUNTIME.PR_AUTOMATION_START, body)
-        self.assertIn(HELPER_RUNTIME.PR_DESCRIPTION_START, body)
+        self.assertIn(HELPER_TEMPLATES.PR_AUTOMATION_START, body)
+        self.assertIn(HELPER_TEMPLATES.PR_DESCRIPTION_START, body)
         self.assertEqual(
             HELPER_REPAIR.render_repair_ci_badge(REPAIR_BRANCH),
             "[![Perception Experience Kit CI Pipeline]"

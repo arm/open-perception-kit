@@ -440,6 +440,11 @@ class AgentWorkflowContractTests(unittest.TestCase):
         )
         self.assertTrue(
             quality_checks.QualityChecks.should_run_agent_runtime_static_analysis(
+                ["scripts/private/github_actions.py"],
+            )
+        )
+        self.assertTrue(
+            quality_checks.QualityChecks.should_run_agent_runtime_static_analysis(
                 ["scripts/private/tests/test_github_api.py"],
             )
         )

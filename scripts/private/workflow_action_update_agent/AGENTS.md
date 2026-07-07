@@ -26,8 +26,10 @@ orchestration layer around the shared `agent_runtime` package.
 - When adding a helper command, wire it through `cli.py` and the relevant
   workflow in the same change.
 - Prefer existing helpers from `scripts/private/github_api.py`,
-  `agent_runtime.github_actions`, and `runtime.py` over local subprocess or
-  URL handling.
+  `scripts/private/github_actions.py`, `process.py`, `paths.py`,
+  `github_output.py`, `git_remote.py`, `profile.py`, `task_refs.py`,
+  `templates.py`, `validation.py`, and `review_workflow.py` over local
+  subprocess, path, output, template, profile, validation, or URL handling.
 
 ## Validation
 

@@ -16,6 +16,7 @@ if __package__ in (None, ""):  # pragma: no cover - used for direct script execu
 
 
 AGENT_STATIC_PYTHON_PATHS = (
+    "scripts/private/github_actions.py",
     "scripts/private/github_api.py",
     "scripts/private/github_pr_context.py",
     "scripts/private/sonar_quality_gate_workflow.py",

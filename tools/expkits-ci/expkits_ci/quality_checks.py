@@ -52,6 +52,7 @@ class QualityChecks:
     )
     AGENT_RUNTIME_STATIC_TRIGGER_PREFIXES = (
         ".github/agent-runtime/",
+        "scripts/private/github_actions.py",
         "scripts/private/github_api.py",
         "scripts/private/agent_runtime/",
         "scripts/private/tests/",

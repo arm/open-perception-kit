@@ -14,8 +14,8 @@ import urllib.parse
 from pathlib import Path
 
 from agent_runtime.contracts import AgentCommand
-from agent_runtime.github_actions import find_latest_workflow_run_for_head, read_pr_details
 from github_api import github_api_json
+from github_actions import find_latest_workflow_run_for_head, read_pr_details
 from agent_runtime.review.state import (
     missing_review_findings_error_message,
     normalize_review_state,
@@ -25,7 +25,19 @@ from agent_runtime.review.state import (
     review_state_requires_findings,
 )
 
-from .runtime import (
+from .git_remote import push_head_to_remote_branch, remote_branch_force_lease
+from .github_output import write_outputs
+from .json_files import write_json_file
+from .paths import resolve_repo_path
+from .process import run_command
+from .profile import (
+    load_profile,
+    profile_agent_runtime_config_outputs,
+    profile_validation_commands,
+)
+from .review_workflow import standard_agent_review_workflow
+from .task_refs import resolve_task_ref
+from .templates import (
     CONTEXT_ROOT_TOKEN,
     PR_NUMBER_TOKEN,
     REPAIR_BRANCH_TOKEN,
@@ -35,22 +47,10 @@ from .runtime import (
     REVIEW_SUMMARY_TOKEN,
     REVIEW_WORKFLOW_NAME_TOKEN,
     SOURCE_RUN_ID_TOKEN,
-    load_profile,
-    profile_agent_runtime_config_outputs,
     profile_prompt_replacements,
-    profile_validation_commands,
-    push_head_to_remote_branch,
     render_markdown_template,
-    remote_branch_force_lease,
-    resolve_task_ref,
-    resolve_repo_path,
-    run_command,
-    run_validation_command,
-    standard_agent_review_workflow,
-    validation_command_environment,
-    write_json_file,
-    write_outputs,
 )
+from .validation import run_validation_command, validation_command_environment
 
 
 def read_review_state(*, state_script: str, pr_number: str) -> dict[str, object]:
@@ -157,6 +157,10 @@ def snapshot_helper_bundle(*, bundle_root: Path) -> None:
 
     copy_required_path(resolve_repo_path("scripts/private/github_api.py"),
                        bundle_root / "scripts/private/github_api.py")
+    copy_required_path(
+        resolve_repo_path("scripts/private/github_actions.py"),
+        bundle_root / "scripts/private/github_actions.py",
+    )
     copy_required_path(
         resolve_repo_path("scripts/private/workflow_action_update_agent"),
         bundle_root / "scripts/private/workflow_action_update_agent",
