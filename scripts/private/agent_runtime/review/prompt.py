@@ -16,6 +16,7 @@ DEFAULT_TEMPLATE_PATH = Path(".github/agent-runtime/review/prompts/review.md.in"
 PR_INTENT_FILENAME = "pr-intent.md"
 MAX_PR_INTENT_ITEMS = 40
 MAX_PR_INTENT_CHARS = 600
+NOT_PROVIDED = "(not provided)"
 ACCEPTED_PR_INTENT_SECTIONS = {
     "goal",
     "goals",
@@ -73,10 +74,14 @@ def filter_directive_like_text(value: str) -> str:
 
 def heading_text(line: str) -> str:
     stripped = line.strip()
-    if re.match(r"^#{1,6}\s+", stripped):
-        return re.sub(r"^#{1,6}\s+", "", stripped).strip()
-    if re.match(r"^\*\*[^*]+\*\*\s*$", stripped):
-        return re.sub(r"^\*\*|\*\*$", "", stripped).strip()
+    heading_level = 0
+    while heading_level < len(stripped) and stripped[heading_level] == "#":
+        heading_level += 1
+    if 1 <= heading_level <= 6 and len(stripped) > heading_level and stripped[heading_level].isspace():
+        return stripped[heading_level:].strip()
+    if stripped.startswith("**") and stripped.endswith("**") and len(stripped) > 4:
+        text = stripped[2:-2].strip()
+        return text if "*" not in text else ""
     return ""
 
 
@@ -88,6 +93,34 @@ def is_accepted_heading(value: str) -> bool:
 def sanitize_intent_item(value: str) -> str:
     text = sanitize_single_line(value, max_chars=MAX_PR_INTENT_CHARS)
     return "" if filter_directive_like_text(text) == "(filtered)" else text
+
+
+def checklist_item_text(line: str) -> str:
+    if not line.startswith("-"):
+        return ""
+    rest = line[1:].lstrip()
+    if len(rest) < 4 or rest[0] != "[" or rest[2] != "]" or rest[1] not in " xX" or not rest[3].isspace():
+        return ""
+    return rest[4:].lstrip()
+
+
+def bullet_item_text(line: str) -> str:
+    if len(line) < 3 or line[0] not in "-*+" or not line[1].isspace():
+        return ""
+    return line[2:].lstrip()
+
+
+def numbered_item_text(line: str) -> str:
+    index = 0
+    while index < len(line) and line[index].isdigit():
+        index += 1
+    if index == 0 or index + 1 >= len(line) or line[index] not in ".)" or not line[index + 1].isspace():
+        return ""
+    return line[index + 2:].lstrip()
+
+
+def list_item_text(line: str) -> str:
+    return checklist_item_text(line) or bullet_item_text(line) or numbered_item_text(line)
 
 
 def render_pr_intent_context(body: str) -> str:
@@ -147,14 +180,10 @@ def render_pr_intent_context(body: str) -> str:
         if not in_accepted_section:
             continue
 
-        checklist_match = re.match(r"^-\s+\[[ xX]\]\s+(.*)$", line)
-        bullet_match = re.match(r"^[-*+]\s+(.*)$", line)
-        numbered_match = re.match(r"^[0-9]+[.)]\s+(.*)$", line)
-        if checklist_match or bullet_match or numbered_match:
+        item_text = list_item_text(line)
+        if item_text:
             flush_paragraph()
-            match = checklist_match or bullet_match or numbered_match
-            assert match is not None
-            emit_item(match.group(1))
+            emit_item(item_text)
             continue
 
         paragraph.append(line)
@@ -213,16 +242,16 @@ def render_prompt(*, output_path: Path, template_path: Path = DEFAULT_TEMPLATE_P
     pr_intent_path.write_text(render_pr_intent_context(os.environ.get("REVIEW_PR_BODY", "")), encoding="utf-8")
 
     replacements = {
-        "@@REPOSITORY@@": fill_empty(default_repository(), "(not provided)"),
-        "@@BASE_REF@@": fill_empty(base_ref, "(not provided)"),
-        "@@BASE_SHA@@": fill_empty(base_sha, "(not provided)"),
-        "@@HEAD_SHA@@": fill_empty(head_sha, "(not provided)"),
+        "@@REPOSITORY@@": fill_empty(default_repository(), NOT_PROVIDED),
+        "@@BASE_REF@@": fill_empty(base_ref, NOT_PROVIDED),
+        "@@BASE_SHA@@": fill_empty(base_sha, NOT_PROVIDED),
+        "@@HEAD_SHA@@": fill_empty(head_sha, NOT_PROVIDED),
         "@@PR_NUMBER@@": fill_empty(os.environ.get("REVIEW_PR_NUMBER", ""), "(not a pull request run)"),
         "@@PR_TITLE@@": fill_empty(
             filter_directive_like_text(sanitize_single_line(normalize_text(os.environ.get("REVIEW_PR_TITLE", "")))),
-            "(not provided)",
+            NOT_PROVIDED,
         ),
-        "@@PR_URL@@": fill_empty(os.environ.get("REVIEW_PR_URL", ""), "(not provided)"),
+        "@@PR_URL@@": fill_empty(os.environ.get("REVIEW_PR_URL", ""), NOT_PROVIDED),
         "@@PR_INTENT_PATH@@": pr_intent_path.as_posix(),
     }
 

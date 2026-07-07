@@ -696,6 +696,25 @@ class AgentRuntimeReviewPipelineTests(unittest.TestCase):
 
         self.assertIn("- (none extracted)", AGENT_REVIEW_PROMPT.render_pr_intent_context(""))
 
+    def test_agent_review_prompt_renderer_extracts_markdown_list_forms(self):
+        body = (
+            "**Change**\n"
+            "- [x] checklist item\n"
+            "* star bullet\n"
+            "+ plus bullet\n"
+            "1. numbered item\n"
+            "2) numbered paren item\n"
+        )
+
+        rendered = AGENT_REVIEW_PROMPT.render_pr_intent_context(body)
+
+        self.assertIn("- checklist item", rendered)
+        self.assertIn("- star bullet", rendered)
+        self.assertIn("- plus bullet", rendered)
+        self.assertIn("- numbered item", rendered)
+        self.assertIn("- numbered paren item", rendered)
+        self.assertIn("Items-Extracted: 5", rendered)
+
     def test_agent_review_prompt_renderer_truncates_pull_request_intent_items(self):
         body = "## Change\n" + "\n".join(
             f"- item {index}" for index in range(AGENT_REVIEW_PROMPT.MAX_PR_INTENT_ITEMS + 1)
