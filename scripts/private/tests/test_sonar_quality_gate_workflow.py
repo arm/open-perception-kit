@@ -5,11 +5,9 @@
 
 from __future__ import annotations
 
-import ast
 import importlib.util
 import os
 from pathlib import Path
-import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -43,10 +41,11 @@ sonar_quality_gate_report = load_report_module()
 
 
 class SonarQualityGateWorkflowTests(unittest.TestCase):
-    def test_quality_gate_report_command_runs_report_script_directly(self):
+    def test_quality_gate_report_command_runs_report_script_in_sonar_service(self):
         with mock.patch.dict(
             os.environ,
             {
+                "DOCKER_COMPOSE_FILE": ".github/compose.ci.yaml",
                 "SONAR_BRANCH": "feature/test",
                 "PR_KEY": "101",
                 "PR_BRANCH": "feature/test",
@@ -56,39 +55,29 @@ class SonarQualityGateWorkflowTests(unittest.TestCase):
         ):
             command = sonar_quality_gate_workflow.quality_gate_report_command(probe_api_access=True)
 
-        self.assertEqual(command[0], sonar_quality_gate_workflow.sys.executable)
-        self.assertEqual(command[1], "scripts/private/sonar_quality_gate_report.py")
-        self.assertNotIn("docker", command)
-        self.assertNotIn("pek-sonar-check", command)
+        self.assertEqual(command[:4], ["docker", "compose", "-f", ".github/compose.ci.yaml"])
+        self.assertIn("--entrypoint", command)
+        self.assertEqual(command[command.index("--entrypoint") + 1], "python3")
+        for env_name in ["SONAR_TOKEN", "SONAR_HOST_URL", "SONAR_BRANCH", "PR_KEY", "PR_BRANCH", "PR_BASE"]:
+            self.assertIn(env_name, command)
+        service_index = command.index("pek-sonar-check")
+        self.assertEqual(command[service_index + 1], "scripts/private/sonar_quality_gate_report.py")
+        self.assertEqual(command[command.index("--report-task-file") + 1], "/work/.scannerwork/report-task.txt")
         self.assertNotIn("bash", command)
         self.assertIn("scripts/private/sonar_quality_gate_report.py", command)
-        self.assertIn(".scannerwork/report-task.txt", command)
         self.assertEqual(command[command.index("--branch") + 1], "feature/test")
         self.assertEqual(command[command.index("--pull-request-key") + 1], "101")
         self.assertEqual(command[command.index("--pull-request-branch") + 1], "feature/test")
         self.assertEqual(command[command.index("--pull-request-base") + 1], "main")
         self.assertIn("--probe-api-access", command)
 
-    def test_host_report_task_path_matches_compose_work_bind_mount(self):
+    def test_container_report_task_path_matches_compose_work_bind_mount(self):
         compose_base = (REPO_ROOT / "compose.base.yaml").read_text(encoding="utf-8")
 
         command = sonar_quality_gate_workflow.quality_gate_report_command(probe_api_access=False)
 
         self.assertIn("- .:/work", compose_base)
-        self.assertIn(".scannerwork/report-task.txt", command)
-        self.assertNotIn("/work/.scannerwork/report-task.txt", command)
-
-    def test_quality_gate_report_script_stays_stdlib_only(self):
-        module = ast.parse(REPORT_MODULE_PATH.read_text(encoding="utf-8"))
-        imported_roots: set[str] = set()
-        for node in ast.walk(module):
-            if isinstance(node, ast.Import):
-                imported_roots.update(alias.name.split(".", 1)[0] for alias in node.names)
-            elif isinstance(node, ast.ImportFrom) and node.module:
-                imported_roots.add(node.module.split(".", 1)[0])
-
-        external_imports = sorted(imported_roots - sys.stdlib_module_names - {"__future__"})
-        self.assertEqual(external_imports, [])
+        self.assertEqual(command[command.index("--report-task-file") + 1], "/work/.scannerwork/report-task.txt")
 
     def test_report_task_context_preserves_pull_request_scope(self):
         with tempfile.TemporaryDirectory() as temp_dir:
