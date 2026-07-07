@@ -17,8 +17,8 @@ import urllib.parse
 from typing import Any
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tests'))
-from agent_workflow_test_support import (  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from test_support.agent_workflow import (  # noqa: E402
     AGENT_REVIEW_COMMENTS,
     AGENT_REVIEW_DIFF_ANCHORS,
     AGENT_REVIEW_FETCH,
@@ -540,14 +540,14 @@ class AgentRuntimeReviewPipelineTests(unittest.TestCase):
     def test_agent_review_output_drops_verified_agent_runtime_artifact_context_claims(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)
-            prompt_path = repo_root / ".github/agent-runtime/workflow-action-update-agent/prompts/repair-goal.md.in"
+            prompt_path = repo_root / ".github/agent-runtime/source-run-repair/prompts/repair-goal.md.in"
             prompt_path.parent.mkdir(parents=True)
             prompt_path.write_text(
                 "\n".join(
                     [
                         "Read the generated context files first.",
-                        "Then inspect `.agent-runtime/workflow-action-update-agent/source-run.log`.",
-                        "Relevant text artifacts are under `.agent-runtime/workflow-action-update-agent/artifacts/`.",
+                        "Then inspect `.agent-runtime/source-run-repair/source-run.log`.",
+                        "Relevant text artifacts are under `.agent-runtime/source-run-repair/artifacts/`.",
                     ]
                 ),
                 encoding="utf-8",
@@ -564,13 +564,13 @@ class AgentRuntimeReviewPipelineTests(unittest.TestCase):
                         "severity": "major",
                         "score": 0.7,
                         "confidence": 0.9,
-                        "path": ".github/agent-runtime/workflow-action-update-agent/prompts/repair-goal.md.in",
+                        "path": ".github/agent-runtime/source-run-repair/prompts/repair-goal.md.in",
                         "diff_side": "RIGHT",
                         "start_line": 3,
                         "end_line": 3,
                         "body": (
                             "The artifact is outside the agent context, but omit the finding if "
-                            "`.agent-runtime/workflow-action-update-agent/artifacts/...` is matched."
+                            "`.agent-runtime/source-run-repair/artifacts/...` is matched."
                         ),
                         "suggestion": None,
                     },
@@ -585,13 +585,13 @@ class AgentRuntimeReviewPipelineTests(unittest.TestCase):
     def test_agent_review_output_keeps_artifact_context_claims_without_anchor_evidence(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)
-            prompt_path = repo_root / ".github/agent-runtime/workflow-action-update-agent/prompts/repair-goal.md.in"
+            prompt_path = repo_root / ".github/agent-runtime/source-run-repair/prompts/repair-goal.md.in"
             prompt_path.parent.mkdir(parents=True)
             prompt_path.write_text(
                 "\n".join(
                     [
                         "Read the generated context files first.",
-                        "Then inspect `.agent-runtime/workflow-action-update-agent/source-run.log`.",
+                        "Then inspect `.agent-runtime/source-run-repair/source-run.log`.",
                     ]
                 ),
                 encoding="utf-8",
@@ -608,13 +608,13 @@ class AgentRuntimeReviewPipelineTests(unittest.TestCase):
                         "severity": "major",
                         "score": 0.7,
                         "confidence": 0.9,
-                        "path": ".github/agent-runtime/workflow-action-update-agent/prompts/repair-goal.md.in",
+                        "path": ".github/agent-runtime/source-run-repair/prompts/repair-goal.md.in",
                         "diff_side": "RIGHT",
                         "start_line": 2,
                         "end_line": 2,
                         "body": (
                             "The artifact is outside the agent context, but omit the finding if "
-                            "`.agent-runtime/workflow-action-update-agent/artifacts/...` is matched."
+                            "`.agent-runtime/source-run-repair/artifacts/...` is matched."
                         ),
                         "suggestion": None,
                     },
@@ -1032,7 +1032,7 @@ class AgentRuntimeReviewPipelineTests(unittest.TestCase):
                 with mock.patch.object(
                     AGENT_REVIEW_FETCH,
                     "read_pr_details",
-                    return_value={"repair_branch": REPAIR_BRANCH, "head_sha": "deadbeef"},
+                    return_value={"head_branch": REPAIR_BRANCH, "head_sha": "deadbeef"},
                 ) as read_pr_details:
                     with mock.patch.object(
                         AGENT_REVIEW_FETCH,

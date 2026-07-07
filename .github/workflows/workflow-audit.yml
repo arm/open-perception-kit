@@ -16,7 +16,8 @@ on:
       - ".github/workflows/**"
       - "scripts/private/workflow_audit_report.py"
       - "scripts/private/github_api.py"
-      - ".github/agent-runtime/workflow-action-update-agent/**"
+      - ".github/agent-runtime/source-run-repair/**"
+      - ".github/agent-runtime/workflow-policy/**"
     types: [ opened, synchronize, reopened, ready_for_review ]
   schedule:
     - cron: "0 5 * * *"

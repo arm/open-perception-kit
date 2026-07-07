@@ -19,10 +19,10 @@ jobs:
       actions: read
       contents: write
       pull-requests: write
-    uses: ./.github/workflows/agent-stabilize-pr.yml
+    uses: ./.github/workflows/agent-stabilize-pr-worker.yml
     with:
       pr_number: ${{ github.event.pull_request.number }}
       head_sha: ${{ github.event.pull_request.head.sha }}
       task_ref: ${{ github.event.pull_request.title }}
-      profile_path: .github/agent-runtime/workflow-action-update-agent/profiles/profile.json
+      profile_path: .github/agent-runtime/pr-stabilization/profiles/profile.json
     secrets: inherit # pragma: allowlist secret

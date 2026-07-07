@@ -1,0 +1,433 @@
+#!/usr/bin/env python3
+################################################################
+# Copyright (C) 2026 Arm Limited. All rights reserved.
+################################################################
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import tempfile
+import urllib.parse
+from pathlib import Path
+
+from agent_runtime.contracts import AgentCommand
+from github_api import github_api_json
+from github_actions import find_latest_workflow_run_for_head, read_pr_details
+from agent_runtime.review.state import (
+    missing_review_findings_error_message,
+    normalize_review_state,
+    read_json_file,
+    resolve_canonical_review_state,
+    review_state_recommendation,
+    review_state_requires_findings,
+)
+
+from agent_workflow_common.git_remote import push_head_to_remote_branch, remote_branch_force_lease
+from agent_workflow_common.github_output import write_outputs
+from agent_workflow_common.json_files import write_json_file
+from agent_workflow_common.process import run_command
+from agent_workflow_common.review_workflow import standard_agent_review_workflow
+from agent_workflow_common.task_refs import resolve_task_ref
+from agent_workflow_common.validation import run_validation_command, validation_command_environment
+
+from .paths import resolve_repo_path
+from .profile import (
+    load_profile,
+    profile_agent_runtime_config_outputs,
+    profile_validation_commands,
+)
+from .templates import (
+    CONTEXT_ROOT_TOKEN,
+    HEAD_BRANCH_TOKEN,
+    PR_NUMBER_TOKEN,
+    REVIEW_RECOMMENDATION_TOKEN,
+    REVIEW_RUN_ID_TOKEN,
+    REVIEW_STATE_JSON_TOKEN,
+    REVIEW_SUMMARY_TOKEN,
+    REVIEW_WORKFLOW_NAME_TOKEN,
+    SOURCE_RUN_ID_TOKEN,
+    profile_prompt_replacements,
+    render_markdown_template,
+)
+
+
+def read_review_state(*, state_script: str, pr_number: str) -> dict[str, object]:
+    script_path = resolve_repo_path(state_script)
+    if not script_path.is_file():
+        raise ValueError(f"Review state script is missing: {script_path}")
+
+    env = dict(os.environ)
+    if not env.get("GITHUB_TOKEN"):
+        env["GITHUB_TOKEN"] = env.get("GH_TOKEN", "")
+    env["GITHUB_PR_NUMBER"] = pr_number
+
+    with tempfile.TemporaryDirectory(prefix="agent-stabilization-review-") as temp_dir:
+        output_path = Path(temp_dir) / "review-state.json"
+        run_command(
+            ["python3", str(script_path), "--output", str(output_path)],
+            env=env,
+        )
+        return read_json_file(output_path)
+
+
+def resolve_review_state_for_run(
+    *,
+    repository: str,
+    pr_number: str,
+    workflow_name: str,
+    run_id: str,
+    head_sha: str,
+    fallback_state: dict[str, object],
+) -> tuple[dict[str, object], str]:
+    if not repository or not run_id:
+        return {}, ""
+    return resolve_canonical_review_state(
+        repository=repository,
+        pr_number=pr_number,
+        workflow_name=workflow_name,
+        run_id=run_id,
+        head_sha=head_sha,
+        fallback_state=fallback_state,
+    )
+
+
+def build_stabilize_prompt(
+    *,
+    profile: dict[str, object],
+    context_root: Path,
+    pr_number: str,
+    head_branch: str,
+    source_run_id: str,
+    workflow_name: str,
+    review_state: dict[str, object],
+) -> str:
+    review_summary = str(review_state.get("summary") or "").strip() or "No summary provided."
+    review_recommendation = str(review_state.get("overall_recommendation") or "").strip() or "unknown"
+    review_run_id = str(review_state.get("run_id") or "").strip() or "unknown"
+    review_state_json = json.dumps(review_state, indent=2, sort_keys=True)
+    replacements = profile_prompt_replacements(profile)
+    replacements.update(
+        {
+            CONTEXT_ROOT_TOKEN: context_root.as_posix(),
+            PR_NUMBER_TOKEN: pr_number,
+            HEAD_BRANCH_TOKEN: head_branch,
+            REVIEW_RECOMMENDATION_TOKEN: review_recommendation,
+            REVIEW_RUN_ID_TOKEN: review_run_id,
+            REVIEW_STATE_JSON_TOKEN: review_state_json,
+            REVIEW_SUMMARY_TOKEN: review_summary,
+            REVIEW_WORKFLOW_NAME_TOKEN: workflow_name,
+            SOURCE_RUN_ID_TOKEN: source_run_id,
+        }
+    )
+
+    return render_markdown_template(
+        "stabilize-goal.md.in",
+        replacements,
+    )
+
+
+def write_stabilization_context(
+    *,
+    context_root: Path,
+    review_state: dict[str, object],
+    prompt_text: str,
+) -> Path:
+    context_root.mkdir(parents=True, exist_ok=True)
+    write_json_file(context_root / "review-state.json", review_state)
+    prompt_path = context_root / "stabilize-goal.md"
+    prompt_path.write_text(prompt_text, encoding="utf-8")
+    return prompt_path
+
+
+def copy_required_path(source: Path, destination: Path) -> None:
+    if not source.exists():
+        raise ValueError(f"Required helper bundle source is missing: {source}")
+    if source.is_dir():
+        shutil.copytree(source, destination, dirs_exist_ok=True)
+        return
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, destination)
+
+
+def snapshot_helper_bundle(*, bundle_root: Path) -> None:
+    if bundle_root.exists():
+        shutil.rmtree(bundle_root)
+
+    copy_required_path(resolve_repo_path("scripts/private/github_api.py"),
+                       bundle_root / "scripts/private/github_api.py")
+    copy_required_path(
+        resolve_repo_path("scripts/private/github_actions.py"),
+        bundle_root / "scripts/private/github_actions.py",
+    )
+    copy_required_path(
+        resolve_repo_path("scripts/private/agent_stabilization_orchestrator"),
+        bundle_root / "scripts/private/agent_stabilization_orchestrator",
+    )
+    copy_required_path(
+        resolve_repo_path("scripts/private/agent_workflow_common"),
+        bundle_root / "scripts/private/agent_workflow_common",
+    )
+    copy_required_path(
+        resolve_repo_path("scripts/private/agent_runtime"),
+        bundle_root / "scripts/private/agent_runtime",
+    )
+    for runtime_file in (
+        "requirements-openai-agents.txt",
+        "agent-models.json",
+        "agent-tasks.json",
+    ):
+        copy_required_path(
+            resolve_repo_path(f".github/agent-runtime/runtime/{runtime_file}"),
+            bundle_root / f".github/agent-runtime/runtime/{runtime_file}",
+        )
+    for directory in (
+        ".github/agent-runtime/review/prompts",
+        ".github/agent-runtime/review/schemas",
+        ".github/agent-runtime/pr-stabilization/prompts",
+        ".github/agent-runtime/pr-stabilization/profiles",
+        ".github/agent-runtime/workflow-policy",
+    ):
+        copy_required_path(resolve_repo_path(directory), bundle_root / directory)
+
+
+def restore_helper_bundle(*, bundle_root: Path, helper_root: Path) -> None:
+    if not bundle_root.is_dir():
+        raise ValueError(f"Workflow helper bundle is missing: {bundle_root}")
+    exclude_file = Path(".git/info/exclude")
+    helper_pattern = f"/{helper_root.as_posix().strip('/')}/"
+    existing_excludes = exclude_file.read_text(encoding="utf-8") if exclude_file.is_file() else ""
+    if helper_pattern not in existing_excludes.splitlines():
+        exclude_file.parent.mkdir(parents=True, exist_ok=True)
+        with exclude_file.open("a", encoding="utf-8") as output:
+            output.write(f"{helper_pattern}\n")
+    if helper_root.exists():
+        shutil.rmtree(helper_root)
+    shutil.copytree(bundle_root, helper_root)
+
+
+def run_validation_commands(commands: list[str]) -> None:
+    env = validation_command_environment()
+    for command in commands:
+        print(f"Running validation command: {command}")
+        run_validation_command(command, env=env)
+
+
+def commit_review_fix(
+    *,
+    pr_number: str,
+    head_branch: str,
+    task_ref: str,
+    review_state: dict[str, object],
+) -> str:
+    push_token = os.environ.get("GH_TOKEN", "").strip()
+    if not push_token:
+        raise RuntimeError(
+            "EXPKITS_AGENT_TOKEN must be provided as GH_TOKEN when pushing stabilization commits."
+        )
+    repository = os.environ.get("GITHUB_REPOSITORY", "").strip()
+    if not repository:
+        raise RuntimeError("GITHUB_REPOSITORY is required to push stabilization commits.")
+    server_url = os.environ.get("GITHUB_SERVER_URL", "https://github.com").strip()
+    parsed_server_url = urllib.parse.urlparse(server_url)
+    if parsed_server_url.scheme != "https" or not parsed_server_url.netloc:
+        raise RuntimeError(f"Unsupported GITHUB_SERVER_URL for token-authenticated push: {server_url}")
+    user_payload = github_api_json("user")
+    push_actor = str(user_payload.get("login") or "").strip() if isinstance(user_payload, dict) else ""
+    if not push_actor:
+        raise RuntimeError("Unable to resolve PAT owner login for stabilization push.")
+
+    run_command(["git", "config", "user.name", "github-actions[bot]"])
+    run_command(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"])
+    run_command(
+        [
+            "git",
+            "remote",
+            "set-url",
+            "origin",
+            f"https://{push_actor}:{push_token}@{parsed_server_url.netloc}/{repository}.git",
+        ]
+    )
+    branch_lease = remote_branch_force_lease(head_branch, command_runner=run_command)
+    run_command(["git", "add", "-A"])
+    if run_command(["git", "diff", "--cached", "--quiet"], check=False).returncode == 0:
+        return ""
+
+    commit_command = [
+        "git",
+        "commit",
+        "-m",
+        f"[bot] Address Agent Review findings on PR #{pr_number}",
+        "-m",
+        f"Task: {task_ref}",
+    ]
+
+    review_run_id = str(review_state.get("run_id") or "").strip()
+    if review_run_id:
+        commit_command.extend(["-m", f"Agent Review run: {review_run_id}"])
+
+    review_summary = str(review_state.get("summary") or "").strip()
+    if review_summary:
+        commit_command.extend(["-m", review_summary])
+
+    run_command(commit_command)
+    push_head_to_remote_branch(head_branch, branch_lease=branch_lease, command_runner=run_command)
+    return run_command(["git", "rev-parse", "HEAD"], capture_output=True).stdout.strip()
+
+
+def command_resolve_pr_details(args: argparse.Namespace) -> int:
+    write_outputs(read_pr_details(args.pr_number), args.github_output)
+    return 0
+
+
+def command_prepare_stabilization_context(args: argparse.Namespace) -> int:
+    profile = load_profile(args.profile_path)
+    context_root = Path(args.context_root)
+    review_workflow = standard_agent_review_workflow()
+    repository = os.environ.get("GITHUB_REPOSITORY", "")
+
+    pr_details = read_pr_details(args.pr_number)
+    head_branch = pr_details["head_branch"]
+    head_sha = args.head_sha or pr_details["head_sha"]
+    if not head_branch or not head_sha:
+        raise RuntimeError(f"Unable to resolve PR head branch and head SHA for PR #{args.pr_number}.")
+
+    review_state = normalize_review_state(
+        read_review_state(
+            state_script=str(review_workflow["review_state_script"]),
+            pr_number=args.pr_number,
+        )
+    )
+    review_state_source = "artifact"
+    review_head_sha = str(review_state.get("head_sha") or "").strip()
+    recommendation = str(review_state.get("overall_recommendation") or "").strip().lower()
+    review_run_id = str(review_state.get("run_id") or "").strip()
+
+    if recommendation and review_head_sha == head_sha and review_run_id:
+        canonical_state, canonical_source = resolve_review_state_for_run(
+            repository=repository,
+            pr_number=args.pr_number,
+            workflow_name=str(review_workflow["workflow_name"]),
+            run_id=review_run_id,
+            head_sha=head_sha,
+            fallback_state=review_state,
+        )
+        if canonical_state:
+            review_state = canonical_state
+            review_state_source = canonical_source
+            review_head_sha = str(review_state.get("head_sha") or "").strip()
+            recommendation = review_state_recommendation(review_state)
+
+    if (not recommendation or not review_head_sha or review_head_sha != head_sha) and repository:
+        review_run_id = find_latest_workflow_run_for_head(
+            repository=repository,
+            workflow_file=str(review_workflow["workflow_file"]),
+            branch=head_branch,
+            head_sha=head_sha,
+        )
+        if review_run_id:
+            canonical_state, canonical_source = resolve_review_state_for_run(
+                repository=repository,
+                pr_number=args.pr_number,
+                workflow_name=str(review_workflow["workflow_name"]),
+                run_id=review_run_id,
+                head_sha=head_sha,
+                fallback_state=review_state,
+            )
+            if canonical_state:
+                review_state = canonical_state
+                review_state_source = canonical_source
+                review_head_sha = str(review_state.get("head_sha") or "").strip()
+                recommendation = review_state_recommendation(review_state)
+    if not recommendation:
+        raise RuntimeError(f"Latest review state for PR #{args.pr_number} did not contain a recommendation.")
+    if not review_head_sha:
+        raise RuntimeError(f"Latest review state for PR #{args.pr_number} did not contain a head SHA.")
+    if review_head_sha != head_sha:
+        raise RuntimeError(
+            f"Latest review state head SHA {review_head_sha} did not match expected head SHA {head_sha} for PR #{args.pr_number}.",
+        )
+    if review_state_requires_findings(review_state, source=review_state_source):
+        raise RuntimeError(
+            missing_review_findings_error_message(
+                pr_number=args.pr_number,
+                workflow_name=str(review_workflow["workflow_name"]),
+                review_state=review_state,
+                source=review_state_source,
+            )
+        )
+
+    write_stabilization_context(
+        context_root=context_root,
+        review_state=review_state,
+        prompt_text=build_stabilize_prompt(
+            profile=profile,
+            context_root=context_root,
+            pr_number=args.pr_number,
+            head_branch=head_branch,
+            source_run_id=args.source_run_id,
+            workflow_name=str(review_workflow["workflow_name"]),
+            review_state=review_state,
+        ),
+    )
+    runtime_config_outputs = profile_agent_runtime_config_outputs(
+        profile,
+        command=AgentCommand.STABILIZATION,
+        profile_path=args.profile_path,
+    )
+    write_outputs(
+        {
+            "head_branch": head_branch,
+            "head_sha": head_sha,
+            "target_branch": pr_details["target_branch"],
+            "review_recommendation": recommendation,
+            "review_run_id": str(review_state.get("run_id") or "").strip(),
+            **runtime_config_outputs,
+        },
+        args.github_output,
+    )
+    return 0
+
+
+def command_snapshot_helper_bundle(args: argparse.Namespace) -> int:
+    snapshot_helper_bundle(bundle_root=Path(args.bundle_root))
+    return 0
+
+
+def command_restore_helper_bundle(args: argparse.Namespace) -> int:
+    restore_helper_bundle(
+        bundle_root=Path(args.bundle_root),
+        helper_root=Path(args.helper_root),
+    )
+    return 0
+
+
+def command_run_validation(args: argparse.Namespace) -> int:
+    profile = load_profile(args.profile_path)
+    run_validation_commands(profile_validation_commands(profile))
+    return 0
+
+
+def command_commit_review_fix(args: argparse.Namespace) -> int:
+    context_root = Path(args.context_root)
+    review_state = read_json_file(context_root / "review-state.json")
+    pr_details = read_pr_details(args.pr_number)
+    task_ref = resolve_task_ref(
+        args.task_ref,
+        pr_details.get("title", ""),
+        purpose="Stabilization commit creation",
+    )
+    head_sha = commit_review_fix(
+        pr_number=args.pr_number,
+        head_branch=args.head_branch,
+        task_ref=task_ref,
+        review_state=review_state,
+    )
+    if not head_sha:
+        raise RuntimeError(
+            f"Agent produced no repository changes for PR #{args.pr_number} during stabilization.",
+        )
+    write_outputs({"head_sha": head_sha}, args.github_output)
+    return 0

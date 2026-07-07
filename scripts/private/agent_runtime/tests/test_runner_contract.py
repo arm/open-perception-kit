@@ -10,8 +10,8 @@ import unittest
 import json
 import tempfile
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tests'))
-from agent_workflow_test_support import (  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from test_support.agent_workflow import (  # noqa: E402
     AGENT_MODEL_CONFIG_FILE,
     AGENT_REQUIREMENTS_FILE,
     AGENT_REVIEW_FETCH_SCRIPT,

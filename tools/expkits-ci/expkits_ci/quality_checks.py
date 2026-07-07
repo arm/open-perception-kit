@@ -55,11 +55,14 @@ class QualityChecks:
         "scripts/private/github_actions.py",
         "scripts/private/github_api.py",
         "scripts/private/agent_runtime/",
+        "scripts/private/agent_repair_orchestrator/",
+        "scripts/private/agent_stabilization_orchestrator/",
+        "scripts/private/agent_workflow_common/",
+        "scripts/private/test_support/",
         "scripts/private/tests/",
-        "scripts/private/workflow_action_update_agent/",
         ".github/workflows/agent-review.yml",
-        ".github/workflows/agent-stabilize-pr.yml",
-        ".github/workflows/workflow-action-update-agent",
+        ".github/workflows/agent-repair-source-run",
+        ".github/workflows/agent-stabilize-pr",
     )
     AGENT_RUNTIME_STATIC_TRIGGER_FILES = (
         "tools/expkits-ci/agent-workflows-mypy.ini",

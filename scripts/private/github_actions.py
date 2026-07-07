@@ -55,7 +55,7 @@ def read_pr_details(pr_number: str, *, repository: str | None = None) -> dict[st
         )
     return {
         "title": str(payload.get("title") or ""),
-        "repair_branch": str(head.get("ref") or ""),
+        "head_branch": str(head.get("ref") or ""),
         "head_sha": str(head.get("sha") or ""),
         "target_branch": target_branch,
         "head_repository": head_repository,
@@ -126,7 +126,7 @@ def write_workflow_run_log_file(
         log_archive = download_github_archive(
             f"{github_api_base_url()}/repos/{repository}/actions/runs/{run_id}/logs",
         )
-        with tempfile.TemporaryDirectory(prefix="workflow-action-update-agent-run-logs-") as temp_dir:
+        with tempfile.TemporaryDirectory(prefix="agent-repair-source-run-logs-") as temp_dir:
             log_root = Path(temp_dir) / "logs"
             log_files = extract_archive_bytes(log_archive, log_root)
             if not log_files:

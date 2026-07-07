@@ -175,7 +175,7 @@ UNSUPPORTED_REVIEW_CLAIM_GUARDS = (
     UnsupportedReviewClaimGuard(
         name="verified agent runtime artifact context",
         evidence_tokens=(
-            ".agent-runtime/workflow-action-update-agent/artifacts",
+            ".agent-runtime/source-run-repair/artifacts",
         ),
         claim_markers=(
             "outside the agent context",

@@ -127,7 +127,7 @@ def read_review_artifact_state(*, repository: str, run_id: str, head_sha: str) -
     if not run_id:
         return dict()
 
-    with tempfile.TemporaryDirectory(prefix="workflow-action-update-agent-review-artifact-") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="agent-review-artifact-") as temp_dir:
         payload = github_api_json(
             github_api_query_endpoint(
                 f"repos/{repository}/actions/runs/{run_id}/artifacts",

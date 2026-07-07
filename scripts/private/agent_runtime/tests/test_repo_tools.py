@@ -10,8 +10,8 @@ import unittest
 import tempfile
 import textwrap
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tests'))
-from agent_workflow_test_support import (  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from test_support.agent_workflow import (  # noqa: E402
     OPENAI_AGENT_REPO_TOOLS_SCRIPT,
     OPENAI_AGENT_RUNTIME_CONTEXT,
     load_agent_workflow_module_with_fake_sdk,

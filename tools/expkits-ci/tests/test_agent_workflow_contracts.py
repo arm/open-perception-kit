@@ -9,21 +9,22 @@ import sys
 from pathlib import Path
 import unittest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'scripts/private/tests'))
-from agent_workflow_test_support import (  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'scripts/private'))
+from test_support.agent_workflow import (  # noqa: E402
     AGENT_MODEL_CONFIG_FILE,
+    AGENT_REPAIR_SOURCE_RUN_WORKER_FILE,
+    AGENT_REPAIR_SOURCE_RUN_WORKFLOW_FILE,
     AGENT_REVIEW_WORKFLOW_FILE,
+    AGENT_STABILIZE_PR_LABEL_WORKFLOW_FILE,
+    AGENT_STABILIZE_PR_WORKER_FILE,
     AGENT_TASK_CONFIG_FILE,
     OPENAI_AGENT_RUNNER_LABEL,
     PEK_CI_WORKFLOW_FILE,
-    PROFILE_FILE,
-    REUSABLE_WORKFLOW_FILE,
+    SOURCE_RUN_REPAIR_PROFILE_FILE,
     SONAR_WORKFLOW_FILE,
-    STABILIZER_LABEL_WORKFLOW_FILE,
-    STABILIZER_WORKFLOW_FILE,
+    STABILIZATION_PROFILE_FILE,
     WORKFLOW_AUDIT_FILE,
-    WORKFLOW_AUDIT_PROFILE_FILE,
-    WORKFLOW_FILE,
+    WORKFLOW_DEPENDENCY_FRESHNESS_PROFILE_FILE,
     load_quality_checks_module,
     load_yaml,
     step_map,
@@ -44,51 +45,39 @@ class AgentWorkflowContractTests(unittest.TestCase):
         ):
             self.assertNotIn(flag, run)
 
-    def test_manual_wrapper_calls_reusable_workflow_with_minimal_inputs(self):
-        workflow = load_yaml(WORKFLOW_FILE)
+    def test_manual_repair_wrapper_calls_repair_worker_with_minimal_inputs(self):
+        workflow = load_yaml(AGENT_REPAIR_SOURCE_RUN_WORKFLOW_FILE)
         dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
-        repair_job = workflow["jobs"]["run-workflow-action-update-agent"]
-        stabilize_job = workflow["jobs"]["run-agent-stabilizer"]
+        repair_job = workflow["jobs"]["run-agent-repair-source-run"]
 
         self.assertEqual(
             set(dispatch_inputs.keys()),
             {
                 "source_run_id",
-                "pr_number",
-                "head_sha",
                 "target_branch",
                 "task_ref",
                 "profile_path",
-                "context_root",
                 "dispatch_nonce",
             },
         )
         self.assertNotIn("workflow_run", workflow["on"])
-        self.assertEqual(repair_job["uses"], "./.github/workflows/workflow-action-update-agent-reusable.yml")
-        self.assertEqual(stabilize_job["uses"], "./.github/workflows/agent-stabilize-pr.yml")
-        self.assertEqual(repair_job["if"], "${{ inputs.pr_number == '' }}")
-        self.assertEqual(stabilize_job["if"], "${{ inputs.pr_number != '' }}")
+        self.assertEqual(repair_job["uses"], "./.github/workflows/agent-repair-source-run-worker.yml")
+        self.assertNotIn("run-agent-stabilizer", workflow["jobs"])
         self.assertEqual(dispatch_inputs["task_ref"]["default"], "")
         self.assertEqual(repair_job["with"]["task_ref"], "${{ inputs.task_ref || '' }}")
-        self.assertEqual(stabilize_job["with"]["task_ref"], "${{ inputs.task_ref || '' }}")
         self.assertEqual(
             set(repair_job["with"].keys()),
             {"source_run_id", "target_branch", "task_ref", "profile_path"},
-        )
-        self.assertEqual(
-            set(stabilize_job["with"].keys()),
-            {"pr_number", "head_sha", "source_run_id", "task_ref", "profile_path", "context_root", "dispatch_nonce"},
         )
         self.assertNotIn("source_workflow_conclusion", repair_job["with"])
         self.assertNotIn("source_head_branch", repair_job["with"])
         self.assertNotIn("source_head_repository", repair_job["with"])
         self.assertEqual(repair_job["permissions"]["actions"], "write")
-        self.assertEqual(stabilize_job["permissions"]["actions"], "read")
         self.assertEqual(repair_job["secrets"], "inherit")
-        self.assertEqual(stabilize_job["secrets"], "inherit")
+        self.assertNotIn("inputs.pr_number", AGENT_REPAIR_SOURCE_RUN_WORKER_FILE.read_text(encoding="utf-8"))
 
     def test_reusable_workflow_uses_profile_and_direct_helper_commands(self):
-        workflow = load_yaml(REUSABLE_WORKFLOW_FILE)
+        workflow = load_yaml(AGENT_REPAIR_SOURCE_RUN_WORKER_FILE)
         inputs = workflow["on"]["workflow_call"]["inputs"]
         prepare_job = workflow["jobs"]["prepare"]
         agent_job = workflow["jobs"]["agent-fix"]
@@ -108,7 +97,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         )
         self.assertEqual(
             inputs["profile_path"]["default"],
-            ".github/agent-runtime/workflow-action-update-agent/profiles/profile.json",
+            ".github/agent-runtime/source-run-repair/profiles/profile.json",
         )
         self.assertEqual(inputs["task_ref"]["default"], "")
 
@@ -121,7 +110,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         all_steps = {**prepare_steps, **agent_steps, **open_pr_steps}
         for step_name, command in output_steps.items():
             run = all_steps[step_name]["run"]
-            self.assertIn(f"python3 -m workflow_action_update_agent {command}", run)
+            self.assertIn(f"python3 -m agent_repair_orchestrator {command}", run)
             self.assertIn('--github-output "${GITHUB_OUTPUT}"', run)
             self.assertIn('PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private', run)
 
@@ -180,9 +169,9 @@ class AgentWorkflowContractTests(unittest.TestCase):
             '--task-config-file "${{ needs.prepare.outputs.agent_task_config_file }}"',
             agent_step["run"],
         )
-        self.assertIn("--prompt-file .agent-runtime/workflow-action-update-agent/goal.md", agent_step["run"])
+        self.assertIn("--prompt-file .agent-runtime/source-run-repair/goal.md", agent_step["run"])
         self.assertEqual(
-            agent_step["run"].count("${{ runner.temp }}/workflow-action-update-agent-agent-output.md"),
+            agent_step["run"].count("${{ runner.temp }}/agent-repair-source-run-agent-output.md"),
             1,
         )
         self.assert_no_direct_task_config_flags(agent_step["run"])
@@ -202,7 +191,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
             static_regression_step["run"],
         )
         self.assertIn(
-            "python3 -m workflow_action_update_agent run-validation",
+            "python3 -m agent_repair_orchestrator run-validation",
             static_regression_step["run"],
         )
         self.assertIn(
@@ -210,11 +199,11 @@ class AgentWorkflowContractTests(unittest.TestCase):
             static_regression_step["run"],
         )
         self.assertIn(
-            "--profile-path \"${{ inputs.profile_path || '.github/agent-runtime/workflow-action-update-agent/profiles/profile.json' }}\"",
+            "--profile-path \"${{ inputs.profile_path || '.github/agent-runtime/source-run-repair/profiles/profile.json' }}\"",
             static_regression_step["run"],
         )
-        workflow_source = REUSABLE_WORKFLOW_FILE.read_text(encoding="utf-8")
-        self.assertNotIn("agent-stabilize-pr.yml", workflow_source)
+        workflow_source = AGENT_REPAIR_SOURCE_RUN_WORKER_FILE.read_text(encoding="utf-8")
+        self.assertNotIn("agent-stabilize-pr-worker.yml", workflow_source)
         self.assertNotIn("stabilize-pr", workflow_source)
         self.assertNotIn("merge-when-stable", workflow_source)
         self.assertNotIn("merge_pr", workflow_source)
@@ -266,7 +255,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertEqual(auto_stabilize_job["needs"], "review")
         self.assertEqual(
             auto_stabilize_job["uses"],
-            "./.github/workflows/agent-stabilize-pr.yml",
+            "./.github/workflows/agent-stabilize-pr-worker.yml",
         )
         self.assertIn("github.event_name == 'pull_request'", auto_stabilize_job["if"])
         self.assertIn("needs.review.result == 'success'", auto_stabilize_job["if"])
@@ -284,7 +273,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertEqual(auto_stabilize_job["with"]["head_sha"], "${{ github.event.pull_request.head.sha }}")
         self.assertEqual(auto_stabilize_job["with"]["source_run_id"], "${{ github.run_id }}")
         self.assertEqual(auto_stabilize_job["with"]["profile_path"],
-                         ".github/agent-runtime/workflow-action-update-agent/profiles/profile.json")
+                         ".github/agent-runtime/pr-stabilization/profiles/profile.json")
         self.assertEqual(auto_stabilize_job["secrets"], "inherit")
         self.assertIn("base_ref", dispatch_inputs)
         self.assertIn("head_ref", dispatch_inputs)
@@ -402,7 +391,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         )
 
     def test_agent_stabilize_label_workflow_is_separate_from_review_gate(self):
-        workflow = load_yaml(STABILIZER_LABEL_WORKFLOW_FILE)
+        workflow = load_yaml(AGENT_STABILIZE_PR_LABEL_WORKFLOW_FILE)
         job = workflow["jobs"]["run-agent-stabilizer"]
 
         self.assertEqual(workflow["on"]["pull_request"]["types"], ["labeled"])
@@ -411,7 +400,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertNotIn("review-gate", workflow["jobs"])
         self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", job["if"])
         self.assertIn("github.event.label.name == 'agent-stabilize'", job["if"])
-        self.assertEqual(job["uses"], "./.github/workflows/agent-stabilize-pr.yml")
+        self.assertEqual(job["uses"], "./.github/workflows/agent-stabilize-pr-worker.yml")
         self.assertEqual(job["permissions"]["actions"], "read")
         self.assertEqual(job["permissions"]["contents"], "write")
         self.assertEqual(job["permissions"]["pull-requests"], "write")
@@ -420,7 +409,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertEqual(job["with"]["task_ref"], "${{ github.event.pull_request.title }}")
         self.assertEqual(
             job["with"]["profile_path"],
-            ".github/agent-runtime/workflow-action-update-agent/profiles/profile.json",
+            ".github/agent-runtime/pr-stabilization/profiles/profile.json",
         )
         self.assertNotIn("source_run_id", job["with"])
         self.assertEqual(job["secrets"], "inherit")
@@ -430,7 +419,17 @@ class AgentWorkflowContractTests(unittest.TestCase):
 
         self.assertTrue(
             quality_checks.QualityChecks.should_run_agent_runtime_static_analysis(
-                ["scripts/private/workflow_action_update_agent/cli.py"],
+                ["scripts/private/agent_repair_orchestrator/cli.py"],
+            )
+        )
+        self.assertTrue(
+            quality_checks.QualityChecks.should_run_agent_runtime_static_analysis(
+                ["scripts/private/agent_stabilization_orchestrator/cli.py"],
+            )
+        )
+        self.assertTrue(
+            quality_checks.QualityChecks.should_run_agent_runtime_static_analysis(
+                ["scripts/private/agent_workflow_common/validation.py"],
             )
         )
         self.assertTrue(
@@ -446,6 +445,11 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertTrue(
             quality_checks.QualityChecks.should_run_agent_runtime_static_analysis(
                 ["scripts/private/tests/test_github_api.py"],
+            )
+        )
+        self.assertTrue(
+            quality_checks.QualityChecks.should_run_agent_runtime_static_analysis(
+                ["scripts/private/test_support/agent_workflow.py"],
             )
         )
         self.assertTrue(
@@ -548,13 +552,13 @@ class AgentWorkflowContractTests(unittest.TestCase):
     def test_modified_validation_workflows_use_canonical_artifact_upload_major(self):
         workflows = {
             "agent-review": load_yaml(AGENT_REVIEW_WORKFLOW_FILE),
-            "agent-stabilize-pr-on-label": load_yaml(STABILIZER_LABEL_WORKFLOW_FILE),
-            "agent-stabilize-pr": load_yaml(STABILIZER_WORKFLOW_FILE),
+            "agent-stabilize-pr-on-label": load_yaml(AGENT_STABILIZE_PR_LABEL_WORKFLOW_FILE),
+            "agent-stabilize-pr-worker": load_yaml(AGENT_STABILIZE_PR_WORKER_FILE),
             "pek-ci": load_yaml(PEK_CI_WORKFLOW_FILE),
             "sonar": load_yaml(SONAR_WORKFLOW_FILE),
-            "workflow-action-update-agent-reusable": load_yaml(REUSABLE_WORKFLOW_FILE),
+            "agent-repair-source-run-worker": load_yaml(AGENT_REPAIR_SOURCE_RUN_WORKER_FILE),
             "workflow-audit": load_yaml(WORKFLOW_AUDIT_FILE),
-            "workflow-action-update-agent": load_yaml(WORKFLOW_FILE),
+            "agent-repair-source-run": load_yaml(AGENT_REPAIR_SOURCE_RUN_WORKFLOW_FILE),
         }
 
         for workflow_name, workflow in workflows.items():
@@ -565,7 +569,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
                             self.assertEqual(step["uses"], "actions/upload-artifact@v6")
 
     def test_stabilizer_workflow_uses_canonical_agent_review_shape(self):
-        workflow = load_yaml(STABILIZER_WORKFLOW_FILE)
+        workflow = load_yaml(AGENT_STABILIZE_PR_WORKER_FILE)
         call_inputs = workflow["on"]["workflow_call"]["inputs"]
         job = workflow["jobs"]["stabilize"]
         steps = step_map(job)
@@ -601,8 +605,8 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertIn("gh pr view", helper_ref_step["run"])
         self.assertIn("headRefOid", helper_ref_step["run"])
         snapshot_step = steps["Snapshot workflow helper bundle"]
-        self.assertIn("python3 -m workflow_action_update_agent snapshot-helper-bundle", snapshot_step["run"])
-        self.assertIn('--bundle-root "${RUNNER_TEMP}/workflow-action-update-agent-helper"', snapshot_step["run"])
+        self.assertIn("python3 -m agent_stabilization_orchestrator snapshot-helper-bundle", snapshot_step["run"])
+        self.assertIn('--bundle-root "${RUNNER_TEMP}/agent-stabilization-helper"', snapshot_step["run"])
         python_step = steps["Set up Agent Python"]
         self.assertEqual(python_step["if"], "${{ steps.context.outputs.review_recommendation != 'approve' }}")
         self.assertEqual(python_step["uses"], "actions/setup-python@v6")
@@ -610,11 +614,11 @@ class AgentWorkflowContractTests(unittest.TestCase):
         install_step = steps["Install OpenAI agent runtime"]
         self.assertEqual(install_step["shell"], "bash")
         self.assertIn(
-            "python3 .workflow-action-update-agent-helper/scripts/private/agent_runtime/setup_runtime.py",
+            "python3 .agent-runtime/agent-stabilization-helper/scripts/private/agent_runtime/setup_runtime.py",
             install_step["run"],
         )
         self.assertIn(
-            "--requirements-file .workflow-action-update-agent-helper/.github/agent-runtime/runtime/requirements-openai-agents.txt",
+            "--requirements-file .agent-runtime/agent-stabilization-helper/.github/agent-runtime/runtime/requirements-openai-agents.txt",
             install_step["run"],
         )
         agent_step = steps["Run OpenAI SDK stabilization agent"]
@@ -624,7 +628,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
             "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
         )
         self.assertIn(
-            ".agent-runtime/openai-agent-venv/bin/python .workflow-action-update-agent-helper/scripts/private/agent_runtime/openai_agent_runner.py run-stabilization",
+            ".agent-runtime/openai-agent-venv/bin/python .agent-runtime/agent-stabilization-helper/scripts/private/agent_runtime/openai_agent_runner.py run-stabilization",
             agent_step["run"],
         )
         self.assertIn(
@@ -637,31 +641,31 @@ class AgentWorkflowContractTests(unittest.TestCase):
         )
         self.assertIn('--prompt-file "${{ inputs.context_root }}/stabilize-goal.md"', agent_step["run"])
         self.assertIn(
-            '--output-file "${{ runner.temp }}/workflow-action-update-agent-stabilize-output.md"',
+            '--output-file "${{ runner.temp }}/agent-stabilize-pr-output.md"',
             agent_step["run"],
         )
         self.assert_no_direct_task_config_flags(agent_step["run"])
         self.assert_no_direct_model_flag(agent_step["run"])
         resolve_pr_step = steps["Resolve PR details"]
         self.assertEqual(resolve_pr_step["shell"], "bash")
-        self.assertIn("python3 -m workflow_action_update_agent resolve-pr-details", resolve_pr_step["run"])
+        self.assertIn("python3 -m agent_stabilization_orchestrator resolve-pr-details", resolve_pr_step["run"])
         self.assertIn('--pr-number "${{ inputs.pr_number }}"', resolve_pr_step["run"])
         self.assertIn('--github-output "${GITHUB_OUTPUT}"', resolve_pr_step["run"])
         self.assertEqual(snapshot_step["shell"], "bash")
         restore_step = steps["Restore workflow helper bundle"]
         self.assertEqual(restore_step["shell"], "bash")
         self.assertIn("restore-helper-bundle", restore_step["run"])
-        self.assertIn('--helper-root ".workflow-action-update-agent-helper"', restore_step["run"])
+        self.assertIn('--helper-root ".agent-runtime/agent-stabilization-helper"', restore_step["run"])
         context_step = steps["Prepare stabilization context"]
         self.assertEqual(context_step["shell"], "bash")
         self.assertNotIn("uses", context_step)
-        self.assertIn("python3 -m workflow_action_update_agent prepare-stabilization-context", context_step["run"])
+        self.assertIn("python3 -m agent_stabilization_orchestrator prepare-stabilization-context", context_step["run"])
         self.assertIn(
-            'PYTHONPATH="${GITHUB_WORKSPACE}/.workflow-action-update-agent-helper/scripts/private',
+            'PYTHONPATH="${GITHUB_WORKSPACE}/.agent-runtime/agent-stabilization-helper/scripts/private',
             context_step["run"],
         )
         self.assertIn(
-            '--profile-path ".workflow-action-update-agent-helper/${{ inputs.profile_path }}"',
+            '--profile-path ".agent-runtime/agent-stabilization-helper/${{ inputs.profile_path }}"',
             context_step["run"],
         )
         self.assertIn('--github-output "${GITHUB_OUTPUT}"', context_step["run"])
@@ -673,26 +677,27 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertEqual(validation_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"], "")
         self.assertEqual(validation_step["env"]["OPENAI_API_KEY"], "")
         self.assertIn(
-            "python3 -m workflow_action_update_agent run-validation",
+            "python3 -m agent_stabilization_orchestrator run-validation",
             validation_step["run"],
         )
         self.assertIn(
-            '--profile-path "${RUNNER_TEMP}/workflow-action-update-agent-helper/${{ inputs.profile_path }}"',
+            '--profile-path "${RUNNER_TEMP}/agent-stabilization-helper/${{ inputs.profile_path }}"',
             validation_step["run"],
         )
         commit_step = steps["Commit stabilization fix"]
         self.assertEqual(commit_step["shell"], "bash")
         self.assertNotIn("uses", commit_step)
         self.assertIn(
-            "python3 -m workflow_action_update_agent commit-review-fix",
+            "python3 -m agent_stabilization_orchestrator commit-review-fix",
             commit_step["run"],
         )
         self.assertIn('--context-root "${{ inputs.context_root }}"', commit_step["run"])
         self.assertIn('--pr-number "${{ inputs.pr_number }}"', commit_step["run"])
+        self.assertIn('--head-branch "${{ steps.pr.outputs.head_branch }}"', commit_step["run"])
         skip_step = steps["Write stabilization skip artifact"]
         self.assertEqual(skip_step["if"], "${{ steps.context.outputs.review_recommendation == 'approve' }}")
         self.assertIn('mkdir -p "${{ runner.temp }}"', skip_step["run"])
-        self.assertIn("workflow-action-update-agent-stabilize-output.md", skip_step["run"])
+        self.assertIn("agent-stabilize-pr-output.md", skip_step["run"])
         self.assertIn("No stabilization agent run was needed", skip_step["run"])
         self.assertEqual(
             commit_step["env"]["GH_TOKEN"],
@@ -704,8 +709,8 @@ class AgentWorkflowContractTests(unittest.TestCase):
         task_config = json.loads(AGENT_TASK_CONFIG_FILE.read_text(encoding="utf-8"))
         workflows = {
             "agent-review": AGENT_REVIEW_WORKFLOW_FILE,
-            "agent-stabilize-pr": STABILIZER_WORKFLOW_FILE,
-            "workflow-action-update-agent-reusable": REUSABLE_WORKFLOW_FILE,
+            "agent-stabilize-pr-worker": AGENT_STABILIZE_PR_WORKER_FILE,
+            "agent-repair-source-run-worker": AGENT_REPAIR_SOURCE_RUN_WORKER_FILE,
         }
 
         self.assertEqual(set(model_config["agents"]), {"review", "repair", "stabilization"})
@@ -716,7 +721,11 @@ class AgentWorkflowContractTests(unittest.TestCase):
             self.assertIsInstance(agent_config["model"], str)
             self.assertTrue(agent_config["model"].strip(), agent_name)
 
-        for profile_file in (PROFILE_FILE, WORKFLOW_AUDIT_PROFILE_FILE):
+        for profile_file in (
+            SOURCE_RUN_REPAIR_PROFILE_FILE,
+            WORKFLOW_DEPENDENCY_FRESHNESS_PROFILE_FILE,
+            STABILIZATION_PROFILE_FILE,
+        ):
             profile = json.loads(profile_file.read_text(encoding="utf-8"))
             with self.subTest(profile=profile_file.name):
                 self.assertNotIn("agent_model", profile)

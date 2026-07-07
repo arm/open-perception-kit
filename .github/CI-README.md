@@ -34,8 +34,10 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 - Handles the `agent-stabilize` pull request label only for current-PR Agent
   Review finding stabilization
-- Calls the shared `.github/workflows/agent-stabilize-pr.yml` workflow using the
+- Calls the shared `.github/workflows/agent-stabilize-pr-worker.yml` workflow using the
   latest canonical `agent-review-out/review.json` artifact for the PR head
+- Also runs when someone adds `agent-stabilize` to an existing same-repository
+  PR, because the workflow listens for the `pull_request` `labeled` event
 - Ignores unrelated labels and does not create an Agent Review gate check
 
 ## What does `.github/agent-runtime/` do?
@@ -50,27 +52,40 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Publishes one simple Markdown report and a lightweight JSON snapshot in the `workflow-dependency-freshness` artifact
 - On pull requests, reruns only the report job so workflow changes can validate the same dependency evidence without opening repair PRs
 
-## What does `.github/workflows/workflow-action-update-agent.yml` do?
+## What does `.github/workflows/agent-repair-source-run.yml` do?
 
-- Acts as the single public manual front door for repair and PR stabilization
-- Accepts either a source run ID for the reusable repair core or a PR number for the callable stabilizer worker, forwarding inherited secrets plus the selected repair profile
+- Acts as the public manual entrypoint for source-run repair only
+- Accepts a source run ID plus optional target branch, task reference, repair profile, and dispatch nonce
+- Calls `.github/workflows/agent-repair-source-run-worker.yml` with inherited secrets
 
-## What does `.github/workflows/workflow-action-update-agent-reusable.yml` do?
+## What does `.github/workflows/agent-repair-source-run-worker.yml` do?
 
 - Contains the core repair engine behind the caller workflow
-- Resolves source-run metadata, downloads logs and artifacts, and creates `goal.md` plus the companion Markdown context files under `.agent-runtime/workflow-action-update-agent/`
+- Resolves source-run metadata, downloads logs and artifacts, and creates `goal.md` plus the companion Markdown context files under `.agent-runtime/source-run-repair/`
 - Feeds the collected failure state and any downloaded artifact context into the OpenAI SDK repair agent so the patch is generated from the report instead of from inline workflow logic
 - Runs the same shared Python OpenAI Agents SDK path as `agent-review`, with the Arm proxy and tracing disabled, to generate the repair patch
 - Opens a draft repair PR only when the source run belongs to a PR carrying the profile-defined repair authorization label, then applies the profile-defined rerun label so normal PR validation can run outside the repair creation flow
 - The default repair authorization label is `agent-repair`; it does not trigger current-PR stabilization
-- Stays orchestration-thin by delegating repo-specific helper commands to `scripts/private/workflow_action_update_agent/` and flow policy to the repair profile
-- Does not dispatch stabilization or merge the draft repair PR it opens; `.github/workflows/agent-stabilize-pr.yml` remains a `workflow_call` worker for explicit current-PR stabilization
+- Stays orchestration-thin by delegating repo-specific helper commands to `scripts/private/agent_repair_orchestrator/` and shared helper pieces to `scripts/private/agent_workflow_common/`
+- Does not dispatch stabilization or merge the draft repair PR it opens; `.github/workflows/agent-stabilize-pr-worker.yml` remains the callable worker for explicit current-PR stabilization
 - Uses `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` for the OpenAI SDK step so the repair flow matches `agent-review`
 - Supports the optional `EXPKITS_AGENT_TOKEN` secret so checkout, push, and PR operations can run under a PAT or GitHub App token instead of the default `GITHUB_TOKEN`
+
+## What does `.github/workflows/agent-stabilize-pr-worker.yml` do?
+
+- Resolves the PR branch and latest canonical Agent Review state for that PR head
+- Creates stabilization prompt context under `.agent-runtime/pr-stabilization/`
+- Snapshots helper code and checked-in Agent assets under `.agent-runtime/agent-stabilization-helper/` before checking out the PR head
+- Runs the shared Python OpenAI Agents SDK stabilizer only when the latest Agent Review recommendation is not `approve`
+- Runs the configured validation command set and pushes one follow-up commit with `EXPKITS_AGENT_TOKEN`
+- Does not create repair PRs or inspect source-run repair artifacts
 
 ## What shared workflow plumbing lives under `scripts/private/`?
 
 - `scripts/private/agent_runtime/setup_runtime.py` owns OpenAI agent runtime venv creation and dependency installation for review, repair, and stabilization workflows
+- `scripts/private/agent_repair_orchestrator/` owns source-run repair input resolution, context collection, repair prompt rendering, patch packaging, branch push, and draft PR creation
+- `scripts/private/agent_stabilization_orchestrator/` owns current-PR stabilization context preparation, helper snapshots, validation, and follow-up commits
+- `scripts/private/agent_workflow_common/` owns shared process, GitHub output, JSON, review workflow metadata, task-ref, validation, and branch-push helpers
 - `scripts/private/github_pr_context.py` resolves manual PR refs for standard PR-context workflow_dispatch runs with one `gh pr view --json baseRefName,headRefName,headRefOid` call
 - `scripts/private/sonar_quality_gate_workflow.py` owns the Sonar API probe/report wrapper so the workflow YAML only wires inputs, artifacts, and environment
 
@@ -83,26 +98,21 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Runs from the workflow-local `.agent-runtime/openai-agent-venv` environment created by `setup_runtime.py` so Ubuntu's externally managed system Python is left untouched
 - Writes structured Agent review JSON for `agent-review` and lets repair/stabilization agents inspect the repo, run validation commands, and apply minimal patches without owning branch or PR lifecycle operations
 
-## What does `scripts/private/workflow_action_update_agent/` do?
+## What do the split `.github/agent-runtime/` agentic roots do?
 
-- Holds the small repo-specific building blocks that would otherwise bloat the workflow YAML
-- Loads the selected repair profile, resolves source-run inputs, collects workflow evidence, builds runtime Markdown inputs, and renders repair PR metadata
-- Packages repository changes, pushes repair branches, opens draft PRs, and prepares current-PR stabilization context from canonical review artifact state
-- Reuses `.github/PULL_REQUEST_TEMPLATE.md` through explicit marker sections instead of brittle free-text replacement, and injects the repair CI badge only for bot-authored PRs
-- Provides the PR-lifecycle layer used by the checked-in repair and stabilization workflows
-
-## What does `.github/agent-runtime/workflow-action-update-agent/` do?
-
-- Stores the static Markdown prompt templates plus the repair profile JSON files used by the repair agent core
-- The default profile lives at `.github/agent-runtime/workflow-action-update-agent/profiles/profile.json`
-- The nightly workflow-freshness profile lives at `.github/agent-runtime/workflow-action-update-agent/profiles/workflow-audit-profile.json`
+- `.github/agent-runtime/source-run-repair/` stores source-run repair prompts and repair profiles
+- The default repair profile lives at `.github/agent-runtime/source-run-repair/profiles/profile.json`
+- The workflow dependency freshness repair profile lives at `.github/agent-runtime/source-run-repair/profiles/workflow-dependency-freshness.json`
+- `.github/agent-runtime/pr-stabilization/` stores current-PR stabilization prompts and the stabilization profile
+- `.github/agent-runtime/workflow-policy/` stores shared prompt policy used by both repair and stabilization
 - Runtime task limits and default task-to-agent-instance mapping live in `.github/agent-runtime/runtime/agent-tasks.json`
-- Keeps long review and constraint text out of the workflow YAML and Python helper while letting the profile carry flow-specific policy such as labels, prompt context files, the model config path, and a canonical validation command set name
-- Lets the helper still generate the final `.agent-runtime/workflow-action-update-agent/*.md` files on the fly at runtime, so callers reuse the same core without checking generated prompt files into git
+- Keeps long review and constraint text out of the workflow YAML and Python helpers while letting profiles carry flow-specific policy
+- Lets helpers generate final `.agent-runtime/source-run-repair/*.md` and `.agent-runtime/pr-stabilization/*.md` files on the fly at runtime, so callers reuse the same core without checking generated prompt files into git
 
-## How do workflow-action-update-agent helper commands run?
+## How do agentic workflow helper commands run?
 
-- The reusable workflows call `python3 -m workflow_action_update_agent ...` directly with `PYTHONPATH` pointed at `scripts/private/`
+- Repair workflows call `python3 -m agent_repair_orchestrator ...` directly with `PYTHONPATH` pointed at `scripts/private/`
+- Label-triggered stabilization workflows call `python3 -m agent_stabilization_orchestrator ...` directly with `PYTHONPATH` pointed at `scripts/private/` or at the restored helper snapshot
 - Output-producing helper commands write to `GITHUB_OUTPUT` through their explicit `--github-output` argument
 - Stabilization uses `snapshot-helper-bundle` and `restore-helper-bundle` helper commands to preserve the helper Python packages and prompt/config assets before checking out the PR head, then imports that snapshot while keeping the working directory on the PR checkout
 

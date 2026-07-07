@@ -25,13 +25,13 @@ DEFAULT_REVIEW_WORKFLOW_FILE = "agent-review.yml"
 def latest_review_artifact_state(*, repository: str, pr_number: str, workflow_file: str) -> dict[str, object]:
     pr_details = read_pr_details(pr_number)
     head_sha = pr_details["head_sha"]
-    repair_branch = pr_details["repair_branch"]
-    if not head_sha or not repair_branch:
+    head_branch = pr_details["head_branch"]
+    if not head_sha or not head_branch:
         return dict(EMPTY_REVIEW_STATE)
     run_id = find_latest_workflow_run_for_head(
         repository=repository,
         workflow_file=workflow_file,
-        branch=repair_branch,
+        branch=head_branch,
         head_sha=head_sha,
     )
     if not run_id:

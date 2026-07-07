@@ -5,8 +5,8 @@ PR title format:
 EXPKITS-1234: short summary
 -->
 
-<!-- workflow-action-update-agent:automation:start -->
-<!-- workflow-action-update-agent:automation:end -->
+<!-- agent-repair:automation:start -->
+<!-- agent-repair:automation:end -->
 
 ## Goal
 
@@ -14,9 +14,9 @@ EXPKITS-1234: short summary
 
 ## Change
 
-<!-- workflow-action-update-agent:description:start -->
+<!-- agent-repair:description:start -->
 <!-- Please provide a summary of the changes and the related issue. -->
-<!-- workflow-action-update-agent:description:end -->
+<!-- agent-repair:description:end -->
 
 ## Testing
 

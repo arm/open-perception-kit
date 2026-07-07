@@ -15,9 +15,11 @@ review, repair, and stabilization GitHub Actions workflows.
 - Resolve agent models through `config/model.py` and the checked-in
   `.github/agent-runtime/runtime/agent-models.json` file. Do not introduce
   per-workflow-YAML hardcoded model names.
-- Keep model/task/profile config validation helpers in `contracts.py`; do not
-  duplicate JSON object, enum, string, list, or positive integer checks in
-  individual config readers.
+- Keep primitive model/task config validation helpers in `contracts.py`, and
+  keep cross-flow workflow profile helpers in
+  `scripts/private/agent_workflow_common/profile.py`. Do not duplicate JSON
+  object, enum, string, list, or positive integer checks in individual config
+  readers.
 - Keep OpenAI proxy defaults, task dispatch, model resolution, runtime setup,
   and output handling in the Python runtime modules. Workflow YAML and local
   scripts may call `setup_runtime.py` and `openai_agent_runner.py`, but must not
@@ -64,11 +66,13 @@ main agent.
 
 For changes here, run at least:
 
-- `find scripts/private/agent_runtime scripts/private/workflow_action_update_agent -name '*.py' -print0 | xargs -0 python3 -m py_compile`
+- `find scripts/private/agent_runtime scripts/private/agent_repair_orchestrator scripts/private/agent_stabilization_orchestrator scripts/private/agent_workflow_common -name '*.py' -print0 | xargs -0 python3 -m py_compile`
 - `PYTHONPATH=tools/expkits-ci python3 -m expkits_ci.agent_static_analysis`
 - `python3 -m unittest discover -s scripts/private/tests`
 - `python3 -m unittest discover -s scripts/private/agent_runtime/tests`
-- `python3 -m unittest discover -s scripts/private/workflow_action_update_agent/tests`
+- `python3 -m unittest discover -s scripts/private/agent_repair_orchestrator/tests`
+- `python3 -m unittest discover -s scripts/private/agent_stabilization_orchestrator/tests`
 - `python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_agent_static_analysis.py'`
+- `python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_detect_secrets_quality_flow.py'`
 - `python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_agent_workflow_contracts.py'`
 - `git diff --check`

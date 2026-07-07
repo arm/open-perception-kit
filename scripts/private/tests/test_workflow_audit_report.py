@@ -9,8 +9,8 @@ from pathlib import Path
 import unittest
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from agent_workflow_test_support import (  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from test_support.agent_workflow import (  # noqa: E402
     WORKFLOW_AUDIT_REPORT,
 )
 
