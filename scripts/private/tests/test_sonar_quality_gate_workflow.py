@@ -29,7 +29,17 @@ def load_module():
     return module
 
 
+def load_report_module():
+    spec = importlib.util.spec_from_file_location("sonar_quality_gate_report_under_test", REPORT_MODULE_PATH)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Unable to load {REPORT_MODULE_PATH}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 sonar_quality_gate_workflow = load_module()
+sonar_quality_gate_report = load_report_module()
 
 
 class SonarQualityGateWorkflowTests(unittest.TestCase):
@@ -39,6 +49,8 @@ class SonarQualityGateWorkflowTests(unittest.TestCase):
             {
                 "SONAR_BRANCH": "feature/test",
                 "PR_KEY": "101",
+                "PR_BRANCH": "feature/test",
+                "PR_BASE": "main",
             },
             clear=False,
         ):
@@ -51,10 +63,10 @@ class SonarQualityGateWorkflowTests(unittest.TestCase):
         self.assertNotIn("bash", command)
         self.assertIn("scripts/private/sonar_quality_gate_report.py", command)
         self.assertIn(".scannerwork/report-task.txt", command)
-        self.assertIn("--branch", command)
-        self.assertIn("feature/test", command)
-        self.assertIn("--pull-request-key", command)
-        self.assertIn("101", command)
+        self.assertEqual(command[command.index("--branch") + 1], "feature/test")
+        self.assertEqual(command[command.index("--pull-request-key") + 1], "101")
+        self.assertEqual(command[command.index("--pull-request-branch") + 1], "feature/test")
+        self.assertEqual(command[command.index("--pull-request-base") + 1], "main")
         self.assertIn("--probe-api-access", command)
 
     def test_host_report_task_path_matches_compose_work_bind_mount(self):
@@ -77,6 +89,33 @@ class SonarQualityGateWorkflowTests(unittest.TestCase):
 
         external_imports = sorted(imported_roots - sys.stdlib_module_names - {"__future__"})
         self.assertEqual(external_imports, [])
+
+    def test_report_task_context_preserves_pull_request_scope(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            report_task = Path(temp_dir) / "report-task.txt"
+            report_task.write_text(
+                "\n".join(
+                    [
+                        "serverUrl=https://sonar.example.invalid",
+                        "ceTaskId=task-1",
+                        "projectKey=amp-dev-forge",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            context = sonar_quality_gate_report.load_report_task(
+                report_task,
+                "feature/test",
+                "101",
+                "feature/test",
+                "main",
+            )
+
+        self.assertEqual(context["pullRequest"], "101")
+        self.assertEqual(context["pullRequestBranch"], "feature/test")
+        self.assertEqual(context["pullRequestBase"], "main")
 
     def test_append_summary_writes_report_tail(self):
         with tempfile.TemporaryDirectory() as temp_dir:

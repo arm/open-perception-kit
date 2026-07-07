@@ -47,6 +47,10 @@ def quality_gate_report_command(*, probe_api_access: bool) -> list[str]:
         os.environ.get("SONAR_BRANCH", ""),
         "--pull-request-key",
         os.environ.get("PR_KEY", ""),
+        "--pull-request-branch",
+        os.environ.get("PR_BRANCH", ""),
+        "--pull-request-base",
+        os.environ.get("PR_BASE", ""),
     ]
     if probe_api_access:
         command.append("--probe-api-access")
