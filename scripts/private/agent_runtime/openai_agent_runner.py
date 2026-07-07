@@ -24,7 +24,6 @@ from .contracts import (
     AgentCommand,
     DEFAULT_AGENT_MODEL_CONFIG_PATH,
     DEFAULT_AGENT_TASK_CONFIG_PATH,
-    AgentInstance,
 )
 from .config.model import resolve_agent_model
 from .runtime_context import set_run_context
@@ -100,7 +99,7 @@ def validate_agent_task_registry(task_config_file: str | Path) -> None:
 def resolve_runner_model(args: argparse.Namespace) -> str:
     return resolve_agent_model(
         args.model_config_file,
-        AgentInstance(args.agent_instance) if args.agent_instance else args.task_settings.agent_instance,
+        args.task_settings.agent_instance,
     )
 
 
@@ -109,11 +108,6 @@ def add_common_task_arguments(subparser: argparse.ArgumentParser) -> None:
     subparser.add_argument("--output-file", required=True)
     subparser.add_argument("--model-config-file", default=DEFAULT_AGENT_MODEL_CONFIG_PATH)
     subparser.add_argument("--task-config-file", default=DEFAULT_AGENT_TASK_CONFIG_PATH)
-    subparser.add_argument(
-        "--agent-instance",
-        choices=[instance.value for instance in AgentInstance],
-        default=None,
-    )
     subparser.add_argument("--repo-root", default=os.getcwd())
     subparser.add_argument(
         "--max-turns",
@@ -146,7 +140,6 @@ def resolve_task_settings(args: argparse.Namespace) -> AgentTaskSettings:
     return resolve_agent_task_settings(
         args.task_config_file,
         AgentCommand(args.command),
-        agent_instance_override=args.agent_instance,
         max_turns_override=args.max_turns,
         max_prompt_chars_override=args.max_prompt_chars,
         max_review_files_override=args.max_review_files,
@@ -159,7 +152,6 @@ async def run_command(args: argparse.Namespace) -> int:
     set_run_context(Path(args.repo_root), args.command_timeout)
     validate_agent_task_registry(args.task_config_file)
     args.task_settings = resolve_task_settings(args)
-    args.agent_instance = args.agent_instance or args.task_settings.agent_instance.value
     args.resolved_model = resolve_runner_model(args)
     task = get_agent_task(args.command)
     return await task.run(args)

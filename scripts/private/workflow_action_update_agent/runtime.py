@@ -350,12 +350,11 @@ def profile_agent_task_settings(
 def profile_agent_runtime_config_outputs(
     profile: dict[str, object],
     *,
-    agent_instance: AgentInstance,
     command: AgentCommand,
     profile_path: str = "",
 ) -> dict[str, str]:
-    profile_agent_model(profile, agent_instance, profile_path)
-    profile_agent_task_settings(profile, command, profile_path)
+    task_settings = profile_agent_task_settings(profile, command, profile_path)
+    profile_agent_model(profile, task_settings.agent_instance, profile_path)
     return {
         "agent_model_config_file": profile_agent_model_config_file(profile, profile_path),
         "agent_task_config_file": profile_agent_task_config_file(profile, profile_path),

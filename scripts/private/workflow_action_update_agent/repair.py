@@ -21,7 +21,7 @@ from agent_runtime.github_actions import (
     source_pull_request_numbers,
     write_workflow_run_log_file,
 )
-from agent_runtime.contracts import AgentCommand, AgentInstance
+from agent_runtime.contracts import AgentCommand
 
 from .runtime import (
     CONTEXT_ROOT_TOKEN,
@@ -368,7 +368,6 @@ def command_resolve_inputs(args: argparse.Namespace) -> int:
 
     runtime_config_outputs = profile_agent_runtime_config_outputs(
         profile,
-        agent_instance=AgentInstance.REPAIR,
         command=AgentCommand.REPAIR,
         profile_path=args.profile_path,
     )

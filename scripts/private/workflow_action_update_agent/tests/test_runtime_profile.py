@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import inspect
 import sys
 from pathlib import Path
 import unittest
@@ -116,7 +117,6 @@ class WorkflowActionUpdateAgentRuntimeProfileTests(unittest.TestCase):
         self.assertEqual(
             HELPER_RUNTIME.profile_agent_runtime_config_outputs(
                 profile,
-                agent_instance=HELPER_RUNTIME.AgentInstance.REPAIR,
                 command=HELPER_RUNTIME.AgentCommand.REPAIR,
                 profile_path=str(PROFILE_FILE),
             ),
@@ -124,6 +124,10 @@ class WorkflowActionUpdateAgentRuntimeProfileTests(unittest.TestCase):
                 "agent_model_config_file": ".github/agent-runtime/runtime/agent-models.json",
                 "agent_task_config_file": ".github/agent-runtime/runtime/agent-tasks.json",
             },
+        )
+        self.assertNotIn(
+            "agent_instance",
+            inspect.signature(HELPER_RUNTIME.profile_agent_runtime_config_outputs).parameters,
         )
 
     def test_validation_commands_strip_privileged_environment(self):

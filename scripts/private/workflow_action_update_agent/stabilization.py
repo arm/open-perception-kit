@@ -13,7 +13,7 @@ import tempfile
 import urllib.parse
 from pathlib import Path
 
-from agent_runtime.contracts import AgentCommand, AgentInstance
+from agent_runtime.contracts import AgentCommand
 from agent_runtime.github_actions import find_latest_workflow_run_for_head, read_pr_details
 from github_api import github_api_json
 from agent_runtime.review.state import (
@@ -364,7 +364,6 @@ def command_prepare_stabilization_context(args: argparse.Namespace) -> int:
     )
     runtime_config_outputs = profile_agent_runtime_config_outputs(
         profile,
-        agent_instance=AgentInstance.STABILIZATION,
         command=AgentCommand.STABILIZATION,
         profile_path=args.profile_path,
     )

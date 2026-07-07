@@ -88,7 +88,6 @@ def resolve_agent_task_settings(
     config_file: str | Path,
     command: str | AgentCommand,
     *,
-    agent_instance_override: str | None = None,
     max_turns_override: int | None = None,
     max_prompt_chars_override: int | None = None,
     max_review_files_override: int | None = None,
@@ -100,14 +99,9 @@ def resolve_agent_task_settings(
     if entry is None:
         raise ValueError(f"Agent task config does not define command: {parsed_command.value}")
 
-    if agent_instance_override:
-        agent_instance = parse_enum_value(AgentInstance, agent_instance_override, "agent instance")
-    else:
-        agent_instance = entry.agent_instance
-
     return AgentTaskSettings(
         command=parsed_command,
-        agent_instance=agent_instance,
+        agent_instance=entry.agent_instance,
         max_turns=positive_limit(max_turns_override, entry.max_turns, "--max-turns"),
         max_prompt_chars=positive_limit(
             max_prompt_chars_override,
