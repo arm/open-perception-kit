@@ -1,4 +1,4 @@
-ultralytics
-onnxruntime
-onnx
-pillow
+ultralytics==8.4.90
+onnxruntime==1.27.0
+onnx==1.22.0
+pillow==12.2.0

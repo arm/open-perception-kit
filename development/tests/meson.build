@@ -33,6 +33,15 @@ iou_tests = executable(
   dependencies : [gtest_main_dep, gtest_dep],
 )
 
+yolo_parser_tests = executable(
+  'yolo_parser_tests',
+  ['yolo_parser_test.cpp', '../ops-std/postproc/YoloParser.cpp'],
+  include_directories : [common_include, include_directories('../ops-std')],
+  cpp_args: ['-DFMT_HEADER_ONLY'],
+  dependencies : [gtest_main_dep, gtest_dep, pek_deps],
+  link_with : [common],
+)
+
 pektracker_matching_tests = executable(
   'pektracker_matching_tests',
   ['pektracker_matching_test.cpp',
@@ -69,6 +78,7 @@ test('matrix_operations_tests', matrix_operations_tests)
 test('kalman_filter_tests', kalman_filter_tests)
 test('hungarian_tests', hungarian_tests)
 test('iou_tests', iou_tests)
+test('yolo_parser_tests', yolo_parser_tests)
 test('pektracker_matching_tests', pektracker_matching_tests)
 test('webrtc_session_tests', webrtc_session_tests)
 test('runtime_pipeline_tests', runtime_pipeline_tests)
