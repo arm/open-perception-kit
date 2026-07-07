@@ -23,6 +23,18 @@ services:
       dockerfile: Dockerfile
       target: pek-dev-base
 
+  pek-docs-dev-base: &pek-docs-dev-base
+    extends:
+      file: ../compose.base.yaml
+      service: pek-common-dev
+
+    network_mode: bridge
+    hostname: pek-docs-dev-base
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: pek-docs-dev-base
+
   pek-pre-commit-runtime:
     network_mode: bridge
     hostname: pek-pre-commit-runtime
@@ -111,7 +123,7 @@ services:
       '
 
   pek-quality-check-full:
-    <<: *pek-docs-base
+    <<: *pek-docs-dev-base
     command: |
       bash -c '
         .devcontainer/devsetup.sh &&

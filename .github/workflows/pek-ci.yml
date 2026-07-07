@@ -140,7 +140,7 @@ jobs:
       - name: Build docker image
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: |
-          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-docs-base pek-dev-base
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-docs-base pek-dev-base pek-docs-dev-base
 
       - name: Check Repo Quality gate (nightly)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -257,4 +257,3 @@ jobs:
             ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/scripts/testing/valgrind/logs
           if-no-files-found: warn
           retention-days: 10
-

@@ -135,7 +135,7 @@ WORKDIR /work
 ######################################################################
 ############### Development container with docs and CI ################
 ######################################################################
-FROM pek-dev-base AS pek-docs-base
+FROM pek-base AS pek-docs-base
 
 ARG USERNAME=devgoblin
 
@@ -152,6 +152,22 @@ RUN set -eux; \
 # Install PlantUML JAR into image layers for docs generation and SBOM visibility.
 ARG PLANTUML_VERSION=1.2026.2
 ADD "https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}/plantuml-mit-${PLANTUML_VERSION}.jar" /opt/pek-deps/
+
+USER ${USERNAME}
+WORKDIR /work
+
+######################################################################
+############### Quality-check container with docs and devtools ########
+######################################################################
+FROM pek-docs-base AS pek-docs-dev-base
+
+ARG USERNAME=devgoblin
+
+USER root
+
+COPY --from=pek-dev-base /opt/pek-venvs/devtools /opt/pek-venvs/devtools
+
+ENV PEK_DEVTOOLS_VENV=/opt/pek-venvs/devtools
 
 USER ${USERNAME}
 WORKDIR /work
