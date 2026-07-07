@@ -10,7 +10,7 @@ if ! command -v codex > /dev/null 2>&1; then
     exit 1
 fi
 
-base_ref="${1:-origin/main}"
+base_ref="${1:-origin/develop}"
 output_dir="${2:-codex-review/out}"
 
 mkdir -p "${output_dir}"

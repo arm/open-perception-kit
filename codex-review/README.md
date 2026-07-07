@@ -8,6 +8,14 @@ publishes:
 - one fresh summary comment per run
 - fresh inline review comments for the current findings
 
+Pull request runs include the PR title and URL in the rendered prompt and write
+a bounded, deterministically extracted intent summary to
+`codex-review/out/pr-intent.md`. The raw PR description is not copied into the
+review prompt context. The reviewer treats extracted intent items as context for
+intended behavior, while still reporting implementation bugs, unintended
+regressions, contract mismatches, security issues, CI/release risk, and missing
+validation for risky changes.
+
 The workflow-scoped npm mirror config for `openai/codex-action` lives in
 `codex-review/.npmrc`, so normal repo-root npm usage is not forced onto the
 internal registry.

@@ -128,7 +128,7 @@ class TestPublishPlaywrightPages(unittest.TestCase):
             nightly.mkdir()
             (nightly / "index.html").write_text("<html></html>", encoding="utf-8")
             (nightly / "report-index-meta.txt").write_text(
-                "main @ commit-for-t | run 123 attempt 1 | Jul 02, 2026 20:30 UTC\n",
+                "develop @ commit-for-t | run 123 attempt 1 | Jul 02, 2026 20:30 UTC\n",
                 encoding="utf-8",
             )
 
@@ -137,7 +137,7 @@ class TestPublishPlaywrightPages(unittest.TestCase):
             content = (site_dir / "index.html").read_text(encoding="utf-8")
             self.assertIn("Latest nightly", content)
             self.assertIn('href="nightly/index.html"', content)
-            self.assertIn("main @ commit-for-t", content)
+            self.assertIn("develop @ commit-for-t", content)
             self.assertIn("Pull Requests", content)
 
     def test_write_site_index_uses_pr_title_when_available(self):

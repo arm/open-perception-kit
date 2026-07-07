@@ -165,11 +165,11 @@ init_smoke_repo() {
     mkdir -p "${SMOKE_REPO}"
     copy_runtime_files
     pushd "${SMOKE_REPO}" > /dev/null
-    git init -b main > /dev/null
+    git init -b develop > /dev/null
     git config user.name "Repo Checks Smoke"
     git config user.email "repo-checks-smoke@example.com"
     git commit --allow-empty -m "Bootstrap repo-checks smoke base" -m "Task: EXPKITS-941" > /dev/null
-    git update-ref refs/remotes/origin/main HEAD
+    git update-ref refs/remotes/origin/develop HEAD
     git checkout -b feature/EXPKITS-941/repo-checks-smoke > /dev/null
     repo_checks_load_lines load_formatter_cases
     PRECOMMIT_CASES=("${REPO_CHECKS_LOADED_LINES[@]}")

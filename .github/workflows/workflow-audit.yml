@@ -5,7 +5,7 @@ on:
   workflow_call:
   workflow_dispatch:
   pull_request:
-    branches: [ main, "feature/**", "sandbox/**" ]
+    branches: [ main, develop, "feature/**", "sandbox/**" ]
     paths:
       - ".github/workflows/**"
       - "scripts/private/workflow_audit_report.py"

@@ -94,7 +94,7 @@ Publish flow:
 - Check out `playwright-pages` into `_playwright_pages_site`.
 - Update only the affected report path:
   - `prs/<number>/` for PR reports.
-  - `nightly/` for scheduled `main` reports.
+  - `nightly/` for scheduled `develop` reports.
 - Rebuild the top-level `index.html`.
 - Commit and push `playwright-pages`.
 - Deploy `_playwright_pages_site` as the GitHub Pages artifact.

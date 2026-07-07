@@ -360,7 +360,7 @@ def write_site_index(site_dir: Path, repository: str) -> None:
     ]
     nightly = site_dir / "nightly"
     if (nightly / INDEX_HTML).is_file():
-        meta = read_first_line(nightly / REPORT_INDEX_META, "Scheduled main run")
+        meta = read_first_line(nightly / REPORT_INDEX_META, "Scheduled develop run")
         parts.append(
             f'          <a class="report-link" href="nightly/{INDEX_HTML}"><span><span class="report-title">'
             f'Latest nightly</span><span class="report-meta">{html_escape(meta)}</span></span>'
@@ -590,7 +590,7 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
         target = site_dir / "prs" / pr_number
         back_href = "../../"
     else:
-        if event != "schedule" or branch != "main":
+        if event != "schedule" or branch != "develop":
             print(f"Skipping non-PR Playwright report from {event} on {branch}.")
             set_output("deploy", "false")
             return

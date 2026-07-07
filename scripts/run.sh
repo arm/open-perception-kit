@@ -101,6 +101,10 @@ DOCKER_EXEC_ARGS=(docker exec)
 if [[ -t 0 && -t 1 ]]; then
     DOCKER_EXEC_ARGS+=(-it)
 fi
-DOCKER_EXEC_ARGS+=(-u devgoblin --env-file devices.env "${PEK_CONTAINER_NAME}")
+DOCKER_EXEC_ARGS+=(-u devgoblin)
+if [ -f "${REPO_ROOT}/devices.env" ]; then
+    DOCKER_EXEC_ARGS+=(--env-file "${REPO_ROOT}/devices.env")
+fi
+DOCKER_EXEC_ARGS+=("${PEK_CONTAINER_NAME}")
 
 exec "${DOCKER_EXEC_ARGS[@]}" bash -lc 'cd /work && exec /work/tools/pek-menu "$@"' bash "${PEK_MENU_ARGS[@]}"
