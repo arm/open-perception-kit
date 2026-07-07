@@ -16,6 +16,7 @@ from pathlib import Path
 from agent_runtime.github_actions import (
     authorized_source_pr_number,
     download_workflow_run_artifacts,
+    read_pr_details,
     read_workflow_run,
     source_pull_request_numbers,
     write_workflow_run_log_file,
@@ -64,6 +65,18 @@ def render_repair_ci_badge(repair_branch: str) -> str:
         f"?branch={repair_branch})]"
         "(https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/pek-ci.yml)"
     )
+
+
+def resolve_repair_target_branch(
+    *,
+    explicit_target_branch: str,
+    repository: str,
+    source_pr_number: str,
+) -> str:
+    target_branch = explicit_target_branch.strip()
+    if target_branch:
+        return target_branch
+    return read_pr_details(source_pr_number, repository=repository)["target_branch"]
 
 
 def replace_marked_section(document: str, start_marker: str, end_marker: str, content: str) -> str:
@@ -298,7 +311,6 @@ def command_resolve_inputs(args: argparse.Namespace) -> int:
         source_head_branch = str(run_json.get("head_branch") or "")
         source_head_repository = str(dict(run_json.get("head_repository") or {}).get("full_name") or "")
         source_pr_numbers = source_pull_request_numbers(run_json)
-        target_branch = args.target_branch or source_head_branch or current_ref_name
 
         repair_guard = re.compile(profile_string(profile, "repair_branch_guard_regex"))
         require_failure_conclusion = profile_bool(profile, "require_failure_conclusion", True)
@@ -330,10 +342,15 @@ def command_resolve_inputs(args: argparse.Namespace) -> int:
             else:
                 task_ref = resolve_task_ref(
                     args.task_ref,
-                    target_branch,
+                    args.target_branch,
                     source_head_branch,
                     current_ref_name,
                     purpose="Repair branch creation",
+                )
+                target_branch = resolve_repair_target_branch(
+                    explicit_target_branch=args.target_branch,
+                    repository=repository,
+                    source_pr_number=source_pr_number,
                 )
                 repair_branch = format_profile_template(
                     profile_string(profile, "repair_branch_template"),

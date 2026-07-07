@@ -108,7 +108,7 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
                 (context_root / "artifacts/workflow-dependency-freshness/report.md").is_file()
             )
 
-    def test_resolve_inputs_uses_profile_branch_template(self):
+    def test_resolve_inputs_uses_source_pr_base_branch_and_profile_branch_template(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             output_file = Path(temp_dir) / "outputs.txt"
             args = argparse.Namespace(
@@ -134,12 +134,32 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
                 side_effect=[
                     run_payload,
                     {"labels": [{"name": "agent-repair"}]},
+                    {
+                        "title": "source PR",
+                        "head": {
+                            "ref": f"feature/{SAMPLE_TASK_REF}/topic",
+                            "sha": "feedface",
+                            "repo": {"full_name": "Arm-Debug/amp-dev-forge"},
+                        },
+                        "base": {
+                            "ref": "main",
+                            "repo": {"full_name": "Arm-Debug/amp-dev-forge"},
+                        },
+                    },
                 ],
-            ):
+            ) as github_api_json:
                 with mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=False):
                     result = HELPER_REPAIR.command_resolve_inputs(args)
 
             self.assertEqual(result, 0)
+            self.assertEqual(
+                [call.args[0] for call in github_api_json.call_args_list],
+                [
+                    "repos/Arm-Debug/amp-dev-forge/actions/runs/12345",
+                    "repos/Arm-Debug/amp-dev-forge/issues/169",
+                    "repos/Arm-Debug/amp-dev-forge/pulls/169",
+                ],
+            )
             outputs = dict(
                 line.split("=", 1)
                 for line in output_file.read_text(encoding="utf-8").splitlines()
@@ -147,7 +167,7 @@ class WorkflowActionUpdateAgentRepairTests(unittest.TestCase):
             )
             self.assertEqual(outputs["should_run"], "true")
             self.assertEqual(outputs["source_pr_number"], "169")
-            self.assertEqual(outputs["target_branch"], f"feature/{SAMPLE_TASK_REF}/topic")
+            self.assertEqual(outputs["target_branch"], "main")
             self.assertEqual(outputs["task_ref"], SAMPLE_TASK_REF)
             self.assertEqual(
                 outputs["repair_branch"],

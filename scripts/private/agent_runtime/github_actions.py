@@ -25,8 +25,8 @@ def parse_timestamp(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
-def read_pr_details(pr_number: str) -> dict[str, str]:
-    repository = os.environ.get("GITHUB_REPOSITORY", "")
+def read_pr_details(pr_number: str, *, repository: str | None = None) -> dict[str, str]:
+    repository = (repository or os.environ.get("GITHUB_REPOSITORY") or "").strip()
     if not repository:
         raise RuntimeError("GITHUB_REPOSITORY is required to resolve PR details.")
     payload = github_api_json(f"repos/{repository}/pulls/{pr_number}")
@@ -36,18 +36,28 @@ def read_pr_details(pr_number: str) -> dict[str, str]:
     base = dict(payload.get("base") or {})
     head_repository = str(dict(head.get("repo") or {}).get("full_name") or "").strip()
     base_repository = str(dict(base.get("repo") or {}).get("full_name") or "").strip()
+    target_branch = str(base.get("ref") or "").strip()
     if not head_repository:
         raise RuntimeError(f"Unable to resolve head repository for PR #{pr_number}.")
+    if not base_repository:
+        raise RuntimeError(f"Unable to resolve base repository for PR #{pr_number}.")
+    if not target_branch:
+        raise RuntimeError(f"Unable to resolve target branch for PR #{pr_number}.")
     if head_repository != repository:
         raise RuntimeError(
-            "Agent PR stabilization only supports same-repository pull requests; "
+            "Agent workflow automation only supports same-repository pull requests; "
             f"PR #{pr_number} head repository is '{head_repository}', expected '{repository}'."
+        )
+    if base_repository != repository:
+        raise RuntimeError(
+            "Agent workflow automation only supports same-repository pull requests; "
+            f"PR #{pr_number} base repository is '{base_repository}', expected '{repository}'."
         )
     return {
         "title": str(payload.get("title") or ""),
         "repair_branch": str(head.get("ref") or ""),
         "head_sha": str(head.get("sha") or ""),
-        "target_branch": str(base.get("ref") or ""),
+        "target_branch": target_branch,
         "head_repository": head_repository,
         "base_repository": base_repository,
     }
