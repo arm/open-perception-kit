@@ -12,6 +12,7 @@ from pathlib import Path
 
 
 DEFAULT_TEMPLATE_PATH = Path(".github/agent-runtime/review/prompts/review.md.in")
+MAX_PR_BODY_CHARS = 8000
 
 
 def git_output(args: list[str]) -> str:
@@ -31,6 +32,19 @@ def fill_empty(value: str, fallback: str) -> str:
 
 def normalize_text(value: str) -> str:
     return value.replace("\n", " ")
+
+
+def bounded_text(value: str, max_chars: int) -> str:
+    text = value.strip()
+    if len(text) <= max_chars:
+        return text
+    omitted = len(text) - max_chars
+    return f"{text[:max_chars].rstrip()}\n\n[truncated {omitted} pull request body characters]"
+
+
+def blockquote_text(value: str, fallback: str = "(not provided)") -> str:
+    text = bounded_text(value, MAX_PR_BODY_CHARS) or fallback
+    return "\n".join(f"> {line}" if line else ">" for line in text.splitlines())
 
 
 def default_repository() -> str:
@@ -59,6 +73,7 @@ def render_prompt(*, output_path: Path, template_path: Path = DEFAULT_TEMPLATE_P
         "@@PR_NUMBER@@": fill_empty(os.environ.get("REVIEW_PR_NUMBER", ""), "(not a pull request run)"),
         "@@PR_TITLE@@": fill_empty(normalize_text(os.environ.get("REVIEW_PR_TITLE", "")), "(not provided)"),
         "@@PR_URL@@": fill_empty(os.environ.get("REVIEW_PR_URL", ""), "(not provided)"),
+        "@@PR_BODY_BLOCKQUOTE@@": blockquote_text(os.environ.get("REVIEW_PR_BODY", "")),
     }
 
     rendered = template_path.read_text(encoding="utf-8")

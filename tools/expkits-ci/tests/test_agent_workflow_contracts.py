@@ -343,6 +343,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         )
         render_step = review_steps["Render Agent review prompt"]
         self.assertEqual(render_step["env"]["REVIEW_HEAD_REF"], selected_head_ref)
+        self.assertEqual(render_step["env"]["REVIEW_PR_BODY"], "${{ github.event.pull_request.body || '' }}")
         self.assertIn(
             "python3 scripts/private/agent_runtime/review/prompt.py",
             render_step["run"],
