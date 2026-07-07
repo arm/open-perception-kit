@@ -218,6 +218,7 @@ run_smoke() {
     git commit --no-verify -m "Record clean fixture snapshot" -m "Task: EXPKITS-941" > /dev/null
     ./scripts/pre-commit/run.sh
     ./scripts/pre-commit/run.sh full
+    repo_checks_run_image "${SMOKE_REPO}" git status --short > /dev/null
     repo_checks_run_image "${SMOKE_REPO}" python3 -c \
         'from pathlib import Path; import os; path = Path(os.environ["HOME"]) / "repo-checks-home-smoke"; path.write_text("ok"); print(path.read_text())' \
         > /dev/null

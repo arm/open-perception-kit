@@ -27,11 +27,11 @@ jobs:
       artifact-metadata: write
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
-      # <codex-review:suppress-begin>
+      # <agent-review:suppress-begin>
       # PRs compare against their target branch baseline. Baselines are
       # published automatically for main and develop, and can be created
       # manually for other target branches when needed.
-      # <codex-review:suppress-end>
+      # <agent-review:suppress-end>
     steps:
       - uses: actions/checkout@v6
         with:

@@ -1,0 +1,14 @@
+{
+  "default_agent_model": "gpt-5.5",
+  "agents": {
+    "review": {
+      "model": "gpt-5.5"
+    },
+    "repair": {
+      "model": "gpt-5.5"
+    },
+    "stabilization": {
+      "model": "gpt-5.5"
+    }
+  }
+}

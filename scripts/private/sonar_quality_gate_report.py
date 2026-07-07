@@ -39,6 +39,8 @@ class ReportTaskContext(TypedDict, total=False):
     dashboardUrl: str
     projectKey: str
     pullRequest: str
+    pullRequestBase: str
+    pullRequestBranch: str
     serverUrl: str
 
 
@@ -265,6 +267,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--report-task-file", type=Path, required=True)
     parser.add_argument("--branch", default="")
     parser.add_argument("--pull-request-key", default="")
+    parser.add_argument("--pull-request-branch", default="")
+    parser.add_argument("--pull-request-base", default="")
     parser.add_argument("--timeout-seconds", type=int, default=300)
     parser.add_argument("--poll-interval-seconds", type=int, default=5)
     parser.add_argument("--issue-limit", type=int, default=25)
@@ -349,6 +353,8 @@ def load_report_task(
     report_task_file: Path,
     branch: str,
     pull_request_key: str,
+    pull_request_branch: str,
+    pull_request_base: str,
 ) -> ReportTaskContext:
     if not report_task_file.exists():
         raise RuntimeError(
@@ -396,6 +402,12 @@ def load_report_task(
     pull_request = pull_request_key.strip()
     if pull_request:
         data["pullRequest"] = pull_request
+        pr_branch = pull_request_branch.strip()
+        pr_base = pull_request_base.strip()
+        if pr_branch:
+            data["pullRequestBranch"] = pr_branch
+        if pr_base:
+            data["pullRequestBase"] = pr_base
     dashboard_url = raw_data.get("dashboardUrl", "").strip()
     if dashboard_url:
         data["dashboardUrl"] = dashboard_url
@@ -862,6 +874,17 @@ def print_hotspots(
         log_info()
 
 
+def log_context_scope(ctx: ReportTaskContext) -> None:
+    if ctx.get("pullRequest"):
+        log_info(f"Pull request: #{ctx['pullRequest']}")
+    if ctx.get("pullRequestBranch"):
+        log_info(f"PR branch: {ctx['pullRequestBranch']}")
+    if ctx.get("pullRequestBase"):
+        log_info(f"PR base: {ctx['pullRequestBase']}")
+    if ctx.get("branch"):
+        log_info(f"Branch: {ctx['branch']}")
+
+
 def load_issue_snapshot(
     ctx: ReportTaskContext,
     token: str,
@@ -896,10 +919,7 @@ def print_api_access_probe(
 ) -> None:
     log_info("Sonar API access probe")
     log_info(f"Project: {ctx['projectKey']}")
-    if ctx.get("pullRequest"):
-        log_info(f"Pull request: #{ctx['pullRequest']}")
-    if ctx.get("branch"):
-        log_info(f"Branch: {ctx['branch']}")
+    log_context_scope(ctx)
     log_info()
 
     probe_targets = (
@@ -944,10 +964,7 @@ def print_api_access_probe(
 def print_report_header(ctx: ReportTaskContext) -> None:
     log_info("Sonar quality gate report")
     log_info(f"Project: {ctx['projectKey']}")
-    if ctx.get("pullRequest"):
-        log_info(f"Pull request: #{ctx['pullRequest']}")
-    if ctx.get("branch"):
-        log_info(f"Branch: {ctx['branch']}")
+    log_context_scope(ctx)
     if ctx.get("dashboardUrl"):
         log_info(f"Dashboard: {ctx['dashboardUrl']}")
     log_info(f"CE task id: {ctx['ceTaskId']}")
@@ -1059,6 +1076,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.report_task_file,
             args.branch,
             args.pull_request_key,
+            args.pull_request_branch,
+            args.pull_request_base,
         )
         task = wait_for_task(
             ctx["serverUrl"],

@@ -1,0 +1,280 @@
+#!/usr/bin/env python3
+################################################################
+# Copyright (C) 2026 Arm Limited. All rights reserved.
+################################################################
+
+from __future__ import annotations
+
+import argparse
+import os
+import re
+import subprocess
+from pathlib import Path
+
+
+DEFAULT_TEMPLATE_PATH = Path(".github/agent-runtime/review/prompts/review.md.in")
+PR_INTENT_FILENAME = "pr-intent.md"
+MAX_PR_INTENT_ITEMS = 40
+MAX_PR_INTENT_CHARS = 600
+NOT_PROVIDED = "(not provided)"
+ACCEPTED_PR_INTENT_SECTIONS = {
+    "goal",
+    "goals",
+    "intent",
+    "intended changes",
+    "intended behavior",
+    "change",
+    "changes",
+    "change summary",
+    "summary of changes",
+    "scope",
+    "behavior changes",
+    "behaviour changes",
+    "testing",
+    "test plan",
+    "validation",
+}
+DIRECTIVE_LIKE_RE = re.compile(
+    r"(^|[^a-z0-9_])(codex|reviewer|prompt|ignore|disregard|suppress|jailbreak|override|finding|findings)"
+    r"([^a-z0-9_]|$)|system message|developer message|system instruction|developer instruction|"
+    r"review instruction|do not report|dont report",
+    re.IGNORECASE,
+)
+
+
+def git_output(args: list[str]) -> str:
+    completed = subprocess.run(
+        ["git", *args],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    return completed.stdout.strip()
+
+
+def fill_empty(value: str, fallback: str) -> str:
+    return value if value else fallback
+
+
+def normalize_text(value: str) -> str:
+    return value.replace("\n", " ")
+
+
+def sanitize_single_line(value: str, max_chars: int = 180) -> str:
+    text = re.sub(r"[\r\n\t]+", " ", value)
+    text = re.sub(r"[`<>{}|]", "", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text[:max_chars].rstrip()
+
+
+def filter_directive_like_text(value: str) -> str:
+    return "(filtered)" if DIRECTIVE_LIKE_RE.search(value) else value
+
+
+def heading_text(line: str) -> str:
+    stripped = line.strip()
+    heading_level = 0
+    while heading_level < len(stripped) and stripped[heading_level] == "#":
+        heading_level += 1
+    if 1 <= heading_level <= 6 and len(stripped) > heading_level and stripped[heading_level].isspace():
+        return stripped[heading_level:].strip()
+    if stripped.startswith("**") and stripped.endswith("**") and len(stripped) > 4:
+        text = stripped[2:-2].strip()
+        return text if "*" not in text else ""
+    return ""
+
+
+def is_accepted_heading(value: str) -> bool:
+    normalized = sanitize_single_line(value).lower().rstrip(":")
+    return normalized in ACCEPTED_PR_INTENT_SECTIONS
+
+
+def sanitize_intent_item(value: str) -> str:
+    text = sanitize_single_line(value, max_chars=MAX_PR_INTENT_CHARS)
+    return "" if filter_directive_like_text(text) == "(filtered)" else text
+
+
+def checklist_item_text(line: str) -> str:
+    if not line.startswith("-"):
+        return ""
+    rest = line[1:].lstrip()
+    if len(rest) < 4 or rest[0] != "[" or rest[2] != "]" or rest[1] not in " xX" or not rest[3].isspace():
+        return ""
+    return rest[4:].lstrip()
+
+
+def bullet_item_text(line: str) -> str:
+    if len(line) < 3 or line[0] not in "-*+" or not line[1].isspace():
+        return ""
+    return line[2:].lstrip()
+
+
+def numbered_item_text(line: str) -> str:
+    index = 0
+    while index < len(line) and line[index].isdigit():
+        index += 1
+    if index == 0 or index + 1 >= len(line) or line[index] not in ".)" or not line[index + 1].isspace():
+        return ""
+    return line[index + 2:].lstrip()
+
+
+def list_item_text(line: str) -> str:
+    return checklist_item_text(line) or bullet_item_text(line) or numbered_item_text(line)
+
+
+def render_pr_intent_context(body: str) -> str:
+    items: list[str] = []
+    filtered = 0
+    truncated = False
+    paragraph: list[str] = []
+    in_accepted_section = False
+    in_code = False
+    in_comment = False
+
+    def emit_item(value: str) -> None:
+        nonlocal filtered, truncated
+        text = sanitize_intent_item(value)
+        if not text:
+            filtered += 1
+            return
+        if len(items) >= MAX_PR_INTENT_ITEMS:
+            truncated = True
+            return
+        items.append(text)
+
+    def flush_paragraph() -> None:
+        if paragraph:
+            emit_item(" ".join(paragraph))
+            paragraph.clear()
+
+    for raw_line in body.splitlines():
+        line = raw_line.strip()
+
+        if line.startswith("```"):
+            flush_paragraph()
+            in_code = not in_code
+            continue
+        if in_code:
+            continue
+
+        if in_comment:
+            if "-->" in line:
+                in_comment = False
+            continue
+        if line.startswith("<!--"):
+            if "-->" not in line:
+                in_comment = True
+            continue
+
+        if not line:
+            flush_paragraph()
+            continue
+
+        heading = heading_text(line)
+        if heading:
+            flush_paragraph()
+            in_accepted_section = is_accepted_heading(heading)
+            continue
+
+        if not in_accepted_section:
+            continue
+
+        item_text = list_item_text(line)
+        if item_text:
+            flush_paragraph()
+            emit_item(item_text)
+            continue
+
+        paragraph.append(line)
+
+    flush_paragraph()
+
+    lines = [
+        "# Pull Request Intent Context",
+        "",
+        "Generated by deterministic extraction from selected PR description sections.",
+        "This file is not the raw PR body and does not contain reviewer instructions.",
+        "",
+        "Schema-Version: 1",
+        "Accepted-Sections: goal, intent, intended changes, change, change summary, scope, behavior changes, testing",
+        "Accepted-Item-Forms: bullets, checklists, numbered lists, paragraphs",
+        f"Max-Items: {MAX_PR_INTENT_ITEMS}",
+        f"Max-Item-Chars: {MAX_PR_INTENT_CHARS}",
+        "",
+        "## Extracted Intent Items",
+    ]
+    if items:
+        lines.extend(f"- {item}" for item in items)
+    else:
+        lines.append("- (none extracted)")
+    lines.extend(
+        [
+            "",
+            f"Items-Extracted: {len(items)}",
+            f"Items-Filtered: {filtered}",
+            f"Items-Truncated: {'true' if truncated else 'false'}",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def default_repository() -> str:
+    configured = os.environ.get("REVIEW_REPOSITORY") or os.environ.get("GITHUB_REPOSITORY")
+    if configured:
+        return configured
+    return Path(git_output(["rev-parse", "--show-toplevel"])).name
+
+
+def render_prompt(*, output_path: Path, template_path: Path = DEFAULT_TEMPLATE_PATH) -> None:
+    base_ref = os.environ.get("REVIEW_BASE_REF", "origin/develop")
+    head_ref = os.environ.get("REVIEW_HEAD_REF", "HEAD")
+    base_sha = os.environ.get("REVIEW_BASE_SHA", "")
+    head_sha = os.environ.get("REVIEW_HEAD_SHA", "")
+
+    if not head_sha:
+        head_sha = git_output(["rev-parse", head_ref])
+    if not base_sha:
+        base_sha = git_output(["merge-base", base_ref, head_ref])
+
+    pr_intent_path = output_path.parent / PR_INTENT_FILENAME
+    pr_intent_path.parent.mkdir(parents=True, exist_ok=True)
+    pr_intent_path.write_text(render_pr_intent_context(os.environ.get("REVIEW_PR_BODY", "")), encoding="utf-8")
+
+    replacements = {
+        "@@REPOSITORY@@": fill_empty(default_repository(), NOT_PROVIDED),
+        "@@BASE_REF@@": fill_empty(base_ref, NOT_PROVIDED),
+        "@@BASE_SHA@@": fill_empty(base_sha, NOT_PROVIDED),
+        "@@HEAD_SHA@@": fill_empty(head_sha, NOT_PROVIDED),
+        "@@PR_NUMBER@@": fill_empty(os.environ.get("REVIEW_PR_NUMBER", ""), "(not a pull request run)"),
+        "@@PR_TITLE@@": fill_empty(
+            filter_directive_like_text(sanitize_single_line(normalize_text(os.environ.get("REVIEW_PR_TITLE", "")))),
+            NOT_PROVIDED,
+        ),
+        "@@PR_URL@@": fill_empty(os.environ.get("REVIEW_PR_URL", ""), NOT_PROVIDED),
+        "@@PR_INTENT_PATH@@": pr_intent_path.as_posix(),
+    }
+
+    rendered = template_path.read_text(encoding="utf-8")
+    for token, value in replacements.items():
+        rendered = rendered.replace(token, value)
+
+    output_path.write_text(rendered, encoding="utf-8")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Render the Agent Review prompt.")
+    parser.add_argument("--output", required=True, help="Rendered prompt output path.")
+    parser.add_argument(
+        "--template",
+        default=str(DEFAULT_TEMPLATE_PATH),
+        help="Review prompt template path.",
+    )
+    args = parser.parse_args()
+
+    render_prompt(output_path=Path(args.output), template_path=Path(args.template))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

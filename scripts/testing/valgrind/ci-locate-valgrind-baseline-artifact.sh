@@ -14,7 +14,7 @@ baseline_sha="$(
         --jq '.object.sha'
 )"
 
-# <codex-review:suppress-begin>
+# <agent-review:suppress-begin>
 # "Baseline lookup hard-fails when HEAD artifact is missing instead of falling back to latest valid baseline"
 # That is the intended way of operation. If the HEAD artifact is missing for
 # develop or another target branch, then creation shall be triggered manually.
@@ -46,4 +46,4 @@ done
 echo "No available ${artifact_name} artifact found on ${baseline_branch} at ${baseline_sha}." >&2
 echo "Run ${workflow_name} manually on the current ${baseline_branch} tip to publish a new baseline artifact." >&2
 exit 1
-# <codex-review:suppress-end>
+# <agent-review:suppress-end>
