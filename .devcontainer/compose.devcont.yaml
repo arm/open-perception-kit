@@ -41,7 +41,7 @@ services:
 
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
       target: pek-dev-base
       # BuildKit calls its bridge/NAT-backed build network "default".
       network: ${BUILD_NETWORK_MODE:-default}
@@ -88,7 +88,7 @@ services:
     hostname: ${PEK_DEV_RPI5_H8_CONTAINER_NAME:-perception-experience-kit-rpi5-h8}
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
       target: pek-dev-rpi5-h8
       network: ${BUILD_NETWORK_MODE:-host}
       args:
@@ -112,7 +112,7 @@ services:
     hostname: ${PEK_DEV_RPI5_H10_CONTAINER_NAME:-perception-experience-kit-rpi5-h10}
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
       target: pek-dev-rpi5-h10
       network: ${BUILD_NETWORK_MODE:-host}
       args:

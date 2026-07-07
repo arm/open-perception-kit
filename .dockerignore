@@ -27,3 +27,4 @@ deps/
 
 # Topo / graphs / large generated artifacts
 graphs/
+results/

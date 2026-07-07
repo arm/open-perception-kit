@@ -29,7 +29,7 @@ services:
         EXECUTORCH_VERSION: ${EXECUTORCH_VERSION:-}
         EXECUTORCH_DEB_REVISION: ${EXECUTORCH_DEB_REVISION:-}
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
       target: pek-dev-rich
       # BuildKit calls its bridge/NAT-backed build network "default".
       network: ${BUILD_NETWORK_MODE:-default}

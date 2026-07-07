@@ -8,7 +8,7 @@ services:
     hostname: pek-docs-base
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
       target: pek-docs-base
 
   pek-dev-base: &pek-dev-base
@@ -20,7 +20,7 @@ services:
     hostname: pek-dev-base
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
       target: pek-dev-base
 
   pek-docs-dev-base: &pek-docs-dev-base
@@ -150,7 +150,7 @@ services:
     network_mode: bridge
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
       target: pek-dev-sonar 
     environment:
       PROJECT_ROOT: /work/development
@@ -190,7 +190,7 @@ services:
     network_mode: bridge
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
       target: pek-dev-sonar 
     environment:
       PROJECT_ROOT: /work/development

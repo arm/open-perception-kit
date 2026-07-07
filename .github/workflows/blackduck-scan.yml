@@ -306,7 +306,7 @@ jobs:
         run: |
           set -euo pipefail
           dev_image="perception-experience-kit-bd:${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          docker build -t "${dev_image}" --target pek-dev-base "${WORKSPACE_ROOT}"
+          docker build -t "${dev_image}" -f "${WORKSPACE_ROOT}/Dockerfile.dev" --target pek-dev-base "${WORKSPACE_ROOT}"
 
           docker run --rm \
             -u "$(id -u):$(id -g)" \
