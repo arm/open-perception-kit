@@ -1,0 +1,4 @@
+ultralytics
+onnxruntime
+onnx
+pillow
