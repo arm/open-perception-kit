@@ -23,7 +23,15 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Keeps schemas in `.github/agent-runtime/review/schemas/`
 - Reuses shared helper modules from `scripts/private/agent_runtime/`
 - Sets up the runtime venv through `scripts/private/agent_runtime/setup_runtime.py`
-- Uploads `agent-review-out` artifacts, including the rendered prompt, raw JSON output, and summary markdown
+- Includes PR title and URL in the rendered prompt, and writes bounded extracted
+  intent context to `.github/agent-runtime/review/out/pr-intent.md` so intended
+  behavior changes can be considered without copying the raw PR body into review
+  context
+- Filters directive-like PR description content before the reviewer sees it as
+  intent context; the extracted intent file remains untrusted context data, not
+  review instructions
+- Uploads `agent-review-out` artifacts, including the rendered prompt, extracted
+  intent context, raw JSON output, and summary markdown
 - Treats `agent-review-out/review.json` as the canonical machine-readable review state
 - Publishes a fresh PR summary comment for each run from the structured review output
 - Publishes fresh inline review comments for the current findings without prior-state reconciliation
@@ -120,3 +128,13 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 - Self-hosted runner workspace isolation and the `/work` ownership hazard are
   documented in [.github/ci/self-hosted-runner-workspace-isolation.md](ci/self-hosted-runner-workspace-isolation.md).
+
+## Functionalities
+
+- **Triggers:** Runs on pull requests, manual dispatch, and nightly schedule.
+- **Branch and PR logic:** Only runs on non-draft PRs, or when the `run-pek-ci` label is added to a draft PR.
+- **init-workspace:** Prepares the workspace and environment.
+- **build-changed-applications:** Builds only the applications changed in a PR.
+- **build-all-applications:** Builds all applications (nightly or manual trigger).
+- **Agent Review:** A separate workflow runs Agent Review, uploads the generated artifacts for the PR, posts a fresh summary comment for each run, and publishes inline review comments for the current findings.
+- **Ruleset sync:** A separate workflow applies the checked-in repository ruleset drafts to GitHub after they are merged to `develop`.

@@ -62,4 +62,8 @@ if ! docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2> /dev/null
     exit 1
 fi
 
-exec docker exec -it -u devgoblin --env-file devices.env -e TERM="${TERM:-xterm-256color}" "${PEK_CONTAINER_NAME}" bash
+DOCKER_EXEC_ENV_FILE_ARGS=()
+if [ -f "${REPO_ROOT}/devices.env" ]; then
+    DOCKER_EXEC_ENV_FILE_ARGS=(--env-file "${REPO_ROOT}/devices.env")
+fi
+exec docker exec -it -u devgoblin "${DOCKER_EXEC_ENV_FILE_ARGS[@]}" -e TERM="${TERM:-xterm-256color}" "${PEK_CONTAINER_NAME}" bash

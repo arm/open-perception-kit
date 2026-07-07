@@ -24,7 +24,7 @@ on:
                 default: ""
                 type: string
     pull_request:
-        branches: [main, "feature/**", "sandbox/**"]
+        branches: [main, develop, "feature/**", "sandbox/**"]
         types: [opened, synchronize, reopened, ready_for_review, labeled]
 
 jobs:

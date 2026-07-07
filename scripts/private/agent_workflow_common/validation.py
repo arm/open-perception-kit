@@ -60,6 +60,13 @@ def run_validation_command(command: str, *, env: dict[str, str] | None = None) -
     run_command(validation_command_args(command), env=env)
 
 
+def run_validation_commands(commands: list[str]) -> None:
+    env = validation_command_environment()
+    for command in commands:
+        print(f"Running validation command: {command}")
+        run_validation_command(command, env=env)
+
+
 def validation_command_environment() -> dict[str, str]:
     blocked_names = set(VALIDATION_ENV_BLOCKLIST)
     return {

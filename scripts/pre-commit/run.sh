@@ -21,7 +21,7 @@ Host-side wrapper for the dedicated pre-commit runtime.
 Modes:
   default              Run the staged-file delta path inside the repo-checks container.
                        If no staged files exist, fall back to the branch delta against
-                       PULL_REQUEST_TARGET_BRANCH, origin/HEAD, or main.
+                       PULL_REQUEST_TARGET_BRANCH, origin/HEAD, or develop.
   full                 Run the same check bundle against the full tracked worktree.
 
 Internal:
@@ -89,7 +89,7 @@ resolve_delta_target_ref() {
         return
     fi
 
-    resolved_ref="$(resolve_ref main || true)"
+    resolved_ref="$(resolve_ref develop || true)"
     if [ -n "${resolved_ref}" ]; then
         printf '%s\n' "${resolved_ref}"
         return

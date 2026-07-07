@@ -31,7 +31,7 @@ from agent_workflow_common.json_files import write_json_file
 from agent_workflow_common.process import run_command
 from agent_workflow_common.review_workflow import standard_agent_review_workflow
 from agent_workflow_common.task_refs import resolve_task_ref
-from agent_workflow_common.validation import run_validation_command, validation_command_environment
+from agent_workflow_common.validation import run_validation_commands
 
 from .paths import resolve_repo_path
 from .profile import (
@@ -206,13 +206,6 @@ def restore_helper_bundle(*, bundle_root: Path, helper_root: Path) -> None:
     if helper_root.exists():
         shutil.rmtree(helper_root)
     shutil.copytree(bundle_root, helper_root)
-
-
-def run_validation_commands(commands: list[str]) -> None:
-    env = validation_command_environment()
-    for command in commands:
-        print(f"Running validation command: {command}")
-        run_validation_command(command, env=env)
 
 
 def commit_review_fix(

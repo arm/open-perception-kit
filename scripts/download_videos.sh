@@ -76,4 +76,8 @@ if ! docker exec -u devgoblin "${PEK_CONTAINER_NAME}" bash -lc 'test -w /work' >
     "${START_CONTAINER_SCRIPT}" --recreate
 fi
 
-docker exec -u devgoblin --env-file devices.env "${PEK_CONTAINER_NAME}" bash -lc "${DOWNLOAD_COMMAND}"
+DOCKER_EXEC_ENV_FILE_ARGS=()
+if [ -f "${REPO_ROOT}/devices.env" ]; then
+    DOCKER_EXEC_ENV_FILE_ARGS=(--env-file "${REPO_ROOT}/devices.env")
+fi
+docker exec -u devgoblin "${DOCKER_EXEC_ENV_FILE_ARGS[@]}" "${PEK_CONTAINER_NAME}" bash -lc "${DOWNLOAD_COMMAND}"

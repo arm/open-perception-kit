@@ -1,32 +1,75 @@
+# This file contains the valgrind related workflow with all the possible steps.
+# The workflow behaves slightly differently when it is called from the develop or the main
+# branch on a new commit and when it is called from a side branch on a pull request.
+# When it is called for a PR all of the steps shall be evaluated except the valgrind baseline update.
+# When it is called for a new commit on the develop or on the main branch or manually from any
+# branch, the workflow shall evaluate the steps necessary for the new valgrind
+# baseline summary creation.
+
 name: Valgrind Baseline Artifact
 
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main, "feature/**", "sandbox/**"]
+    branches: [main, develop, "feature/**", "sandbox/**"]
     types: [opened, synchronize, reopened, ready_for_review]
 
 jobs:
-  update-valgrind-baseline:
-    name: Generate Valgrind baseline artifact
+  valgrind-workflow:
+    name: Valgrind related workflow
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    permissions:
+      actions: read
+      contents: read
+      artifact-metadata: write
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
+      # <agent-review:suppress-begin>
+      # PRs compare against their target branch baseline. Baselines are
+      # published automatically for main and develop, and can be created
+      # manually for other target branches when needed.
+      # <agent-review:suppress-end>
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           fetch-tags: true
 
+      - name: Run Valgrind Python unit tests
+        run: |
+          python3 -m unittest \
+            scripts/testing/valgrind/test_ci_locate_valgrind_baseline_artifact.py \
+            scripts/testing/valgrind/test_compare_valgrind_results.py \
+            scripts/testing/valgrind/test_summarize_valgrind_output.py
+
       - name: Build docker image
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-docs-base
 
+      - name: Locate latest Valgrind baseline artifact
+        if: github.event_name == 'pull_request'
+        id: valgrind_baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VALGRIND_BASELINE_BRANCH: ${{ github.event.pull_request.base.ref }}
+        run: scripts/testing/valgrind/ci-locate-valgrind-baseline-artifact.sh
+
+      - name: Download Valgrind baseline artifact
+        if: github.event_name == 'pull_request'
+        uses: actions/download-artifact@v8
+        with:
+          name: valgrind-baseline
+          path: scripts/testing/valgrind/baseline
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.valgrind_baseline.outputs.run-id }}
+
+      - name: Clear stale Valgrind logs
+        run: find scripts/testing/valgrind/logs -name "*.valgrind.*.xml" -delete 2>/dev/null || true
+
       - name: Run Valgrind checks
-        id: valgrind_baseline_checks
-        continue-on-error: true
+        id: valgrind_checks
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-valgrind-check
 
       - name: Generate Valgrind error summary
@@ -34,20 +77,30 @@ jobs:
         if: always()
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-generate-valgrind-summary
 
-      - name: Upload Valgrind raw logs # update raw logs for debugging purposes
-        if: always()
+      - name: Compare Valgrind results to baseline
+        if: ${{ github.event_name == 'pull_request' && steps.valgrind_checks.outcome == 'success' && steps.valgrind_summary.outcome == 'success' }}
+        id: valgrind_compare
+        run: |
+          python3 scripts/testing/valgrind/compare-valgrind-results.py \
+            --baseline scripts/testing/valgrind/baseline/valgrind-error-summary.xml \
+            --current scripts/testing/valgrind/valgrind-error-summary.xml
+
+      - name: Upload Valgrind raw logs
+        if: ${{ always() && !cancelled() && (steps.valgrind_checks.outcome == 'failure' || steps.valgrind_summary.outcome == 'failure' || steps.valgrind_compare.outcome == 'failure') }}
         uses: actions/upload-artifact@v7
         with:
           name: valgrind-baseline-logs
           path: scripts/testing/valgrind/logs
           if-no-files-found: warn
-          retention-days: 60
+          retention-days: 5
 
       - name: Upload Valgrind baseline
-        if: ${{ github.ref == 'refs/heads/main' && steps.valgrind_summary.outcome == 'success' }}
+        if: ${{ github.event_name != 'pull_request' && startsWith(github.ref, 'refs/heads/') && (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && steps.valgrind_checks.outcome == 'success' && steps.valgrind_summary.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
           name: valgrind-baseline
           path: scripts/testing/valgrind/valgrind-error-summary.xml
           if-no-files-found: warn
-          retention-days: 60 # Assume that there will be a commit on the main branch at least every 2 months to keep the baseline available
+          # Assume that there will be a commit on the main or develop branch
+          # at least every 2 months to keep the baseline available.
+          retention-days: 60

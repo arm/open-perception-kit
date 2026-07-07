@@ -19,7 +19,6 @@ from test_support.agent_workflow import (  # noqa: E402
     REPAIR_PROFILE,
     REPAIR_PROFILE_SCRIPT,
     COMMON_REVIEW_WORKFLOW,
-    STABILIZATION_ORCHESTRATOR,
     STABILIZATION_PROFILE,
     STABILIZATION_PROFILE_SCRIPT,
     COMMON_TASK_REFS,
@@ -200,8 +199,8 @@ class AgentWorkflowProfileContractTests(unittest.TestCase):
         }
 
         with mock.patch.dict(os.environ, env, clear=True):
-            with mock.patch.object(STABILIZATION_ORCHESTRATOR, "run_validation_command") as run_validation_command:
-                STABILIZATION_ORCHESTRATOR.run_validation_commands(
+            with mock.patch.object(COMMON_VALIDATION, "run_validation_command") as run_validation_command:
+                COMMON_VALIDATION.run_validation_commands(
                     [
                         "python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_detect_secrets_quality_flow.py'",
                         "git diff --stat",

@@ -11,8 +11,13 @@ services:
     environment:
       - USERNAME=devgoblin
 
+    # <agent-review:suppress-begin>
+    # The env_file object form (path + required) is a Compose feature, which is available since 2.24 (released on 20.12.2023).
+    # We are not supporting older releases.
     env_file:
-      - devices.env
+      - path: devices.env
+        required: false
+    # <agent-review:suppress-end>
 
     ports:
       - 8000:8000

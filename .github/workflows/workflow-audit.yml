@@ -11,7 +11,7 @@ on:
         default: "10"
         type: number
   pull_request:
-    branches: [ main, "feature/**", "sandbox/**" ]
+    branches: [ main, develop, "feature/**", "sandbox/**" ]
     paths:
       - ".github/workflows/**"
       - "scripts/private/workflow_audit_report.py"

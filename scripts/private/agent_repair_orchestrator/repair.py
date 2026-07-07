@@ -28,7 +28,7 @@ from agent_workflow_common.github_output import write_outputs
 from agent_workflow_common.json_files import write_json_file
 from agent_workflow_common.process import run_command
 from agent_workflow_common.task_refs import resolve_task_ref
-from agent_workflow_common.validation import run_validation_command, validation_command_environment
+from agent_workflow_common.validation import run_validation_commands
 
 from .paths import PR_TEMPLATE_PATH
 from .profile import (
@@ -472,13 +472,6 @@ def command_package_repository_changes(args: argparse.Namespace) -> int:
 def command_require_generated_changes(args: argparse.Namespace) -> int:
     print(f"Agent did not produce repository changes for source run {args.source_run_id}.", file=sys.stderr)
     return 1
-
-
-def run_validation_commands(commands: list[str]) -> None:
-    env = validation_command_environment()
-    for command in commands:
-        print(f"Running validation command: {command}")
-        run_validation_command(command, env=env)
 
 
 def command_run_validation(args: argparse.Namespace) -> int:

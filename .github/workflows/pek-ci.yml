@@ -24,7 +24,7 @@ on:
         default: ""
         type: string
   pull_request:
-    branches: [ main, "feature/**", "sandbox/**" ]
+    branches: [main, develop, "feature/**", "sandbox/**" ]
     types: [ opened, synchronize, reopened, ready_for_review, labeled ]
   schedule:
     - cron: "0 2 * * *" # Every day at 2 AM UTC'
@@ -300,22 +300,5 @@ jobs:
             ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/clang-tidy.log
             ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/clang-tidy-stats.log
             ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/clang-tidy-stats.json
-          if-no-files-found: warn
-          retention-days: 10
-
-      - name: Run Valgrind checks
-        id: valgrind_checks
-        if: ${{ !cancelled() }}
-        continue-on-error: true # Do not block PR until the initial ones are fixed
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-valgrind-check
-
-      - name: Upload Valgrind logs on failure
-        if: ${{ !cancelled() && steps.valgrind_checks.outcome == 'failure' }}
-        uses: actions/upload-artifact@v6
-        with:
-          name: valgrind-logs
-          path: |
-            ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/scripts/testing/valgrind/logs
           if-no-files-found: warn
           retention-days: 10
