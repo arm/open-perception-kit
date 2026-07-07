@@ -3,7 +3,7 @@ name: Perception Experience Kit CI Pipeline
 on:
   workflow_dispatch:
   pull_request:
-    branches: [ main, "feature/**", "sandbox/**" ]
+    branches: [main, develop, "feature/**", "sandbox/**" ]
     types: [ opened, synchronize, reopened, ready_for_review, labeled ]
   schedule:
     - cron: "0 2 * * *" # Every day at 2 AM UTC'

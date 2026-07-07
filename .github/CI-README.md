@@ -50,4 +50,4 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - **build-changed-applications:** Builds only the applications changed in a PR.
 - **build-all-applications:** Builds all applications (nightly or manual trigger).
 - **Codex review:** A separate workflow runs codex review, uploads the generated artifacts for the PR, posts a fresh summary comment for each run, and publishes inline review comments for the current findings.
-- **Ruleset sync:** A separate workflow applies the checked-in repository ruleset drafts to GitHub after they are merged to `main`.
+- **Ruleset sync:** A separate workflow applies the checked-in repository ruleset drafts to GitHub after they are merged to `develop`.

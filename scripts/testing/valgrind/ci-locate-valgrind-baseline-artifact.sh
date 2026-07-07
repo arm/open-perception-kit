@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-baseline_branch="${VALGRIND_BASELINE_BRANCH:-main}"
+baseline_branch="${VALGRIND_BASELINE_BRANCH:-develop}"
 workflow_name="${VALGRIND_BASELINE_WORKFLOW:-valgrind.yml}"
 artifact_name="${VALGRIND_BASELINE_ARTIFACT:-valgrind-baseline}"
 
@@ -16,7 +16,8 @@ baseline_sha="$(
 
 # <codex-review:suppress-begin>
 # "Baseline lookup hard-fails when HEAD artifact is missing instead of falling back to latest valid baseline"
-# That is the intended way of operation. If HEAD artifact is missing for the main, then the creation shall be triggered manually.
+# That is the intended way of operation. If the HEAD artifact is missing for
+# develop or another target branch, then creation shall be triggered manually.
 run_ids="$(
     gh run list \
         --repo "${GITHUB_REPOSITORY}" \

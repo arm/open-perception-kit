@@ -8,7 +8,7 @@ on:
       base_ref:
         description: Branch or ref to diff against for manual runs
         required: false
-        default: origin/main
+        default: origin/develop
         type: string
 
 permissions:

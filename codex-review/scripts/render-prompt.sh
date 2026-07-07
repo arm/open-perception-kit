@@ -14,7 +14,7 @@ output_path="$1"
 template_path="${2:-codex-review/prompts/review.md.in}"
 pr_intent_path="$(dirname "${output_path}")/pr-intent.md"
 
-base_ref="${REVIEW_BASE_REF:-origin/main}"
+base_ref="${REVIEW_BASE_REF:-origin/develop}"
 head_ref="${REVIEW_HEAD_REF:-HEAD}"
 base_sha="${REVIEW_BASE_SHA:-}"
 head_sha="${REVIEW_HEAD_SHA:-}"

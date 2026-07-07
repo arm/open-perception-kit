@@ -1,7 +1,8 @@
 # This file contains the valgrind related workflow with all the possible steps.
-# The workflow behaves slightly differently when it is called from the main branch on a new commit and when it is called from a side branch on a pull request.
+# The workflow behaves slightly differently when it is called from the develop or the main
+# branch on a new commit and when it is called from a side branch on a pull request.
 # When it is called for a PR all of the steps shall be evaluated except the valgrind baseline update.
-# When it is called for a new commit on the main branch or manually from a
+# When it is called for a new commit on the develop or on the main branch or manually from any
 # branch, the workflow shall evaluate the steps necessary for the new valgrind
 # baseline summary creation.
 
@@ -10,9 +11,9 @@ name: Valgrind Baseline Artifact
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main, "feature/**", "sandbox/**"]
+    branches: [main, develop, "feature/**", "sandbox/**"]
     types: [opened, synchronize, reopened, ready_for_review]
 
 jobs:
@@ -27,8 +28,9 @@ jobs:
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       # <codex-review:suppress-begin>
-      # For the rare scenarios when the PR target branch is not the main, but the jobs will still need to pass the baseline artifacts can be created manually.
-      VALGRIND_BASELINE_BRANCH: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || 'main' }}
+      # PRs compare against their target branch baseline. Baselines are
+      # published automatically for main and develop, and can be created
+      # manually for other target branches when needed.
       # <codex-review:suppress-end>
     steps:
       - uses: actions/checkout@v6
@@ -51,6 +53,7 @@ jobs:
         id: valgrind_baseline
         env:
           GH_TOKEN: ${{ github.token }}
+          VALGRIND_BASELINE_BRANCH: ${{ github.event.pull_request.base.ref }}
         run: scripts/testing/valgrind/ci-locate-valgrind-baseline-artifact.sh
 
       - name: Download Valgrind baseline artifact
@@ -92,12 +95,12 @@ jobs:
           retention-days: 5
 
       - name: Upload Valgrind baseline
-        if: ${{ github.event_name != 'pull_request' && startsWith(github.ref, 'refs/heads/') && (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main') && steps.valgrind_checks.outcome == 'success' && steps.valgrind_summary.outcome == 'success' }}
+        if: ${{ github.event_name != 'pull_request' && startsWith(github.ref, 'refs/heads/') && (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && steps.valgrind_checks.outcome == 'success' && steps.valgrind_summary.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
           name: valgrind-baseline
           path: scripts/testing/valgrind/valgrind-error-summary.xml
           if-no-files-found: warn
-          # Assume that there will be a commit on the main branch at least every 2 months
-          # to keep the baseline available.
+          # Assume that there will be a commit on the main or develop branch
+          # at least every 2 months to keep the baseline available.
           retention-days: 60

@@ -24,8 +24,8 @@ class TestCiLocateValgrindBaselineArtifact(unittest.TestCase):
                 output_path,
                 gh_script="""
                     case "$1 $2" in
-                      "api repos/example/repo/git/ref/heads/main")
-                        printf '%s\\n' 'current-main-sha'
+                      "api repos/example/repo/git/ref/heads/develop")
+                        printf '%s\\n' 'current-develop-sha'
                         ;;
                       "run list")
                         printf '%s\\n%s\\n' '303' '202'
@@ -46,7 +46,7 @@ class TestCiLocateValgrindBaselineArtifact(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn(
-                "Using valgrind-baseline artifact from run 202 at main current-main-sha.",
+                "Using valgrind-baseline artifact from run 202 at develop current-develop-sha.",
                 result.stdout,
             )
             self.assertEqual(output_path.read_text(encoding="utf-8"), "run-id=202\n")
@@ -60,8 +60,8 @@ class TestCiLocateValgrindBaselineArtifact(unittest.TestCase):
                 output_path,
                 gh_script="""
                     case "$1 $2" in
-                      "api repos/example/repo/git/ref/heads/main")
-                        printf '%s\\n' 'current-main-sha'
+                      "api repos/example/repo/git/ref/heads/develop")
+                        printf '%s\\n' 'current-develop-sha'
                         ;;
                       "run list")
                         printf '%s\\n' '303'
@@ -79,7 +79,7 @@ class TestCiLocateValgrindBaselineArtifact(unittest.TestCase):
 
             self.assertEqual(result.returncode, 1)
             self.assertIn(
-                "No available valgrind-baseline artifact found on main at current-main-sha.",
+                "No available valgrind-baseline artifact found on develop at current-develop-sha.",
                 result.stderr,
             )
             self.assertFalse(output_path.exists())
