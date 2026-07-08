@@ -78,9 +78,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   apt-get install -y --no-install-recommends \
   ca-certificates \
   libssl3t64 libfmt10 libfftw3-single3 libsoup-3.0-0 libjson-glib-1.0-0 libcairo2 \
-  libgstreamer1.0-0 gstreamer1.0-tools gstreamer1.0-x gstreamer1.0-gl \
+  libgstreamer1.0-0 gstreamer1.0-tools \
   gstreamer1.0-plugins-base gstreamer1.0-plugins-bad \
-  gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
+  gstreamer1.0-plugins-good \
   gstreamer1.0-nice gstreamer1.0-pipewire; \
   update-ca-certificates; \
   rm -rf /var/lib/apt/lists/*
