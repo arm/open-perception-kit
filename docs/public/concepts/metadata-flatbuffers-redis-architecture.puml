@@ -1,0 +1,91 @@
+@startuml
+' Architecture sketch for element-owned FlatBuffer payloads carried inside a
+' shared metadata container and published for user-side parsing.
+!include _plantuml/colors.puml
+
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+skinparam defaultTextAlignment center
+skinparam wrapWidth 200
+' skinparam linetype polyline
+
+package "Schema Contract" as schema_contract $CONTAINER_COLOR {
+  artifact "PerceptionContainer.fbs" as container_schema $SCHEMA_COLOR
+  artifact "InferPayload.fbs" as infer_schema $SCHEMA_COLOR
+  artifact "TrackerPayload.fbs" as tracker_schema $SCHEMA_COLOR
+  artifact "PerfPayload.fbs" as perf_schema $SCHEMA_COLOR
+  artifact "Generated C++ bindings" as user_bindings_cpp $EXECUTABLE_COLOR
+  artifact "Generated Python bindings" as user_bindings_py $EXECUTABLE_COLOR
+}
+
+package "Perception Service" as runtime $CONTAINER_COLOR {
+  rectangle "Metadata container" as meta_container $STORE_COLOR
+  
+  rectangle "redis pub/sub" as redis_api $INTERNAL_MODULE_COLOR
+
+  package "Pipeline elements" as pipeline $PIPELINE_COLOR {
+    component "opk-infer" as pekinfer 
+    component "opk-tracker" as pektracker 
+    component "opk-perf" as pekperformance
+    component "opk-comm" as pekcomm 
+  }
+}
+
+database "Redis" as redis $STORE_COLOR
+
+package "User Container" as user_side $CONTAINER_COLOR {
+  package "App" as app $EXECUTABLE_COLOR {
+    rectangle "Container parser" as container_parser
+    ' rectangle "Element payload parsers\n(parse FlatBuffer payload blobs)" as payload_parsers
+  }
+}
+
+' container_schema ..[#black,dashed]-> meta_container : defines container envelope
+' infer_schema ..[$CONTRACT,dashed]-> pekinfer : defines element payload
+' tracker_schema ..[$CONTRACT,dashed]-> pektracker : defines element payload
+' perf_schema ..[$CONTRACT,dashed]-> pekperformance : defines element payload
+
+' container_schema ..[$CONTRACT,dashed]-> user_bindings_cpp
+' infer_schema ..[$CONTRACT,dashed]-> user_bindings_cpp
+' tracker_schema ..[$CONTRACT,dashed]-> user_bindings_cpmeta_containerp
+' perf_schema ..[$CONTRACT,dashed]-> user_bindings_cpp
+
+' container_schema ..[$CONTRACT,dashed]-> user_bindings_py
+' infer_schema ..[$CONTRACT,dashed]-> user_bindings_py
+' tracker_schema ..[$CONTRACT,dashed]-> user_bindings_py
+' perf_schema ..[$CONTRACT,dashed]-> user_bindings_py
+
+
+' user_bindings ..[$CONTRACT,dashed]-> payload_parsers : same schemas exposed to user
+user_bindings_cpp ..[$CONTRACT_COLOR,dashed]-> container_parser
+user_bindings_py ..[$CONTRACT_COLOR,dashed]-> container_parser
+
+user_bindings_cpp ..[$CONTRACT_COLOR,dashed]-> runtime
+
+meta_container <-[$METADATA_COLOR,thickness=2]-> pekinfer 
+meta_container <-[$METADATA_COLOR,thickness=2]-> pektracker
+meta_container <-[$METADATA_COLOR,thickness=2]-> pekperformance 
+meta_container <-[$METADATA_COLOR,thickness=2]-> pekcomm
+meta_container <-[$METADATA_COLOR,thickness=2]-> redis_api
+
+redis_api -[$METADATA_COLOR,thickness=2]-> redis : publish flattened blob
+redis -[$METADATA_COLOR,thickness=2]-> container_parser : delivered container payload
+' container_parser -[$FLOW,thickness=2]-> payload_parsers : dispatch by type / version
+' payload_parsers -[$FLOW,thickness=2]-> app : typed results
+
+note top of pipeline
+Each processing element:
+- reads the current metadata container
+- parses payloads it understands
+- appends or replaces its own FlatBuffer payload as a flattened blob
+end note
+
+note right of user_side
+User-side parsing depends on the same FlatBuffer schemas being
+published as part of the external contract, not only kept inside
+the runtime implementation.
+end note
+
+@enduml
