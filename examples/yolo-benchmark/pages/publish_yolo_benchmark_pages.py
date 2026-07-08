@@ -17,6 +17,7 @@ import statistics
 import subprocess
 import sys
 import tempfile
+from string import Template
 from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import quote
@@ -24,6 +25,7 @@ from urllib.parse import quote
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 ASSET_DIR = SCRIPT_DIR / "assets"
+TEMPLATE_DIR = SCRIPT_DIR / "templates"
 REPO_ROOT = SCRIPT_DIR.parents[2]
 REPORT_ROOT = "yolo-benchmark"
 ARTIFACT_ROOT_NAME = REPORT_ROOT
@@ -59,6 +61,22 @@ def html_escape(value: object) -> str:
 
 def html_anchor(href: str, text: str) -> str:
     return f'<a href="{html_escape(href)}">{html_escape(text)}</a>'
+
+
+def render_template(name: str, values: dict[str, object]) -> str:
+    template = Template((TEMPLATE_DIR / name).read_text(encoding="utf-8"))
+    return template.substitute({key: str(value) for key, value in values.items()})
+
+
+def render_page(title: str, css_href: str, body: str) -> str:
+    return render_template(
+        "base.html.in",
+        {
+            "title": html_escape(title),
+            "css_href": html_escape(css_href),
+            "body": body,
+        },
+    )
 
 
 def tooltip_attrs(text: str) -> str:
@@ -237,28 +255,6 @@ def copy_asset(site_dir: Path, name: str) -> None:
 
 def write_index_assets(site_dir: Path) -> None:
     copy_asset(site_dir, "report-index.css")
-
-
-def write_index_head(title: str, css_href: str) -> str:
-    return f"""<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="color-scheme" content="dark light">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{html_escape(title)}</title>
-    <link rel="stylesheet" href="{html_escape(css_href)}">
-  </head>
-  <body>
-    <main>
-"""
-
-
-def write_index_footer() -> str:
-    return """    </main>
-  </body>
-</html>
-"""
 
 
 def read_first_line(path: Path, default: str) -> str:
@@ -1035,50 +1031,27 @@ def write_report_page(
     measurement = first["measurement"]
     back_href = rel_to_report_root(target, site_dir)
     css_href = f"{back_href}report-index.css"
-    parts = [
-        write_index_head(f"{title} - YOLO benchmark", css_href),
-        """      <header>
-        <div class="report-header-row"><div>
-          <div class="eyebrow">YOLO benchmark</div>
-          <h1>""",
-        html_escape(title),
-        """</h1>
-        </div><a class="back-link top-back-link" href=\"""",
-        html_escape(back_href),
-        """index.html">Back to YOLO report index</a></div>
-        <div class="report-meta-row"><p>""",
-        meta_html,
-        """</p>""",
-        overall_result_block(runs),
-        """</div>
-""",
-        f'        <p>{html_escape(measurement["timed_region"])} | {html_escape(inputs["image_count"])} images | '
-        f'imgsz {html_escape(inputs["imgsz"])} | {html_escape(inputs["device"])} | {len(runs)} runs</p>\n',
-        """      </header>
-""",
-        write_information_section(first),
-        """
-      <section class="section-card">
-        <div class="summary-heading"><h2>10-run Summary</h2>
-        </div>
-        <div class="benchmark-layout"><div class="chart-panel">
-""",
-        summary_bar_chart_svg(runs),
-        """
-        </div><div class="table-panel">
-""",
-        write_summary_table(runs),
-        """
-        </div></div>
-      </section>
-""",
-        write_stability_section(runs),
-        write_run_sections(runs),
-        f'      <a class="back-link" href="{html_escape(back_href)}index.html">Back to YOLO report index</a>\n',
-        chart_tooltip_html(),
-        write_index_footer(),
-    ]
-    (target / INDEX_HTML).write_text("".join(parts), encoding="utf-8")
+    body = render_template(
+        "report.html.in",
+        {
+            "title": html_escape(title),
+            "back_href": html_escape(back_href),
+            "meta_html": meta_html,
+            "overall_result": overall_result_block(runs),
+            "timed_region": html_escape(measurement["timed_region"]),
+            "image_count": html_escape(inputs["image_count"]),
+            "imgsz": html_escape(inputs["imgsz"]),
+            "device": html_escape(inputs["device"]),
+            "run_count": len(runs),
+            "information_section": write_information_section(first),
+            "summary_chart": summary_bar_chart_svg(runs),
+            "summary_table": write_summary_table(runs),
+            "stability_section": write_stability_section(runs),
+            "run_sections": write_run_sections(runs),
+            "chart_tooltip": chart_tooltip_html(),
+        },
+    )
+    (target / INDEX_HTML).write_text(render_page(f"{title} - YOLO benchmark", css_href, body), encoding="utf-8")
 
 
 def report_overall_badge(report_dir: Path) -> str:
@@ -1101,70 +1074,56 @@ def report_link(path: str, title: str, meta: str, badge_html: str) -> str:
 def write_yolo_index(site_dir: Path, repository: str) -> None:
     yolo_dir = site_dir / REPORT_ROOT
     yolo_dir.mkdir(parents=True, exist_ok=True)
-    parts = [
-        write_index_head(f"{PRODUCT_TITLE} - YOLO benchmark reports", "report-index.css"),
-        """      <header>
-        <div class="eyebrow">YOLO benchmark reports</div>
-        <h1>Arm Perception kit</h1>
-      </header>
-      <section>
-        <h2>Nightly</h2>
-        <div class="report-list">
-""",
-    ]
     nightly = yolo_dir / "nightly"
     if (nightly / INDEX_HTML).is_file():
         meta = read_first_line(nightly / REPORT_INDEX_META, "Scheduled develop run")
-        parts.append(report_link("nightly/index.html", "Latest nightly", meta, report_overall_badge(nightly)))
+        nightly_reports = report_link("nightly/index.html", "Latest nightly", meta, report_overall_badge(nightly))
     else:
-        parts.append('          <div class="empty">No nightly report published yet.</div>\n')
+        nightly_reports = '          <div class="empty">No nightly report published yet.</div>\n'
 
-    parts.append(
-        """        </div>
-      </section>
-      <section>
-        <h2>Manual</h2>
-        <div class="report-list">
-"""
-    )
     manual_dir = yolo_dir / "manual"
     manual_reports = []
     if manual_dir.is_dir():
         manual_reports = [path for path in manual_dir.iterdir() if (path / INDEX_HTML).is_file()]
     if manual_reports:
+        manual_report_links = []
         for report_dir in sorted(manual_reports, key=lambda path: path.name, reverse=True):
             meta = read_first_line(report_dir / REPORT_INDEX_META, "Manual run")
-            parts.append(report_link(
+            manual_report_links.append(report_link(
                 f"manual/{report_dir.name}/index.html", f"Run {report_dir.name}", meta, report_overall_badge(report_dir)))
+        manual_reports_html = "".join(manual_report_links)
     else:
-        parts.append('          <div class="empty">No manual report published yet.</div>\n')
+        manual_reports_html = '          <div class="empty">No manual report published yet.</div>\n'
 
-    parts.append(
-        """        </div>
-      </section>
-      <section>
-        <h2>Pull Requests</h2>
-        <div class="report-list">
-"""
-    )
     prs_dir = yolo_dir / "prs"
     pr_reports = []
     if prs_dir.is_dir():
         pr_reports = [path for path in prs_dir.iterdir() if path.is_dir() and path.name.isdigit()]
     if pr_reports:
+        pr_report_links = []
         for pr_dir in sorted(pr_reports, key=lambda path: int(path.name)):
             if not (pr_dir / INDEX_HTML).is_file():
                 continue
             meta = read_first_line(pr_dir / REPORT_INDEX_META, "Published report")
             title = pr_report_title(pr_dir.name, repository)
-            parts.append(report_link(f"prs/{pr_dir.name}/index.html", title, meta, report_overall_badge(pr_dir)))
+            pr_report_links.append(
+                report_link(f"prs/{pr_dir.name}/index.html", title, meta, report_overall_badge(pr_dir))
+            )
+        pr_reports_html = "".join(pr_report_links)
     else:
-        parts.append('          <div class="empty">No PR report published yet.</div>\n')
+        pr_reports_html = '          <div class="empty">No PR report published yet.</div>\n'
 
-    parts.extend(["""        </div>
-      </section>
-""", write_index_footer()])
-    (yolo_dir / INDEX_HTML).write_text("".join(parts), encoding="utf-8")
+    body = render_template(
+        "index.html.in",
+        {
+            "product_title": html_escape(PRODUCT_TITLE),
+            "nightly_reports": nightly_reports,
+            "manual_reports": manual_reports_html,
+            "pr_reports": pr_reports_html,
+        },
+    )
+    (yolo_dir / INDEX_HTML).write_text(
+        render_page(f"{PRODUCT_TITLE} - YOLO benchmark reports", "report-index.css", body), encoding="utf-8")
 
 
 def select_target(site_dir: Path, repository: str, event: str, branch: str) -> tuple[Path, str, str]:

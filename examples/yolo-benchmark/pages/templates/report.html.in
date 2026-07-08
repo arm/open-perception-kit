@@ -1,0 +1,20 @@
+      <header>
+        <div class="report-header-row"><div>
+          <div class="eyebrow">YOLO benchmark</div>
+          <h1>${title}</h1>
+        </div><a class="back-link top-back-link" href="${back_href}index.html">Back to YOLO report index</a></div>
+        <div class="report-meta-row"><p>${meta_html}</p>${overall_result}</div>
+        <p>${timed_region} | ${image_count} images | imgsz ${imgsz} | ${device} | ${run_count} runs</p>
+      </header>
+${information_section}
+      <section class="section-card">
+        <div class="summary-heading"><h2>10-run Summary</h2>
+        </div>
+        <div class="benchmark-layout"><div class="chart-panel">
+${summary_chart}
+        </div><div class="table-panel">
+${summary_table}
+        </div></div>
+      </section>
+${stability_section}${run_sections}      <a class="back-link" href="${back_href}index.html">Back to YOLO report index</a>
+${chart_tooltip}
