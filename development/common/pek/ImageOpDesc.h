@@ -6,6 +6,9 @@
 
 #include "pek/Types.h"
 
+#include <algorithm>
+#include <cmath>
+
 namespace pek {
 
 /**
@@ -26,6 +29,12 @@ struct ImageOpDesc {
 
     pek::Colorf mean = {0.0f, 0.0f, 0.0f, 0.0f}; ///< Per-channel normalisation mean.
     pek::Colorf std = {1.0f, 1.0f, 1.0f, 1.0f};  ///< Per-channel normalisation std.
+
+    bool keepAspectRatio = false; ///< Preserve aspect ratio during resize by letterboxing.
+
+    float letterboxRed = 114.0f / 255.0f;   ///< Letterbox red channel, normalized.
+    float letterboxGreen = 114.0f / 255.0f; ///< Letterbox green channel, normalized.
+    float letterboxBlue = 114.0f / 255.0f;  ///< Letterbox blue channel, normalized.
 
     /**
      * @brief Returns the number of channels implied by the DataKind, or 0 if unknown.
@@ -53,5 +62,33 @@ struct ImageOpDesc {
                rect.height == surfaceHeight;
     }
 };
+
+inline PixelRect computeLetterboxInnerRect(const PixelRect &sourceRect,
+                                           const PixelRect &destinationRect) {
+    if (sourceRect.isEmpty() || destinationRect.isEmpty()) {
+        return {};
+    }
+
+    const double scaleX =
+        static_cast<double>(destinationRect.width) / static_cast<double>(sourceRect.width);
+    const double scaleY =
+        static_cast<double>(destinationRect.height) / static_cast<double>(sourceRect.height);
+    const double scale = std::min(scaleX, scaleY);
+
+    auto innerWidth =
+        static_cast<size_t>(std::llround(static_cast<double>(sourceRect.width) * scale));
+    auto innerHeight =
+        static_cast<size_t>(std::llround(static_cast<double>(sourceRect.height) * scale));
+
+    innerWidth = std::clamp(innerWidth, size_t{1}, destinationRect.width);
+    innerHeight = std::clamp(innerHeight, size_t{1}, destinationRect.height);
+
+    return PixelRect{
+        destinationRect.x + (destinationRect.width - innerWidth) / 2,
+        destinationRect.y + (destinationRect.height - innerHeight) / 2,
+        innerWidth,
+        innerHeight,
+    };
+}
 
 } // namespace pek

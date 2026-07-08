@@ -19,11 +19,13 @@ using nlohmann::json;
 
 namespace pek {
 
+inline constexpr float DefaultLetterboxColor = 114.0f / 255.0f;
+
 /**
  * @brief JSON-serializable tensor descriptor used by model descriptors.
  *
  * Describes expected tensor shape/layout/type and optional quantization and
- * normalization parameters for input/output tensors.
+ * preprocessing parameters for input/output tensors.
  */
 struct TensorDescriptor {
     /// Tensor shape. When missing/invalid, runtime may try to infer it from model metadata.
@@ -43,6 +45,14 @@ struct TensorDescriptor {
 
     /// Per-channel mean/std normalization parameters.
     pek::Colorf mean = {0.0f, 0.0f, 0.0f, 0.0f}, std = {1.0f, 1.0f, 1.0f, 1.0f};
+
+    /// Preserve image aspect ratio during image tensor resize by letterboxing.
+    bool keepAspectRatio = false;
+
+    /// Letterbox padding color in normalized RGB channel values.
+    float letterboxRed = DefaultLetterboxColor;
+    float letterboxGreen = DefaultLetterboxColor;
+    float letterboxBlue = DefaultLetterboxColor;
 
     /**
      * @brief Optional output tensor index used for dynamic shape matching.
@@ -124,6 +134,10 @@ inline void to_json(json &j, const TensorDescriptor &b) {
         {"scale", b.scale},
         {"mean", b.mean},
         {"std", b.std},
+        {"keepAspectRatio", b.keepAspectRatio},
+        {"letterboxRed", b.letterboxRed},
+        {"letterboxGreen", b.letterboxGreen},
+        {"letterboxBlue", b.letterboxBlue},
         {"matchShapeOutputIndex", b.matchShapeOutputIndex},
         {"dataKind", b.dataKind},
         {"valueInputs", b.valueInputs},
@@ -137,6 +151,10 @@ inline void from_json(const json &j, TensorDescriptor &b) {
     b.scale = j.value("scale", 1.0f);
     b.mean = j.value("mean", pek::Colorf{0.0f, 0.0f, 0.0f, 0.0f});
     b.std = j.value("std", pek::Colorf{1.0f, 1.0f, 1.0f, 1.0f});
+    b.keepAspectRatio = j.value("keepAspectRatio", false);
+    b.letterboxRed = j.value("letterboxRed", DefaultLetterboxColor);
+    b.letterboxGreen = j.value("letterboxGreen", DefaultLetterboxColor);
+    b.letterboxBlue = j.value("letterboxBlue", DefaultLetterboxColor);
     b.matchShapeOutputIndex = j.value("matchShapeOutputIndex", pek::InvalidTensorIndex);
     j.at("dataKind").get_to(b.dataKind);
     b.valueInputs = j.value("valueInputs", std::vector<float>{});

@@ -49,19 +49,50 @@ if not openmp_dep.found()
   subdir_done()
 endif
 
-ncnn_dep = declare_dependency(
-  compile_args: [
-    '-isystem',
-    ncnn_include,
-  ],
-  link_args: [
+ncnn_link_args = [
+  '-L' + ncnn_libdir,
+  '-lncnn',
+  '-lpthread',
+  '-ldl',
+  '-lm',
+  '-Wl,--no-undefined',
+]
+
+ncnn_static_vulkan_link_args = []
+foreach lib : [
+  'glslang',
+  'SPIRV',
+  'OSDependent',
+  'MachineIndependent',
+  'GenericCodeGen',
+  'glslang-default-resource-limits',
+]
+  if fs.is_file(ncnn_libdir / ('lib' + lib + '.a'))
+    ncnn_static_vulkan_link_args += ['-l' + lib]
+  endif
+endforeach
+
+if ncnn_static_vulkan_link_args.length() > 0
+  message('Using NCNN Vulkan static link dependencies: ' + ' '.join(ncnn_static_vulkan_link_args))
+  ncnn_link_args = [
     '-L' + ncnn_libdir,
+    '-Wl,--start-group',
     '-lncnn',
+  ] + ncnn_static_vulkan_link_args + [
+    '-Wl,--end-group',
     '-lpthread',
     '-ldl',
     '-lm',
     '-Wl,--no-undefined',
   ]
+endif
+
+ncnn_dep = declare_dependency(
+  compile_args: [
+    '-isystem',
+    ncnn_include,
+  ],
+  link_args: ncnn_link_args
 )
 
 ncnnops = shared_module(
