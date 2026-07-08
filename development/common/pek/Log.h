@@ -7,10 +7,24 @@
 #include "pek/String.h"
 
 #include <cstddef>
+#include <cstdio>
 #include <fmt/format.h>
+#include <optional>
+#include <string_view>
 #include <utility>
 
 namespace pek {
+
+// Log levels are ordered by increasing verbosity. A configured level includes messages at that
+// level and every less verbose level below it.
+enum class LogLevel : int { Off = 0, Error = 1, Warn = 2, Notice = 3, Info = 4 };
+
+constexpr int log_level_value(LogLevel level) {
+    return static_cast<int>(level);
+}
+
+// The default is used when the environment variable does not exist or is malformed.
+static constexpr LogLevel defaultLogLevel{LogLevel::Info};
 
 struct LogTools {
 
@@ -91,30 +105,28 @@ struct LogTools {
     }
 };
 
-} // namespace pek
+std::optional<int> parse_log_level(std::string_view value);
+int current_log_level();
+void set_log_level(int logLevel);
 
-namespace pek {
+namespace detail {
 
-// extend later (channels/sinks)
-enum class LogLevel { Info, Notice, Warn, Error };
+void write_stdout(fmt::string_view msg);
+void write_stderr(fmt::string_view msg);
 
-// single chokepoint for output routing/prefixing
-// later we can add timestamps, thread id, channel, etc. here
-inline void log_write(LogLevel lvl, fmt::string_view msg) {
-    switch (lvl) {
-    case LogLevel::Info:
-        fmt::print("{}", msg);
-        break;
-    case LogLevel::Notice:
-        fmt::print("{}", LogTools::invert(msg.data()));
-        break;
-    case LogLevel::Warn:
-        fmt::print("W: {}", msg);
-        break;
-    case LogLevel::Error:
-        fmt::print("E: {}", msg);
-        break;
-    }
+} // namespace detail
+
+inline bool should_log(LogLevel lvl) {
+    return lvl != LogLevel::Off && current_log_level() >= log_level_value(lvl);
+}
+
+// Single chokepoint for filtering, routing, and prefixing. The implementation lives in the common
+// library so later sink changes apply consistently to every caller, including release builds.
+void log_write(LogLevel lvl, fmt::string_view msg);
+
+inline void log_flush() {
+    std::fflush(stdout);
+    std::fflush(stderr);
 }
 
 // --- Primary API: compile-time checked formatting (drop-in for fmt::print) ---
@@ -141,21 +153,36 @@ template <typename... Args> inline void loge(fmt::format_string<Args...> fmtstr,
     log_write(LogLevel::Error, s);
 }
 
+// Unconditional single-stream output for command-line interfaces and other output that is part
+// of a program's contract. Unlike the severity-based functions above, these functions are not
+// affected by the configured log level and do not add prefixes
+template <typename... Args>
+inline void force_log(fmt::format_string<Args...> fmtstr, Args &&...args) {
+    auto s = fmt::format(fmtstr, std::forward<Args>(args)...);
+    detail::write_stdout(s);
+}
+
+template <typename... Args>
+inline void force_loge(fmt::format_string<Args...> fmtstr, Args &&...args) {
+    auto s = fmt::format(fmtstr, std::forward<Args>(args)...);
+    detail::write_stderr(s);
+}
+
 // --- Optional runtime-format API ---
 // Use this only when the format string is not a literal / not known at compile-time.
 // Named differently to avoid overload ambiguity with string literals.
 template <typename... Args> inline void log_runtime(fmt::string_view fmtstr, Args &&...args) {
-    auto s = fmt::vformat(fmtstr, fmt::make_format_args(std::forward<Args>(args)...));
+    auto s = fmt::vformat(fmtstr, fmt::make_format_args(args...));
     log_write(LogLevel::Info, s);
 }
 
 template <typename... Args> inline void logw_runtime(fmt::string_view fmtstr, Args &&...args) {
-    auto s = fmt::vformat(fmtstr, fmt::make_format_args(std::forward<Args>(args)...));
+    auto s = fmt::vformat(fmtstr, fmt::make_format_args(args...));
     log_write(LogLevel::Warn, s);
 }
 
 template <typename... Args> inline void loge_runtime(fmt::string_view fmtstr, Args &&...args) {
-    auto s = fmt::vformat(fmtstr, fmt::make_format_args(std::forward<Args>(args)...));
+    auto s = fmt::vformat(fmtstr, fmt::make_format_args(args...));
     log_write(LogLevel::Error, s);
 }
 

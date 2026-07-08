@@ -7,6 +7,7 @@ common = shared_library(
     'gst/TensorMeta.cpp',
 
     'pek/Result.cpp',
+    'pek/Log.cpp',
     'pek/Tools.cpp',
     'pek/Labels.cpp',
     'pek/Model.cpp',

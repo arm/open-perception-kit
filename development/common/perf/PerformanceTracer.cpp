@@ -3,10 +3,10 @@
  *************************************************************/
 
 #include "perf/PerformanceTracer.h"
+#include "pek/Log.h"
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
-#include <iostream>
 #include <numeric>
 #include <sstream>
 #include <thread>
@@ -275,36 +275,34 @@ std::string PerformanceTracer::toJSON() const {
 void PerformanceTracer::printSummary() const {
     auto stats = getAllStats();
 
-    std::cout
-        << "\n╔═══════════════════════════════════════════════════════════════════════════╗\n";
-    std::cout << "║                     Performance Tracer Summary                            ║\n";
-    std::cout << "╠═══════════════════════════════════════════════════════════════════════════╣\n";
-    std::cout << "║ Cycle: " << std::setw(4) << cycle_count_ << " | Active Timers: " << std::setw(3)
-              << getActiveTimerCount() << " | Total Keys: " << std::setw(3) << stats.size()
-              << "                        ║\n";
-    std::cout << "╠═══════════════════════════════════════════════════════════════════════════╣\n";
+    std::ostringstream oss;
+    oss << "\n╔═══════════════════════════════════════════════════════════════════════════╗\n";
+    oss << "║                     Performance Tracer Summary                            ║\n";
+    oss << "╠═══════════════════════════════════════════════════════════════════════════╣\n";
+    oss << "║ Cycle: " << std::setw(4) << cycle_count_ << " | Active Timers: " << std::setw(3)
+        << getActiveTimerCount() << " | Total Keys: " << std::setw(3) << stats.size()
+        << "                        ║\n";
+    oss << "╠═══════════════════════════════════════════════════════════════════════════╣\n";
 
     if (stats.empty()) {
-        std::cout
-            << "║                          No measurements yet                              ║\n";
+        oss << "║                          No measurements yet                              ║\n";
     } else {
-        std::cout
-            << "║ Key                  │ Count │  Avg(ms) │  P50(ms) │  P95(ms) │  P99(ms) ║\n";
-        std::cout
-            << "╠══════════════════════╪═══════╪══════════╪══════════╪══════════╪══════════╣\n";
+        oss << "║ Key                  │ Count │  Avg(ms) │  P50(ms) │  P95(ms) │  P99(ms) ║\n";
+        oss << "╠══════════════════════╪═══════╪══════════╪══════════╪══════════╪══════════╣\n";
 
         for (const auto &pair : stats) {
             const auto &s = pair.second;
-            std::cout << "║ " << std::left << std::setw(20) << s.key.substr(0, 20) << " │ "
-                      << std::right << std::setw(5) << s.count << " │ " << std::setw(8)
-                      << std::fixed << std::setprecision(2) << s.avg_ms() << " │ " << std::setw(8)
-                      << std::fixed << std::setprecision(2) << s.p50_ms() << " │ " << std::setw(8)
-                      << std::fixed << std::setprecision(2) << s.p95_ms() << " │ " << std::setw(8)
-                      << std::fixed << std::setprecision(2) << s.p99_ms() << " ║\n";
+            oss << "║ " << std::left << std::setw(20) << s.key.substr(0, 20) << " │ " << std::right
+                << std::setw(5) << s.count << " │ " << std::setw(8) << std::fixed
+                << std::setprecision(2) << s.avg_ms() << " │ " << std::setw(8) << std::fixed
+                << std::setprecision(2) << s.p50_ms() << " │ " << std::setw(8) << std::fixed
+                << std::setprecision(2) << s.p95_ms() << " │ " << std::setw(8) << std::fixed
+                << std::setprecision(2) << s.p99_ms() << " ║\n";
         }
     }
 
-    std::cout << "╚═══════════════════════════════════════════════════════════════════════════╝\n";
+    oss << "╚═══════════════════════════════════════════════════════════════════════════╝\n";
+    pek::log("{}", oss.str());
 }
 
 // ============================================================================
@@ -316,20 +314,20 @@ PerformanceMonitor::PerformanceMonitor(PerformanceTracer *tracer) : tracer_(trac
 PerformanceMonitor::~PerformanceMonitor() = default;
 
 void PerformanceMonitor::print() const {
-    std::cout << format() << std::endl;
+    pek::log("{}\n", format());
 }
 
 void PerformanceMonitor::printCycle(size_t cycle_number) const {
-    std::cout << "\n=== Cycle " << cycle_number << " ===" << std::endl;
+    pek::log("\n=== Cycle {} ===\n", cycle_number);
     print();
 }
 
 void PerformanceMonitor::startLiveMonitoring() {
-    std::cout << "Starting live monitoring (Ctrl+C to stop)...\n" << std::endl;
+    pek::log("Starting live monitoring (Ctrl+C to stop)...\n\n");
 
     while (true) {
         clearScreen();
-        std::cout << format() << std::endl;
+        pek::log("{}\n", format());
         std::this_thread::sleep_for(refresh_interval_);
     }
 }
@@ -449,7 +447,8 @@ std::string PerformanceMonitor::formatDetailed() const {
 
 void PerformanceMonitor::clearScreen() const {
     // ANSI escape code to clear screen and move cursor to top
-    std::cout << "\033[2J\033[H" << std::flush;
+    pek::log("\033[2J\033[H");
+    pek::log_flush();
 }
 
 // ============================================================================

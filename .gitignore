@@ -93,6 +93,7 @@ onnxruntime-linux-x64-*
 graphs/
 
 tools/pek-menu
+tools/libcommon.so
 
 core.*
 
