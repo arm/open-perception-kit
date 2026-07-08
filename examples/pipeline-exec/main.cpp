@@ -3,6 +3,7 @@
  *************************************************************/
 
 #include "runtime/Pipeline.h"
+#include "runtime/PerformanceMetrics.h"
 
 #include <fmt/core.h>
 #include <fmt/ranges.h>
@@ -11,6 +12,7 @@
 #include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
 #include <mutex>
 #include <string>
 #include <utility>
@@ -24,8 +26,41 @@ namespace {
 // meant to demonstrate the public PEK runtime API, not define reusable PEK
 // utility functions.
 
+struct Options {
+    std::string pipelineJsonPath;
+    std::string perfCsvPath;
+};
+
 void printUsage(const char *programName) {
-    fmt::print(stderr, "Usage: {} <pipeline.json>\n", programName);
+    fmt::print(stderr, "Usage: {} [--perf-csv FILE] <pipeline.json>\n", programName);
+}
+
+bool parseOptions(int argc, char **argv, Options &options) {
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i];
+        if (arg == "--perf-csv") {
+            if (i + 1 >= argc) {
+                fmt::print(stderr, "--perf-csv requires a file path\n");
+                return false;
+            }
+            options.perfCsvPath = argv[++i];
+        } else if (arg.empty() || arg[0] == '-') {
+            fmt::print(stderr, "Unknown argument: {}\n", arg);
+            return false;
+        } else if (options.pipelineJsonPath.empty()) {
+            options.pipelineJsonPath = arg;
+        } else {
+            fmt::print(stderr, "Unexpected extra pipeline argument: {}\n", arg);
+            return false;
+        }
+    }
+
+    if (options.pipelineJsonPath.empty()) {
+        fmt::print(stderr, "Missing pipeline JSON path\n");
+        return false;
+    }
+
+    return true;
 }
 
 std::string pluginPath() {
@@ -45,18 +80,57 @@ std::string pluginPath() {
     return "/work/development/build/meson-out";
 }
 
+void writeCsvString(std::ofstream &output, const std::string &value) {
+    output << '"';
+    for (const char ch : value) {
+        if (ch == '"') {
+            output << "\"\"";
+        } else {
+            output << ch;
+        }
+    }
+    output << '"';
+}
+
+bool writePerformanceCsv(const std::string &path,
+                         const pek::runtime::PerformanceMetricsSnapshot &snapshot) {
+    std::ofstream output(path);
+    if (!output) {
+        fmt::print(stderr, "pipeline-exec: failed to open performance CSV: {}\n", path);
+        return false;
+    }
+
+    output << "name,start_ns,end_ns,duration_ns,thread_id,depth,complete,name_truncated\n";
+    for (const auto &span : snapshot.spans) {
+        writeCsvString(output, span.name);
+        output << ',' << span.startNs << ',' << span.endNs << ',' << span.durationNs << ','
+               << span.threadId << ',' << span.depth << ',' << (span.complete ? "true" : "false")
+               << ',' << (span.nameTruncated ? "true" : "false") << '\n';
+    }
+
+    output.flush();
+    if (!output) {
+        fmt::print(stderr, "pipeline-exec: failed to write performance CSV: {}\n", path);
+        return false;
+    }
+
+    return true;
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
     // pipeline-exec intentionally has the smallest useful interface for the
-    // GStreamer-backed runtime layer: one PEK pipeline JSON file. The JSON format is
-    // the same one used by the JSON files under config/pipelines.
-    if (argc != 2) {
+    // GStreamer-backed runtime layer: one PEK pipeline JSON file, plus optional
+    // performance trace CSV output. The JSON format is the same one used by the
+    // JSON files under config/pipelines.
+    Options options;
+    if (!parseOptions(argc, argv, options)) {
         printUsage(argv[0]);
         return 2;
     }
 
-    const std::string pipelineJsonPath = argv[1];
+    const std::string &pipelineJsonPath = options.pipelineJsonPath;
 
     // Make build-tree PEK plugins visible to GStreamer before parsing the
     // pipeline. The runtime wrapper still hides GStreamer types; this call only takes
@@ -148,8 +222,16 @@ int main(int argc, char **argv) {
     // start() moves the hidden GStreamer pipeline to PLAYING and returns
     // immediately. Buffers now begin to flow and callbacks can fire while the
     // application keeps ownership of this thread.
+    if (!options.perfCsvPath.empty()) {
+        pek::runtime::PerformanceMetrics::reset();
+        pek::runtime::PerformanceMetrics::setTraceEnabled(true);
+    }
+
     auto startResult = pipeline.start();
     if (!startResult) {
+        if (!options.perfCsvPath.empty()) {
+            pek::runtime::PerformanceMetrics::setTraceEnabled(false);
+        }
         fmt::print(stderr, "{}\n", startResult.error().toString());
         return 1;
     }
@@ -168,8 +250,29 @@ int main(int argc, char **argv) {
     // resources before the wrapper object is destroyed.
     auto stopResult = pipeline.stop();
     if (!stopResult) {
+        if (!options.perfCsvPath.empty()) {
+            pek::runtime::PerformanceMetrics::setTraceEnabled(false);
+        }
         fmt::print(stderr, "{}\n", stopResult.error().toString());
         return 1;
+    }
+
+    if (!options.perfCsvPath.empty()) {
+        const auto performanceSnapshot = pek::runtime::PerformanceMetrics::snapshot();
+        pek::runtime::PerformanceMetrics::setTraceEnabled(false);
+        if (!writePerformanceCsv(options.perfCsvPath, performanceSnapshot)) {
+            return 1;
+        }
+        if (performanceSnapshot.droppedMetrics > 0 || performanceSnapshot.droppedSpans > 0 ||
+            performanceSnapshot.threadSlotOverflow) {
+            fmt::print(stderr,
+                       "pipeline-exec: performance metrics warning: droppedMetrics={} "
+                       "droppedSpans={} threadSlotOverflow={}\n",
+                       performanceSnapshot.droppedMetrics,
+                       performanceSnapshot.droppedSpans,
+                       performanceSnapshot.threadSlotOverflow ? "true" : "false");
+        }
+        fmt::print(stderr, "pipeline-exec: wrote performance CSV: {}\n", options.perfCsvPath);
     }
 
     fmt::print(stderr,

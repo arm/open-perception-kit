@@ -12,6 +12,7 @@
 #include "pek/AttributeMap.h"
 #include "pek/Result.h"
 
+#include <perf/PerformanceMetrics.h>
 #include <perf/PerformanceTracer.h>
 
 using namespace pek::ncnnrt;
@@ -53,6 +54,7 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
 
 pek::Result<pek::op::OpSignal> InferenceOp::process(pek::op::OpChainContext &opChainContext) {
     PEK_TRACE_SCOPE(fmt::format("ncnn/Infer/{}", opChainContext.inferenceInfo.modelFamily));
+    PEK_PERF_SCOPE(fmt::format("ncnn/Infer/{}", opChainContext.inferenceInfo.modelFamily));
 
     auto inferenceResult = inference->inference();
     if (!inferenceResult) {

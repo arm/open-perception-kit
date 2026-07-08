@@ -11,6 +11,7 @@
 #include <fmt/core.h>
 #include <memory>
 
+#include <perf/PerformanceMetrics.h>
 #include <perf/PerformanceTracer.h>
 
 using namespace pek::extrch;
@@ -53,6 +54,7 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
 
 pek::Result<pek::op::OpSignal> InferenceOp::process(pek::op::OpChainContext &opChainContext) {
     PEK_TRACE_SCOPE(fmt::format("extrch/Infer/{}", opChainContext.inferenceInfo.modelFamily));
+    PEK_PERF_SCOPE(fmt::format("extrch/Infer/{}", opChainContext.inferenceInfo.modelFamily));
 
     // Preprocess has already written into Inference input buffers through OpInterfaceInference.
     auto inferenceResult = inference->inference();

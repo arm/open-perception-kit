@@ -11,6 +11,7 @@
 
 #include "pek/Perception.h"
 #include "pek/Types.h"
+#include <perf/PerformanceMetrics.h>
 #include <perf/PerformanceTracer.h>
 
 // parser class headers
@@ -96,6 +97,7 @@ pek::Result<void> GenericPostprocessOp::configure(const pek::AttributeMap &attri
 pek::Result<pek::op::OpSignal>
 GenericPostprocessOp::process(pek::op::OpChainContext &opChainContext) {
     PEK_TRACE_SCOPE(fmt::format("std/Post/{}", opChainContext.inferenceInfo.modelFamily));
+    PEK_PERF_SCOPE(fmt::format("std/Post/{}", opChainContext.inferenceInfo.modelFamily));
 
     pek::TensorParser::Input tensorParserInput(attributes);
 
