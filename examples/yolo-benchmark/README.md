@@ -160,12 +160,12 @@ Keep `artifacts/` local; it is ignored by git.
 
 ## Pages report
 
-The Pages publisher mirrors the Playwright report flow. The benchmark job keeps
-producing the `yolo-benchmark-<run-id>-<attempt>` Actions artifact, and the
-`Publish YOLO Benchmark Reports` workflow consumes that artifact after the run
-completes.
+The Pages publisher mirrors the Playwright report style without reusing the
+Playwright publisher code or CSS. The benchmark job keeps producing the
+`yolo-benchmark-<run-id>-<attempt>` Actions artifact, and the `Publish YOLO
+Benchmark Reports` workflow consumes that artifact after the run completes.
 
-Published reports live under the shared Pages site:
+Published reports live under the shared repository Pages site:
 
 ```text
 yolo-benchmark/nightly/
@@ -173,8 +173,7 @@ yolo-benchmark/manual/<run-id>/
 yolo-benchmark/prs/<number>/
 ```
 
-The report page uses the same `report-index.css` style as the Playwright Pages
-publisher and renders native SVG plots for `avg_ms`, `p50_ms`, `p95_ms`, and
+The report page renders native SVG plots for `avg_ms`, `p50_ms`, `p95_ms`, and
 `p99_ms`. Predictions JSONL files stay in the Actions artifact; Pages only keeps
 the comparison and summary JSON files.
 

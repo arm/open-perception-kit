@@ -71,7 +71,7 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             self.assertIn("50.0%", content)
             self.assertIn("runs/run-01/comparison.json", content)
             self.assertIn('href="../../index.html"', content)
-            self.assertIn('href="../../../report-index.css"', content)
+            self.assertIn('href="../../report-index.css"', content)
 
     def test_select_target_supports_manual_reports(self) -> None:
         with patch.dict(os.environ, {"UPSTREAM_RUN_ID": "123"}):

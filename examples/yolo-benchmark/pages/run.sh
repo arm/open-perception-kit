@@ -10,7 +10,7 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(git -C "${SCRIPT_DIR}" rev-parse --show-toplevel)"
 IMAGE_NAME="${YOLO_PAGES_IMAGE_NAME:-amp-dev-forge-yolo-benchmark-pages:local}"
-DOCKERFILE="${REPO_ROOT}/scripts/playwright/pages/Dockerfile"
+DOCKERFILE="${SCRIPT_DIR}/Dockerfile"
 
 usage() {
     cat << 'EOF'

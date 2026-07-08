@@ -7,8 +7,9 @@
 
 from __future__ import annotations
 
+import base64
 import datetime as dt
-import importlib.util
+import html
 import json
 import os
 import shutil
@@ -17,41 +18,21 @@ import sys
 import tempfile
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parents[2]
-PLAYWRIGHT_PUBLISHER = REPO_ROOT / "scripts" / "playwright" / "pages" / "publish_playwright_pages.py"
+ASSET_DIR = SCRIPT_DIR / "assets"
 REPORT_ROOT = "yolo-benchmark"
+ARTIFACT_ROOT_NAME = REPORT_ROOT
 PRODUCT_TITLE = "Arm Perception kit"
+INDEX_HTML = "index.html"
+REPORT_INDEX_META = "report-index-meta.txt"
 METRICS = ("avg_ms", "p50_ms", "p95_ms", "p99_ms")
 
 
-def import_playwright_pages():
-    spec = importlib.util.spec_from_file_location("publish_playwright_pages", PLAYWRIGHT_PUBLISHER)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    assert spec.loader is not None
-    spec.loader.exec_module(module)
-    return module
-
-
-# Reuse the existing Pages publisher primitives so YOLO and Playwright reports
-# keep the same storage-branch behavior and visual shell.
-pages = import_playwright_pages()
-PublishError = pages.PublishError
-
-
-def mirror_playwright_env() -> None:
-    os.environ.setdefault("REPORT_PAGES_LABEL", "YOLO benchmark Pages")
-    os.environ.setdefault("REPORT_PAGES_COMMIT_MESSAGE", "Update YOLO benchmark report pages")
-    for yolo_name, playwright_name in (
-        ("YOLO_PAGES_DRY_RUN", "PLAYWRIGHT_PAGES_DRY_RUN"),
-        ("YOLO_PAGES_SITE_DIR", "PLAYWRIGHT_PAGES_SITE_DIR"),
-        ("YOLO_PAGES_STORAGE_BRANCH", "PLAYWRIGHT_PAGES_STORAGE_BRANCH"),
-    ):
-        if os.environ.get(yolo_name) and not os.environ.get(playwright_name):
-            os.environ[playwright_name] = os.environ[yolo_name]
+class PublishError(RuntimeError):
+    pass
 
 
 def usage() -> None:
@@ -59,28 +40,217 @@ def usage() -> None:
 
 
 def env(name: str, default: str = "") -> str:
-    return pages.env(name, default)
+    return os.environ.get(name, default)
 
 
 def require_env(name: str) -> str:
-    return pages.require_env(name)
+    value = env(name)
+    if not value:
+        raise PublishError(f"{name} is required.")
+    return value
 
 
 def html_escape(value: object) -> str:
-    return pages.html_escape(str(value))
+    return html.escape(str(value), quote=True)
 
 
 def html_anchor(href: str, text: str) -> str:
-    return pages.html_anchor(href, text)
+    return f'<a href="{html_escape(href)}">{html_escape(text)}</a>'
 
 
-def rel_to_site_root(target: Path, site_dir: Path) -> str:
-    depth = len(target.relative_to(site_dir).parts)
+def dry_run_enabled() -> bool:
+    return env("YOLO_PAGES_DRY_RUN") == "1"
+
+
+def set_output(name: str, value: str) -> None:
+    output = env("GITHUB_OUTPUT")
+    if output:
+        with open(output, "a", encoding="utf-8") as handle:
+            handle.write(f"{name}={value}\n")
+
+
+def run(args: list[str], cwd: Path | None = None, quiet: bool = False) -> subprocess.CompletedProcess:
+    stdout = subprocess.DEVNULL if quiet else None
+    stderr = subprocess.DEVNULL if quiet else None
+    return subprocess.run(args, cwd=cwd, check=True, stdout=stdout, stderr=stderr, text=True)
+
+
+def run_maybe(args: list[str], cwd: Path | None = None, quiet: bool = False) -> subprocess.CompletedProcess:
+    stdout = subprocess.DEVNULL if quiet else None
+    stderr = subprocess.DEVNULL if quiet else None
+    return subprocess.run(args, cwd=cwd, check=False, stdout=stdout, stderr=stderr, text=True)
+
+
+def git_auth_header() -> str:
+    token = require_env("GITHUB_TOKEN")
+    return base64.b64encode(f"x-access-token:{token}".encode("utf-8")).decode("ascii")
+
+
+def git_with_auth(args: list[str], site_dir: Path, auth_header: str, quiet: bool = False) -> subprocess.CompletedProcess:
+    return run(
+        [
+            "git",
+            "-C",
+            str(site_dir),
+            "-c",
+            f"http.https://github.com/.extraheader=AUTHORIZATION: basic {auth_header}",
+            *args,
+        ],
+        quiet=quiet,
+    )
+
+
+def git_with_auth_maybe(args: list[str], site_dir: Path, auth_header: str,
+                        quiet: bool = False) -> subprocess.CompletedProcess:
+    stdout = subprocess.DEVNULL if quiet else None
+    stderr = subprocess.DEVNULL if quiet else None
+    return subprocess.run(
+        [
+            "git",
+            "-C",
+            str(site_dir),
+            "-c",
+            f"http.https://github.com/.extraheader=AUTHORIZATION: basic {auth_header}",
+            *args,
+        ],
+        check=False,
+        stdout=stdout,
+        stderr=stderr,
+        text=True,
+    )
+
+
+def checkout_site_branch(site_dir: Path, storage_branch: str) -> None:
+    if dry_run_enabled():
+        if site_dir.exists():
+            shutil.rmtree(site_dir)
+        site_dir.mkdir(parents=True)
+        run(["git", "-C", str(site_dir), "init", "-b", storage_branch], quiet=True)
+        run(["git", "-C", str(site_dir), "config", "user.name", "local-yolo-pages"])
+        run(["git", "-C", str(site_dir), "config", "user.email", "local@example.invalid"])
+        return
+
+    repository = require_env("GITHUB_REPOSITORY")
+    auth_header = git_auth_header()
+    print(f"::add-mask::{auth_header}")
+
+    if site_dir.exists():
+        shutil.rmtree(site_dir)
+    site_dir.mkdir(parents=True)
+
+    run(["git", "-C", str(site_dir), "init"])
+    run(["git", "-C", str(site_dir), "remote", "add", "origin", f"https://github.com/{repository}.git"])
+    fetched = git_with_auth_maybe(["fetch", "--depth=1", "origin", storage_branch], site_dir, auth_header, quiet=True)
+    if fetched.returncode == 0:
+        run(["git", "-C", str(site_dir), "checkout", "-B", storage_branch, "FETCH_HEAD"])
+    else:
+        run(["git", "-C", str(site_dir), "checkout", "--orphan", storage_branch])
+        run_maybe(["git", "-C", str(site_dir), "rm", "-rf", "."], quiet=True)
+
+    run(["git", "-C", str(site_dir), "config", "user.name", "github-actions[bot]"])
+    run(
+        [
+            "git",
+            "-C",
+            str(site_dir),
+            "config",
+            "user.email",
+            "41898282+github-actions[bot]@users.noreply.github.com",
+        ]
+    )
+
+
+def push_site_branch(site_dir: Path, storage_branch: str) -> bool:
+    run(["git", "-C", str(site_dir), "add", "-A", "."])
+    diff = run_maybe(["git", "-C", str(site_dir), "diff", "--cached", "--quiet"])
+    if diff.returncode == 0:
+        return False
+
+    run(["git", "-C", str(site_dir), "commit", "-m", "Update YOLO benchmark report pages"])
+    if dry_run_enabled():
+        print(f"Dry-run: generated YOLO benchmark Pages site at {site_dir}")
+        return True
+
+    auth_header = git_auth_header()
+    git_with_auth(["push", "origin", f"HEAD:{storage_branch}"], site_dir, auth_header)
+    return True
+
+
+def copy_asset(site_dir: Path, name: str) -> None:
+    source = ASSET_DIR / name
+    if not source.is_file():
+        raise PublishError(f"Missing YOLO Pages asset: {source}")
+    destination = site_dir / REPORT_ROOT / name
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source, destination)
+
+
+def write_index_assets(site_dir: Path) -> None:
+    copy_asset(site_dir, "report-index.css")
+
+
+def write_index_head(title: str, css_href: str) -> str:
+    return f"""<!doctype html>
+<html lang="en" style="scrollbar-gutter: stable both-edges;">
+  <head>
+    <meta charset="utf-8">
+    <meta name="color-scheme" content="dark light">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{html_escape(title)}</title>
+    <link rel="stylesheet" href="{html_escape(css_href)}">
+  </head>
+  <body>
+    <main>
+"""
+
+
+def write_index_footer() -> str:
+    return """    </main>
+  </body>
+</html>
+"""
+
+
+def read_first_line(path: Path, default: str) -> str:
+    if not path.is_file():
+        return default
+    lines = path.read_text(encoding="utf-8").splitlines()
+    return lines[0] if lines else default
+
+
+def pr_report_title(pr_number: str, repository: str) -> str:
+    if repository:
+        result = subprocess.run(
+            ["gh", "pr", "view", pr_number, "--repo", repository, "--json", "title", "--jq", ".title"],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+        title = result.stdout.strip()
+        if result.returncode == 0 and title:
+            return f"PR #{pr_number} - {title}"
+    return f"PR #{pr_number}"
+
+
+def rel_to_report_root(target: Path, site_dir: Path) -> str:
+    depth = len(target.relative_to(site_dir / REPORT_ROOT).parts)
     return "../" * depth
 
 
 def build_source_meta_html(repository: str, branch: str, head_sha: str, run_id: str, run_attempt: str) -> str:
-    return pages.build_source_meta_html(repository, branch, head_sha, run_id, run_attempt)
+    repo_url = f"https://github.com/{repository}"
+    branch_url = quote(branch, safe="")
+    return "".join(
+        [
+            html_anchor(f"{repo_url}/tree/{branch_url}", branch),
+            " @ ",
+            html_anchor(f"{repo_url}/commit/{head_sha}", head_sha[:12]),
+            " | ",
+            html_anchor(f"{repo_url}/actions/runs/{run_id}", f"run {run_id}"),
+            f" attempt {html_escape(run_attempt)}",
+        ]
+    )
 
 
 def build_report_meta_html(
@@ -108,7 +278,42 @@ def build_report_index_meta_text(
     run_attempt: str,
     now: dt.datetime | None = None,
 ) -> str:
-    return pages.build_report_index_meta_text(branch, head_sha, run_id, run_attempt, now=now)
+    if now is None:
+        now = dt.datetime.now(dt.timezone.utc)
+    return f"{branch} @ {head_sha[:12]} | run {run_id} attempt {run_attempt} | {now.strftime('%b %d, %Y %H:%M UTC')}"
+
+
+def parse_github_time(value: str) -> dt.datetime:
+    return dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def should_prune_closed_pr(state: str, closed_at: str, cutoff: dt.datetime) -> bool:
+    if state == "OPEN" or not closed_at:
+        return False
+    return parse_github_time(closed_at) <= cutoff
+
+
+def pr_state(repository: str, pr_number: str) -> dict | None:
+    result = subprocess.run(
+        ["gh", "pr", "view", pr_number, "--repo", repository, "--json", "state,closedAt"],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        return None
+    return json.loads(result.stdout)
+
+
+def parse_retention_days(value: str) -> int:
+    try:
+        days = int(value)
+    except ValueError as error:
+        raise PublishError(f"YOLO_PAGES_RETENTION_DAYS must be an integer: {value}") from error
+    if days < 0:
+        raise PublishError("YOLO_PAGES_RETENTION_DAYS must be zero or greater.")
+    return days
 
 
 def local_artifact_ignore(root: Path):
@@ -129,7 +334,8 @@ def download_report_artifact(artifact_dir: Path, repository: str, run_id: str, r
         source = Path(local_artifact_dir)
         if not source.is_dir():
             raise PublishError(f"Local YOLO benchmark artifact not found: {source}")
-        shutil.copytree(source, artifact_dir / "local-artifact" / REPORT_ROOT, ignore=local_artifact_ignore(source))
+        shutil.copytree(source, artifact_dir / "local-artifact" / ARTIFACT_ROOT_NAME,
+                        ignore=local_artifact_ignore(source))
         return True
 
     artifact_name = f"yolo-benchmark-{run_id}-{run_attempt}"
@@ -149,7 +355,7 @@ def download_report_artifact(artifact_dir: Path, repository: str, run_id: str, r
 def find_yolo_artifact(artifact_dir: Path) -> Path | None:
     if (artifact_dir / "runs").is_dir():
         return artifact_dir
-    for path in artifact_dir.rglob(REPORT_ROOT):
+    for path in artifact_dir.rglob(ARTIFACT_ROOT_NAME):
         if path.is_dir() and (path / "runs").is_dir():
             return path
     for runs_dir in artifact_dir.rglob("runs"):
@@ -339,10 +545,10 @@ def write_report_page(
     first = runs[0]["comparison"]
     inputs = first["inputs"]
     measurement = first["measurement"]
-    css_href = f"{rel_to_site_root(target, site_dir)}report-index.css"
-    back_href = "../" * len(target.relative_to(site_dir / REPORT_ROOT).parts)
+    back_href = rel_to_report_root(target, site_dir)
+    css_href = f"{back_href}report-index.css"
     parts = [
-        pages.write_index_head(f"{title} - YOLO benchmark", css_href),
+        write_index_head(f"{title} - YOLO benchmark", css_href),
         """      <header>
         <div class="eyebrow">YOLO benchmark</div>
         <h1>""",
@@ -382,10 +588,10 @@ def write_report_page(
             write_raw_links(runs),
             f'        <a class="back-link" href="{html_escape(back_href)}index.html">Back to YOLO report index</a>\n',
             "      </section>\n",
-            pages.write_index_footer(),
+            write_index_footer(),
         ]
     )
-    (target / pages.INDEX_HTML).write_text("".join(parts), encoding="utf-8")
+    (target / INDEX_HTML).write_text("".join(parts), encoding="utf-8")
 
 
 def report_link(path: str, title: str, meta: str, badge: str = "Open") -> str:
@@ -399,7 +605,7 @@ def write_yolo_index(site_dir: Path, repository: str) -> None:
     yolo_dir = site_dir / REPORT_ROOT
     yolo_dir.mkdir(parents=True, exist_ok=True)
     parts = [
-        pages.write_index_head(f"{PRODUCT_TITLE} - YOLO benchmark reports", "../report-index.css"),
+        write_index_head(f"{PRODUCT_TITLE} - YOLO benchmark reports", "report-index.css"),
         """      <header>
         <div class="eyebrow">YOLO benchmark reports</div>
         <h1>Arm Perception kit</h1>
@@ -410,8 +616,8 @@ def write_yolo_index(site_dir: Path, repository: str) -> None:
 """,
     ]
     nightly = yolo_dir / "nightly"
-    if (nightly / pages.INDEX_HTML).is_file():
-        meta = pages.read_first_line(nightly / pages.REPORT_INDEX_META, "Scheduled develop run")
+    if (nightly / INDEX_HTML).is_file():
+        meta = read_first_line(nightly / REPORT_INDEX_META, "Scheduled develop run")
         parts.append(report_link("nightly/index.html", "Latest nightly", meta))
     else:
         parts.append('          <div class="empty">No nightly report published yet.</div>\n')
@@ -427,10 +633,10 @@ def write_yolo_index(site_dir: Path, repository: str) -> None:
     manual_dir = yolo_dir / "manual"
     manual_reports = []
     if manual_dir.is_dir():
-        manual_reports = [path for path in manual_dir.iterdir() if (path / pages.INDEX_HTML).is_file()]
+        manual_reports = [path for path in manual_dir.iterdir() if (path / INDEX_HTML).is_file()]
     if manual_reports:
         for report_dir in sorted(manual_reports, key=lambda path: path.name, reverse=True):
-            meta = pages.read_first_line(report_dir / pages.REPORT_INDEX_META, "Manual run")
+            meta = read_first_line(report_dir / REPORT_INDEX_META, "Manual run")
             parts.append(report_link(f"manual/{report_dir.name}/index.html", f"Run {report_dir.name}", meta))
     else:
         parts.append('          <div class="empty">No manual report published yet.</div>\n')
@@ -449,18 +655,18 @@ def write_yolo_index(site_dir: Path, repository: str) -> None:
         pr_reports = [path for path in prs_dir.iterdir() if path.is_dir() and path.name.isdigit()]
     if pr_reports:
         for pr_dir in sorted(pr_reports, key=lambda path: int(path.name)):
-            if not (pr_dir / pages.INDEX_HTML).is_file():
+            if not (pr_dir / INDEX_HTML).is_file():
                 continue
-            meta = pages.read_first_line(pr_dir / pages.REPORT_INDEX_META, "Published report")
-            title = pages.pr_report_title(pr_dir.name, repository)
+            meta = read_first_line(pr_dir / REPORT_INDEX_META, "Published report")
+            title = pr_report_title(pr_dir.name, repository)
             parts.append(report_link(f"prs/{pr_dir.name}/index.html", title, meta))
     else:
         parts.append('          <div class="empty">No PR report published yet.</div>\n')
 
     parts.extend(["""        </div>
       </section>
-""", pages.write_index_footer()])
-    (yolo_dir / pages.INDEX_HTML).write_text("".join(parts), encoding="utf-8")
+""", write_index_footer()])
+    (yolo_dir / INDEX_HTML).write_text("".join(parts), encoding="utf-8")
 
 
 def select_target(site_dir: Path, repository: str, event: str, branch: str) -> tuple[Path, str, str]:
@@ -494,14 +700,14 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
 
     if conclusion not in {"success", "failure"}:
         print(f"Skipping YOLO report from {conclusion} upstream run.")
-        pages.set_output("deploy", "false")
+        set_output("deploy", "false")
         return
 
     try:
         target, pr_number, title = select_target(site_dir, repository, event, branch)
     except PublishError as error:
         print(error)
-        pages.set_output("deploy", "false")
+        set_output("deploy", "false")
         return
 
     index_meta_text = build_report_index_meta_text(branch, head_sha, run_id, run_attempt)
@@ -510,33 +716,33 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         artifact_dir = Path(tmpdir)
         if not download_report_artifact(artifact_dir, repository, run_id, run_attempt):
-            pages.set_output("deploy", "false")
+            set_output("deploy", "false")
             return
 
         artifact_root = find_yolo_artifact(artifact_dir)
         if artifact_root is None:
             print("Artifact did not contain a YOLO benchmark runs directory; skipping Pages publish.")
-            pages.set_output("deploy", "false")
+            set_output("deploy", "false")
             return
 
         runs = load_report_runs(artifact_root)
-        pages.checkout_site_branch(site_dir, storage_branch)
+        checkout_site_branch(site_dir, storage_branch)
         write_selected_artifacts(artifact_root, target, runs)
-        (target / pages.REPORT_INDEX_META).write_text(f"{index_meta_text}\n", encoding="utf-8")
+        (target / REPORT_INDEX_META).write_text(f"{index_meta_text}\n", encoding="utf-8")
         (target / "report-meta.html").write_text(f"{meta_html}\n", encoding="utf-8")
         (target / "commit.txt").write_text(f"{head_sha}\n", encoding="utf-8")
         write_report_page(target, site_dir, title, meta_html, runs)
-        pages.write_index_assets(site_dir)
+        write_index_assets(site_dir)
         write_yolo_index(site_dir, repository)
         (site_dir / ".nojekyll").touch()
 
-        changed = pages.push_site_branch(site_dir, storage_branch)
-        pages.set_output("deploy", "true" if changed else "false")
+        changed = push_site_branch(site_dir, storage_branch)
+        set_output("deploy", "true" if changed else "false")
 
 
 def cleanup_closed_pr_reports(site_dir: Path, storage_branch: str, retention_days: int) -> None:
     repository = require_env("GITHUB_REPOSITORY")
-    pages.checkout_site_branch(site_dir, storage_branch)
+    checkout_site_branch(site_dir, storage_branch)
     cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=retention_days)
     changed = False
 
@@ -545,20 +751,20 @@ def cleanup_closed_pr_reports(site_dir: Path, storage_branch: str, retention_day
         for pr_dir in prs_dir.iterdir():
             if not pr_dir.is_dir() or not pr_dir.name.isdigit():
                 continue
-            pr_data = pages.pr_state(repository, pr_dir.name)
+            pr_data = pr_state(repository, pr_dir.name)
             if not pr_data:
                 continue
-            if pages.should_prune_closed_pr(pr_data.get("state", ""), pr_data.get("closedAt", ""), cutoff):
+            if should_prune_closed_pr(pr_data.get("state", ""), pr_data.get("closedAt", ""), cutoff):
                 shutil.rmtree(pr_dir)
                 changed = True
 
     if changed:
-        pages.write_index_assets(site_dir)
+        write_index_assets(site_dir)
         write_yolo_index(site_dir, repository)
-        pushed = pages.push_site_branch(site_dir, storage_branch)
-        pages.set_output("deploy", "true" if pushed else "false")
+        pushed = push_site_branch(site_dir, storage_branch)
+        set_output("deploy", "true" if pushed else "false")
     else:
-        pages.set_output("deploy", "false")
+        set_output("deploy", "false")
 
 
 def main(argv: list[str]) -> int:
@@ -566,10 +772,9 @@ def main(argv: list[str]) -> int:
         usage()
         return 2
 
-    mirror_playwright_env()
-    storage_branch = env("YOLO_PAGES_STORAGE_BRANCH", env("PLAYWRIGHT_PAGES_STORAGE_BRANCH", "playwright-pages"))
-    site_dir = Path(env("YOLO_PAGES_SITE_DIR", env("PLAYWRIGHT_PAGES_SITE_DIR", "_playwright_pages_site")))
-    retention_days = pages.parse_retention_days(env("YOLO_PAGES_RETENTION_DAYS", "10"))
+    storage_branch = env("YOLO_PAGES_STORAGE_BRANCH", "playwright-pages")
+    site_dir = Path(env("YOLO_PAGES_SITE_DIR", "_playwright_pages_site"))
+    retention_days = parse_retention_days(env("YOLO_PAGES_RETENTION_DAYS", "10"))
 
     try:
         if argv[1] == "publish":

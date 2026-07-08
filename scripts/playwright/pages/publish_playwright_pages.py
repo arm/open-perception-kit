@@ -184,10 +184,9 @@ def push_site_branch(site_dir: Path, storage_branch: str) -> bool:
     if diff.returncode == 0:
         return False
 
-    commit_message = env("REPORT_PAGES_COMMIT_MESSAGE", "Update Playwright report pages")
-    run(["git", "-C", str(site_dir), "commit", "-m", commit_message])
+    run(["git", "-C", str(site_dir), "commit", "-m", "Update Playwright report pages"])
     if dry_run_enabled():
-        print(f"Dry-run: generated {env('REPORT_PAGES_LABEL', 'Playwright Pages')} site at {site_dir}")
+        print(f"Dry-run: generated Playwright Pages site at {site_dir}")
         return True
 
     auth_header = git_auth_header()
