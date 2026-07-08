@@ -45,4 +45,8 @@ fi
 
 ./scripts/private/dev-init.sh pek-dev-rich "$DC_RICH" "$DEV_ENV_FILE"
 
-docker exec -it -u devgoblin --env-file "${DEV_ENV_FILE}" -e TERM="$TERM" pek-dev-rich zsh
+DOCKER_EXEC_ENV_FILE_ARGS=()
+if [ -f "${REPO_ROOT}/${DEV_ENV_FILE}" ]; then
+    DOCKER_EXEC_ENV_FILE_ARGS=(--env-file "${REPO_ROOT}/${DEV_ENV_FILE}")
+fi
+docker exec -it -u devgoblin "${DOCKER_EXEC_ENV_FILE_ARGS[@]}" -e TERM="$TERM" pek-dev-rich zsh

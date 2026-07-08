@@ -107,7 +107,7 @@ print_enter_hint() {
     echo "Enter it with:"
     echo "  ./scripts/enter_cli.sh"
     echo "       or"
-    echo "  docker exec -it -u devgoblin --env-file devices.env -e TERM=\"\$TERM\" ${PEK_CONTAINER_NAME} bash"
+    echo "  docker exec -it -u devgoblin -e TERM=\"\$TERM\" ${PEK_CONTAINER_NAME} bash"
 }
 
 cd "${REPO_ROOT}"

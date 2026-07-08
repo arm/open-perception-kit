@@ -1,0 +1,18 @@
+# Failure Context
+
+- Source workflow: {{SOURCE_WORKFLOW_NAME}}
+- Source PR: #{{SOURCE_PR_NUMBER}}
+- Source run ID: {{SOURCE_RUN_ID}}
+- Source run URL: {{SOURCE_RUN_URL}}
+- Required source PR authorization label: `{{REPAIR_AUTHORIZATION_LABEL}}`
+- Repair target branch: {{TARGET_BRANCH}}
+- Planned repair branch: {{REPAIR_BRANCH}}
+- Ticket ID: {{TICKET_ID}}
+
+Primary evidence files:
+
+- `{{CONTEXT_ROOT}}/source-run.json`
+- `{{CONTEXT_ROOT}}/source-run.log`
+- `{{CONTEXT_ROOT}}/file-inventory.md`
+
+Downloaded artifacts, if any, are under `{{CONTEXT_ROOT}}/artifacts/`.

@@ -225,6 +225,9 @@ repo_checks_run_image() {
     docker run --rm \
         --user "$(id -u):$(id -g)" \
         -e HOME=/tmp \
+        -e GIT_CONFIG_COUNT=1 \
+        -e GIT_CONFIG_KEY_0=safe.directory \
+        -e GIT_CONFIG_VALUE_0="${repo_root}" \
         -w "${repo_root}" \
         "${mount_args[@]}" \
         "${image_name}" \

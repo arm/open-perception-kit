@@ -86,6 +86,7 @@ class TestExpkitsCiCli(unittest.TestCase):
         self.assertTrue(parsed_args.branch_naming)
         self.assertTrue(parsed_args.commit_msg_ci)
         self.assertTrue(parsed_args.check_secrets)
+        self.assertTrue(parsed_args.agent_runtime_static_analysis)
         self.assertTrue(parsed_args.commit_diff)
 
     def test_main_returns_one_when_checks_fail_without_autofixes(self):
