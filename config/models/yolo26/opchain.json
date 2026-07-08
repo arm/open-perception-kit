@@ -1,6 +1,6 @@
 {
-	"name": "YoloV26n",
-	"description": "YoloV26n object detection model.",
+	"name": "YoloV26",
+	"description": "YoloV26 object detection model.",
 	"ops": [
 		{
 			"id": "pek-std-ops/InferenceController",
@@ -16,7 +16,7 @@
 		{
 			"id": "pek-onnx-ops/Inference",
 			"attributes": {
-				"modelDescriptor": "/work/config/models/yolo26n/model.json"
+				"modelDescriptor": "/work/config/models/yolo26/model.json"
 			}
 		},
 		{

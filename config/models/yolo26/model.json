@@ -1,6 +1,6 @@
 {
-	"name": "yolo26n-onnx",
-	"modelFamily": "yolo26n-obj",
+	"name": "yolo26-onnx",
+	"modelFamily": "yolo26-obj",
 	"modelFile": "yolo26n.onnx",
 	"dynamicOutput": true,
 	"maxDetectionCount": 16,

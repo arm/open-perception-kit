@@ -1,12 +1,12 @@
 {
-  "description": "YOLO26n ONNX object detection with the default video source, WebSocket metadata streaming, overlays, tracking, and peksink video output.",
+  "description": "YOLO26 ONNX object detection with the default video source, WebSocket metadata streaming, overlays, tracking, and peksink video output.",
   "loop": true,
   "pipeline": [
     "filesrc location=/work/data/videos/GettyImages-1140581459.mov !",
     "decodebin !",
     "videoconvert !",
     "video/x-raw,format=BGRA !",
-    "pekinfer opchain-path=/work/config/models/yolo26n/opchain.json active=true !",
+    "pekinfer opchain-path=/work/config/models/yolo26/opchain.json active=true !",
     "pektracker content-type=genericObject !",
     "pekperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
     "pekcomm method=websocket ws-port=7001 endpoint=/ws !",
@@ -36,7 +36,7 @@
     "video/x-raw,format=BGRA !"
   ],
   "alternative-sink": [
-    "filesink location=/work/data/output/yolo26n-onnx.mp4"
+    "filesink location=/work/data/output/yolo26-onnx.mp4"
   ],
   "alternative-sink-peksink-with-audio": [
     "peksink name=sink",

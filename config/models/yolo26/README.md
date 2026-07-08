@@ -1,4 +1,4 @@
-# YOLO26n ONNX
+# YOLO26 ONNX
 
 Full-frame object detector.
 
@@ -9,4 +9,4 @@ Full-frame object detector.
 - Post processor: `YoloParser`
 - Labels: COCO class order
 - Supported Perception result: `Perception::Rect` in a `genericObject` layer
-- Typical use: active object detector in the `yolo26n-onnx` viewer pipeline
+- Typical use: active object detector in the `yolo26-onnx` viewer pipeline
