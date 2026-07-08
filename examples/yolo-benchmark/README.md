@@ -59,9 +59,9 @@ image_id<TAB>/absolute/path/to/image.jpg
 Generate it with `prepare_dataset.py`; the runners require the fingerprint
 header so a comparison cannot accidentally mix different image sets.
 
-The runners use `IMAGE_LIST`. If it does not exist, `run.sh bare`, `run.sh pek`,
-and `run.sh both` prepare the default COCO val2017 dataset under
-`datasets/coco` and write the image list automatically.
+The runners use `IMAGE_LIST`. The preferred Docker flow prepares it during
+`docker/setup.sh`; the low-level `run.sh` helper can still prepare the default
+COCO val2017 dataset under `datasets/coco` when used directly.
 
 For CI or smoke runs, prepare a limited image list explicitly:
 
@@ -99,24 +99,33 @@ Preferred host entry point:
 
 ```sh
 ./examples/yolo-benchmark/docker/setup.sh
-./examples/yolo-benchmark/docker/run.sh both
+./examples/yolo-benchmark/docker/run.sh benchmark
 ```
 
 This uses Docker Compose to run inside the PEK development image with the repo
 mounted at `/work`, matching the checked-in OpChain paths and ONNX Runtime
-runtime layout. `setup.sh` builds the Compose runtime image. `run.sh` creates or
-reuses `artifacts/yolo-benchmark/.venv`, builds the PEK sample runner, prepares
-the dataset if needed, and writes the same artifacts listed below.
+runtime layout. `setup.sh` builds the Compose runtime image, creates or reuses
+the Docker cache volume for the dataset, bare runner venv, and PEK sample build,
+and writes the image list. `run.sh` only runs benchmark commands and writes the
+artifacts listed below.
 
 CI runs the same Compose entry point nightly and on PRs labeled
-`run-yolo-benchmark`. Manual runs accept an `image_limit` input; `0` means full
-COCO val2017.
+`run-yolo-benchmark`, with setup and measurement split into separate log steps.
+Manual runs accept an `image_limit` input; `0` means full COCO val2017.
 
 For a quick smoke image list:
 
 ```sh
-./examples/yolo-benchmark/docker/setup.sh
-YOLO_BENCHMARK_LIMIT=500 ./examples/yolo-benchmark/docker/run.sh both
+YOLO_BENCHMARK_LIMIT=500 ./examples/yolo-benchmark/docker/setup.sh
+./examples/yolo-benchmark/docker/run.sh benchmark
+```
+
+Separate benchmark runs are still available after setup:
+
+```sh
+./examples/yolo-benchmark/docker/run.sh bare
+./examples/yolo-benchmark/docker/run.sh pek
+./examples/yolo-benchmark/docker/run.sh compare
 ```
 
 Inside an already prepared PEK development container, install Python

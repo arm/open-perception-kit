@@ -15,18 +15,25 @@ source "${REPO_ROOT}/scripts/pre-commit/common.sh"
 usage() {
     cat << 'EOF'
 Usage:
-  examples/yolo-benchmark/docker/run.sh [bare|pek|compare|both]
+  examples/yolo-benchmark/docker/run.sh [benchmark|bare|pek|compare|both]
 
 Environment:
-  YOLO_BENCHMARK_LIMIT           Optional image-list limit used only when the image list is missing.
+  YOLO_BENCHMARK_LIMIT           Optional image-list limit used by setup.sh.
   YOLO_BENCHMARK_IMAGE_NAME      Runtime image tag override.
   COMPOSE_PROJECT_NAME           Compose project override. Default: amp-dev-forge-yolo-benchmark
 EOF
 }
 
-case "${1:-both}" in
-    bare | pek | compare | both)
-        command="${1:-both}"
+case "${1:-benchmark}" in
+    benchmark | bare | pek | compare | both)
+        command="${1:-benchmark}"
+        ;;
+    prepare)
+        if [[ "${YOLO_BENCHMARK_SETUP:-}" != "1" ]]; then
+            usage >&2
+            exit 2
+        fi
+        command="prepare"
         ;;
     -h | --help)
         usage
@@ -54,23 +61,32 @@ set -Eeuo pipefail
 
 command="$1"
 artifact_root="/work/artifacts/yolo-benchmark"
+cache_root="/cache/yolo-benchmark"
 image_list="${artifact_root}/images.tsv"
-venv="${artifact_root}/.venv"
+venv="${cache_root}/.venv"
+dataset_dir="${cache_root}/coco"
+pek_build_dir="${cache_root}/pek-build"
+ultralytics_config_dir="${cache_root}/ultralytics"
 requirements="examples/yolo-benchmark/bare/requirements.txt"
 
 cd /work
-mkdir -p "${artifact_root}" tools
+if [[ ! -w "${cache_root}" ]]; then
+    sudo chown -R "$(id -u):$(id -g)" "${cache_root}"
+fi
+mkdir -p "${artifact_root}" "${cache_root}" "${ultralytics_config_dir}/Ultralytics" tools
 export ARTIFACT_ROOT="${artifact_root}"
 export IMAGE_LIST="${image_list}"
-export YOLO_CONFIG_DIR="${artifact_root}/.ultralytics"
+export YOLO_CONFIG_DIR="${ultralytics_config_dir}"
 
-prepare_limited_dataset_if_requested() {
-    if [[ -n "${YOLO_BENCHMARK_LIMIT:-}" && ! -f "${IMAGE_LIST}" ]]; then
-        python3 examples/yolo-benchmark/prepare_dataset.py \
-            --coco-dir datasets/coco \
-            --output "${IMAGE_LIST}" \
-            --limit "${YOLO_BENCHMARK_LIMIT}"
+prepare_dataset() {
+    limit_args=()
+    if [[ -n "${YOLO_BENCHMARK_LIMIT:-}" && "${YOLO_BENCHMARK_LIMIT}" != "0" ]]; then
+        limit_args=(--limit "${YOLO_BENCHMARK_LIMIT}")
     fi
+    python3 examples/yolo-benchmark/prepare_dataset.py \
+        --coco-dir "${dataset_dir}" \
+        --output "${IMAGE_LIST}" \
+        "${limit_args[@]}"
 }
 
 ensure_bare_venv() {
@@ -92,20 +108,79 @@ ensure_bare_venv() {
     python3 -m pip install -r "${requirements}"
 }
 
-run_bare() {
+activate_bare_venv() {
+    if [[ ! -x "${venv}/bin/python3" ]]; then
+        echo "Bare runner venv is missing. Run ./examples/yolo-benchmark/docker/setup.sh first." >&2
+        exit 1
+    fi
+    # shellcheck source=/dev/null
+    source "${venv}/bin/activate"
+}
+
+prepare_ultralytics_config() {
+    activate_bare_venv
+    # Keep first-run settings creation in setup, not benchmark logs.
+    python3 - << 'PY'
+import ultralytics
+PY
+}
+
+require_image_list() {
+    if [[ ! -f "${IMAGE_LIST}" ]]; then
+        echo "Image list is missing. Run ./examples/yolo-benchmark/docker/setup.sh first." >&2
+        exit 1
+    fi
+}
+
+build_pek() {
+    export YOLO_BENCHMARK_BUILD_DIR="${pek_build_dir}"
+    ./examples/yolo-benchmark/pek/build.sh debug true
+}
+
+prepare() {
     ensure_bare_venv
-    prepare_limited_dataset_if_requested
+    prepare_ultralytics_config
+    prepare_dataset
+    build_pek
+}
+
+benchmark_bare() {
+    activate_bare_venv
     LD_LIBRARY_PATH="" ./examples/yolo-benchmark/run.sh bare
 }
 
-run_pek() {
-    export YOLO_BENCHMARK_BUILD_DIR="${artifact_root}/pek-build"
-    ./examples/yolo-benchmark/pek/build.sh debug true
-    prepare_limited_dataset_if_requested
+benchmark_pek() {
+    if [[ ! -x examples/bin/yolo-benchmark ]]; then
+        echo "PEK benchmark runner is missing. Run ./examples/yolo-benchmark/docker/setup.sh first." >&2
+        exit 1
+    fi
     ./examples/yolo-benchmark/run.sh pek
 }
 
+benchmark() {
+    require_image_list
+    benchmark_bare
+    benchmark_pek
+    ./examples/yolo-benchmark/run.sh compare
+}
+
+run_bare() {
+    require_image_list
+    benchmark_bare
+}
+
+run_pek() {
+    require_image_list
+    benchmark_pek
+}
+
 case "${command}" in
+    prepare)
+        prepare
+        ;;
+    benchmark)
+        benchmark
+        ;;
     bare)
         run_bare
         ;;
@@ -116,9 +191,7 @@ case "${command}" in
         ./examples/yolo-benchmark/run.sh compare
         ;;
     both)
-        run_bare
-        run_pek
-        ./examples/yolo-benchmark/run.sh compare
+        benchmark
         ;;
 esac
 EOF

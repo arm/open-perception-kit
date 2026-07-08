@@ -14,4 +14,9 @@ services:
       YOLO_BENCHMARK_LIMIT: ${YOLO_BENCHMARK_LIMIT:-}
     volumes:
       - ../../..:/work
+      - yolo-benchmark-cache:/cache/yolo-benchmark
     working_dir: /work
+
+volumes:
+  yolo-benchmark-cache:
+    name: ${YOLO_BENCHMARK_CACHE_VOLUME:-amp-dev-forge-yolo-benchmark-cache}

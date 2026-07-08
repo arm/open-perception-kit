@@ -65,13 +65,13 @@ jobs:
             exit 2
           fi
 
-      - name: Build YOLO benchmark image
+      - name: Set up YOLO benchmark cache
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: ./examples/yolo-benchmark/docker/setup.sh
 
       - name: Run YOLO benchmark
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        run: ./examples/yolo-benchmark/docker/run.sh both
+        run: ./examples/yolo-benchmark/docker/run.sh benchmark
 
       - name: Write benchmark summary
         if: always()
