@@ -6,9 +6,7 @@
   --panel: #f6f8fa;
   --panel-strong: #1a7f37;
   --accent: #1a7f37;
-  --accent-soft: #dafbe1;
   --bare: #57606a;
-  --bare-soft: #f6f8fa;
   --pass: #1a7f37;
   --pass-soft: #dafbe1;
   --danger: #cf222e;
@@ -23,9 +21,7 @@
     --panel: #161b22;
     --panel-strong: #238636;
     --accent: #3fb950;
-    --accent-soft: #13271b;
     --bare: #8b949e;
-    --bare-soft: #161b22;
     --pass: #3fb950;
     --pass-soft: #13271b;
     --danger: #ff7b72;
@@ -139,31 +135,11 @@ section {
   font-weight: 600;
   overflow-wrap: anywhere;
 }
-.report-title a,
-.report-meta a {
-  color: var(--accent);
-  text-decoration: none;
-}
-.report-title a:hover,
-.report-meta a:hover {
-  text-decoration: underline;
-}
 .report-meta {
   color: var(--muted);
   display: block;
   font-size: 12px;
   margin-top: 2px;
-}
-.badge {
-  background: var(--pass-soft);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  color: var(--pass);
-  flex: none;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 2px 8px;
-  text-decoration: none;
 }
 .back-link {
   color: var(--accent);
@@ -177,9 +153,6 @@ section {
 .table-scroll {
   border: 1px solid var(--border);
   border-radius: 6px;
-  display: block;
-  max-width: 100%;
-  overflow-x: visible;
   width: 100%;
 }
 .benchmark-table {
@@ -191,8 +164,6 @@ section {
   border-top: 1px solid var(--border);
   padding: 9px 10px;
   text-align: right;
-  overflow-wrap: normal;
-  white-space: normal;
 }
 .benchmark-table th:first-child,
 .benchmark-table td:first-child,
@@ -256,12 +227,7 @@ section {
   margin: 0;
 }
 .section-heading {
-  align-items: center;
-  display: flex;
-  gap: 8px 12px;
-  justify-content: space-between;
   margin-bottom: 12px;
-  min-width: 0;
 }
 .section-toggle {
   align-items: center;
@@ -270,13 +236,11 @@ section {
   color: var(--accent);
   cursor: pointer;
   display: flex;
-  flex: 1 1 auto;
   font: inherit;
   font-size: 18px;
   font-weight: 700;
   gap: 8px;
   line-height: 28px;
-  min-width: 0;
   padding: 0;
   text-align: left;
 }
@@ -321,10 +285,6 @@ section {
 .table-panel {
   min-width: 0;
 }
-.chart-panel h3,
-.table-panel h3 {
-  margin-top: 0;
-}
 .metric-tab-input,
 .run-tab-input {
   position: absolute;
@@ -341,9 +301,6 @@ section {
   line-height: 18px;
   min-height: 24px;
   padding: 3px 8px;
-}
-.metric-tab-panels {
-  flex: 0 0 100%;
 }
 .metric-tab-panel {
   display: none;
@@ -364,10 +321,6 @@ section {
 }
 .report-link > .verdict {
   flex: none;
-}
-.run-tabs {
-  flex: 1 1 auto;
-  min-width: 0;
 }
 .run-tab-panel {
   display: none;
@@ -443,12 +396,6 @@ section {
   font-weight: 700;
   text-anchor: middle;
 }
-.chart-line {
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 4;
-}
 .chart-bare {
   fill: var(--bare);
   stroke: var(--bare);
@@ -457,9 +404,11 @@ section {
   fill: var(--pass);
   stroke: var(--pass);
 }
-.chart-line.chart-bare,
-.chart-line.chart-pek {
+.chart-line {
   fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 4;
 }
 .chart-x-label {
   text-anchor: middle;
@@ -508,9 +457,6 @@ section {
     flex-direction: column;
     gap: 8px;
     padding: 12px;
-  }
-  .badge {
-    align-self: flex-start;
   }
   .report-header-row {
     flex-direction: column;

@@ -543,7 +543,7 @@ def line_chart_svg(
         )
 
     parts = [
-        f'<svg class="metric-chart line-chart" viewBox="0 0 {width} {height}" role="img" '
+        f'<svg class="metric-chart" viewBox="0 0 {width} {height}" role="img" '
         f'aria-label="{html_escape(aria_label)}">',
         chart_svg_header(title, width),
         '<g class="chart-grid">',
@@ -581,11 +581,11 @@ def line_chart_svg(
             f'<text class="chart-x-label" x="{run_x:.1f}" y="{height - 46}">{html_escape(label)}</text>'
         )
     parts.append(
-        f'<text class="chart-axis-label chart-x-axis-label" x="{left + plot_width / 2:.1f}" '
+        f'<text class="chart-axis-label" x="{left + plot_width / 2:.1f}" '
         f'y="{height - 14}">Run</text>'
     )
     parts.append(
-        f'<text class="chart-axis-label chart-y-axis-label" transform="rotate(-90)" '
+        f'<text class="chart-axis-label" transform="rotate(-90)" '
         f'x="{-(top + plot_height / 2):.1f}" y="54">Time [ms]</text>'
     )
     parts.append("</svg>")
@@ -703,7 +703,7 @@ def stability_metric_tab_id(metric: str) -> str:
 
 
 def write_stability_charts(runs: list[dict[str, Any]]) -> str:
-    parts = ['<div class="metric-tab-panels">']
+    parts = ["<div>"]
     for metric in PERCENTILE_METRICS:
         active = " is-active" if metric == PERCENTILE_METRICS[0] else ""
         parts.append(
@@ -863,7 +863,7 @@ def bar_chart_svg(
         return top + plot_height - ((value - axis_min) / axis_span * plot_height)
 
     parts = [
-        f'<svg class="metric-chart bar-chart" viewBox="0 0 {width} {height}" role="img" '
+        f'<svg class="metric-chart" viewBox="0 0 {width} {height}" role="img" '
         f'aria-label="{html_escape(aria_label)}">',
         chart_svg_header("Metric comparison", width),
         '<g class="chart-grid">',
@@ -897,11 +897,11 @@ def bar_chart_svg(
             )
         parts.append(f'<text class="chart-x-label" x="{center:.1f}" y="{height - 46}">{html_escape(metric)}</text>')
     parts.append(
-        f'<text class="chart-axis-label chart-x-axis-label" x="{left + plot_width / 2:.1f}" '
+        f'<text class="chart-axis-label" x="{left + plot_width / 2:.1f}" '
         f'y="{height - 14}">Metric</text>'
     )
     parts.append(
-        f'<text class="chart-axis-label chart-y-axis-label" transform="rotate(-90)" '
+        f'<text class="chart-axis-label" transform="rotate(-90)" '
         f'x="{-(top + plot_height / 2):.1f}" y="54">Time [ms]</text>'
     )
     parts.append("</svg>")
@@ -961,7 +961,7 @@ def write_run_sections(runs: list[dict[str, Any]]) -> str:
         )
     parts.append(
         '<a class="title-link run-comparison-link" href="runs/run-01/comparison.json">comparison.json</a>'
-        '</div></div><div class="run-tab-panels">'
+        '</div></div><div>'
     )
     for index, run in enumerate(runs):
         panel_id = f"run-tab-panel-{index + 1}"
