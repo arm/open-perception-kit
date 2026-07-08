@@ -39,16 +39,17 @@ jobs:
       YOLO_BENCHMARK_LIMIT: ${{ github.event_name == 'workflow_dispatch' && inputs.image_limit || '' }}
 
     steps:
+      # RPI runner drops checkout@v6 temp includeIf credentials during fetch; retry v6 after runner image update.
       - name: Checkout current ref
         if: github.event_name != 'pull_request'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
           path: ${{ env.CI_CHECKOUT_PATH }}
 
       - name: Checkout pull request head
         if: github.event_name == 'pull_request'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v5
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.sha }}
