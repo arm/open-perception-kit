@@ -1,0 +1,127 @@
+name: YOLO Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_limit:
+        description: "Optional COCO val2017 image limit. Use 0 for the full dataset."
+        required: false
+        default: "0"
+        type: string
+  pull_request:
+    branches: [ main, develop, "feature/**", "sandbox/**" ]
+    types: [ labeled, synchronize, reopened ]
+  schedule:
+    - cron: "0 1 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  yolo-benchmark:
+    name: YOLO benchmark
+    runs-on: self-hosted-ubuntu-latest-x64
+    timeout-minutes: 240
+    if: |
+      github.event_name != 'pull_request' ||
+      (
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        (
+          (github.event.action == 'labeled' && github.event.label.name == 'run-yolo-benchmark') ||
+          ((github.event.action == 'synchronize' || github.event.action == 'reopened') &&
+            contains(github.event.pull_request.labels.*.name, 'run-yolo-benchmark'))
+        )
+      )
+    env:
+      CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      COMPOSE_PROJECT_NAME: yolo-benchmark-${{ github.run_id }}-${{ github.run_attempt }}
+      YOLO_BENCHMARK_IMAGE_NAME: amp-dev-forge-yolo-benchmark:${{ github.run_id }}-${{ github.run_attempt }}
+      YOLO_BENCHMARK_LIMIT: ${{ github.event_name == 'workflow_dispatch' && inputs.image_limit || '' }}
+
+    steps:
+      - name: Checkout current ref
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          path: ${{ env.CI_CHECKOUT_PATH }}
+
+      - name: Checkout pull request head
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          path: ${{ env.CI_CHECKOUT_PATH }}
+
+      - name: Validate benchmark inputs
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: |
+          set -euo pipefail
+          if [ -n "${YOLO_BENCHMARK_LIMIT}" ] && ! [[ "${YOLO_BENCHMARK_LIMIT}" =~ ^[0-9]+$ ]]; then
+            echo "image_limit must be a non-negative integer, got '${YOLO_BENCHMARK_LIMIT}'." >&2
+            exit 2
+          fi
+
+      - name: Build YOLO benchmark image
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: ./examples/yolo-benchmark/docker/setup.sh
+
+      - name: Run YOLO benchmark
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: ./examples/yolo-benchmark/docker/run.sh both
+
+      - name: Write benchmark summary
+        if: always()
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## YOLO Benchmark"
+            echo
+            echo "- image_limit: ${YOLO_BENCHMARK_LIMIT:-full}"
+            echo "- image: ${YOLO_BENCHMARK_IMAGE_NAME}"
+            echo
+            if [ -f artifacts/yolo-benchmark/comparison.md ]; then
+              cat artifacts/yolo-benchmark/comparison.md
+            else
+              echo "No comparison.md was generated."
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload YOLO benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: yolo-benchmark-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/artifacts/yolo-benchmark/images.tsv
+            ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/artifacts/yolo-benchmark/bare/benchmark_summary.json
+            ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/artifacts/yolo-benchmark/bare/predictions.jsonl
+            ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/artifacts/yolo-benchmark/pek/benchmark_summary.json
+            ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/artifacts/yolo-benchmark/pek/predictions.jsonl
+            ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/artifacts/yolo-benchmark/comparison.json
+            ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/artifacts/yolo-benchmark/comparison.md
+          if-no-files-found: warn
+          retention-days: 10
+
+      - name: Clean YOLO benchmark workspace and image
+        if: always()
+        run: |
+          set +e
+          checkout_path="${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}"
+          expected_workspace_prefix="${{ github.workspace }}/repo-"
+          case "${checkout_path}" in
+            "${expected_workspace_prefix}"*)
+              ;;
+            *)
+              echo "Skipping cleanup for unexpected checkout_path='${checkout_path}'" >&2
+              exit 0
+              ;;
+          esac
+          if [ -f "${checkout_path}/examples/yolo-benchmark/docker/compose.yaml" ]; then
+            docker compose -f "${checkout_path}/examples/yolo-benchmark/docker/compose.yaml" down --remove-orphans || true
+          fi
+          docker image rm -f "${YOLO_BENCHMARK_IMAGE_NAME}" || true
+          rm -rf "${checkout_path}"

@@ -108,6 +108,10 @@ runtime layout. `setup.sh` builds the Compose runtime image. `run.sh` creates or
 reuses `artifacts/yolo-benchmark/.venv`, builds the PEK sample runner, prepares
 the dataset if needed, and writes the same artifacts listed below.
 
+CI runs the same Compose entry point nightly and on PRs labeled
+`run-yolo-benchmark`. Manual runs accept an `image_limit` input; `0` means full
+COCO val2017.
+
 For a quick smoke image list:
 
 ```sh
