@@ -1,4 +1,5 @@
-FROM debian:trixie-slim AS pek-build-base
+ARG BUILDPLATFORM
+FROM --platform=${BUILDPLATFORM} debian:trixie-slim AS workspace
 
 ARG ONNXRUNTIME_VERSION=1.24.4
 
@@ -7,6 +8,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
   LC_ALL=C.UTF-8 \
   PIP_DISABLE_PIP_VERSION_CHECK=1 \
   PYTHONDONTWRITEBYTECODE=1 \
+  PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig \
+  PKG_CONFIG_SYSROOT_DIR=/ \
   LD_LIBRARY_PATH=/opt/pek-deps/onnxruntime/lib
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -14,23 +17,19 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   set -eux; \
+  dpkg --add-architecture arm64; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
   ca-certificates curl git \
   build-essential meson ninja-build pkg-config cmake \
-  libssl-dev libfmt-dev libfftw3-dev libsoup-3.0-dev libjson-glib-dev libcairo2-dev \
-  libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev \
+  gcc-aarch64-linux-gnu g++-aarch64-linux-gnu binutils-aarch64-linux-gnu \
+  libssl-dev:arm64 libfmt-dev:arm64 libfftw3-dev:arm64 libsoup-3.0-dev:arm64 libjson-glib-dev:arm64 libcairo2-dev:arm64 \
+  libgstreamer1.0-dev:arm64 libgstreamer-plugins-base1.0-dev:arm64 libgstreamer-plugins-bad1.0-dev:arm64 \
   python3; \
   update-ca-certificates
 
 RUN set -eux; \
-  arch="$(uname -m)"; \
-  case "$arch" in \
-  x86_64) ort_arch="x64" ;; \
-  aarch64) ort_arch="aarch64" ;; \
-  *) echo "Unsupported architecture for ONNX Runtime: $arch" >&2; exit 1 ;; \
-  esac; \
-  ort_dir="onnxruntime-linux-${ort_arch}-${ONNXRUNTIME_VERSION}"; \
+  ort_dir="onnxruntime-linux-aarch64-${ONNXRUNTIME_VERSION}"; \
   ort_tgz="${ort_dir}.tgz"; \
   ort_url="https://github.com/microsoft/onnxruntime/releases/download/v${ONNXRUNTIME_VERSION}/${ort_tgz}"; \
   tmp_dir="$(mktemp -d)"; \
@@ -44,7 +43,7 @@ WORKDIR /work
 COPY . .
 
 RUN set -eux; \
-  ./scripts/build-elements.sh release false; \
+  NINJAFLAGS=-j2 ./scripts/build-elements.sh release false --extra-setup-args=--cross-file=/work/development/cross/aarch64-linux-gnu.ini; \
   mkdir -p /opt/pek-app/development/build /opt/pek-app/tools /opt/pek-app/scripts/private; \
   cp -r /work/development/build/meson-out /opt/pek-app/development/build/; \
   cp /work/tools/pek-menu /opt/pek-app/tools/; \
@@ -97,8 +96,8 @@ RUN set -eux; \
   test -p /tmp/pekcomm || mkfifo --mode=640 /tmp/pekcomm; \
   chown -R "${USER_UID}:${USER_GID}" /work /tmp/pekcomm
 
-COPY --from=pek-build-base /opt/pek-deps/onnxruntime/lib /opt/pek-deps/onnxruntime/lib
-COPY --from=pek-build-base --chown=${USER_UID}:${USER_GID} /opt/pek-app /work
+COPY --from=workspace /opt/pek-deps/onnxruntime/lib /opt/pek-deps/onnxruntime/lib
+COPY --from=workspace --chown=${USER_UID}:${USER_GID} /opt/pek-app /work
 
 EXPOSE 8000
 EXPOSE 8001
