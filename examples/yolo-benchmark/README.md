@@ -157,3 +157,40 @@ metric | bare ms | PEK ms | delta ms | ratio | delta %
 ```
 
 Keep `artifacts/` local; it is ignored by git.
+
+## Pages report
+
+The Pages publisher mirrors the Playwright report flow. The benchmark job keeps
+producing the `yolo-benchmark-<run-id>-<attempt>` Actions artifact, and the
+`Publish YOLO Benchmark Reports` workflow consumes that artifact after the run
+completes.
+
+Published reports live under the shared Pages site:
+
+```text
+yolo-benchmark/nightly/
+yolo-benchmark/manual/<run-id>/
+yolo-benchmark/prs/<number>/
+```
+
+The report page uses the same `report-index.css` style as the Playwright Pages
+publisher and renders native SVG plots for `avg_ms`, `p50_ms`, `p95_ms`, and
+`p99_ms`. Predictions JSONL files stay in the Actions artifact; Pages only keeps
+the comparison and summary JSON files.
+
+Local dry-run publish from an existing artifact directory:
+
+```sh
+YOLO_PAGES_DRY_RUN=1 \
+YOLO_PAGES_LOCAL_ARTIFACT_DIR=artifacts/yolo-benchmark \
+YOLO_PAGES_SITE_DIR=tmp/yolo-pages-local \
+GITHUB_REPOSITORY=Arm-Debug/amp-dev-forge \
+UPSTREAM_CONCLUSION=success \
+UPSTREAM_EVENT=workflow_dispatch \
+UPSTREAM_HEAD_BRANCH="$(git branch --show-current)" \
+UPSTREAM_HEAD_REPOSITORY=Arm-Debug/amp-dev-forge \
+UPSTREAM_HEAD_SHA="$(git rev-parse HEAD)" \
+UPSTREAM_RUN_ATTEMPT=local \
+UPSTREAM_RUN_ID=local \
+./examples/yolo-benchmark/pages/run.sh publish
+```

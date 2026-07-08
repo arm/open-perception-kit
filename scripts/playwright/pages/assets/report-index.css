@@ -44,6 +44,11 @@ h2 {
   line-height: 28px;
   margin: 0 0 12px;
 }
+h3 {
+  font-size: 14px;
+  line-height: 22px;
+  margin: 18px 0 8px;
+}
 p {
   color: var(--muted);
   margin: 8px 0 0;
@@ -119,6 +124,92 @@ section {
   color: var(--accent);
   display: inline-block;
   margin-top: 18px;
+}
+.table-scroll {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow-x: auto;
+}
+.benchmark-table {
+  border-collapse: collapse;
+  min-width: 760px;
+  width: 100%;
+}
+.benchmark-table th,
+.benchmark-table td {
+  border-top: 1px solid var(--border);
+  padding: 8px 10px;
+  text-align: right;
+  white-space: nowrap;
+}
+.benchmark-table th:first-child,
+.benchmark-table td:first-child,
+.benchmark-table th:nth-child(2),
+.benchmark-table td:nth-child(2) {
+  text-align: left;
+}
+.benchmark-table thead th {
+  background: var(--panel);
+  border-top: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+.chart-legend {
+  color: var(--muted);
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+.chart-legend span::before {
+  border-radius: 999px;
+  content: "";
+  display: inline-block;
+  height: 8px;
+  margin-right: 6px;
+  width: 8px;
+}
+.legend-bare::before {
+  background: var(--accent);
+}
+.legend-pek::before {
+  background: #cf222e;
+}
+.metric-chart {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: block;
+  height: auto;
+  max-width: 100%;
+  width: 100%;
+}
+.chart-grid line,
+.chart-delta {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.chart-grid text,
+.chart-run-label,
+.chart-delta-label {
+  fill: var(--muted);
+  font-size: 11px;
+}
+.chart-line {
+  fill: none;
+  stroke-linejoin: round;
+  stroke-width: 2.5;
+}
+.chart-bare {
+  fill: var(--accent);
+  stroke: var(--accent);
+}
+.chart-pek {
+  fill: #cf222e;
+  stroke: #cf222e;
+}
+.chart-delta-label,
+.chart-run-label {
+  text-anchor: middle;
 }
 @media (max-width: 640px) {
   main {
