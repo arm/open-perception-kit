@@ -89,23 +89,43 @@ prepare_dataset() {
         "${limit_args[@]}"
 }
 
+bare_venv_is_ready() {
+    [[ -x "${venv}/bin/python3" ]] || return 1
+    "${venv}/bin/python3" - << 'PY'
+try:
+    import onnx
+    import onnxruntime
+    import torch
+    import torchvision
+    import ultralytics
+except Exception:
+    raise SystemExit(1)
+if "+cpu" not in torch.__version__ or torch.version.cuda is not None or torch.cuda.is_available():
+    raise SystemExit(1)
+PY
+}
+
 ensure_bare_venv() {
-    if [[ -x "${venv}/bin/python3" ]]; then
+    if bare_venv_is_ready; then
         # shellcheck source=/dev/null
         source "${venv}/bin/activate"
         return
     fi
 
+    rm -rf "${venv}"
     python3 -m venv "${venv}"
     # shellcheck source=/dev/null
     source "${venv}/bin/activate"
     python3 -m pip install --upgrade pip
-    if [[ "$(uname -m)" == "x86_64" ]]; then
-        python3 -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-    else
-        python3 -m pip install torch torchvision
-    fi
+    python3 -m pip install \
+        --index-url https://download.pytorch.org/whl/cpu \
+        "torch==2.12.1+cpu" \
+        "torchvision==0.27.1+cpu"
     python3 -m pip install -r "${requirements}"
+    if ! bare_venv_is_ready; then
+        echo "Bare runner venv dependencies are not ready or PyTorch is not CPU-only." >&2
+        exit 1
+    fi
 }
 
 activate_bare_venv() {
