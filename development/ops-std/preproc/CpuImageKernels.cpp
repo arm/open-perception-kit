@@ -4,13 +4,195 @@
 #include "preproc/CpuImageKernels.h"
 #include "pek/Types.h"
 
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+
 using namespace pek::stdop::preproc;
+using pek::Float16;
 
 namespace {
+struct Rgbf {
+    float r = 0.0f;
+    float g = 0.0f;
+    float b = 0.0f;
+};
+
 inline bool canRunDirectFullKernel(const pek::ImageOpDesc &src, const pek::ImageOpDesc &dst) {
-    return src.rectIsFullSurface() && dst.rectIsFullSurface() &&
+    return !dst.keepAspectRatio && src.rectIsFullSurface() && dst.rectIsFullSurface() &&
            src.surfaceWidth == dst.surfaceWidth && src.surfaceHeight == dst.surfaceHeight;
 }
+
+Rgbf letterboxRgb(const pek::ImageOpDesc &dst) {
+    return Rgbf{
+        std::clamp(dst.letterboxRed, 0.0f, 1.0f),
+        std::clamp(dst.letterboxGreen, 0.0f, 1.0f),
+        std::clamp(dst.letterboxBlue, 0.0f, 1.0f),
+    };
+}
+
+Rgbf applyMeanStd(const Rgbf &rgb, const pek::Colorf &mean, const pek::Colorf &std) {
+    constexpr float eps = 1e-12f;
+    return Rgbf{
+        (rgb.r - mean.r) / std::max(std.r, eps),
+        (rgb.g - mean.g) / std::max(std.g, eps),
+        (rgb.b - mean.b) / std::max(std.b, eps),
+    };
+}
+
+uint8_t toByte(float value) {
+    return static_cast<uint8_t>(std::lround(std::clamp(value, 0.0f, 1.0f) * 255.0f));
+}
+
+uint8_t rgbToGrayByte(const Rgbf &rgb) {
+    const auto r = static_cast<uint16_t>(toByte(rgb.r));
+    const auto g = static_cast<uint16_t>(toByte(rgb.g));
+    const auto b = static_cast<uint16_t>(toByte(rgb.b));
+    return static_cast<uint8_t>((77u * r + 150u * g + 29u * b + 128u) >> 8);
+}
+
+float rgbToGrayFloat(const Rgbf &rgb) {
+    return 0.299f * rgb.r + 0.587f * rgb.g + 0.114f * rgb.b;
+}
+
+bool makeLetterboxDestination(const pek::ImageOpDesc &src,
+                              const pek::ImageOpDesc &dst,
+                              pek::ImageOpDesc &innerDst) {
+    innerDst = dst;
+    innerDst.rect = pek::computeLetterboxInnerRect(src.rect, dst.rect);
+    innerDst.keepAspectRatio = false;
+    return !innerDst.rect.isEmpty();
+}
+
+void fillRgbF32Chw(const pek::ImageOpDesc &dst, const pek::Colorf &mean, const pek::Colorf &std) {
+    auto *out = reinterpret_cast<float *>(dst.data);
+    const size_t planeSize = dst.surfaceWidth * dst.surfaceHeight;
+    auto rgb = letterboxRgb(dst);
+    if (!pek::MeanStd::isDefaultMean(mean) || !pek::MeanStd::isDefaultStd(std)) {
+        rgb = applyMeanStd(rgb, mean, std);
+    }
+
+    for (size_t y = 0; y < dst.rect.height; ++y) {
+        const size_t dyi = dst.rect.y + y;
+        for (size_t x = 0; x < dst.rect.width; ++x) {
+            const size_t dxi = dst.rect.x + x;
+            const size_t hw = dyi * dst.surfaceWidth + dxi;
+            out[0 * planeSize + hw] = rgb.r;
+            out[1 * planeSize + hw] = rgb.g;
+            out[2 * planeSize + hw] = rgb.b;
+        }
+    }
+}
+
+void fillRgbF16Chw(const pek::ImageOpDesc &dst, const pek::Colorf &mean, const pek::Colorf &std) {
+    auto *out = reinterpret_cast<Float16 *>(dst.data);
+    const size_t planeSize = dst.surfaceWidth * dst.surfaceHeight;
+    auto rgb = letterboxRgb(dst);
+    if (!pek::MeanStd::isDefaultMean(mean) || !pek::MeanStd::isDefaultStd(std)) {
+        rgb = applyMeanStd(rgb, mean, std);
+    }
+
+    for (size_t y = 0; y < dst.rect.height; ++y) {
+        const size_t dyi = dst.rect.y + y;
+        for (size_t x = 0; x < dst.rect.width; ++x) {
+            const size_t dxi = dst.rect.x + x;
+            const size_t hw = dyi * dst.surfaceWidth + dxi;
+            out[0 * planeSize + hw] = static_cast<Float16>(rgb.r);
+            out[1 * planeSize + hw] = static_cast<Float16>(rgb.g);
+            out[2 * planeSize + hw] = static_cast<Float16>(rgb.b);
+        }
+    }
+}
+
+void fillRgb8Hwc(const pek::ImageOpDesc &dst) {
+    auto *out = static_cast<uint8_t *>(dst.data);
+    const auto rgb = letterboxRgb(dst);
+    const uint8_t r = toByte(rgb.r);
+    const uint8_t g = toByte(rgb.g);
+    const uint8_t b = toByte(rgb.b);
+
+    for (size_t y = 0; y < dst.rect.height; ++y) {
+        const size_t dyi = dst.rect.y + y;
+        for (size_t x = 0; x < dst.rect.width; ++x) {
+            const size_t dxi = dst.rect.x + x;
+            const size_t index = (dyi * dst.surfaceWidth + dxi) * 3;
+            out[index + 0] = r;
+            out[index + 1] = g;
+            out[index + 2] = b;
+        }
+    }
+}
+
+void fillRgbF32Hwc(const pek::ImageOpDesc &dst, const pek::Colorf &mean, const pek::Colorf &std) {
+    auto *out = reinterpret_cast<float *>(dst.data);
+    auto rgb = letterboxRgb(dst);
+    if (!pek::MeanStd::isDefaultMean(mean) || !pek::MeanStd::isDefaultStd(std)) {
+        rgb = applyMeanStd(rgb, mean, std);
+    }
+
+    for (size_t y = 0; y < dst.rect.height; ++y) {
+        const size_t dyi = dst.rect.y + y;
+        for (size_t x = 0; x < dst.rect.width; ++x) {
+            const size_t dxi = dst.rect.x + x;
+            auto *pixel = out + (dyi * dst.surfaceWidth + dxi) * 3;
+            pixel[0] = rgb.r;
+            pixel[1] = rgb.g;
+            pixel[2] = rgb.b;
+        }
+    }
+}
+
+void fillRgbF16Hwc(const pek::ImageOpDesc &dst, const pek::Colorf &mean, const pek::Colorf &std) {
+    auto *out = reinterpret_cast<Float16 *>(dst.data);
+    auto rgb = letterboxRgb(dst);
+    if (!pek::MeanStd::isDefaultMean(mean) || !pek::MeanStd::isDefaultStd(std)) {
+        rgb = applyMeanStd(rgb, mean, std);
+    }
+
+    for (size_t y = 0; y < dst.rect.height; ++y) {
+        const size_t dyi = dst.rect.y + y;
+        for (size_t x = 0; x < dst.rect.width; ++x) {
+            const size_t dxi = dst.rect.x + x;
+            auto *pixel = out + (dyi * dst.surfaceWidth + dxi) * 3;
+            pixel[0] = static_cast<Float16>(rgb.r);
+            pixel[1] = static_cast<Float16>(rgb.g);
+            pixel[2] = static_cast<Float16>(rgb.b);
+        }
+    }
+}
+
+void fillGray8(const pek::ImageOpDesc &dst) {
+    auto *out = static_cast<uint8_t *>(dst.data);
+    const uint8_t gray = rgbToGrayByte(letterboxRgb(dst));
+
+    for (size_t y = 0; y < dst.rect.height; ++y) {
+        const size_t dyi = dst.rect.y + y;
+        for (size_t x = 0; x < dst.rect.width; ++x) {
+            const size_t dxi = dst.rect.x + x;
+            out[dyi * dst.surfaceWidth + dxi] = gray;
+        }
+    }
+}
+
+void fillGrayF32(const pek::ImageOpDesc &dst, const pek::Colorf &mean, const pek::Colorf &std) {
+    auto *out = reinterpret_cast<float *>(dst.data);
+    float gray = rgbToGrayFloat(letterboxRgb(dst));
+    if (!pek::MeanStd::isDefaultMean(mean) || !pek::MeanStd::isDefaultStd(std)) {
+        constexpr float eps = 1e-12f;
+        gray = (gray - mean.r) / std::max(std.r, eps);
+    }
+
+    for (size_t y = 0; y < dst.rect.height; ++y) {
+        const size_t dyi = dst.rect.y + y;
+        for (size_t x = 0; x < dst.rect.width; ++x) {
+            const size_t dxi = dst.rect.x + x;
+            out[dyi * dst.surfaceWidth + dxi] = gray;
+        }
+    }
+}
+
+const pek::Colorf defaultMean{0.0f, 0.0f, 0.0f, 0.0f};
+const pek::Colorf defaultStd{1.0f, 1.0f, 1.0f, 1.0f};
 } // namespace
 
 // this one is called
@@ -102,6 +284,15 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src
     if (srcRect.x + srcRect.width > srcWidth || srcRect.y + srcRect.height > srcHeight ||
         dstRect.x + dstRect.width > dstWidth || dstRect.y + dstRect.height > dstHeight)
         return false;
+
+    if (dst.keepAspectRatio) {
+        pek::ImageOpDesc innerDst;
+        if (!makeLetterboxDestination(src, dst, innerDst)) {
+            return false;
+        }
+        fillRgbF32Chw(dst, mean, std);
+        return StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Chw(src, innerDst, sampling);
+    }
 
     const uint8_t *in = srcPtr;
     float *out = dstPtr;
@@ -232,6 +423,15 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(const ImageOpDesc &src,
         dstRect.x + dstRect.width > dstWidth || dstRect.y + dstRect.height > dstHeight)
         return false;
 
+    if (dst.keepAspectRatio) {
+        pek::ImageOpDesc innerDst;
+        if (!makeLetterboxDestination(src, dst, innerDst)) {
+            return false;
+        }
+        fillRgb8Hwc(dst);
+        return StretchBlit_Bgra8_Hwc_Rect_Rgb8_Rect_Hwc(src, innerDst, sampling);
+    }
+
     (void)sampling;
 
     constexpr size_t Cdst = 3;
@@ -346,6 +546,15 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(const ImageOpDesc &src
     if (srcRect.x + srcRect.width > srcWidth || srcRect.y + srcRect.height > srcHeight ||
         dstRect.x + dstRect.width > dstWidth || dstRect.y + dstRect.height > dstHeight)
         return false;
+
+    if (dst.keepAspectRatio) {
+        pek::ImageOpDesc innerDst;
+        if (!makeLetterboxDestination(src, dst, innerDst)) {
+            return false;
+        }
+        fillRgbF16Chw(dst, mean, std);
+        return StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Chw(src, innerDst, sampling);
+    }
 
     const uint8_t *in = srcPtr;
     Float16 *out = dstPtr;
@@ -507,6 +716,15 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(const ImageOpDesc &src
         dstRect.x + dstRect.width > dstWidth || dstRect.y + dstRect.height > dstHeight)
         return false;
 
+    if (dst.keepAspectRatio) {
+        pek::ImageOpDesc innerDst;
+        if (!makeLetterboxDestination(src, dst, innerDst)) {
+            return false;
+        }
+        fillRgbF32Hwc(dst, mean, std);
+        return StretchBlit_Bgra8_Hwc_Rect_Rgbf32_Rect_Hwc(src, innerDst, sampling);
+    }
+
     constexpr float inv255 = 1.0f / 255.0f;
     constexpr size_t C = 3;
 
@@ -646,6 +864,15 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Hwc(const ImageOpDesc &src
         dstRect.x + dstRect.width > dstWidth || dstRect.y + dstRect.height > dstHeight)
         return false;
 
+    if (dst.keepAspectRatio) {
+        pek::ImageOpDesc innerDst;
+        if (!makeLetterboxDestination(src, dst, innerDst)) {
+            return false;
+        }
+        fillRgbF16Hwc(dst, mean, std);
+        return StretchBlit_Bgra8_Hwc_Rect_Rgbf16_Rect_Hwc(src, innerDst, sampling);
+    }
+
     constexpr float inv255 = 1.0f / 255.0f;
     constexpr size_t C = 3;
 
@@ -753,6 +980,15 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Gray8_Rect(const ImageOpDesc &src,
         dstRect.x + dstRect.width > dstWidth || dstRect.y + dstRect.height > dstHeight)
         return false;
 
+    if (dst.keepAspectRatio) {
+        pek::ImageOpDesc innerDst;
+        if (!makeLetterboxDestination(src, dst, innerDst)) {
+            return false;
+        }
+        fillGray8(dst);
+        return StretchBlit_Bgra8_Hwc_Rect_Gray8_Rect(src, innerDst, sampling);
+    }
+
     (void)sampling;
 
     for (size_t dy = 0; dy < dstRect.height; ++dy) {
@@ -852,6 +1088,15 @@ bool ImageOps::StretchBlit_Bgra8_Hwc_Rect_Grayf32_Rect(const ImageOpDesc &src,
     const Colorf &mean = src.mean;
     const Colorf &std = src.std;
 
+    if (dst.keepAspectRatio) {
+        pek::ImageOpDesc innerDst;
+        if (!makeLetterboxDestination(src, dst, innerDst)) {
+            return false;
+        }
+        fillGrayF32(dst, mean, std);
+        return StretchBlit_Bgra8_Hwc_Rect_Grayf32_Rect(src, innerDst, sampling);
+    }
+
     constexpr float inv255 = 1.0f / 255.0f;
 
     (void)sampling;
@@ -916,6 +1161,15 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(const ImageOpDesc &src,
     if (srcRect.x + srcRect.width > srcWidth || srcRect.y + srcRect.height > srcHeight ||
         dstRect.x + dstRect.width > dstWidth || dstRect.y + dstRect.height > dstHeight)
         return false;
+
+    if (dst.keepAspectRatio) {
+        pek::ImageOpDesc innerDst;
+        if (!makeLetterboxDestination(src, dst, innerDst)) {
+            return false;
+        }
+        fillRgbF32Hwc(dst, defaultMean, defaultStd);
+        return StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Hwc(src, innerDst, sampling);
+    }
 
     constexpr float inv255 = 1.0f / 255.0f;
 
@@ -1125,6 +1379,15 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(const ImageOpDesc &src,
         dstRect.x + dstRect.width > dstWidth || dstRect.y + dstRect.height > dstHeight)
         return false;
 
+    if (dst.keepAspectRatio) {
+        pek::ImageOpDesc innerDst;
+        if (!makeLetterboxDestination(src, dst, innerDst)) {
+            return false;
+        }
+        fillRgbF32Chw(dst, defaultMean, defaultStd);
+        return StrechBlit_Rgb8_Chw_Rect_Rgbf32_Rect_Chw(src, innerDst, sampling);
+    }
+
     constexpr float inv255 = 1.0f / 255.0f;
 
     const size_t Wdst = dstWidth;
@@ -1180,6 +1443,15 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Hwc(const ImageOpDesc &src,
         dstRect.x + dstRect.width > dstWidth || dstRect.y + dstRect.height > dstHeight)
         return false;
 
+    if (dst.keepAspectRatio) {
+        pek::ImageOpDesc innerDst;
+        if (!makeLetterboxDestination(src, dst, innerDst)) {
+            return false;
+        }
+        fillRgbF16Hwc(dst, defaultMean, defaultStd);
+        return StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Hwc(src, innerDst, sampling);
+    }
+
     constexpr float inv255 = 1.0f / 255.0f;
     const size_t C = 3;
     const size_t Wdst = dstWidth;
@@ -1229,6 +1501,15 @@ bool ImageOps::StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Chw(const ImageOpDesc &src,
     if (srcRect.x + srcRect.width > srcWidth || srcRect.y + srcRect.height > srcHeight ||
         dstRect.x + dstRect.width > dstWidth || dstRect.y + dstRect.height > dstHeight)
         return false;
+
+    if (dst.keepAspectRatio) {
+        pek::ImageOpDesc innerDst;
+        if (!makeLetterboxDestination(src, dst, innerDst)) {
+            return false;
+        }
+        fillRgbF16Chw(dst, defaultMean, defaultStd);
+        return StrechBlit_Rgb8_Chw_Rect_Rgbf16_Rect_Chw(src, innerDst, sampling);
+    }
 
     constexpr float inv255 = 1.0f / 255.0f;
     const size_t Wdst = dstWidth;
