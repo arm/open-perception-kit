@@ -535,12 +535,15 @@ def copy_pruned_report_for_pages(report_dir: Path, target: Path) -> None:
     prune_report_for_pages(target)
 
 
-def restore_report_videos_for_deploy(report_dir: Path, target: Path) -> None:
+def restore_report_videos_for_deploy(report_dir: Path, target: Path) -> int:
+    count = 0
     for source in report_dir.rglob("data/*.webm"):
         if source.is_file():
             destination = target / source.relative_to(report_dir)
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)
+            count += 1
+    return count
 
 
 def validate_report_for_pages(report_dir: Path) -> None:
@@ -640,8 +643,8 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
         write_site_index(site_dir, repository)
 
         changed = push_site_branch(site_dir, storage_branch)
-        set_output("deploy", "true" if changed else "false")
-        restore_report_videos_for_deploy(report_dir, target)
+        restored_videos = restore_report_videos_for_deploy(report_dir, target)
+        set_output("deploy", "true" if changed or restored_videos else "false")
 
 
 def parse_github_time(value: str) -> dt.datetime:

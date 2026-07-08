@@ -322,6 +322,46 @@ class TestPublishPlaywrightPages(unittest.TestCase):
 
             self.assertIn("deploy=false\n", output.read_text(encoding="utf-8"))
 
+    def test_publish_report_deploys_unchanged_site_when_videos_are_deploy_only(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            local_report = root / "playwright-report"
+            site_dir = root / "site"
+            output = root / "github-output"
+            video = local_report / "data" / "video.webm"
+            video.parent.mkdir(parents=True)
+            video.write_text("video", encoding="utf-8")
+            (local_report / "index.html").write_text(
+                "<!doctype html><html><head><title>Playwright</title></head><body></body></html>",
+                encoding="utf-8",
+            )
+
+            def checkout(path, _storage_branch):
+                path.mkdir(parents=True)
+
+            env = {
+                "GITHUB_OUTPUT": str(output),
+                "GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge",
+                "PLAYWRIGHT_PAGES_LOCAL_REPORT_DIR": str(local_report),
+                "UPSTREAM_CONCLUSION": "success",
+                "UPSTREAM_EVENT": "pull_request",
+                "UPSTREAM_HEAD_BRANCH": "feature/test",
+                "UPSTREAM_HEAD_REPOSITORY": "Arm-Debug/amp-dev-forge",
+                "UPSTREAM_HEAD_SHA": "commit-for-test",
+                "UPSTREAM_PR_NUMBER": "181",
+                "UPSTREAM_RUN_ATTEMPT": "1",
+                "UPSTREAM_RUN_ID": "123",
+            }
+            with patch.dict(os.environ, env, clear=True), \
+                    patch.object(publish, "checkout_site_branch", side_effect=checkout), \
+                    patch.object(publish, "build_source_map_json", return_value="{}"), \
+                    patch.object(publish, "push_site_branch", return_value=False):
+                publish.publish_report(site_dir, "playwright-pages")
+
+            self.assertIn("deploy=true\n", output.read_text(encoding="utf-8"))
+            self.assertEqual((site_dir / "prs" / "181" / "data" / "video.webm").read_text(encoding="utf-8"),
+                             "video")
+
     def test_dry_run_site_branch_does_not_need_github_token(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             site_dir = Path(tmpdir)
