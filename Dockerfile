@@ -44,8 +44,8 @@ COPY . .
 
 RUN set -eux; \
   NINJAFLAGS=-j2 ./scripts/build-elements.sh release false --extra-setup-args=--cross-file=/work/development/cross/aarch64-linux-gnu.ini; \
-  mkdir -p /opt/pek-app/development/build /opt/pek-app/tools /opt/pek-app/scripts/private; \
-  cp -r /work/development/build/meson-out /opt/pek-app/development/build/; \
+  mkdir -p /opt/pek-app/development/build/meson-out /opt/pek-app/tools /opt/pek-app/scripts/private; \
+  find /work/development/build/meson-out -maxdepth 1 -type f -name "*.so" -exec cp {} /opt/pek-app/development/build/meson-out/ \; ; \
   cp /work/tools/pek-menu /opt/pek-app/tools/; \
   cp /work/scripts/private/deployment-runtime.sh /opt/pek-app/scripts/private/; \
   chmod +x /opt/pek-app/tools/pek-menu /opt/pek-app/scripts/private/deployment-runtime.sh; \
