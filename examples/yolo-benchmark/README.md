@@ -35,10 +35,10 @@ tests/             unit tests for the Python helpers
 
 ## Build PEK Runner
 
-Run this inside the PEK development container:
+Prepare the Docker benchmark environment:
 
 ```sh
-./examples/yolo-benchmark/pek/build.sh debug true
+./examples/yolo-benchmark/docker/setup.sh
 ```
 
 The build installs:
@@ -59,9 +59,7 @@ image_id<TAB>/absolute/path/to/image.jpg
 Generate it with `prepare_dataset.py`; the runners require the fingerprint
 header so a comparison cannot accidentally mix different image sets.
 
-The runners use `IMAGE_LIST`. The preferred Docker flow prepares it during
-`docker/setup.sh`; the low-level `run.sh` helper can still prepare the default
-COCO val2017 dataset under `datasets/coco` when used directly.
+The preferred Docker flow prepares `IMAGE_LIST` during `docker/setup.sh`.
 
 For CI or smoke runs, prepare a limited image list explicitly:
 
@@ -99,46 +97,33 @@ Preferred host entry point:
 
 ```sh
 ./examples/yolo-benchmark/docker/setup.sh
-./examples/yolo-benchmark/docker/run.sh benchmark
+./examples/yolo-benchmark/docker/run.sh
 ```
 
 This uses Docker Compose to run inside the PEK development image with the repo
 mounted at `/work`, matching the checked-in OpChain paths and ONNX Runtime
 runtime layout. `setup.sh` builds the Compose runtime image, creates or reuses
 the Docker cache volume for the dataset, bare runner venv, and PEK sample build,
-and writes the image list. `run.sh` only runs benchmark commands and writes the
-artifacts listed below.
+and writes the image list. `run.sh` only runs benchmark commands and writes
+the artifacts listed below.
 
 CI runs the same Compose entry point nightly and on PRs labeled
 `run-yolo-benchmark`, with setup and measurement split into separate log steps.
-Manual runs accept an `image_limit` input; `0` means full COCO val2017.
+CI repeats the benchmark 10 times by default and writes each full report under
+`artifacts/yolo-benchmark/runs/run-XX/`. Manual runs accept `image_limit` and
+`benchmark_runs` inputs; `image_limit=0` means full COCO val2017.
 
 For a quick smoke image list:
 
 ```sh
 YOLO_BENCHMARK_LIMIT=500 ./examples/yolo-benchmark/docker/setup.sh
-./examples/yolo-benchmark/docker/run.sh benchmark
+./examples/yolo-benchmark/docker/run.sh
 ```
 
-Separate benchmark runs are still available after setup:
+To repeat the same prepared benchmark locally:
 
 ```sh
-./examples/yolo-benchmark/docker/run.sh bare
-./examples/yolo-benchmark/docker/run.sh pek
-./examples/yolo-benchmark/docker/run.sh compare
-```
-
-Inside an already prepared PEK development container, install Python
-dependencies for the bare runner:
-
-```sh
-python3 -m pip install -r examples/yolo-benchmark/bare/requirements.txt
-```
-
-Then run both sides on the same image list:
-
-```sh
-./examples/yolo-benchmark/run.sh both
+YOLO_BENCHMARK_RUNS=10 ./examples/yolo-benchmark/docker/run.sh
 ```
 
 Default inputs:
@@ -156,12 +141,13 @@ image because those are part of this benchmark definition, not runtime knobs.
 Outputs:
 
 ```text
-artifacts/yolo-benchmark/bare/benchmark_summary.json
-artifacts/yolo-benchmark/bare/predictions.jsonl
-artifacts/yolo-benchmark/pek/benchmark_summary.json
-artifacts/yolo-benchmark/pek/predictions.jsonl
-artifacts/yolo-benchmark/comparison.json
-artifacts/yolo-benchmark/comparison.md
+artifacts/yolo-benchmark/images.tsv
+artifacts/yolo-benchmark/runs/run-XX/bare/benchmark_summary.json
+artifacts/yolo-benchmark/runs/run-XX/bare/predictions.jsonl
+artifacts/yolo-benchmark/runs/run-XX/pek/benchmark_summary.json
+artifacts/yolo-benchmark/runs/run-XX/pek/predictions.jsonl
+artifacts/yolo-benchmark/runs/run-XX/comparison.json
+artifacts/yolo-benchmark/runs/run-XX/comparison.md
 ```
 
 The Markdown comparison contains the main per-image table:

@@ -6,10 +6,6 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(git -C "${SCRIPT_DIR}" rev-parse --show-toplevel)"
-COMPOSE_FILE="${SCRIPT_DIR}/compose.yaml"
-
-source "${REPO_ROOT}/scripts/pre-commit/common.sh"
 
 usage() {
     cat << 'EOF'
@@ -35,12 +31,4 @@ elif [[ "${1:-}" != "" ]]; then
     exit 2
 fi
 
-repo_checks_check_docker_setup
-
-cd "${REPO_ROOT}"
-export HOST_UID="$(id -u)"
-export HOST_GID="$(id -g)"
-export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-amp-dev-forge-yolo-benchmark}"
-
-docker compose -f "${COMPOSE_FILE}" build yolo-benchmark
-YOLO_BENCHMARK_SETUP=1 "${SCRIPT_DIR}/run.sh" prepare
+YOLO_BENCHMARK_PHASE=setup exec "${SCRIPT_DIR}/run.sh"
