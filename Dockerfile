@@ -40,6 +40,11 @@ RUN set -eux; \
   rm -rf "$tmp_dir"
 
 WORKDIR /work
+COPY development/meson.build development/meson.options development/
+COPY development/subprojects/*.wrap development/subprojects/
+COPY development/subprojects/packagefiles development/subprojects/packagefiles
+RUN meson subprojects download --sourcedir /work/development
+
 COPY . .
 
 RUN set -eux; \
