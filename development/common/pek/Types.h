@@ -179,7 +179,7 @@ inline bool isImageDataKind(DataKind kind) {
 }
 
 /// @brief Maximum number of input or output tensors per inference op.
-constexpr size_t MaxTensorCount = 8;
+constexpr size_t MaxTensorCount = 16;
 /// @brief Sentinel value for an uninitialised or invalid tensor index.
 constexpr size_t InvalidTensorIndex = std::numeric_limits<size_t>::max();
 
