@@ -173,9 +173,10 @@ yolo-benchmark/manual/<run-id>/
 yolo-benchmark/prs/<number>/
 ```
 
-The report page renders native SVG plots for `avg_ms`, `p50_ms`, `p95_ms`, and
-`p99_ms`. Predictions JSONL files stay in the Actions artifact; Pages only keeps
-the comparison and summary JSON files.
+The report page renders native SVG percentile plots for `p50_ms`, `p75_ms`,
+`p95_ms`, and `p99_ms`. The overall summary badge uses `avg_ms`. Predictions
+JSONL files stay in the Actions artifact; Pages only keeps the comparison and
+summary JSON files.
 
 Local dry-run publish from an existing artifact directory:
 

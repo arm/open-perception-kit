@@ -59,10 +59,11 @@
             "max_ms": { "minimum": 0, "type": "number" },
             "min_ms": { "minimum": 0, "type": "number" },
             "p50_ms": { "minimum": 0, "type": "number" },
+            "p75_ms": { "minimum": 0, "type": "number" },
             "p95_ms": { "minimum": 0, "type": "number" },
             "p99_ms": { "minimum": 0, "type": "number" }
           },
-          "required": ["count", "avg_ms", "p50_ms", "p95_ms", "p99_ms", "min_ms", "max_ms"],
+          "required": ["count", "avg_ms", "p50_ms", "p75_ms", "p95_ms", "p99_ms", "min_ms", "max_ms"],
           "type": "object"
         },
         "preload_ms": { "minimum": 0, "type": "number" }

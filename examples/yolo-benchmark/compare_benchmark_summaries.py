@@ -21,7 +21,7 @@ MEASUREMENT_CONSTS = {
     for key, value in SUMMARY_SCHEMA["properties"]["measurement"]["properties"].items()
     if "const" in value
 }
-METRICS = ("avg_ms", "p50_ms", "p95_ms", "p99_ms", "min_ms", "max_ms")
+METRICS = ("avg_ms", "p50_ms", "p75_ms", "p95_ms", "p99_ms", "min_ms", "max_ms")
 COMPARABLE_INPUTS = ("image_count", "image_set_fingerprint", "imgsz", "device")
 
 
@@ -124,7 +124,7 @@ def markdown_table(comparison: dict[str, Any]) -> str:
         "| metric | bare ms | PEK ms | delta ms | ratio | delta % |",
         "| --- | ---: | ---: | ---: | ---: | ---: |",
     ]
-    for metric in ("avg_ms", "p50_ms", "p95_ms", "p99_ms"):
+    for metric in ("avg_ms", "p50_ms", "p75_ms", "p95_ms", "p99_ms"):
         item = comparison["timing_delta"]["per_image_ms"][metric]
         ratio = "n/a" if item["ratio"] is None else f"{item['ratio']:.3f}x"
         delta_percent = "n/a" if item["delta_percent"] is None else f"{item['delta_percent']:.1f}%"

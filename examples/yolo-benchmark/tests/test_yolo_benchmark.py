@@ -57,6 +57,7 @@ def summary_doc(avg_ms: float = 10.0) -> dict[str, Any]:
                 "count": 2,
                 "avg_ms": avg_ms,
                 "p50_ms": 9.0,
+                "p75_ms": 10.0,
                 "p95_ms": 11.0,
                 "p99_ms": 12.0,
                 "min_ms": 8.0,
@@ -69,6 +70,7 @@ def summary_doc(avg_ms: float = 10.0) -> dict[str, Any]:
 class BareBenchmarkTest(unittest.TestCase):
     def test_percentile_and_image_list_parsing(self) -> None:
         self.assertEqual(bare.percentile([1.0, 2.0, 3.0], 0.50), 2.0)
+        self.assertEqual(bare.percentile([1.0, 2.0, 3.0, 4.0], 0.75), 3.0)
         self.assertEqual(bare.percentile([1.0, 2.0, 3.0], 0.95), 3.0)
         with tempfile.TemporaryDirectory() as tmp:
             image_list = Path(tmp) / "images.tsv"
@@ -103,6 +105,8 @@ class CompareBenchmarksTest(unittest.TestCase):
             comparison = compare.build_comparison(compare.load_summary(bare_path), compare.load_summary(pek_path))
             self.assertEqual(comparison["timing_delta"]["per_image_ms"]["avg_ms"]["ratio"], 1.5)
             self.assertIn("| avg_ms | 10.000 | 15.000 | 5.000 | 1.500x | 50.0% |", compare.markdown_table(comparison))
+            self.assertIn("| p75_ms | 10.000 | 10.000 | 0.000 | 1.000x | 0.0% |",
+                          compare.markdown_table(comparison))
 
     def test_comparison_handles_zero_baseline_metric(self) -> None:
         bare_summary = summary_doc()

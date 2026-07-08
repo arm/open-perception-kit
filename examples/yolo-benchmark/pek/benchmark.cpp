@@ -79,6 +79,7 @@ nlohmann::json timingStats(std::vector<double> values) {
     if (values.empty()) {
         stats["avg_ms"] = 0.0;
         stats["p50_ms"] = 0.0;
+        stats["p75_ms"] = 0.0;
         stats["p95_ms"] = 0.0;
         stats["p99_ms"] = 0.0;
         stats["min_ms"] = 0.0;
@@ -90,6 +91,7 @@ nlohmann::json timingStats(std::vector<double> values) {
     const double sum = std::accumulate(values.begin(), values.end(), 0.0);
     stats["avg_ms"] = sum / static_cast<double>(values.size());
     stats["p50_ms"] = percentile(values, 0.50);
+    stats["p75_ms"] = percentile(values, 0.75);
     stats["p95_ms"] = percentile(values, 0.95);
     stats["p99_ms"] = percentile(values, 0.99);
     stats["min_ms"] = values.front();
