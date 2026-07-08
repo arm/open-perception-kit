@@ -132,7 +132,7 @@ class AgentRuntimeReviewPipelineTests(unittest.TestCase):
         self.assertEqual(outputs["finding_count"], "1")
         self.assertTrue(markdown_written)
 
-    def test_agent_review_github_outputs_use_diff_anchor_filter(self):
+    def test_agent_review_github_outputs_keep_body_findings_outside_diff(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)
             workflow_path = repo_root / ".github/workflows/example.yml"
@@ -201,11 +201,11 @@ class AgentRuntimeReviewPipelineTests(unittest.TestCase):
             filtered = json.loads(review_path.read_text(encoding="utf-8"))
 
         self.assertEqual(result, 0)
-        build_diff_comment_anchors.assert_called_once_with("origin/main")
-        self.assertEqual(outputs["recommendation"], "approve")
-        self.assertEqual(outputs["finding_count"], "0")
-        self.assertEqual(filtered["overall_recommendation"], "approve")
-        self.assertEqual(filtered["findings"], [])
+        build_diff_comment_anchors.assert_not_called()
+        self.assertEqual(outputs["recommendation"], "request_changes")
+        self.assertEqual(outputs["finding_count"], "1")
+        self.assertEqual(filtered["overall_recommendation"], "request_changes")
+        self.assertEqual([finding["title"] for finding in filtered["findings"]], ["Line exists outside PR diff"])
 
     def test_agent_review_output_drops_invalid_right_side_anchors(self):
         with tempfile.TemporaryDirectory() as temp_dir:

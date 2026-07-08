@@ -60,11 +60,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    diff_anchors = None
-    if args.publish_pr_comment or args.github_output:
-        diff_anchors = build_diff_comment_anchors(review_base_ref_from_env())
-
-    review = load_filtered_review(Path(args.input), Path.cwd(), diff_anchors=diff_anchors)
+    review = load_filtered_review(Path(args.input), Path.cwd())
     run_id = os.environ.get("GITHUB_RUN_ID", "")
     head_sha = os.environ.get("GITHUB_HEAD_SHA") or os.environ.get("GITHUB_SHA") or ""
     markdown = format_markdown(review, run_id=run_id, head_sha=head_sha)
@@ -88,6 +84,7 @@ def main() -> int:
         return 1
 
     try:
+        diff_anchors = build_diff_comment_anchors(review_base_ref_from_env())
         findings = review.get("findings", [])
         typed_findings = []
         if isinstance(findings, list):
