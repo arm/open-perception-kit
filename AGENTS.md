@@ -158,5 +158,8 @@ Incomplete verification step available:
 
 - Reuse checked-in patterns before inventing new ones.
 - Keep docs aligned with `config/` and `development/`.
+- When replacing behavior, delete obsolete code, stale tests, old docs, and
+  legacy entrypoints in the same change. Do not keep compatibility shims unless
+  the current supported contract explicitly requires them.
 - Prefer the container workflow.
 - If a task is actually blocked by current architecture, say so and cross-check [Known limitations](docs/public/arch/known-limitations.md).

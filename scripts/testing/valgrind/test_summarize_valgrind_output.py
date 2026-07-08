@@ -15,6 +15,8 @@ SCRIPT_PATH = Path(__file__).with_name("summarize-valgrind-output.py")
 
 def import_summary_module():
     spec = importlib.util.spec_from_file_location("summarize_valgrind_output", SCRIPT_PATH)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load summary module from {SCRIPT_PATH}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)

@@ -9,7 +9,7 @@ on:
         required: true
   workflow_dispatch:
   pull_request:
-    branches: [ main, "feature/**", "sandbox/**" ]
+    branches: [ main, develop, "feature/**", "sandbox/**" ]
     types: [ labeled, synchronize, reopened ]
   schedule:
     - cron: "0 4 * * *"
@@ -38,6 +38,7 @@ jobs:
           - service: pek-docs-base
           - service: pek-dev-base
           - service: pek-pre-commit-runtime
+          - service: pek-playwright-pages
 
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml

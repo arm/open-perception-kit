@@ -21,7 +21,7 @@ Host-side wrapper for the dedicated pre-commit runtime.
 Modes:
   default              Run the staged-file delta path inside the repo-checks container.
                        If no staged files exist, fall back to the branch delta against
-                       PULL_REQUEST_TARGET_BRANCH, origin/HEAD, or main.
+                       PULL_REQUEST_TARGET_BRANCH, origin/HEAD, or develop.
   full                 Run the same check bundle against the full tracked worktree.
 
 Internal:
@@ -89,7 +89,7 @@ resolve_delta_target_ref() {
         return
     fi
 
-    resolved_ref="$(resolve_ref main || true)"
+    resolved_ref="$(resolve_ref develop || true)"
     if [ -n "${resolved_ref}" ]; then
         printf '%s\n' "${resolved_ref}"
         return
@@ -119,13 +119,13 @@ build_delta_command() {
 
     repo_checks_load_null_delimited_paths \
         repo_checks_git_without_hook_env -C "${REPO_ROOT}" diff --cached --name-only --diff-filter=ACMR -z
-    files=("${REPO_CHECKS_LOADED_PATHS[@]}")
+    files=("${REPO_CHECKS_LOADED_PATHS[@]+"${REPO_CHECKS_LOADED_PATHS[@]}"}")
 
     if [ "${#files[@]}" -eq 0 ]; then
         target_ref="$(resolve_delta_target_ref)"
         repo_checks_load_null_delimited_paths \
             repo_checks_git_without_hook_env -C "${REPO_ROOT}" diff --name-only --diff-filter=ACMR -z "${target_ref}...HEAD"
-        files=("${REPO_CHECKS_LOADED_PATHS[@]}")
+        files=("${REPO_CHECKS_LOADED_PATHS[@]+"${REPO_CHECKS_LOADED_PATHS[@]}"}")
     fi
 
     REPO_CHECKS_COMMAND=(expkits-ci --verbose --branch-naming)

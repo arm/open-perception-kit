@@ -30,7 +30,7 @@ Examples:
 - `feature/EXPKITS-1234/add-camera-contact-parser`
 - `bugfix/EXPKITS-5678/fix-ui-timeout`
 - `hotfix/EXPKITS-9012/fix-release-crash`
-- `sandbox/codex-review-smoke`
+- `sandbox/agent-review-smoke`
 
 ## Branch purpose
 
