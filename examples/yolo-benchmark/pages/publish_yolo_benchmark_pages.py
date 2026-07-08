@@ -1271,7 +1271,7 @@ def main(argv: list[str]) -> int:
         return 2
 
     storage_branch = env("YOLO_PAGES_STORAGE_BRANCH", "playwright-pages")
-    site_dir = Path(env("YOLO_PAGES_SITE_DIR", "_playwright_pages_site"))
+    site_dir = Path(env("YOLO_PAGES_SITE_DIR", "_yolo_benchmark_pages_site"))
     retention_days = parse_retention_days(env("YOLO_PAGES_RETENTION_DAYS", "10"))
 
     try:

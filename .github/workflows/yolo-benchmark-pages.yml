@@ -58,7 +58,7 @@ jobs:
         if: steps.pages.outputs.deploy == 'true'
         uses: actions/upload-pages-artifact@v5
         with:
-          path: _playwright_pages_site
+          path: _yolo_benchmark_pages_site
 
       - name: Deploy Pages
         if: steps.pages.outputs.deploy == 'true'
@@ -93,7 +93,7 @@ jobs:
         if: steps.pages.outputs.deploy == 'true'
         uses: actions/upload-pages-artifact@v5
         with:
-          path: _playwright_pages_site
+          path: _yolo_benchmark_pages_site
 
       - name: Deploy Pages
         if: steps.pages.outputs.deploy == 'true'

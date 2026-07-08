@@ -9,16 +9,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(git -C "${SCRIPT_DIR}" rev-parse --show-toplevel)"
 COMPOSE_FILE="${SCRIPT_DIR}/compose.yaml"
 IMAGE_NAME="${YOLO_BENCHMARK_IMAGE_NAME:-amp-dev-forge-yolo-benchmark:local}"
-PHASE="${YOLO_BENCHMARK_PHASE:-benchmark}"
 
 usage() {
     cat << 'EOF'
 Usage:
-  examples/yolo-benchmark/docker/run.sh
+  examples/yolo-benchmark/docker/run.sh setup|benchmark|summary|cleanup-ci
 
-Runs the prepared YOLO benchmark. Run examples/yolo-benchmark/docker/setup.sh first.
+Runs the Dockerized YOLO benchmark workflow.
 
 Environment:
+  YOLO_BENCHMARK_LIMIT           Optional image-list limit. Default: full COCO val2017.
   YOLO_BENCHMARK_RUNS            Number of benchmark repetitions. Default: 1.
   YOLO_BENCHMARK_IMAGE_NAME      Runtime image tag override.
   YOLO_BENCHMARK_CACHE_VOLUME    Docker volume override for dataset, venv, and PEK build cache.
@@ -27,7 +27,9 @@ EOF
 }
 
 case "${1:-}" in
-    "") ;;
+    setup | benchmark | summary | cleanup-ci)
+        command="$1"
+        ;;
     -h | --help)
         usage
         exit 0
@@ -38,10 +40,22 @@ case "${1:-}" in
         ;;
 esac
 
-if [[ "${PHASE}" != "setup" && "${PHASE}" != "benchmark" ]]; then
-    echo "YOLO_BENCHMARK_PHASE must be setup or benchmark, got '${PHASE}'." >&2
-    exit 2
-fi
+is_uint() {
+    [[ "$1" =~ ^[0-9]+$ ]]
+}
+
+validate_inputs() {
+    if [[ -n "${YOLO_BENCHMARK_LIMIT:-}" ]] && ! is_uint "${YOLO_BENCHMARK_LIMIT}"; then
+        echo "YOLO_BENCHMARK_LIMIT must be a non-negative integer, got '${YOLO_BENCHMARK_LIMIT}'." >&2
+        exit 2
+    fi
+    if [[ -n "${YOLO_BENCHMARK_RUNS:-}" ]]; then
+        if ! is_uint "${YOLO_BENCHMARK_RUNS}" || (("${YOLO_BENCHMARK_RUNS}" < 1)); then
+            echo "YOLO_BENCHMARK_RUNS must be a positive integer, got '${YOLO_BENCHMARK_RUNS}'." >&2
+            exit 2
+        fi
+    fi
+}
 
 run_in_container() {
     local artifact_root="/work/artifacts/yolo-benchmark"
@@ -80,7 +94,7 @@ run_in_container() {
 
     activate_bare_venv() {
         if [[ ! -x "${venv}/bin/python3" ]]; then
-            echo "Bare runner venv is missing. Run examples/yolo-benchmark/docker/setup.sh first." >&2
+            echo "Bare runner venv is missing. Run examples/yolo-benchmark/docker/run.sh setup first." >&2
             exit 1
         fi
         # shellcheck source=/dev/null
@@ -130,11 +144,11 @@ run_in_container() {
 
     require_setup() {
         if [[ ! -f "${image_list}" ]]; then
-            echo "Image list is missing. Run examples/yolo-benchmark/docker/setup.sh first." >&2
+            echo "Image list is missing. Run examples/yolo-benchmark/docker/run.sh setup first." >&2
             exit 1
         fi
         if [[ ! -x examples/bin/yolo-benchmark ]]; then
-            echo "PEK benchmark runner is missing. Run examples/yolo-benchmark/docker/setup.sh first." >&2
+            echo "PEK benchmark runner is missing. Run examples/yolo-benchmark/docker/run.sh setup first." >&2
             exit 1
         fi
         activate_bare_venv
@@ -176,7 +190,7 @@ run_in_container() {
         done
     }
 
-    if [[ "${PHASE}" == "setup" ]]; then
+    if [[ "${command}" == "setup" ]]; then
         setup
     else
         benchmark
@@ -184,27 +198,86 @@ run_in_container() {
 }
 
 if [[ "${YOLO_BENCHMARK_IN_CONTAINER:-}" == "1" ]]; then
+    if [[ "${command}" != "setup" && "${command}" != "benchmark" ]]; then
+        echo "'${command}' is a host-only command." >&2
+        exit 2
+    fi
+    validate_inputs
     run_in_container
+    exit 0
+fi
+
+write_summary() {
+    local summary_file="${GITHUB_STEP_SUMMARY:-/dev/stdout}"
+    {
+        echo "## YOLO Benchmark"
+        echo
+        echo "- image_limit: ${YOLO_BENCHMARK_LIMIT:-full}"
+        echo "- benchmark_runs: ${YOLO_BENCHMARK_RUNS:-1}"
+        echo "- image: ${YOLO_BENCHMARK_IMAGE_NAME:-${IMAGE_NAME}}"
+        echo
+        if compgen -G "artifacts/yolo-benchmark/runs/run-*/comparison.md" > /dev/null; then
+            for comparison in artifacts/yolo-benchmark/runs/run-*/comparison.md; do
+                echo "## $(basename "$(dirname "${comparison}")")"
+                echo
+                cat "${comparison}"
+                echo
+            done
+        else
+            echo "No comparison.md was generated."
+        fi
+    } >> "${summary_file}"
+}
+
+cleanup_ci() {
+    set +e
+    local checkout_path="${GITHUB_WORKSPACE:-}/${CI_CHECKOUT_PATH:-}"
+    case "${checkout_path}" in
+        "${GITHUB_WORKSPACE:-}/repo-"*) ;;
+        *)
+            echo "Skipping cleanup for unexpected checkout_path='${checkout_path}'" >&2
+            return 0
+            ;;
+    esac
+    if [[ -f "${checkout_path}/examples/yolo-benchmark/docker/compose.yaml" ]]; then
+        docker compose -f "${checkout_path}/examples/yolo-benchmark/docker/compose.yaml" down --remove-orphans || true
+    fi
+    docker image rm -f "${YOLO_BENCHMARK_IMAGE_NAME:-${IMAGE_NAME}}" || true
+    local checkout_root
+    checkout_root="$(git -C "${checkout_path}" rev-parse --show-toplevel 2> /dev/null || true)"
+    if [[ "${checkout_root}" != "${checkout_path}" ]]; then
+        echo "Skipping checkout cleanup because '${checkout_path}' is not a git worktree root." >&2
+        return 0
+    fi
+    rm -rf -- "${checkout_path}"
+}
+
+if [[ "${command}" == "summary" ]]; then
+    cd "${REPO_ROOT}"
+    write_summary
+    exit 0
+elif [[ "${command}" == "cleanup-ci" ]]; then
+    cleanup_ci
     exit 0
 fi
 
 source "${REPO_ROOT}/scripts/pre-commit/common.sh"
 repo_checks_check_docker_setup
+validate_inputs
 
 cd "${REPO_ROOT}"
 export HOST_UID="$(id -u)"
 export HOST_GID="$(id -g)"
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-amp-dev-forge-yolo-benchmark}"
 
-if [[ "${PHASE}" == "setup" ]]; then
+if [[ "${command}" == "setup" ]]; then
     docker compose -f "${COMPOSE_FILE}" build yolo-benchmark
 elif ! docker image inspect "${IMAGE_NAME}" > /dev/null 2>&1; then
     repo_checks_die \
-        "YOLO benchmark image '${IMAGE_NAME}' is not built yet. Run examples/yolo-benchmark/docker/setup.sh first."
+        "YOLO benchmark image '${IMAGE_NAME}' is not built yet. Run examples/yolo-benchmark/docker/run.sh setup first."
 fi
 
 docker compose -f "${COMPOSE_FILE}" run --rm \
     -e YOLO_BENCHMARK_IN_CONTAINER=1 \
-    -e YOLO_BENCHMARK_PHASE="${PHASE}" \
     yolo-benchmark \
-    ./examples/yolo-benchmark/docker/run.sh
+    ./examples/yolo-benchmark/docker/run.sh "${command}"

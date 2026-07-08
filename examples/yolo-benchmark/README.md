@@ -38,7 +38,7 @@ tests/             unit tests for the Python helpers
 Prepare the Docker benchmark environment:
 
 ```sh
-./examples/yolo-benchmark/docker/setup.sh
+./examples/yolo-benchmark/docker/run.sh setup
 ```
 
 The build installs:
@@ -59,7 +59,7 @@ image_id<TAB>/absolute/path/to/image.jpg
 Generate it with `prepare_dataset.py`; the runners require the fingerprint
 header so a comparison cannot accidentally mix different image sets.
 
-The preferred Docker flow prepares `IMAGE_LIST` during `docker/setup.sh`.
+The preferred Docker flow prepares `IMAGE_LIST` during `docker/run.sh setup`.
 
 For CI or smoke runs, prepare a limited image list explicitly:
 
@@ -96,15 +96,15 @@ should use the full official COCO val2017 split.
 Preferred host entry point:
 
 ```sh
-./examples/yolo-benchmark/docker/setup.sh
-./examples/yolo-benchmark/docker/run.sh
+./examples/yolo-benchmark/docker/run.sh setup
+./examples/yolo-benchmark/docker/run.sh benchmark
 ```
 
 This uses Docker Compose to run inside the PEK development image with the repo
 mounted at `/work`, matching the checked-in OpChain paths and ONNX Runtime
-runtime layout. `setup.sh` builds the Compose runtime image, creates or reuses
+runtime layout. `run.sh setup` builds the Compose runtime image, creates or reuses
 the Docker cache volume for the dataset, bare runner venv, and PEK sample build,
-and writes the image list. `run.sh` only runs benchmark commands and writes
+and writes the image list. `run.sh benchmark` only runs benchmark commands and writes
 the artifacts listed below.
 
 CI runs the same Compose entry point nightly and on PRs labeled
@@ -116,14 +116,14 @@ CI repeats the benchmark 10 times by default and writes each full report under
 For a quick smoke image list:
 
 ```sh
-YOLO_BENCHMARK_LIMIT=500 ./examples/yolo-benchmark/docker/setup.sh
-./examples/yolo-benchmark/docker/run.sh
+YOLO_BENCHMARK_LIMIT=500 ./examples/yolo-benchmark/docker/run.sh setup
+./examples/yolo-benchmark/docker/run.sh benchmark
 ```
 
 To repeat the same prepared benchmark locally:
 
 ```sh
-YOLO_BENCHMARK_RUNS=10 ./examples/yolo-benchmark/docker/run.sh
+YOLO_BENCHMARK_RUNS=10 ./examples/yolo-benchmark/docker/run.sh benchmark
 ```
 
 Default inputs:

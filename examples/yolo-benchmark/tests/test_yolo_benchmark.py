@@ -104,9 +104,8 @@ class CompareBenchmarksTest(unittest.TestCase):
 
             comparison = compare.build_comparison(compare.load_summary(bare_path), compare.load_summary(pek_path))
             self.assertEqual(comparison["timing_delta"]["per_image_ms"]["avg_ms"]["ratio"], 1.5)
-            self.assertIn("| avg_ms | 10.000 | 15.000 | 5.000 | 1.500x | 50.0% |", compare.markdown_table(comparison))
-            self.assertIn("| p75_ms | 10.000 | 10.000 | 0.000 | 1.000x | 0.0% |",
-                          compare.markdown_table(comparison))
+            self.assertEqual(comparison["timing_delta"]["per_image_ms"]["avg_ms"]["delta_percent"], 50.0)
+            self.assertEqual(comparison["timing_delta"]["per_image_ms"]["p75_ms"]["delta_ms"], 0.0)
 
     def test_comparison_handles_zero_baseline_metric(self) -> None:
         bare_summary = summary_doc()

@@ -54,54 +54,18 @@ jobs:
           fetch-depth: 1
           path: ${{ env.CI_CHECKOUT_PATH }}
 
-      - name: Validate benchmark inputs
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        run: |
-          set -euo pipefail
-          if [ -n "${YOLO_BENCHMARK_LIMIT}" ] && ! [[ "${YOLO_BENCHMARK_LIMIT}" =~ ^[0-9]+$ ]]; then
-            echo "image_limit must be a non-negative integer, got '${YOLO_BENCHMARK_LIMIT}'." >&2
-            exit 2
-          fi
-          if [ -z "${YOLO_BENCHMARK_RUNS}" ] || ! [[ "${YOLO_BENCHMARK_RUNS}" =~ ^[0-9]+$ ]]; then
-            echo "benchmark_runs must be a positive integer, got '${YOLO_BENCHMARK_RUNS}'." >&2
-            exit 2
-          fi
-          if [ "${YOLO_BENCHMARK_RUNS}" -lt 1 ]; then
-            echo "benchmark_runs must be a positive integer, got '${YOLO_BENCHMARK_RUNS}'." >&2
-            exit 2
-          fi
-
       - name: Set up YOLO benchmark cache
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        run: ./examples/yolo-benchmark/docker/setup.sh
+        run: ./examples/yolo-benchmark/docker/run.sh setup
 
       - name: Run YOLO benchmark
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        run: ./examples/yolo-benchmark/docker/run.sh
+        run: ./examples/yolo-benchmark/docker/run.sh benchmark
 
       - name: Write benchmark summary
         if: always()
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        run: |
-          set -euo pipefail
-          {
-            echo "## YOLO Benchmark"
-            echo
-            echo "- image_limit: ${YOLO_BENCHMARK_LIMIT:-full}"
-            echo "- benchmark_runs: ${YOLO_BENCHMARK_RUNS}"
-            echo "- image: ${YOLO_BENCHMARK_IMAGE_NAME}"
-            echo
-            if compgen -G "artifacts/yolo-benchmark/runs/run-*/comparison.md" > /dev/null; then
-              for comparison in artifacts/yolo-benchmark/runs/run-*/comparison.md; do
-                echo "## $(basename "$(dirname "${comparison}")")"
-                echo
-                cat "${comparison}"
-                echo
-              done
-            else
-              echo "No comparison.md was generated."
-            fi
-          } >> "${GITHUB_STEP_SUMMARY}"
+        run: ./examples/yolo-benchmark/docker/run.sh summary
 
       - name: Upload YOLO benchmark artifacts
         if: always()
@@ -114,24 +78,4 @@ jobs:
 
       - name: Clean YOLO benchmark workspace and image
         if: always()
-        run: |
-          set +e
-          checkout_path="${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}"
-          case "${checkout_path}" in
-            "${GITHUB_WORKSPACE}/repo-"*)
-              ;;
-            *)
-              echo "Skipping cleanup for unexpected checkout_path='${checkout_path}'" >&2
-              exit 0
-              ;;
-          esac
-          if [ -f "${checkout_path}/examples/yolo-benchmark/docker/compose.yaml" ]; then
-            docker compose -f "${checkout_path}/examples/yolo-benchmark/docker/compose.yaml" down --remove-orphans || true
-          fi
-          docker image rm -f "${YOLO_BENCHMARK_IMAGE_NAME}" || true
-          checkout_root="$(git -C "${checkout_path}" rev-parse --show-toplevel 2> /dev/null || true)"
-          if [ "${checkout_root}" != "${checkout_path}" ]; then
-            echo "Skipping checkout cleanup because '${checkout_path}' is not a git worktree root." >&2
-            exit 0
-          fi
-          rm -rf -- "${checkout_path}"
+        run: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/examples/yolo-benchmark/docker/run.sh cleanup-ci
