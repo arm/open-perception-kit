@@ -125,3 +125,4 @@ scripts/testing/valgrind/logs/*.xml
 # Example build outputs
 examples/bin/
 artifacts/
+datasets/

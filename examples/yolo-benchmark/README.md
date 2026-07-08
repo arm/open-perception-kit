@@ -95,7 +95,28 @@ should use the full official COCO val2017 split.
 
 ## Run
 
-Install Python dependencies for the bare runner:
+Preferred host entry point:
+
+```sh
+./examples/yolo-benchmark/docker/setup.sh
+./examples/yolo-benchmark/docker/run.sh both
+```
+
+This uses Docker Compose to run inside the PEK development image with the repo
+mounted at `/work`, matching the checked-in OpChain paths and ONNX Runtime
+runtime layout. `setup.sh` builds the Compose runtime image. `run.sh` creates or
+reuses `artifacts/yolo-benchmark/.venv`, builds the PEK sample runner, prepares
+the dataset if needed, and writes the same artifacts listed below.
+
+For a quick smoke image list:
+
+```sh
+./examples/yolo-benchmark/docker/setup.sh
+YOLO_BENCHMARK_LIMIT=500 ./examples/yolo-benchmark/docker/run.sh both
+```
+
+Inside an already prepared PEK development container, install Python
+dependencies for the bare runner:
 
 ```sh
 python3 -m pip install -r examples/yolo-benchmark/bare/requirements.txt
