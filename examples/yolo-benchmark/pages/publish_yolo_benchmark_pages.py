@@ -18,7 +18,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import quote
 
 
@@ -440,7 +440,7 @@ def metric_value(run: dict[str, Any], metric: str, key: str) -> float:
 
 
 def format_ms(value: float) -> str:
-    return f"{value:.3f}"
+    return f"{value:.1f}"
 
 
 def format_bar_label(value: float) -> str:
@@ -460,7 +460,7 @@ def result_label(delta: dict[str, Any]) -> str:
         return '<span class="verdict verdict-neutral">PEK equal</span>'
     if percent < 0:
         return f'<span class="verdict verdict-fast">PEK faster by {abs(percent):.1f}%</span>'
-    return f'<span class="verdict verdict-slow">PEK slower by {percent:.1f}%</span>'
+    return f'<span class="verdict verdict-slow">Bare faster by {percent:.1f}%</span>'
 
 
 def write_selected_artifacts(artifact_root: Path, target: Path, runs: list[dict[str, Any]]) -> None:
@@ -698,32 +698,32 @@ def metric_trend_chart_svg(runs: list[dict[str, Any]], metric: str) -> str:
     )
 
 
-def metric_tab_id(metric: str) -> str:
-    return f"summary-metric-{metric.replace('_', '-')}"
+def stability_metric_tab_id(metric: str) -> str:
+    return f"stability-metric-{metric.replace('_', '-')}"
 
 
-def write_summary_charts(runs: list[dict[str, Any]]) -> str:
+def write_stability_charts(runs: list[dict[str, Any]]) -> str:
     parts = ['<div class="metric-tab-panels">']
     for metric in PERCENTILE_METRICS:
         active = " is-active" if metric == PERCENTILE_METRICS[0] else ""
         parts.append(
-            f'<div class="metric-tab-panel{active}" id="{metric_tab_id(metric)}-panel">'
+            f'<div class="metric-tab-panel{active}" id="{stability_metric_tab_id(metric)}-panel">'
             f"{metric_trend_chart_svg(runs, metric)}</div>\n"
         )
     parts.append("</div>")
     return "".join(parts)
 
 
-def write_summary_metric_controls() -> str:
+def write_stability_metric_controls() -> str:
     parts = ['<div class="metric-tab-controls">']
     for index, metric in enumerate(PERCENTILE_METRICS):
         checked = " checked" if index == 0 else ""
         active = " is-active" if index == 0 else ""
-        tab_id = metric_tab_id(metric)
+        tab_id = stability_metric_tab_id(metric)
         panel_id = f"{tab_id}-panel"
         parts.append(
             f'<label class="metric-tab-label{active}"><input class="metric-tab-input" type="radio" '
-            f'name="summary-metric" id="{tab_id}" aria-controls="{panel_id}"{checked}>'
+            f'name="stability-metric" id="{tab_id}" aria-controls="{panel_id}"{checked}>'
             f'{html_escape(metric)}</label>'
         )
     parts.append("</div>")
@@ -740,9 +740,7 @@ def median_delta(runs: list[dict[str, Any]], metric: str) -> dict[str, float]:
     delta_percent = None if ratio is None else (ratio - 1.0) * 100.0
     return {
         "bare_ms": bare_ms,
-        "bare_stddev_ms": statistics.stdev(bare_values) if len(bare_values) > 1 else 0.0,
         "pek_ms": pek_ms,
-        "pek_stddev_ms": statistics.stdev(pek_values) if len(pek_values) > 1 else 0.0,
         "delta_ms": delta_ms,
         "ratio": ratio,
         "delta_percent": delta_percent,
@@ -757,21 +755,14 @@ def overall_result_block(runs: list[dict[str, Any]]) -> str:
     return f'<div class="report-overall"><span>Overall</span>{overall_result_label(runs)}</div>'
 
 
-def metric_cell(delta: dict[str, Any], runner: str, include_stddev: bool) -> str:
-    value = format_ms(float(delta[f"{runner}_ms"]))
-    if not include_stddev:
-        return value
-    return f"{value} / {format_ms(float(delta[f'{runner}_stddev_ms']))}"
-
-
-def write_delta_rows(deltas: list[tuple[str, dict[str, Any]]], include_stddev: bool = False) -> str:
+def write_delta_rows(deltas: list[tuple[str, dict[str, Any]]]) -> str:
     parts = []
     for metric, delta in deltas:
         parts.append(
             "<tr>"
             f"<td>{html_escape(metric)}</td>"
-            f"<td>{metric_cell(delta, 'bare', include_stddev)}</td>"
-            f"<td>{metric_cell(delta, 'pek', include_stddev)}</td>"
+            f"<td>{format_ms(float(delta['bare_ms']))}</td>"
+            f"<td>{format_ms(float(delta['pek_ms']))}</td>"
             f"<td>{format_ms(float(delta['delta_ms']))}</td>"
             f"<td>{result_label(delta)}</td>"
             "</tr>"
@@ -779,45 +770,75 @@ def write_delta_rows(deltas: list[tuple[str, dict[str, Any]]], include_stddev: b
     return "".join(parts)
 
 
-def write_summary_metric_table(metric: str, delta: dict[str, Any]) -> str:
+def th(label: str, unit: str = "") -> str:
+    unit_html = f'<span class="unit">{html_escape(unit)}</span>' if unit else ""
+    return f'<th scope="col">{html_escape(label)}{unit_html}</th>'
+
+
+def write_summary_table(runs: list[dict[str, Any]]) -> str:
     parts = [
         '<div class="table-scroll"><table class="benchmark-table">',
-        '<thead><tr><th scope="col">Metric</th><th scope="col">Bare med/sd [ms]</th>'
-        '<th scope="col">PEK med/sd [ms]</th>'
-        '<th scope="col">Delta [ms]</th><th scope="col">Result</th></tr></thead><tbody>',
+        "<thead><tr>",
+        th("Metric"),
+        th("Bare med", "[ms]"),
+        th("PEK med", "[ms]"),
+        th("Delta", "[ms]"),
+        th("Result"),
+        "</tr></thead><tbody>",
     ]
-    parts.append(write_delta_rows([(metric, delta)], include_stddev=True))
+    parts.append(write_delta_rows([(metric, median_delta(runs, metric)) for metric in RUN_METRICS]))
     parts.append("</tbody></table></div>")
     return "".join(parts)
 
 
-def write_summary_tables(runs: list[dict[str, Any]]) -> str:
-    parts = ['<div class="summary-detail-panels">']
-    for index, metric in enumerate(PERCENTILE_METRICS):
-        active = " is-active" if index == 0 else ""
-        tab_id = metric_tab_id(metric)
+def stability_range_cell(runs: list[dict[str, Any]], metric: str, key: str) -> str:
+    values = [metric_value(run, metric, key) for run in runs]
+    return f"{format_ms(min(values))}-{format_ms(max(values))} ({format_ms(max(values) - min(values))})"
+
+
+def write_stability_table(runs: list[dict[str, Any]]) -> str:
+    parts = [
+        '<div class="table-scroll"><table class="benchmark-table">',
+        "<thead><tr>",
+        th("Metric"),
+        th("Bare range", "[ms]"),
+        th("PEK range", "[ms]"),
+        "</tr></thead><tbody>",
+    ]
+    for metric in PERCENTILE_METRICS:
         parts.append(
-            f'<div class="metric-tab-panel summary-detail-panel{active}" '
-            f'id="{tab_id}-details" data-metric-panel="{tab_id}-panel">'
-            f"{write_summary_metric_table(metric, median_delta(runs, metric))}</div>\n"
+            "<tr>"
+            f"<td>{html_escape(metric)}</td>"
+            f"<td>{stability_range_cell(runs, metric, 'bare_ms')}</td>"
+            f"<td>{stability_range_cell(runs, metric, 'pek_ms')}</td>"
+            "</tr>"
         )
-    parts.append("</div>")
+    parts.append("</tbody></table></div>")
     return "".join(parts)
 
 
 def write_run_table(run: dict[str, Any]) -> str:
     parts = [
         '<div class="table-scroll"><table class="benchmark-table">',
-        '<thead><tr><th scope="col">Metric</th><th scope="col">Bare [ms]</th>'
-        '<th scope="col">PEK [ms]</th>'
-        '<th scope="col">Delta [ms]</th><th scope="col">Result</th></tr></thead><tbody>',
+        "<thead><tr>",
+        th("Metric"),
+        th("Bare", "[ms]"),
+        th("PEK", "[ms]"),
+        th("Delta", "[ms]"),
+        th("Result"),
+        "</tr></thead><tbody>",
     ]
     parts.append(write_delta_rows([(metric, run_delta(run, metric)) for metric in RUN_METRICS]))
     parts.append("</tbody></table></div>")
     return "".join(parts)
 
 
-def run_bar_chart_svg(run: dict[str, Any]) -> str:
+def bar_chart_svg(
+    metrics: tuple[str, ...],
+    bare_value: Callable[[str], float],
+    pek_value: Callable[[str], float],
+    aria_label: str,
+) -> str:
     width = 960
     height = 540
     left = 176
@@ -826,7 +847,7 @@ def run_bar_chart_svg(run: dict[str, Any]) -> str:
     bottom = 118
     plot_width = width - left - right
     plot_height = height - top - bottom
-    values = [metric_value(run, metric, key) for metric in RUN_METRICS for key in ("bare_ms", "pek_ms")]
+    values = [value(metric) for metric in metrics for value in (bare_value, pek_value)]
     min_value = min(values)
     max_value = max(values)
     padding = max((max_value - min_value) * 0.15, max_value * 0.02, 1.0)
@@ -834,7 +855,7 @@ def run_bar_chart_svg(run: dict[str, Any]) -> str:
     axis_max = max_value + padding
     axis_span = max(axis_max - axis_min, 1.0)
     step_count = 4
-    group_width = plot_width / len(RUN_METRICS)
+    group_width = plot_width / len(metrics)
     bar_width = min(50.0, group_width * 0.28)
     gap = 8.0
 
@@ -843,7 +864,7 @@ def run_bar_chart_svg(run: dict[str, Any]) -> str:
 
     parts = [
         f'<svg class="metric-chart bar-chart" viewBox="0 0 {width} {height}" role="img" '
-        f'aria-label="{html_escape(run["name"])} metric bar comparison">',
+        f'aria-label="{html_escape(aria_label)}">',
         chart_svg_header("Metric comparison", width),
         '<g class="chart-grid">',
     ]
@@ -855,10 +876,10 @@ def run_bar_chart_svg(run: dict[str, Any]) -> str:
             f'<text class="chart-y-tick" x="{left - 26}" y="{grid_y + 6:.1f}">{format_ms(value)}</text>'
         )
     parts.append("</g>")
-    for index, metric in enumerate(RUN_METRICS):
+    for index, metric in enumerate(metrics):
         center = left + group_width * (index + 0.5)
-        bare = metric_value(run, metric, "bare_ms")
-        pek = metric_value(run, metric, "pek_ms")
+        bare = bare_value(metric)
+        pek = pek_value(metric)
         for value, x_pos, css_class, runner in (
             (bare, center - bar_width - gap / 2, "chart-bare", "Bare"),
             (pek, center + gap / 2, "chart-pek", "PEK"),
@@ -885,6 +906,39 @@ def run_bar_chart_svg(run: dict[str, Any]) -> str:
     )
     parts.append("</svg>")
     return "".join(parts)
+
+
+def summary_bar_chart_svg(runs: list[dict[str, Any]]) -> str:
+    deltas = {metric: median_delta(runs, metric) for metric in RUN_METRICS}
+    return bar_chart_svg(
+        RUN_METRICS,
+        lambda metric: float(deltas[metric]["bare_ms"]),
+        lambda metric: float(deltas[metric]["pek_ms"]),
+        "10-run median metric comparison",
+    )
+
+
+def run_bar_chart_svg(run: dict[str, Any]) -> str:
+    return bar_chart_svg(
+        RUN_METRICS,
+        lambda metric: metric_value(run, metric, "bare_ms"),
+        lambda metric: metric_value(run, metric, "pek_ms"),
+        f'{run["name"]} metric bar comparison',
+    )
+
+
+def write_stability_section(runs: list[dict[str, Any]]) -> str:
+    return (
+        '      <section class="section-card">\n'
+        '        <div class="summary-heading"><h2>Run Stability</h2>\n'
+        f'{write_stability_metric_controls()}</div>\n'
+        '        <div class="benchmark-layout"><div class="chart-panel">\n'
+        f'{write_stability_charts(runs)}\n'
+        '        </div><div class="table-panel">\n'
+        f'{write_stability_table(runs)}\n'
+        '        </div></div>\n'
+        '      </section>\n'
+    )
 
 
 def write_run_sections(runs: list[dict[str, Any]]) -> str:
@@ -954,7 +1008,7 @@ def write_information_section(comparison: dict[str, Any]) -> str:
         '<li><code>p75_ms</code>: 75% of images were this fast or faster.</li>'
         '<li><code>p95_ms</code>: tail latency; 95% of images were this fast or faster.</li>'
         '<li><code>p99_ms</code>: extreme tail latency; 99% of images were this fast or faster.</li>'
-        '<li><code>sd</code>: benchmark stability across runs; lower and flatter is steadier.</li>'
+        '<li>Run Stability shows per-run percentile timings; flatter lines and smaller min-max ranges are steadier.</li>'
         '</ul></div>\n'
         '            <div><h3>Bare Run</h3><p>'
         'Python Ultralytics YOLO predict loop using the same prepared image list and image size. '
@@ -992,12 +1046,11 @@ def write_report_page(
         </div><a class="back-link top-back-link" href=\"""",
         html_escape(back_href),
         """index.html">Back to YOLO report index</a></div>
-        """,
-        overall_result_block(runs),
-        """
-        <p>""",
+        <div class="report-meta-row"><p>""",
         meta_html,
-        """</p>
+        """</p>""",
+        overall_result_block(runs),
+        """</div>
 """,
         f'        <p>{html_escape(measurement["timed_region"])} | {html_escape(inputs["image_count"])} images | '
         f'imgsz {html_escape(inputs["imgsz"])} | {html_escape(inputs["device"])} | {len(runs)} runs</p>\n',
@@ -1007,20 +1060,19 @@ def write_report_page(
         """
       <section class="section-card">
         <div class="summary-heading"><h2>10-run Summary</h2>
-""",
-        write_summary_metric_controls(),
-        """</div>
+        </div>
         <div class="benchmark-layout"><div class="chart-panel">
 """,
-        write_summary_charts(runs),
+        summary_bar_chart_svg(runs),
         """
         </div><div class="table-panel">
 """,
-        write_summary_tables(runs),
+        write_summary_table(runs),
         """
         </div></div>
       </section>
 """,
+        write_stability_section(runs),
         write_run_sections(runs),
         f'      <a class="back-link" href="{html_escape(back_href)}index.html">Back to YOLO report index</a>\n',
         chart_tooltip_html(),
