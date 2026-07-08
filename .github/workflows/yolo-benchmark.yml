@@ -20,7 +20,7 @@ permissions:
 jobs:
   yolo-benchmark:
     name: YOLO benchmark
-    runs-on: self-hosted-ubuntu-latest-x64
+    runs-on: [self-hosted, Linux, ARM64, amp-dev-forge-runner-rpi5]
     timeout-minutes: 240
     if: |
       github.event_name != 'pull_request' ||
