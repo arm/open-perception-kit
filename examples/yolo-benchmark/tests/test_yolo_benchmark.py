@@ -48,7 +48,7 @@ def summary_doc(avg_ms: float = 10.0) -> dict[str, Any]:
             "imgsz": 320,
             "device": "cpu",
         },
-        "outputs": {"predictions_jsonl": "predictions.jsonl"},
+        "outputs": {"predictions_jsonl": "predictions.jsonl", "timings_jsonl": "timings.jsonl"},
         "timing": {
             "load_ms": 10.0,
             "preload_ms": 20.0,
@@ -92,6 +92,7 @@ class BareBenchmarkTest(unittest.TestCase):
             doc = json.loads(args.summary.read_text(encoding="utf-8"))
             self.assertEqual(doc["measurement"], bare.MEASUREMENT_CONSTS | {"warmup_images": 0})
             self.assertEqual(doc["inputs"]["image_set_fingerprint"], "empty")
+            self.assertEqual(doc["outputs"]["timings_jsonl"], str(Path(tmp) / "timings.jsonl"))
 
 
 class CompareBenchmarksTest(unittest.TestCase):

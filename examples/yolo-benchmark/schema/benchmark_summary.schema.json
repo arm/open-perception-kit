@@ -39,9 +39,10 @@
     "outputs": {
       "additionalProperties": true,
       "properties": {
-        "predictions_jsonl": { "type": "string" }
+        "predictions_jsonl": { "type": "string" },
+        "timings_jsonl": { "type": "string" }
       },
-      "required": ["predictions_jsonl"],
+      "required": ["predictions_jsonl", "timings_jsonl"],
       "type": "object"
     },
     "runner": { "type": "string" },

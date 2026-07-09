@@ -415,7 +415,7 @@ def local_artifact_ignore(root: Path):
     root = root.resolve()
 
     def ignore(directory: str, names: list[str]) -> set[str]:
-        ignored = {name for name in names if name in {"__pycache__", "predictions.jsonl"}}
+        ignored = {name for name in names if name in {"__pycache__", "predictions.jsonl", "timings.jsonl"}}
         if Path(directory).resolve() == root:
             ignored.update(name for name in names if name not in {"images.tsv", "runs"})
         return ignored

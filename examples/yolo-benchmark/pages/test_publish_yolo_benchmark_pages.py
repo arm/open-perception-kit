@@ -175,6 +175,7 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
                 Path("bare") / "benchmark_summary.json",
                 Path("pek") / "benchmark_summary.json",
                 Path("bare") / "predictions.jsonl",
+                Path("bare") / "timings.jsonl",
             ):
                 path = run_dir / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -185,6 +186,7 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
 
             self.assertTrue((target / "runs" / "run-01" / "comparison.json").is_file())
             self.assertFalse((target / "runs" / "run-01" / "bare" / "predictions.jsonl").exists())
+            self.assertFalse((target / "runs" / "run-01" / "bare" / "timings.jsonl").exists())
 
     def test_local_artifact_copy_ignores_cache_dirs(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -194,8 +196,9 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             ignored = ignore(str(root), ["images.tsv", "runs", ".venv", "pek-build", "comparison.json"])
 
             self.assertEqual(ignored, {".venv", "pek-build", "comparison.json"})
-            self.assertEqual(ignore(str(root / "runs" / "run-01"), ["predictions.jsonl", "comparison.json"]),
-                             {"predictions.jsonl"})
+            self.assertEqual(ignore(str(root / "runs" / "run-01"),
+                                    ["predictions.jsonl", "timings.jsonl", "comparison.json"]),
+                             {"predictions.jsonl", "timings.jsonl"})
 
 
 if __name__ == "__main__":

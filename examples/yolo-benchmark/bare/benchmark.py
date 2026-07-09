@@ -113,6 +113,28 @@ def result_json(image_id: str, image_path: str, result: Any) -> dict[str, Any]:
     return {"image_id": image_id, "image_path": image_path, "detections": detections}
 
 
+def timings_path_for(output_path: Path) -> Path:
+    return output_path.with_name("timings.jsonl")
+
+
+def timing_json(
+    row: tuple[int, str, str, int, int, int, float, float, float, float],
+) -> dict[str, Any]:
+    image_index, image_id, image_path, width, height, detections, wall_ms, preprocess_ms, inference_ms, postprocess_ms = row
+    return {
+        "image_index": image_index,
+        "image_id": image_id,
+        "image_path": image_path,
+        "width": width,
+        "height": height,
+        "detections": detections,
+        "wall_ms": wall_ms,
+        "preprocess_ms": preprocess_ms,
+        "inference_ms": inference_ms,
+        "postprocess_ms": postprocess_ms,
+    }
+
+
 def write_summary(
     args: argparse.Namespace,
     image_count: int,
@@ -140,6 +162,7 @@ def write_summary(
         },
         "outputs": {
             "predictions_jsonl": str(args.output),
+            "timings_jsonl": str(timings_path_for(args.output)),
         },
         "timing": {
             "load_ms": load_ms,
@@ -183,15 +206,37 @@ def main() -> int:
         model.predict(source=source, imgsz=IMG_SIZE, device=DEVICE, verbose=False)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    image_times_ms: list[float] = []
+    image_times_ms = [0.0] * len(sources)
+    timing_rows: list[tuple[int, str, str, int, int, int, float, float, float, float] | None] = [None] * len(sources)
     loop_started = time.perf_counter()
     with args.output.open("w", encoding="utf-8") as output:
-        for image_id, image_path, source in sources:
+        for slot, (image_id, image_path, source) in enumerate(sources):
+            image_index = slot + 1
+            width, height = source.size
             image_started = time.perf_counter()
             result = model.predict(source=source, imgsz=IMG_SIZE, device=DEVICE, verbose=False)[0]
-            image_times_ms.append((time.perf_counter() - image_started) * 1000.0)
-            output.write(json.dumps(result_json(image_id, image_path, result), separators=(",", ":")) + "\n")
+            wall_ms = (time.perf_counter() - image_started) * 1000.0
+            image_times_ms[slot] = wall_ms
+            prediction = result_json(image_id, image_path, result)
+            speed = getattr(result, "speed", {}) or {}
+            timing_rows[slot] = (
+                image_index,
+                image_id,
+                image_path,
+                width,
+                height,
+                len(prediction["detections"]),
+                wall_ms,
+                float(speed.get("preprocess", 0.0)),
+                float(speed.get("inference", 0.0)),
+                float(speed.get("postprocess", 0.0)),
+            )
+            output.write(json.dumps(prediction, separators=(",", ":")) + "\n")
     loop_wall_ms = (time.perf_counter() - loop_started) * 1000.0
+    with timings_path_for(args.output).open("w", encoding="utf-8") as timings:
+        for row in timing_rows:
+            if row is not None:
+                timings.write(json.dumps(timing_json(row), separators=(",", ":")) + "\n")
 
     write_summary(args, len(rows), image_fingerprint, warmup_images, load_ms, preload_ms, loop_wall_ms, image_times_ms)
     print(f"processed {len(rows)} images")

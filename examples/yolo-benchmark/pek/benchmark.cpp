@@ -192,6 +192,35 @@ void ensureParentDirectory(const std::string &path) {
         std::filesystem::create_directories(file.parent_path());
 }
 
+std::string timingsPathFor(const std::string &outputPath) {
+    std::filesystem::path path(outputPath);
+    path.replace_filename("timings.jsonl");
+    return path.string();
+}
+
+void writeTimingRows(const std::string &timingsPath,
+                     const std::vector<ImageRow> &rows,
+                     const std::vector<PreloadedImage> &preloadedRows,
+                     const std::vector<double> &imageTimesMs,
+                     const std::vector<std::size_t> &detectionCounts) {
+    ensureParentDirectory(timingsPath);
+    std::ofstream timings(timingsPath);
+    if (!timings)
+        throw std::runtime_error("Failed to open timing file: " + timingsPath);
+
+    for (std::size_t i = 0; i < rows.size(); ++i) {
+        nlohmann::json row;
+        row["image_index"] = i + 1;
+        row["image_id"] = rows[i].imageId;
+        row["image_path"] = rows[i].imagePath;
+        row["width"] = preloadedRows[i].frame.width();
+        row["height"] = preloadedRows[i].frame.height();
+        row["detections"] = detectionCounts[i];
+        row["wall_ms"] = imageTimesMs[i];
+        timings << row.dump() << '\n';
+    }
+}
+
 int runBenchmark(const std::string &opchainPath,
                  const std::string &imagesPath,
                  const std::string &outputPath,
@@ -243,7 +272,8 @@ int runBenchmark(const std::string &opchainPath,
         return 1;
     }
 
-    std::vector<double> imageTimesMs;
+    std::vector<double> imageTimesMs(rows.size(), 0.0);
+    std::vector<std::size_t> detectionCounts(rows.size(), 0);
     const auto loopStarted = Clock::now();
     for (std::size_t i = 0; i < rows.size(); ++i) {
         const auto imageStarted = Clock::now();
@@ -254,10 +284,19 @@ int runBenchmark(const std::string &opchainPath,
             return 1;
         }
 
-        imageTimesMs.push_back(elapsedMs(imageStarted, imageFinished));
-        output << resultJson(rows[i], *perceptionJson).dump() << '\n';
+        imageTimesMs[i] = elapsedMs(imageStarted, imageFinished);
+        const auto prediction = resultJson(rows[i], *perceptionJson);
+        detectionCounts[i] = prediction["detections"].size();
+        output << prediction.dump() << '\n';
     }
     const double loopWallMs = elapsedMs(loopStarted, Clock::now());
+    const std::string timingsPath = timingsPathFor(outputPath);
+    try {
+        writeTimingRows(timingsPath, rows, preloadedRows, imageTimesMs, detectionCounts);
+    } catch (const std::exception &error) {
+        fmt::print(stderr, "{}\n", error.what());
+        return 1;
+    }
 
     ensureParentDirectory(summaryPath);
     std::ofstream summary(summaryPath);
@@ -288,6 +327,7 @@ int runBenchmark(const std::string &opchainPath,
     };
     doc["outputs"] = {
         {"predictions_jsonl", outputPath},
+        {"timings_jsonl", timingsPath},
     };
     doc["timing"] = {
         {"load_ms", loadMs},

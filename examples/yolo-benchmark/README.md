@@ -21,6 +21,13 @@ The common summary artifact is:
 benchmark_summary.json
 ```
 
+Each runner also writes `timings.jsonl` next to `predictions.jsonl`. It contains
+one row per image with the dataset index, image id/path, dimensions, detection
+count, and measured per-image wall time. The bare runner also records the
+Ultralytics `preprocess_ms`, `inference_ms`, and `postprocess_ms` components
+reported for that image. This is the source for tail-latency analysis such as
+"which dataset quarter produced the fastest or slowest images".
+
 The schema is documented in `schema/benchmark_summary.schema.json`. The compare
 script also checks the shared measurement block before it writes a delta report.
 
@@ -144,8 +151,10 @@ Outputs:
 artifacts/yolo-benchmark/images.tsv
 artifacts/yolo-benchmark/runs/run-XX/bare/benchmark_summary.json
 artifacts/yolo-benchmark/runs/run-XX/bare/predictions.jsonl
+artifacts/yolo-benchmark/runs/run-XX/bare/timings.jsonl
 artifacts/yolo-benchmark/runs/run-XX/pek/benchmark_summary.json
 artifacts/yolo-benchmark/runs/run-XX/pek/predictions.jsonl
+artifacts/yolo-benchmark/runs/run-XX/pek/timings.jsonl
 artifacts/yolo-benchmark/runs/run-XX/comparison.json
 artifacts/yolo-benchmark/runs/run-XX/comparison.md
 ```
@@ -175,8 +184,8 @@ yolo-benchmark/prs/<number>/
 
 The report page renders native SVG percentile plots for `p50_ms`, `p75_ms`,
 `p95_ms`, and `p99_ms`. The overall summary badge uses `avg_ms`. Predictions
-JSONL files stay in the Actions artifact; Pages only keeps the comparison and
-summary JSON files.
+and per-image timing JSONL files stay in the Actions artifact; Pages only keeps
+the comparison and summary JSON files.
 
 Local dry-run publish from an existing artifact directory:
 
