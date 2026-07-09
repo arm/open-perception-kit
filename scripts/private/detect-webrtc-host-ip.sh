@@ -2,10 +2,11 @@
 ################################################################
 # Copyright (C) 2025 Arm Limited. All rights reserved.
 ################################################################
-# Prints the host/LAN IP address that other devices should use for WebRTC.
+# Prints the non-loopback address that browsers should use for WebRTC.
 #
 # This runs on the Docker host shell. On Windows, that shell is expected to be
-# WSL; the selected address is still the LAN-facing address peers can reach.
+# WSL. NAT-mode WSL needs its VM address; mirrored mode needs the shared host
+# address together with hostAddressLoopback=true.
 ################################################################
 
 set -euo pipefail
@@ -87,6 +88,50 @@ wsl_windows_lan_ipv4() {
         2> /dev/null | tr -d '\r' | first_private_ipv4_from_lines
 }
 
+wsl_host_address_loopback_enabled() {
+    if ! command -v powershell.exe > /dev/null 2>&1; then
+        return 1
+    fi
+
+    local enabled=""
+    enabled="$(
+        # PowerShell expands these variables; the shell must preserve them literally.
+        # shellcheck disable=SC2016
+        powershell.exe -NoProfile -Command \
+            '$path = Join-Path $env:USERPROFILE ".wslconfig"; if (Test-Path $path) { if (Get-Content $path | Where-Object { $_ -match "^\s*hostAddressLoopback\s*=\s*true\s*(#.*)?$" }) { "true" } }' \
+            2> /dev/null | tr -d '\r' | tail -n 1
+    )"
+    [[ "$enabled" == "true" ]]
+}
+
+require_wsl_mirrored_host_loopback() {
+    local linux_ip="$1"
+    local windows_ip=""
+
+    windows_ip="$(wsl_windows_lan_ipv4)"
+    if [[ -z "$windows_ip" || "$linux_ip" != "$windows_ip" ]]; then
+        return
+    fi
+
+    if wsl_host_address_loopback_enabled; then
+        return
+    fi
+
+    cat >&2 << EOF
+Error: WSL mirrored networking cannot expose PEK's non-loopback WebRTC TURN
+address to Windows until host-address loopback is enabled.
+
+Add this setting under in %UserProfile%\\.wslconfig:
+
+  [exprimental]
+  hostAddressLoopback=true
+
+Then run "wsl --shutdown" from Windows PowerShell, reopen WSL, and start the
+PEK Dev Container again.
+EOF
+    exit 1
+}
+
 fallback_ipv4() {
     local ip=""
 
@@ -118,11 +163,9 @@ detect_webrtc_host_ip() {
             ip="$(default_route_ipv4_macos)"
             ;;
         Linux)
-            if is_wsl; then
-                ip="$(wsl_windows_lan_ipv4)"
-            fi
-            if [[ -z "$ip" ]]; then
-                ip="$(default_route_ipv4_linux)"
+            ip="$(default_route_ipv4_linux)"
+            if is_wsl && [[ -n "$ip" ]]; then
+                require_wsl_mirrored_host_loopback "$ip"
             fi
             ;;
     esac
