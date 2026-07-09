@@ -88,13 +88,6 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
         self.assertEqual(p75["delta_ms"], 5.5)
         self.assertEqual(p75["ratio"], 1.5)
 
-    def test_report_metrics_skip_legacy_missing_p75(self) -> None:
-        legacy_metrics = ("avg_ms", "p50_ms", "p95_ms", "p99_ms")
-        runs = [{"name": "run-01", "path": Path("run-01"), "comparison": comparison(metrics=legacy_metrics)}]
-
-        self.assertEqual(publish.report_run_metrics(runs), legacy_metrics)
-        self.assertEqual(publish.report_percentile_metrics(runs), legacy_metrics[1:])
-
     def test_write_report_page_generates_index(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             site_dir = Path(tmpdir) / "site"

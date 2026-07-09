@@ -435,19 +435,12 @@ def metric_value(run: dict[str, Any], metric: str, key: str) -> float:
     return float(run["comparison"]["timing_delta"]["per_image_ms"][metric][key])
 
 
-def available_metrics(runs: list[dict[str, Any]], candidates: tuple[str, ...]) -> tuple[str, ...]:
-    return tuple(
-        metric for metric in candidates
-        if all(metric in run["comparison"]["timing_delta"]["per_image_ms"] for run in runs)
-    )
+def report_run_metrics(_runs: list[dict[str, Any]]) -> tuple[str, ...]:
+    return RUN_METRICS
 
 
-def report_run_metrics(runs: list[dict[str, Any]]) -> tuple[str, ...]:
-    return available_metrics(runs, RUN_METRICS)
-
-
-def report_percentile_metrics(runs: list[dict[str, Any]]) -> tuple[str, ...]:
-    return available_metrics(runs, PERCENTILE_METRICS)
+def report_percentile_metrics(_runs: list[dict[str, Any]]) -> tuple[str, ...]:
+    return PERCENTILE_METRICS
 
 
 def format_ms(value: float) -> str:
