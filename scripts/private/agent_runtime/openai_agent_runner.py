@@ -123,8 +123,6 @@ def resolve_task_settings(args: argparse.Namespace) -> AgentTaskSettings:
         AgentCommand(args.command),
         max_turns_override=args.max_turns,
         max_prompt_chars_override=getattr(args, "max_prompt_chars", None),
-        max_review_files_override=getattr(args, "max_review_files", None),
-        max_review_changed_lines_override=getattr(args, "max_review_changed_lines", None),
     )
 
 

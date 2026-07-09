@@ -36,7 +36,6 @@ class AgentTaskConfig:
 
 @dataclass(frozen=True)
 class AgentTaskSettings:
-    command: AgentCommand
     agent_instance: AgentInstance
     max_turns: int
     max_prompt_chars: int | None
@@ -99,8 +98,6 @@ def resolve_agent_task_settings(
     *,
     max_turns_override: int | None = None,
     max_prompt_chars_override: int | None = None,
-    max_review_files_override: int | None = None,
-    max_review_changed_lines_override: int | None = None,
 ) -> AgentTaskSettings:
     parsed_command = parse_enum_value(AgentCommand, command, "agent command")
     if parsed_command is AgentCommand.REVIEW and max_prompt_chars_override is not None:
@@ -111,7 +108,6 @@ def resolve_agent_task_settings(
         raise ValueError(f"Agent task config does not define command: {parsed_command.value}")
 
     return AgentTaskSettings(
-        command=parsed_command,
         agent_instance=entry.agent_instance,
         max_turns=positive_limit(max_turns_override, entry.max_turns, "--max-turns"),
         max_prompt_chars=optional_positive_limit(
@@ -119,14 +115,6 @@ def resolve_agent_task_settings(
             entry.max_prompt_chars,
             "--max-prompt-chars",
         ),
-        max_review_files=optional_positive_limit(
-            max_review_files_override,
-            entry.max_review_files,
-            "--max-review-files",
-        ),
-        max_review_changed_lines=optional_positive_limit(
-            max_review_changed_lines_override,
-            entry.max_review_changed_lines,
-            "--max-review-changed-lines",
-        ),
+        max_review_files=entry.max_review_files,
+        max_review_changed_lines=entry.max_review_changed_lines,
     )

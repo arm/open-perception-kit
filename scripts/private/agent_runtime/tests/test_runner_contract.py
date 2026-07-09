@@ -593,12 +593,11 @@ class AgentRuntimeContractTests(unittest.TestCase):
             AGENT_TASK_CONFIG_FILE,
             "run-review",
             max_turns_override=12,
-            max_review_files_override=2,
         )
         self.assertEqual(settings.agent_instance.value, "review")
         self.assertEqual(settings.max_turns, 12)
         self.assertIsNone(settings.max_prompt_chars)
-        self.assertEqual(settings.max_review_files, 2)
+        self.assertEqual(settings.max_review_files, 120)
         self.assertEqual(settings.max_review_changed_lines, 15000)
 
         with tempfile.TemporaryDirectory() as temp_dir:

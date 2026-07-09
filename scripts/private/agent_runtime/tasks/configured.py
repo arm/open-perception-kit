@@ -134,7 +134,7 @@ class ReviewAgentTask(ConfiguredAgentWorkflowTask):
             instructions=self.instructions(),
             model=model,
             tools=self.tools(),
-            output_type=ReviewResult,
+            output_type=self.output_type(),
         )
 
     async def run(self, args: argparse.Namespace) -> int:
@@ -153,7 +153,6 @@ class ReviewAgentTask(ConfiguredAgentWorkflowTask):
             self.command,
             REVIEW_AGENT_INPUT,
             args.task_settings,
-            args.resolved_model,
             base_sha=review_context.base_sha,
             head_sha=review_context.head_sha,
         )
@@ -216,7 +215,7 @@ class RepositoryEditAgentTask(ConfiguredAgentWorkflowTask):
         self.validate_args(args)
         context = require_run_context()
         prompt = read_prompt(Path(args.prompt_file))
-        await estimate_task_fit(self.command, prompt, args.task_settings, args.resolved_model)
+        await estimate_task_fit(self.command, prompt, args.task_settings)
         final_output = await self.run_agent(
             prompt,
             model=args.resolved_model,
