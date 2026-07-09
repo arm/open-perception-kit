@@ -469,6 +469,7 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
                 self.activate_review_context(repo_root)
 
                 git_output = repo_tools.run_shell_command("git status --short; git diff --name-status")
+                git_version_output = repo_tools.run_shell_command("git version")
                 apply_check_output = repo_tools.run_shell_command("git apply --check < change.patch")
                 output = repo_tools.run_shell_command(
                     "find . -name tracked.py -print; "
@@ -492,6 +493,9 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
         self.assertIn("$ git diff --name-status", git_output)
         self.assertNotIn("exit_code=128", git_output)
         self.assertNotIn("not a git repository", git_output)
+        self.assertIn("exit_code=0", git_version_output)
+        self.assertIn("git version", git_version_output)
+        self.assertNotIn("Blocked git subcommand", git_version_output)
         self.assertIn("exit_code=0", apply_check_output)
         self.assertNotIn("Blocked git subcommand", apply_check_output)
         self.assertNotIn(".github/agent-runtime/review/out/.gitignore", git_output)

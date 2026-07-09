@@ -35,6 +35,7 @@ READ_ONLY_GIT_SUBCOMMANDS = {
     "rev-parse",
     "show",
     "status",
+    "version",
 }
 FORBIDDEN_GIT_OPTIONS = {
     "-C",
