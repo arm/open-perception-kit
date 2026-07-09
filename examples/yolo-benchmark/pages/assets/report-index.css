@@ -187,6 +187,32 @@ section {
 .benchmark-table thead .unit {
   display: block;
 }
+.sort-button {
+  align-items: flex-start;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  flex-direction: column;
+  font: inherit;
+  font-weight: inherit;
+  gap: 1px;
+  padding: 0;
+  text-align: inherit;
+}
+.sort-indicator::after {
+  content: "sort";
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.75;
+}
+.sort-button[data-sort-direction="asc"] .sort-indicator::after {
+  content: "asc";
+}
+.sort-button[data-sort-direction="desc"] .sort-indicator::after {
+  content: "desc";
+}
 .verdict {
   border-radius: 999px;
   display: inline-block;
@@ -280,6 +306,34 @@ section {
   display: grid;
   gap: 14px 18px;
   grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+}
+.image-breakdown {
+  margin-top: 14px;
+}
+.image-breakdown h3 {
+  margin: 0 0 8px;
+}
+.image-timing-table {
+  font-size: 13px;
+}
+.image-timing-table th,
+.image-timing-table td {
+  padding: 7px 8px;
+}
+.image-timing-table th:first-child,
+.image-timing-table td:first-child {
+  text-align: right;
+}
+.image-timing-table th:nth-child(2),
+.image-timing-table td:nth-child(2),
+.image-timing-table th:last-child,
+.image-timing-table td:last-child {
+  text-align: left;
+}
+.empty-table-note {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
 }
 .chart-panel,
 .table-panel {

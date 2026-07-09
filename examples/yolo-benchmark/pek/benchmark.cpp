@@ -8,6 +8,7 @@
 
 #include <fmt/core.h>
 #include <nlohmann/json.hpp>
+#include <perf/PerformanceTracer.h>
 
 #include <algorithm>
 #include <chrono>
@@ -42,6 +43,12 @@ struct PreloadedImage {
     std::string imageId;
     std::string imagePath;
     pek::runtime::VideoFrame frame;
+};
+
+struct StageTimes {
+    double preprocessMs = 0.0;
+    double inferenceMs = 0.0;
+    double postprocessMs = 0.0;
 };
 
 void printUsage(const char *programName) {
@@ -198,10 +205,26 @@ std::string timingsPathFor(const std::string &outputPath) {
     return path.string();
 }
 
+StageTimes stageTimesFromTracer(const pek::perf::PerformanceTracer &tracer) {
+    StageTimes times;
+    for (const auto &measurement : tracer.getCurrentCycleMeasurements()) {
+        const auto &key = measurement.key;
+        if (key.find("/GenImgPre/") != std::string::npos) {
+            times.preprocessMs += measurement.duration_ms();
+        } else if (key.find("/Infer/") != std::string::npos) {
+            times.inferenceMs += measurement.duration_ms();
+        } else if (key.find("/Post/") != std::string::npos) {
+            times.postprocessMs += measurement.duration_ms();
+        }
+    }
+    return times;
+}
+
 void writeTimingRows(const std::string &timingsPath,
                      const std::vector<ImageRow> &rows,
                      const std::vector<PreloadedImage> &preloadedRows,
                      const std::vector<double> &imageTimesMs,
+                     const std::vector<StageTimes> &stageTimes,
                      const std::vector<std::size_t> &detectionCounts) {
     ensureParentDirectory(timingsPath);
     std::ofstream timings(timingsPath);
@@ -217,6 +240,9 @@ void writeTimingRows(const std::string &timingsPath,
         row["height"] = preloadedRows[i].frame.height();
         row["detections"] = detectionCounts[i];
         row["wall_ms"] = imageTimesMs[i];
+        row["preprocess_ms"] = stageTimes[i].preprocessMs;
+        row["inference_ms"] = stageTimes[i].inferenceMs;
+        row["postprocess_ms"] = stageTimes[i].postprocessMs;
         timings << row.dump() << '\n';
     }
 }
@@ -256,6 +282,7 @@ int runBenchmark(const std::string &opchainPath,
     const double preloadMs = elapsedMs(preloadStarted, Clock::now());
 
     const std::size_t warmupImages = std::min<std::size_t>(1, rows.size());
+    auto *tracer = pek::perf::getGlobalTracer();
     for (std::size_t i = 0; i < warmupImages; ++i) {
         auto warmupResult =
             runFrame(*opChain, preloadedRows[i].frame, "warmup_" + preloadedRows[i].imageId);
@@ -264,6 +291,7 @@ int runBenchmark(const std::string &opchainPath,
             return 1;
         }
     }
+    tracer->reset();
 
     ensureParentDirectory(outputPath);
     std::ofstream output(outputPath);
@@ -273,9 +301,11 @@ int runBenchmark(const std::string &opchainPath,
     }
 
     std::vector<double> imageTimesMs(rows.size(), 0.0);
+    std::vector<StageTimes> stageTimes(rows.size());
     std::vector<std::size_t> detectionCounts(rows.size(), 0);
     const auto loopStarted = Clock::now();
     for (std::size_t i = 0; i < rows.size(); ++i) {
+        tracer->reset();
         const auto imageStarted = Clock::now();
         auto perceptionJson = runFrame(*opChain, preloadedRows[i].frame, rows[i].imageId);
         const auto imageFinished = Clock::now();
@@ -285,6 +315,7 @@ int runBenchmark(const std::string &opchainPath,
         }
 
         imageTimesMs[i] = elapsedMs(imageStarted, imageFinished);
+        stageTimes[i] = stageTimesFromTracer(*tracer);
         const auto prediction = resultJson(rows[i], *perceptionJson);
         detectionCounts[i] = prediction["detections"].size();
         output << prediction.dump() << '\n';
@@ -292,7 +323,8 @@ int runBenchmark(const std::string &opchainPath,
     const double loopWallMs = elapsedMs(loopStarted, Clock::now());
     const std::string timingsPath = timingsPathFor(outputPath);
     try {
-        writeTimingRows(timingsPath, rows, preloadedRows, imageTimesMs, detectionCounts);
+        writeTimingRows(
+            timingsPath, rows, preloadedRows, imageTimesMs, stageTimes, detectionCounts);
     } catch (const std::exception &error) {
         fmt::print(stderr, "{}\n", error.what());
         return 1;

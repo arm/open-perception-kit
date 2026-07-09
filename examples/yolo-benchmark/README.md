@@ -23,10 +23,11 @@ benchmark_summary.json
 
 Each runner also writes `timings.jsonl` next to `predictions.jsonl`. It contains
 one row per image with the dataset index, image id/path, dimensions, detection
-count, and measured per-image wall time. The bare runner also records the
-Ultralytics `preprocess_ms`, `inference_ms`, and `postprocess_ms` components
-reported for that image. This is the source for tail-latency analysis such as
-"which dataset quarter produced the fastest or slowest images".
+count, measured per-image wall time, and `preprocess_ms`, `inference_ms`, and
+`postprocess_ms` components. Bare uses the Ultralytics per-result speed fields;
+PEK uses the existing OpChain performance trace scopes around preprocess,
+inference, and postprocess ops. This is the source for tail-latency analysis
+such as "which dataset quarter produced the fastest or slowest images".
 
 The schema is documented in `schema/benchmark_summary.schema.json`. The compare
 script also checks the shared measurement block before it writes a delta report.
@@ -183,9 +184,10 @@ yolo-benchmark/prs/<number>/
 ```
 
 The report page renders native SVG percentile plots for `p50_ms`, `p75_ms`,
-`p95_ms`, and `p99_ms`. The overall summary badge uses `avg_ms`. Predictions
-and per-image timing JSONL files stay in the Actions artifact; Pages only keeps
-the comparison and summary JSON files.
+`p95_ms`, and `p99_ms`. The overall summary badge uses `avg_ms`. The publisher reads
+per-image timing JSONL files to render the run-level breakdown table, but raw
+predictions and timing JSONL files stay in the Actions artifact; Pages keeps
+only the rendered table plus comparison and summary JSON files.
 
 Local dry-run publish from an existing artifact directory:
 

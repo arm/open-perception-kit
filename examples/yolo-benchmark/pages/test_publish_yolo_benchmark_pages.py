@@ -41,6 +41,28 @@ class LinkParser(HTMLParser):
             self.hrefs.extend(value for name, value in attrs if name == "href")
 
 
+class TableTextParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.items = []
+        self._tag = ""
+        self._chunks = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag in {"td", "th"}:
+            self._tag = tag
+            self._chunks = []
+
+    def handle_data(self, data):
+        if self._tag:
+            self._chunks.append(data)
+
+    def handle_endtag(self, tag):
+        if tag == self._tag:
+            self.items.append("".join(self._chunks).strip())
+            self._tag = ""
+
+
 def comparison(bare_ms: float = 10.0,
                pek_ms: float = 15.0,
                metrics: tuple[str, ...] = publish.RUN_METRICS) -> dict:
@@ -65,7 +87,7 @@ def comparison(bare_ms: float = 10.0,
 
 
 def report_run(name: str, bare_ms: float = 10.0, pek_ms: float = 15.0) -> dict:
-    return {"name": name, "path": Path(name), "comparison": comparison(bare_ms, pek_ms)}
+    return {"name": name, "path": Path(name), "comparison": comparison(bare_ms, pek_ms), "image_timings": []}
 
 
 class TestPublishYoloBenchmarkPages(unittest.TestCase):
@@ -89,6 +111,32 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             self.assertEqual([run["name"] for run in runs], ["run-01", "run-02"])
             self.assertEqual(publish.metric_value(runs[1], "p75_ms", "pek_ms"), 18.0)
 
+    def test_load_report_runs_loads_per_image_timings(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            artifact = Path(tmpdir)
+            run_dir = artifact / "runs" / "run-01"
+            (run_dir / "bare").mkdir(parents=True)
+            (run_dir / "pek").mkdir()
+            (run_dir / "comparison.json").write_text(json.dumps(comparison()), encoding="utf-8")
+            (run_dir / "bare" / "timings.jsonl").write_text(
+                json.dumps({"image_index": 1, "image_id": "139", "width": 640, "height": 426,
+                            "wall_ms": 10.0, "preprocess_ms": 1.0, "inference_ms": 8.0,
+                            "postprocess_ms": 1.0}) + "\n",
+                encoding="utf-8",
+            )
+            (run_dir / "pek" / "timings.jsonl").write_text(
+                json.dumps({"image_index": 1, "image_id": "139", "width": 640, "height": 426,
+                            "wall_ms": 15.0, "preprocess_ms": 2.0, "inference_ms": 12.0,
+                            "postprocess_ms": 1.0}) + "\n",
+                encoding="utf-8",
+            )
+
+            runs = publish.load_report_runs(artifact)
+
+            self.assertEqual(runs[0]["image_timings"][0]["image_id"], "139")
+            self.assertEqual(runs[0]["image_timings"][0]["bare"]["inference_ms"], 8.0)
+            self.assertEqual(runs[0]["image_timings"][0]["pek"]["inference_ms"], 12.0)
+
     def test_median_delta_includes_p75_metric(self) -> None:
         runs = [report_run("run-01", 10.0, 15.0), report_run("run-02", 12.0, 18.0)]
 
@@ -110,10 +158,28 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
                 site_dir,
                 "Manual run 123",
                 "Manual",
-                [report_run("run-01"), report_run("run-02", 12.0, 18.0)],
+                [{
+                    **report_run("run-01"),
+                    "image_timings": [{
+                        "image_index": 1,
+                        "image_id": "139",
+                        "width": 640,
+                        "height": 426,
+                        "bare": {"wall_ms": 10.0, "preprocess_ms": 1.0, "inference_ms": 8.0,
+                                 "postprocess_ms": 1.0},
+                        "pek": {"wall_ms": 15.0, "preprocess_ms": 2.0, "inference_ms": 12.0,
+                                "postprocess_ms": 1.0},
+                    }],
+                }, report_run("run-02", 12.0, 18.0)],
             )
 
-            self.assertTrue((target / "index.html").is_file())
+            html = (target / "index.html").read_text(encoding="utf-8")
+            parser = TableTextParser()
+            parser.feed(html)
+
+            self.assertIn("Per-image timings", html)
+            self.assertIn("139", parser.items)
+            self.assertTrue(any("PEK inf" in item for item in parser.items))
 
     def test_select_target_supports_manual_reports(self) -> None:
         with patch.dict(os.environ, {"UPSTREAM_RUN_ID": "123"}):
@@ -198,7 +264,7 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             self.assertEqual(ignored, {".venv", "pek-build", "comparison.json"})
             self.assertEqual(ignore(str(root / "runs" / "run-01"),
                                     ["predictions.jsonl", "timings.jsonl", "comparison.json"]),
-                             {"predictions.jsonl", "timings.jsonl"})
+                             {"predictions.jsonl"})
 
 
 if __name__ == "__main__":

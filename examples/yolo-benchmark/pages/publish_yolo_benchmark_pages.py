@@ -415,7 +415,7 @@ def local_artifact_ignore(root: Path):
     root = root.resolve()
 
     def ignore(directory: str, names: list[str]) -> set[str]:
-        ignored = {name for name in names if name in {"__pycache__", "predictions.jsonl", "timings.jsonl"}}
+        ignored = {name for name in names if name in {"__pycache__", "predictions.jsonl"}}
         if Path(directory).resolve() == root:
             ignored.update(name for name in names if name not in {"images.tsv", "runs"})
         return ignored
@@ -463,6 +463,37 @@ def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def load_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.is_file():
+        return []
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def timing_key(row: dict[str, Any]) -> tuple[int, str]:
+    return (int(row.get("image_index", 0)), str(row.get("image_id", "")))
+
+
+def load_image_timings(run_dir: Path) -> list[dict[str, Any]]:
+    bare_rows = {timing_key(row): row for row in load_jsonl(run_dir / "bare" / "timings.jsonl")}
+    pek_rows = {timing_key(row): row for row in load_jsonl(run_dir / "pek" / "timings.jsonl")}
+    rows = []
+    for key in sorted(set(bare_rows) | set(pek_rows)):
+        bare = bare_rows.get(key, {})
+        pek = pek_rows.get(key, {})
+        source = bare or pek
+        rows.append(
+            {
+                "image_index": source.get("image_index", key[0]),
+                "image_id": source.get("image_id", key[1]),
+                "width": source.get("width", ""),
+                "height": source.get("height", ""),
+                "bare": bare,
+                "pek": pek,
+            }
+        )
+    return rows
+
+
 def load_report_runs(artifact_root: Path) -> list[dict[str, Any]]:
     runs_dir = artifact_root / "runs"
     if not runs_dir.is_dir():
@@ -474,7 +505,12 @@ def load_report_runs(artifact_root: Path) -> list[dict[str, Any]]:
         if not comparison_path.is_file():
             continue
         comparison = load_json(comparison_path)
-        runs.append({"name": run_dir.name, "path": run_dir, "comparison": comparison})
+        runs.append({
+            "name": run_dir.name,
+            "path": run_dir,
+            "comparison": comparison,
+            "image_timings": load_image_timings(run_dir),
+        })
     if not runs:
         raise PublishError(f"YOLO artifact contains no run comparison JSON files: {artifact_root}")
     return runs
@@ -677,6 +713,34 @@ def chart_tooltip_html() -> str:
     if (targetFor(event)) tooltip.hidden = true;
   });
   document.addEventListener("click", event => {
+    const sortButton = event.target instanceof Element ? event.target.closest("[data-sort-column]") : null;
+    if (sortButton) {
+      const table = sortButton.closest("table");
+      const tbody = table?.tBodies[0];
+      if (!table || !tbody) return;
+      const column = Number(sortButton.dataset.sortColumn);
+      const direction = sortButton.dataset.sortDirection === "asc" ? "desc" : "asc";
+      const rows = Array.from(tbody.rows);
+      const valueFor = row => {
+        const value = row.cells[column]?.dataset.sortValue ?? "";
+        const numberValue = Number(value);
+        return value !== "" && Number.isFinite(numberValue) ? numberValue : value.toLowerCase();
+      };
+      rows.sort((left, right) => {
+        const leftValue = valueFor(left);
+        const rightValue = valueFor(right);
+        if (leftValue === rightValue) return 0;
+        return (leftValue > rightValue ? 1 : -1) * (direction === "asc" ? 1 : -1);
+      });
+      table.querySelectorAll("[data-sort-column]").forEach(button => {
+        button.dataset.sortDirection = "";
+        button.removeAttribute("aria-sort");
+      });
+      sortButton.dataset.sortDirection = direction;
+      sortButton.setAttribute("aria-sort", direction === "asc" ? "ascending" : "descending");
+      rows.forEach(row => tbody.appendChild(row));
+      return;
+    }
     const button = event.target instanceof Element ? event.target.closest(".section-toggle") : null;
     if (!button) return;
     const content = document.getElementById(button.getAttribute("aria-controls"));
@@ -829,6 +893,16 @@ def th(label: str, unit: str = "") -> str:
     return f'<th scope="col">{html_escape(label)}{unit_html}</th>'
 
 
+def sortable_th(index: int, label: str, unit: str = "") -> str:
+    unit_html = f'<span class="unit">{html_escape(unit)}</span>' if unit else ""
+    return (
+        '<th scope="col">'
+        f'<button class="sort-button" type="button" data-sort-column="{index}">'
+        f'{html_escape(label)}{unit_html}<span class="sort-indicator" aria-hidden="true"></span>'
+        '</button></th>'
+    )
+
+
 def write_summary_table(runs: list[dict[str, Any]]) -> str:
     parts = [
         '<div class="table-scroll"><table class="benchmark-table">',
@@ -884,6 +958,80 @@ def write_run_table(run: dict[str, Any]) -> str:
     ]
     parts.append(write_delta_rows([(metric, run_delta(run, metric)) for metric in report_run_metrics([run])]))
     parts.append("</tbody></table></div>")
+    return "".join(parts)
+
+
+def optional_ms(value: Any) -> str:
+    return "" if value in (None, "") else format_ms(float(value))
+
+
+def sort_td(sort_value: Any, display_value: Any) -> str:
+    value = "" if sort_value in (None, "") else sort_value
+    return f'<td data-sort-value="{html_escape(value)}">{display_value}</td>'
+
+
+def image_timing_result(bare_ms: Any, pek_ms: Any) -> str:
+    if bare_ms in (None, "") or pek_ms in (None, ""):
+        return '<span class="verdict verdict-neutral">n/a</span>'
+    bare = float(bare_ms)
+    pek = float(pek_ms)
+    ratio = None if bare == 0 else pek / bare
+    return result_label({
+        "delta_percent": None if ratio is None else (ratio - 1.0) * 100.0,
+    })
+
+
+def write_image_timing_table(run: dict[str, Any]) -> str:
+    rows = run.get("image_timings", [])
+    if not rows:
+        return '<p class="empty-table-note">No per-image timing rows were found for this run.</p>'
+
+    parts = [
+        '<div class="image-breakdown"><h3>Per-image timings</h3>',
+        '<div class="table-scroll"><table class="benchmark-table image-timing-table sortable-table">',
+        "<thead><tr>",
+        sortable_th(0, "#"),
+        sortable_th(1, "Image"),
+        sortable_th(2, "Size"),
+        sortable_th(3, "Bare wall", "[ms]"),
+        sortable_th(4, "Bare pre", "[ms]"),
+        sortable_th(5, "Bare inf", "[ms]"),
+        sortable_th(6, "Bare post", "[ms]"),
+        sortable_th(7, "PEK wall", "[ms]"),
+        sortable_th(8, "PEK pre", "[ms]"),
+        sortable_th(9, "PEK inf", "[ms]"),
+        sortable_th(10, "PEK post", "[ms]"),
+        sortable_th(11, "Delta", "[ms]"),
+        sortable_th(12, "Result"),
+        "</tr></thead><tbody>",
+    ]
+    for row in rows:
+        bare = row["bare"]
+        pek = row["pek"]
+        bare_wall = bare.get("wall_ms")
+        pek_wall = pek.get("wall_ms")
+        delta_value = "" if bare_wall in (None, "") or pek_wall in (None, "") else float(pek_wall) - float(bare_wall)
+        delta = "" if delta_value == "" else format_ms(delta_value)
+        size = f'{row["width"]}x{row["height"]}' if row["width"] and row["height"] else ""
+        size_sort = "" if not size else int(row["width"]) * int(row["height"])
+        parts.append(
+            "<tr>"
+            f"{sort_td(row['image_index'], html_escape(row['image_index']))}"
+            f"{sort_td(row['image_id'], html_escape(row['image_id']))}"
+            f"{sort_td(size_sort, html_escape(size))}"
+            f"{sort_td(bare_wall, optional_ms(bare_wall))}"
+            f"{sort_td(bare.get('preprocess_ms'), optional_ms(bare.get('preprocess_ms')))}"
+            f"{sort_td(bare.get('inference_ms'), optional_ms(bare.get('inference_ms')))}"
+            f"{sort_td(bare.get('postprocess_ms'), optional_ms(bare.get('postprocess_ms')))}"
+            f"{sort_td(pek_wall, optional_ms(pek_wall))}"
+            f"{sort_td(pek.get('preprocess_ms'), optional_ms(pek.get('preprocess_ms')))}"
+            f"{sort_td(pek.get('inference_ms'), optional_ms(pek.get('inference_ms')))}"
+            f"{sort_td(pek.get('postprocess_ms'), optional_ms(pek.get('postprocess_ms')))}"
+            f"{sort_td(delta_value, delta)}"
+            f"{sort_td(delta_value, image_timing_result(bare_wall, pek_wall))}"
+            "</tr>"
+        )
+    parts.append("</tbody></table></div></div>")
     return "".join(parts)
 
 
@@ -1029,7 +1177,9 @@ def write_run_sections(runs: list[dict[str, Any]]) -> str:
                 run_bar_chart_svg(run),
                 '</div><div class="table-panel">',
                 write_run_table(run),
-                "</div></div></div>\n",
+                "</div></div>",
+                write_image_timing_table(run),
+                "</div>\n",
             ]
         )
     parts.append("            </div>\n          </div>\n      </section>\n")
@@ -1064,6 +1214,7 @@ def write_information_section(comparison: dict[str, Any]) -> str:
         '<li><code>p75_ms</code>: 75% of images were this fast or faster.</li>'
         '<li><code>p95_ms</code>: tail latency; 95% of images were this fast or faster.</li>'
         '<li><code>p99_ms</code>: extreme tail latency; 99% of images were this fast or faster.</li>'
+        '<li>Per-image stage columns use Ultralytics speed fields for Bare and PEK OpChain trace scopes for PEK.</li>'
         '<li>Run Stability shows per-run percentile timings; flatter lines and smaller min-max ranges are steadier.</li>'
         '</ul></div>\n'
         '            <div><h3>Bare Run</h3><p>'
