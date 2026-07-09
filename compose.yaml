@@ -12,25 +12,52 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix
       - /run/udev:/run/udev:ro
     environment:
-      PEK_PIPELINE: ${PEK_PIPELINE:-debug/onnx}
+      PEK_PIPELINE: ${PEK_PIPELINE:-config/pipelines/examples/smart-doorway-sample.json}
     build:
       context: .
       dockerfile: Dockerfile
       target: pek-deployment-base
       args:
-        PEK_PIPELINE: ${PEK_PIPELINE:-debug/onnx}
+        PEK_PIPELINE: ${PEK_PIPELINE:-config/pipelines/examples/smart-doorway-sample.json}
+
+  smart-doorway:
+    platform: linux/arm64
+    network_mode: host
+    depends_on:
+      - pek-release-deployment
+    build:
+      context: ./examples/smart-doorway
+      dockerfile: Dockerfile
+      args:
+        SMART_DOORWAY_SOURCE: ${SMART_DOORWAY_SOURCE:-sample}
+    environment:
+      SMART_DOORWAY_AMP_HOST: 127.0.0.1
+      SMART_DOORWAY_PORT: 8090
+      SMART_DOORWAY_SOURCE: ${SMART_DOORWAY_SOURCE:-sample}
 
 # Topo-specific metadata
-# TODO: for some reason in case of topo deployment from WSL the container has x86 binaries inside it instead of arm64. Despite the platform specification in the compose file.
 x-topo:
-  name: "Perception Experience Kit TOPO Container"
+  name: "smart-doorway-opk-example"
+  type: application
   description: |
-    Run Perception Experience Kit container
+    Deploy a small OPK example that shows source selection, model-stage gating,
+    metadata output, and browser preview with a simple Python UI.
+  deployment_success_message: |
+    Smart Doorway deployed.
+
+    Open the example UI at http://<target-ip>:8090.
+    Open the AMP peksink preview at http://<target-ip>:9999.
+
+    Stop other demos that use ports 7001, 8000, 8001, 8090, or 9999 before redeploying.
   args:
     PEK_PIPELINE:
-      description: | 
-        The Perception Experience Kit pipeline to run. This should be the name of a pipeline JSON file under config/pipelines, without the .json extension. Some options include 'debug/onnx', 'gaze-detection', 'debug/video', and 'debug/single_cam'.
-      default: "debug/onnx"
-  features:
-    - "SME"
-    - "NEON"
+      description: |
+        AMP pipeline preset to run. Use config/pipelines/examples/smart-doorway-sample.json
+        for the packaged image sample or config/pipelines/examples/smart-doorway-usbcam.json
+        for a USB camera on /dev/video0.
+      default: "config/pipelines/examples/smart-doorway-sample.json"
+    SMART_DOORWAY_SOURCE:
+      description: |
+        Source label shown by the Python UI. Use sample with the packaged image pipeline,
+        or usb-camera with the USB camera pipeline.
+      default: "sample"

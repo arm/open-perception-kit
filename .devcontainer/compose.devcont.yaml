@@ -54,7 +54,7 @@ services:
         EXECUTORCH_DEB_REVISION: ${EXECUTORCH_DEB_REVISION:-}
 
   pek-dev-rpi5:
-    extends: 
+    extends:
       file: ../compose.base.yaml
       service: pek-common-dev
 
@@ -76,6 +76,30 @@ services:
         EXECUTORCH_DEB_REVISION: ${EXECUTORCH_DEB_REVISION:-}
     volumes:
       - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
+
+  pek-dev-cross-arm64:
+    extends:
+      file: ../compose.base.yaml
+      service: pek-common-dev
+
+    network_mode: bridge
+    depends_on:
+      - coturn
+    environment:
+      - WEBRTC_HOST_IP=${WEBRTC_HOST_IP}
+      - PEK_WEBRTC_TURN_USERNAME=${PEK_WEBRTC_TURN_USERNAME:-test}
+      - PEK_WEBRTC_TURN_CREDENTIAL=${PEK_WEBRTC_TURN_CREDENTIAL:-test123}
+      - PEK_WEBRTC_TURN_MIN_PORT=${PEK_WEBRTC_TURN_MIN_PORT:-49000}
+      - PEK_WEBRTC_TURN_MAX_PORT=${PEK_WEBRTC_TURN_MAX_PORT:-49050}
+    container_name: ${PEK_DEV_CROSS_ARM64_CONTAINER_NAME:-perception-experience-kit-cross-arm64}
+    hostname: ${PEK_DEV_CROSS_ARM64_CONTAINER_NAME:-perception-experience-kit-cross-arm64}
+    build:
+      context: ..
+      dockerfile: Dockerfile.dev
+      target: pek-dev-cross-arm64
+      args:
+        USER_UID: ${HOST_UID:-1000}
+        USER_GID: ${HOST_GID:-1000}
 
   pek-dev-rpi5-h8:
     extends:
