@@ -13,6 +13,7 @@ It ensures consistent code quality, formatting, and license compliance for all c
 - Secret scanning with `detect-secrets` and `.secrets.baseline`
 - Branch naming checks 
 - Commit message checks
+- GitHub Actions workflow linting with `actionlint`
 - Clang-format checks 
 - clang-tidy checks (advisory)
 - Default startup and final summary report with effective checks and file scope
@@ -34,6 +35,7 @@ Example usage:
 ```bash
 expkits-ci --all-checks
 expkits-ci --python-format-check --cmake-format-check
+expkits-ci --actionlint
 expkits-ci --check-secrets --list-of-files .github/workflows/pek-ci.yml
 expkits-ci --all-checks --pr-target-branch main --report-file artifacts/expkits-ci-report.txt
 expkits-ci --license-header --list-of-files src/main.cpp src/util.py

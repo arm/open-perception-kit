@@ -143,6 +143,7 @@ build_delta_command() {
         --shell-format
         --license-header
         --check-secrets
+        --actionlint
         --list-of-files
         "${files[@]}"
     )
@@ -159,6 +160,7 @@ build_full_command() {
         --shell-format
         --license-header
         --check-secrets
+        --actionlint
     )
 }
 

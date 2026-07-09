@@ -34,3 +34,8 @@ repos:
         name: Check for Secrets
         entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --check-secrets --list-of-files "$@"' _
         language: system
+      - id: actionlint
+        name: GitHub Actions Lint
+        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --actionlint --list-of-files "$@"' _
+        language: system
+        files: ^\.github/workflows/.*\.ya?ml$

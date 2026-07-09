@@ -223,6 +223,9 @@ class StaticQualityConfigTests(unittest.TestCase):
 
         self.assertIn("- id: check-secrets", pre_commit)
         self.assertIn("--check-secrets --list-of-files", pre_commit)
+        self.assertIn("- id: actionlint", pre_commit)
+        self.assertIn("--actionlint --list-of-files", pre_commit)
+        self.assertIn(r"files: ^\.github/workflows/.*\.ya?ml$", pre_commit)
         self.assertIn("expkits-ci --all-checks --pr-target-branch ${PULL_REQUEST_TARGET_BRANCH}", compose)
         self.assertIn('if [ -n "$${PULL_REQUEST_TARGET_BRANCH:-}" ]; then', compose)
         self.assertIn('--pr-target-branch "$${PULL_REQUEST_TARGET_BRANCH}"', compose)
@@ -243,7 +246,7 @@ class StaticQualityConfigTests(unittest.TestCase):
         )
         self.assertIn("if: ${{ !cancelled() }}", workflow)
         self.assertIn("if: ${{ !cancelled() && steps.valgrind_checks.outcome == 'failure' }}", workflow)
-        self.assertEqual(pre_commit.count('--list-of-files "$@"'), 8)
+        self.assertEqual(pre_commit.count('--list-of-files "$@"'), 9)
 
     def test_execution_report_annotations_match_declared_python_floor(self):
         pyproject = PYPROJECT_FILE.read_text(encoding="utf-8")

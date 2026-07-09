@@ -86,7 +86,47 @@ class TestExpkitsCiCli(unittest.TestCase):
         self.assertTrue(parsed_args.branch_naming)
         self.assertTrue(parsed_args.commit_msg_ci)
         self.assertTrue(parsed_args.check_secrets)
+        self.assertTrue(parsed_args.actionlint)
         self.assertTrue(parsed_args.commit_diff)
+
+    def test_perform_checks_records_actionlint_result(self):
+        checker = Mock()
+        checker.check_github_actions.return_value = False
+        args = Mock(
+            check_secrets=False,
+            branch_naming=False,
+            commit_msg=False,
+            commit_msg_ci=False,
+            clang_format=False,
+            clang_format_check=False,
+            clang_tidy=False,
+            clang_tidy_stats=False,
+            python_format=False,
+            python_format_check=False,
+            cmake_format=False,
+            cmake_format_check=False,
+            license_header=False,
+            license_header_check=False,
+            shell_format=False,
+            shell_format_check=False,
+            actionlint=True,
+        )
+        report = expkits_ci_module.ExecutionReport("custom selection", "explicit", 1, ["--actionlint"])
+
+        result = expkits_ci_module.perform_checks(
+            checker,
+            args,
+            [".github/workflows/pek-ci.yml", "README.md"],
+            report,
+        )
+
+        self.assertFalse(result)
+        checker.check_github_actions.assert_called_once_with([
+            ".github/workflows/pek-ci.yml",
+            "README.md",
+        ])
+        self.assertEqual(report.check_results[0].name, "actionlint")
+        self.assertFalse(report.check_results[0].passed)
 
     def test_main_returns_one_when_checks_fail_without_autofixes(self):
         checker = Mock()
