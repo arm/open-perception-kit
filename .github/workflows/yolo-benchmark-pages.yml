@@ -4,9 +4,6 @@ on:
   workflow_run:
     workflows: ["YOLO Benchmark"]
     types: [completed]
-  schedule:
-    - cron: "45 6 * * *"
-  workflow_dispatch:
 
 permissions:
   actions: read
@@ -23,14 +20,12 @@ jobs:
   publish-pages:
     name: Publish YOLO benchmark pages
     if: |
-      github.event_name != 'workflow_run' ||
+      github.event_name == 'workflow_run' &&
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    env:
-      YOLO_PAGES_COMMAND: ${{ github.event_name == 'workflow_run' && 'publish' || 'cleanup' }}
     steps:
       - name: Checkout publisher
         uses: actions/checkout@v6
@@ -50,7 +45,7 @@ jobs:
           UPSTREAM_PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
           UPSTREAM_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
           UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id }}
-        run: examples/yolo-benchmark/pages/run.sh "$YOLO_PAGES_COMMAND"
+        run: examples/yolo-benchmark/pages/run.sh publish
 
       - name: Cache YOLO performance dataset
         if: steps.pages.outputs.deploy == 'true'
