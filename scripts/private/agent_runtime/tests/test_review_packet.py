@@ -80,9 +80,15 @@ class AgentReviewPacketTests(unittest.TestCase):
             for path in ("script.py", ".github/workflows/ci.yml", "staged.py", "dirty.py"):
                 self.assertIn(path, changed_files)
 
-            script_hunk = (packet_dir / "hunks" / "script.py.diff").read_text(encoding="utf-8")
-            staged_hunk = (packet_dir / "hunks" / "staged.py.diff").read_text(encoding="utf-8")
-            dirty_hunk = (packet_dir / "hunks" / "dirty.py.diff").read_text(encoding="utf-8")
+            script_hunk = (packet_dir / "hunks" / packet.packet_file_name("script.py")).read_text(
+                encoding="utf-8"
+            )
+            staged_hunk = (packet_dir / "hunks" / packet.packet_file_name("staged.py")).read_text(
+                encoding="utf-8"
+            )
+            dirty_hunk = (packet_dir / "hunks" / packet.packet_file_name("dirty.py")).read_text(
+                encoding="utf-8"
+            )
             self.assertIn("## committed", script_hunk)
             self.assertIn("print('new')", script_hunk)
             self.assertIn("## staged", staged_hunk)
@@ -113,11 +119,21 @@ class AgentReviewPacketTests(unittest.TestCase):
             git(repo, "add", ".")
             git(repo, "commit", "-m", "many long paths")
             head_sha = git(repo, "rev-parse", "HEAD")
+            context = repo / "review-context.json"
+            context.write_text(
+                json.dumps({"review_scope": {"base_sha": base_sha, "head_sha": head_sha}}),
+                encoding="utf-8",
+            )
 
             paths = packet.scoped_changed_paths(repo, packet.diff_scopes(base_sha, head_sha))
+            index = packet.write_packet(repo, context, repo / "packet")
+            hunk_path = repo / "packet" / "hunks" / packet.packet_file_name(last_path)
 
-        self.assertIn(last_path, paths)
-        self.assertTrue(all(not path.startswith("[truncated ") for path in paths))
+            self.assertIn(last_path, paths)
+            self.assertTrue(all(not path.startswith("[truncated ") for path in paths))
+            self.assertTrue(hunk_path.is_file())
+            self.assertLessEqual(len(hunk_path.name), 120)
+            self.assertIn(last_path, index.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

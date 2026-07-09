@@ -238,6 +238,8 @@ def copy_review_source_file(context: ReviewRunContext, workspace_root: Path, rel
     if relative_path.is_absolute() or ".." in relative_path.parts or is_git_metadata_path(relative):
         return
     source = context.repo_root / relative_path
+    if source.is_symlink():
+        return
     if not source.is_file():
         return
     target = workspace_root / relative_path

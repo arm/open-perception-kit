@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -18,6 +19,7 @@ if __package__ in (None, ""):  # pragma: no cover - used for direct script execu
 
 MAX_COMMAND_CHARS = 24000
 MAX_DIFF_FILES = 80
+MAX_PACKET_FILE_NAME_STEM_CHARS = 96
 PACKET_INDEX_PATH = ".github/agent-runtime/review/out/review-packet/index.md"
 
 
@@ -133,7 +135,9 @@ def canonical_routes(paths: list[str]) -> str:
 
 
 def packet_file_name(path: str) -> str:
-    return path.replace("/", "__").replace("\\", "__") + ".diff"
+    digest = hashlib.sha256(path.encode("utf-8", errors="surrogateescape")).hexdigest()[:12]
+    name = Path(path).name.replace("\\", "__") or "path"
+    return f"{digest}-{name[:MAX_PACKET_FILE_NAME_STEM_CHARS]}.diff"
 
 
 def diff_scopes(base_sha: str, head_sha: str) -> list[tuple[str, list[str]]]:

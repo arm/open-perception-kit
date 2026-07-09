@@ -433,6 +433,47 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
         self.assertIn(".github/agent-runtime/review/out/review-packet/index.md", output)
         self.assertNotIn("random-generated/leak.txt", output)
 
+    def test_review_shell_does_not_dereference_tracked_symlinks(self):
+        repo_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_REPO_TOOLS_SCRIPT,
+            "agent_runtime.tools.repo_fake_sdk_review_symlink_snapshot",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / "repo"
+            repo_root.mkdir()
+            subprocess.run(["git", "init", "-q"], cwd=repo_root, check=True)
+            outside_secret = Path(temp_dir) / "outside-secret.txt"
+            outside_secret.write_text("outside secret\n", encoding="utf-8")
+            try:
+                (repo_root / "leaky-link.txt").symlink_to(outside_secret)
+            except OSError:
+                self.skipTest("symlinks are not available on this filesystem")
+            subprocess.run(["git", "add", "leaky-link.txt"], cwd=repo_root, check=True)
+            subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    "user.name=Test",
+                    "-c",
+                    "user.email=test@example.invalid",
+                    "commit",
+                    "-qm",
+                    "base",
+                ],
+                cwd=repo_root,
+                check=True,
+            )
+            self.activate_review_context(repo_root)
+
+            output = repo_tools.run_shell_command(
+                "find . -name leaky-link.txt -print; grep -R outside ."
+            )
+            with self.assertRaisesRegex(ValueError, "not available in the shell workspace"):
+                repo_tools.run_shell_command("cat < leaky-link.txt")
+
+        self.assertNotIn("--- stdout ---\n./leaky-link.txt", output)
+        self.assertNotIn("outside secret", output)
+
     def test_openai_agent_runner_applies_safe_unified_diff(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_REPO_TOOLS_SCRIPT,
