@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import fnmatch
 import subprocess
+import time
 
+from ..diagnostics import log_agent_diagnostic
 from ..runtime_context import require_run_context
 from ..sdk_runtime import function_tool
 from .paths import is_git_metadata_path, resolve_safe_repo_path, validate_patch_paths
@@ -36,6 +38,7 @@ def truncate_tool_output(output: str) -> str:
 def read_repo_file(path: str, start_line: int | None = None, end_line: int | None = None) -> str:
     """Read a UTF-8 text file from the checked-out repository."""
 
+    start = time.monotonic()
     context = require_run_context()
     file_path = resolve_safe_repo_path(context, path, "Read")
     lines = file_path.read_text(encoding="utf-8").splitlines()
@@ -45,13 +48,24 @@ def read_repo_file(path: str, start_line: int | None = None, end_line: int | Non
         f"{line_number}: {line}"
         for line_number, line in enumerate(lines[first:last], start=first + 1)
     ]
-    return truncate_tool_output("\n".join(numbered))
+    output = truncate_tool_output("\n".join(numbered))
+    log_agent_diagnostic(
+        "tool_call",
+        tool="read_repo_file",
+        path=path,
+        start_line=start_line or "",
+        end_line=end_line or "",
+        elapsed_ms=int((time.monotonic() - start) * 1000),
+        output_chars=len(output),
+    )
+    return output
 
 
 @function_tool
 def list_repo_files(pattern: str = "**/*") -> str:
     """List repository files matching a glob pattern."""
 
+    start = time.monotonic()
     context = require_run_context()
     matches: list[str] = []
     for path in context.repo_root.rglob("*"):
@@ -71,13 +85,22 @@ def list_repo_files(pattern: str = "**/*") -> str:
         if len(matches) >= MAX_LIST_FILES:
             matches.append(f"[truncated after {MAX_LIST_FILES} files]")
             break
-    return "\n".join(sorted(matches))
+    output = "\n".join(sorted(matches))
+    log_agent_diagnostic(
+        "tool_call",
+        tool="list_repo_files",
+        pattern=pattern,
+        elapsed_ms=int((time.monotonic() - start) * 1000),
+        output_chars=len(output),
+    )
+    return output
 
 
 @function_tool
 def run_shell_command(command: str) -> str:
     """Run a read, build, or validation shell command in the repository root."""
 
+    start = time.monotonic()
     context = require_run_context()
     reject_unsafe_shell_command(command)
     output_parts: list[str] = []
@@ -99,13 +122,23 @@ def run_shell_command(command: str) -> str:
         if completed.returncode != 0:
             break
     output_parts.insert(0, f"exit_code={exit_code}")
-    return truncate_tool_output("\n".join(output_parts).rstrip() + "\n")
+    output = truncate_tool_output("\n".join(output_parts).rstrip() + "\n")
+    log_agent_diagnostic(
+        "tool_call",
+        tool="run_shell_command",
+        command=command,
+        exit_code=exit_code,
+        elapsed_ms=int((time.monotonic() - start) * 1000),
+        output_chars=len(output),
+    )
+    return output
 
 
 @function_tool
 def apply_unified_diff(patch: str) -> str:
     """Apply a unified git diff patch to the repository working tree."""
 
+    start = time.monotonic()
     context = require_run_context()
     validate_patch_paths(context, patch)
     completed = subprocess.run(
@@ -118,7 +151,7 @@ def apply_unified_diff(patch: str) -> str:
         check=False,
     )
     if completed.returncode != 0:
-        return truncate_tool_output(
+        output = truncate_tool_output(
             "\n".join(
                 [
                     "Patch apply failed.",
@@ -130,4 +163,20 @@ def apply_unified_diff(patch: str) -> str:
             ).rstrip()
             + "\n"
         )
-    return "exit_code=0\nPatch applied.\n"
+        log_agent_diagnostic(
+            "tool_call",
+            tool="apply_unified_diff",
+            exit_code=completed.returncode,
+            elapsed_ms=int((time.monotonic() - start) * 1000),
+            output_chars=len(output),
+        )
+        return output
+    output = "exit_code=0\nPatch applied.\n"
+    log_agent_diagnostic(
+        "tool_call",
+        tool="apply_unified_diff",
+        exit_code=completed.returncode,
+        elapsed_ms=int((time.monotonic() - start) * 1000),
+        output_chars=len(output),
+    )
+    return output

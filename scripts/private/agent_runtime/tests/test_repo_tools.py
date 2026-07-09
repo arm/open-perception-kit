@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from contextlib import redirect_stderr
+import io
 import os
 import sys
 from pathlib import Path
@@ -154,6 +156,21 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
         self.assertIn("$ echo '$(git push)'", output)
         self.assertIn("$(git push)", output)
         self.assertIn("$ git diff --check", output)
+
+    def test_openai_agent_repo_tools_write_diagnostics_to_stderr(self):
+        repo_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_REPO_TOOLS_SCRIPT,
+            "agent_runtime.tools.repo_fake_sdk_diagnostics",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            OPENAI_AGENT_RUNTIME_CONTEXT.set_run_context(Path(temp_dir), 10)
+            stderr = io.StringIO()
+            with redirect_stderr(stderr):
+                output = repo_tools.run_shell_command("echo ok")
+
+        self.assertIn("ok", output)
+        self.assertIn("agent-diagnostic", stderr.getvalue())
+        self.assertIn("tool=run_shell_command", stderr.getvalue())
 
     def test_openai_agent_runner_executes_tokenized_pipelines_and_stdin_redirection(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(

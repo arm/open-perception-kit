@@ -287,6 +287,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
                 "Fetch Agent review base ref",
                 "Set up Agent Python",
                 "Build Agent review context",
+                "Build Agent review packet",
                 "Install OpenAI agent runtime",
                 "Run Agent workflow static analysis",
                 "Run OpenAI SDK review",
