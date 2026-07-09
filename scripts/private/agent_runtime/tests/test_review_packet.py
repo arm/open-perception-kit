@@ -79,6 +79,7 @@ class AgentReviewPacketTests(unittest.TestCase):
             self.assertTrue(index.is_file())
             self.assertTrue((packet_dir / "diff-stat.txt").is_file())
             self.assertTrue((packet_dir / "changed-files.txt").is_file())
+            self.assertTrue((packet_dir / "hunk-map.txt").is_file())
             diff_stat = (packet_dir / "diff-stat.txt").read_text(encoding="utf-8")
             changed_files = (packet_dir / "changed-files.txt").read_text(encoding="utf-8")
             for scope in ("## committed", "## staged", "## unstaged"):
@@ -86,6 +87,14 @@ class AgentReviewPacketTests(unittest.TestCase):
                 self.assertIn(scope, changed_files)
             for path in ("script.py", ".github/workflows/ci.yml", "staged.py", "dirty.py"):
                 self.assertIn(path, changed_files)
+            index_text = index.read_text(encoding="utf-8")
+            self.assertIn("## Review Order", index_text)
+            self.assertIn("## Top Risk Files", index_text)
+            self.assertNotIn("## Hunk Files", index_text)
+            self.assertNotIn("hunks/", index_text)
+            hunk_map = (packet_dir / "hunk-map.txt").read_text(encoding="utf-8")
+            self.assertIn("script.py", hunk_map)
+            self.assertIn("hunks/", hunk_map)
 
             script_hunk = (packet_dir / "hunks" / packet.packet_file_name("script.py")).read_text(
                 encoding="utf-8"
@@ -140,7 +149,28 @@ class AgentReviewPacketTests(unittest.TestCase):
             self.assertTrue(all(not path.startswith("[truncated ") for path in paths))
             self.assertTrue(hunk_path.is_file())
             self.assertLessEqual(len(hunk_path.name), 120)
-            self.assertIn(last_path, index.read_text(encoding="utf-8"))
+            self.assertNotIn(last_path, index.read_text(encoding="utf-8"))
+            self.assertIn(last_path, (repo / "packet" / "hunk-map.txt").read_text(encoding="utf-8"))
+
+    def test_top_risk_paths_prefers_review_sensitive_changes(self) -> None:
+        packet = import_script()
+
+        ranked = packet.top_risk_paths([
+            "docs/readme.md",
+            "scripts/private/agent_runtime/tools/shell.py",
+            "src/runtime.cpp",
+            ".github/workflows/agent-review.yml",
+            "tools/expkits-ci/tests/test_agent_workflow_contracts.py",
+        ])
+
+        self.assertEqual(
+            ranked[:3],
+            [
+                ".github/workflows/agent-review.yml",
+                "scripts/private/agent_runtime/tools/shell.py",
+                "tools/expkits-ci/tests/test_agent_workflow_contracts.py",
+            ],
+        )
 
 
 if __name__ == "__main__":

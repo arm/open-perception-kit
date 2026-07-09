@@ -20,7 +20,16 @@ if __package__ in (None, ""):  # pragma: no cover - used for direct script execu
 MAX_COMMAND_CHARS = 24000
 MAX_DIFF_FILES = 120
 MAX_PACKET_FILE_NAME_STEM_CHARS = 96
+MAX_TOP_RISK_FILES = 12
 PACKET_INDEX_PATH = ".github/agent-runtime/review/out/review-packet/index.md"
+TOP_RISK_PREFIXES = (
+    ".github/workflows/",
+    ".github/agent-runtime/",
+    "scripts/private/agent_runtime/",
+    "tools/expkits-ci/",
+    "scripts/pre-commit/",
+    "scripts/",
+)
 
 
 def truncate(text: str, limit: int) -> str:
@@ -67,35 +76,14 @@ def unique_paths(paths: list[str]) -> list[str]:
     return sorted(dict.fromkeys(path for path in paths if path))
 
 
-def group_name(path: str) -> str:
-    if path.startswith(".github/workflows/"):
-        return "workflows"
-    if path.startswith(".github/agent-runtime/") or path.startswith("scripts/private/agent_runtime/"):
-        return "agent runtime"
-    if path.startswith("examples/yolo-benchmark/"):
-        return "yolo benchmark"
-    if path.startswith("scripts/playwright/"):
-        return "playwright pages"
-    if path.startswith("scripts/report_pages/"):
-        return "report pages"
-    if path.endswith((".md", ".rst")):
-        return "docs"
-    if path.endswith((".cpp", ".h", ".hpp", ".c")):
-        return "c/c++"
-    if path.endswith(".py"):
-        return "python"
-    return "other"
+def top_risk_paths(paths: list[str]) -> list[str]:
+    def risk_key(path: str) -> tuple[int, str]:
+        for index, prefix in enumerate(TOP_RISK_PREFIXES):
+            if path.startswith(prefix):
+                return index, path
+        return len(TOP_RISK_PREFIXES), path
 
-
-def grouped_paths(paths: list[str]) -> str:
-    groups: dict[str, list[str]] = {}
-    for path in paths:
-        groups.setdefault(group_name(path), []).append(path)
-    lines = []
-    for name in sorted(groups):
-        lines.append(f"- {name}:")
-        lines.extend(f"  - {path}" for path in sorted(groups[name]))
-    return "\n".join(lines)
+    return sorted(paths, key=risk_key)[:MAX_TOP_RISK_FILES]
 
 
 def validation_hints(paths: list[str]) -> str:
@@ -196,6 +184,7 @@ def write_packet(repo_root: Path, context_file: Path, output_dir: Path) -> Path:
         hunk_links.append(f"- `{path}`: `hunks/{name}`")
     if len(paths) > MAX_DIFF_FILES:
         hunk_links.append(f"- [truncated hunk files after {MAX_DIFF_FILES} changed paths]")
+    (output_dir / "hunk-map.txt").write_text("\n".join(hunk_links).rstrip() + "\n", encoding="utf-8")
     index = "\n\n".join([
         "# Agent Review Packet",
         (
@@ -205,11 +194,11 @@ def write_packet(repo_root: Path, context_file: Path, output_dir: Path) -> Path:
         ),
         f"## Scope\n\n- base_sha: `{base_sha}`\n- head_sha: `{head_sha}`",
         f"## Working Tree\n\n```text\n{git(repo_root, 'status', '--short')}\n```",
-        "## Prepared Files\n\n- `diff-stat.txt`\n- `changed-files.txt`\n- `hunks/` per changed file",
+        "## Prepared Files\n\n- `changed-files.txt`\n- `diff-stat.txt`",
+        "## Review Order\n\n1. Read `changed-files.txt`.\n2. Read `diff-stat.txt`.\n3. Inspect `Top Risk Files` below.\n4. After a concrete candidate finding, use `hunk-map.txt` to locate only that path's hunk.",
         f"## Canonical Routes\n\n{canonical_routes(paths)}",
-        f"## Changed File Groups\n\n{grouped_paths(paths)}",
+        "## Top Risk Files\n\n" + "\n".join(f"- `{path}`" for path in top_risk_paths(paths)),
         f"## Validation Hints\n\n{validation_hints(paths)}",
-        "## Hunk Files\n\n" + "\n".join(hunk_links),
     ])
     index_path = output_dir / "index.md"
     index_path.write_text(index.rstrip() + "\n", encoding="utf-8")
