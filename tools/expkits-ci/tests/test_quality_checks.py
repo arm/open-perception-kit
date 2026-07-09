@@ -164,8 +164,8 @@ class TestQualityChecks(unittest.TestCase):
 
     def test_check_branch_naming_accepts_feature_branch_with_or_without_suffix(self):
         valid_branches = [
-            "feature/EXPKITS-1234",
-            "feature/EXPKITS-1234/ticket-description",  # pragma: allowlist secret
+            "feature/EXPKITS-4242",
+            "feature/EXPKITS-4242/ticket-description",  # pragma: allowlist secret
         ]
 
         for branch_name in valid_branches:
@@ -344,6 +344,63 @@ class TestQualityChecks(unittest.TestCase):
         self.assertEqual(len(first_cmd) - 3, 50)
         self.assertEqual(len(second_cmd) - 3, 5)
 
+    def test_agent_runtime_static_analysis_runs_shared_script_for_pr_target(self):
+        with patch.object(quality_checks_module.FileUtils, "get_project_root", return_value="/work"):
+            with patch(
+                "expkits_ci.quality_checks.subprocess.run",
+                return_value=Mock(returncode=0, stdout="ok\n", stderr=""),
+            ) as subprocess_run:
+                result = self.quality_checks.check_agent_runtime_static_analysis(
+                    ["scripts/private/agent_runtime/openai_agent_runner.py"],
+                    pr_target_branch="main",
+                )
+
+        self.assertTrue(result)
+        self.assertEqual(
+            subprocess_run.call_args.args[0],
+            [
+                sys.executable,
+                "-m",
+                "expkits_ci.agent_static_analysis",
+                "--base-ref",
+                "origin/main",
+            ],
+        )
+        self.assertEqual(subprocess_run.call_args.kwargs["cwd"], "/work")
+        self.assertIn("/work/tools/expkits-ci", subprocess_run.call_args.kwargs["env"]["PYTHONPATH"])
+
+    def test_agent_runtime_static_analysis_checks_deleted_pr_paths(self):
+        with patch.object(quality_checks_module.FileUtils, "get_project_root", return_value="/work"):
+            with patch(
+                "expkits_ci.quality_checks.subprocess.run",
+                side_effect=[
+                    Mock(returncode=0, stdout="D\0scripts/private/agent_runtime/task.py\0", stderr=""),
+                    Mock(returncode=0, stdout="", stderr=""),
+                ],
+            ) as subprocess_run:
+                result = self.quality_checks.check_agent_runtime_static_analysis(
+                    ["docs/readme.md"],
+                    pr_target_branch="main",
+                )
+
+        self.assertTrue(result)
+        self.assertEqual(
+            subprocess_run.call_args_list[0].args[0],
+            ["git", "diff", "--name-status", "-z", "origin/main...HEAD"],
+        )
+        self.assertEqual(
+            subprocess_run.call_args_list[1].args[0],
+            [
+                sys.executable,
+                "-m",
+                "expkits_ci.agent_static_analysis",
+                "--base-ref",
+                "origin/main",
+            ],
+        )
+        self.assertEqual(subprocess_run.call_args_list[1].kwargs["cwd"], "/work")
+        self.assertIn("/work/tools/expkits-ci", subprocess_run.call_args_list[1].kwargs["env"]["PYTHONPATH"])
+
     def test_apply_license_header_keeps_cmake_content_adjacent_to_header_when_cmake_config_is_missing(self):
         input_content = (FIXTURE_ROOT / "cmake" / "bad.CMakeLists.txt.input").read_text(encoding="utf-8")
 
@@ -454,6 +511,14 @@ class TestQualityChecks(unittest.TestCase):
 
     def test_check_commit_messages_on_ci_allows_merge_commit_without_task_line(self):
         repo = self.make_repo_with_head_commit("Merge branch 'main' into feature/EXPKITS-973/pr-quality-gate\n")
+
+        with patch("expkits_ci.quality_checks.Repo", return_value=repo):
+            result = self.quality_checks.check_commit_messages_on_ci()
+
+        self.assertTrue(result)
+
+    def test_check_commit_messages_on_ci_allows_jira_subject_prefix_without_task_line(self):
+        repo = self.make_repo_with_head_commit("EXPKITS-1234 Keep workflow repair scoped\n")
 
         with patch("expkits_ci.quality_checks.Repo", return_value=repo):
             result = self.quality_checks.check_commit_messages_on_ci()

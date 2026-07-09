@@ -148,10 +148,14 @@ run_phase() {
     local status=0
     local pid_file="/tmp/pek-browser-smoke-${phase}.pid"
     local pipeline_pid=""
+    local docker_exec_env_file_args=()
 
     echo "Running browser smoke phase: ${phase}"
 
-    docker exec -u devgoblin --env-file devices.env \
+    if [ -f "${REPO_ROOT}/devices.env" ]; then
+        docker_exec_env_file_args=(--env-file "${REPO_ROOT}/devices.env")
+    fi
+    docker exec -u devgoblin "${docker_exec_env_file_args[@]}" \
         -e NUM_FRAMES="${NUM_FRAMES}" \
         -e BROWSER_SMOKE_PIPELINE="${pipeline}" \
         -e BROWSER_SMOKE_PID_FILE="${pid_file}" \

@@ -5,13 +5,18 @@ PR title format:
 EXPKITS-1234: short summary
 -->
 
+<!-- agent-repair:automation:start -->
+<!-- agent-repair:automation:end -->
+
 ## Goal
 
 <!-- What problem does this change solve? -->
 
 ## Change
 
-<!-- What does this PR actually implement? -->
+<!-- agent-repair:description:start -->
+<!-- Please provide a summary of the changes and the related issue. -->
+<!-- agent-repair:description:end -->
 
 ## Testing
 

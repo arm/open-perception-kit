@@ -126,7 +126,7 @@ services:
         mkdir -p /work/.github/artifacts &&
         ./scripts/gen-doc.sh &&
         source /work/tools/.venv/bin/activate &&
-        expkits-ci --clang-format-check --python-format-check --cmake-format-check --shell-format-check --license-header-check --check-secrets \
+        expkits-ci --clang-format-check --python-format-check --cmake-format-check --shell-format-check --license-header-check --check-secrets --agent-runtime-static-analysis \
           --report-file /work/.github/artifacts/expkits-ci-full-report.txt
       '
 

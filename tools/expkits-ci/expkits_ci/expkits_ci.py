@@ -72,6 +72,8 @@ def setup_argument_parser(parser):
                              action="store_true", help="Check for secrets in files.")
     check_group.add_argument("-al", "--actionlint", default=False,
                              action="store_true", help="Run actionlint on GitHub Actions workflows.")
+    check_group.add_argument("--agent-runtime-static-analysis", default=False,
+                             action="store_true", help="Run Agent workflow mypy, pyflakes, vulture, and stale-reference checks.")
 
     util_group = parser.add_argument_group('Utility Options', 'General script and logging options.')
     util_group.add_argument("-v", "--verbose", default=False, action="store_true", help="Enable verbose output.")
@@ -120,6 +122,7 @@ def setup_all_checks(args):
     args.license_header_check = True
     args.check_secrets = True
     args.actionlint = True
+    args.agent_runtime_static_analysis = True
 
 
 def enable_implicit_verbose_logging(args):
@@ -138,6 +141,8 @@ def get_enabled_check_flags(args):
         enabled_checks.append("--check-secrets")
     if args.actionlint:
         enabled_checks.append("--actionlint")
+    if args.agent_runtime_static_analysis:
+        enabled_checks.append("--agent-runtime-static-analysis")
     if args.branch_naming:
         enabled_checks.append("--branch-naming")
     if args.commit_msg:
@@ -191,6 +196,7 @@ def needs_related_files(args):
         args.license_header_check,
         args.actionlint,
         args.all_checks,
+        args.agent_runtime_static_analysis,
     ])
     return file_based_check_enabled or bool(args.list_of_files) or args.commit_diff or args.pr_target_branch
 
@@ -401,6 +407,15 @@ def perform_checks(checker, args, files, report):
         ) and result
     if args.actionlint:
         result = run_check(report, "actionlint", lambda: checker.check_github_actions(files)) and result
+    if args.agent_runtime_static_analysis:
+        result = run_check(
+            report,
+            "Agent workflow static analysis",
+            lambda: checker.check_agent_runtime_static_analysis(
+                files,
+                pr_target_branch=args.pr_target_branch,
+            ),
+        ) and result
 
     return result
 

@@ -1,0 +1,28 @@
+name: Agent Stabilize PR on Label
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions: {}
+
+concurrency:
+  group: agent-stabilize-label-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  run-agent-stabilizer:
+    if: |
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.label.name == 'agent-stabilize'
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: write
+    uses: ./.github/workflows/agent-stabilize-pr-worker.yml
+    with:
+      pr_number: ${{ github.event.pull_request.number }}
+      head_sha: ${{ github.event.pull_request.head.sha }}
+      task_ref: ${{ github.event.pull_request.title }}
+      profile_path: .github/agent-runtime/pr-stabilization/profiles/profile.json
+    secrets: inherit # pragma: allowlist secret

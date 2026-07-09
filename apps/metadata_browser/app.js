@@ -91,7 +91,7 @@ function normalizeMessage(message) {
   };
 }
 
-// <codex-review:suppress-begin> metadata_browser is a local demo/debug viewer for
+// <agent-review:suppress-begin> metadata_browser is a local demo/debug viewer for
 // trusted PEK metadata streams, not a hardened public WebSocket client; accepting
 // the simple metric/summary innerHTML rendering risk is intentional for this demo.
 function renderMetrics(normalized) {
@@ -149,7 +149,7 @@ function renderSummary(normalized) {
     )
     .join("");
 }
-// <codex-review:suppress-end>
+// <agent-review:suppress-end>
 
 function renderPerf(normalized) {
   const perfdata = normalized.perception?.perfdata;

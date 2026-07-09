@@ -79,6 +79,32 @@ static inline bool isFinitePositive(float v) {
     return std::isfinite(v) && (v > 0.0f);
 }
 
+static inline size_t activeModelWidth(const pek::ImageInferenceMetadata &image) {
+    const size_t horizontalPadding = image.letterboxLeft + image.letterboxRight;
+    if (horizontalPadding >= image.modelWidth) {
+        return image.modelWidth;
+    }
+    return image.modelWidth - horizontalPadding;
+}
+
+static inline size_t activeModelHeight(const pek::ImageInferenceMetadata &image) {
+    const size_t verticalPadding = image.letterboxTop + image.letterboxBottom;
+    if (verticalPadding >= image.modelHeight) {
+        return image.modelHeight;
+    }
+    return image.modelHeight - verticalPadding;
+}
+
+static inline float modelToFrameX(float x, const pek::ImageInferenceMetadata &image) {
+    return (x - static_cast<float>(image.letterboxLeft)) * static_cast<float>(image.width) /
+           static_cast<float>(activeModelWidth(image));
+}
+
+static inline float modelToFrameY(float y, const pek::ImageInferenceMetadata &image) {
+    return (y - static_cast<float>(image.letterboxTop)) * static_cast<float>(image.height) /
+           static_cast<float>(activeModelHeight(image));
+}
+
 static inline CoordOrder coordOrderCode(const pek::AttributeMap &attrs) {
     const std::string order = attrs.getStringOrDefault("coordOrder", "yxyx");
 
@@ -108,6 +134,7 @@ static void fillDetection(const std::vector<Det> &dets,
         rect.width = a.x2 - a.x1;
         rect.height = a.y2 - a.y1;
         rect.confidence = a.conf;
+        rect.classId = a.cls;
         rect.text = pek::resources::Labels::getLabel(pek::resources::LabelType::Coco, a.cls);
 
         if (normalizeOutputCoordinates) {
@@ -123,29 +150,26 @@ static void fillDetection(const std::vector<Det> &dets,
 
 static void processDetection(const pek::TensorParser::Input &input,
                              Det &d,
-                             size_t frameWidth,
-                             size_t frameHeight,
-                             float sx,
-                             float sy) {
+                             const pek::ImageInferenceMetadata &image) {
     const bool coordinatesAreNormalized =
         input.attributes.getBoolOrDefault("coordinatesAreNormalized", false);
 
     if (coordinatesAreNormalized) {
-        d.x1 *= static_cast<float>(frameWidth);
-        d.x2 *= static_cast<float>(frameWidth);
-        d.y1 *= static_cast<float>(frameHeight);
-        d.y2 *= static_cast<float>(frameHeight);
-    } else {
-        d.x1 *= sx;
-        d.x2 *= sx;
-        d.y1 *= sy;
-        d.y2 *= sy;
+        d.x1 *= static_cast<float>(image.modelWidth);
+        d.x2 *= static_cast<float>(image.modelWidth);
+        d.y1 *= static_cast<float>(image.modelHeight);
+        d.y2 *= static_cast<float>(image.modelHeight);
     }
 
-    d.x1 = clampf(d.x1, 0.0f, static_cast<float>(frameWidth - 1));
-    d.x2 = clampf(d.x2, 0.0f, static_cast<float>(frameWidth - 1));
-    d.y1 = clampf(d.y1, 0.0f, static_cast<float>(frameHeight - 1));
-    d.y2 = clampf(d.y2, 0.0f, static_cast<float>(frameHeight - 1));
+    d.x1 = modelToFrameX(d.x1, image);
+    d.x2 = modelToFrameX(d.x2, image);
+    d.y1 = modelToFrameY(d.y1, image);
+    d.y2 = modelToFrameY(d.y2, image);
+
+    d.x1 = clampf(d.x1, 0.0f, static_cast<float>(image.width - 1));
+    d.x2 = clampf(d.x2, 0.0f, static_cast<float>(image.width - 1));
+    d.y1 = clampf(d.y1, 0.0f, static_cast<float>(image.height - 1));
+    d.y2 = clampf(d.y2, 0.0f, static_cast<float>(image.height - 1));
 }
 
 // ----------------------------------------------------------------------------
@@ -171,13 +195,12 @@ Result<void> YoloParser::parse(const pek::TensorParser::Input &input,
     const int64_t maxDetections = input.attributes.getIntOrDefault("maxDetections", 5);
     const CoordOrder coordOrder = coordOrderCode(input.attributes);
 
-    const size_t frameWidth = input.inferenceInfo.image.width;
-    const size_t frameHeight = input.inferenceInfo.image.height;
+    const auto &image = input.inferenceInfo.image;
+    const size_t frameWidth = image.width;
+    const size_t frameHeight = image.height;
 
-    const size_t modelWidth = input.inferenceInfo.image.modelWidth;
-    const size_t modelHeight = input.inferenceInfo.image.modelHeight;
-    const float sx = static_cast<float>(frameWidth) / static_cast<float>(modelWidth);
-    const float sy = static_cast<float>(frameHeight) / static_cast<float>(modelHeight);
+    const size_t modelWidth = image.modelWidth;
+    const size_t modelHeight = image.modelHeight;
 
     const TensorView &tensor = *input.tensors[0];
     const pek::Shape shape = input.tensors[0]->getShape();
@@ -249,7 +272,7 @@ Result<void> YoloParser::parse(const pek::TensorParser::Input &input,
 
                 Det d{x1, y1, x2, y2, score, classId};
 
-                processDetection(input, d, frameWidth, frameHeight, sx, sy);
+                processDetection(input, d, image);
 
                 if (d.x2 <= d.x1 || d.y2 <= d.y1)
                     continue;
@@ -330,7 +353,7 @@ Result<void> YoloParser::parse(const pek::TensorParser::Input &input,
             // scale to frame space
             Det d{x1, y1, x2, y2, bestp, best};
 
-            processDetection(input, d, frameWidth, frameHeight, sx, sy);
+            processDetection(input, d, image);
 
             dets.push_back(d);
         }

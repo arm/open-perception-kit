@@ -187,10 +187,14 @@ constexpr size_t InvalidTensorIndex = std::numeric_limits<size_t>::max();
  * @brief Physical and model image dimensions associated with an inference.
  */
 struct ImageInferenceMetadata {
-    size_t width = 0;       ///< Physical image width in pixels.
-    size_t height = 0;      ///< Physical image height in pixels.
-    size_t modelWidth = 0;  ///< Input tensor width expected by the model.
-    size_t modelHeight = 0; ///< Input tensor height expected by the model.
+    size_t width = 0;           ///< Physical image width in pixels.
+    size_t height = 0;          ///< Physical image height in pixels.
+    size_t modelWidth = 0;      ///< Input tensor width expected by the model.
+    size_t modelHeight = 0;     ///< Input tensor height expected by the model.
+    size_t letterboxLeft = 0;   ///< Left padding in model input pixels.
+    size_t letterboxRight = 0;  ///< Right padding in model input pixels.
+    size_t letterboxTop = 0;    ///< Top padding in model input pixels.
+    size_t letterboxBottom = 0; ///< Bottom padding in model input pixels.
 };
 
 /**

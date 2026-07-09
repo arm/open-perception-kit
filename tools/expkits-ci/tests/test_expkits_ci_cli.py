@@ -87,6 +87,7 @@ class TestExpkitsCiCli(unittest.TestCase):
         self.assertTrue(parsed_args.commit_msg_ci)
         self.assertTrue(parsed_args.check_secrets)
         self.assertTrue(parsed_args.actionlint)
+        self.assertTrue(parsed_args.agent_runtime_static_analysis)
         self.assertTrue(parsed_args.commit_diff)
 
     def test_perform_checks_records_actionlint_result(self):
@@ -110,6 +111,7 @@ class TestExpkitsCiCli(unittest.TestCase):
             shell_format=False,
             shell_format_check=False,
             actionlint=True,
+            agent_runtime_static_analysis=False,
         )
         report = expkits_ci_module.ExecutionReport("custom selection", "explicit", 1, ["--actionlint"])
 

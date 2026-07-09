@@ -1,4 +1,5 @@
 self-hosted-runner:
   labels:
+    - self-hosted-ubuntu-latest
     - self-hosted-ubuntu-latest-x64
     - amp-dev-forge-runner-rpi5
