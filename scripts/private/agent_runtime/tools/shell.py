@@ -193,11 +193,8 @@ def build_subprocess_environment(context: AgentRunContext) -> dict[str, str]:
 
 def configure_review_workspace_environment(environment: dict[str, str], workspace_root: Path) -> None:
     isolated_home = workspace_root.parent / "home"
-    git_dir = workspace_root.parent / "git"
     environment["HOME"] = str(isolated_home)
     environment["PWD"] = str(workspace_root)
-    environment["GIT_DIR"] = str(git_dir)
-    environment["GIT_WORK_TREE"] = str(workspace_root)
     environment["XDG_CACHE_HOME"] = str(isolated_home / "cache")
     environment["XDG_CONFIG_HOME"] = str(isolated_home / "config")
     environment["XDG_DATA_HOME"] = str(isolated_home / "data")
@@ -257,50 +254,51 @@ def prepare_review_shell_workspace(context: ReviewRunContext, workspace_root: Pa
         shutil.copytree(packet_source, packet_target, dirs_exist_ok=True)
 
 
-def initialize_review_workspace_git(
+def build_review_git_environment(
     context: ReviewRunContext,
     workspace_root: Path,
     environment: dict[str, str],
-) -> None:
-    git_dir = Path(environment["GIT_DIR"])
-    subprocess.run(
-        ["git", "init", "--bare", "-q", str(git_dir)],
+) -> dict[str, str] | None:
+    completed = subprocess.run(
+        ["git", "rev-parse", "--git-dir"],
+        cwd=context.repo_root,
+        text=True,
         capture_output=True,
         timeout=context.command_timeout,
-        check=True,
+        check=False,
     )
-    subprocess.run(
-        ["git", "add", "-A"],
-        cwd=workspace_root,
-        env=environment,
-        capture_output=True,
-        timeout=context.command_timeout,
-        check=True,
-    )
-    subprocess.run(
-        ["git", "-c", "user.email=agent-review@example.invalid", "-c",
-            "user.name=Agent Review", "commit", "-qm", "snapshot"],
-        cwd=workspace_root,
-        env=environment,
-        capture_output=True,
-        timeout=context.command_timeout,
-        check=True,
-    )
+    if completed.returncode != 0:
+        return None
+
+    git_dir = Path(completed.stdout.strip())
+    if not git_dir.is_absolute():
+        git_dir = (context.repo_root / git_dir).resolve()
+
+    git_environment = dict(environment)
+    git_environment["GIT_DIR"] = str(git_dir)
+    git_environment["GIT_WORK_TREE"] = str(workspace_root)
+
+    index_source = git_dir / "index"
+    if index_source.is_file():
+        index_target = workspace_root.parent / "index"
+        shutil.copy2(index_source, index_target)
+        git_environment["GIT_INDEX_FILE"] = str(index_target)
+    return git_environment
 
 
 @contextmanager
-def shell_command_scope(context: AgentRunContext) -> Iterator[tuple[Path, dict[str, str]]]:
+def shell_command_scope(context: AgentRunContext) -> Iterator[tuple[Path, dict[str, str], dict[str, str] | None]]:
     environment = build_subprocess_environment(context)
     if not isinstance(context, ReviewRunContext):
-        yield context.repo_root, environment
+        yield context.repo_root, environment, None
         return
 
     with tempfile.TemporaryDirectory(prefix="agent-review-shell-") as temp_dir:
         workspace_root = Path(temp_dir) / "repo"
         prepare_review_shell_workspace(context, workspace_root)
         configure_review_workspace_environment(environment, workspace_root)
-        initialize_review_workspace_git(context, workspace_root, environment)
-        yield workspace_root, environment
+        git_environment = build_review_git_environment(context, workspace_root, environment)
+        yield workspace_root, environment, git_environment
 
 
 def split_shell_commands(command: str) -> list[ParsedShellCommand]:
@@ -423,6 +421,10 @@ def find_subcommand(words: list[str], binary: str) -> str | None:
     return None
 
 
+def is_git_command(words: list[str]) -> bool:
+    return bool(words) and Path(words[0]).name == "git"
+
+
 def has_forbidden_git_option(words: list[str]) -> bool:
     return any(
         word == option
@@ -481,6 +483,7 @@ def run_parsed_shell_command(
     context: AgentRunContext,
     cwd: Path,
     environment: dict[str, str],
+    git_environment: dict[str, str] | None,
 ) -> ShellCommandResult:
     stage_input: str | None = None
     if parsed_command.stdin_path:
@@ -505,7 +508,7 @@ def run_parsed_shell_command(
             input=stage_input,
             text=True,
             capture_output=True,
-            env=environment,
+            env=git_environment if git_environment is not None and is_git_command(words) else environment,
             timeout=context.command_timeout,
             check=False,
         )

@@ -118,10 +118,16 @@ def run_shell_command(command: str) -> str:
     reject_unsafe_shell_command(command)
     output_parts: list[str] = []
     exit_code = 0
-    with shell_command_scope(context) as (cwd, environment):
+    with shell_command_scope(context) as (cwd, environment, git_environment):
         for parsed_command in split_shell_commands(command):
             reject_shell_path_arguments(parsed_command, context, cwd)
-            completed = run_parsed_shell_command(parsed_command, context, cwd, environment)
+            completed = run_parsed_shell_command(
+                parsed_command,
+                context,
+                cwd,
+                environment,
+                git_environment,
+            )
             exit_code = completed.returncode
             output_parts.extend(
                 [
