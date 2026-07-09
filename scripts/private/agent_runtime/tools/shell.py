@@ -182,7 +182,9 @@ def build_subprocess_environment(context: AgentRunContext) -> dict[str, str]:
         if is_safe_review_environment_name(name)
     }
     isolated_home = context.repo_root / ".agent-runtime/review-shell-home"
-    runtime_bin = os.environ.get("AGENT_RUNTIME_BIN") or str(Path(sys.executable).resolve().parent)
+    runtime_bin = Path(os.environ.get("AGENT_RUNTIME_BIN") or Path(sys.executable).resolve().parent)
+    if not runtime_bin.is_absolute():
+        runtime_bin = context.repo_root / runtime_bin
     environment["PATH"] = f"{runtime_bin}{os.pathsep}{environment.get('PATH', '')}"
     environment["HOME"] = str(isolated_home)
     environment["PWD"] = str(context.repo_root)

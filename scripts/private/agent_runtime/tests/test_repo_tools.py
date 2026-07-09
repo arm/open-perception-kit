@@ -465,7 +465,7 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
             packet_index = repo_root / ".github" / "agent-runtime" / "review" / "out" / "review-packet" / "index.md"
             packet_index.parent.mkdir(parents=True)
             packet_index.write_text("packet\n", encoding="utf-8")
-            with mock.patch.dict(os.environ, {"AGENT_RUNTIME_BIN": str(runtime_bin)}):
+            with mock.patch.dict(os.environ, {"AGENT_RUNTIME_BIN": runtime_bin.relative_to(repo_root).as_posix()}):
                 self.activate_review_context(repo_root)
 
                 git_output = repo_tools.run_shell_command("git status --short; git diff --name-status")
