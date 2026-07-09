@@ -3,3 +3,7 @@ self-hosted-runner:
     - self-hosted-ubuntu-latest
     - self-hosted-ubuntu-latest-x64
     - amp-dev-forge-runner-rpi5
+paths:
+  .github/workflows/sync-rulesets.yml:
+    ignore:
+      - 'constant expression "false" in condition'

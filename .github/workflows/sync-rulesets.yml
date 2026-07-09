@@ -15,7 +15,7 @@ permissions:
 jobs:
   sync-rulesets:
     # Temporarily disabled until the repository ruleset rollout is resumed.
-    if: ${{ github.repository == 'Arm-Debug/amp-dev-forge-ruleset-sync-disabled' }}
+    if: ${{ false }}
     runs-on: [self-hosted, Linux, X64]
 
     steps:

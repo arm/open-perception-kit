@@ -240,6 +240,18 @@ class TestQualityChecks(unittest.TestCase):
         which.assert_not_called()
         subprocess_run.assert_not_called()
 
+    def test_check_github_actions_fails_when_actionlint_is_missing(self):
+        self.quality_checks.file_utils.get_project_root = Mock(return_value="/work")
+
+        with patch.object(quality_checks_module.shutil, "which", return_value=None):
+            with self.assertLogs("expkits_ci", level="ERROR") as logs:
+                result = self.quality_checks.check_github_actions([
+                    ".github/workflows/ci.yml",
+                ])
+
+        self.assertFalse(result)
+        self.assertIn("actionlint is not available on PATH.", "\n".join(logs.output))
+
     def test_check_github_actions_fails_when_actionlint_finds_errors(self):
         self.quality_checks.file_utils.get_project_root = Mock(return_value="/work")
 
