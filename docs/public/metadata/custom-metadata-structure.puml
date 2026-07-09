@@ -1,0 +1,128 @@
+@startuml
+' Structural overview of the custom metadata concept.
+!include ../concepts/_plantuml/colors.puml
+allowmixing
+
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam defaultTextAlignment center
+skinparam classAttributeIconSize 0
+skinparam wrapWidth 320
+' skinparam linetype polyline
+
+skinparam package {
+  BorderColor $CONTRACT_COLOR
+  FontColor $CONTRACT_COLOR
+}
+
+skinparam class {
+  BackgroundColor $INTERNAL_MODULE_COLOR
+  BorderColor $CONTRACT_COLOR
+  FontColor $CONTRACT_COLOR
+}
+
+skinparam note {
+  BorderColor $CONTRACT_COLOR
+  BackgroundColor $SCHEMA_COLOR
+}
+
+package "OPK" as runtime_pkg $EXECUTABLE_COLOR {
+  class FrameEnvelope {
+    +frame_info: FrameInfo
+    +groups: [Group]
+    +perf_data: [PerfItem]
+    +style_overrides: [StyleOverride]
+  }
+
+  class Group {
+    +group_id: string
+    +group_name: string
+    +producer_element: string
+    +visible_by_default: bool
+    +objects: [ObjectEnvelope]
+  }
+
+  class ObjectEnvelope {
+    +object_id: ulong
+    +parent_id: ulong
+    +ts_ns: ulong
+    +type_name: string
+    +label: string
+    +bbox: Rect2D
+    +confidence: float
+    +attrs: [Attr]
+    +payload: OpaquePayload
+    +schema_ref: string
+  }
+
+  class StyleOverride {
+    +style_id: string
+    +target_kind: StyleTargetKind
+    +target_id: string
+    +stroke_color: ColorRGBA
+    +fill_color: ColorRGBA
+    +text_color: ColorRGBA
+    +stroke_width: float
+    +point_size: float
+    +opacity: float
+    +line_style: LineStyle
+  }
+
+  class OpaquePayload {
+    +payload: [ubyte]
+  }
+
+  component "Built-in postprocessing" as builtin_postproc
+
+  component "Injected Python postprocessing" as python_postproc
+
+  FrameEnvelope *-- Group
+  FrameEnvelope *-- StyleOverride
+  Group *-- ObjectEnvelope
+  ObjectEnvelope *-- OpaquePayload
+}
+
+package "User-Provided Extension Assets" as producer_pkg $EXECUTABLE_COLOR {
+  artifact "User-provided Python\npostprocessing snippet" as postproc_snippet
+  artifact "User-provided YAML\nrender type mapping" as custom_yaml_artifact
+}
+
+component "Metadata transport" as metadata_transport
+package "User-Side Rendering" as renderer_pkg $EXECUTABLE_COLOR {
+  artifact "Built-in schema definitions" as builtin_schema_defs
+  component "Built-in type mapping YAML" as builtin_yaml 
+  component "Custom type mapping YAML" as custom_yaml 
+
+  class Renderer {
+    +resolve type_name
+    +fallback to fallback_type
+    +decompose to primitives
+    +apply style overrides
+  }
+}
+
+builtin_postproc --> Group : writes built-in groups
+python_postproc --> Group : writes custom groups
+postproc_snippet --> python_postproc
+custom_yaml_artifact --> custom_yaml
+
+FrameEnvelope --> builtin_schema_defs 
+ObjectEnvelope --> builtin_schema_defs
+StyleOverride --> builtin_schema_defs 
+StyleOverride ..> Group : target_kind=Group
+StyleOverride ..> ObjectEnvelope : target_kind=Object
+metadata_transport --> Renderer : deliver metadata envelope
+
+runtime_pkg --> metadata_transport : publish metadata envelope
+builtin_schema_defs --> Renderer : decode built-in metadata
+builtin_yaml --> Renderer : built-in mappings
+custom_yaml --> Renderer : user overlay mappings
+
+note left of renderer_pkg
+Renderer vocabulary stays fixed.
+Built-in and custom composite types are resolved through YAML mappings
+and decomposed into the same primitive set.
+end note
+
+@enduml
