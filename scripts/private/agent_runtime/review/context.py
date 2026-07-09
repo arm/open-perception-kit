@@ -394,8 +394,8 @@ def optional_normalized_pr_body(value: object, name: str) -> str | None:
     text = optional_string(value, name, max_chars=MAX_PR_BODY_CHARS)
     if text is None:
         return None
-    normalized, original_chars, normalized_chars, truncated = normalize_pr_body(text)
-    if truncated or original_chars != len(text) or normalized_chars != len(text) or normalized != text:
+    normalized = remove_unsupported_control_characters(text, preserve_multiline=True)
+    if normalized != text:
         raise ValueError(f"{name} contains non-canonical content.")
     return text
 
