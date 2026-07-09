@@ -13,7 +13,7 @@ import subprocess
 
 from ..review.context import ReviewRunContext
 from ..runtime_context import AgentRunContext
-from .paths import is_git_metadata_path, resolve_stdin_redirection_path
+from .paths import is_git_metadata_path, reject_hidden_review_path, resolve_stdin_redirection_path
 
 READ_ONLY_GIT_SUBCOMMANDS = {
     "cat-file",
@@ -357,10 +357,16 @@ def format_parsed_shell_command(parsed_command: ParsedShellCommand) -> str:
 def run_parsed_shell_command(parsed_command: ParsedShellCommand, context: AgentRunContext) -> ShellCommandResult:
     stage_input: str | None = None
     if parsed_command.stdin_path:
-        stage_input = resolve_stdin_redirection_path(
+        stdin_path = resolve_stdin_redirection_path(
             context,
             parsed_command.stdin_path,
-        ).read_text(encoding="utf-8")
+        )
+        if isinstance(context, ReviewRunContext):
+            reject_hidden_review_path(
+                stdin_path.relative_to(context.repo_root).as_posix(),
+                "Shell stdin redirection",
+            )
+        stage_input = stdin_path.read_text(encoding="utf-8")
 
     stdout_text = ""
     stderr_parts: list[str] = []
@@ -398,7 +404,7 @@ def run_parsed_shell_command(parsed_command: ParsedShellCommand, context: AgentR
 
 def reject_git_metadata_shell_arguments(parsed_command: ParsedShellCommand, context: AgentRunContext) -> None:
     for words in parsed_command.pipeline:
-        for word in words:
+        for index, word in enumerate(words):
             if not word or word.startswith("-") or "://" in word:
                 continue
             try:
@@ -408,3 +414,5 @@ def reject_git_metadata_shell_arguments(parsed_command: ParsedShellCommand, cont
                 continue
             if is_git_metadata_path(relative):
                 raise ValueError(f"Command argument targets git metadata: {word}")
+            if index > 0 and isinstance(context, ReviewRunContext):
+                reject_hidden_review_path(relative, "Command argument")

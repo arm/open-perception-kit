@@ -46,7 +46,8 @@ class AgentReviewPacketTests(unittest.TestCase):
             git(repo, "config", "user.email", "agent@example.com")
             git(repo, "config", "user.name", "Agent")
             (repo / "script.py").write_text("print('old')\n", encoding="utf-8")
-            git(repo, "add", "script.py")
+            (repo / "dirty.py").write_text("VALUE = 'clean'\n", encoding="utf-8")
+            git(repo, "add", "script.py", "dirty.py")
             git(repo, "commit", "-m", "base")
             base_sha = git(repo, "rev-parse", "HEAD")
             (repo / "script.py").write_text("print('new')\n", encoding="utf-8")
@@ -55,6 +56,9 @@ class AgentReviewPacketTests(unittest.TestCase):
             git(repo, "add", ".")
             git(repo, "commit", "-m", "head")
             head_sha = git(repo, "rev-parse", "HEAD")
+            (repo / "staged.py").write_text("VALUE = 'staged'\n", encoding="utf-8")
+            git(repo, "add", "staged.py")
+            (repo / "dirty.py").write_text("VALUE = 'dirty'\n", encoding="utf-8")
             context = repo / "review-context.json"
             context.write_text(
                 json.dumps({"review_scope": {"base_sha": base_sha, "head_sha": head_sha}}),
@@ -68,31 +72,23 @@ class AgentReviewPacketTests(unittest.TestCase):
             self.assertTrue(index.is_file())
             self.assertTrue((packet_dir / "diff-stat.txt").is_file())
             self.assertTrue((packet_dir / "changed-files.txt").is_file())
-            self.assertEqual(
-                (packet_dir / "diff-stat.txt").read_text(encoding="utf-8"),
-                git(repo, "diff", "--stat", f"{base_sha}...{head_sha}") + "\n",
-            )
-            self.assertEqual(
-                (packet_dir / "changed-files.txt").read_text(encoding="utf-8"),
-                git(repo, "diff", "--name-status", f"{base_sha}...{head_sha}") + "\n",
-            )
-            self.assertEqual(
-                (packet_dir / "hunks" / "script.py.diff").read_text(encoding="utf-8"),
-                git(repo, "diff", "--no-ext-diff", "--unified=60", f"{base_sha}...{head_sha}", "--", "script.py")
-                + "\n",
-            )
-            self.assertEqual(
-                (packet_dir / "hunks" / ".github__workflows__ci.yml.diff").read_text(encoding="utf-8"),
-                git(
-                    repo,
-                    "diff",
-                    "--no-ext-diff",
-                    "--unified=60",
-                    f"{base_sha}...{head_sha}",
-                    "--",
-                    ".github/workflows/ci.yml",
-                ) + "\n",
-            )
+            diff_stat = (packet_dir / "diff-stat.txt").read_text(encoding="utf-8")
+            changed_files = (packet_dir / "changed-files.txt").read_text(encoding="utf-8")
+            for scope in ("## committed", "## staged", "## unstaged"):
+                self.assertIn(scope, diff_stat)
+                self.assertIn(scope, changed_files)
+            for path in ("script.py", ".github/workflows/ci.yml", "staged.py", "dirty.py"):
+                self.assertIn(path, changed_files)
+
+            script_hunk = (packet_dir / "hunks" / "script.py.diff").read_text(encoding="utf-8")
+            staged_hunk = (packet_dir / "hunks" / "staged.py.diff").read_text(encoding="utf-8")
+            dirty_hunk = (packet_dir / "hunks" / "dirty.py.diff").read_text(encoding="utf-8")
+            self.assertIn("## committed", script_hunk)
+            self.assertIn("print('new')", script_hunk)
+            self.assertIn("## staged", staged_hunk)
+            self.assertIn("VALUE = 'staged'", staged_hunk)
+            self.assertIn("## unstaged", dirty_hunk)
+            self.assertIn("VALUE = 'dirty'", dirty_hunk)
 
 
 if __name__ == "__main__":

@@ -10,9 +10,16 @@ import subprocess
 import time
 
 from ..diagnostics import log_agent_diagnostic
+from ..review.context import ReviewRunContext
 from ..runtime_context import require_run_context
 from ..sdk_runtime import function_tool
-from .paths import is_git_metadata_path, resolve_safe_repo_path, validate_patch_paths
+from .paths import (
+    is_git_metadata_path,
+    is_hidden_review_path,
+    reject_hidden_review_path,
+    resolve_safe_repo_path,
+    validate_patch_paths,
+)
 from .shell import (
     format_parsed_shell_command,
     reject_git_metadata_shell_arguments,
@@ -41,6 +48,9 @@ def read_repo_file(path: str, start_line: int | None = None, end_line: int | Non
     start = time.monotonic()
     context = require_run_context()
     file_path = resolve_safe_repo_path(context, path, "Read")
+    relative = file_path.relative_to(context.repo_root).as_posix()
+    if isinstance(context, ReviewRunContext):
+        reject_hidden_review_path(relative, "Read")
     lines = file_path.read_text(encoding="utf-8").splitlines()
     first = max((start_line or 1) - 1, 0)
     last = end_line if end_line is not None else len(lines)
@@ -79,6 +89,8 @@ def list_repo_files(pattern: str = "**/*") -> str:
         except ValueError:
             continue
         if is_git_metadata_path(resolved_relative):
+            continue
+        if isinstance(context, ReviewRunContext) and is_hidden_review_path(resolved_relative):
             continue
         if pattern == "**/*" or fnmatch.fnmatch(relative, pattern):
             matches.append(relative)

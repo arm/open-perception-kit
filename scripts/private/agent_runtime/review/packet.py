@@ -18,6 +18,7 @@ if __package__ in (None, ""):  # pragma: no cover - used for direct script execu
 
 MAX_COMMAND_CHARS = 24000
 MAX_DIFF_FILES = 80
+PACKET_INDEX_PATH = ".github/agent-runtime/review/out/review-packet/index.md"
 
 
 def truncate(text: str, limit: int) -> str:
@@ -56,6 +57,10 @@ def changed_paths(name_status: str) -> list[str]:
             continue
         paths.append(parts[-1])
     return paths
+
+
+def unique_paths(paths: list[str]) -> list[str]:
+    return sorted(dict.fromkeys(path for path in paths if path))
 
 
 def group_name(path: str) -> str:
@@ -106,27 +111,84 @@ def validation_hints(paths: list[str]) -> str:
     return "\n".join(hints)
 
 
+def canonical_routes(paths: list[str]) -> str:
+    routes = [
+        f"- Packet index: `{PACKET_INDEX_PATH}`. Read this exact file first; do not discover it with globs.",
+        "- Host pre-commit: `./scripts/pre-commit/run.sh`.",
+    ]
+    if any(
+        path.startswith(".github/agent-runtime/") or path.startswith("scripts/private/agent_runtime/")
+        for path in paths
+    ):
+        routes.extend([
+            "- Agent runtime guide: `scripts/private/agent_runtime/AGENTS.md`.",
+            "- Agent runtime tests: `python3 -m unittest discover -s scripts/private/agent_runtime/tests`.",
+            "- Agent workflow contract tests: "
+            "`python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_agent_workflow_contracts.py'`.",
+            "- CI static gate: `.github/workflows/agent-review.yml` step `Run Agent workflow static analysis`.",
+        ])
+    return "\n".join(routes)
+
+
 def packet_file_name(path: str) -> str:
     return path.replace("/", "__").replace("\\", "__") + ".diff"
 
 
+def diff_scopes(base_sha: str, head_sha: str) -> list[tuple[str, list[str]]]:
+    return [
+        ("committed", ["diff", f"{base_sha}...{head_sha}"]),
+        ("staged", ["diff", "--cached"]),
+        ("unstaged", ["diff"]),
+    ]
+
+
+def scope_text(repo_root: Path, title: str, args: list[str]) -> str:
+    return f"## {title}\n\n```text\n{git(repo_root, *args)}\n```"
+
+
+def scoped_file(repo_root: Path, scopes: list[tuple[str, list[str]]], suffix_args: list[str] | None = None) -> str:
+    suffix_args = suffix_args or []
+    return "\n\n".join(
+        scope_text(repo_root, title, [*args, *suffix_args])
+        for title, args in scopes
+    )
+
+
+def scoped_changed_paths(repo_root: Path, scopes: list[tuple[str, list[str]]]) -> list[str]:
+    paths: list[str] = []
+    for _, args in scopes:
+        paths.extend(changed_paths(git(repo_root, *args, "--name-status")))
+    return unique_paths(paths)
+
+
+def scoped_hunk(repo_root: Path, scopes: list[tuple[str, list[str]]], path: str) -> str:
+    chunks = []
+    for title, args in scopes:
+        diff = git(repo_root, *args, "--no-ext-diff", "--unified=60", "--", path)
+        if diff:
+            chunks.append(f"## {title}\n\n```diff\n{diff}\n```")
+    return "\n\n".join(chunks)
+
+
 def write_packet(repo_root: Path, context_file: Path, output_dir: Path) -> Path:
     base_sha, head_sha = review_scope(context_file)
-    name_status = git(repo_root, "diff", "--name-status", f"{base_sha}...{head_sha}")
-    paths = changed_paths(name_status)
+    scopes = diff_scopes(base_sha, head_sha)
+    paths = scoped_changed_paths(repo_root, scopes)
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "diff-stat.txt").write_text(
-        git(repo_root, "diff", "--stat", f"{base_sha}...{head_sha}") + "\n",
+        scoped_file(repo_root, scopes, ["--stat"]) + "\n",
         encoding="utf-8",
     )
-    (output_dir / "changed-files.txt").write_text(name_status + "\n", encoding="utf-8")
+    (output_dir / "changed-files.txt").write_text(
+        scoped_file(repo_root, scopes, ["--name-status"]) + "\n",
+        encoding="utf-8",
+    )
     hunks_dir = output_dir / "hunks"
     hunks_dir.mkdir(exist_ok=True)
     hunk_links = []
     for path in paths[:MAX_DIFF_FILES]:
         name = packet_file_name(path)
-        diff = git(repo_root, "diff", "--no-ext-diff", "--unified=60", f"{base_sha}...{head_sha}", "--", path)
-        (hunks_dir / name).write_text(diff + "\n", encoding="utf-8")
+        (hunks_dir / name).write_text(scoped_hunk(repo_root, scopes, path) + "\n", encoding="utf-8")
         hunk_links.append(f"- `{path}`: `hunks/{name}`")
     if len(paths) > MAX_DIFF_FILES:
         hunk_links.append(f"- [truncated hunk files after {MAX_DIFF_FILES} changed paths]")
@@ -139,6 +201,7 @@ def write_packet(repo_root: Path, context_file: Path, output_dir: Path) -> Path:
         f"## Scope\n\n- base_sha: `{base_sha}`\n- head_sha: `{head_sha}`",
         f"## Working Tree\n\n```text\n{git(repo_root, 'status', '--short')}\n```",
         "## Prepared Files\n\n- `diff-stat.txt`\n- `changed-files.txt`\n- `hunks/` per changed file",
+        f"## Canonical Routes\n\n{canonical_routes(paths)}",
         f"## Changed File Groups\n\n{grouped_paths(paths)}",
         f"## Validation Hints\n\n{validation_hints(paths)}",
         "## Hunk Files\n\n" + "\n".join(hunk_links),

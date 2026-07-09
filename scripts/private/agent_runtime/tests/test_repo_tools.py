@@ -316,6 +316,41 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
         self.assertNotIn("outside-link", output)
         self.assertNotIn(".git/config", output)
 
+    def test_review_repo_tools_hide_runtime_outputs_except_packet(self):
+        repo_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_REPO_TOOLS_SCRIPT,
+            "agent_runtime.tools.repo_fake_sdk_review_hidden_paths",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            (repo_root / "src.py").write_text("VALUE = 1\n", encoding="utf-8")
+            venv_file = repo_root / ".agent-runtime" / "openai-agent-venv" / "lib" / "sdk.py"
+            venv_file.parent.mkdir(parents=True)
+            venv_file.write_text("sdk internals\n", encoding="utf-8")
+            review_output = repo_root / ".github" / "agent-runtime" / "review" / "out" / "review.json"
+            review_output.parent.mkdir(parents=True)
+            review_output.write_text("{}\n", encoding="utf-8")
+            packet_index = review_output.parent / "review-packet" / "index.md"
+            packet_index.parent.mkdir(parents=True)
+            packet_index.write_text("packet\n", encoding="utf-8")
+            self.activate_review_context(repo_root)
+
+            files = set(repo_tools.list_repo_files().splitlines())
+            packet = repo_tools.read_repo_file(".github/agent-runtime/review/out/review-packet/index.md")
+
+            with self.assertRaisesRegex(ValueError, "hidden review runtime/generated output"):
+                repo_tools.read_repo_file(".agent-runtime/openai-agent-venv/lib/sdk.py")
+            with self.assertRaisesRegex(ValueError, "hidden review runtime/generated output"):
+                repo_tools.read_repo_file(".github/agent-runtime/review/out/review.json")
+            with self.assertRaisesRegex(ValueError, "hidden review runtime/generated output"):
+                repo_tools.run_shell_command("grep -R sdk .agent-runtime")
+
+        self.assertIn("src.py", files)
+        self.assertIn(".github/agent-runtime/review/out/review-packet/index.md", files)
+        self.assertIn("packet", packet)
+        self.assertNotIn(".agent-runtime/openai-agent-venv/lib/sdk.py", files)
+        self.assertNotIn(".github/agent-runtime/review/out/review.json", files)
+
     def test_openai_agent_runner_applies_safe_unified_diff(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_REPO_TOOLS_SCRIPT,
