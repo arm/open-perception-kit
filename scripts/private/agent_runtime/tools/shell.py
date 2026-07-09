@@ -296,7 +296,7 @@ def build_review_git_environment(
         workspace_root,
         environment,
         git_environment,
-        shutil.which("git", path=environment.get("PATH")) or "git",
+        shutil.which("git", path=os.defpath) or "git",
     )
     return git_environment
 
