@@ -9,6 +9,7 @@ import os
 import sys
 import tempfile
 import unittest
+from html.parser import HTMLParser
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -25,6 +26,16 @@ def import_publish_module():
 
 
 publish = import_publish_module()
+
+
+class LinkParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.hrefs = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "a":
+            self.hrefs.extend(value for name, value in attrs if name == "href")
 
 
 class TestPublishPlaywrightPages(unittest.TestCase):
@@ -124,8 +135,8 @@ class TestPublishPlaywrightPages(unittest.TestCase):
     def test_write_site_index_handles_nightly_without_pr_directory(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             site_dir = Path(tmpdir)
-            nightly = site_dir / "nightly"
-            nightly.mkdir()
+            nightly = site_dir / "playwright" / "nightly"
+            nightly.mkdir(parents=True)
             (nightly / "index.html").write_text("<html></html>", encoding="utf-8")
             (nightly / "report-index-meta.txt").write_text(
                 "develop @ commit-for-t | run 123 attempt 1 | Jul 02, 2026 20:30 UTC\n",
@@ -134,12 +145,37 @@ class TestPublishPlaywrightPages(unittest.TestCase):
 
             publish.write_site_index(site_dir, "Arm-Debug/amp-dev-forge")
 
-            self.assertTrue((site_dir / "index.html").is_file())
+            self.assertTrue((site_dir / "playwright" / "index.html").is_file())
+
+    def test_write_root_index_links_report_roots(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = Path(tmpdir)
+
+            publish.write_root_index(site_dir)
+
+            parser = LinkParser()
+            parser.feed((site_dir / "index.html").read_text(encoding="utf-8"))
+            self.assertEqual(parser.hrefs, ["playwright/index.html", "yolo-benchmark/index.html"])
+
+    def test_remove_legacy_root_site_keeps_report_roots(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = Path(tmpdir)
+            (site_dir / "index.html").write_text("legacy", encoding="utf-8")
+            (site_dir / "nightly").mkdir()
+            (site_dir / "playwright").mkdir()
+            (site_dir / "yolo-benchmark").mkdir()
+
+            self.assertTrue(publish.remove_legacy_root_site(site_dir))
+
+            self.assertFalse((site_dir / "index.html").exists())
+            self.assertFalse((site_dir / "nightly").exists())
+            self.assertTrue((site_dir / "playwright").is_dir())
+            self.assertTrue((site_dir / "yolo-benchmark").is_dir())
 
     def test_write_site_index_uses_pr_title_when_available(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             site_dir = Path(tmpdir)
-            pr_dir = site_dir / "prs" / "181"
+            pr_dir = site_dir / "playwright" / "prs" / "181"
             pr_dir.mkdir(parents=True)
             (pr_dir / "index.html").write_text("<html></html>", encoding="utf-8")
             (pr_dir / "report-index-meta.txt").write_text("branch @ commit | run 1 attempt 1\n", encoding="utf-8")
@@ -147,7 +183,7 @@ class TestPublishPlaywrightPages(unittest.TestCase):
             with patch.object(publish, "pr_report_title", return_value="PR #181 - Browser smoke"):
                 publish.write_site_index(site_dir, "Arm-Debug/amp-dev-forge")
 
-            self.assertTrue((site_dir / "index.html").is_file())
+            self.assertTrue((site_dir / "playwright" / "index.html").is_file())
 
     def test_read_first_line_uses_default_for_empty_file(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -341,8 +377,10 @@ class TestPublishPlaywrightPages(unittest.TestCase):
                 publish.publish_report(site_dir, "playwright-pages")
 
             self.assertEqual(output.read_text(encoding="utf-8"), "deploy=true\n")
-            self.assertEqual((site_dir / "prs" / "181" / "data" / "video.webm").read_text(encoding="utf-8"),
-                             "video")
+            self.assertEqual(
+                (site_dir / "playwright" / "prs" / "181" / "data" / "video.webm").read_text(encoding="utf-8"),
+                "video",
+            )
 
     def test_dry_run_site_branch_does_not_need_github_token(self):
         with tempfile.TemporaryDirectory() as tmpdir:

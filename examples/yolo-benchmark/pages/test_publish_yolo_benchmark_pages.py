@@ -11,6 +11,7 @@ import os
 import sys
 import tempfile
 import unittest
+from html.parser import HTMLParser
 from pathlib import Path
 from unittest.mock import patch
 
@@ -28,6 +29,16 @@ def import_publish_module():
 
 
 publish = import_publish_module()
+
+
+class LinkParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.hrefs = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "a":
+            self.hrefs.extend(value for name, value in attrs if name == "href")
 
 
 def comparison(bare_ms: float = 10.0,
@@ -125,6 +136,31 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             publish.write_yolo_index(site_dir, "Arm-Debug/amp-dev-forge")
 
             self.assertTrue((site_dir / "yolo-benchmark" / "index.html").is_file())
+
+    def test_write_root_index_links_report_roots(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = Path(tmpdir)
+
+            publish.write_root_index(site_dir)
+
+            parser = LinkParser()
+            parser.feed((site_dir / "index.html").read_text(encoding="utf-8"))
+            self.assertEqual(parser.hrefs, ["playwright/index.html", "yolo-benchmark/index.html"])
+
+    def test_remove_legacy_root_site_keeps_report_roots(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = Path(tmpdir)
+            (site_dir / "index.html").write_text("legacy", encoding="utf-8")
+            (site_dir / "prs").mkdir()
+            (site_dir / "playwright").mkdir()
+            (site_dir / "yolo-benchmark").mkdir()
+
+            self.assertTrue(publish.remove_legacy_root_site(site_dir))
+
+            self.assertFalse((site_dir / "index.html").exists())
+            self.assertFalse((site_dir / "prs").exists())
+            self.assertTrue((site_dir / "playwright").is_dir())
+            self.assertTrue((site_dir / "yolo-benchmark").is_dir())
 
     def test_write_selected_artifacts_skips_prediction_jsonl(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -34,6 +34,7 @@ INDEX_HTML = "index.html"
 REPORT_INDEX_META = "report-index-meta.txt"
 PERCENTILE_METRICS = ("p50_ms", "p75_ms", "p95_ms", "p99_ms")
 RUN_METRICS = ("avg_ms", *PERCENTILE_METRICS)
+LEGACY_ROOT_PATHS = (INDEX_HTML, "nightly", "prs", "report-index.css", "report-shell.css", "report-shell.js")
 
 
 class PublishError(RuntimeError):
@@ -255,6 +256,54 @@ def copy_asset(site_dir: Path, name: str) -> None:
 
 def write_index_assets(site_dir: Path) -> None:
     copy_asset(site_dir, "report-index.css")
+
+
+def write_root_index(site_dir: Path) -> None:
+    site_dir.mkdir(parents=True, exist_ok=True)
+    (site_dir / INDEX_HTML).write_text("""<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arm Perception kit reports</title>
+    <style>
+      body { margin: 0; font: 16px system-ui, sans-serif; background: #101418; color: #edf4f1; }
+      main { max-width: 920px; margin: 0 auto; padding: 56px 24px; }
+      h1 { margin: 0 0 12px; font-size: 34px; }
+      p { margin: 0 0 28px; color: #b8c7c1; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+      a { display: block; padding: 20px; border: 1px solid #2f4a43; border-radius: 8px; color: inherit; text-decoration: none; background: #17211f; }
+      a:hover { border-color: #49b27d; }
+      strong { display: block; margin-bottom: 8px; font-size: 20px; }
+      span { color: #9fb0aa; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Arm Perception kit reports</h1>
+      <p>Published report entry points for this repository.</p>
+      <div class="grid">
+        <a href="playwright/index.html"><strong>Playwright</strong><span>Browser smoke reports</span></a>
+        <a href="yolo-benchmark/index.html"><strong>YOLO Benchmark</strong><span>Performance and accuracy benchmark reports</span></a>
+      </div>
+    </main>
+  </body>
+</html>
+""", encoding="utf-8")
+
+
+def remove_legacy_root_site(site_dir: Path) -> bool:
+    changed = False
+    for name in LEGACY_ROOT_PATHS:
+        path = site_dir / name
+        if not path.exists():
+            continue
+        if path.is_dir():
+            shutil.rmtree(path)
+        else:
+            path.unlink()
+        changed = True
+    return changed
 
 
 def read_first_line(path: Path, default: str) -> str:
@@ -1195,11 +1244,13 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
 
         runs = load_report_runs(artifact_root)
         checkout_site_branch(site_dir, storage_branch)
+        remove_legacy_root_site(site_dir)
         write_selected_artifacts(artifact_root, target, runs)
         (target / REPORT_INDEX_META).write_text(f"{index_meta_text}\n", encoding="utf-8")
         (target / "report-meta.html").write_text(f"{meta_html}\n", encoding="utf-8")
         (target / "commit.txt").write_text(f"{head_sha}\n", encoding="utf-8")
         write_report_page(target, site_dir, title, meta_html, runs)
+        write_root_index(site_dir)
         write_index_assets(site_dir)
         write_yolo_index(site_dir, repository)
         (site_dir / ".nojekyll").touch()
@@ -1212,7 +1263,7 @@ def cleanup_closed_pr_reports(site_dir: Path, storage_branch: str, retention_day
     repository = require_env("GITHUB_REPOSITORY")
     checkout_site_branch(site_dir, storage_branch)
     cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=retention_days)
-    changed = False
+    changed = remove_legacy_root_site(site_dir)
 
     prs_dir = site_dir / REPORT_ROOT / "prs"
     if prs_dir.is_dir():
@@ -1227,6 +1278,7 @@ def cleanup_closed_pr_reports(site_dir: Path, storage_branch: str, retention_day
                 changed = True
 
     if changed:
+        write_root_index(site_dir)
         write_index_assets(site_dir)
         write_yolo_index(site_dir, repository)
         pushed = push_site_branch(site_dir, storage_branch)

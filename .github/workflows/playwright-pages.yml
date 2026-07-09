@@ -16,7 +16,7 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: playwright-pages
+  group: report-pages
   cancel-in-progress: false
 
 jobs:

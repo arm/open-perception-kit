@@ -20,10 +20,12 @@ from urllib.parse import quote
 
 
 PRODUCT_TITLE = "Arm Perception kit"
+REPORT_ROOT = "playwright"
 INDEX_HTML = "index.html"
 REPORT_INDEX_META = "report-index-meta.txt"
 MAX_REPORT_BYTES = 500 * 1024 * 1024
 PRUNED_REPORT_DATA_SUFFIXES = {".webm", ".zip"}
+LEGACY_ROOT_PATHS = (INDEX_HTML, "nightly", "prs", "report-index.css", "report-shell.css", "report-shell.js")
 SCRIPT_DIR = Path(__file__).resolve().parent
 ASSET_DIR = SCRIPT_DIR / "assets"
 SOURCE_EXTENSIONS = {
@@ -210,7 +212,9 @@ def copy_asset(site_dir: Path, name: str) -> None:
     source = ASSET_DIR / name
     if not source.is_file():
         raise PublishError(f"Missing Playwright Pages asset: {source}")
-    shutil.copyfile(source, site_dir / name)
+    destination = site_dir / REPORT_ROOT / name
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source, destination)
 
 
 def write_index_assets(site_dir: Path) -> None:
@@ -223,6 +227,40 @@ def write_index_assets(site_dir: Path) -> None:
 def write_report_shell_assets(site_dir: Path) -> None:
     copy_asset(site_dir, "report-shell.css")
     copy_asset(site_dir, "report-shell.js")
+
+
+def write_root_index(site_dir: Path) -> None:
+    site_dir.mkdir(parents=True, exist_ok=True)
+    (site_dir / INDEX_HTML).write_text("""<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arm Perception kit reports</title>
+    <style>
+      body { margin: 0; font: 16px system-ui, sans-serif; background: #101418; color: #edf4f1; }
+      main { max-width: 920px; margin: 0 auto; padding: 56px 24px; }
+      h1 { margin: 0 0 12px; font-size: 34px; }
+      p { margin: 0 0 28px; color: #b8c7c1; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+      a { display: block; padding: 20px; border: 1px solid #2f4a43; border-radius: 8px; color: inherit; text-decoration: none; background: #17211f; }
+      a:hover { border-color: #49b27d; }
+      strong { display: block; margin-bottom: 8px; font-size: 20px; }
+      span { color: #9fb0aa; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Arm Perception kit reports</h1>
+      <p>Published report entry points for this repository.</p>
+      <div class="grid">
+        <a href="playwright/index.html"><strong>Playwright</strong><span>Browser smoke reports</span></a>
+        <a href="yolo-benchmark/index.html"><strong>YOLO Benchmark</strong><span>Performance and accuracy benchmark reports</span></a>
+      </div>
+    </main>
+  </body>
+</html>
+""", encoding="utf-8")
 
 
 def source_file_list(head_sha: str) -> list[str]:
@@ -347,6 +385,8 @@ def read_first_line(path: Path, default: str) -> str:
 
 
 def write_site_index(site_dir: Path, repository: str) -> None:
+    root = site_dir / REPORT_ROOT
+    root.mkdir(parents=True, exist_ok=True)
     parts = [
         write_index_head(f"{PRODUCT_TITLE} - Playwright reports", "report-index.css"),
         """      <header>
@@ -358,7 +398,7 @@ def write_site_index(site_dir: Path, repository: str) -> None:
         <div class="report-list">
 """,
     ]
-    nightly = site_dir / "nightly"
+    nightly = root / "nightly"
     if (nightly / INDEX_HTML).is_file():
         meta = read_first_line(nightly / REPORT_INDEX_META, "Scheduled develop run")
         parts.append(
@@ -377,7 +417,7 @@ def write_site_index(site_dir: Path, repository: str) -> None:
         <div class="report-list">
 """
     )
-    prs_dir = site_dir / "prs"
+    prs_dir = root / "prs"
     if prs_dir.is_dir():
         pr_dirs = [path for path in prs_dir.iterdir() if path.is_dir() and path.name.isdigit()]
         for pr_dir in sorted(pr_dirs, key=lambda path: int(path.name)):
@@ -399,7 +439,21 @@ def write_site_index(site_dir: Path, repository: str) -> None:
             write_index_footer(),
         ]
     )
-    (site_dir / INDEX_HTML).write_text("".join(parts), encoding="utf-8")
+    (root / INDEX_HTML).write_text("".join(parts), encoding="utf-8")
+
+
+def remove_legacy_root_site(site_dir: Path) -> bool:
+    changed = False
+    for name in LEGACY_ROOT_PATHS:
+        path = site_dir / name
+        if not path.exists():
+            continue
+        if path.is_dir():
+            shutil.rmtree(path)
+        else:
+            path.unlink()
+        changed = True
+    return changed
 
 
 def inject_once(pattern: str, replacement, content: str, label: str) -> str:
@@ -590,7 +644,8 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
             print("No PR number found for upstream run; skipping Pages publish.")
             set_output("deploy", "false")
             return
-        target = site_dir / "prs" / pr_number
+        root = site_dir / REPORT_ROOT
+        target = root / "prs" / pr_number
         back_href = "../../"
     else:
         if event != "schedule" or branch != "develop":
@@ -598,7 +653,8 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
             set_output("deploy", "false")
             return
         pr_number = ""
-        target = site_dir / "nightly"
+        root = site_dir / REPORT_ROOT
+        target = root / "nightly"
         back_href = "../"
 
     index_meta_text = build_report_index_meta_text(branch, head_sha, run_id, run_attempt)
@@ -619,6 +675,7 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
 
         validate_report_for_pages(report_dir)
         checkout_site_branch(site_dir, storage_branch)
+        remove_legacy_root_site(site_dir)
         copy_pruned_report_for_pages(report_dir, target)
         (target / REPORT_INDEX_META).write_text(f"{index_meta_text}\n", encoding="utf-8")
         (target / "report-meta.html").write_text(f"{meta_html}\n", encoding="utf-8")
@@ -638,6 +695,7 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
             )
         (target / "commit.txt").write_text(f"{head_sha}\n", encoding="utf-8")
         (site_dir / ".nojekyll").touch()
+        write_root_index(site_dir)
         write_index_assets(site_dir)
         write_site_index(site_dir, repository)
 
@@ -673,9 +731,9 @@ def cleanup_closed_pr_reports(site_dir: Path, storage_branch: str, retention_day
     repository = require_env("GITHUB_REPOSITORY")
     checkout_site_branch(site_dir, storage_branch)
     cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=retention_days)
-    changed = False
+    changed = remove_legacy_root_site(site_dir)
 
-    prs_dir = site_dir / "prs"
+    prs_dir = site_dir / REPORT_ROOT / "prs"
     if prs_dir.is_dir():
         for pr_dir in prs_dir.iterdir():
             if not pr_dir.is_dir() or not pr_dir.name.isdigit():
@@ -688,6 +746,7 @@ def cleanup_closed_pr_reports(site_dir: Path, storage_branch: str, retention_day
                 changed = True
 
     if changed:
+        write_root_index(site_dir)
         write_index_assets(site_dir)
         write_site_index(site_dir, repository)
         pushed = push_site_branch(site_dir, storage_branch)
