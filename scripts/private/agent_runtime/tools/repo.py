@@ -25,6 +25,7 @@ from .shell import (
     reject_git_metadata_shell_arguments,
     reject_unsafe_shell_command,
     run_parsed_shell_command,
+    shell_command_scope,
     split_shell_commands,
 )
 
@@ -117,22 +118,23 @@ def run_shell_command(command: str) -> str:
     reject_unsafe_shell_command(command)
     output_parts: list[str] = []
     exit_code = 0
-    for parsed_command in split_shell_commands(command):
-        reject_git_metadata_shell_arguments(parsed_command, context)
-        completed = run_parsed_shell_command(parsed_command, context)
-        exit_code = completed.returncode
-        output_parts.extend(
-            [
-                f"$ {format_parsed_shell_command(parsed_command)}",
-                f"exit_code={completed.returncode}",
-                "--- stdout ---",
-                completed.stdout.rstrip(),
-                "--- stderr ---",
-                completed.stderr.rstrip(),
-            ]
-        )
-        if completed.returncode != 0:
-            break
+    with shell_command_scope(context) as (cwd, environment):
+        for parsed_command in split_shell_commands(command):
+            reject_git_metadata_shell_arguments(parsed_command, context)
+            completed = run_parsed_shell_command(parsed_command, context, cwd, environment)
+            exit_code = completed.returncode
+            output_parts.extend(
+                [
+                    f"$ {format_parsed_shell_command(parsed_command)}",
+                    f"exit_code={completed.returncode}",
+                    "--- stdout ---",
+                    completed.stdout.rstrip(),
+                    "--- stderr ---",
+                    completed.stderr.rstrip(),
+                ]
+            )
+            if completed.returncode != 0:
+                break
     output_parts.insert(0, f"exit_code={exit_code}")
     output = truncate_tool_output("\n".join(output_parts).rstrip() + "\n")
     log_agent_diagnostic(

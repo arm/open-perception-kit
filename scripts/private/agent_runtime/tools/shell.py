@@ -5,15 +5,25 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 import os
 from pathlib import Path
+import shutil
 import shlex
 import subprocess
+import tempfile
 
 from ..review.context import ReviewRunContext
 from ..runtime_context import AgentRunContext
-from .paths import is_git_metadata_path, reject_hidden_review_path, resolve_stdin_redirection_path
+from .paths import (
+    REVIEW_PACKET_DIR,
+    is_git_metadata_path,
+    is_hidden_review_path,
+    reject_hidden_review_path,
+    resolve_stdin_redirection_path,
+)
 
 READ_ONLY_GIT_SUBCOMMANDS = {
     "cat-file",
@@ -179,6 +189,83 @@ def build_subprocess_environment(context: AgentRunContext) -> dict[str, str]:
     environment["XDG_DATA_HOME"] = str(isolated_home / "data")
     environment["GH_CONFIG_DIR"] = str(isolated_home / "gh")
     return environment
+
+
+def configure_review_workspace_environment(environment: dict[str, str], workspace_root: Path) -> None:
+    isolated_home = workspace_root.parent / "home"
+    environment["HOME"] = str(isolated_home)
+    environment["PWD"] = str(workspace_root)
+    environment["XDG_CACHE_HOME"] = str(isolated_home / "cache")
+    environment["XDG_CONFIG_HOME"] = str(isolated_home / "config")
+    environment["XDG_DATA_HOME"] = str(isolated_home / "data")
+    environment["GH_CONFIG_DIR"] = str(isolated_home / "gh")
+
+
+def is_safe_review_source_path(relative: str) -> bool:
+    return not is_git_metadata_path(relative) and not is_hidden_review_path(relative)
+
+
+def iter_review_source_paths(context: ReviewRunContext) -> Iterator[str]:
+    completed = subprocess.run(
+        ["git", "ls-files", "-z", "--cached", "--modified"],
+        cwd=context.repo_root,
+        text=False,
+        capture_output=True,
+        timeout=context.command_timeout,
+        check=False,
+    )
+    if completed.returncode == 0:
+        seen: set[str] = set()
+        for raw_path in completed.stdout.split(b"\0"):
+            if not raw_path:
+                continue
+            relative = raw_path.decode("utf-8", errors="surrogateescape")
+            if relative not in seen:
+                seen.add(relative)
+                yield relative
+        return
+
+    for source in context.repo_root.rglob("*"):
+        if source.is_file():
+            yield source.relative_to(context.repo_root).as_posix()
+
+
+def copy_review_source_file(context: ReviewRunContext, workspace_root: Path, relative: str) -> None:
+    relative_path = Path(relative)
+    if relative_path.is_absolute() or ".." in relative_path.parts or not is_safe_review_source_path(relative):
+        return
+    source = context.repo_root / relative_path
+    if not source.is_file():
+        return
+    target = workspace_root / relative_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, target)
+
+
+def prepare_review_shell_workspace(context: ReviewRunContext, workspace_root: Path) -> None:
+    workspace_root.mkdir(parents=True, exist_ok=True)
+    for relative in iter_review_source_paths(context):
+        copy_review_source_file(context, workspace_root, relative)
+
+    packet_source = context.repo_root / REVIEW_PACKET_DIR
+    if packet_source.is_dir():
+        packet_target = workspace_root / REVIEW_PACKET_DIR
+        packet_target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(packet_source, packet_target, dirs_exist_ok=True)
+
+
+@contextmanager
+def shell_command_scope(context: AgentRunContext) -> Iterator[tuple[Path, dict[str, str]]]:
+    environment = build_subprocess_environment(context)
+    if not isinstance(context, ReviewRunContext):
+        yield context.repo_root, environment
+        return
+
+    with tempfile.TemporaryDirectory(prefix="agent-review-shell-", dir=context.repo_root.parent) as temp_dir:
+        workspace_root = Path(temp_dir) / "repo"
+        prepare_review_shell_workspace(context, workspace_root)
+        configure_review_workspace_environment(environment, workspace_root)
+        yield workspace_root, environment
 
 
 def split_shell_commands(command: str) -> list[ParsedShellCommand]:
@@ -354,7 +441,12 @@ def format_parsed_shell_command(parsed_command: ParsedShellCommand) -> str:
     return command_text
 
 
-def run_parsed_shell_command(parsed_command: ParsedShellCommand, context: AgentRunContext) -> ShellCommandResult:
+def run_parsed_shell_command(
+    parsed_command: ParsedShellCommand,
+    context: AgentRunContext,
+    cwd: Path,
+    environment: dict[str, str],
+) -> ShellCommandResult:
     stage_input: str | None = None
     if parsed_command.stdin_path:
         stdin_path = resolve_stdin_redirection_path(
@@ -371,11 +463,10 @@ def run_parsed_shell_command(parsed_command: ParsedShellCommand, context: AgentR
     stdout_text = ""
     stderr_parts: list[str] = []
     exit_code = 0
-    environment = build_subprocess_environment(context)
     for words in parsed_command.pipeline:
         completed = subprocess.run(
             words,
-            cwd=context.repo_root,
+            cwd=cwd,
             input=stage_input,
             text=True,
             capture_output=True,

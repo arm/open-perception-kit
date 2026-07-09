@@ -7,6 +7,7 @@ from __future__ import annotations
 from contextlib import redirect_stderr
 import io
 import os
+import subprocess
 import sys
 from pathlib import Path
 import unittest
@@ -344,12 +345,51 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
                 repo_tools.read_repo_file(".github/agent-runtime/review/out/review.json")
             with self.assertRaisesRegex(ValueError, "hidden review runtime/generated output"):
                 repo_tools.run_shell_command("grep -R sdk .agent-runtime")
+            shell_output = repo_tools.run_shell_command(
+                "find . -name sdk.py -print; "
+                "find . -name review.json -print; "
+                "find .github/agent-runtime/review/out/review-packet -type f -print"
+            )
+            self.assertTrue(venv_file.is_file())
+            self.assertTrue(review_output.is_file())
 
         self.assertIn("src.py", files)
         self.assertIn(".github/agent-runtime/review/out/review-packet/index.md", files)
         self.assertIn("packet", packet)
+        self.assertIn(".github/agent-runtime/review/out/review-packet/index.md", shell_output)
+        self.assertNotIn(".agent-runtime/openai-agent-venv/lib/sdk.py", shell_output)
+        self.assertNotIn(".github/agent-runtime/review/out/review.json", shell_output)
         self.assertNotIn(".agent-runtime/openai-agent-venv/lib/sdk.py", files)
         self.assertNotIn(".github/agent-runtime/review/out/review.json", files)
+
+    def test_review_shell_runs_from_tracked_source_snapshot(self):
+        repo_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_REPO_TOOLS_SCRIPT,
+            "agent_runtime.tools.repo_fake_sdk_review_source_snapshot",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            subprocess.run(["git", "init", "-q"], cwd=repo_root, check=True)
+            tracked_file = repo_root / "tracked.py"
+            tracked_file.write_text("VALUE = 1\n", encoding="utf-8")
+            subprocess.run(["git", "add", "tracked.py"], cwd=repo_root, check=True)
+            generated_file = repo_root / "random-generated" / "leak.txt"
+            generated_file.parent.mkdir()
+            generated_file.write_text("generated\n", encoding="utf-8")
+            packet_index = repo_root / ".github" / "agent-runtime" / "review" / "out" / "review-packet" / "index.md"
+            packet_index.parent.mkdir(parents=True)
+            packet_index.write_text("packet\n", encoding="utf-8")
+            self.activate_review_context(repo_root)
+
+            output = repo_tools.run_shell_command(
+                "find . -name tracked.py -print; "
+                "find . -name leak.txt -print; "
+                "find .github/agent-runtime/review/out/review-packet -type f -print"
+            )
+
+        self.assertIn("./tracked.py", output)
+        self.assertIn(".github/agent-runtime/review/out/review-packet/index.md", output)
+        self.assertNotIn("random-generated/leak.txt", output)
 
     def test_openai_agent_runner_applies_safe_unified_diff(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
