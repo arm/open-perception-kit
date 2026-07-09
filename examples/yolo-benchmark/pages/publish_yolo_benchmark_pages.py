@@ -435,6 +435,21 @@ def metric_value(run: dict[str, Any], metric: str, key: str) -> float:
     return float(run["comparison"]["timing_delta"]["per_image_ms"][metric][key])
 
 
+def available_metrics(runs: list[dict[str, Any]], candidates: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(
+        metric for metric in candidates
+        if all(metric in run["comparison"]["timing_delta"]["per_image_ms"] for run in runs)
+    )
+
+
+def report_run_metrics(runs: list[dict[str, Any]]) -> tuple[str, ...]:
+    return available_metrics(runs, RUN_METRICS)
+
+
+def report_percentile_metrics(runs: list[dict[str, Any]]) -> tuple[str, ...]:
+    return available_metrics(runs, PERCENTILE_METRICS)
+
+
 def format_ms(value: float) -> str:
     return f"{value:.1f}"
 
@@ -700,8 +715,9 @@ def stability_metric_tab_id(metric: str) -> str:
 
 def write_stability_charts(runs: list[dict[str, Any]]) -> str:
     parts = ["<div>"]
-    for metric in PERCENTILE_METRICS:
-        active = " is-active" if metric == PERCENTILE_METRICS[0] else ""
+    metrics = report_percentile_metrics(runs)
+    for metric in metrics:
+        active = " is-active" if metric == metrics[0] else ""
         parts.append(
             f'<div class="metric-tab-panel{active}" id="{stability_metric_tab_id(metric)}-panel">'
             f"{metric_trend_chart_svg(runs, metric)}</div>\n"
@@ -710,9 +726,9 @@ def write_stability_charts(runs: list[dict[str, Any]]) -> str:
     return "".join(parts)
 
 
-def write_stability_metric_controls() -> str:
+def write_stability_metric_controls(runs: list[dict[str, Any]]) -> str:
     parts = ['<div class="metric-tab-controls">']
-    for index, metric in enumerate(PERCENTILE_METRICS):
+    for index, metric in enumerate(report_percentile_metrics(runs)):
         checked = " checked" if index == 0 else ""
         active = " is-active" if index == 0 else ""
         tab_id = stability_metric_tab_id(metric)
@@ -782,7 +798,7 @@ def write_summary_table(runs: list[dict[str, Any]]) -> str:
         th("Result"),
         "</tr></thead><tbody>",
     ]
-    parts.append(write_delta_rows([(metric, median_delta(runs, metric)) for metric in RUN_METRICS]))
+    parts.append(write_delta_rows([(metric, median_delta(runs, metric)) for metric in report_run_metrics(runs)]))
     parts.append("</tbody></table></div>")
     return "".join(parts)
 
@@ -801,7 +817,7 @@ def write_stability_table(runs: list[dict[str, Any]]) -> str:
         th("PEK range", "[ms]"),
         "</tr></thead><tbody>",
     ]
-    for metric in PERCENTILE_METRICS:
+    for metric in report_percentile_metrics(runs):
         parts.append(
             "<tr>"
             f"<td>{html_escape(metric)}</td>"
@@ -824,7 +840,7 @@ def write_run_table(run: dict[str, Any]) -> str:
         th("Result"),
         "</tr></thead><tbody>",
     ]
-    parts.append(write_delta_rows([(metric, run_delta(run, metric)) for metric in RUN_METRICS]))
+    parts.append(write_delta_rows([(metric, run_delta(run, metric)) for metric in report_run_metrics([run])]))
     parts.append("</tbody></table></div>")
     return "".join(parts)
 
@@ -905,9 +921,10 @@ def bar_chart_svg(
 
 
 def summary_bar_chart_svg(runs: list[dict[str, Any]]) -> str:
-    deltas = {metric: median_delta(runs, metric) for metric in RUN_METRICS}
+    metrics = report_run_metrics(runs)
+    deltas = {metric: median_delta(runs, metric) for metric in metrics}
     return bar_chart_svg(
-        RUN_METRICS,
+        metrics,
         lambda metric: float(deltas[metric]["bare_ms"]),
         lambda metric: float(deltas[metric]["pek_ms"]),
         "10-run median metric comparison",
@@ -915,8 +932,9 @@ def summary_bar_chart_svg(runs: list[dict[str, Any]]) -> str:
 
 
 def run_bar_chart_svg(run: dict[str, Any]) -> str:
+    metrics = report_run_metrics([run])
     return bar_chart_svg(
-        RUN_METRICS,
+        metrics,
         lambda metric: metric_value(run, metric, "bare_ms"),
         lambda metric: metric_value(run, metric, "pek_ms"),
         f'{run["name"]} metric bar comparison',
@@ -927,7 +945,7 @@ def write_stability_section(runs: list[dict[str, Any]]) -> str:
     return (
         '      <section class="section-card">\n'
         '        <div class="summary-heading"><h2>Run Stability</h2>\n'
-        f'{write_stability_metric_controls()}</div>\n'
+        f'{write_stability_metric_controls(runs)}</div>\n'
         '        <div class="benchmark-layout"><div class="chart-panel">\n'
         f'{write_stability_charts(runs)}\n'
         '        </div><div class="table-panel">\n'

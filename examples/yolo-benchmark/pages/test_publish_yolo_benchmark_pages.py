@@ -30,7 +30,9 @@ def import_publish_module():
 publish = import_publish_module()
 
 
-def comparison(bare_ms: float = 10.0, pek_ms: float = 15.0) -> dict:
+def comparison(bare_ms: float = 10.0,
+               pek_ms: float = 15.0,
+               metrics: tuple[str, ...] = publish.RUN_METRICS) -> dict:
     row = {
         "bare_ms": bare_ms,
         "pek_ms": pek_ms,
@@ -47,7 +49,7 @@ def comparison(bare_ms: float = 10.0, pek_ms: float = 15.0) -> dict:
             "bare_model": "config/models/yolov11/yolo11n-fp32-320.onnx",
             "pek_opchain": "config/models/yolov11/opchain.json",
         },
-        "timing_delta": {"per_image_ms": {metric: dict(row) for metric in publish.RUN_METRICS}},
+        "timing_delta": {"per_image_ms": {metric: dict(row) for metric in metrics}},
     }
 
 
@@ -85,6 +87,13 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
         self.assertEqual(p75["pek_ms"], 16.5)
         self.assertEqual(p75["delta_ms"], 5.5)
         self.assertEqual(p75["ratio"], 1.5)
+
+    def test_report_metrics_skip_legacy_missing_p75(self) -> None:
+        legacy_metrics = ("avg_ms", "p50_ms", "p95_ms", "p99_ms")
+        runs = [{"name": "run-01", "path": Path("run-01"), "comparison": comparison(metrics=legacy_metrics)}]
+
+        self.assertEqual(publish.report_run_metrics(runs), legacy_metrics)
+        self.assertEqual(publish.report_percentile_metrics(runs), legacy_metrics[1:])
 
     def test_write_report_page_generates_index(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
