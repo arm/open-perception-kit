@@ -226,13 +226,16 @@ def iter_review_source_paths(context: ReviewRunContext) -> Iterator[str]:
         return
 
     for source in context.repo_root.rglob("*"):
-        if source.is_file():
-            yield source.relative_to(context.repo_root).as_posix()
+        if not source.is_file():
+            continue
+        relative = source.relative_to(context.repo_root).as_posix()
+        if is_safe_review_source_path(relative):
+            yield relative
 
 
 def copy_review_source_file(context: ReviewRunContext, workspace_root: Path, relative: str) -> None:
     relative_path = Path(relative)
-    if relative_path.is_absolute() or ".." in relative_path.parts or not is_safe_review_source_path(relative):
+    if relative_path.is_absolute() or ".." in relative_path.parts or is_git_metadata_path(relative):
         return
     source = context.repo_root / relative_path
     if not source.is_file():
@@ -487,14 +490,21 @@ def run_parsed_shell_command(
 ) -> ShellCommandResult:
     stage_input: str | None = None
     if parsed_command.stdin_path:
-        stdin_path = resolve_stdin_redirection_path(
-            context,
-            parsed_command.stdin_path,
-        )
         if isinstance(context, ReviewRunContext):
-            reject_hidden_review_path(
-                stdin_path.relative_to(context.repo_root).as_posix(),
+            stdin_path = resolve_shell_workspace_path(
+                parsed_command.stdin_path,
+                cwd,
                 "Shell stdin redirection",
+            )
+            if not stdin_path.is_file():
+                raise ValueError(
+                    f"Shell stdin redirection path is not available in the shell workspace: "
+                    f"{parsed_command.stdin_path}"
+                )
+        else:
+            stdin_path = resolve_stdin_redirection_path(
+                context,
+                parsed_command.stdin_path,
             )
         stage_input = stdin_path.read_text(encoding="utf-8")
 
@@ -535,6 +545,14 @@ def is_path_like_shell_word(word: str) -> bool:
     return word in {".", ".."} or "/" in word
 
 
+def resolve_shell_workspace_path(path_value: str, cwd: Path, operation: str) -> Path:
+    path = Path(path_value)
+    resolved = (path if path.is_absolute() else cwd / path).resolve()
+    if resolved != cwd and cwd not in resolved.parents:
+        raise ValueError(f"{operation} path escapes shell workspace: {path_value}")
+    return resolved
+
+
 def reject_shell_path_arguments(
     parsed_command: ParsedShellCommand,
     context: AgentRunContext,
@@ -545,10 +563,7 @@ def reject_shell_path_arguments(
             if not word or word.startswith("-") or "://" in word:
                 continue
             if isinstance(context, ReviewRunContext) and index > 0 and is_path_like_shell_word(word):
-                path = Path(word)
-                resolved = (path if path.is_absolute() else cwd / path).resolve()
-                if resolved != cwd and cwd not in resolved.parents:
-                    raise ValueError(f"Command argument escapes shell workspace: {word}")
+                resolve_shell_workspace_path(word, cwd, "Command argument")
             try:
                 path = context.resolve_repo_path(word)
                 relative = path.relative_to(context.repo_root).as_posix()

@@ -372,7 +372,28 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
             subprocess.run(["git", "init", "-q"], cwd=repo_root, check=True)
             tracked_file = repo_root / "tracked.py"
             tracked_file.write_text("VALUE = 1\n", encoding="utf-8")
-            subprocess.run(["git", "add", "tracked.py"], cwd=repo_root, check=True)
+            review_out_gitignore = repo_root / ".github" / "agent-runtime" / "review" / "out" / ".gitignore"
+            review_out_gitignore.parent.mkdir(parents=True)
+            review_out_gitignore.write_text("*\n!.gitignore\n", encoding="utf-8")
+            subprocess.run(
+                ["git", "add", "tracked.py", ".github/agent-runtime/review/out/.gitignore"],
+                cwd=repo_root,
+                check=True,
+            )
+            subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    "user.name=Test",
+                    "-c",
+                    "user.email=test@example.invalid",
+                    "commit",
+                    "-qm",
+                    "base",
+                ],
+                cwd=repo_root,
+                check=True,
+            )
             generated_file = repo_root / "random-generated" / "leak.txt"
             generated_file.parent.mkdir()
             generated_file.write_text("generated\n", encoding="utf-8")
@@ -381,24 +402,34 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
             packet_index.write_text("packet\n", encoding="utf-8")
             self.activate_review_context(repo_root)
 
+            git_output = repo_tools.run_shell_command("git status --short; git diff --name-status")
             output = repo_tools.run_shell_command(
-                "git status --short; "
                 "find . -maxdepth 1 -print; "
                 "find . -name tracked.py -print; "
                 "find . -name leak.txt -print; "
                 "find .github/agent-runtime/review/out/review-packet -type f -print"
             )
+            tracked_stdin = repo_tools.run_shell_command("cat < tracked.py")
             env_output = repo_tools.run_shell_command("env")
+            with self.assertRaisesRegex(ValueError, "not available in the shell workspace"):
+                repo_tools.run_shell_command("cat < random-generated/leak.txt")
+            with self.assertRaisesRegex(ValueError, "escapes shell workspace"):
+                repo_tools.run_shell_command("cat < ..")
             with self.assertRaisesRegex(ValueError, "escapes shell workspace"):
                 repo_tools.run_shell_command("find .. -name leak.txt -print")
 
-        self.assertIn("$ git status --short", output)
-        self.assertNotIn("exit_code=128", output)
-        self.assertNotIn("not a git repository", output)
+        self.assertIn("$ git status --short", git_output)
+        self.assertIn("$ git diff --name-status", git_output)
+        self.assertNotIn("exit_code=128", git_output)
+        self.assertNotIn("not a git repository", git_output)
+        self.assertNotIn(".github/agent-runtime/review/out/.gitignore", git_output)
+        self.assertNotIn("review-packet/index.md", git_output)
+        self.assertNotIn("random-generated/leak.txt", git_output)
         self.assertNotIn("\n./.git\n", output)
         self.assertNotIn("GIT_DIR=", env_output)
         self.assertNotIn("GIT_WORK_TREE=", env_output)
         self.assertIn("./tracked.py", output)
+        self.assertIn("VALUE = 1", tracked_stdin)
         self.assertIn(".github/agent-runtime/review/out/review-packet/index.md", output)
         self.assertNotIn("random-generated/leak.txt", output)
 
