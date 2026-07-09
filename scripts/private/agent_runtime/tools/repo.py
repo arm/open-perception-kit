@@ -59,7 +59,8 @@ def read_repo_file(path: str, start_line: int | None = None, end_line: int | Non
         f"{line_number}: {line}"
         for line_number, line in enumerate(lines[first:last], start=first + 1)
     ]
-    output = truncate_tool_output("\n".join(numbered))
+    full_output = "\n".join(numbered)
+    output = truncate_tool_output(full_output)
     log_agent_diagnostic(
         "tool_call",
         tool="read_repo_file",
@@ -67,7 +68,9 @@ def read_repo_file(path: str, start_line: int | None = None, end_line: int | Non
         start_line=start_line or "",
         end_line=end_line or "",
         elapsed_ms=int((time.monotonic() - start) * 1000),
-        output_chars=len(output),
+        output=full_output,
+        output_chars=len(full_output),
+        returned_output_chars=len(output),
     )
     return output
 
@@ -104,7 +107,9 @@ def list_repo_files(pattern: str = "**/*") -> str:
         tool="list_repo_files",
         pattern=pattern,
         elapsed_ms=int((time.monotonic() - start) * 1000),
+        output=output,
         output_chars=len(output),
+        returned_output_chars=len(output),
     )
     return output
 
@@ -142,14 +147,17 @@ def run_shell_command(command: str) -> str:
             if completed.returncode != 0:
                 break
     output_parts.insert(0, f"exit_code={exit_code}")
-    output = truncate_tool_output("\n".join(output_parts).rstrip() + "\n")
+    full_output = "\n".join(output_parts).rstrip() + "\n"
+    output = truncate_tool_output(full_output)
     log_agent_diagnostic(
         "tool_call",
         tool="run_shell_command",
         command=command,
         exit_code=exit_code,
         elapsed_ms=int((time.monotonic() - start) * 1000),
-        output_chars=len(output),
+        output=full_output,
+        output_chars=len(full_output),
+        returned_output_chars=len(output),
     )
     return output
 
@@ -171,24 +179,25 @@ def apply_unified_diff(patch: str) -> str:
         check=False,
     )
     if completed.returncode != 0:
-        output = truncate_tool_output(
-            "\n".join(
-                [
-                    "Patch apply failed.",
-                    "--- stdout ---",
-                    completed.stdout.rstrip(),
-                    "--- stderr ---",
-                    completed.stderr.rstrip(),
-                ]
-            ).rstrip()
-            + "\n"
-        )
+        full_output = "\n".join(
+            [
+                "Patch apply failed.",
+                "--- stdout ---",
+                completed.stdout.rstrip(),
+                "--- stderr ---",
+                completed.stderr.rstrip(),
+            ]
+        ).rstrip() + "\n"
+        output = truncate_tool_output(full_output)
         log_agent_diagnostic(
             "tool_call",
             tool="apply_unified_diff",
             exit_code=completed.returncode,
             elapsed_ms=int((time.monotonic() - start) * 1000),
-            output_chars=len(output),
+            patch=patch,
+            output=full_output,
+            output_chars=len(full_output),
+            returned_output_chars=len(output),
         )
         return output
     output = "exit_code=0\nPatch applied.\n"
@@ -197,6 +206,9 @@ def apply_unified_diff(patch: str) -> str:
         tool="apply_unified_diff",
         exit_code=completed.returncode,
         elapsed_ms=int((time.monotonic() - start) * 1000),
+        patch=patch,
+        output=output,
         output_chars=len(output),
+        returned_output_chars=len(output),
     )
     return output

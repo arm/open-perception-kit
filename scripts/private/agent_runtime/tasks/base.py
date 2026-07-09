@@ -87,9 +87,12 @@ class AgentWorkflowTask(ABC):
                 error=type(exc).__name__,
             )
             raise
+        final_output = result.final_output
         log_agent_diagnostic(
             "agent_run_done",
             agent=self.agent_name,
             elapsed_ms=int((time.monotonic() - start) * 1000),
+            output=final_output,
+            output_chars=len(str(final_output)),
         )
-        return result.final_output
+        return final_output

@@ -109,6 +109,7 @@ jobs:
         shell: bash
         env:
           OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
+          AGENT_ACTION_LOG: .github/agent-runtime/review/out/agent-actions.jsonl
         run: |
           .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/openai_agent_runner.py run-review \
             --model-config-file .github/agent-runtime/runtime/agent-models.json \

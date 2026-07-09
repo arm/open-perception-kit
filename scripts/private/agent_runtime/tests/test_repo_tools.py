@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from contextlib import redirect_stderr
 import io
+import json
 import os
 import subprocess
 import sys
@@ -172,6 +173,25 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
         self.assertIn("ok", output)
         self.assertIn("agent-diagnostic", stderr.getvalue())
         self.assertIn("tool=run_shell_command", stderr.getvalue())
+
+    def test_openai_agent_repo_tools_write_full_action_log(self):
+        repo_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_REPO_TOOLS_SCRIPT,
+            "agent_runtime.tools.repo_fake_sdk_action_log",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            action_log = repo_root / "agent-actions.jsonl"
+            OPENAI_AGENT_RUNTIME_CONTEXT.set_run_context(repo_root, 10)
+            with mock.patch.dict(os.environ, {"AGENT_ACTION_LOG": str(action_log)}):
+                output = repo_tools.run_shell_command("python3 -c 'print(\"x\" * 25050)'")
+            entries = [json.loads(line) for line in action_log.read_text(encoding="utf-8").splitlines()]
+
+        self.assertIn("[truncated", output)
+        shell_entry = next(entry for entry in entries if entry.get("tool") == "run_shell_command")
+        self.assertIn("x" * 25050, shell_entry["output"])
+        self.assertNotIn("[truncated", shell_entry["output"])
+        self.assertGreater(shell_entry["output_chars"], shell_entry["returned_output_chars"])
 
     def test_openai_agent_runner_executes_tokenized_pipelines_and_stdin_redirection(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
