@@ -288,7 +288,125 @@ def build_review_git_environment(
         index_target = workspace_root.parent / "index"
         shutil.copy2(index_source, index_target)
         git_environment["GIT_INDEX_FILE"] = str(index_target)
+    install_review_git_wrapper(
+        workspace_root,
+        environment,
+        git_environment,
+        shutil.which("git", path=environment.get("PATH")) or "git",
+    )
     return git_environment
+
+
+def install_review_git_wrapper(
+    workspace_root: Path,
+    environment: dict[str, str],
+    git_environment: dict[str, str],
+    git_executable: str,
+) -> None:
+    bin_dir = workspace_root.parent / "bin"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    wrapper = bin_dir / "git"
+    wrapper.write_text(
+        "\n".join(
+            [
+                "#!/usr/bin/env python3",
+                "import os",
+                "from pathlib import Path",
+                "import sys",
+                "",
+                f"GIT_EXECUTABLE = {git_executable!r}",
+                f"WORKSPACE_ROOT = {str(workspace_root)!r}",
+                f"GIT_ENVIRONMENT = {git_environment!r}",
+                "READ_ONLY_SUBCOMMANDS = {",
+                *[f"    {subcommand!r}," for subcommand in sorted(READ_ONLY_GIT_SUBCOMMANDS | {
+                    "show-ref",
+                    "symbolic-ref",
+                })],
+                "}",
+                f"FORBIDDEN_OPTIONS = {sorted(FORBIDDEN_GIT_OPTIONS - {'-C'})!r}",
+                "",
+                "",
+                "def fail(message):",
+                "    print(message, file=sys.stderr)",
+                "    sys.exit(128)",
+                "",
+                "",
+                "def option_has_inline_value(word, option):",
+                "    if option.startswith('--'):",
+                "        return word.startswith(f'{option}=')",
+                "    return word.startswith(option) and word != option",
+                "",
+                "",
+                "def reject_forbidden_options(args):",
+                "    for word in args:",
+                "        for option in FORBIDDEN_OPTIONS:",
+                "            if word == option or option_has_inline_value(word, option):",
+                "                fail(f'Blocked git option in review shell: {option}')",
+                "",
+                "",
+                "def validate_cwd_options(args):",
+                "    workspace = Path(WORKSPACE_ROOT).resolve()",
+                "    index = 0",
+                "    while index < len(args):",
+                "        if args[index] != '-C':",
+                "            index += 1",
+                "            continue",
+                "        if index + 1 >= len(args):",
+                "            fail('Missing path after git -C')",
+                "        value = Path(args[index + 1])",
+                "        resolved = (value if value.is_absolute() else Path.cwd() / value).resolve()",
+                "        if resolved != workspace and workspace not in resolved.parents:",
+                "            fail(f'git -C path escapes review shell workspace: {args[index + 1]}')",
+                "        index += 2",
+                "",
+                "",
+                "def find_subcommand(args):",
+                "    index = 0",
+                "    while index < len(args):",
+                "        word = args[index]",
+                "        if word == '--':",
+                "            index += 1",
+                "            continue",
+                "        if word == '-C':",
+                "            index += 2",
+                "            continue",
+                "        if word.startswith('-'):",
+                "            index += 1",
+                "            continue",
+                "        return word",
+                "    return None",
+                "",
+                "",
+                "def symbolic_ref_is_read_only(args):",
+                "    try:",
+                "        index = args.index('symbolic-ref') + 1",
+                "    except ValueError:",
+                "        return True",
+                "    if any(word in {'--delete', '-d', '-m'} for word in args[index:]):",
+                "        return False",
+                "    refs = [word for word in args[index:] if not word.startswith('-')]",
+                "    return len(refs) <= 1",
+                "",
+                "",
+                "args = sys.argv[1:]",
+                "reject_forbidden_options(args)",
+                "validate_cwd_options(args)",
+                "subcommand = find_subcommand(args)",
+                "if subcommand not in READ_ONLY_SUBCOMMANDS:",
+                "    fail(f'Blocked git subcommand in review shell: {subcommand}')",
+                "if subcommand == 'symbolic-ref' and not symbolic_ref_is_read_only(args):",
+                "    fail('Blocked mutating git symbolic-ref in review shell')",
+                "environment = dict(os.environ)",
+                "environment.update(GIT_ENVIRONMENT)",
+                "os.execvpe(GIT_EXECUTABLE, [GIT_EXECUTABLE, *args], environment)",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    wrapper.chmod(0o755)
+    environment["PATH"] = f"{bin_dir}{os.pathsep}{environment.get('PATH', '')}"
+    git_environment["PATH"] = environment["PATH"]
 
 
 @contextmanager

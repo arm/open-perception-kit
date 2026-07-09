@@ -392,11 +392,31 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
             subprocess.run(["git", "init", "-q"], cwd=repo_root, check=True)
             tracked_file = repo_root / "tracked.py"
             tracked_file.write_text("VALUE = 1\n", encoding="utf-8")
+            validation_script = repo_root / "scripts" / "pre-commit" / "run.sh"
+            validation_script.parent.mkdir(parents=True)
+            validation_script.write_text(
+                textwrap.dedent(
+                    """\
+                    #!/usr/bin/env bash
+                    set -euo pipefail
+                    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+                    git -C "${script_dir}" rev-parse --show-toplevel
+                    """
+                ),
+                encoding="utf-8",
+            )
+            validation_script.chmod(0o755)
             review_out_gitignore = repo_root / ".github" / "agent-runtime" / "review" / "out" / ".gitignore"
             review_out_gitignore.parent.mkdir(parents=True)
             review_out_gitignore.write_text("*\n!.gitignore\n", encoding="utf-8")
             subprocess.run(
-                ["git", "add", "tracked.py", ".github/agent-runtime/review/out/.gitignore"],
+                [
+                    "git",
+                    "add",
+                    "tracked.py",
+                    "scripts/pre-commit/run.sh",
+                    ".github/agent-runtime/review/out/.gitignore",
+                ],
                 cwd=repo_root,
                 check=True,
             )
@@ -430,6 +450,7 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
                 "find .github/agent-runtime/review/out/review-packet -type f -print"
             )
             tracked_stdin = repo_tools.run_shell_command("cat < tracked.py")
+            validation_output = repo_tools.run_shell_command("./scripts/pre-commit/run.sh --help")
             env_output = repo_tools.run_shell_command("env")
             with self.assertRaisesRegex(ValueError, "not available in the shell workspace"):
                 repo_tools.run_shell_command("cat < random-generated/leak.txt")
@@ -448,6 +469,8 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
         self.assertNotIn("\n./.git\n", output)
         self.assertNotIn("GIT_DIR=", env_output)
         self.assertNotIn("GIT_WORK_TREE=", env_output)
+        self.assertIn("exit_code=0", validation_output)
+        self.assertNotIn("not a git repository", validation_output)
         self.assertIn("./tracked.py", output)
         self.assertIn("VALUE = 1", tracked_stdin)
         self.assertIn(".github/agent-runtime/review/out/review-packet/index.md", output)
