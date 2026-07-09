@@ -29,8 +29,8 @@ RUN set -eux; \
   libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
   libjson-glib-dev libsoup-3.0-dev libssl-dev lldb-17 meson \
   ninja-build pkg-config pre-commit python3 python3-dev python3-gi \
-  python3-gst-1.0 python3-pip python3-venv shfmt ssh sudo unzip \
-  valgrind wget zip; \
+  python3-gst-1.0 python3-venv shfmt openssh-client sudo unzip \
+  valgrind; \
   rm -rf /var/lib/apt/lists/*; \
   curl --proto "=https" -LsSf https://astral.sh/uv/install.sh | \
   env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh; \
@@ -103,8 +103,7 @@ USER root
 RUN set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  bash-completion clangd fd-find gdb less locales mc nano net-tools \
-  openssh-client ripgrep tmux vim zsh; \
+  bash-completion clangd gdb less locales nano net-tools; \
   rm -rf /var/lib/apt/lists/*
 
 # libav can sometimes be the troublemaker; probe then install
@@ -289,7 +288,7 @@ USER root
 # ---- Basic packages for development ----
 RUN apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-  bat clangd dnsutils eza fonts-powerline gosu iproute2 \
+  zsh ripgrep fzf bat clangd dnsutils eza fonts-powerline gosu iproute2 \
   iputils-arping iputils-ping lua5.1 luarocks nmap powerline tcpdump \
   traceroute tree-sitter-cli wl-clipboard xz-utils; \
   rm -rf /var/lib/apt/lists/*
