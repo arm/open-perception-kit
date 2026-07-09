@@ -467,6 +467,7 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
                 "find .github/agent-runtime/review/out/review-packet -type f -print"
             )
             tracked_stdin = repo_tools.run_shell_command("cat < tracked.py")
+            python_output = repo_tools.run_shell_command("python3 -c 'print(__import__(\"sys\").executable)'")
             validation_output = repo_tools.run_shell_command("./scripts/pre-commit/run.sh --help")
             env_output = repo_tools.run_shell_command("env")
             with self.assertRaisesRegex(ValueError, "not available in the shell workspace"):
@@ -491,6 +492,7 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
         self.assertNotIn("GIT_WORK_TREE=", env_output)
         self.assertIn("exit_code=0", validation_output)
         self.assertNotIn("not a git repository", validation_output)
+        self.assertIn(str(Path(sys.executable).resolve().parent), python_output)
         self.assertIn("./tracked.py", output)
         self.assertIn("VALUE = 1", tracked_stdin)
         self.assertIn(".github/agent-runtime/review/out/review-packet/index.md", output)

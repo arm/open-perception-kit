@@ -13,6 +13,7 @@ from pathlib import Path
 import shutil
 import shlex
 import subprocess
+import sys
 import tempfile
 
 from ..review.context import ReviewRunContext
@@ -181,6 +182,8 @@ def build_subprocess_environment(context: AgentRunContext) -> dict[str, str]:
         if is_safe_review_environment_name(name)
     }
     isolated_home = context.repo_root / ".agent-runtime/review-shell-home"
+    runtime_bin = str(Path(sys.executable).resolve().parent)
+    environment["PATH"] = f"{runtime_bin}{os.pathsep}{environment.get('PATH', '')}"
     environment["HOME"] = str(isolated_home)
     environment["PWD"] = str(context.repo_root)
     environment["XDG_CACHE_HOME"] = str(isolated_home / "cache")
