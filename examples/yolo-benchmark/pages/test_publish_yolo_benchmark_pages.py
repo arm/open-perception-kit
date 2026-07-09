@@ -188,6 +188,10 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             site_dir = Path(tmpdir) / "site"
             target = site_dir / "yolo-benchmark" / "manual" / "123"
             target.mkdir(parents=True)
+            (target / "images.tsv").write_text(
+                "# image_set_fingerprint=sha256:abcdef1234567890\n139\t/tmp/000000000139.jpg\n",
+                encoding="utf-8",
+            )
 
             publish.write_report_page(
                 target,
@@ -217,11 +221,24 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             links = LinkParser()
             links.feed(html)
 
-            self.assertIn("Per-image timings", html)
-            self.assertIn("Per-image Stage Profile - Ranked", html)
-            self.assertIn("Per-image Stage Profile - Dataset Order", html)
-            self.assertIn("139", parser.items)
-            self.assertTrue(any("PEK inf" in item for item in parser.items))
+            self.assertNotIn("Per-image timings", html)
+            self.assertNotIn("Per-image Stage Profile - Ranked", html)
+            self.assertNotIn("Per-image Stage Profile - Dataset Order", html)
+            self.assertNotIn("Dataset order median", html)
+            self.assertNotIn("<h2>Run Stability</h2>", html)
+            self.assertIn("Run Stability - p50_ms", html)
+            self.assertIn("Preprocess - Ranked per-image median", html)
+            self.assertLess(html.index('id="section-information"'), html.index('id="summary"'))
+            self.assertLess(html.index('id="summary"'), html.index('id="runs"'))
+            self.assertLess(html.index('id="runs"'), html.index('id="dataset-analysis"'))
+            self.assertEqual(html.count("10-run Summary"), 1)
+            self.assertIn('aria-controls="section-summary"', html)
+            self.assertIn('aria-controls="section-runs"', html)
+            self.assertIn('aria-controls="section-dataset-analysis"', html)
+            self.assertEqual(html.count('aria-controls="section-runs"'), 1)
+            self.assertIn("Full image list", html)
+            self.assertIn("640x426", html)
+            self.assertIn("images.tsv", links.hrefs)
             self.assertIn(
                 "../../../yolo-performance-datasets/coco-val2017-abcdef123456/images/000000000139.jpg",
                 links.hrefs,

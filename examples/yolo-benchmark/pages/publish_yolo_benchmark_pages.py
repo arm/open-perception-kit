@@ -760,34 +760,6 @@ def chart_tooltip_html() -> str:
     if (targetFor(event)) tooltip.hidden = true;
   });
   document.addEventListener("click", event => {
-    const sortButton = event.target instanceof Element ? event.target.closest("[data-sort-column]") : null;
-    if (sortButton) {
-      const table = sortButton.closest("table");
-      const tbody = table?.tBodies[0];
-      if (!table || !tbody) return;
-      const column = Number(sortButton.dataset.sortColumn);
-      const direction = sortButton.dataset.sortDirection === "asc" ? "desc" : "asc";
-      const rows = Array.from(tbody.rows);
-      const valueFor = row => {
-        const value = row.cells[column]?.dataset.sortValue ?? "";
-        const numberValue = Number(value);
-        return value !== "" && Number.isFinite(numberValue) ? numberValue : value.toLowerCase();
-      };
-      rows.sort((left, right) => {
-        const leftValue = valueFor(left);
-        const rightValue = valueFor(right);
-        if (leftValue === rightValue) return 0;
-        return (leftValue > rightValue ? 1 : -1) * (direction === "asc" ? 1 : -1);
-      });
-      table.querySelectorAll("[data-sort-column]").forEach(button => {
-        button.dataset.sortDirection = "";
-        button.removeAttribute("aria-sort");
-      });
-      sortButton.dataset.sortDirection = direction;
-      sortButton.setAttribute("aria-sort", direction === "asc" ? "ascending" : "descending");
-      rows.forEach(row => tbody.appendChild(row));
-      return;
-    }
     const button = event.target instanceof Element ? event.target.closest(".section-toggle") : null;
     if (!button) return;
     const content = document.getElementById(button.getAttribute("aria-controls"));
@@ -831,7 +803,10 @@ def chart_tooltip_html() -> str:
       return;
     }
     const metricInput = event.target instanceof Element ? event.target.closest(".metric-tab-input") : null;
-    if (metricInput) activateMetric(metricInput);
+    if (metricInput) {
+      activateMetric(metricInput);
+      return;
+    }
   });
   document.addEventListener("keydown", event => {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
@@ -857,7 +832,7 @@ def metric_trend_chart_svg(runs: list[dict[str, Any]], metric: str) -> str:
         [run["name"].replace("run-", "", 1) for run in runs],
         [metric_value(run, metric, "bare_ms") for run in runs],
         [metric_value(run, metric, "pek_ms") for run in runs],
-        f"{metric} trend",
+        f"Run Stability - {metric}",
         f"{metric} trend across runs",
     )
 
@@ -877,6 +852,8 @@ def image_stage_profile(runs: list[dict[str, Any]], stage: str) -> list[dict[str
                 "image_index": key[0],
                 "image_id": key[1],
                 "image_file": row.get("image_file", ""),
+                "width": row.get("width", ""),
+                "height": row.get("height", ""),
                 "bare": [],
                 "pek": [],
             })
@@ -895,6 +872,8 @@ def image_stage_profile(runs: list[dict[str, Any]], stage: str) -> list[dict[str
             "image_index": item["image_index"],
             "image_id": item["image_id"],
             "image_file": item["image_file"],
+            "width": item["width"],
+            "height": item["height"],
             "bare_ms": statistics.median(bare_values) if bare_values else None,
             "pek_ms": statistics.median(pek_values) if pek_values else None,
         })
@@ -921,8 +900,15 @@ def image_stage_tooltip(row: dict[str, Any], stage_label: str) -> str:
         delta_text = f"{format_ms(float(pek) - float(bare))} ms"
     return (
         f"{stage_label} image #{row['image_index']} id {row['image_id']} | "
+        f"Size {image_size_text(row)} | "
         f"Bare {bare_text} | PEK {pek_text} | Delta {delta_text}"
     )
+
+
+def image_size_text(row: dict[str, Any]) -> str:
+    width = row.get("width")
+    height = row.get("height")
+    return f"{width}x{height}" if width and height else "n/a"
 
 
 def image_stage_link(dataset_images_href: str, row: dict[str, Any]) -> str:
@@ -945,6 +931,7 @@ def sorted_image_stage_profile(rows: list[dict[str, Any]]) -> list[dict[str, Any
 def image_stage_profile_chart_svg(
     rows: list[dict[str, Any]],
     stage_label: str,
+    chart_title: str,
     dataset_images_href: str,
     x_key: str,
     x_axis_label: str,
@@ -995,8 +982,8 @@ def image_stage_profile_chart_svg(
 
     parts = [
         f'<svg class="metric-chart image-profile-chart" viewBox="0 0 {width} {height}" role="img" '
-        f'aria-label="{html_escape(stage_label)} per-image median timing profile">',
-        chart_svg_header(f"{stage_label} per image", width),
+        f'aria-label="{html_escape(chart_title)}">',
+        chart_svg_header(chart_title, width),
         '<g class="chart-grid">',
     ]
     for step in range(5):
@@ -1045,14 +1032,14 @@ def image_profile_stage_tab_id(prefix: str, stage: str) -> str:
 
 
 def write_image_profile_controls(prefix: str) -> str:
-    parts = ['<div class="metric-tab-controls">']
+    parts = ['<div class="tab-controls metric-tab-controls">']
     for index, (stage, label) in enumerate(IMAGE_STAGE_METRICS):
         checked = " checked" if index == 0 else ""
         active = " is-active" if index == 0 else ""
         tab_id = image_profile_stage_tab_id(prefix, stage)
         panel_id = f"{tab_id}-panel"
         parts.append(
-            f'<label class="metric-tab-label{active}"><input class="metric-tab-input" type="radio" '
+            f'<label class="tab-label metric-tab-label{active}"><input class="tab-input metric-tab-input" type="radio" '
             f'name="{prefix}" id="{tab_id}" aria-controls="{panel_id}"{checked}>'
             f'{html_escape(label)}</label>'
         )
@@ -1061,54 +1048,28 @@ def write_image_profile_controls(prefix: str) -> str:
 
 
 def write_image_profile_section(
-    title: str,
-    description: str,
-    prefix: str,
     runs: list[dict[str, Any]],
     dataset_images_href: str,
-    ranked: bool,
 ) -> str:
     parts = [
         '      <section class="section-card image-profile-section">\n'
-        f'        <div class="summary-heading"><h2>{html_escape(title)}</h2>\n'
-        f'{write_image_profile_controls(prefix)}</div>\n'
-        f'        <p>{html_escape(description)}</p>\n'
+        f'        <div class="summary-heading">{write_image_profile_controls("image-profile-ranked")}</div>\n'
     ]
     for index, (stage, label) in enumerate(IMAGE_STAGE_METRICS):
         active = " is-active" if index == 0 else ""
-        panel_id = f"{image_profile_stage_tab_id(prefix, stage)}-panel"
-        rows = image_stage_profile(runs, stage)
-        if ranked:
-            rows = sorted_image_stage_profile(rows)
-        x_key = "rank" if ranked else "image_index"
-        x_axis_label = "Image rank" if ranked else "Image index"
+        panel_id = f"{image_profile_stage_tab_id('image-profile-ranked', stage)}-panel"
+        rows = sorted_image_stage_profile(image_stage_profile(runs, stage))
+        chart_title = f"{label} - Ranked per-image median"
         parts.append(
-            f'        <div class="metric-tab-panel{active}" id="{panel_id}">'
-            f'{image_stage_profile_chart_svg(rows, label, dataset_images_href, x_key, x_axis_label)}</div>\n'
+            f'        <div class="tab-panel metric-tab-panel{active}" id="{panel_id}">'
+            f'{image_stage_profile_chart_svg(rows, label, chart_title, dataset_images_href, "rank", "Image rank")}</div>\n'
         )
     parts.append("      </section>\n")
     return "".join(parts)
 
 
 def write_image_profile_sections(runs: list[dict[str, Any]], dataset_images_href: str) -> str:
-    return (
-        write_image_profile_section(
-            "Per-image Stage Profile - Ranked",
-            "Median per-image stage time across runs, sorted from fastest to slowest image for each stage.",
-            "image-profile-ranked",
-            runs,
-            dataset_images_href,
-            True,
-        ) +
-        write_image_profile_section(
-            "Per-image Stage Profile - Dataset Order",
-            "Median per-image stage time across runs in the original dataset order.",
-            "image-profile-index",
-            runs,
-            dataset_images_href,
-            False,
-        )
-    )
+    return write_image_profile_section(runs, dataset_images_href)
 
 
 def stability_metric_tab_id(metric: str) -> str:
@@ -1121,7 +1082,7 @@ def write_stability_charts(runs: list[dict[str, Any]]) -> str:
     for metric in metrics:
         active = " is-active" if metric == metrics[0] else ""
         parts.append(
-            f'<div class="metric-tab-panel{active}" id="{stability_metric_tab_id(metric)}-panel">'
+            f'<div class="tab-panel metric-tab-panel{active}" id="{stability_metric_tab_id(metric)}-panel">'
             f"{metric_trend_chart_svg(runs, metric)}</div>\n"
         )
     parts.append("</div>")
@@ -1129,14 +1090,14 @@ def write_stability_charts(runs: list[dict[str, Any]]) -> str:
 
 
 def write_stability_metric_controls(runs: list[dict[str, Any]]) -> str:
-    parts = ['<div class="metric-tab-controls">']
+    parts = ['<div class="tab-controls metric-tab-controls">']
     for index, metric in enumerate(report_percentile_metrics(runs)):
         checked = " checked" if index == 0 else ""
         active = " is-active" if index == 0 else ""
         tab_id = stability_metric_tab_id(metric)
         panel_id = f"{tab_id}-panel"
         parts.append(
-            f'<label class="metric-tab-label{active}"><input class="metric-tab-input" type="radio" '
+            f'<label class="tab-label metric-tab-label{active}"><input class="tab-input metric-tab-input" type="radio" '
             f'name="stability-metric" id="{tab_id}" aria-controls="{panel_id}"{checked}>'
             f'{html_escape(metric)}</label>'
         )
@@ -1187,16 +1148,6 @@ def write_delta_rows(deltas: list[tuple[str, dict[str, Any]]]) -> str:
 def th(label: str, unit: str = "") -> str:
     unit_html = f'<span class="unit">{html_escape(unit)}</span>' if unit else ""
     return f'<th scope="col">{html_escape(label)}{unit_html}</th>'
-
-
-def sortable_th(index: int, label: str, unit: str = "") -> str:
-    unit_html = f'<span class="unit">{html_escape(unit)}</span>' if unit else ""
-    return (
-        '<th scope="col">'
-        f'<button class="sort-button" type="button" data-sort-column="{index}">'
-        f'{html_escape(label)}{unit_html}<span class="sort-indicator" aria-hidden="true"></span>'
-        '</button></th>'
-    )
 
 
 def write_summary_table(runs: list[dict[str, Any]]) -> str:
@@ -1257,26 +1208,6 @@ def write_run_table(run: dict[str, Any]) -> str:
     return "".join(parts)
 
 
-def optional_ms(value: Any) -> str:
-    return "" if value in (None, "") else format_ms(float(value))
-
-
-def sort_td(sort_value: Any, display_value: Any) -> str:
-    value = "" if sort_value in (None, "") else sort_value
-    return f'<td data-sort-value="{html_escape(value)}">{display_value}</td>'
-
-
-def image_timing_result(bare_ms: Any, pek_ms: Any) -> str:
-    if bare_ms in (None, "") or pek_ms in (None, ""):
-        return '<span class="verdict verdict-neutral">n/a</span>'
-    bare = float(bare_ms)
-    pek = float(pek_ms)
-    ratio = None if bare == 0 else pek / bare
-    return result_label({
-        "delta_percent": None if ratio is None else (ratio - 1.0) * 100.0,
-    })
-
-
 def image_link(dataset_images_href: str, row: dict[str, Any]) -> str:
     image_id = html_escape(row["image_id"])
     image_file = row.get("image_file")
@@ -1288,60 +1219,6 @@ def image_link(dataset_images_href: str, row: dict[str, Any]) -> str:
         f'<a href="{html_escape(href)}" target="_blank" rel="noopener"'
         f'{tooltip_attrs(tooltip, href)}>{image_id}</a>'
     )
-
-
-def write_image_timing_table(run: dict[str, Any], dataset_images_href: str) -> str:
-    rows = run.get("image_timings", [])
-    if not rows:
-        return '<p class="empty-table-note">No per-image timing rows were found for this run.</p>'
-
-    parts = [
-        '<div class="image-breakdown"><h3>Per-image timings</h3>',
-        '<div class="table-scroll"><table class="benchmark-table image-timing-table sortable-table">',
-        "<thead><tr>",
-        sortable_th(0, "#"),
-        sortable_th(1, "Image"),
-        sortable_th(2, "Size"),
-        sortable_th(3, "Bare wall", "[ms]"),
-        sortable_th(4, "Bare pre", "[ms]"),
-        sortable_th(5, "Bare inf", "[ms]"),
-        sortable_th(6, "Bare post", "[ms]"),
-        sortable_th(7, "PEK wall", "[ms]"),
-        sortable_th(8, "PEK pre", "[ms]"),
-        sortable_th(9, "PEK inf", "[ms]"),
-        sortable_th(10, "PEK post", "[ms]"),
-        sortable_th(11, "Delta", "[ms]"),
-        sortable_th(12, "Result"),
-        "</tr></thead><tbody>",
-    ]
-    for row in rows:
-        bare = row["bare"]
-        pek = row["pek"]
-        bare_wall = bare.get("wall_ms")
-        pek_wall = pek.get("wall_ms")
-        delta_value = "" if bare_wall in (None, "") or pek_wall in (None, "") else float(pek_wall) - float(bare_wall)
-        delta = "" if delta_value == "" else format_ms(delta_value)
-        size = f'{row["width"]}x{row["height"]}' if row["width"] and row["height"] else ""
-        size_sort = "" if not size else int(row["width"]) * int(row["height"])
-        parts.append(
-            "<tr>"
-            f"{sort_td(row['image_index'], html_escape(row['image_index']))}"
-            f"{sort_td(row['image_id'], image_link(dataset_images_href, row))}"
-            f"{sort_td(size_sort, html_escape(size))}"
-            f"{sort_td(bare_wall, optional_ms(bare_wall))}"
-            f"{sort_td(bare.get('preprocess_ms'), optional_ms(bare.get('preprocess_ms')))}"
-            f"{sort_td(bare.get('inference_ms'), optional_ms(bare.get('inference_ms')))}"
-            f"{sort_td(bare.get('postprocess_ms'), optional_ms(bare.get('postprocess_ms')))}"
-            f"{sort_td(pek_wall, optional_ms(pek_wall))}"
-            f"{sort_td(pek.get('preprocess_ms'), optional_ms(pek.get('preprocess_ms')))}"
-            f"{sort_td(pek.get('inference_ms'), optional_ms(pek.get('inference_ms')))}"
-            f"{sort_td(pek.get('postprocess_ms'), optional_ms(pek.get('postprocess_ms')))}"
-            f"{sort_td(delta_value, delta)}"
-            f"{sort_td(delta_value, image_timing_result(bare_wall, pek_wall))}"
-            "</tr>"
-        )
-    parts.append("</tbody></table></div></div>")
-    return "".join(parts)
 
 
 def bar_chart_svg(
@@ -1443,8 +1320,7 @@ def run_bar_chart_svg(run: dict[str, Any]) -> str:
 def write_stability_section(runs: list[dict[str, Any]]) -> str:
     return (
         '      <section class="section-card">\n'
-        '        <div class="summary-heading"><h2>Run Stability</h2>\n'
-        f'{write_stability_metric_controls(runs)}</div>\n'
+        f'        <div class="summary-heading">{write_stability_metric_controls(runs)}</div>\n'
         '        <div class="benchmark-layout"><div class="chart-panel">\n'
         f'{write_stability_charts(runs)}\n'
         '        </div><div class="table-panel">\n'
@@ -1454,12 +1330,12 @@ def write_stability_section(runs: list[dict[str, Any]]) -> str:
     )
 
 
-def write_run_sections(runs: list[dict[str, Any]], dataset_images_href: str) -> str:
+def write_run_sections(runs: list[dict[str, Any]]) -> str:
     parts = [
         '<section class="section-card run-card">\n',
         '        <div class="run-tabs">\n',
-        '          <div class="run-heading"><h2>Runs</h2>\n',
-        '            <div class="run-tab-controls">',
+        '          <div class="run-heading">\n',
+        '            <div class="tab-controls run-tab-controls">',
     ]
     for index, run in enumerate(runs):
         run_name = html_escape(run["name"])
@@ -1468,7 +1344,7 @@ def write_run_sections(runs: list[dict[str, Any]], dataset_images_href: str) -> 
         checked = " checked" if index == 0 else ""
         active = " is-active" if index == 0 else ""
         parts.append(
-            f'<label class="run-tab-label{active}"><input class="run-tab-input" type="radio" '
+            f'<label class="tab-label run-tab-label{active}"><input class="tab-input run-tab-input" type="radio" '
             f'name="run-tab" id="{tab_id}" aria-controls="{panel_id}" '
             f'data-comparison-href="runs/{run_name}/comparison.json"{checked}>{run_name}</label>'
         )
@@ -1481,13 +1357,12 @@ def write_run_sections(runs: list[dict[str, Any]], dataset_images_href: str) -> 
         active = " is-active" if index == 0 else ""
         parts.extend(
             [
-                f'<div class="run-tab-panel{active}" id="{panel_id}">',
+                f'<div class="tab-panel run-tab-panel{active}" id="{panel_id}">',
                 '<div class="benchmark-layout"><div class="chart-panel">',
                 run_bar_chart_svg(run),
                 '</div><div class="table-panel">',
                 write_run_table(run),
                 "</div></div>",
-                write_image_timing_table(run, dataset_images_href),
                 "</div>\n",
             ]
         )
@@ -1502,6 +1377,16 @@ def dataset_images_href_for_report(runs: list[dict[str, Any]], target: Path, sit
         return ""
     images_dir = site_dir / DATASET_ROOT / dataset / "images"
     return Path(os.path.relpath(images_dir, target)).as_posix()
+
+
+def write_dataset_links(target: Path) -> str:
+    if not (target / "images.tsv").is_file():
+        return ""
+    return (
+        '          <p class="dataset-links">'
+        '<a class="title-link" href="images.tsv">Full image list (images.tsv)</a>'
+        '</p>\n'
+    )
 
 
 def write_information_section(comparison: dict[str, Any]) -> str:
@@ -1576,9 +1461,10 @@ def write_report_page(
             "information_section": write_information_section(first),
             "summary_chart": summary_bar_chart_svg(runs),
             "summary_table": write_summary_table(runs),
+            "dataset_links": write_dataset_links(target),
             "image_profile_section": write_image_profile_sections(runs, dataset_images_href),
             "stability_section": write_stability_section(runs),
-            "run_sections": write_run_sections(runs, dataset_images_href),
+            "run_sections": write_run_sections(runs),
             "chart_tooltip": chart_tooltip_html(),
         },
     )
