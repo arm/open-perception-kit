@@ -357,6 +357,8 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
             self.activate_review_context(repo_root)
 
             files = set(repo_tools.list_repo_files().splitlines())
+            hidden_files = repo_tools.list_repo_files(".agent-runtime/*")
+            hidden_dataset = repo_tools.list_repo_files("datasets/*")
             packet = repo_tools.read_repo_file(".github/agent-runtime/review/out/review-packet/index.md")
 
             with self.assertRaisesRegex(ValueError, "hidden review runtime/generated output"):
@@ -375,6 +377,8 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
 
         self.assertIn("src.py", files)
         self.assertIn(".github/agent-runtime/review/out/review-packet/index.md", files)
+        self.assertEqual(hidden_files, "")
+        self.assertEqual(hidden_dataset, "")
         self.assertIn("packet", packet)
         self.assertIn(".github/agent-runtime/review/out/review-packet/index.md", shell_output)
         self.assertNotIn(".agent-runtime/openai-agent-venv/lib/sdk.py", shell_output)
@@ -454,30 +458,35 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
             generated_file = repo_root / "random-generated" / "leak.txt"
             generated_file.parent.mkdir()
             generated_file.write_text("generated\n", encoding="utf-8")
+            runtime_bin = repo_root / "runtime-bin"
+            runtime_bin.mkdir()
+            runtime_python = runtime_bin / "python3"
+            runtime_python.symlink_to(sys.executable)
             packet_index = repo_root / ".github" / "agent-runtime" / "review" / "out" / "review-packet" / "index.md"
             packet_index.parent.mkdir(parents=True)
             packet_index.write_text("packet\n", encoding="utf-8")
-            self.activate_review_context(repo_root)
+            with mock.patch.dict(os.environ, {"AGENT_RUNTIME_BIN": str(runtime_bin)}):
+                self.activate_review_context(repo_root)
 
-            git_output = repo_tools.run_shell_command("git status --short; git diff --name-status")
-            apply_check_output = repo_tools.run_shell_command("git apply --check < change.patch")
-            output = repo_tools.run_shell_command(
-                "find . -name tracked.py -print; "
-                "find . -name leak.txt -print; "
-                "find .github/agent-runtime/review/out/review-packet -type f -print"
-            )
-            tracked_stdin = repo_tools.run_shell_command("cat < tracked.py")
-            python_output = repo_tools.run_shell_command("python3 -c 'print(__import__(\"sys\").executable)'")
-            validation_output = repo_tools.run_shell_command("./scripts/pre-commit/run.sh --help")
-            env_output = repo_tools.run_shell_command("env")
-            with self.assertRaisesRegex(ValueError, "not available in the shell workspace"):
-                repo_tools.run_shell_command("cat < random-generated/leak.txt")
-            with self.assertRaisesRegex(ValueError, "escapes shell workspace"):
-                repo_tools.run_shell_command("cat < ..")
-            with self.assertRaisesRegex(ValueError, "escapes shell workspace"):
-                repo_tools.run_shell_command("find .. -name leak.txt -print")
-            with self.assertRaisesRegex(ValueError, "repo-wide file inventory"):
-                repo_tools.run_shell_command("find . -maxdepth 5 -type f -print")
+                git_output = repo_tools.run_shell_command("git status --short; git diff --name-status")
+                apply_check_output = repo_tools.run_shell_command("git apply --check < change.patch")
+                output = repo_tools.run_shell_command(
+                    "find . -name tracked.py -print; "
+                    "find . -name leak.txt -print; "
+                    "find .github/agent-runtime/review/out/review-packet -type f -print"
+                )
+                tracked_stdin = repo_tools.run_shell_command("cat < tracked.py")
+                python_output = repo_tools.run_shell_command("which python3")
+                validation_output = repo_tools.run_shell_command("./scripts/pre-commit/run.sh --help")
+                env_output = repo_tools.run_shell_command("env")
+                with self.assertRaisesRegex(ValueError, "not available in the shell workspace"):
+                    repo_tools.run_shell_command("cat < random-generated/leak.txt")
+                with self.assertRaisesRegex(ValueError, "escapes shell workspace"):
+                    repo_tools.run_shell_command("cat < ..")
+                with self.assertRaisesRegex(ValueError, "escapes shell workspace"):
+                    repo_tools.run_shell_command("find .. -name leak.txt -print")
+                with self.assertRaisesRegex(ValueError, "repo-wide file inventory"):
+                    repo_tools.run_shell_command("find . -maxdepth 5 -type f -print")
 
         self.assertIn("$ git status --short", git_output)
         self.assertIn("$ git diff --name-status", git_output)
@@ -492,7 +501,7 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
         self.assertNotIn("GIT_WORK_TREE=", env_output)
         self.assertIn("exit_code=0", validation_output)
         self.assertNotIn("not a git repository", validation_output)
-        self.assertIn(str(Path(sys.executable).resolve().parent), python_output)
+        self.assertIn(str(runtime_python), python_output)
         self.assertIn("./tracked.py", output)
         self.assertIn("VALUE = 1", tracked_stdin)
         self.assertIn(".github/agent-runtime/review/out/review-packet/index.md", output)

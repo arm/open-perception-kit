@@ -57,6 +57,13 @@ def is_hidden_review_path(relative_path: str) -> bool:
     return any(path == prefix.rstrip("/") or path.startswith(prefix) for prefix in HIDDEN_REVIEW_PATH_PREFIXES)
 
 
+def is_hidden_review_glob(pattern: str) -> bool:
+    path = normalize_relative_path(pattern).rstrip("*")
+    if is_review_packet_path(path):
+        return False
+    return any(path == prefix.rstrip("/") or path.startswith(prefix) for prefix in HIDDEN_REVIEW_PATH_PREFIXES)
+
+
 def reject_hidden_review_path(relative_path: str, operation: str) -> None:
     if is_hidden_review_path(relative_path):
         raise ValueError(

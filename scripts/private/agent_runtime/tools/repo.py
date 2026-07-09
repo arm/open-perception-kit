@@ -15,6 +15,7 @@ from ..runtime_context import require_run_context
 from ..sdk_runtime import function_tool
 from .paths import (
     is_git_metadata_path,
+    is_hidden_review_glob,
     is_hidden_review_path,
     reject_hidden_review_path,
     resolve_safe_repo_path,
@@ -81,6 +82,17 @@ def list_repo_files(pattern: str = "**/*") -> str:
 
     start = time.monotonic()
     context = require_run_context()
+    if isinstance(context, ReviewRunContext) and is_hidden_review_glob(pattern):
+        log_agent_diagnostic(
+            "tool_call",
+            tool="list_repo_files",
+            pattern=pattern,
+            elapsed_ms=int((time.monotonic() - start) * 1000),
+            output="",
+            output_chars=0,
+            returned_output_chars=0,
+        )
+        return ""
     matches: list[str] = []
     for path in context.repo_root.rglob("*"):
         if not path.is_file():
