@@ -22,8 +22,8 @@ from .paths import (
 )
 from .shell import (
     format_parsed_shell_command,
-    reject_git_metadata_shell_arguments,
     reject_unsafe_shell_command,
+    reject_shell_path_arguments,
     run_parsed_shell_command,
     shell_command_scope,
     split_shell_commands,
@@ -120,7 +120,7 @@ def run_shell_command(command: str) -> str:
     exit_code = 0
     with shell_command_scope(context) as (cwd, environment):
         for parsed_command in split_shell_commands(command):
-            reject_git_metadata_shell_arguments(parsed_command, context)
+            reject_shell_path_arguments(parsed_command, context, cwd)
             completed = run_parsed_shell_command(parsed_command, context, cwd, environment)
             exit_code = completed.returncode
             output_parts.extend(

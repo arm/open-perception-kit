@@ -382,11 +382,19 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
             self.activate_review_context(repo_root)
 
             output = repo_tools.run_shell_command(
+                "git status --short; "
+                "find . -maxdepth 1 -print; "
                 "find . -name tracked.py -print; "
                 "find . -name leak.txt -print; "
                 "find .github/agent-runtime/review/out/review-packet -type f -print"
             )
+            with self.assertRaisesRegex(ValueError, "escapes shell workspace"):
+                repo_tools.run_shell_command("find .. -name leak.txt -print")
 
+        self.assertIn("$ git status --short", output)
+        self.assertNotIn("exit_code=128", output)
+        self.assertNotIn("not a git repository", output)
+        self.assertNotIn("\n./.git\n", output)
         self.assertIn("./tracked.py", output)
         self.assertIn(".github/agent-runtime/review/out/review-packet/index.md", output)
         self.assertNotIn("random-generated/leak.txt", output)

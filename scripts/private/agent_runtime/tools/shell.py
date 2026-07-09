@@ -193,8 +193,11 @@ def build_subprocess_environment(context: AgentRunContext) -> dict[str, str]:
 
 def configure_review_workspace_environment(environment: dict[str, str], workspace_root: Path) -> None:
     isolated_home = workspace_root.parent / "home"
+    git_dir = workspace_root.parent / "git"
     environment["HOME"] = str(isolated_home)
     environment["PWD"] = str(workspace_root)
+    environment["GIT_DIR"] = str(git_dir)
+    environment["GIT_WORK_TREE"] = str(workspace_root)
     environment["XDG_CACHE_HOME"] = str(isolated_home / "cache")
     environment["XDG_CONFIG_HOME"] = str(isolated_home / "config")
     environment["XDG_DATA_HOME"] = str(isolated_home / "data")
@@ -254,6 +257,37 @@ def prepare_review_shell_workspace(context: ReviewRunContext, workspace_root: Pa
         shutil.copytree(packet_source, packet_target, dirs_exist_ok=True)
 
 
+def initialize_review_workspace_git(
+    context: ReviewRunContext,
+    workspace_root: Path,
+    environment: dict[str, str],
+) -> None:
+    git_dir = Path(environment["GIT_DIR"])
+    subprocess.run(
+        ["git", "init", "--bare", "-q", str(git_dir)],
+        capture_output=True,
+        timeout=context.command_timeout,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "add", "-A"],
+        cwd=workspace_root,
+        env=environment,
+        capture_output=True,
+        timeout=context.command_timeout,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-c", "user.email=agent-review@example.invalid", "-c",
+            "user.name=Agent Review", "commit", "-qm", "snapshot"],
+        cwd=workspace_root,
+        env=environment,
+        capture_output=True,
+        timeout=context.command_timeout,
+        check=True,
+    )
+
+
 @contextmanager
 def shell_command_scope(context: AgentRunContext) -> Iterator[tuple[Path, dict[str, str]]]:
     environment = build_subprocess_environment(context)
@@ -261,10 +295,11 @@ def shell_command_scope(context: AgentRunContext) -> Iterator[tuple[Path, dict[s
         yield context.repo_root, environment
         return
 
-    with tempfile.TemporaryDirectory(prefix="agent-review-shell-", dir=context.repo_root.parent) as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="agent-review-shell-") as temp_dir:
         workspace_root = Path(temp_dir) / "repo"
         prepare_review_shell_workspace(context, workspace_root)
         configure_review_workspace_environment(environment, workspace_root)
+        initialize_review_workspace_git(context, workspace_root, environment)
         yield workspace_root, environment
 
 
@@ -493,11 +528,24 @@ def run_parsed_shell_command(
     )
 
 
-def reject_git_metadata_shell_arguments(parsed_command: ParsedShellCommand, context: AgentRunContext) -> None:
+def is_path_like_shell_word(word: str) -> bool:
+    return word in {".", ".."} or "/" in word
+
+
+def reject_shell_path_arguments(
+    parsed_command: ParsedShellCommand,
+    context: AgentRunContext,
+    cwd: Path,
+) -> None:
     for words in parsed_command.pipeline:
         for index, word in enumerate(words):
             if not word or word.startswith("-") or "://" in word:
                 continue
+            if isinstance(context, ReviewRunContext) and index > 0 and is_path_like_shell_word(word):
+                path = Path(word)
+                resolved = (path if path.is_absolute() else cwd / path).resolve()
+                if resolved != cwd and cwd not in resolved.parents:
+                    raise ValueError(f"Command argument escapes shell workspace: {word}")
             try:
                 path = context.resolve_repo_path(word)
                 relative = path.relative_to(context.repo_root).as_posix()
