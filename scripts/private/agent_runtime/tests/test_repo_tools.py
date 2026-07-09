@@ -401,6 +401,8 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
                     set -euo pipefail
                     script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
                     git -C "${script_dir}" rev-parse --show-toplevel
+                    nested_repo="$(mktemp -d)"
+                    git -C "${nested_repo}" init -q
                     """
                 ),
                 encoding="utf-8",
