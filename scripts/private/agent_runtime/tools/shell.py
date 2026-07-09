@@ -6,10 +6,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
 import shlex
 import subprocess
 
+from ..review.context import ReviewRunContext
 from ..runtime_context import AgentRunContext
 from .paths import is_git_metadata_path, resolve_stdin_redirection_path
 
@@ -53,6 +55,22 @@ SHELL_COMMAND_SEPARATORS = (
 SHELL_PIPE_SEPARATOR = "|"
 SHELL_REDIRECT_STDIN = "<"
 SHELL_UNSUPPORTED_STDOUT_REDIRECTS = (">", ">>")
+SENSITIVE_REVIEW_ENV_PREFIXES = ("ACTIONS_", "GH_", "GITHUB_", "OPENAI_")
+SENSITIVE_REVIEW_ENV_MARKERS = (
+    "ACCESS_KEY",
+    "API_KEY",
+    "CREDENTIAL",
+    "PASSWORD",
+    "PRIVATE_KEY",
+    "SECRET",
+    "TOKEN",
+)
+SENSITIVE_REVIEW_ENV_NAMES = {
+    "GIT_ASKPASS",
+    "GIT_SSH_COMMAND",
+    "SSH_ASKPASS",
+    "SSH_AUTH_SOCK",
+}
 
 
 @dataclass(frozen=True)
@@ -67,6 +85,31 @@ class ShellCommandResult:
     returncode: int
     stdout: str
     stderr: str
+
+
+def is_sensitive_review_environment_name(name: str) -> bool:
+    normalized = name.upper()
+    return (
+        normalized in SENSITIVE_REVIEW_ENV_NAMES
+        or normalized.startswith(SENSITIVE_REVIEW_ENV_PREFIXES)
+        or any(marker in normalized for marker in SENSITIVE_REVIEW_ENV_MARKERS)
+    )
+
+
+def build_subprocess_environment(context: AgentRunContext) -> dict[str, str]:
+    if not isinstance(context, ReviewRunContext):
+        return dict(os.environ)
+    environment = {
+        name: value
+        for name, value in os.environ.items()
+        if not is_sensitive_review_environment_name(name)
+    }
+    isolated_home = context.repo_root / ".agent-runtime/review-shell-home"
+    environment["HOME"] = str(isolated_home)
+    environment["XDG_CONFIG_HOME"] = str(isolated_home / "config")
+    environment["XDG_DATA_HOME"] = str(isolated_home / "data")
+    environment["GH_CONFIG_DIR"] = str(isolated_home / "gh")
+    return environment
 
 
 def split_shell_commands(command: str) -> list[ParsedShellCommand]:
@@ -253,6 +296,7 @@ def run_parsed_shell_command(parsed_command: ParsedShellCommand, context: AgentR
     stdout_text = ""
     stderr_parts: list[str] = []
     exit_code = 0
+    environment = build_subprocess_environment(context)
     for words in parsed_command.pipeline:
         completed = subprocess.run(
             words,
@@ -260,6 +304,7 @@ def run_parsed_shell_command(parsed_command: ParsedShellCommand, context: AgentR
             input=stage_input,
             text=True,
             capture_output=True,
+            env=environment,
             timeout=context.command_timeout,
             check=False,
         )

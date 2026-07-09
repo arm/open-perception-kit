@@ -5,13 +5,17 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
 
+@dataclass(frozen=True)
 class AgentRunContext:
-    def __init__(self, repo_root: Path, command_timeout: int) -> None:
-        self.repo_root = repo_root.resolve()
-        self.command_timeout = command_timeout
+    repo_root: Path
+    command_timeout: int
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "repo_root", self.repo_root.resolve())
 
     def resolve_repo_path(self, path_value: str) -> Path:
         path = Path(path_value)
@@ -27,10 +31,14 @@ class AgentRunContext:
 RUN_CONTEXT: AgentRunContext | None = None
 
 
-def set_run_context(repo_root: Path, command_timeout: int) -> AgentRunContext:
+def activate_run_context(context: AgentRunContext) -> AgentRunContext:
     global RUN_CONTEXT
-    RUN_CONTEXT = AgentRunContext(repo_root, command_timeout)
-    return RUN_CONTEXT
+    RUN_CONTEXT = context
+    return context
+
+
+def set_run_context(repo_root: Path, command_timeout: int) -> AgentRunContext:
+    return activate_run_context(AgentRunContext(repo_root, command_timeout))
 
 
 def require_run_context() -> AgentRunContext:

@@ -70,16 +70,17 @@ class TaskEstimatorTests(unittest.TestCase):
                 command=AgentCommand.REVIEW,
                 agent_instance=AgentInstance.REVIEW,
                 max_turns=60,
-                max_prompt_chars=180000,
+                max_prompt_chars=None,
                 max_review_files=2,
                 max_review_changed_lines=2,
             )
-            prompt = f"- Base SHA: `{base_sha}`\n- Head SHA: `{head_sha}`\n"
             manifest = estimator.build_task_manifest(
                 AgentCommand.REVIEW,
-                prompt,
+                "Review the pull request using the available review context.",
                 settings,
                 "gpt-test",
+                base_sha=base_sha,
+                head_sha=head_sha,
             )
             reasons = estimator.deterministic_task_limit_violations(manifest)
             advisory_reasons = estimator.task_estimate_advisory_reasons(manifest)

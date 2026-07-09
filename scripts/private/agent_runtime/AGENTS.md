@@ -38,6 +38,9 @@ review, repair, and stabilization GitHub Actions workflows.
 - Do not execute agent-provided commands with `shell=True`. Keep validation
   commands tokenized and reject unsupported shell syntax, mutating git
   subcommands, and PR/repo lifecycle `gh` subcommands.
+- Scrub OpenAI, GitHub, token, key, and credential variables from Agent Review
+  tool subprocesses in `tools/shell.py` without dropping ordinary build and
+  toolchain variables. Do not weaken that review-specific boundary.
 - Review output post-processing must only drop findings contradicted by current
   checkout evidence or verified workflow/action evidence. Keep those rules
   typed and covered by tests.
@@ -52,7 +55,7 @@ review, repair, and stabilization GitHub Actions workflows.
 3. Add the same command to `.github/agent-runtime/runtime/agent-tasks.json`
    with its agent instance and limits.
 4. Wire workflow YAML or local scripts to call
-   `openai_agent_runner.py <command>` and pass only prompt/output/config paths.
+   `openai_agent_runner.py <command>` and pass only task-input/output/config paths.
    Do not duplicate model names, max-turn values, or agent instances in YAML.
 5. Extend the focused `scripts/private/agent_runtime/tests/` tests and the
    workflow-level `tools/expkits-ci/tests/test_agent_workflow_contracts.py`
