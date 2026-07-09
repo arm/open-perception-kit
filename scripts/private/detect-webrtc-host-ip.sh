@@ -35,15 +35,23 @@ is_wsl() {
     [[ "$text" =~ [Mm]icrosoft|WSL ]]
 }
 
-first_private_ipv4_from_lines() {
+private_ipv4_from_lines() {
+    local first_only="${1:-0}"
+
     awk '
         $1 ~ /^([0-9]{1,3}\.){3}[0-9]{1,3}$/ {
             if ($1 ~ /^10\./ || $1 ~ /^192\.168\./ || $1 ~ /^172\.(1[6-9]|2[0-9]|3[0-1])\./) {
                 print $1
-                exit
+                if (first_only) {
+                    exit
+                }
             }
         }
-    '
+    ' first_only="$first_only"
+}
+
+first_private_ipv4_from_lines() {
+    private_ipv4_from_lines 1
 }
 
 default_route_ipv4_linux() {
@@ -78,14 +86,14 @@ default_route_ipv4_macos() {
     fi
 }
 
-wsl_windows_lan_ipv4() {
+wsl_windows_lan_ipv4s() {
     if ! command -v powershell.exe > /dev/null 2>&1; then
         return
     fi
 
     powershell.exe -NoProfile -Command \
-        "Get-NetIPConfiguration | Where-Object { \$_.IPv4DefaultGateway -ne \$null -and \$_.NetAdapter.Status -eq 'Up' } | ForEach-Object { \$_.IPv4Address.IPAddress } | Select-Object -First 1" \
-        2> /dev/null | tr -d '\r' | first_private_ipv4_from_lines
+        "Get-NetIPConfiguration | Where-Object { \$_.IPv4DefaultGateway -ne \$null -and \$_.NetAdapter.Status -eq 'Up' } | ForEach-Object { \$_.IPv4Address.IPAddress }" \
+        2> /dev/null | tr -d '\r' | private_ipv4_from_lines
 }
 
 wsl_host_address_loopback_enabled() {
@@ -106,10 +114,10 @@ wsl_host_address_loopback_enabled() {
 
 require_wsl_mirrored_host_loopback() {
     local linux_ip="$1"
-    local windows_ip=""
+    local windows_ips=""
 
-    windows_ip="$(wsl_windows_lan_ipv4)"
-    if [[ -z "$windows_ip" || "$linux_ip" != "$windows_ip" ]]; then
+    windows_ips="$(wsl_windows_lan_ipv4s)"
+    if [[ -z "$windows_ips" ]] || ! grep -Fxq "$linux_ip" <<< "$windows_ips"; then
         return
     fi
 

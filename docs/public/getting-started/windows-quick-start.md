@@ -41,12 +41,12 @@ If `docker` does not work, open Docker Desktop and confirm that WSL integration 
 
 ### Configure mirrored WSL networking for WebRTC
 
-Open **%UserProfile%\.wslconfig** from Windows and ensure it contains:
+Open `%UserProfile%\.wslconfig` from Windows and ensure it contains:
 
 ```ini
 [wsl2]
 networkingMode=mirrored
-...
+
 [experimental]
 hostAddressLoopback=true
 ```
@@ -166,7 +166,7 @@ To run the last selected pipeline again, run in the **Docker shell**:
 ## If Something Fails
 
 - If container initialization reports that host-address loopback is required,
-  update **%UserProfile%\.wslconfig**, run **wsl --shutdown** from Windows
+  update `%UserProfile%\.wslconfig`, run **wsl --shutdown** from Windows
   PowerShell, and reopen WSL.
 - If VS Code says the container cannot start, make sure Docker Desktop is open.
 - If Docker commands fail in WSL, check Docker Desktop WSL integration.
