@@ -86,6 +86,10 @@ def read_image_list(path: Path) -> tuple[str, list[tuple[str, Path]]]:
     return fingerprint, rows
 
 
+def coco_image_name(image_id: str) -> str:
+    return f"{int(image_id):012d}.jpg"
+
+
 def report_image_lists(site_dir: Path) -> list[Path]:
     return sorted(path for path in (site_dir / "yolo-benchmark").rglob("images.tsv") if path.is_file())
 
@@ -136,12 +140,9 @@ def restore_one_dataset(site_dir: Path, cache_dir: Path, resolved_image_list: Pa
     images_dir.mkdir(parents=True)
 
     image_links = []
-    fallback_root = None
-    for image_id, source in rows:
-        if not source.is_file():
-            if fallback_root is None:
-                fallback_root = coco_image_root(cache_dir)
-            source = fallback_root / source.name
+    image_root = coco_image_root(cache_dir)
+    for image_id, _artifact_source in rows:
+        source = image_root / coco_image_name(image_id)
         if not source.is_file():
             raise FileNotFoundError(source)
         destination = images_dir / source.name

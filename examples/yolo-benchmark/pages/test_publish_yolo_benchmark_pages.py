@@ -260,11 +260,12 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
     def test_restore_dataset_overlay_writes_deploy_only_dataset_page(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            image = root / "000000000139.jpg"
+            image = root / "cache" / "coco" / "val2017" / "000000000139.jpg"
+            image.parent.mkdir(parents=True)
             image.write_bytes(b"jpg")
             image_list = root / "images.tsv"
             image_list.write_text(
-                f"# image_set_fingerprint=sha256:abcdef1234567890\n139\t{image}\n",
+                "# image_set_fingerprint=sha256:abcdef1234567890\n139\t/tmp/000000000139.jpg\n",
                 encoding="utf-8",
             )
 
@@ -275,6 +276,26 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             self.assertTrue((target / "images" / "000000000139.jpg").is_file())
             self.assertTrue((target / "manifest.json").is_file())
             self.assertTrue((root / "site" / "yolo-performance-datasets" / "index.html").is_file())
+
+    def test_restore_dataset_overlay_ignores_artifact_image_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            cache_image = root / "cache" / "coco" / "val2017" / "000000000139.jpg"
+            cache_image.parent.mkdir(parents=True)
+            cache_image.write_bytes(b"expected")
+            leaked = root / "secret.txt"
+            leaked.write_bytes(b"secret")
+            image_list = root / "images.tsv"
+            image_list.write_text(
+                f"# image_set_fingerprint=sha256:abcdef1234567890\n139\t{leaked}\n",
+                encoding="utf-8",
+            )
+
+            target = overlay.restore_overlay(root / "site", root / "cache", image_list)[0]
+
+            restored = target / "images" / "secret.txt"
+            self.assertFalse(restored.exists())
+            self.assertEqual((target / "images" / "000000000139.jpg").read_bytes(), b"expected")
 
     def test_restore_dataset_overlay_without_report_lists_only_writes_empty_index(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -289,7 +310,8 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
     def test_restore_dataset_overlay_deduplicates_report_fingerprints(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            image = root / "000000000139.jpg"
+            image = root / "cache" / "coco" / "val2017" / "000000000139.jpg"
+            image.parent.mkdir(parents=True)
             image.write_bytes(b"jpg")
             for report in ("one", "two"):
                 image_list = root / "site" / "yolo-benchmark" / report / "images.tsv"
