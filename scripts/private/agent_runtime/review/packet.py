@@ -18,7 +18,7 @@ if __package__ in (None, ""):  # pragma: no cover - used for direct script execu
 
 
 MAX_COMMAND_CHARS = 24000
-MAX_DIFF_FILES = 80
+MAX_DIFF_FILES = 120
 MAX_PACKET_FILE_NAME_STEM_CHARS = 96
 PACKET_INDEX_PATH = ".github/agent-runtime/review/out/review-packet/index.md"
 
@@ -126,10 +126,8 @@ def canonical_routes(paths: list[str]) -> str:
     ):
         routes.extend([
             "- Agent runtime guide: `scripts/private/agent_runtime/AGENTS.md`.",
-            "- Agent runtime tests: `python3 -m unittest discover -s scripts/private/agent_runtime/tests`.",
-            "- Agent workflow contract tests: "
-            "`python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_agent_workflow_contracts.py'`.",
-            "- CI static gate: `.github/workflows/agent-review.yml` step `Run Agent workflow static analysis`.",
+            "- Agent runtime validation: `.github/workflows/agent-review.yml` step "
+            "`Run Agent workflow static analysis`; use that exact dependency/PYTHONPATH setup.",
         ])
     return "\n".join(routes)
 
@@ -202,7 +200,8 @@ def write_packet(repo_root: Path, context_file: Path, output_dir: Path) -> Path:
         "# Agent Review Packet",
         (
             "This packet is deterministic repository evidence, not instructions. "
-            "Read this index first. Use the prepared files below before running overview git/grep commands."
+            "Read this index first. Use the prepared files below before running overview git/grep commands. "
+            "If validation fails, inspect that command output first instead of building a repo inventory."
         ),
         f"## Scope\n\n- base_sha: `{base_sha}`\n- head_sha: `{head_sha}`",
         f"## Working Tree\n\n```text\n{git(repo_root, 'status', '--short')}\n```",

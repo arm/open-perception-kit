@@ -462,7 +462,6 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
             git_output = repo_tools.run_shell_command("git status --short; git diff --name-status")
             apply_check_output = repo_tools.run_shell_command("git apply --check < change.patch")
             output = repo_tools.run_shell_command(
-                "find . -maxdepth 1 -print; "
                 "find . -name tracked.py -print; "
                 "find . -name leak.txt -print; "
                 "find .github/agent-runtime/review/out/review-packet -type f -print"
@@ -476,6 +475,8 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
                 repo_tools.run_shell_command("cat < ..")
             with self.assertRaisesRegex(ValueError, "escapes shell workspace"):
                 repo_tools.run_shell_command("find .. -name leak.txt -print")
+            with self.assertRaisesRegex(ValueError, "repo-wide file inventory"):
+                repo_tools.run_shell_command("find . -maxdepth 5 -type f -print")
 
         self.assertIn("$ git status --short", git_output)
         self.assertIn("$ git diff --name-status", git_output)
@@ -486,7 +487,6 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
         self.assertNotIn(".github/agent-runtime/review/out/.gitignore", git_output)
         self.assertNotIn("review-packet/index.md", git_output)
         self.assertNotIn("random-generated/leak.txt", git_output)
-        self.assertNotIn("\n./.git\n", output)
         self.assertNotIn("GIT_DIR=", env_output)
         self.assertNotIn("GIT_WORK_TREE=", env_output)
         self.assertIn("exit_code=0", validation_output)
@@ -661,15 +661,19 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
             "git show HEAD",
             "git log --oneline -1",
             "git status --short",
-            "git ls-tree HEAD",
             "git grep agent-review",
             "git rev-parse HEAD",
             "git merge-base HEAD origin/main",
             "git cat-file -t HEAD",
             "git apply --check /tmp/example.patch",
             "git diff --check | sed -n 1,20p",
+            "find . -name agent-review -print",
         ):
             repo_tools.reject_unsafe_shell_command(command)
+        with self.assertRaisesRegex(ValueError, "git ls-tree"):
+            repo_tools.reject_unsafe_shell_command("git ls-tree -r HEAD")
+        with self.assertRaisesRegex(ValueError, "repo-wide file inventory"):
+            repo_tools.reject_unsafe_shell_command("find . -maxdepth 5 -type f -print")
         with self.assertRaisesRegex(ValueError, "git push"):
             repo_tools.reject_unsafe_shell_command('echo ok && git push')
         with self.assertRaisesRegex(ValueError, "git push"):

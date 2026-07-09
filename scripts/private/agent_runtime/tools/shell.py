@@ -30,7 +30,6 @@ READ_ONLY_GIT_SUBCOMMANDS = {
     "diff",
     "grep",
     "log",
-    "ls-tree",
     "merge-base",
     "rev-parse",
     "show",
@@ -591,6 +590,14 @@ def is_allowed_git_command(words: list[str]) -> bool:
     return git_subcommand in READ_ONLY_GIT_SUBCOMMANDS
 
 
+def is_broad_find_inventory(words: list[str]) -> bool:
+    if not words or Path(words[0]).name != "find":
+        return False
+    if len(words) < 2 or words[1] != ".":
+        return False
+    return not any(word in {"-name", "-iname", "-path", "-ipath", "-regex", "-iregex"} for word in words)
+
+
 def reject_unsafe_shell_command(command: str) -> None:
     for parsed_command in split_shell_commands(command):
         for words in parsed_command.pipeline:
@@ -607,6 +614,12 @@ def reject_unsafe_shell_command(command: str) -> None:
                 raise ValueError(
                     f"Command is intentionally blocked for this agent step: gh {gh_subcommand}. "
                     "Leave branch, commit, push, and PR lifecycle actions to the surrounding workflow."
+                )
+            if is_broad_find_inventory(lowered_words):
+                raise ValueError(
+                    "Command is intentionally blocked for this agent step: repo-wide file inventory. "
+                    "Use the review packet changed-files.txt and hunk files, or run a scoped command "
+                    "against a specific changed path."
                 )
 
 

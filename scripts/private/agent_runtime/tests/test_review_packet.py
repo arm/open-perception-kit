@@ -14,6 +14,7 @@ import unittest
 
 
 SCRIPT_PATH = Path(__file__).resolve().parents[1] / "review" / "packet.py"
+TASK_CONFIG_PATH = SCRIPT_PATH.parents[4] / ".github" / "agent-runtime" / "runtime" / "agent-tasks.json"
 
 
 def import_script():
@@ -38,6 +39,12 @@ def git(repo: Path, *args: str) -> str:
 
 
 class AgentReviewPacketTests(unittest.TestCase):
+    def test_packet_hunk_limit_matches_review_file_limit(self) -> None:
+        packet = import_script()
+        task_config = json.loads(TASK_CONFIG_PATH.read_text(encoding="utf-8"))
+
+        self.assertEqual(packet.MAX_DIFF_FILES, task_config["tasks"]["run-review"]["max_review_files"])
+
     def test_build_packet_summarizes_changed_scope_from_git(self) -> None:
         packet = import_script()
         with tempfile.TemporaryDirectory() as tmpdir:
