@@ -17,7 +17,15 @@ from ..contracts import AgentCommand, DiffSide, ReviewRecommendation, ReviewSeve
 from ..review.context import ReviewRunContext, load_review_run_context
 from ..review.output_filter import filter_invalid_right_side_findings
 from ..runtime_context import activate_run_context, require_run_context
-from ..sdk_runtime import Agent, BaseModel, ConfigDict, Field, coerce_model_output
+from ..sdk_runtime import (
+    Agent,
+    BaseModel,
+    ConfigDict,
+    Field,
+    ModelSettings,
+    Reasoning,
+    coerce_model_output,
+)
 from ..tools.repo import apply_unified_diff, list_repo_files, read_repo_file, run_shell_command
 from ..tools.review import get_review_context
 from .base import AgentWorkflowTask
@@ -133,6 +141,9 @@ class ReviewAgentTask(ConfiguredAgentWorkflowTask):
             name=self.agent_name,
             instructions=self.instructions(),
             model=model,
+            model_settings=ModelSettings(
+                reasoning=Reasoning(effort="high"),
+            ),
             tools=self.tools(),
             output_type=self.output_type(),
         )

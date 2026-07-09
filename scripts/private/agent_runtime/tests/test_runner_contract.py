@@ -99,6 +99,9 @@ class AgentRuntimeContractTests(unittest.TestCase):
         self.assertIn("from .base import AgentWorkflowTask", task_source)
         self.assertIn("class ReviewResult", task_source)
         self.assertIn("return ReviewResult", task_source)
+        self.assertIn('Reasoning(effort="high")', task_source)
+        self.assertNotIn("temperature=", task_source)
+        self.assertNotIn("verbosity=", task_source)
         self.assertIn("REVIEW_AGENT_INPUT", task_source)
         self.assertIn("context=review_context", task_source)
         self.assertIn("filter_invalid_right_side_findings", task_source)
@@ -165,6 +168,8 @@ class AgentRuntimeContractTests(unittest.TestCase):
             if task.command in {OPENAI_AGENT_CONTRACTS.AgentCommand.REPAIR, OPENAI_AGENT_CONTRACTS.AgentCommand.STABILIZATION}
         ]
         self.assertEqual({type(task).__name__ for task in edit_tasks}, {"RepositoryEditAgentTask"})
+        for task in edit_tasks:
+            self.assertFalse(hasattr(task.build_agent(model="gpt-test"), "model_settings"))
         runner.validate_agent_task_registry(AGENT_TASK_CONFIG_FILE)
 
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -212,6 +217,9 @@ class AgentRuntimeContractTests(unittest.TestCase):
         self.assertEqual(agent.name, "Pull request reviewer")
         self.assertEqual(agent.instructions, AGENT_REVIEW_INSTRUCTIONS_FILE.read_text(encoding="utf-8"))
         self.assertEqual(agent.model, "gpt-test")
+        self.assertEqual(agent.model_settings.reasoning.effort, "high")
+        self.assertIsNone(agent.model_settings.temperature)
+        self.assertIsNone(agent.model_settings.verbosity)
         self.assertEqual(
             [tool.__name__ for tool in agent.tools],
             ["get_review_context", "read_repo_file", "list_repo_files", "run_shell_command"],

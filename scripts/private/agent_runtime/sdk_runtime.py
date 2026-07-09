@@ -62,7 +62,8 @@ configure_openai_defaults()
 import truststore
 truststore.inject_into_ssl()
 
-from agents import Agent, RunConfig, RunContextWrapper, Runner, function_tool  # noqa: E402
+from agents import Agent, ModelSettings, RunConfig, RunContextWrapper, Runner, function_tool  # noqa: E402
+from openai.types.shared import Reasoning  # noqa: E402
 from pydantic import BaseModel, ConfigDict, Field  # noqa: E402
 # autopep8: on
 
@@ -71,6 +72,8 @@ __all__ = [
     "BaseModel",
     "ConfigDict",
     "Field",
+    "ModelSettings",
+    "Reasoning",
     "RunConfig",
     "RunContextWrapper",
     "Runner",

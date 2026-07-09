@@ -40,6 +40,9 @@ Arm OpenAI proxy, disables Agents SDK tracing, and injects `truststore` before
 importing OpenAI libraries.
 Local runs use the same SDK path and require either `OPENAI_API_KEY` or
 `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS`; OpenAI SDK CLI login state is not reused.
+The review agent explicitly uses high reasoning effort while leaving sampling
+temperature unset. This prioritizes review accuracy over model latency and cost;
+the repair and stabilization agents retain their existing model defaults.
 
 Structure:
 

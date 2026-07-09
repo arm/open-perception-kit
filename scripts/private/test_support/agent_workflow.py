@@ -218,6 +218,18 @@ def load_agent_workflow_module_with_fake_sdk(path: Path, module_name: str):
             for name, value in kwargs.items():
                 setattr(self, name, value)
 
+    class FakeModelSettings:
+        def __init__(self, **kwargs: object) -> None:
+            self.temperature = kwargs.pop("temperature", None)
+            self.verbosity = kwargs.pop("verbosity", None)
+            for name, value in kwargs.items():
+                setattr(self, name, value)
+
+    class FakeReasoning:
+        def __init__(self, **kwargs: object) -> None:
+            for name, value in kwargs.items():
+                setattr(self, name, value)
+
     class FakeRunContextWrapper:
         def __init__(self, context: object) -> None:
             self.context = context
@@ -232,12 +244,19 @@ def load_agent_workflow_module_with_fake_sdk(path: Path, module_name: str):
 
     fake_agents = types.SimpleNamespace(
         Agent=FakeAgent,
+        ModelSettings=FakeModelSettings,
         RunConfig=FakeRunConfig,
         RunContextWrapper=FakeRunContextWrapper,
         Runner=FakeRunner,
         function_tool=lambda function: function,
     )
     fake_truststore = types.SimpleNamespace(inject_into_ssl=lambda: None)
+    fake_openai = types.ModuleType("openai")
+    fake_openai.__path__ = []  # type: ignore[attr-defined]
+    fake_openai_types = types.ModuleType("openai.types")
+    fake_openai_types.__path__ = []  # type: ignore[attr-defined]
+    fake_openai_shared = types.ModuleType("openai.types.shared")
+    fake_openai_shared.Reasoning = FakeReasoning  # type: ignore[attr-defined]
     fake_pydantic = types.SimpleNamespace(
         BaseModel=object,
         ConfigDict=lambda **_kwargs: {},
@@ -246,7 +265,14 @@ def load_agent_workflow_module_with_fake_sdk(path: Path, module_name: str):
     module_path = str(OPENAI_AGENT_RUNNER_SCRIPT.parent.parent)
     with mock.patch.dict(
         sys.modules,
-        {"agents": fake_agents, "truststore": fake_truststore, "pydantic": fake_pydantic},
+        {
+            "agents": fake_agents,
+            "openai": fake_openai,
+            "openai.types": fake_openai_types,
+            "openai.types.shared": fake_openai_shared,
+            "truststore": fake_truststore,
+            "pydantic": fake_pydantic,
+        },
     ):
         sys.path.insert(0, module_path)
         try:
