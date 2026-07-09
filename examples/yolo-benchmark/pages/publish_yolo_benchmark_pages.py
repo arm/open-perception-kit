@@ -1422,7 +1422,12 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
             set_output("deploy", "false")
             return
 
-        runs = load_report_runs(artifact_root)
+        try:
+            runs = load_report_runs(artifact_root)
+        except PublishError as error:
+            print(error)
+            set_output("deploy", "false")
+            return
         checkout_site_branch(site_dir, storage_branch)
         remove_legacy_root_site(site_dir)
         write_selected_artifacts(artifact_root, target, runs)

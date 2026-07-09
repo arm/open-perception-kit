@@ -229,6 +229,31 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             self.assertEqual(pr_number, "")
             self.assertEqual(title, "Manual run 123")
 
+    def test_publish_report_skips_partial_artifact_without_comparisons(self) -> None:
+        def write_partial_artifact(target: Path, *_args: object) -> bool:
+            artifact = target / "yolo-benchmark"
+            (artifact / "runs" / "run-01").mkdir(parents=True)
+            (artifact / "images.tsv").write_text("", encoding="utf-8")
+            return True
+
+        env = {
+            "GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge",
+            "UPSTREAM_EVENT": "workflow_dispatch",
+            "UPSTREAM_HEAD_BRANCH": "feature/test",
+            "UPSTREAM_HEAD_SHA": "a" * 40,
+            "UPSTREAM_CONCLUSION": "failure",
+            "UPSTREAM_RUN_ID": "123",
+            "UPSTREAM_RUN_ATTEMPT": "1",
+        }
+        with tempfile.TemporaryDirectory() as tmpdir, patch.dict(os.environ, env), \
+                patch.object(publish, "download_report_artifact", side_effect=write_partial_artifact), \
+                patch.object(publish, "set_output") as set_output, \
+                patch.object(publish, "checkout_site_branch") as checkout:
+            publish.publish_report(Path(tmpdir), "pages")
+
+            set_output.assert_called_once_with("deploy", "false")
+            checkout.assert_not_called()
+
     def test_write_yolo_index_generates_index_for_existing_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             site_dir = Path(tmpdir) / "site"
