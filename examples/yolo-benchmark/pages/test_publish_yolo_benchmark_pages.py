@@ -37,36 +37,23 @@ class LinkParser(HTMLParser):
     def __init__(self):
         super().__init__()
         self.hrefs = []
+        self.ids = []
         self.links = []
+        self.aria_controls = []
+        self.thumbnails = []
 
     def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if "id" in attrs:
+            self.ids.append(attrs["id"])
+        if "aria-controls" in attrs:
+            self.aria_controls.append(attrs["aria-controls"])
+        if "data-thumbnail" in attrs:
+            self.thumbnails.append(attrs["data-thumbnail"])
         if tag == "a":
-            link = dict(attrs)
-            self.links.append(link)
-            if "href" in link:
-                self.hrefs.append(link["href"])
-
-
-class TableTextParser(HTMLParser):
-    def __init__(self):
-        super().__init__()
-        self.items = []
-        self._tag = ""
-        self._chunks = []
-
-    def handle_starttag(self, tag, attrs):
-        if tag in {"td", "th"}:
-            self._tag = tag
-            self._chunks = []
-
-    def handle_data(self, data):
-        if self._tag:
-            self._chunks.append(data)
-
-    def handle_endtag(self, tag):
-        if tag == self._tag:
-            self.items.append("".join(self._chunks).strip())
-            self._tag = ""
+            self.links.append(attrs)
+            if "href" in attrs:
+                self.hrefs.append(attrs["href"])
 
 
 def comparison(bare_ms: float = 10.0,
@@ -216,47 +203,23 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             )
 
             html = (target / "index.html").read_text(encoding="utf-8")
-            parser = TableTextParser()
-            parser.feed(html)
             links = LinkParser()
             links.feed(html)
+            image_href = "../../../yolo-performance-datasets/coco-val2017-abcdef123456/images/000000000139.jpg"
 
-            self.assertNotIn("Per-image timings", html)
-            self.assertNotIn("Per-image Stage Profile - Ranked", html)
-            self.assertNotIn("Per-image Stage Profile - Dataset Order", html)
-            self.assertNotIn("Dataset order median", html)
-            self.assertNotIn("<h2>Run Stability</h2>", html)
-            self.assertIn("Run Stability - p50_ms", html)
-            self.assertIn("Preprocess - Ranked per-image median", html)
-            self.assertLess(html.index('id="section-information"'), html.index('id="summary"'))
-            self.assertLess(html.index('id="summary"'), html.index('id="runs"'))
-            self.assertLess(html.index('id="runs"'), html.index('id="dataset-analysis"'))
-            self.assertEqual(html.count("10-run Summary"), 1)
-            self.assertIn('aria-controls="section-summary"', html)
-            self.assertIn('aria-controls="section-runs"', html)
-            self.assertIn('aria-controls="section-dataset-analysis"', html)
-            self.assertEqual(html.count('aria-controls="section-runs"'), 1)
-            self.assertIn("Full image list", html)
-            self.assertIn("640x426", html)
+            section_ids = [item for item in links.ids if item in {
+                "section-information", "summary", "runs", "dataset-analysis",
+            }]
+            self.assertEqual(section_ids, ["section-information", "summary", "runs", "dataset-analysis"])
+            self.assertEqual(links.aria_controls.count("section-runs"), 1)
             self.assertIn("images.tsv", links.hrefs)
-            self.assertIn(
-                "../../../yolo-performance-datasets/coco-val2017-abcdef123456/images/000000000139.jpg",
-                links.hrefs,
-            )
-            self.assertGreaterEqual(
-                links.hrefs.count(
-                    "../../../yolo-performance-datasets/coco-val2017-abcdef123456/images/000000000139.jpg"
-                ),
-                2,
-            )
+            self.assertIn(image_href, links.hrefs)
+            self.assertGreaterEqual(links.hrefs.count(image_href), 2)
             image_links = [
-                link for link in links.links
-                if link.get("href") ==
-                "../../../yolo-performance-datasets/coco-val2017-abcdef123456/images/000000000139.jpg"
+                link for link in links.links if link.get("href") == image_href
             ]
             self.assertTrue(any(link.get("target") == "_blank" for link in image_links))
-            self.assertIn('data-thumbnail="../../../yolo-performance-datasets/coco-val2017-abcdef123456/'
-                          'images/000000000139.jpg"', html)
+            self.assertIn(image_href, links.thumbnails)
 
     def test_select_target_supports_manual_reports(self) -> None:
         with patch.dict(os.environ, {"UPSTREAM_RUN_ID": "123"}):

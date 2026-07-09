@@ -49,7 +49,7 @@ class PublishError(RuntimeError):
 
 
 def usage() -> None:
-    print("Usage: examples/yolo-benchmark/pages/publish.sh publish|cleanup", file=sys.stderr)
+    print("Usage: publish_yolo_benchmark_pages.py publish|cleanup", file=sys.stderr)
 
 
 def env(name: str, default: str = "") -> str:
@@ -1206,19 +1206,6 @@ def write_run_table(run: dict[str, Any]) -> str:
     parts.append(write_delta_rows([(metric, run_delta(run, metric)) for metric in report_run_metrics([run])]))
     parts.append("</tbody></table></div>")
     return "".join(parts)
-
-
-def image_link(dataset_images_href: str, row: dict[str, Any]) -> str:
-    image_id = html_escape(row["image_id"])
-    image_file = row.get("image_file")
-    if not dataset_images_href or not image_file:
-        return image_id
-    href = f"{dataset_images_href}/{quote(str(image_file), safe='')}"
-    tooltip = f'Image {row["image_id"]}'
-    return (
-        f'<a href="{html_escape(href)}" target="_blank" rel="noopener"'
-        f'{tooltip_attrs(tooltip, href)}>{image_id}</a>'
-    )
 
 
 def bar_chart_svg(

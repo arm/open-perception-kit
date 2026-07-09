@@ -10,7 +10,7 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(git -C "${SCRIPT_DIR}" rev-parse --show-toplevel)"
 IMAGE_NAME="${YOLO_PAGES_IMAGE_NAME:-amp-dev-forge-yolo-benchmark-pages:local}"
-DOCKERFILE="${SCRIPT_DIR}/Dockerfile"
+DOCKERFILE="${REPO_ROOT}/scripts/playwright/pages/Dockerfile"
 
 usage() {
     cat << 'EOF'
@@ -109,4 +109,4 @@ docker run --rm \
     "${mount_args[@]}" \
     "${env_args[@]}" \
     "${IMAGE_NAME}" \
-    "${REPO_ROOT}/examples/yolo-benchmark/pages/publish.sh" "$@"
+    python3 "${REPO_ROOT}/examples/yolo-benchmark/pages/publish_yolo_benchmark_pages.py" "$@"
