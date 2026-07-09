@@ -35,7 +35,7 @@ services:
     hostname: pek-playwright-pages
     build:
       context: ..
-      dockerfile: scripts/playwright/pages/Dockerfile
+      dockerfile: scripts/report_pages/Dockerfile
 
   pek-release-with-ut:
     <<: *pek-docs-base
