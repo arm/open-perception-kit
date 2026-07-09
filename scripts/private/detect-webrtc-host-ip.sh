@@ -98,7 +98,7 @@ wsl_host_address_loopback_enabled() {
         # PowerShell expands these variables; the shell must preserve them literally.
         # shellcheck disable=SC2016
         powershell.exe -NoProfile -Command \
-            '$path = Join-Path $env:USERPROFILE ".wslconfig"; if (Test-Path $path) { if (Get-Content $path | Where-Object { $_ -match "^\s*hostAddressLoopback\s*=\s*true\s*(#.*)?$" }) { "true" } }' \
+            '$path = Join-Path $env:USERPROFILE ".wslconfig"; if (Test-Path $path) { $section = ""; foreach ($line in Get-Content $path) { if ($line -match "^\s*\[([^\]]+)\]\s*([#;].*)?$") { $section = $matches[1].Trim().ToLowerInvariant(); continue }; if ($section -eq "experimental" -and $line -match "^\s*hostAddressLoopback\s*=\s*true\s*([#;].*)?$") { "true"; break } } }' \
             2> /dev/null | tr -d '\r' | tail -n 1
     )"
     [[ "$enabled" == "true" ]]
@@ -121,9 +121,9 @@ require_wsl_mirrored_host_loopback() {
 Error: WSL mirrored networking cannot expose PEK's non-loopback WebRTC TURN
 address to Windows until host-address loopback is enabled.
 
-Add this setting under in %UserProfile%\\.wslconfig:
+Add this setting in %UserProfile%\\.wslconfig:
 
-  [exprimental]
+  [experimental]
   hostAddressLoopback=true
 
 Then run "wsl --shutdown" from Windows PowerShell, reopen WSL, and start the

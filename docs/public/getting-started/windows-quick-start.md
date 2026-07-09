@@ -41,8 +41,7 @@ If `docker` does not work, open Docker Desktop and confirm that WSL integration 
 
 ### Configure mirrored WSL networking for WebRTC
 
-Open **%UserProfile%\.wslconfig** from Windows and ensure its `[wsl2]` section
-contains:
+Open **%UserProfile%\.wslconfig** from Windows and ensure it contains:
 
 ```ini
 [wsl2]
