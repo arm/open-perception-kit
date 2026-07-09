@@ -181,6 +181,7 @@ Published reports live under the shared repository Pages site:
 yolo-benchmark/nightly/
 yolo-benchmark/manual/<run-id>/
 yolo-benchmark/prs/<number>/
+yolo-performance-datasets/
 ```
 
 The report page renders native SVG percentile plots for `p50_ms`, `p75_ms`,
@@ -188,6 +189,12 @@ The report page renders native SVG percentile plots for `p50_ms`, `p75_ms`,
 per-image timing JSONL files to render the run-level breakdown table, but raw
 predictions and timing JSONL files stay in the Actions artifact; Pages keeps
 only the rendered table plus comparison and summary JSON files.
+
+Dataset images are not committed to the source branch or the Pages storage
+branch. Pages workflows restore them as a deploy-only overlay under
+`yolo-performance-datasets/` before `upload-pages-artifact`. The overlay helper
+uses the official COCO val2017 download path from `prepare_dataset.py`, so the
+ZIP SHA-256 and ZIP CRC checks stay shared with benchmark preparation.
 
 Local dry-run publish from an existing artifact directory:
 

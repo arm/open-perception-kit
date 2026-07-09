@@ -155,7 +155,11 @@ class TestPublishPlaywrightPages(unittest.TestCase):
 
             parser = LinkParser()
             parser.feed((site_dir / "index.html").read_text(encoding="utf-8"))
-            self.assertEqual(parser.hrefs, ["playwright/index.html", "yolo-benchmark/index.html"])
+            self.assertEqual(parser.hrefs, [
+                "playwright/index.html",
+                "yolo-benchmark/index.html",
+                "yolo-performance-datasets/index.html",
+            ])
 
     def test_remove_legacy_root_site_keeps_report_roots(self):
         with tempfile.TemporaryDirectory() as tmpdir:

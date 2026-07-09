@@ -28,10 +28,12 @@ ASSET_DIR = SCRIPT_DIR / "assets"
 TEMPLATE_DIR = SCRIPT_DIR / "templates"
 REPO_ROOT = SCRIPT_DIR.parents[2]
 REPORT_ROOT = "yolo-benchmark"
+DATASET_ROOT = "yolo-performance-datasets"
 ARTIFACT_ROOT_NAME = REPORT_ROOT
 PRODUCT_TITLE = "Arm Perception kit"
 INDEX_HTML = "index.html"
 REPORT_INDEX_META = "report-index-meta.txt"
+FINGERPRINT_HEADER = "# image_set_fingerprint="
 PERCENTILE_METRICS = ("p50_ms", "p75_ms", "p95_ms", "p99_ms")
 RUN_METRICS = ("avg_ms", *PERCENTILE_METRICS)
 LEGACY_ROOT_PATHS = (INDEX_HTML, "nightly", "prs", "report-index.css", "report-shell.css", "report-shell.js")
@@ -285,6 +287,7 @@ def write_root_index(site_dir: Path) -> None:
       <div class="grid">
         <a href="playwright/index.html"><strong>Playwright</strong><span>Browser smoke reports</span></a>
         <a href="yolo-benchmark/index.html"><strong>YOLO Benchmark</strong><span>Performance and accuracy benchmark reports</span></a>
+        <a href="yolo-performance-datasets/index.html"><strong>YOLO Datasets</strong><span>Benchmark image datasets</span></a>
       </div>
     </main>
   </body>
@@ -469,11 +472,32 @@ def load_jsonl(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
+def dataset_id(fingerprint: str) -> str:
+    return f"coco-val2017-{fingerprint.removeprefix('sha256:')[:12]}" if fingerprint.startswith("sha256:") else ""
+
+
+def load_image_list_metadata(path: Path) -> tuple[str, dict[str, str]]:
+    if not path.is_file():
+        return "", {}
+    fingerprint = ""
+    image_files = {}
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.rstrip("\r")
+        if line.startswith(FINGERPRINT_HEADER):
+            fingerprint = line[len(FINGERPRINT_HEADER):].strip()
+            continue
+        if not line or line.startswith("#") or "\t" not in line:
+            continue
+        image_id, image_path = line.split("\t", 1)
+        image_files[image_id] = Path(image_path).name
+    return fingerprint, image_files
+
+
 def timing_key(row: dict[str, Any]) -> tuple[int, str]:
     return (int(row.get("image_index", 0)), str(row.get("image_id", "")))
 
 
-def load_image_timings(run_dir: Path) -> list[dict[str, Any]]:
+def load_image_timings(run_dir: Path, image_files: dict[str, str]) -> list[dict[str, Any]]:
     bare_rows = {timing_key(row): row for row in load_jsonl(run_dir / "bare" / "timings.jsonl")}
     pek_rows = {timing_key(row): row for row in load_jsonl(run_dir / "pek" / "timings.jsonl")}
     rows = []
@@ -485,6 +509,8 @@ def load_image_timings(run_dir: Path) -> list[dict[str, Any]]:
             {
                 "image_index": source.get("image_index", key[0]),
                 "image_id": source.get("image_id", key[1]),
+                "image_file": image_files.get(str(source.get("image_id", key[1])),
+                                              Path(str(source.get("image_path", ""))).name),
                 "width": source.get("width", ""),
                 "height": source.get("height", ""),
                 "bare": bare,
@@ -500,6 +526,7 @@ def load_report_runs(artifact_root: Path) -> list[dict[str, Any]]:
         raise PublishError(f"YOLO artifact is missing runs directory: {artifact_root}")
 
     runs = []
+    image_fingerprint, image_files = load_image_list_metadata(artifact_root / "images.tsv")
     for run_dir in sorted(path for path in runs_dir.iterdir() if path.is_dir()):
         comparison_path = run_dir / "comparison.json"
         if not comparison_path.is_file():
@@ -509,7 +536,8 @@ def load_report_runs(artifact_root: Path) -> list[dict[str, Any]]:
             "name": run_dir.name,
             "path": run_dir,
             "comparison": comparison,
-            "image_timings": load_image_timings(run_dir),
+            "image_set_fingerprint": image_fingerprint,
+            "image_timings": load_image_timings(run_dir, image_files),
         })
     if not runs:
         raise PublishError(f"YOLO artifact contains no run comparison JSON files: {artifact_root}")
@@ -981,7 +1009,15 @@ def image_timing_result(bare_ms: Any, pek_ms: Any) -> str:
     })
 
 
-def write_image_timing_table(run: dict[str, Any]) -> str:
+def image_link(dataset_images_href: str, row: dict[str, Any]) -> str:
+    image_id = html_escape(row["image_id"])
+    image_file = row.get("image_file")
+    if not dataset_images_href or not image_file:
+        return image_id
+    return html_anchor(f"{dataset_images_href}/{quote(str(image_file), safe='')}", image_id)
+
+
+def write_image_timing_table(run: dict[str, Any], dataset_images_href: str) -> str:
     rows = run.get("image_timings", [])
     if not rows:
         return '<p class="empty-table-note">No per-image timing rows were found for this run.</p>'
@@ -1017,7 +1053,7 @@ def write_image_timing_table(run: dict[str, Any]) -> str:
         parts.append(
             "<tr>"
             f"{sort_td(row['image_index'], html_escape(row['image_index']))}"
-            f"{sort_td(row['image_id'], html_escape(row['image_id']))}"
+            f"{sort_td(row['image_id'], image_link(dataset_images_href, row))}"
             f"{sort_td(size_sort, html_escape(size))}"
             f"{sort_td(bare_wall, optional_ms(bare_wall))}"
             f"{sort_td(bare.get('preprocess_ms'), optional_ms(bare.get('preprocess_ms')))}"
@@ -1145,7 +1181,7 @@ def write_stability_section(runs: list[dict[str, Any]]) -> str:
     )
 
 
-def write_run_sections(runs: list[dict[str, Any]]) -> str:
+def write_run_sections(runs: list[dict[str, Any]], dataset_images_href: str) -> str:
     parts = [
         '<section class="section-card run-card">\n',
         '        <div class="run-tabs">\n',
@@ -1178,12 +1214,21 @@ def write_run_sections(runs: list[dict[str, Any]]) -> str:
                 '</div><div class="table-panel">',
                 write_run_table(run),
                 "</div></div>",
-                write_image_timing_table(run),
+                write_image_timing_table(run, dataset_images_href),
                 "</div>\n",
             ]
         )
     parts.append("            </div>\n          </div>\n      </section>\n")
     return "".join(parts)
+
+
+def dataset_images_href_for_report(runs: list[dict[str, Any]], target: Path, site_dir: Path) -> str:
+    fingerprint = str(runs[0].get("image_set_fingerprint", "")) if runs else ""
+    dataset = dataset_id(fingerprint)
+    if not dataset:
+        return ""
+    images_dir = site_dir / DATASET_ROOT / dataset / "images"
+    return Path(os.path.relpath(images_dir, target)).as_posix()
 
 
 def write_information_section(comparison: dict[str, Any]) -> str:
@@ -1258,7 +1303,7 @@ def write_report_page(
             "summary_chart": summary_bar_chart_svg(runs),
             "summary_table": write_summary_table(runs),
             "stability_section": write_stability_section(runs),
-            "run_sections": write_run_sections(runs),
+            "run_sections": write_run_sections(runs, dataset_images_href_for_report(runs, target, site_dir)),
             "chart_tooltip": chart_tooltip_html(),
         },
     )

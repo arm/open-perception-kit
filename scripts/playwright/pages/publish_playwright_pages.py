@@ -256,6 +256,7 @@ def write_root_index(site_dir: Path) -> None:
       <div class="grid">
         <a href="playwright/index.html"><strong>Playwright</strong><span>Browser smoke reports</span></a>
         <a href="yolo-benchmark/index.html"><strong>YOLO Benchmark</strong><span>Performance and accuracy benchmark reports</span></a>
+        <a href="yolo-performance-datasets/index.html"><strong>YOLO Datasets</strong><span>Benchmark image datasets</span></a>
       </div>
     </main>
   </body>

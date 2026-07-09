@@ -17,10 +17,11 @@ from unittest.mock import patch
 
 
 SCRIPT_PATH = Path(__file__).with_name("publish_yolo_benchmark_pages.py")
+OVERLAY_SCRIPT_PATH = Path(__file__).with_name("restore_dataset_overlay.py")
 
 
-def import_publish_module():
-    spec = importlib.util.spec_from_file_location("publish_yolo_benchmark_pages", SCRIPT_PATH)
+def import_script(path: Path, name: str):
+    spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     assert spec.loader is not None
@@ -28,7 +29,8 @@ def import_publish_module():
     return module
 
 
-publish = import_publish_module()
+publish = import_script(SCRIPT_PATH, "publish_yolo_benchmark_pages")
+overlay = import_script(OVERLAY_SCRIPT_PATH, "restore_dataset_overlay")
 
 
 class LinkParser(HTMLParser):
@@ -117,6 +119,11 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             run_dir = artifact / "runs" / "run-01"
             (run_dir / "bare").mkdir(parents=True)
             (run_dir / "pek").mkdir()
+            (artifact / "images.tsv").write_text(
+                "# image_set_fingerprint=sha256:abcdef123456\n"
+                "139\t/tmp/000000000139.jpg\n",
+                encoding="utf-8",
+            )
             (run_dir / "comparison.json").write_text(json.dumps(comparison()), encoding="utf-8")
             (run_dir / "bare" / "timings.jsonl").write_text(
                 json.dumps({"image_index": 1, "image_id": "139", "width": 640, "height": 426,
@@ -134,6 +141,8 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             runs = publish.load_report_runs(artifact)
 
             self.assertEqual(runs[0]["image_timings"][0]["image_id"], "139")
+            self.assertEqual(runs[0]["image_timings"][0]["image_file"], "000000000139.jpg")
+            self.assertEqual(runs[0]["image_set_fingerprint"], "sha256:abcdef123456")
             self.assertEqual(runs[0]["image_timings"][0]["bare"]["inference_ms"], 8.0)
             self.assertEqual(runs[0]["image_timings"][0]["pek"]["inference_ms"], 12.0)
 
@@ -160,9 +169,11 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
                 "Manual",
                 [{
                     **report_run("run-01"),
+                    "image_set_fingerprint": "sha256:abcdef1234567890",
                     "image_timings": [{
                         "image_index": 1,
                         "image_id": "139",
+                        "image_file": "000000000139.jpg",
                         "width": 640,
                         "height": 426,
                         "bare": {"wall_ms": 10.0, "preprocess_ms": 1.0, "inference_ms": 8.0,
@@ -176,10 +187,16 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             html = (target / "index.html").read_text(encoding="utf-8")
             parser = TableTextParser()
             parser.feed(html)
+            links = LinkParser()
+            links.feed(html)
 
             self.assertIn("Per-image timings", html)
             self.assertIn("139", parser.items)
             self.assertTrue(any("PEK inf" in item for item in parser.items))
+            self.assertIn(
+                "../../../yolo-performance-datasets/coco-val2017-abcdef123456/images/000000000139.jpg",
+                links.hrefs,
+            )
 
     def test_select_target_supports_manual_reports(self) -> None:
         with patch.dict(os.environ, {"UPSTREAM_RUN_ID": "123"}):
@@ -211,7 +228,57 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
 
             parser = LinkParser()
             parser.feed((site_dir / "index.html").read_text(encoding="utf-8"))
-            self.assertEqual(parser.hrefs, ["playwright/index.html", "yolo-benchmark/index.html"])
+            self.assertEqual(parser.hrefs, [
+                "playwright/index.html",
+                "yolo-benchmark/index.html",
+                "yolo-performance-datasets/index.html",
+            ])
+
+    def test_restore_dataset_overlay_writes_deploy_only_dataset_page(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            image = root / "000000000139.jpg"
+            image.write_bytes(b"jpg")
+            image_list = root / "images.tsv"
+            image_list.write_text(
+                f"# image_set_fingerprint=sha256:abcdef1234567890\n139\t{image}\n",
+                encoding="utf-8",
+            )
+
+            targets = overlay.restore_overlay(root / "site", root / "cache", image_list)
+            target = targets[0]
+
+            self.assertEqual(target.name, "coco-val2017-abcdef123456")
+            self.assertTrue((target / "images" / "000000000139.jpg").is_file())
+            self.assertTrue((target / "manifest.json").is_file())
+            self.assertTrue((root / "site" / "yolo-performance-datasets" / "index.html").is_file())
+
+    def test_restore_dataset_overlay_without_report_lists_only_writes_empty_index(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+
+            with patch.object(overlay, "prepare_image_list", side_effect=AssertionError("unexpected download")):
+                targets = overlay.restore_overlay(root / "site", root / "cache")
+
+            self.assertEqual(targets, [])
+            self.assertTrue((root / "site" / "yolo-performance-datasets" / "index.html").is_file())
+
+    def test_restore_dataset_overlay_deduplicates_report_fingerprints(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            image = root / "000000000139.jpg"
+            image.write_bytes(b"jpg")
+            for report in ("one", "two"):
+                image_list = root / "site" / "yolo-benchmark" / report / "images.tsv"
+                image_list.parent.mkdir(parents=True)
+                image_list.write_text(
+                    f"# image_set_fingerprint=sha256:abcdef1234567890\n139\t{image}\n",
+                    encoding="utf-8",
+                )
+
+            targets = overlay.restore_overlay(root / "site", root / "cache")
+
+            self.assertEqual([target.name for target in targets], ["coco-val2017-abcdef123456"])
 
     def test_remove_legacy_root_site_keeps_report_roots(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
