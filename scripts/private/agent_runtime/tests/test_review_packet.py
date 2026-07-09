@@ -90,6 +90,35 @@ class AgentReviewPacketTests(unittest.TestCase):
             self.assertIn("## unstaged", dirty_hunk)
             self.assertIn("VALUE = 'dirty'", dirty_hunk)
 
+    def test_scoped_changed_paths_uses_untruncated_name_status(self) -> None:
+        packet = import_script()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            git(repo, "init")
+            git(repo, "config", "user.email", "agent@example.com")
+            git(repo, "config", "user.name", "Agent")
+            git(repo, "commit", "--allow-empty", "-m", "base")
+            base_sha = git(repo, "rev-parse", "HEAD")
+            last_path = ""
+            for index in range(70):
+                path = (
+                    repo
+                    / "long"
+                    / f"{'a' * 180}_{index:03d}"
+                    / f"{'b' * 180}_{index:03d}.py"
+                )
+                path.parent.mkdir(parents=True)
+                path.write_text(f"VALUE = {index}\n", encoding="utf-8")
+                last_path = path.relative_to(repo).as_posix()
+            git(repo, "add", ".")
+            git(repo, "commit", "-m", "many long paths")
+            head_sha = git(repo, "rev-parse", "HEAD")
+
+            paths = packet.scoped_changed_paths(repo, packet.diff_scopes(base_sha, head_sha))
+
+        self.assertIn(last_path, paths)
+        self.assertTrue(all(not path.startswith("[truncated ") for path in paths))
+
 
 if __name__ == "__main__":
     unittest.main()

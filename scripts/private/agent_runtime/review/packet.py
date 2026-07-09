@@ -28,7 +28,7 @@ def truncate(text: str, limit: int) -> str:
     return text[:max(limit - len(suffix), 0)] + suffix
 
 
-def git(repo_root: Path, *args: str) -> str:
+def git(repo_root: Path, *args: str, truncate_output: bool = True) -> str:
     completed = subprocess.run(
         ["git", *args],
         cwd=repo_root,
@@ -40,7 +40,9 @@ def git(repo_root: Path, *args: str) -> str:
     output = completed.stdout.rstrip()
     if completed.returncode != 0:
         output = f"exit_code={completed.returncode}\n{output}"
-    return truncate(output, MAX_COMMAND_CHARS)
+    if truncate_output:
+        return truncate(output, MAX_COMMAND_CHARS)
+    return output
 
 
 def review_scope(context_file: Path) -> tuple[str, str]:
@@ -157,7 +159,7 @@ def scoped_file(repo_root: Path, scopes: list[tuple[str, list[str]]], suffix_arg
 def scoped_changed_paths(repo_root: Path, scopes: list[tuple[str, list[str]]]) -> list[str]:
     paths: list[str] = []
     for _, args in scopes:
-        paths.extend(changed_paths(git(repo_root, *args, "--name-status")))
+        paths.extend(changed_paths(git(repo_root, *args, "--name-status", truncate_output=False)))
     return unique_paths(paths)
 
 
