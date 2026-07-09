@@ -321,7 +321,7 @@ class AgentRuntimeContractTests(unittest.TestCase):
             )
             task = agent_tasks.ReviewAgentTask()
 
-            async def capture_run(*_args: object, **_kwargs: object) -> str:
+            def capture_run(*_args: object, **_kwargs: object) -> str:
                 self.assertFalse(context_file.exists())
                 self.assertFalse(event_file.exists())
                 return "result"
