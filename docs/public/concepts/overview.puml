@@ -26,7 +26,7 @@ package "Cairn Camera Service" as camera_service $CONTAINER_COLOR {
 }
 
 package "Perception Service" as perception_service $CONTAINER_COLOR {
-  package "Perception Manager [C++]" as perception_manager $EXECUTABLE_COLOR {
+  package "Perception Manager [C++]/Python]" as perception_manager $EXECUTABLE_COLOR {
     component "gRPC server" as manager_grpc $GPRC_COLOR
     component "OPK API" as opk_api $INTERNAL_MODULE_COLOR
 
