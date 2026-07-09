@@ -19,19 +19,18 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Supports `workflow_dispatch` manual runs with a configurable `base_ref` input for the diff baseline
 - Uses `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS`, the Arm OpenAI proxy endpoint, and tracing-disabled Agents SDK execution
 - Uses the checked-in review assets under `.github/agent-runtime/review/`
-- Keeps prompt templates in `.github/agent-runtime/review/prompts/`
-- Keeps schemas in `.github/agent-runtime/review/schemas/`
+- Keeps static trusted Agent instructions in `.github/agent-runtime/review/instructions.md`
 - Reuses shared helper modules from `scripts/private/agent_runtime/`
 - Sets up the runtime venv through `scripts/private/agent_runtime/setup_runtime.py`
-- Includes PR title and URL in the rendered prompt, and writes bounded extracted
-  intent context to `.github/agent-runtime/review/out/pr-intent.md` so intended
-  behavior changes can be considered without copying the raw PR body into review
-  context
-- Filters directive-like PR description content before the reviewer sees it as
-  intent context; the extracted intent file remains untrusted context data, not
-  review instructions
-- Uploads `agent-review-out` artifacts, including the rendered prompt, extracted
-  intent context, raw JSON output, and summary markdown
+- Passes repository scope and bounded basic PR fields (number, title, body, and
+  URL) through a typed SDK run context; the model can access that data only
+  through `get_review_context`
+- Treats PR descriptions as arbitrary free-form text without requiring headings,
+  templates, or list structure, and labels all PR-derived tool data as untrusted evidence
+- Reads the potentially large PR body from the GitHub event file instead of a
+  process environment variable, then applies explicit normalization and bounds
+- Uploads `agent-review-out` artifacts, including the structured review context,
+  raw JSON output, and summary markdown
 - Treats `agent-review-out/review.json` as the canonical machine-readable review state
 - Publishes a fresh PR summary comment for each run from the structured review output
 - Publishes fresh inline review comments for the current findings without prior-state reconciliation
@@ -50,7 +49,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 
 ## What does `.github/agent-runtime/` do?
 
-- Stores Agent runtime assets only: prompts, schemas, profiles, dependency pins, and model/task config
+- Stores Agent runtime assets only: instructions, prompts, profiles, dependency pins, and model/task config
 - Does not define executable GitHub Actions workflows; those live only in `.github/workflows/`
 
 ## What does `.github/workflows/workflow-audit.yml` do?

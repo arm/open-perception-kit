@@ -104,7 +104,6 @@ def resolve_runner_model(args: argparse.Namespace) -> str:
 
 
 def add_common_task_arguments(subparser: argparse.ArgumentParser) -> None:
-    subparser.add_argument("--prompt-file", required=True)
     subparser.add_argument("--output-file", required=True)
     subparser.add_argument("--model-config-file", default=DEFAULT_AGENT_MODEL_CONFIG_PATH)
     subparser.add_argument("--task-config-file", default=DEFAULT_AGENT_TASK_CONFIG_PATH)
@@ -115,24 +114,6 @@ def add_common_task_arguments(subparser: argparse.ArgumentParser) -> None:
         default=None,
         help="Maximum main-agent turns. Defaults to the command-specific task config limit.",
     )
-    subparser.add_argument(
-        "--max-prompt-chars",
-        type=int,
-        default=None,
-        help="Maximum prompt size before the estimator blocks the main agent run.",
-    )
-    subparser.add_argument(
-        "--max-review-files",
-        type=int,
-        default=None,
-        help="Advisory changed file count for review tasks.",
-    )
-    subparser.add_argument(
-        "--max-review-changed-lines",
-        type=int,
-        default=None,
-        help="Advisory changed line count for review tasks.",
-    )
     subparser.add_argument("--command-timeout", type=int, default=300)
 
 
@@ -141,9 +122,7 @@ def resolve_task_settings(args: argparse.Namespace) -> AgentTaskSettings:
         args.task_config_file,
         AgentCommand(args.command),
         max_turns_override=args.max_turns,
-        max_prompt_chars_override=args.max_prompt_chars,
-        max_review_files_override=args.max_review_files,
-        max_review_changed_lines_override=args.max_review_changed_lines,
+        max_prompt_chars_override=getattr(args, "max_prompt_chars", None),
     )
 
 

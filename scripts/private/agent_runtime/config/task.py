@@ -24,7 +24,7 @@ from ..contracts import (
 class AgentTaskConfigEntry:
     agent_instance: AgentInstance
     max_turns: int
-    max_prompt_chars: int
+    max_prompt_chars: int | None
     max_review_files: int | None = None
     max_review_changed_lines: int | None = None
 
@@ -36,10 +36,9 @@ class AgentTaskConfig:
 
 @dataclass(frozen=True)
 class AgentTaskSettings:
-    command: AgentCommand
     agent_instance: AgentInstance
     max_turns: int
-    max_prompt_chars: int
+    max_prompt_chars: int | None
     max_review_files: int | None = None
     max_review_changed_lines: int | None = None
 
@@ -52,6 +51,11 @@ def load_agent_task_config(config_file: str | Path) -> AgentTaskConfig:
     for raw_command, raw_entry in tasks_payload.items():
         command = parse_enum_value(AgentCommand, raw_command, "agent command")
         entry = require_object(raw_entry, f"tasks.{raw_command}")
+        if command is AgentCommand.REVIEW and "max_prompt_chars" in entry:
+            raise ValueError(
+                "tasks.run-review.max_prompt_chars is no longer supported; "
+                "review input is a constant and review data uses typed context."
+            )
         tasks[command] = AgentTaskConfigEntry(
             agent_instance=parse_enum_value(
                 AgentInstance,
@@ -59,9 +63,13 @@ def load_agent_task_config(config_file: str | Path) -> AgentTaskConfig:
                 "agent instance",
             ),
             max_turns=require_positive_int(entry.get("max_turns"), f"tasks.{raw_command}.max_turns"),
-            max_prompt_chars=require_positive_int(
-                entry.get("max_prompt_chars"),
-                f"tasks.{raw_command}.max_prompt_chars",
+            max_prompt_chars=(
+                None
+                if command is AgentCommand.REVIEW
+                else require_positive_int(
+                    entry.get("max_prompt_chars"),
+                    f"tasks.{raw_command}.max_prompt_chars",
+                )
             ),
             max_review_files=optional_positive_int(
                 entry.get("max_review_files"),
@@ -90,32 +98,23 @@ def resolve_agent_task_settings(
     *,
     max_turns_override: int | None = None,
     max_prompt_chars_override: int | None = None,
-    max_review_files_override: int | None = None,
-    max_review_changed_lines_override: int | None = None,
 ) -> AgentTaskSettings:
     parsed_command = parse_enum_value(AgentCommand, command, "agent command")
+    if parsed_command is AgentCommand.REVIEW and max_prompt_chars_override is not None:
+        raise ValueError("--max-prompt-chars is no longer supported for run-review.")
     config = load_agent_task_config(config_file)
     entry = config.tasks.get(parsed_command)
     if entry is None:
         raise ValueError(f"Agent task config does not define command: {parsed_command.value}")
 
     return AgentTaskSettings(
-        command=parsed_command,
         agent_instance=entry.agent_instance,
         max_turns=positive_limit(max_turns_override, entry.max_turns, "--max-turns"),
-        max_prompt_chars=positive_limit(
+        max_prompt_chars=optional_positive_limit(
             max_prompt_chars_override,
             entry.max_prompt_chars,
             "--max-prompt-chars",
         ),
-        max_review_files=optional_positive_limit(
-            max_review_files_override,
-            entry.max_review_files,
-            "--max-review-files",
-        ),
-        max_review_changed_lines=optional_positive_limit(
-            max_review_changed_lines_override,
-            entry.max_review_changed_lines,
-            "--max-review-changed-lines",
-        ),
+        max_review_files=entry.max_review_files,
+        max_review_changed_lines=entry.max_review_changed_lines,
     )

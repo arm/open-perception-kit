@@ -32,13 +32,13 @@ QUALITY_CHECKS_SCRIPT = REPO_ROOT / "tools/expkits-ci/expkits_ci/quality_checks.
 AGENT_REVIEW_ROOT = REPO_ROOT / ".github/agent-runtime/review"
 AGENT_REVIEW_FETCH_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/fetch.py"
 AGENT_REVIEW_PUBLISH_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/publish.py"
-AGENT_REVIEW_PROMPT_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/prompt.py"
+AGENT_REVIEW_CONTEXT_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/context.py"
 AGENT_REVIEW_COMMENTS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/comments.py"
 AGENT_REVIEW_DIFF_ANCHORS_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/diff_anchors.py"
 AGENT_REVIEW_GITHUB_PUBLISH_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/github_publish.py"
 AGENT_REVIEW_MARKDOWN_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/markdown.py"
 AGENT_REVIEW_STATE_SCRIPT = REPO_ROOT / "scripts/private/agent_runtime/review/state.py"
-AGENT_REVIEW_PROMPT_TEMPLATE = REPO_ROOT / ".github/agent-runtime/review/prompts/review.md.in"
+AGENT_REVIEW_INSTRUCTIONS_FILE = REPO_ROOT / ".github/agent-runtime/review/instructions.md"
 AGENT_REQUIREMENTS_FILE = REPO_ROOT / ".github/agent-runtime/runtime/requirements-openai-agents.txt"
 AGENT_MYPY_CONFIG_FILE = REPO_ROOT / "tools/expkits-ci/agent-workflows-mypy.ini"
 AGENT_MODEL_CONFIG_FILE = REPO_ROOT / ".github/agent-runtime/runtime/agent-models.json"
@@ -205,13 +205,58 @@ def build_zip_archive(files: dict[str, str]) -> bytes:
 
 
 def load_agent_workflow_module_with_fake_sdk(path: Path, module_name: str):
+    class FakeAgent:
+        def __class_getitem__(cls, _item):
+            return cls
+
+        def __init__(self, **kwargs: object) -> None:
+            for name, value in kwargs.items():
+                setattr(self, name, value)
+
+    class FakeRunConfig:
+        def __init__(self, **kwargs: object) -> None:
+            for name, value in kwargs.items():
+                setattr(self, name, value)
+
+    class FakeModelSettings:
+        def __init__(self, **kwargs: object) -> None:
+            self.temperature = kwargs.pop("temperature", None)
+            self.verbosity = kwargs.pop("verbosity", None)
+            for name, value in kwargs.items():
+                setattr(self, name, value)
+
+    class FakeReasoning:
+        def __init__(self, **kwargs: object) -> None:
+            for name, value in kwargs.items():
+                setattr(self, name, value)
+
+    class FakeRunContextWrapper:
+        def __init__(self, context: object) -> None:
+            self.context = context
+
+        def __class_getitem__(cls, _item):
+            return cls
+
+    class FakeRunner:
+        @classmethod
+        async def run(cls, *_args: object, **_kwargs: object):
+            raise AssertionError("FakeRunner.run must be mocked by the test.")
+
     fake_agents = types.SimpleNamespace(
-        Agent=object,
-        RunConfig=object,
-        Runner=object,
+        Agent=FakeAgent,
+        ModelSettings=FakeModelSettings,
+        RunConfig=FakeRunConfig,
+        RunContextWrapper=FakeRunContextWrapper,
+        Runner=FakeRunner,
         function_tool=lambda function: function,
     )
     fake_truststore = types.SimpleNamespace(inject_into_ssl=lambda: None)
+    fake_openai = types.ModuleType("openai")
+    fake_openai.__path__ = []  # type: ignore[attr-defined]
+    fake_openai_types = types.ModuleType("openai.types")
+    fake_openai_types.__path__ = []  # type: ignore[attr-defined]
+    fake_openai_shared = types.ModuleType("openai.types.shared")
+    fake_openai_shared.Reasoning = FakeReasoning  # type: ignore[attr-defined]
     fake_pydantic = types.SimpleNamespace(
         BaseModel=object,
         ConfigDict=lambda **_kwargs: {},
@@ -220,7 +265,14 @@ def load_agent_workflow_module_with_fake_sdk(path: Path, module_name: str):
     module_path = str(OPENAI_AGENT_RUNNER_SCRIPT.parent.parent)
     with mock.patch.dict(
         sys.modules,
-        {"agents": fake_agents, "truststore": fake_truststore, "pydantic": fake_pydantic},
+        {
+            "agents": fake_agents,
+            "openai": fake_openai,
+            "openai.types": fake_openai_types,
+            "openai.types.shared": fake_openai_shared,
+            "truststore": fake_truststore,
+            "pydantic": fake_pydantic,
+        },
     ):
         sys.path.insert(0, module_path)
         try:
@@ -263,9 +315,9 @@ AGENT_REVIEW_MARKDOWN = load_agent_workflow_module(
     AGENT_REVIEW_MARKDOWN_SCRIPT,
     "agent_runtime.review.markdown",
 )
-AGENT_REVIEW_PROMPT = load_agent_workflow_module(
-    AGENT_REVIEW_PROMPT_SCRIPT,
-    "agent_runtime.review.prompt",
+AGENT_REVIEW_CONTEXT = load_agent_workflow_module(
+    AGENT_REVIEW_CONTEXT_SCRIPT,
+    "agent_runtime.review.context",
 )
 OPENAI_AGENT_MODEL_CONFIG = load_agent_workflow_module(
     OPENAI_AGENT_MODEL_CONFIG_SCRIPT,

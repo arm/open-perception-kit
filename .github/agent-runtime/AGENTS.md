@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This subtree owns Agent runtime assets: review prompts and schemas, repair and
+This subtree owns Agent runtime assets: static review instructions, repair and
 stabilization profiles, shared workflow policy prompts, and dependency pins.
 Executable GitHub Actions workflows live only under `.github/workflows/`.
 
@@ -8,7 +8,7 @@ Executable GitHub Actions workflows live only under `.github/workflows/`.
 
 - Keep this area Agent-branded. Do not introduce non-Agent workflow, model,
   action, or runner contracts.
-- Keep prompt text and profile policy in checked-in files under
+- Keep Agent instructions, prompt text, and profile policy in checked-in files under
   `.github/agent-runtime/`; do not embed long prompts in workflow YAML or
   Python helpers.
 - Keep OpenAI proxy defaults, task dispatch, model resolution, runtime setup,

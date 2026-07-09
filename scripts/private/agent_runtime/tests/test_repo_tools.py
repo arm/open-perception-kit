@@ -4,21 +4,144 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 import unittest
 import tempfile
 import textwrap
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from test_support.agent_workflow import (  # noqa: E402
+    AGENT_REVIEW_CONTEXT,
     OPENAI_AGENT_REPO_TOOLS_SCRIPT,
     OPENAI_AGENT_RUNTIME_CONTEXT,
+    OPENAI_AGENT_SHELL_TOOLS_SCRIPT,
     load_agent_workflow_module_with_fake_sdk,
 )
 
 
 class AgentRuntimeRepoToolTests(unittest.TestCase):
+    @staticmethod
+    def activate_review_context(repo_root: Path):
+        return OPENAI_AGENT_RUNTIME_CONTEXT.activate_run_context(
+            AGENT_REVIEW_CONTEXT.ReviewRunContext(
+                repo_root=repo_root,
+                command_timeout=10,
+                repository="Arm-Debug/amp-dev-forge",
+                base_ref="origin/develop",
+                head_ref="HEAD",
+                base_sha="a" * 40,
+                head_sha="b" * 40,
+                pull_request=AGENT_REVIEW_CONTEXT.PullRequestEvidence(
+                    number=101,
+                    title="Safe title",
+                    body=None,
+                    url=None,
+                ),
+                limits=AGENT_REVIEW_CONTEXT.ReviewLimits(
+                    max_review_files=120,
+                    max_review_changed_lines=15000,
+                    max_pr_title_chars=AGENT_REVIEW_CONTEXT.MAX_PR_TITLE_CHARS,
+                    max_pr_body_chars=AGENT_REVIEW_CONTEXT.MAX_PR_BODY_CHARS,
+                    max_pr_url_chars=AGENT_REVIEW_CONTEXT.MAX_PR_URL_CHARS,
+                ),
+                completeness=AGENT_REVIEW_CONTEXT.ReviewCompleteness(
+                    pull_request_available=True,
+                    pr_title_truncated=False,
+                    pr_body_original_chars=0,
+                    pr_body_normalized_chars=0,
+                    pr_body_truncated=False,
+                    pr_url_truncated=False,
+                ),
+            )
+        )
+
+    def test_openai_agent_runner_scrubs_credentials_and_github_metadata_from_commands(self):
+        shell_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_SHELL_TOOLS_SCRIPT,
+            "agent_runtime.tools.shell_fake_sdk_scrubbed_environment",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir, mock.patch.dict(
+            os.environ,
+            {
+                "OPENAI_API_KEY": "openai-test-value",  # pragma: allowlist secret
+                "OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS": "proxy-test-value",  # pragma: allowlist secret
+                "GITHUB_TOKEN": "github-test-value",  # pragma: allowlist secret
+                "GITHUB_HEAD_REF": "untrusted-pr-head",
+                "ARTIFACTORY_KEY": "artifactory-test-value",  # pragma: allowlist secret
+                "DOCKER_AUTH_CONFIG": "docker-test-value",  # pragma: allowlist secret
+                "CI_JOB_JWT": "jwt-test-value",  # pragma: allowlist secret
+                "CMAKE_AUTH_CONFIG": "prefixed-auth-test-value",  # pragma: allowlist secret
+                "PEK_ONNXRUNTIME_ROOT": "/opt/onnxruntime",
+                "PEK_API_KEY": "pek-key-test-value",  # pragma: allowlist secret
+                "UNRELATED_RUNNER_VALUE": "not-required-by-builds",
+                "CMAKE_GENERATOR": "toolchain-preserved-marker",
+                "HOME": "credential-home-marker",
+            },
+        ):
+            self.activate_review_context(Path(temp_dir))
+            context = OPENAI_AGENT_RUNTIME_CONTEXT.require_run_context()
+            environment = shell_tools.build_subprocess_environment(context)
+
+            self.assertIn("PATH", environment)
+            self.assertEqual(environment["CMAKE_GENERATOR"], "toolchain-preserved-marker")
+            self.assertEqual(environment["PEK_ONNXRUNTIME_ROOT"], "/opt/onnxruntime")
+            self.assertEqual(
+                environment["HOME"],
+                str(context.repo_root / ".agent-runtime/review-shell-home"),
+            )
+            self.assertNotIn("credential-home-marker", environment.values())
+            self.assertNotIn("openai-test-value", environment.values())
+            self.assertNotIn("proxy-test-value", environment.values())
+            self.assertNotIn("github-test-value", environment.values())
+            self.assertNotIn("artifactory-test-value", environment.values())
+            self.assertNotIn("docker-test-value", environment.values())
+            self.assertNotIn("jwt-test-value", environment.values())
+            self.assertNotIn("prefixed-auth-test-value", environment.values())
+            self.assertNotIn("pek-key-test-value", environment.values())
+            self.assertNotIn("not-required-by-builds", environment.values())
+            self.assertNotIn("untrusted-pr-head", environment.values())
+            self.assertNotIn("OPENAI_API_KEY", environment)
+            self.assertNotIn("GITHUB_HEAD_REF", environment)
+            self.assertNotIn("ARTIFACTORY_KEY", environment)
+            self.assertNotIn("DOCKER_AUTH_CONFIG", environment)
+            self.assertNotIn("CI_JOB_JWT", environment)
+            self.assertNotIn("CMAKE_AUTH_CONFIG", environment)
+            self.assertNotIn("PEK_API_KEY", environment)
+            self.assertNotIn("UNRELATED_RUNNER_VALUE", environment)
+
+    def test_review_agent_preserves_documented_validation_command_surface(self):
+        repo_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_REPO_TOOLS_SCRIPT,
+            "agent_runtime.tools.repo_fake_sdk_review_validation_commands",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            (repo_root / "valid.py").write_text("VALUE = 1\n", encoding="utf-8")
+            self.activate_review_context(repo_root)
+
+            output = repo_tools.run_shell_command(
+                "find . -name '*.py' -print0 | xargs -0 python3 -m py_compile"
+            )
+
+        self.assertIn("$ find . -name '*.py' -print0 | xargs -0 python3 -m py_compile", output)
+
+    def test_non_review_agent_runner_preserves_existing_process_environment(self):
+        shell_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_SHELL_TOOLS_SCRIPT,
+            "agent_runtime.tools.shell_fake_sdk_preserved_environment",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir, mock.patch.dict(
+            os.environ,
+            {"CUSTOM_TOOLCHAIN_VARIABLE": "preserved-for-edit-agents"},
+        ):
+            context = OPENAI_AGENT_RUNTIME_CONTEXT.set_run_context(Path(temp_dir), 10)
+            environment = shell_tools.build_subprocess_environment(context)
+
+        self.assertEqual(environment["CUSTOM_TOOLCHAIN_VARIABLE"], "preserved-for-edit-agents")
+
     def test_openai_agent_runner_executes_simple_commands_without_shell_expansion(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_REPO_TOOLS_SCRIPT,

@@ -6,10 +6,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
 import shlex
 import subprocess
 
+from ..review.context import ReviewRunContext
 from ..runtime_context import AgentRunContext
 from .paths import is_git_metadata_path, resolve_stdin_redirection_path
 
@@ -53,6 +55,80 @@ SHELL_COMMAND_SEPARATORS = (
 SHELL_PIPE_SEPARATOR = "|"
 SHELL_REDIRECT_STDIN = "<"
 SHELL_UNSUPPORTED_STDOUT_REDIRECTS = (">", ">>")
+SENSITIVE_REVIEW_ENV_PREFIXES = ("ACTIONS_", "GH_", "GITHUB_", "OPENAI_")
+SENSITIVE_REVIEW_ENV_MARKERS = (
+    "ACCESS_KEY",
+    "API_KEY",
+    "AUTH",
+    "COOKIE",
+    "CREDENTIAL",
+    "JWT",
+    "PASSWORD",
+    "PRIVATE_KEY",
+    "SECRET",
+    "SESSION",
+    "TOKEN",
+)
+SENSITIVE_REVIEW_ENV_NAMES = {
+    "DOCKER_CONFIG",
+    "GIT_ASKPASS",
+    "GIT_SSH_COMMAND",
+    "SSH_ASKPASS",
+    "SSH_AUTH_SOCK",
+}
+SAFE_REVIEW_ENV_NAMES = {
+    "AR",
+    "AS",
+    "CC",
+    "CFLAGS",
+    "CI",
+    "CMAKE_GENERATOR",
+    "CMAKE_PREFIX_PATH",
+    "CMAKE_TOOLCHAIN_FILE",
+    "CPP",
+    "CPPFLAGS",
+    "CROSS_COMPILE",
+    "CXX",
+    "CXXFLAGS",
+    "DEVELOPER_DIR",
+    "DYLD_LIBRARY_PATH",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    "LD",
+    "LDFLAGS",
+    "LD_LIBRARY_PATH",
+    "LIBRARY_PATH",
+    "MACOSX_DEPLOYMENT_TARGET",
+    "MAKEFLAGS",
+    "NINJA_STATUS",
+    "NM",
+    "NODE_PATH",
+    "OBJCOPY",
+    "OBJDUMP",
+    "PATH",
+    "PKG_CONFIG_PATH",
+    "PYTHONHOME",
+    "PYTHONPATH",
+    "PYTHONUNBUFFERED",
+    "QEMU_LD_PREFIX",
+    "RANLIB",
+    "REQUESTS_CA_BUNDLE",
+    "SDKROOT",
+    "SHELL",
+    "SSL_CERT_DIR",
+    "SSL_CERT_FILE",
+    "STRIP",
+    "SYSROOT",
+    "TEMP",
+    "TERM",
+    "TMP",
+    "TMPDIR",
+    "TZ",
+    "VCPKG_ROOT",
+    "VIRTUAL_ENV",
+}
+SAFE_REVIEW_ENV_PREFIXES = ("CMAKE_", "LC_", "MESON_", "NINJA_", "PEK_")
 
 
 @dataclass(frozen=True)
@@ -67,6 +143,42 @@ class ShellCommandResult:
     returncode: int
     stdout: str
     stderr: str
+
+
+def is_sensitive_review_environment_name(name: str) -> bool:
+    normalized = name.upper()
+    return (
+        normalized in SENSITIVE_REVIEW_ENV_NAMES
+        or normalized.startswith(SENSITIVE_REVIEW_ENV_PREFIXES)
+        or normalized.endswith("_KEY")
+        or any(marker in normalized for marker in SENSITIVE_REVIEW_ENV_MARKERS)
+    )
+
+
+def is_safe_review_environment_name(name: str) -> bool:
+    normalized = name.upper()
+    return not is_sensitive_review_environment_name(normalized) and (
+        normalized in SAFE_REVIEW_ENV_NAMES
+        or normalized.startswith(SAFE_REVIEW_ENV_PREFIXES)
+    )
+
+
+def build_subprocess_environment(context: AgentRunContext) -> dict[str, str]:
+    if not isinstance(context, ReviewRunContext):
+        return dict(os.environ)
+    environment = {
+        name: value
+        for name, value in os.environ.items()
+        if is_safe_review_environment_name(name)
+    }
+    isolated_home = context.repo_root / ".agent-runtime/review-shell-home"
+    environment["HOME"] = str(isolated_home)
+    environment["PWD"] = str(context.repo_root)
+    environment["XDG_CACHE_HOME"] = str(isolated_home / "cache")
+    environment["XDG_CONFIG_HOME"] = str(isolated_home / "config")
+    environment["XDG_DATA_HOME"] = str(isolated_home / "data")
+    environment["GH_CONFIG_DIR"] = str(isolated_home / "gh")
+    return environment
 
 
 def split_shell_commands(command: str) -> list[ParsedShellCommand]:
@@ -253,6 +365,7 @@ def run_parsed_shell_command(parsed_command: ParsedShellCommand, context: AgentR
     stdout_text = ""
     stderr_parts: list[str] = []
     exit_code = 0
+    environment = build_subprocess_environment(context)
     for words in parsed_command.pipeline:
         completed = subprocess.run(
             words,
@@ -260,6 +373,7 @@ def run_parsed_shell_command(parsed_command: ParsedShellCommand, context: AgentR
             input=stage_input,
             text=True,
             capture_output=True,
+            env=environment,
             timeout=context.command_timeout,
             check=False,
         )
