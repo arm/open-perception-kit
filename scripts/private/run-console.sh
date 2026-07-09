@@ -37,10 +37,6 @@ DC_RICH="rich"
 
 export HOST_UID="$(id -u)"
 export HOST_GID="$(id -g)"
-if [[ -z "${WEBRTC_HOST_IP:-}" ]]; then
-    WEBRTC_HOST_IP="$(bash "${SCRIPT_DIR}/detect-webrtc-host-ip.sh")"
-fi
-export WEBRTC_HOST_IP
 export PEK_WEBRTC_TURN_MIN_PORT="${PEK_WEBRTC_TURN_MIN_PORT:-49000}"
 export PEK_WEBRTC_TURN_MAX_PORT="${PEK_WEBRTC_TURN_MAX_PORT:-49050}"
 
@@ -65,7 +61,15 @@ is_running() {
     docker inspect -f '{{.State.Running}}' ${ids} 2> /dev/null | grep -q '^true$'
 }
 
+detect_webrtc_host_ip() {
+    if [[ -z "${WEBRTC_HOST_IP:-}" ]]; then
+        WEBRTC_HOST_IP="$(bash "${SCRIPT_DIR}/detect-webrtc-host-ip.sh")"
+    fi
+    export WEBRTC_HOST_IP
+}
+
 do_up() {
+    detect_webrtc_host_ip
     ./scripts/private/dev-init.sh pek-dev-rich "$DC_RICH" "$DEV_ENV_FILE"
 
     echo "Using WebRTC host IP: ${WEBRTC_HOST_IP}"
@@ -78,7 +82,7 @@ do_up() {
 }
 
 do_down() {
-    HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" WEBRTC_HOST_IP="${WEBRTC_HOST_IP}" \
+    HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" WEBRTC_HOST_IP="${WEBRTC_HOST_IP:-}" \
         PEK_WEBRTC_TURN_MIN_PORT="${PEK_WEBRTC_TURN_MIN_PORT}" \
         PEK_WEBRTC_TURN_MAX_PORT="${PEK_WEBRTC_TURN_MAX_PORT}" \
         docker compose "${COMPOSE_FILES[@]}" down
