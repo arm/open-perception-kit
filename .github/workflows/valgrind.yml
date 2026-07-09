@@ -24,7 +24,7 @@ jobs:
     permissions:
       actions: read
       contents: read
-      attestations: write
+      artifact-metadata: write
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       # <agent-review:suppress-begin>

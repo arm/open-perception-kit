@@ -5,7 +5,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-ARG ACTIONLINT_VERSION=1.7.7
+ARG ACTIONLINT_VERSION=1.7.12
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \

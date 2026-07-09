@@ -118,7 +118,7 @@ ENV LD_LIBRARY_PATH=/opt/pek-deps/onnxruntime/lib
 FROM pek-base AS pek-docs-base
 
 ARG USERNAME=devgoblin
-ARG ACTIONLINT_VERSION=1.7.7
+ARG ACTIONLINT_VERSION=1.7.12
 
 USER root
 
