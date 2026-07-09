@@ -158,7 +158,13 @@ class ReviewAgentTask(ConfiguredAgentWorkflowTask):
             head_sha=review_context.head_sha,
         )
         context_artifact = (
-            json.dumps(review_context.artifact_payload(), indent=2, sort_keys=True) + "\n"
+            json.dumps(
+                review_context.artifact_payload(),
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n"
         ).encode("utf-8")
         hidden_files: dict[Path, bytes | None] = {context_path: context_artifact}
         github_event_path = os.environ.get("GITHUB_EVENT_PATH", "")

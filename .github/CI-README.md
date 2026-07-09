@@ -22,10 +22,13 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Keeps static trusted Agent instructions in `.github/agent-runtime/review/instructions.md`
 - Reuses shared helper modules from `scripts/private/agent_runtime/`
 - Sets up the runtime venv through `scripts/private/agent_runtime/setup_runtime.py`
-- Passes repository scope and bounded, sanitized PR evidence through a typed SDK
-  run context; the model can access that data only through `get_review_context`
-- Keeps the raw PR body out of the context artifact, Agent instructions, and
-  constant runner input, and labels all PR-derived tool data as untrusted evidence
+- Passes repository scope and bounded basic PR fields (number, title, body, and
+  URL) through a typed SDK run context; the model can access that data only
+  through `get_review_context`
+- Treats PR descriptions as arbitrary free-form text without requiring headings,
+  templates, or list structure, and labels all PR-derived tool data as untrusted evidence
+- Reads the potentially large PR body from the GitHub event file instead of a
+  process environment variable, then applies explicit normalization and bounds
 - Uploads `agent-review-out` artifacts, including the structured review context,
   raw JSON output, and summary markdown
 - Treats `agent-review-out/review.json` as the canonical machine-readable review state

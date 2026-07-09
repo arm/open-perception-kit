@@ -235,18 +235,23 @@ class AgentRuntimeContractTests(unittest.TestCase):
             pull_request=AGENT_REVIEW_CONTEXT.PullRequestEvidence(
                 number=101,
                 title="Safe title",
+                body=None,
                 url=None,
-                intent_items=(),
             ),
-            limits=AGENT_REVIEW_CONTEXT.ReviewLimits(120, 15000, 40, 600),
+            limits=AGENT_REVIEW_CONTEXT.ReviewLimits(
+                max_review_files=120,
+                max_review_changed_lines=15000,
+                max_pr_title_chars=AGENT_REVIEW_CONTEXT.MAX_PR_TITLE_CHARS,
+                max_pr_body_chars=AGENT_REVIEW_CONTEXT.MAX_PR_BODY_CHARS,
+                max_pr_url_chars=AGENT_REVIEW_CONTEXT.MAX_PR_URL_CHARS,
+            ),
             completeness=AGENT_REVIEW_CONTEXT.ReviewCompleteness(
-                True,
-                0,
-                0,
-                False,
-                0,
-                False,
-                False,
+                pull_request_available=True,
+                pr_title_truncated=False,
+                pr_body_original_chars=0,
+                pr_body_normalized_chars=0,
+                pr_body_truncated=False,
+                pr_url_truncated=False,
             ),
         )
         OPENAI_AGENT_RUNTIME_CONTEXT.activate_run_context(context)
@@ -298,6 +303,7 @@ class AgentRuntimeContractTests(unittest.TestCase):
                     "REVIEW_HEAD_SHA": "b" * 40,
                     "REVIEW_PR_NUMBER": "101",
                     "REVIEW_PR_TITLE": "runtime-title-marker",
+                    "REVIEW_PR_BODY": "Arbitrary Unicode body: 🧪",
                 },
             )
             context_file = repo_root / ".github/agent-runtime/review/out/review-context.json"
@@ -331,6 +337,7 @@ class AgentRuntimeContractTests(unittest.TestCase):
             ) as run_agent, mock.patch.object(task, "write_result", return_value=0):
                 result = asyncio.run(task.run(args))
             self.assertTrue(context_file.exists())
+            self.assertIn("Arbitrary Unicode body: 🧪", context_file.read_text(encoding="utf-8"))
             self.assertEqual(event_file.read_text(encoding="utf-8"), event_contents)
 
         self.assertEqual(result, 0)
@@ -361,22 +368,22 @@ class AgentRuntimeContractTests(unittest.TestCase):
             pull_request=AGENT_REVIEW_CONTEXT.PullRequestEvidence(
                 number=101,
                 title="Safe title",
+                body="Keep the typed context boundary, regardless of description format.",
                 url="https://github.com/Arm-Debug/amp-dev-forge/pull/101",
-                intent_items=("Keep the typed context boundary.",),
             ),
             limits=AGENT_REVIEW_CONTEXT.ReviewLimits(
                 max_review_files=120,
                 max_review_changed_lines=15000,
-                max_intent_items=40,
-                max_intent_item_chars=600,
+                max_pr_title_chars=AGENT_REVIEW_CONTEXT.MAX_PR_TITLE_CHARS,
+                max_pr_body_chars=AGENT_REVIEW_CONTEXT.MAX_PR_BODY_CHARS,
+                max_pr_url_chars=AGENT_REVIEW_CONTEXT.MAX_PR_URL_CHARS,
             ),
             completeness=AGENT_REVIEW_CONTEXT.ReviewCompleteness(
                 pull_request_available=True,
-                intent_items_extracted=1,
-                intent_items_filtered=0,
-                intent_items_truncated=False,
-                intent_item_chars_truncated=0,
                 pr_title_truncated=False,
+                pr_body_original_chars=66,
+                pr_body_normalized_chars=66,
+                pr_body_truncated=False,
                 pr_url_truncated=False,
             ),
         )
@@ -387,7 +394,11 @@ class AgentRuntimeContractTests(unittest.TestCase):
         self.assertEqual(payload["review_scope"]["base_sha"], "a" * 40)
         evidence = payload["untrusted_pull_request_evidence"]
         self.assertEqual(evidence["title"], "Safe title")
-        self.assertIn("untrusted evidence", evidence["trust_boundary"])
+        self.assertEqual(
+            evidence["body"],
+            "Keep the typed context boundary, regardless of description format.",
+        )
+        self.assertIn("untrusted pull-request author content", evidence["trust_boundary"])
 
     def test_invalid_review_context_fails_before_agent_invocation(self):
         agent_tasks = load_agent_workflow_module_with_fake_sdk(

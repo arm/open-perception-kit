@@ -218,6 +218,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         review_steps = step_map(review_job)
 
         self.assertNotIn("labeled", pull_request_trigger["types"])
+        self.assertIn("edited", pull_request_trigger["types"])
         self.assertEqual(workflow["permissions"]["actions"], "read")
         self.assertEqual(workflow["permissions"]["contents"], "read")
         self.assertEqual(workflow["permissions"]["pull-requests"], "write")
@@ -332,7 +333,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         )
         context_step = review_steps["Build Agent review context"]
         self.assertEqual(context_step["env"]["REVIEW_HEAD_REF"], selected_head_ref)
-        self.assertEqual(context_step["env"]["REVIEW_PR_BODY"], "${{ github.event.pull_request.body || '' }}")
+        self.assertNotIn("REVIEW_PR_BODY", context_step["env"])
         self.assertIn(
             "python3 scripts/private/agent_runtime/review/context.py",
             context_step["run"],

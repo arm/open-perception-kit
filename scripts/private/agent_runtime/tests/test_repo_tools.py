@@ -37,18 +37,23 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
                 pull_request=AGENT_REVIEW_CONTEXT.PullRequestEvidence(
                     number=101,
                     title="Safe title",
+                    body=None,
                     url=None,
-                    intent_items=(),
                 ),
-                limits=AGENT_REVIEW_CONTEXT.ReviewLimits(120, 15000, 40, 600),
+                limits=AGENT_REVIEW_CONTEXT.ReviewLimits(
+                    max_review_files=120,
+                    max_review_changed_lines=15000,
+                    max_pr_title_chars=AGENT_REVIEW_CONTEXT.MAX_PR_TITLE_CHARS,
+                    max_pr_body_chars=AGENT_REVIEW_CONTEXT.MAX_PR_BODY_CHARS,
+                    max_pr_url_chars=AGENT_REVIEW_CONTEXT.MAX_PR_URL_CHARS,
+                ),
                 completeness=AGENT_REVIEW_CONTEXT.ReviewCompleteness(
-                    True,
-                    0,
-                    0,
-                    False,
-                    0,
-                    False,
-                    False,
+                    pull_request_available=True,
+                    pr_title_truncated=False,
+                    pr_body_original_chars=0,
+                    pr_body_normalized_chars=0,
+                    pr_body_truncated=False,
+                    pr_url_truncated=False,
                 ),
             )
         )
@@ -65,6 +70,13 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
                 "OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS": "proxy-test-value",  # pragma: allowlist secret
                 "GITHUB_TOKEN": "github-test-value",  # pragma: allowlist secret
                 "GITHUB_HEAD_REF": "untrusted-pr-head",
+                "ARTIFACTORY_KEY": "artifactory-test-value",  # pragma: allowlist secret
+                "DOCKER_AUTH_CONFIG": "docker-test-value",  # pragma: allowlist secret
+                "CI_JOB_JWT": "jwt-test-value",  # pragma: allowlist secret
+                "CMAKE_AUTH_CONFIG": "prefixed-auth-test-value",  # pragma: allowlist secret
+                "PEK_ONNXRUNTIME_ROOT": "/opt/onnxruntime",
+                "PEK_API_KEY": "pek-key-test-value",  # pragma: allowlist secret
+                "UNRELATED_RUNNER_VALUE": "not-required-by-builds",
                 "CMAKE_GENERATOR": "toolchain-preserved-marker",
                 "HOME": "credential-home-marker",
             },
@@ -75,6 +87,7 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
 
             self.assertIn("PATH", environment)
             self.assertEqual(environment["CMAKE_GENERATOR"], "toolchain-preserved-marker")
+            self.assertEqual(environment["PEK_ONNXRUNTIME_ROOT"], "/opt/onnxruntime")
             self.assertEqual(
                 environment["HOME"],
                 str(context.repo_root / ".agent-runtime/review-shell-home"),
@@ -83,9 +96,21 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
             self.assertNotIn("openai-test-value", environment.values())
             self.assertNotIn("proxy-test-value", environment.values())
             self.assertNotIn("github-test-value", environment.values())
+            self.assertNotIn("artifactory-test-value", environment.values())
+            self.assertNotIn("docker-test-value", environment.values())
+            self.assertNotIn("jwt-test-value", environment.values())
+            self.assertNotIn("prefixed-auth-test-value", environment.values())
+            self.assertNotIn("pek-key-test-value", environment.values())
+            self.assertNotIn("not-required-by-builds", environment.values())
             self.assertNotIn("untrusted-pr-head", environment.values())
             self.assertNotIn("OPENAI_API_KEY", environment)
             self.assertNotIn("GITHUB_HEAD_REF", environment)
+            self.assertNotIn("ARTIFACTORY_KEY", environment)
+            self.assertNotIn("DOCKER_AUTH_CONFIG", environment)
+            self.assertNotIn("CI_JOB_JWT", environment)
+            self.assertNotIn("CMAKE_AUTH_CONFIG", environment)
+            self.assertNotIn("PEK_API_KEY", environment)
+            self.assertNotIn("UNRELATED_RUNNER_VALUE", environment)
 
     def test_review_agent_preserves_documented_validation_command_surface(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(

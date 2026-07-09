@@ -10,18 +10,22 @@ Python OpenAI Agents SDK runtime with that typed context, then publishes:
 - the `agent-review-out/review.json` artifact as the canonical
   machine-readable review state for the current PR head
 - the structured `agent-review-out/review-context.json` artifact used for the
-  run, containing no raw pull request body
+  run, containing bounded basic pull request fields without assuming a body
+  template or extracting structural intent
 - UI-only comment markers that identify Agent Review comments without storing
   machine-readable review state in PR comments
 
 During the SDK run, the context artifact and the GitHub Actions event payload
 are temporarily removed from the filesystem and restored afterward. This keeps
 model-visible review metadata on the dedicated `get_review_context` tool
-boundary, prevents shell-tool access to the workflow-provided copy of the raw
-PR body, and still retains the context artifact for auditability. Review shell
-commands also run without GitHub, OpenAI, token, key, or credential environment
-variables and use an isolated home directory; the existing read, build, and
-validation command surface remains unchanged.
+boundary, prevents shell-tool access to the workflow event payload and bounded
+PR body, and still retains the context artifact for auditability. The context
+builder reads the PR body from the GitHub event file so multibyte
+descriptions are not constrained by per-variable process environment limits.
+Review shell commands run with only an allowlisted set of ordinary build and toolchain
+environment variables and use an isolated home directory; GitHub, OpenAI, and
+credential-bearing runner variables are not forwarded. The existing read,
+build, and validation command surface remains unchanged.
 
 The Agent Review workflow does not run on pull request label changes. The
 `agent-stabilize` label is handled by a separate label-triggered workflow that
