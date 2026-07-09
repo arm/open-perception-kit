@@ -392,6 +392,20 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
             subprocess.run(["git", "init", "-q"], cwd=repo_root, check=True)
             tracked_file = repo_root / "tracked.py"
             tracked_file.write_text("VALUE = 1\n", encoding="utf-8")
+            patch_file = repo_root / "change.patch"
+            patch_file.write_text(
+                textwrap.dedent(
+                    """\
+                    diff --git a/tracked.py b/tracked.py
+                    --- a/tracked.py
+                    +++ b/tracked.py
+                    @@ -1 +1 @@
+                    -VALUE = 1
+                    +VALUE = 2
+                    """
+                ),
+                encoding="utf-8",
+            )
             validation_script = repo_root / "scripts" / "pre-commit" / "run.sh"
             validation_script.parent.mkdir(parents=True)
             validation_script.write_text(
@@ -416,6 +430,7 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
                     "git",
                     "add",
                     "tracked.py",
+                    "change.patch",
                     "scripts/pre-commit/run.sh",
                     ".github/agent-runtime/review/out/.gitignore",
                 ],
@@ -445,6 +460,7 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
             self.activate_review_context(repo_root)
 
             git_output = repo_tools.run_shell_command("git status --short; git diff --name-status")
+            apply_check_output = repo_tools.run_shell_command("git apply --check < change.patch")
             output = repo_tools.run_shell_command(
                 "find . -maxdepth 1 -print; "
                 "find . -name tracked.py -print; "
@@ -465,6 +481,8 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
         self.assertIn("$ git diff --name-status", git_output)
         self.assertNotIn("exit_code=128", git_output)
         self.assertNotIn("not a git repository", git_output)
+        self.assertIn("exit_code=0", apply_check_output)
+        self.assertNotIn("Blocked git subcommand", apply_check_output)
         self.assertNotIn(".github/agent-runtime/review/out/.gitignore", git_output)
         self.assertNotIn("review-packet/index.md", git_output)
         self.assertNotIn("random-generated/leak.txt", git_output)
