@@ -16,5 +16,5 @@ ${summary_chart}
 ${summary_table}
         </div></div>
       </section>
-${stability_section}${run_sections}      <a class="back-link" href="${back_href}index.html">Back to YOLO report index</a>
+${image_profile_section}${stability_section}${run_sections}      <a class="back-link" href="${back_href}index.html">Back to YOLO report index</a>
 ${chart_tooltip}

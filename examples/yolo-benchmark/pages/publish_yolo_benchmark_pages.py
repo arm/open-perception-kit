@@ -36,6 +36,11 @@ REPORT_INDEX_META = "report-index-meta.txt"
 FINGERPRINT_HEADER = "# image_set_fingerprint="
 PERCENTILE_METRICS = ("p50_ms", "p75_ms", "p95_ms", "p99_ms")
 RUN_METRICS = ("avg_ms", *PERCENTILE_METRICS)
+IMAGE_STAGE_METRICS = (
+    ("preprocess_ms", "Preprocess"),
+    ("inference_ms", "Inference"),
+    ("postprocess_ms", "Postprocess"),
+)
 LEGACY_ROOT_PATHS = (INDEX_HTML, "nightly", "prs", "report-index.css", "report-shell.css", "report-shell.js")
 
 
@@ -82,9 +87,10 @@ def render_page(title: str, css_href: str, body: str) -> str:
     )
 
 
-def tooltip_attrs(text: str) -> str:
+def tooltip_attrs(text: str, thumbnail: str = "") -> str:
     escaped = html_escape(text)
-    return f' data-tooltip="{escaped}" aria-label="{escaped}"'
+    thumbnail_attr = f' data-thumbnail="{html_escape(thumbnail)}"' if thumbnail else ""
+    return f' data-tooltip="{escaped}"{thumbnail_attr} aria-label="{escaped}"'
 
 
 def resolve_repo_path(path_text: str) -> Path | None:
@@ -730,7 +736,20 @@ def chart_tooltip_html() -> str:
   document.addEventListener("pointerover", event => {
     const target = targetFor(event);
     if (!target) return;
-    tooltip.textContent = target.dataset.tooltip;
+    tooltip.replaceChildren();
+    if (target.dataset.thumbnail) {
+      const image = document.createElement("img");
+      image.src = target.dataset.thumbnail;
+      image.alt = "";
+      tooltip.append(image);
+    }
+    const lines = String(target.dataset.tooltip ?? "").split(" | ");
+    lines.forEach((line, index) => {
+      const text = document.createElement("div");
+      text.className = index === 0 ? "chart-tooltip-title" : "chart-tooltip-row";
+      text.textContent = line;
+      tooltip.append(text);
+    });
     tooltip.hidden = false;
     move(event);
   });
@@ -840,6 +859,255 @@ def metric_trend_chart_svg(runs: list[dict[str, Any]], metric: str) -> str:
         [metric_value(run, metric, "pek_ms") for run in runs],
         f"{metric} trend",
         f"{metric} trend across runs",
+    )
+
+
+def value_as_float(value: Any) -> float | None:
+    if value in (None, ""):
+        return None
+    return float(value)
+
+
+def image_stage_profile(runs: list[dict[str, Any]], stage: str) -> list[dict[str, Any]]:
+    grouped: dict[tuple[int, str], dict[str, Any]] = {}
+    for run in runs:
+        for row in run.get("image_timings", []):
+            key = timing_key(row)
+            item = grouped.setdefault(key, {
+                "image_index": key[0],
+                "image_id": key[1],
+                "image_file": row.get("image_file", ""),
+                "bare": [],
+                "pek": [],
+            })
+            for runner in ("bare", "pek"):
+                value = value_as_float(row.get(runner, {}).get(stage))
+                if value is not None:
+                    item[runner].append(value)
+
+    rows = []
+    for item in (grouped[key] for key in sorted(grouped)):
+        bare_values = item["bare"]
+        pek_values = item["pek"]
+        if not bare_values and not pek_values:
+            continue
+        rows.append({
+            "image_index": item["image_index"],
+            "image_id": item["image_id"],
+            "image_file": item["image_file"],
+            "bare_ms": statistics.median(bare_values) if bare_values else None,
+            "pek_ms": statistics.median(pek_values) if pek_values else None,
+        })
+    return rows
+
+
+def image_x_ticks(min_index: int, max_index: int) -> list[int]:
+    if max_index - min_index <= 4:
+        return list(range(min_index, max_index + 1))
+    return sorted({
+        round(min_index + (max_index - min_index) * step / 4)
+        for step in range(5)
+    })
+
+
+def image_stage_tooltip(row: dict[str, Any], stage_label: str) -> str:
+    bare = row.get("bare_ms")
+    pek = row.get("pek_ms")
+    bare_text = "n/a" if bare is None else f"{format_ms(float(bare))} ms"
+    pek_text = "n/a" if pek is None else f"{format_ms(float(pek))} ms"
+    if bare is None or pek is None:
+        delta_text = "n/a"
+    else:
+        delta_text = f"{format_ms(float(pek) - float(bare))} ms"
+    return (
+        f"{stage_label} image #{row['image_index']} id {row['image_id']} | "
+        f"Bare {bare_text} | PEK {pek_text} | Delta {delta_text}"
+    )
+
+
+def image_stage_link(dataset_images_href: str, row: dict[str, Any]) -> str:
+    image_file = row.get("image_file")
+    if not dataset_images_href or not image_file:
+        return ""
+    return f"{dataset_images_href}/{quote(str(image_file), safe='')}"
+
+
+def image_stage_sort_value(row: dict[str, Any]) -> float:
+    values = [float(row[key]) for key in ("bare_ms", "pek_ms") if row.get(key) is not None]
+    return statistics.mean(values) if values else 0.0
+
+
+def sorted_image_stage_profile(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    ranked = sorted(rows, key=image_stage_sort_value)
+    return [{**row, "rank": index} for index, row in enumerate(ranked, start=1)]
+
+
+def image_stage_profile_chart_svg(
+    rows: list[dict[str, Any]],
+    stage_label: str,
+    dataset_images_href: str,
+    x_key: str,
+    x_axis_label: str,
+) -> str:
+    if not rows:
+        return '<p class="empty-table-note">No per-image stage timing rows were found.</p>'
+
+    width = 1280
+    height = 540
+    left = 176
+    right = 32
+    top = 104
+    bottom = 118
+    plot_width = width - left - right
+    plot_height = height - top - bottom
+    values = [
+        float(row[key])
+        for row in rows
+        for key in ("bare_ms", "pek_ms")
+        if row.get(key) is not None
+    ]
+    if not values:
+        return '<p class="empty-table-note">No per-image stage timing rows were found.</p>'
+
+    min_x = min(int(row[x_key]) for row in rows)
+    max_x = max(int(row[x_key]) for row in rows)
+    x_span = max(max_x - min_x, 1)
+    axis_min = 0.0
+    axis_max = max(values) * 1.10 + 1.0
+    axis_span = max(axis_max - axis_min, 1.0)
+
+    def x(value: int) -> float:
+        return left + (int(value) - min_x) * plot_width / x_span
+
+    def y(value: float) -> float:
+        return top + plot_height - ((value - axis_min) / axis_span * plot_height)
+
+    def path(key: str) -> str:
+        points = [
+            (x(row[x_key]), y(float(row[key])))
+            for row in rows
+            if row.get(key) is not None
+        ]
+        return " ".join(
+            f"{'M' if index == 0 else 'L'} {point_x:.1f},{point_y:.1f}"
+            for index, (point_x, point_y) in enumerate(points)
+        )
+
+    parts = [
+        f'<svg class="metric-chart image-profile-chart" viewBox="0 0 {width} {height}" role="img" '
+        f'aria-label="{html_escape(stage_label)} per-image median timing profile">',
+        chart_svg_header(f"{stage_label} per image", width),
+        '<g class="chart-grid">',
+    ]
+    for step in range(5):
+        value = axis_min + axis_span * step / 4
+        grid_y = y(value)
+        parts.append(f'<line x1="{left}" y1="{grid_y:.1f}" x2="{width - right}" y2="{grid_y:.1f}"></line>')
+        parts.append(
+            f'<text class="chart-y-tick" x="{left - 26}" y="{grid_y + 6:.1f}">{format_ms(value)}</text>'
+        )
+    parts.append("</g>")
+    parts.append(f'<path class="chart-line chart-bare image-profile-line" d="{path("bare_ms")}"></path>')
+    parts.append(f'<path class="chart-line chart-pek image-profile-line" d="{path("pek_ms")}"></path>')
+    for row in rows:
+        tooltip = image_stage_tooltip(row, stage_label)
+        href = image_stage_link(dataset_images_href, row)
+        for key in ("bare_ms", "pek_ms"):
+            if row.get(key) is None:
+                continue
+            circle = (
+                f'<circle class="chart-hit-area" cx="{x(row[x_key]):.1f}" '
+                f'cy="{y(float(row[key])):.1f}" r="8"{tooltip_attrs(tooltip, href)}></circle>'
+            )
+            parts.append(
+                f'<a href="{html_escape(href)}" target="_blank" rel="noopener">{circle}</a>'
+                if href else circle
+            )
+    for tick in image_x_ticks(min_x, max_x):
+        tick_x = x(tick)
+        parts.append(f'<line class="chart-x-tick" x1="{tick_x:.1f}" y1="{height - bottom}" '
+                     f'x2="{tick_x:.1f}" y2="{height - bottom + 8}"></line>')
+        parts.append(f'<text class="chart-x-label" x="{tick_x:.1f}" y="{height - 46}">{tick}</text>')
+    parts.append(
+        f'<text class="chart-axis-label" x="{left + plot_width / 2:.1f}" '
+        f'y="{height - 14}">{html_escape(x_axis_label)}</text>'
+    )
+    parts.append(
+        f'<text class="chart-axis-label" transform="rotate(-90)" '
+        f'x="{-(top + plot_height / 2):.1f}" y="54">Time [ms]</text>'
+    )
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+def image_profile_stage_tab_id(prefix: str, stage: str) -> str:
+    return f"{prefix}-{stage.removesuffix('_ms').replace('_', '-')}"
+
+
+def write_image_profile_controls(prefix: str) -> str:
+    parts = ['<div class="metric-tab-controls">']
+    for index, (stage, label) in enumerate(IMAGE_STAGE_METRICS):
+        checked = " checked" if index == 0 else ""
+        active = " is-active" if index == 0 else ""
+        tab_id = image_profile_stage_tab_id(prefix, stage)
+        panel_id = f"{tab_id}-panel"
+        parts.append(
+            f'<label class="metric-tab-label{active}"><input class="metric-tab-input" type="radio" '
+            f'name="{prefix}" id="{tab_id}" aria-controls="{panel_id}"{checked}>'
+            f'{html_escape(label)}</label>'
+        )
+    parts.append("</div>")
+    return "".join(parts)
+
+
+def write_image_profile_section(
+    title: str,
+    description: str,
+    prefix: str,
+    runs: list[dict[str, Any]],
+    dataset_images_href: str,
+    ranked: bool,
+) -> str:
+    parts = [
+        '      <section class="section-card image-profile-section">\n'
+        f'        <div class="summary-heading"><h2>{html_escape(title)}</h2>\n'
+        f'{write_image_profile_controls(prefix)}</div>\n'
+        f'        <p>{html_escape(description)}</p>\n'
+    ]
+    for index, (stage, label) in enumerate(IMAGE_STAGE_METRICS):
+        active = " is-active" if index == 0 else ""
+        panel_id = f"{image_profile_stage_tab_id(prefix, stage)}-panel"
+        rows = image_stage_profile(runs, stage)
+        if ranked:
+            rows = sorted_image_stage_profile(rows)
+        x_key = "rank" if ranked else "image_index"
+        x_axis_label = "Image rank" if ranked else "Image index"
+        parts.append(
+            f'        <div class="metric-tab-panel{active}" id="{panel_id}">'
+            f'{image_stage_profile_chart_svg(rows, label, dataset_images_href, x_key, x_axis_label)}</div>\n'
+        )
+    parts.append("      </section>\n")
+    return "".join(parts)
+
+
+def write_image_profile_sections(runs: list[dict[str, Any]], dataset_images_href: str) -> str:
+    return (
+        write_image_profile_section(
+            "Per-image Stage Profile - Ranked",
+            "Median per-image stage time across runs, sorted from fastest to slowest image for each stage.",
+            "image-profile-ranked",
+            runs,
+            dataset_images_href,
+            True,
+        ) +
+        write_image_profile_section(
+            "Per-image Stage Profile - Dataset Order",
+            "Median per-image stage time across runs in the original dataset order.",
+            "image-profile-index",
+            runs,
+            dataset_images_href,
+            False,
+        )
     )
 
 
@@ -1014,7 +1282,12 @@ def image_link(dataset_images_href: str, row: dict[str, Any]) -> str:
     image_file = row.get("image_file")
     if not dataset_images_href or not image_file:
         return image_id
-    return html_anchor(f"{dataset_images_href}/{quote(str(image_file), safe='')}", image_id)
+    href = f"{dataset_images_href}/{quote(str(image_file), safe='')}"
+    tooltip = f'Image {row["image_id"]}'
+    return (
+        f'<a href="{html_escape(href)}" target="_blank" rel="noopener"'
+        f'{tooltip_attrs(tooltip, href)}>{image_id}</a>'
+    )
 
 
 def write_image_timing_table(run: dict[str, Any], dataset_images_href: str) -> str:
@@ -1287,6 +1560,7 @@ def write_report_page(
     measurement = first["measurement"]
     back_href = rel_to_report_root(target, site_dir)
     css_href = f"{back_href}report-index.css"
+    dataset_images_href = dataset_images_href_for_report(runs, target, site_dir)
     body = render_template(
         "report.html.in",
         {
@@ -1302,8 +1576,9 @@ def write_report_page(
             "information_section": write_information_section(first),
             "summary_chart": summary_bar_chart_svg(runs),
             "summary_table": write_summary_table(runs),
+            "image_profile_section": write_image_profile_sections(runs, dataset_images_href),
             "stability_section": write_stability_section(runs),
-            "run_sections": write_run_sections(runs, dataset_images_href_for_report(runs, target, site_dir)),
+            "run_sections": write_run_sections(runs, dataset_images_href),
             "chart_tooltip": chart_tooltip_html(),
         },
     )

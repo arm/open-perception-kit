@@ -37,10 +37,14 @@ class LinkParser(HTMLParser):
     def __init__(self):
         super().__init__()
         self.hrefs = []
+        self.links = []
 
     def handle_starttag(self, tag, attrs):
         if tag == "a":
-            self.hrefs.extend(value for name, value in attrs if name == "href")
+            link = dict(attrs)
+            self.links.append(link)
+            if "href" in link:
+                self.hrefs.append(link["href"])
 
 
 class TableTextParser(HTMLParser):
@@ -156,6 +160,29 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
         self.assertEqual(p75["delta_ms"], 5.5)
         self.assertEqual(p75["ratio"], 1.5)
 
+    def test_image_stage_profile_uses_per_image_median(self) -> None:
+        runs = [
+            {"image_timings": [
+                {"image_index": 1, "image_id": "139",
+                 "bare": {"preprocess_ms": 10.0}, "pek": {"preprocess_ms": 5.0}},
+                {"image_index": 2, "image_id": "285",
+                 "bare": {"preprocess_ms": 20.0}, "pek": {"preprocess_ms": 8.0}},
+            ]},
+            {"image_timings": [
+                {"image_index": 1, "image_id": "139",
+                 "bare": {"preprocess_ms": 12.0}, "pek": {"preprocess_ms": 7.0}},
+                {"image_index": 2, "image_id": "285",
+                 "bare": {"preprocess_ms": 22.0}, "pek": {"preprocess_ms": 10.0}},
+            ]},
+        ]
+
+        profile = publish.image_stage_profile(runs, "preprocess_ms")
+
+        self.assertEqual(profile[0]["image_index"], 1)
+        self.assertEqual(profile[0]["bare_ms"], 11.0)
+        self.assertEqual(profile[0]["pek_ms"], 6.0)
+        self.assertEqual(profile[1]["image_id"], "285")
+
     def test_write_report_page_generates_index(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             site_dir = Path(tmpdir) / "site"
@@ -191,12 +218,28 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             links.feed(html)
 
             self.assertIn("Per-image timings", html)
+            self.assertIn("Per-image Stage Profile - Ranked", html)
+            self.assertIn("Per-image Stage Profile - Dataset Order", html)
             self.assertIn("139", parser.items)
             self.assertTrue(any("PEK inf" in item for item in parser.items))
             self.assertIn(
                 "../../../yolo-performance-datasets/coco-val2017-abcdef123456/images/000000000139.jpg",
                 links.hrefs,
             )
+            self.assertGreaterEqual(
+                links.hrefs.count(
+                    "../../../yolo-performance-datasets/coco-val2017-abcdef123456/images/000000000139.jpg"
+                ),
+                2,
+            )
+            image_links = [
+                link for link in links.links
+                if link.get("href") ==
+                "../../../yolo-performance-datasets/coco-val2017-abcdef123456/images/000000000139.jpg"
+            ]
+            self.assertTrue(any(link.get("target") == "_blank" for link in image_links))
+            self.assertIn('data-thumbnail="../../../yolo-performance-datasets/coco-val2017-abcdef123456/'
+                          'images/000000000139.jpg"', html)
 
     def test_select_target_supports_manual_reports(self) -> None:
         with patch.dict(os.environ, {"UPSTREAM_RUN_ID": "123"}):

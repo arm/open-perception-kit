@@ -464,6 +464,13 @@ section {
   stroke-linejoin: round;
   stroke-width: 4;
 }
+.image-profile-line {
+  stroke-width: 2;
+}
+.chart-x-tick {
+  stroke: var(--border);
+  stroke-width: 1;
+}
 .chart-x-label {
   text-anchor: middle;
 }
@@ -491,8 +498,24 @@ section {
   pointer-events: none;
   position: fixed;
   top: 0;
-  white-space: nowrap;
+  max-width: 280px;
   z-index: 10;
+}
+.chart-tooltip img {
+  border-radius: 4px;
+  display: block;
+  margin-bottom: 6px;
+  max-height: 140px;
+  max-width: 220px;
+}
+.chart-tooltip-title {
+  color: var(--bg);
+  font-weight: 800;
+}
+.chart-tooltip-row {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 22px;
 }
 .chart-tooltip[hidden] {
   display: none;
