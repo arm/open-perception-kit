@@ -55,8 +55,8 @@ Light mapping:
 - Dev Container pre-commit hook: runs `expkits-ci --pre-commit-fix` plus the commit metadata hooks.
 - Host `./scripts/pre-commit/run.sh`: runs the same `--pre-commit-fix` bundle on the host through the dedicated container.
 - Host `./scripts/pre-commit/run.sh commit-msg <path>`: mirrors the `commit-msg` hook path.
-- CI PR quality: runs the same bundle as `--pre-commit-check`, plus CI-only branch, commit-message, and Agent runtime gates.
-- CI full quality: check-only CI run for `--pre-commit-check` on the full tracked tree.
+- CI PR quality: runs `expkits-ci --ci-pr-checks`.
+- CI full quality: runs `expkits-ci --ci-full-checks`.
 
 The wrapper builds a dedicated runtime image up front and then reuses it for
 hook execution. There is no hidden image rebuild during a normal commit.

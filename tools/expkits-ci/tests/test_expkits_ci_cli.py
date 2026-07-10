@@ -140,6 +140,50 @@ class TestExpkitsCiCli(unittest.TestCase):
         self.assertFalse(parsed_args.clang_format)
         self.assertFalse(parsed_args.agent_runtime_static_analysis)
 
+    def test_ci_pr_checks_preset_enables_pr_gate(self):
+        checker = Mock()
+        checker.file_utils.get_related_files.return_value = []
+        checker.autofix_messages = []
+        logger = Mock()
+
+        with patch.object(expkits_ci_module, "QualityChecks", return_value=checker), \
+                patch.object(expkits_ci_module, "perform_checks", return_value=True) as perform_checks_mock, \
+                patch.object(expkits_ci_module, "setup_expkits_logger", return_value=logger), \
+                patch.object(expkits_ci_module.argcomplete, "autocomplete", return_value=None), \
+                patch.object(sys, "argv", ["expkits-ci", "--ci-pr-checks"]):
+            result = expkits_ci_module.main()
+
+        self.assertEqual(result, 0)
+        parsed_args = perform_checks_mock.call_args.args[1]
+        self.assertTrue(parsed_args.branch_naming)
+        self.assertTrue(parsed_args.commit_msg_ci)
+        self.assertTrue(parsed_args.agent_runtime_static_analysis)
+        self.assertTrue(parsed_args.clang_format_check)
+        self.assertTrue(parsed_args.check_secrets)
+        self.assertTrue(parsed_args.actionlint)
+
+    def test_ci_full_checks_preset_enables_full_gate(self):
+        checker = Mock()
+        checker.file_utils.get_related_files.return_value = []
+        checker.autofix_messages = []
+        logger = Mock()
+
+        with patch.object(expkits_ci_module, "QualityChecks", return_value=checker), \
+                patch.object(expkits_ci_module, "perform_checks", return_value=True) as perform_checks_mock, \
+                patch.object(expkits_ci_module, "setup_expkits_logger", return_value=logger), \
+                patch.object(expkits_ci_module.argcomplete, "autocomplete", return_value=None), \
+                patch.object(sys, "argv", ["expkits-ci", "--ci-full-checks"]):
+            result = expkits_ci_module.main()
+
+        self.assertEqual(result, 0)
+        parsed_args = perform_checks_mock.call_args.args[1]
+        self.assertTrue(parsed_args.agent_runtime_static_analysis)
+        self.assertTrue(parsed_args.clang_format_check)
+        self.assertTrue(parsed_args.check_secrets)
+        self.assertTrue(parsed_args.actionlint)
+        self.assertFalse(parsed_args.branch_naming)
+        self.assertFalse(parsed_args.commit_msg_ci)
+
     def test_perform_checks_records_actionlint_result(self):
         checker = Mock()
         checker.check_github_actions.return_value = False

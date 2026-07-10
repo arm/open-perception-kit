@@ -35,6 +35,8 @@ Example usage:
 ```bash
 expkits-ci --pre-commit-fix --list-of-files src/main.cpp scripts/check.sh
 expkits-ci --pre-commit-check --pr-target-branch main
+expkits-ci --ci-pr-checks --pr-target-branch main
+expkits-ci --ci-full-checks
 expkits-ci --all-checks
 expkits-ci --python-format-check --cmake-format-check
 expkits-ci --actionlint

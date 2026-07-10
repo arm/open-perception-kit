@@ -74,6 +74,10 @@ def setup_argument_parser(parser):
                              action="store_true", help="Run actionlint on GitHub Actions workflows.")
     check_group.add_argument("--agent-runtime-static-analysis", default=False,
                              action="store_true", help="Run Agent workflow mypy, pyflakes, vulture, and stale-reference checks.")
+    check_group.add_argument("--ci-pr-checks", default=False,
+                             action="store_true", help="Run the synchronized CI pull request quality gate.")
+    check_group.add_argument("--ci-full-checks", default=False,
+                             action="store_true", help="Run the synchronized CI full quality gate.")
     pre_commit_group = check_group.add_mutually_exclusive_group()
     pre_commit_group.add_argument("--pre-commit-fix", default=False,
                                   action="store_true",
@@ -137,11 +141,21 @@ def setup_pre_commit_checks(args, format=False):
 def setup_all_checks(args):
     """Set up all checks to be run by default."""
     args.commit_diff = True
+    setup_ci_pr_checks(args)
+
+
+def setup_ci_pr_checks(args):
+    """Enable the CI pull request quality gate."""
     args.branch_naming = True
     args.commit_msg_ci = True
     args.jira_ticket = True
     setup_pre_commit_checks(args, format=False)
-    # args.clang_tidy = True # TODO: for now clang-tidy should only be advisory
+    args.agent_runtime_static_analysis = True
+
+
+def setup_ci_full_checks(args):
+    """Enable the CI full quality gate."""
+    setup_pre_commit_checks(args, format=False)
     args.agent_runtime_static_analysis = True
 
 
@@ -461,6 +475,12 @@ def main():
     if args.all_checks:
         logger.info("Applying --all-checks preset.")
         setup_all_checks(args)
+    if args.ci_pr_checks:
+        logger.info("Applying --ci-pr-checks preset.")
+        setup_ci_pr_checks(args)
+    if args.ci_full_checks:
+        logger.info("Applying --ci-full-checks preset.")
+        setup_ci_full_checks(args)
     if args.pre_commit_fix:
         logger.info("Applying --pre-commit-fix preset.")
         setup_pre_commit_checks(args, format=True)

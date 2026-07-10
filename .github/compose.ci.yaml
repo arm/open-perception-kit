@@ -113,7 +113,7 @@ services:
         .devcontainer/platform_init.sh pek-dev-base &&
         mkdir -p /work/.github/artifacts &&
         source /work/tools/.venv/bin/activate &&
-        expkits-ci --pre-commit-check --branch-naming --commit-msg-ci --agent-runtime-static-analysis --pr-target-branch ${PULL_REQUEST_TARGET_BRANCH} \
+        expkits-ci --ci-pr-checks --pr-target-branch ${PULL_REQUEST_TARGET_BRANCH} \
           --report-file /work/.github/artifacts/expkits-ci-pr-report.txt
       '
 
@@ -126,7 +126,7 @@ services:
         mkdir -p /work/.github/artifacts &&
         ./scripts/gen-doc.sh &&
         source /work/tools/.venv/bin/activate &&
-        expkits-ci --pre-commit-check --agent-runtime-static-analysis \
+        expkits-ci --ci-full-checks \
           --report-file /work/.github/artifacts/expkits-ci-full-report.txt
       '
 
