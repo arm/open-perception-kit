@@ -4,7 +4,7 @@
 ################################################################
 
 import contextlib
-import importlib
+import importlib.util
 import io
 import os
 import tempfile
@@ -13,11 +13,19 @@ from pathlib import Path
 from unittest import mock
 
 
-SCRIPT_MODULE = "scripts.testing.valgrind.ci_valgrind_baseline_artifact"
+SCRIPT_PATH = Path(__file__).with_name("valgrind-baseline-artifact.py")
 VALGRIND_WORKFLOW = Path(__file__).resolve().parents[3] / ".github/workflows/valgrind.yml"
 
 
-class TestCiLocateValgrindBaselineArtifact(unittest.TestCase):
+def load_helper():
+    spec = importlib.util.spec_from_file_location("valgrind_baseline_artifact", SCRIPT_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+class TestValgrindBaselineArtifact(unittest.TestCase):
     def run_helper(
         self,
         command,
@@ -33,7 +41,7 @@ class TestCiLocateValgrindBaselineArtifact(unittest.TestCase):
             **(extra_env or {}),
         }
         with mock.patch.dict(os.environ, env, clear=False):
-            helper = importlib.reload(importlib.import_module(SCRIPT_MODULE))
+            helper = load_helper()
 
             attempts = 0
 
@@ -178,11 +186,10 @@ class TestCiLocateValgrindBaselineArtifact(unittest.TestCase):
         self.assertIn("pull_request_target:", workflow)
         self.assertIn("actions: write", workflow)
         self.assertIn("ref: ${{ github.event.pull_request.base.sha }}", workflow)
-        self.assertIn("ci_valgrind_baseline_artifact.py publish", workflow)
-        self.assertIn("ci_valgrind_baseline_artifact.py locate", workflow)
-        self.assertIn("ci_valgrind_baseline_artifact.py wait", workflow)
+        self.assertIn("valgrind-baseline-artifact.py publish", workflow)
+        self.assertIn("valgrind-baseline-artifact.py locate", workflow)
+        self.assertIn("valgrind-baseline-artifact.py wait", workflow)
         self.assertIn("steps.valgrind_baseline.outputs.run-id || steps.waited_valgrind_baseline.outputs.run-id", workflow)
-        self.assertNotIn("ci-locate-valgrind-baseline-artifact.sh", workflow)
 
 
 if __name__ == "__main__":

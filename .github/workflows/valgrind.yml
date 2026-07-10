@@ -36,7 +36,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VALGRIND_BASELINE_BRANCH: ${{ github.event.pull_request.base.ref }}
-        run: python3 scripts/testing/valgrind/ci_valgrind_baseline_artifact.py publish
+        run: python3 scripts/testing/valgrind/valgrind-baseline-artifact.py publish
 
   valgrind-workflow:
     name: Valgrind related workflow
@@ -62,7 +62,7 @@ jobs:
       - name: Run Valgrind Python unit tests
         run: |
           python3 -m unittest \
-            scripts/testing/valgrind/test_ci_locate_valgrind_baseline_artifact.py \
+            scripts/testing/valgrind/test_valgrind_baseline_artifact.py \
             scripts/testing/valgrind/test_compare_valgrind_results.py \
             scripts/testing/valgrind/test_summarize_valgrind_output.py
 
@@ -73,7 +73,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VALGRIND_BASELINE_BRANCH: ${{ github.event.pull_request.base.ref }}
-        run: python3 scripts/testing/valgrind/ci_valgrind_baseline_artifact.py locate
+        run: python3 scripts/testing/valgrind/valgrind-baseline-artifact.py locate
 
       - name: Wait for missing Valgrind baseline artifact
         if: github.event_name == 'pull_request' && steps.valgrind_baseline.outcome != 'success'
@@ -81,7 +81,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VALGRIND_BASELINE_BRANCH: ${{ github.event.pull_request.base.ref }}
-        run: python3 scripts/testing/valgrind/ci_valgrind_baseline_artifact.py wait
+        run: python3 scripts/testing/valgrind/valgrind-baseline-artifact.py wait
 
       - name: Download Valgrind baseline artifact
         if: github.event_name == 'pull_request' && (steps.valgrind_baseline.outcome == 'success' || steps.waited_valgrind_baseline.outcome == 'success')
