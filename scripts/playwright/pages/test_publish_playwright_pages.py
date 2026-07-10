@@ -161,7 +161,7 @@ class TestPublishPlaywrightPages(unittest.TestCase):
                 "yolo-performance-datasets/index.html",
             ])
 
-    def test_remove_legacy_root_site_keeps_report_roots(self):
+    def test_remove_legacy_root_site_migrates_report_roots(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             site_dir = Path(tmpdir)
             (site_dir / "index.html").write_text("legacy", encoding="utf-8")
@@ -173,6 +173,7 @@ class TestPublishPlaywrightPages(unittest.TestCase):
 
             self.assertFalse((site_dir / "index.html").exists())
             self.assertFalse((site_dir / "nightly").exists())
+            self.assertTrue((site_dir / "playwright" / "nightly").is_dir())
             self.assertTrue((site_dir / "playwright").is_dir())
             self.assertTrue((site_dir / "yolo-benchmark").is_dir())
 

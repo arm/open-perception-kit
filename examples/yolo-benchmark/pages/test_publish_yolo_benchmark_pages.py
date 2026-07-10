@@ -350,7 +350,7 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
 
             self.assertEqual([target.name for target in targets], ["coco-val2017-abcdef123456"])
 
-    def test_remove_legacy_root_site_keeps_report_roots(self) -> None:
+    def test_remove_legacy_root_site_migrates_playwright_report_roots(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             site_dir = Path(tmpdir)
             (site_dir / "index.html").write_text("legacy", encoding="utf-8")
@@ -362,6 +362,7 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
 
             self.assertFalse((site_dir / "index.html").exists())
             self.assertFalse((site_dir / "prs").exists())
+            self.assertTrue((site_dir / "playwright" / "prs").is_dir())
             self.assertTrue((site_dir / "playwright").is_dir())
             self.assertTrue((site_dir / "yolo-benchmark").is_dir())
 

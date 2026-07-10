@@ -13,7 +13,8 @@ from pathlib import Path
 
 
 INDEX_HTML = "index.html"
-LEGACY_ROOT_PATHS = (INDEX_HTML, "nightly", "prs", "report-index.css", "report-shell.css", "report-shell.js")
+LEGACY_ROOT_PATHS = (INDEX_HTML, "report-index.css", "report-shell.css", "report-shell.js")
+LEGACY_PLAYWRIGHT_REPORT_ROOTS = ("nightly", "prs")
 ROOT_REPORT_LINKS = (
     ("playwright/index.html", "Playwright", "Browser smoke reports"),
     ("yolo-benchmark/index.html", "YOLO Benchmark", "Performance and accuracy benchmark reports"),
@@ -154,6 +155,13 @@ strong{{display:block;margin-bottom:8px;font-size:20px}}span{{color:#9fb0aa}}
 
 def remove_legacy_root_site(site_dir: Path) -> bool:
     changed = False
+    for name in LEGACY_PLAYWRIGHT_REPORT_ROOTS:
+        source = site_dir / name
+        target = site_dir / "playwright" / name
+        if source.exists() and not target.exists():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(source), str(target))
+            changed = True
     for name in LEGACY_ROOT_PATHS:
         path = site_dir / name
         if not path.exists():
