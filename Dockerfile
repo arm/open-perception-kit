@@ -72,7 +72,8 @@ RUN set -eux; \
   ort_tgz="${ort_dir}.tgz"; \
   ort_url="https://github.com/microsoft/onnxruntime/releases/download/v${ONNXRUNTIME_VERSION}/${ort_tgz}"; \
   tmp_dir="$(mktemp -d)"; \
-  curl -fsSL "$ort_url" | tar -xzf - -C "$tmp_dir"; \
+  curl --fail --show-error --location --retry 5 --retry-delay 5 --retry-all-errors --output "$tmp_dir/$ort_tgz" "$ort_url"; \
+  tar -xzf "$tmp_dir/$ort_tgz" -C "$tmp_dir"; \
   mkdir -p /opt/pek-deps/onnxruntime; \
   cp -r "$tmp_dir/$ort_dir/include" /opt/pek-deps/onnxruntime/; \
   cp -r "$tmp_dir/$ort_dir/lib" /opt/pek-deps/onnxruntime/; \

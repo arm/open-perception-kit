@@ -1,0 +1,23 @@
+services:
+  yolo-benchmark:
+    image: ${YOLO_BENCHMARK_IMAGE_NAME:-amp-dev-forge-yolo-benchmark:local}
+    hostname: pek-yolo-benchmark
+    network_mode: bridge
+    build:
+      context: ../../..
+      dockerfile: Dockerfile
+      target: pek-dev-base
+      args:
+        USER_UID: ${HOST_UID:-1000}
+        USER_GID: ${HOST_GID:-1000}
+    environment:
+      YOLO_BENCHMARK_LIMIT: ${YOLO_BENCHMARK_LIMIT:-}
+      YOLO_BENCHMARK_RUNS: ${YOLO_BENCHMARK_RUNS:-}
+    volumes:
+      - ../../..:/work
+      - yolo-benchmark-cache:/cache/yolo-benchmark
+    working_dir: /work
+
+volumes:
+  yolo-benchmark-cache:
+    name: ${YOLO_BENCHMARK_CACHE_VOLUME:-amp-dev-forge-yolo-benchmark-cache}

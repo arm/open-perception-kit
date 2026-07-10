@@ -124,3 +124,6 @@ scripts/testing/valgrind/logs/*.xml
 
 # Example build outputs
 examples/bin/
+artifacts/
+_yolo_benchmark_pages_site/
+datasets/

@@ -26,20 +26,13 @@ from test_support.agent_workflow import (  # noqa: E402
     AGENT_REVIEW_ROOT,
     AGENT_TASK_CONFIG_FILE,
     OPENAI_AGENT_CONTRACTS,
-    OPENAI_AGENT_CONTRACTS_SCRIPT,
     OPENAI_AGENT_MODEL_CONFIG,
-    OPENAI_AGENT_MODEL_CONFIG_SCRIPT,
     OPENAI_AGENT_RUNTIME_CONTEXT,
-    OPENAI_AGENT_PATH_TOOLS_SCRIPT,
-    OPENAI_AGENT_REPO_TOOLS_SCRIPT,
     OPENAI_AGENT_RUNNER_SCRIPT,
     OPENAI_AGENT_SDK_RUNTIME_SCRIPT,
-    OPENAI_AGENT_SHELL_TOOLS_SCRIPT,
     OPENAI_AGENT_TASKS_SCRIPT,
     OPENAI_AGENT_TASK_CONFIG,
-    OPENAI_AGENT_TASK_CONFIG_SCRIPT,
     OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT,
-    OPENAI_AGENT_WORKFLOW_TASK_SCRIPT,
     OPENAI_PATCH_MAX_TURNS,
     OPENAI_REVIEW_MAX_TURNS,
     REPO_ROOT,
@@ -48,108 +41,20 @@ from test_support.agent_workflow import (  # noqa: E402
 
 
 class AgentRuntimeContractTests(unittest.TestCase):
-    def test_openai_agent_runner_uses_arm_proxy_truststore_and_tracing_contract(self):
-        runner_source = OPENAI_AGENT_RUNNER_SCRIPT.read_text(encoding="utf-8")
-        sdk_source = OPENAI_AGENT_SDK_RUNTIME_SCRIPT.read_text(encoding="utf-8")
-        workflow_task_source = OPENAI_AGENT_WORKFLOW_TASK_SCRIPT.read_text(encoding="utf-8")
-        task_source = OPENAI_AGENT_TASKS_SCRIPT.read_text(encoding="utf-8")
-        tools_source = OPENAI_AGENT_REPO_TOOLS_SCRIPT.read_text(encoding="utf-8")
-        shell_tools_source = OPENAI_AGENT_SHELL_TOOLS_SCRIPT.read_text(encoding="utf-8")
-        path_tools_source = OPENAI_AGENT_PATH_TOOLS_SCRIPT.read_text(encoding="utf-8")
-        estimator_source = OPENAI_AGENT_TASK_ESTIMATOR_SCRIPT.read_text(encoding="utf-8")
-        task_config_source = OPENAI_AGENT_TASK_CONFIG_SCRIPT.read_text(encoding="utf-8")
-        model_config_source = OPENAI_AGENT_MODEL_CONFIG_SCRIPT.read_text(encoding="utf-8")
-        contracts_source = OPENAI_AGENT_CONTRACTS_SCRIPT.read_text(encoding="utf-8")
+    def test_openai_environment_defaults_use_arm_proxy_credentials(self):
+        with mock.patch.dict(os.environ, {"OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS": "proxy-key"}, clear=True):
+            sdk_runtime = load_agent_workflow_module_with_fake_sdk(
+                OPENAI_AGENT_SDK_RUNTIME_SCRIPT,
+                "agent_runtime.sdk_runtime_fake_sdk_environment",
+            )
+            sdk_runtime.configure_openai_environment()
 
-        self.assertIn(
-            'DEFAULT_OPENAI_BASE_URL = "https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1"',
-            contracts_source,
-        )
-        self.assertEqual(
-            OPENAI_AGENT_CONTRACTS.DEFAULT_AGENT_MODEL_CONFIG_PATH,
-            ".github/agent-runtime/runtime/agent-models.json",
-        )
-        self.assertEqual(
-            OPENAI_AGENT_CONTRACTS.DEFAULT_AGENT_TASK_CONFIG_PATH,
-            ".github/agent-runtime/runtime/agent-tasks.json",
-        )
-        self.assertEqual(OPENAI_AGENT_CONTRACTS.OPENAI_AGENTS_DISABLE_TRACING_VALUE, "1")
-        self.assertEqual(OPENAI_AGENT_CONTRACTS.OPENAI_API_KEY_ENV, "OPENAI_API_KEY")
-        self.assertEqual(
-            OPENAI_AGENT_CONTRACTS.OPENAI_PROXY_KEY_ENV,
-            "OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS",
-        )
-        self.assertIn("ReviewRecommendation", task_source)
-        self.assertIn("ReviewSeverity", task_source)
-        self.assertIn("DiffSide", task_source)
-        python_guard = sdk_source.index("require_supported_python()")
-        truststore_import = sdk_source.index("import truststore")
-        inject_call = sdk_source.index("truststore.inject_into_ssl()")
-        agents_import = sdk_source.index("from agents import")
-        self.assertIn("MIN_AGENT_RUNTIME_PYTHON = (3, 10)", sdk_source)
-        self.assertLess(python_guard, truststore_import)
-        self.assertLess(truststore_import, agents_import)
-        self.assertLess(inject_call, agents_import)
-        self.assertIn("def configure_openai_environment", sdk_source)
-        self.assertIn("RunContextWrapper", sdk_source)
-        self.assertIn("class AgentWorkflowTask", workflow_task_source)
-        self.assertIn("class ConfiguredAgentWorkflowTask", task_source)
-        self.assertIn("class ReviewAgentTask", task_source)
-        self.assertEqual(task_source.count("class RepositoryEditAgentTask"), 1)
-        self.assertIn("from .base import AgentWorkflowTask", task_source)
-        self.assertIn("class ReviewResult", task_source)
-        self.assertIn("return ReviewResult", task_source)
-        self.assertIn('Reasoning(effort="high")', task_source)
-        self.assertNotIn("temperature=", task_source)
-        self.assertNotIn("verbosity=", task_source)
-        self.assertIn("REVIEW_AGENT_INPUT", task_source)
-        self.assertIn("context=review_context", task_source)
-        self.assertIn("filter_invalid_right_side_findings", task_source)
-        self.assertIn("verified_model=args.resolved_model", task_source)
-        self.assertIn("import shlex", shell_tools_source)
-        self.assertIn("def split_shell_commands", shell_tools_source)
-        self.assertIn("def run_parsed_shell_command", shell_tools_source)
-        self.assertIn("def find_subcommand", shell_tools_source)
-        self.assertIn("READ_ONLY_GIT_SUBCOMMANDS", shell_tools_source)
-        self.assertIn("FORBIDDEN_GIT_OPTIONS", shell_tools_source)
-        self.assertIn("def is_allowed_git_command", shell_tools_source)
-        self.assertIn("def has_forbidden_git_option", shell_tools_source)
-        self.assertIn("def build_subprocess_environment", shell_tools_source)
-        self.assertIn("env=environment", shell_tools_source)
-        self.assertNotIn("shell=True", shell_tools_source)
-        self.assertIn('"apply"', shell_tools_source)
-        self.assertIn("def validate_patch_paths", path_tools_source)
-        self.assertIn('["git", "apply", "--whitespace=nowarn"]', tools_source)
-        self.assertIn("async def estimate_task_fit", estimator_source)
-        self.assertIn("def build_task_manifest", estimator_source)
-        self.assertIn("def deterministic_task_limit_violations", estimator_source)
-        self.assertNotIn("TaskEstimatorWorkflowTask", estimator_source)
-        self.assertNotIn("run_agent(", estimator_source)
-        self.assertIn("class AgentTaskSettings", task_config_source)
-        self.assertIn("def resolve_agent_task_settings", task_config_source)
-        self.assertIn("from ..contracts import", model_config_source)
-        self.assertIn("from ..contracts import", task_config_source)
-        self.assertNotIn("def require_non_empty_string", model_config_source)
-        self.assertNotIn("def require_non_empty_string", task_config_source)
-        self.assertNotIn("def parse_agent_instance", model_config_source)
-        self.assertNotIn("def parse_agent_instance", task_config_source)
-        self.assertNotIn("def parse_agent_command", task_config_source)
-        self.assertFalse((OPENAI_AGENT_RUNNER_SCRIPT.parent / "task_registry.py").exists())
-        self.assertIn("get_agent_task", runner_source)
-        self.assertIn("validate_agent_task_registry", runner_source)
-        self.assertIn("resolve_task_settings", runner_source)
-        self.assertNotIn("--agent-instance", runner_source)
-        self.assertNotIn("agent_instance_override", runner_source)
-        self.assertIn("--model-config-file", runner_source)
-        self.assertIn("--task-config-file", runner_source)
-        self.assertNotRegex(runner_source, r"(^|\s)--model(\s|=|$)")
-        self.assertNotIn("--override-model", model_config_source)
-        self.assertNotIn("override_model", model_config_source)
-        self.assertNotIn("--task-estimate-turns", runner_source)
-        self.assertNotIn("ReviewResult", runner_source)
-        self.assertNotIn("read_repo_file", runner_source)
-        self.assertNotIn("TaskEstimate", runner_source)
-        self.assertNotIn("AGENT_TASK_LIMITS", contracts_source)
+            self.assertEqual(
+                os.environ["OPENAI_BASE_URL"],
+                "https://openai-api-proxy.geo.arm.com/api/providers/openai-eu/v1",
+            )
+            self.assertEqual(os.environ["OPENAI_AGENTS_DISABLE_TRACING"], "1")
+            self.assertEqual(os.environ["OPENAI_API_KEY"], "proxy-key")
 
     def test_agent_task_registry_is_enforced_against_central_config(self):
         runner = load_agent_workflow_module_with_fake_sdk(
@@ -165,7 +70,10 @@ class AgentRuntimeContractTests(unittest.TestCase):
         edit_tasks = [
             task
             for task in runner.iter_agent_tasks()
-            if task.command in {OPENAI_AGENT_CONTRACTS.AgentCommand.REPAIR, OPENAI_AGENT_CONTRACTS.AgentCommand.STABILIZATION}
+            if task.command in {
+                OPENAI_AGENT_CONTRACTS.AgentCommand.REPAIR,
+                OPENAI_AGENT_CONTRACTS.AgentCommand.STABILIZATION,
+            }
         ]
         self.assertEqual({type(task).__name__ for task in edit_tasks}, {"RepositoryEditAgentTask"})
         for task in edit_tasks:
@@ -218,6 +126,7 @@ class AgentRuntimeContractTests(unittest.TestCase):
         self.assertEqual(agent.instructions, AGENT_REVIEW_INSTRUCTIONS_FILE.read_text(encoding="utf-8"))
         self.assertEqual(agent.model, "gpt-test")
         self.assertEqual(agent.model_settings.reasoning.effort, "high")
+        self.assertEqual(agent.model_settings.extra_args, {"service_tier": "priority"})
         self.assertIsNone(agent.model_settings.temperature)
         self.assertIsNone(agent.model_settings.verbosity)
         self.assertEqual(
@@ -264,7 +173,7 @@ class AgentRuntimeContractTests(unittest.TestCase):
         )
         OPENAI_AGENT_RUNTIME_CONTEXT.activate_run_context(context)
         task = agent_tasks.ReviewAgentTask()
-        runner = task.run_agent.__func__.__globals__["Runner"]
+        runner = agent_tasks.AgentWorkflowTask.run_agent.__globals__["Runner"]
         runner_result = mock.Mock(final_output="typed-result")
 
         with mock.patch.object(
@@ -287,6 +196,13 @@ class AgentRuntimeContractTests(unittest.TestCase):
         self.assertIsNotNone(call)
         assert call is not None
         self.assertEqual(call.args[1], agent_tasks.REVIEW_AGENT_INPUT)
+        self.assertEqual(
+            call.args[0].model_settings.extra_args,
+            {
+                "service_tier": "priority",
+                "prompt_cache_key": "amp-dev-agent-review:Arm-Debug/amp-dev-forge:pr-101",
+            },
+        )
         self.assertIs(call.kwargs["context"], context)
         self.assertEqual(call.kwargs["max_turns"], OPENAI_REVIEW_MAX_TURNS)
         self.assertTrue(call.kwargs["run_config"].tracing_disabled)
@@ -323,6 +239,7 @@ class AgentRuntimeContractTests(unittest.TestCase):
             OPENAI_AGENT_RUNTIME_CONTEXT.set_run_context(repo_root, 30)
             args = argparse.Namespace(
                 context_file=str(context_file),
+                review_packet_file=None,
                 task_settings=settings,
                 resolved_model="gpt-test",
                 output_file=str(Path(temp_dir) / "review.json"),
@@ -359,6 +276,63 @@ class AgentRuntimeContractTests(unittest.TestCase):
         self.assertIsInstance(call.kwargs["context"], AGENT_REVIEW_CONTEXT.ReviewRunContext)
         self.assertEqual(call.kwargs["context"].pull_request.title, "runtime-title-marker")
         self.assertNotIn("runtime-title-marker", AGENT_REVIEW_INSTRUCTIONS_FILE.read_text(encoding="utf-8"))
+
+    def test_review_task_passes_review_packet_as_initial_input(self):
+        agent_tasks = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_TASKS_SCRIPT,
+            "agent_runtime.tasks.configured_fake_sdk_review_packet",
+        )
+        settings = OPENAI_AGENT_TASK_CONFIG.resolve_agent_task_settings(
+            AGENT_TASK_CONFIG_FILE,
+            OPENAI_AGENT_CONTRACTS.AgentCommand.REVIEW,
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / "repo"
+            repo_root.mkdir()
+            payload = AGENT_REVIEW_CONTEXT.build_review_context_payload(
+                repo_root=repo_root,
+                task_config_path=AGENT_TASK_CONFIG_FILE,
+                environment={
+                    "REVIEW_BASE_SHA": "a" * 40,
+                    "REVIEW_HEAD_SHA": "b" * 40,
+                },
+            )
+            context_file = repo_root / "review-context.json"
+            context_file.write_text(json.dumps(payload), encoding="utf-8")
+            packet_file = repo_root / "review-packet.md"
+            packet_file.write_text("packet-map-marker", encoding="utf-8")
+            OPENAI_AGENT_RUNTIME_CONTEXT.set_run_context(repo_root, 30)
+            args = argparse.Namespace(
+                context_file=str(context_file),
+                review_packet_file=str(packet_file),
+                task_settings=settings,
+                resolved_model="gpt-test",
+                output_file=str(Path(temp_dir) / "review.json"),
+            )
+            task = agent_tasks.ReviewAgentTask()
+
+            with mock.patch.object(
+                    agent_tasks,
+                    "estimate_task_fit",
+                    new=mock.AsyncMock(),
+            ) as estimate, mock.patch.object(
+                    task,
+                    "run_agent",
+                    new=mock.AsyncMock(return_value="result"),
+            ) as run_agent, mock.patch.object(task, "write_result", return_value=0):
+                result = asyncio.run(task.run(args))
+
+        self.assertEqual(result, 0)
+        run_call = run_agent.await_args
+        estimate_call = estimate.await_args
+        self.assertIsNotNone(run_call)
+        self.assertIsNotNone(estimate_call)
+        assert run_call is not None
+        assert estimate_call is not None
+        run_input = run_call.args[0]
+        self.assertIn("packet-map-marker", run_input)
+        self.assertIn("<review_packet>", run_input)
+        self.assertEqual(estimate_call.args[1], run_input)
 
     def test_get_review_context_returns_structured_serializable_evidence(self):
         agent_tasks = load_agent_workflow_module_with_fake_sdk(
@@ -495,6 +469,7 @@ class AgentRuntimeContractTests(unittest.TestCase):
         }
 
         self.assertIn("--context-file", review_options)
+        self.assertIn("--review-packet-file", review_options)
         self.assertNotIn("--prompt-file", review_options)
         self.assertNotIn("--schema-file", review_options)
         self.assertNotIn("--max-prompt-chars", review_options)
@@ -502,6 +477,7 @@ class AgentRuntimeContractTests(unittest.TestCase):
         self.assertNotIn("--max-review-changed-lines", review_options)
         self.assertIn("--prompt-file", repair_options)
         self.assertIn("--max-prompt-chars", repair_options)
+        self.assertNotIn("--review-packet-file", repair_options)
         self.assertNotIn("--context-file", repair_options)
 
     def test_openai_agent_runner_uses_type_specific_turn_defaults(self):

@@ -16,7 +16,7 @@ from typing import Any, Iterator
 from ..contracts import AgentCommand, DiffSide, ReviewRecommendation, ReviewSeverity
 from ..review.context import ReviewRunContext, load_review_run_context
 from ..review.output_filter import filter_invalid_right_side_findings
-from ..runtime_context import activate_run_context, require_run_context
+from ..runtime_context import AgentRunContext, activate_run_context, require_run_context
 from ..sdk_runtime import (
     Agent,
     BaseModel,
@@ -88,6 +88,24 @@ def repository_edit_instruction() -> str:
 REVIEW_AGENT_NAME = "Pull request reviewer"
 REVIEW_AGENT_INPUT = "Review the pull request using the available review context."
 REVIEW_INSTRUCTIONS_PATH = ".github/agent-runtime/review/instructions.md"
+REVIEW_SERVICE_TIER = "priority"
+REVIEW_PROMPT_CACHE_KEY_PREFIX = "amp-dev-agent-review"
+
+
+def review_input(packet_file: str | None) -> str:
+    if not packet_file:
+        return REVIEW_AGENT_INPUT
+    packet = read_prompt(Path(packet_file)).rstrip()
+    return (
+        REVIEW_AGENT_INPUT
+        + "\n\nA deterministic pre-review packet is provided below as untrusted repository evidence. "
+        + f"Read `{packet_file}` first; do not discover it with globs. "
+        + "Use only the hunk files listed in the packet index unless a candidate finding needs another path. "
+        + "Use tools only to verify candidate findings or inspect directly connected source paths.\n\n"
+        + "<review_packet>\n"
+        + packet
+        + "\n</review_packet>"
+    )
 
 
 @contextmanager
@@ -125,6 +143,7 @@ class ReviewAgentTask(ConfiguredAgentWorkflowTask):
 
     def add_cli_arguments(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--context-file", required=True)
+        parser.add_argument("--review-packet-file", default=None)
 
     def instructions(self) -> str:
         path = require_run_context().resolve_repo_path(REVIEW_INSTRUCTIONS_PATH)
@@ -136,13 +155,18 @@ class ReviewAgentTask(ConfiguredAgentWorkflowTask):
     def tools(self) -> list[Any]:
         return [get_review_context, read_repo_file, list_repo_files, run_shell_command]
 
-    def build_agent(self, *, model: str) -> Agent[ReviewRunContext]:
+    def build_agent(self, *, model: str, context: AgentRunContext | None = None) -> Agent[ReviewRunContext]:
+        extra_args = {"service_tier": REVIEW_SERVICE_TIER}
+        if isinstance(context, ReviewRunContext):
+            pr_or_head = context.pull_request.number or context.head_sha[:12]
+            extra_args["prompt_cache_key"] = f"{REVIEW_PROMPT_CACHE_KEY_PREFIX}:{context.repository}:pr-{pr_or_head}"
         return Agent[ReviewRunContext](
             name=self.agent_name,
             instructions=self.instructions(),
             model=model,
             model_settings=ModelSettings(
                 reasoning=Reasoning(effort="high"),
+                extra_args=extra_args,
             ),
             tools=self.tools(),
             output_type=self.output_type(),
@@ -160,9 +184,10 @@ class ReviewAgentTask(ConfiguredAgentWorkflowTask):
             expected_max_review_changed_lines=args.task_settings.max_review_changed_lines,
         )
         activate_run_context(review_context)
+        input_text = review_input(args.review_packet_file)
         await estimate_task_fit(
             self.command,
-            REVIEW_AGENT_INPUT,
+            input_text,
             args.task_settings,
             base_sha=review_context.base_sha,
             head_sha=review_context.head_sha,
@@ -184,7 +209,7 @@ class ReviewAgentTask(ConfiguredAgentWorkflowTask):
                 hidden_files[resolved_event_path] = None
         with hide_runtime_files(hidden_files):
             final_output = await self.run_agent(
-                REVIEW_AGENT_INPUT,
+                input_text,
                 model=args.resolved_model,
                 max_turns=args.task_settings.max_turns,
                 context=review_context,

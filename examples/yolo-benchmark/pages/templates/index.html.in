@@ -1,0 +1,19 @@
+      <header>
+        <div class="eyebrow">YOLO benchmark reports</div>
+        <h1>${product_title}</h1>
+      </header>
+      <section>
+        <h2>Nightly</h2>
+        <div class="report-list">
+${nightly_reports}        </div>
+      </section>
+      <section>
+        <h2>Manual</h2>
+        <div class="report-list">
+${manual_reports}        </div>
+      </section>
+      <section>
+        <h2>Pull Requests</h2>
+        <div class="report-list">
+${pr_reports}        </div>
+      </section>
