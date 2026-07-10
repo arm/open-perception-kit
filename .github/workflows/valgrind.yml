@@ -76,12 +76,18 @@ jobs:
         run: python3 scripts/testing/valgrind/valgrind-baseline-artifact.py locate
 
       - name: Wait for missing Valgrind baseline artifact
-        if: github.event_name == 'pull_request' && steps.valgrind_baseline.outcome != 'success'
+        if: github.event_name == 'pull_request' && steps.valgrind_baseline.outcome != 'success' && (github.event.pull_request.base.ref == 'main' || github.event.pull_request.base.ref == 'develop')
         id: waited_valgrind_baseline
         env:
           GH_TOKEN: ${{ github.token }}
           VALGRIND_BASELINE_BRANCH: ${{ github.event.pull_request.base.ref }}
         run: python3 scripts/testing/valgrind/valgrind-baseline-artifact.py wait
+
+      - name: Require existing Valgrind baseline artifact
+        if: github.event_name == 'pull_request' && steps.valgrind_baseline.outcome != 'success' && github.event.pull_request.base.ref != 'main' && github.event.pull_request.base.ref != 'develop'
+        run: |
+          echo "Missing Valgrind baseline artifact; auto-publish is only enabled for main/develop targets." >&2
+          exit 1
 
       - name: Download Valgrind baseline artifact
         if: github.event_name == 'pull_request' && (steps.valgrind_baseline.outcome == 'success' || steps.waited_valgrind_baseline.outcome == 'success')

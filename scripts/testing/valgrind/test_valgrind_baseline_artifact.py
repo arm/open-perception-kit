@@ -190,6 +190,7 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
         self.assertIn("valgrind-baseline-artifact.py publish", workflow)
         self.assertIn("valgrind-baseline-artifact.py locate", workflow)
         self.assertIn("valgrind-baseline-artifact.py wait", workflow)
+        self.assertIn("auto-publish is only enabled for main/develop targets", workflow)
         self.assertIn("steps.valgrind_baseline.outputs.run-id || steps.waited_valgrind_baseline.outputs.run-id", workflow)
 
 
