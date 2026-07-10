@@ -4,7 +4,11 @@
 
 from __future__ import annotations
 
+from contextlib import redirect_stderr
+import io
+import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 import unittest
@@ -155,6 +159,40 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
         self.assertIn("$(git push)", output)
         self.assertIn("$ git diff --check", output)
 
+    def test_openai_agent_repo_tools_write_diagnostics_to_stderr(self):
+        repo_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_REPO_TOOLS_SCRIPT,
+            "agent_runtime.tools.repo_fake_sdk_diagnostics",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            OPENAI_AGENT_RUNTIME_CONTEXT.set_run_context(Path(temp_dir), 10)
+            stderr = io.StringIO()
+            with redirect_stderr(stderr):
+                output = repo_tools.run_shell_command("echo ok")
+
+        self.assertIn("ok", output)
+        self.assertIn("agent-diagnostic", stderr.getvalue())
+        self.assertIn("tool=run_shell_command", stderr.getvalue())
+
+    def test_openai_agent_repo_tools_write_full_action_log(self):
+        repo_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_REPO_TOOLS_SCRIPT,
+            "agent_runtime.tools.repo_fake_sdk_action_log",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            action_log = repo_root / "agent-actions.jsonl"
+            OPENAI_AGENT_RUNTIME_CONTEXT.set_run_context(repo_root, 10)
+            with mock.patch.dict(os.environ, {"AGENT_ACTION_LOG": str(action_log)}):
+                output = repo_tools.run_shell_command("python3 -c 'print(\"x\" * 25050)'")
+            entries = [json.loads(line) for line in action_log.read_text(encoding="utf-8").splitlines()]
+
+        self.assertIn("[truncated", output)
+        shell_entry = next(entry for entry in entries if entry.get("tool") == "run_shell_command")
+        self.assertIn("x" * 25050, shell_entry["output"])
+        self.assertNotIn("[truncated", shell_entry["output"])
+        self.assertGreater(shell_entry["output_chars"], shell_entry["returned_output_chars"])
+
     def test_openai_agent_runner_executes_tokenized_pipelines_and_stdin_redirection(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_REPO_TOOLS_SCRIPT,
@@ -299,6 +337,221 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
         self.assertNotIn("outside-link", output)
         self.assertNotIn(".git/config", output)
 
+    def test_review_repo_tools_hide_runtime_outputs_except_packet(self):
+        repo_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_REPO_TOOLS_SCRIPT,
+            "agent_runtime.tools.repo_fake_sdk_review_hidden_paths",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            (repo_root / "src.py").write_text("VALUE = 1\n", encoding="utf-8")
+            venv_file = repo_root / ".agent-runtime" / "openai-agent-venv" / "lib" / "sdk.py"
+            venv_file.parent.mkdir(parents=True)
+            venv_file.write_text("sdk internals\n", encoding="utf-8")
+            review_output = repo_root / ".github" / "agent-runtime" / "review" / "out" / "review.json"
+            review_output.parent.mkdir(parents=True)
+            review_output.write_text("{}\n", encoding="utf-8")
+            packet_index = review_output.parent / "review-packet" / "index.md"
+            packet_index.parent.mkdir(parents=True)
+            packet_index.write_text("packet\n", encoding="utf-8")
+            self.activate_review_context(repo_root)
+
+            files = set(repo_tools.list_repo_files().splitlines())
+            hidden_files = repo_tools.list_repo_files(".agent-runtime/*")
+            hidden_dataset = repo_tools.list_repo_files("datasets/*")
+            packet = repo_tools.read_repo_file(".github/agent-runtime/review/out/review-packet/index.md")
+
+            with self.assertRaisesRegex(ValueError, "hidden review runtime/generated output"):
+                repo_tools.read_repo_file(".agent-runtime/openai-agent-venv/lib/sdk.py")
+            with self.assertRaisesRegex(ValueError, "hidden review runtime/generated output"):
+                repo_tools.read_repo_file(".github/agent-runtime/review/out/review.json")
+            with self.assertRaisesRegex(ValueError, "hidden review runtime/generated output"):
+                repo_tools.run_shell_command("grep -R sdk .agent-runtime")
+            shell_output = repo_tools.run_shell_command(
+                "find . -name sdk.py -print; "
+                "find . -name review.json -print; "
+                "find .github/agent-runtime/review/out/review-packet -type f -print"
+            )
+            self.assertTrue(venv_file.is_file())
+            self.assertTrue(review_output.is_file())
+
+        self.assertIn("src.py", files)
+        self.assertIn(".github/agent-runtime/review/out/review-packet/index.md", files)
+        self.assertEqual(hidden_files, "")
+        self.assertEqual(hidden_dataset, "")
+        self.assertIn("packet", packet)
+        self.assertIn(".github/agent-runtime/review/out/review-packet/index.md", shell_output)
+        self.assertNotIn(".agent-runtime/openai-agent-venv/lib/sdk.py", shell_output)
+        self.assertNotIn(".github/agent-runtime/review/out/review.json", shell_output)
+        self.assertNotIn(".agent-runtime/openai-agent-venv/lib/sdk.py", files)
+        self.assertNotIn(".github/agent-runtime/review/out/review.json", files)
+
+    def test_review_shell_runs_from_tracked_source_snapshot(self):
+        repo_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_REPO_TOOLS_SCRIPT,
+            "agent_runtime.tools.repo_fake_sdk_review_source_snapshot",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            subprocess.run(["git", "init", "-q"], cwd=repo_root, check=True)
+            tracked_file = repo_root / "tracked.py"
+            tracked_file.write_text("VALUE = 1\n", encoding="utf-8")
+            patch_file = repo_root / "change.patch"
+            patch_file.write_text(
+                textwrap.dedent(
+                    """\
+                    diff --git a/tracked.py b/tracked.py
+                    --- a/tracked.py
+                    +++ b/tracked.py
+                    @@ -1 +1 @@
+                    -VALUE = 1
+                    +VALUE = 2
+                    """
+                ),
+                encoding="utf-8",
+            )
+            validation_script = repo_root / "scripts" / "pre-commit" / "run.sh"
+            validation_script.parent.mkdir(parents=True)
+            validation_script.write_text(
+                textwrap.dedent(
+                    """\
+                    #!/usr/bin/env bash
+                    set -euo pipefail
+                    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+                    git -C "${script_dir}" rev-parse --show-toplevel
+                    nested_repo="$(mktemp -d)"
+                    git -C "${nested_repo}" init -q
+                    """
+                ),
+                encoding="utf-8",
+            )
+            validation_script.chmod(0o755)
+            review_out_gitignore = repo_root / ".github" / "agent-runtime" / "review" / "out" / ".gitignore"
+            review_out_gitignore.parent.mkdir(parents=True)
+            review_out_gitignore.write_text("*\n!.gitignore\n", encoding="utf-8")
+            subprocess.run(
+                [
+                    "git",
+                    "add",
+                    "tracked.py",
+                    "change.patch",
+                    "scripts/pre-commit/run.sh",
+                    ".github/agent-runtime/review/out/.gitignore",
+                ],
+                cwd=repo_root,
+                check=True,
+            )
+            subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    "user.name=Test",
+                    "-c",
+                    "user.email=test@example.invalid",
+                    "commit",
+                    "-qm",
+                    "base",
+                ],
+                cwd=repo_root,
+                check=True,
+            )
+            generated_file = repo_root / "random-generated" / "leak.txt"
+            generated_file.parent.mkdir()
+            generated_file.write_text("generated\n", encoding="utf-8")
+            runtime_bin = repo_root / "runtime-bin"
+            runtime_bin.mkdir()
+            runtime_python = runtime_bin / "python3"
+            runtime_python.symlink_to(sys.executable)
+            packet_index = repo_root / ".github" / "agent-runtime" / "review" / "out" / "review-packet" / "index.md"
+            packet_index.parent.mkdir(parents=True)
+            packet_index.write_text("packet\n", encoding="utf-8")
+            with mock.patch.dict(os.environ, {"AGENT_RUNTIME_BIN": runtime_bin.relative_to(repo_root).as_posix()}):
+                self.activate_review_context(repo_root)
+
+                git_output = repo_tools.run_shell_command("git status --short; git diff --name-status")
+                git_version_output = repo_tools.run_shell_command("git version")
+                apply_check_output = repo_tools.run_shell_command("git apply --check < change.patch")
+                output = repo_tools.run_shell_command(
+                    "find . -name tracked.py -print; "
+                    "find . -name leak.txt -print; "
+                    "find .github/agent-runtime/review/out/review-packet -type f -print"
+                )
+                tracked_stdin = repo_tools.run_shell_command("cat < tracked.py")
+                python_output = repo_tools.run_shell_command("which python3")
+                validation_output = repo_tools.run_shell_command("./scripts/pre-commit/run.sh --help")
+                env_output = repo_tools.run_shell_command("env")
+                with self.assertRaisesRegex(ValueError, "not available in the shell workspace"):
+                    repo_tools.run_shell_command("cat < random-generated/leak.txt")
+                with self.assertRaisesRegex(ValueError, "escapes shell workspace"):
+                    repo_tools.run_shell_command("cat < ..")
+                with self.assertRaisesRegex(ValueError, "escapes shell workspace"):
+                    repo_tools.run_shell_command("find .. -name leak.txt -print")
+                with self.assertRaisesRegex(ValueError, "repo-wide file inventory"):
+                    repo_tools.run_shell_command("find . -maxdepth 5 -type f -print")
+
+        self.assertIn("$ git status --short", git_output)
+        self.assertIn("$ git diff --name-status", git_output)
+        self.assertNotIn("exit_code=128", git_output)
+        self.assertNotIn("not a git repository", git_output)
+        self.assertIn("exit_code=0", git_version_output)
+        self.assertIn("git version", git_version_output)
+        self.assertNotIn("Blocked git subcommand", git_version_output)
+        self.assertIn("exit_code=0", apply_check_output)
+        self.assertNotIn("Blocked git subcommand", apply_check_output)
+        self.assertNotIn(".github/agent-runtime/review/out/.gitignore", git_output)
+        self.assertNotIn("review-packet/index.md", git_output)
+        self.assertNotIn("random-generated/leak.txt", git_output)
+        self.assertNotIn("GIT_DIR=", env_output)
+        self.assertNotIn("GIT_WORK_TREE=", env_output)
+        self.assertIn("exit_code=0", validation_output)
+        self.assertNotIn("not a git repository", validation_output)
+        self.assertIn(str(runtime_python), python_output)
+        self.assertIn("./tracked.py", output)
+        self.assertIn("VALUE = 1", tracked_stdin)
+        self.assertIn(".github/agent-runtime/review/out/review-packet/index.md", output)
+        self.assertNotIn("random-generated/leak.txt", output)
+
+    def test_review_shell_does_not_dereference_tracked_symlinks(self):
+        repo_tools = load_agent_workflow_module_with_fake_sdk(
+            OPENAI_AGENT_REPO_TOOLS_SCRIPT,
+            "agent_runtime.tools.repo_fake_sdk_review_symlink_snapshot",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / "repo"
+            repo_root.mkdir()
+            subprocess.run(["git", "init", "-q"], cwd=repo_root, check=True)
+            outside_secret = Path(temp_dir) / "outside-secret.txt"
+            outside_secret.write_text("outside secret\n", encoding="utf-8")
+            try:
+                (repo_root / "leaky-link.txt").symlink_to(outside_secret)
+            except OSError:
+                self.skipTest("symlinks are not available on this filesystem")
+            subprocess.run(["git", "add", "leaky-link.txt"], cwd=repo_root, check=True)
+            subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    "user.name=Test",
+                    "-c",
+                    "user.email=test@example.invalid",
+                    "commit",
+                    "-qm",
+                    "base",
+                ],
+                cwd=repo_root,
+                check=True,
+            )
+            self.activate_review_context(repo_root)
+
+            output = repo_tools.run_shell_command(
+                "find . -name leaky-link.txt -print; grep -R outside ."
+            )
+            with self.assertRaisesRegex(ValueError, "not available in the shell workspace"):
+                repo_tools.run_shell_command("cat < leaky-link.txt")
+
+        self.assertNotIn("--- stdout ---\n./leaky-link.txt", output)
+        self.assertNotIn("outside secret", output)
+
     def test_openai_agent_runner_applies_safe_unified_diff(self):
         repo_tools = load_agent_workflow_module_with_fake_sdk(
             OPENAI_AGENT_REPO_TOOLS_SCRIPT,
@@ -423,15 +676,19 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
             "git show HEAD",
             "git log --oneline -1",
             "git status --short",
-            "git ls-tree HEAD",
             "git grep agent-review",
             "git rev-parse HEAD",
             "git merge-base HEAD origin/main",
             "git cat-file -t HEAD",
             "git apply --check /tmp/example.patch",
             "git diff --check | sed -n 1,20p",
+            "find . -name agent-review -print",
         ):
             repo_tools.reject_unsafe_shell_command(command)
+        with self.assertRaisesRegex(ValueError, "git ls-tree"):
+            repo_tools.reject_unsafe_shell_command("git ls-tree -r HEAD")
+        with self.assertRaisesRegex(ValueError, "repo-wide file inventory"):
+            repo_tools.reject_unsafe_shell_command("find . -maxdepth 5 -type f -print")
         with self.assertRaisesRegex(ValueError, "git push"):
             repo_tools.reject_unsafe_shell_command('echo ok && git push')
         with self.assertRaisesRegex(ValueError, "git push"):

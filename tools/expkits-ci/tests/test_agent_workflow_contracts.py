@@ -287,6 +287,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
                 "Fetch Agent review base ref",
                 "Set up Agent Python",
                 "Build Agent review context",
+                "Build Agent review packet",
                 "Install OpenAI agent runtime",
                 "Run Agent workflow static analysis",
                 "Run OpenAI SDK review",
@@ -349,6 +350,10 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertEqual(
             agent_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],
             "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
+        )
+        self.assertEqual(
+            agent_step["env"]["AGENT_ACTION_LOG"],
+            ".github/agent-runtime/review/out/agent-actions.jsonl",
         )
         self.assertIn(
             ".agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/openai_agent_runner.py run-review",
