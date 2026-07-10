@@ -74,6 +74,13 @@ def setup_argument_parser(parser):
                              action="store_true", help="Run actionlint on GitHub Actions workflows.")
     check_group.add_argument("--agent-runtime-static-analysis", default=False,
                              action="store_true", help="Run Agent workflow mypy, pyflakes, vulture, and stale-reference checks.")
+    pre_commit_group = check_group.add_mutually_exclusive_group()
+    pre_commit_group.add_argument("--pre-commit-fix", default=False,
+                                  action="store_true",
+                                  help="Run the synchronized pre-commit bundle and apply supported fixes.")
+    pre_commit_group.add_argument("--pre-commit-check", default=False,
+                                  action="store_true",
+                                  help="Run the synchronized pre-commit bundle in check-only mode.")
 
     util_group = parser.add_argument_group('Utility Options', 'General script and logging options.')
     util_group.add_argument("-v", "--verbose", default=False, action="store_true", help="Enable verbose output.")
@@ -108,20 +115,33 @@ def setup_argument_parser(parser):
                             help="Update the clang-tidy baseline to current per-check counts if none exceed the existing baseline.")
 
 
+def setup_pre_commit_checks(args, format=False):
+    """Enable the shared pre-commit bundle used by local hooks, host hooks, and CI."""
+    args.check_secrets = True
+    args.actionlint = True
+
+    if format:
+        args.clang_format = True
+        args.python_format = True
+        args.cmake_format = True
+        args.shell_format = True
+        args.license_header = True
+    else:
+        args.clang_format_check = True
+        args.python_format_check = True
+        args.cmake_format_check = True
+        args.shell_format_check = True
+        args.license_header_check = True
+
+
 def setup_all_checks(args):
     """Set up all checks to be run by default."""
     args.commit_diff = True
     args.branch_naming = True
     args.commit_msg_ci = True
     args.jira_ticket = True
-    args.clang_format_check = True
+    setup_pre_commit_checks(args, format=False)
     # args.clang_tidy = True # TODO: for now clang-tidy should only be advisory
-    args.python_format_check = True
-    args.cmake_format_check = True
-    args.shell_format_check = True
-    args.license_header_check = True
-    args.check_secrets = True
-    args.actionlint = True
     args.agent_runtime_static_analysis = True
 
 
@@ -441,6 +461,12 @@ def main():
     if args.all_checks:
         logger.info("Applying --all-checks preset.")
         setup_all_checks(args)
+    if args.pre_commit_fix:
+        logger.info("Applying --pre-commit-fix preset.")
+        setup_pre_commit_checks(args, format=True)
+    if args.pre_commit_check:
+        logger.info("Applying --pre-commit-check preset.")
+        setup_pre_commit_checks(args, format=False)
 
     file_scope = describe_file_scope(args)
     checker = QualityChecks()

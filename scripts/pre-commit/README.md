@@ -14,8 +14,7 @@ This folder intentionally keeps the rollout narrow:
 Out of scope here:
 
 - Dev Container hook adoption
-- CI workflow migration
-- extra quality rules beyond the existing local pre-commit bundle
+- CI workflow ownership
 
 ## Entry Points
 
@@ -53,11 +52,11 @@ The host-only wrapper keeps the existing local hook intent:
 
 Light mapping:
 
-- Dev Container pre-commit hook: this is the local truth for the pre-commit bundle.
-- Host `./scripts/pre-commit/run.sh`: runs the same pre-commit-stage checks on the host through the dedicated container.
+- Dev Container pre-commit hook: runs `expkits-ci --pre-commit-fix` plus the commit metadata hooks.
+- Host `./scripts/pre-commit/run.sh`: runs the same `--pre-commit-fix` bundle on the host through the dedicated container.
 - Host `./scripts/pre-commit/run.sh commit-msg <path>`: mirrors the `commit-msg` hook path.
-- CI PR quality: broader validation path, today driven through `expkits-ci --all-checks` on the PR diff.
-- CI full quality: check-only CI run for the formatter/license/secrets bundle on the full tracked tree.
+- CI PR quality: runs the same bundle as `--pre-commit-check`, plus CI-only branch, commit-message, and Agent runtime gates.
+- CI full quality: check-only CI run for `--pre-commit-check` on the full tracked tree.
 
 The wrapper builds a dedicated runtime image up front and then reuses it for
 hook execution. There is no hidden image rebuild during a normal commit.

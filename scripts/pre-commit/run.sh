@@ -135,15 +135,8 @@ build_delta_command() {
         return
     fi
 
-    # Keep this bundle aligned with the local pre-commit hook set in .pre-commit-config.yaml.
     REPO_CHECKS_COMMAND+=(
-        --clang-format
-        --python-format
-        --cmake-format
-        --shell-format
-        --license-header
-        --check-secrets
-        --actionlint
+        --pre-commit-fix
         --list-of-files
         "${files[@]}"
     )
@@ -154,13 +147,7 @@ build_full_command() {
         expkits-ci
         --verbose
         --branch-naming
-        --clang-format
-        --python-format
-        --cmake-format
-        --shell-format
-        --license-header
-        --check-secrets
-        --actionlint
+        --pre-commit-fix
     )
 }
 

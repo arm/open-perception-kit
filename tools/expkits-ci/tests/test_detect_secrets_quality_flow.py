@@ -19,6 +19,7 @@ EXPKITS_CI_SOURCE = PACKAGE_ROOT / "expkits_ci/expkits_ci.py"
 PRE_COMMIT_CONFIG = REPO_ROOT / ".pre-commit-config.yaml"
 CI_COMPOSE_FILE = REPO_ROOT / ".github/compose.ci.yaml"
 PEK_CI_WORKFLOW = REPO_ROOT / ".github/workflows/pek-ci.yml"
+HOST_PRE_COMMIT_RUN = REPO_ROOT / "scripts/pre-commit/run.sh"
 BASELINE_FILE = REPO_ROOT / ".secrets.baseline"
 
 
@@ -220,15 +221,15 @@ class StaticQualityConfigTests(unittest.TestCase):
         pre_commit = PRE_COMMIT_CONFIG.read_text(encoding="utf-8")
         compose = CI_COMPOSE_FILE.read_text(encoding="utf-8")
         workflow = PEK_CI_WORKFLOW.read_text(encoding="utf-8")
+        host_pre_commit = HOST_PRE_COMMIT_RUN.read_text(encoding="utf-8")
 
-        self.assertIn("- id: check-secrets", pre_commit)
-        self.assertIn("--check-secrets --list-of-files", pre_commit)
-        self.assertIn("- id: actionlint", pre_commit)
-        self.assertIn("--actionlint --list-of-files", pre_commit)
-        self.assertIn(r"files: ^\.github/workflows/.*\.ya?ml$", pre_commit)
+        self.assertIn("- id: pre-commit-checks", pre_commit)
+        self.assertIn("--pre-commit-fix --list-of-files", pre_commit)
+        self.assertIn("--pre-commit-fix", host_pre_commit)
         self.assertNotIn("- id: agent-runtime-static-analysis", pre_commit)
         self.assertNotIn("--agent-runtime-static-analysis", pre_commit)
-        self.assertIn("expkits-ci --all-checks --pr-target-branch ${PULL_REQUEST_TARGET_BRANCH}", compose)
+        self.assertIn("expkits-ci --pre-commit-check --branch-naming --commit-msg-ci", compose)
+        self.assertIn("expkits-ci --pre-commit-check --agent-runtime-static-analysis", compose)
         self.assertIn("--agent-runtime-static-analysis", compose)
         self.assertIn('if [ -n "$${PULL_REQUEST_TARGET_BRANCH:-}" ]; then', compose)
         self.assertIn('--pr-target-branch "$${PULL_REQUEST_TARGET_BRANCH}"', compose)
@@ -255,7 +256,7 @@ class StaticQualityConfigTests(unittest.TestCase):
             workflow,
         )
         self.assertNotIn("Run Valgrind checks", workflow)
-        self.assertEqual(pre_commit.count('--list-of-files "$@"'), 9)
+        self.assertEqual(pre_commit.count('--list-of-files "$@"'), 3)
 
         pyproject = PYPROJECT_FILE.read_text(encoding="utf-8")
         self.assertIn('"mypy==1.16.1"', pyproject)

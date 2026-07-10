@@ -90,6 +90,56 @@ class TestExpkitsCiCli(unittest.TestCase):
         self.assertTrue(parsed_args.agent_runtime_static_analysis)
         self.assertTrue(parsed_args.commit_diff)
 
+    def test_pre_commit_fix_preset_enables_shared_autofix_bundle(self):
+        checker = Mock()
+        checker.file_utils.get_related_files.return_value = []
+        checker.autofix_messages = []
+        logger = Mock()
+
+        with patch.object(expkits_ci_module, "QualityChecks", return_value=checker), \
+                patch.object(expkits_ci_module, "perform_checks", return_value=True) as perform_checks_mock, \
+                patch.object(expkits_ci_module, "setup_expkits_logger", return_value=logger), \
+                patch.object(expkits_ci_module.argcomplete, "autocomplete", return_value=None), \
+                patch.object(sys, "argv", ["expkits-ci", "--pre-commit-fix"]):
+            result = expkits_ci_module.main()
+
+        self.assertEqual(result, 0)
+        parsed_args = perform_checks_mock.call_args.args[1]
+        self.assertTrue(parsed_args.clang_format)
+        self.assertTrue(parsed_args.python_format)
+        self.assertTrue(parsed_args.cmake_format)
+        self.assertTrue(parsed_args.shell_format)
+        self.assertTrue(parsed_args.license_header)
+        self.assertTrue(parsed_args.check_secrets)
+        self.assertTrue(parsed_args.actionlint)
+        self.assertFalse(parsed_args.clang_format_check)
+        self.assertFalse(parsed_args.agent_runtime_static_analysis)
+
+    def test_pre_commit_check_preset_enables_shared_check_only_bundle(self):
+        checker = Mock()
+        checker.file_utils.get_related_files.return_value = []
+        checker.autofix_messages = []
+        logger = Mock()
+
+        with patch.object(expkits_ci_module, "QualityChecks", return_value=checker), \
+                patch.object(expkits_ci_module, "perform_checks", return_value=True) as perform_checks_mock, \
+                patch.object(expkits_ci_module, "setup_expkits_logger", return_value=logger), \
+                patch.object(expkits_ci_module.argcomplete, "autocomplete", return_value=None), \
+                patch.object(sys, "argv", ["expkits-ci", "--pre-commit-check"]):
+            result = expkits_ci_module.main()
+
+        self.assertEqual(result, 0)
+        parsed_args = perform_checks_mock.call_args.args[1]
+        self.assertTrue(parsed_args.clang_format_check)
+        self.assertTrue(parsed_args.python_format_check)
+        self.assertTrue(parsed_args.cmake_format_check)
+        self.assertTrue(parsed_args.shell_format_check)
+        self.assertTrue(parsed_args.license_header_check)
+        self.assertTrue(parsed_args.check_secrets)
+        self.assertTrue(parsed_args.actionlint)
+        self.assertFalse(parsed_args.clang_format)
+        self.assertFalse(parsed_args.agent_runtime_static_analysis)
+
     def test_perform_checks_records_actionlint_result(self):
         checker = Mock()
         checker.check_github_actions.return_value = False
