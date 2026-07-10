@@ -1,11 +1,11 @@
-name: Publish Playwright Reports
+name: Publish YOLO Benchmark Reports
 
 on:
   workflow_run:
-    workflows: ["Perception Experience Kit CI Pipeline"]
+    workflows: ["YOLO Benchmark"]
     types: [completed]
   schedule:
-    - cron: "30 6 * * *"
+    - cron: "45 6 * * *"
   workflow_dispatch:
 
 permissions:
@@ -20,8 +20,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish-report:
-    name: Publish latest Playwright report
+  publish-pages:
+    name: Publish YOLO benchmark pages
     if: |
       github.event_name == 'workflow_run' &&
       github.event.workflow_run.head_repository.full_name == github.repository
@@ -34,7 +34,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Run publisher unit tests
-        run: python3 -m unittest scripts/playwright/pages/test_publish_playwright_pages.py
+        run: python3 -m unittest examples/yolo-benchmark/pages/test_publish_yolo_benchmark_pages.py
 
       - name: Update Pages content
         id: pages
@@ -48,7 +48,7 @@ jobs:
           UPSTREAM_PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
           UPSTREAM_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
           UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id }}
-        run: scripts/playwright/pages/run.sh publish
+        run: examples/yolo-benchmark/pages/run.sh publish
 
       - name: Cache YOLO performance dataset
         if: steps.pages.outputs.deploy == 'true'
@@ -61,7 +61,7 @@ jobs:
         if: steps.pages.outputs.deploy == 'true'
         run: |
           python3 examples/yolo-benchmark/pages/restore_dataset_overlay.py \
-            --site-dir _playwright_pages_site \
+            --site-dir _yolo_benchmark_pages_site \
             --cache-dir _yolo_performance_dataset_cache
 
       - name: Configure Pages
@@ -72,7 +72,7 @@ jobs:
         if: steps.pages.outputs.deploy == 'true'
         uses: actions/upload-pages-artifact@v5
         with:
-          path: _playwright_pages_site
+          path: _yolo_benchmark_pages_site
 
       - name: Deploy Pages
         if: steps.pages.outputs.deploy == 'true'
@@ -80,7 +80,7 @@ jobs:
         uses: actions/deploy-pages@v5
 
   cleanup-closed-pr-reports:
-    name: Clean closed PR reports
+    name: Clean closed YOLO benchmark PR reports
     if: github.event_name != 'workflow_run'
     runs-on: ubuntu-latest
     environment:
@@ -91,13 +91,13 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Run publisher unit tests
-        run: python3 -m unittest scripts/playwright/pages/test_publish_playwright_pages.py
+        run: python3 -m unittest examples/yolo-benchmark/pages/test_publish_yolo_benchmark_pages.py
 
       - name: Remove old closed PR reports
         id: pages
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: scripts/playwright/pages/run.sh cleanup
+        run: examples/yolo-benchmark/pages/run.sh cleanup
 
       - name: Cache YOLO performance dataset
         if: steps.pages.outputs.deploy == 'true'
@@ -110,7 +110,7 @@ jobs:
         if: steps.pages.outputs.deploy == 'true'
         run: |
           python3 examples/yolo-benchmark/pages/restore_dataset_overlay.py \
-            --site-dir _playwright_pages_site \
+            --site-dir _yolo_benchmark_pages_site \
             --cache-dir _yolo_performance_dataset_cache
 
       - name: Configure Pages
@@ -121,7 +121,7 @@ jobs:
         if: steps.pages.outputs.deploy == 'true'
         uses: actions/upload-pages-artifact@v5
         with:
-          path: _playwright_pages_site
+          path: _yolo_benchmark_pages_site
 
       - name: Deploy Pages
         if: steps.pages.outputs.deploy == 'true'
