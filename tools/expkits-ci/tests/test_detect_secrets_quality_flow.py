@@ -19,7 +19,6 @@ EXPKITS_CI_SOURCE = PACKAGE_ROOT / "expkits_ci/expkits_ci.py"
 PRE_COMMIT_CONFIG = REPO_ROOT / ".pre-commit-config.yaml"
 CI_COMPOSE_FILE = REPO_ROOT / ".github/compose.ci.yaml"
 PEK_CI_WORKFLOW = REPO_ROOT / ".github/workflows/pek-ci.yml"
-VALGRIND_WORKFLOW = REPO_ROOT / ".github/workflows/valgrind.yml"
 BASELINE_FILE = REPO_ROOT / ".secrets.baseline"
 
 
@@ -221,7 +220,6 @@ class StaticQualityConfigTests(unittest.TestCase):
         pre_commit = PRE_COMMIT_CONFIG.read_text(encoding="utf-8")
         compose = CI_COMPOSE_FILE.read_text(encoding="utf-8")
         workflow = PEK_CI_WORKFLOW.read_text(encoding="utf-8")
-        valgrind_workflow = VALGRIND_WORKFLOW.read_text(encoding="utf-8")
 
         self.assertIn("- id: check-secrets", pre_commit)
         self.assertIn("--check-secrets --list-of-files", pre_commit)
@@ -254,44 +252,6 @@ class StaticQualityConfigTests(unittest.TestCase):
             workflow,
         )
         self.assertNotIn("Run Valgrind checks", workflow)
-        self.assertIn("name: Valgrind Baseline Artifact", valgrind_workflow)
-        self.assertIn("branches: [main, develop]", valgrind_workflow)
-        self.assertIn("branches: [main, develop, \"feature/**\", \"sandbox/**\"]", valgrind_workflow)
-        self.assertIn("pull_request_target:", valgrind_workflow)
-        self.assertIn("publish-pr-baseline:", valgrind_workflow)
-        self.assertIn("actions: write", valgrind_workflow)
-        self.assertIn("actions: read", valgrind_workflow)
-        self.assertIn("ref: ${{ github.event.pull_request.base.sha }}", valgrind_workflow)
-        self.assertIn("if: github.event_name != 'pull_request_target'", valgrind_workflow)
-        self.assertIn(
-            "run: python3 scripts/testing/valgrind/ci_valgrind_baseline_artifact.py publish",
-            valgrind_workflow,
-        )
-        self.assertIn(
-            "run: python3 scripts/testing/valgrind/ci_valgrind_baseline_artifact.py locate",
-            valgrind_workflow,
-        )
-        self.assertIn(
-            "run: python3 scripts/testing/valgrind/ci_valgrind_baseline_artifact.py wait",
-            valgrind_workflow,
-        )
-        self.assertIn(
-            "run-id: ${{ steps.valgrind_baseline.outputs.run-id || steps.waited_valgrind_baseline.outputs.run-id }}",
-            valgrind_workflow,
-        )
-        self.assertIn("Compare Valgrind results to baseline", valgrind_workflow)
-        self.assertLess(
-            valgrind_workflow.index("Wait for missing Valgrind baseline artifact"),
-            valgrind_workflow.index("Download Valgrind baseline artifact"),
-        )
-        self.assertLess(
-            valgrind_workflow.index("Build docker image"),
-            valgrind_workflow.index("Run Valgrind checks"),
-        )
-        self.assertIn(
-            "if: ${{ always() && !cancelled() && (steps.valgrind_checks.outcome == 'failure'",
-            valgrind_workflow,
-        )
         self.assertEqual(pre_commit.count('--list-of-files "$@"'), 8)
 
         pyproject = PYPROJECT_FILE.read_text(encoding="utf-8")

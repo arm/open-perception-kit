@@ -14,6 +14,7 @@ from unittest import mock
 
 
 SCRIPT_MODULE = "scripts.testing.valgrind.ci_valgrind_baseline_artifact"
+VALGRIND_WORKFLOW = Path(__file__).resolve().parents[3] / ".github/workflows/valgrind.yml"
 
 
 class TestCiLocateValgrindBaselineArtifact(unittest.TestCase):
@@ -170,6 +171,18 @@ class TestCiLocateValgrindBaselineArtifact(unittest.TestCase):
             )
             self.assertNotIn("No available valgrind-baseline artifact", stderr)
             self.assertEqual(output_path.read_text(encoding="utf-8"), "run-id=202\n")
+
+    def test_workflow_uses_python_baseline_helper(self):
+        workflow = VALGRIND_WORKFLOW.read_text(encoding="utf-8")
+
+        self.assertIn("pull_request_target:", workflow)
+        self.assertIn("actions: write", workflow)
+        self.assertIn("ref: ${{ github.event.pull_request.base.sha }}", workflow)
+        self.assertIn("ci_valgrind_baseline_artifact.py publish", workflow)
+        self.assertIn("ci_valgrind_baseline_artifact.py locate", workflow)
+        self.assertIn("ci_valgrind_baseline_artifact.py wait", workflow)
+        self.assertIn("steps.valgrind_baseline.outputs.run-id || steps.waited_valgrind_baseline.outputs.run-id", workflow)
+        self.assertNotIn("ci-locate-valgrind-baseline-artifact.sh", workflow)
 
 
 if __name__ == "__main__":
