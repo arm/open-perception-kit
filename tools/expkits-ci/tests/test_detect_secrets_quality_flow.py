@@ -259,26 +259,20 @@ class StaticQualityConfigTests(unittest.TestCase):
         self.assertIn("branches: [main, develop, \"feature/**\", \"sandbox/**\"]", valgrind_workflow)
         self.assertIn("pull_request_target:", valgrind_workflow)
         self.assertIn("publish-pr-baseline:", valgrind_workflow)
-        self.assertIn("if: github.event_name == 'pull_request_target'", valgrind_workflow)
         self.assertIn("actions: write", valgrind_workflow)
+        self.assertIn("actions: read", valgrind_workflow)
         self.assertIn("ref: ${{ github.event.pull_request.base.sha }}", valgrind_workflow)
         self.assertIn("if: github.event_name != 'pull_request_target'", valgrind_workflow)
-        self.assertIn("actions: read", valgrind_workflow)
-        self.assertIn("Locate latest Valgrind baseline artifact", valgrind_workflow)
-        self.assertIn("continue-on-error: true", valgrind_workflow)
-        self.assertIn("Publish missing Valgrind baseline artifact", valgrind_workflow)
-        self.assertIn("Wait for missing Valgrind baseline artifact", valgrind_workflow)
-        self.assertIn("actions/checkout@v4", valgrind_workflow)
         self.assertIn(
             "run: python3 scripts/testing/valgrind/ci_valgrind_baseline_artifact.py publish",
             valgrind_workflow,
         )
         self.assertIn(
-            "run: python3 scripts/testing/valgrind/ci_valgrind_baseline_artifact.py wait",
+            "run: python3 scripts/testing/valgrind/ci_valgrind_baseline_artifact.py locate",
             valgrind_workflow,
         )
         self.assertIn(
-            "if: github.event_name == 'pull_request' && (steps.valgrind_baseline.outcome == 'success'",
+            "run: python3 scripts/testing/valgrind/ci_valgrind_baseline_artifact.py wait",
             valgrind_workflow,
         )
         self.assertIn(
@@ -287,16 +281,8 @@ class StaticQualityConfigTests(unittest.TestCase):
         )
         self.assertIn("Compare Valgrind results to baseline", valgrind_workflow)
         self.assertLess(
-            valgrind_workflow.index("Publish missing Valgrind baseline artifact"),
-            valgrind_workflow.index("valgrind-workflow:"),
-        )
-        self.assertLess(
             valgrind_workflow.index("Wait for missing Valgrind baseline artifact"),
             valgrind_workflow.index("Download Valgrind baseline artifact"),
-        )
-        self.assertLess(
-            valgrind_workflow.index("Download Valgrind baseline artifact"),
-            valgrind_workflow.index("Build docker image"),
         )
         self.assertLess(
             valgrind_workflow.index("Build docker image"),

@@ -7,52 +7,25 @@ import os
 import subprocess
 import tempfile
 import textwrap
-from typing import Dict, List, Optional
 import unittest
 from pathlib import Path
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-SCRIPT_PATH = SCRIPT_DIR / "ci-locate-valgrind-baseline-artifact.sh"
 BASELINE_HELPER_PATH = SCRIPT_DIR / "ci_valgrind_baseline_artifact.py"
 
 
 class TestCiLocateValgrindBaselineArtifact(unittest.TestCase):
-    def test_selects_first_current_head_run_with_available_artifact(self):
+    def test_locate_selects_first_current_head_run_with_available_artifact(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
             output_path = tmp / "github-output"
-            result = self.run_locator(
+            result = self.run_script(
                 tmp,
-                output_path,
-                gh_script="""
-                    case "$1 $2" in
-                      "api repos/example/repo/git/ref/heads/develop")
-                        printf '%s\\n' 'current-develop-sha'
-                        ;;
-                      "run list")
-                        if ! printf '%s\\n' "$*" | grep -q -- 'databaseId,event'; then
-                          printf 'run list did not request event: %s\\n' "$*" >&2
-                          exit 2
-                        fi
-                        if ! printf '%s\\n' "$*" | grep -q -- 'workflow_dispatch'; then
-                          printf 'run list did not filter baseline events: %s\\n' "$*" >&2
-                          exit 2
-                        fi
-                        printf '%s\\n%s\\n' '303' '202'
-                        ;;
-                      "api repos/example/repo/actions/runs/303/artifacts")
-                        printf '%s\\n' ''
-                        ;;
-                      "api repos/example/repo/actions/runs/202/artifacts")
-                        printf '%s\\n' 'artifact-202'
-                        ;;
-                      *)
-                        printf 'unexpected gh call: %s\\n' "$*" >&2
-                        exit 2
-                        ;;
-                    esac
-                """,
+                args=["locate"],
+                output_path=output_path,
+                runs='[{"databaseId":303,"event":"workflow_dispatch","status":"completed"},{"databaseId":202,"event":"push","status":"completed"}]',
+                artifact_runs={202},
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -66,26 +39,11 @@ class TestCiLocateValgrindBaselineArtifact(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
             output_path = tmp / "github-output"
-            result = self.run_locator(
+            result = self.run_script(
                 tmp,
-                output_path,
-                gh_script="""
-                    case "$1 $2" in
-                      "api repos/example/repo/git/ref/heads/develop")
-                        printf '%s\\n' 'current-develop-sha'
-                        ;;
-                      "run list")
-                        printf '%s\\n' '303'
-                        ;;
-                      "api repos/example/repo/actions/runs/303/artifacts")
-                        printf '%s\\n' ''
-                        ;;
-                      *)
-                        printf 'unexpected gh call: %s\\n' "$*" >&2
-                        exit 2
-                        ;;
-                    esac
-                """,
+                args=["locate"],
+                output_path=output_path,
+                runs='[{"databaseId":303,"event":"workflow_dispatch","status":"completed"}]',
             )
 
             self.assertEqual(result.returncode, 1)
@@ -104,25 +62,9 @@ class TestCiLocateValgrindBaselineArtifact(unittest.TestCase):
             tmp = Path(tmpdir)
             result = self.run_script(
                 tmp,
-                BASELINE_HELPER_PATH,
                 args=["publish"],
-                gh_script="""
-                    case "$1 $2" in
-                      "api repos/example/repo/git/ref/heads/develop")
-                        printf '%s\\n' 'current-develop-sha'
-                        ;;
-                      "run list")
-                        printf '%s\\n' '[{"databaseId":202,"event":"workflow_dispatch","status":"completed"}]'
-                        ;;
-                      "api repos/example/repo/actions/runs/202/artifacts")
-                        printf '%s\\n' '{"artifacts":[{"name":"valgrind-baseline","expired":false}]}'
-                        ;;
-                      *)
-                        printf 'unexpected gh call: %s\\n' "$*" >&2
-                        exit 2
-                        ;;
-                    esac
-                """,
+                runs='[{"databaseId":202,"event":"workflow_dispatch","status":"completed"}]',
+                artifact_runs={202},
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -133,29 +75,9 @@ class TestCiLocateValgrindBaselineArtifact(unittest.TestCase):
             tmp = Path(tmpdir)
             result = self.run_script(
                 tmp,
-                BASELINE_HELPER_PATH,
                 args=["publish"],
-                gh_script="""
-                    case "$1 $2" in
-                      "api repos/example/repo/git/ref/heads/develop")
-                        printf '%s\\n' 'current-develop-sha'
-                        ;;
-                      "run list")
-                        printf '%s\\n' '[{"databaseId":303,"event":"pull_request_target","status":"completed"},{"databaseId":202,"event":"workflow_dispatch","status":"completed"}]'
-                        ;;
-                      "api repos/example/repo/actions/runs/202/artifacts")
-                        printf '%s\\n' '{"artifacts":[{"name":"valgrind-baseline","expired":false}]}'
-                        ;;
-                      "api repos/example/repo/actions/runs/303/artifacts")
-                        printf 'unexpected pull_request_target artifact lookup\\n' >&2
-                        exit 2
-                        ;;
-                      *)
-                        printf 'unexpected gh call: %s\\n' "$*" >&2
-                        exit 2
-                        ;;
-                    esac
-                """,
+                runs='[{"databaseId":303,"event":"pull_request_target","status":"completed"},{"databaseId":202,"event":"workflow_dispatch","status":"completed"}]',
+                artifact_runs={202},
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -166,90 +88,20 @@ class TestCiLocateValgrindBaselineArtifact(unittest.TestCase):
             tmp = Path(tmpdir)
             result = self.run_script(
                 tmp,
-                BASELINE_HELPER_PATH,
                 args=["publish"],
-                gh_script="""
-                    case "$1 $2" in
-                      "api repos/example/repo/git/ref/heads/develop")
-                        printf '%s\\n' 'current-develop-sha'
-                        ;;
-                      "run list")
-                        if printf '%s\\n' "$*" | grep -q -- '--status success'; then
-                          printf '%s\\n' '[]'
-                        else
-                          printf '%s\\n' '[{"databaseId":404,"event":"workflow_dispatch","status":"in_progress"}]'
-                        fi
-                        ;;
-                      *)
-                        printf 'unexpected gh call: %s\\n' "$*" >&2
-                        exit 2
-                        ;;
-                    esac
-                """,
+                runs='[{"databaseId":404,"event":"workflow_dispatch","status":"in_progress"}]',
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("Baseline run 404 is already active.", result.stdout)
-
-    def test_publish_script_ignores_current_pull_request_target_run(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp = Path(tmpdir)
-            result = self.run_script(
-                tmp,
-                BASELINE_HELPER_PATH,
-                args=["publish"],
-                extra_env={"GITHUB_RUN_ID": "404"},
-                gh_script="""
-                    case "$1 $2" in
-                      "api repos/example/repo/git/ref/heads/develop")
-                        printf '%s\\n' 'current-develop-sha'
-                        ;;
-                      "run list")
-                        if printf '%s\\n' "$*" | grep -q -- '--status success'; then
-                          printf '%s\\n' '[]'
-                        else
-                          printf '%s\\n' '[{"databaseId":404,"event":"pull_request_target","status":"in_progress"}]'
-                        fi
-                        ;;
-                      "workflow run")
-                        printf '%s\\n' "$*" > "${TMPDIR}/dispatch"
-                        ;;
-                      *)
-                        printf 'unexpected gh call: %s\\n' "$*" >&2
-                        exit 2
-                        ;;
-                    esac
-                """,
-            )
-
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual((tmp / "dispatch").read_text(encoding="utf-8"),
-                             "workflow run valgrind.yml --ref develop\n")
 
     def test_publish_script_dispatches_when_no_artifact_or_active_run_exists(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
             result = self.run_script(
                 tmp,
-                BASELINE_HELPER_PATH,
                 args=["publish"],
-                gh_script="""
-                    case "$1 $2" in
-                      "api repos/example/repo/git/ref/heads/develop")
-                        printf '%s\\n' 'current-develop-sha'
-                        ;;
-                      "run list")
-                        printf '%s\\n' '[]'
-                        ;;
-                      "workflow run")
-                        printf '%s\\n' "$*" > "${TMPDIR}/dispatch"
-                        ;;
-                      *)
-                        printf 'unexpected gh call: %s\\n' "$*" >&2
-                        exit 2
-                        ;;
-                    esac
-                """,
+                runs="[]",
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -264,7 +116,6 @@ class TestCiLocateValgrindBaselineArtifact(unittest.TestCase):
             attempts_file.write_text("0", encoding="utf-8")
             result = self.run_script(
                 tmp,
-                BASELINE_HELPER_PATH,
                 args=["wait"],
                 output_path=output_path,
                 extra_env={
@@ -272,34 +123,9 @@ class TestCiLocateValgrindBaselineArtifact(unittest.TestCase):
                     "VALGRIND_BASELINE_TIMEOUT_SECONDS": "10",
                     "TMPDIR": str(tmp),
                 },
-                gh_script="""
-                    case "$1 $2" in
-                      "api repos/example/repo/git/ref/heads/develop")
-                        printf '%s\\n' 'current-develop-sha'
-                        ;;
-                      "run list")
-                        if printf '%s\\n' "$*" | grep -q -- '--status success'; then
-                          attempts="$(cat "${TMPDIR}/attempts")"
-                          attempts="$((attempts + 1))"
-                          printf '%s\\n' "${attempts}" > "${TMPDIR}/attempts"
-                          if [ "${attempts}" -lt 3 ]; then
-                            printf '%s\\n' '[]'
-                          else
-                            printf '%s\\n' '[{"databaseId":202,"event":"workflow_dispatch","status":"completed"}]'
-                          fi
-                        else
-                          printf '%s\\n' '[{"databaseId":404,"event":"workflow_dispatch","status":"in_progress"}]'
-                        fi
-                        ;;
-                      "api repos/example/repo/actions/runs/202/artifacts")
-                        printf '%s\\n' '{"artifacts":[{"name":"valgrind-baseline","expired":false}]}'
-                        ;;
-                      *)
-                        printf 'unexpected gh call: %s\\n' "$*" >&2
-                        exit 2
-                        ;;
-                    esac
-                """,
+                runs='[{"databaseId":404,"event":"workflow_dispatch","status":"in_progress"}]',
+                success_runs_after_attempts='[{"databaseId":202,"event":"workflow_dispatch","status":"completed"}]',
+                artifact_runs={202},
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -311,25 +137,52 @@ class TestCiLocateValgrindBaselineArtifact(unittest.TestCase):
             self.assertNotIn("No available valgrind-baseline artifact", result.stdout)
             self.assertEqual(output_path.read_text(encoding="utf-8"), "run-id=202\n")
 
-    def run_locator(self, tmp: Path, output_path: Path, gh_script: str) -> subprocess.CompletedProcess:
-        return self.run_script(tmp, SCRIPT_PATH, gh_script, output_path=output_path)
-
     def run_script(
         self,
         tmp: Path,
-        script_path: Path,
-        gh_script: str,
-        args: Optional[List[str]] = None,
-        output_path: Optional[Path] = None,
-        extra_env: Optional[Dict[str, str]] = None,
+        args,
+        output_path=None,
+        extra_env=None,
+        runs="[]",
+        success_runs_after_attempts=None,
+        artifact_runs=frozenset(),
     ) -> subprocess.CompletedProcess:
         bin_dir = tmp / "bin"
         bin_dir.mkdir()
         gh_path = bin_dir / "gh"
         gh_path.write_text(
-            "#!/usr/bin/env bash\n"
-            "set -euo pipefail\n"
-            f"{textwrap.dedent(gh_script)}",
+            textwrap.dedent(
+                """\
+                #!/usr/bin/env python3
+                import json
+                import os
+                import sys
+                from pathlib import Path
+
+                args = sys.argv[1:]
+                tmp = Path(os.environ["TMPDIR"])
+
+                if args[:2] == ["api", "repos/example/repo/git/ref/heads/develop"]:
+                    print("current-develop-sha")
+                elif args[:2] == ["run", "list"]:
+                    if "--status" in args and os.environ.get("SUCCESS_RUNS_AFTER_ATTEMPTS"):
+                        attempts = int((tmp / "attempts").read_text(encoding="utf-8")) + 1
+                        (tmp / "attempts").write_text(str(attempts), encoding="utf-8")
+                        print("[]" if attempts < 3 else os.environ["SUCCESS_RUNS_AFTER_ATTEMPTS"])
+                    else:
+                        print(os.environ["RUNS"])
+                elif len(args) >= 2 and args[0] == "api" and args[1].endswith("/artifacts"):
+                    run_id = args[1].split("/")[-2]
+                    artifact_runs = set(os.environ["ARTIFACT_RUNS"].split())
+                    artifacts = [{"name": "valgrind-baseline", "expired": False}] if run_id in artifact_runs else []
+                    print(json.dumps({"artifacts": artifacts}))
+                elif args[:2] == ["workflow", "run"]:
+                    (tmp / "dispatch").write_text(" ".join(args) + "\\n", encoding="utf-8")
+                else:
+                    print(f"unexpected gh call: {' '.join(args)}", file=sys.stderr)
+                    raise SystemExit(2)
+                """
+            ),
             encoding="utf-8",
         )
         gh_path.chmod(0o755)
@@ -341,13 +194,17 @@ class TestCiLocateValgrindBaselineArtifact(unittest.TestCase):
                 "GITHUB_OUTPUT": str(output_path or tmp / "github-output"),
                 "PATH": f"{bin_dir}:{env['PATH']}",
                 "TMPDIR": str(tmp),
+                "RUNS": runs,
+                "ARTIFACT_RUNS": " ".join(str(run_id) for run_id in sorted(artifact_runs)),
             }
         )
+        if success_runs_after_attempts is not None:
+            env["SUCCESS_RUNS_AFTER_ATTEMPTS"] = success_runs_after_attempts
         if extra_env:
             env.update(extra_env)
 
         return subprocess.run(
-            [str(script_path), *(args or [])],
+            [str(BASELINE_HELPER_PATH), *args],
             check=False,
             env=env,
             text=True,

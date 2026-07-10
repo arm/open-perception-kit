@@ -73,7 +73,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VALGRIND_BASELINE_BRANCH: ${{ github.event.pull_request.base.ref }}
-        run: scripts/testing/valgrind/ci-locate-valgrind-baseline-artifact.sh
+        run: python3 scripts/testing/valgrind/ci_valgrind_baseline_artifact.py locate
 
       - name: Wait for missing Valgrind baseline artifact
         if: github.event_name == 'pull_request' && steps.valgrind_baseline.outcome != 'success'
