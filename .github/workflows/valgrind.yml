@@ -16,7 +16,7 @@ on:
     branches: [main, develop, "feature/**", "sandbox/**"]
     types: [opened, synchronize, reopened, ready_for_review]
   pull_request_target:
-    branches: [main, develop, "feature/**", "sandbox/**"]
+    branches: [main, develop]
     types: [opened, synchronize, reopened, ready_for_review]
 
 jobs:
@@ -51,7 +51,7 @@ jobs:
       # <agent-review:suppress-begin>
       # PRs compare against their target branch baseline. When no reusable
       # artifact exists for that exact target branch head, a pull_request_target
-      # job publishes it from trusted workflow code while this PR job waits.
+      # job publishes it from trusted main/develop code while this PR job waits.
       # <agent-review:suppress-end>
     steps:
       - uses: actions/checkout@v4
