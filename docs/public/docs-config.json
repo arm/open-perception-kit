@@ -18,12 +18,32 @@
       "label": "Concepts",
       "to": "/concepts",
       "position": "left"
+    },
+    {
+      "activeBaseRegex": "^/metadata",
+      "label": "Metadata",
+      "to": "/metadata",
+      "position": "left"
     }
   ],
-  "sidebarIDs": ["getting-started", "how-to", "concepts"],
+  "sidebarIDs": [
+    "getting-started",
+    "how-to",
+    "concepts",
+    "metadata"
+  ],
   "sidebarDirectoryMap": {
-    "getting-started": ["getting-started"],
-    "how-to": ["how-to"],
-    "concepts": ["concepts"]
+    "getting-started": [
+      "getting-started"
+    ],
+    "how-to": [
+      "how-to"
+    ],
+    "concepts": [
+      "concepts"
+    ],
+    "metadata": [
+      "metadata"
+    ]
   }
 }

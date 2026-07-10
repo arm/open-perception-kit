@@ -7,9 +7,9 @@ description: Concept sketch for a FlatBuffers-native metadata container, object 
 
 # Custom Metadata Architecture
 
-This note captures the current concept for a FlatBuffers-native metadata system that supports built-in perception outputs and user-defined custom outputs without requiring codebase changes for each new object type.
+This note captures the current concept for a metadata system that supports built-in perception outputs and user-defined custom outputs without requiring codebase changes for each new object type.
 
-The matching structure diagram is `custom-metadata-structure.puml`.
+The matching structure diagram is [custom-metadata-structure.puml](diagrams/custom-metadata-structure.puml).
 
 This is a concept note, not a final implementation contract.
 
@@ -19,7 +19,7 @@ This concept is guided by these design decisions:
 
 - The internal metadata container is FlatBuffers-native.
 - The frame envelope carries object groups, not direct render primitives.
-- FlatBuffer metadata is treated as immutable: processing stages read the current envelope and publish a rebuilt envelope rather than mutating payloads in place.
+- Metadata is treated as immutable: processing stages read the current envelope and publish a rebuilt envelope rather than mutating payloads in place.
 - Built-in object data and custom object data are carried in the same frame envelope.
 - User-provided Python postprocessing snippets can create custom object groups.
 - Custom payloads are opaque bytes inside OPK.
@@ -145,14 +145,14 @@ The transport can later map to Redis, WebSocket, file output, or another deliver
 
 ## User-Side Rendering
 
-The user side has explicit built-in schema definitions as an artifact. The renderer uses these definitions to decode built-in metadata.
+User-side rendering should use the provided API to access and decode built-in metadata types. The built-in visualization mapping is also part of that provided API.
 
-Custom metadata decoding uses user-provided schemas and bindings associated with each object `schema_ref`.
+For custom payloads, the user side incorporates the custom schema associated with each object `schema_ref` and uses it to decode the opaque payload. The user side can also provide a custom visualization mapping for custom object types.
 
 The renderer resolves visualization using:
 
-- built-in type mapping YAML
-- optional custom type mapping YAML
+- the built-in visualization mapping from the provided API
+- optional custom visualization mappings
 - object `type_name`
 - object `bbox`
 - style overrides
@@ -168,7 +168,6 @@ Example:
 ```yaml
 types:
   builtin.face:
-    fallback_type: generic_box
     primitives:
       - kind: circle
         bounds: { x: 0.05, y: 0.05, w: 0.90, h: 0.90 }
@@ -194,22 +193,17 @@ The renderer keeps a fixed primitive vocabulary:
 - circle
 - text
 
-Built-in and custom composite types must decompose into this primitive set through the mapping files.
+Built-in and custom composite types must decompose into this primitive set through the mapping files. Since `bbox` is the only shared geometry field, non-rectangular primitives are placed using bbox-relative coordinates supplied by the visual template.
 
 ## Fallback Rendering
 
 Fallback behavior is required for custom object support.
 
-Resolution order:
+If no custom visualization mapping is available for a custom object type, the renderer should use the generic bounding-box visualization. That fallback draws the object bounding box and label using the object envelope fields.
 
-1. exact `type_name` mapping
-2. declared fallback mapping, if modeled
-3. `generic_box`
-4. minimal text or no renderable output if no bounding box is present
+With the current object model, this is the primary fallback because every renderable object is expected to provide a bounding box. Other primitives are still available to visual templates, but their coordinates are derived from bbox-relative placement rules rather than extra object geometry fields.
 
-With the current object model, `generic_box` is the primary fallback because every renderable object is expected to provide a bounding box.
-
-## FlatBuffer Shape Sketch
+## Container Shape Sketch
 
 ```text
 FrameEnvelope
@@ -235,6 +229,5 @@ FrameEnvelope
 
 - how the Python postprocessing snippet is registered and sandboxed
 - whether `schema_ref` should be mandatory for every object with an opaque payload
-- whether fallback type should be reintroduced as an object field or stay implicit through mapping defaults
 - how expressive the visual template YAML should become before it is too close to a scripting language
 - whether style overrides should be full replacements or sparse overrides over mapping defaults
