@@ -45,9 +45,15 @@ COPY development/subprojects/*.wrap development/subprojects/
 COPY development/subprojects/packagefiles development/subprojects/packagefiles
 RUN meson subprojects download --sourcedir /work/development
 
-COPY . .
+COPY scripts/build-elements.sh scripts/build-elements.sh
+COPY scripts/private/shtools.sh scripts/private/shtools.sh
+COPY scripts/private/deployment-runtime.sh scripts/private/deployment-runtime.sh
+COPY development development
+COPY config config
+COPY data data
 
 RUN set -eux; \
+  mkdir -p /work/tools; \
   NINJAFLAGS=-j2 ./scripts/build-elements.sh release false --extra-setup-args=--cross-file=/work/development/cross/aarch64-linux-gnu.ini; \
   mkdir -p /opt/pek-app/development/build/meson-out /opt/pek-app/tools /opt/pek-app/scripts/private; \
   find /work/development/build/meson-out -maxdepth 1 -type f -name "*.so" -exec cp {} /opt/pek-app/development/build/meson-out/ \; ; \

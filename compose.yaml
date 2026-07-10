@@ -12,28 +12,50 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix
       - /run/udev:/run/udev:ro
     environment:
-      PEK_PIPELINE: ${PEK_PIPELINE:-config/pipelines/examples/smart-doorway-sample.json}
+      PEK_PIPELINE: ${PEK_PIPELINE:-config/pipelines/examples/smart-doorway-no-person.json}
     build:
       context: .
       dockerfile: Dockerfile
       target: pek-deployment-base
       args:
-        PEK_PIPELINE: ${PEK_PIPELINE:-config/pipelines/examples/smart-doorway-sample.json}
+        PEK_PIPELINE: ${PEK_PIPELINE:-config/pipelines/examples/smart-doorway-no-person.json}
+
+  pek-release-person-sample:
+    platform: linux/arm64
+    extends:
+      file: ./compose.base.yaml
+      service: pek-common
+    network_mode: host
+    ports: []
+    container_name: pek-deployment-person-sample
+    hostname: pek-deployment-person-sample
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /run/udev:/run/udev:ro
+    environment:
+      PEK_PIPELINE: config/pipelines/examples/smart-doorway-sample-switchable.json
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: pek-deployment-base
+      args:
+        PEK_PIPELINE: ${PEK_PIPELINE:-config/pipelines/examples/smart-doorway-no-person.json}
 
   smart-doorway:
     platform: linux/arm64
     network_mode: host
     depends_on:
       - pek-release-deployment
+      - pek-release-person-sample
     build:
       context: ./examples/smart-doorway
       dockerfile: Dockerfile
       args:
-        SMART_DOORWAY_SOURCE: ${SMART_DOORWAY_SOURCE:-sample}
+        SMART_DOORWAY_SOURCE: ${SMART_DOORWAY_SOURCE:-no-person}
     environment:
       SMART_DOORWAY_AMP_HOST: 127.0.0.1
       SMART_DOORWAY_PORT: 8090
-      SMART_DOORWAY_SOURCE: ${SMART_DOORWAY_SOURCE:-sample}
+      SMART_DOORWAY_SOURCE: ${SMART_DOORWAY_SOURCE:-no-person}
 
 # Topo-specific metadata
 x-topo:
@@ -41,23 +63,29 @@ x-topo:
   type: application
   description: |
     Deploy a small OPK example that shows source selection, model-stage gating,
-    metadata output, and browser preview with a simple Python UI.
+    metadata output, generated JSON, and clean browser video with a simple Python UI.
   deployment_success_message: |
     Smart Doorway deployed.
 
     Open the example UI at http://<target-ip>:8090.
-    Open the AMP peksink preview at http://<target-ip>:9999.
+    The UI connects directly to the AMP WebRTC stream. The full peksink viewer
+    remains available at http://<target-ip>:9999 for the no-person sample and
+    http://<target-ip>:9998 for the person sample.
 
-    Stop other demos that use ports 7001, 8000, 8001, 8090, or 9999 before redeploying.
+    Stop other demos that use ports 7001, 7101, 8000, 8001, 8100, 8101, 8090,
+    9998, or 9999 before redeploying.
   args:
     PEK_PIPELINE:
       description: |
-        AMP pipeline preset to run. Use config/pipelines/examples/smart-doorway-sample.json
-        for the packaged image sample or config/pipelines/examples/smart-doorway-usbcam.json
-        for a USB camera on /dev/video0.
-      default: "config/pipelines/examples/smart-doorway-sample.json"
+        Primary AMP pipeline preset to run. The default no-person deployment also
+        starts config/pipelines/examples/smart-doorway-sample-switchable.json on
+        alternate ports so the UI can switch between the two packaged samples.
+        Use config/pipelines/examples/smart-doorway-usbcam.json for a USB camera
+        on /dev/video0.
+      default: "config/pipelines/examples/smart-doorway-no-person.json"
     SMART_DOORWAY_SOURCE:
       description: |
-        Source label shown by the Python UI. Use sample with the packaged image pipeline,
-        or usb-camera with the USB camera pipeline.
-      default: "sample"
+        Initial source label shown by the Python UI. The sample and no-person
+        labels are runtime switchable in the default Topo deployment. The USB
+        camera label is still a deployment preset.
+      default: "no-person"
