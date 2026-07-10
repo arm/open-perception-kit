@@ -65,7 +65,7 @@ RUN set -eux; \
   cp -r /work/development/web /opt/pek-app/development/
 
 # Runtime image
-FROM debian:trixie-slim AS pek-deployment-base
+FROM --platform=linux/arm64 debian:trixie-slim AS pek-deployment-base
 
 ARG USERNAME=pek
 ARG USER_UID=1000
