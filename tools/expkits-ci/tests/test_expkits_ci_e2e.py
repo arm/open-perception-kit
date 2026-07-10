@@ -142,6 +142,10 @@ class TestExpkitsCiE2E(unittest.TestCase):
     def run_expkits_ci(self, *args):
         return self.run_cmd([self.test_python, "-m", "expkits_ci", *args], check=False)
 
+    def require_actionlint(self):
+        if shutil.which("actionlint", path=self.runtime_path) is None:
+            self.skipTest("actionlint binary is unavailable")
+
     def read_fixture(self, relative_path: str) -> str:
         return (FIXTURE_ROOT / relative_path).read_text(encoding="utf-8")
 
@@ -216,6 +220,46 @@ class TestExpkitsCiE2E(unittest.TestCase):
         self.assertIn("Secret Type: Private Key", result.stdout)
         self.assertIn("Location:    secrets/bad.pem:1", result.stdout)
         self.assertIn("[INFO]   NOK  secrets", result.stdout)
+
+    def test_actionlint_scope_ignores_non_workflow_yaml(self):
+        self.require_actionlint()
+        bad_workflow = self.read_fixture("actionlint/bad-workflow.yml")
+        generic_yaml = self.repo_root / "config" / "not-workflow.yaml"
+        generic_yaml.parent.mkdir(parents=True, exist_ok=True)
+        generic_yaml.write_text(bad_workflow, encoding="utf-8")
+
+        result = self.run_expkits_ci(
+            "--verbose",
+            "--actionlint",
+            "--list-of-files",
+            "config/not-workflow.yaml",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("No GitHub Actions workflow files found to check.", result.stdout)
+        self.assertIn("[INFO]   OK   actionlint", result.stdout)
+
+    def test_actionlint_scope_lints_changed_workflow_only(self):
+        self.require_actionlint()
+        bad_workflow = self.read_fixture("actionlint/bad-workflow.yml")
+        workflow = self.repo_root / ".github" / "workflows" / "bad.yml"
+        workflow.parent.mkdir(parents=True, exist_ok=True)
+        workflow.write_text(bad_workflow, encoding="utf-8")
+        generic_yaml = self.repo_root / "config" / "not-workflow.yaml"
+        generic_yaml.parent.mkdir(parents=True, exist_ok=True)
+        generic_yaml.write_text(bad_workflow, encoding="utf-8")
+
+        result = self.run_expkits_ci(
+            "--actionlint",
+            "--list-of-files",
+            ".github/workflows/bad.yml",
+            "config/not-workflow.yaml",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(".github/workflows/bad.yml", result.stdout)
+        self.assertNotIn("config/not-workflow.yaml", result.stdout)
+        self.assertIn("[INFO]   NOK  actionlint", result.stdout)
 
 
 if __name__ == "__main__":
