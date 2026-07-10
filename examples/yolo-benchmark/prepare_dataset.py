@@ -29,6 +29,7 @@ FILES = {
 }
 FINGERPRINT_HEADER = "# image_set_fingerprint="
 DOWNLOAD_TIMEOUT_SECONDS = 60
+READY_MARKER = ".coco-val2017-ready"
 
 
 def parse_args() -> argparse.Namespace:
@@ -103,7 +104,11 @@ def images_dir(coco_dir: Path) -> Path:
 
 
 def dataset_ready(coco_dir: Path) -> bool:
-    return (coco_dir / "annotations" / "instances_val2017.json").is_file() and images_dir(coco_dir).is_dir()
+    return (
+        (coco_dir / READY_MARKER).is_file()
+        and (coco_dir / "annotations" / "instances_val2017.json").is_file()
+        and images_dir(coco_dir).is_dir()
+    )
 
 
 def image_set_fingerprint(images: list[dict[str, object]]) -> str:
@@ -137,10 +142,12 @@ def main() -> int:
     download_dir = args.coco_dir / "downloads"
 
     if not dataset_ready(args.coco_dir):
+        (args.coco_dir / READY_MARKER).unlink(missing_ok=True)
         for filename, (url, expected_sha256) in FILES.items():
             archive = download_dir / filename
             download(url, archive, expected_sha256)
             extract(archive, args.coco_dir)
+        (args.coco_dir / READY_MARKER).write_text("ok\n", encoding="utf-8")
 
     write_image_list(args.coco_dir, args.output, args.limit)
     print(f"wrote COCO val2017 image list to {args.output}")

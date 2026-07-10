@@ -143,6 +143,19 @@ class PrepareDatasetTest(unittest.TestCase):
             self.assertTrue(lines[0].startswith("# image_set_fingerprint=sha256:"))
             self.assertEqual(lines[1], f"1\t{(image_dir / '000000000001.jpg').resolve()}")
 
+    def test_dataset_ready_requires_completion_marker(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            coco_dir = Path(tmp) / "coco"
+            (coco_dir / "val2017").mkdir(parents=True)
+            annotation_dir = coco_dir / "annotations"
+            annotation_dir.mkdir()
+            (annotation_dir / "instances_val2017.json").write_text('{"images":[]}', encoding="utf-8")
+
+            self.assertFalse(prepare.dataset_ready(coco_dir))
+
+            (coco_dir / prepare.READY_MARKER).write_text("ok\n", encoding="utf-8")
+            self.assertTrue(prepare.dataset_ready(coco_dir))
+
     def test_extract_rejects_zip_traversal(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
