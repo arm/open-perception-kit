@@ -239,6 +239,25 @@ class TestExpkitsCiE2E(unittest.TestCase):
         self.assertIn("No GitHub Actions workflow files found to check.", result.stdout)
         self.assertIn("[INFO]   OK   actionlint", result.stdout)
 
+    def test_actionlint_config_change_lints_existing_workflows(self):
+        self.require_actionlint()
+        bad_workflow = self.read_fixture("actionlint/bad-workflow.yml")
+        workflow = self.repo_root / ".github" / "workflows" / "bad.yml"
+        workflow.parent.mkdir(parents=True, exist_ok=True)
+        workflow.write_text(bad_workflow, encoding="utf-8")
+        actionlint_config = self.repo_root / ".github" / "actionlint.yaml"
+        actionlint_config.write_text("self-hosted-runner:\n  labels: []\n", encoding="utf-8")
+
+        result = self.run_expkits_ci(
+            "--actionlint",
+            "--list-of-files",
+            ".github/actionlint.yaml",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(".github/workflows/bad.yml", result.stdout)
+        self.assertIn("[INFO]   NOK  actionlint", result.stdout)
+
     def test_actionlint_scope_lints_changed_workflow_only(self):
         self.require_actionlint()
         bad_workflow = self.read_fixture("actionlint/bad-workflow.yml")

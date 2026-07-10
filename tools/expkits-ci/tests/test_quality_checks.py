@@ -232,13 +232,46 @@ class TestQualityChecks(unittest.TestCase):
                     return_value=Mock(returncode=0, stdout=""),
                 ) as subprocess_run:
                     result = self.quality_checks.check_github_actions([
-                        ".github/actionlint.yaml",
                         "README.md",
                     ])
 
         self.assertTrue(result)
         which.assert_not_called()
         subprocess_run.assert_not_called()
+
+    def test_check_github_actions_lints_all_workflows_when_config_changes(self):
+        self.quality_checks.file_utils.get_project_root = Mock(return_value="/work")
+
+        with patch.object(quality_checks_module.shutil, "which", return_value="/usr/bin/actionlint"):
+            with patch.object(quality_checks_module.os.path, "isfile", return_value=True):
+                with patch.object(
+                    quality_checks_module.glob,
+                    "glob",
+                    side_effect=[
+                        ["/work/.github/workflows/ci.yml"],
+                        ["/work/.github/workflows/release.yaml"],
+                    ],
+                ):
+                    with patch.object(
+                        quality_checks_module.subprocess,
+                        "run",
+                        return_value=Mock(returncode=0, stdout=""),
+                    ) as subprocess_run:
+                        result = self.quality_checks.check_github_actions([
+                            ".github/actionlint.yaml",
+                        ])
+
+        self.assertTrue(result)
+        self.assertEqual(
+            subprocess_run.call_args.args[0],
+            [
+                "/usr/bin/actionlint",
+                "-config-file",
+                ".github/actionlint.yaml",
+                ".github/workflows/ci.yml",
+                ".github/workflows/release.yaml",
+            ],
+        )
 
     def test_check_github_actions_fails_when_actionlint_is_missing(self):
         self.quality_checks.file_utils.get_project_root = Mock(return_value="/work")
