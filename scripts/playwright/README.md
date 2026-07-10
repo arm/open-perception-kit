@@ -97,6 +97,7 @@ Publish flow:
   - `nightly/` for scheduled `develop` reports.
 - Rebuild the top-level `index.html`.
 - Commit and push `playwright-pages`.
+- Restore deploy-only YOLO dataset files when existing YOLO reports reference them.
 - Deploy `_playwright_pages_site` as the GitHub Pages artifact.
 
 Concurrency:

@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "inputs": {
+      "additionalProperties": true,
+      "properties": {
+        "device": { "type": "string" },
+        "image_count": { "minimum": 0, "type": "integer" },
+        "image_list": { "type": "string" },
+        "image_set_fingerprint": { "minLength": 1, "type": "string" },
+        "imgsz": { "minimum": 0, "type": "integer" },
+        "model": { "type": "string" },
+        "opchain": { "type": "string" }
+      },
+      "required": ["model", "opchain", "image_list", "image_count", "image_set_fingerprint", "imgsz", "device"],
+      "type": "object"
+    },
+    "measurement": {
+      "additionalProperties": false,
+      "properties": {
+        "model_load_timed_separately": { "const": true },
+        "output_serialization_excluded_from_per_image": { "const": true },
+        "preloaded_images": { "const": true },
+        "technique": { "const": "in_process_image_loop_wall_clock" },
+        "timed_region": { "const": "preloaded_image_to_postprocess_result_ready" },
+        "warmup_images": { "minimum": 0, "type": "integer" }
+      },
+      "required": [
+        "technique",
+        "timed_region",
+        "model_load_timed_separately",
+        "output_serialization_excluded_from_per_image",
+        "preloaded_images",
+        "warmup_images"
+      ],
+      "type": "object"
+    },
+    "outputs": {
+      "additionalProperties": true,
+      "properties": {
+        "predictions_jsonl": { "type": "string" },
+        "timings_jsonl": { "type": "string" }
+      },
+      "required": ["predictions_jsonl", "timings_jsonl"],
+      "type": "object"
+    },
+    "runner": { "type": "string" },
+    "schema": { "const": "expkits_yolo_benchmark.v1" },
+    "timing": {
+      "additionalProperties": true,
+      "properties": {
+        "load_ms": { "minimum": 0, "type": "number" },
+        "loop_wall_ms": { "minimum": 0, "type": "number" },
+        "per_image_ms": {
+          "additionalProperties": false,
+          "properties": {
+            "avg_ms": { "minimum": 0, "type": "number" },
+            "count": { "minimum": 0, "type": "integer" },
+            "max_ms": { "minimum": 0, "type": "number" },
+            "min_ms": { "minimum": 0, "type": "number" },
+            "p50_ms": { "minimum": 0, "type": "number" },
+            "p75_ms": { "minimum": 0, "type": "number" },
+            "p95_ms": { "minimum": 0, "type": "number" },
+            "p99_ms": { "minimum": 0, "type": "number" }
+          },
+          "required": ["count", "avg_ms", "p50_ms", "p75_ms", "p95_ms", "p99_ms", "min_ms", "max_ms"],
+          "type": "object"
+        },
+        "preload_ms": { "minimum": 0, "type": "number" }
+      },
+      "required": ["load_ms", "preload_ms", "loop_wall_ms", "per_image_ms"],
+      "type": "object"
+    }
+  },
+  "required": ["schema", "runner", "measurement", "inputs", "outputs", "timing"],
+  "type": "object"
+}

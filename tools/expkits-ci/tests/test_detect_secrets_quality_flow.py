@@ -223,6 +223,9 @@ class StaticQualityConfigTests(unittest.TestCase):
 
         self.assertIn("- id: check-secrets", pre_commit)
         self.assertIn("--check-secrets --list-of-files", pre_commit)
+        self.assertIn("- id: actionlint", pre_commit)
+        self.assertIn("--actionlint --list-of-files", pre_commit)
+        self.assertIn(r"files: ^\.github/workflows/.*\.ya?ml$", pre_commit)
         self.assertNotIn("- id: agent-runtime-static-analysis", pre_commit)
         self.assertNotIn("--agent-runtime-static-analysis", pre_commit)
         self.assertIn("expkits-ci --all-checks --pr-target-branch ${PULL_REQUEST_TARGET_BRANCH}", compose)
@@ -252,7 +255,7 @@ class StaticQualityConfigTests(unittest.TestCase):
             workflow,
         )
         self.assertNotIn("Run Valgrind checks", workflow)
-        self.assertEqual(pre_commit.count('--list-of-files "$@"'), 8)
+        self.assertEqual(pre_commit.count('--list-of-files "$@"'), 9)
 
         pyproject = PYPROJECT_FILE.read_text(encoding="utf-8")
         self.assertIn('"mypy==1.16.1"', pyproject)
