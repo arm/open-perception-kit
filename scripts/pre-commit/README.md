@@ -38,17 +38,17 @@ Manual entrypoints:
 
 ## Behavior
 
-The host-only wrapper keeps the existing local hook intent:
+The host-only wrapper keeps the existing local hook intent through shared
+`expkits-ci` presets:
 
-- `branch-naming`
-- `commit-msg`
-- `clang-format`
-- `python-format`
-- `cmake-format`
-- `shell-format`
-- `license-header`
-- `check-secrets`
-- `actionlint` for GitHub Actions workflow files only
+- `--pre-commit-fix`: `clang-format`, `python-format`, `cmake-format`,
+  `shell-format`, `license-header`, `check-secrets`, and `actionlint`.
+- `--pre-commit-check`: the check-only equivalent used by CI and manual
+  verification.
+- `--ci-pr-checks`: PR quality gate, adding branch naming, CI commit-message,
+  and Agent runtime static analysis to `--pre-commit-check`.
+- `--ci-full-checks`: full/nightly quality gate, adding Agent runtime static
+  analysis to `--pre-commit-check`.
 
 Light mapping:
 
@@ -57,6 +57,11 @@ Light mapping:
 - Host `./scripts/pre-commit/run.sh commit-msg <path>`: mirrors the `commit-msg` hook path.
 - CI PR quality: runs `expkits-ci --ci-pr-checks`.
 - CI full quality: runs `expkits-ci --ci-full-checks`.
+
+Scope still differs by entry point: local/container pre-commit receives the
+file list from pre-commit, host pre-commit uses staged files with a branch-delta
+fallback, CI PR uses `--pr-target-branch`, and CI full/nightly checks the
+tracked tree.
 
 The wrapper builds a dedicated runtime image up front and then reuses it for
 hook execution. There is no hidden image rebuild during a normal commit.
