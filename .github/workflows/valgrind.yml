@@ -15,12 +15,33 @@ on:
   pull_request:
     branches: [main, develop, "feature/**", "sandbox/**"]
     types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_target:
+    branches: [main, develop, "feature/**", "sandbox/**"]
+    types: [opened, synchronize, reopened, ready_for_review]
 
 jobs:
+  publish-pr-baseline:
+    name: Publish missing Valgrind baseline artifact
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.draft == false
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+
+      - name: Publish missing Valgrind baseline artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VALGRIND_BASELINE_BRANCH: ${{ github.event.pull_request.base.ref }}
+        run: python3 scripts/testing/valgrind/ci_valgrind_baseline_artifact.py publish
+
   valgrind-workflow:
     name: Valgrind related workflow
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request_target' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     permissions:
       actions: read
       contents: read
@@ -28,12 +49,12 @@ jobs:
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       # <agent-review:suppress-begin>
-      # PRs compare against their target branch baseline. Baselines are
-      # published automatically for main and develop, and can be created
-      # manually for other target branches when needed.
+      # PRs compare against their target branch baseline. When no reusable
+      # artifact exists for that exact target branch head, a pull_request_target
+      # job publishes it from trusted workflow code while this PR job waits.
       # <agent-review:suppress-end>
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -45,25 +66,34 @@ jobs:
             scripts/testing/valgrind/test_compare_valgrind_results.py \
             scripts/testing/valgrind/test_summarize_valgrind_output.py
 
-      - name: Build docker image
-        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-docs-base
-
       - name: Locate latest Valgrind baseline artifact
         if: github.event_name == 'pull_request'
         id: valgrind_baseline
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           VALGRIND_BASELINE_BRANCH: ${{ github.event.pull_request.base.ref }}
         run: scripts/testing/valgrind/ci-locate-valgrind-baseline-artifact.sh
 
+      - name: Wait for missing Valgrind baseline artifact
+        if: github.event_name == 'pull_request' && steps.valgrind_baseline.outcome != 'success'
+        id: waited_valgrind_baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VALGRIND_BASELINE_BRANCH: ${{ github.event.pull_request.base.ref }}
+        run: python3 scripts/testing/valgrind/ci_valgrind_baseline_artifact.py wait
+
       - name: Download Valgrind baseline artifact
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && (steps.valgrind_baseline.outcome == 'success' || steps.waited_valgrind_baseline.outcome == 'success')
         uses: actions/download-artifact@v8
         with:
           name: valgrind-baseline
           path: scripts/testing/valgrind/baseline
           github-token: ${{ github.token }}
-          run-id: ${{ steps.valgrind_baseline.outputs.run-id }}
+          run-id: ${{ steps.valgrind_baseline.outputs.run-id || steps.waited_valgrind_baseline.outputs.run-id }}
+
+      - name: Build docker image
+        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-docs-base
 
       - name: Clear stale Valgrind logs
         run: find scripts/testing/valgrind/logs -name "*.valgrind.*.xml" -delete 2>/dev/null || true

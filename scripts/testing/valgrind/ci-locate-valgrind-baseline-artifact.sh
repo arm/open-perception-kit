@@ -16,8 +16,8 @@ baseline_sha="$(
 
 # <agent-review:suppress-begin>
 # "Baseline lookup hard-fails when HEAD artifact is missing instead of falling back to latest valid baseline"
-# That is the intended way of operation. If the HEAD artifact is missing for
-# develop or another target branch, then creation shall be triggered manually.
+# That is the intended way of operation. The PR workflow catches this failure
+# and publishes a new target-branch baseline before retrying the lookup.
 run_ids="$(
     gh run list \
         --repo "${GITHUB_REPOSITORY}" \
@@ -26,8 +26,10 @@ run_ids="$(
         --commit "${baseline_sha}" \
         --status success \
         --limit 20 \
-        --json databaseId \
-        --jq '.[].databaseId'
+        --json databaseId,event \
+        --jq '.[]
+            | select(.event == "push" or .event == "workflow_dispatch")
+            | .databaseId'
 )"
 
 for run_id in ${run_ids}; do
@@ -44,6 +46,6 @@ for run_id in ${run_ids}; do
 done
 
 echo "No available ${artifact_name} artifact found on ${baseline_branch} at ${baseline_sha}." >&2
-echo "Run ${workflow_name} manually on the current ${baseline_branch} tip to publish a new baseline artifact." >&2
+echo "Publish ${workflow_name} on the current ${baseline_branch} tip to create a new baseline artifact." >&2
 exit 1
 # <agent-review:suppress-end>
