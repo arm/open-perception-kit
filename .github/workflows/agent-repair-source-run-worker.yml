@@ -62,6 +62,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+          CURRENT_REF_NAME: ${{ github.head_ref || github.ref_name }}
         run: |
           set -euo pipefail
           PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private${PYTHONPATH:+:${PYTHONPATH}}" \
@@ -70,7 +71,7 @@ jobs:
             --source-run-id "${{ inputs.source_run_id || '' }}" \
             --target-branch "${{ inputs.target_branch || '' }}" \
             --task-ref "${{ inputs.task_ref || '' }}" \
-            --current-ref-name "${{ github.head_ref || github.ref_name }}" \
+            --current-ref-name "${CURRENT_REF_NAME}" \
             --github-output "${GITHUB_OUTPUT}"
 
       - name: Summarize skipped run

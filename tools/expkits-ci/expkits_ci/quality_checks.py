@@ -3,6 +3,7 @@
 ################################################################
 
 import os
+import glob
 import re
 import sys
 import json
@@ -129,6 +130,92 @@ class QualityChecks:
             return [detect_secrets_hook]
 
         return [sys.executable, "-m", "detect_secrets.pre_commit_hook"]
+
+    @staticmethod
+    def normalize_github_actions_path(filename, project_root):
+        if os.path.isabs(filename):
+            try:
+                filename = os.path.relpath(filename, project_root)
+            except ValueError:
+                return None
+
+        normalized = filename.replace(os.sep, "/")
+        if normalized.startswith("./"):
+            normalized = normalized[2:]
+
+        return normalized
+
+    @classmethod
+    def normalize_github_actions_workflow(cls, filename, project_root):
+        normalized = cls.normalize_github_actions_path(filename, project_root)
+        if (
+            normalized
+            and
+            normalized.startswith(".github/workflows/")
+            and normalized.endswith((".yml", ".yaml"))
+        ):
+            return normalized
+
+        return None
+
+    @classmethod
+    def is_actionlint_config(cls, filename, project_root):
+        return cls.normalize_github_actions_path(filename, project_root) == ".github/actionlint.yaml"
+
+    @staticmethod
+    def discover_github_actions_workflows(project_root):
+        workflows_dir = os.path.join(project_root, ".github", "workflows")
+        workflows = []
+        for pattern in ("*.yml", "*.yaml"):
+            workflows.extend(
+                os.path.relpath(path, project_root).replace(os.sep, "/")
+                for path in glob.glob(os.path.join(workflows_dir, pattern))
+                if os.path.isfile(path)
+            )
+        return sorted(workflows)
+
+    def check_github_actions(self, files=None) -> bool:
+        """Run actionlint on changed GitHub Actions workflows."""
+        logger.info("Checking GitHub Actions workflows with actionlint...")
+
+        files = files or []
+        project_root = self.file_utils.get_project_root()
+        if any(self.is_actionlint_config(file, project_root) for file in files):
+            workflows = self.discover_github_actions_workflows(project_root)
+        else:
+            workflows = list(dict.fromkeys(
+                workflow
+                for file in files
+                if (workflow := self.normalize_github_actions_workflow(file, project_root))
+            ))
+        if not workflows:
+            logger.info("No GitHub Actions workflow files found to check.")
+            return True
+
+        actionlint = shutil.which("actionlint")
+        if not actionlint:
+            logger.error("actionlint is not available on PATH.")
+            return False
+
+        cmd = [actionlint]
+        config_file = ".github/actionlint.yaml"
+        if os.path.isfile(os.path.join(project_root, config_file)):
+            cmd.extend(["-config-file", config_file])
+        cmd.extend(workflows)
+
+        proc = subprocess.run(
+            cmd,
+            cwd=project_root,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            encoding="utf-8",
+        )
+        if proc.returncode != 0:
+            self.log_captured_tool_output(proc.stdout)
+            return False
+
+        logger.info("GitHub Actions workflows passed actionlint.")
+        return True
 
     @staticmethod
     def iter_file_batches(files, batch_size=50):
