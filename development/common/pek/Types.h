@@ -203,7 +203,7 @@ struct ImageInferenceMetadata {
 struct InferenceInfo {
     uint64_t parentUuid = 0;      ///< UUID of the parent Perception frame.
     std::string contentType;      ///< MIME-style content type identifier.
-    std::string modelFamily;      ///< Model family name, e.g. "yolov11".
+    std::string modelName;        ///< Model descriptor name.
     std::string inferElementId;   ///< GStreamer element id of the originating pekinfer.
     ImageInferenceMetadata image; ///< Image geometry for this inference.
 };

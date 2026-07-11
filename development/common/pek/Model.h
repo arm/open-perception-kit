@@ -99,10 +99,9 @@ struct Model {
     bool nmsAppliedByModel = false;
 
     /// Human-readable model name.
-    /// Model family identifier.
     /// Runtime engine identifier.
     /// Optional semantic content type.
-    std::string name, modelFamily, engine, contentType;
+    std::string name, engine, contentType;
 
     /// Runtime input tensors.
     std::vector<ModelInput> inputs;

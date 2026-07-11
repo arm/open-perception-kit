@@ -8,18 +8,24 @@
 #include <array>
 #include <atomic>
 #include <chrono>
-#include <functional>
+#include <cstdio>
+#include <cstdlib>
 #include <limits>
+#include <memory>
+#include <mutex>
 #include <thread>
 
 namespace pek::perf {
 
 namespace {
 
-constexpr std::uint32_t MaxThreadSlots = 32;
-constexpr std::uint32_t MaxMetricsPerThread = 256;
-constexpr std::uint32_t MaxSpansPerThread = 4096;
+constexpr std::uint32_t MaxThreadSlots = 128;
+constexpr std::uint32_t MaxMetricsPerThread = 1024;
+constexpr std::uint32_t MaxHistoryEventsPerChunk = 4096;
 constexpr std::uint32_t MaxStackDepth = 64;
+constexpr std::uint32_t InvalidLocalMetricIndex = std::numeric_limits<std::uint32_t>::max();
+
+std::atomic<std::uint64_t> nextInstanceId{1};
 
 std::uint64_t nowNs() noexcept {
     const auto now = std::chrono::steady_clock::now().time_since_epoch();
@@ -29,10 +35,6 @@ std::uint64_t nowNs() noexcept {
 
 std::uint64_t currentThreadId() noexcept {
     return static_cast<std::uint64_t>(std::hash<std::thread::id>{}(std::this_thread::get_id()));
-}
-
-std::uint64_t makeSpanId(std::uint32_t slotIndex, std::uint32_t spanIndex) noexcept {
-    return (static_cast<std::uint64_t>(slotIndex) << 32U) | spanIndex;
 }
 
 bool copySpanName(std::array<char, PerformanceMetrics::MaxSpanNameLength + 1> &destination,
@@ -51,14 +53,37 @@ storedNameView(const std::array<char, PerformanceMetrics::MaxSpanNameLength + 1>
     return name.data();
 }
 
+bool namesEqual(const std::array<char, PerformanceMetrics::MaxSpanNameLength + 1> &left,
+                const std::array<char, PerformanceMetrics::MaxSpanNameLength + 1> &right) noexcept {
+    return storedNameView(left) == storedNameView(right);
+}
+
+void writeCsvEscapedName(std::FILE *file, std::string_view name) noexcept {
+    std::fputc('"', file);
+    for (const char c : name) {
+        if (c == '"') {
+            std::fputc('"', file);
+        }
+        std::fputc(c, file);
+    }
+    std::fputc('"', file);
+}
+
 } // namespace
 
 namespace detail {
 
+struct HistoryChunk {
+    std::array<PerformanceMetrics::SpanRecord, MaxHistoryEventsPerChunk> records;
+    std::size_t size = 0;
+};
+
 // Written by one owner thread, read by snapshot collection.
 struct PerformanceMetricsAtomicMetric {
+    std::atomic<std::uint64_t> sequence{0};
     std::array<char, PerformanceMetrics::MaxSpanNameLength + 1> name{};
-    std::atomic<std::uint32_t> depth{0};
+    std::uint32_t parentIndex = InvalidLocalMetricIndex;
+    std::uint32_t depth = 0;
     std::atomic<std::uint64_t> count{0};
     std::atomic<std::uint64_t> totalNs{0};
     std::atomic<std::uint64_t> minNs{0};
@@ -69,47 +94,56 @@ struct PerformanceMetricsAtomicMetric {
 };
 
 struct PerformanceMetricsThreadSlot {
-    std::atomic<std::uint32_t> generation{0};
+    std::atomic<bool> active{false};
     std::uint64_t threadId = 0;
     std::atomic<std::uint32_t> droppedMetrics{0};
-    std::uint32_t droppedSpans = 0;
+    std::atomic<std::uint32_t> droppedSpans{0};
+    std::atomic<std::uint32_t> droppedHistoryEvents{0};
+    std::atomic<std::uint32_t> wrongThreadScopeCloses{0};
     std::atomic<std::uint32_t> metricCount{0};
     std::array<PerformanceMetricsAtomicMetric, MaxMetricsPerThread> metrics;
-    std::vector<PerformanceMetrics::SpanRecord> spans;
+    mutable std::mutex historyMutex;
+    std::vector<std::unique_ptr<HistoryChunk>> historyChunks;
 };
 
 struct PerformanceMetricsState {
+    explicit PerformanceMetricsState(std::uint64_t id) : instanceId(id) {}
+
+    const std::uint64_t instanceId = 0;
     std::atomic<bool> enabled{true};
-    std::atomic<bool> traceEnabled{false};
-    std::atomic<std::uint32_t> generation{1};
+    std::atomic<bool> historyEnabled{false};
     std::atomic<std::uint32_t> nextSlot{0};
+    std::atomic<std::uint64_t> nextSpanId{1};
     std::atomic<bool> threadSlotOverflow{false};
     std::array<PerformanceMetricsThreadSlot, MaxThreadSlots> slots;
+    mutable std::mutex autoCsvMutex;
+    std::string autoCsvPath;
 };
 
 } // namespace detail
 
 namespace {
 
-// Thread-local view of the current nesting stack for one recorder generation.
+struct StackEntry {
+    std::uint32_t metricIndex = InvalidLocalMetricIndex;
+    std::uint64_t spanId = PerformanceMetrics::InvalidSpanId;
+};
+
+// Thread-local view of the current nesting stack for one recorder instance.
 struct ThreadFrame {
     detail::PerformanceMetricsState *state = nullptr;
-    std::uint32_t generation = 0;
+    std::uint64_t instanceId = 0;
     std::uint32_t slotIndex = 0;
-    std::array<std::uint64_t, MaxStackDepth> stack{};
-    std::array<std::array<char, PerformanceMetrics::MaxSpanNameLength + 1>, MaxStackDepth>
-        metricNames{};
-    std::array<bool, MaxStackDepth> metricNameTruncated{};
+    std::array<StackEntry, MaxStackDepth> stack{};
     std::uint32_t depth = 0;
 };
 
 thread_local std::vector<ThreadFrame> threadFrames;
 thread_local PerformanceMetrics *currentMetrics = nullptr;
 
-ThreadFrame *findThreadFrame(detail::PerformanceMetricsState *state,
-                             std::uint32_t generation) noexcept {
+ThreadFrame *findThreadFrame(detail::PerformanceMetricsState *state) noexcept {
     for (auto &frame : threadFrames) {
-        if (frame.state == state && frame.generation == generation) {
+        if (frame.state == state && frame.instanceId == state->instanceId) {
             return &frame;
         }
     }
@@ -117,167 +151,141 @@ ThreadFrame *findThreadFrame(detail::PerformanceMetricsState *state,
 }
 
 ThreadFrame *acquireThreadFrame(detail::PerformanceMetricsState *state) {
-    const auto generation = state->generation.load(std::memory_order_relaxed);
-    if (auto *frame = findThreadFrame(state, generation)) {
+    if (auto *frame = findThreadFrame(state)) {
         return frame;
     }
 
     threadFrames.erase(std::remove_if(threadFrames.begin(),
                                       threadFrames.end(),
-                                      [state, generation](const ThreadFrame &frame) {
+                                      [state](const ThreadFrame &frame) {
                                           return frame.state == state &&
-                                                 frame.generation != generation;
+                                                 frame.instanceId != state->instanceId;
                                       }),
                        threadFrames.end());
 
-    const auto slotIndex = state->nextSlot.fetch_add(1, std::memory_order_relaxed);
+    const auto slotIndex = state->nextSlot.fetch_add(1, std::memory_order_acq_rel);
     if (slotIndex >= MaxThreadSlots) {
-        state->threadSlotOverflow.store(true, std::memory_order_relaxed);
+        state->threadSlotOverflow.store(true, std::memory_order_release);
         return nullptr;
     }
 
-    // A reset advances generation, so reused slots are initialized from scratch.
     auto &slot = state->slots[slotIndex];
-    slot.generation.store(0, std::memory_order_relaxed);
     slot.threadId = currentThreadId();
     slot.droppedMetrics.store(0, std::memory_order_relaxed);
-    slot.droppedSpans = 0;
+    slot.droppedSpans.store(0, std::memory_order_relaxed);
+    slot.droppedHistoryEvents.store(0, std::memory_order_relaxed);
+    slot.wrongThreadScopeCloses.store(0, std::memory_order_relaxed);
     slot.metricCount.store(0, std::memory_order_relaxed);
-    slot.spans.clear();
-    slot.spans.reserve(256);
-    slot.generation.store(generation, std::memory_order_release);
+    slot.active.store(true, std::memory_order_release);
 
     ThreadFrame frame;
     frame.state = state;
-    frame.generation = generation;
+    frame.instanceId = state->instanceId;
     frame.slotIndex = slotIndex;
     threadFrames.push_back(frame);
     return &threadFrames.back();
 }
 
-detail::PerformanceMetricsAtomicMetric *
-ensureMetric(detail::PerformanceMetricsThreadSlot &slot,
-             const std::array<char, PerformanceMetrics::MaxSpanNameLength + 1> &name,
-             std::uint32_t depth,
-             bool nameTruncated) noexcept {
-    // Metrics are keyed by stored name and depth, matching Snapshot output.
-    const auto nameView = storedNameView(name);
+std::uint32_t ensureMetric(detail::PerformanceMetricsThreadSlot &slot,
+                           const std::array<char, PerformanceMetrics::MaxSpanNameLength + 1> &name,
+                           std::uint32_t parentIndex,
+                           std::uint32_t depth,
+                           bool nameTruncated) noexcept {
     const auto metricCount =
         std::min(slot.metricCount.load(std::memory_order_acquire), MaxMetricsPerThread);
 
     for (std::uint32_t index = 0; index < metricCount; ++index) {
         auto &metric = slot.metrics[index];
-        if (storedNameView(metric.name) == nameView &&
-            metric.depth.load(std::memory_order_relaxed) == depth) {
+        if (metric.parentIndex == parentIndex && namesEqual(metric.name, name)) {
             if (nameTruncated) {
                 metric.nameTruncated.store(true, std::memory_order_relaxed);
             }
-            return &metric;
+            return index;
         }
     }
 
     if (metricCount >= MaxMetricsPerThread) {
         slot.droppedMetrics.fetch_add(1, std::memory_order_relaxed);
-        return nullptr;
+        return InvalidLocalMetricIndex;
     }
 
     auto &metric = slot.metrics[metricCount];
+    metric.sequence.store(0, std::memory_order_relaxed);
     metric.name = name;
-    metric.depth.store(depth, std::memory_order_relaxed);
+    metric.parentIndex = parentIndex;
+    metric.depth = depth;
+    metric.count.store(0, std::memory_order_relaxed);
     metric.totalNs.store(0, std::memory_order_relaxed);
     metric.minNs.store(0, std::memory_order_relaxed);
     metric.maxNs.store(0, std::memory_order_relaxed);
     metric.lastNs.store(0, std::memory_order_relaxed);
     metric.nameTruncated.store(nameTruncated, std::memory_order_relaxed);
     metric.hasChildren.store(false, std::memory_order_relaxed);
-    metric.count.store(0, std::memory_order_release);
     slot.metricCount.store(metricCount + 1, std::memory_order_release);
-    return &metric;
+    return metricCount;
+}
+
+void beginMetricWrite(detail::PerformanceMetricsAtomicMetric &metric) noexcept {
+    metric.sequence.fetch_add(1, std::memory_order_acq_rel);
+}
+
+void endMetricWrite(detail::PerformanceMetricsAtomicMetric &metric) noexcept {
+    metric.sequence.fetch_add(1, std::memory_order_release);
 }
 
 void markMetricHasChildren(detail::PerformanceMetricsThreadSlot &slot,
-                           const std::array<char, PerformanceMetrics::MaxSpanNameLength + 1> &name,
-                           std::uint32_t depth,
-                           bool nameTruncated) noexcept {
-    auto *metric = ensureMetric(slot, name, depth, nameTruncated);
-    if (metric != nullptr) {
-        metric->hasChildren.store(true, std::memory_order_relaxed);
+                           std::uint32_t metricIndex) noexcept {
+    if (metricIndex >= MaxMetricsPerThread) {
+        return;
     }
+
+    auto &metric = slot.metrics[metricIndex];
+    beginMetricWrite(metric);
+    metric.hasChildren.store(true, std::memory_order_relaxed);
+    endMetricWrite(metric);
 }
 
 void updateMetric(detail::PerformanceMetricsThreadSlot &slot,
-                  const std::array<char, PerformanceMetrics::MaxSpanNameLength + 1> &name,
-                  std::uint64_t durationNs,
-                  std::uint32_t depth,
-                  bool nameTruncated) noexcept {
-    auto *metric = ensureMetric(slot, name, depth, nameTruncated);
-    if (metric == nullptr) {
+                  std::uint32_t metricIndex,
+                  std::uint64_t durationNs) noexcept {
+    if (metricIndex >= MaxMetricsPerThread) {
         return;
     }
 
-    if (metric->count.load(std::memory_order_relaxed) == 0) {
-        metric->totalNs.store(durationNs, std::memory_order_relaxed);
-        metric->minNs.store(durationNs, std::memory_order_relaxed);
-        metric->maxNs.store(durationNs, std::memory_order_relaxed);
-        metric->lastNs.store(durationNs, std::memory_order_relaxed);
-        metric->count.store(1, std::memory_order_release);
-        return;
-    }
+    auto &metric = slot.metrics[metricIndex];
+    beginMetricWrite(metric);
 
-    metric->totalNs.fetch_add(durationNs, std::memory_order_relaxed);
+    const auto count = metric.count.load(std::memory_order_relaxed);
+    const auto totalNs = metric.totalNs.load(std::memory_order_relaxed);
+    const auto minNs = metric.minNs.load(std::memory_order_relaxed);
+    const auto maxNs = metric.maxNs.load(std::memory_order_relaxed);
 
-    auto minNs = metric->minNs.load(std::memory_order_relaxed);
-    while (durationNs < minNs &&
-           !metric->minNs.compare_exchange_weak(minNs, durationNs, std::memory_order_relaxed)) {
-    }
+    metric.totalNs.store(totalNs + durationNs, std::memory_order_relaxed);
+    metric.minNs.store(count == 0 ? durationNs : std::min(minNs, durationNs),
+                       std::memory_order_relaxed);
+    metric.maxNs.store(count == 0 ? durationNs : std::max(maxNs, durationNs),
+                       std::memory_order_relaxed);
+    metric.lastNs.store(durationNs, std::memory_order_relaxed);
+    metric.count.store(count + 1, std::memory_order_relaxed);
 
-    auto maxNs = metric->maxNs.load(std::memory_order_relaxed);
-    while (durationNs > maxNs &&
-           !metric->maxNs.compare_exchange_weak(maxNs, durationNs, std::memory_order_relaxed)) {
-    }
-
-    metric->lastNs.store(durationNs, std::memory_order_relaxed);
-    metric->count.fetch_add(1, std::memory_order_release);
+    endMetricWrite(metric);
 }
 
-void mergeMetric(std::vector<PerformanceMetrics::MetricRecord> &metrics,
-                 const PerformanceMetrics::MetricRecord &source) {
-    if (source.count == 0) {
-        return;
-    }
+PerformanceMetrics::MetricRecord
+readMetric(const detail::PerformanceMetricsThreadSlot &slot, std::uint32_t metricIndex) noexcept {
+    const auto &source = slot.metrics[metricIndex];
+    PerformanceMetrics::MetricRecord metric;
 
-    const auto sourceName = source.nameView();
-    for (auto &metric : metrics) {
-        if (metric.nameView() == sourceName && metric.depth == source.depth) {
-            metric.count += source.count;
-            metric.totalNs += source.totalNs;
-            metric.minNs = std::min(metric.minNs, source.minNs);
-            metric.maxNs = std::max(metric.maxNs, source.maxNs);
-            metric.lastNs = source.lastNs;
-            metric.nameTruncated = metric.nameTruncated || source.nameTruncated;
-            metric.hasChildren = metric.hasChildren || source.hasChildren;
-            return;
-        }
-    }
-
-    metrics.push_back(source);
-}
-
-void collectMetrics(std::vector<PerformanceMetrics::MetricRecord> &destination,
-                    const detail::PerformanceMetricsThreadSlot &slot) {
-    const auto metricCount =
-        std::min(slot.metricCount.load(std::memory_order_acquire), MaxMetricsPerThread);
-
-    for (std::uint32_t index = 0; index < metricCount; ++index) {
-        const auto &source = slot.metrics[index];
-        PerformanceMetrics::MetricRecord metric;
-        metric.count = source.count.load(std::memory_order_acquire);
-        if (metric.count == 0) {
+    for (;;) {
+        const auto sequenceBefore = source.sequence.load(std::memory_order_acquire);
+        if ((sequenceBefore & 1U) != 0) {
+            std::this_thread::yield();
             continue;
         }
 
         metric.name = source.name;
-        metric.depth = source.depth.load(std::memory_order_relaxed);
+        metric.depth = source.depth;
+        metric.count = source.count.load(std::memory_order_relaxed);
         metric.totalNs = source.totalNs.load(std::memory_order_relaxed);
         metric.minNs = source.minNs.load(std::memory_order_relaxed);
         metric.maxNs = source.maxNs.load(std::memory_order_relaxed);
@@ -285,29 +293,136 @@ void collectMetrics(std::vector<PerformanceMetrics::MetricRecord> &destination,
         metric.nameTruncated = source.nameTruncated.load(std::memory_order_relaxed);
         metric.hasChildren = source.hasChildren.load(std::memory_order_relaxed);
 
-        mergeMetric(destination, metric);
+        const auto sequenceAfter = source.sequence.load(std::memory_order_acquire);
+        if (sequenceBefore == sequenceAfter && (sequenceAfter & 1U) == 0) {
+            break;
+        }
+    }
+
+    metric.averageNs = metric.count == 0 ? 0 : metric.totalNs / metric.count;
+    return metric;
+}
+
+std::uint64_t mergeMetric(std::vector<PerformanceMetrics::MetricRecord> &destination,
+                          const PerformanceMetrics::MetricRecord &source,
+                          std::uint64_t parentId) {
+    for (auto &metric : destination) {
+        if (metric.parentId == parentId && namesEqual(metric.name, source.name)) {
+            metric.count += source.count;
+            metric.totalNs += source.totalNs;
+            if (source.count > 0) {
+                metric.minNs =
+                    metric.count == source.count ? source.minNs : std::min(metric.minNs, source.minNs);
+                metric.maxNs = std::max(metric.maxNs, source.maxNs);
+                metric.lastNs = source.lastNs;
+            }
+            metric.averageNs = metric.count == 0 ? 0 : metric.totalNs / metric.count;
+            metric.nameTruncated = metric.nameTruncated || source.nameTruncated;
+            metric.hasChildren = metric.hasChildren || source.hasChildren;
+            return metric.id;
+        }
+    }
+
+    auto metric = source;
+    metric.id = static_cast<std::uint64_t>(destination.size());
+    metric.parentId = parentId;
+    metric.averageNs = metric.count == 0 ? 0 : metric.totalNs / metric.count;
+    destination.push_back(metric);
+    return metric.id;
+}
+
+std::uint64_t collectMetric(std::vector<PerformanceMetrics::MetricRecord> &destination,
+                            const detail::PerformanceMetricsThreadSlot &slot,
+                            std::uint32_t metricIndex,
+                            std::uint32_t metricCount,
+                            std::vector<std::uint64_t> &mergedIds) {
+    if (metricIndex >= metricCount) {
+        return PerformanceMetrics::InvalidMetricId;
+    }
+
+    if (mergedIds[metricIndex] != PerformanceMetrics::InvalidMetricId) {
+        return mergedIds[metricIndex];
+    }
+
+    const auto &sourceMetadata = slot.metrics[metricIndex];
+    std::uint64_t parentId = PerformanceMetrics::InvalidMetricId;
+    if (sourceMetadata.parentIndex != InvalidLocalMetricIndex &&
+        sourceMetadata.parentIndex < metricCount) {
+        parentId = collectMetric(
+            destination, slot, sourceMetadata.parentIndex, metricCount, mergedIds);
+    }
+
+    const auto source = readMetric(slot, metricIndex);
+    if (source.count == 0 && !source.hasChildren) {
+        return PerformanceMetrics::InvalidMetricId;
+    }
+
+    const auto mergedId = mergeMetric(destination, source, parentId);
+    mergedIds[metricIndex] = mergedId;
+    return mergedId;
+}
+
+void collectMetrics(std::vector<PerformanceMetrics::MetricRecord> &destination,
+                    const detail::PerformanceMetricsThreadSlot &slot) {
+    const auto metricCount =
+        std::min(slot.metricCount.load(std::memory_order_acquire), MaxMetricsPerThread);
+    std::vector<std::uint64_t> mergedIds(metricCount, PerformanceMetrics::InvalidMetricId);
+
+    for (std::uint32_t index = 0; index < metricCount; ++index) {
+        collectMetric(destination, slot, index, metricCount, mergedIds);
+    }
+}
+
+void appendHistoryEvent(detail::PerformanceMetricsThreadSlot &slot,
+                        const PerformanceMetrics::SpanRecord &record) noexcept {
+    try {
+        std::lock_guard<std::mutex> lock(slot.historyMutex);
+        if (slot.historyChunks.empty() ||
+            slot.historyChunks.back()->size >= MaxHistoryEventsPerChunk) {
+            slot.historyChunks.push_back(std::make_unique<detail::HistoryChunk>());
+        }
+
+        auto &chunk = *slot.historyChunks.back();
+        chunk.records[chunk.size] = record;
+        ++chunk.size;
+    } catch (...) {
+        slot.droppedHistoryEvents.fetch_add(1, std::memory_order_relaxed);
+    }
+}
+
+void collectHistoryEvents(std::vector<PerformanceMetrics::SpanRecord> &destination,
+                          const detail::PerformanceMetricsThreadSlot &slot) {
+    std::lock_guard<std::mutex> lock(slot.historyMutex);
+    for (const auto &chunk : slot.historyChunks) {
+        destination.insert(destination.end(), chunk->records.begin(), chunk->records.begin() + chunk->size);
+    }
+}
+
+PerformanceMetrics *globalDefaultMetrics = nullptr;
+
+void writeDefaultMetricsAtExit() noexcept {
+    if (globalDefaultMetrics != nullptr) {
+        globalDefaultMetrics->writeAutoCsv();
     }
 }
 
 } // namespace
 
 PerformanceMetrics::Scope::Scope(PerformanceMetrics *metrics,
-                                 std::uint32_t generation,
                                  std::uint32_t slotIndex,
-                                 std::uint32_t spanIndex,
-                                 std::array<char, MaxSpanNameLength + 1> name,
+                                 std::uint32_t metricIndex,
+                                 std::uint64_t spanId,
+                                 std::uint64_t parentSpanId,
                                  std::uint64_t startNs,
                                  std::uint32_t depth,
-                                 bool nameTruncated,
-                                 bool traceRecorded) noexcept
-    : metrics(metrics), generation(generation), slotIndex(slotIndex), spanIndex(spanIndex),
-      name(name), startNs(startNs), depth(depth), nameTruncated(nameTruncated),
-      traceRecorded(traceRecorded) {}
+                                 bool historyRecorded) noexcept
+    : metrics(metrics), slotIndex(slotIndex), metricIndex(metricIndex), spanId(spanId),
+      parentSpanId(parentSpanId), startNs(startNs), depth(depth), historyRecorded(historyRecorded) {}
 
 PerformanceMetrics::Scope::Scope(Scope &&other) noexcept
-    : metrics(other.metrics), generation(other.generation), slotIndex(other.slotIndex),
-      spanIndex(other.spanIndex), name(other.name), startNs(other.startNs), depth(other.depth),
-      nameTruncated(other.nameTruncated), traceRecorded(other.traceRecorded) {
+    : metrics(other.metrics), slotIndex(other.slotIndex), metricIndex(other.metricIndex),
+      spanId(other.spanId), parentSpanId(other.parentSpanId), startNs(other.startNs),
+      depth(other.depth), historyRecorded(other.historyRecorded) {
     other.metrics = nullptr;
 }
 
@@ -315,14 +430,13 @@ PerformanceMetrics::Scope &PerformanceMetrics::Scope::operator=(Scope &&other) n
     if (this != &other) {
         close();
         metrics = other.metrics;
-        generation = other.generation;
         slotIndex = other.slotIndex;
-        spanIndex = other.spanIndex;
-        name = other.name;
+        metricIndex = other.metricIndex;
+        spanId = other.spanId;
+        parentSpanId = other.parentSpanId;
         startNs = other.startNs;
         depth = other.depth;
-        nameTruncated = other.nameTruncated;
-        traceRecorded = other.traceRecorded;
+        historyRecorded = other.historyRecorded;
         other.metrics = nullptr;
     }
     return *this;
@@ -337,15 +451,17 @@ void PerformanceMetrics::Scope::close() noexcept {
         return;
     }
 
-    metrics->exitBlock(
-        generation, slotIndex, spanIndex, name, startNs, depth, nameTruncated, traceRecorded);
+    metrics->exitBlock(slotIndex, metricIndex, spanId, parentSpanId, startNs, depth, historyRecorded);
     metrics = nullptr;
 }
 
 PerformanceMetrics::PerformanceMetrics()
-    : state(std::make_unique<detail::PerformanceMetricsState>()) {}
+    : state(std::make_unique<detail::PerformanceMetricsState>(
+          nextInstanceId.fetch_add(1, std::memory_order_relaxed))) {}
 
-PerformanceMetrics::~PerformanceMetrics() = default;
+PerformanceMetrics::~PerformanceMetrics() {
+    writeAutoCsv();
+}
 
 PerformanceMetrics::Scope PerformanceMetrics::scope(std::string_view name) noexcept {
     if (!state->enabled.load(std::memory_order_relaxed)) {
@@ -360,64 +476,44 @@ PerformanceMetrics::Scope PerformanceMetrics::scope(std::string_view name) noexc
 
         auto &slot = state->slots[frame->slotIndex];
         if (frame->depth >= MaxStackDepth) {
-            ++slot.droppedSpans;
+            slot.droppedSpans.fetch_add(1, std::memory_order_relaxed);
             return {};
         }
 
         std::array<char, MaxSpanNameLength + 1> storedName{};
         const bool nameTruncated = copySpanName(storedName, name);
+        const auto parentIndex =
+            frame->depth == 0 ? InvalidLocalMetricIndex : frame->stack[frame->depth - 1].metricIndex;
+        const auto metricIndex =
+            ensureMetric(slot, storedName, parentIndex, frame->depth, nameTruncated);
+        if (metricIndex == InvalidLocalMetricIndex) {
+            return {};
+        }
+
+        if (parentIndex != InvalidLocalMetricIndex) {
+            markMetricHasChildren(slot, parentIndex);
+        }
+
+        const auto historyRecorded = state->historyEnabled.load(std::memory_order_relaxed);
+        const auto spanId = historyRecorded
+                                ? state->nextSpanId.fetch_add(1, std::memory_order_relaxed)
+                                : InvalidSpanId;
+        const auto parentSpanId =
+            frame->depth == 0 ? InvalidSpanId : frame->stack[frame->depth - 1].spanId;
         const auto startNs = nowNs();
         const auto depth = frame->depth;
-        auto spanIndex = std::numeric_limits<std::uint32_t>::max();
-        auto spanId = InvalidSpanId;
-        bool traceRecorded = false;
 
-        // Aggregate counters are always recorded; exact spans are optional.
-        if (state->traceEnabled.load(std::memory_order_relaxed)) {
-            if (slot.spans.size() >= MaxSpansPerThread) {
-                ++slot.droppedSpans;
-            } else {
-                spanIndex = static_cast<std::uint32_t>(slot.spans.size());
-                spanId = makeSpanId(frame->slotIndex, spanIndex);
-                const auto parentId =
-                    frame->depth == 0 ? InvalidSpanId : frame->stack[frame->depth - 1];
-
-                SpanRecord record;
-                record.id = spanId;
-                record.parentId = parentId;
-                record.name = storedName;
-                record.nameTruncated = nameTruncated;
-                record.startNs = startNs;
-                record.threadId = slot.threadId;
-                record.depth = depth;
-
-                slot.spans.push_back(record);
-                traceRecorded = true;
-            }
-        }
-
-        if (frame->depth > 0) {
-            const auto parentDepth = frame->depth - 1U;
-            markMetricHasChildren(slot,
-                                  frame->metricNames[parentDepth],
-                                  parentDepth,
-                                  frame->metricNameTruncated[parentDepth]);
-        }
-
-        frame->stack[frame->depth] = spanId;
-        frame->metricNames[frame->depth] = storedName;
-        frame->metricNameTruncated[frame->depth] = nameTruncated;
+        frame->stack[frame->depth] = StackEntry{metricIndex, spanId};
         ++frame->depth;
 
         return Scope(this,
-                     frame->generation,
                      frame->slotIndex,
-                     spanIndex,
-                     storedName,
+                     metricIndex,
+                     spanId,
+                     parentSpanId,
                      startNs,
                      depth,
-                     nameTruncated,
-                     traceRecorded);
+                     historyRecorded);
     } catch (...) {
         return {};
     }
@@ -431,28 +527,127 @@ bool PerformanceMetrics::enabled() const noexcept {
     return state->enabled.load(std::memory_order_relaxed);
 }
 
+void PerformanceMetrics::setHistoryEnabled(bool enabled) noexcept {
+    state->historyEnabled.store(enabled, std::memory_order_relaxed);
+}
+
+bool PerformanceMetrics::historyEnabled() const noexcept {
+    return state->historyEnabled.load(std::memory_order_relaxed);
+}
+
 void PerformanceMetrics::setTraceEnabled(bool enabled) noexcept {
-    state->traceEnabled.store(enabled, std::memory_order_relaxed);
+    setHistoryEnabled(enabled);
 }
 
 bool PerformanceMetrics::traceEnabled() const noexcept {
-    return state->traceEnabled.load(std::memory_order_relaxed);
+    return historyEnabled();
+}
+
+void PerformanceMetrics::setAutoCsvExportPath(std::string_view path) {
+    std::lock_guard<std::mutex> lock(state->autoCsvMutex);
+    state->autoCsvPath.assign(path.begin(), path.end());
+}
+
+std::string PerformanceMetrics::autoCsvExportPath() const {
+    std::lock_guard<std::mutex> lock(state->autoCsvMutex);
+    return state->autoCsvPath;
+}
+
+bool PerformanceMetrics::writeCsv(std::string_view path) const {
+    const std::string outputPath(path.begin(), path.end());
+    auto *file = std::fopen(outputPath.c_str(), "w");
+    if (file == nullptr) {
+        return false;
+    }
+
+    std::vector<SpanRecord> spans;
+    const auto usedSlots = std::min(state->nextSlot.load(std::memory_order_acquire), MaxThreadSlots);
+    for (std::uint32_t slotIndex = 0; slotIndex < usedSlots; ++slotIndex) {
+        const auto &slot = state->slots[slotIndex];
+        if (!slot.active.load(std::memory_order_acquire)) {
+            continue;
+        }
+        collectHistoryEvents(spans, slot);
+    }
+
+    std::sort(spans.begin(), spans.end(), [](const SpanRecord &left, const SpanRecord &right) {
+        if (left.startNs != right.startNs) {
+            return left.startNs < right.startNs;
+        }
+        return left.id < right.id;
+    });
+
+    std::fprintf(file,
+                 "thread_id,span_id,parent_span_id,depth,name,start_ns,end_ns,duration_ns,"
+                 "duration_ms\n");
+    for (const auto &span : spans) {
+        if (!span.complete()) {
+            continue;
+        }
+
+        std::fprintf(file,
+                     "%llu,%llu,%llu,%u,",
+                     static_cast<unsigned long long>(span.threadId),
+                     static_cast<unsigned long long>(span.id),
+                     static_cast<unsigned long long>(span.parentId),
+                     span.depth);
+        writeCsvEscapedName(file, span.nameView());
+        std::fprintf(file,
+                     ",%llu,%llu,%llu,%.2f\n",
+                     static_cast<unsigned long long>(span.startNs),
+                     static_cast<unsigned long long>(span.endNs),
+                     static_cast<unsigned long long>(span.durationNs()),
+                     static_cast<double>(span.durationNs()) / 1000000.0);
+    }
+
+    const bool ok = std::fclose(file) == 0;
+    return ok;
+}
+
+void PerformanceMetrics::writeAutoCsv() const noexcept {
+    try {
+        const auto path = autoCsvExportPath();
+        if (!path.empty()) {
+            (void)writeCsv(path);
+        }
+    } catch (...) {
+    }
+}
+
+PerformanceMetrics::Snapshot PerformanceMetrics::aggregateSnapshot() const {
+    Snapshot snapshot;
+    const auto usedSlots = std::min(state->nextSlot.load(std::memory_order_acquire), MaxThreadSlots);
+
+    for (std::uint32_t slotIndex = 0; slotIndex < usedSlots; ++slotIndex) {
+        const auto &slot = state->slots[slotIndex];
+        if (!slot.active.load(std::memory_order_acquire)) {
+            continue;
+        }
+
+        snapshot.droppedMetrics += slot.droppedMetrics.load(std::memory_order_relaxed);
+        snapshot.droppedSpans += slot.droppedSpans.load(std::memory_order_relaxed);
+        snapshot.droppedHistoryEvents +=
+            slot.droppedHistoryEvents.load(std::memory_order_relaxed);
+        snapshot.wrongThreadScopeCloses +=
+            slot.wrongThreadScopeCloses.load(std::memory_order_relaxed);
+        collectMetrics(snapshot.metrics, slot);
+    }
+
+    snapshot.threadSlotOverflow = state->threadSlotOverflow.load(std::memory_order_acquire);
+    return snapshot;
 }
 
 PerformanceMetrics::Snapshot PerformanceMetrics::snapshot() const {
     auto snapshot = aggregateSnapshot();
-    const auto generation = state->generation.load(std::memory_order_relaxed);
-    const auto usedSlots =
-        std::min(state->nextSlot.load(std::memory_order_relaxed), MaxThreadSlots);
+    const auto usedSlots = std::min(state->nextSlot.load(std::memory_order_acquire), MaxThreadSlots);
 
     for (std::uint32_t slotIndex = 0; slotIndex < usedSlots; ++slotIndex) {
         const auto &slot = state->slots[slotIndex];
-        if (slot.generation.load(std::memory_order_acquire) != generation) {
+        if (!slot.active.load(std::memory_order_acquire)) {
             continue;
         }
 
-        snapshot.droppedSpans += slot.droppedSpans;
-        snapshot.spans.insert(snapshot.spans.end(), slot.spans.begin(), slot.spans.end());
+        collectHistoryEvents(snapshot.spans, slot);
     }
 
     std::sort(snapshot.spans.begin(),
@@ -467,92 +662,54 @@ PerformanceMetrics::Snapshot PerformanceMetrics::snapshot() const {
     return snapshot;
 }
 
-PerformanceMetrics::Snapshot PerformanceMetrics::aggregateSnapshot() const {
-    Snapshot snapshot;
-    const auto generation = state->generation.load(std::memory_order_relaxed);
-    const auto usedSlots =
-        std::min(state->nextSlot.load(std::memory_order_relaxed), MaxThreadSlots);
-
-    for (std::uint32_t slotIndex = 0; slotIndex < usedSlots; ++slotIndex) {
-        const auto &slot = state->slots[slotIndex];
-        if (slot.generation.load(std::memory_order_acquire) != generation) {
-            continue;
-        }
-
-        snapshot.droppedMetrics += slot.droppedMetrics.load(std::memory_order_relaxed);
-        collectMetrics(snapshot.metrics, slot);
-    }
-
-    snapshot.threadSlotOverflow = state->threadSlotOverflow.load(std::memory_order_relaxed);
-
-    std::sort(snapshot.metrics.begin(),
-              snapshot.metrics.end(),
-              [](const MetricRecord &left, const MetricRecord &right) {
-                  if (left.depth != right.depth) {
-                      return left.depth < right.depth;
-                  }
-                  return left.nameView() < right.nameView();
-              });
-
-    return snapshot;
-}
-
-void PerformanceMetrics::reset() {
-    // Old thread-local frames become invisible once generation changes.
-    state->generation.fetch_add(1, std::memory_order_relaxed);
-    state->nextSlot.store(0, std::memory_order_relaxed);
-    state->threadSlotOverflow.store(false, std::memory_order_relaxed);
-
-    for (auto &slot : state->slots) {
-        slot.generation.store(0, std::memory_order_relaxed);
-        slot.threadId = 0;
-        slot.droppedMetrics.store(0, std::memory_order_relaxed);
-        slot.droppedSpans = 0;
-        slot.metricCount.store(0, std::memory_order_relaxed);
-        slot.spans.clear();
-    }
-}
-
-void PerformanceMetrics::exitBlock(std::uint32_t generation,
-                                   std::uint32_t slotIndex,
-                                   std::uint32_t spanIndex,
-                                   const std::array<char, MaxSpanNameLength + 1> &name,
+void PerformanceMetrics::exitBlock(std::uint32_t slotIndex,
+                                   std::uint32_t metricIndex,
+                                   std::uint64_t spanId,
+                                   std::uint64_t parentSpanId,
                                    std::uint64_t startNs,
                                    std::uint32_t depth,
-                                   bool nameTruncated,
-                                   bool traceRecorded) noexcept {
-    auto *frame = findThreadFrame(state.get(), generation);
-    if (frame == nullptr || frame->slotIndex != slotIndex || slotIndex >= MaxThreadSlots) {
+                                   bool historyRecorded) noexcept {
+    if (slotIndex >= MaxThreadSlots) {
+        return;
+    }
+
+    auto &slot = state->slots[slotIndex];
+    auto *frame = findThreadFrame(state.get());
+    if (frame == nullptr || frame->slotIndex != slotIndex) {
+        slot.wrongThreadScopeCloses.fetch_add(1, std::memory_order_relaxed);
         return;
     }
 
     const auto endNs = nowNs();
-    auto &slot = state->slots[slotIndex];
-    if (traceRecorded && spanIndex < slot.spans.size() && slot.spans[spanIndex].endNs == 0) {
-        slot.spans[spanIndex].endNs = endNs;
+    if (endNs >= startNs) {
+        updateMetric(slot, metricIndex, endNs - startNs);
     }
 
-    if (endNs >= startNs) {
-        updateMetric(slot, name, endNs - startNs, depth, nameTruncated);
+    if (historyRecorded && endNs >= startNs && metricIndex < MaxMetricsPerThread) {
+        const auto &metric = slot.metrics[metricIndex];
+        SpanRecord record;
+        record.id = spanId;
+        record.parentId = parentSpanId;
+        record.name = metric.name;
+        record.nameTruncated = metric.nameTruncated.load(std::memory_order_relaxed);
+        record.startNs = startNs;
+        record.endNs = endNs;
+        record.threadId = slot.threadId;
+        record.depth = depth;
+        appendHistoryEvent(slot, record);
     }
 
     if (frame->depth <= depth) {
         return;
     }
 
-    if (!traceRecorded) {
-        frame->depth = depth;
-        return;
-    }
-
-    const auto spanId = makeSpanId(slotIndex, spanIndex);
-    if (frame->stack[frame->depth - 1] == spanId) {
+    if (frame->stack[frame->depth - 1].metricIndex == metricIndex) {
         frame->depth = depth;
         return;
     }
 
     for (std::uint32_t index = frame->depth; index > 0; --index) {
-        if (frame->stack[index - 1] == spanId) {
+        if (frame->stack[index - 1].metricIndex == metricIndex) {
             frame->depth = index - 1;
             return;
         }
@@ -573,8 +730,13 @@ PerformanceMetrics *currentPerformanceMetrics() noexcept {
 }
 
 PerformanceMetrics &defaultPerformanceMetrics() noexcept {
-    static PerformanceMetrics metrics;
-    return metrics;
+    static PerformanceMetrics *metrics = []() noexcept {
+        auto *created = new PerformanceMetrics();
+        globalDefaultMetrics = created;
+        std::atexit(writeDefaultMetricsAtExit);
+        return created;
+    }();
+    return *metrics;
 }
 
 PerformanceMetrics::Scope enterBlock(std::string_view name) noexcept {

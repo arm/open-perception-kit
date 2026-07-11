@@ -92,7 +92,6 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
             return tl::unexpected{modelResult.error()};
         }
         this->model = *modelResult;
-        this->model.modelFamily = modelDesc_.modelFamily;
 
         // --- build up model
 

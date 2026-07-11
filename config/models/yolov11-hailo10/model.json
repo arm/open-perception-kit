@@ -1,6 +1,5 @@
 {
 	"name": "yolov11n-hailo10",
-	"modelFamily": "yolo-obj",
 	"modelFile": "yolov11n-hailo10h.hef",
 	"hfDownload": {
 		"repo_id": "Arm/Yolo-v11",

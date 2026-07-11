@@ -45,14 +45,12 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
                                         fmt::format("HailoRT startup error: {}", e.what())));
     }
 
-    modelFamily = inference->getModel().modelFamily;
-
     return {};
 }
 
 pek::Result<pek::op::OpSignal> InferenceOp::process(pek::op::OpChainContext &opChainContext) {
-    PEK_TRACE_SCOPE(fmt::format("hailort/Infer/{}", opChainContext.inferenceInfo.modelFamily));
-    PEK_PERF_SCOPE(fmt::format("hailort/Infer/{}", opChainContext.inferenceInfo.modelFamily));
+    PEK_TRACE_SCOPE(fmt::format("hailort/Infer/{}", opChainContext.inferenceInfo.modelName));
+    PEK_PERF_SCOPE(fmt::format("hailort/Infer/{}", opChainContext.inferenceInfo.modelName));
 
     auto inferenceResult = inference->inference();
     if (!inferenceResult) {

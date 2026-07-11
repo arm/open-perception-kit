@@ -14,10 +14,13 @@ namespace pek::runtime {
  * @brief Aggregated timings for one performance scope name.
  */
 struct PerformanceMetric {
+    std::uint64_t id = 0;
+    std::uint64_t parentId = 0;
     std::string name;
     std::uint32_t depth = 0;
     std::uint64_t count = 0;
     std::uint64_t totalNs = 0;
+    std::uint64_t averageNs = 0;
     std::uint64_t minNs = 0;
     std::uint64_t maxNs = 0;
     std::uint64_t lastNs = 0;
@@ -32,6 +35,8 @@ struct PerformanceMetric {
  * metrics recorder. They are not owned by one runtime::OpChain instance.
  */
 struct PerformanceSpan {
+    std::uint64_t id = 0;
+    std::uint64_t parentId = 0;
     std::string name;
     std::uint64_t startNs = 0;
     std::uint64_t endNs = 0;
@@ -50,6 +55,8 @@ struct PerformanceMetricsSnapshot {
     std::vector<PerformanceSpan> spans;
     std::uint32_t droppedMetrics = 0;
     std::uint32_t droppedSpans = 0;
+    std::uint32_t droppedHistoryEvents = 0;
+    std::uint32_t wrongThreadScopeCloses = 0;
     bool threadSlotOverflow = false;
 };
 
@@ -62,22 +69,38 @@ struct PerformanceMetricsSnapshot {
 class PerformanceMetrics {
   public:
     /**
-     * @brief Clears all process-wide collected performance metrics.
-     */
-    static void reset();
-
-    /**
-     * @brief Enables or disables exact span trace collection.
+     * @brief Enables or disables historical completed-span collection.
      *
      * Aggregate metrics are collected while the common recorder is enabled.
-     * Exact spans are only stored when trace collection is explicitly enabled.
+     * Historical spans are only stored when history collection is explicitly
+     * enabled.
+     */
+    static void setHistoryEnabled(bool enabled);
+
+    /**
+     * @brief Returns whether historical completed-span collection is enabled.
+     */
+    static bool historyEnabled();
+
+    /**
+     * @brief Compatibility alias for setHistoryEnabled().
      */
     static void setTraceEnabled(bool enabled);
 
     /**
-     * @brief Returns whether exact span trace collection is enabled.
+     * @brief Compatibility alias for historyEnabled().
      */
     static bool traceEnabled();
+
+    /**
+     * @brief Sets the optional best-effort CSV export path for normal process shutdown.
+     */
+    static void setAutoCsvExportPath(const std::string &path);
+
+    /**
+     * @brief Explicitly writes completed historical spans to CSV.
+     */
+    static bool writeCsv(const std::string &path);
 
     /**
      * @brief Returns a copy of the currently collected process-wide metrics.

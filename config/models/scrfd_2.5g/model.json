@@ -1,6 +1,5 @@
 {
-    "name": "scrfd_2_5g",
-    "modelFamily": "scrfd",
+    "name": "scrfd-face",
     "contentType": "humanFace",
     "modelFile": "scrfd_2.5g.hef",
     "hfDownload": {

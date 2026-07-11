@@ -1,6 +1,5 @@
 {
 	"name": "imagenet",
-	"modelFamily": "classification",
 	"modelFile": "mobilenet_v2_1_4_224.hef",
 	"hfDownload": {
 		"repo_id": "Arm/MobileNetV2-Hailo",

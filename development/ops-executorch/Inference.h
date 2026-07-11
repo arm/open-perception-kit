@@ -60,7 +60,7 @@ struct Inference {
     pek::ModelDescriptor modelDescriptor;
     static pek::Result<pek::Model> inspectModel(executorch::extension::Module &module);
 
-    std::string modelPath, modelFamily;
+    std::string modelPath;
     bool setupReady = false;
     bool useDynamicOutput = false;
 

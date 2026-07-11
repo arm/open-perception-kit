@@ -1,6 +1,5 @@
 {
-	"name": "ultraface",
-	"modelFamily": "ultraface",
+	"name": "ultraface-face",
 	"modelFile": "version-RFB-320.onnx",
 	"hfDownload": {
 		"repo_id": "Arm/UltraFace",

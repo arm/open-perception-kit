@@ -12,7 +12,6 @@
 #include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
-#include <fstream>
 #include <mutex>
 #include <string>
 #include <utility>
@@ -78,43 +77,6 @@ std::string pluginPath() {
     }
 
     return "/work/development/build/meson-out";
-}
-
-void writeCsvString(std::ofstream &output, const std::string &value) {
-    output << '"';
-    for (const char ch : value) {
-        if (ch == '"') {
-            output << "\"\"";
-        } else {
-            output << ch;
-        }
-    }
-    output << '"';
-}
-
-bool writePerformanceCsv(const std::string &path,
-                         const pek::runtime::PerformanceMetricsSnapshot &snapshot) {
-    std::ofstream output(path);
-    if (!output) {
-        fmt::print(stderr, "pipeline-exec: failed to open performance CSV: {}\n", path);
-        return false;
-    }
-
-    output << "name,start_ns,end_ns,duration_ns,thread_id,depth,complete,name_truncated\n";
-    for (const auto &span : snapshot.spans) {
-        writeCsvString(output, span.name);
-        output << ',' << span.startNs << ',' << span.endNs << ',' << span.durationNs << ','
-               << span.threadId << ',' << span.depth << ',' << (span.complete ? "true" : "false")
-               << ',' << (span.nameTruncated ? "true" : "false") << '\n';
-    }
-
-    output.flush();
-    if (!output) {
-        fmt::print(stderr, "pipeline-exec: failed to write performance CSV: {}\n", path);
-        return false;
-    }
-
-    return true;
 }
 
 } // namespace
@@ -223,14 +185,13 @@ int main(int argc, char **argv) {
     // immediately. Buffers now begin to flow and callbacks can fire while the
     // application keeps ownership of this thread.
     if (!options.perfCsvPath.empty()) {
-        pek::runtime::PerformanceMetrics::reset();
-        pek::runtime::PerformanceMetrics::setTraceEnabled(true);
+        pek::runtime::PerformanceMetrics::setHistoryEnabled(true);
     }
 
     auto startResult = pipeline.start();
     if (!startResult) {
         if (!options.perfCsvPath.empty()) {
-            pek::runtime::PerformanceMetrics::setTraceEnabled(false);
+            pek::runtime::PerformanceMetrics::setHistoryEnabled(false);
         }
         fmt::print(stderr, "{}\n", startResult.error().toString());
         return 1;
@@ -251,7 +212,7 @@ int main(int argc, char **argv) {
     auto stopResult = pipeline.stop();
     if (!stopResult) {
         if (!options.perfCsvPath.empty()) {
-            pek::runtime::PerformanceMetrics::setTraceEnabled(false);
+            pek::runtime::PerformanceMetrics::setHistoryEnabled(false);
         }
         fmt::print(stderr, "{}\n", stopResult.error().toString());
         return 1;
@@ -259,17 +220,28 @@ int main(int argc, char **argv) {
 
     if (!options.perfCsvPath.empty()) {
         const auto performanceSnapshot = pek::runtime::PerformanceMetrics::snapshot();
-        pek::runtime::PerformanceMetrics::setTraceEnabled(false);
-        if (!writePerformanceCsv(options.perfCsvPath, performanceSnapshot)) {
+        pek::runtime::PerformanceMetrics::setHistoryEnabled(false);
+        if (!pek::runtime::PerformanceMetrics::writeCsv(options.perfCsvPath)) {
+            fmt::print(stderr,
+                       "pipeline-exec: failed to write performance CSV: {}\n",
+                       options.perfCsvPath);
             return 1;
         }
-        if (performanceSnapshot.droppedMetrics > 0 || performanceSnapshot.droppedSpans > 0 ||
-            performanceSnapshot.threadSlotOverflow) {
+        const auto metricsWereDropped = performanceSnapshot.droppedMetrics > 0;
+        const auto spansWereDropped = performanceSnapshot.droppedSpans > 0;
+        const auto historyEventsWereDropped = performanceSnapshot.droppedHistoryEvents > 0;
+        const auto threadScopesWereClosedIncorrectly =
+            performanceSnapshot.wrongThreadScopeCloses > 0;
+        if (metricsWereDropped || spansWereDropped || historyEventsWereDropped ||
+            threadScopesWereClosedIncorrectly || performanceSnapshot.threadSlotOverflow) {
             fmt::print(stderr,
                        "pipeline-exec: performance metrics warning: droppedMetrics={} "
-                       "droppedSpans={} threadSlotOverflow={}\n",
+                       "droppedSpans={} droppedHistoryEvents={} wrongThreadScopeCloses={} "
+                       "threadSlotOverflow={}\n",
                        performanceSnapshot.droppedMetrics,
                        performanceSnapshot.droppedSpans,
+                       performanceSnapshot.droppedHistoryEvents,
+                       performanceSnapshot.wrongThreadScopeCloses,
                        performanceSnapshot.threadSlotOverflow ? "true" : "false");
         }
         fmt::print(stderr, "pipeline-exec: wrote performance CSV: {}\n", options.perfCsvPath);

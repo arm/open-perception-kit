@@ -83,9 +83,6 @@ struct ModelDescriptor {
     /// Model file path (usually relative to model directory/config root).
     std::string modelFile;
 
-    /// Model family identifier (for example "yolov11").
-    std::string modelFamily;
-
     /// Semantic model content type (for example detection/classification).
     std::string contentType;
 
@@ -163,7 +160,6 @@ inline void from_json(const json &j, TensorDescriptor &b) {
 inline void to_json(json &j, const ModelDescriptor &b) {
     j = json{{"name", b.name},
              {"modelFile", b.modelFile},
-             {"modelFamily", b.modelFamily},
              {"contentType", b.contentType},
              {"inputTensors", b.inputTensors},
              {"outputTensors", b.outputTensors},
@@ -175,7 +171,6 @@ inline void to_json(json &j, const ModelDescriptor &b) {
 inline void from_json(const json &j, ModelDescriptor &b) {
     j.at("name").get_to(b.name);
     j.at("modelFile").get_to(b.modelFile);
-    j.at("modelFamily").get_to(b.modelFamily);
     b.contentType = j.value("contentType", std::string{});
     b.inputTensors = j.value("inputTensors", std::vector<TensorDescriptor>{});
     b.outputTensors = j.value("outputTensors", std::vector<TensorDescriptor>{});

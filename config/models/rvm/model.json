@@ -1,6 +1,5 @@
 {
-	"name": "mobilenet-rvm-onnx",
-	"modelFamily": "rvm-segmentation",
+	"name": "rvm-seg",
 	"modelFile": "rvm_mobilenetv3_fp32.onnx",
 	"hfDownload": {
 		"repo_id": "Arm/RobustVideoMatting",

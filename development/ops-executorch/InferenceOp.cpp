@@ -47,14 +47,12 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
                                         fmt::format("Executorch startup error: {}", e.what())));
     }
 
-    modelFamily = inference->getModel().modelFamily;
-
     return {};
 }
 
 pek::Result<pek::op::OpSignal> InferenceOp::process(pek::op::OpChainContext &opChainContext) {
-    PEK_TRACE_SCOPE(fmt::format("extrch/Infer/{}", opChainContext.inferenceInfo.modelFamily));
-    PEK_PERF_SCOPE(fmt::format("extrch/Infer/{}", opChainContext.inferenceInfo.modelFamily));
+    PEK_TRACE_SCOPE(fmt::format("extrch/Infer/{}", opChainContext.inferenceInfo.modelName));
+    PEK_PERF_SCOPE(fmt::format("extrch/Infer/{}", opChainContext.inferenceInfo.modelName));
 
     // Preprocess has already written into Inference input buffers through OpInterfaceInference.
     auto inferenceResult = inference->inference();
