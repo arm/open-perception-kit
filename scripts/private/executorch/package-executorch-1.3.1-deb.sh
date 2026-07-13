@@ -1,0 +1,236 @@
+#!/usr/bin/env bash
+################################################################
+# Copyright (C) 2026 Arm Limited. All rights reserved.
+################################################################
+
+set -euo pipefail
+
+usage() {
+    cat << 'EOF'
+Package a staged ExecuTorch 1.3.1 SDK for PEK as a Debian archive.
+
+Usage:
+  scripts/private/executorch/package-executorch-1.3.1-deb.sh [options]
+
+Options:
+  --executorch-dir DIR  Staged ExecuTorch SDK. Default: /work/deps/executorch
+  --libtorch-dir DIR    Staged libtorch compatibility headers. Default: /work/deps/libtorch
+  --output-dir DIR      Debian package output directory. Default: /work/var
+  --install-root DIR    Package installation root. Default: /work/var
+  --revision REV        Debian package revision. Default: 1
+  --help                Show this help.
+
+Environment:
+  EXECUTORCH_SDK_DIR          Same as --executorch-dir.
+  LIBTORCH_SDK_DIR            Same as --libtorch-dir.
+  EXECUTORCH_DEB_OUTPUT_DIR   Same as --output-dir.
+  EXECUTORCH_DEB_INSTALL_ROOT Same as --install-root.
+  EXECUTORCH_DEB_REVISION     Same as --revision.
+  EXECUTORCH_DEB_MAINTAINER   Debian Maintainer field. Default: Arm Limited
+
+The package architecture is detected from libexecutorch.a. The resulting file
+is named libexecutorch-dev-1.3.1-<revision>-<architecture>.deb.
+EOF
+}
+
+log() {
+    printf '[executorch-deb] %s\n' "$*"
+}
+
+die() {
+    printf 'ERROR: %s\n' "$*" >&2
+    exit 1
+}
+
+need_cmd() {
+    command -v "$1" > /dev/null 2>&1 || die "missing required command: $1"
+}
+
+resolve_path() {
+    local path="$1"
+    local parent
+    local base
+
+    case "${path}" in
+        /*) ;;
+        *) path="${ORIGINAL_CWD}/${path}" ;;
+    esac
+
+    parent="$(dirname -- "${path}")"
+    base="$(basename -- "${path}")"
+    mkdir -p "${parent}"
+    parent="$(cd -- "${parent}" && pwd -P)"
+    printf '%s/%s\n' "${parent}" "${base}"
+}
+
+archive_architecture() {
+    local archive="$1"
+    local member
+    local description
+
+    IFS= read -r member < <(ar t "${archive}")
+    [[ -n "${member}" ]] || die "cannot inspect empty or invalid archive: ${archive}"
+
+    description="$(ar p "${archive}" "${member}" | file -b -)" ||
+        die "cannot determine target architecture from ${archive}"
+    case "${description}" in
+        *x86-64* | *x86_64*)
+            printf 'amd64\n'
+            ;;
+        *aarch64* | *AArch64* | *arm64* | *ARM64*)
+            printf 'arm64\n'
+            ;;
+        *arm* | *Arm* | *ARM*)
+            printf 'armel\n'
+            ;;
+        *)
+            die "unsupported target architecture in ${archive}: ${description}"
+            ;;
+    esac
+}
+
+ORIGINAL_CWD="$(pwd -P)"
+PACKAGE_NAME="libexecutorch-dev"
+PACKAGE_VERSION="1.3.1"
+EXECUTORCH_DIR="${EXECUTORCH_SDK_DIR:-/work/deps/executorch}"
+LIBTORCH_DIR="${LIBTORCH_SDK_DIR:-/work/deps/libtorch}"
+OUTPUT_DIR="${EXECUTORCH_DEB_OUTPUT_DIR:-/work/var}"
+INSTALL_ROOT="${EXECUTORCH_DEB_INSTALL_ROOT:-/work/var}"
+PACKAGE_REVISION="${EXECUTORCH_DEB_REVISION:-1}"
+PACKAGE_MAINTAINER="${EXECUTORCH_DEB_MAINTAINER:-Arm Limited}"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --executorch-dir)
+            [[ $# -ge 2 ]] || die "--executorch-dir requires a value"
+            EXECUTORCH_DIR="$2"
+            shift 2
+            ;;
+        --libtorch-dir)
+            [[ $# -ge 2 ]] || die "--libtorch-dir requires a value"
+            LIBTORCH_DIR="$2"
+            shift 2
+            ;;
+        --output-dir)
+            [[ $# -ge 2 ]] || die "--output-dir requires a value"
+            OUTPUT_DIR="$2"
+            shift 2
+            ;;
+        --install-root)
+            [[ $# -ge 2 ]] || die "--install-root requires a value"
+            INSTALL_ROOT="$2"
+            shift 2
+            ;;
+        --revision)
+            [[ $# -ge 2 ]] || die "--revision requires a value"
+            PACKAGE_REVISION="$2"
+            shift 2
+            ;;
+        --help | -h)
+            usage
+            exit 0
+            ;;
+        *)
+            die "unknown option: $1"
+            ;;
+    esac
+done
+
+[[ "${INSTALL_ROOT}" == /* ]] || die "--install-root must be an absolute path"
+[[ "${INSTALL_ROOT}" != "/" ]] || die "--install-root must not be /"
+INSTALL_ROOT="${INSTALL_ROOT%/}"
+[[ "${PACKAGE_REVISION}" =~ ^[0-9A-Za-z.+~]+$ ]] ||
+    die "invalid Debian package revision: ${PACKAGE_REVISION}"
+[[ -n "${PACKAGE_MAINTAINER}" ]] || die "Debian package maintainer must not be empty"
+
+EXECUTORCH_DIR="$(resolve_path "${EXECUTORCH_DIR}")"
+LIBTORCH_DIR="$(resolve_path "${LIBTORCH_DIR}")"
+OUTPUT_DIR="$(resolve_path "${OUTPUT_DIR}")"
+
+need_cmd ar
+need_cmd cp
+need_cmd dpkg-deb
+need_cmd file
+need_cmd find
+
+required_paths=(
+    "${EXECUTORCH_DIR}/include/executorch/extension/module/module.h"
+    "${EXECUTORCH_DIR}/include/executorch/extension/tensor/tensor_ptr_maker.h"
+    "${EXECUTORCH_DIR}/include/executorch/runtime/core/error.h"
+    "${EXECUTORCH_DIR}/lib/libexecutorch.a"
+    "${LIBTORCH_DIR}/include"
+)
+
+for path in "${required_paths[@]}"; do
+    [[ -e "${path}" ]] || die "missing required SDK path: ${path}"
+done
+
+required_libs=(
+    libextension_module.a
+    libextension_tensor.a
+    libextension_flat_tensor.a
+    libextension_data_loader.a
+    libextension_named_data_map.a
+    libextension_threadpool.a
+    libexecutorch.a
+    libexecutorch_core.a
+    libpthreadpool.a
+    libcpuinfo.a
+    libportable_ops_lib.a
+    libportable_kernels.a
+    libXNNPACK.a
+    libxnnpack_backend.a
+    libxnnpack-microkernels-prod.a
+)
+
+DEBIAN_ARCH="$(archive_architecture "${EXECUTORCH_DIR}/lib/libexecutorch.a")"
+if [[ "${DEBIAN_ARCH}" == "arm64" ]]; then
+    required_libs+=(libkleidiai.a)
+fi
+
+for lib in "${required_libs[@]}"; do
+    [[ -f "${EXECUTORCH_DIR}/lib/${lib}" ]] ||
+        die "missing required ExecuTorch library: ${EXECUTORCH_DIR}/lib/${lib}"
+done
+
+PACKAGE_FILE="${OUTPUT_DIR}/${PACKAGE_NAME}-${PACKAGE_VERSION}-${PACKAGE_REVISION}-${DEBIAN_ARCH}.deb"
+PACKAGE_ROOT="${OUTPUT_DIR}/.${PACKAGE_NAME}-${PACKAGE_VERSION}-${PACKAGE_REVISION}-${DEBIAN_ARCH}.package"
+PAYLOAD_ROOT="${PACKAGE_ROOT}${INSTALL_ROOT}"
+
+rm -rf "${PACKAGE_ROOT}"
+mkdir -p \
+    "${PACKAGE_ROOT}/DEBIAN" \
+    "${PAYLOAD_ROOT}/executorch" \
+    "${PAYLOAD_ROOT}/libtorch"
+
+log "Copying ExecuTorch SDK into ${INSTALL_ROOT}/executorch"
+cp -a "${EXECUTORCH_DIR}/." "${PAYLOAD_ROOT}/executorch/"
+log "Copying libtorch compatibility headers into ${INSTALL_ROOT}/libtorch"
+cp -a "${LIBTORCH_DIR}/include" "${PAYLOAD_ROOT}/libtorch/"
+
+find "${PACKAGE_ROOT}" -type d -exec chmod 0755 {} +
+find "${PAYLOAD_ROOT}" -type f -exec chmod 0644 {} +
+find "${PAYLOAD_ROOT}/executorch/lib" -type f -name '*.so*' -exec chmod 0755 {} +
+
+cat > "${PACKAGE_ROOT}/DEBIAN/control" << EOF
+Package: ${PACKAGE_NAME}
+Version: ${PACKAGE_VERSION}-${PACKAGE_REVISION}
+Section: libdevel
+Priority: optional
+Architecture: ${DEBIAN_ARCH}
+Maintainer: ${PACKAGE_MAINTAINER}
+Description: ExecuTorch ${PACKAGE_VERSION} development SDK for PEK
+ Target-specific ExecuTorch libraries, headers, and libtorch compatibility
+ headers required to compile and run PEK with the ExecuTorch backend.
+EOF
+
+chmod 0755 "${PACKAGE_ROOT}/DEBIAN"
+chmod 0644 "${PACKAGE_ROOT}/DEBIAN/control"
+mkdir -p "${OUTPUT_DIR}"
+
+log "Building ${PACKAGE_FILE}"
+dpkg-deb --root-owner-group --build "${PACKAGE_ROOT}" "${PACKAGE_FILE}"
+rm -rf "${PACKAGE_ROOT}"
+
+log "Created ${PACKAGE_FILE}"
+printf '%s\n' "${PACKAGE_FILE}"

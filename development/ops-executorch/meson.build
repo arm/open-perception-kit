@@ -11,6 +11,7 @@ if executorch_root_env != ''
 endif
 
 executorch_candidates += [
+  '/work/var/executorch',
   meson.project_source_root() / '../deps/executorch',
 ]
 
@@ -35,10 +36,29 @@ endif
 
 message('Using ExecuTorch from: ' + executorch_root)
 
+libtorch_candidates = []
+libtorch_root_env = run_command('sh', '-c', 'printf %s "$PEK_LIBTORCH_ROOT"', check: false).stdout().strip()
+if libtorch_root_env != ''
+  libtorch_candidates += [libtorch_root_env]
+endif
+
+libtorch_candidates += [
+  executorch_root / '..' / 'libtorch',
+  meson.project_source_root() / '../deps/libtorch',
+]
+
 libtorch_root = meson.project_source_root() / '../deps/libtorch'
+foreach candidate : libtorch_candidates
+  if fs.is_dir(candidate / 'include')
+    libtorch_root = candidate
+    break
+  endif
+endforeach
+
 executorch_libdir = executorch_root / 'lib'
 executorch_include = executorch_root / 'include'
 libtorch_include = libtorch_root / 'include'
+executorch_uses_kleidiai = host_machine.cpu_family() == 'aarch64'
 
 executorch_required_libs = [
   'libextension_module.a',
@@ -53,7 +73,13 @@ executorch_required_libs = [
   'libcpuinfo.a',
   'libportable_ops_lib.a',
   'libportable_kernels.a',
-  'libkleidiai.a',
+]
+
+if executorch_uses_kleidiai
+  executorch_required_libs += ['libkleidiai.a']
+endif
+
+executorch_required_libs += [
   'libXNNPACK.a',
   'libxnnpack_backend.a',
   'libxnnpack-microkernels-prod.a',
@@ -105,7 +131,13 @@ executorch_dep = declare_dependency(
 et_force_archives = [
   executorch_libdir / 'libportable_ops_lib.a',
   executorch_libdir / 'libportable_kernels.a',
-  executorch_libdir / 'libkleidiai.a',
+]
+
+if executorch_uses_kleidiai
+  et_force_archives += [executorch_libdir / 'libkleidiai.a']
+endif
+
+et_force_archives += [
   executorch_libdir / 'libXNNPACK.a',
   executorch_libdir / 'libxnnpack_backend.a',
   executorch_libdir / 'libxnnpack-microkernels-prod.a',

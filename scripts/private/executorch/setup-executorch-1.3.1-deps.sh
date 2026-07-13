@@ -14,21 +14,27 @@ Usage:
 
 Example:
   scripts/private/executorch/setup-executorch-1.3.1-deps.sh /work/var/executorch-1.3.1-build
+  scripts/private/executorch/setup-executorch-1.3.1-deps.sh /work/var/executorch-1.3.1-arm-build --target-arch arm
 
 Options:
   --work-dir DIR          Directory used for source, venv, downloads, build, temp, and caches.
   --deps-dir DIR          Root dependency staging directory. Default: /work/deps
+  --target-arch ARCH      Build target: x86_64 (default) or arm (ARMv7 Linux EABI).
   --executorch-url URL    ExecuTorch source archive URL. Default: official v1.3.1 tarball.
   --executorch-git-url URL
                           Git URL used only to recover pinned submodule commits.
   --executorch-sha256 SHA Expected SHA-256 of the source archive. Optional.
   --jobs N                Build parallelism. Default: 1
+  --deb-output-dir DIR    Debian package output directory. Default: /work/var
+  --deb-revision REV      Debian package revision. Default: 1
+  --skip-deb              Stage files without creating a Debian package.
   --keep-work-dir         Reuse the existing work directory instead of deleting it.
   --keep-build            Reuse the existing CMake build directory.
   --help                  Show this help.
 
 Environment:
   DEPS_DIR                Same as --deps-dir.
+  EXECUTORCH_TARGET_ARCH  Same as --target-arch.
   EXECUTORCH_ARCHIVE_URL  Same as --executorch-url.
   EXECUTORCH_GIT_URL      Same as --executorch-git-url.
   EXECUTORCH_ARCHIVE_SHA256
@@ -38,6 +44,21 @@ Environment:
   VENV_DIR                Default: $WORK_DIR/.venv
   PYTHON_VERSION          Default: 3.11
   JOBS                    Same as --jobs.
+  EXECUTORCH_X86_64_CC     x86_64 C compiler. Default: x86_64-linux-gnu-gcc-14
+  EXECUTORCH_X86_64_CXX    x86_64 C++ compiler. Default: x86_64-linux-gnu-g++-14
+  EXECUTORCH_X86_64_AR     x86_64 archiver. Default: x86_64-linux-gnu-ar
+  EXECUTORCH_X86_64_RANLIB x86_64 ranlib. Default: x86_64-linux-gnu-ranlib
+  EXECUTORCH_X86_64_STRIP  x86_64 strip tool. Default: x86_64-linux-gnu-strip
+  EXECUTORCH_ARM_CC       ARM C compiler. Default: arm-linux-gnueabi-gcc-14
+  EXECUTORCH_ARM_CXX      ARM C++ compiler. Default: arm-linux-gnueabi-g++-14
+  EXECUTORCH_ARM_AR       ARM archiver. Default: arm-linux-gnueabi-ar
+  EXECUTORCH_ARM_RANLIB   ARM ranlib. Default: arm-linux-gnueabi-ranlib
+  EXECUTORCH_ARM_STRIP    ARM strip tool. Default: arm-linux-gnueabi-strip
+  EXECUTORCH_DEB_OUTPUT_DIR
+                          Same as --deb-output-dir.
+  EXECUTORCH_DEB_REVISION Same as --deb-revision.
+  EXECUTORCH_DEB_MAINTAINER
+                          Debian Maintainer field. Default: Arm Limited
   LIBTORCH_URL            Optional libtorch zip URL. If unset, torch headers are
                           copied from the ExecuTorch Python venv when available.
 
@@ -45,13 +66,15 @@ Output:
   $DEPS_DIR/executorch/include
   $DEPS_DIR/executorch/lib
   $DEPS_DIR/libtorch/include
+  /work/var/libexecutorch-dev-1.3.1-<revision>-<architecture>.deb
 
 The top-level ExecuTorch source is downloaded from the fixed archive. Git is
 used only after extraction to recover pinned submodule commits from the v1.3.1
 tag, because GitHub source archives do not include submodule contents.
 
 All source, build, venv, download, cache, and temporary state is kept under the
-selected work directory. The only intentional output outside it is DEPS_DIR.
+selected work directory. The intentional outputs outside it are DEPS_DIR and
+the Debian package output directory.
 EOF
 }
 
@@ -66,6 +89,46 @@ die() {
 
 need_cmd() {
     command -v "$1" > /dev/null 2>&1 || die "missing required command: $1"
+}
+
+archive_architecture() {
+    local archive="$1"
+    local member
+    local description
+
+    IFS= read -r member < <(ar t "${archive}")
+    [[ -n "${member}" ]] || die "cannot inspect empty or invalid archive: ${archive}"
+
+    description="$(ar p "${archive}" "${member}" | file -b -)" ||
+        die "cannot determine target architecture from ${archive}"
+    case "${description}" in
+        *x86-64* | *x86_64*)
+            printf 'x86_64\n'
+            ;;
+        *aarch64* | *AArch64* | *arm64* | *ARM64*)
+            printf 'aarch64\n'
+            ;;
+        *arm* | *Arm* | *ARM*)
+            printf 'arm\n'
+            ;;
+        *)
+            die "unsupported target architecture in ${archive}: ${description}"
+            ;;
+    esac
+}
+
+normalize_target_architecture() {
+    case "$1" in
+        x86_64 | amd64)
+            printf 'x86_64\n'
+            ;;
+        arm | armv7 | armv7l)
+            printf 'arm\n'
+            ;;
+        *)
+            die "unsupported target architecture: $1 (expected x86_64 or arm)"
+            ;;
+    esac
 }
 
 resolve_path() {
@@ -119,6 +182,20 @@ EXECUTORCH_GIT_URL="${EXECUTORCH_GIT_URL:-https://github.com/pytorch/executorch.
 EXECUTORCH_ARCHIVE_SHA256="${EXECUTORCH_ARCHIVE_SHA256:-}"
 PYTHON_VERSION="${PYTHON_VERSION:-3.11}"
 JOBS="${JOBS:-1}"
+TARGET_ARCH="${EXECUTORCH_TARGET_ARCH:-x86_64}"
+X86_64_C_COMPILER="${EXECUTORCH_X86_64_CC:-x86_64-linux-gnu-gcc-14}"
+X86_64_CXX_COMPILER="${EXECUTORCH_X86_64_CXX:-x86_64-linux-gnu-g++-14}"
+X86_64_AR="${EXECUTORCH_X86_64_AR:-x86_64-linux-gnu-ar}"
+X86_64_RANLIB="${EXECUTORCH_X86_64_RANLIB:-x86_64-linux-gnu-ranlib}"
+X86_64_STRIP="${EXECUTORCH_X86_64_STRIP:-x86_64-linux-gnu-strip}"
+ARM_C_COMPILER="${EXECUTORCH_ARM_CC:-arm-linux-gnueabi-gcc-14}"
+ARM_CXX_COMPILER="${EXECUTORCH_ARM_CXX:-arm-linux-gnueabi-g++-14}"
+ARM_AR="${EXECUTORCH_ARM_AR:-arm-linux-gnueabi-ar}"
+ARM_RANLIB="${EXECUTORCH_ARM_RANLIB:-arm-linux-gnueabi-ranlib}"
+ARM_STRIP="${EXECUTORCH_ARM_STRIP:-arm-linux-gnueabi-strip}"
+DEB_OUTPUT_DIR="${EXECUTORCH_DEB_OUTPUT_DIR:-/work/var}"
+DEB_REVISION="${EXECUTORCH_DEB_REVISION:-1}"
+BUILD_DEB=1
 CLEAN_BUILD=1
 CLEAN_WORK_DIR=1
 WORK_DIR_ARG_PROVIDED=0
@@ -135,6 +212,11 @@ while [[ $# -gt 0 ]]; do
         --deps-dir)
             [[ $# -ge 2 ]] || die "--deps-dir requires a value"
             DEPS_DIR="$2"
+            shift 2
+            ;;
+        --target-arch)
+            [[ $# -ge 2 ]] || die "--target-arch requires a value"
+            TARGET_ARCH="$2"
             shift 2
             ;;
         --executorch-url)
@@ -156,6 +238,20 @@ while [[ $# -gt 0 ]]; do
             [[ $# -ge 2 ]] || die "--jobs requires a value"
             JOBS="$2"
             shift 2
+            ;;
+        --deb-output-dir)
+            [[ $# -ge 2 ]] || die "--deb-output-dir requires a value"
+            DEB_OUTPUT_DIR="$2"
+            shift 2
+            ;;
+        --deb-revision)
+            [[ $# -ge 2 ]] || die "--deb-revision requires a value"
+            DEB_REVISION="$2"
+            shift 2
+            ;;
+        --skip-deb)
+            BUILD_DEB=0
+            shift
             ;;
         --keep-work-dir)
             CLEAN_WORK_DIR=0
@@ -186,6 +282,12 @@ if [[ "${WORK_DIR_ARG_PROVIDED}" -eq 0 || -z "${WORK_DIR}" ]]; then
     die "work-dir argument is mandatory"
 fi
 
+TARGET_ARCH="$(normalize_target_architecture "${TARGET_ARCH}")"
+if [[ "${BUILD_DEB}" -eq 1 ]]; then
+    [[ "${DEB_REVISION}" =~ ^[0-9A-Za-z.+~]+$ ]] ||
+        die "invalid Debian package revision: ${DEB_REVISION}"
+fi
+
 WORK_DIR="$(resolve_path "${WORK_DIR}")"
 DEPS_DIR="$(resolve_path "${DEPS_DIR}")"
 
@@ -203,6 +305,7 @@ VENV_DIR="$(resolve_path "${VENV_DIR}")"
 EXECUTORCH_INSTALL_DIR="$(resolve_path "${EXECUTORCH_INSTALL_DIR}")"
 LIBTORCH_INSTALL_DIR="$(resolve_path "${LIBTORCH_INSTALL_DIR}")"
 DOWNLOAD_DIR="$(resolve_path "${DOWNLOAD_DIR}")"
+DEB_OUTPUT_DIR="$(resolve_path "${DEB_OUTPUT_DIR}")"
 
 export TMPDIR="${WORK_DIR}/tmp"
 export UV_CACHE_DIR="${WORK_DIR}/cache/uv"
@@ -216,6 +319,63 @@ need_cmd curl
 need_cmd git
 need_cmd tar
 need_cmd cmake
+need_cmd ar
+need_cmd file
+if [[ "${BUILD_DEB}" -eq 1 ]]; then
+    need_cmd dpkg-deb
+fi
+
+CMAKE_TARGET_ARGS=()
+if [[ "${TARGET_ARCH}" == "x86_64" ]]; then
+    need_cmd "${X86_64_C_COMPILER}"
+    need_cmd "${X86_64_CXX_COMPILER}"
+    need_cmd "${X86_64_AR}"
+    need_cmd "${X86_64_RANLIB}"
+    need_cmd "${X86_64_STRIP}"
+
+    X86_64_C_TARGET="$("${X86_64_C_COMPILER}" -dumpmachine)"
+    X86_64_CXX_TARGET="$("${X86_64_CXX_COMPILER}" -dumpmachine)"
+    case "${X86_64_C_TARGET}:${X86_64_CXX_TARGET}" in
+        x86_64*-linux-gnu*:x86_64*-linux-gnu*) ;;
+        *)
+            die "x86_64 compilers target ${X86_64_C_TARGET}/${X86_64_CXX_TARGET}; expected x86_64-linux-gnu"
+            ;;
+    esac
+
+    CMAKE_TARGET_ARGS=(
+        "-DCMAKE_TOOLCHAIN_FILE=${SCRIPT_DIR}/toolchains/x86_64-linux-gnu-gcc14.cmake"
+        "-DPEK_EXECUTORCH_X86_64_C_COMPILER=${X86_64_C_COMPILER}"
+        "-DPEK_EXECUTORCH_X86_64_CXX_COMPILER=${X86_64_CXX_COMPILER}"
+        "-DPEK_EXECUTORCH_X86_64_AR=${X86_64_AR}"
+        "-DPEK_EXECUTORCH_X86_64_RANLIB=${X86_64_RANLIB}"
+        "-DPEK_EXECUTORCH_X86_64_STRIP=${X86_64_STRIP}"
+    )
+elif [[ "${TARGET_ARCH}" == "arm" ]]; then
+    need_cmd "${ARM_C_COMPILER}"
+    need_cmd "${ARM_CXX_COMPILER}"
+    need_cmd "${ARM_AR}"
+    need_cmd "${ARM_RANLIB}"
+    need_cmd "${ARM_STRIP}"
+
+    ARM_C_TARGET="$("${ARM_C_COMPILER}" -dumpmachine)"
+    ARM_CXX_TARGET="$("${ARM_CXX_COMPILER}" -dumpmachine)"
+    case "${ARM_C_TARGET}:${ARM_CXX_TARGET}" in
+        arm*-linux-gnueabi*:arm*-linux-gnueabi*) ;;
+        *)
+            die "ARM compilers target ${ARM_C_TARGET}/${ARM_CXX_TARGET}; expected arm-linux-gnueabi"
+            ;;
+    esac
+
+    CMAKE_TARGET_ARGS=(
+        "-DCMAKE_TOOLCHAIN_FILE=${SCRIPT_DIR}/toolchains/arm-linux-gnueabi-gcc14.cmake"
+        "-DPEK_EXECUTORCH_ARM_C_COMPILER=${ARM_C_COMPILER}"
+        "-DPEK_EXECUTORCH_ARM_CXX_COMPILER=${ARM_CXX_COMPILER}"
+        "-DPEK_EXECUTORCH_ARM_AR=${ARM_AR}"
+        "-DPEK_EXECUTORCH_ARM_RANLIB=${ARM_RANLIB}"
+        "-DPEK_EXECUTORCH_ARM_STRIP=${ARM_STRIP}"
+        "-DEXECUTORCH_XNNPACK_ENABLE_KLEIDI=OFF"
+    )
+fi
 
 if command -v ninja > /dev/null 2>&1; then
     CMAKE_GENERATOR_ARGS=(-G Ninja)
@@ -390,6 +550,7 @@ configure_and_build_executorch() {
     fi
 
     cmake -S "${EXECUTORCH_DIR}" -B "${BUILD_DIR}" "${CMAKE_GENERATOR_ARGS[@]}" \
+        "${CMAKE_TARGET_ARGS[@]}" \
         -DCMAKE_BUILD_TYPE=Release \
         -DEXECUTORCH_BUILD_PYTHON=OFF \
         -DEXECUTORCH_BUILD_TESTS=OFF \
@@ -520,7 +681,22 @@ validate_staged_files() {
         libcpuinfo.a
         libportable_ops_lib.a
         libportable_kernels.a
-        libkleidiai.a
+    )
+
+    local architecture_archive="${EXECUTORCH_INSTALL_DIR}/lib/libexecutorch.a"
+    if [[ -f "${architecture_archive}" ]]; then
+        local detected_arch
+        detected_arch="$(archive_architecture "${architecture_archive}")"
+        log "Detected ExecuTorch target architecture: ${detected_arch}"
+        [[ "${detected_arch}" == "${TARGET_ARCH}" ]] ||
+            die "ExecuTorch target mismatch: requested ${TARGET_ARCH}, built ${detected_arch}"
+
+        if [[ "${detected_arch}" == "aarch64" ]]; then
+            required_libs+=(libkleidiai.a)
+        fi
+    fi
+
+    required_libs+=(
         libXNNPACK.a
         libxnnpack_backend.a
         libxnnpack-microkernels-prod.a
@@ -547,6 +723,17 @@ validate_staged_files() {
     [[ "${missing}" -eq 0 ]] || die "ExecuTorch staging is incomplete"
 }
 
+build_debian_package() {
+    [[ "${BUILD_DEB}" -eq 1 ]] || return 0
+
+    log "Creating ExecuTorch Debian package"
+    "${SCRIPT_DIR}/package-executorch-1.3.1-deb.sh" \
+        --executorch-dir "${EXECUTORCH_INSTALL_DIR}" \
+        --libtorch-dir "${LIBTORCH_INSTALL_DIR}" \
+        --output-dir "${DEB_OUTPUT_DIR}" \
+        --revision "${DEB_REVISION}"
+}
+
 print_summary() {
     cat << EOF
 
@@ -555,8 +742,22 @@ ExecuTorch development files are ready.
 ExecuTorch:
   ${EXECUTORCH_INSTALL_DIR}
 
+Target architecture:
+  ${TARGET_ARCH}
+
 libtorch compatibility headers:
   ${LIBTORCH_INSTALL_DIR}
+EOF
+
+    if [[ "${BUILD_DEB}" -eq 1 ]]; then
+        cat << EOF
+
+Debian package output:
+  ${DEB_OUTPUT_DIR}
+EOF
+    fi
+
+    cat << EOF
 
 Build PEK with:
   PEK_EXECUTORCH=enabled ./scripts/build-elements.sh debug
@@ -566,6 +767,7 @@ EOF
 log "Project root: ${PROJECT_ROOT}"
 log "Work dir: ${WORK_DIR}"
 log "Deps dir: ${DEPS_DIR}"
+log "Target architecture: ${TARGET_ARCH}"
 log "ExecuTorch version: ${EXECUTORCH_VERSION}"
 log "ExecuTorch archive URL: ${EXECUTORCH_ARCHIVE_URL}"
 log "ExecuTorch git URL for submodules: ${EXECUTORCH_GIT_URL}"
@@ -587,4 +789,5 @@ configure_and_build_executorch
 copy_built_libraries
 stage_libtorch_headers
 validate_staged_files
+build_debian_package
 print_summary
