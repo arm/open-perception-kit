@@ -36,6 +36,7 @@ ensure_runtime_files() {
 }
 
 run_repo_checks_command() {
+    repo_checks_build_image "${REPO_ROOT}"
     repo_checks_run_image "${REPO_ROOT}" "${REPO_CHECKS_COMMAND[@]}"
 }
 

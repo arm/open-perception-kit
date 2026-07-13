@@ -63,8 +63,10 @@ file list from pre-commit, host pre-commit uses staged files with a branch-delta
 fallback, CI PR uses `--pr-target-branch`, and CI full/nightly checks the
 tracked tree.
 
-The wrapper builds a dedicated runtime image up front and then reuses it for
-hook execution. There is no hidden image rebuild during a normal commit.
+The wrapper builds the dedicated runtime image during setup and refreshes it
+before hook execution. Docker's build cache keeps unchanged runs cheap while
+ensuring pulled updates to `tools/expkits-ci`, runtime packages, or the
+Dockerfile are picked up locally.
 
 If you keep multiple local clones with the same checkout directory name, set
 `REPO_CHECKS_IMAGE_NAME=<unique-tag>` for both `setup.sh` and `run.sh` to
