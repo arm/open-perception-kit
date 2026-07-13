@@ -182,7 +182,12 @@ class TestCompareValgrindResults(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("New errors      : 1", result.stderr)
         self.assertIn("FAILED: 1 new Valgrind error(s) introduced compared to the baseline.", result.stderr)
-        self.assertIn("fn=new_fn", result.stderr)
+        self.assertIn("[NEW] Leak_DefinitelyLost", result.stderr)
+        self.assertIn(
+            "#0 new_fn at /work/development/elements/example.cpp:10 "
+            "(/work/development/build/meson-out/libexample.so)",
+            result.stderr,
+        )
 
     def test_cli_exits_two_for_invalid_input(self):
         with tempfile.TemporaryDirectory() as tmpdir:
