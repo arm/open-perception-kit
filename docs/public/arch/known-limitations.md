@@ -5,118 +5,79 @@ sidebar_label: Known limitations
 
 # Known Limitations
 
-This page captures the most important current limitations and architectural friction points in Perception Experience Kit.
+This page captures the main architectural friction points in the current PEK
+runtime. Treat these as constraints when extending the system.
 
-## Scope and application boundary
+## Application Boundary
 
-- The core project boundary should start at model integration and structured
-  `Perception` results, then end at publishing those results through a stable
-  contract.
-- `peksink` is useful for demos, but it currently mixes WebRTC delivery, HTTP
+- `peksink` is useful for demos, but it currently combines WebRTC delivery, HTTP
   serving, static UI hosting, control WebSocket handling, model registry state,
   and pipeline state control in one GStreamer element.
-- Browser UI hosting should move out of `peksink`. A separate application or
-  container should serve the UI endpoint, while the runtime publishes media and
-  perception results.
-- `pekcomm` can publish serialized `Perception` to file/stdout, but there is no
-  standard, versioned application endpoint for perception results yet.
+- Browser UI hosting should move out of `peksink`; the runtime should publish
+  media and perception results through a stable contract.
+- `pekcomm` can publish serialized `Perception`, but there is no standard,
+  versioned application endpoint for perception results yet.
 
-## peksink security and lifecycle
+## Security And Lifecycle
 
-- `peksink` control and model-info endpoints are not ready to be treated as a
-  secure product API. Authentication, authorization, input validation, and safe
-  default network exposure need a dedicated review.
-- `peksink` properties, request-pad behavior, thread startup/shutdown, and
-  teardown ordering need more lifecycle testing before the element is treated as
-  production-ready.
+- `peksink` control and model-info endpoints are not product APIs. Authentication,
+  authorization, input validation, and network exposure need dedicated review.
+- `peksink` request pads, thread startup/shutdown, and teardown ordering need more
+  lifecycle coverage.
 
-## Perception contracts and postprocessing
+## Perception And Postprocessing Contracts
 
-- New `Perception` result structures are still defined in C++ and usually
-  require edits across the common model, serializer, parser, and visualization
-  code.
-- Users should be able to define perception structures schematically and publish
-  those schema-defined results through the standard result endpoint.
-- Custom postprocessing is still centered on C++ parsers registered in
-  `GenericPostprocessOp`, a Python postprocessing path is not available yet.
-- `pekosd` rendering is still hardcoded around known `contentType` values, so it
-  is best treated as a debugging overlay rather than the long-term application
-  visualization layer.
+- New `Perception` result structures still require coordinated C++ changes across
+  the common model, serializer, parser, and visualization code.
+- Custom postprocessing is C++-only today and registered through
+  `GenericPostprocessOp`.
+- `pekosd` rendering is hardcoded around known content types, so it is best
+  treated as a debugging overlay rather than the long-term visualization layer.
 
-## Runtime failure handling
+## Runtime Failure Handling
 
-- Several runtime paths still use `assert()` or `pek_abort()` during setup,
-  tensor handling, parser validation, and per-frame execution.
-- Parser and tensor validation should return explicit errors instead of relying
-  on asserts that crash debug builds and disappear from release builds.
-- GStreamer elements should report proper element errors and fail the affected
-  chain or buffer gracefully instead of aborting the whole process.
+- Several setup, tensor, parser, and per-frame paths still use `assert()` or
+  `pek_abort()`.
+- Parser and tensor validation should return explicit errors.
+- GStreamer elements should report element errors and fail the affected chain or
+  buffer gracefully instead of aborting the process.
 
-## Media support
+## Media Support
 
-- Video processing currently assumes linear, tightly packed BGRA frames in the
-  main runtime elements.
-- Padded stride, multi-planar formats, DMABUF, and zero-copy paths are not
-  handled consistently yet.
+- Main runtime elements assume linear, tightly packed BGRA video frames.
+- Padded stride, multi-planar formats, DMABUF, and zero-copy paths are not handled
+  consistently yet.
 - `peksink` can transport audio, but audio inference is not integrated.
 
-## Configuration and OpChain contracts
+## Configuration And OpChain Contracts
 
-- JSON configuration is central to models, OpChains, and pipelines, but the
-  schemas, field semantics, and validation rules are not documented or tested
-  deeply enough.
-- Model descriptors and OpChains need schema validation tests before users rely
-  on them as stable extension contracts.
-- Descriptor versioning and migration rules are not defined, so released
-  OpChains and model descriptors may break as the framework evolves.
+- JSON model, OpChain, and pipeline schemas need stronger documentation,
+  validation, and tests.
+- Descriptor versioning and migration rules are not defined.
 - OpChain execution is ordered and supports grouped loops, but richer scheduling
-  such as startup-only configuration stages is not represented cleanly yet.
+  such as startup-only stages is not represented cleanly.
 
-## Models, backends, and platforms
+## Models, Backends, And Platforms
 
-- Model artifacts are checked into `config/models/`, they should move to a
-  separate download/cache flow with manifests, checksums, and license metadata.
-- ONNX Runtime and HailoRT are the main working backends. ExecuTorch is still
-  incomplete, MNN is only planned, and RKNN/Orion6 is not a supported platform
-  yet.
-- Model performance and accuracy baselines are not published consistently,
-  especially across CPU and accelerator variants.
+- Model artifacts in `config/models/` should move to a download/cache flow with
+  manifests, checksums, and license metadata.
+- ONNX Runtime and HailoRT are the main working backends. ExecuTorch is
+  experimental, MNN is planned, and RKNN/Orion6 is not supported.
+- Model performance and accuracy baselines are not published consistently.
 
-## Performance and observability
+## Observability And Quality
 
-- There are no clear performance goals for latency, FPS, CPU use, NPU use, or
-  memory consumption.
-- Runtime timing exists through `PerformanceTracer` and `pekperformance`, but
-  measurement checkpoints are not yet a clear user-facing contract.
-- Memory consumption is not measured by the built-in performance path.
-- CPU and accelerator performance are not reported in a comparable way across
-  supported models and platforms.
+- There are no stable performance goals for latency, FPS, CPU, accelerator use,
+  or memory consumption.
+- `PerformanceTracer` and `pekperformance` exist, but measurement checkpoints are
+  not yet a user-facing contract.
+- Coverage is thin for parser behavior, known inference outputs, JSON/schema
+  validation, and GStreamer element lifecycle behavior.
 
-## Testing and quality
+## Packaging And Deployment
 
-- Existing tests cover selected helpers, but coverage is still thin for parser
-  behavior, known inference outputs, JSON/schema validation, and GStreamer
-  element behavior.
-- Integration tests should exercise existing postprocessors against known model
-  outputs and expected `Perception` results.
-- The repository has formatting and contribution notes, but no detailed coding
-  guideline for C++, GStreamer, error handling, ownership, and testing style.
-- Coding style and implementation quality are still inconsistent across older
-  and newer areas of the tree.
-
-## Packaging and deployment
-
-- The development and deployment flow still assumes containers, source-tree
-  layout, and many hardcoded `/work` paths.
-- Host-side or non-container development is therefore harder than it should be.
-- Binary distribution of the runtime, model descriptors, and OpChains is not
-  ready with the current repository structure.
-- Containers are built by users from the repository today; release-ready binary
-  artifacts and deterministic container images are still needed.
-- The DevOps flow should be simplified and made more deterministic before the
-  project is treated as a product distribution.
-
-Until these limitations are addressed, treat `model.json`, `opchain.json`,
-`Perception`, and the existing GStreamer elements as the main experimental
-integration surface. Treat `peksink`, `pekcomm` and the browser UI as a convenient demo
-path, not as the final application boundary.
+- Development and deployment still assume containers, source-tree layout, and many
+  hardcoded `/work` paths.
+- Binary distribution of runtime components, model descriptors, and OpChains is
+  not ready.
+- Release-ready container images and deterministic artifacts are still needed.

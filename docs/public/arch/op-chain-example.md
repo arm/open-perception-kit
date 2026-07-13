@@ -3,59 +3,46 @@ sidebar_position: 13
 sidebar_label: OpChain Example
 ---
 
-# Example OpChain in pekinfer
+# Example OpChain In pekinfer
 
-## Model Cascading: Face-Driven Crop Loop With Preprocess → Inference → Postprocess
-
-This example shows a typical OpChain executed inside the `pekinfer` GStreamer element.
-The chain runs inference over multiple regions of interest derived from Perception content.
-The main pattern is: collect ROIs → create crops → loop over a subchain while crops remain.
-
----
+This example shows a model cascade where a first model finds faces and a second
+model runs once for each face crop. The pattern is: collect regions of interest,
+create crops, then loop over a repeated subchain while crops remain.
 
 ## Chain Layout
 
-The chain is composed of four Ops executed once, followed by a second four-Op block that is repeated with `loopId = 2`.
-Each Op can read transient execution data from OpChainContext and write persistent results into Perception.
+The chain starts with a normal detection block and then repeats a second block
+using `loopId`:
 
-- `pek-std-ops/InferenceController`
-- `pek-std-ops/GenericImagePreprocess`
-- `pek-onnx-ops/Inference`
-- `pek-std-ops/GenericPostprocess`
+1. `InferenceController`
+2. `GenericImagePreprocess`
+3. `Inference`
+4. `GenericPostprocess`
 
----
+Each Op reads transient state from `OpChainContext` and writes persistent results
+into `Perception` when needed.
 
-## InferenceController Loop Semantics
+## Loop Semantics
 
-`InferenceController` drives the multi-crop execution flow.
-It selects input regions based on `contentType`.
-It queries Perception for all rectangles matching the content type (e.g. detected faces).
-It converts these rectangles into logical crops for inference.
-It pushes the resulting crop list into `OpChainContext::inferenceImageCrops` and stores matching parent UUIDs in `OpChainContext::inferenceImageCropUuids`.
-It then repeatedly executes the Ops that share the active `loopId` while consuming crops.
-One crop is removed per iteration.
-Looping stops when the crop list becomes empty.
+`InferenceController` selects source detections by `contentType`, converts their
+rectangles into crop regions, stores those crops and parent UUIDs in
+`OpChainContext`, and activates the loop. One crop is consumed per iteration.
+Looping stops when the crop list is empty.
 
-This allows a single frame to produce multiple inference executions.
-This design supports “for each object” inference, such as “for each detected face” gaze estimation.
+This supports "for each object" inference, such as gaze estimation for each
+detected face.
 
----
+## Data Flow
 
-## Data Flow Summary
-
-A video frame enters the pipeline and is exposed as `bitmapViews["pipelineVideoFrame"]`.
-InferenceController creates crop rectangles based on Perception content.
-GenericImagePreprocess builds the input tensor for the current crop.
-Inference runs the model for the current crop using the selected runtime backend.
-GenericPostprocess parses output tensors and writes structured metadata into Perception.
-
----
+1. A video frame is exposed as `bitmapViews["pipelineVideoFrame"]`.
+2. `InferenceController` creates crop rectangles from existing `Perception`
+   content.
+3. `GenericImagePreprocess` builds the input tensor for the current crop.
+4. `Inference` runs the model using the selected backend.
+5. `GenericPostprocess` parses output tensors and writes results into
+   `Perception`.
 
 ## JSON Descriptor Example
-
-The OpChain is defined declaratively via JSON.
-The `loopId` field ties Ops into a repeated execution group.
-`InferenceController` activates the loop by setting the current `loopId` in the execution context.
 
 ```json
 {
@@ -122,9 +109,5 @@ The `loopId` field ties Ops into a repeated execution group.
 }
 ```
 
-## Notes
-
-The example uses ONNX inference via pek-onnx-ops/Inference.
-The same pattern applies to other runtimes by swapping the inference Op implementation.
-Perception is the persistent container that travels downstream and accumulates results across Ops and across GStreamer pekinfer element instances.
-OpChainContext is transient and only valid during execution of the current chain.
+The same pattern applies to other runtimes by swapping the inference Op and model
+descriptor.

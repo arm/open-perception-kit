@@ -3,233 +3,85 @@ sidebar_position: 6
 sidebar_label: pek::Model
 ---
 
-# Perception Experience Kit Model System
-## Engine-Agnostic Model Abstraction and Descriptor Merge Architecture
+# pek::Model
 
-The Perception Experience Kit inference framework separates model runtime introspection from
-user-provided model metadata.
+The model system separates backend introspection from user-provided model
+metadata. Inference backends load a model and expose discovered tensor metadata;
+PEK merges that information with the JSON model descriptor to produce a validated,
+engine-agnostic `pek::Model`.
 
-This separation ensures:
+The merge has two inputs:
 
--   Backend independence (ONNX, HailoRT, ExecuTorch, etc.)
--   Strict validation of tensor definitions
--   Deterministic runtime behavior
--   Clean integration into OpChains inside pekinfer
+1. Metadata extracted by the selected backend, such as tensor names, shapes,
+   element types, and quantization parameters.
+2. Metadata from `model.json`, such as model identity, content type, data layout,
+   normalization, and static shape overrides.
 
-Two primary components are involved:
+If both sources define the same property, they must agree. Otherwise model loading
+fails.
 
--   pek::Model (engine-agnostic runtime model representation)
--   pek::ModelDescriptor (declarative JSON metadata)
+## Runtime Representation
 
-The final runtime model used by inference Ops is an pek::Model instance
-produced by merging:
+`pek::Model` is the canonical runtime representation used by inference Ops. It
+contains resolved input and output tensor definitions, including:
 
-1.  Information extracted from the inference engine
-2.  Information provided in the JSON descriptor
+- tensor names and shapes
+- tensor element type (`Tdt`)
+- tensor layout or semantic kind (`DataKind`)
+- quantization parameters
+- normalization parameters for inputs
+- model family and content type
+- static or dynamic output behavior
 
-If overlapping information is present in both sources, it must match.
-Otherwise, model loading fails.
+Once constructed, the object is treated as resolved runtime configuration for the
+OpChain.
 
-# 1. pek::Model
+## Descriptor Metadata
 
-## Canonical Runtime Representation
+A model descriptor supplies the metadata that cannot always be recovered reliably
+from the backend model file. A minimal image model descriptor looks like this:
 
-The pek::Model class is the unified runtime model abstraction used by the Op
-system. It defines the input and output tensors used when inference is executed.
-
-It contains:
-
--   Input tensor definitions
--   Output tensor definitions
--   Tensor shapes
--   Value types
--   Quantization parameters
--   Data formats (DataKind)
--   Model family and content type
--   Dynamic output configuration
-
-It is fully engine-agnostic.
-
-Once constructed, this object is passed to the inference Op, which can
-then be inserted into an OpChain.
-
-## 1.1 Model Inputs
-
-Each input is represented by ModelInput.
-
-Contains:
-
--   name
--   DataKind
--   Tdt (tensor data type)
--   Shape
--   QuantizationArgs
--   Normalization parameters (mean, std)
--   Optional batch size
-
-Supported DataKind values:
-
--   ImageRgbChw
--   ImageRgbHwc
--   ImageBgraHwc
--   ImageGray
-
-Tensor formats for inference configuration:
-
--   Value
--   Vector2
--   Vector3
--   Vector4
-
-This allows the system to handle:
-
--   Image tensors
--   Scalar/vector configuration inputs
-
-## 1.2 Model Outputs
-
-Each output is represented by ModelOutput.
-
-Contains:
-
--   name
--   Shape
--   Tdt (dtype - tensor data type)
--   QuantizationArgs
-
-The model may operate in:
-
--   Static output mode
--   Dynamic output mode (`useDynamicOutput`) when the selected runtime resolves output shapes at execution time.
-
-# 2. ModelDescriptor
-
-## Declarative JSON Model Metadata
-
-ModelDescriptor is a JSON-based configuration object that describes
-model metadata and runtime expectations.
-
-It contains:
-
--   Model identity
--   Model file path
--   Model family
--   Content type
--   Input tensor metadata
--   Output tensor metadata
--   Dynamic output configuration
-
-## Example JSON Descriptor
-
-```
+```json
 {
-	"name": "yolo",
-	
-	"modelFamily": "yolo-obj",
-	"contentType": "genericObject",
-	"modelFile": "yolo11n-fp32-320.onnx",
-	
-	"dynamicOutput": true,
-	
-	"inputTensors": 
-	[
-		{
-			"shape": [ 1, 3, 320, 320 ],
-			"dataKind": "ImageRgbChw"
-		}
-	]
+  "name": "yolo",
+  "modelFamily": "yolo-obj",
+  "contentType": "genericObject",
+  "modelFile": "yolo11n-fp32-320.onnx",
+  "dynamicOutput": true,
+  "inputTensors": [
+    {
+      "shape": [1, 3, 320, 320],
+      "dataKind": "ImageRgbChw"
+    }
+  ]
 }
 ```
 
-The descriptor may define:
+Descriptors can define tensor shapes, data kinds, value types, quantization
+values, normalization values, and scalar/vector input metadata.
 
--   Explicit tensor shapes
--   Data format (dataKind)
--   Value types
--   Quantization overrides
--   Normalization parameters
--   Scalar/vector input configuration
+## Loading Lifecycle
 
-# 3. Model Loading Lifecycle
+Model loading follows a fixed sequence:
 
-Model loading is a two-phase process.
+1. The backend loads the model file and extracts the metadata it supports.
+2. PEK creates an initial `pek::Model` from backend data.
+3. `pek::Model::applyModelFromDescriptor` merges descriptor metadata into the
+   engine-derived model.
+4. Validation resolves dynamic dimensions and checks descriptor/backend agreement.
+5. The resolved `pek::Model` is passed to the inference Op.
 
-## Phase 1 - Engine Introspection
+## Validation Rules
 
-The selected inference engine:
+Input tensor validation checks tensor count, data kind, shape compatibility,
+dynamic dimension resolution, and scalar/vector consistency.
 
--   Loads the model file
--   Extracts tensor names
--   Extracts tensor shapes
--   Extracts value types
--   Extracts quantization parameters
+Output tensor validation depends on `dynamicOutput`:
 
-An initial pek::Model instance is created from engine data. 
-Most of these values are not provided directly by every model file.
+- When `dynamicOutput` is false, output tensor count and shapes must match or be
+  resolvable from backend dynamic shapes.
+- When `dynamicOutput` is true, the descriptor must not define output tensors;
+  the runtime resolves output shapes during execution.
 
-## Phase 2 - Descriptor Merge
-
-pek::Model::applyModelFromDescriptor merges JSON metadata into the
-engine-derived model.
-
-Input tensor validation rules:
-
--   Tensor count must match
--   DataKind must not be Unknown
--   JSON cannot contain dynamic dimensions
--   If engine shape is dynamic, descriptor must resolve it
--   If engine shape is static and descriptor provides shape, shapes must
-    match
-
-Output tensor validation rules:
-
-If dynamicOutput is false:
-
--   Output tensor count must match
--   Shapes must match unless resolved from engine dynamic shape
-
-If dynamicOutput is true:
-
--   JSON must not define output tensors
--   Runtime determines output shape per inference step
-
-## Failure Conditions
-
-Model loading fails if:
-
--   Input or output tensor counts mismatch
--   Shapes mismatch
--   DataKind is undefined
--   Dynamic dimensions remain unresolved
--   Scalar or vector metadata is inconsistent
-
-This strict validation guarantees deterministic inference behavior.
-
-# 4. Final Runtime Model
-
-After successful merge:
-
--   The pek::Model is fully resolved
--   All tensor dimensions are known
--   Data formats are fixed
--   Quantization parameters are fixed
--   Dynamic output behavior is defined
-
-This object becomes immutable runtime configuration.
-
-# 5. Architectural Properties
-
-The model system provides:
-
--   Backend-agnostic runtime representation
--   Strict validation between model file and JSON metadata
--   Deterministic tensor layout
--   Explicit data format handling
--   Support for static and dynamic output shapes
-
-This architecture enables:
-
--   Pluggable inference engines
--   Runtime model configuration without recompilation
--   Clean OpChain integration
--   Deterministic and validated inference execution
+Strict validation keeps tensor layout deterministic and prevents silent backend or
+parser mismatches.

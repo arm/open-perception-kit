@@ -4,186 +4,52 @@ sidebar_label: pekosd
 ---
 
 # pekosd
-## On-Screen Display Element for Perception Visualization
 
-`pekosd` is a GStreamer `GstVideoFilter` element that renders structured
-`Perception` metadata onto BGRA video frames by compositing Cairo ARGB32 overlay layers.
+`pekosd` is a `GstVideoFilter` that renders `Perception` metadata onto BGRA video
+frames. It is a presentation/debugging stage and does not modify `Perception`
+itself.
 
-The current data path expects BGRA video frames on the element pads.
-If there is no overlay on the video, first check the frame format and make sure upstream elements are actually producing `PerceptionMeta`.
+## Element Contract
 
-It uses the received `Perception` instance attached to buffers, generates
-intermediate Cairo drawing layers, and composites them over the input frame
-in-place.
-
-At a later stage of development, a Vulkan- or OpenGL-based rendering path may also be implemented to make DMA-BUF zero-copy pipelines possible.
-
-The element operates purely as a visualization stage and does not modify Perception itself.
-
----
-
-# Integration
-
-- Element type: `GstVideoFilter`
+- Base class: `GstVideoFilter`
+- Processing mode: in-place `transform_frame_ip`
 - Pad caps: `video/x-raw, format=BGRA`
-- Processing mode: in-place (`transform_frame_ip`)
 - Metadata dependency: `PerceptionMeta`
+- Main property: `enabled`
 
-`pekosd` can be inserted anywhere downstream of `pekinfer`
-or other elements that attach `Perception` metadata.
+If no `PerceptionMeta` is attached, the frame passes through unchanged.
 
----
+## Execution Model
 
-# Execution Model
+For each frame, `pekosd` reads the immutable `Perception` payload, creates one or
+more Cairo-backed overlay layers, composites those layers onto the input frame,
+and returns the modified frame downstream.
 
-For each incoming frame:
+The current implementation uses CPU-based Cairo rendering over linear BGRA memory.
+Future DMABUF/Vulkan-style rendering is a planned direction, not the current path.
 
-1. Read `PerceptionMeta` from the buffer if it is present.
-2. Access the immutable `Perception` payload.
-3. Generate one or more Cairo-backed overlay layers.
-4. Composite the layers over the input frame using `CAIRO_OPERATOR_OVER`.
-5. Return the modified frame downstream.
+## Rendering Model
 
-All drawing occurs in-memory using Cairo image surfaces.
-If no `PerceptionMeta` is attached, `pekosd` leaves the frame unchanged.
+Rendering is driven by `Perception::Layer::contentType`. Supported paths include:
 
----
+- `genericObject`: bounding boxes and labels
+- `humanFace`: face-centered circular overlays
+- `classification`: top-k classification text
+- `eyeYawPitch`: gaze direction vectors anchored to parent faces
+- `cameraContact`: face-centered contact status dot
+- `segmentation`: alpha-blended segmentation maps
+- `trackTrace`: tracker history lines
+- `perfdata`: performance text written by `pekperformance`
 
-# Drawing Architecture
+UUID parent relationships are used when a rendered result depends on another
+object, such as gaze vectors anchored to face rectangles.
 
-## Layer Abstraction
+## Memory And Performance
 
-`Osd::Layer` wraps a Cairo ARGB32 surface and its drawing context.
-Each logical overlay (detections, segmentation, performance data)
-is rendered into its own layer.
+- Frames are modified in place.
+- Overlay layers are temporary Cairo ARGB32 surfaces.
+- No full-frame copy is required for the final canvas.
+- Rendering is CPU-bound and assumes linear image memory.
 
-Layers are later composited onto the final canvas.
-
-This layered approach provides:
-
-- Separation of overlay concerns.
-- Independent blending behavior.
-- Ordered composition.
-
----
-
-## Canvas
-
-`Osd::Canvas` wraps the actual video frame memory using
-`cairo_image_surface_create_for_data`.
-
-The final paint operation blends all prepared layers into the frame.
-
-No additional frame copies are created.
-
----
-
-# Supported Perception Content Types
-
-Rendering is driven by `Perception::Layer::contentType`.
-
-Currently supported:
-
-## genericObject
-
-- Renders bounding rectangles.
-- Displays object label text.
-- Draws rectangle outlines with configurable thickness.
-
-## humanFace
-
-- Renders circular overlays centered on detected faces.
-- Circle radius derived from bounding box width.
-
-## classification
-
-- Renders top-k classification candidates.
-- Draws label list in lower-left corner.
-- Displays rank and confidence percentage.
-
-## eyeYawPitch
-
-- Renders gaze direction vectors.
-- Computes endpoint from yaw/pitch angles.
-- Draws arrow from face center to projected gaze endpoint.
-
-## cameraContact
-
-- Renders a face-centered status dot.
-- Draws a green dot when the subject is looking at the camera.
-- Draws a red dot when the subject is not looking at the camera.
-
-## segmentation
-
-- Renders segmentation map as alpha-blended overlay.
-- Performs min-max normalization of map values.
-- Supports automatic scaling when segmentation resolution differs from frame size.
-
-## trackTrace
-
-- Renders tracker history as line traces.
-- Uses `Perception::TrackTrace` points emitted by `pektracker`.
-
----
-
-# Gaze Vector Rendering
-
-Yaw/pitch values are converted to screen-space vectors:
-
-- Degrees converted to radians.
-- Tangent-based directional projection.
-- Normalized direction vector.
-- Arrow drawn with adjustable head geometry.
-
-Vectors are anchored to the parent face rectangle center,
-resolved via UUID-based parent relationships.
-
----
-
-# Performance Overlay
-
-`Perception::perfdata` lines are rendered in the upper-left corner.
-
-- Monospace font.
-- Semi-transparent background.
-- One line per performance entry.
-
-This allows lightweight runtime profiling visualization.
-
----
-
-# Properties
-
-`enabled` (boolean)
-
-- Enables or disables OSD rendering.
-- When disabled, frames pass through unmodified.
-
----
-
-# Memory and Performance Characteristics
-
-- In-place modification of BGRA frames.
-- No intermediate frame duplication.
-- Cairo ARGB32 overlays composited over the original buffer.
-- CPU-based rendering.
-- Current implementation requires linear image memory.
-
-Future extension plans include:
-
-- DMABUF-backed rendering.
-- Vulkan-based zero-copy overlay.
-- Reduced CPU overhead for high-resolution streams.
-
----
-
-# Design Characteristics
-
-- Metadata-driven rendering.
-- Fully decoupled from inference logic.
-- Supports multiple detection types in a single frame.
-- Layered composition model.
-- Deterministic rendering order.
-
-`pekosd` acts strictly as a presentation stage,
-bridging structured Perception metadata to human-readable visualization.
+Treat `pekosd` as a debugging overlay rather than the long-term application UI
+contract.

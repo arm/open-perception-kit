@@ -4,126 +4,38 @@ sidebar_label: Inference Process
 ---
 
 # Inference Execution Flow
-## Engine-Specific Loading+Inference with Engine-Agnostic Processing
 
-The Perception Experience Kit inference architecture deliberately separates:
+PEK separates engine-specific model loading and inference execution from generic
+preprocessing, tensor handling, postprocessing, and `Perception` output.
+Backend-specific code lives in separate shared libraries so SDK dependencies stay
+isolated from the core runtime.
 
-- Engine-specific responsibilities  
-- Engine-agnostic processing logic  
+![Engine Independent Architecture](../static/img/engine-independent.png)
 
-We even use separate `.so` files for the different inference engines so that their SDKs, libraries, headers, and dependencies can remain fully isolated from each other and from the core system.
+## Flow
 
-![Engine Independent Architecture](../../static/img/engine-independent.png)
+1. The selected backend loads the model file and extracts metadata such as tensor
+   names, shapes, element types, and quantization parameters.
+2. Backend metadata is converted into the engine-agnostic `pek::Model` runtime
+   representation.
+3. Generic preprocessing builds input tensors using model input metadata,
+   `DataKind`, `Shape`, and quantization/normalization values.
+4. The backend-specific inference Op calls the runtime and writes raw output
+   tensors.
+5. Generic postprocessing wraps those outputs in `TensorView`, parses them, and
+   writes structured results into `Perception`.
 
-This ensures portability, modularity, and clean backend abstraction.
-
-The lifecycle of a model and inference execution follows a structured
-transition between engine-specific and engine-independent domains.
-
-## Engine-Specific Model Load
-
-The selected inference backend (e.g., ONNX, HailoRT, ExecuTorch):
-
-- Loads the model file
-- Parses model graph structure
-- Extracts tensor names
-- Extracts tensor shapes
-- Extracts value types
-- Extracts quantization parameters
-
-## Conversion to Engine-Agnostic Model
-
-After successful loading and validation, the backend constructs
-an `pek::Model` instance.
-
-`pek::Model` becomes the **platform-independent, canonical representation**
-of the model within the Perception Experience Kit framework.
-No backend-specific structures leak into generic code.
-Tensor metadata is handled uniformly.
-
-## Generic Preprocessing (Engine-Agnostic)
-
-Before inference is invoked:
-
-- Generic preprocessing Ops execute
-- Input image resizing is performed
-- Layout conversion is applied (e.g., HWC to CHW)
-- Normalization is applied (mean/std)
-- Quantization preprocessing is handled
-
-All preprocessing logic operates with:
-
-- `ModelInput` metadata
-- `DataKind`
-- `Shape`
-- Quantization parameters
-
-This stage is entirely engine-independent.
-
-## Engine-Specific Inference Execution
-
-Once tensors are prepared:
-
-- The inference Op calls the backend runtime
-- The engine performs forward execution
-- Raw output tensors are produced
-
-This is the only stage where the backend runtime is active (and model loading).
-
-The engine writes results into raw tensor memory.
-That memory is then wrapped in a `TensorView`, which handles dequantization.
-
-## Engine-Agnostic Postprocessing
-
-After inference execution:
-
-- Output tensors re-enter engine-agnostic territory
-- `TensorView` abstracts raw memory
-- Generic postprocessing logic executes
-- Domain-specific parsing occurs (e.g., detection decoding, classification mapping)
-- Results are written into Perception structures
-
-No backend-specific logic is required at this stage.
-
-## The overall flow can be summarized
-
-```
-Engine-specific load
-  ↓
-pek::Model (engine-agnostic representation)
-  ↓
-Generic preprocessing
-  ↓
-Engine-specific inference execution
-  ↓
-Generic postprocessing
+```text
+engine-specific load
+  -> pek::Model
+  -> generic preprocessing
+  -> engine-specific inference execution
+  -> generic postprocessing
 ```
 
-This separation ensures:
+## Design Principle
 
-- Backend pluggability
-- Clean layering
-- No runtime coupling between generic logic and engine internals
-- Deterministic behavior across engines
-- Easier testing and validation
-
----
-
-## Key Design Principle
-
-The inference engine is responsible only for:
-
-- Loading the model
-- Executing the forward pass
-
-All other responsibilities are handled generically:
-
-- Preprocessing
-- Postprocessing
-- Inference result formatting
-
-This design guarantees that:
-
-- Switching backends does not require rewriting preprocessing logic
-- Postprocessing logic is reusable across engines
-- OpChains remain stable regardless of the underlying inference runtime
+Inference engines are responsible for loading models and executing the forward
+pass. Preprocessing, postprocessing, result formatting, and OpChain structure stay
+generic. This allows backend swapping without rewriting parser logic or changing
+the surrounding OpChain contract.

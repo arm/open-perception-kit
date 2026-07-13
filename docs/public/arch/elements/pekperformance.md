@@ -3,177 +3,54 @@ sidebar_position: 3
 sidebar_label: pekperformance
 ---
 
-# Performance Tracing and Overlay
-## PerformanceTracer, PerformanceMonitor, and `pekperformance`
+# Performance Tracing And Overlay
 
-This module provides a thread-safe timing infrastructure (`PerformanceTracer`)
-and a GStreamer element (`pekperformance`) that publishes aggregated metrics
-into `Perception::perfdata` for downstream visualization (e.g., via `pekosd`).
+PEK has a shared timing infrastructure (`PerformanceTracer`) and a GStreamer
+element (`pekperformance`) that publishes aggregated metrics into
+`Perception::perfdata` for downstream display or inspection.
 
-The design separates:
+## PerformanceTracer
 
-- measurement collection (library / runtime code)
-- statistics aggregation (percentiles and summaries)
-- presentation (overlay generation via pipeline elements)
+`pek::PerformanceTracer` records duration samples keyed by string. It supports
+manual `start()`/`end()` calls, scoped timing, and convenience tracing macros.
+Measurements are retained per key and can be summarized as count, min, max,
+average, and percentiles.
 
----
+The tracer uses mutex-protected stores for active timers, current-cycle samples,
+history, cached statistics, and cycle-end callbacks. Multiple overlapping timers
+for the same key are not supported; the latest `start(key)` owns that key.
 
-# PerformanceTracer
-## Thread-Safe Keyed Timing Store
+`endCycle()` defines a measurement cycle. In media pipelines, that usually maps
+to one frame.
 
-`pek::PerformanceTracer` is a keyed timer registry that records duration samples
-as `TimingMeasurement` entries.
+## PerformanceMonitor
 
-### Measurement API
+`PerformanceMonitor` is a console-oriented helper around `PerformanceTracer`. It
+can print compact summaries, detailed tables, or a live-refreshing terminal view.
+It is intended for debugging outside overlay rendering.
 
-- `start(key)` stores the start timestamp for `key`.
-- `end(key)` ends the timer for `key`, records a `TimingMeasurement`, and returns the duration.
-- `ScopedTimer` provides RAII timing via construction/destruction.
-- Convenience macros provide a global tracer API:
+## pekperformance Element
 
-`PEK_TRACE_START(key)`  
-`PEK_TRACE_END(key)`  
-`PEK_TRACE_SCOPE(key)`  
-`PEK_TRACE_END_CYCLE()`
+`pekperformance` is a `GstVideoFilter` that writes formatted performance lines
+into `Perception::perfdata`. It does not draw overlays; `pekosd` renders the text
+if present.
 
-### Concurrency Model
+During `transform_frame_ip`, the element updates FPS estimation, refreshes cached
+metric lines on the configured interval, mutates `PerceptionMeta` when present,
+and writes the cached lines into `perception.perfdata`.
 
-The tracer is designed for multi-threaded pipelines.
+## Properties And Control
 
-It uses separate mutex-protected stores for:
+- `enabled`: enable or disable publishing.
+- `update-interval`: refresh cadence in frames.
+- `show-all-metrics`: export all tracer keys instead of the predefined set.
+- Overlay formatting properties are preserved for downstream rendering.
 
-- active timers (start called, end not called)
-- current-cycle measurements
-- measurement history (per key)
-- cached statistics (per key)
-- end-cycle callbacks
+The element also accepts custom upstream `pekperformance` events with an
+`enabled` boolean for runtime toggling.
 
-Timers are keyed by string; multiple overlapping timers for the same key are not supported
-(the latest `start(key)` overwrites the active entry).
+## Notes
 
-### History Retention
-
-Measurements are retained per key up to `max_measurements_per_key_`
-(default 1000). Older samples are dropped when the limit is exceeded.
-
-### Cycle Semantics
-
-`endCycle()` marks the end of a measurement cycle.
-
-- increments the cycle counter
-- snapshots and clears current-cycle measurements
-- optionally recalculates statistics
-- triggers registered cycle-end callbacks
-- performs cleanup (currently managed by history retention limits)
-
-Cycle boundaries are defined by the caller.
-In media pipelines, a cycle typically corresponds to a frame.
-
----
-
-# Statistics Model
-
-`TimingStats` aggregates samples per key across retained history.
-
-Computed fields:
-
-- count
-- total, min, max, avg
-- percentiles: p50, p95, p99
-
-Percentiles are computed by sorting durations and selecting indices derived from size.
-Statistics are stored in `stats_cache_` and returned via `getStats(key)` and `getAllStats()`.
-
-`toJSON()` exports aggregated stats for external tooling.
-
-`printSummary()` prints a formatted summary table to stdout.
-
----
-
-# PerformanceMonitor
-## Console-Oriented Reporting
-
-`pek::PerformanceMonitor` is a helper around `PerformanceTracer` for printing
-or continuously refreshing statistics to stdout.
-
-Modes:
-
-- COMPACT: one-line per key summaries
-- DETAILED: full table view with percentiles
-- LIVE_UPDATE: refresh loop (blocking) using ANSI clear-screen sequences
-
-This is intended for interactive debugging outside GStreamer overlays.
-
----
-
-# Global Tracer Instance
-
-`getGlobalTracer()` provides a lazy-initialized singleton.
-
-This is used as a convenience bridge between pipeline elements and non-GStreamer code
-so all components report into the same timing store.
-
----
-
-# `pekperformance` Element
-## Publishing Metrics Into Perception
-
-`pekperformance` is a `GstVideoFilter` element that injects aggregated performance
-metrics into `Perception::perfdata`.
-
-It does not draw overlays itself.
-Instead, it populates the Perception payload, enabling visualization via `pekosd`
-or consumption by other downstream components.
-
-### Execution Path
-
-In `transform_frame_ip`:
-
-1. Update FPS estimation based on inter-frame timing.
-2. Refresh cached metric lines every `update-interval` frames or when marked dirty.
-3. Try to mutate `PerceptionMeta` on the current buffer.
-4. If `PerceptionMeta` is present, write the cached formatted lines into `perception.perfdata`.
-
-`get_performance_data()` internally calls `getGlobalTracer()->endCycle()`.
-This establishes the cycle boundary from within the element.
-
-### Metric Presentation Modes
-
-- `show-all-metrics=false` shows a fixed set of keys (preprocess/inference/postprocess).
-- `show-all-metrics=true` exports all available tracer keys.
-
-When showing all metrics, keys are grouped by a model prefix
-(extracted as the substring before the first underscore) and ordered by suffix:
-`_preprocess`, `_inference`, `_postprocess`.
-
-The element also computes:
-
-- Pipeline FPS (EMA-smoothed)
-- AI utilization estimate based on summed p50 timings versus frame time
-
-### Properties
-
-- `enabled` (bool): enable/disable publishing.
-- `x-offset`, `y-offset`, `font-size`, `bg-color`, `text-color`, `alpha`:
-  present for overlay formatting; actual rendering is performed by `pekosd`.
-- `update-interval` (uint): refresh cadence in frames.
-- `show-all-metrics` (bool): export all tracer keys vs predefined set.
-
-### Event Control
-
-The element supports control via custom upstream events:
-
-- Event name: `"pekperformance"`
-- Fields: `"enabled"` boolean
-
-This allows runtime toggling without property reconfiguration.
-
----
-
-# Integration Notes
-
-- `pekperformance` writes metrics when `PerceptionMeta` is present on the buffer.
-- If no `PerceptionMeta` is attached, the element returns successfully without writing anything.
-- Downstream elements (e.g., `pekosd`) can render `Perception::perfdata` as text overlay.
-- For correctness, the cycle boundary should match the intended unit of work.
-  When `pekperformance` drives `endCycle()`, it effectively defines the cycle as “per frame”.
+When `pekperformance` calls `endCycle()`, it effectively defines the performance
+cycle as per-frame. Pipelines that need a different unit of work should make that
+boundary explicit.

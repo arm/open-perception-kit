@@ -3,85 +3,32 @@ sidebar_position: 5
 sidebar_label: Inference Engines
 ---
 
-# Inference Engines Overview
+# Inference Engines
 
-This page summarizes the current status of supported and planned inference engines within the GStreamer-based inference framework. The goal is to support both industry-standard runtimes and emerging or hardware-accelerated backends, enabling flexibility across platforms from embedded devices to edge AI systems.
-
----
+Inference backends are isolated behind backend-specific Ops and shared libraries.
+The current goal is to keep model loading and forward execution backend-specific
+while preserving generic preprocessing, postprocessing, and `Perception` output.
 
 ## Status Summary
 
-| Engine       | Status        | Why |
-|--------------|--------------|------|
-| ONNX Runtime | Working      | Industry standard, broad model compatibility and ecosystem support |
-| HailoRT      | Working      | Hardware acceleration on Raspberry Pi 5 (Hailo AI accelerator support) |
-| ExecuTorch   | Experimental | Potential strong future runtime for edge deployments |
-| MNN          | Planned      | Versatile backend with OpenCL and Vulkan support |
+| Engine | Status | Notes |
+| --- | --- | --- |
+| ONNX Runtime | Working | Main cross-platform baseline and broad model compatibility path. |
+| HailoRT | Working | Hardware acceleration path for supported Raspberry Pi + Hailo setups. |
+| ExecuTorch | Experimental | In-tree evaluation path for edge-focused PyTorch deployment. |
+| MNN | Planned | Candidate backend for mobile/embedded GPU acceleration. |
 
----
+## Backend Notes
 
-## Detailed Rationale
+ONNX Runtime is the reference software backend because it is mature, widely used,
+and useful for validating pipelines across host platforms.
 
-### ONNX Runtime — **Working**
+HailoRT provides accelerator offload for supported Hailo hardware. It is the main
+hardware-backed path for Raspberry Pi deployments.
 
-ONNX Runtime is widely considered an industry-standard inference engine. It provides:
+ExecuTorch is present for evaluation and should be treated as experimental until
+its model support, tests, and integration behavior are made stable.
 
-- Strong interoperability via the ONNX model format  
-- Support for models exported from PyTorch, TensorFlow, and many other frameworks  
-- Mature graph optimization and execution provider architecture  
-- Broad CPU and accelerator support 
-- Dynamic tensor support
+MNN is a planned backend, not a supported runtime path today.
 
-Including ONNX Runtime ensures:
-
-- Immediate compatibility with a large ecosystem of existing models  
-- Stability and production readiness  
-- A reliable baseline backend for cross-platform validation  
-
-ONNX serves as the reference backend due to its maturity and broad industry adoption.
-
----
-
-### HailoRT — **Working**
-
-HailoRT enables hardware-accelerated inference using the Hailo AI accelerator, particularly relevant for Raspberry Pi 5 + Hailo configurations.
-
-Key reasons for support:
-
-- Dedicated AI acceleration significantly reduces CPU load  
-- Enables real-time, low-latency inference pipelines  
-- Improves performance-per-watt for edge deployments  
-- Demonstrates hardware offload capability within GStreamer pipelines  
-
-HailoRT integration allows the framework to take advantage of specialized edge AI hardware, making it suitable for production-grade embedded deployments.
-
----
-
-### ExecuTorch — **Experimental**
-
-ExecuTorch is a lightweight runtime designed for deploying PyTorch models on edge devices. While still evolving, it represents a strategically important direction.
-
-Reasons for experimental integration:
-
-- Strong alignment with the PyTorch ecosystem  
-- Designed specifically for edge and embedded deployments  
-- Potential to become a major standard for PyTorch-native inference  
-- Lightweight architecture suitable for constrained environments  
-
-Although not yet fully mature, ExecuTorch is included experimentally to evaluate its long-term viability and to prepare for potential future adoption.
-
----
-
-### MNN — **Planned**
-
-MNN (Mobile Neural Network) is a high-performance, lightweight inference engine designed for mobile and embedded devices.
-
-Reasons for planned integration:
-
-- Support for multiple hardware acceleration backends  
-- OpenCL and Vulkan support for GPU acceleration  
-- Good cross-platform portability  
-- Optimized for performance on edge-class devices  
-- Dynamic tensor support
-
-MNN’s versatility and GPU acceleration capabilities make it an attractive future backend, particularly for systems where OpenCL or Vulkan acceleration is preferred.
+For current architectural constraints, see [Known Limitations](known-limitations.md).
