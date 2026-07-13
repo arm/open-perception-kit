@@ -12,6 +12,8 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 ## What does `.github/workflows/pek-ci.yml` do?
 
 - Runs the actual checks
+- Runs pull request quality checks through `expkits-ci --ci-pr-checks`.
+- Runs full/nightly quality checks through `expkits-ci --ci-full-checks`.
 
 ## What does `.github/workflows/agent-review.yml` do?
 

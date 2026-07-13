@@ -36,6 +36,7 @@ ensure_runtime_files() {
 }
 
 run_repo_checks_command() {
+    repo_checks_build_image "${REPO_ROOT}"
     repo_checks_run_image "${REPO_ROOT}" "${REPO_CHECKS_COMMAND[@]}"
 }
 
@@ -135,15 +136,8 @@ build_delta_command() {
         return
     fi
 
-    # Keep this bundle aligned with the local pre-commit hook set in .pre-commit-config.yaml.
     REPO_CHECKS_COMMAND+=(
-        --clang-format
-        --python-format
-        --cmake-format
-        --shell-format
-        --license-header
-        --check-secrets
-        --actionlint
+        --pre-commit-fix
         --list-of-files
         "${files[@]}"
     )
@@ -154,13 +148,7 @@ build_full_command() {
         expkits-ci
         --verbose
         --branch-naming
-        --clang-format
-        --python-format
-        --cmake-format
-        --shell-format
-        --license-header
-        --check-secrets
-        --actionlint
+        --pre-commit-fix
     )
 }
 
