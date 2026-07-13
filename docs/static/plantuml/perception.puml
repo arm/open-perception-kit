@@ -1,0 +1,40 @@
+@startuml
+!include pek-style.puml
+
+title Perception Context Example
+
+start
+
+:Video Sources;
+
+:Yolo object detector inference;
+note right
+	Attach Object rectangles and labels to perception.
+end note
+
+:UltraFace face detector inference;
+note right
+	Attach Human face rectangles to perception.
+end note
+
+:Tracker;
+note right
+	Attach EntityId to perception.
+end note
+
+:Face recognition inference;
+note right
+	Attach PersonId to perception.
+end note
+
+:Messaging;
+note right
+	Final perception with:
+    Object rectangles and labels,
+    Human face rectangles,
+    EntityId,
+    PersonId.
+end note
+
+stop
+@enduml
