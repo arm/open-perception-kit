@@ -14,7 +14,11 @@
 				320,
 				320
 			],
-			"dataKind": "ImageRgbChw"
+			"dataKind": "ImageRgbChw",
+			"keepAspectRatio": true,
+			"letterboxRed": 0.44705883,
+			"letterboxGreen": 0.44705883,
+			"letterboxBlue": 0.44705883
 		}
 	]
 }
