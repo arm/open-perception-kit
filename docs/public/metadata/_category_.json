@@ -5,6 +5,6 @@
     "type": "generated-index",
     "slug": "/metadata",
     "title": "Metadata",
-    "description": "Concepts for metadata containers, object groups, custom payloads, and renderer mappings in Perception XPK."
+    "description": "Concepts for metadata containers, custom records, custom payloads, and renderer mappings in Perception XPK."
   }
 }

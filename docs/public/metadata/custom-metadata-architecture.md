@@ -2,7 +2,7 @@
 title: Custom Metadata Architecture
 sidebar_position: 1
 sidebar_label: Custom Metadata Architecture
-description: Concept sketch for a FlatBuffers-native metadata container, object groups, and template-driven visualization.
+description: Concept sketch for a FlatBuffers-native metadata record envelope and template-driven visualization.
 ---
 
 # Custom Metadata Architecture
@@ -18,14 +18,14 @@ This is a concept note, not a final implementation contract.
 This concept is guided by these design decisions:
 
 - The internal metadata container is FlatBuffers-native.
-- The frame envelope carries object groups, not direct render primitives.
+- The frame metadata envelope carries unique frame data plus ordered metadata records, not direct render primitives.
 - Metadata is treated as immutable: processing stages read the current envelope and publish a rebuilt envelope rather than mutating payloads in place.
 - Built-in object data and custom object data are carried in the same frame envelope.
-- User-provided Python postprocessing snippets can create custom object groups.
+- User-provided Python postprocessing snippets can append custom metadata records.
 - Custom payloads are opaque bytes inside OPK.
 - Schema identity is a simple object-level string reference beside the opaque payload.
 - A normalized bounding box is the common render geometry.
-- Style overrides are separate targetable elements and can attach to either a group or an object by id.
+- Style overrides are emitted inside metadata records and can target a record or an object by id.
 - Built-in schema definitions are explicit user-side artifacts.
 - Metadata reaches the renderer through a transport interface.
 - Rendering is driven by built-in plus custom visual template mappings.
@@ -33,24 +33,33 @@ This concept is guided by these design decisions:
 
 ## Runtime Container
 
-The internal metadata container is a `FrameEnvelope`.
+The internal metadata container is a `FrameMetadataEnvelope`.
 
-Each processing stage follows the same immutable update pattern:
+Each processing stage follows an ordered record contribution pattern:
 
-1. read the current frame metadata envelope
-2. decode the parts it needs
-3. append its own output
+1. read the frame data and prior records it needs
+2. create a new `MetadataRecord` containing its objects, style overrides, and performance items
+3. publish the record with an aggregator-assigned `record_sequence`
 
-## Groups
+Frame data is unique for the frame and is not repeated inside producer records.
 
-A group is a producer-defined collection of logically linked objects. 
+## Metadata Records
 
-Each `Group` contains:
+Groups are replaced by ordered `MetadataRecord` entries.
 
-- `group_id`
-- `group_name`
+A record is a producer-defined contribution to one frame. Each processing element can append its own record containing objects, style overrides, and performance items.
+
+Each `MetadataRecord` contains:
+
+- `record_id`
+- `record_sequence`
 - `producer_element`
+- `record_type`
 - `objects`
+- `style_overrides`
+- `perf_items`
+
+The `record_sequence` is assigned by the metadata aggregator so multi-threaded metadata producers still produce a deterministic fold order. Object order inside a record is not meaningful. Style override order inside a record is meaningful and depends on producer code.
 
 ## Object Envelope
 
@@ -100,9 +109,9 @@ The important constraint is that the opaque payload itself is not self-described
 
 Built-in postprocessing and injected Python postprocessing are executable/runtime elements, not data structures.
 
-Built-in postprocessing emits built-in object groups.
+Built-in postprocessing emits built-in metadata records.
 
-Injected Python postprocessing is provided by the user as a snippet and emits custom object groups. The snippet can:
+Injected Python postprocessing is provided by the user as a snippet and emits custom metadata records. The snippet can:
 
 - create object envelopes
 - set object `type_name`
@@ -114,12 +123,19 @@ Injected Python postprocessing is provided by the user as a snippet and emits cu
 
 Style is not embedded in an object.
 
-`StyleOverride` is a separate element in the frame envelope. It references its target by id:
+`StyleOverride` is emitted inside a metadata record. It references its target by id:
 
-- `target_kind`: group or object
-- `target_id`: group id or object id
+- `target_kind`: record or object
+- `target_id`: record id or object id
 
-This allows one style override to apply to a whole group, while still allowing object-level overrides where needed.
+This allows one style override to apply to all objects emitted by a record, while still allowing object-level overrides where needed.
+
+
+Style override ordering is deterministic:
+
+1. records are folded by `record_sequence`
+2. style overrides inside one record are applied in vector order
+3. object-level overrides take precedence over record-level overrides
 
 Typical style fields include:
 
@@ -206,23 +222,28 @@ With the current object model, this is the primary fallback because every render
 ## Container Shape Sketch
 
 ```text
-FrameEnvelope
-├── frame_info
-├── groups[]
-│   ├── Group
-│   │   ├── group_id
-│   │   ├── group_name
-│   │   ├── producer_element
-│   │   ├── objects[]
-│   │   │   ├── ObjectEnvelope
-│   │   │   │   ├── object_id / parent_id
-│   │   │   │   ├── type_name
-│   │   │   │   ├── label / confidence / attrs
-│   │   │   │   ├── bbox
-│   │   │   │   ├── opaque_payload
-│   │   │   │   └── schema_ref
-├── perf_data[]
-└── style_overrides[]
+FrameMetadataEnvelope
+├── frame: FrameEnvelope
+│   ├── frame_id
+│   ├── timestamp
+│   ├── width / height
+│   └── source info
+└── records[]
+    ├── MetadataRecord
+    │   ├── record_id
+    │   ├── record_sequence
+    │   ├── producer_element
+    │   ├── record_type
+    │   ├── objects[]
+    │   │   ├── ObjectEnvelope
+    │   │   │   ├── object_id / parent_id
+    │   │   │   ├── type_name
+    │   │   │   ├── label / confidence / attrs
+    │   │   │   ├── bbox
+    │   │   │   ├── opaque_payload
+    │   │   │   └── schema_ref
+    │   ├── style_overrides[]
+    │   └── perf_items[]
 ```
 
 ## Open Questions
@@ -230,4 +251,4 @@ FrameEnvelope
 - how the Python postprocessing snippet is registered and sandboxed
 - whether `schema_ref` should be mandatory for every object with an opaque payload
 - how expressive the visual template YAML should become before it is too close to a scripting language
-- whether style overrides should be full replacements or sparse overrides over mapping defaults
+- whether style overrides should be full replacements or sparse patches over mapping defaults

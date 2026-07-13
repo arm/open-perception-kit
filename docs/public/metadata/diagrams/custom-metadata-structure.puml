@@ -28,19 +28,27 @@ skinparam note {
 }
 
 package "OPK" as runtime_pkg $EXECUTABLE_COLOR {
-  class FrameEnvelope {
-    +frame_info: FrameInfo
-    +groups: [Group]
-    +perf_data: [PerfItem]
-    +style_overrides: [StyleOverride]
+  class FrameMetadataEnvelope {
+    +frame: FrameEnvelope
+    +records: [MetadataRecord]
   }
 
-  class Group {
-    +group_id: string
-    +group_name: string
+  class FrameEnvelope {
+    +frame_id: ulong
+    +ts_ns: ulong
+    +width: uint
+    +height: uint
+    +source: string
+  }
+
+  class MetadataRecord {
+    +record_id: string
+    +record_sequence: ulong
     +producer_element: string
-    +visible_by_default: bool
+    +record_type: string
     +objects: [ObjectEnvelope]
+    +style_overrides: [StyleOverride]
+    +perf_items: [PerfItem]
   }
 
   class ObjectEnvelope {
@@ -77,9 +85,10 @@ package "OPK" as runtime_pkg $EXECUTABLE_COLOR {
 
   component "Injected Python postprocessing" as python_postproc
 
-  FrameEnvelope *-- Group
-  FrameEnvelope *-- StyleOverride
-  Group *-- ObjectEnvelope
+  FrameMetadataEnvelope *-- FrameEnvelope
+  FrameMetadataEnvelope *-- MetadataRecord
+  MetadataRecord *-- ObjectEnvelope
+  MetadataRecord *-- StyleOverride
   ObjectEnvelope *-- OpaquePayload
 }
 
@@ -101,24 +110,25 @@ package "User-Side Rendering" as renderer_pkg $EXECUTABLE_COLOR {
   }
 }
 
-builtin_postproc --> Group : writes built-in groups
-python_postproc --> Group : writes custom groups
+builtin_postproc --> MetadataRecord : appends built-in record
+python_postproc --> MetadataRecord : appends custom record
 python_postproc --> StyleOverride : writes style overrides
 python_postproc --> OpaquePayload : writes opaque payload
 
 postproc_snippet --> python_postproc
 custom_yaml_artifact --> custom_yaml
 
+builtin_schema_defs ..> FrameMetadataEnvelope : defines metadata envelope schema
 builtin_schema_defs ..> FrameEnvelope : defines frame schema
+builtin_schema_defs ..> MetadataRecord : defines record schema
 builtin_schema_defs ..> StyleOverride : defines style schema
 builtin_schema_defs ..> ObjectEnvelope : defines object schema
-builtin_schema_defs ..> Group : defines group schema
 
-StyleOverride ..> Group : target_kind=Group
+StyleOverride ..> MetadataRecord : target_kind=Record
 StyleOverride ..> ObjectEnvelope : target_kind=Object
 metadata_transport --> Renderer : deliver metadata envelope
 
-runtime_pkg --> metadata_transport : publish metadata envelope
+FrameMetadataEnvelope --> metadata_transport : publish metadata envelope
 builtin_schema_defs --> Renderer : decode contract
 builtin_yaml --> Renderer : built-in mappings
 custom_yaml --> Renderer : user overlay mappings
