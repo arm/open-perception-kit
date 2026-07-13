@@ -97,6 +97,7 @@ FROM pek-base AS pek-dev-base
 
 ARG USERNAME=devgoblin
 ARG PLANTUML_VERSION=1.2026.2
+ARG ACTIONLINT_VERSION=1.7.12
 
 USER root
 
