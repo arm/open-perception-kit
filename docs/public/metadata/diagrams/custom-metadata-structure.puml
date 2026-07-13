@@ -1,0 +1,143 @@
+@startuml
+' Structural overview of the custom metadata concept.
+!include ../../concepts/_plantuml/colors.puml
+allowmixing
+
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam defaultTextAlignment center
+skinparam classAttributeIconSize 0
+skinparam wrapWidth 320
+' skinparam linetype polyline
+
+skinparam package {
+  BorderColor $CONTRACT_COLOR
+  FontColor $CONTRACT_COLOR
+}
+
+skinparam class {
+  BackgroundColor $INTERNAL_MODULE_COLOR
+  BorderColor $CONTRACT_COLOR
+  FontColor $CONTRACT_COLOR
+}
+
+skinparam note {
+  BorderColor $CONTRACT_COLOR
+  BackgroundColor $SCHEMA_COLOR
+}
+
+package "OPK" as runtime_pkg $EXECUTABLE_COLOR {
+  class FrameMetadataEnvelope {
+    +frame: FrameEnvelope
+    +records: [MetadataRecord]
+  }
+
+  class FrameEnvelope {
+    +frame_id: ulong
+    +ts_ns: ulong
+    +width: uint
+    +height: uint
+    +source: string
+  }
+
+  class MetadataRecord {
+    +record_id: string
+    +record_sequence: ulong
+    +producer_element: string
+    +record_type: string
+    +objects: [ObjectEnvelope]
+    +style_overrides: [StyleOverride]
+    +perf_items: [PerfItem]
+  }
+
+  class ObjectEnvelope {
+    +object_id: ulong
+    +parent_id: ulong
+    +ts_ns: ulong
+    +type_name: string
+    +label: string
+    +bbox: Rect2D
+    +confidence: float
+    +attrs: [Attr]
+    +payload: OpaquePayload
+    +schema_ref: string
+  }
+
+  class StyleOverride {
+    +style_id: string
+    +target_kind: StyleTargetKind
+    +target_id: string
+    +stroke_color: ColorRGBA
+    +fill_color: ColorRGBA
+    +text_color: ColorRGBA
+    +stroke_width: float
+    +point_size: float
+    +opacity: float
+    +line_style: LineStyle
+  }
+
+  class OpaquePayload {
+    +payload: [ubyte]
+  }
+
+  component "Built-in postprocessing" as builtin_postproc
+
+  component "Injected Python postprocessing" as python_postproc
+
+  FrameMetadataEnvelope *-- FrameEnvelope
+  FrameMetadataEnvelope *-- MetadataRecord
+  MetadataRecord *-- ObjectEnvelope
+  MetadataRecord *-- StyleOverride
+  ObjectEnvelope *-- OpaquePayload
+}
+
+package "User-Provided Extension Assets" as producer_pkg $EXECUTABLE_COLOR {
+  artifact "User-provided Python\npostprocessing snippet" as postproc_snippet
+  artifact "User-provided visualization mapping" as custom_yaml_artifact
+}
+
+component "Metadata transport" as metadata_transport
+package "User-Side Rendering" as renderer_pkg $EXECUTABLE_COLOR {
+  artifact "Built-in schema definitions" as builtin_schema_defs
+  component "Built-in visualization mapping" as builtin_yaml 
+  component "Custom visualization mapping" as custom_yaml 
+
+  class Renderer {
+    +resolve type_name
+    +decompose to primitives
+    +apply style overrides
+  }
+}
+
+builtin_postproc --> MetadataRecord : appends built-in record
+python_postproc --> MetadataRecord : appends custom record
+python_postproc --> StyleOverride : writes style overrides
+python_postproc --> OpaquePayload : writes opaque payload
+
+postproc_snippet --> python_postproc
+custom_yaml_artifact --> custom_yaml
+
+builtin_schema_defs ..> FrameMetadataEnvelope : defines metadata envelope schema
+builtin_schema_defs ..> FrameEnvelope : defines frame schema
+builtin_schema_defs ..> MetadataRecord : defines record schema
+builtin_schema_defs ..> StyleOverride : defines style schema
+builtin_schema_defs ..> ObjectEnvelope : defines object schema
+
+StyleOverride ..> MetadataRecord : target_kind=Record
+StyleOverride ..> ObjectEnvelope : target_kind=Object
+metadata_transport --> Renderer : deliver metadata envelope
+
+FrameMetadataEnvelope --> metadata_transport : publish metadata envelope
+builtin_schema_defs --> Renderer : decode contract
+builtin_yaml --> Renderer : built-in mappings
+custom_yaml --> Renderer : user overlay mappings
+
+note left of renderer_pkg
+Renderer vocabulary stays fixed.
+Built-in and custom composite types are resolved through YAML mappings
+and decomposed into the same primitive set.
+end note
+
+@enduml
+
