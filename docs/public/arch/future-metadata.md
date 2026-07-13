@@ -25,16 +25,20 @@ Current architecture:
 
 Future direction:
 
-- `FrameMetadataEnvelope` becomes the transportable metadata envelope.
+- `FrameMetadataEnvelope` becomes the metadata payload carried inside the pipeline.
+- GstBuffer-attached metadata remains the internal GStreamer transport mechanism.
 - Ordered `MetadataRecord` entries replace direct mutation of one shared payload.
-- Built-in OPK results and custom user results use the same frame envelope.
+- Objects form a graph through `parent_id`.
+- Object nodes carry a typed payload, such as generic object data, bbox,
+  segmentation, trace, embedding, classification, text, vector, or custom bytes.
 - Custom payloads are opaque to OPK but identified by schema references.
-- Rendering uses built-in and custom visual templates instead of hardcoded result
-  types only.
+- `pekcomm` exposes the envelope to user-side applications and renderers.
+- Rendering follows the object graph and emits primitives from renderable nodes.
 
 This is not the checked-in runtime contract yet. It is intended to guide future
-work across parsers, serializers, `pekinfer`, `pekosd`, `pekperformance`, and the
-application-facing metadata transport.
+work across parsers, serializers, `pekinfer`, `pekosd`, `pekperformance`,
+GstBuffer metadata attachment, `pekcomm`, and the application-facing metadata
+transport.
 
 ## Frame Metadata Envelope
 
@@ -50,9 +54,11 @@ frame fields include:
 - frame width and height
 - source identity
 
-The envelope is treated as immutable at the processing boundary. A stage reads
-the current envelope and publishes a rebuilt envelope with its own contribution
-rather than mutating existing producer payloads in place.
+The envelope payload is treated as immutable at the processing boundary. A stage
+reads the current envelope and publishes a rebuilt envelope with its own
+contribution rather than mutating existing producer payloads in place. Inside the
+GStreamer pipeline, that rebuilt envelope is still attached to the `GstBuffer` as
+metadata so existing element-to-element flow remains buffer-based.
 
 ## Metadata Records
 
@@ -74,46 +80,77 @@ deterministic order, even when records are created by different threads. Object
 order inside a record is not semantically meaningful. Style override order inside
 a record is meaningful and follows producer-defined order.
 
-## Object Envelope And Custom Payloads
+## Object Graph And Payload Layers
 
-`ObjectEnvelope` is the common wrapper for built-in and custom objects. It should
-carry the fields needed for identity, parent relationships, fallback rendering,
-and optional custom decoding:
+`ObjectEnvelope` is a graph node. It contains identity and relationship fields,
+then delegates type-specific data to a typed payload.
+
+Common envelope fields:
 
 - `object_id`
 - `parent_id`
 - timestamp
 - `type_name`
-- label and confidence
-- normalized bounding box
-- attributes
-- optional opaque payload bytes
-- optional `schema_ref`
+- typed payload
 
-Opaque payloads are bytes transported by OPK but not interpreted by OPK. User-side
-code decodes them using the schema identified by `schema_ref` and the generated
-bindings known to that application.
+`parent_id` is the composition mechanism. It can represent crop/result lineage,
+embeddings attached to detections, user-defined extensions attached to built-in
+objects, or renderable geometry attached to a semantic object.
+
+Example object stack:
+
+```text
+genericObject
+├── bbox
+├── classification
+├── embedding
+└── custom
+```
+
+The parent `genericObject` can carry semantic label/confidence data, while child
+nodes carry renderable geometry, derived classifications, embeddings, or custom
+application payloads.
+
+## Built-In Payloads And Custom Payloads
+
+Built-in payloads carry OPK-known structure. The initial payload set should stay
+small and cover current architectural needs:
+
+- `GenericObjectPayload`: label, confidence, and common attributes.
+- `BBoxPayload`: normalized rectangle and coordinate-space metadata.
+- `SegmentationPayload`: mask reference or mask bytes, dimensions, placement, and
+  rendering hints.
+- `TracePayload`: ordered points for tracks or trails.
+- `EmbeddingPayload`: vector data attached to a parent object.
+- `ClassificationPayload`: label candidates and confidence values.
+- `TextPayload`: text payload and optional placement.
+- `VectorPayload`: origin and direction or endpoint.
+- `CustomPayload`: opaque bytes plus schema identity.
+
+Custom data should normally be emitted as a child object with a `CustomPayload`,
+not embedded into a built-in payload. This keeps built-in objects valid and
+renderable without understanding user-defined schemas.
 
 ## Schema References
 
-`schema_ref` is a string beside the opaque payload, for example:
+`schema_ref` identifies how to decode a `CustomPayload`, for example:
 
 ```text
 schema_ref: "com.example.defect:1.0.0"
 ```
 
-The payload itself is not self-described. Schema identity belongs beside the
-payload so transport and renderer code can decide whether it knows how to decode
-custom data.
+The custom payload itself is not self-described. Schema identity belongs beside
+the opaque bytes so user-side code can decide whether it knows how to decode the
+extension.
 
 Open schema policy questions remain, including whether `schema_ref` is mandatory
-for every opaque payload and how schema versions should be discovered or cached.
+for every custom payload and how schema versions should be discovered or cached.
 
 ## Postprocessing Integration
 
-Built-in C++ postprocessing can emit built-in records. A future Python
-postprocessing path could emit custom records with object envelopes, bounding
-boxes, attributes, opaque payloads, and style overrides.
+Built-in C++ postprocessing can emit built-in object payloads. A future Python
+postprocessing path could emit custom child objects with `CustomPayload`, or emit
+built-in payloads when it wants OPK default rendering behavior.
 
 Python postprocessing is not available in the current runtime. Until it exists,
 custom parsing remains C++-based through `GenericPostprocessOp`. See
@@ -121,52 +158,90 @@ custom parsing remains C++-based through `GenericPostprocessOp`. See
 
 ## Metadata Transport
 
-The frame envelope should reach applications through a metadata transport boundary
-instead of requiring renderers or applications to depend on GStreamer internals.
+The transport model is hybrid. Inside the GStreamer pipeline, the frame envelope
+continues to travel as metadata attached to the `GstBuffer`. That keeps OPK
+elements aligned with the current buffer-based execution model.
+
+At the application boundary, `pekcomm` publishes the same envelope to user-side
+applications and renderers. Consumers should depend on the envelope contract, not
+on GStreamer internals.
 
 Conceptually:
 
 ```text
-FrameMetadataEnvelope -> metadata transport -> renderer or application
+GstBuffer metadata carrying FrameMetadataEnvelope
+  -> pekcomm
+  -> user-side renderer or application
 ```
 
-Possible transports include WebSocket, file output, stdout, Redis, or another
-application endpoint. The important boundary is that consumers depend on the
-envelope contract, not on the transport implementation.
+`pekcomm` may later expose the envelope through WebSocket, file output, stdout,
+Redis, or another endpoint. A standard versioned application endpoint does not
+exist yet; this is one of the main future-development targets called out in
+[Known Limitations](known-limitations.md).
 
-A standard versioned application endpoint does not exist yet. This is one of the
-main future-development targets called out in [Known Limitations](known-limitations.md).
+## Graph-Driven Rendering
 
-## Rendering And Visual Templates
+Rendering follows the object graph. `ObjectEnvelope` nodes are visited in
+parent-child order. Nodes with known renderable payloads emit primitives. Nodes
+can use limited context from their parent or same-parent siblings for labels,
+anchors, and style.
 
-Rendering should use a fixed primitive vocabulary and visual mappings. Built-in
-OPK object types use provided mappings; custom object types can provide custom
-mappings keyed by `type_name` and `schema_ref`.
+Semantic nodes such as `genericObject` do not need to render directly. They become
+visible through renderable child nodes such as `bbox`, `segmentation`, `trace`,
+or `text`.
 
-The renderer resolves visualization using:
+The renderer should support a small fixed primitive vocabulary, such as:
 
-- built-in visual mappings
-- optional custom visual mappings
-- object `type_name`
-- object fallback geometry
-- style overrides
+- point
+- line
+- polyline
+- polygon
+- rect
+- mask
+- text
 
-A mapping is a visual template, not just a type-to-primitive lookup. For example:
+Built-in payloads can have default renderers. Custom payloads render only when a
+custom graph rule or renderer extension exists.
+
+## Render Mapping Rules
+
+Visual mappings attach behavior to node types or payload kinds, not to one whole
+semantic object. A rule can emit primitives from `self` and can read limited graph
+context:
+
+- `self`
+- `parent`
+- `children[type_name]`
+- `sibling[type_name]`
+
+Example:
 
 ```yaml
-types:
-  builtin.face:
-    primitives:
-      - kind: circle
-        bounds: { x: 0.05, y: 0.05, w: 0.90, h: 0.90 }
+renderers:
+  bbox:
+    emits:
+      - kind: rect
+        bounds: self.payload.bbox
+        label: parent.payload.label
+        confidence: parent.payload.confidence
+
+  segmentation:
+    emits:
+      - kind: mask
+        mask: self.payload.mask_ref
+        placement: self.payload.placement
+
+  classification:
+    emits:
       - kind: text
-        at: { x: 0.50, y: 1.05 }
-        anchor: top-center
-        text: "{label} {confidence}"
+        text: self.payload.label
+        anchor:
+          from: sibling.bbox
+          at: bottom-left
 ```
 
-Coordinates are relative to the object's fallback geometry. Values outside
-`0..1` can be used for labels or decorations placed outside the box.
+The mapping language should stay constrained. It should follow the graph without
+becoming a general query language or scripting runtime.
 
 ## Style Overrides
 
@@ -187,24 +262,28 @@ point size, opacity, and line style.
 
 ## Fallback Rendering
 
-Fallback rendering is required for custom object support. If no mapping is
-available, the renderer should draw the object's fallback geometry, label, and
-confidence using generic styling.
+Fallback rendering is intentionally simple. If no custom mapping exists, the
+renderer can still draw built-in renderable payloads using their default behavior:
 
-The current concept uses a normalized bounding box as the shared fallback
-geometry. That is enough for many detection-like objects but does not cover all
-current `Perception` result types. Segmentation maps, traces, gaze vectors,
-embeddings, and text geometry need a separate mapping plan before this becomes a
-complete replacement for current `Perception` rendering.
+- `BBoxPayload` draws a rectangle.
+- `SegmentationPayload` draws a mask if the mask data or reference is available.
+- `TracePayload` draws a polyline.
+- `TextPayload` draws text.
+- `VectorPayload` draws a line or arrow.
+- `GenericObjectPayload`, `EmbeddingPayload`, and `CustomPayload` do not draw by
+  themselves.
+
+Objects without renderable payloads remain valid metadata and should still be
+available to metadata inspection or application logic.
 
 ## Open Questions
 
 - How should Python postprocessing snippets be registered, sandboxed, and tested?
-- Should `schema_ref` be mandatory for every opaque payload?
+- Should `schema_ref` be mandatory for every `CustomPayload`?
 - How should schema versions be discovered, cached, and validated?
-- How expressive should visual template YAML become before it turns into a
+- How expressive should visual mapping YAML become before it turns into a
   scripting language?
 - Should style overrides be sparse patches over mapping defaults or full style
   replacements?
-- Which current `Perception` result types need first-class future envelope fields
-  versus schema-backed opaque payloads?
+- Which current `Perception` result types need built-in payloads first, and which
+  can initially remain custom or non-renderable payloads?

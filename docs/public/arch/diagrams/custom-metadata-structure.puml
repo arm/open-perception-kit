@@ -9,7 +9,6 @@ skinparam packageStyle rectangle
 skinparam defaultTextAlignment center
 skinparam classAttributeIconSize 0
 skinparam wrapWidth 320
-' skinparam linetype polyline
 
 skinparam package {
   BorderColor $CONTRACT_COLOR
@@ -56,12 +55,40 @@ package "OPK" as runtime_pkg $EXECUTABLE_COLOR {
     +parent_id: ulong
     +ts_ns: ulong
     +type_name: string
+    +payload: ObjectPayload
+  }
+
+  class ObjectPayload <<union>>
+
+  class GenericObjectPayload {
     +label: string
-    +bbox: Rect2D
     +confidence: float
     +attrs: [Attr]
-    +payload: OpaquePayload
+  }
+
+  class BBoxPayload {
+    +bbox: Rect2D
+    +coordinate_space: string
+  }
+
+  class SegmentationPayload {
+    +mask_ref: string
+    +width: uint
+    +height: uint
+    +placement: Rect2D
+  }
+
+  class TracePayload {
+    +points: [Point2D]
+  }
+
+  class EmbeddingPayload {
+    +values: [float]
+  }
+
+  class CustomPayload {
     +schema_ref: string
+    +payload: [ubyte]
   }
 
   class StyleOverride {
@@ -77,67 +104,70 @@ package "OPK" as runtime_pkg $EXECUTABLE_COLOR {
     +line_style: LineStyle
   }
 
-  class OpaquePayload {
-    +payload: [ubyte]
-  }
-
   component "Built-in postprocessing" as builtin_postproc
-
   component "Injected Python postprocessing" as python_postproc
 
   FrameMetadataEnvelope *-- FrameEnvelope
   FrameMetadataEnvelope *-- MetadataRecord
   MetadataRecord *-- ObjectEnvelope
   MetadataRecord *-- StyleOverride
-  ObjectEnvelope *-- OpaquePayload
+  ObjectEnvelope *-- ObjectPayload
+  ObjectEnvelope --> ObjectEnvelope : parent_id
+
+  ObjectPayload <|.. GenericObjectPayload
+  ObjectPayload <|.. BBoxPayload
+  ObjectPayload <|.. SegmentationPayload
+  ObjectPayload <|.. TracePayload
+  ObjectPayload <|.. EmbeddingPayload
+  ObjectPayload <|.. CustomPayload
 }
 
 package "User-Provided Extension Assets" as producer_pkg $EXECUTABLE_COLOR {
   artifact "User-provided Python\npostprocessing snippet" as postproc_snippet
-  artifact "User-provided visualization mapping" as custom_yaml_artifact
+  artifact "User-provided graph\nrender mapping" as custom_yaml_artifact
 }
 
-component "Metadata transport" as metadata_transport
+component "GstBuffer metadata" as gst_meta
+component "pekcomm" as pekcomm
 package "User-Side Rendering" as renderer_pkg $EXECUTABLE_COLOR {
   artifact "Built-in schema definitions" as builtin_schema_defs
-  component "Built-in visualization mapping" as builtin_yaml 
-  component "Custom visualization mapping" as custom_yaml 
+  component "Built-in graph render rules" as builtin_yaml
+  component "Custom graph render rules" as custom_yaml
 
   class Renderer {
-    +resolve type_name
-    +decompose to primitives
+    +walk object graph
+    +emit primitives from nodes
     +apply style overrides
   }
 }
 
-builtin_postproc --> MetadataRecord : appends built-in record
-python_postproc --> MetadataRecord : appends custom record
-python_postproc --> StyleOverride : writes style overrides
-python_postproc --> OpaquePayload : writes opaque payload
+builtin_postproc --> MetadataRecord : appends built-in objects
+python_postproc --> MetadataRecord : appends custom objects
+python_postproc --> CustomPayload : writes opaque payload
 
 postproc_snippet --> python_postproc
 custom_yaml_artifact --> custom_yaml
 
-builtin_schema_defs ..> FrameMetadataEnvelope : defines metadata envelope schema
-builtin_schema_defs ..> FrameEnvelope : defines frame schema
+builtin_schema_defs ..> FrameMetadataEnvelope : defines envelope schema
 builtin_schema_defs ..> MetadataRecord : defines record schema
+builtin_schema_defs ..> ObjectEnvelope : defines graph node schema
+builtin_schema_defs ..> ObjectPayload : defines payload union
 builtin_schema_defs ..> StyleOverride : defines style schema
-builtin_schema_defs ..> ObjectEnvelope : defines object schema
 
 StyleOverride ..> MetadataRecord : target_kind=Record
 StyleOverride ..> ObjectEnvelope : target_kind=Object
-metadata_transport --> Renderer : deliver metadata envelope
+FrameMetadataEnvelope --> gst_meta : attach to buffer
 
-FrameMetadataEnvelope --> metadata_transport : publish metadata envelope
+gst_meta --> pekcomm : publish envelope
+pekcomm --> Renderer : deliver envelope
 builtin_schema_defs --> Renderer : decode contract
-builtin_yaml --> Renderer : built-in mappings
-custom_yaml --> Renderer : user overlay mappings
+builtin_yaml --> Renderer : built-in rules
+custom_yaml --> Renderer : user rules
 
 note left of renderer_pkg
-Renderer vocabulary stays fixed.
-Built-in and custom composite types are resolved through YAML mappings
-and decomposed into the same primitive set.
+Rendering follows the object graph.
+Known payload nodes emit primitives.
+Custom payloads render only when graph rules exist.
 end note
 
 @enduml
-
