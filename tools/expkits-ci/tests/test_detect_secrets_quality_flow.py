@@ -223,7 +223,13 @@ class StaticQualityConfigTests(unittest.TestCase):
 
         self.assertIn("- id: check-secrets", pre_commit)
         self.assertIn("--check-secrets --list-of-files", pre_commit)
+        self.assertIn("- id: actionlint", pre_commit)
+        self.assertIn("--actionlint --list-of-files", pre_commit)
+        self.assertIn(r"files: ^\.github/workflows/.*\.ya?ml$", pre_commit)
+        self.assertNotIn("- id: agent-runtime-static-analysis", pre_commit)
+        self.assertNotIn("--agent-runtime-static-analysis", pre_commit)
         self.assertIn("expkits-ci --all-checks --pr-target-branch ${PULL_REQUEST_TARGET_BRANCH}", compose)
+        self.assertIn("--agent-runtime-static-analysis", compose)
         self.assertIn('if [ -n "$${PULL_REQUEST_TARGET_BRANCH:-}" ]; then', compose)
         self.assertIn('--pr-target-branch "$${PULL_REQUEST_TARGET_BRANCH}"', compose)
         self.assertIn("--report-file /work/.github/artifacts/expkits-ci-pr-report.txt", compose)
@@ -234,16 +240,27 @@ class StaticQualityConfigTests(unittest.TestCase):
         self.assertIn("expkits-ci-quality-report-full", workflow)
         self.assertNotIn("pr-quality-gate:", workflow)
         self.assertNotIn("Finalize PR quality gate result", workflow)
-        self.assertIn("git_basic_auth=", workflow)
-        self.assertIn("export PULL_REQUEST_TARGET_BRANCH=\"${{ github.base_ref }}\"", workflow)
+        self.assertNotIn("git_basic_auth=", workflow)
+        self.assertIn("source scripts/private/ci_git_auth_env.sh", workflow)
+        self.assertIn("Resolve manual PR context", workflow)
+        self.assertIn("python3 scripts/private/github_pr_context.py", workflow)
+        self.assertNotIn("gh pr view", workflow)
+        self.assertIn(
+            "export PULL_REQUEST_TARGET_BRANCH=\"${{ steps.manual_pr.outputs.base_ref || github.base_ref }}\"",
+            workflow,
+        )
         self.assertIn("-e PULL_REQUEST_TARGET_BRANCH", workflow)
         self.assertIn(
             "if: ${{ !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'schedule' ||",
             workflow,
         )
-        self.assertIn("if: ${{ !cancelled() }}", workflow)
-        self.assertIn("if: ${{ !cancelled() && steps.valgrind_checks.outcome == 'failure' }}", workflow)
-        self.assertEqual(pre_commit.count('--list-of-files "$@"'), 8)
+        self.assertNotIn("Run Valgrind checks", workflow)
+        self.assertEqual(pre_commit.count('--list-of-files "$@"'), 9)
+
+        pyproject = PYPROJECT_FILE.read_text(encoding="utf-8")
+        self.assertIn('"mypy==1.16.1"', pyproject)
+        self.assertIn('"pyflakes==3.3.2"', pyproject)
+        self.assertIn('"vulture==2.14"', pyproject)
 
     def test_execution_report_annotations_match_declared_python_floor(self):
         pyproject = PYPROJECT_FILE.read_text(encoding="utf-8")

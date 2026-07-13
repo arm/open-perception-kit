@@ -1,0 +1,81 @@
+# AGENTS.md
+
+This directory owns the shared Python OpenAI Agents SDK runtime used by the
+review, repair, and stabilization GitHub Actions workflows.
+
+## Guardrails
+
+- Keep reusable contracts in `contracts.py`; do not duplicate OpenAI proxy env
+  names, recommendations, severities, diff sides, or review false-positive
+  guards in individual modules.
+- Define the shared task interface in `tasks/base.py`. User-facing workflow
+  agents should extend `ConfiguredAgentWorkflowTask` in `tasks/configured.py`
+  and register in `openai_agent_runner.py`; keep the matching central task
+  settings in `.github/agent-runtime/runtime/agent-tasks.json`.
+- Resolve agent models through `config/model.py` and the checked-in
+  `.github/agent-runtime/runtime/agent-models.json` file. Do not introduce
+  per-workflow-YAML hardcoded model names.
+- Keep primitive model/task config validation helpers in `contracts.py`, and
+  keep cross-flow workflow profile helpers in
+  `scripts/private/agent_workflow_common/profile.py`. Do not duplicate JSON
+  object, enum, string, list, or positive integer checks in individual config
+  readers.
+- Keep OpenAI proxy defaults, task dispatch, model resolution, runtime setup,
+  and output handling in the Python runtime modules. Workflow YAML and local
+  scripts may call `setup_runtime.py` and `openai_agent_runner.py`, but must not
+  duplicate venv setup, task-specific OpenAI logic, or model/turn defaults.
+- Keep shared GitHub Actions run and PR lookup helpers in
+  `scripts/private/github_actions.py`, beside `scripts/private/github_api.py`;
+  they are repository workflow plumbing, not OpenAI runtime internals.
+- Keep `truststore.inject_into_ssl()` before importing `agents`, `openai`, or
+  `httpx` through the SDK stack.
+- Agent tools may inspect files and run validation, but must not own branch,
+  commit, push, PR, or merge lifecycle. Those steps belong to the surrounding
+  workflow/helper.
+- Delete obsolete runtime code, stale tests, removed scripts, and compatibility
+  wrappers when replacing behavior. Do not leave legacy aliases or duplicate
+  implementations outside the current supported contract.
+- Do not execute agent-provided commands with `shell=True`. Keep validation
+  commands tokenized and reject unsupported shell syntax, mutating git
+  subcommands, and PR/repo lifecycle `gh` subcommands.
+- Scrub OpenAI, GitHub, token, key, and credential variables from Agent Review
+  tool subprocesses in `tools/shell.py` without dropping ordinary build and
+  toolchain variables. Do not weaken that review-specific boundary.
+- Review output post-processing must only drop findings contradicted by current
+  checkout evidence or verified workflow/action evidence. Keep those rules
+  typed and covered by tests.
+
+## Adding a Workflow Agent
+
+1. Add one `ConfiguredAgentWorkflowTask` subclass in `tasks/configured.py` or
+   a focused module imported by that file. The subclass owns task-specific CLI
+   arguments, validation, tools, output type, and result writing.
+2. Add exactly one entry for the command to `AGENT_TASKS` in
+   `openai_agent_runner.py`.
+3. Add the same command to `.github/agent-runtime/runtime/agent-tasks.json`
+   with its agent instance and limits.
+4. Wire workflow YAML or local scripts to call
+   `openai_agent_runner.py <command>` and pass only task-input/output/config paths.
+   Do not duplicate model names, max-turn values, or agent instances in YAML.
+5. Extend the focused `scripts/private/agent_runtime/tests/` tests and the
+   workflow-level `tools/expkits-ci/tests/test_agent_workflow_contracts.py`
+   checks so the new command is covered by central registry/config enforcement.
+
+The generic preflight size guard lives in `tasks/estimator.py` and must stay
+deterministic. Do not add a separate agent that estimates whether to run the
+main agent.
+
+## Validation
+
+For changes here, run at least:
+
+- `find scripts/private/agent_runtime scripts/private/agent_repair_orchestrator scripts/private/agent_stabilization_orchestrator scripts/private/agent_workflow_common -name '*.py' -print0 | xargs -0 python3 -m py_compile`
+- `PYTHONPATH=tools/expkits-ci python3 -m expkits_ci.agent_static_analysis`
+- `python3 -m unittest discover -s scripts/private/tests`
+- `python3 -m unittest discover -s scripts/private/agent_runtime/tests`
+- `python3 -m unittest discover -s scripts/private/agent_repair_orchestrator/tests`
+- `python3 -m unittest discover -s scripts/private/agent_stabilization_orchestrator/tests`
+- `python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_agent_static_analysis.py'`
+- `python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_detect_secrets_quality_flow.py'`
+- `python3 -m unittest discover -s tools/expkits-ci/tests -p 'test_agent_workflow_contracts.py'`
+- `git diff --check`

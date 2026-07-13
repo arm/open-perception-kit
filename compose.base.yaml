@@ -10,24 +10,24 @@ services:
 
     environment:
       - USERNAME=devgoblin
-    
-    # <codex-review:suppress-begin>
+
+    # <agent-review:suppress-begin>
     # The env_file object form (path + required) is a Compose feature, which is available since 2.24 (released on 20.12.2023).
     # We are not supporting older releases.
     env_file:
       - path: devices.env
         required: false
-    # <codex-review:suppress-end>
+    # <agent-review:suppress-end>
 
     ports:
       - 8000:8000
       - 8080:8080
       - 8001:8001
-      # <codex-review:suppress-begin> Port 7001 is intentionally published for
+      # <agent-review:suppress-begin> Port 7001 is intentionally published for
       # local/demo metadata workflows; transport auth/TLS is out of scope for
       # these checked-in demo compose defaults.
       - 7001:7001
-      # <codex-review:suppress-end>
+      # <agent-review:suppress-end>
       - 9999:9999
       - 2222:2222
 

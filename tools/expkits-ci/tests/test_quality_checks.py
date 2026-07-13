@@ -4,6 +4,8 @@
 ################################################################
 
 import importlib
+import os
+import shutil
 import sys
 import tempfile
 import types
@@ -66,6 +68,7 @@ def import_quality_checks_module():
 
 quality_checks_module = import_quality_checks_module()
 QualityChecks = quality_checks_module.QualityChecks
+FileUtils = quality_checks_module.FileUtils
 
 
 class TestQualityChecks(unittest.TestCase):
@@ -73,6 +76,20 @@ class TestQualityChecks(unittest.TestCase):
         self.quality_checks = QualityChecks()
         self.quality_checks.file_utils.filter_by_path_ending = Mock(
             side_effect=lambda files, _: files)
+
+    def require_actionlint(self):
+        if shutil.which("actionlint") is None:
+            self.skipTest("actionlint binary is unavailable")
+
+    def write_actionlint_fixture(self, temp_dir, fixture_name, workflow_name):
+        workflow = Path(temp_dir) / ".github" / "workflows" / workflow_name
+        workflow.parent.mkdir(parents=True)
+        workflow.write_text(
+            (FIXTURE_ROOT / "actionlint" / fixture_name).read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+        self.quality_checks.file_utils.get_project_root = Mock(return_value=temp_dir)
+        return f".github/workflows/{workflow_name}"
 
     def assert_formatter_failure_does_not_record_autofix(self, method_name, check_args):
         with patch.object(self.quality_checks, "record_autofix") as record_autofix:
@@ -147,8 +164,8 @@ class TestQualityChecks(unittest.TestCase):
 
     def test_check_branch_naming_accepts_feature_branch_with_or_without_suffix(self):
         valid_branches = [
-            "feature/EXPKITS-1234",
-            "feature/EXPKITS-1234/ticket-description",  # pragma: allowlist secret
+            "feature/EXPKITS-4242",
+            "feature/EXPKITS-4242/ticket-description",  # pragma: allowlist secret
         ]
 
         for branch_name in valid_branches:
@@ -173,6 +190,194 @@ class TestQualityChecks(unittest.TestCase):
                 [sys.executable, "-m", "detect_secrets.pre_commit_hook"],
             )
 
+    def test_check_github_actions_runs_actionlint_on_workflow_files(self):
+        self.quality_checks.file_utils.get_project_root = Mock(return_value="/work")
+
+        with patch.object(quality_checks_module.shutil, "which", return_value="/usr/bin/actionlint"):
+            with patch.object(quality_checks_module.os.path, "isfile", return_value=True):
+                with patch.object(
+                    quality_checks_module.subprocess,
+                    "run",
+                    return_value=Mock(returncode=0, stdout=""),
+                ) as subprocess_run:
+                    result = self.quality_checks.check_github_actions([
+                        ".github/workflows/pek-ci.yml",
+                        "./.github/workflows/sync-rulesets.yml",
+                        "/work/.github/workflows/docker-scout.yaml",
+                        "README.md",
+                    ])
+
+        self.assertTrue(result)
+        self.assertEqual(
+            subprocess_run.call_args.args[0],
+            [
+                "/usr/bin/actionlint",
+                "-config-file",
+                ".github/actionlint.yaml",
+                ".github/workflows/pek-ci.yml",
+                ".github/workflows/sync-rulesets.yml",
+                ".github/workflows/docker-scout.yaml",
+            ],
+        )
+        self.assertEqual(subprocess_run.call_args.kwargs["cwd"], "/work")
+
+    def test_check_github_actions_skips_non_workflow_files(self):
+        self.quality_checks.file_utils.get_project_root = Mock(return_value="/work")
+
+        with patch.object(quality_checks_module.shutil, "which") as which:
+            with patch.object(quality_checks_module.os.path, "isfile", return_value=True):
+                with patch.object(
+                    quality_checks_module.subprocess,
+                    "run",
+                    return_value=Mock(returncode=0, stdout=""),
+                ) as subprocess_run:
+                    result = self.quality_checks.check_github_actions([
+                        "README.md",
+                    ])
+
+        self.assertTrue(result)
+        which.assert_not_called()
+        subprocess_run.assert_not_called()
+
+    def test_check_github_actions_lints_all_workflows_when_config_changes(self):
+        self.quality_checks.file_utils.get_project_root = Mock(return_value="/work")
+
+        with patch.object(quality_checks_module.shutil, "which", return_value="/usr/bin/actionlint"):
+            with patch.object(quality_checks_module.os.path, "isfile", return_value=True):
+                with patch.object(
+                    quality_checks_module.glob,
+                    "glob",
+                    side_effect=[
+                        ["/work/.github/workflows/ci.yml"],
+                        ["/work/.github/workflows/release.yaml"],
+                    ],
+                ):
+                    with patch.object(
+                        quality_checks_module.subprocess,
+                        "run",
+                        return_value=Mock(returncode=0, stdout=""),
+                    ) as subprocess_run:
+                        result = self.quality_checks.check_github_actions([
+                            ".github/actionlint.yaml",
+                        ])
+
+        self.assertTrue(result)
+        self.assertEqual(
+            subprocess_run.call_args.args[0],
+            [
+                "/usr/bin/actionlint",
+                "-config-file",
+                ".github/actionlint.yaml",
+                ".github/workflows/ci.yml",
+                ".github/workflows/release.yaml",
+            ],
+        )
+
+    def test_check_github_actions_fails_when_actionlint_is_missing(self):
+        self.quality_checks.file_utils.get_project_root = Mock(return_value="/work")
+
+        with patch.object(quality_checks_module.shutil, "which", return_value=None):
+            with self.assertLogs("expkits_ci", level="ERROR") as logs:
+                result = self.quality_checks.check_github_actions([
+                    ".github/workflows/ci.yml",
+                ])
+
+        self.assertFalse(result)
+        self.assertIn("actionlint is not available on PATH.", "\n".join(logs.output))
+
+    def test_check_github_actions_fails_when_actionlint_finds_errors(self):
+        self.quality_checks.file_utils.get_project_root = Mock(return_value="/work")
+
+        with patch.object(quality_checks_module.shutil, "which", return_value="/usr/bin/actionlint"):
+            with patch.object(quality_checks_module.os.path, "isfile", return_value=True):
+                with patch.object(
+                    quality_checks_module.subprocess,
+                    "run",
+                    return_value=Mock(returncode=1, stdout="workflow error\n"),
+                ):
+                    with self.assertLogs("expkits_ci", level="ERROR") as logs:
+                        result = self.quality_checks.check_github_actions([
+                            ".github/workflows/bad.yml",
+                        ])
+
+        self.assertFalse(result)
+        self.assertIn("workflow error", "\n".join(logs.output))
+
+    def test_check_github_actions_accepts_checked_in_good_fixture(self):
+        self.require_actionlint()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workflow = self.write_actionlint_fixture(
+                temp_dir,
+                "good-workflow.yml",
+                "good.yml",
+            )
+            result = self.quality_checks.check_github_actions([workflow])
+
+        self.assertTrue(result)
+
+    def test_check_github_actions_rejects_checked_in_bad_fixture(self):
+        self.require_actionlint()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workflow = self.write_actionlint_fixture(
+                temp_dir,
+                "bad-workflow.yml",
+                "bad.yml",
+            )
+            with self.assertLogs("expkits_ci", level="ERROR") as logs:
+                result = self.quality_checks.check_github_actions([workflow])
+
+        self.assertFalse(result)
+        self.assertIn("syntax-check", "\n".join(logs.output))
+
+    def test_check_github_actions_accepts_checked_in_valgrind_workflow(self):
+        self.require_actionlint()
+        self.quality_checks.file_utils.get_project_root = Mock(
+            return_value=str(Path(__file__).resolve().parents[3])
+        )
+
+        result = self.quality_checks.check_github_actions([
+            ".github/workflows/valgrind.yml",
+        ])
+
+        self.assertTrue(result)
+
+    def test_file_filter_does_not_ignore_dotgithub_as_dotgit(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            for file_path in (
+                ".github/workflows/ci.yml",
+                ".git/config",
+                "deps/data.txt",
+                "development/build/out.txt",
+                "development/building/out.txt",
+            ):
+                target = root / file_path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("", encoding="utf-8")
+
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(temp_dir)
+                result = FileUtils.filter_existing_files(
+                    [
+                        ".github/workflows/ci.yml",
+                        ".git/config",
+                        "deps/data.txt",
+                        "development/build/out.txt",
+                        "development/building/out.txt",
+                    ],
+                    ["./.git", "./deps", "./development/build"],
+                )
+            finally:
+                os.chdir(old_cwd)
+
+        self.assertEqual(
+            result,
+            [".github/workflows/ci.yml", "development/building/out.txt"],
+        )
+
     def test_check_secrets_batches_files_and_uses_resolved_command(self):
         files = [f"file-{index}.txt" for index in range(55)]
 
@@ -195,6 +400,63 @@ class TestQualityChecks(unittest.TestCase):
         self.assertEqual(second_cmd[:2], ["detect-secrets-hook", "--baseline"])
         self.assertEqual(len(first_cmd) - 3, 50)
         self.assertEqual(len(second_cmd) - 3, 5)
+
+    def test_agent_runtime_static_analysis_runs_shared_script_for_pr_target(self):
+        with patch.object(quality_checks_module.FileUtils, "get_project_root", return_value="/work"):
+            with patch(
+                "expkits_ci.quality_checks.subprocess.run",
+                return_value=Mock(returncode=0, stdout="ok\n", stderr=""),
+            ) as subprocess_run:
+                result = self.quality_checks.check_agent_runtime_static_analysis(
+                    ["scripts/private/agent_runtime/openai_agent_runner.py"],
+                    pr_target_branch="main",
+                )
+
+        self.assertTrue(result)
+        self.assertEqual(
+            subprocess_run.call_args.args[0],
+            [
+                sys.executable,
+                "-m",
+                "expkits_ci.agent_static_analysis",
+                "--base-ref",
+                "origin/main",
+            ],
+        )
+        self.assertEqual(subprocess_run.call_args.kwargs["cwd"], "/work")
+        self.assertIn("/work/tools/expkits-ci", subprocess_run.call_args.kwargs["env"]["PYTHONPATH"])
+
+    def test_agent_runtime_static_analysis_checks_deleted_pr_paths(self):
+        with patch.object(quality_checks_module.FileUtils, "get_project_root", return_value="/work"):
+            with patch(
+                "expkits_ci.quality_checks.subprocess.run",
+                side_effect=[
+                    Mock(returncode=0, stdout="D\0scripts/private/agent_runtime/task.py\0", stderr=""),
+                    Mock(returncode=0, stdout="", stderr=""),
+                ],
+            ) as subprocess_run:
+                result = self.quality_checks.check_agent_runtime_static_analysis(
+                    ["docs/readme.md"],
+                    pr_target_branch="main",
+                )
+
+        self.assertTrue(result)
+        self.assertEqual(
+            subprocess_run.call_args_list[0].args[0],
+            ["git", "diff", "--name-status", "-z", "origin/main...HEAD"],
+        )
+        self.assertEqual(
+            subprocess_run.call_args_list[1].args[0],
+            [
+                sys.executable,
+                "-m",
+                "expkits_ci.agent_static_analysis",
+                "--base-ref",
+                "origin/main",
+            ],
+        )
+        self.assertEqual(subprocess_run.call_args_list[1].kwargs["cwd"], "/work")
+        self.assertIn("/work/tools/expkits-ci", subprocess_run.call_args_list[1].kwargs["env"]["PYTHONPATH"])
 
     def test_apply_license_header_keeps_cmake_content_adjacent_to_header_when_cmake_config_is_missing(self):
         input_content = (FIXTURE_ROOT / "cmake" / "bad.CMakeLists.txt.input").read_text(encoding="utf-8")
@@ -306,6 +568,14 @@ class TestQualityChecks(unittest.TestCase):
 
     def test_check_commit_messages_on_ci_allows_merge_commit_without_task_line(self):
         repo = self.make_repo_with_head_commit("Merge branch 'main' into feature/EXPKITS-973/pr-quality-gate\n")
+
+        with patch("expkits_ci.quality_checks.Repo", return_value=repo):
+            result = self.quality_checks.check_commit_messages_on_ci()
+
+        self.assertTrue(result)
+
+    def test_check_commit_messages_on_ci_allows_jira_subject_prefix_without_task_line(self):
+        repo = self.make_repo_with_head_commit("EXPKITS-1234 Keep workflow repair scoped\n")
 
         with patch("expkits_ci.quality_checks.Repo", return_value=repo):
             result = self.quality_checks.check_commit_messages_on_ci()

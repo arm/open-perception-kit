@@ -5,11 +5,8 @@
 # Updates the persisted Playwright report site used by GitHub Pages.
 ################################################################
 
-import base64
 import datetime as dt
-import html
 import json
-import os
 import re
 import shutil
 import subprocess
@@ -18,13 +15,34 @@ import tempfile
 from pathlib import Path
 from urllib.parse import quote
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parents[2]
+sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.report_pages.publish import (  # noqa: E402
+    PublishError,
+    capture,
+    checkout_site_branch as common_checkout_site_branch,
+    env,
+    html_anchor,
+    html_escape,
+    remove_legacy_root_site,
+    require_env,
+    run,
+    run_maybe,
+    set_output,
+    push_site_branch as common_push_site_branch,
+    write_root_index,
+)
+
 
 PRODUCT_TITLE = "Arm Perception kit"
+REPORT_ROOT = "playwright"
 INDEX_HTML = "index.html"
 REPORT_INDEX_META = "report-index-meta.txt"
 MAX_REPORT_BYTES = 500 * 1024 * 1024
 PRUNED_REPORT_DATA_SUFFIXES = {".webm", ".zip"}
-SCRIPT_DIR = Path(__file__).resolve().parent
+DRY_RUN_ENV = "PLAYWRIGHT_PAGES_DRY_RUN"
 ASSET_DIR = SCRIPT_DIR / "assets"
 SOURCE_EXTENSIONS = {
     ".c",
@@ -52,165 +70,35 @@ SOURCE_EXTENSIONS = {
 }
 
 
-class PublishError(RuntimeError):
-    pass
-
-
 def usage() -> None:
-    print("Usage: scripts/playwright/pages/publish.sh publish|cleanup", file=sys.stderr)
+    print("Usage: publish_playwright_pages.py publish|cleanup", file=sys.stderr)
 
 
-def env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default)
-
-
-def require_env(name: str) -> str:
-    value = env(name)
-    if not value:
-        raise PublishError(f"{name} is required.")
-    return value
-
-
-def dry_run_enabled() -> bool:
-    return env("PLAYWRIGHT_PAGES_DRY_RUN") == "1"
-
-
-def set_output(name: str, value: str) -> None:
-    output = env("GITHUB_OUTPUT")
-    if output:
-        with open(output, "a", encoding="utf-8") as handle:
-            handle.write(f"{name}={value}\n")
-
-
-def run(args: list[str], cwd: Path | None = None, quiet: bool = False) -> subprocess.CompletedProcess:
-    stdout = subprocess.DEVNULL if quiet else None
-    stderr = subprocess.DEVNULL if quiet else None
-    return subprocess.run(args, cwd=cwd, check=True, stdout=stdout, stderr=stderr, text=True)
-
-
-def run_maybe(args: list[str], cwd: Path | None = None, quiet: bool = False) -> subprocess.CompletedProcess:
-    stdout = subprocess.DEVNULL if quiet else None
-    stderr = subprocess.DEVNULL if quiet else None
-    return subprocess.run(args, cwd=cwd, check=False, stdout=stdout, stderr=stderr, text=True)
-
-
-def capture(args: list[str], cwd: Path | None = None) -> str:
-    result = subprocess.run(args, cwd=cwd, check=True, stdout=subprocess.PIPE, text=True)
-    return result.stdout
-
-
-def git_auth_header() -> str:
-    token = require_env("GITHUB_TOKEN")
-    return base64.b64encode(f"x-access-token:{token}".encode("utf-8")).decode("ascii")
-
-
-def git_with_auth(args: list[str], site_dir: Path, auth_header: str, quiet: bool = False) -> subprocess.CompletedProcess:
-    return run(
-        [
-            "git",
-            "-C",
-            str(site_dir),
-            "-c",
-            f"http.https://github.com/.extraheader=AUTHORIZATION: basic {auth_header}",
-            *args,
-        ],
-        quiet=quiet,
-    )
-
-
-def git_with_auth_maybe(args: list[str], site_dir: Path, auth_header: str,
-                        quiet: bool = False) -> subprocess.CompletedProcess:
-    stdout = subprocess.DEVNULL if quiet else None
-    stderr = subprocess.DEVNULL if quiet else None
-    return subprocess.run(
-        [
-            "git",
-            "-C",
-            str(site_dir),
-            "-c",
-            f"http.https://github.com/.extraheader=AUTHORIZATION: basic {auth_header}",
-            *args,
-        ],
-        check=False,
-        stdout=stdout,
-        stderr=stderr,
-        text=True,
+def push_site_branch(site_dir: Path, storage_branch: str) -> bool:
+    return common_push_site_branch(
+        site_dir,
+        storage_branch,
+        DRY_RUN_ENV,
+        "Update Playwright report pages",
+        "Playwright Pages",
     )
 
 
 def checkout_site_branch(site_dir: Path, storage_branch: str) -> None:
-    if dry_run_enabled():
-        if site_dir.exists():
-            shutil.rmtree(site_dir)
-        site_dir.mkdir(parents=True)
-        run(["git", "-C", str(site_dir), "init", "-b", storage_branch], quiet=True)
-        run(["git", "-C", str(site_dir), "config", "user.name", "local-playwright-pages"])
-        run(["git", "-C", str(site_dir), "config", "user.email", "local@example.invalid"])
-        return
-
-    repository = require_env("GITHUB_REPOSITORY")
-    auth_header = git_auth_header()
-    print(f"::add-mask::{auth_header}")
-
-    if site_dir.exists():
-        shutil.rmtree(site_dir)
-    site_dir.mkdir(parents=True)
-
-    run(["git", "-C", str(site_dir), "init"])
-    run(["git", "-C", str(site_dir), "remote", "add", "origin", f"https://github.com/{repository}.git"])
-    fetched = git_with_auth_maybe(["fetch", "--depth=1", "origin", storage_branch], site_dir, auth_header, quiet=True)
-    if fetched.returncode == 0:
-        run(["git", "-C", str(site_dir), "checkout", "-B", storage_branch, "FETCH_HEAD"])
-    else:
-        run(["git", "-C", str(site_dir), "checkout", "--orphan", storage_branch])
-        run_maybe(["git", "-C", str(site_dir), "rm", "-rf", "."], quiet=True)
-
-    run(["git", "-C", str(site_dir), "config", "user.name", "github-actions[bot]"])
-    run(
-        [
-            "git",
-            "-C",
-            str(site_dir),
-            "config",
-            "user.email",
-            "41898282+github-actions[bot]@users.noreply.github.com",
-        ]
-    )
-
-
-def push_site_branch(site_dir: Path, storage_branch: str) -> bool:
-    run(["git", "-C", str(site_dir), "add", "-A", "."])
-    diff = run_maybe(["git", "-C", str(site_dir), "diff", "--cached", "--quiet"])
-    if diff.returncode == 0:
-        return False
-
-    run(["git", "-C", str(site_dir), "commit", "-m", "Update Playwright report pages"])
-    if dry_run_enabled():
-        print(f"Dry-run: generated Playwright Pages site at {site_dir}")
-        return True
-
-    auth_header = git_auth_header()
-    git_with_auth(["push", "origin", f"HEAD:{storage_branch}"], site_dir, auth_header)
-    return True
-
-
-def html_escape(value: str) -> str:
-    return html.escape(str(value), quote=True)
+    common_checkout_site_branch(site_dir, storage_branch, DRY_RUN_ENV, "local-playwright-pages")
 
 
 def script_json(value: str) -> str:
     return value.replace("</", "<\\/")
 
 
-def html_anchor(href: str, text: str) -> str:
-    return f'<a href="{html_escape(href)}">{html_escape(text)}</a>'
-
-
 def copy_asset(site_dir: Path, name: str) -> None:
     source = ASSET_DIR / name
     if not source.is_file():
         raise PublishError(f"Missing Playwright Pages asset: {source}")
-    shutil.copyfile(source, site_dir / name)
+    destination = site_dir / REPORT_ROOT / name
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source, destination)
 
 
 def write_index_assets(site_dir: Path) -> None:
@@ -347,6 +235,8 @@ def read_first_line(path: Path, default: str) -> str:
 
 
 def write_site_index(site_dir: Path, repository: str) -> None:
+    root = site_dir / REPORT_ROOT
+    root.mkdir(parents=True, exist_ok=True)
     parts = [
         write_index_head(f"{PRODUCT_TITLE} - Playwright reports", "report-index.css"),
         """      <header>
@@ -358,7 +248,7 @@ def write_site_index(site_dir: Path, repository: str) -> None:
         <div class="report-list">
 """,
     ]
-    nightly = site_dir / "nightly"
+    nightly = root / "nightly"
     if (nightly / INDEX_HTML).is_file():
         meta = read_first_line(nightly / REPORT_INDEX_META, "Scheduled develop run")
         parts.append(
@@ -377,7 +267,7 @@ def write_site_index(site_dir: Path, repository: str) -> None:
         <div class="report-list">
 """
     )
-    prs_dir = site_dir / "prs"
+    prs_dir = root / "prs"
     if prs_dir.is_dir():
         pr_dirs = [path for path in prs_dir.iterdir() if path.is_dir() and path.name.isdigit()]
         for pr_dir in sorted(pr_dirs, key=lambda path: int(path.name)):
@@ -399,7 +289,7 @@ def write_site_index(site_dir: Path, repository: str) -> None:
             write_index_footer(),
         ]
     )
-    (site_dir / INDEX_HTML).write_text("".join(parts), encoding="utf-8")
+    (root / INDEX_HTML).write_text("".join(parts), encoding="utf-8")
 
 
 def inject_once(pattern: str, replacement, content: str, label: str) -> str:
@@ -534,12 +424,15 @@ def copy_pruned_report_for_pages(report_dir: Path, target: Path) -> None:
     prune_report_for_pages(target)
 
 
-def restore_report_videos_for_deploy(report_dir: Path, target: Path) -> None:
+def restore_report_videos_for_deploy(report_dir: Path, target: Path) -> int:
+    count = 0
     for source in report_dir.rglob("data/*.webm"):
         if source.is_file():
             destination = target / source.relative_to(report_dir)
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)
+            count += 1
+    return count
 
 
 def validate_report_for_pages(report_dir: Path) -> None:
@@ -587,7 +480,8 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
             print("No PR number found for upstream run; skipping Pages publish.")
             set_output("deploy", "false")
             return
-        target = site_dir / "prs" / pr_number
+        root = site_dir / REPORT_ROOT
+        target = root / "prs" / pr_number
         back_href = "../../"
     else:
         if event != "schedule" or branch != "develop":
@@ -595,7 +489,8 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
             set_output("deploy", "false")
             return
         pr_number = ""
-        target = site_dir / "nightly"
+        root = site_dir / REPORT_ROOT
+        target = root / "nightly"
         back_href = "../"
 
     index_meta_text = build_report_index_meta_text(branch, head_sha, run_id, run_attempt)
@@ -616,6 +511,7 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
 
         validate_report_for_pages(report_dir)
         checkout_site_branch(site_dir, storage_branch)
+        remove_legacy_root_site(site_dir)
         copy_pruned_report_for_pages(report_dir, target)
         (target / REPORT_INDEX_META).write_text(f"{index_meta_text}\n", encoding="utf-8")
         (target / "report-meta.html").write_text(f"{meta_html}\n", encoding="utf-8")
@@ -635,12 +531,13 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
             )
         (target / "commit.txt").write_text(f"{head_sha}\n", encoding="utf-8")
         (site_dir / ".nojekyll").touch()
+        write_root_index(site_dir)
         write_index_assets(site_dir)
         write_site_index(site_dir, repository)
 
         changed = push_site_branch(site_dir, storage_branch)
-        set_output("deploy", "true" if changed else "false")
-        restore_report_videos_for_deploy(report_dir, target)
+        restored_videos = restore_report_videos_for_deploy(report_dir, target)
+        set_output("deploy", "true" if changed or restored_videos else "false")
 
 
 def parse_github_time(value: str) -> dt.datetime:
@@ -670,9 +567,9 @@ def cleanup_closed_pr_reports(site_dir: Path, storage_branch: str, retention_day
     repository = require_env("GITHUB_REPOSITORY")
     checkout_site_branch(site_dir, storage_branch)
     cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=retention_days)
-    changed = False
+    changed = remove_legacy_root_site(site_dir)
 
-    prs_dir = site_dir / "prs"
+    prs_dir = site_dir / REPORT_ROOT / "prs"
     if prs_dir.is_dir():
         for pr_dir in prs_dir.iterdir():
             if not pr_dir.is_dir() or not pr_dir.name.isdigit():
@@ -685,6 +582,7 @@ def cleanup_closed_pr_reports(site_dir: Path, storage_branch: str, retention_day
                 changed = True
 
     if changed:
+        write_root_index(site_dir)
         write_index_assets(site_dir)
         write_site_index(site_dir, repository)
         pushed = push_site_branch(site_dir, storage_branch)

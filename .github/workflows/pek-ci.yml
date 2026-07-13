@@ -2,6 +2,27 @@ name: Perception Experience Kit CI Pipeline
 
 on:
   workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Optional PR number to run the PR validation path manually.
+        required: false
+        default: ""
+        type: string
+      pr_base_ref:
+        description: Optional PR base branch override for manual PR-context runs.
+        required: false
+        default: ""
+        type: string
+      pr_head_ref:
+        description: Optional PR head branch for manual PR-context runs.
+        required: false
+        default: ""
+        type: string
+      pr_head_sha:
+        description: Optional PR head SHA for manual PR-context runs.
+        required: false
+        default: ""
+        type: string
   pull_request:
     branches: [main, develop, "feature/**", "sandbox/**" ]
     types: [ opened, synchronize, reopened, ready_for_review, labeled ]
@@ -29,8 +50,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 1
-          ref: ${{ github.head_ref || github.ref }}
+          fetch-depth: 0
+          fetch-tags: true
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_head_sha || github.event_name == 'workflow_dispatch' && github.event.inputs.pr_head_ref || github.head_ref || github.ref }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
       - name: Show detected quick-start platform
@@ -82,11 +104,12 @@ jobs:
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      # ponytail: RPI runner drops checkout@v6 temp includeIf credentials during fetch; retry v6 after runner image update.
+      # RPI runner drops checkout@v6 temp includeIf credentials during fetch; retry v6 after runner image update.
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 1
-          ref: ${{ github.head_ref || github.ref }}
+          fetch-depth: 0
+          fetch-tags: true
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_head_sha || github.event_name == 'workflow_dispatch' && github.event.inputs.pr_head_ref || github.head_ref || github.ref }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
       - name: Show detected quick-start platform
@@ -152,11 +175,36 @@ jobs:
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout workflow helpers
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          path: workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+          persist-credentials: false
+
+      - name: Resolve manual PR context
+        id: manual_pr
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
+        working-directory: ${{ github.workspace }}/workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 scripts/private/github_pr_context.py \
+            --pr-number "${{ github.event.inputs.pr_number }}" \
+            --repo "${{ github.repository }}" \
+            --base-ref-override "${{ github.event.inputs.pr_base_ref }}" \
+            --head-ref-override "${{ github.event.inputs.pr_head_ref }}" \
+            --head-sha-override "${{ github.event.inputs.pr_head_sha }}" \
+            --github-output "${GITHUB_OUTPUT}"
+
+      - name: Checkout
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ github.head_ref || github.ref }}
+          ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.head_ref || github.ref }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
       - name: Build docker image
@@ -165,13 +213,13 @@ jobs:
           docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-docs-base pek-dev-base
 
       - name: Check Repo Quality gate (nightly)
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number == '') }}
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: |
           docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-quality-check-full
 
       - name: Upload quality report artifact (nightly)
-        if: ${{ always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+        if: ${{ always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number == '')) }}
         uses: actions/upload-artifact@v6
         with:
           name: expkits-ci-quality-report-full
@@ -180,7 +228,7 @@ jobs:
           retention-days: 10
 
       - name: Upload documentation artifact
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number == '') }}
         uses: actions/upload-artifact@v6
         with:
           name: pek-doc
@@ -189,27 +237,23 @@ jobs:
           retention-days: 10
 
       - name: Check Repo Quality gate (PR)
-        if: github.event_name == 'pull_request'
+        if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '') }}
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          export PULL_REQUEST_TARGET_BRANCH="${{ github.base_ref }}"
-          # The checkout auth includeIf rules do not apply inside our /work-mounted compose container.
-          git_basic_auth="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
-          export GIT_CONFIG_COUNT=1
-          export GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
-          export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic ${git_basic_auth}"
-          echo "::add-mask::${git_basic_auth}"
-          echo "::add-mask::${GIT_CONFIG_VALUE_0}"
+          export PULL_REQUEST_TARGET_BRANCH="${{ steps.manual_pr.outputs.base_ref || github.base_ref }}"
+          source scripts/private/ci_git_auth_env.sh
+          configure_github_git_auth_env "$GITHUB_TOKEN"
           docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm \
+            -e PULL_REQUEST_TARGET_BRANCH \
             -e GIT_CONFIG_COUNT \
             -e GIT_CONFIG_KEY_0 \
             -e GIT_CONFIG_VALUE_0 \
             pek-quality-check-pull-request
 
       - name: Upload quality report artifact (PR)
-        if: ${{ always() && github.event_name == 'pull_request' }}
+        if: ${{ always() && (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '')) }}
         uses: actions/upload-artifact@v6
         with:
           name: expkits-ci-quality-report-pr
@@ -230,16 +274,12 @@ jobs:
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          PR_CONTEXT_RUN: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '') }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            export PULL_REQUEST_TARGET_BRANCH="${{ github.base_ref }}"
-            # The checkout auth includeIf rules do not apply inside our /work-mounted compose container.
-            git_basic_auth="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
-            export GIT_CONFIG_COUNT=1
-            export GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
-            export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic ${git_basic_auth}"
-            echo "::add-mask::${git_basic_auth}"
-            echo "::add-mask::${GIT_CONFIG_VALUE_0}"
+          if [ "${PR_CONTEXT_RUN}" = "true" ]; then
+            export PULL_REQUEST_TARGET_BRANCH="${{ steps.manual_pr.outputs.base_ref || github.base_ref }}"
+            source scripts/private/ci_git_auth_env.sh
+            configure_github_git_auth_env "$GITHUB_TOKEN"
             docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm \
               -e PULL_REQUEST_TARGET_BRANCH \
               -e GIT_CONFIG_COUNT \
@@ -253,7 +293,7 @@ jobs:
       - name: Upload clang-tidy logs
         if: always() && (github.event_name == 'pull_request' || github.event_name == 'schedule' ||
           github.event_name == 'workflow_dispatch')
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v6
         with:
           name: clang-tidy-baseline
           path: |

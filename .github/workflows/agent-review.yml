@@ -1,0 +1,214 @@
+name: Agent Review
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: Branch or ref to diff against for manual runs
+        required: false
+        default: origin/develop
+        type: string
+      head_ref:
+        description: Branch, SHA, or ref to review for manual runs; defaults to the workflow run SHA
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: agent-review-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: |
+      github.event_name != 'pull_request' ||
+      (
+        github.event.pull_request.head.repo.full_name == github.repository
+      )
+    runs-on: self-hosted-ubuntu-latest
+    outputs:
+      recommendation: ${{ steps.render.outputs.recommendation }}
+      finding_count: ${{ steps.render.outputs.finding_count }}
+
+    steps:
+      - name: Checkout pull request head
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.head_ref || github.sha) || github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fetch Agent review base ref
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REVIEW_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_ref || format('origin/{0}', github.base_ref) }}
+        run: |
+          set -euo pipefail
+          if [[ "${REVIEW_BASE_REF}" == origin/* ]]; then
+            base_branch="${REVIEW_BASE_REF#origin/}"
+            auth_header="$(printf 'x-access-token:%s' "${GITHUB_TOKEN}" | base64 -w 0)"
+            git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic ${auth_header}" \
+              fetch --no-tags origin "+refs/heads/${base_branch}:refs/remotes/origin/${base_branch}"
+          fi
+
+      - name: Set up Agent Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+
+      - name: Build Agent review context
+        shell: bash
+        env:
+          REVIEW_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_ref || format('origin/{0}', github.base_ref) }}
+          REVIEW_HEAD_REF: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.head_ref || github.sha) || github.event.pull_request.head.sha || github.sha }}
+          REVIEW_REPOSITORY: ${{ github.repository }}
+          REVIEW_PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+          REVIEW_PR_TITLE: ${{ github.event.pull_request.title || '' }}
+          REVIEW_PR_URL: ${{ github.event.pull_request.html_url || '' }}
+        run: |
+          mkdir -p .github/agent-runtime/review/out
+          python3 scripts/private/agent_runtime/review/context.py \
+            --repo-root "${GITHUB_WORKSPACE}" \
+            --task-config-file .github/agent-runtime/runtime/agent-tasks.json \
+            --output .github/agent-runtime/review/out/review-context.json
+
+      - name: Build Agent review packet
+        shell: bash
+        run: |
+          python3 scripts/private/agent_runtime/review/packet.py \
+            --repo-root "${GITHUB_WORKSPACE}" \
+            --context-file .github/agent-runtime/review/out/review-context.json \
+            --output .github/agent-runtime/review/out/review-packet
+
+      - name: Install OpenAI agent runtime
+        shell: bash
+        run: |
+          python3 scripts/private/agent_runtime/setup_runtime.py \
+            --install-package ./tools/expkits-ci
+
+      - name: Run Agent workflow static analysis
+        shell: bash
+        env:
+          REVIEW_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_ref || format('origin/{0}', github.base_ref) }}
+        run: |
+          PYTHONPATH="${GITHUB_WORKSPACE}/tools/expkits-ci${PYTHONPATH:+:${PYTHONPATH}}" \
+            .agent-runtime/openai-agent-venv/bin/python -m expkits_ci.agent_static_analysis --base-ref "${REVIEW_BASE_REF}"
+
+      # <agent-review:suppress-begin> Intentional current self-hosted OpenAI
+      # review trust boundary for same-repo pull requests.
+      - name: Run OpenAI SDK review
+        id: review
+        shell: bash
+        env:
+          OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
+          AGENT_ACTION_LOG: .github/agent-runtime/review/out/agent-actions.jsonl
+          AGENT_RUNTIME_BIN: .agent-runtime/openai-agent-venv/bin
+        run: |
+          .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/openai_agent_runner.py run-review \
+            --model-config-file .github/agent-runtime/runtime/agent-models.json \
+            --task-config-file .github/agent-runtime/runtime/agent-tasks.json \
+            --context-file .github/agent-runtime/review/out/review-context.json \
+            --review-packet-file .github/agent-runtime/review/out/review-packet/index.md \
+            --output-file .github/agent-runtime/review/out/review.json
+      # <agent-review:suppress-end>
+
+      - name: Render review summary
+        id: render
+        if: ${{ success() }}
+        shell: bash
+        env:
+          REVIEW_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_ref || format('origin/{0}', github.base_ref) }}
+        run: |
+          .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/review/publish.py \
+            --input .github/agent-runtime/review/out/review.json \
+            --markdown-out .github/agent-runtime/review/out/review-summary.md \
+            --github-output "${GITHUB_OUTPUT}"
+          cat .github/agent-runtime/review/out/review-summary.md >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Publish review summary comment
+        if: ${{ success() && github.event_name == 'pull_request' }}
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REVIEW_BASE_REF: ${{ format('origin/{0}', github.base_ref) }}
+        run: |
+          .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/review/publish.py \
+            --input .github/agent-runtime/review/out/review.json \
+            --markdown-out .github/agent-runtime/review/out/review-summary.md \
+            --publish-pr-comment
+
+      - name: Upload review artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: agent-review-out
+          path: .github/agent-runtime/review/out
+          if-no-files-found: warn
+
+  review-gate:
+    name: Agent Review gate
+    needs: review
+    if: ${{ always() && needs.review.result != 'cancelled' }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Require Agent Review approval
+        shell: bash
+        env:
+          REVIEW_RESULT: ${{ needs.review.result }}
+          REVIEW_RECOMMENDATION: ${{ needs.review.outputs.recommendation }}
+          REVIEW_FINDING_COUNT: ${{ needs.review.outputs.finding_count }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || '' }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ "${REVIEW_RESULT}" = "skipped" ]; then
+            if [ "${EVENT_NAME}" = "pull_request" ] && [ "${HEAD_REPOSITORY}" != "${REPOSITORY}" ]; then
+              echo "Agent Review skipped unsupported fork pull request head ${HEAD_REPOSITORY}; the gate cannot pass without a review."
+              exit 1
+            fi
+            echo "Agent Review job was skipped unexpectedly."
+            exit 1
+          fi
+          if [ "${REVIEW_RESULT}" != "success" ]; then
+            echo "Agent Review job result was ${REVIEW_RESULT}."
+            exit 1
+          fi
+          if [ "${REVIEW_RECOMMENDATION}" != "approve" ]; then
+            echo "Agent Review recommendation was ${REVIEW_RECOMMENDATION:-unknown} with finding_count=${REVIEW_FINDING_COUNT:-unknown}."
+            exit 1
+          fi
+          echo "Agent Review approved this head."
+
+  auto-stabilize-pr:
+    name: Auto stabilize Agent Review findings
+    needs: review
+    if: |
+      github.event_name == 'pull_request' &&
+      needs.review.result == 'success' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(github.event.pull_request.labels.*.name, 'agent-stabilize')
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: write
+    uses: ./.github/workflows/agent-stabilize-pr-worker.yml
+    with:
+      pr_number: ${{ github.event.pull_request.number }}
+      head_sha: ${{ github.event.pull_request.head.sha }}
+      source_run_id: ${{ github.run_id }}
+      task_ref: ${{ github.event.pull_request.title }}
+      profile_path: .github/agent-runtime/pr-stabilization/profiles/profile.json
+    secrets: inherit # pragma: allowlist secret

@@ -4,17 +4,25 @@ run-name: Workflow dependency freshness for ${{ github.ref_name }}
 on:
   workflow_call:
   workflow_dispatch:
+    inputs:
+      summary_limit:
+        description: Maximum number of action refs to list in the step summary.
+        required: false
+        default: "10"
+        type: number
   pull_request:
     branches: [ main, develop, "feature/**", "sandbox/**" ]
     paths:
       - ".github/workflows/**"
       - "scripts/private/workflow_audit_report.py"
+      - "scripts/private/github_api.py"
+      - ".github/agent-runtime/source-run-repair/**"
+      - ".github/agent-runtime/workflow-policy/**"
     types: [ opened, synchronize, reopened, ready_for_review ]
   schedule:
     - cron: "0 5 * * *"
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: workflow-audit-${{ github.ref }}
@@ -25,8 +33,10 @@ jobs:
     name: workflow dependency freshness
     runs-on: ubuntu-latest
     if: |
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.full_name == github.repository
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    permissions:
+      actions: read
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -42,7 +52,7 @@ jobs:
             --repo-root . \
             --markdown-output "${RUNNER_TEMP}/workflow-dependency-freshness.md" \
             --json-output "${RUNNER_TEMP}/workflow-dependency-freshness.json" \
-            --summary-limit 10 \
+            --summary-limit "${{ github.event_name == 'workflow_dispatch' && inputs.summary_limit || 10 }}" \
             >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Upload workflow dependency freshness artifact

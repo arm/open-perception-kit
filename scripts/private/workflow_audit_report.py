@@ -12,15 +12,20 @@ import re
 import sys
 from collections import Counter
 from pathlib import Path
-from urllib.error import HTTPError, URLError
 from urllib.parse import quote
-from urllib.request import Request, urlopen
 
+if __package__ in (None, ""):  # pragma: no cover - used for direct script execution.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from github_api import (  # noqa: E402
+    github_api_base_url,
+    github_api_json_or_empty,
+    github_api_query_endpoint,
+)
 
 USES_RE = re.compile(r"^\s*(?:-\s*)?uses:\s*['\"]?(?P<uses>[^'\"\s#]+)")
 SEMVER_RE = re.compile(r"^v?(?P<major>\d+)(?:\.(?P<minor>\d+))?(?:\.(?P<patch>\d+))?$")
 SHA_RE = re.compile(r"^[0-9a-f]{7,40}$", re.IGNORECASE)
-DEFAULT_API_URL = "https://api.github.com"
 DEFAULT_SERVER_URL = "https://github.com"
 STATUS_ORDER = {
     "behind": 0,
@@ -43,7 +48,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--markdown-output", required=True, type=Path)
     parser.add_argument("--json-output", type=Path)
     parser.add_argument("--summary-limit", type=int, default=6)
-    parser.add_argument("--api-url", default=os.environ.get("GITHUB_API_URL", DEFAULT_API_URL))
+    parser.add_argument("--api-url", default=github_api_base_url())
     parser.add_argument(
         "--server-url",
         default=os.environ.get("GITHUB_SERVER_URL", DEFAULT_SERVER_URL),
@@ -108,32 +113,25 @@ def collect_entries(repo_root: Path) -> list[dict[str, object]]:
     return [entries[key] for key in sorted(entries)]
 
 
-def github_get_json(api_url: str, path: str, token: str | None) -> object:
-    headers = {
-        "Accept": "application/vnd.github+json",
-        "User-Agent": "amp-dev-forge-workflow-freshness",
-    }
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    request = Request(f"{api_url.rstrip('/')}/{path.lstrip('/')}", headers=headers)
-    try:
-        with urlopen(request, timeout=20) as response:
-            return json.loads(response.read().decode("utf-8", errors="replace"))
-    except HTTPError as error:
-        error.close()
-        return {}
-    except (OSError, URLError, TimeoutError, UnicodeDecodeError, json.JSONDecodeError):
-        return {}
-
-
-def fetch_latest_ref(api_url: str, token: str | None, repository: str) -> tuple[str, str]:
-    payload = github_get_json(api_url, f"repos/{quote(repository, safe='/')}/releases/latest", token)
-    latest_release = str(dict(payload).get("tag_name") or "").strip()
+def fetch_latest_ref(token: str | None, repository: str) -> tuple[str, str]:
+    repository_path = quote(repository, safe="/")
+    payload = github_api_json_or_empty(
+        f"repos/{repository_path}/releases/latest",
+        token=token,
+    )
+    latest_release = str(payload.get("tag_name") or "").strip() if isinstance(payload, dict) else ""
     if latest_release:
         return latest_release, "release"
-    payload = github_get_json(api_url, f"repos/{quote(repository, safe='/')}/tags?per_page=1", token)
+    payload = github_api_json_or_empty(
+        github_api_query_endpoint(
+            f"repos/{repository_path}/tags",
+            {"per_page": 1},
+        ),
+        token=token,
+    )
     if isinstance(payload, list) and payload:
-        latest_tag = str(dict(payload[0]).get("name") or "").strip()
+        first_tag = payload[0] if isinstance(payload[0], dict) else {}
+        latest_tag = str(first_tag.get("name") or "").strip()
         if latest_tag:
             return latest_tag, "tag"
     return "", ""
@@ -279,13 +277,14 @@ def render_json(entries: list[dict[str, object]]) -> str:
 
 def main() -> int:
     args = parse_args()
+    os.environ["GITHUB_API_URL"] = args.api_url
     token = os.environ.get("GITHUB_TOKEN")
     entries = collect_entries(args.repo_root.resolve())
     cache: dict[str, tuple[str, str]] = {}
     for entry in entries:
         repository = str(entry["repository"])
         if repository not in cache:
-            cache[repository] = fetch_latest_ref(args.api_url, token, repository)
+            cache[repository] = fetch_latest_ref(token, repository)
         latest_ref, latest_source = cache[repository]
         current_ref = str(entry["current_ref"])
         entry["latest_ref"] = latest_ref

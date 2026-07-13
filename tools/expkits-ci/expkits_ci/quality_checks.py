@@ -3,6 +3,7 @@
 ################################################################
 
 import os
+import glob
 import re
 import sys
 import json
@@ -45,6 +46,31 @@ class QualityChecks:
     COPILOT_AUTOFIX_TRAILER_RE = re.compile(
         r"^Co-authored-by:\s+Copilot Autofix powered by AI <.+@users\.noreply\.github\.com>$",
         re.IGNORECASE,
+    )
+    JIRA_SUBJECT_PREFIX_RE = re.compile(
+        r"^(%s)-\d+\b.+" % "|".join(JIRA_PROJECTS),
+        re.IGNORECASE,
+    )
+    AGENT_RUNTIME_STATIC_TRIGGER_PREFIXES = (
+        ".github/agent-runtime/",
+        "scripts/private/github_actions.py",
+        "scripts/private/github_api.py",
+        "scripts/private/agent_runtime/",
+        "scripts/private/agent_repair_orchestrator/",
+        "scripts/private/agent_stabilization_orchestrator/",
+        "scripts/private/agent_workflow_common/",
+        "scripts/private/test_support/",
+        "scripts/private/tests/",
+        ".github/workflows/agent-review.yml",
+        ".github/workflows/agent-repair-source-run",
+        ".github/workflows/agent-stabilize-pr",
+    )
+    AGENT_RUNTIME_STATIC_TRIGGER_FILES = (
+        "tools/expkits-ci/agent-workflows-mypy.ini",
+        "tools/expkits-ci/expkits_ci/agent_static_analysis.py",
+        "tools/expkits-ci/tests/test_agent_static_analysis.py",
+        "tools/expkits-ci/tests/test_agent_workflow_contracts.py",
+        "tools/expkits-ci/pyproject.toml",
     )
 
     def __init__(self):
@@ -104,6 +130,92 @@ class QualityChecks:
             return [detect_secrets_hook]
 
         return [sys.executable, "-m", "detect_secrets.pre_commit_hook"]
+
+    @staticmethod
+    def normalize_github_actions_path(filename, project_root):
+        if os.path.isabs(filename):
+            try:
+                filename = os.path.relpath(filename, project_root)
+            except ValueError:
+                return None
+
+        normalized = filename.replace(os.sep, "/")
+        if normalized.startswith("./"):
+            normalized = normalized[2:]
+
+        return normalized
+
+    @classmethod
+    def normalize_github_actions_workflow(cls, filename, project_root):
+        normalized = cls.normalize_github_actions_path(filename, project_root)
+        if (
+            normalized
+            and
+            normalized.startswith(".github/workflows/")
+            and normalized.endswith((".yml", ".yaml"))
+        ):
+            return normalized
+
+        return None
+
+    @classmethod
+    def is_actionlint_config(cls, filename, project_root):
+        return cls.normalize_github_actions_path(filename, project_root) == ".github/actionlint.yaml"
+
+    @staticmethod
+    def discover_github_actions_workflows(project_root):
+        workflows_dir = os.path.join(project_root, ".github", "workflows")
+        workflows = []
+        for pattern in ("*.yml", "*.yaml"):
+            workflows.extend(
+                os.path.relpath(path, project_root).replace(os.sep, "/")
+                for path in glob.glob(os.path.join(workflows_dir, pattern))
+                if os.path.isfile(path)
+            )
+        return sorted(workflows)
+
+    def check_github_actions(self, files=None) -> bool:
+        """Run actionlint on changed GitHub Actions workflows."""
+        logger.info("Checking GitHub Actions workflows with actionlint...")
+
+        files = files or []
+        project_root = self.file_utils.get_project_root()
+        if any(self.is_actionlint_config(file, project_root) for file in files):
+            workflows = self.discover_github_actions_workflows(project_root)
+        else:
+            workflows = list(dict.fromkeys(
+                workflow
+                for file in files
+                if (workflow := self.normalize_github_actions_workflow(file, project_root))
+            ))
+        if not workflows:
+            logger.info("No GitHub Actions workflow files found to check.")
+            return True
+
+        actionlint = shutil.which("actionlint")
+        if not actionlint:
+            logger.error("actionlint is not available on PATH.")
+            return False
+
+        cmd = [actionlint]
+        config_file = ".github/actionlint.yaml"
+        if os.path.isfile(os.path.join(project_root, config_file)):
+            cmd.extend(["-config-file", config_file])
+        cmd.extend(workflows)
+
+        proc = subprocess.run(
+            cmd,
+            cwd=project_root,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            encoding="utf-8",
+        )
+        if proc.returncode != 0:
+            self.log_captured_tool_output(proc.stdout)
+            return False
+
+        logger.info("GitHub Actions workflows passed actionlint.")
+        return True
 
     @staticmethod
     def iter_file_batches(files, batch_size=50):
@@ -248,7 +360,7 @@ class QualityChecks:
                 logger.error(
                     "Commit message must have at least two lines: a description and a reference to a JIRA ticket.")
                 logger.info("Example:")
-                logger.info("  Add new feature for X\n  Task: EXPKITS-1234")
+                logger.info("  Add new feature for X\n  Task: EXPKITS-4242")
                 logger.info(
                     "The current commit message is:\n"
                     + QualityChecks.render_commit_message_for_log(commit_msg, filtered_lines))
@@ -263,7 +375,7 @@ class QualityChecks:
             logger.error(
                 "Commit message must have at least two lines: a description and a reference to a JIRA ticket.")
             logger.info("Example:")
-            logger.info("  Add new feature for X\n  Task: EXPKITS-1234")
+            logger.info("  Add new feature for X\n  Task: EXPKITS-4242")
             logger.info(
                 "The current commit message is:\n"
                 + QualityChecks.render_commit_message_for_log(commit_msg, filtered_lines))
@@ -370,7 +482,7 @@ class QualityChecks:
                         f"[{sha}] Commit message must have at least two lines: "
                         "a description and a reference to a JIRA ticket.")
                     logger.error("Example:")
-                    logger.error("  Add new feature for X\n  Task: EXPKITS-1234")
+                    logger.error("  Add new feature for X\n  Task: EXPKITS-4242")
                     logger.error(
                         "The current commit message is:\n"
                         + QualityChecks.render_commit_message_for_log(commit.message, filtered_lines))
@@ -380,12 +492,15 @@ class QualityChecks:
                 if QualityChecks.allows_missing_jira_reference(filtered_lines):
                     logger.info(f"[{sha}] Commit message format is valid.")
                     continue
+                if QualityChecks.JIRA_SUBJECT_PREFIX_RE.match(filtered_lines[0]):
+                    logger.info(f"[{sha}] Commit message format is valid.")
+                    continue
 
                 logger.error(
                     f"[{sha}] Commit message must have at least two lines: "
                     "a description and a reference to a JIRA ticket.")
                 logger.error("Example:")
-                logger.error("  Add new feature for X\n  Task: EXPKITS-1234")
+                logger.error("  Add new feature for X\n  Task: EXPKITS-4242")
                 logger.error(
                     "The current commit message is:\n"
                     + QualityChecks.render_commit_message_for_log(commit.message, filtered_lines))
@@ -501,6 +616,104 @@ class QualityChecks:
         if result:
             logger.info("No secrets detected.")
         return result
+
+    @classmethod
+    def is_agent_runtime_static_file(cls, filename):
+        normalized = filename.replace(os.sep, "/")
+        return normalized in cls.AGENT_RUNTIME_STATIC_TRIGGER_FILES or any(
+            normalized.startswith(prefix)
+            for prefix in cls.AGENT_RUNTIME_STATIC_TRIGGER_PREFIXES
+        )
+
+    @classmethod
+    def should_run_agent_runtime_static_analysis(cls, files):
+        return any(cls.is_agent_runtime_static_file(filename) for filename in files or [])
+
+    @staticmethod
+    def name_status_paths(name_status_output):
+        tokens = [token for token in name_status_output.split("\0") if token]
+        paths = []
+        index = 0
+        while index < len(tokens):
+            status = tokens[index]
+            index += 1
+            if status.startswith("R") or status.startswith("C"):
+                if index + 1 >= len(tokens):
+                    break
+                paths.extend([tokens[index], tokens[index + 1]])
+                index += 2
+                continue
+            if index >= len(tokens):
+                break
+            paths.append(tokens[index])
+            index += 1
+        return paths
+
+    @classmethod
+    def should_run_agent_runtime_static_analysis_for_name_status_command(cls, command, failure_message):
+        proc = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            encoding="utf-8",
+        )
+        if proc.returncode != 0:
+            if proc.stdout:
+                cls.log_captured_tool_output(proc.stdout)
+            logger.error(failure_message)
+            return True
+        return cls.should_run_agent_runtime_static_analysis(cls.name_status_paths(proc.stdout))
+
+    @classmethod
+    def should_run_agent_runtime_static_analysis_for_base_ref(cls, pr_target_branch):
+        return cls.should_run_agent_runtime_static_analysis_for_name_status_command(
+            ["git", "diff", "--name-status", "-z", f"origin/{pr_target_branch}...HEAD"],
+            "Could not inspect PR diff for Agent runtime static analysis.",
+        )
+
+    @staticmethod
+    def check_agent_runtime_static_analysis(files=None, pr_target_branch=None) -> bool:
+        """Run the shared Agent runtime static analysis gate when relevant files changed."""
+        files = files or []
+        should_run = QualityChecks.should_run_agent_runtime_static_analysis(files)
+        if not should_run and pr_target_branch:
+            should_run = QualityChecks.should_run_agent_runtime_static_analysis_for_base_ref(pr_target_branch)
+        if not should_run:
+            logger.info("No Agent runtime files found for static analysis.")
+            return True
+
+        logger.info("Running Agent workflow static analysis...")
+        project_root = FileUtils.get_project_root()
+        command = [sys.executable, "-m", "expkits_ci.agent_static_analysis"]
+        if pr_target_branch:
+            command.extend(["--base-ref", f"origin/{pr_target_branch}"])
+
+        environment = os.environ.copy()
+        expkits_ci_root = os.path.join(project_root, "tools", "expkits-ci")
+        environment["PYTHONPATH"] = (
+            expkits_ci_root
+            if not environment.get("PYTHONPATH")
+            else os.pathsep.join([expkits_ci_root, environment["PYTHONPATH"]])
+        )
+        proc = subprocess.run(
+            command,
+            cwd=project_root,
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            encoding="utf-8",
+        )
+        if proc.returncode != 0:
+            if proc.stdout:
+                QualityChecks.log_captured_tool_output(proc.stdout)
+            logger.error("Agent workflow static analysis failed.")
+            return False
+        if proc.stdout:
+            for output_line in proc.stdout.rstrip().splitlines():
+                logger.info(output_line)
+
+        logger.info("Agent workflow static analysis passed.")
+        return True
 
     def check_clang_format(self, files, format, verbose=False) -> bool:
         """Check clang-format validity to files under folder using clang-format."""
