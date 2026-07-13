@@ -2,7 +2,7 @@ name: Agent Review
 
 on:
   pull_request:
-    types: [opened, reopened, synchronize, ready_for_review]
+    types: [opened, edited, reopened, synchronize, ready_for_review]
   workflow_dispatch:
     inputs:
       base_ref:
@@ -64,7 +64,7 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Render Agent review prompt
+      - name: Build Agent review context
         shell: bash
         env:
           REVIEW_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_ref || format('origin/{0}', github.base_ref) }}
@@ -72,12 +72,21 @@ jobs:
           REVIEW_REPOSITORY: ${{ github.repository }}
           REVIEW_PR_NUMBER: ${{ github.event.pull_request.number || '' }}
           REVIEW_PR_TITLE: ${{ github.event.pull_request.title || '' }}
-          REVIEW_PR_BODY: ${{ github.event.pull_request.body || '' }}
           REVIEW_PR_URL: ${{ github.event.pull_request.html_url || '' }}
         run: |
           mkdir -p .github/agent-runtime/review/out
-          python3 scripts/private/agent_runtime/review/prompt.py \
-            --output .github/agent-runtime/review/out/review.prompt.md
+          python3 scripts/private/agent_runtime/review/context.py \
+            --repo-root "${GITHUB_WORKSPACE}" \
+            --task-config-file .github/agent-runtime/runtime/agent-tasks.json \
+            --output .github/agent-runtime/review/out/review-context.json
+
+      - name: Build Agent review packet
+        shell: bash
+        run: |
+          python3 scripts/private/agent_runtime/review/packet.py \
+            --repo-root "${GITHUB_WORKSPACE}" \
+            --context-file .github/agent-runtime/review/out/review-context.json \
+            --output .github/agent-runtime/review/out/review-packet
 
       - name: Install OpenAI agent runtime
         shell: bash
@@ -100,12 +109,14 @@ jobs:
         shell: bash
         env:
           OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
+          AGENT_ACTION_LOG: .github/agent-runtime/review/out/agent-actions.jsonl
+          AGENT_RUNTIME_BIN: .agent-runtime/openai-agent-venv/bin
         run: |
           .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/openai_agent_runner.py run-review \
             --model-config-file .github/agent-runtime/runtime/agent-models.json \
             --task-config-file .github/agent-runtime/runtime/agent-tasks.json \
-            --prompt-file .github/agent-runtime/review/out/review.prompt.md \
-            --schema-file .github/agent-runtime/review/schemas/review.schema.json \
+            --context-file .github/agent-runtime/review/out/review-context.json \
+            --review-packet-file .github/agent-runtime/review/out/review-packet/index.md \
             --output-file .github/agent-runtime/review/out/review.json
       # <agent-review:suppress-end>
 

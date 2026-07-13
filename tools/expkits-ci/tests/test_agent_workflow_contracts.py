@@ -218,6 +218,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         review_steps = step_map(review_job)
 
         self.assertNotIn("labeled", pull_request_trigger["types"])
+        self.assertIn("edited", pull_request_trigger["types"])
         self.assertEqual(workflow["permissions"]["actions"], "read")
         self.assertEqual(workflow["permissions"]["contents"], "read")
         self.assertEqual(workflow["permissions"]["pull-requests"], "write")
@@ -285,7 +286,8 @@ class AgentWorkflowContractTests(unittest.TestCase):
                 "Checkout pull request head",
                 "Fetch Agent review base ref",
                 "Set up Agent Python",
-                "Render Agent review prompt",
+                "Build Agent review context",
+                "Build Agent review packet",
                 "Install OpenAI agent runtime",
                 "Run Agent workflow static analysis",
                 "Run OpenAI SDK review",
@@ -330,22 +332,28 @@ class AgentWorkflowContractTests(unittest.TestCase):
             'fetch --no-tags origin "+refs/heads/${base_branch}:refs/remotes/origin/${base_branch}"',
             fetch_step["run"],
         )
-        render_step = review_steps["Render Agent review prompt"]
-        self.assertEqual(render_step["env"]["REVIEW_HEAD_REF"], selected_head_ref)
-        self.assertEqual(render_step["env"]["REVIEW_PR_BODY"], "${{ github.event.pull_request.body || '' }}")
+        context_step = review_steps["Build Agent review context"]
+        self.assertEqual(context_step["env"]["REVIEW_HEAD_REF"], selected_head_ref)
+        self.assertNotIn("REVIEW_PR_BODY", context_step["env"])
         self.assertIn(
-            "python3 scripts/private/agent_runtime/review/prompt.py",
-            render_step["run"],
+            "python3 scripts/private/agent_runtime/review/context.py",
+            context_step["run"],
         )
         self.assertIn(
-            "--output .github/agent-runtime/review/out/review.prompt.md",
-            render_step["run"],
+            "--output .github/agent-runtime/review/out/review-context.json",
+            context_step["run"],
         )
+        self.assertIn('--repo-root "${GITHUB_WORKSPACE}"', context_step["run"])
+        self.assertNotIn("review.prompt.md", context_step["run"])
         agent_step = review_steps["Run OpenAI SDK review"]
         self.assertEqual(agent_step["shell"], "bash")
         self.assertEqual(
             agent_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],
             "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
+        )
+        self.assertEqual(
+            agent_step["env"]["AGENT_ACTION_LOG"],
+            ".github/agent-runtime/review/out/agent-actions.jsonl",
         )
         self.assertIn(
             ".agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/openai_agent_runner.py run-review",
@@ -355,24 +363,24 @@ class AgentWorkflowContractTests(unittest.TestCase):
             agent_step["run"].count("--model-config-file .github/agent-runtime/runtime/agent-models.json"),
             1,
         )
-        self.assertEqual(
-            agent_step["run"].count("--schema-file .github/agent-runtime/review/schemas/review.schema.json"),
-            1,
-        )
+        self.assertNotIn("--schema-file", agent_step["run"])
         self.assertEqual(
             agent_step["run"].count("--output-file .github/agent-runtime/review/out/review.json"),
             1,
         )
         self.assertEqual(
-            agent_step["run"].count("--prompt-file .github/agent-runtime/review/out/review.prompt.md"),
+            agent_step["run"].count("--context-file .github/agent-runtime/review/out/review-context.json"),
             1,
         )
+        self.assertNotIn("--prompt-file", agent_step["run"])
         self.assertEqual(
             agent_step["run"].count("--task-config-file .github/agent-runtime/runtime/agent-tasks.json"),
             1,
         )
         self.assert_no_direct_task_config_flags(agent_step["run"])
         self.assert_no_direct_model_flag(agent_step["run"])
+        upload_step = review_steps["Upload review artifacts"]
+        self.assertEqual(upload_step["with"]["path"], ".github/agent-runtime/review/out")
         publish_step = review_steps["Publish review summary comment"]
         render_summary_step = review_steps["Render review summary"]
         self.assertEqual(render_summary_step["id"], "render")
@@ -741,15 +749,20 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertEqual(set(task_config["tasks"]), {"run-review", "run-repair", "run-stabilization"})
         for command, settings in task_config["tasks"].items():
             with self.subTest(command=command):
-                self.assertEqual(
-                    set(settings) - {"max_review_files", "max_review_changed_lines"},
-                    {"agent_instance", "max_turns", "max_prompt_chars"},
-                )
+                expected_common = {"agent_instance", "max_turns"}
+                if command == "run-review":
+                    self.assertEqual(
+                        set(settings),
+                        expected_common | {"max_review_files", "max_review_changed_lines"},
+                    )
+                    self.assertNotIn("max_prompt_chars", settings)
+                else:
+                    self.assertEqual(set(settings), expected_common | {"max_prompt_chars"})
+                    self.assertIsInstance(settings["max_prompt_chars"], int)
+                    self.assertGreater(settings["max_prompt_chars"], 0)
                 self.assertIsInstance(settings["agent_instance"], str)
                 self.assertIsInstance(settings["max_turns"], int)
                 self.assertGreater(settings["max_turns"], 0)
-                self.assertIsInstance(settings["max_prompt_chars"], int)
-                self.assertGreater(settings["max_prompt_chars"], 0)
 
         for workflow_name, workflow_file in workflows.items():
             workflow_source = workflow_file.read_text(encoding="utf-8")
@@ -761,9 +774,12 @@ class AgentWorkflowContractTests(unittest.TestCase):
                     workflow_source.count("--model-config-file"),
                     workflow_source.count("openai_agent_runner.py "),
                 )
+                expected_task_config_uses = workflow_source.count("openai_agent_runner.py ")
+                if workflow_name == "agent-review":
+                    expected_task_config_uses += 1
                 self.assertEqual(
                     workflow_source.count("--task-config-file"),
-                    workflow_source.count("openai_agent_runner.py "),
+                    expected_task_config_uses,
                 )
 
     def test_workflow_audit_reports_freshness_only(self):

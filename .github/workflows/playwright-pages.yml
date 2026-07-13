@@ -16,7 +16,7 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: playwright-pages
+  group: report-pages
   cancel-in-progress: false
 
 jobs:
@@ -49,6 +49,20 @@ jobs:
           UPSTREAM_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
           UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id }}
         run: scripts/playwright/pages/run.sh publish
+
+      - name: Cache YOLO performance dataset
+        if: steps.pages.outputs.deploy == 'true'
+        uses: actions/cache@v4
+        with:
+          path: _yolo_performance_dataset_cache
+          key: yolo-performance-datasets-coco-val2017-4f7e2ccb2866ec5041993c9cf2a952bbed69647b115d0f74da7ce8f4bef82f05
+
+      - name: Restore YOLO dataset overlay
+        if: steps.pages.outputs.deploy == 'true'
+        run: |
+          python3 examples/yolo-benchmark/pages/restore_dataset_overlay.py \
+            --site-dir _playwright_pages_site \
+            --cache-dir _yolo_performance_dataset_cache
 
       - name: Configure Pages
         if: steps.pages.outputs.deploy == 'true'
@@ -84,6 +98,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: scripts/playwright/pages/run.sh cleanup
+
+      - name: Cache YOLO performance dataset
+        if: steps.pages.outputs.deploy == 'true'
+        uses: actions/cache@v4
+        with:
+          path: _yolo_performance_dataset_cache
+          key: yolo-performance-datasets-coco-val2017-4f7e2ccb2866ec5041993c9cf2a952bbed69647b115d0f74da7ce8f4bef82f05
+
+      - name: Restore YOLO dataset overlay
+        if: steps.pages.outputs.deploy == 'true'
+        run: |
+          python3 examples/yolo-benchmark/pages/restore_dataset_overlay.py \
+            --site-dir _playwright_pages_site \
+            --cache-dir _yolo_performance_dataset_cache
 
       - name: Configure Pages
         if: steps.pages.outputs.deploy == 'true'

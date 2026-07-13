@@ -12,6 +12,20 @@ from ..runtime_context import AgentRunContext
 
 GIT_METADATA_DIR = ".git"
 GIT_METADATA_PREFIX = f"{GIT_METADATA_DIR}/"
+REVIEW_PACKET_PREFIX = ".github/agent-runtime/review/out/review-packet/"
+REVIEW_PACKET_DIR = REVIEW_PACKET_PREFIX.rstrip("/")
+HIDDEN_REVIEW_PATH_PREFIXES = (
+    ".agent-runtime/",
+    ".github/agent-runtime/review/out/",
+    "artifacts/",
+    "datasets/",
+    "deps/",
+    "development/build/",
+    "tmp/",
+    "_playwright_pages_site/",
+    "_yolo_benchmark_pages_site/",
+    "_yolo_performance_dataset_cache/",
+)
 PATCH_PATH_PREFIXES = ("a/", "b/")
 PATCH_FILE_HEADER_PREFIXES = ("--- ", "+++ ")
 PATCH_MOVE_HEADER_PREFIXES = ("rename from ", "rename to ", "copy from ", "copy to ")
@@ -25,6 +39,37 @@ def is_git_metadata_path(relative_path: str) -> bool:
         or f"/{GIT_METADATA_PREFIX}" in relative_path
         or relative_path.endswith(f"/{GIT_METADATA_DIR}")
     )
+
+
+def normalize_relative_path(relative_path: str) -> str:
+    return relative_path.removeprefix("./")
+
+
+def is_review_packet_path(relative_path: str) -> bool:
+    path = normalize_relative_path(relative_path)
+    return path == REVIEW_PACKET_DIR or path.startswith(REVIEW_PACKET_PREFIX)
+
+
+def is_hidden_review_path(relative_path: str) -> bool:
+    path = normalize_relative_path(relative_path)
+    if is_review_packet_path(path):
+        return False
+    return any(path == prefix.rstrip("/") or path.startswith(prefix) for prefix in HIDDEN_REVIEW_PATH_PREFIXES)
+
+
+def is_hidden_review_glob(pattern: str) -> bool:
+    path = normalize_relative_path(pattern).rstrip("*")
+    if is_review_packet_path(path):
+        return False
+    return any(path == prefix.rstrip("/") or path.startswith(prefix) for prefix in HIDDEN_REVIEW_PATH_PREFIXES)
+
+
+def reject_hidden_review_path(relative_path: str, operation: str) -> None:
+    if is_hidden_review_path(relative_path):
+        raise ValueError(
+            f"{operation} path targets hidden review runtime/generated output: {relative_path}. "
+            f"Use {REVIEW_PACKET_DIR}/ for review packet evidence or inspect repository source files."
+        )
 
 
 def resolve_safe_repo_path(context: AgentRunContext, path_value: str, operation: str) -> Path:

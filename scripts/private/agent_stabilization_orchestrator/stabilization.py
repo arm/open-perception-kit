@@ -184,13 +184,16 @@ def snapshot_helper_bundle(*, bundle_root: Path) -> None:
             bundle_root / f".github/agent-runtime/runtime/{runtime_file}",
         )
     for directory in (
-        ".github/agent-runtime/review/prompts",
-        ".github/agent-runtime/review/schemas",
         ".github/agent-runtime/pr-stabilization/prompts",
         ".github/agent-runtime/pr-stabilization/profiles",
         ".github/agent-runtime/workflow-policy",
     ):
         copy_required_path(resolve_repo_path(directory), bundle_root / directory)
+    review_instructions = ".github/agent-runtime/review/instructions.md"
+    copy_required_path(
+        resolve_repo_path(review_instructions),
+        bundle_root / review_instructions,
+    )
 
 
 def restore_helper_bundle(*, bundle_root: Path, helper_root: Path) -> None:

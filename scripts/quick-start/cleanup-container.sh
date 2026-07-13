@@ -32,5 +32,9 @@ for compose_file in \
 done
 
 if docker compose version > /dev/null 2>&1; then
-    docker compose "${COMPOSE_FILES[@]}" down --remove-orphans
+    DOWN_ARGS=(down --remove-orphans)
+    if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
+        DOWN_ARGS+=(--rmi local)
+    fi
+    docker compose "${COMPOSE_FILES[@]}" "${DOWN_ARGS[@]}"
 fi

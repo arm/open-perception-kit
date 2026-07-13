@@ -15,45 +15,16 @@ from ..contracts import AgentCommand
 from ..runtime_context import AgentRunContext, require_run_context
 
 
-MAX_TASK_MANIFEST_PROMPT_HEAD_CHARS = 6000
-MAX_TASK_MANIFEST_PROMPT_TAIL_CHARS = 3000
-
-
 @dataclass(frozen=True)
 class DiffStats:
     files: int = 0
     changed_lines: int = 0
-    binary_files: int = 0
     error: str = ""
-
-
-def compact_prompt_excerpt(prompt: str) -> str:
-    if len(prompt) <= MAX_TASK_MANIFEST_PROMPT_HEAD_CHARS + MAX_TASK_MANIFEST_PROMPT_TAIL_CHARS:
-        return prompt
-    omitted_chars = len(prompt) - MAX_TASK_MANIFEST_PROMPT_HEAD_CHARS - MAX_TASK_MANIFEST_PROMPT_TAIL_CHARS
-    return (
-        prompt[:MAX_TASK_MANIFEST_PROMPT_HEAD_CHARS]
-        + f"\n\n[omitted {omitted_chars} prompt characters]\n\n"
-        + prompt[-MAX_TASK_MANIFEST_PROMPT_TAIL_CHARS:]
-    )
-
-
-def parse_prompt_context_value(prompt: str, label: str) -> str:
-    prefix = f"- {label}: `"
-    for line in prompt.splitlines():
-        if line.startswith(prefix) and line.endswith("`"):
-            return line[len(prefix):-1]
-    return ""
-
-
-def is_usable_prompt_ref(value: str) -> bool:
-    return bool(value and not value.startswith("(") and "not provided" not in value)
 
 
 def parse_numstat(output: str) -> DiffStats:
     files = 0
     changed_lines = 0
-    binary_files = 0
     for line in output.splitlines():
         if not line.strip():
             continue
@@ -63,10 +34,9 @@ def parse_numstat(output: str) -> DiffStats:
         files += 1
         added, deleted = parts[0], parts[1]
         if added == "-" or deleted == "-":
-            binary_files += 1
             continue
         changed_lines += int(added) + int(deleted)
-    return DiffStats(files=files, changed_lines=changed_lines, binary_files=binary_files)
+    return DiffStats(files=files, changed_lines=changed_lines)
 
 
 def collect_numstat(context: AgentRunContext, diff_args: list[str]) -> DiffStats:
@@ -83,59 +53,53 @@ def collect_numstat(context: AgentRunContext, diff_args: list[str]) -> DiffStats
     return parse_numstat(completed.stdout)
 
 
-def collect_git_task_metrics(command: AgentCommand, prompt: str, context: AgentRunContext) -> dict[str, Any]:
-    base_sha = parse_prompt_context_value(prompt, "Base SHA")
-    head_sha = parse_prompt_context_value(prompt, "Head SHA")
-    diff_scopes: dict[str, dict[str, Any]] = {}
+def collect_git_task_metrics(
+    context: AgentRunContext,
+    *,
+    base_sha: str = "",
+    head_sha: str = "",
+) -> dict[str, Any]:
+    diff_stats: list[DiffStats] = []
 
-    if is_usable_prompt_ref(base_sha) and is_usable_prompt_ref(head_sha) and base_sha != head_sha:
-        diff_scopes["prompt_range"] = collect_numstat(context, [base_sha, head_sha]).__dict__
-    diff_scopes["staged"] = collect_numstat(context, ["--cached"]).__dict__
-    diff_scopes["unstaged"] = collect_numstat(context, []).__dict__
+    if base_sha and head_sha and base_sha != head_sha:
+        diff_stats.append(collect_numstat(context, [base_sha, head_sha]))
+    diff_stats.append(collect_numstat(context, ["--cached"]))
+    diff_stats.append(collect_numstat(context, []))
 
     total_files = 0
     total_changed_lines = 0
-    total_binary_files = 0
-    for stats in diff_scopes.values():
-        if stats.get("error"):
+    for stats in diff_stats:
+        if stats.error:
             continue
-        total_files += int(stats["files"])
-        total_changed_lines += int(stats["changed_lines"])
-        total_binary_files += int(stats["binary_files"])
+        total_files += stats.files
+        total_changed_lines += stats.changed_lines
 
     return {
-        "base_sha": base_sha,
-        "head_sha": head_sha,
-        "diff_scopes": diff_scopes,
         "total_diff_files": total_files,
         "total_diff_changed_lines": total_changed_lines,
-        "total_binary_files": total_binary_files,
-        "diff_limits_apply": command is AgentCommand.REVIEW,
     }
 
 
 def build_task_manifest(
-    command: AgentCommand,
     prompt: str,
     settings: AgentTaskSettings,
-    resolved_model: str,
+    *,
+    base_sha: str = "",
+    head_sha: str = "",
 ) -> dict[str, Any]:
     context = require_run_context()
-    prompt_lines = prompt.count("\n") + (1 if prompt else 0)
     return {
-        "command": command.value,
-        "agent_instance": settings.agent_instance.value,
-        "model": resolved_model,
         "prompt_chars": len(prompt),
-        "prompt_lines": prompt_lines,
-        "prompt_excerpt": compact_prompt_excerpt(prompt),
         "limits": {
-            "max_turns": settings.max_turns,
             "max_prompt_chars": settings.max_prompt_chars,
             "max_review_files": settings.max_review_files,
             "max_review_changed_lines": settings.max_review_changed_lines,
         },
-        "git_metrics": collect_git_task_metrics(command, prompt, context),
+        "git_metrics": collect_git_task_metrics(
+            context,
+            base_sha=base_sha,
+            head_sha=head_sha,
+        ),
     }
 
 
@@ -144,8 +108,8 @@ def deterministic_task_limit_violations(manifest: dict[str, Any]) -> list[str]:
     violations: list[str] = []
 
     prompt_chars = int(manifest["prompt_chars"])
-    max_prompt_chars = int(limits["max_prompt_chars"])
-    if prompt_chars > max_prompt_chars:
+    max_prompt_chars = limits["max_prompt_chars"]
+    if max_prompt_chars is not None and prompt_chars > int(max_prompt_chars):
         violations.append(
             f"prompt has {prompt_chars} characters, above the {max_prompt_chars} character limit"
         )
@@ -194,9 +158,16 @@ async def estimate_task_fit(
     command: AgentCommand,
     prompt: str,
     settings: AgentTaskSettings,
-    resolved_model: str,
+    *,
+    base_sha: str = "",
+    head_sha: str = "",
 ) -> None:
-    manifest = build_task_manifest(command, prompt, settings, resolved_model)
+    manifest = build_task_manifest(
+        prompt,
+        settings,
+        base_sha=base_sha,
+        head_sha=head_sha,
+    )
     block_reasons = task_estimate_block_reasons(manifest)
     if block_reasons:
         raise RuntimeError(

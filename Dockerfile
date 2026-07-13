@@ -96,6 +96,7 @@ ENV SSH_AUTH_SOCK=/ssh-agent
 FROM pek-base AS pek-dev-base
 
 ARG USERNAME=devgoblin
+ARG PLANTUML_VERSION=1.2026.2
 
 USER root
 
@@ -104,17 +105,32 @@ RUN set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
   bash-completion clangd gdb less locales nano net-tools; \
-  rm -rf /var/lib/apt/lists/*
-
-# libav can sometimes be the troublemaker; probe then install
-RUN set -eux; \
-  apt-get update; \
   if apt-get install -y --no-install-recommends --dry-run gstreamer1.0-libav; then \
   apt-get install -y --no-install-recommends gstreamer1.0-libav; \
   else \
   echo 'NOTE: gstreamer1.0-libav not available on this image/mirror'; \
   fi; \
-  rm -rf /var/lib/apt/lists/*
+  rm -rf /var/lib/apt/lists/*; \
+  arch="$(dpkg --print-architecture)"; \
+  case "${arch}" in \
+    amd64) actionlint_arch="amd64" ;; \
+    i386) actionlint_arch="386" ;; \
+    arm64) actionlint_arch="arm64" ;; \
+    armel|armhf) actionlint_arch="armv6" ;; \
+    *) echo "Unsupported actionlint architecture: ${arch}" >&2; exit 1 ;; \
+  esac; \
+  actionlint_archive="actionlint_${ACTIONLINT_VERSION}_linux_${actionlint_arch}.tar.gz"; \
+  actionlint_base_url="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"; \
+  tmp_dir="$(mktemp -d)"; \
+  curl --location -fsSLo "${tmp_dir}/${actionlint_archive}" "${actionlint_base_url}/${actionlint_archive}"; \
+  curl --location -fsSLo "${tmp_dir}/checksums.txt" "${actionlint_base_url}/actionlint_${ACTIONLINT_VERSION}_checksums.txt"; \
+  cd "${tmp_dir}"; \
+  grep " ${actionlint_archive}$" checksums.txt | sha256sum -c -; \
+  tar -xzf "${actionlint_archive}" actionlint; \
+  install -m 0755 actionlint /usr/local/bin/actionlint; \
+  cd /; \
+  rm -rf "${tmp_dir}"; \
+  actionlint -version
 
 # Install Python dev tool dependencies into an image-owned virtual environment.
 COPY tools/expkits-ci /tmp/pek-tools/expkits-ci

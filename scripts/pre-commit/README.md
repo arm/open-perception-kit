@@ -49,6 +49,7 @@ The host-only wrapper keeps the existing local hook intent:
 - `shell-format`
 - `license-header`
 - `check-secrets`
+- `actionlint` for GitHub Actions workflow files only
 
 Light mapping:
 

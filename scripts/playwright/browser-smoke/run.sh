@@ -312,9 +312,12 @@ while IFS= read -r browser; do
     esac
 done <<< "${browser_smoke_browsers}"
 
-run_phase "sink-only" \
-    "config/pipelines/testing/only-peksink.json" \
-    "tests/playwright/pek-browser-sink.spec.js" || browser_smoke_status=$?
+while IFS= read -r browser; do
+    run_phase "sink-only-${browser}" \
+        "config/pipelines/testing/only-peksink.json" \
+        "tests/playwright/pek-browser-sink.spec.js" \
+        "${browser}" || browser_smoke_status=$?
+done <<< "${browser_smoke_browsers}"
 
 while IFS= read -r browser; do
     run_phase "onnx-full-${browser}" \

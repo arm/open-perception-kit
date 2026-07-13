@@ -3,4 +3,4 @@
 # Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
 
-"""Agent Review prompt, output, state, and publication helpers."""
+"""Agent Review context, output, state, and publication helpers."""

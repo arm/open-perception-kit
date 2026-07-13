@@ -16,7 +16,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 estimator = importlib.import_module("agent_runtime.tasks.estimator")
 set_run_context = importlib.import_module("agent_runtime.runtime_context").set_run_context
 contracts = importlib.import_module("agent_runtime.contracts")
-AgentCommand = contracts.AgentCommand
 AgentInstance = contracts.AgentInstance
 AgentTaskSettings = importlib.import_module("agent_runtime.config.task").AgentTaskSettings
 
@@ -26,17 +25,14 @@ class TaskEstimatorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             set_run_context(Path(temp_dir), 10)
             settings = AgentTaskSettings(
-                command=AgentCommand.REPAIR,
                 agent_instance=AgentInstance.REPAIR,
                 max_turns=30,
                 max_prompt_chars=10,
             )
 
             manifest = estimator.build_task_manifest(
-                AgentCommand.REPAIR,
                 "x" * 11,
                 settings,
-                "gpt-test",
             )
             reasons = estimator.deterministic_task_limit_violations(manifest)
 
@@ -67,19 +63,17 @@ class TaskEstimatorTests(unittest.TestCase):
 
             set_run_context(repo_root, 10)
             settings = AgentTaskSettings(
-                command=AgentCommand.REVIEW,
                 agent_instance=AgentInstance.REVIEW,
                 max_turns=60,
-                max_prompt_chars=180000,
+                max_prompt_chars=None,
                 max_review_files=2,
                 max_review_changed_lines=2,
             )
-            prompt = f"- Base SHA: `{base_sha}`\n- Head SHA: `{head_sha}`\n"
             manifest = estimator.build_task_manifest(
-                AgentCommand.REVIEW,
-                prompt,
+                "Review the pull request using the available review context.",
                 settings,
-                "gpt-test",
+                base_sha=base_sha,
+                head_sha=head_sha,
             )
             reasons = estimator.deterministic_task_limit_violations(manifest)
             advisory_reasons = estimator.task_estimate_advisory_reasons(manifest)
@@ -92,7 +86,6 @@ class TaskEstimatorTests(unittest.TestCase):
         manifest = {
             "prompt_chars": 10,
             "limits": {
-                "max_turns": 60,
                 "max_prompt_chars": 100,
                 "max_review_files": None,
                 "max_review_changed_lines": None,

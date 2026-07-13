@@ -19,7 +19,6 @@ EXPKITS_CI_SOURCE = PACKAGE_ROOT / "expkits_ci/expkits_ci.py"
 PRE_COMMIT_CONFIG = REPO_ROOT / ".pre-commit-config.yaml"
 CI_COMPOSE_FILE = REPO_ROOT / ".github/compose.ci.yaml"
 PEK_CI_WORKFLOW = REPO_ROOT / ".github/workflows/pek-ci.yml"
-VALGRIND_WORKFLOW = REPO_ROOT / ".github/workflows/valgrind.yml"
 BASELINE_FILE = REPO_ROOT / ".secrets.baseline"
 
 
@@ -221,10 +220,12 @@ class StaticQualityConfigTests(unittest.TestCase):
         pre_commit = PRE_COMMIT_CONFIG.read_text(encoding="utf-8")
         compose = CI_COMPOSE_FILE.read_text(encoding="utf-8")
         workflow = PEK_CI_WORKFLOW.read_text(encoding="utf-8")
-        valgrind_workflow = VALGRIND_WORKFLOW.read_text(encoding="utf-8")
 
         self.assertIn("- id: check-secrets", pre_commit)
         self.assertIn("--check-secrets --list-of-files", pre_commit)
+        self.assertIn("- id: actionlint", pre_commit)
+        self.assertIn("--actionlint --list-of-files", pre_commit)
+        self.assertIn(r"files: ^\.github/workflows/.*\.ya?ml$", pre_commit)
         self.assertNotIn("- id: agent-runtime-static-analysis", pre_commit)
         self.assertNotIn("--agent-runtime-static-analysis", pre_commit)
         self.assertIn("expkits-ci --all-checks --pr-target-branch ${PULL_REQUEST_TARGET_BRANCH}", compose)
@@ -254,16 +255,7 @@ class StaticQualityConfigTests(unittest.TestCase):
             workflow,
         )
         self.assertNotIn("Run Valgrind checks", workflow)
-        self.assertIn("name: Valgrind Baseline Artifact", valgrind_workflow)
-        self.assertIn("branches: [main, develop]", valgrind_workflow)
-        self.assertIn("branches: [main, develop, \"feature/**\", \"sandbox/**\"]", valgrind_workflow)
-        self.assertIn("Locate latest Valgrind baseline artifact", valgrind_workflow)
-        self.assertIn("Compare Valgrind results to baseline", valgrind_workflow)
-        self.assertIn(
-            "if: ${{ always() && !cancelled() && (steps.valgrind_checks.outcome == 'failure'",
-            valgrind_workflow,
-        )
-        self.assertEqual(pre_commit.count('--list-of-files "$@"'), 8)
+        self.assertEqual(pre_commit.count('--list-of-files "$@"'), 9)
 
         pyproject = PYPROJECT_FILE.read_text(encoding="utf-8")
         self.assertIn('"mypy==1.16.1"', pyproject)

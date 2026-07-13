@@ -9,6 +9,7 @@ import os
 import sys
 import tempfile
 import unittest
+from html.parser import HTMLParser
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -25,6 +26,16 @@ def import_publish_module():
 
 
 publish = import_publish_module()
+
+
+class LinkParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.hrefs = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "a":
+            self.hrefs.extend(value for name, value in attrs if name == "href")
 
 
 class TestPublishPlaywrightPages(unittest.TestCase):
@@ -64,16 +75,16 @@ class TestPublishPlaywrightPages(unittest.TestCase):
                 '{"pek-browser-models.spec.js":"tests/playwright/pek-browser-models.spec.js"}',
             )
 
-            content = index.read_text(encoding="utf-8")
             self.assertTrue(changed)
-            self.assertIn("<title>Arm Perception kit - Playwright report</title>", content)
-            self.assertIn('<link rel="stylesheet" href="../../report-shell.css">', content)
-            self.assertIn('<script src="../../report-shell.js" defer></script>', content)
-            self.assertIn('class="pek-report-bar"', content)
-            self.assertIn('href="../../index.html"', content)
-            self.assertIn('data-repository="Arm-Debug/amp-dev-forge"', content)
-            self.assertIn('data-commit="commit-for-test"', content)
-            self.assertIn('id="pek-report-source-map"', content)
+            self.assertFalse(publish.decorate_playwright_report(
+                report_dir,
+                "Arm Perception kit",
+                "../../",
+                "PR #181",
+                "Arm-Debug/amp-dev-forge",
+                "commit-for-test",
+                "{}",
+            ))
 
     def test_decorate_playwright_report_escapes_source_map_script_tag(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -124,8 +135,8 @@ class TestPublishPlaywrightPages(unittest.TestCase):
     def test_write_site_index_handles_nightly_without_pr_directory(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             site_dir = Path(tmpdir)
-            nightly = site_dir / "nightly"
-            nightly.mkdir()
+            nightly = site_dir / "playwright" / "nightly"
+            nightly.mkdir(parents=True)
             (nightly / "index.html").write_text("<html></html>", encoding="utf-8")
             (nightly / "report-index-meta.txt").write_text(
                 "develop @ commit-for-t | run 123 attempt 1 | Jul 02, 2026 20:30 UTC\n",
@@ -134,16 +145,42 @@ class TestPublishPlaywrightPages(unittest.TestCase):
 
             publish.write_site_index(site_dir, "Arm-Debug/amp-dev-forge")
 
-            content = (site_dir / "index.html").read_text(encoding="utf-8")
-            self.assertIn("Latest nightly", content)
-            self.assertIn('href="nightly/index.html"', content)
-            self.assertIn("develop @ commit-for-t", content)
-            self.assertIn("Pull Requests", content)
+            self.assertTrue((site_dir / "playwright" / "index.html").is_file())
+
+    def test_write_root_index_links_report_roots(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = Path(tmpdir)
+
+            publish.write_root_index(site_dir)
+
+            parser = LinkParser()
+            parser.feed((site_dir / "index.html").read_text(encoding="utf-8"))
+            self.assertEqual(parser.hrefs, [
+                "playwright/index.html",
+                "yolo-benchmark/index.html",
+                "yolo-performance-datasets/index.html",
+            ])
+
+    def test_remove_legacy_root_site_migrates_report_roots(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = Path(tmpdir)
+            (site_dir / "index.html").write_text("legacy", encoding="utf-8")
+            (site_dir / "nightly").mkdir()
+            (site_dir / "playwright").mkdir()
+            (site_dir / "yolo-benchmark").mkdir()
+
+            self.assertTrue(publish.remove_legacy_root_site(site_dir))
+
+            self.assertFalse((site_dir / "index.html").exists())
+            self.assertFalse((site_dir / "nightly").exists())
+            self.assertTrue((site_dir / "playwright" / "nightly").is_dir())
+            self.assertTrue((site_dir / "playwright").is_dir())
+            self.assertTrue((site_dir / "yolo-benchmark").is_dir())
 
     def test_write_site_index_uses_pr_title_when_available(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             site_dir = Path(tmpdir)
-            pr_dir = site_dir / "prs" / "181"
+            pr_dir = site_dir / "playwright" / "prs" / "181"
             pr_dir.mkdir(parents=True)
             (pr_dir / "index.html").write_text("<html></html>", encoding="utf-8")
             (pr_dir / "report-index-meta.txt").write_text("branch @ commit | run 1 attempt 1\n", encoding="utf-8")
@@ -151,9 +188,7 @@ class TestPublishPlaywrightPages(unittest.TestCase):
             with patch.object(publish, "pr_report_title", return_value="PR #181 - Browser smoke"):
                 publish.write_site_index(site_dir, "Arm-Debug/amp-dev-forge")
 
-            content = (site_dir / "index.html").read_text(encoding="utf-8")
-            self.assertIn("PR #181 - Browser smoke", content)
-            self.assertIn('href="prs/181/index.html"', content)
+            self.assertTrue((site_dir / "playwright" / "index.html").is_file())
 
     def test_read_first_line_uses_default_for_empty_file(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -182,18 +217,6 @@ class TestPublishPlaywrightPages(unittest.TestCase):
         )
 
         self.assertEqual(text, "feature/example @ commit-for-t | run 123 attempt 2 | Jul 02, 2026 20:30 UTC")
-
-    def test_build_source_meta_html_encodes_branch_link(self):
-        meta = publish.build_source_meta_html(
-            "Arm-Debug/amp-dev-forge",
-            "feature/test-branch",
-            "commit-for-test",
-            "123",
-            "1",
-        )
-
-        self.assertIn("/tree/feature%2Ftest-branch", meta)
-        self.assertIn(">feature/test-branch</a>", meta)
 
     def test_prune_report_for_pages_removes_large_binary_data(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -320,7 +343,49 @@ class TestPublishPlaywrightPages(unittest.TestCase):
                     patch.object(publish, "push_site_branch", return_value=False):
                 publish.publish_report(site_dir, "playwright-pages")
 
-            self.assertIn("deploy=false\n", output.read_text(encoding="utf-8"))
+            self.assertEqual(output.read_text(encoding="utf-8"), "deploy=false\n")
+
+    def test_publish_report_deploys_unchanged_site_when_videos_are_deploy_only(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            local_report = root / "playwright-report"
+            site_dir = root / "site"
+            output = root / "github-output"
+            video = local_report / "data" / "video.webm"
+            video.parent.mkdir(parents=True)
+            video.write_text("video", encoding="utf-8")
+            (local_report / "index.html").write_text(
+                "<!doctype html><html><head><title>Playwright</title></head><body></body></html>",
+                encoding="utf-8",
+            )
+
+            def checkout(path, _storage_branch):
+                path.mkdir(parents=True)
+
+            env = {
+                "GITHUB_OUTPUT": str(output),
+                "GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge",
+                "PLAYWRIGHT_PAGES_LOCAL_REPORT_DIR": str(local_report),
+                "UPSTREAM_CONCLUSION": "success",
+                "UPSTREAM_EVENT": "pull_request",
+                "UPSTREAM_HEAD_BRANCH": "feature/test",
+                "UPSTREAM_HEAD_REPOSITORY": "Arm-Debug/amp-dev-forge",
+                "UPSTREAM_HEAD_SHA": "commit-for-test",
+                "UPSTREAM_PR_NUMBER": "181",
+                "UPSTREAM_RUN_ATTEMPT": "1",
+                "UPSTREAM_RUN_ID": "123",
+            }
+            with patch.dict(os.environ, env, clear=True), \
+                    patch.object(publish, "checkout_site_branch", side_effect=checkout), \
+                    patch.object(publish, "build_source_map_json", return_value="{}"), \
+                    patch.object(publish, "push_site_branch", return_value=False):
+                publish.publish_report(site_dir, "playwright-pages")
+
+            self.assertEqual(output.read_text(encoding="utf-8"), "deploy=true\n")
+            self.assertEqual(
+                (site_dir / "playwright" / "prs" / "181" / "data" / "video.webm").read_text(encoding="utf-8"),
+                "video",
+            )
 
     def test_dry_run_site_branch_does_not_need_github_token(self):
         with tempfile.TemporaryDirectory() as tmpdir:

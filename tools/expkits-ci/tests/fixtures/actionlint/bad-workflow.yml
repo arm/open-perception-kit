@@ -1,0 +1,6 @@
+name: bad
+
+on: push
+
+jobs:
+  bad

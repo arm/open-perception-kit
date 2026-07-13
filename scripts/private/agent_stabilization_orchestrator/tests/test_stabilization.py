@@ -127,6 +127,9 @@ class AgentPrStabilizationTests(unittest.TestCase):
                 (bundle_root / "scripts/private/agent_stabilization_orchestrator/profile.py").is_file()
             )
             self.assertTrue((bundle_root / "scripts/private/agent_workflow_common/validation.py").is_file())
+            self.assertTrue(
+                (bundle_root / ".github/agent-runtime/review/instructions.md").is_file()
+            )
 
     def test_prepare_stabilization_context_writes_prompt_and_outputs(self):
         with tempfile.TemporaryDirectory() as temp_dir:
