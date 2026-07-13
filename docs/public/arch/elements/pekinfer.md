@@ -7,7 +7,7 @@ sidebar_label: pekinfer
 
 `pekinfer` is a `GstBaseTransform` element that executes an OpChain inside a
 GStreamer pipeline. GStreamer provides media transport and scheduling;
-`pekinfer` adapts each frame into the PEK runtime model and invokes the configured
+`pekinfer` adapts each frame into the OPK runtime model and invokes the configured
 micropipeline.
 
 ## Element Contract

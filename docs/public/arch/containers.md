@@ -5,7 +5,7 @@ sidebar_label: Containers
 
 # Containerized Execution Model
 
-Perception Experience Kit uses a container-first workflow to keep build tools,
+OPK uses a container-first workflow to keep build tools,
 runtime dependencies, and device integration consistent across host platforms and
 Raspberry Pi targets.
 
@@ -45,7 +45,7 @@ because they depend on host kernel and module tooling.
 ## Media Output From Containers
 
 Direct display/audio output from inside a container is fragile across platforms.
-PEK uses `peksink` to expose media through WebRTC and browser-based control
+OPK uses `peksink` to expose media through WebRTC and browser-based control
 instead of relying on host display forwarding or UDP streaming. See
 [peksink](elements/peksink.md).
 

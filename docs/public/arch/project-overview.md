@@ -5,7 +5,7 @@ sidebar_label: Project Overview
 
 # Project Overview
 
-Perception Experience Kit is a framework for building and running AI-enabled
+OPK is a framework for building and running AI-enabled
 media workflows. It helps teams move from raw media or data input to structured
 results through reusable, configurable processing stages.
 

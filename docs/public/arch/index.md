@@ -6,7 +6,7 @@ sidebar_label: Overview
 
 # Architecture Documentation
 
-This section documents the current Perception Experience Kit runtime layout,
+This section documents the current OPK runtime layout,
 execution model, metadata contracts, and main GStreamer elements.
 
 ## Start Here
@@ -24,6 +24,7 @@ execution model, metadata contracts, and main GStreamer elements.
 - [OpChain Context](op-chain-context.md)
 - [OpChain Example](op-chain-example.md)
 - [Perception](perception.md)
+- [Future metadata architecture](future-metadata.md)
 
 ## Tensor Contracts
 

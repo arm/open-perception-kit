@@ -5,7 +5,7 @@ sidebar_label: pekperformance
 
 # Performance Tracing And Overlay
 
-PEK has a shared timing infrastructure (`PerformanceTracer`) and a GStreamer
+OPK has a shared timing infrastructure (`PerformanceTracer`) and a GStreamer
 element (`pekperformance`) that publishes aggregated metrics into
 `Perception::perfdata` for downstream display or inspection.
 

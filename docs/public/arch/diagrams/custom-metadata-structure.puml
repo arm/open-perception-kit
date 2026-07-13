@@ -1,5 +1,5 @@
 @startuml
-' Structural overview of the custom metadata concept.
+' Structural overview of the future metadata architecture.
 !include ../../concepts/_plantuml/colors.puml
 allowmixing
 

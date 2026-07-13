@@ -5,7 +5,7 @@ sidebar_label: Inference Process
 
 # Inference Execution Flow
 
-PEK separates engine-specific model loading and inference execution from generic
+OPK separates engine-specific model loading and inference execution from generic
 preprocessing, tensor handling, postprocessing, and `Perception` output.
 Backend-specific code lives in separate shared libraries so SDK dependencies stay
 isolated from the core runtime.

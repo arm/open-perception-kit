@@ -1,5 +1,5 @@
 ---
-sidebar_position: 11
+sidebar_position: 12
 sidebar_label: Op System
 ---
 
@@ -18,7 +18,7 @@ At a high level:
 ## Architectural Position
 
 The system has two layers. GStreamer handles media transport and scheduling,
-while OpChains handle the PEK processing logic.
+while OpChains handle the OPK processing logic.
 
 ```text
 v4l2src -> videoconvert -> pekinfer -> autovideosink

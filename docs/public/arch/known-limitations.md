@@ -5,7 +5,7 @@ sidebar_label: Known limitations
 
 # Known Limitations
 
-This page captures the main architectural friction points in the current PEK
+This page captures the main architectural friction points in the current OPK
 runtime. Treat these as constraints when extending the system.
 
 ## Application Boundary

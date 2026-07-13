@@ -7,7 +7,7 @@ sidebar_label: pek::Model
 
 The model system separates backend introspection from user-provided model
 metadata. Inference backends load a model and expose discovered tensor metadata;
-PEK merges that information with the JSON model descriptor to produce a validated,
+OPK merges that information with the JSON model descriptor to produce a validated,
 engine-agnostic `pek::Model`.
 
 The merge has two inputs:
@@ -65,7 +65,7 @@ values, normalization values, and scalar/vector input metadata.
 Model loading follows a fixed sequence:
 
 1. The backend loads the model file and extracts the metadata it supports.
-2. PEK creates an initial `pek::Model` from backend data.
+2. OPK creates an initial `pek::Model` from backend data.
 3. `pek::Model::applyModelFromDescriptor` merges descriptor metadata into the
    engine-derived model.
 4. Validation resolves dynamic dimensions and checks descriptor/backend agreement.
