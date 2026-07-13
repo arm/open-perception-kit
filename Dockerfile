@@ -1,4 +1,5 @@
 ARG BUILDPLATFORM
+ARG DEPLOYMENT_PLATFORM=linux/arm64
 FROM --platform=${BUILDPLATFORM} debian:trixie-slim AS workspace
 
 ARG ONNXRUNTIME_VERSION=1.24.4
@@ -65,7 +66,7 @@ RUN set -eux; \
   cp -r /work/development/web /opt/pek-app/development/
 
 # Runtime image
-FROM --platform=linux/arm64 debian:trixie-slim AS pek-deployment-base
+FROM --platform=${DEPLOYMENT_PLATFORM} debian:trixie-slim AS pek-deployment-base
 
 ARG USERNAME=pek
 ARG USER_UID=1000
@@ -93,6 +94,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   gstreamer1.0-plugins-base gstreamer1.0-plugins-bad \
   gstreamer1.0-plugins-good \
   gstreamer1.0-nice gstreamer1.0-pipewire; \
+  # Remove the unused PTP helper capability xattr so Docker can import the image on filesystems without capability support. \
+  install -m 0755 /usr/lib/aarch64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-ptp-helper /tmp/gst-ptp-helper; \
+  mv /tmp/gst-ptp-helper /usr/lib/aarch64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-ptp-helper; \
   update-ca-certificates; \
   rm -rf /var/lib/apt/lists/*
 
@@ -108,7 +112,7 @@ RUN set -eux; \
   chown -R "${USER_UID}:${USER_GID}" /work /tmp/pekcomm
 
 COPY --from=workspace /opt/pek-deps/onnxruntime/lib /opt/pek-deps/onnxruntime/lib
-COPY --from=workspace --chown=${USER_UID}:${USER_GID} /opt/pek-app /work
+COPY --from=workspace /opt/pek-app /work
 
 EXPOSE 8000
 EXPOSE 8001
