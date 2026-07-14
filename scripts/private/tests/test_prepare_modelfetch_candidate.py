@@ -15,6 +15,21 @@ import unittest
 
 
 PREPARE_SCRIPT = Path(__file__).resolve().parents[1] / "prepare-modelfetch-candidate.sh"
+REPO_ROOT = Path(__file__).resolve().parents[3]
+BLACKDUCK_WORKFLOW = REPO_ROOT / ".github/workflows/blackduck-scan.yml"
+
+
+class CandidateWorkflowTests(unittest.TestCase):
+    def test_black_duck_source_scan_excludes_candidate_cache(self):
+        workflow = BLACKDUCK_WORKFLOW.read_text(encoding="utf-8")
+        excluded_line = next(
+            line
+            for line in workflow.splitlines()
+            if "--detect.excluded.directories=" in line
+        )
+        excluded_directories = excluded_line.split('="', 1)[1].split('"', 1)[0]
+
+        self.assertIn(".cache", excluded_directories.split(","))
 
 
 class PrepareModelfetchCandidateTests(unittest.TestCase):

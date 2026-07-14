@@ -447,7 +447,7 @@ jobs:
             --detect.tools=DETECTOR,SIGNATURE_SCAN \
             --detect.blackduck.signature.scanner.snippet.matching=SNIPPET_MATCHING \
             --detect.blackduck.signature.scanner.upload.source.mode=true \
-            --detect.excluded.directories="bd-output,bd-output-*,.git,.github/workflows,.bd-container-tars"
+            --detect.excluded.directories="bd-output,bd-output-*,.git,.github/workflows,.bd-container-tars,.cache"
 
       - name: Run Black Duck container scans
         run: |
