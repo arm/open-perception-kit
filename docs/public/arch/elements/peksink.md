@@ -9,8 +9,6 @@ sidebar_label: peksink
 serving, and control channels into one GStreamer element. It is primarily used to
 make containerized or headless pipelines visible and controllable from a browser.
 
-![WebRTC utilization](/img/webrtc.png)
-
 ## Element Contract
 
 - Base class: `GstBin`
