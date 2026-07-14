@@ -28,12 +28,9 @@ You need:
 
 - Raspberry Pi 5.
 - Raspberry Pi OS based on Debian Trixie.
-- Optional: Supported Hailo 8 AI HAT, Hailo 8L hardware with matching compiled models, or supported Hailo 10 accelerator.
 - Network connection between your normal computer and the Raspberry Pi.
 - Power supply suitable for Raspberry Pi 5 and attached hardware.
 - Optional camera. The first run uses checked-in sample media, so the camera is not required for first success.
-
-The first tutorial can run without Hailo by using the ONNX pipeline. Hailo is needed for the Hailo-specific pipelines later in this page.
 
 ## 2. Flash Raspberry Pi OS And Enable SSH
 
@@ -79,23 +76,7 @@ Follow the link below to install Docker:
 
 Install both Docker Engine and the Docker Compose plugin from the Debian guide so `docker compose` is available for later steps.
 
-If you use the Hailo 8 AI HAT, install the Hailo 8 stack:
-
-```bash
-sudo apt-get install -y dkms
-sudo apt-get install -y hailo-all
-sudo reboot
-```
-
-If you use a supported Hailo 10 accelerator, install the Hailo 10 stack:
-
-```bash
-sudo apt-get install -y dkms
-sudo apt-get install -y hailo-h10-all
-sudo reboot
-```
-
-After reboot, reconnect with SSH.
+If the upgrade asks for a reboot, reconnect with SSH afterwards.
 
 ## 5. Run A Preflight Check
 
@@ -113,17 +94,7 @@ If `docker info` fails with a permission error, add your user to the `docker` gr
 sudo usermod -aG docker "$USER"
 ```
 
-If you installed Hailo, also run:
-
-```bash
-ls /dev/hailo*
-hailortcli fw-control identify
-```
-
-Expected result:
-
-- Docker prints a version.
-- `hailortcli` prints the Hailo device architecture, such as `HAILO8` or `HAILO10H`.
+Expected result: Docker Engine and Docker Compose both print version information.
 
 If these checks fail, fix them before opening the project in VS Code. The Dev Container depends on the Pi host setup.
 
@@ -199,10 +170,7 @@ In the VS Code remote window:
 
 ![VS Code reopening the Raspberry Pi project in a Dev Container](/img/20-reopen-in-container.png)
 
-4. Choose the container for your hardware:
-   - **RPI5 perception-experience-kit** for ONNX, camera, and non-Hailo work.
-   - **RPI5 H8 perception-experience-kit** for Hailo 8 or Hailo 8L work.
-   - **RPI5 H10 perception-experience-kit** for Hailo 10 work.
+4. Choose **Raspberry Pi 5 perception-experience-kit**.
 
 VS Code may say that it is building the container. Think of this as preparing the PEK environment. It can take several minutes on the first run.
 
@@ -264,33 +232,7 @@ In the **AI Models** panel, enable one model first. Start with `yolov11` or `mob
 
 Expected result: the page shows the PEK view and enabling a model produces an overlay or result. If you chose `05-full-onnx-raspicam` or `06-full-onnx-usb-cam`, the browser shows live camera input.
 
-## 13. Try A Hailo Pipeline
-
-Only do this after `01-full-onnx` works.
-
-Stop the running pipeline with `Ctrl+C` in the **Docker shell on the Raspberry Pi**.
-
-For Hailo 8, run:
-
-```bash
-./tools/pek-menu 02-full-onnx-hailo8
-```
-
-For Hailo 8L hardware with Hailo 8L-compiled models, run:
-
-```bash
-./tools/pek-menu 03-full-onnx-hailo8l
-```
-
-For Hailo 10, run:
-
-```bash
-./tools/pek-menu 04-full-onnx-hailo10
-```
-
-Open the same browser URL and enable one model in the **AI Models** panel.
-
-## 14. Switch From Sample Media To Camera
+## 13. Switch From Sample Media To Camera
 
 The checked-in camera presets use live camera sources by default:
 
@@ -321,7 +263,7 @@ v4l2-ctl --list-devices
 If the camera is `/dev/video0`, replace the source lines with:
 
 ```json
-"v4l2src device=/dev/video0 ! \"image/jpeg,width=1280,height=720,framerate=60/1\" !",
+"v4l2src device=/dev/video0 ! \"image/jpeg,width=1280,height=720,framerate=30/1\" !",
 "jpegdec !",
 "videoconvert ! video/x-raw,format=BGRA !",
 ```
@@ -349,7 +291,7 @@ The pipeline files also contain these alternative camera sources as templates:
 
 Expected result: after you rerun `pek-menu`, the browser shows camera input.
 
-## 15. Stop And Run Again
+## 14. Stop And Run Again
 
 To stop PEK, click the terminal that is running the pipeline and press `Ctrl+C`.
 
@@ -365,7 +307,6 @@ To run the last selected pipeline again, run in the **Docker shell on the Raspbe
 - If VS Code cannot connect over SSH, confirm terminal SSH works first.
 - If `raspberrypi.local` does not resolve, use the Pi IP address.
 - If the Dev Container does not start, confirm Docker works on the Raspberry Pi with `docker info`.
-- If Hailo models fail, confirm that `ls /dev/hailo*` and `hailortcli fw-control identify` work on the Raspberry Pi before opening the container.
 - If the browser opens but no result appears, enable a model in the **AI Models** panel.
 - If you expected a live camera feed, use `05-full-onnx-raspicam` for a Raspberry Pi camera or `06-full-onnx-usb-cam` for a USB camera at `/dev/video0`, then follow the camera section above if your device needs custom source settings.
 

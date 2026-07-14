@@ -18,6 +18,22 @@ application.
 **Note:** This developer preview is for evaluation, early application
 development, and feedback.
 
+## Deploy
+
+Deploy the ARM64 development container to a target:
+
+```bash
+topo deploy --target <target>
+```
+
+To use a Raspberry Pi camera, enable its small optional image layer and select
+the camera pipeline:
+
+```bash
+PEK_PICAMERA=enabled PEK_PIPELINE=05-full-onnx-raspicam \
+  topo deploy --target <target>
+```
+
 ![Example WebRTC viewer showing sample video inference, model controls, performance metrics, and debug log](docs/public/static/img/10-browser-ui.png)
 
 ## Quick start: first inference on Raspberry Pi 5
@@ -100,7 +116,7 @@ Enter the `amp-dev-forge` folder in the terminal and run:
 ```bash
 ./scripts/enter_cli.sh
 ```
-> **Expected outcome:** The prompt shows `devgoblin` 
+> **Expected outcome:** The prompt shows `dev`
 
 #### 3.1 Download the stock videos
 
@@ -185,7 +201,6 @@ Pick your next step.
 | [Use live camera input](docs/public/how-to/camera-input.md) | Move from packaged media to a USB or Raspberry Pi camera. |
 | [Add or adapt a model and OpChain](docs/public/how-to/bring-your-model.md) | Change the model after the source and output path work. |
 | [**Coming Soon:** Feed inference into an application](docs/public/how-to/use-output-in-app.md) | Capture inference output for downstream logic. |
-| [Use Hailo acceleration](docs/public/how-to/run-hailo-inference.md) | Add accelerator hardware. |
 | [Understanding the repository structure](docs/public/concepts/structural-basics.md) | How to get started with new components |
 | [Pipeline basics](docs/public/concepts/runtime-basics.md) | Learn about inference pipeline principles  |
 | [Custom postprocessing](docs/public/how-to/custom-postprocessing.md) | Inference result postprocessing  |
@@ -199,7 +214,7 @@ Pick your next step.
 | --- | --- |
 | SSH fails from the host machine | Check the target Pi hostname or IP address, then retry with the IP address. |
 | `docker info` fails | Confirm Docker Engine is installed and running from Docker's Debian installation guide. If it reports a permissions error, run `sudo usermod -aG docker "$USER"`, reconnect, and try again. |
-| Docker Compose cannot find the service | Rerun `bash .devcontainer/platform_init.sh pek-dev-rpi5`, then rerun the container start command. Use `pek-dev-rpi5-h8` or `pek-dev-rpi5-h10` for Hailo containers. |
+| Docker Compose cannot find the service | Rerun `bash .devcontainer/platform_init.sh pek-dev enabled`, then rerun the container start command. |
 | Build fails | Fix the first missing package, permission, or container error shown in the build output. |
 | Pipeline exits immediately | Rerun `./scripts/run.sh 01-full-onnx` and inspect the first missing plugin, model, or file. |
 | Viewer does not load | Keep the pipeline terminal running, use the target Pi IP address, and check port `9999`. |

@@ -59,7 +59,7 @@ v4l2-ctl --list-devices
 If your camera appears as `/dev/video0`, replace the source lines with:
 
 ```json
-"v4l2src device=/dev/video0 ! \"image/jpeg,width=1280,height=720,framerate=60/1\" !",
+"v4l2src device=/dev/video0 ! \"image/jpeg,width=1280,height=720,framerate=30/1\" !",
 "jpegdec !",
 "videoconvert ! video/x-raw,format=BGRA !",
 ```
