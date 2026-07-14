@@ -12,13 +12,13 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix
       - /run/udev:/run/udev:ro
     environment:
-      PEK_PIPELINE: ${PEK_PIPELINE:-onnx}
+      PEK_PIPELINE: ${PEK_PIPELINE:-config/pipelines/debug/onnx.json}
     build:
       context: .
       dockerfile: Dockerfile
       target: pek-deployment-base
       args:
-        PEK_PIPELINE: ${PEK_PIPELINE:-onnx}
+        PEK_PIPELINE: ${PEK_PIPELINE:-config/pipelines/debug/onnx.json}
 
 # Topo-specific metadata
 # TODO: for some reason in case of topo deployment from WSL the container has x86 binaries inside it instead of arm64. Despite the platform specification in the compose file.
@@ -29,8 +29,10 @@ x-topo:
   args:
     PEK_PIPELINE:
       description: |
-        The Perception Experience Kit pipeline to run. This should be the name of a pipeline defined in pipelines.yaml. Some options include 'onnx', 'gaze', 'video' amd 'single_cam'.
-      default: "onnx"
+        The Perception Experience Kit pipeline to run. Use a pipeline path or ID,
+        for example 'config/pipelines/debug/onnx.json',
+        '05-full-onnx-raspicam', or '06-full-onnx-usb-cam'.
+      default: "config/pipelines/debug/onnx.json"
   features:
     - "SME"
     - "NEON"

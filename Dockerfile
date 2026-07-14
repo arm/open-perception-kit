@@ -71,7 +71,7 @@ FROM --platform=${DEPLOYMENT_PLATFORM} debian:trixie-slim AS pek-deployment-base
 ARG USERNAME=pek
 ARG USER_UID=1000
 ARG USER_GID=1000
-ARG PEK_PIPELINE=onnx
+ARG PEK_PIPELINE=config/pipelines/debug/onnx.json
 
 ENV DEBIAN_FRONTEND=noninteractive \
   LANG=C.UTF-8 \
