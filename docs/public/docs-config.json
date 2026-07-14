@@ -18,12 +18,19 @@
       "label": "Concepts",
       "to": "/concepts",
       "position": "left"
+    },
+    {
+      "activeBaseRegex": "^/arch",
+      "label": "Architecture",
+      "to": "/arch",
+      "position": "left"
     }
   ],
   "sidebarIDs": [
     "getting-started",
     "how-to",
-    "concepts"
+    "concepts",
+    "arch"
   ],
   "sidebarDirectoryMap": {
     "getting-started": [
@@ -34,6 +41,9 @@
     ],
     "concepts": [
       "concepts"
+    ],
+    "arch": [
+      "arch"
     ]
   }
 }
