@@ -182,6 +182,7 @@ ARG USERNAME=devgoblin
 USER root
 
 COPY --from=pek-dev-base /opt/pek-venvs/devtools /opt/pek-venvs/devtools
+COPY --from=pek-dev-base /usr/local/bin/actionlint /usr/local/bin/actionlint
 
 ENV PEK_DEVTOOLS_VENV=/opt/pek-venvs/devtools
 
