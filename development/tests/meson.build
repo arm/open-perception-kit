@@ -42,6 +42,14 @@ yolo_parser_tests = executable(
   link_with : [common],
 )
 
+logging_tests = executable(
+  'logging_tests',
+  ['logging_test.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, fmt_dep],
+  link_with : [common],
+)
+
 pektracker_matching_tests = executable(
   'pektracker_matching_tests',
   ['pektracker_matching_test.cpp',
@@ -61,6 +69,7 @@ webrtc_session_tests = executable(
    '../elements/peksink/utils.cpp'],
   include_directories : [common_include, include_directories('../elements/peksink')],
   dependencies : [gtest_main_dep, gtest_dep, pek_deps],
+  link_with : [common],
 )
 
 runtime_pipeline_tests = executable(
@@ -72,13 +81,21 @@ runtime_pipeline_tests = executable(
 )
 
 node = find_program('node', required : false)
+python = import('python').find_installation()
 
 test('pek_menu_tests', pek_menu_tests)
+test(
+  'pek_menu_cli_tests',
+  python,
+  args : [files('pek_menu_cli_test.py'), pek_menu.full_path()],
+  depends : pek_menu,
+)
 test('matrix_operations_tests', matrix_operations_tests)
 test('kalman_filter_tests', kalman_filter_tests)
 test('hungarian_tests', hungarian_tests)
 test('iou_tests', iou_tests)
 test('yolo_parser_tests', yolo_parser_tests)
+test('logging_tests', logging_tests)
 test('pektracker_matching_tests', pektracker_matching_tests)
 test('webrtc_session_tests', webrtc_session_tests)
 test('runtime_pipeline_tests', runtime_pipeline_tests)

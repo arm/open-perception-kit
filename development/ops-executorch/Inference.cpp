@@ -9,7 +9,6 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
-#include <cstdio>
 #include <executorch/extension/module/module.h>
 #include <executorch/extension/tensor/tensor_ptr_maker.h>
 #include <memory>
@@ -17,6 +16,7 @@
 
 #include "executorch/runtime/core/error.h"
 #include "fmt/base.h"
+#include "pek/Log.h"
 #include "pek/Model.h"
 #include "pek/Result.h"
 #include "pek/String.h"
@@ -137,7 +137,7 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
     // method_names() forces program load on first call.
     const auto names = module.method_names();
     if (!names.ok()) {
-        std::printf("Failed to query method names: error=%d\n", (int)names.error());
+        pek::loge("Failed to query method names: error={}\n", static_cast<int>(names.error()));
 
         return tl::unexpected{
             PEK_ERROR(pek::ErrorFlag::InferenceRtGenericError,
@@ -246,9 +246,9 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
     // --- build up model
 
     std::string modelLog = model.toString();
-    printf("========= Original executorch model ========\n");
-    printf("%s", modelLog.c_str());
-    printf("========= ======== ==== ========== =========\n");
+    pek::log("========= Original executorch model ========\n");
+    pek::log("{}", modelLog);
+    pek::log("========= ======== ==== ========== =========\n");
 
     auto cmResult = model.applyModelFromDescriptor(modelDescriptor);
     if (!cmResult) {
@@ -268,9 +268,9 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
     // ---
 
     modelLog = model.toString();
-    printf("======= Model updated with json ======\n");
-    printf("%s", modelLog.c_str());
-    printf("========= ================== =========\n");
+    pek::log("======= Model updated with json ======\n");
+    pek::log("{}", modelLog);
+    pek::log("========= ================== =========\n");
 
     return {};
 }
@@ -285,7 +285,7 @@ void Inference::setTensorSizes() {
         size_t tensorByteCount =
             tensorValueCount * pek::getValueTypeByteSize(model.inputs[i].valueType);
         inputTensors[i].resize(tensorByteCount);
-        fmt::print("Executorch input tensor prepared: {} bytes\n", tensorByteCount);
+        pek::log("Executorch input tensor prepared: {} bytes\n", tensorByteCount);
     }
 }
 

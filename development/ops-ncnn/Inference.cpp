@@ -349,7 +349,7 @@ pek::Result<void> Inference::setTensorSizes() {
         const size_t byteCount = valueCount * sizeof(float);
         inputTensors[i].resize(byteCount);
         std::fill(inputTensors[i].begin(), inputTensors[i].end(), 0);
-        fmt::print("NCNN input tensor prepared: {} bytes\n", byteCount);
+        pek::log("NCNN input tensor prepared: {} bytes\n", byteCount);
     }
 
     for (size_t i = 0; i < model.outputs.size(); i++) {
@@ -367,7 +367,7 @@ pek::Result<void> Inference::setTensorSizes() {
         const size_t byteCount = model.outputs[i].shape.getFullValueCount() * sizeof(float);
         outputTensors[i].resize(byteCount);
         std::fill(outputTensors[i].begin(), outputTensors[i].end(), 0);
-        fmt::print("NCNN output tensor prepared: {} bytes\n", byteCount);
+        pek::log("NCNN output tensor prepared: {} bytes\n", byteCount);
     }
 
     return {};

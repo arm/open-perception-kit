@@ -23,6 +23,18 @@ services:
       dockerfile: Dockerfile
       target: pek-dev-base
 
+  pek-docs-dev-base: &pek-docs-dev-base
+    extends:
+      file: ../compose.base.yaml
+      service: pek-common-dev
+
+    network_mode: bridge
+    hostname: pek-docs-dev-base
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: pek-docs-dev-base
+
   pek-pre-commit-runtime:
     network_mode: bridge
     hostname: pek-pre-commit-runtime
@@ -113,12 +125,12 @@ services:
         .devcontainer/platform_init.sh pek-dev-base &&
         mkdir -p /work/.github/artifacts &&
         source /work/tools/.venv/bin/activate &&
-        expkits-ci --all-checks --pr-target-branch ${PULL_REQUEST_TARGET_BRANCH} \
+        expkits-ci --ci-pr-checks --pr-target-branch ${PULL_REQUEST_TARGET_BRANCH} \
           --report-file /work/.github/artifacts/expkits-ci-pr-report.txt
       '
 
   pek-quality-check-full:
-    <<: *pek-dev-base
+    <<: *pek-docs-dev-base
     command: |
       bash -c '
         .devcontainer/devsetup.sh &&
@@ -126,7 +138,7 @@ services:
         mkdir -p /work/.github/artifacts &&
         ./scripts/gen-doc.sh &&
         source /work/tools/.venv/bin/activate &&
-        expkits-ci --clang-format-check --python-format-check --cmake-format-check --shell-format-check --license-header-check --check-secrets --agent-runtime-static-analysis \
+        expkits-ci --ci-full-checks \
           --report-file /work/.github/artifacts/expkits-ci-full-report.txt
       '
 

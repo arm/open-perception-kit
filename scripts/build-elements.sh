@@ -13,6 +13,8 @@ BUILD_DIR="$PROJECT_ROOT/build"
 TESTS_BUILD_DIR="$PROJECT_ROOT/build-test"
 PEK_MENU=$PROJECT_ROOT/build/meson-out/pek-menu
 PEK_MENU_OUT=/work/tools/pek-menu
+COMMON_LIBRARY=$PROJECT_ROOT/build/meson-out/libcommon.so
+COMMON_LIBRARY_OUT=/work/tools/libcommon.so
 EXTRA_SETUP_ARGS=()
 MESON_SETUP_ARGS=()
 MESON_CONFIGURE_ARGS=()
@@ -22,6 +24,11 @@ mkdir -p "$BUILD_DIR"
 meson_build_is_configured() {
     local build_dir="$1"
     [[ -d "$build_dir/meson-private" ]]
+}
+
+stage_runtime_artifacts() {
+    cp "$PEK_MENU" "$PEK_MENU_OUT"
+    cp "$COMMON_LIBRARY" "$COMMON_LIBRARY_OUT"
 }
 
 parse_extra_setup_args() {
@@ -148,7 +155,7 @@ debug() {
     msg "Compiling.."
     meson compile -C "$BUILD_DIR"
 
-    cp "$PEK_MENU" "$PEK_MENU_OUT"
+    stage_runtime_artifacts
 
     msg_end "DEBUG compilation DONE → $BUILD_DIR"
 }
@@ -180,7 +187,7 @@ release() {
     msg "Compiling…"
     meson compile -C "$BUILD_DIR"
 
-    cp "$PEK_MENU" "$PEK_MENU_OUT"
+    stage_runtime_artifacts
 
     msg_end "Release build done → $BUILD_DIR"
 }

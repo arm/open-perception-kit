@@ -15,6 +15,7 @@
 
 #include "auxiliary.h"
 #include "ctrl_ws.h"
+#include "pek/Log.h"
 #include "peksink.h"
 #include "utils.h"
 
@@ -158,7 +159,7 @@ struct ToggleInvokeBox {
 
 gboolean toggle_on_main(gpointer user_data) {
 
-    std::cout << "invoked\n";
+    pek::log("invoked\n");
     auto *box = static_cast<ToggleInvokeBox *>(user_data);
     auto tsr = box->req; // copy shared_ptr
 
@@ -183,11 +184,11 @@ gboolean toggle_on_main(gpointer user_data) {
     }
     tsr->cv.notify_one();
 
-    std::cout << "check is_pipeline\n";
+    pek::log("check is_pipeline\n");
 
     // GST_IS_PIPELINE() is a macro performing a type check with no side effects
     if (tsr->element && GST_IS_PIPELINE(tsr->element)) { // NOSONAR
-        std::cout << "is_pipeline\n";
+        pek::log("is_pipeline\n");
         gst_object_unref(tsr->element);
         tsr->element = nullptr;
     }

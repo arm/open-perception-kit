@@ -16,6 +16,7 @@
 #include "glib-object.h"
 #include "glib.h"
 
+#include "pek/Log.h"
 #include "pek/Perception.h"
 #include "pek/Result.h"
 #include "pek/Tools.h"
@@ -114,9 +115,9 @@ static gboolean gst_pekinfer_start(GstBaseTransform *b) {
 
     auto setupResult = self->m->setupOpChainFromJson(self->opChainPath);
     if (!setupResult) {
-        fmt::print("Error while setting up op-chain [{}]: {}\n",
-                   self->opChainPath,
-                   setupResult.error().toString());
+        pek::loge("Error while setting up op-chain [{}]: {}\n",
+                  self->opChainPath,
+                  setupResult.error().toString());
 
         GST_ELEMENT_ERROR(
             self, RESOURCE, FAILED, ("Failed to setup op-chain."), ("%s", self->opChainPath));
@@ -238,7 +239,7 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
             auto executeResult = self->m->executeOpChain(opChainContext);
             if (!executeResult) {
-                fmt::print("{}\n", executeResult.error().toString());
+                pek::loge("{}\n", executeResult.error().toString());
                 return GST_FLOW_CUSTOM_ERROR;
             }
 
