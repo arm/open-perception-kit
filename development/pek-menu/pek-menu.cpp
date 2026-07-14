@@ -65,7 +65,7 @@ static std::optional<PipelineEntry> load_entry_from_json_file(const fs::path &p)
     try {
         std::ifstream in(p);
         if (!in.is_open()) {
-            pek::force_loge("Failed to open: {}\n", p.string());
+            pek::forceLoge("Failed to open: {}\n", p.string());
             return std::nullopt;
         }
 
@@ -73,11 +73,11 @@ static std::optional<PipelineEntry> load_entry_from_json_file(const fs::path &p)
         in >> json_content;
 
         if (!json_content.contains("description") || !json_content["description"].is_string()) {
-            pek::force_loge("Invalid JSON (missing string 'description'): {}\n", p.string());
+            pek::forceLoge("Invalid JSON (missing string 'description'): {}\n", p.string());
             return std::nullopt;
         }
         if (!json_content.contains("pipeline")) {
-            pek::force_loge("Invalid JSON (missing 'pipeline'): {}\n", p.string());
+            pek::forceLoge("Invalid JSON (missing 'pipeline'): {}\n", p.string());
             return std::nullopt;
         }
 
@@ -94,7 +94,7 @@ static std::optional<PipelineEntry> load_entry_from_json_file(const fs::path &p)
 
             for (const auto &element : pipeline_elements) {
                 if (!element.is_string()) {
-                    pek::force_loge(
+                    pek::forceLoge(
                         "Invalid JSON ('pipeline' array must contain only strings): {}\n",
                         p.string());
                     return std::nullopt;
@@ -110,21 +110,21 @@ static std::optional<PipelineEntry> load_entry_from_json_file(const fs::path &p)
             }
 
             if (joined.empty()) {
-                pek::force_loge("Invalid JSON ('pipeline' array is empty after joining): {}\n",
-                                p.string());
+                pek::forceLoge("Invalid JSON ('pipeline' array is empty after joining): {}\n",
+                               p.string());
                 return std::nullopt;
             }
 
             pipeline_entry.pipeline = std::move(joined);
         } else {
-            pek::force_loge("Invalid JSON ('pipeline' must be a string or array of strings): {}\n",
-                            p.string());
+            pek::forceLoge("Invalid JSON ('pipeline' must be a string or array of strings): {}\n",
+                           p.string());
             return std::nullopt;
         }
 
         return pipeline_entry;
     } catch (const std::exception &ex) {
-        pek::force_loge("JSON parse error in {}: {}\n", p.string(), ex.what());
+        pek::forceLoge("JSON parse error in {}: {}\n", p.string(), ex.what());
         return std::nullopt;
     }
 }
@@ -135,8 +135,8 @@ static std::vector<PipelineEntry> enumerate_entries() {
 
     std::error_code ec;
     if (!fs::exists(pipelines_directory, ec) || !fs::is_directory(pipelines_directory, ec)) {
-        pek::force_loge("Directory not found or not a directory: {}\n",
-                        pipelines_directory.string());
+        pek::forceLoge("Directory not found or not a directory: {}\n",
+                       pipelines_directory.string());
         return entries;
     }
 
@@ -225,25 +225,25 @@ int run_gst_launch(const std::string &pipeline, bool dry_run) {
             command_line += p;
             command_line += ' ';
         }
-        pek::force_log("{}\n", command_line);
+        pek::forceLog("{}\n", command_line);
         std::fflush(stdout);
 
         if (!dry_run) {
             // never returns if everything is okay
             execvp(cmd.argv[0], cmd.argv.data());
-            pek::force_loge("execvp: {}\n", std::strerror(errno));
+            pek::forceLoge("execvp: {}\n", std::strerror(errno));
             return 127;
         }
 
         return 0;
     } catch (std::runtime_error &error) {
-        pek::force_loge("error: {}\n", error.what());
+        pek::forceLoge("error: {}\n", error.what());
         return 3;
     }
 }
 // clang-format off
 static void print_usage(const char *argv0) {
-    pek::force_log(
+    pek::forceLog(
         "Usage:\n"
         "  {}              # show menu\n"
         "  {} -h           # print this help\n"
@@ -319,7 +319,7 @@ int main(int argc, char **argv) {
 
     auto entries = enumerate_entries();
     if (entries.empty()) {
-        pek::force_log("No valid pipelines found in: {}\n", kPipelinesDir);
+        pek::forceLog("No valid pipelines found in: {}\n", kPipelinesDir);
         return 1;
     }
 
@@ -333,12 +333,12 @@ int main(int argc, char **argv) {
     if (run_last) {
         auto last_pipeline = load_last_selected_pipeline();
         if (!last_pipeline) {
-            pek::force_log("No previous selection stored ({}).\n", last_selection_path().string());
+            pek::forceLog("No previous selection stored ({}).\n", last_selection_path().string());
             return 3;
         }
         auto it = id_to_idx.find(*last_pipeline);
         if (it == id_to_idx.end()) {
-            pek::force_log("Last selected pipeline '{}' not found in directory.\n", *last_pipeline);
+            pek::forceLog("Last selected pipeline '{}' not found in directory.\n", *last_pipeline);
             return 3;
         }
         const auto &pipelineEntry = entries[it->second];
@@ -350,14 +350,14 @@ int main(int argc, char **argv) {
     if (requested_pipeline) {
         auto resolved = resolve_pipeline_path(*requested_pipeline);
         if (!resolved) {
-            pek::force_log("Pipeline not found: '{}' (expected full path or ID in {})\n",
-                           *requested_pipeline,
-                           kPipelinesDir);
+            pek::forceLog("Pipeline not found: '{}' (expected full path or ID in {})\n",
+                          *requested_pipeline,
+                          kPipelinesDir);
             return 3;
         }
         auto entry = load_entry_from_json_file(*resolved);
         if (!entry) {
-            pek::force_log("Failed to load pipeline from: {}\n", *resolved);
+            pek::forceLog("Failed to load pipeline from: {}\n", *resolved);
             return 3;
         }
         // Since this path might not be available in the menu, we won't save it as last selected
@@ -374,33 +374,32 @@ int main(int argc, char **argv) {
             last_pipeline_idx = it->second;
     }
 
-    pek::force_log("Pipelines in: {}\n", kPipelinesDir);
+    pek::forceLog("Pipelines in: {}\n", kPipelinesDir);
     if (last_pipeline_idx) {
         const auto &pipelineEntry = entries[*last_pipeline_idx];
-        pek::force_log("0 -> {} [LAST: {}]\n", pipelineEntry.full_path, pipelineEntry.description);
+        pek::forceLog("0 -> {} [LAST: {}]\n", pipelineEntry.full_path, pipelineEntry.description);
     } else {
-        pek::force_log("0 -> (no previous selection)\n");
+        pek::forceLog("0 -> (no previous selection)\n");
     }
 
     for (size_t i = 0; i < entries.size(); ++i) {
         const auto &pipelineEntry = entries[i];
-        pek::force_log(
-            "{} -> {} [{}]\n", i + 1, pipelineEntry.full_path, pipelineEntry.description);
+        pek::forceLog("{} -> {} [{}]\n", i + 1, pipelineEntry.full_path, pipelineEntry.description);
     }
 
     const int max_choice = static_cast<int>(entries.size());
     while (true) {
-        pek::force_log("\nSelect (0..{}): ", max_choice);
+        pek::forceLog("\nSelect (0..{}): ", max_choice);
         std::fflush(stdout);
         auto c = read_choice_int();
         if (!c || *c < 0 || *c > max_choice) {
-            pek::force_loge("Invalid choice. Try again.\n");
+            pek::forceLoge("Invalid choice. Try again.\n");
             continue;
         }
 
         if (*c == 0) {
             if (!last_pipeline_idx) {
-                pek::force_log("No previous selection stored. Choose 1..{}.\n", max_choice);
+                pek::forceLog("No previous selection stored. Choose 1..{}.\n", max_choice);
                 continue;
             }
             const auto &pipelineEntry = entries[*last_pipeline_idx];
@@ -412,8 +411,8 @@ int main(int argc, char **argv) {
         const auto &pipelineEntry = entries[idx];
 
         if (!save_last_selected_pipeline(pipelineEntry.full_path)) {
-            pek::force_log("Warning: failed to save last selected pipeline to {}\n",
-                           last_selection_path().string());
+            pek::forceLog("Warning: failed to save last selected pipeline to {}\n",
+                          last_selection_path().string());
         }
         return run_gst_launch(pipelineEntry.pipeline, dry_run);
     }

@@ -40,11 +40,11 @@ class ScopedEnv {
 } // namespace
 
 TEST(PekLog, OrdersLevelsByVerbosityAndDefaultsToInfo) {
-    EXPECT_EQ(pek::log_level_value(pek::LogLevel::Off), 0);
-    EXPECT_EQ(pek::log_level_value(pek::LogLevel::Error), 1);
-    EXPECT_EQ(pek::log_level_value(pek::LogLevel::Warn), 2);
-    EXPECT_EQ(pek::log_level_value(pek::LogLevel::Notice), 3);
-    EXPECT_EQ(pek::log_level_value(pek::LogLevel::Info), 4);
+    EXPECT_EQ(pek::private_::logLevelValue(pek::LogLevel::Off), 0);
+    EXPECT_EQ(pek::private_::logLevelValue(pek::LogLevel::Error), 1);
+    EXPECT_EQ(pek::private_::logLevelValue(pek::LogLevel::Warn), 2);
+    EXPECT_EQ(pek::private_::logLevelValue(pek::LogLevel::Notice), 3);
+    EXPECT_EQ(pek::private_::logLevelValue(pek::LogLevel::Info), 4);
     EXPECT_EQ(pek::defaultLogLevel, pek::LogLevel::Info);
 }
 
@@ -66,30 +66,30 @@ TEST(PekLog, AppliesSeverityThresholdAtEveryConfiguredLevel) {
     };
 
     for (const auto &expectation : expectations) {
-        SCOPED_TRACE(pek::log_level_value(expectation.configuredLevel));
-        pek::set_log_level(pek::log_level_value(expectation.configuredLevel));
+        SCOPED_TRACE(pek::private_::logLevelValue(expectation.configuredLevel));
+        pek::setLogLevel(pek::private_::logLevelValue(expectation.configuredLevel));
 
-        EXPECT_EQ(pek::should_log(pek::LogLevel::Error), expectation.error);
-        EXPECT_EQ(pek::should_log(pek::LogLevel::Warn), expectation.warning);
-        EXPECT_EQ(pek::should_log(pek::LogLevel::Notice), expectation.notice);
-        EXPECT_EQ(pek::should_log(pek::LogLevel::Info), expectation.info);
+        EXPECT_EQ(pek::private_::shouldLog(pek::LogLevel::Error), expectation.error);
+        EXPECT_EQ(pek::private_::shouldLog(pek::LogLevel::Warn), expectation.warning);
+        EXPECT_EQ(pek::private_::shouldLog(pek::LogLevel::Notice), expectation.notice);
+        EXPECT_EQ(pek::private_::shouldLog(pek::LogLevel::Info), expectation.info);
     }
 }
 
 TEST(PekLog, WritesInfoAndFlushes) {
     ScopedEnv env("OPK_LOG_LEVEL", "4");
-    pek::set_log_level(4);
+    pek::setLogLevel(4);
     testing::internal::CaptureStdout();
 
     pek::log("hello {}", "world");
-    pek::log_flush();
+    pek::logFlush();
 
     EXPECT_EQ(testing::internal::GetCapturedStdout(), "hello world");
 }
 
 TEST(PekLog, AppliesWarningAndErrorPrefixes) {
     ScopedEnv env("OPK_LOG_LEVEL", "4");
-    pek::set_log_level(4);
+    pek::setLogLevel(4);
     testing::internal::CaptureStdout();
     testing::internal::CaptureStderr();
 
@@ -104,7 +104,7 @@ TEST(PekLog, AppliesWarningAndErrorPrefixes) {
 
 TEST(PekLog, FiltersNoticeAndInfoMessagesAtWarningLevel) {
     ScopedEnv env("OPK_LOG_LEVEL", "2");
-    pek::set_log_level(2);
+    pek::setLogLevel(2);
     testing::internal::CaptureStdout();
     testing::internal::CaptureStderr();
 
@@ -121,7 +121,7 @@ TEST(PekLog, FiltersNoticeAndInfoMessagesAtWarningLevel) {
 
 TEST(PekLog, WritesNoticesAtLevelThree) {
     ScopedEnv env("OPK_LOG_LEVEL", "3");
-    pek::set_log_level(3);
+    pek::setLogLevel(3);
     testing::internal::CaptureStdout();
     testing::internal::CaptureStderr();
 
@@ -138,7 +138,7 @@ TEST(PekLog, WritesNoticesAtLevelThree) {
 
 TEST(PekLog, FiltersWarningsAtErrorLevel) {
     ScopedEnv env("OPK_LOG_LEVEL", "1");
-    pek::set_log_level(1);
+    pek::setLogLevel(1);
     testing::internal::CaptureStdout();
     testing::internal::CaptureStderr();
 
@@ -153,12 +153,12 @@ TEST(PekLog, FiltersWarningsAtErrorLevel) {
 
 TEST(PekLog, WritesUnconditionalOutputToOneStream) {
     ScopedEnv env("OPK_LOG_LEVEL", "0");
-    pek::set_log_level(0);
+    pek::setLogLevel(0);
     testing::internal::CaptureStdout();
     testing::internal::CaptureStderr();
 
-    pek::force_log("stdout {}\n", 1);
-    pek::force_loge("stderr {}\n", 2);
+    pek::forceLog("stdout {}\n", 1);
+    pek::forceLoge("stderr {}\n", 2);
 
     const std::string stdoutOutput = testing::internal::GetCapturedStdout();
     const std::string stderrOutput = testing::internal::GetCapturedStderr();
@@ -168,11 +168,11 @@ TEST(PekLog, WritesUnconditionalOutputToOneStream) {
 
 TEST(PekLog, UpdatesLogLevelWithoutChangingEnvironment) {
     ScopedEnv env("OPK_LOG_LEVEL", "1");
-    pek::set_log_level(3);
+    pek::setLogLevel(3);
 
     const char *configuredLevel = std::getenv("OPK_LOG_LEVEL"); // NOLINT(concurrency-mt-unsafe)
     EXPECT_STREQ(configuredLevel, "1");
-    EXPECT_EQ(pek::current_log_level(), 3);
+    EXPECT_EQ(pek::getLogLevel(), 3);
 
     testing::internal::CaptureStdout();
     testing::internal::CaptureStderr();
@@ -188,10 +188,10 @@ TEST(PekLog, UpdatesLogLevelWithoutChangingEnvironment) {
 }
 
 TEST(PekLog, ClampsLogLevelToSupportedRange) {
-    pek::set_log_level(-1);
-    EXPECT_EQ(pek::current_log_level(), 0);
+    pek::setLogLevel(-1);
+    EXPECT_EQ(pek::getLogLevel(), 0);
 
-    pek::set_log_level(5);
-    EXPECT_EQ(pek::current_log_level(), 4);
-    EXPECT_EQ(pek::parse_log_level("5"), 4);
+    pek::setLogLevel(5);
+    EXPECT_EQ(pek::getLogLevel(), 4);
+    EXPECT_EQ(pek::private_::parseLogLevel("5"), 4);
 }
