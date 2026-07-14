@@ -15,6 +15,8 @@ Install these before you start:
 
 - WSL with Ubuntu installed.
 - Git inside WSL.
+- Python 3 inside WSL.
+- GitHub CLI inside WSL.
 - Docker Desktop with WSL integration enabled.
 - Visual Studio Code on Windows.
 - VS Code **Dev Containers** extension.
@@ -32,12 +34,22 @@ Check that basic tools are available:
 
 ```bash
 git --version
+python3 --version
+gh --version
 docker --version
 docker compose version
 code --version
 ```
 
 If `docker` does not work, open Docker Desktop and confirm that WSL integration is enabled for your Ubuntu distribution.
+
+Until modelfetch is released, authenticate GitHub CLI with read access to the
+pinned `Arm-Debug/modelfetch` Actions artifact:
+
+```bash
+gh auth login --hostname github.com
+gh auth status --hostname github.com
+```
 
 ### Configure mirrored WSL networking for WebRTC
 
@@ -81,8 +93,15 @@ Expected result: you are in the `pek` folder in WSL.
 Run in the **WSL shell**, from the `pek` folder:
 
 ```bash
+chmod 600 "/absolute/path/to/huggingface-token"
+export HF_TOKEN_PATH="/absolute/path/to/huggingface-token"
 code .
 ```
+
+`HF_TOKEN_PATH` is required when a selected pipeline downloads a published
+model. Launching VS Code from this WSL shell makes the token file available to
+the Dev Container as a read-only secret; pipelines that use only local models
+do not require it.
 
 VS Code should open the folder through WSL. In VS Code:
 

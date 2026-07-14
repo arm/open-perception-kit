@@ -26,6 +26,8 @@ services:
       context: ..
       dockerfile: Dockerfile
       target: pek-dev-rich
+      secrets:
+        - modelfetch_wheel
 
     container_name: pek-dev-rich
 
@@ -46,6 +48,7 @@ services:
 
     environment:
       - XDG_RUNTIME_DIR=/run/user/${HOST_UID}
+      - HF_TOKEN_PATH=/run/secrets/huggingface_token
       - WAYLAND_DISPLAY=wayland-0
       - DISPLAY
       - USERNAME=devgoblin
@@ -66,6 +69,9 @@ services:
       - ../../pek-work-tree:/pek-work-tree
       - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
 
+    secrets:
+      - huggingface_token
+
     privileged: true
 
     ports:
@@ -76,3 +82,9 @@ services:
     stdin_open: true
     tty: true
     restart: unless-stopped
+
+secrets:
+  modelfetch_wheel:
+    file: ../.cache/modelfetch/modelfetch-candidate.whl
+  huggingface_token:
+    file: ${HF_TOKEN_PATH:-/dev/null}

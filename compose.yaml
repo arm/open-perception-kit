@@ -13,12 +13,25 @@ services:
       - /run/udev:/run/udev:ro
     environment:
       PEK_PIPELINE: ${PEK_PIPELINE:-onnx}
+      HF_TOKEN_PATH: /run/secrets/huggingface_token
+    secrets:
+      - huggingface_token
     build:
       context: .
       dockerfile: Dockerfile
       target: pek-deployment-base
       args:
         PEK_PIPELINE: ${PEK_PIPELINE:-onnx}
+      secrets:
+        - modelfetch_wheel
+
+secrets:
+  modelfetch_wheel:
+    # Until modelfetch is released, prepare this exact candidate with
+    # scripts/private/prepare-modelfetch-candidate.sh before a deployment/Topo build.
+    file: .cache/modelfetch/modelfetch-candidate.whl
+  huggingface_token:
+    file: ${HF_TOKEN_PATH:-/dev/null}
 
 # Topo-specific metadata
 # TODO: for some reason in case of topo deployment from WSL the container has x86 binaries inside it instead of arm64. Despite the platform specification in the compose file.

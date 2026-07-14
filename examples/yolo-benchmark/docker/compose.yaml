@@ -10,6 +10,8 @@ services:
       args:
         USER_UID: ${HOST_UID:-1000}
         USER_GID: ${HOST_GID:-1000}
+      secrets:
+        - modelfetch_wheel
     environment:
       YOLO_BENCHMARK_LIMIT: ${YOLO_BENCHMARK_LIMIT:-}
       YOLO_BENCHMARK_RUNS: ${YOLO_BENCHMARK_RUNS:-}
@@ -21,3 +23,7 @@ services:
 volumes:
   yolo-benchmark-cache:
     name: ${YOLO_BENCHMARK_CACHE_VOLUME:-amp-dev-forge-yolo-benchmark-cache}
+
+secrets:
+  modelfetch_wheel:
+    file: ../../../.cache/modelfetch/modelfetch-candidate.whl

@@ -39,6 +39,18 @@ jobs:
           echo "SONAR_RELEASE_BRANCH=tags/${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
           echo "SONAR_PROJECT_VERSION=${GITHUB_REF_NAME#release/}" >> "$GITHUB_ENV"
 
+      - name: Prepare pinned modelfetch candidate
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          GH_TOKEN: ${{ secrets.MODELFETCH_CANDIDATE_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "MODELFETCH_CANDIDATE_TOKEN is required to read the pinned Arm-Debug/modelfetch artifact." >&2
+            exit 1
+          fi
+          ./scripts/private/prepare-modelfetch-candidate.sh >/dev/null
+
       - name: Build docker image 
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-sonar-check-release

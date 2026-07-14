@@ -35,12 +35,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 240
     if: |
-      github.event_name != 'pull_request' ||
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) &&
       (
-        (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
+        github.event_name != 'pull_request' ||
         (
-          github.event.pull_request.draft == false ||
-          (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+          (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
+          (
+            github.event.pull_request.draft == false ||
+            (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+          )
         )
       )
     env:
@@ -48,6 +51,17 @@ jobs:
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
+      - name: Reject fork pull request for candidate-backed validation
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "$(gh pr view "${{ github.event.inputs.pr_number }}" --repo "${{ github.repository }}" --json isCrossRepository --jq '.isCrossRepository')" != "false" ]; then
+            echo "Refusing to expose the modelfetch candidate credential to a fork pull request." >&2
+            exit 1
+          fi
+
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
@@ -61,7 +75,15 @@ jobs:
 
       - name: Recreate quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        run: ./scripts/quick-start/start-container.sh --recreate
+        env:
+          GH_TOKEN: ${{ secrets.MODELFETCH_CANDIDATE_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "MODELFETCH_CANDIDATE_TOKEN is required to read the pinned Arm-Debug/modelfetch artifact." >&2
+            exit 1
+          fi
+          ./scripts/quick-start/start-container.sh --recreate
 
       - name: Build quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -104,6 +126,17 @@ jobs:
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
+      - name: Reject fork pull request for candidate-backed validation
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "$(gh pr view "${{ github.event.inputs.pr_number }}" --repo "${{ github.repository }}" --json isCrossRepository --jq '.isCrossRepository')" != "false" ]; then
+            echo "Refusing to expose the modelfetch candidate credential to a fork pull request." >&2
+            exit 1
+          fi
+
       # RPI runner drops checkout@v6 temp includeIf credentials during fetch; retry v6 after runner image update.
       - uses: actions/checkout@v5
         with:
@@ -118,7 +151,25 @@ jobs:
 
       - name: Recreate quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        run: ./scripts/quick-start/start-container.sh --recreate
+        env:
+          GH_TOKEN: ${{ secrets.MODELFETCH_CANDIDATE_TOKEN }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "MODELFETCH_CANDIDATE_TOKEN is required to read the pinned Arm-Debug/modelfetch artifact." >&2
+            exit 1
+          fi
+          if [ -z "${HF_TOKEN:-}" ]; then
+            echo "HF_TOKEN is required to download the published smoke-test model." >&2
+            exit 1
+          fi
+          HF_TOKEN_PATH="${RUNNER_TEMP}/pek-hf-token-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}"
+          umask 077
+          printf '%s' "$HF_TOKEN" > "$HF_TOKEN_PATH"
+          echo "HF_TOKEN_PATH=$HF_TOKEN_PATH" >> "$GITHUB_ENV"
+          export HF_TOKEN_PATH
+          ./scripts/quick-start/start-container.sh --recreate
 
       - name: Build quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -154,6 +205,7 @@ jobs:
           if [ -x "$checkout_path/scripts/quick-start/cleanup-container.sh" ]; then
             "$checkout_path/scripts/quick-start/cleanup-container.sh" || cleanup_status=$?
           fi
+          rm -f -- "${HF_TOKEN_PATH:-}"
           rm -rf -- "$checkout_path"
           exit "$cleanup_status"
 
@@ -161,12 +213,15 @@ jobs:
     name: Run quality checks in Docker
     runs-on: ubuntu-latest
     if: |
-      github.event_name != 'pull_request' ||
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) &&
       (
-        (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
+        github.event_name != 'pull_request' ||
         (
-          github.event.pull_request.draft == false ||
-          (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+          (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
+          (
+            github.event.pull_request.draft == false ||
+            (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+          )
         )
       )
     env:
@@ -199,6 +254,17 @@ jobs:
             --head-sha-override "${{ github.event.inputs.pr_head_sha }}" \
             --github-output "${GITHUB_OUTPUT}"
 
+      - name: Reject fork pull request for candidate-backed validation
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "$(gh pr view "${{ github.event.inputs.pr_number }}" --repo "${{ github.repository }}" --json isCrossRepository --jq '.isCrossRepository')" != "false" ]; then
+            echo "Refusing to expose the modelfetch candidate credential to a fork pull request." >&2
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v6
         with:
@@ -206,6 +272,18 @@ jobs:
           fetch-tags: true
           ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.head_ref || github.ref }}
           path: ${{ env.CI_CHECKOUT_PATH }}
+
+      - name: Prepare pinned modelfetch candidate
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          GH_TOKEN: ${{ secrets.MODELFETCH_CANDIDATE_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "MODELFETCH_CANDIDATE_TOKEN is required to read the pinned Arm-Debug/modelfetch artifact." >&2
+            exit 1
+          fi
+          ./scripts/private/prepare-modelfetch-candidate.sh >/dev/null
 
       - name: Build docker image
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}

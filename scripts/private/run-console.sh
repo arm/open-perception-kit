@@ -70,6 +70,7 @@ detect_webrtc_host_ip() {
 
 do_up() {
     detect_webrtc_host_ip
+    bash ./scripts/private/prepare-modelfetch-candidate.sh
     ./scripts/private/dev-init.sh pek-dev-rich "$DC_RICH" "$DEV_ENV_FILE"
 
     echo "Using WebRTC host IP: ${WEBRTC_HOST_IP}"

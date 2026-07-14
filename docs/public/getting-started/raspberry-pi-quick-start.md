@@ -79,6 +79,15 @@ Follow the link below to install Docker:
 
 Install both Docker Engine and the Docker Compose plugin from the Debian guide so `docker compose` is available for later steps.
 
+Also install Python 3 and GitHub CLI. Until modelfetch is released, authenticate
+GitHub CLI with read access to the pinned `Arm-Debug/modelfetch` Actions
+artifact:
+
+```bash
+gh auth login --hostname github.com
+gh auth status --hostname github.com
+```
+
 If you use the Hailo 8 AI HAT, install the Hailo 8 stack:
 
 ```bash
@@ -105,6 +114,9 @@ Run in the **Raspberry Pi shell**:
 docker info
 docker --version
 docker compose version
+python3 --version
+gh --version
+gh auth status --hostname github.com
 ```
 
 If `docker info` fails with a permission error, add your user to the `docker` group and log out and back in:
@@ -148,6 +160,20 @@ git clone git@github.com:Arm-Debug/amp-dev-forge.git
 ```
 
 Expected result: the `pek` folder exists on the Raspberry Pi.
+
+For a pipeline that downloads a published model, save a Hugging Face access
+token in a mode-`0600` file on the Pi and set `HF_TOKEN_PATH` to its absolute
+path in the Pi login environment used by VS Code Remote SSH. Make the file
+private, add the export to `~/.profile`, then reconnect VS Code to the Pi:
+
+```bash
+chmod 600 "/absolute/path/to/huggingface-token"
+printf '%s\n' \
+  'export HF_TOKEN_PATH="/absolute/path/to/huggingface-token"' >> ~/.profile
+```
+
+The Dev Container mounts this file read-only. Pipelines that use only local
+models do not require it.
 
 ## 7. Check VS Code Prerequisites On Your Computer
 

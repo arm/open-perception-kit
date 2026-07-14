@@ -91,6 +91,36 @@ ENV LD_LIBRARY_PATH=/opt/pek-deps/onnxruntime/lib
 ENV SSH_AUTH_SOCK=/ssh-agent
 
 ######################################################################
+################## Pinned model tooling candidate ####################
+######################################################################
+FROM pek-base AS pek-model-tools-base
+
+ARG USERNAME=devgoblin
+
+USER root
+
+# The unreleased candidate is supplied as a required BuildKit secret. Its fixed
+# manifest participates in the cache key and is the checksum authority.
+RUN --mount=type=bind,source=scripts/private/modelfetch-candidate-constraints.txt,target=/tmp/modelfetch-candidate-constraints.txt \
+  --mount=type=bind,source=scripts/private/modelfetch-candidate.json,target=/tmp/modelfetch-candidate.json \
+  --mount=type=secret,id=modelfetch_wheel,required=true,target=/run/secrets/modelfetch-0.1.0-py3-none-any.whl \
+  set -eux; \
+  wheel=/run/secrets/modelfetch-0.1.0-py3-none-any.whl; \
+  expected_sha="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["wheelSha256"])' /tmp/modelfetch-candidate.json)"; \
+  case "${expected_sha}" in *[!0-9a-f]*|'') exit 1 ;; esac; \
+  test "${#expected_sha}" -eq 64; \
+  echo "${expected_sha}  ${wheel}" | sha256sum -c -; \
+  uv venv --python /usr/bin/python3 /opt/pek-venvs/model-tools; \
+  UV_NO_CACHE=1 uv pip install --python /opt/pek-venvs/model-tools/bin/python \
+    --constraint /tmp/modelfetch-candidate-constraints.txt "${wheel}"; \
+  printf '%s\n' "${expected_sha}" > /opt/pek-venvs/model-tools/.candidate-wheel-sha256; \
+  chmod 0444 /opt/pek-venvs/model-tools/.candidate-wheel-sha256; \
+  /opt/pek-venvs/model-tools/bin/modelfetch --help >/dev/null
+
+USER ${USERNAME}
+WORKDIR /work
+
+######################################################################
 #################### PC Base Development Container ###################
 ######################################################################
 FROM pek-base AS pek-dev-base
@@ -142,6 +172,8 @@ RUN set -eux; \
   /tmp/pek-tools/expkits-ci \
   /tmp/pek-tools/plumber; \
   rm -rf /tmp/pek-tools
+
+COPY --from=pek-model-tools-base /opt/pek-venvs/model-tools /opt/pek-venvs/model-tools
 
 ENV PEK_DEVTOOLS_VENV=/opt/pek-venvs/devtools
 
@@ -265,6 +297,7 @@ USER root
 ARG PEK_PIPELINE=onnx
 
 # Copy project into image for self-contained deployment
+COPY --from=pek-model-tools-base /opt/pek-venvs/model-tools /opt/pek-venvs/model-tools
 COPY --chown=${USERNAME}:${USERNAME} . /work
 
 ENV PEK_PIPELINE=${PEK_PIPELINE}

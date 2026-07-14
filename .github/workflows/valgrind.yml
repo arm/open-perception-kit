@@ -41,7 +41,7 @@ jobs:
   valgrind-workflow:
     name: Valgrind related workflow
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request_target' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    if: github.event_name != 'pull_request_target' && (github.event_name != 'pull_request' || (github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository))
     permissions:
       actions: read
       contents: read
@@ -58,6 +58,17 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+
+      - name: Prepare pinned modelfetch candidate
+        env:
+          GH_TOKEN: ${{ secrets.MODELFETCH_CANDIDATE_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "MODELFETCH_CANDIDATE_TOKEN is required to read the pinned Arm-Debug/modelfetch artifact." >&2
+            exit 1
+          fi
+          ./scripts/private/prepare-modelfetch-candidate.sh >/dev/null
 
       - name: Run Valgrind Python unit tests
         run: |
@@ -99,7 +110,7 @@ jobs:
           run-id: ${{ steps.valgrind_baseline.outputs.run-id || steps.waited_valgrind_baseline.outputs.run-id }}
 
       - name: Build docker image
-        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-docs-base
+        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-valgrind-check
 
       - name: Clear stale Valgrind logs
         run: find scripts/testing/valgrind/logs -name "*.valgrind.*.xml" -delete 2>/dev/null || true

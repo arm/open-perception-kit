@@ -1,6 +1,7 @@
 # Ignore Git metadata
 .git
 .gitignore
+.cache/
 
 # Build outputs
 cmake-build*/

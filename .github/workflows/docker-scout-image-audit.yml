@@ -7,6 +7,8 @@ on:
         required: true
       DOCKER_TOKEN:
         required: true
+      MODELFETCH_CANDIDATE_TOKEN:
+        required: true
   workflow_dispatch:
   pull_request:
     branches: [ main, develop, "feature/**", "sandbox/**" ]
@@ -82,6 +84,19 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
+
+      - name: Prepare pinned modelfetch candidate
+        if: matrix.image.service == 'pek-dev-base'
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          GH_TOKEN: ${{ secrets.MODELFETCH_CANDIDATE_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "MODELFETCH_CANDIDATE_TOKEN is required to read the pinned Arm-Debug/modelfetch artifact." >&2
+            exit 1
+          fi
+          ./scripts/private/prepare-modelfetch-candidate.sh >/dev/null
 
       - name: Build docker image
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}

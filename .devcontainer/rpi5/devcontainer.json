@@ -13,7 +13,7 @@
   ],
   "remoteUser": "devgoblin",
   "workspaceFolder": "/work",
-  "initializeCommand": "bash .devcontainer/platform_init.sh pek-dev-rpi5",
+  "initializeCommand": "bash scripts/private/prepare-modelfetch-candidate.sh && bash .devcontainer/platform_init.sh pek-dev-rpi5",
   "containerEnv": {
     "CONTAINER_TYPE": "default",
     "HOST_OS": "${localEnv:OSTYPE}",

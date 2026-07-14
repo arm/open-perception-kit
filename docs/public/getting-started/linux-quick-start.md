@@ -14,6 +14,8 @@ Use this guide on a Linux computer. PEK runs inside a VS Code Dev Container, so 
 Install these before you start:
 
 - Git.
+- Python 3.
+- GitHub CLI.
 - Docker Engine.
 - Docker Compose.
 - Visual Studio Code.
@@ -39,12 +41,22 @@ Check Docker in the **host shell**:
 docker --version
 docker compose version
 docker info
+python3 --version
+gh --version
 ```
 
 If `docker info` fails with a permission error, add your user to the `docker` group and log out and back in:
 
 ```bash
 sudo usermod -aG docker "$USER"
+```
+
+Until modelfetch is released, authenticate GitHub CLI with read access to the
+pinned `Arm-Debug/modelfetch` Actions artifact:
+
+```bash
+gh auth login --hostname github.com
+gh auth status --hostname github.com
 ```
 
 ## 1. Get The Repository
@@ -67,8 +79,15 @@ Expected result: you are in the `pek` folder.
 Run in the **host shell**, from the `pek` folder:
 
 ```bash
+chmod 600 "/absolute/path/to/huggingface-token"
+export HF_TOKEN_PATH="/absolute/path/to/huggingface-token"
 code .
 ```
+
+`HF_TOKEN_PATH` is required when a selected pipeline downloads a published
+model. Launching VS Code from this shell makes the token file available to the
+Dev Container as a read-only secret; pipelines that use only local models do
+not require it.
 
 In VS Code:
 

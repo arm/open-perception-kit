@@ -103,6 +103,29 @@ container_workdir_writable() {
     docker exec -u devgoblin "${PEK_CONTAINER_NAME}" bash -lc 'test -w /work' > /dev/null 2>&1
 }
 
+expected_model_tools_sha256() {
+    python3 - "${REPO_ROOT}/scripts/private/modelfetch-candidate.json" << 'PY'
+import json
+from pathlib import Path
+import sys
+
+document = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+value = document["wheelSha256"]
+if not isinstance(value, str) or len(value) != 64:
+    raise SystemExit("invalid wheelSha256")
+print(value)
+PY
+}
+
+container_has_current_model_tools() {
+    local expected_sha
+    expected_sha="$(expected_model_tools_sha256)" || return 1
+    docker exec -u devgoblin "${PEK_CONTAINER_NAME}" sh -c '
+        test -x /opt/pek-venvs/model-tools/bin/modelfetch &&
+        test "$(cat /opt/pek-venvs/model-tools/.candidate-wheel-sha256 2>/dev/null)" = "$1"
+    ' _ "$expected_sha" > /dev/null 2>&1
+}
+
 print_enter_hint() {
     echo "Container is running: ${PEK_CONTAINER_NAME}"
     echo "Enter it with:"
@@ -122,13 +145,13 @@ export PEK_WEBRTC_TURN_MAX_PORT="${PEK_WEBRTC_TURN_MAX_PORT:-49050}"
 require_docker
 
 if container_running && [[ "$RECREATE" != "true" ]]; then
-    if container_workdir_writable; then
+    if container_workdir_writable && container_has_current_model_tools; then
         print_enter_hint
         exit 0
     fi
 
-    echo "Container is running, but /work is not writable as devgoblin."
-    echo "Recreating it with the host UID/GID mapping..."
+    echo "The running container is missing the current workspace contract."
+    echo "Recreating it with the host UID/GID mapping and model tools..."
     RECREATE="true"
 fi
 
@@ -145,6 +168,7 @@ fi
 
 echo
 echo "Generating device overrides..."
+bash scripts/private/prepare-modelfetch-candidate.sh > /dev/null
 bash .devcontainer/platform_init.sh "${PEK_CONTAINER_SERVICE}"
 
 echo

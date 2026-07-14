@@ -33,12 +33,15 @@ jobs:
     runs-on: self-hosted-ubuntu-latest-x64
 
     if: |
-        github.event_name != 'pull_request' ||
+        (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) &&
         (
-          (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
+          github.event_name != 'pull_request' ||
           (
-            github.event.pull_request.draft == false ||
-            (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+            (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
+            (
+              github.event.pull_request.draft == false ||
+              (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
+            )
           )
         )
 
@@ -78,6 +81,17 @@ jobs:
             --head-sha-override "${{ github.event.inputs.pr_head_sha }}" \
             --github-output "${GITHUB_OUTPUT}"
 
+      - name: Reject fork pull request for candidate-backed validation
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "$(gh pr view "${{ github.event.inputs.pr_number }}" --repo "${{ github.repository }}" --json isCrossRepository --jq '.isCrossRepository')" != "false" ]; then
+            echo "Refusing to expose the modelfetch candidate credential to a fork pull request." >&2
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v6
         with:
@@ -89,6 +103,18 @@ jobs:
       - name: Export isolated workspace root
         shell: bash
         run: echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
+
+      - name: Prepare pinned modelfetch candidate
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          GH_TOKEN: ${{ secrets.MODELFETCH_CANDIDATE_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "MODELFETCH_CANDIDATE_TOKEN is required to read the pinned Arm-Debug/modelfetch artifact." >&2
+            exit 1
+          fi
+          ./scripts/private/prepare-modelfetch-candidate.sh >/dev/null
 
       - name: Build docker image
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}

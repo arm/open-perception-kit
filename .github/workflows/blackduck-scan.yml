@@ -34,6 +34,23 @@ jobs:
       - name: Export isolated workspace root
         run: echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
 
+      - name: Prepare pinned modelfetch candidate
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          GH_TOKEN: ${{ secrets.MODELFETCH_CANDIDATE_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "MODELFETCH_CANDIDATE_TOKEN is required to read the pinned Arm-Debug/modelfetch artifact." >&2
+            exit 1
+          fi
+          wheel_path="$(./scripts/private/prepare-modelfetch-candidate.sh)"
+          if [ ! -f "${wheel_path}" ] || [[ "${wheel_path}" != "${WORKSPACE_ROOT}/.cache/modelfetch/"* ]]; then
+            echo "Unexpected modelfetch candidate path: ${wheel_path}" >&2
+            exit 1
+          fi
+          echo "MODELFETCH_WHEEL_PATH=${wheel_path}" >> "$GITHUB_ENV"
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
@@ -266,6 +283,7 @@ jobs:
                   "docker", "build",
                   "-t", entry["image"],
                   "-f", entry["dockerfile"],
+                  "--secret", f"id=modelfetch_wheel,src={os.environ['MODELFETCH_WHEEL_PATH']}",
               ]
               if entry.get("target"):
                   cmd += ["--target", entry["target"]]
@@ -294,7 +312,11 @@ jobs:
         run: |
           set -euo pipefail
           dev_image="perception-experience-kit-bd:${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          docker build -t "${dev_image}" --target pek-dev-base "${WORKSPACE_ROOT}"
+          docker build \
+            --secret "id=modelfetch_wheel,src=${MODELFETCH_WHEEL_PATH}" \
+            -t "${dev_image}" \
+            --target pek-dev-base \
+            "${WORKSPACE_ROOT}"
 
           docker run --rm \
             -u "$(id -u):$(id -g)" \
