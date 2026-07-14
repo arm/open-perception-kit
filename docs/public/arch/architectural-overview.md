@@ -18,14 +18,14 @@ creates and enriches it through OpChain execution, `pektracker` and
 `pekperformance` can append runtime data, `pekosd` consumes it for overlays, and
 application-facing boundaries can serialize it for external consumers.
 
-![OPK component overview](../static/img/component-overview.png)
+![OPK component overview](/img/component-overview.png)
 
 ## Activity View
 
 The activity view traces the path from `pek-menu` preset parsing through element
 initialization and into the steady-state per-buffer execution path.
 
-![OPK engineer execution flow](../static/img/execution-flow.png)
+![OPK engineer execution flow](/img/execution-flow.png)
 
 ## Execution Model
 
