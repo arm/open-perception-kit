@@ -132,9 +132,6 @@ cd "${REPO_ROOT}"
 
 export HOST_UID="$(id -u)"
 export HOST_GID="$(id -g)"
-export WEBRTC_HOST_IP="${WEBRTC_HOST_IP:-"$(bash "${REPO_ROOT}/scripts/private/detect-webrtc-host-ip.sh")"}"
-export PEK_WEBRTC_TURN_MIN_PORT="${PEK_WEBRTC_TURN_MIN_PORT:-49000}"
-export PEK_WEBRTC_TURN_MAX_PORT="${PEK_WEBRTC_TURN_MAX_PORT:-49050}"
 
 require_docker
 
@@ -153,8 +150,6 @@ echo "Starting quick-start container:"
 echo "  Platform: ${PEK_PLATFORM_NAME} (${PEK_PLATFORM_ID})"
 echo "  Service:  ${PEK_CONTAINER_SERVICE}"
 echo "  Name:     ${PEK_CONTAINER_NAME}"
-echo "  WebRTC:   ${WEBRTC_HOST_IP}"
-echo "  TURN:     ${PEK_WEBRTC_TURN_MIN_PORT}-${PEK_WEBRTC_TURN_MAX_PORT}/udp"
 
 echo
 echo "Generating device overrides..."
@@ -162,7 +157,7 @@ bash .devcontainer/platform_init.sh "${PEK_CONTAINER_SERVICE}" "${PEK_PICAMERA}"
 
 echo
 echo "Building and starting container..."
-UP_ARGS=(up -d --build)
+UP_ARGS=(up -d --build --remove-orphans)
 if [[ "$RECREATE" == "true" ]]; then
     UP_ARGS+=(--force-recreate)
 fi

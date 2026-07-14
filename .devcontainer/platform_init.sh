@@ -37,25 +37,9 @@ upsert_env_value() {
 }
 
 chmod +x scripts/private/dev-init.sh || true
-chmod +x scripts/private/detect-webrtc-host-ip.sh || true
 touch devices.env
 bash ./scripts/private/dev-init.sh "${TARGET_SERVICE_KIND}" devcont devices.env
 
-WEBRTC_HOST_IP="${WEBRTC_HOST_IP:-"$(./scripts/private/detect-webrtc-host-ip.sh)"}"
-PEK_WEBRTC_TURN_MIN_PORT="${PEK_WEBRTC_TURN_MIN_PORT:-49000}"
-PEK_WEBRTC_TURN_MAX_PORT="${PEK_WEBRTC_TURN_MAX_PORT:-49050}"
-upsert_env_value .env WEBRTC_HOST_IP "$WEBRTC_HOST_IP"
-upsert_env_value .env PEK_WEBRTC_TURN_MIN_PORT "$PEK_WEBRTC_TURN_MIN_PORT"
-upsert_env_value .env PEK_WEBRTC_TURN_MAX_PORT "$PEK_WEBRTC_TURN_MAX_PORT"
-upsert_env_value .devcontainer/.env WEBRTC_HOST_IP "$WEBRTC_HOST_IP"
-upsert_env_value .devcontainer/.env PEK_WEBRTC_TURN_MIN_PORT "$PEK_WEBRTC_TURN_MIN_PORT"
-upsert_env_value .devcontainer/.env PEK_WEBRTC_TURN_MAX_PORT "$PEK_WEBRTC_TURN_MAX_PORT"
-upsert_env_value devices.env WEBRTC_HOST_IP "$WEBRTC_HOST_IP"
-upsert_env_value devices.env PEK_WEBRTC_TURN_MIN_PORT "$PEK_WEBRTC_TURN_MIN_PORT"
-upsert_env_value devices.env PEK_WEBRTC_TURN_MAX_PORT "$PEK_WEBRTC_TURN_MAX_PORT"
 upsert_env_value .env PEK_PICAMERA "$PEK_PICAMERA"
 upsert_env_value .devcontainer/.env PEK_PICAMERA "$PEK_PICAMERA"
 upsert_env_value devices.env PEK_PICAMERA "$PEK_PICAMERA"
-
-echo "Using WebRTC host IP: ${WEBRTC_HOST_IP}"
-echo "Using WebRTC TURN relay ports: ${PEK_WEBRTC_TURN_MIN_PORT}-${PEK_WEBRTC_TURN_MAX_PORT}"

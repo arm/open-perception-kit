@@ -1,3 +1,10 @@
+x-pek-runtime-environment: &pek-runtime-environment
+  USERNAME: dev
+
+x-pek-development-environment: &pek-development-environment
+  WAYLAND_DISPLAY: wayland-0
+  DISPLAY: ${DISPLAY:-}
+
 services:
   pek-common: &pek-common
     cap_add:
@@ -9,7 +16,7 @@ services:
     privileged: true
 
     environment:
-      - USERNAME=dev
+      <<: *pek-runtime-environment
 
     # <agent-review:suppress-begin>
     # The env_file object form (path + required) is a Compose feature, which is available since 2.24 (released on 20.12.2023).
@@ -19,19 +26,7 @@ services:
         required: false
     # <agent-review:suppress-end>
 
-    ports:
-      - 8000:8000
-      - 8080:8080
-      - 8001:8001
-      - 8002:8002
-      # <agent-review:suppress-begin> Port 7001 is intentionally published for
-      # local/demo metadata workflows; transport auth/TLS is out of scope for
-      # these checked-in demo compose defaults.
-      - 7001:7001
-      # <agent-review:suppress-end>
-      - 9999:9999
-      - 2222:2222
-
+    network_mode: host
     stdin_open: true
     tty: true
     restart: unless-stopped
@@ -44,6 +39,6 @@ services:
       - /run/udev:/run/udev:ro
 
     environment:
-      - WAYLAND_DISPLAY=wayland-0
-      - DISPLAY
-      - USERNAME=dev
+      <<:
+        - *pek-runtime-environment
+        - *pek-development-environment

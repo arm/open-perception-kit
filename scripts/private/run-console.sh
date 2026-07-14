@@ -31,14 +31,11 @@ EOF
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-DEV_ENV_FILE="devices.env"
 DC_KIND="devcont"
 CONTAINER_NAME="${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}"
 
 export HOST_UID="$(id -u)"
 export HOST_GID="$(id -g)"
-export PEK_WEBRTC_TURN_MIN_PORT="${PEK_WEBRTC_TURN_MIN_PORT:-49000}"
-export PEK_WEBRTC_TURN_MAX_PORT="${PEK_WEBRTC_TURN_MAX_PORT:-49050}"
 
 cd "${REPO_ROOT}"
 
@@ -59,31 +56,17 @@ is_running() {
     docker inspect -f '{{.State.Running}}' "${CONTAINER_NAME}" 2> /dev/null | grep -q '^true$'
 }
 
-detect_webrtc_host_ip() {
-    if [[ -z "${WEBRTC_HOST_IP:-}" ]]; then
-        WEBRTC_HOST_IP="$(bash "${SCRIPT_DIR}/detect-webrtc-host-ip.sh")"
-    fi
-    export WEBRTC_HOST_IP
-}
-
 do_up() {
-    detect_webrtc_host_ip
-    ./scripts/private/dev-init.sh pek-dev "$DC_KIND" "$DEV_ENV_FILE"
+    ./.devcontainer/platform_init.sh pek-dev "${PEK_PICAMERA:-disabled}"
 
-    echo "Using WebRTC host IP: ${WEBRTC_HOST_IP}"
-    echo "Using WebRTC TURN relay ports: ${PEK_WEBRTC_TURN_MIN_PORT}-${PEK_WEBRTC_TURN_MAX_PORT}"
-
-    HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" WEBRTC_HOST_IP="${WEBRTC_HOST_IP}" \
-        PEK_WEBRTC_TURN_MIN_PORT="${PEK_WEBRTC_TURN_MIN_PORT}" \
-        PEK_WEBRTC_TURN_MAX_PORT="${PEK_WEBRTC_TURN_MAX_PORT}" \
-        docker compose "${COMPOSE_ENV_ARGS[@]}" "${COMPOSE_FILES[@]}" up -d --build coturn pek-dev
+    HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" \
+        docker compose "${COMPOSE_ENV_ARGS[@]}" "${COMPOSE_FILES[@]}" \
+        up -d --build --remove-orphans pek-dev
 }
 
 do_down() {
-    HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" WEBRTC_HOST_IP="${WEBRTC_HOST_IP:-}" \
-        PEK_WEBRTC_TURN_MIN_PORT="${PEK_WEBRTC_TURN_MIN_PORT}" \
-        PEK_WEBRTC_TURN_MAX_PORT="${PEK_WEBRTC_TURN_MAX_PORT}" \
-        docker compose "${COMPOSE_ENV_ARGS[@]}" "${COMPOSE_FILES[@]}" down
+    HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" \
+        docker compose "${COMPOSE_ENV_ARGS[@]}" "${COMPOSE_FILES[@]}" down --remove-orphans
 }
 
 cmd="${1:-}"

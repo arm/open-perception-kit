@@ -12,40 +12,10 @@ services:
       dockerfile: Dockerfile
       target: pek-build-base
 
-  coturn:
-    image: coturn/coturn:4.13.1
-    network_mode: bridge
-    ports:
-      - "3478:3478/udp"
-      - "3478:3478/tcp"
-      - "${PEK_WEBRTC_TURN_MIN_PORT:-49000}-${PEK_WEBRTC_TURN_MAX_PORT:-49050}:${PEK_WEBRTC_TURN_MIN_PORT:-49000}-${PEK_WEBRTC_TURN_MAX_PORT:-49050}/udp"
-    command:
-      - --listening-port=3478
-      - --fingerprint
-      - --lt-cred-mech
-      - --user=${PEK_WEBRTC_TURN_USERNAME:-test}:${PEK_WEBRTC_TURN_CREDENTIAL:-test123}
-      - --realm=pek.local
-      - --external-ip=${WEBRTC_HOST_IP}
-      - --min-port=${PEK_WEBRTC_TURN_MIN_PORT:-49000}
-      - --max-port=${PEK_WEBRTC_TURN_MAX_PORT:-49050}
-      - --no-cli
-      - --no-tls
-      - --no-dtls
-      - --log-file=stdout
-
   pek-dev:
     extends:
       file: ../compose.base.yaml
       service: pek-common-dev
-    network_mode: bridge
-    depends_on:
-      - coturn
-    environment:
-      - WEBRTC_HOST_IP=${WEBRTC_HOST_IP}
-      - PEK_WEBRTC_TURN_USERNAME=${PEK_WEBRTC_TURN_USERNAME:-test}
-      - PEK_WEBRTC_TURN_CREDENTIAL=${PEK_WEBRTC_TURN_CREDENTIAL:-test123}
-      - PEK_WEBRTC_TURN_MIN_PORT=${PEK_WEBRTC_TURN_MIN_PORT:-49000}
-      - PEK_WEBRTC_TURN_MAX_PORT=${PEK_WEBRTC_TURN_MAX_PORT:-49050}
     container_name: ${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}
     hostname: ${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}
     build:

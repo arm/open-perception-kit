@@ -8,7 +8,6 @@
   ],
   "service": "pek-dev",
   "runServices": [
-    "coturn",
     "pek-dev"
   ],
   "remoteUser": "dev",
