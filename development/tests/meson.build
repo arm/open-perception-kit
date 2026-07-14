@@ -5,6 +5,14 @@ pek_menu_tests = executable(
   dependencies : [gtest_main_dep, gtest_dep, pek_menu_parser_dep],
 )
 
+model_descriptor_tests = executable(
+  'model_descriptor_tests',
+  ['model_descriptor_test.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, pek_deps],
+  link_with : [common],
+)
+
 matrix_operations_tests = executable(
   'matrix_operations_tests',
   ['matrix_operations_test.cpp'],
@@ -84,11 +92,24 @@ node = find_program('node', required : false)
 python = import('python').find_installation()
 
 test('pek_menu_tests', pek_menu_tests)
+test('model_descriptor_tests', model_descriptor_tests)
 test(
   'pek_menu_cli_tests',
   python,
   args : [files('pek_menu_cli_test.py'), pek_menu.full_path()],
   depends : pek_menu,
+)
+test(
+  'model_materializer_tests',
+  python,
+  args : [meson.project_source_root() / '../scripts/private/tests/test_model_materializer.py'],
+)
+test(
+  'prepare_modelfetch_candidate_tests',
+  python,
+  args : [
+    meson.project_source_root() / '../scripts/private/tests/test_prepare_modelfetch_candidate.py',
+  ],
 )
 test('matrix_operations_tests', matrix_operations_tests)
 test('kalman_filter_tests', kalman_filter_tests)

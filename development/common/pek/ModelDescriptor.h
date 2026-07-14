@@ -80,7 +80,7 @@ struct ModelDescriptor {
     /// Optional legal/license notice associated with the model.
     std::string legal;
 
-    /// Model file path (usually relative to model directory/config root).
+    /// Local relative model path or immutable published model asset locator.
     std::string modelFile;
 
     /// Model family identifier (for example "yolov11").

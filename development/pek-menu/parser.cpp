@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <optional>
 #include <regex>
 #include <stdexcept>
 
@@ -155,6 +156,45 @@ ExecArgs tokenize_and_expand_argv(const std::string &s) {
     out.argv.push_back(nullptr);
 
     return out;
+}
+
+std::vector<std::string> extract_pekinfer_opchain_paths(const ExecArgs &args) {
+    static constexpr const char *property_prefix = "opchain-path=";
+    std::vector<std::string> paths;
+    bool in_pekinfer = false;
+    std::optional<std::string> opchain_path;
+
+    auto finish_element = [&]() {
+        if (in_pekinfer) {
+            if (!opchain_path)
+                throw std::runtime_error("pekinfer has no opchain-path");
+            paths.push_back(std::move(*opchain_path));
+        }
+        in_pekinfer = false;
+        opchain_path.reset();
+    };
+
+    for (const auto &token : args.storage) {
+        if (token == "!") {
+            finish_element();
+            continue;
+        }
+        if (!in_pekinfer) {
+            in_pekinfer = token == "pekinfer";
+            continue;
+        }
+        if (token.rfind(property_prefix, 0) != 0)
+            continue;
+
+        std::string path = token.substr(std::char_traits<char>::length(property_prefix));
+        if (path.empty())
+            throw std::runtime_error("pekinfer has an empty opchain-path");
+        if (opchain_path)
+            throw std::runtime_error("pekinfer has multiple opchain-path properties");
+        opchain_path = std::move(path);
+    }
+    finish_element();
+    return paths;
 }
 
 std::string trim(std::string trimmed_str) {

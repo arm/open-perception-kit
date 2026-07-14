@@ -20,7 +20,7 @@ At the end of this page, you should be able to place new files in the right fold
 ### `config/`
 This is the most important folder for normal usage.
 
-- `config/models/` stores model folders. Put your model file, `model.json`, basic and minimal `opchain.json`, and `index.md` here. Runtime-specific compiled variants also live here, for example `mobilenetv2-hailo8/` and `mobilenetv2-hailo10/`.
+- `config/models/` stores model folders. Put `model.json`, a basic and minimal `opchain.json`, and `index.md` here. In `modelFile`, use either a local relative path or an immutable published file locator. Published content is materialized under the dedicated `var/models/` runtime store. Runtime-specific compiled variants also live here, for example `mobilenetv2-hailo8/` and `mobilenetv2-hailo10/`.
 - `config/opchains/` stores reusable multi-stage pipelines, for example detector + secondary model chains.
 - `config/pipelines/` stores the top-level presets shown by `pek-menu`.
 
@@ -81,8 +81,9 @@ The usual flow is:
 1. select a pipeline preset from `config/pipelines/`
 2. that preset starts a GStreamer pipeline
 3. `pekinfer` loads an OpChain from `config/opchains/` or `config/models/*/opchain.json`
-4. the OpChain loads one or more model descriptors from `config/models/`
-5. the result is shown or published by the downstream elements
+4. `pek-menu` materializes any published artifacts declared by those descriptors
+5. the OpChain loads one or more model descriptors from `config/models/`
+6. the result is shown or published by the downstream elements
 
 You only need the deeper `development/` source tree if this flow is not enough for your use case or if your model output needs a new postprocessor.
 

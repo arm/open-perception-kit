@@ -79,6 +79,14 @@ The descriptor defines things such as:
 - output behavior
 - model family and content type
 
+The same descriptor is used for local and published models. For a local model, `modelFile` is a
+relative path beside the descriptor. For a published model, `modelFile` is its immutable canonical
+`hf:...@...#file=...` locator. Before GStreamer starts, `pek-menu` materializes published content
+under the dedicated `var/models/` runtime store. Modelfetch owns the layout within that store and
+resolves the runtime path; AMP does not derive model-specific directories. Manifest and bundle
+locators are not runtime entrypoints and are rejected. Pipelines printed with `pek-menu -p` never
+download models.
+
 If you are only adding your own model, you usually only need to copy and adapt an existing `model.json`.
 
 ## Pipelines, OpChains, and models together
@@ -88,9 +96,10 @@ The normal runtime stack is:
 1. a top-level pipeline is selected from `config/pipelines/`
 2. that pipeline creates one or more `pekinfer` elements
 3. each `pekinfer` loads an OpChain
-4. the OpChain loads one or more model descriptors
-5. postprocessing writes structured results
-6. downstream elements render, track, or publish those results
+4. `pek-menu` materializes any published model artifacts
+5. the OpChain loads one or more model descriptors
+6. postprocessing writes structured results
+7. downstream elements render, track, or publish those results
 
 ## Runtime input expectations
 
@@ -143,8 +152,8 @@ For ready-to-run live camera presets, use `05-full-onnx-raspicam` for a Raspberr
 The normal user path is:
 
 1. add a new folder under `config/models/`
-2. place the model file there
-3. copy and adapt `model.json`
+2. place the model file there, or identify an immutable published asset
+3. copy and adapt `model.json`, using a canonical file locator in `modelFile` for a published asset
 4. copy and adapt `opchain.json`
 5. point a pipeline preset to that model or OpChain
 

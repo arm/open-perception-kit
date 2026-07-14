@@ -57,7 +57,7 @@ config/models/<your-model>/
 ```
 
 At minimum, that folder should contain:
-- the model file
+- the model file, unless it is materialized from a published asset
 - `model.json`
 - usually `opchain.json`
 - `index.md`
@@ -76,6 +76,13 @@ Typical fields are:
 - `contentType` when applicable
 - `inputTensors`
 - `outputTensors` when outputs are static
+
+`modelFile` is also the single source reference. Use a relative path for a local model, or an
+immutable canonical `hf:...@...#file=...` locator for a published model. `pek-menu` materializes a
+published file under the dedicated `var/models/` runtime store. Modelfetch owns the layout within
+that store, so do not derive a model-specific path, add a second download descriptor, or duplicate
+source metadata elsewhere. Manifest and bundle locators are rejected because they do not identify
+one runtime entrypoint. Hailo `.hef` artifacts are currently local-only.
 
 Important input metadata includes:
 - shape
@@ -184,7 +191,8 @@ Before considering the integration complete, verify that:
 
 The normal workflow is:
 
-1. place the model and descriptors in `config/models/<your-model>/`
+1. place the local model and descriptors in `config/models/<your-model>/`, or put an immutable
+   file locator in `modelFile` for a published model
 2. create or update an `opchain.json`
 3. optionally add a top-level pipeline preset under `config/pipelines/`
 4. build inside the container
