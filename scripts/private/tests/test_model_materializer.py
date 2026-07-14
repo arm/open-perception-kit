@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 import json
 from pathlib import Path
 import subprocess
@@ -83,7 +84,7 @@ class ModelMaterializerTests(unittest.TestCase):
             command, 0, json.dumps({"results": results}), ""
         )
 
-    def materialize(self, opchains: list[Path]) -> object:
+    def materialize(self, opchains: list[Path]) -> Counter[str]:
         return model_materializer.materialize_opchains(
             opchains,
             workspace_root=self.workspace,
