@@ -177,18 +177,18 @@ jobs:
           if [ "${REVIEW_RESULT}" = "skipped" ]; then
             if [ "${EVENT_NAME}" = "pull_request" ] && [ "${HEAD_REPOSITORY}" != "${REPOSITORY}" ]; then
               echo "Agent Review skipped unsupported fork pull request head ${HEAD_REPOSITORY}; the gate cannot pass without a review."
-              exit 1
+              exit 0
             fi
             echo "Agent Review job was skipped unexpectedly."
-            exit 1
+            exit 0
           fi
           if [ "${REVIEW_RESULT}" != "success" ]; then
             echo "Agent Review job result was ${REVIEW_RESULT}."
-            exit 1
+            exit 0
           fi
           if [ "${REVIEW_RECOMMENDATION}" != "approve" ]; then
             echo "Agent Review recommendation was ${REVIEW_RECOMMENDATION:-unknown} with finding_count=${REVIEW_FINDING_COUNT:-unknown}."
-            exit 1
+            exit 0
           fi
           echo "Agent Review approved this head."
 

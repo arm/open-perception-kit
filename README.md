@@ -199,8 +199,8 @@ Pick your next step.
 | --- | --- |
 | SSH fails from the host machine | Check the target Pi hostname or IP address, then retry with the IP address. |
 | `docker info` fails | Confirm Docker Engine is installed and running from Docker's Debian installation guide. If it reports a permissions error, run `sudo usermod -aG docker "$USER"`, reconnect, and try again. |
-| Docker Compose cannot find the service | Rerun `bash .devcontainer/platform_init.sh pek-dev-rpi5-h8`, then rerun the container start command. |
+| Docker Compose cannot find the service | Rerun `bash .devcontainer/platform_init.sh pek-dev-rpi5`, then rerun the container start command. Use `pek-dev-rpi5-h8` or `pek-dev-rpi5-h10` for Hailo containers. |
 | Build fails | Fix the first missing package, permission, or container error shown in the build output. |
-| Pipeline exits immediately | Rerun `docker exec -it perception-experience-kit-rpi5 bash -lc 'cd /work && /work/tools/pek-menu 01-full-onnx'` and inspect the first missing plugin, model, or file. |
+| Pipeline exits immediately | Rerun `./scripts/run.sh 01-full-onnx` and inspect the first missing plugin, model, or file. |
 | Viewer does not load | Keep the pipeline terminal running, use the target Pi IP address, and check port `9999`. |
 | A model produces no overlay | Confirm the model and any upstream dependencies are enabled, then check the debug log or model state in the viewer. |

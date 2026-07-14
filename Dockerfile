@@ -13,55 +13,31 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Show base info (helps reading logs)
-RUN set -eux; uname -a; cat /etc/os-release; dpkg --print-architecture
-
-# Always start with update
+# Base info, minimal core tools, and PEK dependency assets.
 RUN set -eux; \
-  apt-get update; \
-  rm -rf /var/lib/apt/lists/*
-
-# Minimal core tools (runtime + build)
-RUN set -eux; \
+  uname -a; \
+  cat /etc/os-release; \
+  dpkg --print-architecture; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  ca-certificates curl wget sudo unzip gnupg \
-  build-essential meson ninja-build pkg-config cmake \
-  libssl-dev libfmt-dev libfftw3-dev libsoup-3.0-dev libjson-glib-dev libcairo2-dev zip python3 python3-pip; \
-  rm -rf /var/lib/apt/lists/*
-
-# LLDB 17 for Colima
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        lldb-17 && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN ln -sf /usr/bin/lldb-17 /usr/local/bin/lldb && \
-    ln -sf /usr/bin/lldb-server-17 /usr/local/bin/lldb-server
-				  	  			
-# GStreamer core + base
-RUN set -eux; \
-  apt-get update; \
-  apt-get install -y --no-install-recommends \
-  libgstreamer1.0-dev gstreamer1.0-tools gstreamer1.0-x gstreamer1.0-gl \
-  libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base \
-  libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-bad \
-  gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly  \
-  gstreamer1.0-nice gstreamer1.0-pipewire; \
-  rm -rf /var/lib/apt/lists/*
-
-# Profiling tools
-RUN set -eux; \
-  apt-get update; \
-  apt-get install -y --no-install-recommends \
+  build-essential ca-certificates clang-format cmake curl git gnupg \
+  gstreamer1.0-gl gstreamer1.0-nice gstreamer1.0-pipewire \
+  gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
+  gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
+  gstreamer1.0-tools gstreamer1.0-x libcairo2-dev libfftw3-dev \
+  libfmt-dev libgstreamer-plugins-bad1.0-dev \
+  libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
+  libjson-glib-dev libsoup-3.0-dev libssl-dev lldb-17 meson \
+  ninja-build pkg-config pre-commit python3 python3-dev python3-gi \
+  python3-gst-1.0 python3-venv shfmt openssh-client sudo unzip \
   valgrind; \
-  rm -rf /var/lib/apt/lists/*
-
-# Clean apt cache
-RUN set -eux; update-ca-certificates || true
-
-# Install ONNX Runtime into image layers for reproducible builds and SBOM visibility.
-RUN set -eux; \
+  rm -rf /var/lib/apt/lists/*; \
+  curl --proto "=https" -LsSf https://astral.sh/uv/install.sh | \
+  env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh; \
+  uv --version; \
+  ln -sf /usr/bin/lldb-17 /usr/local/bin/lldb; \
+  ln -sf /usr/bin/lldb-server-17 /usr/local/bin/lldb-server; \
+  update-ca-certificates || true; \
   arch="$(uname -m)"; \
   case "$arch" in \
   x86_64) ort_arch="x64" ;; \
@@ -72,8 +48,7 @@ RUN set -eux; \
   ort_tgz="${ort_dir}.tgz"; \
   ort_url="https://github.com/microsoft/onnxruntime/releases/download/v${ONNXRUNTIME_VERSION}/${ort_tgz}"; \
   tmp_dir="$(mktemp -d)"; \
-  curl --fail --show-error --location --retry 5 --retry-delay 5 --retry-all-errors --output "$tmp_dir/$ort_tgz" "$ort_url"; \
-  tar -xzf "$tmp_dir/$ort_tgz" -C "$tmp_dir"; \
+  curl -fsSL "$ort_url" | tar -xzf - -C "$tmp_dir"; \
   mkdir -p /opt/pek-deps/onnxruntime; \
   cp -r "$tmp_dir/$ort_dir/include" /opt/pek-deps/onnxruntime/; \
   cp -r "$tmp_dir/$ort_dir/lib" /opt/pek-deps/onnxruntime/; \
@@ -112,29 +87,31 @@ ENV GST_DEBUG=2 \
 
 ENV LD_LIBRARY_PATH=""
 ENV LD_LIBRARY_PATH=/opt/pek-deps/onnxruntime/lib
+# ---- SSH agent socket mapping ----
+ENV SSH_AUTH_SOCK=/ssh-agent
 
 ######################################################################
-################# Minimal container with docs and CI #################
+#################### PC Base Development Container ###################
 ######################################################################
-FROM pek-base AS pek-docs-base
+FROM pek-base AS pek-dev-base
 
 ARG USERNAME=devgoblin
+ARG PLANTUML_VERSION=1.2026.2
 ARG ACTIONLINT_VERSION=1.7.12
 
 USER root
 
-# Dev / CI tools required for docs and quality checks
+# Extra QoL and debugging tools for development shells
 RUN set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  git shfmt clang-format ssh \
-  openjdk-25-jdk graphviz pandoc pre-commit doxygen \
-  python3-dev python3-venv python3-gi python3-gst-1.0 \
-  libffi-dev zlib1g-dev libbz2-dev liblzma-dev libsqlite3-dev v4l-utils; \
-  rm -rf /var/lib/apt/lists/*
-
-# Map only Debian architectures backed by official actionlint Linux release assets.
-RUN set -eux; \
+  bash-completion clangd gdb less locales nano net-tools; \
+  if apt-get install -y --no-install-recommends --dry-run gstreamer1.0-libav; then \
+  apt-get install -y --no-install-recommends gstreamer1.0-libav; \
+  else \
+  echo 'NOTE: gstreamer1.0-libav not available on this image/mirror'; \
+  fi; \
+  rm -rf /var/lib/apt/lists/*; \
   arch="$(dpkg --print-architecture)"; \
   case "${arch}" in \
     amd64) actionlint_arch="amd64" ;; \
@@ -156,58 +133,6 @@ RUN set -eux; \
   rm -rf "${tmp_dir}"; \
   actionlint -version
 
-# uv (Python package manager) for dev/CI tooling
-RUN set -eux; \
-  curl --proto "=https" -LsSf https://astral.sh/uv/install.sh | \
-  env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh; \
-  uv --version
-
-# Install PlantUML JAR into image layers for docs generation and SBOM visibility.
-ARG PLANTUML_VERSION=1.2026.2
-RUN set -eux; \
-  mkdir -p /opt/pek-deps; \
-  wget --secure-protocol=TLSv1_2 \
-    "https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}/plantuml-mit-${PLANTUML_VERSION}.jar" \
-    -O "/opt/pek-deps/plantuml-mit-${PLANTUML_VERSION}.jar"
-
-USER ${USERNAME}
-WORKDIR /work
-
-
-######################################################################
-#################### PC Base Development Container ###################
-######################################################################
-FROM pek-docs-base AS pek-dev-base
-
-ARG USERNAME=devgoblin
-
-USER root
-
-# Extra QoL and debugging tools for development shells
-RUN set -eux; \
-  apt-get update; \
-  apt-get install -y --no-install-recommends \
-  locales bash-completion mc vim nano gdb clangd net-tools zsh \
-  openssh-client less ripgrep fd-find tmux; \
-  rm -rf /var/lib/apt/lists/*
-
-# libav can sometimes be the troublemaker; probe then install
-RUN set -eux; \
-  apt-get update; \
-  if apt-get install -y --no-install-recommends --dry-run gstreamer1.0-libav; then \
-  apt-get install -y --no-install-recommends gstreamer1.0-libav; \
-  else \
-  echo 'NOTE: gstreamer1.0-libav not available on this image/mirror'; \
-  fi; \
-  rm -rf /var/lib/apt/lists/*
-
-# Install Firefox for Perception Experience Kit's web-based UI and testing in case docker port forwarding fails.
-RUN set -eux; \
-  apt-get update; \
-  apt-get install -y --no-install-recommends \
-  firefox-esr; \
-  rm -rf /var/lib/apt/lists/*
-
 # Install Python dev tool dependencies into an image-owned virtual environment.
 COPY tools/expkits-ci /tmp/pek-tools/expkits-ci
 COPY tools/plumber /tmp/pek-tools/plumber
@@ -224,16 +149,56 @@ USER ${USERNAME}
 WORKDIR /work
 
 ######################################################################
+############### Development container with docs and CI ################
+######################################################################
+FROM pek-base AS pek-docs-base
+
+ARG USERNAME=devgoblin
+
+USER root
+
+# Dev / CI tools required for docs and quality checks
+RUN set -eux; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends \
+  doxygen graphviz libbz2-dev libffi-dev liblzma-dev libsqlite3-dev \
+  openjdk-25-jdk pandoc v4l-utils zlib1g-dev; \
+  rm -rf /var/lib/apt/lists/*
+
+# Install PlantUML JAR into image layers for docs generation and SBOM visibility.
+ARG PLANTUML_VERSION=1.2026.2
+ADD "https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}/plantuml-mit-${PLANTUML_VERSION}.jar" /opt/pek-deps/
+
+USER ${USERNAME}
+WORKDIR /work
+
+######################################################################
+############### Quality-check container with docs and devtools ########
+######################################################################
+FROM pek-docs-base AS pek-docs-dev-base
+
+ARG USERNAME=devgoblin
+
+USER root
+
+COPY --from=pek-dev-base /opt/pek-venvs/devtools /opt/pek-venvs/devtools
+COPY --from=pek-dev-base /usr/local/bin/actionlint /usr/local/bin/actionlint
+
+ENV PEK_DEVTOOLS_VENV=/opt/pek-venvs/devtools
+
+USER ${USERNAME}
+WORKDIR /work
+
+######################################################################
 ###################### RPI5 Development Container ####################
 ######################################################################
-FROM pek-dev-base AS pek-dev-rpi5-h8
+FROM pek-dev-base AS pek-dev-rpi5
 # The base stage switches to a non-root user; return to root for apt/system changes.
 ARG USERNAME=devgoblin
 
 USER root
 # Add Raspberry Pi repository
 RUN set -eux; \
-  apt-get update; \
   # TODO: use key
   echo "deb [arch=arm64 trusted=yes] https://archive.raspberrypi.com/debian trixie main" \
   > /etc/apt/sources.list.d/raspberrypi.list
@@ -241,10 +206,23 @@ RUN set -eux; \
 # Camera and graphics libraries
 RUN set -eux; \
   apt-get update && apt-get install -y --no-install-recommends \
-  libv4l-dev libgl1-mesa-dri libglx-mesa0 libegl1 libgbm1 libdrm2 mesa-utils libdrm-dev libgbm-dev \
-  libcamera-tools libcamera-dev libcamera-ipa libcamera-v4l2 rpicam-apps \
-  alsa-utils gstreamer1.0-libcamera gstreamer1.0-alsa; \
+  alsa-utils gstreamer1.0-alsa gstreamer1.0-libcamera \
+  libcamera-dev libcamera-ipa libcamera-tools libcamera-v4l2 \
+  libdrm-dev libdrm2 libegl1 libgbm-dev libgbm1 libgl1-mesa-dri \
+  libglx-mesa0 libv4l-dev mesa-utils rpicam-apps; \
   rm -rf /var/lib/apt/lists/*
+
+USER ${USERNAME}
+WORKDIR /work
+
+######################################################################
+################# RPI5 Development Container (Hailo 8) ###############
+######################################################################
+FROM pek-dev-rpi5 AS pek-dev-rpi5-h8
+# The base stage switches to a non-root user; return to root for apt/system changes.
+ARG USERNAME=devgoblin
+
+USER root
 
 RUN set -eux; \
   apt-get update && apt-get install -y --no-install-recommends \
@@ -258,34 +236,19 @@ WORKDIR /work
 ######################################################################
 ################### RPI5 Development Container (H10) #################
 ######################################################################
-FROM pek-dev-base AS pek-dev-rpi5-h10
+FROM pek-dev-rpi5 AS pek-dev-rpi5-h10
 # The base stage switches to a non-root user; return to root for apt/system changes.
 ARG USERNAME=devgoblin
 
 USER root
-# Add Raspberry Pi repository
-RUN set -eux; \
-  apt-get update; \
-  # TODO: use key
-  echo "deb [arch=arm64 trusted=yes] https://archive.raspberrypi.com/debian trixie main" \
-  > /etc/apt/sources.list.d/raspberrypi.list
-
-# Camera and graphics libraries
-RUN set -eux; \
-  apt-get update && apt-get install -y --no-install-recommends \
-  libv4l-dev libgl1-mesa-dri libglx-mesa0 libegl1 libgbm1 libdrm2 mesa-utils libdrm-dev libgbm-dev \
-  libcamera-tools libcamera-dev libcamera-ipa libcamera-v4l2 rpicam-apps \
-  alsa-utils gstreamer1.0-libcamera gstreamer1.0-alsa; \
-  rm -rf /var/lib/apt/lists/*
 
 # Hailo H10 user-space stack only.
 # Kernel driver packages (DKMS / h10-hailort-pcie-driver) are host-level and
 # fail in container builds because they require host kernel/module tooling.
 RUN set -eux; \
   apt-get update && apt-get install -y --no-install-recommends \
-  h10-hailort python3-h10-hailort \
-  hailo-tappas-core python3-hailo-tappas \
-  hailo-models rpicam-apps-hailo-postprocess; \
+  h10-hailort hailo-models hailo-tappas-core python3-h10-hailort \
+  python3-hailo-tappas rpicam-apps-hailo-postprocess; \
   rm -rf /var/lib/apt/lists/*
 
 USER ${USERNAME}
@@ -324,7 +287,7 @@ ENV SONAR_HOST_URL="https://sonarqube.mobilestudio.aws.arm.com" \
     PATH=/opt/sonar/sonar-scanner-${SONAR_SCANNER_VERSION}/bin:${PATH}
 
 RUN set -eux; \
-    apt-get update; apt-get install -y --no-install-recommends gcovr; \
+    apt-get update; apt-get install -y --no-install-recommends gcovr openjdk-25-jdk; \
     rm -rf /var/lib/apt/lists/*; \
     mkdir -p /opt/sonar; \
     curl --proto "=https" -fsSLo /tmp/sonar-scanner.zip \
@@ -343,9 +306,9 @@ USER root
 # ---- Basic packages for development ----
 RUN apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-  xz-utils powerline fonts-powerline eza bat clangd gosu \
-  lua5.1 luarocks tree-sitter-cli wl-clipboard \
-  iproute2 iputils-ping traceroute iputils-arping dnsutils tcpdump nmap; \
+  zsh ripgrep fzf bat clangd dnsutils eza fonts-powerline gosu iproute2 \
+  iputils-arping iputils-ping lua5.1 luarocks nmap powerline tcpdump \
+  traceroute tree-sitter-cli wl-clipboard xz-utils; \
   rm -rf /var/lib/apt/lists/*
 
 RUN luarocks install jsregexp
@@ -399,8 +362,6 @@ RUN mkdir -p /home/${USERNAME}/.config && \
   ln -sfn /home/${USERNAME}/configs/nvchad_2026_04 /home/${USERNAME}/.config/nvim && \
   chown -R ${USER_UID}:${USER_GID} /home/${USERNAME}/.config /home/${USERNAME}/.zshrc
 
-# ---- SSH agent socket mapping ----
-ENV SSH_AUTH_SOCK=/ssh-agent
 ENV SHELL=/bin/zsh
 
 ENTRYPOINT ["/usr/local/bin/uidgid-entrypoint"]
