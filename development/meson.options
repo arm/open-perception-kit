@@ -15,6 +15,6 @@ option('ncnn',
 
 option('hailort',
   type : 'feature',
-  value : 'auto',
+  value : 'disabled',
   description : 'Enable HailoRT integration (ops-hailort)'
 )

@@ -3,14 +3,24 @@
 !Dockerfile
 !Dockerfile.dev
 !.dockerignore
+!.clang-format
+!.clang-tidy
+!.cmake-format.yaml
+!.gitignore
+!.pre-commit-config.yaml
+!.secrets.baseline
+!AGENTS.md
+!CHANGELOG.md
+!README.md
+!compose.base.yaml
+!compose.yaml
+!compose.dev.yaml
+!devices.env
+!setup.cfg
+!sonar-project.properties
 
 !scripts/
-!scripts/build-elements.sh
-!scripts/private/
-!scripts/private/shtools.sh
-!scripts/private/deployment-runtime.sh
-!scripts/private/executorch/
-!scripts/private/executorch/install-executorch-deb.sh
+!scripts/**
 
 !development/
 !development/**
@@ -27,11 +37,23 @@
 !tools/plumber/**
 
 !.devcontainer/
-!.devcontainer/uidgid-entrypoint.sh
-
+!.devcontainer/**
+!.github/
+!.github/**
+!.vscode/
+!.vscode/**
+!apps/
+!apps/**
+!docs/
+!docs/**
+!examples/
+!examples/**
+!metadata/
+!metadata/**
+!tests/
+!tests/**
 !var/
-!var/.gitignore
-!var/libexecutorch-dev-*.deb
+!var/**
 
 **/build/
 **/build/**

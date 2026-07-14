@@ -1,6 +1,9 @@
+# syntax=docker/dockerfile:1
+
 ARG BUILDPLATFORM
 ARG DEPLOYMENT_PLATFORM=linux/arm64
-FROM --platform=${BUILDPLATFORM} debian:trixie-slim AS workspace
+ARG TARGETARCH
+FROM --platform=${BUILDPLATFORM} debian:trixie-slim AS pek-build-base
 
 ARG ONNXRUNTIME_VERSION=1.24.4
 
@@ -9,8 +12,6 @@ ENV DEBIAN_FRONTEND=noninteractive \
   LC_ALL=C.UTF-8 \
   PIP_DISABLE_PIP_VERSION_CHECK=1 \
   PYTHONDONTWRITEBYTECODE=1 \
-  PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig \
-  PKG_CONFIG_SYSROOT_DIR=/ \
   LD_LIBRARY_PATH=/opt/pek-deps/onnxruntime/lib
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -18,27 +19,33 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   set -eux; \
-  dpkg --add-architecture arm64; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
   ca-certificates curl git \
-  build-essential meson ninja-build pkg-config cmake \
-  gcc-aarch64-linux-gnu g++-aarch64-linux-gnu binutils-aarch64-linux-gnu \
-  libssl-dev:arm64 libfmt-dev:arm64 libfftw3-dev:arm64 libsoup-3.0-dev:arm64 libjson-glib-dev:arm64 libcairo2-dev:arm64 \
-  libgstreamer1.0-dev:arm64 libgstreamer-plugins-base1.0-dev:arm64 libgstreamer-plugins-bad1.0-dev:arm64 \
-  python3; \
+  build-essential meson ninja-build pkg-config cmake unzip \
+  python3 \
+  libssl-dev libfmt-dev libfftw3-dev libsoup-3.0-dev libjson-glib-dev libcairo2-dev \
+  libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev; \
   update-ca-certificates
 
-RUN set -eux; \
-  ort_dir="onnxruntime-linux-aarch64-${ONNXRUNTIME_VERSION}"; \
-  ort_tgz="${ort_dir}.tgz"; \
-  ort_url="https://github.com/microsoft/onnxruntime/releases/download/v${ONNXRUNTIME_VERSION}/${ort_tgz}"; \
-  tmp_dir="$(mktemp -d)"; \
-  curl -fsSL "$ort_url" | tar -xzf - -C "$tmp_dir"; \
-  mkdir -p /opt/pek-deps/onnxruntime; \
-  cp -r "$tmp_dir/$ort_dir/include" /opt/pek-deps/onnxruntime/; \
-  cp -r "$tmp_dir/$ort_dir/lib" /opt/pek-deps/onnxruntime/; \
-  rm -rf "$tmp_dir"
+FROM pek-build-base AS pek-cross-build-base
+
+FROM pek-cross-build-base AS workspace
+
+ARG TARGETARCH
+
+COPY --chmod=0755 scripts/private/install-target-sysroot.sh /usr/local/bin/install-target-sysroot
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+  set -eux; \
+  if [ "${TARGETARCH}" != "$(dpkg --print-architecture)" ]; then \
+    install-target-sysroot "${TARGETARCH}"; \
+  fi
+
+ARG ONNXRUNTIME_VERSION=1.24.4
+
+COPY --chmod=0755 scripts/private/install-onnxruntime.sh /usr/local/bin/install-onnxruntime
+RUN install-onnxruntime "${ONNXRUNTIME_VERSION}" arm64 /opt/pek-deps/onnxruntime-arm64
 
 WORKDIR /work
 COPY development/meson.build development/meson.options development/
@@ -54,8 +61,16 @@ COPY config config
 COPY data data
 
 RUN set -eux; \
+  native_arch="$(dpkg --print-architecture)"; \
+  extra_setup_args=(); \
+  if [ "${TARGETARCH}" != "${native_arch}" ]; then \
+    extra_setup_args=("--extra-setup-args=--cross-file=/work/development/cross/aarch64-linux-gnu.ini"); \
+  fi; \
   mkdir -p /work/tools; \
-  NINJAFLAGS=-j2 ./scripts/build-elements.sh release false --extra-setup-args=--cross-file=/work/development/cross/aarch64-linux-gnu.ini; \
+  PEK_HAILORT=disabled \
+  PEK_ONNXRUNTIME_ROOT=/opt/pek-deps/onnxruntime-arm64 \
+  NINJAFLAGS=-j2 \
+  ./scripts/build-elements.sh release false "${extra_setup_args[@]}"; \
   mkdir -p /opt/pek-app/development/build/meson-out /opt/pek-app/tools /opt/pek-app/scripts/private; \
   find /work/development/build/meson-out -maxdepth 1 -type f -name "*.so" -exec cp {} /opt/pek-app/development/build/meson-out/ \; ; \
   cp /work/tools/pek-menu /opt/pek-app/tools/; \
@@ -111,7 +126,7 @@ RUN set -eux; \
   test -p /tmp/pekcomm || mkfifo --mode=640 /tmp/pekcomm; \
   chown -R "${USER_UID}:${USER_GID}" /work /tmp/pekcomm
 
-COPY --from=workspace /opt/pek-deps/onnxruntime/lib /opt/pek-deps/onnxruntime/lib
+COPY --from=workspace /opt/pek-deps/onnxruntime-arm64/lib /opt/pek-deps/onnxruntime/lib
 COPY --from=workspace /opt/pek-app /work
 
 EXPOSE 8000
