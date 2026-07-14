@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
 #include <variant>
 #include <vector>
 
@@ -18,14 +19,17 @@ TEST(YoloParser, StoresBestClassIdOnRectOutput) {
     attrs.set("normalizeOutputCoordinates", false);
     attrs.set("applyNms", false);
 
-    std::vector<float> tensorData(7 * 8, 0.0f);
-    tensorData[0 * 8] = 50.0f; // cx
-    tensorData[1 * 8] = 50.0f; // cy
-    tensorData[2 * 8] = 20.0f; // width
-    tensorData[3 * 8] = 10.0f; // height
-    tensorData[4 * 8] = 0.1f;  // class 0
-    tensorData[5 * 8] = 0.9f;  // class 1
-    tensorData[6 * 8] = 0.2f;  // class 2
+    constexpr std::size_t rows = 7;
+    constexpr std::size_t cols = 8;
+
+    std::vector<float> tensorData(rows * cols, 0.0f);
+    tensorData[0U * cols] = 50.0f; // cx
+    tensorData[1U * cols] = 50.0f; // cy
+    tensorData[2U * cols] = 20.0f; // width
+    tensorData[3U * cols] = 10.0f; // height
+    tensorData[4U * cols] = 0.1f;  // class 0
+    tensorData[5U * cols] = 0.9f;  // class 1
+    tensorData[6U * cols] = 0.2f;  // class 2
 
     pek::TensorView tensor(tensorData.data(),
                            tensorData.size() * sizeof(float),

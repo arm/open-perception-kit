@@ -192,7 +192,7 @@ void collectMatchesFromAssignment(const DetectionBatch &detections,
         }
 
         const TrackId matchedTrackId = trackIds[static_cast<size_t>(trackIdx)];
-        result.matches.push_back({detIdx, matchedTrackId});
+        result.matches.emplace_back(detIdx, matchedTrackId);
         result.diagnosticsByDetection[detIdx] = buildMatchDiagnostic(iou, similarity);
         matchedDetection[detIdx] = true;
     }

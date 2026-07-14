@@ -10,6 +10,7 @@
 #include <numeric>
 #include <sstream>
 #include <thread>
+#include <utility>
 
 namespace pek::perf {
 
@@ -130,7 +131,7 @@ std::vector<TimingMeasurement> PerformanceTracer::getMeasurements(const std::str
 
 void PerformanceTracer::registerCycleEndCallback(CycleEndCallback callback) {
     std::lock_guard<std::mutex> lock(callback_mutex_);
-    cycle_end_callbacks_.push_back(callback);
+    cycle_end_callbacks_.push_back(std::move(callback));
 }
 
 void PerformanceTracer::reset() {
