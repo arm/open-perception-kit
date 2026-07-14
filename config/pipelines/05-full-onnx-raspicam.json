@@ -1,7 +1,7 @@
 {
   "description": "Every available ONNX model with the Raspberry Pi camera source and peksink video sink.",
   "pipeline": [
-    "libcamerasrc camera-name=\"/base/axi/pcie@1000120000/rp1/i2c@80000/imx708@1a\" !",
+    "libcamerasrc !",
     "video/x-raw,format=RGB,width=1536,height=864,framerate=60/1 !",
     "videoconvert ! video/x-raw,format=BGRA !",
     "pekinfer opchain-path=/work/config/models/ultraface/opchain.json active=false !",
@@ -31,7 +31,7 @@
     "videoconvert ! video/x-raw,format=BGRA !"
   ],
   "alternative-source-raspicam": [
-    "libcamerasrc camera-name=\"/base/axi/pcie@1000120000/rp1/i2c@80000/imx708@1a\" !",
+    "libcamerasrc !",
     "video/x-raw,format=RGB,width=1536,height=864,framerate=60/1 !",
     "videoconvert ! video/x-raw,format=BGRA !"
   ],
