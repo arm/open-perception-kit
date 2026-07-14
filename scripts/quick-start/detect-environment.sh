@@ -163,7 +163,7 @@ detect_environment() {
                     PEK_PLATFORM_NAME="Raspberry Pi 5 with Hailo 10"
                     PEK_CONTAINER_SERVICE="pek-dev-rpi5-h10"
                     PEK_CONTAINER_NAME="${PEK_DEV_RPI5_H10_CONTAINER_NAME:-perception-experience-kit-rpi5-h10}"
-                elif [[ "$PEK_HAILO_ARCH" == "hailo8" || "$PEK_HAILO_ARCH" == "hailo8l" || "$PEK_HAILO_ARCH" == "hailo-unknown" ]]; then
+                elif [[ "$PEK_HAILO_ARCH" == "hailo8" || "$PEK_HAILO_ARCH" == "hailo8l" ]]; then
                     PEK_PLATFORM_ID="rpi5-h8"
                     PEK_PLATFORM_NAME="Raspberry Pi 5 with Hailo 8"
                     PEK_CONTAINER_SERVICE="pek-dev-rpi5-h8"
