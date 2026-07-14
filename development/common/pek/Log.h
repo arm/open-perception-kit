@@ -7,20 +7,27 @@
 #include "pek/String.h"
 
 #include <cstddef>
+#include <cstdio>
 #include <fmt/format.h>
+#include <optional>
+#include <string_view>
 #include <utility>
 
 namespace pek {
+
+// Log levels are ordered by increasing verbosity. A configured level includes messages at that
+// level and every less verbose level below it.
+enum class LogLevel : int { Off = 0, Error = 1, Warn = 2, Notice = 3, Info = 4 };
+
+// The default is used when the environment variable does not exist or is malformed.
+static constexpr LogLevel defaultLogLevel{LogLevel::Info};
 
 struct LogTools {
 
     static constexpr std::string InvOn = "\033[7m";
     static constexpr std::string InvOff = "\033[0m";
 
-    static std::string invert(const std::string &text) {
-        return InvOn + text + InvOff;
-    }
-
+    /// Wraps text in a Unicode frame with an optional title.
     static std::string enframe(const std::string &text, const std::string &title = "") {
         std::string result;
 
@@ -91,72 +98,106 @@ struct LogTools {
     }
 };
 
-} // namespace pek
+namespace private_ {
 
-namespace pek {
+/// Converts a log level to its ordered numeric value.
+constexpr int logLevelValue(LogLevel level) {
+    return static_cast<int>(level);
+}
 
-// extend later (channels/sinks)
-enum class LogLevel { Info, Notice, Warn, Error };
+/// Applies ANSI reverse styling to text.
+inline std::string invert(const std::string &text) {
+    return LogTools::InvOn + text + LogTools::InvOff;
+}
 
-// single chokepoint for output routing/prefixing
-// later we can add timestamps, thread id, channel, etc. here
-inline void log_write(LogLevel lvl, fmt::string_view msg) {
-    switch (lvl) {
-    case LogLevel::Info:
-        fmt::print("{}", msg);
-        break;
-    case LogLevel::Notice:
-        fmt::print("{}", LogTools::invert(msg.data()));
-        break;
-    case LogLevel::Warn:
-        fmt::print("W: {}", msg);
-        break;
-    case LogLevel::Error:
-        fmt::print("E: {}", msg);
-        break;
-    }
+/// Parses a numeric log level, rejecting malformed values and capping excessive values.
+std::optional<int> parseLogLevel(std::string_view value);
+
+/// Returns whether a message at the given level passes the configured threshold.
+bool shouldLog(LogLevel lvl);
+
+// Single chokepoint for filtering, routing, and prefixing. The implementation lives in the common
+// library so later sink changes apply consistently to every caller, including release builds.
+void logWrite(LogLevel lvl, fmt::string_view msg);
+
+} // namespace private_
+
+/// Returns the currently configured numeric log level.
+int getLogLevel();
+
+/// Sets the numeric log level, clamped to the supported range.
+void setLogLevel(int logLevel);
+
+/// Flushes both output streams used by the logging API.
+inline void logFlush() {
+    std::fflush(stdout);
+    std::fflush(stderr);
 }
 
 // --- Primary API: compile-time checked formatting (drop-in for fmt::print) ---
 // This is what you want to use in normal code.
 // It avoids the ambiguity you hit with a string_view overload.
+/// Formats and writes an informational message when enabled.
 template <typename... Args> inline void log(fmt::format_string<Args...> fmtstr, Args &&...args) {
     // Long-string-proof (dynamic allocation as needed)
     auto s = fmt::format(fmtstr, std::forward<Args>(args)...);
-    log_write(LogLevel::Info, s);
+    private_::logWrite(LogLevel::Info, s);
 }
 
+/// Formats and writes a notice message when enabled.
 template <typename... Args> inline void logn(fmt::format_string<Args...> fmtstr, Args &&...args) {
     auto s = fmt::format(fmtstr, std::forward<Args>(args)...);
-    log_write(LogLevel::Notice, s);
+    private_::logWrite(LogLevel::Notice, s);
 }
 
+/// Formats and writes a warning message when enabled.
 template <typename... Args> inline void logw(fmt::format_string<Args...> fmtstr, Args &&...args) {
     auto s = fmt::format(fmtstr, std::forward<Args>(args)...);
-    log_write(LogLevel::Warn, s);
+    private_::logWrite(LogLevel::Warn, s);
 }
 
+/// Formats and writes an error message when enabled.
 template <typename... Args> inline void loge(fmt::format_string<Args...> fmtstr, Args &&...args) {
     auto s = fmt::format(fmtstr, std::forward<Args>(args)...);
-    log_write(LogLevel::Error, s);
+    private_::logWrite(LogLevel::Error, s);
+}
+
+// Unconditional single-stream output for command-line interfaces and other output that is part
+// of a program's contract. Unlike the severity-based functions above, these functions are not
+// affected by the configured log level and do not add prefixes
+/// Formats and writes an unconditional message to standard output.
+template <typename... Args>
+inline void forceLog(fmt::format_string<Args...> fmtstr, Args &&...args) {
+    auto s = fmt::format(fmtstr, std::forward<Args>(args)...);
+    fmt::print(stdout, "{}", s);
+}
+
+/// Formats and writes an unconditional message to standard error.
+template <typename... Args>
+inline void forceLoge(fmt::format_string<Args...> fmtstr, Args &&...args) {
+    auto s = fmt::format(fmtstr, std::forward<Args>(args)...);
+    fmt::print(stderr, "{}", s);
 }
 
 // --- Optional runtime-format API ---
 // Use this only when the format string is not a literal / not known at compile-time.
 // Named differently to avoid overload ambiguity with string literals.
-template <typename... Args> inline void log_runtime(fmt::string_view fmtstr, Args &&...args) {
-    auto s = fmt::vformat(fmtstr, fmt::make_format_args(std::forward<Args>(args)...));
-    log_write(LogLevel::Info, s);
+/// Formats a runtime format string and writes an informational message when enabled.
+template <typename... Args> inline void logRuntime(fmt::string_view fmtstr, Args &&...args) {
+    auto s = fmt::vformat(fmtstr, fmt::make_format_args(args...));
+    private_::logWrite(LogLevel::Info, s);
 }
 
-template <typename... Args> inline void logw_runtime(fmt::string_view fmtstr, Args &&...args) {
-    auto s = fmt::vformat(fmtstr, fmt::make_format_args(std::forward<Args>(args)...));
-    log_write(LogLevel::Warn, s);
+/// Formats a runtime format string and writes a warning message when enabled.
+template <typename... Args> inline void logwRuntime(fmt::string_view fmtstr, Args &&...args) {
+    auto s = fmt::vformat(fmtstr, fmt::make_format_args(args...));
+    private_::logWrite(LogLevel::Warn, s);
 }
 
-template <typename... Args> inline void loge_runtime(fmt::string_view fmtstr, Args &&...args) {
-    auto s = fmt::vformat(fmtstr, fmt::make_format_args(std::forward<Args>(args)...));
-    log_write(LogLevel::Error, s);
+/// Formats a runtime format string and writes an error message when enabled.
+template <typename... Args> inline void logeRuntime(fmt::string_view fmtstr, Args &&...args) {
+    auto s = fmt::vformat(fmtstr, fmt::make_format_args(args...));
+    private_::logWrite(LogLevel::Error, s);
 }
 
 } // namespace pek

@@ -9,6 +9,7 @@
 
 #include "op/OpChainContext.h"
 #include "pek/AttributeMap.h"
+#include "pek/Log.h"
 #include "pek/TensorView.h"
 
 #include <perf/PerformanceTracer.h>
@@ -53,7 +54,7 @@ pek::Result<pek::op::OpSignal> InferenceOp::process(pek::op::OpChainContext &opC
 
     auto inferenceResult = inference->inference();
     if (!inferenceResult) {
-        fmt::print("HailoRT inference error: {}\n", inferenceResult.error().toString());
+        pek::loge("HailoRT inference error: {}\n", inferenceResult.error().toString());
         return tl::unexpected(inferenceResult.error());
     }
 

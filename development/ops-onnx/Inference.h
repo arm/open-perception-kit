@@ -7,6 +7,7 @@
 #include <fmt/core.h>
 #include <onnxruntime_cxx_api.h>
 
+#include "pek/Log.h"
 #include "pek/ModelDescriptor.h"
 
 #include "pek/Model.h"
@@ -32,7 +33,7 @@ struct Tensor {
             onnxShape[i] = shape.dims[i];
 
         if (shape.hasDynamicDimension()) {
-            fmt::print("Creating dynamic tensor with shape: {}\n", shape.toString());
+            pek::log("Creating dynamic tensor with shape: {}\n", shape.toString());
             // do nothing
         } else {
             this->data.resize(shape.getFullValueCount() * typeByteSize);

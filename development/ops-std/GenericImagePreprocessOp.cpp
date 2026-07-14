@@ -9,6 +9,7 @@
 #include <memory>
 
 #include "pek/ImageOpDesc.h"
+#include "pek/Log.h"
 #include "pek/Perception.h"
 #include "pek/Result.h"
 #include "pek/TensorView.h"
@@ -145,11 +146,11 @@ GenericImagePreprocessOp::process(pek::op::OpChainContext &opChainContext) {
 
     // debug
     if (false) {
-        fmt::print("crop: {} {} {} {}\n",
-                   setup.imageSourceDesc.rect.x,
-                   setup.imageSourceDesc.rect.y,
-                   setup.imageSourceDesc.rect.width,
-                   setup.imageSourceDesc.rect.height);
+        pek::log("crop: {} {} {} {}\n",
+                 setup.imageSourceDesc.rect.x,
+                 setup.imageSourceDesc.rect.y,
+                 setup.imageSourceDesc.rect.width,
+                 setup.imageSourceDesc.rect.height);
     }
 
     // debug
