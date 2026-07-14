@@ -39,6 +39,28 @@ code --version
 
 If `docker` does not work, open Docker Desktop and confirm that WSL integration is enabled for your Ubuntu distribution.
 
+### Configure mirrored WSL networking for WebRTC
+
+Open `%UserProfile%\.wslconfig` from Windows and ensure it contains:
+
+```ini
+[wsl2]
+networkingMode=mirrored
+
+[experimental]
+hostAddressLoopback=true
+```
+
+Apply the change from Windows PowerShell:
+
+```powershell
+wsl --shutdown
+```
+
+Then reopen Ubuntu/WSL before continuing. PEK's container initialization checks
+this requirement and reports the same remediation if mirrored networking is
+missing host-address loopback.
+
 ## 2. Get The Repository
 
 The easiest path is HTTPS cloning. It does not require an SSH key.
@@ -143,6 +165,9 @@ To run the last selected pipeline again, run in the **Docker shell**:
 
 ## If Something Fails
 
+- If container initialization reports that host-address loopback is required,
+  update `%UserProfile%\.wslconfig`, run **wsl --shutdown** from Windows
+  PowerShell, and reopen WSL.
 - If VS Code says the container cannot start, make sure Docker Desktop is open.
 - If Docker commands fail in WSL, check Docker Desktop WSL integration.
 - If the browser opens but no result appears, enable a model in the **AI Models** panel.

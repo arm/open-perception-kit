@@ -35,6 +35,10 @@ static void
 on_ice_candidate(GstElement *webrtc, guint mlineindex, gchar *candidate, gpointer user_data);
 static void on_set_remote_description(GstPromise *promise, gpointer user_data);
 
+// Leave enough room for SRTP, UDP and IP headers on VPN and TURN paths whose
+// MTU can be lower than Ethernet's 1500 bytes (for example WSL mirrored mode).
+constexpr guint kWebRtcRtpMtu = 1300;
+
 // SessionContext is private to this compilation unit
 struct SessionContext : PekSinkWebRtcSession {
     _GstPekSink *self = nullptr;
@@ -219,7 +223,12 @@ bool WebRtcWebSocket::attach_video(SessionContext *ctx) {
                      "max-size-bytes",
                      0,
                      nullptr);
-        g_object_set(ctx->v_pay, "picture-id-mode", 2, nullptr); // picture-id-mode = 15-bit
+        g_object_set(ctx->v_pay,
+                     "picture-id-mode",
+                     2, // picture-id-mode = 15-bit
+                     "mtu",
+                     kWebRtcRtpMtu,
+                     nullptr);
 
         set_video_pt(ctx);
 
