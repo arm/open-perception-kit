@@ -7,4 +7,4 @@ Text-region detection integration.
 - Output: detection mask of the text region
 - Post processor: `PaddleOcrDetectionParser`
 - Supported Perception result: `Perception::SegmentationMap` in a `segmentation` layer
-- Note: only the detection stage is wired; recognition is present in the folder but not used by current `opchain.json`
+- Note: only the detection stage is integrated
