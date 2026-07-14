@@ -10,10 +10,7 @@ usage() {
 Usage:
   run-console [up|down] [-h|--help]
 
-Starts or stops the console base development environment in Docker container,
-similar to VS Code devcontainer, but provides richer environment.
-
-When present, the repository-root .env file is passed to Docker Compose.
+Starts or stops the development environment in a Docker container.
 
 Commands:
   up        Build (if needed) and start the stack
@@ -35,7 +32,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 DEV_ENV_FILE="devices.env"
-DC_RICH="rich"
+DC_KIND="devcont"
+CONTAINER_NAME="${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}"
 
 export HOST_UID="$(id -u)"
 export HOST_GID="$(id -g)"
@@ -46,11 +44,10 @@ cd "${REPO_ROOT}"
 
 # Compose files used for lifecycle commands
 COMPOSE_FILES=(
-    -f .devcontainer/docker-compose."${DC_RICH}".yaml
-    -f .devcontainer/docker-compose."${DC_RICH}".video.yaml
-    -f .devcontainer/docker-compose."${DC_RICH}".audio.yaml
-    -f .devcontainer/docker-compose."${DC_RICH}".npu.yaml
-    -f .devcontainer/docker-compose."${DC_RICH}".shared_memory.yaml
+    -f .devcontainer/compose.devcont.yaml
+    -f .devcontainer/docker-compose."${DC_KIND}".video.yaml
+    -f .devcontainer/docker-compose."${DC_KIND}".audio.yaml
+    -f .devcontainer/docker-compose."${DC_KIND}".shared_memory.yaml
 )
 
 COMPOSE_ENV_ARGS=()
@@ -58,14 +55,8 @@ if [[ -f "${REPO_ROOT}/.env" ]]; then
     COMPOSE_ENV_ARGS=(--env-file "${REPO_ROOT}/.env")
 fi
 
-# Detect whether any service from this project is currently running
 is_running() {
-    # `docker compose ps -q` returns container IDs for services in the project.
-    # We count how many are in "running" state.
-    local ids
-    ids="$(docker compose "${COMPOSE_ENV_ARGS[@]}" "${COMPOSE_FILES[@]}" ps -q || true)"
-    [[ -z "${ids}" ]] && return 1
-    docker inspect -f '{{.State.Running}}' ${ids} 2> /dev/null | grep -q '^true$'
+    docker inspect -f '{{.State.Running}}' "${CONTAINER_NAME}" 2> /dev/null | grep -q '^true$'
 }
 
 detect_webrtc_host_ip() {
@@ -77,7 +68,7 @@ detect_webrtc_host_ip() {
 
 do_up() {
     detect_webrtc_host_ip
-    ./scripts/private/dev-init.sh pek-dev-rich "$DC_RICH" "$DEV_ENV_FILE"
+    ./scripts/private/dev-init.sh pek-dev "$DC_KIND" "$DEV_ENV_FILE"
 
     echo "Using WebRTC host IP: ${WEBRTC_HOST_IP}"
     echo "Using WebRTC TURN relay ports: ${PEK_WEBRTC_TURN_MIN_PORT}-${PEK_WEBRTC_TURN_MAX_PORT}"
@@ -85,7 +76,7 @@ do_up() {
     HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" WEBRTC_HOST_IP="${WEBRTC_HOST_IP}" \
         PEK_WEBRTC_TURN_MIN_PORT="${PEK_WEBRTC_TURN_MIN_PORT}" \
         PEK_WEBRTC_TURN_MAX_PORT="${PEK_WEBRTC_TURN_MAX_PORT}" \
-        docker compose "${COMPOSE_ENV_ARGS[@]}" "${COMPOSE_FILES[@]}" up -d --build
+        docker compose "${COMPOSE_ENV_ARGS[@]}" "${COMPOSE_FILES[@]}" up -d --build coturn pek-dev
 }
 
 do_down() {

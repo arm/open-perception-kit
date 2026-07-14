@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-: "${USERNAME:=devgoblin}"
+: "${USERNAME:=dev}"
 : "${HOST_UID:=}"
 : "${HOST_GID:=}"
 

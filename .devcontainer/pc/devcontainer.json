@@ -4,17 +4,16 @@
     "${localWorkspaceFolder}/.devcontainer/compose.devcont.yaml",
     "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.video.yaml",
     "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.audio.yaml",
-    "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.npu.yaml",
     "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.shared_memory.yaml"
   ],
-  "service": "pek-dev-base",
+  "service": "pek-dev",
   "runServices": [
     "coturn",
-    "pek-dev-base"
+    "pek-dev"
   ],
-  "remoteUser": "devgoblin",
+  "remoteUser": "dev",
   "workspaceFolder": "/work",
-  "initializeCommand": "bash .devcontainer/platform_init.sh pek-dev-base",
+  "initializeCommand": "bash .devcontainer/platform_init.sh pek-dev disabled",
   "containerEnv": {
     "CONTAINER_TYPE": "default",
     "HOST_OS": "${localEnv:OSTYPE}",

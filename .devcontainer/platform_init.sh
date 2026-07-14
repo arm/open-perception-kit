@@ -8,7 +8,16 @@ set -euo pipefail
 # This runs on the *host* (before the container is created).
 # Generate docker-compose override(s) for camera/device passthrough.
 
-TARGET_SERVICE_KIND="${1:-pek-dev-base}"
+TARGET_SERVICE_KIND="${1:-pek-dev}"
+PEK_PICAMERA="${2:-disabled}"
+
+case "${PEK_PICAMERA}" in
+    enabled | disabled) ;;
+    *)
+        echo "Error: PEK_PICAMERA must be 'enabled' or 'disabled'." >&2
+        exit 2
+        ;;
+esac
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
@@ -44,6 +53,9 @@ upsert_env_value .devcontainer/.env PEK_WEBRTC_TURN_MAX_PORT "$PEK_WEBRTC_TURN_M
 upsert_env_value devices.env WEBRTC_HOST_IP "$WEBRTC_HOST_IP"
 upsert_env_value devices.env PEK_WEBRTC_TURN_MIN_PORT "$PEK_WEBRTC_TURN_MIN_PORT"
 upsert_env_value devices.env PEK_WEBRTC_TURN_MAX_PORT "$PEK_WEBRTC_TURN_MAX_PORT"
+upsert_env_value .env PEK_PICAMERA "$PEK_PICAMERA"
+upsert_env_value .devcontainer/.env PEK_PICAMERA "$PEK_PICAMERA"
+upsert_env_value devices.env PEK_PICAMERA "$PEK_PICAMERA"
 
 echo "Using WebRTC host IP: ${WEBRTC_HOST_IP}"
 echo "Using WebRTC TURN relay ports: ${PEK_WEBRTC_TURN_MIN_PORT}-${PEK_WEBRTC_TURN_MAX_PORT}"

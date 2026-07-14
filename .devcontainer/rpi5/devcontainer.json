@@ -1,19 +1,18 @@
 {
-  "name": "RPI5 perception-experience-kit",
+  "name": "Raspberry Pi 5 perception-experience-kit",
   "dockerComposeFile": [
     "${localWorkspaceFolder}/.devcontainer/compose.devcont.yaml",
     "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.video.yaml",
     "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.audio.yaml",
-    "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.npu.yaml",
     "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.shared_memory.yaml"
   ],
-  "service": "pek-dev-rpi5",
+  "service": "pek-dev",
   "runServices": [
-    "pek-dev-rpi5"
+    "pek-dev"
   ],
-  "remoteUser": "devgoblin",
+  "remoteUser": "dev",
   "workspaceFolder": "/work",
-  "initializeCommand": "bash .devcontainer/platform_init.sh pek-dev-rpi5",
+  "initializeCommand": "bash .devcontainer/platform_init.sh pek-dev enabled",
   "containerEnv": {
     "CONTAINER_TYPE": "default",
     "HOST_OS": "${localEnv:OSTYPE}",

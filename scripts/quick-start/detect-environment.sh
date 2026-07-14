@@ -74,42 +74,6 @@ detect_rpi_model() {
     read_file_or_empty /proc/device-tree/model
 }
 
-detect_hailo_arch() {
-    local output=""
-
-    if command -v lspci > /dev/null 2>&1; then
-        output="$(lspci -nn -d 1e60: 2> /dev/null || true)"
-
-        if grep -Eqi '\[1e60:45c4\]|Hailo[- ]?10|H10' <<< "$output"; then
-            printf "hailo10"
-            return
-        fi
-
-        if grep -Eqi 'Hailo[- ]?8L|HAILO8L' <<< "$output"; then
-            printf "hailo8l"
-            return
-        fi
-
-        # PCI ID 2864 identifies the Hailo-8 family; lspci may not expose 8L separately.
-        if grep -Eqi '\[1e60:2864\]|Hailo[- ]?8|HAILO8' <<< "$output"; then
-            printf "hailo8"
-            return
-        fi
-
-        if [[ -n "$output" ]]; then
-            printf "hailo-unknown"
-            return
-        fi
-    fi
-
-    if ls /dev/hailo* > /dev/null 2>&1; then
-        printf "hailo-unknown"
-        return
-    fi
-
-    printf "none"
-}
-
 detect_environment() {
     PEK_UNAME_S="$(uname -s)"
     PEK_UNAME_M="$(uname -m)"
@@ -118,7 +82,6 @@ detect_environment() {
     PEK_OS_VERSION_ID="$(detect_os_release_field VERSION_ID)"
     PEK_OS_VERSION_CODENAME="$(detect_os_release_field VERSION_CODENAME)"
     PEK_RPI_MODEL="$(detect_rpi_model)"
-    PEK_HAILO_ARCH="$(detect_hailo_arch)"
     PEK_IN_CONTAINER="false"
 
     if [[ -f /.dockerenv ]] || grep -qaE '/docker/|/containers/' /proc/1/cgroup 2> /dev/null; then
@@ -131,55 +94,39 @@ detect_environment() {
     PEK_CONTAINER_NAME=""
     PEK_SUPPORTED="false"
     PEK_UNSUPPORTED_REASON=""
-    PEK_DEV_BASE_CONTAINER_NAME="${PEK_DEV_BASE_CONTAINER_NAME:-}"
-    PEK_DEV_RPI5_CONTAINER_NAME="${PEK_DEV_RPI5_CONTAINER_NAME:-}"
-    PEK_DEV_RPI5_H8_CONTAINER_NAME="${PEK_DEV_RPI5_H8_CONTAINER_NAME:-}"
-    PEK_DEV_RPI5_H10_CONTAINER_NAME="${PEK_DEV_RPI5_H10_CONTAINER_NAME:-}"
+    PEK_DEV_CONTAINER_NAME="${PEK_DEV_CONTAINER_NAME:-}"
+    PEK_PICAMERA="disabled"
     if [[ -n "${PEK_QUICK_START_CI_NAME:-}" ]]; then
-        PEK_DEV_BASE_CONTAINER_NAME="${PEK_QUICK_START_CI_NAME}-dev-base"
-        PEK_DEV_RPI5_CONTAINER_NAME="${PEK_QUICK_START_CI_NAME}-rpi5"
-        PEK_DEV_RPI5_H8_CONTAINER_NAME="${PEK_QUICK_START_CI_NAME}-rpi5-h8"
-        PEK_DEV_RPI5_H10_CONTAINER_NAME="${PEK_QUICK_START_CI_NAME}-rpi5-h10"
+        PEK_DEV_CONTAINER_NAME="${PEK_QUICK_START_CI_NAME}-dev"
     fi
 
     case "$PEK_UNAME_S" in
         Darwin)
             PEK_PLATFORM_ID="macos"
             PEK_PLATFORM_NAME="macOS"
-            PEK_CONTAINER_SERVICE="pek-dev-base"
-            PEK_CONTAINER_NAME="${PEK_DEV_BASE_CONTAINER_NAME:-perception-experience-kit}"
+            PEK_CONTAINER_SERVICE="pek-dev"
+            PEK_CONTAINER_NAME="${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}"
             PEK_SUPPORTED="true"
             ;;
         Linux)
             if is_wsl; then
                 PEK_PLATFORM_ID="wsl"
                 PEK_PLATFORM_NAME="Windows Subsystem for Linux"
-                PEK_CONTAINER_SERVICE="pek-dev-base"
-                PEK_CONTAINER_NAME="${PEK_DEV_BASE_CONTAINER_NAME:-perception-experience-kit}"
+                PEK_CONTAINER_SERVICE="pek-dev"
+                PEK_CONTAINER_NAME="${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}"
                 PEK_SUPPORTED="true"
             elif grep -qi "raspberry pi 5" <<< "$PEK_RPI_MODEL"; then
-                if [[ "$PEK_HAILO_ARCH" == "hailo10" ]]; then
-                    PEK_PLATFORM_ID="rpi5-h10"
-                    PEK_PLATFORM_NAME="Raspberry Pi 5 with Hailo 10"
-                    PEK_CONTAINER_SERVICE="pek-dev-rpi5-h10"
-                    PEK_CONTAINER_NAME="${PEK_DEV_RPI5_H10_CONTAINER_NAME:-perception-experience-kit-rpi5-h10}"
-                elif [[ "$PEK_HAILO_ARCH" == "hailo8" || "$PEK_HAILO_ARCH" == "hailo8l" ]]; then
-                    PEK_PLATFORM_ID="rpi5-h8"
-                    PEK_PLATFORM_NAME="Raspberry Pi 5 with Hailo 8"
-                    PEK_CONTAINER_SERVICE="pek-dev-rpi5-h8"
-                    PEK_CONTAINER_NAME="${PEK_DEV_RPI5_H8_CONTAINER_NAME:-perception-experience-kit-rpi5-h8}"
-                else
-                    PEK_PLATFORM_ID="rpi5"
-                    PEK_PLATFORM_NAME="Raspberry Pi 5"
-                    PEK_CONTAINER_SERVICE="pek-dev-rpi5"
-                    PEK_CONTAINER_NAME="${PEK_DEV_RPI5_CONTAINER_NAME:-perception-experience-kit-rpi5}"
-                fi
+                PEK_PLATFORM_ID="rpi5"
+                PEK_PLATFORM_NAME="Raspberry Pi 5"
+                PEK_CONTAINER_SERVICE="pek-dev"
+                PEK_CONTAINER_NAME="${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}"
+                PEK_PICAMERA="enabled"
                 PEK_SUPPORTED="true"
             elif [[ "$PEK_UNAME_M" == "x86_64" || "$PEK_UNAME_M" == "amd64" ]]; then
                 PEK_PLATFORM_ID="linux-x86_64"
                 PEK_PLATFORM_NAME="Linux x86_64"
-                PEK_CONTAINER_SERVICE="pek-dev-base"
-                PEK_CONTAINER_NAME="${PEK_DEV_BASE_CONTAINER_NAME:-perception-experience-kit}"
+                PEK_CONTAINER_SERVICE="pek-dev"
+                PEK_CONTAINER_NAME="${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}"
                 PEK_SUPPORTED="true"
             else
                 PEK_UNSUPPORTED_REASON="Linux host is not Raspberry Pi 5 or x86_64."
@@ -198,10 +145,8 @@ print_shell() {
         PEK_PLATFORM_NAME
         PEK_CONTAINER_SERVICE
         PEK_CONTAINER_NAME
-        PEK_DEV_BASE_CONTAINER_NAME
-        PEK_DEV_RPI5_CONTAINER_NAME
-        PEK_DEV_RPI5_H8_CONTAINER_NAME
-        PEK_DEV_RPI5_H10_CONTAINER_NAME
+        PEK_DEV_CONTAINER_NAME
+        PEK_PICAMERA
         PEK_UNAME_S
         PEK_UNAME_M
         PEK_PRETTY_OS
@@ -209,7 +154,6 @@ print_shell() {
         PEK_OS_VERSION_ID
         PEK_OS_VERSION_CODENAME
         PEK_RPI_MODEL
-        PEK_HAILO_ARCH
         PEK_IN_CONTAINER
         PEK_UNSUPPORTED_REASON
     )
@@ -231,9 +175,6 @@ print_human() {
     fi
     if [[ -n "$PEK_RPI_MODEL" ]]; then
         echo "  Device:   ${PEK_RPI_MODEL}"
-    fi
-    if [[ "$PEK_HAILO_ARCH" != "none" ]]; then
-        echo "  Hailo:    ${PEK_HAILO_ARCH}"
     fi
     echo "  Container shell: ${PEK_IN_CONTAINER}"
 

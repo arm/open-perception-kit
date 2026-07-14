@@ -9,7 +9,7 @@ services:
     privileged: true
 
     environment:
-      - USERNAME=devgoblin
+      - USERNAME=dev
 
     # <agent-review:suppress-begin>
     # The env_file object form (path + required) is a Compose feature, which is available since 2.24 (released on 20.12.2023).
@@ -46,4 +46,4 @@ services:
     environment:
       - WAYLAND_DISPLAY=wayland-0
       - DISPLAY
-      - USERNAME=devgoblin
+      - USERNAME=dev
