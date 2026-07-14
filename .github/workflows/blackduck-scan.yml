@@ -257,6 +257,17 @@ jobs:
           print(json.dumps(entries, indent=2))
           PY
 
+      - name: Build shared development base
+        run: |
+          set -euo pipefail
+          base_image="perception-experience-kit-build-base:${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          docker build \
+            -t "${base_image}" \
+            -f "${WORKSPACE_ROOT}/Dockerfile" \
+            --target pek-build-base \
+            "${WORKSPACE_ROOT}"
+          echo "PEK_BUILD_BASE_IMAGE=${base_image}" >> "${GITHUB_ENV}"
+
       - name: Build discovered container images
         run: |
           set -euo pipefail
@@ -279,6 +290,11 @@ jobs:
                   "-t", entry["image"],
                   "-f", entry["dockerfile"],
               ]
+              if pathlib.Path(entry["dockerfile"]).name == "Dockerfile.dev":
+                  cmd += [
+                      "--build-context",
+                      f"pek-build-base=docker-image://{os.environ['PEK_BUILD_BASE_IMAGE']}",
+                  ]
               if entry.get("target"):
                   cmd += ["--target", entry["target"]]
               cmd += [entry["context"]]
@@ -306,7 +322,12 @@ jobs:
         run: |
           set -euo pipefail
           dev_image="perception-experience-kit-bd:${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          docker build -t "${dev_image}" -f "${WORKSPACE_ROOT}/Dockerfile.dev" --target pek-dev-base "${WORKSPACE_ROOT}"
+          docker build \
+            -t "${dev_image}" \
+            -f "${WORKSPACE_ROOT}/Dockerfile.dev" \
+            --build-context "pek-build-base=docker-image://${PEK_BUILD_BASE_IMAGE}" \
+            --target pek-dev \
+            "${WORKSPACE_ROOT}"
 
           docker run --rm \
             -u "$(id -u):$(id -g)" \
