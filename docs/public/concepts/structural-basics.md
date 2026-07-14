@@ -118,6 +118,17 @@ pre-commit run --all-files
 
 `pre-commit run` checks only staged files by default. Use `--all-files` when you want to check the whole working tree.
 
+For the same checks through `expkits-ci`, use:
+
+```bash
+expkits-ci --pre-commit-check
+```
+
+Use `expkits-ci --pre-commit-fix --list-of-files <path>...` when you want the
+pre-commit formatter and license checks to update files in place. CI uses
+`expkits-ci --ci-pr-checks --pr-target-branch <branch>` for pull requests and
+`expkits-ci --ci-full-checks` for the full/nightly quality gate.
+
 ## What should you have at the end of this document?
 
 By the end of this page, you should have:

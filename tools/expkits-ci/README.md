@@ -33,13 +33,31 @@ expkits-ci --help
 Example usage:
 
 ```bash
-expkits-ci --all-checks
+expkits-ci --pre-commit-fix --list-of-files src/main.cpp scripts/check.sh
+expkits-ci --pre-commit-check --pr-target-branch main
+expkits-ci --ci-pr-checks --pr-target-branch main
+expkits-ci --ci-full-checks
 expkits-ci --python-format-check --cmake-format-check
 expkits-ci --actionlint
 expkits-ci --check-secrets --list-of-files .github/workflows/pek-ci.yml
-expkits-ci --all-checks --pr-target-branch main --report-file artifacts/expkits-ci-report.txt
+expkits-ci --ci-pr-checks --pr-target-branch main --report-file artifacts/expkits-ci-report.txt
 expkits-ci --license-header --list-of-files src/main.cpp src/util.py
 ```
+
+## Presets
+
+Use presets for repository entry points so local, host, and CI flows do not
+copy the same check list in multiple places.
+
+| Flag | Checks | Intended use |
+| --- | --- | --- |
+| `--pre-commit-fix` | `--clang-format`, `--python-format`, `--cmake-format`, `--shell-format`, `--license-header`, `--check-secrets`, `--actionlint` | Local/container and host pre-commit paths that may update files in place. |
+| `--pre-commit-check` | `--clang-format-check`, `--python-format-check`, `--cmake-format-check`, `--shell-format-check`, `--license-header-check`, `--check-secrets`, `--actionlint` | Check-only equivalent of the pre-commit bundle, useful for manual verification and CI. |
+| `--ci-pr-checks` | `--pre-commit-check`, `--branch-naming`, `--commit-msg-ci`, `--agent-runtime-static-analysis` | Pull request quality gate. Pair with `--pr-target-branch <branch>` for PR delta scope. |
+| `--ci-full-checks` | `--pre-commit-check`, `--agent-runtime-static-analysis` | Full/nightly quality gate. Without an explicit file or PR scope, this checks the tracked tree. |
+
+`--all-checks` is kept for compatibility. New workflow wiring should prefer
+the explicit CI presets above.
 
 ### clang-tidy
 
@@ -112,7 +130,7 @@ output from older runs.
    ```
 2. **Install expkits-ci in editable mode:**
    ```bash
-   pip install -e common/tools/scripts/expkits-ci
+   pip install -e tools/expkits-ci
    ```
 3. **(Optional) Install pre-commit hooks:**
    ```bash
@@ -125,7 +143,7 @@ The setup script also registers a shell function in your `.bashrc` for easy usag
 ```bash
 expkits-ci() {
     source $WORKSPACE_DIR/.venv/bin/activate
-    $WORKSPACE_DIR/.venv/bin/python -m expkits-ci "$@"
+    $WORKSPACE_DIR/.venv/bin/python -m expkits_ci "$@"
     deactivate
 }
 eval "$($WORKSPACE_DIR/.venv/bin/register-python-argcomplete expkits-ci)"
@@ -133,7 +151,7 @@ eval "$($WORKSPACE_DIR/.venv/bin/register-python-argcomplete expkits-ci)"
 
 ## Integration in 
 
-- **CI:** expkits_ci runs automatically in CI pipelines (see `.github/workflows/expkits-ci.yml`).
+- **CI:** expkits_ci runs automatically in CI pipelines (see `.github/workflows/pek-ci.yml`).
 - **Local:** You can run expkits_ci manually, via pre-commit, or as VS Code task.
 
 ## License
