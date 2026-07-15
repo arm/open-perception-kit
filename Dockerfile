@@ -100,6 +100,7 @@ ARG USERNAME=pek
 ARG USER_UID=1000
 ARG USER_GID=1000
 ARG PEK_PIPELINE=config/pipelines/debug/onnx.json
+ARG PEK_PICAMERA=disabled
 
 ENV DEBIAN_FRONTEND=noninteractive \
   LANG=C.UTF-8 \
@@ -122,6 +123,14 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   gstreamer1.0-plugins-base gstreamer1.0-plugins-bad \
   gstreamer1.0-plugins-good \
   gstreamer1.0-nice gstreamer1.0-pipewire; \
+  if [ "${PEK_PICAMERA}" = enabled ]; then \
+    test "$(dpkg --print-architecture)" = arm64; \
+    echo "deb [arch=arm64 trusted=yes] https://archive.raspberrypi.com/debian trixie main" \
+    > /etc/apt/sources.list.d/raspberrypi.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+    gstreamer1.0-libcamera libcamera-ipa; \
+  fi; \
   # Remove the unused PTP helper capability xattr so Docker can import the image on filesystems without capability support. \
   install -m 0755 /usr/lib/aarch64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-ptp-helper /tmp/gst-ptp-helper; \
   mv /tmp/gst-ptp-helper /usr/lib/aarch64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-ptp-helper; \

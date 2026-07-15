@@ -3,15 +3,6 @@
 name: pek-dev
 
 services:
-  pek-build-base:
-    platform: linux/arm64
-    deploy:
-      replicas: 0
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: pek-build-base
-
   pek-dev:
     platform: linux/arm64
     container_name: perception-experience-kit
@@ -32,16 +23,10 @@ services:
       PEK_PIPELINE: ${PEK_PIPELINE:-01-full-onnx}
     build:
       context: .
-      dockerfile: Dockerfile.dev
-      target: pek-dev
-      additional_contexts:
-        pek-build-base: service:pek-build-base
+      dockerfile: Dockerfile
       args:
         PEK_PICAMERA: ${PEK_PICAMERA:-disabled}
         NO_EXAMPLE_CONTENT: ${NO_EXAMPLE_CONTENT:-false}
-    command:
-      - bash
-      - /work/scripts/private/deployment-runtime.sh
 
 x-topo:
   name: perception-experience-kit
@@ -66,4 +51,4 @@ x-topo:
         uses a camera or other supplied media.
       default: "false"
   deployment_success_message: |
-    The PEK development server is starting on port 9999.
+    The PEK server is starting on port 9999.
