@@ -110,6 +110,54 @@ test('video frame heartbeat does not spam the default logger', async () => {
     assert.equal(env.logs.some((log) => log.message === 'Video heartbeat: video frame'), false);
 });
 
+test('video track attachment starts media element playback', async () => {
+    const env = createEnv();
+    const client = env.createClient({frameTimeoutMs: 1000, reconnectDelayMs: 0});
+
+    client.start();
+    env.openLatestSocket();
+    await env.flush();
+    env.attachVideoTrack();
+    await env.flush();
+
+    assert.equal(env.video.playCount, 1);
+    assert.equal(env.video.paused, false);
+});
+
+test('video track unmute resumes media element playback', async () => {
+    const env = createEnv();
+    const client = env.createClient({frameTimeoutMs: 1000, reconnectDelayMs: 0});
+
+    client.start();
+    env.openLatestSocket();
+    await env.flush();
+    const track = env.attachVideoTrack();
+    await env.flush();
+    env.video.paused = true;
+    track.onunmute();
+    await env.flush();
+
+    assert.equal(env.video.playCount, 2);
+    assert.equal(env.video.paused, false);
+});
+
+test('video playback rejection does not restart the WebRTC session', async () => {
+    const env = createEnv();
+    env.video.playError = new Error('playback blocked');
+    const client = env.createClient({frameTimeoutMs: 1000, reconnectDelayMs: 0});
+
+    client.start();
+    env.openLatestSocket();
+    await env.flush();
+    env.attachVideoTrack();
+    await env.flush();
+
+    assert.equal(env.peerConnections.length, 1);
+    assert.equal(client.getDebugState().restartTimerCount, 0);
+    assert.equal(env.logs.some((log) =>
+        log.message === 'Unable to start video playback: playback blocked'), true);
+});
+
 test('status line updates are plain text for the compact UI', async () => {
     const env = createEnv();
     const statusLines = [];
@@ -266,8 +314,20 @@ class FakeVideo {
     constructor() {
         this.srcObject = null;
         this.currentTime = 0;
+        this.paused = true;
+        this.playCount = 0;
+        this.playError = null;
         this.nextFrameId = 1;
         this.frameCallbacks = new Map();
+    }
+
+    play() {
+        this.playCount += 1;
+        if (this.playError)
+            return Promise.reject(this.playError);
+
+        this.paused = false;
+        return Promise.resolve();
     }
 
     requestVideoFrameCallback(callback) {
