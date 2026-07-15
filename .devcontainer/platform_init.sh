@@ -10,6 +10,7 @@ set -euo pipefail
 
 TARGET_SERVICE_KIND="${1:-pek-dev}"
 PEK_PICAMERA="${2:-disabled}"
+PEK_BUILD_BASE_IMAGE="${PEK_BUILD_BASE_IMAGE:-${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}-build-base}"
 
 case "${PEK_PICAMERA}" in
     enabled | disabled) ;;
@@ -43,3 +44,6 @@ bash ./scripts/private/dev-init.sh "${TARGET_SERVICE_KIND}" devcont devices.env
 upsert_env_value .env PEK_PICAMERA "$PEK_PICAMERA"
 upsert_env_value .devcontainer/.env PEK_PICAMERA "$PEK_PICAMERA"
 upsert_env_value devices.env PEK_PICAMERA "$PEK_PICAMERA"
+upsert_env_value .env PEK_BUILD_BASE_IMAGE "$PEK_BUILD_BASE_IMAGE"
+upsert_env_value .devcontainer/.env PEK_BUILD_BASE_IMAGE "$PEK_BUILD_BASE_IMAGE"
+upsert_env_value devices.env PEK_BUILD_BASE_IMAGE "$PEK_BUILD_BASE_IMAGE"

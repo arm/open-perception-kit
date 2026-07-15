@@ -22,6 +22,7 @@ if [[ -n "$detect_output" ]]; then
     eval "$detect_output"
     export PEK_DEV_CONTAINER_NAME PEK_PICAMERA
 fi
+PEK_BUILD_BASE_IMAGE="${PEK_BUILD_BASE_IMAGE:-${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}-build-base}"
 
 for compose_file in \
     .devcontainer/docker-compose.devcont.video.yaml \
@@ -36,4 +37,8 @@ if docker compose version > /dev/null 2>&1; then
         DOWN_ARGS+=(--rmi local)
     fi
     docker compose "${COMPOSE_FILES[@]}" "${DOWN_ARGS[@]}"
+fi
+
+if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
+    docker image rm -f "${PEK_BUILD_BASE_IMAGE}" > /dev/null 2>&1 || true
 fi

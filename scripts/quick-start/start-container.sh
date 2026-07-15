@@ -156,6 +156,10 @@ echo "Generating device overrides..."
 bash .devcontainer/platform_init.sh "${PEK_CONTAINER_SERVICE}" "${PEK_PICAMERA}"
 
 echo
+echo "Building shared development base..."
+bash scripts/private/build-dev-base.sh
+
+echo
 echo "Building and starting container..."
 UP_ARGS=(up -d --build --remove-orphans)
 if [[ "$RECREATE" == "true" ]]; then

@@ -57,7 +57,10 @@ is_running() {
 }
 
 do_up() {
+    export PEK_DEV_CONTAINER_NAME="${CONTAINER_NAME}"
+
     ./.devcontainer/platform_init.sh pek-dev "${PEK_PICAMERA:-disabled}"
+    bash ./scripts/private/build-dev-base.sh
 
     HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" \
         docker compose "${COMPOSE_ENV_ARGS[@]}" "${COMPOSE_FILES[@]}" \
