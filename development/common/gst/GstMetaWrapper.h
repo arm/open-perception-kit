@@ -68,8 +68,7 @@ template <class Traits> class Meta {
     static const GstMetaInfo *info() {
         static const GstMetaInfo *mi = nullptr;
 
-        auto *miLocation = &mi;
-        if (g_once_init_enter_pointer(miLocation)) {
+        if (g_once_init_enter_pointer(&mi)) {
             const char *name = Traits::meta_name().data();
 
             const GstMetaInfo *i = gst_meta_get_info(name);
@@ -88,7 +87,7 @@ template <class Traits> class Meta {
                 g_error("Failed to register GstMetaInfo '%s'", name);
             }
 
-            g_once_init_leave_pointer(miLocation, const_cast<GstMetaInfo *>(i));
+            g_once_init_leave_pointer(&mi, const_cast<GstMetaInfo *>(i));
         }
 
         return mi;

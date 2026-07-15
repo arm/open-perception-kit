@@ -4,7 +4,7 @@
 
 #include "TensorMeta.h"
 
-#include <string.h>
+#include <cstring>
 
 static gboolean GstMetaTensor_init(GstMeta *meta, gpointer params, GstBuffer *buffer) {
 
@@ -31,13 +31,13 @@ static void GstMetaTensor_free(GstMeta *meta, GstBuffer *buffer) {
 static gboolean GstMetaTensor_transform(
     GstBuffer *dest, GstMeta *meta, GstBuffer *src, GQuark type, gpointer data) {
     GstMetaTensor *m = (GstMetaTensor *)meta;
-    GstMetaTensor *d = (GstMetaTensor *)gst_buffer_add_meta(dest, GST_META_TENSOR_INFO, NULL);
+    GstMetaTensor *d = (GstMetaTensor *)gst_buffer_add_meta(dest, GST_META_TENSOR_INFO, nullptr);
 
     d->valueType = m->valueType;
     d->quantization = m->quantization;
 
     d->tensorType = m->tensorType;
-    d->tensorData = m->tensorData ? gst_memory_ref(m->tensorData) : NULL;
+    d->tensorData = m->tensorData ? gst_memory_ref(m->tensorData) : nullptr;
 
     return TRUE;
 }
@@ -49,7 +49,7 @@ GType GstMetaTensor_get_type(void) {
         GType t = g_type_from_name(
             api_name); // refuse to register if this is not the first SO that uses the LIB
         if (!t) {
-            static const gchar *tags[] = {"inference", "tensor", NULL};
+            static const gchar *tags[] = {"inference", "tensor", nullptr};
             t = gst_meta_api_type_register(api_name, tags);
         }
         g_once_init_leave(&type, t);
@@ -58,16 +58,16 @@ GType GstMetaTensor_get_type(void) {
 }
 
 const GstMetaInfo *GstMetaTensor_get_info(void) {
-    static const GstMetaInfo *mi = NULL;
-    auto *miLocation = &mi;
-    if (g_once_init_enter_pointer(miLocation)) {
+    static const GstMetaInfo *mi = nullptr;
+    //clang tidy multi level implicit pointer conversion cant fixed with explicit casting since gst macro expects pointer-to-object type  :|
+    if (g_once_init_enter_pointer(&mi)) { // NOLINT(bugprone-multi-level-implicit-pointer-conversion)
         const GstMetaInfo *info = gst_meta_register(GST_META_TENSOR_TYPE,
                                                     "GstMetaTensor",
                                                     sizeof(GstMetaTensor),
                                                     GstMetaTensor_init,
                                                     GstMetaTensor_free,
                                                     GstMetaTensor_transform);
-        g_once_init_leave_pointer(miLocation, const_cast<GstMetaInfo *>(info));
+        g_once_init_leave_pointer(&mi, const_cast<GstMetaInfo *>(info)); // NOLINT(bugprone-multi-level-implicit-pointer-conversion)
     }
     return mi;
 }
