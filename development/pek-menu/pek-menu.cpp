@@ -39,14 +39,12 @@ struct PipelineEntry {
 static constexpr const char *kPipelinesDir = "/work/config/pipelines";
 static constexpr const char *kLastSelectionFileName = ".last_selected_pipeline_id";
 static volatile sig_atomic_t pipeline_pid = -1;
-static volatile sig_atomic_t pending_termination_signal = 0;
+static volatile sig_atomic_t requested_termination_signal = 0;
 
 static void forward_termination_signal(int signal_number) {
-    if (pipeline_pid > 0) {
+    requested_termination_signal = signal_number;
+    if (pipeline_pid > 0)
         kill(pipeline_pid, signal_number);
-    } else {
-        pending_termination_signal = signal_number;
-    }
 }
 
 static fs::path last_selection_path() {
@@ -263,6 +261,9 @@ int run_gst_launch(const std::string &pipeline, bool dry_run, bool loop) {
             }
 
             do {
+                if (requested_termination_signal != 0)
+                    return 128 + requested_termination_signal;
+
                 const pid_t child_pid = fork();
                 if (child_pid < 0) {
                     pek::log::instantError("fork: {}\n", std::strerror(errno));
@@ -276,10 +277,8 @@ int run_gst_launch(const std::string &pipeline, bool dry_run, bool loop) {
                 }
 
                 pipeline_pid = child_pid;
-                if (pending_termination_signal != 0) {
-                    kill(child_pid, pending_termination_signal);
-                    pending_termination_signal = 0;
-                }
+                if (requested_termination_signal != 0)
+                    kill(child_pid, requested_termination_signal);
 
                 int status = 0;
                 pid_t wait_result;
@@ -292,6 +291,9 @@ int run_gst_launch(const std::string &pipeline, bool dry_run, bool loop) {
                     pek::log::instantError("waitpid: {}\n", std::strerror(errno));
                     return 127;
                 }
+
+                if (requested_termination_signal != 0)
+                    return 128 + requested_termination_signal;
 
                 if (WIFSIGNALED(status))
                     return 128 + WTERMSIG(status);

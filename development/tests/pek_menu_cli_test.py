@@ -5,9 +5,11 @@
 
 import json
 import os
+import signal
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -156,6 +158,69 @@ class TestPekMenuCliDiagnostics(unittest.TestCase):
         self.assertEqual(result.returncode, 127)
         self.assertEqual(result.stdout, "gst-launch-1.0 fakesrc ! fakesink \n")
         self.assertIn("execvp:", result.stderr)
+
+    def test_looping_pipeline_stops_after_forwarded_sigint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            temp_dir = Path(tmpdir)
+            bin_dir = temp_dir / "bin"
+            bin_dir.mkdir()
+            marker = temp_dir / "starts"
+
+            fake_gst_launch = bin_dir / "gst-launch-1.0"
+            fake_gst_launch.write_text(
+                "#!/bin/sh\n"
+                "trap 'exit 0' INT TERM\n"
+                'printf "started\\n" >> "$PEK_MENU_TEST_MARKER"\n'
+                "while true; do sleep 0.05; done\n",
+                encoding="utf-8",
+            )
+            fake_gst_launch.chmod(0o755)
+
+            pipeline = temp_dir / "looping.json"
+            pipeline.write_text(
+                json.dumps(
+                    {
+                        "description": "Looping pipeline signal test",
+                        "loop": True,
+                        "pipeline": "fakesrc ! fakesink",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            env = os.environ.copy()
+            env["OPK_LOG_LEVEL"] = "0"
+            env["PATH"] = f"{bin_dir}:{env['PATH']}"
+            env["PEK_MENU_TEST_MARKER"] = str(marker)
+
+            process = subprocess.Popen(
+                [str(self.pek_menu), str(pipeline)],
+                env=env,
+                start_new_session=True,
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                text=True,
+            )
+
+            try:
+                for _ in range(100):
+                    if marker.exists() or process.poll() is not None:
+                        break
+                    time.sleep(0.01)
+
+                self.assertTrue(marker.exists(), "pipeline child did not start")
+
+                process.send_signal(signal.SIGINT)
+                stdout, stderr = process.communicate(timeout=2)
+            finally:
+                if process.poll() is None:
+                    os.killpg(process.pid, signal.SIGKILL)
+                    process.communicate()
+
+            self.assertEqual(process.returncode, 128 + signal.SIGINT)
+            self.assertEqual(marker.read_text(encoding="utf-8"), "started\n")
+            self.assertNotIn("Pipeline reached EOS; restarting.", stdout)
+            self.assertEqual(stderr, "")
 
 
 if __name__ == "__main__":
