@@ -9,6 +9,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdio>
+#include <filesystem>
 #include <fstream>
 #include <string>
 #include <thread>
@@ -20,8 +21,9 @@ using pek::perf::PerformanceMetrics;
 
 std::string tempCsvPath(std::string_view suffix) {
     const auto token = std::hash<std::thread::id>{}(std::this_thread::get_id());
-    return "/tmp/pek_performance_metrics_" + std::to_string(token) + "_" + std::string(suffix) +
-           ".csv";
+    const auto filename =
+        "pek_performance_metrics_" + std::to_string(token) + "_" + std::string(suffix) + ".csv";
+    return (std::filesystem::current_path() / filename).string();
 }
 
 const PerformanceMetrics::MetricRecord *

@@ -16,7 +16,14 @@ namespace pek::perf {
 
 namespace detail {
 struct PerformanceMetricsState;
-}
+
+struct PerformanceMetricsStateDeleter {
+    void operator()(PerformanceMetricsState *state) const noexcept;
+};
+
+using PerformanceMetricsStatePtr =
+    std::unique_ptr<PerformanceMetricsState, PerformanceMetricsStateDeleter>;
+} // namespace detail
 
 /**
  * Hierarchical block timer for PEK instrumentation.
@@ -197,29 +204,26 @@ class PerformanceMetrics {
 
         /** Returns true while this token owns an active measurement. */
         [[nodiscard]] bool active() const noexcept {
-            return metrics != nullptr;
+            return recording.metrics != nullptr;
         }
 
       private:
         friend class PerformanceMetrics;
 
-        Scope(PerformanceMetrics *metrics,
-              std::uint32_t slotIndex,
-              std::uint32_t metricIndex,
-              std::uint64_t spanId,
-              std::uint64_t parentSpanId,
-              std::uint64_t startNs,
-              std::uint32_t depth,
-              bool historyRecorded) noexcept;
+        struct Recording {
+            PerformanceMetrics *metrics = nullptr;
+            std::uint32_t slotIndex = 0;
+            std::uint32_t metricIndex = 0;
+            std::uint64_t spanId = InvalidSpanId;
+            std::uint64_t parentSpanId = InvalidSpanId;
+            std::uint64_t startNs = 0;
+            std::uint32_t depth = 0;
+            bool historyRecorded = false;
+        };
 
-        PerformanceMetrics *metrics = nullptr;
-        std::uint32_t slotIndex = 0;
-        std::uint32_t metricIndex = 0;
-        std::uint64_t spanId = InvalidSpanId;
-        std::uint64_t parentSpanId = InvalidSpanId;
-        std::uint64_t startNs = 0;
-        std::uint32_t depth = 0;
-        bool historyRecorded = false;
+        explicit Scope(Recording recording) noexcept;
+
+        Recording recording;
     };
 
     PerformanceMetrics();
@@ -290,7 +294,7 @@ class PerformanceMetrics {
      */
     [[nodiscard]] bool writeCsv(std::string_view path) const;
 
-    /** Writes the configured automatic CSV path, ignoring errors. */
+    /** Writes the configured automatic CSV path and reports failures to standard error. */
     void writeAutoCsv() const noexcept;
 
     /** Returns aggregate metrics without copying historical span records. */
@@ -300,6 +304,8 @@ class PerformanceMetrics {
     [[nodiscard]] Snapshot snapshot() const;
 
   private:
+    static detail::PerformanceMetricsStatePtr createState();
+
     void exitBlock(std::uint32_t slotIndex,
                    std::uint32_t metricIndex,
                    std::uint64_t spanId,
@@ -308,7 +314,7 @@ class PerformanceMetrics {
                    std::uint32_t depth,
                    bool historyRecorded) noexcept;
 
-    std::unique_ptr<detail::PerformanceMetricsState> state;
+    detail::PerformanceMetricsStatePtr state = createState();
 };
 
 /**

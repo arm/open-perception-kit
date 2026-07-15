@@ -25,7 +25,10 @@ constexpr std::uint32_t MaxHistoryEventsPerChunk = 4096;
 constexpr std::uint32_t MaxStackDepth = 64;
 constexpr std::uint32_t InvalidLocalMetricIndex = std::numeric_limits<std::uint32_t>::max();
 
-std::atomic<std::uint64_t> nextInstanceId{1};
+std::uint64_t nextInstanceId() noexcept {
+    static std::atomic<std::uint64_t> nextId{1};
+    return nextId.fetch_add(1, std::memory_order_relaxed);
+}
 
 std::uint64_t nowNs() noexcept {
     const auto now = std::chrono::steady_clock::now().time_since_epoch();
@@ -34,7 +37,7 @@ std::uint64_t nowNs() noexcept {
 }
 
 std::uint64_t currentThreadId() noexcept {
-    return static_cast<std::uint64_t>(std::hash<std::thread::id>{}(std::this_thread::get_id()));
+    return std::hash<std::thread::id>{}(std::this_thread::get_id());
 }
 
 bool copySpanName(std::array<char, PerformanceMetrics::MaxSpanNameLength + 1> &destination,
@@ -120,6 +123,10 @@ struct PerformanceMetricsState {
     std::string autoCsvPath;
 };
 
+void PerformanceMetricsStateDeleter::operator()(PerformanceMetricsState *state) const noexcept {
+    std::default_delete<PerformanceMetricsState>{}(state);
+}
+
 } // namespace detail
 
 namespace {
@@ -138,11 +145,18 @@ struct ThreadFrame {
     std::uint32_t depth = 0;
 };
 
-thread_local std::vector<ThreadFrame> threadFrames;
-thread_local PerformanceMetrics *currentMetrics = nullptr;
+struct ThreadContext {
+    std::vector<ThreadFrame> frames;
+    PerformanceMetrics *currentMetrics = nullptr;
+};
 
-ThreadFrame *findThreadFrame(detail::PerformanceMetricsState *state) noexcept {
-    for (auto &frame : threadFrames) {
+ThreadContext &threadContext() noexcept {
+    thread_local ThreadContext context;
+    return context;
+}
+
+ThreadFrame *findThreadFrame(const detail::PerformanceMetricsState *state) noexcept {
+    for (auto &frame : threadContext().frames) {
         if (frame.state == state && frame.instanceId == state->instanceId) {
             return &frame;
         }
@@ -155,13 +169,10 @@ ThreadFrame *acquireThreadFrame(detail::PerformanceMetricsState *state) {
         return frame;
     }
 
-    threadFrames.erase(std::remove_if(threadFrames.begin(),
-                                      threadFrames.end(),
-                                      [state](const ThreadFrame &frame) {
-                                          return frame.state == state &&
-                                                 frame.instanceId != state->instanceId;
-                                      }),
-                       threadFrames.end());
+    auto &frames = threadContext().frames;
+    std::erase_if(frames, [state](const ThreadFrame &frame) {
+        return frame.state == state && frame.instanceId != state->instanceId;
+    });
 
     const auto slotIndex = state->nextSlot.fetch_add(1, std::memory_order_acq_rel);
     if (slotIndex >= MaxThreadSlots) {
@@ -182,8 +193,8 @@ ThreadFrame *acquireThreadFrame(detail::PerformanceMetricsState *state) {
     frame.state = state;
     frame.instanceId = state->instanceId;
     frame.slotIndex = slotIndex;
-    threadFrames.push_back(frame);
-    return &threadFrames.back();
+    frames.push_back(frame);
+    return &frames.back();
 }
 
 std::uint32_t ensureMetric(detail::PerformanceMetricsThreadSlot &slot,
@@ -271,8 +282,8 @@ void updateMetric(detail::PerformanceMetricsThreadSlot &slot,
     endMetricWrite(metric);
 }
 
-PerformanceMetrics::MetricRecord
-readMetric(const detail::PerformanceMetricsThreadSlot &slot, std::uint32_t metricIndex) noexcept {
+PerformanceMetrics::MetricRecord readMetric(const detail::PerformanceMetricsThreadSlot &slot,
+                                            std::uint32_t metricIndex) noexcept {
     const auto &source = slot.metrics[metricIndex];
     PerformanceMetrics::MetricRecord metric;
 
@@ -311,8 +322,8 @@ std::uint64_t mergeMetric(std::vector<PerformanceMetrics::MetricRecord> &destina
             metric.count += source.count;
             metric.totalNs += source.totalNs;
             if (source.count > 0) {
-                metric.minNs =
-                    metric.count == source.count ? source.minNs : std::min(metric.minNs, source.minNs);
+                metric.minNs = metric.count == source.count ? source.minNs
+                                                            : std::min(metric.minNs, source.minNs);
                 metric.maxNs = std::max(metric.maxNs, source.maxNs);
                 metric.lastNs = source.lastNs;
             }
@@ -324,7 +335,7 @@ std::uint64_t mergeMetric(std::vector<PerformanceMetrics::MetricRecord> &destina
     }
 
     auto metric = source;
-    metric.id = static_cast<std::uint64_t>(destination.size());
+    metric.id = destination.size();
     metric.parentId = parentId;
     metric.averageNs = metric.count == 0 ? 0 : metric.totalNs / metric.count;
     destination.push_back(metric);
@@ -348,8 +359,8 @@ std::uint64_t collectMetric(std::vector<PerformanceMetrics::MetricRecord> &desti
     std::uint64_t parentId = PerformanceMetrics::InvalidMetricId;
     if (sourceMetadata.parentIndex != InvalidLocalMetricIndex &&
         sourceMetadata.parentIndex < metricCount) {
-        parentId = collectMetric(
-            destination, slot, sourceMetadata.parentIndex, metricCount, mergedIds);
+        parentId =
+            collectMetric(destination, slot, sourceMetadata.parentIndex, metricCount, mergedIds);
     }
 
     const auto source = readMetric(slot, metricIndex);
@@ -376,7 +387,7 @@ void collectMetrics(std::vector<PerformanceMetrics::MetricRecord> &destination,
 void appendHistoryEvent(detail::PerformanceMetricsThreadSlot &slot,
                         const PerformanceMetrics::SpanRecord &record) noexcept {
     try {
-        std::lock_guard<std::mutex> lock(slot.historyMutex);
+        std::scoped_lock lock(slot.historyMutex);
         if (slot.historyChunks.empty() ||
             slot.historyChunks.back()->size >= MaxHistoryEventsPerChunk) {
             slot.historyChunks.push_back(std::make_unique<detail::HistoryChunk>());
@@ -392,52 +403,30 @@ void appendHistoryEvent(detail::PerformanceMetricsThreadSlot &slot,
 
 void collectHistoryEvents(std::vector<PerformanceMetrics::SpanRecord> &destination,
                           const detail::PerformanceMetricsThreadSlot &slot) {
-    std::lock_guard<std::mutex> lock(slot.historyMutex);
+    std::scoped_lock lock(slot.historyMutex);
     for (const auto &chunk : slot.historyChunks) {
-        destination.insert(destination.end(), chunk->records.begin(), chunk->records.begin() + chunk->size);
+        destination.insert(
+            destination.end(), chunk->records.begin(), chunk->records.begin() + chunk->size);
     }
 }
 
-PerformanceMetrics *globalDefaultMetrics = nullptr;
-
 void writeDefaultMetricsAtExit() noexcept {
-    if (globalDefaultMetrics != nullptr) {
-        globalDefaultMetrics->writeAutoCsv();
-    }
+    defaultPerformanceMetrics().writeAutoCsv();
 }
 
 } // namespace
 
-PerformanceMetrics::Scope::Scope(PerformanceMetrics *metrics,
-                                 std::uint32_t slotIndex,
-                                 std::uint32_t metricIndex,
-                                 std::uint64_t spanId,
-                                 std::uint64_t parentSpanId,
-                                 std::uint64_t startNs,
-                                 std::uint32_t depth,
-                                 bool historyRecorded) noexcept
-    : metrics(metrics), slotIndex(slotIndex), metricIndex(metricIndex), spanId(spanId),
-      parentSpanId(parentSpanId), startNs(startNs), depth(depth), historyRecorded(historyRecorded) {}
+PerformanceMetrics::Scope::Scope(Recording recording) noexcept : recording(recording) {}
 
-PerformanceMetrics::Scope::Scope(Scope &&other) noexcept
-    : metrics(other.metrics), slotIndex(other.slotIndex), metricIndex(other.metricIndex),
-      spanId(other.spanId), parentSpanId(other.parentSpanId), startNs(other.startNs),
-      depth(other.depth), historyRecorded(other.historyRecorded) {
-    other.metrics = nullptr;
+PerformanceMetrics::Scope::Scope(Scope &&other) noexcept : recording(other.recording) {
+    other.recording.metrics = nullptr;
 }
 
 PerformanceMetrics::Scope &PerformanceMetrics::Scope::operator=(Scope &&other) noexcept {
     if (this != &other) {
         close();
-        metrics = other.metrics;
-        slotIndex = other.slotIndex;
-        metricIndex = other.metricIndex;
-        spanId = other.spanId;
-        parentSpanId = other.parentSpanId;
-        startNs = other.startNs;
-        depth = other.depth;
-        historyRecorded = other.historyRecorded;
-        other.metrics = nullptr;
+        recording = other.recording;
+        other.recording.metrics = nullptr;
     }
     return *this;
 }
@@ -447,17 +436,26 @@ PerformanceMetrics::Scope::~Scope() {
 }
 
 void PerformanceMetrics::Scope::close() noexcept {
-    if (metrics == nullptr) {
+    if (recording.metrics == nullptr) {
         return;
     }
 
-    metrics->exitBlock(slotIndex, metricIndex, spanId, parentSpanId, startNs, depth, historyRecorded);
-    metrics = nullptr;
+    recording.metrics->exitBlock(recording.slotIndex,
+                                 recording.metricIndex,
+                                 recording.spanId,
+                                 recording.parentSpanId,
+                                 recording.startNs,
+                                 recording.depth,
+                                 recording.historyRecorded);
+    recording.metrics = nullptr;
 }
 
-PerformanceMetrics::PerformanceMetrics()
-    : state(std::make_unique<detail::PerformanceMetricsState>(
-          nextInstanceId.fetch_add(1, std::memory_order_relaxed))) {}
+detail::PerformanceMetricsStatePtr PerformanceMetrics::createState() {
+    auto state = std::make_unique<detail::PerformanceMetricsState>(nextInstanceId());
+    return detail::PerformanceMetricsStatePtr(state.release());
+}
+
+PerformanceMetrics::PerformanceMetrics() = default;
 
 PerformanceMetrics::~PerformanceMetrics() {
     writeAutoCsv();
@@ -482,8 +480,8 @@ PerformanceMetrics::Scope PerformanceMetrics::scope(std::string_view name) noexc
 
         std::array<char, MaxSpanNameLength + 1> storedName{};
         const bool nameTruncated = copySpanName(storedName, name);
-        const auto parentIndex =
-            frame->depth == 0 ? InvalidLocalMetricIndex : frame->stack[frame->depth - 1].metricIndex;
+        const auto parentIndex = frame->depth == 0 ? InvalidLocalMetricIndex
+                                                   : frame->stack[frame->depth - 1].metricIndex;
         const auto metricIndex =
             ensureMetric(slot, storedName, parentIndex, frame->depth, nameTruncated);
         if (metricIndex == InvalidLocalMetricIndex) {
@@ -506,14 +504,14 @@ PerformanceMetrics::Scope PerformanceMetrics::scope(std::string_view name) noexc
         frame->stack[frame->depth] = StackEntry{metricIndex, spanId};
         ++frame->depth;
 
-        return Scope(this,
-                     frame->slotIndex,
-                     metricIndex,
-                     spanId,
-                     parentSpanId,
-                     startNs,
-                     depth,
-                     historyRecorded);
+        return Scope(Scope::Recording{this,
+                                      frame->slotIndex,
+                                      metricIndex,
+                                      spanId,
+                                      parentSpanId,
+                                      startNs,
+                                      depth,
+                                      historyRecorded});
     } catch (...) {
         return {};
     }
@@ -544,12 +542,12 @@ bool PerformanceMetrics::traceEnabled() const noexcept {
 }
 
 void PerformanceMetrics::setAutoCsvExportPath(std::string_view path) {
-    std::lock_guard<std::mutex> lock(state->autoCsvMutex);
+    std::scoped_lock lock(state->autoCsvMutex);
     state->autoCsvPath.assign(path.begin(), path.end());
 }
 
 std::string PerformanceMetrics::autoCsvExportPath() const {
-    std::lock_guard<std::mutex> lock(state->autoCsvMutex);
+    std::scoped_lock lock(state->autoCsvMutex);
     return state->autoCsvPath;
 }
 
@@ -561,7 +559,8 @@ bool PerformanceMetrics::writeCsv(std::string_view path) const {
     }
 
     std::vector<SpanRecord> spans;
-    const auto usedSlots = std::min(state->nextSlot.load(std::memory_order_acquire), MaxThreadSlots);
+    const auto usedSlots =
+        std::min(state->nextSlot.load(std::memory_order_acquire), MaxThreadSlots);
     for (std::uint32_t slotIndex = 0; slotIndex < usedSlots; ++slotIndex) {
         const auto &slot = state->slots[slotIndex];
         if (!slot.active.load(std::memory_order_acquire)) {
@@ -570,7 +569,7 @@ bool PerformanceMetrics::writeCsv(std::string_view path) const {
         collectHistoryEvents(spans, slot);
     }
 
-    std::sort(spans.begin(), spans.end(), [](const SpanRecord &left, const SpanRecord &right) {
+    std::ranges::sort(spans, [](const SpanRecord &left, const SpanRecord &right) {
         if (left.startNs != right.startNs) {
             return left.startNs < right.startNs;
         }
@@ -608,15 +607,19 @@ void PerformanceMetrics::writeAutoCsv() const noexcept {
     try {
         const auto path = autoCsvExportPath();
         if (!path.empty()) {
-            (void)writeCsv(path);
+            if (!writeCsv(path)) {
+                std::fputs("Performance metrics CSV export failed.\n", stderr);
+            }
         }
     } catch (...) {
+        std::fputs("Performance metrics CSV export failed with an unexpected error.\n", stderr);
     }
 }
 
 PerformanceMetrics::Snapshot PerformanceMetrics::aggregateSnapshot() const {
     Snapshot snapshot;
-    const auto usedSlots = std::min(state->nextSlot.load(std::memory_order_acquire), MaxThreadSlots);
+    const auto usedSlots =
+        std::min(state->nextSlot.load(std::memory_order_acquire), MaxThreadSlots);
 
     for (std::uint32_t slotIndex = 0; slotIndex < usedSlots; ++slotIndex) {
         const auto &slot = state->slots[slotIndex];
@@ -626,8 +629,7 @@ PerformanceMetrics::Snapshot PerformanceMetrics::aggregateSnapshot() const {
 
         snapshot.droppedMetrics += slot.droppedMetrics.load(std::memory_order_relaxed);
         snapshot.droppedSpans += slot.droppedSpans.load(std::memory_order_relaxed);
-        snapshot.droppedHistoryEvents +=
-            slot.droppedHistoryEvents.load(std::memory_order_relaxed);
+        snapshot.droppedHistoryEvents += slot.droppedHistoryEvents.load(std::memory_order_relaxed);
         snapshot.wrongThreadScopeCloses +=
             slot.wrongThreadScopeCloses.load(std::memory_order_relaxed);
         collectMetrics(snapshot.metrics, slot);
@@ -639,7 +641,8 @@ PerformanceMetrics::Snapshot PerformanceMetrics::aggregateSnapshot() const {
 
 PerformanceMetrics::Snapshot PerformanceMetrics::snapshot() const {
     auto snapshot = aggregateSnapshot();
-    const auto usedSlots = std::min(state->nextSlot.load(std::memory_order_acquire), MaxThreadSlots);
+    const auto usedSlots =
+        std::min(state->nextSlot.load(std::memory_order_acquire), MaxThreadSlots);
 
     for (std::uint32_t slotIndex = 0; slotIndex < usedSlots; ++slotIndex) {
         const auto &slot = state->slots[slotIndex];
@@ -650,14 +653,12 @@ PerformanceMetrics::Snapshot PerformanceMetrics::snapshot() const {
         collectHistoryEvents(snapshot.spans, slot);
     }
 
-    std::sort(snapshot.spans.begin(),
-              snapshot.spans.end(),
-              [](const SpanRecord &left, const SpanRecord &right) {
-                  if (left.startNs != right.startNs) {
-                      return left.startNs < right.startNs;
-                  }
-                  return left.id < right.id;
-              });
+    std::ranges::sort(snapshot.spans, [](const SpanRecord &left, const SpanRecord &right) {
+        if (left.startNs != right.startNs) {
+            return left.startNs < right.startNs;
+        }
+        return left.id < right.id;
+    });
 
     return snapshot;
 }
@@ -717,24 +718,23 @@ void PerformanceMetrics::exitBlock(std::uint32_t slotIndex,
 }
 
 ScopedMetricsContext::ScopedMetricsContext(PerformanceMetrics &metrics) noexcept
-    : previous(currentMetrics) {
-    currentMetrics = &metrics;
+    : previous(threadContext().currentMetrics) {
+    threadContext().currentMetrics = &metrics;
 }
 
 ScopedMetricsContext::~ScopedMetricsContext() {
-    currentMetrics = previous;
+    threadContext().currentMetrics = previous;
 }
 
 PerformanceMetrics *currentPerformanceMetrics() noexcept {
-    return currentMetrics;
+    return threadContext().currentMetrics;
 }
 
 PerformanceMetrics &defaultPerformanceMetrics() noexcept {
-    static PerformanceMetrics *metrics = []() noexcept {
-        auto *created = new PerformanceMetrics();
-        globalDefaultMetrics = created;
+    static PerformanceMetrics *const metrics = []() noexcept {
+        auto created = std::make_unique<PerformanceMetrics>();
         std::atexit(writeDefaultMetricsAtExit);
-        return created;
+        return created.release();
     }();
     return *metrics;
 }
