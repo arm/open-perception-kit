@@ -75,6 +75,13 @@ PEK_PICAMERA=enabled PEK_PIPELINE=05-full-onnx-raspicam \
   topo deploy --target <pi-ip>
 ```
 
+To omit the bundled demo videos for a camera or custom-media deployment:
+
+```bash
+NO_EXAMPLE_CONTENT=true PEK_PICAMERA=enabled \
+  PEK_PIPELINE=05-full-onnx-raspicam topo deploy --target <pi-ip>
+```
+
 For a USB camera exposed as `/dev/video0` on the target:
 
 ```bash

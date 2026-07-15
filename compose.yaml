@@ -38,6 +38,7 @@ services:
         pek-build-base: service:pek-build-base
       args:
         PEK_PICAMERA: ${PEK_PICAMERA:-disabled}
+        NO_EXAMPLE_CONTENT: ${NO_EXAMPLE_CONTENT:-false}
     command:
       - bash
       - /work/scripts/private/deployment-runtime.sh
@@ -59,5 +60,10 @@ x-topo:
         Set to enabled only when the selected pipeline uses a Raspberry Pi
         camera.
       default: "disabled"
+    NO_EXAMPLE_CONTENT:
+      description: |
+        Skip packaging demo videos. Set this only when the selected pipeline
+        uses a camera or other supplied media.
+      default: "false"
   deployment_success_message: |
     The PEK development server is starting on port 9999.

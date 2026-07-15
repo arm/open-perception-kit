@@ -32,9 +32,15 @@ FROM pek-build-base AS pek-cross-build-base
 
 FROM pek-build-base AS pek-demo-media
 
+ARG NO_EXAMPLE_CONTENT=false
+
 WORKDIR /work
 COPY --chmod=0755 scripts/download-data.sh scripts/download-data.sh
-RUN ./scripts/download-data.sh
+RUN if [ "${NO_EXAMPLE_CONTENT}" != "true" ]; then \
+      ./scripts/download-data.sh; \
+    else \
+      mkdir -p data/videos; \
+    fi
 
 FROM pek-cross-build-base AS workspace
 
