@@ -109,6 +109,16 @@ with:
 sudo apt install /work/var/libexecutorch-dev-1.3.1-1-amd64.deb
 ```
 
+Automatic detection only uses the installed `/work/var/executorch` SDK. To
+build directly from the staging tree without installing the package, select both
+staged roots explicitly:
+
+```sh
+PEK_EXECUTORCH_ROOT=/work/deps/executorch \
+PEK_LIBTORCH_ROOT=/work/deps/libtorch \
+PEK_EXECUTORCH=enabled ./scripts/build-elements.sh debug
+```
+
 Use `--deb-output-dir` and `--deb-revision` to change the artifact directory or
 package revision. Use `--skip-deb` when only the staged SDK is needed.
 

@@ -760,7 +760,7 @@ EOF
     cat << EOF
 
 Build PEK with:
-  PEK_EXECUTORCH=enabled ./scripts/build-elements.sh debug
+  PEK_EXECUTORCH_ROOT=${EXECUTORCH_INSTALL_DIR} PEK_LIBTORCH_ROOT=${LIBTORCH_INSTALL_DIR} PEK_EXECUTORCH=enabled ./scripts/build-elements.sh debug
 EOF
 }
 

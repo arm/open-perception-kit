@@ -42,7 +42,7 @@ bool shouldLog(LogLevel lvl) {
     return lvl != LogLevel::Off && getLogLevel() >= logLevelValue(lvl);
 }
 
-void logWrite(LogLevel lvl, fmt::string_view msg) {
+void logWrite(LogLevel lvl, std::string_view msg) {
     if (!shouldLog(lvl)) {
         return;
     }
@@ -54,7 +54,7 @@ void logWrite(LogLevel lvl, fmt::string_view msg) {
         fmt::print(stdout, "{}", msg);
         break;
     case LogLevel::Notice:
-        fmt::print(stdout, "{}", invert(msg.data()));
+        fmt::print(stdout, "{}", invert(std::string{msg}));
         break;
     case LogLevel::Warn: {
         const auto output = fmt::format("W: {}", msg);

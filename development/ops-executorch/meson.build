@@ -12,7 +12,6 @@ endif
 
 executorch_candidates += [
   '/work/var/executorch',
-  meson.project_source_root() / '../deps/executorch',
 ]
 
 executorch_root = ''
@@ -27,10 +26,10 @@ endforeach
 
 if executorch_root == ''
   if executorch_opt.enabled()
-    error('ExecuTorch requested (executorch=enabled) but not found. Stage an ExecuTorch SDK with include/ and lib/, or set PEK_EXECUTORCH_ROOT.')
+    error('ExecuTorch requested (executorch=enabled) but not found. Install libexecutorch-dev under /work/var, or set PEK_EXECUTORCH_ROOT to a staged SDK.')
   endif
 
-  warning('ExecuTorch not found - skipping ops-executorch (configure with -Dexecutorch=enabled to require it).')
+  warning('Installed ExecuTorch SDK not found - skipping ops-executorch. Install libexecutorch-dev, or set PEK_EXECUTORCH_ROOT to use a staged SDK.')
   subdir_done()
 endif
 
@@ -151,10 +150,11 @@ executorchops = shared_module(
     'Plugin.cpp',
     'InferenceOp.cpp',
   ],
+
   include_directories: common_include,
+
   dependencies: pek_deps + [executorch_dep],
   cpp_args: ['-DFMT_HEADER_ONLY'],
-  link_with: [common],
 
   link_args: [
     '-Wl,--whole-archive',
@@ -165,5 +165,7 @@ executorchops = shared_module(
 
   name_prefix: '',
   gnu_symbol_visibility: 'default',
+  link_with: [common],
+
   install: false,
 )
