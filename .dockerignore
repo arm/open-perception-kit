@@ -29,6 +29,8 @@
 !config/**
 !data/
 !data/**
+# Demo video assets are downloaded in a dedicated Docker build stage.
+data/videos/
 
 !tools/
 !tools/expkits-ci/

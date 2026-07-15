@@ -30,6 +30,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 FROM pek-build-base AS pek-cross-build-base
 
+FROM pek-build-base AS pek-demo-media
+
+WORKDIR /work
+COPY --chmod=0755 scripts/download-data.sh scripts/download-data.sh
+RUN ./scripts/download-data.sh
+
 FROM pek-cross-build-base AS workspace
 
 ARG TARGETARCH
@@ -59,6 +65,7 @@ COPY scripts/private/deployment-runtime.sh scripts/private/deployment-runtime.sh
 COPY development development
 COPY config config
 COPY data data
+COPY --from=pek-demo-media /work/data/videos /work/data/videos
 
 RUN set -eux; \
   native_arch="$(dpkg --print-architecture)"; \

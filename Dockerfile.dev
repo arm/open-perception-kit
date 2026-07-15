@@ -28,6 +28,12 @@ RUN set -eux; \
   unzip -q "/tmp/${cpptools_archive}" -d /opt/pek-dev-tools/cpptools; \
   rm -f "/tmp/${nvim_archive}" "/tmp/${cpptools_archive}"
 
+FROM --platform=${BUILDPLATFORM} pek-build-base AS pek-demo-media
+
+WORKDIR /work
+COPY --chmod=0755 scripts/download-data.sh scripts/download-data.sh
+RUN ./scripts/download-data.sh
+
 FROM --platform=${BUILDPLATFORM} pek-build-base AS pek-dev-build
 
 ARG ONNXRUNTIME_VERSION=1.24.4
@@ -329,6 +335,8 @@ RUN set -eux; \
 USER ${USERNAME}
 WORKDIR /work
 COPY --chown=${USERNAME}:${USERNAME} . /work
+COPY --from=pek-demo-media --chown=${USERNAME}:${USERNAME} \
+  /work/data/videos /work/data/videos
 COPY --from=pek-dev-build --chown=${USERNAME}:${USERNAME} \
   /opt/pek-app/development/build/meson-out /work/development/build/meson-out
 COPY --from=pek-dev-build --chown=${USERNAME}:${USERNAME} \
