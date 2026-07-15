@@ -16,6 +16,10 @@
 #include <filesystem>
 #include <fstream>
 
+#ifndef PEK_SHARED_STATIC_FILES_LOCATION
+#define PEK_SHARED_STATIC_FILES_LOCATION "./development/web/shared"
+#endif
+
 using namespace httplib;
 using namespace nlohmann;
 
@@ -82,6 +86,11 @@ PekSinkHttpServerError PekSinkHttpServer::setup() {
         pek::loge("Static file directory does not exist: {}\n", sfl);
 
         return PekSinkHttpServerError::NO_STATIC_FILES_DIRECTORY;
+    }
+
+    if (!http_server->set_mount_point("/shared", PEK_SHARED_STATIC_FILES_LOCATION)) {
+        pek::loge("Shared static file directory does not exist: {}\n",
+                  PEK_SHARED_STATIC_FILES_LOCATION);
     }
 
     return PekSinkHttpServerError::OK;

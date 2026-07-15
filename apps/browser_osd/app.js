@@ -1,5 +1,5 @@
-import {createWebRtcClient} from "./webrtc_client.js";
-import {resolveWebRtcIceConfig, resolveWebRtcTimingConfig} from "./webrtc_config.js";
+import {createWebRtcClient} from "../../development/web/shared/webrtc_client.js";
+import {resolveWebRtcIceConfig, resolveWebRtcTimingConfig} from "../../development/web/shared/webrtc_config.js";
 
 import {createMetadataClient} from "./metadata-client.js";
 import {renderOsd, resizeCanvasToDisplaySize} from "./osd-renderer.js";

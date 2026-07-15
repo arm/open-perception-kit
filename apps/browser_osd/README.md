@@ -4,20 +4,19 @@ Static browser app that receives PEK video through `peksink` WebRTC and renders 
 
 ## Run
 
-Serve this app directory:
+Serve the repository root so the app can load shared browser modules from `development/web/shared`:
 
 ```bash
-cd apps/browser_osd
 python3 -m http.server 8088
 ```
 
 Open:
 
 ```text
-http://127.0.0.1:8088/
+http://127.0.0.1:8088/apps/browser_osd/
 ```
 
-You can also serve the repository root and open `http://127.0.0.1:8088/apps/browser_osd/`.
+Serving `apps/browser_osd` as the static root is not supported because the app imports shared WebRTC modules from the repository tree.
 
 Default endpoints:
 
