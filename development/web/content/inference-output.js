@@ -76,34 +76,60 @@ function layerTitle(layer) {
     return layer.model || layer.contentType || layer.engine || 'Layer';
 }
 
+function createNode(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) {
+        node.className = className;
+    }
+    if (text !== undefined) {
+        node.textContent = String(text);
+    }
+    return node;
+}
+
+function renderEmpty(message) {
+    return createNode('div', 'inference-output-empty', message);
+}
+
+function renderDetection(row) {
+    const item = createNode('div', 'inference-detection');
+    const main = createNode('div', 'inference-detection-main');
+
+    main.appendChild(createNode('span', 'inference-detection-title', row.title));
+    if (row.meta) {
+        main.appendChild(createNode('span', 'inference-detection-meta', row.meta));
+    }
+
+    item.appendChild(main);
+    item.appendChild(createNode('div', 'inference-detection-detail', row.detail));
+    return item;
+}
+
 function renderLayer(layer) {
     const detections = Array.isArray(layer.detections) ? layer.detections : [];
     const rows = detections.map(detectionSummary);
     const hiddenCount = Math.max(0, (layer.count || 0) - rows.length);
+    const container = createNode('div', 'inference-layer');
+    const header = createNode('div', 'inference-layer-header');
 
-    return `
-        <div class="inference-layer">
-            <div class="inference-layer-header">
-                <span class="inference-layer-title">${layerTitle(layer)}</span>
-                <span class="inference-layer-count">${layer.count || 0}</span>
-            </div>
-            <div class="inference-layer-kind">${layer.contentType || layer.labelFamily || 'output'}</div>
-            ${rows.length ? `
-                <div class="inference-detections">
-                    ${rows.map((row) => `
-                        <div class="inference-detection">
-                            <div class="inference-detection-main">
-                                <span class="inference-detection-title">${row.title}</span>
-                                ${row.meta ? `<span class="inference-detection-meta">${row.meta}</span>` : ''}
-                            </div>
-                            <div class="inference-detection-detail">${row.detail}</div>
-                        </div>
-                    `).join('')}
-                </div>
-            ` : '<div class="inference-output-empty">No detections</div>'}
-            ${hiddenCount ? `<div class="inference-output-empty">${hiddenCount} more not shown</div>` : ''}
-        </div>
-    `;
+    header.appendChild(createNode('span', 'inference-layer-title', layerTitle(layer)));
+    header.appendChild(createNode('span', 'inference-layer-count', layer.count || 0));
+    container.appendChild(header);
+    container.appendChild(createNode('div', 'inference-layer-kind', layer.contentType || layer.labelFamily || 'output'));
+
+    if (rows.length) {
+        const detectionsNode = createNode('div', 'inference-detections');
+        rows.forEach((row) => detectionsNode.appendChild(renderDetection(row)));
+        container.appendChild(detectionsNode);
+    } else {
+        container.appendChild(renderEmpty('No detections'));
+    }
+
+    if (hiddenCount) {
+        container.appendChild(renderEmpty(`${hiddenCount} more not shown`));
+    }
+
+    return container;
 }
 
 export function renderInferenceOutput(output) {
@@ -113,7 +139,7 @@ export function renderInferenceOutput(output) {
     if (window.PEK_FEED_PAUSED) {
         currentLayers = [];
         updateCopyButtonState();
-        body.innerHTML = '<div class="inference-output-empty">Inference paused.</div>';
+        body.replaceChildren(renderEmpty("Inference paused."));
         return;
     }
 
@@ -123,11 +149,11 @@ export function renderInferenceOutput(output) {
     currentLayers = layers;
     updateCopyButtonState();
     if (!layers.length) {
-        body.innerHTML = '<div class="inference-output-empty">No inference output yet, enable a model to see inference here.</div>';
+        body.replaceChildren(renderEmpty("No inference output yet, enable a model to see inference here."));
         return;
     }
 
-    body.innerHTML = layers.map(renderLayer).join('');
+    body.replaceChildren(...layers.map(renderLayer));
 }
 
 function copyableLayers() {
