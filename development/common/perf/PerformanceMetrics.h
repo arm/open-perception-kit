@@ -349,9 +349,9 @@ class ScopedMetricsContext {
 [[nodiscard]] PerformanceMetrics *currentPerformanceMetrics() noexcept;
 
 /**
- * Lazy global metrics recorder for no-init experiments. The default recorder is
- * intentionally process-lifetime so optional atexit CSV export can run without
- * static-destruction ordering hazards inside the recorder itself.
+ * Lazy process-wide metrics recorder for no-init experiments. The recorder is
+ * destroyed normally at process shutdown, including best-effort automatic CSV
+ * export when configured, without leaking the process-wide recorder.
  */
 [[nodiscard]] PerformanceMetrics &defaultPerformanceMetrics() noexcept;
 

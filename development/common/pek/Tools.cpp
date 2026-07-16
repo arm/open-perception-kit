@@ -44,7 +44,7 @@ Result<DynamicLibraryHandle> Tools::DynamicLibraryOpen(const std::string &name) 
     for (const auto &n : names) {
         dlerror(); // NOLINT(concurrency-mt-unsafe)
 
-        handle = dlopen(n.c_str(), RTLD_NOW); // NOLINT(concurrency-mt-unsafe)
+        handle = dlopen(n.c_str(), RTLD_NOW | RTLD_NODELETE); // NOLINT(concurrency-mt-unsafe)
 
         if (handle) {
             break;

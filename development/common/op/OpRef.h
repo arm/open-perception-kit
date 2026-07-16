@@ -21,8 +21,8 @@ struct Op;
  * @brief RAII handle for dynamically-loaded Operation instances.
  *
  * OpRef manages the lifetime of an operation loaded from a shared library (.so/.dll).
- * It handles library loading via dlopen, function symbol resolution, and cleanup via dlclose.
- * OpRef is move-enabled but non-copyable to ensure single ownership of the loaded library.
+ * It handles library loading via dlopen, function symbol resolution, and handle cleanup via
+ * dlclose. OpRef is move-enabled but non-copyable to ensure single ownership of the loaded library.
  */
 class OpRef {
   public:
@@ -31,7 +31,7 @@ class OpRef {
      */
     OpRef();
     /**
-     * @brief Destroys the operation handle and unloads the library.
+     * @brief Destroys the operation and closes its library handle.
      *
      * If a library is loaded, calls the operation's destroy/delete function and dlclose().
      */
@@ -108,7 +108,7 @@ class OpRef {
     using DeleteFn = void (*)(void *);
 
     /**
-     * @brief Releases the operation and unloads the library.
+     * @brief Releases the operation and closes its library handle.
      *
      * Called by cleanup code to safely destroy the operation and close the library handle.
      */

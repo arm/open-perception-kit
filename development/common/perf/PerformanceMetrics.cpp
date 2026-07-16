@@ -9,11 +9,11 @@
 #include <atomic>
 #include <chrono>
 #include <cstdio>
-#include <cstdlib>
 #include <limits>
 #include <memory>
 #include <mutex>
 #include <thread>
+#include <type_traits>
 
 namespace pek::perf {
 
@@ -24,6 +24,18 @@ constexpr std::uint32_t MaxMetricsPerThread = 1024;
 constexpr std::uint32_t MaxHistoryEventsPerChunk = 4096;
 constexpr std::uint32_t MaxStackDepth = 64;
 constexpr std::uint32_t InvalidLocalMetricIndex = std::numeric_limits<std::uint32_t>::max();
+
+struct StackEntry {
+    std::uint32_t metricIndex = InvalidLocalMetricIndex;
+    std::uint64_t spanId = PerformanceMetrics::InvalidSpanId;
+};
+
+// Per-recorder nesting state for one recording thread.
+struct ThreadFrame {
+    std::uint32_t slotIndex = 0;
+    std::array<StackEntry, MaxStackDepth> stack{};
+    std::uint32_t depth = 0;
+};
 
 std::uint64_t nextInstanceId() noexcept {
     static std::atomic<std::uint64_t> nextId{1};
@@ -38,6 +50,12 @@ std::uint64_t nowNs() noexcept {
 
 std::uint64_t currentThreadId() noexcept {
     return std::hash<std::thread::id>{}(std::this_thread::get_id());
+}
+
+std::uint64_t currentThreadToken() noexcept {
+    static std::atomic<std::uint64_t> nextToken{1};
+    thread_local const std::uint64_t token = nextToken.fetch_add(1, std::memory_order_relaxed);
+    return token;
 }
 
 bool copySpanName(std::array<char, PerformanceMetrics::MaxSpanNameLength + 1> &destination,
@@ -98,12 +116,14 @@ struct PerformanceMetricsAtomicMetric {
 
 struct PerformanceMetricsThreadSlot {
     std::atomic<bool> active{false};
+    std::uint64_t threadToken = 0;
     std::uint64_t threadId = 0;
     std::atomic<std::uint32_t> droppedMetrics{0};
     std::atomic<std::uint32_t> droppedSpans{0};
     std::atomic<std::uint32_t> droppedHistoryEvents{0};
     std::atomic<std::uint32_t> wrongThreadScopeCloses{0};
     std::atomic<std::uint32_t> metricCount{0};
+    std::unique_ptr<ThreadFrame> frame;
     std::array<PerformanceMetricsAtomicMetric, MaxMetricsPerThread> metrics;
     mutable std::mutex historyMutex;
     std::vector<std::unique_ptr<HistoryChunk>> historyChunks;
@@ -131,24 +151,19 @@ void PerformanceMetricsStateDeleter::operator()(PerformanceMetricsState *state) 
 
 namespace {
 
-struct StackEntry {
-    std::uint32_t metricIndex = InvalidLocalMetricIndex;
-    std::uint64_t spanId = PerformanceMetrics::InvalidSpanId;
-};
-
-// Thread-local view of the current nesting stack for one recorder instance.
-struct ThreadFrame {
-    detail::PerformanceMetricsState *state = nullptr;
-    std::uint64_t instanceId = 0;
-    std::uint32_t slotIndex = 0;
-    std::array<StackEntry, MaxStackDepth> stack{};
-    std::uint32_t depth = 0;
-};
-
+// Non-owning cache. Thread frames are owned by PerformanceMetricsState, through the
+// PerformanceMetricsThreadSlot objects. The ThreadContext can not own the objects it holds,
+// because GStreamer does not properly cleans up the executed threads, and these objects would be
+// leaked otherwise. (The leak was reported by Valgrind)
 struct ThreadContext {
-    std::vector<ThreadFrame> frames;
+    const detail::PerformanceMetricsState *state = nullptr;
+    std::uint64_t instanceId = 0;
+    ThreadFrame *frame = nullptr;
     PerformanceMetrics *currentMetrics = nullptr;
 };
+
+static_assert(std::is_trivially_destructible_v<ThreadContext>,
+              "ThreadContext must not require TLS destructor registration");
 
 ThreadContext &threadContext() noexcept {
     thread_local ThreadContext context;
@@ -156,11 +171,26 @@ ThreadContext &threadContext() noexcept {
 }
 
 ThreadFrame *findThreadFrame(const detail::PerformanceMetricsState *state) noexcept {
-    for (auto &frame : threadContext().frames) {
-        if (frame.state == state && frame.instanceId == state->instanceId) {
-            return &frame;
+    auto &context = threadContext();
+    if (context.state == state && context.instanceId == state->instanceId &&
+        context.frame != nullptr) {
+        return context.frame;
+    }
+
+    const auto threadToken = currentThreadToken();
+    const auto slotCount =
+        std::min(state->nextSlot.load(std::memory_order_acquire), MaxThreadSlots);
+    for (std::uint32_t index = 0; index < slotCount; ++index) {
+        const auto &slot = state->slots[index];
+        if (slot.active.load(std::memory_order_acquire) && slot.threadToken == threadToken &&
+            slot.frame != nullptr) {
+            context.state = state;
+            context.instanceId = state->instanceId;
+            context.frame = slot.frame.get();
+            return context.frame;
         }
     }
+
     return nullptr;
 }
 
@@ -169,11 +199,6 @@ ThreadFrame *acquireThreadFrame(detail::PerformanceMetricsState *state) {
         return frame;
     }
 
-    auto &frames = threadContext().frames;
-    std::erase_if(frames, [state](const ThreadFrame &frame) {
-        return frame.state == state && frame.instanceId != state->instanceId;
-    });
-
     const auto slotIndex = state->nextSlot.fetch_add(1, std::memory_order_acq_rel);
     if (slotIndex >= MaxThreadSlots) {
         state->threadSlotOverflow.store(true, std::memory_order_release);
@@ -181,20 +206,24 @@ ThreadFrame *acquireThreadFrame(detail::PerformanceMetricsState *state) {
     }
 
     auto &slot = state->slots[slotIndex];
+    auto frame = std::make_unique<ThreadFrame>();
+    frame->slotIndex = slotIndex;
+
+    slot.threadToken = currentThreadToken();
     slot.threadId = currentThreadId();
     slot.droppedMetrics.store(0, std::memory_order_relaxed);
     slot.droppedSpans.store(0, std::memory_order_relaxed);
     slot.droppedHistoryEvents.store(0, std::memory_order_relaxed);
     slot.wrongThreadScopeCloses.store(0, std::memory_order_relaxed);
     slot.metricCount.store(0, std::memory_order_relaxed);
+    slot.frame = std::move(frame);
     slot.active.store(true, std::memory_order_release);
 
-    ThreadFrame frame;
-    frame.state = state;
-    frame.instanceId = state->instanceId;
-    frame.slotIndex = slotIndex;
-    frames.push_back(frame);
-    return &frames.back();
+    auto &context = threadContext();
+    context.state = state;
+    context.instanceId = state->instanceId;
+    context.frame = slot.frame.get();
+    return context.frame;
 }
 
 std::uint32_t ensureMetric(detail::PerformanceMetricsThreadSlot &slot,
@@ -408,10 +437,6 @@ void collectHistoryEvents(std::vector<PerformanceMetrics::SpanRecord> &destinati
         destination.insert(
             destination.end(), chunk->records.begin(), chunk->records.begin() + chunk->size);
     }
-}
-
-void writeDefaultMetricsAtExit() noexcept {
-    defaultPerformanceMetrics().writeAutoCsv();
 }
 
 } // namespace
@@ -731,12 +756,8 @@ PerformanceMetrics *currentPerformanceMetrics() noexcept {
 }
 
 PerformanceMetrics &defaultPerformanceMetrics() noexcept {
-    static PerformanceMetrics *const metrics = []() noexcept {
-        auto created = std::make_unique<PerformanceMetrics>();
-        std::atexit(writeDefaultMetricsAtExit);
-        return created.release();
-    }();
-    return *metrics;
+    static PerformanceMetrics metrics;
+    return metrics;
 }
 
 PerformanceMetrics::Scope enterBlock(std::string_view name) noexcept {

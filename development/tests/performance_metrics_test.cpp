@@ -93,6 +93,29 @@ TEST(PerformanceMetrics, SameNameUnderDifferentParentsStaysSeparate) {
     EXPECT_NE(sharedA->id, sharedB->id);
 }
 
+TEST(PerformanceMetrics, SwitchingRecordersPreservesEachNestedStack) {
+    PerformanceMetrics first;
+    PerformanceMetrics second;
+
+    {
+        auto firstRoot = first.scope("first-root");
+        {
+            auto secondRoot = second.scope("second-root");
+        }
+        {
+            auto firstChild = first.scope("first-child");
+        }
+    }
+
+    const auto firstSnapshot = first.aggregateSnapshot();
+    const auto *firstRoot = findMetric(firstSnapshot, "first-root");
+    ASSERT_NE(firstRoot, nullptr);
+    EXPECT_NE(findMetric(firstSnapshot, "first-child", firstRoot->id), nullptr);
+
+    const auto secondSnapshot = second.aggregateSnapshot();
+    EXPECT_NE(findMetric(secondSnapshot, "second-root"), nullptr);
+}
+
 TEST(PerformanceMetrics, LongNamesAreTruncatedAndReported) {
     PerformanceMetrics metrics;
     const std::string longName(PerformanceMetrics::MaxSpanNameLength + 8, 'x');
