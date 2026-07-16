@@ -1,6 +1,6 @@
 const WS_PROTO = location.protocol === 'https:' ? 'wss' : 'ws';
 const WS_HOST = location.hostname;
-const DEFAULT_METADATA_PORT = 7001;
+const DEFAULT_METADATA_PORT = 8002;
 const RECONNECT_DELAY_MS = 1500;
 const RECONNECT_DELAY_MAX_MS = 15000;
 const BACKOFF_FACTOR = 1.2;
@@ -46,8 +46,14 @@ function handleMetadataMessage(raw) {
 
     const perception = message?.perception;
     if (!perception) {
-        renderInferenceOutput(null);
-        renderPerformanceMetrics(null);
+        window.dispatchEvent(new CustomEvent('metadata-message', {
+            detail: {
+                frame_counter: message?.frame_counter,
+                perception: null,
+                inference_output: null,
+                performance: null,
+            },
+        }));
         return;
     }
 

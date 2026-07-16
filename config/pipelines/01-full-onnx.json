@@ -18,7 +18,7 @@
     "pekinfer opchain-path=/work/config/models/rvm/opchain.json active=false !",
     "pektracker content-type=genericObject !",
     "pekperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
-    "pekcomm method=websocket ws-port=7001 endpoint=/ws !",
+    "pekcomm method=websocket endpoint=/ws !",
     "pekosd enabled=true bg-image=\"/work/data/images/GettyImages-1298072556-thumbnail.jpg\" !",
     "peksink name=sink"
   ],
