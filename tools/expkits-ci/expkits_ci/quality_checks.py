@@ -29,7 +29,11 @@ class QualityChecks:
     # Constants
     JIRA_PROJECTS = ["EXPKITS"]
     CLANG_TIDY_DIAGNOSTIC_RE = re.compile(
-        r"^(?:\[[A-Z]+\]\s*)?.+?:\d+:\d+:\s+(warning|error):\s+.+\s+\[([A-Za-z0-9_.-]+)\]\s*$")
+        r"^(?:\[[A-Z]+\]\s*)?"
+        r"(?P<path>.+?):(?P<line>\d+):(?P<column>\d+):\s+"
+        r"(?P<severity>warning|error):\s+"
+        r"(?P<message>.+?)\s+\[(?P<check>[A-Za-z0-9_.-]+)\]\s*$")
+    CLANG_TIDY_SOURCE_CONTEXT_RE = re.compile(r"^\s*(?:\d+\s*)?\|")
     # TODO: known issue also described here:
     # https://github.com/llvm/llvm-project/pull/111453
     # For future use other zephyr supported static code analysis should be used
@@ -983,22 +987,56 @@ class QualityChecks:
         return result
 
     @staticmethod
-    def parse_clang_tidy_statistics(log_file):
-        """Parse clang-tidy diagnostics from a log file and count them by check name."""
+    def _count_clang_tidy_diagnostics(diagnostics):
+        """Count parsed clang-tidy diagnostics by check name and severity."""
         check_counts = Counter()
         severity_counts = Counter()
 
-        with open(log_file, 'r', encoding='utf-8') as f:
-            for line in f:
-                match = QualityChecks.CLANG_TIDY_DIAGNOSTIC_RE.match(line.rstrip())
-                if not match:
-                    continue
-
-                severity, check_name = match.groups()
-                severity_counts[severity] += 1
-                check_counts[check_name] += 1
+        for diagnostic in diagnostics:
+            severity_counts[diagnostic["severity"]] += 1
+            check_counts[diagnostic["check"]] += 1
 
         return check_counts, severity_counts
+
+    @classmethod
+    def parse_clang_tidy_diagnostics(cls, log_file):
+        """Parse clang-tidy diagnostics (currently for errors and warnings) with their locations and source excerpts."""
+        diagnostics = []
+
+        with open(log_file, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+
+        for line_index, raw_line in enumerate(lines):
+            match = cls.CLANG_TIDY_DIAGNOSTIC_RE.match(raw_line.rstrip())
+            if not match:
+                continue
+
+            source_context = []
+            for context_line in lines[line_index + 1:]:
+                context_line = context_line.rstrip()
+                if cls.CLANG_TIDY_SOURCE_CONTEXT_RE.match(context_line):
+                    source_context.append(context_line)
+                    continue
+                break
+
+            diagnostics.append({
+                "path": match.group("path"),
+                "line": int(match.group("line")),
+                "column": int(match.group("column")),
+                "severity": match.group("severity"),
+                "message": match.group("message"),
+                "check": match.group("check"),
+                "source_context": source_context,
+            })
+
+        return diagnostics
+
+    @classmethod
+    def parse_clang_tidy_statistics(cls, log_file):
+        """Parse clang-tidy diagnostics from a log file and count them by check name."""
+        diagnostics = cls.parse_clang_tidy_diagnostics(log_file)
+
+        return cls._count_clang_tidy_diagnostics(diagnostics)
 
     @staticmethod
     def clang_tidy_statistics_to_dict(log_file, check_counts, severity_counts):
@@ -1066,7 +1104,48 @@ class QualityChecks:
         return regressions, improvements, unchanged
 
     @staticmethod
-    def _log_clang_tidy_baseline_comparison(baseline_file, mode, regressions, improvements):
+    def _log_clang_tidy_regression_diagnostics(regressions, diagnostics):
+        """Connect each regressed check count to the diagnostics that produced it."""
+        logger.error("")
+        logger.error("Source diagnostics for regressed checks:")
+
+        for item in regressions:
+            matching_diagnostics = [
+                diagnostic for diagnostic in diagnostics
+                if diagnostic["check"] == item["check"]
+            ]
+            if not matching_diagnostics:
+                logger.error(
+                    "  %s: no matching source diagnostics were parsed from the clang-tidy log.",
+                    item["check"])
+                continue
+
+            if item["accepted"] == 0:
+                logger.error(
+                    "  %s: the following %d diagnostic(s) account for the %+d regression:",
+                    item["check"], len(matching_diagnostics), item["delta"])
+            else:
+                logger.error(
+                    "  %s: the baseline stores counts only, so it cannot identify which %+d "
+                    "diagnostic(s) are new; showing all %d current diagnostic(s):",
+                    item["check"], item["delta"], len(matching_diagnostics))
+
+            for diagnostic in matching_diagnostics:
+                logger.error(
+                    "    %s:%d:%d: %s: %s [%s]",
+                    diagnostic["path"],
+                    diagnostic["line"],
+                    diagnostic["column"],
+                    diagnostic["severity"],
+                    diagnostic["message"],
+                    diagnostic["check"],
+                )
+                for context_line in diagnostic["source_context"]:
+                    logger.error("    %s", context_line)
+
+    @staticmethod
+    def _log_clang_tidy_baseline_comparison(
+            baseline_file, mode, regressions, improvements, diagnostics=None):
         """Log clang-tidy baseline comparison results."""
         logger.info("clang-tidy baseline comparison:")
         logger.info("  baseline: %s", baseline_file)
@@ -1078,6 +1157,8 @@ class QualityChecks:
             for item in regressions:
                 logger.error("%-55s %8d %8d %+8d",
                              item["check"], item["accepted"], item["current"], item["delta"])
+            QualityChecks._log_clang_tidy_regression_diagnostics(
+                regressions, diagnostics or [])
         else:
             logger.info("  result: PASSED")
 
@@ -1085,7 +1166,8 @@ class QualityChecks:
             logger.info("  improvements: %d check(s) below accepted baseline", len(improvements))
 
     @staticmethod
-    def compare_clang_tidy_statistics_to_baseline(stats, baseline_file, mode="advisory"):
+    def compare_clang_tidy_statistics_to_baseline(
+            stats, baseline_file, mode="advisory", diagnostics=None):
         """Compare current clang-tidy per-check counts to an accepted baseline."""
         if not os.path.isfile(baseline_file):
             logger.error("Could not find clang-tidy baseline file: %s", baseline_file)
@@ -1099,7 +1181,8 @@ class QualityChecks:
 
         current_checks = {check: int(count) for check, count in stats.get("checks", {}).items()}
         regressions, improvements, _ = QualityChecks._compare_clang_tidy_checks(current_checks, baseline_checks)
-        QualityChecks._log_clang_tidy_baseline_comparison(baseline_file, mode, regressions, improvements)
+        QualityChecks._log_clang_tidy_baseline_comparison(
+            baseline_file, mode, regressions, improvements, diagnostics)
 
         if mode == "enforce" and regressions:
             return False
@@ -1107,7 +1190,7 @@ class QualityChecks:
         return True
 
     @staticmethod
-    def update_clang_tidy_baseline(stats, baseline_file):
+    def update_clang_tidy_baseline(stats, baseline_file, diagnostics=None):
         """Update baseline to current counts only when no per-check count regresses."""
         if not os.path.isfile(baseline_file):
             logger.error("Could not find clang-tidy baseline file: %s", baseline_file)
@@ -1122,7 +1205,7 @@ class QualityChecks:
         current_checks = {check: int(count) for check, count in stats.get("checks", {}).items() if int(count) > 0}
         regressions, improvements, _ = QualityChecks._compare_clang_tidy_checks(current_checks, baseline_checks)
         QualityChecks._log_clang_tidy_baseline_comparison(
-            baseline_file, "update-baseline", regressions, improvements)
+            baseline_file, "update-baseline", regressions, improvements, diagnostics)
 
         if regressions:
             logger.error("Refusing to update clang-tidy baseline because current counts exceed the existing baseline.")
@@ -1150,7 +1233,8 @@ class QualityChecks:
             return False
 
         try:
-            check_counts, severity_counts = QualityChecks.parse_clang_tidy_statistics(log_file)
+            diagnostics = QualityChecks.parse_clang_tidy_diagnostics(log_file)
+            check_counts, severity_counts = QualityChecks._count_clang_tidy_diagnostics(diagnostics)
         except Exception as e:
             logger.error("Failed to parse clang-tidy log file: %s", e)
             return False
@@ -1182,11 +1266,12 @@ class QualityChecks:
             if not baseline_file:
                 logger.error("--clang-tidy-update-baseline requires --clang-tidy-baseline.")
                 return False
-            return QualityChecks.update_clang_tidy_baseline(stats, baseline_file)
+            return QualityChecks.update_clang_tidy_baseline(
+                stats, baseline_file, diagnostics=diagnostics)
 
         if baseline_file:
             return QualityChecks.compare_clang_tidy_statistics_to_baseline(
-                stats, baseline_file, mode=baseline_mode)
+                stats, baseline_file, mode=baseline_mode, diagnostics=diagnostics)
 
         return True
 

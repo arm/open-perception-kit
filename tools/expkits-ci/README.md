@@ -104,7 +104,11 @@ expkits-ci --clang-tidy-stats clang-tidy.log \
 
 Baseline comparison checks per-rule counts only. It does not enforce the total
 diagnostic count, so unrelated cleanup cannot hide a regression in another
-clang-tidy check.
+clang-tidy check. When a rule regresses, the failure summary repeats the
+matching diagnostic locations, explanations, and source excerpts from the log.
+For a rule that already has accepted findings, the summary shows every current
+location and explains that a count-only baseline cannot identify which specific
+locations are new.
 
 To lower the repository baseline after fixes, run:
 
