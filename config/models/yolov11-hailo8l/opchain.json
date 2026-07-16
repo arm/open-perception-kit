@@ -1,6 +1,6 @@
 {
 	"name": "YoloV11 HAILO",
-	"description": "Hailo 8L-compiled variant of the YoloV11 object detection model.",
+	"description": "Hailo 8L-compiled object detector that reports bounding boxes, class labels, and confidence scores.",
 	"ops": [
 		{
 			"id": "pek-std-ops/InferenceController",

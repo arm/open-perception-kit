@@ -3,88 +3,259 @@
 
 <head>
     <meta charset="UTF-8" />
-    <title>WebRTC Stream</title>
+    <title>Perception Kit</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="style.css" />
+    <link rel="icon" type="image/svg+xml" href="/assets/perception-kit-favicon.svg?v=larger-favicon-20260608" />
+    <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="style.css?v=disabled-toggle-tooltip-20260608" />
 </head>
 
 <body>
     <div class="card">
-        <div class="card-header">
-            <div class="title">
-                <span class="title-dot"></span>
-                WebRTC for Perception Experience Kit pipelines
-            </div>
-        </div>
-
         <div class="card-body">
-            <div class="sidebar">
+            <div id="sidePanel" class="sidebar">
+                <div class="sidebar-sticky-header">
+                    <div class="sidebar-title">
+                        <img class="sidebar-title-icon" src="/assets/perception-kit-icon.svg?v=larger-favicon-20260608" alt="" aria-hidden="true" />
+                        <span>Perception Kit</span>
+                    </div>
 
-                <div class="sidebar-section">
-                    <div class="sidebar-section-title">Controls</div>
-                    <div class="controls-row">
-                        <div id="status-line" class="status-line status-line--compact connecting">
-                            <span class="status-line-dot" aria-hidden="true"></span>
-                            <span class="status-line-text">WebRTC connecting</span>
+                    <div class="sidebar-section sidebar-section--controls">
+                        <div class="controls-row">
+                            <div id="status-line" class="status-line status-line--compact connecting">
+                                <span class="status-line-dot" aria-hidden="true"></span>
+                                <span class="status-line-text">WebRTC connecting</span>
+                            </div>
+                            <div class="controls-actions">
+                                <button id="playPauseBtn" class="control-button control-button--primary" type="button"
+                                    aria-label="Pause pipeline">
+                                    <i id="playPauseIcon" class="video-control-icon fa-solid fa-pause" aria-hidden="true"></i>
+                                    <span class="video-control-text">Pause</span>
+                                </button>
+                                <button id="muteUnmuteBtn" type="button" aria-label="Unmute" style="display:none">
+                                    <span id="muteUnmuteIcon" class="video-control-icon">🔇</span>
+                                    <span class="video-control-text">Unmute</span>
+                                </button>
+                            </div>
                         </div>
-                        <div class="controls-actions">
-                            <button id="playPauseBtn" class="control-button control-button--primary" type="button"
-                                aria-label="Pause pipeline">
-                                <span id="playPauseIcon" class="video-control-icon">⏸</span>
-                                <span class="video-control-text">Pause</span>
-                            </button>
-                            <button id="muteUnmuteBtn" type="button" aria-label="Unmute" style="display:none">
-                                <span id="muteUnmuteIcon" class="video-control-icon">🔇</span>
-                                <span class="video-control-text">Unmute</span>
-                            </button>
+                        <div class="pipeline-switcher" aria-live="polite">
+                            <label class="pipeline-switcher-label" for="pipelineSelect">Pipeline</label>
+                            <div class="pipeline-switcher-row">
+                                <div class="pipeline-select-wrap">
+                                    <select id="pipelineSelect" class="pipeline-select" disabled>
+                                        <option>Loading pipelines...</option>
+                                    </select>
+                                    <i class="pipeline-select-icon fa-solid fa-chevron-down" aria-hidden="true"></i>
+                                </div>
+                                <button id="restartPipelineBtn"
+                                    class="control-button control-button--primary control-button--compact" type="button"
+                                    aria-label="Restart pipeline" disabled>
+                                    <i class="video-control-icon fa-solid fa-rotate-right" aria-hidden="true"></i>
+                                    <span class="video-control-text">Restart</span>
+                                </button>
+                            </div>
+                            <div id="pipelineSwitchStatus" class="pipeline-switcher-status"></div>
                         </div>
                     </div>
-                    <label class="perf-toggle-switch" aria-label="Toggle performance overlay">
-                        <input id="enablePerfOverlayChk" type="checkbox" role="switch">
-                        <span class="perf-toggle-track" aria-hidden="true">
-                            <span class="perf-toggle-thumb"></span>
-                        </span>
-                        <span class="perf-toggle-text">Performance overlay</span>
-                    </label>
                 </div>
 
-                <div class="sidebar-section sidebar-section--grow sidebar-section--models">
-                    <div class="sidebar-section-title">Pipeline Output Model</div>
-                    <div id="models-container" class="models-container">
-                        <div class="models-loading">
+                <div class="sidebar-scroll-area">
+                    <div class="sidebar-section sidebar-section--grow sidebar-section--models" data-model-selector-section>
+                        <div class="model-selector-header">
+                            <span class="sidebar-section-title">Model Selector</span>
+                        </div>
+                        <div id="modelSelectorPanel" class="model-selector-panel">
+                            <p class="sidebar-section-description">
+                                Select which models from the current pipeline are running on the source. Hover i for
+                                information for a specific model.
+                            </p>
+                            <div id="models-container" class="models-container">
+                                <div class="models-loading">
+                                    <div class="spinner"></div>
+                                    <span>Loading models...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div id="sidePanelResizeHandle" class="side-panel-resize-handle" aria-hidden="true"></div>
+            </div>
+
+            <main class="main-content">
+                <div class="video-wrapper">
+                    <video id="video" autoplay playsinline muted></video>
+                    <canvas id="regionCanvas" class="region-canvas" aria-hidden="true"></canvas>
+                    <svg id="regionOverlay" class="region-overlay" aria-hidden="true"></svg>
+                    <div id="video-overlay" class="video-overlay">
+                        <div class="overlay-chip">
                             <div class="spinner"></div>
-                            <span>Loading models...</span>
+                            <div id="overlay-text">Waiting for stream…</div>
+                        </div>
+                    </div>
+                    <div class="region-control-buttons" aria-label="Video regions">
+                        <div id="roiResolutionControl" class="roi-resolution-control" hidden>
+                            <output id="roiResolutionText" class="roi-resolution-text" for="roiScaleSlider">
+                                <span id="roiBaseResolutionText">--</span>
+                                <i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i>
+                                <span id="roiScaledResolutionText">--</span>
+                            </output>
+                            <label class="roi-scale-label" for="roiScaleSlider">
+                                <span id="roiScaleValue">100%</span>
+                                <input id="roiScaleSlider" class="roi-scale-slider" type="range"
+                                    min="10" max="100" step="1" value="100" />
+                            </label>
+                        </div>
+                        <button id="addRegionBtn" class="video-control-button" type="button"
+                            aria-label="Draw crop region" data-tooltip="Draw crop region">
+                            <i class="fa-solid fa-crop-simple" aria-hidden="true"></i>
+                        </button>
+                        <button id="removeRegionBtn" class="video-control-button" type="button"
+                            aria-label="Remove region" data-tooltip="Remove region" disabled>
+                            <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+                        </button>
+                        <button id="clearRoiCropBtn" class="video-control-button" type="button"
+                            aria-label="Clear pipeline crop" data-tooltip="Clear crop" disabled>
+                            <i class="fa-solid fa-expand" aria-hidden="true"></i>
+                        </button>
+                        <button id="applyRoiCropBtn" class="video-control-button" type="button"
+                            aria-label="Restart and apply current region and resolution scaling"
+                            data-tooltip="Restart and apply current region and resolution scaling" disabled>
+                            <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div class="video-control-buttons" aria-label="Video display controls">
+                        <button id="fullscreenOutputsBtn"
+                            class="video-control-button video-outputs-fullscreen-button" type="button"
+                            aria-label="Show outputs in fullscreen"
+                            data-tooltip="Show outputs in fullscreen" aria-pressed="false">
+                            <i id="fullscreenOutputsIcon" class="fa-solid fa-gauge video-gauge-icon--outline"
+                                aria-hidden="true"></i>
+                        </button>
+                        <button id="toggleVideoFeedBtn"
+                            class="video-control-button video-feed-toggle-button" type="button"
+                            aria-label="Hide video feed"
+                            data-tooltip="Hide video feed" aria-pressed="false">
+                            <i id="toggleVideoFeedIcon" class="fa-solid fa-eye-slash"
+                                aria-hidden="true"></i>
+                        </button>
+                        <button id="videoFullscreenBtn" class="video-control-button video-fullscreen-button"
+                            type="button" aria-label="Fullscreen video" data-tooltip="Fullscreen">
+                            <i id="videoFullscreenIcon" class="fa-solid fa-up-right-and-down-left-from-center"
+                                aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bottom-dock" aria-label="Pipeline data panels">
+                    <div id="bottomDockResizeHandle" class="bottom-dock-resize-handle" aria-hidden="true"></div>
+                    <div class="bottom-dock-header">
+                        <span class="bottom-dock-title">Outputs</span>
+                        <div class="output-panel-toggles" aria-label="Output panels">
+                            <button id="toggleInferenceOutput" class="output-panel-toggle" type="button"
+                                aria-pressed="true">
+                                <i class="fa-solid fa-eye" aria-hidden="true"></i>
+                                <span>Inference Output</span>
+                            </button>
+                            <button id="togglePerformanceOutput" class="output-panel-toggle" type="button"
+                                aria-pressed="true">
+                                <i class="fa-solid fa-eye" aria-hidden="true"></i>
+                                <span>Performance Metrics</span>
+                            </button>
+                            <button id="toggleDebugOutput" class="output-panel-toggle" type="button"
+                                aria-pressed="true">
+                                <i class="fa-solid fa-eye" aria-hidden="true"></i>
+                                <span>Debug Log</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="bottom-dock-panels">
+                        <div class="sidebar-section inference-output-section" data-inference-output-section>
+                            <div class="inference-output-header">
+                                <span class="sidebar-section-title">Inference Output</span>
+                                <button id="copyInferenceOutputBtn" class="section-copy-button" type="button"
+                                    aria-label="Copy inference output" title="Copy inference output">
+                                    <i class="fa-solid fa-copy" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <div class="inference-output-description">
+                                Inference output for the currently rendered frame, updating in real time.
+                            </div>
+                            <div id="inferenceOutputPanel" class="inference-output-panel">
+                                <div id="inferenceOutputBody" class="inference-output-body">
+                                    <div class="inference-output-empty">No inference output yet, enable a model to see inference here.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bottom-dock-column-resize-handle" data-bottom-column-resize="inference-metrics"
+                            aria-hidden="true"></div>
+
+                        <div class="sidebar-section performance-metrics-section" data-performance-metrics-section>
+                            <div class="performance-metrics-header">
+                                <span class="sidebar-section-title">Performance Metrics</span>
+                                <button id="copyPerformanceMetricsBtn" class="section-copy-button" type="button"
+                                    aria-label="Copy performance metrics" title="Copy performance metrics">
+                                    <i class="fa-solid fa-copy" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <div id="performanceMetricsPanel" class="performance-metrics-panel">
+                                <table class="performance-metrics-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Stage</th>
+                                            <th>Current</th>
+                                            <th>P95</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="performanceMetricsBody">
+                                        <tr>
+                                            <td colspan="3" class="performance-metrics-empty">No metrics yet</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="bottom-dock-column-resize-handle" data-bottom-column-resize="metrics-debug"
+                            aria-hidden="true"></div>
+
+                        <div class="sidebar-section debug-log-section" data-debug-log-section>
+                            <div class="debug-log-header">
+                                <span class="sidebar-section-title">Debug Log</span>
+                                <button id="copyDebugLogBtn" class="section-copy-button" type="button"
+                                    aria-label="Copy debug log" title="Copy debug log">
+                                    <i class="fa-solid fa-copy" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <div id="log" class="log"></div>
+                            <textarea id="debugLogCopyBuffer" class="debug-log-copy-buffer" readonly
+                                aria-label="Debug log copy buffer"></textarea>
                         </div>
                     </div>
                 </div>
-
-                <div class="sidebar-section">
-                    <div class="sidebar-section-title">Debug log</div>
-                    <div id="log" class="log"></div>
-                </div>
-
-            </div>
-
-            <div class="video-wrapper">
-                <video id="video" autoplay playsinline muted></video>
-                <div id="video-overlay" class="video-overlay">
-                    <div class="overlay-chip">
-                        <div class="spinner"></div>
-                        <div id="overlay-text">Waiting for stream…</div>
-                    </div>
-                </div>
-            </div>
+            </main>
         </div>
     </div>
 
     <!-- Logic -->
-    <script type="module" src="/pek-config.js"></script>
-    <script type="module" src="/webrtc.js"></script>
-    <script type="module" src="/ctrlws.js"></script>
-    <script type="module" src="/models.js"></script>
-    <script type="module" src="/video-controls.js"></script>
-    <script type="module" src="/audio.js"></script>
-    <script type="module" src="/perf_overlay.js"></script>
+    <script src="/pek-config.js?v=disabled-toggle-tooltip-20260608"></script>
+    <script src="/chrome-fallback.js?v=region-pause-filter-20260609"></script>
+    <script type="module" src="/webrtc.js?v=auto-pipeline-restart-20260608"></script>
+    <script type="module" src="/ctrlws.js?v=disabled-toggle-tooltip-20260608"></script>
+    <script type="module" src="/models.js?v=disabled-toggle-tooltip-20260608"></script>
+    <script type="module" src="/video-controls.js?v=region-pause-filter-20260609"></script>
+    <script type="module" src="/pipeline-switcher.js?v=disabled-toggle-tooltip-20260608"></script>
+    <script type="module" src="/audio.js?v=disabled-toggle-tooltip-20260608"></script>
+    <script type="module" src="/output-panels.js?v=dock-height-animator-20260608"></script>
+    <script type="module" src="/layout-resize.js?v=equal-output-columns-20260609"></script>
+    <script type="module" src="/video-fullscreen.js?v=fullscreen-hover-20260608"></script>
+    <script type="module" src="/region-editor.js?v=region-pause-filter-20260609"></script>
+    <script type="module" src="/performance-metrics.js?v=webui-cleanup-20260608"></script>
+    <script type="module" src="/inference-output.js?v=region-pause-filter-20260609"></script>
+    <script type="module" src="/debug-log.js?v=webui-cleanup-20260608"></script>
+    <script type="module" src="/sw-cleanup.js?v=disabled-toggle-tooltip-20260608"></script>
 </body>
 
 </html>

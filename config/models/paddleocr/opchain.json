@@ -1,6 +1,6 @@
 {
 	"name": "PadleOCR",
-	"description": "Optical Character Recognition (OCR) model for text detection, based on the PaddleOCR framework.",
+	"description": "Detects text regions in the video frame using PaddleOCR-style text detection.",
 	"ops": [
 		{
 			"id": "pek-std-ops/InferenceController",

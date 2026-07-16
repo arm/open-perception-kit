@@ -218,6 +218,78 @@ test('rapid repeated failures do not create parallel peer connections', async ()
     assert.equal(env.peerConnections.length, 2);
 });
 
+test('repeated connection failures can request a pipeline restart instead', async () => {
+    const env = createEnv();
+    const pipelineRestarts = [];
+    const client = env.createClient({
+        reconnectDelayMs: 10,
+        pipelineRestartFailureThreshold: 3,
+        pipelineRestartCooldownMs: 1000,
+        onRepeatedFailure: (detail) => {
+            pipelineRestarts.push(detail);
+            return true;
+        },
+    });
+
+    client.start();
+    env.openLatestSocket();
+    await env.flush();
+
+    env.latestPeerConnection().setIceState('failed');
+    assert.equal(client.getDebugState().restartTimerCount, 1);
+    assert.equal(client.getDebugState().consecutiveFailureCount, 1);
+    env.clock.tick(10);
+    env.openLatestSocket();
+    await env.flush();
+
+    env.latestPeerConnection().setIceState('failed');
+    assert.equal(client.getDebugState().restartTimerCount, 1);
+    assert.equal(client.getDebugState().consecutiveFailureCount, 2);
+    env.clock.tick(10);
+    env.openLatestSocket();
+    await env.flush();
+
+    const thirdPc = env.latestPeerConnection();
+    thirdPc.setIceState('failed');
+
+    assert.equal(pipelineRestarts.length, 1);
+    assert.equal(pipelineRestarts[0].failureCount, 3);
+    assert.equal(pipelineRestarts[0].reason, 'ICE failed');
+    assert.equal(client.getDebugState().restartTimerCount, 0);
+    assert.equal(client.getDebugState().consecutiveFailureCount, 0);
+    assert.equal(thirdPc.closeCount, 1);
+});
+
+test('healthy video clears the repeated failure count', async () => {
+    const env = createEnv();
+    const pipelineRestarts = [];
+    const client = env.createClient({
+        reconnectDelayMs: 0,
+        pipelineRestartFailureThreshold: 2,
+        onRepeatedFailure: (detail) => {
+            pipelineRestarts.push(detail);
+            return true;
+        },
+    });
+
+    client.start();
+    env.openLatestSocket();
+    await env.flush();
+
+    env.latestPeerConnection().setIceState('failed');
+    env.clock.tick(0);
+    env.openLatestSocket();
+    await env.flush();
+
+    env.attachVideoTrack();
+    assert.equal(client.getDebugState().consecutiveFailureCount, 0);
+
+    env.latestPeerConnection().setIceState('failed');
+    assert.equal(pipelineRestarts.length, 0);
+    assert.equal(client.getDebugState().restartTimerCount, 1);
+    assert.equal(client.getDebugState().consecutiveFailureCount, 1);
+});
+
 class FakeClock {
     constructor() {
         this.nowMs = 0;

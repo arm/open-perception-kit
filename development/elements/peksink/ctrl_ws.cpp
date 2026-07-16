@@ -20,7 +20,114 @@
 #include "peksink.h"
 #include "utils.h"
 
+#include <algorithm>
+#include <cctype>
+#include <set>
+#include <string>
+#include <vector>
+
 using namespace nlohmann;
+
+namespace {
+
+std::string lower_copy(const std::string &value) {
+    std::string ret = value;
+    std::transform(ret.begin(), ret.end(), ret.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return ret;
+}
+
+bool model_name_matches_dependency(const std::string &name, const std::string &token) {
+    const auto lowered = lower_copy(name);
+
+    if (lowered == token) {
+        return true;
+    }
+
+    if (lowered.rfind(token, 0) != 0 || lowered.size() <= token.size()) {
+        return false;
+    }
+
+    const char separator = lowered[token.size()];
+    return separator == ' ' || separator == '-' || separator == '_';
+}
+
+std::vector<std::string> dependency_tokens_for_model(const std::string &model_name) {
+    const auto lowered = lower_copy(model_name);
+
+    if (lowered.find("cameracontact") != std::string::npos ||
+        lowered.find("gazedetection") != std::string::npos) {
+        return {"ultraface"};
+    }
+
+    if (lowered.find("osnetx025reid") != std::string::npos) {
+        return {"yolov11"};
+    }
+
+    return {};
+}
+
+bool visible_model_active(const std::vector<ModelStatus> &statuses,
+                          const std::string &element_name,
+                          bool &active) {
+    for (const auto &status : statuses) {
+        if (status.element_name == element_name) {
+            active = status.active;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void set_model_element_active(GstElement *pipeline,
+                              const std::string &element_name,
+                              bool active,
+                              _GstPekSink *self) {
+    GstElement *element = get_element_by_name(GST_ELEMENT(pipeline), element_name);
+    if (!element) {
+        GST_WARNING_OBJECT(self, "Element not found: %s", element_name.c_str());
+        return;
+    }
+
+    g_object_set(element, "active", static_cast<gboolean>(active), NULL);
+    gst_object_unref(element);
+}
+
+void apply_model_runtime_state(GstElement *pipeline,
+                               const std::vector<ModelStatus> &statuses,
+                               _GstPekSink *self) {
+    std::set<std::string> required_elements;
+
+    for (const auto &status : statuses) {
+        if (!status.active) {
+            continue;
+        }
+
+        for (const auto &dependency_token : dependency_tokens_for_model(status.name)) {
+            for (const auto &candidate : statuses) {
+                if (candidate.element_name != status.element_name &&
+                    model_name_matches_dependency(candidate.name, dependency_token)) {
+                    required_elements.insert(candidate.element_name);
+                }
+            }
+        }
+    }
+
+    for (const auto &status : statuses) {
+        const bool runtime_active =
+            status.active || required_elements.find(status.element_name) != required_elements.end();
+        set_model_element_active(pipeline, status.element_name, runtime_active, self);
+        GST_INFO_OBJECT(self,
+                        "Set element %s active=%d (visible=%d)",
+                        status.element_name.c_str(),
+                        runtime_active,
+                        status.active);
+    }
+}
+
+} // namespace
 
 CtrlWebSocket::CtrlWebSocket(_GstPekSink *self) : self_(self) {
     using namespace std::placeholders;
@@ -29,6 +136,8 @@ CtrlWebSocket::CtrlWebSocket(_GstPekSink *self) : self_(self) {
         {"play_pause", std::bind(&CtrlWebSocket::play_pause, this, _1)},
         {"perf_overlay", std::bind(&CtrlWebSocket::enable_perf_overlay, this, _1)},
         {"model_toggle", std::bind(&CtrlWebSocket::model_toggle, this, _1)},
+        {"pipeline_restart", std::bind(&CtrlWebSocket::pipeline_restart, this, _1)},
+        {"pipeline_switch", std::bind(&CtrlWebSocket::pipeline_switch, this, _1)},
     };
 }
 
@@ -39,8 +148,9 @@ CtrlSockerError CtrlWebSocket::setup() {
 
     ws->set_open_handler([this](const connection_hdl &hdl) { on_open(hdl); });
     ws->set_close_handler([this](const connection_hdl &hdl) { on_close(hdl); });
-    ws->set_message_handler(
-        [this](const connection_hdl &hdl, const ws_server::message_ptr &msg) { on_message(hdl, msg); });
+    ws->set_message_handler([this](const connection_hdl &hdl, const ws_server::message_ptr &msg) {
+        on_message(hdl, msg);
+    });
 
     ws->set_reuse_addr(true);
     ws->listen(self_->ctrl_port);
@@ -137,7 +247,17 @@ void CtrlWebSocket::report() {
     for (auto kv : status_reporters) {
         auto [name, reporter] = kv;
 
-        rep[name] = reporter->report();
+        auto report = reporter->report();
+        rep[name] = report;
+
+        if (name == "perception_data" && report.is_object()) {
+            if (report.contains("performance")) {
+                rep["performance"] = report["performance"];
+            }
+            if (report.contains("inference_output")) {
+                rep["inference_output"] = report["inference_output"];
+            }
+        }
     }
 
     send_to_all(rep.dump());
@@ -156,6 +276,19 @@ struct ToggleStateRequest {
 
 struct ToggleInvokeBox {
     std::shared_ptr<ToggleStateRequest> req;
+};
+
+struct RestartStateRequest {
+    GstElement *element = nullptr;
+
+    std::mutex m;
+    std::condition_variable cv;
+    bool done = false;
+    bool ok = false;
+};
+
+struct RestartInvokeBox {
+    std::shared_ptr<RestartStateRequest> req;
 };
 
 gboolean toggle_on_main(gpointer user_data) {
@@ -199,6 +332,40 @@ gboolean toggle_on_main(gpointer user_data) {
 
 void destroy_box(gpointer user_data) {
     delete static_cast<ToggleInvokeBox *>(user_data);
+}
+
+gboolean restart_on_main(gpointer user_data) {
+    auto *box = static_cast<RestartInvokeBox *>(user_data);
+    auto req = box->req;
+
+    bool ok = false;
+    if (req->element) {
+        auto ready_ret = gst_element_set_state(req->element, GST_STATE_READY);
+        gst_element_get_state(req->element, nullptr, nullptr, 3 * GST_SECOND);
+
+        auto playing_ret = gst_element_set_state(req->element, GST_STATE_PLAYING);
+        gst_element_get_state(req->element, nullptr, nullptr, 3 * GST_SECOND);
+
+        ok = ready_ret != GST_STATE_CHANGE_FAILURE && playing_ret != GST_STATE_CHANGE_FAILURE;
+    }
+
+    {
+        std::lock_guard<std::mutex> lk(req->m);
+        req->ok = ok;
+        req->done = true;
+    }
+    req->cv.notify_one();
+
+    if (req->element && GST_IS_PIPELINE(req->element)) { // NOSONAR
+        gst_object_unref(req->element);
+        req->element = nullptr;
+    }
+
+    return G_SOURCE_REMOVE;
+}
+
+void destroy_restart_box(gpointer user_data) {
+    delete static_cast<RestartInvokeBox *>(user_data);
 }
 
 // handle the play button presses on the html frontend
@@ -280,33 +447,112 @@ void CtrlWebSocket::model_toggle(const json &jsn) {
             return;
         }
 
-        // Get the pipeline
         GstElement *pipeline = get_top_pipeline(GST_ELEMENT(self_));
         if (!pipeline) {
             GST_ERROR_OBJECT(self_, "Could not get pipeline");
             return;
         }
 
-        // Find the element by name
         GstElement *target_element = get_element_by_name(GST_ELEMENT(pipeline), element_name);
-        gst_object_unref(pipeline);
-
         if (!target_element) {
             GST_WARNING_OBJECT(self_, "Element not found: %s", element_name.c_str());
+            gst_object_unref(pipeline);
             return;
         }
 
-        gboolean active;
-        g_object_get(target_element, "active", &active, NULL);
-        active = !active;
-        g_object_set(target_element, "active", active, NULL);
+        bool active = false;
+        bool has_requested_active = false;
+        if (jsn.contains("active") && jsn["active"].is_boolean()) {
+            active = jsn["active"].get<bool>();
+            has_requested_active = true;
+        }
+
+        if (!has_requested_active) {
+            const auto current_statuses = self_->private_data->model_registry->snapshot();
+            if (!visible_model_active(current_statuses, element_name, active)) {
+                gboolean runtime_active = false;
+                g_object_get(target_element, "active", &runtime_active, NULL);
+                active = static_cast<bool>(runtime_active);
+            }
+
+            active = !active;
+        }
+
         gst_object_unref(target_element);
 
         self_->private_data->model_registry->toggle_model(element_name, active);
+        const auto statuses = self_->private_data->model_registry->snapshot();
+        apply_model_runtime_state(pipeline, statuses, self_);
+        gst_object_unref(pipeline);
 
-        GST_INFO_OBJECT(self_, "Set element %s active=%d", element_name.c_str(), active);
+        GST_INFO_OBJECT(self_, "Set visible model %s active=%d", element_name.c_str(), active);
 
     } catch (const json::exception &e) {
         GST_ERROR_OBJECT(self_, "JSON parse error: %s", e.what());
     }
+}
+
+void CtrlWebSocket::pipeline_restart(const json &jsn) {
+    DBG("pipeline_restart: {}", jsn.dump());
+
+    GstElement *pipeline = get_top_pipeline(GST_ELEMENT(self_));
+    if (!pipeline) {
+        GST_WARNING_OBJECT(self_,
+                           "Pipeline restart requested, but no top-level pipeline was found");
+        send_to_all(json{{"pipeline_restart",
+                          {{"available", false},
+                           {"requested", false},
+                           {"message", "Pipeline restart is not available for this launch."}}}}
+                        .dump());
+        return;
+    }
+
+    send_to_all(
+        json{{"pipeline_restart",
+              {{"available", true}, {"requested", true}, {"message", "Restarting pipeline..."}}}}
+            .dump());
+
+    auto req = std::make_shared<RestartStateRequest>();
+    req->element = pipeline;
+
+    auto *box = new RestartInvokeBox{req};
+    g_main_context_invoke_full(
+        nullptr, G_PRIORITY_DEFAULT, restart_on_main, box, destroy_restart_box);
+
+    {
+        std::unique_lock<std::mutex> lk(req->m);
+        req->cv.wait_for(lk, std::chrono::seconds(8), [&] { return req->done; });
+    }
+
+    send_to_all(json{
+        {"pipeline_restart",
+         {{"available", true},
+          {"requested", false},
+          {"complete", req->done && req->ok},
+          {"message",
+           req->done && req->ok ? "Pipeline restarted." : "Pipeline restart did not complete."}}}}
+                    .dump());
+    report();
+}
+
+void CtrlWebSocket::pipeline_switch(const json &jsn) {
+    DBG("pipeline_switch: {}", jsn.dump());
+
+    std::string requested_pipeline;
+    try {
+        if (jsn.contains("pipeline") && jsn["pipeline"].is_string()) {
+            requested_pipeline = jsn["pipeline"].get<std::string>();
+        }
+    } catch (const json::exception &e) {
+        GST_WARNING_OBJECT(self_, "Pipeline switch JSON parse error: %s", e.what());
+    }
+
+    send_to_all(
+        json{{"pipeline_switch",
+              {{"available", false},
+               {"requested", false},
+               {"pipeline", requested_pipeline},
+               {"message",
+                "Switching to another pipeline preset needs the WebUI supervisor launch mode."}}}}
+            .dump());
 }
