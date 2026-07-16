@@ -3,6 +3,7 @@
  *************************************************************/
 
 #include "Result.h"
+#include "magic_enum/magic_enum.hpp"
 
 using namespace pek;
 
@@ -24,7 +25,7 @@ std::string Error::toString() const {
     ret += format(ERROR, "Error:");
     ret += "\n";
 
-    ret += format(LABEL, magic_enum::enum_name(flag));
+    ret += format(LABEL, "{}", magic_enum::enum_name(flag));
     ret += "\n";
 
     ret += format(ERROR, "Reason:");

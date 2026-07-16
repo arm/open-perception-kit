@@ -21,7 +21,7 @@ inline constexpr std::string_view ResetColor = "\033[0m";
 
 #include "pek/Log.h"
 
-template <class... Args> void dbg(std::string_view fmt, Args &&...args) {
+template <class... Args> void dbg(fmt::string_view fmt, Args &&...args) {
     pek::logRuntime(fmt, std::forward<Args>(args)...);
     pek::log("\n");
 }

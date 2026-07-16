@@ -118,7 +118,7 @@ bool shouldLog(LogLevel lvl);
 
 // Single chokepoint for filtering, routing, and prefixing. The implementation lives in the common
 // library so later sink changes apply consistently to every caller, including release builds.
-void logWrite(LogLevel lvl, std::string_view msg);
+void logWrite(LogLevel lvl, fmt::string_view msg);
 
 } // namespace private_
 
@@ -183,19 +183,19 @@ inline void forceLoge(fmt::format_string<Args...> fmtstr, Args &&...args) {
 // Use this only when the format string is not a literal / not known at compile-time.
 // Named differently to avoid overload ambiguity with string literals.
 /// Formats a runtime format string and writes an informational message when enabled.
-template <typename... Args> inline void logRuntime(std::string_view fmtstr, Args &&...args) {
+template <typename... Args> inline void logRuntime(fmt::string_view fmtstr, Args &&...args) {
     auto s = fmt::vformat(fmtstr, fmt::make_format_args(args...));
     private_::logWrite(LogLevel::Info, s);
 }
 
 /// Formats a runtime format string and writes a warning message when enabled.
-template <typename... Args> inline void logwRuntime(std::string_view fmtstr, Args &&...args) {
+template <typename... Args> inline void logwRuntime(fmt::string_view fmtstr, Args &&...args) {
     auto s = fmt::vformat(fmtstr, fmt::make_format_args(args...));
     private_::logWrite(LogLevel::Warn, s);
 }
 
 /// Formats a runtime format string and writes an error message when enabled.
-template <typename... Args> inline void logeRuntime(std::string_view fmtstr, Args &&...args) {
+template <typename... Args> inline void logeRuntime(fmt::string_view fmtstr, Args &&...args) {
     auto s = fmt::vformat(fmtstr, fmt::make_format_args(args...));
     private_::logWrite(LogLevel::Error, s);
 }

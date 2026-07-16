@@ -39,7 +39,10 @@ if not soup_dep.found()
 endif
 json_dep = dependency('json-glib-1.0', required: false)
 
-fmt_dep = dependency('fmt', fallback : ['fmt', 'fmt_dep'], required : true)
+fmt_dep = dependency('fmt', 
+  version: ['>=12.0.0', '<13.0.0'],
+  fallback : ['fmt', 'fmt_dep'], 
+  required : true)
 
 nlohmann_dep = dependency('nlohmann_json',
                       required : true,

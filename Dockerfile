@@ -25,7 +25,7 @@ RUN set -eux; \
   gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
   gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
   gstreamer1.0-tools gstreamer1.0-x libcairo2-dev libfftw3-dev \
-  libfmt-dev libgstreamer-plugins-bad1.0-dev \
+  libgstreamer-plugins-bad1.0-dev \
   libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
   libjson-glib-dev libsoup-3.0-dev libssl-dev lldb-17 meson \
   ninja-build pkg-config pre-commit python3 python3-dev python3-gi \
