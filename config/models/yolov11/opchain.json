@@ -1,6 +1,6 @@
 {
 	"name": "YoloV11",
-	"description": "Detects objects in the video frame and reports bounding boxes, class labels, and confidence scores.",
+	"description": "YoloV11 object detection model.",
 	"ops": [
 		{
 			"id": "pek-std-ops/InferenceController",

@@ -54,8 +54,6 @@ class CtrlWebSocket {
     void play_pause(const nlohmann::json &jsn);
     void enable_perf_overlay(const nlohmann::json &jsn);
     void model_toggle(const nlohmann::json &jsn);
-    void pipeline_restart(const nlohmann::json &jsn);
-    void pipeline_switch(const nlohmann::json &jsn);
 
     void send_to_all(const std::string &text);
 

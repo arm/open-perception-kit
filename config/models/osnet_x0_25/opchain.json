@@ -1,6 +1,6 @@
 {
     "name": "OsnetX025Reid",
-    "description": "Generates a ReID embedding for each detected object so objects can be matched across frames. Depends on YoloV11 for object boxes; YoloV11 is kept running internally when this model is enabled.",
+    "description": "Opchain for OsnetX0.25 Re-identification model.",
     "ops": [
         {
             "id": "pek-std-ops/InferenceController",

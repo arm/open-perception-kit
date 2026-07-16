@@ -1,6 +1,6 @@
 {
     "name": "OsnetX025Reid HAILO",
-    "description": "Hailo 8-compiled ReID model that generates embeddings for detected objects so they can be matched across frames. Depends on YoloV11 for object boxes; YoloV11 is kept running internally when this model is enabled.",
+    "description": "Hailo 8-compiled variant of the OsnetX0.25 Re-identification model.",
     "ops": [
         {
             "id": "pek-std-ops/InferenceController",

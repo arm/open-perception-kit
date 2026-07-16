@@ -117,12 +117,8 @@ export function renderInferenceOutput(output) {
         return;
     }
 
-    const filteredOutput = window.PEK_REGION_FILTER?.filterInferenceOutput
-        ? window.PEK_REGION_FILTER.filterInferenceOutput(output)
-        : output;
-
-    const layers = Array.isArray(filteredOutput?.layers)
-        ? filteredOutput.layers.filter((layer) => layer.model || layer.contentType || layer.engine)
+    const layers = Array.isArray(output?.layers)
+        ? output.layers.filter((layer) => layer.model || layer.contentType || layer.engine)
         : [];
     currentLayers = layers;
     updateCopyButtonState();
@@ -168,7 +164,7 @@ copyButton?.addEventListener('click', () => {
     copyTextWithFeedback(copyButton, getInferenceText());
 });
 
-window.addEventListener('ctrl-message', (event) => {
+window.addEventListener('metadata-message', (event) => {
     if (event.detail?.inference_output) {
         renderInferenceOutput(event.detail.inference_output);
     }
@@ -178,8 +174,5 @@ window.addEventListener('feed-pause-change', () => {
     renderInferenceOutput(latestOutput);
 });
 
-window.addEventListener('regions-change', () => {
-    renderInferenceOutput(latestOutput);
-});
 
 updateCopyButtonState();

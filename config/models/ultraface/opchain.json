@@ -1,6 +1,6 @@
 {
 	"name": "Ultraface",
-	"description": "Detects faces in the video frame and provides face crops.",
+	"description": "Ultraface face detection model.",
 	"ops": [
 		{
 			"id": "pek-std-ops/InferenceController",

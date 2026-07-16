@@ -5,9 +5,9 @@
     <meta charset="UTF-8" />
     <title>Perception Kit</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" type="image/svg+xml" href="/assets/perception-kit-favicon.svg?v=larger-favicon-20260608" />
+    <link rel="icon" type="image/svg+xml" href="/assets/perception-kit-favicon.svg" />
     <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css" />
-    <link rel="stylesheet" href="style.css?v=disabled-toggle-tooltip-20260608" />
+    <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
@@ -16,7 +16,7 @@
             <div id="sidePanel" class="sidebar">
                 <div class="sidebar-sticky-header">
                     <div class="sidebar-title">
-                        <img class="sidebar-title-icon" src="/assets/perception-kit-icon.svg?v=larger-favicon-20260608" alt="" aria-hidden="true" />
+                        <img class="sidebar-title-icon" src="/assets/perception-kit-icon.svg" alt="" aria-hidden="true" />
                         <span>Perception Kit</span>
                     </div>
 
@@ -38,24 +38,13 @@
                                 </button>
                             </div>
                         </div>
-                        <div class="pipeline-switcher" aria-live="polite">
-                            <label class="pipeline-switcher-label" for="pipelineSelect">Pipeline</label>
-                            <div class="pipeline-switcher-row">
-                                <div class="pipeline-select-wrap">
-                                    <select id="pipelineSelect" class="pipeline-select" disabled>
-                                        <option>Loading pipelines...</option>
-                                    </select>
-                                    <i class="pipeline-select-icon fa-solid fa-chevron-down" aria-hidden="true"></i>
-                                </div>
-                                <button id="restartPipelineBtn"
-                                    class="control-button control-button--primary control-button--compact" type="button"
-                                    aria-label="Restart pipeline" disabled>
-                                    <i class="video-control-icon fa-solid fa-rotate-right" aria-hidden="true"></i>
-                                    <span class="video-control-text">Restart</span>
-                                </button>
-                            </div>
-                            <div id="pipelineSwitchStatus" class="pipeline-switcher-status"></div>
-                        </div>
+                        <label class="perf-toggle-switch" aria-label="Toggle performance overlay">
+                            <input id="enablePerfOverlayChk" type="checkbox" role="switch">
+                            <span class="perf-toggle-track" aria-hidden="true">
+                                <span class="perf-toggle-thumb"></span>
+                            </span>
+                            <span class="perf-toggle-text">Performance overlay</span>
+                        </label>
                     </div>
                 </div>
 
@@ -66,8 +55,7 @@
                         </div>
                         <div id="modelSelectorPanel" class="model-selector-panel">
                             <p class="sidebar-section-description">
-                                Select which models from the current pipeline are running on the source. Hover i for
-                                information for a specific model.
+                                Select which models from the current pipeline are running on the source.
                             </p>
                             <div id="models-container" class="models-container">
                                 <div class="models-loading">
@@ -77,7 +65,6 @@
                             </div>
                         </div>
                     </div>
-
                 </div>
 
                 <div id="sidePanelResizeHandle" class="side-panel-resize-handle" aria-hidden="true"></div>
@@ -86,44 +73,11 @@
             <main class="main-content">
                 <div class="video-wrapper">
                     <video id="video" autoplay playsinline muted></video>
-                    <canvas id="regionCanvas" class="region-canvas" aria-hidden="true"></canvas>
-                    <svg id="regionOverlay" class="region-overlay" aria-hidden="true"></svg>
                     <div id="video-overlay" class="video-overlay">
                         <div class="overlay-chip">
                             <div class="spinner"></div>
-                            <div id="overlay-text">Waiting for stream…</div>
+                            <div id="overlay-text">Waiting for stream...</div>
                         </div>
-                    </div>
-                    <div class="region-control-buttons" aria-label="Video regions">
-                        <div id="roiResolutionControl" class="roi-resolution-control" hidden>
-                            <output id="roiResolutionText" class="roi-resolution-text" for="roiScaleSlider">
-                                <span id="roiBaseResolutionText">--</span>
-                                <i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i>
-                                <span id="roiScaledResolutionText">--</span>
-                            </output>
-                            <label class="roi-scale-label" for="roiScaleSlider">
-                                <span id="roiScaleValue">100%</span>
-                                <input id="roiScaleSlider" class="roi-scale-slider" type="range"
-                                    min="10" max="100" step="1" value="100" />
-                            </label>
-                        </div>
-                        <button id="addRegionBtn" class="video-control-button" type="button"
-                            aria-label="Draw crop region" data-tooltip="Draw crop region">
-                            <i class="fa-solid fa-crop-simple" aria-hidden="true"></i>
-                        </button>
-                        <button id="removeRegionBtn" class="video-control-button" type="button"
-                            aria-label="Remove region" data-tooltip="Remove region" disabled>
-                            <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
-                        </button>
-                        <button id="clearRoiCropBtn" class="video-control-button" type="button"
-                            aria-label="Clear pipeline crop" data-tooltip="Clear crop" disabled>
-                            <i class="fa-solid fa-expand" aria-hidden="true"></i>
-                        </button>
-                        <button id="applyRoiCropBtn" class="video-control-button" type="button"
-                            aria-label="Restart and apply current region and resolution scaling"
-                            data-tooltip="Restart and apply current region and resolution scaling" disabled>
-                            <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
-                        </button>
                     </div>
                     <div class="video-control-buttons" aria-label="Video display controls">
                         <button id="fullscreenOutputsBtn"
@@ -159,13 +113,13 @@
                                 <span>Inference Output</span>
                             </button>
                             <button id="togglePerformanceOutput" class="output-panel-toggle" type="button"
-                                aria-pressed="true">
-                                <i class="fa-solid fa-eye" aria-hidden="true"></i>
+                                aria-pressed="false">
+                                <i class="fa-solid fa-eye-slash" aria-hidden="true"></i>
                                 <span>Performance Metrics</span>
                             </button>
                             <button id="toggleDebugOutput" class="output-panel-toggle" type="button"
-                                aria-pressed="true">
-                                <i class="fa-solid fa-eye" aria-hidden="true"></i>
+                                aria-pressed="false">
+                                <i class="fa-solid fa-eye-slash" aria-hidden="true"></i>
                                 <span>Debug Log</span>
                             </button>
                         </div>
@@ -240,22 +194,20 @@
     </div>
 
     <!-- Logic -->
-    <script src="/pek-config.js?v=disabled-toggle-tooltip-20260608"></script>
-    <script src="/chrome-fallback.js?v=region-pause-filter-20260609"></script>
-    <script type="module" src="/webrtc.js?v=auto-pipeline-restart-20260608"></script>
-    <script type="module" src="/ctrlws.js?v=disabled-toggle-tooltip-20260608"></script>
-    <script type="module" src="/models.js?v=disabled-toggle-tooltip-20260608"></script>
-    <script type="module" src="/video-controls.js?v=region-pause-filter-20260609"></script>
-    <script type="module" src="/pipeline-switcher.js?v=disabled-toggle-tooltip-20260608"></script>
-    <script type="module" src="/audio.js?v=disabled-toggle-tooltip-20260608"></script>
-    <script type="module" src="/output-panels.js?v=dock-height-animator-20260608"></script>
-    <script type="module" src="/layout-resize.js?v=equal-output-columns-20260609"></script>
-    <script type="module" src="/video-fullscreen.js?v=fullscreen-hover-20260608"></script>
-    <script type="module" src="/region-editor.js?v=region-pause-filter-20260609"></script>
-    <script type="module" src="/performance-metrics.js?v=webui-cleanup-20260608"></script>
-    <script type="module" src="/inference-output.js?v=region-pause-filter-20260609"></script>
-    <script type="module" src="/debug-log.js?v=webui-cleanup-20260608"></script>
-    <script type="module" src="/sw-cleanup.js?v=disabled-toggle-tooltip-20260608"></script>
+    <script src="/pek-config.js"></script>
+    <script type="module" src="/webrtc.js"></script>
+    <script type="module" src="/ctrlws.js"></script>
+    <script type="module" src="/models.js"></script>
+    <script type="module" src="/video-controls.js"></script>
+    <script type="module" src="/audio.js"></script>
+    <script type="module" src="/perf_overlay.js"></script>
+    <script type="module" src="/output-panels.js"></script>
+    <script type="module" src="/layout-resize.js"></script>
+    <script type="module" src="/video-fullscreen.js"></script>
+    <script type="module" src="/performance-metrics.js"></script>
+    <script type="module" src="/inference-output.js"></script>
+    <script type="module" src="/debug-log.js"></script>
+    <script type="module" src="/metadata-ws.js"></script>
 </body>
 
 </html>

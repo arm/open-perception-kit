@@ -1,6 +1,6 @@
 {
   "name": "Modnet",
-  "description": "Creates a person foreground matte for real-time background separation.",
+  "description": "Modnet real time background matting model.",
   "ops": [
     {
       "id": "pek-std-ops/InferenceController",

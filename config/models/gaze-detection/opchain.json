@@ -1,6 +1,6 @@
 {
 	"name": "GazeDetection",
-	"description": "Estimates gaze direction for each detected face and draws the gaze vector on the video. Depends on Ultraface for face detection and crop generation; Ultraface is kept running internally when this model is enabled.",
+	"description": "Detects gaze direction from human face images.",
 	"ops": [
 		{
 			"id": "pek-std-ops/InferenceController",

@@ -10,7 +10,6 @@ g++ -fPIC -shared -o libgstpeksink.so peksink.cpp \
 // WebRTC in GST is unstable: this macro disables the warning
 #include "glib-object.h"
 #include "glib.h"
-#include "gst/PerceptionMeta.h"
 #include "gst/gstobject.h"
 #include <gst/gstelement.h>
 
@@ -27,14 +26,12 @@ g++ -fPIC -shared -o libgstpeksink.so peksink.cpp \
 #include <websocketpp/frame.hpp>
 #include <websocketpp/server.hpp>
 
-#include <pek/PerceptionSerializer.h>
 #include <pek/Tools.h>
 
 #include <httplib.h>
 
 #include <nlohmann/json.hpp>
 
-#include <chrono>
 #include <cstdlib>
 #include <memory>
 #include <string>
@@ -152,42 +149,6 @@ nlohmann::json PerformanceOverlayStateReporter::report() const {
     }
 
     return ret;
-}
-
-void PerceptionDataReporter::set_perception(const pek::Perception &perception) {
-    nlohmann::json perception_json = perception;
-    auto layers = perception_json.value("layers", nlohmann::json::array());
-
-    if (layers.is_array()) {
-        for (auto &layer : layers) {
-            if (!layer.is_object()) {
-                continue;
-            }
-
-            const auto detections = layer.value("detections", nlohmann::json::array());
-            layer["count"] = detections.is_array() ? detections.size() : 0;
-        }
-    }
-
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        latest_ = {
-            {"performance", {{"lines", perception.perfdata}}},
-            {"inference_output", {{"layers", layers}}},
-        };
-    }
-
-    const auto now = std::chrono::steady_clock::now();
-    if (last_report_ == std::chrono::steady_clock::time_point{} ||
-        now - last_report_ >= std::chrono::milliseconds(500)) {
-        last_report_ = now;
-        trigger_reporting();
-    }
-}
-
-nlohmann::json PerceptionDataReporter::report() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return latest_;
 }
 
 GType gst_pek_sink_get_type(void);
@@ -452,90 +413,6 @@ static void gst_pek_sink_dispose(GObject *object) {
     G_OBJECT_CLASS(gst_pek_sink_parent_class)->dispose(object);
 }
 
-static void gst_pek_sink_stop_servers(GstPekSink *self) {
-    if (!self->private_data || !self->private_data->servers_started) {
-        return;
-    }
-
-    if (self->private_data->ctrl_websocket) {
-        self->private_data->ctrl_websocket->stop();
-    }
-    if (self->private_data->http_server) {
-        self->private_data->http_server->stop();
-    }
-    if (self->private_data->webrtc_websocket) {
-        self->private_data->webrtc_websocket->stop();
-    }
-
-    self->private_data->servers_started = false;
-}
-
-static bool gst_pek_sink_start_servers(GstPekSink *self) {
-    if (!self->private_data || self->private_data->servers_started) {
-        return true;
-    }
-
-    if (self->private_data->webrtc_websocket->start() != WebRtcSockerError::OK) {
-        return false;
-    }
-    if (self->private_data->ctrl_websocket->start() != CtrlSockerError::OK) {
-        if (self->private_data->webrtc_websocket) {
-            self->private_data->webrtc_websocket->stop();
-        }
-        return false;
-    }
-    if (self->private_data->http_server->start() != PekSinkHttpServerError::OK) {
-        if (self->private_data->ctrl_websocket) {
-            self->private_data->ctrl_websocket->stop();
-        }
-        if (self->private_data->webrtc_websocket) {
-            self->private_data->webrtc_websocket->stop();
-        }
-        return false;
-    }
-
-    self->private_data->servers_started = true;
-    return true;
-}
-
-static GstStateChangeReturn gst_pek_sink_change_state(GstElement *element,
-                                                      GstStateChange transition) {
-    auto *self = reinterpret_cast<GstPekSink *>(element);
-
-    if (transition == GST_STATE_CHANGE_NULL_TO_READY && !gst_pek_sink_start_servers(self)) {
-        GST_ERROR_OBJECT(self, "Failed to start peksink WebUI servers");
-        return GST_STATE_CHANGE_FAILURE;
-    }
-
-    auto ret = GST_ELEMENT_CLASS(gst_pek_sink_parent_class)->change_state(element, transition);
-
-    if (transition == GST_STATE_CHANGE_READY_TO_NULL) {
-        gst_pek_sink_stop_servers(self);
-    }
-
-    return ret;
-}
-
-static GstPadProbeReturn
-gst_pek_sink_perception_probe(GstPad *, GstPadProbeInfo *info, gpointer user_data) {
-    auto *self = reinterpret_cast<GstPekSink *>(user_data);
-    if (!self || !self->private_data || !self->private_data->perception_data_reporter) {
-        return GST_PAD_PROBE_OK;
-    }
-
-    GstBuffer *buffer = gst_pad_probe_info_get_buffer(info);
-    if (!buffer) {
-        return GST_PAD_PROBE_OK;
-    }
-
-    auto perception = pek::PerceptionMeta::read(buffer);
-    if (perception) {
-        self->private_data->perception_data_reporter->set_perception(*perception);
-    }
-
-    return GST_PAD_PROBE_OK;
-}
-
 static void gst_pek_sink_finalize(GObject *object) {
     auto *self = reinterpret_cast<GstPekSink *>(object);
 
@@ -621,8 +498,6 @@ static void init_video(GstPekSink *self) {
 
         // Install custom event handler
         gst_pad_set_event_function(vg, gst_pek_sink_sink_event);
-        gst_pad_add_probe(
-            vg, GST_PAD_PROBE_TYPE_BUFFER, gst_pek_sink_perception_probe, self, nullptr);
         gst_element_add_pad(GST_ELEMENT(self), vg);
     }
 }
@@ -761,15 +636,17 @@ static void gst_pek_sink_init(GstPekSink *self) {
     self->private_data->model_registry = std::make_shared<ModelRegistry>();
 
     self->private_data->webrtc_websocket = std::make_unique<WebRtcWebSocket>(self);
+    self->private_data->webrtc_websocket->start();
 
     self->private_data->ctrl_websocket = std::make_unique<CtrlWebSocket>(self);
+    self->private_data->ctrl_websocket->start();
 
     self->private_data->http_server = std::make_unique<PekSinkHttpServer>(self);
+    self->private_data->http_server->start();
 
     self->private_data->pipeline_state_reporter = std::make_shared<PipelineStateReporter>(self);
     self->private_data->performance_overlay_state_reporter =
         std::make_shared<PerformanceOverlayStateReporter>(self);
-    self->private_data->perception_data_reporter = std::make_shared<PerceptionDataReporter>();
 
     self->private_data->ctrl_websocket->register_status_reporter(
         "models", self->private_data->model_registry);
@@ -777,8 +654,6 @@ static void gst_pek_sink_init(GstPekSink *self) {
         "pipeline_state", self->private_data->pipeline_state_reporter);
     self->private_data->ctrl_websocket->register_status_reporter(
         "perf_overlay", self->private_data->performance_overlay_state_reporter);
-    self->private_data->ctrl_websocket->register_status_reporter(
-        "perception_data", self->private_data->perception_data_reporter);
 }
 
 static void gst_pek_sink_class_init(GstPekSinkClass *klass) {
@@ -789,7 +664,6 @@ static void gst_pek_sink_class_init(GstPekSinkClass *klass) {
     gobject_class->get_property = gst_pek_sink_get_property;
     gobject_class->dispose = gst_pek_sink_dispose;
     gobject_class->finalize = gst_pek_sink_finalize;
-    element_class->change_state = gst_pek_sink_change_state;
 
     /* C++ flags helper */
     constexpr GParamFlags kRW =

@@ -28,32 +28,20 @@ function setStatus(state, label, subtext) {
         case 'connecting':
         case 'reconnecting':
             overlay.classList.remove('hidden');
-            overlayText.textContent = document.body.classList.contains('is-pipeline-restarting')
-                ? 'Restarting'
-                : 'Connecting…';
+            overlayText.textContent = 'Connecting…';
             break;
         case 'connected':
-            if (!document.body.classList.contains('is-pipeline-restarting'))
-                overlay.classList.add('hidden');
+            overlay.classList.add('hidden');
             break;
         case 'disconnected':
             overlay.classList.remove('hidden');
-            overlayText.textContent = document.body.classList.contains('is-pipeline-restarting')
-                ? 'Restarting'
-                : 'Disconnected – waiting for stream…';
+            overlayText.textContent = 'Disconnected – waiting for stream…';
             break;
     }
 }
 
 function setStatusLine(text) {
-    if (document.body.classList.contains('is-pipeline-restarting')) {
-        const textEl = statusLineEl.querySelector('.status-line-text');
-        if (textEl) {
-            textEl.textContent = 'Restarting Pipeline';
-        }
-        return;
-    }
-
+    console.log("setStatusLine: " + text);
     const textEl = statusLineEl.querySelector('.status-line-text');
     if (textEl) {
         textEl.textContent = text;
@@ -77,114 +65,19 @@ function appendLog(message, type = 'info') {
 const WS_PROTO = location.protocol === 'https:' ? 'wss' : 'ws';
 const WS_HOST = location.hostname;
 
-function fallbackWebRtcPort() {
-    const pagePort = Number.parseInt(location.port || '', 10);
-    if (pagePort === 9999 || pagePort === 10099) {
-        return 8000;
-    }
-
-    return location.port || (location.protocol === 'https:' ? 443 : 80);
-}
-
-// Prefer configured wsPort, fallback to child signaling port for supervised UI.
-const WS_PORT = (window.PEK_CONFIG && window.PEK_CONFIG.wsPort) || fallbackWebRtcPort();
+// Prefer configured wsPort, fallback to page port if missing
+const WS_PORT = (window.PEK_CONFIG && window.PEK_CONFIG.wsPort) ||
+    (location.port || (location.protocol === 'https:' ? 443 : 80));
 
 const SIGNALING_URL = `${WS_PROTO}://${WS_HOST}:${WS_PORT}/ws`;
 const WEBRTC_TIMING_CONFIG = resolveWebRtcTimingConfig(window.PEK_CONFIG || {});
 const WEBRTC_ICE_CONFIG = resolveWebRtcIceConfig(window.PEK_CONFIG || {});
-const PIPELINE_RESTART_SESSION_KEY = "pekPipelineRestarting";
-let client = null;
-let repeatedFailureRestartInProgress = false;
 
-function setPipelineRestartUiBusy(busy) {
-    document.body.classList.toggle("is-pipeline-restarting", busy);
-
-    if (busy) {
-        sessionStorage.setItem(PIPELINE_RESTART_SESSION_KEY, "true");
-        setStatus('reconnecting', 'Reconnecting', 'Restarting pipeline after repeated connection failures...');
-        setStatusLine('Restarting Pipeline');
-        overlay?.classList.remove('hidden');
-        if (overlayText)
-            overlayText.textContent = 'Restarting';
-    } else {
-        sessionStorage.removeItem(PIPELINE_RESTART_SESSION_KEY);
-    }
-}
-
-function hasSupervisorRestartApi() {
-    return window.PEK_CONFIG?.supervised === true ||
-        Boolean(document.getElementById("pipelineSelect") && document.getElementById("restartPipelineBtn"));
-}
-
-function canStartRepeatedFailurePipelineRestart() {
-    return Boolean(
-        hasSupervisorRestartApi() &&
-        !repeatedFailureRestartInProgress &&
-        !document.body.classList.contains("is-pipeline-restarting") &&
-        sessionStorage.getItem(PIPELINE_RESTART_SESSION_KEY) !== "true"
-    );
-}
-
-async function requestPipelineRestartAfterRepeatedFailure(detail) {
-    if (!canStartRepeatedFailurePipelineRestart())
-        return false;
-
-    repeatedFailureRestartInProgress = true;
-    setPipelineRestartUiBusy(true);
-    window.dispatchEvent(new CustomEvent("pipeline-restart", {
-        detail: {available: true, requested: true, auto: true},
-    }));
-
-    appendLog(
-        `Restarting pipeline after ${detail.failureCount} repeated WebRTC connection failures ` +
-        `(${detail.reason}).`,
-        'error',
-    );
-
-    try {
-        const response = await fetch("/api/pipeline-restart", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: "{}",
-        });
-        const result = await response.json().catch(() => ({}));
-
-        if (!response.ok || !result.complete) {
-            throw new Error(result.message || `pipeline restart failed: ${response.status}`);
-        }
-
-        appendLog(result.message || "Pipeline restarted after repeated WebRTC failures.");
-        window.dispatchEvent(new CustomEvent("pipeline-layout-reset"));
-        window.dispatchEvent(new CustomEvent("pipeline-restart", {
-            detail: {available: true, requested: false, complete: true, auto: true},
-        }));
-    } catch (error) {
-        appendLog(`Pipeline restart after repeated WebRTC failures failed: ${error.message || error}`, 'error');
-        window.dispatchEvent(new CustomEvent("pipeline-restart", {
-            detail: {available: true, requested: false, complete: false, auto: true},
-        }));
-    } finally {
-        repeatedFailureRestartInProgress = false;
-        setPipelineRestartUiBusy(false);
-        client?.reconnectNow('pipeline restart after repeated WebRTC failures');
-    }
-
-    return true;
-}
-
-client = createWebRtcClient({
+const client = createWebRtcClient({
     video,
     signalingUrl: SIGNALING_URL,
     ...WEBRTC_TIMING_CONFIG,
     ...WEBRTC_ICE_CONFIG,
-    pipelineRestartFailureThreshold: window.PEK_CONFIG?.pipelineRestartFailureThreshold ?? 3,
-    onRepeatedFailure: (detail) => {
-        if (!canStartRepeatedFailurePipelineRestart())
-            return false;
-
-        requestPipelineRestartAfterRepeatedFailure(detail);
-        return true;
-    },
     logger: appendLog,
     onStatus: setStatus,
     onStatusLine: setStatusLine,

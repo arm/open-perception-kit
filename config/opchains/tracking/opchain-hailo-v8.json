@@ -1,6 +1,6 @@
 {
-    "name": "FullTrackingHailo",
-    "description": "Hailo object tracking pipeline: YoloV11 detects objects, then OsnetX025Reid creates ReID embeddings so tracked objects can be matched across frames.",
+    "name": "FullTrackingHailo8",
+    "description": "Detector + ReID micropipeline for `pektracker` using Hailo 8-compiled models.",
     "ops": [
         {
             "id": "pek-std-ops/InferenceController",

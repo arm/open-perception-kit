@@ -74,7 +74,7 @@ copyButton?.addEventListener('click', () => {
     copyTextWithFeedback(copyButton, getMetricsText());
 });
 
-window.addEventListener('ctrl-message', (event) => {
+window.addEventListener('metadata-message', (event) => {
     if (event.detail?.performance) {
         renderPerformanceMetrics(event.detail.performance);
     }

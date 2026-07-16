@@ -10,11 +10,11 @@ const videoFeedIcon = document.getElementById('toggleVideoFeedIcon');
 let isFullscreen = false;
 let hideTimer = null;
 let outputsAvailable = true;
-let videoFeedHidden = localStorage.getItem('pek-video:feed-hidden:v1') === 'true';
 let outputsInFullscreen = (
     localStorage.getItem('pek-video:fullscreen-outputs:v1') ??
     localStorage.getItem('pek-video:fullscreen-metrics:v1')
 ) === 'true';
+let videoFeedHidden = localStorage.getItem('pek-video:feed-hidden:v1') === 'true';
 
 function notifyVideoLayoutChange() {
     window.dispatchEvent(new CustomEvent('video-layout-change', {

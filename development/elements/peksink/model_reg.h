@@ -8,7 +8,6 @@
 #include <map>
 #include <mutex>
 #include <string>
-#include <vector>
 
 #include "status_reporter.h"
 
@@ -26,7 +25,6 @@ class ModelRegistry : public StatusReporter {
     void add_model(const std::string &model_name, const std::string &element_name, bool active);
     void del_model(const std::string &element_name);
     void toggle_model(const std::string &element_name, bool active);
-    std::vector<ModelStatus> snapshot() const;
 
     nlohmann::json report() const override;
 };

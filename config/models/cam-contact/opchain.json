@@ -1,6 +1,6 @@
 {
 	"name": "CameraContact",
-	"description": "Classifies each detected face as making camera contact or not. Depends on Ultraface for face detection and crop generation; Ultraface is kept running internally when this model is enabled.",
+	"description": "Model to detect if a person is looking into the camera or not.",
 	"ops": [
 		{
 			"id": "pek-std-ops/InferenceController",

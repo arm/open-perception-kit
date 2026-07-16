@@ -1,6 +1,6 @@
 {
     "name": "GazeDetectionWithUltraface",
-	"description": "Two-stage gaze pipeline: Ultraface first detects face crops, then GazeDetection estimates the gaze direction for each detected face.",
+    "description": "Two-stage gaze-detection micropipeline: first detect faces with ultraface, then run gaze-detection.",
     "ops": [
         {
             "id": "pek-std-ops/InferenceController",
