@@ -1,25 +1,33 @@
 // video-controls.js
 
+import { ctrlSend } from "./ctrlws.js";
+
 const playBtn = document.getElementById("playPauseBtn");
 const playIcon = document.getElementById("playPauseIcon");
 const playText = playBtn ? playBtn.querySelector(".video-control-text") : null;
 const video = document.getElementById("video");
-window.PEK_FEED_PAUSED = Boolean(window.PEK_FEED_PAUSED);
-let feedPaused = window.PEK_FEED_PAUSED;
+
+let isPipelinePlaying = true;
 let lastToggleRequestedAt = 0;
 const DUPLICATE_EVENT_MS = 350;
+
+const setBusy = (busy) => {
+    if (!playBtn) return;
+
+    playBtn.disabled = busy;
+    playBtn.style.opacity = busy ? "0.7" : "";
+};
 
 const renderPlayPause = () => {
     if (!playBtn || !playIcon || !playText) return;
 
-    feedPaused = Boolean(window.PEK_FEED_PAUSED);
-    document.body.classList.toggle("is-feed-paused", feedPaused);
-    playIcon.classList.toggle("fa-pause", !feedPaused);
-    playIcon.classList.toggle("fa-play", feedPaused);
-    playText.textContent = feedPaused ? "Resume" : "Pause";
-    playBtn.setAttribute("aria-label", feedPaused ? "Resume feed" : "Pause feed");
-    playBtn.disabled = false;
-    playBtn.style.opacity = "";
+    const isPaused = !isPipelinePlaying;
+    document.body.classList.toggle("is-feed-paused", isPaused);
+    playIcon.classList.toggle("fa-pause", isPipelinePlaying);
+    playIcon.classList.toggle("fa-play", isPaused);
+    playText.textContent = isPaused ? "Resume" : "Pause";
+    playBtn.setAttribute("aria-label", isPaused ? "Resume pipeline" : "Pause pipeline");
+    setBusy(false);
 };
 
 const dispatchPauseState = () => {
@@ -71,32 +79,35 @@ const resumeFeedFrame = async () => {
     }
 };
 
-export const setPlayPause = () => {
+export const setPlayPause = (isPlaying) => {
+    if (typeof isPlaying === "boolean") {
+        isPipelinePlaying = isPlaying;
+        window.PEK_FEED_PAUSED = !isPipelinePlaying;
+
+        if (isPipelinePlaying) {
+            void resumeFeedFrame();
+        } else {
+            freezeFeedFrame();
+        }
+
+        renderPlayPause();
+        dispatchPauseState();
+        return;
+    }
+
     renderPlayPause();
 };
 
-const requestPlayPause = async (event) => {
+const requestPlayPause = (event) => {
     event?.preventDefault();
 
     const now = Date.now();
     if (now - lastToggleRequestedAt < DUPLICATE_EVENT_MS) return;
     lastToggleRequestedAt = now;
 
-    feedPaused = !feedPaused;
-    window.PEK_FEED_PAUSED = feedPaused;
-
-    if (feedPaused) {
-        freezeFeedFrame();
-    } else {
-        await resumeFeedFrame();
-    }
-
-    renderPlayPause();
-    dispatchPauseState();
+    setBusy(true);
+    ctrlSend({ type: "play_pause" });
 };
 
-playBtn?.addEventListener("pointerdown", requestPlayPause);
-playBtn?.addEventListener("mousedown", requestPlayPause);
-playBtn?.addEventListener("pointerup", requestPlayPause);
 playBtn?.addEventListener("click", requestPlayPause);
 renderPlayPause();
