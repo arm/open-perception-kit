@@ -45,7 +45,7 @@ bool copySpanName(std::array<char, PerformanceMetrics::MaxSpanNameLength + 1> &d
     const auto sourceLength = source.size();
     const auto copiedLength = std::min(sourceLength, PerformanceMetrics::MaxSpanNameLength);
 
-    std::copy_n(source.data(), copiedLength, destination.begin());
+    std::copy_n(source.begin(), copiedLength, destination.begin());
     destination[copiedLength] = '\0';
 
     return sourceLength > PerformanceMetrics::MaxSpanNameLength;

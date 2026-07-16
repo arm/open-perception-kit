@@ -2,8 +2,8 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 
-#include "runtime/Pipeline.h"
 #include "runtime/PerformanceMetrics.h"
+#include "runtime/Pipeline.h"
 
 #include <fmt/core.h>
 #include <fmt/ranges.h>
