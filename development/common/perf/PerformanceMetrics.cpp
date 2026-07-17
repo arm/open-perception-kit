@@ -143,10 +143,6 @@ struct PerformanceMetricsState {
     std::string autoCsvPath;
 };
 
-void PerformanceMetricsStateDeleter::operator()(PerformanceMetricsState *state) const noexcept {
-    std::default_delete<PerformanceMetricsState>{}(state);
-}
-
 } // namespace detail
 
 namespace {
@@ -166,26 +162,27 @@ static_assert(std::is_trivially_destructible_v<ThreadContext>,
               "ThreadContext must not require TLS destructor registration");
 
 ThreadContext &threadContext() noexcept {
-    thread_local ThreadContext context;
+    // Function-local storage preserves per-thread lazy initialization. Sonar warning S6018 applies
+    // to global variables declared in headers, not to this local variable.
+    thread_local ThreadContext context; // NOSONAR
     return context;
 }
 
-ThreadFrame *findThreadFrame(const detail::PerformanceMetricsState *state) noexcept {
+ThreadFrame *findThreadFrame(const detail::PerformanceMetricsState &state) noexcept {
     auto &context = threadContext();
-    if (context.state == state && context.instanceId == state->instanceId &&
+    if (context.state == &state && context.instanceId == state.instanceId &&
         context.frame != nullptr) {
         return context.frame;
     }
 
     const auto threadToken = currentThreadToken();
-    const auto slotCount =
-        std::min(state->nextSlot.load(std::memory_order_acquire), MaxThreadSlots);
+    const auto slotCount = std::min(state.nextSlot.load(std::memory_order_acquire), MaxThreadSlots);
     for (std::uint32_t index = 0; index < slotCount; ++index) {
-        const auto &slot = state->slots[index];
+        const auto &slot = state.slots[index];
         if (slot.active.load(std::memory_order_acquire) && slot.threadToken == threadToken &&
             slot.frame != nullptr) {
-            context.state = state;
-            context.instanceId = state->instanceId;
+            context.state = &state;
+            context.instanceId = state.instanceId;
             context.frame = slot.frame.get();
             return context.frame;
         }
@@ -194,18 +191,18 @@ ThreadFrame *findThreadFrame(const detail::PerformanceMetricsState *state) noexc
     return nullptr;
 }
 
-ThreadFrame *acquireThreadFrame(detail::PerformanceMetricsState *state) {
+ThreadFrame *acquireThreadFrame(detail::PerformanceMetricsState &state) {
     if (auto *frame = findThreadFrame(state)) {
         return frame;
     }
 
-    const auto slotIndex = state->nextSlot.fetch_add(1, std::memory_order_acq_rel);
+    const auto slotIndex = state.nextSlot.fetch_add(1, std::memory_order_acq_rel);
     if (slotIndex >= MaxThreadSlots) {
-        state->threadSlotOverflow.store(true, std::memory_order_release);
+        state.threadSlotOverflow.store(true, std::memory_order_release);
         return nullptr;
     }
 
-    auto &slot = state->slots[slotIndex];
+    auto &slot = state.slots[slotIndex];
     auto frame = std::make_unique<ThreadFrame>();
     frame->slotIndex = slotIndex;
 
@@ -220,8 +217,8 @@ ThreadFrame *acquireThreadFrame(detail::PerformanceMetricsState *state) {
     slot.active.store(true, std::memory_order_release);
 
     auto &context = threadContext();
-    context.state = state;
-    context.instanceId = state->instanceId;
+    context.state = &state;
+    context.instanceId = state.instanceId;
     context.frame = slot.frame.get();
     return context.frame;
 }
@@ -441,7 +438,7 @@ void collectHistoryEvents(std::vector<PerformanceMetrics::SpanRecord> &destinati
 
 } // namespace
 
-PerformanceMetrics::Scope::Scope(Recording recording) noexcept : recording(recording) {}
+PerformanceMetrics::Scope::Scope(const Recording &recording) noexcept : recording(recording) {}
 
 PerformanceMetrics::Scope::Scope(Scope &&other) noexcept : recording(other.recording) {
     other.recording.metrics = nullptr;
@@ -476,11 +473,10 @@ void PerformanceMetrics::Scope::close() noexcept {
 }
 
 detail::PerformanceMetricsStatePtr PerformanceMetrics::createState() {
-    auto state = std::make_unique<detail::PerformanceMetricsState>(nextInstanceId());
-    return detail::PerformanceMetricsStatePtr(state.release());
+    return std::make_unique<detail::PerformanceMetricsState>(nextInstanceId());
 }
 
-PerformanceMetrics::PerformanceMetrics() = default;
+PerformanceMetrics::PerformanceMetrics() : state(createState()) {}
 
 PerformanceMetrics::~PerformanceMetrics() {
     writeAutoCsv();
@@ -492,7 +488,7 @@ PerformanceMetrics::Scope PerformanceMetrics::scope(std::string_view name) noexc
     }
 
     try {
-        auto *frame = acquireThreadFrame(state.get());
+        auto *frame = acquireThreadFrame(*state);
         if (frame == nullptr) {
             return {};
         }
@@ -631,10 +627,8 @@ bool PerformanceMetrics::writeCsv(std::string_view path) const {
 void PerformanceMetrics::writeAutoCsv() const noexcept {
     try {
         const auto path = autoCsvExportPath();
-        if (!path.empty()) {
-            if (!writeCsv(path)) {
-                std::fputs("Performance metrics CSV export failed.\n", stderr);
-            }
+        if (!path.empty() && !writeCsv(path)) {
+            std::fputs("Performance metrics CSV export failed.\n", stderr);
         }
     } catch (...) {
         std::fputs("Performance metrics CSV export failed with an unexpected error.\n", stderr);
@@ -700,7 +694,7 @@ void PerformanceMetrics::exitBlock(std::uint32_t slotIndex,
     }
 
     auto &slot = state->slots[slotIndex];
-    auto *frame = findThreadFrame(state.get());
+    auto *frame = findThreadFrame(*state);
     if (frame == nullptr || frame->slotIndex != slotIndex) {
         slot.wrongThreadScopeCloses.fetch_add(1, std::memory_order_relaxed);
         return;
@@ -756,7 +750,9 @@ PerformanceMetrics *currentPerformanceMetrics() noexcept {
 }
 
 PerformanceMetrics &defaultPerformanceMetrics() noexcept {
-    static PerformanceMetrics metrics;
+    // Function-local storage is required for lazy initialization and deterministic destruction.
+    // S6018 applies to global variables declared in headers, not to this local singleton.
+    static PerformanceMetrics metrics; // NOSONAR
     return metrics;
 }
 

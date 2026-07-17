@@ -16,13 +16,7 @@ namespace pek::perf {
 
 namespace detail {
 struct PerformanceMetricsState;
-
-struct PerformanceMetricsStateDeleter {
-    void operator()(PerformanceMetricsState *state) const noexcept;
-};
-
-using PerformanceMetricsStatePtr =
-    std::unique_ptr<PerformanceMetricsState, PerformanceMetricsStateDeleter>;
+using PerformanceMetricsStatePtr = std::unique_ptr<PerformanceMetricsState>;
 } // namespace detail
 
 /**
@@ -221,7 +215,7 @@ class PerformanceMetrics {
             bool historyRecorded = false;
         };
 
-        explicit Scope(Recording recording) noexcept;
+        explicit Scope(const Recording &recording) noexcept;
 
         Recording recording;
     };
@@ -314,7 +308,7 @@ class PerformanceMetrics {
                    std::uint32_t depth,
                    bool historyRecorded) noexcept;
 
-    detail::PerformanceMetricsStatePtr state = createState();
+    detail::PerformanceMetricsStatePtr state;
 };
 
 /**

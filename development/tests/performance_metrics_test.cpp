@@ -10,6 +10,7 @@
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <string>
 #include <thread>
@@ -21,8 +22,7 @@ using pek::perf::PerformanceMetrics;
 
 std::string tempCsvPath(std::string_view suffix) {
     const auto token = std::hash<std::thread::id>{}(std::this_thread::get_id());
-    const auto filename =
-        "pek_performance_metrics_" + std::to_string(token) + "_" + std::string(suffix) + ".csv";
+    const auto filename = std::format("pek_performance_metrics_{}_{}.csv", token, suffix);
     return (std::filesystem::current_path() / filename).string();
 }
 
@@ -209,18 +209,16 @@ TEST(PerformanceMetrics, AutoCsvExportWritesOnNormalDestruction) {
 
 TEST(PerformanceMetrics, ThreadSlotOverflowIsReportedSafely) {
     PerformanceMetrics metrics;
-    std::vector<std::thread> threads;
-    threads.reserve(132);
+    {
+        std::vector<std::jthread> threads;
+        threads.reserve(132);
 
-    for (std::size_t index = 0; index < 132; ++index) {
-        threads.emplace_back([&metrics]() {
-            auto scope = metrics.scope("threaded");
-            std::this_thread::sleep_for(std::chrono::microseconds(10));
-        });
-    }
-
-    for (auto &thread : threads) {
-        thread.join();
+        for (std::size_t index = 0; index < 132; ++index) {
+            threads.emplace_back([&metrics]() {
+                auto scope = metrics.scope("threaded");
+                std::this_thread::sleep_for(std::chrono::microseconds(10));
+            });
+        }
     }
 
     const auto snapshot = metrics.aggregateSnapshot();
@@ -230,27 +228,26 @@ TEST(PerformanceMetrics, ThreadSlotOverflowIsReportedSafely) {
 TEST(PerformanceMetrics, SnapshotWhileThreadsRecordIsSafe) {
     PerformanceMetrics metrics;
     std::atomic<bool> start{false};
-    std::vector<std::thread> threads;
+    {
+        std::vector<std::jthread> threads;
+        threads.reserve(8);
 
-    for (std::size_t index = 0; index < 8; ++index) {
-        threads.emplace_back([&metrics, &start]() {
-            while (!start.load(std::memory_order_acquire)) {
-                std::this_thread::yield();
-            }
-            for (std::size_t iteration = 0; iteration < 500; ++iteration) {
-                auto outer = metrics.scope("outer");
-                auto inner = metrics.scope("inner");
-            }
-        });
-    }
+        for (std::size_t index = 0; index < 8; ++index) {
+            threads.emplace_back([&metrics, &start]() {
+                while (!start.load(std::memory_order_acquire)) {
+                    std::this_thread::yield();
+                }
+                for (std::size_t iteration = 0; iteration < 500; ++iteration) {
+                    auto outer = metrics.scope("outer");
+                    auto inner = metrics.scope("inner");
+                }
+            });
+        }
 
-    start.store(true, std::memory_order_release);
-    for (std::size_t iteration = 0; iteration < 50; ++iteration) {
-        (void)metrics.aggregateSnapshot();
-    }
-
-    for (auto &thread : threads) {
-        thread.join();
+        start.store(true, std::memory_order_release);
+        for (std::size_t iteration = 0; iteration < 50; ++iteration) {
+            (void)metrics.aggregateSnapshot();
+        }
     }
 
     const auto snapshot = metrics.aggregateSnapshot();
