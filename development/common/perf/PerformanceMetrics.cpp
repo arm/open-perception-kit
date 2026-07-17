@@ -25,12 +25,26 @@ constexpr std::uint32_t MaxHistoryEventsPerChunk = 4096;
 constexpr std::uint32_t MaxStackDepth = 64;
 constexpr std::uint32_t InvalidLocalMetricIndex = std::numeric_limits<std::uint32_t>::max();
 
+// A recorder keeps two related representations:
+//
+//  * aggregate metrics summarize every completed scope by its name and parent;
+//  * optional history records every completed scope invocation as a SpanRecord.
+//
+// Each recording thread writes to its own PerformanceMetricsThreadSlot. This keeps the common
+// recording path free from a recorder-wide lock. Snapshot collection later merges the per-thread
+// aggregates into one hierarchy.
+
+// One open scope in a ThreadFrame. metricIndex identifies the aggregate metric for the scope,
+// while spanId identifies this particular invocation when history recording is enabled. Keeping
+// both lets child scopes establish their aggregate parent and their historical parent cheaply.
 struct StackEntry {
     std::uint32_t metricIndex = InvalidLocalMetricIndex;
     std::uint64_t spanId = PerformanceMetrics::InvalidSpanId;
 };
 
-// Per-recorder nesting state for one recording thread.
+// The nesting state for one (recorder, recording thread) pair. The frame identifies the thread's
+// slot and stores the currently open scopes in call order. It is separate from the slot because
+// the stack is transient recording state, whereas the slot also retains completed measurements.
 struct ThreadFrame {
     std::uint32_t slotIndex = 0;
     std::array<StackEntry, MaxStackDepth> stack{};
@@ -52,12 +66,16 @@ std::uint64_t currentThreadId() noexcept {
     return std::hash<std::thread::id>{}(std::this_thread::get_id());
 }
 
+// Internal slot lookup needs a unique identifier. A process-wide counter assigns each thread a
+// distinct token.
 std::uint64_t currentThreadToken() noexcept {
     static std::atomic<std::uint64_t> nextToken{1};
     thread_local const std::uint64_t token = nextToken.fetch_add(1, std::memory_order_relaxed);
     return token;
 }
 
+// Names use fixed storage in the recording structures to avoid allocating on every scope. The
+// return value records whether the caller's name had to be truncated.
 bool copySpanName(std::array<char, PerformanceMetrics::MaxSpanNameLength + 1> &destination,
                   std::string_view source) noexcept {
     const auto sourceLength = source.size();
@@ -69,6 +87,8 @@ bool copySpanName(std::array<char, PerformanceMetrics::MaxSpanNameLength + 1> &d
     return sourceLength > PerformanceMetrics::MaxSpanNameLength;
 }
 
+// Fixed names are always null-terminated by copySpanName, so comparison and export can expose them
+// as string views without carrying the full array capacity.
 std::string_view
 storedNameView(const std::array<char, PerformanceMetrics::MaxSpanNameLength + 1> &name) noexcept {
     return name.data();
@@ -94,12 +114,17 @@ void writeCsvEscapedName(std::FILE *file, std::string_view name) noexcept {
 
 namespace detail {
 
+// Historical spans are allocated in chunks only when history is enabled. Chunking allows history
+// to grow without moving previously recorded spans and avoids one allocation per scope.
 struct HistoryChunk {
     std::array<PerformanceMetrics::SpanRecord, MaxHistoryEventsPerChunk> records;
     std::size_t size = 0;
 };
 
-// Written by one owner thread, read by snapshot collection.
+// Collection of metrics. Name, parentIndex, and depth identify the path. The counters summarize
+// every completed invocation of that path. The owning thread is the only writer, but snapshots may
+// read concurrently, so counters are atomic and sequence changes make readers retry instead of
+// combining values from different updates.
 struct PerformanceMetricsAtomicMetric {
     std::atomic<std::uint64_t> sequence{0};
     std::array<char, PerformanceMetrics::MaxSpanNameLength + 1> name{};
@@ -114,9 +139,13 @@ struct PerformanceMetricsAtomicMetric {
     std::atomic<bool> hasChildren{false};
 };
 
+// All recorder-owned data associated with one recording thread. The slot owns that thread's
+// nesting frame, aggregate hierarchy, diagnostic counters, and optional history.
 struct PerformanceMetricsThreadSlot {
     std::atomic<bool> active{false};
+    // Used only to recover this slot after a thread switches between recorders
     std::uint64_t threadToken = 0;
+    // The hashed identifier written to exported SpanRecords.
     std::uint64_t threadId = 0;
     std::atomic<std::uint32_t> droppedMetrics{0};
     std::atomic<std::uint32_t> droppedSpans{0};
@@ -124,11 +153,21 @@ struct PerformanceMetricsThreadSlot {
     std::atomic<std::uint32_t> wrongThreadScopeCloses{0};
     std::atomic<std::uint32_t> metricCount{0};
     std::unique_ptr<ThreadFrame> frame;
+    // Aggregate storage is fixed-size to keep recording allocation-free.
     std::array<PerformanceMetricsAtomicMetric, MaxMetricsPerThread> metrics;
     mutable std::mutex historyMutex;
+    // The history is dynamically sized because its size can grow for long captures.
     std::vector<std::unique_ptr<HistoryChunk>> historyChunks;
 };
 
+// Complete owned state of one PerformanceMetrics recorder. Threads claim slots monotonically;
+// slots are not recycled because their aggregate results and historical storage might be used by
+// future snapshots. The state also owns recorder-wide options, unique span IDs, and automatic CSV
+// configuration.
+//
+// Owning ThreadFrames (through the PerformanceMetricsThreadSlot) here is intentional: recorder
+// destruction can release them even when a framework retains worker threads and therefore does not
+// destroy those threads' thread-local storage objects.
 struct PerformanceMetricsState {
     explicit PerformanceMetricsState(std::uint64_t id) : instanceId(id) {}
 
@@ -147,10 +186,13 @@ struct PerformanceMetricsState {
 
 namespace {
 
-// Non-owning cache. Thread frames are owned by PerformanceMetricsState, through the
-// PerformanceMetricsThreadSlot objects. The ThreadContext can not own the objects it holds,
-// because GStreamer does not properly cleans up the executed threads, and these objects would be
-// leaked otherwise. (The leak was reported by Valgrind)
+// Trivial thread-local navigation state, not measurement storage. state, instanceId, and frame
+// cache the most recently used (recorder, thread) frame so repeated scopes avoid scanning slots.
+// currentMetrics is the recorder temporarily selected by ScopedMetricsContext.
+//
+// The pointers are non-owning. PerformanceMetricsState owns frames through its thread slots; this
+// ensures recorder destruction releases them even if a framework retains the worker thread and
+// delays TLS cleanup until after leak reporting.
 struct ThreadContext {
     const detail::PerformanceMetricsState *state = nullptr;
     std::uint64_t instanceId = 0;
@@ -161,6 +203,8 @@ struct ThreadContext {
 static_assert(std::is_trivially_destructible_v<ThreadContext>,
               "ThreadContext must not require TLS destructor registration");
 
+// Returns the calling thread's single context. It remains trivially destructible so accessing
+// performance metrics does not add a dynamic TLS cleanup allocation.
 ThreadContext &threadContext() noexcept {
     // Function-local storage preserves per-thread lazy initialization. Sonar warning S6018 applies
     // to global variables declared in headers, not to this local variable.
@@ -168,6 +212,9 @@ ThreadContext &threadContext() noexcept {
     return context;
 }
 
+// Finds this thread's frame for a recorder. The last-used frame is returned directly on the common
+// path. After switching recorders, the function scans that recorder's published slots, finds the
+// one bearing this thread's token, and refreshes the cache.
 ThreadFrame *findThreadFrame(const detail::PerformanceMetricsState &state) noexcept {
     auto &context = threadContext();
     if (context.state == &state && context.instanceId == state.instanceId &&
@@ -191,6 +238,9 @@ ThreadFrame *findThreadFrame(const detail::PerformanceMetricsState &state) noexc
     return nullptr;
 }
 
+// Returns the existing frame for this (recorder, thread) pair or claims and initializes one state
+// slot. The frame is allocated dynamically but owned by the state. active is published last so
+// concurrent snapshots never observe a partially initialized slot.
 ThreadFrame *acquireThreadFrame(detail::PerformanceMetricsState &state) {
     if (auto *frame = findThreadFrame(state)) {
         return frame;
@@ -223,6 +273,9 @@ ThreadFrame *acquireThreadFrame(detail::PerformanceMetricsState &state) {
     return context.frame;
 }
 
+// Locates or creates the aggregate metric identified by (parentIndex, name) in one thread slot.
+// This key preserves hierarchy when the same name appears below different parents. Metric metadata
+// is initialized before metricCount publishes the new entry to concurrent snapshot readers.
 std::uint32_t ensureMetric(detail::PerformanceMetricsThreadSlot &slot,
                            const std::array<char, PerformanceMetrics::MaxSpanNameLength + 1> &name,
                            std::uint32_t parentIndex,
@@ -262,6 +315,8 @@ std::uint32_t ensureMetric(detail::PerformanceMetricsThreadSlot &slot,
     return metricCount;
 }
 
+// Writers make sequence odd before changing a metric and even after finishing. Readers retry if
+// they see an odd value or a change, giving them a coherent set of otherwise independent atomics.
 void beginMetricWrite(detail::PerformanceMetricsAtomicMetric &metric) noexcept {
     metric.sequence.fetch_add(1, std::memory_order_acq_rel);
 }
@@ -270,6 +325,7 @@ void endMetricWrite(detail::PerformanceMetricsAtomicMetric &metric) noexcept {
     metric.sequence.fetch_add(1, std::memory_order_release);
 }
 
+// Retains empty parent nodes in snapshots when they have a recorded descendant.
 void markMetricHasChildren(detail::PerformanceMetricsThreadSlot &slot,
                            std::uint32_t metricIndex) noexcept {
     if (metricIndex >= MaxMetricsPerThread) {
@@ -282,6 +338,7 @@ void markMetricHasChildren(detail::PerformanceMetricsThreadSlot &slot,
     endMetricWrite(metric);
 }
 
+// Incorporates one completed scope duration into its thread-local aggregate node.
 void updateMetric(detail::PerformanceMetricsThreadSlot &slot,
                   std::uint32_t metricIndex,
                   std::uint64_t durationNs) noexcept {
@@ -308,6 +365,8 @@ void updateMetric(detail::PerformanceMetricsThreadSlot &slot,
     endMetricWrite(metric);
 }
 
+// Copies one aggregate node while its owner thread may still be updating it. The sequence check
+// retries until every copied field belongs to the same completed write.
 PerformanceMetrics::MetricRecord readMetric(const detail::PerformanceMetricsThreadSlot &slot,
                                             std::uint32_t metricIndex) noexcept {
     const auto &source = slot.metrics[metricIndex];
@@ -340,6 +399,8 @@ PerformanceMetrics::MetricRecord readMetric(const detail::PerformanceMetricsThre
     return metric;
 }
 
+// Combines a thread-local metric with the matching path in the recorder-wide snapshot. parentId is
+// already translated from the source slot's local index to the destination hierarchy's ID.
 std::uint64_t mergeMetric(std::vector<PerformanceMetrics::MetricRecord> &destination,
                           const PerformanceMetrics::MetricRecord &source,
                           std::uint64_t parentId) {
@@ -368,6 +429,8 @@ std::uint64_t mergeMetric(std::vector<PerformanceMetrics::MetricRecord> &destina
     return metric.id;
 }
 
+// Recursively collects a metric's parent first, then translates and merges the metric itself.
+// mergedIds memoizes the local-index to snapshot-ID mapping for this source slot.
 std::uint64_t collectMetric(std::vector<PerformanceMetrics::MetricRecord> &destination,
                             const detail::PerformanceMetricsThreadSlot &slot,
                             std::uint32_t metricIndex,
@@ -399,6 +462,7 @@ std::uint64_t collectMetric(std::vector<PerformanceMetrics::MetricRecord> &desti
     return mergedId;
 }
 
+// Merges every published aggregate node from one thread slot into the destination snapshot.
 void collectMetrics(std::vector<PerformanceMetrics::MetricRecord> &destination,
                     const detail::PerformanceMetricsThreadSlot &slot) {
     const auto metricCount =
@@ -410,6 +474,9 @@ void collectMetrics(std::vector<PerformanceMetrics::MetricRecord> &destination,
     }
 }
 
+// Appends one completed historical span. History is the only recording storage that grows without
+// a fixed event limit; allocation failures are reported as dropped events instead of escaping from
+// the noexcept scope-closing path.
 void appendHistoryEvent(detail::PerformanceMetricsThreadSlot &slot,
                         const PerformanceMetrics::SpanRecord &record) noexcept {
     try {
@@ -427,6 +494,8 @@ void appendHistoryEvent(detail::PerformanceMetricsThreadSlot &slot,
     }
 }
 
+// Copies the completed historical spans from one slot while excluding unused chunk capacity. The
+// same mutex protects chunk growth and snapshot copying.
 void collectHistoryEvents(std::vector<PerformanceMetrics::SpanRecord> &destination,
                           const detail::PerformanceMetricsThreadSlot &slot) {
     std::scoped_lock lock(slot.historyMutex);
@@ -438,6 +507,8 @@ void collectHistoryEvents(std::vector<PerformanceMetrics::SpanRecord> &destinati
 
 } // namespace
 
+// Scope owns the obligation to finish one recording. Move operations transfer that obligation and
+// clear the source so exactly one Scope reports the duration and unwinds the nesting frame.
 PerformanceMetrics::Scope::Scope(const Recording &recording) noexcept : recording(recording) {}
 
 PerformanceMetrics::Scope::Scope(Scope &&other) noexcept : recording(other.recording) {
@@ -457,6 +528,8 @@ PerformanceMetrics::Scope::~Scope() {
     close();
 }
 
+// Completes the recording once. Clearing metrics also makes explicit close, destruction, and moved
+// scopes safely idempotent.
 void PerformanceMetrics::Scope::close() noexcept {
     if (recording.metrics == nullptr) {
         return;
@@ -472,16 +545,25 @@ void PerformanceMetrics::Scope::close() noexcept {
     recording.metrics = nullptr;
 }
 
+// Constructs the private implementation state through the incomplete-type-aware pointer declared
+// in the public header.
 detail::PerformanceMetricsStatePtr PerformanceMetrics::createState() {
     return std::make_unique<detail::PerformanceMetricsState>(nextInstanceId());
 }
 
 PerformanceMetrics::PerformanceMetrics() : state(createState()) {}
 
+// Automatic CSV export runs while the recorder and all state-owned history are still alive. State
+// destruction then releases every thread frame, including frames belonging to retained workers.
 PerformanceMetrics::~PerformanceMetrics() {
     writeAutoCsv();
 }
 
+// Starts one timed scope on the calling thread. It resolves the thread frame, finds the aggregate
+// hierarchy node, optionally assigns historical span IDs, pushes the node on the nesting stack,
+// and returns an RAII Scope containing everything needed to finish the recording.
+//
+// Failures return an inactive Scope because instrumentation must not disrupt the measured work.
 PerformanceMetrics::Scope PerformanceMetrics::scope(std::string_view name) noexcept {
     if (!state->enabled.load(std::memory_order_relaxed)) {
         return {};
@@ -538,6 +620,8 @@ PerformanceMetrics::Scope PerformanceMetrics::scope(std::string_view name) noexc
     }
 }
 
+// Recorder options are atomic because instrumentation and snapshot/control code may access them
+// from different threads. Trace is retained as an alias for the historical-span option.
 void PerformanceMetrics::setEnabled(bool enabled) noexcept {
     state->enabled.store(enabled, std::memory_order_relaxed);
 }
@@ -562,6 +646,8 @@ bool PerformanceMetrics::traceEnabled() const noexcept {
     return historyEnabled();
 }
 
+// The auto-export path is less frequently accessed and dynamically sized, so a mutex protects it
+// instead of placing it on the lock-free recording path.
 void PerformanceMetrics::setAutoCsvExportPath(std::string_view path) {
     std::scoped_lock lock(state->autoCsvMutex);
     state->autoCsvPath.assign(path.begin(), path.end());
@@ -572,6 +658,8 @@ std::string PerformanceMetrics::autoCsvExportPath() const {
     return state->autoCsvPath;
 }
 
+// Exports individual historical spans rather than aggregate MetricRecords. History from all thread
+// slots is copied, ordered by start time, and CSV-escaped before writing.
 bool PerformanceMetrics::writeCsv(std::string_view path) const {
     const std::string outputPath(path.begin(), path.end());
     auto *file = std::fopen(outputPath.c_str(), "w");
@@ -624,6 +712,8 @@ bool PerformanceMetrics::writeCsv(std::string_view path) const {
     return ok;
 }
 
+// Best-effort destructor helper: an empty path disables export, and failures are reported without
+// allowing exceptions to escape destruction or process shutdown.
 void PerformanceMetrics::writeAutoCsv() const noexcept {
     try {
         const auto path = autoCsvExportPath();
@@ -635,6 +725,8 @@ void PerformanceMetrics::writeAutoCsv() const noexcept {
     }
 }
 
+// Builds the inexpensive summary view. Per-thread hierarchies are merged by parent path and name,
+// and diagnostic counters are accumulated, but individual historical spans are not copied.
 PerformanceMetrics::Snapshot PerformanceMetrics::aggregateSnapshot() const {
     Snapshot snapshot;
     const auto usedSlots =
@@ -658,6 +750,8 @@ PerformanceMetrics::Snapshot PerformanceMetrics::aggregateSnapshot() const {
     return snapshot;
 }
 
+// Builds the full view by extending the aggregate snapshot with every completed historical span,
+// ordered into a recorder-wide timeline.
 PerformanceMetrics::Snapshot PerformanceMetrics::snapshot() const {
     auto snapshot = aggregateSnapshot();
     const auto usedSlots =
@@ -682,6 +776,9 @@ PerformanceMetrics::Snapshot PerformanceMetrics::snapshot() const {
     return snapshot;
 }
 
+// Finishes a Scope: verify it is closing on its recording thread, update aggregate duration,
+// append an optional historical SpanRecord, and remove the scope from that thread's nesting stack.
+// The final search also recovers conservatively if scopes are closed out of strict LIFO order.
 void PerformanceMetrics::exitBlock(std::uint32_t slotIndex,
                                    std::uint32_t metricIndex,
                                    std::uint64_t spanId,
@@ -736,6 +833,8 @@ void PerformanceMetrics::exitBlock(std::uint32_t slotIndex,
     }
 }
 
+// Temporarily binds a recorder to this thread for code using enterCurrentBlock(). Nested bindings
+// work because construction saves and destruction restores the previous pointer.
 ScopedMetricsContext::ScopedMetricsContext(PerformanceMetrics &metrics) noexcept
     : previous(threadContext().currentMetrics) {
     threadContext().currentMetrics = &metrics;
@@ -745,10 +844,13 @@ ScopedMetricsContext::~ScopedMetricsContext() {
     threadContext().currentMetrics = previous;
 }
 
+// Returns only the explicitly thread-bound recorder; it does not fall back to the global recorder.
 PerformanceMetrics *currentPerformanceMetrics() noexcept {
     return threadContext().currentMetrics;
 }
 
+// Lazily constructs the process-wide recorder used by the convenience API. Normal static
+// destruction performs optional CSV export and releases the recorder-owned frames.
 PerformanceMetrics &defaultPerformanceMetrics() noexcept {
     // Function-local storage is required for lazy initialization and deterministic destruction.
     // S6018 applies to global variables declared in headers, not to this local singleton.
@@ -756,10 +858,13 @@ PerformanceMetrics &defaultPerformanceMetrics() noexcept {
     return metrics;
 }
 
+// Convenience entry point for instrumentation that explicitly targets the process-wide recorder.
 PerformanceMetrics::Scope enterBlock(std::string_view name) noexcept {
     return defaultPerformanceMetrics().scope(name);
 }
 
+// Convenience entry point for code that should record only when its thread has an explicit
+// ScopedMetricsContext binding.
 PerformanceMetrics::Scope enterCurrentBlock(std::string_view name) noexcept {
     auto *metrics = currentPerformanceMetrics();
     if (metrics == nullptr) {
