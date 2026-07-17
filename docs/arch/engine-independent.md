@@ -10,7 +10,7 @@ preprocessing, tensor handling, postprocessing, and `Perception` output.
 Backend-specific code lives in separate shared libraries so SDK dependencies stay
 isolated from the core runtime.
 
-![Engine Independent Architecture](/img/engine-independent.png)
+![Engine Independent Architecture](../public/static/img/engine-independent.png)
 
 ## Flow
 

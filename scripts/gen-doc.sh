@@ -43,7 +43,7 @@ echo "Preparing Markdown sources for plain HTML output..."
 python3 /work/scripts/private/prepare_plain_docs.py "$SRC_DIR" "$PREPARED_SRC_DIR"
 
 # --- regenerate png figures (if any .puml exist) ---
-PLANTUML_SRC_DIR="/work/docs/public/static/plantuml"
+PLANTUML_SRC_DIR="/work/docs/plantuml"
 PLANTUML_OUT_DIR="/work/docs/public/static/img"
 
 if [ -d "$PLANTUML_SRC_DIR" ]; then

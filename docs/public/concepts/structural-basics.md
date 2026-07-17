@@ -39,6 +39,8 @@ These contain the project documentation.
 - `docs/public/concepts/` contains conceptual background pages.
 - `docs/public/docs-config.json` defines the docs site label, navigation, and sidebar grouping.
 - `docs/public/static/` contains shared images and other static assets used by the docs site.
+- `docs/arch/` contains developer-facing architecture notes.
+- `docs/plantuml/` contains shared PlantUML diagram sources.
 
 ### `scripts/`
 This contains the main helper scripts you are expected to run.

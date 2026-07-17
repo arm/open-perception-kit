@@ -9,7 +9,7 @@ sidebar_label: Perception
 media buffer. It aggregates structured results from inference, postprocessing,
 tracking, and performance elements.
 
-![Inference Data Collection (Perception)](/img/perception.png)
+![Inference Data Collection (Perception)](../public/static/img/perception.png)
 
 The model supports multi-stage inference, branching pipelines, UUID-based
 cross-stage references, and backend-agnostic result representation.

@@ -1,7 +1,7 @@
 @startuml
 ' Best-effort conversion from the checked-in draw.io source.
 ' Freeform positioning and unlabeled placeholder boxes were omitted in favor of a readable semantic layout.
-!include _plantuml/colors.puml
+!include colors.puml
 
 left to right direction
 skinparam shadowing false

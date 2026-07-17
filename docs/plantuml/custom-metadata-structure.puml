@@ -1,6 +1,6 @@
 @startuml
 ' Structural overview of the future metadata architecture.
-!include ../../concepts/_plantuml/colors.puml
+!include colors.puml
 allowmixing
 
 left to right direction

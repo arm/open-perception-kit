@@ -11,7 +11,7 @@ shows how that contract could evolve into a FlatBuffers-native frame metadata
 envelope that supports built-in outputs and user-defined custom outputs without
 requiring code changes for every new object type.
 
-The structure diagram source is [custom-metadata-structure.puml](diagrams/custom-metadata-structure.puml).
+The structure diagram source is [custom-metadata-structure.puml](../plantuml/custom-metadata-structure.puml).
 
 ## Relationship To Current Perception
 
