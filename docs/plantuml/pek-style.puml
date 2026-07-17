@@ -32,6 +32,12 @@ skinparam package {
   FontStyle bold
 }
 
+skinparam artifact {
+  BackgroundColor #1B3982
+  BorderColor #C8EAFF
+  FontColor #FFFFFF
+}
+
 skinparam component {
   BackgroundColor #1B3982
   BorderColor #C8EAFF
