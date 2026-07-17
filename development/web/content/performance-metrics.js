@@ -28,28 +28,38 @@ function parseMetricLine(line) {
     return null;
 }
 
+function createCell(text, className) {
+    const cell = document.createElement("td");
+    if (className) {
+        cell.className = className;
+    }
+    cell.textContent = String(text ?? "");
+    return cell;
+}
+
+function renderEmptyRow() {
+    const row = document.createElement("tr");
+    const cell = createCell("No metrics yet", "performance-metrics-empty");
+    cell.colSpan = 3;
+    row.appendChild(cell);
+    return row;
+}
+
+function renderMetricRow(metric) {
+    const row = document.createElement("tr");
+    row.appendChild(createCell(metric.stage));
+    row.appendChild(createCell(metric.current));
+    row.appendChild(createCell(metric.p95));
+    return row;
+}
+
 function renderRows(rows) {
     if (!body) return;
 
     currentRows = rows;
     updateCopyButtonState();
 
-    if (!rows.length) {
-        body.innerHTML = `
-            <tr>
-                <td colspan="3" class="performance-metrics-empty">No metrics yet</td>
-            </tr>
-        `;
-        return;
-    }
-
-    body.innerHTML = rows.map((row) => `
-        <tr>
-            <td>${row.stage}</td>
-            <td>${row.current}</td>
-            <td>${row.p95}</td>
-        </tr>
-    `).join('');
+    body.replaceChildren(...(rows.length ? rows.map(renderMetricRow) : [renderEmptyRow()]));
 }
 
 export function renderPerformanceMetrics(performance) {
