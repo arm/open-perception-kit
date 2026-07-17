@@ -1,57 +1,54 @@
 @startuml
 ' Best-effort conversion from the checked-in draw.io source.
 ' Freeform positioning and unlabeled placeholder boxes were omitted in favor of a readable semantic layout.
-!include colors.puml
+!include pek-style.puml
 
 left to right direction
-skinparam shadowing false
 skinparam packageStyle rectangle
 skinparam componentStyle rectangle
-skinparam defaultTextAlignment center
 skinparam wrapWidth 180
-' skinparam linetype polyline
 
-package "User Application" as user_app $CONTAINER_COLOR {
-  package "Application [Python]" as user_python $EXECUTABLE_COLOR {
-    component "Cairn lib" as cairn_lib $GPRC_COLOR
+package "User Application" as user_app {
+  package "Application [Python]" as user_python {
+    component "Cairn lib" as cairn_lib
   }
 }
 
-package "Cairn Camera Service" as camera_service $CONTAINER_COLOR {
-  package "Application" as camera_app $EXECUTABLE_COLOR {
-    component "gRPC server" as camera_grpc $GPRC_COLOR
+package "Cairn Camera Service" as camera_service {
+  package "Application" as camera_app {
+    component "gRPC server" as camera_grpc
   }
 
-  component "pipewire" as camera_pipewire $PIPEWIRE_PAD_COLOR
+  component "pipewire" as camera_pipewire
 }
 
-package "Perception Service" as perception_service $CONTAINER_COLOR {
-  package "Perception Manager [C++]/Python]" as perception_manager $EXECUTABLE_COLOR {
-    component "gRPC server" as manager_grpc $GPRC_COLOR
-    component "OPK API" as opk_api $INTERNAL_MODULE_COLOR
+package "Perception Service" as perception_service {
+  package "Perception Manager [C++]/Python]" as perception_manager {
+    component "gRPC server" as manager_grpc
+    component "OPK API" as opk_api
 
-    package "GStreamer pipeline" as gst_pipeline $PIPELINE_COLOR {
+    package "GStreamer pipeline" as gst_pipeline {
       component "pipewiresrc" as pipewiresrc
       component "..." as pipeline_gap
       ' component "opkcomm" as opkcomm
       component "pipewiresink" as pipewiresink
     }
 
-    component "redis pub/sub" as redis_if $INTERNAL_MODULE_COLOR
+    component "redis pub/sub" as redis_if
     ' package "Metadata provider" as metadata_provider {
     '   component "core" as metadata_core
-    '   component "serializer" as metadata_serializer #1BA1E2
+    '   component "serializer" as metadata_serializer
     ' }
   }
 
-  component "pipewire" as perception_pipewire_in $PIPEWIRE_PAD_COLOR
-  component "pipewire" as perception_pipewire_out $PIPEWIRE_PAD_COLOR
+  component "pipewire" as perception_pipewire_in
+  component "pipewire" as perception_pipewire_out
 }
 
-package "Cairn Messaging Service" as messaging_service $CONTAINER_COLOR {
-  package "msg mgmt? [???]" as messaging_service_mgmt $EXECUTABLE_COLOR {
-    component "gRPC server" as messaging_grpc $GPRC_COLOR
-    database "Redis" as redis $STORE_COLOR
+package "Cairn Messaging Service" as messaging_service {
+  package "msg mgmt? [???]" as messaging_service_mgmt {
+    component "gRPC server" as messaging_grpc
+    database "Redis" as redis
   }
 }
 
@@ -63,12 +60,12 @@ manager_grpc <--> opk_api
 ' metadata_provider --> opk_api : metadata / perf
 opk_api <--> gst_pipeline
 
-camera_pipewire -[$MEDIA_COLOR,thickness=2]-> perception_pipewire_in
-perception_pipewire_in -[$MEDIA_COLOR,thickness=2]-> pipewiresrc
+camera_pipewire -[#C8EAFF,thickness=2]-> perception_pipewire_in
+perception_pipewire_in -[#C8EAFF,thickness=2]-> pipewiresrc
 pipewiresrc --> pipeline_gap
 pipeline_gap --> pipewiresink
 ' opkcomm --> pipewiresink
-pipewiresink -[$MEDIA_COLOR,thickness=2]-> perception_pipewire_out
+pipewiresink -[#C8EAFF,thickness=2]-> perception_pipewire_out
 
 redis_if --> redis
 
