@@ -50,8 +50,8 @@ function handleMetadataMessage(raw) {
             detail: {
                 frame_counter: message?.frame_counter,
                 perception: null,
-                inference_output: null,
-                performance: null,
+                inference_output: { layers: [] },
+                performance: { lines: [] },
             },
         }));
         return;
