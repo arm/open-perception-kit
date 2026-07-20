@@ -100,9 +100,9 @@ test(
   depends : pek_menu,
 )
 test(
-  'model_materializer_tests',
+  'initialize_models_tests',
   python,
-  args : [meson.project_source_root() / '../scripts/private/tests/test_model_materializer.py'],
+  args : [meson.project_source_root() / '../scripts/private/tests/test_initialize_models.py'],
 )
 test(
   'prepare_modelfetch_candidate_tests',

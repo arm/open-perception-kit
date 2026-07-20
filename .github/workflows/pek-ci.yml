@@ -77,12 +77,26 @@ jobs:
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           GH_TOKEN: ${{ secrets.MODELFETCH_CANDIDATE_TOKEN }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           set -euo pipefail
           if [ -z "${GH_TOKEN:-}" ]; then
             echo "MODELFETCH_CANDIDATE_TOKEN is required to read the pinned Arm-Debug/modelfetch artifact." >&2
             exit 1
           fi
+          if [ -z "${HF_TOKEN:-}" ]; then
+            echo "HF_TOKEN is required to initialize the configured published models." >&2
+            exit 1
+          fi
+          HF_TOKEN_PATH="${RUNNER_TEMP}/pek-hf-token-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}"
+          umask 077
+          printf '%s' "$HF_TOKEN" > "$HF_TOKEN_PATH"
+          {
+            echo "HF_TOKEN_PATH=$HF_TOKEN_PATH"
+            echo "HOST_UID=$(id -u)"
+            echo "HOST_GID=$(id -g)"
+          } >> "$GITHUB_ENV"
+          export HF_TOKEN_PATH
           ./scripts/quick-start/start-container.sh --recreate
 
       - name: Build quick-start container
@@ -100,6 +114,7 @@ jobs:
           if [ -x "$checkout_path/scripts/quick-start/cleanup-container.sh" ]; then
             "$checkout_path/scripts/quick-start/cleanup-container.sh" || cleanup_status=$?
           fi
+          rm -f -- "${HF_TOKEN_PATH:-}"
           rm -rf -- "$checkout_path"
           exit "$cleanup_status"
 
@@ -161,7 +176,7 @@ jobs:
             exit 1
           fi
           if [ -z "${HF_TOKEN:-}" ]; then
-            echo "HF_TOKEN is required to download the published smoke-test model." >&2
+            echo "HF_TOKEN is required to initialize the configured published models." >&2
             exit 1
           fi
           HF_TOKEN_PATH="${RUNNER_TEMP}/pek-hf-token-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}"
@@ -285,6 +300,24 @@ jobs:
           fi
           ./scripts/private/prepare-modelfetch-candidate.sh >/dev/null
 
+      - name: Prepare Hugging Face token for runtime model initialization
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${HF_TOKEN:-}" ]; then
+            echo "HF_TOKEN is required to initialize the configured published models." >&2
+            exit 1
+          fi
+          HF_TOKEN_PATH="${RUNNER_TEMP}/pek-hf-token-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}"
+          umask 077
+          printf '%s' "$HF_TOKEN" > "$HF_TOKEN_PATH"
+          {
+            echo "HF_TOKEN_PATH=$HF_TOKEN_PATH"
+            echo "HOST_UID=$(id -u)"
+            echo "HOST_GID=$(id -g)"
+          } >> "$GITHUB_ENV"
+
       - name: Build docker image
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: |
@@ -397,3 +430,7 @@ jobs:
             ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/scripts/testing/valgrind/logs
           if-no-files-found: warn
           retention-days: 10
+
+      - name: Remove Hugging Face token file
+        if: always()
+        run: rm -f -- "${HF_TOKEN_PATH:-}"

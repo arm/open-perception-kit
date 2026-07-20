@@ -96,17 +96,27 @@ ENV SSH_AUTH_SOCK=/ssh-agent
 FROM pek-base AS pek-model-tools-base
 
 ARG USERNAME=devgoblin
+ARG TARGETARCH
 
 USER root
 
-# The unreleased candidate is supplied as a required BuildKit secret. Its fixed
-# manifest participates in the cache key and is the checksum authority.
+# The unreleased candidate is provided as an isolated named build context and
+# exposed only to this build step. Its manifest is the checksum authority.
 RUN --mount=type=bind,source=scripts/private/modelfetch-candidate-constraints.txt,target=/tmp/modelfetch-candidate-constraints.txt \
   --mount=type=bind,source=scripts/private/modelfetch-candidate.json,target=/tmp/modelfetch-candidate.json \
-  --mount=type=secret,id=modelfetch_wheel,required=true,target=/run/secrets/modelfetch-0.1.0-py3-none-any.whl \
+  --mount=type=bind,from=modelfetch_wheels,target=/tmp/modelfetch-wheels,readonly \
   set -eux; \
-  wheel=/run/secrets/modelfetch-0.1.0-py3-none-any.whl; \
-  expected_sha="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["wheelSha256"])' /tmp/modelfetch-candidate.json)"; \
+  case "${TARGETARCH}" in \
+    amd64) wheel_source="/tmp/modelfetch-wheels/modelfetch-candidate-linux-amd64.whl" ;; \
+    arm64) wheel_source="/tmp/modelfetch-wheels/modelfetch-candidate-linux-arm64.whl" ;; \
+    *) echo "Unsupported architecture for modelfetch: ${TARGETARCH}" >&2; exit 1 ;; \
+  esac; \
+  wheel_filename="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["wheels"][sys.argv[2]]["filename"])' /tmp/modelfetch-candidate.json "${TARGETARCH}")"; \
+  case "${wheel_filename}" in *[!A-Za-z0-9._-]*|'') exit 1 ;; esac; \
+  case "${wheel_filename}" in *.whl) ;; *) exit 1 ;; esac; \
+  wheel="/tmp/${wheel_filename}"; \
+  ln -s "${wheel_source}" "${wheel}"; \
+  expected_sha="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["wheels"][sys.argv[2]]["sha256"])' /tmp/modelfetch-candidate.json "${TARGETARCH}")"; \
   case "${expected_sha}" in *[!0-9a-f]*|'') exit 1 ;; esac; \
   test "${#expected_sha}" -eq 64; \
   echo "${expected_sha}  ${wheel}" | sha256sum -c -; \
@@ -115,7 +125,8 @@ RUN --mount=type=bind,source=scripts/private/modelfetch-candidate-constraints.tx
     --constraint /tmp/modelfetch-candidate-constraints.txt "${wheel}"; \
   printf '%s\n' "${expected_sha}" > /opt/pek-venvs/model-tools/.candidate-wheel-sha256; \
   chmod 0444 /opt/pek-venvs/model-tools/.candidate-wheel-sha256; \
-  /opt/pek-venvs/model-tools/bin/modelfetch --help >/dev/null
+  /opt/pek-venvs/model-tools/bin/modelfetch --help >/dev/null; \
+  rm -f "${wheel}"
 
 USER ${USERNAME}
 WORKDIR /work

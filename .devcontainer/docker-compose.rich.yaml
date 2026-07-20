@@ -26,8 +26,8 @@ services:
       context: ..
       dockerfile: Dockerfile
       target: pek-dev-rich
-      secrets:
-        - modelfetch_wheel
+      additional_contexts:
+        modelfetch_wheels: ../.cache/modelfetch
 
     container_name: pek-dev-rich
 
@@ -41,10 +41,18 @@ services:
     user: "0:0"
 
     command: | 
-      /bin/bash -c "/work/.devcontainer/setup.sh && 
-      /work/.devcontainer/devsetup.sh && 
+      /bin/bash -c "rm -f /tmp/pek-models-initialized &&
+      /work/.devcontainer/devsetup.sh &&
+      python3 /work/scripts/private/initialize_models.py &&
+      touch /tmp/pek-models-initialized &&
       ln -sf ~/configs/.gitconfig ~/.gitconfig &&
       while true; do sleep 1; done"
+
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/pek-models-initialized"]
+      interval: 2s
+      timeout: 1s
+      retries: 300
 
     environment:
       - XDG_RUNTIME_DIR=/run/user/${HOST_UID}
@@ -84,7 +92,5 @@ services:
     restart: unless-stopped
 
 secrets:
-  modelfetch_wheel:
-    file: ../.cache/modelfetch/modelfetch-candidate.whl
   huggingface_token:
     file: ${HF_TOKEN_PATH:-/dev/null}

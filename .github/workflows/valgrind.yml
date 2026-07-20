@@ -70,6 +70,24 @@ jobs:
           fi
           ./scripts/private/prepare-modelfetch-candidate.sh >/dev/null
 
+      - name: Prepare Hugging Face token for model initialization
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${HF_TOKEN:-}" ]; then
+            echo "HF_TOKEN is required to initialize the configured published models." >&2
+            exit 1
+          fi
+          HF_TOKEN_PATH="${RUNNER_TEMP}/pek-hf-token-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}"
+          umask 077
+          printf '%s' "$HF_TOKEN" > "$HF_TOKEN_PATH"
+          {
+            echo "HF_TOKEN_PATH=$HF_TOKEN_PATH"
+            echo "HOST_UID=$(id -u)"
+            echo "HOST_GID=$(id -g)"
+          } >> "$GITHUB_ENV"
+
       - name: Run Valgrind Python unit tests
         run: |
           python3 -m unittest \
@@ -151,3 +169,7 @@ jobs:
           # Assume that there will be a commit on the main or develop branch
           # at least every 2 months to keep the baseline available.
           retention-days: 60
+
+      - name: Remove Hugging Face token file
+        if: always()
+        run: rm -f -- "${HF_TOKEN_PATH:-}"

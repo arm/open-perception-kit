@@ -44,12 +44,7 @@ jobs:
             echo "MODELFETCH_CANDIDATE_TOKEN is required to read the pinned Arm-Debug/modelfetch artifact." >&2
             exit 1
           fi
-          wheel_path="$(./scripts/private/prepare-modelfetch-candidate.sh)"
-          if [ ! -f "${wheel_path}" ] || [[ "${wheel_path}" != "${WORKSPACE_ROOT}/.cache/modelfetch/"* ]]; then
-            echo "Unexpected modelfetch candidate path: ${wheel_path}" >&2
-            exit 1
-          fi
-          echo "MODELFETCH_WHEEL_PATH=${wheel_path}" >> "$GITHUB_ENV"
+          ./scripts/private/prepare-modelfetch-candidate.sh >/dev/null
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
@@ -177,23 +172,6 @@ jobs:
                   return raw
               return []
 
-          def normalize_shell_command(cmd):
-              if cmd is None:
-                  return None
-              if isinstance(cmd, str):
-                  return cmd.strip() or None
-              if isinstance(cmd, list):
-                  return " ".join(str(x) for x in cmd).strip() or None
-              if isinstance(cmd, dict):
-                  parts = []
-                  for v in cmd.values():
-                      if isinstance(v, list):
-                          parts.append(" ".join(str(x) for x in v))
-                      else:
-                          parts.append(str(v))
-                  return " && ".join(p.strip() for p in parts if p.strip()) or None
-              return str(cmd).strip() or None
-
           entries = []
 
           devcontainer_files = sorted(workspace.glob(".devcontainer/**/devcontainer.json"))
@@ -250,7 +228,6 @@ jobs:
                   "prepared_image": f"blackduck-scan-{name}:prepared-{os.environ['GITHUB_SHA']}-{run_suffix}",
                   "remote_user": data.get("remoteUser"),
                   "workspace_folder": data.get("workspaceFolder", "/work"),
-                  "post_create_command": normalize_shell_command(data.get("postCreateCommand")),
                   "build_ok": False,
                   "prepared_ok": False,
               })
@@ -274,6 +251,7 @@ jobs:
           import sys
 
           manifest_path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "bd-container-manifest.json"
+          workspace = pathlib.Path(os.environ["WORKSPACE_ROOT"]).resolve()
           entries = json.loads(manifest_path.read_text())
 
           built_any = False
@@ -283,7 +261,7 @@ jobs:
                   "docker", "build",
                   "-t", entry["image"],
                   "-f", entry["dockerfile"],
-                  "--secret", f"id=modelfetch_wheel,src={os.environ['MODELFETCH_WHEEL_PATH']}",
+                  "--build-context", f"modelfetch_wheels={workspace / '.cache/modelfetch'}",
               ]
               if entry.get("target"):
                   cmd += ["--target", entry["target"]]
@@ -313,9 +291,9 @@ jobs:
           set -euo pipefail
           dev_image="perception-experience-kit-bd:${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           docker build \
-            --secret "id=modelfetch_wheel,src=${MODELFETCH_WHEEL_PATH}" \
             -t "${dev_image}" \
             --target pek-dev-base \
+            --build-context "modelfetch_wheels=${WORKSPACE_ROOT}/.cache/modelfetch" \
             "${WORKSPACE_ROOT}"
 
           docker run --rm \
@@ -380,7 +358,6 @@ jobs:
 
               container_name = f"bd-prep-{entry['name']}-{os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}"
               workspace_folder = entry.get("workspace_folder") or "/work"
-              post_create_command = entry.get("post_create_command")
               remote_user = entry.get("remote_user")
 
               print(f"Preparing runtime dependencies for {entry['name']}")
@@ -406,11 +383,10 @@ jobs:
                       cmd += [container_name, "bash", "-lc", f"cd {shlex.quote(workspace_folder)} && {command}"]
                       subprocess.run(cmd, check=True)
 
-                  if post_create_command:
-                      try:
-                          exec_in_container(post_create_command, remote_user)
-                      except subprocess.CalledProcessError:
-                          exec_in_container(post_create_command)
+                  try:
+                      exec_in_container("bash .devcontainer/devsetup.sh", remote_user)
+                  except subprocess.CalledProcessError:
+                      exec_in_container("bash .devcontainer/devsetup.sh")
 
                   subprocess.run(["docker", "commit", container_name, entry["prepared_image"]], check=True)
                   subprocess.run(["docker", "image", "inspect", entry["prepared_image"]], check=True)

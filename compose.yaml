@@ -20,16 +20,12 @@ services:
       context: .
       dockerfile: Dockerfile
       target: pek-deployment-base
+      additional_contexts:
+        modelfetch_wheels: .cache/modelfetch
       args:
         PEK_PIPELINE: ${PEK_PIPELINE:-onnx}
-      secrets:
-        - modelfetch_wheel
 
 secrets:
-  modelfetch_wheel:
-    # Until modelfetch is released, prepare this exact candidate with
-    # scripts/private/prepare-modelfetch-candidate.sh before a deployment/Topo build.
-    file: .cache/modelfetch/modelfetch-candidate.whl
   huggingface_token:
     file: ${HF_TOKEN_PATH:-/dev/null}
 

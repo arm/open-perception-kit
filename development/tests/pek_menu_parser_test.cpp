@@ -102,33 +102,3 @@ TEST(TokenizeExpand, UnterminatedQuoteThrows) {
     EXPECT_THROW(tokenize_and_expand_argv(R"(a "b c)"), std::runtime_error);
     EXPECT_THROW(tokenize_and_expand_argv("a 'b c"), std::runtime_error);
 }
-
-TEST(ExtractPekinferOpchains, IncludesInactiveAndExpandedPaths) {
-    SetEnv("MODEL_ROOT", "/work/config/models");
-    ExecArgs ea = tokenize_and_expand_argv(
-        "fakesrc ! pekinfer opchain-path=${MODEL_ROOT}/first/opchain.json active=false ! "
-        "identity opchain-path=/not/a/pekinfer.json ! "
-        "pekinfer active=true opchain-path='/work/config/models/second/opchain.json' ! fakesink");
-
-    EXPECT_EQ(extract_pekinfer_opchain_paths(ea),
-              (std::vector<std::string>{"/work/config/models/first/opchain.json",
-                                        "/work/config/models/second/opchain.json"}));
-    UnsetEnv("MODEL_ROOT");
-}
-
-TEST(ExtractPekinferOpchains, RejectsEmptyPath) {
-    ExecArgs ea =
-        tokenize_and_expand_argv("fakesrc ! pekinfer opchain-path= active=false ! fakesink");
-    EXPECT_THROW(extract_pekinfer_opchain_paths(ea), std::runtime_error);
-}
-
-TEST(ExtractPekinferOpchains, RejectsMissingPath) {
-    ExecArgs ea = tokenize_and_expand_argv("fakesrc ! pekinfer active=false ! fakesink");
-    EXPECT_THROW(extract_pekinfer_opchain_paths(ea), std::runtime_error);
-}
-
-TEST(ExtractPekinferOpchains, RejectsDuplicatePath) {
-    ExecArgs ea = tokenize_and_expand_argv(
-        "pekinfer opchain-path=/work/first.json opchain-path=/work/second.json ! fakesink");
-    EXPECT_THROW(extract_pekinfer_opchain_paths(ea), std::runtime_error);
-}

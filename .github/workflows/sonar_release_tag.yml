@@ -35,9 +35,11 @@ jobs:
       - name: Derive tag metadata
         shell: bash
         run: |
-          echo "TAG_NAME=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
-          echo "SONAR_RELEASE_BRANCH=tags/${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
-          echo "SONAR_PROJECT_VERSION=${GITHUB_REF_NAME#release/}" >> "$GITHUB_ENV"
+          {
+            echo "TAG_NAME=${GITHUB_REF_NAME}"
+            echo "SONAR_RELEASE_BRANCH=tags/${GITHUB_REF_NAME}"
+            echo "SONAR_PROJECT_VERSION=${GITHUB_REF_NAME#release/}"
+          } >> "$GITHUB_ENV"
 
       - name: Prepare pinned modelfetch candidate
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}

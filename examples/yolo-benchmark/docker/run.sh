@@ -71,6 +71,7 @@ run_in_container() {
     local opchain="config/models/yolov11/opchain.json"
 
     cd /work
+    python3 /work/scripts/private/initialize_models.py
     if [[ ! -w "${cache_root}" ]]; then
         sudo chown -R "$(id -u):$(id -g)" "${cache_root}"
     fi

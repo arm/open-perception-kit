@@ -14,7 +14,6 @@ struct ExecArgs {
 };
 
 ExecArgs tokenize_and_expand_argv(const std::string &s);
-std::vector<std::string> extract_pekinfer_opchain_paths(const ExecArgs &args);
 std::string trim(std::string trimmed_str);
 
 #endif // !__PARSER_HPP__

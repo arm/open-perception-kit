@@ -7,16 +7,14 @@
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <limits>
 #include <optional>
-#include <spawn.h>
 #include <stdexcept>
 #include <string>
-#include <sys/wait.h>
-#include <system_error>
 #include <unistd.h>
 #include <unordered_map>
 #include <vector>
@@ -37,10 +35,6 @@ struct PipelineEntry {
 
 static constexpr const char *kPipelinesDir = "/work/config/pipelines";
 static constexpr const char *kLastSelectionFileName = ".last_selected_pipeline_id";
-static constexpr const char *kModelToolsPython = "/opt/pek-venvs/model-tools/bin/python";
-static constexpr const char *kModelMaterializer = "/work/scripts/private/model_materializer.py";
-
-extern char **environ;
 
 static fs::path last_selection_path() {
     return fs::path(kPipelinesDir) / kLastSelectionFileName;
@@ -222,61 +216,9 @@ static std::optional<int> read_choice_int() {
     return static_cast<int>(v);
 }
 
-static int run_model_materializer(const std::vector<std::string> &opchainPaths) {
-    if (opchainPaths.empty())
-        return 0;
-
-    std::vector<std::string> storage{kModelToolsPython, kModelMaterializer};
-    storage.reserve(2 + opchainPaths.size() * 2);
-    for (const auto &path : opchainPaths) {
-        storage.emplace_back("--opchain");
-        storage.push_back(path);
-    }
-
-    std::vector<char *> argv;
-    argv.reserve(storage.size() + 1);
-    for (auto &argument : storage)
-        argv.push_back(argument.data());
-    argv.push_back(nullptr);
-
-    pid_t childPid = 0;
-    const int spawnResult =
-        posix_spawn(&childPid, kModelToolsPython, nullptr, nullptr, argv.data(), environ);
-    if (spawnResult != 0) {
-        pek::forceLoge("Failed to start model materializer: {}\n",
-                       std::error_code(spawnResult, std::generic_category()).message());
-        return 1;
-    }
-
-    int status = 0;
-    pid_t waitResult;
-    do {
-        waitResult = waitpid(childPid, &status, 0);
-    } while (waitResult < 0 && errno == EINTR);
-
-    if (waitResult < 0) {
-        const int waitError = errno;
-        pek::forceLoge("Failed to wait for model materializer: {}\n",
-                       std::error_code(waitError, std::generic_category()).message());
-        return 1;
-    }
-    if (WIFEXITED(status)) {
-        const int exitCode = WEXITSTATUS(status);
-        if (exitCode != 0)
-            pek::forceLoge("Model materialization failed with exit code {}\n", exitCode);
-        return exitCode;
-    }
-    if (WIFSIGNALED(status)) {
-        pek::forceLoge("Model materializer terminated by signal {}\n", WTERMSIG(status));
-        return 1;
-    }
-    pek::forceLoge("Model materializer exited unexpectedly\n");
-    return 1;
-}
-
-static int run_pipeline(const PipelineEntry &entry, bool dryRun) {
+int run_gst_launch(const std::string &pipeline, bool dry_run) {
     try {
-        auto cmd = tokenize_and_expand_argv(entry.pipeline);
+        auto cmd = tokenize_and_expand_argv(pipeline);
 
         std::string command_line;
         for (auto &p : cmd.storage) {
@@ -286,19 +228,14 @@ static int run_pipeline(const PipelineEntry &entry, bool dryRun) {
         pek::forceLog("{}\n", command_line);
         std::fflush(stdout);
 
-        if (dryRun)
-            return 0;
+        if (!dry_run) {
+            // never returns if everything is okay
+            execvp(cmd.argv[0], cmd.argv.data());
+            pek::forceLoge("execvp: {}\n", std::strerror(errno));
+            return 127;
+        }
 
-        const int materializeResult = run_model_materializer(extract_pekinfer_opchain_paths(cmd));
-        if (materializeResult != 0)
-            return materializeResult;
-
-        // never returns if everything is okay
-        execvp(cmd.argv[0], cmd.argv.data());
-        const int execError = errno;
-        pek::forceLoge("execvp: {}\n",
-                       std::error_code(execError, std::generic_category()).message());
-        return 127;
+        return 0;
     } catch (std::runtime_error &error) {
         pek::forceLoge("error: {}\n", error.what());
         return 3;
@@ -406,7 +343,7 @@ int main(int argc, char **argv) {
         }
         const auto &pipelineEntry = entries[it->second];
         (void)save_last_selected_pipeline(pipelineEntry.full_path);
-        return run_pipeline(pipelineEntry, dry_run);
+        return run_gst_launch(pipelineEntry.pipeline, dry_run);
     }
 
     // Fast path: run by path or ID
@@ -425,7 +362,7 @@ int main(int argc, char **argv) {
         }
         // Since this path might not be available in the menu, we won't save it as last selected
         // pipeline.
-        return run_pipeline(*entry, dry_run);
+        return run_gst_launch(entry->pipeline, dry_run);
     }
 
     // Menu mode (no args)
@@ -467,7 +404,7 @@ int main(int argc, char **argv) {
             }
             const auto &pipelineEntry = entries[*last_pipeline_idx];
             (void)save_last_selected_pipeline(pipelineEntry.full_path);
-            return run_pipeline(pipelineEntry, dry_run);
+            return run_gst_launch(pipelineEntry.pipeline, dry_run);
         }
 
         const size_t idx = static_cast<size_t>(*c - 1);
@@ -477,6 +414,6 @@ int main(int argc, char **argv) {
             pek::forceLog("Warning: failed to save last selected pipeline to {}\n",
                           last_selection_path().string());
         }
-        return run_pipeline(pipelineEntry, dry_run);
+        return run_gst_launch(pipelineEntry.pipeline, dry_run);
     }
 }

@@ -46,7 +46,7 @@ fs::path writeDescriptor(const fs::path &directory, const std::string &modelFile
 
 } // namespace
 
-TEST(ModelDescriptor, ModelFileRoundTripsWithoutExtraSourceField) {
+TEST(ModelDescriptor, ModelFileRoundTrips) {
     constexpr const char *assetId =
         "hf:Arm/example@0123456789abcdef0123456789abcdef01234567#file=onnx/model.onnx";
     const nlohmann::json document = {{"name", "example"},
@@ -60,7 +60,6 @@ TEST(ModelDescriptor, ModelFileRoundTripsWithoutExtraSourceField) {
     EXPECT_EQ(descriptor->modelFile, assetId);
     const nlohmann::json serialized = *descriptor;
     EXPECT_EQ(serialized.at("modelFile"), assetId);
-    EXPECT_FALSE(serialized.contains("modelAssetId"));
 }
 
 TEST(ModelDescriptor, FromFileResolvesLocalModelBesideDescriptor) {

@@ -79,7 +79,7 @@ do_up() {
     HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" WEBRTC_HOST_IP="${WEBRTC_HOST_IP}" \
         PEK_WEBRTC_TURN_MIN_PORT="${PEK_WEBRTC_TURN_MIN_PORT}" \
         PEK_WEBRTC_TURN_MAX_PORT="${PEK_WEBRTC_TURN_MAX_PORT}" \
-        docker compose "${COMPOSE_FILES[@]}" up -d --build
+        docker compose "${COMPOSE_FILES[@]}" up -d --build --wait --wait-timeout 600
 }
 
 do_down() {

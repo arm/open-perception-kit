@@ -143,48 +143,6 @@ class TestPekMenuCliDiagnostics(unittest.TestCase):
         self.assertEqual(result.stdout, "gst-launch-1.0 fakesrc ! fakesink \n")
         self.assertEqual(result.stderr, "")
 
-    def test_materializer_failure_prevents_gstreamer_launch(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            directory = Path(tmpdir)
-            marker = directory / "gst-launched"
-            fake_gst = directory / "gst-launch-1.0"
-            fake_gst.write_text('#!/bin/sh\n: > "$PEK_GST_MARKER"\n', encoding="utf-8")
-            fake_gst.chmod(0o755)
-            pipeline = directory / "materialization.json"
-            self.write_pipeline(
-                pipeline,
-                "fakesrc ! pekinfer "
-                "opchain-path=/work/definitely-missing-materializer-test.json ! fakesink",
-            )
-
-            result = self.run_cli(
-                str(pipeline),
-                env_overrides={
-                    "PATH": f"{directory}:{os.environ['PATH']}",
-                    "PEK_GST_MARKER": str(marker),
-                },
-            )
-            launched = marker.exists()
-
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("Model materialization failed with exit code", result.stderr)
-        self.assertFalse(launched)
-
-    def test_dry_run_skips_model_materialization(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            pipeline = Path(tmpdir) / "materialization-dry-run.json"
-            self.write_pipeline(
-                pipeline,
-                "fakesrc ! pekinfer "
-                "opchain-path=/work/definitely-missing-materializer-test.json ! fakesink",
-            )
-
-            result = self.run_cli("-p", str(pipeline))
-
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("gst-launch-1.0 fakesrc ! pekinfer", result.stdout)
-        self.assertEqual(result.stderr, "")
-
     def test_exec_failure_diagnostic_is_not_suppressed(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             pipeline = Path(tmpdir) / "exec-failure.json"

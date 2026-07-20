@@ -104,26 +104,37 @@ container_workdir_writable() {
 }
 
 expected_model_tools_sha256() {
-    python3 - "${REPO_ROOT}/scripts/private/modelfetch-candidate.json" << 'PY'
+    local machine="$1"
+    python3 - "${REPO_ROOT}/scripts/private/modelfetch-candidate.json" "$machine" << 'PY'
 import json
 from pathlib import Path
 import sys
 
 document = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-value = document["wheelSha256"]
+architecture = {"x86_64": "amd64", "aarch64": "arm64"}.get(sys.argv[2])
+if architecture is None:
+    raise SystemExit(f"unsupported container architecture: {sys.argv[2]}")
+value = document["wheels"][architecture]["sha256"]
 if not isinstance(value, str) or len(value) != 64:
-    raise SystemExit("invalid wheelSha256")
+    raise SystemExit(f"invalid wheel sha256 for {architecture}")
 print(value)
 PY
 }
 
 container_has_current_model_tools() {
-    local expected_sha
-    expected_sha="$(expected_model_tools_sha256)" || return 1
+    local container_machine expected_sha
+    container_machine="$(docker exec -u devgoblin "${PEK_CONTAINER_NAME}" uname -m)" || return 1
+    expected_sha="$(expected_model_tools_sha256 "$container_machine")" || return 1
     docker exec -u devgoblin "${PEK_CONTAINER_NAME}" sh -c '
         test -x /opt/pek-venvs/model-tools/bin/modelfetch &&
         test "$(cat /opt/pek-venvs/model-tools/.candidate-wheel-sha256 2>/dev/null)" = "$1"
     ' _ "$expected_sha" > /dev/null 2>&1
+}
+
+initialize_models_in_container() {
+    echo "Initializing published models..."
+    docker exec -u devgoblin "${PEK_CONTAINER_NAME}" \
+        python3 /work/scripts/private/initialize_models.py
 }
 
 print_enter_hint() {
@@ -146,6 +157,7 @@ require_docker
 
 if container_running && [[ "$RECREATE" != "true" ]]; then
     if container_workdir_writable && container_has_current_model_tools; then
+        initialize_models_in_container
         print_enter_hint
         exit 0
     fi
@@ -178,6 +190,8 @@ if [[ "$RECREATE" == "true" ]]; then
     UP_ARGS+=(--force-recreate)
 fi
 docker compose "${COMPOSE_FILES[@]}" "${UP_ARGS[@]}" "${PEK_CONTAINER_SERVICE}"
+
+initialize_models_in_container
 
 echo
 docker ps --filter "name=${PEK_CONTAINER_NAME}" --format 'table {{.Names}} {{.Status}}'
