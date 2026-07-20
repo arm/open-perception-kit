@@ -91,10 +91,11 @@ WebRtcSockerError WebRtcWebSocket::setup() {
 
     ws->init_asio();
 
-    ws->set_open_handler([this](connection_hdl hdl) { on_open(hdl); });
-    ws->set_close_handler([this](connection_hdl hdl) { on_close(hdl); });
-    ws->set_message_handler(
-        [this](connection_hdl hdl, ws_server::message_ptr msg) { on_message(hdl, msg); });
+    ws->set_open_handler([this](const connection_hdl &hdl) { on_open(hdl); });
+    ws->set_close_handler([this](const connection_hdl &hdl) { on_close(hdl); });
+    ws->set_message_handler([this](const connection_hdl &hdl, const ws_server::message_ptr &msg) {
+        on_message(hdl, msg);
+    });
 
     ws->set_reuse_addr(true);
     ws->listen(self_->ws_port);
@@ -151,7 +152,7 @@ WebRtcSockerError WebRtcWebSocket::stop() {
     return WebRtcSockerError::OK;
 }
 
-std::shared_ptr<SessionContext> WebRtcWebSocket::get_session(connection_hdl hdl) {
+std::shared_ptr<SessionContext> WebRtcWebSocket::get_session(const connection_hdl &hdl) {
     std::lock_guard<std::mutex> mutex_guard(webrtc_session_mutex);
     auto it = webrtc_sessions.find(hdl);
     if (it == webrtc_sessions.end()) {
@@ -160,7 +161,7 @@ std::shared_ptr<SessionContext> WebRtcWebSocket::get_session(connection_hdl hdl)
     return it->second;
 }
 
-bool WebRtcWebSocket::cleanup_session(connection_hdl hdl, const char *reason) {
+bool WebRtcWebSocket::cleanup_session(const connection_hdl &hdl, const char *reason) {
     std::shared_ptr<SessionContext> ctx;
     {
         std::lock_guard<std::mutex> mutex_guard(webrtc_session_mutex);
@@ -367,7 +368,7 @@ bool WebRtcWebSocket::attach_audio(SessionContext *ctx) {
     }
 }
 
-void WebRtcWebSocket::on_open(connection_hdl hdl) {
+void WebRtcWebSocket::on_open(const connection_hdl &hdl) {
 
     DBG("WebSocket connection opened");
     if (stopping) {
@@ -424,7 +425,7 @@ void WebRtcWebSocket::on_open(connection_hdl hdl) {
     webrtc_sessions[hdl] = ctx;
 }
 
-void WebRtcWebSocket::on_close(connection_hdl hdl) {
+void WebRtcWebSocket::on_close(const connection_hdl &hdl) {
     DBG("WebSocket connection closed");
     if (cleanup_session(hdl, "websocket close")) {
         dump_pipeline_graph(GST_ELEMENT(self_), "pipeline_on_close");
@@ -489,7 +490,7 @@ bool WebRtcWebSocket::link_per_client_elements(SessionContext *ctx) {
     }
 }
 
-void WebRtcWebSocket::process_offer(std::shared_ptr<SessionContext> ctx, const json &jsn) {
+void WebRtcWebSocket::process_offer(const std::shared_ptr<SessionContext> &ctx, const json &jsn) {
 
     if (ctx->offer_received) {
         DBG("Repeated offer received for the same WebSocket handle");
@@ -544,7 +545,8 @@ void WebRtcWebSocket::process_offer(std::shared_ptr<SessionContext> ctx, const j
     DBG("Setting remote description");
 }
 
-void WebRtcWebSocket::process_canditate(std::shared_ptr<SessionContext> ctx, const json &jsn) {
+void WebRtcWebSocket::process_canditate(const std::shared_ptr<SessionContext> &ctx,
+                                        const json &jsn) {
     DBG("Received ICE candidate");
 
     auto ice = jsn["ice"];
@@ -556,7 +558,7 @@ void WebRtcWebSocket::process_canditate(std::shared_ptr<SessionContext> ctx, con
     DBG("Added ICE candidate: candidate={} mlindex={}", candidate, sdpMLineIndex);
 }
 
-void WebRtcWebSocket::on_message(connection_hdl hdl, ws_server::message_ptr msg) {
+void WebRtcWebSocket::on_message(const connection_hdl &hdl, const ws_server::message_ptr &msg) {
     DBG("on_message");
 
     if (stopping) {

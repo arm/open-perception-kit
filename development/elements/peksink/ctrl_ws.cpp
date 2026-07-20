@@ -9,6 +9,7 @@
 
 #include <mutex>
 #include <unordered_map>
+#include <utility>
 
 // WebRTC in GST is unstable: this macro disables the warning
 #define GST_USE_UNSTABLE_API
@@ -36,10 +37,11 @@ CtrlSockerError CtrlWebSocket::setup() {
 
     ws->init_asio();
 
-    ws->set_open_handler([this](connection_hdl hdl) { on_open(hdl); });
-    ws->set_close_handler([this](connection_hdl hdl) { on_close(hdl); });
-    ws->set_message_handler(
-        [this](connection_hdl hdl, ws_server::message_ptr msg) { on_message(hdl, msg); });
+    ws->set_open_handler([this](const connection_hdl &hdl) { on_open(hdl); });
+    ws->set_close_handler([this](const connection_hdl &hdl) { on_close(hdl); });
+    ws->set_message_handler([this](const connection_hdl &hdl, const ws_server::message_ptr &msg) {
+        on_message(hdl, msg);
+    });
 
     ws->set_reuse_addr(true);
     ws->listen(self_->ctrl_port);
@@ -92,7 +94,7 @@ void CtrlWebSocket::send_to_all(const std::string &text) {
     }
 }
 
-void CtrlWebSocket::on_open(connection_hdl hdl) {
+void CtrlWebSocket::on_open(const connection_hdl &hdl) {
     {
         std::lock_guard<std::mutex> g(hdl_lock);
         hdls.insert(hdl);
@@ -101,14 +103,14 @@ void CtrlWebSocket::on_open(connection_hdl hdl) {
     report();
 }
 
-void CtrlWebSocket::on_close(connection_hdl hdl) {
+void CtrlWebSocket::on_close(const connection_hdl &hdl) {
     DBG("on_close");
 
     std::lock_guard<std::mutex> g(hdl_lock);
     hdls.erase(hdl);
 }
 
-void CtrlWebSocket::on_message(connection_hdl hdl, ws_server::message_ptr msg) {
+void CtrlWebSocket::on_message(const connection_hdl &hdl, const ws_server::message_ptr &msg) {
     DBG("on_message");
     auto payload = msg->get_payload();
     auto jsn = json::parse(payload);
@@ -123,8 +125,8 @@ void CtrlWebSocket::register_status_reporter(const std::string &name,
                                              std::shared_ptr<StatusReporter> status_reporter) {
     std::lock_guard<std::mutex> g(reporter_lock);
 
-    status_reporters[name] = status_reporter;
     status_reporter->trigger_reporting = std::bind(&CtrlWebSocket::report, this);
+    status_reporters[name] = std::move(status_reporter);
 }
 
 void CtrlWebSocket::report() {

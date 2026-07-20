@@ -57,9 +57,9 @@ class CtrlWebSocket {
 
     void send_to_all(const std::string &text);
 
-    void on_open(connection_hdl hdl);
-    void on_close(connection_hdl hdl);
-    void on_message(connection_hdl hdl, ws_server::message_ptr msg);
+    void on_open(const connection_hdl &hdl);
+    void on_close(const connection_hdl &hdl);
+    void on_message(const connection_hdl &hdl, const ws_server::message_ptr &msg);
 
     CtrlSockerError setup();
 

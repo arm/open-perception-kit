@@ -15,6 +15,11 @@ Python OpenAI Agents SDK runtime with that typed context, then publishes:
 - UI-only comment markers that identify Agent Review comments without storing
   machine-readable review state in PR comments
 
+The structured recommendation remains visible in the review output, but GitHub
+reviews are always submitted with the non-blocking `COMMENT` event. The
+workflow never approves a pull request or formally requests changes. Failures
+in the OpenAI SDK review step are advisory and do not fail the workflow.
+
 During the SDK run, the context artifact and the GitHub Actions event payload
 are temporarily removed from the filesystem and restored afterward. This keeps
 model-visible review metadata on the dedicated `get_review_context` tool
