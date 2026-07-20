@@ -228,42 +228,16 @@ void CtrlWebSocket::enable_perf_overlay(const json &jsn) {
     DBG("enable_perf_overlay: {}", jsn.dump());
 
     auto top = get_top_pipeline(GST_ELEMENT(self_));
-    auto perf_ovr = get_element_by_type(top, "pekperformance");
+    auto perf_ovr = get_element_by_type(top, "pekosd");
     gst_object_unref(top);
 
     // GST_IS_ELEMENT() is a macro performing a type check with no side effects
     if (perf_ovr && GST_IS_ELEMENT(perf_ovr)) { // NOSONAR
 
         gboolean enabled;
-        g_object_get(perf_ovr, "enabled", &enabled, NULL);
+        g_object_get(perf_ovr, "performance-overlay-enabled", &enabled, NULL);
+        g_object_set(perf_ovr, "performance-overlay-enabled", !enabled, NULL);
         gst_object_unref(perf_ovr);
-
-        GstStructure *structure =
-            gst_structure_new("pekperformance", "enabled", G_TYPE_BOOLEAN, !enabled, NULL);
-        GstEvent *event = gst_event_new_custom(GST_EVENT_CUSTOM_UPSTREAM, structure);
-
-        // Get the peer pad (source pad of upstream element connected to our sink)
-        GstPad *sink_pad = gst_element_get_static_pad(GST_ELEMENT(self_), "sink");
-        if (sink_pad) {
-            GstPad *peer_pad = gst_pad_get_peer(sink_pad);
-
-            if (peer_pad) {
-                GstElement *peer_elem = GST_ELEMENT(gst_pad_get_parent(peer_pad));
-                GST_INFO_OBJECT(self_,
-                                "Sending event to peer element: %s",
-                                peer_elem ? GST_ELEMENT_NAME(peer_elem) : "unknown");
-
-                gboolean result = gst_pad_send_event(peer_pad, event);
-
-                if (peer_elem) {
-                    gst_object_unref(peer_elem);
-                }
-
-                gst_object_unref(peer_pad);
-            }
-
-            gst_object_unref(sink_pad);
-        }
     }
 
     // send the current pipeline state back to browser

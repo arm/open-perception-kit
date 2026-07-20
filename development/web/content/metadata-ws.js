@@ -35,6 +35,35 @@ function normalisePerformance(perception) {
     };
 }
 
+function normaliseMetadataMessage(message) {
+    if (
+        message
+        && typeof message === 'object'
+        && Object.prototype.hasOwnProperty.call(message, 'perception')
+    ) {
+        return {
+            frame_counter: message.frame_counter,
+            perception: message.perception && typeof message.perception === 'object'
+                ? message.perception
+                : null,
+        };
+    }
+
+    if (message && typeof message === 'object' && (
+        Array.isArray(message.layers) || Array.isArray(message.perfdata)
+    )) {
+        return {
+            frame_counter: message.frame_counter,
+            perception: message,
+        };
+    }
+
+    return {
+        frame_counter: message?.frame_counter,
+        perception: null,
+    };
+}
+
 function handleMetadataMessage(raw) {
     let message;
     try {
@@ -44,11 +73,11 @@ function handleMetadataMessage(raw) {
         return;
     }
 
-    const perception = message?.perception;
+    const { frame_counter, perception } = normaliseMetadataMessage(message);
     if (!perception) {
         window.dispatchEvent(new CustomEvent('metadata-message', {
             detail: {
-                frame_counter: message?.frame_counter,
+                frame_counter,
                 perception: null,
                 inference_output: { layers: [] },
                 performance: { lines: [] },
@@ -62,7 +91,7 @@ function handleMetadataMessage(raw) {
 
     window.dispatchEvent(new CustomEvent('metadata-message', {
         detail: {
-            frame_counter: message.frame_counter,
+            frame_counter,
             perception,
             inference_output,
             performance,

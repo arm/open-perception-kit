@@ -128,13 +128,13 @@ nlohmann::json PerformanceOverlayStateReporter::report() const {
         return ret;
     }
 
-    // we suppose here that only one pekperformance element exists in the pipeline
+    // we suppose here that only one pekosd element exists in the pipeline
     auto top = get_top_pipeline(GST_ELEMENT(self_));
     if (!top) {
         return ret;
     }
 
-    auto perf_ovr = get_element_by_type(top, "pekperformance");
+    auto perf_ovr = get_element_by_type(top, "pekosd");
     gst_object_unref(top);
 
     // GST_IS_ELEMENT() is a macro performing a type check with no side effects
@@ -142,7 +142,7 @@ nlohmann::json PerformanceOverlayStateReporter::report() const {
         ret["has_performance_overlay"] = true;
 
         gboolean enabled;
-        g_object_get(perf_ovr, "enabled", &enabled, nullptr);
+        g_object_get(perf_ovr, "performance-overlay-enabled", &enabled, nullptr);
         ret["enabled"] = bool(enabled);
 
         gst_object_unref(perf_ovr);
