@@ -3,7 +3,7 @@
 Full-frame face detector.
 
 - Backend: ONNX
-- Artifact: materialized on demand from the descriptor's `modelFile` locator
+- Artifact: downloaded during container initialization from the descriptor's `modelFile` locator
 - Input: NCHW image, `[1, 3, 240, 320]`
 - Output: score and box tensors
 - Post processor: `UltrafaceParser`

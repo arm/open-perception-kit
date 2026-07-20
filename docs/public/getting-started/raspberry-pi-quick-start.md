@@ -161,10 +161,11 @@ git clone git@github.com:Arm-Debug/amp-dev-forge.git
 
 Expected result: the `pek` folder exists on the Raspberry Pi.
 
-For a pipeline that downloads a published model, save a Hugging Face access
-token in a mode-`0600` file on the Pi and set `HF_TOKEN_PATH` to its absolute
-path in the Pi login environment used by VS Code Remote SSH. Make the file
-private, add the export to `~/.profile`, then reconnect VS Code to the Pi:
+Container initialization downloads all published models referenced by the
+repository. Save a Hugging Face access token in a mode-`0600` file on the Pi
+and set `HF_TOKEN_PATH` to its absolute path in the Pi login environment used
+by VS Code Remote SSH. Make the file private, add the export to `~/.profile`,
+then reconnect VS Code to the Pi:
 
 ```bash
 chmod 600 "/absolute/path/to/huggingface-token"
@@ -172,8 +173,7 @@ printf '%s\n' \
   'export HF_TOKEN_PATH="/absolute/path/to/huggingface-token"' >> ~/.profile
 ```
 
-The Dev Container mounts this file read-only. Pipelines that use only local
-models do not require it.
+The Dev Container mounts this file read-only. `pek-menu` performs no downloads.
 
 ## 7. Check VS Code Prerequisites On Your Computer
 

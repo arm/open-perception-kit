@@ -70,10 +70,10 @@ export HF_TOKEN_PATH="/absolute/path/to/huggingface-token"
 code .
 ```
 
-`HF_TOKEN_PATH` is required when a selected pipeline downloads a published
-model. Launching VS Code from this shell makes the token file available to the
-Dev Container as a read-only secret; pipelines that use only local models do
-not require it.
+`HF_TOKEN_PATH` is required because Dev Container initialization downloads all
+published models referenced by the repository. Launching VS Code from this
+shell makes the token file available to the Dev Container as a read-only
+secret. `pek-menu` performs no downloads.
 
 In VS Code:
 

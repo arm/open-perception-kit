@@ -61,10 +61,10 @@ Use this target Pi setup before you start:
   container or source locations used during the first container build.
 - Until modelfetch is released, GitHub CLI authenticated on the target Pi with
   read access to the pinned `Arm-Debug/modelfetch` Actions artifact.
-- For workflows that use a published model, a mode-`0600` file containing a
-  Hugging Face access token, with `HF_TOKEN_PATH` set to that file in the shell
-  that starts the container. The token is mounted read-only; workflows that use
-  only local models do not require it.
+- A mode-`0600` file containing a Hugging Face access token, with
+  `HF_TOKEN_PATH` set to that file in the shell that starts the container. The
+  token is mounted read-only while container initialization downloads every
+  published model referenced by `config/models/`.
 
 ### 1. Connect to the target Pi
 
@@ -109,8 +109,8 @@ bash scripts/private/prepare-modelfetch-candidate.sh
 docker compose up --build
 ```
 
-The preparation step has the same temporary GitHub CLI access requirement
-listed above.
+The preparation step acquires the pinned architecture-specific Rust-backed
+wheel and has the same temporary GitHub CLI access requirement listed above.
 
 ### 3. Enter the container command line
 

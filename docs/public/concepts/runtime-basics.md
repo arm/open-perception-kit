@@ -81,11 +81,11 @@ The descriptor defines things such as:
 
 The same descriptor is used for local and published models. For a local model, `modelFile` is a
 relative path beside the descriptor. For a published model, `modelFile` is its immutable canonical
-`hf:...@...#file=...` locator. Before GStreamer starts, `pek-menu` materializes published content
-under the dedicated `var/models/` runtime store. Modelfetch owns the layout within that store and
-resolves the runtime path; AMP does not derive model-specific directories. Manifest and bundle
-locators are not runtime entrypoints and are rejected. Pipelines printed with `pek-menu -p` never
-download models.
+`hf:...@...#file=...` locator. Container initialization scans the descriptors and downloads every
+published asset into the dedicated `var/models/` runtime store before `pek-menu` is used.
+Modelfetch owns the layout within that store and resolves the runtime path; AMP does not derive
+model-specific directories. Manifest and bundle locators are not runtime entrypoints and are
+rejected. `pek-menu` only launches pipelines and never downloads models.
 
 If you are only adding your own model, you usually only need to copy and adapt an existing `model.json`.
 
@@ -93,10 +93,10 @@ If you are only adding your own model, you usually only need to copy and adapt a
 
 The normal runtime stack is:
 
-1. a top-level pipeline is selected from `config/pipelines/`
-2. that pipeline creates one or more `pekinfer` elements
-3. each `pekinfer` loads an OpChain
-4. `pek-menu` materializes any published model artifacts
+1. container initialization downloads all published assets referenced by `config/models/`
+2. a top-level pipeline is selected from `config/pipelines/`
+3. that pipeline creates one or more `pekinfer` elements
+4. each `pekinfer` loads an OpChain
 5. the OpChain loads one or more model descriptors
 6. postprocessing writes structured results
 7. downstream elements render, track, or publish those results
