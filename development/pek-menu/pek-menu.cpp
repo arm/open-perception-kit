@@ -40,6 +40,8 @@ struct PipelineEntry {
 static constexpr const char *kPipelinesDir = "/work/config/pipelines";
 static constexpr const char *kLastSelectionFileName = ".last_selected_pipeline_id";
 static constexpr auto kMinimumLoopRuntime = std::chrono::seconds(1);
+static constexpr int kExecutionFailureExitCode = 127;
+static constexpr int kSignalExitCodeOffset = 128;
 static volatile sig_atomic_t pipeline_process_group = -1;
 static volatile sig_atomic_t requested_termination_signal = 0;
 
@@ -100,7 +102,8 @@ static std::optional<PipelineEntry> load_entry_from_json_file(const fs::path &p)
 
         if (json_content.contains("loop")) {
             if (!json_content["loop"].is_boolean()) {
-                pek::forceLoge("Invalid JSON ('loop' must be a boolean): {}\n", p.string());
+                pek::log::instantError(
+                    "Invalid JSON ('loop' must be a boolean): {}\n", p.string());
                 return std::nullopt;
             }
             pipeline_entry.loop = json_content["loop"].get<bool>();
@@ -253,34 +256,34 @@ int run_gst_launch(const std::string &pipeline, bool dry_run, bool loop) {
             if (!loop) {
                 execvp(cmd.argv[0], cmd.argv.data());
                 pek::log::instantError("execvp: {}\n", std::strerror(errno));
-                return 127;
+                return kExecutionFailureExitCode;
             }
 
             if (signal(SIGINT, forward_termination_signal) == SIG_ERR ||
                 signal(SIGTERM, forward_termination_signal) == SIG_ERR) {
                 pek::log::instantError("signal: {}\n", std::strerror(errno));
-                return 127;
+                return kExecutionFailureExitCode;
             }
 
             do {
                 if (requested_termination_signal != 0)
-                    return 128 + requested_termination_signal;
+                    return kSignalExitCodeOffset + requested_termination_signal;
 
                 const auto pipeline_start = std::chrono::steady_clock::now();
                 const pid_t child_pid = fork();
                 if (child_pid < 0) {
                     pek::log::instantError("fork: {}\n", std::strerror(errno));
-                    return 127;
+                    return kExecutionFailureExitCode;
                 }
 
                 if (child_pid == 0) {
                     if (setpgid(0, 0) < 0) {
-                        pek::forceLoge("setpgid: {}\n", std::strerror(errno));
-                        _exit(127);
+                        pek::log::instantError("setpgid: {}\n", std::strerror(errno));
+                        _exit(kExecutionFailureExitCode);
                     }
                     execvp(cmd.argv[0], cmd.argv.data());
                     pek::log::instantError("execvp: {}\n", std::strerror(errno));
-                    _exit(127);
+                    _exit(kExecutionFailureExitCode);
                 }
 
                 if (setpgid(child_pid, child_pid) < 0 && errno != EACCES && errno != ESRCH) {
@@ -288,8 +291,8 @@ int run_gst_launch(const std::string &pipeline, bool dry_run, bool loop) {
                     kill(child_pid, SIGKILL);
                     while (waitpid(child_pid, nullptr, 0) < 0 && errno == EINTR) {
                     }
-                    pek::forceLoge("setpgid: {}\n", std::strerror(setpgid_error));
-                    return 127;
+                    pek::log::instantError("setpgid: {}\n", std::strerror(setpgid_error));
+                    return kExecutionFailureExitCode;
                 }
 
                 pipeline_process_group = child_pid;
@@ -305,17 +308,17 @@ int run_gst_launch(const std::string &pipeline, bool dry_run, bool loop) {
 
                 if (wait_result < 0) {
                     pek::log::instantError("waitpid: {}\n", std::strerror(errno));
-                    return 127;
+                    return kExecutionFailureExitCode;
                 }
 
                 if (requested_termination_signal != 0)
-                    return 128 + requested_termination_signal;
+                    return kSignalExitCodeOffset + requested_termination_signal;
 
                 if (WIFSIGNALED(status))
-                    return 128 + WTERMSIG(status);
+                    return kSignalExitCodeOffset + WTERMSIG(status);
 
                 if (!WIFEXITED(status))
-                    return 127;
+                    return kExecutionFailureExitCode;
 
                 const int exit_code = WEXITSTATUS(status);
                 if (exit_code != 0)
