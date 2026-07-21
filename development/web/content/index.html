@@ -38,13 +38,6 @@
                                 </button>
                             </div>
                         </div>
-                        <label class="perf-toggle-switch" aria-label="Toggle performance overlay">
-                            <input id="enablePerfOverlayChk" type="checkbox" role="switch">
-                            <span class="perf-toggle-track" aria-hidden="true">
-                                <span class="perf-toggle-thumb"></span>
-                            </span>
-                            <span class="perf-toggle-text">Performance overlay</span>
-                        </label>
                     </div>
                 </div>
 
@@ -73,6 +66,7 @@
             <main class="main-content">
                 <div class="video-wrapper">
                     <video id="video" autoplay playsinline muted></video>
+                    <canvas id="clientOsdCanvas" class="client-osd-canvas" aria-hidden="true"></canvas>
                     <div id="video-overlay" class="video-overlay">
                         <div class="overlay-chip">
                             <div class="spinner"></div>
@@ -80,6 +74,12 @@
                         </div>
                     </div>
                     <div class="video-control-buttons" aria-label="Video display controls">
+                        <button id="clientOsdControlsBtn"
+                            class="video-control-button client-osd-controls-button" type="button"
+                            aria-label="Client renderer controls" data-tooltip="Client renderer"
+                            aria-expanded="false" aria-pressed="false">
+                            <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+                        </button>
                         <button id="fullscreenOutputsBtn"
                             class="video-control-button video-outputs-fullscreen-button" type="button"
                             aria-label="Show outputs in fullscreen"
@@ -99,6 +99,51 @@
                             <i id="videoFullscreenIcon" class="fa-solid fa-up-right-and-down-left-from-center"
                                 aria-hidden="true"></i>
                         </button>
+                    </div>
+                    <div id="clientOsdControlsPanel" class="client-osd-controls-panel" hidden>
+                        <div class="client-osd-controls-title">Renderer</div>
+                        <label class="client-osd-toggle">
+                            <input id="clientOsdRenderObjects" type="checkbox" checked>
+                            <span>Objects</span>
+                            <input id="clientOsdColorObjects" class="client-osd-color" type="color" value="#ff3030"
+                                aria-label="Objects color">
+                        </label>
+                        <label class="client-osd-toggle">
+                            <input id="clientOsdRenderFaces" type="checkbox" checked>
+                            <span>Faces</span>
+                            <input id="clientOsdColorFaces" class="client-osd-color" type="color" value="#2600ff"
+                                aria-label="Faces color">
+                        </label>
+                        <label class="client-osd-toggle">
+                            <input id="clientOsdRenderGaze" type="checkbox" checked>
+                            <span>Gaze</span>
+                            <input id="clientOsdColorGaze" class="client-osd-color" type="color" value="#fafad2"
+                                aria-label="Gaze color">
+                        </label>
+                        <label class="client-osd-toggle">
+                            <input id="clientOsdRenderCameraContact" type="checkbox" checked>
+                            <span>Camera contact</span>
+                            <input id="clientOsdColorCameraContact" class="client-osd-color" type="color" value="#66ff00"
+                                aria-label="Camera contact color">
+                        </label>
+                        <label class="client-osd-toggle">
+                            <input id="clientOsdRenderTrackTraces" type="checkbox" checked>
+                            <span>Track traces</span>
+                            <input id="clientOsdColorTrackTraces" class="client-osd-color" type="color" value="#ffff00"
+                                aria-label="Track traces color">
+                        </label>
+                        <label class="client-osd-toggle">
+                            <input id="clientOsdRenderClassification" type="checkbox" checked>
+                            <span>Classification</span>
+                            <input id="clientOsdColorClassification" class="client-osd-color" type="color" value="#ffffff"
+                                aria-label="Classification color">
+                        </label>
+                        <label class="client-osd-toggle">
+                            <input id="clientOsdRenderPersonStatus" type="checkbox" checked>
+                            <span>Person status</span>
+                            <input id="clientOsdColorPersonStatus" class="client-osd-color" type="color" value="#66ff00"
+                                aria-label="Person status color">
+                        </label>
                     </div>
                 </div>
 
@@ -200,7 +245,6 @@
     <script type="module" src="/models.js"></script>
     <script type="module" src="/video-controls.js"></script>
     <script type="module" src="/audio.js"></script>
-    <script type="module" src="/perf_overlay.js"></script>
     <script type="module" src="/output-panels.js"></script>
     <script type="module" src="/layout-resize.js"></script>
     <script type="module" src="/video-fullscreen.js"></script>
@@ -208,6 +252,7 @@
     <script type="module" src="/inference-output.js"></script>
     <script type="module" src="/debug-log.js"></script>
     <script type="module" src="/metadata-ws.js"></script>
+    <script type="module" src="/client-osd.js"></script>
 </body>
 
 </html>

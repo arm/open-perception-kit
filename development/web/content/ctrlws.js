@@ -1,6 +1,5 @@
 import {setPlayPause} from "./video-controls.js"
 import {enableAudioButton} from "./audio.js"
-import {setPerfOverlayButton} from "./perf_overlay.js"
 import {modelsManager} from "./models.js"
 
 const CTRL_PROTO = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -40,7 +39,6 @@ function connectCtrl(manual = false) {
 
         enableAudioButton(data.pipeline_state.audio);
         setPlayPause(data.pipeline_state.playing);
-        setPerfOverlayButton(data.perf_overlay.enabled);
         modelsManager.render(data.models);
     };
 

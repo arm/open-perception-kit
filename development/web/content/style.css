@@ -246,7 +246,8 @@ body.video-feed-hidden .video-wrapper::after {
 }
 
 body.video-feed-hidden .video-freeze-frame,
-body.video-feed-hidden #video {
+body.video-feed-hidden #video,
+body.video-feed-hidden .client-osd-canvas {
   opacity: 0;
   pointer-events: none;
 }
@@ -283,6 +284,15 @@ video {
 
 .video-freeze-frame.is-visible {
   display: block;
+}
+
+.client-osd-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 
 .video-overlay {
@@ -384,6 +394,79 @@ video {
 .video-outputs-fullscreen-button[aria-pressed="true"] {
   color: #ffffff;
   border-color: rgba(226, 232, 240, 0.42);
+}
+
+.client-osd-controls-button[aria-pressed="true"] {
+  color: #ffffff;
+  border-color: rgba(226, 232, 240, 0.42);
+  background: #111111;
+}
+
+.client-osd-controls-panel {
+  position: absolute;
+  right: 18px;
+  bottom: 72px;
+  z-index: 14;
+  width: min(270px, calc(100% - 36px));
+  padding: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.24);
+  border-radius: 8px;
+  background: #000000;
+  color: var(--text);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.52);
+}
+
+.client-osd-controls-title {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.client-osd-toggle {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  font-size: 0.82rem;
+  line-height: 1.2;
+}
+
+.client-osd-toggle span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.client-osd-toggle input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.client-osd-color {
+  width: 28px;
+  height: 20px;
+  min-width: 28px;
+  padding: 0;
+  border: 1px solid rgba(226, 232, 240, 0.24);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.client-osd-color::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.client-osd-color::-webkit-color-swatch,
+.client-osd-color::-moz-color-swatch {
+  border: 0;
+  border-radius: 3px;
 }
 
 body.video-fullscreen .video-control-buttons {

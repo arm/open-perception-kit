@@ -6,10 +6,8 @@ websocketpp_dep = dependency('websocketpp', required: true,
 openssl_dep = dependency('openssl', required : true)
 
 peksink_static_files_dir = meson.project_source_root() / 'web/content'
-peksink_shared_files_dir = meson.project_source_root() / 'web/shared'
 peksink_cpp_args = [
-  '-DPEK_DEFAULT_STATIC_FILES_LOCATION="' + peksink_static_files_dir + '"',
-  '-DPEK_SHARED_STATIC_FILES_LOCATION="' + peksink_shared_files_dir + '"'
+  '-DPEK_DEFAULT_STATIC_FILES_LOCATION="' + peksink_static_files_dir + '"'
 ]
 
 pekinferpre = shared_module(
