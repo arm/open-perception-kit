@@ -164,14 +164,50 @@ class TestPekMenuCliDiagnostics(unittest.TestCase):
             temp_dir = Path(tmpdir)
             bin_dir = temp_dir / "bin"
             bin_dir.mkdir()
-            marker = temp_dir / "starts"
+            marker = temp_dir / "process-events"
+
+            descendant = bin_dir / "pipeline-descendant"
+            descendant.write_text(
+                "#!/usr/bin/env python3\n"
+                "import os\n"
+                "import signal\n"
+                "import time\n"
+                "\n"
+                "marker = os.environ['PEK_MENU_TEST_MARKER']\n"
+                "\n"
+                "def stop(_signal_number, _frame):\n"
+                "    with open(marker, 'a', encoding='utf-8') as output:\n"
+                "        output.write('descendant-stopped\\n')\n"
+                "    raise SystemExit(0)\n"
+                "\n"
+                "signal.signal(signal.SIGINT, stop)\n"
+                "signal.signal(signal.SIGTERM, stop)\n"
+                "with open(marker, 'a', encoding='utf-8') as output:\n"
+                "    output.write('descendant-started\\n')\n"
+                "while True:\n"
+                "    time.sleep(0.05)\n",
+                encoding="utf-8",
+            )
+            descendant.chmod(0o755)
 
             fake_gst_launch = bin_dir / "gst-launch-1.0"
             fake_gst_launch.write_text(
-                "#!/bin/sh\n"
-                "trap 'exit 0' INT TERM\n"
-                'printf "started\\n" >> "$PEK_MENU_TEST_MARKER"\n'
-                "while true; do sleep 0.05; done\n",
+                "#!/usr/bin/env python3\n"
+                "import os\n"
+                "import signal\n"
+                "import subprocess\n"
+                "import time\n"
+                "\n"
+                "descendant = subprocess.Popen([os.environ['PEK_MENU_TEST_DESCENDANT']])\n"
+                "\n"
+                "def stop(_signal_number, _frame):\n"
+                "    descendant.wait(timeout=1)\n"
+                "    raise SystemExit(0)\n"
+                "\n"
+                "signal.signal(signal.SIGINT, stop)\n"
+                "signal.signal(signal.SIGTERM, stop)\n"
+                "while True:\n"
+                "    time.sleep(0.05)\n",
                 encoding="utf-8",
             )
             fake_gst_launch.chmod(0o755)
@@ -192,6 +228,7 @@ class TestPekMenuCliDiagnostics(unittest.TestCase):
             env["OPK_LOG_LEVEL"] = "0"
             env["PATH"] = f"{bin_dir}:{env['PATH']}"
             env["PEK_MENU_TEST_MARKER"] = str(marker)
+            env["PEK_MENU_TEST_DESCENDANT"] = str(descendant)
 
             process = subprocess.Popen(
                 [str(self.pek_menu), str(pipeline)],
@@ -204,11 +241,19 @@ class TestPekMenuCliDiagnostics(unittest.TestCase):
 
             try:
                 for _ in range(100):
-                    if marker.exists() or process.poll() is not None:
+                    if (
+                        marker.exists()
+                        and "descendant-started"
+                        in marker.read_text(encoding="utf-8")
+                    ) or process.poll() is not None:
                         break
                     time.sleep(0.01)
 
-                self.assertTrue(marker.exists(), "pipeline child did not start")
+                self.assertTrue(marker.exists(), "pipeline descendant did not start")
+                self.assertIn(
+                    "descendant-started",
+                    marker.read_text(encoding="utf-8"),
+                )
 
                 process.send_signal(signal.SIGINT)
                 stdout, stderr = process.communicate(timeout=2)
@@ -218,7 +263,10 @@ class TestPekMenuCliDiagnostics(unittest.TestCase):
                     process.communicate()
 
             self.assertEqual(process.returncode, 128 + signal.SIGINT)
-            self.assertEqual(marker.read_text(encoding="utf-8"), "started\n")
+            self.assertEqual(
+                marker.read_text(encoding="utf-8"),
+                "descendant-started\ndescendant-stopped\n",
+            )
             self.assertNotIn("Pipeline reached EOS; restarting.", stdout)
             self.assertEqual(stderr, "")
 

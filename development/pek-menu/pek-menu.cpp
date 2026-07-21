@@ -40,13 +40,13 @@ struct PipelineEntry {
 static constexpr const char *kPipelinesDir = "/work/config/pipelines";
 static constexpr const char *kLastSelectionFileName = ".last_selected_pipeline_id";
 static constexpr auto kMinimumLoopRuntime = std::chrono::seconds(1);
-static volatile sig_atomic_t pipeline_pid = -1;
+static volatile sig_atomic_t pipeline_process_group = -1;
 static volatile sig_atomic_t requested_termination_signal = 0;
 
 static void forward_termination_signal(int signal_number) {
     requested_termination_signal = signal_number;
-    if (pipeline_pid > 0)
-        kill(pipeline_pid, signal_number);
+    if (pipeline_process_group > 0)
+        kill(-pipeline_process_group, signal_number);
 }
 
 static fs::path last_selection_path() {
@@ -274,21 +274,34 @@ int run_gst_launch(const std::string &pipeline, bool dry_run, bool loop) {
                 }
 
                 if (child_pid == 0) {
+                    if (setpgid(0, 0) < 0) {
+                        pek::forceLoge("setpgid: {}\n", std::strerror(errno));
+                        _exit(127);
+                    }
                     execvp(cmd.argv[0], cmd.argv.data());
                     pek::log::instantError("execvp: {}\n", std::strerror(errno));
                     _exit(127);
                 }
 
-                pipeline_pid = child_pid;
+                if (setpgid(child_pid, child_pid) < 0 && errno != EACCES && errno != ESRCH) {
+                    const int setpgid_error = errno;
+                    kill(child_pid, SIGKILL);
+                    while (waitpid(child_pid, nullptr, 0) < 0 && errno == EINTR) {
+                    }
+                    pek::forceLoge("setpgid: {}\n", std::strerror(setpgid_error));
+                    return 127;
+                }
+
+                pipeline_process_group = child_pid;
                 if (requested_termination_signal != 0)
-                    kill(child_pid, requested_termination_signal);
+                    kill(-child_pid, requested_termination_signal);
 
                 int status = 0;
                 pid_t wait_result;
                 do {
                     wait_result = waitpid(child_pid, &status, 0);
                 } while (wait_result < 0 && errno == EINTR);
-                pipeline_pid = -1;
+                pipeline_process_group = -1;
 
                 if (wait_result < 0) {
                     pek::log::instantError("waitpid: {}\n", std::strerror(errno));
