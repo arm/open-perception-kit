@@ -140,6 +140,74 @@
    obj:*/libgstvideoconvertscale.so*
 }
 
+# DeckLink initializes process-lifetime GStreamer structures while its plugin
+# types are registered. These allocations originate entirely in the third-party
+# plugin and GStreamer/GLib type system.
+{
+   decklink_plugin_structure_registration_definite
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:calloc
+   fun:g_malloc0
+   obj:*/libgstreamer-1.0.so*
+   fun:gst_structure_new_valist
+   fun:gst_structure_new
+   obj:*/libgstdecklink.so*
+   ...
+   fun:g_type_class_get
+   fun:gst_element_register
+   obj:*/libgstdecklink.so*
+}
+
+{
+   decklink_plugin_structure_name_indirect
+   Memcheck:Leak
+   match-leak-kinds: indirect
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:*/libgobject-2.0.so*
+   obj:*/libgstreamer-1.0.so*
+   fun:gst_structure_new_valist
+   fun:gst_structure_new
+   obj:*/libgstdecklink.so*
+   ...
+   fun:g_type_class_get
+}
+
+{
+   decklink_plugin_structure_data_indirect
+   Memcheck:Leak
+   match-leak-kinds: indirect
+   fun:malloc
+   fun:g_malloc
+   obj:*/libgstreamer-1.0.so*
+   fun:gst_structure_new_valist
+   fun:gst_structure_new
+   obj:*/libgstdecklink.so*
+   ...
+   fun:g_type_class_get
+   fun:gst_element_register
+   obj:*/libgstdecklink.so*
+}
+
+{
+   decklink_plugin_structure_set_name_indirect
+   Memcheck:Leak
+   match-leak-kinds: indirect
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:*/libgobject-2.0.so*
+   obj:*/libgstreamer-1.0.so*
+   fun:gst_structure_set
+   obj:*/libgstdecklink.so*
+   ...
+   fun:g_type_class_get
+   fun:gst_element_register
+   obj:*/libgstdecklink.so*
+}
+
 {
    ld_loader_dlopen_reachable
    Memcheck:Leak
