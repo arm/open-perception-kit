@@ -8,7 +8,7 @@ cmake-build*/
 development/build/
 var/*
 !var/.gitignore
-!var/libexecutorch-dev-1.3.1-1-*.deb
+!var/libexecutorch-dev-*.deb
 deps/
 *.tgz
 
