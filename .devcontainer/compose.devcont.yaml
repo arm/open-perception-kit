@@ -43,9 +43,13 @@ services:
       context: ..
       dockerfile: Dockerfile
       target: pek-dev-base
+      # BuildKit calls its bridge/NAT-backed build network "default".
+      network: ${BUILD_NETWORK_MODE:-default}
       args:
         USER_UID: ${HOST_UID:-1000}
         USER_GID: ${HOST_GID:-1000}
+        EXECUTORCH_ARTIFACTORY_USERNAME: ${EXECUTORCH_ARTIFACTORY_USERNAME:-}
+        EXECUTORCH_ARTIFACTORY_PASSWORD: ${EXECUTORCH_ARTIFACTORY_PASSWORD:-}
 
   pek-dev-rpi5:
     extends: 
@@ -60,9 +64,12 @@ services:
       context: ..
       dockerfile: Dockerfile
       target: pek-dev-rpi5
+      network: ${BUILD_NETWORK_MODE:-host}
       args:
         USER_UID: ${HOST_UID:-1000}
         USER_GID: ${HOST_GID:-1000}
+        EXECUTORCH_ARTIFACTORY_USERNAME: ${EXECUTORCH_ARTIFACTORY_USERNAME:-}
+        EXECUTORCH_ARTIFACTORY_PASSWORD: ${EXECUTORCH_ARTIFACTORY_PASSWORD:-}
     volumes:
       - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
 
@@ -79,9 +86,12 @@ services:
       context: ..
       dockerfile: Dockerfile
       target: pek-dev-rpi5-h8
+      network: ${BUILD_NETWORK_MODE:-host}
       args:
         USER_UID: ${HOST_UID:-1000}
         USER_GID: ${HOST_GID:-1000}
+        EXECUTORCH_ARTIFACTORY_USERNAME: ${EXECUTORCH_ARTIFACTORY_USERNAME:-}
+        EXECUTORCH_ARTIFACTORY_PASSWORD: ${EXECUTORCH_ARTIFACTORY_PASSWORD:-}
     volumes:
       - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
 
@@ -98,8 +108,11 @@ services:
       context: ..
       dockerfile: Dockerfile
       target: pek-dev-rpi5-h10
+      network: ${BUILD_NETWORK_MODE:-host}
       args:
         USER_UID: ${HOST_UID:-1000}
         USER_GID: ${HOST_GID:-1000}
+        EXECUTORCH_ARTIFACTORY_USERNAME: ${EXECUTORCH_ARTIFACTORY_USERNAME:-}
+        EXECUTORCH_ARTIFACTORY_PASSWORD: ${EXECUTORCH_ARTIFACTORY_PASSWORD:-}
     volumes:
       - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent

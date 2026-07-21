@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 ######################################################################
 ########## Base container defaults: bare minimum to run PEK ##########
 ######################################################################
@@ -132,6 +134,21 @@ RUN set -eux; \
   cd /; \
   rm -rf "${tmp_dir}"; \
   actionlint -version
+
+# Prefer an architecture-matching package produced in ./var, then fall back to the configured
+# Artifactory Debian repository. The repository is trusted over HTTPS until a signing key is
+# supplied separately.
+ARG EXECUTORCH_VERSION=1.3.1
+ARG EXECUTORCH_DEB_REVISION=1
+ARG EXECUTORCH_ARTIFACTORY_SERVER=https://artifactory.arm.com:443
+ARG EXECUTORCH_ARTIFACTORY_REPOSITORY=ai-expkits-internal.opk-deb
+ARG EXECUTORCH_ARTIFACTORY_DISTRIBUTION=trixie
+ARG EXECUTORCH_ARTIFACTORY_COMPONENT=main
+ARG EXECUTORCH_ARTIFACTORY_USERNAME=""
+ARG EXECUTORCH_ARTIFACTORY_PASSWORD=""
+RUN --mount=type=bind,source=var,target=/tmp/pek-executorch-packages,ro \
+    --mount=type=bind,source=scripts/private/executorch/install-executorch-deb.sh,target=/tmp/install-executorch-deb.sh,ro \
+  bash /tmp/install-executorch-deb.sh
 
 # Install Python dev tool dependencies into an image-owned virtual environment.
 COPY tools/expkits-ci /tmp/pek-tools/expkits-ci

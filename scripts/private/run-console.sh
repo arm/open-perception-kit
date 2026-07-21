@@ -13,6 +13,8 @@ Usage:
 Starts or stops the console base development environment in Docker container,
 similar to VS Code devcontainer, but provides richer environment.
 
+When present, the repository-root .env file is passed to Docker Compose.
+
 Commands:
   up        Build (if needed) and start the stack
   down      Stop and remove the stack
@@ -51,12 +53,17 @@ COMPOSE_FILES=(
     -f .devcontainer/docker-compose."${DC_RICH}".shared_memory.yaml
 )
 
+COMPOSE_ENV_ARGS=()
+if [[ -f "${REPO_ROOT}/.env" ]]; then
+    COMPOSE_ENV_ARGS=(--env-file "${REPO_ROOT}/.env")
+fi
+
 # Detect whether any service from this project is currently running
 is_running() {
     # `docker compose ps -q` returns container IDs for services in the project.
     # We count how many are in "running" state.
     local ids
-    ids="$(docker compose "${COMPOSE_FILES[@]}" ps -q || true)"
+    ids="$(docker compose "${COMPOSE_ENV_ARGS[@]}" "${COMPOSE_FILES[@]}" ps -q || true)"
     [[ -z "${ids}" ]] && return 1
     docker inspect -f '{{.State.Running}}' ${ids} 2> /dev/null | grep -q '^true$'
 }
@@ -78,14 +85,14 @@ do_up() {
     HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" WEBRTC_HOST_IP="${WEBRTC_HOST_IP}" \
         PEK_WEBRTC_TURN_MIN_PORT="${PEK_WEBRTC_TURN_MIN_PORT}" \
         PEK_WEBRTC_TURN_MAX_PORT="${PEK_WEBRTC_TURN_MAX_PORT}" \
-        docker compose "${COMPOSE_FILES[@]}" up -d --build
+        docker compose "${COMPOSE_ENV_ARGS[@]}" "${COMPOSE_FILES[@]}" up -d --build
 }
 
 do_down() {
     HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" WEBRTC_HOST_IP="${WEBRTC_HOST_IP:-}" \
         PEK_WEBRTC_TURN_MIN_PORT="${PEK_WEBRTC_TURN_MIN_PORT}" \
         PEK_WEBRTC_TURN_MAX_PORT="${PEK_WEBRTC_TURN_MAX_PORT}" \
-        docker compose "${COMPOSE_FILES[@]}" down
+        docker compose "${COMPOSE_ENV_ARGS[@]}" "${COMPOSE_FILES[@]}" down
 }
 
 cmd="${1:-}"

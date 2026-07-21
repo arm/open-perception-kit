@@ -16,7 +16,7 @@ Options:
   --executorch-dir DIR  Staged ExecuTorch SDK. Default: /work/deps/executorch
   --libtorch-dir DIR    Staged libtorch compatibility headers. Default: /work/deps/libtorch
   --output-dir DIR      Debian package output directory. Default: /work/var
-  --install-root DIR    Package installation root. Default: /work/var
+  --install-root DIR    Package installation root. Default: /opt/pek-deps
   --revision REV        Debian package revision. Default: 1
   --help                Show this help.
 
@@ -81,7 +81,7 @@ archive_architecture() {
             printf 'arm64\n'
             ;;
         *arm* | *Arm* | *ARM*)
-            printf 'armel\n'
+            die "unsupported 32-bit ARM target in ${archive}; expected AArch64"
             ;;
         *)
             die "unsupported target architecture in ${archive}: ${description}"
@@ -95,7 +95,7 @@ PACKAGE_VERSION="1.3.1"
 EXECUTORCH_DIR="${EXECUTORCH_SDK_DIR:-/work/deps/executorch}"
 LIBTORCH_DIR="${LIBTORCH_SDK_DIR:-/work/deps/libtorch}"
 OUTPUT_DIR="${EXECUTORCH_DEB_OUTPUT_DIR:-/work/var}"
-INSTALL_ROOT="${EXECUTORCH_DEB_INSTALL_ROOT:-/work/var}"
+INSTALL_ROOT="${EXECUTORCH_DEB_INSTALL_ROOT:-/opt/pek-deps}"
 PACKAGE_REVISION="${EXECUTORCH_DEB_REVISION:-1}"
 PACKAGE_MAINTAINER="${EXECUTORCH_DEB_MAINTAINER:-Arm Limited}"
 

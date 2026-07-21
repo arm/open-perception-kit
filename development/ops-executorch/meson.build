@@ -11,7 +11,7 @@ if executorch_root_env != ''
 endif
 
 executorch_candidates += [
-  '/work/var/executorch',
+  '/opt/pek-deps/executorch',
 ]
 
 executorch_root = ''
@@ -26,7 +26,7 @@ endforeach
 
 if executorch_root == ''
   if executorch_opt.enabled()
-    error('ExecuTorch requested (executorch=enabled) but not found. Install libexecutorch-dev under /work/var, or set PEK_EXECUTORCH_ROOT to a staged SDK.')
+    error('ExecuTorch requested (executorch=enabled) but not found. Install libexecutorch-dev under /opt/pek-deps, or set PEK_EXECUTORCH_ROOT to a staged SDK.')
   endif
 
   warning('Installed ExecuTorch SDK not found - skipping ops-executorch. Install libexecutorch-dev, or set PEK_EXECUTORCH_ROOT to use a staged SDK.')

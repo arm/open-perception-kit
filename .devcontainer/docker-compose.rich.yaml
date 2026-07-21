@@ -23,13 +23,18 @@ services:
 
   pek-dev-rich:
     build:
+      args:
+        EXECUTORCH_ARTIFACTORY_USERNAME: ${EXECUTORCH_ARTIFACTORY_USERNAME:-}
+        EXECUTORCH_ARTIFACTORY_PASSWORD: ${EXECUTORCH_ARTIFACTORY_PASSWORD:-}
       context: ..
       dockerfile: Dockerfile
       target: pek-dev-rich
+      # BuildKit calls its bridge/NAT-backed build network "default".
+      network: ${BUILD_NETWORK_MODE:-default}
 
     container_name: pek-dev-rich
 
-    network_mode: bridge
+    network_mode: ${RUNTIME_NETWORK_MODE:-bridge}
 
     hostname: pek
 

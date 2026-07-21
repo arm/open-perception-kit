@@ -19,7 +19,7 @@ Example:
 Options:
   --work-dir DIR          Directory used for source, venv, downloads, build, temp, and caches.
   --deps-dir DIR          Root dependency staging directory. Default: /work/deps
-  --target-arch ARCH      Build target: x86_64 (default) or arm (ARMv7 Linux EABI).
+  --target-arch ARCH      Build target: x86_64 (default) or arm (AArch64 Linux GNU).
   --executorch-url URL    ExecuTorch source archive URL. Default: official v1.3.1 tarball.
   --executorch-git-url URL
                           Git URL used only to recover pinned submodule commits.
@@ -49,11 +49,11 @@ Environment:
   EXECUTORCH_X86_64_AR     x86_64 archiver. Default: x86_64-linux-gnu-ar
   EXECUTORCH_X86_64_RANLIB x86_64 ranlib. Default: x86_64-linux-gnu-ranlib
   EXECUTORCH_X86_64_STRIP  x86_64 strip tool. Default: x86_64-linux-gnu-strip
-  EXECUTORCH_ARM_CC       ARM C compiler. Default: arm-linux-gnueabi-gcc-14
-  EXECUTORCH_ARM_CXX      ARM C++ compiler. Default: arm-linux-gnueabi-g++-14
-  EXECUTORCH_ARM_AR       ARM archiver. Default: arm-linux-gnueabi-ar
-  EXECUTORCH_ARM_RANLIB   ARM ranlib. Default: arm-linux-gnueabi-ranlib
-  EXECUTORCH_ARM_STRIP    ARM strip tool. Default: arm-linux-gnueabi-strip
+  EXECUTORCH_ARM_CC       Arm64 C compiler. Default: aarch64-linux-gnu-gcc-14
+  EXECUTORCH_ARM_CXX      Arm64 C++ compiler. Default: aarch64-linux-gnu-g++-14
+  EXECUTORCH_ARM_AR       Arm64 archiver. Default: aarch64-linux-gnu-ar
+  EXECUTORCH_ARM_RANLIB   Arm64 ranlib. Default: aarch64-linux-gnu-ranlib
+  EXECUTORCH_ARM_STRIP    Arm64 strip tool. Default: aarch64-linux-gnu-strip
   EXECUTORCH_DEB_OUTPUT_DIR
                           Same as --deb-output-dir.
   EXECUTORCH_DEB_REVISION Same as --deb-revision.
@@ -106,7 +106,7 @@ archive_architecture() {
             printf 'x86_64\n'
             ;;
         *aarch64* | *AArch64* | *arm64* | *ARM64*)
-            printf 'aarch64\n'
+            printf 'arm64\n'
             ;;
         *arm* | *Arm* | *ARM*)
             printf 'arm\n'
@@ -122,11 +122,11 @@ normalize_target_architecture() {
         x86_64 | amd64)
             printf 'x86_64\n'
             ;;
-        arm | armv7 | armv7l)
-            printf 'arm\n'
+        arm | arm64 | aarch64)
+            printf 'arm64\n'
             ;;
         *)
-            die "unsupported target architecture: $1 (expected x86_64 or arm)"
+            die "unsupported target architecture: $1 (expected x86_64 or arm/arm64/aarch64)"
             ;;
     esac
 }
@@ -188,11 +188,11 @@ X86_64_CXX_COMPILER="${EXECUTORCH_X86_64_CXX:-x86_64-linux-gnu-g++-14}"
 X86_64_AR="${EXECUTORCH_X86_64_AR:-x86_64-linux-gnu-ar}"
 X86_64_RANLIB="${EXECUTORCH_X86_64_RANLIB:-x86_64-linux-gnu-ranlib}"
 X86_64_STRIP="${EXECUTORCH_X86_64_STRIP:-x86_64-linux-gnu-strip}"
-ARM_C_COMPILER="${EXECUTORCH_ARM_CC:-arm-linux-gnueabi-gcc-14}"
-ARM_CXX_COMPILER="${EXECUTORCH_ARM_CXX:-arm-linux-gnueabi-g++-14}"
-ARM_AR="${EXECUTORCH_ARM_AR:-arm-linux-gnueabi-ar}"
-ARM_RANLIB="${EXECUTORCH_ARM_RANLIB:-arm-linux-gnueabi-ranlib}"
-ARM_STRIP="${EXECUTORCH_ARM_STRIP:-arm-linux-gnueabi-strip}"
+ARM_C_COMPILER="${EXECUTORCH_ARM_CC:-aarch64-linux-gnu-gcc-14}"
+ARM_CXX_COMPILER="${EXECUTORCH_ARM_CXX:-aarch64-linux-gnu-g++-14}"
+ARM_AR="${EXECUTORCH_ARM_AR:-aarch64-linux-gnu-ar}"
+ARM_RANLIB="${EXECUTORCH_ARM_RANLIB:-aarch64-linux-gnu-ranlib}"
+ARM_STRIP="${EXECUTORCH_ARM_STRIP:-aarch64-linux-gnu-strip}"
 DEB_OUTPUT_DIR="${EXECUTORCH_DEB_OUTPUT_DIR:-/work/var}"
 DEB_REVISION="${EXECUTORCH_DEB_REVISION:-1}"
 BUILD_DEB=1
@@ -350,7 +350,7 @@ if [[ "${TARGET_ARCH}" == "x86_64" ]]; then
         "-DPEK_EXECUTORCH_X86_64_RANLIB=${X86_64_RANLIB}"
         "-DPEK_EXECUTORCH_X86_64_STRIP=${X86_64_STRIP}"
     )
-elif [[ "${TARGET_ARCH}" == "arm" ]]; then
+elif [[ "${TARGET_ARCH}" == "arm64" ]]; then
     need_cmd "${ARM_C_COMPILER}"
     need_cmd "${ARM_CXX_COMPILER}"
     need_cmd "${ARM_AR}"
@@ -360,20 +360,20 @@ elif [[ "${TARGET_ARCH}" == "arm" ]]; then
     ARM_C_TARGET="$("${ARM_C_COMPILER}" -dumpmachine)"
     ARM_CXX_TARGET="$("${ARM_CXX_COMPILER}" -dumpmachine)"
     case "${ARM_C_TARGET}:${ARM_CXX_TARGET}" in
-        arm*-linux-gnueabi*:arm*-linux-gnueabi*) ;;
+        aarch64*-linux-gnu*:aarch64*-linux-gnu*) ;;
         *)
-            die "ARM compilers target ${ARM_C_TARGET}/${ARM_CXX_TARGET}; expected arm-linux-gnueabi"
+            die "Arm64 compilers target ${ARM_C_TARGET}/${ARM_CXX_TARGET}; expected aarch64-linux-gnu"
             ;;
     esac
 
     CMAKE_TARGET_ARGS=(
-        "-DCMAKE_TOOLCHAIN_FILE=${SCRIPT_DIR}/toolchains/arm-linux-gnueabi-gcc14.cmake"
+        "-DCMAKE_TOOLCHAIN_FILE=${SCRIPT_DIR}/toolchains/aarch64-linux-gnu-gcc14.cmake"
         "-DPEK_EXECUTORCH_ARM_C_COMPILER=${ARM_C_COMPILER}"
         "-DPEK_EXECUTORCH_ARM_CXX_COMPILER=${ARM_CXX_COMPILER}"
         "-DPEK_EXECUTORCH_ARM_AR=${ARM_AR}"
         "-DPEK_EXECUTORCH_ARM_RANLIB=${ARM_RANLIB}"
         "-DPEK_EXECUTORCH_ARM_STRIP=${ARM_STRIP}"
-        "-DEXECUTORCH_XNNPACK_ENABLE_KLEIDI=OFF"
+        "-DEXECUTORCH_XNNPACK_ENABLE_KLEIDI=ON"
     )
 fi
 
@@ -691,7 +691,7 @@ validate_staged_files() {
         [[ "${detected_arch}" == "${TARGET_ARCH}" ]] ||
             die "ExecuTorch target mismatch: requested ${TARGET_ARCH}, built ${detected_arch}"
 
-        if [[ "${detected_arch}" == "aarch64" ]]; then
+        if [[ "${detected_arch}" == "arm64" ]]; then
             required_libs+=(libkleidiai.a)
         fi
     fi
