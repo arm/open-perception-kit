@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-version="${1:?ONNX Runtime version is required}"
+version="${1:-1.24.4}"
 architecture="${2:-$(uname -m)}"
 destination="${3:-/opt/pek-deps/onnxruntime}"
 

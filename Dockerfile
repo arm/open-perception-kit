@@ -5,7 +5,7 @@ ARG DEPLOYMENT_PLATFORM=linux/arm64
 ARG TARGETARCH
 FROM --platform=${BUILDPLATFORM} debian:trixie-slim AS pek-build-base
 
-ARG ONNXRUNTIME_VERSION=1.24.4
+ARG ONNXRUNTIME_VERSION
 
 ENV DEBIAN_FRONTEND=noninteractive \
   LANG=C.UTF-8 \
@@ -54,10 +54,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     install-target-sysroot "${TARGETARCH}"; \
   fi
 
-ARG ONNXRUNTIME_VERSION=1.24.4
-
 COPY --chmod=0755 scripts/private/install-onnxruntime.sh /usr/local/bin/install-onnxruntime
-RUN install-onnxruntime "${ONNXRUNTIME_VERSION}" arm64 /opt/pek-deps/onnxruntime-arm64
+RUN install-onnxruntime "${ONNXRUNTIME_VERSION:-}" arm64 /opt/pek-deps/onnxruntime-arm64
 
 WORKDIR /work
 COPY development/meson.build development/meson.options development/
