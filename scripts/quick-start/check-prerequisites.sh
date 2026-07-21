@@ -124,9 +124,9 @@ PREREQS_RPI5_HAILO10=(
     "hailo10-stack|check_hailo10_package|hailo-h10-all|Hailo 10 software stack"
 )
 PREREQS_MACOS=(
-    "docker-cli|check_docker_cli|docker.io|Docker CLI"
-    "docker-compose|check_docker_compose|docker-compose|Docker Compose plugin"
-    "docker-access|check_docker_access||Docker daemon reachable by the current user"
+    "docker-cli|check_docker_cli||Docker CLI from Docker Desktop"
+    "docker-compose|check_docker_compose||Docker Compose plugin from Docker Desktop"
+    "docker-access|check_docker_access||Docker Desktop engine reachable by the current user"
 )
 PREREQS_LINUX_X86=()
 
