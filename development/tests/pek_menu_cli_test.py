@@ -222,6 +222,51 @@ class TestPekMenuCliDiagnostics(unittest.TestCase):
             self.assertNotIn("Pipeline reached EOS; restarting.", stdout)
             self.assertEqual(stderr, "")
 
+    def test_looping_pipeline_stops_when_eos_is_immediate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            temp_dir = Path(tmpdir)
+            bin_dir = temp_dir / "bin"
+            bin_dir.mkdir()
+            marker = temp_dir / "starts"
+
+            fake_gst_launch = bin_dir / "gst-launch-1.0"
+            fake_gst_launch.write_text(
+                "#!/bin/sh\n"
+                'printf "started\\n" >> "$PEK_MENU_TEST_MARKER"\n'
+                'test "$(wc -l < "$PEK_MENU_TEST_MARKER")" -eq 1 || exit 7\n'
+                "exit 0\n",
+                encoding="utf-8",
+            )
+            fake_gst_launch.chmod(0o755)
+
+            pipeline = temp_dir / "looping.json"
+            pipeline.write_text(
+                json.dumps(
+                    {
+                        "description": "Immediate EOS test",
+                        "loop": True,
+                        "pipeline": "fakesrc ! fakesink",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = self.run_cli(
+                str(pipeline),
+                env_overrides={
+                    "PATH": f"{bin_dir}:{os.environ['PATH']}",
+                    "PEK_MENU_TEST_MARKER": str(marker),
+                },
+            )
+
+            self.assertEqual(result.returncode, 1)
+            self.assertEqual(marker.read_text(encoding="utf-8"), "started\n")
+            self.assertNotIn("Pipeline reached EOS; restarting.", result.stdout)
+            self.assertIn(
+                "Pipeline reached EOS too quickly; refusing to restart.",
+                result.stderr,
+            )
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

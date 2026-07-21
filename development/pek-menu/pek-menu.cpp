@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
+#include <chrono>
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
@@ -38,6 +39,7 @@ struct PipelineEntry {
 
 static constexpr const char *kPipelinesDir = "/work/config/pipelines";
 static constexpr const char *kLastSelectionFileName = ".last_selected_pipeline_id";
+static constexpr auto kMinimumLoopRuntime = std::chrono::seconds(1);
 static volatile sig_atomic_t pipeline_pid = -1;
 static volatile sig_atomic_t requested_termination_signal = 0;
 
@@ -264,6 +266,7 @@ int run_gst_launch(const std::string &pipeline, bool dry_run, bool loop) {
                 if (requested_termination_signal != 0)
                     return 128 + requested_termination_signal;
 
+                const auto pipeline_start = std::chrono::steady_clock::now();
                 const pid_t child_pid = fork();
                 if (child_pid < 0) {
                     pek::log::instantError("fork: {}\n", std::strerror(errno));
@@ -304,6 +307,13 @@ int run_gst_launch(const std::string &pipeline, bool dry_run, bool loop) {
                 const int exit_code = WEXITSTATUS(status);
                 if (exit_code != 0)
                     return exit_code;
+
+                const auto pipeline_runtime = std::chrono::steady_clock::now() - pipeline_start;
+                if (pipeline_runtime < kMinimumLoopRuntime) {
+                    pek::log::instantError(
+                        "Pipeline reached EOS too quickly; refusing to restart.\n");
+                    return 1;
+                }
 
                 pek::log::instantInfo("Pipeline reached EOS; restarting.\n");
             } while (true);
