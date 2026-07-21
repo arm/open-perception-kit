@@ -340,18 +340,26 @@ RUN sed -i 's/^# *\(en_US.UTF-8 UTF-8\)/\1/' /etc/locale.gen && \
   locale-gen en_US.UTF-8 && update-locale LANG=en_US.UTF-8
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 
-# ---- Install Neovim v0.11.5 via AppImage ----
+# ---- Install Neovim via AppImage ----
 ARG NVIM_VERSION=v0.12.1
-ARG NVIM_APPIMAGE=nvim-linux-x86_64.appimage
 
 RUN touch /container_env
 
-RUN curl --proto "=https" -LO https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/${NVIM_APPIMAGE} && \
-  chmod +x ${NVIM_APPIMAGE} && \
-  ./${NVIM_APPIMAGE} --appimage-extract && \
-  mv squashfs-root /opt/nvim && \
-  ln -s /opt/nvim/usr/bin/nvim /usr/local/bin/nvim && \
-  rm ${NVIM_APPIMAGE}
+RUN set -eux; \
+  arch="$(dpkg --print-architecture)"; \
+  case "${arch}" in \
+    amd64) nvim_arch="x86_64" ;; \
+    arm64) nvim_arch="arm64" ;; \
+    *) echo "Unsupported Neovim architecture: ${arch}" >&2; exit 1 ;; \
+  esac; \
+  nvim_appimage="nvim-linux-${nvim_arch}.appimage"; \
+  curl --proto "=https" -fsSLo "${nvim_appimage}" \
+    "https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/${nvim_appimage}"; \
+  chmod +x "${nvim_appimage}"; \
+  "./${nvim_appimage}" --appimage-extract; \
+  mv squashfs-root /opt/nvim; \
+  ln -s /opt/nvim/usr/bin/nvim /usr/local/bin/nvim; \
+  rm "${nvim_appimage}"
 
 RUN update-alternatives --install /usr/bin/vi vi /usr/local/bin/nvim 60 && \
   update-alternatives --install /usr/bin/vim vim /usr/local/bin/nvim 60 && \
