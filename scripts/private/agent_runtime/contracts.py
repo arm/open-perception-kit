@@ -120,15 +120,6 @@ RECOMMENDATION_COLORS = {
     ReviewRecommendation.COMMENT.value: "2563eb",
     ReviewRecommendation.REQUEST_CHANGES.value: "dc2626",
 }
-GITHUB_REVIEW_EVENTS = {
-    ReviewRecommendation.APPROVE.value: "APPROVE",
-    # <agent-review:suppress> Non-blocking Agent comments intentionally land as
-    # accepted-with-comments in PR UI instead of leaving a pending review state.
-    ReviewRecommendation.COMMENT.value: "APPROVE",
-    ReviewRecommendation.REQUEST_CHANGES.value: "REQUEST_CHANGES",
-}
-
-
 @dataclass(frozen=True)
 class UnsupportedReviewClaimGuard:
     """Rule for dropping Agent review findings contradicted by current checkout evidence."""
