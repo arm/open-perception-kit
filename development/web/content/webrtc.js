@@ -1,5 +1,5 @@
-import {createWebRtcClient} from './webrtc_client.js';
-import {resolveWebRtcIceConfig, resolveWebRtcTimingConfig} from './webrtc_config.js';
+import {createWebRtcClient} from '../shared/webrtc_client.js';
+import {resolveWebRtcIceConfig, resolveWebRtcTimingConfig} from '../shared/webrtc_config.js';
 
 // ===== UI ELEMENT REFERENCES =====
 const video = document.getElementById('video');

@@ -36,6 +36,8 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Treats `agent-review-out/review.json` as the canonical machine-readable review state
 - Publishes a fresh PR summary comment for each run from the structured review output
 - Publishes fresh inline review comments for the current findings without prior-state reconciliation
+- Always submits the GitHub review as `COMMENT`; recommendations never approve or formally request changes
+- Treats OpenAI SDK review failures as advisory so they do not fail the workflow
 - Does not run on pull request label changes, so unrelated labels cannot overwrite
   the Agent Review gate check
 
@@ -137,5 +139,5 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - **init-workspace:** Prepares the workspace and environment.
 - **build-changed-applications:** Builds only the applications changed in a PR.
 - **build-all-applications:** Builds all applications (nightly or manual trigger).
-- **Agent Review:** A separate workflow runs Agent Review, uploads the generated artifacts for the PR, posts a fresh summary comment for each run, and publishes inline review comments for the current findings.
+- **Agent Review:** A separate advisory workflow runs Agent Review, uploads the generated artifacts for the PR, posts a fresh comment-only summary review for each successful run, and publishes inline review comments for the current findings.
 - **Ruleset sync:** A separate workflow applies the checked-in repository ruleset drafts to GitHub after they are merged to `develop`.
