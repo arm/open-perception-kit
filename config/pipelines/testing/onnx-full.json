@@ -12,6 +12,8 @@
     "pekinfer opchain-path=/work/config/models/osnet_x0_25/opchain.json active=true !",
     "pekinfer opchain-path=/work/config/models/rvm/opchain.json active=true !",
     "pektracker content-type=genericObject !",
+    "pekperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
+    "pekcomm method=websocket endpoint=/ws !",
     "peksink name=sink"
   ]
 }
