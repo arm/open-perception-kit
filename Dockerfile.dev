@@ -342,10 +342,10 @@ USER ${USERNAME}
 WORKDIR /work
 COPY --chown=${USERNAME}:${USERNAME} . /work
 COPY --from=pek-demo-media --chown=${USERNAME}:${USERNAME} \
-  /work/data/videos /work/data/videos
+  /work/data/videos /opt/pek-app/data/videos
 COPY --from=pek-dev-build --chown=${USERNAME}:${USERNAME} \
-  /opt/pek-app/development/build/meson-out /work/development/build/meson-out
+  /opt/pek-app/development/build/meson-out /opt/pek-app/development/build/meson-out
 COPY --from=pek-dev-build --chown=${USERNAME}:${USERNAME} \
-  /opt/pek-app/tools/pek-menu /work/tools/pek-menu
+  /opt/pek-app/tools/pek-menu /opt/pek-app/tools/pek-menu
 
 WORKDIR /work

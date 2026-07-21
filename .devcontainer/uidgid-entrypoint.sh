@@ -9,8 +9,31 @@ set -euo pipefail
 : "${HOST_UID:=}"
 : "${HOST_GID:=}"
 
+seed_development_artifacts() {
+    local artifacts_root="/opt/pek-app"
+
+    [[ -d "${artifacts_root}" ]] || return
+
+    mkdir -p /work/data/videos /work/development/build/meson-out /work/tools
+
+    if [[ -d "${artifacts_root}/data/videos" ]]; then
+        cp -a --no-clobber "${artifacts_root}/data/videos/." /work/data/videos/
+    fi
+
+    if [[ -d "${artifacts_root}/development/build/meson-out" ]]; then
+        cp -a --no-clobber \
+            "${artifacts_root}/development/build/meson-out/." \
+            /work/development/build/meson-out/
+    fi
+
+    if [[ ! -e /work/tools/pek-menu && -f "${artifacts_root}/tools/pek-menu" ]]; then
+        cp -a "${artifacts_root}/tools/pek-menu" /work/tools/pek-menu
+    fi
+}
+
 # If no remap requested, just run as current user
 if [[ -z "${HOST_UID}" || -z "${HOST_GID}" ]]; then
+    seed_development_artifacts
     exec "$@"
 fi
 
@@ -34,6 +57,8 @@ fi
 usermod -u "${HOST_UID}" "${USERNAME}" || true
 groupmod -g "${HOST_GID}" "$(id -gn "${USERNAME}")" || true
 usermod -g "${HOST_GID}" "${USERNAME}" || true
+
+seed_development_artifacts
 
 # Fix home ownership (keep it cheap)
 chown -R "${HOST_UID}:${HOST_GID}" "/home/${USERNAME}" || true
