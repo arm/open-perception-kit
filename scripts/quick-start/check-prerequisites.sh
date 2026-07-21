@@ -123,7 +123,11 @@ PREREQS_RPI5_HAILO10=(
     "docker-access|check_docker_access||Docker daemon reachable by the current user"
     "hailo10-stack|check_hailo10_package|hailo-h10-all|Hailo 10 software stack"
 )
-PREREQS_MACOS=()
+PREREQS_MACOS=(
+    "docker-cli|check_docker_cli|docker.io|Docker CLI"
+    "docker-compose|check_docker_compose|docker-compose|Docker Compose plugin"
+    "docker-access|check_docker_access||Docker daemon reachable by the current user"
+)
 PREREQS_LINUX_X86=()
 
 PACKAGE_MANAGER=""
