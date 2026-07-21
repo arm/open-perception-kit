@@ -35,6 +35,7 @@ jobs:
       fail-fast: false
       matrix:
         image:
+          - service: pek-deployment-base
           - service: pek-docs
           - service: pek-dev
           - service: pek-pre-commit-runtime

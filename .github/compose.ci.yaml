@@ -11,6 +11,13 @@ services:
       dockerfile: Dockerfile
       target: pek-build-base
 
+  pek-deployment-base:
+    platform: linux/arm64
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: pek-deployment-base
+
   pek-docs: &pek-docs
     extends:
       file: ../compose.base.yaml
