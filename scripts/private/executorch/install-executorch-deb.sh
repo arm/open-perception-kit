@@ -116,7 +116,8 @@ install_from_artifactory() {
 
     artifactory_server="${ARTIFACTORY_SERVER%/}"
     case "${artifactory_server}" in
-        http://* | https://*) ;;
+        https://*) ;;
+        http://*) die "Artifactory server must use HTTPS" ;;
         *) artifactory_server="https://${artifactory_server}" ;;
     esac
     artifactory_repository="${ARTIFACTORY_REPOSITORY#/}"
