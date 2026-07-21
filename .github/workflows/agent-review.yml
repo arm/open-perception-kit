@@ -106,6 +106,7 @@ jobs:
       # review trust boundary for same-repo pull requests.
       - name: Run OpenAI SDK review
         id: review
+        continue-on-error: true
         shell: bash
         env:
           OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
@@ -122,7 +123,7 @@ jobs:
 
       - name: Render review summary
         id: render
-        if: ${{ success() }}
+        if: ${{ steps.review.outcome == 'success' }}
         shell: bash
         env:
           REVIEW_BASE_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.base_ref || format('origin/{0}', github.base_ref) }}
@@ -134,7 +135,7 @@ jobs:
           cat .github/agent-runtime/review/out/review-summary.md >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Publish review summary comment
-        if: ${{ success() && github.event_name == 'pull_request' }}
+        if: ${{ steps.review.outcome == 'success' && github.event_name == 'pull_request' }}
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
