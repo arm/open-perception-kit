@@ -70,6 +70,14 @@ check_docker_access() {
     command -v docker > /dev/null 2>&1 && docker info > /dev/null 2>&1
 }
 
+check_hailo8_package() {
+    dpkg-query -W -f='${Status}' hailo-all 2> /dev/null | grep -q "install ok installed"
+}
+
+check_hailo10_package() {
+    dpkg-query -W -f='${Status}' hailo-h10-all 2> /dev/null | grep -q "install ok installed"
+}
+
 # Platform prerequisite lists. Keep most of these empty until the minimal sets
 # are known. A requirement can have no fallback package when it needs user action
 # instead of package installation, for example Docker group membership.
@@ -102,6 +110,18 @@ PREREQS_RPI5=(
     "docker-cli|check_docker_cli|docker.io|Docker CLI"
     "docker-compose|check_docker_compose|docker-compose|Docker Compose plugin"
     "docker-access|check_docker_access||Docker daemon reachable by the current user"
+)
+PREREQS_RPI5_HAILO8=(
+    "docker-cli|check_docker_cli|docker.io|Docker CLI"
+    "docker-compose|check_docker_compose|docker-compose|Docker Compose plugin"
+    "docker-access|check_docker_access||Docker daemon reachable by the current user"
+    "hailo8-stack|check_hailo8_package|hailo-all|Hailo 8 software stack"
+)
+PREREQS_RPI5_HAILO10=(
+    "docker-cli|check_docker_cli|docker.io|Docker CLI"
+    "docker-compose|check_docker_compose|docker-compose|Docker Compose plugin"
+    "docker-access|check_docker_access||Docker daemon reachable by the current user"
+    "hailo10-stack|check_hailo10_package|hailo-h10-all|Hailo 10 software stack"
 )
 PREREQS_MACOS=(
     "docker-cli|check_docker_cli||Docker CLI from Docker Desktop"
@@ -145,9 +165,14 @@ select_prereq_arrays() {
                 SELECTED_PREREQ_ARRAYS=(PREREQS_LINUX_X86)
             fi
             ;;
-        rpi5)
+        rpi5 | rpi5-h8 | rpi5-h10)
             PACKAGE_MANAGER="apt"
             SELECTED_PREREQ_ARRAYS=(PREREQS_RPI5)
+            if [[ "$PEK_PLATFORM_ID" == "rpi5-h10" ]]; then
+                SELECTED_PREREQ_ARRAYS+=(PREREQS_RPI5_HAILO10)
+            elif [[ "$PEK_PLATFORM_ID" == "rpi5-h8" ]]; then
+                SELECTED_PREREQ_ARRAYS+=(PREREQS_RPI5_HAILO8)
+            fi
             ;;
         *)
             echo "Error: no prerequisite profile for platform '${PEK_PLATFORM_ID}'." >&2

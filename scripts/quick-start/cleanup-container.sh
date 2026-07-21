@@ -20,13 +20,15 @@ cd "$REPO_ROOT"
 detect_output="$("${SCRIPT_DIR}/detect-environment.sh" --shell 2> /dev/null)" || true
 if [[ -n "$detect_output" ]]; then
     eval "$detect_output"
-    export PEK_DEV_CONTAINER_NAME PEK_PICAMERA
+    export PEK_DEV_CONTAINER_NAME PEK_DEV_RPI5_H8_CONTAINER_NAME
+    export PEK_DEV_RPI5_H10_CONTAINER_NAME PEK_PICAMERA
 fi
 PEK_BUILD_BASE_IMAGE="${PEK_BUILD_BASE_IMAGE:-${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}-build-base}"
 
 for compose_file in \
     .devcontainer/docker-compose.devcont.video.yaml \
     .devcontainer/docker-compose.devcont.audio.yaml \
+    .devcontainer/docker-compose.devcont.npu.yaml \
     .devcontainer/docker-compose.devcont.shared_memory.yaml; do
     [ ! -f "$compose_file" ] || COMPOSE_FILES+=(-f "$compose_file")
 done

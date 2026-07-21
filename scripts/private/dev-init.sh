@@ -10,13 +10,14 @@ usage() {
 Usage:
 	dev-init.sh <service_name> <container_kind> <out_env>
 
-Generates device docker-compose overrides (video/audio/shared memory) and a shared env
+    Generates device docker-compose overrides (video/audio/NPU/shared memory) and a shared env
 file for the given service.
 
 container_kind controls the override filenames:
-	.devcontainer/docker-compose.<container_kind>.video.yaml
-	.devcontainer/docker-compose.<container_kind>.audio.yaml
-	.devcontainer/docker-compose.<container_kind>.shared_memory.yaml
+        .devcontainer/docker-compose.<container_kind>.video.yaml
+        .devcontainer/docker-compose.<container_kind>.audio.yaml
+        .devcontainer/docker-compose.<container_kind>.npu.yaml
+        .devcontainer/docker-compose.<container_kind>.shared_memory.yaml
 EOF
 }
 
@@ -45,6 +46,11 @@ bash ./scripts/private/gen-cam.sh "${TARGET_SERVICE_NAME}" \
 chmod +x scripts/private/gen-audio.sh || true
 bash ./scripts/private/gen-audio.sh "${TARGET_SERVICE_NAME}" \
     ".devcontainer/docker-compose.${TARGET_CONTAINER_KIND}.audio.yaml" \
+    "${OUT_ENV_FILE}"
+
+chmod +x scripts/private/gen-npu.sh || true
+bash ./scripts/private/gen-npu.sh "${TARGET_SERVICE_NAME}" \
+    ".devcontainer/docker-compose.${TARGET_CONTAINER_KIND}.npu.yaml" \
     "${OUT_ENV_FILE}"
 
 chmod +x scripts/private/gen-shared-memory.sh || true

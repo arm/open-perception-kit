@@ -1,5 +1,5 @@
 {
-  "name": "PC perception-experience-kit",
+  "name": "RPI5 H8 perception-experience-kit",
   "dockerComposeFile": [
     "${localWorkspaceFolder}/.devcontainer/compose.devcont.yaml",
     "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.video.yaml",
@@ -7,13 +7,13 @@
     "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.npu.yaml",
     "${localWorkspaceFolder}/.devcontainer/docker-compose.devcont.shared_memory.yaml"
   ],
-  "service": "pek-dev",
+  "service": "pek-dev-rpi5-h8",
   "runServices": [
-    "pek-dev"
+    "pek-dev-rpi5-h8"
   ],
   "remoteUser": "dev",
   "workspaceFolder": "/work",
-  "initializeCommand": "bash .devcontainer/platform_init.sh pek-dev disabled && bash scripts/private/build-dev-base.sh",
+  "initializeCommand": "bash .devcontainer/platform_init.sh pek-dev-rpi5-h8 enabled && bash scripts/private/build-dev-base.sh",
   "containerEnv": {
     "CONTAINER_TYPE": "default",
     "HOST_OS": "${localEnv:OSTYPE}",
@@ -36,8 +36,7 @@
         "ms-python.autopep8",
         "cheshirekow.cmake-format",
         "mkhl.shfmt",
-        "jebbs.plantuml",
-        "vadimcn.vscode-lldb"
+        "jebbs.plantuml"
       ],
       "settings": {
         "python.defaultInterpreterPath": "/work/tools/.venv/bin/python"

@@ -15,8 +15,10 @@ Usage:
 Builds and starts the PEK quick-start container selected by host detection.
 
 Platform mapping:
-  Raspberry Pi 5         -> pek-dev with Pi camera support
-  WSL/Linux/macOS        -> pek-dev
+  Raspberry Pi 5            -> pek-dev with Pi camera support
+  Raspberry Pi 5 + Hailo 8  -> pek-dev-rpi5-h8
+  Raspberry Pi 5 + Hailo 10 -> pek-dev-rpi5-h10
+  WSL/Linux/macOS           -> pek-dev
 
 The script uses the checked-in devcontainer compose files and generated device
 overrides.
@@ -70,12 +72,14 @@ if ! detect_output="$("${SCRIPT_DIR}/detect-environment.sh" --shell)"; then
     exit 1
 fi
 eval "$detect_output"
-export PEK_DEV_CONTAINER_NAME PEK_PICAMERA
+export PEK_DEV_CONTAINER_NAME PEK_DEV_RPI5_H8_CONTAINER_NAME
+export PEK_DEV_RPI5_H10_CONTAINER_NAME PEK_PICAMERA
 
 COMPOSE_FILES=(
     -f .devcontainer/compose.devcont.yaml
     -f .devcontainer/docker-compose.devcont.video.yaml
     -f .devcontainer/docker-compose.devcont.audio.yaml
+    -f .devcontainer/docker-compose.devcont.npu.yaml
     -f .devcontainer/docker-compose.devcont.shared_memory.yaml
 )
 
@@ -150,6 +154,9 @@ echo "Starting quick-start container:"
 echo "  Platform: ${PEK_PLATFORM_NAME} (${PEK_PLATFORM_ID})"
 echo "  Service:  ${PEK_CONTAINER_SERVICE}"
 echo "  Name:     ${PEK_CONTAINER_NAME}"
+if [[ "${PEK_PLATFORM_ID}" == rpi5* ]]; then
+    echo "  Hailo:    ${PEK_HAILO_ARCH}"
+fi
 
 echo
 echo "Generating device overrides..."
