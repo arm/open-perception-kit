@@ -1,86 +1,33 @@
+name: pek-rich
+
 services:
-
-  coturn:
-    image: coturn/coturn:4.13.1
-    network_mode: bridge
-    ports:
-      - "3478:3478/udp"
-      - "3478:3478/tcp"
-      - "${PEK_WEBRTC_TURN_MIN_PORT:-49000}-${PEK_WEBRTC_TURN_MAX_PORT:-49050}:${PEK_WEBRTC_TURN_MIN_PORT:-49000}-${PEK_WEBRTC_TURN_MAX_PORT:-49050}/udp"
-    command:
-      - --listening-port=3478
-      - --fingerprint
-      - --lt-cred-mech
-      - --user=${PEK_WEBRTC_TURN_USERNAME:-test}:${PEK_WEBRTC_TURN_CREDENTIAL:-test123}
-      - --realm=pek.local
-      - --external-ip=${WEBRTC_HOST_IP}
-      - --min-port=${PEK_WEBRTC_TURN_MIN_PORT:-49000}
-      - --max-port=${PEK_WEBRTC_TURN_MAX_PORT:-49050}
-      - --no-cli
-      - --no-tls
-      - --no-dtls
-      - --log-file=stdout
-
   pek-dev-rich:
-    build:
-      args:
-        EXECUTORCH_ARTIFACTORY_USERNAME: ${EXECUTORCH_ARTIFACTORY_USERNAME:-}
-        EXECUTORCH_ARTIFACTORY_PASSWORD: ${EXECUTORCH_ARTIFACTORY_PASSWORD:-}
-        EXECUTORCH_VERSION: ${EXECUTORCH_VERSION:-}
-        EXECUTORCH_DEB_REVISION: ${EXECUTORCH_DEB_REVISION:-}
-      context: ..
-      dockerfile: Dockerfile.dev
-      target: pek-dev-rich
-      # BuildKit calls its bridge/NAT-backed build network "default".
-      network: ${BUILD_NETWORK_MODE:-default}
-
-    container_name: pek-dev-rich
-
-    network_mode: ${RUNTIME_NETWORK_MODE:-bridge}
-
+    extends:
+      file: ../compose.base.yaml
+      service: pek-common-dev
+    image: pek-dev-rich:local
+    container_name: ${PEK_RICH_CONTAINER_NAME:-pek-dev-rich}
     hostname: pek
-
-    depends_on:
-      - coturn
-
     user: "0:0"
-
-    command: | 
-      /bin/bash -c "/work/.devcontainer/setup.sh && 
-      /work/.devcontainer/devsetup.sh && 
-      ln -sf ~/configs/.gitconfig ~/.gitconfig &&
-      while true; do sleep 1; done"
-
+    command:
+      - /usr/local/bin/pek-rich-start
+    build:
+      context: ..
+      dockerfile: .devcontainer/rich/Dockerfile
+      target: pek-dev-rich
+      additional_contexts:
+        pek-dev: service:pek-dev
     environment:
-      - XDG_RUNTIME_DIR=/run/user/${HOST_UID}
-      - WAYLAND_DISPLAY=wayland-0
-      - DISPLAY
-      - USERNAME=devgoblin
-      - HOST_UID=${HOST_UID:-}
-      - HOST_GID=${HOST_GID:-}
-      - PEKCOMM_FILE=/tmp/pekcomm
-      - WEBRTC_HOST_IP=${WEBRTC_HOST_IP}
-      - PEK_WEBRTC_TURN_USERNAME=${PEK_WEBRTC_TURN_USERNAME:-test}
-      - PEK_WEBRTC_TURN_CREDENTIAL=${PEK_WEBRTC_TURN_CREDENTIAL:-test123}
-      - PEK_WEBRTC_TURN_MIN_PORT=${PEK_WEBRTC_TURN_MIN_PORT:-49000}
-      - PEK_WEBRTC_TURN_MAX_PORT=${PEK_WEBRTC_TURN_MAX_PORT:-49050}
-
+      USERNAME: dev
+      HOST_UID: ${HOST_UID:-1000}
+      HOST_GID: ${HOST_GID:-1000}
+      XDG_RUNTIME_DIR: /run/user/${HOST_UID:-1000}
+      PEKCOMM_FILE: /tmp/pekcomm
     volumes:
-      - /run/user/${HOST_UID}:/run/user/${HOST_UID}
-      - /tmp/.X11-unix:/tmp/.X11-unix
-      - ${HOME}/configs:/home/devgoblin/configs
-      - ..:/work     
-      - ../../pek-work-tree:/pek-work-tree
+      - ${PEK_RICH_RUNTIME_DIR:-/tmp}:/run/user/${HOST_UID:-1000}
+      - ${PEK_RICH_CONFIGS_MOUNT:-pek-rich-configs}:/home/dev/configs
+      - ${PEK_RICH_WORK_TREE_MOUNT:-pek-rich-work-tree}:/pek-work-tree
       - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
-
-    privileged: true
-
-    ports:
-      - 8000:8000
-      - 8001:8001
-      - 8002:8002
-      - 9999:9999
-
-    stdin_open: true
-    tty: true
-    restart: unless-stopped
+volumes:
+  pek-rich-configs:
+  pek-rich-work-tree:

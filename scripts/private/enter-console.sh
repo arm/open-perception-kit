@@ -13,7 +13,7 @@ Usage:
 Enters the console based development environment.
 
 Notes:
-  Requires the PEK development container to be running.
+  Requires the rich PEK development container to be running.
   If it isn't running, start it with: ./scripts/private/run-console
 EOF
 }
@@ -32,8 +32,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 DEV_ENV_FILE="devices.env"
-DC_KIND="devcont"
-CONTAINER_NAME="${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}"
+DC_KIND="rich"
+CONTAINER_NAME="${PEK_RICH_CONTAINER_NAME:-pek-dev-rich}"
 
 cd "${REPO_ROOT}"
 
@@ -44,7 +44,7 @@ if ! docker inspect -f '{{.State.Running}}' "${CONTAINER_NAME}" > /dev/null 2>&1
     exit 1
 fi
 
-./scripts/private/dev-init.sh pek-dev "$DC_KIND" "$DEV_ENV_FILE"
+./scripts/private/dev-init.sh pek-dev-rich "$DC_KIND" "$DEV_ENV_FILE"
 
 DOCKER_EXEC_ENV_FILE_ARGS=()
 if [ -f "${REPO_ROOT}/${DEV_ENV_FILE}" ]; then

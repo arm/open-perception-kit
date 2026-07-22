@@ -10,7 +10,7 @@ usage() {
 Usage:
   run-console [up|down] [-h|--help]
 
-Starts or stops the development environment in a Docker container.
+Starts or stops the rich console development environment in Docker.
 
 Commands:
   up        Build (if needed) and start the stack
@@ -31,8 +31,8 @@ EOF
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-DC_KIND="devcont"
-CONTAINER_NAME="${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}"
+DC_KIND="rich"
+CONTAINER_NAME="${PEK_RICH_CONTAINER_NAME:-pek-dev-rich}"
 
 export HOST_UID="$(id -u)"
 export HOST_GID="$(id -g)"
@@ -42,8 +42,10 @@ cd "${REPO_ROOT}"
 # Compose files used for lifecycle commands
 COMPOSE_FILES=(
     -f .devcontainer/compose.devcont.yaml
+    -f .devcontainer/docker-compose."${DC_KIND}".yaml
     -f .devcontainer/docker-compose."${DC_KIND}".video.yaml
     -f .devcontainer/docker-compose."${DC_KIND}".audio.yaml
+    -f .devcontainer/docker-compose."${DC_KIND}".npu.yaml
     -f .devcontainer/docker-compose."${DC_KIND}".shared_memory.yaml
 )
 
@@ -62,15 +64,22 @@ is_running() {
 }
 
 do_up() {
-    export PEK_DEV_CONTAINER_NAME="${CONTAINER_NAME}"
+    export PEK_RICH_CONTAINER_NAME="${CONTAINER_NAME}"
+
+    if [[ -z "${PEK_RICH_CONFIGS_MOUNT:-}" && -d "${HOME}/configs" ]]; then
+        export PEK_RICH_CONFIGS_MOUNT="${HOME}/configs"
+    fi
+    if [[ -z "${PEK_RICH_WORK_TREE_MOUNT:-}" && -d "${REPO_ROOT}/../pek-work-tree" ]]; then
+        export PEK_RICH_WORK_TREE_MOUNT="${REPO_ROOT}/../pek-work-tree"
+    fi
 
     ./.devcontainer/platform_init.sh \
-        pek-dev "${PEK_PICAMERA:-disabled}" "${PEK_WEBRTC_TURN}"
+        pek-dev-rich "${PEK_PICAMERA:-disabled}" "${PEK_WEBRTC_TURN}" "${DC_KIND}"
     bash ./scripts/private/build-dev-base.sh
 
     HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" \
         docker compose "${COMPOSE_ENV_ARGS[@]}" "${COMPOSE_FILES[@]}" \
-        up -d --build --remove-orphans pek-dev
+        up -d --build --remove-orphans pek-dev-rich
 }
 
 do_down() {

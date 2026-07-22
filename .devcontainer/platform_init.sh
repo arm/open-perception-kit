@@ -11,6 +11,7 @@ set -euo pipefail
 TARGET_SERVICE_KIND="${1:-pek-dev}"
 PEK_PICAMERA="${2:-disabled}"
 PEK_WEBRTC_TURN="${3:-disabled}"
+TARGET_CONTAINER_KIND="${4:-devcont}"
 PEK_BUILD_BASE_IMAGE="${PEK_BUILD_BASE_IMAGE:-${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}-build-base}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -35,6 +36,11 @@ case "${PEK_WEBRTC_TURN}" in
         exit 2
         ;;
 esac
+
+if [[ ! "${TARGET_CONTAINER_KIND}" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    echo "Error: container kind contains unsupported characters." >&2
+    exit 2
+fi
 
 upsert_env_value() {
     local file="$1"
@@ -61,11 +67,13 @@ remove_env_value() {
 
 chmod +x scripts/private/dev-init.sh || true
 touch devices.env
-bash ./scripts/private/dev-init.sh "${TARGET_SERVICE_KIND}" devcont devices.env
+bash ./scripts/private/dev-init.sh \
+    "${TARGET_SERVICE_KIND}" "${TARGET_CONTAINER_KIND}" devices.env
 
-NETWORK_OVERRIDE=".devcontainer/docker-compose.devcont.network.yaml"
+NETWORK_OVERRIDE=".devcontainer/docker-compose.${TARGET_CONTAINER_KIND}.network.yaml"
+TURN_OVERRIDE=".devcontainer/docker-compose.${TARGET_CONTAINER_KIND}.turn.yaml"
 if [[ "${PEK_WEBRTC_TURN}" = enabled ]]; then
-    cp .devcontainer/docker-compose.devcont.turn.yaml "${NETWORK_OVERRIDE}"
+    cp "${TURN_OVERRIDE}" "${NETWORK_OVERRIDE}"
 else
     printf "services:\n  %s: {}\n" "${TARGET_SERVICE_KIND}" > "${NETWORK_OVERRIDE}"
 fi
