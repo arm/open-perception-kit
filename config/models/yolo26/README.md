@@ -3,7 +3,7 @@
 Full-frame object detector.
 
 - Backend: ONNX Runtime on CPU
-- Model file: `yolo26n.onnx`
+- Artifact: downloaded on demand from the descriptor's pinned `modelFile` locator when first activated
 - Input: NCHW image, `[1, 3, 320, 320]`
 - Output: same tensor contract as the checked-in YOLOv11 ONNX model
 - Post processor: `YoloParser`

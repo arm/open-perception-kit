@@ -3,6 +3,7 @@
 Binary camera-contact classifier for face crops.
 
 - Backend: ONNX
+- Artifact: downloaded on demand from the descriptor's pinned `modelFile` locator when first activated
 - Input: NCHW crop, `[1, 3, 224, 224]`, `Float32`, ImageNet mean/std normalization
 - Output: logits `[1, 2]` for `no contact` and `contact`
 - Postprocessor: `CameraContactParser`
@@ -37,4 +38,3 @@ The main build entry point is #file:meson.build
 
 #### Documentation
 Architectural and tutorial documentations are under #file:docs folder
-

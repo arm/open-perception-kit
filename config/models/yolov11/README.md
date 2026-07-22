@@ -3,6 +3,7 @@
 Full-frame object detector.
 
 - Backend: ONNX
+- Artifact: checked-in `yolo11n-fp32-320.onnx` fixture used by CI and local examples
 - Input: NCHW image, `[1, 3, 320, 320]`
 - Output: dynamic detection tensor containing bounding boxes and labels
 - Post processor: `YoloParser`

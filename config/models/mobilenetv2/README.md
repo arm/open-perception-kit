@@ -3,7 +3,7 @@
 Whole-frame ImageNet classifier.
 
 - Backend: ONNX
-- Artifact: downloaded during container initialization from the descriptor's `modelFile` locator
+- Artifact: downloaded on demand from the descriptor's pinned `modelFile` locator when first activated
 - Input: NCHW image, `[1, 3, 224, 224]`
 - Output: ImageNet class scores
 - Post processor: `ImageNetClassificationParser`

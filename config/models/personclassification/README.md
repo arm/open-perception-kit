@@ -3,7 +3,7 @@
 Binary person / non-person classifier.
 
 - Backend: ONNX
-- Artifact: downloaded during container initialization from the descriptor's `modelFile` locator
+- Artifact: downloaded on demand from the descriptor's pinned `modelFile` locator when first activated
 - Input: NHWC image, `[1, 96, 96, 3]`
 - Output: logits `[1, 2]` (first is the person prob)
 - Post processor: `PersonClassificationParser`
