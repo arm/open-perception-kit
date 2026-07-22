@@ -47,6 +47,11 @@ COMPOSE_FILES=(
     -f .devcontainer/docker-compose."${DC_KIND}".shared_memory.yaml
 )
 
+PEK_WEBRTC_TURN="$(bash scripts/private/select-webrtc-turn-mode.sh)"
+if [[ "${PEK_WEBRTC_TURN}" == enabled ]]; then
+    COMPOSE_FILES+=(-f .devcontainer/docker-compose."${DC_KIND}".turn.yaml)
+fi
+
 COMPOSE_ENV_ARGS=()
 if [[ -f "${REPO_ROOT}/.env" ]]; then
     COMPOSE_ENV_ARGS=(--env-file "${REPO_ROOT}/.env")
@@ -59,7 +64,8 @@ is_running() {
 do_up() {
     export PEK_DEV_CONTAINER_NAME="${CONTAINER_NAME}"
 
-    ./.devcontainer/platform_init.sh pek-dev "${PEK_PICAMERA:-disabled}"
+    ./.devcontainer/platform_init.sh \
+        pek-dev "${PEK_PICAMERA:-disabled}" "${PEK_WEBRTC_TURN}"
     bash ./scripts/private/build-dev-base.sh
 
     HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" \

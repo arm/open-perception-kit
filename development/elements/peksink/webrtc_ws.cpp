@@ -392,6 +392,9 @@ void WebRtcWebSocket::on_open(const connection_hdl &hdl) {
     if (self_->webrtc_stun_server && self_->webrtc_stun_server[0] != '\0') {
         g_object_set(ctx->webrtcbin, "stun-server", self_->webrtc_stun_server, nullptr);
     }
+    if (self_->webrtc_turn_server && self_->webrtc_turn_server[0] != '\0') {
+        g_object_set(ctx->webrtcbin, "turn-server", self_->webrtc_turn_server, nullptr);
+    }
 
     // WebRTC callbacks (per client webrtcbin!)
     ctx->onn_id = g_signal_connect_data(ctx->webrtcbin,

@@ -88,6 +88,11 @@ if [[ -n "${COMPOSE_ENV_FILE}" ]]; then
     COMPOSE_ENV_ARGS=(--env-file "${COMPOSE_ENV_FILE}")
 fi
 
+PEK_WEBRTC_TURN="$(bash scripts/private/select-webrtc-turn-mode.sh "${PEK_PLATFORM_ID}")"
+if [[ "${PEK_WEBRTC_TURN}" == enabled ]]; then
+    COMPOSE_FILES+=(-f .devcontainer/docker-compose.devcont.turn.yaml)
+fi
+
 require_docker() {
     if ! command -v docker > /dev/null 2>&1; then
         echo "Error: docker is not installed or not on PATH." >&2
@@ -160,7 +165,8 @@ fi
 
 echo
 echo "Generating device overrides..."
-bash .devcontainer/platform_init.sh "${PEK_CONTAINER_SERVICE}" "${PEK_PICAMERA}"
+bash .devcontainer/platform_init.sh \
+    "${PEK_CONTAINER_SERVICE}" "${PEK_PICAMERA}" "${PEK_WEBRTC_TURN}"
 
 echo
 echo "Building shared development base..."
