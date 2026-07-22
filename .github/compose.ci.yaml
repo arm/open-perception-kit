@@ -23,7 +23,7 @@ services:
       dockerfile: Dockerfile
       target: pek-dev-base
       additional_contexts:
-        modelfetch_wheels: ../.cache/modelfetch
+        modelfetch_sdks: ../.cache/modelfetch
 
   pek-docs-dev-base: &pek-docs-dev-base
     extends:
@@ -37,7 +37,7 @@ services:
       dockerfile: Dockerfile
       target: pek-docs-dev-base
       additional_contexts:
-        modelfetch_wheels: ../.cache/modelfetch
+        modelfetch_sdks: ../.cache/modelfetch
 
   pek-pre-commit-runtime:
     network_mode: bridge
@@ -64,7 +64,7 @@ services:
       dockerfile: Dockerfile
       target: pek-model-tools-base
       additional_contexts:
-        modelfetch_wheels: ../.cache/modelfetch
+        modelfetch_sdks: ../.cache/modelfetch
     command: |
       bash -c '
         .devcontainer/setup.sh &&
@@ -111,16 +111,12 @@ services:
       service: pek-common-dev
     network_mode: bridge
     hostname: pek-valgrind-check
-    environment:
-      HF_TOKEN_PATH: /run/secrets/huggingface_token
-    secrets:
-      - huggingface_token
     build:
       context: ..
       dockerfile: Dockerfile
       target: pek-model-tools-base
       additional_contexts:
-        modelfetch_wheels: ../.cache/modelfetch
+        modelfetch_sdks: ../.cache/modelfetch
       args:
         USER_UID: ${HOST_UID:-1000}
         USER_GID: ${HOST_GID:-1000}
@@ -128,7 +124,6 @@ services:
       bash -c '
         .devcontainer/setup.sh &&
         .devcontainer/platform_init.sh pek-dev-base &&
-        python3 /work/scripts/private/initialize_models.py &&
         ./scripts/testing/valgrind/test-elements-with-valgrind.sh clean --pipeline only-onnx-yolo
       '
 
@@ -183,7 +178,7 @@ services:
       dockerfile: Dockerfile
       target: pek-dev-sonar
       additional_contexts:
-        modelfetch_wheels: ../.cache/modelfetch
+        modelfetch_sdks: ../.cache/modelfetch
     environment:
       PROJECT_ROOT: /work/development
       BUILD_DIR: /work/development/build
@@ -225,7 +220,7 @@ services:
       dockerfile: Dockerfile
       target: pek-dev-sonar
       additional_contexts:
-        modelfetch_wheels: ../.cache/modelfetch
+        modelfetch_sdks: ../.cache/modelfetch
     environment:
       PROJECT_ROOT: /work/development
       BUILD_DIR: /work/development/build
@@ -248,7 +243,3 @@ services:
           -Dsonar.projectVersion="$$SONAR_PROJECT_VERSION" \
           -Dsonar.buildString="$$BUILD_STRING"
       '
-
-secrets:
-  huggingface_token:
-    file: ${HF_TOKEN_PATH:-/dev/null}

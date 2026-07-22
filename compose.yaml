@@ -21,7 +21,7 @@ services:
       dockerfile: Dockerfile
       target: pek-deployment-base
       additional_contexts:
-        modelfetch_wheels: .cache/modelfetch
+        modelfetch_sdks: .cache/modelfetch
       args:
         PEK_PIPELINE: ${PEK_PIPELINE:-onnx}
 

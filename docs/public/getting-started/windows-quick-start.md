@@ -43,8 +43,9 @@ code --version
 
 If `docker` does not work, open Docker Desktop and confirm that WSL integration is enabled for your Ubuntu distribution.
 
-Until modelfetch is released, authenticate GitHub CLI with read access to the
-pinned `Arm-Debug/modelfetch` Actions artifact:
+Authenticate GitHub CLI with read access to the pinned `Arm-Debug/modelfetch`
+release. The repository is internal, so its release asset is not available
+anonymously:
 
 ```bash
 gh auth login --hostname github.com
@@ -93,15 +94,19 @@ Expected result: you are in the `pek` folder in WSL.
 Run in the **WSL shell**, from the `pek` folder:
 
 ```bash
+code .
+```
+
+The checked-in YOLOv11 quick start needs no Hugging Face credential. To use a
+published model, first set `HF_TOKEN_PATH` to a mode-`0600` token file in this
+WSL shell. The Dev Container mounts it read-only, and the runtime downloads
+only the model you activate:
+
+```bash
 chmod 600 "/absolute/path/to/huggingface-token"
 export HF_TOKEN_PATH="/absolute/path/to/huggingface-token"
 code .
 ```
-
-`HF_TOKEN_PATH` is required because Dev Container initialization downloads all
-published models referenced by the repository. Launching VS Code from this WSL
-shell makes the token file available to the Dev Container as a read-only
-secret. `pek-menu` performs no downloads.
 
 VS Code should open the folder through WSL. In VS Code:
 

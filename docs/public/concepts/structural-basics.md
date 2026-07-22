@@ -20,7 +20,7 @@ At the end of this page, you should be able to place new files in the right fold
 ### `config/`
 This is the most important folder for normal usage.
 
-- `config/models/` stores model folders. Put `model.json`, a basic and minimal `opchain.json`, and `index.md` here. In `modelFile`, use either a local relative path or an immutable published file locator. Container initialization downloads published content into the dedicated `var/models/` runtime store. Runtime-specific compiled variants also live here, for example `mobilenetv2-hailo8/` and `mobilenetv2-hailo10/`.
+- `config/models/` stores model folders. Put `model.json`, a basic and minimal `opchain.json`, and `index.md` here. In `modelFile`, use either a local relative path or an immutable published file locator. The runtime downloads published content on demand into the dedicated `var/models/` store. Runtime-specific compiled variants also live here, for example `mobilenetv2-hailo8/` and `mobilenetv2-hailo10/`.
 - `config/opchains/` stores reusable multi-stage pipelines, for example detector + secondary model chains.
 - `config/pipelines/` stores the top-level presets shown by `pek-menu`.
 
@@ -78,15 +78,16 @@ If no existing postprocessor matches your model output, add this to the list:
 
 The usual flow is:
 
-1. container initialization downloads all published assets referenced by `config/models/`
-2. select a pipeline preset from `config/pipelines/`
-3. that preset starts a GStreamer pipeline
-4. `pekinfer` loads an OpChain from `config/opchains/` or `config/models/*/opchain.json`
-5. the OpChain loads one or more model descriptors from `config/models/`
-6. the result is shown or published by the downstream elements
+1. select a pipeline preset from `config/pipelines/`
+2. that preset starts a GStreamer pipeline
+3. `pekinfer` reads an OpChain descriptor from `config/opchains/` or `config/models/*/opchain.json`
+4. when an inference element is first activated, it queues OpChain setup on a background worker
+5. each published file locator is materialized and verified on demand in `var/models/` while frames
+   continue through the element unchanged
+6. once setup is ready, later frames execute the OpChain and downstream elements publish the result
 
-`pek-menu` only selects and launches pipelines. It assumes container
-initialization has already populated `var/models/` and never downloads models.
+`pek-menu` only selects and launches pipelines. Model materialization belongs
+to the runtime descriptor path, so direct runtime consumers behave the same way.
 
 You only need the deeper `development/` source tree if this flow is not enough for your use case or if your model output needs a new postprocessor.
 

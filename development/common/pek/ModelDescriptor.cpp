@@ -3,19 +3,20 @@
  *************************************************************/
 
 #include "pek/ModelDescriptor.h"
-#include "fmt/color.h"
-#include "tl/expected.hpp"
 
-#include <array>
 #include <filesystem>
+#include <memory>
 #include <string>
+#include <string_view>
 
+#include <fmt/color.h>
 #include <glib.h>
-
-#include "pek/File.h"
-#include "pek/Result.h"
+#include <modelfetch.h>
+#include <tl/expected.hpp>
 
 #include "pek/AttributeMap.h"
+#include "pek/File.h"
+#include "pek/Result.h"
 
 using namespace pek;
 namespace std_fs = std::filesystem;
@@ -23,7 +24,14 @@ namespace std_fs = std::filesystem;
 namespace {
 
 constexpr const char *MaterializedModelsRoot = "/work/var/models";
-constexpr const char *ModelfetchExecutable = "/opt/pek-venvs/model-tools/bin/modelfetch";
+
+using ModelfetchService = std::unique_ptr<modelfetch_service_t, decltype(&modelfetch_service_free)>;
+using ModelfetchRequest = std::unique_ptr<modelfetch_request_t, decltype(&modelfetch_request_free)>;
+using ModelfetchRequestList =
+    std::unique_ptr<modelfetch_request_list_t, decltype(&modelfetch_request_list_free)>;
+using ModelfetchOutcomeList =
+    std::unique_ptr<modelfetch_outcome_list_t, decltype(&modelfetch_outcome_list_free)>;
+using ModelfetchError = std::unique_ptr<modelfetch_error_t, decltype(&modelfetch_error_free)>;
 
 bool is_safe_relative_path(const std_fs::path &path) {
     if (path.empty() || path.is_absolute())
@@ -41,82 +49,272 @@ bool is_descendant(const std_fs::path &path, const std_fs::path &root) {
            *relative.begin() != "..";
 }
 
-pek::Result<std_fs::path> resolvePublishedModelEntry(const std::string &descriptorPath,
-                                                     const std::string &assetId) {
-    if (assetId.find("#file=") == std::string::npos) {
+bool is_lower_hex(std::string_view value) {
+    for (const char character : value) {
+        if (!((character >= '0' && character <= '9') || (character >= 'a' && character <= 'f')))
+            return false;
+    }
+    return true;
+}
+
+bool is_immutable_file_locator(const std::string &assetId) {
+    constexpr size_t RevisionLength = 40;
+    constexpr std::string_view FileMarker = "#file=";
+
+    const size_t fileMarker = assetId.find(FileMarker);
+    if (fileMarker == std::string::npos || fileMarker + FileMarker.size() == assetId.size() ||
+        assetId.find('#') != fileMarker)
+        return false;
+
+    const size_t revisionMarker = assetId.rfind('@', fileMarker);
+    if (revisionMarker == std::string::npos || revisionMarker <= 3 ||
+        assetId.find('/', 3) >= revisionMarker || fileMarker != revisionMarker + 1 + RevisionLength)
+        return false;
+
+    return is_lower_hex(std::string_view(assetId).substr(revisionMarker + 1, RevisionLength));
+}
+
+bool has_canonical_integrity(const std::string &value) {
+    constexpr std::string_view Sha256Prefix = "sha256:";
+    constexpr std::string_view GitSha1Prefix = "git-sha1:";
+    const size_t prefixSize = value.starts_with(Sha256Prefix)    ? Sha256Prefix.size()
+                              : value.starts_with(GitSha1Prefix) ? GitSha1Prefix.size()
+                                                                 : 0;
+    const size_t digestSize = prefixSize == Sha256Prefix.size() ? 64 : 40;
+    if (prefixSize == 0 || value.size() != prefixSize + digestSize)
+        return false;
+    return is_lower_hex(std::string_view(value).substr(prefixSize));
+}
+
+std::string copy_text_view(const modelfetch_text_view_t &view) {
+    if (view.ptr == nullptr || view.len == 0)
+        return {};
+    return {reinterpret_cast<const char *>(view.ptr), view.len};
+}
+
+std::string modelfetch_error_detail(modelfetch_error_t *rawError) {
+    ModelfetchError error(rawError, modelfetch_error_free);
+    if (!error)
+        return "no error detail";
+
+    modelfetch_text_view_t view{nullptr, 0};
+    if (modelfetch_error_message(error.get(), &view) != MODELFETCH_STATUS_OK)
+        return "unreadable error detail";
+    const std::string detail = copy_text_view(view);
+    return detail.empty() ? "empty error detail" : detail;
+}
+
+pek::Error modelfetch_error(const std::string &descriptorPath,
+                            const std::string &operation,
+                            modelfetch_status_t status,
+                            modelfetch_error_t *rawError = nullptr) {
+    return PEK_ERROR(pek::ErrorFlag::InvalidData,
+                     fmt::format("modelfetch {} failed for ModelDescriptor [{}] (status {}): {}",
+                                 operation,
+                                 descriptorPath,
+                                 status,
+                                 modelfetch_error_detail(rawError)));
+}
+
+pek::Result<std::string> read_text(const std::string &descriptorPath,
+                                   const std::string &field,
+                                   const modelfetch_text_view_t &view) {
+    if (view.ptr == nullptr || view.len == 0 || view.len > G_MAXSSIZE ||
+        !g_utf8_validate(
+            reinterpret_cast<const gchar *>(view.ptr), static_cast<gssize>(view.len), nullptr)) {
+        return tl::unexpected{PEK_ERROR(
+            pek::ErrorFlag::InvalidData,
+            fmt::format(
+                "modelfetch returned invalid {} for ModelDescriptor [{}]", field, descriptorPath))};
+    }
+    return copy_text_view(view);
+}
+
+const char *failure_reason_name(modelfetch_failure_reason_t reason) {
+    switch (reason) {
+    case MODELFETCH_FAILURE_SNAPSHOT_UNAVAILABLE:
+        return "snapshot_unavailable";
+    case MODELFETCH_FAILURE_SNAPSHOT_IDENTITY_MISMATCH:
+        return "snapshot_identity_mismatch";
+    case MODELFETCH_FAILURE_ANCHOR_NOT_FOUND:
+        return "anchor_not_found";
+    case MODELFETCH_FAILURE_MANIFEST_INVALID:
+        return "manifest_invalid";
+    case MODELFETCH_FAILURE_PATH_UNSAFE:
+        return "path_unsafe";
+    case MODELFETCH_FAILURE_OUTPUT_COLLISION:
+        return "output_collision";
+    case MODELFETCH_FAILURE_DESTINATION_INVALID:
+        return "destination_invalid";
+    case MODELFETCH_FAILURE_INTEGRITY_METADATA_UNAVAILABLE:
+        return "integrity_metadata_unavailable";
+    case MODELFETCH_FAILURE_INTEGRITY_MISMATCH:
+        return "integrity_mismatch";
+    case MODELFETCH_FAILURE_DOWNLOAD_FAILED:
+        return "download_failed";
+    case MODELFETCH_FAILURE_MATERIALIZATION_FAILED:
+        return "materialization_failed";
+    default:
+        return "unknown";
+    }
+}
+
+pek::Result<std_fs::path> materializePublishedModel(const std::string &descriptorPath,
+                                                    const std::string &assetId) {
+    if (!is_immutable_file_locator(assetId)) {
         return tl::unexpected{
             PEK_ERROR(pek::ErrorFlag::InvalidData,
-                      fmt::format("Published ModelDescriptor [{}] must identify one file asset",
+                      fmt::format("Published ModelDescriptor [{}] must use an immutable canonical "
+                                  "file asset locator",
                                   descriptorPath))};
     }
 
-    std::array<std::string, 4> argumentStorage = {
-        ModelfetchExecutable,
-        "models",
-        "resolve-path",
-        assetId,
-    };
-    std::array<gchar *, 5> arguments = {
-        argumentStorage[0].data(),
-        argumentStorage[1].data(),
-        argumentStorage[2].data(),
-        argumentStorage[3].data(),
-        nullptr,
-    };
-    gchar *standardOutput = nullptr;
-    gint waitStatus = 0;
-    GError *spawnError = nullptr;
-    const gboolean spawned = g_spawn_sync(nullptr,
-                                          arguments.data(),
-                                          nullptr,
-                                          G_SPAWN_DEFAULT,
-                                          nullptr,
-                                          nullptr,
-                                          &standardOutput,
-                                          nullptr,
-                                          &waitStatus,
-                                          &spawnError);
-    const std::string output = standardOutput == nullptr ? "" : standardOutput;
-    g_free(standardOutput);
+    modelfetch_service_t *rawService = nullptr;
+    modelfetch_error_t *rawError = nullptr;
+    modelfetch_status_t status = modelfetch_service_new(&rawService, &rawError);
+    if (status != MODELFETCH_STATUS_OK)
+        return tl::unexpected{
+            modelfetch_error(descriptorPath, "service creation", status, rawError)};
+    ModelfetchService service(rawService, modelfetch_service_free);
 
-    if (!spawned) {
-        const std::string detail = spawnError == nullptr ? "unknown error" : spawnError->message;
-        g_clear_error(&spawnError);
+    modelfetch_request_t *rawRequest = nullptr;
+    rawError = nullptr;
+    status = modelfetch_request_new(reinterpret_cast<const uint8_t *>(assetId.data()),
+                                    assetId.size(),
+                                    reinterpret_cast<const uint8_t *>(MaterializedModelsRoot),
+                                    std::char_traits<char>::length(MaterializedModelsRoot),
+                                    &rawRequest,
+                                    &rawError);
+    if (status != MODELFETCH_STATUS_OK)
+        return tl::unexpected{
+            modelfetch_error(descriptorPath, "request creation", status, rawError)};
+    ModelfetchRequest request(rawRequest, modelfetch_request_free);
+
+    modelfetch_request_list_t *rawRequests = nullptr;
+    rawError = nullptr;
+    status = modelfetch_request_list_new(&rawRequests, &rawError);
+    if (status != MODELFETCH_STATUS_OK)
+        return tl::unexpected{
+            modelfetch_error(descriptorPath, "request-list creation", status, rawError)};
+    ModelfetchRequestList requests(rawRequests, modelfetch_request_list_free);
+
+    rawError = nullptr;
+    status = modelfetch_request_list_append(requests.get(), request.get(), &rawError);
+    if (status != MODELFETCH_STATUS_OK)
+        return tl::unexpected{modelfetch_error(descriptorPath, "request append", status, rawError)};
+
+    modelfetch_outcome_list_t *rawOutcomes = nullptr;
+    rawError = nullptr;
+    status = modelfetch_service_download_asset_requests(
+        service.get(), requests.get(), nullptr, nullptr, &rawOutcomes, &rawError);
+    if (status != MODELFETCH_STATUS_OK)
+        return tl::unexpected{modelfetch_error(descriptorPath, "asset download", status, rawError)};
+    ModelfetchOutcomeList outcomes(rawOutcomes, modelfetch_outcome_list_free);
+
+    size_t outcomeCount = 0;
+    status = modelfetch_outcome_list_count(outcomes.get(), &outcomeCount);
+    if (status != MODELFETCH_STATUS_OK)
+        return tl::unexpected{modelfetch_error(descriptorPath, "outcome-count lookup", status)};
+    if (outcomeCount != 1) {
         return tl::unexpected{
             PEK_ERROR(pek::ErrorFlag::InvalidData,
-                      fmt::format("Failed to start modelfetch for ModelDescriptor [{}]: {}",
-                                  descriptorPath,
-                                  detail))};
+                      fmt::format("modelfetch returned {} outcomes for ModelDescriptor [{}]",
+                                  outcomeCount,
+                                  descriptorPath))};
     }
 
-    GError *waitError = nullptr;
-    if (!g_spawn_check_wait_status(waitStatus, &waitError)) {
-        const std::string detail = waitError == nullptr ? "unknown error" : waitError->message;
-        g_clear_error(&waitError);
+    const modelfetch_outcome_t *outcome = nullptr;
+    status = modelfetch_outcome_list_get(outcomes.get(), 0, &outcome);
+    if (status != MODELFETCH_STATUS_OK || outcome == nullptr)
+        return tl::unexpected{modelfetch_error(descriptorPath, "outcome lookup", status)};
+
+    modelfetch_text_view_t assetView{nullptr, 0};
+    status = modelfetch_outcome_asset_id(outcome, &assetView);
+    if (status != MODELFETCH_STATUS_OK)
+        return tl::unexpected{modelfetch_error(descriptorPath, "outcome asset lookup", status)};
+    auto returnedAssetId = read_text(descriptorPath, "outcome asset ID", assetView);
+    if (!returnedAssetId)
+        return tl::unexpected{returnedAssetId.error()};
+    if (*returnedAssetId != assetId) {
         return tl::unexpected{
             PEK_ERROR(pek::ErrorFlag::InvalidData,
-                      fmt::format("modelfetch rejected modelFile in ModelDescriptor [{}]: {}",
-                                  descriptorPath,
-                                  detail))};
+                      fmt::format("modelfetch returned a mismatched asset for ModelDescriptor [{}]",
+                                  descriptorPath))};
     }
 
-    if (output.size() < 2 || output.back() != '\n' || output.find('\n') != output.size() - 1 ||
-        output.find('\r') != std::string::npos ||
-        !g_utf8_validate(output.data(), static_cast<gssize>(output.size() - 1), nullptr)) {
+    modelfetch_outcome_kind_t outcomeKind = MODELFETCH_OUTCOME_FAILURE;
+    status = modelfetch_outcome_kind(outcome, &outcomeKind);
+    if (status != MODELFETCH_STATUS_OK)
+        return tl::unexpected{modelfetch_error(descriptorPath, "outcome-kind lookup", status)};
+    if (outcomeKind == MODELFETCH_OUTCOME_FAILURE) {
+        modelfetch_failure_reason_t reason = MODELFETCH_FAILURE_DOWNLOAD_FAILED;
+        status = modelfetch_outcome_failure_reason(outcome, &reason);
+        const char *detail =
+            status == MODELFETCH_STATUS_OK ? failure_reason_name(reason) : "unknown";
         return tl::unexpected{PEK_ERROR(
             pek::ErrorFlag::InvalidData,
-            fmt::format("modelfetch returned an invalid model path for ModelDescriptor [{}]",
+            fmt::format("modelfetch could not materialize modelFile in ModelDescriptor [{}]: {}",
+                        descriptorPath,
+                        detail))};
+    }
+    if (outcomeKind != MODELFETCH_OUTCOME_SUCCESS) {
+        return tl::unexpected{PEK_ERROR(
+            pek::ErrorFlag::InvalidData,
+            fmt::format("modelfetch returned an invalid outcome kind for ModelDescriptor [{}]",
                         descriptorPath))};
     }
 
-    std_fs::path relativePath(output.substr(0, output.size() - 1));
-    if (!is_safe_relative_path(relativePath) || relativePath != relativePath.lexically_normal()) {
+    modelfetch_success_status_t successStatus = MODELFETCH_SUCCESS_DOWNLOADED;
+    status = modelfetch_outcome_success_status(outcome, &successStatus);
+    if (status != MODELFETCH_STATUS_OK)
+        return tl::unexpected{modelfetch_error(descriptorPath, "success-status lookup", status)};
+    if (successStatus != MODELFETCH_SUCCESS_DOWNLOADED &&
+        successStatus != MODELFETCH_SUCCESS_EXISTING) {
         return tl::unexpected{PEK_ERROR(
             pek::ErrorFlag::InvalidData,
-            fmt::format("modelfetch returned an unsafe model path for ModelDescriptor [{}]",
+            fmt::format("modelfetch returned an invalid success status for ModelDescriptor [{}]",
                         descriptorPath))};
     }
-    return relativePath;
+
+    size_t pathCount = 0;
+    status = modelfetch_outcome_success_path_count(outcome, &pathCount);
+    if (status != MODELFETCH_STATUS_OK)
+        return tl::unexpected{modelfetch_error(descriptorPath, "model-path count lookup", status)};
+    if (pathCount != 1) {
+        return tl::unexpected{
+            PEK_ERROR(pek::ErrorFlag::InvalidData,
+                      fmt::format("modelfetch returned {} model paths for ModelDescriptor [{}]",
+                                  pathCount,
+                                  descriptorPath))};
+    }
+
+    modelfetch_text_view_t pathView{nullptr, 0};
+    status = modelfetch_outcome_success_path(outcome, 0, &pathView);
+    if (status != MODELFETCH_STATUS_OK)
+        return tl::unexpected{modelfetch_error(descriptorPath, "model-path lookup", status)};
+    auto modelPath = read_text(descriptorPath, "model path", pathView);
+    if (!modelPath)
+        return tl::unexpected{modelPath.error()};
+
+    const modelfetch_integrity_t *integrity = nullptr;
+    status = modelfetch_outcome_success_integrity(outcome, 0, &integrity);
+    if (status != MODELFETCH_STATUS_OK || integrity == nullptr)
+        return tl::unexpected{modelfetch_error(descriptorPath, "integrity lookup", status)};
+    modelfetch_text_view_t integrityView{nullptr, 0};
+    status = modelfetch_integrity_token(integrity, &integrityView);
+    if (status != MODELFETCH_STATUS_OK)
+        return tl::unexpected{modelfetch_error(descriptorPath, "integrity-token lookup", status)};
+    auto integrityToken = read_text(descriptorPath, "integrity token", integrityView);
+    if (!integrityToken)
+        return tl::unexpected{integrityToken.error()};
+    if (!has_canonical_integrity(*integrityToken)) {
+        return tl::unexpected{
+            PEK_ERROR(pek::ErrorFlag::InvalidData,
+                      fmt::format("modelfetch returned invalid integrity for ModelDescriptor [{}]",
+                                  descriptorPath))};
+    }
+
+    return std_fs::path(*modelPath);
 }
 
 pek::Result<std::string> resolveModelFile(const std::string &descriptorPath,
@@ -124,18 +322,40 @@ pek::Result<std::string> resolveModelFile(const std::string &descriptorPath,
     const bool published = descriptor.modelFile.rfind("hf:", 0) == 0;
     std::error_code ec;
     if (published) {
-        auto relativeModelFile = resolvePublishedModelEntry(descriptorPath, descriptor.modelFile);
-        if (!relativeModelFile)
-            return tl::unexpected{relativeModelFile.error()};
-        const std_fs::path workspaceRoot = std_fs::weakly_canonical("/work", ec);
-        const std_fs::path modelStoreRoot = std_fs::weakly_canonical(MaterializedModelsRoot, ec);
-        const std_fs::path modelFile =
-            std_fs::weakly_canonical(modelStoreRoot / *relativeModelFile, ec);
-        if (ec || !is_descendant(modelStoreRoot, workspaceRoot) ||
-            !is_descendant(modelFile, modelStoreRoot)) {
+        auto materializedModel = materializePublishedModel(descriptorPath, descriptor.modelFile);
+        if (!materializedModel)
+            return tl::unexpected{materializedModel.error()};
+        if (!materializedModel->is_absolute()) {
             return tl::unexpected{PEK_ERROR(
                 pek::ErrorFlag::InvalidData,
-                fmt::format("Published ModelDescriptor [{}] modelFile escapes the model store",
+                fmt::format("modelfetch returned a relative path for ModelDescriptor [{}]",
+                            descriptorPath))};
+        }
+
+        const std_fs::path workspaceRoot = std_fs::canonical("/work", ec);
+        if (ec) {
+            return tl::unexpected{PEK_ERROR(
+                pek::ErrorFlag::InvalidData,
+                fmt::format("Failed to resolve the PEK workspace for ModelDescriptor [{}]: {}",
+                            descriptorPath,
+                            ec.message()))};
+        }
+        const std_fs::path modelStoreRoot = std_fs::canonical(MaterializedModelsRoot, ec);
+        if (ec) {
+            return tl::unexpected{PEK_ERROR(
+                pek::ErrorFlag::InvalidData,
+                fmt::format("Failed to resolve the model store for ModelDescriptor [{}]: {}",
+                            descriptorPath,
+                            ec.message()))};
+        }
+        const std_fs::path modelFile = std_fs::canonical(*materializedModel, ec);
+        if (ec || !is_descendant(modelStoreRoot, workspaceRoot) ||
+            !is_descendant(modelFile, modelStoreRoot) || !std_fs::is_regular_file(modelFile, ec) ||
+            ec) {
+            return tl::unexpected{PEK_ERROR(
+                pek::ErrorFlag::InvalidData,
+                fmt::format("Published ModelDescriptor [{}] modelFile is not a regular file "
+                            "inside the model store",
                             descriptorPath))};
         }
         return modelFile.string();

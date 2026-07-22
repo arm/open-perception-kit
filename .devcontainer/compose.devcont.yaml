@@ -47,7 +47,7 @@ services:
       dockerfile: Dockerfile
       target: pek-dev-base
       additional_contexts:
-        modelfetch_wheels: ../.cache/modelfetch
+        modelfetch_sdks: ../.cache/modelfetch
       args:
         USER_UID: ${HOST_UID:-1000}
         USER_GID: ${HOST_GID:-1000}
@@ -68,7 +68,7 @@ services:
       dockerfile: Dockerfile
       target: pek-dev-rpi5
       additional_contexts:
-        modelfetch_wheels: ../.cache/modelfetch
+        modelfetch_sdks: ../.cache/modelfetch
       args:
         USER_UID: ${HOST_UID:-1000}
         USER_GID: ${HOST_GID:-1000}
@@ -93,7 +93,7 @@ services:
       dockerfile: Dockerfile
       target: pek-dev-rpi5-h8
       additional_contexts:
-        modelfetch_wheels: ../.cache/modelfetch
+        modelfetch_sdks: ../.cache/modelfetch
       args:
         USER_UID: ${HOST_UID:-1000}
         USER_GID: ${HOST_GID:-1000}
@@ -118,7 +118,7 @@ services:
       dockerfile: Dockerfile
       target: pek-dev-rpi5-h10
       additional_contexts:
-        modelfetch_wheels: ../.cache/modelfetch
+        modelfetch_sdks: ../.cache/modelfetch
       args:
         USER_UID: ${HOST_UID:-1000}
         USER_GID: ${HOST_GID:-1000}

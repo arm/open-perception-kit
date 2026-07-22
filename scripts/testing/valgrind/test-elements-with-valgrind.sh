@@ -102,7 +102,6 @@ run_valgrind_all() {
         --show-leak-kinds=all
         --track-origins=yes
         --trace-children=yes
-        --trace-children-skip=/opt/pek-venvs/model-tools/bin/modelfetch
         --error-exitcode="$VALGRIND_ERROR_EXITCODE"
         --xml=yes
     )

@@ -1,0 +1,15 @@
+{
+  "repository": "Arm-Debug/modelfetch",
+  "tag": "v0.1.0",
+  "sourceCommit": "c287f1e00ac143c632e0d5957955cced04e0fe0e",
+  "sdks": {
+    "amd64": {
+      "filename": "modelfetch-c-0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+      "sha256": "c6e59a41b04248841ef97fbd857e6ecd8ecb42ae1d2c9bbf9f27b36acb91ea8e"
+    },
+    "arm64": {
+      "filename": "modelfetch-c-0.1.0-aarch64-unknown-linux-gnu.tar.gz",
+      "sha256": "dfcba0b1c449a4ebc0cf6dbc203ab83d9c7193aa2635ce162a29214e0a148c85"
+    }
+  }
+}

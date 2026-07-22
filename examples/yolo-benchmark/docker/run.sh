@@ -71,7 +71,6 @@ run_in_container() {
     local opchain="config/models/yolov11/opchain.json"
 
     cd /work
-    python3 /work/scripts/private/initialize_models.py
     if [[ ! -w "${cache_root}" ]]; then
         sudo chown -R "$(id -u):$(id -g)" "${cache_root}"
     fi
@@ -272,7 +271,7 @@ export HOST_GID="$(id -g)"
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-amp-dev-forge-yolo-benchmark}"
 
 if [[ "${command}" == "setup" ]]; then
-    bash scripts/private/prepare-modelfetch-candidate.sh > /dev/null
+    bash scripts/private/prepare-modelfetch-release.sh > /dev/null
     docker compose -f "${COMPOSE_FILE}" build yolo-benchmark
 elif ! docker image inspect "${IMAGE_NAME}" > /dev/null 2>&1; then
     repo_checks_die \

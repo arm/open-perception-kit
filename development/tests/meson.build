@@ -13,6 +13,24 @@ model_descriptor_tests = executable(
   link_with : [common],
 )
 
+fake_modelfetch = shared_module(
+  'fake_modelfetch',
+  ['fake_modelfetch.c'],
+  dependencies : [modelfetch_headers_dep],
+  install : false,
+)
+
+pekinfer_blocking_setup_op = shared_module(
+  'pek-test-blocking-setup',
+  ['pekinfer_blocking_setup_op.cpp'],
+  include_directories : [common_include],
+  dependencies : [pek_deps],
+  link_with : [common],
+  name_prefix : '',
+  gnu_symbol_visibility : 'default',
+  install : false,
+)
+
 matrix_operations_tests = executable(
   'matrix_operations_tests',
   ['matrix_operations_test.cpp'],
@@ -90,9 +108,15 @@ runtime_pipeline_tests = executable(
 
 node = find_program('node', required : false)
 python = import('python').find_installation()
+gst_launch = find_program('gst-launch-1.0')
 
 test('pek_menu_tests', pek_menu_tests)
-test('model_descriptor_tests', model_descriptor_tests)
+test(
+  'model_descriptor_tests',
+  model_descriptor_tests,
+  env : ['LD_PRELOAD=' + fake_modelfetch.full_path()],
+  depends : fake_modelfetch,
+)
 test(
   'pek_menu_cli_tests',
   python,
@@ -100,15 +124,21 @@ test(
   depends : pek_menu,
 )
 test(
-  'initialize_models_tests',
-  python,
-  args : [meson.project_source_root() / '../scripts/private/tests/test_initialize_models.py'],
-)
-test(
-  'prepare_modelfetch_candidate_tests',
+  'pekinfer_lazy_setup_tests',
   python,
   args : [
-    meson.project_source_root() / '../scripts/private/tests/test_prepare_modelfetch_candidate.py',
+    files('pekinfer_lazy_setup_test.py'),
+    gst_launch,
+    gstpekinfer.full_path(),
+    pekinfer_blocking_setup_op.full_path(),
+  ],
+  depends : [gstpekinfer, pekinfer_blocking_setup_op],
+)
+test(
+  'prepare_modelfetch_release_tests',
+  python,
+  args : [
+    meson.project_source_root() / '../scripts/private/tests/test_prepare_modelfetch_release.py',
   ],
 )
 test('matrix_operations_tests', matrix_operations_tests)

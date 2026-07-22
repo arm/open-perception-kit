@@ -51,14 +51,14 @@ jobs:
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      - name: Reject fork pull request for candidate-backed validation
+      - name: Reject fork pull request for credential-backed validation
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           if [ "$(gh pr view "${{ github.event.inputs.pr_number }}" --repo "${{ github.repository }}" --json isCrossRepository --jq '.isCrossRepository')" != "false" ]; then
-            echo "Refusing to expose the modelfetch candidate credential to a fork pull request." >&2
+            echo "Refusing to expose the modelfetch release credential to a fork pull request." >&2
             exit 1
           fi
 
@@ -76,27 +76,17 @@ jobs:
       - name: Recreate quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
-          GH_TOKEN: ${{ secrets.MODELFETCH_CANDIDATE_TOKEN }}
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          GH_TOKEN: ${{ secrets.MODELFETCH_RELEASE_TOKEN }}
         run: |
           set -euo pipefail
           if [ -z "${GH_TOKEN:-}" ]; then
-            echo "MODELFETCH_CANDIDATE_TOKEN is required to read the pinned Arm-Debug/modelfetch artifact." >&2
+            echo "MODELFETCH_RELEASE_TOKEN is required to read the pinned Arm-Debug/modelfetch release." >&2
             exit 1
           fi
-          if [ -z "${HF_TOKEN:-}" ]; then
-            echo "HF_TOKEN is required to initialize the configured published models." >&2
-            exit 1
-          fi
-          HF_TOKEN_PATH="${RUNNER_TEMP}/pek-hf-token-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}"
-          umask 077
-          printf '%s' "$HF_TOKEN" > "$HF_TOKEN_PATH"
           {
-            echo "HF_TOKEN_PATH=$HF_TOKEN_PATH"
             echo "HOST_UID=$(id -u)"
             echo "HOST_GID=$(id -g)"
           } >> "$GITHUB_ENV"
-          export HF_TOKEN_PATH
           ./scripts/quick-start/start-container.sh --recreate
 
       - name: Build quick-start container
@@ -114,7 +104,6 @@ jobs:
           if [ -x "$checkout_path/scripts/quick-start/cleanup-container.sh" ]; then
             "$checkout_path/scripts/quick-start/cleanup-container.sh" || cleanup_status=$?
           fi
-          rm -f -- "${HF_TOKEN_PATH:-}"
           rm -rf -- "$checkout_path"
           exit "$cleanup_status"
 
@@ -141,14 +130,14 @@ jobs:
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      - name: Reject fork pull request for candidate-backed validation
+      - name: Reject fork pull request for credential-backed validation
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           if [ "$(gh pr view "${{ github.event.inputs.pr_number }}" --repo "${{ github.repository }}" --json isCrossRepository --jq '.isCrossRepository')" != "false" ]; then
-            echo "Refusing to expose the modelfetch candidate credential to a fork pull request." >&2
+            echo "Refusing to expose the modelfetch release credential to a fork pull request." >&2
             exit 1
           fi
 
@@ -167,23 +156,17 @@ jobs:
       - name: Recreate quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
-          GH_TOKEN: ${{ secrets.MODELFETCH_CANDIDATE_TOKEN }}
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          GH_TOKEN: ${{ secrets.MODELFETCH_RELEASE_TOKEN }}
         run: |
           set -euo pipefail
           if [ -z "${GH_TOKEN:-}" ]; then
-            echo "MODELFETCH_CANDIDATE_TOKEN is required to read the pinned Arm-Debug/modelfetch artifact." >&2
+            echo "MODELFETCH_RELEASE_TOKEN is required to read the pinned Arm-Debug/modelfetch release." >&2
             exit 1
           fi
-          if [ -z "${HF_TOKEN:-}" ]; then
-            echo "HF_TOKEN is required to initialize the configured published models." >&2
-            exit 1
-          fi
-          HF_TOKEN_PATH="${RUNNER_TEMP}/pek-hf-token-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}"
-          umask 077
-          printf '%s' "$HF_TOKEN" > "$HF_TOKEN_PATH"
-          echo "HF_TOKEN_PATH=$HF_TOKEN_PATH" >> "$GITHUB_ENV"
-          export HF_TOKEN_PATH
+          {
+            echo "HOST_UID=$(id -u)"
+            echo "HOST_GID=$(id -g)"
+          } >> "$GITHUB_ENV"
           ./scripts/quick-start/start-container.sh --recreate
 
       - name: Build quick-start container
@@ -220,7 +203,6 @@ jobs:
           if [ -x "$checkout_path/scripts/quick-start/cleanup-container.sh" ]; then
             "$checkout_path/scripts/quick-start/cleanup-container.sh" || cleanup_status=$?
           fi
-          rm -f -- "${HF_TOKEN_PATH:-}"
           rm -rf -- "$checkout_path"
           exit "$cleanup_status"
 
@@ -269,14 +251,14 @@ jobs:
             --head-sha-override "${{ github.event.inputs.pr_head_sha }}" \
             --github-output "${GITHUB_OUTPUT}"
 
-      - name: Reject fork pull request for candidate-backed validation
+      - name: Reject fork pull request for credential-backed validation
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           if [ "$(gh pr view "${{ github.event.inputs.pr_number }}" --repo "${{ github.repository }}" --json isCrossRepository --jq '.isCrossRepository')" != "false" ]; then
-            echo "Refusing to expose the modelfetch candidate credential to a fork pull request." >&2
+            echo "Refusing to expose CI credentials to a fork pull request." >&2
             exit 1
           fi
 
@@ -288,35 +270,17 @@ jobs:
           ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.head_ref || github.ref }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
-      - name: Prepare pinned modelfetch candidate
+      - name: Prepare pinned modelfetch release
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
-          GH_TOKEN: ${{ secrets.MODELFETCH_CANDIDATE_TOKEN }}
+          GH_TOKEN: ${{ secrets.MODELFETCH_RELEASE_TOKEN }}
         run: |
           set -euo pipefail
           if [ -z "${GH_TOKEN:-}" ]; then
-            echo "MODELFETCH_CANDIDATE_TOKEN is required to read the pinned Arm-Debug/modelfetch artifact." >&2
+            echo "MODELFETCH_RELEASE_TOKEN is required to read the pinned Arm-Debug/modelfetch release." >&2
             exit 1
           fi
-          ./scripts/private/prepare-modelfetch-candidate.sh >/dev/null
-
-      - name: Prepare Hugging Face token for runtime model initialization
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [ -z "${HF_TOKEN:-}" ]; then
-            echo "HF_TOKEN is required to initialize the configured published models." >&2
-            exit 1
-          fi
-          HF_TOKEN_PATH="${RUNNER_TEMP}/pek-hf-token-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}"
-          umask 077
-          printf '%s' "$HF_TOKEN" > "$HF_TOKEN_PATH"
-          {
-            echo "HF_TOKEN_PATH=$HF_TOKEN_PATH"
-            echo "HOST_UID=$(id -u)"
-            echo "HOST_GID=$(id -g)"
-          } >> "$GITHUB_ENV"
+          ./scripts/private/prepare-modelfetch-release.sh >/dev/null
 
       - name: Build docker image
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -430,7 +394,3 @@ jobs:
             ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/scripts/testing/valgrind/logs
           if-no-files-found: warn
           retention-days: 10
-
-      - name: Remove Hugging Face token file
-        if: always()
-        run: rm -f -- "${HF_TOKEN_PATH:-}"

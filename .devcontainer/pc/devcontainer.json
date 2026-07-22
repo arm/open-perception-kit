@@ -14,7 +14,7 @@
   ],
   "remoteUser": "devgoblin",
   "workspaceFolder": "/work",
-  "initializeCommand": "bash scripts/private/prepare-modelfetch-candidate.sh && bash .devcontainer/platform_init.sh pek-dev-base",
+  "initializeCommand": "bash scripts/private/prepare-modelfetch-release.sh && bash .devcontainer/platform_init.sh pek-dev-base",
   "containerEnv": {
     "CONTAINER_TYPE": "default",
     "HOST_OS": "${localEnv:OSTYPE}",
@@ -24,7 +24,7 @@
     "ghcr.io/devcontainers/features/sshd:1": {}
   },
   "overrideCommand": true,
-  "postCreateCommand": "bash .devcontainer/devsetup.sh && python3 /work/scripts/private/initialize_models.py",
+  "postCreateCommand": "bash .devcontainer/devsetup.sh",
   "init": true,
   "shutdownAction": "stopCompose",
   "customizations": {

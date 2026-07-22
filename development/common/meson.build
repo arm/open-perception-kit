@@ -32,7 +32,7 @@ common = shared_library(
   ],
   include_directories: [ common_include ],
   cpp_args: ['-DFMT_HEADER_ONLY'],
-  dependencies: [ pek_deps ],
+  dependencies: [ pek_deps, modelfetch_dep ],
   gnu_symbol_visibility: 'default',
   install: false
 )

@@ -49,7 +49,10 @@ If you want to change which image, video, or camera is used, this is usually the
 Some checked-in presets intentionally set `pekinfer active=false`.
 That lets the PEK web UI register the model first and then enable it from the **AI Models** panel when you are ready.
 
-At the moment, pipeline execution is synchronous end to end. An asynchronous inference execution flow is planned for a later update, but it is not available yet.
+Model setup is asynchronous: while an activated model is being downloaded, verified, and loaded,
+`pekinfer` remains pass-through so video delivery does not wait for setup. Inference execution after
+the model becomes ready is still synchronous. A fully asynchronous inference execution flow is
+planned for a later update, but it is not available yet.
 
 ## What is an OpChain?
 
@@ -81,11 +84,13 @@ The descriptor defines things such as:
 
 The same descriptor is used for local and published models. For a local model, `modelFile` is a
 relative path beside the descriptor. For a published model, `modelFile` is its immutable canonical
-`hf:...@...#file=...` locator. Container initialization scans the descriptors and downloads every
-published asset into the dedicated `var/models/` runtime store before `pek-menu` is used.
-Modelfetch owns the layout within that store and resolves the runtime path; AMP does not derive
-model-specific directories. Manifest and bundle locators are not runtime entrypoints and are
-rejected. `pek-menu` only launches pipelines and never downloads models.
+`hf:...@...#file=...` locator. On first activation, the runtime uses modelfetch's pinned native C
+SDK to download and verify that one asset in the dedicated `var/models/` runtime store. No CLI
+process or temporary request file is involved. Modelfetch owns the layout within that store and
+returns the verified absolute path; AMP does not derive model-specific directories. Existing
+verified content is reused. Manifest and bundle locators are not runtime entrypoints and are
+rejected. `pek-menu` only launches pipelines; the descriptor path owns materialization for every
+runtime consumer.
 
 If you are only adding your own model, you usually only need to copy and adapt an existing `model.json`.
 
@@ -93,13 +98,21 @@ If you are only adding your own model, you usually only need to copy and adapt a
 
 The normal runtime stack is:
 
-1. container initialization downloads all published assets referenced by `config/models/`
-2. a top-level pipeline is selected from `config/pipelines/`
-3. that pipeline creates one or more `pekinfer` elements
-4. each `pekinfer` loads an OpChain
-5. the OpChain loads one or more model descriptors
-6. postprocessing writes structured results
-7. downstream elements render, track, or publish those results
+1. a top-level pipeline is selected from `config/pipelines/`
+2. that pipeline creates one or more `pekinfer` elements
+3. each `pekinfer` reads its OpChain descriptor and registers with downstream controls
+4. the first active frame queues OpChain setup on a background worker and continues downstream
+5. each published model descriptor is downloaded and verified on demand
+6. once setup is complete, later frames execute the ready OpChain synchronously
+7. postprocessing writes structured results
+8. downstream elements render, track, or publish those results
+
+Setup is attempted once per activation. A setup failure is reported as a warning while the element
+continues in pass-through mode, so one unavailable model does not stop video delivery. Disable and
+re-enable the model to retry after fixing a transient network, authentication, or runtime problem.
+If a model is disabled while setup is already running, that setup is allowed to finish and its ready
+result is cached for the next activation; this avoids unsafe cancellation inside backend runtimes and
+prevents repeated partial downloads.
 
 ## Runtime input expectations
 

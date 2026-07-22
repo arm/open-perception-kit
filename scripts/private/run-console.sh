@@ -70,7 +70,7 @@ detect_webrtc_host_ip() {
 
 do_up() {
     detect_webrtc_host_ip
-    bash ./scripts/private/prepare-modelfetch-candidate.sh
+    bash ./scripts/private/prepare-modelfetch-release.sh
     ./scripts/private/dev-init.sh pek-dev-rich "$DC_RICH" "$DEV_ENV_FILE"
 
     echo "Using WebRTC host IP: ${WEBRTC_HOST_IP}"
@@ -79,7 +79,7 @@ do_up() {
     HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" WEBRTC_HOST_IP="${WEBRTC_HOST_IP}" \
         PEK_WEBRTC_TURN_MIN_PORT="${PEK_WEBRTC_TURN_MIN_PORT}" \
         PEK_WEBRTC_TURN_MAX_PORT="${PEK_WEBRTC_TURN_MAX_PORT}" \
-        docker compose "${COMPOSE_FILES[@]}" up -d --build --wait --wait-timeout 600
+        docker compose "${COMPOSE_FILES[@]}" up -d --build
 }
 
 do_down() {

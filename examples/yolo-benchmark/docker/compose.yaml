@@ -8,16 +8,13 @@ services:
       dockerfile: Dockerfile
       target: pek-dev-base
       additional_contexts:
-        modelfetch_wheels: ../../../.cache/modelfetch
+        modelfetch_sdks: ../../../.cache/modelfetch
       args:
         USER_UID: ${HOST_UID:-1000}
         USER_GID: ${HOST_GID:-1000}
     environment:
-      HF_TOKEN_PATH: /run/secrets/huggingface_token
       YOLO_BENCHMARK_LIMIT: ${YOLO_BENCHMARK_LIMIT:-}
       YOLO_BENCHMARK_RUNS: ${YOLO_BENCHMARK_RUNS:-}
-    secrets:
-      - huggingface_token
     volumes:
       - ../../..:/work
       - yolo-benchmark-cache:/cache/yolo-benchmark
@@ -26,7 +23,3 @@ services:
 volumes:
   yolo-benchmark-cache:
     name: ${YOLO_BENCHMARK_CACHE_VOLUME:-amp-dev-forge-yolo-benchmark-cache}
-
-secrets:
-  huggingface_token:
-    file: ${HF_TOKEN_PATH:-/dev/null}

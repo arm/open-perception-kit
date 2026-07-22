@@ -57,7 +57,7 @@ config/models/<your-model>/
 ```
 
 At minimum, that folder should contain:
-- the model file, unless container initialization downloads it from a published asset
+- the model file for a local model, or a pinned published file locator in `model.json`
 - `model.json`
 - usually `opchain.json`
 - `index.md`
@@ -78,12 +78,12 @@ Typical fields are:
 - `outputTensors` when outputs are static
 
 `modelFile` is also the single source reference. Use a relative path for a local model, or an
-immutable canonical `hf:...@...#file=...` locator for a published model. Container initialization
-downloads every published locator found under `config/models/` into the dedicated `var/models/`
-runtime store. Modelfetch owns the layout within that store, so do not derive a model-specific path,
-add a second download descriptor, or duplicate source metadata elsewhere. Manifest and bundle
-locators are rejected because they do not identify one runtime entrypoint. Hailo `.hef` artifacts
-are currently local-only.
+immutable canonical `hf:...@...#file=...` locator for a published model. When the model is first
+activated, the runtime submits that one locator through modelfetch's native C SDK and uses the
+verified path returned from the dedicated `var/models/` store. Do not derive a model-specific
+path, add a second download descriptor, or duplicate source metadata elsewhere. Manifest and
+bundle locators are rejected because they do not identify one runtime entrypoint. Published ONNX
+and Hailo `.hef` files use the same pinned file-locator and on-demand flow.
 
 Important input metadata includes:
 - shape
@@ -196,9 +196,10 @@ The normal workflow is:
    file locator in `modelFile` for a published model
 2. create or update an `opchain.json`
 3. optionally add a top-level pipeline preset under `config/pipelines/`
-4. initialize or recreate the container so published locators are downloaded
-5. build inside the container
-6. run the pipeline with the VS Code run task "00 Run project and select pipeline" or `tools/pek-menu`
+4. build inside the container
+5. provide `HF_TOKEN_PATH` when the published repository requires authentication
+6. run the pipeline with the VS Code run task "00 Run project and select pipeline" or `tools/pek-menu`;
+   its model is downloaded on first activation
 7. update the model and opchain `index.md` files
 
 ## What you should try not to change first

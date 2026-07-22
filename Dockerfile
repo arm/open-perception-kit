@@ -91,7 +91,7 @@ ENV LD_LIBRARY_PATH=/opt/pek-deps/onnxruntime/lib
 ENV SSH_AUTH_SOCK=/ssh-agent
 
 ######################################################################
-################## Pinned model tooling candidate ####################
+################### Pinned model tooling release #####################
 ######################################################################
 FROM pek-base AS pek-model-tools-base
 
@@ -100,33 +100,39 @@ ARG TARGETARCH
 
 USER root
 
-# The unreleased candidate is provided as an isolated named build context and
-# exposed only to this build step. Its manifest is the checksum authority.
-RUN --mount=type=bind,source=scripts/private/modelfetch-candidate-constraints.txt,target=/tmp/modelfetch-candidate-constraints.txt \
-  --mount=type=bind,source=scripts/private/modelfetch-candidate.json,target=/tmp/modelfetch-candidate.json \
-  --mount=type=bind,from=modelfetch_wheels,target=/tmp/modelfetch-wheels,readonly \
+# The internal C SDK archives are provided as an isolated named build context
+# and exposed only to this build step. The release manifest is the checksum authority.
+RUN --mount=type=bind,source=scripts/private/modelfetch-release.json,target=/tmp/modelfetch-release.json \
+  --mount=type=bind,from=modelfetch_sdks,target=/tmp/modelfetch-sdks,readonly \
   set -eux; \
   case "${TARGETARCH}" in \
-    amd64) wheel_source="/tmp/modelfetch-wheels/modelfetch-candidate-linux-amd64.whl" ;; \
-    arm64) wheel_source="/tmp/modelfetch-wheels/modelfetch-candidate-linux-arm64.whl" ;; \
+    amd64) sdk_source="/tmp/modelfetch-sdks/modelfetch-release-linux-amd64.tar.gz" ;; \
+    arm64) sdk_source="/tmp/modelfetch-sdks/modelfetch-release-linux-arm64.tar.gz" ;; \
     *) echo "Unsupported architecture for modelfetch: ${TARGETARCH}" >&2; exit 1 ;; \
   esac; \
-  wheel_filename="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["wheels"][sys.argv[2]]["filename"])' /tmp/modelfetch-candidate.json "${TARGETARCH}")"; \
-  case "${wheel_filename}" in *[!A-Za-z0-9._-]*|'') exit 1 ;; esac; \
-  case "${wheel_filename}" in *.whl) ;; *) exit 1 ;; esac; \
-  wheel="/tmp/${wheel_filename}"; \
-  ln -s "${wheel_source}" "${wheel}"; \
-  expected_sha="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["wheels"][sys.argv[2]]["sha256"])' /tmp/modelfetch-candidate.json "${TARGETARCH}")"; \
+  sdk_filename="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["sdks"][sys.argv[2]]["filename"])' /tmp/modelfetch-release.json "${TARGETARCH}")"; \
+  case "${sdk_filename}" in *[!A-Za-z0-9._-]*|'') exit 1 ;; esac; \
+  case "${sdk_filename}" in *.tar.gz) ;; *) exit 1 ;; esac; \
+  sdk="/tmp/${sdk_filename}"; \
+  ln -s "${sdk_source}" "${sdk}"; \
+  expected_sha="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["sdks"][sys.argv[2]]["sha256"])' /tmp/modelfetch-release.json "${TARGETARCH}")"; \
   case "${expected_sha}" in *[!0-9a-f]*|'') exit 1 ;; esac; \
   test "${#expected_sha}" -eq 64; \
-  echo "${expected_sha}  ${wheel}" | sha256sum -c -; \
-  uv venv --python /usr/bin/python3 /opt/pek-venvs/model-tools; \
-  UV_NO_CACHE=1 uv pip install --python /opt/pek-venvs/model-tools/bin/python \
-    --constraint /tmp/modelfetch-candidate-constraints.txt "${wheel}"; \
-  printf '%s\n' "${expected_sha}" > /opt/pek-venvs/model-tools/.candidate-wheel-sha256; \
-  chmod 0444 /opt/pek-venvs/model-tools/.candidate-wheel-sha256; \
-  /opt/pek-venvs/model-tools/bin/modelfetch --help >/dev/null; \
-  rm -f "${wheel}"
+  echo "${expected_sha}  ${sdk}" | sha256sum -c -; \
+  test "$(tar -tzf "${sdk}" | LC_ALL=C sort)" = "$(printf '%s\n' include/modelfetch.h lib/libmodelfetch_c.so)"; \
+  test -z "$(tar -tvzf "${sdk}" | awk 'substr($1, 1, 1) != "-" { print; exit }')"; \
+  mkdir -p /opt/pek-deps/modelfetch; \
+  tar -xzf "${sdk}" --no-same-owner --no-same-permissions -C /opt/pek-deps/modelfetch; \
+  test -f /opt/pek-deps/modelfetch/include/modelfetch.h; \
+  test -f /opt/pek-deps/modelfetch/lib/libmodelfetch_c.so; \
+  test -z "$(find /opt/pek-deps/modelfetch -type l -print -quit)"; \
+  test "$(find /opt/pek-deps/modelfetch -type f | wc -l)" -eq 2; \
+  printf '%s\n' "${expected_sha}" > /opt/pek-deps/modelfetch/.release-sdk-sha256; \
+  chmod 0444 /opt/pek-deps/modelfetch/.release-sdk-sha256; \
+  rm -f "${sdk}"
+
+ENV PEK_MODELFETCH_ROOT=/opt/pek-deps/modelfetch \
+    LD_LIBRARY_PATH=/opt/pek-deps/modelfetch/lib:/opt/pek-deps/onnxruntime/lib
 
 USER ${USERNAME}
 WORKDIR /work
@@ -184,9 +190,11 @@ RUN set -eux; \
   /tmp/pek-tools/plumber; \
   rm -rf /tmp/pek-tools
 
-COPY --from=pek-model-tools-base /opt/pek-venvs/model-tools /opt/pek-venvs/model-tools
+COPY --from=pek-model-tools-base /opt/pek-deps/modelfetch /opt/pek-deps/modelfetch
 
-ENV PEK_DEVTOOLS_VENV=/opt/pek-venvs/devtools
+ENV PEK_DEVTOOLS_VENV=/opt/pek-venvs/devtools \
+    PEK_MODELFETCH_ROOT=/opt/pek-deps/modelfetch \
+    LD_LIBRARY_PATH=/opt/pek-deps/modelfetch/lib:/opt/pek-deps/onnxruntime/lib
 
 USER ${USERNAME}
 WORKDIR /work
@@ -226,8 +234,11 @@ USER root
 
 COPY --from=pek-dev-base /opt/pek-venvs/devtools /opt/pek-venvs/devtools
 COPY --from=pek-dev-base /usr/local/bin/actionlint /usr/local/bin/actionlint
+COPY --from=pek-dev-base /opt/pek-deps/modelfetch /opt/pek-deps/modelfetch
 
-ENV PEK_DEVTOOLS_VENV=/opt/pek-venvs/devtools
+ENV PEK_DEVTOOLS_VENV=/opt/pek-venvs/devtools \
+    PEK_MODELFETCH_ROOT=/opt/pek-deps/modelfetch \
+    LD_LIBRARY_PATH=/opt/pek-deps/modelfetch/lib:/opt/pek-deps/onnxruntime/lib
 
 USER ${USERNAME}
 WORKDIR /work
@@ -308,10 +319,12 @@ USER root
 ARG PEK_PIPELINE=onnx
 
 # Copy project into image for self-contained deployment
-COPY --from=pek-model-tools-base /opt/pek-venvs/model-tools /opt/pek-venvs/model-tools
+COPY --from=pek-model-tools-base /opt/pek-deps/modelfetch /opt/pek-deps/modelfetch
 COPY --chown=${USERNAME}:${USERNAME} . /work
 
-ENV PEK_PIPELINE=${PEK_PIPELINE}
+ENV PEK_PIPELINE=${PEK_PIPELINE} \
+    PEK_MODELFETCH_ROOT=/opt/pek-deps/modelfetch \
+    LD_LIBRARY_PATH=/opt/pek-deps/modelfetch/lib:/opt/pek-deps/onnxruntime/lib
 
 USER ${USERNAME}
 WORKDIR /work

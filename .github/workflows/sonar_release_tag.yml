@@ -41,17 +41,17 @@ jobs:
             echo "SONAR_PROJECT_VERSION=${GITHUB_REF_NAME#release/}"
           } >> "$GITHUB_ENV"
 
-      - name: Prepare pinned modelfetch candidate
+      - name: Prepare pinned modelfetch release
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
-          GH_TOKEN: ${{ secrets.MODELFETCH_CANDIDATE_TOKEN }}
+          GH_TOKEN: ${{ secrets.MODELFETCH_RELEASE_TOKEN }}
         run: |
           set -euo pipefail
           if [ -z "${GH_TOKEN:-}" ]; then
-            echo "MODELFETCH_CANDIDATE_TOKEN is required to read the pinned Arm-Debug/modelfetch artifact." >&2
+            echo "MODELFETCH_RELEASE_TOKEN is required to read the pinned Arm-Debug/modelfetch release." >&2
             exit 1
           fi
-          ./scripts/private/prepare-modelfetch-candidate.sh >/dev/null
+          ./scripts/private/prepare-modelfetch-release.sh >/dev/null
 
       - name: Build docker image 
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}

@@ -103,9 +103,9 @@ container_workdir_writable() {
     docker exec -u devgoblin "${PEK_CONTAINER_NAME}" bash -lc 'test -w /work' > /dev/null 2>&1
 }
 
-expected_model_tools_sha256() {
+expected_modelfetch_sdk_sha256() {
     local machine="$1"
-    python3 - "${REPO_ROOT}/scripts/private/modelfetch-candidate.json" "$machine" << 'PY'
+    python3 - "${REPO_ROOT}/scripts/private/modelfetch-release.json" "$machine" << 'PY'
 import json
 from pathlib import Path
 import sys
@@ -114,27 +114,22 @@ document = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 architecture = {"x86_64": "amd64", "aarch64": "arm64"}.get(sys.argv[2])
 if architecture is None:
     raise SystemExit(f"unsupported container architecture: {sys.argv[2]}")
-value = document["wheels"][architecture]["sha256"]
+value = document["sdks"][architecture]["sha256"]
 if not isinstance(value, str) or len(value) != 64:
-    raise SystemExit(f"invalid wheel sha256 for {architecture}")
+    raise SystemExit(f"invalid SDK sha256 for {architecture}")
 print(value)
 PY
 }
 
-container_has_current_model_tools() {
+container_has_current_modelfetch_sdk() {
     local container_machine expected_sha
     container_machine="$(docker exec -u devgoblin "${PEK_CONTAINER_NAME}" uname -m)" || return 1
-    expected_sha="$(expected_model_tools_sha256 "$container_machine")" || return 1
+    expected_sha="$(expected_modelfetch_sdk_sha256 "$container_machine")" || return 1
     docker exec -u devgoblin "${PEK_CONTAINER_NAME}" sh -c '
-        test -x /opt/pek-venvs/model-tools/bin/modelfetch &&
-        test "$(cat /opt/pek-venvs/model-tools/.candidate-wheel-sha256 2>/dev/null)" = "$1"
+        test -f /opt/pek-deps/modelfetch/include/modelfetch.h &&
+        test -f /opt/pek-deps/modelfetch/lib/libmodelfetch_c.so &&
+        test "$(cat /opt/pek-deps/modelfetch/.release-sdk-sha256 2>/dev/null)" = "$1"
     ' _ "$expected_sha" > /dev/null 2>&1
-}
-
-initialize_models_in_container() {
-    echo "Initializing published models..."
-    docker exec -u devgoblin "${PEK_CONTAINER_NAME}" \
-        python3 /work/scripts/private/initialize_models.py
 }
 
 print_enter_hint() {
@@ -156,14 +151,13 @@ export PEK_WEBRTC_TURN_MAX_PORT="${PEK_WEBRTC_TURN_MAX_PORT:-49050}"
 require_docker
 
 if container_running && [[ "$RECREATE" != "true" ]]; then
-    if container_workdir_writable && container_has_current_model_tools; then
-        initialize_models_in_container
+    if container_workdir_writable && container_has_current_modelfetch_sdk; then
         print_enter_hint
         exit 0
     fi
 
     echo "The running container is missing the current workspace contract."
-    echo "Recreating it with the host UID/GID mapping and model tools..."
+    echo "Recreating it with the host UID/GID mapping and modelfetch C SDK..."
     RECREATE="true"
 fi
 
@@ -180,7 +174,7 @@ fi
 
 echo
 echo "Generating device overrides..."
-bash scripts/private/prepare-modelfetch-candidate.sh > /dev/null
+bash scripts/private/prepare-modelfetch-release.sh > /dev/null
 bash .devcontainer/platform_init.sh "${PEK_CONTAINER_SERVICE}"
 
 echo
@@ -190,8 +184,6 @@ if [[ "$RECREATE" == "true" ]]; then
     UP_ARGS+=(--force-recreate)
 fi
 docker compose "${COMPOSE_FILES[@]}" "${UP_ARGS[@]}" "${PEK_CONTAINER_SERVICE}"
-
-initialize_models_in_container
 
 echo
 docker ps --filter "name=${PEK_CONTAINER_NAME}" --format 'table {{.Names}} {{.Status}}'

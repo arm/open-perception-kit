@@ -57,23 +57,13 @@ jobs:
       - name: Set up YOLO benchmark cache
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
-          GH_TOKEN: ${{ secrets.MODELFETCH_CANDIDATE_TOKEN }}
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          GH_TOKEN: ${{ secrets.MODELFETCH_RELEASE_TOKEN }}
         run: |
           set -euo pipefail
           if [ -z "${GH_TOKEN:-}" ]; then
-            echo "MODELFETCH_CANDIDATE_TOKEN is required to read the pinned Arm-Debug/modelfetch artifact." >&2
+            echo "MODELFETCH_RELEASE_TOKEN is required to read the pinned Arm-Debug/modelfetch release." >&2
             exit 1
           fi
-          if [ -z "${HF_TOKEN:-}" ]; then
-            echo "HF_TOKEN is required to initialize the configured published models." >&2
-            exit 1
-          fi
-          HF_TOKEN_PATH="${RUNNER_TEMP}/pek-hf-token-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}"
-          umask 077
-          printf '%s' "$HF_TOKEN" > "$HF_TOKEN_PATH"
-          echo "HF_TOKEN_PATH=$HF_TOKEN_PATH" >> "$GITHUB_ENV"
-          export HF_TOKEN_PATH
           ./examples/yolo-benchmark/docker/run.sh setup
 
       - name: Run YOLO benchmark
@@ -96,8 +86,4 @@ jobs:
 
       - name: Clean YOLO benchmark workspace and image
         if: always()
-        run: |
-          cleanup_status=0
-          ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/examples/yolo-benchmark/docker/run.sh cleanup-ci || cleanup_status=$?
-          rm -f -- "${HF_TOKEN_PATH:-}"
-          exit "$cleanup_status"
+        run: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/examples/yolo-benchmark/docker/run.sh cleanup-ci

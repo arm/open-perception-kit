@@ -59,12 +59,13 @@ Use this target Pi setup before you start:
 - Permission to run `sudo` on the target Pi.
 - Internet access from the target Pi to GitHub, package repositories, and
   container or source locations used during the first container build.
-- Until modelfetch is released, GitHub CLI authenticated on the target Pi with
-  read access to the pinned `Arm-Debug/modelfetch` Actions artifact.
-- A mode-`0600` file containing a Hugging Face access token, with
-  `HF_TOKEN_PATH` set to that file in the shell that starts the container. The
-  token is mounted read-only while container initialization downloads every
-  published model referenced by `config/models/`.
+- GitHub CLI authenticated on the target Pi with read access to the pinned
+  `Arm-Debug/modelfetch` release. The repository is internal, so the release
+  asset is not available anonymously.
+- To run a model backed by a published Hugging Face asset, a mode-`0600` token
+  file with `HF_TOKEN_PATH` set in the shell that starts the container. The
+  runtime downloads only the selected model when it is first activated. The
+  checked-in YOLOv11 quick-start and CI fixture need no Hugging Face token.
 
 ### 1. Connect to the target Pi
 
@@ -101,16 +102,17 @@ Enter the `amp-dev-forge` folder in the terminal and run:
 ./scripts/quick_start.sh
 ```
 
-For a direct deployment build while modelfetch is still unreleased, prepare the
-pinned candidate before invoking the existing Compose entrypoint:
+For a direct deployment build, prepare the pinned modelfetch release before
+invoking the existing Compose entrypoint:
 
 ```bash
-bash scripts/private/prepare-modelfetch-candidate.sh
+bash scripts/private/prepare-modelfetch-release.sh
 docker compose up --build
 ```
 
-The preparation step acquires the pinned architecture-specific Rust-backed
-wheel and has the same temporary GitHub CLI access requirement listed above.
+The preparation step acquires and verifies the pinned architecture-specific
+Rust-backed C SDK. It has the same GitHub CLI access requirement listed
+above.
 
 ### 3. Enter the container command line
 
