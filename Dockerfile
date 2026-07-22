@@ -32,7 +32,7 @@ RUN set -eux; \
   libjson-glib-dev libsoup-3.0-dev libssl-dev lldb-17 meson \
   ninja-build pkg-config pre-commit python3 python3-dev python3-gi \
   python3-gst-1.0 python3-venv shfmt openssh-client sudo unzip \
-  valgrind; \
+  valgrind file; \
   rm -rf /var/lib/apt/lists/*; \
   curl --proto "=https" -LsSf https://astral.sh/uv/install.sh | \
   env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh; \
