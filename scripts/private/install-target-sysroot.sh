@@ -5,32 +5,20 @@
 
 set -euo pipefail
 
-architecture="${1:?Target architecture is required (amd64 or arm64)}"
+architecture="${1:?Target architecture is required (arm64)}"
 archives_dir="/var/cache/apt/archives/${architecture}-sysroot"
 sysroot="/opt/pek-sysroots/${architecture}"
 
-case "${architecture}" in
-    amd64)
-        compiler_packages=(
-            gcc-x86-64-linux-gnu
-            g++-x86-64-linux-gnu
-            binutils-x86-64-linux-gnu
-        )
-        triplet=x86_64-linux-gnu
-        ;;
-    arm64)
-        compiler_packages=(
-            gcc-aarch64-linux-gnu
-            g++-aarch64-linux-gnu
-            binutils-aarch64-linux-gnu
-        )
-        triplet=aarch64-linux-gnu
-        ;;
-    *)
-        echo "Unsupported target architecture: ${architecture}" >&2
-        exit 1
-        ;;
-esac
+if [[ "${architecture}" != arm64 ]]; then
+    echo "Unsupported target architecture: ${architecture}. Expected arm64." >&2
+    exit 1
+fi
+
+compiler_packages=(
+    gcc-aarch64-linux-gnu
+    g++-aarch64-linux-gnu
+    binutils-aarch64-linux-gnu
+)
 
 dpkg --add-architecture "${architecture}"
 apt-get update

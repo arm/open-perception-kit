@@ -53,7 +53,11 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   set -eux; \
   native_arch="$(dpkg --print-architecture)"; \
   if [ "${TARGETARCH}" != "${native_arch}" ]; then \
-    install-target-sysroot "${TARGETARCH}"; \
+    if [ "${TARGETARCH}" != arm64 ]; then \
+      echo "Unsupported development cross-compilation target: ${TARGETARCH}. Expected arm64." >&2; \
+      exit 1; \
+    fi; \
+    install-target-sysroot arm64; \
   fi; \
   install-onnxruntime "${ONNXRUNTIME_VERSION:-}" "${TARGETARCH}" "/opt/pek-deps/onnxruntime-${TARGETARCH}"
 
@@ -72,12 +76,7 @@ RUN set -eux; \
   native_arch="$(dpkg --print-architecture)"; \
   extra_setup_args=(); \
   if [ "${TARGETARCH}" != "${native_arch}" ]; then \
-    case "${TARGETARCH}" in \
-      amd64) cross_file=/work/development/cross/x86_64-linux-gnu.ini ;; \
-      arm64) cross_file=/work/development/cross/aarch64-linux-gnu.ini ;; \
-      *) echo "Unsupported target architecture: ${TARGETARCH}" >&2; exit 1 ;; \
-    esac; \
-    extra_setup_args=("--extra-setup-args=--cross-file=${cross_file}"); \
+    extra_setup_args=("--extra-setup-args=--cross-file=/work/development/cross/aarch64-linux-gnu.ini"); \
   fi; \
   mkdir -p /work/tools; \
   PEK_HAILORT=disabled \
