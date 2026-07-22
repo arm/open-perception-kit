@@ -15,7 +15,6 @@ sudo chmod +x ./tools/pek-menu ./scripts/serve-docs-plain.sh ./scripts/build-ele
 
 .devcontainer/setup.sh
 .devcontainer/platform_init.sh pek-dev-base
-python3 /work/scripts/private/initialize_models.py
 ./scripts/build-elements.sh clean
 ./scripts/build-elements.sh debug false
 ./scripts/gen-doc.sh
