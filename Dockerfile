@@ -1,7 +1,6 @@
 # syntax=docker/dockerfile:1
 
 ARG BUILDPLATFORM
-ARG DEPLOYMENT_PLATFORM=linux/arm64
 ARG TARGETARCH
 FROM --platform=${BUILDPLATFORM} debian:trixie-slim AS pek-build-base
 
@@ -50,12 +49,17 @@ COPY --chmod=0755 scripts/private/install-target-sysroot.sh /usr/local/bin/insta
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   set -eux; \
+  if [ "${TARGETARCH}" != arm64 ]; then \
+    echo "Unsupported deployment architecture: ${TARGETARCH}. Expected arm64." >&2; \
+    exit 1; \
+  fi; \
   if [ "${TARGETARCH}" != "$(dpkg --print-architecture)" ]; then \
     install-target-sysroot "${TARGETARCH}"; \
   fi
 
 COPY --chmod=0755 scripts/private/install-onnxruntime.sh /usr/local/bin/install-onnxruntime
-RUN install-onnxruntime "${ONNXRUNTIME_VERSION:-}" arm64 /opt/pek-deps/onnxruntime-arm64
+RUN install-onnxruntime \
+  "${ONNXRUNTIME_VERSION:-}" "${TARGETARCH}" "/opt/pek-deps/onnxruntime-${TARGETARCH}"
 
 WORKDIR /work
 COPY development/meson.build development/meson.options development/
@@ -79,7 +83,7 @@ RUN set -eux; \
   fi; \
   mkdir -p /work/tools; \
   PEK_HAILORT=disabled \
-  PEK_ONNXRUNTIME_ROOT=/opt/pek-deps/onnxruntime-arm64 \
+  PEK_ONNXRUNTIME_ROOT="/opt/pek-deps/onnxruntime-${TARGETARCH}" \
   NINJAFLAGS=-j2 \
   ./scripts/build-elements.sh release false "${extra_setup_args[@]}"; \
   mkdir -p /opt/pek-app/development/build/meson-out /opt/pek-app/tools /opt/pek-app/scripts/private; \
@@ -92,7 +96,7 @@ RUN set -eux; \
   cp -r /work/development/web /opt/pek-app/development/
 
 # Runtime image
-FROM --platform=${DEPLOYMENT_PLATFORM} debian:trixie-slim AS pek-deployment-base
+FROM debian:trixie-slim AS pek-deployment-base
 
 ARG USERNAME=pek
 ARG USER_UID=1000
