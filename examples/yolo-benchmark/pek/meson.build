@@ -43,3 +43,10 @@ executable(
   dependencies: [ runtime_dep, fmt_dep ],
   install: false,
 )
+
+executable(
+  'yolo-video-benchmark',
+  'video_benchmark.cpp',
+  dependencies: [ runtime_dep, fmt_dep ],
+  install: false,
+)

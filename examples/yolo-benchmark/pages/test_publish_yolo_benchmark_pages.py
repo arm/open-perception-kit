@@ -79,6 +79,34 @@ def comparison(bare_ms: float = 10.0,
     }
 
 
+def video_comparison(bare_fps: float = 10.0, pek_fps: float = 12.0) -> dict:
+    ratio = pek_fps / bare_fps
+    return {
+        "schema": publish.VIDEO_COMPARISON_SCHEMA,
+        "measurement": {
+            "timed_region": "first_serialized_result_ready_to_last_serialized_result_ready",
+        },
+        "inputs": {
+            "source_frame_count": 205,
+            "source_width": 1920,
+            "source_height": 1080,
+            "source_fps": 30.0,
+            "video_sha256": "abc123",
+            "imgsz": 320,
+            "device": "cpu",
+            "bare_model": "model.onnx",
+            "pek_opchain": "opchain.json",
+        },
+        "fps": {
+            "bare_fps": bare_fps,
+            "pek_fps": pek_fps,
+            "delta_fps": pek_fps - bare_fps,
+            "ratio": ratio,
+            "delta_percent": (ratio - 1.0) * 100.0,
+        },
+    }
+
+
 def report_run(name: str, bare_ms: float = 10.0, pek_ms: float = 15.0) -> dict:
     return {"name": name, "path": Path(name), "comparison": comparison(bare_ms, pek_ms), "image_timings": []}
 
@@ -220,6 +248,26 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             ]
             self.assertTrue(any(link.get("target") == "_blank" for link in image_links))
             self.assertIn(image_href, links.thumbnails)
+
+    def test_write_report_page_generates_video_fps_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = Path(tmpdir) / "site"
+            target = site_dir / "yolo-benchmark" / "manual" / "123"
+            target.mkdir(parents=True)
+            runs = [
+                {"name": "run-01", "path": Path("run-01"), "comparison": video_comparison(10.0, 12.0)},
+                {"name": "run-02", "path": Path("run-02"), "comparison": video_comparison(11.0, 13.0)},
+            ]
+
+            publish.write_report_page(target, site_dir, "Manual run 123", "Manual", runs)
+
+            html = (target / "index.html").read_text(encoding="utf-8")
+            self.assertIn("YOLO video benchmark", html)
+            self.assertIn("Median throughput", html)
+            self.assertIn("10.500", html)
+            self.assertIn("12.500", html)
+            self.assertIn("PEK faster", html)
+            self.assertNotIn("Dataset Analysis", html)
 
     def test_select_target_supports_manual_reports(self) -> None:
         with patch.dict(os.environ, {"UPSTREAM_RUN_ID": "123"}):
@@ -384,11 +432,15 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
                 path = run_dir / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text("data", encoding="utf-8")
+            for name in ("summary.json", "summary.md", "video-source.json"):
+                (artifact / name).write_text("data", encoding="utf-8")
 
             target = root / "site"
             publish.write_selected_artifacts(artifact, target, [{"name": "run-01", "path": run_dir}])
 
             self.assertTrue((target / "runs" / "run-01" / "comparison.json").is_file())
+            self.assertTrue((target / "summary.json").is_file())
+            self.assertTrue((target / "video-source.json").is_file())
             self.assertFalse((target / "runs" / "run-01" / "bare" / "predictions.jsonl").exists())
             self.assertFalse((target / "runs" / "run-01" / "bare" / "timings.jsonl").exists())
 
@@ -400,6 +452,7 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             ignored = ignore(str(root), ["images.tsv", "runs", ".venv", "pek-build", "comparison.json"])
 
             self.assertEqual(ignored, {".venv", "pek-build", "comparison.json"})
+            self.assertEqual(ignore(str(root), ["video-source.json", "summary.json", "summary.md"]), set())
             self.assertEqual(ignore(str(root / "runs" / "run-01"),
                                     ["predictions.jsonl", "timings.jsonl", "comparison.json"]),
                              {"predictions.jsonl"})

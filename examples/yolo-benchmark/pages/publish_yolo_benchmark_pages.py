@@ -48,6 +48,7 @@ REPORT_INDEX_META = "report-index-meta.txt"
 FINGERPRINT_HEADER = "# image_set_fingerprint="
 PERCENTILE_METRICS = ("p50_ms", "p75_ms", "p95_ms", "p99_ms")
 RUN_METRICS = ("avg_ms", *PERCENTILE_METRICS)
+VIDEO_COMPARISON_SCHEMA = "expkits_yolo_video_comparison.v1"
 IMAGE_STAGE_METRICS = (
     ("preprocess_ms", "Preprocess"),
     ("inference_ms", "Inference"),
@@ -262,7 +263,9 @@ def local_artifact_ignore(root: Path):
     def ignore(directory: str, names: list[str]) -> set[str]:
         ignored = {name for name in names if name in {"__pycache__", "predictions.jsonl"}}
         if Path(directory).resolve() == root:
-            ignored.update(name for name in names if name not in {"images.tsv", "runs"})
+            ignored.update(name for name in names if name not in {
+                "images.tsv", "runs", "summary.json", "summary.md", "video-source.json",
+            })
         return ignored
 
     return ignore
@@ -427,9 +430,10 @@ def write_selected_artifacts(artifact_root: Path, target: Path, runs: list[dict[
         shutil.rmtree(target)
     target.mkdir(parents=True)
 
-    image_list = artifact_root / "images.tsv"
-    if image_list.is_file():
-        shutil.copy2(image_list, target / "images.tsv")
+    for name in ("images.tsv", "summary.json", "summary.md", "video-source.json"):
+        source = artifact_root / name
+        if source.is_file():
+            shutil.copy2(source, target / name)
 
     runs_target = target / "runs"
     for run in runs:
@@ -959,11 +963,69 @@ def median_delta(runs: list[dict[str, Any]], metric: str) -> dict[str, float]:
 
 
 def overall_result_label(runs: list[dict[str, Any]]) -> str:
+    if runs and runs[0]["comparison"].get("schema") == VIDEO_COMPARISON_SCHEMA:
+        return fps_result_label(median_fps_delta(runs))
     return result_label(median_delta(runs, "avg_ms"))
 
 
 def overall_result_block(runs: list[dict[str, Any]]) -> str:
     return f'<div class="report-overall"><span>Overall</span>{overall_result_label(runs)}</div>'
+
+
+def fps_result_label(delta: dict[str, Any]) -> str:
+    percent = float(delta["delta_percent"])
+    if abs(percent) < 0.05:
+        return '<span class="verdict verdict-neutral">PEK equal</span>'
+    if percent > 0:
+        return f'<span class="verdict verdict-fast">PEK faster by {percent:.1f}%</span>'
+    return f'<span class="verdict verdict-slow">Bare faster by {abs(percent):.1f}%</span>'
+
+
+def median_fps_delta(runs: list[dict[str, Any]]) -> dict[str, float]:
+    bare_fps = statistics.median(float(run["comparison"]["fps"]["bare_fps"]) for run in runs)
+    pek_fps = statistics.median(float(run["comparison"]["fps"]["pek_fps"]) for run in runs)
+    ratio = pek_fps / bare_fps
+    return {
+        "bare_fps": bare_fps,
+        "pek_fps": pek_fps,
+        "delta_fps": pek_fps - bare_fps,
+        "ratio": ratio,
+        "delta_percent": (ratio - 1.0) * 100.0,
+    }
+
+
+def write_video_summary_table(runs: list[dict[str, Any]]) -> str:
+    delta = median_fps_delta(runs)
+    return (
+        '<div class="table-scroll"><table class="benchmark-table">'
+        '<thead><tr>'
+        f'{th("Metric")}{th("Bare median", "[FPS]")}{th("PEK median", "[FPS]")}'
+        f'{th("PEK delta", "[FPS]")}{th("Result")}'
+        '</tr></thead><tbody><tr><td>Unpaced pipeline</td>'
+        f'<td>{delta["bare_fps"]:.3f}</td><td>{delta["pek_fps"]:.3f}</td>'
+        f'<td>{delta["delta_fps"]:+.3f}</td><td>{fps_result_label(delta)}</td>'
+        '</tr></tbody></table></div>'
+    )
+
+
+def write_video_runs_table(runs: list[dict[str, Any]]) -> str:
+    rows = []
+    for run in runs:
+        fps = run["comparison"]["fps"]
+        rows.append(
+            '<tr>'
+            f'<td><a href="runs/{html_escape(run["name"])}/comparison.json">{html_escape(run["name"])}</a></td>'
+            f'<td>{float(fps["bare_fps"]):.3f}</td><td>{float(fps["pek_fps"]):.3f}</td>'
+            f'<td>{float(fps["delta_fps"]):+.3f}</td><td>{fps_result_label(fps)}</td>'
+            '</tr>'
+        )
+    return (
+        '<div class="table-scroll"><table class="benchmark-table">'
+        '<thead><tr>'
+        f'{th("Run")}{th("Bare", "[FPS]")}{th("PEK", "[FPS]")}'
+        f'{th("PEK delta", "[FPS]")}{th("Result")}'
+        f'</tr></thead><tbody>{"".join(rows)}</tbody></table></div>'
+    )
 
 
 def write_delta_rows(deltas: list[tuple[str, dict[str, Any]]]) -> str:
@@ -1256,6 +1318,42 @@ def write_information_section(comparison: dict[str, Any]) -> str:
     )
 
 
+def write_video_report_page(
+    target: Path,
+    site_dir: Path,
+    title: str,
+    meta_html: str,
+    runs: list[dict[str, Any]],
+) -> None:
+    comparison = runs[0]["comparison"]
+    inputs = comparison["inputs"]
+    measurement = comparison["measurement"]
+    back_href = rel_to_report_root(target, site_dir)
+    body = render_template(
+        "video-report.html.in",
+        {
+            "title": html_escape(title),
+            "back_href": html_escape(back_href),
+            "meta_html": meta_html,
+            "overall_result": overall_result_block(runs),
+            "timed_region": html_escape(measurement["timed_region"]),
+            "frame_count": html_escape(inputs["source_frame_count"]),
+            "source_fps": html_escape(inputs["source_fps"]),
+            "resolution": f'{html_escape(inputs["source_width"])}x{html_escape(inputs["source_height"])}',
+            "imgsz": html_escape(inputs["imgsz"]),
+            "device": html_escape(inputs["device"]),
+            "run_count": len(runs),
+            "bare_model": html_escape(inputs["bare_model"]),
+            "pek_opchain": html_escape(inputs["pek_opchain"]),
+            "video_sha256": html_escape(inputs["video_sha256"]),
+            "summary_table": write_video_summary_table(runs),
+            "runs_table": write_video_runs_table(runs),
+        },
+    )
+    css_href = f"{back_href}report-index.css"
+    (target / INDEX_HTML).write_text(render_page(f"{title} - YOLO video benchmark", css_href, body), encoding="utf-8")
+
+
 def write_report_page(
     target: Path,
     site_dir: Path,
@@ -1264,6 +1362,9 @@ def write_report_page(
     runs: list[dict[str, Any]],
 ) -> None:
     first = runs[0]["comparison"]
+    if first.get("schema") == VIDEO_COMPARISON_SCHEMA:
+        write_video_report_page(target, site_dir, title, meta_html, runs)
+        return
     inputs = first["inputs"]
     measurement = first["measurement"]
     back_href = rel_to_report_root(target, site_dir)
