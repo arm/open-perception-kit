@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from typing import Any
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'scripts/private'))
@@ -477,14 +478,24 @@ class AgentWorkflowContractTests(unittest.TestCase):
         )
 
     def test_standard_validation_workflows_accept_manual_pr_context(self):
+        def find_checkout_step(job: dict[str, Any]) -> dict[str, Any]:
+            matches = [
+                step
+                for step in job["steps"]
+                if isinstance(step, dict)
+                and str(step.get("uses", "")).startswith("actions/checkout@")
+            ]
+            self.assertEqual(len(matches), 1)
+            return matches[0]
+
         pek_ci = load_yaml(PEK_CI_WORKFLOW_FILE)
         sonar = load_yaml(SONAR_WORKFLOW_FILE)
         pek_inputs = pek_ci["on"]["workflow_dispatch"]["inputs"]
         sonar_inputs = sonar["on"]["workflow_dispatch"]["inputs"]
         pek_steps = step_map(pek_ci["jobs"]["quality-checks"])
         sonar_steps = step_map(sonar["jobs"]["build-and-sonar"])
-        linux_checkout = pek_ci["jobs"]["linux-quick-start-build-test"]["steps"][0]
-        rpi_checkout = pek_ci["jobs"]["rpi5-quick-start-build-test"]["steps"][0]
+        linux_checkout = find_checkout_step(pek_ci["jobs"]["linux-quick-start-build-test"])
+        rpi_checkout = find_checkout_step(pek_ci["jobs"]["rpi5-quick-start-build-test"])
         expected_label_gate = "github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')"
         expected_draft_override = (
             "github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci')"
@@ -518,8 +529,8 @@ class AgentWorkflowContractTests(unittest.TestCase):
         sonar_condition = sonar["jobs"]["build-and-sonar"]["if"]
         self.assertIn(expected_label_gate, sonar_condition)
         self.assertIn(expected_draft_override, sonar_condition)
-        for checkout_step in (linux_checkout, rpi_checkout):
-            checkout_ref = checkout_step["with"]["ref"]
+        for checkout in (linux_checkout, rpi_checkout):
+            checkout_ref = checkout["with"]["ref"]
             self.assertIn("github.event_name == 'workflow_dispatch'", checkout_ref)
             self.assertIn("github.event.inputs.pr_head_sha", checkout_ref)
             self.assertIn("github.event.inputs.pr_head_ref", checkout_ref)
