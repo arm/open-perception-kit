@@ -111,8 +111,19 @@ Setup is attempted once per activation. A setup failure is reported as a warning
 continues in pass-through mode, so one unavailable model does not stop video delivery. Disable and
 re-enable the model to retry after fixing a transient network, authentication, or runtime problem.
 If a model is disabled while setup is already running, that setup is allowed to finish and its ready
-result is cached for the next activation; this avoids unsafe cancellation inside backend runtimes and
-prevents repeated partial downloads.
+result is cached for the next activation, which prevents repeated partial downloads. Pipeline teardown
+does request cooperative cancellation: the common synchronous setup contract propagates a C++ stop
+token to model materialization, and modelfetch aborts at its next progress callback. Backend-specific
+initialization that has already started may still need to return before teardown can complete.
+
+The model-loading API remains synchronous and accepts an optional `ModelLoadContext` for cancellation
+and progress reporting. Each OpChain setup creates one `OpSetupContext`, which carries those controls
+to the operation that owns the `modelDescriptor` attribute. Inference operations resolve the descriptor
+through that context and pass the resulting local model path to their backend. Successful descriptor
+resolutions are reused within the same setup, so one operation cannot trigger a context-free second
+download. Thread and retry policy stay in the consumer: `pekinfer` schedules the same setup call on its
+worker, while direct runtime and benchmark callers can continue to load synchronously without managing
+a background thread.
 
 ## Runtime input expectations
 
