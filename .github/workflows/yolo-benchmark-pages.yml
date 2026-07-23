@@ -84,6 +84,14 @@ jobs:
             --site-dir _yolo_benchmark_pages_site \
             --cache-dir _yolo_performance_dataset_cache
 
+      - name: Restore latest YOLO detection videos
+        if: steps.pages.outputs.deploy == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python3 examples/yolo-benchmark/pages/publish_yolo_benchmark_pages.py
+          restore-latest _yolo_benchmark_pages_site
+
       - name: Configure Pages
         if: steps.pages.outputs.deploy == 'true'
         uses: actions/configure-pages@v6
@@ -134,6 +142,14 @@ jobs:
           python3 examples/yolo-benchmark/pages/restore_dataset_overlay.py \
             --site-dir _yolo_benchmark_pages_site \
             --cache-dir _yolo_performance_dataset_cache
+
+      - name: Restore latest YOLO detection videos
+        if: steps.pages.outputs.deploy == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python3 examples/yolo-benchmark/pages/publish_yolo_benchmark_pages.py
+          restore-latest _yolo_benchmark_pages_site
 
       - name: Configure Pages
         if: steps.pages.outputs.deploy == 'true'

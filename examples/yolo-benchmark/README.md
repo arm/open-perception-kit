@@ -105,6 +105,9 @@ The Pages publisher consumes the benchmark Actions artifact and publishes under
 `yolo-benchmark/` plus the deploy-only `yolo-performance-datasets/` overlay.
 
 Dataset images are restored as a deploy-only overlay keyed by fingerprint.
+Detection MP4s stay in the benchmark Actions artifact. Every report Pages
+deployment restores only the latest successful video run as an embedded overlay;
+older video reports link to their workflow run instead.
 
 ```sh
 YOLO_PAGES_DRY_RUN=1 \

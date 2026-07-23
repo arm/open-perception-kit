@@ -259,7 +259,8 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
                 {"name": "run-02", "path": Path("run-02"), "comparison": video_comparison(11.0, 13.0)},
             ]
 
-            publish.write_report_page(target, site_dir, "Manual run 123", "Manual", runs)
+            run_href = "https://github.com/Arm-Debug/amp-dev-forge/actions/runs/123"
+            publish.write_report_page(target, site_dir, "Manual run 123", "Manual", runs, run_href)
 
             html = (target / "index.html").read_text(encoding="utf-8")
             self.assertIn("YOLO video benchmark", html)
@@ -272,12 +273,13 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             self.assertNotIn('href="summary.md"', html)
             self.assertNotIn('src="bare-detections.mp4"', html)
             self.assertNotIn('src="pek-detections.mp4"', html)
+            self.assertIn(f'<a href="{run_href}">Open workflow run</a>', html)
 
             (target / "summary.json").touch()
             (target / "summary.md").touch()
             (target / "bare-detections.mp4").touch()
             (target / "pek-detections.mp4").touch()
-            publish.write_report_page(target, site_dir, "Manual run 123", "Manual", runs)
+            publish.write_report_page(target, site_dir, "Manual run 123", "Manual", runs, run_href)
             html = (target / "index.html").read_text(encoding="utf-8")
             self.assertIn('href="summary.json"', html)
             self.assertIn('href="summary.md"', html)
@@ -346,7 +348,13 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
                 html = (target / "index.html").read_text(encoding="utf-8")
                 self.assertNotIn('src="bare-detections.mp4"', html)
                 self.assertNotIn('src="pek-detections.mp4"', html)
-                return False
+                self.assertIn(
+                    '<a href="https://github.com/Arm-Debug/amp-dev-forge/actions/runs/123">Open workflow run</a>',
+                    html,
+                )
+                manifest = json.loads((target / publish.VIDEO_ARTIFACT_META).read_text(encoding="utf-8"))
+                self.assertEqual(manifest["files"], list(publish.DETECTION_VIDEOS))
+                return True
 
             env = {
                 "GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge",
@@ -364,17 +372,70 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
                     patch.object(publish, "set_output") as set_output:
                 publish.publish_report(site_dir, "pages")
 
-            self.assertEqual((target / "bare-detections.mp4").read_bytes(), b"bare-video")
-            self.assertEqual((target / "pek-detections.mp4").read_bytes(), b"pek-video")
-            self.assertIn(
-                'src="bare-detections.mp4"',
-                (target / "index.html").read_text(encoding="utf-8"),
-            )
-            self.assertIn(
-                'src="pek-detections.mp4"',
-                (target / "index.html").read_text(encoding="utf-8"),
-            )
+            self.assertFalse((target / "bare-detections.mp4").exists())
+            self.assertFalse((target / "pek-detections.mp4").exists())
+            self.assertIn(">Open workflow run</a>", (target / "index.html").read_text(encoding="utf-8"))
             set_output.assert_called_once_with("deploy", "true")
+
+    def test_restore_latest_detection_videos_embeds_only_latest_run(self) -> None:
+        repository = "Arm-Debug/amp-dev-forge"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = Path(tmpdir) / "site"
+
+            def write_report(run_id: str) -> Path:
+                target = site_dir / "yolo-benchmark" / "manual" / run_id
+                run_dir = target / "runs" / "run-01"
+                run_dir.mkdir(parents=True)
+                (run_dir / "comparison.json").write_text(
+                    json.dumps(video_comparison()), encoding="utf-8"
+                )
+                (target / "report-meta.html").write_text("Manual\n", encoding="utf-8")
+                publish.write_video_artifact_meta(
+                    target, repository, run_id, "1", f"Manual run {run_id}", list(publish.DETECTION_VIDEOS)
+                )
+                publish.write_report_page(
+                    target,
+                    site_dir,
+                    f"Manual run {run_id}",
+                    "Manual",
+                    publish.load_report_runs(target),
+                    f"https://github.com/{repository}/actions/runs/{run_id}",
+                )
+                return target
+
+            old_target = write_report("123")
+            latest_target = write_report("456")
+
+            def write_artifact(destination: Path, _repository: str, run_id: str, _attempt: str) -> bool:
+                self.assertEqual(run_id, "456")
+                artifact = destination / "yolo-benchmark"
+                (artifact / "runs").mkdir(parents=True)
+                (artifact / "bare-detections.mp4").write_bytes(b"bare-video")
+                (artifact / "pek-detections.mp4").write_bytes(b"pek-video")
+                return True
+
+            with patch.dict(os.environ, {"GITHUB_REPOSITORY": repository}), \
+                    patch.object(publish, "download_report_artifact", side_effect=write_artifact):
+                self.assertTrue(publish.restore_latest_detection_videos(site_dir))
+
+            self.assertNotIn('src="bare-detections.mp4"', (old_target / "index.html").read_text(encoding="utf-8"))
+            latest_html = (latest_target / "index.html").read_text(encoding="utf-8")
+            self.assertIn('src="bare-detections.mp4"', latest_html)
+            self.assertIn('src="pek-detections.mp4"', latest_html)
+
+    def test_restore_latest_detection_videos_links_when_artifact_is_missing(self) -> None:
+        repository = "Arm-Debug/amp-dev-forge"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = Path(tmpdir) / "site"
+            target = site_dir / "yolo-benchmark" / "manual" / "123"
+            target.mkdir(parents=True)
+            publish.write_video_artifact_meta(
+                target, repository, "123", "1", "Manual run 123", list(publish.DETECTION_VIDEOS)
+            )
+
+            with patch.dict(os.environ, {"GITHUB_REPOSITORY": repository}), \
+                    patch.object(publish, "download_report_artifact", return_value=False):
+                self.assertFalse(publish.restore_latest_detection_videos(site_dir))
 
     def test_write_yolo_index_generates_index_for_existing_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

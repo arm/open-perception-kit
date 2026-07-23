@@ -52,6 +52,7 @@ VIDEO_COMPARISON_SCHEMA = "expkits_yolo_video_comparison.v1"
 BARE_DETECTION_VIDEO = "bare-detections.mp4"
 PEK_DETECTION_VIDEO = "pek-detections.mp4"
 DETECTION_VIDEOS = (BARE_DETECTION_VIDEO, PEK_DETECTION_VIDEO)
+VIDEO_ARTIFACT_META = "video-artifact.json"
 IMAGE_STAGE_METRICS = (
     ("preprocess_ms", "Preprocess"),
     ("inference_ms", "Inference"),
@@ -61,7 +62,7 @@ DRY_RUN_ENV = "YOLO_PAGES_DRY_RUN"
 
 
 def usage() -> None:
-    print("Usage: publish_yolo_benchmark_pages.py publish|cleanup", file=sys.stderr)
+    print("Usage: publish_yolo_benchmark_pages.py publish|cleanup|restore-latest [site-dir]", file=sys.stderr)
 
 
 def render_template(name: str, values: dict[str, object]) -> str:
@@ -1328,6 +1329,7 @@ def write_video_report_page(
     title: str,
     meta_html: str,
     runs: list[dict[str, Any]],
+    run_href: str = "",
 ) -> None:
     comparison = runs[0]["comparison"]
     inputs = comparison["inputs"]
@@ -1355,6 +1357,14 @@ def write_video_report_page(
             '      <section class="report-section" id="detections">\n'
             '        <div class="report-section-heading"><h2>Detection videos</h2></div>\n'
             f'{video_cards}'
+            '      </section>\n'
+        )
+    elif run_href:
+        detection_video_section = (
+            '      <section class="report-section" id="detections">\n'
+            '        <div class="report-section-heading"><h2>Detection videos</h2></div>\n'
+            '        <section class="section-card"><p>Detection videos are stored with the workflow run. '
+            f'<a href="{html_escape(run_href)}">Open workflow run</a> to download the artifact.</p></section>\n'
             '      </section>\n'
         )
     body = render_template(
@@ -1394,10 +1404,11 @@ def write_report_page(
     title: str,
     meta_html: str,
     runs: list[dict[str, Any]],
+    run_href: str = "",
 ) -> None:
     first = runs[0]["comparison"]
     if first.get("schema") == VIDEO_COMPARISON_SCHEMA:
-        write_video_report_page(target, site_dir, title, meta_html, runs)
+        write_video_report_page(target, site_dir, title, meta_html, runs, run_href)
         return
     inputs = first["inputs"]
     measurement = first["measurement"]
@@ -1501,6 +1512,94 @@ def write_yolo_index(site_dir: Path, repository: str) -> None:
         render_page(f"{PRODUCT_TITLE} - YOLO benchmark reports", "report-index.css", body), encoding="utf-8")
 
 
+def write_video_artifact_meta(
+    target: Path,
+    repository: str,
+    run_id: str,
+    run_attempt: str,
+    title: str,
+    files: list[str],
+) -> None:
+    (target / VIDEO_ARTIFACT_META).write_text(
+        json.dumps(
+            {
+                "files": files,
+                "repository": repository,
+                "run_id": run_id,
+                "run_attempt": run_attempt,
+                "title": title,
+            },
+            indent=2,
+            sort_keys=True,
+        ) + "\n",
+        encoding="utf-8",
+    )
+
+
+def restore_latest_detection_videos(site_dir: Path) -> bool:
+    manifests = list((site_dir / REPORT_ROOT).glob(f"**/{VIDEO_ARTIFACT_META}"))
+    if not manifests:
+        print("No latest YOLO detection video metadata found; leaving report links only.")
+        return False
+
+    repository = require_env("GITHUB_REPOSITORY")
+    candidates = []
+    for path in manifests:
+        try:
+            metadata = json.loads(path.read_text(encoding="utf-8"))
+            source_repository = metadata["repository"]
+            run_id = str(metadata["run_id"])
+            run_attempt = str(metadata["run_attempt"])
+            title = metadata["title"]
+            files = metadata["files"]
+            if not isinstance(source_repository, str) or not isinstance(title, str) or not isinstance(files, list):
+                raise ValueError("invalid repository, title, or file list")
+            if source_repository != repository:
+                raise ValueError("artifact belongs to another repository")
+            if not run_id.isdigit() or not run_attempt.isdigit():
+                raise ValueError("invalid run or file list")
+            if not files or any(filename not in DETECTION_VIDEOS for filename in files):
+                raise ValueError("invalid detection video file")
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+            print(f"Ignoring invalid YOLO detection video metadata at {path}: {error}")
+            continue
+        candidates.append((int(run_id), int(run_attempt), path, metadata))
+
+    if not candidates:
+        return False
+    _, _, meta_path, metadata = max(candidates, key=lambda item: (item[0], item[1]))
+    run_id = str(metadata["run_id"])
+    run_attempt = str(metadata["run_attempt"])
+    title = str(metadata["title"])
+    files = [str(filename) for filename in metadata["files"]]
+    target = meta_path.parent
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        artifact_dir = Path(tmpdir)
+        if not download_report_artifact(artifact_dir, repository, run_id, run_attempt):
+            print(f"Could not restore latest YOLO detection videos from run {run_id}; keeping the run link.")
+            return False
+        artifact_root = find_yolo_artifact(artifact_dir)
+        if artifact_root is None:
+            print(f"Run {run_id} artifact did not contain a YOLO benchmark report; keeping the run link.")
+            return False
+        sources = []
+        for filename in files:
+            source = artifact_root / filename
+            if not source.is_file():
+                print(f"Run {run_id} artifact is missing {filename}; keeping the run link.")
+                return False
+            sources.append((source, target / filename))
+        for source, destination in sources:
+            shutil.copy2(source, destination)
+
+    runs = load_report_runs(target)
+    meta_html = (target / "report-meta.html").read_text(encoding="utf-8").strip()
+    run_href = f"https://github.com/{repository}/actions/runs/{run_id}"
+    write_report_page(target, site_dir, title, meta_html, runs, run_href)
+    return True
+
+
 def select_target(site_dir: Path, repository: str, event: str, branch: str) -> tuple[Path, str, str]:
     yolo_dir = site_dir / REPORT_ROOT
     if event == "pull_request":
@@ -1529,6 +1628,7 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
     conclusion = require_env("UPSTREAM_CONCLUSION")
     run_id = require_env("UPSTREAM_RUN_ID")
     run_attempt = require_env("UPSTREAM_RUN_ATTEMPT")
+    run_href = f"https://github.com/{repository}/actions/runs/{run_id}"
 
     if conclusion not in {"success", "failure"}:
         print(f"Skipping YOLO report from {conclusion} upstream run.")
@@ -1569,7 +1669,7 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
         (target / REPORT_INDEX_META).write_text(f"{index_meta_text}\n", encoding="utf-8")
         (target / "report-meta.html").write_text(f"{meta_html}\n", encoding="utf-8")
         (target / "commit.txt").write_text(f"{head_sha}\n", encoding="utf-8")
-        write_report_page(target, site_dir, title, meta_html, runs)
+        write_report_page(target, site_dir, title, meta_html, runs, run_href)
         write_root_index(site_dir)
         write_index_assets(site_dir)
         write_yolo_index(site_dir, repository)
@@ -1580,15 +1680,20 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
             for filename in DETECTION_VIDEOS
             if (target / filename).is_file()
         ]
+        if deploy_detection_videos and conclusion == "success":
+            write_video_artifact_meta(
+                target,
+                repository,
+                run_id,
+                run_attempt,
+                title,
+                [target_path.name for _, target_path in deploy_detection_videos],
+            )
         for _, detection_video_target in deploy_detection_videos:
             detection_video_target.unlink()
         if deploy_detection_videos:
-            write_report_page(target, site_dir, title, meta_html, runs)
+            write_report_page(target, site_dir, title, meta_html, runs, run_href)
         changed = push_site_branch(site_dir, storage_branch)
-        for detection_video_source, detection_video_target in deploy_detection_videos:
-            shutil.copy2(detection_video_source, detection_video_target)
-        if deploy_detection_videos:
-            write_report_page(target, site_dir, title, meta_html, runs)
         set_output("deploy", "true" if changed or deploy_detection_videos else "false")
 
 
@@ -1621,6 +1726,13 @@ def cleanup_closed_pr_reports(site_dir: Path, storage_branch: str, retention_day
 
 
 def main(argv: list[str]) -> int:
+    if len(argv) == 3 and argv[1] == "restore-latest":
+        try:
+            restore_latest_detection_videos(Path(argv[2]))
+        except PublishError as error:
+            print(f"Error: {error}", file=sys.stderr)
+            return 1
+        return 0
     if len(argv) != 2 or argv[1] not in {"publish", "cleanup"}:
         usage()
         return 2
