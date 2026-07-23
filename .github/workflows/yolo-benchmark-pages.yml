@@ -7,6 +7,12 @@ on:
   schedule:
     - cron: "45 6 * * *"
   workflow_dispatch:
+    inputs:
+      action_smoke:
+        description: Test workflow action dependencies without deploying Pages.
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   actions: read
@@ -23,21 +29,23 @@ jobs:
   publish-pages:
     name: Publish YOLO benchmark pages
     if: |
-      github.event_name == 'workflow_run' &&
-      github.event.workflow_run.head_repository.full_name == github.repository
+      (github.event_name == 'workflow_run' &&
+      github.event.workflow_run.head_repository.full_name == github.repository) ||
+      (github.event_name == 'workflow_dispatch' && inputs.action_smoke)
     runs-on: ubuntu-latest
     environment:
-      name: github-pages
+      name: ${{ inputs.action_smoke && 'action-smoke' || 'github-pages' }}
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout publisher
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Run publisher unit tests
         run: python3 -m unittest examples/yolo-benchmark/pages/test_publish_yolo_benchmark_pages.py
 
       - name: Update Pages content
         id: pages
+        if: ${{ !inputs.action_smoke }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
           UPSTREAM_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
@@ -51,8 +59,8 @@ jobs:
         run: examples/yolo-benchmark/pages/run.sh publish
 
       - name: Cache YOLO performance dataset
-        if: steps.pages.outputs.deploy == 'true'
-        uses: actions/cache@v4
+        if: ${{ inputs.action_smoke || steps.pages.outputs.deploy == 'true' }}
+        uses: actions/cache@v6
         with:
           path: _yolo_performance_dataset_cache
           key: yolo-performance-datasets-coco-val2017-4f7e2ccb2866ec5041993c9cf2a952bbed69647b115d0f74da7ce8f4bef82f05
@@ -84,24 +92,25 @@ jobs:
     if: github.event_name != 'workflow_run'
     runs-on: ubuntu-latest
     environment:
-      name: github-pages
+      name: ${{ inputs.action_smoke && 'action-smoke' || 'github-pages' }}
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout publisher
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Run publisher unit tests
         run: python3 -m unittest examples/yolo-benchmark/pages/test_publish_yolo_benchmark_pages.py
 
       - name: Remove old closed PR reports
         id: pages
+        if: ${{ !inputs.action_smoke }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: examples/yolo-benchmark/pages/run.sh cleanup
 
       - name: Cache YOLO performance dataset
-        if: steps.pages.outputs.deploy == 'true'
-        uses: actions/cache@v4
+        if: ${{ inputs.action_smoke || steps.pages.outputs.deploy == 'true' }}
+        uses: actions/cache@v6
         with:
           path: _yolo_performance_dataset_cache
           key: yolo-performance-datasets-coco-val2017-4f7e2ccb2866ec5041993c9cf2a952bbed69647b115d0f74da7ce8f4bef82f05
