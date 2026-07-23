@@ -23,7 +23,8 @@ namespace pek::op {
  */
 class OpSetupContext {
   public:
-    explicit OpSetupContext(const pek::ModelLoadContext &modelLoadContext = {});
+    explicit OpSetupContext(const pek::ModelLoadContext &modelLoadContextValue = {})
+        : modelLoadContext(modelLoadContextValue) {}
 
     /**
      * @brief Resolves and materializes a model descriptor for this setup attempt.
@@ -39,7 +40,9 @@ class OpSetupContext {
     /**
      * @brief Reports whether cancellation was requested for this setup attempt.
      */
-    [[nodiscard]] bool stopRequested() const noexcept;
+    [[nodiscard]] bool stopRequested() const noexcept {
+        return modelLoadContext.stopRequested();
+    }
 
   private:
     pek::ModelLoadContext modelLoadContext;

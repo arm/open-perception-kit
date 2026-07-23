@@ -122,7 +122,7 @@ executorchops = shared_module(
   include_directories: common_include,
   dependencies: pek_deps + [executorch_dep],
   cpp_args: ['-DFMT_HEADER_ONLY'],
-  link_with: [common],
+  link_with: [common, model_loading],
 
   link_args: [
     '-Wl,--whole-archive',

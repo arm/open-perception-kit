@@ -36,8 +36,6 @@ services:
       context: ..
       dockerfile: Dockerfile
       target: pek-docs-dev-base
-      additional_contexts:
-        modelfetch_sdks: ../.cache/modelfetch
 
   pek-pre-commit-runtime:
     network_mode: bridge

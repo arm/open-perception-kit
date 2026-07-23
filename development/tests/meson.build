@@ -10,7 +10,7 @@ model_descriptor_tests = executable(
   ['model_descriptor_test.cpp'],
   include_directories : [common_include],
   dependencies : [gtest_main_dep, gtest_dep, pek_deps],
-  link_with : [common],
+  link_with : [common, model_loading],
 )
 
 fake_modelfetch = shared_module(
@@ -25,7 +25,7 @@ pekinfer_blocking_setup_op = shared_module(
   ['pekinfer_blocking_setup_op.cpp'],
   include_directories : [common_include],
   dependencies : [pek_deps],
-  link_with : [common],
+  link_with : [common, model_loading],
   name_prefix : '',
   gnu_symbol_visibility : 'default',
   install : false,
@@ -109,6 +109,7 @@ runtime_pipeline_tests = executable(
 node = find_program('node', required : false)
 python = import('python').find_installation()
 gst_launch = find_program('gst-launch-1.0')
+readelf = find_program('readelf')
 
 test('pek_menu_tests', pek_menu_tests)
 test(
@@ -140,6 +141,43 @@ test(
   python,
   args : [
     meson.project_source_root() / '../scripts/private/tests/test_prepare_modelfetch_release.py',
+  ],
+)
+test(
+  'modelfetch_dependency_boundary_tests',
+  python,
+  args : [
+    files('modelfetch_dependency_boundary_test.py'),
+    readelf,
+    '--non-model-consumer',
+    common.full_path(),
+    stdops.full_path(),
+    gstpektracker.full_path(),
+    gstpekperformance.full_path(),
+    gstpekosd.full_path(),
+    pekinferpre.full_path(),
+    pekcomm.full_path(),
+    pek_menu.full_path(),
+    gstpekinfer.full_path(),
+    pek_runtime.full_path(),
+    '--model-runtime',
+    model_loading.full_path(),
+    '--model-consumer',
+    onnxops.full_path(),
+  ],
+  depends : [
+    common,
+    model_loading,
+    stdops,
+    gstpekinfer,
+    onnxops,
+    gstpektracker,
+    gstpekperformance,
+    gstpekosd,
+    pekinferpre,
+    pekcomm,
+    pek_menu,
+    pek_runtime,
   ],
 )
 test('matrix_operations_tests', matrix_operations_tests)

@@ -16,9 +16,6 @@ pek::Error modelResolutionCancelled(const std::string &path) {
 
 } // namespace
 
-OpSetupContext::OpSetupContext(const pek::ModelLoadContext &modelLoadContextValue)
-    : modelLoadContext(modelLoadContextValue) {}
-
 pek::Result<pek::ModelDescriptor> OpSetupContext::resolveModelDescriptor(const std::string &path) {
     if (stopRequested())
         return tl::unexpected{modelResolutionCancelled(path)};
@@ -34,10 +31,6 @@ pek::Result<pek::ModelDescriptor> OpSetupContext::resolveModelDescriptor(const s
 
     const auto stored = modelDescriptors.emplace(path, std::move(*descriptor)).first;
     return stored->second;
-}
-
-bool OpSetupContext::stopRequested() const noexcept {
-    return modelLoadContext.stopRequested();
 }
 
 } // namespace pek::op

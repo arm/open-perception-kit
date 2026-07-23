@@ -105,7 +105,7 @@ ncnnops = shared_module(
   include_directories: common_include,
   dependencies: pek_deps + [ncnn_dep, openmp_dep],
   cpp_args: ['-DFMT_HEADER_ONLY'],
-  link_with: [common],
+  link_with: [common, model_loading],
   name_prefix: '',
   gnu_symbol_visibility: 'default',
   install: false,

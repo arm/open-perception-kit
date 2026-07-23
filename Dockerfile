@@ -146,9 +146,9 @@ USER ${USERNAME}
 WORKDIR /work
 
 ######################################################################
-#################### PC Base Development Container ###################
+################## Shared Development Tooling Base ###################
 ######################################################################
-FROM pek-base AS pek-dev-base
+FROM pek-base AS pek-dev-tools-base
 
 ARG USERNAME=devgoblin
 ARG PLANTUML_VERSION=1.2026.2
@@ -198,10 +198,23 @@ RUN set -eux; \
   /tmp/pek-tools/plumber; \
   rm -rf /tmp/pek-tools
 
+ENV PEK_DEVTOOLS_VENV=/opt/pek-venvs/devtools
+
+USER ${USERNAME}
+WORKDIR /work
+
+######################################################################
+#################### PC Base Development Container ###################
+######################################################################
+FROM pek-dev-tools-base AS pek-dev-base
+
+ARG USERNAME=devgoblin
+
+USER root
+
 COPY --from=pek-model-tools-base /opt/pek-deps/modelfetch /opt/pek-deps/modelfetch
 
-ENV PEK_DEVTOOLS_VENV=/opt/pek-venvs/devtools \
-    PEK_MODELFETCH_ROOT=/opt/pek-deps/modelfetch \
+ENV PEK_MODELFETCH_ROOT=/opt/pek-deps/modelfetch \
     LD_LIBRARY_PATH=/opt/pek-deps/modelfetch/lib:/opt/pek-deps/onnxruntime/lib
 
 USER ${USERNAME}
@@ -240,13 +253,10 @@ ARG USERNAME=devgoblin
 
 USER root
 
-COPY --from=pek-dev-base /opt/pek-venvs/devtools /opt/pek-venvs/devtools
-COPY --from=pek-dev-base /usr/local/bin/actionlint /usr/local/bin/actionlint
-COPY --from=pek-dev-base /opt/pek-deps/modelfetch /opt/pek-deps/modelfetch
+COPY --from=pek-dev-tools-base /opt/pek-venvs/devtools /opt/pek-venvs/devtools
+COPY --from=pek-dev-tools-base /usr/local/bin/actionlint /usr/local/bin/actionlint
 
-ENV PEK_DEVTOOLS_VENV=/opt/pek-venvs/devtools \
-    PEK_MODELFETCH_ROOT=/opt/pek-deps/modelfetch \
-    LD_LIBRARY_PATH=/opt/pek-deps/modelfetch/lib:/opt/pek-deps/onnxruntime/lib
+ENV PEK_DEVTOOLS_VENV=/opt/pek-venvs/devtools
 
 USER ${USERNAME}
 WORKDIR /work
