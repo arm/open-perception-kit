@@ -59,7 +59,7 @@ jobs:
         name: Resolve repair inputs
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
           CURRENT_REF_NAME: ${{ github.head_ref || github.ref_name }}
         run: |
           set -euo pipefail
@@ -103,7 +103,7 @@ jobs:
       - name: Collect source run context
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private${PYTHONPATH:+:${PYTHONPATH}}" \
