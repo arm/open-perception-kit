@@ -8,8 +8,8 @@
 #include <fmt/core.h>
 #include <memory>
 
+#include "Log.h"
 #include "pek/ImageOpDesc.h"
-#include "pek/Log.h"
 #include "pek/Perception.h"
 #include "pek/Result.h"
 #include "pek/TensorView.h"

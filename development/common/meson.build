@@ -1,4 +1,6 @@
 
+subdir('logging')
+
 common = shared_library(
   'common',
   sources: [
@@ -7,7 +9,6 @@ common = shared_library(
     'gst/TensorMeta.cpp',
 
     'pek/Result.cpp',
-    'pek/Log.cpp',
     'pek/Tools.cpp',
     'pek/Labels.cpp',
     'pek/Model.cpp',
@@ -33,6 +34,7 @@ common = shared_library(
   include_directories: [ common_include ],
   cpp_args: ['-DFMT_HEADER_ONLY'],
   dependencies: [ pek_deps ],
+  link_whole: [logging],
   gnu_symbol_visibility: 'default',
   install: false
 )
