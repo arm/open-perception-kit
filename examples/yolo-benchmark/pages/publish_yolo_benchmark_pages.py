@@ -1346,6 +1346,11 @@ def write_video_report_page(
             "bare_model": html_escape(inputs["bare_model"]),
             "pek_opchain": html_escape(inputs["pek_opchain"]),
             "video_sha256": html_escape(inputs["video_sha256"]),
+            "summary_links": "".join(
+                f' | <a href="{name}">{label}</a>'
+                for name, label in (("summary.json", "report JSON"), ("summary.md", "report Markdown"))
+                if (target / name).is_file()
+            ),
             "summary_table": write_video_summary_table(runs),
             "runs_table": write_video_runs_table(runs),
         },

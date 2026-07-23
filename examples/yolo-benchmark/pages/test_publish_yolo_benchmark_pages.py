@@ -268,6 +268,15 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             self.assertIn("12.500", html)
             self.assertIn("PEK faster", html)
             self.assertNotIn("Dataset Analysis", html)
+            self.assertNotIn('href="summary.json"', html)
+            self.assertNotIn('href="summary.md"', html)
+
+            (target / "summary.json").touch()
+            (target / "summary.md").touch()
+            publish.write_report_page(target, site_dir, "Manual run 123", "Manual", runs)
+            html = (target / "index.html").read_text(encoding="utf-8")
+            self.assertIn('href="summary.json"', html)
+            self.assertIn('href="summary.md"', html)
 
     def test_select_target_supports_manual_reports(self) -> None:
         with patch.dict(os.environ, {"UPSTREAM_RUN_ID": "123"}):

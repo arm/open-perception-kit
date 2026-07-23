@@ -11,7 +11,7 @@
         <section class="section-card">
           <p>The pinned MP4 is processed unpaced. FPS includes decode, color conversion, inference, post-processing, result serialization, and delivery. The first frame is warmup.</p>
           <p>Bare model: <code>${bare_model}</code><br>PEK OpChain: <code>${pek_opchain}</code></p>
-          <p>Video SHA-256: <code>${video_sha256}</code> | <a href="video-source.json">source manifest</a> | <a href="summary.json">report JSON</a> | <a href="summary.md">report Markdown</a></p>
+          <p>Video SHA-256: <code>${video_sha256}</code> | <a href="video-source.json">source manifest</a>${summary_links}</p>
         </section>
       </section>
       <section class="report-section" id="summary">
