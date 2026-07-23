@@ -287,7 +287,10 @@ TEST(ModelDescriptor, FromFileRejectsModelfetchFailureOutcome) {
     const fs::path descriptorPath =
         writeDescriptor(temporary.path, publishedAssetId("failure-outcome"));
 
-    EXPECT_FALSE(pek::ModelDescriptor::fromFile(descriptorPath.string()).has_value());
+    const auto descriptor = pek::ModelDescriptor::fromFile(descriptorPath.string());
+
+    ASSERT_FALSE(descriptor.has_value());
+    EXPECT_NE(descriptor.error().info.find("integrity_mismatch"), std::string::npos);
 }
 
 TEST(ModelDescriptor, FromFileRejectsMismatchedModelfetchAsset) {

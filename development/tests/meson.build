@@ -16,7 +16,7 @@ model_descriptor_tests = executable(
 fake_modelfetch = shared_module(
   'fake_modelfetch',
   ['fake_modelfetch.c'],
-  dependencies : [modelfetch_headers_dep],
+  dependencies : [modelfetch_cpp_headers_dep],
   install : false,
 )
 

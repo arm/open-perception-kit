@@ -159,6 +159,24 @@ void modelfetch_request_free(modelfetch_request_t *value) {
     free(value);
 }
 
+modelfetch_status_t modelfetch_request_asset_id(const modelfetch_request_t *value,
+                                                modelfetch_text_view_t *out) {
+    if (value == NULL || out == NULL)
+        return MODELFETCH_STATUS_INVALID_ARGUMENT;
+    out->ptr = (const uint8_t *)value->asset_id;
+    out->len = strlen(value->asset_id);
+    return MODELFETCH_STATUS_OK;
+}
+
+modelfetch_status_t modelfetch_request_destination(const modelfetch_request_t *value,
+                                                   modelfetch_text_view_t *out) {
+    if (value == NULL || out == NULL)
+        return MODELFETCH_STATUS_INVALID_ARGUMENT;
+    out->ptr = (const uint8_t *)value->destination;
+    out->len = strlen(value->destination);
+    return MODELFETCH_STATUS_OK;
+}
+
 modelfetch_status_t modelfetch_request_list_new(modelfetch_request_list_t **out,
                                                 modelfetch_error_t **error_out) {
     if (out == NULL)

@@ -97,7 +97,7 @@ onnx_dep = declare_dependency(
   link_args: ['-L' + onnx_libdir, '-lonnxruntime', '-Wl,--no-undefined']
 )
 
-# -------- modelfetch C SDK
+# -------- modelfetch C++ SDK
 modelfetch_root = ''
 modelfetch_candidates = []
 
@@ -112,24 +112,24 @@ modelfetch_candidates += [
 ]
 
 foreach candidate : modelfetch_candidates
-  if fs.is_file(candidate / 'include/modelfetch.h') and fs.is_file(candidate / 'lib/libmodelfetch_c.so')
+  if fs.is_file(candidate / 'include/modelfetch/modelfetch.hpp') and fs.is_file(candidate / 'lib/libmodelfetch_c.so')
     modelfetch_root = candidate
     break
   endif
 endforeach
 
 if modelfetch_root == ''
-  error('modelfetch C SDK not found. Set PEK_MODELFETCH_ROOT or provide include/ and lib/ under one of: ' + ', '.join(modelfetch_candidates))
+  error('modelfetch C++ SDK not found. Set PEK_MODELFETCH_ROOT or provide include/ and lib/ under one of: ' + ', '.join(modelfetch_candidates))
 endif
 
-message('Using modelfetch C SDK from: ' + modelfetch_root)
+message('Using modelfetch C++ SDK from: ' + modelfetch_root)
 
 modelfetch_libdir = modelfetch_root / 'lib'
-modelfetch_headers_dep = declare_dependency(
+modelfetch_cpp_headers_dep = declare_dependency(
   compile_args: ['-I' + (modelfetch_root / 'include')]
 )
 modelfetch_dep = declare_dependency(
-  dependencies: [modelfetch_headers_dep],
+  dependencies: [modelfetch_cpp_headers_dep],
   link_args: ['-L' + modelfetch_libdir, '-lmodelfetch_c', '-Wl,--no-undefined']
 )
 

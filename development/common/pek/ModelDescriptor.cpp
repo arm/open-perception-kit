@@ -4,15 +4,17 @@
 
 #include "pek/ModelDescriptor.h"
 
-#include <atomic>
+#include <array>
+#include <exception>
 #include <filesystem>
-#include <memory>
 #include <string>
 #include <string_view>
+#include <variant>
+#include <vector>
 
 #include <fmt/color.h>
-#include <glib.h>
-#include <modelfetch.h>
+#include <magic_enum/magic_enum.hpp>
+#include <modelfetch/modelfetch.hpp>
 #include <tl/expected.hpp>
 
 #include "pek/AttributeMap.h"
@@ -25,14 +27,6 @@ namespace std_fs = std::filesystem;
 namespace {
 
 constexpr const char *MaterializedModelsRoot = "/work/var/models";
-
-using ModelfetchService = std::unique_ptr<modelfetch_service_t, decltype(&modelfetch_service_free)>;
-using ModelfetchRequest = std::unique_ptr<modelfetch_request_t, decltype(&modelfetch_request_free)>;
-using ModelfetchRequestList =
-    std::unique_ptr<modelfetch_request_list_t, decltype(&modelfetch_request_list_free)>;
-using ModelfetchOutcomeList =
-    std::unique_ptr<modelfetch_outcome_list_t, decltype(&modelfetch_outcome_list_free)>;
-using ModelfetchError = std::unique_ptr<modelfetch_error_t, decltype(&modelfetch_error_free)>;
 
 bool is_safe_relative_path(const std_fs::path &path) {
     if (path.empty() || path.is_absolute())
@@ -87,167 +81,71 @@ bool has_canonical_integrity(const std::string &value) {
     return is_lower_hex(std::string_view(value).substr(prefixSize));
 }
 
-std::string copy_text_view(const modelfetch_text_view_t &view) {
-    if (view.ptr == nullptr || view.len == 0)
-        return {};
-    return {reinterpret_cast<const char *>(view.ptr), view.len};
-}
-
 pek::Error model_load_cancelled(const std::string &descriptorPath) {
     return PEK_ERROR(
         pek::ErrorFlag::SystemFailure,
         fmt::format("Model materialization cancelled for ModelDescriptor [{}]", descriptorPath));
 }
 
-pek::ModelLoadProgressState map_progress_state(modelfetch_progress_state_t state) {
+pek::ModelLoadProgressState map_progress_state(modelfetch::download_progress_state state) {
     switch (state) {
-    case MODELFETCH_PROGRESS_STARTED:
+    case modelfetch::download_progress_state::started:
         return pek::ModelLoadProgressState::Started;
-    case MODELFETCH_PROGRESS_IN_PROGRESS:
+    case modelfetch::download_progress_state::in_progress:
         return pek::ModelLoadProgressState::InProgress;
-    case MODELFETCH_PROGRESS_COMPLETED:
+    case modelfetch::download_progress_state::completed:
         return pek::ModelLoadProgressState::Completed;
-    case MODELFETCH_PROGRESS_FAILED:
+    case modelfetch::download_progress_state::failed:
         return pek::ModelLoadProgressState::Failed;
-    default:
-        return pek::ModelLoadProgressState::Unknown;
     }
+    return pek::ModelLoadProgressState::Unknown;
 }
 
-using ProgressBytesGetter = modelfetch_status_t (*)(const modelfetch_progress_event_t *,
-                                                    uint8_t *,
-                                                    const modelfetch_big_uint_t **);
-
-std::optional<std::string> read_progress_bytes(const modelfetch_progress_event_t *event,
-                                               ProgressBytesGetter getter) {
-    uint8_t present = 0;
-    const modelfetch_big_uint_t *value = nullptr;
-    if (getter(event, &present, &value) != MODELFETCH_STATUS_OK || present == 0 || value == nullptr)
+std::optional<std::string> copy_progress_bytes(const std::optional<modelfetch::big_uint> &value) {
+    if (!value)
         return std::nullopt;
-
-    modelfetch_text_view_t view{nullptr, 0};
-    if (modelfetch_big_uint_decimal(value, &view) != MODELFETCH_STATUS_OK || view.ptr == nullptr ||
-        view.len == 0)
-        return std::nullopt;
-    return copy_text_view(view);
+    return std::string(value->decimal());
 }
 
-struct ModelfetchProgressBridge {
-    const pek::ModelLoadContext *loadContext = nullptr;
-    std::atomic<bool> callbackFailed = false;
-};
+class ModelLoadProgressCallbackFailure final {};
 
-modelfetch_callback_result_t report_modelfetch_progress(const modelfetch_progress_event_t *event,
-                                                        void *userData) noexcept {
-    auto *bridge = static_cast<ModelfetchProgressBridge *>(userData);
-    if (bridge == nullptr || bridge->loadContext == nullptr || event == nullptr)
-        return MODELFETCH_CALLBACK_ABORT;
-
-    const pek::ModelLoadContext &loadContext = *bridge->loadContext;
+modelfetch::progress_control report_modelfetch_progress(const modelfetch::progress_event &event,
+                                                        const pek::ModelLoadContext &loadContext) {
     if (loadContext.stopRequested())
-        return MODELFETCH_CALLBACK_ABORT;
+        return modelfetch::progress_control::abort;
 
     if (loadContext.progress) {
         try {
-            pek::ModelLoadProgress progress;
-
-            modelfetch_text_view_t artifactView{nullptr, 0};
-            if (modelfetch_progress_event_artifact_id(event, &artifactView) ==
-                MODELFETCH_STATUS_OK) {
-                progress.artifactId = copy_text_view(artifactView);
-            }
-
-            modelfetch_progress_state_t state = MODELFETCH_PROGRESS_FAILED;
-            if (modelfetch_progress_event_state(event, &state) == MODELFETCH_STATUS_OK)
-                progress.state = map_progress_state(state);
-
-            progress.transferredBytes =
-                read_progress_bytes(event, modelfetch_progress_event_transferred_bytes);
-            progress.totalBytes = read_progress_bytes(event, modelfetch_progress_event_total_bytes);
-
-            uint8_t percentagePresent = 0;
-            double percentage = 0.0;
-            if (modelfetch_progress_event_percentage(event, &percentagePresent, &percentage) ==
-                    MODELFETCH_STATUS_OK &&
-                percentagePresent != 0) {
-                progress.percentage = percentage;
-            }
-
+            const pek::ModelLoadProgress progress{
+                .artifactId = event.artifact_id,
+                .state = map_progress_state(event.state),
+                .transferredBytes = copy_progress_bytes(event.transferred_bytes),
+                .totalBytes = copy_progress_bytes(event.total_bytes),
+                .percentage = event.percentage,
+            };
             loadContext.progress(progress);
         } catch (...) {
-            bridge->callbackFailed.store(true, std::memory_order_relaxed);
-            return MODELFETCH_CALLBACK_ABORT;
+            throw ModelLoadProgressCallbackFailure{};
         }
     }
 
-    return loadContext.stopRequested() ? MODELFETCH_CALLBACK_ABORT : MODELFETCH_CALLBACK_CONTINUE;
-}
-
-std::string modelfetch_error_detail(modelfetch_error_t *rawError) {
-    ModelfetchError error(rawError, modelfetch_error_free);
-    if (!error)
-        return "no error detail";
-
-    modelfetch_text_view_t view{nullptr, 0};
-    if (modelfetch_error_message(error.get(), &view) != MODELFETCH_STATUS_OK)
-        return "unreadable error detail";
-    const std::string detail = copy_text_view(view);
-    return detail.empty() ? "empty error detail" : detail;
+    return loadContext.stopRequested() ? modelfetch::progress_control::abort
+                                       : modelfetch::progress_control::continue_;
 }
 
 pek::Error modelfetch_error(const std::string &descriptorPath,
                             const std::string &operation,
-                            modelfetch_status_t status,
-                            modelfetch_error_t *rawError = nullptr) {
+                            const std::exception &error) {
     return PEK_ERROR(pek::ErrorFlag::InvalidData,
-                     fmt::format("modelfetch {} failed for ModelDescriptor [{}] (status {}): {}",
+                     fmt::format("modelfetch {} failed for ModelDescriptor [{}]: {}",
                                  operation,
                                  descriptorPath,
-                                 status,
-                                 modelfetch_error_detail(rawError)));
+                                 error.what()));
 }
 
-pek::Result<std::string> read_text(const std::string &descriptorPath,
-                                   const std::string &field,
-                                   const modelfetch_text_view_t &view) {
-    if (view.ptr == nullptr || view.len == 0 || view.len > G_MAXSSIZE ||
-        !g_utf8_validate(
-            reinterpret_cast<const gchar *>(view.ptr), static_cast<gssize>(view.len), nullptr)) {
-        return tl::unexpected{PEK_ERROR(
-            pek::ErrorFlag::InvalidData,
-            fmt::format(
-                "modelfetch returned invalid {} for ModelDescriptor [{}]", field, descriptorPath))};
-    }
-    return copy_text_view(view);
-}
-
-const char *failure_reason_name(modelfetch_failure_reason_t reason) {
-    switch (reason) {
-    case MODELFETCH_FAILURE_SNAPSHOT_UNAVAILABLE:
-        return "snapshot_unavailable";
-    case MODELFETCH_FAILURE_SNAPSHOT_IDENTITY_MISMATCH:
-        return "snapshot_identity_mismatch";
-    case MODELFETCH_FAILURE_ANCHOR_NOT_FOUND:
-        return "anchor_not_found";
-    case MODELFETCH_FAILURE_MANIFEST_INVALID:
-        return "manifest_invalid";
-    case MODELFETCH_FAILURE_PATH_UNSAFE:
-        return "path_unsafe";
-    case MODELFETCH_FAILURE_OUTPUT_COLLISION:
-        return "output_collision";
-    case MODELFETCH_FAILURE_DESTINATION_INVALID:
-        return "destination_invalid";
-    case MODELFETCH_FAILURE_INTEGRITY_METADATA_UNAVAILABLE:
-        return "integrity_metadata_unavailable";
-    case MODELFETCH_FAILURE_INTEGRITY_MISMATCH:
-        return "integrity_mismatch";
-    case MODELFETCH_FAILURE_DOWNLOAD_FAILED:
-        return "download_failed";
-    case MODELFETCH_FAILURE_MATERIALIZATION_FAILED:
-        return "materialization_failed";
-    default:
-        return "unknown";
-    }
+std::string_view failure_reason_name(modelfetch::asset_download_failure_reason reason) {
+    const std::string_view name = magic_enum::enum_name(reason);
+    return name.empty() ? "unknown" : name;
 }
 
 pek::Result<std_fs::path> materializePublishedModel(const std::string &descriptorPath,
@@ -264,179 +162,95 @@ pek::Result<std_fs::path> materializePublishedModel(const std::string &descripto
                                   descriptorPath))};
     }
 
-    modelfetch_service_t *rawService = nullptr;
-    modelfetch_error_t *rawError = nullptr;
-    modelfetch_status_t status = modelfetch_service_new(&rawService, &rawError);
-    if (status != MODELFETCH_STATUS_OK)
-        return tl::unexpected{
-            modelfetch_error(descriptorPath, "service creation", status, rawError)};
-    ModelfetchService service(rawService, modelfetch_service_free);
+    try {
+        const modelfetch::client service;
+        const std::array requests{
+            modelfetch::asset_download_request(assetId, MaterializedModelsRoot),
+        };
 
-    modelfetch_request_t *rawRequest = nullptr;
-    rawError = nullptr;
-    status = modelfetch_request_new(reinterpret_cast<const uint8_t *>(assetId.data()),
-                                    assetId.size(),
-                                    reinterpret_cast<const uint8_t *>(MaterializedModelsRoot),
-                                    std::char_traits<char>::length(MaterializedModelsRoot),
-                                    &rawRequest,
-                                    &rawError);
-    if (status != MODELFETCH_STATUS_OK)
-        return tl::unexpected{
-            modelfetch_error(descriptorPath, "request creation", status, rawError)};
-    ModelfetchRequest request(rawRequest, modelfetch_request_free);
+        std::vector<modelfetch::asset_download_outcome> outcomes;
+        if (loadContext.stopToken.stop_possible() || loadContext.progress) {
+            auto progressCallback = [&loadContext](const modelfetch::progress_event &event) {
+                return report_modelfetch_progress(event, loadContext);
+            };
+            outcomes = service.download_asset_requests(requests, progressCallback);
+        } else {
+            outcomes = service.download_asset_requests(requests);
+        }
 
-    modelfetch_request_list_t *rawRequests = nullptr;
-    rawError = nullptr;
-    status = modelfetch_request_list_new(&rawRequests, &rawError);
-    if (status != MODELFETCH_STATUS_OK)
-        return tl::unexpected{
-            modelfetch_error(descriptorPath, "request-list creation", status, rawError)};
-    ModelfetchRequestList requests(rawRequests, modelfetch_request_list_free);
+        if (loadContext.stopRequested())
+            return tl::unexpected{model_load_cancelled(descriptorPath)};
 
-    rawError = nullptr;
-    status = modelfetch_request_list_append(requests.get(), request.get(), &rawError);
-    if (status != MODELFETCH_STATUS_OK)
-        return tl::unexpected{modelfetch_error(descriptorPath, "request append", status, rawError)};
+        if (outcomes.size() != 1) {
+            return tl::unexpected{
+                PEK_ERROR(pek::ErrorFlag::InvalidData,
+                          fmt::format("modelfetch returned {} outcomes for ModelDescriptor [{}]",
+                                      outcomes.size(),
+                                      descriptorPath))};
+        }
 
-    modelfetch_outcome_list_t *rawOutcomes = nullptr;
-    rawError = nullptr;
-    ModelfetchProgressBridge progressBridge{&loadContext};
-    const bool observeProgress =
-        loadContext.stopToken.stop_possible() || static_cast<bool>(loadContext.progress);
-    status = modelfetch_service_download_asset_requests(service.get(),
-                                                        requests.get(),
-                                                        observeProgress ? report_modelfetch_progress
-                                                                        : nullptr,
-                                                        observeProgress ? &progressBridge : nullptr,
-                                                        &rawOutcomes,
-                                                        &rawError);
-    if (status == MODELFETCH_STATUS_CALLBACK_ABORTED) {
-        ModelfetchOutcomeList abortedOutcomes(rawOutcomes, modelfetch_outcome_list_free);
-        if (progressBridge.callbackFailed.load(std::memory_order_relaxed)) {
-            modelfetch_error_free(rawError);
+        const auto &outcome = outcomes.front();
+        const std::string &returnedAssetId = std::visit(
+            [](const auto &value) -> const std::string & { return value.asset_id; }, outcome);
+        if (returnedAssetId != assetId) {
             return tl::unexpected{PEK_ERROR(
-                pek::ErrorFlag::SystemFailure,
-                fmt::format("Model load progress callback failed for ModelDescriptor [{}]",
+                pek::ErrorFlag::InvalidData,
+                fmt::format("modelfetch returned a mismatched asset for ModelDescriptor [{}]",
                             descriptorPath))};
         }
-        if (loadContext.stopRequested()) {
-            modelfetch_error_free(rawError);
-            return tl::unexpected{model_load_cancelled(descriptorPath)};
+
+        if (const auto *failure = std::get_if<modelfetch::asset_download_failure>(&outcome)) {
+            return tl::unexpected{PEK_ERROR(
+                pek::ErrorFlag::InvalidData,
+                fmt::format(
+                    "modelfetch could not materialize modelFile in ModelDescriptor [{}]: {}",
+                    descriptorPath,
+                    failure_reason_name(failure->reason)))};
         }
-        return tl::unexpected{
-            modelfetch_error(descriptorPath, "asset download callback", status, rawError)};
-    }
-    if (status != MODELFETCH_STATUS_OK)
-        return tl::unexpected{modelfetch_error(descriptorPath, "asset download", status, rawError)};
-    ModelfetchOutcomeList outcomes(rawOutcomes, modelfetch_outcome_list_free);
 
-    if (loadContext.stopRequested())
-        return tl::unexpected{model_load_cancelled(descriptorPath)};
+        const auto *success = std::get_if<modelfetch::asset_download_success>(&outcome);
+        if (success == nullptr) {
+            return tl::unexpected{PEK_ERROR(
+                pek::ErrorFlag::InvalidData,
+                fmt::format("modelfetch returned an invalid outcome for ModelDescriptor [{}]",
+                            descriptorPath))};
+        }
+        if (success->status != modelfetch::asset_download_success_status::downloaded &&
+            success->status != modelfetch::asset_download_success_status::existing) {
+            return tl::unexpected{PEK_ERROR(
+                pek::ErrorFlag::InvalidData,
+                fmt::format(
+                    "modelfetch returned an invalid success status for ModelDescriptor [{}]",
+                    descriptorPath))};
+        }
+        if (success->files.size() != 1) {
+            return tl::unexpected{
+                PEK_ERROR(pek::ErrorFlag::InvalidData,
+                          fmt::format("modelfetch returned {} model paths for ModelDescriptor [{}]",
+                                      success->files.size(),
+                                      descriptorPath))};
+        }
 
-    size_t outcomeCount = 0;
-    status = modelfetch_outcome_list_count(outcomes.get(), &outcomeCount);
-    if (status != MODELFETCH_STATUS_OK)
-        return tl::unexpected{modelfetch_error(descriptorPath, "outcome-count lookup", status)};
-    if (outcomeCount != 1) {
+        const modelfetch::materialized_file &modelFile = success->files.front();
+        if (!has_canonical_integrity(modelFile.integrity)) {
+            return tl::unexpected{PEK_ERROR(
+                pek::ErrorFlag::InvalidData,
+                fmt::format("modelfetch returned invalid integrity for ModelDescriptor [{}]",
+                            descriptorPath))};
+        }
+        return modelFile.path;
+    } catch (const ModelLoadProgressCallbackFailure &) {
         return tl::unexpected{
-            PEK_ERROR(pek::ErrorFlag::InvalidData,
-                      fmt::format("modelfetch returned {} outcomes for ModelDescriptor [{}]",
-                                  outcomeCount,
+            PEK_ERROR(pek::ErrorFlag::SystemFailure,
+                      fmt::format("Model load progress callback failed for ModelDescriptor [{}]",
                                   descriptorPath))};
+    } catch (const modelfetch::callback_aborted &error) {
+        if (loadContext.stopRequested())
+            return tl::unexpected{model_load_cancelled(descriptorPath)};
+        return tl::unexpected{modelfetch_error(descriptorPath, "asset download callback", error)};
+    } catch (const std::exception &error) {
+        return tl::unexpected{modelfetch_error(descriptorPath, "asset download", error)};
     }
-
-    const modelfetch_outcome_t *outcome = nullptr;
-    status = modelfetch_outcome_list_get(outcomes.get(), 0, &outcome);
-    if (status != MODELFETCH_STATUS_OK || outcome == nullptr)
-        return tl::unexpected{modelfetch_error(descriptorPath, "outcome lookup", status)};
-
-    modelfetch_text_view_t assetView{nullptr, 0};
-    status = modelfetch_outcome_asset_id(outcome, &assetView);
-    if (status != MODELFETCH_STATUS_OK)
-        return tl::unexpected{modelfetch_error(descriptorPath, "outcome asset lookup", status)};
-    auto returnedAssetId = read_text(descriptorPath, "outcome asset ID", assetView);
-    if (!returnedAssetId)
-        return tl::unexpected{returnedAssetId.error()};
-    if (*returnedAssetId != assetId) {
-        return tl::unexpected{
-            PEK_ERROR(pek::ErrorFlag::InvalidData,
-                      fmt::format("modelfetch returned a mismatched asset for ModelDescriptor [{}]",
-                                  descriptorPath))};
-    }
-
-    modelfetch_outcome_kind_t outcomeKind = MODELFETCH_OUTCOME_FAILURE;
-    status = modelfetch_outcome_kind(outcome, &outcomeKind);
-    if (status != MODELFETCH_STATUS_OK)
-        return tl::unexpected{modelfetch_error(descriptorPath, "outcome-kind lookup", status)};
-    if (outcomeKind == MODELFETCH_OUTCOME_FAILURE) {
-        modelfetch_failure_reason_t reason = MODELFETCH_FAILURE_DOWNLOAD_FAILED;
-        status = modelfetch_outcome_failure_reason(outcome, &reason);
-        const char *detail =
-            status == MODELFETCH_STATUS_OK ? failure_reason_name(reason) : "unknown";
-        return tl::unexpected{PEK_ERROR(
-            pek::ErrorFlag::InvalidData,
-            fmt::format("modelfetch could not materialize modelFile in ModelDescriptor [{}]: {}",
-                        descriptorPath,
-                        detail))};
-    }
-    if (outcomeKind != MODELFETCH_OUTCOME_SUCCESS) {
-        return tl::unexpected{PEK_ERROR(
-            pek::ErrorFlag::InvalidData,
-            fmt::format("modelfetch returned an invalid outcome kind for ModelDescriptor [{}]",
-                        descriptorPath))};
-    }
-
-    modelfetch_success_status_t successStatus = MODELFETCH_SUCCESS_DOWNLOADED;
-    status = modelfetch_outcome_success_status(outcome, &successStatus);
-    if (status != MODELFETCH_STATUS_OK)
-        return tl::unexpected{modelfetch_error(descriptorPath, "success-status lookup", status)};
-    if (successStatus != MODELFETCH_SUCCESS_DOWNLOADED &&
-        successStatus != MODELFETCH_SUCCESS_EXISTING) {
-        return tl::unexpected{PEK_ERROR(
-            pek::ErrorFlag::InvalidData,
-            fmt::format("modelfetch returned an invalid success status for ModelDescriptor [{}]",
-                        descriptorPath))};
-    }
-
-    size_t pathCount = 0;
-    status = modelfetch_outcome_success_path_count(outcome, &pathCount);
-    if (status != MODELFETCH_STATUS_OK)
-        return tl::unexpected{modelfetch_error(descriptorPath, "model-path count lookup", status)};
-    if (pathCount != 1) {
-        return tl::unexpected{
-            PEK_ERROR(pek::ErrorFlag::InvalidData,
-                      fmt::format("modelfetch returned {} model paths for ModelDescriptor [{}]",
-                                  pathCount,
-                                  descriptorPath))};
-    }
-
-    modelfetch_text_view_t pathView{nullptr, 0};
-    status = modelfetch_outcome_success_path(outcome, 0, &pathView);
-    if (status != MODELFETCH_STATUS_OK)
-        return tl::unexpected{modelfetch_error(descriptorPath, "model-path lookup", status)};
-    auto modelPath = read_text(descriptorPath, "model path", pathView);
-    if (!modelPath)
-        return tl::unexpected{modelPath.error()};
-
-    const modelfetch_integrity_t *integrity = nullptr;
-    status = modelfetch_outcome_success_integrity(outcome, 0, &integrity);
-    if (status != MODELFETCH_STATUS_OK || integrity == nullptr)
-        return tl::unexpected{modelfetch_error(descriptorPath, "integrity lookup", status)};
-    modelfetch_text_view_t integrityView{nullptr, 0};
-    status = modelfetch_integrity_token(integrity, &integrityView);
-    if (status != MODELFETCH_STATUS_OK)
-        return tl::unexpected{modelfetch_error(descriptorPath, "integrity-token lookup", status)};
-    auto integrityToken = read_text(descriptorPath, "integrity token", integrityView);
-    if (!integrityToken)
-        return tl::unexpected{integrityToken.error()};
-    if (!has_canonical_integrity(*integrityToken)) {
-        return tl::unexpected{
-            PEK_ERROR(pek::ErrorFlag::InvalidData,
-                      fmt::format("modelfetch returned invalid integrity for ModelDescriptor [{}]",
-                                  descriptorPath))};
-    }
-
-    return std_fs::path(*modelPath);
 }
 
 pek::Result<std::string> resolveModelFile(const std::string &descriptorPath,
