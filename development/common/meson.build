@@ -22,6 +22,7 @@ common = shared_library(
     'op/OpChain.cpp',
     'op/OpChainContext.cpp',
     'op/OpChainDescriptor.cpp',
+    'op/OpSetupContext.cpp',
 
     'perf/PerformanceTracer.cpp',
 

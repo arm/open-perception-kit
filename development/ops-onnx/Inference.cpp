@@ -44,21 +44,6 @@ Inference::~Inference() {
         delete this->session;
 }
 
-pek::Result<void> Inference::setupFromJson(const std::string &filePath) {
-
-    auto descResult = pek::ModelDescriptor::fromFile(filePath);
-    if (!descResult) {
-        return tl::unexpected{descResult.error()};
-    }
-
-    auto setupResult = setup(*descResult);
-    if (!setupResult) {
-        return tl::unexpected{setupResult.error()};
-    }
-
-    return {};
-}
-
 pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
 
     this->api = ApiTensorGlue();

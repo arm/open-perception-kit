@@ -12,6 +12,7 @@
 #include "glib.h"
 #include "gst/gstpad.h"
 #include "op/OpChainContext.h"
+#include "op/OpSetupContext.h"
 #include "pek/AttributeMap.h"
 #include "pek/ModelDescriptor.h"
 #include "pek/TensorView.h"
@@ -25,7 +26,8 @@ InferenceOp::InferenceOp() = default;
 
 InferenceOp::~InferenceOp() = default;
 
-pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
+pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes,
+                                         pek::op::OpSetupContext &setupContext) {
     std::string modelDescPath;
 
     try {
@@ -40,7 +42,11 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
     try {
         inference = std::make_unique<onnx::Inference>();
 
-        auto setupResult = inference->setupFromJson(modelDescPath);
+        auto modelDescriptor = setupContext.resolveModelDescriptor(modelDescPath);
+        if (!modelDescriptor)
+            return tl::unexpected{modelDescriptor.error()};
+
+        auto setupResult = inference->setup(*modelDescriptor);
         if (!setupResult) {
             return setupResult;
         }

@@ -4,6 +4,7 @@
 
 #include "pek/ModelDescriptor.h"
 
+#include <atomic>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -92,6 +93,96 @@ std::string copy_text_view(const modelfetch_text_view_t &view) {
     return {reinterpret_cast<const char *>(view.ptr), view.len};
 }
 
+pek::Error model_load_cancelled(const std::string &descriptorPath) {
+    return PEK_ERROR(
+        pek::ErrorFlag::SystemFailure,
+        fmt::format("Model materialization cancelled for ModelDescriptor [{}]", descriptorPath));
+}
+
+pek::ModelLoadProgressState map_progress_state(modelfetch_progress_state_t state) {
+    switch (state) {
+    case MODELFETCH_PROGRESS_STARTED:
+        return pek::ModelLoadProgressState::Started;
+    case MODELFETCH_PROGRESS_IN_PROGRESS:
+        return pek::ModelLoadProgressState::InProgress;
+    case MODELFETCH_PROGRESS_COMPLETED:
+        return pek::ModelLoadProgressState::Completed;
+    case MODELFETCH_PROGRESS_FAILED:
+        return pek::ModelLoadProgressState::Failed;
+    default:
+        return pek::ModelLoadProgressState::Unknown;
+    }
+}
+
+using ProgressBytesGetter = modelfetch_status_t (*)(const modelfetch_progress_event_t *,
+                                                    uint8_t *,
+                                                    const modelfetch_big_uint_t **);
+
+std::optional<std::string> read_progress_bytes(const modelfetch_progress_event_t *event,
+                                               ProgressBytesGetter getter) {
+    uint8_t present = 0;
+    const modelfetch_big_uint_t *value = nullptr;
+    if (getter(event, &present, &value) != MODELFETCH_STATUS_OK || present == 0 || value == nullptr)
+        return std::nullopt;
+
+    modelfetch_text_view_t view{nullptr, 0};
+    if (modelfetch_big_uint_decimal(value, &view) != MODELFETCH_STATUS_OK || view.ptr == nullptr ||
+        view.len == 0)
+        return std::nullopt;
+    return copy_text_view(view);
+}
+
+struct ModelfetchProgressBridge {
+    const pek::ModelLoadContext *loadContext = nullptr;
+    std::atomic<bool> callbackFailed = false;
+};
+
+modelfetch_callback_result_t report_modelfetch_progress(const modelfetch_progress_event_t *event,
+                                                        void *userData) noexcept {
+    auto *bridge = static_cast<ModelfetchProgressBridge *>(userData);
+    if (bridge == nullptr || bridge->loadContext == nullptr || event == nullptr)
+        return MODELFETCH_CALLBACK_ABORT;
+
+    const pek::ModelLoadContext &loadContext = *bridge->loadContext;
+    if (loadContext.stopRequested())
+        return MODELFETCH_CALLBACK_ABORT;
+
+    if (loadContext.progress) {
+        try {
+            pek::ModelLoadProgress progress;
+
+            modelfetch_text_view_t artifactView{nullptr, 0};
+            if (modelfetch_progress_event_artifact_id(event, &artifactView) ==
+                MODELFETCH_STATUS_OK) {
+                progress.artifactId = copy_text_view(artifactView);
+            }
+
+            modelfetch_progress_state_t state = MODELFETCH_PROGRESS_FAILED;
+            if (modelfetch_progress_event_state(event, &state) == MODELFETCH_STATUS_OK)
+                progress.state = map_progress_state(state);
+
+            progress.transferredBytes =
+                read_progress_bytes(event, modelfetch_progress_event_transferred_bytes);
+            progress.totalBytes = read_progress_bytes(event, modelfetch_progress_event_total_bytes);
+
+            uint8_t percentagePresent = 0;
+            double percentage = 0.0;
+            if (modelfetch_progress_event_percentage(event, &percentagePresent, &percentage) ==
+                    MODELFETCH_STATUS_OK &&
+                percentagePresent != 0) {
+                progress.percentage = percentage;
+            }
+
+            loadContext.progress(progress);
+        } catch (...) {
+            bridge->callbackFailed.store(true, std::memory_order_relaxed);
+            return MODELFETCH_CALLBACK_ABORT;
+        }
+    }
+
+    return loadContext.stopRequested() ? MODELFETCH_CALLBACK_ABORT : MODELFETCH_CALLBACK_CONTINUE;
+}
+
 std::string modelfetch_error_detail(modelfetch_error_t *rawError) {
     ModelfetchError error(rawError, modelfetch_error_free);
     if (!error)
@@ -160,7 +251,11 @@ const char *failure_reason_name(modelfetch_failure_reason_t reason) {
 }
 
 pek::Result<std_fs::path> materializePublishedModel(const std::string &descriptorPath,
-                                                    const std::string &assetId) {
+                                                    const std::string &assetId,
+                                                    const pek::ModelLoadContext &loadContext) {
+    if (loadContext.stopRequested())
+        return tl::unexpected{model_load_cancelled(descriptorPath)};
+
     if (!is_immutable_file_locator(assetId)) {
         return tl::unexpected{
             PEK_ERROR(pek::ErrorFlag::InvalidData,
@@ -205,11 +300,38 @@ pek::Result<std_fs::path> materializePublishedModel(const std::string &descripto
 
     modelfetch_outcome_list_t *rawOutcomes = nullptr;
     rawError = nullptr;
-    status = modelfetch_service_download_asset_requests(
-        service.get(), requests.get(), nullptr, nullptr, &rawOutcomes, &rawError);
+    ModelfetchProgressBridge progressBridge{&loadContext};
+    const bool observeProgress =
+        loadContext.stopToken.stop_possible() || static_cast<bool>(loadContext.progress);
+    status = modelfetch_service_download_asset_requests(service.get(),
+                                                        requests.get(),
+                                                        observeProgress ? report_modelfetch_progress
+                                                                        : nullptr,
+                                                        observeProgress ? &progressBridge : nullptr,
+                                                        &rawOutcomes,
+                                                        &rawError);
+    if (status == MODELFETCH_STATUS_CALLBACK_ABORTED) {
+        ModelfetchOutcomeList abortedOutcomes(rawOutcomes, modelfetch_outcome_list_free);
+        if (progressBridge.callbackFailed.load(std::memory_order_relaxed)) {
+            modelfetch_error_free(rawError);
+            return tl::unexpected{PEK_ERROR(
+                pek::ErrorFlag::SystemFailure,
+                fmt::format("Model load progress callback failed for ModelDescriptor [{}]",
+                            descriptorPath))};
+        }
+        if (loadContext.stopRequested()) {
+            modelfetch_error_free(rawError);
+            return tl::unexpected{model_load_cancelled(descriptorPath)};
+        }
+        return tl::unexpected{
+            modelfetch_error(descriptorPath, "asset download callback", status, rawError)};
+    }
     if (status != MODELFETCH_STATUS_OK)
         return tl::unexpected{modelfetch_error(descriptorPath, "asset download", status, rawError)};
     ModelfetchOutcomeList outcomes(rawOutcomes, modelfetch_outcome_list_free);
+
+    if (loadContext.stopRequested())
+        return tl::unexpected{model_load_cancelled(descriptorPath)};
 
     size_t outcomeCount = 0;
     status = modelfetch_outcome_list_count(outcomes.get(), &outcomeCount);
@@ -318,11 +440,13 @@ pek::Result<std_fs::path> materializePublishedModel(const std::string &descripto
 }
 
 pek::Result<std::string> resolveModelFile(const std::string &descriptorPath,
-                                          const ModelDescriptor &descriptor) {
+                                          const ModelDescriptor &descriptor,
+                                          const pek::ModelLoadContext &loadContext) {
     const bool published = descriptor.modelFile.rfind("hf:", 0) == 0;
     std::error_code ec;
     if (published) {
-        auto materializedModel = materializePublishedModel(descriptorPath, descriptor.modelFile);
+        auto materializedModel =
+            materializePublishedModel(descriptorPath, descriptor.modelFile, loadContext);
         if (!materializedModel)
             return tl::unexpected{materializedModel.error()};
         if (!materializedModel->is_absolute()) {
@@ -401,7 +525,11 @@ pek::Result<ModelDescriptor> ModelDescriptor::fromJson(const std::string &jsonSt
     }
 }
 
-pek::Result<ModelDescriptor> ModelDescriptor::fromFile(const std::string &path) {
+pek::Result<ModelDescriptor> ModelDescriptor::fromFile(const std::string &path,
+                                                       const pek::ModelLoadContext &loadContext) {
+    if (loadContext.stopRequested())
+        return tl::unexpected{model_load_cancelled(path)};
+
     std::string content = pek::fs::loadTextOrDefault(path, "");
 
     if (content.empty()) {
@@ -414,7 +542,10 @@ pek::Result<ModelDescriptor> ModelDescriptor::fromFile(const std::string &path) 
     if (!descriptor)
         return descriptor;
 
-    auto resolvedModelFile = resolveModelFile(path, *descriptor);
+    if (loadContext.stopRequested())
+        return tl::unexpected{model_load_cancelled(path)};
+
+    auto resolvedModelFile = resolveModelFile(path, *descriptor, loadContext);
     if (!resolvedModelFile)
         return tl::unexpected{resolvedModelFile.error()};
     descriptor->modelFile = *resolvedModelFile;

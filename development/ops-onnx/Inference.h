@@ -90,7 +90,6 @@ struct Inference {
     Inference();
     virtual ~Inference();
 
-    pek::Result<void> setupFromJson(const std::string &filePath);
     pek::Result<void> setup(const pek::ModelDescriptor &modelDesc);
     bool isReady() {
         return setupReady;

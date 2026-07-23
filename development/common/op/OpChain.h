@@ -7,6 +7,7 @@
 #include "op/Op.h"
 #include "op/OpChainDescriptor.h"
 #include "op/OpRef.h"
+#include "pek/ModelLoadContext.h"
 #include "pek/Result.h"
 
 #include <vector>
@@ -48,19 +49,27 @@ class OpChain {
      * Loads operation definitions and creates Op instances from the descriptor.
      * Must be followed by bind() and then execute() can be called.
      *
+     * Operations receive shared setup controls while they configure. Model loading
+     * remains synchronous within this call; callers may choose another execution
+     * thread and provide cancellation or progress controls.
+     *
      * @param descriptor Descriptor containing chain name and operation definitions.
+     * @param loadContext Optional model loading controls.
      * @return Result indicating success or failure of setup.
      */
-    pek::Result<void> setupFromDescriptor(const pek::op::OpChainDescriptor &descriptor);
+    pek::Result<void> setupFromDescriptor(const pek::op::OpChainDescriptor &descriptor,
+                                          const pek::ModelLoadContext &loadContext = {});
     /**
      * @brief Initializes the chain by loading an OpChainDescriptor from a JSON file.
      *
      * Equivalent to loading JSON manually and calling setupFromDescriptor().
      *
      * @param jsonFile Path to JSON file containing OpChainDescriptor.
+     * @param loadContext Optional model loading controls.
      * @return Result indicating success or failure of setup.
      */
-    pek::Result<void> setupFromFile(const std::string &jsonFile);
+    pek::Result<void> setupFromFile(const std::string &jsonFile,
+                                    const pek::ModelLoadContext &loadContext = {});
 
     /**
      * @brief Gets the name of this chain.

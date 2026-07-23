@@ -103,21 +103,6 @@ using namespace pek::extrch;
 Inference::Inference() = default;
 Inference::~Inference() = default;
 
-pek::Result<void> Inference::setupFromJson(const std::string &filePath) {
-
-    auto descResult = pek::ModelDescriptor::fromFile(filePath);
-    if (!descResult) {
-        return tl::unexpected{descResult.error()};
-    }
-
-    auto setupResult = setup(*descResult);
-    if (!setupResult) {
-        return tl::unexpected{setupResult.error()};
-    }
-
-    return {};
-}
-
 pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &module) {
     pek::Model model;
     model.engine = "executorch";

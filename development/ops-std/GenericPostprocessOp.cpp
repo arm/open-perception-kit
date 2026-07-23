@@ -70,7 +70,8 @@ pek::Result<void> GenericPostprocessOp::bind(size_t index, const std::vector<pek
     return {};
 }
 
-pek::Result<void> GenericPostprocessOp::configure(const pek::AttributeMap &attributes) {
+pek::Result<void> GenericPostprocessOp::configure(const pek::AttributeMap &attributes,
+                                                  pek::op::OpSetupContext &setupContext) {
 
     this->attributes = attributes.cloneDeep();
 

@@ -6,6 +6,7 @@
 
 #include "pek/Color.h"
 #include "pek/JsonSchemas.h"
+#include "pek/ModelLoadContext.h"
 #include "pek/Result.h"
 #include "pek/Shape.h"
 #include "pek/Types.h"
@@ -114,11 +115,17 @@ struct ModelDescriptor {
     static pek::Result<ModelDescriptor> fromJson(const std::string &jsonString);
 
     /**
-     * @brief Loads and parses a descriptor from a JSON file.
+     * @brief Loads and materializes a descriptor synchronously from a JSON file.
+     *
+     * Callers that need asynchronous behavior choose the execution thread and may
+     * provide load controls.
+     *
      * @param path JSON file path.
-     * @return Parsed descriptor or error.
+     * @param loadContext Optional cancellation and progress contract.
+     * @return Parsed descriptor with a resolved local model path, or an error.
      */
-    static pek::Result<ModelDescriptor> fromFile(const std::string &path);
+    static pek::Result<ModelDescriptor> fromFile(const std::string &path,
+                                                 const pek::ModelLoadContext &loadContext = {});
 
     /// Optional tensor feedback loop descriptors.
     std::vector<pek::TensorFeedback> tensorFeedbacks;

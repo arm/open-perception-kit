@@ -173,21 +173,6 @@ std::string Inference::deriveBinPath(const std::string &paramPath) {
     return paramPath + ".bin";
 }
 
-pek::Result<void> Inference::setupFromJson(const std::string &filePath) {
-
-    auto descResult = pek::ModelDescriptor::fromFile(filePath);
-    if (!descResult) {
-        return tl::unexpected{descResult.error()};
-    }
-
-    auto setupResult = setup(*descResult);
-    if (!setupResult) {
-        return tl::unexpected{setupResult.error()};
-    }
-
-    return {};
-}
-
 pek::Result<pek::Model> Inference::buildModelFromDescriptor(const pek::ModelDescriptor &desc,
                                                             const ncnn::Net &net) {
     if (desc.dynamicOutput) {

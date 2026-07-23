@@ -16,6 +16,8 @@
 
 namespace pek::op {
 
+class OpSetupContext;
+
 /**
  * @brief Scheduler signal returned by an operation after process() completes.
  */
@@ -79,9 +81,11 @@ struct Op {
      * parameters (e.g., model path, buffer names, inference settings).
      *
      * @param attributes AttributeMap containing operation-specific configuration.
+     * @param setupContext Shared controls and model descriptors for this setup attempt.
      * @return Result indicating success or failure of configuration.
      */
-    virtual Result<void> configure(const AttributeMap &attributes) = 0;
+    virtual Result<void> configure(const AttributeMap &attributes,
+                                   OpSetupContext &setupContext) = 0;
 
     /**
      * @brief Binds the operation to its position in the chain and to other operations.

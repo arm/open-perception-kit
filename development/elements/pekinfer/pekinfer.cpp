@@ -115,7 +115,8 @@ struct GstPekInferMembers {
             std::optional<std::string> failure;
             try {
                 candidate = std::make_unique<pek::op::OpChain>();
-                auto setupResult = candidate->setupFromDescriptor(descriptor);
+                const pek::ModelLoadContext loadContext{.stopToken = stopToken, .progress = {}};
+                auto setupResult = candidate->setupFromDescriptor(descriptor, loadContext);
                 if (!setupResult)
                     failure = setupResult.error().toString();
             } catch (const std::exception &error) {
