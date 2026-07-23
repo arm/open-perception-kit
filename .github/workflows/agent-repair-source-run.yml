@@ -42,6 +42,7 @@ jobs:
     permissions:
       actions: write
       contents: write
+      issues: read
       pull-requests: write
     uses: ./.github/workflows/agent-repair-source-run-worker.yml
     with:
