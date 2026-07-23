@@ -186,7 +186,7 @@ class TestValgrindBaselineArtifact(unittest.TestCase):
         self.assertIn("pull_request_target:", workflow)
         self.assertIn("pull_request_target:\n    branches: [main, develop]", workflow)
         self.assertIn("actions: write", workflow)
-        self.assertIn("ref: ${{ github.event.pull_request.base.sha }}", workflow)
+        self.assertIn("github.event.pull_request.base.sha || github.sha", workflow)
         self.assertIn("valgrind-baseline-artifact.py publish", workflow)
         self.assertIn("valgrind-baseline-artifact.py locate", workflow)
         self.assertIn("valgrind-baseline-artifact.py wait", workflow)
