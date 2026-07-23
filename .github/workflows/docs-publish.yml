@@ -30,7 +30,7 @@ jobs:
       AWS_ROLE_ARN: arn:aws:iam::529607359382:role/Proj-GHA-amp-dev-forge-s3-upload
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.publish_ref || github.sha }}
 
@@ -46,7 +46,7 @@ jobs:
           site-id: perception-xpk
 
       - name: AWS GitHub OIDC Login
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}

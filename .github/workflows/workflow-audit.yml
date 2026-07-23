@@ -39,7 +39,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Render workflow dependency freshness report
         env:
@@ -57,7 +57,7 @@ jobs:
 
       - name: Upload workflow dependency freshness artifact
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: workflow-dependency-freshness
           path: |

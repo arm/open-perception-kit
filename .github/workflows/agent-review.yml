@@ -39,7 +39,7 @@ jobs:
 
     steps:
       - name: Checkout pull request head
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.head_ref || github.sha) || github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
@@ -105,7 +105,7 @@ jobs:
       - name: Fetch OpenAI proxy token
         id: openai-token
         continue-on-error: true
-        uses: Arm-Debug/devops-actions/fetch-openai-proxy-token@v1.7.0
+        uses: Arm-Debug/devops-actions/fetch-openai-proxy-token@v1.8.0
 
       # <agent-review:suppress-begin> Intentional current self-hosted OpenAI
       # review trust boundary for same-repo pull requests.
@@ -157,7 +157,7 @@ jobs:
 
       - name: Upload review artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: agent-review-out
           path: .github/agent-runtime/review/out

@@ -26,7 +26,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: ${{ env.CI_CHECKOUT_PATH }}
           submodules: recursive
@@ -503,7 +503,7 @@ jobs:
 
       - name: Upload discovered container manifest
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: blackduck-container-manifest
           path: ${{ runner.temp }}/bd-container-manifest.json
@@ -512,7 +512,7 @@ jobs:
 
       - name: Upload Black Duck status files
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: blackduck-status
           path: ${{ runner.temp }}/bd-output/**/status/status.json
@@ -521,7 +521,7 @@ jobs:
 
       - name: Upload Black Duck container outputs
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: blackduck-container-outputs
           path: ${{ runner.temp }}/bd-output/containers
@@ -530,7 +530,7 @@ jobs:
 
       - name: Upload Black Duck Detect logs
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: blackduck-detect-logs
           path: |
