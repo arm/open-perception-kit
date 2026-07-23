@@ -171,7 +171,8 @@ int main(int argc, char **argv) {
         };
 
         const std::filesystem::path summaryPath = args.at("--summary");
-        std::filesystem::create_directories(summaryPath.parent_path());
+        if (summaryPath.has_parent_path())
+            std::filesystem::create_directories(summaryPath.parent_path());
         std::ofstream output(summaryPath);
         if (!output)
             throw std::runtime_error("Failed to write summary: " + summaryPath.string());
