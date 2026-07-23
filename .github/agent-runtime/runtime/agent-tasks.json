@@ -2,7 +2,7 @@
   "tasks": {
     "run-review": {
       "agent_instance": "review",
-      "max_turns": 60,
+      "max_turns": 100,
       "max_review_files": 120,
       "max_review_changed_lines": 15000
     },
