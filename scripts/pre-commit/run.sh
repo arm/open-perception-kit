@@ -21,7 +21,7 @@ Host-side wrapper for the dedicated pre-commit runtime.
 Modes:
   default              Run the staged-file delta path inside the repo-checks container.
                        If no staged files exist, fall back to the branch delta against
-                       PULL_REQUEST_TARGET_BRANCH, origin/HEAD, or develop.
+                       PULL_REQUEST_TARGET_BRANCH, branch merge-base config, or remote default.
   full                 Run the same check bundle against the full tracked worktree.
 
 Internal:
@@ -70,9 +70,55 @@ resolve_ref() {
     return 1
 }
 
-resolve_delta_target_ref() {
+resolve_current_branch_merge_base_ref() {
+    local branch_name=""
+    local merge_base_ref=""
+    local resolved_ref=""
+
+    branch_name="$(
+        repo_checks_git_without_hook_env -C "${REPO_ROOT}" symbolic-ref --quiet --short HEAD 2> /dev/null || true
+    )"
+    [ -n "${branch_name}" ] || return 1
+
+    merge_base_ref="$(
+        repo_checks_git_without_hook_env -C "${REPO_ROOT}" config --get "branch.${branch_name}.vscode-merge-base" 2> /dev/null || true
+    )"
+    [ -n "${merge_base_ref}" ] || return 1
+
+    resolved_ref="$(resolve_ref "${merge_base_ref}" || true)"
+    [ -n "${resolved_ref}" ] || return 1
+
+    printf '%s\n' "${resolved_ref}"
+}
+
+resolve_remote_default_ref() {
+    local remote_ref=""
     local resolved_ref=""
     local origin_head_ref=""
+
+    remote_ref="$(
+        repo_checks_git_without_hook_env -C "${REPO_ROOT}" ls-remote --symref origin HEAD 2> /dev/null |
+            sed -n 's#^ref: refs/heads/\([^[:space:]]*\)[[:space:]]HEAD$#origin/\1#p' |
+            sed -n '1p' || true
+    )"
+    if [ -n "${remote_ref}" ]; then
+        resolved_ref="$(resolve_ref "${remote_ref}" || true)"
+        if [ -n "${resolved_ref}" ]; then
+            printf '%s\n' "${resolved_ref}"
+            return
+        fi
+    fi
+
+    origin_head_ref="$(
+        repo_checks_git_without_hook_env -C "${REPO_ROOT}" symbolic-ref --quiet refs/remotes/origin/HEAD 2> /dev/null || true
+    )"
+    [ -n "${origin_head_ref}" ] || return 1
+
+    printf '%s\n' "${origin_head_ref}"
+}
+
+resolve_delta_target_ref() {
+    local resolved_ref=""
 
     if [ -n "${PULL_REQUEST_TARGET_BRANCH:-}" ]; then
         resolved_ref="$(resolve_ref "${PULL_REQUEST_TARGET_BRANCH}" || true)"
@@ -82,22 +128,20 @@ resolve_delta_target_ref() {
         return
     fi
 
-    origin_head_ref="$(
-        repo_checks_git_without_hook_env -C "${REPO_ROOT}" symbolic-ref --quiet refs/remotes/origin/HEAD 2> /dev/null || true
-    )"
-    if [ -n "${origin_head_ref}" ]; then
-        printf '%s\n' "${origin_head_ref}"
+    resolved_ref="$(resolve_current_branch_merge_base_ref || true)"
+    if [ -n "${resolved_ref}" ]; then
+        printf '%s\n' "${resolved_ref}"
         return
     fi
 
-    resolved_ref="$(resolve_ref develop || true)"
+    resolved_ref="$(resolve_remote_default_ref || true)"
     if [ -n "${resolved_ref}" ]; then
         printf '%s\n' "${resolved_ref}"
         return
     fi
 
     repo_checks_die \
-        "Could not resolve a delta target branch. Stage files, set PULL_REQUEST_TARGET_BRANCH, or use full."
+        "Could not resolve a delta target branch. Stage files, set PULL_REQUEST_TARGET_BRANCH, configure branch merge-base, or use full."
 }
 
 build_commit_msg_command() {
