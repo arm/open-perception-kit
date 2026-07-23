@@ -343,6 +343,9 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             def push(_site_dir: Path, _storage_branch: str) -> bool:
                 self.assertFalse((target / "bare-detections.mp4").exists())
                 self.assertFalse((target / "pek-detections.mp4").exists())
+                html = (target / "index.html").read_text(encoding="utf-8")
+                self.assertNotIn('src="bare-detections.mp4"', html)
+                self.assertNotIn('src="pek-detections.mp4"', html)
                 return False
 
             env = {

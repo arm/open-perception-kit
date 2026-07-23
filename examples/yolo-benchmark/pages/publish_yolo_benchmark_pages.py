@@ -1582,9 +1582,13 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
         ]
         for _, detection_video_target in deploy_detection_videos:
             detection_video_target.unlink()
+        if deploy_detection_videos:
+            write_report_page(target, site_dir, title, meta_html, runs)
         changed = push_site_branch(site_dir, storage_branch)
         for detection_video_source, detection_video_target in deploy_detection_videos:
             shutil.copy2(detection_video_source, detection_video_target)
+        if deploy_detection_videos:
+            write_report_page(target, site_dir, title, meta_html, runs)
         set_output("deploy", "true" if changed or deploy_detection_videos else "false")
 
 
