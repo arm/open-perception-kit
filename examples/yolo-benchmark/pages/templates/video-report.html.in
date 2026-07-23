@@ -14,7 +14,7 @@
           <p>Video SHA-256: <code>${video_sha256}</code> | <a href="video-source.json">source manifest</a>${summary_links}</p>
         </section>
       </section>
-      <section class="report-section" id="summary">
+${detection_video_section}      <section class="report-section" id="summary">
         <div class="report-section-heading"><h2>Median throughput</h2></div>
         <section class="section-card">${summary_table}</section>
       </section>

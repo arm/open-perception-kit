@@ -270,13 +270,17 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             self.assertNotIn("Dataset Analysis", html)
             self.assertNotIn('href="summary.json"', html)
             self.assertNotIn('href="summary.md"', html)
+            self.assertNotIn('src="pek-detections.mp4"', html)
 
             (target / "summary.json").touch()
             (target / "summary.md").touch()
+            (target / "pek-detections.mp4").touch()
             publish.write_report_page(target, site_dir, "Manual run 123", "Manual", runs)
             html = (target / "index.html").read_text(encoding="utf-8")
             self.assertIn('href="summary.json"', html)
             self.assertIn('href="summary.md"', html)
+            self.assertIn('src="pek-detections.mp4"', html)
+            self.assertIn('href="pek-detections.mp4"', html)
 
     def test_select_target_supports_manual_reports(self) -> None:
         with patch.dict(os.environ, {"UPSTREAM_RUN_ID": "123"}):
@@ -310,6 +314,51 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
 
             set_output.assert_called_once_with("deploy", "false")
             checkout.assert_not_called()
+
+    def test_publish_report_keeps_detection_video_out_of_storage_push(self) -> None:
+        def write_artifact(destination: Path, *_args: object) -> bool:
+            artifact = destination / "yolo-benchmark"
+            run_dir = artifact / "runs" / "run-01"
+            run_dir.mkdir(parents=True)
+            (run_dir / "comparison.json").write_text(
+                json.dumps(video_comparison()), encoding="utf-8"
+            )
+            (artifact / "pek-detections.mp4").write_bytes(b"video")
+            return True
+
+        def checkout(path: Path, _storage_branch: str) -> None:
+            path.mkdir(parents=True)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = Path(tmpdir) / "site"
+            target = site_dir / "yolo-benchmark" / "manual" / "123"
+
+            def push(_site_dir: Path, _storage_branch: str) -> bool:
+                self.assertFalse((target / "pek-detections.mp4").exists())
+                return False
+
+            env = {
+                "GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge",
+                "UPSTREAM_CONCLUSION": "success",
+                "UPSTREAM_EVENT": "workflow_dispatch",
+                "UPSTREAM_HEAD_BRANCH": "feature/test",
+                "UPSTREAM_HEAD_SHA": "a" * 40,
+                "UPSTREAM_RUN_ATTEMPT": "1",
+                "UPSTREAM_RUN_ID": "123",
+            }
+            with patch.dict(os.environ, env, clear=True), \
+                    patch.object(publish, "download_report_artifact", side_effect=write_artifact), \
+                    patch.object(publish, "checkout_site_branch", side_effect=checkout), \
+                    patch.object(publish, "push_site_branch", side_effect=push), \
+                    patch.object(publish, "set_output") as set_output:
+                publish.publish_report(site_dir, "pages")
+
+            self.assertEqual((target / "pek-detections.mp4").read_bytes(), b"video")
+            self.assertIn(
+                'src="pek-detections.mp4"',
+                (target / "index.html").read_text(encoding="utf-8"),
+            )
+            set_output.assert_called_once_with("deploy", "true")
 
     def test_write_yolo_index_generates_index_for_existing_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -441,7 +490,7 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
                 path = run_dir / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text("data", encoding="utf-8")
-            for name in ("summary.json", "summary.md", "video-source.json"):
+            for name in ("summary.json", "summary.md", "video-source.json", "pek-detections.mp4"):
                 (artifact / name).write_text("data", encoding="utf-8")
 
             target = root / "site"
@@ -450,6 +499,7 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             self.assertTrue((target / "runs" / "run-01" / "comparison.json").is_file())
             self.assertTrue((target / "summary.json").is_file())
             self.assertTrue((target / "video-source.json").is_file())
+            self.assertTrue((target / "pek-detections.mp4").is_file())
             self.assertFalse((target / "runs" / "run-01" / "bare" / "predictions.jsonl").exists())
             self.assertFalse((target / "runs" / "run-01" / "bare" / "timings.jsonl").exists())
 
@@ -461,7 +511,10 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             ignored = ignore(str(root), ["images.tsv", "runs", ".venv", "pek-build", "comparison.json"])
 
             self.assertEqual(ignored, {".venv", "pek-build", "comparison.json"})
-            self.assertEqual(ignore(str(root), ["video-source.json", "summary.json", "summary.md"]), set())
+            self.assertEqual(
+                ignore(str(root), ["video-source.json", "summary.json", "summary.md", "pek-detections.mp4"]),
+                set(),
+            )
             self.assertEqual(ignore(str(root / "runs" / "run-01"),
                                     ["predictions.jsonl", "timings.jsonl", "comparison.json"]),
                              {"predictions.jsonl"})

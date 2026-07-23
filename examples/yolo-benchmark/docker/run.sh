@@ -218,6 +218,21 @@ run_in_container() {
             --summary "${run_root}/pek/benchmark_summary.json"
     }
 
+    render_pek_detection_video() {
+        local output="${artifact_root}/pek-detections.mp4"
+        local temporary="/tmp/pek-detections.mp4"
+        rm -f "${output}" "${temporary}"
+        gst-launch-1.0 -e -q \
+            filesrc location="${video}" ! \
+            decodebin ! videoconvert ! video/x-raw,format=BGRA ! \
+            pekinfer opchain-path="${opchain}" active=true ! \
+            pekosd enabled=true ! videoconvert ! video/x-raw,format=I420 ! \
+            x264enc speed-preset=ultrafast tune=zerolatency bitrate=6000 key-int-max=30 ! \
+            h264parse ! mp4mux faststart=true ! filesink location="${temporary}"
+        test -s "${temporary}"
+        mv "${temporary}" "${output}"
+    }
+
     benchmark_video_once() {
         local run_root="$1"
         local run_index="$2"
@@ -258,6 +273,7 @@ run_in_container() {
                 --runs-root "${artifact_root}/runs" \
                 --output-json "${artifact_root}/summary.json" \
                 --output-md "${artifact_root}/summary.md"
+            render_pek_detection_video
         fi
     }
 

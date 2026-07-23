@@ -22,6 +22,10 @@ post-processing, result serialization, and delivery. Artifact writing is
 outside the timed region. Playback is unpaced, so the source's 30 FPS
 timestamps do not cap the measured throughput.
 
+After timing completes, video mode runs one separate PEK visualization pass
+through `pekinfer ! pekosd` and writes `pek-detections.mp4`. Rendering and H.264
+encoding are not part of the reported FPS.
+
 The input is MediaPipe's object-detection `test_video.mp4`, Copyright 2019 The
 MediaPipe Authors, licensed under Apache-2.0. The helper downloads it from the
 [MediaPipe repository at pinned revision
@@ -91,7 +95,8 @@ runs/run-XX/{comparison.json,comparison.md}
 
 Video mode writes `video-source.json`, per-run Bare/PEK summaries and
 comparisons, plus top-level `summary.json` and `summary.md` containing median
-FPS.
+FPS. The top-level `pek-detections.mp4` contains the PEK detection overlay.
+
 ## Pages
 
 The Pages publisher consumes the benchmark Actions artifact and publishes under

@@ -49,6 +49,7 @@ FINGERPRINT_HEADER = "# image_set_fingerprint="
 PERCENTILE_METRICS = ("p50_ms", "p75_ms", "p95_ms", "p99_ms")
 RUN_METRICS = ("avg_ms", *PERCENTILE_METRICS)
 VIDEO_COMPARISON_SCHEMA = "expkits_yolo_video_comparison.v1"
+PEK_DETECTION_VIDEO = "pek-detections.mp4"
 IMAGE_STAGE_METRICS = (
     ("preprocess_ms", "Preprocess"),
     ("inference_ms", "Inference"),
@@ -265,6 +266,7 @@ def local_artifact_ignore(root: Path):
         if Path(directory).resolve() == root:
             ignored.update(name for name in names if name not in {
                 "images.tsv", "runs", "summary.json", "summary.md", "video-source.json",
+                PEK_DETECTION_VIDEO,
             })
         return ignored
 
@@ -430,7 +432,7 @@ def write_selected_artifacts(artifact_root: Path, target: Path, runs: list[dict[
         shutil.rmtree(target)
     target.mkdir(parents=True)
 
-    for name in ("images.tsv", "summary.json", "summary.md", "video-source.json"):
+    for name in ("images.tsv", "summary.json", "summary.md", "video-source.json", PEK_DETECTION_VIDEO):
         source = artifact_root / name
         if source.is_file():
             shutil.copy2(source, target / name)
@@ -1329,6 +1331,20 @@ def write_video_report_page(
     inputs = comparison["inputs"]
     measurement = comparison["measurement"]
     back_href = rel_to_report_root(target, site_dir)
+    detection_video_section = ""
+    if (target / PEK_DETECTION_VIDEO).is_file():
+        detection_video_section = (
+            '      <section class="report-section" id="detections">\n'
+            '        <div class="report-section-heading"><h2>PEK detections</h2></div>\n'
+            '        <section class="section-card">\n'
+            f'          <video class="detection-video" controls preload="metadata" playsinline '
+            f'width="{html_escape(inputs["source_width"])}" height="{html_escape(inputs["source_height"])}" '
+            f'src="{PEK_DETECTION_VIDEO}"></video>\n'
+            f'          <p><a href="{PEK_DETECTION_VIDEO}">Download MP4</a>. '
+            'Rendered in a separate pass after the timed benchmark.</p>\n'
+            '        </section>\n'
+            '      </section>\n'
+        )
     body = render_template(
         "video-report.html.in",
         {
@@ -1351,6 +1367,7 @@ def write_video_report_page(
                 for name, label in (("summary.json", "report JSON"), ("summary.md", "report Markdown"))
                 if (target / name).is_file()
             ),
+            "detection_video_section": detection_video_section,
             "summary_table": write_video_summary_table(runs),
             "runs_table": write_video_runs_table(runs),
         },
@@ -1546,8 +1563,15 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
         write_yolo_index(site_dir, repository)
         (site_dir / ".nojekyll").touch()
 
+        detection_video_source = artifact_root / PEK_DETECTION_VIDEO
+        detection_video_target = target / PEK_DETECTION_VIDEO
+        deploy_detection_video = detection_video_target.is_file()
+        if deploy_detection_video:
+            detection_video_target.unlink()
         changed = push_site_branch(site_dir, storage_branch)
-        set_output("deploy", "true" if changed else "false")
+        if deploy_detection_video:
+            shutil.copy2(detection_video_source, detection_video_target)
+        set_output("deploy", "true" if changed or deploy_detection_video else "false")
 
 
 def cleanup_closed_pr_reports(site_dir: Path, storage_branch: str, retention_days: int) -> None:
