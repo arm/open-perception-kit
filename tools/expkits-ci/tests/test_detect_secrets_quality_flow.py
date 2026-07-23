@@ -217,6 +217,28 @@ class DetectSecretsQualityFlowTests(unittest.TestCase):
 
 
 class StaticQualityConfigTests(unittest.TestCase):
+    @staticmethod
+    def pre_commit_hook_block(config, hook_id):
+        marker = f"      - id: {hook_id}\n"
+        hook_config = config.split(marker, maxsplit=1)[1]
+        return hook_config.split("      - id: ", maxsplit=1)[0]
+
+    def test_pre_commit_hooks_are_restricted_to_their_intended_stages(self):
+        pre_commit = PRE_COMMIT_CONFIG.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "stages: [pre-commit]",
+            self.pre_commit_hook_block(pre_commit, "branch-naming"),
+        )
+        self.assertIn(
+            "stages: [commit-msg]",
+            self.pre_commit_hook_block(pre_commit, "commit-msg"),
+        )
+        self.assertIn(
+            "stages: [pre-commit]",
+            self.pre_commit_hook_block(pre_commit, "pre-commit-checks"),
+        )
+
     def test_repo_configs_enable_secret_scan_and_quality_report_artifacts(self):
         pre_commit = PRE_COMMIT_CONFIG.read_text(encoding="utf-8")
         compose = CI_COMPOSE_FILE.read_text(encoding="utf-8")

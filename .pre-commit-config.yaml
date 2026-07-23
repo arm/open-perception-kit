@@ -5,6 +5,7 @@ repos:
         name: Branch Naming Convention
         entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --branch-naming --list-of-files "$@"' _
         language: system
+        stages: [pre-commit]
       - id: commit-msg
         name: Commit Message Format
         entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --commit-msg --list-of-files "$@"' _
@@ -14,3 +15,4 @@ repos:
         name: Pre-commit checks
         entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --pre-commit-fix --list-of-files "$@"' _
         language: system
+        stages: [pre-commit]
