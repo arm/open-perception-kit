@@ -71,7 +71,7 @@ class AgentRuntimeRepoToolTests(unittest.TestCase):
             os.environ,
             {
                 "OPENAI_API_KEY": "openai-test-value",  # pragma: allowlist secret
-                "OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS": "proxy-test-value",  # pragma: allowlist secret
+                "OPENAI_PROXY_TOKEN": "proxy-test-value",  # pragma: allowlist secret
                 "GITHUB_TOKEN": "github-test-value",  # pragma: allowlist secret
                 "GITHUB_HEAD_REF": "untrusted-pr-head",
                 "ARTIFACTORY_KEY": "artifactory-test-value",  # pragma: allowlist secret
