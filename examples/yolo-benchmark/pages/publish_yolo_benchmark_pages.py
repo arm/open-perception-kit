@@ -49,7 +49,9 @@ FINGERPRINT_HEADER = "# image_set_fingerprint="
 PERCENTILE_METRICS = ("p50_ms", "p75_ms", "p95_ms", "p99_ms")
 RUN_METRICS = ("avg_ms", *PERCENTILE_METRICS)
 VIDEO_COMPARISON_SCHEMA = "expkits_yolo_video_comparison.v1"
+BARE_DETECTION_VIDEO = "bare-detections.mp4"
 PEK_DETECTION_VIDEO = "pek-detections.mp4"
+DETECTION_VIDEOS = (BARE_DETECTION_VIDEO, PEK_DETECTION_VIDEO)
 IMAGE_STAGE_METRICS = (
     ("preprocess_ms", "Preprocess"),
     ("inference_ms", "Inference"),
@@ -266,7 +268,7 @@ def local_artifact_ignore(root: Path):
         if Path(directory).resolve() == root:
             ignored.update(name for name in names if name not in {
                 "images.tsv", "runs", "summary.json", "summary.md", "video-source.json",
-                PEK_DETECTION_VIDEO,
+                *DETECTION_VIDEOS,
             })
         return ignored
 
@@ -432,7 +434,7 @@ def write_selected_artifacts(artifact_root: Path, target: Path, runs: list[dict[
         shutil.rmtree(target)
     target.mkdir(parents=True)
 
-    for name in ("images.tsv", "summary.json", "summary.md", "video-source.json", PEK_DETECTION_VIDEO):
+    for name in ("images.tsv", "summary.json", "summary.md", "video-source.json", *DETECTION_VIDEOS):
         source = artifact_root / name
         if source.is_file():
             shutil.copy2(source, target / name)
@@ -1331,18 +1333,28 @@ def write_video_report_page(
     inputs = comparison["inputs"]
     measurement = comparison["measurement"]
     back_href = rel_to_report_root(target, site_dir)
+    detection_videos = [
+        (label, filename)
+        for label, filename in (("Bare / Ultralytics", BARE_DETECTION_VIDEO), ("PEK", PEK_DETECTION_VIDEO))
+        if (target / filename).is_file()
+    ]
     detection_video_section = ""
-    if (target / PEK_DETECTION_VIDEO).is_file():
-        detection_video_section = (
-            '      <section class="report-section" id="detections">\n'
-            '        <div class="report-section-heading"><h2>PEK detections</h2></div>\n'
+    if detection_videos:
+        video_cards = "".join(
             '        <section class="section-card">\n'
+            f'          <h3>{label}</h3>\n'
             f'          <video class="detection-video" controls preload="metadata" playsinline '
             f'width="{html_escape(inputs["source_width"])}" height="{html_escape(inputs["source_height"])}" '
-            f'src="{PEK_DETECTION_VIDEO}"></video>\n'
-            f'          <p><a href="{PEK_DETECTION_VIDEO}">Download MP4</a>. '
+            f'src="{filename}"></video>\n'
+            f'          <p><a href="{filename}">Download MP4</a>. '
             'Rendered in a separate pass after the timed benchmark.</p>\n'
             '        </section>\n'
+            for label, filename in detection_videos
+        )
+        detection_video_section = (
+            '      <section class="report-section" id="detections">\n'
+            '        <div class="report-section-heading"><h2>Detection videos</h2></div>\n'
+            f'{video_cards}'
             '      </section>\n'
         )
     body = render_template(
@@ -1563,15 +1575,17 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
         write_yolo_index(site_dir, repository)
         (site_dir / ".nojekyll").touch()
 
-        detection_video_source = artifact_root / PEK_DETECTION_VIDEO
-        detection_video_target = target / PEK_DETECTION_VIDEO
-        deploy_detection_video = detection_video_target.is_file()
-        if deploy_detection_video:
+        deploy_detection_videos = [
+            (artifact_root / filename, target / filename)
+            for filename in DETECTION_VIDEOS
+            if (target / filename).is_file()
+        ]
+        for _, detection_video_target in deploy_detection_videos:
             detection_video_target.unlink()
         changed = push_site_branch(site_dir, storage_branch)
-        if deploy_detection_video:
+        for detection_video_source, detection_video_target in deploy_detection_videos:
             shutil.copy2(detection_video_source, detection_video_target)
-        set_output("deploy", "true" if changed or deploy_detection_video else "false")
+        set_output("deploy", "true" if changed or deploy_detection_videos else "false")
 
 
 def cleanup_closed_pr_reports(site_dir: Path, storage_branch: str, retention_days: int) -> None:

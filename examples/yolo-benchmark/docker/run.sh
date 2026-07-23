@@ -218,6 +218,28 @@ run_in_container() {
             --summary "${run_root}/pek/benchmark_summary.json"
     }
 
+    render_bare_detection_video() {
+        local output="${artifact_root}/bare-detections.mp4"
+        local temporary_dir="/tmp/bare-detection-render"
+        local temporary="/tmp/bare-detections.mp4"
+        local rendered="${temporary_dir}/prediction/$(basename "${video%.*}").avi"
+        rm -rf "${temporary_dir}"
+        rm -f "${output}" "${temporary}"
+        LD_LIBRARY_PATH="" yolo detect predict \
+            model="${model}" source="${video}" imgsz=320 device=cpu batch=1 vid_stride=1 \
+            conf=0.25 save=true project="${temporary_dir}" name=prediction \
+            exist_ok=true verbose=false
+        test -s "${rendered}"
+        gst-launch-1.0 -e -q \
+            filesrc location="${rendered}" ! \
+            decodebin ! videoconvert ! video/x-raw,format=I420 ! \
+            x264enc speed-preset=ultrafast tune=zerolatency bitrate=6000 key-int-max=30 ! \
+            h264parse ! mp4mux faststart=true ! filesink location="${temporary}"
+        test -s "${temporary}"
+        mv "${temporary}" "${output}"
+        rm -rf "${temporary_dir}"
+    }
+
     render_pek_detection_video() {
         local output="${artifact_root}/pek-detections.mp4"
         local temporary="/tmp/pek-detections.mp4"
@@ -273,6 +295,7 @@ run_in_container() {
                 --runs-root "${artifact_root}/runs" \
                 --output-json "${artifact_root}/summary.json" \
                 --output-md "${artifact_root}/summary.md"
+            render_bare_detection_video
             render_pek_detection_video
         fi
     }

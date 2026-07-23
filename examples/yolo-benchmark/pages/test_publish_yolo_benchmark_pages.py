@@ -270,15 +270,21 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             self.assertNotIn("Dataset Analysis", html)
             self.assertNotIn('href="summary.json"', html)
             self.assertNotIn('href="summary.md"', html)
+            self.assertNotIn('src="bare-detections.mp4"', html)
             self.assertNotIn('src="pek-detections.mp4"', html)
 
             (target / "summary.json").touch()
             (target / "summary.md").touch()
+            (target / "bare-detections.mp4").touch()
             (target / "pek-detections.mp4").touch()
             publish.write_report_page(target, site_dir, "Manual run 123", "Manual", runs)
             html = (target / "index.html").read_text(encoding="utf-8")
             self.assertIn('href="summary.json"', html)
             self.assertIn('href="summary.md"', html)
+            self.assertIn("Detection videos", html)
+            self.assertIn("Bare / Ultralytics", html)
+            self.assertIn('src="bare-detections.mp4"', html)
+            self.assertIn('href="bare-detections.mp4"', html)
             self.assertIn('src="pek-detections.mp4"', html)
             self.assertIn('href="pek-detections.mp4"', html)
 
@@ -315,7 +321,7 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             set_output.assert_called_once_with("deploy", "false")
             checkout.assert_not_called()
 
-    def test_publish_report_keeps_detection_video_out_of_storage_push(self) -> None:
+    def test_publish_report_keeps_detection_videos_out_of_storage_push(self) -> None:
         def write_artifact(destination: Path, *_args: object) -> bool:
             artifact = destination / "yolo-benchmark"
             run_dir = artifact / "runs" / "run-01"
@@ -323,7 +329,8 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             (run_dir / "comparison.json").write_text(
                 json.dumps(video_comparison()), encoding="utf-8"
             )
-            (artifact / "pek-detections.mp4").write_bytes(b"video")
+            (artifact / "bare-detections.mp4").write_bytes(b"bare-video")
+            (artifact / "pek-detections.mp4").write_bytes(b"pek-video")
             return True
 
         def checkout(path: Path, _storage_branch: str) -> None:
@@ -334,6 +341,7 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             target = site_dir / "yolo-benchmark" / "manual" / "123"
 
             def push(_site_dir: Path, _storage_branch: str) -> bool:
+                self.assertFalse((target / "bare-detections.mp4").exists())
                 self.assertFalse((target / "pek-detections.mp4").exists())
                 return False
 
@@ -353,7 +361,12 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
                     patch.object(publish, "set_output") as set_output:
                 publish.publish_report(site_dir, "pages")
 
-            self.assertEqual((target / "pek-detections.mp4").read_bytes(), b"video")
+            self.assertEqual((target / "bare-detections.mp4").read_bytes(), b"bare-video")
+            self.assertEqual((target / "pek-detections.mp4").read_bytes(), b"pek-video")
+            self.assertIn(
+                'src="bare-detections.mp4"',
+                (target / "index.html").read_text(encoding="utf-8"),
+            )
             self.assertIn(
                 'src="pek-detections.mp4"',
                 (target / "index.html").read_text(encoding="utf-8"),
@@ -490,7 +503,10 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
                 path = run_dir / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text("data", encoding="utf-8")
-            for name in ("summary.json", "summary.md", "video-source.json", "pek-detections.mp4"):
+            for name in (
+                "summary.json", "summary.md", "video-source.json",
+                "bare-detections.mp4", "pek-detections.mp4",
+            ):
                 (artifact / name).write_text("data", encoding="utf-8")
 
             target = root / "site"
@@ -499,6 +515,7 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             self.assertTrue((target / "runs" / "run-01" / "comparison.json").is_file())
             self.assertTrue((target / "summary.json").is_file())
             self.assertTrue((target / "video-source.json").is_file())
+            self.assertTrue((target / "bare-detections.mp4").is_file())
             self.assertTrue((target / "pek-detections.mp4").is_file())
             self.assertFalse((target / "runs" / "run-01" / "bare" / "predictions.jsonl").exists())
             self.assertFalse((target / "runs" / "run-01" / "bare" / "timings.jsonl").exists())
@@ -512,7 +529,10 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
 
             self.assertEqual(ignored, {".venv", "pek-build", "comparison.json"})
             self.assertEqual(
-                ignore(str(root), ["video-source.json", "summary.json", "summary.md", "pek-detections.mp4"]),
+                ignore(str(root), [
+                    "video-source.json", "summary.json", "summary.md",
+                    "bare-detections.mp4", "pek-detections.mp4",
+                ]),
                 set(),
             )
             self.assertEqual(ignore(str(root / "runs" / "run-01"),
