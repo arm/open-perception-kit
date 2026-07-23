@@ -41,6 +41,7 @@ jobs:
       actions: read
       contents: read
       issues: read
+      pull-requests: read
     outputs:
       should_run: ${{ steps.resolve.outputs.should_run }}
       skip_reason: ${{ steps.resolve.outputs.skip_reason }}
