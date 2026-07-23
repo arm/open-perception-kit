@@ -162,13 +162,13 @@ class PekInferLazySetupTest(unittest.TestCase):
                 test_directory,
                 "blocking-model-load",
             )
-            materialization_started = test_directory / "materialization-started"
+            materialization_entered = test_directory / "materialization-entered"
             op_setup_started = test_directory / "op-setup-started"
             release = test_directory / "setup-release"
             output = test_directory / "frame.raw"
             environment = self.pipeline_environment(test_directory)
             environment["PEK_MODELFETCH_FAKE_MODE"] = "blocking"
-            environment["PEK_MODELFETCH_FAKE_STARTED"] = str(materialization_started)
+            environment["PEK_MODELFETCH_FAKE_ENTERED"] = str(materialization_entered)
             environment["PEK_TEST_BLOCKING_SETUP_STARTED"] = str(op_setup_started)
             environment["PEK_TEST_BLOCKING_SETUP_RELEASE"] = str(release)
             process = subprocess.Popen(
@@ -200,7 +200,7 @@ class PekInferLazySetupTest(unittest.TestCase):
                 deadline = time.monotonic() + 5
                 while time.monotonic() < deadline:
                     frame_was_forwarded = output.exists() and output.stat().st_size > 0
-                    if materialization_started.exists() and frame_was_forwarded:
+                    if materialization_entered.exists() and frame_was_forwarded:
                         break
                     if process.poll() is not None:
                         stdout, stderr = process.communicate()
@@ -235,12 +235,12 @@ class PekInferLazySetupTest(unittest.TestCase):
                 test_directory,
                 "cancel-model-load",
             )
-            materialization_started = test_directory / "materialization-started"
+            materialization_entered = test_directory / "materialization-entered"
             op_setup_started = test_directory / "op-setup-started"
             op_setup_release = test_directory / "op-setup-release"
             environment = self.pipeline_environment(test_directory)
             environment["PEK_MODELFETCH_FAKE_MODE"] = "blocking"
-            environment["PEK_MODELFETCH_FAKE_STARTED"] = str(materialization_started)
+            environment["PEK_MODELFETCH_FAKE_ENTERED"] = str(materialization_entered)
             environment["PEK_TEST_BLOCKING_SETUP_STARTED"] = str(op_setup_started)
             environment["PEK_TEST_BLOCKING_SETUP_RELEASE"] = str(op_setup_release)
 
@@ -269,8 +269,8 @@ class PekInferLazySetupTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue(
-                materialization_started.exists(),
-                "model materialization did not start",
+                materialization_entered.exists(),
+                "model materialization was not entered",
             )
             self.assertFalse(
                 op_setup_started.exists(),
@@ -311,10 +311,10 @@ class PekInferLazySetupTest(unittest.TestCase):
                     str(GST_LAUNCH),
                     "-q",
                     "videotestsrc",
-                    "num-buffers=60",
+                    "num-buffers=180",
                     "is-live=true",
                     "!",
-                    "video/x-raw,format=BGRA,width=16,height=16",
+                    "video/x-raw,format=BGRA,width=16,height=16,framerate=60/1",
                     "!",
                     "pekinfer",
                     f"opchain-path={opchain_descriptor}",

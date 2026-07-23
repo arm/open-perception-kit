@@ -93,6 +93,45 @@ static const char *fake_mode(void) {
     return mode == NULL ? "downloaded" : mode;
 }
 
+static unsigned long fake_delay_ms(const char *environment_name, unsigned long fallback) {
+    const char *value = getenv(environment_name);
+    if (value == NULL || *value == '\0')
+        return fallback;
+
+    char *end = NULL;
+    const unsigned long delay = strtoul(value, &end, 10);
+    if (end == value || *end != '\0' || delay > 5000UL)
+        return fallback;
+    return delay;
+}
+
+static void sleep_for_delay(const char *environment_name, unsigned long fallback) {
+    const unsigned long delay_ms = fake_delay_ms(environment_name, fallback);
+    if (delay_ms == 0UL) {
+        thrd_yield();
+        return;
+    }
+
+    const struct timespec interval = {
+        (time_t)(delay_ms / 1000UL),
+        (long)((delay_ms % 1000UL) * 1000000UL),
+    };
+    thrd_sleep(&interval, NULL);
+}
+
+static modelfetch_status_t write_marker(const char *environment_name, const char *contents) {
+    const char *marker_path = getenv(environment_name);
+    if (marker_path == NULL)
+        return MODELFETCH_STATUS_OK;
+
+    FILE *marker = fopen(marker_path, "w");
+    if (marker == NULL)
+        return MODELFETCH_STATUS_INTERNAL_PANIC;
+    fputs(contents, marker);
+    fclose(marker);
+    return MODELFETCH_STATUS_OK;
+}
+
 static modelfetch_status_t record_download_call(void) {
     const char *calls_path = getenv("PEK_MODELFETCH_FAKE_CALLS");
     if (calls_path == NULL)
@@ -221,11 +260,17 @@ modelfetch_service_download_asset_requests(const modelfetch_service_t *service,
     *out = NULL;
     if (error_out != NULL)
         *error_out = NULL;
+    const modelfetch_status_t entered_status =
+        write_marker("PEK_MODELFETCH_FAKE_ENTERED", "entered\n");
+    if (entered_status != MODELFETCH_STATUS_OK)
+        return entered_status;
     const modelfetch_status_t record_status = record_download_call();
     if (record_status != MODELFETCH_STATUS_OK)
         return record_status;
     if (strcmp(fake_mode(), "api-failure") == 0)
         return fail_with(error_out, "fake access failure");
+
+    sleep_for_delay("PEK_MODELFETCH_FAKE_INITIAL_DELAY_MS", 0UL);
 
     struct modelfetch_progress_event progress = {
         requests->asset_id,
@@ -245,20 +290,11 @@ modelfetch_service_download_asset_requests(const modelfetch_service_t *service,
     progress.percentage = 50.0;
 
     if (strcmp(fake_mode(), "blocking") == 0) {
-        const char *started_path = getenv("PEK_MODELFETCH_FAKE_STARTED");
-        if (started_path != NULL) {
-            FILE *started = fopen(started_path, "w");
-            if (started == NULL)
-                return MODELFETCH_STATUS_INTERNAL_PANIC;
-            fputs("started\n", started);
-            fclose(started);
-        }
         if (callback == NULL)
             return fail_with(error_out, "blocking fake requires a progress callback");
 
-        const struct timespec interval = {0, 10000000L};
         for (;;) {
-            thrd_sleep(&interval, NULL);
+            sleep_for_delay("PEK_MODELFETCH_FAKE_PROGRESS_INTERVAL_MS", 10UL);
             progress_status = emit_progress(callback, user_data, &progress);
             if (progress_status != MODELFETCH_STATUS_OK)
                 return progress_status;
@@ -268,6 +304,8 @@ modelfetch_service_download_asset_requests(const modelfetch_service_t *service,
     progress_status = emit_progress(callback, user_data, &progress);
     if (progress_status != MODELFETCH_STATUS_OK)
         return progress_status;
+
+    sleep_for_delay("PEK_MODELFETCH_FAKE_COMPLETION_DELAY_MS", 0UL);
 
     *out = calloc(1U, sizeof(**out));
     if (*out == NULL)
