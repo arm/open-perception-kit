@@ -7,11 +7,15 @@
 #include <filesystem>
 #include <fstream>
 #include <optional>
+#include <stdexcept>
+#include <stop_token>
 #include <string>
 #include <unistd.h>
+#include <vector>
 
 #include <glib.h>
 
+#include "op/OpSetupContext.h"
 #include "pek/ModelDescriptor.h"
 
 namespace fs = std::filesystem;
@@ -20,6 +24,7 @@ namespace {
 
 constexpr const char *FakeModeEnvironment = "PEK_MODELFETCH_FAKE_MODE";
 constexpr const char *FakeEscapePathEnvironment = "PEK_MODELFETCH_FAKE_ESCAPE_PATH";
+constexpr const char *FakeCallsEnvironment = "PEK_MODELFETCH_FAKE_CALLS";
 
 class TemporaryDirectory {
   public:
@@ -98,6 +103,15 @@ class PublishedModelFixture {
     fs::path directory;
 };
 
+size_t countRecordedCalls(const fs::path &path) {
+    std::ifstream calls(path);
+    size_t count = 0;
+    std::string line;
+    while (std::getline(calls, line))
+        ++count;
+    return count;
+}
+
 } // namespace
 
 TEST(ModelDescriptor, ModelFileRoundTrips) {
@@ -151,6 +165,88 @@ TEST(ModelDescriptor, FromFileAcceptsExistingVerifiedPublishedModel) {
 
     ASSERT_TRUE(descriptor.has_value()) << descriptor.error().toString();
     EXPECT_EQ(descriptor->modelFile, publishedModelPath(name).string());
+}
+
+TEST(ModelDescriptor, FromFileReportsModelMaterializationProgress) {
+    constexpr const char *name = "progress";
+    TemporaryDirectory temporary(name);
+    PublishedModelFixture model(name);
+    ScopedEnvironmentVariable mode(FakeModeEnvironment, "downloaded");
+    const fs::path descriptorPath = writeDescriptor(temporary.path, publishedAssetId(name));
+    std::vector<pek::ModelLoadProgress> progressEvents;
+    pek::ModelLoadContext loadContext;
+    loadContext.progress = [&progressEvents](const pek::ModelLoadProgress &progress) {
+        progressEvents.push_back(progress);
+    };
+
+    const auto descriptor = pek::ModelDescriptor::fromFile(descriptorPath.string(), loadContext);
+
+    ASSERT_TRUE(descriptor.has_value()) << descriptor.error().toString();
+    ASSERT_EQ(progressEvents.size(), 3U);
+    EXPECT_EQ(progressEvents.front().artifactId, publishedAssetId(name));
+    EXPECT_EQ(progressEvents.front().state, pek::ModelLoadProgressState::Started);
+    EXPECT_EQ(progressEvents[1].state, pek::ModelLoadProgressState::InProgress);
+    ASSERT_TRUE(progressEvents[1].transferredBytes.has_value());
+    ASSERT_TRUE(progressEvents[1].totalBytes.has_value());
+    ASSERT_TRUE(progressEvents[1].percentage.has_value());
+    EXPECT_EQ(*progressEvents[1].transferredBytes, "5");
+    EXPECT_EQ(*progressEvents[1].totalBytes, "10");
+    EXPECT_DOUBLE_EQ(*progressEvents[1].percentage, 50.0);
+    EXPECT_EQ(progressEvents.back().state, pek::ModelLoadProgressState::Completed);
+}
+
+TEST(ModelDescriptor, FromFileCooperativelyCancelsMaterialization) {
+    constexpr const char *name = "cancelled";
+    TemporaryDirectory temporary(name);
+    ScopedEnvironmentVariable mode(FakeModeEnvironment, "downloaded");
+    const fs::path descriptorPath = writeDescriptor(temporary.path, publishedAssetId(name));
+    std::stop_source stopSource;
+    pek::ModelLoadContext loadContext;
+    loadContext.stopToken = stopSource.get_token();
+    loadContext.progress = [&stopSource](const pek::ModelLoadProgress &) {
+        stopSource.request_stop();
+    };
+
+    const auto descriptor = pek::ModelDescriptor::fromFile(descriptorPath.string(), loadContext);
+
+    ASSERT_FALSE(descriptor.has_value());
+    EXPECT_EQ(descriptor.error().flag, pek::ErrorFlag::SystemFailure);
+    EXPECT_NE(descriptor.error().info.find("cancelled"), std::string::npos);
+}
+
+TEST(ModelDescriptor, FromFileHonorsCancellationBeforeMaterialization) {
+    constexpr const char *name = "cancelled-before-call";
+    TemporaryDirectory temporary(name);
+    const fs::path callsPath = temporary.path / "calls.log";
+    ScopedEnvironmentVariable calls(FakeCallsEnvironment, callsPath.string());
+    const fs::path descriptorPath = writeDescriptor(temporary.path, publishedAssetId(name));
+    std::stop_source stopSource;
+    stopSource.request_stop();
+    const pek::ModelLoadContext loadContext{.stopToken = stopSource.get_token(), .progress = {}};
+
+    const auto descriptor = pek::ModelDescriptor::fromFile(descriptorPath.string(), loadContext);
+
+    ASSERT_FALSE(descriptor.has_value());
+    EXPECT_EQ(descriptor.error().flag, pek::ErrorFlag::SystemFailure);
+    EXPECT_NE(descriptor.error().info.find("cancelled"), std::string::npos);
+    EXPECT_EQ(countRecordedCalls(callsPath), 0U);
+}
+
+TEST(ModelDescriptor, FromFileContainsProgressCallbackExceptions) {
+    constexpr const char *name = "callback-exception";
+    TemporaryDirectory temporary(name);
+    ScopedEnvironmentVariable mode(FakeModeEnvironment, "downloaded");
+    const fs::path descriptorPath = writeDescriptor(temporary.path, publishedAssetId(name));
+    pek::ModelLoadContext loadContext;
+    loadContext.progress = [](const pek::ModelLoadProgress &) {
+        throw std::runtime_error("test callback failure");
+    };
+
+    const auto descriptor = pek::ModelDescriptor::fromFile(descriptorPath.string(), loadContext);
+
+    ASSERT_FALSE(descriptor.has_value());
+    EXPECT_EQ(descriptor.error().flag, pek::ErrorFlag::SystemFailure);
+    EXPECT_NE(descriptor.error().info.find("progress callback failed"), std::string::npos);
 }
 
 TEST(ModelDescriptor, FromFileRejectsUnsafeLocalModelPath) {
@@ -253,4 +349,89 @@ TEST(ModelDescriptor, FromFileRejectsInvalidIntegrityToken) {
     const fs::path descriptorPath = writeDescriptor(temporary.path, publishedAssetId(name));
 
     EXPECT_FALSE(pek::ModelDescriptor::fromFile(descriptorPath.string()).has_value());
+}
+
+TEST(OpSetupContext, CachesSuccessfulDescriptorResolutionWithinOneSetup) {
+    constexpr const char *name = "setup-context-cache";
+    TemporaryDirectory temporary(name);
+    PublishedModelFixture model(name);
+    ScopedEnvironmentVariable mode(FakeModeEnvironment, "downloaded");
+    const fs::path callsPath = temporary.path / "calls.log";
+    ScopedEnvironmentVariable calls(FakeCallsEnvironment, callsPath.string());
+    const fs::path descriptorPath = writeDescriptor(temporary.path, publishedAssetId(name));
+    pek::op::OpSetupContext setupContext;
+
+    const auto first = setupContext.resolveModelDescriptor(descriptorPath.string());
+    const auto second = setupContext.resolveModelDescriptor(descriptorPath.string());
+
+    ASSERT_TRUE(first.has_value()) << first.error().toString();
+    ASSERT_TRUE(second.has_value()) << second.error().toString();
+    EXPECT_EQ(first->modelFile, second->modelFile);
+    EXPECT_EQ(countRecordedCalls(callsPath), 1U);
+}
+
+TEST(OpSetupContext, ResolvesDistinctDescriptorsIndependently) {
+    constexpr const char *firstName = "setup-context-first";
+    constexpr const char *secondName = "setup-context-second";
+    TemporaryDirectory temporary("setup-context-distinct");
+    const fs::path firstDirectory = temporary.path / "first";
+    const fs::path secondDirectory = temporary.path / "second";
+    fs::create_directories(firstDirectory);
+    fs::create_directories(secondDirectory);
+    PublishedModelFixture firstModel(firstName);
+    PublishedModelFixture secondModel(secondName);
+    ScopedEnvironmentVariable mode(FakeModeEnvironment, "downloaded");
+    const fs::path callsPath = temporary.path / "calls.log";
+    ScopedEnvironmentVariable calls(FakeCallsEnvironment, callsPath.string());
+    const fs::path firstDescriptor = writeDescriptor(firstDirectory, publishedAssetId(firstName));
+    const fs::path secondDescriptor =
+        writeDescriptor(secondDirectory, publishedAssetId(secondName));
+    pek::op::OpSetupContext setupContext;
+
+    const auto first = setupContext.resolveModelDescriptor(firstDescriptor.string());
+    const auto second = setupContext.resolveModelDescriptor(secondDescriptor.string());
+
+    ASSERT_TRUE(first.has_value()) << first.error().toString();
+    ASSERT_TRUE(second.has_value()) << second.error().toString();
+    EXPECT_NE(first->modelFile, second->modelFile);
+    EXPECT_EQ(countRecordedCalls(callsPath), 2U);
+}
+
+TEST(OpSetupContext, DoesNotCacheFailedDescriptorResolution) {
+    TemporaryDirectory temporary("setup-context-failure");
+    ScopedEnvironmentVariable mode(FakeModeEnvironment, "api-failure");
+    const fs::path callsPath = temporary.path / "calls.log";
+    ScopedEnvironmentVariable calls(FakeCallsEnvironment, callsPath.string());
+    const fs::path descriptorPath =
+        writeDescriptor(temporary.path, publishedAssetId("setup-context-failure"));
+    pek::op::OpSetupContext setupContext;
+
+    EXPECT_FALSE(setupContext.resolveModelDescriptor(descriptorPath.string()).has_value());
+    EXPECT_FALSE(setupContext.resolveModelDescriptor(descriptorPath.string()).has_value());
+    EXPECT_EQ(countRecordedCalls(callsPath), 2U);
+}
+
+TEST(OpSetupContext, CancelledResolutionCanBeRetriedByANewSetup) {
+    constexpr const char *name = "setup-context-cancel-retry";
+    TemporaryDirectory temporary(name);
+    PublishedModelFixture model(name);
+    ScopedEnvironmentVariable mode(FakeModeEnvironment, "downloaded");
+    const fs::path callsPath = temporary.path / "calls.log";
+    ScopedEnvironmentVariable calls(FakeCallsEnvironment, callsPath.string());
+    const fs::path descriptorPath = writeDescriptor(temporary.path, publishedAssetId(name));
+    std::stop_source stopSource;
+    pek::ModelLoadContext loadContext;
+    loadContext.stopToken = stopSource.get_token();
+    loadContext.progress = [&stopSource](const pek::ModelLoadProgress &) {
+        stopSource.request_stop();
+    };
+    pek::op::OpSetupContext cancelledSetup(loadContext);
+
+    const auto cancelled = cancelledSetup.resolveModelDescriptor(descriptorPath.string());
+    pek::op::OpSetupContext retrySetup;
+    const auto retried = retrySetup.resolveModelDescriptor(descriptorPath.string());
+
+    EXPECT_FALSE(cancelled.has_value());
+    ASSERT_TRUE(retried.has_value()) << retried.error().toString();
+    EXPECT_EQ(countRecordedCalls(callsPath), 2U);
 }

@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <threads.h>
+#include <time.h>
 
 struct modelfetch_service {
     int unused;
@@ -44,6 +46,20 @@ struct modelfetch_error {
     char *message;
 };
 
+struct modelfetch_big_uint {
+    const char *decimal;
+};
+
+struct modelfetch_progress_event {
+    const char *artifact_id;
+    modelfetch_progress_state_t state;
+    struct modelfetch_big_uint transferred_bytes;
+    struct modelfetch_big_uint total_bytes;
+    uint8_t bytes_present;
+    double percentage;
+    uint8_t percentage_present;
+};
+
 static const char VALID_INTEGRITY[] =
     "sha256:0000000000000000000000000000000000000000000000000000000000000000";
 static const char MISMATCHED_ASSET[] =
@@ -75,6 +91,27 @@ static modelfetch_status_t fail_with(modelfetch_error_t **error_out, const char 
 static const char *fake_mode(void) {
     const char *mode = getenv("PEK_MODELFETCH_FAKE_MODE");
     return mode == NULL ? "downloaded" : mode;
+}
+
+static modelfetch_status_t record_download_call(void) {
+    const char *calls_path = getenv("PEK_MODELFETCH_FAKE_CALLS");
+    if (calls_path == NULL)
+        return MODELFETCH_STATUS_OK;
+
+    FILE *calls = fopen(calls_path, "a");
+    if (calls == NULL)
+        return MODELFETCH_STATUS_INTERNAL_PANIC;
+    fputs("call\n", calls);
+    fclose(calls);
+    return MODELFETCH_STATUS_OK;
+}
+
+static modelfetch_status_t emit_progress(modelfetch_progress_callback_t callback,
+                                         void *user_data,
+                                         const modelfetch_progress_event_t *event) {
+    if (callback != NULL && callback(event, user_data) == MODELFETCH_CALLBACK_ABORT)
+        return MODELFETCH_STATUS_CALLBACK_ABORTED;
+    return MODELFETCH_STATUS_OK;
 }
 
 modelfetch_status_t modelfetch_service_new(modelfetch_service_t **out,
@@ -161,15 +198,58 @@ modelfetch_service_download_asset_requests(const modelfetch_service_t *service,
                                            void *user_data,
                                            modelfetch_outcome_list_t **out,
                                            modelfetch_error_t **error_out) {
-    (void)callback;
-    (void)user_data;
     if (service == NULL || requests == NULL || out == NULL)
         return MODELFETCH_STATUS_INVALID_ARGUMENT;
     *out = NULL;
     if (error_out != NULL)
         *error_out = NULL;
+    const modelfetch_status_t record_status = record_download_call();
+    if (record_status != MODELFETCH_STATUS_OK)
+        return record_status;
     if (strcmp(fake_mode(), "api-failure") == 0)
         return fail_with(error_out, "fake access failure");
+
+    struct modelfetch_progress_event progress = {
+        requests->asset_id,
+        MODELFETCH_PROGRESS_STARTED,
+        {"0"},
+        {"10"},
+        1U,
+        0.0,
+        1U,
+    };
+    modelfetch_status_t progress_status = emit_progress(callback, user_data, &progress);
+    if (progress_status != MODELFETCH_STATUS_OK)
+        return progress_status;
+
+    progress.state = MODELFETCH_PROGRESS_IN_PROGRESS;
+    progress.transferred_bytes.decimal = "5";
+    progress.percentage = 50.0;
+
+    if (strcmp(fake_mode(), "blocking") == 0) {
+        const char *started_path = getenv("PEK_MODELFETCH_FAKE_STARTED");
+        if (started_path != NULL) {
+            FILE *started = fopen(started_path, "w");
+            if (started == NULL)
+                return MODELFETCH_STATUS_INTERNAL_PANIC;
+            fputs("started\n", started);
+            fclose(started);
+        }
+        if (callback == NULL)
+            return fail_with(error_out, "blocking fake requires a progress callback");
+
+        const struct timespec interval = {0, 10000000L};
+        for (;;) {
+            thrd_sleep(&interval, NULL);
+            progress_status = emit_progress(callback, user_data, &progress);
+            if (progress_status != MODELFETCH_STATUS_OK)
+                return progress_status;
+        }
+    }
+
+    progress_status = emit_progress(callback, user_data, &progress);
+    if (progress_status != MODELFETCH_STATUS_OK)
+        return progress_status;
 
     *out = calloc(1U, sizeof(**out));
     if (*out == NULL)
@@ -207,6 +287,16 @@ modelfetch_service_download_asset_requests(const modelfetch_service_t *service,
         modelfetch_outcome_list_free(*out);
         *out = NULL;
         return MODELFETCH_STATUS_INTERNAL_PANIC;
+    }
+
+    progress.state = MODELFETCH_PROGRESS_COMPLETED;
+    progress.transferred_bytes.decimal = "10";
+    progress.percentage = 100.0;
+    progress_status = emit_progress(callback, user_data, &progress);
+    if (progress_status != MODELFETCH_STATUS_OK) {
+        modelfetch_outcome_list_free(*out);
+        *out = NULL;
+        return progress_status;
     }
     return MODELFETCH_STATUS_OK;
 }
@@ -319,4 +409,61 @@ void modelfetch_error_free(modelfetch_error_t *value) {
         return;
     free(value->message);
     free(value);
+}
+
+modelfetch_status_t modelfetch_progress_event_artifact_id(const modelfetch_progress_event_t *value,
+                                                          modelfetch_text_view_t *out) {
+    if (value == NULL || out == NULL)
+        return MODELFETCH_STATUS_INVALID_ARGUMENT;
+    out->ptr = (const uint8_t *)value->artifact_id;
+    out->len = strlen(value->artifact_id);
+    return MODELFETCH_STATUS_OK;
+}
+
+modelfetch_status_t modelfetch_progress_event_state(const modelfetch_progress_event_t *value,
+                                                    modelfetch_progress_state_t *out) {
+    if (value == NULL || out == NULL)
+        return MODELFETCH_STATUS_INVALID_ARGUMENT;
+    *out = value->state;
+    return MODELFETCH_STATUS_OK;
+}
+
+modelfetch_status_t
+modelfetch_progress_event_transferred_bytes(const modelfetch_progress_event_t *value,
+                                            uint8_t *present_out,
+                                            const modelfetch_big_uint_t **out) {
+    if (value == NULL || present_out == NULL || out == NULL)
+        return MODELFETCH_STATUS_INVALID_ARGUMENT;
+    *present_out = value->bytes_present;
+    *out = value->bytes_present != 0U ? &value->transferred_bytes : NULL;
+    return MODELFETCH_STATUS_OK;
+}
+
+modelfetch_status_t modelfetch_progress_event_total_bytes(const modelfetch_progress_event_t *value,
+                                                          uint8_t *present_out,
+                                                          const modelfetch_big_uint_t **out) {
+    if (value == NULL || present_out == NULL || out == NULL)
+        return MODELFETCH_STATUS_INVALID_ARGUMENT;
+    *present_out = value->bytes_present;
+    *out = value->bytes_present != 0U ? &value->total_bytes : NULL;
+    return MODELFETCH_STATUS_OK;
+}
+
+modelfetch_status_t modelfetch_progress_event_percentage(const modelfetch_progress_event_t *value,
+                                                         uint8_t *present_out,
+                                                         double *out) {
+    if (value == NULL || present_out == NULL || out == NULL)
+        return MODELFETCH_STATUS_INVALID_ARGUMENT;
+    *present_out = value->percentage_present;
+    *out = value->percentage;
+    return MODELFETCH_STATUS_OK;
+}
+
+modelfetch_status_t modelfetch_big_uint_decimal(const modelfetch_big_uint_t *value,
+                                                modelfetch_text_view_t *out) {
+    if (value == NULL || out == NULL)
+        return MODELFETCH_STATUS_INVALID_ARGUMENT;
+    out->ptr = (const uint8_t *)value->decimal;
+    out->len = strlen(value->decimal);
+    return MODELFETCH_STATUS_OK;
 }

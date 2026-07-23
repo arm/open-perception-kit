@@ -131,8 +131,9 @@ test(
     gst_launch,
     gstpekinfer.full_path(),
     pekinfer_blocking_setup_op.full_path(),
+    fake_modelfetch.full_path(),
   ],
-  depends : [gstpekinfer, pekinfer_blocking_setup_op],
+  depends : [gstpekinfer, pekinfer_blocking_setup_op, fake_modelfetch],
 )
 test(
   'prepare_modelfetch_release_tests',
