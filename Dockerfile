@@ -119,14 +119,22 @@ RUN --mount=type=bind,source=scripts/private/modelfetch-release.json,target=/tmp
   case "${expected_sha}" in *[!0-9a-f]*|'') exit 1 ;; esac; \
   test "${#expected_sha}" -eq 64; \
   echo "${expected_sha}  ${sdk}" | sha256sum -c -; \
-  test "$(tar -tzf "${sdk}" | LC_ALL=C sort)" = "$(printf '%s\n' include/modelfetch.h lib/libmodelfetch_c.so)"; \
+  test "$(tar -tzf "${sdk}" | LC_ALL=C sort)" = "$(printf '%s\n' \
+    include/modelfetch.h \
+    include/modelfetch/detail/ffi.hpp \
+    include/modelfetch/detail/projection.hpp \
+    include/modelfetch/modelfetch.hpp \
+    lib/libmodelfetch_c.so)"; \
   test -z "$(tar -tvzf "${sdk}" | awk 'substr($1, 1, 1) != "-" { print; exit }')"; \
   mkdir -p /opt/pek-deps/modelfetch; \
   tar -xzf "${sdk}" --no-same-owner --no-same-permissions -C /opt/pek-deps/modelfetch; \
   test -f /opt/pek-deps/modelfetch/include/modelfetch.h; \
+  test -f /opt/pek-deps/modelfetch/include/modelfetch/detail/ffi.hpp; \
+  test -f /opt/pek-deps/modelfetch/include/modelfetch/detail/projection.hpp; \
+  test -f /opt/pek-deps/modelfetch/include/modelfetch/modelfetch.hpp; \
   test -f /opt/pek-deps/modelfetch/lib/libmodelfetch_c.so; \
   test -z "$(find /opt/pek-deps/modelfetch -type l -print -quit)"; \
-  test "$(find /opt/pek-deps/modelfetch -type f | wc -l)" -eq 2; \
+  test "$(find /opt/pek-deps/modelfetch -type f | wc -l)" -eq 5; \
   printf '%s\n' "${expected_sha}" > /opt/pek-deps/modelfetch/.release-sdk-sha256; \
   chmod 0444 /opt/pek-deps/modelfetch/.release-sdk-sha256; \
   rm -f "${sdk}"
