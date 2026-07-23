@@ -84,7 +84,7 @@ The descriptor defines things such as:
 
 The same descriptor is used for local and published models. For a local model, `modelFile` is a
 relative path beside the descriptor. For a published model, `modelFile` is its immutable canonical
-`hf:...@...#file=...` locator. On first activation, the runtime uses modelfetch's pinned native C
+`hf:...@...#file=...` locator. On first activation, the runtime uses modelfetch's pinned native C++
 SDK to download and verify that one asset in the dedicated `var/models/` runtime store. No CLI
 process or temporary request file is involved. Modelfetch owns the layout within that store and
 returns the verified absolute path; AMP does not derive model-specific directories. Existing

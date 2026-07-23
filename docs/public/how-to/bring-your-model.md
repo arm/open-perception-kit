@@ -79,7 +79,7 @@ Typical fields are:
 
 `modelFile` is also the single source reference. Use a relative path for a local model, or an
 immutable canonical `hf:...@...#file=...` locator for a published model. When the model is first
-activated, the runtime submits that one locator through modelfetch's native C SDK and uses the
+activated, the runtime submits that one locator through modelfetch's native C++ SDK and uses the
 verified path returned from the dedicated `var/models/` store. Do not derive a model-specific
 path, add a second download descriptor, or duplicate source metadata elsewhere. Manifest and
 bundle locators are rejected because they do not identify one runtime entrypoint. Published ONNX

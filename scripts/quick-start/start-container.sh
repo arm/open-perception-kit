@@ -126,7 +126,7 @@ container_has_current_modelfetch_sdk() {
     container_machine="$(docker exec -u devgoblin "${PEK_CONTAINER_NAME}" uname -m)" || return 1
     expected_sha="$(expected_modelfetch_sdk_sha256 "$container_machine")" || return 1
     docker exec -u devgoblin "${PEK_CONTAINER_NAME}" sh -c '
-        test -f /opt/pek-deps/modelfetch/include/modelfetch.h &&
+        test -f /opt/pek-deps/modelfetch/include/modelfetch/modelfetch.hpp &&
         test -f /opt/pek-deps/modelfetch/lib/libmodelfetch_c.so &&
         test "$(cat /opt/pek-deps/modelfetch/.release-sdk-sha256 2>/dev/null)" = "$1"
     ' _ "$expected_sha" > /dev/null 2>&1
@@ -157,7 +157,7 @@ if container_running && [[ "$RECREATE" != "true" ]]; then
     fi
 
     echo "The running container is missing the current workspace contract."
-    echo "Recreating it with the host UID/GID mapping and modelfetch C SDK..."
+    echo "Recreating it with the host UID/GID mapping and modelfetch C++ SDK..."
     RECREATE="true"
 fi
 

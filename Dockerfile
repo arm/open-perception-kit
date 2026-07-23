@@ -100,7 +100,7 @@ ARG TARGETARCH
 
 USER root
 
-# The internal C SDK archives are provided as an isolated named build context
+# The internal native SDK archives are provided as an isolated named build context
 # and exposed only to this build step. The release manifest is the checksum authority.
 RUN --mount=type=bind,source=scripts/private/modelfetch-release.json,target=/tmp/modelfetch-release.json \
   --mount=type=bind,from=modelfetch_sdks,target=/tmp/modelfetch-sdks,readonly \
