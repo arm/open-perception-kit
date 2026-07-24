@@ -2,6 +2,12 @@
  * Copyright (C) 2026 Arm Limited. All rights reserved.
  *************************************************************/
 
+/*
+ * Backend test double below modelfetch's real header-only C++ API.
+ * Keep this file and the owning tests aligned with model-loading changes, and
+ * keep its exported C ABI surface exactly equal to the production imports.
+ */
+
 #include <modelfetch.h>
 
 #include <stdio.h>
@@ -66,17 +72,40 @@ static const char MISMATCHED_ASSET[] =
     "hf:Arm/mismatched@0000000000000000000000000000000000000000#file=model.onnx";
 
 static char *copy_bytes(const uint8_t *value, size_t length) {
+    if (length == SIZE_MAX)
+        return NULL;
+
     char *copy = malloc(length + 1U);
     if (copy == NULL)
         return NULL;
-    if (length != 0U)
-        memcpy(copy, value, length);
+    for (size_t index = 0U; index < length; ++index)
+        copy[index] = (char)value[index];
     copy[length] = '\0';
     return copy;
 }
 
 static char *copy_string(const char *value) {
     return copy_bytes((const uint8_t *)value, strlen(value));
+}
+
+static char *join_path(const char *destination, const char *relative) {
+    const size_t destination_length = strlen(destination);
+    const size_t relative_length = strlen(relative);
+    if (relative_length > SIZE_MAX - 2U || destination_length > SIZE_MAX - relative_length - 2U)
+        return NULL;
+
+    const size_t length = destination_length + relative_length + 1U;
+    char *path = malloc(length + 1U);
+    if (path == NULL)
+        return NULL;
+
+    for (size_t index = 0U; index < destination_length; ++index)
+        path[index] = destination[index];
+    path[destination_length] = '/';
+    for (size_t index = 0U; index < relative_length; ++index)
+        path[destination_length + 1U + index] = relative[index];
+    path[length] = '\0';
+    return path;
 }
 
 static modelfetch_status_t fail_with(modelfetch_error_t **error_out, const char *message) {
@@ -93,28 +122,10 @@ static const char *fake_mode(void) {
     return mode == NULL ? "downloaded" : mode;
 }
 
-static unsigned long fake_delay_ms(const char *environment_name, unsigned long fallback) {
-    const char *value = getenv(environment_name);
-    if (value == NULL || *value == '\0')
-        return fallback;
-
-    char *end = NULL;
-    const unsigned long delay = strtoul(value, &end, 10);
-    if (end == value || *end != '\0' || delay > 5000UL)
-        return fallback;
-    return delay;
-}
-
-static void sleep_for_delay(const char *environment_name, unsigned long fallback) {
-    const unsigned long delay_ms = fake_delay_ms(environment_name, fallback);
-    if (delay_ms == 0UL) {
-        thrd_yield();
-        return;
-    }
-
+static void sleep_for_progress_poll(void) {
     const struct timespec interval = {
-        (time_t)(delay_ms / 1000UL),
-        (long)((delay_ms % 1000UL) * 1000000UL),
+        0,
+        10L * 1000L * 1000L,
     };
     thrd_sleep(&interval, NULL);
 }
@@ -270,8 +281,6 @@ modelfetch_service_download_asset_requests(const modelfetch_service_t *service,
     if (strcmp(fake_mode(), "api-failure") == 0)
         return fail_with(error_out, "fake access failure");
 
-    sleep_for_delay("PEK_MODELFETCH_FAKE_INITIAL_DELAY_MS", 0UL);
-
     struct modelfetch_progress_event progress = {
         requests->asset_id,
         MODELFETCH_PROGRESS_STARTED,
@@ -294,7 +303,7 @@ modelfetch_service_download_asset_requests(const modelfetch_service_t *service,
             return fail_with(error_out, "blocking fake requires a progress callback");
 
         for (;;) {
-            sleep_for_delay("PEK_MODELFETCH_FAKE_PROGRESS_INTERVAL_MS", 10UL);
+            sleep_for_progress_poll();
             progress_status = emit_progress(callback, user_data, &progress);
             if (progress_status != MODELFETCH_STATUS_OK)
                 return progress_status;
@@ -304,8 +313,6 @@ modelfetch_service_download_asset_requests(const modelfetch_service_t *service,
     progress_status = emit_progress(callback, user_data, &progress);
     if (progress_status != MODELFETCH_STATUS_OK)
         return progress_status;
-
-    sleep_for_delay("PEK_MODELFETCH_FAKE_COMPLETION_DELAY_MS", 0UL);
 
     *out = calloc(1U, sizeof(**out));
     if (*out == NULL)
@@ -320,9 +327,7 @@ modelfetch_service_download_asset_requests(const modelfetch_service_t *service,
     (*out)->outcome.integrity.token =
         strcmp(fake_mode(), "invalid-integrity") == 0 ? "sha256:invalid" : VALID_INTEGRITY;
     (*out)->outcome.asset_id = copy_string(requests->asset_id);
-    if (strcmp(fake_mode(), "invalid-utf8") == 0 && (*out)->outcome.asset_id != NULL) {
-        (*out)->outcome.asset_id[0] = (char)0xff;
-    } else if (strcmp(fake_mode(), "mismatched-asset") == 0) {
+    if (strcmp(fake_mode(), "mismatched-asset") == 0) {
         free((*out)->outcome.asset_id);
         (*out)->outcome.asset_id = copy_string(MISMATCHED_ASSET);
     }
@@ -333,10 +338,7 @@ modelfetch_service_download_asset_requests(const modelfetch_service_t *service,
     } else {
         const char *relative = strstr(requests->asset_id, "#file=");
         relative = relative == NULL ? "model.onnx" : relative + strlen("#file=");
-        const size_t length = strlen(requests->destination) + 1U + strlen(relative);
-        (*out)->outcome.path = malloc(length + 1U);
-        if ((*out)->outcome.path != NULL)
-            snprintf((*out)->outcome.path, length + 1U, "%s/%s", requests->destination, relative);
+        (*out)->outcome.path = join_path(requests->destination, relative);
     }
 
     if ((*out)->outcome.asset_id == NULL || (*out)->outcome.path == NULL) {
@@ -418,7 +420,8 @@ modelfetch_status_t modelfetch_outcome_success_path_count(const modelfetch_outco
 modelfetch_status_t modelfetch_outcome_success_path(const modelfetch_outcome_t *value,
                                                     size_t index,
                                                     modelfetch_text_view_t *out) {
-    if (value == NULL || out == NULL || index != 0U || value->kind != MODELFETCH_OUTCOME_SUCCESS)
+    const size_t count = strcmp(fake_mode(), "multiple-paths") == 0 ? 2U : 1U;
+    if (value == NULL || out == NULL || index >= count || value->kind != MODELFETCH_OUTCOME_SUCCESS)
         return MODELFETCH_STATUS_INVALID_ARGUMENT;
     out->ptr = (const uint8_t *)value->path;
     out->len = strlen(value->path);
@@ -428,7 +431,8 @@ modelfetch_status_t modelfetch_outcome_success_path(const modelfetch_outcome_t *
 modelfetch_status_t modelfetch_outcome_success_integrity(const modelfetch_outcome_t *value,
                                                          size_t index,
                                                          const modelfetch_integrity_t **out) {
-    if (value == NULL || out == NULL || index != 0U || value->kind != MODELFETCH_OUTCOME_SUCCESS)
+    const size_t count = strcmp(fake_mode(), "multiple-paths") == 0 ? 2U : 1U;
+    if (value == NULL || out == NULL || index >= count || value->kind != MODELFETCH_OUTCOME_SUCCESS)
         return MODELFETCH_STATUS_INVALID_ARGUMENT;
     *out = &value->integrity;
     return MODELFETCH_STATUS_OK;

@@ -13,6 +13,8 @@ model_descriptor_tests = executable(
   link_with : [common, model_loading],
 )
 
+# Tests retain production's real header-only C++ projection and replace only
+# its C ABI backend. The dependency-boundary test below keeps this fake exact.
 fake_modelfetch = shared_module(
   'fake_modelfetch',
   ['fake_modelfetch.c'],
@@ -162,6 +164,8 @@ test(
     pek_runtime.full_path(),
     '--model-runtime',
     model_loading.full_path(),
+    '--fake-backend',
+    fake_modelfetch.full_path(),
     '--model-consumer',
     onnxops.full_path(),
   ],
@@ -178,6 +182,7 @@ test(
     pekcomm,
     pek_menu,
     pek_runtime,
+    fake_modelfetch,
   ],
 )
 test('matrix_operations_tests', matrix_operations_tests)

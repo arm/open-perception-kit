@@ -121,7 +121,7 @@ struct ModelDescriptor {
      * provide load controls.
      *
      * @param path JSON file path.
-     * @param loadContext Optional cancellation and progress contract.
+     * @param loadContext Optional cancellation contract.
      * @return Parsed descriptor with a resolved local model path, or an error.
      */
     static pek::Result<ModelDescriptor> fromFile(const std::string &path,

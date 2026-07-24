@@ -61,7 +61,7 @@ struct GstPekInferMembers {
                 try {
                     if (!setupWorker.joinable()) {
                         setupWorker = std::jthread(
-                            [this](std::stop_token stopToken) { setupLoop(stopToken); });
+                            [this](const std::stop_token &stopToken) { setupLoop(stopToken); });
                     }
                     setupState = SetupState::Loading;
                     notifyWorker = true;
@@ -103,7 +103,7 @@ struct GstPekInferMembers {
   private:
     enum class SetupState { Idle, Loading, Ready, Failed };
 
-    void setupLoop(std::stop_token stopToken) {
+    void setupLoop(const std::stop_token &stopToken) {
         while (!stopToken.stop_requested()) {
             std::unique_lock lock(setupMutex);
             if (!setupCondition.wait(
@@ -115,7 +115,7 @@ struct GstPekInferMembers {
             std::optional<std::string> failure;
             try {
                 candidate = std::make_unique<pek::op::OpChain>();
-                const pek::ModelLoadContext loadContext{.stopToken = stopToken, .progress = {}};
+                const pek::ModelLoadContext loadContext{.stopToken = stopToken};
                 auto setupResult = candidate->setupFromDescriptor(descriptor, loadContext);
                 if (!setupResult)
                     failure = setupResult.error().toString();
@@ -176,7 +176,6 @@ struct _GstPekInfer {
     // Properties
     gchar *opChainPath;
     gboolean active;
-    gchar *format;
     gchar *inferId;
 
     // a safe place for c++ stuff
@@ -383,7 +382,7 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
 // ---------------- properties & class init ----------------
 
-enum { PROP_0, PROP_OPCHAIN_PATH, PROP_MODEL_ACTIVE, PROP_FORMAT, PROP_INFER_ID };
+enum { PROP_0, PROP_OPCHAIN_PATH, PROP_MODEL_ACTIVE, PROP_INFER_ID };
 
 static void gst_pekinfer_set_property(GObject *o, guint id, const GValue *v, GParamSpec *ps) {
     auto *self = (GstPekInfer *)o;
@@ -400,10 +399,6 @@ static void gst_pekinfer_set_property(GObject *o, guint id, const GValue *v, GPa
         GST_OBJECT_UNLOCK(self);
         break;
     }
-    case PROP_FORMAT:
-        g_free(self->format);
-        self->format = g_value_dup_string(v);
-        break;
     case PROP_INFER_ID:
         g_free(self->inferId);
         self->inferId = g_value_dup_string(v);
@@ -422,9 +417,6 @@ static void gst_pekinfer_get_property(GObject *o, guint id, GValue *v, GParamSpe
     case PROP_MODEL_ACTIVE:
         g_value_set_boolean(v, gst_pekinfer_is_active(self));
         break;
-    case PROP_FORMAT:
-        g_value_set_string(v, self->format);
-        break;
     case PROP_INFER_ID:
         g_value_set_string(v, gst_pekinfer_get_effective_inferId(self));
         break;
@@ -435,6 +427,9 @@ static void gst_pekinfer_get_property(GObject *o, guint id, GValue *v, GParamSpe
 
 static void gst_pekinfer_finalize(GObject *object) {
     auto *self = reinterpret_cast<GstPekInfer *>(object);
+
+    g_free(self->opChainPath);
+    self->opChainPath = nullptr;
 
     g_free(self->inferId);
     self->inferId = nullptr;
@@ -468,15 +463,6 @@ static void gst_pekinfer_class_init(GstPekInferClass *klass) {
                              "Do or not do",
                              true,
                              (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-
-    g_object_class_install_property(
-        gobj,
-        PROP_FORMAT,
-        g_param_spec_string("format",
-                            "Video format",
-                            "Video format (BGRA)",
-                            "BGRA",
-                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
         gobj,
@@ -516,7 +502,6 @@ static void gst_pekinfer_init(GstPekInfer *self) {
 
     gst_video_info_init(&self->vinfo);
 
-    self->format = g_strdup("BGRA");
     gst_base_transform_set_in_place(GST_BASE_TRANSFORM(self), TRUE);
     gst_base_transform_set_passthrough(GST_BASE_TRANSFORM(self), FALSE);
     gst_base_transform_set_qos_enabled(GST_BASE_TRANSFORM(self), FALSE);

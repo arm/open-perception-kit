@@ -51,7 +51,7 @@ class OpChain {
      *
      * Operations receive shared setup controls while they configure. Model loading
      * remains synchronous within this call; callers may choose another execution
-     * thread and provide cancellation or progress controls.
+     * thread and provide cooperative cancellation.
      *
      * @param descriptor Descriptor containing chain name and operation definitions.
      * @param loadContext Optional model loading controls.
