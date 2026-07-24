@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "LogTargets.h"
+#include "Targets.h"
 
 #include <array>
 #include <condition_variable>
@@ -15,13 +15,13 @@
 #include <thread>
 #include <vector>
 
-namespace pek::logging {
+namespace pek::log {
 
 class Logger {
   public:
     static constexpr std::size_t BufferCapacity = 1024;
 
-    explicit Logger(LogTargets targets);
+    explicit Logger(Targets targets);
     ~Logger();
 
     Logger(const Logger &) = delete;
@@ -29,9 +29,9 @@ class Logger {
     Logger(Logger &&) = delete;
     Logger &operator=(Logger &&) = delete;
 
-    void write(LogLevel level, std::string &&message);
-    std::vector<LogTargetType> getEnabledTargets();
-    bool setTargetState(LogTargetType type, bool enabled);
+    void write(Level level, std::string &&message);
+    std::vector<TargetType> getEnabledTargets();
+    bool setTargetState(TargetType type, bool enabled);
 
     /// Waits until every record accepted before this call has been dispatched or overwritten by
     /// the drop-oldest buffer policy, then flushes the enabled targets. A sequence boundary is used
@@ -42,15 +42,15 @@ class Logger {
 
   private:
     // Adds the record to the log buffer
-    void appendRecord(LogRecord &&record);
+    void appendRecord(Record &&record);
     // reads out the oldest record from the log buffer
-    LogRecord takeOldestRecord();
+    Record takeOldestRecord();
     // Return true if the records before the boundary parameter are all written out to the log
     // targets.
     bool recordsBeforeBoundaryProcessed(std::uint64_t boundary) const;
     // The function executed by the worker
     void processRecords();
-    void writeToEnabledTargets(const LogRecord &record);
+    void writeToEnabledTargets(const Record &record);
     void flushEnabledTargets();
 
     // Protects the circular buffer, sequence numbers, in-flight record state, and stop request.
@@ -68,7 +68,7 @@ class Logger {
     std::condition_variable m_recordsProcessed;
 
     // Buffer for the logs
-    std::array<LogRecord, BufferCapacity> m_records;
+    std::array<Record, BufferCapacity> m_records;
 
     std::size_t m_oldestRecordIndex{0};
     std::size_t m_bufferedRecordCount{0};
@@ -81,8 +81,8 @@ class Logger {
     // lock it to inspect or change target state and during flush; the worker locks it during
     // dispatch and shutdown flush. Each thread releases its own lock.
     std::mutex m_targetsMutex;
-    LogTargets m_targets;
+    Targets m_targets;
     std::thread m_worker;
 };
 
-} // namespace pek::logging
+} // namespace pek::log

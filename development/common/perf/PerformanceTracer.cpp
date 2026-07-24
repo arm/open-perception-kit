@@ -303,7 +303,7 @@ void PerformanceTracer::printSummary() const {
     }
 
     oss << "╚═══════════════════════════════════════════════════════════════════════════╝\n";
-    pek::log("{}", oss.str());
+    pek::log::info("{}", oss.str());
 }
 
 // ============================================================================
@@ -315,20 +315,20 @@ PerformanceMonitor::PerformanceMonitor(PerformanceTracer *tracer) : tracer_(trac
 PerformanceMonitor::~PerformanceMonitor() = default;
 
 void PerformanceMonitor::print() const {
-    pek::log("{}\n", format());
+    pek::log::info("{}\n", format());
 }
 
 void PerformanceMonitor::printCycle(size_t cycle_number) const {
-    pek::log("\n=== Cycle {} ===\n", cycle_number);
+    pek::log::info("\n=== Cycle {} ===\n", cycle_number);
     print();
 }
 
 void PerformanceMonitor::startLiveMonitoring() {
-    pek::log("Starting live monitoring (Ctrl+C to stop)...\n\n");
+    pek::log::info("Starting live monitoring (Ctrl+C to stop)...\n\n");
 
     while (true) {
         clearScreen();
-        pek::log("{}\n", format());
+        pek::log::info("{}\n", format());
         std::this_thread::sleep_for(refresh_interval_);
     }
 }
@@ -448,8 +448,8 @@ std::string PerformanceMonitor::formatDetailed() const {
 
 void PerformanceMonitor::clearScreen() const {
     // ANSI escape code to clear screen and move cursor to top
-    pek::log("\033[2J\033[H");
-    pek::logFlush();
+    pek::log::info("\033[2J\033[H");
+    pek::log::flush();
 }
 
 // ============================================================================

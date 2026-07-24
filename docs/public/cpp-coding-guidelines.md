@@ -276,20 +276,27 @@ Default rules:
   needed.
 - Keep log messages actionable and avoid noisy repeated logs in hot paths.
 
-Use `log()`, `logn()`, `logw()`, or `loge()` for normal severity-filtered
-logging. These functions enqueue messages for the logging worker. Use their
-`*Runtime()` forms only when the format string is not known at compile time.
+Use `pek::log::info()`, `pek::log::notice()`, `pek::log::warning()`, or
+`pek::log::error()` for normal severity-filtered logging. These functions
+enqueue messages for the logging worker. Use their `*Runtime()` forms only
+when the format string is not known at compile time.
 
-Use `forceLog()` and `forceLoge()` only when output must be synchronous,
-unconditional, and directed explicitly to stdout or stderr. Typical cases are
-terminal interaction and exceptional diagnostics inside a log target. These
-functions bypass severity filtering and configured targets, so they are not a
-replacement for normal logging.
+Use `pek::log::instantInfo()` and `pek::log::instantError()` only when output
+must be synchronous, unconditional, and directed explicitly to stdout or
+stderr. Typical cases are terminal interaction and exceptional diagnostics
+inside a log target. These functions bypass severity filtering and configured
+targets, so they are not a replacement for normal logging.
 
 Log target implementations must not call the asynchronous logging functions,
-`logFlush()`, or the target-state API. Doing so can recurse into the logger or
-deadlock. A target may use `forceLog*()` for an exceptional internal
-diagnostic, but not to deliver ordinary records.
+`pek::log::flush()`, or the target-state API. Doing so can recurse into
+the logger or deadlock. A target may use `pek::log::instantInfo()` or
+`pek::log::instantError()` for an exceptional internal diagnostic, but not to
+deliver ordinary records.
+
+Select the raw file target with `OPK_LOG_TARGETS=file` and configure its path
+with `OPK_LOG_FILE`. Setting the path alone does not enable file logging. File
+messages are appended exactly as supplied, so include any required line ending
+in the message.
 
 Avoid large messages and repeated per-frame or per-object messages in hot
 paths. The logging queue is deliberately bounded and drops the oldest queued

@@ -79,7 +79,7 @@ PekSinkHttpServerError PekSinkHttpServer::setup() {
     if (!ret) {
         // TODO@ibori: error handling
         auto sfl = self_->static_files_location ? self_->static_files_location : "(null)";
-        pek::loge("Static file directory does not exist: {}\n", sfl);
+        pek::log::error("Static file directory does not exist: {}\n", sfl);
 
         return PekSinkHttpServerError::NO_STATIC_FILES_DIRECTORY;
     }
@@ -99,7 +99,7 @@ PekSinkHttpServerError PekSinkHttpServer::start() {
         return PekSinkHttpServerError::OK;
     } else {
         const auto host = std::string(self_->host ? self_->host : "<null>");
-        pek::loge("HTTP server failed to start on {}:{}\n", host, self_->http_port);
+        pek::log::error("HTTP server failed to start on {}:{}\n", host, self_->http_port);
 
         return PekSinkHttpServerError::CANNOT_BIND_SERVER_PORT;
     }

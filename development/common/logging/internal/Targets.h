@@ -11,19 +11,19 @@
 #include <string>
 #include <vector>
 
-namespace pek::logging {
+namespace pek::log {
 
-struct LogRecord {
-    LogLevel m_level{LogLevel::Off};
+struct Record {
+    Level m_level{Level::Off};
     std::string m_message;
     std::uint64_t m_sequence{0};
 };
 
-class LogTarget {
+class Target {
   public:
-    virtual ~LogTarget() = default;
+    virtual ~Target() = default;
 
-    LogTargetType getType() const {
+    TargetType getType() const {
         return m_type;
     }
 
@@ -31,23 +31,24 @@ class LogTarget {
         return m_enabled;
     }
 
-    void setEnabled(bool enabled) {
+    virtual void setEnabled(bool enabled) noexcept {
         m_enabled = enabled;
     }
 
-    virtual void write(const LogRecord &record) = 0;
+    virtual void write(const Record &record) = 0;
     virtual void flush() = 0;
 
   protected:
-    LogTarget(LogTargetType type, bool enabled) : m_type(type), m_enabled(enabled) {}
+    Target(TargetType type, bool enabled) : m_type(type), m_enabled(enabled) {}
 
   private:
-    LogTargetType m_type;
+    TargetType m_type;
     bool m_enabled;
 };
 
-using LogTargets = std::vector<std::unique_ptr<LogTarget>>;
+using Targets = std::vector<std::unique_ptr<Target>>;
 
-LogTargets createBuiltInLogTargets(const std::vector<LogTargetType> &enabledTargets);
+Targets createBuiltInLogTargets(const std::vector<TargetType> &enabledTargets,
+                                const std::string &logFileName);
 
-} // namespace pek::logging
+} // namespace pek::log

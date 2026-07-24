@@ -28,7 +28,7 @@ Result<void> DummyParser::parse(const pek::TensorParser::Input &input,
             log += input.tensors[i]->getShape().toString() + "\n";
         }
 
-        pek::log("DummyParser {}", log);
+        pek::log::info("DummyParser {}", log);
     }
 
     return {};

@@ -21,10 +21,10 @@ void ModelRegistry::add_model(const std::string &model_name,
         model_registry[element_name] = status;
     }
 
-    pek::log("[peksink] Registered model: {} from element: {} (active: {})\n",
-             model_name,
-             element_name,
-             active ? "yes" : "no");
+    pek::log::info("[peksink] Registered model: {} from element: {} (active: {})\n",
+                   model_name,
+                   element_name,
+                   active ? "yes" : "no");
 
     trigger_reporting();
 }
@@ -35,9 +35,9 @@ void ModelRegistry::del_model(const std::string &element_name) {
         std::lock_guard<std::mutex> lock(model_registry_mutex);
         auto it = model_registry.find(element_name);
         if (it != model_registry.end()) {
-            pek::log("[peksink] Unregistered model: {} from element: {}\n",
-                     it->second.name,
-                     element_name);
+            pek::log::info("[peksink] Unregistered model: {} from element: {}\n",
+                           it->second.name,
+                           element_name);
             model_registry.erase(it);
         }
     }

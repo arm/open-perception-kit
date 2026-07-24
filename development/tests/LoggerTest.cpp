@@ -32,12 +32,12 @@ struct TargetState {
     std::size_t flushCount{0};
 };
 
-class RecordingTarget final : public pek::logging::LogTarget {
+class RecordingTarget final : public pek::log::Target {
   public:
-    RecordingTarget(pek::LogTargetType type, std::shared_ptr<TargetState> state)
-        : LogTarget(type, true), m_state(std::move(state)) {}
+    RecordingTarget(pek::log::TargetType type, std::shared_ptr<TargetState> state)
+        : Target(type, true), m_state(std::move(state)) {}
 
-    void write(const pek::logging::LogRecord &record) override {
+    void write(const pek::log::Record &record) override {
         std::unique_lock lock(m_state->mutex);
         if (m_state->messages.empty() && m_state->blockFirstWrite) {
             m_state->firstWriteStarted = true;
@@ -63,8 +63,8 @@ class RecordingTarget final : public pek::logging::LogTarget {
     std::shared_ptr<TargetState> m_state;
 };
 
-std::unique_ptr<pek::logging::LogTarget> makeTarget(pek::LogTargetType type,
-                                                    const std::shared_ptr<TargetState> &state) {
+std::unique_ptr<pek::log::Target> makeTarget(pek::log::TargetType type,
+                                             const std::shared_ptr<TargetState> &state) {
     return std::make_unique<RecordingTarget>(type, state);
 }
 
@@ -85,12 +85,12 @@ void releaseFirstWrite(const std::shared_ptr<TargetState> &state) {
 
 TEST(Logger, FlushWaitsForAcceptedRecordsAndFlushesTargets) {
     auto state = std::make_shared<TargetState>();
-    pek::logging::LogTargets targets;
-    targets.push_back(makeTarget(pek::LogTargetType::Stdout, state));
-    pek::logging::Logger logger(std::move(targets));
+    pek::log::Targets targets;
+    targets.push_back(makeTarget(pek::log::TargetType::Stdout, state));
+    pek::log::Logger logger(std::move(targets));
 
-    logger.write(pek::LogLevel::Info, "first");
-    logger.write(pek::LogLevel::Info, "second");
+    logger.write(pek::log::Level::Info, "first");
+    logger.write(pek::log::Level::Info, "second");
     logger.flush();
 
     std::lock_guard lock(state->mutex);
@@ -101,39 +101,39 @@ TEST(Logger, FlushWaitsForAcceptedRecordsAndFlushesTargets) {
 TEST(Logger, FullBufferDropsOldestBufferedRecord) {
     auto state = std::make_shared<TargetState>();
     state->blockFirstWrite = true;
-    pek::logging::LogTargets targets;
-    targets.push_back(makeTarget(pek::LogTargetType::Stdout, state));
-    pek::logging::Logger logger(std::move(targets));
+    pek::log::Targets targets;
+    targets.push_back(makeTarget(pek::log::TargetType::Stdout, state));
+    pek::log::Logger logger(std::move(targets));
 
-    logger.write(pek::LogLevel::Info, "in flight");
+    logger.write(pek::log::Level::Info, "in flight");
     waitForFirstWrite(state);
-    for (std::size_t index = 0; index <= pek::logging::Logger::BufferCapacity; ++index) {
-        logger.write(pek::LogLevel::Info, std::to_string(index));
+    for (std::size_t index = 0; index <= pek::log::Logger::BufferCapacity; ++index) {
+        logger.write(pek::log::Level::Info, std::to_string(index));
     }
     releaseFirstWrite(state);
     logger.flush();
 
     std::lock_guard lock(state->mutex);
-    ASSERT_EQ(state->messages.size(), pek::logging::Logger::BufferCapacity + 1);
+    ASSERT_EQ(state->messages.size(), pek::log::Logger::BufferCapacity + 1);
     EXPECT_EQ(state->messages.front(), "in flight");
     EXPECT_EQ(state->messages[1], "1");
-    EXPECT_EQ(state->messages.back(), std::to_string(pek::logging::Logger::BufferCapacity));
+    EXPECT_EQ(state->messages.back(), std::to_string(pek::log::Logger::BufferCapacity));
 }
 
 TEST(Logger, FailureDisablesOnlyTheFailingTarget) {
     auto failingState = std::make_shared<TargetState>();
     failingState->failFirstWrite = true;
     auto healthyState = std::make_shared<TargetState>();
-    pek::logging::LogTargets targets;
-    targets.push_back(makeTarget(pek::LogTargetType::Stdout, failingState));
-    targets.push_back(makeTarget(pek::LogTargetType::Stderr, healthyState));
-    pek::logging::Logger logger(std::move(targets));
+    pek::log::Targets targets;
+    targets.push_back(makeTarget(pek::log::TargetType::Stdout, failingState));
+    targets.push_back(makeTarget(pek::log::TargetType::Stderr, healthyState));
+    pek::log::Logger logger(std::move(targets));
 
-    logger.write(pek::LogLevel::Info, "first");
-    logger.write(pek::LogLevel::Info, "second");
+    logger.write(pek::log::Level::Info, "first");
+    logger.write(pek::log::Level::Info, "second");
     logger.flush();
 
-    EXPECT_EQ(logger.getEnabledTargets(), std::vector{pek::LogTargetType::Stderr});
+    EXPECT_EQ(logger.getEnabledTargets(), std::vector{pek::log::TargetType::Stderr});
     std::lock_guard lock(healthyState->mutex);
     EXPECT_EQ(healthyState->messages, (std::vector<std::string>{"first", "second"}));
 }
@@ -142,14 +142,14 @@ TEST(Logger, FlushFailureDisablesOnlyTheFailingTarget) {
     auto failingState = std::make_shared<TargetState>();
     failingState->failFlush = true;
     auto healthyState = std::make_shared<TargetState>();
-    pek::logging::LogTargets targets;
-    targets.push_back(makeTarget(pek::LogTargetType::Stdout, failingState));
-    targets.push_back(makeTarget(pek::LogTargetType::Stderr, healthyState));
-    pek::logging::Logger logger(std::move(targets));
+    pek::log::Targets targets;
+    targets.push_back(makeTarget(pek::log::TargetType::Stdout, failingState));
+    targets.push_back(makeTarget(pek::log::TargetType::Stderr, healthyState));
+    pek::log::Logger logger(std::move(targets));
 
     logger.flush();
 
-    EXPECT_EQ(logger.getEnabledTargets(), std::vector{pek::LogTargetType::Stderr});
+    EXPECT_EQ(logger.getEnabledTargets(), std::vector{pek::log::TargetType::Stderr});
     std::lock_guard lock(healthyState->mutex);
     EXPECT_EQ(healthyState->flushCount, 1U);
 }
@@ -163,7 +163,7 @@ TEST(ConsoleOutput, ReportsStreamFlushFailure) {
     std::array<char, BUFSIZ> streamBuffer{};
     EXPECT_EQ(std::setvbuf(stream, streamBuffer.data(), _IOFBF, streamBuffer.size()), 0);
     EXPECT_GE(std::fputs("buffered record", stream), 0);
-    pek::logging::ConsoleOutput output(pek::LogTargetType::Stdout, true, stream);
+    pek::log::ConsoleOutput output(pek::log::TargetType::Stdout, true, stream);
 
     EXPECT_THROW(output.flush(), std::system_error);
     EXPECT_EQ(std::fclose(stream), 0);
@@ -172,10 +172,10 @@ TEST(ConsoleOutput, ReportsStreamFlushFailure) {
 TEST(Logger, DestructorDrainsAndFlushesBufferedRecords) {
     auto state = std::make_shared<TargetState>();
     {
-        pek::logging::LogTargets targets;
-        targets.push_back(makeTarget(pek::LogTargetType::Stdout, state));
-        pek::logging::Logger logger(std::move(targets));
-        logger.write(pek::LogLevel::Info, "remaining");
+        pek::log::Targets targets;
+        targets.push_back(makeTarget(pek::log::TargetType::Stdout, state));
+        pek::log::Logger logger(std::move(targets));
+        logger.write(pek::log::Level::Info, "remaining");
     }
 
     std::lock_guard lock(state->mutex);
