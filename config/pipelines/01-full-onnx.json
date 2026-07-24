@@ -19,7 +19,7 @@
     "pektracker content-type=genericObject !",
     "pekperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
     "pekcomm method=websocket endpoint=/ws !",
-    "pekosd enabled=false bg-image=\"/work/data/images/GettyImages-1298072556-thumbnail.jpg\" !",
+    "pekosd enabled=true bg-image=\"/work/data/images/GettyImages-1298072556-thumbnail.jpg\" !",
     "peksink name=sink"
   ],
   "alternative-source-image": [
