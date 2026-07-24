@@ -5,7 +5,7 @@
         "decodebin name=dec",
         "dec. ! queue ! videoconvert ! videoscale ! video/x-raw,framerate=24/1,format=BGRA !",
         "pekinfer opchain-path=/work/config/models/silero-vad/opchain.json active=true !",
-        "pekosd enabled=false !",
+        "pekosd enabled=true !",
         "peksink name=sink",
         "dec. ! queue ! audioconvert ! audioresample ! audio/x-raw,channels=2 ! sink.audiosink"
     ]

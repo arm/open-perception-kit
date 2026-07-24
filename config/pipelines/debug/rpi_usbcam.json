@@ -19,7 +19,7 @@
     "pekinfer opchain-path=/work/config/models/yolov11-hailo8/opchain.json active=false !",
     "pektracker content-type=genericObject !",
     "pekperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
-    "pekosd enabled=false !",
+    "pekosd enabled=true !",
     "peksink name=sink",
     "alsasrc device=hw:2,0 do-timestamp=true !",
     "audioconvert ! audioresample !",

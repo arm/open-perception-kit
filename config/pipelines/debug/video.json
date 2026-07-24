@@ -7,7 +7,7 @@
         "pekinfer opchain-path=/work/config/models/yolov11/opchain.json active=true !",
         "pekinfer opchain-path=/work/config/models/ultraface/opchain.json active=true !",
         "pekinfer opchain-path=/work/config/models/gaze-detection/opchain.json active=true !",
-        "pekosd enabled=false !",
+        "pekosd enabled=true !",
         "peksink name=sink",
         "dec. ! queue ! audioconvert ! audioresample ! audio/x-raw,channels=2 ! sink.audiosink"
     ]
