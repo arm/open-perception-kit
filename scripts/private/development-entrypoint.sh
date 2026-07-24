@@ -12,7 +12,8 @@ set -euo pipefail
 seed_development_artifacts() {
     local artifacts_root="/opt/pek-app"
 
-    [[ -d "${artifacts_root}" ]] || return
+    [[ -d "${artifacts_root}" ]] || return 0
+    [[ -w /work ]] || return 0
 
     mkdir -p /work/data/videos /work/development/build/meson-out /work/tools
 
