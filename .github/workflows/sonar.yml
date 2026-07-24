@@ -27,6 +27,10 @@ on:
         branches: [main, develop, "feature/**", "sandbox/**"]
         types: [opened, synchronize, reopened, ready_for_review, labeled]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.ref || github.run_id }}-${{ github.event.action == 'labeled' && !contains(github.event.label.name, 'run-pek-ci') && github.run_id || 'validation' }}
+  cancel-in-progress: true
+
 jobs:
   build-and-sonar:
     name: Run Sonar analysis in Docker
