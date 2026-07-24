@@ -141,6 +141,39 @@
 }
 
 {
+   gst_decklink_plugin_registration_structures
+   Memcheck:Leak
+   match-leak-kinds: definite,indirect
+   ...
+   obj:*/libgstreamer-1.0.so*
+   fun:gst_structure_new_valist
+   fun:gst_structure_new
+   ...
+   obj:*/libgstdecklink.so*
+   ...
+   fun:g_type_class_get
+   fun:gst_element_register
+   ...
+   obj:*/libgstdecklink.so*
+}
+
+{
+   gst_decklink_plugin_registration_structure_set
+   Memcheck:Leak
+   match-leak-kinds: indirect
+   ...
+   obj:*/libgstreamer-1.0.so*
+   fun:gst_structure_set
+   ...
+   obj:*/libgstdecklink.so*
+   ...
+   fun:g_type_class_get
+   fun:gst_element_register
+   ...
+   obj:*/libgstdecklink.so*
+}
+
+{
    ld_loader_dlopen_reachable
    Memcheck:Leak
    match-leak-kinds: reachable,possible
