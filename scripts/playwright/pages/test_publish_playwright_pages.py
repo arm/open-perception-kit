@@ -5,6 +5,7 @@
 
 import datetime as dt
 import importlib.util
+import json
 import os
 import sys
 import tempfile
@@ -362,6 +363,14 @@ class TestPublishPlaywrightPages(unittest.TestCase):
             def checkout(path, _storage_branch):
                 path.mkdir(parents=True)
 
+            persisted = {}
+
+            def push(path, _storage_branch):
+                target = path / "playwright" / "prs" / "181"
+                self.assertFalse((target / "data" / "video.webm").exists())
+                persisted.update(json.loads((target / publish.VIDEO_ARTIFACT_META).read_text(encoding="utf-8")))
+                return False
+
             env = {
                 "GITHUB_OUTPUT": str(output),
                 "GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge",
@@ -378,14 +387,122 @@ class TestPublishPlaywrightPages(unittest.TestCase):
             with patch.dict(os.environ, env, clear=True), \
                     patch.object(publish, "checkout_site_branch", side_effect=checkout), \
                     patch.object(publish, "build_source_map_json", return_value="{}"), \
-                    patch.object(publish, "push_site_branch", return_value=False):
+                    patch.object(publish, "push_site_branch", side_effect=push):
                 publish.publish_report(site_dir, "playwright-pages")
 
             self.assertEqual(output.read_text(encoding="utf-8"), "deploy=true\n")
+            self.assertEqual(persisted, {
+                "files": ["data/video.webm"],
+                "run_attempt": "1",
+                "run_id": "123",
+            })
             self.assertEqual(
                 (site_dir / "playwright" / "prs" / "181" / "data" / "video.webm").read_text(encoding="utf-8"),
                 "video",
             )
+
+    def test_publish_report_skips_stale_attempt_before_artifact_download(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            site_dir = root / "site"
+            target = site_dir / "playwright" / "prs" / "181"
+            output = root / "github-output"
+
+            def checkout(_path, _storage_branch):
+                target.mkdir(parents=True)
+                (target / "marker.txt").write_text("newer", encoding="utf-8")
+                publish.write_video_artifact_meta(target, "123", "2", ["data/video.webm"])
+
+            env = {
+                "GITHUB_OUTPUT": str(output),
+                "GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge",
+                "UPSTREAM_CONCLUSION": "success",
+                "UPSTREAM_EVENT": "pull_request",
+                "UPSTREAM_HEAD_BRANCH": "feature/test",
+                "UPSTREAM_HEAD_REPOSITORY": "Arm-Debug/amp-dev-forge",
+                "UPSTREAM_HEAD_SHA": "commit-for-test",
+                "UPSTREAM_PR_NUMBER": "181",
+                "UPSTREAM_RUN_ATTEMPT": "1",
+                "UPSTREAM_RUN_ID": "123",
+            }
+            with patch.dict(os.environ, env, clear=True), \
+                    patch.object(publish, "checkout_site_branch", side_effect=checkout), \
+                    patch.object(publish, "download_report_artifact") as download, \
+                    patch.object(publish, "push_site_branch") as push:
+                publish.publish_report(site_dir, "playwright-pages")
+
+            download.assert_not_called()
+            push.assert_not_called()
+            self.assertEqual((target / "marker.txt").read_text(encoding="utf-8"), "newer")
+            self.assertEqual(output.read_text(encoding="utf-8"), "deploy=false\n")
+
+    def test_stale_report_uses_run_attempt_and_rejects_unsafe_video_paths(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target = Path(tmpdir)
+            publish.write_video_artifact_meta(target, "123", "2", ["data/video.webm"])
+
+            self.assertTrue(publish.is_stale_report(target, "123", "1"))
+            self.assertTrue(publish.is_stale_report(target, "122", "99"))
+            self.assertFalse(publish.is_stale_report(target, "123", "2"))
+            self.assertFalse(publish.is_stale_report(target, "123", "3"))
+
+            (target / publish.VIDEO_ARTIFACT_META).write_text(
+                '{"files":["../video.webm"],"run_attempt":"2","run_id":"123"}',
+                encoding="utf-8",
+            )
+            self.assertIsNone(publish.read_video_artifact_meta(target / publish.VIDEO_ARTIFACT_META))
+
+            (target / publish.VIDEO_ARTIFACT_META).unlink()
+            (target / publish.REPORT_INDEX_META).write_text(
+                "branch @ commit | run 123 attempt 2 | Jul 24, 2026 10:00 UTC\n",
+                encoding="utf-8",
+            )
+            self.assertTrue(publish.is_stale_report(target, "123", "1"))
+
+    def test_restore_published_report_videos_restores_all_targets_best_effort(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = Path(tmpdir)
+
+            def report_target(relative, run_id, files=None):
+                target = site_dir / "playwright" / relative
+                target.mkdir(parents=True)
+                (target / publish.REPORT_INDEX_META).write_text(
+                    f"branch @ commit | run {run_id} attempt 1 | Jul 24, 2026 10:00 UTC\n",
+                    encoding="utf-8",
+                )
+                if files is not None:
+                    publish.write_video_artifact_meta(target, run_id, "1", files)
+                return target
+
+            nightly = report_target("nightly", "100")
+            pr_181 = report_target("prs/181", "101", ["phase/data/pr.webm"])
+            missing = report_target("prs/182", "102", ["data/missing.webm"])
+            existing = report_target("prs/184", "104", ["data/existing.webm"])
+            (existing / "data").mkdir()
+            (existing / "data" / "existing.webm").write_text("existing", encoding="utf-8")
+
+            downloads = []
+
+            def download(artifact_dir, _repository, run_id, _run_attempt):
+                downloads.append(run_id)
+                if run_id == "102":
+                    return False
+                relative = "data/nightly.webm" if run_id == "100" else "phase/data/pr.webm"
+                video = artifact_dir / "playwright-report" / relative
+                video.parent.mkdir(parents=True)
+                video.write_text(run_id, encoding="utf-8")
+                return True
+
+            with patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}, clear=True), \
+                    patch.object(publish, "download_report_artifact", side_effect=download):
+                restored = publish.restore_published_report_videos(site_dir)
+
+            self.assertEqual(restored, 2)
+            self.assertEqual(downloads, ["100", "101", "102"])
+            self.assertEqual((nightly / "data" / "nightly.webm").read_text(encoding="utf-8"), "100")
+            self.assertEqual((pr_181 / "phase" / "data" / "pr.webm").read_text(encoding="utf-8"), "101")
+            self.assertFalse((missing / "data" / "missing.webm").exists())
+            self.assertEqual((existing / "data" / "existing.webm").read_text(encoding="utf-8"), "existing")
 
     def test_dry_run_site_branch_does_not_need_github_token(self):
         with tempfile.TemporaryDirectory() as tmpdir:

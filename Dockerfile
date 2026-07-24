@@ -294,7 +294,7 @@ RUN set -eux; \
 
 # Install PlantUML JAR into image layers for docs generation and SBOM visibility.
 ARG PLANTUML_VERSION=1.2026.2
-ADD "https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}/plantuml-mit-${PLANTUML_VERSION}.jar" /opt/pek-deps/
+ADD --chmod=0444 "https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}/plantuml-mit-${PLANTUML_VERSION}.jar" /opt/pek-deps/
 
 USER ${USERNAME}
 WORKDIR /work

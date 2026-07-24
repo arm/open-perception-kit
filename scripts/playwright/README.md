@@ -96,16 +96,21 @@ Publish flow:
   - `prs/<number>/` for PR reports.
   - `nightly/` for scheduled `develop` reports.
 - Rebuild the top-level `index.html`.
+- Store the pruned report in `playwright-pages`; Playwright videos remain in
+  their GitHub Actions artifacts.
 - Commit and push `playwright-pages`.
-- Restore deploy-only YOLO dataset files when existing YOLO reports reference them.
+- Restore deploy-only Playwright videos for retained reports, the latest YOLO
+  detection videos, and referenced YOLO dataset files.
 - Deploy `_playwright_pages_site` as the GitHub Pages artifact.
+
+Expired GitHub Actions artifacts leave the report and its Actions run link
+available, but without the embedded video.
 
 Concurrency:
 
-- The workflow uses the `playwright-pages` concurrency group.
-- `cancel-in-progress: false` keeps publish jobs queued instead of canceling
-  one that is already updating the index.
-- This avoids racing two pushes to the same storage branch.
+- The workflow uses the shared `report-pages` concurrency group.
+- `cancel-in-progress: false` lets the running index update finish.
+- The shared group avoids racing two pushes to the same storage branch.
 
 Why this is better than manual artifact handling:
 
@@ -128,8 +133,8 @@ UPSTREAM_HEAD_BRANCH="$(git branch --show-current)" \
 UPSTREAM_HEAD_REPOSITORY=Arm-Debug/amp-dev-forge \
 UPSTREAM_HEAD_SHA="$(git rev-parse HEAD)" \
 UPSTREAM_PR_NUMBER=181 \
-UPSTREAM_RUN_ATTEMPT=local \
-UPSTREAM_RUN_ID=local \
+UPSTREAM_RUN_ATTEMPT=1 \
+UPSTREAM_RUN_ID=1 \
 ./scripts/playwright/pages/run.sh publish
 ```
 

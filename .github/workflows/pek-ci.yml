@@ -34,6 +34,10 @@ on:
   schedule:
     - cron: "0 2 * * *" # Every day at 2 AM UTC'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.ref || github.run_id }}-${{ github.event.action == 'labeled' && !contains(github.event.label.name, 'run-pek-ci') && github.run_id || 'validation' }}
+  cancel-in-progress: true
+
 jobs:
   linux-quick-start-build-test:
     name: Linux x86_64 quick-start build test
@@ -103,7 +107,7 @@ jobs:
           repositories: modelfetch
           permission-contents: read
 
-      - name: Recreate quick-start container
+      - name: Build and start quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
@@ -117,7 +121,7 @@ jobs:
           } >> "$GITHUB_ENV"
           ./scripts/quick-start/start-container.sh --recreate
 
-      - name: Build quick-start container
+      - name: Build PEK in quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: |
           ./scripts/build.sh
@@ -260,7 +264,7 @@ jobs:
             "$MODELFETCH_RELEASE_TOOL_IMAGE" \
             bash scripts/private/prepare-modelfetch-release.sh >/dev/null
 
-      - name: Recreate quick-start container
+      - name: Build and start quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           EXECUTORCH_ARTIFACTORY_USERNAME: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.require_executorch == 'true')) && secrets.PEK_ARTIFACTORY_USERNAME || '' }}
@@ -273,7 +277,7 @@ jobs:
           } >> "$GITHUB_ENV"
           ./scripts/quick-start/start-container.sh --recreate
 
-      - name: Build quick-start container
+      - name: Build PEK in quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: |
           ./scripts/build.sh

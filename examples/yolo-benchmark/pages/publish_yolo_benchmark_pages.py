@@ -10,6 +10,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import os
+import re
 import shutil
 import statistics
 import subprocess
@@ -48,6 +49,11 @@ REPORT_INDEX_META = "report-index-meta.txt"
 FINGERPRINT_HEADER = "# image_set_fingerprint="
 PERCENTILE_METRICS = ("p50_ms", "p75_ms", "p95_ms", "p99_ms")
 RUN_METRICS = ("avg_ms", *PERCENTILE_METRICS)
+VIDEO_COMPARISON_SCHEMA = "expkits_yolo_video_comparison.v1"
+BARE_DETECTION_VIDEO = "bare-detections.mp4"
+PEK_DETECTION_VIDEO = "pek-detections.mp4"
+DETECTION_VIDEOS = (BARE_DETECTION_VIDEO, PEK_DETECTION_VIDEO)
+VIDEO_ARTIFACT_META = "video-artifact.json"
 IMAGE_STAGE_METRICS = (
     ("preprocess_ms", "Preprocess"),
     ("inference_ms", "Inference"),
@@ -57,7 +63,7 @@ DRY_RUN_ENV = "YOLO_PAGES_DRY_RUN"
 
 
 def usage() -> None:
-    print("Usage: publish_yolo_benchmark_pages.py publish|cleanup", file=sys.stderr)
+    print("Usage: publish_yolo_benchmark_pages.py publish|cleanup|restore-latest [site-dir]", file=sys.stderr)
 
 
 def render_template(name: str, values: dict[str, object]) -> str:
@@ -223,6 +229,19 @@ def build_report_index_meta_text(
     return f"{branch} @ {head_sha[:12]} | run {run_id} attempt {run_attempt} | {now.strftime('%b %d, %Y %H:%M UTC')}"
 
 
+def published_report_version(target: Path) -> tuple[int, int] | None:
+    match = re.search(
+        r"\| run (\d+) attempt (\d+)(?: \||$)",
+        read_first_line(target / REPORT_INDEX_META, ""),
+    )
+    return (int(match.group(1)), int(match.group(2))) if match else None
+
+
+def is_stale_report(target: Path, run_id: str, run_attempt: str) -> bool:
+    published = published_report_version(target)
+    return published is not None and (int(run_id), int(run_attempt)) < published
+
+
 def parse_github_time(value: str) -> dt.datetime:
     return dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
 
@@ -262,7 +281,10 @@ def local_artifact_ignore(root: Path):
     def ignore(directory: str, names: list[str]) -> set[str]:
         ignored = {name for name in names if name in {"__pycache__", "predictions.jsonl"}}
         if Path(directory).resolve() == root:
-            ignored.update(name for name in names if name not in {"images.tsv", "runs"})
+            ignored.update(name for name in names if name not in {
+                "images.tsv", "runs", "summary.json", "summary.md", "video-source.json",
+                *DETECTION_VIDEOS,
+            })
         return ignored
 
     return ignore
@@ -316,6 +338,10 @@ def load_jsonl(path: Path) -> list[dict[str, Any]]:
 
 def dataset_id(fingerprint: str) -> str:
     return f"coco-val2017-{fingerprint.removeprefix('sha256:')[:12]}" if fingerprint.startswith("sha256:") else ""
+
+
+def video_dataset_id(digest: str) -> str:
+    return f"mediapipe-object-detection-{digest[:12]}" if re.fullmatch(r"[0-9a-f]{64}", digest) else ""
 
 
 def load_image_list_metadata(path: Path) -> tuple[str, dict[str, str]]:
@@ -427,9 +453,10 @@ def write_selected_artifacts(artifact_root: Path, target: Path, runs: list[dict[
         shutil.rmtree(target)
     target.mkdir(parents=True)
 
-    image_list = artifact_root / "images.tsv"
-    if image_list.is_file():
-        shutil.copy2(image_list, target / "images.tsv")
+    for name in ("images.tsv", "summary.json", "summary.md", "video-source.json", *DETECTION_VIDEOS):
+        source = artifact_root / name
+        if source.is_file():
+            shutil.copy2(source, target / name)
 
     runs_target = target / "runs"
     for run in runs:
@@ -959,11 +986,69 @@ def median_delta(runs: list[dict[str, Any]], metric: str) -> dict[str, float]:
 
 
 def overall_result_label(runs: list[dict[str, Any]]) -> str:
+    if runs and runs[0]["comparison"].get("schema") == VIDEO_COMPARISON_SCHEMA:
+        return fps_result_label(median_fps_delta(runs))
     return result_label(median_delta(runs, "avg_ms"))
 
 
 def overall_result_block(runs: list[dict[str, Any]]) -> str:
     return f'<div class="report-overall"><span>Overall</span>{overall_result_label(runs)}</div>'
+
+
+def fps_result_label(delta: dict[str, Any]) -> str:
+    percent = float(delta["delta_percent"])
+    if abs(percent) < 0.05:
+        return '<span class="verdict verdict-neutral">PEK equal</span>'
+    if percent > 0:
+        return f'<span class="verdict verdict-fast">PEK faster by {percent:.1f}%</span>'
+    return f'<span class="verdict verdict-slow">Bare faster by {abs(percent):.1f}%</span>'
+
+
+def median_fps_delta(runs: list[dict[str, Any]]) -> dict[str, float]:
+    bare_fps = statistics.median(float(run["comparison"]["fps"]["bare_fps"]) for run in runs)
+    pek_fps = statistics.median(float(run["comparison"]["fps"]["pek_fps"]) for run in runs)
+    ratio = pek_fps / bare_fps
+    return {
+        "bare_fps": bare_fps,
+        "pek_fps": pek_fps,
+        "delta_fps": pek_fps - bare_fps,
+        "ratio": ratio,
+        "delta_percent": (ratio - 1.0) * 100.0,
+    }
+
+
+def write_video_summary_table(runs: list[dict[str, Any]]) -> str:
+    delta = median_fps_delta(runs)
+    return (
+        '<div class="table-scroll"><table class="benchmark-table">'
+        '<thead><tr>'
+        f'{th("Metric")}{th("Bare median", "[FPS]")}{th("PEK median", "[FPS]")}'
+        f'{th("PEK delta", "[FPS]")}{th("Result")}'
+        '</tr></thead><tbody><tr><td>Unpaced pipeline</td>'
+        f'<td>{delta["bare_fps"]:.3f}</td><td>{delta["pek_fps"]:.3f}</td>'
+        f'<td>{delta["delta_fps"]:+.3f}</td><td>{fps_result_label(delta)}</td>'
+        '</tr></tbody></table></div>'
+    )
+
+
+def write_video_runs_table(runs: list[dict[str, Any]]) -> str:
+    rows = []
+    for run in runs:
+        fps = run["comparison"]["fps"]
+        rows.append(
+            '<tr>'
+            f'<td><a href="runs/{html_escape(run["name"])}/comparison.json">{html_escape(run["name"])}</a></td>'
+            f'<td>{float(fps["bare_fps"]):.3f}</td><td>{float(fps["pek_fps"]):.3f}</td>'
+            f'<td>{float(fps["delta_fps"]):+.3f}</td><td>{fps_result_label(fps)}</td>'
+            '</tr>'
+        )
+    return (
+        '<div class="table-scroll"><table class="benchmark-table">'
+        '<thead><tr>'
+        f'{th("Run")}{th("Bare", "[FPS]")}{th("PEK", "[FPS]")}'
+        f'{th("PEK delta", "[FPS]")}{th("Result")}'
+        f'</tr></thead><tbody>{"".join(rows)}</tbody></table></div>'
+    )
 
 
 def write_delta_rows(deltas: list[tuple[str, dict[str, Any]]]) -> str:
@@ -1202,6 +1287,22 @@ def dataset_images_href_for_report(runs: list[dict[str, Any]], target: Path, sit
     return Path(os.path.relpath(images_dir, target)).as_posix()
 
 
+def video_dataset_href_for_report(target: Path, site_dir: Path, digest: str) -> str:
+    dataset = video_dataset_id(digest)
+    manifest = target / "video-source.json"
+    if not dataset or not manifest.is_file():
+        return ""
+    try:
+        source = load_json(manifest)
+    except (OSError, json.JSONDecodeError) as error:
+        raise PublishError(f"Invalid video source manifest: {error}") from error
+    if not isinstance(source, dict) or source.get("schema") != "expkits_yolo_video_source.v1":
+        raise PublishError("Video source manifest must use expkits_yolo_video_source.v1.")
+    if source.get("sha256") != digest:
+        raise PublishError("Video source manifest SHA-256 differs from the benchmark summary.")
+    return Path(os.path.relpath(site_dir / DATASET_ROOT / dataset / INDEX_HTML, target)).as_posix()
+
+
 def write_dataset_links(target: Path) -> str:
     if not (target / "images.tsv").is_file():
         return ""
@@ -1256,14 +1357,97 @@ def write_information_section(comparison: dict[str, Any]) -> str:
     )
 
 
+def write_video_report_page(
+    target: Path,
+    site_dir: Path,
+    title: str,
+    meta_html: str,
+    runs: list[dict[str, Any]],
+    run_href: str = "",
+) -> None:
+    comparison = runs[0]["comparison"]
+    inputs = comparison["inputs"]
+    measurement = comparison["measurement"]
+    back_href = rel_to_report_root(target, site_dir)
+    video_dataset_href = video_dataset_href_for_report(target, site_dir, str(inputs.get("video_sha256", "")))
+    detection_videos = [
+        (label, filename)
+        for label, filename in (("Bare / Ultralytics", BARE_DETECTION_VIDEO), ("PEK", PEK_DETECTION_VIDEO))
+        if (target / filename).is_file()
+    ]
+    detection_video_section = ""
+    if detection_videos:
+        video_cards = "".join(
+            '        <section class="section-card">\n'
+            f'          <h3>{label}</h3>\n'
+            f'          <video class="detection-video" controls preload="metadata" playsinline '
+            f'width="{html_escape(inputs["source_width"])}" height="{html_escape(inputs["source_height"])}" '
+            f'src="{filename}"></video>\n'
+            f'          <p><a href="{filename}">Download MP4</a>. '
+            'Rendered in a separate pass after the timed benchmark.</p>\n'
+            '        </section>\n'
+            for label, filename in detection_videos
+        )
+        detection_video_section = (
+            '      <section class="report-section" id="detections">\n'
+            '        <div class="report-section-heading"><h2>Detection videos</h2></div>\n'
+            f'{video_cards}'
+            '      </section>\n'
+        )
+    elif run_href:
+        detection_video_section = (
+            '      <section class="report-section" id="detections">\n'
+            '        <div class="report-section-heading"><h2>Detection videos</h2></div>\n'
+            '        <section class="section-card"><p>Detection videos are stored with the workflow run. '
+            f'<a href="{html_escape(run_href)}">Open workflow run</a> to download the artifact.</p></section>\n'
+            '      </section>\n'
+        )
+    body = render_template(
+        "video-report.html.in",
+        {
+            "title": html_escape(title),
+            "back_href": html_escape(back_href),
+            "meta_html": meta_html,
+            "overall_result": overall_result_block(runs),
+            "timed_region": html_escape(measurement["timed_region"]),
+            "frame_count": html_escape(inputs["source_frame_count"]),
+            "source_fps": html_escape(inputs["source_fps"]),
+            "resolution": f'{html_escape(inputs["source_width"])}x{html_escape(inputs["source_height"])}',
+            "imgsz": html_escape(inputs["imgsz"]),
+            "device": html_escape(inputs["device"]),
+            "run_count": len(runs),
+            "bare_model": html_escape(inputs["bare_model"]),
+            "pek_opchain": html_escape(inputs["pek_opchain"]),
+            "video_sha256": html_escape(inputs["video_sha256"]),
+            "input_video_link": (
+                f' | <a href="{html_escape(video_dataset_href)}">input video</a>' if video_dataset_href else ""
+            ),
+            "summary_links": "".join(
+                f' | <a href="{name}">{label}</a>'
+                for name, label in (("summary.json", "report JSON"), ("summary.md", "report Markdown"))
+                if (target / name).is_file()
+            ),
+            "detection_video_section": detection_video_section,
+            "summary_table": write_video_summary_table(runs),
+            "runs_table": write_video_runs_table(runs),
+        },
+    )
+    css_href = f"{back_href}report-index.css"
+    (target / INDEX_HTML).write_text(render_page(f"{title} - YOLO video benchmark", css_href, body), encoding="utf-8")
+
+
 def write_report_page(
     target: Path,
     site_dir: Path,
     title: str,
     meta_html: str,
     runs: list[dict[str, Any]],
+    run_href: str = "",
 ) -> None:
     first = runs[0]["comparison"]
+    if first.get("schema") == VIDEO_COMPARISON_SCHEMA:
+        write_video_report_page(target, site_dir, title, meta_html, runs, run_href)
+        return
     inputs = first["inputs"]
     measurement = first["measurement"]
     back_href = rel_to_report_root(target, site_dir)
@@ -1366,6 +1550,94 @@ def write_yolo_index(site_dir: Path, repository: str) -> None:
         render_page(f"{PRODUCT_TITLE} - YOLO benchmark reports", "report-index.css", body), encoding="utf-8")
 
 
+def write_video_artifact_meta(
+    target: Path,
+    repository: str,
+    run_id: str,
+    run_attempt: str,
+    title: str,
+    files: list[str],
+) -> None:
+    (target / VIDEO_ARTIFACT_META).write_text(
+        json.dumps(
+            {
+                "files": files,
+                "repository": repository,
+                "run_id": run_id,
+                "run_attempt": run_attempt,
+                "title": title,
+            },
+            indent=2,
+            sort_keys=True,
+        ) + "\n",
+        encoding="utf-8",
+    )
+
+
+def restore_latest_detection_videos(site_dir: Path) -> bool:
+    manifests = list((site_dir / REPORT_ROOT).glob(f"**/{VIDEO_ARTIFACT_META}"))
+    if not manifests:
+        print("No latest YOLO detection video metadata found; leaving report links only.")
+        return False
+
+    repository = require_env("GITHUB_REPOSITORY")
+    candidates = []
+    for path in manifests:
+        try:
+            metadata = json.loads(path.read_text(encoding="utf-8"))
+            source_repository = metadata["repository"]
+            run_id = str(metadata["run_id"])
+            run_attempt = str(metadata["run_attempt"])
+            title = metadata["title"]
+            files = metadata["files"]
+            if not isinstance(source_repository, str) or not isinstance(title, str) or not isinstance(files, list):
+                raise ValueError("invalid repository, title, or file list")
+            if source_repository != repository:
+                raise ValueError("artifact belongs to another repository")
+            if not run_id.isdigit() or not run_attempt.isdigit():
+                raise ValueError("invalid run or file list")
+            if not files or any(filename not in DETECTION_VIDEOS for filename in files):
+                raise ValueError("invalid detection video file")
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+            print(f"Ignoring invalid YOLO detection video metadata at {path}: {error}")
+            continue
+        candidates.append((int(run_id), int(run_attempt), path, metadata))
+
+    if not candidates:
+        return False
+    _, _, meta_path, metadata = max(candidates, key=lambda item: (item[0], item[1]))
+    run_id = str(metadata["run_id"])
+    run_attempt = str(metadata["run_attempt"])
+    title = str(metadata["title"])
+    files = [str(filename) for filename in metadata["files"]]
+    target = meta_path.parent
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        artifact_dir = Path(tmpdir)
+        if not download_report_artifact(artifact_dir, repository, run_id, run_attempt):
+            print(f"Could not restore latest YOLO detection videos from run {run_id}; keeping the run link.")
+            return False
+        artifact_root = find_yolo_artifact(artifact_dir)
+        if artifact_root is None:
+            print(f"Run {run_id} artifact did not contain a YOLO benchmark report; keeping the run link.")
+            return False
+        sources = []
+        for filename in files:
+            source = artifact_root / filename
+            if not source.is_file():
+                print(f"Run {run_id} artifact is missing {filename}; keeping the run link.")
+                return False
+            sources.append((source, target / filename))
+        for source, destination in sources:
+            shutil.copy2(source, destination)
+
+    runs = load_report_runs(target)
+    meta_html = (target / "report-meta.html").read_text(encoding="utf-8").strip()
+    run_href = f"https://github.com/{repository}/actions/runs/{run_id}"
+    write_report_page(target, site_dir, title, meta_html, runs, run_href)
+    return True
+
+
 def select_target(site_dir: Path, repository: str, event: str, branch: str) -> tuple[Path, str, str]:
     yolo_dir = site_dir / REPORT_ROOT
     if event == "pull_request":
@@ -1394,6 +1666,10 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
     conclusion = require_env("UPSTREAM_CONCLUSION")
     run_id = require_env("UPSTREAM_RUN_ID")
     run_attempt = require_env("UPSTREAM_RUN_ATTEMPT")
+    run_href = f"https://github.com/{repository}/actions/runs/{run_id}"
+
+    if not run_id.isdigit() or not run_attempt.isdigit():
+        raise PublishError("UPSTREAM_RUN_ID and UPSTREAM_RUN_ATTEMPT must be numeric.")
 
     if conclusion not in {"success", "failure"}:
         print(f"Skipping YOLO report from {conclusion} upstream run.")
@@ -1409,6 +1685,12 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
 
     index_meta_text = build_report_index_meta_text(branch, head_sha, run_id, run_attempt)
     meta_html = build_report_meta_html(repository, event, pr_number, branch, head_sha, run_id, run_attempt)
+
+    checkout_site_branch(site_dir, storage_branch)
+    if is_stale_report(target, run_id, run_attempt):
+        print(f"Skipping stale YOLO report from run {run_id} attempt {run_attempt}.")
+        set_output("deploy", "false")
+        return
 
     with tempfile.TemporaryDirectory() as tmpdir:
         artifact_dir = Path(tmpdir)
@@ -1428,20 +1710,37 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
             print(error)
             set_output("deploy", "false")
             return
-        checkout_site_branch(site_dir, storage_branch)
         remove_legacy_root_site(site_dir)
         write_selected_artifacts(artifact_root, target, runs)
         (target / REPORT_INDEX_META).write_text(f"{index_meta_text}\n", encoding="utf-8")
         (target / "report-meta.html").write_text(f"{meta_html}\n", encoding="utf-8")
         (target / "commit.txt").write_text(f"{head_sha}\n", encoding="utf-8")
-        write_report_page(target, site_dir, title, meta_html, runs)
+        write_report_page(target, site_dir, title, meta_html, runs, run_href)
         write_root_index(site_dir)
         write_index_assets(site_dir)
         write_yolo_index(site_dir, repository)
         (site_dir / ".nojekyll").touch()
 
+        deploy_detection_videos = [
+            (artifact_root / filename, target / filename)
+            for filename in DETECTION_VIDEOS
+            if (target / filename).is_file()
+        ]
+        if deploy_detection_videos and conclusion == "success":
+            write_video_artifact_meta(
+                target,
+                repository,
+                run_id,
+                run_attempt,
+                title,
+                [target_path.name for _, target_path in deploy_detection_videos],
+            )
+        for _, detection_video_target in deploy_detection_videos:
+            detection_video_target.unlink()
+        if deploy_detection_videos:
+            write_report_page(target, site_dir, title, meta_html, runs, run_href)
         changed = push_site_branch(site_dir, storage_branch)
-        set_output("deploy", "true" if changed else "false")
+        set_output("deploy", "true" if changed or deploy_detection_videos else "false")
 
 
 def cleanup_closed_pr_reports(site_dir: Path, storage_branch: str, retention_days: int) -> None:
@@ -1473,6 +1772,13 @@ def cleanup_closed_pr_reports(site_dir: Path, storage_branch: str, retention_day
 
 
 def main(argv: list[str]) -> int:
+    if len(argv) == 3 and argv[1] == "restore-latest":
+        try:
+            restore_latest_detection_videos(Path(argv[2]))
+        except PublishError as error:
+            print(f"Error: {error}", file=sys.stderr)
+            return 1
+        return 0
     if len(argv) != 2 or argv[1] not in {"publish", "cleanup"}:
         usage()
         return 2

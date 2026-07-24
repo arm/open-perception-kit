@@ -1,6 +1,10 @@
 # Perception XPK Docs
 
-The Arm docs site source lives in `docs/public`. The docs config is `docs/public/docs-config.json`, and shared static assets live under `docs/public/static`.
+The public Arm docs site source lives in `docs/public`. The docs config is `docs/public/docs-config.json`, and shared static assets live under `docs/public/static`.
+
+Developer-facing architecture documentation lives in `docs/arch`.
+
+PlantUML sources live in `docs/plantuml`. Generated PNGs are written to `docs/public/static/img` so public pages can use them with `/img/...` paths.
 
 ## Run Locally
 
@@ -34,12 +38,14 @@ Stop the preview server with `Ctrl+C`.
 
 ## Asset Paths
 
-Because `docs/public` is mounted as the docs root, static assets must be inside `docs/public/static`.
+Because `docs/public` is mounted as the docs root, published static assets must be inside `docs/public/static`.
 
 For shared images, put files in `docs/public/static/img` and reference them from Markdown with site-root paths:
 
 ```md
 ![Example image](/img/example.png)
 ```
+
+For generated diagrams, put the `.puml` source in `docs/plantuml` and run `./scripts/gen-doc.sh`.
 
 See [the docs system docs](https://docs.staging.devplatform.arm.com/arm-docs-github-action/) for more information.

@@ -1,0 +1,60 @@
+@startuml
+!include pek-style.puml
+
+title Perception Experience Kit Documentation Learning Paths
+
+start
+
+:Open the Perception Experience Kit docs landing page;
+
+if ("Do you want the shortest path\nto a first successful run?") then (yes)
+  partition "Quick guide path" {
+    if ("Pick your platform") then (Windows / Linux)
+      :Windows/Linux Quick Guide;
+    elseif (macOS)
+      :macOS Quick Guide;
+    else (Raspberry Pi)
+      :Raspberry Pi Quick Guide;
+    endif
+    :Get a first build, run,\nand browser-visible result;
+    :Exercise Quick Guide;\nbuild a pipeline step by step\nand map the files behind it;
+  }
+else (no)
+  partition "Deep dive path" {
+    :Deep dive starting point;
+    if ("What environment are you using?") then (PC host)
+      :Windows + WSL / Linux / macOS\ncontainer workflow;
+    elseif (Raspberry Pi 5)
+      :Raspberry Pi 5 setup,\nSSH, camera, and target prep;
+      if ("Which accelerator?") then (Hailo 8)
+        :Use the RPI5 H8 devcontainer\nfor Hailo 8 / AI HAT+;
+      else (Hailo 10)
+        :Use the RPI5 H10 devcontainer\nfor Hailo 10 / AI HAT+ 2;
+      endif
+    else (Deployment)
+      :Topo-compatible deployment path;
+    endif
+    :Build Perception Experience Kit, run tools/pek-menu,\nand inspect presets and endpoints;
+  }
+endif
+
+partition "Shared engineering path" {
+  :Engineering starting point;
+  :Structural basics;\nlearn where config/, data/,\ndocs/, scripts/, and development/ fit;
+  :Runtime basics;\nconnect pipelines, OpChains,\nand model descriptors;
+  :Bring your model;\nadd or adapt content in config/models/\nand config/opchains/;
+  :Custom postprocessing;\nextend development/ops-std/postproc/\nwhen built-in parsers are not enough;
+  :Known limitations and contribution guidance;
+}
+
+partition "Architecture understanding" {
+  :Architectural overview;
+  :Op system, OpChain example,\nand engine-independent inference flow;
+  :Perception and pek::Model;
+  :Element deep dives:\npekinfer, pekosd,\npekperformance, and peksink;
+}
+
+:Understand how the whole repository\nfits together and where to extend it with your own content\nconforming to the Perception Experience Kit architecture and contribution guidelines;
+stop
+
+@enduml

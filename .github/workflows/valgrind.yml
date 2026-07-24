@@ -19,6 +19,10 @@ on:
     branches: [main, develop]
     types: [opened, synchronize, reopened, ready_for_review]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   publish-pr-baseline:
     name: Publish missing Valgrind baseline artifact

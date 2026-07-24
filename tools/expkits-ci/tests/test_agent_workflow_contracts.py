@@ -556,6 +556,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
     def test_standard_validation_workflows_accept_manual_pr_context(self):
         pek_ci = load_yaml(PEK_CI_WORKFLOW_FILE)
         sonar = load_yaml(SONAR_WORKFLOW_FILE)
+        valgrind = load_yaml(PEK_CI_WORKFLOW_FILE.with_name("valgrind.yml"))
         pek_inputs = pek_ci["on"]["workflow_dispatch"]["inputs"]
         sonar_inputs = sonar["on"]["workflow_dispatch"]["inputs"]
         pek_steps = step_map(pek_ci["jobs"]["quality-checks"])
@@ -563,7 +564,33 @@ class AgentWorkflowContractTests(unittest.TestCase):
         linux_steps = step_map(pek_ci["jobs"]["linux-quick-start-build-test"])
         rpi_steps = step_map(pek_ci["jobs"]["rpi5-quick-start-build-test"])
         expected_label_gate = "github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')"
-        expected_draft_override = "github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci')"
+        expected_draft_override = (
+            "github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci')"
+        )
+        expected_standard_concurrency = {
+            "group": (
+                "${{ github.workflow }}-${{ github.event_name }}-"
+                "${{ github.event.pull_request.number || github.event.inputs.pr_number || "
+                "github.ref || github.run_id }}-"
+                "${{ github.event.action == 'labeled' && "
+                "!contains(github.event.label.name, 'run-pek-ci') && "
+                "github.run_id || 'validation' }}"
+            ),
+            "cancel-in-progress": "true",
+        }
+
+        self.assertEqual(pek_ci["concurrency"], expected_standard_concurrency)
+        self.assertEqual(sonar["concurrency"], expected_standard_concurrency)
+        self.assertEqual(
+            valgrind["concurrency"],
+            {
+                "group": (
+                    "${{ github.workflow }}-${{ github.event_name }}-"
+                    "${{ github.event.pull_request.number || github.ref || github.run_id }}"
+                ),
+                "cancel-in-progress": "true",
+            },
+        )
 
         self.assertEqual(
             set(pek_inputs.keys()),
@@ -769,11 +796,11 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertIn("USER 65532:65532", release_tools_dockerfile)
         self.assertLess(
             list(rpi_steps).index("Prepare pinned modelfetch release"),
-            list(rpi_steps).index("Recreate quick-start container"),
+            list(rpi_steps).index("Build and start quick-start container"),
         )
         self.assertNotIn(
             "GH_TOKEN",
-            rpi_steps["Recreate quick-start container"].get("env", {}),
+            rpi_steps["Build and start quick-start container"].get("env", {}),
         )
         executorch_required_scope = (
             "${{ (github.event_name == 'schedule' || "
@@ -804,8 +831,8 @@ class AgentWorkflowContractTests(unittest.TestCase):
             )
         for steps in (linux_steps, rpi_steps, pek_steps):
             build_env = (
-                steps["Recreate quick-start container"]["env"]
-                if "Recreate quick-start container" in steps
+                steps["Build and start quick-start container"]["env"]
+                if "Build and start quick-start container" in steps
                 else steps["Build docker image"]["env"]
             )
             self.assertEqual(
@@ -900,7 +927,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
             (
                 ".github/workflows/pek-ci.yml",
                 "linux-quick-start-build-test",
-                "Recreate quick-start container",
+                "Build and start quick-start container",
             ),
             (
                 ".github/workflows/pek-ci.yml",
