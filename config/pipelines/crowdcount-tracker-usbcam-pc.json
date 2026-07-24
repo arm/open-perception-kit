@@ -8,7 +8,7 @@
     "pektracker content-type=genericObject !",
     "pekperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
     "pekcomm method=websocket endpoint=/ws !",
-    "pekosd enabled=true !",
+    "pekosd enabled=false !",
     "peksink name=sink"
   ],
   "alternative-source-video": [

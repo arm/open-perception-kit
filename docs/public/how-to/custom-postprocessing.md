@@ -168,9 +168,9 @@ If your model output already matches one of the built-in parsers, prefer reusing
 
 ## Visualizing the result in the current runtime
 
-Once your parser writes the right `Perception` results, those results can already be visualized by `pekosd`.
+Once your parser writes the right `Perception` results, those results can be visualized by `pekosd` when server-side overlays are enabled.
 
-`pekosd` is the element that currently does the drawing. It reads `PerceptionMeta` from the video buffer and renders supported result layers onto the BGRA frame.
+`pekosd` is the element that currently does server-side drawing. It reads `PerceptionMeta` from the video buffer and renders supported result layers onto the BGRA frame.
 
 That means the usual flow is:
 
@@ -178,9 +178,9 @@ That means the usual flow is:
 2. each detection in that layer gets linked back to the current inference source through `parentUuid`
 3. `GenericPostprocessOp` appends the layer to `Perception`
 4. `PerceptionMeta` carries that structured data downstream with the buffer
-5. `pekosd` reads the resulting layers and decides what to draw based on `layer.contentType` and the detection variant type
+5. when enabled, `pekosd` reads the resulting layers and decides what to draw based on `layer.contentType` and the detection variant type
 
-This is how the checked-in camera-contact flow works as well: the parser produces a `cameraContact` result, and `pekosd` renders that as a green or red status dot.
+This is how the checked-in camera-contact flow works as well: the parser produces a `cameraContact` result, and `pekosd` can render that as a green or red status dot when enabled.
 
 So when bringing your own model, you should think about two separate questions:
 

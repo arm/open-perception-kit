@@ -70,7 +70,7 @@ GST_DEBUG_CATEGORY_STATIC(gst_pek_osd_debug);
 #define GST_CAT_DEFAULT gst_pek_osd_debug
 
 // Default values
-#define DEFAULT_ENABLED TRUE
+#define DEFAULT_ENABLED FALSE
 #define DEFAULT_PERFORMANCE_OVERLAY_ENABLED TRUE
 #define DEFAULT_BG_IMAGE ""
 
