@@ -492,7 +492,10 @@ class AgentWorkflowContractTests(unittest.TestCase):
             "group": (
                 "${{ github.workflow }}-${{ github.event_name }}-"
                 "${{ github.event.pull_request.number || github.event.inputs.pr_number || "
-                "github.ref || github.run_id }}"
+                "github.ref || github.run_id }}-"
+                "${{ github.event.action == 'labeled' && "
+                "!contains(github.event.label.name, 'run-pek-ci') && "
+                "github.run_id || 'validation' }}"
             ),
             "cancel-in-progress": "true",
         }
