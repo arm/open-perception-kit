@@ -48,7 +48,7 @@ jobs:
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -104,8 +104,7 @@ jobs:
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      # RPI runner drops checkout@v6 temp includeIf credentials during fetch; retry v6 after runner image update.
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -134,7 +133,7 @@ jobs:
 
       - name: Upload RPI browser smoke artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: rpi-browser-smoke-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -177,7 +176,7 @@ jobs:
     steps:
       - name: Checkout workflow helpers
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           path: workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
@@ -200,7 +199,7 @@ jobs:
             --github-output "${GITHUB_OUTPUT}"
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -220,7 +219,7 @@ jobs:
 
       - name: Upload quality report artifact (nightly)
         if: ${{ always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number == '')) }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: expkits-ci-quality-report-full
           path: "${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.github/artifacts/expkits-ci-full-report.txt"
@@ -229,7 +228,7 @@ jobs:
 
       - name: Upload documentation artifact
         if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number == '') }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: pek-doc
           path: "${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/development/build/doc"
@@ -254,7 +253,7 @@ jobs:
 
       - name: Upload quality report artifact (PR)
         if: ${{ always() && (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '')) }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: expkits-ci-quality-report-pr
           path: "${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.github/artifacts/expkits-ci-pr-report.txt"
@@ -293,7 +292,7 @@ jobs:
       - name: Upload clang-tidy logs
         if: always() && (github.event_name == 'pull_request' || github.event_name == 'schedule' ||
           github.event_name == 'workflow_dispatch')
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: clang-tidy-baseline
           path: |
@@ -312,7 +311,7 @@ jobs:
 
       - name: Upload Valgrind logs on failure
         if: ${{ !cancelled() && steps.valgrind_checks.outcome == 'failure' }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: valgrind-logs
           path: |

@@ -45,9 +45,8 @@ jobs:
       YOLO_BENCHMARK_RUNS: ${{ github.event_name == 'workflow_dispatch' && inputs.benchmark_runs || '10' }}
 
     steps:
-      # RPI runner drops checkout@v6 temp includeIf credentials during fetch; retry v6 after runner image update.
       - name: Checkout ref
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.ref }}
@@ -69,7 +68,7 @@ jobs:
 
       - name: Upload YOLO benchmark artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: yolo-benchmark-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/artifacts/yolo-benchmark

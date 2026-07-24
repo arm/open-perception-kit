@@ -40,6 +40,8 @@ jobs:
     permissions:
       actions: read
       contents: read
+      issues: read
+      pull-requests: read
     outputs:
       should_run: ${{ steps.resolve.outputs.should_run }}
       skip_reason: ${{ steps.resolve.outputs.skip_reason }}
@@ -53,13 +55,13 @@ jobs:
       agent_model_config_file: ${{ steps.resolve.outputs.agent_model_config_file }}
       agent_task_config_file: ${{ steps.resolve.outputs.agent_task_config_file }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - id: resolve
         name: Resolve repair inputs
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
           CURRENT_REF_NAME: ${{ github.head_ref || github.ref_name }}
         run: |
           set -euo pipefail
@@ -93,7 +95,7 @@ jobs:
     outputs:
       has_changes: ${{ steps.patch.outputs.has_changes }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -103,7 +105,7 @@ jobs:
       - name: Collect source run context
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private${PYTHONPATH:+:${PYTHONPATH}}" \
@@ -128,7 +130,7 @@ jobs:
             --task-ref "${{ needs.prepare.outputs.task_ref }}"
 
       - name: Set up Agent Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.10"
 
@@ -143,13 +145,14 @@ jobs:
           set -euo pipefail
           PYTHONPATH="${GITHUB_WORKSPACE}/tools/expkits-ci${PYTHONPATH:+:${PYTHONPATH}}" \
             .agent-runtime/openai-agent-venv/bin/python -m expkits_ci.agent_static_analysis
-          PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private:${GITHUB_WORKSPACE}/tools/expkits-ci${PYTHONPATH:+:${PYTHONPATH}}" \
+          PATH="${GITHUB_WORKSPACE}/.agent-runtime/openai-agent-venv/bin:${PATH}" \
+            PYTHONPATH="${GITHUB_WORKSPACE}/scripts/private:${GITHUB_WORKSPACE}/tools/expkits-ci${PYTHONPATH:+:${PYTHONPATH}}" \
             python3 -m agent_repair_orchestrator run-validation \
             --profile-path "${{ inputs.profile_path || '.github/agent-runtime/source-run-repair/profiles/profile.json' }}"
 
       - name: Fetch OpenAI proxy token
         id: openai-token
-        uses: Arm-Debug/devops-actions/fetch-openai-proxy-token@v1.7.0
+        uses: Arm-Debug/devops-actions/fetch-openai-proxy-token@v1.8.0
 
       - name: Run OpenAI SDK repair agent
         shell: bash
@@ -175,7 +178,7 @@ jobs:
 
       - name: Upload repair artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: agent-repair-source-run
           path: |
@@ -204,14 +207,14 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
           ref: ${{ needs.prepare.outputs.target_branch }}
           token: ${{ secrets.EXPKITS_AGENT_TOKEN || github.token }}
 
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           name: agent-repair-source-run
           path: ${{ runner.temp }}/agent-repair-source-run

@@ -28,9 +28,9 @@ jobs:
       actions: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
 
       - name: Publish missing Valgrind baseline artifact
         env:
@@ -54,7 +54,7 @@ jobs:
       # job publishes it from trusted main/develop code while this PR job waits.
       # <agent-review:suppress-end>
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true

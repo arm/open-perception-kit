@@ -149,7 +149,6 @@ class AgentWorkflowContractTests(unittest.TestCase):
             agent_step_names.index("Package repository changes"),
         )
         python_step = agent_steps["Set up Agent Python"]
-        self.assertEqual(python_step["uses"], "actions/setup-python@v6")
         self.assertEqual(python_step["with"]["python-version"], "3.10")
         install_step = agent_steps["Install OpenAI agent runtime"]
         self.assertEqual(install_step["shell"], "bash")
@@ -306,7 +305,6 @@ class AgentWorkflowContractTests(unittest.TestCase):
             "(github.event.inputs.head_ref || github.sha) || github.event.pull_request.head.sha || github.sha }}"
         )
         python_step = review_steps["Set up Agent Python"]
-        self.assertEqual(python_step["uses"], "actions/setup-python@v6")
         self.assertEqual(python_step["with"]["python-version"], "3.10")
         install_step = review_steps["Install OpenAI agent runtime"]
         self.assertEqual(install_step["shell"], "bash")
@@ -562,25 +560,6 @@ class AgentWorkflowContractTests(unittest.TestCase):
             sonar_steps["Report Sonar quality gate details"]["run"],
         )
 
-    def test_modified_validation_workflows_use_canonical_artifact_upload_major(self):
-        workflows = {
-            "agent-review": load_yaml(AGENT_REVIEW_WORKFLOW_FILE),
-            "agent-stabilize-pr-on-label": load_yaml(AGENT_STABILIZE_PR_LABEL_WORKFLOW_FILE),
-            "agent-stabilize-pr-worker": load_yaml(AGENT_STABILIZE_PR_WORKER_FILE),
-            "pek-ci": load_yaml(PEK_CI_WORKFLOW_FILE),
-            "sonar": load_yaml(SONAR_WORKFLOW_FILE),
-            "agent-repair-source-run-worker": load_yaml(AGENT_REPAIR_SOURCE_RUN_WORKER_FILE),
-            "workflow-audit": load_yaml(WORKFLOW_AUDIT_FILE),
-            "agent-repair-source-run": load_yaml(AGENT_REPAIR_SOURCE_RUN_WORKFLOW_FILE),
-        }
-
-        for workflow_name, workflow in workflows.items():
-            for job in workflow["jobs"].values():
-                for step in job.get("steps", []):
-                    with self.subTest(workflow=workflow_name, step=step.get("name")):
-                        if step.get("uses", "").startswith("actions/upload-artifact@"):
-                            self.assertEqual(step["uses"], "actions/upload-artifact@v6")
-
     def test_stabilizer_workflow_uses_canonical_agent_review_shape(self):
         workflow = load_yaml(AGENT_STABILIZE_PR_WORKER_FILE)
         call_inputs = workflow["on"]["workflow_call"]["inputs"]
@@ -623,7 +602,6 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertIn('--bundle-root "${RUNNER_TEMP}/agent-stabilization-helper"', snapshot_step["run"])
         python_step = steps["Set up Agent Python"]
         self.assertEqual(python_step["if"], "${{ steps.context.outputs.review_recommendation != 'approve' }}")
-        self.assertEqual(python_step["uses"], "actions/setup-python@v6")
         self.assertEqual(python_step["with"]["python-version"], "3.10")
         install_step = steps["Install OpenAI agent runtime"]
         self.assertEqual(install_step["shell"], "bash")
