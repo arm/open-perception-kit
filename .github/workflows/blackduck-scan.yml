@@ -24,7 +24,7 @@ jobs:
             runner: self-hosted-ubuntu-latest-x64
             onnxruntime_architecture: x64
           - architecture: arm
-            runner: ubuntu-24.04-arm
+            runner: self-hosted-ubuntu-latest-arm64
             onnxruntime_architecture: aarch64
     runs-on: ${{ matrix.runner }}
     defaults:
