@@ -27,7 +27,6 @@ CtrlWebSocket::CtrlWebSocket(_GstPekSink *self) : self_(self) {
 
     message_types = {
         {"play_pause", std::bind(&CtrlWebSocket::play_pause, this, _1)},
-        {"perf_overlay", std::bind(&CtrlWebSocket::enable_perf_overlay, this, _1)},
         {"model_toggle", std::bind(&CtrlWebSocket::model_toggle, this, _1)},
     };
 }
@@ -217,27 +216,6 @@ void CtrlWebSocket::play_pause(const json &jsn) {
     {
         std::unique_lock<std::mutex> lk(tsr->m);
         tsr->cv.wait_for(lk, std::chrono::milliseconds(800), [&] { return tsr->done; });
-    }
-
-    // send the current pipeline state back to browser
-    report();
-}
-
-// handle to "enable/disable performance overlay" button presses on the html frontend
-void CtrlWebSocket::enable_perf_overlay(const json &jsn) {
-    DBG("enable_perf_overlay: {}", jsn.dump());
-
-    auto top = get_top_pipeline(GST_ELEMENT(self_));
-    auto perf_ovr = get_element_by_type(top, "pekosd");
-    gst_object_unref(top);
-
-    // GST_IS_ELEMENT() is a macro performing a type check with no side effects
-    if (perf_ovr && GST_IS_ELEMENT(perf_ovr)) { // NOSONAR
-
-        gboolean enabled;
-        g_object_get(perf_ovr, "performance-overlay-enabled", &enabled, NULL);
-        g_object_set(perf_ovr, "performance-overlay-enabled", !enabled, NULL);
-        gst_object_unref(perf_ovr);
     }
 
     // send the current pipeline state back to browser
