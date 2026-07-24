@@ -477,6 +477,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
     def test_standard_validation_workflows_accept_manual_pr_context(self):
         pek_ci = load_yaml(PEK_CI_WORKFLOW_FILE)
         sonar = load_yaml(SONAR_WORKFLOW_FILE)
+        valgrind = load_yaml(PEK_CI_WORKFLOW_FILE.with_name("valgrind.yml"))
         pek_inputs = pek_ci["on"]["workflow_dispatch"]["inputs"]
         sonar_inputs = sonar["on"]["workflow_dispatch"]["inputs"]
         pek_steps = step_map(pek_ci["jobs"]["quality-checks"])
@@ -486,6 +487,27 @@ class AgentWorkflowContractTests(unittest.TestCase):
         expected_label_gate = "github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')"
         expected_draft_override = (
             "github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci')"
+        )
+        expected_standard_concurrency = {
+            "group": (
+                "${{ github.workflow }}-${{ github.event_name }}-"
+                "${{ github.event.pull_request.number || github.event.inputs.pr_number || "
+                "github.ref || github.run_id }}"
+            ),
+            "cancel-in-progress": "true",
+        }
+
+        self.assertEqual(pek_ci["concurrency"], expected_standard_concurrency)
+        self.assertEqual(sonar["concurrency"], expected_standard_concurrency)
+        self.assertEqual(
+            valgrind["concurrency"],
+            {
+                "group": (
+                    "${{ github.workflow }}-${{ github.event_name }}-"
+                    "${{ github.event.pull_request.number || github.ref || github.run_id }}"
+                ),
+                "cancel-in-progress": "true",
+            },
         )
 
         self.assertEqual(

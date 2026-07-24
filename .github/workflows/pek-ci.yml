@@ -29,6 +29,10 @@ on:
   schedule:
     - cron: "0 2 * * *" # Every day at 2 AM UTC'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   linux-quick-start-build-test:
     name: Linux x86_64 quick-start build test
@@ -59,11 +63,11 @@ jobs:
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: ./scripts/quick-start/detect-environment.sh
 
-      - name: Recreate quick-start container
+      - name: Build and start quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: ./scripts/quick-start/start-container.sh --recreate
 
-      - name: Build quick-start container
+      - name: Build PEK in quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: ./scripts/build.sh
 
@@ -115,11 +119,11 @@ jobs:
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: ./scripts/quick-start/detect-environment.sh
 
-      - name: Recreate quick-start container
+      - name: Build and start quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: ./scripts/quick-start/start-container.sh --recreate
 
-      - name: Build quick-start container
+      - name: Build PEK in quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: ./scripts/build.sh
 
@@ -299,22 +303,5 @@ jobs:
             ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/clang-tidy.log
             ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/clang-tidy-stats.log
             ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/clang-tidy-stats.json
-          if-no-files-found: warn
-          retention-days: 10
-
-      - name: Run Valgrind checks
-        id: valgrind_checks
-        if: ${{ !cancelled() }}
-        continue-on-error: true # Do not block PR until the initial ones are fixed
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-valgrind-check
-
-      - name: Upload Valgrind logs on failure
-        if: ${{ !cancelled() && steps.valgrind_checks.outcome == 'failure' }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: valgrind-logs
-          path: |
-            ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/scripts/testing/valgrind/logs
           if-no-files-found: warn
           retention-days: 10
