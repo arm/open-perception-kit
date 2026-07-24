@@ -102,8 +102,7 @@ static std::optional<PipelineEntry> load_entry_from_json_file(const fs::path &p)
 
         if (json_content.contains("loop")) {
             if (!json_content["loop"].is_boolean()) {
-                pek::log::instantError(
-                    "Invalid JSON ('loop' must be a boolean): {}\n", p.string());
+                pek::log::instantError("Invalid JSON ('loop' must be a boolean): {}\n", p.string());
                 return std::nullopt;
             }
             pipeline_entry.loop = json_content["loop"].get<bool>();
