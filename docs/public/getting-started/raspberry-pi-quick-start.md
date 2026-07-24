@@ -79,7 +79,7 @@ Follow the link below to install Docker:
 
 Install both Docker Engine and the Docker Compose plugin from the Debian guide so `docker compose` is available for later steps.
 
-Also install Python 3 and GitHub CLI. Authenticate GitHub CLI with read access
+Also install GitHub CLI. Authenticate it with read access
 to the pinned `Arm-Debug/modelfetch` release. The repository is internal, so
 its release asset is not available anonymously:
 
@@ -114,7 +114,6 @@ Run in the **Raspberry Pi shell**:
 docker info
 docker --version
 docker compose version
-python3 --version
 gh --version
 gh auth status --hostname github.com
 ```

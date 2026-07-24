@@ -145,11 +145,6 @@ jobs:
       CI_HELPER_PATH: workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-
       - name: Checkout workflow helpers
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
         uses: actions/checkout@v5
@@ -166,7 +161,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          python3 scripts/private/github_pr_context.py \
+          output_dir="$(dirname "${GITHUB_OUTPUT}")"
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --mount "type=bind,source=${PWD},target=${PWD},readonly" \
+            --mount "type=bind,source=${output_dir},target=${output_dir}" \
+            --workdir "${PWD}" \
+            --env GH_TOKEN \
+            --env GITHUB_API_URL \
+            --env PYTHONDONTWRITEBYTECODE=1 \
+            python:3.12-slim-trixie \
+            python3 scripts/private/github_pr_context.py \
             --pr-number "${{ github.event.inputs.pr_number }}" \
             --repo "${{ github.repository }}" \
             --base-ref-override "${{ github.event.inputs.pr_base_ref }}" \

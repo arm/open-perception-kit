@@ -15,7 +15,6 @@ Install these before you start:
 
 - WSL with Ubuntu installed.
 - Git inside WSL.
-- Python 3 inside WSL.
 - GitHub CLI inside WSL.
 - Docker Desktop with WSL integration enabled.
 - Visual Studio Code on Windows.
@@ -34,7 +33,6 @@ Check that basic tools are available:
 
 ```bash
 git --version
-python3 --version
 gh --version
 docker --version
 docker compose version

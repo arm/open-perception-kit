@@ -14,7 +14,6 @@ Use this guide on a Linux computer. PEK runs inside a VS Code Dev Container, so 
 Install these before you start:
 
 - Git.
-- Python 3.
 - GitHub CLI.
 - Docker Engine.
 - Docker Compose.
@@ -41,7 +40,6 @@ Check Docker in the **host shell**:
 docker --version
 docker compose version
 docker info
-python3 --version
 gh --version
 ```
 

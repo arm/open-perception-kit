@@ -6,13 +6,10 @@
 from __future__ import annotations
 
 import argparse
-import json
 import os
 from pathlib import Path
-import subprocess
 
-
-PR_FIELDS = "baseRefName,headRefName,headRefOid,isCrossRepository"
+from github_actions import read_pr_details
 
 
 def write_outputs(values: dict[str, str], output_path: str | None = None) -> None:
@@ -24,8 +21,7 @@ def write_outputs(values: dict[str, str], output_path: str | None = None) -> Non
             output_file.write(f"{key}={value}\n")
 
 
-def _required_ref(payload: dict[object, object], field: str, pr_number: str) -> str:
-    value = payload.get(field)
+def _required_ref(value: object, pr_number: str) -> str:
     if not isinstance(value, str) or not value:
         raise RuntimeError(f"Incomplete pull request refs for PR #{pr_number}.")
     return value
@@ -62,33 +58,12 @@ def resolve_pr_context(
     head_ref_override: str = "",
     head_sha_override: str = "",
 ) -> dict[str, str]:
-    completed = subprocess.run(
-        [
-            "gh",
-            "pr",
-            "view",
-            pr_number,
-            "--repo",
-            repo,
-            "--json",
-            PR_FIELDS,
-        ],
-        check=True,
-        text=True,
-        capture_output=True,
-    )
-    payload = json.loads(completed.stdout)
-    if not isinstance(payload, dict):
-        raise RuntimeError(f"Unexpected PR context payload for PR #{pr_number}.")
-    if payload.get("isCrossRepository") is not False:
-        raise RuntimeError(
-            f"Refusing credential-backed validation for fork or unverifiable pull request #{pr_number}."
-        )
+    details = read_pr_details(pr_number, repository=repo)
     context = {
         "pr_number": pr_number,
-        "base_ref": _required_ref(payload, "baseRefName", pr_number),
-        "head_ref": _required_ref(payload, "headRefName", pr_number),
-        "head_sha": _required_ref(payload, "headRefOid", pr_number),
+        "base_ref": _required_ref(details.get("target_branch"), pr_number),
+        "head_ref": _required_ref(details.get("head_branch"), pr_number),
+        "head_sha": _required_ref(details.get("head_sha"), pr_number),
     }
     return _apply_manual_overrides(
         context,

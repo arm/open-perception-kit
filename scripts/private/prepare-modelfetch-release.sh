@@ -7,121 +7,54 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-MANIFEST="${MODELFETCH_RELEASE_MANIFEST:-${SCRIPT_DIR}/modelfetch-release.json}"
+MANIFEST="${MODELFETCH_RELEASE_MANIFEST:-${SCRIPT_DIR}/modelfetch-release.manifest}"
 CACHE_ROOT="${MODELFETCH_CACHE_ROOT:-${REPO_ROOT}/.cache/modelfetch}"
-
-manifest_value() {
-    python3 - "$MANIFEST" "$1" << 'PY'
-import json
-from pathlib import Path
-import sys
-
-manifest_path = Path(sys.argv[1])
-key = sys.argv[2]
-try:
-    document = json.loads(manifest_path.read_text(encoding="utf-8"))
-    value = document[key]
-except (OSError, KeyError, TypeError, ValueError) as exc:
-    raise SystemExit(f"Invalid modelfetch release manifest {manifest_path}: {exc}") from exc
-if not isinstance(value, str):
-    raise SystemExit(f"Invalid {key} in modelfetch release manifest {manifest_path}")
-print(value)
-PY
-}
-
-sdk_value() {
-    python3 - "$MANIFEST" "$1" "$2" << 'PY'
-import json
-from pathlib import Path
-import sys
-
-manifest_path = Path(sys.argv[1])
-architecture = sys.argv[2]
-key = sys.argv[3]
-try:
-    document = json.loads(manifest_path.read_text(encoding="utf-8"))
-    value = document["sdks"][architecture][key]
-except (OSError, KeyError, TypeError, ValueError) as exc:
-    raise SystemExit(f"Invalid modelfetch release manifest {manifest_path}: {exc}") from exc
-if not isinstance(value, str):
-    raise SystemExit(
-        f"Invalid sdks.{architecture}.{key} in modelfetch release manifest {manifest_path}"
-    )
-print(value)
-PY
-}
+MANIFEST_READER="${SCRIPT_DIR}/read-modelfetch-release-manifest.sh"
 
 file_sha256() {
-    python3 - "$1" << 'PY'
-from hashlib import sha256
-from pathlib import Path
-import sys
-
-digest = sha256()
-with Path(sys.argv[1]).open("rb") as handle:
-    for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-        digest.update(chunk)
-print(digest.hexdigest())
-PY
+    local output
+    if command -v sha256sum > /dev/null 2>&1; then
+        output="$(sha256sum "$1")"
+    elif command -v shasum > /dev/null 2>&1; then
+        output="$(shasum -a 256 "$1")"
+    else
+        echo "sha256sum or shasum is required to validate the pinned modelfetch release." >&2
+        return 1
+    fi
+    printf '%s\n' "${output%% *}"
 }
 
-if ! command -v python3 > /dev/null 2>&1; then
-    echo "Python 3 is required to validate the pinned modelfetch release." >&2
-    exit 1
-fi
+repository="$("$MANIFEST_READER" "$MANIFEST" repository)"
+tag="$("$MANIFEST_READER" "$MANIFEST" tag)"
+source_commit="$("$MANIFEST_READER" "$MANIFEST" source_commit)"
+amd64_filename="$("$MANIFEST_READER" "$MANIFEST" amd64_filename)"
+amd64_sha256="$("$MANIFEST_READER" "$MANIFEST" amd64_sha256)"
+arm64_filename="$("$MANIFEST_READER" "$MANIFEST" arm64_filename)"
+arm64_sha256="$("$MANIFEST_READER" "$MANIFEST" arm64_sha256)"
 
 if [[ -L "$CACHE_ROOT" ]]; then
     echo "Refusing unsafe modelfetch release cache root: ${CACHE_ROOT}" >&2
     exit 1
 fi
-CACHE_ROOT="$(python3 -c 'from pathlib import Path; import sys; print(Path(sys.argv[1]).resolve(strict=False))' "$CACHE_ROOT")"
-
-repository="$(manifest_value repository)"
-tag="$(manifest_value tag)"
-source_commit="$(manifest_value sourceCommit)"
 sdk_filenames=(
-    "$(sdk_value amd64 filename)"
-    "$(sdk_value arm64 filename)"
+    "$amd64_filename"
+    "$arm64_filename"
 )
 sdk_sha256s=(
-    "$(sdk_value amd64 sha256)"
-    "$(sdk_value arm64 sha256)"
+    "$amd64_sha256"
+    "$arm64_sha256"
 )
+
+mkdir -p "$CACHE_ROOT"
+if [[ ! -d "$CACHE_ROOT" || -L "$CACHE_ROOT" ]]; then
+    echo "Refusing unsafe modelfetch release cache root: ${CACHE_ROOT}" >&2
+    exit 1
+fi
+CACHE_ROOT="$(cd "$CACHE_ROOT" && pwd -P)"
 destinations=(
     "${CACHE_ROOT}/modelfetch-release-linux-amd64.tar.gz"
     "${CACHE_ROOT}/modelfetch-release-linux-arm64.tar.gz"
 )
-
-if ! [[ "$repository" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
-    echo "Invalid repository in ${MANIFEST}: ${repository}" >&2
-    exit 1
-fi
-if ! [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.]+)?$ ]]; then
-    echo "Invalid release tag in ${MANIFEST}: ${tag}" >&2
-    exit 1
-fi
-if ! [[ "$source_commit" =~ ^[0-9a-f]{40}$ ]]; then
-    echo "Invalid sourceCommit in ${MANIFEST}: ${source_commit}" >&2
-    exit 1
-fi
-for index in 0 1; do
-    sdk_filename="${sdk_filenames[$index]}"
-    sdk_sha256="${sdk_sha256s[$index]}"
-    if ! [[ "$sdk_filename" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*\.tar\.gz$ ]]; then
-        echo "Invalid SDK filename in ${MANIFEST}: ${sdk_filename}" >&2
-        exit 1
-    fi
-    case "$sdk_sha256" in
-        *[!0-9a-f]* | "")
-            echo "Invalid SDK sha256 in ${MANIFEST}" >&2
-            exit 1
-            ;;
-    esac
-    if [[ ${#sdk_sha256} -ne 64 ]]; then
-        echo "Invalid SDK sha256 length in ${MANIFEST}" >&2
-        exit 1
-    fi
-done
 
 cache_is_current=true
 for index in 0 1; do
@@ -154,12 +87,17 @@ if ! gh auth status --hostname github.com > /dev/null 2>&1; then
     exit 1
 fi
 
-read -r release_tag is_draft is_prerelease <<< "$(
+if ! release_details="$(
     gh release view "$tag" \
         --repo "$repository" \
         --json tagName,isDraft,isPrerelease \
         --jq '[.tagName, .isDraft, .isPrerelease] | @tsv'
-)"
+)"; then
+    echo "GitHub CLI must be authenticated with release read access to ${repository}." >&2
+    echo "Run 'gh auth login --hostname github.com' or provide GH_TOKEN, then retry." >&2
+    exit 1
+fi
+read -r release_tag is_draft is_prerelease <<< "$release_details"
 if [[ "$release_tag" != "$tag" || "$is_draft" != "false" || "$is_prerelease" != "false" ]]; then
     echo "Release ${tag} in ${repository} is missing, draft, or prerelease." >&2
     exit 1
@@ -173,11 +111,6 @@ if [[ "$release_source_commit" != "$source_commit" ]]; then
     exit 1
 fi
 
-mkdir -p "$CACHE_ROOT"
-if [[ ! -d "$CACHE_ROOT" || -L "$CACHE_ROOT" ]]; then
-    echo "Refusing unsafe modelfetch release cache root: ${CACHE_ROOT}" >&2
-    exit 1
-fi
 temporary_dir="$(mktemp -d "${CACHE_ROOT}/.download.XXXXXX")"
 cleanup() {
     rm -rf "$temporary_dir"

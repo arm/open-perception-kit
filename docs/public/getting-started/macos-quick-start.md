@@ -14,7 +14,6 @@ Use this guide on a Mac. PEK runs inside a VS Code Dev Container. The first run 
 Install these before you start:
 
 - Git.
-- Python 3.
 - GitHub CLI.
 - Docker Desktop.
 - Visual Studio Code.
@@ -28,7 +27,6 @@ Run in the **host shell**:
 
 ```bash
 git --version
-python3 --version
 gh --version
 docker --version
 docker compose version

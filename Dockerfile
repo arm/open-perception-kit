@@ -102,20 +102,25 @@ USER root
 
 # The internal native SDK archives are provided as an isolated named build context
 # and exposed only to this build step. The release manifest is the checksum authority.
-RUN --mount=type=bind,source=scripts/private/modelfetch-release.json,target=/tmp/modelfetch-release.json \
+RUN --mount=type=bind,source=scripts/private/modelfetch-release.manifest,target=/tmp/modelfetch-release.manifest \
+  --mount=type=bind,source=scripts/private/read-modelfetch-release-manifest.sh,target=/tmp/read-modelfetch-release-manifest.sh \
   --mount=type=bind,from=modelfetch_sdks,target=/tmp/modelfetch-sdks,readonly \
   set -eux; \
   case "${TARGETARCH}" in \
-    amd64) sdk_source="/tmp/modelfetch-sdks/modelfetch-release-linux-amd64.tar.gz" ;; \
-    arm64) sdk_source="/tmp/modelfetch-sdks/modelfetch-release-linux-arm64.tar.gz" ;; \
+    amd64) \
+      sdk_source="/tmp/modelfetch-sdks/modelfetch-release-linux-amd64.tar.gz"; \
+      ;; \
+    arm64) \
+      sdk_source="/tmp/modelfetch-sdks/modelfetch-release-linux-arm64.tar.gz"; \
+      ;; \
     *) echo "Unsupported architecture for modelfetch: ${TARGETARCH}" >&2; exit 1 ;; \
   esac; \
-  sdk_filename="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["sdks"][sys.argv[2]]["filename"])' /tmp/modelfetch-release.json "${TARGETARCH}")"; \
+  sdk_filename="$(/tmp/read-modelfetch-release-manifest.sh /tmp/modelfetch-release.manifest "${TARGETARCH}_filename")"; \
   case "${sdk_filename}" in *[!A-Za-z0-9._-]*|'') exit 1 ;; esac; \
   case "${sdk_filename}" in *.tar.gz) ;; *) exit 1 ;; esac; \
   sdk="/tmp/${sdk_filename}"; \
   ln -s "${sdk_source}" "${sdk}"; \
-  expected_sha="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["sdks"][sys.argv[2]]["sha256"])' /tmp/modelfetch-release.json "${TARGETARCH}")"; \
+  expected_sha="$(/tmp/read-modelfetch-release-manifest.sh /tmp/modelfetch-release.manifest "${TARGETARCH}_sha256")"; \
   case "${expected_sha}" in *[!0-9a-f]*|'') exit 1 ;; esac; \
   test "${#expected_sha}" -eq 64; \
   echo "${expected_sha}  ${sdk}" | sha256sum -c -; \

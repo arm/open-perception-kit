@@ -533,6 +533,12 @@ class AgentWorkflowContractTests(unittest.TestCase):
             self.assertNotIn("github.event.inputs.pr_head_ref", checkout_ref)
         self.assertIn("steps.manual_pr.outputs.head_sha", pek_steps["Checkout"]["with"]["ref"])
         self.assertIn("steps.manual_pr.outputs.head_sha", sonar_steps["Checkout"]["with"]["ref"])
+        self.assertIn("docker run --rm", rpi_steps["Resolve manual PR context"]["run"])
+        self.assertIn(
+            "python:3.12-slim-trixie",
+            rpi_steps["Resolve manual PR context"]["run"],
+        )
+        self.assertIn("--env GH_TOKEN", rpi_steps["Resolve manual PR context"]["run"])
         self.assertIn(
             "steps.manual_pr.outputs.base_ref",
             pek_steps["Check Repo Quality gate (PR)"]["run"],
@@ -570,17 +576,6 @@ class AgentWorkflowContractTests(unittest.TestCase):
         )
         rpi_job = pek_ci["jobs"]["rpi5-quick-start-build-test"]
         sonar_job = sonar["jobs"]["build-and-sonar"]
-        self.assertEqual(rpi_steps["Set up Python"]["uses"], "actions/setup-python@v6")
-        self.assertEqual(rpi_steps["Set up Python"]["with"]["python-version"], "3.12")
-        rpi_step_names = list(rpi_steps)
-        self.assertLess(
-            rpi_step_names.index("Set up Python"),
-            rpi_step_names.index("Resolve manual PR context"),
-        )
-        self.assertLess(
-            rpi_step_names.index("Set up Python"),
-            rpi_step_names.index("Recreate quick-start container"),
-        )
         self.assertEqual(
             rpi_steps["Checkout workflow helpers"]["with"]["path"],
             "${{ env.CI_HELPER_PATH }}",

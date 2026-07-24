@@ -105,20 +105,22 @@ container_workdir_writable() {
 
 expected_modelfetch_sdk_sha256() {
     local machine="$1"
-    python3 - "${REPO_ROOT}/scripts/private/modelfetch-release.json" "$machine" << 'PY'
-import json
-from pathlib import Path
-import sys
-
-document = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-architecture = {"x86_64": "amd64", "aarch64": "arm64"}.get(sys.argv[2])
-if architecture is None:
-    raise SystemExit(f"unsupported container architecture: {sys.argv[2]}")
-value = document["sdks"][architecture]["sha256"]
-if not isinstance(value, str) or len(value) != 64:
-    raise SystemExit(f"invalid SDK sha256 for {architecture}")
-print(value)
-PY
+    local architecture
+    case "$machine" in
+        x86_64)
+            architecture="amd64"
+            ;;
+        aarch64)
+            architecture="arm64"
+            ;;
+        *)
+            echo "Unsupported container architecture: ${machine}" >&2
+            return 1
+            ;;
+    esac
+    "${REPO_ROOT}/scripts/private/read-modelfetch-release-manifest.sh" \
+        "${REPO_ROOT}/scripts/private/modelfetch-release.manifest" \
+        "${architecture}_sha256"
 }
 
 container_has_current_modelfetch_sdk() {
