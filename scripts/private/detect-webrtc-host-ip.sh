@@ -2,10 +2,11 @@
 ################################################################
 # Copyright (C) 2025 Arm Limited. All rights reserved.
 ################################################################
-# Prints the host/LAN IP address that other devices should use for WebRTC.
+# Prints the non-loopback address that browsers should use for WebRTC.
 #
 # This runs on the Docker host shell. On Windows, that shell is expected to be
-# WSL; the selected address is still the LAN-facing address peers can reach.
+# WSL. NAT-mode WSL needs its VM address; mirrored mode needs the shared host
+# address together with hostAddressLoopback=true.
 ################################################################
 
 set -euo pipefail
@@ -34,15 +35,23 @@ is_wsl() {
     [[ "$text" =~ [Mm]icrosoft|WSL ]]
 }
 
-first_private_ipv4_from_lines() {
+private_ipv4_from_lines() {
+    local first_only="${1:-0}"
+
     awk '
         $1 ~ /^([0-9]{1,3}\.){3}[0-9]{1,3}$/ {
             if ($1 ~ /^10\./ || $1 ~ /^192\.168\./ || $1 ~ /^172\.(1[6-9]|2[0-9]|3[0-1])\./) {
                 print $1
-                exit
+                if (first_only) {
+                    exit
+                }
             }
         }
-    '
+    ' first_only="$first_only"
+}
+
+first_private_ipv4_from_lines() {
+    private_ipv4_from_lines 1
 }
 
 default_route_ipv4_linux() {
@@ -77,14 +86,58 @@ default_route_ipv4_macos() {
     fi
 }
 
-wsl_windows_lan_ipv4() {
+wsl_windows_lan_ipv4s() {
     if ! command -v powershell.exe > /dev/null 2>&1; then
         return
     fi
 
     powershell.exe -NoProfile -Command \
-        "Get-NetIPConfiguration | Where-Object { \$_.IPv4DefaultGateway -ne \$null -and \$_.NetAdapter.Status -eq 'Up' } | ForEach-Object { \$_.IPv4Address.IPAddress } | Select-Object -First 1" \
-        2> /dev/null | tr -d '\r' | first_private_ipv4_from_lines
+        "Get-NetIPConfiguration | Where-Object { \$_.IPv4DefaultGateway -ne \$null -and \$_.NetAdapter.Status -eq 'Up' } | ForEach-Object { \$_.IPv4Address.IPAddress }" \
+        2> /dev/null | tr -d '\r' | private_ipv4_from_lines
+}
+
+wsl_host_address_loopback_enabled() {
+    if ! command -v powershell.exe > /dev/null 2>&1; then
+        return 1
+    fi
+
+    local enabled=""
+    enabled="$(
+        # PowerShell expands these variables; the shell must preserve them literally.
+        # shellcheck disable=SC2016
+        powershell.exe -NoProfile -Command \
+            '$path = Join-Path $env:USERPROFILE ".wslconfig"; if (Test-Path $path) { $section = ""; foreach ($line in Get-Content $path) { if ($line -match "^\s*\[([^\]]+)\]\s*([#;].*)?$") { $section = $matches[1].Trim().ToLowerInvariant(); continue }; if ($section -eq "experimental" -and $line -match "^\s*hostAddressLoopback\s*=\s*true\s*([#;].*)?$") { "true"; break } } }' \
+            2> /dev/null | tr -d '\r' | tail -n 1
+    )"
+    [[ "$enabled" == "true" ]]
+}
+
+require_wsl_mirrored_host_loopback() {
+    local linux_ip="$1"
+    local windows_ips=""
+
+    windows_ips="$(wsl_windows_lan_ipv4s)"
+    if [[ -z "$windows_ips" ]] || ! grep -Fxq "$linux_ip" <<< "$windows_ips"; then
+        return
+    fi
+
+    if wsl_host_address_loopback_enabled; then
+        return
+    fi
+
+    cat >&2 << EOF
+Error: WSL mirrored networking cannot expose PEK's non-loopback WebRTC TURN
+address to Windows until host-address loopback is enabled.
+
+Add this setting in %UserProfile%\\.wslconfig:
+
+  [experimental]
+  hostAddressLoopback=true
+
+Then run "wsl --shutdown" from Windows PowerShell, reopen WSL, and start the
+PEK Dev Container again.
+EOF
+    exit 1
 }
 
 fallback_ipv4() {
@@ -118,11 +171,9 @@ detect_webrtc_host_ip() {
             ip="$(default_route_ipv4_macos)"
             ;;
         Linux)
-            if is_wsl; then
-                ip="$(wsl_windows_lan_ipv4)"
-            fi
-            if [[ -z "$ip" ]]; then
-                ip="$(default_route_ipv4_linux)"
+            ip="$(default_route_ipv4_linux)"
+            if is_wsl && [[ -n "$ip" ]]; then
+                require_wsl_mirrored_host_loopback "$ip"
             fi
             ;;
     esac

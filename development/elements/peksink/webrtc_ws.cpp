@@ -35,6 +35,10 @@ static void
 on_ice_candidate(GstElement *webrtc, guint mlineindex, gchar *candidate, gpointer user_data);
 static void on_set_remote_description(GstPromise *promise, gpointer user_data);
 
+// Leave enough room for SRTP, UDP and IP headers on VPN and TURN paths whose
+// MTU can be lower than Ethernet's 1500 bytes (for example WSL mirrored mode).
+constexpr guint kWebRtcRtpMtu = 1300;
+
 // SessionContext is private to this compilation unit
 struct SessionContext : PekSinkWebRtcSession {
     _GstPekSink *self = nullptr;
@@ -87,10 +91,10 @@ WebRtcSockerError WebRtcWebSocket::setup() {
 
     ws->init_asio();
 
-    ws->set_open_handler([this](connection_hdl hdl) { on_open(hdl); });
-    ws->set_close_handler([this](connection_hdl hdl) { on_close(hdl); });
+    ws->set_open_handler([this](const connection_hdl &hdl) { on_open(hdl); });
+    ws->set_close_handler([this](const connection_hdl &hdl) { on_close(hdl); });
     ws->set_message_handler(
-        [this](connection_hdl hdl, ws_server::message_ptr msg) { on_message(hdl, msg); });
+        [this](const connection_hdl &hdl, const ws_server::message_ptr &msg) { on_message(hdl, msg); });
 
     ws->set_reuse_addr(true);
     ws->listen(self_->ws_port);
@@ -147,7 +151,7 @@ WebRtcSockerError WebRtcWebSocket::stop() {
     return WebRtcSockerError::OK;
 }
 
-std::shared_ptr<SessionContext> WebRtcWebSocket::get_session(connection_hdl hdl) {
+std::shared_ptr<SessionContext> WebRtcWebSocket::get_session(const connection_hdl &hdl) {
     std::lock_guard<std::mutex> mutex_guard(webrtc_session_mutex);
     auto it = webrtc_sessions.find(hdl);
     if (it == webrtc_sessions.end()) {
@@ -156,7 +160,7 @@ std::shared_ptr<SessionContext> WebRtcWebSocket::get_session(connection_hdl hdl)
     return it->second;
 }
 
-bool WebRtcWebSocket::cleanup_session(connection_hdl hdl, const char *reason) {
+bool WebRtcWebSocket::cleanup_session(const connection_hdl &hdl, const char *reason) {
     std::shared_ptr<SessionContext> ctx;
     {
         std::lock_guard<std::mutex> mutex_guard(webrtc_session_mutex);
@@ -219,7 +223,12 @@ bool WebRtcWebSocket::attach_video(SessionContext *ctx) {
                      "max-size-bytes",
                      0,
                      nullptr);
-        g_object_set(ctx->v_pay, "picture-id-mode", 2, nullptr); // picture-id-mode = 15-bit
+        g_object_set(ctx->v_pay,
+                     "picture-id-mode",
+                     2, // picture-id-mode = 15-bit
+                     "mtu",
+                     kWebRtcRtpMtu,
+                     nullptr);
 
         set_video_pt(ctx);
 
@@ -358,7 +367,7 @@ bool WebRtcWebSocket::attach_audio(SessionContext *ctx) {
     }
 }
 
-void WebRtcWebSocket::on_open(connection_hdl hdl) {
+void WebRtcWebSocket::on_open(const connection_hdl &hdl) {
 
     DBG("WebSocket connection opened");
     if (stopping) {
@@ -415,7 +424,7 @@ void WebRtcWebSocket::on_open(connection_hdl hdl) {
     webrtc_sessions[hdl] = ctx;
 }
 
-void WebRtcWebSocket::on_close(connection_hdl hdl) {
+void WebRtcWebSocket::on_close(const connection_hdl &hdl) {
     DBG("WebSocket connection closed");
     if (cleanup_session(hdl, "websocket close")) {
         dump_pipeline_graph(GST_ELEMENT(self_), "pipeline_on_close");
@@ -480,7 +489,7 @@ bool WebRtcWebSocket::link_per_client_elements(SessionContext *ctx) {
     }
 }
 
-void WebRtcWebSocket::process_offer(std::shared_ptr<SessionContext> ctx, const json &jsn) {
+void WebRtcWebSocket::process_offer(const std::shared_ptr<SessionContext> &ctx, const json &jsn) {
 
     if (ctx->offer_received) {
         DBG("Repeated offer received for the same WebSocket handle");
@@ -535,7 +544,7 @@ void WebRtcWebSocket::process_offer(std::shared_ptr<SessionContext> ctx, const j
     DBG("Setting remote description");
 }
 
-void WebRtcWebSocket::process_canditate(std::shared_ptr<SessionContext> ctx, const json &jsn) {
+void WebRtcWebSocket::process_canditate(const std::shared_ptr<SessionContext> &ctx, const json &jsn) {
     DBG("Received ICE candidate");
 
     auto ice = jsn["ice"];
@@ -547,7 +556,7 @@ void WebRtcWebSocket::process_canditate(std::shared_ptr<SessionContext> ctx, con
     DBG("Added ICE candidate: candidate={} mlindex={}", candidate, sdpMLineIndex);
 }
 
-void WebRtcWebSocket::on_message(connection_hdl hdl, ws_server::message_ptr msg) {
+void WebRtcWebSocket::on_message(const connection_hdl &hdl, const ws_server::message_ptr &msg) {
     DBG("on_message");
 
     if (stopping) {

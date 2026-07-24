@@ -22,6 +22,8 @@ Detects the quick-start host environment.
 
 Supported host classes:
   rpi5         Raspberry Pi 5 running Linux
+  rpi5-h8      Raspberry Pi 5 with Hailo 8 or Hailo 8L
+  rpi5-h10     Raspberry Pi 5 with Hailo 10
   linux-x86_64 Generic x86_64 Linux host
   wsl          Windows Subsystem for Linux
   macos        macOS host
@@ -130,10 +132,12 @@ detect_environment() {
     PEK_SUPPORTED="false"
     PEK_UNSUPPORTED_REASON=""
     PEK_DEV_BASE_CONTAINER_NAME="${PEK_DEV_BASE_CONTAINER_NAME:-}"
+    PEK_DEV_RPI5_CONTAINER_NAME="${PEK_DEV_RPI5_CONTAINER_NAME:-}"
     PEK_DEV_RPI5_H8_CONTAINER_NAME="${PEK_DEV_RPI5_H8_CONTAINER_NAME:-}"
     PEK_DEV_RPI5_H10_CONTAINER_NAME="${PEK_DEV_RPI5_H10_CONTAINER_NAME:-}"
     if [[ -n "${PEK_QUICK_START_CI_NAME:-}" ]]; then
         PEK_DEV_BASE_CONTAINER_NAME="${PEK_QUICK_START_CI_NAME}-dev-base"
+        PEK_DEV_RPI5_CONTAINER_NAME="${PEK_QUICK_START_CI_NAME}-rpi5"
         PEK_DEV_RPI5_H8_CONTAINER_NAME="${PEK_QUICK_START_CI_NAME}-rpi5-h8"
         PEK_DEV_RPI5_H10_CONTAINER_NAME="${PEK_QUICK_START_CI_NAME}-rpi5-h10"
     fi
@@ -159,11 +163,16 @@ detect_environment() {
                     PEK_PLATFORM_NAME="Raspberry Pi 5 with Hailo 10"
                     PEK_CONTAINER_SERVICE="pek-dev-rpi5-h10"
                     PEK_CONTAINER_NAME="${PEK_DEV_RPI5_H10_CONTAINER_NAME:-perception-experience-kit-rpi5-h10}"
+                elif [[ "$PEK_HAILO_ARCH" == "hailo8" || "$PEK_HAILO_ARCH" == "hailo8l" ]]; then
+                    PEK_PLATFORM_ID="rpi5-h8"
+                    PEK_PLATFORM_NAME="Raspberry Pi 5 with Hailo 8"
+                    PEK_CONTAINER_SERVICE="pek-dev-rpi5-h8"
+                    PEK_CONTAINER_NAME="${PEK_DEV_RPI5_H8_CONTAINER_NAME:-perception-experience-kit-rpi5-h8}"
                 else
                     PEK_PLATFORM_ID="rpi5"
                     PEK_PLATFORM_NAME="Raspberry Pi 5"
-                    PEK_CONTAINER_SERVICE="pek-dev-rpi5-h8"
-                    PEK_CONTAINER_NAME="${PEK_DEV_RPI5_H8_CONTAINER_NAME:-perception-experience-kit-rpi5}"
+                    PEK_CONTAINER_SERVICE="pek-dev-rpi5"
+                    PEK_CONTAINER_NAME="${PEK_DEV_RPI5_CONTAINER_NAME:-perception-experience-kit-rpi5}"
                 fi
                 PEK_SUPPORTED="true"
             elif [[ "$PEK_UNAME_M" == "x86_64" || "$PEK_UNAME_M" == "amd64" ]]; then
@@ -190,6 +199,7 @@ print_shell() {
         PEK_CONTAINER_SERVICE
         PEK_CONTAINER_NAME
         PEK_DEV_BASE_CONTAINER_NAME
+        PEK_DEV_RPI5_CONTAINER_NAME
         PEK_DEV_RPI5_H8_CONTAINER_NAME
         PEK_DEV_RPI5_H10_CONTAINER_NAME
         PEK_UNAME_S

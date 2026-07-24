@@ -138,6 +138,10 @@ class AgentWorkflowContractTests(unittest.TestCase):
         )
         self.assertLess(
             agent_step_names.index("Run static regression tests"),
+            agent_step_names.index("Fetch OpenAI proxy token"),
+        )
+        self.assertLess(
+            agent_step_names.index("Fetch OpenAI proxy token"),
             agent_step_names.index("Run OpenAI SDK repair agent"),
         )
         self.assertLess(
@@ -154,8 +158,8 @@ class AgentWorkflowContractTests(unittest.TestCase):
         agent_step = agent_steps["Run OpenAI SDK repair agent"]
         self.assertEqual(agent_step["shell"], "bash")
         self.assertEqual(
-            agent_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],
-            "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
+            agent_step["env"]["OPENAI_PROXY_TOKEN"],
+            "${{ steps.openai-token.outputs.openai_token }}",
         )
         self.assertIn(
             ".agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/openai_agent_runner.py run-repair",
@@ -290,6 +294,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
                 "Build Agent review packet",
                 "Install OpenAI agent runtime",
                 "Run Agent workflow static analysis",
+                "Fetch OpenAI proxy token",
                 "Run OpenAI SDK review",
                 "Render review summary",
                 "Publish review summary comment",
@@ -348,8 +353,8 @@ class AgentWorkflowContractTests(unittest.TestCase):
         agent_step = review_steps["Run OpenAI SDK review"]
         self.assertEqual(agent_step["shell"], "bash")
         self.assertEqual(
-            agent_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],
-            "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
+            agent_step["env"]["OPENAI_PROXY_TOKEN"],
+            "${{ steps.openai-token.outputs.openai_token }}",
         )
         self.assertEqual(
             agent_step["env"]["AGENT_ACTION_LOG"],
@@ -601,6 +606,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
                 "Prepare stabilization context",
                 "Set up Agent Python",
                 "Install OpenAI agent runtime",
+                "Fetch OpenAI proxy token",
                 "Run OpenAI SDK stabilization agent",
                 "Run stabilization validation",
                 "Commit stabilization fix",
@@ -632,8 +638,8 @@ class AgentWorkflowContractTests(unittest.TestCase):
         agent_step = steps["Run OpenAI SDK stabilization agent"]
         self.assertEqual(agent_step["shell"], "bash")
         self.assertEqual(
-            agent_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"],
-            "${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}",
+            agent_step["env"]["OPENAI_PROXY_TOKEN"],
+            "${{ steps.openai-token.outputs.openai_token }}",
         )
         self.assertIn(
             ".agent-runtime/openai-agent-venv/bin/python .agent-runtime/agent-stabilization-helper/scripts/private/agent_runtime/openai_agent_runner.py run-stabilization",
@@ -682,7 +688,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertNotIn("uses", validation_step)
         self.assertEqual(validation_step["env"]["GH_TOKEN"], "")
         self.assertEqual(validation_step["env"]["GITHUB_TOKEN"], "")
-        self.assertEqual(validation_step["env"]["OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"], "")
+        self.assertEqual(validation_step["env"]["OPENAI_PROXY_TOKEN"], "")
         self.assertEqual(validation_step["env"]["OPENAI_API_KEY"], "")
         self.assertIn(
             "python3 -m agent_stabilization_orchestrator run-validation",

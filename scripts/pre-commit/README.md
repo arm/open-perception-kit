@@ -14,8 +14,7 @@ This folder intentionally keeps the rollout narrow:
 Out of scope here:
 
 - Dev Container hook adoption
-- CI workflow migration
-- extra quality rules beyond the existing local pre-commit bundle
+- CI workflow ownership
 
 ## Entry Points
 
@@ -39,28 +38,36 @@ Manual entrypoints:
 
 ## Behavior
 
-The host-only wrapper keeps the existing local hook intent:
+The host-only wrapper keeps the existing local hook intent through shared
+`expkits-ci` presets:
 
-- `branch-naming`
-- `commit-msg`
-- `clang-format`
-- `python-format`
-- `cmake-format`
-- `shell-format`
-- `license-header`
-- `check-secrets`
-- `actionlint` for GitHub Actions workflow files only
+- `--pre-commit-fix`: `clang-format`, `python-format`, `cmake-format`,
+  `shell-format`, `license-header`, `check-secrets`, and `actionlint`.
+- `--pre-commit-check`: the check-only equivalent used by CI and manual
+  verification.
+- `--ci-pr-checks`: PR quality gate, adding branch naming, CI commit-message,
+  and Agent runtime static analysis to `--pre-commit-check`.
+- `--ci-full-checks`: full/nightly quality gate, adding Agent runtime static
+  analysis to `--pre-commit-check`.
 
 Light mapping:
 
-- Dev Container pre-commit hook: this is the local truth for the pre-commit bundle.
-- Host `./scripts/pre-commit/run.sh`: runs the same pre-commit-stage checks on the host through the dedicated container.
+- Dev Container pre-commit hook: runs `expkits-ci --pre-commit-fix` plus the commit metadata hooks.
+- Host `./scripts/pre-commit/run.sh`: runs the same `--pre-commit-fix` bundle on the host through the dedicated container.
 - Host `./scripts/pre-commit/run.sh commit-msg <path>`: mirrors the `commit-msg` hook path.
-- CI PR quality: broader validation path, today driven through `expkits-ci --all-checks` on the PR diff.
-- CI full quality: check-only CI run for the formatter/license/secrets bundle on the full tracked tree.
+- CI PR quality: runs `expkits-ci --ci-pr-checks`.
+- CI full quality: runs `expkits-ci --ci-full-checks`.
 
-The wrapper builds a dedicated runtime image up front and then reuses it for
-hook execution. There is no hidden image rebuild during a normal commit.
+Scope still differs by entry point: local/container pre-commit receives the
+file list from pre-commit, host pre-commit uses staged files with a branch-delta
+fallback against `PULL_REQUEST_TARGET_BRANCH`, branch merge-base config, or the
+remote default branch, CI PR uses `--pr-target-branch`, and CI full/nightly
+checks the tracked tree.
+
+The wrapper builds the dedicated runtime image during setup and refreshes it
+before hook execution. Docker's build cache keeps unchanged runs cheap while
+ensuring pulled updates to `tools/expkits-ci`, runtime packages, or the
+Dockerfile are picked up locally.
 
 If you keep multiple local clones with the same checkout directory name, set
 `REPO_CHECKS_IMAGE_NAME=<unique-tag>` for both `setup.sh` and `run.sh` to

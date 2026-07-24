@@ -200,6 +200,7 @@ In the VS Code remote window:
 ![VS Code reopening the Raspberry Pi project in a Dev Container](/img/20-reopen-in-container.png)
 
 4. Choose the container for your hardware:
+   - **RPI5 perception-experience-kit** for ONNX, camera, and non-Hailo work.
    - **RPI5 H8 perception-experience-kit** for Hailo 8 or Hailo 8L work.
    - **RPI5 H10 perception-experience-kit** for Hailo 10 work.
 

@@ -64,7 +64,7 @@ services:
       - ${HOME}/configs:/home/devgoblin/configs
       - ..:/work     
       - ../../pek-work-tree:/pek-work-tree
-      - ${SSH_AUTH_SOCK}:/ssh-agent
+      - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
 
     privileged: true
 

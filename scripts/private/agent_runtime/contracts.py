@@ -16,7 +16,7 @@ DEFAULT_OPENAI_BASE_URL = "https://openai-api-proxy.geo.arm.com/api/providers/op
 DEFAULT_AGENT_MODEL_CONFIG_PATH = ".github/agent-runtime/runtime/agent-models.json"
 DEFAULT_AGENT_TASK_CONFIG_PATH = ".github/agent-runtime/runtime/agent-tasks.json"
 OPENAI_API_KEY_ENV = "OPENAI_API_KEY"  # pragma: allowlist secret
-OPENAI_PROXY_KEY_ENV = "OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS"
+OPENAI_PROXY_KEY_ENV = "OPENAI_PROXY_TOKEN"
 OPENAI_BASE_URL_ENV = "OPENAI_BASE_URL"
 OPENAI_AGENTS_DISABLE_TRACING_ENV = "OPENAI_AGENTS_DISABLE_TRACING"
 OPENAI_AGENTS_DISABLE_TRACING_VALUE = "1"
@@ -119,13 +119,6 @@ RECOMMENDATION_COLORS = {
     ReviewRecommendation.APPROVE.value: "15803d",
     ReviewRecommendation.COMMENT.value: "2563eb",
     ReviewRecommendation.REQUEST_CHANGES.value: "dc2626",
-}
-GITHUB_REVIEW_EVENTS = {
-    ReviewRecommendation.APPROVE.value: "APPROVE",
-    # <agent-review:suppress> Non-blocking Agent comments intentionally land as
-    # accepted-with-comments in PR UI instead of leaving a pending review state.
-    ReviewRecommendation.COMMENT.value: "APPROVE",
-    ReviewRecommendation.REQUEST_CHANGES.value: "REQUEST_CHANGES",
 }
 
 

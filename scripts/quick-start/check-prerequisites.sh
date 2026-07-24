@@ -161,12 +161,12 @@ select_prereq_arrays() {
                 SELECTED_PREREQ_ARRAYS=(PREREQS_LINUX_X86)
             fi
             ;;
-        rpi5 | rpi5-h10)
+        rpi5 | rpi5-h8 | rpi5-h10)
             PACKAGE_MANAGER="apt"
             SELECTED_PREREQ_ARRAYS=(PREREQS_RPI5)
             if [[ "$PEK_PLATFORM_ID" == "rpi5-h10" ]]; then
                 SELECTED_PREREQ_ARRAYS+=(PREREQS_RPI5_HAILO10)
-            elif [[ "$PEK_HAILO_ARCH" == "hailo8" || "$PEK_HAILO_ARCH" == "hailo8l" || "$PEK_HAILO_ARCH" == "hailo-unknown" ]]; then
+            elif [[ "$PEK_PLATFORM_ID" == "rpi5-h8" ]]; then
                 SELECTED_PREREQ_ARRAYS+=(PREREQS_RPI5_HAILO8)
             fi
             ;;

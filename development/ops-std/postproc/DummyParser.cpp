@@ -3,12 +3,12 @@
  *************************************************************/
 
 #include "postproc/DummyParser.h"
+#include "Log.h"
 #include "pek/Perception.h"
 #include "pek/TensorParser.h"
 #include "pek/Types.h"
 
 #include <cmath>
-#include <fmt/core.h>
 #include <string>
 
 using namespace pek;
@@ -28,7 +28,7 @@ Result<void> DummyParser::parse(const pek::TensorParser::Input &input,
             log += input.tensors[i]->getShape().toString() + "\n";
         }
 
-        fmt::print("DummyParser {}", log);
+        pek::log("DummyParser {}", log);
     }
 
     return {};

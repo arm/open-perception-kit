@@ -41,8 +41,6 @@ on:
     secrets:
       EXPKITS_AGENT_TOKEN:
         required: false
-      OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS:
-        required: false
 
 permissions: {}
 
@@ -149,11 +147,16 @@ jobs:
           python3 .agent-runtime/agent-stabilization-helper/scripts/private/agent_runtime/setup_runtime.py \
             --requirements-file .agent-runtime/agent-stabilization-helper/.github/agent-runtime/runtime/requirements-openai-agents.txt
 
+      - name: Fetch OpenAI proxy token
+        if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
+        id: openai-token
+        uses: Arm-Debug/devops-actions/fetch-openai-proxy-token@v1.7.0
+
       - name: Run OpenAI SDK stabilization agent
         if: ${{ steps.context.outputs.review_recommendation != 'approve' }}
         shell: bash
         env:
-          OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
+          OPENAI_PROXY_TOKEN: ${{ steps.openai-token.outputs.openai_token }}
         run: |
           .agent-runtime/openai-agent-venv/bin/python .agent-runtime/agent-stabilization-helper/scripts/private/agent_runtime/openai_agent_runner.py run-stabilization \
             --model-config-file "${{ steps.context.outputs.agent_model_config_file }}" \
@@ -167,7 +170,7 @@ jobs:
         env:
           GH_TOKEN: ""
           GITHUB_TOKEN: ""
-          OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS: ""
+          OPENAI_PROXY_TOKEN: ""
           OPENAI_API_KEY: ""
           ACTIONS_RUNTIME_TOKEN: ""
           ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""

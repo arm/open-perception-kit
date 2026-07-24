@@ -4,6 +4,7 @@
 
 #include "Tools.h"
 
+#include "Log.h"
 #include "fmt/core.h"
 #include "pek/String.h"
 
@@ -57,7 +58,7 @@ Result<DynamicLibraryHandle> Tools::DynamicLibraryOpen(const std::string &name) 
     }
 
     if (!handle) {
-        fmt::print("{}", loadErrors);
+        pek::loge("{}", loadErrors);
         return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::SystemFailure, loadErrors));
     }
 

@@ -12,12 +12,14 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 ## What does `.github/workflows/pek-ci.yml` do?
 
 - Runs the actual checks
+- Runs pull request quality checks through `expkits-ci --ci-pr-checks`.
+- Runs full/nightly quality checks through `expkits-ci --ci-full-checks`.
 
 ## What does `.github/workflows/agent-review.yml` do?
 
 - Runs Agent review on a self-hosted runner through the shared Python OpenAI Agents SDK runner
 - Supports `workflow_dispatch` manual runs with a configurable `base_ref` input for the diff baseline
-- Uses `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS`, the Arm OpenAI proxy endpoint, and tracing-disabled Agents SDK execution
+- Uses `OPENAI_PROXY_TOKEN`, the Arm OpenAI proxy endpoint, and tracing-disabled Agents SDK execution
 - Uses the checked-in review assets under `.github/agent-runtime/review/`
 - Keeps static trusted Agent instructions in `.github/agent-runtime/review/instructions.md`
 - Reuses shared helper modules from `scripts/private/agent_runtime/`
@@ -34,6 +36,8 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - Treats `agent-review-out/review.json` as the canonical machine-readable review state
 - Publishes a fresh PR summary comment for each run from the structured review output
 - Publishes fresh inline review comments for the current findings without prior-state reconciliation
+- Always submits the GitHub review as `COMMENT`; recommendations never approve or formally request changes
+- Treats OpenAI SDK review failures as advisory so they do not fail the workflow
 - Does not run on pull request label changes, so unrelated labels cannot overwrite
   the Agent Review gate check
 
@@ -75,7 +79,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - The default repair authorization label is `agent-repair`; it does not trigger current-PR stabilization
 - Stays orchestration-thin by delegating repo-specific helper commands to `scripts/private/agent_repair_orchestrator/` and shared helper pieces to `scripts/private/agent_workflow_common/`
 - Does not dispatch stabilization or merge the draft repair PR it opens; `.github/workflows/agent-stabilize-pr-worker.yml` remains the callable worker for explicit current-PR stabilization
-- Uses `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` for the OpenAI SDK step so the repair flow matches `agent-review`
+- Uses `OPENAI_PROXY_TOKEN` for the OpenAI SDK step so the repair flow matches `agent-review`
 - Supports the optional `EXPKITS_AGENT_TOKEN` secret so checkout, push, and PR operations can run under a PAT or GitHub App token instead of the default `GITHUB_TOKEN`
 
 ## What does `.github/workflows/agent-stabilize-pr-worker.yml` do?
@@ -99,7 +103,7 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 ## What does `scripts/private/agent_runtime/openai_agent_runner.py` do?
 
 - Provides the shared Python OpenAI Agents SDK entrypoint for review, repair, and stabilization jobs
-- Sets the Arm OpenAI proxy base URL, maps `OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS` into `OPENAI_API_KEY`, disables Agents SDK tracing, and injects `truststore` before importing OpenAI libraries
+- Sets the Arm OpenAI proxy base URL, maps `OPENAI_PROXY_TOKEN` into `OPENAI_API_KEY`, disables Agents SDK tracing, and injects `truststore` before importing OpenAI libraries
 - Resolves the model from `.github/agent-runtime/runtime/agent-models.json` by agent instance; workflow plumbing passes config paths, not concrete model names
 - Resolves task ownership and limits from `.github/agent-runtime/runtime/agent-tasks.json`, then dispatches through checked-in task classes instead of embedding task-specific behavior in the generic entrypoint
 - Runs from the workflow-local `.agent-runtime/openai-agent-venv` environment created by `setup_runtime.py` so Ubuntu's externally managed system Python is left untouched
@@ -135,5 +139,5 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - **init-workspace:** Prepares the workspace and environment.
 - **build-changed-applications:** Builds only the applications changed in a PR.
 - **build-all-applications:** Builds all applications (nightly or manual trigger).
-- **Agent Review:** A separate workflow runs Agent Review, uploads the generated artifacts for the PR, posts a fresh summary comment for each run, and publishes inline review comments for the current findings.
+- **Agent Review:** A separate advisory workflow runs Agent Review, uploads the generated artifacts for the PR, posts a fresh comment-only summary review for each successful run, and publishes inline review comments for the current findings.
 - **Ruleset sync:** A separate workflow applies the checked-in repository ruleset drafts to GitHub after they are merged to `develop`.

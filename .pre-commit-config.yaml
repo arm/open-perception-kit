@@ -10,32 +10,7 @@ repos:
         entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --commit-msg --list-of-files "$@"' _
         language: system
         stages: [commit-msg]
-      - id: clang-format
-        name: Clang Format
-        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --clang-format --list-of-files "$@"' _
+      - id: pre-commit-checks
+        name: Pre-commit checks
+        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --pre-commit-fix --list-of-files "$@"' _
         language: system
-      - id: python-format
-        name: Python Format (PEP-8)
-        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --python-format --list-of-files "$@"' _
-        language: system
-      - id: cmake-format
-        name: CMake Format
-        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --cmake-format --list-of-files "$@"' _
-        language: system
-      - id: shell-format
-        name: Shell Format
-        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --shell-format --list-of-files "$@"' _
-        language: system
-      - id: license-header
-        name: License Header Check
-        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --license-header --list-of-files "$@"' _
-        language: system
-      - id: check-secrets
-        name: Check for Secrets
-        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --check-secrets --list-of-files "$@"' _
-        language: system
-      - id: actionlint
-        name: GitHub Actions Lint
-        entry: bash -c 'source /work/tools/.venv/bin/activate && expkits-ci --verbose --actionlint --list-of-files "$@"' _
-        language: system
-        files: ^\.github/workflows/.*\.ya?ml$

@@ -584,7 +584,7 @@ class Pipeline::Impl {
                     g_free(debugInfo);
                 }
                 gst_message_unref(message);
-                finishWithError(std::move(runtimeError));
+                finishWithError(runtimeError);
                 break;
             }
 
@@ -611,7 +611,7 @@ class Pipeline::Impl {
         }
     }
 
-    void finishWithError(Error error) {
+    void finishWithError(const Error &error) {
         bool shouldEmit = false;
         {
             std::lock_guard lock(lifecycleMutex);

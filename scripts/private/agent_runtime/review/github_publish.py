@@ -8,13 +8,8 @@ from __future__ import annotations
 import sys
 import urllib.error
 
-from ..contracts import GITHUB_REVIEW_EVENTS
 from github_api import github_api_request
 from .comments import build_review_comment_payloads
-
-
-def review_event(recommendation: str) -> str:
-    return GITHUB_REVIEW_EVENTS.get(recommendation, "COMMENT")
 
 
 def is_review_comment_validation_error(exc: urllib.error.HTTPError) -> bool:
@@ -49,7 +44,7 @@ def create_pull_review(
 ) -> None:
     payload: dict[str, object] = {
         "body": body,
-        "event": review_event(recommendation),
+        "event": "COMMENT",
     }
     if commit_id:
         payload["commit_id"] = commit_id

@@ -1,0 +1,33 @@
+{
+	"name": "YoloV26",
+	"description": "YoloV26 object detection model.",
+	"ops": [
+		{
+			"id": "pek-std-ops/InferenceController",
+			"attributes": {}
+		},
+		{
+			"id": "pek-std-ops/GenericImagePreprocess",
+			"attributes": {
+				"inputImageTensorIndex": 0,
+				"inputImageSourceName": "pipelineVideoFrame"
+			}
+		},
+		{
+			"id": "pek-onnx-ops/Inference",
+			"attributes": {
+				"modelDescriptor": "/work/config/models/yolo26/model.json"
+			}
+		},
+		{
+			"id": "pek-std-ops/GenericPostprocess",
+			"attributes": {
+				"parser": "YoloParser",
+				"normalizeOutputCoordinates": false,
+				"applyNms": true,
+				"confidenceThreshold": 0.25,
+				"iouThreshold": 0.45
+			}
+		}
+	]
+}

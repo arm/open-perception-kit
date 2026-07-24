@@ -15,6 +15,11 @@ Python OpenAI Agents SDK runtime with that typed context, then publishes:
 - UI-only comment markers that identify Agent Review comments without storing
   machine-readable review state in PR comments
 
+The structured recommendation remains visible in the review output, but GitHub
+reviews are always submitted with the non-blocking `COMMENT` event. The
+workflow never approves a pull request or formally requests changes. Failures
+in the OpenAI SDK review step are advisory and do not fail the workflow.
+
 During the SDK run, the context artifact and the GitHub Actions event payload
 are temporarily removed from the filesystem and restored afterward. This keeps
 model-visible review metadata on the dedicated `get_review_context` tool
@@ -39,10 +44,10 @@ The workflow-scoped OpenAI agent runtime pins live in
 Arm OpenAI proxy, disables Agents SDK tracing, and injects `truststore` before
 importing OpenAI libraries.
 Local runs use the same SDK path and require either `OPENAI_API_KEY` or
-`OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS`; OpenAI SDK CLI login state is not reused.
-The review agent explicitly uses high reasoning effort while leaving sampling
-temperature unset. This prioritizes review accuracy over model latency and cost;
-the repair and stabilization agents retain their existing model defaults.
+`OPENAI_PROXY_TOKEN`; OpenAI SDK CLI login state is not reused. The review agent
+explicitly uses high reasoning effort while leaving sampling temperature unset.
+This prioritizes review accuracy over model latency and cost; the repair and
+stabilization agents retain their existing model defaults.
 
 Structure:
 

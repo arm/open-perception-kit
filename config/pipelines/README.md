@@ -16,6 +16,7 @@ This is intentional: open the Perception Experience Kit web UI and enable the mo
 - `tracker-pc` — ONNX tracking demo
 - `tracker-rpi-hailo8` — Hailo 8 tracking demo
 - `tracker-rpi-hailo10` — Hailo 10 tracking demo
+- `yolo26-onnx` — YOLO26 ONNX object detection viewer demo
 
 Use `05-full-onnx-raspicam` or `06-full-onnx-usb-cam` when you want a live camera source enabled by default without copying an alternative source into another preset.
 

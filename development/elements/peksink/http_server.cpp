@@ -2,7 +2,6 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 
-#include <format>
 #include <string>
 
 #include <nlohmann/json.hpp>
@@ -10,6 +9,7 @@
 // WebRTC in GST is unstable: this macro disables the warning
 #define GST_USE_UNSTABLE_API
 
+#include "Log.h"
 #include "http_server.h"
 #include "nlohmann/json_fwd.hpp"
 #include "peksink.h"
@@ -79,7 +79,7 @@ PekSinkHttpServerError PekSinkHttpServer::setup() {
     if (!ret) {
         // TODO@ibori: error handling
         auto sfl = self_->static_files_location ? self_->static_files_location : "(null)";
-        std::cerr << std::format("Static file directory does not exist: {}", sfl);
+        pek::loge("Static file directory does not exist: {}\n", sfl);
 
         return PekSinkHttpServerError::NO_STATIC_FILES_DIRECTORY;
     }
@@ -99,7 +99,7 @@ PekSinkHttpServerError PekSinkHttpServer::start() {
         return PekSinkHttpServerError::OK;
     } else {
         const auto host = std::string(self_->host ? self_->host : "<null>");
-        std::cerr << std::format("HTTP server failed to start on {}:{}\n", host, self_->http_port);
+        pek::loge("HTTP server failed to start on {}:{}\n", host, self_->http_port);
 
         return PekSinkHttpServerError::CANNOT_BIND_SERVER_PORT;
     }

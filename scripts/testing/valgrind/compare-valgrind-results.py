@@ -17,6 +17,7 @@ import collections
 import logging
 import sys
 import xml.etree.ElementTree as ET
+from collections.abc import Iterable
 from pathlib import Path
 
 
@@ -59,8 +60,8 @@ def _error_fingerprint(error: ET.Element) -> str:
     return "||".join(parts)
 
 
-def load_summary(path: Path) -> collections.Counter[str]:
-    """Load fingerprint counts from a Valgrind XML summary file."""
+def _load_errors(path: Path) -> list[ET.Element]:
+    """Load error records from a Valgrind XML summary file."""
     try:
         data = path.read_text(encoding="utf-8")
     except OSError as exc:
@@ -81,10 +82,81 @@ def load_summary(path: Path) -> collections.Counter[str]:
         )
         sys.exit(2)
 
+    return root.findall(".//error")
+
+
+def load_summary(path: Path) -> collections.Counter[str]:
+    """Load fingerprint counts from a Valgrind XML summary file."""
     return collections.Counter(
         _error_fingerprint(error)
-        for error in root.findall(".//error")
+        for error in _load_errors(path)
     )
+
+
+def _group_errors(errors: Iterable[ET.Element]) -> dict[str, list[ET.Element]]:
+    """Group error records by the stable fingerprint used for comparison."""
+    grouped: dict[str, list[ET.Element]] = collections.defaultdict(list)
+    for error in errors:
+        grouped[_error_fingerprint(error)].append(error)
+    return grouped
+
+
+def _format_frame(frame: ET.Element) -> str:
+    """Format one stack frame with its most useful source location."""
+    function = frame.findtext("fn") or "<unknown function>"
+    directory = frame.findtext("dir")
+    filename = frame.findtext("file")
+    line = frame.findtext("line")
+    obj = frame.findtext("obj")
+
+    source = filename
+    if source and directory:
+        source = f"{directory.rstrip('/')}/{source}"
+    if source and line:
+        source = f"{source}:{line}"
+
+    if source and obj:
+        return f"{function} at {source} ({obj})"
+    if source:
+        return f"{function} at {source}"
+    if obj:
+        return f"{function} in {obj}"
+    return function
+
+
+def _log_error(status: str, error: ET.Element) -> None:
+    """Log one Valgrind error as a readable, source-aware stack trace."""
+    LOGGER.info("  [%s] %s", status, error.findtext("kind", default="Unknown"))
+
+    what_text = error.findtext("xwhat/text") or error.findtext("what")
+    if what_text:
+        LOGGER.info("          %s", what_text)
+
+    stacks = error.findall(".//stack")
+    if not stacks:
+        LOGGER.info("          Stack trace unavailable")
+        return
+
+    for stack_index, stack in enumerate(stacks, start=1):
+        if len(stacks) > 1:
+            LOGGER.info("          Stack %d:", stack_index)
+        for frame_index, frame in enumerate(stack.findall("frame")):
+            LOGGER.info("          #%d %s", frame_index, _format_frame(frame))
+
+
+def _log_errors(
+    status: str,
+    fingerprints: collections.Counter[str],
+    records: dict[str, list[ET.Element]],
+) -> None:
+    """Log all comparison results with the original XML details."""
+    occurrence_by_fingerprint: collections.Counter[str] = collections.Counter()
+    for fingerprint in sorted(fingerprints.elements()):
+        occurrence = occurrence_by_fingerprint[fingerprint]
+        occurrence_by_fingerprint[fingerprint] += 1
+        matching_records = records[fingerprint]
+        error = matching_records[min(occurrence, len(matching_records) - 1)]
+        _log_error(status, error)
 
 
 def main() -> None:
@@ -108,8 +180,12 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    baseline = load_summary(args.baseline)
-    current = load_summary(args.current)
+    baseline_errors = _load_errors(args.baseline)
+    current_errors = _load_errors(args.current)
+    baseline_records = _group_errors(baseline_errors)
+    current_records = _group_errors(current_errors)
+    baseline = collections.Counter(map(_error_fingerprint, baseline_errors))
+    current = collections.Counter(map(_error_fingerprint, current_errors))
 
     new_errors = current - baseline
     fixed_errors = baseline - current
@@ -127,20 +203,12 @@ def main() -> None:
     if fixed_errors:
         LOGGER.info("")
         LOGGER.info("Fixed errors (present in baseline, absent in current):")
-        for err in sorted(fixed_errors.elements()):
-            kind, *frames = err.split("||")
-            LOGGER.info("  [FIXED] %s", kind)
-            for frame in frames:
-                LOGGER.info("            %s", frame)
+        _log_errors("FIXED", fixed_errors, baseline_records)
 
     if new_errors:
         LOGGER.info("")
         LOGGER.info("New errors (absent in baseline, present in current):")
-        for err in sorted(new_errors.elements()):
-            kind, *frames = err.split("||")
-            LOGGER.info("  [NEW] %s", kind)
-            for frame in frames:
-                LOGGER.info("          %s", frame)
+        _log_errors("NEW", new_errors, current_records)
 
         LOGGER.error(
             ""

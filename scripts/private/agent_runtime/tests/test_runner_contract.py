@@ -42,7 +42,7 @@ from test_support.agent_workflow import (  # noqa: E402
 
 class AgentRuntimeContractTests(unittest.TestCase):
     def test_openai_environment_defaults_use_arm_proxy_credentials(self):
-        with mock.patch.dict(os.environ, {"OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS": "proxy-key"}, clear=True):
+        with mock.patch.dict(os.environ, {"OPENAI_PROXY_TOKEN": "proxy-key"}, clear=True):
             sdk_runtime = load_agent_workflow_module_with_fake_sdk(
                 OPENAI_AGENT_SDK_RUNTIME_SCRIPT,
                 "agent_runtime.sdk_runtime_fake_sdk_environment",
