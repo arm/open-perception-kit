@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import os
@@ -31,6 +32,7 @@ def import_script(path: Path, name: str):
 
 publish = import_script(SCRIPT_PATH, "publish_yolo_benchmark_pages")
 overlay = import_script(OVERLAY_SCRIPT_PATH, "restore_dataset_overlay")
+VIDEO_SHA256 = "a" * 64
 
 
 class LinkParser(HTMLParser):
@@ -91,7 +93,7 @@ def video_comparison(bare_fps: float = 10.0, pek_fps: float = 12.0) -> dict:
             "source_width": 1920,
             "source_height": 1080,
             "source_fps": 30.0,
-            "video_sha256": "abc123",
+            "video_sha256": VIDEO_SHA256,
             "imgsz": 320,
             "device": "cpu",
             "bare_model": "model.onnx",
@@ -254,6 +256,13 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             site_dir = Path(tmpdir) / "site"
             target = site_dir / "yolo-benchmark" / "manual" / "123"
             target.mkdir(parents=True)
+            (target / "video-source.json").write_text(
+                json.dumps({
+                    "schema": "expkits_yolo_video_source.v1",
+                    "sha256": VIDEO_SHA256,
+                }),
+                encoding="utf-8",
+            )
             runs = [
                 {"name": "run-01", "path": Path("run-01"), "comparison": video_comparison(10.0, 12.0)},
                 {"name": "run-02", "path": Path("run-02"), "comparison": video_comparison(11.0, 13.0)},
@@ -268,6 +277,11 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             self.assertIn("10.500", html)
             self.assertIn("12.500", html)
             self.assertIn("PEK faster", html)
+            input_href = (
+                "../../../yolo-performance-datasets/"
+                f"mediapipe-object-detection-{VIDEO_SHA256[:12]}/index.html"
+            )
+            self.assertIn(f'href="{input_href}"', html)
             self.assertNotIn("Dataset Analysis", html)
             self.assertNotIn('href="summary.json"', html)
             self.assertNotIn('href="summary.md"', html)
@@ -289,6 +303,39 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             self.assertIn('href="bare-detections.mp4"', html)
             self.assertIn('src="pek-detections.mp4"', html)
             self.assertIn('href="pek-detections.mp4"', html)
+
+    def test_write_video_report_rejects_manifest_sha_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = Path(tmpdir) / "site"
+            target = site_dir / "yolo-benchmark" / "manual" / "123"
+            target.mkdir(parents=True)
+            (target / "video-source.json").write_text("[]", encoding="utf-8")
+
+            with self.assertRaisesRegex(publish.PublishError, "must use"):
+                publish.write_report_page(
+                    target,
+                    site_dir,
+                    "Manual run 123",
+                    "Manual",
+                    [{"name": "run-01", "path": Path("run-01"), "comparison": video_comparison()}],
+                )
+
+            (target / "video-source.json").write_text(
+                json.dumps({
+                    "schema": "expkits_yolo_video_source.v1",
+                    "sha256": "b" * 64,
+                }),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(publish.PublishError, "differs"):
+                publish.write_report_page(
+                    target,
+                    site_dir,
+                    "Manual run 123",
+                    "Manual",
+                    [{"name": "run-01", "path": Path("run-01"), "comparison": video_comparison()}],
+                )
 
     def test_select_target_supports_manual_reports(self) -> None:
         with patch.dict(os.environ, {"UPSTREAM_RUN_ID": "123"}):
@@ -520,6 +567,75 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             self.assertTrue((target / "images" / "000000000139.jpg").is_file())
             self.assertTrue((target / "manifest.json").is_file())
             self.assertTrue((root / "site" / "yolo-performance-datasets" / "index.html").is_file())
+
+    def test_restore_dataset_overlay_writes_input_video_preview(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            video = b"pinned-video"
+            digest = hashlib.sha256(video).hexdigest()
+            manifest = root / "site" / "yolo-benchmark" / "manual" / "123" / "video-source.json"
+            manifest.parent.mkdir(parents=True)
+            source = {
+                "schema": "expkits_yolo_video_source.v1",
+                "name": "MediaPipe object detection test video",
+                "repository": "https://github.com/google-ai-edge/mediapipe",
+                "revision": "test-revision",
+                "url": "https://example.test/video.mp4",
+                "license": "Apache-2.0",
+                "sha256": digest,
+                "video": "/cache/video.mp4",
+                "width": 1920,
+                "height": 1080,
+                "fps": 30.0,
+                "frame_count": 205,
+            }
+            manifest.write_text(json.dumps(source), encoding="utf-8")
+            cached_video = root / "prepared-video.mp4"
+            cached_video.write_bytes(video)
+
+            with patch.object(overlay, "prepare_video_source", return_value=(cached_video, dict(source))):
+                targets = overlay.restore_overlay(root / "site", root / "cache")
+
+            target = targets[0]
+            self.assertEqual(target.name, f"mediapipe-object-detection-{digest[:12]}")
+            self.assertEqual((target / overlay.VIDEO_FILENAME).read_bytes(), video)
+            self.assertEqual(json.loads((target / "manifest.json").read_text())["video"], overlay.VIDEO_FILENAME)
+            html = (target / "index.html").read_text(encoding="utf-8")
+            self.assertIn(f'<video controls preload="metadata" playsinline src="{overlay.VIDEO_FILENAME}">', html)
+
+    def test_restore_dataset_overlay_skips_bad_manifest_before_valid_one(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            video = b"pinned-video"
+            digest = hashlib.sha256(video).hexdigest()
+            canonical = {
+                "schema": "expkits_yolo_video_source.v1",
+                "name": "MediaPipe object detection test video",
+                "repository": "https://github.com/google-ai-edge/mediapipe",
+                "revision": "test-revision",
+                "url": "https://example.test/video.mp4",
+                "license": "Apache-2.0",
+                "sha256": digest,
+                "width": 1920,
+                "height": 1080,
+                "fps": 30.0,
+                "frame_count": 205,
+            }
+            bad = root / "site" / "yolo-benchmark" / "a" / "video-source.json"
+            good = root / "site" / "yolo-benchmark" / "b" / "video-source.json"
+            bad.parent.mkdir(parents=True)
+            good.parent.mkdir(parents=True)
+            bad.write_text(json.dumps(dict(canonical, schema="unsupported")), encoding="utf-8")
+            good.write_text(json.dumps(canonical), encoding="utf-8")
+            cached_video = root / "prepared-video.mp4"
+            cached_video.write_bytes(video)
+
+            with patch.object(overlay, "prepare_video_source", return_value=(cached_video, canonical)):
+                targets = overlay.restore_overlay(root / "site", root / "cache")
+
+            self.assertEqual([target.name for target in targets], [
+                f"mediapipe-object-detection-{digest[:12]}"
+            ])
 
     def test_restore_dataset_overlay_ignores_artifact_image_paths(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -18,7 +18,7 @@ LEGACY_PLAYWRIGHT_REPORT_ROOTS = ("nightly", "prs")
 ROOT_REPORT_LINKS = (
     ("playwright/index.html", "Playwright", "Browser smoke reports"),
     ("yolo-benchmark/index.html", "YOLO Benchmark", "Performance and accuracy benchmark reports"),
-    ("yolo-performance-datasets/index.html", "YOLO Datasets", "Benchmark image datasets"),
+    ("yolo-performance-datasets/index.html", "YOLO Datasets", "Benchmark input datasets"),
 )
 
 

@@ -340,6 +340,10 @@ def dataset_id(fingerprint: str) -> str:
     return f"coco-val2017-{fingerprint.removeprefix('sha256:')[:12]}" if fingerprint.startswith("sha256:") else ""
 
 
+def video_dataset_id(digest: str) -> str:
+    return f"mediapipe-object-detection-{digest[:12]}" if re.fullmatch(r"[0-9a-f]{64}", digest) else ""
+
+
 def load_image_list_metadata(path: Path) -> tuple[str, dict[str, str]]:
     if not path.is_file():
         return "", {}
@@ -1283,6 +1287,22 @@ def dataset_images_href_for_report(runs: list[dict[str, Any]], target: Path, sit
     return Path(os.path.relpath(images_dir, target)).as_posix()
 
 
+def video_dataset_href_for_report(target: Path, site_dir: Path, digest: str) -> str:
+    dataset = video_dataset_id(digest)
+    manifest = target / "video-source.json"
+    if not dataset or not manifest.is_file():
+        return ""
+    try:
+        source = load_json(manifest)
+    except (OSError, json.JSONDecodeError) as error:
+        raise PublishError(f"Invalid video source manifest: {error}") from error
+    if not isinstance(source, dict) or source.get("schema") != "expkits_yolo_video_source.v1":
+        raise PublishError("Video source manifest must use expkits_yolo_video_source.v1.")
+    if source.get("sha256") != digest:
+        raise PublishError("Video source manifest SHA-256 differs from the benchmark summary.")
+    return Path(os.path.relpath(site_dir / DATASET_ROOT / dataset / INDEX_HTML, target)).as_posix()
+
+
 def write_dataset_links(target: Path) -> str:
     if not (target / "images.tsv").is_file():
         return ""
@@ -1349,6 +1369,7 @@ def write_video_report_page(
     inputs = comparison["inputs"]
     measurement = comparison["measurement"]
     back_href = rel_to_report_root(target, site_dir)
+    video_dataset_href = video_dataset_href_for_report(target, site_dir, str(inputs.get("video_sha256", "")))
     detection_videos = [
         (label, filename)
         for label, filename in (("Bare / Ultralytics", BARE_DETECTION_VIDEO), ("PEK", PEK_DETECTION_VIDEO))
@@ -1398,6 +1419,9 @@ def write_video_report_page(
             "bare_model": html_escape(inputs["bare_model"]),
             "pek_opchain": html_escape(inputs["pek_opchain"]),
             "video_sha256": html_escape(inputs["video_sha256"]),
+            "input_video_link": (
+                f' | <a href="{html_escape(video_dataset_href)}">input video</a>' if video_dataset_href else ""
+            ),
             "summary_links": "".join(
                 f' | <a href="{name}">{label}</a>'
                 for name, label in (("summary.json", "report JSON"), ("summary.md", "report Markdown"))
