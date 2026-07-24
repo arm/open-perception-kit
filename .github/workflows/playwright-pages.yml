@@ -7,12 +7,6 @@ on:
   schedule:
     - cron: "30 6 * * *"
   workflow_dispatch:
-    inputs:
-      action_smoke:
-        description: Test workflow action dependencies without deploying Pages.
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   actions: read
@@ -29,12 +23,11 @@ jobs:
   publish-report:
     name: Publish latest Playwright report
     if: |
-      (github.event_name == 'workflow_run' &&
-      github.event.workflow_run.head_repository.full_name == github.repository) ||
-      (github.event_name == 'workflow_dispatch' && inputs.action_smoke)
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     environment:
-      name: ${{ inputs.action_smoke && 'action-smoke' || 'github-pages' }}
+      name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout publisher
@@ -45,7 +38,6 @@ jobs:
 
       - name: Update Pages content
         id: pages
-        if: ${{ !inputs.action_smoke }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
           UPSTREAM_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
@@ -59,7 +51,7 @@ jobs:
         run: scripts/playwright/pages/run.sh publish
 
       - name: Cache YOLO performance dataset
-        if: ${{ inputs.action_smoke || steps.pages.outputs.deploy == 'true' }}
+        if: steps.pages.outputs.deploy == 'true'
         uses: actions/cache@v6
         with:
           path: _yolo_performance_dataset_cache
@@ -92,7 +84,7 @@ jobs:
     if: github.event_name != 'workflow_run'
     runs-on: ubuntu-latest
     environment:
-      name: ${{ inputs.action_smoke && 'action-smoke' || 'github-pages' }}
+      name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout publisher
@@ -103,13 +95,12 @@ jobs:
 
       - name: Remove old closed PR reports
         id: pages
-        if: ${{ !inputs.action_smoke }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: scripts/playwright/pages/run.sh cleanup
 
       - name: Cache YOLO performance dataset
-        if: ${{ inputs.action_smoke || steps.pages.outputs.deploy == 'true' }}
+        if: steps.pages.outputs.deploy == 'true'
         uses: actions/cache@v6
         with:
           path: _yolo_performance_dataset_cache

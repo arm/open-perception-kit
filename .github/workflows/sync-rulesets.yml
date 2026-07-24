@@ -8,20 +8,14 @@ on:
       - ".github/workflows/sync-rulesets.yml"
       - "scripts/ci/sync-rulesets.sh"
   workflow_dispatch:
-    inputs:
-      action_smoke:
-        description: Test checkout and ruleset validation without applying changes.
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: read
 
 jobs:
   sync-rulesets:
-    # Production apply remains disabled; action_smoke only validates checkout and JSON.
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.action_smoke }}
+    # Temporarily disabled until the repository ruleset rollout is resumed.
+    if: ${{ false }}
     runs-on: [self-hosted, Linux, X64]
 
     steps:
@@ -29,7 +23,6 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Require ruleset admin token
-        if: ${{ !inputs.action_smoke }}
         shell: bash
         env:
           RULESET_ADMIN_GITHUB_TOKEN: ${{ secrets.RULESET_ADMIN_GITHUB_TOKEN }}
@@ -50,7 +43,6 @@ jobs:
           done
 
       - name: Apply repository rulesets
-        if: ${{ !inputs.action_smoke }}
         env:
           RULESET_ADMIN_GITHUB_TOKEN: ${{ secrets.RULESET_ADMIN_GITHUB_TOKEN }}
         shell: bash

@@ -10,12 +10,6 @@ name: Valgrind Baseline Artifact
 
 on:
   workflow_dispatch:
-    inputs:
-      action_smoke_publish:
-        description: Test the trusted baseline publisher checkout without publishing an artifact.
-        required: false
-        default: false
-        type: boolean
   push:
     branches: [main, develop]
   pull_request:
@@ -29,19 +23,16 @@ jobs:
   publish-pr-baseline:
     name: Publish missing Valgrind baseline artifact
     runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'pull_request_target' && github.event.pull_request.draft == false) ||
-      (github.event_name == 'workflow_dispatch' && inputs.action_smoke_publish)
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.draft == false
     permissions:
       actions: write
       contents: read
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.sha || github.sha }}
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
 
       - name: Publish missing Valgrind baseline artifact
-        if: ${{ github.event_name == 'pull_request_target' }}
         env:
           GH_TOKEN: ${{ github.token }}
           VALGRIND_BASELINE_BRANCH: ${{ github.event.pull_request.base.ref }}
@@ -50,10 +41,7 @@ jobs:
   valgrind-workflow:
     name: Valgrind related workflow
     runs-on: ubuntu-latest
-    if: |
-      github.event_name != 'pull_request_target' &&
-      !(github.event_name == 'workflow_dispatch' && inputs.action_smoke_publish) &&
-      (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    if: github.event_name != 'pull_request_target' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     permissions:
       actions: read
       contents: read
