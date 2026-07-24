@@ -64,13 +64,15 @@ jobs:
             --site-dir _playwright_pages_site \
             --cache-dir _yolo_performance_dataset_cache
 
-      - name: Restore latest YOLO detection videos
+      - name: Restore deploy-only report videos
         if: steps.pages.outputs.deploy == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >-
-          python3 examples/yolo-benchmark/pages/publish_yolo_benchmark_pages.py
-          restore-latest _playwright_pages_site
+        run: |
+          python3 examples/yolo-benchmark/pages/publish_yolo_benchmark_pages.py \
+            restore-latest _playwright_pages_site
+          python3 scripts/playwright/pages/publish_playwright_pages.py \
+            restore-videos _playwright_pages_site
 
       - name: Configure Pages
         if: steps.pages.outputs.deploy == 'true'
@@ -121,13 +123,15 @@ jobs:
             --site-dir _playwright_pages_site \
             --cache-dir _yolo_performance_dataset_cache
 
-      - name: Restore latest YOLO detection videos
+      - name: Restore deploy-only report videos
         if: steps.pages.outputs.deploy == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >-
-          python3 examples/yolo-benchmark/pages/publish_yolo_benchmark_pages.py
-          restore-latest _playwright_pages_site
+        run: |
+          python3 examples/yolo-benchmark/pages/publish_yolo_benchmark_pages.py \
+            restore-latest _playwright_pages_site
+          python3 scripts/playwright/pages/publish_playwright_pages.py \
+            restore-videos _playwright_pages_site
 
       - name: Configure Pages
         if: steps.pages.outputs.deploy == 'true'
