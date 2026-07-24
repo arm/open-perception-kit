@@ -12,7 +12,8 @@
 #include <thread>
 #include <vector>
 
-#include "pek/Log.h"
+#include "Log.h"
+#include "LogTools.h"
 #include "pek/Result.h"
 #include "pek/Types.h"
 

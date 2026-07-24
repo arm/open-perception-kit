@@ -9,7 +9,7 @@
 
 #include "mediaio/GstVideoFrame.h"
 
-#include "pek/Log.h"
+#include "Log.h"
 
 #include <gst/allocators/gstdmabuf.h>
 

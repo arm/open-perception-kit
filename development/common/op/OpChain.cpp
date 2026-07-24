@@ -4,7 +4,8 @@
 
 #include "op/OpChain.h"
 
-#include "pek/Log.h"
+#include "Log.h"
+#include "LogTools.h"
 #include "pek/String.h"
 
 #include "op/Op.h"

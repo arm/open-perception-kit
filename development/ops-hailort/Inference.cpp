@@ -18,7 +18,7 @@
 
 #include <sys/mman.h>
 
-#include "pek/Log.h"
+#include "Log.h"
 #include "pek/Result.h"
 
 using namespace pek::hailo;

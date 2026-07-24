@@ -22,7 +22,7 @@
 #include "glib-object.h"
 #include "glib.h"
 
-#include "pek/Log.h"
+#include "Log.h"
 #include "pek/Perception.h"
 #include "pek/Result.h"
 #include "pek/Tools.h"

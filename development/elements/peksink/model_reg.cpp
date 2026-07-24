@@ -4,7 +4,7 @@
 
 #include "model_reg.h"
 
-#include "pek/Log.h"
+#include "Log.h"
 
 #include <nlohmann/json_fwd.hpp>
 

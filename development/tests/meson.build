@@ -72,9 +72,25 @@ yolo_parser_tests = executable(
 
 logging_tests = executable(
   'logging_tests',
-  ['logging_test.cpp'],
+  ['LoggingTest.cpp'],
   include_directories : [common_include],
   dependencies : [gtest_main_dep, gtest_dep, fmt_dep],
+  link_with : [common],
+)
+
+logger_tests = executable(
+  'logger_tests',
+  ['LoggerTest.cpp'],
+  include_directories : [common_include, logging_internal_include],
+  dependencies : [gtest_main_dep, gtest_dep, fmt_dep, threads_dep],
+  link_with : [logging],
+)
+
+logging_environment_probe = executable(
+  'logging_environment_probe',
+  ['LoggingEnvironmentProbe.cpp'],
+  include_directories : [common_include],
+  dependencies : [fmt_dep],
   link_with : [common],
 )
 
@@ -191,6 +207,13 @@ test('hungarian_tests', hungarian_tests)
 test('iou_tests', iou_tests)
 test('yolo_parser_tests', yolo_parser_tests)
 test('logging_tests', logging_tests)
+test('logger_tests', logger_tests)
+test(
+  'logging_environment_tests',
+  python,
+  args : [files('logging_environment_test.py'), logging_environment_probe.full_path()],
+  depends : logging_environment_probe,
+)
 test('pektracker_matching_tests', pektracker_matching_tests)
 test('webrtc_session_tests', webrtc_session_tests)
 test('runtime_pipeline_tests', runtime_pipeline_tests)

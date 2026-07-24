@@ -3,7 +3,8 @@
  *************************************************************/
 #include "Inference.h"
 
-#include "pek/Log.h"
+#include "Log.h"
+#include "LogTools.h"
 #include "pek/Perception.h"
 #include "pek/Result.h"
 #include "pek/Shape.h"
