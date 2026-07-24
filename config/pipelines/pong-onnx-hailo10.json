@@ -8,8 +8,8 @@
     "pekinfer opchain-path=/work/config/opchains/face-embedding/opchain-hailo10.json active=false !",
     "pektracker content-type=humanFace use-embeddings=true association-mode=embedding use-kalman=false emit-predicted-detections=false emit-trace=false !",
     "pekperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
-    "pekcomm method=websocket ws-port=7001 !",
-    "pekosd enabled=true bg-image=\"/work/data/images/GettyImages-1298072556-thumbnail.jpg\" !",
+    "pekcomm method=websocket !",
+    "pekosd enabled=false bg-image=\"/work/data/images/GettyImages-1298072556-thumbnail.jpg\" !",
     "peksink name=sink"
   ],
   "agentReviewSuppressionFacePongInactiveModelEnd": "<agent-review:suppress-end>",

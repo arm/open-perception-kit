@@ -118,39 +118,6 @@ nlohmann::json PipelineStateReporter::report() const {
 
     return ret;
 }
-nlohmann::json PerformanceOverlayStateReporter::report() const {
-    nlohmann::json ret;
-
-    ret["has_performance_overlay"] = false;
-    ret["enabled"] = false;
-
-    if (!self_) {
-        return ret;
-    }
-
-    // we suppose here that only one pekperformance element exists in the pipeline
-    auto top = get_top_pipeline(GST_ELEMENT(self_));
-    if (!top) {
-        return ret;
-    }
-
-    auto perf_ovr = get_element_by_type(top, "pekperformance");
-    gst_object_unref(top);
-
-    // GST_IS_ELEMENT() is a macro performing a type check with no side effects
-    if (perf_ovr && GST_IS_ELEMENT(perf_ovr)) { // NOSONAR
-        ret["has_performance_overlay"] = true;
-
-        gboolean enabled;
-        g_object_get(perf_ovr, "enabled", &enabled, nullptr);
-        ret["enabled"] = bool(enabled);
-
-        gst_object_unref(perf_ovr);
-    }
-
-    return ret;
-}
-
 GType gst_pek_sink_get_type(void);
 #define GST_TYPE_PEK_SINK (gst_pek_sink_get_type())
 G_DEFINE_TYPE(GstPekSink, gst_pek_sink, GST_TYPE_BIN)
@@ -379,15 +346,14 @@ static void gst_pek_sink_dispose(GObject *object) {
 
     if (self->private_data) {
         // Stop ctrl_websocket first to ensure callbacks are no longer active before destroying
-        // reporters
+        // the pipeline state reporter
         if (self->private_data->ctrl_websocket) {
             self->private_data->ctrl_websocket->stop();
             self->private_data->ctrl_websocket.reset();
         }
-        // Now reset reporters after ctrl_websocket is destroyed (no more callbacks referencing
-        // them)
+        // Now reset the reporter after ctrl_websocket is destroyed (no more callbacks referencing
+        // it)
         self->private_data->pipeline_state_reporter.reset();
-        self->private_data->performance_overlay_state_reporter.reset();
 
         if (self->private_data->http_server) {
             self->private_data->http_server->stop();
@@ -645,15 +611,11 @@ static void gst_pek_sink_init(GstPekSink *self) {
     self->private_data->http_server->start();
 
     self->private_data->pipeline_state_reporter = std::make_shared<PipelineStateReporter>(self);
-    self->private_data->performance_overlay_state_reporter =
-        std::make_shared<PerformanceOverlayStateReporter>(self);
 
     self->private_data->ctrl_websocket->register_status_reporter(
         "models", self->private_data->model_registry);
     self->private_data->ctrl_websocket->register_status_reporter(
         "pipeline_state", self->private_data->pipeline_state_reporter);
-    self->private_data->ctrl_websocket->register_status_reporter(
-        "perf_overlay", self->private_data->performance_overlay_state_reporter);
 }
 
 static void gst_pek_sink_class_init(GstPekSinkClass *klass) {

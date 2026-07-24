@@ -239,7 +239,7 @@ static void gst_pek_performance_class_init(GstPekPerformanceClass *klass) {
         PROP_ENABLED,
         g_param_spec_boolean("enabled",
                              "Enabled",
-                             "Enable or disable performance overlay display",
+                             "Enable or disable performance metadata generation",
                              DEFAULT_ENABLED,
                              (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
