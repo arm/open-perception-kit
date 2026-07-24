@@ -14,7 +14,14 @@ from pathlib import Path
 from typing import Any
 
 
-SUMMARY_SCHEMA = "expkits_yolo_video_benchmark.v1"
+SCHEMA_PATH = Path(__file__).resolve().parent / "schema" / "video_benchmark_summary.schema.json"
+SUMMARY_SCHEMA = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+SUMMARY_SCHEMA_ID = SUMMARY_SCHEMA["properties"]["schema"]["const"]
+MEASUREMENT_CONSTS = {
+    key: value["const"]
+    for key, value in SUMMARY_SCHEMA["properties"]["measurement"]["properties"].items()
+    if "const" in value
+}
 COMPARISON_SCHEMA = "expkits_yolo_video_comparison.v1"
 REPORT_SCHEMA = "expkits_yolo_video_report.v1"
 COMPARABLE_INPUTS = (
@@ -55,9 +62,23 @@ def fps_delta(bare_fps: float, pek_fps: float) -> dict[str, float]:
     }
 
 
+def validate_summary(doc: dict[str, Any]) -> None:
+    if doc.get("schema") != SUMMARY_SCHEMA_ID:
+        raise ValueError(f"summary must use {SUMMARY_SCHEMA_ID}")
+    measurement = doc.get("measurement")
+    if not isinstance(measurement, dict):
+        raise ValueError("summary is missing measurement object")
+    for key, expected in MEASUREMENT_CONSTS.items():
+        if measurement.get(key) != expected:
+            raise ValueError(f"expected measurement.{key}={expected!r}")
+    for section in ("inputs", "timing"):
+        if not isinstance(doc.get(section), dict):
+            raise ValueError(f"summary is missing {section} object")
+
+
 def build_comparison(bare: dict[str, Any], pek: dict[str, Any]) -> dict[str, Any]:
-    if bare.get("schema") != SUMMARY_SCHEMA or pek.get("schema") != SUMMARY_SCHEMA:
-        raise ValueError(f"both summaries must use {SUMMARY_SCHEMA}")
+    validate_summary(bare)
+    validate_summary(pek)
     if bare.get("measurement") != pek.get("measurement"):
         raise ValueError("measurement definitions differ")
     for key in COMPARABLE_INPUTS:

@@ -15,16 +15,19 @@ from pathlib import Path
 from typing import Any
 
 
-SCHEMA_ID = "expkits_yolo_video_benchmark.v1"
+SCHEMA_PATH = Path(__file__).resolve().parents[1] / "schema" / "video_benchmark_summary.schema.json"
+SUMMARY_SCHEMA = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+SUMMARY_SCHEMA_ID = SUMMARY_SCHEMA["properties"]["schema"]["const"]
 IMG_SIZE = 320
 DEVICE = "cpu"
 WARMUP_FRAMES = 1
+MEASUREMENT_CONSTS = {
+    key: value["const"]
+    for key, value in SUMMARY_SCHEMA["properties"]["measurement"]["properties"].items()
+    if "const" in value
+}
 MEASUREMENT = {
-    "technique": "unpaced_video_result_intervals",
-    "timed_region": "first_serialized_result_ready_to_last_serialized_result_ready",
-    "decode_included": True,
-    "artifact_write_excluded": True,
-    "video_pacing_disabled": True,
+    **MEASUREMENT_CONSTS,
     "warmup_frames": WARMUP_FRAMES,
 }
 
@@ -61,7 +64,7 @@ def summary_document(
     if elapsed_ms <= 0:
         raise ValueError("measured video interval must be positive")
     return {
-        "schema": SCHEMA_ID,
+        "schema": SUMMARY_SCHEMA_ID,
         "runner": "bare-ultralytics-video",
         "measurement": dict(MEASUREMENT),
         "inputs": {

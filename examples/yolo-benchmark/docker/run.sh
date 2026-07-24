@@ -325,7 +325,7 @@ write_summary() {
         echo "- benchmark_kind: ${YOLO_BENCHMARK_KIND:-images}"
         echo "- image_limit: ${YOLO_BENCHMARK_LIMIT:-full}"
         echo "- benchmark_runs: ${YOLO_BENCHMARK_RUNS:-1}"
-        echo "- image: ${YOLO_BENCHMARK_IMAGE_NAME:-${IMAGE_NAME}}"
+        echo "- container_image: ${YOLO_BENCHMARK_IMAGE_NAME:-${IMAGE_NAME}}"
         echo
         if [[ -f artifacts/yolo-benchmark/summary.md ]]; then
             cat artifacts/yolo-benchmark/summary.md

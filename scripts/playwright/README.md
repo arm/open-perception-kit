@@ -99,8 +99,8 @@ Publish flow:
 - Store the pruned report in `playwright-pages`; Playwright videos remain in
   their GitHub Actions artifacts.
 - Commit and push `playwright-pages`.
-- Restore deploy-only Playwright videos and YOLO dataset files referenced by the
-  latest nightly and retained PR reports.
+- Restore deploy-only Playwright videos for retained reports, the latest YOLO
+  detection videos, and referenced YOLO dataset files.
 - Deploy `_playwright_pages_site` as the GitHub Pages artifact.
 
 Expired GitHub Actions artifacts leave the report and its Actions run link

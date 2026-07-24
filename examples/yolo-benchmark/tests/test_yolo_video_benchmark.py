@@ -41,8 +41,18 @@ class YoloVideoBenchmarkTest(unittest.TestCase):
 
         doc = bare.summary_document(args, source, prepare_video.SOURCE_FRAME_COUNT, 2_040.0, 10.0)
 
+        self.assertEqual(doc["schema"], bare.SUMMARY_SCHEMA_ID)
         self.assertEqual(doc["timing"]["measured_frames"], 204)
         self.assertEqual(doc["timing"]["pipeline_fps"], 100.0)
+
+    def test_comparison_rejects_invalid_measurement_contract(self) -> None:
+        bare_summary = runner_summary("bare-ultralytics-video", 10.0)
+        pek_summary = runner_summary("pek-pipeline-video", 12.0)
+        for summary in (bare_summary, pek_summary):
+            summary["measurement"]["technique"] = "different"
+
+        with self.assertRaisesRegex(ValueError, "measurement.technique"):
+            compare.build_comparison(bare_summary, pek_summary)
 
     def test_comparison_and_report_use_higher_is_better_fps(self) -> None:
         comparison = compare.build_comparison(

@@ -13,6 +13,6 @@ If an example becomes stable and generally useful, it can be promoted later into
   OpChain through `pek::runtime::OpChain`, and prints the serialized result.
 - `pipeline-exec`: C++ application facade proof of concept for loading a PEK
   pipeline JSON through `pek::runtime::Pipeline` and receiving serialized perception JSON callbacks.
-- `yolo-benchmark`: manual YOLO benchmark example that compares the bare
-  Ultralytics predict loop and PEK OpChain runner using the same preloaded image
-  list and common `benchmark_summary.json` artifact.
+- `yolo-benchmark`: YOLO benchmark comparing bare Ultralytics with PEK using
+  either a preloaded COCO image list or a pinned video. Each mode emits matching
+  Bare/PEK `benchmark_summary.json` artifacts.

@@ -72,7 +72,7 @@ jobs:
         run: |
           docker compose -f examples/yolo-benchmark/docker/compose.yaml run --rm \
             yolo-benchmark \
-            python3 -m unittest examples/yolo-benchmark/tests/test_yolo_video_benchmark.py
+            python3 -m unittest discover -s examples/yolo-benchmark/tests
 
       - name: Run YOLO benchmark
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
