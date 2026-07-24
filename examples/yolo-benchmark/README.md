@@ -79,7 +79,8 @@ For the video-only path:
 YOLO_BENCHMARK_KIND=video ./examples/yolo-benchmark/docker/run.sh setup
 YOLO_BENCHMARK_KIND=video YOLO_BENCHMARK_RUNS=4 \
   ./examples/yolo-benchmark/docker/run.sh benchmark
-YOLO_BENCHMARK_KIND=video ./examples/yolo-benchmark/docker/run.sh summary
+YOLO_BENCHMARK_KIND=video YOLO_BENCHMARK_RUNS=4 \
+  ./examples/yolo-benchmark/docker/run.sh summary
 ```
 
 ```sh

@@ -407,9 +407,11 @@ class TestPublishPlaywrightPages(unittest.TestCase):
             site_dir = root / "site"
             target = site_dir / "playwright" / "prs" / "181"
             output = root / "github-output"
-            target.mkdir(parents=True)
-            (target / "marker.txt").write_text("newer", encoding="utf-8")
-            publish.write_video_artifact_meta(target, "123", "2", ["data/video.webm"])
+
+            def checkout(_path, _storage_branch):
+                target.mkdir(parents=True)
+                (target / "marker.txt").write_text("newer", encoding="utf-8")
+                publish.write_video_artifact_meta(target, "123", "2", ["data/video.webm"])
 
             env = {
                 "GITHUB_OUTPUT": str(output),
@@ -424,7 +426,7 @@ class TestPublishPlaywrightPages(unittest.TestCase):
                 "UPSTREAM_RUN_ID": "123",
             }
             with patch.dict(os.environ, env, clear=True), \
-                    patch.object(publish, "checkout_site_branch"), \
+                    patch.object(publish, "checkout_site_branch", side_effect=checkout), \
                     patch.object(publish, "download_report_artifact") as download, \
                     patch.object(publish, "push_site_branch") as push:
                 publish.publish_report(site_dir, "playwright-pages")

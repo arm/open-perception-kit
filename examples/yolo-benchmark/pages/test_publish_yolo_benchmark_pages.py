@@ -327,12 +327,15 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             site_dir = Path(tmpdir) / "site"
             target = site_dir / "yolo-benchmark" / "prs" / "235"
-            target.mkdir(parents=True)
-            (target / "marker.txt").write_text("newer", encoding="utf-8")
-            (target / publish.REPORT_INDEX_META).write_text(
-                "branch @ commit | run 123 attempt 2 | Jul 24, 2026 10:00 UTC\n",
-                encoding="utf-8",
-            )
+
+            def checkout(_path: Path, _storage_branch: str) -> None:
+                target.mkdir(parents=True)
+                (target / "marker.txt").write_text("newer", encoding="utf-8")
+                (target / publish.REPORT_INDEX_META).write_text(
+                    "branch @ commit | run 123 attempt 2 | Jul 24, 2026 10:00 UTC\n",
+                    encoding="utf-8",
+                )
+
             env = {
                 "GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge",
                 "UPSTREAM_CONCLUSION": "success",
@@ -345,7 +348,7 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
                 "UPSTREAM_RUN_ID": "123",
             }
             with patch.dict(os.environ, env, clear=True), \
-                    patch.object(publish, "checkout_site_branch"), \
+                    patch.object(publish, "checkout_site_branch", side_effect=checkout), \
                     patch.object(publish, "download_report_artifact") as download, \
                     patch.object(publish, "push_site_branch") as push, \
                     patch.object(publish, "set_output") as set_output:
