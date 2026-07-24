@@ -370,8 +370,28 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.head_ref || github.ref }}
+          ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.event.pull_request.head.sha || github.head_ref || github.ref }}
           path: ${{ env.CI_CHECKOUT_PATH }}
+
+      - name: Attach validated PR head branch
+        if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '') }}
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          PR_HEAD_REF: ${{ steps.manual_pr.outputs.head_ref || github.head_ref }}
+          PR_HEAD_SHA: ${{ steps.manual_pr.outputs.head_sha || github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test -n "$PR_HEAD_REF"
+          checked_out_sha="$(git rev-parse HEAD)"
+          if [ -n "$PR_HEAD_SHA" ]; then
+            test "$checked_out_sha" = "$PR_HEAD_SHA"
+          else
+            PR_HEAD_SHA="$checked_out_sha"
+          fi
+          git check-ref-format --branch "$PR_HEAD_REF" >/dev/null
+          git switch --force-create "$PR_HEAD_REF" "$PR_HEAD_SHA"
+          test "$(git rev-parse HEAD)" = "$PR_HEAD_SHA"
+          test "$(git branch --show-current)" = "$PR_HEAD_REF"
 
       - name: Create read-only modelfetch token
         id: modelfetch-app-token

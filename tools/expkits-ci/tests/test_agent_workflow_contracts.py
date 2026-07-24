@@ -5,8 +5,11 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
+import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts/private"))
@@ -629,9 +632,83 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertIn(
             "steps.manual_pr.outputs.head_sha", pek_steps["Checkout"]["with"]["ref"]
         )
+        self.assertEqual(
+            pek_steps["Checkout"]["with"]["ref"],
+            "${{ steps.manual_pr.outputs.head_sha || "
+            "steps.manual_pr.outputs.head_ref || "
+            "github.event.pull_request.head.sha || github.head_ref || github.ref }}",
+        )
         self.assertIn(
             "steps.manual_pr.outputs.head_sha", sonar_steps["Checkout"]["with"]["ref"]
         )
+        attach_head = pek_steps["Attach validated PR head branch"]
+        self.assertIn("github.event.inputs.pr_number", attach_head["if"])
+        self.assertEqual(
+            attach_head["env"]["PR_HEAD_REF"],
+            "${{ steps.manual_pr.outputs.head_ref || github.head_ref }}",
+        )
+        self.assertEqual(
+            attach_head["env"]["PR_HEAD_SHA"],
+            "${{ steps.manual_pr.outputs.head_sha || "
+            "github.event.pull_request.head.sha }}",
+        )
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            repository = Path(temporary_directory)
+
+            def git(*arguments: str) -> subprocess.CompletedProcess[str]:
+                return subprocess.run(
+                    ["git", *arguments],
+                    cwd=repository,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+
+            git("init", "-b", "main")
+            (repository / "tracked.txt").write_text("tracked\n", encoding="utf-8")
+            git("add", "tracked.txt")
+            git(
+                "-c",
+                "user.name=Workflow Contracts",
+                "-c",
+                "user.email=workflow-contracts@example.com",
+                "commit",
+                "-m",
+                "Seed repository",
+            )
+            expected_sha = git("rev-parse", "HEAD").stdout.strip()
+            attach_environment = {
+                **os.environ,
+                "PR_HEAD_REF": "feature/test-ref",
+                "PR_HEAD_SHA": "",
+            }
+            attach_result = subprocess.run(
+                ["bash", "-c", attach_head["run"]],
+                cwd=repository,
+                env=attach_environment,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(
+                attach_result.returncode,
+                0,
+                msg=attach_result.stdout + attach_result.stderr,
+            )
+            self.assertEqual(git("rev-parse", "HEAD").stdout.strip(), expected_sha)
+            self.assertEqual(
+                git("branch", "--show-current").stdout.strip(),
+                "feature/test-ref",
+            )
+            mismatch_result = subprocess.run(
+                ["bash", "-c", attach_head["run"]],
+                cwd=repository,
+                env={**attach_environment, "PR_HEAD_SHA": "0" * 40},
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(mismatch_result.returncode, 0)
         self.assertIn("docker run --rm", rpi_steps["Resolve manual PR context"]["run"])
         self.assertIn(
             "python:3.12-slim-trixie",

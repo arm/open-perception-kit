@@ -282,8 +282,6 @@ print(Path(sys.argv[-1]).stat().st_size)
         remote_status: str,
         remote_sha256: str = "",
     ) -> tuple[dict[str, str], Path]:
-        env = self.install_tool_environment("arm64")
-        bin_dir = self.root / "bin"
         package_output = self.root / "upload-package"
         packaged = self.run_script(
             PACKAGE_SCRIPT,
@@ -295,6 +293,14 @@ print(Path(sys.argv[-1]).stat().st_size)
         if packaged.returncode != 0:
             raise AssertionError(packaged.stderr)
         package_path = next(package_output.glob("*.deb"))
+        package_architecture = subprocess.run(
+            ["dpkg-deb", "--field", str(package_path), "Architecture"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        env = self.install_tool_environment(package_architecture)
+        bin_dir = self.root / "bin"
         package_bytes = package_path.read_bytes()
         package_sha256 = hashlib.sha256(package_bytes).hexdigest()
         fixtures = self.root / "upload-artifactory"
@@ -303,7 +309,7 @@ print(Path(sys.argv[-1]).stat().st_size)
         packages = (
             "Package: libexecutorch-dev\n"
             "Version: 1.3.1-2\n"
-            "Architecture: arm64\n"
+            f"Architecture: {package_architecture}\n"
             f"Filename: pool/{package_path.name}\n"
             f"Size: {len(package_bytes)}\n"
             f"SHA256: {package_sha256}\n"
@@ -315,7 +321,8 @@ print(Path(sys.argv[-1]).stat().st_size)
             "Origin: PEK upload test repository\n"
             "SHA256:\n"
             f" {hashlib.sha256(packages_bytes).hexdigest()} "
-            f"{len(packages_bytes)} main/binary-arm64/Packages\n",
+            f"{len(packages_bytes)} "
+            f"main/binary-{package_architecture}/Packages\n",
             encoding="utf-8",
         )
         (fixtures / "Release.gpg").write_bytes(b"test signature")
@@ -371,7 +378,10 @@ else
     case "${url}" in
         */dists/trixie/Release) source_file="${ARTIFACTORY_FIXTURE_DIR}/Release" ;;
         */dists/trixie/Release.gpg) source_file="${ARTIFACTORY_FIXTURE_DIR}/Release.gpg" ;;
-        */dists/trixie/main/binary-arm64/Packages) source_file="${ARTIFACTORY_FIXTURE_DIR}/Packages" ;;
+        */dists/trixie/main/binary-*/Packages)
+            [[ "${url}" == */binary-"${FAKE_PACKAGE_ARCHITECTURE}"/Packages ]] || exit 22
+            source_file="${ARTIFACTORY_FIXTURE_DIR}/Packages"
+            ;;
         */pool/*.deb) source_file="${ARTIFACTORY_FIXTURE_DIR}/${url##*/}" ;;
         *) exit 22 ;;
     esac
@@ -412,6 +422,7 @@ fi
                 "FAKE_GPG_FINGERPRINT": (
                     "190281B95926DE6B8DA2788CEAC1DE22E29E9596"  # pragma: allowlist secret
                 ),
+                "FAKE_PACKAGE_ARCHITECTURE": package_architecture,
                 "FAKE_REMOTE_SHA256": remote_sha256,
                 "FAKE_REMOTE_STATUS": remote_status,
             }
