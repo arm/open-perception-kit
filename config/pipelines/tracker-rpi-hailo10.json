@@ -8,7 +8,7 @@
     "pekinfer opchain-path=/work/config/opchains/tracking/opchain-hailo-v10.json active=true !",
     "pektracker content-type=genericObject !",
     "pekperformance show-all-metrics=true x-offset=20 y-offset=20 font-size=18 alpha=0.9 update-interval=1 !",
-    "pekosd enabled=true performance-overlay-enabled=false !",
+    "pekosd enabled=true !",
     "peksink name=sink"
   ],
   "alternative-source-image": [
