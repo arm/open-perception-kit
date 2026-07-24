@@ -60,8 +60,9 @@ Light mapping:
 
 Scope still differs by entry point: local/container pre-commit receives the
 file list from pre-commit, host pre-commit uses staged files with a branch-delta
-fallback, CI PR uses `--pr-target-branch`, and CI full/nightly checks the
-tracked tree.
+fallback against `PULL_REQUEST_TARGET_BRANCH`, branch merge-base config, or the
+remote default branch, CI PR uses `--pr-target-branch`, and CI full/nightly
+checks the tracked tree.
 
 The wrapper builds the dedicated runtime image during setup and refreshes it
 before hook execution. Docker's build cache keeps unchanged runs cheap while
