@@ -320,9 +320,7 @@ modelfetch_service_download_asset_requests(const modelfetch_service_t *service,
     (*out)->count = strcmp(fake_mode(), "multiple-results") == 0 ? 2U : 1U;
     (*out)->outcome.kind = strcmp(fake_mode(), "failure-outcome") == 0 ? MODELFETCH_OUTCOME_FAILURE
                                                                        : MODELFETCH_OUTCOME_SUCCESS;
-    (*out)->outcome.success_status = strcmp(fake_mode(), "existing") == 0
-                                         ? MODELFETCH_SUCCESS_EXISTING
-                                         : MODELFETCH_SUCCESS_DOWNLOADED;
+    (*out)->outcome.success_status = MODELFETCH_SUCCESS_DOWNLOADED;
     (*out)->outcome.failure_reason = MODELFETCH_FAILURE_INTEGRITY_MISMATCH;
     (*out)->outcome.integrity.token =
         strcmp(fake_mode(), "invalid-integrity") == 0 ? "sha256:invalid" : VALID_INTEGRITY;

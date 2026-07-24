@@ -153,54 +153,6 @@ USER ${USERNAME}
 WORKDIR /work
 
 ######################################################################
-################# Shared model runtime dependencies ##################
-######################################################################
-FROM pek-model-tools-base AS pek-executorch-package-base
-
-ARG USERNAME=devgoblin
-
-USER root
-
-# Select an architecture-matching package from ./var or the configured
-# Artifactory repository. This stage only fetches bytes; package installation
-# happens after the secret mounts have disappeared.
-ARG EXECUTORCH_DEB_REVISION=2
-ARG EXECUTORCH_REQUIRED=0
-ARG EXECUTORCH_ARTIFACTORY_SERVER=https://artifactory.arm.com:443
-ARG EXECUTORCH_ARTIFACTORY_REPOSITORY=ai-expkits-internal.opk-deb
-ARG EXECUTORCH_ARTIFACTORY_DISTRIBUTION=trixie
-ARG EXECUTORCH_ARTIFACTORY_COMPONENT=main
-RUN --mount=type=bind,source=var,target=/tmp/pek-executorch-packages,ro \
-    --mount=type=bind,source=scripts/private/executorch/install-executorch-deb.sh,target=/tmp/install-executorch-deb.sh,ro \
-    --mount=type=bind,source=scripts/private/executorch/artifactory-debian-public.asc,target=/tmp/artifactory-debian-public.asc,ro \
-    --mount=type=secret,id=executorch_artifactory_username,required=false \
-    --mount=type=secret,id=executorch_artifactory_password,required=false \
-  set -euo pipefail; \
-  export EXECUTORCH_REQUIRED; \
-  export EXECUTORCH_DEB_FETCH_DIR=/opt/pek-executorch-package; \
-  export EXECUTORCH_ARTIFACTORY_USERNAME_FILE=/run/secrets/executorch_artifactory_username; \
-  export EXECUTORCH_ARTIFACTORY_PASSWORD_FILE=/run/secrets/executorch_artifactory_password; \
-  bash /tmp/install-executorch-deb.sh
-
-FROM pek-executorch-package-base AS pek-model-runtime-base
-
-ARG USERNAME=devgoblin
-ARG EXECUTORCH_DEB_REVISION=2
-ARG EXECUTORCH_REQUIRED=0
-
-USER root
-
-RUN --mount=type=bind,source=scripts/private/executorch/install-executorch-deb.sh,target=/tmp/install-executorch-deb.sh,ro \
-  set -euo pipefail; \
-  export EXECUTORCH_REQUIRED; \
-  export EXECUTORCH_DEB_PACKAGE_DIR=/opt/pek-executorch-package; \
-  bash /tmp/install-executorch-deb.sh; \
-  rm -rf /opt/pek-executorch-package
-
-USER ${USERNAME}
-WORKDIR /work
-
-######################################################################
 ################## Shared Development Tooling Base ###################
 ######################################################################
 FROM pek-base AS pek-dev-tools-base
@@ -243,6 +195,21 @@ RUN set -eux; \
   rm -rf "${tmp_dir}"; \
   actionlint -version
 
+# Prefer an architecture-matching package produced in ./var, then fall back to the configured
+# Artifactory Debian repository. The repository is trusted over HTTPS until a signing key is
+# supplied separately.
+ARG EXECUTORCH_VERSION=1.3.1
+ARG EXECUTORCH_DEB_REVISION=1
+ARG EXECUTORCH_ARTIFACTORY_SERVER=https://artifactory.arm.com:443
+ARG EXECUTORCH_ARTIFACTORY_REPOSITORY=ai-expkits-internal.opk-deb
+ARG EXECUTORCH_ARTIFACTORY_DISTRIBUTION=trixie
+ARG EXECUTORCH_ARTIFACTORY_COMPONENT=main
+ARG EXECUTORCH_ARTIFACTORY_USERNAME=""
+ARG EXECUTORCH_ARTIFACTORY_PASSWORD=""
+RUN --mount=type=bind,source=var,target=/tmp/pek-executorch-packages,ro \
+    --mount=type=bind,source=scripts/private/executorch/install-executorch-deb.sh,target=/tmp/install-executorch-deb.sh,ro \
+  bash /tmp/install-executorch-deb.sh
+
 # Install Python dev tool dependencies into an image-owned virtual environment.
 COPY tools/expkits-ci /tmp/pek-tools/expkits-ci
 COPY tools/plumber /tmp/pek-tools/plumber
@@ -267,7 +234,7 @@ ARG USERNAME=devgoblin
 
 USER root
 
-COPY --from=pek-model-runtime-base /opt/pek-deps /opt/pek-deps
+COPY --from=pek-model-tools-base /opt/pek-deps/modelfetch /opt/pek-deps/modelfetch
 
 ENV PEK_MODELFETCH_ROOT=/opt/pek-deps/modelfetch \
     LD_LIBRARY_PATH=/opt/pek-deps/modelfetch/lib:/opt/pek-deps/onnxruntime/lib
@@ -294,7 +261,7 @@ RUN set -eux; \
 
 # Install PlantUML JAR into image layers for docs generation and SBOM visibility.
 ARG PLANTUML_VERSION=1.2026.2
-ADD --chmod=0444 "https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}/plantuml-mit-${PLANTUML_VERSION}.jar" /opt/pek-deps/
+ADD "https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}/plantuml-mit-${PLANTUML_VERSION}.jar" /opt/pek-deps/
 
 USER ${USERNAME}
 WORKDIR /work
@@ -392,8 +359,8 @@ USER root
 ARG PEK_PIPELINE=onnx
 
 # Copy project into image for self-contained deployment
-COPY --from=pek-model-runtime-base /opt/pek-deps /opt/pek-deps
-COPY --exclude=var/libexecutorch-dev-*.deb --chown=${USERNAME}:${USERNAME} . /work
+COPY --from=pek-model-tools-base /opt/pek-deps/modelfetch /opt/pek-deps/modelfetch
+COPY --chown=${USERNAME}:${USERNAME} . /work
 
 ENV PEK_PIPELINE=${PEK_PIPELINE} \
     PEK_MODELFETCH_ROOT=/opt/pek-deps/modelfetch \

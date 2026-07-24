@@ -139,7 +139,7 @@ struct GstPekInferMembers {
             lock.unlock();
 
             if (failure) {
-                pek::loge(
+                pek::log::error(
                     "Asynchronous OpChain setup failed for [{}]: {}\n", descriptor.name, *failure);
             }
         }
@@ -218,9 +218,9 @@ static gboolean gst_pekinfer_start(GstBaseTransform *b) {
 
     auto descriptorResult = members->loadOpChainDescriptor(self->opChainPath);
     if (!descriptorResult) {
-        pek::loge("Error while loading op-chain descriptor [{}]: {}\n",
-                  self->opChainPath,
-                  descriptorResult.error().toString());
+        pek::log::error("Error while loading op-chain descriptor [{}]: {}\n",
+                        self->opChainPath,
+                        descriptorResult.error().toString());
 
         GST_ELEMENT_ERROR(
             self, RESOURCE, FAILED, ("Failed to load op-chain."), ("%s", self->opChainPath));
@@ -358,7 +358,7 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
             auto executeResult = opChain->execute(opChainContext);
             if (!executeResult) {
-                pek::loge("{}\n", executeResult.error().toString());
+                pek::log::error("{}\n", executeResult.error().toString());
                 return GST_FLOW_CUSTOM_ERROR;
             }
 

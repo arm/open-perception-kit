@@ -2,6 +2,7 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <executorch/extension/module/module.h>
@@ -64,6 +65,28 @@ static bool to_executorch_dtype(pek::Dtype t, executorch::aten::ScalarType &outT
     return false;
 }
 
+template <typename SizesT> static pek::Shape to_pek_shape(const SizesT &sizes) {
+    pek::Shape s{};
+
+    s.rank = static_cast<int>(sizes.size());
+
+    // PEK Shape has fixed storage for 8 dimensions.
+    const size_t maxDims = sizeof(s.dims) / sizeof(s.dims[0]);
+    const size_t n = std::min(sizes.size(), maxDims);
+
+    assert(sizes.size() <= maxDims && "Tensor rank exceeds maximum supported Shape rank");
+
+    for (size_t i = 0; i < n; ++i) {
+        s.dims[i] = static_cast<int>(sizes[i]);
+    }
+
+    for (size_t i = n; i < maxDims; ++i) {
+        s.dims[i] = 0;
+    }
+
+    return s;
+}
+
 static std::vector<executorch::aten::SizesType> to_executorch_shape(const pek::Shape &shape) {
     std::vector<executorch::aten::SizesType> sizes;
     sizes.reserve(shape.rank);
@@ -85,7 +108,8 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
     // method_names() forces program load on first call.
     const auto names = module.method_names();
     if (!names.ok()) {
-        pek::loge("Failed to query method names: error={}\n", static_cast<int>(names.error()));
+        pek::log::error("Failed to query method names: error={}\n",
+                        static_cast<int>(names.error()));
 
         return tl::unexpected{
             PEK_ERROR(pek::ErrorFlag::InferenceRtGenericError,
@@ -124,15 +148,12 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
                 }
 
                 auto sizes = tm->sizes();
-                auto shape = detail::toPekShape(sizes);
-                if (!shape) {
-                    return tl::unexpected{
-                        PEK_ERROR(pek::ErrorFlag::ModelInspectError,
-                                  fmt::format("input tensor rank must be between 1 and {}",
-                                              pek::Shape::MaxRank))};
+                if (sizes.size() < 1 || sizes.size() > pek::MaxTensorCount) {
+                    return tl::unexpected{PEK_ERROR(pek::ErrorFlag::ModelInspectError,
+                                                    "input tensor size must be between 1 and 8")};
                 }
-                input.shape = *shape;
-                input.batch = static_cast<int>(sizes[0]);
+                input.shape = to_pek_shape(sizes);
+                input.batch = (sizes.size() > 0) ? static_cast<int>(sizes[0]) : 0;
 
                 model.inputs.push_back(input);
             }
@@ -156,14 +177,11 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
                 }
 
                 auto sizes = tm->sizes();
-                auto shape = detail::toPekShape(sizes);
-                if (!shape) {
-                    return tl::unexpected{
-                        PEK_ERROR(pek::ErrorFlag::ModelInspectError,
-                                  fmt::format("output tensor rank must be between 1 and {}",
-                                              pek::Shape::MaxRank))};
+                if (sizes.size() < 1 || sizes.size() > pek::MaxTensorCount) {
+                    return tl::unexpected{PEK_ERROR(pek::ErrorFlag::ModelInspectError,
+                                                    "output tensor size must be between 1 and 8")};
                 }
-                output.shape = *shape;
+                output.shape = to_pek_shape(sizes);
 
                 model.outputs.push_back(output);
             }
@@ -197,9 +215,9 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
     // --- build up model
 
     std::string modelLog = model.toString();
-    pek::log("========= Original executorch model ========\n");
-    pek::log("{}", modelLog);
-    pek::log("========= ======== ==== ========== =========\n");
+    pek::log::info("========= Original executorch model ========\n");
+    pek::log::info("{}", modelLog);
+    pek::log::info("========= ======== ==== ========== =========\n");
 
     auto cmResult = model.applyModelFromDescriptor(modelDesc_);
     if (!cmResult) {
@@ -219,9 +237,9 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
     // ---
 
     modelLog = model.toString();
-    pek::log("======= Model updated with json ======\n");
-    pek::log("{}", modelLog);
-    pek::log("========= ================== =========\n");
+    pek::log::info("======= Model updated with json ======\n");
+    pek::log::info("{}", modelLog);
+    pek::log::info("========= ================== =========\n");
 
     return {};
 }
@@ -236,7 +254,7 @@ void Inference::setTensorSizes() {
         size_t tensorByteCount =
             tensorValueCount * pek::getValueTypeByteSize(model.inputs[i].valueType);
         inputTensors[i].resize(tensorByteCount);
-        pek::log("Executorch input tensor prepared: {} bytes\n", tensorByteCount);
+        pek::log::info("Executorch input tensor prepared: {} bytes\n", tensorByteCount);
     }
 }
 
@@ -311,18 +329,9 @@ pek::Result<void> Inference::inference() {
                           fmt::format("ExecuTorch output dtype mismatch at index {}", i))};
         }
 
-        auto outputShape = detail::toPekShape(tensor.sizes());
-        if (!outputShape) {
-            return tl::unexpected{PEK_ERROR(
-                pek::ErrorFlag::InvalidData,
-                fmt::format("ExecuTorch output tensor rank at index {} must be between 1 and {}",
-                            i,
-                            pek::Shape::MaxRank))};
-        }
-
         // Downstream postprocess receives non-owning views over these addresses.
         outputTensorPointers[i] = static_cast<const uint8_t *>(tensor.const_data_ptr());
-        outputTensorFinalShapes[i] = *outputShape;
+        outputTensorFinalShapes[i] = to_pek_shape(tensor.sizes());
     }
 
     return {};

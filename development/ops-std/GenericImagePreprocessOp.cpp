@@ -147,11 +147,11 @@ GenericImagePreprocessOp::process(pek::op::OpChainContext &opChainContext) {
 
     // debug
     if (false) {
-        pek::log("crop: {} {} {} {}\n",
-                 setup.imageSourceDesc.rect.x,
-                 setup.imageSourceDesc.rect.y,
-                 setup.imageSourceDesc.rect.width,
-                 setup.imageSourceDesc.rect.height);
+        pek::log::info("crop: {} {} {} {}\n",
+                       setup.imageSourceDesc.rect.x,
+                       setup.imageSourceDesc.rect.y,
+                       setup.imageSourceDesc.rect.width,
+                       setup.imageSourceDesc.rect.height);
     }
 
     // debug

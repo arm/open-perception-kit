@@ -10,6 +10,7 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -62,25 +63,27 @@ inline void to_json(json &j, const pek::Shape &s) {
 }
 
 inline void from_json(const json &j, pek::Shape &s) {
+    // Expect an array of integers
     if (!j.is_array()) {
         throw std::runtime_error("Shape must be a JSON array");
     }
 
-    if (j.empty()) {
-        s = pek::Shape();
-        return;
-    }
+    s.rank = 0;
+    std::fill(std::begin(s.dims), std::end(s.dims), 0);
 
-    if (j.size() > pek::Shape::MaxRank) {
-        throw std::runtime_error("Too many dimensions for Shape (max " +
-                                 std::to_string(pek::Shape::MaxRank) + ")");
+    size_t i = 0;
+    for (const auto &v : j) {
+        if (i >= 8) {
+            throw std::runtime_error("Too many dimensions for Shape (max 8)");
+        }
+        const int64_t dim = v.get<int64_t>();
+        if (dim == 0 || dim < -1 || dim > std::numeric_limits<int>::max()) {
+            throw std::runtime_error("Shape dimension must be -1 or a positive int");
+        }
+        s.dims[i] = static_cast<int>(dim);
+        ++i;
     }
-
-    const std::vector<int64_t> dimensions = j.get<std::vector<int64_t>>();
-    pek::Shape parsed;
-    if (!parsed.setFrom(dimensions))
-        throw std::runtime_error("Shape dimension must be -1 or a positive int");
-    s = parsed;
+    s.rank = i;
 }
 
 NLOHMANN_JSON_SERIALIZE_ENUM(pek::DataKind,

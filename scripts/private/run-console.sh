@@ -63,12 +63,7 @@ is_running() {
     # `docker compose ps -q` returns container IDs for services in the project.
     # We count how many are in "running" state.
     local ids
-    ids="$(
-        docker compose \
-            "${COMPOSE_ENV_ARGS[@]+"${COMPOSE_ENV_ARGS[@]}"}" \
-            "${COMPOSE_FILES[@]}" \
-            ps -q || true
-    )"
+    ids="$(docker compose "${COMPOSE_ENV_ARGS[@]}" "${COMPOSE_FILES[@]}" ps -q || true)"
     [[ -z "${ids}" ]] && return 1
     docker inspect -f '{{.State.Running}}' ${ids} 2> /dev/null | grep -q '^true$'
 }
@@ -91,20 +86,14 @@ do_up() {
     HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" WEBRTC_HOST_IP="${WEBRTC_HOST_IP}" \
         PEK_WEBRTC_TURN_MIN_PORT="${PEK_WEBRTC_TURN_MIN_PORT}" \
         PEK_WEBRTC_TURN_MAX_PORT="${PEK_WEBRTC_TURN_MAX_PORT}" \
-        docker compose \
-            "${COMPOSE_ENV_ARGS[@]+"${COMPOSE_ENV_ARGS[@]}"}" \
-            "${COMPOSE_FILES[@]}" \
-            up -d --build
+        docker compose "${COMPOSE_ENV_ARGS[@]}" "${COMPOSE_FILES[@]}" up -d --build
 }
 
 do_down() {
     HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" WEBRTC_HOST_IP="${WEBRTC_HOST_IP:-}" \
         PEK_WEBRTC_TURN_MIN_PORT="${PEK_WEBRTC_TURN_MIN_PORT}" \
         PEK_WEBRTC_TURN_MAX_PORT="${PEK_WEBRTC_TURN_MAX_PORT}" \
-        docker compose \
-            "${COMPOSE_ENV_ARGS[@]+"${COMPOSE_ENV_ARGS[@]}"}" \
-            "${COMPOSE_FILES[@]}" \
-            down
+        docker compose "${COMPOSE_ENV_ARGS[@]}" "${COMPOSE_FILES[@]}" down
 }
 
 cmd="${1:-}"

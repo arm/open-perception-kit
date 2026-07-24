@@ -7,48 +7,31 @@ work directory you pass on the command line, then stage the usable SDK files int
 
 ## Scripts
 
+`setup-executorch-deps.sh` clones ExecuTorch from git, builds it, and stages:
+
+- `/work/deps/executorch/include`
+- `/work/deps/executorch/lib`
+- `/work/deps/libtorch/include`
+
+The default ExecuTorch ref is `release/1.0`. You can override the repo, ref,
+deps directory, and build parallelism with the script options or environment
+variables listed by `--help`.
+
 `setup-executorch-1.3.1-deps.sh` uses the official ExecuTorch `v1.3.1` source
 archive instead of cloning the top-level source from a live branch. Git is still
 used to recover the pinned submodule commits for that tag, because GitHub source
-archives do not contain submodule contents. It populates only the core and
-XNNPACK submodules selected by the PEK SDK build and installs only its required
-Python build dependencies: `torch==2.12.0+cpu` for `torchgen`,
-`PyYAML==6.0.1`, and `typing_extensions==4.13.2`. Their architecture-specific
-wheel URLs and SHA-256 values are checked in; the installer does not resolve an
-index or install transitive packages. The wheel marker follows the build host,
-including during cross-compilation, because the host runs the code generator.
-
-The script verifies the source archive against its checked-in SHA-256 and
-requires the `v1.3.1` tag to resolve to its checked-in commit before using the
-tag's submodule gitlinks.
+archives do not contain submodule contents.
 
 `package-executorch-1.3.1-deb.sh` creates a Debian package from an SDK already
-staged by the ExecuTorch 1.3.1 setup script, without rebuilding it. It normalizes
-package timestamps to the pinned v1.3.1 tag commit so identical staged SDK input
-produces byte-identical package output.
+staged by the ExecuTorch 1.3.1 setup script, without rebuilding it.
 
-`install-executorch-deb.sh` is the Docker build helper used in two isolated
-steps. The first selects an architecture-matching local package or downloads it
-from the configured Artifactory Debian repository. The second installs that
-staged package after the credential mounts are no longer present.
-
-An Artifactory download is accepted only through the checked-in Debian signing
-key and its pinned fingerprint. The helper verifies `Release.gpg`, then the
-signed SHA-256 and size of `Packages`, then the package SHA-256, size, and Debian
-control metadata. Authenticity or metadata failures always stop the build,
-including when ExecuTorch itself is optional.
+`install-executorch-deb.sh` is the Docker build helper that installs an
+architecture-matching local package when available, otherwise tries the
+configured Artifactory Debian repository, and otherwise continues without
+ExecuTorch support.
 
 `upload-executorch-1.3.1-deb.sh` uploads a generated package to the PEK Debian
-repository in Artifactory. Publication must use an Artifactory identity with
-Deploy/Cache permission and without Delete/Overwrite permission. That
-server-side permission is the write-once authority; the script's checksum
-preflight only provides idempotent retry and a clearer error. Artifactory
-automatically updates Debian metadata after the matrix-parameter upload. The
-script completes only after the exact package is visible through the signed
-`Release` → `Packages` → package chain, while different bytes require a new
-Debian revision. Before upload, it also rejects maintainer scripts and payload
-outside the exact header/static-library SDK shape produced by the package
-script.
+repository in Artifactory and recalculates its Debian repository metadata.
 
 ## Usage
 
@@ -56,6 +39,7 @@ The work directory is mandatory. The scripts fail immediately when it is not
 provided.
 
 ```sh
+scripts/private/executorch/setup-executorch-deps.sh /work/var/executorch-build
 scripts/private/executorch/setup-executorch-1.3.1-deps.sh /work/var/executorch-1.3.1-build
 ```
 
@@ -116,28 +100,30 @@ The ExecuTorch 1.3.1 setup script creates a Debian development package after
 staging and validating the SDK. Packages are written to `/work/var` by default
 and use the `name-version-revision-arch.deb` layout, for example:
 
-- `libexecutorch-dev-1.3.1-2-amd64.deb`
-- `libexecutorch-dev-1.3.1-2-arm64.deb`
+- `libexecutorch-dev-1.3.1-1-amd64.deb`
+- `libexecutorch-dev-1.3.1-1-arm64.deb`
 
 The `aarch64-linux-gnu` target maps to Debian's `arm64` architecture. Installing
 the package creates:
 
 - `/opt/pek-deps/executorch/include`
 - `/opt/pek-deps/executorch/lib`
+- `/opt/pek-deps/libtorch/include`
 
 PEK discovers this installed layout automatically. Install a generated package
 with:
 
 ```sh
-sudo apt install /work/var/libexecutorch-dev-1.3.1-2-amd64.deb
+sudo apt install /work/var/libexecutorch-dev-1.3.1-1-amd64.deb
 ```
 
 Automatic detection only uses the installed `/opt/pek-deps/executorch` SDK. To
-build directly from the staging tree without installing the package, select the
-staged SDK and enable the backend explicitly:
+build directly from the staging tree without installing the package, select both
+staged roots explicitly:
 
 ```sh
 PEK_EXECUTORCH_ROOT=/work/deps/executorch \
+PEK_LIBTORCH_ROOT=/work/deps/libtorch \
 PEK_EXECUTORCH=enabled ./scripts/build-elements.sh debug
 ```
 
@@ -149,8 +135,9 @@ An already-staged SDK can be packaged again without rebuilding ExecuTorch:
 ```sh
 scripts/private/executorch/package-executorch-1.3.1-deb.sh \
   --executorch-dir /work/deps/executorch \
+  --libtorch-dir /work/deps/libtorch \
   --output-dir /work/var \
-  --revision 2
+  --revision 1
 ```
 
 ## Docker image installation
@@ -159,40 +146,32 @@ PEK development image builds first look for an architecture-matching package
 in the repository's `var` directory. If the local package is not present or is
 invalid, the build tries the configured Artifactory Debian repository. If both
 sources are unavailable, the image is built without ExecuTorch support.
-The local package is an explicit operator-provided override. Artifactory
-packages instead follow the signed repository metadata chain described above.
 
 The Dockerfile accepts these build arguments:
 
 | Argument | Default | Purpose |
 | --- | --- | --- |
-| `EXECUTORCH_DEB_REVISION` | `2` | Debian package revision to install. |
-| `EXECUTORCH_REQUIRED` | `0` | Use `1` to fail the image build unless a complete SDK is installed. |
+| `EXECUTORCH_VERSION` | `1.3.1` | Package version to install. |
+| `EXECUTORCH_DEB_REVISION` | `1` | Debian package revision to install. |
 | `EXECUTORCH_ARTIFACTORY_SERVER` | `https://artifactory.arm.com:443` | Artifactory server URL. |
 | `EXECUTORCH_ARTIFACTORY_REPOSITORY` | `ai-expkits-internal.opk-deb` | Artifactory Debian repository. |
 | `EXECUTORCH_ARTIFACTORY_DISTRIBUTION` | `trixie` | Debian distribution. |
 | `EXECUTORCH_ARTIFACTORY_COMPONENT` | `main` | Debian component. |
+| `EXECUTORCH_ARTIFACTORY_USERNAME` | Empty | Artifactory username. |
+| `EXECUTORCH_ARTIFACTORY_PASSWORD` | Empty | Artifactory access token. |
 
-The Artifactory fallback requires both credentials. Store them in the ignored
-repository-root `.env` file rather than committing them:
+The Artifactory fallback requires both credential arguments. Store them in the
+ignored repository-root `.env` file rather than committing them:
 
 ```dotenv
 EXECUTORCH_ARTIFACTORY_USERNAME='<username>'
 EXECUTORCH_ARTIFACTORY_PASSWORD='<access-token>'
-EXECUTORCH_REQUIRED=1
 ```
 
 `EXECUTORCH_ARTIFACTORY_PASSWORD` is intended to contain an access token, not a
-long-lived account password. Docker Compose exposes both values to the
-package-fetch step as BuildKit secrets; they are not stored in image metadata
-or layers and are no longer mounted when the package is installed.
-
-Required and optional builds use distinct Docker cache keys. Set
-`EXECUTORCH_REQUIRED=1` whenever local development uses Artifactory
-credentials, so adding credentials cannot reuse an earlier optional
-no-package layer. Deployment and trusted release validation set it
-automatically; ordinary pull-request image builds keep the optional default
-and do not receive Artifactory credentials.
+long-lived account password. The credentials are passed as Docker build
+arguments and may be visible in build metadata or caches, so use a suitably
+scoped token and do not share the resulting build metadata.
 
 Both container launch paths pass the root `.env` file to Docker Compose when it
 exists:
@@ -243,13 +222,10 @@ export EXECUTORCH_ARTIFACTORY_USERNAME='<username>'
 export EXECUTORCH_ARTIFACTORY_PASSWORD='<access-token>'
 
 scripts/private/executorch/upload-executorch-1.3.1-deb.sh \
-  /work/var/libexecutorch-dev-1.3.1-2-amd64.deb
+  /work/var/libexecutorch-dev-1.3.1-1-amd64.deb
 ```
 
 The defaults upload to the `ai-expkits-internal.opk-deb` repository under the
 `trixie/main` coordinates. The package architecture is read from the Debian
-control metadata. Use `--help` to see repository overrides. Increment
-`--revision` whenever a package's contents change. Before publishing, verify
-that the uploader identity has no Delete/Overwrite permission for the
-repository; a client-side existence check cannot replace that atomic
-server-side protection.
+control metadata. Use `--help` to see repository overrides and the option to
+skip metadata recalculation.

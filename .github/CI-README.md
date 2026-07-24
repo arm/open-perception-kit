@@ -97,9 +97,8 @@ Each CI job runs in a dedicated container, ensuring a clean, reproducible enviro
 - `scripts/private/agent_repair_orchestrator/` owns source-run repair input resolution, context collection, repair prompt rendering, patch packaging, branch push, and draft PR creation
 - `scripts/private/agent_stabilization_orchestrator/` owns current-PR stabilization context preparation, helper snapshots, validation, and follow-up commits
 - `scripts/private/agent_workflow_common/` owns shared process, GitHub output, JSON, review workflow metadata, task-ref, validation, and branch-push helpers
-- `scripts/private/github_pr_context.py` exclusively owns the security-sensitive manual PR metadata query; workflows consume its validated outputs instead of issuing independent `gh pr view` calls
+- `scripts/private/github_pr_context.py` resolves manual PR refs for standard PR-context workflow_dispatch runs with one `gh pr view --json baseRefName,headRefName,headRefOid` call
 - `scripts/private/sonar_quality_gate_workflow.py` owns the Sonar API probe/report wrapper so the workflow YAML only wires inputs, artifacts, and environment
-- `.github/workflows/valgrind.yml` exclusively owns Valgrind execution and baseline comparison; the core PEK workflow must not duplicate that job
 
 ## What does `scripts/private/agent_runtime/openai_agent_runner.py` do?
 

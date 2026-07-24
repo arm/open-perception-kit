@@ -31,7 +31,7 @@ In PEK, a typical video pipeline looks like this:
 source ! videoconvert ! pekinfer ! pekosd ! peksink
 ```
 
-The source provides media, `pekinfer` runs AI processing, `pekosd` draws overlays, and `peksink` publishes the result.
+The source provides media, `pekinfer` runs AI processing, `pekosd` can draw server-side overlays when enabled, and `peksink` publishes the result.
 
 ## What is a pipeline?
 

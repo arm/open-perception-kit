@@ -16,21 +16,9 @@
 #include "pek/Result.h"
 
 #include <memory>
-#include <optional>
 #include <vector>
 
 namespace pek::extrch {
-
-namespace detail {
-
-template <typename SizesT> std::optional<pek::Shape> toPekShape(const SizesT &sizes) {
-    pek::Shape shape;
-    if (!shape.setFrom(sizes))
-        return std::nullopt;
-    return shape;
-}
-
-} // namespace detail
 
 struct Inference {
 

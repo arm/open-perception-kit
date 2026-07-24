@@ -23,11 +23,6 @@ on:
         required: false
         default: ""
         type: string
-      require_executorch:
-        description: Require the signed ExecuTorch package and backend.
-        required: false
-        default: false
-        type: boolean
   pull_request:
     branches: [main, develop, "feature/**", "sandbox/**" ]
     types: [ opened, synchronize, reopened, ready_for_review, labeled ]
@@ -59,7 +54,6 @@ jobs:
       PEK_QUICK_START_CI_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      EXECUTORCH_REQUIRED: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.require_executorch == 'true')) && '1' || '0' }}
     steps:
       - name: Checkout workflow helpers
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
@@ -111,8 +105,6 @@ jobs:
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
-          EXECUTORCH_ARTIFACTORY_USERNAME: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.require_executorch == 'true')) && secrets.PEK_ARTIFACTORY_USERNAME || '' }}
-          EXECUTORCH_ARTIFACTORY_PASSWORD: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.require_executorch == 'true')) && secrets.PEK_ARTIFACTORY_API_KEY || '' }}
         run: |
           set -euo pipefail
           {
@@ -123,12 +115,7 @@ jobs:
 
       - name: Build PEK in quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        run: |
-          ./scripts/build.sh
-          if [ "$EXECUTORCH_REQUIRED" = "1" ]; then
-            docker exec -u devgoblin "$PEK_QUICK_START_CI_NAME" \
-              test -f /work/development/build/meson-out/pek-executorch-ops.so
-          fi
+        run: ./scripts/build.sh
 
       - name: Clean quick-start workspace
         if: always()
@@ -168,7 +155,6 @@ jobs:
       CI_HELPER_PATH: workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       MODELFETCH_RELEASE_TOOL_IMAGE: pek-modelfetch-release-tools:${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      EXECUTORCH_REQUIRED: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.require_executorch == 'true')) && '1' || '0' }}
     steps:
       - name: Checkout workflow helpers
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
@@ -266,9 +252,6 @@ jobs:
 
       - name: Build and start quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        env:
-          EXECUTORCH_ARTIFACTORY_USERNAME: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.require_executorch == 'true')) && secrets.PEK_ARTIFACTORY_USERNAME || '' }}
-          EXECUTORCH_ARTIFACTORY_PASSWORD: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.require_executorch == 'true')) && secrets.PEK_ARTIFACTORY_API_KEY || '' }}
         run: |
           set -euo pipefail
           {
@@ -279,12 +262,7 @@ jobs:
 
       - name: Build PEK in quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        run: |
-          ./scripts/build.sh
-          if [ "$EXECUTORCH_REQUIRED" = "1" ]; then
-            docker exec -u devgoblin "$PEK_QUICK_START_CI_NAME" \
-              test -f /work/development/build/meson-out/pek-executorch-ops.so
-          fi
+        run: ./scripts/build.sh
 
       - name: Browser smoke test with local data
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -343,7 +321,6 @@ jobs:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      EXECUTORCH_REQUIRED: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.require_executorch == 'true')) && '1' || '0' }}
     steps:
       - name: Checkout workflow helpers
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
@@ -417,9 +394,6 @@ jobs:
 
       - name: Build docker image
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        env:
-          EXECUTORCH_ARTIFACTORY_USERNAME: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.require_executorch == 'true')) && secrets.PEK_ARTIFACTORY_USERNAME || '' }}
-          EXECUTORCH_ARTIFACTORY_PASSWORD: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.require_executorch == 'true')) && secrets.PEK_ARTIFACTORY_API_KEY || '' }}
         run: |
           docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build \
             pek-docs-base \

@@ -4,10 +4,10 @@
 #include "Inference.h"
 
 #include "Log.h"
-#include "LogTools.h"
 #include "pek/Perception.h"
 #include "pek/Result.h"
 #include "pek/Shape.h"
+#include "tools.h"
 
 #include "onnxruntime_cxx_api.h"
 #include "tl/expected.hpp"
@@ -20,7 +20,10 @@
 
 #include <fmt/core.h>
 
+#include "pek/Result.h"
 #include "pek/Types.h"
+
+#include "magic_enum/magic_enum.hpp"
 
 #include "pek/ModelDescriptor.h"
 
@@ -46,6 +49,7 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
 
     this->api = ApiTensorGlue();
     this->modelDescriptor = modelDesc_;
+    // this->modelPath = file;
 
     try {
         unsigned int hwThreads = std::thread::hardware_concurrency();
@@ -84,7 +88,7 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
 
         // --- build up model
 
-        pek::log("{}", pek::LogTools::enframe(model.toString(), "ONNX Model"));
+        pek::log::info("{}", pek::log::tools::enframe(model.toString(), "ONNX Model"));
 
         auto cmResult = model.applyModelFromDescriptor(this->modelDescriptor);
         if (!cmResult) {
@@ -98,8 +102,8 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
 
         this->setupReady = true;
 
-        pek::log("{}", pek::LogTools::enframe(model.toString(), "Final Model"));
-        pek::log("{}", "ONNX: Model loaded\n");
+        pek::log::info("{}", pek::log::tools::enframe(model.toString(), "Final Model"));
+        pek::log::info("{}", "ONNX: Model loaded\n");
 
     } catch (const std::exception &e) {
         return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InferenceRtModelLoadError, e.what()));
@@ -110,15 +114,16 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
 
 void Inference::recreateInputTensor(size_t index, const pek::Shape &shape, pek::Dtype valueType) {
     if (index >= pek::MaxTensorCount) {
-        pek::loge("Input tensor index {} exceeds max supported {}\n", index, pek::MaxTensorCount);
+        pek::log::error(
+            "Input tensor index {} exceeds max supported {}\n", index, pek::MaxTensorCount);
         return;
     }
 
-    pek::log("Recreating input tensor #{} [{}] from {} to {}\n",
-             index,
-             this->model.inputs[index].name,
-             this->model.inputs[index].shape.toString(),
-             shape.toString());
+    pek::log::info("Recreating input tensor #{} [{}] from {} to {}\n",
+                   index,
+                   this->model.inputs[index].name,
+                   this->model.inputs[index].shape.toString(),
+                   shape.toString());
 
     api.inputTensors[index] = std::make_unique<onnx::Tensor>(shape, valueType);
     api.inputTensorVector[index] = api.inputTensors[index]->createOnnxTensor(*this->memoryInfo);
@@ -127,18 +132,18 @@ void Inference::recreateInputTensor(size_t index, const pek::Shape &shape, pek::
 pek::Result<void> Inference::setupTensorsForModel() {
 
     if (this->model.inputs.size() > pek::MaxTensorCount) {
-        pek::loge("Model input tensor count {} exceeds max supported {}\n",
-                  this->model.inputs.size(),
-                  pek::MaxTensorCount);
+        pek::log::error("Model input tensor count {} exceeds max supported {}\n",
+                        this->model.inputs.size(),
+                        pek::MaxTensorCount);
         return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InferenceRtModelLoadError,
                                         "Model input tensor count exceeds max supported"));
     }
 
     for (size_t i = 0; i < this->model.inputs.size(); i++) {
-        pek::log("Setting up input tensor #{} [{}] with shape: {}\n",
-                 i,
-                 this->model.inputs[i].name,
-                 this->model.inputs[i].shape.toString());
+        pek::log::info("Setting up input tensor #{} [{}] with shape: {}\n",
+                       i,
+                       this->model.inputs[i].name,
+                       this->model.inputs[i].shape.toString());
 
         api.inputTensors[i] = std::make_unique<onnx::Tensor>(this->model.inputs[i].shape,
                                                              this->model.inputs[i].valueType);
@@ -147,18 +152,18 @@ pek::Result<void> Inference::setupTensorsForModel() {
     }
 
     if (this->model.outputs.size() > pek::MaxTensorCount) {
-        pek::loge("Model output tensor count {} exceeds max supported {}\n",
-                  this->model.outputs.size(),
-                  pek::MaxTensorCount);
+        pek::log::error("Model output tensor count {} exceeds max supported {}\n",
+                        this->model.outputs.size(),
+                        pek::MaxTensorCount);
         return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InferenceRtModelLoadError,
                                         "Model output tensor count exceeds max supported"));
     }
 
     for (size_t i = 0; i < this->model.outputs.size(); i++) {
-        pek::log("Setting up output tensor #{} [{}] with shape: {}\n",
-                 i,
-                 this->model.outputs[i].name,
-                 this->model.outputs[i].shape.toString());
+        pek::log::info("Setting up output tensor #{} [{}] with shape: {}\n",
+                       i,
+                       this->model.outputs[i].name,
+                       this->model.outputs[i].shape.toString());
 
         api.outputTensors[i] = std::make_unique<onnx::Tensor>(this->model.outputs[i].shape,
                                                               this->model.outputs[i].valueType);
@@ -168,9 +173,15 @@ pek::Result<void> Inference::setupTensorsForModel() {
                 api.outputTensors[i]->createOnnxTensor(*this->memoryInfo));
     }
 
-    pek::log("ONNX: Input tensors are set up\n");
+    pek::log::info("ONNX: Input tensors are set up\n");
 
     return {};
+}
+
+template <typename toT, typename fromT>
+void writeValueTo(void *ptr, size_t valueIndex, void *valueAddress) {
+    toT *address = (toT *)ptr;
+    address[valueIndex] = *(fromT *)valueAddress;
 }
 
 pek::Result<void> Inference::inference() {
@@ -178,11 +189,25 @@ pek::Result<void> Inference::inference() {
     // setting scalar tensors
     for (size_t i = 0; i < api.inputTensorVector.size(); i++) {
         if (pek::isScalarDataKind(this->model.inputs[i].dataKind)) {
-            if (!api.inputTensors[i]->setValuesFromFloat(this->model.inputs[i].valueInputs)) {
-                return tl::make_unexpected(PEK_ERROR(
-                    pek::ErrorFlag::InvalidData,
-                    fmt::format(
-                        "ONNX scalar input {} values do not match its tensor dtype or shape", i)));
+
+            size_t valueCount = 0;
+            if (this->model.inputs[i].dataKind == pek::DataKind::Value)
+                valueCount = 1;
+            if (this->model.inputs[i].dataKind == pek::DataKind::Vector2)
+                valueCount = 2;
+            if (this->model.inputs[i].dataKind == pek::DataKind::Vector3)
+                valueCount = 3;
+            if (this->model.inputs[i].dataKind == pek::DataKind::Vector4)
+                valueCount = 4;
+
+            if (this->model.inputs[i].valueType == pek::Dtype::Float32) {
+                for (size_t g = 0; g < valueCount; g++) {
+                    writeValueTo<float, float>(api.inputTensors[i]->getData(),
+                                               g,
+                                               this->model.inputs[i].valueInputs.data());
+                }
+            } else {
+                assert(0); // no type support to set scalar tensor input value
             }
         }
     }
@@ -252,13 +277,7 @@ pek::Result<void> Inference::inference() {
             Ort::Value &v = dynamicOutputData[i];
             auto tinfo = v.GetTensorTypeAndShapeInfo();
             std::vector<int64_t> onnxShape = tinfo.GetShape();
-            if (!outputTensorFinalShapes[i].setFrom(onnxShape)) {
-                return tl::make_unexpected(PEK_ERROR(
-                    pek::ErrorFlag::InvalidData,
-                    fmt::format("ONNX output tensor rank at index {} must be between 1 and {}",
-                                i,
-                                pek::Shape::MaxRank)));
-            }
+            outputTensorFinalShapes[i].setFrom(onnxShape);
         }
     }
 
@@ -270,10 +289,11 @@ pek::Result<void> Inference::inference() {
                 if (outputIndex < model.outputs.size()) {
                     const pek::Shape &outputShape = outputTensorFinalShapes[outputIndex];
                     pek::Dtype valueType = model.inputs[i].valueType;
-                    pek::log("Reallocating input tensor #{} to match output tensor #{} shape: {}\n",
-                             i,
-                             outputIndex,
-                             outputShape.toString());
+                    pek::log::info(
+                        "Reallocating input tensor #{} to match output tensor #{} shape: {}\n",
+                        i,
+                        outputIndex,
+                        outputShape.toString());
                     recreateInputTensor(i, outputShape, valueType);
                 }
                 model.inputs[i].matchShapeOutputIndex = pek::InvalidTensorIndex;
@@ -365,11 +385,11 @@ pek::Result<pek::Model> Inference::inspectModel(const Ort::Session &session) {
 
         // shape
         std::vector<int64_t> onnxDims = getTensorShape(session, pek::TensorInOut::In, i);
-        if (!model.inputs[i].shape.setFrom(onnxDims)) {
-            return tl::unexpected{PEK_ERROR(
-                pek::ErrorFlag::ModelInspectError,
-                fmt::format("input tensor rank must be between 1 and {}", pek::Shape::MaxRank))};
+        if (onnxDims.size() < 1 || onnxDims.size() > 8) {
+            return tl::unexpected{PEK_ERROR(pek::ErrorFlag::ModelInspectError,
+                                            "input tensor size must be between 1 and 8")};
         }
+        model.inputs[i].shape.setFrom(onnxDims);
     }
 
     // inspect all the OUTPUT TENSORS
@@ -392,17 +412,17 @@ pek::Result<pek::Model> Inference::inspectModel(const Ort::Session &session) {
             pek::Dtype::Float16 != tensorValueType) {
             return tl::unexpected{
                 PEK_ERROR(pek::ErrorFlag::ModelInspectError,
-                          "only float16, float32 or int64 output tensors are supported in ONNX")};
+                          "only float16, float32 or int64 input tensors are supported in ONNX")};
         }
         model.outputs[i].valueType = tensorValueType;
 
         // shape
         std::vector<int64_t> onnxDims = getTensorShape(session, pek::TensorInOut::Out, i);
-        if (!model.outputs[i].shape.setFrom(onnxDims)) {
-            return tl::unexpected{PEK_ERROR(
-                pek::ErrorFlag::ModelInspectError,
-                fmt::format("output tensor rank must be between 1 and {}", pek::Shape::MaxRank))};
+        if (onnxDims.size() < 1 || onnxDims.size() > 8) {
+            return tl::unexpected{PEK_ERROR(pek::ErrorFlag::ModelInspectError,
+                                            "output tensor size must be between 1 and 8")};
         }
+        model.outputs[i].shape.setFrom(onnxDims);
     }
 
     return model;

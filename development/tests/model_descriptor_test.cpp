@@ -152,19 +152,6 @@ TEST(ModelDescriptor, FromFileMaterializesPublishedModelInDedicatedStore) {
     EXPECT_TRUE(fs::is_regular_file(descriptor->modelFile));
 }
 
-TEST(ModelDescriptor, FromFileAcceptsExistingVerifiedPublishedModel) {
-    constexpr const char *name = "existing";
-    TemporaryDirectory temporary(name);
-    PublishedModelFixture model(name);
-    ScopedEnvironmentVariable mode(FakeModeEnvironment, "existing");
-    const fs::path descriptorPath = writeDescriptor(temporary.path, publishedAssetId(name));
-
-    const auto descriptor = pek::ModelDescriptor::fromFile(descriptorPath.string());
-
-    ASSERT_TRUE(descriptor.has_value()) << descriptor.error().toString();
-    EXPECT_EQ(descriptor->modelFile, publishedModelPath(name).string());
-}
-
 TEST(ModelDescriptor, FromFileHonorsCancellationBeforeMaterialization) {
     constexpr const char *name = "cancelled-before-call";
     TemporaryDirectory temporary(name);

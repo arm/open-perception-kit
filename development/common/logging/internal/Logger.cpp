@@ -8,9 +8,9 @@
 #include <exception>
 #include <utility>
 
-namespace pek::logging {
+namespace pek::log {
 
-Logger::Logger(LogTargets targets)
+Logger::Logger(Targets targets)
     : m_targets(std::move(targets)), m_worker(&Logger::processRecords, this) {}
 
 Logger::~Logger() {
@@ -22,17 +22,17 @@ Logger::~Logger() {
     m_worker.join();
 }
 
-void Logger::write(LogLevel level, std::string &&message) {
+void Logger::write(Level level, std::string &&message) {
     {
         std::lock_guard lock(m_bufferMutex);
-        appendRecord(LogRecord{level, std::move(message), m_nextSequence++});
+        appendRecord(Record{level, std::move(message), m_nextSequence++});
     }
     m_recordsAvailable.notify_one();
 }
 
-std::vector<LogTargetType> Logger::getEnabledTargets() {
+std::vector<TargetType> Logger::getEnabledTargets() {
     std::lock_guard lock(m_targetsMutex);
-    std::vector<LogTargetType> enabledTargets;
+    std::vector<TargetType> enabledTargets;
     enabledTargets.reserve(m_targets.size());
     for (const auto &target : m_targets) {
         if (target->isEnabled()) {
@@ -42,7 +42,7 @@ std::vector<LogTargetType> Logger::getEnabledTargets() {
     return enabledTargets;
 }
 
-bool Logger::setTargetState(LogTargetType type, bool enabled) {
+bool Logger::setTargetState(TargetType type, bool enabled) {
     std::lock_guard lock(m_targetsMutex);
     const auto matchingTarget =
         std::find_if(m_targets.begin(), m_targets.end(), [type](const auto &target) {
@@ -66,7 +66,7 @@ void Logger::flush() {
     flushEnabledTargets();
 }
 
-void Logger::appendRecord(LogRecord &&record) {
+void Logger::appendRecord(Record &&record) {
     if (m_bufferedRecordCount == BufferCapacity) {
         m_records[m_oldestRecordIndex] = std::move(record);
         m_oldestRecordIndex = (m_oldestRecordIndex + 1) % BufferCapacity;
@@ -79,8 +79,8 @@ void Logger::appendRecord(LogRecord &&record) {
     ++m_bufferedRecordCount;
 }
 
-LogRecord Logger::takeOldestRecord() {
-    LogRecord oldestRecord = std::move(m_records[m_oldestRecordIndex]);
+Record Logger::takeOldestRecord() {
+    Record oldestRecord = std::move(m_records[m_oldestRecordIndex]);
     m_oldestRecordIndex = (m_oldestRecordIndex + 1) % BufferCapacity;
     --m_bufferedRecordCount;
     return oldestRecord;
@@ -104,7 +104,7 @@ void Logger::processRecords() {
             break;
         }
 
-        LogRecord record = takeOldestRecord();
+        Record record = takeOldestRecord();
         m_recordInProgress = true;
         m_inFlightSequence = record.m_sequence;
         bufferLock.unlock();
@@ -121,7 +121,7 @@ void Logger::processRecords() {
     flushEnabledTargets();
 }
 
-void Logger::writeToEnabledTargets(const LogRecord &record) {
+void Logger::writeToEnabledTargets(const Record &record) {
     std::lock_guard lock(m_targetsMutex);
     for (auto &target : m_targets) {
         if (!target->isEnabled()) {
@@ -152,4 +152,4 @@ void Logger::flushEnabledTargets() {
     }
 }
 
-} // namespace pek::logging
+} // namespace pek::log

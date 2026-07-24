@@ -46,8 +46,7 @@ START_CONTAINER_ARGS=()
 if [[ -f "${REPO_ROOT}/.env" ]]; then
     START_CONTAINER_ARGS=(--env-file "${REPO_ROOT}/.env")
 fi
-"${START_CONTAINER_SCRIPT}" \
-    "${START_CONTAINER_ARGS[@]+"${START_CONTAINER_ARGS[@]}"}"
+"${START_CONTAINER_SCRIPT}" "${START_CONTAINER_ARGS[@]}"
 
 echo
 echo "Quick-start container is ready."

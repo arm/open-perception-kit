@@ -58,7 +58,7 @@ Result<DynamicLibraryHandle> Tools::DynamicLibraryOpen(const std::string &name) 
     }
 
     if (!handle) {
-        pek::loge("{}", loadErrors);
+        pek::log::error("{}", loadErrors);
         return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::SystemFailure, loadErrors));
     }
 

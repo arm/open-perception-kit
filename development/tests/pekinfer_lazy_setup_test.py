@@ -23,6 +23,117 @@ BLOCKING_SETUP_OP_PATH = Path(sys.argv[3]).resolve()
 FAKE_MODELFETCH_PATH = Path(sys.argv[4]).resolve()
 
 
+def run_activation_cycle_helper(scenario: str) -> None:
+    import gi
+
+    gi.require_version("Gst", "1.0")
+    from gi.repository import Gst
+
+    descriptor = Path(os.environ["PEK_TEST_ACTIVATION_DESCRIPTOR"])
+    calls = Path(os.environ["PEK_MODELFETCH_FAKE_CALLS"])
+    setup_started = Path(os.environ["PEK_TEST_BLOCKING_SETUP_STARTED"])
+    setup_release = Path(os.environ["PEK_TEST_BLOCKING_SETUP_RELEASE"])
+    process_called = Path(os.environ["PEK_TEST_BLOCKING_PROCESS_CALLED"])
+
+    Gst.init(None)
+    pipeline = Gst.Pipeline.new("activation-cycle")
+    source = Gst.ElementFactory.make("videotestsrc", "source")
+    caps_filter = Gst.ElementFactory.make("capsfilter", "caps")
+    infer = Gst.ElementFactory.make("pekinfer", "infer")
+    sink = Gst.ElementFactory.make("fakesink", "sink")
+    elements = [source, caps_filter, infer, sink]
+    if pipeline is None or any(element is None for element in elements):
+        raise RuntimeError("could not create the activation-cycle test pipeline")
+
+    source.set_property("is-live", True)
+    caps_filter.set_property(
+        "caps",
+        Gst.Caps.from_string("video/x-raw,format=BGRA,width=16,height=16"),
+    )
+    infer.set_property("opchain-path", str(descriptor))
+    infer.set_property("active", True)
+    sink.set_property("sync", False)
+
+    for element in elements:
+        pipeline.add(element)
+    for current, following in zip(elements, elements[1:]):
+        if not current.link(following):
+            raise RuntimeError(
+                f"could not link {current.get_name()} to {following.get_name()}"
+            )
+
+    bus = pipeline.get_bus()
+
+    def download_calls() -> list[str]:
+        if not calls.exists():
+            return []
+        return calls.read_text(encoding="utf-8").splitlines()
+
+    def wait_until(predicate, description: str) -> None:
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            if predicate():
+                return
+            message = bus.timed_pop_filtered(
+                10 * Gst.MSECOND,
+                Gst.MessageType.ERROR,
+            )
+            if message is not None:
+                error, debug = message.parse_error()
+                raise RuntimeError(f"{error.message}: {debug}")
+        raise TimeoutError(f"timed out waiting for {description}")
+
+    def wait_for_setup_failure() -> None:
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            message = bus.timed_pop_filtered(
+                50 * Gst.MSECOND,
+                Gst.MessageType.ERROR | Gst.MessageType.WARNING,
+            )
+            if message is None:
+                continue
+            if message.type == Gst.MessageType.ERROR:
+                error, debug = message.parse_error()
+                raise RuntimeError(f"{error.message}: {debug}")
+            warning, debug = message.parse_warning()
+            if "Asynchronous OpChain setup failed" in warning.message:
+                return
+            raise RuntimeError(f"unexpected pipeline warning: {warning.message}: {debug}")
+        raise TimeoutError("timed out waiting for asynchronous setup failure")
+
+    if pipeline.set_state(Gst.State.PLAYING) == Gst.StateChangeReturn.FAILURE:
+        raise RuntimeError("could not start the activation-cycle test pipeline")
+
+    try:
+        if scenario == "retry":
+            wait_for_setup_failure()
+            os.environ.pop("PEK_MODELFETCH_FAKE_MODE", None)
+            infer.set_property("active", False)
+            infer.set_property("active", True)
+            wait_until(process_called.exists, "the retried OpChain to process a frame")
+            if download_calls() != ["call", "call"]:
+                raise AssertionError(
+                    f"expected one failed and one successful materialization, got {download_calls()}"
+                )
+        elif scenario == "cache-ready":
+            wait_until(
+                lambda: setup_started.exists() and download_calls() == ["call"],
+                "setup to block after its first materialization",
+            )
+            infer.set_property("active", False)
+            setup_release.touch()
+            infer.set_property("active", True)
+            wait_until(process_called.exists, "the cached OpChain to process a frame")
+            if download_calls() != ["call"]:
+                raise AssertionError(
+                    f"reactivation rematerialized the ready model: {download_calls()}"
+                )
+        else:
+            raise ValueError(f"unknown activation-cycle scenario: {scenario}")
+    finally:
+        pipeline.set_state(Gst.State.NULL)
+
+
 class PekInferLazySetupTest(unittest.TestCase):
     @staticmethod
     def pipeline_environment(directory: Path) -> dict[str, str]:
@@ -78,6 +189,62 @@ class PekInferLazySetupTest(unittest.TestCase):
             encoding="utf-8",
         )
         return opchain_descriptor
+
+    def write_fake_stored_model(self, test_directory: Path) -> str:
+        relative_model_path = (
+            Path("pekinfer-tests") / test_directory.name / "model.onnx"
+        )
+        stored_model = Path("/work/var/models") / relative_model_path
+        stored_model.parent.mkdir(parents=True, exist_ok=True)
+        stored_model.write_text("model", encoding="utf-8")
+        self.addCleanup(shutil.rmtree, stored_model.parent, True)
+        return (
+            "hf:Arm/example@0123456789abcdef0123456789abcdef01234567"
+            f"#file={relative_model_path.as_posix()}"
+        )
+
+    def run_activation_cycle(self, test_directory: Path, scenario: str) -> None:
+        process_called = test_directory / "op-process-called"
+        environment = self.pipeline_environment(test_directory)
+        environment["PEK_TEST_ACTIVATION_DESCRIPTOR"] = str(
+            self.write_model_loading_opchain(
+                test_directory,
+                f"activation-{scenario}",
+                self.write_fake_stored_model(test_directory),
+            )
+        )
+        environment["PEK_MODELFETCH_FAKE_CALLS"] = str(
+            test_directory / "modelfetch-calls"
+        )
+        environment["PEK_TEST_BLOCKING_SETUP_STARTED"] = str(
+            test_directory / "op-setup-started"
+        )
+        environment["PEK_TEST_BLOCKING_SETUP_RELEASE"] = str(
+            test_directory / "op-setup-release"
+        )
+        environment["PEK_TEST_BLOCKING_PROCESS_CALLED"] = str(process_called)
+        if scenario == "retry":
+            environment["PEK_MODELFETCH_FAKE_MODE"] = "api-failure"
+        if scenario == "retry":
+            Path(environment["PEK_TEST_BLOCKING_SETUP_RELEASE"]).touch()
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(Path(__file__).resolve()),
+                *sys.argv[1:5],
+                "--activation-cycle-helper",
+                scenario,
+            ],
+            check=False,
+            capture_output=True,
+            env=environment,
+            text=True,
+            timeout=10,
+        )
+
+        self.assertEqual(result.returncode, 0, f"{result.stdout}\n{result.stderr}")
+        self.assertTrue(process_called.exists(), "the ready OpChain was not executed")
 
     def run_pipeline(self, *, active: bool) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory(prefix="pekinfer-lazy-setup-") as directory:
@@ -280,28 +447,16 @@ class PekInferLazySetupTest(unittest.TestCase):
     def test_successful_model_setup_materializes_descriptor_once(self) -> None:
         with tempfile.TemporaryDirectory(prefix="pekinfer-single-model-load-") as directory:
             test_directory = Path(directory)
-            relative_model_path = (
-                Path("pekinfer-tests") / test_directory.name / "model.onnx"
-            )
-            stored_model = Path("/work/var/models") / relative_model_path
-            stored_model.parent.mkdir(parents=True, exist_ok=True)
-            stored_model.write_text("model", encoding="utf-8")
-            self.addCleanup(shutil.rmtree, stored_model.parent, True)
-
             opchain_descriptor = self.write_model_loading_opchain(
                 test_directory,
                 "single-model-load",
-                (
-                    "hf:Arm/example@0123456789abcdef0123456789abcdef01234567"
-                    f"#file={relative_model_path.as_posix()}"
-                ),
+                self.write_fake_stored_model(test_directory),
             )
             op_setup_started = test_directory / "op-setup-started"
             op_setup_release = test_directory / "op-setup-release"
             op_setup_release.touch()
             calls = test_directory / "modelfetch-calls"
             environment = self.pipeline_environment(test_directory)
-            environment["PEK_MODELFETCH_FAKE_MODE"] = "existing"
             environment["PEK_MODELFETCH_FAKE_CALLS"] = str(calls)
             environment["PEK_TEST_BLOCKING_SETUP_STARTED"] = str(op_setup_started)
             environment["PEK_TEST_BLOCKING_SETUP_RELEASE"] = str(op_setup_release)
@@ -333,6 +488,17 @@ class PekInferLazySetupTest(unittest.TestCase):
             self.assertTrue(op_setup_started.exists(), "operation setup did not complete")
             self.assertEqual(calls.read_text(encoding="utf-8").splitlines(), ["call"])
 
+    def test_failed_setup_retries_after_deactivation_cycle(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="pekinfer-retry-setup-") as directory:
+            self.run_activation_cycle(Path(directory), "retry")
+
+    def test_setup_completed_while_inactive_is_reused_on_reactivation(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="pekinfer-cache-ready-") as directory:
+            self.run_activation_cycle(Path(directory), "cache-ready")
+
 
 if __name__ == "__main__":
-    unittest.main(argv=[sys.argv[0]])
+    if len(sys.argv) == 7 and sys.argv[5] == "--activation-cycle-helper":
+        run_activation_cycle_helper(sys.argv[6])
+    else:
+        unittest.main(argv=[sys.argv[0]])

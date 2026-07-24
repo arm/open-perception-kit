@@ -38,11 +38,11 @@ void maybePrintLifetimeCounters(const char *event, uint64_t eventCount) noexcept
     }
 
     try {
-        pek::loge("[GstVideoFrame] {}={} maps={} unmaps={}\n",
-                  event,
-                  eventCount,
-                  gMapCount.load(std::memory_order_relaxed),
-                  gUnmapCount.load(std::memory_order_relaxed));
+        pek::log::error("[GstVideoFrame] {}={} maps={} unmaps={}\n",
+                        event,
+                        eventCount,
+                        gMapCount.load(std::memory_order_relaxed),
+                        gUnmapCount.load(std::memory_order_relaxed));
     } catch (...) {
         // Lifetime diagnostics are best-effort and must not affect frame mapping or cleanup.
         return;

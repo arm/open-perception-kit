@@ -61,9 +61,6 @@ jobs:
 
       - name: Build docker image 
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        env:
-          EXECUTORCH_ARTIFACTORY_USERNAME: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
-          EXECUTORCH_ARTIFACTORY_PASSWORD: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-sonar-check-release
           
       - name: Run SonarQube release analysis

@@ -8,23 +8,17 @@ executorch_candidates = []
 executorch_root_env = run_command('sh', '-c', 'printf %s "$PEK_EXECUTORCH_ROOT"', check: false).stdout().strip()
 if executorch_root_env != ''
   executorch_candidates += [executorch_root_env]
-else
-  executorch_candidates += ['/opt/pek-deps/executorch']
 endif
+
+executorch_candidates += [
+  '/opt/pek-deps/executorch',
+]
 
 executorch_root = ''
 
 foreach candidate : executorch_candidates
   candidate_libdir = candidate / 'lib'
-  if (
-    fs.is_file(candidate / 'include/executorch/extension/module/module.h') and
-    fs.is_file(candidate / 'include/executorch/extension/tensor/tensor_ptr.h') and
-    fs.is_file(candidate / 'include/executorch/extension/tensor/tensor_ptr_maker.h') and
-    fs.is_file(candidate / 'include/executorch/runtime/core/error.h') and
-    fs.is_file(candidate / 'include/executorch/runtime/core/evalue.h') and
-    fs.is_file(candidate / 'include/executorch/runtime/core/portable_type/c10/c10/util/irange.h') and
-    fs.is_dir(candidate_libdir)
-  )
+  if fs.is_file(candidate / 'include/executorch/extension/module/module.h') and fs.is_dir(candidate_libdir)
     executorch_root = candidate
     break
   endif
@@ -41,10 +35,28 @@ endif
 
 message('Using ExecuTorch from: ' + executorch_root)
 
+libtorch_candidates = []
+libtorch_root_env = run_command('sh', '-c', 'printf %s "$PEK_LIBTORCH_ROOT"', check: false).stdout().strip()
+if libtorch_root_env != ''
+  libtorch_candidates += [libtorch_root_env]
+endif
+
+libtorch_candidates += [
+  executorch_root / '..' / 'libtorch',
+  meson.project_source_root() / '../deps/libtorch',
+]
+
+libtorch_root = meson.project_source_root() / '../deps/libtorch'
+foreach candidate : libtorch_candidates
+  if fs.is_dir(candidate / 'include')
+    libtorch_root = candidate
+    break
+  endif
+endforeach
+
 executorch_libdir = executorch_root / 'lib'
 executorch_include = executorch_root / 'include'
-executorch_portable_type_include = executorch_include / 'executorch/runtime/core/portable_type'
-executorch_c10_include = executorch_include / 'executorch/runtime/core/portable_type/c10'
+libtorch_include = libtorch_root / 'include'
 executorch_uses_kleidiai = host_machine.cpu_family() == 'aarch64'
 
 executorch_required_libs = [
@@ -93,10 +105,7 @@ executorch_dep = declare_dependency(
     '-isystem',
     executorch_include,
     '-isystem',
-    executorch_portable_type_include,
-    '-isystem',
-    executorch_c10_include,
-    '-DC10_USING_CUSTOM_GENERATED_MACROS',
+    libtorch_include,
   ],
   link_args: [
       '-L' + executorch_libdir,
@@ -106,6 +115,7 @@ executorch_dep = declare_dependency(
       '-lextension_data_loader',
       '-lextension_named_data_map',
       '-lextension_threadpool',
+      '-lexecutorch',
       '-lexecutorch_core',
       '-lpthreadpool',
       '-lcpuinfo',
@@ -116,10 +126,8 @@ executorch_dep = declare_dependency(
   ]
 )
 
-# ExecuTorch registers primitive ops, backends, and kernels from static
-# initializers, so these archives must not be dead-stripped.
+# These are the usual “registration / kernels” libs that often get dropped unless whole-archived
 et_force_archives = [
-  executorch_libdir / 'libexecutorch.a',
   executorch_libdir / 'libportable_ops_lib.a',
   executorch_libdir / 'libportable_kernels.a',
 ]
@@ -132,17 +140,8 @@ et_force_archives += [
   executorch_libdir / 'libXNNPACK.a',
   executorch_libdir / 'libxnnpack_backend.a',
   executorch_libdir / 'libxnnpack-microkernels-prod.a',
+#  executorch_libdir / 'libkernels_util_all_deps.a',
 ]
-
-executorch_runtime_dep = declare_dependency(
-  dependencies: [executorch_dep],
-  link_args: [
-    '-Wl,--whole-archive',
-  ] + et_force_archives + [
-    '-Wl,--no-whole-archive',
-    '-Wl,--no-undefined',
-  ],
-)
 
 executorchops = shared_module(
   'pek-executorch-ops',
@@ -154,10 +153,15 @@ executorchops = shared_module(
 
   include_directories: common_include,
 
-  dependencies: pek_deps + [executorch_runtime_dep],
+  dependencies: pek_deps + [executorch_dep],
   cpp_args: ['-DFMT_HEADER_ONLY'],
 
-  link_args: ['-Wl,--no-undefined'],
+  link_args: [
+    '-Wl,--whole-archive',
+  ] + et_force_archives + [
+    '-Wl,--no-whole-archive',
+    '-Wl,--no-undefined',
+  ],
 
   name_prefix: '',
   gnu_symbol_visibility: 'default',

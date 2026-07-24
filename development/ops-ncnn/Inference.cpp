@@ -13,9 +13,9 @@
 #include <vector>
 
 #include "Log.h"
-#include "LogTools.h"
 #include "pek/Result.h"
 #include "pek/Types.h"
+#include "tools.h"
 
 using namespace pek::ncnnrt;
 
@@ -284,7 +284,7 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc) {
 
     model = *modelResult;
 
-    pek::log("{}", pek::LogTools::enframe(model.toString(), "NCNN Model"));
+    pek::log::info("{}", pek::log::tools::enframe(model.toString(), "NCNN Model"));
 
     auto cmResult = model.applyModelFromDescriptor(modelDescriptor);
     if (!cmResult) {
@@ -303,8 +303,8 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc) {
 
     setupReady = true;
 
-    pek::log("{}", pek::LogTools::enframe(model.toString(), "Final Model"));
-    pek::log("{}", "NCNN: Model loaded\n");
+    pek::log::info("{}", pek::log::tools::enframe(model.toString(), "Final Model"));
+    pek::log::info("{}", "NCNN: Model loaded\n");
 
     return {};
 }
@@ -323,7 +323,7 @@ pek::Result<void> Inference::setTensorSizes() {
         const size_t byteCount = valueCount * sizeof(float);
         inputTensors[i].resize(byteCount);
         std::fill(inputTensors[i].begin(), inputTensors[i].end(), 0);
-        pek::log("NCNN input tensor prepared: {} bytes\n", byteCount);
+        pek::log::info("NCNN input tensor prepared: {} bytes\n", byteCount);
     }
 
     for (size_t i = 0; i < model.outputs.size(); i++) {
@@ -341,7 +341,7 @@ pek::Result<void> Inference::setTensorSizes() {
         const size_t byteCount = model.outputs[i].shape.getFullValueCount() * sizeof(float);
         outputTensors[i].resize(byteCount);
         std::fill(outputTensors[i].begin(), outputTensors[i].end(), 0);
-        pek::log("NCNN output tensor prepared: {} bytes\n", byteCount);
+        pek::log::info("NCNN output tensor prepared: {} bytes\n", byteCount);
     }
 
     return {};

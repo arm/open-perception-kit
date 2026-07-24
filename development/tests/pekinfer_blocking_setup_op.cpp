@@ -71,6 +71,16 @@ class BlockingSetupOp final : public pek::op::Op {
     }
 
     pek::Result<pek::op::OpSignal> process(pek::op::OpChainContext &) override {
+        const char *processedPath = std::getenv("PEK_TEST_BLOCKING_PROCESS_CALLED");
+        if (processedPath != nullptr) {
+            std::ofstream processed(processedPath);
+            if (!processed) {
+                return tl::unexpected{PEK_ERROR(
+                    pek::ErrorFlag::FileOperationError,
+                    "Blocking setup test operation could not publish its process marker")};
+            }
+            processed << "processed\n";
+        }
         return pek::op::OpSignal::Continue;
     }
 };
