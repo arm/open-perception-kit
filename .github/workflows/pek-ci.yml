@@ -51,22 +51,36 @@ jobs:
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      - name: Reject fork pull request for credential-backed validation
+      - name: Checkout workflow helpers
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          path: workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+          persist-credentials: false
+
+      - name: Resolve manual PR context
+        id: manual_pr
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
+        working-directory: ${{ github.workspace }}/workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if [ "$(gh pr view "${{ github.event.inputs.pr_number }}" --repo "${{ github.repository }}" --json isCrossRepository --jq '.isCrossRepository')" != "false" ]; then
-            echo "Refusing to expose the modelfetch release credential to a fork pull request." >&2
-            exit 1
-          fi
+          python3 scripts/private/github_pr_context.py \
+            --pr-number "${{ github.event.inputs.pr_number }}" \
+            --repo "${{ github.repository }}" \
+            --base-ref-override "${{ github.event.inputs.pr_base_ref }}" \
+            --head-ref-override "${{ github.event.inputs.pr_head_ref }}" \
+            --head-sha-override "${{ github.event.inputs.pr_head_sha }}" \
+            --github-output "${GITHUB_OUTPUT}"
 
-      - uses: actions/checkout@v6
+      - name: Checkout
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_head_sha || github.event_name == 'workflow_dispatch' && github.event.inputs.pr_head_ref || github.head_ref || github.ref }}
+          ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.head_ref || github.ref }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
       - name: Show detected quick-start platform
@@ -128,25 +142,40 @@ jobs:
     env:
       PEK_QUICK_START_CI_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      CI_HELPER_PATH: workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      - name: Reject fork pull request for credential-backed validation
+      - name: Checkout workflow helpers
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          path: ${{ env.CI_HELPER_PATH }}
+          persist-credentials: false
+
+      - name: Resolve manual PR context
+        id: manual_pr
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
+        working-directory: ${{ github.workspace }}/${{ env.CI_HELPER_PATH }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if [ "$(gh pr view "${{ github.event.inputs.pr_number }}" --repo "${{ github.repository }}" --json isCrossRepository --jq '.isCrossRepository')" != "false" ]; then
-            echo "Refusing to expose the modelfetch release credential to a fork pull request." >&2
-            exit 1
-          fi
+          python3 scripts/private/github_pr_context.py \
+            --pr-number "${{ github.event.inputs.pr_number }}" \
+            --repo "${{ github.repository }}" \
+            --base-ref-override "${{ github.event.inputs.pr_base_ref }}" \
+            --head-ref-override "${{ github.event.inputs.pr_head_ref }}" \
+            --head-sha-override "${{ github.event.inputs.pr_head_sha }}" \
+            --github-output "${GITHUB_OUTPUT}"
 
       # RPI runner drops checkout@v6 temp includeIf credentials during fetch; retry v6 after runner image update.
-      - uses: actions/checkout@v5
+      - name: Checkout
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_head_sha || github.event_name == 'workflow_dispatch' && github.event.inputs.pr_head_ref || github.head_ref || github.ref }}
+          ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.head_ref || github.ref }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
       - name: Show detected quick-start platform
@@ -199,11 +228,12 @@ jobs:
           COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
         run: |
           checkout_path="${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}"
+          helper_path="${{ github.workspace }}/${{ env.CI_HELPER_PATH }}"
           cleanup_status=0
           if [ -x "$checkout_path/scripts/quick-start/cleanup-container.sh" ]; then
             "$checkout_path/scripts/quick-start/cleanup-container.sh" || cleanup_status=$?
           fi
-          rm -rf -- "$checkout_path"
+          rm -rf -- "$checkout_path" "$helper_path"
           exit "$cleanup_status"
 
   quality-checks:
@@ -250,17 +280,6 @@ jobs:
             --head-ref-override "${{ github.event.inputs.pr_head_ref }}" \
             --head-sha-override "${{ github.event.inputs.pr_head_sha }}" \
             --github-output "${GITHUB_OUTPUT}"
-
-      - name: Reject fork pull request for credential-backed validation
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          if [ "$(gh pr view "${{ github.event.inputs.pr_number }}" --repo "${{ github.repository }}" --json isCrossRepository --jq '.isCrossRepository')" != "false" ]; then
-            echo "Refusing to expose CI credentials to a fork pull request." >&2
-            exit 1
-          fi
 
       - name: Checkout
         uses: actions/checkout@v6
@@ -375,22 +394,5 @@ jobs:
             ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/clang-tidy.log
             ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/clang-tidy-stats.log
             ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/clang-tidy-stats.json
-          if-no-files-found: warn
-          retention-days: 10
-
-      - name: Run Valgrind checks
-        id: valgrind_checks
-        if: ${{ !cancelled() }}
-        continue-on-error: true # Do not block PR until the initial ones are fixed
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-valgrind-check
-
-      - name: Upload Valgrind logs on failure
-        if: ${{ !cancelled() && steps.valgrind_checks.outcome == 'failure' }}
-        uses: actions/upload-artifact@v6
-        with:
-          name: valgrind-logs
-          path: |
-            ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/scripts/testing/valgrind/logs
           if-no-files-found: warn
           retention-days: 10

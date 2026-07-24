@@ -19,6 +19,7 @@ EXPKITS_CI_SOURCE = PACKAGE_ROOT / "expkits_ci/expkits_ci.py"
 PRE_COMMIT_CONFIG = REPO_ROOT / ".pre-commit-config.yaml"
 CI_COMPOSE_FILE = REPO_ROOT / ".github/compose.ci.yaml"
 PEK_CI_WORKFLOW = REPO_ROOT / ".github/workflows/pek-ci.yml"
+VALGRIND_WORKFLOW = REPO_ROOT / ".github/workflows/valgrind.yml"
 HOST_PRE_COMMIT_RUN = REPO_ROOT / "scripts/pre-commit/run.sh"
 BASELINE_FILE = REPO_ROOT / ".secrets.baseline"
 
@@ -221,6 +222,7 @@ class StaticQualityConfigTests(unittest.TestCase):
         pre_commit = PRE_COMMIT_CONFIG.read_text(encoding="utf-8")
         compose = CI_COMPOSE_FILE.read_text(encoding="utf-8")
         workflow = PEK_CI_WORKFLOW.read_text(encoding="utf-8")
+        valgrind_workflow = VALGRIND_WORKFLOW.read_text(encoding="utf-8")
         host_pre_commit = HOST_PRE_COMMIT_RUN.read_text(encoding="utf-8")
 
         self.assertIn("- id: pre-commit-checks", pre_commit)
@@ -257,6 +259,8 @@ class StaticQualityConfigTests(unittest.TestCase):
             workflow,
         )
         self.assertNotIn("Run Valgrind checks", workflow)
+        self.assertIn("Run Valgrind checks", valgrind_workflow)
+        self.assertIn("Compare Valgrind results to baseline", valgrind_workflow)
         self.assertEqual(pre_commit.count('--list-of-files "$@"'), 3)
 
         pyproject = PYPROJECT_FILE.read_text(encoding="utf-8")

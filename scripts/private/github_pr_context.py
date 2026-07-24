@@ -12,7 +12,7 @@ from pathlib import Path
 import subprocess
 
 
-PR_FIELDS = "baseRefName,headRefName,headRefOid"
+PR_FIELDS = "baseRefName,headRefName,headRefOid,isCrossRepository"
 
 
 def write_outputs(values: dict[str, str], output_path: str | None = None) -> None:
@@ -22,6 +22,13 @@ def write_outputs(values: dict[str, str], output_path: str | None = None) -> Non
     with Path(target).open("a", encoding="utf-8") as output_file:
         for key, value in values.items():
             output_file.write(f"{key}={value}\n")
+
+
+def _required_ref(payload: dict[object, object], field: str, pr_number: str) -> str:
+    value = payload.get(field)
+    if not isinstance(value, str) or not value:
+        raise RuntimeError(f"Incomplete pull request refs for PR #{pr_number}.")
+    return value
 
 
 def _apply_manual_overrides(
@@ -73,11 +80,15 @@ def resolve_pr_context(
     payload = json.loads(completed.stdout)
     if not isinstance(payload, dict):
         raise RuntimeError(f"Unexpected PR context payload for PR #{pr_number}.")
+    if payload.get("isCrossRepository") is not False:
+        raise RuntimeError(
+            f"Refusing credential-backed validation for fork or unverifiable pull request #{pr_number}."
+        )
     context = {
         "pr_number": pr_number,
-        "base_ref": str(payload.get("baseRefName") or ""),
-        "head_ref": str(payload.get("headRefName") or ""),
-        "head_sha": str(payload.get("headRefOid") or ""),
+        "base_ref": _required_ref(payload, "baseRefName", pr_number),
+        "head_ref": _required_ref(payload, "headRefName", pr_number),
+        "head_sha": _required_ref(payload, "headRefOid", pr_number),
     }
     return _apply_manual_overrides(
         context,

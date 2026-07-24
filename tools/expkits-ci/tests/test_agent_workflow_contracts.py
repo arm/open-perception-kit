@@ -7,7 +7,6 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Any
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'scripts/private'))
@@ -478,24 +477,14 @@ class AgentWorkflowContractTests(unittest.TestCase):
         )
 
     def test_standard_validation_workflows_accept_manual_pr_context(self):
-        def find_checkout_step(job: dict[str, Any]) -> dict[str, Any]:
-            matches = [
-                step
-                for step in job["steps"]
-                if isinstance(step, dict)
-                and str(step.get("uses", "")).startswith("actions/checkout@")
-            ]
-            self.assertEqual(len(matches), 1)
-            return matches[0]
-
         pek_ci = load_yaml(PEK_CI_WORKFLOW_FILE)
         sonar = load_yaml(SONAR_WORKFLOW_FILE)
         pek_inputs = pek_ci["on"]["workflow_dispatch"]["inputs"]
         sonar_inputs = sonar["on"]["workflow_dispatch"]["inputs"]
         pek_steps = step_map(pek_ci["jobs"]["quality-checks"])
         sonar_steps = step_map(sonar["jobs"]["build-and-sonar"])
-        linux_checkout = find_checkout_step(pek_ci["jobs"]["linux-quick-start-build-test"])
-        rpi_checkout = find_checkout_step(pek_ci["jobs"]["rpi5-quick-start-build-test"])
+        linux_steps = step_map(pek_ci["jobs"]["linux-quick-start-build-test"])
+        rpi_steps = step_map(pek_ci["jobs"]["rpi5-quick-start-build-test"])
         expected_label_gate = "github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')"
         expected_draft_override = (
             "github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci')"
@@ -513,7 +502,9 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertIn("Resolve manual PR context", sonar_steps)
         self.assertIn("Checkout workflow helpers", pek_steps)
         self.assertIn("Checkout workflow helpers", sonar_steps)
-        for steps in (pek_steps, sonar_steps):
+        for steps in (linux_steps, rpi_steps, pek_steps, sonar_steps):
+            self.assertIn("Resolve manual PR context", steps)
+            self.assertIn("Checkout workflow helpers", steps)
             resolver_run = steps["Resolve manual PR context"]["run"]
             self.assertIn("python3 scripts/private/github_pr_context.py", resolver_run)
             self.assertIn('--pr-number "${{ github.event.inputs.pr_number }}"', resolver_run)
@@ -522,6 +513,10 @@ class AgentWorkflowContractTests(unittest.TestCase):
             self.assertIn('--head-sha-override "${{ github.event.inputs.pr_head_sha }}"', resolver_run)
             self.assertIn('--github-output "${GITHUB_OUTPUT}"', resolver_run)
             self.assertNotIn("gh pr view", resolver_run)
+            self.assertEqual(
+                steps["Checkout workflow helpers"]["with"]["persist-credentials"],
+                "false",
+            )
         for job_name in ("linux-quick-start-build-test", "rpi5-quick-start-build-test", "quality-checks"):
             job_condition = pek_ci["jobs"][job_name]["if"]
             self.assertIn(expected_label_gate, job_condition)
@@ -529,16 +524,15 @@ class AgentWorkflowContractTests(unittest.TestCase):
         sonar_condition = sonar["jobs"]["build-and-sonar"]["if"]
         self.assertIn(expected_label_gate, sonar_condition)
         self.assertIn(expected_draft_override, sonar_condition)
-        for checkout in (linux_checkout, rpi_checkout):
-            checkout_ref = checkout["with"]["ref"]
-            self.assertIn("github.event_name == 'workflow_dispatch'", checkout_ref)
-            self.assertIn("github.event.inputs.pr_head_sha", checkout_ref)
-            self.assertIn("github.event.inputs.pr_head_ref", checkout_ref)
+        for steps in (linux_steps, rpi_steps, pek_steps, sonar_steps):
+            checkout_ref = steps["Checkout"]["with"]["ref"]
+            self.assertIn("steps.manual_pr.outputs.head_sha", checkout_ref)
+            self.assertIn("steps.manual_pr.outputs.head_ref", checkout_ref)
             self.assertIn("github.head_ref", checkout_ref)
+            self.assertNotIn("github.event.inputs.pr_head_sha", checkout_ref)
+            self.assertNotIn("github.event.inputs.pr_head_ref", checkout_ref)
         self.assertIn("steps.manual_pr.outputs.head_sha", pek_steps["Checkout"]["with"]["ref"])
-        self.assertNotIn("github.event.inputs.pr_head_sha", pek_steps["Checkout"]["with"]["ref"])
         self.assertIn("steps.manual_pr.outputs.head_sha", sonar_steps["Checkout"]["with"]["ref"])
-        self.assertNotIn("github.event.inputs.pr_head_sha", sonar_steps["Checkout"]["with"]["ref"])
         self.assertIn(
             "steps.manual_pr.outputs.base_ref",
             pek_steps["Check Repo Quality gate (PR)"]["run"],
@@ -561,6 +555,8 @@ class AgentWorkflowContractTests(unittest.TestCase):
         )
         self.assertNotIn("${{ inputs.", PEK_CI_WORKFLOW_FILE.read_text(encoding="utf-8"))
         self.assertNotIn("${{ inputs.", SONAR_WORKFLOW_FILE.read_text(encoding="utf-8"))
+        self.assertNotIn("gh pr view", PEK_CI_WORKFLOW_FILE.read_text(encoding="utf-8"))
+        self.assertNotIn("gh pr view", SONAR_WORKFLOW_FILE.read_text(encoding="utf-8"))
         self.assertIn("steps.manual_pr.outputs.pr_number", sonar_steps["SonarQube analysis"]["env"]["PR_KEY"])
         self.assertIn("steps.manual_pr.outputs.head_ref", sonar_steps["SonarQube analysis"]["env"]["SONAR_BRANCH"])
         self.assertIn("steps.manual_pr.outputs.base_ref", sonar_steps["SonarQube analysis"]["env"]["PR_BASE"])
@@ -572,6 +568,26 @@ class AgentWorkflowContractTests(unittest.TestCase):
             "python3 scripts/private/sonar_quality_gate_workflow.py report-quality-gate",
             sonar_steps["Report Sonar quality gate details"]["run"],
         )
+        rpi_job = pek_ci["jobs"]["rpi5-quick-start-build-test"]
+        sonar_job = sonar["jobs"]["build-and-sonar"]
+        self.assertEqual(
+            rpi_steps["Checkout workflow helpers"]["with"]["path"],
+            "${{ env.CI_HELPER_PATH }}",
+        )
+        self.assertEqual(
+            sonar_steps["Checkout workflow helpers"]["with"]["path"],
+            "${{ env.CI_HELPER_PATH }}",
+        )
+        self.assertIn(
+            '"${{ github.workspace }}/${{ env.CI_HELPER_PATH }}"',
+            rpi_steps["Clean quick-start workspace"]["run"],
+        )
+        self.assertIn(
+            '"${GITHUB_WORKSPACE}/${CI_HELPER_PATH}"',
+            sonar_steps["Cleanup isolated workspace"]["run"],
+        )
+        self.assertIn("CI_HELPER_PATH", rpi_job["env"])
+        self.assertIn("CI_HELPER_PATH", sonar_job["env"])
 
     def test_modified_validation_workflows_use_canonical_artifact_upload_major(self):
         workflows = {
