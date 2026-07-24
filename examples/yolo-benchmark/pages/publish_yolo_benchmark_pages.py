@@ -10,6 +10,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import os
+import re
 import shutil
 import statistics
 import subprocess
@@ -226,6 +227,19 @@ def build_report_index_meta_text(
     if now is None:
         now = dt.datetime.now(dt.timezone.utc)
     return f"{branch} @ {head_sha[:12]} | run {run_id} attempt {run_attempt} | {now.strftime('%b %d, %Y %H:%M UTC')}"
+
+
+def published_report_version(target: Path) -> tuple[int, int] | None:
+    match = re.search(
+        r"\| run (\d+) attempt (\d+)(?: \||$)",
+        read_first_line(target / REPORT_INDEX_META, ""),
+    )
+    return (int(match.group(1)), int(match.group(2))) if match else None
+
+
+def is_stale_report(target: Path, run_id: str, run_attempt: str) -> bool:
+    published = published_report_version(target)
+    return published is not None and (int(run_id), int(run_attempt)) < published
 
 
 def parse_github_time(value: str) -> dt.datetime:
@@ -1630,6 +1644,9 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
     run_attempt = require_env("UPSTREAM_RUN_ATTEMPT")
     run_href = f"https://github.com/{repository}/actions/runs/{run_id}"
 
+    if not run_id.isdigit() or not run_attempt.isdigit():
+        raise PublishError("UPSTREAM_RUN_ID and UPSTREAM_RUN_ATTEMPT must be numeric.")
+
     if conclusion not in {"success", "failure"}:
         print(f"Skipping YOLO report from {conclusion} upstream run.")
         set_output("deploy", "false")
@@ -1644,6 +1661,12 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
 
     index_meta_text = build_report_index_meta_text(branch, head_sha, run_id, run_attempt)
     meta_html = build_report_meta_html(repository, event, pr_number, branch, head_sha, run_id, run_attempt)
+
+    checkout_site_branch(site_dir, storage_branch)
+    if is_stale_report(target, run_id, run_attempt):
+        print(f"Skipping stale YOLO report from run {run_id} attempt {run_attempt}.")
+        set_output("deploy", "false")
+        return
 
     with tempfile.TemporaryDirectory() as tmpdir:
         artifact_dir = Path(tmpdir)
@@ -1663,7 +1686,6 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
             print(error)
             set_output("deploy", "false")
             return
-        checkout_site_branch(site_dir, storage_branch)
         remove_legacy_root_site(site_dir)
         write_selected_artifacts(artifact_root, target, runs)
         (target / REPORT_INDEX_META).write_text(f"{index_meta_text}\n", encoding="utf-8")

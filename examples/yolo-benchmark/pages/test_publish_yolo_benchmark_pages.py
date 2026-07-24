@@ -321,7 +321,40 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             publish.publish_report(Path(tmpdir), "pages")
 
             set_output.assert_called_once_with("deploy", "false")
-            checkout.assert_not_called()
+            checkout.assert_called_once()
+
+    def test_publish_report_skips_stale_attempt_before_artifact_download(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = Path(tmpdir) / "site"
+            target = site_dir / "yolo-benchmark" / "prs" / "235"
+            target.mkdir(parents=True)
+            (target / "marker.txt").write_text("newer", encoding="utf-8")
+            (target / publish.REPORT_INDEX_META).write_text(
+                "branch @ commit | run 123 attempt 2 | Jul 24, 2026 10:00 UTC\n",
+                encoding="utf-8",
+            )
+            env = {
+                "GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge",
+                "UPSTREAM_CONCLUSION": "success",
+                "UPSTREAM_EVENT": "pull_request",
+                "UPSTREAM_HEAD_BRANCH": "feature/test",
+                "UPSTREAM_HEAD_REPOSITORY": "Arm-Debug/amp-dev-forge",
+                "UPSTREAM_HEAD_SHA": "a" * 40,
+                "UPSTREAM_PR_NUMBER": "235",
+                "UPSTREAM_RUN_ATTEMPT": "1",
+                "UPSTREAM_RUN_ID": "123",
+            }
+            with patch.dict(os.environ, env, clear=True), \
+                    patch.object(publish, "checkout_site_branch"), \
+                    patch.object(publish, "download_report_artifact") as download, \
+                    patch.object(publish, "push_site_branch") as push, \
+                    patch.object(publish, "set_output") as set_output:
+                publish.publish_report(site_dir, "pages")
+
+            download.assert_not_called()
+            push.assert_not_called()
+            self.assertEqual((target / "marker.txt").read_text(encoding="utf-8"), "newer")
+            set_output.assert_called_once_with("deploy", "false")
 
     def test_publish_report_keeps_detection_videos_out_of_storage_push(self) -> None:
         def write_artifact(destination: Path, *_args: object) -> bool:
