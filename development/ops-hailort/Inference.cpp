@@ -406,7 +406,7 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc) {
         }
 
         this->setupReady = true;
-        pek::log("HailoRT inference setup ready for model [{}]\n", modelDesc.modelFile);
+        pek::log::info("HailoRT inference setup ready for model [{}]\n", modelDesc.modelFile);
     } catch (const std::exception &e) {
         return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
                                              fmt::format("HailoRT setup exception: {}", e.what())));

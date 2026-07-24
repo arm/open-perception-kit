@@ -11,7 +11,7 @@
 #include <fmt/format.h>
 #include <system_error>
 
-namespace pek::logging {
+namespace pek::log {
 
 ConsoleOutput::ConsoleOutput(LogTargetType type, bool enabled, std::FILE *stream)
     : LogTarget(type, enabled), m_stream(stream) {}
@@ -41,4 +41,4 @@ void ConsoleOutput::flush() {
     }
 }
 
-} // namespace pek::logging
+} // namespace pek::log

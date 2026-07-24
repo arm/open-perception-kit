@@ -33,7 +33,7 @@ struct Tensor {
             onnxShape[i] = shape.dims[i];
 
         if (shape.hasDynamicDimension()) {
-            pek::log("Creating dynamic tensor with shape: {}\n", shape.toString());
+            pek::log::info("Creating dynamic tensor with shape: {}\n", shape.toString());
             // do nothing
         } else {
             this->data.resize(shape.getFullValueCount() * typeByteSize);

@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace pek::logging {
+namespace pek::log {
 
 struct LogRecord {
     LogLevel m_level{LogLevel::Off};
@@ -50,4 +50,4 @@ using LogTargets = std::vector<std::unique_ptr<LogTarget>>;
 
 LogTargets createBuiltInLogTargets(const std::vector<LogTargetType> &enabledTargets);
 
-} // namespace pek::logging
+} // namespace pek::log

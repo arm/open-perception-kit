@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-namespace pek {
+namespace pek::log {
 
 // These functions are only meant to be used internally inside the logging component.
 namespace private_ {
@@ -27,34 +27,35 @@ std::vector<LogTargetType> getEnabledLogTargets();
 bool setLogTargetState(LogTargetType output, bool enabled);
 void logFlush();
 
-template <typename... Args> inline void log(fmt::format_string<Args...> format, Args &&...args) {
+template <typename... Args> inline void info(fmt::format_string<Args...> format, Args &&...args) {
     auto message = fmt::format(format, std::forward<Args>(args)...);
     private_::logWrite(LogLevel::Info, std::move(message));
 }
 
-template <typename... Args> inline void logn(fmt::format_string<Args...> format, Args &&...args) {
+template <typename... Args> inline void notice(fmt::format_string<Args...> format, Args &&...args) {
     auto message = fmt::format(format, std::forward<Args>(args)...);
     private_::logWrite(LogLevel::Notice, std::move(message));
 }
 
-template <typename... Args> inline void logw(fmt::format_string<Args...> format, Args &&...args) {
+template <typename... Args>
+inline void warning(fmt::format_string<Args...> format, Args &&...args) {
     auto message = fmt::format(format, std::forward<Args>(args)...);
     private_::logWrite(LogLevel::Warn, std::move(message));
 }
 
-template <typename... Args> inline void loge(fmt::format_string<Args...> format, Args &&...args) {
+template <typename... Args> inline void error(fmt::format_string<Args...> format, Args &&...args) {
     auto message = fmt::format(format, std::forward<Args>(args)...);
     private_::logWrite(LogLevel::Error, std::move(message));
 }
 
 template <typename... Args>
-inline void forceLog(fmt::format_string<Args...> format, Args &&...args) {
+inline void instantInfo(fmt::format_string<Args...> format, Args &&...args) {
     auto message = fmt::format(format, std::forward<Args>(args)...);
     fmt::print(stdout, "{}", message);
 }
 
 template <typename... Args>
-inline void forceLoge(fmt::format_string<Args...> format, Args &&...args) {
+inline void instantError(fmt::format_string<Args...> format, Args &&...args) {
     auto message = fmt::format(format, std::forward<Args>(args)...);
     fmt::print(stderr, "{}", message);
 }
@@ -74,4 +75,4 @@ template <typename... Args> inline void logeRuntime(fmt::string_view format, Arg
     private_::logWrite(LogLevel::Error, std::move(message));
 }
 
-} // namespace pek
+} // namespace pek::log

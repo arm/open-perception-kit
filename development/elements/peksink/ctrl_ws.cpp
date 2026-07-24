@@ -161,7 +161,7 @@ struct ToggleInvokeBox {
 
 gboolean toggle_on_main(gpointer user_data) {
 
-    pek::log("invoked\n");
+    pek::log::info("invoked\n");
     auto *box = static_cast<ToggleInvokeBox *>(user_data);
     auto tsr = box->req; // copy shared_ptr
 
@@ -186,11 +186,11 @@ gboolean toggle_on_main(gpointer user_data) {
     }
     tsr->cv.notify_one();
 
-    pek::log("check is_pipeline\n");
+    pek::log::info("check is_pipeline\n");
 
     // GST_IS_PIPELINE() is a macro performing a type check with no side effects
     if (tsr->element && GST_IS_PIPELINE(tsr->element)) { // NOSONAR
-        pek::log("is_pipeline\n");
+        pek::log::info("is_pipeline\n");
         gst_object_unref(tsr->element);
         tsr->element = nullptr;
     }

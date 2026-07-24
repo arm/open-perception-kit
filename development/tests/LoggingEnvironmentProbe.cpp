@@ -13,19 +13,20 @@ int main(int argc, char **argv) {
 
     const std::string_view action(argv[1]);
     if (action == "level") {
-        pek::forceLog("{}\n", pek::getLogLevel());
+        pek::log::instantInfo("{}\n", pek::log::getLogLevel());
         return 0;
     }
     if (action == "targets") {
-        for (const auto target : pek::getEnabledLogTargets()) {
-            pek::forceLog("{}\n", target == pek::LogTargetType::Stdout ? "stdout" : "stderr");
+        for (const auto target : pek::log::getEnabledLogTargets()) {
+            pek::log::instantInfo("{}\n",
+                                  target == pek::log::LogTargetType::Stdout ? "stdout" : "stderr");
         }
         return 0;
     }
     if (action == "emit") {
-        pek::log("info\n");
-        pek::loge("error\n");
-        pek::logFlush();
+        pek::log::info("info\n");
+        pek::log::error("error\n");
+        pek::log::logFlush();
         return 0;
     }
     return 1;

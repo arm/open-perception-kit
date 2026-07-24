@@ -15,7 +15,7 @@
 #include <thread>
 #include <vector>
 
-namespace pek::logging {
+namespace pek::log {
 
 class Logger {
   public:
@@ -85,4 +85,4 @@ class Logger {
     std::thread m_worker;
 };
 
-} // namespace pek::logging
+} // namespace pek::log

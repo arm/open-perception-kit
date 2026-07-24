@@ -7,7 +7,7 @@
 #include <string>
 #include <string_view>
 
-namespace pek::LogTools {
+namespace pek::log::LogTools {
 
 /// Wraps text in a Unicode frame with an optional title.
 std::string enframe(const std::string &text, const std::string &title = "");
@@ -15,4 +15,4 @@ std::string enframe(const std::string &text, const std::string &title = "");
 /// Applies ANSI reverse styling to text.
 std::string invert(std::string_view text);
 
-} // namespace pek::LogTools
+} // namespace pek::log::LogTools

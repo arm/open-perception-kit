@@ -18,7 +18,7 @@
 #include <utility>
 #include <vector>
 
-namespace pek {
+namespace pek::log {
 
 namespace { // unnamed namespace to keep functions local
 
@@ -45,7 +45,7 @@ struct InitialLogConfiguration {
 std::optional<int> configuredLogLevel() {
     const char *value = std::getenv("OPK_LOG_LEVEL"); // NOLINT(concurrency-mt-unsafe)
     if (value == nullptr) {
-        forceLoge("OPK_LOG_LEVEL is not set; defaulting to 4 (Info).\n");
+        instantError("OPK_LOG_LEVEL is not set; defaulting to 4 (Info).\n");
         return std::nullopt;
     }
     return parseLogLevel(value);
@@ -54,7 +54,7 @@ std::optional<int> configuredLogLevel() {
 std::vector<LogTargetType> configuredLogTargets() {
     const char *value = std::getenv("OPK_LOG_TARGETS"); // NOLINT(concurrency-mt-unsafe)
     if (value == nullptr) {
-        forceLoge("OPK_LOG_TARGETS is not set; defaulting to stdout.\n");
+        instantError("OPK_LOG_TARGETS is not set; defaulting to stdout.\n");
         return {LogTargetType::Stdout};
     }
 
@@ -101,9 +101,8 @@ std::atomic<int> &accessLogLevel() {
     return logLevel;
 }
 
-logging::Logger &processLogger() {
-    static logging::Logger logger(
-        logging::createBuiltInLogTargets(initialLogConfiguration().enabledTargets));
+Logger &processLogger() {
+    static Logger logger(createBuiltInLogTargets(initialLogConfiguration().enabledTargets));
     return logger;
 }
 
@@ -141,4 +140,4 @@ void logFlush() {
     processLogger().flush();
 }
 
-} // namespace pek
+} // namespace pek::log

@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <memory>
 
-namespace pek::logging {
+namespace pek::log {
 
 LogTargets createBuiltInLogTargets(const std::vector<LogTargetType> &enabledTargets) {
     const auto isEnabled = [&enabledTargets](LogTargetType type) {
@@ -25,4 +25,4 @@ LogTargets createBuiltInLogTargets(const std::vector<LogTargetType> &enabledTarg
     return targets;
 }
 
-} // namespace pek::logging
+} // namespace pek::log

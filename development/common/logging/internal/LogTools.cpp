@@ -8,7 +8,7 @@
 
 #include <cstddef>
 
-namespace pek::LogTools {
+namespace pek::log::LogTools {
 
 std::string enframe(const std::string &text, const std::string &title) {
     std::string result;
@@ -77,4 +77,4 @@ std::string invert(std::string_view text) {
     return "\033[7m" + std::string(text) + "\033[0m";
 }
 
-} // namespace pek::LogTools
+} // namespace pek::log::LogTools

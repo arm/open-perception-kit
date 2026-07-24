@@ -8,7 +8,7 @@
 #include <exception>
 #include <utility>
 
-namespace pek::logging {
+namespace pek::log {
 
 Logger::Logger(LogTargets targets)
     : m_targets(std::move(targets)), m_worker(&Logger::processRecords, this) {}
@@ -152,4 +152,4 @@ void Logger::flushEnabledTargets() {
     }
 }
 
-} // namespace pek::logging
+} // namespace pek::log

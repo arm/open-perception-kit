@@ -33,11 +33,11 @@ Values out of the accepted range are silently clamped to use the default value.
 The C++ API can read or replace the process setting at runtime:
 
 ```cpp
-pek::setLogLevel(2);
-const int currentLevel = pek::getLogLevel();
+pek::log::setLogLevel(2);
+const int currentLevel = pek::log::getLogLevel();
 ```
 
-`setLogLevel()` clamps values to the supported `0` to `4` range.
+`pek::log::setLogLevel()` clamps values to the supported `0` to `4` range.
 
 ## Log targets
 
@@ -78,13 +78,13 @@ The built-in stdout and stderr targets always exist. The C++ API changes whether
 target is enabled; it does not create or remove targets:
 
 ```cpp
-pek::setLogTargetState(pek::LogTargetType::Stdout, false);
-pek::setLogTargetState(pek::LogTargetType::Stderr, true);
+pek::log::setLogTargetState(pek::log::LogTargetType::Stdout, false);
+pek::log::setLogTargetState(pek::log::LogTargetType::Stderr, true);
 
-const auto enabledTargets = pek::getEnabledLogTargets();
+const auto enabledTargets = pek::log::getEnabledLogTargets();
 ```
 
-`setLogTargetState()` returns `false` when the requested target is unavailable. A buffered record
+`pek::log::setLogTargetState()` returns `false` when the requested target is unavailable. A buffered record
 uses the target states that are active when the worker dispatches it.
 
 ## Environment initialization
@@ -109,17 +109,19 @@ The severity functions are:
 
 | Function | Level | Output decoration |
 | --- | --- | --- |
-| `pek::log()` | Info | Message unchanged |
-| `pek::logn()` | Notice | ANSI inverted text |
-| `pek::logw()` | Warn | `W: ` prefix |
-| `pek::loge()` | Error | `E: ` prefix |
+| `pek::log::info()` | Info | Message unchanged |
+| `pek::log::notice()` | Notice | ANSI inverted text |
+| `pek::log::warning()` | Warn | `W: ` prefix |
+| `pek::log::error()` | Error | `E: ` prefix |
 
-The corresponding `logRuntime()`, `logwRuntime()`, and `logeRuntime()` functions accept a runtime
+The corresponding `pek::log::logRuntime()`, `pek::log::logwRuntime()`, and
+`pek::log::logeRuntime()` functions accept a runtime
 format string. Prefer the compile-time-checked functions when the format string is known at build
 time.
 
-`forceLog()` writes synchronously and unconditionally to stdout. `forceLoge()` does the same for
-stderr. They bypass the log level, asynchronous buffer, and target states.
+`pek::log::instantInfo()` writes synchronously and unconditionally to stdout.
+`pek::log::instantError()` does the same for stderr. They bypass the log level, asynchronous
+buffer, and target states.
 
 ## Buffering and overload
 
@@ -135,7 +137,7 @@ recent context available during overload, but overwritten messages cannot be rec
 
 ## Flushing and shutdown
 
-`pek::logFlush()` waits until every record accepted before the call has either been dispatched to
+`pek::log::logFlush()` waits until every record accepted before the call has either been dispatched to
 the enabled targets or overwritten by the drop-oldest policy. It then flushes every enabled
 target. It does not delete pending records, and it cannot restore overwritten records.
 
@@ -164,16 +166,17 @@ PEK and GStreamer components
             +---- no dependency on GStreamer or GLib
 ```
 
-A new built-in target adds a `LogTargetType`, its environment name, and an implementation created
-by the built-in target factory. The logger owns targets through `std::unique_ptr`. It invokes
-`write()` on the worker thread. `flush()` can run on the worker during shutdown or on the thread
-that calls `logFlush()` after its buffer barrier completes. Target writes, flushes, and state
-changes are serialized. Target implementations must report failures by throwing; the logger
-catches the failure and disables only that target.
+A new built-in target adds a `pek::log::LogTargetType`, its environment name, and an
+implementation created by the built-in target factory. The logger owns targets through
+`std::unique_ptr`. It invokes `write()` on the worker thread. `flush()` can run on the worker during
+shutdown or on the thread that calls `pek::log::logFlush()` after its buffer barrier completes.
+Target writes, flushes, and state changes are serialized. Target implementations must report
+failures by throwing; the logger catches the failure and disables only that target.
 
-Targets must not call the asynchronous logging API, `logFlush()`, or target-state functions,
-because doing so can recurse into the logger or deadlock. They may use `forceLog()` or
-`forceLoge()` for exceptional internal diagnostics, but not for ordinary record delivery.
+Targets must not call the asynchronous logging API, `pek::log::logFlush()`, or target-state
+functions, because doing so can recurse into the logger or deadlock. They may use
+`pek::log::instantInfo()` or `pek::log::instantError()` for exceptional internal diagnostics,
+but not for ordinary record delivery.
 
 A future file target can use the built-in target factory directly. A future webpage/`peksink` or
 GStreamer-facing integration will need an adapter boundary owned by the module that uses that

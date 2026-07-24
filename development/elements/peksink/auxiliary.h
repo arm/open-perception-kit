@@ -22,17 +22,17 @@ inline constexpr std::string_view ResetColor = "\033[0m";
 #include "Log.h"
 
 template <class... Args> void dbg(fmt::string_view fmt, Args &&...args) {
-    pek::logRuntime(fmt, std::forward<Args>(args)...);
-    pek::log("\n");
+    pek::log::logRuntime(fmt, std::forward<Args>(args)...);
+    pek::log::info("\n");
 }
 
 #define DBG(fmt, ...)                                                                              \
     do {                                                                                           \
-        pek::log("{}[{}:{}] {}",                                                                   \
-                 peksink::debug_color::BrightCyan,                                                 \
-                 std::filesystem::path(__FILE__).filename().string(),                              \
-                 __LINE__,                                                                         \
-                 peksink::debug_color::ResetColor);                                                \
+        pek::log::info("{}[{}:{}] {}",                                                             \
+                       peksink::debug_color::BrightCyan,                                           \
+                       std::filesystem::path(__FILE__).filename().string(),                        \
+                       __LINE__,                                                                   \
+                       peksink::debug_color::ResetColor);                                          \
         dbg(fmt __VA_OPT__(, ) __VA_ARGS__);                                                       \
     } while (0)
 

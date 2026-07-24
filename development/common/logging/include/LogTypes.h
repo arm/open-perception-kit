@@ -4,7 +4,7 @@
 
 #pragma once
 
-namespace pek {
+namespace pek::log {
 
 // Log levels are ordered by increasing verbosity. A configured level includes messages at that
 // level and every less verbose level below it.
@@ -14,4 +14,4 @@ enum class LogTargetType { Stdout, Stderr };
 
 inline constexpr LogLevel defaultLogLevel{LogLevel::Info};
 
-} // namespace pek
+} // namespace pek::log

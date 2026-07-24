@@ -8,7 +8,7 @@
 
 #include <cstdio>
 
-namespace pek::logging {
+namespace pek::log {
 
 class ConsoleOutput final : public LogTarget {
   public:
@@ -21,4 +21,4 @@ class ConsoleOutput final : public LogTarget {
     std::FILE *m_stream;
 };
 
-} // namespace pek::logging
+} // namespace pek::log
