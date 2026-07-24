@@ -288,10 +288,15 @@ inside a log target. These functions bypass severity filtering and configured
 targets, so they are not a replacement for normal logging.
 
 Log target implementations must not call the asynchronous logging functions,
-`pek::log::logFlush()`, or the target-state API. Doing so can recurse into
+`pek::log::flush()`, or the target-state API. Doing so can recurse into
 the logger or deadlock. A target may use `pek::log::instantInfo()` or
 `pek::log::instantError()` for an exceptional internal diagnostic, but not to
 deliver ordinary records.
+
+Select the raw file target with `OPK_LOG_TARGETS=file` and configure its path
+with `OPK_LOG_FILE`. Setting the path alone does not enable file logging. File
+messages are appended exactly as supplied, so include any required line ending
+in the message.
 
 Avoid large messages and repeated per-frame or per-object messages in hot
 paths. The logging queue is deliberately bounded and drops the oldest queued

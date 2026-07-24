@@ -48,6 +48,7 @@ case-sensitive.
 | --- | --- |
 | `stdout` | Standard output |
 | `stderr` | Standard error |
+| `file` | Raw messages appended to `OPK_LOG_FILE` |
 | `stdout,stderr` | Standard output and standard error |
 | `none` | No targets |
 
@@ -70,22 +71,39 @@ OPK_LOG_TARGETS=stderr ./tools/pek-menu
 # Duplicate every enabled severity to both streams.
 OPK_LOG_TARGETS=stdout,stderr ./tools/pek-menu
 
+# Append raw messages to opk.log.
+OPK_LOG_TARGETS=file ./tools/pek-menu
+
+# Append raw messages to a selected file and keep console output.
+OPK_LOG_TARGETS=stdout,file OPK_LOG_FILE=/tmp/pek.log ./tools/pek-menu
+
 # Suppress asynchronous output.
 OPK_LOG_TARGETS=none ./tools/pek-menu
 ```
 
-The built-in stdout and stderr targets always exist. The C++ API changes whether an available
+The built-in stdout, stderr, and file targets always exist. The C++ API changes whether an available
 target is enabled; it does not create or remove targets:
 
 ```cpp
-pek::log::setLogTargetState(pek::log::LogTargetType::Stdout, false);
-pek::log::setLogTargetState(pek::log::LogTargetType::Stderr, true);
+pek::log::setLogTargetState(pek::log::TargetType::Stdout, false);
+pek::log::setLogTargetState(pek::log::TargetType::Stderr, true);
+pek::log::setLogTargetState(pek::log::TargetType::File, true);
 
 const auto enabledTargets = pek::log::getEnabledLogTargets();
 ```
 
 `pek::log::setLogTargetState()` returns `false` when the requested target is unavailable. A buffered record
 uses the target states that are active when the worker dispatches it.
+
+The file target is disabled unless the exact `file` token is selected or the C++ API enables it.
+`OPK_LOG_FILE` only selects its path; it does not enable the target. An unset or empty
+`OPK_LOG_FILE` uses `opk.log` in the process working directory.
+
+The file is opened only when the first enabled message is written. It is opened in binary append
+mode, so existing content is preserved and messages contain exactly the text supplied by callers:
+no severity prefix, ANSI styling, timestamp, or added line ending. Disabling the target closes the
+file immediately. Re-enabling opens it lazily on the next message. Parent directories are not
+created automatically.
 
 ## Environment initialization
 
@@ -114,8 +132,8 @@ The severity functions are:
 | `pek::log::warning()` | Warn | `W: ` prefix |
 | `pek::log::error()` | Error | `E: ` prefix |
 
-The corresponding `pek::log::logRuntime()`, `pek::log::logwRuntime()`, and
-`pek::log::logeRuntime()` functions accept a runtime
+The corresponding `pek::log::infoRuntime()`, `pek::log::warningRuntime()`, and
+`pek::log::errorRuntime()` functions accept a runtime
 format string. Prefer the compile-time-checked functions when the format string is known at build
 time.
 
@@ -137,7 +155,7 @@ recent context available during overload, but overwritten messages cannot be rec
 
 ## Flushing and shutdown
 
-`pek::log::logFlush()` waits until every record accepted before the call has either been dispatched to
+`pek::log::flush()` waits until every record accepted before the call has either been dispatched to
 the enabled targets or overwritten by the drop-oldest policy. It then flushes every enabled
 target. It does not delete pending records, and it cannot restore overwritten records.
 
@@ -161,26 +179,29 @@ PEK and GStreamer components
             v
  private queue and worker -----> built-in stdout target
             |                  -> built-in stderr target
-            |                  -> future built-in file or adapter target
+            |                  -> built-in raw file target
             |
             +---- no dependency on GStreamer or GLib
 ```
 
-A new built-in target adds a `pek::log::LogTargetType`, its environment name, and an
+A new built-in target adds a `pek::log::TargetType`, its environment name, and an
 implementation created by the built-in target factory. The logger owns targets through
 `std::unique_ptr`. It invokes `write()` on the worker thread. `flush()` can run on the worker during
-shutdown or on the thread that calls `pek::log::logFlush()` after its buffer barrier completes.
+shutdown or on the thread that calls `pek::log::flush()` after its buffer barrier completes.
 Target writes, flushes, and state changes are serialized. Target implementations must report
 failures by throwing; the logger catches the failure and disables only that target.
 
-Targets must not call the asynchronous logging API, `pek::log::logFlush()`, or target-state
+For the file target, open, write, or flush failure closes and disables only the file destination.
+Other enabled targets continue receiving messages.
+
+Targets must not call the asynchronous logging API, `pek::log::flush()`, or target-state
 functions, because doing so can recurse into the logger or deadlock. They may use
 `pek::log::instantInfo()` or `pek::log::instantError()` for exceptional internal diagnostics,
 but not for ordinary record delivery.
 
-A future file target can use the built-in target factory directly. A future webpage/`peksink` or
-GStreamer-facing integration will need an adapter boundary owned by the module that uses that
-technology. The logging core must not depend on those adapters, GStreamer, or GLib. Do not add an
-unbounded queue behind a target or change the logger's drop-oldest policy.
+A future webpage/`peksink` or GStreamer-facing integration will need an adapter boundary owned by
+the module that uses that technology. The logging core must not depend on those adapters,
+GStreamer, or GLib. Do not add an unbounded queue behind a target or change the logger's
+drop-oldest policy.
 
 [Back to Concepts](/concepts)
