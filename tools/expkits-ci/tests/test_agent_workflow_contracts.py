@@ -539,6 +539,70 @@ class AgentWorkflowContractTests(unittest.TestCase):
             rpi_steps["Resolve manual PR context"]["run"],
         )
         self.assertIn("--env GH_TOKEN", rpi_steps["Resolve manual PR context"]["run"])
+        rpi_release_prepare = rpi_steps["Prepare pinned modelfetch release"]
+        self.assertEqual(
+            pek_ci["jobs"]["rpi5-quick-start-build-test"]["env"][
+                "MODELFETCH_RELEASE_TOOL_IMAGE"
+            ],
+            "pek-modelfetch-release-tools:"
+            "${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}",
+        )
+        self.assertEqual(
+            rpi_release_prepare["env"]["GH_TOKEN"],
+            "${{ secrets.MODELFETCH_RELEASE_TOKEN }}",
+        )
+        self.assertIn(
+            "--file scripts/private/modelfetch-release-tools.Dockerfile",
+            rpi_release_prepare["run"],
+        )
+        self.assertIn('--user "$(id -u):$(id -g)"', rpi_release_prepare["run"])
+        self.assertIn(
+            '--mount "type=bind,source=${PWD},target=/workspace,readonly"',
+            rpi_release_prepare["run"],
+        )
+        self.assertIn(
+            '--mount "type=bind,source=${cache_root},target=/modelfetch-cache"',
+            rpi_release_prepare["run"],
+        )
+        self.assertIn("--env GH_TOKEN", rpi_release_prepare["run"])
+        self.assertIn(
+            "--env MODELFETCH_CACHE_ROOT=/modelfetch-cache",
+            rpi_release_prepare["run"],
+        )
+        self.assertIn(
+            "bash scripts/private/prepare-modelfetch-release.sh",
+            rpi_release_prepare["run"],
+        )
+        self.assertIn('-L "$cache_parent"', rpi_release_prepare["run"])
+        self.assertIn('-L "$cache_root"', rpi_release_prepare["run"])
+        self.assertIn("trap cleanup_tool_image EXIT", rpi_release_prepare["run"])
+        self.assertIn(
+            'docker image rm --force "$MODELFETCH_RELEASE_TOOL_IMAGE"',
+            rpi_release_prepare["run"],
+        )
+        release_tools_dockerfile = (
+            PEK_CI_WORKFLOW_FILE.parents[2]
+            / "scripts/private/modelfetch-release-tools.Dockerfile"
+        ).read_text(encoding="utf-8")
+        self.assertRegex(
+            release_tools_dockerfile,
+            r"(?m)^FROM debian:trixie-slim@sha256:[0-9a-f]{64}$",
+        )
+        self.assertIn("ARG GH_DEBIAN_VERSION=2.46.0-3", release_tools_dockerfile)
+        self.assertIn('gh="${GH_DEBIAN_VERSION}"', release_tools_dockerfile)
+        self.assertIn("USER 65532:65532", release_tools_dockerfile)
+        self.assertLess(
+            list(rpi_steps).index("Prepare pinned modelfetch release"),
+            list(rpi_steps).index("Recreate quick-start container"),
+        )
+        self.assertNotIn(
+            "GH_TOKEN",
+            rpi_steps["Recreate quick-start container"].get("env", {}),
+        )
+        self.assertIn(
+            'docker image rm --force "$MODELFETCH_RELEASE_TOOL_IMAGE"',
+            rpi_steps["Clean quick-start workspace"]["run"],
+        )
         self.assertIn(
             "steps.manual_pr.outputs.base_ref",
             pek_steps["Check Repo Quality gate (PR)"]["run"],

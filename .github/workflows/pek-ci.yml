@@ -144,6 +144,7 @@ jobs:
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CI_HELPER_PATH: workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      MODELFETCH_RELEASE_TOOL_IMAGE: pek-modelfetch-release-tools:${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
       - name: Checkout workflow helpers
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
@@ -192,7 +193,7 @@ jobs:
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: ./scripts/quick-start/detect-environment.sh
 
-      - name: Recreate quick-start container
+      - name: Prepare pinned modelfetch release
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           GH_TOKEN: ${{ secrets.MODELFETCH_RELEASE_TOKEN }}
@@ -202,6 +203,42 @@ jobs:
             echo "MODELFETCH_RELEASE_TOKEN is required to read the pinned Arm-Debug/modelfetch release." >&2
             exit 1
           fi
+          cache_parent="${PWD}/.cache"
+          cache_root="${cache_parent}/modelfetch"
+          if [[ -L "$cache_parent" || -L "$cache_root" ]]; then
+            echo "Refusing unsafe modelfetch release cache path: ${cache_root}" >&2
+            exit 1
+          fi
+          mkdir -p "$cache_root"
+          if [[ ! -d "$cache_parent" || -L "$cache_parent" ||
+                ! -d "$cache_root" || -L "$cache_root" ]]; then
+            echo "Refusing unsafe modelfetch release cache path: ${cache_root}" >&2
+            exit 1
+          fi
+          cleanup_tool_image() {
+            docker image rm --force "$MODELFETCH_RELEASE_TOOL_IMAGE" >/dev/null 2>&1 || true
+          }
+          trap cleanup_tool_image EXIT
+          docker build \
+            --file scripts/private/modelfetch-release-tools.Dockerfile \
+            --tag "$MODELFETCH_RELEASE_TOOL_IMAGE" \
+            .
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --mount "type=bind,source=${PWD},target=/workspace,readonly" \
+            --mount "type=bind,source=${cache_root},target=/modelfetch-cache" \
+            --workdir /workspace \
+            --env GH_TOKEN \
+            --env GH_CONFIG_DIR=/tmp/gh-config \
+            --env HOME=/tmp \
+            --env MODELFETCH_CACHE_ROOT=/modelfetch-cache \
+            "$MODELFETCH_RELEASE_TOOL_IMAGE" \
+            bash scripts/private/prepare-modelfetch-release.sh >/dev/null
+
+      - name: Recreate quick-start container
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: |
+          set -euo pipefail
           {
             echo "HOST_UID=$(id -u)"
             echo "HOST_GID=$(id -g)"
@@ -242,6 +279,9 @@ jobs:
           cleanup_status=0
           if [ -x "$checkout_path/scripts/quick-start/cleanup-container.sh" ]; then
             "$checkout_path/scripts/quick-start/cleanup-container.sh" || cleanup_status=$?
+          fi
+          if docker image inspect "$MODELFETCH_RELEASE_TOOL_IMAGE" >/dev/null 2>&1; then
+            docker image rm --force "$MODELFETCH_RELEASE_TOOL_IMAGE" || cleanup_status=$?
           fi
           rm -rf -- "$checkout_path" "$helper_path"
           exit "$cleanup_status"
