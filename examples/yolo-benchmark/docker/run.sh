@@ -87,7 +87,7 @@ run_in_container() {
 
     ensure_bare_venv() {
         if [[ ! -x "${venv}/bin/python3" ]]; then
-            python3 -m venv "${venv}"
+            uv venv --seed "${venv}"
         fi
 
         # shellcheck source=/dev/null
