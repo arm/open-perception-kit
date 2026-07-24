@@ -133,8 +133,8 @@ UPSTREAM_HEAD_BRANCH="$(git branch --show-current)" \
 UPSTREAM_HEAD_REPOSITORY=Arm-Debug/amp-dev-forge \
 UPSTREAM_HEAD_SHA="$(git rev-parse HEAD)" \
 UPSTREAM_PR_NUMBER=181 \
-UPSTREAM_RUN_ATTEMPT=local \
-UPSTREAM_RUN_ID=local \
+UPSTREAM_RUN_ATTEMPT=1 \
+UPSTREAM_RUN_ID=1 \
 ./scripts/playwright/pages/run.sh publish
 ```
 

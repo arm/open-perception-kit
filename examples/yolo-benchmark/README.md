@@ -120,7 +120,7 @@ UPSTREAM_EVENT=workflow_dispatch \
 UPSTREAM_HEAD_BRANCH=local \
 UPSTREAM_HEAD_SHA=local \
 UPSTREAM_HEAD_REPOSITORY=Arm-Debug/amp-dev-forge \
-UPSTREAM_RUN_ATTEMPT=local \
-UPSTREAM_RUN_ID=local \
+UPSTREAM_RUN_ATTEMPT=1 \
+UPSTREAM_RUN_ID=1 \
 ./examples/yolo-benchmark/pages/run.sh publish
 ```
