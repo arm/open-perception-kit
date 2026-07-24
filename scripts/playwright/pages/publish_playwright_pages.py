@@ -40,6 +40,7 @@ PRODUCT_TITLE = "Arm Perception kit"
 REPORT_ROOT = "playwright"
 INDEX_HTML = "index.html"
 REPORT_INDEX_META = "report-index-meta.txt"
+VIDEO_ARTIFACT_META = "video-artifact.json"
 MAX_REPORT_BYTES = 500 * 1024 * 1024
 PRUNED_REPORT_DATA_SUFFIXES = {".webm", ".zip"}
 DRY_RUN_ENV = "PLAYWRIGHT_PAGES_DRY_RUN"
@@ -71,7 +72,7 @@ SOURCE_EXTENSIONS = {
 
 
 def usage() -> None:
-    print("Usage: publish_playwright_pages.py publish|cleanup", file=sys.stderr)
+    print("Usage: publish_playwright_pages.py publish|cleanup|restore-videos [site-dir]", file=sys.stderr)
 
 
 def push_site_branch(site_dir: Path, storage_branch: str) -> bool:
@@ -424,15 +425,111 @@ def copy_pruned_report_for_pages(report_dir: Path, target: Path) -> None:
     prune_report_for_pages(target)
 
 
-def restore_report_videos_for_deploy(report_dir: Path, target: Path) -> int:
+def report_video_files(report_dir: Path) -> list[str]:
+    return sorted(
+        path.relative_to(report_dir).as_posix()
+        for path in report_dir.rglob("data/*.webm")
+        if path.is_file()
+    )
+
+
+def write_video_artifact_meta(target: Path, run_id: str, run_attempt: str, files: list[str]) -> None:
+    (target / VIDEO_ARTIFACT_META).write_text(
+        json.dumps({"files": files, "run_attempt": run_attempt, "run_id": run_id}, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def read_video_artifact_meta(path: Path) -> tuple[int, int, list[str]] | None:
+    if not path.is_file():
+        return None
+    try:
+        metadata = json.loads(path.read_text(encoding="utf-8"))
+        run_id = metadata["run_id"]
+        run_attempt = metadata["run_attempt"]
+        files = metadata["files"]
+        if not isinstance(run_id, str) or not run_id.isdigit():
+            raise ValueError("invalid run ID")
+        if not isinstance(run_attempt, str) or not run_attempt.isdigit():
+            raise ValueError("invalid run attempt")
+        if not isinstance(files, list) or len(files) != len(set(files)):
+            raise ValueError("invalid video file list")
+        for filename in files:
+            video_path = Path(filename) if isinstance(filename, str) else Path()
+            if (not isinstance(filename, str) or video_path.is_absolute() or ".." in video_path.parts
+                    or video_path.parent.name != "data" or video_path.suffix != ".webm"):
+                raise ValueError("invalid video file path")
+    except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError) as error:
+        print(f"Ignoring invalid Playwright video metadata at {path}: {error}")
+        return None
+    return int(run_id), int(run_attempt), files
+
+
+def read_published_report_meta(target: Path) -> tuple[int, int, list[str] | None] | None:
+    metadata = read_video_artifact_meta(target / VIDEO_ARTIFACT_META)
+    if metadata is not None:
+        return metadata
+    match = re.search(
+        r"\| run (\d+) attempt (\d+)(?: \||$)",
+        read_first_line(target / REPORT_INDEX_META, ""),
+    )
+    return (int(match.group(1)), int(match.group(2)), None) if match else None
+
+
+def is_stale_report(target: Path, run_id: str, run_attempt: str) -> bool:
+    published = read_published_report_meta(target)
+    return published is not None and (int(run_id), int(run_attempt)) < published[:2]
+
+
+def restore_report_videos_for_deploy(
+    report_dir: Path,
+    target: Path,
+    files: list[str] | None = None,
+) -> int:
     count = 0
-    for source in report_dir.rglob("data/*.webm"):
+    sources = report_dir.rglob("data/*.webm") if files is None else (report_dir / filename for filename in files)
+    for source in sources:
         if source.is_file():
             destination = target / source.relative_to(report_dir)
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)
             count += 1
     return count
+
+
+def restore_published_report_videos(site_dir: Path) -> int:
+    repository = require_env("GITHUB_REPOSITORY")
+    targets = sorted(path.parent for path in (site_dir / REPORT_ROOT).glob(f"**/{REPORT_INDEX_META}"))
+    restored = 0
+    with tempfile.TemporaryDirectory() as tmpdir:
+        for index, target in enumerate(targets):
+            metadata = read_published_report_meta(target)
+            if metadata is None:
+                continue
+            run_id, run_attempt, files = metadata
+            if files is not None and (not files or all((target / filename).is_file() for filename in files)):
+                continue
+
+            artifact_dir = Path(tmpdir) / str(index)
+            if not download_report_artifact(artifact_dir, repository, str(run_id), str(run_attempt)):
+                print(f"Could not restore Playwright videos from run {run_id}; keeping the run link.")
+                continue
+            report_dir = find_playwright_report(artifact_dir)
+            if report_dir is None:
+                print(f"Run {run_id} artifact did not contain playwright-report; keeping the run link.")
+                continue
+            try:
+                validate_report_for_pages(report_dir)
+            except PublishError as error:
+                print(f"Could not restore Playwright videos from run {run_id}: {error}")
+                continue
+            if files is None:
+                files = report_video_files(report_dir)
+            if any(not (report_dir / filename).is_file() for filename in files):
+                print(f"Run {run_id} artifact is missing a Playwright video; keeping the run link.")
+                continue
+            restored += restore_report_videos_for_deploy(report_dir, target, files)
+    return restored
 
 
 def validate_report_for_pages(report_dir: Path) -> None:
@@ -463,6 +560,9 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
     conclusion = require_env("UPSTREAM_CONCLUSION")
     run_id = require_env("UPSTREAM_RUN_ID")
     run_attempt = require_env("UPSTREAM_RUN_ATTEMPT")
+
+    if not run_id.isdigit() or not run_attempt.isdigit():
+        raise PublishError("UPSTREAM_RUN_ID and UPSTREAM_RUN_ATTEMPT must be numeric.")
 
     if conclusion not in {"success", "failure"}:
         print(f"Skipping Playwright report from {conclusion} upstream run.")
@@ -497,6 +597,12 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
     meta_html = build_report_meta_html(repository, event, pr_number, branch, head_sha, run_id, run_attempt)
     source_meta_html = build_source_meta_html(repository, branch, head_sha, run_id, run_attempt)
 
+    checkout_site_branch(site_dir, storage_branch)
+    if is_stale_report(target, run_id, run_attempt):
+        print(f"Skipping stale Playwright report from run {run_id} attempt {run_attempt}.")
+        set_output("deploy", "false")
+        return
+
     with tempfile.TemporaryDirectory() as tmpdir:
         artifact_dir = Path(tmpdir)
         if not download_report_artifact(artifact_dir, repository, run_id, run_attempt):
@@ -510,9 +616,10 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
             return
 
         validate_report_for_pages(report_dir)
-        checkout_site_branch(site_dir, storage_branch)
+        video_files = report_video_files(report_dir)
         remove_legacy_root_site(site_dir)
         copy_pruned_report_for_pages(report_dir, target)
+        write_video_artifact_meta(target, run_id, run_attempt, video_files)
         (target / REPORT_INDEX_META).write_text(f"{index_meta_text}\n", encoding="utf-8")
         (target / "report-meta.html").write_text(f"{meta_html}\n", encoding="utf-8")
         (target / "report-source-meta.html").write_text(f"{source_meta_html}\n", encoding="utf-8")
@@ -536,7 +643,7 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
         write_site_index(site_dir, repository)
 
         changed = push_site_branch(site_dir, storage_branch)
-        restored_videos = restore_report_videos_for_deploy(report_dir, target)
+        restored_videos = restore_report_videos_for_deploy(report_dir, target, video_files)
         set_output("deploy", "true" if changed or restored_videos else "false")
 
 
@@ -602,6 +709,13 @@ def parse_retention_days(value: str) -> int:
 
 
 def main(argv: list[str]) -> int:
+    if len(argv) == 3 and argv[1] == "restore-videos":
+        try:
+            restore_published_report_videos(Path(argv[2]))
+        except PublishError as error:
+            print(f"Error: {error}", file=sys.stderr)
+            return 1
+        return 0
     if len(argv) != 2 or argv[1] not in {"publish", "cleanup"}:
         usage()
         return 2

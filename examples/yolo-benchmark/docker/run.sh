@@ -18,6 +18,7 @@ Usage:
 Runs the Dockerized YOLO benchmark workflow.
 
 Environment:
+  YOLO_BENCHMARK_KIND            Benchmark kind: images or video. Default: images.
   YOLO_BENCHMARK_LIMIT           Optional image-list limit. Default: full COCO val2017.
   YOLO_BENCHMARK_RUNS            Number of benchmark repetitions. Default: 1.
   YOLO_BENCHMARK_IMAGE_NAME      Runtime image tag override.
@@ -45,6 +46,10 @@ is_uint() {
 }
 
 validate_inputs() {
+    if [[ "${YOLO_BENCHMARK_KIND:-images}" != "images" && "${YOLO_BENCHMARK_KIND:-images}" != "video" ]]; then
+        echo "YOLO_BENCHMARK_KIND must be 'images' or 'video', got '${YOLO_BENCHMARK_KIND}'." >&2
+        exit 2
+    fi
     if [[ -n "${YOLO_BENCHMARK_LIMIT:-}" ]] && ! is_uint "${YOLO_BENCHMARK_LIMIT}"; then
         echo "YOLO_BENCHMARK_LIMIT must be a non-negative integer, got '${YOLO_BENCHMARK_LIMIT}'." >&2
         exit 2
@@ -60,7 +65,10 @@ validate_inputs() {
 run_in_container() {
     local artifact_root="/work/artifacts/yolo-benchmark"
     local cache_root="/cache/yolo-benchmark"
+    local benchmark_kind="${YOLO_BENCHMARK_KIND:-images}"
     local image_list="${artifact_root}/images.tsv"
+    local video="${cache_root}/media/mediapipe-object-detection.mp4"
+    local video_manifest="${artifact_root}/video-source.json"
     local benchmark_runs="${YOLO_BENCHMARK_RUNS:-1}"
     local venv="${cache_root}/.venv"
     local dataset_dir="${cache_root}/coco"
@@ -112,6 +120,12 @@ run_in_container() {
             "${limit_args[@]}"
     }
 
+    prepare_video() {
+        python3 examples/yolo-benchmark/prepare_video.py \
+            --video "${video}" \
+            --manifest "${video_manifest}"
+    }
+
     build_pek_runner() {
         ./scripts/build-elements.sh debug true
         if [[ -d "${pek_build_dir}/meson-private" ]]; then
@@ -122,12 +136,17 @@ run_in_container() {
         meson compile -C "${pek_build_dir}"
         mkdir -p examples/bin
         cp "${pek_build_dir}/yolo-benchmark" examples/bin/yolo-benchmark
-        chmod +x examples/bin/yolo-benchmark
+        cp "${pek_build_dir}/yolo-video-benchmark" examples/bin/yolo-video-benchmark
+        chmod +x examples/bin/yolo-benchmark examples/bin/yolo-video-benchmark
     }
 
     setup() {
         ensure_bare_venv
-        prepare_dataset
+        if [[ "${benchmark_kind}" == "video" ]]; then
+            prepare_video
+        else
+            prepare_dataset
+        fi
         build_pek_runner
     }
 
@@ -143,18 +162,21 @@ run_in_container() {
     }
 
     require_setup() {
-        if [[ ! -f "${image_list}" ]]; then
-            echo "Image list is missing. Run examples/yolo-benchmark/docker/run.sh setup first." >&2
-            exit 1
-        fi
-        if [[ ! -x examples/bin/yolo-benchmark ]]; then
-            echo "PEK benchmark runner is missing. Run examples/yolo-benchmark/docker/run.sh setup first." >&2
-            exit 1
+        if [[ "${benchmark_kind}" == "video" ]]; then
+            if [[ ! -f "${video}" || ! -f "${video_manifest}" || ! -x examples/bin/yolo-video-benchmark ]]; then
+                echo "Video benchmark setup is missing. Run YOLO_BENCHMARK_KIND=video examples/yolo-benchmark/docker/run.sh setup first." >&2
+                exit 1
+            fi
+        else
+            if [[ ! -f "${image_list}" || ! -x examples/bin/yolo-benchmark ]]; then
+                echo "Image benchmark setup is missing. Run examples/yolo-benchmark/docker/run.sh setup first." >&2
+                exit 1
+            fi
         fi
         activate_bare_venv
     }
 
-    benchmark_once() {
+    benchmark_images_once() {
         local run_root="$1"
         rm -rf "${run_root}"
         mkdir -p "${run_root}"
@@ -178,16 +200,104 @@ run_in_container() {
             --output-md "${run_root}/comparison.md"
     }
 
+    run_bare_video() {
+        local run_root="$1"
+        LD_LIBRARY_PATH="" python3 examples/yolo-benchmark/bare/video_benchmark.py \
+            --model "${model}" \
+            --video "${video}" \
+            --source-manifest "${video_manifest}" \
+            --summary "${run_root}/bare/benchmark_summary.json"
+    }
+
+    run_pek_video() {
+        local run_root="$1"
+        ./examples/bin/yolo-video-benchmark \
+            --opchain "${opchain}" \
+            --video "${video}" \
+            --source-manifest "${video_manifest}" \
+            --summary "${run_root}/pek/benchmark_summary.json"
+    }
+
+    render_bare_detection_video() {
+        local output="${artifact_root}/bare-detections.mp4"
+        local temporary_dir="/tmp/bare-detection-render"
+        local temporary="/tmp/bare-detections.mp4"
+        local rendered="${temporary_dir}/prediction/$(basename "${video%.*}").avi"
+        rm -rf "${temporary_dir}"
+        rm -f "${output}" "${temporary}"
+        LD_LIBRARY_PATH="" yolo detect predict \
+            model="${model}" source="${video}" imgsz=320 device=cpu batch=1 vid_stride=1 \
+            conf=0.25 save=true project="${temporary_dir}" name=prediction \
+            exist_ok=true verbose=false
+        test -s "${rendered}"
+        gst-launch-1.0 -e -q \
+            filesrc location="${rendered}" ! \
+            decodebin ! videoconvert ! video/x-raw,format=I420 ! \
+            x264enc speed-preset=ultrafast tune=zerolatency bitrate=6000 key-int-max=30 ! \
+            h264parse ! mp4mux faststart=true ! filesink location="${temporary}"
+        test -s "${temporary}"
+        mv "${temporary}" "${output}"
+        rm -rf "${temporary_dir}"
+    }
+
+    render_pek_detection_video() {
+        local output="${artifact_root}/pek-detections.mp4"
+        local temporary="/tmp/pek-detections.mp4"
+        rm -f "${output}" "${temporary}"
+        gst-launch-1.0 -e -q \
+            filesrc location="${video}" ! \
+            decodebin ! videoconvert ! video/x-raw,format=BGRA ! \
+            pekinfer opchain-path="${opchain}" active=true ! \
+            pekosd enabled=true ! videoconvert ! video/x-raw,format=I420 ! \
+            x264enc speed-preset=ultrafast tune=zerolatency bitrate=6000 key-int-max=30 ! \
+            h264parse ! mp4mux faststart=true ! filesink location="${temporary}"
+        test -s "${temporary}"
+        mv "${temporary}" "${output}"
+    }
+
+    benchmark_video_once() {
+        local run_root="$1"
+        local run_index="$2"
+        rm -rf "${run_root}"
+        mkdir -p "${run_root}"
+
+        if ((run_index % 2 == 1)); then
+            run_bare_video "${run_root}"
+            run_pek_video "${run_root}"
+        else
+            run_pek_video "${run_root}"
+            run_bare_video "${run_root}"
+        fi
+
+        python3 examples/yolo-benchmark/compare_video_benchmark_summaries.py \
+            --bare-summary "${run_root}/bare/benchmark_summary.json" \
+            --pek-summary "${run_root}/pek/benchmark_summary.json" \
+            --output-json "${run_root}/comparison.json" \
+            --output-md "${run_root}/comparison.md"
+    }
+
     benchmark() {
         validate_benchmark_runs
         require_setup
-        rm -rf "${artifact_root}/runs"
+        rm -rf "${artifact_root}/runs" "${artifact_root}/summary.json" "${artifact_root}/summary.md"
         for run_index in $(seq 1 "${benchmark_runs}"); do
             local run_name
             run_name="$(printf 'run-%02d' "${run_index}")"
-            echo "YOLO benchmark ${run_index}/${benchmark_runs}: artifacts/yolo-benchmark/runs/${run_name}"
-            benchmark_once "${artifact_root}/runs/${run_name}"
+            echo "YOLO ${benchmark_kind} benchmark ${run_index}/${benchmark_runs}: artifacts/yolo-benchmark/runs/${run_name}"
+            if [[ "${benchmark_kind}" == "video" ]]; then
+                benchmark_video_once "${artifact_root}/runs/${run_name}" "${run_index}"
+            else
+                benchmark_images_once "${artifact_root}/runs/${run_name}"
+            fi
         done
+        if [[ "${benchmark_kind}" == "video" ]]; then
+            python3 examples/yolo-benchmark/compare_video_benchmark_summaries.py \
+                --runs-root "${artifact_root}/runs" \
+                --output-json "${artifact_root}/summary.json" \
+                --output-md "${artifact_root}/summary.md"
+            render_bare_detection_video
+            render_pek_detection_video
+        fi
     }
 
     if [[ "${command}" == "setup" ]]; then
@@ -212,11 +322,14 @@ write_summary() {
     {
         echo "## YOLO Benchmark"
         echo
+        echo "- benchmark_kind: ${YOLO_BENCHMARK_KIND:-images}"
         echo "- image_limit: ${YOLO_BENCHMARK_LIMIT:-full}"
         echo "- benchmark_runs: ${YOLO_BENCHMARK_RUNS:-1}"
-        echo "- image: ${YOLO_BENCHMARK_IMAGE_NAME:-${IMAGE_NAME}}"
+        echo "- container_image: ${YOLO_BENCHMARK_IMAGE_NAME:-${IMAGE_NAME}}"
         echo
-        if compgen -G "artifacts/yolo-benchmark/runs/run-*/comparison.md" > /dev/null; then
+        if [[ -f artifacts/yolo-benchmark/summary.md ]]; then
+            cat artifacts/yolo-benchmark/summary.md
+        elif compgen -G "artifacts/yolo-benchmark/runs/run-*/comparison.md" > /dev/null; then
             for comparison in artifacts/yolo-benchmark/runs/run-*/comparison.md; do
                 echo "## $(basename "$(dirname "${comparison}")")"
                 echo

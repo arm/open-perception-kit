@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "inputs": {
+      "additionalProperties": true,
+      "properties": {
+        "device": { "minLength": 1, "type": "string" },
+        "imgsz": { "minimum": 1, "type": "integer" },
+        "model": { "type": "string" },
+        "opchain": { "type": "string" },
+        "source_fps": { "exclusiveMinimum": 0, "type": "number" },
+        "source_frame_count": { "minimum": 1, "type": "integer" },
+        "source_height": { "minimum": 1, "type": "integer" },
+        "source_width": { "minimum": 1, "type": "integer" },
+        "video": { "minLength": 1, "type": "string" },
+        "video_sha256": { "pattern": "^[0-9a-f]{64}$", "type": "string" }
+      },
+      "required": [
+        "model",
+        "opchain",
+        "video",
+        "video_sha256",
+        "source_width",
+        "source_height",
+        "source_fps",
+        "source_frame_count",
+        "imgsz",
+        "device"
+      ],
+      "type": "object"
+    },
+    "measurement": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_write_excluded": { "const": true },
+        "decode_included": { "const": true },
+        "technique": { "const": "unpaced_video_result_intervals" },
+        "timed_region": { "const": "first_serialized_result_ready_to_last_serialized_result_ready" },
+        "video_pacing_disabled": { "const": true },
+        "warmup_frames": { "minimum": 0, "type": "integer" }
+      },
+      "required": [
+        "technique",
+        "timed_region",
+        "decode_included",
+        "artifact_write_excluded",
+        "video_pacing_disabled",
+        "warmup_frames"
+      ],
+      "type": "object"
+    },
+    "runner": { "minLength": 1, "type": "string" },
+    "schema": { "const": "expkits_yolo_video_benchmark.v1" },
+    "timing": {
+      "additionalProperties": true,
+      "properties": {
+        "elapsed_ms": { "exclusiveMinimum": 0, "type": "number" },
+        "load_ms": { "minimum": 0, "type": "number" },
+        "measured_frames": { "minimum": 1, "type": "integer" },
+        "pipeline_fps": { "exclusiveMinimum": 0, "type": "number" },
+        "total_frames": { "minimum": 1, "type": "integer" }
+      },
+      "required": ["load_ms", "total_frames", "measured_frames", "elapsed_ms", "pipeline_fps"],
+      "type": "object"
+    }
+  },
+  "required": ["schema", "runner", "measurement", "inputs", "timing"],
+  "type": "object"
+}

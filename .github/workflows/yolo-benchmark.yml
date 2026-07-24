@@ -3,6 +3,14 @@ name: YOLO Benchmark
 on:
   workflow_dispatch:
     inputs:
+      benchmark_kind:
+        description: "Benchmark the pinned MP4 or the COCO image set."
+        required: false
+        default: "video"
+        type: choice
+        options:
+          - video
+          - images
       image_limit:
         description: "Optional COCO val2017 image limit. Use 0 for the full dataset."
         required: false
@@ -11,7 +19,7 @@ on:
       benchmark_runs:
         description: "Number of repeated benchmark runs."
         required: false
-        default: "10"
+        default: "4"
         type: string
   pull_request:
     branches: [ main, develop, "feature/**", "sandbox/**" ]
@@ -41,6 +49,7 @@ jobs:
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: yolo-benchmark-${{ github.run_id }}-${{ github.run_attempt }}
       YOLO_BENCHMARK_IMAGE_NAME: amp-dev-forge-yolo-benchmark:${{ github.run_id }}-${{ github.run_attempt }}
+      YOLO_BENCHMARK_KIND: ${{ github.event_name == 'workflow_dispatch' && inputs.benchmark_kind || 'video' }}
       YOLO_BENCHMARK_LIMIT: ${{ github.event_name == 'workflow_dispatch' && inputs.image_limit || '' }}
       YOLO_BENCHMARK_RUNS: ${{ github.event_name == 'workflow_dispatch' && inputs.benchmark_runs || '10' }}
 
@@ -56,6 +65,13 @@ jobs:
       - name: Set up YOLO benchmark cache
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: ./examples/yolo-benchmark/docker/run.sh setup
+
+      - name: Run benchmark unit tests
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: |
+          docker compose -f examples/yolo-benchmark/docker/compose.yaml run --rm \
+            yolo-benchmark \
+            python3 -m unittest discover -s examples/yolo-benchmark/tests
 
       - name: Run YOLO benchmark
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}

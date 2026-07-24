@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -19,6 +20,8 @@ from pathlib import Path
 DATASET_ROOT = "yolo-performance-datasets"
 DATASET_NAME = "COCO val2017"
 FINGERPRINT_HEADER = "# image_set_fingerprint="
+VIDEO_DATASET_NAME = "MediaPipe object detection"
+VIDEO_FILENAME = "mediapipe-object-detection.mp4"
 
 
 def parse_args() -> argparse.Namespace:
@@ -37,6 +40,12 @@ def dataset_id(fingerprint: str) -> str:
     if not fingerprint.startswith("sha256:"):
         raise ValueError(f"Unsupported image set fingerprint: {fingerprint}")
     return f"coco-val2017-{fingerprint.removeprefix('sha256:')[:12]}"
+
+
+def video_dataset_id(digest: str) -> str:
+    if re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+        raise ValueError(f"Unsupported video SHA-256: {digest}")
+    return f"mediapipe-object-detection-{digest[:12]}"
 
 
 def prepare_image_list(cache_dir: Path, image_list: Path | None) -> Path:
@@ -94,6 +103,10 @@ def report_image_lists(site_dir: Path) -> list[Path]:
     return sorted(path for path in (site_dir / "yolo-benchmark").rglob("images.tsv") if path.is_file())
 
 
+def report_video_manifests(site_dir: Path) -> list[Path]:
+    return sorted(path for path in (site_dir / "yolo-benchmark").rglob("video-source.json") if path.is_file())
+
+
 def write_index(path: Path, title: str, links: list[tuple[str, str]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     rows = "\n".join(
@@ -120,6 +133,63 @@ def write_index(path: Path, title: str, links: list[tuple[str, str]]) -> None:
       <ul>
 {rows}
       </ul>
+    </main>
+  </body>
+</html>
+""",
+        encoding="utf-8",
+    )
+
+
+def prepare_video_source(cache_dir: Path) -> tuple[Path, dict[str, object]]:
+    video = cache_dir / "media" / VIDEO_FILENAME
+    manifest = cache_dir / "media" / "video-source.json"
+    subprocess.run(
+        [
+            sys.executable,
+            str(repo_root() / "examples/yolo-benchmark/prepare_video.py"),
+            "--video",
+            str(video),
+            "--manifest",
+            str(manifest),
+        ],
+        check=True,
+    )
+    return video, json.loads(manifest.read_text(encoding="utf-8"))
+
+
+def write_video_index(path: Path, source: dict[str, object]) -> None:
+    name = html.escape(str(source.get("name", VIDEO_DATASET_NAME)))
+    source_url = html.escape(str(source["url"]), quote=True)
+    repository = html.escape(str(source.get("repository", "")), quote=True)
+    license_name = html.escape(str(source.get("license", "")))
+    metadata = html.escape(
+        f'{source.get("width", "?")}x{source.get("height", "?")} @ '
+        f'{source.get("fps", "?")} FPS | {source.get("frame_count", "?")} frames'
+    )
+    repository_link = f' | <a href="{repository}">repository</a>' if repository else ""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        f"""<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{name}</title>
+    <style>
+      body {{ margin: 0; font: 16px system-ui, sans-serif; background: #0d1117; color: #e6edf3; }}
+      main {{ max-width: 1100px; margin: 0 auto; padding: 40px 24px; }}
+      video {{ display: block; width: 100%; height: auto; margin: 24px 0; background: #000; }}
+      a {{ color: #3fb950; }}
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>{name}</h1>
+      <p>{metadata}</p>
+      <video controls preload="metadata" playsinline src="{VIDEO_FILENAME}"></video>
+      <p><a href="{VIDEO_FILENAME}">Download input MP4</a> | <a href="{source_url}">source file</a>{repository_link}</p>
+      <p>License: {license_name}</p>
     </main>
   </body>
 </html>
@@ -161,11 +231,29 @@ def restore_one_dataset(site_dir: Path, cache_dir: Path, resolved_image_list: Pa
     return target
 
 
+def restore_one_video_dataset(site_dir: Path, cache_dir: Path, source: dict[str, object]) -> Path | None:
+    digest = str(source.get("sha256", ""))
+    dataset = video_dataset_id(digest)
+    cached_video, canonical = prepare_video_source(cache_dir)
+    if source.get("schema") != canonical.get("schema") or digest != canonical.get("sha256"):
+        print("Skipping unsupported video source manifest; schema or SHA-256 differs")
+        return None
+
+    target = site_dir / DATASET_ROOT / dataset
+    if target.exists():
+        shutil.rmtree(target)
+    target.mkdir(parents=True)
+    shutil.copy2(cached_video, target / VIDEO_FILENAME)
+    canonical["video"] = VIDEO_FILENAME
+    (target / "manifest.json").write_text(
+        json.dumps(canonical, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_video_index(target / "index.html", canonical)
+    return target
+
+
 def restore_overlay(site_dir: Path, cache_dir: Path, image_list: Path | None = None) -> list[Path]:
     image_lists = [prepare_image_list(cache_dir, image_list)] if image_list else report_image_lists(site_dir)
-    if not image_lists:
-        write_index(site_dir / DATASET_ROOT / "index.html", "YOLO Performance Datasets", [])
-        return []
+    video_manifests = report_video_manifests(site_dir)
 
     targets = []
     seen = set()
@@ -176,6 +264,21 @@ def restore_overlay(site_dir: Path, cache_dir: Path, image_list: Path | None = N
             continue
         seen.add(dataset)
         targets.append(restore_one_dataset(site_dir, cache_dir, path))
+    for path in video_manifests:
+        try:
+            source = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(source, dict):
+                raise ValueError("manifest must be an object")
+            dataset = video_dataset_id(str(source.get("sha256", "")))
+        except (OSError, ValueError) as error:
+            print(f"Skipping invalid video source manifest {path}: {error}")
+            continue
+        if dataset in seen:
+            continue
+        target = restore_one_video_dataset(site_dir, cache_dir, source)
+        if target is not None:
+            seen.add(dataset)
+            targets.append(target)
     write_index(
         site_dir / DATASET_ROOT / "index.html",
         "YOLO Performance Datasets",

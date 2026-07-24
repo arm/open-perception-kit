@@ -176,6 +176,7 @@ section {
 .table-scroll {
   border: 1px solid var(--border);
   border-radius: 6px;
+  overflow-x: auto;
   width: 100%;
 }
 .benchmark-table {
@@ -394,6 +395,17 @@ section {
   margin-bottom: 8px;
   max-width: 100%;
   width: 100%;
+}
+.detection-video {
+  aspect-ratio: 16 / 9;
+  background: #000;
+  display: block;
+  height: auto;
+  width: 100%;
+}
+header p,
+.report-section p {
+  overflow-wrap: anywhere;
 }
 .chart-grid line {
   stroke: var(--border);
