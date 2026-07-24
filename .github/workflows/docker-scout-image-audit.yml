@@ -7,7 +7,7 @@ on:
         required: true
       DOCKER_TOKEN:
         required: true
-      MODELFETCH_RELEASE_TOKEN:
+      EDGEAI_EXPKITS_APP_PK:
         required: true
   workflow_dispatch:
   pull_request:
@@ -51,7 +51,7 @@ jobs:
       - name: Checkout current ref
         id: checkout-current-ref
         if: github.event_name != 'pull_request'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -61,7 +61,7 @@ jobs:
       - name: Checkout pull request head
         id: checkout-pr-head
         if: github.event_name == 'pull_request'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.sha }}
@@ -85,17 +85,24 @@ jobs:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
 
+      - name: Create read-only modelfetch token
+        if: matrix.image.service == 'pek-dev-base'
+        id: modelfetch-app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: Iv23li0DqDMHoMs0TXT9
+          private-key: ${{ secrets.EDGEAI_EXPKITS_APP_PK }}
+          owner: Arm-Debug
+          repositories: modelfetch
+          permission-contents: read
+
       - name: Prepare pinned modelfetch release
         if: matrix.image.service == 'pek-dev-base'
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
-          GH_TOKEN: ${{ secrets.MODELFETCH_RELEASE_TOKEN }}
+          GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
         run: |
           set -euo pipefail
-          if [ -z "${GH_TOKEN:-}" ]; then
-            echo "MODELFETCH_RELEASE_TOKEN is required to read the pinned Arm-Debug/modelfetch release." >&2
-            exit 1
-          fi
           ./scripts/private/prepare-modelfetch-release.sh >/dev/null
 
       - name: Build docker image
@@ -389,7 +396,7 @@ jobs:
 
       - name: Upload Docker Scout artifact
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: docker-scout-${{ matrix.image.service }}
           path: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.github/artifacts/docker-scout/${{ matrix.image.service }}

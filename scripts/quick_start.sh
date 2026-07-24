@@ -15,7 +15,8 @@ Usage:
 Detects the host environment for the PEK quick-start flow.
 
 This implementation detects the environment, runs the current prerequisite
-check, and starts the matching PEK base development container.
+check, and starts the matching PEK base development container. When present,
+the repository-root .env file is passed to Docker Compose.
 EOF
 }
 
@@ -41,7 +42,12 @@ echo
 "${PREREQ_SCRIPT}"
 
 echo
-"${START_CONTAINER_SCRIPT}"
+START_CONTAINER_ARGS=()
+if [[ -f "${REPO_ROOT}/.env" ]]; then
+    START_CONTAINER_ARGS=(--env-file "${REPO_ROOT}/.env")
+fi
+"${START_CONTAINER_SCRIPT}" \
+    "${START_CONTAINER_ARGS[@]+"${START_CONTAINER_ARGS[@]}"}"
 
 echo
 echo "Quick-start container is ready."

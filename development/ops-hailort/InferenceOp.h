@@ -4,7 +4,6 @@
 #pragma once
 
 #include <memory>
-#include <string>
 
 #include "op/Op.h"
 #include "op/OpChainContext.h"
@@ -29,7 +28,6 @@ class InferenceOp : public pek::op::Op, public pek::op::OpInterfaceInference {
 
   private:
     std::unique_ptr<pek::hailo::Inference> inference;
-    std::string modelFamily;
 };
 
 } // namespace pek::hailo

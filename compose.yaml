@@ -22,12 +22,21 @@ services:
       target: pek-deployment-base
       additional_contexts:
         modelfetch_sdks: .cache/modelfetch
+      secrets:
+        - executorch_artifactory_username
+        - executorch_artifactory_password
       args:
         PEK_PIPELINE: ${PEK_PIPELINE:-onnx}
+        EXECUTORCH_DEB_REVISION: ${EXECUTORCH_DEB_REVISION:-2}
+        EXECUTORCH_REQUIRED: 1
 
 secrets:
   huggingface_token:
     file: ${HF_TOKEN_PATH:-/dev/null}
+  executorch_artifactory_username:
+    environment: EXECUTORCH_ARTIFACTORY_USERNAME
+  executorch_artifactory_password:
+    environment: EXECUTORCH_ARTIFACTORY_PASSWORD
 
 # Topo-specific metadata
 # TODO: for some reason in case of topo deployment from WSL the container has x86 binaries inside it instead of arm64. Despite the platform specification in the compose file.

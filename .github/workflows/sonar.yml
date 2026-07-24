@@ -60,7 +60,7 @@ jobs:
 
       - name: Checkout workflow helpers
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           path: ${{ env.CI_HELPER_PATH }}
@@ -83,7 +83,7 @@ jobs:
             --github-output "${GITHUB_OUTPUT}"
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -94,16 +94,22 @@ jobs:
         shell: bash
         run: echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
 
+      - name: Create read-only modelfetch token
+        id: modelfetch-app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: Iv23li0DqDMHoMs0TXT9
+          private-key: ${{ secrets.EDGEAI_EXPKITS_APP_PK }}
+          owner: Arm-Debug
+          repositories: modelfetch
+          permission-contents: read
+
       - name: Prepare pinned modelfetch release
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
-          GH_TOKEN: ${{ secrets.MODELFETCH_RELEASE_TOKEN }}
+          GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
         run: |
           set -euo pipefail
-          if [ -z "${GH_TOKEN:-}" ]; then
-            echo "MODELFETCH_RELEASE_TOKEN is required to read the pinned Arm-Debug/modelfetch release." >&2
-            exit 1
-          fi
           ./scripts/private/prepare-modelfetch-release.sh >/dev/null
 
       - name: Build docker image
@@ -153,7 +159,7 @@ jobs:
 
       - name: Upload Sonar quality gate report
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: sonar-quality-gate-report
           path: |

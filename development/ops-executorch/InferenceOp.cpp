@@ -52,8 +52,6 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes,
                                         fmt::format("Executorch startup error: {}", e.what())));
     }
 
-    modelFamily = inference->getModel().modelFamily;
-
     return {};
 }
 

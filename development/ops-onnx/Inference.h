@@ -3,8 +3,12 @@
  *************************************************************/
 #pragma once
 
+#include <algorithm>
+#include <cassert>
+#include <cmath>
 #include <cstdint>
 #include <fmt/core.h>
+#include <limits>
 #include <onnxruntime_cxx_api.h>
 
 #include "Log.h"
@@ -15,10 +19,9 @@
 #include "pek/Types.h"
 
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
-
-#include "pek/Result.h"
 
 namespace pek::onnx {
 
@@ -58,6 +61,33 @@ struct Tensor {
         return this->shape == shape;
     }
 
+    bool setValuesFromFloat(const std::vector<float> &values) {
+        if (values.size() != getElementCount())
+            return false;
+
+        if (this->type == pek::Dtype::Float32) {
+            std::copy(values.begin(), values.end(), reinterpret_cast<float *>(getData()));
+            return true;
+        }
+        if (this->type == pek::Dtype::Int64) {
+            const auto representable = [](float value) {
+                const long double widened = value;
+                return std::isfinite(value) &&
+                       widened >= static_cast<long double>(std::numeric_limits<int64_t>::min()) &&
+                       widened <= static_cast<long double>(std::numeric_limits<int64_t>::max());
+            };
+            if (!std::all_of(values.begin(), values.end(), representable))
+                return false;
+
+            std::transform(values.begin(),
+                           values.end(),
+                           reinterpret_cast<int64_t *>(getData()),
+                           [](float value) { return static_cast<int64_t>(value); });
+            return true;
+        }
+        return false;
+    }
+
     Ort::Value createOnnxTensor(const Ort::MemoryInfo &memInfo) {
         if (this->type == pek::Dtype::Float32) {
             return Ort::Value::CreateTensor<float>(memInfo,
@@ -65,22 +95,30 @@ struct Tensor {
                                                    getElementCount(),
                                                    this->onnxShape,
                                                    this->shape.rank);
+        } else if (this->type == pek::Dtype::Float16) {
+            return Ort::Value::CreateTensor<Ort::Float16_t>(
+                memInfo,
+                reinterpret_cast<Ort::Float16_t *>(getData()),
+                getElementCount(),
+                this->onnxShape,
+                this->shape.rank);
         } else if (this->type == pek::Dtype::Int64) {
             return Ort::Value::CreateTensor<int64_t>(memInfo,
                                                      reinterpret_cast<int64_t *>(getData()),
                                                      getElementCount(),
                                                      onnxShape,
                                                      this->shape.rank);
-        } else {
-            assert(0);
         }
+
+        throw std::invalid_argument(
+            fmt::format("unsupported ONNX tensor dtype: {}", static_cast<int>(this->type)));
     }
 
   private:
     pek::Dtype type;
     size_t typeByteSize;
     pek::Shape shape;
-    int64_t onnxShape[8];
+    int64_t onnxShape[pek::Shape::MaxRank];
 
     std::vector<uint8_t> data;
 };

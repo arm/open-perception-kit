@@ -3,7 +3,7 @@ option('tests', type: 'boolean', value: false, description: 'Build unit tests')
 
 option('executorch',
   type : 'feature',
-  value : 'disabled',
+  value : 'auto',
   description : 'Enable ExecuTorch integration'
 )
 

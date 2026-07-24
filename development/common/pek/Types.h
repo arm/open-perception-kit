@@ -247,16 +247,8 @@ enum class Sampling {
  * @brief Describes a tensor feedback loop, copying an output tensor back as a future input.
  */
 struct TensorFeedback {
-    /**
-     * @brief Copy mode for the feedback operation.
-     */
-    enum class Mode {
-        Copy ///< Direct buffer copy.
-    };
-
     size_t fromOutputTensorIndex = 0; ///< Source output tensor index.
     size_t toInputTensorIndex = 0;    ///< Destination input tensor index.
-    Mode mode = Mode::Copy;           ///< Feedback copy mode.
 };
 
 /**

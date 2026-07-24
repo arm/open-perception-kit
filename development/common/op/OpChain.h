@@ -46,8 +46,8 @@ class OpChain {
     /**
      * @brief Initializes the chain from an OpChainDescriptor.
      *
-     * Loads operation definitions and creates Op instances from the descriptor.
-     * Must be followed by bind() and then execute() can be called.
+     * Loads operation definitions, creates Op instances, and binds the completed
+     * chain before returning. execute() can be called after successful setup.
      *
      * Operations receive shared setup controls while they configure. Model loading
      * remains synchronous within this call; callers may choose another execution

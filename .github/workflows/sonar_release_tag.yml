@@ -22,7 +22,7 @@ jobs:
           password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
 
       - name: Checkout tagged commit
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -41,20 +41,29 @@ jobs:
             echo "SONAR_PROJECT_VERSION=${GITHUB_REF_NAME#release/}"
           } >> "$GITHUB_ENV"
 
+      - name: Create read-only modelfetch token
+        id: modelfetch-app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: Iv23li0DqDMHoMs0TXT9
+          private-key: ${{ secrets.EDGEAI_EXPKITS_APP_PK }}
+          owner: Arm-Debug
+          repositories: modelfetch
+          permission-contents: read
+
       - name: Prepare pinned modelfetch release
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
-          GH_TOKEN: ${{ secrets.MODELFETCH_RELEASE_TOKEN }}
+          GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
         run: |
           set -euo pipefail
-          if [ -z "${GH_TOKEN:-}" ]; then
-            echo "MODELFETCH_RELEASE_TOKEN is required to read the pinned Arm-Debug/modelfetch release." >&2
-            exit 1
-          fi
           ./scripts/private/prepare-modelfetch-release.sh >/dev/null
 
       - name: Build docker image 
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          EXECUTORCH_ARTIFACTORY_USERNAME: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
+          EXECUTORCH_ARTIFACTORY_PASSWORD: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-sonar-check-release
           
       - name: Run SonarQube release analysis

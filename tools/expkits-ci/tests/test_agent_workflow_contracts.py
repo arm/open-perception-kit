@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 import unittest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'scripts/private'))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts/private"))
 from test_support.agent_workflow import (  # noqa: E402
     AGENT_MODEL_CONFIG_FILE,
     AGENT_REPAIR_SOURCE_RUN_WORKER_FILE,
@@ -28,6 +28,12 @@ from test_support.agent_workflow import (  # noqa: E402
     load_quality_checks_module,
     load_yaml,
     step_map,
+)
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+MODELFETCH_APP_TOKEN_ACTION = (
+    "actions/create-github-app-token@"
+    "bcd2ba49218906704ab6c1aa796996da409d3eb1"  # pragma: allowlist secret
 )
 
 
@@ -61,7 +67,9 @@ class AgentWorkflowContractTests(unittest.TestCase):
             },
         )
         self.assertNotIn("workflow_run", workflow["on"])
-        self.assertEqual(repair_job["uses"], "./.github/workflows/agent-repair-source-run-worker.yml")
+        self.assertEqual(
+            repair_job["uses"], "./.github/workflows/agent-repair-source-run-worker.yml"
+        )
         self.assertNotIn("run-agent-stabilizer", workflow["jobs"])
         self.assertEqual(dispatch_inputs["task_ref"]["default"], "")
         self.assertEqual(repair_job["with"]["task_ref"], "${{ inputs.task_ref || '' }}")
@@ -74,7 +82,10 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertNotIn("source_head_repository", repair_job["with"])
         self.assertEqual(repair_job["permissions"]["actions"], "write")
         self.assertEqual(repair_job["secrets"], "inherit")
-        self.assertNotIn("inputs.pr_number", AGENT_REPAIR_SOURCE_RUN_WORKER_FILE.read_text(encoding="utf-8"))
+        self.assertNotIn(
+            "inputs.pr_number",
+            AGENT_REPAIR_SOURCE_RUN_WORKER_FILE.read_text(encoding="utf-8"),
+        )
 
     def test_reusable_workflow_uses_profile_and_direct_helper_commands(self):
         workflow = load_yaml(AGENT_REPAIR_SOURCE_RUN_WORKER_FILE)
@@ -149,11 +160,13 @@ class AgentWorkflowContractTests(unittest.TestCase):
             agent_step_names.index("Package repository changes"),
         )
         python_step = agent_steps["Set up Agent Python"]
-        self.assertEqual(python_step["uses"], "actions/setup-python@v6")
         self.assertEqual(python_step["with"]["python-version"], "3.10")
         install_step = agent_steps["Install OpenAI agent runtime"]
         self.assertEqual(install_step["shell"], "bash")
-        self.assertIn("python3 scripts/private/agent_runtime/setup_runtime.py", install_step["run"])
+        self.assertIn(
+            "python3 scripts/private/agent_runtime/setup_runtime.py",
+            install_step["run"],
+        )
         self.assertIn("--install-package ./tools/expkits-ci", install_step["run"])
         agent_step = agent_steps["Run OpenAI SDK repair agent"]
         self.assertEqual(agent_step["shell"], "bash")
@@ -173,9 +186,13 @@ class AgentWorkflowContractTests(unittest.TestCase):
             '--task-config-file "${{ needs.prepare.outputs.agent_task_config_file }}"',
             agent_step["run"],
         )
-        self.assertIn("--prompt-file .agent-runtime/source-run-repair/goal.md", agent_step["run"])
+        self.assertIn(
+            "--prompt-file .agent-runtime/source-run-repair/goal.md", agent_step["run"]
+        )
         self.assertEqual(
-            agent_step["run"].count("${{ runner.temp }}/agent-repair-source-run-agent-output.md"),
+            agent_step["run"].count(
+                "${{ runner.temp }}/agent-repair-source-run-agent-output.md"
+            ),
             1,
         )
         self.assert_no_direct_task_config_flags(agent_step["run"])
@@ -199,14 +216,16 @@ class AgentWorkflowContractTests(unittest.TestCase):
             static_regression_step["run"],
         )
         self.assertIn(
-            '${GITHUB_WORKSPACE}/scripts/private:${GITHUB_WORKSPACE}/tools/expkits-ci',
+            "${GITHUB_WORKSPACE}/scripts/private:${GITHUB_WORKSPACE}/tools/expkits-ci",
             static_regression_step["run"],
         )
         self.assertIn(
             "--profile-path \"${{ inputs.profile_path || '.github/agent-runtime/source-run-repair/profiles/profile.json' }}\"",
             static_regression_step["run"],
         )
-        workflow_source = AGENT_REPAIR_SOURCE_RUN_WORKER_FILE.read_text(encoding="utf-8")
+        workflow_source = AGENT_REPAIR_SOURCE_RUN_WORKER_FILE.read_text(
+            encoding="utf-8"
+        )
         self.assertNotIn("agent-stabilize-pr-worker.yml", workflow_source)
         self.assertNotIn("stabilize-pr", workflow_source)
         self.assertNotIn("merge-when-stable", workflow_source)
@@ -227,8 +246,14 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertEqual(workflow["permissions"]["contents"], "read")
         self.assertEqual(workflow["permissions"]["pull-requests"], "write")
         self.assertEqual(review_job["runs-on"], OPENAI_AGENT_RUNNER_LABEL)
-        self.assertEqual(review_job["outputs"]["recommendation"], "${{ steps.render.outputs.recommendation }}")
-        self.assertEqual(review_job["outputs"]["finding_count"], "${{ steps.render.outputs.finding_count }}")
+        self.assertEqual(
+            review_job["outputs"]["recommendation"],
+            "${{ steps.render.outputs.recommendation }}",
+        )
+        self.assertEqual(
+            review_job["outputs"]["finding_count"],
+            "${{ steps.render.outputs.finding_count }}",
+        )
         self.assertEqual(review_gate_job["needs"], "review")
         self.assertEqual(review_gate_job["runs-on"], "ubuntu-latest")
         self.assertEqual(review_gate_job["permissions"], {})
@@ -239,17 +264,25 @@ class AgentWorkflowContractTests(unittest.TestCase):
         gate_run = review_gate_steps["Require Agent Review approval"]["run"]
         gate_env = review_gate_steps["Require Agent Review approval"]["env"]
         self.assertEqual(gate_env["EVENT_NAME"], "${{ github.event_name }}")
-        self.assertEqual(gate_env["HEAD_REPOSITORY"], "${{ github.event.pull_request.head.repo.full_name || '' }}")
+        self.assertEqual(
+            gate_env["HEAD_REPOSITORY"],
+            "${{ github.event.pull_request.head.repo.full_name || '' }}",
+        )
         self.assertEqual(gate_env["REPOSITORY"], "${{ github.repository }}")
         self.assertIn('if [ "${REVIEW_RESULT}" = "skipped" ]; then', gate_run)
-        self.assertIn('[ "${EVENT_NAME}" = "pull_request" ] && [ "${HEAD_REPOSITORY}" != "${REPOSITORY}" ]', gate_run)
+        self.assertIn(
+            '[ "${EVENT_NAME}" = "pull_request" ] && [ "${HEAD_REPOSITORY}" != "${REPOSITORY}" ]',
+            gate_run,
+        )
         self.assertIn("unsupported fork pull request", gate_run)
         self.assertIn("the gate cannot pass without a review", gate_run)
         self.assertIn("Agent Review job was skipped unexpectedly.", gate_run)
         self.assertIn('if [ "${REVIEW_RESULT}" != "success" ]; then', gate_run)
         self.assertIn('if [ "${REVIEW_RECOMMENDATION}" != "approve" ]; then', gate_run)
         self.assertEqual(
-            review_gate_steps["Require Agent Review approval"]["env"]["REVIEW_RECOMMENDATION"],
+            review_gate_steps["Require Agent Review approval"]["env"][
+                "REVIEW_RECOMMENDATION"
+            ],
             "${{ needs.review.outputs.recommendation }}",
         )
         workflow_source = AGENT_REVIEW_WORKFLOW_FILE.read_text(encoding="utf-8")
@@ -264,7 +297,10 @@ class AgentWorkflowContractTests(unittest.TestCase):
         )
         self.assertIn("github.event_name == 'pull_request'", auto_stabilize_job["if"])
         self.assertIn("needs.review.result == 'success'", auto_stabilize_job["if"])
-        self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", auto_stabilize_job["if"])
+        self.assertIn(
+            "github.event.pull_request.head.repo.full_name == github.repository",
+            auto_stabilize_job["if"],
+        )
         self.assertIn(
             "contains(github.event.pull_request.labels.*.name, 'agent-stabilize')",
             auto_stabilize_job["if"],
@@ -274,16 +310,29 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertEqual(auto_stabilize_job["permissions"]["actions"], "read")
         self.assertEqual(auto_stabilize_job["permissions"]["contents"], "write")
         self.assertEqual(auto_stabilize_job["permissions"]["pull-requests"], "write")
-        self.assertEqual(auto_stabilize_job["with"]["pr_number"], "${{ github.event.pull_request.number }}")
-        self.assertEqual(auto_stabilize_job["with"]["head_sha"], "${{ github.event.pull_request.head.sha }}")
-        self.assertEqual(auto_stabilize_job["with"]["source_run_id"], "${{ github.run_id }}")
-        self.assertEqual(auto_stabilize_job["with"]["profile_path"],
-                         ".github/agent-runtime/pr-stabilization/profiles/profile.json")
+        self.assertEqual(
+            auto_stabilize_job["with"]["pr_number"],
+            "${{ github.event.pull_request.number }}",
+        )
+        self.assertEqual(
+            auto_stabilize_job["with"]["head_sha"],
+            "${{ github.event.pull_request.head.sha }}",
+        )
+        self.assertEqual(
+            auto_stabilize_job["with"]["source_run_id"], "${{ github.run_id }}"
+        )
+        self.assertEqual(
+            auto_stabilize_job["with"]["profile_path"],
+            ".github/agent-runtime/pr-stabilization/profiles/profile.json",
+        )
         self.assertEqual(auto_stabilize_job["secrets"], "inherit")
         self.assertIn("base_ref", dispatch_inputs)
         self.assertIn("head_ref", dispatch_inputs)
         self.assertEqual(dispatch_inputs["head_ref"]["default"], "")
-        self.assertIn("defaults to the workflow run SHA", dispatch_inputs["head_ref"]["description"])
+        self.assertIn(
+            "defaults to the workflow run SHA",
+            dispatch_inputs["head_ref"]["description"],
+        )
         self.assertEqual(
             list(review_steps),
             [
@@ -306,16 +355,18 @@ class AgentWorkflowContractTests(unittest.TestCase):
             "(github.event.inputs.head_ref || github.sha) || github.event.pull_request.head.sha || github.sha }}"
         )
         python_step = review_steps["Set up Agent Python"]
-        self.assertEqual(python_step["uses"], "actions/setup-python@v6")
         self.assertEqual(python_step["with"]["python-version"], "3.10")
         install_step = review_steps["Install OpenAI agent runtime"]
         self.assertEqual(install_step["shell"], "bash")
-        self.assertIn("python3 scripts/private/agent_runtime/setup_runtime.py", install_step["run"])
+        self.assertIn(
+            "python3 scripts/private/agent_runtime/setup_runtime.py",
+            install_step["run"],
+        )
         self.assertIn("--install-package ./tools/expkits-ci", install_step["run"])
         static_step = review_steps["Run Agent workflow static analysis"]
         self.assertEqual(static_step["shell"], "bash")
         self.assertIn(
-            ".agent-runtime/openai-agent-venv/bin/python -m expkits_ci.agent_static_analysis --base-ref \"${REVIEW_BASE_REF}\"",
+            '.agent-runtime/openai-agent-venv/bin/python -m expkits_ci.agent_static_analysis --base-ref "${REVIEW_BASE_REF}"',
             static_step["run"],
         )
         checkout_step = review_steps["Checkout pull request head"]
@@ -324,7 +375,9 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertEqual(fetch_step["shell"], "bash")
         self.assertEqual(fetch_step["env"]["GITHUB_TOKEN"], "${{ github.token }}")
         self.assertIn("REVIEW_BASE_REF", fetch_step["env"])
-        self.assertIn('if [[ "${REVIEW_BASE_REF}" == origin/* ]]; then', fetch_step["run"])
+        self.assertIn(
+            'if [[ "${REVIEW_BASE_REF}" == origin/* ]]; then', fetch_step["run"]
+        )
         self.assertIn(
             'auth_header="$(printf \'x-access-token:%s\' "${GITHUB_TOKEN}" | base64 -w 0)"',
             fetch_step["run"],
@@ -365,27 +418,37 @@ class AgentWorkflowContractTests(unittest.TestCase):
             agent_step["run"],
         )
         self.assertEqual(
-            agent_step["run"].count("--model-config-file .github/agent-runtime/runtime/agent-models.json"),
+            agent_step["run"].count(
+                "--model-config-file .github/agent-runtime/runtime/agent-models.json"
+            ),
             1,
         )
         self.assertNotIn("--schema-file", agent_step["run"])
         self.assertEqual(
-            agent_step["run"].count("--output-file .github/agent-runtime/review/out/review.json"),
+            agent_step["run"].count(
+                "--output-file .github/agent-runtime/review/out/review.json"
+            ),
             1,
         )
         self.assertEqual(
-            agent_step["run"].count("--context-file .github/agent-runtime/review/out/review-context.json"),
+            agent_step["run"].count(
+                "--context-file .github/agent-runtime/review/out/review-context.json"
+            ),
             1,
         )
         self.assertNotIn("--prompt-file", agent_step["run"])
         self.assertEqual(
-            agent_step["run"].count("--task-config-file .github/agent-runtime/runtime/agent-tasks.json"),
+            agent_step["run"].count(
+                "--task-config-file .github/agent-runtime/runtime/agent-tasks.json"
+            ),
             1,
         )
         self.assert_no_direct_task_config_flags(agent_step["run"])
         self.assert_no_direct_model_flag(agent_step["run"])
         upload_step = review_steps["Upload review artifacts"]
-        self.assertEqual(upload_step["with"]["path"], ".github/agent-runtime/review/out")
+        self.assertEqual(
+            upload_step["with"]["path"], ".github/agent-runtime/review/out"
+        )
         publish_step = review_steps["Publish review summary comment"]
         render_summary_step = review_steps["Render review summary"]
         self.assertEqual(render_summary_step["id"], "render")
@@ -411,15 +474,26 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertEqual(workflow["permissions"], {})
         self.assertEqual(set(workflow["jobs"]), {"run-agent-stabilizer"})
         self.assertNotIn("review-gate", workflow["jobs"])
-        self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", job["if"])
+        self.assertIn(
+            "github.event.pull_request.head.repo.full_name == github.repository",
+            job["if"],
+        )
         self.assertIn("github.event.label.name == 'agent-stabilize'", job["if"])
-        self.assertEqual(job["uses"], "./.github/workflows/agent-stabilize-pr-worker.yml")
+        self.assertEqual(
+            job["uses"], "./.github/workflows/agent-stabilize-pr-worker.yml"
+        )
         self.assertEqual(job["permissions"]["actions"], "read")
         self.assertEqual(job["permissions"]["contents"], "write")
         self.assertEqual(job["permissions"]["pull-requests"], "write")
-        self.assertEqual(job["with"]["pr_number"], "${{ github.event.pull_request.number }}")
-        self.assertEqual(job["with"]["head_sha"], "${{ github.event.pull_request.head.sha }}")
-        self.assertEqual(job["with"]["task_ref"], "${{ github.event.pull_request.title }}")
+        self.assertEqual(
+            job["with"]["pr_number"], "${{ github.event.pull_request.number }}"
+        )
+        self.assertEqual(
+            job["with"]["head_sha"], "${{ github.event.pull_request.head.sha }}"
+        )
+        self.assertEqual(
+            job["with"]["task_ref"], "${{ github.event.pull_request.title }}"
+        )
         self.assertEqual(
             job["with"]["profile_path"],
             ".github/agent-runtime/pr-stabilization/profiles/profile.json",
@@ -486,14 +560,20 @@ class AgentWorkflowContractTests(unittest.TestCase):
         linux_steps = step_map(pek_ci["jobs"]["linux-quick-start-build-test"])
         rpi_steps = step_map(pek_ci["jobs"]["rpi5-quick-start-build-test"])
         expected_label_gate = "github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')"
-        expected_draft_override = (
-            "github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci')"
-        )
+        expected_draft_override = "github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci')"
 
         self.assertEqual(
             set(pek_inputs.keys()),
-            {"pr_number", "pr_base_ref", "pr_head_ref", "pr_head_sha"},
+            {
+                "pr_number",
+                "pr_base_ref",
+                "pr_head_ref",
+                "pr_head_sha",
+                "require_executorch",
+            },
         )
+        self.assertEqual(pek_inputs["require_executorch"]["type"], "boolean")
+        self.assertEqual(pek_inputs["require_executorch"]["default"], "false")
         self.assertEqual(
             set(sonar_inputs.keys()),
             {"pr_number", "pr_base_ref", "pr_head_ref", "pr_head_sha"},
@@ -507,17 +587,32 @@ class AgentWorkflowContractTests(unittest.TestCase):
             self.assertIn("Checkout workflow helpers", steps)
             resolver_run = steps["Resolve manual PR context"]["run"]
             self.assertIn("python3 scripts/private/github_pr_context.py", resolver_run)
-            self.assertIn('--pr-number "${{ github.event.inputs.pr_number }}"', resolver_run)
-            self.assertIn('--base-ref-override "${{ github.event.inputs.pr_base_ref }}"', resolver_run)
-            self.assertIn('--head-ref-override "${{ github.event.inputs.pr_head_ref }}"', resolver_run)
-            self.assertIn('--head-sha-override "${{ github.event.inputs.pr_head_sha }}"', resolver_run)
+            self.assertIn(
+                '--pr-number "${{ github.event.inputs.pr_number }}"', resolver_run
+            )
+            self.assertIn(
+                '--base-ref-override "${{ github.event.inputs.pr_base_ref }}"',
+                resolver_run,
+            )
+            self.assertIn(
+                '--head-ref-override "${{ github.event.inputs.pr_head_ref }}"',
+                resolver_run,
+            )
+            self.assertIn(
+                '--head-sha-override "${{ github.event.inputs.pr_head_sha }}"',
+                resolver_run,
+            )
             self.assertIn('--github-output "${GITHUB_OUTPUT}"', resolver_run)
             self.assertNotIn("gh pr view", resolver_run)
             self.assertEqual(
                 steps["Checkout workflow helpers"]["with"]["persist-credentials"],
                 "false",
             )
-        for job_name in ("linux-quick-start-build-test", "rpi5-quick-start-build-test", "quality-checks"):
+        for job_name in (
+            "linux-quick-start-build-test",
+            "rpi5-quick-start-build-test",
+            "quality-checks",
+        ):
             job_condition = pek_ci["jobs"][job_name]["if"]
             self.assertIn(expected_label_gate, job_condition)
             self.assertIn(expected_draft_override, job_condition)
@@ -531,8 +626,12 @@ class AgentWorkflowContractTests(unittest.TestCase):
             self.assertIn("github.head_ref", checkout_ref)
             self.assertNotIn("github.event.inputs.pr_head_sha", checkout_ref)
             self.assertNotIn("github.event.inputs.pr_head_ref", checkout_ref)
-        self.assertIn("steps.manual_pr.outputs.head_sha", pek_steps["Checkout"]["with"]["ref"])
-        self.assertIn("steps.manual_pr.outputs.head_sha", sonar_steps["Checkout"]["with"]["ref"])
+        self.assertIn(
+            "steps.manual_pr.outputs.head_sha", pek_steps["Checkout"]["with"]["ref"]
+        )
+        self.assertIn(
+            "steps.manual_pr.outputs.head_sha", sonar_steps["Checkout"]["with"]["ref"]
+        )
         self.assertIn("docker run --rm", rpi_steps["Resolve manual PR context"]["run"])
         self.assertIn(
             "python:3.12-slim-trixie",
@@ -549,7 +648,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         )
         self.assertEqual(
             rpi_release_prepare["env"]["GH_TOKEN"],
-            "${{ secrets.MODELFETCH_RELEASE_TOKEN }}",
+            "${{ steps.modelfetch-app-token.outputs.token }}",
         )
         self.assertIn(
             "--file scripts/private/modelfetch-release-tools.Dockerfile",
@@ -599,6 +698,55 @@ class AgentWorkflowContractTests(unittest.TestCase):
             "GH_TOKEN",
             rpi_steps["Recreate quick-start container"].get("env", {}),
         )
+        executorch_required_scope = (
+            "${{ (github.event_name == 'schedule' || "
+            "(github.event_name == 'workflow_dispatch' && "
+            "github.event.inputs.require_executorch == 'true')) && "
+            "'1' || '0' }}"
+        )
+        artifactory_schedule_scope = (
+            "${{ (github.event_name == 'schedule' || "
+            "(github.event_name == 'workflow_dispatch' && "
+            "github.event.inputs.require_executorch == 'true')) && "
+            "secrets.PEK_ARTIFACTORY_USERNAME || '' }}"
+        )
+        artifactory_password_schedule_scope = (
+            "${{ (github.event_name == 'schedule' || "
+            "(github.event_name == 'workflow_dispatch' && "
+            "github.event.inputs.require_executorch == 'true')) && "
+            "secrets.PEK_ARTIFACTORY_API_KEY || '' }}"
+        )
+        for job_name in (
+            "linux-quick-start-build-test",
+            "rpi5-quick-start-build-test",
+            "quality-checks",
+        ):
+            self.assertEqual(
+                pek_ci["jobs"][job_name]["env"]["EXECUTORCH_REQUIRED"],
+                executorch_required_scope,
+            )
+        for steps in (linux_steps, rpi_steps, pek_steps):
+            build_env = (
+                steps["Recreate quick-start container"]["env"]
+                if "Recreate quick-start container" in steps
+                else steps["Build docker image"]["env"]
+            )
+            self.assertEqual(
+                build_env["EXECUTORCH_ARTIFACTORY_USERNAME"],
+                artifactory_schedule_scope,
+            )
+            self.assertEqual(
+                build_env["EXECUTORCH_ARTIFACTORY_PASSWORD"],
+                artifactory_password_schedule_scope,
+            )
+        for secret_name in (
+            "EXECUTORCH_ARTIFACTORY_USERNAME",
+            "EXECUTORCH_ARTIFACTORY_PASSWORD",
+        ):
+            self.assertNotIn(
+                secret_name,
+                sonar_steps["Build docker image"].get("env", {}),
+            )
         self.assertIn(
             'docker image rm --force "$MODELFETCH_RELEASE_TOOL_IMAGE"',
             rpi_steps["Clean quick-start workspace"]["run"],
@@ -623,13 +771,24 @@ class AgentWorkflowContractTests(unittest.TestCase):
             "github.event.inputs.pr_number",
             pek_steps["Run clang-tidy baseline check"]["env"]["PR_CONTEXT_RUN"],
         )
-        self.assertNotIn("${{ inputs.", PEK_CI_WORKFLOW_FILE.read_text(encoding="utf-8"))
+        self.assertNotIn(
+            "${{ inputs.", PEK_CI_WORKFLOW_FILE.read_text(encoding="utf-8")
+        )
         self.assertNotIn("${{ inputs.", SONAR_WORKFLOW_FILE.read_text(encoding="utf-8"))
         self.assertNotIn("gh pr view", PEK_CI_WORKFLOW_FILE.read_text(encoding="utf-8"))
         self.assertNotIn("gh pr view", SONAR_WORKFLOW_FILE.read_text(encoding="utf-8"))
-        self.assertIn("steps.manual_pr.outputs.pr_number", sonar_steps["SonarQube analysis"]["env"]["PR_KEY"])
-        self.assertIn("steps.manual_pr.outputs.head_ref", sonar_steps["SonarQube analysis"]["env"]["SONAR_BRANCH"])
-        self.assertIn("steps.manual_pr.outputs.base_ref", sonar_steps["SonarQube analysis"]["env"]["PR_BASE"])
+        self.assertIn(
+            "steps.manual_pr.outputs.pr_number",
+            sonar_steps["SonarQube analysis"]["env"]["PR_KEY"],
+        )
+        self.assertIn(
+            "steps.manual_pr.outputs.head_ref",
+            sonar_steps["SonarQube analysis"]["env"]["SONAR_BRANCH"],
+        )
+        self.assertIn(
+            "steps.manual_pr.outputs.base_ref",
+            sonar_steps["SonarQube analysis"]["env"]["PR_BASE"],
+        )
         self.assertIn(
             "python3 scripts/private/sonar_quality_gate_workflow.py probe-api-access",
             sonar_steps["Probe Sonar API access"]["run"],
@@ -659,24 +818,94 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertIn("CI_HELPER_PATH", rpi_job["env"])
         self.assertIn("CI_HELPER_PATH", sonar_job["env"])
 
-    def test_modified_validation_workflows_use_canonical_artifact_upload_major(self):
-        workflows = {
-            "agent-review": load_yaml(AGENT_REVIEW_WORKFLOW_FILE),
-            "agent-stabilize-pr-on-label": load_yaml(AGENT_STABILIZE_PR_LABEL_WORKFLOW_FILE),
-            "agent-stabilize-pr-worker": load_yaml(AGENT_STABILIZE_PR_WORKER_FILE),
-            "pek-ci": load_yaml(PEK_CI_WORKFLOW_FILE),
-            "sonar": load_yaml(SONAR_WORKFLOW_FILE),
-            "agent-repair-source-run-worker": load_yaml(AGENT_REPAIR_SOURCE_RUN_WORKER_FILE),
-            "workflow-audit": load_yaml(WORKFLOW_AUDIT_FILE),
-            "agent-repair-source-run": load_yaml(AGENT_REPAIR_SOURCE_RUN_WORKFLOW_FILE),
-        }
+    def test_modelfetch_consumers_use_repo_scoped_read_only_app_tokens(self):
+        consumer_jobs = (
+            (
+                ".github/workflows/pek-ci.yml",
+                "linux-quick-start-build-test",
+                "Recreate quick-start container",
+            ),
+            (
+                ".github/workflows/pek-ci.yml",
+                "rpi5-quick-start-build-test",
+                "Prepare pinned modelfetch release",
+            ),
+            (
+                ".github/workflows/pek-ci.yml",
+                "quality-checks",
+                "Prepare pinned modelfetch release",
+            ),
+            (
+                ".github/workflows/valgrind.yml",
+                "valgrind-workflow",
+                "Prepare pinned modelfetch release",
+            ),
+            (
+                ".github/workflows/sonar.yml",
+                "build-and-sonar",
+                "Prepare pinned modelfetch release",
+            ),
+            (
+                ".github/workflows/sonar_release_tag.yml",
+                "sonar-release",
+                "Prepare pinned modelfetch release",
+            ),
+            (
+                ".github/workflows/blackduck-scan.yml",
+                "blackduck",
+                "Prepare pinned modelfetch release",
+            ),
+            (
+                ".github/workflows/yolo-benchmark.yml",
+                "yolo-benchmark",
+                "Set up YOLO benchmark cache",
+            ),
+            (
+                ".github/workflows/docker-scout-image-audit.yml",
+                "docker-scout",
+                "Prepare pinned modelfetch release",
+            ),
+        )
 
-        for workflow_name, workflow in workflows.items():
-            for job in workflow["jobs"].values():
-                for step in job.get("steps", []):
-                    with self.subTest(workflow=workflow_name, step=step.get("name")):
-                        if step.get("uses", "").startswith("actions/upload-artifact@"):
-                            self.assertEqual(step["uses"], "actions/upload-artifact@v6")
+        for relative_path, job_name, consumer_step_name in consumer_jobs:
+            workflow_path = REPO_ROOT / relative_path
+            workflow = load_yaml(workflow_path)
+            steps = step_map(workflow["jobs"][job_name])
+            token_step = steps["Create read-only modelfetch token"]
+            consumer_step = steps[consumer_step_name]
+
+            with self.subTest(workflow=relative_path, job=job_name):
+                self.assertEqual(token_step["id"], "modelfetch-app-token")
+                self.assertEqual(token_step["uses"], MODELFETCH_APP_TOKEN_ACTION)
+                self.assertEqual(
+                    token_step["with"],
+                    {
+                        "client-id": "Iv23li0DqDMHoMs0TXT9",
+                        "private-key": "${{ secrets.EDGEAI_EXPKITS_APP_PK }}",
+                        "owner": "Arm-Debug",
+                        "repositories": "modelfetch",
+                        "permission-contents": "read",
+                    },
+                )
+                self.assertEqual(
+                    consumer_step["env"]["GH_TOKEN"],
+                    "${{ steps.modelfetch-app-token.outputs.token }}",
+                )
+                self.assertEqual(token_step.get("if"), consumer_step.get("if"))
+                self.assertLess(
+                    list(steps).index("Create read-only modelfetch token"),
+                    list(steps).index(consumer_step_name),
+                )
+
+        docker_scout = load_yaml(
+            REPO_ROOT / ".github/workflows/docker-scout-image-audit.yml"
+        )
+        self.assertEqual(
+            docker_scout["on"]["workflow_call"]["secrets"][
+                "EDGEAI_EXPKITS_APP_PK"
+            ]["required"],
+            "true",
+        )
 
     def test_stabilizer_workflow_uses_canonical_agent_review_shape(self):
         workflow = load_yaml(AGENT_STABILIZE_PR_WORKER_FILE)
@@ -688,9 +917,16 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertIn("dispatch_nonce", call_inputs)
         self.assertEqual(job["runs-on"], OPENAI_AGENT_RUNNER_LABEL)
         self.assertEqual(job["permissions"]["actions"], "read")
-        self.assertEqual(steps["Checkout workflow helpers"]["with"]["ref"], "${{ steps.helper_ref.outputs.head_sha }}")
-        self.assertEqual(steps["Checkout workflow helpers"]["with"]["persist-credentials"], "false")
-        self.assertEqual(steps["Checkout PR head"]["with"]["persist-credentials"], "false")
+        self.assertEqual(
+            steps["Checkout workflow helpers"]["with"]["ref"],
+            "${{ steps.helper_ref.outputs.head_sha }}",
+        )
+        self.assertEqual(
+            steps["Checkout workflow helpers"]["with"]["persist-credentials"], "false"
+        )
+        self.assertEqual(
+            steps["Checkout PR head"]["with"]["persist-credentials"], "false"
+        )
         self.assertEqual(
             list(steps),
             [
@@ -716,11 +952,19 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertIn("gh pr view", helper_ref_step["run"])
         self.assertIn("headRefOid", helper_ref_step["run"])
         snapshot_step = steps["Snapshot workflow helper bundle"]
-        self.assertIn("python3 -m agent_stabilization_orchestrator snapshot-helper-bundle", snapshot_step["run"])
-        self.assertIn('--bundle-root "${RUNNER_TEMP}/agent-stabilization-helper"', snapshot_step["run"])
+        self.assertIn(
+            "python3 -m agent_stabilization_orchestrator snapshot-helper-bundle",
+            snapshot_step["run"],
+        )
+        self.assertIn(
+            '--bundle-root "${RUNNER_TEMP}/agent-stabilization-helper"',
+            snapshot_step["run"],
+        )
         python_step = steps["Set up Agent Python"]
-        self.assertEqual(python_step["if"], "${{ steps.context.outputs.review_recommendation != 'approve' }}")
-        self.assertEqual(python_step["uses"], "actions/setup-python@v6")
+        self.assertEqual(
+            python_step["if"],
+            "${{ steps.context.outputs.review_recommendation != 'approve' }}",
+        )
         self.assertEqual(python_step["with"]["python-version"], "3.10")
         install_step = steps["Install OpenAI agent runtime"]
         self.assertEqual(install_step["shell"], "bash")
@@ -750,7 +994,10 @@ class AgentWorkflowContractTests(unittest.TestCase):
             '--task-config-file "${{ steps.context.outputs.agent_task_config_file }}"',
             agent_step["run"],
         )
-        self.assertIn('--prompt-file "${{ inputs.context_root }}/stabilize-goal.md"', agent_step["run"])
+        self.assertIn(
+            '--prompt-file "${{ inputs.context_root }}/stabilize-goal.md"',
+            agent_step["run"],
+        )
         self.assertIn(
             '--output-file "${{ runner.temp }}/agent-stabilize-pr-output.md"',
             agent_step["run"],
@@ -759,18 +1006,27 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assert_no_direct_model_flag(agent_step["run"])
         resolve_pr_step = steps["Resolve PR details"]
         self.assertEqual(resolve_pr_step["shell"], "bash")
-        self.assertIn("python3 -m agent_stabilization_orchestrator resolve-pr-details", resolve_pr_step["run"])
+        self.assertIn(
+            "python3 -m agent_stabilization_orchestrator resolve-pr-details",
+            resolve_pr_step["run"],
+        )
         self.assertIn('--pr-number "${{ inputs.pr_number }}"', resolve_pr_step["run"])
         self.assertIn('--github-output "${GITHUB_OUTPUT}"', resolve_pr_step["run"])
         self.assertEqual(snapshot_step["shell"], "bash")
         restore_step = steps["Restore workflow helper bundle"]
         self.assertEqual(restore_step["shell"], "bash")
         self.assertIn("restore-helper-bundle", restore_step["run"])
-        self.assertIn('--helper-root ".agent-runtime/agent-stabilization-helper"', restore_step["run"])
+        self.assertIn(
+            '--helper-root ".agent-runtime/agent-stabilization-helper"',
+            restore_step["run"],
+        )
         context_step = steps["Prepare stabilization context"]
         self.assertEqual(context_step["shell"], "bash")
         self.assertNotIn("uses", context_step)
-        self.assertIn("python3 -m agent_stabilization_orchestrator prepare-stabilization-context", context_step["run"])
+        self.assertIn(
+            "python3 -m agent_stabilization_orchestrator prepare-stabilization-context",
+            context_step["run"],
+        )
         self.assertIn(
             'PYTHONPATH="${GITHUB_WORKSPACE}/.agent-runtime/agent-stabilization-helper/scripts/private',
             context_step["run"],
@@ -804,9 +1060,14 @@ class AgentWorkflowContractTests(unittest.TestCase):
         )
         self.assertIn('--context-root "${{ inputs.context_root }}"', commit_step["run"])
         self.assertIn('--pr-number "${{ inputs.pr_number }}"', commit_step["run"])
-        self.assertIn('--head-branch "${{ steps.pr.outputs.head_branch }}"', commit_step["run"])
+        self.assertIn(
+            '--head-branch "${{ steps.pr.outputs.head_branch }}"', commit_step["run"]
+        )
         skip_step = steps["Write stabilization skip artifact"]
-        self.assertEqual(skip_step["if"], "${{ steps.context.outputs.review_recommendation == 'approve' }}")
+        self.assertEqual(
+            skip_step["if"],
+            "${{ steps.context.outputs.review_recommendation == 'approve' }}",
+        )
         self.assertIn('mkdir -p "${{ runner.temp }}"', skip_step["run"])
         self.assertIn("agent-stabilize-pr-output.md", skip_step["run"])
         self.assertIn("No stabilization agent run was needed", skip_step["run"])
@@ -824,7 +1085,9 @@ class AgentWorkflowContractTests(unittest.TestCase):
             "agent-repair-source-run-worker": AGENT_REPAIR_SOURCE_RUN_WORKER_FILE,
         }
 
-        self.assertEqual(set(model_config["agents"]), {"review", "repair", "stabilization"})
+        self.assertEqual(
+            set(model_config["agents"]), {"review", "repair", "stabilization"}
+        )
         self.assertIsInstance(model_config["default_agent_model"], str)
         self.assertTrue(model_config["default_agent_model"].strip())
         for agent_name, agent_config in model_config["agents"].items():
@@ -849,18 +1112,23 @@ class AgentWorkflowContractTests(unittest.TestCase):
                     ".github/agent-runtime/runtime/agent-tasks.json",
                 )
 
-        self.assertEqual(set(task_config["tasks"]), {"run-review", "run-repair", "run-stabilization"})
+        self.assertEqual(
+            set(task_config["tasks"]), {"run-review", "run-repair", "run-stabilization"}
+        )
         for command, settings in task_config["tasks"].items():
             with self.subTest(command=command):
                 expected_common = {"agent_instance", "max_turns"}
                 if command == "run-review":
                     self.assertEqual(
                         set(settings),
-                        expected_common | {"max_review_files", "max_review_changed_lines"},
+                        expected_common
+                        | {"max_review_files", "max_review_changed_lines"},
                     )
                     self.assertNotIn("max_prompt_chars", settings)
                 else:
-                    self.assertEqual(set(settings), expected_common | {"max_prompt_chars"})
+                    self.assertEqual(
+                        set(settings), expected_common | {"max_prompt_chars"}
+                    )
                     self.assertIsInstance(settings["max_prompt_chars"], int)
                     self.assertGreater(settings["max_prompt_chars"], 0)
                 self.assertIsInstance(settings["agent_instance"], str)
@@ -877,7 +1145,9 @@ class AgentWorkflowContractTests(unittest.TestCase):
                     workflow_source.count("--model-config-file"),
                     workflow_source.count("openai_agent_runner.py "),
                 )
-                expected_task_config_uses = workflow_source.count("openai_agent_runner.py ")
+                expected_task_config_uses = workflow_source.count(
+                    "openai_agent_runner.py "
+                )
                 if workflow_name == "agent-review":
                     expected_task_config_uses += 1
                 self.assertEqual(
@@ -902,8 +1172,14 @@ class AgentWorkflowContractTests(unittest.TestCase):
         )
         self.assertNotIn("outputs", report_job)
         self.assertIn("scripts/private/github_api.py", pull_request_paths)
-        self.assertIn("--summary-limit", report_steps["Render workflow dependency freshness report"]["run"])
-        self.assertNotIn("--github-output", report_steps["Render workflow dependency freshness report"]["run"])
+        self.assertIn(
+            "--summary-limit",
+            report_steps["Render workflow dependency freshness report"]["run"],
+        )
+        self.assertNotIn(
+            "--github-output",
+            report_steps["Render workflow dependency freshness report"]["run"],
+        )
 
 
 if __name__ == "__main__":

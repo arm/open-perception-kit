@@ -48,9 +48,16 @@ services:
       target: pek-dev-base
       additional_contexts:
         modelfetch_sdks: ../.cache/modelfetch
+      # BuildKit calls its bridge/NAT-backed build network "default".
+      network: ${BUILD_NETWORK_MODE:-default}
+      secrets:
+        - executorch_artifactory_username
+        - executorch_artifactory_password
       args:
         USER_UID: ${HOST_UID:-1000}
         USER_GID: ${HOST_GID:-1000}
+        EXECUTORCH_DEB_REVISION: ${EXECUTORCH_DEB_REVISION:-2}
+        EXECUTORCH_REQUIRED: ${EXECUTORCH_REQUIRED:-0}
 
   pek-dev-rpi5:
     extends: 
@@ -69,9 +76,15 @@ services:
       target: pek-dev-rpi5
       additional_contexts:
         modelfetch_sdks: ../.cache/modelfetch
+      network: ${BUILD_NETWORK_MODE:-host}
+      secrets:
+        - executorch_artifactory_username
+        - executorch_artifactory_password
       args:
         USER_UID: ${HOST_UID:-1000}
         USER_GID: ${HOST_GID:-1000}
+        EXECUTORCH_DEB_REVISION: ${EXECUTORCH_DEB_REVISION:-2}
+        EXECUTORCH_REQUIRED: ${EXECUTORCH_REQUIRED:-0}
     volumes:
       - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
     secrets:
@@ -94,9 +107,15 @@ services:
       target: pek-dev-rpi5-h8
       additional_contexts:
         modelfetch_sdks: ../.cache/modelfetch
+      network: ${BUILD_NETWORK_MODE:-host}
+      secrets:
+        - executorch_artifactory_username
+        - executorch_artifactory_password
       args:
         USER_UID: ${HOST_UID:-1000}
         USER_GID: ${HOST_GID:-1000}
+        EXECUTORCH_DEB_REVISION: ${EXECUTORCH_DEB_REVISION:-2}
+        EXECUTORCH_REQUIRED: ${EXECUTORCH_REQUIRED:-0}
     volumes:
       - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
     secrets:
@@ -119,9 +138,15 @@ services:
       target: pek-dev-rpi5-h10
       additional_contexts:
         modelfetch_sdks: ../.cache/modelfetch
+      network: ${BUILD_NETWORK_MODE:-host}
+      secrets:
+        - executorch_artifactory_username
+        - executorch_artifactory_password
       args:
         USER_UID: ${HOST_UID:-1000}
         USER_GID: ${HOST_GID:-1000}
+        EXECUTORCH_DEB_REVISION: ${EXECUTORCH_DEB_REVISION:-2}
+        EXECUTORCH_REQUIRED: ${EXECUTORCH_REQUIRED:-0}
     volumes:
       - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
     secrets:
@@ -130,3 +155,7 @@ services:
 secrets:
   huggingface_token:
     file: ${HF_TOKEN_PATH:-/dev/null}
+  executorch_artifactory_username:
+    environment: EXECUTORCH_ARTIFACTORY_USERNAME
+  executorch_artifactory_password:
+    environment: EXECUTORCH_ARTIFACTORY_PASSWORD

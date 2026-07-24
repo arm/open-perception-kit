@@ -1,4 +1,4 @@
-# Valgrind suppressions for common third-party GLib/GStreamer noise.
+# Valgrind suppressions for common third-party framework and plugin-loader noise.
 # Keep this file conservative: suppress only framework allocations that are
 # process-lifetime singletons or plugin-loader caches, not project code.
 
@@ -140,6 +140,74 @@
    obj:*/libgstvideoconvertscale.so*
 }
 
+# DeckLink initializes process-lifetime GStreamer structures while its plugin
+# types are registered. These allocations originate entirely in the third-party
+# plugin and GStreamer/GLib type system.
+{
+   decklink_plugin_structure_registration_definite
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:calloc
+   fun:g_malloc0
+   obj:*/libgstreamer-1.0.so*
+   fun:gst_structure_new_valist
+   fun:gst_structure_new
+   obj:*/libgstdecklink.so*
+   ...
+   fun:g_type_class_get
+   fun:gst_element_register
+   obj:*/libgstdecklink.so*
+}
+
+{
+   decklink_plugin_structure_name_indirect
+   Memcheck:Leak
+   match-leak-kinds: indirect
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:*/libgobject-2.0.so*
+   obj:*/libgstreamer-1.0.so*
+   fun:gst_structure_new_valist
+   fun:gst_structure_new
+   obj:*/libgstdecklink.so*
+   ...
+   fun:g_type_class_get
+}
+
+{
+   decklink_plugin_structure_data_indirect
+   Memcheck:Leak
+   match-leak-kinds: indirect
+   fun:malloc
+   fun:g_malloc
+   obj:*/libgstreamer-1.0.so*
+   fun:gst_structure_new_valist
+   fun:gst_structure_new
+   obj:*/libgstdecklink.so*
+   ...
+   fun:g_type_class_get
+   fun:gst_element_register
+   obj:*/libgstdecklink.so*
+}
+
+{
+   decklink_plugin_structure_set_name_indirect
+   Memcheck:Leak
+   match-leak-kinds: indirect
+   fun:malloc
+   fun:g_malloc
+   fun:g_strdup
+   obj:*/libgobject-2.0.so*
+   obj:*/libgstreamer-1.0.so*
+   fun:gst_structure_set
+   obj:*/libgstdecklink.so*
+   ...
+   fun:g_type_class_get
+   fun:gst_element_register
+   obj:*/libgstdecklink.so*
+}
+
 {
    ld_loader_dlopen_reachable
    Memcheck:Leak
@@ -155,4 +223,82 @@
    ...
    obj:*/ld-*.so*
    fun:dlopen_doit
+}
+
+{
+   gstreamer_rtpmanager_plugin_signal_registration_definite
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:g_malloc
+   fun:g_intern_string
+   fun:g_signal_newv
+   fun:g_signal_new_valist
+   fun:g_signal_new
+   obj:*/gstreamer-1.0/libgstrtpmanager.so*
+   ...
+   fun:gst_element_register
+   obj:*/gstreamer-1.0/libgstrtpmanager.so*
+}
+
+{
+   glib_gmodule_dlopen_scopes_definite
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:malloc
+   fun:resize_scopes
+   fun:dl_open_worker_begin
+   ...
+   fun:g_module_open_full
+}
+
+{
+   gstreamer_decklink_plugin_structure_registration
+   Memcheck:Leak
+   match-leak-kinds: definite,indirect
+   ...
+   obj:*/libgstreamer-1.0.so*
+   fun:gst_structure_*
+   ...
+   obj:*/gstreamer-1.0/libgstdecklink.so*
+}
+
+{
+   openni_driver_thread_tls_possible
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   fun:calloc
+   fun:allocate_dtv
+   fun:_dl_allocate_tls
+   fun:allocate_stack
+   fun:pthread_create*
+   ...
+   obj:*/OpenNI2/Drivers/libPS*.so*
+}
+
+{
+   ld_loader_dlopen_cache_reachable
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:_dl_map_object_deps
+   fun:dl_open_worker_begin
+   ...
+   fun:_dl_open
+}
+
+{
+   nss_unload_library_loader_reachable
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:malloc
+   fun:_dl_close_worker
+   fun:_dl_close
+   ...
+   fun:dlclose*
+   fun:PR_UnloadLibrary
+   obj:*/libnss3.so*
 }

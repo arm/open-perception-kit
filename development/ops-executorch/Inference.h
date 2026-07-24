@@ -16,9 +16,21 @@
 #include "pek/Result.h"
 
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace pek::extrch {
+
+namespace detail {
+
+template <typename SizesT> std::optional<pek::Shape> toPekShape(const SizesT &sizes) {
+    pek::Shape shape;
+    if (!shape.setFrom(sizes))
+        return std::nullopt;
+    return shape;
+}
+
+} // namespace detail
 
 struct Inference {
 
@@ -56,12 +68,9 @@ struct Inference {
 
   private:
     std::unique_ptr<executorch::extension::Module> module;
-    pek::ModelDescriptor modelDescriptor;
     static pek::Result<pek::Model> inspectModel(executorch::extension::Module &module);
 
-    std::string modelPath, modelFamily;
     bool setupReady = false;
-    bool useDynamicOutput = false;
 
     pek::Model model;
 

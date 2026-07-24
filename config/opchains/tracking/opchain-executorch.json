@@ -1,0 +1,62 @@
+{
+    "name": "FullTrackingExecutorch",
+    "description": "Detector + ReID micropipeline for `pektracker`.",
+    "ops": [
+        {
+            "id": "pek-std-ops/InferenceController",
+            "attributes": {}
+        },
+        {
+            "id": "pek-std-ops/GenericImagePreprocess",
+            "attributes": {
+                "inputImageTensorIndex": 0,
+                "inputImageSourceName": "pipelineVideoFrame"
+            }
+        },
+        {
+            "id": "pek-executorch-ops/Inference",
+            "attributes": {
+                "modelDescriptor": "/work/config/models/yolox/model.json"
+            }
+        },
+        {
+            "id": "pek-std-ops/GenericPostprocess",
+            "attributes": {
+                "parser": "YoloXParser",
+                "decoded": false,
+                "scoresAreLogits": false,
+                "scoreMode": "classOnly",
+                "normalizeOutputCoordinates": false,
+                "applyNms": true,
+                "maxDetections": 16,
+                "confidenceThreshold": 0.7,
+                "iouThreshold": 0.45
+            }
+        },
+        {
+            "id": "pek-std-ops/InferenceController",
+            "attributes": {
+                "contentType": "genericObject"
+            }
+        },
+        {
+            "id": "pek-std-ops/GenericImagePreprocess",
+            "attributes": {
+                "inputImageTensorIndex": 0,
+                "inputImageSourceName": "pipelineVideoFrame"
+            }
+        },
+        {
+            "id": "pek-onnx-ops/Inference",
+            "attributes": {
+                "modelDescriptor": "/work/config/models/osnet_x0_25/model.json"
+            }
+        },
+        {
+            "id": "pek-std-ops/GenericPostprocess",
+            "attributes": {
+                "parser": "ObjectEmbeddingParser"
+            }
+        }
+    ]
+}

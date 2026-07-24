@@ -93,9 +93,8 @@ WebRtcSockerError WebRtcWebSocket::setup() {
 
     ws->set_open_handler([this](const connection_hdl &hdl) { on_open(hdl); });
     ws->set_close_handler([this](const connection_hdl &hdl) { on_close(hdl); });
-    ws->set_message_handler([this](const connection_hdl &hdl, const ws_server::message_ptr &msg) {
-        on_message(hdl, msg);
-    });
+    ws->set_message_handler(
+        [this](const connection_hdl &hdl, const ws_server::message_ptr &msg) { on_message(hdl, msg); });
 
     ws->set_reuse_addr(true);
     ws->listen(self_->ws_port);
@@ -545,8 +544,7 @@ void WebRtcWebSocket::process_offer(const std::shared_ptr<SessionContext> &ctx, 
     DBG("Setting remote description");
 }
 
-void WebRtcWebSocket::process_canditate(const std::shared_ptr<SessionContext> &ctx,
-                                        const json &jsn) {
+void WebRtcWebSocket::process_canditate(const std::shared_ptr<SessionContext> &ctx, const json &jsn) {
     DBG("Received ICE candidate");
 
     auto ice = jsn["ice"];

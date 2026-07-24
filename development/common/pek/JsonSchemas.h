@@ -7,11 +7,9 @@
 #include "pek/Shape.h"
 #include "pek/Types.h"
 
-#include "magic_enum/magic_enum.hpp"
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
-#include <limits>
 #include <string>
 #include <vector>
 
@@ -64,27 +62,25 @@ inline void to_json(json &j, const pek::Shape &s) {
 }
 
 inline void from_json(const json &j, pek::Shape &s) {
-    // Expect an array of integers
     if (!j.is_array()) {
         throw std::runtime_error("Shape must be a JSON array");
     }
 
-    s.rank = 0;
-    std::fill(std::begin(s.dims), std::end(s.dims), 0);
-
-    size_t i = 0;
-    for (const auto &v : j) {
-        if (i >= 8) {
-            throw std::runtime_error("Too many dimensions for Shape (max 8)");
-        }
-        const int64_t dim = v.get<int64_t>();
-        if (dim == 0 || dim < -1 || dim > std::numeric_limits<int>::max()) {
-            throw std::runtime_error("Shape dimension must be -1 or a positive int");
-        }
-        s.dims[i] = static_cast<int>(dim);
-        ++i;
+    if (j.empty()) {
+        s = pek::Shape();
+        return;
     }
-    s.rank = i;
+
+    if (j.size() > pek::Shape::MaxRank) {
+        throw std::runtime_error("Too many dimensions for Shape (max " +
+                                 std::to_string(pek::Shape::MaxRank) + ")");
+    }
+
+    const std::vector<int64_t> dimensions = j.get<std::vector<int64_t>>();
+    pek::Shape parsed;
+    if (!parsed.setFrom(dimensions))
+        throw std::runtime_error("Shape dimension must be -1 or a positive int");
+    s = parsed;
 }
 
 NLOHMANN_JSON_SERIALIZE_ENUM(pek::DataKind,
@@ -167,27 +163,13 @@ inline void from_json(const json &j, pek::Dtype &t) {
 namespace pek {
 
 inline void to_json(nlohmann::json &j, const TensorFeedback &v) {
-    // compact + explicit
     j = nlohmann::json{
-        {"mode", std::string(magic_enum::enum_name(TensorFeedback::Mode::Copy))},
         {"fromOutputTensorIndex", v.fromOutputTensorIndex},
         {"toInputTensorIndex", v.toInputTensorIndex},
     };
 }
 
 inline void from_json(const nlohmann::json &j, TensorFeedback &v) {
-    // kind is optional today (since only Copy exists), but we validate if present
-    if (auto it = j.find("kind"); it != j.end() && !it->is_null()) {
-        const std::string s = it->get<std::string>();
-        const auto k = magic_enum::enum_cast<TensorFeedback::Mode>(s);
-        if (!k) {
-            throw std::runtime_error("ModelTensorFeedback.kind: unknown value '" + s + "'");
-        }
-        if (*k != TensorFeedback::Mode::Copy) {
-            throw std::runtime_error("ModelTensorFeedback.kind: unsupported value '" + s + "'");
-        }
-    }
-
     if (!j.contains("fromOutputTensorIndex") || !j.contains("toInputTensorIndex")) {
         throw std::runtime_error("ModelTensorFeedback: missing required fields");
     }

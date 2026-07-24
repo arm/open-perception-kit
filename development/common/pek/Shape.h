@@ -4,11 +4,10 @@
 
 #pragma once
 
-#include "assert.h"
-
-#include <cstdint>
+#include <cstddef>
+#include <limits>
 #include <string>
-#include <vector>
+#include <type_traits>
 
 namespace pek {
 
@@ -23,12 +22,12 @@ struct Shape {
     explicit Shape() {}
 
     /**
-     * @brief Constructs a shape from up to 8 dimension values.
+     * @brief Constructs a shape from up to MaxRank dimension values.
      * @tparam Args Integer-like dimension argument types.
      * @param initDims Dimension values in order.
      */
     template <typename... Args> explicit Shape(Args... initDims) {
-        static_assert(sizeof...(initDims) <= 8, "Max 8 dimensions");
+        static_assert(sizeof...(initDims) <= MaxRank, "Too many dimensions");
 
         int tmp[] = {initDims...};
         rank = 0;
@@ -68,25 +67,32 @@ struct Shape {
     }
 
     /**
-     * @brief Sets shape dimensions from a size_t vector.
-     * @param dims Dimension values. Maximum supported size is 8.
+     * @brief Sets shape dimensions from an integer container.
+     * @tparam DimsT Container with size() and indexed integral dimension values.
+     * @param dims Dimension values. Each value must be -1 or a positive representable int.
+     * @return true when the non-empty dimensions fit, false without modifying the shape otherwise.
      */
-    void setFrom(const std::vector<size_t> &dims) {
-        assert(dims.size() <= 8);
-        this->rank = dims.size();
-        for (size_t i = 0; i < dims.size() && i < 8; i++)
-            this->dims[i] = dims[i];
-    }
+    template <typename DimsT> bool setFrom(const DimsT &dims) {
+        using DimT = std::remove_cv_t<std::remove_reference_t<decltype(dims[0])>>;
+        static_assert(std::is_integral_v<DimT>, "Shape dimensions must be integral");
 
-    /**
-     * @brief Sets shape dimensions from an int64_t vector.
-     * @param dims Dimension values. Maximum supported size is 8.
-     */
-    void setFrom(const std::vector<int64_t> &dims) {
-        assert(dims.size() <= 8);
+        if (dims.size() == 0 || dims.size() > MaxRank)
+            return false;
+
+        for (size_t i = 0; i < dims.size(); ++i) {
+            const DimT dimension = dims[i];
+            if (dimension == 0 || dimension > std::numeric_limits<int>::max())
+                return false;
+            if constexpr (std::is_signed_v<DimT>) {
+                if (dimension < -1)
+                    return false;
+            }
+        }
+
+        for (size_t i = 0; i < dims.size(); ++i)
+            this->dims[i] = static_cast<int>(dims[i]);
         this->rank = dims.size();
-        for (size_t i = 0; i < dims.size() && i < 8; i++)
-            this->dims[i] = dims[i];
+        return true;
     }
 
     /**
@@ -96,6 +102,11 @@ struct Shape {
      * dimension placeholder.
      */
     int dims[8] = {0};
+
+    /**
+     * @brief Maximum number of dimensions representable by this type.
+     */
+    static constexpr size_t MaxRank = sizeof(dims) / sizeof(dims[0]);
 
     /**
      * @brief Number of active entries in dims.
@@ -158,19 +169,25 @@ struct Shape {
      * @return true if application succeeds, false on incompatibility.
      */
     bool applyDimensionsForDynamic(const Shape &other) {
-        if (false == hasDynamicDimension())
+        if (rank == 0 || rank > MaxRank || rank != other.rank)
             return false;
-        if (rank != other.rank)
-            return false;
+
+        bool hasDynamic = false;
         for (size_t i = 0; i < rank; i++) {
             if (dims[i] == -1) {
-                assert(other.dims[i] > 0);
-                dims[i] = other.dims[i];
-            } else {
-                if (dims[i] != other.dims[i])
+                hasDynamic = true;
+                if (other.dims[i] <= 0)
                     return false;
-            }
+            } else if (dims[i] <= 0 || dims[i] != other.dims[i])
+                return false;
         }
+
+        if (!hasDynamic)
+            return false;
+
+        for (size_t i = 0; i < rank; i++)
+            if (dims[i] == -1)
+                dims[i] = other.dims[i];
         return true;
     }
 };

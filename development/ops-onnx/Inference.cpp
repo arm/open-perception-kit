@@ -20,10 +20,7 @@
 
 #include <fmt/core.h>
 
-#include "pek/Result.h"
 #include "pek/Types.h"
-
-#include "magic_enum/magic_enum.hpp"
 
 #include "pek/ModelDescriptor.h"
 
@@ -49,7 +46,6 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
 
     this->api = ApiTensorGlue();
     this->modelDescriptor = modelDesc_;
-    // this->modelPath = file;
 
     try {
         unsigned int hwThreads = std::thread::hardware_concurrency();
@@ -177,36 +173,16 @@ pek::Result<void> Inference::setupTensorsForModel() {
     return {};
 }
 
-template <typename toT, typename fromT>
-void writeValueTo(void *ptr, size_t valueIndex, void *valueAddress) {
-    toT *address = (toT *)ptr;
-    address[valueIndex] = *(fromT *)valueAddress;
-}
-
 pek::Result<void> Inference::inference() {
 
     // setting scalar tensors
     for (size_t i = 0; i < api.inputTensorVector.size(); i++) {
         if (pek::isScalarDataKind(this->model.inputs[i].dataKind)) {
-
-            size_t valueCount = 0;
-            if (this->model.inputs[i].dataKind == pek::DataKind::Value)
-                valueCount = 1;
-            if (this->model.inputs[i].dataKind == pek::DataKind::Vector2)
-                valueCount = 2;
-            if (this->model.inputs[i].dataKind == pek::DataKind::Vector3)
-                valueCount = 3;
-            if (this->model.inputs[i].dataKind == pek::DataKind::Vector4)
-                valueCount = 4;
-
-            if (this->model.inputs[i].valueType == pek::Dtype::Float32) {
-                for (size_t g = 0; g < valueCount; g++) {
-                    writeValueTo<float, float>(api.inputTensors[i]->getData(),
-                                               g,
-                                               this->model.inputs[i].valueInputs.data());
-                }
-            } else {
-                assert(0); // no type support to set scalar tensor input value
+            if (!api.inputTensors[i]->setValuesFromFloat(this->model.inputs[i].valueInputs)) {
+                return tl::make_unexpected(PEK_ERROR(
+                    pek::ErrorFlag::InvalidData,
+                    fmt::format(
+                        "ONNX scalar input {} values do not match its tensor dtype or shape", i)));
             }
         }
     }
@@ -276,7 +252,13 @@ pek::Result<void> Inference::inference() {
             Ort::Value &v = dynamicOutputData[i];
             auto tinfo = v.GetTensorTypeAndShapeInfo();
             std::vector<int64_t> onnxShape = tinfo.GetShape();
-            outputTensorFinalShapes[i].setFrom(onnxShape);
+            if (!outputTensorFinalShapes[i].setFrom(onnxShape)) {
+                return tl::make_unexpected(PEK_ERROR(
+                    pek::ErrorFlag::InvalidData,
+                    fmt::format("ONNX output tensor rank at index {} must be between 1 and {}",
+                                i,
+                                pek::Shape::MaxRank)));
+            }
         }
     }
 
@@ -300,48 +282,38 @@ pek::Result<void> Inference::inference() {
     }
 
     // tensor feedback
-    if (model.tensorFeedbacks.size()) {
-        size_t tesorIndex = 0;
-        for (const auto &feedback : model.tensorFeedbacks) {
-            if (feedback.mode == pek::TensorFeedback::Mode::Copy) {
-                size_t fromOutputIndex = feedback.fromOutputTensorIndex;
-                size_t toInputIndex = feedback.toInputTensorIndex;
+    for (const auto &feedback : model.tensorFeedbacks) {
+        size_t fromOutputIndex = feedback.fromOutputTensorIndex;
+        size_t toInputIndex = feedback.toInputTensorIndex;
 
-                if (fromOutputIndex >= model.outputs.size() ||
-                    toInputIndex >= model.inputs.size()) {
-                    return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
-                                                         "tensor feedback index out of range"));
-                }
-
-                size_t fromByteCount = 0;
-                if (model.useDynamicOutput) {
-                    Ort::Value &v = dynamicOutputData[fromOutputIndex];
-                    auto tinfo = v.GetTensorTypeAndShapeInfo();
-                    size_t valueCount = 1;
-                    for (auto d : tinfo.GetShape())
-                        valueCount *= d;
-                    fromByteCount = valueCount * pek::getValueTypeByteSize(
-                                                     model.outputs[fromOutputIndex].valueType);
-                } else {
-                    fromByteCount = api.outputTensors[fromOutputIndex]->getByteCount();
-                }
-
-                size_t toByteCount = api.inputTensors[toInputIndex]->getByteCount();
-
-                if (fromByteCount != toByteCount) {
-                    return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
-                                                         "tensor feedback buffer size mismatch"));
-                }
-
-                memcpy(api.inputTensors[toInputIndex]->getData(),
-                       outputTensorPointers[fromOutputIndex],
-                       toByteCount);
-
-                tesorIndex++;
-            } else {
-                assert(0); // unsupported feedback mode
-            }
+        if (fromOutputIndex >= model.outputs.size() || toInputIndex >= model.inputs.size()) {
+            return tl::make_unexpected(
+                PEK_ERROR(pek::ErrorFlag::InvalidData, "tensor feedback index out of range"));
         }
+
+        size_t fromByteCount = 0;
+        if (model.useDynamicOutput) {
+            Ort::Value &v = dynamicOutputData[fromOutputIndex];
+            auto tinfo = v.GetTensorTypeAndShapeInfo();
+            size_t valueCount = 1;
+            for (auto d : tinfo.GetShape())
+                valueCount *= d;
+            fromByteCount =
+                valueCount * pek::getValueTypeByteSize(model.outputs[fromOutputIndex].valueType);
+        } else {
+            fromByteCount = api.outputTensors[fromOutputIndex]->getByteCount();
+        }
+
+        size_t toByteCount = api.inputTensors[toInputIndex]->getByteCount();
+
+        if (fromByteCount != toByteCount) {
+            return tl::make_unexpected(
+                PEK_ERROR(pek::ErrorFlag::InvalidData, "tensor feedback buffer size mismatch"));
+        }
+
+        memcpy(api.inputTensors[toInputIndex]->getData(),
+               outputTensorPointers[fromOutputIndex],
+               toByteCount);
     }
 
     return {};
@@ -393,11 +365,11 @@ pek::Result<pek::Model> Inference::inspectModel(const Ort::Session &session) {
 
         // shape
         std::vector<int64_t> onnxDims = getTensorShape(session, pek::TensorInOut::In, i);
-        if (onnxDims.size() < 1 || onnxDims.size() > 8) {
-            return tl::unexpected{PEK_ERROR(pek::ErrorFlag::ModelInspectError,
-                                            "input tensor size must be between 1 and 8")};
+        if (!model.inputs[i].shape.setFrom(onnxDims)) {
+            return tl::unexpected{PEK_ERROR(
+                pek::ErrorFlag::ModelInspectError,
+                fmt::format("input tensor rank must be between 1 and {}", pek::Shape::MaxRank))};
         }
-        model.inputs[i].shape.setFrom(onnxDims);
     }
 
     // inspect all the OUTPUT TENSORS
@@ -420,17 +392,17 @@ pek::Result<pek::Model> Inference::inspectModel(const Ort::Session &session) {
             pek::Dtype::Float16 != tensorValueType) {
             return tl::unexpected{
                 PEK_ERROR(pek::ErrorFlag::ModelInspectError,
-                          "only float16, float32 or int64 input tensors are supported in ONNX")};
+                          "only float16, float32 or int64 output tensors are supported in ONNX")};
         }
         model.outputs[i].valueType = tensorValueType;
 
         // shape
         std::vector<int64_t> onnxDims = getTensorShape(session, pek::TensorInOut::Out, i);
-        if (onnxDims.size() < 1 || onnxDims.size() > 8) {
-            return tl::unexpected{PEK_ERROR(pek::ErrorFlag::ModelInspectError,
-                                            "output tensor size must be between 1 and 8")};
+        if (!model.outputs[i].shape.setFrom(onnxDims)) {
+            return tl::unexpected{PEK_ERROR(
+                pek::ErrorFlag::ModelInspectError,
+                fmt::format("output tensor rank must be between 1 and {}", pek::Shape::MaxRank))};
         }
-        model.outputs[i].shape.setFrom(onnxDims);
     }
 
     return model;

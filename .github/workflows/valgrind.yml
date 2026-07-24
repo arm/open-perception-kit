@@ -28,9 +28,9 @@ jobs:
       actions: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
 
       - name: Publish missing Valgrind baseline artifact
         env:
@@ -54,20 +54,26 @@ jobs:
       # job publishes it from trusted main/develop code while this PR job waits.
       # <agent-review:suppress-end>
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
 
+      - name: Create read-only modelfetch token
+        id: modelfetch-app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: Iv23li0DqDMHoMs0TXT9
+          private-key: ${{ secrets.EDGEAI_EXPKITS_APP_PK }}
+          owner: Arm-Debug
+          repositories: modelfetch
+          permission-contents: read
+
       - name: Prepare pinned modelfetch release
         env:
-          GH_TOKEN: ${{ secrets.MODELFETCH_RELEASE_TOKEN }}
+          GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
         run: |
           set -euo pipefail
-          if [ -z "${GH_TOKEN:-}" ]; then
-            echo "MODELFETCH_RELEASE_TOKEN is required to read the pinned Arm-Debug/modelfetch release." >&2
-            exit 1
-          fi
           ./scripts/private/prepare-modelfetch-release.sh >/dev/null
 
       - name: Run Valgrind Python unit tests

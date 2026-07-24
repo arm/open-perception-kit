@@ -2,11 +2,6 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 
-#include "Inference.h"
-
-#define EXECUTORCH_ENABLE_LOGGING 1
-
-#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <executorch/extension/module/module.h>
@@ -20,6 +15,8 @@
 #include "pek/Model.h"
 #include "pek/Result.h"
 #include "pek/Types.h"
+
+#include "Inference.h"
 
 static bool to_pek_dtype(executorch::aten::ScalarType t, pek::Dtype &outType) {
     using executorch::aten::ScalarType;
@@ -65,28 +62,6 @@ static bool to_executorch_dtype(pek::Dtype t, executorch::aten::ScalarType &outT
         return true;
     }
     return false;
-}
-
-template <typename SizesT> static pek::Shape to_pek_shape(const SizesT &sizes) {
-    pek::Shape s{};
-
-    s.rank = static_cast<int>(sizes.size());
-
-    // PEK Shape has fixed storage for 8 dimensions.
-    const size_t maxDims = sizeof(s.dims) / sizeof(s.dims[0]);
-    const size_t n = std::min(sizes.size(), maxDims);
-
-    assert(sizes.size() <= maxDims && "Tensor rank exceeds maximum supported Shape rank");
-
-    for (size_t i = 0; i < n; ++i) {
-        s.dims[i] = static_cast<int>(sizes[i]);
-    }
-
-    for (size_t i = n; i < maxDims; ++i) {
-        s.dims[i] = 0;
-    }
-
-    return s;
 }
 
 static std::vector<executorch::aten::SizesType> to_executorch_shape(const pek::Shape &shape) {
@@ -149,12 +124,15 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
                 }
 
                 auto sizes = tm->sizes();
-                if (sizes.size() < 1 || sizes.size() > pek::MaxTensorCount) {
-                    return tl::unexpected{PEK_ERROR(pek::ErrorFlag::ModelInspectError,
-                                                    "input tensor size must be between 1 and 8")};
+                auto shape = detail::toPekShape(sizes);
+                if (!shape) {
+                    return tl::unexpected{
+                        PEK_ERROR(pek::ErrorFlag::ModelInspectError,
+                                  fmt::format("input tensor rank must be between 1 and {}",
+                                              pek::Shape::MaxRank))};
                 }
-                input.shape = to_pek_shape(sizes);
-                input.batch = (sizes.size() > 0) ? static_cast<int>(sizes[0]) : 0;
+                input.shape = *shape;
+                input.batch = static_cast<int>(sizes[0]);
 
                 model.inputs.push_back(input);
             }
@@ -178,11 +156,14 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
                 }
 
                 auto sizes = tm->sizes();
-                if (sizes.size() < 1 || sizes.size() > pek::MaxTensorCount) {
-                    return tl::unexpected{PEK_ERROR(pek::ErrorFlag::ModelInspectError,
-                                                    "output tensor size must be between 1 and 8")};
+                auto shape = detail::toPekShape(sizes);
+                if (!shape) {
+                    return tl::unexpected{
+                        PEK_ERROR(pek::ErrorFlag::ModelInspectError,
+                                  fmt::format("output tensor rank must be between 1 and {}",
+                                              pek::Shape::MaxRank))};
                 }
-                output.shape = to_pek_shape(sizes);
+                output.shape = *shape;
 
                 model.outputs.push_back(output);
             }
@@ -204,10 +185,7 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
 
 pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
 
-    modelDescriptor = modelDesc_;
-    modelPath = modelDesc_.modelFile;
-
-    module = std::make_unique<executorch::extension::Module>(modelPath);
+    module = std::make_unique<executorch::extension::Module>(modelDesc_.modelFile);
 
     auto modelResult = inspectModel(*module);
     if (!modelResult) {
@@ -223,7 +201,7 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
     pek::log("{}", modelLog);
     pek::log("========= ======== ==== ========== =========\n");
 
-    auto cmResult = model.applyModelFromDescriptor(modelDescriptor);
+    auto cmResult = model.applyModelFromDescriptor(modelDesc_);
     if (!cmResult) {
         return tl::make_unexpected(cmResult.error());
     }
@@ -333,9 +311,18 @@ pek::Result<void> Inference::inference() {
                           fmt::format("ExecuTorch output dtype mismatch at index {}", i))};
         }
 
+        auto outputShape = detail::toPekShape(tensor.sizes());
+        if (!outputShape) {
+            return tl::unexpected{PEK_ERROR(
+                pek::ErrorFlag::InvalidData,
+                fmt::format("ExecuTorch output tensor rank at index {} must be between 1 and {}",
+                            i,
+                            pek::Shape::MaxRank))};
+        }
+
         // Downstream postprocess receives non-owning views over these addresses.
         outputTensorPointers[i] = static_cast<const uint8_t *>(tensor.const_data_ptr());
-        outputTensorFinalShapes[i] = to_pek_shape(tensor.sizes());
+        outputTensorFinalShapes[i] = *outputShape;
     }
 
     return {};

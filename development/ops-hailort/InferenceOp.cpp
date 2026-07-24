@@ -50,8 +50,6 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes,
                                         fmt::format("HailoRT startup error: {}", e.what())));
     }
 
-    modelFamily = inference->getModel().modelFamily;
-
     return {};
 }
 

@@ -10,7 +10,7 @@ set -euo pipefail
 usage() {
     cat << 'EOF'
 Usage:
-  start-container.sh [--recreate] [-h|--help]
+  start-container.sh [--recreate] [--env-file PATH] [-h|--help]
 
 Builds and starts the PEK quick-start container selected by host detection.
 
@@ -25,15 +25,26 @@ overrides. It does not start pek-dev-rich.
 
 Options:
   --recreate  Recreate the selected container even if it is already running
+  --env-file PATH
+              Pass PATH to Docker Compose for variable interpolation
 EOF
 }
 
 RECREATE="false"
+COMPOSE_ENV_FILE=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --recreate)
             RECREATE="true"
+            ;;
+        --env-file)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: --env-file requires a path." >&2
+                exit 2
+            fi
+            COMPOSE_ENV_FILE="$2"
+            shift
             ;;
         -h | --help)
             usage
@@ -70,6 +81,11 @@ COMPOSE_FILES=(
     -f .devcontainer/docker-compose.devcont.npu.yaml
     -f .devcontainer/docker-compose.devcont.shared_memory.yaml
 )
+
+COMPOSE_ENV_ARGS=()
+if [[ -n "${COMPOSE_ENV_FILE}" ]]; then
+    COMPOSE_ENV_ARGS=(--env-file "${COMPOSE_ENV_FILE}")
+fi
 
 require_docker() {
     if ! command -v docker > /dev/null 2>&1; then
@@ -134,6 +150,35 @@ container_has_current_modelfetch_sdk() {
     ' _ "$expected_sha" > /dev/null 2>&1
 }
 
+effective_executorch_required() {
+    local value
+    value="$(
+        docker compose \
+            "${COMPOSE_ENV_ARGS[@]+"${COMPOSE_ENV_ARGS[@]}"}" \
+            "${COMPOSE_FILES[@]}" \
+            config --environment |
+            sed -n 's/^EXECUTORCH_REQUIRED=//p' |
+            tail -n 1
+    )"
+    value="${value:-0}"
+
+    case "$value" in
+        0 | 1)
+            printf '%s\n' "$value"
+            ;;
+        *)
+            echo "Error: EXECUTORCH_REQUIRED must resolve to 0 or 1, got '${value}'." >&2
+            return 1
+            ;;
+    esac
+}
+
+container_has_executorch_sdk() {
+    docker exec -u devgoblin "${PEK_CONTAINER_NAME}" \
+        bash /work/scripts/private/executorch/install-executorch-deb.sh \
+        --check-installed > /dev/null 2>&1
+}
+
 print_enter_hint() {
     echo "Container is running: ${PEK_CONTAINER_NAME}"
     echo "Enter it with:"
@@ -153,13 +198,23 @@ export PEK_WEBRTC_TURN_MAX_PORT="${PEK_WEBRTC_TURN_MAX_PORT:-49050}"
 require_docker
 
 if container_running && [[ "$RECREATE" != "true" ]]; then
-    if container_workdir_writable && container_has_current_modelfetch_sdk; then
+    EXECUTORCH_REQUIRED_VALUE="$(effective_executorch_required)"
+    if container_workdir_writable &&
+        container_has_current_modelfetch_sdk &&
+        {
+            [[ "$EXECUTORCH_REQUIRED_VALUE" != "1" ]] ||
+                container_has_executorch_sdk
+        }; then
         print_enter_hint
         exit 0
     fi
 
     echo "The running container is missing the current workspace contract."
-    echo "Recreating it with the host UID/GID mapping and modelfetch C++ SDK..."
+    if [[ "$EXECUTORCH_REQUIRED_VALUE" == "1" ]]; then
+        echo "Recreating it with the required ExecuTorch SDK, host UID/GID mapping, and modelfetch C++ SDK..."
+    else
+        echo "Recreating it with the host UID/GID mapping and modelfetch C++ SDK..."
+    fi
     RECREATE="true"
 fi
 
@@ -185,7 +240,11 @@ UP_ARGS=(up -d --build)
 if [[ "$RECREATE" == "true" ]]; then
     UP_ARGS+=(--force-recreate)
 fi
-docker compose "${COMPOSE_FILES[@]}" "${UP_ARGS[@]}" "${PEK_CONTAINER_SERVICE}"
+docker compose \
+    "${COMPOSE_ENV_ARGS[@]+"${COMPOSE_ENV_ARGS[@]}"}" \
+    "${COMPOSE_FILES[@]}" \
+    "${UP_ARGS[@]}" \
+    "${PEK_CONTAINER_SERVICE}"
 
 echo
 docker ps --filter "name=${PEK_CONTAINER_NAME}" --format 'table {{.Names}} {{.Status}}'

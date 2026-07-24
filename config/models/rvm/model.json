@@ -40,9 +40,9 @@
 		}
 	],
 	"tensorFeedbacks": [
-	  { "fromOutputTensorIndex": 2, "toInputTensorIndex": 1, "mode": "Copy" },
-	  { "fromOutputTensorIndex": 3, "toInputTensorIndex": 2, "mode": "Copy" },
-	  { "fromOutputTensorIndex": 4, "toInputTensorIndex": 3, "mode": "Copy" },
-	  { "fromOutputTensorIndex": 5, "toInputTensorIndex": 4, "mode": "Copy" }
+	  { "fromOutputTensorIndex": 2, "toInputTensorIndex": 1 },
+	  { "fromOutputTensorIndex": 3, "toInputTensorIndex": 2 },
+	  { "fromOutputTensorIndex": 4, "toInputTensorIndex": 3 },
+	  { "fromOutputTensorIndex": 5, "toInputTensorIndex": 4 }
 	]
 }

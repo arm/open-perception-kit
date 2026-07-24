@@ -23,6 +23,11 @@ on:
         required: false
         default: ""
         type: string
+      require_executorch:
+        description: Require the signed ExecuTorch package and backend.
+        required: false
+        default: false
+        type: boolean
   pull_request:
     branches: [main, develop, "feature/**", "sandbox/**" ]
     types: [ opened, synchronize, reopened, ready_for_review, labeled ]
@@ -50,10 +55,11 @@ jobs:
       PEK_QUICK_START_CI_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      EXECUTORCH_REQUIRED: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.require_executorch == 'true')) && '1' || '0' }}
     steps:
       - name: Checkout workflow helpers
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           path: workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
@@ -76,7 +82,7 @@ jobs:
             --github-output "${GITHUB_OUTPUT}"
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -87,16 +93,24 @@ jobs:
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: ./scripts/quick-start/detect-environment.sh
 
+      - name: Create read-only modelfetch token
+        id: modelfetch-app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: Iv23li0DqDMHoMs0TXT9
+          private-key: ${{ secrets.EDGEAI_EXPKITS_APP_PK }}
+          owner: Arm-Debug
+          repositories: modelfetch
+          permission-contents: read
+
       - name: Recreate quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
-          GH_TOKEN: ${{ secrets.MODELFETCH_RELEASE_TOKEN }}
+          GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
+          EXECUTORCH_ARTIFACTORY_USERNAME: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.require_executorch == 'true')) && secrets.PEK_ARTIFACTORY_USERNAME || '' }}
+          EXECUTORCH_ARTIFACTORY_PASSWORD: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.require_executorch == 'true')) && secrets.PEK_ARTIFACTORY_API_KEY || '' }}
         run: |
           set -euo pipefail
-          if [ -z "${GH_TOKEN:-}" ]; then
-            echo "MODELFETCH_RELEASE_TOKEN is required to read the pinned Arm-Debug/modelfetch release." >&2
-            exit 1
-          fi
           {
             echo "HOST_UID=$(id -u)"
             echo "HOST_GID=$(id -g)"
@@ -105,7 +119,12 @@ jobs:
 
       - name: Build quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        run: ./scripts/build.sh
+        run: |
+          ./scripts/build.sh
+          if [ "$EXECUTORCH_REQUIRED" = "1" ]; then
+            docker exec -u devgoblin "$PEK_QUICK_START_CI_NAME" \
+              test -f /work/development/build/meson-out/pek-executorch-ops.so
+          fi
 
       - name: Clean quick-start workspace
         if: always()
@@ -145,10 +164,11 @@ jobs:
       CI_HELPER_PATH: workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       MODELFETCH_RELEASE_TOOL_IMAGE: pek-modelfetch-release-tools:${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      EXECUTORCH_REQUIRED: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.require_executorch == 'true')) && '1' || '0' }}
     steps:
       - name: Checkout workflow helpers
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           path: ${{ env.CI_HELPER_PATH }}
@@ -180,9 +200,8 @@ jobs:
             --head-sha-override "${{ github.event.inputs.pr_head_sha }}" \
             --github-output "${GITHUB_OUTPUT}"
 
-      # RPI runner drops checkout@v6 temp includeIf credentials during fetch; retry v6 after runner image update.
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -193,16 +212,22 @@ jobs:
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: ./scripts/quick-start/detect-environment.sh
 
+      - name: Create read-only modelfetch token
+        id: modelfetch-app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: Iv23li0DqDMHoMs0TXT9
+          private-key: ${{ secrets.EDGEAI_EXPKITS_APP_PK }}
+          owner: Arm-Debug
+          repositories: modelfetch
+          permission-contents: read
+
       - name: Prepare pinned modelfetch release
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
-          GH_TOKEN: ${{ secrets.MODELFETCH_RELEASE_TOKEN }}
+          GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
         run: |
           set -euo pipefail
-          if [ -z "${GH_TOKEN:-}" ]; then
-            echo "MODELFETCH_RELEASE_TOKEN is required to read the pinned Arm-Debug/modelfetch release." >&2
-            exit 1
-          fi
           cache_parent="${PWD}/.cache"
           cache_root="${cache_parent}/modelfetch"
           if [[ -L "$cache_parent" || -L "$cache_root" ]]; then
@@ -237,6 +262,9 @@ jobs:
 
       - name: Recreate quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          EXECUTORCH_ARTIFACTORY_USERNAME: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.require_executorch == 'true')) && secrets.PEK_ARTIFACTORY_USERNAME || '' }}
+          EXECUTORCH_ARTIFACTORY_PASSWORD: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.require_executorch == 'true')) && secrets.PEK_ARTIFACTORY_API_KEY || '' }}
         run: |
           set -euo pipefail
           {
@@ -247,7 +275,12 @@ jobs:
 
       - name: Build quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        run: ./scripts/build.sh
+        run: |
+          ./scripts/build.sh
+          if [ "$EXECUTORCH_REQUIRED" = "1" ]; then
+            docker exec -u devgoblin "$PEK_QUICK_START_CI_NAME" \
+              test -f /work/development/build/meson-out/pek-executorch-ops.so
+          fi
 
       - name: Browser smoke test with local data
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -259,7 +292,7 @@ jobs:
 
       - name: Upload RPI browser smoke artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: rpi-browser-smoke-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -306,10 +339,11 @@ jobs:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      EXECUTORCH_REQUIRED: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.require_executorch == 'true')) && '1' || '0' }}
     steps:
       - name: Checkout workflow helpers
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           path: workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
@@ -332,29 +366,42 @@ jobs:
             --github-output "${GITHUB_OUTPUT}"
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
           ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.head_ref || github.ref }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
+      - name: Create read-only modelfetch token
+        id: modelfetch-app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: Iv23li0DqDMHoMs0TXT9
+          private-key: ${{ secrets.EDGEAI_EXPKITS_APP_PK }}
+          owner: Arm-Debug
+          repositories: modelfetch
+          permission-contents: read
+
       - name: Prepare pinned modelfetch release
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
-          GH_TOKEN: ${{ secrets.MODELFETCH_RELEASE_TOKEN }}
+          GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
         run: |
           set -euo pipefail
-          if [ -z "${GH_TOKEN:-}" ]; then
-            echo "MODELFETCH_RELEASE_TOKEN is required to read the pinned Arm-Debug/modelfetch release." >&2
-            exit 1
-          fi
           ./scripts/private/prepare-modelfetch-release.sh >/dev/null
 
       - name: Build docker image
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          EXECUTORCH_ARTIFACTORY_USERNAME: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.require_executorch == 'true')) && secrets.PEK_ARTIFACTORY_USERNAME || '' }}
+          EXECUTORCH_ARTIFACTORY_PASSWORD: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.require_executorch == 'true')) && secrets.PEK_ARTIFACTORY_API_KEY || '' }}
         run: |
-          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-docs-base pek-dev-base pek-docs-dev-base
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build \
+            pek-docs-base \
+            pek-dev-base \
+            pek-docs-dev-base \
+            pek-release-with-ut
 
       - name: Check Repo Quality gate (nightly)
         if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number == '') }}
@@ -364,7 +411,7 @@ jobs:
 
       - name: Upload quality report artifact (nightly)
         if: ${{ always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number == '')) }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: expkits-ci-quality-report-full
           path: "${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.github/artifacts/expkits-ci-full-report.txt"
@@ -373,7 +420,7 @@ jobs:
 
       - name: Upload documentation artifact
         if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number == '') }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: pek-doc
           path: "${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/development/build/doc"
@@ -398,7 +445,7 @@ jobs:
 
       - name: Upload quality report artifact (PR)
         if: ${{ always() && (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '')) }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: expkits-ci-quality-report-pr
           path: "${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.github/artifacts/expkits-ci-pr-report.txt"
@@ -437,7 +484,7 @@ jobs:
       - name: Upload clang-tidy logs
         if: always() && (github.event_name == 'pull_request' || github.event_name == 'schedule' ||
           github.event_name == 'workflow_dispatch')
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: clang-tidy-baseline
           path: |

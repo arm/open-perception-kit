@@ -103,7 +103,12 @@ Enter the `amp-dev-forge` folder in the terminal and run:
 ```
 
 For a direct deployment build, prepare the pinned modelfetch release before
-invoking the existing Compose entrypoint:
+invoking the existing Compose entrypoint. The deployment image also requires
+the architecture-matching ExecuTorch 1.3.1 package. Either place
+`libexecutorch-dev-1.3.1-2-arm64.deb` in `var/`, or set
+`EXECUTORCH_ARTIFACTORY_USERNAME` and `EXECUTORCH_ARTIFACTORY_PASSWORD` in the
+ignored repository-root `.env` file as described in
+[`scripts/private/executorch/README.md`](scripts/private/executorch/README.md).
 
 ```bash
 bash scripts/private/prepare-modelfetch-release.sh

@@ -101,7 +101,8 @@ def setup_argument_parser(parser):
                             help="Optional plain-text report path with the effective plan and check results.")
     util_group.add_argument("-lof", "--list-of-files", nargs='+', default=[],
                             help="Instead of general run on all files, run on the files in the given folder. This is useful for testing specific files.")
-    util_group.add_argument("-if", "--ignore-folder", nargs='+', default=["deps", "development/build", ".git", ],
+    util_group.add_argument("-if", "--ignore-folder", nargs='+',
+                            default=["deps", "development/build", "development/subprojects", ".git"],
                             help="List of folders to ignore during checks.")
     util_group.add_argument("--compile-commands-dir", default=None,
                             help="Directory containing compile_commands.json for clang-tidy. Defaults to development/build.")

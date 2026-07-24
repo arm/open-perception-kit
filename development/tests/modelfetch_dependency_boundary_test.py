@@ -75,6 +75,13 @@ def main() -> None:
     runtime_imports = dynamic_symbols(args.readelf, args.model_runtime, undefined=True)
     if not runtime_imports:
         raise AssertionError(f"{args.model_runtime.name} has no modelfetch runtime imports")
+    fake_dependencies = needed_libraries(args.readelf, args.fake_backend)
+    unexpected_fake_dependencies = fake_dependencies & forbidden
+    if unexpected_fake_dependencies:
+        raise AssertionError(
+            f"{args.fake_backend.name} unexpectedly depends on "
+            f"{sorted(unexpected_fake_dependencies)}"
+        )
     fake_exports = dynamic_symbols(args.readelf, args.fake_backend, undefined=False)
     missing_fake_symbols = runtime_imports - fake_exports
     unused_fake_symbols = fake_exports - runtime_imports
@@ -89,6 +96,11 @@ def main() -> None:
         if "libpek-model-loading.so" not in dependencies:
             raise AssertionError(
                 f"{artifact.name} does not depend on libpek-model-loading.so"
+            )
+        if "libmodelfetch_c.so" in dependencies:
+            raise AssertionError(
+                f"{artifact.name} bypasses libpek-model-loading.so and depends directly "
+                "on libmodelfetch_c.so"
             )
 
 

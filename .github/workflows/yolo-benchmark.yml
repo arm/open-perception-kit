@@ -45,25 +45,30 @@ jobs:
       YOLO_BENCHMARK_RUNS: ${{ github.event_name == 'workflow_dispatch' && inputs.benchmark_runs || '10' }}
 
     steps:
-      # RPI runner drops checkout@v6 temp includeIf credentials during fetch; retry v6 after runner image update.
       - name: Checkout ref
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.ref }}
           fetch-depth: 1
           path: ${{ env.CI_CHECKOUT_PATH }}
 
+      - name: Create read-only modelfetch token
+        id: modelfetch-app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: Iv23li0DqDMHoMs0TXT9
+          private-key: ${{ secrets.EDGEAI_EXPKITS_APP_PK }}
+          owner: Arm-Debug
+          repositories: modelfetch
+          permission-contents: read
+
       - name: Set up YOLO benchmark cache
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
-          GH_TOKEN: ${{ secrets.MODELFETCH_RELEASE_TOKEN }}
+          GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
         run: |
           set -euo pipefail
-          if [ -z "${GH_TOKEN:-}" ]; then
-            echo "MODELFETCH_RELEASE_TOKEN is required to read the pinned Arm-Debug/modelfetch release." >&2
-            exit 1
-          fi
           ./examples/yolo-benchmark/docker/run.sh setup
 
       - name: Run YOLO benchmark
@@ -77,7 +82,7 @@ jobs:
 
       - name: Upload YOLO benchmark artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: yolo-benchmark-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/artifacts/yolo-benchmark

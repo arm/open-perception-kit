@@ -39,7 +39,10 @@ if not soup_dep.found()
 endif
 json_dep = dependency('json-glib-1.0', required: false)
 
-fmt_dep = dependency('fmt', fallback : ['fmt', 'fmt_dep'], required : true)
+fmt_dep = dependency('fmt',
+  version: ['>=12.0.0', '<13.0.0'],
+  fallback : ['fmt', 'fmt_dep'],
+  required : true)
 threads_dep = dependency('threads')
 
 nlohmann_dep = dependency('nlohmann_json',
@@ -105,12 +108,9 @@ modelfetch_candidates = []
 modelfetch_root_env = run_command('sh', '-c', 'printf %s "$PEK_MODELFETCH_ROOT"', check: false).stdout().strip()
 if modelfetch_root_env != ''
   modelfetch_candidates += [modelfetch_root_env]
+else
+  modelfetch_candidates += ['/opt/pek-deps/modelfetch']
 endif
-
-modelfetch_candidates += [
-  '/opt/pek-deps/modelfetch',
-  meson.project_source_root() / '../deps/modelfetch',
-]
 
 foreach candidate : modelfetch_candidates
   if fs.is_file(candidate / 'include/modelfetch/modelfetch.hpp') and fs.is_file(candidate / 'lib/libmodelfetch_c.so')

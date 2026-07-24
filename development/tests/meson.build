@@ -40,6 +40,24 @@ matrix_operations_tests = executable(
   dependencies : [gtest_main_dep, gtest_dep],
 )
 
+shape_tests = executable(
+  'shape_tests',
+  ['shape_test.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, nlohmann_dep],
+)
+
+onnx_tensor_tests = executable(
+  'onnx_tensor_tests',
+  ['onnx_tensor_test.cpp'],
+  include_directories : [
+    common_include,
+    include_directories('../ops-onnx'),
+  ],
+  dependencies : [gtest_main_dep, gtest_dep, pek_deps, onnx_dep],
+  link_with : [common],
+)
+
 kalman_filter_tests = executable(
   'kalman_filter_tests',
   ['kalman_filter_test.cpp'],
@@ -124,10 +142,40 @@ runtime_pipeline_tests = executable(
   link_with : [pek_runtime, common],
 )
 
+if is_variable('executorchops')
+  executorch_inference_tests = executable(
+    'executorch_inference_tests',
+    ['executorch_inference_test.cpp', '../ops-executorch/Inference.cpp'],
+    include_directories : [
+      common_include,
+      include_directories('../ops-executorch'),
+    ],
+    cpp_args : ['-DFMT_HEADER_ONLY'],
+    dependencies : [gtest_main_dep, gtest_dep, pek_deps, executorch_runtime_dep],
+    link_with : [common],
+  )
+endif
+
 node = find_program('node', required : false)
 python = import('python').find_installation()
 gst_launch = find_program('gst-launch-1.0')
 readelf = find_program('readelf')
+
+model_consumers = [onnxops]
+if is_variable('executorchops')
+  model_consumers += [executorchops]
+endif
+if is_variable('hailortops')
+  model_consumers += [hailortops]
+endif
+if is_variable('ncnnops')
+  model_consumers += [ncnnops]
+endif
+
+model_consumer_args = ['--model-consumer']
+foreach model_consumer : model_consumers
+  model_consumer_args += [model_consumer.full_path()]
+endforeach
 
 test('pek_menu_tests', pek_menu_tests)
 test(
@@ -182,15 +230,12 @@ test(
     model_loading.full_path(),
     '--fake-backend',
     fake_modelfetch.full_path(),
-    '--model-consumer',
-    onnxops.full_path(),
-  ],
+  ] + model_consumer_args,
   depends : [
     common,
     model_loading,
     stdops,
     gstpekinfer,
-    onnxops,
     gstpektracker,
     gstpekperformance,
     gstpekosd,
@@ -199,9 +244,11 @@ test(
     pek_menu,
     pek_runtime,
     fake_modelfetch,
-  ],
+  ] + model_consumers,
 )
 test('matrix_operations_tests', matrix_operations_tests)
+test('shape_tests', shape_tests)
+test('onnx_tensor_tests', onnx_tensor_tests)
 test('kalman_filter_tests', kalman_filter_tests)
 test('hungarian_tests', hungarian_tests)
 test('iou_tests', iou_tests)
@@ -217,6 +264,17 @@ test(
 test('pektracker_matching_tests', pektracker_matching_tests)
 test('webrtc_session_tests', webrtc_session_tests)
 test('runtime_pipeline_tests', runtime_pipeline_tests)
+if is_variable('executorch_inference_tests')
+  test(
+    'executorch_inference_tests',
+    executorch_inference_tests,
+    env : [
+      'PEK_TEST_EXECUTORCH_MODEL=' + (
+        meson.project_source_root() / '../config/models/yolox/yolox_nano.pte'
+      ),
+    ],
+  )
+endif
 
 if node.found()
   test(

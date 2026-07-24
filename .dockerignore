@@ -3,11 +3,25 @@
 .gitignore
 .cache/
 
+# Host-local configuration can contain credentials and generated device state.
+# Compose reads these files before the build; they must never enter its context.
+.env
+devices.env
+.devcontainer/.env
+.devcontainer/devices.env
+.devcontainer/cameras.env
+.devcontainer/*.video.yaml
+.devcontainer/*.audio.yaml
+.devcontainer/*.npu.yaml
+.devcontainer/*.shared_memory.yaml
+
 # Build outputs
 cmake-build*/
 **/build/
 development/build/
-var/
+var/*
+!var/.gitignore
+!var/libexecutorch-dev-*.deb
 deps/
 *.tgz
 

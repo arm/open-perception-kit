@@ -4,7 +4,9 @@
 ################################################################
 
 import importlib
+import json
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -377,6 +379,54 @@ class TestQualityChecks(unittest.TestCase):
             result,
             [".github/workflows/ci.yml", "development/building/out.txt"],
         )
+
+    def test_clang_tidy_limits_diagnostics_to_project_sources(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir)
+            build_dir = project_root / "development" / "build"
+            source_file = project_root / "development" / "common" / "pek" / "Result.cpp"
+            build_dir.mkdir(parents=True)
+            source_file.parent.mkdir(parents=True)
+            source_file.write_text("", encoding="utf-8")
+            (project_root / ".clang-tidy").write_text("---\nChecks: '-*'\n", encoding="utf-8")
+            (build_dir / "compile_commands.json").write_text(
+                json.dumps([{
+                    "directory": str(build_dir),
+                    "file": str(source_file),
+                    "command": f"c++ -c {source_file}",
+                }]),
+                encoding="utf-8",
+            )
+            self.quality_checks.file_utils.get_project_root = Mock(
+                return_value=str(project_root)
+            )
+
+            with patch.object(
+                self.quality_checks,
+                "_resolve_clang_tidy_binary",
+                return_value="/usr/bin/clang-tidy",
+            ), patch.object(
+                quality_checks_module.subprocess,
+                "run",
+                return_value=Mock(returncode=0, stdout="", stderr=""),
+            ) as subprocess_run:
+                result = self.quality_checks.check_clang_tidy(
+                    ["development/common/pek/Result.cpp"],
+                    compile_commands_dir=str(build_dir),
+                )
+
+        self.assertTrue(result)
+        command = subprocess_run.call_args.args[0]
+        line_filter_arg = next(
+            argument for argument in command
+            if argument.startswith("--line-filter=")
+        )
+        line_filter = json.loads(line_filter_arg.split("=", 1)[1])
+        project_file_pattern = re.compile(line_filter[0]["name"])
+        self.assertRegex("../common/pek/Result.h", project_file_pattern)
+        self.assertRegex("/work/development/runtime/Result.cpp", project_file_pattern)
+        self.assertRegex("../ops-ncnn/NcnnOp.cpp", project_file_pattern)
+        self.assertNotRegex("../subprojects/fmt/include/fmt/base.h", project_file_pattern)
 
     def test_check_secrets_batches_files_and_uses_resolved_command(self):
         files = [f"file-{index}.txt" for index in range(55)]

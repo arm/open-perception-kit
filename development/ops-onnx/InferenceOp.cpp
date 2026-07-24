@@ -55,8 +55,6 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes,
                                         fmt::format("OnnxRT startup error: {}", e.what())));
     }
 
-    modelFamily = inference->getModel().modelFamily;
-
     return {};
 }
 

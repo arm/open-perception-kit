@@ -504,11 +504,6 @@ pek::Result<void> Inference::copyOutputMat(size_t tensorIndex, const ncnn::Mat &
 
 pek::Result<void> Inference::applyTensorFeedback() {
     for (const auto &feedback : model.tensorFeedbacks) {
-        if (feedback.mode != pek::TensorFeedback::Mode::Copy) {
-            return tl::unexpected{
-                PEK_ERROR(pek::ErrorFlag::InvalidData, "unsupported NCNN tensor feedback mode")};
-        }
-
         size_t fromOutputIndex = feedback.fromOutputTensorIndex;
         size_t toInputIndex = feedback.toInputTensorIndex;
 

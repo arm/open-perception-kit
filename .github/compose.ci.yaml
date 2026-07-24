@@ -24,6 +24,11 @@ services:
       target: pek-dev-base
       additional_contexts:
         modelfetch_sdks: ../.cache/modelfetch
+      secrets:
+        - executorch_artifactory_username
+        - executorch_artifactory_password
+      args:
+        EXECUTORCH_REQUIRED: ${EXECUTORCH_REQUIRED:-0}
 
   pek-docs-dev-base: &pek-docs-dev-base
     extends:
@@ -52,21 +57,22 @@ services:
       dockerfile: scripts/report_pages/Dockerfile
 
   pek-release-with-ut:
-    extends:
-      file: ../compose.base.yaml
-      service: pek-common-dev
-    network_mode: bridge
+    <<: *pek-dev-base
     hostname: pek-release-with-ut
-    build:
-      context: ..
-      dockerfile: Dockerfile
-      target: pek-model-tools-base
-      additional_contexts:
-        modelfetch_sdks: ../.cache/modelfetch
+    environment:
+      EXECUTORCH_REQUIRED: ${EXECUTORCH_REQUIRED:-0}
     command: |
       bash -c '
         .devcontainer/setup.sh &&
         .devcontainer/platform_init.sh pek-dev-base &&
+        source "$${PEK_DEVTOOLS_VENV}/bin/activate" &&
+        python3 -m unittest \
+          scripts/private/tests/test_docker_build_context_contract.py \
+          scripts/private/tests/test_executorch_scripts.py \
+          tools/expkits-ci/tests/test_agent_workflow_contracts.py &&
+        if [ "$${EXECUTORCH_REQUIRED}" = "1" ]; then
+          export PEK_EXECUTORCH=enabled;
+        fi &&
         ./scripts/build-elements.sh release true &&
         meson test -C development/build --print-errorlogs
       '
@@ -177,6 +183,11 @@ services:
       target: pek-dev-sonar
       additional_contexts:
         modelfetch_sdks: ../.cache/modelfetch
+      secrets:
+        - executorch_artifactory_username
+        - executorch_artifactory_password
+      args:
+        EXECUTORCH_REQUIRED: ${EXECUTORCH_REQUIRED:-0}
     environment:
       PROJECT_ROOT: /work/development
       BUILD_DIR: /work/development/build
@@ -219,6 +230,11 @@ services:
       target: pek-dev-sonar
       additional_contexts:
         modelfetch_sdks: ../.cache/modelfetch
+      secrets:
+        - executorch_artifactory_username
+        - executorch_artifactory_password
+      args:
+        EXECUTORCH_REQUIRED: 1
     environment:
       PROJECT_ROOT: /work/development
       BUILD_DIR: /work/development/build
@@ -233,7 +249,7 @@ services:
         .devcontainer/devsetup.sh &&
         .devcontainer/platform_init.sh pek-dev-base &&
         source /work/tools/.venv/bin/activate &&
-        ./scripts/build-elements.sh debug true --extra-setup-args=-Db_coverage=true,--wipe &&
+        PEK_EXECUTORCH=enabled ./scripts/build-elements.sh debug true --extra-setup-args=-Db_coverage=true,--wipe &&
         meson test -C "$$BUILD_DIR" --print-errorlogs &&
         gcovr -r . --sonarqube coverage.xml &&
         sonar-scanner -Dsonar.qualitygate.wait="$${SONAR_QUALITYGATE_WAIT}" \
@@ -241,3 +257,9 @@ services:
           -Dsonar.projectVersion="$$SONAR_PROJECT_VERSION" \
           -Dsonar.buildString="$$BUILD_STRING"
       '
+
+secrets:
+  executorch_artifactory_username:
+    environment: EXECUTORCH_ARTIFACTORY_USERNAME
+  executorch_artifactory_password:
+    environment: EXECUTORCH_ARTIFACTORY_PASSWORD

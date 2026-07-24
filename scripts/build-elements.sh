@@ -10,14 +10,12 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 # ---- config ----
 PROJECT_ROOT=/work/development
 BUILD_DIR="$PROJECT_ROOT/build"
-TESTS_BUILD_DIR="$PROJECT_ROOT/build-test"
 PEK_MENU=$PROJECT_ROOT/build/meson-out/pek-menu
 PEK_MENU_OUT=/work/tools/pek-menu
 COMMON_LIBRARY=$PROJECT_ROOT/build/meson-out/libcommon.so
 COMMON_LIBRARY_OUT=/work/tools/libcommon.so
 EXTRA_SETUP_ARGS=()
 MESON_SETUP_ARGS=()
-MESON_CONFIGURE_ARGS=()
 
 mkdir -p "$BUILD_DIR"
 
@@ -108,6 +106,7 @@ normalize_feature_value() {
 add_feature_option_from_env() {
     local option_name="$1"
     local env_name="$2"
+    local default_value="${3:-}"
     local raw_value="${!env_name:-}"
     local short_value="${!option_name:-}"
     local normalized_value
@@ -117,22 +116,46 @@ add_feature_option_from_env() {
     fi
 
     if [[ -z "$raw_value" ]]; then
-        return
+        local arg
+        for arg in "${EXTRA_SETUP_ARGS[@]+"${EXTRA_SETUP_ARGS[@]}"}"; do
+            case "$arg" in
+                "-D${option_name}="*) return 0 ;;
+            esac
+        done
     fi
+
+    raw_value="${raw_value:-$default_value}"
+    [[ -n "$raw_value" ]] || return 0
 
     normalized_value="$(normalize_feature_value "$env_name/$option_name" "$raw_value")"
     MESON_SETUP_ARGS+=("-D${option_name}=${normalized_value}")
-    MESON_CONFIGURE_ARGS+=("-D${option_name}=${normalized_value}")
-    msg "Meson feature from environment: ${option_name}=${normalized_value}"
+    msg "Meson feature selection: ${option_name}=${normalized_value}"
 }
 
 collect_meson_args() {
-    MESON_SETUP_ARGS=("${EXTRA_SETUP_ARGS[@]}")
-    MESON_CONFIGURE_ARGS=("${EXTRA_SETUP_ARGS[@]}")
+    MESON_SETUP_ARGS=("${EXTRA_SETUP_ARGS[@]+"${EXTRA_SETUP_ARGS[@]}"}")
 
-    add_feature_option_from_env "executorch" "PEK_EXECUTORCH"
+    add_feature_option_from_env "executorch" "PEK_EXECUTORCH" "auto"
     add_feature_option_from_env "hailort" "PEK_HAILORT"
     add_feature_option_from_env "ncnn" "PEK_NCNN"
+}
+
+configure_build_dir() {
+    local setup_mode=()
+    if meson_build_is_configured "$BUILD_DIR"; then
+        msg "Meson setup --reconfigure (keeping existing build dir)…"
+        setup_mode=(--reconfigure)
+    else
+        msg "Meson setup…"
+    fi
+
+    meson setup \
+        "${setup_mode[@]+"${setup_mode[@]}"}" \
+        "$BUILD_DIR" \
+        "$PROJECT_ROOT" \
+        --layout=flat \
+        "${MESON_SETUP_ARGS[@]+"${MESON_SETUP_ARGS[@]}"}" \
+        "$@"
 }
 
 # ---- build ----
@@ -144,13 +167,11 @@ debug() {
 
     msg_begin "Starting DEBUG build in directory: $PROJECT_ROOT (tests=$enable_tests)"
 
-    if ! meson_build_is_configured "$BUILD_DIR"; then
-        msg "Meson setup.."
-        meson setup "$BUILD_DIR" "$PROJECT_ROOT" --buildtype=debug --layout=flat -Dtests="$enable_tests" "${MESON_SETUP_ARGS[@]}"
-    else
-        msg "Meson configure (keeping existing build dir)…"
-        meson configure "$BUILD_DIR" "${MESON_CONFIGURE_ARGS[@]}" > /dev/null
-    fi
+    configure_build_dir \
+        --buildtype=debug \
+        -Dstrip=false \
+        -Db_lto=false \
+        -Dtests="$enable_tests"
 
     msg "Compiling.."
     meson compile -C "$BUILD_DIR"
@@ -168,21 +189,11 @@ release() {
 
     msg_begin "Starting RELEASE build in directory: $PROJECT_ROOT (tests=$enable_tests)"
 
-    if ! meson_build_is_configured "$BUILD_DIR"; then
-        msg "Meson setup (release)…"
-        meson setup "$BUILD_DIR" "$PROJECT_ROOT" \
-            --buildtype=release \
-            -Ddebug=false \
-            -Dstrip=true \
-            -Db_lto=true \
-            -Doptimization=3 \
-            --layout=flat \
-            -Dtests="$enable_tests" \
-            "${MESON_SETUP_ARGS[@]}"
-    else
-        msg "Meson configure (keeping existing build dir)…"
-        meson configure "$BUILD_DIR" "${MESON_CONFIGURE_ARGS[@]}" > /dev/null
-    fi
+    configure_build_dir \
+        --buildtype=release \
+        -Dstrip=true \
+        -Db_lto=true \
+        -Dtests="$enable_tests"
 
     msg "Compiling…"
     meson compile -C "$BUILD_DIR"
@@ -193,20 +204,13 @@ release() {
 }
 # ---- clean ----
 clean() {
-    msg_begin "Executing CLEAN on $BUILD_DIR and $TESTS_BUILD_DIR"
+    msg_begin "Executing CLEAN on $BUILD_DIR"
     if [[ -d "$BUILD_DIR" ]]; then
         msg "REMOVING $BUILD_DIR…"
         rm -rf "$BUILD_DIR"
         msg_end "Done."
     else
         msg_end_err "no $BUILD_DIR to clean.."
-    fi
-    if [[ -d "$TESTS_BUILD_DIR" ]]; then
-        msg "REMOVING $TESTS_BUILD_DIR"
-        rm -rf "$TESTS_BUILD_DIR"
-        msg_end "Done."
-    else
-        msg_end_err "no $TESTS_BUILD_DIR to clean.."
     fi
 }
 

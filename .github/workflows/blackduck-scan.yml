@@ -38,7 +38,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: ${{ env.CI_CHECKOUT_PATH }}
           submodules: recursive
@@ -46,16 +46,22 @@ jobs:
       - name: Export isolated workspace root
         run: echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
 
+      - name: Create read-only modelfetch token
+        id: modelfetch-app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: Iv23li0DqDMHoMs0TXT9
+          private-key: ${{ secrets.EDGEAI_EXPKITS_APP_PK }}
+          owner: Arm-Debug
+          repositories: modelfetch
+          permission-contents: read
+
       - name: Prepare pinned modelfetch release
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
-          GH_TOKEN: ${{ secrets.MODELFETCH_RELEASE_TOKEN }}
+          GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
         run: |
           set -euo pipefail
-          if [ -z "${GH_TOKEN:-}" ]; then
-            echo "MODELFETCH_RELEASE_TOKEN is required to read the pinned Arm-Debug/modelfetch release." >&2
-            exit 1
-          fi
           ./scripts/private/prepare-modelfetch-release.sh >/dev/null
 
       - name: Log in to Docker Hub
@@ -65,7 +71,7 @@ jobs:
           password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -535,7 +541,7 @@ jobs:
 
       - name: Upload discovered container manifest
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: blackduck-${{ matrix.architecture }}-container-manifest
           path: ${{ runner.temp }}/bd-container-manifest.json
@@ -544,7 +550,7 @@ jobs:
 
       - name: Upload Black Duck status files
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: blackduck-${{ matrix.architecture }}-status
           path: ${{ runner.temp }}/bd-output/**/status/status.json
@@ -553,7 +559,7 @@ jobs:
 
       - name: Upload Black Duck container outputs
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: blackduck-${{ matrix.architecture }}-container-outputs
           path: ${{ runner.temp }}/bd-output/containers
@@ -562,7 +568,7 @@ jobs:
 
       - name: Upload Black Duck Detect logs
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: blackduck-${{ matrix.architecture }}-detect-logs
           path: |
