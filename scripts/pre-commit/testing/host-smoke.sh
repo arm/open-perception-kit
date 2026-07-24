@@ -171,6 +171,8 @@ init_smoke_repo() {
     git commit --allow-empty -m "Bootstrap repo-checks smoke base" -m "Task: EXPKITS-941" > /dev/null
     git update-ref refs/remotes/origin/develop HEAD
     git checkout -b feature/EXPKITS-941/repo-checks-smoke > /dev/null
+    git config branch.feature/EXPKITS-941/repo-checks-smoke.vscode-merge-base origin/develop
+    git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main
     repo_checks_load_lines load_formatter_cases
     PRECOMMIT_CASES=("${REPO_CHECKS_LOADED_LINES[@]}")
     for case_entry in "${PRECOMMIT_CASES[@]}"; do

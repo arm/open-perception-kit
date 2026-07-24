@@ -276,6 +276,27 @@ Default rules:
   needed.
 - Keep log messages actionable and avoid noisy repeated logs in hot paths.
 
+Use `log()`, `logn()`, `logw()`, or `loge()` for normal severity-filtered
+logging. These functions enqueue messages for the logging worker. Use their
+`*Runtime()` forms only when the format string is not known at compile time.
+
+Use `forceLog()` and `forceLoge()` only when output must be synchronous,
+unconditional, and directed explicitly to stdout or stderr. Typical cases are
+terminal interaction and exceptional diagnostics inside a log target. These
+functions bypass severity filtering and configured targets, so they are not a
+replacement for normal logging.
+
+Log target implementations must not call the asynchronous logging functions,
+`logFlush()`, or the target-state API. Doing so can recurse into the logger or
+deadlock. A target may use `forceLog*()` for an exceptional internal
+diagnostic, but not to deliver ordinary records.
+
+Avoid large messages and repeated per-frame or per-object messages in hot
+paths. The logging queue is deliberately bounded and drops the oldest queued
+record during overload. Do not add hidden unbounded queues in log targets.
+See [Logging](concepts/logging.md) for the public API, configuration, and
+target extension rules.
+
 ## Concurrency and lifetime
 
 Code that starts work must also define how that work stops.

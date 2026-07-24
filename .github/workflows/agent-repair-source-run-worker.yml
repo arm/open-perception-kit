@@ -26,8 +26,6 @@ on:
     secrets:
       EXPKITS_AGENT_TOKEN:
         required: false
-      OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS:
-        required: false
 
 permissions: {}
 
@@ -149,10 +147,14 @@ jobs:
             python3 -m agent_repair_orchestrator run-validation \
             --profile-path "${{ inputs.profile_path || '.github/agent-runtime/source-run-repair/profiles/profile.json' }}"
 
+      - name: Fetch OpenAI proxy token
+        id: openai-token
+        uses: Arm-Debug/devops-actions/fetch-openai-proxy-token@v1.7.0
+
       - name: Run OpenAI SDK repair agent
         shell: bash
         env:
-          OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
+          OPENAI_PROXY_TOKEN: ${{ steps.openai-token.outputs.openai_token }}
         run: |
           .agent-runtime/openai-agent-venv/bin/python scripts/private/agent_runtime/openai_agent_runner.py run-repair \
             --model-config-file "${{ needs.prepare.outputs.agent_model_config_file }}" \
