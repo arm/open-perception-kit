@@ -570,6 +570,17 @@ class AgentWorkflowContractTests(unittest.TestCase):
         )
         rpi_job = pek_ci["jobs"]["rpi5-quick-start-build-test"]
         sonar_job = sonar["jobs"]["build-and-sonar"]
+        self.assertEqual(rpi_steps["Set up Python"]["uses"], "actions/setup-python@v6")
+        self.assertEqual(rpi_steps["Set up Python"]["with"]["python-version"], "3.12")
+        rpi_step_names = list(rpi_steps)
+        self.assertLess(
+            rpi_step_names.index("Set up Python"),
+            rpi_step_names.index("Resolve manual PR context"),
+        )
+        self.assertLess(
+            rpi_step_names.index("Set up Python"),
+            rpi_step_names.index("Recreate quick-start container"),
+        )
         self.assertEqual(
             rpi_steps["Checkout workflow helpers"]["with"]["path"],
             "${{ env.CI_HELPER_PATH }}",
