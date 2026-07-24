@@ -14,9 +14,9 @@
 // WebRTC in GST is unstable: this macro disables the warning
 #define GST_USE_UNSTABLE_API
 
+#include "Log.h"
 #include "auxiliary.h"
 #include "ctrl_ws.h"
-#include "pek/Log.h"
 #include "peksink.h"
 #include "utils.h"
 
@@ -39,8 +39,9 @@ CtrlSockerError CtrlWebSocket::setup() {
 
     ws->set_open_handler([this](const connection_hdl &hdl) { on_open(hdl); });
     ws->set_close_handler([this](const connection_hdl &hdl) { on_close(hdl); });
-    ws->set_message_handler(
-        [this](const connection_hdl &hdl, const ws_server::message_ptr &msg) { on_message(hdl, msg); });
+    ws->set_message_handler([this](const connection_hdl &hdl, const ws_server::message_ptr &msg) {
+        on_message(hdl, msg);
+    });
 
     ws->set_reuse_addr(true);
     ws->listen(self_->ctrl_port);

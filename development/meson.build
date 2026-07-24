@@ -40,6 +40,7 @@ endif
 json_dep = dependency('json-glib-1.0', required: false)
 
 fmt_dep = dependency('fmt', fallback : ['fmt', 'fmt_dep'], required : true)
+threads_dep = dependency('threads')
 
 nlohmann_dep = dependency('nlohmann_json',
                       required : true,
@@ -125,7 +126,7 @@ if web_server_enabled
 endif
 
 # Common include(s)
-common_include = include_directories('common')
+common_include = include_directories('common', 'common/logging/include')
 
 # gtest dependencies
 cmake = import('cmake')

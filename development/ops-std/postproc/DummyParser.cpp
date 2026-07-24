@@ -3,7 +3,7 @@
  *************************************************************/
 
 #include "postproc/DummyParser.h"
-#include "pek/Log.h"
+#include "Log.h"
 #include "pek/Perception.h"
 #include "pek/TensorParser.h"
 #include "pek/Types.h"
