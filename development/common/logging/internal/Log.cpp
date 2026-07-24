@@ -4,8 +4,8 @@
 
 #include "Log.h"
 
-#include "LogTargets.h"
 #include "Logger.h"
+#include "Targets.h"
 
 #include <algorithm>
 #include <atomic>
@@ -22,7 +22,7 @@ namespace pek::log {
 
 namespace { // unnamed namespace to keep functions local
 
-constexpr int logLevelValue(LogLevel level) {
+constexpr int levelValue(Level level) {
     return static_cast<int>(level);
 }
 
@@ -30,16 +30,17 @@ std::optional<int> parseLogLevel(std::string_view value) {
     if (value.size() != 1 || value.front() < '0' || value.front() > '9') {
         return std::nullopt;
     }
-    return std::min(value.front() - '0', logLevelValue(LogLevel::Info));
+    return std::min(value.front() - '0', levelValue(Level::Info));
 }
 
-bool shouldLog(LogLevel level) {
-    return level != LogLevel::Off && getLogLevel() >= logLevelValue(level);
+bool shouldLog(Level level) {
+    return level != Level::Off && getLogLevel() >= levelValue(level);
 }
 
 struct InitialLogConfiguration {
     int level;
-    std::vector<LogTargetType> enabledTargets;
+    std::vector<TargetType> enabledTargets;
+    std::string fileName;
 };
 
 std::optional<int> configuredLogLevel() {
@@ -51,11 +52,11 @@ std::optional<int> configuredLogLevel() {
     return parseLogLevel(value);
 }
 
-std::vector<LogTargetType> configuredLogTargets() {
+std::vector<TargetType> configuredLogTargets() {
     const char *value = std::getenv("OPK_LOG_TARGETS"); // NOLINT(concurrency-mt-unsafe)
     if (value == nullptr) {
         instantError("OPK_LOG_TARGETS is not set; defaulting to stdout.\n");
-        return {LogTargetType::Stdout};
+        return {TargetType::Stdout};
     }
 
     const std::string_view configuredTargets(value);
@@ -63,10 +64,10 @@ std::vector<LogTargetType> configuredLogTargets() {
         return {};
     }
 
-    std::vector<LogTargetType> targets;
+    std::vector<TargetType> targets;
     // A small lambda to append the detected log target to the targets list if it is not already
     // present.
-    const auto appendIfMissing = [&targets](LogTargetType target) {
+    const auto appendIfMissing = [&targets](TargetType target) {
         if (std::find(targets.begin(), targets.end(), target) == targets.end()) {
             targets.push_back(target);
         }
@@ -75,23 +76,30 @@ std::vector<LogTargetType> configuredLogTargets() {
     std::istringstream targetStream{std::string(configuredTargets)};
     for (std::string token; std::getline(targetStream, token, ',');) {
         if (token == "stdout") {
-            appendIfMissing(LogTargetType::Stdout);
+            appendIfMissing(TargetType::Stdout);
         } else if (token == "stderr") {
-            appendIfMissing(LogTargetType::Stderr);
+            appendIfMissing(TargetType::Stderr);
+        } else if (token == "file") {
+            appendIfMissing(TargetType::File);
         }
     }
 
     if (targets.empty()) {
-        targets.push_back(LogTargetType::Stdout);
+        targets.push_back(TargetType::Stdout);
     }
     return targets;
 }
 
+std::string configuredLogFile() {
+    const char *value = std::getenv("OPK_LOG_FILE"); // NOLINT(concurrency-mt-unsafe)
+    return value == nullptr || *value == '\0' ? "opk.log" : value;
+}
+
 InitialLogConfiguration &initialLogConfiguration() {
     static InitialLogConfiguration configuration = [] {
-        const int level = configuredLogLevel().value_or(logLevelValue(defaultLogLevel));
+        const int level = configuredLogLevel().value_or(levelValue(defaultLogLevel));
         auto targets = configuredLogTargets();
-        return InitialLogConfiguration{level, std::move(targets)};
+        return InitialLogConfiguration{level, std::move(targets), configuredLogFile()};
     }();
     return configuration;
 }
@@ -102,7 +110,8 @@ std::atomic<int> &accessLogLevel() {
 }
 
 Logger &processLogger() {
-    static Logger logger(createBuiltInLogTargets(initialLogConfiguration().enabledTargets));
+    static Logger logger(createBuiltInLogTargets(initialLogConfiguration().enabledTargets,
+                                                 initialLogConfiguration().fileName));
     return logger;
 }
 
@@ -110,7 +119,7 @@ Logger &processLogger() {
 
 namespace private_ {
 
-void logWrite(LogLevel level, std::string &&message) {
+void write(Level level, std::string &&message) {
     if (shouldLog(level)) {
         processLogger().write(level, std::move(message));
     }
@@ -123,20 +132,19 @@ int getLogLevel() {
 }
 
 void setLogLevel(int logLevel) {
-    accessLogLevel().store(
-        std::clamp(logLevel, logLevelValue(LogLevel::Off), logLevelValue(LogLevel::Info)),
-        std::memory_order_relaxed);
+    accessLogLevel().store(std::clamp(logLevel, levelValue(Level::Off), levelValue(Level::Info)),
+                           std::memory_order_relaxed);
 }
 
-std::vector<LogTargetType> getEnabledLogTargets() {
+std::vector<TargetType> getEnabledLogTargets() {
     return processLogger().getEnabledTargets();
 }
 
-bool setLogTargetState(LogTargetType output, bool enabled) {
+bool setLogTargetState(TargetType output, bool enabled) {
     return processLogger().setTargetState(output, enabled);
 }
 
-void logFlush() {
+void flush() {
     processLogger().flush();
 }
 

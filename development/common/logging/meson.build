@@ -4,9 +4,10 @@ logging = static_library(
   'logging',
   sources: [
     'internal/ConsoleOutputs.cpp',
+    'internal/FileOutput.cpp',
     'internal/Log.cpp',
-    'internal/LogTargets.cpp',
-    'internal/LogTools.cpp',
+    'internal/Targets.cpp',
+    'internal/tools.cpp',
     'internal/Logger.cpp',
   ],
   include_directories: [common_include, logging_internal_include],

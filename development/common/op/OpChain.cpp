@@ -5,8 +5,8 @@
 #include "op/OpChain.h"
 
 #include "Log.h"
-#include "LogTools.h"
 #include "pek/String.h"
+#include "tools.h"
 
 #include "op/Op.h"
 #include "op/OpChainDescriptor.h"
@@ -59,7 +59,7 @@ pek::Result<void> OpChain::setupFromDescriptor(const pek::op::OpChainDescriptor 
         return tl::unexpected(std::move(chainBindResult.error()));
     }
 
-    pek::log::info("{}", pek::log::LogTools::enframe(this->toString(), "OpChain"));
+    pek::log::info("{}", pek::log::tools::enframe(this->toString(), "OpChain"));
 
     // validation
     auto validateResult = validate();

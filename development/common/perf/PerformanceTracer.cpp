@@ -449,7 +449,7 @@ std::string PerformanceMonitor::formatDetailed() const {
 void PerformanceMonitor::clearScreen() const {
     // ANSI escape code to clear screen and move cursor to top
     pek::log::info("\033[2J\033[H");
-    pek::log::logFlush();
+    pek::log::flush();
 }
 
 // ============================================================================

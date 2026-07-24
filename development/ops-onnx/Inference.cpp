@@ -4,11 +4,11 @@
 #include "Inference.h"
 
 #include "Log.h"
-#include "LogTools.h"
 #include "pek/Perception.h"
 #include "pek/Result.h"
 #include "pek/Shape.h"
 #include "pek/String.h"
+#include "tools.h"
 
 #include "onnxruntime_cxx_api.h"
 #include "tl/expected.hpp"
@@ -116,7 +116,7 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
 
         // --- build up model
 
-        pek::log::info("{}", pek::log::LogTools::enframe(model.toString(), "ONNX Model"));
+        pek::log::info("{}", pek::log::tools::enframe(model.toString(), "ONNX Model"));
 
         auto cmResult = model.applyModelFromDescriptor(this->modelDescriptor);
         if (!cmResult) {
@@ -130,7 +130,7 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
 
         this->setupReady = true;
 
-        pek::log::info("{}", pek::log::LogTools::enframe(model.toString(), "Final Model"));
+        pek::log::info("{}", pek::log::tools::enframe(model.toString(), "Final Model"));
         pek::log::info("{}", "ONNX: Model loaded\n");
 
     } catch (const std::exception &e) {

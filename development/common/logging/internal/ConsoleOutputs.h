@@ -4,17 +4,17 @@
 
 #pragma once
 
-#include "LogTargets.h"
+#include "Targets.h"
 
 #include <cstdio>
 
 namespace pek::log {
 
-class ConsoleOutput final : public LogTarget {
+class ConsoleOutput final : public Target {
   public:
-    ConsoleOutput(LogTargetType type, bool enabled, std::FILE *stream);
+    ConsoleOutput(TargetType type, bool enabled, std::FILE *stream);
 
-    void write(const LogRecord &record) override;
+    void write(const Record &record) override;
     void flush() override;
 
   private:

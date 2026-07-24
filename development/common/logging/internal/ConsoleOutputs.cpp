@@ -5,7 +5,7 @@
 #include "ConsoleOutputs.h"
 
 #include "Log.h"
-#include "LogTools.h"
+#include "tools.h"
 
 #include <cerrno>
 #include <fmt/format.h>
@@ -13,23 +13,23 @@
 
 namespace pek::log {
 
-ConsoleOutput::ConsoleOutput(LogTargetType type, bool enabled, std::FILE *stream)
-    : LogTarget(type, enabled), m_stream(stream) {}
+ConsoleOutput::ConsoleOutput(TargetType type, bool enabled, std::FILE *stream)
+    : Target(type, enabled), m_stream(stream) {}
 
-void ConsoleOutput::write(const LogRecord &record) {
+void ConsoleOutput::write(const Record &record) {
     switch (record.m_level) {
-    case LogLevel::Off:
+    case Level::Off:
         break;
-    case LogLevel::Info:
+    case Level::Info:
         fmt::print(m_stream, "{}", record.m_message);
         break;
-    case LogLevel::Notice:
-        fmt::print(m_stream, "{}", LogTools::invert(record.m_message));
+    case Level::Notice:
+        fmt::print(m_stream, "{}", tools::invert(record.m_message));
         break;
-    case LogLevel::Warn:
+    case Level::Warn:
         fmt::print(m_stream, "W: {}", record.m_message);
         break;
-    case LogLevel::Error:
+    case Level::Error:
         fmt::print(m_stream, "E: {}", record.m_message);
         break;
     }

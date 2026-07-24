@@ -13,10 +13,10 @@
 #include <vector>
 
 #include "Log.h"
-#include "LogTools.h"
 #include "pek/Result.h"
 #include "pek/String.h"
 #include "pek/Types.h"
+#include "tools.h"
 
 using namespace pek::ncnnrt;
 
@@ -311,7 +311,7 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc) {
 
     model = *modelResult;
 
-    pek::log::info("{}", pek::log::LogTools::enframe(model.toString(), "NCNN Model"));
+    pek::log::info("{}", pek::log::tools::enframe(model.toString(), "NCNN Model"));
 
     auto cmResult = model.applyModelFromDescriptor(modelDescriptor);
     if (!cmResult) {
@@ -330,7 +330,7 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc) {
 
     setupReady = true;
 
-    pek::log::info("{}", pek::log::LogTools::enframe(model.toString(), "Final Model"));
+    pek::log::info("{}", pek::log::tools::enframe(model.toString(), "Final Model"));
     pek::log::info("{}", "NCNN: Model loaded\n");
 
     return {};

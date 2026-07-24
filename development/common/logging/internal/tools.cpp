@@ -2,13 +2,13 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 
-#include "LogTools.h"
+#include "tools.h"
 
 #include "pek/String.h"
 
 #include <cstddef>
 
-namespace pek::log::LogTools {
+namespace pek::log::tools {
 
 std::string enframe(const std::string &text, const std::string &title) {
     std::string result;
@@ -77,4 +77,4 @@ std::string invert(std::string_view text) {
     return "\033[7m" + std::string(text) + "\033[0m";
 }
 
-} // namespace pek::log::LogTools
+} // namespace pek::log::tools
