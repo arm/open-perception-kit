@@ -1,32 +1,12 @@
 async function writeClipboard(text) {
-    try {
-        if (navigator.clipboard?.writeText) {
-            await navigator.clipboard.writeText(text);
-            return;
-        }
-    } catch (error) {
-        // Fall back below for non-secure origins or denied clipboard access.
+    if (!navigator.clipboard?.writeText) {
+        throw new Error('Clipboard API is unavailable');
     }
 
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.setAttribute('readonly', '');
-    textarea.style.position = 'fixed';
-    textarea.style.top = '0';
-    textarea.style.left = '0';
-    textarea.style.width = '1px';
-    textarea.style.height = '1px';
-    textarea.style.opacity = '0';
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-    textarea.setSelectionRange(0, textarea.value.length);
-
-    const copied = document.execCommand('copy');
-    textarea.remove();
-
-    if (!copied) {
-        throw new Error('Copy command failed');
+    try {
+        await navigator.clipboard.writeText(text);
+    } catch (error) {
+        throw new Error('Clipboard write failed', { cause: error });
     }
 }
 
@@ -60,14 +40,17 @@ export async function copyTextWithFeedback(button, text, emptyText = 'Empty', fa
         await writeClipboard(text);
         setButtonFeedback(button, text ? 'copied' : 'empty', text ? 'Copied' : emptyText);
     } catch (error) {
+        console.debug('Clipboard copy failed', error);
         if (fallbackBuffer) {
             fallbackBuffer.value = text;
             fallbackBuffer.classList.add('is-visible');
             fallbackBuffer.focus();
             fallbackBuffer.select();
             fallbackBuffer.setSelectionRange(0, fallbackBuffer.value.length);
+            setButtonFeedback(button, 'manual-copy', 'Select text to copy');
+        } else {
+            setButtonFeedback(button, 'failed', 'Copy failed');
         }
-        setButtonFeedback(button, text ? 'copied' : 'empty', text ? 'Copied' : emptyText);
     }
 
     button.copyFeedbackTimer = setTimeout(() => {

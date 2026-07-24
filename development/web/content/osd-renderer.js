@@ -158,55 +158,70 @@ export function findParentRect(perception, contentType, parentUuid) {
   return collectRectsByContentType(perception, contentType).find((rect) => rect.uuid === parentUuid) || null;
 }
 
-function drawLayers(ctx, perception, mapper, renderOptions, now) {
-  for (const layer of perception.layers) {
-    if (!Array.isArray(layer.detections)) {
-      continue;
-    }
+function layerDetectionData(layer, detectionType) {
+  if (!Array.isArray(layer.detections)) {
+    return [];
+  }
 
-    if (renderOptions.trackTraces && layer.contentType === "trackTrace") {
-      for (const detection of layer.detections) {
-        if (detection?.type === "TrackTrace") {
-          drawTrackTrace(ctx, detection.data, mapper, renderOptions.colors);
-        }
-      }
-      continue;
-    }
+  return layer.detections
+    .filter((detection) => detection?.type === detectionType)
+    .map((detection) => detection.data);
+}
 
-    if (renderOptions.objects && layer.contentType === "genericObject") {
-      for (const detection of layer.detections) {
-        if (detection?.type === "Rect") {
-          drawObjectBox(ctx, detection.data, mapper, renderOptions.colors.objects);
-        }
-      }
-    }
-
-    if (renderOptions.faces && layer.contentType === "humanFace") {
-      for (const detection of layer.detections) {
-        if (detection?.type === "Rect") {
-          drawFace(ctx, detection.data, mapper, renderOptions.colors);
-        }
-      }
-    }
-
-    if (renderOptions.classification && layer.contentType === "classification") {
-      for (const detection of layer.detections) {
-        if (detection?.type === "Classification") {
-          drawClassification(ctx, detection.data, mapper.display, renderOptions.colors);
-        }
-      }
-    }
-
-    if (renderOptions.personStatus && layer.contentType === "personClassification") {
-      for (const detection of layer.detections) {
-        if (detection?.type === "PersonClassification") {
-          drawPersonClassification(ctx, detection.data, mapper.display, now, renderOptions.colors);
-        }
-      }
-    }
+function drawLayerDetections(layer, detectionType, drawDetection) {
+  for (const data of layerDetectionData(layer, detectionType)) {
+    drawDetection(data);
   }
 }
 
+function drawConfiguredLayer(layer, renderer) {
+  if (!renderer.enabled || layer.contentType !== renderer.contentType) {
+    return;
+  }
+
+  drawLayerDetections(layer, renderer.detectionType, renderer.draw);
+}
+
+function drawLayers(ctx, perception, mapper, renderOptions, now) {
+  const renderers = [
+    {
+      enabled: renderOptions.trackTraces,
+      contentType: "trackTrace",
+      detectionType: "TrackTrace",
+      draw: (data) => drawTrackTrace(ctx, data, mapper, renderOptions.colors),
+    },
+    {
+      enabled: renderOptions.objects,
+      contentType: "genericObject",
+      detectionType: "Rect",
+      draw: (data) => drawObjectBox(ctx, data, mapper, renderOptions.colors.objects),
+    },
+    {
+      enabled: renderOptions.faces,
+      contentType: "humanFace",
+      detectionType: "Rect",
+      draw: (data) => drawFace(ctx, data, mapper, renderOptions.colors),
+    },
+    {
+      enabled: renderOptions.classification,
+      contentType: "classification",
+      detectionType: "Classification",
+      draw: (data) => drawClassification(ctx, data, mapper.display, renderOptions.colors),
+    },
+    {
+      enabled: renderOptions.personStatus,
+      contentType: "personClassification",
+      detectionType: "PersonClassification",
+      draw: (data) => drawPersonClassification(ctx, data, mapper.display, now, renderOptions.colors),
+    },
+  ];
+
+  for (const layer of perception.layers) {
+    for (const renderer of renderers) {
+      drawConfiguredLayer(layer, renderer);
+    }
+  }
+}
 function drawObjectBox(ctx, rect, mapper, color) {
   const box = mapper.rect(rect);
   if (box.width <= 0 || box.height <= 0) {
@@ -316,47 +331,49 @@ function drawGazeVectors(ctx, perception, mapper, colors) {
   }
 }
 
-function drawCameraContactMarkers(ctx, perception, mapper, colors) {
+function cameraContactClassifications(perception) {
+  const classifications = [];
   for (const layer of perception.layers) {
-    if (layer.contentType !== "cameraContact") {
-      continue;
-    }
-
-    for (const detection of layer.detections || []) {
-      if (detection?.type !== "Classification") {
-        continue;
-      }
-
-      const classification = detection.data;
-      const candidate = classification?.candidates?.[0];
-      const face = findParentRect(perception, "humanFace", classification?.parentUuid);
-      if (!candidate || !face) {
-        continue;
-      }
-
-      const box = mapper.rect(face);
-      const cx = box.x + box.width / 2;
-      const cy = box.y + box.height / 2;
-      const hasContact = candidate.classId === 1;
-      const radiusBase = Math.min(Math.abs(box.width), Math.abs(box.height)) * 0.5;
-      const radius = hasContact ? clamp(radiusBase * 0.65, 18, 80) : clamp(radiusBase * 1.15, 28, 140);
-      const color = hasContact ? colors.cameraContact : colors.noContact;
-
-      ctx.save();
-      ctx.strokeStyle = color;
-      ctx.fillStyle = color;
-      ctx.lineWidth = hasContact ? 5 : 8;
-      ctx.beginPath();
-      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(cx, cy, hasContact ? 5 : 7, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
+    if (layer.contentType === "cameraContact") {
+      classifications.push(...layerDetectionData(layer, "Classification"));
     }
   }
+  return classifications;
 }
 
+function drawCameraContactMarker(ctx, classification, perception, mapper, colors) {
+  const candidate = classification?.candidates?.[0];
+  const face = findParentRect(perception, "humanFace", classification?.parentUuid);
+  if (!candidate || !face) {
+    return;
+  }
+
+  const box = mapper.rect(face);
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  const hasContact = candidate.classId === 1;
+  const radiusBase = Math.min(Math.abs(box.width), Math.abs(box.height)) * 0.5;
+  const radius = hasContact ? clamp(radiusBase * 0.65, 18, 80) : clamp(radiusBase * 1.15, 28, 140);
+  const color = hasContact ? colors.cameraContact : colors.noContact;
+
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = hasContact ? 5 : 8;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx, cy, hasContact ? 5 : 7, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawCameraContactMarkers(ctx, perception, mapper, colors) {
+  for (const classification of cameraContactClassifications(perception)) {
+    drawCameraContactMarker(ctx, classification, perception, mapper, colors);
+  }
+}
 function drawPerformance(ctx, perception, colors) {
   const lines = Array.isArray(perception.perfdata) ? perception.perfdata : [];
   let y = 10;

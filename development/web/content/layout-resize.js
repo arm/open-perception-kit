@@ -161,12 +161,14 @@ function normalizeDockColumnWidths(widths) {
         ? Object.fromEntries(visibleKeys.map((key) => [key, minimums[key] * available / minTotal]))
         : minimums;
 
-    const next = Object.fromEntries(dockColumnKeys.map((key) => [
-        key,
-        visibleKeys.includes(key)
-            ? Math.max(usableMinimums[key], Number.isFinite(widths[key]) ? widths[key] : 0)
-            : 0,
-    ]));
+    const next = Object.fromEntries(dockColumnKeys.map((key) => {
+        if (!visibleKeys.includes(key)) {
+            return [key, 0];
+        }
+
+        const requestedWidth = Number.isFinite(widths[key]) ? widths[key] : 0;
+        return [key, Math.max(usableMinimums[key], requestedWidth)];
+    }));
 
     let total = visibleKeys.reduce((sum, key) => sum + next[key], 0);
     if (total > available) {

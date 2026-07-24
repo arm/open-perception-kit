@@ -75,7 +75,12 @@ GST_DEBUG_CATEGORY_STATIC(gst_pek_osd_debug);
 #define DEFAULT_BG_IMAGE ""
 
 // Property IDs
-enum { PROP_0, PROP_ENABLED, PROP_PERFORMANCE_OVERLAY_ENABLED, PROP_BG_IMAGE };
+enum class PropertyId : guint {
+    Reserved = 0,
+    Enabled,
+    PerformanceOverlayEnabled,
+    BgImage,
+};
 
 // Function prototypes
 static void
@@ -108,7 +113,7 @@ static void gst_pek_osd_class_init(GstPekOsdClass *klass) {
     // Install properties
     g_object_class_install_property(
         gobject_class,
-        PROP_ENABLED,
+        static_cast<guint>(PropertyId::Enabled),
         g_param_spec_boolean("enabled",
                              "Enabled",
                              "Enable or disable OSD overlay",
@@ -117,7 +122,7 @@ static void gst_pek_osd_class_init(GstPekOsdClass *klass) {
 
     g_object_class_install_property(
         gobject_class,
-        PROP_PERFORMANCE_OVERLAY_ENABLED,
+        static_cast<guint>(PropertyId::PerformanceOverlayEnabled),
         g_param_spec_boolean("performance-overlay-enabled",
                              "Performance Overlay Enabled",
                              "Enable or disable drawing performance metadata",
@@ -126,7 +131,7 @@ static void gst_pek_osd_class_init(GstPekOsdClass *klass) {
 
     g_object_class_install_property(
         gobject_class,
-        PROP_BG_IMAGE,
+        static_cast<guint>(PropertyId::BgImage),
         g_param_spec_string(
             "bg-image",
             "Background Image",
@@ -232,19 +237,19 @@ static void
 gst_pek_osd_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
     auto *self = GST_PEK_OSD(object);
 
-    switch (prop_id) {
-    case PROP_ENABLED:
+    switch (static_cast<PropertyId>(prop_id)) {
+    case PropertyId::Enabled:
         self->enabled = g_value_get_boolean(value);
         GST_INFO_OBJECT(self, "Enabled set to: %d", self->enabled);
         break;
 
-    case PROP_PERFORMANCE_OVERLAY_ENABLED:
+    case PropertyId::PerformanceOverlayEnabled:
         self->performanceOverlayEnabled = g_value_get_boolean(value);
         GST_INFO_OBJECT(
             self, "Performance overlay enabled set to: %d", self->performanceOverlayEnabled);
         break;
 
-    case PROP_BG_IMAGE:
+    case PropertyId::BgImage:
         g_free(self->bgImagePath);
         self->bgImagePath = g_value_dup_string(value);
         gst_pek_osd_load_bg_image(self);
@@ -260,16 +265,16 @@ static void
 gst_pek_osd_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec) {
     auto *self = GST_PEK_OSD(object);
 
-    switch (prop_id) {
-    case PROP_ENABLED:
+    switch (static_cast<PropertyId>(prop_id)) {
+    case PropertyId::Enabled:
         g_value_set_boolean(value, self->enabled);
         break;
 
-    case PROP_PERFORMANCE_OVERLAY_ENABLED:
+    case PropertyId::PerformanceOverlayEnabled:
         g_value_set_boolean(value, self->performanceOverlayEnabled);
         break;
 
-    case PROP_BG_IMAGE:
+    case PropertyId::BgImage:
         g_value_set_string(value, self->bgImagePath);
         break;
 

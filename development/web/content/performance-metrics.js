@@ -3,31 +3,78 @@ import { copyTextWithFeedback, setCopyButtonAvailable } from './copy-utils.js?v=
 const body = document.getElementById('performanceMetricsBody');
 const copyButton = document.getElementById('copyPerformanceMetricsBtn');
 
-const METRIC_RE = /^(.*?)\s*:\s*([0-9.]+ms)\s*(?:\(p95:\s*([0-9.]+ms)\))?$/;
-const FPS_RE = /^Pipeline\s*:?\s*([0-9.]+)\s+FPS$/;
+const MAX_METRIC_LINE_LENGTH = 240;
 let currentRows = [];
 
-function parseMetricLine(line) {
-    const text = String(line || '').replace(/[═]+/g, '').trim();
-    if (!text) return null;
-
-    const fps = text.match(FPS_RE);
-    if (fps) {
-        return { stage: 'Pipeline', current: `${fps[1]} FPS`, p95: '' };
+function decimalText(value) {
+    const parts = String(value || '').split('.');
+    if (parts.length > 2 || parts.some((part) => part.length === 0)) {
+        return false;
     }
 
-    const metric = text.match(METRIC_RE);
-    if (metric) {
-        return {
-            stage: metric[1].trim(),
-            current: metric[2],
-            p95: metric[3] || '',
-        };
-    }
-
-    return null;
+    return parts.every((part) => [...part].every((char) => char >= '0' && char <= '9'));
 }
 
+function parseMillisToken(token) {
+    if (!token.endsWith('ms')) {
+        return '';
+    }
+
+    const value = token.slice(0, -2);
+    return decimalText(value) ? `${value}ms` : '';
+}
+
+function parsePipelineFps(text) {
+    if (!text.startsWith('Pipeline')) {
+        return null;
+    }
+
+    const rest = text.slice('Pipeline'.length).trim();
+    const valueText = (rest.startsWith(':') ? rest.slice(1) : rest).trim();
+    if (!valueText.endsWith(' FPS')) {
+        return null;
+    }
+
+    const fps = valueText.slice(0, -' FPS'.length).trim();
+    return decimalText(fps) ? { stage: 'Pipeline', current: `${fps} FPS`, p95: '' } : null;
+}
+
+function parseP95Text(text) {
+    if (!text) {
+        return '';
+    }
+    if (!text.startsWith('(p95:') || !text.endsWith(')')) {
+        return '';
+    }
+
+    return parseMillisToken(text.slice(5, -1).trim());
+}
+
+function parseTimedMetric(text) {
+    const separator = text.indexOf(':');
+    if (separator <= 0) {
+        return null;
+    }
+
+    const stage = text.slice(0, separator).trim();
+    const rest = text.slice(separator + 1).trim();
+    const firstSpace = rest.indexOf(' ');
+    const currentToken = firstSpace < 0 ? rest : rest.slice(0, firstSpace);
+    const current = parseMillisToken(currentToken);
+    if (!stage || !current) {
+        return null;
+    }
+
+    const p95Text = firstSpace < 0 ? '' : rest.slice(firstSpace + 1).trim();
+    return { stage, current, p95: parseP95Text(p95Text) };
+}
+
+function parseMetricLine(line) {
+    const text = String(line || '').slice(0, MAX_METRIC_LINE_LENGTH).replaceAll('═', '').trim();
+    if (!text) return null;
+
+    return parsePipelineFps(text) || parseTimedMetric(text);
+}
 function createCell(text, className) {
     const cell = document.createElement("td");
     if (className) {

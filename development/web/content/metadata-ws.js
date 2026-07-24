@@ -39,7 +39,7 @@ function normaliseMetadataMessage(message) {
     if (
         message
         && typeof message === 'object'
-        && Object.prototype.hasOwnProperty.call(message, 'perception')
+        && Object.hasOwn(message, 'perception')
     ) {
         return {
             frame_counter: message.frame_counter,

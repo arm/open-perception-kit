@@ -50,42 +50,56 @@ function persistVisibility() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(visibility));
 }
 
+function visiblePanelKeys() {
+    return panelKeys.filter((key) => visibility[key] !== false);
+}
+
+function setPanelSectionVisibility(panel, visible) {
+    if (panel.section) {
+        panel.section.hidden = !visible;
+    }
+}
+
+function setPanelButtonState(panel, visible) {
+    if (!panel.button) {
+        return;
+    }
+
+    const icon = panel.button.querySelector('i');
+    panel.button.setAttribute('aria-pressed', visible ? 'true' : 'false');
+    panel.button.setAttribute('aria-label', (visible ? 'Hide ' : 'Show ') + panel.label);
+
+    if (icon) {
+        icon.className = visible ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash';
+    }
+}
+
+function applyPanelState(key) {
+    const panel = panels[key];
+    const visible = visibility[key] !== false;
+    setPanelSectionVisibility(panel, visible);
+    setPanelButtonState(panel, visible);
+}
+
+function dispatchVisibilityChange(visiblePanels) {
+    document.body.classList.toggle('output-panels-empty', visiblePanels.length === 0);
+    window.dispatchEvent(new CustomEvent('output-panels-change', {
+        detail: {
+            visiblePanels,
+        },
+    }));
+}
+
+function updatePanelVisibility(visiblePanels) {
+    for (const key of panelKeys) {
+        applyPanelState(key);
+    }
+    dispatchVisibilityChange(visiblePanels);
+}
+
 function applyVisibility({ animate = false } = {}) {
-    const visiblePanels = panelKeys.filter((key) => visibility[key] !== false);
-
-    const update = () => {
-        for (const key of panelKeys) {
-            const panel = panels[key];
-            const visible = visibility[key] !== false;
-
-            if (panel.section) {
-                panel.section.hidden = !visible;
-            }
-
-            if (panel.button) {
-                const icon = panel.button.querySelector('i');
-                panel.button.setAttribute('aria-pressed', visible ? 'true' : 'false');
-                panel.button.setAttribute(
-                    'aria-label',
-                    `${visible ? 'Hide' : 'Show'} ${panel.label}`
-                );
-
-                if (icon) {
-                    icon.className = visible
-                        ? 'fa-solid fa-eye'
-                        : 'fa-solid fa-eye-slash';
-                }
-            }
-        }
-
-        document.body.classList.toggle('output-panels-empty', visiblePanels.length === 0);
-
-        window.dispatchEvent(new CustomEvent('output-panels-change', {
-            detail: {
-                visiblePanels,
-            },
-        }));
-    };
+    const visiblePanels = visiblePanelKeys();
+    const update = () => updatePanelVisibility(visiblePanels);
 
     if (animate && window.animateBottomDockHeightChange) {
         window.animateBottomDockHeightChange(update);
