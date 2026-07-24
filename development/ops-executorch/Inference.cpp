@@ -2,10 +2,6 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 
-#include "Inference.h"
-
-#define EXECUTORCH_ENABLE_LOGGING 1
-
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -21,6 +17,8 @@
 #include "pek/Result.h"
 #include "pek/String.h"
 #include "pek/Types.h"
+
+#include "Inference.h"
 
 static bool to_pek_dtype(executorch::aten::ScalarType t, pek::Dtype &outType) {
     using executorch::aten::ScalarType;

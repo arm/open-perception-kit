@@ -9,7 +9,12 @@ project(
 )
 
 fs = import('fs')
-fmt_dep = dependency('fmt')
+fmt_dep = dependency(
+  'fmt',
+  version: ['>=12.0.0', '<13.0.0'],
+  fallback: ['fmt', 'fmt_dep'],
+  required: true,
+)
 
 repo_root = meson.project_source_root() / '../..'
 development_include = include_directories(

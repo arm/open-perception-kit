@@ -10,7 +10,7 @@ set -euo pipefail
 usage() {
     cat << 'EOF'
 Usage:
-  start-container.sh [--recreate] [-h|--help]
+  start-container.sh [--recreate] [--env-file PATH] [-h|--help]
 
 Builds and starts the PEK quick-start container selected by host detection.
 
@@ -25,15 +25,26 @@ overrides. It does not start pek-dev-rich.
 
 Options:
   --recreate  Recreate the selected container even if it is already running
+  --env-file PATH
+              Pass PATH to Docker Compose for variable interpolation
 EOF
 }
 
 RECREATE="false"
+COMPOSE_ENV_FILE=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --recreate)
             RECREATE="true"
+            ;;
+        --env-file)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: --env-file requires a path." >&2
+                exit 2
+            fi
+            COMPOSE_ENV_FILE="$2"
+            shift
             ;;
         -h | --help)
             usage
@@ -70,6 +81,11 @@ COMPOSE_FILES=(
     -f .devcontainer/docker-compose.devcont.npu.yaml
     -f .devcontainer/docker-compose.devcont.shared_memory.yaml
 )
+
+COMPOSE_ENV_ARGS=()
+if [[ -n "${COMPOSE_ENV_FILE}" ]]; then
+    COMPOSE_ENV_ARGS=(--env-file "${COMPOSE_ENV_FILE}")
+fi
 
 require_docker() {
     if ! command -v docker > /dev/null 2>&1; then
@@ -153,7 +169,7 @@ UP_ARGS=(up -d --build)
 if [[ "$RECREATE" == "true" ]]; then
     UP_ARGS+=(--force-recreate)
 fi
-docker compose "${COMPOSE_FILES[@]}" "${UP_ARGS[@]}" "${PEK_CONTAINER_SERVICE}"
+docker compose "${COMPOSE_ENV_ARGS[@]}" "${COMPOSE_FILES[@]}" "${UP_ARGS[@]}" "${PEK_CONTAINER_SERVICE}"
 
 echo
 docker ps --filter "name=${PEK_CONTAINER_NAME}" --format 'table {{.Names}} {{.Status}}'

@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 ######################################################################
 ########## Base container defaults: bare minimum to run PEK ##########
 ######################################################################
@@ -25,12 +27,12 @@ RUN set -eux; \
   gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
   gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
   gstreamer1.0-tools gstreamer1.0-x libcairo2-dev libfftw3-dev \
-  libfmt-dev libgstreamer-plugins-bad1.0-dev \
+  libgstreamer-plugins-bad1.0-dev \
   libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
   libjson-glib-dev libsoup-3.0-dev libssl-dev lldb-17 meson \
   ninja-build pkg-config pre-commit python3 python3-dev python3-gi \
   python3-gst-1.0 python3-venv shfmt openssh-client sudo unzip \
-  valgrind; \
+  valgrind file; \
   rm -rf /var/lib/apt/lists/*; \
   curl --proto "=https" -LsSf https://astral.sh/uv/install.sh | \
   env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh; \
@@ -132,6 +134,21 @@ RUN set -eux; \
   cd /; \
   rm -rf "${tmp_dir}"; \
   actionlint -version
+
+# Prefer an architecture-matching package produced in ./var, then fall back to the configured
+# Artifactory Debian repository. The repository is trusted over HTTPS until a signing key is
+# supplied separately.
+ARG EXECUTORCH_VERSION=1.3.1
+ARG EXECUTORCH_DEB_REVISION=1
+ARG EXECUTORCH_ARTIFACTORY_SERVER=https://artifactory.arm.com:443
+ARG EXECUTORCH_ARTIFACTORY_REPOSITORY=ai-expkits-internal.opk-deb
+ARG EXECUTORCH_ARTIFACTORY_DISTRIBUTION=trixie
+ARG EXECUTORCH_ARTIFACTORY_COMPONENT=main
+ARG EXECUTORCH_ARTIFACTORY_USERNAME=""
+ARG EXECUTORCH_ARTIFACTORY_PASSWORD=""
+RUN --mount=type=bind,source=var,target=/tmp/pek-executorch-packages,ro \
+    --mount=type=bind,source=scripts/private/executorch/install-executorch-deb.sh,target=/tmp/install-executorch-deb.sh,ro \
+  bash /tmp/install-executorch-deb.sh
 
 # Install Python dev tool dependencies into an image-owned virtual environment.
 COPY tools/expkits-ci /tmp/pek-tools/expkits-ci
@@ -323,18 +340,26 @@ RUN sed -i 's/^# *\(en_US.UTF-8 UTF-8\)/\1/' /etc/locale.gen && \
   locale-gen en_US.UTF-8 && update-locale LANG=en_US.UTF-8
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 
-# ---- Install Neovim v0.11.5 via AppImage ----
+# ---- Install Neovim via AppImage ----
 ARG NVIM_VERSION=v0.12.1
-ARG NVIM_APPIMAGE=nvim-linux-x86_64.appimage
 
 RUN touch /container_env
 
-RUN curl --proto "=https" -LO https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/${NVIM_APPIMAGE} && \
-  chmod +x ${NVIM_APPIMAGE} && \
-  ./${NVIM_APPIMAGE} --appimage-extract && \
-  mv squashfs-root /opt/nvim && \
-  ln -s /opt/nvim/usr/bin/nvim /usr/local/bin/nvim && \
-  rm ${NVIM_APPIMAGE}
+RUN set -eux; \
+  arch="$(dpkg --print-architecture)"; \
+  case "${arch}" in \
+    amd64) nvim_arch="x86_64" ;; \
+    arm64) nvim_arch="arm64" ;; \
+    *) echo "Unsupported Neovim architecture: ${arch}" >&2; exit 1 ;; \
+  esac; \
+  nvim_appimage="nvim-linux-${nvim_arch}.appimage"; \
+  curl --proto "=https" -fsSLo "${nvim_appimage}" \
+    "https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/${nvim_appimage}"; \
+  chmod +x "${nvim_appimage}"; \
+  "./${nvim_appimage}" --appimage-extract; \
+  mv squashfs-root /opt/nvim; \
+  ln -s /opt/nvim/usr/bin/nvim /usr/local/bin/nvim; \
+  rm "${nvim_appimage}"
 
 RUN update-alternatives --install /usr/bin/vi vi /usr/local/bin/nvim 60 && \
   update-alternatives --install /usr/bin/vim vim /usr/local/bin/nvim 60 && \

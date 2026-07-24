@@ -67,6 +67,14 @@ expkits_ci_module = import_expkits_ci_module()
 
 
 class TestExpkitsCiCli(unittest.TestCase):
+    def test_default_ignore_folders_include_runtime_subprojects(self):
+        parser = expkits_ci_module.argparse.ArgumentParser()
+        expkits_ci_module.setup_argument_parser(parser)
+
+        args = parser.parse_args(["--clang-tidy"])
+
+        self.assertIn("development/subprojects", args.ignore_folder)
+
     def test_main_applies_all_checks_before_running_perform_checks(self):
         checker = Mock()
         checker.file_utils.get_related_files.return_value = []

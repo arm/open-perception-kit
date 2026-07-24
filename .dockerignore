@@ -6,7 +6,9 @@
 cmake-build*/
 **/build/
 development/build/
-var/
+var/*
+!var/.gitignore
+!var/libexecutorch-dev-*.deb
 deps/
 *.tgz
 

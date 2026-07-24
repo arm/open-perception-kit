@@ -11,7 +11,7 @@ if executorch_root_env != ''
 endif
 
 executorch_candidates += [
-  meson.project_source_root() / '../deps/executorch',
+  '/opt/pek-deps/executorch',
 ]
 
 executorch_root = ''
@@ -26,19 +26,38 @@ endforeach
 
 if executorch_root == ''
   if executorch_opt.enabled()
-    error('ExecuTorch requested (executorch=enabled) but not found. Stage an ExecuTorch SDK with include/ and lib/, or set PEK_EXECUTORCH_ROOT.')
+    error('ExecuTorch requested (executorch=enabled) but not found. Install libexecutorch-dev under /opt/pek-deps, or set PEK_EXECUTORCH_ROOT to a staged SDK.')
   endif
 
-  warning('ExecuTorch not found - skipping ops-executorch (configure with -Dexecutorch=enabled to require it).')
+  warning('Installed ExecuTorch SDK not found - skipping ops-executorch. Install libexecutorch-dev, or set PEK_EXECUTORCH_ROOT to use a staged SDK.')
   subdir_done()
 endif
 
 message('Using ExecuTorch from: ' + executorch_root)
 
+libtorch_candidates = []
+libtorch_root_env = run_command('sh', '-c', 'printf %s "$PEK_LIBTORCH_ROOT"', check: false).stdout().strip()
+if libtorch_root_env != ''
+  libtorch_candidates += [libtorch_root_env]
+endif
+
+libtorch_candidates += [
+  executorch_root / '..' / 'libtorch',
+  meson.project_source_root() / '../deps/libtorch',
+]
+
 libtorch_root = meson.project_source_root() / '../deps/libtorch'
+foreach candidate : libtorch_candidates
+  if fs.is_dir(candidate / 'include')
+    libtorch_root = candidate
+    break
+  endif
+endforeach
+
 executorch_libdir = executorch_root / 'lib'
 executorch_include = executorch_root / 'include'
 libtorch_include = libtorch_root / 'include'
+executorch_uses_kleidiai = host_machine.cpu_family() == 'aarch64'
 
 executorch_required_libs = [
   'libextension_module.a',
@@ -53,7 +72,13 @@ executorch_required_libs = [
   'libcpuinfo.a',
   'libportable_ops_lib.a',
   'libportable_kernels.a',
-  'libkleidiai.a',
+]
+
+if executorch_uses_kleidiai
+  executorch_required_libs += ['libkleidiai.a']
+endif
+
+executorch_required_libs += [
   'libXNNPACK.a',
   'libxnnpack_backend.a',
   'libxnnpack-microkernels-prod.a',
@@ -105,7 +130,13 @@ executorch_dep = declare_dependency(
 et_force_archives = [
   executorch_libdir / 'libportable_ops_lib.a',
   executorch_libdir / 'libportable_kernels.a',
-  executorch_libdir / 'libkleidiai.a',
+]
+
+if executorch_uses_kleidiai
+  et_force_archives += [executorch_libdir / 'libkleidiai.a']
+endif
+
+et_force_archives += [
   executorch_libdir / 'libXNNPACK.a',
   executorch_libdir / 'libxnnpack_backend.a',
   executorch_libdir / 'libxnnpack-microkernels-prod.a',
@@ -119,10 +150,11 @@ executorchops = shared_module(
     'Plugin.cpp',
     'InferenceOp.cpp',
   ],
+
   include_directories: common_include,
+
   dependencies: pek_deps + [executorch_dep],
   cpp_args: ['-DFMT_HEADER_ONLY'],
-  link_with: [common],
 
   link_args: [
     '-Wl,--whole-archive',
@@ -133,5 +165,7 @@ executorchops = shared_module(
 
   name_prefix: '',
   gnu_symbol_visibility: 'default',
+  link_with: [common],
+
   install: false,
 )

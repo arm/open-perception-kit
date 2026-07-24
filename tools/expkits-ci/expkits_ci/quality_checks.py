@@ -39,6 +39,9 @@ class QualityChecks:
         "-mfp16-format=ieee",
         "-fno-defer-pop"
     ]
+    CLANG_TIDY_PROJECT_FILE_FILTER = (
+        r"(^|.*/)(common|elements|ops-[^/]+|pek-menu|runtime|tests|web)/.*"
+    )
     MERGE_COMMIT_HEADLINE_RE = re.compile(
         r"^Merge (?:(?:(?:remote-tracking )?branch|tag) '[^']+'(?: into .+)?|pull request #\d+\b.*)$",
         re.IGNORECASE,
@@ -939,6 +942,14 @@ class QualityChecks:
                     "No .clang-tidy config file found at project root; "
                     "HeaderFilterRegex may not apply.")
 
+            # Static-analyzer diagnostics can originate in a third-party header
+            # but remain visible when their path contains a note in the main
+            # source file. Filter on diagnostic locations as well as headers so
+            # only project-owned development sources are reported.
+            line_filter_arg = "--line-filter=" + json.dumps([
+                {"name": self.CLANG_TIDY_PROJECT_FILE_FILTER}
+            ])
+
             for f in files:
                 try:
                     cmd = [
@@ -947,6 +958,7 @@ class QualityChecks:
                         "-p",
                         filtered_compile_config_path,
                         *config_file_args,
+                        line_filter_arg,
                         "--extra-arg=-DFMT_CONSTEVAL="
                     ]
 
