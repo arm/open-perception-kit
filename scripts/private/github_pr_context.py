@@ -43,6 +43,8 @@ def _apply_manual_overrides(
         resolved["base_ref"] = base_ref_override
     if head_ref_override:
         resolved["head_ref"] = head_ref_override
+        if not head_sha_override:
+            resolved["head_sha"] = ""
     if head_sha_override:
         if not head_ref_override and head_sha_override != context["head_sha"]:
             raise ValueError("--head-sha-override requires --head-ref-override when it changes the PR head SHA.")

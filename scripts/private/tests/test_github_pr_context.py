@@ -89,6 +89,21 @@ class GithubPrContextTests(unittest.TestCase):
             },
         )
 
+    def test_resolve_pr_context_prefers_a_head_ref_override_without_a_sha(self):
+        with mock.patch.object(
+            github_pr_context,
+            "read_pr_details",
+            return_value=self.pr_details(),
+        ):
+            context = github_pr_context.resolve_pr_context(
+                pr_number="101",
+                repo="Arm-Debug/amp-dev-forge",
+                head_ref_override="repair/pr-sample",
+            )
+
+        self.assertEqual(context["head_ref"], "repair/pr-sample")
+        self.assertEqual(context["head_sha"], "")
+
     def test_resolve_pr_context_rejects_sha_override_without_matching_head_ref(self):
         with mock.patch.object(
             github_pr_context,
