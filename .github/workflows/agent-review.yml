@@ -102,14 +102,20 @@ jobs:
           PYTHONPATH="${GITHUB_WORKSPACE}/tools/expkits-ci${PYTHONPATH:+:${PYTHONPATH}}" \
             .agent-runtime/openai-agent-venv/bin/python -m expkits_ci.agent_static_analysis --base-ref "${REVIEW_BASE_REF}"
 
+      - name: Fetch OpenAI proxy token
+        id: openai-token
+        continue-on-error: true
+        uses: Arm-Debug/devops-actions/fetch-openai-proxy-token@v1.7.0
+
       # <agent-review:suppress-begin> Intentional current self-hosted OpenAI
       # review trust boundary for same-repo pull requests.
       - name: Run OpenAI SDK review
         id: review
+        if: ${{ steps.openai-token.outcome == 'success' }}
         continue-on-error: true
         shell: bash
         env:
-          OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS: ${{ secrets.OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS }}
+          OPENAI_PROXY_TOKEN: ${{ steps.openai-token.outputs.openai_token }}
           AGENT_ACTION_LOG: .github/agent-runtime/review/out/agent-actions.jsonl
           AGENT_RUNTIME_BIN: .agent-runtime/openai-agent-venv/bin
         run: |

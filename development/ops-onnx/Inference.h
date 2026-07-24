@@ -7,7 +7,7 @@
 #include <fmt/core.h>
 #include <onnxruntime_cxx_api.h>
 
-#include "pek/Log.h"
+#include "Log.h"
 #include "pek/ModelDescriptor.h"
 
 #include "pek/Model.h"

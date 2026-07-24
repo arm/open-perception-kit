@@ -21,8 +21,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include "Log.h"
 #include "parser.hpp"
-#include "pek/Log.h"
 
 namespace fs = std::filesystem;
 using json = nlohmann::json;
@@ -252,7 +252,8 @@ static void print_usage(const char *argv0) {
         "  {} <pipeline>   # run pipeline by ID (e.g., 'onnx') or full path to a JSON file. Shall not be used together with -l\n"
         "\n"
         "Environment:\n"
-        "  OPK_LOG_LEVEL=0..4   # log verbosity: 0=off, 1=errors, 2=warnings, 3=notices, 4=info (default: 4)\n",
+        "  OPK_LOG_LEVEL=0..4               # log verbosity: 0=off, 1=errors, 2=warnings, 3=notices, 4=info (default: 4)\n"
+        "  OPK_LOG_TARGETS=stdout,stderr    # initial log targets: stdout and/or stderr, or none (default: stdout)\n",
         argv0,
         argv0,
         argv0,

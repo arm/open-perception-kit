@@ -51,6 +51,14 @@ That lets the PEK web UI register the model first and then enable it from the **
 
 At the moment, pipeline execution is synchronous end to end. An asynchronous inference execution flow is planned for a later update, but it is not available yet.
 
+## Logging does not make inference asynchronous
+
+PEK logging uses a separate worker thread so normal logging calls do not perform output I/O on the
+calling component's thread. This is independent of GStreamer pipeline scheduling and inference
+execution. The media and inference flow described on this page remains synchronous.
+
+See [Logging](logging.md) for level and target configuration, buffering, and flush behavior.
+
 ## What is an OpChain?
 
 An OpChain is a smaller, self-contained micropipeline that runs locally within 'pekinfer'.

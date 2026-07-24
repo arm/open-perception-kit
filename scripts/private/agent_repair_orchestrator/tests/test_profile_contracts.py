@@ -186,7 +186,7 @@ class AgentWorkflowProfileContractTests(unittest.TestCase):
             "GH_TOKEN": "x",
             "GITHUB_TOKEN": "x",
             "OPENAI_API_KEY": "x",
-            "OPENAI_PROXY_KEY_FOR_SELF_HOSTED_RUNNERS": "x",
+            "OPENAI_PROXY_TOKEN": "x",
             "ACTIONS_RUNTIME_TOKEN": "x",
             "ACTIONS_ID_TOKEN_REQUEST_TOKEN": "x",
             "ACTIONS_ID_TOKEN_REQUEST_URL": "https://example.invalid",
