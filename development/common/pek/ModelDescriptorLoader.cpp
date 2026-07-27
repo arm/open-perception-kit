@@ -12,7 +12,7 @@
 #include <variant>
 #include <vector>
 
-#include <fmt/color.h>
+#include <fmt/format.h>
 #include <magic_enum/magic_enum.hpp>
 #include <modelfetch/modelfetch.hpp>
 #include <tl/expected.hpp>
@@ -103,8 +103,8 @@ std::string_view failure_reason_name(modelfetch::asset_download_failure_reason r
 
 pek::Result<std_fs::path> materializePublishedModel(const std::string &descriptorPath,
                                                     const std::string &assetId,
-                                                    const pek::ModelLoadContext &loadContext) {
-    if (loadContext.stopRequested())
+                                                    std::stop_token stopToken) {
+    if (stopToken.stop_requested())
         return tl::unexpected{model_load_cancelled(descriptorPath)};
 
     if (!is_immutable_file_locator(assetId)) {
@@ -122,17 +122,17 @@ pek::Result<std_fs::path> materializePublishedModel(const std::string &descripto
         };
 
         std::vector<modelfetch::asset_download_outcome> outcomes;
-        if (loadContext.stopToken.stop_possible()) {
-            auto cancellationCallback = [&loadContext](const modelfetch::progress_event &) {
-                return loadContext.stopRequested() ? modelfetch::progress_control::abort
-                                                   : modelfetch::progress_control::continue_;
+        if (stopToken.stop_possible()) {
+            auto cancellationCallback = [stopToken](const modelfetch::progress_event &) {
+                return stopToken.stop_requested() ? modelfetch::progress_control::abort
+                                                  : modelfetch::progress_control::continue_;
             };
             outcomes = service.download_asset_requests(requests, cancellationCallback);
         } else {
             outcomes = service.download_asset_requests(requests);
         }
 
-        if (loadContext.stopRequested())
+        if (stopToken.stop_requested())
             return tl::unexpected{model_load_cancelled(descriptorPath)};
 
         if (outcomes.size() != 1) {
@@ -180,7 +180,7 @@ pek::Result<std_fs::path> materializePublishedModel(const std::string &descripto
         }
         return modelFile.path;
     } catch (const modelfetch::callback_aborted &error) {
-        if (loadContext.stopRequested())
+        if (stopToken.stop_requested())
             return tl::unexpected{model_load_cancelled(descriptorPath)};
         return tl::unexpected{modelfetch_error(descriptorPath, "asset download callback", error)};
     } catch (const std::exception &error) {
@@ -190,12 +190,12 @@ pek::Result<std_fs::path> materializePublishedModel(const std::string &descripto
 
 pek::Result<std::string> resolveModelFile(const std::string &descriptorPath,
                                           const ModelDescriptor &descriptor,
-                                          const pek::ModelLoadContext &loadContext) {
+                                          std::stop_token stopToken) {
     const bool published = descriptor.modelFile.rfind("hf:", 0) == 0;
     std::error_code ec;
     if (published) {
         auto materializedModel =
-            materializePublishedModel(descriptorPath, descriptor.modelFile, loadContext);
+            materializePublishedModel(descriptorPath, descriptor.modelFile, stopToken);
         if (!materializedModel)
             return tl::unexpected{materializedModel.error()};
         const std_fs::path workspaceRoot = std_fs::canonical("/work", ec);
@@ -257,8 +257,8 @@ pek::Result<std::string> resolveModelFile(const std::string &descriptorPath,
 } // namespace
 
 pek::Result<ModelDescriptor> ModelDescriptor::fromFile(const std::string &path,
-                                                       const pek::ModelLoadContext &loadContext) {
-    if (loadContext.stopRequested())
+                                                       std::stop_token stopToken) {
+    if (stopToken.stop_requested())
         return tl::unexpected{model_load_cancelled(path)};
 
     std::string content = pek::fs::loadTextOrDefault(path, "");
@@ -273,10 +273,10 @@ pek::Result<ModelDescriptor> ModelDescriptor::fromFile(const std::string &path,
     if (!descriptor)
         return descriptor;
 
-    if (loadContext.stopRequested())
+    if (stopToken.stop_requested())
         return tl::unexpected{model_load_cancelled(path)};
 
-    auto resolvedModelFile = resolveModelFile(path, *descriptor, loadContext);
+    auto resolvedModelFile = resolveModelFile(path, *descriptor, stopToken);
     if (!resolvedModelFile)
         return tl::unexpected{resolvedModelFile.error()};
     descriptor->modelFile = *resolvedModelFile;

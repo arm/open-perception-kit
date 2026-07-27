@@ -283,20 +283,13 @@ modelfetch_service_download_asset_requests(const modelfetch_service_t *service,
 
     struct modelfetch_progress_event progress = {
         requests->asset_id,
-        MODELFETCH_PROGRESS_STARTED,
+        MODELFETCH_PROGRESS_IN_PROGRESS,
         {"0"},
-        {"10"},
-        1U,
+        {"0"},
+        0U,
         0.0,
-        1U,
+        0U,
     };
-    modelfetch_status_t progress_status = emit_progress(callback, user_data, &progress);
-    if (progress_status != MODELFETCH_STATUS_OK)
-        return progress_status;
-
-    progress.state = MODELFETCH_PROGRESS_IN_PROGRESS;
-    progress.transferred_bytes.decimal = "5";
-    progress.percentage = 50.0;
 
     if (strcmp(fake_mode(), "blocking") == 0) {
         if (callback == NULL)
@@ -304,13 +297,14 @@ modelfetch_service_download_asset_requests(const modelfetch_service_t *service,
 
         for (;;) {
             sleep_for_progress_poll();
-            progress_status = emit_progress(callback, user_data, &progress);
+            const modelfetch_status_t progress_status =
+                emit_progress(callback, user_data, &progress);
             if (progress_status != MODELFETCH_STATUS_OK)
                 return progress_status;
         }
     }
 
-    progress_status = emit_progress(callback, user_data, &progress);
+    const modelfetch_status_t progress_status = emit_progress(callback, user_data, &progress);
     if (progress_status != MODELFETCH_STATUS_OK)
         return progress_status;
 
@@ -345,15 +339,6 @@ modelfetch_service_download_asset_requests(const modelfetch_service_t *service,
         return MODELFETCH_STATUS_INTERNAL_PANIC;
     }
 
-    progress.state = MODELFETCH_PROGRESS_COMPLETED;
-    progress.transferred_bytes.decimal = "10";
-    progress.percentage = 100.0;
-    progress_status = emit_progress(callback, user_data, &progress);
-    if (progress_status != MODELFETCH_STATUS_OK) {
-        modelfetch_outcome_list_free(*out);
-        *out = NULL;
-        return progress_status;
-    }
     return MODELFETCH_STATUS_OK;
 }
 

@@ -128,6 +128,21 @@ TEST(ModelDescriptor, ModelFileRoundTrips) {
     EXPECT_EQ(serialized.at("modelFile"), assetId);
 }
 
+TEST(TensorFeedback, RoundTripsCurrentSchema) {
+    const pek::TensorFeedback feedback{
+        .fromOutputTensorIndex = 2,
+        .toInputTensorIndex = 3,
+    };
+
+    const nlohmann::json serialized = feedback;
+
+    EXPECT_EQ(serialized,
+              nlohmann::json({{"fromOutputTensorIndex", 2}, {"toInputTensorIndex", 3}}));
+    const auto roundTripped = serialized.get<pek::TensorFeedback>();
+    EXPECT_EQ(roundTripped.fromOutputTensorIndex, feedback.fromOutputTensorIndex);
+    EXPECT_EQ(roundTripped.toInputTensorIndex, feedback.toInputTensorIndex);
+}
+
 TEST(ModelDescriptor, FromFileResolvesLocalModelBesideDescriptor) {
     TemporaryDirectory temporary("local");
     const fs::path descriptorPath = writeDescriptor(temporary.path, "weights/model.onnx");
@@ -160,9 +175,9 @@ TEST(ModelDescriptor, FromFileHonorsCancellationBeforeMaterialization) {
     const fs::path descriptorPath = writeDescriptor(temporary.path, publishedAssetId(name));
     std::stop_source stopSource;
     stopSource.request_stop();
-    const pek::ModelLoadContext loadContext{.stopToken = stopSource.get_token()};
 
-    const auto descriptor = pek::ModelDescriptor::fromFile(descriptorPath.string(), loadContext);
+    const auto descriptor =
+        pek::ModelDescriptor::fromFile(descriptorPath.string(), stopSource.get_token());
 
     ASSERT_FALSE(descriptor.has_value());
     EXPECT_EQ(descriptor.error().flag, pek::ErrorFlag::SystemFailure);
@@ -247,9 +262,10 @@ TEST(ModelDescriptor, FromFileRejectsMultipleMaterializedPaths) {
 TEST(ModelDescriptor, FromFileRejectsMaterializedPathOutsideStore) {
     constexpr const char *name = "escape";
     TemporaryDirectory temporary(name);
+    const fs::path escapedModel = temporary.path / "escaped.onnx";
+    std::ofstream(escapedModel) << "model";
     ScopedEnvironmentVariable mode(FakeModeEnvironment, name);
-    ScopedEnvironmentVariable escapePath(FakeEscapePathEnvironment,
-                                         (temporary.path / "escaped.onnx").string());
+    ScopedEnvironmentVariable escapePath(FakeEscapePathEnvironment, escapedModel.string());
     const fs::path descriptorPath = writeDescriptor(temporary.path, publishedAssetId(name));
 
     EXPECT_FALSE(pek::ModelDescriptor::fromFile(descriptorPath.string()).has_value());

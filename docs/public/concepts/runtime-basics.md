@@ -124,14 +124,9 @@ does request cooperative cancellation: the common synchronous setup contract pro
 token to model materialization, and modelfetch aborts at its next progress callback. Backend-specific
 initialization that has already started may still need to return before teardown can complete.
 
-The model-loading API remains synchronous and accepts an optional `ModelLoadContext` for cancellation.
-Each OpChain setup creates one `OpSetupContext`, which carries that control to the operation that owns
-the `modelDescriptor` attribute. Inference operations resolve the descriptor
-through that context and pass the resulting local model path to their backend. Successful descriptor
-resolutions are reused within the same setup, so one operation cannot trigger a context-free second
-download. Thread and retry policy stay in the consumer: `pekinfer` schedules the same setup call on its
-worker, while direct runtime and benchmark callers can continue to load synchronously without managing
-a background thread.
+The model-loading API remains synchronous. Successful descriptor resolutions are reused within each
+OpChain setup. Threading and retry policy remain with the consumer: `pekinfer` schedules setup on its
+worker, while direct callers can invoke the same setup synchronously.
 
 ## Runtime input expectations
 

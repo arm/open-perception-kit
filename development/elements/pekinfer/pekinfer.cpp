@@ -42,10 +42,7 @@ struct GstPekInferMembers {
         auto descriptorResult = pek::op::OpChainDescriptor::fromFile(filePath);
         if (!descriptorResult)
             return tl::unexpected{descriptorResult.error()};
-        {
-            std::lock_guard lock(setupMutex);
-            descriptor = std::move(*descriptorResult);
-        }
+        descriptor = std::move(*descriptorResult);
         return {};
     }
 
@@ -115,8 +112,7 @@ struct GstPekInferMembers {
             std::optional<std::string> failure;
             try {
                 candidate = std::make_unique<pek::op::OpChain>();
-                const pek::ModelLoadContext loadContext{.stopToken = stopToken};
-                auto setupResult = candidate->setupFromDescriptor(descriptor, loadContext);
+                auto setupResult = candidate->setupFromDescriptor(descriptor, stopToken);
                 if (!setupResult)
                     failure = setupResult.error().toString();
             } catch (const std::exception &error) {

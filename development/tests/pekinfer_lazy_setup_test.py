@@ -246,7 +246,7 @@ class PekInferLazySetupTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, f"{result.stdout}\n{result.stderr}")
         self.assertTrue(process_called.exists(), "the ready OpChain was not executed")
 
-    def run_pipeline(self, *, active: bool) -> subprocess.CompletedProcess[str]:
+    def run_active_setup_failure_pipeline(self) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory(prefix="pekinfer-lazy-setup-") as directory:
             test_directory = Path(directory)
             descriptor = test_directory / "opchain.json"
@@ -264,14 +264,14 @@ class PekInferLazySetupTest(unittest.TestCase):
                     str(GST_LAUNCH),
                     "-q",
                     "videotestsrc",
-                    f"num-buffers={15 if active else 1}",
-                    f"is-live={'true' if active else 'false'}",
+                    "num-buffers=15",
+                    "is-live=true",
                     "!",
                     "video/x-raw,format=BGRA,width=16,height=16",
                     "!",
                     "pekinfer",
                     f"opchain-path={descriptor}",
-                    f"active={'true' if active else 'false'}",
+                    "active=true",
                     "!",
                     "fakesink",
                 ],
@@ -318,7 +318,7 @@ class PekInferLazySetupTest(unittest.TestCase):
             self.assertFalse(calls.exists(), "inactive model triggered materialization")
 
     def test_active_setup_failure_keeps_pipeline_running(self) -> None:
-        result = self.run_pipeline(active=True)
+        result = self.run_active_setup_failure_pipeline()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Asynchronous OpChain setup failed", result.stderr)
 

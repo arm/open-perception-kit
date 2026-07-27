@@ -19,18 +19,16 @@ class BlockingSetupOp final : public pek::op::Op {
   public:
     pek::Result<void> configure(const pek::AttributeMap &attributes,
                                 pek::op::OpSetupContext &setupContext) override {
-        if (attributes.contains("modelDescriptor")) {
-            std::string modelDescriptorPath;
-            try {
-                modelDescriptorPath = attributes.getString("modelDescriptor");
-            } catch (const pek::AttributeError &error) {
-                return tl::unexpected{PEK_ERROR(pek::ErrorFlag::InvalidData, error.what())};
-            }
-
-            auto descriptor = setupContext.resolveModelDescriptor(modelDescriptorPath);
-            if (!descriptor)
-                return tl::unexpected{descriptor.error()};
+        std::string modelDescriptorPath;
+        try {
+            modelDescriptorPath = attributes.getString("modelDescriptor");
+        } catch (const pek::AttributeError &error) {
+            return tl::unexpected{PEK_ERROR(pek::ErrorFlag::InvalidData, error.what())};
         }
+
+        auto descriptor = setupContext.resolveModelDescriptor(modelDescriptorPath);
+        if (!descriptor)
+            return tl::unexpected{descriptor.error()};
 
         const char *startedPath = std::getenv("PEK_TEST_BLOCKING_SETUP_STARTED");
         const char *releasePath = std::getenv("PEK_TEST_BLOCKING_SETUP_RELEASE");

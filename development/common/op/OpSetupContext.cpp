@@ -23,7 +23,7 @@ pek::Result<pek::ModelDescriptor> OpSetupContext::resolveModelDescriptor(const s
     if (const auto cached = modelDescriptors.find(path); cached != modelDescriptors.end())
         return cached->second;
 
-    auto descriptor = pek::ModelDescriptor::fromFile(path, modelLoadContext);
+    auto descriptor = pek::ModelDescriptor::fromFile(path, stopToken);
     if (!descriptor)
         return tl::unexpected{descriptor.error()};
     if (stopRequested())

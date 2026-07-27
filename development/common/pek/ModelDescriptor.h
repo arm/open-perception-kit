@@ -6,11 +6,11 @@
 
 #include "pek/Color.h"
 #include "pek/JsonSchemas.h"
-#include "pek/ModelLoadContext.h"
 #include "pek/Result.h"
 #include "pek/Shape.h"
 #include "pek/Types.h"
 
+#include <stop_token>
 #include <string>
 #include <vector>
 
@@ -121,11 +121,11 @@ struct ModelDescriptor {
      * provide load controls.
      *
      * @param path JSON file path.
-     * @param loadContext Optional cancellation contract.
+     * @param stopToken Optional cooperative cancellation token.
      * @return Parsed descriptor with a resolved local model path, or an error.
      */
     static pek::Result<ModelDescriptor> fromFile(const std::string &path,
-                                                 const pek::ModelLoadContext &loadContext = {});
+                                                 std::stop_token stopToken = {});
 
     /// Optional tensor feedback loop descriptors.
     std::vector<pek::TensorFeedback> tensorFeedbacks;

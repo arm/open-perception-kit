@@ -5,12 +5,11 @@
 #pragma once
 
 #include "pek/ModelDescriptor.h"
-#include "pek/ModelLoadContext.h"
 #include "pek/Result.h"
 
+#include <stop_token>
 #include <string>
 #include <unordered_map>
-#include <utility>
 
 namespace pek::op {
 
@@ -23,8 +22,7 @@ namespace pek::op {
  */
 class OpSetupContext {
   public:
-    explicit OpSetupContext(pek::ModelLoadContext modelLoadContextValue = {})
-        : modelLoadContext(std::move(modelLoadContextValue)) {}
+    explicit OpSetupContext(std::stop_token stopTokenValue = {}) : stopToken(stopTokenValue) {}
 
     /**
      * @brief Resolves and materializes a model descriptor for this setup attempt.
@@ -41,11 +39,11 @@ class OpSetupContext {
      * @brief Reports whether cancellation was requested for this setup attempt.
      */
     [[nodiscard]] bool stopRequested() const noexcept {
-        return modelLoadContext.stopRequested();
+        return stopToken.stop_requested();
     }
 
   private:
-    pek::ModelLoadContext modelLoadContext;
+    std::stop_token stopToken;
     std::unordered_map<std::string, pek::ModelDescriptor> modelDescriptors;
 };
 

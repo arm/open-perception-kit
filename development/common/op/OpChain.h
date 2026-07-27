@@ -7,9 +7,9 @@
 #include "op/Op.h"
 #include "op/OpChainDescriptor.h"
 #include "op/OpRef.h"
-#include "pek/ModelLoadContext.h"
 #include "pek/Result.h"
 
+#include <stop_token>
 #include <vector>
 
 namespace pek::op {
@@ -54,22 +54,21 @@ class OpChain {
      * thread and provide cooperative cancellation.
      *
      * @param descriptor Descriptor containing chain name and operation definitions.
-     * @param loadContext Optional model loading controls.
+     * @param stopToken Optional cooperative cancellation token.
      * @return Result indicating success or failure of setup.
      */
     pek::Result<void> setupFromDescriptor(const pek::op::OpChainDescriptor &descriptor,
-                                          const pek::ModelLoadContext &loadContext = {});
+                                          std::stop_token stopToken = {});
     /**
      * @brief Initializes the chain by loading an OpChainDescriptor from a JSON file.
      *
      * Equivalent to loading JSON manually and calling setupFromDescriptor().
      *
      * @param jsonFile Path to JSON file containing OpChainDescriptor.
-     * @param loadContext Optional model loading controls.
+     * @param stopToken Optional cooperative cancellation token.
      * @return Result indicating success or failure of setup.
      */
-    pek::Result<void> setupFromFile(const std::string &jsonFile,
-                                    const pek::ModelLoadContext &loadContext = {});
+    pek::Result<void> setupFromFile(const std::string &jsonFile, std::stop_token stopToken = {});
 
     /**
      * @brief Gets the name of this chain.
