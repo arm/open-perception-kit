@@ -105,13 +105,7 @@ jobs:
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
-        run: |
-          set -euo pipefail
-          {
-            echo "HOST_UID=$(id -u)"
-            echo "HOST_GID=$(id -g)"
-          } >> "$GITHUB_ENV"
-          ./scripts/quick-start/start-container.sh --recreate
+        run: ./scripts/quick-start/start-container.sh --recreate
 
       - name: Build PEK in quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -252,13 +246,7 @@ jobs:
 
       - name: Build and start quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        run: |
-          set -euo pipefail
-          {
-            echo "HOST_UID=$(id -u)"
-            echo "HOST_GID=$(id -g)"
-          } >> "$GITHUB_ENV"
-          ./scripts/quick-start/start-container.sh --recreate
+        run: ./scripts/quick-start/start-container.sh --recreate
 
       - name: Build PEK in quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}

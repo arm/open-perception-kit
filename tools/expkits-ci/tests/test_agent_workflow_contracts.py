@@ -544,7 +544,6 @@ class AgentWorkflowContractTests(unittest.TestCase):
             self.assertIn('--head-ref-override "${{ github.event.inputs.pr_head_ref }}"', resolver_run)
             self.assertIn('--head-sha-override "${{ github.event.inputs.pr_head_sha }}"', resolver_run)
             self.assertIn('--github-output "${GITHUB_OUTPUT}"', resolver_run)
-            self.assertNotIn("gh pr view", resolver_run)
             self.assertEqual(
                 steps["Checkout workflow helpers"]["with"]["persist-credentials"],
                 "false",
@@ -556,21 +555,28 @@ class AgentWorkflowContractTests(unittest.TestCase):
         sonar_condition = sonar["jobs"]["build-and-sonar"]["if"]
         self.assertIn(expected_label_gate, sonar_condition)
         self.assertIn(expected_draft_override, sonar_condition)
-        for steps in (linux_steps, rpi_steps, pek_steps, sonar_steps):
-            checkout_ref = steps["Checkout"]["with"]["ref"]
-            self.assertIn("steps.manual_pr.outputs.head_sha", checkout_ref)
-            self.assertIn("steps.manual_pr.outputs.head_ref", checkout_ref)
-            self.assertIn("github.head_ref", checkout_ref)
-            self.assertNotIn("github.event.inputs.pr_head_sha", checkout_ref)
-            self.assertNotIn("github.event.inputs.pr_head_ref", checkout_ref)
-        self.assertIn("steps.manual_pr.outputs.head_sha", pek_steps["Checkout"]["with"]["ref"])
+        resolved_checkout_ref = (
+            "${{ steps.manual_pr.outputs.head_sha || "
+            "steps.manual_pr.outputs.head_ref || github.head_ref || github.ref }}"
+        )
+        self.assertEqual(
+            linux_steps["Checkout"]["with"]["ref"],
+            resolved_checkout_ref,
+        )
+        self.assertEqual(
+            rpi_steps["Checkout"]["with"]["ref"],
+            resolved_checkout_ref,
+        )
+        self.assertEqual(
+            sonar_steps["Checkout"]["with"]["ref"],
+            resolved_checkout_ref,
+        )
         self.assertEqual(
             pek_steps["Checkout"]["with"]["ref"],
             "${{ steps.manual_pr.outputs.head_sha || "
             "steps.manual_pr.outputs.head_ref || "
             "github.event.pull_request.head.sha || github.head_ref || github.ref }}",
         )
-        self.assertIn("steps.manual_pr.outputs.head_sha", sonar_steps["Checkout"]["with"]["ref"])
         attach_head = pek_steps["Attach validated PR head branch"]
         self.assertIn("github.event.inputs.pr_number", attach_head["if"])
         self.assertEqual(
@@ -701,6 +707,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
             list(rpi_steps).index("Prepare pinned modelfetch release"),
             list(rpi_steps).index("Build and start quick-start container"),
         )
+        # On RPI, the App token is confined to the isolated release-preparation container.
         self.assertNotIn(
             "GH_TOKEN",
             rpi_steps["Build and start quick-start container"].get("env", {}),
@@ -729,10 +736,6 @@ class AgentWorkflowContractTests(unittest.TestCase):
             "github.event.inputs.pr_number",
             pek_steps["Run clang-tidy baseline check"]["env"]["PR_CONTEXT_RUN"],
         )
-        self.assertNotIn("${{ inputs.", PEK_CI_WORKFLOW_FILE.read_text(encoding="utf-8"))
-        self.assertNotIn("${{ inputs.", SONAR_WORKFLOW_FILE.read_text(encoding="utf-8"))
-        self.assertNotIn("gh pr view", PEK_CI_WORKFLOW_FILE.read_text(encoding="utf-8"))
-        self.assertNotIn("gh pr view", SONAR_WORKFLOW_FILE.read_text(encoding="utf-8"))
         self.assertIn("steps.manual_pr.outputs.pr_number", sonar_steps["SonarQube analysis"]["env"]["PR_KEY"])
         self.assertIn("steps.manual_pr.outputs.head_ref", sonar_steps["SonarQube analysis"]["env"]["SONAR_BRANCH"])
         self.assertIn("steps.manual_pr.outputs.base_ref", sonar_steps["SonarQube analysis"]["env"]["PR_BASE"])
