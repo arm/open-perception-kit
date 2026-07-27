@@ -247,8 +247,8 @@ class QualityChecks:
         # feature branch: feature/PROJECT-1234[/something-something]
         if re.match(jira_pattern, branch) or (branch == "main"):
             result = True
-        # sandbox branch: sandbox/whatever
-        elif branch.startswith("sandbox/"):
+        # automated and sandbox branches
+        elif branch.startswith(("dependabot/", "sandbox/")):
             result = True
 
         if not result:
@@ -479,6 +479,10 @@ class QualityChecks:
             sha = commit.hexsha[:8]
             filtered_lines = QualityChecks.filter_comment_lines(commit.message)
 
+            if filtered_lines and QualityChecks.JIRA_SUBJECT_PREFIX_RE.match(filtered_lines[0]):
+                logger.info(f"[{sha}] Commit message format is valid.")
+                continue
+
             if len(filtered_lines) < 2:
                 if not filtered_lines:
                     logger.error(
@@ -495,10 +499,6 @@ class QualityChecks:
                 if QualityChecks.allows_missing_jira_reference(filtered_lines):
                     logger.info(f"[{sha}] Commit message format is valid.")
                     continue
-                if QualityChecks.JIRA_SUBJECT_PREFIX_RE.match(filtered_lines[0]):
-                    logger.info(f"[{sha}] Commit message format is valid.")
-                    continue
-
                 logger.error(
                     f"[{sha}] Commit message must have at least two lines: "
                     "a description and a reference to a JIRA ticket.")

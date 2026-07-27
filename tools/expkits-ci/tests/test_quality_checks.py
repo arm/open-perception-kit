@@ -164,10 +164,11 @@ class TestQualityChecks(unittest.TestCase):
         self.assert_formatter_check_logs_captured_output(
             "check_shell_format", [False])
 
-    def test_check_branch_naming_accepts_feature_branch_with_or_without_suffix(self):
+    def test_check_branch_naming_accepts_supported_branches(self):
         valid_branches = [
             "feature/EXPKITS-4242",
             "feature/EXPKITS-4242/ticket-description",  # pragma: allowlist secret
+            "dependabot/github_actions/actions-checkout-7",
         ]
 
         for branch_name in valid_branches:
@@ -624,8 +625,11 @@ class TestQualityChecks(unittest.TestCase):
 
         self.assertTrue(result)
 
-    def test_check_commit_messages_on_ci_allows_jira_subject_prefix_without_task_line(self):
-        repo = self.make_repo_with_head_commit("EXPKITS-1234 Keep workflow repair scoped\n")
+    def test_check_commit_messages_on_ci_allows_jira_subject_prefix_with_body(self):
+        repo = self.make_repo_with_head_commit(
+            "EXPKITS-1124: Bump actions/checkout from 6 to 7\n\n"
+            "Bumps actions/checkout from 6 to 7.\n"
+        )
 
         with patch("expkits_ci.quality_checks.Repo", return_value=repo):
             result = self.quality_checks.check_commit_messages_on_ci()
