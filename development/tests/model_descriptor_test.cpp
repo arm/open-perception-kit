@@ -13,6 +13,8 @@
 
 #include <glib.h>
 
+#include <fmt/format.h>
+
 #include "op/OpSetupContext.h"
 #include "pek/ModelDescriptor.h"
 
@@ -28,10 +30,15 @@ class TemporaryDirectory {
   public:
     explicit TemporaryDirectory(const std::string &name)
         : path(fs::temp_directory_path() /
-               ("pek-model-descriptor-" + std::to_string(getpid()) + "-" + name)) {
+               fmt::format("pek-model-descriptor-{}-{}", getpid(), name)) {
         fs::remove_all(path);
         fs::create_directories(path);
     }
+
+    TemporaryDirectory(const TemporaryDirectory &) = delete;
+    TemporaryDirectory &operator=(const TemporaryDirectory &) = delete;
+    TemporaryDirectory(TemporaryDirectory &&) = delete;
+    TemporaryDirectory &operator=(TemporaryDirectory &&) = delete;
 
     ~TemporaryDirectory() {
         std::error_code ec;
@@ -48,6 +55,11 @@ class ScopedEnvironmentVariable {
             previous = current;
         g_setenv(key, value.c_str(), TRUE);
     }
+
+    ScopedEnvironmentVariable(const ScopedEnvironmentVariable &) = delete;
+    ScopedEnvironmentVariable &operator=(const ScopedEnvironmentVariable &) = delete;
+    ScopedEnvironmentVariable(ScopedEnvironmentVariable &&) = delete;
+    ScopedEnvironmentVariable &operator=(ScopedEnvironmentVariable &&) = delete;
 
     ~ScopedEnvironmentVariable() {
         if (previous)
@@ -74,14 +86,15 @@ fs::path writeDescriptor(const fs::path &directory, const std::string &modelFile
 }
 
 std::string publishedAssetId(const std::string &name) {
-    return "hf:Arm/example@0123456789abcdef0123456789abcdef01234567#file=" +
-           std::string("model-descriptor-tests/") + std::to_string(getpid()) + "-" + name +
-           "/model.onnx";
+    return fmt::format("hf:Arm/example@0123456789abcdef0123456789abcdef01234567#file="
+                       "model-descriptor-tests/{}-{}/model.onnx",
+                       getpid(),
+                       name);
 }
 
 fs::path publishedModelPath(const std::string &name) {
     return fs::path("/work/var/models/model-descriptor-tests") /
-           (std::to_string(getpid()) + "-" + name) / "model.onnx";
+           fmt::format("{}-{}", getpid(), name) / "model.onnx";
 }
 
 class PublishedModelFixture {
@@ -91,6 +104,12 @@ class PublishedModelFixture {
         fs::create_directories(directory);
         std::ofstream(modelPath) << "model";
     }
+
+    PublishedModelFixture(const PublishedModelFixture &) = delete;
+    PublishedModelFixture &operator=(const PublishedModelFixture &) = delete;
+    PublishedModelFixture(PublishedModelFixture &&) = delete;
+    PublishedModelFixture &operator=(PublishedModelFixture &&) = delete;
+
     ~PublishedModelFixture() {
         std::error_code ec;
         fs::remove_all(directory, ec);

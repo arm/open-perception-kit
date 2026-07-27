@@ -19,6 +19,7 @@ import subprocess
 
 
 NEEDED_PATTERN = re.compile(r"\(NEEDED\).*Shared library: \[([^\]]+)\]")
+MODELFETCH_C_LIBRARY = "libmodelfetch_c.so"
 
 
 def needed_libraries(readelf: Path, artifact: Path) -> set[str]:
@@ -59,7 +60,7 @@ def main() -> None:
     parser.add_argument("--fake-backend", type=Path, required=True)
     args = parser.parse_args()
 
-    forbidden = {"libmodelfetch_c.so", "libpek-model-loading.so"}
+    forbidden = {MODELFETCH_C_LIBRARY, "libpek-model-loading.so"}
     for artifact in args.non_model_consumer:
         unexpected = needed_libraries(args.readelf, artifact) & forbidden
         if unexpected:
@@ -68,9 +69,9 @@ def main() -> None:
             )
 
     runtime_dependencies = needed_libraries(args.readelf, args.model_runtime)
-    if "libmodelfetch_c.so" not in runtime_dependencies:
+    if MODELFETCH_C_LIBRARY not in runtime_dependencies:
         raise AssertionError(
-            f"{args.model_runtime.name} does not depend on libmodelfetch_c.so"
+            f"{args.model_runtime.name} does not depend on {MODELFETCH_C_LIBRARY}"
         )
     runtime_imports = dynamic_symbols(args.readelf, args.model_runtime, undefined=True)
     if not runtime_imports:
@@ -97,10 +98,10 @@ def main() -> None:
             raise AssertionError(
                 f"{artifact.name} does not depend on libpek-model-loading.so"
             )
-        if "libmodelfetch_c.so" in dependencies:
+        if MODELFETCH_C_LIBRARY in dependencies:
             raise AssertionError(
                 f"{artifact.name} bypasses libpek-model-loading.so and depends directly "
-                "on libmodelfetch_c.so"
+                f"on {MODELFETCH_C_LIBRARY}"
             )
 
 
