@@ -5,9 +5,11 @@
 
 import json
 import os
+import signal
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -156,6 +158,162 @@ class TestPekMenuCliDiagnostics(unittest.TestCase):
         self.assertEqual(result.returncode, 127)
         self.assertEqual(result.stdout, "gst-launch-1.0 fakesrc ! fakesink \n")
         self.assertIn("execvp:", result.stderr)
+
+    def test_looping_pipeline_stops_after_forwarded_sigint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            temp_dir = Path(tmpdir)
+            bin_dir = temp_dir / "bin"
+            bin_dir.mkdir()
+            marker = temp_dir / "process-events"
+
+            descendant = bin_dir / "pipeline-descendant"
+            descendant.write_text(
+                "#!/usr/bin/env python3\n"
+                "import os\n"
+                "import signal\n"
+                "import time\n"
+                "\n"
+                "marker = os.environ['PEK_MENU_TEST_MARKER']\n"
+                "\n"
+                "def stop(_signal_number, _frame):\n"
+                "    with open(marker, 'a', encoding='utf-8') as output:\n"
+                "        output.write('descendant-stopped\\n')\n"
+                "    raise SystemExit(0)\n"
+                "\n"
+                "signal.signal(signal.SIGINT, stop)\n"
+                "signal.signal(signal.SIGTERM, stop)\n"
+                "with open(marker, 'a', encoding='utf-8') as output:\n"
+                "    output.write('descendant-started\\n')\n"
+                "while True:\n"
+                "    time.sleep(0.05)\n",
+                encoding="utf-8",
+            )
+            descendant.chmod(0o755)
+
+            fake_gst_launch = bin_dir / "gst-launch-1.0"
+            fake_gst_launch.write_text(
+                "#!/usr/bin/env python3\n"
+                "import os\n"
+                "import signal\n"
+                "import subprocess\n"
+                "import time\n"
+                "\n"
+                "descendant = subprocess.Popen([os.environ['PEK_MENU_TEST_DESCENDANT']])\n"
+                "\n"
+                "def stop(_signal_number, _frame):\n"
+                "    descendant.wait(timeout=1)\n"
+                "    raise SystemExit(0)\n"
+                "\n"
+                "signal.signal(signal.SIGINT, stop)\n"
+                "signal.signal(signal.SIGTERM, stop)\n"
+                "while True:\n"
+                "    time.sleep(0.05)\n",
+                encoding="utf-8",
+            )
+            fake_gst_launch.chmod(0o755)
+
+            pipeline = temp_dir / "looping.json"
+            pipeline.write_text(
+                json.dumps(
+                    {
+                        "description": "Looping pipeline signal test",
+                        "loop": True,
+                        "pipeline": "fakesrc ! fakesink",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            env = os.environ.copy()
+            env["OPK_LOG_LEVEL"] = "0"
+            env["PATH"] = f"{bin_dir}:{env['PATH']}"
+            env["PEK_MENU_TEST_MARKER"] = str(marker)
+            env["PEK_MENU_TEST_DESCENDANT"] = str(descendant)
+
+            process = subprocess.Popen(
+                [str(self.pek_menu), str(pipeline)],
+                env=env,
+                start_new_session=True,
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                text=True,
+            )
+
+            try:
+                for _ in range(100):
+                    if (
+                        marker.exists()
+                        and "descendant-started"
+                        in marker.read_text(encoding="utf-8")
+                    ) or process.poll() is not None:
+                        break
+                    time.sleep(0.01)
+
+                self.assertTrue(marker.exists(), "pipeline descendant did not start")
+                self.assertIn(
+                    "descendant-started",
+                    marker.read_text(encoding="utf-8"),
+                )
+
+                process.send_signal(signal.SIGINT)
+                stdout, stderr = process.communicate(timeout=2)
+            finally:
+                if process.poll() is None:
+                    os.killpg(process.pid, signal.SIGKILL)
+                    process.communicate()
+
+            self.assertEqual(process.returncode, 128 + signal.SIGINT)
+            self.assertEqual(
+                marker.read_text(encoding="utf-8"),
+                "descendant-started\ndescendant-stopped\n",
+            )
+            self.assertNotIn("Pipeline reached EOS; restarting.", stdout)
+            self.assertEqual(stderr, "")
+
+    def test_looping_pipeline_stops_when_eos_is_immediate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            temp_dir = Path(tmpdir)
+            bin_dir = temp_dir / "bin"
+            bin_dir.mkdir()
+            marker = temp_dir / "starts"
+
+            fake_gst_launch = bin_dir / "gst-launch-1.0"
+            fake_gst_launch.write_text(
+                "#!/bin/sh\n"
+                'printf "started\\n" >> "$PEK_MENU_TEST_MARKER"\n'
+                'test "$(wc -l < "$PEK_MENU_TEST_MARKER")" -eq 1 || exit 7\n'
+                "exit 0\n",
+                encoding="utf-8",
+            )
+            fake_gst_launch.chmod(0o755)
+
+            pipeline = temp_dir / "looping.json"
+            pipeline.write_text(
+                json.dumps(
+                    {
+                        "description": "Immediate EOS test",
+                        "loop": True,
+                        "pipeline": "fakesrc ! fakesink",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = self.run_cli(
+                str(pipeline),
+                env_overrides={
+                    "PATH": f"{bin_dir}:{os.environ['PATH']}",
+                    "PEK_MENU_TEST_MARKER": str(marker),
+                },
+            )
+
+            self.assertEqual(result.returncode, 1)
+            self.assertEqual(marker.read_text(encoding="utf-8"), "started\n")
+            self.assertNotIn("Pipeline reached EOS; restarting.", result.stdout)
+            self.assertIn(
+                "Pipeline reached EOS too quickly; refusing to restart.",
+                result.stderr,
+            )
 
 
 if __name__ == "__main__":

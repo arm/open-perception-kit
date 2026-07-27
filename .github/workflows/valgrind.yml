@@ -102,8 +102,11 @@ jobs:
           github-token: ${{ github.token }}
           run-id: ${{ steps.valgrind_baseline.outputs.run-id || steps.waited_valgrind_baseline.outputs.run-id }}
 
-      - name: Build docker image
-        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-docs-base
+      - name: Build Docker images for checks
+        run: |
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build \
+            pek-valgrind-check \
+            pek-generate-valgrind-summary
 
       - name: Clear stale Valgrind logs
         run: find scripts/testing/valgrind/logs -name "*.valgrind.*.xml" -delete 2>/dev/null || true

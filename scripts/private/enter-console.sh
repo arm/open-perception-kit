@@ -13,7 +13,7 @@ Usage:
 Enters the console based development environment.
 
 Notes:
-  Requires the 'pek-dev-rich' container to be running.rich
+  Requires the rich PEK development container to be running.
   If it isn't running, start it with: ./scripts/private/run-console
 EOF
 }
@@ -32,21 +32,22 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 DEV_ENV_FILE="devices.env"
-DC_RICH="rich"
+DC_KIND="rich"
+CONTAINER_NAME="${PEK_RICH_CONTAINER_NAME:-pek-dev-rich}"
 
 cd "${REPO_ROOT}"
 
 # Check if container is running
-if ! docker inspect -f '{{.State.Running}}' pek-dev-rich > /dev/null 2>&1; then
-    echo "Error: container 'pek-dev-rich' is not running." >&2
+if ! docker inspect -f '{{.State.Running}}' "${CONTAINER_NAME}" > /dev/null 2>&1; then
+    echo "Error: container '${CONTAINER_NAME}' is not running." >&2
     echo "Please start it first by running: ./scripts/private/run-console" >&2
     exit 1
 fi
 
-./scripts/private/dev-init.sh pek-dev-rich "$DC_RICH" "$DEV_ENV_FILE"
+./scripts/private/dev-init.sh pek-dev-rich "$DC_KIND" "$DEV_ENV_FILE"
 
 DOCKER_EXEC_ENV_FILE_ARGS=()
 if [ -f "${REPO_ROOT}/${DEV_ENV_FILE}" ]; then
     DOCKER_EXEC_ENV_FILE_ARGS=(--env-file "${REPO_ROOT}/${DEV_ENV_FILE}")
 fi
-docker exec -it -u devgoblin "${DOCKER_EXEC_ENV_FILE_ARGS[@]}" -e TERM="$TERM" pek-dev-rich zsh
+docker exec -it -u dev "${DOCKER_EXEC_ENV_FILE_ARGS[@]}" -e TERM="$TERM" "${CONTAINER_NAME}" zsh

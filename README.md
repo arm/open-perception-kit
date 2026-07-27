@@ -204,3 +204,39 @@ Pick your next step.
 | Pipeline exits immediately | Rerun `./scripts/run.sh 01-full-onnx` and inspect the first missing plugin, model, or file. |
 | Viewer does not load | Keep the pipeline terminal running, use the target Pi IP address, and check port `9999`. |
 | A model produces no overlay | Confirm the model and any upstream dependencies are enabled, then check the debug log or model state in the viewer. |
+
+## Deploy with Topo
+
+Install [Topo](https://github.com/arm/topo) on your development machine, then
+check that the target is ready:
+
+```bash
+topo health --target <raspberry-pi-ip-address>
+```
+
+Deploy the default sample-video pipeline from the repository root:
+
+```bash
+topo deploy --target <raspberry-pi-ip-address>
+```
+
+When the deployment has started, open:
+
+```text
+http://<raspberry-pi-ip-address>:9999
+```
+
+For a Raspberry Pi camera, connect the camera and restart the Pi before
+deploying:
+
+```bash
+PEK_PICAMERA=enabled PEK_PIPELINE=05-full-onnx-raspicam \
+  topo deploy --target <raspberry-pi-ip-address>
+```
+
+For a USB camera exposed as `/dev/video0` on the target:
+
+```bash
+PEK_PIPELINE=06-full-onnx-usb-cam \
+  topo deploy --target <raspberry-pi-ip-address>
+```

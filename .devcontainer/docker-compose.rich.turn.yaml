@@ -1,0 +1,24 @@
+services:
+  coturn:
+    extends:
+      file: docker-compose.devcont.turn.yaml
+      service: coturn
+
+  pek-dev-rich:
+    network_mode: bridge
+    ports:
+      - "8000:8000"
+      - "8080:8080"
+      - "8001:8001"
+      - "8002:8002"
+      - "7001:7001"
+      - "9999:9999"
+      - "2222:2222"
+    depends_on:
+      - coturn
+    environment:
+      WEBRTC_HOST_IP: ${WEBRTC_HOST_IP}
+      PEK_WEBRTC_TURN_USERNAME: ${PEK_WEBRTC_TURN_USERNAME:-test}
+      PEK_WEBRTC_TURN_CREDENTIAL: ${PEK_WEBRTC_TURN_CREDENTIAL:-test123}
+      PEK_WEBRTC_TURN_MIN_PORT: ${PEK_WEBRTC_TURN_MIN_PORT:-49000}
+      PEK_WEBRTC_TURN_MAX_PORT: ${PEK_WEBRTC_TURN_MAX_PORT:-49050}

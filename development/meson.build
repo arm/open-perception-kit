@@ -76,6 +76,11 @@ if onnx_root_env != ''
   onnx_candidates += [onnx_root_env]
 endif
 
+onnx_root_cross = meson.get_external_property('pek_onnxruntime_root', '')
+if onnx_root_cross != ''
+  onnx_candidates += [onnx_root_cross]
+endif
+
 onnx_candidates += [
   '/opt/pek-deps/onnxruntime',
   meson.project_source_root() / '../deps/onnxruntime',

@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
+#include <chrono>
+#include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -15,6 +17,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <unordered_map>
 #include <vector>
@@ -31,10 +34,22 @@ struct PipelineEntry {
     std::string full_path{};   // filename with extension, internally used as ID
     std::string description{}; // The description of the pipeline from the JSON file
     std::string pipeline{};    // The pipeline definition from the JSON file
+    bool loop{};               // Restart the pipeline after a clean end-of-stream.
 };
 
 static constexpr const char *kPipelinesDir = "/work/config/pipelines";
 static constexpr const char *kLastSelectionFileName = ".last_selected_pipeline_id";
+static constexpr auto kMinimumLoopRuntime = std::chrono::seconds(1);
+static constexpr int kExecutionFailureExitCode = 127;
+static constexpr int kSignalExitCodeOffset = 128;
+static volatile sig_atomic_t pipeline_process_group = -1;
+static volatile sig_atomic_t requested_termination_signal = 0;
+
+static void forward_termination_signal(int signal_number) {
+    requested_termination_signal = signal_number;
+    if (pipeline_process_group > 0)
+        kill(-pipeline_process_group, signal_number);
+}
 
 static fs::path last_selection_path() {
     return fs::path(kPipelinesDir) / kLastSelectionFileName;
@@ -84,6 +99,14 @@ static std::optional<PipelineEntry> load_entry_from_json_file(const fs::path &p)
         PipelineEntry pipeline_entry{};
         pipeline_entry.full_path = p.string();
         pipeline_entry.description = json_content["description"].get<std::string>();
+
+        if (json_content.contains("loop")) {
+            if (!json_content["loop"].is_boolean()) {
+                pek::log::instantError("Invalid JSON ('loop' must be a boolean): {}\n", p.string());
+                return std::nullopt;
+            }
+            pipeline_entry.loop = json_content["loop"].get<bool>();
+        }
 
         const auto &pipeline_elements = json_content["pipeline"];
         if (pipeline_elements.is_string()) {
@@ -216,7 +239,7 @@ static std::optional<int> read_choice_int() {
     return static_cast<int>(v);
 }
 
-int run_gst_launch(const std::string &pipeline, bool dry_run) {
+int run_gst_launch(const std::string &pipeline, bool dry_run, bool loop) {
     try {
         auto cmd = tokenize_and_expand_argv(pipeline);
 
@@ -229,10 +252,86 @@ int run_gst_launch(const std::string &pipeline, bool dry_run) {
         std::fflush(stdout);
 
         if (!dry_run) {
-            // never returns if everything is okay
-            execvp(cmd.argv[0], cmd.argv.data());
-            pek::log::instantError("execvp: {}\n", std::strerror(errno));
-            return 127;
+            if (!loop) {
+                execvp(cmd.argv[0], cmd.argv.data());
+                pek::log::instantError("execvp: {}\n", std::strerror(errno));
+                return kExecutionFailureExitCode;
+            }
+
+            if (signal(SIGINT, forward_termination_signal) == SIG_ERR ||
+                signal(SIGTERM, forward_termination_signal) == SIG_ERR) {
+                pek::log::instantError("signal: {}\n", std::strerror(errno));
+                return kExecutionFailureExitCode;
+            }
+
+            do {
+                if (requested_termination_signal != 0)
+                    return kSignalExitCodeOffset + requested_termination_signal;
+
+                const auto pipeline_start = std::chrono::steady_clock::now();
+                const pid_t child_pid = fork();
+                if (child_pid < 0) {
+                    pek::log::instantError("fork: {}\n", std::strerror(errno));
+                    return kExecutionFailureExitCode;
+                }
+
+                if (child_pid == 0) {
+                    if (setpgid(0, 0) < 0) {
+                        pek::log::instantError("setpgid: {}\n", std::strerror(errno));
+                        _exit(kExecutionFailureExitCode);
+                    }
+                    execvp(cmd.argv[0], cmd.argv.data());
+                    pek::log::instantError("execvp: {}\n", std::strerror(errno));
+                    _exit(kExecutionFailureExitCode);
+                }
+
+                if (setpgid(child_pid, child_pid) < 0 && errno != EACCES && errno != ESRCH) {
+                    const int setpgid_error = errno;
+                    kill(child_pid, SIGKILL);
+                    while (waitpid(child_pid, nullptr, 0) < 0 && errno == EINTR) {
+                    }
+                    pek::log::instantError("setpgid: {}\n", std::strerror(setpgid_error));
+                    return kExecutionFailureExitCode;
+                }
+
+                pipeline_process_group = child_pid;
+                if (requested_termination_signal != 0)
+                    kill(-child_pid, requested_termination_signal);
+
+                int status = 0;
+                pid_t wait_result;
+                do {
+                    wait_result = waitpid(child_pid, &status, 0);
+                } while (wait_result < 0 && errno == EINTR);
+                pipeline_process_group = -1;
+
+                if (wait_result < 0) {
+                    pek::log::instantError("waitpid: {}\n", std::strerror(errno));
+                    return kExecutionFailureExitCode;
+                }
+
+                if (requested_termination_signal != 0)
+                    return kSignalExitCodeOffset + requested_termination_signal;
+
+                if (WIFSIGNALED(status))
+                    return kSignalExitCodeOffset + WTERMSIG(status);
+
+                if (!WIFEXITED(status))
+                    return kExecutionFailureExitCode;
+
+                const int exit_code = WEXITSTATUS(status);
+                if (exit_code != 0)
+                    return exit_code;
+
+                const auto pipeline_runtime = std::chrono::steady_clock::now() - pipeline_start;
+                if (pipeline_runtime < kMinimumLoopRuntime) {
+                    pek::log::instantError(
+                        "Pipeline reached EOS too quickly; refusing to restart.\n");
+                    return 1;
+                }
+
+                pek::log::instantInfo("Pipeline reached EOS; restarting.\n");
+            } while (true);
         }
 
         return 0;
@@ -347,7 +446,7 @@ int main(int argc, char **argv) {
         }
         const auto &pipelineEntry = entries[it->second];
         (void)save_last_selected_pipeline(pipelineEntry.full_path);
-        return run_gst_launch(pipelineEntry.pipeline, dry_run);
+        return run_gst_launch(pipelineEntry.pipeline, dry_run, pipelineEntry.loop);
     }
 
     // Fast path: run by path or ID
@@ -366,7 +465,7 @@ int main(int argc, char **argv) {
         }
         // Since this path might not be available in the menu, we won't save it as last selected
         // pipeline.
-        return run_gst_launch(entry->pipeline, dry_run);
+        return run_gst_launch(entry->pipeline, dry_run, entry->loop);
     }
 
     // Menu mode (no args)
@@ -410,7 +509,7 @@ int main(int argc, char **argv) {
             }
             const auto &pipelineEntry = entries[*last_pipeline_idx];
             (void)save_last_selected_pipeline(pipelineEntry.full_path);
-            return run_gst_launch(pipelineEntry.pipeline, dry_run);
+            return run_gst_launch(pipelineEntry.pipeline, dry_run, pipelineEntry.loop);
         }
 
         const size_t idx = static_cast<size_t>(*c - 1);
@@ -420,6 +519,6 @@ int main(int argc, char **argv) {
             pek::log::instantInfo("Warning: failed to save last selected pipeline to {}\n",
                                   last_selection_path().string());
         }
-        return run_gst_launch(pipelineEntry.pipeline, dry_run);
+        return run_gst_launch(pipelineEntry.pipeline, dry_run, pipelineEntry.loop);
     }
 }

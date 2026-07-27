@@ -210,10 +210,15 @@ jobs:
           ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.head_ref || github.ref }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
-      - name: Build docker image
+      - name: Build Docker images for checks
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: |
-          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-docs-base pek-dev-base pek-docs-dev-base
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build \
+            pek-quality-check-full \
+            pek-quality-check-pull-request \
+            pek-release-with-ut \
+            pek-clang-tidy-baseline-check \
+            pek-valgrind-check
 
       - name: Check Repo Quality gate (nightly)
         if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number == '') }}

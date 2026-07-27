@@ -77,8 +77,9 @@ This is visible in the current TCP writer implementation:
 Current default port:
 - `7001`
 
-Container publishing:
-- `compose.base.yaml` publishes `7001:7001`
+Container networking:
+- development containers use host networking, so port `7001` is available
+  directly on the host
 
 ### WebSocket transport
 

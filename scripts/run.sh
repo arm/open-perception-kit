@@ -85,13 +85,13 @@ if ! docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2> /dev/null
     exit 1
 fi
 
-if ! docker exec -u devgoblin "${PEK_CONTAINER_NAME}" bash -lc 'test -w /work' > /dev/null 2>&1; then
-    echo "Container /work is not writable as devgoblin."
+if ! docker exec -u dev "${PEK_CONTAINER_NAME}" bash -lc 'test -w /work' > /dev/null 2>&1; then
+    echo "Container /work is not writable as dev."
     echo "Recreating it with the host UID/GID mapping..."
     "${START_CONTAINER_SCRIPT}" --recreate
 fi
 
-if ! docker exec -u devgoblin "${PEK_CONTAINER_NAME}" bash -lc 'test -x /work/tools/pek-menu' > /dev/null 2>&1; then
+if ! docker exec -u dev "${PEK_CONTAINER_NAME}" bash -lc 'test -x /work/tools/pek-menu' > /dev/null 2>&1; then
     echo "Error: /work/tools/pek-menu is missing or not executable in ${PEK_CONTAINER_NAME}." >&2
     echo "Run ./scripts/build.sh first." >&2
     exit 1
@@ -101,7 +101,7 @@ DOCKER_EXEC_ARGS=(docker exec)
 if [[ -t 0 && -t 1 ]]; then
     DOCKER_EXEC_ARGS+=(-it)
 fi
-DOCKER_EXEC_ARGS+=(-u devgoblin)
+DOCKER_EXEC_ARGS+=(-u dev)
 if [ -f "${REPO_ROOT}/devices.env" ]; then
     DOCKER_EXEC_ARGS+=(--env-file "${REPO_ROOT}/devices.env")
 fi
