@@ -1,29 +1,34 @@
-name: YOLO Video Benchmark
+name: YOLO Imageset Benchmark
 
 on:
   workflow_dispatch:
     inputs:
+      image_limit:
+        description: "Optional COCO val2017 image limit. Use 0 for the full dataset."
+        required: false
+        default: "0"
+        type: string
       benchmark_runs:
         description: "Number of repeated benchmark runs."
         required: false
-        default: "4"
+        default: "1"
         type: string
   pull_request:
     branches: [ main, develop, "feature/**", "sandbox/**" ]
     types: [ labeled, synchronize, reopened ]
   schedule:
-    - cron: "0 1 * * *"
+    - cron: "30 1 * * *"
 
 permissions:
   contents: read
 
 concurrency:
-  group: yolo-video-benchmark-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.pull_request.number || github.ref }}
+  group: yolo-imageset-benchmark-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  yolo-video-benchmark:
-    name: YOLO video benchmark
+  yolo-imageset-benchmark:
+    name: YOLO imageset benchmark
     runs-on: [self-hosted, Linux, ARM64, amp-dev-forge-runner-rpi5]
     timeout-minutes: 240
     if: |
@@ -31,17 +36,18 @@ jobs:
       (
         github.event.pull_request.head.repo.full_name == github.repository &&
         (
-          (github.event.action == 'labeled' && github.event.label.name == 'run-yolo-benchmark') ||
+          (github.event.action == 'labeled' && github.event.label.name == 'run-yolo-imageset-benchmark') ||
           ((github.event.action == 'synchronize' || github.event.action == 'reopened') &&
-            contains(github.event.pull_request.labels.*.name, 'run-yolo-benchmark'))
+            contains(github.event.pull_request.labels.*.name, 'run-yolo-imageset-benchmark'))
         )
       )
     env:
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      COMPOSE_PROJECT_NAME: yolo-video-benchmark-${{ github.run_id }}-${{ github.run_attempt }}
-      YOLO_BENCHMARK_IMAGE_NAME: amp-dev-forge-yolo-video-benchmark:${{ github.run_id }}-${{ github.run_attempt }}
-      YOLO_BENCHMARK_KIND: video
-      YOLO_BENCHMARK_RUNS: ${{ github.event_name == 'workflow_dispatch' && inputs.benchmark_runs || '10' }}
+      COMPOSE_PROJECT_NAME: yolo-imageset-benchmark-${{ github.run_id }}-${{ github.run_attempt }}
+      YOLO_BENCHMARK_IMAGE_NAME: amp-dev-forge-yolo-imageset-benchmark:${{ github.run_id }}-${{ github.run_attempt }}
+      YOLO_BENCHMARK_KIND: images
+      YOLO_BENCHMARK_LIMIT: ${{ github.event_name == 'workflow_dispatch' && inputs.image_limit || github.event_name == 'pull_request' && '10' || '' }}
+      YOLO_BENCHMARK_RUNS: ${{ github.event_name == 'workflow_dispatch' && inputs.benchmark_runs || '1' }}
 
     steps:
       - name: Checkout ref

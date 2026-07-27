@@ -104,6 +104,7 @@ class CompareBenchmarksTest(unittest.TestCase):
             pek_path.write_text(json.dumps(summary_doc(avg_ms=15.0)), encoding="utf-8")
 
             comparison = compare.build_comparison(compare.load_summary(bare_path), compare.load_summary(pek_path))
+            self.assertEqual(comparison["schema"], compare.COMPARISON_SCHEMA_ID)
             self.assertEqual(comparison["timing_delta"]["per_image_ms"]["avg_ms"]["ratio"], 1.5)
             self.assertEqual(comparison["timing_delta"]["per_image_ms"]["avg_ms"]["delta_percent"], 50.0)
             self.assertEqual(comparison["timing_delta"]["per_image_ms"]["p75_ms"]["delta_ms"], 0.0)

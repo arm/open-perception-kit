@@ -69,6 +69,7 @@ def comparison(bare_ms: float = 10.0,
         "delta_percent": (pek_ms / bare_ms - 1.0) * 100.0,
     }
     return {
+        "schema": publish.IMAGE_COMPARISON_SCHEMA,
         "measurement": {"timed_region": "preloaded_image_to_postprocess_result_ready"},
         "inputs": {
             "image_count": 2,
@@ -203,7 +204,7 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
     def test_write_report_page_generates_index(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             site_dir = Path(tmpdir) / "site"
-            target = site_dir / "yolo-benchmark" / "manual" / "123"
+            target = site_dir / "yolo-imageset-benchmark" / "manual" / "123"
             target.mkdir(parents=True)
             (target / "images.tsv").write_text(
                 "# image_set_fingerprint=sha256:abcdef1234567890\n139\t/tmp/000000000139.jpg\n",
@@ -345,6 +346,21 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             self.assertEqual(pr_number, "")
             self.assertEqual(title, "Manual run 123")
 
+    def test_imageset_workflow_targets_separate_report_root(self) -> None:
+        with patch.dict(os.environ, {"UPSTREAM_RUN_ID": "123"}):
+            report_root = publish.report_root_for_runs([{"comparison": comparison()}])
+            target, _, _ = publish.select_target(
+                Path("site"), "repo", "workflow_dispatch", "feature/test", report_root
+            )
+
+        self.assertEqual(target, Path("site") / "yolo-imageset-benchmark" / "manual" / "123")
+        self.assertEqual(
+            publish.report_root_for_runs([{"comparison": video_comparison()}]),
+            "yolo-benchmark",
+        )
+        with self.assertRaisesRegex(publish.PublishError, "unsupported comparison schema"):
+            publish.report_root_for_runs([{"comparison": {"schema": "unknown", "timing_delta": {}}}])
+
     def test_publish_report_skips_partial_artifact_without_comparisons(self) -> None:
         def write_partial_artifact(target: Path, *_args: object) -> bool:
             artifact = target / "yolo-benchmark"
@@ -370,10 +386,56 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             set_output.assert_called_once_with("deploy", "false")
             checkout.assert_called_once()
 
-    def test_publish_report_skips_stale_attempt_before_artifact_download(self) -> None:
+    def test_publish_report_keeps_video_and_imageset_nightlies_separate(self) -> None:
+        def write_artifact(destination: Path, _repository: str, run_id: str, _attempt: str) -> bool:
+            artifact = destination / "yolo-benchmark"
+            run_dir = artifact / "runs" / "run-01"
+            run_dir.mkdir(parents=True)
+            report = comparison() if run_id == "200" else video_comparison()
+            (run_dir / "comparison.json").write_text(json.dumps(report), encoding="utf-8")
+            if run_id != "200":
+                (artifact / "video-source.json").write_text(
+                    json.dumps({"schema": "expkits_yolo_video_source.v1", "sha256": VIDEO_SHA256}),
+                    encoding="utf-8",
+                )
+            return True
+
+        base_env = {
+            "GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge",
+            "UPSTREAM_CONCLUSION": "success",
+            "UPSTREAM_EVENT": "schedule",
+            "UPSTREAM_HEAD_BRANCH": "develop",
+            "UPSTREAM_HEAD_SHA": "a" * 40,
+            "UPSTREAM_RUN_ATTEMPT": "1",
+        }
+        with tempfile.TemporaryDirectory() as tmpdir, \
+                patch.object(publish, "checkout_site_branch", side_effect=lambda path, _: path.mkdir(exist_ok=True)), \
+                patch.object(publish, "download_report_artifact", side_effect=write_artifact), \
+                patch.object(publish, "push_site_branch", return_value=True), \
+                patch.object(publish, "set_output"):
+            site_dir = Path(tmpdir) / "site"
+            with patch.dict(os.environ, {**base_env, "UPSTREAM_RUN_ID": "200"}, clear=True):
+                publish.publish_report(site_dir, "pages")
+            with patch.dict(os.environ, {**base_env, "UPSTREAM_RUN_ID": "100"}, clear=True):
+                publish.publish_report(site_dir, "pages")
+
+            self.assertTrue((site_dir / "yolo-imageset-benchmark" / "nightly" / "index.html").is_file())
+            self.assertTrue((site_dir / "yolo-benchmark" / "nightly" / "index.html").is_file())
+            self.assertIn("run 200", (site_dir / "yolo-imageset-benchmark" / "nightly" /
+                                      publish.REPORT_INDEX_META).read_text(encoding="utf-8"))
+            self.assertIn("run 100", (site_dir / "yolo-benchmark" / "nightly" /
+                                      publish.REPORT_INDEX_META).read_text(encoding="utf-8"))
+
+    def test_publish_report_skips_stale_attempt_after_artifact_classification(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             site_dir = Path(tmpdir) / "site"
             target = site_dir / "yolo-benchmark" / "prs" / "235"
+
+            def write_artifact(destination: Path, *_args: object) -> bool:
+                run_dir = destination / "yolo-benchmark" / "runs" / "run-01"
+                run_dir.mkdir(parents=True)
+                (run_dir / "comparison.json").write_text(json.dumps(video_comparison()), encoding="utf-8")
+                return True
 
             def checkout(_path: Path, _storage_branch: str) -> None:
                 target.mkdir(parents=True)
@@ -396,12 +458,12 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             }
             with patch.dict(os.environ, env, clear=True), \
                     patch.object(publish, "checkout_site_branch", side_effect=checkout), \
-                    patch.object(publish, "download_report_artifact") as download, \
+                    patch.object(publish, "download_report_artifact", side_effect=write_artifact) as download, \
                     patch.object(publish, "push_site_branch") as push, \
                     patch.object(publish, "set_output") as set_output:
                 publish.publish_report(site_dir, "pages")
 
-            download.assert_not_called()
+            download.assert_called_once()
             push.assert_not_called()
             self.assertEqual((target / "marker.txt").read_text(encoding="utf-8"), "newer")
             set_output.assert_called_once_with("deploy", "false")
@@ -523,16 +585,41 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
     def test_write_yolo_index_generates_index_for_existing_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             site_dir = Path(tmpdir) / "site"
-            report_dir = site_dir / "yolo-benchmark" / "manual" / "123"
+            report_dir = site_dir / "yolo-imageset-benchmark" / "manual" / "123"
             run_dir = report_dir / "runs" / "run-01"
             run_dir.mkdir(parents=True, exist_ok=True)
             (run_dir / "comparison.json").write_text(json.dumps(comparison()), encoding="utf-8")
             (report_dir / "index.html").write_text("report", encoding="utf-8")
             (report_dir / "report-index-meta.txt").write_text("Manual | branch", encoding="utf-8")
 
-            publish.write_yolo_index(site_dir, "Arm-Debug/amp-dev-forge")
+            publish.write_index_assets(site_dir)
+            publish.write_yolo_index(
+                site_dir,
+                "Arm-Debug/amp-dev-forge",
+                publish.IMAGESET_REPORT_ROOT,
+                publish.IMAGESET_PRODUCT_TITLE,
+            )
 
-            self.assertTrue((site_dir / "yolo-benchmark" / "index.html").is_file())
+            self.assertTrue((site_dir / "yolo-imageset-benchmark" / "index.html").is_file())
+            for report_root in publish.REPORT_ROOTS:
+                self.assertTrue((site_dir / report_root / "report-index.css").is_file())
+
+    def test_cleanup_closed_pr_reports_removes_both_report_roots(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = Path(tmpdir) / "site"
+            for report_root in publish.REPORT_ROOTS:
+                (site_dir / report_root / "prs" / "123").mkdir(parents=True)
+
+            with patch.dict(os.environ, {"GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge"}), \
+                    patch.object(publish, "checkout_site_branch"), \
+                    patch.object(publish, "pr_state", return_value={"state": "MERGED", "closedAt": "2020-01-01T00:00:00Z"}), \
+                    patch.object(publish, "push_site_branch", return_value=True), \
+                    patch.object(publish, "set_output") as set_output:
+                publish.cleanup_closed_pr_reports(site_dir, "pages", retention_days=0)
+
+            for report_root in publish.REPORT_ROOTS:
+                self.assertFalse((site_dir / report_root / "prs" / "123").exists())
+            set_output.assert_called_once_with("deploy", "true")
 
     def test_write_root_index_links_report_roots(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -545,6 +632,7 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             self.assertEqual(parser.hrefs, [
                 "playwright/index.html",
                 "yolo-benchmark/index.html",
+                "yolo-imageset-benchmark/index.html",
                 "yolo-performance-datasets/index.html",
             ])
 
@@ -680,6 +768,23 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
                     f"# image_set_fingerprint=sha256:abcdef1234567890\n139\t{image}\n",
                     encoding="utf-8",
                 )
+
+            targets = overlay.restore_overlay(root / "site", root / "cache")
+
+            self.assertEqual([target.name for target in targets], ["coco-val2017-abcdef123456"])
+
+    def test_restore_dataset_overlay_discovers_imageset_report_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            image = root / "cache" / "coco" / "val2017" / "000000000139.jpg"
+            image.parent.mkdir(parents=True)
+            image.write_bytes(b"jpg")
+            image_list = root / "site" / "yolo-imageset-benchmark" / "nightly" / "images.tsv"
+            image_list.parent.mkdir(parents=True)
+            image_list.write_text(
+                f"# image_set_fingerprint=sha256:abcdef1234567890\n139\t{image}\n",
+                encoding="utf-8",
+            )
 
             targets = overlay.restore_overlay(root / "site", root / "cache")
 

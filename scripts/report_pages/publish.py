@@ -17,7 +17,8 @@ LEGACY_ROOT_PATHS = (INDEX_HTML, "report-index.css", "report-shell.css", "report
 LEGACY_PLAYWRIGHT_REPORT_ROOTS = ("nightly", "prs")
 ROOT_REPORT_LINKS = (
     ("playwright/index.html", "Playwright", "Browser smoke reports"),
-    ("yolo-benchmark/index.html", "YOLO Benchmark", "Performance and accuracy benchmark reports"),
+    ("yolo-benchmark/index.html", "YOLO Video Benchmark", "Fixed-video end-to-end FPS reports"),
+    ("yolo-imageset-benchmark/index.html", "YOLO Image-set Benchmark", "COCO image-set benchmark reports"),
     ("yolo-performance-datasets/index.html", "YOLO Datasets", "Benchmark input datasets"),
 )
 

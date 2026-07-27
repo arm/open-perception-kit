@@ -159,6 +159,7 @@ class TestPublishPlaywrightPages(unittest.TestCase):
             self.assertEqual(parser.hrefs, [
                 "playwright/index.html",
                 "yolo-benchmark/index.html",
+                "yolo-imageset-benchmark/index.html",
                 "yolo-performance-datasets/index.html",
             ])
 

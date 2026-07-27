@@ -41,15 +41,19 @@ from scripts.report_pages.publish import (  # noqa: E402
 ASSET_DIR = SCRIPT_DIR / "assets"
 TEMPLATE_DIR = SCRIPT_DIR / "templates"
 REPORT_ROOT = "yolo-benchmark"
+IMAGESET_REPORT_ROOT = "yolo-imageset-benchmark"
+REPORT_ROOTS = (REPORT_ROOT, IMAGESET_REPORT_ROOT)
 DATASET_ROOT = "yolo-performance-datasets"
 ARTIFACT_ROOT_NAME = REPORT_ROOT
-PRODUCT_TITLE = "Arm Perception kit"
+PRODUCT_TITLE = "YOLO Video Benchmark"
+IMAGESET_PRODUCT_TITLE = "YOLO Image-set Benchmark"
 INDEX_HTML = "index.html"
 REPORT_INDEX_META = "report-index-meta.txt"
 FINGERPRINT_HEADER = "# image_set_fingerprint="
 PERCENTILE_METRICS = ("p50_ms", "p75_ms", "p95_ms", "p99_ms")
 RUN_METRICS = ("avg_ms", *PERCENTILE_METRICS)
 VIDEO_COMPARISON_SCHEMA = "expkits_yolo_video_comparison.v1"
+IMAGE_COMPARISON_SCHEMA = "expkits_yolo_image_comparison.v1"
 BARE_DETECTION_VIDEO = "bare-detections.mp4"
 PEK_DETECTION_VIDEO = "pek-detections.mp4"
 DETECTION_VIDEOS = (BARE_DETECTION_VIDEO, PEK_DETECTION_VIDEO)
@@ -144,17 +148,18 @@ def push_site_branch(site_dir: Path, storage_branch: str) -> bool:
     )
 
 
-def copy_asset(site_dir: Path, name: str) -> None:
+def copy_asset(site_dir: Path, report_root: str, name: str) -> None:
     source = ASSET_DIR / name
     if not source.is_file():
         raise PublishError(f"Missing YOLO Pages asset: {source}")
-    destination = site_dir / REPORT_ROOT / name
+    destination = site_dir / report_root / name
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source, destination)
 
 
 def write_index_assets(site_dir: Path) -> None:
-    copy_asset(site_dir, "report-index.css")
+    for report_root in REPORT_ROOTS:
+        copy_asset(site_dir, report_root, "report-index.css")
 
 
 def read_first_line(path: Path, default: str) -> str:
@@ -180,7 +185,7 @@ def pr_report_title(pr_number: str, repository: str) -> str:
 
 
 def rel_to_report_root(target: Path, site_dir: Path) -> str:
-    depth = len(target.relative_to(site_dir / REPORT_ROOT).parts)
+    depth = len(target.relative_to(site_dir).parts) - 1
     return "../" * depth
 
 
@@ -1495,8 +1500,13 @@ def report_link(path: str, title: str, meta: str, badge_html: str) -> str:
     )
 
 
-def write_yolo_index(site_dir: Path, repository: str) -> None:
-    yolo_dir = site_dir / REPORT_ROOT
+def write_yolo_index(
+    site_dir: Path,
+    repository: str,
+    report_root: str = REPORT_ROOT,
+    product_title: str = PRODUCT_TITLE,
+) -> None:
+    yolo_dir = site_dir / report_root
     yolo_dir.mkdir(parents=True, exist_ok=True)
     nightly = yolo_dir / "nightly"
     if (nightly / INDEX_HTML).is_file():
@@ -1540,14 +1550,14 @@ def write_yolo_index(site_dir: Path, repository: str) -> None:
     body = render_template(
         "index.html.in",
         {
-            "product_title": html_escape(PRODUCT_TITLE),
+            "product_title": html_escape(product_title),
             "nightly_reports": nightly_reports,
             "manual_reports": manual_reports_html,
             "pr_reports": pr_reports_html,
         },
     )
     (yolo_dir / INDEX_HTML).write_text(
-        render_page(f"{PRODUCT_TITLE} - YOLO benchmark reports", "report-index.css", body), encoding="utf-8")
+        render_page(f"{product_title} - YOLO benchmark reports", "report-index.css", body), encoding="utf-8")
 
 
 def write_video_artifact_meta(
@@ -1638,8 +1648,25 @@ def restore_latest_detection_videos(site_dir: Path) -> bool:
     return True
 
 
-def select_target(site_dir: Path, repository: str, event: str, branch: str) -> tuple[Path, str, str]:
-    yolo_dir = site_dir / REPORT_ROOT
+def report_root_for_runs(runs: list[dict[str, Any]]) -> str:
+    comparison = runs[0]["comparison"]
+    if comparison.get("schema") == VIDEO_COMPARISON_SCHEMA:
+        return REPORT_ROOT
+    if comparison.get("schema") == IMAGE_COMPARISON_SCHEMA:
+        return IMAGESET_REPORT_ROOT
+    if "schema" not in comparison and "timing_delta" in comparison:
+        return IMAGESET_REPORT_ROOT
+    raise PublishError("YOLO artifact contains an unsupported comparison schema.")
+
+
+def select_target(
+    site_dir: Path,
+    repository: str,
+    event: str,
+    branch: str,
+    report_root: str = REPORT_ROOT,
+) -> tuple[Path, str, str]:
+    yolo_dir = site_dir / report_root
     if event == "pull_request":
         head_repository = env("UPSTREAM_HEAD_REPOSITORY")
         if head_repository and head_repository != repository:
@@ -1676,22 +1703,7 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
         set_output("deploy", "false")
         return
 
-    try:
-        target, pr_number, title = select_target(site_dir, repository, event, branch)
-    except PublishError as error:
-        print(error)
-        set_output("deploy", "false")
-        return
-
-    index_meta_text = build_report_index_meta_text(branch, head_sha, run_id, run_attempt)
-    meta_html = build_report_meta_html(repository, event, pr_number, branch, head_sha, run_id, run_attempt)
-
     checkout_site_branch(site_dir, storage_branch)
-    if is_stale_report(target, run_id, run_attempt):
-        print(f"Skipping stale YOLO report from run {run_id} attempt {run_attempt}.")
-        set_output("deploy", "false")
-        return
-
     with tempfile.TemporaryDirectory() as tmpdir:
         artifact_dir = Path(tmpdir)
         if not download_report_artifact(artifact_dir, repository, run_id, run_attempt):
@@ -1710,6 +1722,21 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
             print(error)
             set_output("deploy", "false")
             return
+        try:
+            target, pr_number, title = select_target(
+                site_dir, repository, event, branch, report_root_for_runs(runs)
+            )
+        except PublishError as error:
+            print(error)
+            set_output("deploy", "false")
+            return
+        if is_stale_report(target, run_id, run_attempt):
+            print(f"Skipping stale YOLO report from run {run_id} attempt {run_attempt}.")
+            set_output("deploy", "false")
+            return
+
+        index_meta_text = build_report_index_meta_text(branch, head_sha, run_id, run_attempt)
+        meta_html = build_report_meta_html(repository, event, pr_number, branch, head_sha, run_id, run_attempt)
         remove_legacy_root_site(site_dir)
         write_selected_artifacts(artifact_root, target, runs)
         (target / REPORT_INDEX_META).write_text(f"{index_meta_text}\n", encoding="utf-8")
@@ -1719,6 +1746,7 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
         write_root_index(site_dir)
         write_index_assets(site_dir)
         write_yolo_index(site_dir, repository)
+        write_yolo_index(site_dir, repository, IMAGESET_REPORT_ROOT, IMAGESET_PRODUCT_TITLE)
         (site_dir / ".nojekyll").touch()
 
         deploy_detection_videos = [
@@ -1749,22 +1777,24 @@ def cleanup_closed_pr_reports(site_dir: Path, storage_branch: str, retention_day
     cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=retention_days)
     changed = remove_legacy_root_site(site_dir)
 
-    prs_dir = site_dir / REPORT_ROOT / "prs"
-    if prs_dir.is_dir():
-        for pr_dir in prs_dir.iterdir():
-            if not pr_dir.is_dir() or not pr_dir.name.isdigit():
-                continue
-            pr_data = pr_state(repository, pr_dir.name)
-            if not pr_data:
-                continue
-            if should_prune_closed_pr(pr_data.get("state", ""), pr_data.get("closedAt", ""), cutoff):
-                shutil.rmtree(pr_dir)
-                changed = True
+    for report_root in REPORT_ROOTS:
+        prs_dir = site_dir / report_root / "prs"
+        if prs_dir.is_dir():
+            for pr_dir in prs_dir.iterdir():
+                if not pr_dir.is_dir() or not pr_dir.name.isdigit():
+                    continue
+                pr_data = pr_state(repository, pr_dir.name)
+                if not pr_data:
+                    continue
+                if should_prune_closed_pr(pr_data.get("state", ""), pr_data.get("closedAt", ""), cutoff):
+                    shutil.rmtree(pr_dir)
+                    changed = True
 
     if changed:
         write_root_index(site_dir)
         write_index_assets(site_dir)
         write_yolo_index(site_dir, repository)
+        write_yolo_index(site_dir, repository, IMAGESET_REPORT_ROOT, IMAGESET_PRODUCT_TITLE)
         pushed = push_site_branch(site_dir, storage_branch)
         set_output("deploy", "true" if pushed else "false")
     else:

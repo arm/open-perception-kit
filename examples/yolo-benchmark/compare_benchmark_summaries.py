@@ -16,6 +16,7 @@ from typing import Any
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema" / "benchmark_summary.schema.json"
 SUMMARY_SCHEMA = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
 SUMMARY_SCHEMA_ID = SUMMARY_SCHEMA["properties"]["schema"]["const"]
+COMPARISON_SCHEMA_ID = "expkits_yolo_image_comparison.v1"
 MEASUREMENT_CONSTS = {
     key: value["const"]
     for key, value in SUMMARY_SCHEMA["properties"]["measurement"]["properties"].items()
@@ -85,6 +86,7 @@ def delta_row(bare_value: float, pek_value: float) -> dict[str, float | None]:
 def build_comparison(bare: dict[str, Any], pek: dict[str, Any]) -> dict[str, Any]:
     validate_pair(bare, pek)
     return {
+        "schema": COMPARISON_SCHEMA_ID,
         "measurement": bare["measurement"],
         "inputs": {
             "image_count": bare["inputs"]["image_count"],

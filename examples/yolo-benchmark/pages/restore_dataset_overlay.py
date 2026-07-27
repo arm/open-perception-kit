@@ -20,6 +20,7 @@ from pathlib import Path
 DATASET_ROOT = "yolo-performance-datasets"
 DATASET_NAME = "COCO val2017"
 FINGERPRINT_HEADER = "# image_set_fingerprint="
+REPORT_ROOTS = ("yolo-benchmark", "yolo-imageset-benchmark")
 VIDEO_DATASET_NAME = "MediaPipe object detection"
 VIDEO_FILENAME = "mediapipe-object-detection.mp4"
 
@@ -100,11 +101,21 @@ def coco_image_name(image_id: str) -> str:
 
 
 def report_image_lists(site_dir: Path) -> list[Path]:
-    return sorted(path for path in (site_dir / "yolo-benchmark").rglob("images.tsv") if path.is_file())
+    return sorted(
+        path
+        for report_root in REPORT_ROOTS
+        for path in (site_dir / report_root).rglob("images.tsv")
+        if path.is_file()
+    )
 
 
 def report_video_manifests(site_dir: Path) -> list[Path]:
-    return sorted(path for path in (site_dir / "yolo-benchmark").rglob("video-source.json") if path.is_file())
+    return sorted(
+        path
+        for report_root in REPORT_ROOTS
+        for path in (site_dir / report_root).rglob("video-source.json")
+        if path.is_file()
+    )
 
 
 def write_index(path: Path, title: str, links: list[tuple[str, str]]) -> None:
