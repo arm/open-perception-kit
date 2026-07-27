@@ -80,6 +80,60 @@ test('connected but no frames restarts through the watchdog', async () => {
     assert.equal(env.peerConnections.length, 2);
 });
 
+test('intentional pause suspends the frame watchdog until resume', async () => {
+    const env = createEnv();
+    const client = env.createClient({frameTimeoutMs: 100, reconnectDelayMs: 5});
+
+    client.start();
+    env.openLatestSocket();
+    await env.flush();
+    env.attachVideoTrack();
+
+    client.setPaused(true);
+    env.clock.tick(500);
+
+    assert.equal(env.peerConnections.length, 1);
+    assert.equal(client.getDebugState().restartTimerCount, 0);
+
+    client.setPaused(false);
+    env.clock.tick(100);
+
+    assert.equal(client.getDebugState().restartTimerCount, 1);
+});
+
+test('playing report before video does not start the frame watchdog', async () => {
+    const env = createEnv();
+    const client = env.createClient({frameTimeoutMs: 100, reconnectDelayMs: 5});
+
+    client.start();
+    env.openLatestSocket();
+    await env.flush();
+    client.setPaused(false);
+    env.clock.tick(100);
+
+    assert.equal(client.getDebugState().restartTimerCount, 0);
+
+    env.attachVideoTrack();
+    env.clock.tick(100);
+
+    assert.equal(client.getDebugState().restartTimerCount, 1);
+});
+
+test('redundant playing report does not refresh the frame watchdog', async () => {
+    const env = createEnv();
+    const client = env.createClient({frameTimeoutMs: 100, reconnectDelayMs: 5});
+
+    client.start();
+    env.openLatestSocket();
+    await env.flush();
+    env.attachVideoTrack();
+    env.clock.tick(90);
+    client.setPaused(false);
+    env.clock.tick(10);
+
+    assert.equal(client.getDebugState().restartTimerCount, 1);
+});
+
 test('frame timeout can be disabled without reconnect loop', async () => {
     const env = createEnv();
     const client = env.createClient({frameTimeoutMs: 0, reconnectDelayMs: 0});
