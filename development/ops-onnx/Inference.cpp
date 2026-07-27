@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <span>
 #include <thread>
 
 #include <fmt/core.h>
@@ -184,35 +185,59 @@ void writeValueTo(void *ptr, size_t valueIndex, void *valueAddress) {
     address[valueIndex] = *(fromT *)valueAddress;
 }
 
-pek::Result<void> Inference::inference() {
+namespace {
 
+size_t scalarValueCount(pek::DataKind dataKind) {
+    using enum pek::DataKind;
+
+    switch (dataKind) {
+    case Value:
+        return 1;
+    case Vector2:
+        return 2;
+    case Vector3:
+        return 3;
+    case Vector4:
+        return 4;
+    default:
+        return 0;
+    }
+}
+
+pek::Result<void>
+populateOutputs(const pek::Model &model,
+                const std::vector<Ort::Value> &outputTensorVector,
+                std::vector<Ort::Value> &dynamicOutputData,
+                std::span<const uint8_t *, pek::MaxTensorCount> outputTensorPointers,
+                std::span<pek::Shape, pek::MaxTensorCount> outputTensorFinalShapes);
+
+pek::Result<void> copyTensorFeedbacks(
+    const pek::Model &model,
+    const std::vector<Ort::Value> &dynamicOutputData,
+    std::span<const std::unique_ptr<pek::onnx::Tensor>, pek::MaxTensorCount> inputTensors,
+    std::span<const std::unique_ptr<pek::onnx::Tensor>, pek::MaxTensorCount> outputTensors,
+    std::span<const uint8_t *const, pek::MaxTensorCount> outputTensorPointers);
+
+} // namespace
+
+pek::Result<void> Inference::inference() {
     // setting scalar tensors
     for (size_t i = 0; i < api.inputTensorVector.size(); i++) {
-        if (pek::isScalarDataKind(this->model.inputs[i].dataKind)) {
+        if (!pek::isScalarDataKind(this->model.inputs[i].dataKind)) {
+            continue;
+        }
 
-            size_t valueCount = 0;
-            if (this->model.inputs[i].dataKind == pek::DataKind::Value)
-                valueCount = 1;
-            if (this->model.inputs[i].dataKind == pek::DataKind::Vector2)
-                valueCount = 2;
-            if (this->model.inputs[i].dataKind == pek::DataKind::Vector3)
-                valueCount = 3;
-            if (this->model.inputs[i].dataKind == pek::DataKind::Vector4)
-                valueCount = 4;
-
-            if (this->model.inputs[i].valueType == pek::Dtype::Float32) {
-                for (size_t g = 0; g < valueCount; g++) {
-                    writeValueTo<float, float>(api.inputTensors[i]->getData(),
-                                               g,
-                                               this->model.inputs[i].valueInputs.data());
-                }
-            } else {
-                assert(0); // no type support to set scalar tensor input value
+        const size_t valueCount = scalarValueCount(this->model.inputs[i].dataKind);
+        if (this->model.inputs[i].valueType == pek::Dtype::Float32) {
+            for (size_t g = 0; g < valueCount; g++) {
+                writeValueTo<float, float>(
+                    api.inputTensors[i]->getData(), g, this->model.inputs[i].valueInputs.data());
             }
+        } else {
+            assert(0); // no type support to set scalar tensor input value
         }
     }
 
-    // run the inference
     try {
         if (false == model.useDynamicOutput) {
             this->session->Run(Ort::RunOptions{nullptr},
@@ -234,21 +259,63 @@ pek::Result<void> Inference::inference() {
         return tl::make_unexpected(PEK_ERROR(pek::ErrorFlag::InferenceRtInferenceError, e.what()));
     }
 
-    // fill the tensors data pointers
-    // postprocessor will use these addresses
-    for (size_t i = 0; i < pek::MaxTensorCount; i++)
-        outputTensorPointers[i] = nullptr;
+    if (auto outputResult = populateOutputs(model,
+                                            api.outputTensorVector,
+                                            dynamicOutputData,
+                                            outputTensorPointers,
+                                            outputTensorFinalShapes);
+        !outputResult) {
+        return tl::unexpected{outputResult.error()};
+    }
+
+    // realloc input tensors if matchShapeOutputIndex is set
+    if (model.useDynamicOutput) {
+        for (size_t i = 0; i < model.inputs.size(); i++) {
+            if (model.inputs[i].matchShapeOutputIndex == pek::InvalidTensorIndex) {
+                continue;
+            }
+
+            if (size_t outputIndex = model.inputs[i].matchShapeOutputIndex;
+                outputIndex < model.outputs.size()) {
+                const pek::Shape &outputShape = outputTensorFinalShapes[outputIndex];
+                pek::Dtype valueType = model.inputs[i].valueType;
+                pek::log::info(
+                    "Reallocating input tensor #{} to match output tensor #{} shape: {}\n",
+                    i,
+                    outputIndex,
+                    outputShape.toString());
+                recreateInputTensor(i, outputShape, valueType);
+            }
+            model.inputs[i].matchShapeOutputIndex = pek::InvalidTensorIndex;
+        }
+    }
+
+    return copyTensorFeedbacks(
+        model, dynamicOutputData, api.inputTensors, api.outputTensors, outputTensorPointers);
+}
+
+namespace {
+
+pek::Result<void>
+populateOutputs(const pek::Model &model,
+                const std::vector<Ort::Value> &outputTensorVector,
+                std::vector<Ort::Value> &dynamicOutputData,
+                std::span<const uint8_t *, pek::MaxTensorCount> outputTensorPointers,
+                std::span<pek::Shape, pek::MaxTensorCount> outputTensorFinalShapes) {
+    for (auto &pointer : outputTensorPointers) {
+        pointer = nullptr;
+    }
 
     if (false == model.useDynamicOutput) {
-        if (api.outputTensorVector.size() > pek::MaxTensorCount) {
+        if (outputTensorVector.size() > pek::MaxTensorCount) {
             return tl::make_unexpected(
                 PEK_ERROR(pek::ErrorFlag::InvalidData,
                           fmt::format("Model output tensor count {} exceeds max supported {}",
-                                      api.outputTensorVector.size(),
+                                      outputTensorVector.size(),
                                       pek::MaxTensorCount)));
         }
-        for (size_t i = 0; i < api.outputTensorVector.size(); i++) {
-            outputTensorPointers[i] = api.outputTensorVector[i].GetTensorData<uint8_t>();
+        for (size_t i = 0; i < outputTensorVector.size(); i++) {
+            outputTensorPointers[i] = outputTensorVector[i].GetTensorData<uint8_t>();
         }
     } else {
         if (dynamicOutputData.size() > pek::MaxTensorCount) {
@@ -264,44 +331,32 @@ pek::Result<void> Inference::inference() {
         }
     }
 
-    // fill the final tensor shapes
-    // postprocessor will use these shapes
-    for (size_t i = 0; i < pek::MaxTensorCount; i++)
-        outputTensorFinalShapes[i] = pek::Shape();
+    for (auto &shape : outputTensorFinalShapes) {
+        shape = pek::Shape();
+    }
+
     if (false == model.useDynamicOutput) {
-        for (size_t i = 0; i < api.outputTensorVector.size(); i++) {
+        for (size_t i = 0; i < outputTensorVector.size(); i++) {
             outputTensorFinalShapes[i] = model.outputs[i].shape;
         }
     } else {
         for (size_t i = 0; i < dynamicOutputData.size(); i++) {
-            Ort::Value &v = dynamicOutputData[i];
+            const Ort::Value &v = dynamicOutputData[i];
             auto tinfo = v.GetTensorTypeAndShapeInfo();
             std::vector<int64_t> onnxShape = tinfo.GetShape();
             outputTensorFinalShapes[i].setFrom(onnxShape);
         }
     }
 
-    // realloc input tensors if matchShapeOutputIndex is set
-    if (model.useDynamicOutput) {
-        for (size_t i = 0; i < model.inputs.size(); i++) {
-            if (model.inputs[i].matchShapeOutputIndex != pek::InvalidTensorIndex) {
-                size_t outputIndex = model.inputs[i].matchShapeOutputIndex;
-                if (outputIndex < model.outputs.size()) {
-                    const pek::Shape &outputShape = outputTensorFinalShapes[outputIndex];
-                    pek::Dtype valueType = model.inputs[i].valueType;
-                    pek::log::info(
-                        "Reallocating input tensor #{} to match output tensor #{} shape: {}\n",
-                        i,
-                        outputIndex,
-                        outputShape.toString());
-                    recreateInputTensor(i, outputShape, valueType);
-                }
-                model.inputs[i].matchShapeOutputIndex = pek::InvalidTensorIndex;
-            }
-        }
-    }
+    return {};
+}
 
-    // tensor feedback
+pek::Result<void> copyTensorFeedbacks(
+    const pek::Model &model,
+    const std::vector<Ort::Value> &dynamicOutputData,
+    std::span<const std::unique_ptr<pek::onnx::Tensor>, pek::MaxTensorCount> inputTensors,
+    std::span<const std::unique_ptr<pek::onnx::Tensor>, pek::MaxTensorCount> outputTensors,
+    std::span<const uint8_t *const, pek::MaxTensorCount> outputTensorPointers) {
     for (const auto &feedback : model.tensorFeedbacks) {
         size_t fromOutputIndex = feedback.fromOutputTensorIndex;
         size_t toInputIndex = feedback.toInputTensorIndex;
@@ -313,7 +368,7 @@ pek::Result<void> Inference::inference() {
 
         size_t fromByteCount = 0;
         if (model.useDynamicOutput) {
-            Ort::Value &v = dynamicOutputData[fromOutputIndex];
+            const Ort::Value &v = dynamicOutputData[fromOutputIndex];
             auto tinfo = v.GetTensorTypeAndShapeInfo();
             size_t valueCount = 1;
             for (auto d : tinfo.GetShape())
@@ -321,23 +376,24 @@ pek::Result<void> Inference::inference() {
             fromByteCount =
                 valueCount * pek::getValueTypeByteSize(model.outputs[fromOutputIndex].valueType);
         } else {
-            fromByteCount = api.outputTensors[fromOutputIndex]->getByteCount();
+            fromByteCount = outputTensors[fromOutputIndex]->getByteCount();
         }
-
-        size_t toByteCount = api.inputTensors[toInputIndex]->getByteCount();
+        size_t toByteCount = inputTensors[toInputIndex]->getByteCount();
 
         if (fromByteCount != toByteCount) {
             return tl::make_unexpected(
                 PEK_ERROR(pek::ErrorFlag::InvalidData, "tensor feedback buffer size mismatch"));
         }
 
-        memcpy(api.inputTensors[toInputIndex]->getData(),
+        memcpy(inputTensors[toInputIndex]->getData(),
                outputTensorPointers[fromOutputIndex],
                toByteCount);
     }
 
     return {};
 }
+
+} // namespace
 
 std::vector<int64_t> Inference::getTensorShape(const Ort::Session &session,
                                                pek::TensorInOut tensorInOut,
