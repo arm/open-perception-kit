@@ -43,8 +43,7 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes,
         if (!modelDescriptor)
             return tl::unexpected{modelDescriptor.error()};
 
-        auto setupResult = inference->setup(*modelDescriptor);
-        if (!setupResult) {
+        if (auto setupResult = inference->setup(*modelDescriptor); !setupResult) {
             return setupResult;
         }
     } catch (const std::exception &e) {

@@ -7,8 +7,11 @@
 #include "pek/ModelDescriptor.h"
 #include "pek/Result.h"
 
+#include <cstddef>
+#include <functional>
 #include <stop_token>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 
 namespace pek::op {
@@ -43,8 +46,17 @@ class OpSetupContext {
     }
 
   private:
+    struct TransparentStringHash {
+        using is_transparent = void;
+
+        [[nodiscard]] std::size_t operator()(std::string_view value) const noexcept {
+            return std::hash<std::string_view>{}(value);
+        }
+    };
+
     std::stop_token stopToken;
-    std::unordered_map<std::string, pek::ModelDescriptor> modelDescriptors;
+    std::unordered_map<std::string, pek::ModelDescriptor, TransparentStringHash, std::equal_to<>>
+        modelDescriptors;
 };
 
 } // namespace pek::op

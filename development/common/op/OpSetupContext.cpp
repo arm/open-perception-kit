@@ -29,7 +29,7 @@ pek::Result<pek::ModelDescriptor> OpSetupContext::resolveModelDescriptor(const s
     if (stopRequested())
         return tl::unexpected{modelResolutionCancelled(path)};
 
-    const auto stored = modelDescriptors.emplace(path, std::move(*descriptor)).first;
+    const auto stored = modelDescriptors.try_emplace(path, std::move(*descriptor)).first;
     return stored->second;
 }
 

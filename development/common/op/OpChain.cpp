@@ -63,8 +63,8 @@ pek::Result<void> OpChain::setupFromDescriptor(const pek::op::OpChainDescriptor 
         opRef->group = op.group;
         opRef->loopId = op.loopId;
 
-        auto configureResult = opRef->configure(op.attributes, setupContext);
-        if (!configureResult) {
+        if (auto configureResult = opRef->configure(op.attributes, setupContext);
+            !configureResult) {
             return configureResult;
         }
 

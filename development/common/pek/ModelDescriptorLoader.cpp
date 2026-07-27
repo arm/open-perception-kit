@@ -4,6 +4,7 @@
 
 #include "pek/ModelDescriptor.h"
 
+#include <algorithm>
 #include <array>
 #include <exception>
 #include <filesystem>
@@ -44,11 +45,9 @@ bool is_descendant(const std_fs::path &path, const std_fs::path &root) {
 }
 
 bool is_lower_hex(std::string_view value) {
-    for (const char character : value) {
-        if (!((character >= '0' && character <= '9') || (character >= 'a' && character <= 'f')))
-            return false;
-    }
-    return true;
+    return std::ranges::all_of(value, [](const char character) {
+        return (character >= '0' && character <= '9') || (character >= 'a' && character <= 'f');
+    });
 }
 
 bool is_immutable_file_locator(const std::string &assetId) {
@@ -71,12 +70,18 @@ bool is_immutable_file_locator(const std::string &assetId) {
 bool has_canonical_integrity(const std::string &value) {
     constexpr std::string_view Sha256Prefix = "sha256:";
     constexpr std::string_view GitSha1Prefix = "git-sha1:";
-    const size_t prefixSize = value.starts_with(Sha256Prefix)    ? Sha256Prefix.size()
-                              : value.starts_with(GitSha1Prefix) ? GitSha1Prefix.size()
-                                                                 : 0;
-    const size_t digestSize = prefixSize == Sha256Prefix.size() ? 64 : 40;
-    if (prefixSize == 0 || value.size() != prefixSize + digestSize)
+    size_t prefixSize = 0;
+    if (value.starts_with(Sha256Prefix))
+        prefixSize = Sha256Prefix.size();
+    else if (value.starts_with(GitSha1Prefix))
+        prefixSize = GitSha1Prefix.size();
+    else
         return false;
+
+    if (const size_t digestSize = prefixSize == Sha256Prefix.size() ? 64 : 40;
+        value.size() != prefixSize + digestSize)
+        return false;
+
     return is_lower_hex(std::string_view(value).substr(prefixSize));
 }
 
@@ -144,9 +149,9 @@ pek::Result<std_fs::path> materializePublishedModel(const std::string &descripto
         }
 
         const auto &outcome = outcomes.front();
-        const std::string &returnedAssetId = std::visit(
-            [](const auto &value) -> const std::string & { return value.asset_id; }, outcome);
-        if (returnedAssetId != assetId) {
+        if (const std::string &returnedAssetId = std::visit(
+                [](const auto &value) -> const std::string & { return value.asset_id; }, outcome);
+            returnedAssetId != assetId) {
             return tl::unexpected{PEK_ERROR(
                 pek::ErrorFlag::InvalidData,
                 fmt::format("modelfetch returned a mismatched asset for ModelDescriptor [{}]",
@@ -183,7 +188,7 @@ pek::Result<std_fs::path> materializePublishedModel(const std::string &descripto
         if (stopToken.stop_requested())
             return tl::unexpected{model_load_cancelled(descriptorPath)};
         return tl::unexpected{modelfetch_error(descriptorPath, "asset download callback", error)};
-    } catch (const std::exception &error) {
+    } catch (const std::exception &error) { // NOSONAR: translate all standard SDK failures.
         return tl::unexpected{modelfetch_error(descriptorPath, "asset download", error)};
     }
 }
@@ -216,8 +221,7 @@ pek::Result<std::string> resolveModelFile(const std::string &descriptorPath,
         }
         const std_fs::path modelFile = std_fs::canonical(*materializedModel, ec);
         if (ec || !is_descendant(modelStoreRoot, workspaceRoot) ||
-            !is_descendant(modelFile, modelStoreRoot) || !std_fs::is_regular_file(modelFile, ec) ||
-            ec) {
+            !is_descendant(modelFile, modelStoreRoot) || !std_fs::is_regular_file(modelFile, ec)) {
             return tl::unexpected{PEK_ERROR(
                 pek::ErrorFlag::InvalidData,
                 fmt::format("Published ModelDescriptor [{}] modelFile is not a regular file "
