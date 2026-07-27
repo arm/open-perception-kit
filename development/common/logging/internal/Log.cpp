@@ -1,5 +1,5 @@
 /*************************************************************
- * Copyright (C) 2025 Arm Limited. All rights reserved.
+ * Copyright (C) 2026 Arm Limited. All rights reserved.
  *************************************************************/
 
 #include "Log.h"
@@ -30,7 +30,7 @@ std::optional<int> parseLogLevel(std::string_view value) {
     if (value.size() != 1 || value.front() < '0' || value.front() > '9') {
         return std::nullopt;
     }
-    return std::min(value.front() - '0', levelValue(Level::Info));
+    return std::min(value.front() - '0', levelValue(Level::Debug));
 }
 
 bool shouldLog(Level level) {
@@ -132,7 +132,7 @@ int getLogLevel() {
 }
 
 void setLogLevel(int logLevel) {
-    accessLogLevel().store(std::clamp(logLevel, levelValue(Level::Off), levelValue(Level::Info)),
+    accessLogLevel().store(std::clamp(logLevel, levelValue(Level::Off), levelValue(Level::Debug)),
                            std::memory_order_relaxed);
 }
 

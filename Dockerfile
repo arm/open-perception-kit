@@ -107,7 +107,7 @@ USER root
 RUN set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  bash-completion clangd gdb less locales nano net-tools; \
+  bash-completion clangd gdb less locales nano net-tools vim; \
   if apt-get install -y --no-install-recommends --dry-run gstreamer1.0-libav; then \
   apt-get install -y --no-install-recommends gstreamer1.0-libav; \
   else \
