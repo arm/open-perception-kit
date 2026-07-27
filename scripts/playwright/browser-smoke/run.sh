@@ -25,6 +25,7 @@ Environment:
   BROWSER_SMOKE_IMAGE_NAME  Runtime image tag override.
   BROWSER_SMOKE_REBUILD=1  Force rebuild of the Playwright runtime image.
   NUM_FRAMES           Frames served by the local-data pipelines. Default: 12000
+  STOCK_VIDEO_LOOP_TIMEOUT_MS  Maximum wait for the stock video to loop. Default: 900000
 EOF
 }
 
@@ -44,6 +45,7 @@ PLAYWRIGHT_VERSION="1.61.0"
 PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-http://127.0.0.1:9999}"
 BROWSER_SMOKE_BROWSERS="${BROWSER_SMOKE_BROWSERS:-chromium}"
 NUM_FRAMES="${NUM_FRAMES:-12000}"
+STOCK_VIDEO_LOOP_TIMEOUT_MS="${STOCK_VIDEO_LOOP_TIMEOUT_MS:-900000}"
 ACTIVE_PID_FILE=""
 ACTIVE_PIPELINE_PID=""
 PIPELINE_STOP_TIMEOUT_SECONDS=30
@@ -180,6 +182,7 @@ run_phase() {
         -e CI=true \
         -e PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
         -e BROWSER_SMOKE_BROWSERS="${browsers}" \
+        -e STOCK_VIDEO_LOOP_TIMEOUT_MS="${STOCK_VIDEO_LOOP_TIMEOUT_MS}" \
         -e PLAYWRIGHT_BLOB_OUTPUT_DIR="test-results/playwright/blob-report" \
         -e PLAYWRIGHT_BLOB_OUTPUT_NAME="${phase}.zip" \
         -e PWTEST_BLOB_DO_NOT_REMOVE=1 \
@@ -311,6 +314,11 @@ while IFS= read -r browser; do
         *) repo_checks_die "Unsupported BROWSER_SMOKE_BROWSERS entry: ${browser}" ;;
     esac
 done <<< "${browser_smoke_browsers}"
+
+run_phase "stock-video-loop-chromium" \
+    "config/pipelines/01-full-onnx.json" \
+    "tests/playwright/pek-browser-loop.spec.js" \
+    "chromium" || browser_smoke_status=$?
 
 while IFS= read -r browser; do
     run_phase "sink-only-${browser}" \
