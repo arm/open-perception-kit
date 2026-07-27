@@ -23,7 +23,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: yolo-imageset-benchmark-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.pull_request.number || github.ref }}
+  group: yolo-imageset-benchmark-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.pull_request.number || github.ref }}-${{ github.event.action == 'labeled' && github.event.label.name != 'run-yolo-imageset-benchmark' && github.run_id || 'validation' }}
   cancel-in-progress: true
 
 jobs:

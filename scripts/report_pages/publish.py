@@ -209,10 +209,10 @@ def playwright_nightly_badge(site_dir: Path) -> tuple[str, str]:
 
     if counts["unexpected"]:
         return "slow", f'{counts["unexpected"]} failed'
-    if not stats["ok"]:
-        return "slow", "Failed"
     if counts["flaky"]:
         return "neutral", f'{counts["flaky"]} flaky'
+    if not stats["ok"]:
+        return "slow", "Failed"
     if counts["expected"]:
         return "fast", f'{counts["expected"]} passed'
     if counts["skipped"]:

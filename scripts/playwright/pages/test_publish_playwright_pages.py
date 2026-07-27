@@ -173,7 +173,7 @@ class TestPublishPlaywrightPages(unittest.TestCase):
              ("fast", "6 passed")),
             ({"expected": 5, "unexpected": 1, "flaky": 0, "skipped": 0, "ok": False},
              ("slow", "1 failed")),
-            ({"expected": 5, "unexpected": 0, "flaky": 1, "skipped": 0, "ok": True},
+            ({"expected": 5, "unexpected": 0, "flaky": 1, "skipped": 0, "ok": False},
              ("neutral", "1 flaky")),
         )
         for stats, expected in cases:
