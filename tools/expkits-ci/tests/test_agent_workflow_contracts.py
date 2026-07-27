@@ -647,7 +647,8 @@ class AgentWorkflowContractTests(unittest.TestCase):
             self.assertNotEqual(mismatch_result.returncode, 0)
         self.assertIn("docker run --rm", rpi_steps["Resolve manual PR context"]["run"])
         self.assertIn(
-            "python:3.12-slim-trixie",
+            "python:3.12-slim-trixie@"
+            "sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de",
             rpi_steps["Resolve manual PR context"]["run"],
         )
         self.assertIn("--env GH_TOKEN", rpi_steps["Resolve manual PR context"]["run"])
@@ -773,7 +774,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
             (
                 ".github/workflows/pek-ci.yml",
                 "linux-quick-start-build-test",
-                "Build and start quick-start container",
+                "Prepare pinned modelfetch release",
             ),
             (
                 ".github/workflows/pek-ci.yml",
@@ -808,7 +809,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
             (
                 ".github/workflows/yolo-benchmark.yml",
                 "yolo-benchmark",
-                "Set up YOLO benchmark cache",
+                "Prepare pinned modelfetch release",
             ),
             (
                 ".github/workflows/docker-scout-image-audit.yml",
@@ -816,6 +817,12 @@ class AgentWorkflowContractTests(unittest.TestCase):
                 "Prepare pinned modelfetch release",
             ),
         )
+        unprivileged_consumers = {
+            (".github/workflows/pek-ci.yml", "linux-quick-start-build-test"):
+                "Build and start quick-start container",
+            (".github/workflows/yolo-benchmark.yml", "yolo-benchmark"):
+                "Set up YOLO benchmark cache",
+        }
 
         for relative_path, job_name, consumer_step_name in consumer_jobs:
             workflow_path = REPO_ROOT / relative_path
@@ -846,6 +853,19 @@ class AgentWorkflowContractTests(unittest.TestCase):
                     list(steps).index("Create read-only modelfetch token"),
                     list(steps).index(consumer_step_name),
                 )
+                unprivileged_consumer = unprivileged_consumers.get(
+                    (relative_path, job_name)
+                )
+                if unprivileged_consumer:
+                    self.assertLess(
+                        list(steps).index(consumer_step_name),
+                        list(steps).index(unprivileged_consumer),
+                    )
+                    # Keep the App credential confined to release acquisition.
+                    self.assertNotIn(
+                        "GH_TOKEN",
+                        steps[unprivileged_consumer].get("env", {}),
+                    )
 
         docker_scout = load_yaml(
             REPO_ROOT / ".github/workflows/docker-scout-image-audit.yml"

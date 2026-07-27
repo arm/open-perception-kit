@@ -72,10 +72,14 @@ jobs:
           repositories: modelfetch
           permission-contents: read
 
-      - name: Set up YOLO benchmark cache
+      - name: Prepare pinned modelfetch release
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
+        run: ./scripts/private/prepare-modelfetch-release.sh >/dev/null
+
+      - name: Set up YOLO benchmark cache
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: |
           set -euo pipefail
           ./examples/yolo-benchmark/docker/run.sh setup

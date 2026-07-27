@@ -101,10 +101,14 @@ jobs:
           repositories: modelfetch
           permission-contents: read
 
-      - name: Build and start quick-start container
+      - name: Prepare pinned modelfetch release
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
+        run: ./scripts/private/prepare-modelfetch-release.sh >/dev/null
+
+      - name: Build and start quick-start container
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: ./scripts/quick-start/start-container.sh --recreate
 
       - name: Build PEK in quick-start container
@@ -175,7 +179,7 @@ jobs:
             --env GH_TOKEN \
             --env GITHUB_API_URL \
             --env PYTHONDONTWRITEBYTECODE=1 \
-            python:3.12-slim-trixie \
+            python:3.12-slim-trixie@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de \
             python3 scripts/private/github_pr_context.py \
             --pr-number "${{ github.event.inputs.pr_number }}" \
             --repo "${{ github.repository }}" \
