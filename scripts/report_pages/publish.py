@@ -16,10 +16,10 @@ INDEX_HTML = "index.html"
 LEGACY_ROOT_PATHS = (INDEX_HTML, "report-index.css", "report-shell.css", "report-shell.js")
 LEGACY_PLAYWRIGHT_REPORT_ROOTS = ("nightly", "prs")
 ROOT_REPORT_LINKS = (
-    ("playwright/index.html", "Playwright", "Browser smoke reports"),
-    ("yolo-benchmark/index.html", "YOLO Video Benchmark", "Fixed-video end-to-end FPS reports"),
-    ("yolo-imageset-benchmark/index.html", "YOLO Image-set Benchmark", "COCO image-set benchmark reports"),
-    ("yolo-performance-datasets/index.html", "YOLO Datasets", "Benchmark input datasets"),
+    ("yolo-benchmark/index.html", "YOLO video", "End-to-end FPS"),
+    ("yolo-imageset-benchmark/index.html", "YOLO image set", "COCO latency"),
+    ("playwright/index.html", "Playwright", "Browser smoke"),
+    ("yolo-performance-datasets/index.html", "Datasets", "Benchmark inputs"),
 )
 
 
@@ -144,11 +144,12 @@ def write_root_index(site_dir: Path) -> None:
     (site_dir / INDEX_HTML).write_text(f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Arm Perception kit reports</title><style>
-body{{margin:0;font:16px system-ui,sans-serif;background:#101418;color:#edf4f1}}main{{max-width:920px;margin:0 auto;padding:56px 24px}}
-h1{{margin:0 0 12px;font-size:34px}}p{{margin:0 0 28px;color:#b8c7c1}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}}
-a{{display:block;padding:20px;border:1px solid #2f4a43;border-radius:8px;color:inherit;text-decoration:none;background:#17211f}}a:hover{{border-color:#49b27d}}
-strong{{display:block;margin-bottom:8px;font-size:20px}}span{{color:#9fb0aa}}
-</style></head><body><main><h1>Arm Perception kit reports</h1><p>Published report entry points for this repository.</p><div class="grid">
+body{{margin:0;font:16px system-ui,sans-serif;background:#101418;color:#edf4f1}}main{{max-width:920px;margin:0 auto;padding:48px 24px}}
+h1{{margin:0 0 8px;font-size:34px}}p{{margin:0 0 24px;color:#b8c7c1}}.grid{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}}
+a{{display:block;min-width:0;padding:18px;border:1px solid #2f4a43;border-radius:8px;color:inherit;text-decoration:none;background:#17211f}}a:hover{{border-color:#49b27d}}
+strong{{display:block;margin-bottom:6px;font-size:19px}}span{{color:#9fb0aa}}
+@media(max-width:640px){{main{{padding:28px 16px}}h1{{font-size:28px}}.grid{{grid-template-columns:1fr}}}}
+</style></head><body><main><h1>Arm Perception kit reports</h1><p>Reports and benchmark inputs.</p><div class="grid">
 {cards}
 </div></main></body></html>
 """, encoding="utf-8")

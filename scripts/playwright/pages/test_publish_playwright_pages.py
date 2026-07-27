@@ -157,9 +157,9 @@ class TestPublishPlaywrightPages(unittest.TestCase):
             parser = LinkParser()
             parser.feed((site_dir / "index.html").read_text(encoding="utf-8"))
             self.assertEqual(parser.hrefs, [
-                "playwright/index.html",
                 "yolo-benchmark/index.html",
                 "yolo-imageset-benchmark/index.html",
+                "playwright/index.html",
                 "yolo-performance-datasets/index.html",
             ])
 
