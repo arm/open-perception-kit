@@ -2,7 +2,7 @@ name: Publish YOLO Benchmark Reports
 
 on:
   workflow_run:
-    workflows: ["YOLO Benchmark"]
+    workflows: ["YOLO Video Benchmark", "YOLO Imageset Benchmark"]
     types: [completed]
   schedule:
     - cron: "45 6 * * *"
@@ -21,7 +21,13 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: report-pages
+  group: >-
+    report-pages${{
+      github.event_name == 'workflow_run' &&
+      !contains(fromJSON('["success", "failure"]'), github.event.workflow_run.conclusion) &&
+      format('-{0}', github.run_id) ||
+      ''
+    }}
   cancel-in-progress: false
 
 jobs:
