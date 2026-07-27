@@ -43,6 +43,14 @@
 }
 
 {
+   fontconfig_process_lifetime_cache_reachable
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   obj:*/libfontconfig.so*
+}
+
+{
    onnxruntime_thread_start_possibly_lost
    Memcheck:Leak
    match-leak-kinds: possible
