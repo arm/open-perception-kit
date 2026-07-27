@@ -43,7 +43,6 @@ model_loading = shared_library(
   'pek-model-loading',
   sources: [
     'pek/ModelDescriptorLoader.cpp',
-    'op/OpSetupContext.cpp',
   ],
   include_directories: [ common_include ],
   cpp_args: ['-DFMT_HEADER_ONLY'],

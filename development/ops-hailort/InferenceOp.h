@@ -23,7 +23,7 @@ class InferenceOp : public pek::op::Op, public pek::op::OpInterfaceInference {
 
     pek::Result<void> bind(size_t index, const std::vector<pek::op::Op *> &ops) override;
     pek::Result<void> configure(const pek::AttributeMap &attributes,
-                                pek::op::OpSetupContext &setupContext) override;
+                                std::stop_token stopToken) override;
     pek::Result<pek::op::OpSignal> process(pek::op::OpChainContext &opChainContext) override;
 
   private:

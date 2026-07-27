@@ -43,11 +43,11 @@ class InferenceControllerOp : public pek::op::Op {
      * Reads attributes: contentType for content-specific inference control.
      *
      * @param attributes Configuration map from OpChainDescriptor.
-     * @param setupContext Shared controls for this setup attempt.
+     * @param stopToken Cooperative cancellation token for this setup attempt.
      * @return Result indicating success or configuration error.
      */
     pek::Result<void> configure(const pek::AttributeMap &attributes,
-                                pek::op::OpSetupContext &setupContext) override;
+                                std::stop_token stopToken) override;
     /**
      * @brief Populates crop state for the following inference loop workers.
      *

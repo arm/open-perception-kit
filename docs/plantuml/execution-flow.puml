@@ -42,7 +42,7 @@ while ("Next buffer arrives?") is (yes)
         note right
           The background worker:
           * loads each `library/op`
-          * runs `configure(attributes, setupContext)`
+          * runs `configure(attributes, stopToken)`
           * materializes and verifies published locators
           * loads the backend from the resolved local path
           * binds and validates the OpChain

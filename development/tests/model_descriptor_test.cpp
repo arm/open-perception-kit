@@ -15,7 +15,6 @@
 
 #include <fmt/format.h>
 
-#include "op/OpSetupContext.h"
 #include "pek/ModelDescriptor.h"
 
 namespace fs = std::filesystem;
@@ -297,64 +296,4 @@ TEST(ModelDescriptor, FromFileRejectsInvalidIntegrityToken) {
     const fs::path descriptorPath = writeDescriptor(temporary.path, publishedAssetId(name));
 
     EXPECT_FALSE(pek::ModelDescriptor::fromFile(descriptorPath.string()).has_value());
-}
-
-TEST(OpSetupContext, CachesSuccessfulDescriptorResolutionWithinOneSetup) {
-    constexpr const char *name = "setup-context-cache";
-    TemporaryDirectory temporary(name);
-    PublishedModelFixture model(name);
-    ScopedEnvironmentVariable mode(FakeModeEnvironment, "downloaded");
-    const fs::path callsPath = temporary.path / "calls.log";
-    ScopedEnvironmentVariable calls(FakeCallsEnvironment, callsPath.string());
-    const fs::path descriptorPath = writeDescriptor(temporary.path, publishedAssetId(name));
-    pek::op::OpSetupContext setupContext;
-
-    const auto first = setupContext.resolveModelDescriptor(descriptorPath.string());
-    const auto second = setupContext.resolveModelDescriptor(descriptorPath.string());
-
-    ASSERT_TRUE(first.has_value()) << first.error().toString();
-    ASSERT_TRUE(second.has_value()) << second.error().toString();
-    EXPECT_EQ(first->modelFile, second->modelFile);
-    EXPECT_EQ(countRecordedCalls(callsPath), 1U);
-}
-
-TEST(OpSetupContext, ResolvesDistinctDescriptorsIndependently) {
-    constexpr const char *firstName = "setup-context-first";
-    constexpr const char *secondName = "setup-context-second";
-    TemporaryDirectory temporary("setup-context-distinct");
-    const fs::path firstDirectory = temporary.path / "first";
-    const fs::path secondDirectory = temporary.path / "second";
-    fs::create_directories(firstDirectory);
-    fs::create_directories(secondDirectory);
-    PublishedModelFixture firstModel(firstName);
-    PublishedModelFixture secondModel(secondName);
-    ScopedEnvironmentVariable mode(FakeModeEnvironment, "downloaded");
-    const fs::path callsPath = temporary.path / "calls.log";
-    ScopedEnvironmentVariable calls(FakeCallsEnvironment, callsPath.string());
-    const fs::path firstDescriptor = writeDescriptor(firstDirectory, publishedAssetId(firstName));
-    const fs::path secondDescriptor =
-        writeDescriptor(secondDirectory, publishedAssetId(secondName));
-    pek::op::OpSetupContext setupContext;
-
-    const auto first = setupContext.resolveModelDescriptor(firstDescriptor.string());
-    const auto second = setupContext.resolveModelDescriptor(secondDescriptor.string());
-
-    ASSERT_TRUE(first.has_value()) << first.error().toString();
-    ASSERT_TRUE(second.has_value()) << second.error().toString();
-    EXPECT_NE(first->modelFile, second->modelFile);
-    EXPECT_EQ(countRecordedCalls(callsPath), 2U);
-}
-
-TEST(OpSetupContext, DoesNotCacheFailedDescriptorResolution) {
-    TemporaryDirectory temporary("setup-context-failure");
-    ScopedEnvironmentVariable mode(FakeModeEnvironment, "api-failure");
-    const fs::path callsPath = temporary.path / "calls.log";
-    ScopedEnvironmentVariable calls(FakeCallsEnvironment, callsPath.string());
-    const fs::path descriptorPath =
-        writeDescriptor(temporary.path, publishedAssetId("setup-context-failure"));
-    pek::op::OpSetupContext setupContext;
-
-    EXPECT_FALSE(setupContext.resolveModelDescriptor(descriptorPath.string()).has_value());
-    EXPECT_FALSE(setupContext.resolveModelDescriptor(descriptorPath.string()).has_value());
-    EXPECT_EQ(countRecordedCalls(callsPath), 2U);
 }

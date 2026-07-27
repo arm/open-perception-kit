@@ -4,7 +4,7 @@
 
 #include "InferenceOp.h"
 #include "Inference.h"
-#include "op/OpSetupContext.h"
+#include "pek/ModelDescriptor.h"
 #include "pek/Result.h"
 #include "tl/expected.hpp"
 
@@ -24,7 +24,7 @@ pek::Result<void> InferenceOp::bind(size_t index, const std::vector<pek::op::Op 
 }
 
 pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes,
-                                         pek::op::OpSetupContext &setupContext) {
+                                         std::stop_token stopToken) {
     std::string modelDescPath;
 
     try {
@@ -39,7 +39,7 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes,
     try {
         inference = std::make_unique<pek::extrch::Inference>();
 
-        auto modelDescriptor = setupContext.resolveModelDescriptor(modelDescPath);
+        auto modelDescriptor = pek::ModelDescriptor::fromFile(modelDescPath, stopToken);
         if (!modelDescriptor)
             return tl::unexpected{modelDescriptor.error()};
 

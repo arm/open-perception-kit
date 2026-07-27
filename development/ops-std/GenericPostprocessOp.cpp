@@ -71,7 +71,7 @@ pek::Result<void> GenericPostprocessOp::bind(size_t index, const std::vector<pek
 }
 
 pek::Result<void> GenericPostprocessOp::configure(const pek::AttributeMap &configuration,
-                                                  pek::op::OpSetupContext &setupContext) {
+                                                  std::stop_token) {
 
     this->attributes = configuration.cloneDeep();
 

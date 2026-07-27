@@ -70,7 +70,7 @@ pek::Result<void> GenericImagePreprocessOp::bind(size_t index,
 }
 
 pek::Result<void> GenericImagePreprocessOp::configure(const pek::AttributeMap &attributes,
-                                                      pek::op::OpSetupContext &setupContext) {
+                                                      std::stop_token) {
     // --- get config info from the json attributes
     inputImageSourceName =
         attributes.getStringOrDefault("inputImageSourceName", "pipelineVideoFrame");

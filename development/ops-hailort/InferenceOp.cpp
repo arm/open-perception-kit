@@ -9,8 +9,8 @@
 
 #include "Log.h"
 #include "op/OpChainContext.h"
-#include "op/OpSetupContext.h"
 #include "pek/AttributeMap.h"
+#include "pek/ModelDescriptor.h"
 #include "pek/TensorView.h"
 
 #include <perf/PerformanceTracer.h>
@@ -22,7 +22,7 @@ InferenceOp::InferenceOp() {}
 InferenceOp::~InferenceOp() {}
 
 pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes,
-                                         pek::op::OpSetupContext &setupContext) {
+                                         std::stop_token stopToken) {
     std::string modelDescPath;
 
     try {
@@ -37,7 +37,7 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes,
     try {
         inference = std::make_unique<pek::hailo::Inference>();
 
-        auto modelDescriptor = setupContext.resolveModelDescriptor(modelDescPath);
+        auto modelDescriptor = pek::ModelDescriptor::fromFile(modelDescPath, stopToken);
         if (!modelDescriptor)
             return tl::unexpected{modelDescriptor.error()};
 

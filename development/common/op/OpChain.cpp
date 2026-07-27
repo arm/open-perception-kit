@@ -10,7 +10,6 @@
 
 #include "op/Op.h"
 #include "op/OpChainDescriptor.h"
-#include "op/OpSetupContext.h"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -36,7 +35,6 @@ pek::Result<void> OpChain::setupFromDescriptor(const pek::op::OpChainDescriptor 
         return modelLoadCancelled();
 
     name = descriptor.name;
-    pek::op::OpSetupContext setupContext(stopToken);
 
     for (const auto &op : descriptor.ops) {
         if (stopToken.stop_requested())
@@ -63,8 +61,7 @@ pek::Result<void> OpChain::setupFromDescriptor(const pek::op::OpChainDescriptor 
         opRef->group = op.group;
         opRef->loopId = op.loopId;
 
-        if (auto configureResult = opRef->configure(op.attributes, setupContext);
-            !configureResult) {
+        if (auto configureResult = opRef->configure(op.attributes, stopToken); !configureResult) {
             return configureResult;
         }
 

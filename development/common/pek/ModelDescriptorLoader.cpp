@@ -283,6 +283,8 @@ pek::Result<ModelDescriptor> ModelDescriptor::fromFile(const std::string &path,
     auto resolvedModelFile = resolveModelFile(path, *descriptor, stopToken);
     if (!resolvedModelFile)
         return tl::unexpected{resolvedModelFile.error()};
+    if (stopToken.stop_requested())
+        return tl::unexpected{model_load_cancelled(path)};
     descriptor->modelFile = *resolvedModelFile;
     return descriptor;
 }

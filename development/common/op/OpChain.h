@@ -49,9 +49,9 @@ class OpChain {
      * Loads operation definitions, creates Op instances, and binds the completed
      * chain before returning. execute() can be called after successful setup.
      *
-     * Operations receive shared setup controls while they configure. Model loading
-     * remains synchronous within this call; callers may choose another execution
-     * thread and provide cooperative cancellation.
+     * Operations receive the setup cancellation token while they configure. Model
+     * loading remains synchronous within this call; callers may choose another
+     * execution thread and provide cooperative cancellation.
      *
      * @param descriptor Descriptor containing chain name and operation definitions.
      * @param stopToken Optional cooperative cancellation token.

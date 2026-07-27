@@ -3,7 +3,7 @@
  *************************************************************/
 
 #include "op/Op.h"
-#include "op/OpSetupContext.h"
+#include "pek/ModelDescriptor.h"
 
 #include <chrono>
 #include <cstdlib>
@@ -19,7 +19,7 @@ namespace {
 class BlockingSetupOp final : public pek::op::Op {
   public:
     pek::Result<void> configure(const pek::AttributeMap &attributes,
-                                pek::op::OpSetupContext &setupContext) override {
+                                std::stop_token stopToken) override {
         std::string modelDescriptorPath;
         try {
             modelDescriptorPath = attributes.getString("modelDescriptor");
@@ -27,7 +27,7 @@ class BlockingSetupOp final : public pek::op::Op {
             return tl::unexpected{PEK_ERROR(pek::ErrorFlag::InvalidData, error.what())};
         }
 
-        if (auto descriptor = setupContext.resolveModelDescriptor(modelDescriptorPath);
+        if (auto descriptor = pek::ModelDescriptor::fromFile(modelDescriptorPath, stopToken);
             !descriptor) {
             return tl::unexpected{descriptor.error()};
         }
