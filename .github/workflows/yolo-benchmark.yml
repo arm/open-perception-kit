@@ -48,6 +48,7 @@ jobs:
     env:
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: yolo-benchmark-${{ github.run_id }}-${{ github.run_attempt }}
+      MODELFETCH_RELEASE_TOOL_IMAGE: yolo-modelfetch-release-tools:${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       YOLO_BENCHMARK_IMAGE_NAME: amp-dev-forge-yolo-benchmark:${{ github.run_id }}-${{ github.run_attempt }}
       YOLO_BENCHMARK_KIND: ${{ github.event_name == 'workflow_dispatch' && inputs.benchmark_kind || 'video' }}
       YOLO_BENCHMARK_LIMIT: ${{ github.event_name == 'workflow_dispatch' && inputs.image_limit || '' }}
@@ -76,7 +77,39 @@ jobs:
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
-        run: ./scripts/private/prepare-modelfetch-release.sh >/dev/null
+        run: |
+          set -euo pipefail
+          cache_parent="${PWD}/.cache"
+          cache_root="${cache_parent}/modelfetch"
+          if [[ -L "$cache_parent" || -L "$cache_root" ]]; then
+            echo "Refusing unsafe modelfetch release cache path: ${cache_root}" >&2
+            exit 1
+          fi
+          mkdir -p "$cache_root"
+          if [[ ! -d "$cache_parent" || -L "$cache_parent" ||
+                ! -d "$cache_root" || -L "$cache_root" ]]; then
+            echo "Refusing unsafe modelfetch release cache path: ${cache_root}" >&2
+            exit 1
+          fi
+          cleanup_tool_image() {
+            docker image rm --force "$MODELFETCH_RELEASE_TOOL_IMAGE" >/dev/null 2>&1 || true
+          }
+          trap cleanup_tool_image EXIT
+          docker build \
+            --file scripts/private/modelfetch-release-tools.Dockerfile \
+            --tag "$MODELFETCH_RELEASE_TOOL_IMAGE" \
+            .
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --mount "type=bind,source=${PWD},target=/workspace,readonly" \
+            --mount "type=bind,source=${cache_root},target=/modelfetch-cache" \
+            --workdir /workspace \
+            --env GH_TOKEN \
+            --env GH_CONFIG_DIR=/tmp/gh-config \
+            --env HOME=/tmp \
+            --env MODELFETCH_CACHE_ROOT=/modelfetch-cache \
+            "$MODELFETCH_RELEASE_TOOL_IMAGE" \
+            bash scripts/private/prepare-modelfetch-release.sh >/dev/null
 
       - name: Set up YOLO benchmark cache
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -111,4 +144,17 @@ jobs:
 
       - name: Clean YOLO benchmark workspace and image
         if: always()
-        run: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/examples/yolo-benchmark/docker/run.sh cleanup-ci
+        run: |
+          checkout_path="${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}"
+          cleanup_status=0
+          if [ -x "$checkout_path/examples/yolo-benchmark/docker/run.sh" ]; then
+            "$checkout_path/examples/yolo-benchmark/docker/run.sh" cleanup-ci || cleanup_status=$?
+          fi
+          if [[ -e "$checkout_path" || -L "$checkout_path" ]]; then
+            echo "YOLO benchmark checkout cleanup left '${checkout_path}' behind." >&2
+            cleanup_status=1
+          fi
+          if docker image inspect "$MODELFETCH_RELEASE_TOOL_IMAGE" >/dev/null 2>&1; then
+            docker image rm --force "$MODELFETCH_RELEASE_TOOL_IMAGE" || cleanup_status=$?
+          fi
+          exit "$cleanup_status"
