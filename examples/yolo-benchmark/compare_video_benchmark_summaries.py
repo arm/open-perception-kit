@@ -22,8 +22,8 @@ MEASUREMENT_CONSTS = {
     for key, value in SUMMARY_SCHEMA["properties"]["measurement"]["properties"].items()
     if "const" in value
 }
-COMPARISON_SCHEMA = "expkits_yolo_video_comparison.v1"
-REPORT_SCHEMA = "expkits_yolo_video_report.v1"
+COMPARISON_SCHEMA = "expkits_yolo_video_comparison.v2"
+REPORT_SCHEMA = "expkits_yolo_video_report.v2"
 COMPARABLE_INPUTS = (
     "video_sha256",
     "source_width",

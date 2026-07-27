@@ -84,7 +84,7 @@ def comparison(bare_ms: float = 10.0,
 def video_comparison(bare_fps: float = 10.0, pek_fps: float = 12.0) -> dict:
     ratio = pek_fps / bare_fps
     return {
-        "schema": publish.VIDEO_COMPARISON_SCHEMA,
+        "schema": "expkits_yolo_video_comparison.v2",
         "measurement": {
             "timed_region": "first_serialized_result_ready_to_last_serialized_result_ready",
         },
@@ -533,6 +533,31 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             publish.write_yolo_index(site_dir, "Arm-Debug/amp-dev-forge")
 
             self.assertTrue((site_dir / "yolo-benchmark" / "index.html").is_file())
+
+    def test_write_yolo_index_routes_persisted_video_report_by_shape(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = Path(tmpdir) / "site"
+            report_dir = site_dir / "yolo-benchmark" / "manual" / "123"
+            run_dir = report_dir / "runs" / "run-01"
+            run_dir.mkdir(parents=True, exist_ok=True)
+            persisted = video_comparison()
+            persisted["schema"] = "expkits_yolo_video_comparison.v1"
+            (run_dir / "comparison.json").write_text(
+                json.dumps(persisted),
+                encoding="utf-8",
+            )
+            (report_dir / "index.html").write_text("report", encoding="utf-8")
+            (report_dir / "report-index-meta.txt").write_text(
+                "Manual | branch",
+                encoding="utf-8",
+            )
+
+            publish.write_yolo_index(site_dir, "Arm-Debug/amp-dev-forge")
+
+            index = (site_dir / "yolo-benchmark" / "index.html").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("PEK faster by 20.0%", index)
 
     def test_write_root_index_links_report_roots(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

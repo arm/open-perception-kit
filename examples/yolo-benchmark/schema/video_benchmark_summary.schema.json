@@ -38,6 +38,7 @@
         "technique": { "const": "unpaced_video_result_intervals" },
         "timed_region": { "const": "first_serialized_result_ready_to_last_serialized_result_ready" },
         "video_pacing_disabled": { "const": true },
+        "warmup_video_passes": { "const": 1 },
         "warmup_frames": { "minimum": 0, "type": "integer" }
       },
       "required": [
@@ -46,12 +47,13 @@
         "decode_included",
         "artifact_write_excluded",
         "video_pacing_disabled",
+        "warmup_video_passes",
         "warmup_frames"
       ],
       "type": "object"
     },
     "runner": { "minLength": 1, "type": "string" },
-    "schema": { "const": "expkits_yolo_video_benchmark.v1" },
+    "schema": { "const": "expkits_yolo_video_benchmark.v2" },
     "timing": {
       "additionalProperties": true,
       "properties": {

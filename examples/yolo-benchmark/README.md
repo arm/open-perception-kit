@@ -14,12 +14,16 @@ neither prepares nor processes COCO.
 Video mode processes the original MP4 directly in both runners:
 
 - Bare: `YOLO.predict(source=video, stream=True, batch=1)`
-- PEK: `filesrc ! decodebin ! videoconvert ! pekinfer ! fakesink sync=false`
+- PEK: `2 x (filesrc ! decodebin ! videoconvert) ! concat ! pekinfer ! fakesink sync=false`
 
-The first completed frame is warmup. `pipeline_fps` measures the remaining 204
-serialized-result intervals and includes decode, color conversion, inference,
-post-processing, result serialization, and delivery. Artifact writing is
-outside the timed region. Playback is unpaced, so the source's 30 FPS
+Each runner first processes one complete, untimed video pass with the same
+loaded model or `pekinfer` instance used for measurement. This lets
+`pekinfer` finish its asynchronous setup without changing its pass-through
+runtime contract and gives both runners the same cache warmup. The first
+completed frame of the second pass is warmup. `pipeline_fps` measures the
+remaining 204 serialized-result intervals and includes decode, color conversion,
+inference, post-processing, result serialization, and delivery. Artifact writing
+is outside the timed region. Playback is unpaced, so the source's 30 FPS
 timestamps do not cap the measured throughput.
 
 After timing completes, video mode runs separate Bare and PEK visualization

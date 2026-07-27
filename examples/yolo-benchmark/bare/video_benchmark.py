@@ -89,6 +89,55 @@ def summary_document(
     }
 
 
+def prediction_ready_times(
+    model: Any,
+    args: argparse.Namespace,
+    source: dict[str, Any],
+) -> list[float]:
+    ready_times = []
+    results = model.predict(
+        source=str(args.video),
+        stream=True,
+        batch=1,
+        vid_stride=1,
+        imgsz=IMG_SIZE,
+        device=DEVICE,
+        verbose=False,
+    )
+    for result in results:
+        result.to_json()
+        ready_times.append(time.perf_counter())
+        height, width = result.orig_shape
+        if (width, height) != (int(source["width"]), int(source["height"])):
+            raise ValueError(
+                f"decoded frame is {width}x{height}, "
+                f"expected {source['width']}x{source['height']}"
+            )
+    return ready_times
+
+
+def benchmark_model(
+    model: Any,
+    args: argparse.Namespace,
+    source: dict[str, Any],
+) -> tuple[int, float]:
+    expected_frames = int(source["frame_count"])
+    warmup_times = prediction_ready_times(model, args, source)
+    if len(warmup_times) != expected_frames:
+        raise ValueError(
+            f"warm-up decoded {len(warmup_times)} frames, expected {expected_frames}"
+        )
+
+    measured_times = prediction_ready_times(model, args, source)
+    total_frames = len(measured_times)
+    if total_frames != expected_frames:
+        raise ValueError(f"decoded {total_frames} frames, expected {expected_frames}")
+    elapsed_ms = (
+        measured_times[-1] - measured_times[WARMUP_FRAMES - 1]
+    ) * 1000.0
+    return total_frames, elapsed_ms
+
+
 def main() -> int:
     args = parse_args()
     source = load_source(args.source_manifest)
@@ -101,31 +150,7 @@ def main() -> int:
     model = YOLO(args.model, task="detect")
     load_ms = (time.perf_counter() - started) * 1000.0
 
-    total_frames = 0
-    first_ready = 0.0
-    last_ready = 0.0
-    results = model.predict(
-        source=str(args.video),
-        stream=True,
-        batch=1,
-        vid_stride=1,
-        imgsz=IMG_SIZE,
-        device=DEVICE,
-        verbose=False,
-    )
-    for result in results:
-        result.to_json()
-        ready = time.perf_counter()
-        total_frames += 1
-        height, width = result.orig_shape
-        if (width, height) != (int(source["width"]), int(source["height"])):
-            raise ValueError(f"decoded frame is {width}x{height}, expected {source['width']}x{source['height']}")
-        if total_frames == WARMUP_FRAMES:
-            first_ready = ready
-        elif total_frames > WARMUP_FRAMES:
-            last_ready = ready
-
-    elapsed_ms = (last_ready - first_ready) * 1000.0
+    total_frames, elapsed_ms = benchmark_model(model, args, source)
     summary = summary_document(args, source, total_frames, elapsed_ms, load_ms)
     args.summary.parent.mkdir(parents=True, exist_ok=True)
     args.summary.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")

@@ -11,6 +11,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,6 +21,30 @@ sys.path.insert(0, str(ROOT / "bare"))
 import compare_video_benchmark_summaries as compare  # noqa: E402
 import prepare_video  # noqa: E402
 import video_benchmark as bare  # noqa: E402
+
+
+class FakeResult:
+    orig_shape = (prepare_video.SOURCE_HEIGHT, prepare_video.SOURCE_WIDTH)
+
+    def __init__(self) -> None:
+        self.serialization_count = 0
+
+    def to_json(self) -> str:
+        self.serialization_count += 1
+        return "{}"
+
+
+class FakeModel:
+    def __init__(self, pass_lengths: tuple[int, ...]) -> None:
+        self.pass_lengths = iter(pass_lengths)
+        self.results: list[FakeResult] = []
+        self.predict_count = 0
+
+    def predict(self, **_: object) -> list[FakeResult]:
+        self.predict_count += 1
+        results = [FakeResult() for _ in range(next(self.pass_lengths))]
+        self.results.extend(results)
+        return results
 
 
 def runner_summary(runner: str, fps: float) -> dict:
@@ -35,6 +60,49 @@ def runner_summary(runner: str, fps: float) -> dict:
 
 
 class YoloVideoBenchmarkTest(unittest.TestCase):
+    def test_runner_uses_complete_warmup_and_measured_passes(self) -> None:
+        source = prepare_video.source_manifest(Path("video.mp4"))
+        args = SimpleNamespace(model="model.onnx", video=Path("video.mp4"))
+        model = FakeModel(
+            (
+                prepare_video.SOURCE_FRAME_COUNT,
+                prepare_video.SOURCE_FRAME_COUNT,
+            )
+        )
+
+        with patch.object(
+            bare.time,
+            "perf_counter",
+            side_effect=range(prepare_video.SOURCE_FRAME_COUNT * 2),
+        ):
+            total_frames, elapsed_ms = bare.benchmark_model(model, args, source)
+
+        self.assertEqual(model.predict_count, 2)
+        self.assertEqual(total_frames, prepare_video.SOURCE_FRAME_COUNT)
+        self.assertEqual(elapsed_ms, 204_000.0)
+        self.assertTrue(all(result.serialization_count == 1 for result in model.results))
+
+    def test_runner_rejects_incomplete_warmup_pass(self) -> None:
+        source = prepare_video.source_manifest(Path("video.mp4"))
+        args = SimpleNamespace(model="model.onnx", video=Path("video.mp4"))
+        model = FakeModel((prepare_video.SOURCE_FRAME_COUNT - 1,))
+
+        with self.assertRaisesRegex(ValueError, "warm-up decoded 204 frames"):
+            bare.benchmark_model(model, args, source)
+
+    def test_runner_rejects_incomplete_measured_pass(self) -> None:
+        source = prepare_video.source_manifest(Path("video.mp4"))
+        args = SimpleNamespace(model="model.onnx", video=Path("video.mp4"))
+        model = FakeModel(
+            (
+                prepare_video.SOURCE_FRAME_COUNT,
+                prepare_video.SOURCE_FRAME_COUNT - 1,
+            )
+        )
+
+        with self.assertRaisesRegex(ValueError, "decoded 204 frames"):
+            bare.benchmark_model(model, args, source)
+
     def test_summary_uses_inter_result_throughput(self) -> None:
         source = prepare_video.source_manifest(Path("video.mp4"))
         args = SimpleNamespace(model="model.onnx", video=Path("video.mp4"))
@@ -42,6 +110,7 @@ class YoloVideoBenchmarkTest(unittest.TestCase):
         doc = bare.summary_document(args, source, prepare_video.SOURCE_FRAME_COUNT, 2_040.0, 10.0)
 
         self.assertEqual(doc["schema"], bare.SUMMARY_SCHEMA_ID)
+        self.assertEqual(doc["measurement"]["warmup_video_passes"], 1)
         self.assertEqual(doc["timing"]["measured_frames"], 204)
         self.assertEqual(doc["timing"]["pipeline_fps"], 100.0)
 
@@ -59,6 +128,10 @@ class YoloVideoBenchmarkTest(unittest.TestCase):
             runner_summary("bare-ultralytics-video", 10.0),
             runner_summary("pek-pipeline-video", 12.0),
         )
+        self.assertEqual(
+            comparison["schema"],
+            "expkits_yolo_video_comparison.v2",
+        )
         self.assertAlmostEqual(comparison["fps"]["delta_percent"], 20.0)
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -74,6 +147,7 @@ class YoloVideoBenchmarkTest(unittest.TestCase):
 
             report = compare.build_report(runs)
 
+        self.assertEqual(report["schema"], "expkits_yolo_video_report.v2")
         self.assertEqual(report["median_fps"]["bare_fps"], 15.0)
         self.assertEqual(report["median_fps"]["pek_fps"], 16.0)
 
