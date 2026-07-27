@@ -7,7 +7,6 @@
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
-#include <condition_variable>
 #include <exception>
 #include <fmt/core.h>
 #include <memory>
@@ -50,7 +49,6 @@ class GstPekInferMembers {
     }
 
     pek::op::OpChain *opChainForActiveFrame() {
-        bool notifyWorker = false;
         pek::op::OpChain *readyOpChain = nullptr;
         {
             std::lock_guard lock(setupMutex);
@@ -59,12 +57,9 @@ class GstPekInferMembers {
                 setupFailureReported = false;
                 retryAfterDeactivation = false;
                 try {
-                    if (!setupWorker.joinable()) {
-                        setupWorker = std::jthread(
-                            [this](const std::stop_token &stopToken) { setupLoop(stopToken); });
-                    }
+                    setupWorker = std::jthread(
+                        [this](std::stop_token stopToken) { setupAttempt(stopToken); });
                     setupState = Loading;
-                    notifyWorker = true;
                 } catch (const std::exception &error) { // NOSONAR: protect the jthread boundary.
                     setupFailure = fmt::format("Could not start setup worker: {}", error.what());
                     setupState = Failed;
@@ -76,8 +71,6 @@ class GstPekInferMembers {
                 readyOpChain = opChain.get();
             }
         }
-        if (notifyWorker)
-            setupCondition.notify_one();
         return readyOpChain;
     }
 
@@ -104,27 +97,22 @@ class GstPekInferMembers {
     enum class SetupState { Idle, Loading, Ready, Failed };
     using enum SetupState;
 
-    void setupLoop(const std::stop_token &stopToken) {
-        while (!stopToken.stop_requested()) {
-            std::unique_lock lock(setupMutex);
-            if (!setupCondition.wait(lock, stopToken, [this] { return setupState == Loading; }))
-                return;
-            lock.unlock();
+    void setupAttempt(const std::stop_token &stopToken) {
+        std::unique_ptr<pek::op::OpChain> candidate;
+        std::optional<std::string> failure;
+        try {
+            candidate = std::make_unique<pek::op::OpChain>();
+            if (auto setupResult = candidate->setupFromDescriptor(descriptor, stopToken);
+                !setupResult)
+                failure = setupResult.error().toString();
+        } catch (const std::exception &error) { // NOSONAR: plugin thread exception boundary.
+            failure = fmt::format("Unhandled setup exception: {}", error.what());
+        } catch (...) { // NOSONAR: external plugins may throw non-standard exceptions.
+            failure = "Unhandled non-standard setup exception";
+        }
 
-            std::unique_ptr<pek::op::OpChain> candidate;
-            std::optional<std::string> failure;
-            try {
-                candidate = std::make_unique<pek::op::OpChain>();
-                if (auto setupResult = candidate->setupFromDescriptor(descriptor, stopToken);
-                    !setupResult)
-                    failure = setupResult.error().toString();
-            } catch (const std::exception &error) { // NOSONAR: plugin thread exception boundary.
-                failure = fmt::format("Unhandled setup exception: {}", error.what());
-            } catch (...) { // NOSONAR: external plugins may throw non-standard exceptions.
-                failure = "Unhandled non-standard setup exception";
-            }
-
-            lock.lock();
+        {
+            std::lock_guard lock(setupMutex);
             if (stopToken.stop_requested())
                 return;
             if (failure) {
@@ -135,18 +123,16 @@ class GstPekInferMembers {
                 setupState = Ready;
                 retryAfterDeactivation = false;
             }
-            lock.unlock();
+        }
 
-            if (failure) {
-                pek::log::error(
-                    "Asynchronous OpChain setup failed for [{}]: {}\n", descriptor.name, *failure);
-            }
+        if (failure) {
+            pek::log::error(
+                "Asynchronous OpChain setup failed for [{}]: {}\n", descriptor.name, *failure);
         }
     }
 
     pek::op::OpChainDescriptor descriptor;
     std::mutex setupMutex;
-    std::condition_variable_any setupCondition;
     SetupState setupState = Idle;
     std::unique_ptr<pek::op::OpChain> opChain;
     std::string setupFailure;
