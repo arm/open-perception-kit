@@ -16,6 +16,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.report_pages.publish import write_root_index  # noqa: E402
+
 
 DATASET_ROOT = "yolo-performance-datasets"
 DATASET_NAME = "COCO val2017"
@@ -34,7 +39,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+    return REPO_ROOT
 
 
 def dataset_id(fingerprint: str) -> str:
@@ -295,6 +300,7 @@ def restore_overlay(site_dir: Path, cache_dir: Path, image_list: Path | None = N
         "YOLO Performance Datasets",
         [(target.name, f"{target.name}/index.html") for target in targets],
     )
+    write_root_index(site_dir, dataset_count=len(targets))
     return targets
 
 

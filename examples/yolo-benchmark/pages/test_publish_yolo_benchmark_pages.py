@@ -32,6 +32,7 @@ def import_script(path: Path, name: str):
 
 publish = import_script(SCRIPT_PATH, "publish_yolo_benchmark_pages")
 overlay = import_script(OVERLAY_SCRIPT_PATH, "restore_dataset_overlay")
+from scripts.report_pages import publish as report_pages  # noqa: E402
 VIDEO_SHA256 = "a" * 64
 
 
@@ -624,7 +625,29 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
     def test_write_root_index_links_report_roots(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             site_dir = Path(tmpdir)
+            nightly = site_dir / "yolo-benchmark" / "nightly"
+            nightly.mkdir(parents=True)
+            publish.write_report_page(
+                nightly,
+                site_dir,
+                "Latest nightly",
+                "Nightly",
+                [{"name": "run-01", "path": nightly / "runs" / "run-01",
+                  "comparison": video_comparison(bare_fps=10.0, pek_fps=12.0)}],
+            )
 
+            self.assertEqual(
+                report_pages.yolo_nightly_badge(site_dir, "yolo-benchmark"),
+                ("fast", "PEK faster by 20.0%"),
+            )
+            self.assertEqual(
+                report_pages.root_card_badge(
+                    site_dir,
+                    "yolo-performance-datasets/index.html",
+                    1,
+                ),
+                ("fast", "1 input"),
+            )
             publish.write_root_index(site_dir)
 
             parser = LinkParser()
@@ -648,13 +671,15 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            targets = overlay.restore_overlay(root / "site", root / "cache", image_list)
+            with patch.object(overlay, "write_root_index") as write_root_index:
+                targets = overlay.restore_overlay(root / "site", root / "cache", image_list)
             target = targets[0]
 
             self.assertEqual(target.name, "coco-val2017-abcdef123456")
             self.assertTrue((target / "images" / "000000000139.jpg").is_file())
             self.assertTrue((target / "manifest.json").is_file())
             self.assertTrue((root / "site" / "yolo-performance-datasets" / "index.html").is_file())
+            write_root_index.assert_called_once_with(root / "site", dataset_count=1)
 
     def test_restore_dataset_overlay_writes_input_video_preview(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

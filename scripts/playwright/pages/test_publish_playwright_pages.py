@@ -3,13 +3,16 @@
 # Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
 
+import base64
 import datetime as dt
 import importlib.util
+import io
 import json
 import os
 import sys
 import tempfile
 import unittest
+import zipfile
 from html.parser import HTMLParser
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -27,6 +30,7 @@ def import_publish_module():
 
 
 publish = import_publish_module()
+from scripts.report_pages import publish as report_pages  # noqa: E402
 
 
 class LinkParser(HTMLParser):
@@ -162,6 +166,47 @@ class TestPublishPlaywrightPages(unittest.TestCase):
                 "playwright/index.html",
                 "yolo-performance-datasets/index.html",
             ])
+
+    def test_playwright_nightly_badge_uses_embedded_report_stats(self):
+        cases = (
+            ({"expected": 6, "unexpected": 0, "flaky": 0, "skipped": 0, "ok": True},
+             ("fast", "6 passed")),
+            ({"expected": 5, "unexpected": 1, "flaky": 0, "skipped": 0, "ok": False},
+             ("slow", "1 failed")),
+            ({"expected": 5, "unexpected": 0, "flaky": 1, "skipped": 0, "ok": True},
+             ("neutral", "1 flaky")),
+        )
+        for stats, expected in cases:
+            with self.subTest(stats=stats), tempfile.TemporaryDirectory() as tmpdir:
+                site_dir = Path(tmpdir)
+                nightly = site_dir / "playwright" / "nightly"
+                nightly.mkdir(parents=True)
+                buffer = io.BytesIO()
+                with zipfile.ZipFile(buffer, "w") as archive:
+                    archive.writestr("report.json", json.dumps({"stats": stats}))
+                payload = base64.b64encode(buffer.getvalue()).decode("ascii")
+                (nightly / "index.html").write_text(
+                    f'<template id="playwrightReportBase64" type="application/zip">'
+                    f'data:application/zip;base64,{payload}</template>',
+                    encoding="utf-8",
+                )
+
+                self.assertEqual(report_pages.playwright_nightly_badge(site_dir), expected)
+
+    def test_playwright_nightly_badge_handles_missing_or_invalid_report(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = Path(tmpdir)
+            self.assertEqual(
+                report_pages.playwright_nightly_badge(site_dir),
+                ("neutral", "No nightly"),
+            )
+            nightly = site_dir / "playwright" / "nightly"
+            nightly.mkdir(parents=True)
+            (nightly / "index.html").write_text("<html></html>", encoding="utf-8")
+            self.assertEqual(
+                report_pages.playwright_nightly_badge(site_dir),
+                ("neutral", "No status"),
+            )
 
     def test_remove_legacy_root_site_migrates_report_roots(self):
         with tempfile.TemporaryDirectory() as tmpdir:
