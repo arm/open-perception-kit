@@ -1,5 +1,5 @@
 /*************************************************************
- * Copyright (C) 2025 Arm Limited. All rights reserved.
+ * Copyright (C) 2026 Arm Limited. All rights reserved.
  *************************************************************/
 
 #include "ConsoleOutputs.h"
@@ -21,6 +21,7 @@ void ConsoleOutput::write(const Record &record) {
     case Level::Off:
         break;
     case Level::Info:
+    case Level::Debug:
         fmt::print(m_stream, "{}", record.m_message);
         break;
     case Level::Notice:

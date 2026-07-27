@@ -1,5 +1,5 @@
 /*************************************************************
- * Copyright (C) 2025 Arm Limited. All rights reserved.
+ * Copyright (C) 2026 Arm Limited. All rights reserved.
  *************************************************************/
 
 #include <algorithm>
@@ -351,7 +351,7 @@ static void print_usage(const char *argv0) {
         "  {} <pipeline>   # run pipeline by ID (e.g., 'onnx') or full path to a JSON file. Shall not be used together with -l\n"
         "\n"
         "Environment:\n"
-        "  OPK_LOG_LEVEL=0..4                 # log verbosity: 0=off, 1=errors, 2=warnings, 3=notices, 4=info (default: 4)\n"
+        "  OPK_LOG_LEVEL=0..5                 # log verbosity: 0=off, 1=errors, 2=warnings, 3=notices, 4=info (default), 5=debug\n"
         "  OPK_LOG_TARGETS=stdout,stderr,file # initial log targets: stdout, stderr, and/or raw file, or none (default: stdout)\n"
         "  OPK_LOG_FILE=opk.log               # file target path (default: opk.log; does not enable the target)\n",
         argv0,

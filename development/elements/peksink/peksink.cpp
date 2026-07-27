@@ -1,5 +1,5 @@
 /*************************************************************
- * Copyright (C) 2025 Arm Limited. All rights reserved.
+ * Copyright (C) 2026 Arm Limited. All rights reserved.
  *************************************************************/
 
 /* Build:
@@ -15,7 +15,7 @@ g++ -fPIC -shared -o libgstpeksink.so peksink.cpp \
 
 #define GST_USE_UNSTABLE_API
 
-#include "auxiliary.h"
+#include "Log.h"
 #include "http_server.h"
 #include "peksink.h"
 #include "utils.h"
@@ -108,7 +108,7 @@ nlohmann::json PipelineStateReporter::report() const {
         GstState cur = GST_STATE_NULL;
         GstState pending = GST_STATE_NULL;
         gst_element_get_state(GST_ELEMENT(self_), &cur, &pending, 0);
-        DBG("current state: {}, {}", int(cur), int(pending));
+        pek::log::debug("current state: {}, {}", int(cur), int(pending));
 
         ret["playing"] = (cur == GST_STATE_PLAYING ? true : false);
 

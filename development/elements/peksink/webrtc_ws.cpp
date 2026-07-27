@@ -1,5 +1,5 @@
 /*************************************************************
- * Copyright (C) 2025 Arm Limited. All rights reserved.
+ * Copyright (C) 2026 Arm Limited. All rights reserved.
  *************************************************************/
 
 #include "gst/gstpromise.h"
@@ -22,7 +22,7 @@
 // WebRTC in GST is unstable: this macro disables the warning
 #define GST_USE_UNSTABLE_API
 
-#include "auxiliary.h"
+#include "Log.h"
 #include "peksink.h"
 #include "utils.h"
 #include "webrtc_ws.h"
@@ -93,14 +93,15 @@ WebRtcSockerError WebRtcWebSocket::setup() {
 
     ws->set_open_handler([this](const connection_hdl &hdl) { on_open(hdl); });
     ws->set_close_handler([this](const connection_hdl &hdl) { on_close(hdl); });
-    ws->set_message_handler(
-        [this](const connection_hdl &hdl, const ws_server::message_ptr &msg) { on_message(hdl, msg); });
+    ws->set_message_handler([this](const connection_hdl &hdl, const ws_server::message_ptr &msg) {
+        on_message(hdl, msg);
+    });
 
     ws->set_reuse_addr(true);
     ws->listen(self_->ws_port);
     ws->start_accept();
 
-    DBG("WebSocket server started");
+    pek::log::debug("WebSocket server started");
 
     return WebRtcSockerError::OK;
 }
@@ -111,7 +112,7 @@ WebRtcSockerError WebRtcWebSocket::start() {
     if (auto error = setup(); error != WebRtcSockerError::OK) {
         return error;
     }
-    DBG("WebSocket++ server listening on port {}", self_->ws_port);
+    pek::log::debug("WebSocket++ server listening on port {}", self_->ws_port);
 
     ws_server_thread = std::thread(&ws_server::run, ws);
     while (!ws->is_listening()) {
@@ -135,7 +136,7 @@ WebRtcSockerError WebRtcWebSocket::stop() {
 
     for (auto &ctx : sessions) {
         if (ctx) {
-            DBG("Cleaning WebRTC session during stop");
+            pek::log::debug("Cleaning WebRTC session during stop");
             ctx->cleanup();
         }
     }
@@ -173,7 +174,7 @@ bool WebRtcWebSocket::cleanup_session(const connection_hdl &hdl, const char *rea
     }
 
     if (ctx) {
-        DBG("Cleaning WebRTC session: {}", reason ? reason : "unknown");
+        pek::log::debug("Cleaning WebRTC session: {}", reason ? reason : "unknown");
         ctx->cleanup();
     }
     return true;
@@ -186,7 +187,7 @@ std::size_t WebRtcWebSocket::active_session_count() const {
 
 void WebRtcWebSocket::set_video_pt(SessionContext *ctx) {
 
-    DBG("SET VIDEO PT: {}", ctx->pt_video_vp8);
+    pek::log::debug("SET VIDEO PT: {}", ctx->pt_video_vp8);
 
     auto caps_str =
         std::format("application/x-rtp,media=video,encoding-name=VP8,clock-rate=90000,payload={}",
@@ -263,11 +264,11 @@ bool WebRtcWebSocket::attach_video(SessionContext *ctx) {
             throw std::runtime_error("Cannot sync video elements");
         }
 
-        DBG("Video branch attached (VP8 PT={})", ctx->pt_video_vp8);
+        pek::log::debug("Video branch attached (VP8 PT={})", ctx->pt_video_vp8);
 
         return true;
     } catch (const std::exception &err) {
-        DBG("attach_video() failed: {}", err.what());
+        pek::log::debug("attach_video() failed: {}", err.what());
 
         ctx->cleanup();
 
@@ -277,7 +278,7 @@ bool WebRtcWebSocket::attach_video(SessionContext *ctx) {
 
 gboolean WebRtcWebSocket::set_audio_pt(SessionContext *ctx) {
 
-    DBG("SET AUDIO PT: {}", ctx->pt_audio_opus);
+    pek::log::debug("SET AUDIO PT: {}", ctx->pt_audio_opus);
 
     auto caps_str =
         std::format("application/x-rtp,media=audio,encoding-name=OPUS,clock-rate=48000,payload={}",
@@ -355,11 +356,11 @@ bool WebRtcWebSocket::attach_audio(SessionContext *ctx) {
             throw std::runtime_error("Failed to sync audio elements");
         }
 
-        DBG("Audio branch attached (Opus PT={})", ctx->pt_audio_opus);
+        pek::log::debug("Audio branch attached (Opus PT={})", ctx->pt_audio_opus);
 
         return true;
     } catch (const std::exception &err) {
-        DBG("attach_audio() failed: {}", err.what());
+        pek::log::debug("attach_audio() failed: {}", err.what());
 
         ctx->cleanup();
 
@@ -369,9 +370,9 @@ bool WebRtcWebSocket::attach_audio(SessionContext *ctx) {
 
 void WebRtcWebSocket::on_open(const connection_hdl &hdl) {
 
-    DBG("WebSocket connection opened");
+    pek::log::debug("WebSocket connection opened");
     if (stopping) {
-        DBG("Ignoring WebSocket open while stopping");
+        pek::log::debug("Ignoring WebSocket open while stopping");
         return;
     }
 
@@ -384,7 +385,7 @@ void WebRtcWebSocket::on_open(const connection_hdl &hdl) {
     // ---- Per-client elements ----
     ctx->webrtcbin = gst_element_factory_make("webrtcbin", nullptr);
     if (!ctx->webrtcbin) {
-        DBG("Failed to create per-client webrtcbin");
+        pek::log::debug("Failed to create per-client webrtcbin");
         return;
     }
 
@@ -425,7 +426,7 @@ void WebRtcWebSocket::on_open(const connection_hdl &hdl) {
 }
 
 void WebRtcWebSocket::on_close(const connection_hdl &hdl) {
-    DBG("WebSocket connection closed");
+    pek::log::debug("WebSocket connection closed");
     if (cleanup_session(hdl, "websocket close")) {
         dump_pipeline_graph(GST_ELEMENT(self_), "pipeline_on_close");
     }
@@ -449,7 +450,7 @@ bool WebRtcWebSocket::link_per_client_elements(SessionContext *ctx) {
         // create the tee source pad
         ctx->tee_src_pad = gst_element_request_pad_simple(ctx->self->tee, "src_%u");
         if (!ctx->tee_src_pad) {
-            DBG("Failed to request video src pad from tee");
+            pek::log::debug("Failed to request video src pad from tee");
             return false;
         }
 
@@ -477,7 +478,7 @@ bool WebRtcWebSocket::link_per_client_elements(SessionContext *ctx) {
         return true;
 
     } catch (const std::exception &e) {
-        DBG("link_per_client_elements failed: {}", e.what());
+        pek::log::debug("link_per_client_elements failed: {}", e.what());
 
         if (q_sink)
             gst_object_unref(q_sink);
@@ -492,7 +493,7 @@ bool WebRtcWebSocket::link_per_client_elements(SessionContext *ctx) {
 void WebRtcWebSocket::process_offer(const std::shared_ptr<SessionContext> &ctx, const json &jsn) {
 
     if (ctx->offer_received) {
-        DBG("Repeated offer received for the same WebSocket handle");
+        pek::log::debug("Repeated offer received for the same WebSocket handle");
         cleanup_session(ctx->hdl, "repeated offer");
         return;
     }
@@ -501,7 +502,7 @@ void WebRtcWebSocket::process_offer(const std::shared_ptr<SessionContext> &ctx, 
     auto sdp = jsn["sdp"].get<std::string>();
     GstSDPMessage *sdp_message = nullptr;
     if (gst_sdp_message_new_from_text(sdp.c_str(), &sdp_message) != GST_SDP_OK) {
-        DBG("Failed to parse SDP offer");
+        pek::log::debug("Failed to parse SDP offer");
         cleanup_session(ctx->hdl, "invalid offer sdp");
         return;
     }
@@ -509,9 +510,9 @@ void WebRtcWebSocket::process_offer(const std::shared_ptr<SessionContext> &ctx, 
     ctx->pt_video_vp8 = find_pt_for_codec(sdp_message, "video", "VP8");
     ctx->pt_audio_opus = find_pt_for_codec(sdp_message, "audio", "opus");
     if (ctx->pt_video_vp8 < 0 || ctx->pt_audio_opus < 0) {
-        DBG("Offer is missing required payload types: VP8={}, opus={}",
-            ctx->pt_video_vp8,
-            ctx->pt_audio_opus);
+        pek::log::debug("Offer is missing required payload types: VP8={}, opus={}",
+                        ctx->pt_video_vp8,
+                        ctx->pt_audio_opus);
         gst_sdp_message_free(sdp_message);
         cleanup_session(ctx->hdl, "unsupported offer payload types");
         return;
@@ -532,7 +533,7 @@ void WebRtcWebSocket::process_offer(const std::shared_ptr<SessionContext> &ctx, 
         return;
     }
 
-    DBG("Offer PTs: VP8={}, opus={}", ctx->pt_video_vp8, ctx->pt_audio_opus);
+    pek::log::debug("Offer PTs: VP8={}, opus={}", ctx->pt_video_vp8, ctx->pt_audio_opus);
 
     auto offer = gst_webrtc_session_description_new(GST_WEBRTC_SDP_TYPE_OFFER, sdp_message);
     auto promise = gst_promise_new_with_change_func(
@@ -541,11 +542,12 @@ void WebRtcWebSocket::process_offer(const std::shared_ptr<SessionContext> &ctx, 
     g_signal_emit_by_name(ctx->webrtcbin, "set-remote-description", offer, promise);
     gst_webrtc_session_description_free(offer);
 
-    DBG("Setting remote description");
+    pek::log::debug("Setting remote description");
 }
 
-void WebRtcWebSocket::process_canditate(const std::shared_ptr<SessionContext> &ctx, const json &jsn) {
-    DBG("Received ICE candidate");
+void WebRtcWebSocket::process_canditate(const std::shared_ptr<SessionContext> &ctx,
+                                        const json &jsn) {
+    pek::log::debug("Received ICE candidate");
 
     auto ice = jsn["ice"];
     auto candidate = ice["candidate"].get<std::string>();
@@ -553,11 +555,11 @@ void WebRtcWebSocket::process_canditate(const std::shared_ptr<SessionContext> &c
 
     g_signal_emit_by_name(ctx->webrtcbin, "add-ice-candidate", sdpMLineIndex, candidate.c_str());
 
-    DBG("Added ICE candidate: candidate={} mlindex={}", candidate, sdpMLineIndex);
+    pek::log::debug("Added ICE candidate: candidate={} mlindex={}", candidate, sdpMLineIndex);
 }
 
 void WebRtcWebSocket::on_message(const connection_hdl &hdl, const ws_server::message_ptr &msg) {
-    DBG("on_message");
+    pek::log::debug("on_message");
 
     if (stopping) {
         return;
@@ -565,7 +567,7 @@ void WebRtcWebSocket::on_message(const connection_hdl &hdl, const ws_server::mes
 
     auto ctx = get_session(hdl);
     if (!ctx) {
-        DBG("No session context for this connection");
+        pek::log::debug("No session context for this connection");
         return;
     }
 
@@ -582,7 +584,7 @@ void WebRtcWebSocket::on_message(const connection_hdl &hdl, const ws_server::mes
         }
 
     } catch (const std::exception &e) {
-        DBG("on_message exception: {}", e.what());
+        pek::log::debug("on_message exception: {}", e.what());
         cleanup_session(hdl, "message handling failure");
     }
 }
@@ -653,7 +655,7 @@ int WebRtcWebSocket::find_pt_for_codec(const GstSDPMessage *msg,
 // Pure C functions - GstWebRTC callbacks
 //
 static void on_negotiation_needed(GstElement *webrtc, gpointer user_data) {
-    DBG("Negotiation needed");
+    pek::log::debug("Negotiation needed");
 }
 
 static bool send_text(const std::shared_ptr<SessionContext> &ctx, const std::string &text) {
@@ -665,7 +667,7 @@ static bool send_text(const std::shared_ptr<SessionContext> &ctx, const std::str
         ctx->ws->send(ctx->hdl, text, websocketpp::frame::opcode::text);
         return true;
     } catch (const websocketpp::exception &e) {
-        DBG("WebSocket send error: {}", e.what());
+        pek::log::debug("WebSocket send error: {}", e.what());
         return false;
     }
 }
@@ -673,7 +675,7 @@ static bool send_text(const std::shared_ptr<SessionContext> &ctx, const std::str
 static void send_ice_candidate_message(const std::shared_ptr<SessionContext> &ctx,
                                        guint mlineindex,
                                        const gchar *candidate) {
-    DBG("Sending ICE candidate: mlineindex={}, candidate={}", mlineindex, candidate);
+    pek::log::debug("Sending ICE candidate: mlineindex={}, candidate={}", mlineindex, candidate);
 
     json msg;
     msg["type"] = "candidate";
@@ -688,36 +690,36 @@ static void send_ice_candidate_message(const std::shared_ptr<SessionContext> &ct
         return;
     }
 
-    DBG("ICE candidate sent");
+    pek::log::debug("ICE candidate sent");
 }
 
 static void
 on_ice_candidate(GstElement *webrtc, guint mlineindex, gchar *candidate, gpointer user_data) {
-    DBG("on_ice_candidate");
+    pek::log::debug("on_ice_candidate");
 
     auto ctx = lock_session_callback_data(user_data);
     if (!ctx || ctx->cleaned_up()) {
-        DBG("Ignoring ICE candidate for cleaned-up session");
+        pek::log::debug("Ignoring ICE candidate for cleaned-up session");
         return;
     }
 
     if (!candidate || candidate[0] == '\0') {
-        DBG("Sending ICE end-of-candidates for mline {}", mlineindex);
+        pek::log::debug("Sending ICE end-of-candidates for mline {}", mlineindex);
         send_ice_candidate_message(ctx, mlineindex, "");
         return;
     }
 
-    DBG("ICE candidate generated: mlineindex={} candidate={}", mlineindex, candidate);
+    pek::log::debug("ICE candidate generated: mlineindex={} candidate={}", mlineindex, candidate);
 
     send_ice_candidate_message(ctx, mlineindex, candidate);
 }
 
 static void on_answer_created(GstPromise *promise, gpointer user_data) {
-    DBG("on_answer_created");
+    pek::log::debug("on_answer_created");
 
     auto ctx = lock_session_callback_data(user_data);
     if (!ctx || ctx->cleaned_up()) {
-        DBG("Ignoring answer for cleaned-up session");
+        pek::log::debug("Ignoring answer for cleaned-up session");
         gst_promise_unref(promise);
         return;
     }
@@ -728,7 +730,7 @@ static void on_answer_created(GstPromise *promise, gpointer user_data) {
         !gst_structure_get(
             reply, "answer", GST_TYPE_WEBRTC_SESSION_DESCRIPTION, &answer, nullptr) ||
         !answer) {
-        DBG("No answer in promise reply");
+        pek::log::debug("No answer in promise reply");
         auto owner = ctx->owner;
         auto hdl = ctx->hdl;
         gst_promise_unref(promise);
@@ -760,11 +762,11 @@ static void on_answer_created(GstPromise *promise, gpointer user_data) {
 }
 
 static void on_set_remote_description(GstPromise *promise, gpointer user_data) {
-    DBG("on_set_remote_description");
+    pek::log::debug("on_set_remote_description");
 
     auto ctx = lock_session_callback_data(user_data);
     if (!ctx || ctx->cleaned_up()) {
-        DBG("Ignoring remote description for cleaned-up session");
+        pek::log::debug("Ignoring remote description for cleaned-up session");
         gst_promise_unref(promise);
         return;
     }
