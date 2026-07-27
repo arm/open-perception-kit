@@ -42,6 +42,7 @@ json_dep = dependency('json-glib-1.0', required: false)
 fmt_dep = dependency('fmt',
   version: ['>=12.0.0', '<13.0.0'],
   fallback : ['fmt', 'fmt_dep'],
+  include_type : 'system',
   required : true)
 threads_dep = dependency('threads')
 
