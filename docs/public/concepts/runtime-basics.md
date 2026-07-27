@@ -58,7 +58,7 @@ planned for a later update, but it is not available yet.
 
 PEK logging uses a separate worker thread so normal logging calls do not perform output I/O on the
 calling component's thread. This is independent of GStreamer pipeline scheduling and inference
-execution. The media and inference flow described on this page remains synchronous.
+execution. Per-frame inference remains synchronous once model setup is ready.
 
 See [Logging](logging.md) for level and target configuration, buffering, and flush behavior.
 
@@ -95,7 +95,7 @@ relative path beside the descriptor. For a published model, `modelFile` is its i
 `hf:...@...#file=...` locator. On first activation, the runtime uses modelfetch's pinned native C++
 SDK to download and verify that one asset in the dedicated `var/models/` runtime store. No CLI
 process or temporary request file is involved. Modelfetch owns the layout within that store and
-returns the verified absolute path; AMP does not derive model-specific directories. Existing
+returns the verified absolute path; PEK does not derive model-specific directories. Existing
 verified content is reused. Manifest and bundle locators are not runtime entrypoints and are
 rejected. `pek-menu` only launches pipelines; the descriptor path owns materialization for every
 runtime consumer.
