@@ -13,6 +13,10 @@ import time
 import unittest
 from pathlib import Path
 
+PROCESS_TIMEOUT_SECONDS = 5.0
+DESCENDANT_TIMEOUT_SECONDS = 2.0
+POLL_INTERVAL_SECONDS = 0.01
+
 
 class TestPekMenuCliDiagnostics(unittest.TestCase):
     @classmethod
@@ -198,16 +202,23 @@ class TestPekMenuCliDiagnostics(unittest.TestCase):
                 "import subprocess\n"
                 "import time\n"
                 "\n"
+                "parent_pid = os.getppid()\n"
                 "descendant = subprocess.Popen([os.environ['PEK_MENU_TEST_DESCENDANT']])\n"
                 "\n"
                 "def stop(_signal_number, _frame):\n"
-                "    descendant.wait(timeout=1)\n"
+                "    try:\n"
+                f"        descendant.wait(timeout={DESCENDANT_TIMEOUT_SECONDS})\n"
+                "    except subprocess.TimeoutExpired:\n"
+                "        descendant.kill()\n"
+                f"        descendant.wait(timeout={DESCENDANT_TIMEOUT_SECONDS})\n"
                 "    raise SystemExit(0)\n"
                 "\n"
                 "signal.signal(signal.SIGINT, stop)\n"
                 "signal.signal(signal.SIGTERM, stop)\n"
-                "while True:\n"
-                "    time.sleep(0.05)\n",
+                "while os.getppid() == parent_pid:\n"
+                "    time.sleep(0.05)\n"
+                "descendant.kill()\n"
+                f"descendant.wait(timeout={DESCENDANT_TIMEOUT_SECONDS})\n",
                 encoding="utf-8",
             )
             fake_gst_launch.chmod(0o755)
@@ -240,14 +251,15 @@ class TestPekMenuCliDiagnostics(unittest.TestCase):
             )
 
             try:
-                for _ in range(100):
+                readiness_deadline = time.monotonic() + PROCESS_TIMEOUT_SECONDS
+                while time.monotonic() < readiness_deadline:
                     if (
                         marker.exists()
                         and "descendant-started"
                         in marker.read_text(encoding="utf-8")
                     ) or process.poll() is not None:
                         break
-                    time.sleep(0.01)
+                    time.sleep(POLL_INTERVAL_SECONDS)
 
                 self.assertTrue(marker.exists(), "pipeline descendant did not start")
                 self.assertIn(
@@ -256,11 +268,14 @@ class TestPekMenuCliDiagnostics(unittest.TestCase):
                 )
 
                 process.send_signal(signal.SIGINT)
-                stdout, stderr = process.communicate(timeout=2)
+                stdout, stderr = process.communicate(timeout=PROCESS_TIMEOUT_SECONDS)
             finally:
                 if process.poll() is None:
-                    os.killpg(process.pid, signal.SIGKILL)
-                    process.communicate()
+                    try:
+                        process.kill()
+                    except ProcessLookupError:
+                        pass
+                process.communicate(timeout=PROCESS_TIMEOUT_SECONDS)
 
             self.assertEqual(process.returncode, 128 + signal.SIGINT)
             self.assertEqual(
