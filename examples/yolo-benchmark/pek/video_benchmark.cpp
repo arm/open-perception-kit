@@ -95,18 +95,30 @@ int main(int argc, char **argv) {
             throw std::runtime_error(pluginResult.error().toString());
 
         // Keep both passes in one pipeline so asynchronous setup and measurement
-        // use the same pekinfer instance. Only the complete second pass is timed.
+        // use the same pekinfer instance. A benchmark-local caps field lets
+        // switchbin discard the warmup output before the sole terminal sink, so
+        // every perception callback belongs unambiguously to the measured pass.
         const auto video = quotePipelineValue(args.at("--video"));
+        const std::string warmupCaps = "video/x-raw,format=BGRA,pek-benchmark-pass=(string)warmup";
+        const std::string measuredCaps =
+            "video/x-raw,format=BGRA,pek-benchmark-pass=(string)measured";
         const auto description =
             fmt::format("concat name=video_sequence ! "
-                        "pekinfer opchain-path={} active=true ! fakesink sync=false "
-                        "filesrc location={} ! decodebin ! videoconvert ! "
-                        "video/x-raw,format=BGRA ! video_sequence. "
-                        "filesrc location={} ! decodebin ! videoconvert ! "
-                        "video/x-raw,format=BGRA ! video_sequence.",
+                        "pekinfer opchain-path={} active=true ! "
+                        "switchbin num-paths=2 path0::element={} path0::caps={} "
+                        "path1::caps={} ! fakesink async=false sync=false "
+                        "filesrc location={} ! decodebin ! videoconvert ! {} ! "
+                        "video_sequence.sink_0 "
+                        "filesrc location={} ! decodebin ! videoconvert ! {} ! "
+                        "video_sequence.sink_1",
                         quotePipelineValue(args.at("--opchain")),
+                        quotePipelineValue("valve drop=true drop-mode=forward-sticky-events"),
+                        quotePipelineValue(warmupCaps),
+                        quotePipelineValue(measuredCaps),
                         video,
-                        video);
+                        warmupCaps,
+                        video,
+                        measuredCaps);
 
         const auto loadStarted = Clock::now();
         auto pipelineResult = pek::runtime::Pipeline::fromString(description);
@@ -134,18 +146,15 @@ int main(int argc, char **argv) {
             throw std::runtime_error(stopResult.error().toString());
 
         std::lock_guard lock(timingMutex);
-        if (resultReadyTimes.size() < expectedFrames) {
+        if (resultReadyTimes.size() != expectedFrames) {
             throw std::runtime_error(
-                fmt::format("Received {} serialized inference results across the setup and "
-                            "measured video passes; expected at least {} for one complete "
-                            "measured pass",
+                fmt::format("Received {} serialized inference results for the measured video "
+                            "pass; expected exactly {}",
                             resultReadyTimes.size(),
                             expectedFrames));
         }
-        const auto firstMeasuredResult = resultReadyTimes.size() - expectedFrames;
         const auto measuredFrames = expectedFrames - WARMUP_FRAMES;
-        const double measurementMs =
-            elapsedMs(resultReadyTimes.at(firstMeasuredResult), resultReadyTimes.back());
+        const double measurementMs = elapsedMs(resultReadyTimes.front(), resultReadyTimes.back());
         if (measurementMs <= 0.0)
             throw std::runtime_error("Measured video interval must be positive");
         const double pipelineFps = static_cast<double>(measuredFrames) * 1000.0 / measurementMs;
