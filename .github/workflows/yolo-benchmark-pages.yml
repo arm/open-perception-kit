@@ -22,10 +22,11 @@ permissions:
 
 concurrency:
   group: >-
-    report-pages-${{
-      github.event_name != 'workflow_run' && 'publish' ||
-      contains(fromJSON('["success", "failure"]'), github.event.workflow_run.conclusion) && 'publish' ||
-      github.run_id
+    report-pages${{
+      github.event_name == 'workflow_run' &&
+      !contains(fromJSON('["success", "failure"]'), github.event.workflow_run.conclusion) &&
+      format('-{0}', github.run_id) ||
+      ''
     }}
   cancel-in-progress: false
 
