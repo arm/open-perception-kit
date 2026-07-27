@@ -29,8 +29,7 @@ constexpr const char *FakeCallsEnvironment = "PEK_MODELFETCH_FAKE_CALLS";
 class TemporaryDirectory {
   public:
     explicit TemporaryDirectory(const std::string &name)
-        : path(fs::temp_directory_path() /
-               fmt::format("pek-model-descriptor-{}-{}", getpid(), name)) {
+        : path(fs::current_path() / fmt::format("pek-model-descriptor-{}-{}", getpid(), name)) {
         fs::remove_all(path);
         fs::create_directories(path);
     }

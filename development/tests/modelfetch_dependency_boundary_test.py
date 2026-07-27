@@ -14,11 +14,9 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-import re
 import subprocess
 
 
-NEEDED_PATTERN = re.compile(r"\(NEEDED\).*Shared library: \[([^\]]+)\]")
 MODELFETCH_C_LIBRARY = "libmodelfetch_c.so"
 
 
@@ -29,7 +27,18 @@ def needed_libraries(readelf: Path, artifact: Path) -> set[str]:
         capture_output=True,
         text=True,
     )
-    return set(NEEDED_PATTERN.findall(completed.stdout))
+    libraries = set()
+    marker = "Shared library: ["
+    for line in completed.stdout.splitlines():
+        if "(NEEDED)" not in line:
+            continue
+        _, separator, remainder = line.partition(marker)
+        if not separator:
+            continue
+        library, closing_bracket, _ = remainder.partition("]")
+        if closing_bracket and library:
+            libraries.add(library)
+    return libraries
 
 
 def dynamic_symbols(readelf: Path, artifact: Path, *, undefined: bool) -> set[str]:

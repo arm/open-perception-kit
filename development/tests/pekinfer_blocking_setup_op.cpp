@@ -66,7 +66,8 @@ class BlockingSetupOp final : public pek::op::Op {
             PEK_ERROR(pek::ErrorFlag::SystemFailure, "Blocking setup test operation timed out")};
     }
 
-    pek::Result<void> bind(size_t, const std::vector<pek::op::Op *> &) override {
+    pek::Result<void>
+    bind(size_t, const std::vector<pek::op::Op *> &) override { // NOSONAR: match Op's API.
         return {};
     }
 
@@ -88,7 +89,8 @@ class BlockingSetupOp final : public pek::op::Op {
 } // namespace
 
 extern "C" void pek_delete_op_instance(void *instance) {
-    std::unique_ptr<pek::op::Op> owner(static_cast<pek::op::Op *>(instance));
+    std::unique_ptr<pek::op::Op> owner( // NOSONAR: adopt the instance returned by the plugin ABI.
+        static_cast<pek::op::Op *>(instance));
 }
 
 extern "C" void *pek_create_op_instance(const char *opName) {
