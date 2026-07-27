@@ -1,84 +1,41 @@
+x-pek-dev-build: &pek-dev-build
+  context: ..
+  dockerfile: Dockerfile.dev
+  network: ${BUILD_NETWORK_MODE:-default}
+  additional_contexts:
+    pek-build-base: docker-image://${PEK_BUILD_BASE_IMAGE:-perception-experience-kit-build-base}
+    modelfetch_sdks: ../.cache/modelfetch
+
+x-pek-hailo-build: &pek-hailo-build
+  context: ..
+  dockerfile: .devcontainer/Dockerfile.hailo
+  additional_contexts:
+    pek-dev: service:pek-dev
+
 services:
-  coturn:
-    image: coturn/coturn:4.13.1
-    network_mode: bridge
-    ports:
-      - "3478:3478/udp"
-      - "3478:3478/tcp"
-      - "${PEK_WEBRTC_TURN_MIN_PORT:-49000}-${PEK_WEBRTC_TURN_MAX_PORT:-49050}:${PEK_WEBRTC_TURN_MIN_PORT:-49000}-${PEK_WEBRTC_TURN_MAX_PORT:-49050}/udp"
-    command:
-      - --listening-port=3478
-      - --fingerprint
-      - --lt-cred-mech
-      - --user=${PEK_WEBRTC_TURN_USERNAME:-test}:${PEK_WEBRTC_TURN_CREDENTIAL:-test123}
-      - --realm=pek.local
-      - --external-ip=${WEBRTC_HOST_IP}
-      - --min-port=${PEK_WEBRTC_TURN_MIN_PORT:-49000}
-      - --max-port=${PEK_WEBRTC_TURN_MAX_PORT:-49050}
-      - --no-cli
-      - --no-tls
-      - --no-dtls
-      - --log-file=stdout
-
-  pek-dev-base:
-    extends: 
-      file: ../compose.base.yaml
-      service: pek-common-dev
-
-    network_mode: bridge
-    depends_on:
-      - coturn
-    environment:
-      - HF_TOKEN_PATH=/run/secrets/huggingface_token
-      - WEBRTC_HOST_IP=${WEBRTC_HOST_IP}
-      - PEK_WEBRTC_TURN_USERNAME=${PEK_WEBRTC_TURN_USERNAME:-test}
-      - PEK_WEBRTC_TURN_CREDENTIAL=${PEK_WEBRTC_TURN_CREDENTIAL:-test123}
-      - PEK_WEBRTC_TURN_MIN_PORT=${PEK_WEBRTC_TURN_MIN_PORT:-49000}
-      - PEK_WEBRTC_TURN_MAX_PORT=${PEK_WEBRTC_TURN_MAX_PORT:-49050}
-    container_name: ${PEK_DEV_BASE_CONTAINER_NAME:-perception-experience-kit}
-    hostname: ${PEK_DEV_BASE_CONTAINER_NAME:-perception-experience-kit}
-    volumes:
-      - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
-    secrets:
-      - huggingface_token
-
+  pek-build-base:
+    image: ${PEK_BUILD_BASE_IMAGE:-perception-experience-kit-build-base}
     build:
       context: ..
       dockerfile: Dockerfile
-      target: pek-dev-base
-      additional_contexts:
-        modelfetch_sdks: ../.cache/modelfetch
-      # BuildKit calls its bridge/NAT-backed build network "default".
-      network: ${BUILD_NETWORK_MODE:-default}
-      args:
-        USER_UID: ${HOST_UID:-1000}
-        USER_GID: ${HOST_GID:-1000}
-        EXECUTORCH_ARTIFACTORY_USERNAME: ${EXECUTORCH_ARTIFACTORY_USERNAME:-}
-        EXECUTORCH_ARTIFACTORY_PASSWORD: ${EXECUTORCH_ARTIFACTORY_PASSWORD:-}
-        EXECUTORCH_VERSION: ${EXECUTORCH_VERSION:-}
-        EXECUTORCH_DEB_REVISION: ${EXECUTORCH_DEB_REVISION:-}
+      target: pek-build-base
 
-  pek-dev-rpi5:
-    extends: 
+  pek-dev:
+    extends:
       file: ../compose.base.yaml
       service: pek-common-dev
-
-    network_mode: host
-    ports: []
-    container_name: ${PEK_DEV_RPI5_CONTAINER_NAME:-perception-experience-kit-rpi5}
-    hostname: ${PEK_DEV_RPI5_CONTAINER_NAME:-perception-experience-kit-rpi5}
+    container_name: ${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}
+    hostname: ${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}
+    command: sleep infinity
     environment:
-      - HF_TOKEN_PATH=/run/secrets/huggingface_token
+      HF_TOKEN_PATH: /run/secrets/huggingface_token
     build:
-      context: ..
-      dockerfile: Dockerfile
-      target: pek-dev-rpi5
-      additional_contexts:
-        modelfetch_sdks: ../.cache/modelfetch
-      network: ${BUILD_NETWORK_MODE:-host}
+      <<: *pek-dev-build
+      target: pek-dev
       args:
         USER_UID: ${HOST_UID:-1000}
         USER_GID: ${HOST_GID:-1000}
+        PEK_PICAMERA: ${PEK_PICAMERA:-disabled}
         EXECUTORCH_ARTIFACTORY_USERNAME: ${EXECUTORCH_ARTIFACTORY_USERNAME:-}
         EXECUTORCH_ARTIFACTORY_PASSWORD: ${EXECUTORCH_ARTIFACTORY_PASSWORD:-}
         EXECUTORCH_VERSION: ${EXECUTORCH_VERSION:-}
@@ -92,27 +49,15 @@ services:
     extends:
       file: ../compose.base.yaml
       service: pek-common-dev
-
-    network_mode: host
-    ports: []
     container_name: ${PEK_DEV_RPI5_H8_CONTAINER_NAME:-perception-experience-kit-rpi5-h8}
     hostname: ${PEK_DEV_RPI5_H8_CONTAINER_NAME:-perception-experience-kit-rpi5-h8}
+    command: sleep infinity
     environment:
-      - HF_TOKEN_PATH=/run/secrets/huggingface_token
+      HF_TOKEN_PATH: /run/secrets/huggingface_token
     build:
-      context: ..
-      dockerfile: Dockerfile
-      target: pek-dev-rpi5-h8
-      additional_contexts:
-        modelfetch_sdks: ../.cache/modelfetch
-      network: ${BUILD_NETWORK_MODE:-host}
+      <<: *pek-hailo-build
       args:
-        USER_UID: ${HOST_UID:-1000}
-        USER_GID: ${HOST_GID:-1000}
-        EXECUTORCH_ARTIFACTORY_USERNAME: ${EXECUTORCH_ARTIFACTORY_USERNAME:-}
-        EXECUTORCH_ARTIFACTORY_PASSWORD: ${EXECUTORCH_ARTIFACTORY_PASSWORD:-}
-        EXECUTORCH_VERSION: ${EXECUTORCH_VERSION:-}
-        EXECUTORCH_DEB_REVISION: ${EXECUTORCH_DEB_REVISION:-}
+        PEK_HAILO_ARCH: h8
     volumes:
       - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
     secrets:
@@ -122,27 +67,15 @@ services:
     extends:
       file: ../compose.base.yaml
       service: pek-common-dev
-
-    network_mode: host
-    ports: []
     container_name: ${PEK_DEV_RPI5_H10_CONTAINER_NAME:-perception-experience-kit-rpi5-h10}
     hostname: ${PEK_DEV_RPI5_H10_CONTAINER_NAME:-perception-experience-kit-rpi5-h10}
+    command: sleep infinity
     environment:
-      - HF_TOKEN_PATH=/run/secrets/huggingface_token
+      HF_TOKEN_PATH: /run/secrets/huggingface_token
     build:
-      context: ..
-      dockerfile: Dockerfile
-      target: pek-dev-rpi5-h10
-      additional_contexts:
-        modelfetch_sdks: ../.cache/modelfetch
-      network: ${BUILD_NETWORK_MODE:-host}
+      <<: *pek-hailo-build
       args:
-        USER_UID: ${HOST_UID:-1000}
-        USER_GID: ${HOST_GID:-1000}
-        EXECUTORCH_ARTIFACTORY_USERNAME: ${EXECUTORCH_ARTIFACTORY_USERNAME:-}
-        EXECUTORCH_ARTIFACTORY_PASSWORD: ${EXECUTORCH_ARTIFACTORY_PASSWORD:-}
-        EXECUTORCH_VERSION: ${EXECUTORCH_VERSION:-}
-        EXECUTORCH_DEB_REVISION: ${EXECUTORCH_DEB_REVISION:-}
+        PEK_HAILO_ARCH: h10
     volumes:
       - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
     secrets:

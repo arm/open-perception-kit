@@ -669,7 +669,7 @@ static void gst_pek_sink_class_init(GstPekSinkClass *klass) {
                                     PROP_WEBRTC_TURN_SERVER,
                                     g_param_spec_string("webrtc-turn-server",
                                                         "WebRTC TURN Server",
-                                                        "TURN server URL passed to webrtcbin",
+                                                        "TURN server URL advertised to browsers",
                                                         nullptr,
                                                         kRW));
 

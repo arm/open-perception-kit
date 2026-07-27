@@ -769,6 +769,16 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertIn("CI_HELPER_PATH", rpi_job["env"])
         self.assertIn("CI_HELPER_PATH", sonar_job["env"])
 
+    def test_container_context_excludes_local_var_caches(self):
+        dockerignore_lines = (REPO_ROOT / ".dockerignore").read_text().splitlines()
+        self.assertIn("!var/", dockerignore_lines)
+        self.assertIn("!var/libexecutorch-dev-*.deb", dockerignore_lines)
+        self.assertNotIn(
+            "!var/**",
+            dockerignore_lines,
+            "Local runtime and build caches must not enter container build contexts.",
+        )
+
     def test_modelfetch_consumers_use_repo_scoped_read_only_app_tokens(self):
         consumer_jobs = (
             (
@@ -875,6 +885,34 @@ class AgentWorkflowContractTests(unittest.TestCase):
                 "EDGEAI_EXPKITS_APP_PK"
             ]["required"],
             "true",
+        )
+        docker_scout_job = docker_scout["jobs"]["docker-scout"]
+        self.assertEqual(
+            [
+                image["service"]
+                for image in docker_scout_job["strategy"]["matrix"]["image"]
+            ],
+            [
+                "pek-deployment-base",
+                "pek-docs",
+                "pek-dev",
+                "pek-pre-commit-runtime",
+                "pek-playwright-pages",
+            ],
+        )
+        docker_scout_steps = step_map(docker_scout_job)
+        modelfetch_consumer_condition = (
+            "contains(fromJSON("
+            '\'["pek-deployment-base","pek-docs","pek-dev"]\'), '
+            "matrix.image.service)"
+        )
+        self.assertEqual(
+            docker_scout_steps["Create read-only modelfetch token"]["if"],
+            modelfetch_consumer_condition,
+        )
+        self.assertEqual(
+            docker_scout_steps["Prepare pinned modelfetch release"]["if"],
+            modelfetch_consumer_condition,
         )
 
         yolo = load_yaml(REPO_ROOT / ".github/workflows/yolo-benchmark.yml")

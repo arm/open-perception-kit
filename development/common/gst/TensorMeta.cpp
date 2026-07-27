@@ -59,15 +59,17 @@ GType GstMetaTensor_get_type(void) {
 
 const GstMetaInfo *GstMetaTensor_get_info(void) {
     static const GstMetaInfo *mi = nullptr;
-    //clang tidy multi level implicit pointer conversion cant fixed with explicit casting since gst macro expects pointer-to-object type  :|
-    if (g_once_init_enter_pointer(&mi)) { // NOLINT(bugprone-multi-level-implicit-pointer-conversion)
+    // GLib's pointer-to-object macro requires this implicit pointer conversion.
+    // NOLINTNEXTLINE(bugprone-multi-level-implicit-pointer-conversion)
+    if (g_once_init_enter_pointer(&mi)) {
         const GstMetaInfo *info = gst_meta_register(GST_META_TENSOR_TYPE,
                                                     "GstMetaTensor",
                                                     sizeof(GstMetaTensor),
                                                     GstMetaTensor_init,
                                                     GstMetaTensor_free,
                                                     GstMetaTensor_transform);
-        g_once_init_leave_pointer(&mi, const_cast<GstMetaInfo *>(info)); // NOLINT(bugprone-multi-level-implicit-pointer-conversion)
+        // NOLINTNEXTLINE(bugprone-multi-level-implicit-pointer-conversion)
+        g_once_init_leave_pointer(&mi, const_cast<GstMetaInfo *>(info));
     }
     return mi;
 }

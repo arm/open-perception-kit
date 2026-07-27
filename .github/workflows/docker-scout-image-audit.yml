@@ -37,8 +37,9 @@ jobs:
       fail-fast: false
       matrix:
         image:
-          - service: pek-docs-base
-          - service: pek-dev-base
+          - service: pek-deployment-base
+          - service: pek-docs
+          - service: pek-dev
           - service: pek-pre-commit-runtime
           - service: pek-playwright-pages
 
@@ -86,7 +87,7 @@ jobs:
           password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
 
       - name: Create read-only modelfetch token
-        if: matrix.image.service == 'pek-dev-base'
+        if: contains(fromJSON('["pek-deployment-base","pek-docs","pek-dev"]'), matrix.image.service)
         id: modelfetch-app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
@@ -97,7 +98,7 @@ jobs:
           permission-contents: read
 
       - name: Prepare pinned modelfetch release
-        if: matrix.image.service == 'pek-dev-base'
+        if: contains(fromJSON('["pek-deployment-base","pek-docs","pek-dev"]'), matrix.image.service)
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}

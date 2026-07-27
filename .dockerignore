@@ -1,30 +1,66 @@
-# Ignore Git metadata
-.git
-.gitignore
-.cache/
+*
 
-# Build outputs
-cmake-build*/
-**/build/
-development/build/
-var/*
-!var/.gitignore
+!Dockerfile
+!Dockerfile.dev
+!.dockerignore
+!.clang-format
+!.clang-tidy
+!.cmake-format.yaml
+!.gitignore
+!.pre-commit-config.yaml
+!.secrets.baseline
+!AGENTS.md
+!CHANGELOG.md
+!README.md
+!compose.base.yaml
+!compose.yaml
+!compose.dev.yaml
+!devices.env
+!setup.cfg
+!sonar-project.properties
+
+!scripts/
+!scripts/**
+
+!development/
+!development/**
+
+!config/
+!config/**
+!data/
+!data/**
+# Demo video assets are downloaded in a dedicated Docker build stage.
+data/videos/
+
+!tools/
+!tools/expkits-ci/
+!tools/expkits-ci/**
+!tools/plumber/
+!tools/plumber/**
+
+!.devcontainer/
+!.devcontainer/**
+!.github/
+!.github/**
+!.vscode/
+!.vscode/**
+!apps/
+!apps/**
+!docs/
+!docs/**
+!examples/
+!examples/**
+!metadata/
+!metadata/**
+!tests/
+!tests/**
+!var/
 !var/libexecutorch-dev-*.deb
-deps/
-*.tgz
 
-# IDE / editor
-.vscode/
-.idea/
-.DS_Store
-
-# Python / virtualenvs
-.venv/
+**/build/
+**/build/**
+__pycache__/
 **/__pycache__/
-
-# Logs and temp
 *.log
 *.tmp
-
-# Topo / graphs / large generated artifacts
-graphs/
+.DS_Store

@@ -15,13 +15,13 @@ Usage:
 Builds and starts the PEK quick-start container selected by host detection.
 
 Platform mapping:
-  Raspberry Pi 5           -> pek-dev-rpi5
-  Raspberry Pi 5 + Hailo 8 -> pek-dev-rpi5-h8
-  Raspberry Pi 5 + Hailo10 -> pek-dev-rpi5-h10
-  WSL/Linux x86_64/macOS   -> pek-dev-base
+  Raspberry Pi 5            -> pek-dev with Pi camera support
+  Raspberry Pi 5 + Hailo 8  -> pek-dev-rpi5-h8
+  Raspberry Pi 5 + Hailo 10 -> pek-dev-rpi5-h10
+  WSL/Linux/macOS           -> pek-dev
 
 The script uses the checked-in devcontainer compose files and generated device
-overrides. It does not start pek-dev-rich.
+overrides.
 
 Options:
   --recreate  Recreate the selected container even if it is already running
@@ -72,7 +72,8 @@ if ! detect_output="$("${SCRIPT_DIR}/detect-environment.sh" --shell)"; then
     exit 1
 fi
 eval "$detect_output"
-export PEK_DEV_BASE_CONTAINER_NAME PEK_DEV_RPI5_CONTAINER_NAME PEK_DEV_RPI5_H8_CONTAINER_NAME PEK_DEV_RPI5_H10_CONTAINER_NAME
+export PEK_DEV_CONTAINER_NAME PEK_DEV_RPI5_H8_CONTAINER_NAME
+export PEK_DEV_RPI5_H10_CONTAINER_NAME PEK_PICAMERA
 
 COMPOSE_FILES=(
     -f .devcontainer/compose.devcont.yaml
@@ -85,6 +86,11 @@ COMPOSE_FILES=(
 COMPOSE_ENV_ARGS=()
 if [[ -n "${COMPOSE_ENV_FILE}" ]]; then
     COMPOSE_ENV_ARGS=(--env-file "${COMPOSE_ENV_FILE}")
+fi
+
+PEK_WEBRTC_TURN="$(bash scripts/private/select-webrtc-turn-mode.sh "${PEK_PLATFORM_ID}")"
+if [[ "${PEK_WEBRTC_TURN}" == enabled ]]; then
+    COMPOSE_FILES+=(-f .devcontainer/docker-compose.devcont.turn.yaml)
 fi
 
 require_docker() {
@@ -116,7 +122,7 @@ container_running() {
 }
 
 container_workdir_writable() {
-    docker exec -u devgoblin "${PEK_CONTAINER_NAME}" bash -lc 'test -w /work' > /dev/null 2>&1
+    docker exec -u dev "${PEK_CONTAINER_NAME}" bash -lc 'test -w /work' > /dev/null 2>&1
 }
 
 expected_modelfetch_sdk_sha256() {
@@ -141,9 +147,9 @@ expected_modelfetch_sdk_sha256() {
 
 container_has_current_modelfetch_sdk() {
     local container_machine expected_sha
-    container_machine="$(docker exec -u devgoblin "${PEK_CONTAINER_NAME}" uname -m)" || return 1
+    container_machine="$(docker exec -u dev "${PEK_CONTAINER_NAME}" uname -m)" || return 1
     expected_sha="$(expected_modelfetch_sdk_sha256 "$container_machine")" || return 1
-    docker exec -u devgoblin "${PEK_CONTAINER_NAME}" sh -c '
+    docker exec -u dev "${PEK_CONTAINER_NAME}" sh -c '
         test -f /opt/pek-deps/modelfetch/include/modelfetch/modelfetch.hpp &&
         test -f /opt/pek-deps/modelfetch/lib/libmodelfetch_c.so &&
         test "$(cat /opt/pek-deps/modelfetch/.release-sdk-sha256 2>/dev/null)" = "$1"
@@ -155,16 +161,17 @@ print_enter_hint() {
     echo "Enter it with:"
     echo "  ./scripts/enter_cli.sh"
     echo "       or"
-    echo "  docker exec -it -u devgoblin -e TERM=\"\$TERM\" ${PEK_CONTAINER_NAME} bash"
+    if [[ -f "${REPO_ROOT}/devices.env" ]]; then
+        echo "  docker exec -it -u dev --env-file devices.env -e TERM=\"\$TERM\" ${PEK_CONTAINER_NAME} bash"
+    else
+        echo "  docker exec -it -u dev -e TERM=\"\$TERM\" ${PEK_CONTAINER_NAME} bash"
+    fi
 }
 
 cd "${REPO_ROOT}"
 
 export HOST_UID="$(id -u)"
 export HOST_GID="$(id -g)"
-export WEBRTC_HOST_IP="${WEBRTC_HOST_IP:-"$(bash "${REPO_ROOT}/scripts/private/detect-webrtc-host-ip.sh")"}"
-export PEK_WEBRTC_TURN_MIN_PORT="${PEK_WEBRTC_TURN_MIN_PORT:-49000}"
-export PEK_WEBRTC_TURN_MAX_PORT="${PEK_WEBRTC_TURN_MAX_PORT:-49050}"
 
 require_docker
 
@@ -183,21 +190,23 @@ echo "Starting quick-start container:"
 echo "  Platform: ${PEK_PLATFORM_NAME} (${PEK_PLATFORM_ID})"
 echo "  Service:  ${PEK_CONTAINER_SERVICE}"
 echo "  Name:     ${PEK_CONTAINER_NAME}"
-echo "  WebRTC:   ${WEBRTC_HOST_IP}"
-echo "  TURN:     ${PEK_WEBRTC_TURN_MIN_PORT}-${PEK_WEBRTC_TURN_MAX_PORT}/udp"
-
 if [[ "${PEK_PLATFORM_ID}" == rpi5* ]]; then
     echo "  Hailo:    ${PEK_HAILO_ARCH}"
 fi
 
 echo
 echo "Generating device overrides..."
+bash .devcontainer/platform_init.sh \
+    "${PEK_CONTAINER_SERVICE}" "${PEK_PICAMERA}" "${PEK_WEBRTC_TURN}"
+
+echo
+echo "Building shared development base..."
 bash scripts/private/prepare-modelfetch-release.sh > /dev/null
-bash .devcontainer/platform_init.sh "${PEK_CONTAINER_SERVICE}"
+bash scripts/private/build-dev-base.sh
 
 echo
 echo "Building and starting container..."
-UP_ARGS=(up -d --build)
+UP_ARGS=(up -d --build --remove-orphans)
 if [[ "$RECREATE" == "true" ]]; then
     UP_ARGS+=(--force-recreate)
 fi

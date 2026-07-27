@@ -194,6 +194,7 @@ class WebRtcClient {
             if (event.track.kind === 'video') {
                 session.receivingVideo = true;
                 this.observeVideoTrack(session, event.track);
+                this.startVideoPlayback(session);
                 this.markFrameHeartbeat(session, 'video track attached');
                 this.onStatus('connected', 'Connected', 'Receiving video stream');
                 this.onStatusLine('WebRTC connected. Video stream should be visible.');
@@ -330,7 +331,6 @@ class WebRtcClient {
 
             this.log('Set local description with offer');
             session.ws.send(JSON.stringify({type: 'offer', sdp: session.pc.localDescription.sdp}));
-            this.armFrameWatchdog(session);
         } catch (err) {
             if (!this.isCurrent(session))
                 return;
@@ -348,6 +348,7 @@ class WebRtcClient {
             if (!this.isCurrent(session))
                 return;
             this.log('Video track unmuted');
+            this.startVideoPlayback(session);
             this.markFrameHeartbeat(session, 'video track unmuted');
         };
         track.onended = () => {
@@ -511,6 +512,26 @@ class WebRtcClient {
     attachRemoteStream(remoteStream) {
         if (this.video.srcObject !== remoteStream)
             this.video.srcObject = remoteStream;
+    }
+
+    startVideoPlayback(session) {
+        if (!this.isCurrent(session) || typeof this.video.play !== 'function')
+            return;
+
+        let playback;
+        try {
+            playback = this.video.play();
+        } catch (err) {
+            this.log(`Unable to start video playback: ${formatError(err)}`, 'error');
+            return;
+        }
+
+        if (playback && typeof playback.catch === 'function') {
+            playback.catch((err) => {
+                if (this.isCurrent(session))
+                    this.log(`Unable to start video playback: ${formatError(err)}`, 'error');
+            });
+        }
     }
 
     cancelRestartTimer() {

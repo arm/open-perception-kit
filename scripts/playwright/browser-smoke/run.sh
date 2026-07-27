@@ -119,7 +119,7 @@ if ! docker inspect -f '{{.State.Running}}' "${PEK_CONTAINER_NAME}" 2> /dev/null
     exit 1
 fi
 
-if ! docker exec -u devgoblin "${PEK_CONTAINER_NAME}" bash -lc 'test -x /work/tools/pek-menu' > /dev/null 2>&1; then
+if ! docker exec -u dev "${PEK_CONTAINER_NAME}" bash -lc 'test -x /work/tools/pek-menu' > /dev/null 2>&1; then
     echo "Error: /work/tools/pek-menu is missing in ${PEK_CONTAINER_NAME}." >&2
     echo "Run ./scripts/build.sh first." >&2
     exit 1
@@ -155,7 +155,7 @@ run_phase() {
     if [ -f "${REPO_ROOT}/devices.env" ]; then
         docker_exec_env_file_args=(--env-file "${REPO_ROOT}/devices.env")
     fi
-    docker exec -u devgoblin "${docker_exec_env_file_args[@]}" \
+    docker exec -u dev "${docker_exec_env_file_args[@]}" \
         -e NUM_FRAMES="${NUM_FRAMES}" \
         -e BROWSER_SMOKE_PIPELINE="${pipeline}" \
         -e BROWSER_SMOKE_PID_FILE="${pid_file}" \

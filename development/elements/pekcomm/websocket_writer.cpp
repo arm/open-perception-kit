@@ -49,7 +49,8 @@ bool WebSocketWriter::io_open() {
         m_ws->clear_error_channels(websocketpp::log::elevel::all);
         m_ws->init_asio();
         m_ws->set_reuse_addr(true);
-        m_ws->set_validate_handler([this](const PekCommConnectionHdl &hdl) { return validate(hdl); });
+        m_ws->set_validate_handler(
+            [this](const PekCommConnectionHdl &hdl) { return validate(hdl); });
         m_ws->set_open_handler([this](const PekCommConnectionHdl &hdl) { on_open(hdl); });
         m_ws->set_close_handler([this](const PekCommConnectionHdl &hdl) { on_close(hdl); });
         m_ws->listen(m_port);

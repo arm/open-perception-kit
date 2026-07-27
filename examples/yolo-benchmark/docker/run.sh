@@ -87,7 +87,7 @@ run_in_container() {
 
     ensure_bare_venv() {
         if [[ ! -x "${venv}/bin/python3" ]]; then
-            python3 -m venv "${venv}"
+            uv venv --seed "${venv}"
         fi
 
         # shellcheck source=/dev/null
@@ -385,6 +385,7 @@ export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-amp-dev-forge-yolo-benchmar
 
 if [[ "${command}" == "setup" ]]; then
     bash scripts/private/prepare-modelfetch-release.sh > /dev/null
+    bash scripts/private/build-dev-base.sh
     docker compose -f "${COMPOSE_FILE}" build yolo-benchmark
 elif ! docker image inspect "${IMAGE_NAME}" > /dev/null 2>&1; then
     repo_checks_die \

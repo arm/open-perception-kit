@@ -5,9 +5,10 @@ services:
     network_mode: bridge
     build:
       context: ../../..
-      dockerfile: Dockerfile
-      target: pek-dev-base
+      dockerfile: Dockerfile.dev
+      target: pek-base
       additional_contexts:
+        pek-build-base: docker-image://${PEK_BUILD_BASE_IMAGE:-perception-experience-kit-build-base}
         modelfetch_sdks: ../../../.cache/modelfetch
       args:
         USER_UID: ${HOST_UID:-1000}
