@@ -49,13 +49,16 @@ If you want to change which image, video, or camera is used, this is usually the
 Some checked-in presets intentionally set `pekinfer active=false`.
 That lets the PEK web UI register the model first and then enable it from the **AI Models** panel when you are ready.
 
-At the moment, pipeline execution is synchronous end to end. An asynchronous inference execution flow is planned for a later update, but it is not available yet.
+Model setup is asynchronous: while an activated model is being downloaded, verified, and loaded,
+`pekinfer` remains pass-through so video delivery does not wait for setup. Inference execution after
+the model becomes ready is still synchronous. A fully asynchronous inference execution flow is
+planned for a later update, but it is not available yet.
 
 ## Logging does not make inference asynchronous
 
 PEK logging uses a separate worker thread so normal logging calls do not perform output I/O on the
 calling component's thread. This is independent of GStreamer pipeline scheduling and inference
-execution. The media and inference flow described on this page remains synchronous.
+execution. Per-frame inference remains synchronous once model setup is ready.
 
 See [Logging](logging.md) for level and target configuration, buffering, and flush behavior.
 
@@ -87,6 +90,16 @@ The descriptor defines things such as:
 - output behavior
 - model family and content type
 
+The same descriptor is used for local and published models. For a local model, `modelFile` is a
+relative path beside the descriptor. For a published model, `modelFile` is its immutable canonical
+`hf:...@...#file=...` locator. On first activation, the runtime uses modelfetch's pinned native C++
+SDK to download and verify that one asset in the dedicated `var/models/` runtime store. No CLI
+process or temporary request file is involved. Modelfetch owns the layout within that store and
+returns the verified absolute path; PEK does not derive model-specific directories. Existing
+verified content is reused. Manifest and bundle locators are not runtime entrypoints and are
+rejected. `pek-menu` only launches pipelines; the descriptor path owns materialization for every
+runtime consumer.
+
 If you are only adding your own model, you usually only need to copy and adapt an existing `model.json`.
 
 ## Pipelines, OpChains, and models together
@@ -95,10 +108,25 @@ The normal runtime stack is:
 
 1. a top-level pipeline is selected from `config/pipelines/`
 2. that pipeline creates one or more `pekinfer` elements
-3. each `pekinfer` loads an OpChain
-4. the OpChain loads one or more model descriptors
-5. postprocessing writes structured results
-6. downstream elements render, track, or publish those results
+3. each `pekinfer` reads its OpChain descriptor and registers with downstream controls
+4. the first active frame queues OpChain setup on a background worker and continues downstream
+5. each published model descriptor is downloaded and verified on demand
+6. once setup is complete, later frames execute the ready OpChain synchronously
+7. postprocessing writes structured results
+8. downstream elements render, track, or publish those results
+
+Setup is attempted once per activation. A setup failure is reported as a warning while the element
+continues in pass-through mode, so one unavailable model does not stop video delivery. Disable and
+re-enable the model to retry after fixing a transient network, authentication, or runtime problem.
+If a model is disabled while setup is already running, that setup is allowed to finish and its ready
+result is cached for the next activation, which prevents repeated partial downloads. Pipeline teardown
+does request cooperative cancellation: the common synchronous setup contract propagates a C++ stop
+token to model materialization, and modelfetch aborts at its next progress callback. Backend-specific
+initialization that has already started may still need to return before teardown can complete.
+
+The model-loading API remains synchronous. Each inference Op resolves its model descriptor with the
+OpChain setup cancellation token. Threading and retry policy remain with the consumer: `pekinfer`
+schedules setup on its worker, while direct callers can invoke the same setup synchronously.
 
 ## Runtime input expectations
 
@@ -151,8 +179,8 @@ For ready-to-run live camera presets, use `05-full-onnx-raspicam` for a Raspberr
 The normal user path is:
 
 1. add a new folder under `config/models/`
-2. place the model file there
-3. copy and adapt `model.json`
+2. place the model file there, or identify an immutable published asset
+3. copy and adapt `model.json`, using a canonical file locator in `modelFile` for a published asset
 4. copy and adapt `opchain.json`
 5. point a pipeline preset to that model or OpChain
 

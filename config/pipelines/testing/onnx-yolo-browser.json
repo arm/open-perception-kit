@@ -1,0 +1,11 @@
+{
+  "description": "Exercise the browser UI with the checked-in ONNX YOLOv11 CI fixture.",
+  "pipeline": [
+    "filesrc location=/work/data/images/GettyImages-1140581459-thumbnail.jpg !",
+    "jpegdec !",
+    "imagefreeze num-buffers=${NUM_FRAMES:-30} !",
+    "videoconvert ! video/x-raw,format=BGRA,framerate=30/1 !",
+    "pekinfer opchain-path=/work/config/models/yolov11/opchain.json active=true !",
+    "peksink name=sink"
+  ]
+}

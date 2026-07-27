@@ -7,6 +7,8 @@ on:
         required: true
       DOCKER_TOKEN:
         required: true
+      EDGEAI_EXPKITS_APP_PK:
+        required: true
   workflow_dispatch:
   pull_request:
     branches: [ main, develop, "feature/**", "sandbox/**" ]
@@ -83,6 +85,26 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_TOKEN }} # pragma: allowlist secret
+
+      - name: Create read-only modelfetch token
+        if: contains(fromJSON('["pek-deployment-base","pek-docs","pek-dev"]'), matrix.image.service)
+        id: modelfetch-app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: Iv23li0DqDMHoMs0TXT9
+          private-key: ${{ secrets.EDGEAI_EXPKITS_APP_PK }}
+          owner: Arm-Debug
+          repositories: modelfetch
+          permission-contents: read
+
+      - name: Prepare pinned modelfetch release
+        if: contains(fromJSON('["pek-deployment-base","pek-docs","pek-dev"]'), matrix.image.service)
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          ./scripts/private/prepare-modelfetch-release.sh >/dev/null
 
       - name: Build docker image
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}

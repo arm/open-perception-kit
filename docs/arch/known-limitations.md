@@ -59,8 +59,8 @@ runtime. Treat these as constraints when extending the system.
 
 ## Models, Backends, And Platforms
 
-- Model artifacts in `config/models/` should move to a download/cache flow with
-  manifests, checksums, and license metadata.
+- License metadata for published model artifacts is not represented consistently
+  in checked-in model descriptors.
 - ONNX Runtime and HailoRT are the main working backends. ExecuTorch is
   experimental, MNN is planned, and RKNN/Orion6 is not supported.
 - Model performance and accuracy baselines are not published consistently.

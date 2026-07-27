@@ -1,0 +1,7 @@
+repository=Arm-Debug/modelfetch
+tag=v0.2.0
+source_commit=61316f515560c7a5c5af4b85bfa3d72402bba951 # pragma: allowlist secret
+amd64_filename=modelfetch-c-0.2.0-x86_64-unknown-linux-gnu.tar.gz
+amd64_sha256=6e1bf7443fb9197320c92e43df9ab33a02d5393df799bdbf8f962b69fd35a7b9 # pragma: allowlist secret
+arm64_filename=modelfetch-c-0.2.0-aarch64-unknown-linux-gnu.tar.gz
+arm64_sha256=7300e29894233dbeda2a8a64c361c6abea544b5e13b6bac7e9181466773bfbcb # pragma: allowlist secret

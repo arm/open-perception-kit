@@ -35,9 +35,29 @@ jobs:
       - name: Derive tag metadata
         shell: bash
         run: |
-          echo "TAG_NAME=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
-          echo "SONAR_RELEASE_BRANCH=tags/${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
-          echo "SONAR_PROJECT_VERSION=${GITHUB_REF_NAME#release/}" >> "$GITHUB_ENV"
+          {
+            echo "TAG_NAME=${GITHUB_REF_NAME}"
+            echo "SONAR_RELEASE_BRANCH=tags/${GITHUB_REF_NAME}"
+            echo "SONAR_PROJECT_VERSION=${GITHUB_REF_NAME#release/}"
+          } >> "$GITHUB_ENV"
+
+      - name: Create read-only modelfetch token
+        id: modelfetch-app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: Iv23li0DqDMHoMs0TXT9
+          private-key: ${{ secrets.EDGEAI_EXPKITS_APP_PK }}
+          owner: Arm-Debug
+          repositories: modelfetch
+          permission-contents: read
+
+      - name: Prepare pinned modelfetch release
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          ./scripts/private/prepare-modelfetch-release.sh >/dev/null
 
       - name: Build docker image 
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}

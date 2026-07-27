@@ -57,7 +57,9 @@ Execution is ordered and deterministic for a given descriptor and input state.
 `pek::Op` is the abstract base class for processing units in an OpChain. Each Op
 uses the same lifecycle:
 
-- `configure(attributes)` initializes the Op from JSON configuration.
+- `configure(attributes, stopToken)` initializes the Op from JSON
+  configuration. Inference Ops resolve and materialize their model descriptors
+  with the OpChain setup cancellation token before backend setup.
 - `bind(index, ops)` lets the Op inspect the chain and establish dependencies.
 - `process(opChainContext)` runs the Op for a single execution step.
 

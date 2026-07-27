@@ -15,7 +15,6 @@
 #include "fmt/base.h"
 #include "pek/Model.h"
 #include "pek/Result.h"
-#include "pek/String.h"
 #include "pek/Types.h"
 
 #include "Inference.h"
@@ -101,32 +100,6 @@ using namespace pek::extrch;
 
 Inference::Inference() = default;
 Inference::~Inference() = default;
-
-pek::Result<void> Inference::setupFromJson(const std::string &filePath) {
-
-    auto descResult = pek::ModelDescriptor::fromFile(filePath);
-    if (!descResult) {
-        return tl::unexpected{descResult.error()};
-    }
-
-    { // setup model file name
-        std::string modelRoot = filePath;
-        if (pek::utf8::contains(modelRoot, '/')) {
-            size_t lastSlashAt = pek::utf8::lastIndexOf(modelRoot, '/');
-            modelRoot = pek::utf8::left(modelRoot, lastSlashAt + 1);
-        } else {
-            modelRoot = "";
-        }
-        (*descResult).modelFile = modelRoot + (*descResult).modelFile;
-    }
-
-    auto setupResult = setup(*descResult);
-    if (!setupResult) {
-        return tl::unexpected{setupResult.error()};
-    }
-
-    return {};
-}
 
 pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &module) {
     pek::Model model;
@@ -230,10 +203,7 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
 
 pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
 
-    modelDescriptor = modelDesc_;
-    modelPath = modelDesc_.modelFile;
-
-    module = std::make_unique<executorch::extension::Module>(modelPath);
+    module = std::make_unique<executorch::extension::Module>(modelDesc_.modelFile);
 
     auto modelResult = inspectModel(*module);
     if (!modelResult) {
@@ -249,7 +219,7 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
     pek::log::info("{}", modelLog);
     pek::log::info("========= ======== ==== ========== =========\n");
 
-    auto cmResult = model.applyModelFromDescriptor(modelDescriptor);
+    auto cmResult = model.applyModelFromDescriptor(modelDesc_);
     if (!cmResult) {
         return tl::make_unexpected(cmResult.error());
     }

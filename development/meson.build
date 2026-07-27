@@ -39,9 +39,10 @@ if not soup_dep.found()
 endif
 json_dep = dependency('json-glib-1.0', required: false)
 
-fmt_dep = dependency('fmt', 
+fmt_dep = dependency('fmt',
   version: ['>=12.0.0', '<13.0.0'],
-  fallback : ['fmt', 'fmt_dep'], 
+  fallback : ['fmt', 'fmt_dep'],
+  include_type : 'system',
   required : true)
 threads_dep = dependency('threads')
 
@@ -104,6 +105,39 @@ onnx_libdir  = onnx_root / 'lib'
 onnx_dep = declare_dependency(
   compile_args: ['-I' + (onnx_root / 'include')],
   link_args: ['-L' + onnx_libdir, '-lonnxruntime', '-Wl,--no-undefined']
+)
+
+# -------- modelfetch C++ SDK
+modelfetch_root = ''
+modelfetch_candidates = []
+
+modelfetch_root_env = run_command('sh', '-c', 'printf %s "$PEK_MODELFETCH_ROOT"', check: false).stdout().strip()
+if modelfetch_root_env != ''
+  modelfetch_candidates += [modelfetch_root_env]
+else
+  modelfetch_candidates += ['/opt/pek-deps/modelfetch']
+endif
+
+foreach candidate : modelfetch_candidates
+  if fs.is_file(candidate / 'include/modelfetch/modelfetch.hpp') and fs.is_file(candidate / 'lib/libmodelfetch_c.so')
+    modelfetch_root = candidate
+    break
+  endif
+endforeach
+
+if modelfetch_root == ''
+  error('modelfetch C++ SDK not found. Set PEK_MODELFETCH_ROOT or provide include/ and lib/ under one of: ' + ', '.join(modelfetch_candidates))
+endif
+
+message('Using modelfetch C++ SDK from: ' + modelfetch_root)
+
+modelfetch_libdir = modelfetch_root / 'lib'
+modelfetch_cpp_headers_dep = declare_dependency(
+  compile_args: ['-I' + (modelfetch_root / 'include')]
+)
+modelfetch_dep = declare_dependency(
+  dependencies: [modelfetch_cpp_headers_dep],
+  link_args: ['-L' + modelfetch_libdir, '-lmodelfetch_c', '-Wl,--no-undefined']
 )
 
 # -------- Exported defs + deps for subdirs

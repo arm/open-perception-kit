@@ -4,6 +4,7 @@ x-pek-dev-build: &pek-dev-build
   network: ${BUILD_NETWORK_MODE:-default}
   additional_contexts:
     pek-build-base: docker-image://${PEK_BUILD_BASE_IMAGE:-perception-experience-kit-build-base}
+    modelfetch_sdks: ../.cache/modelfetch
 
 x-pek-hailo-build: &pek-hailo-build
   context: ..
@@ -26,6 +27,8 @@ services:
     container_name: ${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}
     hostname: ${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}
     command: sleep infinity
+    environment:
+      HF_TOKEN_PATH: /run/secrets/huggingface_token
     build:
       <<: *pek-dev-build
       target: pek-dev
@@ -39,6 +42,8 @@ services:
         EXECUTORCH_DEB_REVISION: ${EXECUTORCH_DEB_REVISION:-}
     volumes:
       - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
+    secrets:
+      - huggingface_token
 
   pek-dev-rpi5-h8:
     extends:
@@ -47,12 +52,16 @@ services:
     container_name: ${PEK_DEV_RPI5_H8_CONTAINER_NAME:-perception-experience-kit-rpi5-h8}
     hostname: ${PEK_DEV_RPI5_H8_CONTAINER_NAME:-perception-experience-kit-rpi5-h8}
     command: sleep infinity
+    environment:
+      HF_TOKEN_PATH: /run/secrets/huggingface_token
     build:
       <<: *pek-hailo-build
       args:
         PEK_HAILO_ARCH: h8
     volumes:
       - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
+    secrets:
+      - huggingface_token
 
   pek-dev-rpi5-h10:
     extends:
@@ -61,9 +70,17 @@ services:
     container_name: ${PEK_DEV_RPI5_H10_CONTAINER_NAME:-perception-experience-kit-rpi5-h10}
     hostname: ${PEK_DEV_RPI5_H10_CONTAINER_NAME:-perception-experience-kit-rpi5-h10}
     command: sleep infinity
+    environment:
+      HF_TOKEN_PATH: /run/secrets/huggingface_token
     build:
       <<: *pek-hailo-build
       args:
         PEK_HAILO_ARCH: h10
     volumes:
       - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
+    secrets:
+      - huggingface_token
+
+secrets:
+  huggingface_token:
+    file: ${HF_TOKEN_PATH:-/dev/null}

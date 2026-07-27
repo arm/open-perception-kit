@@ -25,7 +25,6 @@ struct Inference {
     Inference();
     virtual ~Inference();
 
-    pek::Result<void> setupFromJson(const std::string &filePath);
     pek::Result<void> setup(const pek::ModelDescriptor &modelDesc);
 
     // Runs one forward pass using the current PEK-owned input buffers.
@@ -57,12 +56,9 @@ struct Inference {
 
   private:
     std::unique_ptr<executorch::extension::Module> module;
-    pek::ModelDescriptor modelDescriptor;
     static pek::Result<pek::Model> inspectModel(executorch::extension::Module &module);
 
-    std::string modelPath, modelFamily;
     bool setupReady = false;
-    bool useDynamicOutput = false;
 
     pek::Model model;
 

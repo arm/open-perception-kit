@@ -49,9 +49,11 @@ class GenericImagePreprocessOp : public pek::op::Op {
      * Reads attributes: inputImageSourceName, inputImageTensorIndex.
      *
      * @param attributes Configuration map from OpChainDescriptor.
+     * @param stopToken Cooperative cancellation token for this setup attempt.
      * @return Result indicating success or configuration error.
      */
-    pek::Result<void> configure(const pek::AttributeMap &attributes) override;
+    pek::Result<void> configure(const pek::AttributeMap &attributes,
+                                std::stop_token stopToken) override;
     /**
      * @brief Executes preprocessing: maps a media video frame, converts format, prepares tensor
      * data.

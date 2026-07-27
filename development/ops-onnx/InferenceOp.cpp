@@ -25,7 +25,8 @@ InferenceOp::InferenceOp() = default;
 
 InferenceOp::~InferenceOp() = default;
 
-pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
+pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes,
+                                         std::stop_token stopToken) {
     std::string modelDescPath;
 
     try {
@@ -40,16 +41,17 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
     try {
         inference = std::make_unique<onnx::Inference>();
 
-        auto setupResult = inference->setupFromJson(modelDescPath);
-        if (!setupResult) {
+        auto modelDescriptor = pek::ModelDescriptor::fromFile(modelDescPath, stopToken);
+        if (!modelDescriptor)
+            return tl::unexpected{modelDescriptor.error()};
+
+        if (auto setupResult = inference->setup(*modelDescriptor); !setupResult) {
             return setupResult;
         }
     } catch (const std::exception &e) {
         return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InferenceRtStartupError,
                                         fmt::format("OnnxRT startup error: {}", e.what())));
     }
-
-    modelFamily = inference->getModel().modelFamily;
 
     return {};
 }

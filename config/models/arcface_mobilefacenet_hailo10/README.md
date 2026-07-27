@@ -3,6 +3,7 @@
 Hailo 10-compiled variant of the ArcFace MobileFaceNet face embedding model.
 
 - Backend: HailoRT
+- Artifact: downloaded on demand from the descriptor's pinned `modelFile` locator when first activated
 - Input: NHWC face crop, `[1, 112, 112, 3]`, `Uint8`
 - Output: dynamic embedding tensor, typically `[1, 512]`
 - Post processor: `ObjectEmbeddingParser`

@@ -125,6 +125,37 @@ container_workdir_writable() {
     docker exec -u dev "${PEK_CONTAINER_NAME}" bash -lc 'test -w /work' > /dev/null 2>&1
 }
 
+expected_modelfetch_sdk_sha256() {
+    local machine="$1"
+    local architecture
+    case "$machine" in
+        x86_64)
+            architecture="amd64"
+            ;;
+        aarch64)
+            architecture="arm64"
+            ;;
+        *)
+            echo "Unsupported container architecture: ${machine}" >&2
+            return 1
+            ;;
+    esac
+    "${REPO_ROOT}/scripts/private/read-modelfetch-release-manifest.sh" \
+        "${REPO_ROOT}/scripts/private/modelfetch-release.manifest" \
+        "${architecture}_sha256"
+}
+
+container_has_current_modelfetch_sdk() {
+    local container_machine expected_sha
+    container_machine="$(docker exec -u dev "${PEK_CONTAINER_NAME}" uname -m)" || return 1
+    expected_sha="$(expected_modelfetch_sdk_sha256 "$container_machine")" || return 1
+    docker exec -u dev "${PEK_CONTAINER_NAME}" sh -c '
+        test -f /opt/pek-deps/modelfetch/include/modelfetch/modelfetch.hpp &&
+        test -f /opt/pek-deps/modelfetch/lib/libmodelfetch_c.so &&
+        test "$(cat /opt/pek-deps/modelfetch/.release-sdk-sha256 2>/dev/null)" = "$1"
+    ' _ "$expected_sha" > /dev/null 2>&1
+}
+
 print_enter_hint() {
     echo "Container is running: ${PEK_CONTAINER_NAME}"
     echo "Enter it with:"
@@ -145,13 +176,13 @@ export HOST_GID="$(id -g)"
 require_docker
 
 if container_running && [[ "$RECREATE" != "true" ]]; then
-    if container_workdir_writable; then
+    if container_workdir_writable && container_has_current_modelfetch_sdk; then
         print_enter_hint
         exit 0
     fi
 
-    echo "Container is running, but /work is not writable as dev."
-    echo "Recreating it with the host UID/GID mapping..."
+    echo "The running container is missing the current workspace contract."
+    echo "Recreating it with the host UID/GID mapping and modelfetch C++ SDK..."
     RECREATE="true"
 fi
 
@@ -170,6 +201,7 @@ bash .devcontainer/platform_init.sh \
 
 echo
 echo "Building shared development base..."
+bash scripts/private/prepare-modelfetch-release.sh > /dev/null
 bash scripts/private/build-dev-base.sh
 
 echo

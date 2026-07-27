@@ -15,6 +15,7 @@ Install these before you start:
 
 - WSL with Ubuntu installed.
 - Git inside WSL.
+- GitHub CLI inside WSL.
 - Docker Desktop with WSL integration enabled.
 - Visual Studio Code on Windows.
 - VS Code **Dev Containers** extension.
@@ -32,12 +33,22 @@ Check that basic tools are available:
 
 ```bash
 git --version
+gh --version
 docker --version
 docker compose version
 code --version
 ```
 
 If `docker` does not work, open Docker Desktop and confirm that WSL integration is enabled for your Ubuntu distribution.
+
+Authenticate GitHub CLI with read access to the pinned `Arm-Debug/modelfetch`
+release. The repository is internal, so its release asset is not available
+anonymously:
+
+```bash
+gh auth login --hostname github.com
+gh auth status --hostname github.com
+```
 
 ### Configure mirrored WSL networking for WebRTC
 
@@ -81,6 +92,17 @@ Expected result: you are in the `pek` folder in WSL.
 Run in the **WSL shell**, from the `pek` folder:
 
 ```bash
+code .
+```
+
+The checked-in YOLOv11 quick start needs no Hugging Face credential. To use a
+published model, first set `HF_TOKEN_PATH` to a mode-`0600` token file in this
+WSL shell. The Dev Container mounts it read-only, and the runtime downloads
+only the model you activate:
+
+```bash
+chmod 600 "/absolute/path/to/huggingface-token"
+export HF_TOKEN_PATH="/absolute/path/to/huggingface-token"
 code .
 ```
 

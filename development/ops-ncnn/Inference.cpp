@@ -14,7 +14,6 @@
 
 #include "Log.h"
 #include "pek/Result.h"
-#include "pek/String.h"
 #include "pek/Types.h"
 #include "tools.h"
 
@@ -173,32 +172,6 @@ std::string Inference::deriveBinPath(const std::string &paramPath) {
     }
 
     return paramPath + ".bin";
-}
-
-pek::Result<void> Inference::setupFromJson(const std::string &filePath) {
-
-    auto descResult = pek::ModelDescriptor::fromFile(filePath);
-    if (!descResult) {
-        return tl::unexpected{descResult.error()};
-    }
-
-    { // setup model file name
-        std::string modelRoot = filePath;
-        if (pek::utf8::contains(modelRoot, '/')) {
-            size_t lastSlashAt = pek::utf8::lastIndexOf(modelRoot, '/');
-            modelRoot = pek::utf8::left(modelRoot, lastSlashAt + 1);
-        } else {
-            modelRoot = "";
-        }
-        (*descResult).modelFile = modelRoot + (*descResult).modelFile;
-    }
-
-    auto setupResult = setup(*descResult);
-    if (!setupResult) {
-        return tl::unexpected{setupResult.error()};
-    }
-
-    return {};
 }
 
 pek::Result<pek::Model> Inference::buildModelFromDescriptor(const pek::ModelDescriptor &desc,
@@ -531,11 +504,6 @@ pek::Result<void> Inference::copyOutputMat(size_t tensorIndex, const ncnn::Mat &
 
 pek::Result<void> Inference::applyTensorFeedback() {
     for (const auto &feedback : model.tensorFeedbacks) {
-        if (feedback.mode != pek::TensorFeedback::Mode::Copy) {
-            return tl::unexpected{
-                PEK_ERROR(pek::ErrorFlag::InvalidData, "unsupported NCNN tensor feedback mode")};
-        }
-
         size_t fromOutputIndex = feedback.fromOutputTensorIndex;
         size_t toInputIndex = feedback.toInputTensorIndex;
 

@@ -55,7 +55,7 @@ data/videos/
 !tests/
 !tests/**
 !var/
-!var/**
+!var/libexecutorch-dev-*.deb
 
 **/build/
 **/build/**

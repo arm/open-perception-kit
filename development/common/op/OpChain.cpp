@@ -16,14 +16,29 @@
 
 using namespace pek::op;
 
+namespace {
+
+pek::Result<void> modelLoadCancelled() {
+    return tl::unexpected{
+        PEK_ERROR(pek::ErrorFlag::SystemFailure, "OpChain model loading was cancelled")};
+}
+
+} // namespace
+
 const std::string &OpChain::getName() {
     return this->name;
 }
 
-pek::Result<void> OpChain::setupFromDescriptor(const pek::op::OpChainDescriptor &descriptor) {
+pek::Result<void> OpChain::setupFromDescriptor(const pek::op::OpChainDescriptor &descriptor,
+                                               std::stop_token stopToken) {
+    if (stopToken.stop_requested())
+        return modelLoadCancelled();
+
     name = descriptor.name;
 
     for (const auto &op : descriptor.ops) {
+        if (stopToken.stop_requested())
+            return modelLoadCancelled();
 
         if (pek::utf8::count(op.id, '/') != 1) {
             return tl::unexpected(
@@ -46,18 +61,26 @@ pek::Result<void> OpChain::setupFromDescriptor(const pek::op::OpChainDescriptor 
         opRef->group = op.group;
         opRef->loopId = op.loopId;
 
-        auto configureResult = opRef->configure(op.attributes);
-        if (!configureResult) {
+        if (auto configureResult = opRef->configure(op.attributes, stopToken); !configureResult) {
             return configureResult;
         }
 
+        if (stopToken.stop_requested())
+            return modelLoadCancelled();
+
         add(opRef);
     }
+
+    if (stopToken.stop_requested())
+        return modelLoadCancelled();
 
     auto chainBindResult = bind();
     if (!chainBindResult) {
         return tl::unexpected(std::move(chainBindResult.error()));
     }
+
+    if (stopToken.stop_requested())
+        return modelLoadCancelled();
 
     pek::log::info("{}", pek::log::tools::enframe(this->toString(), "OpChain"));
 
@@ -66,6 +89,9 @@ pek::Result<void> OpChain::setupFromDescriptor(const pek::op::OpChainDescriptor 
     if (!validateResult) {
         return tl::unexpected(std::move(validateResult.error()));
     }
+
+    if (stopToken.stop_requested())
+        return modelLoadCancelled();
 
     pek::log::notice("OpChain is valid\n");
 
@@ -139,14 +165,17 @@ pek::Result<void> OpChain::validate() {
     return {};
 }
 
-pek::Result<void> OpChain::setupFromFile(const std::string &filePath) {
+pek::Result<void> OpChain::setupFromFile(const std::string &filePath, std::stop_token stopToken) {
+    if (stopToken.stop_requested())
+        return modelLoadCancelled();
+
     pek::log::info("Loading OpChain from file: [{}]\n", filePath);
     auto descResult = pek::op::OpChainDescriptor::fromFile(filePath);
     if (!descResult) {
         return tl::unexpected(std::move(descResult.error()));
     }
 
-    return setupFromDescriptor(*descResult);
+    return setupFromDescriptor(*descResult, stopToken);
 }
 
 void OpChain::add(pek::op::OpRef &opRef) {

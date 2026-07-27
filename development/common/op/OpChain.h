@@ -9,6 +9,7 @@
 #include "op/OpRef.h"
 #include "pek/Result.h"
 
+#include <stop_token>
 #include <vector>
 
 namespace pek::op {
@@ -45,22 +46,29 @@ class OpChain {
     /**
      * @brief Initializes the chain from an OpChainDescriptor.
      *
-     * Loads operation definitions and creates Op instances from the descriptor.
-     * Must be followed by bind() and then execute() can be called.
+     * Loads operation definitions, creates Op instances, and binds the completed
+     * chain before returning. execute() can be called after successful setup.
+     *
+     * Operations receive the setup cancellation token while they configure. Model
+     * loading remains synchronous within this call; callers may choose another
+     * execution thread and provide cooperative cancellation.
      *
      * @param descriptor Descriptor containing chain name and operation definitions.
+     * @param stopToken Optional cooperative cancellation token.
      * @return Result indicating success or failure of setup.
      */
-    pek::Result<void> setupFromDescriptor(const pek::op::OpChainDescriptor &descriptor);
+    pek::Result<void> setupFromDescriptor(const pek::op::OpChainDescriptor &descriptor,
+                                          std::stop_token stopToken = {});
     /**
      * @brief Initializes the chain by loading an OpChainDescriptor from a JSON file.
      *
      * Equivalent to loading JSON manually and calling setupFromDescriptor().
      *
      * @param jsonFile Path to JSON file containing OpChainDescriptor.
+     * @param stopToken Optional cooperative cancellation token.
      * @return Result indicating success or failure of setup.
      */
-    pek::Result<void> setupFromFile(const std::string &jsonFile);
+    pek::Result<void> setupFromFile(const std::string &jsonFile, std::stop_token stopToken = {});
 
     /**
      * @brief Gets the name of this chain.

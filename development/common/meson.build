@@ -38,3 +38,16 @@ common = shared_library(
   gnu_symbol_visibility: 'default',
   install: false
 )
+
+model_loading = shared_library(
+  'pek-model-loading',
+  sources: [
+    'pek/ModelDescriptorLoader.cpp',
+  ],
+  include_directories: [ common_include ],
+  cpp_args: ['-DFMT_HEADER_ONLY'],
+  dependencies: [ pek_deps, modelfetch_dep ],
+  link_with: [ common ],
+  gnu_symbol_visibility: 'default',
+  install: false
+)

@@ -6,14 +6,15 @@
 from __future__ import annotations
 
 import importlib.util
-import subprocess
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 from unittest import mock
 
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "github_pr_context.py"
+sys.path.insert(0, str(MODULE_PATH.parent))
 
 
 def load_module():
@@ -29,34 +30,30 @@ github_pr_context = load_module()
 
 
 class GithubPrContextTests(unittest.TestCase):
-    def test_resolve_pr_context_uses_one_json_query(self):
+    @staticmethod
+    def pr_details(**overrides):
+        details = {
+            "target_branch": "main",
+            "head_branch": "feature/test",
+            "head_sha": "deadbeef",
+        }
+        details.update(overrides)
+        return details
+
+    def test_resolve_pr_context_uses_shared_github_api_query(self):
         with mock.patch.object(
-            github_pr_context.subprocess,
-            "run",
-            return_value=subprocess.CompletedProcess(
-                ["gh"],
-                0,
-                stdout='{"baseRefName":"main","headRefName":"feature/test","headRefOid":"deadbeef"}',
-                stderr="",
-            ),
-        ) as run:
+            github_pr_context,
+            "read_pr_details",
+            return_value=self.pr_details(),
+        ) as read_pr_details:
             context = github_pr_context.resolve_pr_context(
                 pr_number="101",
                 repo="Arm-Debug/amp-dev-forge",
             )
 
         self.assertEqual(
-            run.call_args.args[0],
-            [
-                "gh",
-                "pr",
-                "view",
-                "101",
-                "--repo",
-                "Arm-Debug/amp-dev-forge",
-                "--json",
-                "baseRefName,headRefName,headRefOid",
-            ],
+            read_pr_details.call_args,
+            mock.call("101", repository="Arm-Debug/amp-dev-forge"),
         )
         self.assertEqual(
             context,
@@ -70,14 +67,9 @@ class GithubPrContextTests(unittest.TestCase):
 
     def test_resolve_pr_context_applies_explicit_manual_overrides(self):
         with mock.patch.object(
-            github_pr_context.subprocess,
-            "run",
-            return_value=subprocess.CompletedProcess(
-                ["gh"],
-                0,
-                stdout='{"baseRefName":"main","headRefName":"feature/test","headRefOid":"deadbeef"}',
-                stderr="",
-            ),
+            github_pr_context,
+            "read_pr_details",
+            return_value=self.pr_details(),
         ):
             context = github_pr_context.resolve_pr_context(
                 pr_number="101",
@@ -97,16 +89,26 @@ class GithubPrContextTests(unittest.TestCase):
             },
         )
 
+    def test_resolve_pr_context_prefers_a_head_ref_override_without_a_sha(self):
+        with mock.patch.object(
+            github_pr_context,
+            "read_pr_details",
+            return_value=self.pr_details(),
+        ):
+            context = github_pr_context.resolve_pr_context(
+                pr_number="101",
+                repo="Arm-Debug/amp-dev-forge",
+                head_ref_override="repair/pr-sample",
+            )
+
+        self.assertEqual(context["head_ref"], "repair/pr-sample")
+        self.assertEqual(context["head_sha"], "")
+
     def test_resolve_pr_context_rejects_sha_override_without_matching_head_ref(self):
         with mock.patch.object(
-            github_pr_context.subprocess,
-            "run",
-            return_value=subprocess.CompletedProcess(
-                ["gh"],
-                0,
-                stdout='{"baseRefName":"main","headRefName":"feature/test","headRefOid":"deadbeef"}',
-                stderr="",
-            ),
+            github_pr_context,
+            "read_pr_details",
+            return_value=self.pr_details(),
         ):
             with self.assertRaisesRegex(ValueError, "head-ref-override"):
                 github_pr_context.resolve_pr_context(
@@ -114,6 +116,25 @@ class GithubPrContextTests(unittest.TestCase):
                     repo="Arm-Debug/amp-dev-forge",
                     head_sha_override="feedface",
                 )
+
+    def test_resolve_pr_context_rejects_missing_or_empty_refs(self):
+        for field in ("target_branch", "head_branch", "head_sha"):
+            for replacement in (None, ""):
+                details = self.pr_details()
+                if replacement is None:
+                    del details[field]
+                else:
+                    details[field] = replacement
+                with self.subTest(field=field, replacement=replacement), mock.patch.object(
+                    github_pr_context,
+                    "read_pr_details",
+                    return_value=details,
+                ):
+                    with self.assertRaisesRegex(RuntimeError, "Incomplete pull request refs"):
+                        github_pr_context.resolve_pr_context(
+                            pr_number="101",
+                            repo="Arm-Debug/amp-dev-forge",
+                        )
 
     def test_write_outputs_uses_github_output_format(self):
         with tempfile.TemporaryDirectory() as temp_dir:

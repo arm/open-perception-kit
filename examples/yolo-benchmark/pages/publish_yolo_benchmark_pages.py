@@ -52,7 +52,7 @@ REPORT_INDEX_META = "report-index-meta.txt"
 FINGERPRINT_HEADER = "# image_set_fingerprint="
 PERCENTILE_METRICS = ("p50_ms", "p75_ms", "p95_ms", "p99_ms")
 RUN_METRICS = ("avg_ms", *PERCENTILE_METRICS)
-VIDEO_COMPARISON_SCHEMA = "expkits_yolo_video_comparison.v1"
+VIDEO_COMPARISON_SCHEMA = "expkits_yolo_video_comparison.v2"
 IMAGE_COMPARISON_SCHEMA = "expkits_yolo_image_comparison.v1"
 BARE_DETECTION_VIDEO = "bare-detections.mp4"
 PEK_DETECTION_VIDEO = "pek-detections.mp4"
@@ -990,8 +990,18 @@ def median_delta(runs: list[dict[str, Any]], metric: str) -> dict[str, float]:
     }
 
 
+def comparison_kind(comparison: dict[str, Any]) -> str:
+    has_fps = isinstance(comparison.get("fps"), dict)
+    has_timing_delta = isinstance(comparison.get("timing_delta"), dict)
+    if has_fps == has_timing_delta:
+        raise PublishError(
+            "YOLO comparison must contain exactly one of fps or timing_delta."
+        )
+    return "video" if has_fps else "image"
+
+
 def overall_result_label(runs: list[dict[str, Any]]) -> str:
-    if runs and runs[0]["comparison"].get("schema") == VIDEO_COMPARISON_SCHEMA:
+    if runs and comparison_kind(runs[0]["comparison"]) == "video":
         return fps_result_label(median_fps_delta(runs))
     return result_label(median_delta(runs, "avg_ms"))
 
@@ -1450,7 +1460,7 @@ def write_report_page(
     run_href: str = "",
 ) -> None:
     first = runs[0]["comparison"]
-    if first.get("schema") == VIDEO_COMPARISON_SCHEMA:
+    if comparison_kind(first) == "video":
         write_video_report_page(target, site_dir, title, meta_html, runs, run_href)
         return
     inputs = first["inputs"]

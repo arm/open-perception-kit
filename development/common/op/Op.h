@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstdint>
+#include <stop_token>
 #include <string>
 #include <vector>
 
@@ -79,9 +80,10 @@ struct Op {
      * parameters (e.g., model path, buffer names, inference settings).
      *
      * @param attributes AttributeMap containing operation-specific configuration.
+     * @param stopToken Cooperative cancellation token for this setup attempt.
      * @return Result indicating success or failure of configuration.
      */
-    virtual Result<void> configure(const AttributeMap &attributes) = 0;
+    virtual Result<void> configure(const AttributeMap &attributes, std::stop_token stopToken) = 0;
 
     /**
      * @brief Binds the operation to its position in the chain and to other operations.

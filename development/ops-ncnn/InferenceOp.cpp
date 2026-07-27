@@ -10,6 +10,7 @@
 
 #include "Inference.h"
 #include "pek/AttributeMap.h"
+#include "pek/ModelDescriptor.h"
 #include "pek/Result.h"
 
 #include <perf/PerformanceTracer.h>
@@ -23,7 +24,8 @@ pek::Result<void> InferenceOp::bind(size_t index, const std::vector<pek::op::Op 
     return {};
 }
 
-pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
+pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes,
+                                         std::stop_token stopToken) {
     std::string modelDescPath;
 
     try {
@@ -37,16 +39,17 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
     try {
         inference = std::make_unique<pek::ncnnrt::Inference>();
 
-        auto setupResult = inference->setupFromJson(modelDescPath);
-        if (!setupResult) {
+        auto modelDescriptor = pek::ModelDescriptor::fromFile(modelDescPath, stopToken);
+        if (!modelDescriptor)
+            return tl::unexpected{modelDescriptor.error()};
+
+        if (auto setupResult = inference->setup(*modelDescriptor); !setupResult) {
             return setupResult;
         }
     } catch (const std::exception &e) {
         return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InferenceRtStartupError,
                                         fmt::format("NCNN startup error: {}", e.what())));
     }
-
-    modelFamily = inference->getModel().modelFamily;
 
     return {};
 }

@@ -76,6 +76,15 @@ Follow the link below to install Docker:
 
 Install both Docker Engine and the Docker Compose plugin from the Debian guide so `docker compose` is available for later steps.
 
+Also install GitHub CLI. Authenticate it with read access
+to the pinned `Arm-Debug/modelfetch` release. The repository is internal, so
+its release asset is not available anonymously:
+
+```bash
+gh auth login --hostname github.com
+gh auth status --hostname github.com
+```
+
 If the upgrade asks for a reboot, reconnect with SSH afterwards.
 
 ## 5. Run A Preflight Check
@@ -86,6 +95,8 @@ Run in the **Raspberry Pi shell**:
 docker info
 docker --version
 docker compose version
+gh --version
+gh auth status --hostname github.com
 ```
 
 If `docker info` fails with a permission error, add your user to the `docker` group and log out and back in:
@@ -119,6 +130,21 @@ git clone git@github.com:Arm-Debug/amp-dev-forge.git
 ```
 
 Expected result: the `pek` folder exists on the Raspberry Pi.
+
+The checked-in YOLOv11 quick start needs no Hugging Face credential. To use a
+published model, save a Hugging Face access token in a mode-`0600` file on the
+Pi and set `HF_TOKEN_PATH` to its absolute path in the login environment used
+by VS Code Remote SSH. Make the file private, add the export to `~/.profile`,
+then reconnect VS Code to the Pi:
+
+```bash
+chmod 600 "/absolute/path/to/huggingface-token"
+printf '%s\n' \
+  'export HF_TOKEN_PATH="/absolute/path/to/huggingface-token"' >> ~/.profile
+```
+
+The Dev Container mounts this file read-only. The runtime downloads only the
+model you activate.
 
 ## 7. Check VS Code Prerequisites On Your Computer
 

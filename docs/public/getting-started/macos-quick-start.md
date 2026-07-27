@@ -14,6 +14,7 @@ Use this guide on a Mac. PEK runs inside a VS Code Dev Container. The first run 
 Install these before you start:
 
 - Git.
+- GitHub CLI.
 - Docker Desktop.
 - Visual Studio Code.
 - VS Code **Dev Containers** extension.
@@ -26,12 +27,22 @@ Run in the **host shell**:
 
 ```bash
 git --version
+gh --version
 docker --version
 docker compose version
 code --version
 ```
 
 If Docker commands fail, open Docker Desktop and wait until it says Docker is running.
+
+Authenticate GitHub CLI with read access to the pinned `Arm-Debug/modelfetch`
+release. The repository is internal, so its release asset is not available
+anonymously:
+
+```bash
+gh auth login --hostname github.com
+gh auth status --hostname github.com
+```
 
 ## 2. Get The Repository
 
@@ -53,6 +64,17 @@ Expected result: you are in the `pek` folder.
 Run in the **host shell**, from the `pek` folder:
 
 ```bash
+code .
+```
+
+The checked-in YOLOv11 quick start needs no Hugging Face credential. To use a
+published model, first set `HF_TOKEN_PATH` to a mode-`0600` token file in this
+shell. The Dev Container mounts it read-only, and the runtime downloads only
+the model you activate:
+
+```bash
+chmod 600 "/absolute/path/to/huggingface-token"
+export HF_TOKEN_PATH="/absolute/path/to/huggingface-token"
 code .
 ```
 
