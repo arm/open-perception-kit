@@ -110,18 +110,13 @@ RUN --mount=type=bind,source=scripts/private/modelfetch-release.manifest,target=
   set -eux; \
   case "${TARGETARCH}" in \
     amd64) \
-      sdk_source="/tmp/modelfetch-sdks/modelfetch-release-linux-amd64.tar.gz"; \
+      sdk="/tmp/modelfetch-sdks/modelfetch-release-linux-amd64.tar.gz"; \
       ;; \
     arm64) \
-      sdk_source="/tmp/modelfetch-sdks/modelfetch-release-linux-arm64.tar.gz"; \
+      sdk="/tmp/modelfetch-sdks/modelfetch-release-linux-arm64.tar.gz"; \
       ;; \
     *) echo "Unsupported architecture for modelfetch: ${TARGETARCH}" >&2; exit 1 ;; \
   esac; \
-  sdk_filename="$(/tmp/read-modelfetch-release-manifest.sh /tmp/modelfetch-release.manifest "${TARGETARCH}_filename")"; \
-  case "${sdk_filename}" in *[!A-Za-z0-9._-]*|'') exit 1 ;; esac; \
-  case "${sdk_filename}" in *.tar.gz) ;; *) exit 1 ;; esac; \
-  sdk="/tmp/${sdk_filename}"; \
-  ln -s "${sdk_source}" "${sdk}"; \
   expected_sha="$(/tmp/read-modelfetch-release-manifest.sh /tmp/modelfetch-release.manifest "${TARGETARCH}_sha256")"; \
   case "${expected_sha}" in *[!0-9a-f]*|'') exit 1 ;; esac; \
   test "${#expected_sha}" -eq 64; \
@@ -143,8 +138,7 @@ RUN --mount=type=bind,source=scripts/private/modelfetch-release.manifest,target=
   test -z "$(find /opt/pek-deps/modelfetch -type l -print -quit)"; \
   test "$(find /opt/pek-deps/modelfetch -type f | wc -l)" -eq 5; \
   printf '%s\n' "${expected_sha}" > /opt/pek-deps/modelfetch/.release-sdk-sha256; \
-  chmod 0444 /opt/pek-deps/modelfetch/.release-sdk-sha256; \
-  rm -f "${sdk}"
+  chmod 0444 /opt/pek-deps/modelfetch/.release-sdk-sha256
 
 ENV PEK_MODELFETCH_ROOT=/opt/pek-deps/modelfetch \
     LD_LIBRARY_PATH=/opt/pek-deps/modelfetch/lib:/opt/pek-deps/onnxruntime/lib

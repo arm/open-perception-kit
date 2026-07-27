@@ -47,9 +47,9 @@ services:
 
     user: "0:0"
 
-    command: |
-      /bin/bash -c "/work/.devcontainer/setup.sh &&
-      /work/.devcontainer/devsetup.sh &&
+    command: | 
+      /bin/bash -c "/work/.devcontainer/setup.sh && 
+      /work/.devcontainer/devsetup.sh && 
       ln -sf ~/configs/.gitconfig ~/.gitconfig &&
       while true; do sleep 1; done"
 

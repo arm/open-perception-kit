@@ -174,7 +174,7 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-      target: pek-dev-sonar
+      target: pek-dev-sonar 
       additional_contexts:
         modelfetch_sdks: ../.cache/modelfetch
     environment:
@@ -216,7 +216,7 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-      target: pek-dev-sonar
+      target: pek-dev-sonar 
       additional_contexts:
         modelfetch_sdks: ../.cache/modelfetch
     environment:
