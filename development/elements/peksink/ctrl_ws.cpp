@@ -1,5 +1,5 @@
 /*************************************************************
- * Copyright (C) 2025 Arm Limited. All rights reserved.
+ * Copyright (C) 2026 Arm Limited. All rights reserved.
  *************************************************************/
 
 #include "glib.h"
@@ -15,7 +15,6 @@
 #define GST_USE_UNSTABLE_API
 
 #include "Log.h"
-#include "auxiliary.h"
 #include "ctrl_ws.h"
 #include "peksink.h"
 #include "utils.h"
@@ -46,7 +45,7 @@ CtrlSockerError CtrlWebSocket::setup() {
     ws->listen(self_->ctrl_port);
     ws->start_accept();
 
-    DBG("WebSocket server started");
+    pek::log::debug("WebSocket server started");
 
     return CtrlSockerError::OK;
 }
@@ -57,7 +56,7 @@ CtrlSockerError CtrlWebSocket::start() {
     if (auto error = setup(); error != CtrlSockerError::OK) {
         return error;
     }
-    DBG("WebSocket++ server listening on port {}", self_->ctrl_port);
+    pek::log::debug("WebSocket++ server listening on port {}", self_->ctrl_port);
 
     ws_server_thread = std::thread(&ws_server::run, ws);
     while (!ws->is_listening()) {
@@ -103,14 +102,14 @@ void CtrlWebSocket::on_open(const connection_hdl &hdl) {
 }
 
 void CtrlWebSocket::on_close(const connection_hdl &hdl) {
-    DBG("on_close");
+    pek::log::debug("on_close");
 
     std::lock_guard<std::mutex> g(hdl_lock);
     hdls.erase(hdl);
 }
 
 void CtrlWebSocket::on_message(const connection_hdl &hdl, const ws_server::message_ptr &msg) {
-    DBG("on_message");
+    pek::log::debug("on_message");
     auto payload = msg->get_payload();
     auto jsn = json::parse(payload);
     auto type = jsn["type"].get<std::string>();
@@ -130,7 +129,7 @@ void CtrlWebSocket::register_status_reporter(const std::string &name,
 
 void CtrlWebSocket::report() {
     nlohmann::json rep;
-    DBG("reporting");
+    pek::log::debug("reporting");
 
     std::lock_guard<std::mutex> g(reporter_lock);
 
@@ -141,7 +140,7 @@ void CtrlWebSocket::report() {
     }
 
     send_to_all(rep.dump());
-    DBG("reported: {}", rep.dump());
+    pek::log::debug("reported: {}", rep.dump());
 }
 
 struct ToggleStateRequest {
@@ -203,7 +202,7 @@ void destroy_box(gpointer user_data) {
 
 // handle the play button presses on the html frontend
 void CtrlWebSocket::play_pause(const json &jsn) {
-    DBG("play-pause: {}", jsn.dump());
+    pek::log::debug("play-pause: {}", jsn.dump());
 
     auto tsr = std::make_shared<ToggleStateRequest>();
 
@@ -223,7 +222,7 @@ void CtrlWebSocket::play_pause(const json &jsn) {
 }
 
 void CtrlWebSocket::model_toggle(const json &jsn) {
-    DBG("model_toggle: {}", jsn.dump());
+    pek::log::debug("model_toggle: {}", jsn.dump());
 
     try {
         std::string element_name = jsn["name"];

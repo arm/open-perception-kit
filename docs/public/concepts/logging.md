@@ -25,10 +25,12 @@ inference pipeline.
 | `1` | Error | Errors |
 | `2` | Warn | Warnings and errors |
 | `3` | Notice | Notices, warnings, and errors |
-| `4` | Info | All messages |
+| `4` | Info | Informational messages and less verbose levels |
+| `5` | Debug | All messages |
 
 The default is `4` (`Info`).
-Values out of the accepted range are silently clamped to use the default value.
+Single digits above `5` are silently clamped to `5`. Malformed and multi-digit values silently use
+the default.
 
 The C++ API can read or replace the process setting at runtime:
 
@@ -37,7 +39,7 @@ pek::log::setLogLevel(2);
 const int currentLevel = pek::log::getLogLevel();
 ```
 
-`pek::log::setLogLevel()` clamps values to the supported `0` to `4` range.
+`pek::log::setLogLevel()` clamps values to the supported `0` to `5` range.
 
 ## Log targets
 
@@ -101,9 +103,10 @@ The file target is disabled unless the exact `file` token is selected or the C++
 
 The file is opened only when the first enabled message is written. It is opened in binary append
 mode, so existing content is preserved and messages contain exactly the text supplied by callers:
-no severity prefix, ANSI styling, timestamp, or added line ending. Disabling the target closes the
-file immediately. Re-enabling opens it lazily on the next message. Parent directories are not
-created automatically.
+no target-added severity prefix, ANSI styling, timestamp, or line ending. Debug records already
+contain their cyan/reset ANSI bytes, source prefix, and line ending; those bytes are preserved in
+the raw file. Disabling the target closes the file immediately. Re-enabling opens it lazily on the
+next message. Parent directories are not created automatically.
 
 ## Environment initialization
 
@@ -127,15 +130,22 @@ The severity functions are:
 
 | Function | Level | Output decoration |
 | --- | --- | --- |
+| `pek::log::debug()` | Debug | Cyan `[source-file:line] ` prefix, reset, and one trailing newline |
 | `pek::log::info()` | Info | Message unchanged |
 | `pek::log::notice()` | Notice | ANSI inverted text |
 | `pek::log::warning()` | Warn | `W: ` prefix |
 | `pek::log::error()` | Error | `E: ` prefix |
 
-The corresponding `pek::log::infoRuntime()`, `pek::log::warningRuntime()`, and
-`pek::log::errorRuntime()` functions accept a runtime
-format string. Prefer the compile-time-checked functions when the format string is known at build
-time.
+All severity functions require compile-time-checked format strings. For example:
+
+```cpp
+pek::log::debug("WebSocket server listening on port {}", port);
+```
+
+Debug calls are present in both debug and release builds. Arguments are evaluated and the message
+is formatted before level filtering, so avoid expensive expressions in frequently reached Debug
+calls. One Debug call enqueues one complete record, preventing its prefix, payload, and newline
+from interleaving with other records.
 
 `pek::log::instantInfo()` writes synchronously and unconditionally to stdout.
 `pek::log::instantError()` does the same for stderr. They bypass the log level, asynchronous

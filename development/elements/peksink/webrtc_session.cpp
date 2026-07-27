@@ -1,5 +1,5 @@
 /*************************************************************
- * Copyright (C) 2025 Arm Limited. All rights reserved.
+ * Copyright (C) 2026 Arm Limited. All rights reserved.
  *************************************************************/
 
 #include "webrtc_session.h"
@@ -11,7 +11,7 @@
 #include <gst/gstobject.h>
 #include <gst/gstpad.h>
 
-#include "auxiliary.h"
+#include "Log.h"
 #include "utils.h"
 
 namespace {
@@ -46,7 +46,8 @@ void remove_or_unref_element(GstElement *owner_bin, GstElement **element) {
         if (GST_IS_BIN(parent)) { // NOSONAR
             gst_bin_remove(GST_BIN(parent), *element);
         } else {
-            DBG("Per-client element parent is not a bin: {}", GST_ELEMENT_NAME(*element));
+            pek::log::debug("Per-client element parent is not a bin: {}",
+                            GST_ELEMENT_NAME(*element));
             gst_object_unref(*element);
         }
         gst_object_unref(parent);

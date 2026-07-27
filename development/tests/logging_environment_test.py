@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 ################################################################
-# Copyright (C) 2025 Arm Limited. All rights reserved.
+# Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
 
 
@@ -48,7 +48,8 @@ class LoggingEnvironmentTest(unittest.TestCase):
 
     def test_level_is_parsed_clamped_and_malformed_values_default_silently(self):
         self.assertEqual(self.run_probe("level", level="2", targets="none").stdout, "2\n")
-        self.assertEqual(self.run_probe("level", level="9", targets="none").stdout, "4\n")
+        self.assertEqual(self.run_probe("level", level="5", targets="none").stdout, "5\n")
+        self.assertEqual(self.run_probe("level", level="9", targets="none").stdout, "5\n")
         self.assertEqual(self.run_probe("level", level="99", targets="none").stdout, "4\n")
         malformed = self.run_probe("level", level="bad", targets="none")
         self.assertEqual(malformed.stdout, "4\n")
@@ -75,6 +76,19 @@ class LoggingEnvironmentTest(unittest.TestCase):
         result = self.run_probe("emit", level="4", targets="stdout,stderr")
         self.assertEqual(result.stdout, "info\nE: error\n")
         self.assertEqual(result.stderr, "info\nE: error\n")
+
+    def test_debug_is_ansi_decorated_on_console_and_raw_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_probe(
+                "debug", level="5", targets="stdout,file", cwd=directory
+            )
+
+            expected = (
+                r"\x1b\[1;36m\[LoggingEnvironmentProbe\.cpp:\d+\] "
+                r"\x1b\[0mdebug 7\n"
+            )
+            self.assertRegex(result.stdout, expected)
+            self.assertEqual(Path(directory, "opk.log").read_bytes(), result.stdout.encode())
 
     def test_file_is_disabled_without_exact_target_token(self):
         with tempfile.TemporaryDirectory() as directory:
