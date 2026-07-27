@@ -1,11 +1,11 @@
 /*************************************************************
- * Copyright (C) 2025 Arm Limited. All rights reserved.
+ * Copyright (C) 2026 Arm Limited. All rights reserved.
  *************************************************************/
 
 #include <gst/gst.h>
 #include <gst/gstpipeline.h>
 
-#include "auxiliary.h"
+#include "Log.h"
 #include "gst/gstbin.h"
 #include "gst/gstelement.h"
 #include "utils.h"
@@ -115,7 +115,7 @@ void dump_sink_pads(GstElement *element) {
 
     GstIterator *it = gst_element_iterate_pads(element);
     if (!it) {
-        DBG("No pad iterator");
+        pek::log::debug("No pad iterator");
         return;
     }
 
@@ -131,7 +131,7 @@ void dump_sink_pads(GstElement *element) {
                 const gchar *templ_name =
                     templ ? GST_PAD_TEMPLATE_NAME_TEMPLATE(templ) : "(no template)";
 
-                DBG("Sink pad: {} (template: {})", GST_PAD_NAME(pad), templ_name);
+                pek::log::debug("Sink pad: {} (template: {})", GST_PAD_NAME(pad), templ_name);
             }
             g_value_reset(&item);
             break;
@@ -140,7 +140,7 @@ void dump_sink_pads(GstElement *element) {
             gst_iterator_resync(it);
             break;
         case GST_ITERATOR_ERROR:
-            DBG("Pad iteration error");
+            pek::log::debug("Pad iteration error");
             done = TRUE;
             break;
         case GST_ITERATOR_DONE:
@@ -203,7 +203,7 @@ bool set_state_elements_many(GstState state, std::initializer_list<GstElement *>
         // For teardown, ASYNC is usually fine; FAILURE is not.
         if (r == GST_STATE_CHANGE_FAILURE) {
             ok = false;
-            DBG("Failed to set state on {}", GST_ELEMENT_NAME(e));
+            pek::log::debug("Failed to set state on {}", GST_ELEMENT_NAME(e));
         }
     }
 

@@ -1,5 +1,5 @@
 /*************************************************************
- * Copyright (C) 2025 Arm Limited. All rights reserved.
+ * Copyright (C) 2026 Arm Limited. All rights reserved.
  *************************************************************/
 
 #include "Log.h"
@@ -43,6 +43,11 @@ int main(int argc, char **argv) {
     if (action == "emit") {
         pek::log::info("info\n");
         pek::log::error("error\n");
+        pek::log::flush();
+        return 0;
+    }
+    if (action == "debug") {
+        pek::log::debug("debug {}", 7);
         pek::log::flush();
         return 0;
     }
