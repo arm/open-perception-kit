@@ -38,6 +38,9 @@ MODELFETCH_APP_TOKEN_ACTION = (
     "actions/create-github-app-token@"
     "bcd2ba49218906704ab6c1aa796996da409d3eb1"  # pragma: allowlist secret
 )
+MODELFETCH_CONTAINER_PREPARE_COMMAND = (
+    "./scripts/private/prepare-modelfetch-release-in-container.sh"
+)
 
 
 class AgentWorkflowContractTests(unittest.TestCase):
@@ -675,34 +678,9 @@ class AgentWorkflowContractTests(unittest.TestCase):
             rpi_release_prepare["env"]["GH_TOKEN"],
             "${{ steps.modelfetch-app-token.outputs.token }}",
         )
-        self.assertIn(
-            "--file scripts/private/modelfetch-release-tools.Dockerfile",
+        self.assertEqual(
             rpi_release_prepare["run"],
-        )
-        self.assertIn('--user "$(id -u):$(id -g)"', rpi_release_prepare["run"])
-        self.assertIn(
-            '--mount "type=bind,source=${PWD},target=/workspace,readonly"',
-            rpi_release_prepare["run"],
-        )
-        self.assertIn(
-            '--mount "type=bind,source=${cache_root},target=/modelfetch-cache"',
-            rpi_release_prepare["run"],
-        )
-        self.assertIn("--env GH_TOKEN", rpi_release_prepare["run"])
-        self.assertIn(
-            "--env MODELFETCH_CACHE_ROOT=/modelfetch-cache",
-            rpi_release_prepare["run"],
-        )
-        self.assertIn(
-            "bash scripts/private/prepare-modelfetch-release.sh",
-            rpi_release_prepare["run"],
-        )
-        self.assertIn('-L "$cache_parent"', rpi_release_prepare["run"])
-        self.assertIn('-L "$cache_root"', rpi_release_prepare["run"])
-        self.assertIn("trap cleanup_tool_image EXIT", rpi_release_prepare["run"])
-        self.assertIn(
-            'docker image rm --force "$MODELFETCH_RELEASE_TOOL_IMAGE"',
-            rpi_release_prepare["run"],
+            MODELFETCH_CONTAINER_PREPARE_COMMAND,
         )
         release_tools_dockerfile = (
             PEK_CI_WORKFLOW_FILE.parents[2]
@@ -952,20 +930,10 @@ class AgentWorkflowContractTests(unittest.TestCase):
                     "yolo-modelfetch-release-tools:"
                     "${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}",
                 )
-                self.assertIn(
-                    "--file scripts/private/modelfetch-release-tools.Dockerfile",
+                self.assertEqual(
                     yolo_prepare["run"],
+                    MODELFETCH_CONTAINER_PREPARE_COMMAND,
                 )
-                self.assertIn(
-                    '--mount "type=bind,source=${cache_root},target=/modelfetch-cache"',
-                    yolo_prepare["run"],
-                )
-                self.assertIn("--env GH_TOKEN", yolo_prepare["run"])
-                self.assertIn(
-                    "--env MODELFETCH_CACHE_ROOT=/modelfetch-cache",
-                    yolo_prepare["run"],
-                )
-                self.assertIn("trap cleanup_tool_image EXIT", yolo_prepare["run"])
                 yolo_cleanup = step_map(yolo_job)[
                     "Clean YOLO benchmark workspace and image"
                 ]

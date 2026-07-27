@@ -8,12 +8,21 @@ from __future__ import annotations
 from hashlib import sha256
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 import unittest
 
 
 PREPARE_SCRIPT = Path(__file__).resolve().parents[1] / "prepare-modelfetch-release.sh"
+CONTAINER_PREPARE_SCRIPT = (
+    Path(__file__).resolve().parents[1]
+    / "prepare-modelfetch-release-in-container.sh"
+)
+RELEASE_TOOLS_DOCKERFILE = (
+    Path(__file__).resolve().parents[1]
+    / "modelfetch-release-tools.Dockerfile"
+)
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BLACKDUCK_WORKFLOW = REPO_ROOT / ".github/workflows/blackduck-scan.yml"
 
@@ -29,6 +38,157 @@ class ReleaseWorkflowTests(unittest.TestCase):
         excluded_directories = excluded_line.split('="', 1)[1].split('"', 1)[0]
 
         self.assertIn(".cache", excluded_directories.split(","))
+
+
+class PrepareModelfetchReleaseInContainerTests(unittest.TestCase):
+    def setUp(self):
+        self.tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tempdir.cleanup)
+        self.root = Path(self.tempdir.name)
+        self.repo = self.root / "repo"
+        self.script_dir = self.repo / "scripts/private"
+        self.script_dir.mkdir(parents=True)
+        self.script = self.script_dir / CONTAINER_PREPARE_SCRIPT.name
+        shutil.copy2(CONTAINER_PREPARE_SCRIPT, self.script)
+        shutil.copy2(RELEASE_TOOLS_DOCKERFILE, self.script_dir)
+        shutil.copy2(PREPARE_SCRIPT, self.script_dir)
+
+        self.bin_dir = self.root / "bin"
+        self.bin_dir.mkdir()
+        self.docker_log = self.root / "docker.log"
+        fake_docker = self.bin_dir / "docker"
+        fake_docker.write_text(
+            """#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' "$*" >> "$FAKE_DOCKER_LOG"
+if [[ "${1:-}" == "run" && "${FAKE_DOCKER_RUN_FAIL:-0}" == "1" ]]; then
+    exit 42
+fi
+""",
+            encoding="utf-8",
+        )
+        fake_docker.chmod(0o755)
+
+    def run_prepare(
+        self,
+        *,
+        include_token: bool = True,
+        include_image: bool = True,
+        docker_run_fails: bool = False,
+        arguments: tuple[str, ...] = (),
+    ) -> subprocess.CompletedProcess[str]:
+        env = os.environ.copy()
+        env["PATH"] = f"{self.bin_dir}:{env['PATH']}"
+        env["FAKE_DOCKER_LOG"] = str(self.docker_log)
+        env["FAKE_DOCKER_RUN_FAIL"] = "1" if docker_run_fails else "0"
+        env.pop("GH_TOKEN", None)
+        env.pop("MODELFETCH_RELEASE_TOOL_IMAGE", None)
+        if include_token:
+            env["GH_TOKEN"] = "test-token"
+        if include_image:
+            env["MODELFETCH_RELEASE_TOOL_IMAGE"] = "test-release-tools:123"
+        return subprocess.run(
+            ["bash", str(self.script), *arguments],
+            cwd=self.root,
+            check=False,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+    def docker_calls(self) -> list[str]:
+        if not self.docker_log.exists():
+            return []
+        return self.docker_log.read_text(encoding="utf-8").splitlines()
+
+    def test_builds_runs_and_removes_the_isolated_release_tool_image(self):
+        completed = self.run_prepare()
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        calls = self.docker_calls()
+        self.assertEqual(len(calls), 3)
+        self.assertIn(
+            f"build --file {self.script_dir / RELEASE_TOOLS_DOCKERFILE.name}",
+            calls[0],
+        )
+        self.assertIn("--tag test-release-tools:123", calls[0])
+        self.assertTrue(calls[0].endswith(str(self.repo)))
+        self.assertIn(f"--user {os.getuid()}:{os.getgid()}", calls[1])
+        self.assertIn(
+            f"--mount type=bind,source={self.repo},target=/workspace,readonly",
+            calls[1],
+        )
+        self.assertIn(
+            "--mount "
+            f"type=bind,source={self.repo / '.cache/modelfetch'},"
+            "target=/modelfetch-cache",
+            calls[1],
+        )
+        self.assertIn("--env GH_TOKEN", calls[1])
+        self.assertIn("--env GH_CONFIG_DIR=/tmp/gh-config", calls[1])
+        self.assertIn("--env HOME=/tmp", calls[1])
+        self.assertIn("--env MODELFETCH_CACHE_ROOT=/modelfetch-cache", calls[1])
+        self.assertNotIn("test-token", calls[1])
+        self.assertEqual(
+            calls[2],
+            "image rm --force test-release-tools:123",
+        )
+
+    def test_rejects_symlinked_cache_parent_before_running_docker(self):
+        real_cache = self.root / "real-cache"
+        real_cache.mkdir()
+        (self.repo / ".cache").symlink_to(real_cache, target_is_directory=True)
+
+        completed = self.run_prepare()
+
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("unsafe modelfetch release cache path", completed.stderr)
+        self.assertEqual(self.docker_calls(), [])
+
+    def test_rejects_symlinked_cache_root_before_running_docker(self):
+        cache_parent = self.repo / ".cache"
+        cache_parent.mkdir()
+        real_cache = self.root / "real-modelfetch-cache"
+        real_cache.mkdir()
+        (cache_parent / "modelfetch").symlink_to(
+            real_cache,
+            target_is_directory=True,
+        )
+
+        completed = self.run_prepare()
+
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("unsafe modelfetch release cache path", completed.stderr)
+        self.assertEqual(self.docker_calls(), [])
+
+    def test_removes_the_tool_image_when_the_container_run_fails(self):
+        completed = self.run_prepare(docker_run_fails=True)
+
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertEqual(
+            self.docker_calls()[-1],
+            "image rm --force test-release-tools:123",
+        )
+
+    def test_requires_the_token_and_unique_tool_image_name(self):
+        for missing in ("token", "image"):
+            with self.subTest(missing=missing):
+                self.docker_log.unlink(missing_ok=True)
+                completed = self.run_prepare(
+                    include_token=missing != "token",
+                    include_image=missing != "image",
+                )
+
+                self.assertNotEqual(completed.returncode, 0)
+                self.assertIn("is required", completed.stderr)
+                self.assertEqual(self.docker_calls(), [])
+
+    def test_rejects_unused_arguments(self):
+        completed = self.run_prepare(arguments=("--legacy-mode",))
+
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn("does not accept arguments", completed.stderr)
+        self.assertEqual(self.docker_calls(), [])
 
 
 class PrepareModelfetchReleaseTests(unittest.TestCase):

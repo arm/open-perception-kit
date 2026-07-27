@@ -67,39 +67,7 @@ jobs:
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
-        run: |
-          set -euo pipefail
-          cache_parent="${PWD}/.cache"
-          cache_root="${cache_parent}/modelfetch"
-          if [[ -L "$cache_parent" || -L "$cache_root" ]]; then
-            echo "Refusing unsafe modelfetch release cache path: ${cache_root}" >&2
-            exit 1
-          fi
-          mkdir -p "$cache_root"
-          if [[ ! -d "$cache_parent" || -L "$cache_parent" ||
-                ! -d "$cache_root" || -L "$cache_root" ]]; then
-            echo "Refusing unsafe modelfetch release cache path: ${cache_root}" >&2
-            exit 1
-          fi
-          cleanup_tool_image() {
-            docker image rm --force "$MODELFETCH_RELEASE_TOOL_IMAGE" >/dev/null 2>&1 || true
-          }
-          trap cleanup_tool_image EXIT
-          docker build \
-            --file scripts/private/modelfetch-release-tools.Dockerfile \
-            --tag "$MODELFETCH_RELEASE_TOOL_IMAGE" \
-            .
-          docker run --rm \
-            --user "$(id -u):$(id -g)" \
-            --mount "type=bind,source=${PWD},target=/workspace,readonly" \
-            --mount "type=bind,source=${cache_root},target=/modelfetch-cache" \
-            --workdir /workspace \
-            --env GH_TOKEN \
-            --env GH_CONFIG_DIR=/tmp/gh-config \
-            --env HOME=/tmp \
-            --env MODELFETCH_CACHE_ROOT=/modelfetch-cache \
-            "$MODELFETCH_RELEASE_TOOL_IMAGE" \
-            bash scripts/private/prepare-modelfetch-release.sh >/dev/null
+        run: ./scripts/private/prepare-modelfetch-release-in-container.sh
 
       - name: Set up YOLO benchmark cache
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
