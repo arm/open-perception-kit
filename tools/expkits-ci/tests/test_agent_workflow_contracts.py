@@ -407,6 +407,17 @@ class AgentWorkflowContractTests(unittest.TestCase):
 
         self.assertEqual(workflow["on"]["pull_request"]["types"], ["labeled"])
         self.assertEqual(workflow["permissions"], {})
+        self.assertEqual(
+            workflow["concurrency"],
+            {
+                "group": (
+                    "agent-stabilize-label-${{ github.event.pull_request.number }}-"
+                    "${{ github.event.label.name != 'agent-stabilize' && "
+                    "github.run_id || 'stabilization' }}"
+                ),
+                "cancel-in-progress": "false",
+            },
+        )
         self.assertEqual(set(workflow["jobs"]), {"run-agent-stabilizer"})
         self.assertNotIn("review-gate", workflow["jobs"])
         self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", job["if"])
