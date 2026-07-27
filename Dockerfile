@@ -118,8 +118,7 @@ RUN --mount=type=bind,source=scripts/private/modelfetch-release.manifest,target=
     *) echo "Unsupported architecture for modelfetch: ${TARGETARCH}" >&2; exit 1 ;; \
   esac; \
   expected_sha="$(/tmp/read-modelfetch-release-manifest.sh /tmp/modelfetch-release.manifest "${TARGETARCH}_sha256")"; \
-  case "${expected_sha}" in *[!0-9a-f]*|'') exit 1 ;; esac; \
-  test "${#expected_sha}" -eq 64; \
+  printf '%s\n' "${expected_sha}" | grep -Eq '^[0-9a-f]{64}$'; \
   echo "${expected_sha}  ${sdk}" | sha256sum -c -; \
   test "$(tar -tzf "${sdk}" | LC_ALL=C sort)" = "$(printf '%s\n' \
     include/modelfetch.h \
