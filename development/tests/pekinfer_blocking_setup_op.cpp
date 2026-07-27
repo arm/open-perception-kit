@@ -10,6 +10,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <system_error>
 #include <thread>
 
@@ -26,9 +27,10 @@ class BlockingSetupOp final : public pek::op::Op {
             return tl::unexpected{PEK_ERROR(pek::ErrorFlag::InvalidData, error.what())};
         }
 
-        auto descriptor = setupContext.resolveModelDescriptor(modelDescriptorPath);
-        if (!descriptor)
+        if (auto descriptor = setupContext.resolveModelDescriptor(modelDescriptorPath);
+            !descriptor) {
             return tl::unexpected{descriptor.error()};
+        }
 
         const char *startedPath = std::getenv("PEK_TEST_BLOCKING_SETUP_STARTED");
         const char *releasePath = std::getenv("PEK_TEST_BLOCKING_SETUP_RELEASE");
@@ -69,8 +71,8 @@ class BlockingSetupOp final : public pek::op::Op {
     }
 
     pek::Result<pek::op::OpSignal> process(pek::op::OpChainContext &) override {
-        const char *processedPath = std::getenv("PEK_TEST_BLOCKING_PROCESS_CALLED");
-        if (processedPath != nullptr) {
+        if (const char *processedPath = std::getenv("PEK_TEST_BLOCKING_PROCESS_CALLED");
+            processedPath != nullptr) {
             std::ofstream processed(processedPath);
             if (!processed) {
                 return tl::unexpected{PEK_ERROR(
@@ -86,11 +88,11 @@ class BlockingSetupOp final : public pek::op::Op {
 } // namespace
 
 extern "C" void pek_delete_op_instance(void *instance) {
-    delete static_cast<pek::op::Op *>(instance);
+    std::unique_ptr<pek::op::Op> owner(static_cast<pek::op::Op *>(instance));
 }
 
 extern "C" void *pek_create_op_instance(const char *opName) {
     if (opName == nullptr || std::strcmp(opName, "BlockingSetup") != 0)
         return nullptr;
-    return new BlockingSetupOp();
+    return std::make_unique<BlockingSetupOp>().release();
 }

@@ -16,11 +16,121 @@ import sys
 import tempfile
 import time
 import unittest
+from collections.abc import Callable
+from typing import Any
 
 GST_LAUNCH = Path(sys.argv[1]).resolve()
 PLUGIN_PATH = Path(sys.argv[2]).resolve()
 BLOCKING_SETUP_OP_PATH = Path(sys.argv[3]).resolve()
 FAKE_MODELFETCH_PATH = Path(sys.argv[4]).resolve()
+DEFAULT_VIDEO_CAPS = "video/x-raw,format=BGRA,width=16,height=16"
+
+
+def gst_launch_command(
+    descriptor: Path,
+    *,
+    num_buffers: int,
+    active: bool,
+    live: bool = False,
+    caps: str = DEFAULT_VIDEO_CAPS,
+    sink: tuple[str, ...] = ("fakesink",),
+) -> list[str]:
+    command = [
+        str(GST_LAUNCH),
+        "-q",
+        "videotestsrc",
+        f"num-buffers={num_buffers}",
+    ]
+    if live:
+        command.append("is-live=true")
+    command.extend(
+        [
+            "!",
+            caps,
+            "!",
+            "pekinfer",
+            f"opchain-path={descriptor}",
+            f"active={str(active).lower()}",
+            "!",
+            *sink,
+        ]
+    )
+    return command
+
+
+def download_calls(calls: Path) -> list[str]:
+    if not calls.exists():
+        return []
+    return calls.read_text(encoding="utf-8").splitlines()
+
+
+def wait_until(
+    bus: Any,
+    gst: Any,
+    predicate: Callable[[], bool],
+    description: str,
+) -> None:
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        if predicate():
+            return
+        message = bus.timed_pop_filtered(
+            10 * gst.MSECOND,
+            gst.MessageType.ERROR,
+        )
+        if message is not None:
+            error, debug = message.parse_error()
+            raise RuntimeError(f"{error.message}: {debug}")
+    raise TimeoutError(f"timed out waiting for {description}")
+
+
+def wait_for_setup_failure(bus: Any, gst: Any) -> None:
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        message = bus.timed_pop_filtered(
+            50 * gst.MSECOND,
+            gst.MessageType.ERROR | gst.MessageType.WARNING,
+        )
+        if message is None:
+            continue
+        if message.type == gst.MessageType.ERROR:
+            error, debug = message.parse_error()
+            raise RuntimeError(f"{error.message}: {debug}")
+        warning, debug = message.parse_warning()
+        if "Asynchronous OpChain setup failed" in warning.message:
+            return
+        raise RuntimeError(f"unexpected pipeline warning: {warning.message}: {debug}")
+    raise TimeoutError("timed out waiting for asynchronous setup failure")
+
+
+def create_activation_cycle_pipeline(gst: Any, descriptor: Path) -> tuple[Any, Any]:
+    pipeline = gst.Pipeline.new("activation-cycle")
+    source = gst.ElementFactory.make("videotestsrc", "source")
+    caps_filter = gst.ElementFactory.make("capsfilter", "caps")
+    infer = gst.ElementFactory.make("pekinfer", "infer")
+    sink = gst.ElementFactory.make("fakesink", "sink")
+    elements = [source, caps_filter, infer, sink]
+    if pipeline is None or any(element is None for element in elements):
+        raise RuntimeError("could not create the activation-cycle test pipeline")
+
+    source.set_property("is-live", True)
+    caps_filter.set_property(
+        "caps",
+        gst.Caps.from_string(DEFAULT_VIDEO_CAPS),
+    )
+    infer.set_property("opchain-path", str(descriptor))
+    infer.set_property("active", True)
+    sink.set_property("sync", False)
+
+    for element in elements:
+        pipeline.add(element)
+    for current, following in zip(elements, elements[1:]):
+        if not current.link(following):
+            raise RuntimeError(
+                f"could not link {current.get_name()} to {following.get_name()}"
+            )
+
+    return pipeline, infer
 
 
 def run_activation_cycle_helper(scenario: str) -> None:
@@ -36,97 +146,48 @@ def run_activation_cycle_helper(scenario: str) -> None:
     process_called = Path(os.environ["PEK_TEST_BLOCKING_PROCESS_CALLED"])
 
     Gst.init(None)
-    pipeline = Gst.Pipeline.new("activation-cycle")
-    source = Gst.ElementFactory.make("videotestsrc", "source")
-    caps_filter = Gst.ElementFactory.make("capsfilter", "caps")
-    infer = Gst.ElementFactory.make("pekinfer", "infer")
-    sink = Gst.ElementFactory.make("fakesink", "sink")
-    elements = [source, caps_filter, infer, sink]
-    if pipeline is None or any(element is None for element in elements):
-        raise RuntimeError("could not create the activation-cycle test pipeline")
-
-    source.set_property("is-live", True)
-    caps_filter.set_property(
-        "caps",
-        Gst.Caps.from_string("video/x-raw,format=BGRA,width=16,height=16"),
-    )
-    infer.set_property("opchain-path", str(descriptor))
-    infer.set_property("active", True)
-    sink.set_property("sync", False)
-
-    for element in elements:
-        pipeline.add(element)
-    for current, following in zip(elements, elements[1:]):
-        if not current.link(following):
-            raise RuntimeError(
-                f"could not link {current.get_name()} to {following.get_name()}"
-            )
-
+    pipeline, infer = create_activation_cycle_pipeline(Gst, descriptor)
     bus = pipeline.get_bus()
-
-    def download_calls() -> list[str]:
-        if not calls.exists():
-            return []
-        return calls.read_text(encoding="utf-8").splitlines()
-
-    def wait_until(predicate, description: str) -> None:
-        deadline = time.monotonic() + 5
-        while time.monotonic() < deadline:
-            if predicate():
-                return
-            message = bus.timed_pop_filtered(
-                10 * Gst.MSECOND,
-                Gst.MessageType.ERROR,
-            )
-            if message is not None:
-                error, debug = message.parse_error()
-                raise RuntimeError(f"{error.message}: {debug}")
-        raise TimeoutError(f"timed out waiting for {description}")
-
-    def wait_for_setup_failure() -> None:
-        deadline = time.monotonic() + 5
-        while time.monotonic() < deadline:
-            message = bus.timed_pop_filtered(
-                50 * Gst.MSECOND,
-                Gst.MessageType.ERROR | Gst.MessageType.WARNING,
-            )
-            if message is None:
-                continue
-            if message.type == Gst.MessageType.ERROR:
-                error, debug = message.parse_error()
-                raise RuntimeError(f"{error.message}: {debug}")
-            warning, debug = message.parse_warning()
-            if "Asynchronous OpChain setup failed" in warning.message:
-                return
-            raise RuntimeError(f"unexpected pipeline warning: {warning.message}: {debug}")
-        raise TimeoutError("timed out waiting for asynchronous setup failure")
 
     if pipeline.set_state(Gst.State.PLAYING) == Gst.StateChangeReturn.FAILURE:
         raise RuntimeError("could not start the activation-cycle test pipeline")
 
     try:
         if scenario == "retry":
-            wait_for_setup_failure()
+            wait_for_setup_failure(bus, Gst)
             os.environ.pop("PEK_MODELFETCH_FAKE_MODE", None)
             infer.set_property("active", False)
             infer.set_property("active", True)
-            wait_until(process_called.exists, "the retried OpChain to process a frame")
-            if download_calls() != ["call", "call"]:
+            wait_until(
+                bus,
+                Gst,
+                process_called.exists,
+                "the retried OpChain to process a frame",
+            )
+            if download_calls(calls) != ["call", "call"]:
                 raise AssertionError(
-                    f"expected one failed and one successful materialization, got {download_calls()}"
+                    "expected one failed and one successful materialization, got "
+                    f"{download_calls(calls)}"
                 )
         elif scenario == "cache-ready":
             wait_until(
-                lambda: setup_started.exists() and download_calls() == ["call"],
+                bus,
+                Gst,
+                lambda: setup_started.exists() and download_calls(calls) == ["call"],
                 "setup to block after its first materialization",
             )
             infer.set_property("active", False)
             setup_release.touch()
             infer.set_property("active", True)
-            wait_until(process_called.exists, "the cached OpChain to process a frame")
-            if download_calls() != ["call"]:
+            wait_until(
+                bus,
+                Gst,
+                process_called.exists,
+                "the cached OpChain to process a frame",
+            )
+            if download_calls(calls) != ["call"]:
                 raise AssertionError(
-                    f"reactivation rematerialized the ready model: {download_calls()}"
+                    f"reactivation rematerialized the ready model: {download_calls(calls)}"
                 )
         else:
             raise ValueError(f"unknown activation-cycle scenario: {scenario}")
@@ -260,21 +321,12 @@ class PekInferLazySetupTest(unittest.TestCase):
                 encoding="utf-8",
             )
             return subprocess.run(
-                [
-                    str(GST_LAUNCH),
-                    "-q",
-                    "videotestsrc",
-                    "num-buffers=15",
-                    "is-live=true",
-                    "!",
-                    "video/x-raw,format=BGRA,width=16,height=16",
-                    "!",
-                    "pekinfer",
-                    f"opchain-path={descriptor}",
-                    "active=true",
-                    "!",
-                    "fakesink",
-                ],
+                gst_launch_command(
+                    descriptor,
+                    num_buffers=15,
+                    active=True,
+                    live=True,
+                ),
                 check=False,
                 capture_output=True,
                 env=self.pipeline_environment(test_directory),
@@ -294,20 +346,11 @@ class PekInferLazySetupTest(unittest.TestCase):
             environment["PEK_MODELFETCH_FAKE_CALLS"] = str(calls)
 
             result = subprocess.run(
-                [
-                    str(GST_LAUNCH),
-                    "-q",
-                    "videotestsrc",
-                    "num-buffers=1",
-                    "!",
-                    "video/x-raw,format=BGRA,width=16,height=16",
-                    "!",
-                    "pekinfer",
-                    f"opchain-path={opchain_descriptor}",
-                    "active=false",
-                    "!",
-                    "fakesink",
-                ],
+                gst_launch_command(
+                    opchain_descriptor,
+                    num_buffers=1,
+                    active=False,
+                ),
                 check=False,
                 capture_output=True,
                 env=environment,
@@ -339,22 +382,13 @@ class PekInferLazySetupTest(unittest.TestCase):
             environment["PEK_TEST_BLOCKING_SETUP_STARTED"] = str(op_setup_started)
             environment["PEK_TEST_BLOCKING_SETUP_RELEASE"] = str(release)
             process = subprocess.Popen(
-                [
-                    str(GST_LAUNCH),
-                    "-q",
-                    "videotestsrc",
-                    "num-buffers=15",
-                    "is-live=true",
-                    "!",
-                    "video/x-raw,format=BGRA,width=16,height=16",
-                    "!",
-                    "pekinfer",
-                    f"opchain-path={descriptor}",
-                    "active=true",
-                    "!",
-                    "filesink",
-                    f"location={output}",
-                ],
+                gst_launch_command(
+                    descriptor,
+                    num_buffers=15,
+                    active=True,
+                    live=True,
+                    sink=("filesink", f"location={output}"),
+                ),
                 env=environment,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -412,21 +446,12 @@ class PekInferLazySetupTest(unittest.TestCase):
             environment["PEK_TEST_BLOCKING_SETUP_RELEASE"] = str(op_setup_release)
 
             result = subprocess.run(
-                [
-                    str(GST_LAUNCH),
-                    "-q",
-                    "videotestsrc",
-                    "num-buffers=15",
-                    "is-live=true",
-                    "!",
-                    "video/x-raw,format=BGRA,width=16,height=16",
-                    "!",
-                    "pekinfer",
-                    f"opchain-path={opchain_descriptor}",
-                    "active=true",
-                    "!",
-                    "fakesink",
-                ],
+                gst_launch_command(
+                    opchain_descriptor,
+                    num_buffers=15,
+                    active=True,
+                    live=True,
+                ),
                 check=False,
                 capture_output=True,
                 env=environment,
@@ -462,21 +487,13 @@ class PekInferLazySetupTest(unittest.TestCase):
             environment["PEK_TEST_BLOCKING_SETUP_RELEASE"] = str(op_setup_release)
 
             result = subprocess.run(
-                [
-                    str(GST_LAUNCH),
-                    "-q",
-                    "videotestsrc",
-                    "num-buffers=180",
-                    "is-live=true",
-                    "!",
-                    "video/x-raw,format=BGRA,width=16,height=16,framerate=60/1",
-                    "!",
-                    "pekinfer",
-                    f"opchain-path={opchain_descriptor}",
-                    "active=true",
-                    "!",
-                    "fakesink",
-                ],
+                gst_launch_command(
+                    opchain_descriptor,
+                    num_buffers=180,
+                    active=True,
+                    live=True,
+                    caps=f"{DEFAULT_VIDEO_CAPS},framerate=60/1",
+                ),
                 check=False,
                 capture_output=True,
                 env=environment,
