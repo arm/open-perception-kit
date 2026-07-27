@@ -247,8 +247,8 @@ class QualityChecks:
         # feature branch: feature/PROJECT-1234[/something-something]
         if re.match(jira_pattern, branch) or (branch == "main"):
             result = True
-        # sandbox branch: sandbox/whatever
-        elif branch.startswith("sandbox/"):
+        # automated and sandbox branches
+        elif branch.startswith(("dependabot/", "sandbox/")):
             result = True
 
         if not result:
@@ -414,6 +414,64 @@ class QualityChecks:
         return True
 
     @staticmethod
+    def _check_commit_message_on_ci(commit, jira_pattern) -> bool:
+        sha = commit.hexsha[:8]
+        filtered_lines = QualityChecks.filter_comment_lines(commit.message)
+
+        if filtered_lines and QualityChecks.JIRA_SUBJECT_PREFIX_RE.match(filtered_lines[0]):
+            logger.info(f"[{sha}] Commit message format is valid.")
+            return True
+
+        if len(filtered_lines) < 2:
+            if not filtered_lines:
+                logger.error(
+                    f"[{sha}] Commit message must have at least two lines: "
+                    "a description and a reference to a JIRA ticket.")
+                logger.error("Example:")
+                logger.error("  Add new feature for X\n  Task: EXPKITS-4242")
+                logger.error(
+                    "The current commit message is:\n"
+                    + QualityChecks.render_commit_message_for_log(commit.message, filtered_lines))
+                return False
+
+            if QualityChecks.allows_missing_jira_reference(filtered_lines):
+                logger.info(f"[{sha}] Commit message format is valid.")
+                return True
+            logger.error(
+                f"[{sha}] Commit message must have at least two lines: "
+                "a description and a reference to a JIRA ticket.")
+            logger.error("Example:")
+            logger.error("  Add new feature for X\n  Task: EXPKITS-4242")
+            logger.error(
+                "The current commit message is:\n"
+                + QualityChecks.render_commit_message_for_log(commit.message, filtered_lines))
+            return False
+
+        if not filtered_lines[0]:
+            logger.error(f"[{sha}] First line of commit message must be a non-empty description.")
+            logger.error(
+                "The current commit message is:\n"
+                + QualityChecks.render_commit_message_for_log(commit.message, filtered_lines))
+            return False
+
+        if QualityChecks.allows_missing_jira_reference(filtered_lines):
+            logger.info(f"[{sha}] Commit message format is valid.")
+            return True
+
+        if not re.match(jira_pattern, filtered_lines[1], re.IGNORECASE):
+            logger.error(
+                f"[{sha}] Second line must match \"<Bug|Task>: JIRA-XXXX\" with a valid JIRA project.")
+            logger.error("Example:")
+            logger.error(f"  Task: {QualityChecks.JIRA_PROJECTS[0]}-1234")
+            logger.error(
+                "The current commit message is:\n"
+                + QualityChecks.render_commit_message_for_log(commit.message, filtered_lines))
+            return False
+
+        logger.info(f"[{sha}] Commit message format is valid.")
+        return True
+
+    @staticmethod
     def check_commit_messages_on_ci(files=None, target_branch=None) -> bool:
         """Check all commit messages on the current branch that are not on target_branch.
 
@@ -473,69 +531,11 @@ class QualityChecks:
         logger.info(f"Checking {len(commits)} commit(s)...")
 
         jira_pattern = r"^(Bug|Task): (%s)-\d+$" % "|".join(QualityChecks.JIRA_PROJECTS)
-        result = True
-
-        for commit in commits:
-            sha = commit.hexsha[:8]
-            filtered_lines = QualityChecks.filter_comment_lines(commit.message)
-
-            if len(filtered_lines) < 2:
-                if not filtered_lines:
-                    logger.error(
-                        f"[{sha}] Commit message must have at least two lines: "
-                        "a description and a reference to a JIRA ticket.")
-                    logger.error("Example:")
-                    logger.error("  Add new feature for X\n  Task: EXPKITS-4242")
-                    logger.error(
-                        "The current commit message is:\n"
-                        + QualityChecks.render_commit_message_for_log(commit.message, filtered_lines))
-                    result = False
-                    continue
-
-                if QualityChecks.allows_missing_jira_reference(filtered_lines):
-                    logger.info(f"[{sha}] Commit message format is valid.")
-                    continue
-                if QualityChecks.JIRA_SUBJECT_PREFIX_RE.match(filtered_lines[0]):
-                    logger.info(f"[{sha}] Commit message format is valid.")
-                    continue
-
-                logger.error(
-                    f"[{sha}] Commit message must have at least two lines: "
-                    "a description and a reference to a JIRA ticket.")
-                logger.error("Example:")
-                logger.error("  Add new feature for X\n  Task: EXPKITS-4242")
-                logger.error(
-                    "The current commit message is:\n"
-                    + QualityChecks.render_commit_message_for_log(commit.message, filtered_lines))
-                result = False
-                continue
-
-            if not filtered_lines[0]:
-                logger.error(f"[{sha}] First line of commit message must be a non-empty description.")
-                logger.error(
-                    "The current commit message is:\n"
-                    + QualityChecks.render_commit_message_for_log(commit.message, filtered_lines))
-                result = False
-                continue
-
-            if QualityChecks.allows_missing_jira_reference(filtered_lines):
-                logger.info(f"[{sha}] Commit message format is valid.")
-                continue
-
-            if not re.match(jira_pattern, filtered_lines[1], re.IGNORECASE):
-                logger.error(
-                    f"[{sha}] Second line must match \"<Bug|Task>: JIRA-XXXX\" with a valid JIRA project.")
-                logger.error("Example:")
-                logger.error(f"  Task: {QualityChecks.JIRA_PROJECTS[0]}-1234")
-                logger.error(
-                    "The current commit message is:\n"
-                    + QualityChecks.render_commit_message_for_log(commit.message, filtered_lines))
-                result = False
-                continue
-
-            logger.info(f"[{sha}] Commit message format is valid.")
-
-        return result
+        results = [
+            QualityChecks._check_commit_message_on_ci(commit, jira_pattern)
+            for commit in commits
+        ]
+        return all(results)
 
     @staticmethod
     def get_http_response(url, timeout=10):

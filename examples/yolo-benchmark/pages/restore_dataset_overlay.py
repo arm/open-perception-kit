@@ -16,10 +16,16 @@ import subprocess
 import sys
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.report_pages.publish import write_root_index  # noqa: E402
+
 
 DATASET_ROOT = "yolo-performance-datasets"
 DATASET_NAME = "COCO val2017"
 FINGERPRINT_HEADER = "# image_set_fingerprint="
+REPORT_ROOTS = ("yolo-benchmark", "yolo-imageset-benchmark")
 VIDEO_DATASET_NAME = "MediaPipe object detection"
 VIDEO_FILENAME = "mediapipe-object-detection.mp4"
 
@@ -33,7 +39,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+    return REPO_ROOT
 
 
 def dataset_id(fingerprint: str) -> str:
@@ -100,11 +106,21 @@ def coco_image_name(image_id: str) -> str:
 
 
 def report_image_lists(site_dir: Path) -> list[Path]:
-    return sorted(path for path in (site_dir / "yolo-benchmark").rglob("images.tsv") if path.is_file())
+    return sorted(
+        path
+        for report_root in REPORT_ROOTS
+        for path in (site_dir / report_root).rglob("images.tsv")
+        if path.is_file()
+    )
 
 
 def report_video_manifests(site_dir: Path) -> list[Path]:
-    return sorted(path for path in (site_dir / "yolo-benchmark").rglob("video-source.json") if path.is_file())
+    return sorted(
+        path
+        for report_root in REPORT_ROOTS
+        for path in (site_dir / report_root).rglob("video-source.json")
+        if path.is_file()
+    )
 
 
 def write_index(path: Path, title: str, links: list[tuple[str, str]]) -> None:
@@ -284,6 +300,7 @@ def restore_overlay(site_dir: Path, cache_dir: Path, image_list: Path | None = N
         "YOLO Performance Datasets",
         [(target.name, f"{target.name}/index.html") for target in targets],
     )
+    write_root_index(site_dir, dataset_count=len(targets))
     return targets
 
 

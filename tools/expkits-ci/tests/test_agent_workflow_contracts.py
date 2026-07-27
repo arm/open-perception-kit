@@ -416,6 +416,17 @@ class AgentWorkflowContractTests(unittest.TestCase):
 
         self.assertEqual(workflow["on"]["pull_request"]["types"], ["labeled"])
         self.assertEqual(workflow["permissions"], {})
+        self.assertEqual(
+            workflow["concurrency"],
+            {
+                "group": (
+                    "agent-stabilize-label-${{ github.event.pull_request.number }}-"
+                    "${{ github.event.label.name != 'agent-stabilize' && "
+                    "github.run_id || 'stabilization' }}"
+                ),
+                "cancel-in-progress": "false",
+            },
+        )
         self.assertEqual(set(workflow["jobs"]), {"run-agent-stabilizer"})
         self.assertNotIn("review-gate", workflow["jobs"])
         self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", job["if"])
@@ -818,7 +829,12 @@ class AgentWorkflowContractTests(unittest.TestCase):
             ),
             (
                 ".github/workflows/yolo-benchmark.yml",
-                "yolo-benchmark",
+                "yolo-video-benchmark",
+                "Prepare pinned modelfetch release",
+            ),
+            (
+                ".github/workflows/yolo-imageset-benchmark.yml",
+                "yolo-imageset-benchmark",
                 "Prepare pinned modelfetch release",
             ),
             (
@@ -830,8 +846,12 @@ class AgentWorkflowContractTests(unittest.TestCase):
         unprivileged_consumers = {
             (".github/workflows/pek-ci.yml", "linux-quick-start-build-test"):
                 "Build and start quick-start container",
-            (".github/workflows/yolo-benchmark.yml", "yolo-benchmark"):
+            (".github/workflows/yolo-benchmark.yml", "yolo-video-benchmark"):
                 "Set up YOLO benchmark cache",
+            (
+                ".github/workflows/yolo-imageset-benchmark.yml",
+                "yolo-imageset-benchmark",
+            ): "Set up YOLO benchmark cache",
         }
 
         for relative_path, job_name, consumer_step_name in consumer_jobs:
@@ -915,35 +935,49 @@ class AgentWorkflowContractTests(unittest.TestCase):
             modelfetch_consumer_condition,
         )
 
-        yolo = load_yaml(REPO_ROOT / ".github/workflows/yolo-benchmark.yml")
-        yolo_job = yolo["jobs"]["yolo-benchmark"]
-        yolo_prepare = step_map(yolo_job)["Prepare pinned modelfetch release"]
-        self.assertEqual(
-            yolo_job["env"]["MODELFETCH_RELEASE_TOOL_IMAGE"],
-            "yolo-modelfetch-release-tools:"
-            "${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}",
+        yolo_workflows = (
+            (".github/workflows/yolo-benchmark.yml", "yolo-video-benchmark"),
+            (
+                ".github/workflows/yolo-imageset-benchmark.yml",
+                "yolo-imageset-benchmark",
+            ),
         )
-        self.assertIn(
-            "--file scripts/private/modelfetch-release-tools.Dockerfile",
-            yolo_prepare["run"],
-        )
-        self.assertIn(
-            '--mount "type=bind,source=${cache_root},target=/modelfetch-cache"',
-            yolo_prepare["run"],
-        )
-        self.assertIn("--env GH_TOKEN", yolo_prepare["run"])
-        self.assertIn(
-            "--env MODELFETCH_CACHE_ROOT=/modelfetch-cache",
-            yolo_prepare["run"],
-        )
-        self.assertIn("trap cleanup_tool_image EXIT", yolo_prepare["run"])
-        yolo_cleanup = step_map(yolo_job)["Clean YOLO benchmark workspace and image"]
-        self.assertEqual(yolo_cleanup["if"], "always()")
-        self.assertIn(
-            'docker image rm --force "$MODELFETCH_RELEASE_TOOL_IMAGE"',
-            yolo_cleanup["run"],
-        )
-        self.assertIn('[[ -e "$checkout_path" || -L "$checkout_path" ]]', yolo_cleanup["run"])
+        for relative_path, job_name in yolo_workflows:
+            yolo = load_yaml(REPO_ROOT / relative_path)
+            yolo_job = yolo["jobs"][job_name]
+            yolo_prepare = step_map(yolo_job)["Prepare pinned modelfetch release"]
+            with self.subTest(workflow=relative_path, job=job_name):
+                self.assertEqual(
+                    yolo_job["env"]["MODELFETCH_RELEASE_TOOL_IMAGE"],
+                    "yolo-modelfetch-release-tools:"
+                    "${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}",
+                )
+                self.assertIn(
+                    "--file scripts/private/modelfetch-release-tools.Dockerfile",
+                    yolo_prepare["run"],
+                )
+                self.assertIn(
+                    '--mount "type=bind,source=${cache_root},target=/modelfetch-cache"',
+                    yolo_prepare["run"],
+                )
+                self.assertIn("--env GH_TOKEN", yolo_prepare["run"])
+                self.assertIn(
+                    "--env MODELFETCH_CACHE_ROOT=/modelfetch-cache",
+                    yolo_prepare["run"],
+                )
+                self.assertIn("trap cleanup_tool_image EXIT", yolo_prepare["run"])
+                yolo_cleanup = step_map(yolo_job)[
+                    "Clean YOLO benchmark workspace and image"
+                ]
+                self.assertEqual(yolo_cleanup["if"], "always()")
+                self.assertIn(
+                    'docker image rm --force "$MODELFETCH_RELEASE_TOOL_IMAGE"',
+                    yolo_cleanup["run"],
+                )
+                self.assertIn(
+                    '[[ -e "$checkout_path" || -L "$checkout_path" ]]',
+                    yolo_cleanup["run"],
+                )
 
     def test_stabilizer_workflow_uses_canonical_agent_review_shape(self):
         workflow = load_yaml(AGENT_STABILIZE_PR_WORKER_FILE)

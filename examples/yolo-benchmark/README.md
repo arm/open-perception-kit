@@ -1,13 +1,16 @@
 # yolo-benchmark
 
-Manual/nightly benchmark comparing a bare Ultralytics YOLO predict loop with
-the PEK runtime. This is not a PR gate. PR runs require the
-`run-yolo-benchmark` label.
+Independent manual/nightly benchmarks compare bare Ultralytics YOLO with the
+PEK runtime. Neither is a PR gate:
 
-The workflow also has a faster `video` mode comparing the native Ultralytics
-video predictor with the PEK GStreamer pipeline on one pinned MP4. Manual video
-runs default to four order-balanced repetitions, scheduled runs use ten, and
-neither prepares nor processes COCO.
+- `YOLO Video Benchmark` uses one pinned MP4. PR runs require the
+  `run-yolo-benchmark` label.
+- `YOLO Imageset Benchmark` uses COCO val2017. PR runs require the
+  `run-yolo-imageset-benchmark` label.
+
+Manual video runs default to four order-balanced repetitions and scheduled
+runs use ten. Scheduled image-set runs use one full-COCO repetition; labeled
+PR runs use ten images as a smoke test.
 
 ## Video FPS
 
@@ -110,8 +113,10 @@ corresponding detection overlays.
 
 ## Pages
 
-The Pages publisher consumes the benchmark Actions artifact and publishes under
-`yolo-benchmark/` plus the deploy-only `yolo-performance-datasets/` overlay.
+The shared Pages publisher branches on the comparison schema and publishes the
+video and image-set reports independently under `yolo-benchmark/` and
+`yolo-imageset-benchmark/`. Inputs are exposed through the deploy-only
+`yolo-performance-datasets/` overlay.
 
 Dataset images and the pinned input video are restored as a deploy-only overlay keyed by fingerprint.
 Detection MP4s stay in the benchmark Actions artifact. Every report Pages
