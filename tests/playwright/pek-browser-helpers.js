@@ -7,6 +7,7 @@ const MODEL_NAME = '.model-name';
 const MODELS_CONTAINER = '#models-container';
 const NO_MODELS_TEXT = 'No models registered yet';
 const STATUS_LINE = '#status-line';
+const VIDEO_PROGRESS_TIMEOUT_MS = 30000;
 const VIDEO_SAMPLE_INTERVAL_MS = 1000;
 const VIDEO_SAMPLE_COUNT = 8;
 
@@ -34,12 +35,12 @@ async function openPekUi(page) {
   }));
 }
 
-async function waitForVideo(page) {
+async function waitForVideo(page, timeout = 60000) {
   await expect(page.locator(STATUS_LINE)).toContainText(/connected|video/i, {
-    timeout: 60000,
+    timeout,
   });
 
-  await waitForHealthyVideoState(page, null, 60000);
+  await waitForHealthyVideoState(page, null, timeout);
 }
 
 async function registeredModelNames(page) {
@@ -113,14 +114,41 @@ async function backendModelState(page, name) {
   return page.evaluate(readBackendModelState, name);
 }
 
-async function expectVideoKeepsPlaying(page) {
+async function expectVideoKeepsPlaying(page, sampleCount = VIDEO_SAMPLE_COUNT) {
   let previousState = await page.evaluate(readVideoState);
   expectVideoStateToBeHealthy(previousState);
 
-  for (let index = 0; index < VIDEO_SAMPLE_COUNT; index += 1) {
+  for (let index = 0; index < sampleCount; index += 1) {
     await page.waitForTimeout(VIDEO_SAMPLE_INTERVAL_MS);
-    previousState = await waitForHealthyVideoState(page, previousState, 10000);
+    previousState = await waitForHealthyVideoState(
+      page, previousState, VIDEO_PROGRESS_TIMEOUT_MS);
   }
+}
+
+async function expectVideoSurvivesLoops(page, loopCount, loopTimeoutMs) {
+  const state = await waitForVideoLoops(page, loopCount, loopTimeoutMs);
+  await waitForHealthyVideoState(page, state, 10000);
+  await expectVideoKeepsPlaying(page);
+}
+
+async function waitForVideoLoops(page, loopCount, loopTimeoutMs) {
+  let state = await page.evaluate(readVideoState);
+  expectVideoStateToBeHealthy(state);
+
+  for (let loop = 0; loop < loopCount; loop += 1) {
+    const previousStreamId = state.streamId;
+
+    try {
+      await expect.poll(async () => {
+        state = await page.evaluate(readVideoState);
+        return state.streamId !== previousStreamId && videoStreamStateIsHealthy(state);
+      }, { timeout: loopTimeoutMs }).toBe(true);
+    } catch (error) {
+      throw new Error(`${error.message}\nLast video state after loop ${loop + 1}: ${JSON.stringify(state)}`);
+    }
+  }
+
+  return state;
 }
 
 async function waitForHealthyVideoState(page, previousState, timeout) {
@@ -147,6 +175,10 @@ function expectVideoStateToBeHealthy(state) {
   expect(state.framesDecoded).toBeGreaterThan(0);
   expect(state.frameWidth).toBeGreaterThan(0);
   expect(state.frameHeight).toBeGreaterThan(0);
+  expect(state.feedPaused).toBe(false);
+  expect(state.freezeFrameVisible).toBe(false);
+  expect(state.videoFeedHidden).toBe(false);
+  expect(state.videoOpacity).toBeGreaterThan(0);
 
   if (state.videoWidth > 0 && state.videoHeight > 0) {
     expect(state.nonBlackRatio).toBeGreaterThan(0.2);
@@ -155,6 +187,14 @@ function expectVideoStateToBeHealthy(state) {
 }
 
 function videoStateIsHealthy(state) {
+  return videoStreamStateIsHealthy(state) &&
+    state.feedPaused === false &&
+    state.freezeFrameVisible === false &&
+    state.videoFeedHidden === false &&
+    state.videoOpacity > 0;
+}
+
+function videoStreamStateIsHealthy(state) {
   const videoElementIsHealthy = state.videoWidth === 0 || state.videoHeight === 0 ||
     (state.nonBlackRatio > 0.2 && state.lumaVariance > 20);
 
@@ -196,6 +236,7 @@ function capturePeerConnections() {
 
 async function readVideoState() {
   const video = document.querySelector('#video');
+  const freezeFrame = document.querySelector('#videoFreezeFrame');
   const track = video?.srcObject?.getVideoTracks?.()[0];
   const peerConnections = window.__pekPeerConnections ?? [];
   const peerConnection = peerConnections[peerConnections.length - 1];
@@ -223,6 +264,10 @@ async function readVideoState() {
     framesDecoded: inboundVideo?.framesDecoded ?? 0,
     frameWidth: inboundVideo?.frameWidth ?? 0,
     frameHeight: inboundVideo?.frameHeight ?? 0,
+    feedPaused: Boolean(window.PEK_FEED_PAUSED),
+    freezeFrameVisible: Boolean(freezeFrame?.classList.contains('is-visible')),
+    videoFeedHidden: document.body.classList.contains('video-feed-hidden'),
+    videoOpacity: Number.parseFloat(video ? getComputedStyle(video).opacity : '0'),
     nonBlackRatio: 0,
     lumaVariance: 0,
   };
@@ -300,9 +345,11 @@ function readBackendModelState(modelName) {
 module.exports = {
   expectSinkOnlyData,
   expectVideoKeepsPlaying,
+  expectVideoSurvivesLoops,
   exerciseModelsOneAtATime,
   holdAllModelsOff,
   openPekUi,
   registeredModelNames,
   waitForVideo,
+  waitForVideoLoops,
 };

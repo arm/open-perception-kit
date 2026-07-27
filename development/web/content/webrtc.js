@@ -94,4 +94,7 @@ const client = createWebRtcClient({
     webSocketConnectingState: WebSocket.CONNECTING,
 });
 
+window.addEventListener('feed-pause-change', (event) => {
+    client.setPaused(event.detail?.paused);
+});
 client.start();

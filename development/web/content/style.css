@@ -241,6 +241,10 @@ body.video-feed-hidden .video-wrapper::before {
   opacity: 1;
 }
 
+body.is-feed-paused .video-wrapper::before {
+  opacity: 1;
+}
+
 body.video-feed-hidden .video-wrapper::after {
   opacity: 1;
 }

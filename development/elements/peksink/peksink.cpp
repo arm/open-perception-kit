@@ -110,7 +110,8 @@ nlohmann::json PipelineStateReporter::report() const {
         gst_element_get_state(GST_ELEMENT(self_), &cur, &pending, 0);
         pek::log::debug("current state: {}, {}", int(cur), int(pending));
 
-        ret["playing"] = (cur == GST_STATE_PLAYING ? true : false);
+        const auto effective = pending == GST_STATE_VOID_PENDING ? cur : pending;
+        ret["playing"] = effective == GST_STATE_PLAYING;
 
         // audio state
         ret["audio"] = has_audio_;
@@ -121,6 +122,27 @@ nlohmann::json PipelineStateReporter::report() const {
 GType gst_pek_sink_get_type(void);
 #define GST_TYPE_PEK_SINK (gst_pek_sink_get_type())
 G_DEFINE_TYPE(GstPekSink, gst_pek_sink, GST_TYPE_BIN)
+
+static void gst_pek_sink_report_state_async(GstElement *element, gpointer user_data) {
+    auto *self = reinterpret_cast<GstPekSink *>(element);
+    if (self->private_data && self->private_data->pipeline_state_reporter) {
+        self->private_data->pipeline_state_reporter->set_paused();
+    }
+}
+
+static GstStateChangeReturn gst_pek_sink_change_state(GstElement *element,
+                                                      GstStateChange transition) {
+    const auto result =
+        GST_ELEMENT_CLASS(gst_pek_sink_parent_class)->change_state(element, transition);
+    auto *self = reinterpret_cast<GstPekSink *>(element);
+
+    if (result != GST_STATE_CHANGE_FAILURE && self->private_data &&
+        self->private_data->pipeline_state_reporter) {
+        gst_element_call_async(element, gst_pek_sink_report_state_async, nullptr, nullptr);
+    }
+
+    return result;
+}
 
 static void
 gst_pek_sink_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
@@ -680,6 +702,7 @@ static void gst_pek_sink_class_init(GstPekSinkClass *klass) {
     /* request/release handlers for audio */
     element_class->request_new_pad = gst_pek_sink_request_new_pad;
     element_class->release_pad = gst_pek_sink_release_pad;
+    element_class->change_state = gst_pek_sink_change_state;
 
     gst_element_class_set_static_metadata(
         element_class,
