@@ -10,6 +10,7 @@
 
 #include <modelfetch.h>
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -176,6 +177,19 @@ static modelfetch_status_t write_marker(const char *environment_name, const char
     fputs(contents, marker);
     fclose(marker);
     return MODELFETCH_STATUS_OK;
+}
+
+static bool explicit_token_matches(const modelfetch_config_t *config, const char *expected_token) {
+    if (config->token_mode != MODELFETCH_TOKEN_EXPLICIT)
+        return false;
+
+    size_t index = 0U;
+    while (index < config->explicit_token_length && expected_token[index] != '\0') {
+        if ((uint8_t)expected_token[index] != config->explicit_token[index])
+            return false;
+        ++index;
+    }
+    return index == config->explicit_token_length && expected_token[index] == '\0';
 }
 
 static modelfetch_status_t record_download_call(void) {
@@ -362,10 +376,7 @@ modelfetch_status_t modelfetch_service_new_with_config(const modelfetch_config_t
         return marker_status;
 
     const char *expected_token = getenv("PEK_MODELFETCH_FAKE_EXPECTED_TOKEN");
-    if (expected_token != NULL &&
-        (config->token_mode != MODELFETCH_TOKEN_EXPLICIT ||
-         strlen(expected_token) != config->explicit_token_length ||
-         memcmp(expected_token, config->explicit_token, config->explicit_token_length) != 0))
+    if (expected_token != NULL && !explicit_token_matches(config, expected_token))
         return fail_with(error_out, "unexpected explicit token", 25U);
 
     *out = calloc(1U, sizeof(**out));
