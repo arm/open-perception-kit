@@ -81,16 +81,9 @@ Run in the **host shell**, from the `pek` folder:
 code .
 ```
 
-The checked-in YOLOv11 quick start needs no Hugging Face credential. To use a
-published model, first set `HF_TOKEN_PATH` to a mode-`0600` token file in this
-shell. The Dev Container mounts it read-only, and the runtime downloads only
-the model you activate:
-
-```bash
-chmod 600 "/absolute/path/to/huggingface-token"
-export HF_TOKEN_PATH="/absolute/path/to/huggingface-token"
-code .
-```
+The checked-in YOLOv11 quick start needs no Hugging Face credential. For a
+private or gated model, export `HF_TOKEN` in this shell before opening VS Code;
+the Dev Container passes it unchanged to modelfetch.
 
 In VS Code:
 

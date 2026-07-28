@@ -83,9 +83,9 @@ COMPOSE_FILES=(
     -f .devcontainer/docker-compose.devcont.shared_memory.yaml
 )
 
-COMPOSE_ENV_ARGS=()
+COMPOSE_COMMAND=(docker compose)
 if [[ -n "${COMPOSE_ENV_FILE}" ]]; then
-    COMPOSE_ENV_ARGS=(--env-file "${COMPOSE_ENV_FILE}")
+    COMPOSE_COMMAND+=(--env-file "${COMPOSE_ENV_FILE}")
 fi
 
 PEK_WEBRTC_TURN="$(bash scripts/private/select-webrtc-turn-mode.sh "${PEK_PLATFORM_ID}")"
@@ -177,6 +177,9 @@ require_docker
 
 if container_running && [[ "$RECREATE" != "true" ]]; then
     if container_workdir_writable && container_has_current_modelfetch_sdk; then
+        echo "Reconciling the running container with the current Compose environment..."
+        "${COMPOSE_COMMAND[@]}" "${COMPOSE_FILES[@]}" \
+            up -d --no-build --remove-orphans "${PEK_CONTAINER_SERVICE}"
         print_enter_hint
         exit 0
     fi
@@ -210,7 +213,7 @@ UP_ARGS=(up -d --build --remove-orphans)
 if [[ "$RECREATE" == "true" ]]; then
     UP_ARGS+=(--force-recreate)
 fi
-docker compose "${COMPOSE_ENV_ARGS[@]}" "${COMPOSE_FILES[@]}" "${UP_ARGS[@]}" "${PEK_CONTAINER_SERVICE}"
+"${COMPOSE_COMMAND[@]}" "${COMPOSE_FILES[@]}" "${UP_ARGS[@]}" "${PEK_CONTAINER_SERVICE}"
 
 echo
 docker ps --filter "name=${PEK_CONTAINER_NAME}" --format 'table {{.Names}} {{.Status}}'

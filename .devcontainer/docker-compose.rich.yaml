@@ -23,14 +23,11 @@ services:
       HOST_GID: ${HOST_GID:-1000}
       XDG_RUNTIME_DIR: /run/user/${HOST_UID:-1000}
       PEKCOMM_FILE: /tmp/pekcomm
-      HF_TOKEN_PATH: /run/secrets/huggingface_token
     volumes:
       - ${PEK_RICH_RUNTIME_DIR:-/tmp}:/run/user/${HOST_UID:-1000}
       - ${PEK_RICH_CONFIGS_MOUNT:-pek-rich-configs}:/home/dev/configs
       - ${PEK_RICH_WORK_TREE_MOUNT:-pek-rich-work-tree}:/pek-work-tree
       - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
-    secrets:
-      - huggingface_token
 volumes:
   pek-rich-configs:
   pek-rich-work-tree:

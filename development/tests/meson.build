@@ -178,6 +178,11 @@ test(
   ],
 )
 test(
+  'quick_start_container_tests',
+  python,
+  args : [files('quick_start_container_test.py')],
+)
+test(
   'modelfetch_dependency_boundary_tests',
   python,
   args : [

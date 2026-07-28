@@ -131,20 +131,18 @@ git clone git@github.com:Arm-Debug/amp-dev-forge.git
 
 Expected result: the `pek` folder exists on the Raspberry Pi.
 
-The checked-in YOLOv11 quick start needs no Hugging Face credential. To use a
-published model, save a Hugging Face access token in a mode-`0600` file on the
-Pi and set `HF_TOKEN_PATH` to its absolute path in the login environment used
-by VS Code Remote SSH. Make the file private, add the export to `~/.profile`,
-then reconnect VS Code to the Pi:
+The checked-in YOLOv11 quick start needs no Hugging Face credential. For a
+private or gated model, export `HF_TOKEN` in the Pi login environment used by
+VS Code Remote SSH, then reconnect VS Code to the Pi:
 
 ```bash
-chmod 600 "/absolute/path/to/huggingface-token"
-printf '%s\n' \
-  'export HF_TOKEN_PATH="/absolute/path/to/huggingface-token"' >> ~/.profile
+touch ~/.profile &&
+  chmod 600 ~/.profile &&
+  printf '%s\n' 'export HF_TOKEN="hf_..."' >> ~/.profile
 ```
 
-The Dev Container mounts this file read-only. The runtime downloads only the
-model you activate.
+The owner-only permission keeps the persisted credential private. The Dev
+Container passes the value unchanged to modelfetch.
 
 ## 7. Check VS Code Prerequisites On Your Computer
 

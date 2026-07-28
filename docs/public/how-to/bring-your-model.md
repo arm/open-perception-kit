@@ -197,7 +197,8 @@ The normal workflow is:
 2. create or update an `opchain.json`
 3. optionally add a top-level pipeline preset under `config/pipelines/`
 4. build inside the container
-5. for a published locator, provide `HF_TOKEN_PATH` pointing to a non-empty Hugging Face token file
+5. for a private or gated published locator, set `HF_TOKEN` in the host
+   environment before starting the container; public locators need no token
 6. run the pipeline with the VS Code run task "00 Run project and select pipeline" or `tools/pek-menu`;
    its model is downloaded on first activation
 7. update the model and opchain `index.md` files

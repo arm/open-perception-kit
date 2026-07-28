@@ -62,10 +62,9 @@ Use this target Pi setup before you start:
 - GitHub CLI authenticated on the target Pi with read access to the pinned
   `Arm-Debug/modelfetch` release. The repository is internal, so the release
   asset is not available anonymously.
-- To run a model backed by a published Hugging Face asset, a mode-`0600` token
-  file with `HF_TOKEN_PATH` set in the shell that starts the container. The
-  runtime downloads only the selected model when it is first activated. The
-  checked-in YOLOv11 quick-start and CI fixture need no Hugging Face token.
+- To run a private or gated Hugging Face model, set `HF_TOKEN` in the shell
+  that starts the container. The checked-in YOLOv11 quick-start and CI fixture
+  need no Hugging Face token.
 
 ### 1. Connect to the target Pi
 
@@ -101,6 +100,10 @@ Enter the `amp-dev-forge` folder in the terminal and run:
 ```bash
 ./scripts/quick_start.sh
 ```
+
+For a private or gated Hugging Face model, export `HF_TOKEN` before running the
+same command. PEK passes it unchanged to modelfetch; without it, modelfetch uses
+anonymous access.
 
 For a direct deployment build, prepare the pinned modelfetch release before
 invoking the existing Compose entrypoint:

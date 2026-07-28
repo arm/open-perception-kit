@@ -1,5 +1,6 @@
 x-pek-runtime-environment: &pek-runtime-environment
   USERNAME: dev
+  HF_TOKEN:
 
 x-pek-development-environment: &pek-development-environment
   WAYLAND_DISPLAY: wayland-0
