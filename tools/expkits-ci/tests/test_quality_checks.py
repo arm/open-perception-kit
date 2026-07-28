@@ -205,7 +205,7 @@ class TestQualityChecks(unittest.TestCase):
                 ) as subprocess_run:
                     result = self.quality_checks.check_github_actions([
                         ".github/workflows/pek-ci.yml",
-                        "./.github/workflows/sync-rulesets.yml",
+                        "./.github/workflows/workflow-audit.yml",
                         "/work/.github/workflows/docker-scout.yaml",
                         "README.md",
                     ])
@@ -218,7 +218,7 @@ class TestQualityChecks(unittest.TestCase):
                 "-config-file",
                 ".github/actionlint.yaml",
                 ".github/workflows/pek-ci.yml",
-                ".github/workflows/sync-rulesets.yml",
+                ".github/workflows/workflow-audit.yml",
                 ".github/workflows/docker-scout.yaml",
             ],
         )
