@@ -175,6 +175,11 @@ export HOST_GID="$(id -g)"
 
 require_docker
 
+echo
+echo "Generating device overrides..."
+bash .devcontainer/platform_init.sh \
+    "${PEK_CONTAINER_SERVICE}" "${PEK_PICAMERA}" "${PEK_WEBRTC_TURN}"
+
 if container_running && [[ "$RECREATE" != "true" ]]; then
     if container_workdir_writable && container_has_current_modelfetch_sdk; then
         echo "Reconciling the running container with the current Compose environment..."
@@ -196,11 +201,6 @@ echo "  Name:     ${PEK_CONTAINER_NAME}"
 if [[ "${PEK_PLATFORM_ID}" == rpi5* ]]; then
     echo "  Hailo:    ${PEK_HAILO_ARCH}"
 fi
-
-echo
-echo "Generating device overrides..."
-bash .devcontainer/platform_init.sh \
-    "${PEK_CONTAINER_SERVICE}" "${PEK_PICAMERA}" "${PEK_WEBRTC_TURN}"
 
 echo
 echo "Building shared development base..."
