@@ -46,7 +46,7 @@ async function expectHealthyOutput(page) {
 }
 
 async function expectNoWebRtcErrors(page) {
-  await expect(page.locator('#log .log-line.error')).toHaveCount(0);
+  expect(await page.locator('#log .log-line.error').allTextContents()).toEqual([]);
 }
 
 async function videoStreamId(page) {

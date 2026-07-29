@@ -128,7 +128,7 @@ if ! docker exec -u dev "${PEK_CONTAINER_NAME}" bash -lc 'test -x /work/tools/pe
 fi
 
 rm -rf playwright-report test-results/playwright
-mkdir -p test-results/playwright/blob-report
+mkdir -p test-results/playwright/blob-report test-results/playwright/pipeline-logs
 
 image_name="$(browser_smoke_image_name)"
 build_browser_smoke_image_if_needed "${image_name}"
@@ -149,6 +149,7 @@ run_phase() {
     local browsers="${4:-${BROWSER_SMOKE_BROWSERS}}"
     local status=0
     local pid_file="/tmp/pek-browser-smoke-${phase}.pid"
+    local pipeline_log="test-results/playwright/pipeline-logs/${phase}.log"
     local pipeline_pid=""
     local docker_exec_env_file_args=()
 
@@ -162,7 +163,8 @@ run_phase() {
         -e BROWSER_SMOKE_PIPELINE="${pipeline}" \
         -e BROWSER_SMOKE_PID_FILE="${pid_file}" \
         "${PEK_CONTAINER_NAME}" \
-        bash -lc 'printf "%s\n" "$$" > "$BROWSER_SMOKE_PID_FILE"; cd /work && exec /work/tools/pek-menu "$BROWSER_SMOKE_PIPELINE"' &
+        bash -lc 'printf "%s\n" "$$" > "$BROWSER_SMOKE_PID_FILE"; cd /work && exec /work/tools/pek-menu "$BROWSER_SMOKE_PIPELINE"' \
+        > >(tee "${pipeline_log}") 2>&1 &
     pipeline_pid=$!
     ACTIVE_PID_FILE="${pid_file}"
     ACTIVE_PIPELINE_PID="${pipeline_pid}"
