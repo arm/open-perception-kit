@@ -204,6 +204,10 @@ jobs:
           ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.head_ref || github.ref }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
+      - name: Clean stale browser smoke containers
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: ./scripts/playwright/browser-smoke/run.sh --cleanup-stale
+
       - name: Show detected quick-start platform
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: ./scripts/quick-start/detect-environment.sh

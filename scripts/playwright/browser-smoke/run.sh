@@ -14,6 +14,7 @@ usage() {
     cat << 'EOF'
 Usage:
   ./scripts/playwright/browser-smoke/run.sh [-h|--help]
+  ./scripts/playwright/browser-smoke/run.sh --cleanup-stale
 
 Prerequisites:
   ./scripts/quick-start/start-container.sh --recreate
@@ -29,9 +30,12 @@ Environment:
 EOF
 }
 
+MODE="run"
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     usage
     exit 0
+elif [[ "${1:-}" == "--cleanup-stale" ]]; then
+    MODE="cleanup-stale"
 elif [[ "${1:-}" != "" ]]; then
     echo "Error: unknown argument '${1}'" >&2
     usage >&2
@@ -48,8 +52,12 @@ NUM_FRAMES="${NUM_FRAMES:-12000}"
 STOCK_VIDEO_LOOP_TIMEOUT_MS="${STOCK_VIDEO_LOOP_TIMEOUT_MS:-900000}"
 ACTIVE_PID_FILE=""
 ACTIVE_PIPELINE_PID=""
+ACTIVE_BROWSER_CONTAINER=""
 PIPELINE_STOP_TIMEOUT_SECONDS=30
 PIPELINE_KILL_TIMEOUT_SECONDS=10
+BROWSER_SMOKE_LABEL="com.arm.amp-dev-forge.browser-smoke"
+BROWSER_SMOKE_RUNNER_LABEL="${BROWSER_SMOKE_LABEL}.runner"
+BROWSER_SMOKE_REPOSITORY_LABEL="${BROWSER_SMOKE_LABEL}.repository"
 
 cd "${REPO_ROOT}"
 
@@ -61,13 +69,37 @@ cleanup_active_pipeline() {
     fi
 }
 
-on_signal() {
+cleanup_active_browser_container() {
+    if [ -n "${ACTIVE_BROWSER_CONTAINER}" ]; then
+        docker rm -f "${ACTIVE_BROWSER_CONTAINER}" > /dev/null 2>&1 || true
+        ACTIVE_BROWSER_CONTAINER=""
+    fi
+}
+
+cleanup_active() {
+    cleanup_active_browser_container
     cleanup_active_pipeline
+}
+
+cleanup_stale_browser_containers() {
+    if [ "${CI:-}" != "true" ] || [ -z "${RUNNER_NAME:-}" ] || [ -z "${GITHUB_REPOSITORY:-}" ]; then
+        return
+    fi
+
+    repo_checks_load_lines docker ps -aq \
+        --filter "label=${BROWSER_SMOKE_LABEL}=true" \
+        --filter "label=${BROWSER_SMOKE_RUNNER_LABEL}=${RUNNER_NAME}" \
+        --filter "label=${BROWSER_SMOKE_REPOSITORY_LABEL}=${GITHUB_REPOSITORY}"
+    [ "${#REPO_CHECKS_LOADED_LINES[@]}" -eq 0 ] || docker rm -f "${REPO_CHECKS_LOADED_LINES[@]}"
+}
+
+on_signal() {
+    cleanup_active
     exit 130
 }
 
-trap 'cleanup_active_pipeline; repo_checks_on_error "${LINENO}"' ERR
-trap cleanup_active_pipeline EXIT
+trap 'cleanup_active; repo_checks_on_error "${LINENO}"' ERR
+trap cleanup_active EXIT
 trap on_signal INT TERM
 
 browser_smoke_image_name() {
@@ -112,6 +144,11 @@ build_browser_smoke_image_if_needed() {
 }
 
 repo_checks_check_docker_setup
+cleanup_stale_browser_containers
+
+if [ "${MODE}" == "cleanup-stale" ]; then
+    exit 0
+fi
 
 eval "$("${REPO_ROOT}/scripts/quick-start/detect-environment.sh" --shell)"
 
@@ -132,6 +169,13 @@ mkdir -p test-results/playwright/blob-report
 
 image_name="$(browser_smoke_image_name)"
 build_browser_smoke_image_if_needed "${image_name}"
+browser_smoke_labels=(--label "${BROWSER_SMOKE_LABEL}=true")
+if [ -n "${RUNNER_NAME:-}" ] && [ -n "${GITHUB_REPOSITORY:-}" ]; then
+    browser_smoke_labels+=(
+        --label "${BROWSER_SMOKE_RUNNER_LABEL}=${RUNNER_NAME}"
+        --label "${BROWSER_SMOKE_REPOSITORY_LABEL}=${GITHUB_REPOSITORY}"
+    )
+fi
 
 common_dir="$(repo_checks_git_common_dir "${REPO_ROOT}")"
 mount_args=(-v "${REPO_ROOT}:${REPO_ROOT}")
@@ -173,7 +217,9 @@ run_phase() {
         return 1
     fi
 
-    docker run --rm --ipc=host \
+    ACTIVE_BROWSER_CONTAINER="${PEK_CONTAINER_NAME}-browser-${phase}"
+    docker rm -f "${ACTIVE_BROWSER_CONTAINER}" > /dev/null 2>&1 || true
+    docker run --rm --name "${ACTIVE_BROWSER_CONTAINER}" "${browser_smoke_labels[@]}" --ipc=host \
         --network "container:${PEK_CONTAINER_NAME}" \
         --user "$(id -u):$(id -g)" \
         -e HOME=/tmp \
@@ -192,6 +238,7 @@ run_phase() {
         --output="test-results/playwright/${phase}" \
         "${spec}" || status=$?
 
+    cleanup_active_browser_container
     stop_pipeline "${pid_file}" "${pipeline_pid}"
     ACTIVE_PID_FILE=""
     ACTIVE_PIPELINE_PID=""
@@ -202,7 +249,9 @@ run_phase() {
 merge_reports() {
     local status=0
 
-    docker run --rm \
+    ACTIVE_BROWSER_CONTAINER="${PEK_CONTAINER_NAME}-browser-merge-reports"
+    docker rm -f "${ACTIVE_BROWSER_CONTAINER}" > /dev/null 2>&1 || true
+    docker run --rm --name "${ACTIVE_BROWSER_CONTAINER}" "${browser_smoke_labels[@]}" \
         --user "$(id -u):$(id -g)" \
         -e HOME=/tmp \
         -w "${REPO_ROOT}" \
@@ -211,6 +260,7 @@ merge_reports() {
         -e PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report \
         "${image_name}" \
         playwright merge-reports --reporter=html test-results/playwright/blob-report || status=$?
+    cleanup_active_browser_container
 
     if [ "${status}" -eq 0 ]; then
         rm -rf test-results/playwright/blob-report
