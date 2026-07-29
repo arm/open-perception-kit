@@ -421,6 +421,12 @@ class TestPublishPlaywrightPages(unittest.TestCase):
             self.assertEqual(output.read_text(encoding="utf-8"), "deploy=false\n")
 
     def test_publish_macos_report_keeps_general_nightly(self):
+        run_script = Path(__file__).with_name("run.sh").read_text(encoding="utf-8")
+        self.assertIn(
+            'REPORT_PAGES_ENV_NAMES="PLAYWRIGHT_PAGES_ARTIFACT_PREFIX '
+            'PLAYWRIGHT_PAGES_NIGHTLY_DIRECTORY PLAYWRIGHT_PAGES_REPORT_TITLE"',
+            run_script,
+        )
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             local_report = root / "playwright-report"

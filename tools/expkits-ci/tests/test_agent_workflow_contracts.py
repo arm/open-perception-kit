@@ -507,6 +507,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         sonar_steps = step_map(sonar["jobs"]["build-and-sonar"])
         linux_steps = step_map(pek_ci["jobs"]["linux-quick-start-build-test"])
         rpi_steps = step_map(pek_ci["jobs"]["rpi5-quick-start-build-test"])
+        macos_steps = step_map(pek_ci["jobs"]["macos-nightly-test"])
         expected_label_gate = "github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')"
         expected_draft_override = (
             "github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci')"
@@ -548,7 +549,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertIn("Resolve manual PR context", sonar_steps)
         self.assertIn("Checkout workflow helpers", pek_steps)
         self.assertIn("Checkout workflow helpers", sonar_steps)
-        for steps in (linux_steps, rpi_steps, pek_steps, sonar_steps):
+        for steps in (linux_steps, rpi_steps, macos_steps, pek_steps, sonar_steps):
             self.assertIn("Resolve manual PR context", steps)
             self.assertIn("Checkout workflow helpers", steps)
             resolver_run = steps["Resolve manual PR context"]["run"]
@@ -584,6 +585,10 @@ class AgentWorkflowContractTests(unittest.TestCase):
         )
         self.assertEqual(
             rpi_steps["Checkout"]["with"]["ref"],
+            resolved_checkout_ref,
+        )
+        self.assertEqual(
+            macos_steps["Checkout"]["with"]["ref"],
             resolved_checkout_ref,
         )
         self.assertEqual(
