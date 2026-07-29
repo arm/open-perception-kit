@@ -39,6 +39,8 @@ services:
 
 secrets:
   huggingface_token:
+    # Environment-backed Compose secrets require the variable to be defined.
+    # Use an empty HF_TOKEN for anonymous direct Compose or Topo deployments.
     environment: HF_TOKEN
 
 x-topo:

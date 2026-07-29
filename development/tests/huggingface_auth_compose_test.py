@@ -58,6 +58,11 @@ class HuggingFaceAuthComposeTests(unittest.TestCase):
                     {mount["source"] for mount in service.get("secrets", [])},
                 )
 
+    @unittest.skipUnless(shutil.which("docker"), "Docker CLI unavailable")
+    def test_direct_compose_accepts_explicit_empty_token_for_anonymous_access(self):
+        configuration = self._compose_config("compose.yaml", token="")
+        self._assert_secret_contract(configuration, "pek-dev")
+
     def test_platform_init_writes_only_blank_interpolation_fallbacks(self):
         with tempfile.TemporaryDirectory() as directory:
             fixture = Path(directory)
@@ -94,7 +99,7 @@ class HuggingFaceAuthComposeTests(unittest.TestCase):
                 (fixture / "devices.env").read_text(encoding="utf-8"),
             )
 
-    def _compose_config(self, *files):
+    def _compose_config(self, *files, token=CONTRACT_VALUE):
         command = ["docker", "compose"]
         for path in files:
             command.extend(("-f", path))
@@ -102,7 +107,7 @@ class HuggingFaceAuthComposeTests(unittest.TestCase):
         environment = os.environ | {
             "HOST_UID": "1000",
             "HOST_GID": "1000",
-            "HF_TOKEN": CONTRACT_VALUE,
+            "HF_TOKEN": token,
         }
         result = subprocess.run(
             command,
@@ -112,7 +117,8 @@ class HuggingFaceAuthComposeTests(unittest.TestCase):
             capture_output=True,
             text=True,
         )
-        self.assertNotIn(CONTRACT_VALUE, result.stdout + result.stderr)
+        if token:
+            self.assertNotIn(token, result.stdout + result.stderr)
         return json.loads(result.stdout)
 
     def _assert_secret_contract(self, configuration, service_name):

@@ -108,14 +108,16 @@ Modelfetch reads and validates that file. An unset or empty `HF_TOKEN` selects
 anonymous access. Do not store the credential in the generated `.env` files.
 
 For a direct deployment build, prepare the pinned modelfetch release before
-invoking the existing Compose entrypoint:
+invoking the existing Compose entrypoint. The export preserves an existing
+token and defines an empty one for anonymous access:
 
 ```bash
+export HF_TOKEN="${HF_TOKEN-}"
 bash scripts/private/prepare-modelfetch-release.sh
 docker compose up --build
 ```
 
-After replacing or unsetting `HF_TOKEN`, add `--force-recreate` to the next
+After replacing or clearing `HF_TOKEN`, add `--force-recreate` to the next
 direct `docker compose up` command so the running container receives the new
 secret.
 
@@ -245,13 +247,15 @@ topo health --target <raspberry-pi-ip-address>
 Deploy the default sample-video pipeline from the repository root:
 
 ```bash
+export HF_TOKEN="${HF_TOKEN-}"
 topo deploy --target <raspberry-pi-ip-address>
 ```
 
-For a private or gated model, export `HF_TOKEN` in the shell that runs Topo.
-Topo forwards it through the same read-only Compose secret. If you replace or
-unset a token used by an existing deployment, add `--force-recreate` to the next
-`topo deploy` command.
+The export defines the environment-backed Compose secret as empty for anonymous
+access. For a private or gated model, export the real `HF_TOKEN` in the shell
+that runs Topo instead. Topo forwards it through the same read-only Compose
+secret. If you replace or clear a token used by an existing deployment, add
+`--force-recreate` to the next `topo deploy` command.
 
 When the deployment has started, open:
 

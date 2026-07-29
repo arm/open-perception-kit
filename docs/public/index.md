@@ -114,14 +114,16 @@ in the container environment, and modelfetch validates it. An unset or empty
 generated `.env` file.
 
 For a direct deployment build, prepare the pinned modelfetch release before
-invoking the existing Compose entrypoint:
+invoking the existing Compose entrypoint. The export preserves an existing
+token and defines an empty one for anonymous access:
 
 ```bash
+export HF_TOKEN="${HF_TOKEN-}"
 bash scripts/private/prepare-modelfetch-release.sh
 docker compose up --build
 ```
 
-After replacing or unsetting `HF_TOKEN`, add `--force-recreate` to the next
+After replacing or clearing `HF_TOKEN`, add `--force-recreate` to the next
 direct `docker compose up` command so the running container receives the new
 secret.
 
