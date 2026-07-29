@@ -8,9 +8,8 @@ PEK runtime. Neither is a PR gate:
 - `YOLO Imageset Benchmark` uses COCO val2017. PR runs require the
   `run-yolo-imageset-benchmark` label.
 
-Manual video runs default to four order-balanced repetitions and scheduled
-runs use ten. Scheduled image-set runs use three full-COCO repetitions; labeled
-PR runs use ten images as a smoke test.
+Video runs use ten order-balanced repetitions. Image-set runs use ten full-COCO
+repetitions. Pull-request benchmarks remain opt-in through their labels.
 
 ## Video FPS
 
