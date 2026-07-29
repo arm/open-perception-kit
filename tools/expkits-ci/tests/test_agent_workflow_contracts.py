@@ -566,6 +566,11 @@ class AgentWorkflowContractTests(unittest.TestCase):
             job_condition = pek_ci["jobs"][job_name]["if"]
             self.assertIn(expected_label_gate, job_condition)
             self.assertIn(expected_draft_override, job_condition)
+        macos_condition = pek_ci["jobs"]["macos-nightly-test"]["if"]
+        self.assertIn("github.event_name != 'pull_request'", macos_condition)
+        self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", macos_condition)
+        self.assertIn("github.event.label.name == 'run-macos-ci'", macos_condition)
+        self.assertIn("contains(github.event.pull_request.labels.*.name, 'run-macos-ci')", macos_condition)
         sonar_condition = sonar["jobs"]["build-and-sonar"]["if"]
         self.assertIn(expected_label_gate, sonar_condition)
         self.assertIn(expected_draft_override, sonar_condition)

@@ -272,10 +272,19 @@ jobs:
           exit "$cleanup_status"
 
   macos-nightly-test:
-    name: macOS ARM64 nightly quick-start and Playwright test
+    name: macOS ARM64 quick-start and Playwright test
     runs-on: self-hosted-macos-arm64-latest
     timeout-minutes: 240
-    if: ${{ github.event_name == 'schedule' }}
+    if: |
+      github.event_name != 'pull_request' ||
+      (
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        (
+          (github.event.action == 'labeled' && github.event.label.name == 'run-macos-ci') ||
+          ((github.event.action == 'synchronize' || github.event.action == 'reopened') &&
+            contains(github.event.pull_request.labels.*.name, 'run-macos-ci'))
+        )
+      )
     env:
       PEK_QUICK_START_CI_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
