@@ -74,6 +74,7 @@ fi
 eval "$detect_output"
 export PEK_DEV_CONTAINER_NAME PEK_DEV_RPI5_H8_CONTAINER_NAME
 export PEK_DEV_RPI5_H10_CONTAINER_NAME PEK_PICAMERA
+export HF_TOKEN="${HF_TOKEN-}"
 
 COMPOSE_FILES=(
     -f .devcontainer/compose.devcont.yaml
@@ -83,9 +84,9 @@ COMPOSE_FILES=(
     -f .devcontainer/docker-compose.devcont.shared_memory.yaml
 )
 
-COMPOSE_ENV_ARGS=()
+COMPOSE_COMMAND=(docker compose)
 if [[ -n "${COMPOSE_ENV_FILE}" ]]; then
-    COMPOSE_ENV_ARGS=(--env-file "${COMPOSE_ENV_FILE}")
+    COMPOSE_COMMAND+=(--env-file "${COMPOSE_ENV_FILE}")
 fi
 
 PEK_WEBRTC_TURN="$(bash scripts/private/select-webrtc-turn-mode.sh "${PEK_PLATFORM_ID}")"
@@ -175,14 +176,22 @@ export HOST_GID="$(id -g)"
 
 require_docker
 
+echo
+echo "Generating device overrides..."
+bash .devcontainer/platform_init.sh \
+    "${PEK_CONTAINER_SERVICE}" "${PEK_PICAMERA}" "${PEK_WEBRTC_TURN}"
+
 if container_running && [[ "$RECREATE" != "true" ]]; then
     if container_workdir_writable && container_has_current_modelfetch_sdk; then
+        echo "Recreating the running container with the current Compose environment..."
+        "${COMPOSE_COMMAND[@]}" "${COMPOSE_FILES[@]}" \
+            up -d --no-build --force-recreate --remove-orphans "${PEK_CONTAINER_SERVICE}"
         print_enter_hint
         exit 0
     fi
 
-    echo "The running container is missing the current workspace contract."
-    echo "Recreating it with the host UID/GID mapping and modelfetch C++ SDK..."
+    echo "The running container is missing the current workspace or modelfetch SDK contract."
+    echo "Recreating it with the current host configuration..."
     RECREATE="true"
 fi
 
@@ -195,11 +204,6 @@ if [[ "${PEK_PLATFORM_ID}" == rpi5* ]]; then
 fi
 
 echo
-echo "Generating device overrides..."
-bash .devcontainer/platform_init.sh \
-    "${PEK_CONTAINER_SERVICE}" "${PEK_PICAMERA}" "${PEK_WEBRTC_TURN}"
-
-echo
 echo "Building shared development base..."
 bash scripts/private/prepare-modelfetch-release.sh > /dev/null
 bash scripts/private/build-dev-base.sh
@@ -210,7 +214,7 @@ UP_ARGS=(up -d --build --remove-orphans)
 if [[ "$RECREATE" == "true" ]]; then
     UP_ARGS+=(--force-recreate)
 fi
-docker compose "${COMPOSE_ENV_ARGS[@]}" "${COMPOSE_FILES[@]}" "${UP_ARGS[@]}" "${PEK_CONTAINER_SERVICE}"
+"${COMPOSE_COMMAND[@]}" "${COMPOSE_FILES[@]}" "${UP_ARGS[@]}" "${PEK_CONTAINER_SERVICE}"
 
 echo
 docker ps --filter "name=${PEK_CONTAINER_NAME}" --format 'table {{.Names}} {{.Status}}'

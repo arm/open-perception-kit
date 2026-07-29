@@ -6,10 +6,12 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdlib>
 #include <exception>
 #include <filesystem>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <variant>
 #include <vector>
 
@@ -18,6 +20,7 @@
 #include <modelfetch/modelfetch.hpp>
 #include <tl/expected.hpp>
 
+#include "Log.h"
 #include "pek/File.h"
 #include "pek/Result.h"
 
@@ -27,6 +30,7 @@ namespace std_fs = std::filesystem;
 namespace {
 
 constexpr const char *MaterializedModelsRoot = "/work/var/models";
+constexpr const char *HuggingFaceTokenPathEnvironment = "HF_TOKEN_PATH";
 
 bool is_safe_relative_path(const std_fs::path &path) {
     if (path.empty() || path.is_absolute())
@@ -101,6 +105,18 @@ pek::Error modelfetch_error(const std::string &descriptorPath,
                                  error.what()));
 }
 
+modelfetch::token huggingFaceAuthentication() {
+    const char *tokenPath = std::getenv(HuggingFaceTokenPathEnvironment);
+    if (tokenPath == nullptr || tokenPath[0] == '\0')
+        return modelfetch::anonymous_token;
+
+    std::error_code error;
+    const uintmax_t size = std_fs::file_size(tokenPath, error);
+    if (error == std::errc::no_such_file_or_directory || (!error && size == 0))
+        return modelfetch::anonymous_token;
+    return modelfetch::configured_token;
+}
+
 std::string_view failure_reason_name(modelfetch::asset_download_failure_reason reason) {
     const std::string_view name = magic_enum::enum_name(reason);
     return name.empty() ? "unknown" : name;
@@ -121,7 +137,9 @@ pek::Result<std_fs::path> materializePublishedModel(const std::string &descripto
     }
 
     try {
-        const modelfetch::client service;
+        const modelfetch::configuration configuration("Arm/perceptioncluster",
+                                                      huggingFaceAuthentication());
+        const modelfetch::client service(configuration);
         const std::array requests{
             modelfetch::asset_download_request(assetId, MaterializedModelsRoot),
         };
@@ -228,6 +246,8 @@ pek::Result<std::string> resolveModelFile(const std::string &descriptorPath,
                             "inside the model store",
                             descriptorPath))};
         }
+        pek::log::info("modelfetch materialized modelFile for ModelDescriptor [{}]\n",
+                       descriptorPath);
         return modelFile.string();
     }
 
