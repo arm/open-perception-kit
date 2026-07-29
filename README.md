@@ -102,19 +102,32 @@ Enter the `amp-dev-forge` folder in the terminal and run:
 ```
 
 For a private or gated Hugging Face model, export `HF_TOKEN` before running the
-same command. Compose mounts the value read-only at
+quick-start:
+
+```bash
+export HF_TOKEN="hf_your_token_here"
+./scripts/quick_start.sh
+```
+
+Compose mounts the value read-only at
 `/run/secrets/huggingface_token`; it is not stored in the container environment.
 Modelfetch reads and validates that file. An unset or empty `HF_TOKEN` selects
 anonymous access. Do not store the credential in the generated `.env` files.
 
 For a direct deployment build, prepare the pinned modelfetch release before
-invoking the existing Compose entrypoint. The export preserves an existing
-token and defines an empty one for anonymous access:
+invoking the existing Compose entrypoint. For a private or gated model, export
+your Hugging Face token:
 
 ```bash
-export HF_TOKEN="${HF_TOKEN-}"
 bash scripts/private/prepare-modelfetch-release.sh
+export HF_TOKEN="hf_your_token_here"
 docker compose up --build
+```
+
+For anonymous direct deployment, provide an explicitly empty token instead:
+
+```bash
+HF_TOKEN="" docker compose up --build
 ```
 
 After replacing or clearing `HF_TOKEN`, add `--force-recreate` to the next
@@ -247,15 +260,19 @@ topo health --target <raspberry-pi-ip-address>
 Deploy the default sample-video pipeline from the repository root:
 
 ```bash
-export HF_TOKEN="${HF_TOKEN-}"
+HF_TOKEN="" topo deploy --target <raspberry-pi-ip-address>
+```
+
+For a private or gated model, export your Hugging Face token instead:
+
+```bash
+export HF_TOKEN="hf_your_token_here"
 topo deploy --target <raspberry-pi-ip-address>
 ```
 
-The export defines the environment-backed Compose secret as empty for anonymous
-access. For a private or gated model, export the real `HF_TOKEN` in the shell
-that runs Topo instead. Topo forwards it through the same read-only Compose
-secret. If you replace or clear a token used by an existing deployment, add
-`--force-recreate` to the next `topo deploy` command.
+Topo forwards the value through the same read-only Compose secret. If you
+replace or clear a token used by an existing deployment, add `--force-recreate`
+to the next `topo deploy` command.
 
 When the deployment has started, open:
 
