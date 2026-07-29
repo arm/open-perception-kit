@@ -215,6 +215,27 @@ class TestPublishPlaywrightPages(unittest.TestCase):
                 ("neutral", "No status"),
             )
 
+    def test_playwright_nightly_badge_aggregates_general_and_macos(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = Path(tmpdir)
+            for directory, stats in (
+                ("nightly", {"expected": 6, "unexpected": 0, "flaky": 0, "skipped": 0, "ok": True}),
+                ("nightly-macos", {"expected": 2, "unexpected": 1, "flaky": 0, "skipped": 0, "ok": False}),
+            ):
+                report = site_dir / "playwright" / directory
+                report.mkdir(parents=True)
+                buffer = io.BytesIO()
+                with zipfile.ZipFile(buffer, "w") as archive:
+                    archive.writestr("report.json", json.dumps({"stats": stats}))
+                payload = base64.b64encode(buffer.getvalue()).decode("ascii")
+                (report / "index.html").write_text(
+                    f'<template id="playwrightReportBase64" type="application/zip">'
+                    f'data:application/zip;base64,{payload}</template>',
+                    encoding="utf-8",
+                )
+
+            self.assertEqual(report_pages.playwright_nightly_badge(site_dir), ("slow", "1 failed"))
+
     def test_remove_legacy_root_site_migrates_report_roots(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             site_dir = Path(tmpdir)

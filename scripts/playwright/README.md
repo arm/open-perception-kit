@@ -99,6 +99,7 @@ Publish flow:
 - Update only the affected report path:
   - `prs/<number>/` for PR reports.
   - `nightly/` for scheduled RPI `develop` reports and `nightly-macos/` for macOS.
+- Aggregate General and macOS results in the top-level Playwright nightly badge.
 - Rebuild the top-level `index.html`.
 - Store the pruned report in `playwright-pages`; Playwright videos remain in
   their GitHub Actions artifacts.
