@@ -40,7 +40,9 @@ class PerformanceMetrics {
     static constexpr std::uint64_t InvalidMetricId = std::numeric_limits<std::uint64_t>::max();
 
     /** Maximum copied scope-name length, excluding the terminating null byte. */
-    static constexpr std::size_t MaxSpanNameLength = 64;
+    static constexpr std::size_t MaxSpanNameLength = 63;
+
+    using SpanName = std::array<char, MaxSpanNameLength + 1>;
 
     /**
      * One completed historical scope lifetime.
@@ -56,7 +58,7 @@ class PerformanceMetrics {
         std::uint64_t parentId = InvalidSpanId;
 
         /** Copied, null-terminated scope name. */
-        std::array<char, MaxSpanNameLength + 1> name{};
+        SpanName name{};
 
         /** Monotonic start timestamp in nanoseconds. */
         std::uint64_t startNs = 0;
@@ -64,7 +66,7 @@ class PerformanceMetrics {
         /** Monotonic end timestamp in nanoseconds. */
         std::uint64_t endNs = 0;
 
-        /** Hashed std::thread::id of the thread that recorded this span. */
+        /** Linux thread identifier of the thread that recorded this span. */
         std::uint64_t threadId = 0;
 
         /** Nesting depth at which this span was opened. */
@@ -103,7 +105,7 @@ class PerformanceMetrics {
         std::uint64_t parentId = InvalidMetricId;
 
         /** Copied, null-terminated scope name. */
-        std::array<char, MaxSpanNameLength + 1> name{};
+        SpanName name{};
 
         /** Nesting depth of this metric path. */
         std::uint32_t depth = 0;

@@ -12,8 +12,10 @@
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <sys/syscall.h>
 #include <thread>
 #include <type_traits>
+#include <unistd.h>
 
 namespace pek::perf {
 
@@ -63,7 +65,7 @@ std::uint64_t nowNs() noexcept {
 }
 
 std::uint64_t currentThreadId() noexcept {
-    return std::hash<std::thread::id>{}(std::this_thread::get_id());
+    return static_cast<std::uint64_t>(::syscall(SYS_gettid));
 }
 
 // Internal slot lookup needs a unique identifier. A process-wide counter assigns each thread a
@@ -76,8 +78,7 @@ std::uint64_t currentThreadToken() noexcept {
 
 // Names use fixed storage in the recording structures to avoid allocating on every scope. The
 // return value records whether the caller's name had to be truncated.
-bool copySpanName(std::array<char, PerformanceMetrics::MaxSpanNameLength + 1> &destination,
-                  std::string_view source) noexcept {
+bool copySpanName(PerformanceMetrics::SpanName &destination, std::string_view source) noexcept {
     const auto sourceLength = source.size();
     const auto copiedLength = std::min(sourceLength, PerformanceMetrics::MaxSpanNameLength);
 
@@ -89,13 +90,12 @@ bool copySpanName(std::array<char, PerformanceMetrics::MaxSpanNameLength + 1> &d
 
 // Fixed names are always null-terminated by copySpanName, so comparison and export can expose them
 // as string views without carrying the full array capacity.
-std::string_view
-storedNameView(const std::array<char, PerformanceMetrics::MaxSpanNameLength + 1> &name) noexcept {
+std::string_view storedNameView(const PerformanceMetrics::SpanName &name) noexcept {
     return name.data();
 }
 
-bool namesEqual(const std::array<char, PerformanceMetrics::MaxSpanNameLength + 1> &left,
-                const std::array<char, PerformanceMetrics::MaxSpanNameLength + 1> &right) noexcept {
+bool namesEqual(const PerformanceMetrics::SpanName &left,
+                const PerformanceMetrics::SpanName &right) noexcept {
     return storedNameView(left) == storedNameView(right);
 }
 
@@ -127,7 +127,7 @@ struct HistoryChunk {
 // combining values from different updates.
 struct PerformanceMetricsAtomicMetric {
     std::atomic<std::uint64_t> sequence{0};
-    std::array<char, PerformanceMetrics::MaxSpanNameLength + 1> name{};
+    PerformanceMetrics::SpanName name{};
     std::uint32_t parentIndex = InvalidLocalMetricIndex;
     std::uint32_t depth = 0;
     std::atomic<std::uint64_t> count{0};
@@ -145,7 +145,7 @@ struct PerformanceMetricsThreadSlot {
     std::atomic<bool> active{false};
     // Used only to recover this slot after a thread switches between recorders
     std::uint64_t threadToken = 0;
-    // The hashed identifier written to exported SpanRecords.
+    // The Linux thread identifier written to exported SpanRecords.
     std::uint64_t threadId = 0;
     std::atomic<std::uint32_t> droppedMetrics{0};
     std::atomic<std::uint32_t> droppedSpans{0};
@@ -277,7 +277,7 @@ ThreadFrame *acquireThreadFrame(detail::PerformanceMetricsState &state) {
 // This key preserves hierarchy when the same name appears below different parents. Metric metadata
 // is initialized before metricCount publishes the new entry to concurrent snapshot readers.
 std::uint32_t ensureMetric(detail::PerformanceMetricsThreadSlot &slot,
-                           const std::array<char, PerformanceMetrics::MaxSpanNameLength + 1> &name,
+                           const PerformanceMetrics::SpanName &name,
                            std::uint32_t parentIndex,
                            std::uint32_t depth,
                            bool nameTruncated) noexcept {
@@ -581,7 +581,7 @@ PerformanceMetrics::Scope PerformanceMetrics::scope(std::string_view name) noexc
             return {};
         }
 
-        std::array<char, MaxSpanNameLength + 1> storedName{};
+        SpanName storedName{};
         const bool nameTruncated = copySpanName(storedName, name);
         const auto parentIndex = frame->depth == 0 ? InvalidLocalMetricIndex
                                                    : frame->stack[frame->depth - 1].metricIndex;

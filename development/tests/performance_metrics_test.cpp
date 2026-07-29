@@ -14,6 +14,7 @@
 #include <fstream>
 #include <string>
 #include <thread>
+#include <unistd.h>
 #include <vector>
 
 namespace {
@@ -21,7 +22,7 @@ namespace {
 using pek::perf::PerformanceMetrics;
 
 std::string tempCsvPath(std::string_view suffix) {
-    const auto token = std::hash<std::thread::id>{}(std::this_thread::get_id());
+    const auto token = ::getpid();
     const auto filename = std::format("pek_performance_metrics_{}_{}.csv", token, suffix);
     return (std::filesystem::current_path() / filename).string();
 }
