@@ -86,7 +86,7 @@ def comparison(bare_ms: float = 10.0,
 def video_comparison(bare_fps: float = 10.0, pek_fps: float = 12.0) -> dict:
     ratio = pek_fps / bare_fps
     return {
-        "schema": "expkits_yolo_video_comparison.v2",
+        "schema": "expkits_yolo_video_comparison.v3",
         "measurement": {
             "timed_region": "first_serialized_result_ready_to_last_serialized_result_ready",
         },

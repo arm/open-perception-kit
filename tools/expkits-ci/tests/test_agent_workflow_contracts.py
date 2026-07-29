@@ -926,6 +926,10 @@ class AgentWorkflowContractTests(unittest.TestCase):
             yolo_prepare = step_map(yolo_job)["Prepare pinned modelfetch release"]
             with self.subTest(workflow=relative_path, job=job_name):
                 self.assertEqual(
+                    yolo_job["env"]["YOLO_BENCHMARK_RUNS"],
+                    "${{ github.event_name == 'pull_request' && '1' || inputs.benchmark_runs }}",
+                )
+                self.assertEqual(
                     yolo_job["env"]["MODELFETCH_RELEASE_TOOL_IMAGE"],
                     "yolo-modelfetch-release-tools:"
                     "${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}",

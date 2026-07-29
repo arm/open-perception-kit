@@ -8,29 +8,24 @@ PEK runtime. Neither is a PR gate:
 - `YOLO Imageset Benchmark` uses COCO val2017. PR runs require the
   `run-yolo-imageset-benchmark` label.
 
-Video runs use ten order-balanced repetitions. Image-set runs use ten full-COCO
-repetitions. Pull-request benchmarks remain opt-in through their labels.
+Nightly video runs use ten order-balanced repetitions, and nightly image-set
+runs use ten full-COCO repetitions. Label-triggered pull-request benchmarks use
+one repetition; manual runs can override the repetition count.
 
 ## Video FPS
 
-Video mode processes the original MP4 directly in both runners:
+Video mode keeps the pinned MP4 as the camera-independent stream source. Bare
+decodes its frames to memory before either inference pass. PEK decodes and
+converts the video to BGRA once into a full-video GStreamer queue, then a `tee`
+replays the same in-memory buffers through the warmup and measured branches of
+the live pipeline. No intermediate image files are written.
 
-- Bare: `YOLO.predict(source=video, stream=True, batch=1)`
-- PEK: `2 x (filesrc ! decodebin ! videoconvert) ! concat ! pekinfer ! switchbin ! fakesink`
-
-Each runner first processes one complete, untimed video pass with the same
-loaded model or `pekinfer` instance used for measurement. This lets
-`pekinfer` finish its asynchronous setup without changing its pass-through
-runtime contract and gives both runners the same cache warmup. The two PEK
-source branches carry benchmark-local `warmup` and `measured` caps values.
-After the shared `pekinfer`, `switchbin` drops the warmup output and passes only
-the measured output to the result sink; the runner rejects anything other than
-205 measured results. The first completed frame of the second pass is warmup.
-`pipeline_fps` measures the remaining 204 serialized-result intervals and
-includes decode, color conversion, inference, post-processing, result
-serialization, and delivery. Artifact writing is outside the timed region.
-Playback is unpaced, so the source's 30 FPS timestamps do not cap the measured
-throughput.
+Both runners process one complete untimed warmup pass. `pipeline_fps` measures
+the remaining 204 serialized-result intervals of the 205-frame measured pass.
+Video decode and source BGR/BGRA conversion are outside that interval; live
+pipeline delivery, model preprocessing, inference, post-processing, and result
+serialization remain inside it. Playback is unpaced, so source timestamps do
+not cap throughput.
 
 After timing completes, video mode runs separate Bare and PEK visualization
 passes. Ultralytics renders `bare-detections.mp4`; `pekinfer ! pekosd` renders
@@ -49,9 +44,10 @@ included in benchmark artifacts.
 ## Measurement
 
 Both runners load separately, preload all images, run one warmup image, then
-measure `preloaded_image_to_postprocess_result_ready`. Per-image timing excludes
-model load, file I/O, JPEG decode, preload, camera/color adapter cost, and JSONL
-writing.
+measure `preloaded_image_to_postprocess_result_ready`. Bare times
+`model.predict(...)`; PEK times `OpChain::run(...)`, including creation of its
+returned perception string. Per-image timing excludes model load, file I/O,
+JPEG decode, preload, source RGB/BGRA conversion, and benchmark JSONL writing.
 
 Artifacts are shape-compatible between runners: `benchmark_summary.json`,
 `predictions.jsonl`, and `timings.jsonl`. Timing rows include image id/path,

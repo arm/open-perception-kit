@@ -52,7 +52,7 @@ REPORT_INDEX_META = "report-index-meta.txt"
 FINGERPRINT_HEADER = "# image_set_fingerprint="
 PERCENTILE_METRICS = ("p50_ms", "p75_ms", "p95_ms", "p99_ms")
 RUN_METRICS = ("avg_ms", *PERCENTILE_METRICS)
-VIDEO_COMPARISON_SCHEMA = "expkits_yolo_video_comparison.v2"
+VIDEO_COMPARISON_SCHEMA = "expkits_yolo_video_comparison.v3"
 IMAGE_COMPARISON_SCHEMA = "expkits_yolo_image_comparison.v1"
 BARE_DETECTION_VIDEO = "bare-detections.mp4"
 PEK_DETECTION_VIDEO = "pek-detections.mp4"
@@ -1039,7 +1039,7 @@ def write_video_summary_table(runs: list[dict[str, Any]]) -> str:
         '<thead><tr>'
         f'{th("Metric")}{th("Bare median", "[FPS]")}{th("PEK median", "[FPS]")}'
         f'{th("PEK delta", "[FPS]")}{th("Result")}'
-        '</tr></thead><tbody><tr><td>Unpaced pipeline</td>'
+        '</tr></thead><tbody><tr><td>Preloaded video stream</td>'
         f'<td>{delta["bare_fps"]:.3f}</td><td>{delta["pek_fps"]:.3f}</td>'
         f'<td>{delta["delta_fps"]:+.3f}</td><td>{fps_result_label(delta)}</td>'
         '</tr></tbody></table></div>'

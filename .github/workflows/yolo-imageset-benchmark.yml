@@ -48,7 +48,7 @@ jobs:
       YOLO_BENCHMARK_IMAGE_NAME: amp-dev-forge-yolo-imageset-benchmark:${{ github.run_id }}-${{ github.run_attempt }}
       YOLO_BENCHMARK_KIND: images
       YOLO_BENCHMARK_LIMIT: ${{ inputs.image_limit }}
-      YOLO_BENCHMARK_RUNS: ${{ inputs.benchmark_runs }}
+      YOLO_BENCHMARK_RUNS: ${{ github.event_name == 'pull_request' && '1' || inputs.benchmark_runs }}
 
     steps:
       - name: Checkout ref
