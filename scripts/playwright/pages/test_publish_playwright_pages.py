@@ -420,7 +420,7 @@ class TestPublishPlaywrightPages(unittest.TestCase):
 
             self.assertEqual(output.read_text(encoding="utf-8"), "deploy=false\n")
 
-    def test_publish_macos_report_keeps_rpi_nightly(self):
+    def test_publish_macos_report_keeps_general_nightly(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             local_report = root / "playwright-report"
@@ -434,7 +434,7 @@ class TestPublishPlaywrightPages(unittest.TestCase):
             def checkout(path, _storage_branch):
                 nightly = path / "playwright" / "nightly"
                 nightly.mkdir(parents=True)
-                (nightly / "marker.txt").write_text("rpi", encoding="utf-8")
+                (nightly / "marker.txt").write_text("general", encoding="utf-8")
 
             env = {
                 "GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge",
@@ -456,7 +456,7 @@ class TestPublishPlaywrightPages(unittest.TestCase):
 
             self.assertEqual(
                 (site_dir / "playwright" / "nightly" / "marker.txt").read_text(encoding="utf-8"),
-                "rpi",
+                "general",
             )
             macos = site_dir / "playwright" / "nightly-macos"
             self.assertTrue((macos / "index.html").is_file())
