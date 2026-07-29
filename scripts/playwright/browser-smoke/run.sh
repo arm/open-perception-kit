@@ -82,15 +82,22 @@ cleanup_active() {
 }
 
 cleanup_stale_browser_containers() {
+    local filters=(
+        --filter "label=${BROWSER_SMOKE_LABEL}=true"
+        --filter "label=${BROWSER_SMOKE_RUNNER_LABEL}=${RUNNER_NAME:-}"
+        --filter "label=${BROWSER_SMOKE_REPOSITORY_LABEL}=${GITHUB_REPOSITORY:-}"
+    )
+
     if [ "${CI:-}" != "true" ] || [ -z "${RUNNER_NAME:-}" ] || [ -z "${GITHUB_REPOSITORY:-}" ]; then
         return
     fi
 
-    repo_checks_load_lines docker ps -aq \
-        --filter "label=${BROWSER_SMOKE_LABEL}=true" \
-        --filter "label=${BROWSER_SMOKE_RUNNER_LABEL}=${RUNNER_NAME}" \
-        --filter "label=${BROWSER_SMOKE_REPOSITORY_LABEL}=${GITHUB_REPOSITORY}"
-    [ "${#REPO_CHECKS_LOADED_LINES[@]}" -eq 0 ] || docker rm -f "${REPO_CHECKS_LOADED_LINES[@]}"
+    repo_checks_load_lines docker ps -aq "${filters[@]}"
+    if [ "${#REPO_CHECKS_LOADED_LINES[@]}" -ne 0 ] &&
+        ! docker rm -f "${REPO_CHECKS_LOADED_LINES[@]}"; then
+        repo_checks_load_lines docker ps -aq "${filters[@]}"
+        [ "${#REPO_CHECKS_LOADED_LINES[@]}" -eq 0 ]
+    fi
 }
 
 on_signal() {
