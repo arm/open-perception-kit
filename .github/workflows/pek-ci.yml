@@ -266,6 +266,9 @@ jobs:
           checkout_path="${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}"
           helper_path="${{ github.workspace }}/${{ env.CI_HELPER_PATH }}"
           cleanup_status=0
+          if [ -x "$checkout_path/scripts/playwright/browser-smoke/run.sh" ]; then
+            "$checkout_path/scripts/playwright/browser-smoke/run.sh" --cleanup-stale || cleanup_status=$?
+          fi
           if [ -x "$checkout_path/scripts/quick-start/cleanup-container.sh" ]; then
             "$checkout_path/scripts/quick-start/cleanup-container.sh" || cleanup_status=$?
           fi
