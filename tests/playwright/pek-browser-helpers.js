@@ -36,10 +36,6 @@ async function openPekUi(page) {
 }
 
 async function waitForVideo(page, timeout = 60000) {
-  await expect(page.locator(STATUS_LINE)).toContainText(/connected|video/i, {
-    timeout,
-  });
-
   await waitForHealthyVideoState(page, null, timeout);
 }
 
@@ -137,33 +133,37 @@ async function waitForVideoLoops(page, loopCount, loopTimeoutMs) {
 
   for (let loop = 0; loop < loopCount; loop += 1) {
     const previousStreamId = state.streamId;
-
-    try {
-      await expect.poll(async () => {
-        state = await page.evaluate(readVideoState);
-        return state.streamId !== previousStreamId && videoStreamStateIsHealthy(state);
-      }, { timeout: loopTimeoutMs }).toBe(true);
-    } catch (error) {
-      throw new Error(`${error.message}\nLast video state after loop ${loop + 1}: ${JSON.stringify(state)}`);
-    }
+    state = await waitForVideoState(page, loopTimeoutMs,
+      (current) => current.streamId !== previousStreamId && videoStreamStateIsHealthy(current),
+      `video loop ${loop + 1}`);
   }
 
   return state;
 }
 
 async function waitForHealthyVideoState(page, previousState, timeout) {
+  return waitForVideoState(page, timeout,
+    (state) => videoStateIsHealthy(state) && videoStateHasProgressed(state, previousState),
+    'healthy video');
+}
+
+async function waitForVideoState(page, timeout, predicate, description) {
+  const deadline = Date.now() + timeout;
   let state;
 
-  try {
-    await expect.poll(async () => {
-      state = await page.evaluate(readVideoState);
-      return videoStateIsHealthy(state) && videoStateHasProgressed(state, previousState);
-    }, { timeout }).toBe(true);
-  } catch (error) {
-    throw new Error(`${error.message}\nLast video state: ${JSON.stringify(state)}`);
+  while (Date.now() < deadline) {
+    const errors = await page.locator('#log .log-line.error').allTextContents();
+    if (errors.length > 0) {
+      throw new Error(`WebRTC errors while waiting for ${description}:\n${errors.join('\n')}`);
+    }
+
+    state = await page.evaluate(readVideoState);
+    if (predicate(state))
+      return state;
+    await page.waitForTimeout(250);
   }
 
-  return state;
+  throw new Error(`Timed out after ${timeout}ms waiting for ${description}.\nLast video state: ${JSON.stringify(state)}`);
 }
 
 function expectVideoStateToBeHealthy(state) {
