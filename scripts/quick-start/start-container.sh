@@ -157,18 +157,6 @@ container_has_current_modelfetch_sdk() {
     ' _ "$expected_sha" > /dev/null 2>&1
 }
 
-container_has_current_huggingface_token() {
-    local token_path="/run/secrets/huggingface_token"
-    if [[ -n "${HF_TOKEN}" ]]; then
-        printf '%s' "${HF_TOKEN}" |
-            docker exec -i -u dev "${PEK_CONTAINER_NAME}" \
-                cmp -s - "${token_path}" > /dev/null 2>&1
-        return
-    fi
-    docker exec -u dev "${PEK_CONTAINER_NAME}" \
-        test ! -s "${token_path}" > /dev/null 2>&1
-}
-
 print_enter_hint() {
     echo "Container is running: ${PEK_CONTAINER_NAME}"
     echo "Enter it with:"
@@ -194,16 +182,15 @@ bash .devcontainer/platform_init.sh \
     "${PEK_CONTAINER_SERVICE}" "${PEK_PICAMERA}" "${PEK_WEBRTC_TURN}"
 
 if container_running && [[ "$RECREATE" != "true" ]]; then
-    if container_workdir_writable && container_has_current_modelfetch_sdk &&
-        container_has_current_huggingface_token; then
-        echo "Reconciling the running container with the current Compose environment..."
+    if container_workdir_writable && container_has_current_modelfetch_sdk; then
+        echo "Recreating the running container with the current Compose environment..."
         "${COMPOSE_COMMAND[@]}" "${COMPOSE_FILES[@]}" \
-            up -d --no-build --remove-orphans "${PEK_CONTAINER_SERVICE}"
+            up -d --no-build --force-recreate --remove-orphans "${PEK_CONTAINER_SERVICE}"
         print_enter_hint
         exit 0
     fi
 
-    echo "The running container is missing the current workspace or credential contract."
+    echo "The running container is missing the current workspace or modelfetch SDK contract."
     echo "Recreating it with the current host configuration..."
     RECREATE="true"
 fi

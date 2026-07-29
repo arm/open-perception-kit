@@ -270,9 +270,7 @@ export HF_TOKEN="hf_your_token_here"
 topo deploy --target <raspberry-pi-ip-address>
 ```
 
-Topo forwards the value through the same read-only Compose secret. If you
-replace or clear a token used by an existing deployment, add `--force-recreate`
-to the next `topo deploy` command.
+Topo forwards the value through the same read-only Compose secret.
 
 When the deployment has started, open:
 

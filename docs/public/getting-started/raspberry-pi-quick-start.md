@@ -138,7 +138,7 @@ VS Code Remote SSH, then reconnect VS Code to the Pi:
 ```bash
 touch ~/.profile &&
   chmod 600 ~/.profile &&
-  printf '%s\n' 'export HF_TOKEN="hf_..."' >> ~/.profile
+  printf '%s\n' 'export HF_TOKEN="hf_your_token_here"' >> ~/.profile
 ```
 
 The owner-only permission keeps the persisted credential private. The Dev

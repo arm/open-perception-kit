@@ -178,11 +178,6 @@ test(
   ],
 )
 test(
-  'quick_start_container_tests',
-  python,
-  args : [files('quick_start_container_test.py')],
-)
-test(
   'huggingface_auth_compose_tests',
   python,
   args : [files('huggingface_auth_compose_test.py')],

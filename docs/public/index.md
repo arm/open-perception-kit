@@ -108,19 +108,32 @@ Enter the `amp-dev-forge` folder in the terminal and run:
 ```
 
 For a private or gated Hugging Face model, export `HF_TOKEN` before running the
-same command. Compose mounts it as a read-only file secret instead of placing it
-in the container environment, and modelfetch validates it. An unset or empty
-`HF_TOKEN` selects anonymous access. Do not store the credential in either
-generated `.env` file.
-
-For a direct deployment build, prepare the pinned modelfetch release before
-invoking the existing Compose entrypoint. The export preserves an existing
-token and defines an empty one for anonymous access:
+quick-start:
 
 ```bash
-export HF_TOKEN="${HF_TOKEN-}"
+export HF_TOKEN="hf_your_token_here"
+./scripts/quick_start.sh
+```
+
+Compose mounts the value read-only at
+`/run/secrets/huggingface_token`; it is not stored in the container environment.
+Modelfetch reads and validates that file. An unset or empty `HF_TOKEN` selects
+anonymous access. Do not store the credential in the generated `.env` files.
+
+For a direct deployment build, prepare the pinned modelfetch release before
+invoking the existing Compose entrypoint. For a private or gated model, export
+your Hugging Face token:
+
+```bash
 bash scripts/private/prepare-modelfetch-release.sh
+export HF_TOKEN="hf_your_token_here"
 docker compose up --build
+```
+
+For anonymous direct deployment, provide an explicitly empty token instead:
+
+```bash
+HF_TOKEN="" docker compose up --build
 ```
 
 After replacing or clearing `HF_TOKEN`, add `--force-recreate` to the next

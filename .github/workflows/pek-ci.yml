@@ -51,6 +51,7 @@ jobs:
         )
       )
     env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
       PEK_QUICK_START_CI_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
@@ -111,6 +112,10 @@ jobs:
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: ./scripts/quick-start/start-container.sh --recreate
 
+      - name: Reconcile running quick-start container
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: ./scripts/quick-start/start-container.sh
+
       - name: Build PEK in quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: ./scripts/build.sh
@@ -148,6 +153,7 @@ jobs:
         )
       )
     env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
       PEK_QUICK_START_CI_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CI_HELPER_PATH: workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}

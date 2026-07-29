@@ -768,6 +768,37 @@ class AgentWorkflowContractTests(unittest.TestCase):
             "Local runtime and build caches must not enter container build contexts.",
         )
 
+    def test_quick_start_jobs_use_the_repository_huggingface_secret_directly(self):
+        workflow = load_yaml(PEK_CI_WORKFLOW_FILE)
+        quick_start_jobs = {
+            "linux-quick-start-build-test",
+            "rpi5-quick-start-build-test",
+        }
+        jobs_with_huggingface_secret = {
+            name
+            for name, job in workflow["jobs"].items()
+            if "${{ secrets.HF_TOKEN }}" in json.dumps(job)
+        }
+        self.assertEqual(jobs_with_huggingface_secret, quick_start_jobs)
+
+        for job_name in quick_start_jobs:
+            job = workflow["jobs"][job_name]
+            steps = step_map(job)
+            with self.subTest(job=job_name):
+                self.assertEqual(
+                    job["env"]["HF_TOKEN"],
+                    "${{ secrets.HF_TOKEN }}",
+                )
+                for step in job["steps"]:
+                    self.assertNotIn("HF_TOKEN", step.get("env", {}))
+                    self.assertNotIn("HF_TOKEN", step.get("run", ""))
+
+                if job_name == "linux-quick-start-build-test":
+                    self.assertEqual(
+                        steps["Reconcile running quick-start container"]["run"],
+                        "./scripts/quick-start/start-container.sh",
+                    )
+
     def test_modelfetch_consumers_use_repo_scoped_read_only_app_tokens(self):
         consumer_jobs = (
             (

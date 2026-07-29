@@ -46,13 +46,11 @@ class HuggingFaceAuthComposeTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("docker"), "Docker CLI unavailable")
     def test_ci_services_do_not_mount_the_host_secret(self):
         configuration = self._compose_config(".github/compose.ci.yaml")
+        self.assertNotIn(MOUNT_NAME, configuration.get("secrets", {}))
         for name, service in configuration["services"].items():
-            environment = service.get("environment", {})
-            if "HF_TOKEN_PATH" not in environment:
-                continue
             with self.subTest(service=name):
-                self.assertNotIn("HF_TOKEN", environment)
-                self.assertEqual(environment["HF_TOKEN_PATH"], MOUNT_TARGET)
+                self.assertNotIn("HF_TOKEN", service.get("environment", {}))
+                self.assertNotIn("HF_TOKEN_PATH", service.get("environment", {}))
                 self.assertNotIn(
                     MOUNT_NAME,
                     {mount["source"] for mount in service.get("secrets", [])},

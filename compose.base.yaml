@@ -1,6 +1,5 @@
 x-pek-runtime-environment: &pek-runtime-environment
   USERNAME: dev
-  HF_TOKEN_PATH: /run/secrets/huggingface_token
 
 x-pek-development-environment: &pek-development-environment
   WAYLAND_DISPLAY: wayland-0
@@ -18,13 +17,6 @@ services:
 
     environment:
       <<: *pek-runtime-environment
-
-    secrets:
-      - source: huggingface_token
-        target: /run/secrets/huggingface_token
-        uid: "${HOST_UID:-1000}"
-        gid: "${HOST_GID:-1000}"
-        mode: 0400
 
     # <agent-review:suppress-begin>
     # The env_file object form (path + required) is a Compose feature, which is available since 2.24 (released on 20.12.2023).
