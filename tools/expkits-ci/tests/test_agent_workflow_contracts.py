@@ -768,7 +768,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
             "Local runtime and build caches must not enter container build contexts.",
         )
 
-    def test_quick_start_jobs_use_the_repository_huggingface_secret_directly(self):
+    def test_quick_start_compose_steps_use_the_repository_huggingface_secret_directly(self):
         workflow = load_yaml(PEK_CI_WORKFLOW_FILE)
         quick_start_jobs = {
             "linux-quick-start-build-test",
@@ -784,14 +784,20 @@ class AgentWorkflowContractTests(unittest.TestCase):
         for job_name in quick_start_jobs:
             job = workflow["jobs"][job_name]
             steps = step_map(job)
+            expected_secret_steps = {"Build and start quick-start container"}
+            if job_name == "linux-quick-start-build-test":
+                expected_secret_steps.add("Reconcile running quick-start container")
             with self.subTest(job=job_name):
-                self.assertEqual(
-                    job["env"]["HF_TOKEN"],
-                    "${{ secrets.HF_TOKEN }}",
-                )
+                self.assertNotIn("HF_TOKEN", job.get("env", {}))
                 for step in job["steps"]:
-                    self.assertNotIn("HF_TOKEN", step.get("env", {}))
                     self.assertNotIn("HF_TOKEN", step.get("run", ""))
+                    if step["name"] in expected_secret_steps:
+                        self.assertEqual(
+                            step["env"]["HF_TOKEN"],
+                            "${{ secrets.HF_TOKEN }}",
+                        )
+                    else:
+                        self.assertNotIn("HF_TOKEN", step.get("env", {}))
 
                 if job_name == "linux-quick-start-build-test":
                     self.assertEqual(
