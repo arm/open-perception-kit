@@ -58,6 +58,9 @@ NUM_FRAMES=45000 \
 ./scripts/playwright/browser-smoke/run.sh
 ```
 
+Use `--sink-only` to run only the basic visible-video smoke test for each
+selected browser.
+
 Outputs:
 
 - `playwright-report/`
@@ -69,8 +72,9 @@ browser phases into one Playwright HTML report.
 
 ## Pages publisher
 
-The Pages publisher consumes the `rpi-browser-smoke-<run-id>-<attempt>` artifact
-from GitHub Actions and updates the persistent Pages site.
+The Pages publisher consumes the `rpi-browser-smoke-<run-id>-<attempt>` and
+`macos-browser-smoke-<run-id>-<attempt>` artifacts from GitHub Actions and
+updates the persistent Pages site.
 
 The workflow entrypoints run the publisher inside a small Docker image:
 
@@ -90,11 +94,11 @@ current report index in the `playwright-pages` storage branch.
 
 Publish flow:
 
-- Download the `rpi-browser-smoke-<run-id>-<attempt>` artifact.
+- Download the platform's browser-smoke artifact.
 - Check out `playwright-pages` into `_playwright_pages_site`.
 - Update only the affected report path:
   - `prs/<number>/` for PR reports.
-  - `nightly/` for scheduled `develop` reports.
+  - `nightly/` for scheduled RPI `develop` reports and `nightly-macos/` for macOS.
 - Rebuild the top-level `index.html`.
 - Store the pruned report in `playwright-pages`; Playwright videos remain in
   their GitHub Actions artifacts.

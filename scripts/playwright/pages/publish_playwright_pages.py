@@ -41,6 +41,8 @@ REPORT_ROOT = "playwright"
 INDEX_HTML = "index.html"
 REPORT_INDEX_META = "report-index-meta.txt"
 VIDEO_ARTIFACT_META = "video-artifact.json"
+ARTIFACT_PREFIX_META = "artifact-prefix.txt"
+DEFAULT_ARTIFACT_PREFIX = "rpi-browser-smoke"
 MAX_REPORT_BYTES = 500 * 1024 * 1024
 PRUNED_REPORT_DATA_SUFFIXES = {".webm", ".zip"}
 DRY_RUN_ENV = "PLAYWRIGHT_PAGES_DRY_RUN"
@@ -249,15 +251,19 @@ def write_site_index(site_dir: Path, repository: str) -> None:
         <div class="report-list">
 """,
     ]
-    nightly = root / "nightly"
-    if (nightly / INDEX_HTML).is_file():
+    nightly_found = False
+    for directory, title in (("nightly", "General"), ("nightly-macos", "macOS")):
+        nightly = root / directory
+        if not (nightly / INDEX_HTML).is_file():
+            continue
+        nightly_found = True
         meta = read_first_line(nightly / REPORT_INDEX_META, "Scheduled develop run")
         parts.append(
-            f'          <a class="report-link" href="nightly/{INDEX_HTML}"><span><span class="report-title">'
-            f'Latest nightly</span><span class="report-meta">{html_escape(meta)}</span></span>'
-            '<span class="badge">Open</span></a>\n'
+            f'          <a class="report-link" href="{directory}/{INDEX_HTML}"><span>'
+            f'<span class="report-title">{title}</span><span class="report-meta">'
+            f'{html_escape(meta)}</span></span><span class="badge">Open</span></a>\n'
         )
-    else:
+    if not nightly_found:
         parts.append('          <div class="empty">No nightly report published yet.</div>\n')
 
     parts.append(
@@ -379,7 +385,13 @@ def build_report_index_meta_text(branch: str, head_sha: str, run_id: str, run_at
     return f"{build_source_meta_text(branch, head_sha, run_id, run_attempt)} | {now.strftime('%b %d, %Y %H:%M UTC')}"
 
 
-def download_report_artifact(artifact_dir: Path, repository: str, run_id: str, run_attempt: str) -> bool:
+def download_report_artifact(
+    artifact_dir: Path,
+    repository: str,
+    run_id: str,
+    run_attempt: str,
+    artifact_prefix: str = DEFAULT_ARTIFACT_PREFIX,
+) -> bool:
     local_report_dir = env("PLAYWRIGHT_PAGES_LOCAL_REPORT_DIR")
     if local_report_dir:
         source = Path(local_report_dir)
@@ -389,7 +401,7 @@ def download_report_artifact(artifact_dir: Path, repository: str, run_id: str, r
         shutil.copytree(source, target)
         return True
 
-    artifact_name = f"rpi-browser-smoke-{run_id}-{run_attempt}"
+    artifact_name = f"{artifact_prefix}-{run_id}-{run_attempt}"
     result = subprocess.run(
         ["gh", "run", "download", run_id, "--repo", repository, "--name", artifact_name, "--dir", str(artifact_dir)],
         check=False,
@@ -511,7 +523,10 @@ def restore_published_report_videos(site_dir: Path) -> int:
                 continue
 
             artifact_dir = Path(tmpdir) / str(index)
-            if not download_report_artifact(artifact_dir, repository, str(run_id), str(run_attempt)):
+            artifact_prefix = read_first_line(target / ARTIFACT_PREFIX_META, DEFAULT_ARTIFACT_PREFIX)
+            if not download_report_artifact(
+                artifact_dir, repository, str(run_id), str(run_attempt), artifact_prefix
+            ):
                 print(f"Could not restore Playwright videos from run {run_id}; keeping the run link.")
                 continue
             report_dir = find_playwright_report(artifact_dir)
@@ -560,9 +575,13 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
     conclusion = require_env("UPSTREAM_CONCLUSION")
     run_id = require_env("UPSTREAM_RUN_ID")
     run_attempt = require_env("UPSTREAM_RUN_ATTEMPT")
+    artifact_prefix = env("PLAYWRIGHT_PAGES_ARTIFACT_PREFIX", DEFAULT_ARTIFACT_PREFIX)
+    report_title = env("PLAYWRIGHT_PAGES_REPORT_TITLE", PRODUCT_TITLE)
 
     if not run_id.isdigit() or not run_attempt.isdigit():
         raise PublishError("UPSTREAM_RUN_ID and UPSTREAM_RUN_ATTEMPT must be numeric.")
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", artifact_prefix):
+        raise PublishError(f"Invalid Playwright artifact prefix: {artifact_prefix}")
 
     if conclusion not in {"success", "failure"}:
         print(f"Skipping Playwright report from {conclusion} upstream run.")
@@ -588,9 +607,12 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
             print(f"Skipping non-PR Playwright report from {event} on {branch}.")
             set_output("deploy", "false")
             return
+        nightly_directory = env("PLAYWRIGHT_PAGES_NIGHTLY_DIRECTORY", "nightly")
+        if not re.fullmatch(r"[a-z0-9-]+", nightly_directory):
+            raise PublishError(f"Invalid Playwright nightly directory: {nightly_directory}")
         pr_number = ""
         root = site_dir / REPORT_ROOT
-        target = root / "nightly"
+        target = root / nightly_directory
         back_href = "../"
 
     index_meta_text = build_report_index_meta_text(branch, head_sha, run_id, run_attempt)
@@ -605,7 +627,7 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
 
     with tempfile.TemporaryDirectory() as tmpdir:
         artifact_dir = Path(tmpdir)
-        if not download_report_artifact(artifact_dir, repository, run_id, run_attempt):
+        if not download_report_artifact(artifact_dir, repository, run_id, run_attempt, artifact_prefix):
             set_output("deploy", "false")
             return
 
@@ -620,16 +642,17 @@ def publish_report(site_dir: Path, storage_branch: str) -> None:
         remove_legacy_root_site(site_dir)
         copy_pruned_report_for_pages(report_dir, target)
         write_video_artifact_meta(target, run_id, run_attempt, video_files)
+        (target / ARTIFACT_PREFIX_META).write_text(f"{artifact_prefix}\n", encoding="utf-8")
         (target / REPORT_INDEX_META).write_text(f"{index_meta_text}\n", encoding="utf-8")
         (target / "report-meta.html").write_text(f"{meta_html}\n", encoding="utf-8")
         (target / "report-source-meta.html").write_text(f"{source_meta_html}\n", encoding="utf-8")
         write_report_shell_assets(site_dir)
         if not (target / INDEX_HTML).is_file():
-            write_report_index(target, PRODUCT_TITLE, back_href)
+            write_report_index(target, report_title, back_href)
         else:
             decorate_playwright_report(
                 target,
-                PRODUCT_TITLE,
+                report_title,
                 back_href,
                 meta_html,
                 repository,
