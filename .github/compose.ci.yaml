@@ -61,6 +61,7 @@ services:
 
   pek-release-with-ut:
     <<: *pek-docs
+    secrets: !reset []
     hostname: pek-release-with-ut
     command: |
       bash -c '
@@ -72,6 +73,7 @@ services:
 
   pek-clang-tidy-baseline-check:
     <<: *pek-dev
+    secrets: !reset []
     hostname: pek-clang-tidy-baseline-check
     command: |
       bash -c '
@@ -104,6 +106,7 @@ services:
 
   pek-valgrind-check:
     <<: *pek-docs
+    secrets: !reset []
     hostname: pek-valgrind-check
     command: |
       bash -c '
@@ -114,6 +117,7 @@ services:
 
   pek-generate-valgrind-summary:
     <<: *pek-docs
+    secrets: !reset []
     hostname: pek-generate-valgrind-summary
     command: |
       bash -c '
@@ -129,6 +133,7 @@ services:
 
   pek-quality-check-pull-request:
     <<: *pek-dev
+    secrets: !reset []
     command: |
       bash -c '
         .devcontainer/devsetup.sh &&
@@ -141,6 +146,7 @@ services:
 
   pek-quality-check-full:
     <<: *pek-docs
+    secrets: !reset []
     command: |
       bash -c '
         .devcontainer/devsetup.sh &&
