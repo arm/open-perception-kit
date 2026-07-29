@@ -183,6 +183,11 @@ test(
   args : [files('quick_start_container_test.py')],
 )
 test(
+  'huggingface_auth_compose_tests',
+  python,
+  args : [files('huggingface_auth_compose_test.py')],
+)
+test(
   'modelfetch_dependency_boundary_tests',
   python,
   args : [

@@ -69,7 +69,9 @@ code .
 
 The checked-in YOLOv11 quick start needs no Hugging Face credential. For a
 private or gated model, export `HF_TOKEN` in this shell before opening VS Code;
-the Dev Container passes it unchanged to modelfetch.
+the Dev Container mounts it as a read-only file secret for modelfetch. The token
+is not added to the container environment. After changing or unsetting a token,
+run **Dev Containers: Rebuild Container**.
 
 In VS Code:
 

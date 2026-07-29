@@ -26,8 +26,8 @@ constexpr const char *FakeModeEnvironment = "PEK_MODELFETCH_FAKE_MODE";
 constexpr const char *FakeEscapePathEnvironment = "PEK_MODELFETCH_FAKE_ESCAPE_PATH";
 constexpr const char *FakeCallsEnvironment = "PEK_MODELFETCH_FAKE_CALLS";
 constexpr const char *FakeTokenModeEnvironment = "PEK_MODELFETCH_FAKE_TOKEN_MODE";
-constexpr const char *FakeExpectedTokenEnvironment = "PEK_MODELFETCH_FAKE_EXPECTED_TOKEN";
 constexpr const char *HuggingFaceTokenEnvironment = "HF_TOKEN";
+constexpr const char *HuggingFaceTokenPathEnvironment = "HF_TOKEN_PATH";
 
 class TemporaryDirectory {
   public:
@@ -216,12 +216,12 @@ TEST(ModelDescriptor, FromFileMaterializesPublishedModelInDedicatedStore) {
     EXPECT_NE(logOutput.find("modelfetch materialized modelFile"), std::string::npos);
 }
 
-TEST(ModelDescriptor, FromFileUsesAnonymousHuggingFaceAuthWhenTokenIsUnset) {
+TEST(ModelDescriptor, FromFileUsesAnonymousHuggingFaceAuthWhenSecretPathIsUnset) {
     constexpr const char *name = "auth-unset";
     TemporaryDirectory temporary(name);
     PublishedModelFixture model(name);
     const fs::path markerPath = temporary.path / "token-mode";
-    ScopedEnvironmentVariable token(HuggingFaceTokenEnvironment);
+    ScopedEnvironmentVariable tokenPath(HuggingFaceTokenPathEnvironment);
     ScopedEnvironmentVariable marker(FakeTokenModeEnvironment, markerPath.string());
     const fs::path descriptorPath = writeDescriptor(temporary.path, publishedAssetId(name));
 
@@ -231,33 +231,60 @@ TEST(ModelDescriptor, FromFileUsesAnonymousHuggingFaceAuthWhenTokenIsUnset) {
     EXPECT_EQ(readFile(markerPath), "anonymous\n");
 }
 
-TEST(ModelDescriptor, FromFilePassesHuggingFaceTokenToModelfetch) {
-    constexpr const char *name = "auth-token";
-    constexpr const char *tokenValue = "hf_test_token";
+TEST(ModelDescriptor, FromFileUsesAnonymousHuggingFaceAuthWhenSecretIsMissingOrEmpty) {
+    for (const bool secretExists : {false, true}) {
+        const std::string name = secretExists ? "auth-empty" : "auth-missing";
+        TemporaryDirectory temporary(name);
+        PublishedModelFixture model(name);
+        const fs::path markerPath = temporary.path / "token-mode";
+        const fs::path tokenPath = temporary.path / "token";
+        if (secretExists) {
+            std::ofstream tokenFile(tokenPath);
+            ASSERT_TRUE(tokenFile);
+        }
+        ScopedEnvironmentVariable configuredPath(HuggingFaceTokenPathEnvironment,
+                                                 tokenPath.string());
+        ScopedEnvironmentVariable marker(FakeTokenModeEnvironment, markerPath.string());
+        const fs::path descriptorPath = writeDescriptor(temporary.path, publishedAssetId(name));
+
+        const auto descriptor = pek::ModelDescriptor::fromFile(descriptorPath.string());
+
+        ASSERT_TRUE(descriptor.has_value()) << descriptor.error().toString();
+        EXPECT_EQ(readFile(markerPath), "anonymous\n");
+    }
+}
+
+TEST(ModelDescriptor, FromFileUsesConfiguredHuggingFaceAuthForNonemptySecret) {
+    constexpr const char *name = "auth-configured";
     TemporaryDirectory temporary(name);
     PublishedModelFixture model(name);
     const fs::path markerPath = temporary.path / "token-mode";
-    ScopedEnvironmentVariable token(HuggingFaceTokenEnvironment, tokenValue);
-    ScopedEnvironmentVariable expectedToken(FakeExpectedTokenEnvironment, tokenValue);
+    const fs::path tokenPath = temporary.path / "token";
+    std::ofstream(tokenPath) << "hf_test_token";
+    ScopedEnvironmentVariable configuredPath(HuggingFaceTokenPathEnvironment, tokenPath.string());
     ScopedEnvironmentVariable marker(FakeTokenModeEnvironment, markerPath.string());
     const fs::path descriptorPath = writeDescriptor(temporary.path, publishedAssetId(name));
 
     const auto descriptor = pek::ModelDescriptor::fromFile(descriptorPath.string());
 
     ASSERT_TRUE(descriptor.has_value()) << descriptor.error().toString();
-    EXPECT_EQ(readFile(markerPath), "explicit\n");
+    EXPECT_EQ(readFile(markerPath), "configured\n");
 }
 
-TEST(ModelDescriptor, FromFileLeavesHuggingFaceTokenValidationToModelfetch) {
-    TemporaryDirectory temporary("empty-token");
-    ScopedEnvironmentVariable token(HuggingFaceTokenEnvironment, "");
-    const fs::path descriptorPath =
-        writeDescriptor(temporary.path, publishedAssetId("empty-token"));
+TEST(ModelDescriptor, FromFileDoesNotReadRawHuggingFaceTokenFromContainerEnvironment) {
+    constexpr const char *name = "auth-environment-isolation";
+    TemporaryDirectory temporary(name);
+    PublishedModelFixture model(name);
+    const fs::path markerPath = temporary.path / "token-mode";
+    ScopedEnvironmentVariable token(HuggingFaceTokenEnvironment, "hf_must_not_be_forwarded");
+    ScopedEnvironmentVariable tokenPath(HuggingFaceTokenPathEnvironment);
+    ScopedEnvironmentVariable marker(FakeTokenModeEnvironment, markerPath.string());
+    const fs::path descriptorPath = writeDescriptor(temporary.path, publishedAssetId(name));
 
     const auto descriptor = pek::ModelDescriptor::fromFile(descriptorPath.string());
 
-    ASSERT_FALSE(descriptor.has_value());
-    EXPECT_NE(descriptor.error().info.find("modelfetch asset download failed"), std::string::npos);
+    ASSERT_TRUE(descriptor.has_value()) << descriptor.error().toString();
+    EXPECT_EQ(readFile(markerPath), "anonymous\n");
 }
 
 TEST(ModelDescriptor, FromFileHonorsCancellationBeforeMaterialization) {

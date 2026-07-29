@@ -102,8 +102,10 @@ Enter the `amp-dev-forge` folder in the terminal and run:
 ```
 
 For a private or gated Hugging Face model, export `HF_TOKEN` before running the
-same command. PEK passes it unchanged to modelfetch; without it, modelfetch uses
-anonymous access.
+same command. Compose mounts the value read-only at
+`/run/secrets/huggingface_token`; it is not stored in the container environment.
+Modelfetch reads and validates that file. An unset or empty `HF_TOKEN` selects
+anonymous access. Do not store the credential in the generated `.env` files.
 
 For a direct deployment build, prepare the pinned modelfetch release before
 invoking the existing Compose entrypoint:
@@ -112,6 +114,10 @@ invoking the existing Compose entrypoint:
 bash scripts/private/prepare-modelfetch-release.sh
 docker compose up --build
 ```
+
+After replacing or unsetting `HF_TOKEN`, add `--force-recreate` to the next
+direct `docker compose up` command so the running container receives the new
+secret.
 
 The preparation step acquires and verifies the pinned architecture-specific
 Rust-backed C SDK. It has the same GitHub CLI access requirement listed
@@ -241,6 +247,11 @@ Deploy the default sample-video pipeline from the repository root:
 ```bash
 topo deploy --target <raspberry-pi-ip-address>
 ```
+
+For a private or gated model, export `HF_TOKEN` in the shell that runs Topo.
+Topo forwards it through the same read-only Compose secret. If you replace or
+unset a token used by an existing deployment, add `--force-recreate` to the next
+`topo deploy` command.
 
 When the deployment has started, open:
 

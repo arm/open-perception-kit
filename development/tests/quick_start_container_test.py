@@ -19,8 +19,20 @@ START_CONTAINER = REPO_ROOT / "scripts/quick-start/start-container.sh"
 
 class QuickStartContainerTests(unittest.TestCase):
     def test_running_container_generates_overrides_and_reconciles_token(self):
-        for token in (None, "hf_test_token"):
-            with self.subTest(token_is_set=token is not None), tempfile.TemporaryDirectory() as root:
+        cases = (
+            (None, None, False),
+            ("hf_test_token", "hf_test_token", False),
+            ("hf_new_token", "hf_old_token", True),
+            (None, "hf_old_token", True),
+        )
+        for token, container_token, expect_recreate in cases:
+            with (
+                self.subTest(
+                    token_is_set=token is not None,
+                    container_token_is_set=container_token is not None,
+                ),
+                tempfile.TemporaryDirectory() as root,
+            ):
                 root_path = Path(root)
                 fixture_root = root_path / "repo"
                 start_container = self._create_fixture(fixture_root)
@@ -52,10 +64,28 @@ case "$1" in
         exit 0
         ;;
     exec)
-        [[ "$*" != *" uname -m"* ]] || echo x86_64
+        if [[ "$*" == *" uname -m"* ]]; then
+            echo x86_64
+            exit 0
+        fi
+        if [[ "$*" == *"cmp -s - /run/secrets/huggingface_token"* ]]; then
+            actual="$(cat)"
+            if [[ "$actual" == "${FAKE_CONTAINER_TOKEN-}" ]]; then
+                exit 0
+            fi
+            exit 1
+        fi
+        if [[ "$*" == *"test ! -s /run/secrets/huggingface_token"* ]]; then
+            [[ -z "${FAKE_CONTAINER_TOKEN-}" ]]
+            exit
+        fi
         exit 0
         ;;
     compose)
+        if [[ "${2:-}" == "version" ]]; then
+            echo 5.3.1
+            exit 0
+        fi
         if [[ "$*" == *" up "* ]]; then
             arguments=("$@")
             for ((index = 0; index < ${#arguments[@]}; index++)); do
@@ -67,6 +97,9 @@ case "$1" in
         fi
         exit 0
         ;;
+    ps)
+        exit 0
+        ;;
 esac
 exit 1
 """,
@@ -76,6 +109,7 @@ exit 1
                 environment.update(
                     {
                         "FAKE_DOCKER_LOG": str(log_path),
+                        "FAKE_CONTAINER_TOKEN": container_token or "",
                         "PATH": f"{bin_path}{os.pathsep}{environment['PATH']}",
                         "PEK_QUICK_START_CI_NAME": "quick-start-auth-test",
                     }
@@ -101,14 +135,19 @@ exit 1
                     0,
                     f"{completed.stderr}\nDocker calls:\n{log}",
                 )
-                self.assertIn(
-                    " up -d --no-build --remove-orphans pek-dev\n",
-                    log,
-                )
+                if expect_recreate:
+                    self.assertIn(" --force-recreate pek-dev\n", log)
+                else:
+                    self.assertIn(
+                        " up -d --no-build --remove-orphans pek-dev\n",
+                        log,
+                    )
                 self.assertLess(log.index("platform-init\n"), log.index("compose-up token="))
-                expected_state = "set" if token is not None else ""
-                self.assertIn(f"compose-up token={expected_state}\n", log)
-                self.assertNotIn(token or "hf_", log)
+                self.assertIn("compose-up token=set\n", log)
+                self.assertNotIn("hf_", log)
+                for secret in (token, container_token):
+                    if secret is not None:
+                        self.assertNotIn(secret, log)
 
     @classmethod
     def _create_fixture(cls, fixture_root: Path) -> Path:
@@ -144,6 +183,14 @@ EOF
         cls._write_executable(
             private_scripts_dir / "read-modelfetch-release-manifest.sh",
             "#!/usr/bin/env bash\nprintf '%064d\\n' 0\n",
+        )
+        cls._write_executable(
+            private_scripts_dir / "prepare-modelfetch-release.sh",
+            "#!/usr/bin/env bash\nexit 0\n",
+        )
+        cls._write_executable(
+            private_scripts_dir / "build-dev-base.sh",
+            "#!/usr/bin/env bash\nexit 0\n",
         )
         cls._write_executable(
             devcontainer_dir / "platform_init.sh",

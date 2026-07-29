@@ -142,7 +142,9 @@ touch ~/.profile &&
 ```
 
 The owner-only permission keeps the persisted credential private. The Dev
-Container passes the value unchanged to modelfetch.
+Container mounts the value as a read-only file secret for modelfetch instead of
+adding it to the container environment. After changing or unsetting a token,
+run **Dev Containers: Rebuild Container**.
 
 ## 7. Check VS Code Prerequisites On Your Computer
 

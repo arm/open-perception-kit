@@ -108,8 +108,10 @@ Enter the `amp-dev-forge` folder in the terminal and run:
 ```
 
 For a private or gated Hugging Face model, export `HF_TOKEN` before running the
-same command. PEK passes it unchanged to modelfetch; without it, modelfetch uses
-anonymous access.
+same command. Compose mounts it as a read-only file secret instead of placing it
+in the container environment, and modelfetch validates it. An unset or empty
+`HF_TOKEN` selects anonymous access. Do not store the credential in either
+generated `.env` file.
 
 For a direct deployment build, prepare the pinned modelfetch release before
 invoking the existing Compose entrypoint:
@@ -118,6 +120,10 @@ invoking the existing Compose entrypoint:
 bash scripts/private/prepare-modelfetch-release.sh
 docker compose up --build
 ```
+
+After replacing or unsetting `HF_TOKEN`, add `--force-recreate` to the next
+direct `docker compose up` command so the running container receives the new
+secret.
 
 The preparation step acquires and verifies the pinned architecture-specific
 Rust-backed C SDK. It has the same GitHub CLI access requirement listed

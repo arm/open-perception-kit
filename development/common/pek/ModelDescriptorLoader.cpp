@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <variant>
 #include <vector>
 
@@ -29,6 +30,7 @@ namespace std_fs = std::filesystem;
 namespace {
 
 constexpr const char *MaterializedModelsRoot = "/work/var/models";
+constexpr const char *HuggingFaceTokenPathEnvironment = "HF_TOKEN_PATH";
 
 bool is_safe_relative_path(const std_fs::path &path) {
     if (path.empty() || path.is_absolute())
@@ -104,10 +106,15 @@ pek::Error modelfetch_error(const std::string &descriptorPath,
 }
 
 modelfetch::token huggingFaceAuthentication() {
-    const char *token = std::getenv("HF_TOKEN");
-    if (token == nullptr)
+    const char *tokenPath = std::getenv(HuggingFaceTokenPathEnvironment);
+    if (tokenPath == nullptr || tokenPath[0] == '\0')
         return modelfetch::anonymous_token;
-    return modelfetch::explicit_token{token};
+
+    std::error_code error;
+    const uintmax_t size = std_fs::file_size(tokenPath, error);
+    if (error == std::errc::no_such_file_or_directory || (!error && size == 0))
+        return modelfetch::anonymous_token;
+    return modelfetch::configured_token;
 }
 
 std::string_view failure_reason_name(modelfetch::asset_download_failure_reason reason) {

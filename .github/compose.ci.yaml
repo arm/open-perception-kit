@@ -25,6 +25,7 @@ services:
     extends:
       file: ../compose.base.yaml
       service: pek-common-dev
+    secrets: !reset []
 
     network_mode: bridge
     hostname: pek-docs
@@ -36,6 +37,7 @@ services:
     extends:
       file: ../compose.base.yaml
       service: pek-common-dev
+    secrets: !reset []
 
     network_mode: bridge
     hostname: pek-dev
@@ -154,6 +156,7 @@ services:
     extends: 
       file: ../compose.base.yaml
       service: pek-common-dev
+    secrets: !reset []
     hostname: pek-sonar-check
     network_mode: bridge
     build:
@@ -193,6 +196,7 @@ services:
     extends: 
       file: ../compose.base.yaml
       service: pek-common-dev
+    secrets: !reset []
     hostname: pek-sonar-check-release
     network_mode: bridge
     build:

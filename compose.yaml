@@ -21,7 +21,13 @@ services:
       - /run/udev:/run/udev:ro
     environment:
       PEK_PIPELINE: ${PEK_PIPELINE:-01-full-onnx}
-      HF_TOKEN:
+      HF_TOKEN_PATH: /run/secrets/huggingface_token
+    secrets:
+      - source: huggingface_token
+        target: /run/secrets/huggingface_token
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
     build:
       context: .
       dockerfile: Dockerfile
@@ -30,6 +36,10 @@ services:
       args:
         PEK_PICAMERA: ${PEK_PICAMERA:-disabled}
         NO_EXAMPLE_CONTENT: ${NO_EXAMPLE_CONTENT:-false}
+
+secrets:
+  huggingface_token:
+    environment: HF_TOKEN
 
 x-topo:
   name: perception-experience-kit
