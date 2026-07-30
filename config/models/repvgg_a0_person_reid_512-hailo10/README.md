@@ -3,7 +3,6 @@
 Official Hailo 10H-compiled RepVGG A0 person ReID model from Hailo Model Zoo.
 
 - Backend: HailoRT
-- Artifact: downloaded on demand from the descriptor's pinned `modelFile` locator when first activated
 - Source: Hailo Model Zoo HAILO10H public person ReID models
 - Source file: `HAILO10H_person_re_id.rst`
 - HEF download: `https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v5.3.0/hailo10h/repvgg_a0_person_reid_512.hef`

@@ -70,24 +70,22 @@ pek::Result<void> GenericPostprocessOp::bind(size_t index, const std::vector<pek
     return {};
 }
 
-pek::Result<void> GenericPostprocessOp::configure(const pek::AttributeMap &configuration,
-                                                  std::stop_token) {
+pek::Result<void> GenericPostprocessOp::configure(const pek::AttributeMap &attributes) {
 
-    this->attributes = configuration.cloneDeep();
+    this->attributes = attributes.cloneDeep();
 
-    std::string parserName = configuration.getStringOrDefault("parser", "");
+    std::string parser = attributes.getStringOrDefault("parser", "");
 
-    if (parserName.empty()) {
+    if (parser.empty()) {
         return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
                                         fmt::format("No 'parser' attribute in postprocessor op")));
     }
 
     const auto &registry = getParserRegistry();
-    auto it = registry.find(parserName);
+    auto it = registry.find(parser);
     if (it == registry.end()) {
-        return tl::unexpected(
-            PEK_ERROR(pek::ErrorFlag::InvalidData,
-                      fmt::format("No tensor parser with name: [{}]", parserName)));
+        return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InvalidData,
+                                        fmt::format("No tensor parser with name: [{}]", parser)));
     }
 
     this->parser = it->second();

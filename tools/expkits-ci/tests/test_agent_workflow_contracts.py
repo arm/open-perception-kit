@@ -5,11 +5,8 @@
 from __future__ import annotations
 
 import json
-import os
-import subprocess
 import sys
 from pathlib import Path
-import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'scripts/private'))
@@ -34,13 +31,6 @@ from test_support.agent_workflow import (  # noqa: E402
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-MODELFETCH_APP_TOKEN_ACTION = (
-    "actions/create-github-app-token@"
-    "bcd2ba49218906704ab6c1aa796996da409d3eb1"  # pragma: allowlist secret
-)
-MODELFETCH_CONTAINER_PREPARE_COMMAND = (
-    "./scripts/private/prepare-modelfetch-release-in-container.sh"
-)
 
 
 class AgentWorkflowContractTests(unittest.TestCase):
@@ -505,8 +495,8 @@ class AgentWorkflowContractTests(unittest.TestCase):
         sonar_inputs = sonar["on"]["workflow_dispatch"]["inputs"]
         pek_steps = step_map(pek_ci["jobs"]["quality-checks"])
         sonar_steps = step_map(sonar["jobs"]["build-and-sonar"])
-        linux_steps = step_map(pek_ci["jobs"]["linux-quick-start-build-test"])
-        rpi_steps = step_map(pek_ci["jobs"]["rpi5-quick-start-build-test"])
+        linux_checkout = pek_ci["jobs"]["linux-quick-start-build-test"]["steps"][0]
+        rpi_checkout = pek_ci["jobs"]["rpi5-quick-start-build-test"]["steps"][0]
         macos_steps = step_map(pek_ci["jobs"]["macos-nightly-test"])
         expected_label_gate = "github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')"
         expected_draft_override = (
@@ -561,7 +551,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertIn("Resolve manual PR context", sonar_steps)
         self.assertIn("Checkout workflow helpers", pek_steps)
         self.assertIn("Checkout workflow helpers", sonar_steps)
-        for steps in (linux_steps, rpi_steps, macos_steps, pek_steps, sonar_steps):
+        for steps in (macos_steps, pek_steps, sonar_steps):
             self.assertIn("Resolve manual PR context", steps)
             self.assertIn("Checkout workflow helpers", steps)
             resolver_run = steps["Resolve manual PR context"]["run"]
@@ -571,10 +561,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
             self.assertIn('--head-ref-override "${{ github.event.inputs.pr_head_ref }}"', resolver_run)
             self.assertIn('--head-sha-override "${{ github.event.inputs.pr_head_sha }}"', resolver_run)
             self.assertIn('--github-output "${GITHUB_OUTPUT}"', resolver_run)
-            self.assertEqual(
-                steps["Checkout workflow helpers"]["with"]["persist-credentials"],
-                "false",
-            )
+            self.assertNotIn("gh pr view", resolver_run)
         for job_name in ("linux-quick-start-build-test", "rpi5-quick-start-build-test", "quality-checks"):
             job_condition = pek_ci["jobs"][job_name]["if"]
             self.assertIn(expected_label_gate, job_condition)
@@ -592,14 +579,6 @@ class AgentWorkflowContractTests(unittest.TestCase):
             "steps.manual_pr.outputs.head_ref || github.head_ref || github.ref }}"
         )
         self.assertEqual(
-            linux_steps["Checkout"]["with"]["ref"],
-            resolved_checkout_ref,
-        )
-        self.assertEqual(
-            rpi_steps["Checkout"]["with"]["ref"],
-            resolved_checkout_ref,
-        )
-        self.assertEqual(
             macos_steps["Checkout"]["with"]["ref"],
             resolved_checkout_ref,
         )
@@ -609,125 +588,14 @@ class AgentWorkflowContractTests(unittest.TestCase):
         )
         self.assertEqual(
             pek_steps["Checkout"]["with"]["ref"],
-            "${{ steps.manual_pr.outputs.head_sha || "
-            "steps.manual_pr.outputs.head_ref || "
-            "github.event.pull_request.head.sha || github.head_ref || github.ref }}",
+            resolved_checkout_ref,
         )
-        attach_head = pek_steps["Attach validated PR head branch"]
-        self.assertIn("github.event.inputs.pr_number", attach_head["if"])
-        self.assertEqual(
-            attach_head["env"]["PR_HEAD_REF"],
-            "${{ steps.manual_pr.outputs.head_ref || github.head_ref }}",
-        )
-        self.assertEqual(
-            attach_head["env"]["PR_HEAD_SHA"],
-            "${{ steps.manual_pr.outputs.head_sha || "
-            "github.event.pull_request.head.sha }}",
-        )
-        with tempfile.TemporaryDirectory() as temporary_directory:
-            repository = Path(temporary_directory)
-
-            def git(*arguments: str) -> subprocess.CompletedProcess[str]:
-                return subprocess.run(
-                    ["git", *arguments],
-                    cwd=repository,
-                    check=True,
-                    capture_output=True,
-                    text=True,
-                )
-
-            git("init", "-b", "main")
-            (repository / "tracked.txt").write_text("tracked\n", encoding="utf-8")
-            git("add", "tracked.txt")
-            git(
-                "-c",
-                "user.name=Workflow Contracts",
-                "-c",
-                "user.email=workflow-contracts@example.com",
-                "commit",
-                "-m",
-                "Seed repository",
-            )
-            expected_sha = git("rev-parse", "HEAD").stdout.strip()
-            attach_environment = {
-                **os.environ,
-                "PR_HEAD_REF": "feature/test-ref",
-                "PR_HEAD_SHA": "",
-            }
-            attach_result = subprocess.run(
-                ["bash", "-c", attach_head["run"]],
-                cwd=repository,
-                env=attach_environment,
-                check=False,
-                capture_output=True,
-                text=True,
-            )
-            self.assertEqual(
-                attach_result.returncode,
-                0,
-                msg=attach_result.stdout + attach_result.stderr,
-            )
-            self.assertEqual(git("rev-parse", "HEAD").stdout.strip(), expected_sha)
-            self.assertEqual(
-                git("branch", "--show-current").stdout.strip(),
-                "feature/test-ref",
-            )
-            mismatch_result = subprocess.run(
-                ["bash", "-c", attach_head["run"]],
-                cwd=repository,
-                env={**attach_environment, "PR_HEAD_SHA": "0" * 40},
-                check=False,
-                capture_output=True,
-                text=True,
-            )
-            self.assertNotEqual(mismatch_result.returncode, 0)
-        self.assertIn("docker run --rm", rpi_steps["Resolve manual PR context"]["run"])
-        self.assertIn(
-            "python:3.12-slim-trixie@"
-            "sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de",
-            rpi_steps["Resolve manual PR context"]["run"],
-        )
-        self.assertIn("--env GH_TOKEN", rpi_steps["Resolve manual PR context"]["run"])
-        rpi_release_prepare = rpi_steps["Prepare pinned modelfetch release"]
-        self.assertEqual(
-            pek_ci["jobs"]["rpi5-quick-start-build-test"]["env"][
-                "MODELFETCH_RELEASE_TOOL_IMAGE"
-            ],
-            "pek-modelfetch-release-tools:"
-            "${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}",
-        )
-        self.assertEqual(
-            rpi_release_prepare["env"]["GH_TOKEN"],
-            "${{ steps.modelfetch-app-token.outputs.token }}",
-        )
-        self.assertEqual(
-            rpi_release_prepare["run"],
-            MODELFETCH_CONTAINER_PREPARE_COMMAND,
-        )
-        release_tools_dockerfile = (
-            PEK_CI_WORKFLOW_FILE.parents[2]
-            / "scripts/private/modelfetch-release-tools.Dockerfile"
-        ).read_text(encoding="utf-8")
-        self.assertRegex(
-            release_tools_dockerfile,
-            r"(?m)^FROM debian:trixie-slim@sha256:[0-9a-f]{64}$",
-        )
-        self.assertIn("ARG GH_DEBIAN_VERSION=2.46.0-3", release_tools_dockerfile)
-        self.assertIn('gh="${GH_DEBIAN_VERSION}"', release_tools_dockerfile)
-        self.assertIn("USER 65532:65532", release_tools_dockerfile)
-        self.assertLess(
-            list(rpi_steps).index("Prepare pinned modelfetch release"),
-            list(rpi_steps).index("Build and start quick-start container"),
-        )
-        # On RPI, the App token is confined to the isolated release-preparation container.
-        self.assertNotIn(
-            "GH_TOKEN",
-            rpi_steps["Build and start quick-start container"].get("env", {}),
-        )
-        self.assertIn(
-            'docker image rm --force "$MODELFETCH_RELEASE_TOOL_IMAGE"',
-            rpi_steps["Clean quick-start workspace"]["run"],
-        )
+        for checkout_step in (linux_checkout, rpi_checkout):
+            checkout_ref = checkout_step["with"]["ref"]
+            self.assertIn("github.event_name == 'workflow_dispatch'", checkout_ref)
+            self.assertIn("github.event.inputs.pr_head_sha", checkout_ref)
+            self.assertIn("github.event.inputs.pr_head_ref", checkout_ref)
+            self.assertIn("github.head_ref", checkout_ref)
         self.assertIn(
             "steps.manual_pr.outputs.base_ref",
             pek_steps["Check Repo Quality gate (PR)"]["run"],
@@ -748,6 +616,8 @@ class AgentWorkflowContractTests(unittest.TestCase):
             "github.event.inputs.pr_number",
             pek_steps["Run clang-tidy baseline check"]["env"]["PR_CONTEXT_RUN"],
         )
+        self.assertNotIn("${{ inputs.", PEK_CI_WORKFLOW_FILE.read_text(encoding="utf-8"))
+        self.assertNotIn("${{ inputs.", SONAR_WORKFLOW_FILE.read_text(encoding="utf-8"))
         self.assertIn("steps.manual_pr.outputs.pr_number", sonar_steps["SonarQube analysis"]["env"]["PR_KEY"])
         self.assertIn("steps.manual_pr.outputs.head_ref", sonar_steps["SonarQube analysis"]["env"]["SONAR_BRANCH"])
         self.assertIn("steps.manual_pr.outputs.base_ref", sonar_steps["SonarQube analysis"]["env"]["PR_BASE"])
@@ -759,36 +629,16 @@ class AgentWorkflowContractTests(unittest.TestCase):
             "python3 scripts/private/sonar_quality_gate_workflow.py report-quality-gate",
             sonar_steps["Report Sonar quality gate details"]["run"],
         )
-        rpi_job = pek_ci["jobs"]["rpi5-quick-start-build-test"]
-        sonar_job = sonar["jobs"]["build-and-sonar"]
+        macos_job = pek_ci["jobs"]["macos-nightly-test"]
         self.assertEqual(
-            rpi_steps["Checkout workflow helpers"]["with"]["path"],
-            "${{ env.CI_HELPER_PATH }}",
-        )
-        self.assertEqual(
-            sonar_steps["Checkout workflow helpers"]["with"]["path"],
+            macos_steps["Checkout workflow helpers"]["with"]["path"],
             "${{ env.CI_HELPER_PATH }}",
         )
         self.assertIn(
             '"${{ github.workspace }}/${{ env.CI_HELPER_PATH }}"',
-            rpi_steps["Clean quick-start workspace"]["run"],
+            macos_steps["Clean quick-start workspace"]["run"],
         )
-        self.assertIn(
-            '"${GITHUB_WORKSPACE}/${CI_HELPER_PATH}"',
-            sonar_steps["Cleanup isolated workspace"]["run"],
-        )
-        self.assertIn("CI_HELPER_PATH", rpi_job["env"])
-        self.assertIn("CI_HELPER_PATH", sonar_job["env"])
-
-    def test_container_context_excludes_local_var_caches(self):
-        dockerignore_lines = (REPO_ROOT / ".dockerignore").read_text().splitlines()
-        self.assertIn("!var/", dockerignore_lines)
-        self.assertIn("!var/libexecutorch-dev-*.deb", dockerignore_lines)
-        self.assertNotIn(
-            "!var/**",
-            dockerignore_lines,
-            "Local runtime and build caches must not enter container build contexts.",
-        )
+        self.assertIn("CI_HELPER_PATH", macos_job["env"])
 
     def test_quick_start_compose_steps_use_the_repository_huggingface_secret_directly(self):
         workflow = load_yaml(PEK_CI_WORKFLOW_FILE)
@@ -813,7 +663,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
                 self.assertNotIn("HF_TOKEN", job.get("env", {}))
                 for step in job["steps"]:
                     self.assertNotIn("HF_TOKEN", step.get("run", ""))
-                    if step["name"] in expected_secret_steps:
+                    if step.get("name") in expected_secret_steps:
                         self.assertEqual(
                             step["env"]["HF_TOKEN"],
                             "${{ secrets.HF_TOKEN }}",
@@ -826,189 +676,6 @@ class AgentWorkflowContractTests(unittest.TestCase):
                         steps["Reconcile running quick-start container"]["run"],
                         "./scripts/quick-start/start-container.sh",
                     )
-
-    def test_modelfetch_consumers_use_repo_scoped_read_only_app_tokens(self):
-        consumer_jobs = (
-            (
-                ".github/workflows/pek-ci.yml",
-                "linux-quick-start-build-test",
-                "Prepare pinned modelfetch release",
-            ),
-            (
-                ".github/workflows/pek-ci.yml",
-                "rpi5-quick-start-build-test",
-                "Prepare pinned modelfetch release",
-            ),
-            (
-                ".github/workflows/pek-ci.yml",
-                "quality-checks",
-                "Prepare pinned modelfetch release",
-            ),
-            (
-                ".github/workflows/valgrind.yml",
-                "valgrind-workflow",
-                "Prepare pinned modelfetch release",
-            ),
-            (
-                ".github/workflows/sonar.yml",
-                "build-and-sonar",
-                "Prepare pinned modelfetch release",
-            ),
-            (
-                ".github/workflows/sonar_release_tag.yml",
-                "sonar-release",
-                "Prepare pinned modelfetch release",
-            ),
-            (
-                ".github/workflows/blackduck-scan.yml",
-                "blackduck",
-                "Prepare pinned modelfetch release",
-            ),
-            (
-                ".github/workflows/yolo-benchmark.yml",
-                "yolo-video-benchmark",
-                "Prepare pinned modelfetch release",
-            ),
-            (
-                ".github/workflows/yolo-imageset-benchmark.yml",
-                "yolo-imageset-benchmark",
-                "Prepare pinned modelfetch release",
-            ),
-            (
-                ".github/workflows/docker-scout-image-audit.yml",
-                "docker-scout",
-                "Prepare pinned modelfetch release",
-            ),
-        )
-        unprivileged_consumers = {
-            (".github/workflows/pek-ci.yml", "linux-quick-start-build-test"):
-                "Build and start quick-start container",
-            (".github/workflows/yolo-benchmark.yml", "yolo-video-benchmark"):
-                "Set up YOLO benchmark cache",
-            (
-                ".github/workflows/yolo-imageset-benchmark.yml",
-                "yolo-imageset-benchmark",
-            ): "Set up YOLO benchmark cache",
-        }
-
-        for relative_path, job_name, consumer_step_name in consumer_jobs:
-            workflow_path = REPO_ROOT / relative_path
-            workflow = load_yaml(workflow_path)
-            steps = step_map(workflow["jobs"][job_name])
-            token_step = steps["Create read-only modelfetch token"]
-            consumer_step = steps[consumer_step_name]
-
-            with self.subTest(workflow=relative_path, job=job_name):
-                self.assertEqual(token_step["id"], "modelfetch-app-token")
-                self.assertEqual(token_step["uses"], MODELFETCH_APP_TOKEN_ACTION)
-                self.assertEqual(
-                    token_step["with"],
-                    {
-                        "client-id": "Iv23li0DqDMHoMs0TXT9",
-                        "private-key": "${{ secrets.EDGEAI_EXPKITS_APP_PK }}",
-                        "owner": "Arm-Debug",
-                        "repositories": "modelfetch",
-                        "permission-contents": "read",
-                    },
-                )
-                self.assertEqual(
-                    consumer_step["env"]["GH_TOKEN"],
-                    "${{ steps.modelfetch-app-token.outputs.token }}",
-                )
-                self.assertEqual(token_step.get("if"), consumer_step.get("if"))
-                self.assertLess(
-                    list(steps).index("Create read-only modelfetch token"),
-                    list(steps).index(consumer_step_name),
-                )
-                unprivileged_consumer = unprivileged_consumers.get(
-                    (relative_path, job_name)
-                )
-                if unprivileged_consumer:
-                    self.assertLess(
-                        list(steps).index(consumer_step_name),
-                        list(steps).index(unprivileged_consumer),
-                    )
-                    # Keep the App credential confined to release acquisition.
-                    self.assertNotIn(
-                        "GH_TOKEN",
-                        steps[unprivileged_consumer].get("env", {}),
-                    )
-
-        docker_scout = load_yaml(
-            REPO_ROOT / ".github/workflows/docker-scout-image-audit.yml"
-        )
-        self.assertEqual(
-            docker_scout["on"]["workflow_call"]["secrets"][
-                "EDGEAI_EXPKITS_APP_PK"
-            ]["required"],
-            "true",
-        )
-        docker_scout_job = docker_scout["jobs"]["docker-scout"]
-        self.assertEqual(
-            [
-                image["service"]
-                for image in docker_scout_job["strategy"]["matrix"]["image"]
-            ],
-            [
-                "pek-deployment-base",
-                "pek-docs",
-                "pek-dev",
-                "pek-pre-commit-runtime",
-                "pek-playwright-pages",
-            ],
-        )
-        docker_scout_steps = step_map(docker_scout_job)
-        modelfetch_consumer_condition = (
-            "contains(fromJSON("
-            '\'["pek-deployment-base","pek-docs","pek-dev"]\'), '
-            "matrix.image.service)"
-        )
-        self.assertEqual(
-            docker_scout_steps["Create read-only modelfetch token"]["if"],
-            modelfetch_consumer_condition,
-        )
-        self.assertEqual(
-            docker_scout_steps["Prepare pinned modelfetch release"]["if"],
-            modelfetch_consumer_condition,
-        )
-
-        yolo_workflows = (
-            (".github/workflows/yolo-benchmark.yml", "yolo-video-benchmark"),
-            (
-                ".github/workflows/yolo-imageset-benchmark.yml",
-                "yolo-imageset-benchmark",
-            ),
-        )
-        for relative_path, job_name in yolo_workflows:
-            yolo = load_yaml(REPO_ROOT / relative_path)
-            yolo_job = yolo["jobs"][job_name]
-            yolo_prepare = step_map(yolo_job)["Prepare pinned modelfetch release"]
-            with self.subTest(workflow=relative_path, job=job_name):
-                self.assertEqual(
-                    yolo_job["env"]["YOLO_BENCHMARK_RUNS"],
-                    "${{ github.event_name == 'pull_request' && '1' || inputs.benchmark_runs }}",
-                )
-                self.assertEqual(
-                    yolo_job["env"]["MODELFETCH_RELEASE_TOOL_IMAGE"],
-                    "yolo-modelfetch-release-tools:"
-                    "${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}",
-                )
-                self.assertEqual(
-                    yolo_prepare["run"],
-                    MODELFETCH_CONTAINER_PREPARE_COMMAND,
-                )
-                yolo_cleanup = step_map(yolo_job)[
-                    "Clean YOLO benchmark workspace and image"
-                ]
-                self.assertEqual(yolo_cleanup["if"], "always()")
-                self.assertIn(
-                    'docker image rm --force "$MODELFETCH_RELEASE_TOOL_IMAGE"',
-                    yolo_cleanup["run"],
-                )
-                self.assertIn(
-                    '[[ -e "$checkout_path" || -L "$checkout_path" ]]',
-                    yolo_cleanup["run"],
-                )
 
     def test_stabilizer_workflow_uses_canonical_agent_review_shape(self):
         workflow = load_yaml(AGENT_STABILIZE_PR_WORKER_FILE)

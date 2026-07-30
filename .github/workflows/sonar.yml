@@ -37,22 +37,18 @@ jobs:
     runs-on: self-hosted-ubuntu-latest-x64
 
     if: |
-        (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) &&
+        github.event_name != 'pull_request' ||
         (
-          github.event_name != 'pull_request' ||
+          (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
           (
-            (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
-            (
-              github.event.pull_request.draft == false ||
-              (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
-            )
+            github.event.pull_request.draft == false ||
+            (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
           )
         )
 
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      CI_HELPER_PATH: workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
 
     steps:
@@ -67,13 +63,13 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 1
-          path: ${{ env.CI_HELPER_PATH }}
+          path: workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
           persist-credentials: false
 
       - name: Resolve manual PR context
         id: manual_pr
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
-        working-directory: ${{ github.workspace }}/${{ env.CI_HELPER_PATH }}
+        working-directory: ${{ github.workspace }}/workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -97,24 +93,6 @@ jobs:
       - name: Export isolated workspace root
         shell: bash
         run: echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
-
-      - name: Create read-only modelfetch token
-        id: modelfetch-app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
-        with:
-          client-id: Iv23li0DqDMHoMs0TXT9
-          private-key: ${{ secrets.EDGEAI_EXPKITS_APP_PK }}
-          owner: Arm-Debug
-          repositories: modelfetch
-          permission-contents: read
-
-      - name: Prepare pinned modelfetch release
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        env:
-          GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
-        run: |
-          set -euo pipefail
-          ./scripts/private/prepare-modelfetch-release.sh >/dev/null
 
       - name: Build docker image
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -176,11 +154,8 @@ jobs:
         if: always()
         shell: bash
         run: |
-          helper_root="${GITHUB_WORKSPACE}/${CI_HELPER_PATH}"
           workspace_root="${WORKSPACE_ROOT:-}"
           expected_workspace_prefix="${GITHUB_WORKSPACE:-}/repo-"
-
-          rm -rf -- "${helper_root}"
 
           case "${workspace_root}" in
             "${expected_workspace_prefix}"*)

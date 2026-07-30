@@ -44,7 +44,6 @@ jobs:
     env:
       CI_CHECKOUT_PATH: repo-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: yolo-imageset-benchmark-${{ github.run_id }}-${{ github.run_attempt }}
-      MODELFETCH_RELEASE_TOOL_IMAGE: yolo-modelfetch-release-tools:${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       YOLO_BENCHMARK_IMAGE_NAME: amp-dev-forge-yolo-imageset-benchmark:${{ github.run_id }}-${{ github.run_attempt }}
       YOLO_BENCHMARK_KIND: images
       YOLO_BENCHMARK_LIMIT: ${{ inputs.image_limit }}
@@ -58,22 +57,6 @@ jobs:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.ref }}
           fetch-depth: 1
           path: ${{ env.CI_CHECKOUT_PATH }}
-
-      - name: Create read-only modelfetch token
-        id: modelfetch-app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
-        with:
-          client-id: Iv23li0DqDMHoMs0TXT9
-          private-key: ${{ secrets.EDGEAI_EXPKITS_APP_PK }}
-          owner: Arm-Debug
-          repositories: modelfetch
-          permission-contents: read
-
-      - name: Prepare pinned modelfetch release
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        env:
-          GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
-        run: ./scripts/private/prepare-modelfetch-release-in-container.sh
 
       - name: Set up YOLO benchmark cache
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -106,17 +89,4 @@ jobs:
 
       - name: Clean YOLO benchmark workspace and image
         if: always()
-        run: |
-          checkout_path="${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}"
-          cleanup_status=0
-          if [ -x "$checkout_path/examples/yolo-benchmark/docker/run.sh" ]; then
-            "$checkout_path/examples/yolo-benchmark/docker/run.sh" cleanup-ci || cleanup_status=$?
-          fi
-          if [[ -e "$checkout_path" || -L "$checkout_path" ]]; then
-            echo "YOLO benchmark checkout cleanup left '${checkout_path}' behind." >&2
-            cleanup_status=1
-          fi
-          if docker image inspect "$MODELFETCH_RELEASE_TOOL_IMAGE" >/dev/null 2>&1; then
-            docker image rm --force "$MODELFETCH_RELEASE_TOOL_IMAGE" || cleanup_status=$?
-          fi
-          exit "$cleanup_status"
+        run: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/examples/yolo-benchmark/docker/run.sh cleanup-ci

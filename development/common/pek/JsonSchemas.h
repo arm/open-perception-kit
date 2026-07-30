@@ -7,6 +7,7 @@
 #include "pek/Shape.h"
 #include "pek/Types.h"
 
+#include "magic_enum/magic_enum.hpp"
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
@@ -166,13 +167,27 @@ inline void from_json(const json &j, pek::Dtype &t) {
 namespace pek {
 
 inline void to_json(nlohmann::json &j, const TensorFeedback &v) {
+    // compact + explicit
     j = nlohmann::json{
+        {"mode", std::string(magic_enum::enum_name(TensorFeedback::Mode::Copy))},
         {"fromOutputTensorIndex", v.fromOutputTensorIndex},
         {"toInputTensorIndex", v.toInputTensorIndex},
     };
 }
 
 inline void from_json(const nlohmann::json &j, TensorFeedback &v) {
+    // kind is optional today (since only Copy exists), but we validate if present
+    if (auto it = j.find("kind"); it != j.end() && !it->is_null()) {
+        const std::string s = it->get<std::string>();
+        const auto k = magic_enum::enum_cast<TensorFeedback::Mode>(s);
+        if (!k) {
+            throw std::runtime_error("ModelTensorFeedback.kind: unknown value '" + s + "'");
+        }
+        if (*k != TensorFeedback::Mode::Copy) {
+            throw std::runtime_error("ModelTensorFeedback.kind: unsupported value '" + s + "'");
+        }
+    }
+
     if (!j.contains("fromOutputTensorIndex") || !j.contains("toInputTensorIndex")) {
         throw std::runtime_error("ModelTensorFeedback: missing required fields");
     }

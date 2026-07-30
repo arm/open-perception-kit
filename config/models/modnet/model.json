@@ -1,7 +1,7 @@
 {
   "name": "modnet",
   "modelFamily": "segmentation",
-  "modelFile": "hf:onnx-community/modnet-webnn@6af52070d14deafc5e55ce6cc4d752a322cdff76#file=onnx/model.onnx",
+  "modelFile": "model.onnx",
   "dynamicOutput": true,
   "inputTensors": [
     {

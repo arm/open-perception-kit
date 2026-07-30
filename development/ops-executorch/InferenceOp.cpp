@@ -4,7 +4,6 @@
 
 #include "InferenceOp.h"
 #include "Inference.h"
-#include "pek/ModelDescriptor.h"
 #include "pek/Result.h"
 #include "tl/expected.hpp"
 
@@ -23,8 +22,7 @@ pek::Result<void> InferenceOp::bind(size_t index, const std::vector<pek::op::Op 
     return {};
 }
 
-pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes,
-                                         std::stop_token stopToken) {
+pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes) {
     std::string modelDescPath;
 
     try {
@@ -39,17 +37,16 @@ pek::Result<void> InferenceOp::configure(const pek::AttributeMap &attributes,
     try {
         inference = std::make_unique<pek::extrch::Inference>();
 
-        auto modelDescriptor = pek::ModelDescriptor::fromFile(modelDescPath, stopToken);
-        if (!modelDescriptor)
-            return tl::unexpected{modelDescriptor.error()};
-
-        if (auto setupResult = inference->setup(*modelDescriptor); !setupResult) {
+        auto setupResult = inference->setupFromJson(modelDescPath);
+        if (!setupResult) {
             return setupResult;
         }
     } catch (const std::exception &e) {
         return tl::unexpected(PEK_ERROR(pek::ErrorFlag::InferenceRtStartupError,
                                         fmt::format("Executorch startup error: {}", e.what())));
     }
+
+    modelFamily = inference->getModel().modelFamily;
 
     return {};
 }

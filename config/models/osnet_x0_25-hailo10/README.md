@@ -3,7 +3,6 @@
 Hailo 10-compiled variant of the OSNet x0.25 embedding model.
 
 - Backend: HailoRT
-- Artifact: downloaded on demand from the descriptor's pinned `modelFile` locator when first activated
 - Input: NCHW crop, `[1, 3, 256, 128]`, normalized with ImageNet mean/std
 - Output: dynamic embedding tensor, typically matching the ONNX variant
 - Post processor: `ObjectEmbeddingParser`

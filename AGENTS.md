@@ -153,22 +153,6 @@ Incomplete verification step available:
 - config or pipeline changes: if `./tools/pek-menu` exists, use `./tools/pek-menu -p <pipeline-id-or-path>`
 - docs or diagrams: run `./scripts/gen-doc.sh`
 
-### Modelfetch test backend
-
-- Production model loading uses the header-only C++ API from
-  `modelfetch/modelfetch.hpp`; `development/tests/fake_modelfetch.c` replaces
-  only the C ABI backend below that API for deterministic tests.
-- When model-loading calls or the pinned modelfetch SDK boundary changes,
-  update the fake and its owning model descriptor and `pekinfer` tests
-  together.
-- Keep the fake minimal: export exactly the `modelfetch_*` symbols imported by
-  `libpek-model-loading`, and implement only behavior required by current PEK
-  contracts. Do not add SDK tests, unused modes, timing controls, or other
-  test-only dependencies.
-- Run `model_descriptor_tests`, `pekinfer_lazy_setup_tests`, and
-  `modelfetch_dependency_boundary_tests`; the boundary test enforces the exact
-  import/export relationship.
-
 ## Agent guardrails
 
 - Reuse checked-in patterns before inventing new ones.

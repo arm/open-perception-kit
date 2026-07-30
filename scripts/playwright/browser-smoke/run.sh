@@ -339,8 +339,8 @@ done <<< "${browser_smoke_browsers}"
 
 if [ "${TEST_SET}" = "full" ]; then
     while IFS= read -r browser; do
-        run_phase "onnx-yolo-${browser}" \
-            "config/pipelines/testing/onnx-yolo-browser.json" \
+        run_phase "onnx-full-${browser}" \
+            "config/pipelines/testing/onnx-full.json" \
             "tests/playwright/pek-browser-models.spec.js" \
             "${browser}" || browser_smoke_status=$?
     done <<< "${browser_smoke_browsers}"

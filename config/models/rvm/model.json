@@ -1,7 +1,7 @@
 {
 	"name": "mobilenet-rvm-onnx",
 	"modelFamily": "rvm-segmentation",
-	"modelFile": "hf:Arm/RobustVideoMatting@9fb1aacdd4c11e62cd8dcd6d0a591e439684f0f0#file=rvm_mobilenetv3_fp32.onnx",
+	"modelFile": "rvm_mobilenetv3_fp32.onnx",
 	"dynamicOutput": true,
 	"inputTensors": [
 		{
@@ -40,9 +40,9 @@
 		}
 	],
 	"tensorFeedbacks": [
-	  { "fromOutputTensorIndex": 2, "toInputTensorIndex": 1 },
-	  { "fromOutputTensorIndex": 3, "toInputTensorIndex": 2 },
-	  { "fromOutputTensorIndex": 4, "toInputTensorIndex": 3 },
-	  { "fromOutputTensorIndex": 5, "toInputTensorIndex": 4 }
+	  { "fromOutputTensorIndex": 2, "toInputTensorIndex": 1, "mode": "Copy" },
+	  { "fromOutputTensorIndex": 3, "toInputTensorIndex": 2, "mode": "Copy" },
+	  { "fromOutputTensorIndex": 4, "toInputTensorIndex": 3, "mode": "Copy" },
+	  { "fromOutputTensorIndex": 5, "toInputTensorIndex": 4, "mode": "Copy" }
 	]
 }

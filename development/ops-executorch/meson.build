@@ -165,7 +165,7 @@ executorchops = shared_module(
 
   name_prefix: '',
   gnu_symbol_visibility: 'default',
-  link_with: [common, model_loading],
+  link_with: [common],
 
   install: false,
 )

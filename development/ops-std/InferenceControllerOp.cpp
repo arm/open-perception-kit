@@ -22,8 +22,7 @@ pek::Result<void> InferenceControllerOp::bind(size_t index, const std::vector<pe
     return {};
 }
 
-pek::Result<void> InferenceControllerOp::configure(const pek::AttributeMap &attributes,
-                                                   std::stop_token) {
+pek::Result<void> InferenceControllerOp::configure(const pek::AttributeMap &attributes) {
     contentType = attributes.getStringOrDefault("contentType", "");
     return {};
 }

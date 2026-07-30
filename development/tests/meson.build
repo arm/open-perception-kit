@@ -5,34 +5,6 @@ pek_menu_tests = executable(
   dependencies : [gtest_main_dep, gtest_dep, pek_menu_parser_dep],
 )
 
-model_descriptor_tests = executable(
-  'model_descriptor_tests',
-  ['model_descriptor_test.cpp'],
-  include_directories : [common_include],
-  dependencies : [gtest_main_dep, gtest_dep, pek_deps],
-  link_with : [common, model_loading],
-)
-
-# Tests retain production's real header-only C++ projection and replace only
-# its C ABI backend. The dependency-boundary test below keeps this fake exact.
-fake_modelfetch = shared_module(
-  'fake_modelfetch',
-  ['fake_modelfetch.c'],
-  dependencies : [modelfetch_cpp_headers_dep],
-  install : false,
-)
-
-pekinfer_blocking_setup_op = shared_module(
-  'pek-test-blocking-setup',
-  ['pekinfer_blocking_setup_op.cpp'],
-  include_directories : [common_include],
-  dependencies : [pek_deps],
-  link_with : [common, model_loading],
-  name_prefix : '',
-  gnu_symbol_visibility : 'default',
-  install : false,
-)
-
 matrix_operations_tests = executable(
   'matrix_operations_tests',
   ['matrix_operations_test.cpp'],
@@ -126,32 +98,8 @@ runtime_pipeline_tests = executable(
 
 node = find_program('node', required : false)
 python = import('python').find_installation()
-gst_launch = find_program('gst-launch-1.0')
-readelf = find_program('readelf')
-
-model_consumers = [onnxops]
-if is_variable('executorchops')
-  model_consumers += [executorchops]
-endif
-if is_variable('hailortops')
-  model_consumers += [hailortops]
-endif
-if is_variable('ncnnops')
-  model_consumers += [ncnnops]
-endif
-
-model_consumer_args = ['--model-consumer']
-foreach model_consumer : model_consumers
-  model_consumer_args += [model_consumer.full_path()]
-endforeach
 
 test('pek_menu_tests', pek_menu_tests)
-test(
-  'model_descriptor_tests',
-  model_descriptor_tests,
-  env : ['LD_PRELOAD=' + fake_modelfetch.full_path()],
-  depends : fake_modelfetch,
-)
 test(
   'pek_menu_cli_tests',
   python,
@@ -159,65 +107,9 @@ test(
   depends : pek_menu,
 )
 test(
-  'pekinfer_lazy_setup_tests',
-  python,
-  args : [
-    files('pekinfer_lazy_setup_test.py'),
-    gst_launch,
-    gstpekinfer.full_path(),
-    pekinfer_blocking_setup_op.full_path(),
-    fake_modelfetch.full_path(),
-  ],
-  depends : [gstpekinfer, pekinfer_blocking_setup_op, fake_modelfetch],
-)
-test(
-  'prepare_modelfetch_release_tests',
-  python,
-  args : [
-    meson.project_source_root() / '../scripts/private/tests/test_prepare_modelfetch_release.py',
-  ],
-)
-test(
   'huggingface_auth_compose_tests',
   python,
   args : [files('huggingface_auth_compose_test.py')],
-)
-test(
-  'modelfetch_dependency_boundary_tests',
-  python,
-  args : [
-    files('modelfetch_dependency_boundary_test.py'),
-    readelf,
-    '--non-model-consumer',
-    common.full_path(),
-    stdops.full_path(),
-    gstpektracker.full_path(),
-    gstpekperformance.full_path(),
-    gstpekosd.full_path(),
-    pekinferpre.full_path(),
-    pekcomm.full_path(),
-    pek_menu.full_path(),
-    gstpekinfer.full_path(),
-    pek_runtime.full_path(),
-    '--model-runtime',
-    model_loading.full_path(),
-    '--fake-backend',
-    fake_modelfetch.full_path(),
-  ] + model_consumer_args,
-  depends : [
-    common,
-    model_loading,
-    stdops,
-    gstpekinfer,
-    gstpektracker,
-    gstpekperformance,
-    gstpekosd,
-    pekinferpre,
-    pekcomm,
-    pek_menu,
-    pek_runtime,
-    fake_modelfetch,
-  ] + model_consumers,
 )
 test('matrix_operations_tests', matrix_operations_tests)
 test('kalman_filter_tests', kalman_filter_tests)

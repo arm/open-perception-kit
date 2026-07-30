@@ -59,12 +59,9 @@ Use this target Pi setup before you start:
 - Permission to run `sudo` on the target Pi.
 - Internet access from the target Pi to GitHub, package repositories, and
   container or source locations used during the first container build.
-- GitHub CLI authenticated on the target Pi with read access to the pinned
-  `Arm-Debug/modelfetch` release. The repository is internal, so the release
-  asset is not available anonymously.
-- To run a private or gated Hugging Face model, set `HF_TOKEN` in the shell
-  that starts the container. The checked-in YOLOv11 quick-start and CI fixture
-  need no Hugging Face token.
+- To make a Hugging Face credential available to model integrations, set
+  `HF_TOKEN` in the shell that starts the container. The checked-in models need
+  no Hugging Face token.
 
 ### 1. Connect to the target Pi
 
@@ -111,15 +108,13 @@ export HF_TOKEN="hf_your_token_here"
 
 Compose mounts the value read-only at
 `/run/secrets/huggingface_token`; it is not stored in the container environment.
-Modelfetch reads and validates that file. An unset or empty `HF_TOKEN` selects
-anonymous access. Do not store the credential in the generated `.env` files.
+An unset or empty `HF_TOKEN` selects anonymous access. Do not store the
+credential in the generated `.env` files.
 
-For a direct deployment build, prepare the pinned modelfetch release before
-invoking the existing Compose entrypoint. For a private or gated model, export
-your Hugging Face token:
+For a direct deployment build with a private or gated model integration, export
+your Hugging Face token before invoking Compose:
 
 ```bash
-bash scripts/private/prepare-modelfetch-release.sh
 export HF_TOKEN="hf_your_token_here"
 docker compose up --build
 ```
@@ -133,10 +128,6 @@ HF_TOKEN="" docker compose up --build
 After replacing or clearing `HF_TOKEN`, add `--force-recreate` to the next
 direct `docker compose up` command so the running container receives the new
 secret.
-
-The preparation step acquires and verifies the pinned architecture-specific
-Rust-backed C SDK. It has the same GitHub CLI access requirement listed
-above.
 
 ### 3. Enter the container command line
 

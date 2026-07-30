@@ -3,19 +3,14 @@
  *************************************************************/
 #include "gst/gstelement.h"
 #include "gst/gstpad.h"
+#include <filesystem>
 #include <gst/base/gstbasetransform.h>
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
-#include <exception>
+#include <filesystem>
 #include <fmt/core.h>
 #include <memory>
-#include <mutex>
-#include <optional>
-#include <stop_token>
-#include <string>
-#include <thread>
-#include <utility>
 #include <variant>
 
 #include "glib-object.h"
@@ -28,120 +23,27 @@
 
 #include "op/OpChain.h"
 #include "op/OpChainContext.h"
-#include "op/OpChainDescriptor.h"
 
 #include "gst/PerceptionMeta.h"
 #include "mediaio/GstVideoFrame.h"
 #include "perf/PerformanceTracer.h"
 
-class GstPekInferMembers {
-  public:
-    pek::Result<void> loadOpChainDescriptor(const std::string &filePath) {
-        auto descriptorResult = pek::op::OpChainDescriptor::fromFile(filePath);
-        if (!descriptorResult)
-            return tl::unexpected{descriptorResult.error()};
-        descriptor = std::move(*descriptorResult);
+struct GstPekInferMembers {
+    // std::shared_ptr<onnx::Inference> onnxInference;
+
+    pek::op::OpChain opChain;
+
+    pek::Result<void> executeOpChain(pek::op::OpChainContext &opChainContext) {
+        return opChain.execute(opChainContext);
+    }
+
+    pek::Result<void> setupOpChainFromJson(const std::string &filePath) {
+        auto setupResult = opChain.setupFromFile(filePath);
+        if (!setupResult) {
+            return setupResult;
+        }
         return {};
     }
-
-    [[nodiscard]] const std::string &modelName() const noexcept {
-        return descriptor.name;
-    }
-
-    pek::op::OpChain *opChainForActiveFrame() {
-        pek::op::OpChain *readyOpChain = nullptr;
-        {
-            std::lock_guard lock(setupMutex);
-            if (setupState == Idle) {
-                setupFailure.clear();
-                setupFailureReported = false;
-                retryAfterDeactivation = false;
-                try {
-                    setupWorker = std::jthread(
-                        [this](std::stop_token stopToken) { setupAttempt(stopToken); });
-                    setupState = Loading;
-                } catch (const std::exception &error) { // NOSONAR: protect the jthread boundary.
-                    setupFailure = fmt::format("Could not start setup worker: {}", error.what());
-                    setupState = Failed;
-                } catch (...) { // NOSONAR: preserve the asynchronous failure boundary.
-                    setupFailure = "Could not start setup worker: unknown error";
-                    setupState = Failed;
-                }
-            } else if (setupState == Ready) {
-                readyOpChain = opChain.get();
-            }
-        }
-        return readyOpChain;
-    }
-
-    std::optional<std::string> takeSetupFailure() {
-        std::lock_guard lock(setupMutex);
-        if (setupState != Failed || setupFailureReported)
-            return std::nullopt;
-        setupFailureReported = true;
-        return setupFailure;
-    }
-
-    void modelDeactivated() {
-        std::lock_guard lock(setupMutex);
-        if (setupState == Loading) {
-            retryAfterDeactivation = true;
-        } else if (setupState == Failed) {
-            setupState = Idle;
-            setupFailure.clear();
-            setupFailureReported = false;
-        }
-    }
-
-  private:
-    enum class SetupState { Idle, Loading, Ready, Failed };
-    using enum SetupState;
-
-    void setupAttempt(const std::stop_token &stopToken) {
-        std::unique_ptr<pek::op::OpChain> candidate;
-        std::optional<std::string> failure;
-        try {
-            candidate = std::make_unique<pek::op::OpChain>();
-            if (auto setupResult = candidate->setupFromDescriptor(descriptor, stopToken);
-                !setupResult)
-                failure = setupResult.error().toString();
-        } catch (const std::exception &error) { // NOSONAR: plugin thread exception boundary.
-            failure = fmt::format("Unhandled setup exception: {}", error.what());
-        } catch (...) { // NOSONAR: external plugins may throw non-standard exceptions.
-            failure = "Unhandled non-standard setup exception";
-        }
-
-        {
-            std::lock_guard lock(setupMutex);
-            if (stopToken.stop_requested())
-                return;
-            if (failure) {
-                setupFailure = *failure;
-                setupState = retryAfterDeactivation ? Idle : Failed;
-            } else {
-                opChain = std::move(candidate);
-                setupState = Ready;
-                retryAfterDeactivation = false;
-            }
-        }
-
-        if (failure) {
-            pek::log::error(
-                "Asynchronous OpChain setup failed for [{}]: {}\n", descriptor.name, *failure);
-        }
-    }
-
-    pek::op::OpChainDescriptor descriptor;
-    std::mutex setupMutex;
-    SetupState setupState = Idle;
-    std::unique_ptr<pek::op::OpChain> opChain;
-    std::string setupFailure;
-    bool setupFailureReported = false;
-    bool retryAfterDeactivation = false;
-
-    // Keep this member last: jthread teardown must stop and join the worker before
-    // any state captured through `this` is destroyed.
-    std::jthread setupWorker;
 };
 
 #ifndef PACKAGE
@@ -162,6 +64,7 @@ struct _GstPekInfer {
     // Properties
     gchar *opChainPath;
     gboolean active;
+    gchar *format;
     gchar *inferId;
 
     // a safe place for c++ stuff
@@ -174,6 +77,8 @@ G_DEFINE_TYPE(GstPekInfer, gst_pekinfer, GST_TYPE_BASE_TRANSFORM)
 
 // ---------------- GstBaseTransform virtuals ----------------
 //
+namespace fs = std::filesystem;
+
 static const gchar *gst_pekinfer_get_effective_inferId(GstPekInfer *self) {
     /* If user provided infer-id property, prefer it */
     if (self->inferId && self->inferId[0] != '\0')
@@ -183,11 +88,17 @@ static const gchar *gst_pekinfer_get_effective_inferId(GstPekInfer *self) {
     return GST_OBJECT_NAME(GST_ELEMENT(self));
 }
 
-static gboolean gst_pekinfer_is_active(GstPekInfer *self) {
-    GST_OBJECT_LOCK(self);
-    const gboolean active = self->active;
-    GST_OBJECT_UNLOCK(self);
-    return active;
+static std::optional<fs::path> parent_dir_name(const fs::path &p) {
+    if (!p.has_filename()) {
+        return std::nullopt;
+    }
+
+    fs::path parent = p.parent_path();
+    if (parent.empty()) {
+        return std::nullopt;
+    }
+
+    return parent.filename();
 }
 
 static gboolean gst_pekinfer_start(GstBaseTransform *b) {
@@ -195,43 +106,43 @@ static gboolean gst_pekinfer_start(GstBaseTransform *b) {
     static pek::perf::PerformanceTracer *tracer = pek::perf::getGlobalTracer();
     (void)tracer;
 
-    auto members = std::make_unique<GstPekInferMembers>();
+    self->m = new GstPekInferMembers();
 
     if (!self->opChainPath || !self->opChainPath[0]) {
         GST_ERROR_OBJECT(self, "opchain property is mandatory but not set");
         return FALSE;
     }
 
-    if (auto descriptorResult = members->loadOpChainDescriptor(self->opChainPath);
-        !descriptorResult) {
-        pek::log::error("Error while loading op-chain descriptor [{}]: {}\n",
+    auto setupResult = self->m->setupOpChainFromJson(self->opChainPath);
+    if (!setupResult) {
+        pek::log::error("Error while setting up op-chain [{}]: {}\n",
                         self->opChainPath,
-                        descriptorResult.error().toString());
+                        setupResult.error().toString());
 
         GST_ELEMENT_ERROR(
-            self, RESOURCE, FAILED, ("Failed to load op-chain."), ("%s", self->opChainPath));
+            self, RESOURCE, FAILED, ("Failed to setup op-chain."), ("%s", self->opChainPath));
 
         return FALSE;
     }
 
-    const std::string modelName = members->modelName();
-    GST_OBJECT_LOCK(self);
-    self->m = members.release();
-    GST_OBJECT_UNLOCK(self);
-
     // Send model registration event downstream
     GstPad *srcpad = gst_element_get_static_pad(GST_ELEMENT(self), "src");
     if (srcpad) {
+        std::string name = "unknown";
+        if (auto dir = parent_dir_name(self->opChainPath); dir.has_value()) {
+            name = dir->string();
+        }
+
         GstStructure *structure = gst_structure_new("pek-model-register",
                                                     "model-name",
                                                     G_TYPE_STRING,
-                                                    modelName.c_str(),
+                                                    self->m->opChain.getName().c_str(),
                                                     "element-name",
                                                     G_TYPE_STRING,
                                                     GST_OBJECT_NAME(self),
                                                     "active",
                                                     G_TYPE_BOOLEAN,
-                                                    gst_pekinfer_is_active(self),
+                                                    self->active,
                                                     NULL);
         GstEvent *event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, structure);
         gst_pad_push_event(srcpad, event);
@@ -243,10 +154,8 @@ static gboolean gst_pekinfer_start(GstBaseTransform *b) {
 
 static gboolean gst_pekinfer_stop(GstBaseTransform *b) {
     auto *self = (GstPekInfer *)b;
-    std::unique_ptr<GstPekInferMembers> members;
-    GST_OBJECT_LOCK(self);
-    members.reset(std::exchange(self->m, nullptr));
-    GST_OBJECT_UNLOCK(self);
+    delete self->m;
+    self->m = nullptr;
     return TRUE;
 }
 
@@ -271,24 +180,11 @@ static gboolean gst_pekinfer_set_caps(GstBaseTransform *b, GstCaps *incaps, GstC
 static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *buf) {
     auto *self = (GstPekInfer *)b;
 
+    if (!self->active)
+        return GST_FLOW_OK;
+
     if (!self->m)
         return GST_FLOW_OK;
-
-    if (!gst_pekinfer_is_active(self))
-        return GST_FLOW_OK;
-
-    auto *opChain = self->m->opChainForActiveFrame();
-    if (!opChain) {
-        if (auto failure = self->m->takeSetupFailure()) {
-            GST_ELEMENT_WARNING(self,
-                                RESOURCE,
-                                FAILED,
-                                ("Asynchronous OpChain setup failed; inference remains "
-                                 "pass-through."),
-                                ("%s", failure->c_str()));
-        }
-        return GST_FLOW_OK;
-    }
 
     // Try to get the perception meta
     // it does not added yet -> add it
@@ -330,8 +226,8 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
     // Mutate the PerceptionMeta while executing the op-chain. The mapped frame is
     // passed through the op context and stays alive for the whole op-chain execution.
-    auto ret = pek::PerceptionMeta::mutate<GstFlowReturn>(
-        buf, [self, sharedMediaFrame, opChain](auto &perception) {
+    auto ret =
+        pek::PerceptionMeta::mutate<GstFlowReturn>(buf, [self, sharedMediaFrame](auto &perception) {
             // Execute the op-chain with the provided context. The chain can read and mutate the
             // perception and read the video frame, but not mutate it.
             pek::op::OpChainContext opChainContext;
@@ -341,7 +237,8 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
             opChainContext.perception = &perception;
             opChainContext.videoFrames["pipelineVideoFrame"] = sharedMediaFrame;
 
-            if (auto executeResult = opChain->execute(opChainContext); !executeResult) {
+            auto executeResult = self->m->executeOpChain(opChainContext);
+            if (!executeResult) {
                 pek::log::error("{}\n", executeResult.error().toString());
                 return GST_FLOW_CUSTOM_ERROR;
             }
@@ -366,37 +263,27 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
 // ---------------- properties & class init ----------------
 
-namespace {
-
-enum class PropertyId : guint { None, OpChainPath, ModelActive, InferId };
-using enum PropertyId;
-
-constexpr guint propertyId(PropertyId id) noexcept {
-    return static_cast<guint>(id);
-}
-
-} // namespace
+enum { PROP_0, PROP_OPCHAIN_PATH, PROP_MODEL_ACTIVE, PROP_FORMAT, PROP_INFER_ID };
 
 static void gst_pekinfer_set_property(GObject *o, guint id, const GValue *v, GParamSpec *ps) {
     auto *self = (GstPekInfer *)o;
-    switch (static_cast<PropertyId>(id)) {
-    case OpChainPath:
+    switch (id) {
+    case PROP_OPCHAIN_PATH:
         g_free(self->opChainPath);
         self->opChainPath = g_value_dup_string(v);
         break;
-    case ModelActive: {
-        GST_OBJECT_LOCK(self);
+    case PROP_MODEL_ACTIVE: {
         self->active = g_value_get_boolean(v);
-        if (!self->active && self->m)
-            self->m->modelDeactivated();
-        GST_OBJECT_UNLOCK(self);
         break;
     }
-    case InferId:
+    case PROP_FORMAT:
+        g_free(self->format);
+        self->format = g_value_dup_string(v);
+        break;
+    case PROP_INFER_ID:
         g_free(self->inferId);
         self->inferId = g_value_dup_string(v);
         break;
-    case None:
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(o, id, ps);
     }
@@ -404,17 +291,19 @@ static void gst_pekinfer_set_property(GObject *o, guint id, const GValue *v, GPa
 
 static void gst_pekinfer_get_property(GObject *o, guint id, GValue *v, GParamSpec *ps) {
     auto *self = (GstPekInfer *)o;
-    switch (static_cast<PropertyId>(id)) {
-    case OpChainPath:
+    switch (id) {
+    case PROP_OPCHAIN_PATH:
         g_value_set_string(v, self->opChainPath);
         break;
-    case ModelActive:
-        g_value_set_boolean(v, gst_pekinfer_is_active(self));
+    case PROP_MODEL_ACTIVE:
+        g_value_set_boolean(v, self->active);
         break;
-    case InferId:
+    case PROP_FORMAT:
+        g_value_set_string(v, self->format);
+        break;
+    case PROP_INFER_ID:
         g_value_set_string(v, gst_pekinfer_get_effective_inferId(self));
         break;
-    case None:
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(o, id, ps);
     }
@@ -422,9 +311,6 @@ static void gst_pekinfer_get_property(GObject *o, guint id, GValue *v, GParamSpe
 
 static void gst_pekinfer_finalize(GObject *object) {
     auto *self = reinterpret_cast<GstPekInfer *>(object);
-
-    g_free(self->opChainPath);
-    self->opChainPath = nullptr;
 
     g_free(self->inferId);
     self->inferId = nullptr;
@@ -443,7 +329,7 @@ static void gst_pekinfer_class_init(GstPekInferClass *klass) {
 
     g_object_class_install_property(
         gobj,
-        propertyId(OpChainPath),
+        PROP_OPCHAIN_PATH,
         g_param_spec_string("opchain-path",
                             "OpChain path",
                             "Path to OpChain setup JSON",
@@ -452,7 +338,7 @@ static void gst_pekinfer_class_init(GstPekInferClass *klass) {
 
     g_object_class_install_property(
         gobj,
-        propertyId(ModelActive),
+        PROP_MODEL_ACTIVE,
         g_param_spec_boolean("active",
                              "Active",
                              "Do or not do",
@@ -461,7 +347,16 @@ static void gst_pekinfer_class_init(GstPekInferClass *klass) {
 
     g_object_class_install_property(
         gobj,
-        propertyId(InferId),
+        PROP_FORMAT,
+        g_param_spec_string("format",
+                            "Video format",
+                            "Video format (BGRA)",
+                            "BGRA",
+                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
+        gobj,
+        PROP_INFER_ID,
         g_param_spec_string("infer-id",
                             "ID of the inference element",
                             "ID of the inference element (used in Plumber to identify the layers. "
@@ -497,6 +392,7 @@ static void gst_pekinfer_init(GstPekInfer *self) {
 
     gst_video_info_init(&self->vinfo);
 
+    self->format = g_strdup("BGRA");
     gst_base_transform_set_in_place(GST_BASE_TRANSFORM(self), TRUE);
     gst_base_transform_set_passthrough(GST_BASE_TRANSFORM(self), FALSE);
     gst_base_transform_set_qos_enabled(GST_BASE_TRANSFORM(self), FALSE);

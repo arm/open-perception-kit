@@ -1,7 +1,7 @@
 {
 	"name": "yolov11n-hailo10",
 	"modelFamily": "yolo-obj",
-	"modelFile": "hf:Arm/Yolo-v11@4576cbb1b421764015abed1f535ce0615770c7cf#file=models/hailo10h/yolov11n-hailo10h.hef",
+	"modelFile": "yolov11n-hailo10h.hef",
 	"dynamicOutput": true,
 	"maxDetectionCount": 16,
 	"confidenceThreshold": 0.7,

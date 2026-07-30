@@ -3,7 +3,6 @@ x-pek-dev-build: &pek-dev-build
   dockerfile: Dockerfile.dev
   additional_contexts:
     pek-build-base: service:pek-build-base
-    modelfetch_sdks: ../.cache/modelfetch
 
 services:
   pek-build-base:
@@ -18,8 +17,6 @@ services:
       context: ..
       dockerfile: Dockerfile
       target: pek-deployment-base
-      additional_contexts:
-        modelfetch_sdks: ../.cache/modelfetch
 
   pek-docs: &pek-docs
     extends:

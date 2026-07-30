@@ -2,7 +2,7 @@
     "name": "arcface_mobilefacenet",
     "modelFamily": "reid",
     "contentType": "humanFace",
-    "modelFile": "hf:Arm/ArcFace-MobileFaceNet@c60ba6577eba48d64ffac15bfc679468cba81c7c#file=models/hailo10h/arcface_mobilefacenet.hef",
+    "modelFile": "arcface_mobilefacenet.hef",
     "dynamicOutput": true,
     "inputTensors": [
         {

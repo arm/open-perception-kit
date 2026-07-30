@@ -3,7 +3,6 @@
 Hailo 8-compiled variant of the YOLOv11 detector.
 
 - Backend: HailoRT
-- Artifact: downloaded on demand from the descriptor's pinned `modelFile` locator when first activated
 - Input: NHWC image, `[1, 320, 320, 3]`, `Uint8`
 - Output: packed Hailo NMS detections
 - Post processor: `YoloParser`
