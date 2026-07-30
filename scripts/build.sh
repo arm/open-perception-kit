@@ -76,8 +76,8 @@ if ! docker exec -u dev "${PEK_CONTAINER_NAME}" bash -lc 'test -w /work' > /dev/
     "${START_CONTAINER_SCRIPT}" --recreate
 fi
 
-DOCKER_EXEC_ENV_FILE_ARGS=()
+DOCKER_EXEC_ARGS=(-u dev)
 if [ -f "${REPO_ROOT}/devices.env" ]; then
-    DOCKER_EXEC_ENV_FILE_ARGS=(--env-file "${REPO_ROOT}/devices.env")
+    DOCKER_EXEC_ARGS+=(--env-file "${REPO_ROOT}/devices.env")
 fi
-docker exec -u dev "${DOCKER_EXEC_ENV_FILE_ARGS[@]}" "${PEK_CONTAINER_NAME}" bash -lc "${BUILD_COMMAND}"
+docker exec "${DOCKER_EXEC_ARGS[@]}" "${PEK_CONTAINER_NAME}" bash -lc "${BUILD_COMMAND}"

@@ -36,8 +36,8 @@ jobs:
       - name: Run publisher unit tests
         run: python3 -m unittest scripts/playwright/pages/test_publish_playwright_pages.py
 
-      - name: Update Pages content
-        id: pages
+      - name: Update General Pages content
+        id: pages_general
         env:
           GITHUB_TOKEN: ${{ github.token }}
           UPSTREAM_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
@@ -50,22 +50,40 @@ jobs:
           UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id }}
         run: scripts/playwright/pages/run.sh publish
 
+      - name: Update macOS Pages content
+        id: pages_macos
+        if: ${{ github.event.workflow_run.event == 'schedule' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PLAYWRIGHT_PAGES_ARTIFACT_PREFIX: macos-browser-smoke
+          PLAYWRIGHT_PAGES_NIGHTLY_DIRECTORY: nightly-macos
+          PLAYWRIGHT_PAGES_REPORT_TITLE: Arm Perception kit - macOS
+          UPSTREAM_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          UPSTREAM_EVENT: ${{ github.event.workflow_run.event }}
+          UPSTREAM_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          UPSTREAM_HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          UPSTREAM_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          UPSTREAM_PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          UPSTREAM_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: scripts/playwright/pages/run.sh publish
+
       - name: Cache YOLO performance dataset
-        if: steps.pages.outputs.deploy == 'true'
+        if: steps.pages_general.outputs.deploy == 'true' || steps.pages_macos.outputs.deploy == 'true'
         uses: actions/cache@v6
         with:
           path: _yolo_performance_dataset_cache
           key: yolo-performance-datasets-coco-val2017-4f7e2ccb2866ec5041993c9cf2a952bbed69647b115d0f74da7ce8f4bef82f05
 
       - name: Restore YOLO dataset overlay
-        if: steps.pages.outputs.deploy == 'true'
+        if: steps.pages_general.outputs.deploy == 'true' || steps.pages_macos.outputs.deploy == 'true'
         run: |
           python3 examples/yolo-benchmark/pages/restore_dataset_overlay.py \
             --site-dir _playwright_pages_site \
             --cache-dir _yolo_performance_dataset_cache
 
       - name: Restore deploy-only report videos
-        if: steps.pages.outputs.deploy == 'true'
+        if: steps.pages_general.outputs.deploy == 'true' || steps.pages_macos.outputs.deploy == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -75,17 +93,17 @@ jobs:
             restore-videos _playwright_pages_site
 
       - name: Configure Pages
-        if: steps.pages.outputs.deploy == 'true'
+        if: steps.pages_general.outputs.deploy == 'true' || steps.pages_macos.outputs.deploy == 'true'
         uses: actions/configure-pages@v6
 
       - name: Upload Pages artifact
-        if: steps.pages.outputs.deploy == 'true'
+        if: steps.pages_general.outputs.deploy == 'true' || steps.pages_macos.outputs.deploy == 'true'
         uses: actions/upload-pages-artifact@v5
         with:
           path: _playwright_pages_site
 
       - name: Deploy Pages
-        if: steps.pages.outputs.deploy == 'true'
+        if: steps.pages_general.outputs.deploy == 'true' || steps.pages_macos.outputs.deploy == 'true'
         id: deployment
         uses: actions/deploy-pages@v5
 

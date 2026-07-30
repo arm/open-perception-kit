@@ -147,10 +147,17 @@ class TestPublishPlaywrightPages(unittest.TestCase):
                 "develop @ commit-for-t | run 123 attempt 1 | Jul 02, 2026 20:30 UTC\n",
                 encoding="utf-8",
             )
+            macos_nightly = site_dir / "playwright" / "nightly-macos"
+            macos_nightly.mkdir(parents=True)
+            (macos_nightly / "index.html").write_text("<html></html>", encoding="utf-8")
 
             publish.write_site_index(site_dir, "Arm-Debug/amp-dev-forge")
 
-            self.assertTrue((site_dir / "playwright" / "index.html").is_file())
+            index = (site_dir / "playwright" / "index.html").read_text(encoding="utf-8")
+            self.assertIn('href="nightly/index.html"', index)
+            self.assertIn('href="nightly-macos/index.html"', index)
+            self.assertIn('<span class="report-title">General</span>', index)
+            self.assertIn('<span class="report-title">macOS</span>', index)
 
     def test_write_root_index_links_report_roots(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -207,6 +214,27 @@ class TestPublishPlaywrightPages(unittest.TestCase):
                 report_pages.playwright_nightly_badge(site_dir),
                 ("neutral", "No status"),
             )
+
+    def test_playwright_nightly_badge_aggregates_general_and_macos(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = Path(tmpdir)
+            for directory, stats in (
+                ("nightly", {"expected": 6, "unexpected": 0, "flaky": 0, "skipped": 0, "ok": True}),
+                ("nightly-macos", {"expected": 2, "unexpected": 1, "flaky": 0, "skipped": 0, "ok": False}),
+            ):
+                report = site_dir / "playwright" / directory
+                report.mkdir(parents=True)
+                buffer = io.BytesIO()
+                with zipfile.ZipFile(buffer, "w") as archive:
+                    archive.writestr("report.json", json.dumps({"stats": stats}))
+                payload = base64.b64encode(buffer.getvalue()).decode("ascii")
+                (report / "index.html").write_text(
+                    f'<template id="playwrightReportBase64" type="application/zip">'
+                    f'data:application/zip;base64,{payload}</template>',
+                    encoding="utf-8",
+                )
+
+            self.assertEqual(report_pages.playwright_nightly_badge(site_dir), ("slow", "1 failed"))
 
     def test_remove_legacy_root_site_migrates_report_roots(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -392,6 +420,57 @@ class TestPublishPlaywrightPages(unittest.TestCase):
 
             self.assertEqual(output.read_text(encoding="utf-8"), "deploy=false\n")
 
+    def test_publish_macos_report_keeps_general_nightly(self):
+        run_script = Path(__file__).with_name("run.sh").read_text(encoding="utf-8")
+        self.assertIn(
+            'REPORT_PAGES_ENV_NAMES="PLAYWRIGHT_PAGES_ARTIFACT_PREFIX '
+            'PLAYWRIGHT_PAGES_NIGHTLY_DIRECTORY PLAYWRIGHT_PAGES_REPORT_TITLE"',
+            run_script,
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            local_report = root / "playwright-report"
+            site_dir = root / "site"
+            local_report.mkdir()
+            (local_report / "index.html").write_text(
+                "<!doctype html><html><head><title>Playwright</title></head><body></body></html>",
+                encoding="utf-8",
+            )
+
+            def checkout(path, _storage_branch):
+                nightly = path / "playwright" / "nightly"
+                nightly.mkdir(parents=True)
+                (nightly / "marker.txt").write_text("general", encoding="utf-8")
+
+            env = {
+                "GITHUB_REPOSITORY": "Arm-Debug/amp-dev-forge",
+                "PLAYWRIGHT_PAGES_ARTIFACT_PREFIX": "macos-browser-smoke",
+                "PLAYWRIGHT_PAGES_LOCAL_REPORT_DIR": str(local_report),
+                "PLAYWRIGHT_PAGES_NIGHTLY_DIRECTORY": "nightly-macos",
+                "UPSTREAM_CONCLUSION": "success",
+                "UPSTREAM_EVENT": "schedule",
+                "UPSTREAM_HEAD_BRANCH": "develop",
+                "UPSTREAM_HEAD_SHA": "commit-for-test",
+                "UPSTREAM_RUN_ATTEMPT": "1",
+                "UPSTREAM_RUN_ID": "123",
+            }
+            with patch.dict(os.environ, env, clear=True), \
+                    patch.object(publish, "checkout_site_branch", side_effect=checkout), \
+                    patch.object(publish, "build_source_map_json", return_value="{}"), \
+                    patch.object(publish, "push_site_branch", return_value=False):
+                publish.publish_report(site_dir, "playwright-pages")
+
+            self.assertEqual(
+                (site_dir / "playwright" / "nightly" / "marker.txt").read_text(encoding="utf-8"),
+                "general",
+            )
+            macos = site_dir / "playwright" / "nightly-macos"
+            self.assertTrue((macos / "index.html").is_file())
+            self.assertEqual(
+                (macos / publish.ARTIFACT_PREFIX_META).read_text(encoding="utf-8"),
+                "macos-browser-smoke\n",
+            )
+
     def test_publish_report_deploys_unchanged_site_when_videos_are_deploy_only(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -509,7 +588,7 @@ class TestPublishPlaywrightPages(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             site_dir = Path(tmpdir)
 
-            def report_target(relative, run_id, files=None):
+            def report_target(relative, run_id, files=None, artifact_prefix=None):
                 target = site_dir / "playwright" / relative
                 target.mkdir(parents=True)
                 (target / publish.REPORT_INDEX_META).write_text(
@@ -518,9 +597,16 @@ class TestPublishPlaywrightPages(unittest.TestCase):
                 )
                 if files is not None:
                     publish.write_video_artifact_meta(target, run_id, "1", files)
+                if artifact_prefix is not None:
+                    (target / publish.ARTIFACT_PREFIX_META).write_text(
+                        f"{artifact_prefix}\n", encoding="utf-8"
+                    )
                 return target
 
             nightly = report_target("nightly", "100")
+            macos = report_target(
+                "nightly-macos", "105", ["data/macos.webm"], "macos-browser-smoke"
+            )
             pr_181 = report_target("prs/181", "101", ["phase/data/pr.webm"])
             missing = report_target("prs/182", "102", ["data/missing.webm"])
             existing = report_target("prs/184", "104", ["data/existing.webm"])
@@ -529,11 +615,16 @@ class TestPublishPlaywrightPages(unittest.TestCase):
 
             downloads = []
 
-            def download(artifact_dir, _repository, run_id, _run_attempt):
-                downloads.append(run_id)
+            def download(artifact_dir, _repository, run_id, _run_attempt, artifact_prefix):
+                downloads.append((run_id, artifact_prefix))
                 if run_id == "102":
                     return False
-                relative = "data/nightly.webm" if run_id == "100" else "phase/data/pr.webm"
+                if run_id == "100":
+                    relative = "data/nightly.webm"
+                elif run_id == "105":
+                    relative = "data/macos.webm"
+                else:
+                    relative = "phase/data/pr.webm"
                 video = artifact_dir / "playwright-report" / relative
                 video.parent.mkdir(parents=True)
                 video.write_text(run_id, encoding="utf-8")
@@ -543,9 +634,15 @@ class TestPublishPlaywrightPages(unittest.TestCase):
                     patch.object(publish, "download_report_artifact", side_effect=download):
                 restored = publish.restore_published_report_videos(site_dir)
 
-            self.assertEqual(restored, 2)
-            self.assertEqual(downloads, ["100", "101", "102"])
+            self.assertEqual(restored, 3)
+            self.assertEqual(downloads, [
+                ("100", "rpi-browser-smoke"),
+                ("105", "macos-browser-smoke"),
+                ("101", "rpi-browser-smoke"),
+                ("102", "rpi-browser-smoke"),
+            ])
             self.assertEqual((nightly / "data" / "nightly.webm").read_text(encoding="utf-8"), "100")
+            self.assertEqual((macos / "data" / "macos.webm").read_text(encoding="utf-8"), "105")
             self.assertEqual((pr_181 / "phase" / "data" / "pr.webm").read_text(encoding="utf-8"), "101")
             self.assertFalse((missing / "data" / "missing.webm").exists())
             self.assertEqual((existing / "data" / "existing.webm").read_text(encoding="utf-8"), "existing")

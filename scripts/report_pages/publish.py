@@ -185,33 +185,40 @@ def yolo_nightly_badge(site_dir: Path, report_root: str) -> tuple[str, str]:
 
 
 def playwright_nightly_badge(site_dir: Path) -> tuple[str, str]:
-    index = site_dir / "playwright" / "nightly" / INDEX_HTML
-    if not index.is_file():
+    indexes = [
+        site_dir / "playwright" / directory / INDEX_HTML
+        for directory in ("nightly", "nightly-macos")
+    ]
+    indexes = [index for index in indexes if index.is_file()]
+    if not indexes:
         return "neutral", "No nightly"
-    try:
-        content = index.read_text(encoding="utf-8")
-        match = PLAYWRIGHT_REPORT_ARCHIVE_RE.search(content)
-        if match is None:
-            return "neutral", "No status"
-        payload = re.sub(r"\s+", "", match.group(1))
-        with zipfile.ZipFile(io.BytesIO(base64.b64decode(payload, validate=True))) as archive:
-            stats = json.loads(archive.read("report.json")).get("stats")
-        if not isinstance(stats, dict) or not isinstance(stats.get("ok"), bool):
-            return "neutral", "No status"
-        counts = {}
-        for name in ("expected", "unexpected", "flaky", "skipped"):
-            value = stats.get(name)
-            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+    counts = {name: 0 for name in ("expected", "unexpected", "flaky", "skipped")}
+    all_ok = True
+    for index in indexes:
+        try:
+            content = index.read_text(encoding="utf-8")
+            match = PLAYWRIGHT_REPORT_ARCHIVE_RE.search(content)
+            if match is None:
                 return "neutral", "No status"
-            counts[name] = value
-    except (OSError, ValueError, KeyError, TypeError, zipfile.BadZipFile):
-        return "neutral", "No status"
+            payload = re.sub(r"\s+", "", match.group(1))
+            with zipfile.ZipFile(io.BytesIO(base64.b64decode(payload, validate=True))) as archive:
+                stats = json.loads(archive.read("report.json")).get("stats")
+            if not isinstance(stats, dict) or not isinstance(stats.get("ok"), bool):
+                return "neutral", "No status"
+            all_ok = all_ok and stats["ok"]
+            for name in counts:
+                value = stats.get(name)
+                if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                    return "neutral", "No status"
+                counts[name] += value
+        except (OSError, ValueError, KeyError, TypeError, zipfile.BadZipFile):
+            return "neutral", "No status"
 
     if counts["unexpected"]:
         return "slow", f'{counts["unexpected"]} failed'
     if counts["flaky"]:
         return "neutral", f'{counts["flaky"]} flaky'
-    if not stats["ok"]:
+    if not all_ok:
         return "slow", "Failed"
     if counts["expected"]:
         return "fast", f'{counts["expected"]} passed'

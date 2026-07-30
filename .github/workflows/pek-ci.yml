@@ -30,7 +30,7 @@ on:
     - cron: "0 2 * * *" # Every day at 2 AM UTC'
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.ref || github.run_id }}-${{ github.event.action == 'labeled' && !contains(github.event.label.name, 'run-pek-ci') && github.run_id || 'validation' }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.ref || github.run_id }}-${{ github.event.action == 'labeled' && (!contains(github.event.label.name, 'run-pek-ci') || contains(github.event.pull_request.labels.*.name, 'run-macos-ci')) && github.run_id || 'validation' }}
   cancel-in-progress: true
 
 jobs:
@@ -269,6 +269,129 @@ jobs:
             docker image rm --force "$MODELFETCH_RELEASE_TOOL_IMAGE" || cleanup_status=$?
           fi
           rm -rf -- "$checkout_path" "$helper_path"
+          exit "$cleanup_status"
+
+  macos-nightly-test:
+    name: macOS ARM64 quick-start and Playwright test
+    runs-on: self-hosted-macos-arm64-latest
+    timeout-minutes: 240
+    if: |
+      github.event_name != 'pull_request' ||
+      (
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        (
+          (github.event.action == 'labeled' && github.event.label.name == 'run-macos-ci') ||
+          ((github.event.action == 'synchronize' || github.event.action == 'reopened') &&
+            contains(github.event.pull_request.labels.*.name, 'run-macos-ci'))
+        )
+      )
+    env:
+      PEK_QUICK_START_CI_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      CI_HELPER_PATH: workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+    steps:
+      - name: Checkout workflow helpers
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          path: ${{ env.CI_HELPER_PATH }}
+          persist-credentials: false
+
+      - name: Resolve manual PR context
+        id: manual_pr
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
+        working-directory: ${{ github.workspace }}/${{ env.CI_HELPER_PATH }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 scripts/private/github_pr_context.py \
+            --pr-number "${{ github.event.inputs.pr_number }}" \
+            --repo "${{ github.repository }}" \
+            --base-ref-override "${{ github.event.inputs.pr_base_ref }}" \
+            --head-ref-override "${{ github.event.inputs.pr_head_ref }}" \
+            --head-sha-override "${{ github.event.inputs.pr_head_sha }}" \
+            --github-output "${GITHUB_OUTPUT}"
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.head_ref || github.ref }}
+          path: ${{ env.CI_CHECKOUT_PATH }}
+
+      - name: Start Colima and check macOS Docker integration
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: |
+          brew install docker colima docker-compose docker-buildx qemu gh
+          mkdir -p ~/.docker/cli-plugins
+          ln -sf "$(brew --prefix)/opt/docker-compose/bin/docker-compose" ~/.docker/cli-plugins/docker-compose
+          ln -sf "$(brew --prefix)/opt/docker-buildx/bin/docker-buildx" ~/.docker/cli-plugins/docker-buildx
+          colima start --vm-type=qemu --cpu 4 --memory 8 --mount-type=sshfs
+          docker context use colima
+          ./scripts/quick-start/detect-environment.sh
+          docker info
+          docker compose version
+
+      - name: Create read-only modelfetch token
+        id: modelfetch-app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: Iv23li0DqDMHoMs0TXT9
+          private-key: ${{ secrets.EDGEAI_EXPKITS_APP_PK }}
+          owner: Arm-Debug
+          repositories: modelfetch
+          permission-contents: read
+
+      - name: Prepare pinned modelfetch release
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
+        run: ./scripts/private/prepare-modelfetch-release.sh >/dev/null
+
+      - name: Build and start quick-start container
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: ./scripts/quick-start/start-container.sh --recreate
+
+      - name: Build PEK in quick-start container
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: ./scripts/build.sh
+
+      - name: Browser smoke test with local data
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          BROWSER_SMOKE_BROWSERS: chromium,firefox,webkit
+          BROWSER_SMOKE_REBUILD: "1"
+          NUM_FRAMES: "12000"
+        run: ./scripts/playwright/browser-smoke/run.sh --sink-only
+
+      - name: Upload macOS browser smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-browser-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/test-results/playwright
+            ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/playwright-report
+          if-no-files-found: ignore
+          retention-days: 10
+
+      - name: Clean quick-start workspace
+        if: always()
+        run: |
+          checkout_path="${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}"
+          helper_path="${{ github.workspace }}/${{ env.CI_HELPER_PATH }}"
+          cleanup_status=0
+          if [ -x "$checkout_path/scripts/quick-start/cleanup-container.sh" ]; then
+            "$checkout_path/scripts/quick-start/cleanup-container.sh" || cleanup_status=$?
+          fi
+          rm -rf -- "$checkout_path" "$helper_path"
+          if command -v colima >/dev/null; then
+            colima delete --force || cleanup_status=$?
+          fi
           exit "$cleanup_status"
 
   quality-checks:
