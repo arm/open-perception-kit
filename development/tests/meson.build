@@ -115,9 +115,9 @@ test(
   depends : pek_menu,
 )
 test(
-  'huggingface_auth_compose_tests',
+  'model_artifact_build_tests',
   python,
-  args : [files('huggingface_auth_compose_test.py')],
+  args : [files('model_artifact_build_test.py')],
 )
 test('model_descriptor_tests', model_descriptor_tests)
 test('matrix_operations_tests', matrix_operations_tests)

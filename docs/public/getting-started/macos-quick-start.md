@@ -56,17 +56,17 @@ Run in the **host shell**, from the `pek` folder:
 code .
 ```
 
-The checked-in models need no Hugging Face credential. To make a token available
-to model integrations, export `HF_TOKEN` before opening VS Code; the Dev
-Container mounts it read-only at `/run/secrets/huggingface_token`:
+Export a read-only `HF_TOKEN` before opening VS Code:
 
 ```bash
 export HF_TOKEN="hf_your_token_here"
 code .
 ```
 
-The token is not added to the container environment. After changing or
-unsetting a token, run **Dev Containers: Rebuild Container**.
+Docker uses the token only while downloading the pinned model files into the
+image. It is not added to the runtime container environment. After correcting
+a token, run **Dev Containers: Rebuild Container**; initialization refreshes
+the model-download cache key.
 
 In VS Code:
 

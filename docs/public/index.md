@@ -65,9 +65,8 @@ Use this target Pi setup before you start:
 - Permission to run `sudo` on the target Pi.
 - Internet access from the target Pi to GitHub, package repositories, and
   container or source locations used during the first container build.
-- To make a Hugging Face credential available to model integrations, set
-  `HF_TOKEN` in the shell that starts the container. The checked-in models need
-  no Hugging Face token.
+- A read-only Hugging Face `HF_TOKEN` that can download the published PEK
+  models during the container build.
 
 ### 1. Connect to the target Pi
 
@@ -104,36 +103,26 @@ Enter the `amp-dev-forge` folder in the terminal and run:
 ./scripts/quick_start.sh
 ```
 
-For a private or gated Hugging Face model, export `HF_TOKEN` before running the
-quick-start:
+Export `HF_TOKEN` before running the quick-start:
 
 ```bash
 export HF_TOKEN="hf_your_token_here"
 ./scripts/quick_start.sh
 ```
 
-Compose mounts the value read-only at
-`/run/secrets/huggingface_token`; it is not stored in the container environment.
-An unset or empty `HF_TOKEN` selects anonymous access. Do not store the
-credential in the generated `.env` files.
+Compose exposes the value only to the Docker model-download build step. The
+resulting image contains the model files, but neither the token nor a runtime
+Hugging Face credential.
 
-For a direct deployment build with a private or gated model integration, export
-your Hugging Face token before invoking Compose:
+For a direct deployment build, export the same token before invoking Compose:
 
 ```bash
 export HF_TOKEN="hf_your_token_here"
+export HF_DOWNLOAD_CACHEBUST="$(date +%s)-$$"
 docker compose up --build
 ```
 
-For anonymous direct deployment, provide an explicitly empty token instead:
-
-```bash
-HF_TOKEN="" docker compose up --build
-```
-
-After replacing or clearing `HF_TOKEN`, add `--force-recreate` to the next
-direct `docker compose up` command so the running container receives the new
-secret.
+The cache key makes a corrected token retry the authenticated download step.
 
 ### 3. Enter the container command line
 

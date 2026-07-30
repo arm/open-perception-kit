@@ -2,6 +2,11 @@
 	"name": "imagenet",
 	"modelFamily": "classification",
 	"modelFile": "mobilenet_v2_1_4_224.hef",
+	"hfDownload": {
+		"repo_id": "Arm/MobileNetV2-Hailo",
+		"revision": "f10d08372d3b13ddd571837b488a62f28b912117",
+		"filename": "models/hailo8l/mobilenet_v2_1_4_224.hef"
+	},
 	"dynamicOutput": true,
 	"inputTensors": [
 		{

@@ -120,9 +120,8 @@ git clone git@github.com:Arm-Debug/amp-dev-forge.git
 
 Expected result: the `pek` folder exists on the Raspberry Pi.
 
-The checked-in models need no Hugging Face credential. To make a token available
-to model integrations, export `HF_TOKEN` in the Pi login environment used by VS
-Code Remote SSH, then reconnect VS Code to the Pi:
+Export a read-only `HF_TOKEN` in the Pi login environment used by VS Code
+Remote SSH, then reconnect VS Code to the Pi:
 
 ```bash
 touch ~/.profile &&
@@ -130,10 +129,11 @@ touch ~/.profile &&
   printf '%s\n' 'export HF_TOKEN="hf_your_token_here"' >> ~/.profile
 ```
 
-The owner-only permission keeps the persisted credential private. The Dev
-Container mounts the value read-only at `/run/secrets/huggingface_token` instead
-of adding it to the container environment. After changing or unsetting a token,
-run **Dev Containers: Rebuild Container**.
+The owner-only permission keeps the persisted credential private. Docker uses
+the token only while downloading the pinned model files into the image; it is
+not added to the runtime container environment. After correcting a token, run
+**Dev Containers: Rebuild Container**; initialization refreshes the
+model-download cache key.
 
 ## 7. Check VS Code Prerequisites On Your Computer
 

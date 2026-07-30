@@ -40,6 +40,26 @@ RUN if [ "${NO_EXAMPLE_CONTENT}" != "true" ]; then \
       mkdir -p data/videos; \
     fi
 
+FROM --platform=${BUILDPLATFORM} pek-build-base AS pek-models
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+  set -eux; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends python3-venv; \
+  python3 -m venv /opt/huggingface; \
+  /opt/huggingface/bin/pip install --no-cache-dir huggingface_hub==1.18.0
+
+ENV PATH=/opt/huggingface/bin:${PATH}
+
+WORKDIR /work
+COPY config config
+COPY --chmod=0755 scripts/download-models.py scripts/download-models.py
+ARG HF_DOWNLOAD_MODE
+ARG HF_DOWNLOAD_CACHEBUST
+RUN --mount=type=secret,id=huggingface_token,env=HF_TOKEN \
+  ./scripts/download-models.py
+
 FROM --platform=${BUILDPLATFORM} pek-build-base AS pek-dev-build
 
 ARG ONNXRUNTIME_VERSION
@@ -346,6 +366,7 @@ WORKDIR /work
 COPY --chown=${USERNAME}:${USERNAME} . /work
 COPY --from=pek-demo-media --chown=${USERNAME}:${USERNAME} \
   /work/data/videos /opt/pek-app/data/videos
+COPY --from=pek-models /work/config/models /opt/pek-app/config/models
 COPY --from=pek-dev-build --chown=${USERNAME}:${USERNAME} \
   /opt/pek-app/development/build/meson-out /opt/pek-app/development/build/meson-out
 COPY --from=pek-dev-build --chown=${USERNAME}:${USERNAME} \

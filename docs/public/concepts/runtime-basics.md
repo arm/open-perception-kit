@@ -87,6 +87,12 @@ The descriptor defines things such as:
 - output behavior
 - model family and content type
 
+`modelFile` is always a local path relative to its descriptor. The standard
+container images download the published PEK model artifacts from pinned
+Hugging Face revisions into those paths during an authenticated image build.
+Without a valid login, the build skips these downloads. Runtime containers
+therefore do not need network access or Hugging Face credentials.
+
 If you are only adding your own model, you usually only need to copy and adapt an existing `model.json`.
 
 ## Pipelines, OpChains, and models together
@@ -151,7 +157,7 @@ For ready-to-run live camera presets, use `05-full-onnx-raspicam` for a Raspberr
 The normal user path is:
 
 1. add a new folder under `config/models/`
-2. place the model file there
+2. place the model file there, or add an `hfDownload` object to its descriptor
 3. copy and adapt `model.json`
 4. copy and adapt `opchain.json`
 5. point a pipeline preset to that model or OpChain

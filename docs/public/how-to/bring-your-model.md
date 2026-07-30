@@ -57,7 +57,7 @@ config/models/<your-model>/
 ```
 
 At minimum, that folder should contain:
-- the model file
+- the model file, either checked in or downloaded there by the container build
 - `model.json`
 - usually `opchain.json`
 - `index.md`
@@ -76,6 +76,12 @@ Typical fields are:
 - `contentType` when applicable
 - `inputTensors`
 - `outputTensors` when outputs are static
+
+`modelFile` is always a descriptor-relative local path. For a published model,
+add an `hfDownload` object containing the Hugging Face API's `repo_id`, full
+commit `revision`, and `filename` arguments. The container build downloads the
+artifact; the runtime does not interpret remote locators or hold Hub
+credentials.
 
 Important input metadata includes:
 - shape
@@ -184,12 +190,15 @@ Before considering the integration complete, verify that:
 
 The normal workflow is:
 
-1. place the model and descriptors in `config/models/<your-model>/`
-2. create or update an `opchain.json`
-3. optionally add a top-level pipeline preset under `config/pipelines/`
-4. build inside the container
-5. run the pipeline with the VS Code run task "00 Run project and select pipeline" or `tools/pek-menu`
-6. update the model and opchain `index.md` files
+1. place a local model in `config/models/<your-model>/`, or add its pinned
+   `hfDownload` arguments to `model.json`
+2. keep `modelFile` as the local filename beside the descriptor
+3. create or update an `opchain.json`
+4. optionally add a top-level pipeline preset under `config/pipelines/`
+5. export a valid `HF_TOKEN` and rebuild the container when the model is
+   published; unauthenticated builds skip published model downloads
+6. run the pipeline with the VS Code run task "00 Run project and select pipeline" or `tools/pek-menu`
+7. update the model and opchain `index.md` files
 
 ## What you should try not to change first
 

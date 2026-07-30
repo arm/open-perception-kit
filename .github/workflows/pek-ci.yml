@@ -97,8 +97,6 @@ jobs:
 
       - name: Reconcile running quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: ./scripts/quick-start/start-container.sh
 
       - name: Build PEK in quick-start container
@@ -420,6 +418,8 @@ jobs:
 
       - name: Build Docker images for checks
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build \
             pek-quality-check-full \

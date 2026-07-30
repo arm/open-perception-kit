@@ -20,7 +20,34 @@ seed_development_artifacts() {
     [[ -d "${artifacts_root}" ]] || return 0
     [[ -w /work ]] || return 0
 
-    mkdir -p /work/data/videos /work/development/build/meson-out /work/tools
+    mkdir -p \
+        /work/config/models \
+        /work/data/videos \
+        /work/development/build/meson-out \
+        /work/tools
+
+    if [[ -d "${artifacts_root}/config/models" ]]; then
+        cp -a --no-clobber "${artifacts_root}/config/models/." /work/config/models/
+        python3 - "${artifacts_root}/config/models" /work/config/models << 'PY'
+import json
+import shutil
+import sys
+from pathlib import Path
+
+source, destination = map(Path, sys.argv[1:])
+for descriptor in source.rglob("*.json"):
+    model = json.loads(descriptor.read_text())
+    if "hfDownload" not in model:
+        continue
+    model_file = Path(model["modelFile"])
+    source_artifact = descriptor.parent / model_file
+    if not source_artifact.is_file():
+        continue
+    target = destination / descriptor.parent.relative_to(source) / model_file
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source_artifact, target)
+PY
+    fi
 
     if [[ -d "${artifacts_root}/data/videos" ]]; then
         cp -a --no-clobber "${artifacts_root}/data/videos/." /work/data/videos/

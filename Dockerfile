@@ -41,6 +41,26 @@ RUN if [ "${NO_EXAMPLE_CONTENT}" != "true" ]; then \
       mkdir -p data/videos; \
     fi
 
+FROM pek-build-base AS pek-models
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+  set -eux; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends python3-venv; \
+  python3 -m venv /opt/huggingface; \
+  /opt/huggingface/bin/pip install --no-cache-dir huggingface_hub==1.18.0
+
+ENV PATH=/opt/huggingface/bin:${PATH}
+
+WORKDIR /work
+COPY config config
+COPY --chmod=0755 scripts/download-models.py scripts/download-models.py
+ARG HF_DOWNLOAD_MODE
+ARG HF_DOWNLOAD_CACHEBUST
+RUN --mount=type=secret,id=huggingface_token,env=HF_TOKEN \
+  ./scripts/download-models.py
+
 FROM pek-cross-build-base AS workspace
 
 ARG TARGETARCH
@@ -71,7 +91,7 @@ COPY scripts/build-elements.sh scripts/build-elements.sh
 COPY scripts/private/shtools.sh scripts/private/shtools.sh
 COPY scripts/private/deployment-runtime.sh scripts/private/deployment-runtime.sh
 COPY development development
-COPY config config
+COPY --from=pek-models /work/config config
 COPY data data
 COPY --from=pek-demo-media /work/data/videos /work/data/videos
 

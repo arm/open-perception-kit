@@ -2,6 +2,8 @@ x-pek-dev-build: &pek-dev-build
   context: ..
   dockerfile: Dockerfile.dev
   network: ${BUILD_NETWORK_MODE:-default}
+  secrets:
+    - huggingface_token
   additional_contexts:
     pek-build-base: docker-image://${PEK_BUILD_BASE_IMAGE:-perception-experience-kit-build-base}
 
@@ -10,16 +12,6 @@ x-pek-hailo-build: &pek-hailo-build
   dockerfile: .devcontainer/Dockerfile.hailo
   additional_contexts:
     pek-dev: service:pek-dev
-
-x-pek-huggingface-environment: &pek-huggingface-environment
-  HF_TOKEN_PATH: /run/secrets/huggingface_token
-
-x-pek-huggingface-secret: &pek-huggingface-secret
-  source: huggingface_token
-  target: /run/secrets/huggingface_token
-  uid: "${HOST_UID:-1000}"
-  gid: "${HOST_GID:-1000}"
-  mode: 0400
 
 services:
   pek-build-base:
@@ -33,10 +25,6 @@ services:
     extends:
       file: ../compose.base.yaml
       service: pek-common-dev
-    environment:
-      <<: *pek-huggingface-environment
-    secrets:
-      - *pek-huggingface-secret
     container_name: ${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}
     hostname: ${PEK_DEV_CONTAINER_NAME:-perception-experience-kit}
     command: sleep infinity
@@ -44,6 +32,8 @@ services:
       <<: *pek-dev-build
       target: pek-dev
       args:
+        HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}}
+        HF_DOWNLOAD_MODE: ${HF_TOKEN:+authenticated}
         USER_UID: ${HOST_UID:-1000}
         USER_GID: ${HOST_GID:-1000}
         PEK_PICAMERA: ${PEK_PICAMERA:-disabled}
@@ -55,10 +45,6 @@ services:
     extends:
       file: ../compose.base.yaml
       service: pek-common-dev
-    environment:
-      <<: *pek-huggingface-environment
-    secrets:
-      - *pek-huggingface-secret
     container_name: ${PEK_DEV_RPI5_H8_CONTAINER_NAME:-perception-experience-kit-rpi5-h8}
     hostname: ${PEK_DEV_RPI5_H8_CONTAINER_NAME:-perception-experience-kit-rpi5-h8}
     command: sleep infinity
@@ -70,10 +56,6 @@ services:
     extends:
       file: ../compose.base.yaml
       service: pek-common-dev
-    environment:
-      <<: *pek-huggingface-environment
-    secrets:
-      - *pek-huggingface-secret
     container_name: ${PEK_DEV_RPI5_H10_CONTAINER_NAME:-perception-experience-kit-rpi5-h10}
     hostname: ${PEK_DEV_RPI5_H10_CONTAINER_NAME:-perception-experience-kit-rpi5-h10}
     command: sleep infinity
