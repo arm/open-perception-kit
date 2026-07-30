@@ -37,7 +37,6 @@ hailortops = shared_module(
   ],
   include_directories: common_include,
   dependencies: pek_deps + [hailort_dep],
-  cpp_args: ['-DFMT_HEADER_ONLY'],
   link_with: [ common ],
   name_prefix: '',
   gnu_symbol_visibility: 'default',

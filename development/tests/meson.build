@@ -33,6 +33,14 @@ qos_delay_op = shared_module(
   install : false,
 )
 
+opchain_descriptor_tests = executable(
+  'opchain_descriptor_tests',
+  ['OpChainDescriptorTest.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, pek_deps],
+  link_with : [common],
+)
+
 matrix_operations_tests = executable(
   'matrix_operations_tests',
   ['matrix_operations_test.cpp'],
@@ -136,6 +144,7 @@ node = find_program('node', required : false)
 python = import('python').find_installation()
 
 test('pek_menu_tests', pek_menu_tests)
+test('opchain_descriptor_tests', opchain_descriptor_tests)
 test(
   'pek_menu_cli_tests',
   python,
@@ -170,6 +179,13 @@ test(
 )
 test('model_descriptor_tests', model_descriptor_tests)
 test('performance_tracer_tests', performance_tracer_tests)
+test(
+  'release_tool_tests',
+  python,
+  args : [
+    meson.project_source_root() / '../scripts/release/TestReleaseTool.py',
+  ],
+)
 test('matrix_operations_tests', matrix_operations_tests)
 test('kalman_filter_tests', kalman_filter_tests)
 test('hungarian_tests', hungarian_tests)

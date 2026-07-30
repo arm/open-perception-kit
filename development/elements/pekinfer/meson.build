@@ -6,8 +6,9 @@ gstpekinfer = shared_module(
   ],
   include_directories: common_include,
   dependencies: pek_deps,
-  cpp_args: ['-DFMT_HEADER_ONLY'],
   link_with: [ common ],
   gnu_symbol_visibility: 'hidden',
-  install: false
+  install: release_package,
+  install_dir: 'lib/gstreamer-1.0',
+  install_rpath: '$ORIGIN/../pek',
 )
