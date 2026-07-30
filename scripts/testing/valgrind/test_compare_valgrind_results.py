@@ -146,6 +146,22 @@ class TestCompareValgrindResults(unittest.TestCase):
         self.assertEqual(len(new_errors), 1)
         self.assertIn("obj=/work/development/build/meson-out/libnew.so", next(iter(new_errors)))
 
+    def test_shared_object_version_changes_do_not_create_new_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            baseline = tmp / "baseline.xml"
+            current = tmp / "current.xml"
+            self.write_summary(
+                baseline,
+                self.unsymbolized_error_xml(obj="/usr/lib/libexpat.so.1.10.2"),
+            )
+            self.write_summary(
+                current,
+                self.unsymbolized_error_xml(obj="/usr/lib/libexpat.so.1.12.2"),
+            )
+
+            self.assertFalse(compare.load_summary(current) - compare.load_summary(baseline))
+
     def test_non_valgrind_xml_exits_with_input_error(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             summary = Path(tmpdir) / "summary.xml"
