@@ -19,9 +19,6 @@
     "HOST_OS": "${localEnv:OSTYPE}",
     "HOST_DISPLAY": "${localEnv:DISPLAY}"
   },
-  "remoteEnv": {
-    "SSH_AUTH_SOCK": "/ssh-agent"
-  },
   "features": {
     "ghcr.io/devcontainers/features/sshd:1": {}
   },

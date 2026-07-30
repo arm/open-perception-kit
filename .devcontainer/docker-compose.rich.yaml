@@ -24,6 +24,7 @@ services:
       HOST_GID: ${HOST_GID:-1000}
       XDG_RUNTIME_DIR: /run/user/${HOST_UID:-1000}
       PEKCOMM_FILE: /tmp/pekcomm
+      SSH_AUTH_SOCK: /ssh-agent
     secrets:
       - source: huggingface_token
         target: /run/secrets/huggingface_token

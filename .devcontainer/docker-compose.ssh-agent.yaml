@@ -1,0 +1,18 @@
+services:
+  pek-dev:
+    environment:
+      SSH_AUTH_SOCK: /ssh-agent
+    volumes:
+      - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
+
+  pek-dev-rpi5-h8:
+    environment:
+      SSH_AUTH_SOCK: /ssh-agent
+    volumes:
+      - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
+
+  pek-dev-rpi5-h10:
+    environment:
+      SSH_AUTH_SOCK: /ssh-agent
+    volumes:
+      - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
