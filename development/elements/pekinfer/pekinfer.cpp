@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <fmt/core.h>
 #include <memory>
+#include <optional>
 #include <variant>
 
 #include "glib-object.h"

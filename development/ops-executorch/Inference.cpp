@@ -15,7 +15,6 @@
 #include "fmt/base.h"
 #include "pek/Model.h"
 #include "pek/Result.h"
-#include "pek/String.h"
 #include "pek/Types.h"
 
 #include "Inference.h"
@@ -103,29 +102,11 @@ Inference::Inference() = default;
 Inference::~Inference() = default;
 
 pek::Result<void> Inference::setupFromJson(const std::string &filePath) {
-
     auto descResult = pek::ModelDescriptor::fromFile(filePath);
     if (!descResult) {
         return tl::unexpected{descResult.error()};
     }
-
-    { // setup model file name
-        std::string modelRoot = filePath;
-        if (pek::utf8::contains(modelRoot, '/')) {
-            size_t lastSlashAt = pek::utf8::lastIndexOf(modelRoot, '/');
-            modelRoot = pek::utf8::left(modelRoot, lastSlashAt + 1);
-        } else {
-            modelRoot = "";
-        }
-        (*descResult).modelFile = modelRoot + (*descResult).modelFile;
-    }
-
-    auto setupResult = setup(*descResult);
-    if (!setupResult) {
-        return tl::unexpected{setupResult.error()};
-    }
-
-    return {};
+    return setup(*descResult);
 }
 
 pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &module) {

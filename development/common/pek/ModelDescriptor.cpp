@@ -11,6 +11,8 @@
 
 #include "pek/AttributeMap.h"
 
+#include <filesystem>
+
 using namespace pek;
 
 pek::Result<ModelDescriptor> ModelDescriptor::fromJson(const std::string &jsonString) {
@@ -33,5 +35,10 @@ pek::Result<ModelDescriptor> ModelDescriptor::fromFile(const std::string &path) 
                       fmt::format("ModelDescriptor file [{}] not found or empty", path)));
     }
 
-    return fromJson(content);
+    auto descriptor = fromJson(content);
+    if (descriptor) {
+        descriptor->modelFile =
+            (std::filesystem::path(path).parent_path() / descriptor->modelFile).string();
+    }
+    return descriptor;
 }

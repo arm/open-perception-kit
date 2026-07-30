@@ -116,7 +116,7 @@ struct ModelDescriptor {
     /**
      * @brief Loads and parses a descriptor from a JSON file.
      * @param path JSON file path.
-     * @return Parsed descriptor or error.
+     * @return Parsed descriptor with modelFile resolved relative to path, or error.
      */
     static pek::Result<ModelDescriptor> fromFile(const std::string &path);
 

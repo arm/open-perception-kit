@@ -5,6 +5,14 @@ pek_menu_tests = executable(
   dependencies : [gtest_main_dep, gtest_dep, pek_menu_parser_dep],
 )
 
+model_descriptor_tests = executable(
+  'model_descriptor_tests',
+  ['model_descriptor_test.cpp'],
+  include_directories : [common_include],
+  dependencies : [gtest_main_dep, gtest_dep, pek_deps],
+  link_with : [common],
+)
+
 matrix_operations_tests = executable(
   'matrix_operations_tests',
   ['matrix_operations_test.cpp'],
@@ -111,6 +119,7 @@ test(
   python,
   args : [files('huggingface_auth_compose_test.py')],
 )
+test('model_descriptor_tests', model_descriptor_tests)
 test('matrix_operations_tests', matrix_operations_tests)
 test('kalman_filter_tests', kalman_filter_tests)
 test('hungarian_tests', hungarian_tests)
