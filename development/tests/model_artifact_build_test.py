@@ -33,7 +33,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
         descriptors = model_descriptors()
         expected = set()
         local_model_files = set()
-        expected_calls = []
+        expected_downloads = []
         for descriptor, model in descriptors:
             source = model.get("hfDownload")
             model_file = descriptor.parent.relative_to(REPO_ROOT) / model["modelFile"]
@@ -44,7 +44,8 @@ class ModelArtifactBuildTest(unittest.TestCase):
             expected.add(model_file)
             self.assertEqual(set(source), HF_DOWNLOAD_KEYS)
             self.assertRegex(source["revision"], re.compile(r"^[0-9a-f]{40}$"))
-            expected_calls.append(source)
+            expected_downloads.append((model_file, source))
+        expected_calls = [source for _, source in expected_downloads]
         self.assertTrue(expected)
         self.assertTrue(local_model_files)
         for ignore_file in (".dockerignore", ".gitignore"):
@@ -69,78 +70,188 @@ class ModelArtifactBuildTest(unittest.TestCase):
                 copy.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(descriptor, copy)
 
-            (fake_pythonpath / "huggingface_hub.py").write_text(
+            fake_hub = fake_pythonpath / "huggingface_hub"
+            fake_hub.mkdir()
+            (fake_hub / "errors.py").write_text(
+                """class HfHubHTTPError(OSError):
+    def __init__(self, status_code):
+        self.response = type("Response", (), {"status_code": status_code})()
+"""
+            )
+            (fake_hub / "__init__.py").write_text(
                 """import json
 import os
 from pathlib import Path
 
+from .errors import HfHubHTTPError
+
 
 class HfApi:
-    def whoami(self):
-        if os.environ.get("HF_FAKE_AUTH") != "success":
-            raise RuntimeError("not logged in")
+    def whoami(self, token=None):
+        if token == "invalid":
+            raise HfHubHTTPError(401)
+        if token == "server":
+            raise HfHubHTTPError(500)
+        if token == "network":
+            raise RuntimeError("connection failed")
         return {"name": "test"}
 
 
-def hf_hub_download(*, repo_id, revision, filename):
+def hf_hub_download(*, repo_id, revision, filename, token):
     log = Path(os.environ["HF_FAKE_LOG"])
     calls = log.read_text().splitlines() if log.exists() else []
     log.write_text("\\n".join(calls + [json.dumps({
         "repo_id": repo_id,
         "revision": revision,
         "filename": filename,
+        "token": token,
     })]) + "\\n")
+    if f"{repo_id}/{filename}" == os.environ.get("HF_FAKE_DENIED_SOURCE"):
+        raise HfHubHTTPError(int(os.environ["HF_FAKE_DENIED_STATUS"]))
     download = Path(os.environ["HF_FAKE_CACHE"]) / str(len(calls))
     download.write_text("model\\n")
     return download
 """
             )
             log = root / "hf.log"
-            environment = os.environ | {
+            environment = {
+                key: value
+                for key, value in os.environ.items()
+                if key != "HF_TOKEN"
+            } | {
                 "HF_FAKE_CACHE": str(fake_cache),
                 "HF_FAKE_LOG": str(log),
                 "PYTHONPATH": str(fake_pythonpath),
             }
 
-            unauthenticated = subprocess.run(
+            denied_model_file, denied_source = expected_downloads[0]
+            denied_source_id = (
+                f"{denied_source['repo_id']}/{denied_source['filename']}"
+            )
+            anonymous = subprocess.run(
                 [sys.executable, str(scripts / DOWNLOAD_SCRIPT.name)],
                 check=True,
-                env=environment,
+                env=environment
+                | {
+                    "HF_FAKE_DENIED_SOURCE": denied_source_id,
+                    "HF_FAKE_DENIED_STATUS": "401",
+                },
                 capture_output=True,
                 text=True,
             )
-            self.assertEqual(
-                unauthenticated.stdout,
-                "Hugging Face authentication failed; skipping model downloads.\n",
-            )
-            self.assertFalse(log.exists())
-
-            authenticated = subprocess.run(
-                [sys.executable, str(scripts / DOWNLOAD_SCRIPT.name)],
-                check=True,
-                env=environment | {"HF_FAKE_AUTH": "success"},
-                capture_output=True,
-                text=True,
-            )
-
             downloaded_files = {
                 path.relative_to(root)
                 for path in (root / "config" / "models").rglob("*")
                 if path.is_file() and path.suffix != ".json"
             }
-            self.assertEqual(downloaded_files, expected)
+            self.assertEqual(downloaded_files, expected - {denied_model_file})
             calls = [json.loads(line) for line in log.read_text().splitlines()]
-            self.assertEqual(calls, expected_calls)
-            self.assertIn("Connected to Hugging Face.\n", authenticated.stdout)
+            self.assertEqual(
+                calls,
+                [source | {"token": False} for source in expected_calls],
+            )
+            self.assertIn(
+                "No Hugging Face token supplied; downloading public models "
+                "anonymously.\n",
+                anonymous.stdout,
+            )
+            self.assertIn(
+                f"Skipping {denied_model_file}: an authorized Hugging Face "
+                "token is required.\n",
+                anonymous.stdout,
+            )
+
+            for model_file in expected:
+                (root / model_file).unlink(missing_ok=True)
+            log.unlink()
+
+            limited = subprocess.run(
+                [sys.executable, str(scripts / DOWNLOAD_SCRIPT.name)],
+                check=True,
+                env=environment
+                | {
+                    "HF_TOKEN": "access-limited",
+                    "HF_FAKE_DENIED_SOURCE": denied_source_id,
+                    "HF_FAKE_DENIED_STATUS": "403",
+                },
+                capture_output=True,
+                text=True,
+            )
+            downloaded_files = {
+                path.relative_to(root)
+                for path in (root / "config" / "models").rglob("*")
+                if path.is_file() and path.suffix != ".json"
+            }
+            self.assertEqual(downloaded_files, expected - {denied_model_file})
+            calls = [json.loads(line) for line in log.read_text().splitlines()]
+            self.assertEqual(
+                calls,
+                [
+                    source | {"token": "access-limited"}
+                    for source in expected_calls
+                ],
+            )
+            self.assertIn(
+                "Connected to Hugging Face with the supplied token.\n",
+                limited.stdout,
+            )
+            self.assertIn(
+                f"Skipping {denied_model_file}: the supplied Hugging Face "
+                "token does not grant access.\n",
+                limited.stdout,
+            )
+
+            for model_file in expected:
+                (root / model_file).unlink(missing_ok=True)
+            log.unlink()
+
+            download_failed = subprocess.run(
+                [sys.executable, str(scripts / DOWNLOAD_SCRIPT.name)],
+                env=environment
+                | {
+                    "HF_FAKE_DENIED_SOURCE": denied_source_id,
+                    "HF_FAKE_DENIED_STATUS": "500",
+                },
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(download_failed.returncode, 0)
+            for model_file in expected:
+                (root / model_file).unlink(missing_ok=True)
+            log.unlink()
+
+            invalid = subprocess.run(
+                [sys.executable, str(scripts / DOWNLOAD_SCRIPT.name)],
+                env=environment | {"HF_TOKEN": "invalid"},
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(invalid.returncode, 0)
+            self.assertEqual(
+                invalid.stderr,
+                "FAILED: the supplied Hugging Face token was rejected.\n",
+            )
+            self.assertFalse(log.exists())
+
+            for failure in ("network", "server"):
+                failed = subprocess.run(
+                    [sys.executable, str(scripts / DOWNLOAD_SCRIPT.name)],
+                    env=environment | {"HF_TOKEN": failure},
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertNotEqual(failed.returncode, 0)
+                self.assertFalse(log.exists())
+
             for source in expected_calls:
                 self.assertIn(
                     f"Downloading {source['repo_id']}/{source['filename']} to ",
-                    authenticated.stdout,
+                    limited.stdout,
                 )
             for model_file in local_model_files:
                 self.assertIn(
                     f"Skipping {model_file}: no hfDownload source.\n",
-                    authenticated.stdout,
+                    limited.stdout,
                 )
 
     def test_hf_token_is_available_only_to_the_model_build_step(self) -> None:
@@ -154,7 +265,6 @@ def hf_hub_download(*, repo_id, revision, filename):
                 ),
                 1,
             )
-            self.assertEqual(dockerfile.count("ARG HF_DOWNLOAD_MODE"), 1)
             self.assertEqual(dockerfile.count("ARG HF_DOWNLOAD_CACHEBUST"), 1)
             self.assertNotIn("required=true", dockerfile)
             self.assertNotIn("HF_TOKEN_PATH", dockerfile)
@@ -166,12 +276,6 @@ def hf_hub_download(*, repo_id, revision, filename):
         }
         for compose_file, expected_count in compose_cache_keys.items():
             compose = (REPO_ROOT / compose_file).read_text()
-            self.assertEqual(
-                compose.count(
-                    "HF_DOWNLOAD_MODE: ${HF_TOKEN:+authenticated}"
-                ),
-                expected_count,
-            )
             self.assertEqual(
                 compose.count(
                     "HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-"
@@ -212,6 +316,10 @@ def hf_hub_download(*, repo_id, revision, filename):
                 ".github/workflows/pek-ci.yml": 3,
             },
         )
+        docker_scout = (
+            REPO_ROOT / ".github/workflows/docker-scout-image-audit.yml"
+        ).read_text()
+        self.assertIn("HF_TOKEN:\n        required: false", docker_scout)
         for path in (REPO_ROOT / ".github" / "workflows").glob("*.yml"):
             step = ""
             for line in path.read_text().splitlines():

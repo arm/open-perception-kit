@@ -298,8 +298,6 @@ jobs:
                   cmd += [
                       "--secret", "id=huggingface_token,env=HF_TOKEN",
                       "--build-arg",
-                      f"HF_DOWNLOAD_MODE={'authenticated' if os.environ.get('HF_TOKEN') else ''}",
-                      "--build-arg",
                       f"HF_DOWNLOAD_CACHEBUST={os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}",
                   ]
               if pathlib.Path(entry["dockerfile"]).name == "Dockerfile.dev":
@@ -341,7 +339,6 @@ jobs:
             -f "${WORKSPACE_ROOT}/Dockerfile.dev" \
             --build-context "pek-build-base=docker-image://${PEK_BUILD_BASE_IMAGE}" \
             --secret "id=huggingface_token,env=HF_TOKEN" \
-            --build-arg "HF_DOWNLOAD_MODE=${HF_TOKEN:+authenticated}" \
             --build-arg "HF_DOWNLOAD_CACHEBUST=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
             --target pek-dev \
             "${WORKSPACE_ROOT}"

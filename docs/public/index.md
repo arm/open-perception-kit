@@ -65,8 +65,8 @@ Use this target Pi setup before you start:
 - Permission to run `sudo` on the target Pi.
 - Internet access from the target Pi to GitHub, package repositories, and
   container or source locations used during the first container build.
-- A read-only Hugging Face `HF_TOKEN` that can download the published PEK
-  models during the container build.
+- An optional read-only Hugging Face `HF_TOKEN` for private or gated PEK
+  models.
 
 ### 1. Connect to the target Pi
 
@@ -103,7 +103,8 @@ Enter the `amp-dev-forge` folder in the terminal and run:
 ./scripts/quick_start.sh
 ```
 
-Export `HF_TOKEN` before running the quick-start:
+Public models download anonymously. Export `HF_TOKEN` before the quick-start
+only when the build also needs private or gated models:
 
 ```bash
 export HF_TOKEN="hf_your_token_here"

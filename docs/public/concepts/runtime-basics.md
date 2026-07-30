@@ -89,9 +89,11 @@ The descriptor defines things such as:
 
 `modelFile` is always a local path relative to its descriptor. The standard
 container images download the published PEK model artifacts from pinned
-Hugging Face revisions into those paths during an authenticated image build.
-Without a valid login, the build skips these downloads. Runtime containers
-therefore do not need network access or Hugging Face credentials.
+Hugging Face revisions into those paths. Public artifacts download
+anonymously. A restricted artifact is logged and skipped when no token is
+supplied or a valid token lacks access; a rejected supplied token fails the
+build. Runtime containers therefore do not need network access or Hugging Face
+credentials.
 
 If you are only adding your own model, you usually only need to copy and adapt an existing `model.json`.
 

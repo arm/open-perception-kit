@@ -70,7 +70,8 @@ Run in the **host shell**, from the `pek` folder:
 code .
 ```
 
-Export a read-only `HF_TOKEN` before opening VS Code:
+If the build needs private or gated models, export a read-only `HF_TOKEN`
+before opening VS Code:
 
 ```bash
 export HF_TOKEN="hf_your_token_here"

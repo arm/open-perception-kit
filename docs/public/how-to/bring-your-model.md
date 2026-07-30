@@ -195,8 +195,8 @@ The normal workflow is:
 2. keep `modelFile` as the local filename beside the descriptor
 3. create or update an `opchain.json`
 4. optionally add a top-level pipeline preset under `config/pipelines/`
-5. export a valid `HF_TOKEN` and rebuild the container when the model is
-   published; unauthenticated builds skip published model downloads
+5. rebuild the container when the model is published; export a valid
+   `HF_TOKEN` only when the artifact is private or gated
 6. run the pipeline with the VS Code run task "00 Run project and select pipeline" or `tools/pek-menu`
 7. update the model and opchain `index.md` files
 

@@ -21,7 +21,6 @@ services:
         - huggingface_token
       args:
         HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}}
-        HF_DOWNLOAD_MODE: ${HF_TOKEN:+authenticated}
 
   pek-docs: &pek-docs
     extends:
@@ -48,7 +47,6 @@ services:
         - huggingface_token
       args:
         HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}}
-        HF_DOWNLOAD_MODE: ${HF_TOKEN:+authenticated}
 
   pek-pre-commit-runtime:
     network_mode: bridge

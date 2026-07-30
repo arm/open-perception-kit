@@ -120,8 +120,9 @@ git clone git@github.com:Arm-Debug/amp-dev-forge.git
 
 Expected result: the `pek` folder exists on the Raspberry Pi.
 
-Export a read-only `HF_TOKEN` in the Pi login environment used by VS Code
-Remote SSH, then reconnect VS Code to the Pi:
+If the build needs private or gated models, export a read-only `HF_TOKEN` in
+the Pi login environment used by VS Code Remote SSH, then reconnect VS Code to
+the Pi:
 
 ```bash
 touch ~/.profile &&
