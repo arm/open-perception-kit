@@ -135,6 +135,25 @@ test(
   python,
   args : [files('model_artifact_build_test.py')],
 )
+test(
+  'qos_pipeline_tests',
+  python,
+  args : [
+    files('qos_pipeline_test.py'),
+    gstpekinfer.full_path(),
+    gstpektracker.full_path(),
+    gstpekperformance.full_path(),
+    gstpekosd.full_path(),
+    pekinferpre.full_path(),
+  ],
+  depends : [
+    gstpekinfer,
+    gstpektracker,
+    gstpekperformance,
+    gstpekosd,
+    pekinferpre,
+  ],
+)
 test('model_descriptor_tests', model_descriptor_tests)
 test('performance_tracer_tests', performance_tracer_tests)
 test('matrix_operations_tests', matrix_operations_tests)

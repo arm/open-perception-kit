@@ -25,7 +25,12 @@ streaming.
 
 The video path converts raw video, queues it, encodes VP8, synchronizes timing,
 and feeds a tee. One branch goes to WebRTC; another drain branch prevents stalls
-when no browser client is connected.
+when no browser client is connected. The drain `fakesink` also synchronizes to
+the clock with QoS enabled and zero maximum lateness. It therefore provides
+deterministic upstream QoS feedback even without a WebRTC client; dropping there
+discards only the drain copy. OPK video transforms keep native
+`GstBaseTransform` QoS dropping disabled so this feedback does not remove the
+main video buffer; `pekinfer` instead uses it to skip inference work.
 
 The audio path always has a silence source available. If the `audiosink` request
 pad is used, an input selector switches from silence to real audio. A drain branch

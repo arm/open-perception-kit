@@ -158,6 +158,8 @@ static void gst_pek_osd_class_init(GstPekOsdClass *klass) {
 }
 
 static void gst_pek_osd_init(GstPekOsd *self) {
+    gst_base_transform_set_qos_enabled(GST_BASE_TRANSFORM(self), FALSE);
+
     // Initialize properties
     self->enabled = DEFAULT_ENABLED;
     self->performanceOverlayEnabled = DEFAULT_PERFORMANCE_OVERLAY_ENABLED;

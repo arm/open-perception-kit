@@ -57,3 +57,16 @@ replaced with graceful error reporting.
 
 The element participates in global performance tracing. Ops and backends can emit
 timing keys that `pekperformance` later publishes.
+
+## QoS Feedback
+
+`pekinfer` observes upstream `GST_EVENT_QOS` events on its source-side event path,
+and chains them to `GstBaseTransform` so they continue toward earlier elements.
+When an `UNDERFLOW` event reports positive lateness, active frames skip OpChain
+execution only while their running-time is earlier than the recovery point
+`event timestamp + lateness`. This ignores small spikes that the next frame has
+already recovered from and can skip multiple inference executions after a larger
+delay. The original video buffers are still forwarded, without new inference
+metadata, and `pekinfer` posts a standard `GST_MESSAGE_QOS` for each skip. The
+policy is source-independent because both live sources and file playback map PTS
+onto pipeline running-time. It cannot interrupt inference already in progress.

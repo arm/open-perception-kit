@@ -427,6 +427,8 @@ static void init_video(GstPekSink *self) {
 
     g_return_if_fail(self->vconv && self->queue && self->vp8enc && self->tee && self->vclock);
 
+    // QoS is handled by pekinfer; do not drop the main video buffer while converting it.
+    g_object_set(self->vconv, "qos", FALSE, nullptr);
     g_object_set(self->vclock, "sync", TRUE, nullptr);
     g_object_set(self->vp8enc, "deadline", 1, nullptr); // the frame shall be rendered realtime
     g_object_set(self->vp8enc, "target-bitrate", 2500000, nullptr); // bits/sec
@@ -449,8 +451,18 @@ static void init_video(GstPekSink *self) {
 
     g_return_if_fail(self->drain_queue && self->drain_fakesink);
 
-    // fakesink should not block or sync to clock
-    g_object_set(self->drain_fakesink, "sync", FALSE, "async", FALSE, nullptr);
+    // Keep an always-present clocked branch so QoS does not depend on a WebRTC client.
+    // Dropping here only discards the drain copy; the encoded video still reaches the tee.
+    g_object_set(self->drain_fakesink,
+                 "sync",
+                 TRUE,
+                 "async",
+                 FALSE,
+                 "qos",
+                 TRUE,
+                 "max-lateness",
+                 gint64{0},
+                 nullptr);
 
     gst_bin_add_many(GST_BIN(self), self->drain_queue, self->drain_fakesink, nullptr);
 

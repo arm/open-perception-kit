@@ -68,6 +68,11 @@ struct _GstPekInfer {
     gchar *format;
     gchar *inferId;
 
+    GstClockTime qosEarliestTime;
+    gdouble qosProportion;
+    GstClockTimeDiff qosDiff;
+    GstClockTime qosTimestamp;
+
     // a safe place for c++ stuff
     GstPekInferMembers *m;
 };
@@ -185,11 +190,82 @@ static gboolean gst_pekinfer_set_caps(GstBaseTransform *b, GstCaps *incaps, GstC
     return TRUE;
 }
 
+static gboolean gst_pekinfer_src_event(GstBaseTransform *trans, GstEvent *event) {
+    auto *self = GST_PEKINFER(trans);
+
+    if (GST_EVENT_TYPE(event) == GST_EVENT_QOS) {
+        GstQOSType type = GST_QOS_TYPE_UNDERFLOW;
+        gdouble proportion = 1.0;
+        GstClockTimeDiff diff = 0;
+        GstClockTime timestamp = GST_CLOCK_TIME_NONE;
+        gst_event_parse_qos(event, &type, &proportion, &diff, &timestamp);
+
+        GstClockTime qosEarliestTime = GST_CLOCK_TIME_NONE;
+        if (type == GST_QOS_TYPE_UNDERFLOW && diff > 0 && GST_CLOCK_TIME_IS_VALID(timestamp)) {
+            const auto lateness = static_cast<GstClockTime>(diff);
+            qosEarliestTime = timestamp + lateness;
+            if (qosEarliestTime < timestamp || qosEarliestTime == GST_CLOCK_TIME_NONE) //Overflow handling of qosEarliestTime
+                qosEarliestTime = GST_CLOCK_TIME_NONE - 1;
+        }
+
+        GST_OBJECT_LOCK(self);
+        self->qosEarliestTime = qosEarliestTime;
+        self->qosProportion = proportion;
+        self->qosDiff = diff;
+        self->qosTimestamp = timestamp;
+        GST_OBJECT_UNLOCK(self);
+
+        GST_DEBUG_OBJECT(self,
+                         "Received QoS event: type=%d proportion=%f diff=%" G_GINT64_FORMAT
+                         " timestamp=%" G_GUINT64_FORMAT,
+                         type,
+                         proportion,
+                         diff,
+                         timestamp);
+    }
+
+    // GstBaseTransform forwards upstream events through the sink pad. Keep that
+    // native path intact so every earlier element receives the same QoS feedback.
+    return GST_BASE_TRANSFORM_CLASS(gst_pekinfer_parent_class)->src_event(trans, event);
+}
+
 static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *buf) {
     auto *self = (GstPekInfer *)b;
 
     if (!gst_pekinfer_is_active(self))
         return GST_FLOW_OK;
+
+    const GstClockTime runningTime =
+        GST_BUFFER_PTS_IS_VALID(buf)
+            ? gst_segment_to_running_time(&b->segment, GST_FORMAT_TIME, GST_BUFFER_PTS(buf))
+            : GST_CLOCK_TIME_NONE;
+
+    GST_OBJECT_LOCK(self);
+    const gboolean skipInference = GST_CLOCK_TIME_IS_VALID(runningTime) &&
+                                   GST_CLOCK_TIME_IS_VALID(self->qosEarliestTime) &&
+                                   runningTime < self->qosEarliestTime;
+    if (GST_CLOCK_TIME_IS_VALID(runningTime) && GST_CLOCK_TIME_IS_VALID(self->qosEarliestTime) &&
+        runningTime >= self->qosEarliestTime) {
+        self->qosEarliestTime = GST_CLOCK_TIME_NONE;
+    }
+    const gdouble qosProportion = self->qosProportion;
+    const GstClockTimeDiff qosDiff = self->qosDiff;
+    const GstClockTime qosTimestamp = self->qosTimestamp;
+    GST_OBJECT_UNLOCK(self);
+
+    if (skipInference) {
+        // Report the QoS action while returning OK so the video buffer still flows.
+        GstMessage *message = gst_message_new_qos(
+            GST_OBJECT(self),
+            FALSE,
+            runningTime,
+            gst_segment_to_stream_time(&b->segment, GST_FORMAT_TIME, GST_BUFFER_PTS(buf)),
+            GST_BUFFER_PTS_IS_VALID(buf) ? GST_BUFFER_PTS(buf) : qosTimestamp,
+            GST_BUFFER_DURATION(buf));
+        gst_message_set_qos_values(message, qosDiff, qosProportion, 0);
+        gst_element_post_message(GST_ELEMENT(self), message);
+        return GST_FLOW_OK;
+    }
 
     if (!self->m)
         return GST_FLOW_OK;
@@ -394,6 +470,7 @@ static void gst_pekinfer_class_init(GstPekInferClass *klass) {
     bcls->start = gst_pekinfer_start;
     bcls->stop = gst_pekinfer_stop;
     bcls->set_caps = gst_pekinfer_set_caps;
+    bcls->src_event = gst_pekinfer_src_event;
     bcls->transform_ip = gst_pekinfer_transform_ip;
 }
 
@@ -402,6 +479,10 @@ static void gst_pekinfer_init(GstPekInfer *self) {
     self->active = true;
     self->m = nullptr;
     self->inferId = nullptr;
+    self->qosEarliestTime = GST_CLOCK_TIME_NONE;
+    self->qosProportion = 1.0;
+    self->qosDiff = 0;
+    self->qosTimestamp = GST_CLOCK_TIME_NONE;
 
     gst_video_info_init(&self->vinfo);
 

@@ -9,6 +9,7 @@
 #include <fstream>
 #include <string>
 
+#include "Log.h"
 #include "runtime/Pipeline.h"
 
 namespace {
@@ -112,4 +113,42 @@ TEST(RuntimePipelineJsonLoading, ExpandsPlaceholdersAfterJoiningPipelineFragment
     auto result = pek::runtime::Pipeline::fromJsonFile(path.string());
     expectPipelineSuccess(result);
     std::filesystem::remove(path);
+}
+
+TEST(RuntimePipelineBus, LogsStandardQosMessages) {
+    auto pipelineResult = pek::runtime::Pipeline::fromString(
+        "videotestsrc num-buffers=3 is-live=true ! identity sleep-time=100000 ! "
+        "fakesink name=qos_sink sync=true qos=true max-lateness=0");
+    ASSERT_TRUE(pipelineResult.has_value()) << pipelineResult.error().toString();
+
+    const int oldLevel = pek::log::getLogLevel();
+    const auto oldTargets = pek::log::getEnabledLogTargets();
+    pek::log::setLogLevel(5);
+    pek::log::setLogTargetState(pek::log::TargetType::Stdout, true);
+    pek::log::setLogTargetState(pek::log::TargetType::Stderr, false);
+    pek::log::setLogTargetState(pek::log::TargetType::File, false);
+    pek::log::flush();
+    testing::internal::CaptureStdout();
+
+    auto startResult = pipelineResult->start();
+    if (!startResult) {
+        ADD_FAILURE() << startResult.error().toString();
+    } else if (auto waitResult = pipelineResult->wait(); !waitResult) {
+        ADD_FAILURE() << waitResult.error().toString();
+    }
+    pek::log::flush();
+    const std::string output = testing::internal::GetCapturedStdout();
+
+    for (auto target :
+         {pek::log::TargetType::Stdout, pek::log::TargetType::Stderr, pek::log::TargetType::File}) {
+        pek::log::setLogTargetState(target, false);
+    }
+    for (auto target : oldTargets) {
+        pek::log::setLogTargetState(target, true);
+    }
+    pek::log::setLogLevel(oldLevel);
+
+    EXPECT_NE(output.find("GStreamer QoS: source=qos_sink"), std::string::npos) << output;
+    EXPECT_NE(output.find("format=buffers"), std::string::npos);
+    EXPECT_NE(output.find("dropped="), std::string::npos);
 }
