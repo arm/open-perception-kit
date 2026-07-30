@@ -199,6 +199,7 @@ run_phase() {
     local spec="$3"
     local browsers="${4:-${BROWSER_SMOKE_BROWSERS}}"
     local status=0
+    local browser_pid=""
     local pid_file="/tmp/pek-browser-smoke-${phase}.pid"
     local pipeline_pid=""
     local docker_exec_env_file_args=()
@@ -243,7 +244,9 @@ run_phase() {
         playwright test -c tests/playwright/pek-browser-smoke.config.js \
         --reporter=line,blob \
         --output="test-results/playwright/${phase}" \
-        "${spec}" || status=$?
+        "${spec}" &
+    browser_pid=$!
+    wait "${browser_pid}" || status=$?
 
     cleanup_active_browser_container
     stop_pipeline "${pid_file}" "${pipeline_pid}"
@@ -255,6 +258,7 @@ run_phase() {
 
 merge_reports() {
     local status=0
+    local browser_pid=""
 
     ACTIVE_BROWSER_CONTAINER="${PEK_CONTAINER_NAME}-browser-merge-reports"
     docker rm -f "${ACTIVE_BROWSER_CONTAINER}" > /dev/null 2>&1 || true
@@ -266,7 +270,9 @@ merge_reports() {
         -e PLAYWRIGHT_HTML_OPEN=never \
         -e PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report \
         "${image_name}" \
-        playwright merge-reports --reporter=html test-results/playwright/blob-report || status=$?
+        playwright merge-reports --reporter=html test-results/playwright/blob-report &
+    browser_pid=$!
+    wait "${browser_pid}" || status=$?
     cleanup_active_browser_container
 
     if [ "${status}" -eq 0 ]; then
