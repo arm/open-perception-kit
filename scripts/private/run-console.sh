@@ -36,6 +36,7 @@ CONTAINER_NAME="${PEK_RICH_CONTAINER_NAME:-pek-dev-rich}"
 
 export HOST_UID="$(id -u)"
 export HOST_GID="$(id -g)"
+export HF_TOKEN="${HF_TOKEN-}"
 
 cd "${REPO_ROOT}"
 
@@ -80,7 +81,7 @@ do_up() {
 
     HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" \
         docker compose "${COMPOSE_ENV_ARGS[@]}" "${COMPOSE_FILES[@]}" \
-        up -d --build --remove-orphans pek-dev-rich
+        up -d --build --force-recreate --remove-orphans pek-dev-rich
 }
 
 do_down() {

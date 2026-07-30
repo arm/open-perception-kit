@@ -12,11 +12,12 @@ The goals are:
 - keep active development on `develop`
 - keep releasable history on `main`
 - separate new work, normal fixes, and post-release hotfixes
-- enforce the naming and protection rules through GitHub rulesets
+- enforce the naming and protection rules through manually maintained GitHub
+  rulesets
 
 ## Allowed branch names
 
-The checked-in ruleset allows these branch families:
+The branch naming ruleset allows these branch families:
 
 - `main`
 - `develop`
@@ -112,10 +113,23 @@ lines in parallel, this policy can be revisited.
 
 ## Enforcement
 
-GitHub rulesets are the source of enforcement for this policy.
+GitHub rulesets are maintained manually in the repository settings.
 
-- branch names are restricted by `.github/rulesets/branch-naming-gitflow.json`
-- `main` and `develop` are protected by `.github/rulesets/protect-main-and-develop.json`
-- the checked-in ruleset drafts can be synchronized by `.github/workflows/sync-rulesets.yml`
+The branch naming ruleset applies to all branches and allows names matching:
 
-The ruleset mechanics are documented in `.github/rulesets/README.md`.
+```text
+^(main|develop|feature/EXPKITS-[0-9]+.*|bugfix/EXPKITS-[0-9]+.*|hotfix/EXPKITS-[0-9]+.*|dependabot/.+|sandbox/.+)$
+```
+
+The branch protection ruleset applies to `main` and `develop` and:
+
+- prevents branch deletion and force pushes
+- requires changes to arrive through pull requests
+- requires one approval, approval after the latest push, and resolution of all
+  review threads
+- dismisses stale approvals when new commits are pushed
+- permits merge commits only
+- does not require code-owner review
+
+No bypass actors or required status checks are configured. Repository
+administrators must keep the GitHub settings aligned with this policy.

@@ -23,7 +23,11 @@ services:
       PEK_PIPELINE: ${PEK_PIPELINE:-01-full-onnx}
       HF_TOKEN_PATH: /run/secrets/huggingface_token
     secrets:
-      - huggingface_token
+      - source: huggingface_token
+        target: /run/secrets/huggingface_token
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
     build:
       context: .
       dockerfile: Dockerfile
@@ -35,7 +39,9 @@ services:
 
 secrets:
   huggingface_token:
-    file: ${HF_TOKEN_PATH:-/dev/null}
+    # Environment-backed Compose secrets require the variable to be defined.
+    # Use an empty HF_TOKEN for anonymous direct Compose or Topo deployments.
+    environment: HF_TOKEN
 
 x-topo:
   name: perception-experience-kit

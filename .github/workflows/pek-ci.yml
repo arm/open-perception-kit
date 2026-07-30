@@ -109,7 +109,15 @@ jobs:
 
       - name: Build and start quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: ./scripts/quick-start/start-container.sh --recreate
+
+      - name: Reconcile running quick-start container
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: ./scripts/quick-start/start-container.sh
 
       - name: Build PEK in quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -218,6 +226,8 @@ jobs:
 
       - name: Build and start quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: ./scripts/quick-start/start-container.sh --recreate
 
       - name: Build PEK in quick-start container

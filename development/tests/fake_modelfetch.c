@@ -10,6 +10,7 @@
 
 #include <modelfetch.h>
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,6 +19,14 @@
 
 struct modelfetch_service {
     int unused;
+};
+
+struct modelfetch_config {
+    const uint8_t *collection_slug;
+    size_t collection_slug_length;
+    modelfetch_token_mode_t token_mode;
+    const uint8_t *explicit_token;
+    size_t explicit_token_length;
 };
 
 struct modelfetch_request {
@@ -281,14 +290,87 @@ static modelfetch_status_t populate_outcome(const modelfetch_request_list_t *req
     return copy_outcome_path(requests, mode, outcome);
 }
 
-modelfetch_status_t modelfetch_service_new(modelfetch_service_t **out,
-                                           modelfetch_error_t **error_out) {
-    if (out == NULL)
+modelfetch_status_t modelfetch_config_new(const uint8_t *collection_ptr,
+                                          size_t collection_len,
+                                          modelfetch_token_mode_t token_mode,
+                                          const uint8_t *token_ptr,
+                                          size_t token_len,
+                                          modelfetch_config_t **out,
+                                          modelfetch_error_t **error_out) {
+    if (out == NULL || collection_ptr == NULL || collection_len == 0U)
         return MODELFETCH_STATUS_INVALID_ARGUMENT;
+    if (token_mode != MODELFETCH_TOKEN_CONFIGURED && token_mode != MODELFETCH_TOKEN_ANONYMOUS &&
+        token_mode != MODELFETCH_TOKEN_EXPLICIT)
+        return MODELFETCH_STATUS_INVALID_ARGUMENT;
+    if ((token_mode == MODELFETCH_TOKEN_EXPLICIT && (token_ptr == NULL || token_len == 0U)) ||
+        (token_mode != MODELFETCH_TOKEN_EXPLICIT && token_len != 0U))
+        return MODELFETCH_STATUS_INVALID_ARGUMENT;
+
     *out = calloc(1U, sizeof(**out));
+    if (*out == NULL)
+        return MODELFETCH_STATUS_INTERNAL_PANIC;
+    (*out)->collection_slug = collection_ptr;
+    (*out)->collection_slug_length = collection_len;
+    (*out)->token_mode = token_mode;
+    (*out)->explicit_token = token_ptr;
+    (*out)->explicit_token_length = token_len;
     if (error_out != NULL)
         *error_out = NULL;
-    return *out == NULL ? MODELFETCH_STATUS_INTERNAL_PANIC : MODELFETCH_STATUS_OK;
+    return MODELFETCH_STATUS_OK;
+}
+
+modelfetch_status_t modelfetch_config_collection_slug(const modelfetch_config_t *value,
+                                                      modelfetch_text_view_t *out) {
+    if (value == NULL || out == NULL)
+        return MODELFETCH_STATUS_INVALID_ARGUMENT;
+    out->ptr = value->collection_slug;
+    out->len = value->collection_slug_length;
+    return MODELFETCH_STATUS_OK;
+}
+
+modelfetch_status_t modelfetch_config_token_mode(const modelfetch_config_t *value,
+                                                 modelfetch_token_mode_t *out) {
+    if (value == NULL || out == NULL)
+        return MODELFETCH_STATUS_INVALID_ARGUMENT;
+    *out = value->token_mode;
+    return MODELFETCH_STATUS_OK;
+}
+
+modelfetch_status_t modelfetch_config_explicit_token(const modelfetch_config_t *value,
+                                                     uint8_t *present_out,
+                                                     modelfetch_text_view_t *out) {
+    if (value == NULL || present_out == NULL || out == NULL)
+        return MODELFETCH_STATUS_INVALID_ARGUMENT;
+    *present_out = value->token_mode == MODELFETCH_TOKEN_EXPLICIT ? 1U : 0U;
+    out->ptr = value->explicit_token;
+    out->len = value->explicit_token_length;
+    return MODELFETCH_STATUS_OK;
+}
+
+void modelfetch_config_free(modelfetch_config_t *value) {
+    free(value);
+}
+
+modelfetch_status_t modelfetch_service_new_with_config(const modelfetch_config_t *config,
+                                                       modelfetch_service_t **out,
+                                                       modelfetch_error_t **error_out) {
+    if (config == NULL || out == NULL)
+        return MODELFETCH_STATUS_INVALID_ARGUMENT;
+    const char *mode = "explicit\n";
+    if (config->token_mode == MODELFETCH_TOKEN_ANONYMOUS)
+        mode = "anonymous\n";
+    else if (config->token_mode == MODELFETCH_TOKEN_CONFIGURED)
+        mode = "configured\n";
+    const modelfetch_status_t marker_status = write_marker("PEK_MODELFETCH_FAKE_TOKEN_MODE", mode);
+    if (marker_status != MODELFETCH_STATUS_OK)
+        return marker_status;
+
+    *out = calloc(1U, sizeof(**out));
+    if (*out == NULL)
+        return MODELFETCH_STATUS_INTERNAL_PANIC;
+    if (error_out != NULL)
+        *error_out = NULL;
+    return MODELFETCH_STATUS_OK;
 }
 
 void modelfetch_service_free(modelfetch_service_t *value) {

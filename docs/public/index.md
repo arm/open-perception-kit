@@ -68,10 +68,9 @@ Use this target Pi setup before you start:
 - GitHub CLI authenticated on the target Pi with read access to the pinned
   `Arm-Debug/modelfetch` release. The repository is internal, so the release
   asset is not available anonymously.
-- To run a model backed by a published Hugging Face asset, a mode-`0600` token
-  file with `HF_TOKEN_PATH` set in the shell that starts the container. The
-  runtime downloads only the selected model when it is first activated. The
-  checked-in YOLOv11 quick-start and CI fixture need no Hugging Face token.
+- To run a private or gated Hugging Face model, set `HF_TOKEN` in the shell
+  that starts the container. The checked-in YOLOv11 quick-start and CI fixture
+  need no Hugging Face token.
 
 ### 1. Connect to the target Pi
 
@@ -108,13 +107,38 @@ Enter the `amp-dev-forge` folder in the terminal and run:
 ./scripts/quick_start.sh
 ```
 
+For a private or gated Hugging Face model, export `HF_TOKEN` before running the
+quick-start:
+
+```bash
+export HF_TOKEN="hf_your_token_here"
+./scripts/quick_start.sh
+```
+
+Compose mounts the value read-only at
+`/run/secrets/huggingface_token`; it is not stored in the container environment.
+Modelfetch reads and validates that file. An unset or empty `HF_TOKEN` selects
+anonymous access. Do not store the credential in the generated `.env` files.
+
 For a direct deployment build, prepare the pinned modelfetch release before
-invoking the existing Compose entrypoint:
+invoking the existing Compose entrypoint. For a private or gated model, export
+your Hugging Face token:
 
 ```bash
 bash scripts/private/prepare-modelfetch-release.sh
+export HF_TOKEN="hf_your_token_here"
 docker compose up --build
 ```
+
+For anonymous direct deployment, provide an explicitly empty token instead:
+
+```bash
+HF_TOKEN="" docker compose up --build
+```
+
+After replacing or clearing `HF_TOKEN`, add `--force-recreate` to the next
+direct `docker compose up` command so the running container receives the new
+secret.
 
 The preparation step acquires and verifies the pinned architecture-specific
 Rust-backed C SDK. It has the same GitHub CLI access requirement listed
