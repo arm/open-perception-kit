@@ -162,6 +162,13 @@ class TestCompareValgrindResults(unittest.TestCase):
 
             self.assertFalse(compare.load_summary(current) - compare.load_summary(baseline))
 
+    def test_suppressions_do_not_pin_shared_library_versions(self):
+        suppressions = SCRIPT_PATH.with_name("suppressed-warnings").read_text(encoding="utf-8")
+
+        for line in suppressions.splitlines():
+            if line.strip().startswith("obj:"):
+                self.assertNotIn(".so.", line)
+
     def test_non_valgrind_xml_exits_with_input_error(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             summary = Path(tmpdir) / "summary.xml"
