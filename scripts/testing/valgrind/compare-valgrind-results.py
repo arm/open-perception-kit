@@ -30,6 +30,10 @@ def _frame_fingerprint(frame: ET.Element, frame_index: int) -> str:
     for tag in ("obj", "fn", "dir", "file"):
         value = frame.findtext(tag)
         if value:
+            if tag == "obj":
+                library, separator, version = value.rpartition(".so.")
+                if separator and all(part.isdigit() for part in version.split(".")):
+                    value = f"{library}.so"
             parts.append(f"{tag}={value}")
 
     if parts:
