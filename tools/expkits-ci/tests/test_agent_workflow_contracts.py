@@ -512,6 +512,18 @@ class AgentWorkflowContractTests(unittest.TestCase):
         expected_draft_override = (
             "github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci')"
         )
+        expected_pek_concurrency = {
+            "group": (
+                "${{ github.workflow }}-${{ github.event_name }}-"
+                "${{ github.event.pull_request.number || github.event.inputs.pr_number || "
+                "github.ref || github.run_id }}-"
+                "${{ github.event.action == 'labeled' && "
+                "(!contains(github.event.label.name, 'run-pek-ci') || "
+                "contains(github.event.pull_request.labels.*.name, 'run-macos-ci')) && "
+                "github.run_id || 'validation' }}"
+            ),
+            "cancel-in-progress": "true",
+        }
         expected_standard_concurrency = {
             "group": (
                 "${{ github.workflow }}-${{ github.event_name }}-"
@@ -524,7 +536,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
             "cancel-in-progress": "true",
         }
 
-        self.assertEqual(pek_ci["concurrency"], expected_standard_concurrency)
+        self.assertEqual(pek_ci["concurrency"], expected_pek_concurrency)
         self.assertEqual(sonar["concurrency"], expected_standard_concurrency)
         self.assertEqual(
             valgrind["concurrency"],
