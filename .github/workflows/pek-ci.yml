@@ -41,6 +41,7 @@ jobs:
     if: |
       github.event_name != 'pull_request' ||
       (
+        github.event.pull_request.head.repo.full_name == github.repository &&
         (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
         (
           github.event.pull_request.draft == false ||
@@ -52,11 +53,36 @@ jobs:
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout workflow helpers
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          path: workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+          persist-credentials: false
+
+      - name: Resolve manual PR context
+        id: manual_pr
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
+        working-directory: ${{ github.workspace }}/workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 scripts/private/github_pr_context.py \
+            --pr-number "${{ github.event.inputs.pr_number }}" \
+            --repo "${{ github.repository }}" \
+            --base-ref-override "${{ github.event.inputs.pr_base_ref }}" \
+            --head-ref-override "${{ github.event.inputs.pr_head_ref }}" \
+            --head-sha-override "${{ github.event.inputs.pr_head_sha }}" \
+            --github-output "${GITHUB_OUTPUT}"
+
+      - name: Checkout
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_head_sha || github.event_name == 'workflow_dispatch' && github.event.inputs.pr_head_ref || github.head_ref || github.ref }}
+          ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.head_ref || github.ref }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
       - name: Show detected quick-start platform
@@ -114,13 +140,49 @@ jobs:
     env:
       PEK_QUICK_START_CI_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+      CI_HELPER_PATH: workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout workflow helpers
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          path: ${{ env.CI_HELPER_PATH }}
+          persist-credentials: false
+
+      - name: Resolve manual PR context
+        id: manual_pr
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
+        working-directory: ${{ github.workspace }}/${{ env.CI_HELPER_PATH }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          output_dir="$(dirname "${GITHUB_OUTPUT}")"
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --mount "type=bind,source=${PWD},target=${PWD},readonly" \
+            --mount "type=bind,source=${output_dir},target=${output_dir}" \
+            --workdir "${PWD}" \
+            --env GH_TOKEN \
+            --env GITHUB_API_URL \
+            --env PYTHONDONTWRITEBYTECODE=1 \
+            python:3.12-slim-trixie@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de \
+            python3 scripts/private/github_pr_context.py \
+            --pr-number "${{ github.event.inputs.pr_number }}" \
+            --repo "${{ github.repository }}" \
+            --base-ref-override "${{ github.event.inputs.pr_base_ref }}" \
+            --head-ref-override "${{ github.event.inputs.pr_head_ref }}" \
+            --head-sha-override "${{ github.event.inputs.pr_head_sha }}" \
+            --github-output "${GITHUB_OUTPUT}"
+
+      - name: Checkout
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_head_sha || github.event_name == 'workflow_dispatch' && github.event.inputs.pr_head_ref || github.head_ref || github.ref }}
+          ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.head_ref || github.ref }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
       - name: Show detected quick-start platform
@@ -163,11 +225,12 @@ jobs:
           COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
         run: |
           checkout_path="${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}"
+          helper_path="${{ github.workspace }}/${{ env.CI_HELPER_PATH }}"
           cleanup_status=0
           if [ -x "$checkout_path/scripts/quick-start/cleanup-container.sh" ]; then
             "$checkout_path/scripts/quick-start/cleanup-container.sh" || cleanup_status=$?
           fi
-          rm -rf -- "$checkout_path"
+          rm -rf -- "$checkout_path" "$helper_path"
           exit "$cleanup_status"
 
   macos-nightly-test:
@@ -283,6 +346,7 @@ jobs:
     if: |
       github.event_name != 'pull_request' ||
       (
+        github.event.pull_request.head.repo.full_name == github.repository &&
         (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
         (
           github.event.pull_request.draft == false ||
@@ -326,6 +390,26 @@ jobs:
           fetch-tags: true
           ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.head_ref || github.ref }}
           path: ${{ env.CI_CHECKOUT_PATH }}
+
+      - name: Attach validated PR head branch
+        if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '') }}
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          PR_HEAD_REF: ${{ steps.manual_pr.outputs.head_ref || github.head_ref }}
+          PR_HEAD_SHA: ${{ steps.manual_pr.outputs.head_sha || github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test -n "$PR_HEAD_REF"
+          checked_out_sha="$(git rev-parse HEAD)"
+          if [ -n "$PR_HEAD_SHA" ]; then
+            test "$checked_out_sha" = "$PR_HEAD_SHA"
+          else
+            PR_HEAD_SHA="$checked_out_sha"
+          fi
+          git check-ref-format --branch "$PR_HEAD_REF" >/dev/null
+          git switch --force-create "$PR_HEAD_REF" "$PR_HEAD_SHA"
+          test "$(git rev-parse HEAD)" = "$PR_HEAD_SHA"
+          test "$(git branch --show-current)" = "$PR_HEAD_REF"
 
       - name: Build Docker images for checks
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}

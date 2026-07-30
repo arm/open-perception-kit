@@ -176,16 +176,17 @@ inline void to_json(nlohmann::json &j, const TensorFeedback &v) {
 }
 
 inline void from_json(const nlohmann::json &j, TensorFeedback &v) {
-    // kind is optional today (since only Copy exists), but we validate if present
-    if (auto it = j.find("kind"); it != j.end() && !it->is_null()) {
+    // mode is optional today (since only Copy exists), but we validate if present
+    if (auto it = j.find("mode"); it != j.end() && !it->is_null()) {
         const std::string s = it->get<std::string>();
-        const auto k = magic_enum::enum_cast<TensorFeedback::Mode>(s);
-        if (!k) {
-            throw std::runtime_error("ModelTensorFeedback.kind: unknown value '" + s + "'");
+        const auto mode = magic_enum::enum_cast<TensorFeedback::Mode>(s);
+        if (!mode) {
+            throw std::runtime_error("ModelTensorFeedback.mode: unknown value '" + s + "'");
         }
-        if (*k != TensorFeedback::Mode::Copy) {
-            throw std::runtime_error("ModelTensorFeedback.kind: unsupported value '" + s + "'");
+        if (*mode != TensorFeedback::Mode::Copy) {
+            throw std::runtime_error("ModelTensorFeedback.mode: unsupported value '" + s + "'");
         }
+        v.mode = *mode;
     }
 
     if (!j.contains("fromOutputTensorIndex") || !j.contains("toInputTensorIndex")) {

@@ -89,6 +89,13 @@ static const gchar *gst_pekinfer_get_effective_inferId(GstPekInfer *self) {
     return GST_OBJECT_NAME(GST_ELEMENT(self));
 }
 
+static gboolean gst_pekinfer_is_active(GstPekInfer *self) {
+    GST_OBJECT_LOCK(self);
+    const gboolean active = self->active;
+    GST_OBJECT_UNLOCK(self);
+    return active;
+}
+
 static std::optional<fs::path> parent_dir_name(const fs::path &p) {
     if (!p.has_filename()) {
         return std::nullopt;
@@ -143,7 +150,7 @@ static gboolean gst_pekinfer_start(GstBaseTransform *b) {
                                                     GST_OBJECT_NAME(self),
                                                     "active",
                                                     G_TYPE_BOOLEAN,
-                                                    self->active,
+                                                    gst_pekinfer_is_active(self),
                                                     NULL);
         GstEvent *event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, structure);
         gst_pad_push_event(srcpad, event);
@@ -181,7 +188,7 @@ static gboolean gst_pekinfer_set_caps(GstBaseTransform *b, GstCaps *incaps, GstC
 static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *buf) {
     auto *self = (GstPekInfer *)b;
 
-    if (!self->active)
+    if (!gst_pekinfer_is_active(self))
         return GST_FLOW_OK;
 
     if (!self->m)
@@ -274,7 +281,9 @@ static void gst_pekinfer_set_property(GObject *o, guint id, const GValue *v, GPa
         self->opChainPath = g_value_dup_string(v);
         break;
     case PROP_MODEL_ACTIVE: {
+        GST_OBJECT_LOCK(self);
         self->active = g_value_get_boolean(v);
+        GST_OBJECT_UNLOCK(self);
         break;
     }
     case PROP_FORMAT:
@@ -297,7 +306,7 @@ static void gst_pekinfer_get_property(GObject *o, guint id, GValue *v, GParamSpe
         g_value_set_string(v, self->opChainPath);
         break;
     case PROP_MODEL_ACTIVE:
-        g_value_set_boolean(v, self->active);
+        g_value_set_boolean(v, gst_pekinfer_is_active(self));
         break;
     case PROP_FORMAT:
         g_value_set_string(v, self->format);
@@ -313,8 +322,11 @@ static void gst_pekinfer_get_property(GObject *o, guint id, GValue *v, GParamSpe
 static void gst_pekinfer_finalize(GObject *object) {
     auto *self = reinterpret_cast<GstPekInfer *>(object);
 
-    g_free(self->inferId);
-    self->inferId = nullptr;
+    delete self->m;
+    self->m = nullptr;
+    g_clear_pointer(&self->opChainPath, g_free);
+    g_clear_pointer(&self->format, g_free);
+    g_clear_pointer(&self->inferId, g_free);
 
     G_OBJECT_CLASS(gst_pekinfer_parent_class)->finalize(object);
 }
