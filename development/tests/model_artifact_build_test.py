@@ -17,6 +17,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOWNLOAD_SCRIPT = REPO_ROOT / "scripts" / "download-models.py"
 HF_DOWNLOAD_KEYS = {"repo_id", "revision", "filename"}
+HF_TOKEN_REFERENCE = "secrets.HF_TOKEN"
 
 
 def model_descriptors() -> list[tuple[Path, dict]]:
@@ -33,10 +34,8 @@ class ModelArtifactBuildTest(unittest.TestCase):
         entrypoint = (
             REPO_ROOT / "scripts/private/development-entrypoint.sh"
         ).read_text()
-        seed_script = re.search(
-            r"python3 - .*? << 'PY'\n(.*?)\nPY\n", entrypoint, re.DOTALL
-        )
-        self.assertIsNotNone(seed_script)
+        seed_script = entrypoint.partition("<< 'PY'\n")[2].partition("\nPY\n")[0]
+        self.assertTrue(seed_script)
 
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
@@ -53,7 +52,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
 
             subprocess.run(
                 [sys.executable, "-", str(source), str(destination)],
-                input=seed_script.group(1),
+                input=seed_script,
                 check=True,
                 text=True,
             )
@@ -334,10 +333,10 @@ def hf_hub_download(*, repo_id, revision, filename, token):
 
         workflow_secret_uses = {
             path.relative_to(REPO_ROOT).as_posix(): path.read_text().count(
-                "secrets.HF_TOKEN"
+                HF_TOKEN_REFERENCE
             )
             for path in (REPO_ROOT / ".github" / "workflows").glob("*.yml")
-            if "secrets.HF_TOKEN" in path.read_text()
+            if HF_TOKEN_REFERENCE in path.read_text()
         }
         self.assertEqual(
             workflow_secret_uses,
@@ -356,7 +355,7 @@ def hf_hub_download(*, repo_id, revision, filename, token):
             for line in path.read_text().splitlines():
                 if line.lstrip().startswith("- name: "):
                     step = line.split("- name: ", 1)[1]
-                if "secrets.HF_TOKEN" in line:
+                if HF_TOKEN_REFERENCE in line:
                     self.assertIn("Build", step)
 
 
