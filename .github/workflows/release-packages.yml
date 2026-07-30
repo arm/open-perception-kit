@@ -1,0 +1,512 @@
+name: PEK release packages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Commit, tag, or branch to package
+        required: true
+        type: string
+      build_label:
+        description: Lower-case Artifactory snapshot folder label
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    name: Resolve release source
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      commit: ${{ steps.release.outputs.commit }}
+      build_id: ${{ steps.release.outputs.build_id }}
+      x86_archive: ${{ steps.release.outputs.x86_archive }}
+      arm_archive: ${{ steps.release.outputs.arm_archive }}
+      docs_archive: ${{ steps.release.outputs.docs_archive }}
+      onnxruntime_version: ${{ steps.release.outputs.onnxruntime_version }}
+    steps:
+      - name: Checkout release tooling
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Checkout selected source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+          ref: ${{ github.event.inputs.source_ref || github.sha }}
+          path: source
+
+      - name: Prepare release identity
+        id: release
+        env:
+          BUILD_LABEL: ${{ github.event.inputs.build_label }}
+        run: |
+          set -euo pipefail
+          commit="$(git -C source rev-parse HEAD)"
+          python3 scripts/release/ReleaseTool.py prepare \
+            --repo-root source \
+            --commit "$commit" \
+            --build-label "${BUILD_LABEL:-}"
+          onnxruntime_version="$(sed -n 's/^ARG ONNXRUNTIME_VERSION=//p' source/Dockerfile)"
+          test -n "$onnxruntime_version"
+          echo "onnxruntime_version=$onnxruntime_version" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve pinned model artifacts
+        working-directory: source
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/pek-model-download"
+          "$RUNNER_TEMP/pek-model-download/bin/python" -m pip install \
+            --disable-pip-version-check huggingface_hub==1.18.0
+          "$RUNNER_TEMP/pek-model-download/bin/python" scripts/download-models.py \
+            --models-dir config/models --token "$HF_TOKEN"
+
+      - name: Upload resolved models
+        uses: actions/upload-artifact@v7
+        with:
+          name: pek-models-${{ github.run_id }}-${{ github.run_attempt }}
+          path: source/config/models
+          if-no-files-found: error
+          retention-days: 2
+
+  dependencies-x86:
+    name: Prepare x86_64 dependencies
+    needs: prepare
+    runs-on: ubuntu-24.04
+    container: python:3.12-slim-trixie@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
+    env:
+      ONNXRUNTIME_VERSION: ${{ needs.prepare.outputs.onnxruntime_version }}
+    steps:
+      - name: Install dependency tools
+        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates curl
+
+      - name: Checkout selected source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          persist-credentials: false
+
+      - name: Prepare repository-pinned dependencies
+        run: scripts/release/PrepareDependencies.sh x86_64 prepared
+
+      - name: Upload x86_64 dependencies
+        uses: actions/upload-artifact@v7
+        with:
+          name: pek-dependencies-x86-${{ github.run_id }}-${{ github.run_attempt }}
+          path: prepared
+          if-no-files-found: error
+          retention-days: 2
+
+  build-x86:
+    name: Build x86_64 package
+    needs: [prepare, dependencies-x86]
+    runs-on: ubuntu-24.04
+    container: python:3.12-slim-trixie@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
+    steps:
+      - name: Install native build prerequisites
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential binutils cmake git meson ninja-build pkg-config \
+            libssl-dev libsoup-3.0-dev libjson-glib-dev libcairo2-dev \
+            zlib1g-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            libgstreamer-plugins-bad1.0-dev
+
+      - name: Checkout selected source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          persist-credentials: false
+
+      - name: Download resolved models
+        uses: actions/download-artifact@v8
+        with:
+          name: pek-models-${{ github.run_id }}-${{ github.run_attempt }}
+          path: config/models
+
+      - name: Download x86_64 dependencies
+        uses: actions/download-artifact@v8
+        with:
+          name: pek-dependencies-x86-${{ github.run_id }}-${{ github.run_attempt }}
+          path: prepared
+
+      - name: Build package
+        run: |
+          scripts/release/BuildPackage.sh \
+            x86_64 "${{ needs.prepare.outputs.build_id }}" dist \
+            prepared/notices \
+            prepared/onnxruntime
+
+      - name: Upload x86_64 package
+        uses: actions/upload-artifact@v7
+        with:
+          name: pek-release-x86-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist/${{ needs.prepare.outputs.x86_archive }}
+          if-no-files-found: error
+          retention-days: 7
+
+  dependencies-arm:
+    name: Prepare aarch64 dependencies
+    needs: prepare
+    runs-on: self-hosted-ubuntu-latest-arm64
+    container: python:3.12-slim-trixie@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
+    env:
+      ONNXRUNTIME_VERSION: ${{ needs.prepare.outputs.onnxruntime_version }}
+    steps:
+      - name: Install dependency tools
+        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates curl
+
+      - name: Checkout selected source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          path: dependencies-${{ github.run_id }}-${{ github.run_attempt }}
+          persist-credentials: false
+
+      - name: Prepare repository-pinned dependencies
+        working-directory: dependencies-${{ github.run_id }}-${{ github.run_attempt }}
+        run: scripts/release/PrepareDependencies.sh aarch64 prepared
+
+      - name: Upload aarch64 dependencies
+        uses: actions/upload-artifact@v7
+        with:
+          name: pek-dependencies-arm-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dependencies-${{ github.run_id }}-${{ github.run_attempt }}/prepared
+          if-no-files-found: error
+          retention-days: 2
+
+      - name: Clean isolated Arm workspace
+        if: always()
+        run: rm -rf -- dependencies-${{ github.run_id }}-${{ github.run_attempt }}
+
+  build-arm:
+    name: Build aarch64 package
+    needs: [prepare, dependencies-arm]
+    runs-on: self-hosted-ubuntu-latest-arm64
+    container: python:3.12-slim-trixie@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
+    steps:
+      - name: Install native build prerequisites
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential binutils cmake git meson ninja-build pkg-config \
+            libssl-dev libsoup-3.0-dev libjson-glib-dev libcairo2-dev \
+            libusb-1.0-0-dev zlib1g-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            libgstreamer-plugins-bad1.0-dev
+
+      - name: Checkout selected source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          path: source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+          persist-credentials: false
+
+      - name: Download resolved models
+        uses: actions/download-artifact@v8
+        with:
+          name: pek-models-${{ github.run_id }}-${{ github.run_attempt }}
+          path: source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}/config/models
+
+      - name: Download aarch64 dependencies
+        uses: actions/download-artifact@v8
+        with:
+          name: pek-dependencies-arm-${{ github.run_id }}-${{ github.run_attempt }}
+          path: source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}/prepared
+
+      - name: Build package
+        working-directory: source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+        run: |
+          scripts/release/BuildPackage.sh \
+            aarch64 "${{ needs.prepare.outputs.build_id }}" dist \
+            prepared/notices \
+            prepared/onnxruntime
+
+      - name: Upload aarch64 package
+        uses: actions/upload-artifact@v7
+        with:
+          name: pek-release-arm-${{ github.run_id }}-${{ github.run_attempt }}
+          path: source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}/dist/${{ needs.prepare.outputs.arm_archive }}
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Clean isolated Arm workspace
+        if: always()
+        run: rm -rf -- source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+
+  build-docs:
+    name: Build documentation package
+    needs: prepare
+    runs-on: ubuntu-24.04
+    container: python:3.12-slim-trixie@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
+    steps:
+      - name: Install documentation prerequisites
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            default-jre-headless doxygen graphviz pandoc
+
+      - name: Checkout selected source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          persist-credentials: false
+
+      - name: Generate offline documentation
+        run: |
+          ln -s "$PWD" /work
+          scripts/gen-doc.sh
+          scripts/release/BuildDocsPackage.sh \
+            "${{ needs.prepare.outputs.build_id }}" dist \
+            docs/html development/build/doc/doxygen/html
+
+      - name: Upload documentation package
+        uses: actions/upload-artifact@v7
+        with:
+          name: pek-release-docs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist/${{ needs.prepare.outputs.docs_archive }}
+          if-no-files-found: error
+          retention-days: 7
+
+  smoke-x86:
+    name: Native x86_64 package smoke
+    needs: [prepare, build-x86]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout packaged source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          persist-credentials: false
+
+      - name: Download package
+        uses: actions/download-artifact@v8
+        with:
+          name: pek-release-x86-${{ github.run_id }}-${{ github.run_attempt }}
+          path: smoke
+
+      - name: Smoke without network
+        run: |
+          docker build -f scripts/release/Smoke.Dockerfile -t "pek-smoke:${{ github.run_id }}-x86" .
+          docker run --rm --network none \
+            --mount "type=bind,source=$PWD,target=/work,readonly" \
+            --workdir /work \
+            "pek-smoke:${{ github.run_id }}-x86" \
+            scripts/release/SmokePackage.py x86_64 "smoke/${{ needs.prepare.outputs.x86_archive }}"
+
+  smoke-arm:
+    name: Native aarch64 package smoke
+    needs: [prepare, build-arm]
+    runs-on: self-hosted-ubuntu-latest-arm64
+    steps:
+      - name: Checkout packaged source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          path: release-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          persist-credentials: false
+
+      - name: Download package
+        uses: actions/download-artifact@v8
+        with:
+          name: pek-release-arm-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-smoke-${{ github.run_id }}-${{ github.run_attempt }}/smoke
+
+      - name: Smoke without network
+        working-directory: release-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          docker build -f scripts/release/Smoke.Dockerfile -t "pek-smoke:${{ github.run_id }}-arm" .
+          docker run --rm --network none \
+            --mount "type=bind,source=$PWD,target=/work,readonly" \
+            --workdir /work \
+            "pek-smoke:${{ github.run_id }}-arm" \
+            scripts/release/SmokePackage.py aarch64 "smoke/${{ needs.prepare.outputs.arm_archive }}"
+
+      - name: Clean isolated Arm smoke workspace
+        if: always()
+        run: |
+          docker image rm "pek-smoke:${{ github.run_id }}-arm" 2>/dev/null || true
+          rm -rf -- release-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+
+  github-release:
+    name: Publish one GitHub release
+    if: github.event_name == 'push'
+    needs: [prepare, smoke-x86, smoke-arm, build-docs]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout released source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          persist-credentials: false
+
+      - name: Download release packages
+        uses: actions/download-artifact@v8
+        with:
+          pattern: pek-release-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release
+          merge-multiple: true
+
+      - name: Publish release after all uploads succeed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          COMMIT: ${{ needs.prepare.outputs.commit }}
+        run: |
+          set -euo pipefail
+          mapfile -t archives < <(find release -maxdepth 1 -type f -name "*.tar.gz" | sort)
+          test "${#archives[@]}" -eq 3
+          hashes="$(sha256sum "${archives[@]}")"
+          sed -n "/^## \\[$VERSION\\]/,/^## \\[/p" CHANGELOG.md |
+            sed "\$d" > release-body.md
+          {
+            # shellcheck disable=SC2016
+            printf '\nSource commit: `%s`\n\n### Archives\n\n' "$COMMIT"
+            while read -r hash file; do
+              # shellcheck disable=SC2016
+              printf -- '- `%s` — `%s`\n' "$(basename "$file")" "$hash"
+            done <<< "$hashes"
+          } >> release-body.md
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "Release v$VERSION already exists." >&2
+            exit 1
+          fi
+          gh release create "v$VERSION" --draft --target "$COMMIT" \
+            --title "PEK $VERSION" --notes-file release-body.md
+          gh release upload "v$VERSION" "${archives[@]}"
+          gh release edit "v$VERSION" --draft=false
+
+  artifactory:
+    name: Publish one Artifactory release
+    needs: [prepare, smoke-x86, smoke-arm, build-docs, github-release]
+    if: >-
+      ${{ always() &&
+          needs.prepare.result == 'success' &&
+          needs.smoke-x86.result == 'success' &&
+          needs.smoke-arm.result == 'success' &&
+          needs.build-docs.result == 'success' &&
+          (github.event_name == 'workflow_dispatch' ||
+           needs.github-release.result == 'success') }}
+    runs-on: self-hosted-ubuntu-latest-x64
+    steps:
+      - name: Checkout publisher configuration
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Download release packages
+        uses: actions/download-artifact@v8
+        with:
+          pattern: pek-release-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts
+          merge-multiple: true
+
+      - name: Accept exactly three archives
+        env:
+          BUILD_ID: ${{ needs.prepare.outputs.build_id }}
+        run: |
+          set -euo pipefail
+          expected=(
+            "pek-$BUILD_ID-linux-x86_64.tar.gz"
+            "pek-$BUILD_ID-linux-aarch64.tar.gz"
+            "pek-docs-$BUILD_ID.tar.gz"
+          )
+          test -z "$(find artifacts -type l -print -quit)"
+          mapfile -d '' -t files < <(
+            find artifacts -mindepth 1 -maxdepth 1 -type f -print0 | sort -z
+          )
+          mapfile -d '' -t expected < <(printf '%s\0' "${expected[@]}" | sort -z)
+          test "${#files[@]}" -eq 3
+          for index in 0 1 2; do
+            test "${files[$index]##*/}" = "${expected[$index]}"
+          done
+
+      - name: Set up locked uv and Python
+        uses: astral-sh/setup-uv@v7.3.1
+        with:
+          version: '0.8.13'
+          python-version: '3.14'
+
+      - name: Create read-only publisher token
+        id: publisher-token
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          client-id: Iv23li0DqDMHoMs0TXT9
+          private-key: ${{ secrets.EDGEAI_EXPKITS_APP_PK }}
+          owner: Arm-Debug
+          repositories: publisher
+          permission-contents: read
+
+      - name: Install locked publisher
+        env:
+          PUBLISHER_TOKEN: ${{ steps.publisher-token.outputs.token }}
+          GIT_CONFIG_GLOBAL: ${{ runner.temp }}/pek-publisher.gitconfig
+        working-directory: scripts/private/release-publisher
+        run: |
+          set -euo pipefail
+          trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT
+          git config --global url."https://x-access-token:${PUBLISHER_TOKEN}@github.com/".insteadOf \
+            "https://github.com/"
+          uv sync --frozen --no-dev
+
+      - name: Publish to Artifactory
+        id: publish
+        working-directory: scripts/private/release-publisher
+        env:
+          ARTIFACTORY_HOST: https://artifactory.arm.com
+          ARTIFACTORY_USER: ${{ secrets.PEK_ARTIFACTORY_USERNAME }}
+          ARTIFACTORY_TOKEN: ${{ secrets.PEK_ARTIFACTORY_API_KEY }}
+          ARTIFACTORY_ARTIFACTS_NAME: ai-expkits-internal.opk-ci
+          # The publisher joins RELEASE_VERSION directly below DOWNLOAD_BASE.
+          RELEASE_VERSION: ${{ github.event_name == 'workflow_dispatch' && 'snapshots' || format('releases/{0}', needs.prepare.outputs.version) }}
+          DOWNLOAD_BASE: https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci
+          SUBDIR_PATH: ${{ github.event_name == 'workflow_dispatch' && format('{0}/{1}-{2}-{3}', github.event.inputs.build_label, needs.prepare.outputs.commit, github.run_id, github.run_attempt) || '' }}
+        run: uv run --frozen --offline python -m publisher.actions.publish_to_artifactory_action "../../../artifacts/*.tar.gz"
+
+      # This step is only here to make the created package easier to access
+      - name: Print links and hashes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          LABEL: ${{ github.event.inputs.build_label }}
+          COMMIT: ${{ needs.prepare.outputs.commit }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            folder="snapshots/$LABEL/$COMMIT-${{ github.run_id }}-${{ github.run_attempt }}"
+            title="PEK Artifactory snapshot"
+          else
+            folder="releases/$VERSION"
+            title="PEK Artifactory release"
+          fi
+          base="https://artifactory.arm.com/artifactory/ai-expkits-internal.opk-ci/$folder"
+          echo "Artifactory folder: $folder"
+          {
+            echo "### $title"
+            echo
+            echo "Folder: \`$folder\`"
+            echo
+            for archive in artifacts/*.tar.gz; do
+              name="$(basename "$archive")"
+              hash="$(sha256sum "$archive" | cut -d' ' -f1)"
+              url="$base/$name"
+              echo "$url"
+              # shellcheck disable=SC2016
+              printf -- '- [%s](%s) — `%s`\n' "$name" "$url" "$hash"
+            done
+          } | tee -a "$GITHUB_STEP_SUMMARY"
