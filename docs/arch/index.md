@@ -42,3 +42,4 @@ execution model, metadata contracts, and main GStreamer elements.
 
 - [Containers](containers.md)
 - [Testing](testing.md)
+- [Release packages](release-process.md)

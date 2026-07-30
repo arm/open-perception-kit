@@ -43,6 +43,8 @@ These contain the project documentation.
 - `docs/public/getting-started/` contains setup and quick-start pages.
 - `docs/public/how-to/` contains practical task guides.
 - `docs/public/concepts/` contains conceptual background pages.
+- `docs/public/getting-started/binary-release.md` documents direct integration
+  of the three release archives.
 - `docs/public/docs-config.json` defines the docs site label, navigation, and sidebar grouping.
 - `docs/public/static/` contains shared images and other static assets used by the docs site.
 - `docs/arch/` contains developer-facing architecture notes.

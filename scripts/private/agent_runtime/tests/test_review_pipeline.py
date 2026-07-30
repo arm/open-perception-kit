@@ -859,6 +859,8 @@ class AgentRuntimeReviewPipelineTests(unittest.TestCase):
         self.assertIn("Do not reverse-engineer blobs", content)
         self.assertIn("Intent never waives bugs", content)
         self.assertIn("Prefer omission over unsupported or weakly related findings", content)
+        self.assertIn("temporary Hugging Face credential contract", content)
+        self.assertIn("continued repository-workflow dependence on `secrets.HF_TOKEN`", content)
         self.assertIn("<agent-review:suppress>", content)
         self.assertIn("<agent-review:suppress-begin>", content)
         self.assertNotIn("@@", content)
