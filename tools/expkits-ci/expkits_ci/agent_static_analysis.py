@@ -30,13 +30,13 @@ AGENT_STATIC_PYTHON_PATHS = (
     "tools/expkits-ci/tests/test_agent_static_analysis.py",
     "tools/expkits-ci/tests/test_agent_workflow_contracts.py",
 )
+# Ignore files intentionally name absent/generated paths, not source references.
 AGENT_STATIC_REFERENCE_PATHS = (
     ".github",
     "scripts/private",
     "tools/expkits-ci/agent-workflows-mypy.ini",
     "tools/expkits-ci/tests/test_agent_static_analysis.py",
     "tools/expkits-ci/tests/test_agent_workflow_contracts.py",
-    ".gitignore",
 )
 
 

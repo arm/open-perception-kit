@@ -46,6 +46,9 @@ class AgentStaticAnalysisTests(unittest.TestCase):
             {"scripts/private/old-helper.py", "scripts/private/old-helper"},
         )
 
+    def test_ignore_rules_are_not_source_references(self):
+        self.assertNotIn(".gitignore", agent_static_analysis.AGENT_STATIC_REFERENCE_PATHS)
+
 
 if __name__ == "__main__":
     unittest.main()
