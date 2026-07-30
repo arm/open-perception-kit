@@ -52,7 +52,7 @@ REPORT_INDEX_META = "report-index-meta.txt"
 FINGERPRINT_HEADER = "# image_set_fingerprint="
 PERCENTILE_METRICS = ("p50_ms", "p75_ms", "p95_ms", "p99_ms")
 RUN_METRICS = ("avg_ms", *PERCENTILE_METRICS)
-VIDEO_COMPARISON_SCHEMA = "expkits_yolo_video_comparison.v2"
+VIDEO_COMPARISON_SCHEMA = "expkits_yolo_video_comparison.v3"
 IMAGE_COMPARISON_SCHEMA = "expkits_yolo_image_comparison.v1"
 BARE_DETECTION_VIDEO = "bare-detections.mp4"
 PEK_DETECTION_VIDEO = "pek-detections.mp4"
@@ -1032,14 +1032,34 @@ def median_fps_delta(runs: list[dict[str, Any]]) -> dict[str, float]:
     }
 
 
+def video_measurement_description(measurement: dict[str, Any]) -> str:
+    if measurement.get("preloaded_frames") is True:
+        return (
+            "The pinned MP4 is decoded and color-converted into memory before timing, then replayed as an "
+            "unpaced live stream. FPS includes pipeline delivery, model preprocessing, inference, post-processing, "
+            "and result serialization. One complete video pass warms the same loaded model before measurement."
+        )
+    warmup = (
+        "One complete video pass warms the same loaded model before measurement."
+        if measurement.get("warmup_video_passes")
+        else "The first frame is warmup."
+    )
+    return (
+        "The pinned MP4 is processed unpaced. FPS includes decode, color conversion, inference, post-processing, "
+        f"result serialization, and delivery. {warmup}"
+    )
+
+
 def write_video_summary_table(runs: list[dict[str, Any]]) -> str:
     delta = median_fps_delta(runs)
+    measurement = runs[0]["comparison"]["measurement"]
+    metric = "Preloaded video stream" if measurement.get("preloaded_frames") else "Unpaced pipeline"
     return (
         '<div class="table-scroll"><table class="benchmark-table">'
         '<thead><tr>'
         f'{th("Metric")}{th("Bare median", "[FPS]")}{th("PEK median", "[FPS]")}'
         f'{th("PEK delta", "[FPS]")}{th("Result")}'
-        '</tr></thead><tbody><tr><td>Unpaced pipeline</td>'
+        f'</tr></thead><tbody><tr><td>{metric}</td>'
         f'<td>{delta["bare_fps"]:.3f}</td><td>{delta["pek_fps"]:.3f}</td>'
         f'<td>{delta["delta_fps"]:+.3f}</td><td>{fps_result_label(delta)}</td>'
         '</tr></tbody></table></div>'
@@ -1424,6 +1444,7 @@ def write_video_report_page(
             "back_href": html_escape(back_href),
             "meta_html": meta_html,
             "overall_result": overall_result_block(runs),
+            "measurement_description": html_escape(video_measurement_description(measurement)),
             "timed_region": html_escape(measurement["timed_region"]),
             "frame_count": html_escape(inputs["source_frame_count"]),
             "source_fps": html_escape(inputs["source_fps"]),

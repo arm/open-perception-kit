@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       benchmark_runs:
-        description: "Number of repeated benchmark runs."
+        description: "Optional benchmark repetition override."
         required: false
-        default: "4"
+        default: ""
         type: string
   pull_request:
     branches: [ main, develop, "feature/**", "sandbox/**" ]
@@ -42,7 +42,7 @@ jobs:
       MODELFETCH_RELEASE_TOOL_IMAGE: yolo-modelfetch-release-tools:${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       YOLO_BENCHMARK_IMAGE_NAME: amp-dev-forge-yolo-video-benchmark:${{ github.run_id }}-${{ github.run_attempt }}
       YOLO_BENCHMARK_KIND: video
-      YOLO_BENCHMARK_RUNS: ${{ github.event_name == 'workflow_dispatch' && inputs.benchmark_runs || '10' }}
+      YOLO_BENCHMARK_RUNS: ${{ github.event_name == 'pull_request' && '1' || inputs.benchmark_runs }}
 
     steps:
       - name: Checkout ref

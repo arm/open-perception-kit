@@ -4,14 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       image_limit:
-        description: "Optional COCO val2017 image limit. Use 0 for the full dataset."
+        description: "Optional COCO val2017 image limit. Leave empty for the full dataset."
         required: false
-        default: "0"
+        default: ""
         type: string
       benchmark_runs:
-        description: "Number of repeated benchmark runs."
+        description: "Optional benchmark repetition override."
         required: false
-        default: "1"
+        default: ""
         type: string
   pull_request:
     branches: [ main, develop, "feature/**", "sandbox/**" ]
@@ -47,8 +47,8 @@ jobs:
       MODELFETCH_RELEASE_TOOL_IMAGE: yolo-modelfetch-release-tools:${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       YOLO_BENCHMARK_IMAGE_NAME: amp-dev-forge-yolo-imageset-benchmark:${{ github.run_id }}-${{ github.run_attempt }}
       YOLO_BENCHMARK_KIND: images
-      YOLO_BENCHMARK_LIMIT: ${{ github.event_name == 'workflow_dispatch' && inputs.image_limit || github.event_name == 'pull_request' && '10' || '' }}
-      YOLO_BENCHMARK_RUNS: ${{ github.event_name == 'workflow_dispatch' && inputs.benchmark_runs || '1' }}
+      YOLO_BENCHMARK_LIMIT: ${{ inputs.image_limit }}
+      YOLO_BENCHMARK_RUNS: ${{ github.event_name == 'pull_request' && '1' || inputs.benchmark_runs }}
 
     steps:
       - name: Checkout ref

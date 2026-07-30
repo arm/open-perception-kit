@@ -34,8 +34,10 @@
       "additionalProperties": false,
       "properties": {
         "artifact_write_excluded": { "const": true },
-        "decode_included": { "const": true },
-        "technique": { "const": "unpaced_video_result_intervals" },
+        "decode_included": { "const": false },
+        "source_color_conversion_included": { "const": false },
+        "preloaded_frames": { "const": true },
+        "technique": { "const": "preloaded_video_result_intervals" },
         "timed_region": { "const": "first_serialized_result_ready_to_last_serialized_result_ready" },
         "video_pacing_disabled": { "const": true },
         "warmup_video_passes": { "const": 1 },
@@ -45,6 +47,8 @@
         "technique",
         "timed_region",
         "decode_included",
+        "source_color_conversion_included",
+        "preloaded_frames",
         "artifact_write_excluded",
         "video_pacing_disabled",
         "warmup_video_passes",
@@ -53,13 +57,14 @@
       "type": "object"
     },
     "runner": { "minLength": 1, "type": "string" },
-    "schema": { "const": "expkits_yolo_video_benchmark.v2" },
+    "schema": { "const": "expkits_yolo_video_benchmark.v3" },
     "timing": {
       "additionalProperties": true,
       "properties": {
         "elapsed_ms": { "exclusiveMinimum": 0, "type": "number" },
         "load_ms": { "minimum": 0, "type": "number" },
         "measured_frames": { "minimum": 1, "type": "integer" },
+        "preload_ms": { "minimum": 0, "type": "number" },
         "pipeline_fps": { "exclusiveMinimum": 0, "type": "number" },
         "total_frames": { "minimum": 1, "type": "integer" }
       },

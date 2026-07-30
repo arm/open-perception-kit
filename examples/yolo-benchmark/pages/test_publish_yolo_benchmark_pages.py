@@ -86,9 +86,17 @@ def comparison(bare_ms: float = 10.0,
 def video_comparison(bare_fps: float = 10.0, pek_fps: float = 12.0) -> dict:
     ratio = pek_fps / bare_fps
     return {
-        "schema": "expkits_yolo_video_comparison.v2",
+        "schema": "expkits_yolo_video_comparison.v3",
         "measurement": {
+            "technique": "preloaded_video_result_intervals",
             "timed_region": "first_serialized_result_ready_to_last_serialized_result_ready",
+            "decode_included": False,
+            "source_color_conversion_included": False,
+            "preloaded_frames": True,
+            "artifact_write_excluded": True,
+            "video_pacing_disabled": True,
+            "warmup_video_passes": 1,
+            "warmup_frames": 1,
         },
         "inputs": {
             "source_frame_count": 205,
@@ -523,17 +531,17 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             self.assertIn(">Open workflow run</a>", (target / "index.html").read_text(encoding="utf-8"))
             set_output.assert_called_once_with("deploy", "true")
 
-    def test_restore_latest_detection_videos_embeds_only_latest_run(self) -> None:
+    def test_restore_latest_detection_videos_preserves_latest_v2_report(self) -> None:
         repository = "Arm-Debug/amp-dev-forge"
         with tempfile.TemporaryDirectory() as tmpdir:
             site_dir = Path(tmpdir) / "site"
 
-            def write_report(run_id: str) -> Path:
+            def write_report(run_id: str, comparison_doc: dict | None = None) -> Path:
                 target = site_dir / "yolo-benchmark" / "manual" / run_id
                 run_dir = target / "runs" / "run-01"
                 run_dir.mkdir(parents=True)
                 (run_dir / "comparison.json").write_text(
-                    json.dumps(video_comparison()), encoding="utf-8"
+                    json.dumps(comparison_doc or video_comparison()), encoding="utf-8"
                 )
                 (target / "report-meta.html").write_text("Manual\n", encoding="utf-8")
                 publish.write_video_artifact_meta(
@@ -550,7 +558,18 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
                 return target
 
             old_target = write_report("123")
-            latest_target = write_report("456")
+            v2_comparison = video_comparison()
+            v2_comparison["schema"] = "expkits_yolo_video_comparison.v2"
+            v2_comparison["measurement"] = {
+                "technique": "unpaced_video_result_intervals",
+                "timed_region": "first_serialized_result_ready_to_last_serialized_result_ready",
+                "decode_included": True,
+                "artifact_write_excluded": True,
+                "video_pacing_disabled": True,
+                "warmup_video_passes": 1,
+                "warmup_frames": 1,
+            }
+            latest_target = write_report("456", v2_comparison)
 
             def write_artifact(destination: Path, _repository: str, run_id: str, _attempt: str) -> bool:
                 self.assertEqual(run_id, "456")
@@ -568,6 +587,9 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
             latest_html = (latest_target / "index.html").read_text(encoding="utf-8")
             self.assertIn('src="bare-detections.mp4"', latest_html)
             self.assertIn('src="pek-detections.mp4"', latest_html)
+            self.assertIn("Unpaced pipeline", latest_html)
+            self.assertIn("FPS includes decode, color conversion", latest_html)
+            self.assertNotIn("Preloaded video stream", latest_html)
 
     def test_restore_latest_detection_videos_links_when_artifact_is_missing(self) -> None:
         repository = "Arm-Debug/amp-dev-forge"

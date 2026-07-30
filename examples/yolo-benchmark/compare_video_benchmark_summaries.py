@@ -22,8 +22,8 @@ MEASUREMENT_CONSTS = {
     for key, value in SUMMARY_SCHEMA["properties"]["measurement"]["properties"].items()
     if "const" in value
 }
-COMPARISON_SCHEMA = "expkits_yolo_video_comparison.v2"
-REPORT_SCHEMA = "expkits_yolo_video_report.v2"
+COMPARISON_SCHEMA = "expkits_yolo_video_comparison.v3"
+REPORT_SCHEMA = "expkits_yolo_video_report.v3"
 COMPARABLE_INPUTS = (
     "video_sha256",
     "source_width",
@@ -138,9 +138,9 @@ def comparison_markdown(doc: dict[str, Any]) -> str:
         f"{inputs['source_fps']:.3f} source FPS, {inputs['source_frame_count']} frames.\n\n"
         "| Metric | Bare Ultralytics | PEK | PEK delta | Ratio |\n"
         "|---|---:|---:|---:|---:|\n"
-        f"| Unpaced pipeline FPS | {fps['bare_fps']:.3f} | {fps['pek_fps']:.3f} | "
+        f"| Preloaded-source pipeline FPS | {fps['bare_fps']:.3f} | {fps['pek_fps']:.3f} | "
         f"{fps['delta_fps']:+.3f} ({fps['delta_percent']:+.2f}%) | {fps['ratio']:.3f}x |\n\n"
-        "Higher is better. Decode, color conversion, inference, post-processing, and result delivery are included.\n"
+        "Higher is better. Video decode and source color conversion are outside the timed region.\n"
     )
 
 
@@ -149,13 +149,13 @@ def report_markdown(doc: dict[str, Any]) -> str:
     rows = "".join(f"| {run['name']} | {run['bare_fps']:.3f} | {run['pek_fps']:.3f} |\n" for run in doc["runs"])
     return (
         "# YOLO Video Performance\n\n"
-        f"**Median unpaced FPS ({doc['run_count']} runs): Bare {fps['bare_fps']:.3f}, "
+        f"**Median preloaded-source FPS ({doc['run_count']} runs): Bare {fps['bare_fps']:.3f}, "
         f"PEK {fps['pek_fps']:.3f}, PEK delta {fps['delta_fps']:+.3f} "
         f"({fps['delta_percent']:+.2f}%).**\n\n"
         "| Run | Bare Ultralytics FPS | PEK FPS |\n"
         "|---|---:|---:|\n"
         f"{rows}\n"
-        "The pinned video is processed unpaced; its 30 FPS timestamp rate does not cap throughput.\n"
+        "The pinned video is decoded and color-converted in memory before timing; source timestamps do not cap throughput.\n"
     )
 
 
