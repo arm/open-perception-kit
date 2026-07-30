@@ -3,7 +3,7 @@
 # Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
 
-"""Measure unpaced Ultralytics video throughput."""
+"""Measure Ultralytics throughput over preloaded video frames."""
 
 from __future__ import annotations
 
@@ -50,16 +50,68 @@ def load_source(path: Path) -> dict[str, Any]:
     return source
 
 
+def preload_frames(video: Path, source: dict[str, Any], cv2: Any) -> list[Any]:
+    capture = cv2.VideoCapture(str(video))
+    if not capture.isOpened():
+        raise ValueError(f"failed to open video: {video}")
+    frames = []
+    try:
+        while True:
+            available, frame = capture.read()
+            if not available:
+                break
+            height, width = frame.shape[:2]
+            if (width, height) != (int(source["width"]), int(source["height"])):
+                raise ValueError(
+                    f"decoded frame is {width}x{height}, "
+                    f"expected {source['width']}x{source['height']}"
+                )
+            frames.append(frame)
+    finally:
+        capture.release()
+    expected_frames = int(source["frame_count"])
+    if len(frames) != expected_frames:
+        raise ValueError(f"decoded {len(frames)} frames, expected {expected_frames}")
+    return frames
+
+
+def preloaded_video_source(frames: list[Any], loader_base: type, source_types: type) -> Any:
+    class PreloadedVideoFrames(loader_base):
+        def __init__(self) -> None:
+            self.frames = frames
+            self.bs = 1
+            self.mode = "video"
+            self.source_type = source_types(stream=True, screenshot=False, from_img=False, tensor=False)
+            self.index = 0
+
+        def __len__(self) -> int:
+            return len(self.frames)
+
+        def __iter__(self) -> Any:
+            self.index = 0
+            return self
+
+        def __next__(self) -> tuple[list[str], list[Any], list[str]]:
+            if self.index >= len(self.frames):
+                raise StopIteration
+            frame = self.frames[self.index]
+            self.index += 1
+            return [f"frame-{self.index:06d}"], [frame], [""]
+
+    return PreloadedVideoFrames()
+
+
 def summary_document(
     args: argparse.Namespace,
     source: dict[str, Any],
     total_frames: int,
     elapsed_ms: float,
     load_ms: float,
+    preload_ms: float,
 ) -> dict[str, Any]:
     expected_frames = int(source["frame_count"])
     if total_frames != expected_frames:
-        raise ValueError(f"decoded {total_frames} frames, expected {expected_frames}")
+        raise ValueError(f"processed {total_frames} frames, expected {expected_frames}")
     measured_frames = total_frames - WARMUP_FRAMES
     if elapsed_ms <= 0:
         raise ValueError("measured video interval must be positive")
@@ -81,6 +133,7 @@ def summary_document(
         },
         "timing": {
             "load_ms": load_ms,
+            "preload_ms": preload_ms,
             "total_frames": total_frames,
             "measured_frames": measured_frames,
             "elapsed_ms": elapsed_ms,
@@ -89,17 +142,12 @@ def summary_document(
     }
 
 
-def prediction_ready_times(
-    model: Any,
-    args: argparse.Namespace,
-    source: dict[str, Any],
-) -> list[float]:
+def prediction_ready_times(model: Any, source: Any) -> list[float]:
     ready_times = []
     results = model.predict(
-        source=str(args.video),
+        source=source,
         stream=True,
         batch=1,
-        vid_stride=1,
         imgsz=IMG_SIZE,
         device=DEVICE,
         verbose=False,
@@ -107,34 +155,20 @@ def prediction_ready_times(
     for result in results:
         result.to_json()
         ready_times.append(time.perf_counter())
-        height, width = result.orig_shape
-        if (width, height) != (int(source["width"]), int(source["height"])):
-            raise ValueError(
-                f"decoded frame is {width}x{height}, "
-                f"expected {source['width']}x{source['height']}"
-            )
     return ready_times
 
 
-def benchmark_model(
-    model: Any,
-    args: argparse.Namespace,
-    source: dict[str, Any],
-) -> tuple[int, float]:
+def benchmark_model(model: Any, frame_source: Any, source: dict[str, Any]) -> tuple[int, float]:
     expected_frames = int(source["frame_count"])
-    warmup_times = prediction_ready_times(model, args, source)
+    warmup_times = prediction_ready_times(model, frame_source)
     if len(warmup_times) != expected_frames:
-        raise ValueError(
-            f"warm-up decoded {len(warmup_times)} frames, expected {expected_frames}"
-        )
+        raise ValueError(f"warm-up processed {len(warmup_times)} frames, expected {expected_frames}")
 
-    measured_times = prediction_ready_times(model, args, source)
+    measured_times = prediction_ready_times(model, frame_source)
     total_frames = len(measured_times)
     if total_frames != expected_frames:
-        raise ValueError(f"decoded {total_frames} frames, expected {expected_frames}")
-    elapsed_ms = (
-        measured_times[-1] - measured_times[WARMUP_FRAMES - 1]
-    ) * 1000.0
+        raise ValueError(f"processed {total_frames} frames, expected {expected_frames}")
+    elapsed_ms = (measured_times[-1] - measured_times[WARMUP_FRAMES - 1]) * 1000.0
     return total_frames, elapsed_ms
 
 
@@ -144,14 +178,21 @@ def main() -> int:
     os.environ.setdefault("CUDA_VISIBLE_DEVICES", "-1")
     os.environ.setdefault("MPLBACKEND", "Agg")
 
+    import cv2  # noqa: PLC0415
     from ultralytics import YOLO  # noqa: PLC0415
+    from ultralytics.data.loaders import LoadPilAndNumpy, SourceTypes  # noqa: PLC0415
 
     started = time.perf_counter()
     model = YOLO(args.model, task="detect")
     load_ms = (time.perf_counter() - started) * 1000.0
 
-    total_frames, elapsed_ms = benchmark_model(model, args, source)
-    summary = summary_document(args, source, total_frames, elapsed_ms, load_ms)
+    started = time.perf_counter()
+    frames = preload_frames(args.video, source, cv2)
+    frame_source = preloaded_video_source(frames, LoadPilAndNumpy, SourceTypes)
+    preload_ms = (time.perf_counter() - started) * 1000.0
+
+    total_frames, elapsed_ms = benchmark_model(model, frame_source, source)
+    summary = summary_document(args, source, total_frames, elapsed_ms, load_ms, preload_ms)
     args.summary.parent.mkdir(parents=True, exist_ok=True)
     args.summary.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"bare video FPS: {summary['timing']['pipeline_fps']:.3f}")

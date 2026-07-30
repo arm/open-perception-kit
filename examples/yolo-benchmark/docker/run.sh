@@ -9,6 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(git -C "${SCRIPT_DIR}" rev-parse --show-toplevel)"
 COMPOSE_FILE="${SCRIPT_DIR}/compose.yaml"
 IMAGE_NAME="${YOLO_BENCHMARK_IMAGE_NAME:-amp-dev-forge-yolo-benchmark:local}"
+DEFAULT_BENCHMARK_RUNS=10
 
 usage() {
     cat << 'EOF'
@@ -20,7 +21,7 @@ Runs the Dockerized YOLO benchmark workflow.
 Environment:
   YOLO_BENCHMARK_KIND            Benchmark kind: images or video. Default: images.
   YOLO_BENCHMARK_LIMIT           Optional image-list limit. Default: full COCO val2017.
-  YOLO_BENCHMARK_RUNS            Number of benchmark repetitions. Default: 1.
+  YOLO_BENCHMARK_RUNS            Optional benchmark repetition override. Default: 10.
   YOLO_BENCHMARK_IMAGE_NAME      Runtime image tag override.
   YOLO_BENCHMARK_CACHE_VOLUME    Docker volume override for dataset, venv, and PEK build cache.
   COMPOSE_PROJECT_NAME           Compose project override. Default: amp-dev-forge-yolo-benchmark
@@ -69,7 +70,7 @@ run_in_container() {
     local image_list="${artifact_root}/images.tsv"
     local video="${cache_root}/media/mediapipe-object-detection.mp4"
     local video_manifest="${artifact_root}/video-source.json"
-    local benchmark_runs="${YOLO_BENCHMARK_RUNS:-1}"
+    local benchmark_runs="${YOLO_BENCHMARK_RUNS:-${DEFAULT_BENCHMARK_RUNS}}"
     local venv="${cache_root}/.venv"
     local dataset_dir="${cache_root}/coco"
     local pek_build_dir="${cache_root}/pek-build"
@@ -324,7 +325,7 @@ write_summary() {
         echo
         echo "- benchmark_kind: ${YOLO_BENCHMARK_KIND:-images}"
         echo "- image_limit: ${YOLO_BENCHMARK_LIMIT:-full}"
-        echo "- benchmark_runs: ${YOLO_BENCHMARK_RUNS:-1}"
+        echo "- benchmark_runs: ${YOLO_BENCHMARK_RUNS:-${DEFAULT_BENCHMARK_RUNS}}"
         echo "- container_image: ${YOLO_BENCHMARK_IMAGE_NAME:-${IMAGE_NAME}}"
         echo
         if [[ -f artifacts/yolo-benchmark/summary.md ]]; then

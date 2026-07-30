@@ -507,10 +507,23 @@ class AgentWorkflowContractTests(unittest.TestCase):
         sonar_steps = step_map(sonar["jobs"]["build-and-sonar"])
         linux_steps = step_map(pek_ci["jobs"]["linux-quick-start-build-test"])
         rpi_steps = step_map(pek_ci["jobs"]["rpi5-quick-start-build-test"])
+        macos_steps = step_map(pek_ci["jobs"]["macos-nightly-test"])
         expected_label_gate = "github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')"
         expected_draft_override = (
             "github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci')"
         )
+        expected_pek_concurrency = {
+            "group": (
+                "${{ github.workflow }}-${{ github.event_name }}-"
+                "${{ github.event.pull_request.number || github.event.inputs.pr_number || "
+                "github.ref || github.run_id }}-"
+                "${{ github.event.action == 'labeled' && "
+                "(!contains(github.event.label.name, 'run-pek-ci') || "
+                "contains(github.event.pull_request.labels.*.name, 'run-macos-ci')) && "
+                "github.run_id || 'validation' }}"
+            ),
+            "cancel-in-progress": "true",
+        }
         expected_standard_concurrency = {
             "group": (
                 "${{ github.workflow }}-${{ github.event_name }}-"
@@ -523,7 +536,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
             "cancel-in-progress": "true",
         }
 
-        self.assertEqual(pek_ci["concurrency"], expected_standard_concurrency)
+        self.assertEqual(pek_ci["concurrency"], expected_pek_concurrency)
         self.assertEqual(sonar["concurrency"], expected_standard_concurrency)
         self.assertEqual(
             valgrind["concurrency"],
@@ -548,7 +561,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         self.assertIn("Resolve manual PR context", sonar_steps)
         self.assertIn("Checkout workflow helpers", pek_steps)
         self.assertIn("Checkout workflow helpers", sonar_steps)
-        for steps in (linux_steps, rpi_steps, pek_steps, sonar_steps):
+        for steps in (linux_steps, rpi_steps, macos_steps, pek_steps, sonar_steps):
             self.assertIn("Resolve manual PR context", steps)
             self.assertIn("Checkout workflow helpers", steps)
             resolver_run = steps["Resolve manual PR context"]["run"]
@@ -566,6 +579,11 @@ class AgentWorkflowContractTests(unittest.TestCase):
             job_condition = pek_ci["jobs"][job_name]["if"]
             self.assertIn(expected_label_gate, job_condition)
             self.assertIn(expected_draft_override, job_condition)
+        macos_condition = pek_ci["jobs"]["macos-nightly-test"]["if"]
+        self.assertIn("github.event_name != 'pull_request'", macos_condition)
+        self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", macos_condition)
+        self.assertIn("github.event.label.name == 'run-macos-ci'", macos_condition)
+        self.assertIn("contains(github.event.pull_request.labels.*.name, 'run-macos-ci')", macos_condition)
         sonar_condition = sonar["jobs"]["build-and-sonar"]["if"]
         self.assertIn(expected_label_gate, sonar_condition)
         self.assertIn(expected_draft_override, sonar_condition)
@@ -579,6 +597,10 @@ class AgentWorkflowContractTests(unittest.TestCase):
         )
         self.assertEqual(
             rpi_steps["Checkout"]["with"]["ref"],
+            resolved_checkout_ref,
+        )
+        self.assertEqual(
+            macos_steps["Checkout"]["with"]["ref"],
             resolved_checkout_ref,
         )
         self.assertEqual(
@@ -962,6 +984,10 @@ class AgentWorkflowContractTests(unittest.TestCase):
             yolo_job = yolo["jobs"][job_name]
             yolo_prepare = step_map(yolo_job)["Prepare pinned modelfetch release"]
             with self.subTest(workflow=relative_path, job=job_name):
+                self.assertEqual(
+                    yolo_job["env"]["YOLO_BENCHMARK_RUNS"],
+                    "${{ github.event_name == 'pull_request' && '1' || inputs.benchmark_runs }}",
+                )
                 self.assertEqual(
                     yolo_job["env"]["MODELFETCH_RELEASE_TOOL_IMAGE"],
                     "yolo-modelfetch-release-tools:"

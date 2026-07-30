@@ -13,8 +13,7 @@ source "${SCRIPT_DIR}/../../pre-commit/common.sh"
 usage() {
     cat << 'EOF'
 Usage:
-  ./scripts/playwright/browser-smoke/run.sh [-h|--help]
-  ./scripts/playwright/browser-smoke/run.sh --cleanup-stale
+  ./scripts/playwright/browser-smoke/run.sh [--cleanup-stale|--sink-only|-h|--help]
 
 Prerequisites:
   ./scripts/quick-start/start-container.sh --recreate
@@ -31,16 +30,25 @@ EOF
 }
 
 MODE="run"
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-    usage
-    exit 0
-elif [[ "${1:-}" == "--cleanup-stale" ]]; then
-    MODE="cleanup-stale"
-elif [[ "${1:-}" != "" ]]; then
-    echo "Error: unknown argument '${1}'" >&2
-    usage >&2
-    exit 2
-fi
+TEST_SET="full"
+case "${1:-}" in
+    -h | --help)
+        usage
+        exit 0
+        ;;
+    --cleanup-stale)
+        MODE="cleanup-stale"
+        ;;
+    --sink-only)
+        TEST_SET="sink-only"
+        ;;
+    "") ;;
+    *)
+        echo "Error: unknown argument '${1}'" >&2
+        usage >&2
+        exit 2
+        ;;
+esac
 
 REPO_ROOT="$(repo_checks_resolve_repo_root "${SCRIPT_DIR}")"
 RUNTIME_DOCKERFILE="${SCRIPT_DIR}/Dockerfile"
@@ -202,14 +210,14 @@ run_phase() {
     local browser_pid=""
     local pid_file="/tmp/pek-browser-smoke-${phase}.pid"
     local pipeline_pid=""
-    local docker_exec_env_file_args=()
+    local docker_exec_args=(-u dev)
 
     echo "Running browser smoke phase: ${phase}"
 
     if [ -f "${REPO_ROOT}/devices.env" ]; then
-        docker_exec_env_file_args=(--env-file "${REPO_ROOT}/devices.env")
+        docker_exec_args+=(--env-file "${REPO_ROOT}/devices.env")
     fi
-    docker exec -u dev "${docker_exec_env_file_args[@]}" \
+    docker exec "${docker_exec_args[@]}" \
         -e NUM_FRAMES="${NUM_FRAMES}" \
         -e BROWSER_SMOKE_PIPELINE="${pipeline}" \
         -e BROWSER_SMOKE_PID_FILE="${pid_file}" \
@@ -378,10 +386,12 @@ while IFS= read -r browser; do
     esac
 done <<< "${browser_smoke_browsers}"
 
-run_phase "stock-video-loop-chromium" \
-    "config/pipelines/01-full-onnx.json" \
-    "tests/playwright/pek-browser-loop.spec.js" \
-    "chromium" || browser_smoke_status=$?
+if [ "${TEST_SET}" = "full" ]; then
+    run_phase "stock-video-loop-chromium" \
+        "config/pipelines/01-full-onnx.json" \
+        "tests/playwright/pek-browser-loop.spec.js" \
+        "chromium" || browser_smoke_status=$?
+fi
 
 while IFS= read -r browser; do
     run_phase "sink-only-${browser}" \
@@ -390,12 +400,14 @@ while IFS= read -r browser; do
         "${browser}" || browser_smoke_status=$?
 done <<< "${browser_smoke_browsers}"
 
-while IFS= read -r browser; do
-    run_phase "onnx-yolo-${browser}" \
-        "config/pipelines/testing/onnx-yolo-browser.json" \
-        "tests/playwright/pek-browser-models.spec.js" \
-        "${browser}" || browser_smoke_status=$?
-done <<< "${browser_smoke_browsers}"
+if [ "${TEST_SET}" = "full" ]; then
+    while IFS= read -r browser; do
+        run_phase "onnx-yolo-${browser}" \
+            "config/pipelines/testing/onnx-yolo-browser.json" \
+            "tests/playwright/pek-browser-models.spec.js" \
+            "${browser}" || browser_smoke_status=$?
+    done <<< "${browser_smoke_browsers}"
+fi
 
 merge_reports || browser_smoke_status=$?
 

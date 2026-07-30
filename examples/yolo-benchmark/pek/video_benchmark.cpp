@@ -21,7 +21,7 @@
 namespace {
 
 using Clock = std::chrono::steady_clock;
-constexpr const char *SCHEMA_ID = "expkits_yolo_video_benchmark.v2";
+constexpr const char *SCHEMA_ID = "expkits_yolo_video_benchmark.v3";
 constexpr std::size_t WARMUP_FRAMES = 1;
 constexpr int IMG_SIZE = 320;
 
@@ -94,10 +94,8 @@ int main(int argc, char **argv) {
         if (!pluginResult)
             throw std::runtime_error(pluginResult.error().toString());
 
-        // Keep both passes in one pipeline so asynchronous setup and measurement
-        // use the same pekinfer instance. A benchmark-local caps field lets
-        // switchbin discard the warmup output before the sole terminal sink, so
-        // every perception callback belongs unambiguously to the measured pass.
+        // Decode once into a full-video raw queue. The tee then replays those
+        // preloaded BGRA buffers through one warmup and one measured branch.
         const auto video = quotePipelineValue(args.at("--video"));
         const std::string warmupCaps = "video/x-raw,format=BGRA,pek-benchmark-pass=(string)warmup";
         const std::string measuredCaps =
@@ -107,18 +105,27 @@ int main(int argc, char **argv) {
                         "pekinfer opchain-path={} active=true ! "
                         "switchbin num-paths=2 path0::element={} path0::caps={} "
                         "path1::caps={} ! fakesink async=false sync=false "
-                        "filesrc location={} ! decodebin ! videoconvert ! {} ! "
+                        "filesrc location={} ! decodebin ! videoconvert ! "
+                        "video/x-raw,format=BGRA ! "
+                        "queue max-size-buffers={} max-size-bytes=0 max-size-time=0 "
+                        "min-threshold-buffers={} ! tee name=preloaded_video "
+                        "preloaded_video. ! queue max-size-buffers={} max-size-bytes=0 "
+                        "max-size-time=0 ! capssetter caps={} replace=false ! "
                         "video_sequence.sink_0 "
-                        "filesrc location={} ! decodebin ! videoconvert ! {} ! "
+                        "preloaded_video. ! queue max-size-buffers={} max-size-bytes=0 "
+                        "max-size-time=0 ! capssetter caps={} replace=false ! "
                         "video_sequence.sink_1",
                         quotePipelineValue(args.at("--opchain")),
                         quotePipelineValue("valve drop=true drop-mode=forward-sticky-events"),
                         quotePipelineValue(warmupCaps),
                         quotePipelineValue(measuredCaps),
                         video,
-                        warmupCaps,
-                        video,
-                        measuredCaps);
+                        expectedFrames,
+                        expectedFrames,
+                        expectedFrames,
+                        quotePipelineValue(warmupCaps),
+                        expectedFrames,
+                        quotePipelineValue(measuredCaps));
 
         const auto loadStarted = Clock::now();
         auto pipelineResult = pek::runtime::Pipeline::fromString(description);
@@ -163,9 +170,11 @@ int main(int argc, char **argv) {
             {"schema", SCHEMA_ID},
             {"runner", "pek-pipeline-video"},
             {"measurement",
-             {{"technique", "unpaced_video_result_intervals"},
+             {{"technique", "preloaded_video_result_intervals"},
               {"timed_region", "first_serialized_result_ready_to_last_serialized_result_ready"},
-              {"decode_included", true},
+              {"decode_included", false},
+              {"source_color_conversion_included", false},
+              {"preloaded_frames", true},
               {"artifact_write_excluded", true},
               {"video_pacing_disabled", true},
               {"warmup_video_passes", 1},
