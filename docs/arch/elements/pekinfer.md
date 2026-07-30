@@ -25,47 +25,32 @@ explicit `GstVideoFrame`/plane-stride handling.
 
 ## Lifecycle
 
-On `start()`, the element allocates internal state, loads the OpChain descriptor
-from JSON, and emits a downstream `pek-model-register` event with model name,
-element name, and active state. It does not configure the OpChain or load a model
-at this point.
+On `start()`, the element allocates internal state, loads the OpChain from JSON,
+and emits a downstream `pek-model-register` event with model name, element name,
+and active state.
 
 On `set_caps()`, it validates BGRA caps and stores frame dimensions.
 
-The first active frame starts OpChain setup on a background worker. That frame
-and later frames pass through unchanged until setup is ready; inference
-execution is synchronous after setup completes. Inactive models do not start
-setup.
-
-If setup fails, the element reports one GStreamer warning and remains in
-pass-through mode. Deactivating and reactivating a failed model permits another
-setup attempt. Deactivation does not interrupt setup already in progress, but
-pipeline teardown requests cooperative cancellation and joins the setup worker.
-
-On `stop()`, it cancels any in-progress model materialization and releases
-OpChain state and resources.
+On `stop()`, it releases OpChain state and resources.
 
 ## Per-Frame Execution
 
-For each active frame, the element first starts or polls asynchronous setup. If
-the OpChain is not ready, it passes the frame through without further work.
-Once the chain is ready, it:
+For each active frame:
 
-1. Ensures `PerceptionMeta` is attached.
-2. Maps CPU-direct buffer memory for read access.
-3. Constructs an `OpChainContext`.
-4. Adds the BGRA frame as `videoFrames["pipelineVideoFrame"]`.
-5. Exposes the frame's `Perception` object to Ops.
-6. Executes the OpChain.
+1. Map the buffer for read/write access.
+2. Ensure `PerceptionMeta` is attached.
+3. Construct an `OpChainContext`.
+4. Add the BGRA frame as `bitmapViews["pipelineVideoFrame"]`.
+5. Expose the frame's `Perception` object to Ops.
+6. Execute the OpChain.
 
 Persistent outputs must be written into `Perception`; `OpChainContext` is
 transient and discarded after the execution step.
 
 ## Error Handling And Observability
 
-Setup failures are logged, reported once as a GStreamer warning, and leave
-`pekinfer` in pass-through mode. OpChain execution failures are reported as
-GStreamer element errors and fail the affected buffer.
+Current setup and execution failures are logged and may abort execution. Product
+paths should replace abort behavior with proper GStreamer error reporting.
 
 The element participates in global performance tracing. Ops and backends can emit
 timing keys that `pekperformance` later publishes.

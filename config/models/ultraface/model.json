@@ -1,7 +1,7 @@
 {
 	"name": "ultraface",
 	"modelFamily": "ultraface",
-	"modelFile": "hf:Arm/UltraFace@977e88f7cf26eede70742508a0b1be9f1a6e5f38#file=models/onnx/version-RFB-320.onnx",
+	"modelFile": "version-RFB-320.onnx",
 	"dynamicOutput": true,
 	"contentType": "humanFace",
 	"inputTensors": [

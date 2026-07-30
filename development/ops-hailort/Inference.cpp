@@ -120,6 +120,14 @@ pek::Result<pek::Shape> Inference::hailoVstreamToPekSize(const hailo_vstream_inf
     return s;
 }
 
+pek::Result<void> Inference::setupFromJson(const std::string &filePath) {
+    auto descResult = pek::ModelDescriptor::fromFile(filePath);
+    if (!descResult) {
+        return tl::unexpected{descResult.error()};
+    }
+    return setup(*descResult);
+}
+
 pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc) {
     this->modelDescriptor = modelDesc;
     this->model = pek::Model();

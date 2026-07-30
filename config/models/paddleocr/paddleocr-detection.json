@@ -1,7 +1,7 @@
 {
 	"name": "paddleocr",
 	"modelFamily": "paddleocr",
-	"modelFile": "hf:Arm/PaddleOCR@49d3beebca12cb9ad0ce6a0ee3ff99c896b9ea6d#file=models/onnx/detection.onnx",
+	"modelFile": "detection.onnx",
 	"dynamicOutput": true,
 	"maxDetectionCount": 16,
 	"confidenceThreshold": 0.7,

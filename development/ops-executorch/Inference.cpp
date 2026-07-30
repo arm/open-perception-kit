@@ -101,6 +101,14 @@ using namespace pek::extrch;
 Inference::Inference() = default;
 Inference::~Inference() = default;
 
+pek::Result<void> Inference::setupFromJson(const std::string &filePath) {
+    auto descResult = pek::ModelDescriptor::fromFile(filePath);
+    if (!descResult) {
+        return tl::unexpected{descResult.error()};
+    }
+    return setup(*descResult);
+}
+
 pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &module) {
     pek::Model model;
     model.engine = "executorch";
@@ -203,7 +211,10 @@ pek::Result<pek::Model> Inference::inspectModel(executorch::extension::Module &m
 
 pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
 
-    module = std::make_unique<executorch::extension::Module>(modelDesc_.modelFile);
+    modelDescriptor = modelDesc_;
+    modelPath = modelDesc_.modelFile;
+
+    module = std::make_unique<executorch::extension::Module>(modelPath);
 
     auto modelResult = inspectModel(*module);
     if (!modelResult) {
@@ -219,7 +230,7 @@ pek::Result<void> Inference::setup(const pek::ModelDescriptor &modelDesc_) {
     pek::log::info("{}", modelLog);
     pek::log::info("========= ======== ==== ========== =========\n");
 
-    auto cmResult = model.applyModelFromDescriptor(modelDesc_);
+    auto cmResult = model.applyModelFromDescriptor(modelDescriptor);
     if (!cmResult) {
         return tl::make_unexpected(cmResult.error());
     }

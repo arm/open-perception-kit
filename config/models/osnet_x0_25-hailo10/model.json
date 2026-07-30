@@ -2,7 +2,7 @@
     "name": "osnet_x0_25_msmt17",
     "modelFamily": "reid",
     "contentType": "genericObject",
-    "modelFile": "hf:Arm/OSNet-x0-25@84ecc9c3b5bfdef639bdb5f93dc7d55828a7e00b#file=models/hailo10h/osnet_x0_25_msmt17_opset21_patched.hef",
+    "modelFile": "osnet_x0_25_msmt17_opset21_patched.hef",
     "dynamicOutput": true,
     "inputTensors": [
         {

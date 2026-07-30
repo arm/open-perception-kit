@@ -5,6 +5,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 
 #include "Inference.h"
 #include "op/Op.h"
@@ -21,13 +22,13 @@ class InferenceOp : public pek::op::Op, public pek::op::OpInterfaceInference {
     const pek::Model &getModel() const override;
     uint8_t *getTensorDataAddress(size_t index) const override;
 
-    pek::Result<void> configure(const pek::AttributeMap &attributes,
-                                std::stop_token stopToken) override;
+    pek::Result<void> configure(const pek::AttributeMap &attributes) override;
     pek::Result<void> bind(size_t index, const std::vector<pek::op::Op *> &ops) override;
     pek::Result<pek::op::OpSignal> process(pek::op::OpChainContext &opChainContext) override;
 
   private:
     std::unique_ptr<pek::ncnnrt::Inference> inference;
+    std::string modelFamily;
 };
 
 } // namespace pek::ncnnrt

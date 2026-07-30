@@ -31,8 +31,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      additional_contexts:
-        modelfetch_sdks: .cache/modelfetch
       args:
         PEK_PICAMERA: ${PEK_PICAMERA:-disabled}
         NO_EXAMPLE_CONTENT: ${NO_EXAMPLE_CONTENT:-false}

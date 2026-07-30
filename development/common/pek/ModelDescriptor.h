@@ -10,7 +10,6 @@
 #include "pek/Shape.h"
 #include "pek/Types.h"
 
-#include <stop_token>
 #include <string>
 #include <vector>
 
@@ -81,7 +80,7 @@ struct ModelDescriptor {
     /// Optional legal/license notice associated with the model.
     std::string legal;
 
-    /// Local relative model path or immutable published model asset locator.
+    /// Model file path (usually relative to model directory/config root).
     std::string modelFile;
 
     /// Model family identifier (for example "yolov11").
@@ -115,17 +114,11 @@ struct ModelDescriptor {
     static pek::Result<ModelDescriptor> fromJson(const std::string &jsonString);
 
     /**
-     * @brief Loads and materializes a descriptor synchronously from a JSON file.
-     *
-     * Callers that need asynchronous behavior choose the execution thread and may
-     * provide load controls.
-     *
+     * @brief Loads and parses a descriptor from a JSON file.
      * @param path JSON file path.
-     * @param stopToken Optional cooperative cancellation token.
-     * @return Parsed descriptor with a resolved local model path, or an error.
+     * @return Parsed descriptor with modelFile resolved relative to path, or error.
      */
-    static pek::Result<ModelDescriptor> fromFile(const std::string &path,
-                                                 std::stop_token stopToken = {});
+    static pek::Result<ModelDescriptor> fromFile(const std::string &path);
 
     /// Optional tensor feedback loop descriptors.
     std::vector<pek::TensorFeedback> tensorFeedbacks;

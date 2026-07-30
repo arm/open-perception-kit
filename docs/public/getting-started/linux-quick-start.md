@@ -14,7 +14,6 @@ Use this guide on a Linux computer. PEK runs inside a VS Code Dev Container, so 
 Install these before you start:
 
 - Git.
-- GitHub CLI.
 - Docker Engine.
 - Docker Compose.
 - Visual Studio Code.
@@ -40,22 +39,12 @@ Check Docker in the **host shell**:
 docker --version
 docker compose version
 docker info
-gh --version
 ```
 
 If `docker info` fails with a permission error, add your user to the `docker` group and log out and back in:
 
 ```bash
 sudo usermod -aG docker "$USER"
-```
-
-Authenticate GitHub CLI with read access to the pinned `Arm-Debug/modelfetch`
-release. The repository is internal, so its release asset is not available
-anonymously:
-
-```bash
-gh auth login --hostname github.com
-gh auth status --hostname github.com
 ```
 
 ## 1. Get The Repository
@@ -81,9 +70,9 @@ Run in the **host shell**, from the `pek` folder:
 code .
 ```
 
-The checked-in YOLOv11 quick start needs no Hugging Face credential. For a
-private or gated model, export `HF_TOKEN` in this shell before opening VS Code;
-the Dev Container mounts it as a read-only file secret for modelfetch:
+The checked-in models need no Hugging Face credential. To make a token available
+to model integrations, export `HF_TOKEN` before opening VS Code; the Dev
+Container mounts it read-only at `/run/secrets/huggingface_token`:
 
 ```bash
 export HF_TOKEN="hf_your_token_here"

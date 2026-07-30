@@ -1,7 +1,7 @@
 {
 	"name": "cam_contact",
 	"modelFamily": "cam_contact",
-	"modelFile": "hf:Arm/CameraContact@a5dd51a9067f45d924183b1c96e0656657dd65ce#file=cam_contact_nitec_rs18-a8w8-ort-quantized.onnx",
+	"modelFile": "cam_contact_nitec_rs18-a8w8-ort-quantized.onnx",
 	"dynamicOutput": false,
 	"contentType": "cameraContact",
 	"inputTensors": [

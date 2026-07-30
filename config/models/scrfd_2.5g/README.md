@@ -3,7 +3,6 @@
 Hailo 10-compiled SCRFD 2.5G face detector.
 
 - Backend: HailoRT
-- Artifact: downloaded on demand from the descriptor's pinned `modelFile` locator when first activated
 - Input: NHWC full-frame image, `[1, 640, 640, 3]`, `Uint8`
 - Output: 9 dynamic tensors across strides 8, 16, and 32 for face score, box regression, and landmark regression
 - Post processor: `ScrfdParser`

@@ -45,40 +45,6 @@ FROM pek-cross-build-base AS workspace
 
 ARG TARGETARCH
 
-RUN --mount=type=bind,source=scripts/private/modelfetch-release.manifest,target=/tmp/modelfetch-release.manifest,readonly \
-  --mount=type=bind,source=scripts/private/read-modelfetch-release-manifest.sh,target=/tmp/read-modelfetch-release-manifest.sh,readonly \
-  --mount=type=bind,from=modelfetch_sdks,target=/tmp/modelfetch-sdks,readonly \
-  set -eux; \
-  case "${TARGETARCH}" in \
-    amd64) sdk="/tmp/modelfetch-sdks/modelfetch-release-linux-amd64.tar.gz" ;; \
-    arm64) sdk="/tmp/modelfetch-sdks/modelfetch-release-linux-arm64.tar.gz" ;; \
-    *) echo "Unsupported architecture for modelfetch: ${TARGETARCH}" >&2; exit 1 ;; \
-  esac; \
-  expected_sha="$(/tmp/read-modelfetch-release-manifest.sh /tmp/modelfetch-release.manifest "${TARGETARCH}_sha256")"; \
-  printf '%s\n' "${expected_sha}" | grep -Eq '^[0-9a-f]{64}$'; \
-  echo "${expected_sha}  ${sdk}" | sha256sum -c -; \
-  test "$(tar -tzf "${sdk}" | LC_ALL=C sort)" = "$(printf '%s\n' \
-    include/modelfetch.h \
-    include/modelfetch/detail/ffi.hpp \
-    include/modelfetch/detail/projection.hpp \
-    include/modelfetch/modelfetch.hpp \
-    lib/libmodelfetch_c.so)"; \
-  test -z "$(tar -tvzf "${sdk}" | awk 'substr($1, 1, 1) != "-" { print; exit }')"; \
-  mkdir -p /opt/pek-deps/modelfetch; \
-  tar -xzf "${sdk}" --no-same-owner --no-same-permissions -C /opt/pek-deps/modelfetch; \
-  test -f /opt/pek-deps/modelfetch/include/modelfetch.h; \
-  test -f /opt/pek-deps/modelfetch/include/modelfetch/detail/ffi.hpp; \
-  test -f /opt/pek-deps/modelfetch/include/modelfetch/detail/projection.hpp; \
-  test -f /opt/pek-deps/modelfetch/include/modelfetch/modelfetch.hpp; \
-  test -f /opt/pek-deps/modelfetch/lib/libmodelfetch_c.so; \
-  test -z "$(find /opt/pek-deps/modelfetch -type l -print -quit)"; \
-  test "$(find /opt/pek-deps/modelfetch -type f | wc -l)" -eq 5; \
-  printf '%s\n' "${expected_sha}" > /opt/pek-deps/modelfetch/.release-sdk-sha256; \
-  chmod 0444 /opt/pek-deps/modelfetch/.release-sdk-sha256
-
-ENV PEK_MODELFETCH_ROOT=/opt/pek-deps/modelfetch \
-  LD_LIBRARY_PATH=/opt/pek-deps/modelfetch/lib:/opt/pek-deps/onnxruntime/lib
-
 COPY --chmod=0755 scripts/private/install-target-sysroot.sh /usr/local/bin/install-target-sysroot
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
@@ -143,8 +109,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
   LC_ALL=C.UTF-8 \
   GST_DEBUG=2 \
   GST_PLUGIN_PATH=/work/development/build/meson-out \
-  PEK_MODELFETCH_ROOT=/opt/pek-deps/modelfetch \
-  LD_LIBRARY_PATH=/opt/pek-deps/modelfetch/lib:/opt/pek-deps/onnxruntime/lib:/work/development/build/meson-out \
+  LD_LIBRARY_PATH=/opt/pek-deps/onnxruntime/lib:/work/development/build/meson-out \
   PEK_PIPELINE=${PEK_PIPELINE}
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -168,6 +133,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get install -y --no-install-recommends \
     gstreamer1.0-libcamera libcamera-ipa; \
   fi; \
+  # Remove the unused PTP helper capability xattr so Docker can import the image on filesystems without capability support. \
   install -m 0755 /usr/lib/aarch64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-ptp-helper /tmp/gst-ptp-helper; \
   mv /tmp/gst-ptp-helper /usr/lib/aarch64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-ptp-helper; \
   update-ca-certificates; \
@@ -185,7 +151,6 @@ RUN set -eux; \
   chown -R "${USER_UID}:${USER_GID}" /work /tmp/pekcomm
 
 COPY --from=workspace /opt/pek-deps/onnxruntime-arm64/lib /opt/pek-deps/onnxruntime/lib
-COPY --from=workspace /opt/pek-deps/modelfetch /opt/pek-deps/modelfetch
 COPY --from=workspace /opt/pek-app /work
 
 EXPOSE 8000

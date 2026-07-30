@@ -64,18 +64,12 @@ values, normalization values, and scalar/vector input metadata.
 
 Model loading follows a fixed sequence:
 
-1. `ModelDescriptor::fromFile` parses `model.json` and resolves `modelFile`.
-   A local relative path is resolved within the descriptor directory. An
-   immutable published file locator is downloaded and verified through
-   modelfetch, then validated as a regular file inside `/work/var/models`.
-2. The inference Op passes the descriptor, now containing a resolved local
-   model path, to the selected backend.
-3. The backend loads the model file and extracts the metadata it supports.
-4. OPK creates an initial `pek::Model` from backend data.
-5. `pek::Model::applyModelFromDescriptor` merges descriptor metadata into the
+1. The backend loads the model file and extracts the metadata it supports.
+2. OPK creates an initial `pek::Model` from backend data.
+3. `pek::Model::applyModelFromDescriptor` merges descriptor metadata into the
    engine-derived model.
-6. Validation resolves dynamic dimensions and checks descriptor/backend agreement.
-7. The resolved `pek::Model` is retained by the inference Op.
+4. Validation resolves dynamic dimensions and checks descriptor/backend agreement.
+5. The resolved `pek::Model` is passed to the inference Op.
 
 ## Validation Rules
 

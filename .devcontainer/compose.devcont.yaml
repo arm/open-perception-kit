@@ -4,7 +4,6 @@ x-pek-dev-build: &pek-dev-build
   network: ${BUILD_NETWORK_MODE:-default}
   additional_contexts:
     pek-build-base: docker-image://${PEK_BUILD_BASE_IMAGE:-perception-experience-kit-build-base}
-    modelfetch_sdks: ../.cache/modelfetch
 
 x-pek-hailo-build: &pek-hailo-build
   context: ..
@@ -90,7 +89,6 @@ services:
         PEK_HAILO_ARCH: h10
     volumes:
       - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
-
 secrets:
   huggingface_token:
     environment: HF_TOKEN

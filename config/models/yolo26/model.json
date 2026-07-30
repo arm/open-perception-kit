@@ -1,7 +1,7 @@
 {
 	"name": "yolo26-onnx",
 	"modelFamily": "yolo26-obj",
-	"modelFile": "hf:Arm/Yolo26@d8b50c174331009ffa28c930a2d8d953efe05823#file=yolo26n.onnx",
+	"modelFile": "yolo26n.onnx",
 	"dynamicOutput": true,
 	"maxDetectionCount": 16,
 	"confidenceThreshold": 0.7,

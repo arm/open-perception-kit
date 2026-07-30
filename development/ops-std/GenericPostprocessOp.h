@@ -47,11 +47,9 @@ class GenericPostprocessOp : public pek::op::Op {
      * Instantiates the appropriate TensorParser at configure time.
      *
      * @param attributes Configuration map from OpChainDescriptor.
-     * @param stopToken Cooperative cancellation token for this setup attempt.
      * @return Result indicating success or parsing error (unsupported parser type, etc.).
      */
-    pek::Result<void> configure(const pek::AttributeMap &attributes,
-                                std::stop_token stopToken) override;
+    pek::Result<void> configure(const pek::AttributeMap &attributes) override;
     /**
      * @brief Executes postprocessing: parses tensors and populates Perception.
      *

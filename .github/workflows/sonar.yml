@@ -98,24 +98,6 @@ jobs:
         shell: bash
         run: echo "WORKSPACE_ROOT=${GITHUB_WORKSPACE}/${CI_CHECKOUT_PATH}" >> "$GITHUB_ENV"
 
-      - name: Create read-only modelfetch token
-        id: modelfetch-app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
-        with:
-          client-id: Iv23li0DqDMHoMs0TXT9
-          private-key: ${{ secrets.EDGEAI_EXPKITS_APP_PK }}
-          owner: Arm-Debug
-          repositories: modelfetch
-          permission-contents: read
-
-      - name: Prepare pinned modelfetch release
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        env:
-          GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
-        run: |
-          set -euo pipefail
-          ./scripts/private/prepare-modelfetch-release.sh >/dev/null
-
       - name: Build docker image
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build pek-sonar-check
@@ -176,11 +158,10 @@ jobs:
         if: always()
         shell: bash
         run: |
-          helper_root="${GITHUB_WORKSPACE}/${CI_HELPER_PATH}"
+          rm -rf -- "${GITHUB_WORKSPACE:?}/${CI_HELPER_PATH:?}"
+
           workspace_root="${WORKSPACE_ROOT:-}"
           expected_workspace_prefix="${GITHUB_WORKSPACE:-}/repo-"
-
-          rm -rf -- "${helper_root}"
 
           case "${workspace_root}" in
             "${expected_workspace_prefix}"*)

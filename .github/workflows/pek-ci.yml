@@ -39,15 +39,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 240
     if: |
-      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) &&
+      github.event_name != 'pull_request' ||
       (
-        github.event_name != 'pull_request' ||
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
         (
-          (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
-          (
-            github.event.pull_request.draft == false ||
-            (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
-          )
+          github.event.pull_request.draft == false ||
+          (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
         )
       )
     env:
@@ -90,22 +88,6 @@ jobs:
       - name: Show detected quick-start platform
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: ./scripts/quick-start/detect-environment.sh
-
-      - name: Create read-only modelfetch token
-        id: modelfetch-app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
-        with:
-          client-id: Iv23li0DqDMHoMs0TXT9
-          private-key: ${{ secrets.EDGEAI_EXPKITS_APP_PK }}
-          owner: Arm-Debug
-          repositories: modelfetch
-          permission-contents: read
-
-      - name: Prepare pinned modelfetch release
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        env:
-          GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
-        run: ./scripts/private/prepare-modelfetch-release.sh >/dev/null
 
       - name: Build and start quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -160,7 +142,6 @@ jobs:
       CI_CHECKOUT_PATH: repo-pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       CI_HELPER_PATH: workflow-helpers-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
       COMPOSE_PROJECT_NAME: pek-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
-      MODELFETCH_RELEASE_TOOL_IMAGE: pek-modelfetch-release-tools:${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
     steps:
       - name: Checkout workflow helpers
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number != '' }}
@@ -208,22 +189,6 @@ jobs:
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: ./scripts/quick-start/detect-environment.sh
 
-      - name: Create read-only modelfetch token
-        id: modelfetch-app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
-        with:
-          client-id: Iv23li0DqDMHoMs0TXT9
-          private-key: ${{ secrets.EDGEAI_EXPKITS_APP_PK }}
-          owner: Arm-Debug
-          repositories: modelfetch
-          permission-contents: read
-
-      - name: Prepare pinned modelfetch release
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        env:
-          GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
-        run: ./scripts/private/prepare-modelfetch-release-in-container.sh
-
       - name: Build and start quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
@@ -264,9 +229,6 @@ jobs:
           cleanup_status=0
           if [ -x "$checkout_path/scripts/quick-start/cleanup-container.sh" ]; then
             "$checkout_path/scripts/quick-start/cleanup-container.sh" || cleanup_status=$?
-          fi
-          if docker image inspect "$MODELFETCH_RELEASE_TOOL_IMAGE" >/dev/null 2>&1; then
-            docker image rm --force "$MODELFETCH_RELEASE_TOOL_IMAGE" || cleanup_status=$?
           fi
           rm -rf -- "$checkout_path" "$helper_path"
           exit "$cleanup_status"
@@ -336,22 +298,6 @@ jobs:
           docker info
           docker compose version
 
-      - name: Create read-only modelfetch token
-        id: modelfetch-app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
-        with:
-          client-id: Iv23li0DqDMHoMs0TXT9
-          private-key: ${{ secrets.EDGEAI_EXPKITS_APP_PK }}
-          owner: Arm-Debug
-          repositories: modelfetch
-          permission-contents: read
-
-      - name: Prepare pinned modelfetch release
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        env:
-          GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
-        run: ./scripts/private/prepare-modelfetch-release.sh >/dev/null
-
       - name: Build and start quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: ./scripts/quick-start/start-container.sh --recreate
@@ -398,15 +344,13 @@ jobs:
     name: Run quality checks in Docker
     runs-on: ubuntu-latest
     if: |
-      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) &&
+      github.event_name != 'pull_request' ||
       (
-        github.event_name != 'pull_request' ||
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
         (
-          (github.event.action != 'labeled' || contains(github.event.label.name, 'run-pek-ci')) &&
-          (
-            github.event.pull_request.draft == false ||
-            (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
-          )
+          github.event.pull_request.draft == false ||
+          (github.event.action == 'labeled' && contains(github.event.label.name, 'run-pek-ci'))
         )
       )
     env:
@@ -444,7 +388,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-          ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.event.pull_request.head.sha || github.head_ref || github.ref }}
+          ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.head_ref || github.ref }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
       - name: Attach validated PR head branch
@@ -466,24 +410,6 @@ jobs:
           git switch --force-create "$PR_HEAD_REF" "$PR_HEAD_SHA"
           test "$(git rev-parse HEAD)" = "$PR_HEAD_SHA"
           test "$(git branch --show-current)" = "$PR_HEAD_REF"
-
-      - name: Create read-only modelfetch token
-        id: modelfetch-app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
-        with:
-          client-id: Iv23li0DqDMHoMs0TXT9
-          private-key: ${{ secrets.EDGEAI_EXPKITS_APP_PK }}
-          owner: Arm-Debug
-          repositories: modelfetch
-          permission-contents: read
-
-      - name: Prepare pinned modelfetch release
-        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        env:
-          GH_TOKEN: ${{ steps.modelfetch-app-token.outputs.token }}
-        run: |
-          set -euo pipefail
-          ./scripts/private/prepare-modelfetch-release.sh >/dev/null
 
       - name: Build Docker images for checks
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}

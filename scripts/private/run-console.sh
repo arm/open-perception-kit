@@ -76,7 +76,6 @@ do_up() {
 
     ./.devcontainer/platform_init.sh \
         pek-dev-rich "${PEK_PICAMERA:-disabled}" "${PEK_WEBRTC_TURN}" "${DC_KIND}"
-    bash ./scripts/private/prepare-modelfetch-release.sh
     bash ./scripts/private/build-dev-base.sh
 
     HOST_UID="${HOST_UID}" HOST_GID="${HOST_GID}" \

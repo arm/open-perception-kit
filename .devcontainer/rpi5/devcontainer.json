@@ -13,7 +13,7 @@
   ],
   "remoteUser": "dev",
   "workspaceFolder": "/work",
-  "initializeCommand": "bash .devcontainer/platform_init.sh pek-dev enabled && bash scripts/private/prepare-modelfetch-release.sh && bash scripts/private/build-dev-base.sh",
+  "initializeCommand": "bash .devcontainer/platform_init.sh pek-dev enabled && bash scripts/private/build-dev-base.sh",
   "containerEnv": {
     "CONTAINER_TYPE": "default",
     "HOST_OS": "${localEnv:OSTYPE}",

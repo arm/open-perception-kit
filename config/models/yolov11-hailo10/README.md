@@ -3,7 +3,6 @@
 Official Hailo 10H-compiled YOLOv11n object detection model from Hailo Model Zoo.
 
 - Backend: HailoRT
-- Artifact: downloaded on demand from the descriptor's pinned `modelFile` locator when first activated
 - Source: Hailo Model Zoo HAILO10H public object detection models
 - Source file: `HAILO10H_object_detection.rst`
 - HEF download: `https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v5.3.0/hailo10h/yolov11n.hef`
