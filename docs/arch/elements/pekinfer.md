@@ -60,8 +60,10 @@ timing keys that `pekperformance` later publishes.
 
 ## QoS Feedback
 
-`pekinfer` observes upstream `GST_EVENT_QOS` events on its source-side event path,
-and chains them to `GstBaseTransform` so they continue toward earlier elements.
+An active `pekinfer` observes upstream `GST_EVENT_QOS` events on its source-side
+event path and consumes them after updating its inference policy. This prevents
+earlier decoders from reacting by dropping the video buffer. Inactive instances
+forward QoS events toward the active inference element.
 When an `UNDERFLOW` event reports positive lateness, active frames skip OpChain
 execution only while their running-time is earlier than the recovery point
 `event timestamp + lateness`. This ignores small spikes that the next frame has

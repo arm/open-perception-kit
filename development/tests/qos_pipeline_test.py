@@ -3,7 +3,7 @@
 # Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
 
-"""Verify QoS event forwarding and message delivery across the PEK video chain."""
+"""Verify QoS event handling and message delivery across the PEK video chain."""
 
 from __future__ import annotations
 
@@ -37,6 +37,7 @@ class QosPipelineTest(unittest.TestCase):
             pipeline = Gst.parse_launch(
                 "appsrc name=source is-live=true format=time "
                 "caps=video/x-raw,format=BGRA,width=16,height=16 ! "
+                f'pekinfer name=inactive opchain-path="{descriptor}" active=false ! '
                 f'pekinfer name=infer opchain-path="{descriptor}" active=true ! '
                 "pektracker name=tracker ! "
                 "pekperformance name=performance enabled=false ! "
@@ -56,7 +57,7 @@ class QosPipelineTest(unittest.TestCase):
                 output.get_by_name("vconv").get_property("qos"),
                 "peksink's converter must not drop the main video buffer",
             )
-            for element_name in ("infer", "tracker", "performance", "osd"):
+            for element_name in ("inactive", "infer", "tracker", "performance", "osd"):
                 self.assertFalse(
                     pipeline.get_by_name(element_name).get_property("qos"),
                     f"{element_name} must not drop the main video buffer",
@@ -68,7 +69,7 @@ class QosPipelineTest(unittest.TestCase):
             drain.set_property("qos", False)
             drain.set_property("max-lateness", -1)
 
-            forwarded = False
+            forwarded = 0
             buffer_forwarded = threading.Event()
 
             def observe_upstream_event(
@@ -77,7 +78,7 @@ class QosPipelineTest(unittest.TestCase):
                 nonlocal forwarded
                 event = info.get_event()
                 if event is not None and event.type == Gst.EventType.QOS:
-                    forwarded = True
+                    forwarded += 1
                 return Gst.PadProbeReturn.OK
 
             source_pad = source.get_static_pad("src")
@@ -113,6 +114,16 @@ class QosPipelineTest(unittest.TestCase):
             )
             try:
                 pipeline.get_state(Gst.SECOND)
+
+                # An inactive inference element must not claim the event.
+                infer_sink_pad = pipeline.get_by_name("infer").get_static_pad("sink")
+                self.assertTrue(
+                    infer_sink_pad.push_event(
+                        Gst.Event.new_qos(Gst.QOSType.UNDERFLOW, 0.75, 1, 0)
+                    )
+                )
+                self.assertEqual(forwarded, 1, "inactive pekinfer did not forward QoS")
+
                 sent = drain_pad.push_event(
                     Gst.Event.new_qos(
                         Gst.QOSType.UNDERFLOW,
@@ -122,7 +133,11 @@ class QosPipelineTest(unittest.TestCase):
                     )
                 )
                 self.assertTrue(sent, "the downstream QoS event was not accepted")
-                self.assertTrue(forwarded, "the QoS event did not cross the full chain")
+                self.assertEqual(
+                    forwarded,
+                    1,
+                    "active pekinfer forwarded QoS to an upstream video element",
+                )
 
                 frame_duration = Gst.SECOND // 30
                 push_buffer(frame_duration)

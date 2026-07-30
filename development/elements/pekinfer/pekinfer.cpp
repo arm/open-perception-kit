@@ -193,7 +193,7 @@ static gboolean gst_pekinfer_set_caps(GstBaseTransform *b, GstCaps *incaps, GstC
 static gboolean gst_pekinfer_src_event(GstBaseTransform *trans, GstEvent *event) {
     auto *self = GST_PEKINFER(trans);
 
-    if (GST_EVENT_TYPE(event) == GST_EVENT_QOS) {
+    if (GST_EVENT_TYPE(event) == GST_EVENT_QOS && gst_pekinfer_is_active(self)) {
         GstQOSType type = GST_QOS_TYPE_UNDERFLOW;
         gdouble proportion = 1.0;
         GstClockTimeDiff diff = 0;
@@ -222,10 +222,14 @@ static gboolean gst_pekinfer_src_event(GstBaseTransform *trans, GstEvent *event)
                          proportion,
                          diff,
                          timestamp);
+
+        // This element owns the QoS policy for inference. Consuming the event
+        // prevents upstream decoders from dropping the video buffer itself.
+        gst_event_unref(event);
+        return TRUE;
     }
 
-    // GstBaseTransform forwards upstream events through the sink pad. Keep that
-    // native path intact so every earlier element receives the same QoS feedback.
+    // Inactive inference elements and unrelated events keep the native path.
     return GST_BASE_TRANSFORM_CLASS(gst_pekinfer_parent_class)->src_event(trans, event);
 }
 
