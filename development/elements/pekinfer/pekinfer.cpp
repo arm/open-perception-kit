@@ -224,13 +224,13 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     auto *opChain = self->m->opChainForActiveFrame();
     if (!opChain) {
         if (auto failure = self->m->takeSetupFailure()) {
-            GST_ELEMENT_WARNING(self,
-                                RESOURCE,
-                                FAILED,
-                                ("OpChain setup failed; inference remains pass-through."),
-                                ("%s", failure->c_str()));
+            GST_ELEMENT_ERROR(self,
+                              RESOURCE,
+                              FAILED,
+                              ("Failed to setup op-chain."),
+                              ("%s", failure->c_str()));
         }
-        return GST_FLOW_OK;
+        return GST_FLOW_ERROR;
     }
 
     // Try to get the perception meta
