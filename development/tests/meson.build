@@ -106,6 +106,7 @@ runtime_pipeline_tests = executable(
 
 node = find_program('node', required : false)
 python = import('python').find_installation()
+gst_launch = find_program('gst-launch-1.0')
 
 test('pek_menu_tests', pek_menu_tests)
 test(
@@ -118,6 +119,16 @@ test(
   'model_artifact_build_tests',
   python,
   args : [files('model_artifact_build_test.py')],
+)
+test(
+  'pekinfer_lazy_setup_tests',
+  python,
+  args : [
+    files('pekinfer_lazy_setup_test.py'),
+    gst_launch,
+    gstpekinfer.full_path(),
+  ],
+  depends : gstpekinfer,
 )
 test('model_descriptor_tests', model_descriptor_tests)
 test('matrix_operations_tests', matrix_operations_tests)
