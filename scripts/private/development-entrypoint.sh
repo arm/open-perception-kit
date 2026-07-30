@@ -40,10 +40,11 @@ for descriptor in source.rglob("*.json"):
     if "hfDownload" not in model:
         continue
     model_file = Path(model["modelFile"])
+    target = destination / descriptor.parent.relative_to(source) / model_file
     source_artifact = descriptor.parent / model_file
     if not source_artifact.is_file():
+        target.unlink(missing_ok=True)
         continue
-    target = destination / descriptor.parent.relative_to(source) / model_file
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source_artifact, target)
 PY

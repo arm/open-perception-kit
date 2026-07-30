@@ -29,6 +29,37 @@ def model_descriptors() -> list[tuple[Path, dict]]:
 
 
 class ModelArtifactBuildTest(unittest.TestCase):
+    def test_dev_seed_removes_stale_skipped_download(self) -> None:
+        entrypoint = (
+            REPO_ROOT / "scripts/private/development-entrypoint.sh"
+        ).read_text()
+        seed_script = re.search(
+            r"python3 - .*? << 'PY'\n(.*?)\nPY\n", entrypoint, re.DOTALL
+        )
+        self.assertIsNotNone(seed_script)
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            source = root / "source"
+            destination = root / "destination"
+            descriptor = source / "restricted/model.json"
+            stale_artifact = destination / "restricted/model.onnx"
+            descriptor.parent.mkdir(parents=True)
+            stale_artifact.parent.mkdir(parents=True)
+            descriptor.write_text(
+                json.dumps({"modelFile": "model.onnx", "hfDownload": {}})
+            )
+            stale_artifact.write_text("stale")
+
+            subprocess.run(
+                [sys.executable, "-", str(source), str(destination)],
+                input=seed_script.group(1),
+                check=True,
+                text=True,
+            )
+
+            self.assertFalse(stale_artifact.exists())
+
     def test_downloads_every_published_model_to_its_descriptor_path(self) -> None:
         descriptors = model_descriptors()
         expected = set()
