@@ -98,6 +98,7 @@ from pathlib import Path
 
 
 def hf_hub_download(*, repo_id, revision, filename, token):
+    Path(os.environ["HF_TOKEN_CAPTURE"]).write_text(repr(token))
     if filename == "missing.onnx":
         raise RuntimeError("download failed")
     downloaded = Path(os.environ["HF_FAKE_CACHE"]) / filename
@@ -105,15 +106,21 @@ def hf_hub_download(*, repo_id, revision, filename, token):
     return downloaded
 """)
 
-            environment = {
-                key: value for key, value in os.environ.items() if key != "HF_TOKEN"
-            } | {
+            environment = dict(os.environ) | {
                 "HF_FAKE_CACHE": str(cache),
+                "HF_TOKEN": "must-be-ignored-without-token-env",
+                "HF_TOKEN_CAPTURE": str(root / "captured-token"),
                 "PYTHONPATH": str(fake_hub.parent),
             }
             result = subprocess.run(
-                [sys.executable, str(scripts / DOWNLOAD_SCRIPT.name)],
+                [
+                    sys.executable,
+                    str(scripts / DOWNLOAD_SCRIPT.name),
+                    "--models-dir",
+                    "config/models",
+                ],
                 check=True,
+                cwd=root,
                 env=environment,
                 capture_output=True,
                 text=True,
@@ -143,6 +150,49 @@ def hf_hub_download(*, repo_id, revision, filename, token):
                 "config/models/second/renamed.hef uses .hef; saving as configured.",
                 result.stderr,
             )
+            self.assertEqual((root / "captured-token").read_text(), "False")
+
+            environment["MODEL_DOWNLOAD_TOKEN"] = "test-token"
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(scripts / DOWNLOAD_SCRIPT.name),
+                    "--models-dir",
+                    "config/models",
+                    "--token-env",
+                    "MODEL_DOWNLOAD_TOKEN",
+                ],
+                check=True,
+                cwd=root,
+                env=environment,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual((root / "captured-token").read_text(), "'test-token'")
+
+            help_result = subprocess.run(
+                [sys.executable, str(scripts / DOWNLOAD_SCRIPT.name), "--help"],
+                check=True,
+                env=environment,
+                capture_output=True,
+                text=True,
+            )
+            self.assertIn("--models-dir MODELS_DIR", help_result.stdout)
+            self.assertIn("--token-env NAME", help_result.stdout)
+
+            invalid_result = subprocess.run(
+                [
+                    sys.executable,
+                    str(scripts / DOWNLOAD_SCRIPT.name),
+                    "--models-dir",
+                    str(root / "missing-models"),
+                ],
+                env=environment,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(invalid_result.returncode, 2)
+            self.assertIn("--models-dir is not a directory", invalid_result.stderr)
 
 
 if __name__ == "__main__":

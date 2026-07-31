@@ -3,6 +3,7 @@
 # Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
 
+import argparse
 import json
 import logging
 import os
@@ -14,21 +15,43 @@ from huggingface_hub import hf_hub_download
 LOGGER = logging.getLogger(__name__)
 
 
-def main() -> None:
-    repo_root = Path(__file__).resolve().parent.parent
-    token = os.environ.get("HF_TOKEN")
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Download model artifacts declared by PEK model descriptors.",
+    )
+    parser.add_argument(
+        "--models-dir",
+        required=True,
+        type=Path,
+        help="Directory recursively searched for JSON model descriptors.",
+    )
+    parser.add_argument(
+        "--token-env",
+        metavar="NAME",
+        help=(
+            "Environment variable containing a Hugging Face token. "
+            "If omitted or empty, public models are downloaded anonymously."
+        ),
+    )
+    args = parser.parse_args()
+    if not args.models_dir.is_dir():
+        parser.error(f"--models-dir is not a directory: {args.models_dir}")
+    return args
+
+
+def main(models_dir: Path, token: str | None) -> None:
 
     if not token:
         LOGGER.info(
             "No Hugging Face token supplied; downloading public models anonymously."
         )
 
-    for descriptor in sorted((repo_root / "config" / "models").rglob("*.json")):
+    for descriptor in sorted(models_dir.rglob("*.json")):
         model = json.loads(descriptor.read_text())
         if "modelFile" not in model:
             continue
 
-        model_file = descriptor.parent.relative_to(repo_root) / model["modelFile"]
+        model_file = descriptor.parent / model["modelFile"]
         model_dir = descriptor.parent.resolve()
         destination = (model_dir / model["modelFile"]).resolve()
         if not destination.is_relative_to(model_dir):
@@ -72,4 +95,8 @@ def main() -> None:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(message)s")
-    main()
+    arguments = parse_args()
+    main(
+        arguments.models_dir,
+        os.environ.get(arguments.token_env) if arguments.token_env else None,
+    )
