@@ -416,17 +416,22 @@ jobs:
           test "$(git rev-parse HEAD)" = "$PR_HEAD_SHA"
           test "$(git branch --show-current)" = "$PR_HEAD_REF"
 
-      - name: Build Docker images for checks
+      - name: Build Docker images without model downloads
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: |
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build \
+            pek-quality-check-full \
+            pek-release-with-ut \
+            pek-valgrind-check
+
+      - name: Build model-bearing Docker images for checks
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build \
-            pek-quality-check-full \
             pek-quality-check-pull-request \
-            pek-release-with-ut \
-            pek-clang-tidy-baseline-check \
-            pek-valgrind-check
+            pek-clang-tidy-baseline-check
 
       - name: Check Repo Quality gate (nightly)
         if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number == '') }}

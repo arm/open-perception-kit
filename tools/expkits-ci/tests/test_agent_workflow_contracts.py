@@ -34,6 +34,7 @@ from test_support.agent_workflow import (  # noqa: E402
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+BLACKDUCK_WORKFLOW_FILE = REPO_ROOT / ".github/workflows/blackduck-scan.yml"
 
 
 class AgentWorkflowContractTests(unittest.TestCase):
@@ -753,7 +754,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         secret_steps = {
             "linux-quick-start-build-test": "Build and start quick-start container",
             "rpi5-quick-start-build-test": "Build and start quick-start container",
-            "quality-checks": "Build Docker images for checks",
+            "quality-checks": "Build model-bearing Docker images for checks",
         }
         jobs_with_huggingface_secret = {
             name
@@ -781,6 +782,53 @@ class AgentWorkflowContractTests(unittest.TestCase):
             linux_steps["Reconcile running quick-start container"]["run"],
             "./scripts/quick-start/start-container.sh",
         )
+
+        quality_steps = step_map(workflow["jobs"]["quality-checks"])
+        tokenless_build = quality_steps["Build Docker images without model downloads"]
+        model_build = quality_steps["Build model-bearing Docker images for checks"]
+        for service in (
+            "pek-quality-check-full",
+            "pek-release-with-ut",
+            "pek-valgrind-check",
+        ):
+            self.assertIn(service, tokenless_build["run"])
+            self.assertNotIn(service, model_build["run"])
+        for service in (
+            "pek-quality-check-pull-request",
+            "pek-clang-tidy-baseline-check",
+        ):
+            self.assertIn(service, model_build["run"])
+            self.assertNotIn(service, tokenless_build["run"])
+
+    def test_blackduck_limits_huggingface_token_to_model_build_children(self):
+        workflow = load_yaml(BLACKDUCK_WORKFLOW_FILE)
+        job = workflow["jobs"]["blackduck"]
+        steps = step_map(job)
+        build_step = steps["Build discovered container images"]
+
+        self.assertNotIn("HF_TOKEN", job.get("env", {}))
+        secret_steps = {
+            name
+            for name, step in steps.items()
+            if "${{ secrets.HF_TOKEN }}" in json.dumps(step)
+        }
+        self.assertEqual(
+            secret_steps,
+            {
+                "Build discovered container images",
+                "Build Meson wrap dependency image",
+            },
+        )
+        self.assertEqual(build_step["env"]["HF_TOKEN"], "${{ secrets.HF_TOKEN }}")
+
+        run = build_step["run"]
+        # Security boundary: non-model child processes must not inherit HF_TOKEN.
+        self.assertIn('hf_token = os.environ.pop("HF_TOKEN", "")', run)
+        self.assertIn("scrubbed_env = os.environ.copy()", run)
+        self.assertIn("build_env = scrubbed_env.copy()", run)
+        self.assertIn('build_env["HF_TOKEN"] = hf_token', run)
+        self.assertIn("result = subprocess.run(cmd, env=build_env)", run)
+        self.assertEqual(run.count("env=scrubbed_env"), 1)
 
     def test_stabilizer_workflow_uses_canonical_agent_review_shape(self):
         workflow = load_yaml(AGENT_STABILIZE_PR_WORKER_FILE)
