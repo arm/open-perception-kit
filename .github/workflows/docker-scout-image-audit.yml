@@ -101,6 +101,19 @@ jobs:
           mkdir -p ".github/artifacts/docker-scout/${{ matrix.image.service }}"
           echo "image_ref=${image_ref}" >> "$GITHUB_OUTPUT"
 
+      - name: Download Docker Scout action binary with authentication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          action_dir="$(dirname "$RUNNER_WORKSPACE")/_actions/docker/scout-action/v1.24.0"
+          mkdir -p "$action_dir/dist"
+          gh release download v1.24.0 \
+            --repo docker/scout-action \
+            --pattern docker-scout-action_linux_amd64 \
+            --dir "$action_dir/dist" \
+            --clobber
+
       - name: Run Docker Scout CVE audit
         id: docker-scout
         uses: docker/scout-action@v1.24.0
