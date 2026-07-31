@@ -124,12 +124,22 @@ jobs:
             --dir "$action_dir/dist" \
             --clobber
 
+      - name: Generate Docker Scout SPDX SBOM
+        uses: docker/scout-action@v1.24.0
+        with:
+          command: sbom
+          image: local://${{ steps.resolve-image.outputs.image_ref }}
+          format: spdx
+          output: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.github/artifacts/docker-scout/${{ matrix.image.service }}/image.spdx.json
+          summary: false
+          write-comment: false
+
       - name: Run Docker Scout CVE audit
         id: docker-scout
         uses: docker/scout-action@v1.24.0
         with:
           command: cves
-          image: local://${{ steps.resolve-image.outputs.image_ref }}
+          image: sbom://${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.github/artifacts/docker-scout/${{ matrix.image.service }}/image.spdx.json
           dockerhub-user: ${{ secrets.DOCKER_USER }}
           dockerhub-password: ${{ secrets.DOCKER_TOKEN }}
           github-token: ${{ github.token }}
@@ -174,6 +184,7 @@ jobs:
           credentials_available=${{ steps.validate-docker-credentials.outcome == 'success' }}
           scout_outcome=${{ steps.docker-scout.outcome }}
           scout_summary=github-job-summary
+          sbom_file=image.spdx.json
           sarif_file=cves.sarif.json
           component_report_markdown=component-report.md
           component_report_json=component-report.json
