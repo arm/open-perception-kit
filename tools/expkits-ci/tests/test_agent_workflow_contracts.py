@@ -490,6 +490,15 @@ class AgentWorkflowContractTests(unittest.TestCase):
             )
         )
 
+    def test_download_models_triggers_mypy_gate(self):
+        quality_checks = load_quality_checks_module()
+
+        self.assertTrue(
+            quality_checks.QualityChecks.should_run_agent_runtime_static_analysis(
+                ["scripts/download-models.py"],
+            )
+        )
+
     def test_standard_validation_workflows_accept_manual_pr_context(self):
         pek_ci = load_yaml(PEK_CI_WORKFLOW_FILE)
         sonar = load_yaml(SONAR_WORKFLOW_FILE)
