@@ -9,6 +9,11 @@ set -euo pipefail
 : "${HOST_UID:=}"
 : "${HOST_GID:=}"
 
+# If the user of the container has a zsh config then use that configuration inside the container, otherwise keep using the default one.
+if [[ -f "/home/${USERNAME}/configs/zshrc" ]]; then
+    ln -sfn "/home/${USERNAME}/configs/zshrc" "/home/${USERNAME}/.zshrc"
+fi
+
 seed_development_artifacts() {
     local artifacts_root="/opt/pek-app"
 

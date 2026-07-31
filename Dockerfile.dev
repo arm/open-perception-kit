@@ -280,6 +280,7 @@ COPY --from=pek-dev-tool-assets /opt/pek-dev-tools/nvim /opt/nvim
 COPY --from=pek-dev-tool-assets --chown=${USERNAME}:${USERNAME} \
   /opt/pek-dev-tools/cpptools /home/${USERNAME}/bin/cpptools
 
+# KEEP_ZSHRC preserves an existing config; the installer creates its default when absent.
 RUN set -eux; \
   luarocks install jsregexp; \
   ln -sf /opt/nvim/bin/nvim /usr/local/bin/nvim; \
@@ -294,8 +295,13 @@ RUN set -eux; \
   chmod +x /tmp/install-ohmyzsh.sh; \
   su - "${USERNAME}" -c "env RUNZSH=no CHSH=no KEEP_ZSHRC=yes /tmp/install-ohmyzsh.sh"; \
   rm -f /tmp/install-ohmyzsh.sh; \
+  printf '%s\n' \
+  'if [[ -f /work/scripts/private/pek-terminal-init.sh ]]; then' \
+  '  PEK_TERMINAL_INIT_SKIP_BASHRC=1' \
+  '  source /work/scripts/private/pek-terminal-init.sh' \
+  '  unset PEK_TERMINAL_INIT_SKIP_BASHRC' \
+  'fi' >> /etc/zsh/zshrc; \
   mkdir -p "/home/${USERNAME}/.config"; \
-  ln -sfn "/home/${USERNAME}/configs/zshrc" "/home/${USERNAME}/.zshrc"; \
   ln -sfn "/home/${USERNAME}/configs/nvchad_2026_04" "/home/${USERNAME}/.config/nvim"; \
   chown -R "${USER_UID}:${USER_GID}" "/home/${USERNAME}/.config" "/home/${USERNAME}/.zshrc"
 
