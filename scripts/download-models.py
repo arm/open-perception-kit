@@ -8,24 +8,12 @@ import os
 import shutil
 from pathlib import Path
 
-from huggingface_hub import HfApi, hf_hub_download
-from huggingface_hub.errors import HfHubHTTPError
-
+from huggingface_hub import hf_hub_download
 
 repo_root = Path(__file__).resolve().parent.parent
 token = os.environ.get("HF_TOKEN")
 
-if token:
-    try:
-        HfApi().whoami(token=token)
-    except HfHubHTTPError as error:
-        if error.response.status_code not in (401, 403):
-            raise
-        raise SystemExit(
-            "FAILED: the supplied Hugging Face token was rejected."
-        ) from None
-    print("Connected to Hugging Face with the supplied token.", flush=True)
-else:
+if not token:
     print(
         "No Hugging Face token supplied; downloading public models anonymously.",
         flush=True,
@@ -44,8 +32,17 @@ for descriptor in sorted((repo_root / "config" / "models").rglob("*.json")):
 
     source = model.get("hfDownload")
     if source is None:
-        print(f"Skipping {model_file}: no hfDownload source.", flush=True)
         continue
+
+    source_extension = Path(source["filename"]).suffix.lower()
+    destination_extension = destination.suffix.lower()
+    if source_extension != destination_extension:
+        print(
+            f"WARNING: {source['filename']} uses {source_extension or 'no extension'}, "
+            f"but {model_file} uses {destination_extension or 'no extension'}; "
+            "saving as configured.",
+            flush=True,
+        )
 
     print(
         f"Downloading {source['repo_id']}/{source['filename']} to {model_file}.",
@@ -58,16 +55,9 @@ for descriptor in sorted((repo_root / "config" / "models").rglob("*.json")):
             filename=source["filename"],
             token=token or False,
         )
-    except HfHubHTTPError as error:
-        if error.response.status_code not in (401, 403):
-            raise
-        reason = (
-            "the supplied Hugging Face token does not grant access"
-            if token
-            else "an authorized Hugging Face token is required"
-        )
-        print(f"Skipping {model_file}: {reason}.", flush=True)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(downloaded, destination)
+        destination.chmod(0o644)
+    except Exception as error:
+        print(f"Skipping {model_file}: {error}", flush=True)
         continue
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(downloaded, destination)
-    destination.chmod(0o644)

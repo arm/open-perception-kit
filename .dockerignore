@@ -31,29 +31,14 @@
 !data/**
 # Demo video assets are downloaded in a dedicated Docker build stage.
 data/videos/
-# Generated from descriptor hfDownload targets.
-config/models/arcface_mobilefacenet_hailo10/arcface_mobilefacenet.hef
-config/models/cam-contact/cam_contact_nitec_rs18-a8w8-ort-quantized.onnx
-config/models/gaze-detection/l2cs_mobilegaze_mobilenetv2-a8w8-2-ort-quantized.onnx
-config/models/mobilenetv2-hailo10/mobilenet_v2_1_4_224.hef
-config/models/mobilenetv2-hailo8/mobilenet_v2_1_4_224.hef
-config/models/mobilenetv2-hailo8l/mobilenet_v2_1_4_224.hef
-config/models/mobilenetv2/mobilenet_v2_1.4_224.onnx
-config/models/modnet/model.onnx
-config/models/osnet_x0_25-hailo10/osnet_x0_25_msmt17_opset21_patched.hef
-config/models/osnet_x0_25-hailo8/osnet_x0_25_msmt17_opset21_patched.hef
-config/models/osnet_x0_25-hailo8l/osnet_x0_25_msmt17_opset21_patched.hef
-config/models/osnet_x0_25/osnet_x0_25_msmt17_opset21.onnx
-config/models/paddleocr/detection.onnx
-config/models/personclassification/tf_mobilenetv1_float_model.onnx
-config/models/repvgg_a0_person_reid_512-hailo10/repvgg_a0_person_reid_512.hef
-config/models/rvm/rvm_mobilenetv3_fp32.onnx
-config/models/scrfd_2.5g/scrfd_2.5g.hef
-config/models/ultraface/version-RFB-320.onnx
-config/models/yolo26/yolo26n.onnx
-config/models/yolov11-hailo10/yolov11n-hailo10h.hef
-config/models/yolov11-hailo8/yolo11n-fp32-320_nms.hef
-config/models/yolov11-hailo8l/yolo11n-fp32-320_nms.hef
+# Model artifacts; keep the checked-in local models.
+config/models/**/*.hef
+config/models/**/*.onnx
+config/models/**/*.pte
+!config/models/paddleocr/classification.onnx
+!config/models/paddleocr/recognition.onnx
+!config/models/yolov11/yolo11n-fp32-320.onnx
+!config/models/yolox/yolox_nano.pte
 !tools/
 !tools/expkits-ci/
 !tools/expkits-ci/**
