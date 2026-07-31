@@ -130,10 +130,11 @@ touch ~/.profile &&
   printf '%s\n' 'export HF_TOKEN="hf_your_token_here"' >> ~/.profile
 ```
 
-The owner-only permission keeps the persisted credential private. Docker uses
-the token only while downloading the pinned model files into the image; it is
-not added to the runtime container environment. After correcting a token, run
-**Dev Containers: Rebuild Container**; initialization refreshes the
+The owner-only permission keeps the persisted credential private. Docker
+supplies the token only to the pinned model-download build step; it is not added
+to the runtime container environment. Failed downloads are logged and skipped,
+so the image can build without every configured model. After correcting a
+token, run **Dev Containers: Rebuild Container**; initialization refreshes the
 model-download cache key.
 
 ## 7. Check VS Code Prerequisites On Your Computer

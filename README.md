@@ -97,8 +97,9 @@ Enter the `amp-dev-forge` folder in the terminal and run:
 ./scripts/quick_start.sh
 ```
 
-Public models download anonymously. Export `HF_TOKEN` before the quick-start
-only when the build also needs private or gated models:
+When `HF_TOKEN` is unset, accessible public models download anonymously. Export
+`HF_TOKEN` before the quick-start when the build also needs private or gated
+models:
 
 ```bash
 export HF_TOKEN="hf_your_token_here"
@@ -106,8 +107,10 @@ export HF_TOKEN="hf_your_token_here"
 ```
 
 Compose exposes the value only to the Docker model-download build step. The
-resulting image contains the model files, but neither the token nor a runtime
-Hugging Face credential.
+image contains each successfully downloaded model file, but neither the token
+nor a runtime Hugging Face credential. Failed downloads are logged and skipped,
+so the image build still succeeds. A pipeline that references a missing model
+fails while its OpChain starts, even when that `pekinfer` has `active=false`.
 
 For a direct deployment build, export the same token before invoking Compose:
 

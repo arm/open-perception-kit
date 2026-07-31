@@ -92,10 +92,11 @@ export HF_TOKEN="hf_your_token_here"
 code .
 ```
 
-Docker uses the token only while downloading the pinned model files into the
-image. It is not added to the runtime container environment. After correcting
-a token, run **Dev Containers: Rebuild Container**; initialization refreshes
-the model-download cache key.
+Docker supplies the token only to the pinned model-download build step; it is
+not added to the runtime container environment. Failed downloads are logged and
+skipped, so the image can build without every configured model. After
+correcting a token, run **Dev Containers: Rebuild Container**; initialization
+refreshes the model-download cache key.
 
 VS Code should open the folder through WSL. In VS Code:
 

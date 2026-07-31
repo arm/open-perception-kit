@@ -4,6 +4,9 @@ Top-level pipeline presets used by `pek-menu`.
 
 The main demo presets typically register their `pekinfer` elements with `active=false`.
 This is intentional: open the Perception Experience Kit web UI and enable the models you want from the **AI Models** panel.
+`active=false` skips per-frame inference only. Each `pekinfer` still loads its
+OpChain and model during startup, so all artifacts referenced by the selected
+pipeline must be present.
 
 - `01-full-onnx` — all listed ONNX model pipelines on a video source
 - `02-full-onnx-hailo8` — all listed ONNX + Hailo 8 model pipelines on a video source with peksink video and optional audio sink
