@@ -51,9 +51,6 @@ services:
         EXECUTORCH_ARTIFACTORY_PASSWORD: ${EXECUTORCH_ARTIFACTORY_PASSWORD:-}
         EXECUTORCH_VERSION: ${EXECUTORCH_VERSION:-}
         EXECUTORCH_DEB_REVISION: ${EXECUTORCH_DEB_REVISION:-}
-    volumes:
-      - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
-
   pek-dev-rpi5-h8:
     extends:
       file: ../compose.base.yaml
@@ -69,9 +66,6 @@ services:
       <<: *pek-hailo-build
       args:
         PEK_HAILO_ARCH: h8
-    volumes:
-      - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
-
   pek-dev-rpi5-h10:
     extends:
       file: ../compose.base.yaml
@@ -87,8 +81,6 @@ services:
       <<: *pek-hailo-build
       args:
         PEK_HAILO_ARCH: h10
-    volumes:
-      - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
 secrets:
   huggingface_token:
     environment: HF_TOKEN

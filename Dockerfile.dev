@@ -303,8 +303,7 @@ COPY --chmod=0755 scripts/private/development-entrypoint.sh /usr/local/bin/devel
 
 ENV LANG=en_US.UTF-8 \
   LC_ALL=en_US.UTF-8 \
-  SHELL=/bin/zsh \
-  SSH_AUTH_SOCK=/ssh-agent
+  SHELL=/bin/zsh
 
 ENTRYPOINT ["/usr/local/bin/development-entrypoint"]
 

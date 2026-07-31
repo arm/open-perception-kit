@@ -78,6 +78,7 @@ export HF_TOKEN="${HF_TOKEN-}"
 
 COMPOSE_FILES=(
     -f .devcontainer/compose.devcont.yaml
+    -f .devcontainer/docker-compose.ssh-agent.yaml
     -f .devcontainer/docker-compose.devcont.video.yaml
     -f .devcontainer/docker-compose.devcont.audio.yaml
     -f .devcontainer/docker-compose.devcont.npu.yaml
