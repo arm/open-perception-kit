@@ -58,6 +58,7 @@ COPY config config
 COPY --chmod=0755 scripts/download-models.py scripts/download-models.py
 ARG HF_DOWNLOAD_CACHEBUST
 RUN --mount=type=secret,id=huggingface_token,env=HF_TOKEN \
+  HF_DOWNLOAD_CACHEBUST="${HF_DOWNLOAD_CACHEBUST}" \
   ./scripts/download-models.py --models-dir config/models --token "${HF_TOKEN:-}"
 
 FROM pek-cross-build-base AS workspace

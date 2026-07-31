@@ -17,6 +17,17 @@ DOWNLOAD_SCRIPT = REPO_ROOT / "scripts" / "download-models.py"
 
 
 class ModelArtifactBuildTest(unittest.TestCase):
+    def test_model_download_cache_bust_is_consumed(self) -> None:
+        for name in ("Dockerfile", "Dockerfile.dev"):
+            dockerfile = (REPO_ROOT / name).read_text()
+            download_step = dockerfile.split("ARG HF_DOWNLOAD_CACHEBUST", 1)[1].split(
+                "\n\n", 1
+            )[0]
+            self.assertIn(
+                'HF_DOWNLOAD_CACHEBUST="${HF_DOWNLOAD_CACHEBUST}"',
+                download_step,
+            )
+
     def test_model_artifacts_are_ignored_except_checked_in_models(self) -> None:
         expected = [
             "config/models/**/*.hef",
