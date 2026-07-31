@@ -125,13 +125,23 @@ def hf_hub_download(*, repo_id, revision, filename, token):
                 "model",
             )
             self.assertIn(
+                "No Hugging Face token supplied; downloading public models "
+                "anonymously.",
+                result.stderr,
+            )
+            self.assertIn(
+                "Downloading test/repo/missing.onnx to "
+                "config/models/first/missing.onnx.",
+                result.stderr,
+            )
+            self.assertIn(
                 "Skipping config/models/first/missing.onnx: download failed",
-                result.stdout,
+                result.stderr,
             )
             self.assertIn(
                 "WARNING: available.onnx uses .onnx, but "
                 "config/models/second/renamed.hef uses .hef; saving as configured.",
-                result.stdout,
+                result.stderr,
             )
 
 

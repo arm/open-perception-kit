@@ -4,60 +4,72 @@
 ################################################################
 
 import json
+import logging
 import os
 import shutil
 from pathlib import Path
 
 from huggingface_hub import hf_hub_download
 
-repo_root = Path(__file__).resolve().parent.parent
-token = os.environ.get("HF_TOKEN")
+LOGGER = logging.getLogger(__name__)
 
-if not token:
-    print(
-        "No Hugging Face token supplied; downloading public models anonymously.",
-        flush=True,
-    )
 
-for descriptor in sorted((repo_root / "config" / "models").rglob("*.json")):
-    model = json.loads(descriptor.read_text())
-    if "modelFile" not in model:
-        continue
+def main() -> None:
+    repo_root = Path(__file__).resolve().parent.parent
+    token = os.environ.get("HF_TOKEN")
 
-    model_file = descriptor.parent.relative_to(repo_root) / model["modelFile"]
-    model_dir = descriptor.parent.resolve()
-    destination = (model_dir / model["modelFile"]).resolve()
-    if not destination.is_relative_to(model_dir):
-        raise ValueError(f"modelFile escapes its model directory: {descriptor}")
-
-    source = model.get("hfDownload")
-    if source is None:
-        continue
-
-    source_extension = Path(source["filename"]).suffix.lower()
-    destination_extension = destination.suffix.lower()
-    if source_extension != destination_extension:
-        print(
-            f"WARNING: {source['filename']} uses {source_extension or 'no extension'}, "
-            f"but {model_file} uses {destination_extension or 'no extension'}; "
-            "saving as configured.",
-            flush=True,
+    if not token:
+        LOGGER.info(
+            "No Hugging Face token supplied; downloading public models anonymously."
         )
 
-    print(
-        f"Downloading {source['repo_id']}/{source['filename']} to {model_file}.",
-        flush=True,
-    )
-    try:
-        downloaded = hf_hub_download(
-            repo_id=source["repo_id"],
-            revision=source["revision"],
-            filename=source["filename"],
-            token=token or False,
+    for descriptor in sorted((repo_root / "config" / "models").rglob("*.json")):
+        model = json.loads(descriptor.read_text())
+        if "modelFile" not in model:
+            continue
+
+        model_file = descriptor.parent.relative_to(repo_root) / model["modelFile"]
+        model_dir = descriptor.parent.resolve()
+        destination = (model_dir / model["modelFile"]).resolve()
+        if not destination.is_relative_to(model_dir):
+            raise ValueError(f"modelFile escapes its model directory: {descriptor}")
+
+        source = model.get("hfDownload")
+        if source is None:
+            continue
+
+        source_extension = Path(source["filename"]).suffix.lower()
+        destination_extension = destination.suffix.lower()
+        if source_extension != destination_extension:
+            LOGGER.warning(
+                "WARNING: %s uses %s, but %s uses %s; saving as configured.",
+                source["filename"],
+                source_extension or "no extension",
+                model_file,
+                destination_extension or "no extension",
+            )
+
+        LOGGER.info(
+            "Downloading %s/%s to %s.",
+            source["repo_id"],
+            source["filename"],
+            model_file,
         )
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(downloaded, destination)
-        destination.chmod(0o644)
-    except Exception as error:
-        print(f"Skipping {model_file}: {error}", flush=True)
-        continue
+        try:
+            downloaded = hf_hub_download(
+                repo_id=source["repo_id"],
+                revision=source["revision"],
+                filename=source["filename"],
+                token=token or False,
+            )
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(downloaded, destination)
+            destination.chmod(0o644)
+        except Exception as error:
+            LOGGER.warning("Skipping %s: %s", model_file, error)
+            continue
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    main()
