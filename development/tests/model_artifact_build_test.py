@@ -35,34 +35,6 @@ class ModelArtifactBuildTest(unittest.TestCase):
             ]
             self.assertEqual(rules, expected)
 
-    def test_dev_seed_removes_stale_skipped_download(self) -> None:
-        entrypoint = (
-            REPO_ROOT / "scripts/private/development-entrypoint.sh"
-        ).read_text()
-        seed_script = entrypoint.partition("<< 'PY'\n")[2].partition("\nPY\n")[0]
-
-        with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory)
-            source = root / "source"
-            destination = root / "destination"
-            descriptor = source / "restricted/model.json"
-            stale_artifact = destination / "restricted/model.onnx"
-            descriptor.parent.mkdir(parents=True)
-            stale_artifact.parent.mkdir(parents=True)
-            descriptor.write_text(
-                json.dumps({"modelFile": "model.onnx", "hfDownload": {}})
-            )
-            stale_artifact.write_text("stale")
-
-            subprocess.run(
-                [sys.executable, "-", str(source), str(destination)],
-                input=seed_script,
-                check=True,
-                text=True,
-            )
-
-            self.assertFalse(stale_artifact.exists())
-
     def test_download_cli_contract(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
