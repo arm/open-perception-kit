@@ -20,7 +20,7 @@ permissions:
 jobs:
   docker-scout:
     name: docker-scout (${{ matrix.image.service }})
-    runs-on: self-hosted-ubuntu-latest-x64
+    runs-on: ${{ matrix.image.runner }}
     if: |
       github.event_name != 'pull_request' ||
       (
@@ -36,10 +36,20 @@ jobs:
       matrix:
         image:
           - service: pek-deployment-base
+            runner: self-hosted-ubuntu-latest-arm64
+            scout-asset: docker-scout-action_linux_arm64
           - service: pek-docs
+            runner: self-hosted-ubuntu-latest-x64
+            scout-asset: docker-scout-action_linux_amd64
           - service: pek-dev
+            runner: self-hosted-ubuntu-latest-x64
+            scout-asset: docker-scout-action_linux_amd64
           - service: pek-pre-commit-runtime
+            runner: self-hosted-ubuntu-latest-x64
+            scout-asset: docker-scout-action_linux_amd64
           - service: pek-playwright-pages
+            runner: self-hosted-ubuntu-latest-x64
+            scout-asset: docker-scout-action_linux_amd64
 
     env:
       DOCKER_COMPOSE_FILE: .github/compose.ci.yaml
@@ -110,7 +120,7 @@ jobs:
           mkdir -p "$action_dir/dist"
           gh release download v1.24.0 \
             --repo docker/scout-action \
-            --pattern docker-scout-action_linux_amd64 \
+            --pattern ${{ matrix.image.scout-asset }} \
             --dir "$action_dir/dist" \
             --clobber
 
