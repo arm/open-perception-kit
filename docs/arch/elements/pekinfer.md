@@ -68,7 +68,10 @@ When an `UNDERFLOW` event reports positive lateness, active frames skip OpChain
 execution only while their running-time is earlier than the recovery point
 `event timestamp + lateness`. This ignores small spikes that the next frame has
 already recovered from and can skip multiple inference executions after a larger
-delay. The original video buffers are still forwarded, without new inference
-metadata, and `pekinfer` posts a standard `GST_MESSAGE_QOS` for each skip. The
-policy is source-independent because both live sources and file playback map PTS
-onto pipeline running-time. It cannot interrupt inference already in progress.
+delay. The original video buffers are still forwarded with `PerceptionMeta`
+(newly empty when no upstream result exists), allowing `pektracker` to emit
+prediction-only detections in the absence of new inference results. `pekinfer`
+posts a standard `GST_MESSAGE_QOS`
+for each skip. The policy is source-independent because both live sources and
+file playback map PTS onto pipeline running-time. It cannot interrupt inference
+already in progress.

@@ -239,6 +239,15 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
     if (!gst_pekinfer_is_active(self))
         return GST_FLOW_OK;
 
+    // Keep the downstream metadata contract even when QoS skips inference.
+    if (auto perceptionMeta = pek::PerceptionMeta::get(buf); !perceptionMeta) {
+        auto perception = std::make_shared<pek::Perception>();
+        if (!pek::PerceptionMeta::add(buf, perception)) {
+            GST_WARNING_OBJECT(self, "Failed to attach PerceptionMeta");
+            return GST_FLOW_OK;
+        }
+    }
+
     const GstClockTime runningTime =
         GST_BUFFER_PTS_IS_VALID(buf)
             ? gst_segment_to_running_time(&b->segment, GST_FORMAT_TIME, GST_BUFFER_PTS(buf))
@@ -273,16 +282,6 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
     if (!self->m)
         return GST_FLOW_OK;
-
-    // Try to get the perception meta
-    // it does not added yet -> add it
-    if (auto perceptionMeta = pek::PerceptionMeta::get(buf); !perceptionMeta) {
-        auto perception = std::make_shared<pek::Perception>();
-        if (!pek::PerceptionMeta::add(buf, perception)) {
-            GST_WARNING_OBJECT(self, "Failed to attach PerceptionMeta");
-            return GST_FLOW_OK;
-        }
-    }
 
     // Build the pipeline VideoFrame only from CPU-direct buffers for now. DMA-BUF-backed
     // buffers are detected explicitly so future DMA-BUF support can be added without

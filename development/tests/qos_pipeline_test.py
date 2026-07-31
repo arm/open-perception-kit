@@ -23,7 +23,7 @@ class QosPipelineTest(unittest.TestCase):
         import gi
 
         gi.require_version("Gst", "1.0")
-        from gi.repository import Gst
+        from gi.repository import GObject, Gst
 
         Gst.init(None)
         for plugin_path in PLUGIN_PATHS:
@@ -62,6 +62,10 @@ class QosPipelineTest(unittest.TestCase):
                     pipeline.get_by_name(element_name).get_property("qos"),
                     f"{element_name} must not drop the main video buffer",
                 )
+            self.assertEqual(
+                pipeline.get_by_name("tracker").get_property("max-missed-frames"),
+                15,
+            )
 
             # The rest of this test injects exact QoS values, so disable automatic
             # feedback after verifying peksink's production configuration.
@@ -71,6 +75,7 @@ class QosPipelineTest(unittest.TestCase):
 
             forwarded = 0
             buffer_forwarded = threading.Event()
+            infer_has_perception_meta = False
 
             def observe_upstream_event(
                 _pad: Any, info: Any, _data: Any
@@ -86,6 +91,23 @@ class QosPipelineTest(unittest.TestCase):
                 Gst.PadProbeType.EVENT_UPSTREAM, observe_upstream_event, None
             )
 
+            def observe_infer_buffer(
+                _pad: Any, info: Any, _data: Any
+            ) -> Gst.PadProbeReturn:
+                nonlocal infer_has_perception_meta
+                api = GObject.type_from_name("com_arm_pek_meta_PerceptionAPI_v1")
+                buffer = info.get_buffer()
+                infer_has_perception_meta = bool(
+                    api and buffer is not None and buffer.get_meta(api) is not None
+                )
+                return Gst.PadProbeReturn.OK
+
+            pipeline.get_by_name("infer").get_static_pad("src").add_probe(
+                Gst.PadProbeType.BUFFER,
+                observe_infer_buffer,
+                None,
+            )
+
             def observe_buffer(*_args: Any) -> Gst.PadProbeReturn:
                 buffer_forwarded.set()
                 return Gst.PadProbeReturn.OK
@@ -98,7 +120,9 @@ class QosPipelineTest(unittest.TestCase):
             )
 
             def push_buffer(pts: int) -> None:
+                nonlocal infer_has_perception_meta
                 buffer_forwarded.clear()
+                infer_has_perception_meta = False
                 buffer = Gst.Buffer.new_allocate(None, 16 * 16 * 4, None)
                 buffer.pts = pts
                 buffer.duration = Gst.SECOND // 30
@@ -162,6 +186,10 @@ class QosPipelineTest(unittest.TestCase):
 
                 skipped_frame_pts = event_timestamp + frame_duration
                 push_buffer(skipped_frame_pts)
+                self.assertTrue(
+                    infer_has_perception_meta,
+                    "a QoS-skipped frame did not carry PerceptionMeta",
+                )
                 message = pipeline.get_bus().timed_pop_filtered(
                     Gst.SECOND, Gst.MessageType.QOS | Gst.MessageType.ERROR
                 )
