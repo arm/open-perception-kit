@@ -63,7 +63,7 @@ class ModelArtifactBuildTest(unittest.TestCase):
 
             self.assertFalse(stale_artifact.exists())
 
-    def test_failed_download_is_skipped_and_model_file_names_the_output(self) -> None:
+    def test_download_cli_contract(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             scripts = root / "scripts"
@@ -152,15 +152,31 @@ def hf_hub_download(*, repo_id, revision, filename, token):
             )
             self.assertEqual((root / "captured-token").read_text(), "False")
 
-            environment["MODEL_DOWNLOAD_TOKEN"] = "test-token"
+            environment["HF_TOKEN"] = ""
             subprocess.run(
                 [
                     sys.executable,
                     str(scripts / DOWNLOAD_SCRIPT.name),
                     "--models-dir",
                     "config/models",
-                    "--token-env",
-                    "MODEL_DOWNLOAD_TOKEN",
+                    "--token",
+                ],
+                check=True,
+                cwd=root,
+                env=environment,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual((root / "captured-token").read_text(), "False")
+
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(scripts / DOWNLOAD_SCRIPT.name),
+                    "--models-dir",
+                    "config/models",
+                    "--token",
+                    "test-token",
                 ],
                 check=True,
                 cwd=root,
@@ -178,7 +194,7 @@ def hf_hub_download(*, repo_id, revision, filename, token):
                 text=True,
             )
             self.assertIn("--models-dir MODELS_DIR", help_result.stdout)
-            self.assertIn("--token-env NAME", help_result.stdout)
+            self.assertIn("--token [TOKEN]", help_result.stdout)
 
             invalid_result = subprocess.run(
                 [

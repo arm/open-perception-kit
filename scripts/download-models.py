@@ -6,7 +6,6 @@
 import argparse
 import json
 import logging
-import os
 import shutil
 from pathlib import Path
 
@@ -26,11 +25,11 @@ def parse_args() -> argparse.Namespace:
         help="Directory recursively searched for JSON model descriptors.",
     )
     parser.add_argument(
-        "--token-env",
-        metavar="NAME",
+        "--token",
+        nargs="?",
         help=(
-            "Environment variable containing a Hugging Face token. "
-            "If omitted or empty, public models are downloaded anonymously."
+            "Hugging Face token. If the option or its value is omitted, "
+            "public models are downloaded anonymously."
         ),
     )
     args = parser.parse_args()
@@ -96,7 +95,4 @@ def main(models_dir: Path, token: str | None) -> None:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     arguments = parse_args()
-    main(
-        arguments.models_dir,
-        os.environ.get(arguments.token_env) if arguments.token_env else None,
-    )
+    main(arguments.models_dir, arguments.token)
