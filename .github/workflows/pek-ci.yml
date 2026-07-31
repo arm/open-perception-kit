@@ -185,6 +185,10 @@ jobs:
           ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.head_ref || github.ref }}
           path: ${{ env.CI_CHECKOUT_PATH }}
 
+      - name: Clean stale browser smoke containers
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        run: ./scripts/playwright/browser-smoke/run.sh --cleanup-stale
+
       - name: Show detected quick-start platform
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: ./scripts/quick-start/detect-environment.sh
@@ -205,7 +209,7 @@ jobs:
           BROWSER_SMOKE_BROWSERS: chromium,firefox,webkit
           BROWSER_SMOKE_REBUILD: "1"
           NUM_FRAMES: "45000"
-        run: ./scripts/playwright/browser-smoke/run.sh
+        run: exec ./scripts/playwright/browser-smoke/run.sh
 
       - name: Upload RPI browser smoke artifacts
         if: always()
@@ -227,6 +231,9 @@ jobs:
           checkout_path="${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}"
           helper_path="${{ github.workspace }}/${{ env.CI_HELPER_PATH }}"
           cleanup_status=0
+          if [ -x "$checkout_path/scripts/playwright/browser-smoke/run.sh" ]; then
+            "$checkout_path/scripts/playwright/browser-smoke/run.sh" --cleanup-stale || cleanup_status=$?
+          fi
           if [ -x "$checkout_path/scripts/quick-start/cleanup-container.sh" ]; then
             "$checkout_path/scripts/quick-start/cleanup-container.sh" || cleanup_status=$?
           fi
