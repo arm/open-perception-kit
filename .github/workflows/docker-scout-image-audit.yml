@@ -124,15 +124,16 @@ jobs:
             --dir "$action_dir/dist" \
             --clobber
 
-      - name: Generate Docker Scout SPDX SBOM
-        uses: docker/scout-action@v1.24.0
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@v0.24.0
+        env:
+          SYFT_PARALLELISM: "1"
         with:
-          command: sbom
-          image: local://${{ steps.resolve-image.outputs.image_ref }}
-          format: spdx
-          output: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.github/artifacts/docker-scout/${{ matrix.image.service }}/image.spdx.json
-          summary: false
-          write-comment: false
+          image: ${{ steps.resolve-image.outputs.image_ref }}
+          format: spdx-json
+          output-file: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}/.github/artifacts/docker-scout/${{ matrix.image.service }}/image.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
 
       - name: Run Docker Scout CVE audit
         id: docker-scout
