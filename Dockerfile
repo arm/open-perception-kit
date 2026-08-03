@@ -1,7 +1,17 @@
 # syntax=docker/dockerfile:1
 
 ARG BUILDPLATFORM
+ARG TARGETPLATFORM
 ARG TARGETARCH
+
+# ==============================================================================
+# External Base Images
+# ==============================================================================
+
+# ==============================================================================
+# Development Tooling Images
+# ==============================================================================
+
 FROM --platform=${BUILDPLATFORM} debian:trixie-slim AS pek-build-base
 
 ARG ONNXRUNTIME_VERSION
@@ -27,23 +37,300 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev; \
   update-ca-certificates
 
-FROM pek-build-base AS pek-cross-build-base
+# Development base extends the shared native build tooling. PEK source and build
+# outputs come from the mounted checkout, not from this image.
+FROM pek-build-base AS pek-dev-base
 
-FROM pek-build-base AS pek-demo-media
+ARG ONNXRUNTIME_VERSION
+ARG USERNAME=dev
+ARG USER_UID=1000
+ARG USER_GID=1000
 
-ARG NO_EXAMPLE_CONTENT=false
+RUN set -eux; uname -a; cat /etc/os-release; dpkg --print-architecture
 
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+  set -eux; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends \
+  wget sudo gnupg shfmt zip python3-pip pre-commit \
+  lldb-17 valgrind file \
+  gstreamer1.0-tools gstreamer1.0-x gstreamer1.0-gl \
+  gstreamer1.0-plugins-base gstreamer1.0-plugins-bad \
+  gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
+  gstreamer1.0-nice gstreamer1.0-pipewire; \
+  update-ca-certificates
+
+RUN ln -sf /usr/bin/lldb-17 /usr/local/bin/lldb && \
+  ln -sf /usr/bin/lldb-server-17 /usr/local/bin/lldb-server
+
+ARG ACTIONLINT_VERSION=1.7.12
+
+RUN set -eux; \
+  arch="$(dpkg --print-architecture)"; \
+  case "${arch}" in \
+    amd64) actionlint_arch="amd64" ;; \
+    i386) actionlint_arch="386" ;; \
+    arm64) actionlint_arch="arm64" ;; \
+    armel|armhf) actionlint_arch="armv6" ;; \
+    *) echo "Unsupported actionlint architecture: ${arch}" >&2; exit 1 ;; \
+  esac; \
+  actionlint_archive="actionlint_${ACTIONLINT_VERSION}_linux_${actionlint_arch}.tar.gz"; \
+  actionlint_base_url="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"; \
+  tmp_dir="$(mktemp -d)"; \
+  curl --location -fsSLo "${tmp_dir}/${actionlint_archive}" "${actionlint_base_url}/${actionlint_archive}"; \
+  curl --location -fsSLo "${tmp_dir}/checksums.txt" "${actionlint_base_url}/actionlint_${ACTIONLINT_VERSION}_checksums.txt"; \
+  cd "${tmp_dir}"; \
+  grep " ${actionlint_archive}$" checksums.txt | sha256sum -c -; \
+  tar -xzf "${actionlint_archive}" actionlint; \
+  install -m 0755 actionlint /usr/local/bin/actionlint; \
+  cd /; \
+  rm -rf "${tmp_dir}"; \
+  actionlint -version
+
+COPY --chmod=0755 scripts/private/install-onnxruntime.sh /usr/local/bin/install-onnxruntime
+RUN install-onnxruntime "${ONNXRUNTIME_VERSION:-}"
+
+RUN set -eux; \
+  getent group "${USER_GID}" >/dev/null || groupadd --gid "${USER_GID}" "${USERNAME}"; \
+  id -u "${USERNAME}" >/dev/null 2>&1 || useradd -m -u "${USER_UID}" -g "${USER_GID}" -s /bin/bash "${USERNAME}"; \
+  getent group video >/dev/null 2>&1 || groupadd video; \
+  getent group render >/dev/null 2>&1 || groupadd render; \
+  getent group audio >/dev/null 2>&1 || groupadd audio; \
+  usermod -aG video,audio,render "${USERNAME}"; \
+  mkdir -p /etc/sudoers.d; \
+  echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/90-${USERNAME}"; \
+  chmod 0440 "/etc/sudoers.d/90-${USERNAME}"; \
+  mkdir -p /work; \
+  chown -R "${USER_UID}:${USER_GID}" /work; \
+  test -p /tmp/pekcomm || mkfifo --mode=640 /tmp/pekcomm; \
+  chown "${USERNAME}" /tmp/pekcomm
+
+RUN set -eux; \
+  curl --proto "=https" -LsSf https://astral.sh/uv/install.sh | \
+  env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh; \
+  uv --version
+
+COPY tools/expkits-ci /tmp/pek-tools/expkits-ci
+COPY tools/plumber /tmp/pek-tools/plumber
+RUN set -eux; \
+  uv venv --system-site-packages /opt/pek-venvs/devtools; \
+  uv pip install --python /opt/pek-venvs/devtools/bin/python \
+  /tmp/pek-tools/expkits-ci \
+  /tmp/pek-tools/plumber; \
+  rm -rf /tmp/pek-tools
+
+EXPOSE 8000 8001 9999 8080 2222
+
+ENV GST_DEBUG=2 \
+  GST_PLUGIN_PATH=/work/development/build/meson-out \
+  LD_LIBRARY_PATH=/opt/pek-deps/onnxruntime/lib:/work/development/build/meson-out \
+  PEK_HAILORT=disabled \
+  PEK_DEVTOOLS_VENV=/opt/pek-venvs/devtools \
+  PATH=/opt/pek-venvs/devtools/bin:${PATH}
+
+USER ${USERNAME}
 WORKDIR /work
-COPY --chmod=0755 scripts/download-data.sh scripts/download-data.sh
-RUN if [ "${NO_EXAMPLE_CONTENT}" != "true" ]; then \
-      ./scripts/download-data.sh; \
-    else \
-      mkdir -p data/videos; \
-    fi
 
-FROM pek-cross-build-base AS workspace
+# Developer shell, editor, debugger, and network tooling.
+FROM pek-dev-base AS pek-dev-tools
+
+ARG USERNAME=dev
+ARG USER_UID=1000
+ARG USER_GID=1000
+ARG NVIM_VERSION=v0.12.1
+ARG CPP_TOOLS_VERSION=v1.29.3
+ARG TARGETARCH
+ARG EXECUTORCH_VERSION=1.3.1
+ARG EXECUTORCH_DEB_REVISION=1
+ARG EXECUTORCH_ARTIFACTORY_SERVER=https://artifactory.arm.com:443
+ARG EXECUTORCH_ARTIFACTORY_REPOSITORY=ai-expkits-internal.opk-deb
+ARG EXECUTORCH_ARTIFACTORY_DISTRIBUTION=trixie
+ARG EXECUTORCH_ARTIFACTORY_COMPONENT=main
+ARG EXECUTORCH_ARTIFACTORY_USERNAME=""
+ARG EXECUTORCH_ARTIFACTORY_PASSWORD=""
+
+USER root
+
+RUN --mount=type=bind,source=var,target=/tmp/pek-executorch-packages,ro \
+    --mount=type=bind,source=scripts/private/executorch/install-executorch-deb.sh,target=/tmp/install-executorch-deb.sh,ro \
+  bash /tmp/install-executorch-deb.sh
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+  set -eux; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends \
+  locales bash-completion mc vim nano neovim gdb clangd net-tools zsh \
+  openssh-client less ripgrep fd-find tmux firefox-esr v4l-utils \
+  xz-utils powerline fonts-powerline eza bat gosu \
+  lua5.1 luarocks tree-sitter-cli wl-clipboard \
+  iproute2 iputils-ping traceroute iputils-arping dnsutils tcpdump nmap; \
+  if apt-get install -y --no-install-recommends --dry-run gstreamer1.0-libav; then \
+    apt-get install -y --no-install-recommends gstreamer1.0-libav; \
+  else \
+    echo 'NOTE: gstreamer1.0-libav not available on this image/mirror'; \
+  fi; \
+  sed -i 's/^# *\(en_US.UTF-8 UTF-8\)/\1/' /etc/locale.gen; \
+  locale-gen en_US.UTF-8; \
+  update-locale LANG=en_US.UTF-8; \
+  chsh -s /usr/bin/zsh "${USERNAME}"
+
+RUN set -eux; \
+  case "${TARGETARCH}" in \
+    amd64) nvim_arch=x86_64; cpptools_arch=x64 ;; \
+    arm64) nvim_arch=arm64; cpptools_arch=arm64 ;; \
+    *) echo "Unsupported development-tools architecture: ${TARGETARCH}" >&2; exit 1 ;; \
+  esac; \
+  nvim_archive="nvim-linux-${nvim_arch}.tar.gz"; \
+  curl --proto "=https" -fsSLo "/tmp/${nvim_archive}" \
+  "https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/${nvim_archive}"; \
+  mkdir -p /opt/nvim; \
+  tar -xzf "/tmp/${nvim_archive}" --strip-components=1 -C /opt/nvim; \
+  cpptools_archive="cpptools-linux-${cpptools_arch}.vsix"; \
+  curl --proto "=https" -fsSLo "/tmp/${cpptools_archive}" \
+  "https://github.com/microsoft/vscode-cpptools/releases/download/${CPP_TOOLS_VERSION}/${cpptools_archive}"; \
+  mkdir -p "/home/${USERNAME}/bin/cpptools"; \
+  unzip -q "/tmp/${cpptools_archive}" -d "/home/${USERNAME}/bin/cpptools"; \
+  chown -R "${USER_UID}:${USER_GID}" "/home/${USERNAME}/bin"; \
+  rm -f "/tmp/${nvim_archive}" "/tmp/${cpptools_archive}"
+
+RUN set -eux; \
+  luarocks install jsregexp; \
+  ln -sf /opt/nvim/bin/nvim /usr/local/bin/nvim; \
+  update-alternatives --install /usr/bin/vi vi /usr/local/bin/nvim 60; \
+  update-alternatives --install /usr/bin/vim vim /usr/local/bin/nvim 60; \
+  update-alternatives --set vim /usr/local/bin/nvim; \
+  update-alternatives --set vi /usr/local/bin/nvim; \
+  chmod +x "/home/${USERNAME}/bin/cpptools/extension/debugAdapters/bin/OpenDebugAD7"; \
+  ln -sf "/home/${USERNAME}/bin/cpptools/extension/debugAdapters/bin/OpenDebugAD7" /usr/local/bin/OpenDebugAD7; \
+  curl --proto "=https" -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh \
+  -o /tmp/install-ohmyzsh.sh; \
+  chmod +x /tmp/install-ohmyzsh.sh; \
+  su - "${USERNAME}" -c "env RUNZSH=no CHSH=no KEEP_ZSHRC=yes /tmp/install-ohmyzsh.sh"; \
+  rm -f /tmp/install-ohmyzsh.sh; \
+  mkdir -p "/home/${USERNAME}/.config"; \
+  ln -sfn "/home/${USERNAME}/configs/zshrc" "/home/${USERNAME}/.zshrc"; \
+  ln -sfn "/home/${USERNAME}/configs/nvchad_2026_04" "/home/${USERNAME}/.config/nvim"; \
+  chown -R "${USER_UID}:${USER_GID}" "/home/${USERNAME}/.config" "/home/${USERNAME}/.zshrc"
+
+COPY --chmod=0755 scripts/private/development-entrypoint.sh /usr/local/bin/development-entrypoint
+
+ENV LANG=en_US.UTF-8 \
+  LC_ALL=en_US.UTF-8 \
+  SHELL=/bin/zsh \
+  SSH_AUTH_SOCK=/ssh-agent
+
+ENTRYPOINT ["/usr/local/bin/development-entrypoint"]
+
+# Final devcontainer image. Contract: tools and dependency libraries only. The
+# repository is mounted at /work; PEK binaries are built from that checkout.
+FROM pek-dev-tools AS pek-dev
+
+ARG USERNAME=dev
+ARG ONNXRUNTIME_VERSION
+ARG PEK_PICAMERA=disabled
+
+USER root
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+  set -eux; \
+  if [ "${PEK_PICAMERA}" = enabled ]; then \
+    test "$(dpkg --print-architecture)" = arm64; \
+    echo "deb [arch=arm64 trusted=yes] https://archive.raspberrypi.com/debian trixie main" \
+    > /etc/apt/sources.list.d/raspberrypi.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+    gstreamer1.0-libcamera libcamera-ipa; \
+  fi
+
+RUN set -eux; \
+  rm -rf /opt/pek-deps/onnxruntime-arm64; \
+  if [ "$(dpkg --print-architecture)" = arm64 ]; then \
+    ln -s onnxruntime /opt/pek-deps/onnxruntime-arm64; \
+  else \
+    install-onnxruntime "${ONNXRUNTIME_VERSION:-}" arm64 /opt/pek-deps/onnxruntime-arm64; \
+  fi
+
+USER ${USERNAME}
+WORKDIR /work
+
+# ==============================================================================
+# Documentation Image Lane
+# ==============================================================================
+
+FROM pek-dev-base AS pek-docs
+
+ARG USERNAME=dev
+ARG PLANTUML_VERSION=1.2026.2
+
+USER root
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+  set -eux; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends \
+  openjdk-25-jdk graphviz pandoc doxygen
+
+RUN set -eux; \
+  mkdir -p /opt/pek-deps; \
+  plantuml_jar="plantuml-mit-${PLANTUML_VERSION}.jar"; \
+  plantuml_base_url="https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}"; \
+  curl --location -fsSLo "/opt/pek-deps/${plantuml_jar}" "${plantuml_base_url}/${plantuml_jar}"
+
+USER ${USERNAME}
+WORKDIR /work
+
+# ==============================================================================
+# CI Image Lane
+# ==============================================================================
+
+FROM pek-dev-base AS pek-ci
+
+ARG USERNAME=dev
+ARG PLANTUML_VERSION=1.2026.2
+ARG SONAR_SCANNER_VERSION=8.0.1.6346
+
+USER root
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+  set -eux; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends \
+  openjdk-25-jdk graphviz pandoc doxygen gcovr \
+  python3-dev python3-venv python3-gi python3-gst-1.0 \
+  libffi-dev zlib1g-dev libbz2-dev liblzma-dev libsqlite3-dev
+
+RUN set -eux; \
+  mkdir -p /opt/pek-deps; \
+  plantuml_jar="plantuml-mit-${PLANTUML_VERSION}.jar"; \
+  plantuml_base_url="https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}"; \
+  curl --location -fsSLo "/opt/pek-deps/${plantuml_jar}" "${plantuml_base_url}/${plantuml_jar}"
+
+RUN set -eux; \
+  mkdir -p /opt/sonar; \
+  curl --proto "=https" -fsSLo /tmp/sonar-scanner.zip \
+  "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}.zip"; \
+  unzip -q /tmp/sonar-scanner.zip -d /opt/sonar; \
+  rm -f /tmp/sonar-scanner.zip
+
+ENV PATH=/opt/sonar/sonar-scanner-${SONAR_SCANNER_VERSION}/bin:${PATH}
+
+USER ${USERNAME}
+WORKDIR /work
+
+# ==============================================================================
+# Deployment Build and Runtime Images
+# ==============================================================================
+
+FROM pek-build-base AS pek-deployment-build
 
 ARG TARGETARCH
+ARG NO_EXAMPLE_CONTENT=false
+ARG ONNXRUNTIME_VERSION
 
 COPY --chmod=0755 scripts/private/install-target-sysroot.sh /usr/local/bin/install-target-sysroot
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -68,12 +355,17 @@ COPY development/subprojects/packagefiles development/subprojects/packagefiles
 RUN meson subprojects download --sourcedir /work/development
 
 COPY scripts/build-elements.sh scripts/build-elements.sh
+COPY scripts/download-data.sh scripts/download-data.sh
 COPY scripts/private/shtools.sh scripts/private/shtools.sh
 COPY scripts/private/deployment-runtime.sh scripts/private/deployment-runtime.sh
 COPY development development
 COPY config config
 COPY data data
-COPY --from=pek-demo-media /work/data/videos /work/data/videos
+RUN if [ "${NO_EXAMPLE_CONTENT}" != "true" ]; then \
+      ./scripts/download-data.sh; \
+    else \
+      mkdir -p data/videos; \
+    fi
 
 RUN set -eux; \
   native_arch="$(dpkg --print-architecture)"; \
@@ -95,7 +387,6 @@ RUN set -eux; \
   cp -r /work/data /opt/pek-app/; \
   cp -r /work/development/web /opt/pek-app/development/
 
-# Runtime image
 FROM debian:trixie-slim AS pek-deployment-base
 
 ARG USERNAME=pek
@@ -133,7 +424,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get install -y --no-install-recommends \
     gstreamer1.0-libcamera libcamera-ipa; \
   fi; \
-  # Remove the unused PTP helper capability xattr so Docker can import the image on filesystems without capability support. \
   install -m 0755 /usr/lib/aarch64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-ptp-helper /tmp/gst-ptp-helper; \
   mv /tmp/gst-ptp-helper /usr/lib/aarch64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-ptp-helper; \
   update-ca-certificates; \
@@ -150,8 +440,8 @@ RUN set -eux; \
   test -p /tmp/pekcomm || mkfifo --mode=640 /tmp/pekcomm; \
   chown -R "${USER_UID}:${USER_GID}" /work /tmp/pekcomm
 
-COPY --from=workspace /opt/pek-deps/onnxruntime-arm64/lib /opt/pek-deps/onnxruntime/lib
-COPY --from=workspace /opt/pek-app /work
+COPY --from=pek-deployment-build /opt/pek-deps/onnxruntime-arm64/lib /opt/pek-deps/onnxruntime/lib
+COPY --from=pek-deployment-build /opt/pek-app /work
 
 EXPOSE 8000
 EXPOSE 8001

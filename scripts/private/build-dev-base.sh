@@ -2,7 +2,7 @@
 ################################################################
 # Copyright (C) 2026 Arm Limited. All rights reserved.
 ################################################################
-# Builds the shared image used as the Dockerfile.dev named context.
+# Builds the shared base image used by the consolidated Dockerfile targets.
 ################################################################
 
 set -euo pipefail

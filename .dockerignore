@@ -1,7 +1,8 @@
 *
 
 !Dockerfile
-!Dockerfile.dev
+!Dockerfile.pre-commit
+!Dockerfile.pages
 !.dockerignore
 !.clang-format
 !.clang-tidy

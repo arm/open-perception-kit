@@ -290,11 +290,6 @@ jobs:
                   "-t", entry["image"],
                   "-f", entry["dockerfile"],
               ]
-              if pathlib.Path(entry["dockerfile"]).name == "Dockerfile.dev":
-                  cmd += [
-                      "--build-context",
-                      f"pek-build-base=docker-image://{os.environ['PEK_BUILD_BASE_IMAGE']}",
-                  ]
               if entry.get("target"):
                   cmd += ["--target", entry["target"]]
               cmd += [entry["context"]]
@@ -324,8 +319,7 @@ jobs:
           dev_image="perception-experience-kit-bd:${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           docker build \
             -t "${dev_image}" \
-            -f "${WORKSPACE_ROOT}/Dockerfile.dev" \
-            --build-context "pek-build-base=docker-image://${PEK_BUILD_BASE_IMAGE}" \
+            -f "${WORKSPACE_ROOT}/Dockerfile" \
             --target pek-dev \
             "${WORKSPACE_ROOT}"
 
