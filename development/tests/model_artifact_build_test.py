@@ -80,6 +80,23 @@ class ModelArtifactBuildTest(unittest.TestCase):
                 download_step,
             )
 
+        cache_bust = (
+            "${HF_DOWNLOAD_CACHEBUST:-${HF_TOKEN:+${GITHUB_RUN_ID:?Set "
+            "HF_DOWNLOAD_CACHEBUST when HF_TOKEN is set}-"
+            "${GITHUB_RUN_ATTEMPT:-0}}}"
+        )
+        for name, count in (
+            ("compose.yaml", 1),
+            (".devcontainer/compose.devcont.yaml", 1),
+            (".github/compose.ci.yaml", 2),
+        ):
+            self.assertEqual(
+                (REPO_ROOT / name).read_text().count(
+                    f"HF_DOWNLOAD_CACHEBUST: {cache_bust}"
+                ),
+                count,
+            )
+
     def test_model_artifacts_are_ignored_except_checked_in_models(self) -> None:
         expected = [
             "config/models/**/*.hef",

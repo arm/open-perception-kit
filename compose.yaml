@@ -27,7 +27,7 @@ services:
       secrets:
         - huggingface_token
       args:
-        HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}}
+        HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-${HF_TOKEN:+${GITHUB_RUN_ID:?Set HF_DOWNLOAD_CACHEBUST when HF_TOKEN is set}-${GITHUB_RUN_ATTEMPT:-0}}}
         PEK_PICAMERA: ${PEK_PICAMERA:-disabled}
         NO_EXAMPLE_CONTENT: ${NO_EXAMPLE_CONTENT:-false}
 

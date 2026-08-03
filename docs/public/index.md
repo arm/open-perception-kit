@@ -126,7 +126,9 @@ export HF_DOWNLOAD_CACHEBUST="$(date +%s)-$$"
 docker compose up --build
 ```
 
-The cache key makes a corrected token retry the authenticated download step.
+Generate a fresh cache key before every authenticated direct Compose build.
+Such builds fail during interpolation when the key is omitted, preventing a
+cached model layer from another token from being reused silently.
 
 ### 3. Enter the container command line
 
