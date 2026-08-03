@@ -201,7 +201,6 @@ COPY tools/plumber /tmp/pek-tools/plumber
 RUN set -eux; \
   uv venv --system-site-packages /opt/pek-venvs/devtools; \
   uv pip install --python /opt/pek-venvs/devtools/bin/python \
-  huggingface_hub==1.18.0 \
   /tmp/pek-tools/expkits-ci \
   /tmp/pek-tools/plumber; \
   rm -rf /tmp/pek-tools
