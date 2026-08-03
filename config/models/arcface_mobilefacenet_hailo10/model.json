@@ -3,6 +3,11 @@
     "modelFamily": "reid",
     "contentType": "humanFace",
     "modelFile": "arcface_mobilefacenet.hef",
+    "hfDownload": {
+        "repo_id": "Arm/ArcFace-MobileFaceNet",
+        "revision": "c60ba6577eba48d64ffac15bfc679468cba81c7c",
+        "filename": "models/hailo10h/arcface_mobilefacenet.hef"
+    },
     "dynamicOutput": true,
     "inputTensors": [
         {

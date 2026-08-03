@@ -19,18 +19,11 @@ services:
         pek-dev: service:pek-dev
     environment:
       USERNAME: dev
-      HF_TOKEN_PATH: /run/secrets/huggingface_token
       HOST_UID: ${HOST_UID:-1000}
       HOST_GID: ${HOST_GID:-1000}
       XDG_RUNTIME_DIR: /run/user/${HOST_UID:-1000}
       PEKCOMM_FILE: /tmp/pekcomm
       SSH_AUTH_SOCK: /ssh-agent
-    secrets:
-      - source: huggingface_token
-        target: /run/secrets/huggingface_token
-        uid: "${HOST_UID:-1000}"
-        gid: "${HOST_GID:-1000}"
-        mode: 0400
     volumes:
       - ${PEK_RICH_RUNTIME_DIR:-/tmp}:/run/user/${HOST_UID:-1000}
       - ${PEK_RICH_CONFIGS_MOUNT:-pek-rich-configs}:/home/dev/configs

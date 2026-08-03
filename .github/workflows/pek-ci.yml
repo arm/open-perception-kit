@@ -97,8 +97,6 @@ jobs:
 
       - name: Reconcile running quick-start container
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: ./scripts/quick-start/start-container.sh
 
       - name: Build PEK in quick-start container
@@ -420,13 +418,15 @@ jobs:
 
       - name: Build Docker images for checks
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build \
             pek-quality-check-full \
-            pek-quality-check-pull-request \
             pek-release-with-ut \
-            pek-clang-tidy-baseline-check \
-            pek-valgrind-check
+            pek-valgrind-check \
+            pek-quality-check-pull-request \
+            pek-clang-tidy-baseline-check
 
       - name: Check Repo Quality gate (nightly)
         if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number == '') }}

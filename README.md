@@ -59,9 +59,8 @@ Use this target Pi setup before you start:
 - Permission to run `sudo` on the target Pi.
 - Internet access from the target Pi to GitHub, package repositories, and
   container or source locations used during the first container build.
-- To make a Hugging Face credential available to model integrations, set
-  `HF_TOKEN` in the shell that starts the container. The checked-in models need
-  no Hugging Face token.
+- An optional read-only Hugging Face `HF_TOKEN` for private or gated PEK
+  models.
 
 ### 1. Connect to the target Pi
 
@@ -98,36 +97,32 @@ Enter the `amp-dev-forge` folder in the terminal and run:
 ./scripts/quick_start.sh
 ```
 
-For a private or gated Hugging Face model, export `HF_TOKEN` before running the
-quick-start:
+When `HF_TOKEN` is unset, accessible public models download anonymously. Export
+`HF_TOKEN` before the quick-start when the build also needs private or gated
+models:
 
 ```bash
 export HF_TOKEN="hf_your_token_here"
 ./scripts/quick_start.sh
 ```
 
-Compose mounts the value read-only at
-`/run/secrets/huggingface_token`; it is not stored in the container environment.
-An unset or empty `HF_TOKEN` selects anonymous access. Do not store the
-credential in the generated `.env` files.
+Compose exposes the value only to the Docker model-download build step. The
+image contains each successfully downloaded model file, but neither the token
+nor a runtime Hugging Face credential. Failed downloads are logged and skipped,
+so the image build still succeeds. A pipeline that references a missing model
+fails while its OpChain starts, even when that `pekinfer` has `active=false`.
 
-For a direct deployment build with a private or gated model integration, export
-your Hugging Face token before invoking Compose:
+For a direct deployment build, export the same token before invoking Compose:
 
 ```bash
 export HF_TOKEN="hf_your_token_here"
+export HF_DOWNLOAD_CACHEBUST="$(date +%s)-$$"
 docker compose up --build
 ```
 
-For anonymous direct deployment, provide an explicitly empty token instead:
-
-```bash
-HF_TOKEN="" docker compose up --build
-```
-
-After replacing or clearing `HF_TOKEN`, add `--force-recreate` to the next
-direct `docker compose up` command so the running container receives the new
-secret.
+Generate a fresh cache key before every authenticated direct Compose build.
+Such builds fail during interpolation when the key is omitted, preventing a
+cached model layer from another token from being reused silently.
 
 ### 3. Enter the container command line
 
@@ -235,7 +230,7 @@ Pick your next step.
 | `docker info` fails | Confirm Docker Engine is installed and running from Docker's Debian installation guide. If it reports a permissions error, run `sudo usermod -aG docker "$USER"`, reconnect, and try again. |
 | Docker Compose cannot find the service | Rerun `bash .devcontainer/platform_init.sh pek-dev-rpi5`, then rerun the container start command. Use `pek-dev-rpi5-h8` or `pek-dev-rpi5-h10` for Hailo containers. |
 | Build fails | Fix the first missing package, permission, or container error shown in the build output. |
-| Pipeline exits immediately | Rerun `./scripts/run.sh 01-full-onnx` and inspect the first missing plugin, model, or file. |
+| Pipeline exits immediately | Rerun `./scripts/run.sh yolov11-onnx` and inspect the first missing plugin, model, or file. |
 | Viewer does not load | Keep the pipeline terminal running, use the target Pi IP address, and check port `9999`. |
 | A model produces no overlay | Confirm the model and any upstream dependencies are enabled, then check the debug log or model state in the viewer. |
 
@@ -258,6 +253,7 @@ For a private or gated model, export your Hugging Face token instead:
 
 ```bash
 export HF_TOKEN="hf_your_token_here"
+export HF_DOWNLOAD_CACHEBUST="$(date +%s)-$$"
 topo deploy --target <raspberry-pi-ip-address>
 ```
 

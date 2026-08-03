@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-PEK_PIPELINE=${PEK_PIPELINE:-"config/pipelines/debug/onnx.json"}
+PEK_PIPELINE=${PEK_PIPELINE:-"yolov11-onnx"}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"/../../
 

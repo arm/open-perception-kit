@@ -95,8 +95,9 @@
             "id": "selectedPipeline",
             "type": "pickString",
             "description": "Selected pipeline to debug.",
-            "default": "01-full-onnx",
+            "default": "yolov11-onnx",
             "options": [
+                "yolov11-onnx",
                 "01-full-onnx",
                 "02-full-onnx-hailo8",
                 "03-full-onnx-hailo8l",

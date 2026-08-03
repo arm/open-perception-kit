@@ -3,6 +3,11 @@
     "modelFamily": "reid",
     "contentType": "genericObject",
     "modelFile": "repvgg_a0_person_reid_512.hef",
+    "hfDownload": {
+        "repo_id": "Arm/RepVGG-A0-Person-ReID",
+        "revision": "abb5654b4d79b40bd613437fa50201b5b0ff7583",
+        "filename": "models/hailo10h/repvgg_a0_person_reid_512.hef"
+    },
     "dynamicOutput": true,
     "inputTensors": [
         {

@@ -7,6 +7,8 @@ on:
         required: true
       DOCKER_TOKEN:
         required: true
+      HF_TOKEN:
+        required: false
   workflow_dispatch:
   pull_request:
     branches: [ main, develop, "feature/**", "sandbox/**" ]
@@ -86,6 +88,8 @@ jobs:
 
       - name: Build docker image
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          HF_TOKEN: ${{ contains(fromJSON('["pek-deployment-base","pek-dev"]'), matrix.image.service) && secrets.HF_TOKEN || '' }}
         run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} build ${{ matrix.image.service }}
 
       - name: Resolve built image reference

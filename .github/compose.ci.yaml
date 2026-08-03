@@ -17,6 +17,10 @@ services:
       context: ..
       dockerfile: Dockerfile
       target: pek-deployment-base
+      secrets:
+        - huggingface_token
+      args:
+        HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-${HF_TOKEN:+${GITHUB_RUN_ID:?Set HF_DOWNLOAD_CACHEBUST when HF_TOKEN is set}-${GITHUB_RUN_ATTEMPT:-0}}}
 
   pek-docs: &pek-docs
     extends:
@@ -39,6 +43,10 @@ services:
     build:
       <<: *pek-dev-build
       target: pek-dev
+      secrets:
+        - huggingface_token
+      args:
+        HF_DOWNLOAD_CACHEBUST: ${HF_DOWNLOAD_CACHEBUST:-${HF_TOKEN:+${GITHUB_RUN_ID:?Set HF_DOWNLOAD_CACHEBUST when HF_TOKEN is set}-${GITHUB_RUN_ATTEMPT:-0}}}
 
   pek-pre-commit-runtime:
     network_mode: bridge
@@ -217,3 +225,7 @@ services:
           -Dsonar.projectVersion="$$SONAR_PROJECT_VERSION" \
           -Dsonar.buildString="$$BUILD_STRING"
       '
+
+secrets:
+  huggingface_token:
+    environment: HF_TOKEN

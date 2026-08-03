@@ -84,11 +84,12 @@ upsert_env_value devices.env PEK_PICAMERA "$PEK_PICAMERA"
 upsert_env_value .env PEK_BUILD_BASE_IMAGE "$PEK_BUILD_BASE_IMAGE"
 upsert_env_value .devcontainer/.env PEK_BUILD_BASE_IMAGE "$PEK_BUILD_BASE_IMAGE"
 upsert_env_value devices.env PEK_BUILD_BASE_IMAGE "$PEK_BUILD_BASE_IMAGE"
-# Compose environment secrets require the source variable to exist. Keep only
-# an empty interpolation fallback on disk; an exported host HF_TOKEN overrides
-# it and is mounted as a file secret without entering the container environment.
+# Compose build secrets require the source variable to exist. Keep only an empty
+# interpolation fallback on disk; an exported host HF_TOKEN overrides it.
 upsert_env_value .env HF_TOKEN ""
 upsert_env_value .devcontainer/.env HF_TOKEN ""
+upsert_env_value .env HF_DOWNLOAD_CACHEBUST "$(date +%s)-$$"
+upsert_env_value .devcontainer/.env HF_DOWNLOAD_CACHEBUST "$(date +%s)-$$"
 
 if [[ "${PEK_WEBRTC_TURN}" = enabled ]]; then
     chmod +x scripts/private/detect-webrtc-host-ip.sh || true
