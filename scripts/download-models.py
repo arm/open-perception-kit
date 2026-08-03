@@ -4,6 +4,7 @@
 ################################################################
 
 import argparse
+import hashlib
 import json
 import logging
 import shutil
@@ -46,8 +47,11 @@ def main(models_dir: Path, token: str | None) -> None:
             "No Hugging Face token supplied; downloading public models anonymously."
         )
 
-    # Keep anonymous builds from reading artifacts cached by authenticated builds.
-    cache_dir = Path(HF_HUB_CACHE) / ("authenticated" if token else "anonymous")
+    # Keep each credential from reading artifacts cached by another auth context.
+    cache_namespace = (
+        hashlib.sha256(token.encode()).hexdigest() if token else "anonymous"
+    )
+    cache_dir = Path(HF_HUB_CACHE) / cache_namespace
 
     for descriptor in sorted(models_dir.rglob("*.json")):
         model = json.loads(descriptor.read_text())

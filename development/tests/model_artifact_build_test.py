@@ -194,8 +194,9 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
                 "config/models/second/renamed.hef uses .hef; saving as configured.",
                 result.stderr,
             )
+            anonymous_capture = (root / "captured-token").read_text().splitlines()
             self.assertEqual(
-                (root / "captured-token").read_text().splitlines(),
+                anonymous_capture,
                 ["False", str(root / "hub-cache/hub/anonymous")],
             )
 
@@ -234,10 +235,38 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
                 capture_output=True,
                 text=True,
             )
-            self.assertEqual(
-                (root / "captured-token").read_text().splitlines(),
-                ["'test-token'", str(root / "hub-cache/hub/authenticated")],
+            first_token_capture = (
+                root / "captured-token"
+            ).read_text().splitlines()
+            first_token_cache = Path(first_token_capture[1])
+            self.assertEqual(first_token_capture[0], "'test-token'")
+            self.assertEqual(first_token_cache.parent, root / "hub-cache/hub")
+            self.assertNotEqual(first_token_cache, Path(anonymous_capture[1]))
+            self.assertNotIn("test-token", first_token_cache.name)
+
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(scripts / DOWNLOAD_SCRIPT.name),
+                    "--models-dir",
+                    "config/models",
+                    "--token",
+                    "lower-access-token",
+                ],
+                check=True,
+                cwd=root,
+                env=environment,
+                capture_output=True,
+                text=True,
             )
+            second_token_capture = (
+                root / "captured-token"
+            ).read_text().splitlines()
+            second_token_cache = Path(second_token_capture[1])
+            self.assertEqual(second_token_capture[0], "'lower-access-token'")
+            self.assertEqual(second_token_cache.parent, root / "hub-cache/hub")
+            self.assertNotEqual(second_token_cache, first_token_cache)
+            self.assertNotIn("lower-access-token", second_token_cache.name)
 
             help_result = subprocess.run(
                 [sys.executable, str(scripts / DOWNLOAD_SCRIPT.name), "--help"],
