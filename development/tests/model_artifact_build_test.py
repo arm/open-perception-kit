@@ -27,6 +27,10 @@ class ModelArtifactBuildTest(unittest.TestCase):
                 'HF_DOWNLOAD_CACHEBUST="${HF_DOWNLOAD_CACHEBUST}"',
                 download_step,
             )
+            self.assertIn(
+                "--mount=type=cache,target=/root/.cache/huggingface",
+                download_step,
+            )
 
     def test_model_artifacts_are_ignored_except_checked_in_models(self) -> None:
         expected = [
