@@ -175,6 +175,7 @@ test("selector renders model/task and runtime on separate lines", () => {
   const toggleLabel = item.querySelector("label");
   const toggle = item.querySelector("input");
 
+  assert.equal(item.getAttribute("data-model-name"), "YoloV11");
   assert.equal(primaryLabel.textContent, "YOLOv11n - Object detection");
   assert.equal(runtime.textContent, "ONNX");
   assert.equal(toggleLabel.getAttribute("aria-label"), "Toggle YOLOv11n - Object detection (ONNX)");

@@ -3,7 +3,7 @@ const { expect } = require('@playwright/test');
 const MODEL_OUTPUT_VISIBLE_MS = 4000;
 const MODELS_OFF_VISIBLE_MS = 3000;
 const MODEL_ITEM = '.model-item';
-const MODEL_NAME = '.model-name';
+const MODEL_NAME_ATTRIBUTE = 'data-model-name';
 const MODELS_CONTAINER = '#models-container';
 const NO_MODELS_TEXT = 'No models registered yet';
 const STATUS_LINE = '#status-line';
@@ -47,9 +47,9 @@ async function registeredModelNames(page) {
   const modelItems = page.locator(`${MODELS_CONTAINER} ${MODEL_ITEM}`);
   await expect(modelItems.first()).toBeVisible({ timeout: 90000 });
 
-  const names = (await page.locator(`${MODELS_CONTAINER} ${MODEL_NAME}`).allTextContents())
-    .map((name) => name.trim())
-    .filter(Boolean);
+  const names = await modelItems.evaluateAll((items, attribute) => items
+    .map((item) => item.getAttribute(attribute)?.trim())
+    .filter(Boolean), MODEL_NAME_ATTRIBUTE);
   expect(names.length).toBeGreaterThan(0);
   return names;
 }
@@ -84,9 +84,8 @@ async function setModels(page, modelNames, enabled) {
 }
 
 async function setModel(page, name, enabled) {
-  const model = page.locator(MODEL_ITEM).filter({
-    has: page.locator(MODEL_NAME, { hasText: new RegExp(`^${escapeRegExp(name)}$`) }),
-  });
+  const model = page.locator(
+    `${MODEL_ITEM}[${MODEL_NAME_ATTRIBUTE}="${escapeCssAttribute(name)}"]`);
   const toggle = model.getByRole('switch');
   const toggleControl = model.locator('.model-toggle-switch');
 
@@ -106,8 +105,8 @@ async function setModel(page, name, enabled) {
   await expect.poll(() => backendModelState(page, name), { timeout: 10000 }).toBe(enabled);
 }
 
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function escapeCssAttribute(value) {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
 async function backendModelState(page, name) {

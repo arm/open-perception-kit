@@ -73,6 +73,7 @@ class ModelsManager {
     createModelItem(model) {
         const item = document.createElement('div');
         item.className = 'model-item';
+        item.setAttribute('data-model-name', model.name || '');
         item.classList.toggle('model-active', Boolean(model.active));
 
         const presentation = resolveModelLabel(model.name);
