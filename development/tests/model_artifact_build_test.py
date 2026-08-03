@@ -39,6 +39,18 @@ class ModelArtifactBuildTest(unittest.TestCase):
             "PEK_PIPELINE: ${PEK_PIPELINE:-yolov11-onnx}",
             (REPO_ROOT / "compose.yaml").read_text(),
         )
+        self.assertIn(
+            "ARG PEK_PIPELINE=yolov11-onnx",
+            (REPO_ROOT / "Dockerfile").read_text(),
+        )
+        for script in (
+            "scripts/private/deployment-process.sh",
+            "scripts/private/deployment-runtime.sh",
+        ):
+            self.assertIn(
+                'PEK_PIPELINE=${PEK_PIPELINE:-"yolov11-onnx"}',
+                (REPO_ROOT / script).read_text(),
+            )
         self.assertTrue(
             (
                 REPO_ROOT

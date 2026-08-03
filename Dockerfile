@@ -122,7 +122,7 @@ FROM debian:trixie-slim AS pek-deployment-base
 ARG USERNAME=pek
 ARG USER_UID=1000
 ARG USER_GID=1000
-ARG PEK_PIPELINE=config/pipelines/debug/onnx.json
+ARG PEK_PIPELINE=yolov11-onnx
 ARG PEK_PICAMERA=disabled
 
 ENV DEBIAN_FRONTEND=noninteractive \
