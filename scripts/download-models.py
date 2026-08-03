@@ -40,18 +40,19 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def main(models_dir: Path, token: str | None) -> None:
+def _cache_dir(token: str | None) -> Path:
+    # Keep each credential from reading artifacts cached by another auth context.
+    namespace = hashlib.sha256(token.encode()).hexdigest() if token else "anonymous"
+    return Path(HF_HUB_CACHE) / namespace
 
+
+def main(models_dir: Path, token: str | None) -> None:
     if not token:
         LOGGER.info(
             "No Hugging Face token supplied; downloading public models anonymously."
         )
 
-    # Keep each credential from reading artifacts cached by another auth context.
-    cache_namespace = (
-        hashlib.sha256(token.encode()).hexdigest() if token else "anonymous"
-    )
-    cache_dir = Path(HF_HUB_CACHE) / cache_namespace
+    credential_cache = _cache_dir(token)
 
     for descriptor in sorted(models_dir.rglob("*.json")):
         model = json.loads(descriptor.read_text())
@@ -91,7 +92,7 @@ def main(models_dir: Path, token: str | None) -> None:
                 revision=source["revision"],
                 filename=source["filename"],
                 token=token or False,
-                cache_dir=cache_dir,
+                cache_dir=credential_cache,
             )
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(downloaded, destination)

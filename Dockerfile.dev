@@ -201,9 +201,9 @@ COPY tools/plumber /tmp/pek-tools/plumber
 RUN set -eux; \
   uv venv --system-site-packages /opt/pek-venvs/devtools; \
   uv pip install --python /opt/pek-venvs/devtools/bin/python \
-  huggingface_hub==1.18.0 \
   /tmp/pek-tools/expkits-ci \
-  /tmp/pek-tools/plumber; \
+  /tmp/pek-tools/plumber \
+  huggingface_hub==1.18.0; \
   rm -rf /tmp/pek-tools
 
 EXPOSE 8000 8001 9999 8080 2222
@@ -368,7 +368,7 @@ WORKDIR /work
 COPY --chown=${USERNAME}:${USERNAME} . /work
 COPY --from=pek-demo-media --chown=${USERNAME}:${USERNAME} \
   /work/data/videos /opt/pek-app/data/videos
-COPY --from=pek-models --chown=${USERNAME}:${USERNAME} \
+COPY --from=pek-models \
   /work/config/models /opt/pek-app/config/models
 COPY --from=pek-dev-build --chown=${USERNAME}:${USERNAME} \
   /opt/pek-app/development/build/meson-out /opt/pek-app/development/build/meson-out

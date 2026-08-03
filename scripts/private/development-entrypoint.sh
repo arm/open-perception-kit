@@ -27,7 +27,7 @@ seed_development_artifacts() {
         /work/tools
 
     if [[ -d "${artifacts_root}/config/models" ]]; then
-        cp -a --no-clobber "${artifacts_root}/config/models/." /work/config/models/
+        cp -R --no-clobber "${artifacts_root}/config/models/." /work/config/models/
     fi
 
     if [[ -d "${artifacts_root}/data/videos" ]]; then

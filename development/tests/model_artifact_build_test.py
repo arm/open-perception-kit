@@ -14,6 +14,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOWNLOAD_SCRIPT = REPO_ROOT / "scripts" / "download-models.py"
+MODELS_DIR = "config/models"
 
 
 class ModelArtifactBuildTest(unittest.TestCase):
@@ -65,9 +66,14 @@ class ModelArtifactBuildTest(unittest.TestCase):
         )[0]
         self.assertIn("huggingface_hub==1.18.0", runtime_stage)
         self.assertIn(
-            "COPY --from=pek-models --chown=${USERNAME}:${USERNAME} \\\n"
+            "COPY --from=pek-models \\\n"
             "  /work/config/models /opt/pek-app/config/models",
             dockerfile,
+        )
+        self.assertIn(
+            'cp -R --no-clobber "${artifacts_root}/config/models/." '
+            "/work/config/models/",
+            (REPO_ROOT / "scripts/private/development-entrypoint.sh").read_text(),
         )
 
     def test_model_download_cache_bust_is_consumed(self) -> None:
@@ -183,7 +189,7 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
                     sys.executable,
                     str(scripts / DOWNLOAD_SCRIPT.name),
                     "--models-dir",
-                    "config/models",
+                    MODELS_DIR,
                 ],
                 check=True,
                 cwd=root,
@@ -228,7 +234,7 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
                     sys.executable,
                     str(scripts / DOWNLOAD_SCRIPT.name),
                     "--models-dir",
-                    "config/models",
+                    MODELS_DIR,
                     "--token",
                 ],
                 check=True,
@@ -247,7 +253,7 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
                     sys.executable,
                     str(scripts / DOWNLOAD_SCRIPT.name),
                     "--models-dir",
-                    "config/models",
+                    MODELS_DIR,
                     "--token",
                     "test-token",
                 ],
@@ -271,7 +277,7 @@ HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
                     sys.executable,
                     str(scripts / DOWNLOAD_SCRIPT.name),
                     "--models-dir",
-                    "config/models",
+                    MODELS_DIR,
                     "--token",
                     "lower-access-token",
                 ],
