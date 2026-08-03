@@ -17,7 +17,7 @@ Usage:
 Runs /work/tools/pek-menu inside the PEK quick-start container.
 
 Defaults:
-  ./scripts/run.sh              Runs the first sample pipeline: 01-full-onnx
+  ./scripts/run.sh              Runs the bundled YOLOv11 sample: yolov11-onnx
   ./scripts/run.sh --menu       Opens the interactive pek-menu
   ./scripts/run.sh -l           Runs the last selected pipeline
   ./scripts/run.sh <pipeline>   Runs a pipeline by ID or JSON path
@@ -40,7 +40,7 @@ START_CONTAINER_SCRIPT="${REPO_ROOT}/scripts/quick-start/start-container.sh"
 
 PEK_MENU_ARGS=("$@")
 if [[ $# -eq 0 ]]; then
-    PEK_MENU_ARGS=(01-full-onnx)
+    PEK_MENU_ARGS=(yolov11-onnx)
 elif [[ "${1:-}" == "--menu" ]]; then
     shift
     if [[ $# -gt 0 ]]; then

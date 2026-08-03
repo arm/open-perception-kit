@@ -20,7 +20,7 @@ services:
     volumes:
       - /run/udev:/run/udev:ro
     environment:
-      PEK_PIPELINE: ${PEK_PIPELINE:-01-full-onnx}
+      PEK_PIPELINE: ${PEK_PIPELINE:-yolov11-onnx}
     build:
       context: .
       dockerfile: Dockerfile
@@ -43,10 +43,10 @@ x-topo:
   args:
     PEK_PIPELINE:
       description: |
-        Pipeline ID or path to run. Use 01-full-onnx for the bundled sample
+        Pipeline ID or path to run. Use yolov11-onnx for the bundled sample
         video, 05-full-onnx-raspicam for the Pi camera, or
         06-full-onnx-usb-cam for a USB camera.
-      default: "01-full-onnx"
+      default: "yolov11-onnx"
     PEK_PICAMERA:
       description: |
         Set to enabled only when the selected pipeline uses a Raspberry Pi

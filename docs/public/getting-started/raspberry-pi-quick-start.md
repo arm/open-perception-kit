@@ -221,7 +221,7 @@ Run in the **Docker shell on the Raspberry Pi**:
 ./tools/pek-menu 05-full-onnx-raspicam
 ```
 
-For a USB camera exposed as `/dev/video0`, run `./tools/pek-menu 06-full-onnx-usb-cam` instead. Use `./tools/pek-menu 01-full-onnx` when you want the bundled video-file source.
+For a USB camera exposed as `/dev/video0`, run `./tools/pek-menu 06-full-onnx-usb-cam` instead. Use `./tools/pek-menu yolov11-onnx` when you want the bundled video-file source.
 
 Leave this terminal open. The pipeline is running while this command is active.
 

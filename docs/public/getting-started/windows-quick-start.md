@@ -142,10 +142,10 @@ Expected result: the build finishes without errors and `tools/pek-menu` exists.
 Run in the **Docker shell**:
 
 ```bash
-./tools/pek-menu 01-full-onnx
+./tools/pek-menu yolov11-onnx
 ```
 
-You can also use the VS Code task **00 Run project and select pipeline** and choose `01-full-onnx`.
+You can also use the VS Code task **00 Run project and select pipeline** and choose `yolov11-onnx`.
 
 ![PEK pipeline selection view](/img/09-select-pipeline.png)
 

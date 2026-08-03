@@ -17,6 +17,35 @@ DOWNLOAD_SCRIPT = REPO_ROOT / "scripts" / "download-models.py"
 
 
 class ModelArtifactBuildTest(unittest.TestCase):
+    def test_tokenless_defaults_use_bundled_yolov11(self) -> None:
+        pipeline = json.loads(
+            (REPO_ROOT / "config/pipelines/yolov11-onnx.json").read_text()
+        )
+        inference_steps = [
+            step for step in pipeline["pipeline"] if "pekinfer" in step
+        ]
+        self.assertEqual(
+            inference_steps,
+            [
+                "pekinfer opchain-path=/work/config/models/yolov11/opchain.json "
+                "active=true !"
+            ],
+        )
+        self.assertIn(
+            "PEK_MENU_ARGS=(yolov11-onnx)",
+            (REPO_ROOT / "scripts/run.sh").read_text(),
+        )
+        self.assertIn(
+            "PEK_PIPELINE: ${PEK_PIPELINE:-yolov11-onnx}",
+            (REPO_ROOT / "compose.yaml").read_text(),
+        )
+        self.assertTrue(
+            (
+                REPO_ROOT
+                / "config/models/yolov11/yolo11n-fp32-320.onnx"
+            ).is_file()
+        )
+
     def test_dev_container_supports_manual_model_downloads(self) -> None:
         dockerfile = (REPO_ROOT / "Dockerfile.dev").read_text()
         runtime_stage = dockerfile.split(" AS pek-base", 1)[1].split(
