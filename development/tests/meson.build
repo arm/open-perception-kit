@@ -139,6 +139,15 @@ test('runtime_pipeline_tests', runtime_pipeline_tests)
 
 if node.found()
   test(
+    'model_label_tests',
+    node,
+    args : [
+      '--test',
+      meson.project_source_root() / 'web/content/model-labels.test.mjs',
+      meson.project_source_root() / 'web/content/models.test.mjs',
+    ],
+  )
+  test(
     'webrtc_client_tests',
     node,
     args : [

@@ -140,7 +140,7 @@ Open Microsoft Edge or Firefox:
 http://localhost:9999
 ```
 
-In the **AI Models** panel, enable one model first. For example, enable `yolov11` or `mobilenetv2`.
+In the **AI Models** panel, enable one model first. For example, enable **YOLOv11n - Object detection** or **MobileNetV2 - Image classification**; both show `ONNX` on the second line.
 
 ![PEK browser UI after opening the web view](/img/10-browser-ui.png)
 

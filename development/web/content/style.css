@@ -1471,6 +1471,13 @@ body.is-resizing-bottom-column * {
   min-width: 0;
 }
 
+.model-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
 .model-info::after {
   content: "";
   flex: 1;
@@ -1603,6 +1610,15 @@ body.is-resizing-bottom-column * {
   font-size: 0.82rem;
   font-weight: 500;
   color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.model-runtime {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -241,7 +241,7 @@ If that does not work, use the Pi IP address:
 http://<raspberry-pi-ip-address>:9999
 ```
 
-In the **AI Models** panel, enable one model first. Start with `yolov11` or `mobilenetv2`.
+In the **AI Models** panel, enable one model first. Start with **YOLOv11n - Object detection** or **MobileNetV2 - Image classification**; both show `ONNX` on the second line.
 
 ![PEK browser UI after opening the web view](/img/10-browser-ui.png)
 
