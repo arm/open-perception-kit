@@ -368,7 +368,8 @@ WORKDIR /work
 COPY --chown=${USERNAME}:${USERNAME} . /work
 COPY --from=pek-demo-media --chown=${USERNAME}:${USERNAME} \
   /work/data/videos /opt/pek-app/data/videos
-COPY --from=pek-models /work/config/models /opt/pek-app/config/models
+COPY --from=pek-models --chown=${USERNAME}:${USERNAME} \
+  /work/config/models /opt/pek-app/config/models
 COPY --from=pek-dev-build --chown=${USERNAME}:${USERNAME} \
   /opt/pek-app/development/build/meson-out /opt/pek-app/development/build/meson-out
 COPY --from=pek-dev-build --chown=${USERNAME}:${USERNAME} \

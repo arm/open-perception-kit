@@ -64,6 +64,11 @@ class ModelArtifactBuildTest(unittest.TestCase):
             "FROM pek-base AS pek-docs", 1
         )[0]
         self.assertIn("huggingface_hub==1.18.0", runtime_stage)
+        self.assertIn(
+            "COPY --from=pek-models --chown=${USERNAME}:${USERNAME} \\\n"
+            "  /work/config/models /opt/pek-app/config/models",
+            dockerfile,
+        )
 
     def test_model_download_cache_bust_is_consumed(self) -> None:
         for name in ("Dockerfile", "Dockerfile.dev"):
