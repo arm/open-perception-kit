@@ -209,10 +209,12 @@ RUN set -eux; \
   chmod +x /tmp/install-ohmyzsh.sh; \
   su - "${USERNAME}" -c "env RUNZSH=no CHSH=no KEEP_ZSHRC=yes /tmp/install-ohmyzsh.sh"; \
   rm -f /tmp/install-ohmyzsh.sh; \
-  mkdir -p "/home/${USERNAME}/.config"; \
+  mkdir -p "/home/${USERNAME}/.config" "/home/${USERNAME}/configs"; \
   ln -sfn "/home/${USERNAME}/configs/zshrc" "/home/${USERNAME}/.zshrc"; \
   ln -sfn "/home/${USERNAME}/configs/nvchad_2026_04" "/home/${USERNAME}/.config/nvim"; \
-  chown -R "${USER_UID}:${USER_GID}" "/home/${USERNAME}/.config" "/home/${USERNAME}/.zshrc"
+  chown -R "${USER_UID}:${USER_GID}" "/home/${USERNAME}/.config" "/home/${USERNAME}/configs" "/home/${USERNAME}/.zshrc"
+
+COPY --chown=${USERNAME}:${USERNAME} .devcontainer/configs/zshrc /home/${USERNAME}/configs/zshrc
 
 COPY --chmod=0755 scripts/private/development-entrypoint.sh /usr/local/bin/development-entrypoint
 
