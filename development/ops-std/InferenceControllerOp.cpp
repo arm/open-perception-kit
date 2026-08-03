@@ -5,8 +5,10 @@
 #include "InferenceControllerOp.h"
 
 #include <fmt/core.h>
+#include <memory>
+#include <utility>
 
-#include "pek/Perception.h"
+#include "pek/FrameResults.h"
 #include "pek/Result.h"
 #include "pek/Types.h"
 #include "tl/expected.hpp"
@@ -39,17 +41,19 @@ InferenceControllerOp::process(pek::op::OpChainContext &opChainContext) {
     }
 
     opChainContext.inferenceInfo.modelName.clear();
-    opChainContext.rootLayer.inferElementId =
-        "rootLayer_" + opChainContext.inferenceInfo.inferElementId;
-    opChainContext.rootLayer.contentType = "videoFrame";
 
     if (contentType.empty()) {
-        // setup source VideoFrame object
-        pek::Perception::VideoFrame videoFrame;
-        videoFrame.originalWidth = pipelineVideoFrame->width();
-        videoFrame.originalHeight = pipelineVideoFrame->height();
-        opChainContext.inferenceSourceUuid = videoFrame.uuid;
-        opChainContext.rootLayer.detections.emplace_back(videoFrame);
+        auto object = perception::makeObjectMeta();
+        const uint64_t frameId = object->id;
+
+        perception::metadata::FrameContextT frameContext;
+        frameContext.layer = perception::makeLayerInfo(
+            "", "rootLayer_" + opChainContext.inferenceInfo.inferElementId, "frameContext");
+        frameContext.video = std::make_unique<perception::metadata::VideoFrameContextT>();
+        frameContext.video->object = std::move(object);
+        frameContext.video->original_width = pipelineVideoFrame->width();
+        frameContext.video->original_height = pipelineVideoFrame->height();
+        opChainContext.frameResults->add(std::move(frameContext));
 
         pek::PixelRect rect;
         rect.x = 0;
@@ -58,21 +62,23 @@ InferenceControllerOp::process(pek::op::OpChainContext &opChainContext) {
         rect.height = pipelineVideoFrame->height();
         opChainContext.inferenceImageCrops.push_back(rect);
 
-        opChainContext.inferenceImageCropUuids.push_back(videoFrame.uuid);
+        opChainContext.inferenceImageCropIds.push_back(frameId);
     } else {
-        pek::PerceptionTools perception(*opChainContext.perception);
-        auto rects = perception.getAllRectsWithContentType(contentType);
+        perception::forEachBoxDetectionWithContentType(
+            *opChainContext.frameResults, contentType, [&](const auto &r) {
+                if (!r.box || !r.object) {
+                    return;
+                }
 
-        for (const auto &r : rects) {
-            pek::PixelRect rect;
-            rect.x = (int)r.x;
-            rect.y = (int)r.y;
-            rect.width = (int)r.width;
-            rect.height = (int)r.height;
+                pek::PixelRect rect;
+                rect.x = static_cast<size_t>(r.box->x);
+                rect.y = static_cast<size_t>(r.box->y);
+                rect.width = static_cast<size_t>(r.box->width);
+                rect.height = static_cast<size_t>(r.box->height);
 
-            opChainContext.inferenceImageCrops.push_back(rect);
-            opChainContext.inferenceImageCropUuids.push_back(r.uuid);
-        }
+                opChainContext.inferenceImageCrops.push_back(rect);
+                opChainContext.inferenceImageCropIds.push_back(r.object->id);
+            });
     }
 
     return pek::op::OpSignal::Continue;

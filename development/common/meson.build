@@ -14,7 +14,7 @@ common = shared_library(
 
     'pek/AudioBuffer.cpp',
 
-    'pek/PerceptionSerializer.cpp',
+    'pek/FrameResults.cpp',
 
     'op/Op.cpp',
     'op/OpRef.cpp',

@@ -15,14 +15,13 @@
 #include "glib.h"
 
 #include "Log.h"
-#include "pek/Perception.h"
 #include "pek/Result.h"
 #include "pek/Tools.h"
 
 #include "op/OpChain.h"
 #include "op/OpChainContext.h"
 
-#include "gst/PerceptionMeta.h"
+#include "gst/FrameResultsMeta.h"
 #include "mediaio/GstVideoFrame.h"
 #include "perf/PerformanceTracer.h"
 
@@ -365,10 +364,10 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
         return GST_FLOW_OK;
 
     // Keep the downstream metadata contract even when QoS skips inference.
-    if (auto perceptionMeta = pek::PerceptionMeta::get(buf); !perceptionMeta) {
-        auto perception = std::make_shared<pek::Perception>();
-        if (!pek::PerceptionMeta::add(buf, perception)) {
-            GST_WARNING_OBJECT(self, "Failed to attach PerceptionMeta");
+    if (auto frameResultsMeta = pek::FrameResultsMeta::get(buf); !frameResultsMeta) {
+        auto frameResults = std::make_shared<perception::FrameResults>();
+        if (!pek::FrameResultsMeta::add(buf, frameResults)) {
+            GST_WARNING_OBJECT(self, "Failed to attach FrameResultsMeta");
             return GST_FLOW_OK;
         }
     }
@@ -413,7 +412,9 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
     // Build the pipeline VideoFrame only from CPU-direct buffers for now. DMA-BUF-backed
     // buffers are detected explicitly so future DMA-BUF support can be added without
-    // accidentally taking a slow or invalid CPU mapping path.
+    // accidentally taking a slow or invalid CPU mapping path. Keep this after attaching
+    // FrameResultsMeta: GstVideoFrame holds its own GstBuffer ref, which makes adding
+    // new metadata fail because the buffer is no longer considered writable.
     std::shared_ptr<pek::mediaio::VideoFrame> sharedMediaFrame;
     if (pek::mediaio::gst::GstVideoFrame::hasDirectCpuAddress(buf)) {
         sharedMediaFrame =
@@ -439,17 +440,17 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
         return GST_FLOW_ERROR;
     }
 
-    // Mutate the PerceptionMeta while executing the op-chain. The mapped frame is
+    // Mutate the FrameResultsMeta while executing the op-chain. The mapped frame is
     // passed through the op context and stays alive for the whole op-chain execution.
-    auto ret =
-        pek::PerceptionMeta::mutate<GstFlowReturn>(buf, [self, sharedMediaFrame](auto &perception) {
+    auto ret = pek::FrameResultsMeta::mutate<GstFlowReturn>(
+        buf, [self, sharedMediaFrame](auto &frameResults) {
             // Execute the op-chain with the provided context. The chain can read and mutate the
-            // perception and read the video frame, but not mutate it.
+            // frame results and read the video frame, but not mutate the frame.
             pek::op::OpChainContext opChainContext;
             opChainContext.inferenceInfo.inferElementId =
                 std::string(gst_pekinfer_get_effective_inferId(self));
 
-            opChainContext.perception = &perception;
+            opChainContext.frameResults = &frameResults;
             opChainContext.videoFrames["pipelineVideoFrame"] = sharedMediaFrame;
 
             auto executeResult = self->m->executeOpChain(opChainContext);

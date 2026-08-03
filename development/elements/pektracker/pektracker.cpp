@@ -4,7 +4,7 @@
 
 #include "Tracker.h"
 
-#include <gst/PerceptionMeta.h>
+#include <gst/FrameResultsMeta.h>
 #include <gst/base/gstbasetransform.h>
 #include <gst/gst.h>
 #include <gst/video/video.h>
@@ -198,12 +198,12 @@ static GstFlowReturn gst_pektracker_transform_ip(GstBaseTransform *b, GstBuffer 
         return GST_FLOW_OK;
     }
 
-    if (const auto perceptionMeta = pek::PerceptionMeta::get(buf); !perceptionMeta) {
+    if (const auto frameResultsMeta = pek::FrameResultsMeta::get(buf); !frameResultsMeta) {
         return GST_FLOW_OK;
     }
 
-    pek::PerceptionMeta::mutate<GstFlowReturn>(buf, [self](auto &perception) {
-        self->m->tracker.process(perception, trackerConfigFromElement(self));
+    pek::FrameResultsMeta::mutate<GstFlowReturn>(buf, [self](auto &frameResults) {
+        self->m->tracker.process(frameResults, trackerConfigFromElement(self));
         return GST_FLOW_OK;
     });
 
@@ -403,7 +403,7 @@ static void gst_pektracker_class_init(GstPekTrackerClass *klass) {
         PROP_CONTENT_TYPE,
         g_param_spec_string("content-type",
                             "Content type",
-                            "Perception layer contentType to track",
+                            "FrameResults layer content type to track",
                             pek::tracker::Defaults::contentType,
                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
@@ -421,7 +421,7 @@ static void gst_pektracker_class_init(GstPekTrackerClass *klass) {
         PROP_EMBEDDING_CONTENT_TYPE,
         g_param_spec_string("embedding-content-type",
                             "Embedding content type",
-                            "Perception layer contentType containing object embeddings",
+                            "FrameResults layer content type containing object embeddings",
                             pek::tracker::Defaults::embeddingContentType,
                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
@@ -642,11 +642,12 @@ static void gst_pektracker_class_init(GstPekTrackerClass *klass) {
     gst_element_class_add_static_pad_template(ecls, &sink_t);
     gst_element_class_add_static_pad_template(ecls, &src_t);
 
-    gst_element_class_set_static_metadata(ecls,
-                                          "PEK Tracker",
-                                          "Filter/Effect/Video",
-                                          "Tracks detections across frames using Perception meta",
-                                          "PEK Development Team");
+    gst_element_class_set_static_metadata(
+        ecls,
+        "PEK Tracker",
+        "Filter/Effect/Video",
+        "Tracks detections across frames using FrameResults metadata",
+        "PEK Development Team");
 
     bcls->start = gst_pektracker_start;
     bcls->stop = gst_pektracker_stop;
@@ -696,7 +697,7 @@ static gboolean pektracker_plugin_init(GstPlugin *plugin) {
 GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   GST_VERSION_MINOR,
                   pektracker,
-                  "PEK tracker based on Perception metadata",
+                  "PEK tracker based on FrameResults metadata",
                   pektracker_plugin_init,
                   "1.0",
                   "LGPL",

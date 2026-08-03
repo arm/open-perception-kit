@@ -4,17 +4,18 @@
 
 #include "postproc/PaddleocrParser.h"
 #include "pek/Bitmap.h"
-#include "pek/Perception.h"
 
 #include <cmath>
 #include <cstdint>
 #include <fmt/core.h>
+#include <memory>
+#include <utility>
 
 using namespace pek;
 using namespace pek::stdop::postproc;
 
-Result<void> PaddleOcrDetectionParser::parse(const pek::TensorParser::Input &input,
-                                             pek::Perception::Layer &detectionResult) {
+pek::Result<void> PaddleOcrDetectionParser::parse(const pek::TensorParser::Input &input,
+                                                  perception::FrameResults &results) {
 
     const float thresholdLow = (float)input.attributes.getDoubleOrDefault("thresholdLow", 0.60f);
     const float thresholdHigh = (float)input.attributes.getDoubleOrDefault("thresholdHigh", 0.80f);
@@ -40,11 +41,9 @@ Result<void> PaddleOcrDetectionParser::parse(const pek::TensorParser::Input &inp
     const size_t maskHeight = shape.dims[2];
     const size_t maskWidth = shape.dims[3];
 
-    detectionResult.detections.push_back(Perception::SegmentationMap());
-    auto &sm = std::get<Perception::SegmentationMap>(detectionResult.detections.back());
-    sm.bitmap = pek::Bitmap(pek::Bitmap::Type::Uint8, maskWidth, maskHeight);
+    pek::Bitmap bitmap(pek::Bitmap::Type::Uint8, maskWidth, maskHeight);
 
-    uint8_t *dst = const_cast<uint8_t *>(sm.bitmap.getData());
+    uint8_t *dst = const_cast<uint8_t *>(bitmap.getData());
 
     auto smoothstep = [](float e0, float e1, float x) {
         x = std::clamp((x - e0) / (e1 - e0), 0.0f, 1.0f);
@@ -76,7 +75,19 @@ Result<void> PaddleOcrDetectionParser::parse(const pek::TensorParser::Input &inp
         dst[i] = static_cast<uint8_t>(std::lround(a * 255.0f));
     }
 
-    detectionResult.contentType = "segmentation";
-    detectionResult.compositingMode = "overlay";
+    auto mask = std::make_unique<perception::metadata::SegmentationMaskT>();
+    mask->object = perception::makeObjectMeta(0U, input.inferenceInfo.parentId);
+    mask->bitmap = perception::makeBitmapData(bitmap);
+
+    perception::metadata::SegmentationMasksT payload;
+    payload.layer = perception::makeLayerInfo(input.inferenceInfo.modelName,
+                                              input.inferenceInfo.inferElementId,
+                                              "segmentation",
+                                              "",
+                                              "",
+                                              "",
+                                              "overlay");
+    payload.masks.push_back(std::move(mask));
+    results.add(std::move(payload));
     return {};
 }

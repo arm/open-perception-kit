@@ -4,11 +4,11 @@
 
 #include "postproc/YoloParser.h"
 #include "pek/Labels.h"
-#include "pek/Perception.h"
 
 #include <algorithm>
 #include <cmath>
 #include <fmt/core.h>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -113,29 +113,31 @@ static inline CoordOrder coordOrderCode(const pek::AttributeMap &attrs) {
 
 static void fillDetection(const std::vector<Det> &dets,
                           const pek::TensorParser::Input &input,
-                          pek::Perception::Layer &detectionResult,
+                          perception::metadata::BoxDetectionsT &detectionResult,
                           bool normalizeOutputCoordinates) {
     const float frameWidth = static_cast<float>(input.inferenceInfo.image.width);
     const float frameHeight = static_cast<float>(input.inferenceInfo.image.height);
 
     for (const auto &a : dets) {
-        Perception::Rect rect;
-        rect.x = a.x1;
-        rect.y = a.y1;
-        rect.width = a.x2 - a.x1;
-        rect.height = a.y2 - a.y1;
-        rect.confidence = a.conf;
-        rect.classId = a.cls;
-        rect.text = pek::resources::Labels::getLabel(pek::resources::LabelType::Coco, a.cls);
+        float x = a.x1;
+        float y = a.y1;
+        float width = a.x2 - a.x1;
+        float height = a.y2 - a.y1;
 
         if (normalizeOutputCoordinates) {
-            rect.x /= frameWidth;
-            rect.width /= frameWidth;
-            rect.y /= frameHeight;
-            rect.height /= frameHeight;
+            x /= frameWidth;
+            width /= frameWidth;
+            y /= frameHeight;
+            height /= frameHeight;
         }
 
-        detectionResult.detections.push_back(rect);
+        auto detection = std::make_unique<perception::metadata::BoxDetectionT>();
+        detection->object = perception::makeObjectMeta(0U, input.inferenceInfo.parentId);
+        detection->box = perception::makeBoundingBox(x, y, width, height);
+        detection->confidence = a.conf;
+        detection->class_id = a.cls;
+        detection->text = pek::resources::Labels::getLabel(pek::resources::LabelType::Coco, a.cls);
+        detectionResult.detections.push_back(std::move(detection));
     }
 }
 
@@ -288,8 +290,8 @@ static std::vector<Det> parseUltralyticsDetections(const pek::TensorParser::Inpu
 
 // ----------------------------------------------------------------------------
 
-Result<void> YoloParser::parse(const pek::TensorParser::Input &input,
-                               pek::Perception::Layer &detectionResult) {
+pek::Result<void> YoloParser::parse(const pek::TensorParser::Input &input,
+                                    perception::FrameResults &results) {
 
     const auto outputFormat = parseOutputFormat(input.attributes);
     const auto iouThreshold =
@@ -324,9 +326,19 @@ Result<void> YoloParser::parse(const pek::TensorParser::Input &input,
     if (auto dets = std::move(*parsed); !dets.empty()) {
         if (applyNms)
             nms(dets, iouThreshold);
-        fillDetection(dets, input, detectionResult, normalizeOutputCoordinates);
+
+        perception::metadata::BoxDetectionsT payload;
+        payload.layer = perception::makeLayerInfo(input.inferenceInfo.modelName,
+                                                  input.inferenceInfo.inferElementId,
+                                                  "genericObject",
+                                                  "",
+                                                  "",
+                                                  "coco");
+        fillDetection(dets, input, payload, normalizeOutputCoordinates);
+        if (!payload.detections.empty()) {
+            results.add(std::move(payload));
+        }
     }
-    detectionResult.contentType = "genericObject";
 
     return {};
 }

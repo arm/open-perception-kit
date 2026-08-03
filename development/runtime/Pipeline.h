@@ -22,13 +22,13 @@ namespace pek::runtime {
 class Pipeline {
   public:
     /**
-     * @brief Called when a buffer carrying Perception metadata passes a runtime probe.
+     * @brief Called when a buffer carrying FrameResults metadata passes a runtime probe.
      *
-     * The callback receives the serialized Perception JSON for that buffer. The
+     * The callback receives the serialized FrameResults JSON wrapper for that buffer. The
      * string reference is valid only for the duration of the callback; copy it
      * inside the callback if it must be retained.
      */
-    using PerceptionCallback = std::function<void(const std::string &)>;
+    using FrameResultsCallback = std::function<void(const std::string &)>;
 
     /**
      * @brief Called when pipeline execution reports an error.
@@ -92,7 +92,7 @@ class Pipeline {
      * @brief Replaces the wrapped pipeline with one parsed from a string.
      *
      * After loading, the implementation automatically installs perception probes
-     * on terminal sink pads where possible. Use attachPerceptionProbe() for a
+     * on terminal sink pads where possible. Use attachFrameResultsProbe() for a
      * specific named element/pad when a pipeline needs tighter control.
      *
      * @param description GStreamer launch syntax, e.g. "src ! filter ! sink".
@@ -134,9 +134,9 @@ class Pipeline {
     Result<void> wait();
 
     /**
-     * @brief Registers a callback for Perception metadata seen by runtime probes.
+     * @brief Registers a callback for FrameResults metadata seen by runtime probes.
      */
-    void onPerception(PerceptionCallback callback);
+    void onFrameResults(FrameResultsCallback callback);
 
     /**
      * @brief Registers a callback for pipeline errors observed by the bus watcher.
@@ -149,7 +149,7 @@ class Pipeline {
     void onEos(EosCallback callback);
 
     /**
-     * @brief Adds a Perception metadata probe to a named element pad.
+     * @brief Adds a FrameResults metadata probe to a named element pad.
      *
      * The pipeline-description string can name elements using standard
      * GStreamer syntax, for example `pekinfer name=detector ...`. This method
@@ -159,8 +159,8 @@ class Pipeline {
      * @param padName Static pad name to probe, usually "src" or "sink".
      * @return Success or an error if the pipeline, element, or pad is missing.
      */
-    Result<void> attachPerceptionProbe(const std::string &elementName,
-                                       const std::string &padName = "src");
+    Result<void> attachFrameResultsProbe(const std::string &elementName,
+                                         const std::string &padName = "src");
 
     /**
      * @brief Returns true when a pipeline has been loaded successfully.

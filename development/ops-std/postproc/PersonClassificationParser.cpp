@@ -3,17 +3,18 @@
  *************************************************************/
 
 #include "postproc/PersonClassificationParser.h"
-#include "pek/Perception.h"
 
 #include <algorithm>
 #include <cmath>
 #include <fmt/core.h>
+#include <memory>
+#include <utility>
 
 using namespace pek;
 using namespace pek::stdop::postproc;
 
-Result<void> PersonClassificationParser::parse(const pek::TensorParser::Input &input,
-                                               pek::Perception::Layer &detectionResult) {
+pek::Result<void> PersonClassificationParser::parse(const pek::TensorParser::Input &input,
+                                                    perception::FrameResults &results) {
 
     if (!input.tensors[0]) {
         return tl::unexpected(
@@ -62,11 +63,17 @@ Result<void> PersonClassificationParser::parse(const pek::TensorParser::Input &i
         }
     }
 
-    detectionResult.contentType = "personClassification";
-    Perception::PersonClassification result;
-    result.yesConfidence = yesConfidence;
-    result.noConfidence = noConfidence;
-    detectionResult.detections.push_back(result);
+    auto result = std::make_unique<perception::metadata::PersonPresenceT>();
+    result->object = perception::makeObjectMeta(0U, input.inferenceInfo.parentId);
+    result->yes_confidence = yesConfidence;
+    result->no_confidence = noConfidence;
+
+    perception::metadata::ClassificationsT payload;
+    payload.layer = perception::makeLayerInfo(input.inferenceInfo.modelName,
+                                              input.inferenceInfo.inferElementId,
+                                              "personClassification");
+    payload.person_presence.push_back(std::move(result));
+    results.add(std::move(payload));
 
     return {};
 }

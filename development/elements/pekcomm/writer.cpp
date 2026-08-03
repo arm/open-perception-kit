@@ -4,15 +4,55 @@
 
 #include "writer.h"
 
+#include <array>
+#include <cstdint>
 #include <mutex>
+#include <span>
 #include <unistd.h>
 #include <utility>
 
-#include <gst/PerceptionMeta.h>
-#include <pek/Perception.h>
-#include <pek/PerceptionSerializer.h>
+#include <pek/FrameResults.h>
 
 #include <nlohmann/json.hpp>
+
+namespace {
+
+std::string base64Encode(std::span<const uint8_t> data) {
+    static constexpr std::array<char, 65> table =
+        std::to_array("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
+    std::string out;
+    out.reserve(((data.size() + 2U) / 3U) * 4U);
+
+    size_t i = 0;
+    while (i + 3U <= data.size()) {
+        const uint32_t v =
+            (uint32_t(data[i]) << 16U) | (uint32_t(data[i + 1U]) << 8U) | uint32_t(data[i + 2U]);
+        out.push_back(table[(v >> 18U) & 0x3FU]);
+        out.push_back(table[(v >> 12U) & 0x3FU]);
+        out.push_back(table[(v >> 6U) & 0x3FU]);
+        out.push_back(table[v & 0x3FU]);
+        i += 3U;
+    }
+
+    const size_t rem = data.size() - i;
+    if (rem == 1U) {
+        const uint32_t v = uint32_t(data[i]) << 16U;
+        out.push_back(table[(v >> 18U) & 0x3FU]);
+        out.push_back(table[(v >> 12U) & 0x3FU]);
+        out.push_back('=');
+        out.push_back('=');
+    } else if (rem == 2U) {
+        const uint32_t v = (uint32_t(data[i]) << 16U) | (uint32_t(data[i + 1U]) << 8U);
+        out.push_back(table[(v >> 18U) & 0x3FU]);
+        out.push_back(table[(v >> 12U) & 0x3FU]);
+        out.push_back(table[(v >> 6U) & 0x3FU]);
+        out.push_back('=');
+    }
+
+    return out;
+}
+
+} // namespace
 
 bool JobQueue::try_push(PekCommJob &&j) {
 
@@ -98,10 +138,13 @@ void Writer::run() {
         json j;
 
         j["frame_counter"] = job.frame_counter;
-        if (job.perception) {
-            j["perception"] = *job.perception; // calls your to_json overloads
+        if (job.frameResults) {
+            const auto packet = perception::serialize(*job.frameResults);
+            j["frame_results_encoding"] = "perception-frame-results+base64";
+            j["frame_results_packet_b64"] = base64Encode(packet);
         } else {
-            j["perception"] = nullptr;
+            j["frame_results_encoding"] = nullptr;
+            j["frame_results_packet_b64"] = nullptr;
         }
 
         std::string line = j.dump();

@@ -116,7 +116,7 @@ int main(int argc, char **argv) {
     // callback probes. Moving it out of Result transfers that ownership into the
     // local variable used below.
     auto pipeline = std::move(*pipelineResult);
-    std::atomic_size_t perceptionCount{0};
+    std::atomic_size_t frameResultsCount{0};
 
     // This condition variable is deliberately owned by the example, not by
     // Pipeline. A GUI app could keep its normal UI event loop. The Pipeline
@@ -135,19 +135,19 @@ int main(int argc, char **argv) {
         completionCv.notify_one();
     };
 
-    // onPerception() is the main reason this example exists. The runtime wrapper installs
-    // internal probes that read Perception metadata from GStreamer buffers and
-    // call this C++ callback with serialized JSON. No internal PEK Perception
+    // onFrameResults() is the main reason this example exists. The runtime wrapper installs
+    // internal probes that read FrameResults metadata from GStreamer buffers and
+    // call this C++ callback with serialized JSON. No internal FrameResults
     // type and no GstBuffer/GstMeta type is visible to the application.
-    pipeline.onPerception([&perceptionCount](const std::string &perceptionJson) {
-        const size_t currentPerception = ++perceptionCount;
+    pipeline.onFrameResults([&frameResultsCount](const std::string &frameResultsJson) {
+        const size_t currentFrameResults = ++frameResultsCount;
 
         // A pipeline can contain several inference stages. Each stage typically
-        // adds one Perception layer. The runtime wrapper gives us JSON, so the example
+        // appends one or more generated payloads. The runtime wrapper gives us JSON, so the example
         // parses only the small part it wants to print: layers[].contentType.
         std::vector<std::string> layerNames;
         try {
-            const auto document = nlohmann::json::parse(perceptionJson);
+            const auto document = nlohmann::json::parse(frameResultsJson);
             const auto layers = document.find("layers");
             if (layers != document.end() && layers->is_array()) {
                 layerNames.reserve(layers->size());
@@ -162,10 +162,11 @@ int main(int argc, char **argv) {
                 }
             }
         } catch (const nlohmann::json::exception &e) {
-            fmt::print(stderr, "pipeline-exec: failed to parse perception JSON: {}\n", e.what());
+            fmt::print(stderr, "pipeline-exec: failed to parse FrameResults JSON: {}\n", e.what());
         }
 
-        fmt::print("Perception {}: layers=[{}]\n", currentPerception, fmt::join(layerNames, ", "));
+        fmt::print(
+            "FrameResults {}: layers=[{}]\n", currentFrameResults, fmt::join(layerNames, ", "));
     });
 
     // Errors observed by Pipeline's internal bus watcher are reported through
@@ -248,7 +249,7 @@ int main(int argc, char **argv) {
     }
 
     fmt::print(stderr,
-               "pipeline-exec: completed, received {} perception result(s)\n",
-               perceptionCount.load());
+               "pipeline-exec: completed, received {} FrameResults callback(s)\n",
+               frameResultsCount.load());
     return failedResult ? 1 : 0;
 }

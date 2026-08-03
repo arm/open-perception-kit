@@ -2,12 +2,12 @@
  * Copyright (C) 2025 Arm Limited. All rights reserved.
  *************************************************************/
 
-#include "gst/PerceptionMeta.h"
+#include "gst/FrameResultsMeta.h"
 #include "gst/Tools.h"
 #include "osd.h"
 #include "pek/Bitmap.h"
 #include "pek/Color.h"
-#include "pek/Perception.h"
+#include "pek/FrameResults.h"
 #include "pek/Tools.h"
 
 #include <algorithm>
@@ -19,6 +19,7 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <set>
 #include <span>
 #include <sstream>
 #include <string>
@@ -68,6 +69,8 @@ G_END_DECLS
 
 GST_DEBUG_CATEGORY_STATIC(gst_pek_osd_debug);
 #define GST_CAT_DEFAULT gst_pek_osd_debug
+
+namespace Osd = pek::osd;
 
 // Default values
 #define DEFAULT_ENABLED FALSE
@@ -314,10 +317,11 @@ static gboolean gst_pek_osd_stop(GstBaseTransform *trans) {
     return TRUE;
 }
 
-static std::unique_ptr<pek::osd::Layer> drawPerformanceLayer([[maybe_unused]] GstPekOsd *self,
-                                                             float imgWidth,
-                                                             float imgHeight,
-                                                             const pek::Perception &perception) {
+static std::unique_ptr<Osd::Layer>
+drawPerformanceLayer([[maybe_unused]] GstPekOsd *self,
+                     float imgWidth,
+                     float imgHeight,
+                     const perception::FrameResults &frameResults) {
     constexpr float line_height = 16.0f;
     constexpr float x_offset = 10.0f;
     constexpr float y_offset = 10.0f;
@@ -325,41 +329,60 @@ static std::unique_ptr<pek::osd::Layer> drawPerformanceLayer([[maybe_unused]] Gs
     auto layer = std::make_unique<pek::osd::Layer>(imgWidth, imgHeight);
 
     float line_y_offset = y_offset;
-    for (const auto &line : perception.perfdata) {
-        pek::osd::Text::draw(*layer,
-                             pek::osd::Coordinate(x_offset, line_y_offset),
-                             line,
-                             pek::Colors::fromStringOrDefault("#66ff00ff"),
-                             pek::Colors::fromStringOrDefault("#000000ff"),
-                             "monospace",
-                             line_height);
-        line_y_offset += line_height;
-    }
+    frameResults.for_each<perception::metadata::PerformanceOverlayT>([&](const auto &payload) {
+        for (const auto &line : payload.lines) {
+            Osd::Text::draw(*layer,
+                            Osd::Coordinate(x_offset, line_y_offset),
+                            line,
+                            pek::Colors::fromStringOrDefault("#66ff00ff"),
+                            pek::Colors::fromStringOrDefault("#000000ff"),
+                            "monospace",
+                            line_height);
+            line_y_offset += line_height;
+        }
+    });
 
     return layer;
 }
 
-static std::unique_ptr<pek::osd::Layer> drawSegmentationLayer([[maybe_unused]] GstPekOsd *self,
-                                                              float imgWidth,
-                                                              float imgHeight,
-                                                              const pek::Bitmap &segMap) {
-    auto layer = std::make_unique<pek::osd::Layer>(imgWidth, imgHeight);
+struct SegmentationBitmapView {
+    const uint8_t *data = nullptr;
+    size_t size = 0;
+    size_t width = 0;
+    size_t height = 0;
+};
+
+static SegmentationBitmapView
+makeSegmentationBitmapView(const perception::metadata::BitmapDataT &data) {
+    return SegmentationBitmapView{
+        data.pixels.data(),
+        data.pixels.size(),
+        static_cast<size_t>(data.width),
+        static_cast<size_t>(data.height),
+    };
+}
+
+static std::unique_ptr<Osd::Layer> drawSegmentationLayer([[maybe_unused]] GstPekOsd *self,
+                                                         float imgWidth,
+                                                         float imgHeight,
+                                                         const SegmentationBitmapView &segMap) {
+    auto layer = std::make_unique<Osd::Layer>(imgWidth, imgHeight);
 
     cairo_surface_flush(layer->surface);
     auto *data = cairo_image_surface_get_data(layer->surface);
     const int stride = cairo_image_surface_get_stride(layer->surface);
 
-    const size_t sw = segMap.getWidth();
-    const size_t sh = segMap.getHeight();
+    const size_t sw = segMap.width;
+    const size_t sh = segMap.height;
 
-    if (sw == 0U || sh == 0U) {
+    if (segMap.data == nullptr || sw == 0U || sh == 0U || segMap.size < (sw * sh)) {
         return layer;
     }
 
     const float scale_x = imgWidth / static_cast<float>(sw);
     const float scale_y = imgHeight / static_cast<float>(sh);
 
-    const auto *seg = reinterpret_cast<const uint8_t *>(segMap.getData());
+    const auto *seg = segMap.data;
 
     // cairo ARGB32 memory is typically BGRA on little-endian systems.
     constexpr uint8_t B = 255U;
@@ -394,14 +417,15 @@ static void replaceBackground(guint8 *imgData,
                               gint imgWidth,
                               gint imgHeight,
                               gint imgStride,
-                              const pek::Bitmap &segMap,
+                              const SegmentationBitmapView &segMap,
                               const std::optional<pek::Bitmap> &bgImage) {
     assert(imgData != nullptr);
 
-    const auto segWidth = segMap.getWidth();
-    const auto segHeight = segMap.getHeight();
+    const auto segWidth = segMap.width;
+    const auto segHeight = segMap.height;
 
-    if (segWidth == 0U || segHeight == 0U) {
+    if (segMap.data == nullptr || segWidth == 0U || segHeight == 0U ||
+        segMap.size < (segWidth * segHeight)) {
         return;
     }
 
@@ -424,7 +448,7 @@ static void replaceBackground(guint8 *imgData,
 
         for (gint x = 0; x < imgWidth; ++x) {
             const auto segX = std::min(static_cast<size_t>(x / segScaleX), segWidth - 1U);
-            const auto maskValue = segMap.getData()[segY * segWidth + segX];
+            const auto maskValue = segMap.data[segY * segWidth + segX];
 
             // RVM mask values are inverted here: high values map to background.
             if (maskValue < threshold) {
@@ -486,69 +510,179 @@ static inline void gazeEndpoint(float eyeX,
     outY = eyeY + dy * lengthPx;
 }
 
-static void drawGazeVectors(pek::osd::Layer *layer, const pek::Perception &perception) {
-    pek::ConstPerceptionTools perceptionTools(perception);
-
-    const auto yps =
-        perceptionTools.getAllWithContentType<pek::Perception::YawPitch>("eyeYawPitch");
-
-    for (const auto &yp : yps) {
-        const auto parents = perceptionTools.getAllRectsWithContentType("humanFace", yp.parentUuid);
-
-        if (parents.size() != 1U) {
-            continue;
-        }
-
-        const auto &parent = parents[0];
-
-        const float x = parent.x + parent.width / 2.0f;
-        const float y = parent.y + parent.height / 2.0f;
-        const float yaw = yp.yaw;
-        const float pitch = yp.pitch;
-
-        if (yaw < 0.1f && pitch < 0.1f && yaw > -0.1f && pitch > -0.1f) {
-            continue;
-        }
-
-        float xEnd = x;
-        float yEnd = y;
-        gazeEndpoint(x, y, yaw, pitch, 120.0f, xEnd, yEnd);
-        pek::osd::Arrow::draw(*layer, {x, y}, {xEnd, yEnd}, pek::Colors::lightGoldenrodYellow);
-    }
+static const perception::metadata::BoundingBoxT *
+boxOf(const std::unique_ptr<perception::metadata::BoundingBoxT> &box) {
+    return box ? box.get() : nullptr;
 }
 
-static void drawCameraContactMarkers(pek::osd::Layer *layer, const pek::Perception &perception) {
-    pek::ConstPerceptionTools perceptionTools(perception);
+static constexpr const char *HUMAN_FACE_CONTENT_TYPE = "humanFace";
+static constexpr const char *GENERIC_OBJECT_CONTENT_TYPE = "genericObject";
+static constexpr const char *CLASSIFICATION_CONTENT_TYPE = "classification";
+static constexpr const char *PERSON_CLASSIFICATION_CONTENT_TYPE = "personClassification";
+static constexpr const char *EYE_YAW_PITCH_CONTENT_TYPE = "eyeYawPitch";
+static constexpr const char *CAMERA_CONTACT_CONTENT_TYPE = "cameraContact";
+static constexpr const char *SEGMENTATION_CONTENT_TYPE = "segmentation";
+static constexpr const char *BACKGROUND_REPLACEMENT_COMPOSITING_MODE = "backgroundReplacement";
 
-    for (const auto &inferLayer : perception.layers) {
-        if (inferLayer.contentType != "cameraContact") {
-            continue;
+static bool hasContentType(const perception::metadata::LayerInfoT *layer, const char *contentType) {
+    return layer != nullptr && layer->content_type == contentType;
+}
+
+static bool isHumanFaceLayer(const perception::metadata::LayerInfoT *layer) {
+    return hasContentType(layer, HUMAN_FACE_CONTENT_TYPE);
+}
+
+static bool isGenericObjectLayer(const perception::metadata::LayerInfoT *layer) {
+    return hasContentType(layer, GENERIC_OBJECT_CONTENT_TYPE);
+}
+
+static bool isClassificationLayer(const perception::metadata::LayerInfoT *layer) {
+    return hasContentType(layer, CLASSIFICATION_CONTENT_TYPE);
+}
+
+static bool isPersonClassificationLayer(const perception::metadata::LayerInfoT *layer) {
+    return hasContentType(layer, PERSON_CLASSIFICATION_CONTENT_TYPE);
+}
+
+static bool isEyeYawPitchLayer(const perception::metadata::LayerInfoT *layer) {
+    return hasContentType(layer, EYE_YAW_PITCH_CONTENT_TYPE);
+}
+
+static bool isCameraContactLayer(const perception::metadata::LayerInfoT *layer) {
+    return hasContentType(layer, CAMERA_CONTACT_CONTENT_TYPE);
+}
+
+static bool isSegmentationLayer(const perception::metadata::LayerInfoT *layer) {
+    return hasContentType(layer, SEGMENTATION_CONTENT_TYPE);
+}
+
+static bool usesBackgroundReplacement(const perception::metadata::LayerInfoT *layer) {
+    return layer != nullptr && layer->compositing_mode == BACKGROUND_REPLACEMENT_COMPOSITING_MODE;
+}
+
+static const perception::metadata::BoxDetectionT *
+findFirstHumanFaceDetection(const perception::FrameResults &frameResults, uint64_t id) {
+    const perception::metadata::BoxDetectionT *parent = nullptr;
+
+    frameResults.for_each<perception::metadata::BoxDetectionsT>([&](const auto &payload) {
+        if (parent != nullptr || !isHumanFaceLayer(payload.layer.get())) {
+            return;
         }
 
-        for (const auto &det : inferLayer.detections) {
-            const auto *classification = std::get_if<pek::Perception::Classification>(&det);
-            if (classification == nullptr || classification->candidates.empty()) {
+        for (const auto &det : payload.detections) {
+            if (!det || !det->object || !det->box) {
+                continue;
+            }
+            if (id != 0U && det->object->id != id) {
                 continue;
             }
 
-            const auto &candidate = classification->candidates.front();
-            if (candidate.classId < 0) {
+            parent = det.get();
+            return;
+        }
+    });
+
+    return parent;
+}
+
+static const perception::metadata::BoxDetectionT *
+findOnlyHumanFaceDetection(const perception::FrameResults &frameResults, uint64_t id) {
+    const perception::metadata::BoxDetectionT *parent = nullptr;
+    size_t parentCount = 0U;
+
+    frameResults.for_each<perception::metadata::BoxDetectionsT>([&](const auto &payload) {
+        if (!isHumanFaceLayer(payload.layer.get())) {
+            return;
+        }
+
+        for (const auto &det : payload.detections) {
+            if (!det || !det->object || !det->box) {
+                continue;
+            }
+            if (id != 0U && det->object->id != id) {
                 continue;
             }
 
-            const auto parents =
-                perceptionTools.getAllRectsWithContentType("humanFace", classification->parentUuid);
+            parent = det.get();
+            ++parentCount;
+        }
+    });
 
-            if (parents.empty()) {
+    return parentCount == 1U ? parent : nullptr;
+}
+
+static void drawGazeVectors(Osd::Layer *layer, const perception::FrameResults &frameResults) {
+    frameResults.for_each<perception::metadata::PoseEstimationsT>([&](const auto &payload) {
+        if (!isEyeYawPitchLayer(payload.layer.get())) {
+            return;
+        }
+
+        for (const auto &pose : payload.poses) {
+            if (!pose || !pose->object) {
                 continue;
             }
 
-            const auto &face = parents.front();
-            const float x = face.x + face.width * 0.5f;
-            const float y = face.y + face.height * 0.5f;
-            const bool hasCameraContact = candidate.classId == 1;
+            const auto *parent = findOnlyHumanFaceDetection(frameResults, pose->object->parent_id);
+            if (parent == nullptr) {
+                continue;
+            }
+
+            const auto *parentBox = boxOf(parent->box);
+            if (parentBox == nullptr) {
+                continue;
+            }
+
+            const float x = parentBox->x + parentBox->width / 2.0f;
+            const float y = parentBox->y + parentBox->height / 2.0f;
+            const float yaw = pose->yaw;
+            const float pitch = pose->pitch;
+
+            if (yaw < 0.1f && pitch < 0.1f && yaw > -0.1f && pitch > -0.1f) {
+                continue;
+            }
+
+            float xEnd = x;
+            float yEnd = y;
+            gazeEndpoint(x, y, yaw, pitch, 120.0f, xEnd, yEnd);
+            Osd::Arrow::draw(*layer, {x, y}, {xEnd, yEnd}, pek::Colors::lightGoldenrodYellow);
+        }
+    });
+}
+
+static void drawCameraContactMarkers(Osd::Layer *layer,
+                                     const perception::FrameResults &frameResults) {
+    frameResults.for_each<perception::metadata::ClassificationsT>([&](const auto &payload) {
+        if (!isCameraContactLayer(payload.layer.get())) {
+            return;
+        }
+
+        for (const auto &classification : payload.classifications) {
+            if (!classification || !classification->object || classification->candidates.empty() ||
+                !classification->candidates.front()) {
+                continue;
+            }
+
+            const auto &candidate = *classification->candidates.front();
+            if (candidate.class_id < 0) {
+                continue;
+            }
+
+            const auto *parent =
+                findFirstHumanFaceDetection(frameResults, classification->object->parent_id);
+            if (parent == nullptr) {
+                continue;
+            }
+
+            const auto *face = boxOf(parent->box);
+            if (face == nullptr) {
+                continue;
+            }
+
+            const float x = face->x + face->width * 0.5f;
+            const float y = face->y + face->height * 0.5f;
+            const bool hasCameraContact = candidate.class_id == 1;
             const pek::Color markerColor = hasCameraContact ? pek::Colors::lime : pek::Colors::red;
-            const float baseRadius = std::min(face.width, face.height) * 0.5f;
+            const float baseRadius = std::min(face->width, face->height) * 0.5f;
             const float markerRadius = hasCameraContact
                                            ? std::clamp(baseRadius * 0.65f, 18.0f, 80.0f)
                                            : std::clamp(baseRadius * 1.15f, 28.0f, 140.0f);
@@ -559,7 +693,7 @@ static void drawCameraContactMarkers(pek::osd::Layer *layer, const pek::Percepti
                 *layer, pek::osd::Coordinate{x, y}, markerRadius, markerColor, markerThickness);
             pek::osd::Point::draw(*layer, pek::osd::Coordinate{x, y}, markerColor, centerPointSize);
         }
-    }
+    });
 }
 
 static pek::Color colorForTrack(uint64_t trackId) {
@@ -583,170 +717,345 @@ static pek::Color withAlpha(pek::Color color, float alpha) {
     return (color & 0x00ffffffu) | (static_cast<uint32_t>(a) << 24);
 }
 
-static void drawTrackTrace(pek::osd::Layer &layer, const pek::Perception::TrackTrace &trace) {
+static void drawTrackTrace(Osd::Layer &layer, const perception::metadata::TrackTraceT &trace) {
     if (trace.points.size() < 2U) {
         return;
     }
 
-    const auto baseColor = colorForTrack(trace.trackId);
+    const auto baseColor = colorForTrack(trace.track_id);
     const auto segmentCount = trace.points.size() - 1U;
 
     for (size_t i = 0; i < segmentCount; ++i) {
         const auto &from = trace.points[i];
         const auto &to = trace.points[i + 1U];
+        if (!from || !to) {
+            continue;
+        }
 
         const auto normalizedAge = static_cast<float>(i + 1U) / static_cast<float>(segmentCount);
         const auto alpha = 0.35f + (0.65f * normalizedAge);
 
-        pek::osd::Arrow::draw(layer,
-                              pek::osd::Coordinate{from.x, from.y},
-                              pek::osd::Coordinate{to.x, to.y},
-                              withAlpha(baseColor, alpha),
-                              4.0f,
-                              0.0f,
-                              0.0f);
+        Osd::Arrow::draw(layer,
+                         Osd::Coordinate{from->x, from->y},
+                         Osd::Coordinate{to->x, to->y},
+                         withAlpha(baseColor, alpha),
+                         4.0f,
+                         0.0f,
+                         0.0f);
     }
 }
 
-static std::unique_ptr<pek::osd::Layer> drawPerceptionLayer([[maybe_unused]] GstPekOsd *self,
-                                                            float imgWidth,
-                                                            float imgHeight,
-                                                            const pek::Perception &perception) {
-    auto layer = std::make_unique<pek::osd::Layer>(imgWidth, imgHeight);
+struct TrackedSourceIds {
+    std::set<uint64_t> humanFaces;
+    std::set<uint64_t> genericObjects;
+};
 
-    for (const auto &inferLayer : perception.layers) {
-        if (inferLayer.contentType == "trackTrace") {
-            for (const auto &det : inferLayer.detections) {
-                const auto &trace = std::get<pek::Perception::TrackTrace>(det);
-                drawTrackTrace(*layer, trace);
+static std::set<uint64_t> *trackedSourceSetForLayer(TrackedSourceIds &ids,
+                                                    const perception::metadata::LayerInfoT *layer) {
+    if (isHumanFaceLayer(layer)) {
+        return &ids.humanFaces;
+    }
+    if (isGenericObjectLayer(layer)) {
+        return &ids.genericObjects;
+    }
+    return nullptr;
+}
+
+static TrackedSourceIds collectTrackedSourceIds(const perception::FrameResults &frameResults) {
+    TrackedSourceIds result;
+    frameResults.for_each<perception::metadata::ObjectTracksT>([&](const auto &payload) {
+        auto *sourceIds = trackedSourceSetForLayer(result, payload.layer.get());
+        if (sourceIds == nullptr) {
+            return;
+        }
+
+        for (const auto &track : payload.tracks) {
+            if (track && track->source_id != 0U) {
+                sourceIds->insert(track->source_id);
             }
+        }
+    });
+    return result;
+}
+
+static bool isTrackedSourceDetection(const perception::metadata::BoxDetectionT &box,
+                                     const std::set<uint64_t> &trackedSourceIds) {
+    if (!box.object) {
+        return false;
+    }
+
+    return trackedSourceIds.find(box.object->id) != trackedSourceIds.end();
+}
+
+static void drawHumanFaceDetection(Osd::Layer &layer,
+                                   const perception::metadata::BoxDetectionT &box) {
+    if (!box.box) {
+        return;
+    }
+
+    const auto &b = *box.box;
+    Osd::Circle::draw(layer,
+                      Osd::Coordinate{b.x + b.width / 2.0f, b.y + b.height / 2.0f},
+                      b.width / 2.0f,
+                      pek::Colors::fromStringOrDefault("#2600ffff"),
+                      2.0f);
+}
+
+static void drawGenericObjectDetection(Osd::Layer &layer,
+                                       const perception::metadata::BoxDetectionT &box) {
+    if (!box.box) {
+        return;
+    }
+
+    Osd::ObjectBox::draw(layer, box, pek::Colors::fromStringOrDefault("#ff0000ff"), 2.0f);
+}
+
+static perception::metadata::BoxDetectionT
+trackAsDetection(const perception::metadata::ObjectTrackT &track) {
+    perception::metadata::BoxDetectionT detection;
+    detection.object = track.object
+                           ? std::make_unique<perception::metadata::ObjectMetaT>(*track.object)
+                           : perception::makeObjectMeta(0U, track.source_id);
+    detection.box =
+        track.box ? std::make_unique<perception::metadata::BoundingBoxT>(*track.box) : nullptr;
+    detection.confidence = track.confidence;
+    detection.class_id = track.class_id;
+    detection.text = track.text;
+    return detection;
+}
+
+static void drawPersonPresence(Osd::Layer &layer,
+                               float imgWidth,
+                               float imgHeight,
+                               const perception::metadata::PersonPresenceT &presence) {
+    const bool isPerson = presence.yes_confidence > presence.no_confidence;
+    const std::string label = isPerson ? "PERSON" : "NON-PERSON";
+    const auto color = isPerson ? pek::Colors::fromStringOrDefault("#66ff00ff")
+                                : pek::Colors::fromStringOrDefault("#ff4444ff");
+    constexpr float fontSize = 64.0f;
+
+    cairo_select_font_face(
+        layer.context, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+    cairo_set_font_size(layer.context, fontSize);
+    cairo_text_extents_t ex;
+    cairo_text_extents(layer.context, label.c_str(), &ex);
+
+    const float x = (imgWidth - ex.width) / 2.0f - ex.x_bearing;
+    const float y = (imgHeight - ex.height) / 2.0f - ex.y_bearing;
+
+    uint64_t timeMs = pek::Time::utcMs();
+    if (timeMs % 1000 < 800) {
+        Osd::Text::draw(layer,
+                        Osd::Coordinate(x, y),
+                        label,
+                        color,
+                        pek::Colors::fromStringOrDefault("#000000cc"),
+                        "monospace",
+                        fontSize);
+    }
+}
+
+static void drawClassificationList(Osd::Layer &layer,
+                                   float imgHeight,
+                                   const perception::metadata::ClassificationT &classification) {
+    const float fontSize = 14.0f;
+    const float lineHeight = fontSize * 1.5f;
+    const auto numResults = classification.candidates.size();
+    const float padding = 10.0f;
+    const float startX = padding;
+    const float startY =
+        imgHeight - (static_cast<float>(numResults) * lineHeight) - (2.0f * padding);
+
+    for (size_t i = 0U; i < classification.candidates.size(); ++i) {
+        const auto &result = classification.candidates[i];
+        if (!result) {
             continue;
         }
 
-        if (inferLayer.contentType == "genericObject") {
-            for (const auto &det : inferLayer.detections) {
-                const auto &box = std::get<pek::Perception::Rect>(det);
-                pek::osd::ObjectBox::draw(
-                    *layer, box, pek::Colors::fromStringOrDefault("#ff0000ff"), 2.0f);
-            }
-        }
+        std::ostringstream oss;
+        oss << "#" << (i + 1U) << ": " << result->text << " (" << std::fixed << std::setprecision(1)
+            << (result->confidence * 100.0f) << "%)";
 
-        if (inferLayer.contentType == "personClassification") {
-            for (const auto &det : inferLayer.detections) {
-                const auto &pc = std::get<pek::Perception::PersonClassification>(det);
+        const float textX = startX;
+        const float textY = startY + static_cast<float>(i) * lineHeight;
 
-                const bool isPerson = pc.yesConfidence > pc.noConfidence;
-                const std::string label = isPerson ? "PERSON" : "NON-PERSON";
-                const auto color = isPerson ? pek::Colors::fromStringOrDefault("#66ff00ff")
-                                            : pek::Colors::fromStringOrDefault("#ff4444ff");
-                constexpr float fontSize = 64.0f;
+        Osd::Text::draw(layer,
+                        Osd::Coordinate(textX, textY),
+                        oss.str(),
+                        pek::Colors::fromStringOrDefault("#ffffffff"),
+                        pek::Colors::fromStringOrDefault("#000000ff"),
+                        "monospace",
+                        fontSize);
+    }
+}
 
-                cairo_select_font_face(
-                    layer->context, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-                cairo_set_font_size(layer->context, fontSize);
-                cairo_text_extents_t ex;
-                cairo_text_extents(layer->context, label.c_str(), &ex);
-
-                const float x = (imgWidth - ex.width) / 2.0f - ex.x_bearing;
-                const float y = (imgHeight - ex.height) / 2.0f - ex.y_bearing;
-
-                uint64_t timeMs = pek::Time::utcMs();
-                if (timeMs % 1000 < 800) {
-                    pek::osd::Text::draw(*layer,
-                                         pek::osd::Coordinate(x, y),
-                                         label,
-                                         color,
-                                         pek::Colors::fromStringOrDefault("#000000cc"),
-                                         "monospace",
-                                         fontSize);
-                }
-            }
-        }
-
-        if (inferLayer.contentType == "humanFace") {
-            for (const auto &det : inferLayer.detections) {
-                const auto &box = std::get<pek::Perception::Rect>(det);
-                pek::osd::Circle::draw(
-                    *layer,
-                    pek::osd::Coordinate{box.x + box.width / 2.0f, box.y + box.height / 2.0f},
-                    box.width / 2.0f,
-                    pek::Colors::fromStringOrDefault("#2600ffff"),
-                    2.0f);
-            }
-        }
-
-        if (inferLayer.contentType == "classification") {
-            for (const auto &det : inferLayer.detections) {
-                // Draw classification results as a label list in lower-left corner
-                const auto &classification = std::get<pek::Perception::Classification>(det);
-
-                const float fontSize = 14.0f;
-                const float lineHeight = fontSize * 1.5f;
-                const auto numResults = classification.candidates.size();
-
-                // Calculate starting position (lower-left corner with padding)
-                const float padding = 10.0f;
-                const float startX = padding;
-                const float startY =
-                    imgHeight - (static_cast<float>(numResults) * lineHeight) - (2.0f * padding);
-
-                for (size_t i = 0U; i < classification.candidates.size(); ++i) {
-                    const auto &result = classification.candidates[i];
-
-                    std::ostringstream oss;
-                    oss << "#" << (i + 1U) << ": " << result.text << " (" << std::fixed
-                        << std::setprecision(1) << (result.confidence * 100.0f) << "%)";
-
-                    const float textX = startX;
-                    const float textY = startY + static_cast<float>(i) * lineHeight;
-
-                    pek::osd::Text::draw(*layer,
-                                         pek::osd::Coordinate(textX, textY),
-                                         oss.str(),
-                                         pek::Colors::fromStringOrDefault("#ffffffff"),
-                                         pek::Colors::fromStringOrDefault("#000000ff"),
-                                         "monospace",
-                                         fontSize);
-                }
-            }
-        }
+static void drawHumanFaceDetections(Osd::Layer &layer,
+                                    const perception::metadata::BoxDetectionsT &payload,
+                                    const TrackedSourceIds &trackedSourceIds) {
+    if (!isHumanFaceLayer(payload.layer.get())) {
+        return;
     }
 
-    drawGazeVectors(layer.get(), perception);
-    drawCameraContactMarkers(layer.get(), perception);
+    for (const auto &box : payload.detections) {
+        if (box && !isTrackedSourceDetection(*box, trackedSourceIds.humanFaces)) {
+            drawHumanFaceDetection(layer, *box);
+        }
+    }
+}
+
+static void drawGenericObjectDetections(Osd::Layer &layer,
+                                        const perception::metadata::BoxDetectionsT &payload,
+                                        const TrackedSourceIds &trackedSourceIds) {
+    if (!isGenericObjectLayer(payload.layer.get())) {
+        return;
+    }
+
+    for (const auto &box : payload.detections) {
+        if (box && !isTrackedSourceDetection(*box, trackedSourceIds.genericObjects)) {
+            drawGenericObjectDetection(layer, *box);
+        }
+    }
+}
+
+static void drawBoxDetections(Osd::Layer &layer,
+                              const perception::FrameResults &frameResults,
+                              const TrackedSourceIds &trackedSourceIds) {
+    frameResults.for_each<perception::metadata::BoxDetectionsT>([&](const auto &payload) {
+        drawHumanFaceDetections(layer, payload, trackedSourceIds);
+        drawGenericObjectDetections(layer, payload, trackedSourceIds);
+    });
+}
+
+static void drawHumanFaceTracks(Osd::Layer &layer,
+                                const perception::metadata::ObjectTracksT &payload) {
+    if (!isHumanFaceLayer(payload.layer.get())) {
+        return;
+    }
+
+    for (const auto &track : payload.tracks) {
+        if (track) {
+            drawHumanFaceDetection(layer, trackAsDetection(*track));
+        }
+    }
+}
+
+static void drawGenericObjectTracks(Osd::Layer &layer,
+                                    const perception::metadata::ObjectTracksT &payload) {
+    if (!isGenericObjectLayer(payload.layer.get())) {
+        return;
+    }
+
+    for (const auto &track : payload.tracks) {
+        if (track) {
+            drawGenericObjectDetection(layer, trackAsDetection(*track));
+        }
+    }
+}
+
+static void drawObjectTracks(Osd::Layer &layer, const perception::FrameResults &frameResults) {
+    frameResults.for_each<perception::metadata::ObjectTracksT>([&](const auto &payload) {
+        drawHumanFaceTracks(layer, payload);
+        drawGenericObjectTracks(layer, payload);
+    });
+}
+
+static void drawPersonClassifications(Osd::Layer &layer,
+                                      float imgWidth,
+                                      float imgHeight,
+                                      const perception::metadata::ClassificationsT &payload) {
+    if (!isPersonClassificationLayer(payload.layer.get())) {
+        return;
+    }
+
+    for (const auto &presence : payload.person_presence) {
+        if (presence) {
+            drawPersonPresence(layer, imgWidth, imgHeight, *presence);
+        }
+    }
+}
+
+static void drawImageClassifications(Osd::Layer &layer,
+                                     float imgHeight,
+                                     const perception::metadata::ClassificationsT &payload) {
+    if (!isClassificationLayer(payload.layer.get())) {
+        return;
+    }
+
+    for (const auto &classification : payload.classifications) {
+        if (classification) {
+            drawClassificationList(layer, imgHeight, *classification);
+        }
+    }
+}
+
+static void drawClassifications(Osd::Layer &layer,
+                                float imgWidth,
+                                float imgHeight,
+                                const perception::FrameResults &frameResults) {
+    frameResults.for_each<perception::metadata::ClassificationsT>([&](const auto &payload) {
+        drawPersonClassifications(layer, imgWidth, imgHeight, payload);
+        drawImageClassifications(layer, imgHeight, payload);
+    });
+}
+
+static std::unique_ptr<Osd::Layer>
+drawFrameResultsLayer([[maybe_unused]] GstPekOsd *self,
+                      float imgWidth,
+                      float imgHeight,
+                      const perception::FrameResults &frameResults) {
+    auto layer = std::make_unique<Osd::Layer>(imgWidth, imgHeight);
+    const auto trackedSourceIds = collectTrackedSourceIds(frameResults);
+
+    frameResults.for_each<perception::metadata::TrackTracesT>([&](const auto &payload) {
+        for (const auto &trace : payload.traces) {
+            if (trace) {
+                drawTrackTrace(*layer, *trace);
+            }
+        }
+    });
+
+    drawBoxDetections(*layer, frameResults, trackedSourceIds);
+    drawObjectTracks(*layer, frameResults);
+    drawClassifications(*layer, imgWidth, imgHeight, frameResults);
+    drawGazeVectors(layer.get(), frameResults);
+    drawCameraContactMarkers(layer.get(), frameResults);
 
     return layer;
 }
 
-static void gst_pek_osd_process_layer(GstPekOsd *self,
-                                      guint8 *imgData,
-                                      gint imgStride,
-                                      float imgWidth,
-                                      float imgHeight,
-                                      pek::osd::Layers_t &layers,
-                                      const pek::Perception::Layer &layer) {
-    if (layer.contentType == "segmentation") {
-        const bool useBackgroundReplacement = layer.compositingMode == "backgroundReplacement";
+static void gst_pek_osd_process_segmentation(GstPekOsd *self,
+                                             guint8 *imgData,
+                                             gint imgStride,
+                                             float imgWidth,
+                                             float imgHeight,
+                                             Osd::Layers_t &layers,
+                                             const perception::FrameResults &frameResults) {
+    frameResults.for_each<perception::metadata::SegmentationMasksT>([&](const auto &payload) {
+        if (!isSegmentationLayer(payload.layer.get())) {
+            return;
+        }
 
-        for (const auto &det : layer.detections) {
-            const auto *sm = std::get_if<pek::Perception::SegmentationMap>(&det);
-            if (sm == nullptr || sm->bitmap.empty() || sm->bitmap.getWidth() == 0U ||
-                sm->bitmap.getHeight() == 0U) {
+        const bool useBackgroundReplacement = usesBackgroundReplacement(payload.layer.get());
+
+        for (const auto &mask : payload.masks) {
+            if (!mask || !mask->bitmap || mask->bitmap->pixels.empty() ||
+                mask->bitmap->width == 0U || mask->bitmap->height == 0U) {
                 continue;
             }
 
+            const auto bitmap = makeSegmentationBitmapView(*mask->bitmap);
             if (useBackgroundReplacement) {
                 replaceBackground(imgData,
                                   static_cast<gint>(imgWidth),
                                   static_cast<gint>(imgHeight),
                                   imgStride,
-                                  sm->bitmap,
+                                  bitmap,
                                   self->bgImage);
             } else {
-                layers.push_back(drawSegmentationLayer(self, imgWidth, imgHeight, sm->bitmap));
+                layers.push_back(drawSegmentationLayer(self, imgWidth, imgHeight, bitmap));
             }
         }
-    }
+    });
 }
 
 static GstFlowReturn gst_pek_osd_transform_frame_ip(GstVideoFilter *filter, GstVideoFrame *frame) {
@@ -763,14 +1072,12 @@ static GstFlowReturn gst_pek_osd_transform_frame_ip(GstVideoFilter *filter, GstV
 
     pek::osd::Layers_t layers;
 
-    if (auto perception = pek::PerceptionMeta::read(frame->buffer); perception != nullptr) {
-        for (const auto &layer : perception->layers) {
-            gst_pek_osd_process_layer(self, imgData, imgStride, imgWidth, imgHeight, layers, layer);
-        }
-
-        layers.push_back(drawPerceptionLayer(self, imgWidth, imgHeight, *perception));
+    if (auto frameResults = pek::FrameResultsMeta::read(frame->buffer); frameResults != nullptr) {
+        gst_pek_osd_process_segmentation(
+            self, imgData, imgStride, imgWidth, imgHeight, layers, *frameResults);
+        layers.push_back(drawFrameResultsLayer(self, imgWidth, imgHeight, *frameResults));
         if (self->performanceOverlayEnabled) {
-            layers.push_back(drawPerformanceLayer(self, imgWidth, imgHeight, *perception));
+            layers.push_back(drawPerformanceLayer(self, imgWidth, imgHeight, *frameResults));
         }
 
         pek::osd::Canvas(imgData, imgWidth, imgHeight).paint(layers);

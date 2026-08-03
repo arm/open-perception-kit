@@ -7,21 +7,37 @@
 #include "Tracker.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 
 namespace pek::tracker::trackstate {
+
+namespace {
+
+const perception::metadata::BoundingBoxT &
+boxOf(const perception::metadata::BoxDetectionT &detection) {
+    assert(detection.box);
+    return *detection.box;
+}
+
+Point2f makePoint(float x, float y) {
+    return Point2f{x, y};
+}
+
+} // namespace
 
 void clearPredictionFlag(TrackState &track) {
     track.predictedThisFrame = false;
 }
 
-pek::Perception::TrackTrace::Point predictCenter(TrackState &track, const Config &config) {
+Point2f predictCenter(TrackState &track, const Config &config) {
     using StateVector = TrackState::Kalman::StateVector;
     using StateMatrix = TrackState::Kalman::StateMatrix;
 
     if (!track.kalmanInitialized) {
-        const float centerX = track.lastDetection.x + (track.lastDetection.width * 0.5f);
-        const float centerY = track.lastDetection.y + (track.lastDetection.height * 0.5f);
+        const auto &box = boxOf(track.lastDetection);
+        const float centerX = box.x + (box.width * 0.5f);
+        const float centerY = box.y + (box.height * 0.5f);
 
         StateVector initialState{};
         initialState[0][0] = centerX;
@@ -38,7 +54,7 @@ pek::Perception::TrackTrace::Point predictCenter(TrackState &track, const Config
         track.kalman.setState(initialState);
         track.kalman.setCovariance(initialCovariance);
         track.kalmanInitialized = true;
-        return {centerX, centerY};
+        return makePoint(centerX, centerY);
     }
 
     StateMatrix transition{};
@@ -58,11 +74,12 @@ pek::Perception::TrackTrace::Point predictCenter(TrackState &track, const Config
     track.kalman.predict(transition, processNoise);
 
     const auto &state = track.kalman.state();
-    return {state[0][0], state[1][0]};
+    return makePoint(state[0][0], state[1][0]);
 }
 
-pek::Perception::TrackTrace::Point correctCenterWithMeasurement(
-    TrackState &track, const pek::Perception::Rect &detection, const Config &config) {
+Point2f correctCenterWithMeasurement(TrackState &track,
+                                     const perception::metadata::BoxDetectionT &detection,
+                                     const Config &config) {
     using MeasurementVector = TrackState::Kalman::MeasurementVector;
     using MeasurementMatrix = TrackState::Kalman::MeasurementMatrix;
     using ObservationMatrix = TrackState::Kalman::ObservationMatrix;
@@ -72,8 +89,9 @@ pek::Perception::TrackTrace::Point correctCenterWithMeasurement(
         track.predictedThisFrame = true;
     }
 
-    const float measX = detection.x + (detection.width * 0.5f);
-    const float measY = detection.y + (detection.height * 0.5f);
+    const auto &box = boxOf(detection);
+    const float measX = box.x + (box.width * 0.5f);
+    const float measY = box.y + (box.height * 0.5f);
 
     MeasurementVector measurement{};
     measurement[0][0] = measX;
@@ -90,13 +108,13 @@ pek::Perception::TrackTrace::Point correctCenterWithMeasurement(
     track.kalman.update(measurement, observation, measurementNoise);
 
     const auto &state = track.kalman.state();
-    return {state[0][0], state[1][0]};
+    return makePoint(state[0][0], state[1][0]);
 }
 
-void appendTracePoint(TrackState &track,
-                      const pek::Perception::TrackTrace::Point &point,
-                      const Config &config) {
-    track.traceHistoryPoints.push_back(point);
+void appendTracePoint(TrackState &track, const Point2f &point, const Config &config) {
+    auto &tracePoint = track.traceHistoryPoints.emplace_back();
+    tracePoint.x = point.x;
+    tracePoint.y = point.y;
 
     int historyPoints = 1;
     if (config.traceHistorySeconds > 0.0f && config.kalmanDt > 0.0f) {

@@ -7,16 +7,18 @@
 #include "mediaio/VideoFrame.h"
 #include "op/OpChain.h"
 #include "op/OpChainContext.h"
-#include "pek/Perception.h"
-#include "pek/PerceptionSerializer.h"
+#include "pek/FrameResults.h"
 #include "pek/Result.h"
 
 #include <fmt/core.h>
 #include <magic_enum/magic_enum.hpp>
 #include <nlohmann/json.hpp>
 
+#include <array>
+#include <cstdint>
 #include <exception>
 #include <memory>
+#include <span>
 #include <utility>
 
 namespace pek::runtime {
@@ -68,6 +70,49 @@ Error mapInternalError(const pek::Error &error) {
     return runtimeError;
 }
 
+std::string base64Encode(std::span<const uint8_t> data) {
+    static constexpr std::array<char, 65> table =
+        std::to_array("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
+    std::string out;
+    out.reserve(((data.size() + 2U) / 3U) * 4U);
+
+    size_t i = 0;
+    while (i + 3U <= data.size()) {
+        const uint32_t v =
+            (uint32_t(data[i]) << 16U) | (uint32_t(data[i + 1U]) << 8U) | uint32_t(data[i + 2U]);
+        out.push_back(table[(v >> 18U) & 0x3FU]);
+        out.push_back(table[(v >> 12U) & 0x3FU]);
+        out.push_back(table[(v >> 6U) & 0x3FU]);
+        out.push_back(table[v & 0x3FU]);
+        i += 3U;
+    }
+
+    const size_t rem = data.size() - i;
+    if (rem == 1U) {
+        const uint32_t v = uint32_t(data[i]) << 16U;
+        out.push_back(table[(v >> 18U) & 0x3FU]);
+        out.push_back(table[(v >> 12U) & 0x3FU]);
+        out.push_back('=');
+        out.push_back('=');
+    } else if (rem == 2U) {
+        const uint32_t v = (uint32_t(data[i]) << 16U) | (uint32_t(data[i + 1U]) << 8U);
+        out.push_back(table[(v >> 18U) & 0x3FU]);
+        out.push_back(table[(v >> 12U) & 0x3FU]);
+        out.push_back(table[(v >> 6U) & 0x3FU]);
+        out.push_back('=');
+    }
+
+    return out;
+}
+
+std::string serializeFrameResultsJson(const perception::FrameResults &frameResults) {
+    const auto packet = perception::serialize(frameResults);
+    nlohmann::json wrapper;
+    wrapper["frame_results_encoding"] = "perception-frame-results+base64";
+    wrapper["frame_results_packet_b64"] = base64Encode(packet);
+    return wrapper.dump();
+}
+
 } // namespace
 
 struct OpChain::Impl {
@@ -101,10 +146,10 @@ Result<std::string> OpChain::run(const VideoFrame &frame, const std::string &inf
         return tl::make_unexpected(Error(ErrorFlag::InvalidArgument, "VideoFrame is empty"));
     }
 
-    pek::Perception perception;
+    perception::FrameResults frameResults;
     pek::op::OpChainContext context;
     context.inferenceInfo.inferElementId = inferElementId.empty() ? "runtime" : inferElementId;
-    context.perception = &perception;
+    context.frameResults = &frameResults;
     context.videoFrames["pipelineVideoFrame"] =
         std::static_pointer_cast<pek::mediaio::VideoFrame>(frame.internalFrameHandle());
 
@@ -114,12 +159,11 @@ Result<std::string> OpChain::run(const VideoFrame &frame, const std::string &inf
     }
 
     try {
-        const nlohmann::json perceptionJson = perception;
-        return perceptionJson.dump();
+        return serializeFrameResultsJson(frameResults);
     } catch (const std::exception &e) {
         return tl::make_unexpected(
             Error(ErrorFlag::RuntimeError,
-                  fmt::format("Failed to serialize Perception metadata: {}", e.what())));
+                  fmt::format("Failed to serialize FrameResults metadata: {}", e.what())));
     }
 }
 

@@ -5,7 +5,7 @@
 #pragma once
 
 #include "TrackState.h"
-#include "pek/Perception.h"
+#include "pek/FrameResults.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -77,8 +77,8 @@ using TrackIdList = std::vector<TrackId>;
 using ActiveTrackMap = std::map<TrackId, TrackState>;
 using DormantTrackMap = std::map<TrackId, DormantTrackState>;
 
-using EmbeddingBatch = std::map<uint64_t, std::reference_wrapper<const std::vector<float>>>;
-using DetectionBatch = std::vector<pek::Perception::Rect>;
+using EmbeddingBatch = std::map<uint64_t, const std::vector<float> *>;
+using DetectionBatch = std::vector<const perception::metadata::BoxDetectionT *>;
 using TrackMatch = std::pair<DetectionIndex, TrackId>;
 
 struct AssociationResult {
@@ -95,11 +95,11 @@ class Tracker {
     void reset();
 
     /**
-     * @brief Processes one perception frame through the tracking pipeline.
-     * @param perception Perception payload for the current frame.
+     * @brief Processes one FrameResults frame through the tracking pipeline.
+     * @param frameResults Generated metadata for the current frame.
      * @param config Tracker runtime configuration.
      */
-    void process(pek::Perception &perception, const Config &config);
+    void process(perception::FrameResults &frameResults, const Config &config);
 
   private:
     ActiveTrackMap activeTracks;

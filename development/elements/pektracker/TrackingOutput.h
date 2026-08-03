@@ -5,40 +5,19 @@
 #pragma once
 
 #include "Tracker.h"
+#include "pek/FrameResults.h"
 
 namespace pek::tracker::trackingoutput {
-
-struct WriterContext {
-    pek::Perception &perception;
-    const ActiveTrackMap &activeTracks;
-    const Config &config;
-};
 
 struct TrackingResult {
     const DetectionTrackAssignments &detectionTrackAssignments;
     const TrackIdList &predictedOnlyTrackIds;
 };
 
-/**
- * @brief Updates existing detection rectangles using resolved tracking assignments.
- * @param context Shared output writing context.
- * @param trackingResult Resolved per-frame assignment and prediction outputs.
- */
-void updateExistingDetectionsWithTrackingResult(const WriterContext &context,
-                                                const TrackingResult &trackingResult);
-
-/**
- * @brief Appends predicted-only detections to the prediction output layer.
- * @param context Shared output writing context.
- * @param trackingResult Resolved per-frame assignment and prediction outputs.
- */
-void appendPredictedDetectionsFromTrackingResult(const WriterContext &context,
-                                                 const TrackingResult &trackingResult);
-
-/**
- * @brief Appends a trace layer for active tracks.
- * @param context Shared output writing context.
- */
-void appendTraceLayerForActiveTracks(const WriterContext &context);
+void appendTrackingPayloads(perception::FrameResults &frameResults,
+                            const DetectionBatch &detections,
+                            const ActiveTrackMap &activeTracks,
+                            const Config &config,
+                            const TrackingResult &trackingResult);
 
 } // namespace pek::tracker::trackingoutput

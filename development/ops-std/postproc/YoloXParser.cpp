@@ -4,8 +4,8 @@
 
 #include "postproc/YoloXParser.h"
 
+#include "pek/FrameResults.h"
 #include "pek/Labels.h"
-#include "pek/Perception.h"
 
 #include <algorithm>
 #include <array>
@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <fmt/core.h>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -380,33 +381,36 @@ void finalizeDetections(std::vector<Det> &dets, const ParserSettings &settings) 
 void appendDetections(const std::vector<Det> &dets,
                       const ParserSettings &settings,
                       const ImageGeometry &geometry,
-                      pek::Perception::Layer &detectionResult) {
-    detectionResult.contentType = "genericObject";
+                      uint64_t parentId,
+                      perception::metadata::BoxDetectionsT &payload) {
     for (const auto &det : dets) {
-        Perception::Rect rect;
-        rect.x = det.x1;
-        rect.y = det.y1;
-        rect.width = det.x2 - det.x1;
-        rect.height = det.y2 - det.y1;
-        rect.confidence = det.conf;
-        rect.classId = det.cls;
-        rect.text = pek::resources::Labels::getLabel(pek::resources::LabelType::Coco, det.cls);
+        float x = det.x1;
+        float y = det.y1;
+        float width = det.x2 - det.x1;
+        float height = det.y2 - det.y1;
 
         if (settings.normalizeOutputCoordinates) {
-            rect.x /= static_cast<float>(geometry.frameWidth);
-            rect.width /= static_cast<float>(geometry.frameWidth);
-            rect.y /= static_cast<float>(geometry.frameHeight);
-            rect.height /= static_cast<float>(geometry.frameHeight);
+            x /= static_cast<float>(geometry.frameWidth);
+            width /= static_cast<float>(geometry.frameWidth);
+            y /= static_cast<float>(geometry.frameHeight);
+            height /= static_cast<float>(geometry.frameHeight);
         }
 
-        detectionResult.detections.emplace_back(std::move(rect));
+        auto detection = std::make_unique<perception::metadata::BoxDetectionT>();
+        detection->object = perception::makeObjectMeta(0U, parentId);
+        detection->box = perception::makeBoundingBox(x, y, width, height);
+        detection->confidence = det.conf;
+        detection->class_id = det.cls;
+        detection->text =
+            pek::resources::Labels::getLabel(pek::resources::LabelType::Coco, det.cls);
+        payload.detections.push_back(std::move(detection));
     }
 }
 
 } // namespace
 
 Result<void> YoloXParser::parse(const pek::TensorParser::Input &input,
-                                pek::Perception::Layer &detectionResult) {
+                                perception::FrameResults &results) {
     if (!input.tensors[0]) {
         return tl::unexpected(
             PEK_ERROR(pek::ErrorFlag::InvalidData, "YoloXParser: input tensor is null"));
@@ -459,7 +463,17 @@ Result<void> YoloXParser::parse(const pek::TensorParser::Input &input,
         tensor, candidateCount, static_cast<size_t>(classCount) + classValueOffset, rowMajor};
     auto dets = collectDetections(reader, processedCandidateCount, grid, settings, geometry);
     finalizeDetections(dets, settings);
-    appendDetections(dets, settings, geometry, detectionResult);
+    perception::metadata::BoxDetectionsT payload;
+    payload.layer = perception::makeLayerInfo(input.inferenceInfo.modelName,
+                                              input.inferenceInfo.inferElementId,
+                                              "genericObject",
+                                              "",
+                                              "",
+                                              "coco");
+    appendDetections(dets, settings, geometry, input.inferenceInfo.parentId, payload);
+    if (!payload.detections.empty()) {
+        results.add(std::move(payload));
+    }
 
     return {};
 }

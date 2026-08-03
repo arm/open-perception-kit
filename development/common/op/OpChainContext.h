@@ -5,7 +5,7 @@
 #pragma once
 
 #include "mediaio/VideoFrame.h"
-#include "pek/Perception.h"
+#include "pek/FrameResults.h"
 #include "pek/TensorView.h"
 #include "pek/Types.h"
 #include <array>
@@ -23,7 +23,7 @@ namespace pek::op {
  *
  * OpChainContext carries the mutable data shared across operations during execution.
  * It contains named video frames for inter-operation media flow, inference tensor information,
- * and the final Perception output structure. Scheduler control is handled by OpChain and
+ * and the final FrameResults output structure. Scheduler control is handled by OpChain and
  * process() return signals rather than by mutable context flags.
  */
 struct OpChainContext {
@@ -73,14 +73,10 @@ struct OpChainContext {
      */
     std::vector<pek::PixelRect> inferenceImageCrops;
     /**
-     * @brief UUIDs corresponding to each image crop for traceability.
+     * @brief Object IDs corresponding to each image crop for traceability.
      */
-    std::vector<uint64_t> inferenceImageCropUuids;
+    std::vector<uint64_t> inferenceImageCropIds;
 
-    /**
-     * @brief UUID of the source frame used for the last inference.
-     */
-    uint64_t inferenceSourceUuid = 0;
     /**
      * @brief Number of output tensors produced by the last inference.
      */
@@ -97,23 +93,12 @@ struct OpChainContext {
     pek::InferenceInfo inferenceInfo;
 
     /**
-     * @brief Flag indicating whether a root Perception::Layer has been set.
-     */
-    bool hasRootLayer = false;
-    /**
-     * @brief Root Perception::Layer for hierarchical result storage.
-     *
-     * Used when operations organize results in a tree structure.
-     */
-    Perception::Layer rootLayer;
-
-    /**
-     * @brief The final Perception output object populated during execution.
+     * @brief The final FrameResults output object populated during execution.
      *
      * Postprocessing operations write detection results, classifications, segmentations,
-     * and other perception data into this structure. May be null if not populated.
+     * and other perception data into this structure.
      */
-    Perception *perception = nullptr;
+    perception::FrameResults *frameResults = nullptr;
 };
 
 } // namespace pek::op

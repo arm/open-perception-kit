@@ -4,7 +4,6 @@
 #include "Inference.h"
 
 #include "Log.h"
-#include "pek/Perception.h"
 #include "pek/Result.h"
 #include "pek/Shape.h"
 #include "tools.h"

@@ -16,14 +16,7 @@ namespace pek::stdop::postproc {
  */
 class ModNetSegmentationParser : public TensorParser {
   public:
-    /**
-     * @brief Parses MODNet segmentation output tensor.
-     *
-     * @param input Input tensor containing per-pixel segmentation scores.
-     * @param layer Perception layer populated with segmentation mask.
-     * @return Result indicating success or parsing error.
-     */
-    pek::Result<void> parse(const Input &input, Perception::Layer &layer) override;
+    pek::Result<void> parse(const Input &input, perception::FrameResults &results) override;
 };
 
 } // namespace pek::stdop::postproc

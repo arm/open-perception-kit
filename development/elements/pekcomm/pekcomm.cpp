@@ -19,7 +19,7 @@
 #include "websocket_writer.h"
 #include "writer.h"
 
-#include <gst/PerceptionMeta.h>
+#include <gst/FrameResultsMeta.h>
 
 #ifndef PACKAGE
 constexpr const char *PACKAGE = "pekcomm";
@@ -225,10 +225,10 @@ static GstFlowReturn gst_pek_comm_transform_ip(GstBaseTransform *trans, GstBuffe
 
     if (self->priv && self->priv->writer_open && self->priv->writer &&
         self->priv->writer->check_running()) {
-        auto p = pek::PerceptionMeta::read(buf);
+        auto frameResults = pek::FrameResultsMeta::read(buf);
         PekCommJob j = {
             .frame_counter = self->frame_counter,
-            .perception = p,
+            .frameResults = frameResults,
         };
 
         self->priv->writer->send(std::move(j));
