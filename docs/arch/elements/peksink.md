@@ -23,7 +23,9 @@ streaming.
 
 ## Media Paths
 
-The video path converts raw video, queues it, encodes VP8, synchronizes timing,
+The video path converts raw video, queues up to 250 ms while keeping a 150 ms
+playout reserve, encodes VP8, synchronizes timing with the matching timestamp
+offset,
 and feeds a tee. One branch goes to WebRTC; another drain branch prevents stalls
 when no browser client is connected. The drain `fakesink` also synchronizes to
 the clock with QoS enabled and zero maximum lateness. It therefore provides

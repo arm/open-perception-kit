@@ -418,6 +418,7 @@ static void gst_pek_sink_finalize(GObject *object) {
 }
 
 static void init_video(GstPekSink *self) {
+    constexpr guint64 videoQueueLatency = 150 * GST_MSECOND;
 
     self->vconv = gst_element_factory_make("videoconvert", "vconv");
     self->queue = gst_element_factory_make("queue", "vqueue");
@@ -429,7 +430,18 @@ static void init_video(GstPekSink *self) {
 
     // QoS is handled by pekinfer; do not drop the main video buffer while converting it.
     g_object_set(self->vconv, "qos", FALSE, nullptr);
-    g_object_set(self->vclock, "sync", TRUE, nullptr);
+    g_object_set(self->queue,
+                 "max-size-buffers",
+                 guint{0},
+                 "max-size-bytes",
+                 guint{0},
+                 "max-size-time",
+                 guint64{250 * GST_MSECOND},
+                 "min-threshold-time",
+                 videoQueueLatency,
+                 nullptr);
+    g_object_set(
+        self->vclock, "sync", TRUE, "ts-offset", static_cast<gint64>(videoQueueLatency), nullptr);
     g_object_set(self->vp8enc, "deadline", 1, nullptr); // the frame shall be rendered realtime
     g_object_set(self->vp8enc, "target-bitrate", 2500000, nullptr); // bits/sec
     g_object_set(self->vp8enc, "cpu-used", 4, nullptr);
@@ -462,6 +474,8 @@ static void init_video(GstPekSink *self) {
                  TRUE,
                  "max-lateness",
                  gint64{0},
+                 "ts-offset",
+                 static_cast<gint64>(videoQueueLatency),
                  nullptr);
 
     gst_bin_add_many(GST_BIN(self), self->drain_queue, self->drain_fakesink, nullptr);

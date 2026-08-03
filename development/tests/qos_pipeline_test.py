@@ -32,7 +32,18 @@ class QosPipelineTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="pek-qos-") as directory:
             descriptor = Path(directory) / "opchain.json"
             descriptor.write_text(
-                json.dumps({"name": "qos-test", "ops": []}), encoding="utf-8"
+                json.dumps(
+                    {
+                        "name": "qos-test",
+                        "ops": [
+                            {
+                                "id": "pek-test-qos-delay/Delay",
+                                "attributes": {},
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
             )
             pipeline = Gst.parse_launch(
                 "appsrc name=source is-live=true format=time "
@@ -57,6 +68,18 @@ class QosPipelineTest(unittest.TestCase):
                 output.get_by_name("vconv").get_property("qos"),
                 "peksink's converter must not drop the main video buffer",
             )
+            video_queue = output.get_by_name("vqueue")
+            self.assertEqual(video_queue.get_property("max-size-buffers"), 0)
+            self.assertEqual(video_queue.get_property("max-size-bytes"), 0)
+            self.assertEqual(video_queue.get_property("max-size-time"), 250 * Gst.MSECOND)
+            self.assertEqual(
+                video_queue.get_property("min-threshold-time"), 150 * Gst.MSECOND
+            )
+            self.assertEqual(
+                output.get_by_name("vclock").get_property("ts-offset"),
+                150 * Gst.MSECOND,
+            )
+            self.assertEqual(drain.get_property("ts-offset"), 150 * Gst.MSECOND)
             for element_name in ("inactive", "infer", "tracker", "performance", "osd"):
                 self.assertFalse(
                     pipeline.get_by_name(element_name).get_property("qos"),
@@ -72,6 +95,7 @@ class QosPipelineTest(unittest.TestCase):
             drain.set_property("sync", False)
             drain.set_property("qos", False)
             drain.set_property("max-lateness", -1)
+            video_queue.set_property("min-threshold-time", 0)
 
             forwarded = 0
             buffer_forwarded = threading.Event()
@@ -172,6 +196,22 @@ class QosPipelineTest(unittest.TestCase):
                     ),
                     "a recoverable timing spike incorrectly skipped inference",
                 )
+
+                push_buffer(frame_duration + 1)
+                proactive_message = pipeline.get_bus().timed_pop_filtered(
+                    Gst.SECOND, Gst.MessageType.QOS | Gst.MessageType.ERROR
+                )
+                self.assertIsNotNone(
+                    proactive_message,
+                    "pekinfer did not proactively skip within its measured latency",
+                )
+                if proactive_message.type == Gst.MessageType.ERROR:
+                    error, debug = proactive_message.parse_error()
+                    self.fail(f"pipeline error: {error.message}: {debug}")
+                self.assertEqual(proactive_message.src.get_name(), "infer")
+                proactive_values = proactive_message.parse_qos_values()
+                self.assertEqual(proactive_values.jitter, 0)
+                self.assertEqual(proactive_values.proportion, 1.0)
 
                 event_timestamp = frame_duration
                 sent = drain_pad.push_event(

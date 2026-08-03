@@ -74,4 +74,8 @@ prediction-only detections in the absence of new inference results. `pekinfer`
 posts a standard `GST_MESSAGE_QOS`
 for each skip. The policy is source-independent because both live sources and
 file playback map PTS onto pipeline running-time. It cannot interrupt inference
-already in progress.
+already in progress. After each successful execution, it also measures its own
+synchronous processing latency. When processing exceeds one frame duration, the
+ratio against the negotiated framerate determines how many following buffers
+skip inference. Counting buffers keeps dropped-frame timestamps and durations
+from resuming inference prematurely.

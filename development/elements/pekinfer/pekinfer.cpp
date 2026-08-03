@@ -69,6 +69,7 @@ struct _GstPekInfer {
     gchar *inferId;
 
     GstClockTime qosEarliestTime;
+    guint64 processingSkipFrames;
     gdouble qosProportion;
     GstClockTimeDiff qosDiff;
     GstClockTime qosTimestamp;
@@ -190,6 +191,11 @@ static gboolean gst_pekinfer_set_caps(GstBaseTransform *b, GstCaps *incaps, GstC
     return TRUE;
 }
 
+static GstClockTime gst_pekinfer_saturating_add(GstClockTime timestamp, GstClockTime duration) {
+    return duration >= GST_CLOCK_TIME_NONE - timestamp ? GST_CLOCK_TIME_NONE - 1
+                                                       : timestamp + duration;
+}
+
 static gboolean gst_pekinfer_src_event(GstBaseTransform *trans, GstEvent *event) {
     auto *self = GST_PEKINFER(trans);
 
@@ -203,9 +209,7 @@ static gboolean gst_pekinfer_src_event(GstBaseTransform *trans, GstEvent *event)
         GstClockTime qosEarliestTime = GST_CLOCK_TIME_NONE;
         if (type == GST_QOS_TYPE_UNDERFLOW && diff > 0 && GST_CLOCK_TIME_IS_VALID(timestamp)) {
             const auto lateness = static_cast<GstClockTime>(diff);
-            qosEarliestTime = timestamp + lateness;
-            if (qosEarliestTime < timestamp || qosEarliestTime == GST_CLOCK_TIME_NONE) //Overflow handling of qosEarliestTime
-                qosEarliestTime = GST_CLOCK_TIME_NONE - 1;
+            qosEarliestTime = gst_pekinfer_saturating_add(timestamp, lateness);
         }
 
         GST_OBJECT_LOCK(self);
@@ -254,15 +258,19 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
             : GST_CLOCK_TIME_NONE;
 
     GST_OBJECT_LOCK(self);
-    const gboolean skipInference = GST_CLOCK_TIME_IS_VALID(runningTime) &&
-                                   GST_CLOCK_TIME_IS_VALID(self->qosEarliestTime) &&
-                                   runningTime < self->qosEarliestTime;
+    const gboolean qosSkip = GST_CLOCK_TIME_IS_VALID(runningTime) &&
+                             GST_CLOCK_TIME_IS_VALID(self->qosEarliestTime) &&
+                             runningTime < self->qosEarliestTime;
+    const gboolean processingSkip = self->processingSkipFrames > 0;
+    if (processingSkip)
+        --self->processingSkipFrames;
+    const gboolean skipInference = qosSkip || processingSkip;
     if (GST_CLOCK_TIME_IS_VALID(runningTime) && GST_CLOCK_TIME_IS_VALID(self->qosEarliestTime) &&
         runningTime >= self->qosEarliestTime) {
         self->qosEarliestTime = GST_CLOCK_TIME_NONE;
     }
-    const gdouble qosProportion = self->qosProportion;
-    const GstClockTimeDiff qosDiff = self->qosDiff;
+    const gdouble qosProportion = qosSkip ? self->qosProportion : 1.0;
+    const GstClockTimeDiff qosDiff = qosSkip ? self->qosDiff : 0;
     const GstClockTime qosTimestamp = self->qosTimestamp;
     GST_OBJECT_UNLOCK(self);
 
@@ -282,6 +290,8 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
 
     if (!self->m)
         return GST_FLOW_OK;
+
+    const GstClockTime processingStartedAt = gst_util_get_timestamp();
 
     // Build the pipeline VideoFrame only from CPU-direct buffers for now. DMA-BUF-backed
     // buffers are detected explicitly so future DMA-BUF support can be added without
@@ -345,6 +355,21 @@ static GstFlowReturn gst_pekinfer_transform_ip(GstBaseTransform *b, GstBuffer *b
         return GST_FLOW_ERROR;
     }
 
+    const GstClockTime processingLatency = gst_util_get_timestamp() - processingStartedAt;
+    GstClockTime frameDuration = GST_BUFFER_DURATION(buf);
+    if (GST_VIDEO_INFO_FPS_N(&self->vinfo) > 0 && GST_VIDEO_INFO_FPS_D(&self->vinfo) > 0) {
+        frameDuration = gst_util_uint64_scale(
+            GST_SECOND, GST_VIDEO_INFO_FPS_D(&self->vinfo), GST_VIDEO_INFO_FPS_N(&self->vinfo));
+    }
+    if (GST_CLOCK_TIME_IS_VALID(frameDuration) && frameDuration > 0 &&
+        processingLatency > frameDuration) {
+        const guint64 processingSkipFrames =
+            processingLatency / frameDuration + (processingLatency % frameDuration != 0);
+        GST_OBJECT_LOCK(self);
+        self->processingSkipFrames = processingSkipFrames;
+        GST_OBJECT_UNLOCK(self);
+    }
+
     return GST_FLOW_OK;
 }
 
@@ -362,6 +387,8 @@ static void gst_pekinfer_set_property(GObject *o, guint id, const GValue *v, GPa
     case PROP_MODEL_ACTIVE: {
         GST_OBJECT_LOCK(self);
         self->active = g_value_get_boolean(v);
+        if (!self->active)
+            self->processingSkipFrames = 0;
         GST_OBJECT_UNLOCK(self);
         break;
     }
@@ -483,6 +510,7 @@ static void gst_pekinfer_init(GstPekInfer *self) {
     self->m = nullptr;
     self->inferId = nullptr;
     self->qosEarliestTime = GST_CLOCK_TIME_NONE;
+    self->processingSkipFrames = 0;
     self->qosProportion = 1.0;
     self->qosDiff = 0;
     self->qosTimestamp = GST_CLOCK_TIME_NONE;

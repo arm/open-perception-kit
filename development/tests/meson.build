@@ -21,6 +21,17 @@ performance_tracer_tests = executable(
   link_with : [common],
 )
 
+qos_delay_op = shared_module(
+  'pek-test-qos-delay',
+  ['pekinfer_blocking_setup_op.cpp'],
+  include_directories : [common_include],
+  dependencies : [pek_deps],
+  link_with : [common],
+  name_prefix : '',
+  gnu_symbol_visibility : 'default',
+  install : false,
+)
+
 matrix_operations_tests = executable(
   'matrix_operations_tests',
   ['matrix_operations_test.cpp'],
@@ -140,6 +151,7 @@ test(
   python,
   args : [
     files('qos_pipeline_test.py'),
+    qos_delay_op.full_path(),
     gstpekinfer.full_path(),
     gstpektracker.full_path(),
     gstpekperformance.full_path(),
@@ -148,6 +160,7 @@ test(
   ],
   depends : [
     gstpekinfer,
+    qos_delay_op,
     gstpektracker,
     gstpekperformance,
     gstpekosd,

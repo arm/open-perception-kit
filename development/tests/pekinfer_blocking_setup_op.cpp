@@ -1,0 +1,42 @@
+/*************************************************************
+ * Copyright (C) 2026 Arm Limited. All rights reserved.
+ *************************************************************/
+
+#include "op/Op.h"
+#include <chrono>
+#include <cstring>
+#include <memory>
+#include <thread>
+
+namespace {
+
+class DelayOp final : public pek::op::Op {
+  public:
+    pek::Result<void> configure(const pek::AttributeMap &, std::stop_token) override {
+        return {};
+    }
+
+    pek::Result<void> bind(size_t, const std::vector<pek::op::Op *> &) override {
+        return {};
+    }
+
+    pek::Result<pek::op::OpSignal> process(pek::op::OpChainContext &) override {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        return pek::op::OpSignal::Continue;
+    }
+};
+
+} // namespace
+
+extern "C" void pek_delete_op_instance(void *instance) {
+    std::unique_ptr<pek::op::Op> owner( // NOSONAR: adopt the instance returned by the plugin ABI.
+        static_cast<pek::op::Op *>(instance));
+}
+
+extern "C" void *pek_create_op_instance(const char *opName) {
+    if (opName == nullptr)
+        return nullptr;
+    if (std::strcmp(opName, "Delay") == 0)
+        return std::make_unique<DelayOp>().release();
+    return nullptr;
+}
