@@ -4,6 +4,7 @@
 import datetime as dt
 import json
 import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -41,6 +42,7 @@ class TestPublishWorkflowStatus(unittest.TestCase):
                 "docker-scout": status("cancelled"),
                 "workflow-freshness": status("success", "2026-08-01T00:00:00Z"),
             }
+            fixtures["python-audit"]["summary"] = ["pip-audit <expkits-ci>: Run pip-audit"]
             for source, payload in fixtures.items():
                 (status_dir / f"{source}.json").write_text(json.dumps(payload), encoding="utf-8")
 
@@ -53,6 +55,7 @@ class TestPublishWorkflowStatus(unittest.TestCase):
         self.assertIn(f"/commit/{SHA}", index)
         self.assertIn("/actions/runs/123", index)
         self.assertIn("/actions/runs/123#artifacts", index)
+        self.assertIn("pip-audit &lt;expkits-ci&gt;: Run pip-audit", index)
 
     def test_publish_persists_only_develop_schedule(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -89,6 +92,34 @@ class TestPublishWorkflowStatus(unittest.TestCase):
         self.assertEqual(publisher.run_order(None), (0, 0))
         self.assertEqual(publisher.run_order({"run_id": "12", "run_attempt": "3"}), (12, 3))
         self.assertEqual(publisher.run_order({"run_id": "bad"}), (0, 0))
+
+    def test_job_summary_names_failed_jobs_and_steps(self):
+        jobs = {
+            "jobs": [
+                {
+                    "name": "Raspberry Pi 5 quick-start build test",
+                    "conclusion": "failure",
+                    "steps": [
+                        {"name": "Build", "conclusion": "success"},
+                        {"name": "Browser smoke test with local data", "conclusion": "failure"},
+                    ],
+                },
+                {"name": "Linux x86_64 quick-start build test", "conclusion": "success", "steps": []},
+            ]
+        }
+        response = subprocess.CompletedProcess([], 0, stdout=json.dumps(jobs), stderr="")
+        with patch.object(publisher.subprocess, "run", return_value=response):
+            summary = publisher.job_summary("Arm-Debug/amp-dev-forge", "123", "failure")
+        self.assertEqual(
+            summary,
+            ["Raspberry Pi 5 quick-start build test: Browser smoke test with local data"],
+        )
+
+    def test_job_summary_handles_cancelled_or_unavailable_jobs(self):
+        response = subprocess.CompletedProcess([], 1, stdout="", stderr="not found")
+        with patch.object(publisher.subprocess, "run", return_value=response):
+            summary = publisher.job_summary("Arm-Debug/amp-dev-forge", "123", "cancelled")
+        self.assertEqual(summary, ["Run cancelled before all jobs completed."])
 
 
 if __name__ == "__main__":

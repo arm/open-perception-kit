@@ -87,6 +87,14 @@ The workflow entrypoints run the publisher inside a small Docker image:
 `cleanup` is intended for scheduled or manual cleanup of closed PR reports after
 the retention window.
 
+The `Publish Nightly CI Status` workflow records completed `develop` schedule
+runs for PEK CI, Python and container audits, workflow dependency freshness,
+and both YOLO benchmarks. The Reports homepage shows their status, timestamp,
+commit, report, artifact, and workflow-run links. Failed and cancelled runs show
+at most three failed job or step names; full logs and diagnostic payloads remain
+in GitHub Actions. A scheduled run can be backfilled with the workflow's
+`upstream_run_id` input.
+
 ### Report persistence
 
 GitHub Pages deployments are immutable artifacts, so the publisher stores the
@@ -100,6 +108,8 @@ Publish flow:
   - `prs/<number>/` for PR reports.
   - `nightly/` for scheduled RPI `develop` reports and `nightly-macos/` for macOS.
 - Aggregate General and macOS results in the top-level Playwright nightly badge.
+- Store nightly workflow status snapshots under `workflow-status/` and rebuild
+  the homepage without allowing pull-request runs to overwrite nightly state.
 - Rebuild the top-level `index.html`.
 - Store the pruned report in `playwright-pages`; Playwright videos remain in
   their GitHub Actions artifacts.

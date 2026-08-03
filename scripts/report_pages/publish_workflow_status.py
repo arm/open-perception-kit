@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -35,6 +36,7 @@ WORKFLOW_SOURCES = {
     "YOLO Video Benchmark": "yolo-video",
     "YOLO Imageset Benchmark": "yolo-imageset",
 }
+FAILURE_CONCLUSIONS = {"action_required", "failure", "startup_failure", "timed_out"}
 
 
 def run_order(status: dict[str, object] | None) -> tuple[int, int]:
@@ -54,7 +56,46 @@ def read_status(path: Path) -> dict[str, object] | None:
         return None
 
 
-def upstream_status() -> tuple[str, dict[str, str]] | None:
+def job_summary(repository: str, run_id: str, conclusion: str) -> list[str]:
+    if conclusion == "success":
+        return []
+    result = subprocess.run(
+        ["gh", "api", f"repos/{repository}/actions/runs/{run_id}/jobs?per_page=100"],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
+    try:
+        jobs = json.loads(result.stdout).get("jobs", []) if result.returncode == 0 else []
+    except (AttributeError, json.JSONDecodeError):
+        jobs = []
+
+    target_conclusions = {"cancelled"} if conclusion == "cancelled" else FAILURE_CONCLUSIONS
+    messages = []
+    for job in jobs:
+        if not isinstance(job, dict) or job.get("conclusion") not in target_conclusions:
+            continue
+        name = job.get("name")
+        if not isinstance(name, str) or not name:
+            continue
+        steps = job.get("steps")
+        failed_steps = [
+            step.get("name")
+            for step in (steps if isinstance(steps, list) else []) if isinstance(step, dict)
+            and step.get("conclusion") in target_conclusions and isinstance(step.get("name"), str)
+        ]
+        messages.append(f"{name}: {', '.join(failed_steps[:2])}" if failed_steps else name)
+        if len(messages) == 3:
+            break
+    if messages:
+        return messages
+    if conclusion == "cancelled":
+        return ["Run cancelled before all jobs completed."]
+    return [f"Run {conclusion.replace('_', ' ')}; open the workflow run for details."]
+
+
+def upstream_status() -> tuple[str, dict[str, object]] | None:
     event = require_env("UPSTREAM_EVENT")
     branch = require_env("UPSTREAM_HEAD_BRANCH")
     repository = require_env("GITHUB_REPOSITORY")
@@ -76,14 +117,16 @@ def upstream_status() -> tuple[str, dict[str, str]] | None:
     if not re.fullmatch(r"[0-9a-f]{40}", head_sha):
         raise PublishError("UPSTREAM_HEAD_SHA must be a full lowercase Git SHA.")
 
+    conclusion = require_env("UPSTREAM_CONCLUSION")
     return source, {
-        "conclusion": require_env("UPSTREAM_CONCLUSION"),
+        "conclusion": conclusion,
         "head_sha": head_sha,
         "repository": repository,
         "run_attempt": run_attempt,
         "run_id": run_id,
         "updated_at": require_env("UPSTREAM_UPDATED_AT"),
         "workflow": workflow_name,
+        "summary": job_summary(repository, run_id, conclusion),
     }
 
 
