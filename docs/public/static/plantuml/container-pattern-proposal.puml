@@ -1,0 +1,151 @@
+@startuml
+title Proposed Container Pattern: Tools Images vs Deployment Runtime
+
+skinparam backgroundColor #ffffff
+skinparam shadowing false
+skinparam defaultFontName DejaVu Sans
+skinparam ArrowColor #4b5563
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+
+skinparam component {
+  BorderColor #374151
+  BackgroundColor #f9fafb
+  FontColor #111827
+}
+
+skinparam database {
+  BorderColor #1f2937
+  BackgroundColor #e5e7eb
+}
+
+skinparam note {
+  BorderColor #9ca3af
+  BackgroundColor #fff7ed
+}
+
+left to right direction
+
+legend right
+  |= Color |= Meaning |
+  |<#bbf7d0> | Actual usable image used by dev, deployment, docs, or CI |
+  |<#bfdbfe> | Reusable image layer inherited by other project images |
+  |<#fed7aa> | Build stage that produces selected artifacts only |
+  |<#fef3c7> | CI service/job running commands in a generated image |
+  |<#e5e7eb> | External base image |
+endlegend
+
+package "External Base Images" {
+  database "debian:trixie-slim" as debian
+  database "python:3.12-slim-trixie" as py312
+  database "python:3.13-slim-trixie" as py313
+}
+
+package "Development Tooling Images\n(no PEK binaries built into the normal dev image)" {
+  component "pek-build-base\nshared native build tools\ncompiler, Meson, Ninja,\nheaders, SDK/dependency libs" as build_base #bfdbfe
+  component "pek-dev-base\ninteractive build base\ninherits compiler/Meson/Ninja,\nadds runtime/dev dependencies" as dev_base #bfdbfe
+  component "pek-dev-tools\nshell, editor, debugger,\nnetwork diagnostics" as dev_tools #bfdbfe
+  component "pek-dev\ndevcontainer image\nmounts repo at /work\nbuilds happen inside /work" as dev_image #bbf7d0
+
+  debian --> build_base : FROM
+  build_base --> dev_base : FROM
+  dev_base --> dev_tools : FROM
+  dev_tools --> dev_image : FROM
+}
+
+package "Documentation Image Lane" {
+  component "pek-docs\ndocs-only image\nDoxygen, Pandoc,\nGraphviz, PlantUML" as docs_image #bbf7d0
+
+  debian --> docs_image : FROM
+}
+
+package "CI Image Lane" {
+  component "pek-ci\nsingle broad CI image\nunit tests, coverage,\nSonar, Valgrind, quality checks" as ci_image #bbf7d0
+
+  dev_base --> ci_image : FROM
+}
+
+package "Deployment Build and Runtime Images" {
+  component "pek-deployment-build\nrelease builder stage\ncopies source, builds PEK,\ncollects /opt/pek-app" as deployment_build #fed7aa
+  component "pek-deployment-base\nslim runtime image\nruntime packages + prebuilt PEK release" as deployment_image #bbf7d0
+
+  build_base --> deployment_build : FROM
+  debian --> deployment_image : FROM
+  deployment_build ..> deployment_image : COPY selected outputs\n/opt/pek-app, ONNX Runtime libs
+}
+
+package "Helper Images" {
+  component "pek-pre-commit-runtime\nrepo checks helper" as pre_commit #bbf7d0
+  component "pek-playwright-pages\nreport pages helper" as pages #bbf7d0
+
+  py312 --> pre_commit : FROM
+  py313 --> pages : FROM
+}
+
+' package "Local / Developer Use" {
+'   component "Devcontainer: pek-dev\nnormal development shell" as local_dev #fef3c7
+'   component "Developer command\n./scripts/build-elements.sh debug true" as local_build #fef3c7
+'   component "Deployment compose: pek-dev\nruns pek-deployment-base on target" as local_deploy #fef3c7
+
+'   dev_image ..> local_dev : image
+'   local_dev ..> local_build : builds current checkout\ninside mounted /work
+'   deployment_image ..> local_deploy : image
+' }
+
+package "Existing CI Service Mapping" {
+  component "CI: pek-build-base\nbuild/scout/audit shared builder image" as ci_build_base #fef3c7
+  component "CI: pek-deployment-base\nbuild/audit runtime image" as ci_deploy #fef3c7
+  component "CI: pek-release-with-ut\nrelease build + unit tests" as ci_release #fef3c7
+  component "CI: pek-valgrind-check" as ci_valgrind #fef3c7
+  component "CI: pek-generate-valgrind-summary" as ci_valgrind_summary #fef3c7
+  component "CI: pek-quality-check-full\nfull checks without docs generation" as ci_quality_full #fef3c7
+  component "CI: pek-sonar-check" as ci_sonar #fef3c7
+  component "CI: pek-sonar-check-release" as ci_sonar_release #fef3c7
+  component "CI: pek-quality-check-pull-request" as ci_quality_pr #fef3c7
+  component "CI: pek-clang-tidy-baseline-check" as ci_clang_tidy #fef3c7
+  component "CI: pek-pre-commit-runtime" as ci_pre_commit #fef3c7
+  component "CI: pek-playwright-pages" as ci_pages #fef3c7
+
+  build_base ..> ci_build_base : generated image
+  deployment_image ..> ci_deploy : generated image
+  ci_image ..> ci_release : runs build/tests\nfrom checked-out source
+  ci_image ..> ci_valgrind : runs valgrind tests\nfrom checked-out source
+  ci_image ..> ci_valgrind_summary : parses valgrind logs
+  ci_image ..> ci_quality_full : full quality checks\nno docs generation
+  ci_image ..> ci_sonar : coverage + sonar scan
+  ci_image ..> ci_sonar_release : coverage + sonar release scan
+  ci_image ..> ci_quality_pr : PR checks
+  ci_image ..> ci_clang_tidy : clang-tidy baseline
+  pre_commit ..> ci_pre_commit : repo checks
+  pages ..> ci_pages : report page publishing
+}
+
+note right of dev_image
+  Intended contract: contains tools and dependency libs only.
+  It should not COPY the repo into /work and should not
+  COPY prebuilt PEK meson-out or pek-menu artifacts.
+end note
+
+note bottom of deployment_build
+  Deployment is the place where PEK binaries are built
+  during image creation. The runtime image copies only
+  selected outputs, not compilers or build scratch state.
+
+  Dependency overlap with pek-dev-base is intentional:
+  pek-dev-base carries native dev/CI runtime and test deps,
+  while this stage carries target deployment deps such as
+  the target sysroot and target ONNX Runtime.
+end note
+
+note bottom of docs_image
+  Documentation generation is separated from general CI.
+  This image should only carry docs tools needed by gen-doc.sh.
+end note
+
+note bottom of ci_image
+  CI jobs build and test the current checkout at job runtime.
+  This single CI image carries broad checking tools, but no
+  PEK binaries prebuilt from the repository.
+end note
+
+@enduml

@@ -1,0 +1,159 @@
+@startuml
+title Container Image Inheritance and Compose Usage
+
+skinparam backgroundColor #ffffff
+skinparam shadowing false
+skinparam defaultFontName DejaVu Sans
+skinparam ArrowColor #4b5563
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+
+skinparam component {
+  BorderColor #374151
+  BackgroundColor #f9fafb
+  FontColor #111827
+}
+
+skinparam database {
+  BorderColor #1f2937
+  BackgroundColor #e5e7eb
+}
+
+skinparam note {
+  BorderColor #9ca3af
+  BackgroundColor #fff7ed
+}
+
+left to right direction
+
+legend right
+  |= Color |= Meaning |
+  |<#bbf7d0> | Directly built or run by a GitHub Actions workflow |
+  |<#dcfce7> | Build/helper stage used by another project image |
+  |<#f9fafb> | Local/dev-only or non-CI project image |
+  |<#e5e7eb> | External image or devcontainer feature |
+endlegend
+
+package "External Images and Devcontainer Features" {
+  database "debian:trixie-slim" as debian
+  database "python:3.12-slim-trixie" as py312
+  database "python:3.13-slim-trixie" as py313
+  database "mcr.microsoft.com/playwright:v1.61.0-noble" as playwright_base
+  database "coturn/coturn:4.13.1" as coturn
+  database "ghcr.io/devcontainers/features/sshd:1" as sshd_feature
+}
+
+package "Dockerfile\nruntime/deployment image" {
+  component "pek-build-base\nnative build deps\nMeson, CMake, GStreamer headers" as rt_build_base #bbf7d0
+  component "pek-cross-build-base\ncross-build parent" as rt_cross_base #dcfce7
+  component "pek-demo-media\noptional demo video download" as rt_demo_media #dcfce7
+  component "workspace\narm64 app build\nONNX Runtime" as rt_workspace #dcfce7
+  component "pek-deployment-base\nself-contained arm64 runtime" as rt_deploy #bbf7d0
+
+  debian --> rt_build_base : FROM
+  rt_build_base --> rt_cross_base : FROM
+  rt_build_base --> rt_demo_media : FROM
+  rt_cross_base --> rt_workspace : FROM
+  rt_demo_media ..> rt_workspace : COPY data/videos
+  debian --> rt_deploy : FROM
+  rt_workspace ..> rt_deploy : COPY app,\nONNX Runtime
+}
+
+package "Dockerfile.dev\ndevelopment and CI images" {
+  component "pek-dev-tool-assets\nNeovim + cpptools downloads" as dev_tool_assets #dcfce7
+  component "pek-demo-media\ndev demo video download" as dev_demo_media #dcfce7
+  component "pek-dev-build\ncached debug build artifacts" as dev_build #dcfce7
+  component "pek-base\ndev rootfs\nbuild deps, devtools venv,\nactionlint" as dev_base #bbf7d0
+  component "pek-docs\ndocs, coverage, Sonar scanner" as dev_docs #bbf7d0
+  component "pek-dev-tools\ninteractive shell/editor/debug tools" as dev_tools #dcfce7
+  component "pek-dev\nnormal devcontainer image\nrepo copy + seeded artifacts" as dev_image #bbf7d0
+
+  rt_build_base --> dev_tool_assets : FROM named context
+  rt_build_base --> dev_demo_media : FROM named context
+  rt_build_base --> dev_build : FROM named context
+  debian --> dev_base : FROM
+  dev_base --> dev_docs : FROM
+  dev_base --> dev_tools : FROM
+  dev_tool_assets ..> dev_tools : COPY tools
+  dev_tools --> dev_image : FROM
+  dev_demo_media ..> dev_image : COPY demo media
+  dev_build ..> dev_image : COPY build artifacts
+}
+
+package ".devcontainer extension Dockerfiles" {
+  component "pek-dev-rpi5-h8\nHailo 8 user-space deps" as hailo_h8
+  component "pek-dev-rpi5-h10\nHailo 10 user-space deps" as hailo_h10
+  component "pek-dev-rich\nrich local shell/docs/Sonar image" as rich_image
+
+  dev_image --> hailo_h8 : FROM pek-dev\nPEK_HAILO_ARCH=h8
+  dev_image --> hailo_h10 : FROM pek-dev\nPEK_HAILO_ARCH=h10
+  dev_image --> rich_image : FROM pek-dev
+}
+
+package "Other Project Dockerfiles" {
+  component "pek-pre-commit-runtime" as pre_commit #bbf7d0
+  component "pek-playwright-pages\nreport pages helper" as pages #bbf7d0
+  component "browser-smoke runtime\namp-dev-forge-browser-smoke:1.61.0" as browser_smoke #bbf7d0
+
+  py312 --> pre_commit : FROM
+  py313 --> pages : FROM
+  playwright_base --> browser_smoke : FROM
+}
+
+package "Compose / Workflow Services" {
+  component "Devcontainer: pek-dev" as dev_pc
+  component "Devcontainer: pek-dev-rpi5-h8" as dev_rpi_h8
+  component "Devcontainer: pek-dev-rpi5-h10" as dev_rpi_h10
+  component "Rich dev: pek-dev-rich\ndocker-compose.rich.yaml" as dev_rich_service
+  component "Deployment: pek-dev\ncompose.yaml" as deployment_service
+  component "CI: pek-build-base" as ci_build_base
+  component "CI: pek-deployment-base" as ci_deploy
+  component "CI: pek-release-with-ut" as ci_release
+  component "CI: pek-valgrind-check" as ci_valgrind
+  component "CI: pek-generate-valgrind-summary" as ci_valgrind_summary
+  component "CI: pek-quality-check-full" as ci_quality_full
+  component "CI: pek-quality-check-pull-request" as ci_quality_pr
+  component "CI: pek-clang-tidy-baseline-check" as ci_clang_tidy
+  component "CI: pek-sonar-check" as ci_sonar
+  component "CI: pek-sonar-check-release" as ci_sonar_release
+  component "CI: pek-pre-commit-runtime" as ci_pre_commit
+  component "CI: pek-playwright-pages" as ci_pages
+  component "Examples: yolo-benchmark" as yolo_benchmark #bbf7d0
+
+  rt_build_base ..> ci_build_base : compose target
+  rt_deploy ..> ci_deploy : compose target
+  rt_deploy ..> deployment_service : compose target
+  dev_image ..> dev_pc : compose target
+  hailo_h8 ..> dev_rpi_h8 : compose target
+  hailo_h10 ..> dev_rpi_h10 : compose target
+  rich_image ..> dev_rich_service : compose target
+  dev_docs ..> ci_release : compose target
+  dev_docs ..> ci_valgrind : compose target
+  dev_docs ..> ci_valgrind_summary : compose target
+  dev_docs ..> ci_quality_full : compose target
+  dev_image ..> ci_quality_pr : compose target
+  dev_image ..> ci_clang_tidy : compose target
+  dev_docs ..> ci_sonar : compose target
+  dev_docs ..> ci_sonar_release : compose target
+  dev_base ..> yolo_benchmark : compose target
+  pre_commit ..> ci_pre_commit : compose target
+  pages ..> ci_pages : compose target
+  coturn ..> dev_pc : optional TURN service
+  coturn ..> dev_rich_service : TURN service
+  sshd_feature ..> dev_pc : devcontainer feature
+  sshd_feature ..> dev_rpi_h8 : devcontainer feature
+  sshd_feature ..> dev_rpi_h10 : devcontainer feature
+}
+
+note right of rt_build_base
+  compose.devcont.yaml and compose.ci.yaml build this
+  target first, then pass it into Dockerfile.dev as the
+  pek-build-base named context.
+end note
+
+note bottom of dev_docs
+  The former pek-docs-base, pek-docs-dev-base, and
+  pek-dev-sonar split has been collapsed into pek-docs.
+end note
+
+@enduml
