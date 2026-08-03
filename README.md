@@ -1,8 +1,8 @@
 # Arm Perception Kit CLI quick start
 
-[![Python Dependency Audit](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/python-dependency-audit.yml/badge.svg?branch=main&event=schedule)](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/python-dependency-audit.yml)
-[![Docker Scout Image Audit](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/docker-scout-image-audit.yml/badge.svg?branch=main&event=schedule)](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/docker-scout-image-audit.yml?query=branch%3Amain+event%3Aschedule)
-[![Workflow Dependency Freshness](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/workflow-audit.yml/badge.svg?branch=main&event=schedule)](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/workflow-audit.yml?query=branch%3Amain+event%3Aschedule)
+[![Python Dependency Audit](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/python-dependency-audit.yml/badge.svg?branch=develop&event=schedule)](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/python-dependency-audit.yml?query=branch%3Adevelop+event%3Aschedule)
+[![Docker Scout Image Audit](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/docker-scout-image-audit.yml/badge.svg?branch=develop&event=schedule)](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/docker-scout-image-audit.yml?query=branch%3Adevelop+event%3Aschedule)
+[![Workflow Dependency Freshness](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/workflow-audit.yml/badge.svg?branch=develop&event=schedule)](https://github.com/Arm-Debug/amp-dev-forge/actions/workflows/workflow-audit.yml?query=branch%3Adevelop+event%3Aschedule)
 
 The workflow dependency freshness badge links to the workflow runs, where each run publishes a simple Markdown report and lightweight JSON snapshot in the `workflow-dependency-freshness` artifact.
 
