@@ -10,6 +10,7 @@ import shutil
 from pathlib import Path
 
 from huggingface_hub import hf_hub_download
+from huggingface_hub.constants import HF_HUB_CACHE
 
 LOGGER = logging.getLogger(__name__)
 
@@ -44,6 +45,9 @@ def main(models_dir: Path, token: str | None) -> None:
         LOGGER.info(
             "No Hugging Face token supplied; downloading public models anonymously."
         )
+
+    # Keep anonymous builds from reading artifacts cached by authenticated builds.
+    cache_dir = Path(HF_HUB_CACHE) / ("authenticated" if token else "anonymous")
 
     for descriptor in sorted(models_dir.rglob("*.json")):
         model = json.loads(descriptor.read_text())
@@ -83,6 +87,7 @@ def main(models_dir: Path, token: str | None) -> None:
                 revision=source["revision"],
                 filename=source["filename"],
                 token=token or False,
+                cache_dir=cache_dir,
             )
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(downloaded, destination)

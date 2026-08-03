@@ -132,17 +132,26 @@ class ModelArtifactBuildTest(unittest.TestCase):
 from pathlib import Path
 
 
-def hf_hub_download(*, repo_id, revision, filename, token):
-    Path(os.environ["HF_TOKEN_CAPTURE"]).write_text(repr(token))
+def hf_hub_download(*, repo_id, revision, filename, token, cache_dir):
+    Path(os.environ["HF_TOKEN_CAPTURE"]).write_text(
+        f"{token!r}\\n{cache_dir}"
+    )
     if filename == "missing.onnx":
         raise RuntimeError("download failed")
     downloaded = Path(os.environ["HF_FAKE_CACHE"]) / filename
     downloaded.write_text("model")
     return downloaded
 """)
+            (fake_hub / "constants.py").write_text("""import os
+from pathlib import Path
+
+
+HF_HUB_CACHE = Path(os.environ["HF_HOME"]) / "hub"
+""")
 
             environment = dict(os.environ) | {
                 "HF_FAKE_CACHE": str(cache),
+                "HF_HOME": str(root / "hub-cache"),
                 "HF_TOKEN": "must-be-ignored-without-token-env",
                 "HF_TOKEN_CAPTURE": str(root / "captured-token"),
                 "PYTHONPATH": str(fake_hub.parent),
@@ -185,7 +194,10 @@ def hf_hub_download(*, repo_id, revision, filename, token):
                 "config/models/second/renamed.hef uses .hef; saving as configured.",
                 result.stderr,
             )
-            self.assertEqual((root / "captured-token").read_text(), "False")
+            self.assertEqual(
+                (root / "captured-token").read_text().splitlines(),
+                ["False", str(root / "hub-cache/hub/anonymous")],
+            )
 
             environment["HF_TOKEN"] = ""
             subprocess.run(
@@ -202,7 +214,10 @@ def hf_hub_download(*, repo_id, revision, filename, token):
                 capture_output=True,
                 text=True,
             )
-            self.assertEqual((root / "captured-token").read_text(), "False")
+            self.assertEqual(
+                (root / "captured-token").read_text().splitlines(),
+                ["False", str(root / "hub-cache/hub/anonymous")],
+            )
 
             subprocess.run(
                 [
@@ -219,7 +234,10 @@ def hf_hub_download(*, repo_id, revision, filename, token):
                 capture_output=True,
                 text=True,
             )
-            self.assertEqual((root / "captured-token").read_text(), "'test-token'")
+            self.assertEqual(
+                (root / "captured-token").read_text().splitlines(),
+                ["'test-token'", str(root / "hub-cache/hub/authenticated")],
+            )
 
             help_result = subprocess.run(
                 [sys.executable, str(scripts / DOWNLOAD_SCRIPT.name), "--help"],
