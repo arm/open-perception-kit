@@ -17,6 +17,13 @@ DOWNLOAD_SCRIPT = REPO_ROOT / "scripts" / "download-models.py"
 
 
 class ModelArtifactBuildTest(unittest.TestCase):
+    def test_dev_container_supports_manual_model_downloads(self) -> None:
+        dockerfile = (REPO_ROOT / "Dockerfile.dev").read_text()
+        runtime_stage = dockerfile.split(" AS pek-base", 1)[1].split(
+            "FROM pek-base AS pek-docs", 1
+        )[0]
+        self.assertIn("huggingface_hub==1.18.0", runtime_stage)
+
     def test_model_download_cache_bust_is_consumed(self) -> None:
         for name in ("Dockerfile", "Dockerfile.dev"):
             dockerfile = (REPO_ROOT / name).read_text()
