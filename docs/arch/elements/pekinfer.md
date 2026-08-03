@@ -17,6 +17,7 @@ micropipeline.
 - Supported caps: `video/x-raw, format=BGRA`
 - Main property: `opchain-path`, the JSON descriptor to execute
 - Control property: `active`, which enables or disables per-frame OpChain execution
+- Experimental property: `qos-enabled`, disabled by default
 - Metadata output: `PerceptionMeta`
 
 The implementation currently assumes tightly packed BGRA memory with stride equal
@@ -60,10 +61,15 @@ timing keys that `pekperformance` later publishes.
 
 ## QoS Feedback
 
-An active `pekinfer` observes upstream `GST_EVENT_QOS` events on its source-side
-event path and consumes them after updating its inference policy. This prevents
-earlier decoders from reacting by dropping the video buffer. Inactive instances
-forward QoS events toward the active inference element.
+QoS-aware inference skipping is experimental and disabled by default. Set
+`qos-enabled=true` on the active `pekinfer`, enable QoS feedback on the sink,
+and disable native `qos` dropping on intervening transforms to try it.
+
+An enabled, active `pekinfer` observes upstream `GST_EVENT_QOS` events on its
+source-side event path and consumes them after updating its inference policy.
+This prevents earlier decoders from reacting by dropping the video buffer.
+Inactive instances and instances without `qos-enabled=true` forward QoS events
+toward the active inference element.
 When an `UNDERFLOW` event reports positive lateness, active frames skip OpChain
 execution only while their running-time is earlier than the recovery point
 `event timestamp + lateness`. This ignores small spikes that the next frame has
@@ -79,3 +85,7 @@ synchronous processing latency. When processing exceeds one frame duration, the
 ratio against the negotiated framerate determines how many following buffers
 skip inference. Counting buffers keeps dropped-frame timestamps and durations
 from resuming inference prematurely.
+
+The first enabled, active `pekinfer` encountered by an upstream QoS event consumes
+it. Pipelines with multiple active inference elements therefore need further
+scheduling work before this feature can be enabled by default.

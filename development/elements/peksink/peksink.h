@@ -102,6 +102,7 @@ struct _GstPekSink {
     gint http_port;
     gint ctrl_port;
     gint ws_port;
+    gboolean qos_enabled;
 
     GstPekPrivate *private_data;
 };

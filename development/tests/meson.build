@@ -23,7 +23,7 @@ performance_tracer_tests = executable(
 
 qos_delay_op = shared_module(
   'pek-test-qos-delay',
-  ['pekinfer_blocking_setup_op.cpp'],
+  ['qos_delay_op.cpp'],
   include_directories : [common_include],
   dependencies : [pek_deps],
   link_with : [common],

@@ -282,8 +282,6 @@ static void gst_pek_performance_class_init(GstPekPerformanceClass *klass) {
 }
 
 static void gst_pek_performance_init(GstPekPerformance *self) {
-    gst_base_transform_set_qos_enabled(GST_BASE_TRANSFORM(self), FALSE);
-
     self->x_offset = DEFAULT_X_OFFSET;
     self->y_offset = DEFAULT_Y_OFFSET;
     self->font_size = DEFAULT_FONT_SIZE;

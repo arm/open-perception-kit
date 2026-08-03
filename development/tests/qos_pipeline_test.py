@@ -15,7 +15,7 @@ import threading
 import unittest
 from typing import Any
 
-PLUGIN_PATHS = [Path(argument).resolve() for argument in sys.argv[1:]]
+GST_PLUGIN_PATHS = [Path(argument).resolve() for argument in sys.argv[2:]]
 
 
 class QosPipelineTest(unittest.TestCase):
@@ -26,7 +26,7 @@ class QosPipelineTest(unittest.TestCase):
         from gi.repository import GObject, Gst
 
         Gst.init(None)
-        for plugin_path in PLUGIN_PATHS:
+        for plugin_path in GST_PLUGIN_PATHS:
             Gst.Plugin.load_file(str(plugin_path))
 
         with tempfile.TemporaryDirectory(prefix="pek-qos-") as directory:
@@ -50,36 +50,34 @@ class QosPipelineTest(unittest.TestCase):
                 "caps=video/x-raw,format=BGRA,width=16,height=16 ! "
                 f'pekinfer name=inactive opchain-path="{descriptor}" active=false ! '
                 f'pekinfer name=infer opchain-path="{descriptor}" active=true ! '
-                "pektracker name=tracker ! "
-                "pekperformance name=performance enabled=false ! "
-                "pekosd name=osd enabled=false ! "
+                "pektracker name=tracker max-missed-frames=15 qos=false ! "
+                "pekperformance name=performance enabled=false qos=false ! "
+                "pekosd name=osd enabled=false qos=false ! "
                 "peksink name=output"
             )
 
             source = pipeline.get_by_name("source")
+            infer = pipeline.get_by_name("infer")
             output = pipeline.get_by_name("output")
             drain = output.get_by_name("drain_fakesink")
+            video_converter = output.get_by_name("vconv")
             self.assertIsNotNone(source)
             self.assertIsNotNone(drain)
+            self.assertFalse(infer.get_property("qos-enabled"))
+            self.assertFalse(output.get_property("qos-enabled"))
+            self.assertFalse(drain.get_property("sync"))
+            self.assertFalse(drain.get_property("qos"))
+            self.assertTrue(video_converter.get_property("qos"))
+
+            infer.set_property("qos-enabled", True)
+            output.set_property("qos-enabled", True)
+
             self.assertTrue(drain.get_property("sync"))
             self.assertTrue(drain.get_property("qos"))
-            self.assertEqual(drain.get_property("max-lateness"), 0)
-            self.assertFalse(
-                output.get_by_name("vconv").get_property("qos"),
-                "peksink's converter must not drop the main video buffer",
+            self.assertTrue(
+                video_converter.get_property("qos"),
+                "peksink must preserve the converter's default QoS behavior",
             )
-            video_queue = output.get_by_name("vqueue")
-            self.assertEqual(video_queue.get_property("max-size-buffers"), 0)
-            self.assertEqual(video_queue.get_property("max-size-bytes"), 0)
-            self.assertEqual(video_queue.get_property("max-size-time"), 250 * Gst.MSECOND)
-            self.assertEqual(
-                video_queue.get_property("min-threshold-time"), 150 * Gst.MSECOND
-            )
-            self.assertEqual(
-                output.get_by_name("vclock").get_property("ts-offset"),
-                150 * Gst.MSECOND,
-            )
-            self.assertEqual(drain.get_property("ts-offset"), 150 * Gst.MSECOND)
             for element_name in ("inactive", "infer", "tracker", "performance", "osd"):
                 self.assertFalse(
                     pipeline.get_by_name(element_name).get_property("qos"),
@@ -94,8 +92,7 @@ class QosPipelineTest(unittest.TestCase):
             # feedback after verifying peksink's production configuration.
             drain.set_property("sync", False)
             drain.set_property("qos", False)
-            drain.set_property("max-lateness", -1)
-            video_queue.set_property("min-threshold-time", 0)
+            video_converter.set_property("qos", False)
 
             forwarded = 0
             buffer_forwarded = threading.Event()
@@ -124,6 +121,7 @@ class QosPipelineTest(unittest.TestCase):
                 infer_has_perception_meta = bool(
                     api and buffer is not None and buffer.get_meta(api) is not None
                 )
+                buffer_forwarded.set()
                 return Gst.PadProbeReturn.OK
 
             pipeline.get_by_name("infer").get_static_pad("src").add_probe(
@@ -132,16 +130,7 @@ class QosPipelineTest(unittest.TestCase):
                 None,
             )
 
-            def observe_buffer(*_args: Any) -> Gst.PadProbeReturn:
-                buffer_forwarded.set()
-                return Gst.PadProbeReturn.OK
-
             drain_pad = drain.get_static_pad("sink")
-            drain_pad.add_probe(
-                Gst.PadProbeType.BUFFER,
-                observe_buffer,
-                None,
-            )
 
             def push_buffer(pts: int) -> None:
                 nonlocal infer_has_perception_meta
@@ -153,7 +142,7 @@ class QosPipelineTest(unittest.TestCase):
                 self.assertEqual(source.emit("push-buffer", buffer), Gst.FlowReturn.OK)
                 self.assertTrue(
                     buffer_forwarded.wait(1),
-                    "the video frame was not forwarded",
+                    "pekinfer did not forward the video frame",
                 )
 
             self.assertNotEqual(
@@ -213,6 +202,15 @@ class QosPipelineTest(unittest.TestCase):
                 self.assertEqual(proactive_values.jitter, 0)
                 self.assertEqual(proactive_values.proportion, 1.0)
 
+                push_buffer(frame_duration + 2)
+                self.assertIsNone(
+                    pipeline.get_bus().timed_pop_filtered(
+                        100 * Gst.MSECOND,
+                        Gst.MessageType.QOS | Gst.MessageType.ERROR,
+                    ),
+                    "proactive QoS skipped one frame too many",
+                )
+
                 event_timestamp = frame_duration
                 sent = drain_pad.push_event(
                     Gst.Event.new_qos(
@@ -254,6 +252,27 @@ class QosPipelineTest(unittest.TestCase):
                     unexpected,
                     "inference did not resume after timestamps caught up; "
                     f"message source={unexpected.src.get_name() if unexpected else 'none'}",
+                )
+
+                self.assertTrue(
+                    drain_pad.push_event(
+                        Gst.Event.new_qos(
+                            Gst.QOSType.UNDERFLOW,
+                            0.75,
+                            Gst.SECOND,
+                            0,
+                        )
+                    )
+                )
+                infer.set_property("qos-enabled", False)
+                infer.set_property("qos-enabled", True)
+                push_buffer(event_timestamp + 3 * frame_duration)
+                self.assertIsNone(
+                    pipeline.get_bus().timed_pop_filtered(
+                        100 * Gst.MSECOND,
+                        Gst.MessageType.QOS | Gst.MessageType.ERROR,
+                    ),
+                    "QoS state survived disable and re-enable",
                 )
             finally:
                 pipeline.set_state(Gst.State.NULL)

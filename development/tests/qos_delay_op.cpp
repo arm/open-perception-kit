@@ -3,6 +3,7 @@
  *************************************************************/
 
 #include "op/Op.h"
+
 #include <chrono>
 #include <cstring>
 #include <memory>
@@ -12,7 +13,7 @@ namespace {
 
 class DelayOp final : public pek::op::Op {
   public:
-    pek::Result<void> configure(const pek::AttributeMap &, std::stop_token) override {
+    pek::Result<void> configure(const pek::AttributeMap &) override {
         return {};
     }
 
@@ -34,9 +35,7 @@ extern "C" void pek_delete_op_instance(void *instance) {
 }
 
 extern "C" void *pek_create_op_instance(const char *opName) {
-    if (opName == nullptr)
+    if (opName == nullptr || std::strcmp(opName, "Delay") != 0)
         return nullptr;
-    if (std::strcmp(opName, "Delay") == 0)
-        return std::make_unique<DelayOp>().release();
-    return nullptr;
+    return std::make_unique<DelayOp>().release();
 }

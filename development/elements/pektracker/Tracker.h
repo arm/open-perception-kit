@@ -21,7 +21,7 @@ enum class AssociationMode { Hybrid, Iou, Embedding };
 namespace Defaults {
 inline constexpr const char *contentType = "genericObject";
 inline constexpr float iouThreshold = 0.3f;
-inline constexpr int maxMissedFrames = 15;
+inline constexpr int maxMissedFrames = 5;
 inline constexpr int minHitsToConfirm = 5;
 inline constexpr bool appendIdentityIdToText = true;
 inline constexpr bool useEmbeddings = true;

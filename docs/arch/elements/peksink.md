@@ -23,16 +23,14 @@ streaming.
 
 ## Media Paths
 
-The video path converts raw video, queues up to 250 ms while keeping a 150 ms
-playout reserve, encodes VP8, synchronizes timing with the matching timestamp
-offset,
+The video path converts raw video, queues it, encodes VP8, synchronizes timing,
 and feeds a tee. One branch goes to WebRTC; another drain branch prevents stalls
-when no browser client is connected. The drain `fakesink` also synchronizes to
-the clock with QoS enabled and zero maximum lateness. It therefore provides
-deterministic upstream QoS feedback even without a WebRTC client; dropping there
-discards only the drain copy. OPK video transforms keep native
-`GstBaseTransform` QoS dropping disabled so this feedback does not remove the
-main video buffer; `pekinfer` instead uses it to skip inference work.
+when no browser client is connected.
+
+Experimental QoS feedback is available through `qos-enabled=true` and is disabled
+by default. When enabled, the drain `fakesink` uses its normal clocked QoS behavior
+to provide feedback without a WebRTC client. Set `qos-enabled=true` on the active
+`pekinfer` to enable its experimental inference-skipping policy.
 
 The audio path always has a silence source available. If the `audiosink` request
 pad is used, an input selector switches from silence to real audio. A drain branch
@@ -67,6 +65,7 @@ threads can otherwise retain references longer than expected.
 - `ws-port`: WebRTC signaling port
 - `ctrl-port`: control WebSocket port
 - `static-files`: static content directory
+- `qos-enabled`: enable experimental QoS feedback from the video drain; defaults to `false`
 
 ## Architectural Caveat
 
