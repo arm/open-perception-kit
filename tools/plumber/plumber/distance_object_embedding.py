@@ -9,17 +9,17 @@ def is_near_zero(x: float, abs_tol: float = 1e-9) -> bool:
     return math.isclose(x, 0.0, abs_tol=abs_tol)
 
 
-def distance_object_embedding(gt_det: dict, out_det: dict, gt_parent_det: dict, out_parent_det: dict) -> float:
+def distance_object_embedding(gt_item: dict, out_item: dict, gt_parent_item: dict, out_parent_item: dict) -> float:
     """
     Cosine distance between embedding vectors.
     Returns value in [0,1].
     """
 
-    del gt_parent_det
-    del out_parent_det
+    del gt_parent_item
+    del out_parent_item
 
-    v1 = gt_det.get("data", {}).get("values", [])
-    v2 = out_det.get("data", {}).get("values", [])
+    v1 = gt_item.get("data", {}).get("values", [])
+    v2 = out_item.get("data", {}).get("values", [])
 
     if not v1 or not v2:
         return 1.0

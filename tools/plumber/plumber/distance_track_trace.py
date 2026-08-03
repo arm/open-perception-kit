@@ -5,16 +5,16 @@
 from . import auxiliary as aux
 
 
-def distance_track_trace(gt_det: dict, out_det: dict, gt_parent_det: dict, out_parent_det: dict) -> float:
+def distance_track_trace(gt_item: dict, out_item: dict, gt_parent_item: dict, out_parent_item: dict) -> float:
     """
-    Distance between two TrackTrace detections.
+    Distance between two TrackTrace items.
     Returns value in [0,1].
     """
 
-    del out_parent_det
+    del out_parent_item
 
-    gt_points = gt_det.get("data", {}).get("points", [])
-    out_points = out_det.get("data", {}).get("points", [])
+    gt_points = gt_item.get("data", {}).get("points", [])
+    out_points = out_item.get("data", {}).get("points", [])
 
     if not gt_points or not out_points:
         return 1.0
@@ -24,7 +24,7 @@ def distance_track_trace(gt_det: dict, out_det: dict, gt_parent_det: dict, out_p
 
     total_dist = 0.0
 
-    gt_frame_size = aux.frame_size_from_parent(gt_parent_det)
+    gt_frame_size = aux.frame_size_from_parent(gt_parent_item)
 
     for i in range(n):
         gx = gt_points[i]["x"]

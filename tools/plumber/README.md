@@ -2,14 +2,20 @@
 
 ## Overview
 
-This system is used to test perception output from an Perception Experience Kit pipeline.
+This system is used to record and compare pipeline metadata output from a Perception Experience Kit pipeline.
+
+Current status: `pekcomm` publishes serialized FrameResults packets in a JSON wrapper.
+Plumber records that NDJSON unchanged in `save` mode and decodes
+`frame_results_packet_b64` with the generated `perception` Python SDK in `check` mode.
+Plumber imports the installed package normally; the devcontainer installs the
+descriptor-selected checked-in Python package in editable mode.
 
 At a high level:
 
-- **PekComm** is a GStreamer element that serializes Perception output as **NDJSON**.
+- **PekComm** is a GStreamer element that publishes one **NDJSON** record per frame.
 - **Plumber** is a Python-based test tool that:
   - can **save** the incoming NDJSON as Ground Truth
-  - can **check** a pipeline run against previously saved Ground Truth
+  - can **check** current FrameResults packet NDJSON against previously saved Ground Truth
 
 PekComm can publish the stream to a file/FIFO, a WebSocket endpoint, or a raw TCP socket. Plumber currently consumes the file/FIFO mode, while browser applications can consume the WebSocket mode directly.
 
@@ -50,7 +56,7 @@ PekComm (GStreamer element)
 
 ### PekComm
 
-PekComm is responsible for publishing Perception JSON objects from the pipeline.
+PekComm is responsible for publishing serialized FrameResults from the pipeline.
 
 Relevant properties:
 
@@ -100,22 +106,51 @@ Plumber is the regression / validation tool.
 It starts a pipeline with `pek-menu`, reads the generated NDJSON stream from the FIFO, and either:
 
 - stores it as Ground Truth
-- or compares it to an existing Ground Truth file
+- or compares decoded FrameResults packets to an existing Ground Truth file
 
 ## Data Format
 
-PekComm writes serialized Perception JSON objects:
+PekComm writes serialized FrameResults packets inside JSON wrapper objects:
 
 - file/FIFO mode writes **NDJSON**: one complete JSON object per line
 - WebSocket mode sends one complete JSON object per text message
 - TCP mode writes **NDJSON**: one complete JSON object per line
 - the object shape is the same in all modes
 
-Example:
+Current FrameResults wrapper example:
 
 ```json
-{"frame_counter":0,"perception":{"layers":[...]}}
+{"frame_counter":0,"frame_results_encoding":"perception-frame-results+base64","frame_results_packet_b64":"..."}
 ```
+
+The `frame_results_packet_b64` value is a serialized Perception FrameResults packet
+encoded as base64. Plumber decodes it with the generated Python SDK and compares normalized
+payload snapshots built from generated schema types such as:
+
+Plumber uses the owning endpoint API from `perception.packet`; the mutually
+exclusive `perception.guest` API is reserved for scripts attached to a live
+C++ envelope. It requires the packet producer SDK name, semantic version, and
+schema-set SHA-256 to exactly match the generated Perception SDK used by
+Plumber. Legacy packets without producer metadata and packets produced by a
+different SDK revision are rejected before payload comparison.
+
+```text
+FrameContextT
+BoxDetectionsT
+ClassificationsT
+PoseEstimationsT
+SegmentationMasksT
+ObjectEmbeddingsT
+ObjectTracksT
+TrackTracesT
+```
+
+`PerformanceOverlayT` is ignored by comparison because it is diagnostic runtime
+text rather than stable model output.
+
+External opaque payloads, when present in the packet, are decoded by the generated SDK as
+external byte payloads. Plumber's current regression comparison intentionally normalizes
+only known generated schema payloads.
 
 ## Plumber Usage
 
@@ -186,7 +221,8 @@ This will:
 
 - start `pek-menu onnx`
 - read NDJSON from `/tmp/pekcomm`
-- compare the incoming data with `gt.ndjson`
+- decode the incoming FrameResults packets with `perception`
+- compare the decoded payloads with `gt.ndjson`
 
 ## PekComm Configuration Examples
 
@@ -223,6 +259,36 @@ Run Plumber in `save` mode on a known-good pipeline output.
 Run Plumber in `check` mode and compare a new pipeline run against the saved Ground Truth.
 
 This allows regression testing of pipeline output across code changes.
+
+## Comparison Model
+
+Plumber does not compare raw FlatBuffers bytes directly. It:
+
+1. validates the NDJSON wrapper
+2. base64-decodes `frame_results_packet_b64`
+3. constructs a `FrameResults` object through the generated `perception` SDK
+4. validates the exact producer SDK name, version, and schema-set SHA-256
+5. normalizes generated payload objects into payload snapshots
+6. matches payload snapshots by generated payload type and stable `LayerInfo`
+   fields
+7. compares payload items with type-specific distance functions
+
+External opaque payloads are outside the current comparison model because their byte
+protocol is owned by the producer and not interpreted by the Perception schema set.
+
+The internal comparison vocabulary follows FrameResults terms:
+
+- frame results
+- payload
+- payload type
+- payload key
+- payload snapshot
+- item
+- object index
+
+Schema-specific names are kept when they are real generated concepts, such as
+`BoxDetectionT`, `ClassificationT`, `PoseEstimationT`, `ObjectTrackT`, and
+`TrackTraceT`.
 
 ## Notes
 
