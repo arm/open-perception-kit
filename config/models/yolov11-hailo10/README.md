@@ -14,7 +14,7 @@ Official Hailo 10H-compiled YOLOv11n object detection model from Hailo Model Zoo
 - Model size: 344 MB
 - Output: packed Hailo NMS detections
 - Post processor: `YoloParser`
-- Supported Perception result: `Perception::Rect` in a `genericObject` layer
+- Supported FrameResults payload: `BoxDetectionsT` with `content_type` set to `genericObject`
 - Typical pairing: `config/pipelines/tracker-rpi-hailo10.json` and `config/opchains/tracking/opchain-hailo-v10.json`
 
 This model was selected from the official HAILO10H object detection table as the fastest YOLOv11 detector available there for Hailo 10H.

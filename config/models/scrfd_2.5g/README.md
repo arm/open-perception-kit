@@ -6,7 +6,7 @@ Hailo 10-compiled SCRFD 2.5G face detector.
 - Input: NHWC full-frame image, `[1, 640, 640, 3]`, `Uint8`
 - Output: 9 dynamic tensors across strides 8, 16, and 32 for face score, box regression, and landmark regression
 - Post processor: `ScrfdParser`
-- Supported Perception result: `Perception::Rect` in a `humanFace` layer
+- Supported FrameResults payload: `BoxDetectionsT` with `content_type` set to `humanFace`
 - Typical use: first stage for face-crop pipelines such as ArcFace embedding extraction
 
 ## Verified HEF contract

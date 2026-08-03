@@ -22,8 +22,7 @@ execution model, metadata contracts, and main GStreamer elements.
 - [Op system](op-system.md)
 - [OpChain Context](op-chain-context.md)
 - [OpChain Example](op-chain-example.md)
-- [Perception](perception.md)
-- [Future metadata architecture](future-metadata.md)
+- [FrameResults](perception.md)
 
 ## Tensor Contracts
 

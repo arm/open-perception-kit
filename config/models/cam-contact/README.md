@@ -6,7 +6,7 @@ Binary camera-contact classifier for face crops.
 - Input: NCHW crop, `[1, 3, 224, 224]`, `Float32`, ImageNet mean/std normalization
 - Output: logits `[1, 2]` for `no contact` and `contact`
 - Postprocessor: `CameraContactParser`
-- Supported Perception result: `Perception::Classification` in a `cameraContact` layer
+- Supported FrameResults payload: `ClassificationsT` with `content_type` set to `cameraContact`
 - Typical use: run on detected face crops after a face detector and visualize the result in `pekosd`
 
 Note: the checked-in opchain still uses the legacy path `/work/config/models/cam_contact/model.json`.

@@ -9,6 +9,40 @@ sidebar_label: Perception
 media buffer. It aggregates structured results from inference, postprocessing,
 tracking, and performance elements.
 
+## Generated SDKs
+
+The canonical schema and generated output directories are declared in
+`tools/perception/sdk.json`. Run `./scripts/perception-sdk.sh generate` to
+regenerate the checked-in C++ and Python SDKs; use
+`./scripts/perception-sdk.sh check` in CI to detect drift.
+
+`tools/perception/sdk.json` is the only hand-edited SDK release descriptor. It
+defines the SDK identity, canonical schema and generated directories,
+flowdata-sdk location, generated project integrations, and checksum-locked
+FlatBuffers and Python wheel-build artifacts. `tools/perception/sdk_config.py` is the shared loader
+used by generation, packaging, tests, and development installation. Generation first verifies the raw
+flowdata manifests, then applies AMP-owned copyright and formatting decoration. The final
+The generated SDK manifest embeds the raw generator manifests and records the
+descriptor hash, decorated file hashes, and derived project integrations.
+
+The generated Python package exposes endpoint ownership through
+`perception.packet` and live C++ guest access through `perception.guest`. The
+generated internal Meson adapter is derived from the public SDK integration and
+carries the same version requirements.
+
+Run `./scripts/perception-sdk.sh package --output-dir artifacts` to create a
+reproducible release archive containing the C++ SDK and integrations, Perception
+and FlatBuffers Python wheels, schemas, and release manifest. See
+[Build and use the Perception SDK bundle](../public/how-to/use-perception-sdk.md)
+for the archive layout and consumer workflow.
+
+Release packaging verifies the checked-in generation receipt and never invokes
+the generator. Regeneration drift remains an explicit
+`./scripts/perception-sdk.sh check` responsibility for development and CI.
+
+All SDK operations use `./scripts/perception-sdk.sh` as their single command
+surface.
+
 ![Inference Data Collection (Perception)](../public/static/img/perception.png)
 
 The model supports multi-stage inference, branching pipelines, UUID-based

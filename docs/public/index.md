@@ -18,6 +18,12 @@ It uses a container-based workflow with a packaged pipeline, browser viewer,
 model controls, debug signals, and output paths you can adapt for your own
 application.
 
+At a high level, it combines:
+
+- GStreamer-based media pipeline integration
+- an Op-based execution model for preprocessing, inference, and postprocessing
+- schema-defined FrameResults that downstream elements can render, track, or publish
+
 **Note:** This developer preview is for evaluation, early application
 development, and feedback.
 

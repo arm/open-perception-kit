@@ -6,7 +6,7 @@ Hailo 10-compiled variant of the OSNet x0.25 embedding model.
 - Input: NCHW crop, `[1, 3, 256, 128]`, normalized with ImageNet mean/std
 - Output: dynamic embedding tensor, typically matching the ONNX variant
 - Post processor: `ObjectEmbeddingParser`
-- Supported Perception result: `Perception::ObjectEmbedding` in an `objectEmbedding` layer
+- Supported FrameResults payload: `ObjectEmbeddingsT` with `content_type` set to `objectEmbedding`
 - Note: this `.hef` is the compiled Hailo version of the original ONNX model
 - Typical pairing: `config/pipelines/04-full-onnx-hailo10.json`
 

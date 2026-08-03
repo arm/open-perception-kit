@@ -11,7 +11,7 @@ skinparam nodesep 70
 skinparam linetype ortho
 
 component "External application /\nservice" as External
-interface "Perception" as IPerception
+interface "FrameResults packet" as IPerception
 
 rectangle "Perception Experience Kit Container" {
   package "Perception Experience Kit element chain" as CHAIN {
@@ -30,8 +30,8 @@ rectangle "Perception Experience Kit Container" {
   }
 
   package "Stable runtime contract" as CONTRACT {
-    component "PerceptionMeta /\nPerception" as PERC
-    component "PerceptionSerializer /\npublisher boundary" as PERCSER
+    component "FrameResultsMeta /\nFrameResults" as PERC
+    component "Generated packet serializer /\npublisher boundary" as PERCSER
   }
 
   package "Current pipeline host layer" as HOST {
@@ -70,7 +70,7 @@ legend bottom
   It handles media transport, scheduling, and metadata carriage.
 - OpChain is the inference-specific glue inside pekinfer.
   It binds preprocess, backend execution, and postprocess stages.
-- Perception is the stable runtime contract passed between Perception Experience Kit components
+- FrameResults is the generated runtime contract passed between Perception Experience Kit components
   and published to external applications.
 - pekinfer creates and enriches that contract via OpChain execution.
 - pektracker and pekperformance append more structured runtime data.
