@@ -1,0 +1,138 @@
+name: Publish Nightly CI Status
+
+on:
+  workflow_run:
+    workflows:
+      - Perception Experience Kit CI Pipeline
+      - Python Dependency Audit
+      - Docker Scout Image Audit
+      - Workflow Dependency Freshness
+      - YOLO Video Benchmark
+      - YOLO Imageset Benchmark
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      upstream_run_id:
+        description: "Completed scheduled run ID to publish"
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+  id-token: write
+  pages: write
+
+concurrency:
+  group: report-pages
+  cancel-in-progress: false
+
+jobs:
+  publish-status:
+    name: Publish nightly CI status
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.event == 'schedule' &&
+        github.event.workflow_run.head_branch == 'develop' &&
+        github.event.workflow_run.head_repository.full_name == github.repository
+      )
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout publisher
+        uses: actions/checkout@v7
+
+      - name: Capture workflow run metadata
+        if: github.event_name == 'workflow_run'
+        env:
+          EVENT_UPSTREAM_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          EVENT_UPSTREAM_EVENT: ${{ github.event.workflow_run.event }}
+          EVENT_UPSTREAM_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          EVENT_UPSTREAM_HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          EVENT_UPSTREAM_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          EVENT_UPSTREAM_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          EVENT_UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id }}
+          EVENT_UPSTREAM_UPDATED_AT: ${{ github.event.workflow_run.updated_at }}
+          EVENT_UPSTREAM_WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+        run: |
+          {
+            printf 'UPSTREAM_CONCLUSION=%s\n' "${EVENT_UPSTREAM_CONCLUSION}"
+            printf 'UPSTREAM_EVENT=%s\n' "${EVENT_UPSTREAM_EVENT}"
+            printf 'UPSTREAM_HEAD_BRANCH=%s\n' "${EVENT_UPSTREAM_HEAD_BRANCH}"
+            printf 'UPSTREAM_HEAD_REPOSITORY=%s\n' "${EVENT_UPSTREAM_HEAD_REPOSITORY}"
+            printf 'UPSTREAM_HEAD_SHA=%s\n' "${EVENT_UPSTREAM_HEAD_SHA}"
+            printf 'UPSTREAM_RUN_ATTEMPT=%s\n' "${EVENT_UPSTREAM_RUN_ATTEMPT}"
+            printf 'UPSTREAM_RUN_ID=%s\n' "${EVENT_UPSTREAM_RUN_ID}"
+            printf 'UPSTREAM_UPDATED_AT=%s\n' "${EVENT_UPSTREAM_UPDATED_AT}"
+            printf 'UPSTREAM_WORKFLOW_NAME=%s\n' "${EVENT_UPSTREAM_WORKFLOW_NAME}"
+          } >> "${GITHUB_ENV}"
+
+      - name: Resolve selected workflow run metadata
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SELECTED_UPSTREAM_RUN_ID: ${{ inputs.upstream_run_id }}
+        run: |
+          [[ "${SELECTED_UPSTREAM_RUN_ID}" =~ ^[0-9]+$ ]]
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SELECTED_UPSTREAM_RUN_ID}" --jq '[
+            "UPSTREAM_CONCLUSION=" + (.conclusion // ""),
+            "UPSTREAM_EVENT=" + (.event // ""),
+            "UPSTREAM_HEAD_BRANCH=" + (.head_branch // ""),
+            "UPSTREAM_HEAD_REPOSITORY=" + (.head_repository.full_name // ""),
+            "UPSTREAM_HEAD_SHA=" + (.head_sha // ""),
+            "UPSTREAM_RUN_ATTEMPT=" + (.run_attempt | tostring),
+            "UPSTREAM_RUN_ID=" + (.id | tostring),
+            "UPSTREAM_UPDATED_AT=" + (.updated_at // ""),
+            "UPSTREAM_WORKFLOW_NAME=" + (.name // "")
+          ] | .[]' >> "${GITHUB_ENV}"
+
+      - name: Run publisher unit tests
+        run: python3 -m unittest scripts/report_pages/test_publish_workflow_status.py
+
+      - name: Update Pages content
+        id: pages
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/report_pages/publish_workflow_status.py
+
+      - name: Cache YOLO performance dataset
+        if: steps.pages.outputs.deploy == 'true'
+        uses: actions/cache@v6
+        with:
+          path: _yolo_performance_dataset_cache
+          key: yolo-performance-datasets-coco-val2017-4f7e2ccb2866ec5041993c9cf2a952bbed69647b115d0f74da7ce8f4bef82f05
+
+      - name: Restore YOLO dataset overlay
+        if: steps.pages.outputs.deploy == 'true'
+        run: |
+          python3 examples/yolo-benchmark/pages/restore_dataset_overlay.py \
+            --site-dir _report_status_pages_site \
+            --cache-dir _yolo_performance_dataset_cache
+
+      - name: Restore deploy-only report videos
+        if: steps.pages.outputs.deploy == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 examples/yolo-benchmark/pages/publish_yolo_benchmark_pages.py \
+            restore-latest _report_status_pages_site
+          python3 scripts/playwright/pages/publish_playwright_pages.py \
+            restore-videos _report_status_pages_site
+
+      - name: Configure Pages
+        if: steps.pages.outputs.deploy == 'true'
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages artifact
+        if: steps.pages.outputs.deploy == 'true'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _report_status_pages_site
+
+      - name: Deploy Pages
+        if: steps.pages.outputs.deploy == 'true'
+        id: deployment
+        uses: actions/deploy-pages@v5

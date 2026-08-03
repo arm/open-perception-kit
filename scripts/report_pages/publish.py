@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import base64
+import datetime as dt
 import html
 import io
 import json
@@ -19,11 +20,21 @@ from pathlib import Path
 INDEX_HTML = "index.html"
 LEGACY_ROOT_PATHS = (INDEX_HTML, "report-index.css", "report-shell.css", "report-shell.js")
 LEGACY_PLAYWRIGHT_REPORT_ROOTS = ("nightly", "prs")
+WORKFLOW_STATUS_DIRECTORY = "workflow-status"
+WORKFLOW_STATUS_MAX_AGE = dt.timedelta(hours=36)
 ROOT_REPORT_LINKS = (
     ("yolo-benchmark/index.html", "YOLO video", "End-to-end FPS", "video", "Nightly"),
     ("yolo-imageset-benchmark/index.html", "YOLO image set", "COCO latency", "image", "Nightly"),
     ("playwright/index.html", "Playwright", "Browser smoke", "monitor", "Nightly"),
     ("yolo-performance-datasets/index.html", "Datasets", "Benchmark inputs", "database", "Current"),
+)
+ROOT_WORKFLOW_STATUS = (
+    ("pek-ci", "PEK CI", "Build, browser and quality", "playwright/index.html"),
+    ("python-audit", "Python audit", "Python dependency vulnerabilities", ""),
+    ("docker-scout", "Docker Scout", "Container image vulnerabilities", ""),
+    ("workflow-freshness", "Workflow freshness", "GitHub Actions dependencies", ""),
+    ("yolo-video", "YOLO video", "End-to-end FPS", "yolo-benchmark/index.html"),
+    ("yolo-imageset", "YOLO image set", "COCO latency", "yolo-imageset-benchmark/index.html"),
 )
 ROOT_REPORT_ICONS = {
     "video": (
@@ -246,8 +257,83 @@ def root_card_icon(name: str) -> str:
     )
 
 
-def write_root_index(site_dir: Path, dataset_count: int | None = None) -> None:
+def read_workflow_status(site_dir: Path, source: str) -> dict[str, str] | None:
+    path = site_dir / WORKFLOW_STATUS_DIRECTORY / f"{source}.json"
+    try:
+        status = json.loads(path.read_text(encoding="utf-8"))
+        required = ("conclusion", "head_sha", "repository", "run_id", "updated_at")
+        if not isinstance(status, dict) or any(not isinstance(status.get(name), str) for name in required):
+            return None
+        if not status["run_id"].isdigit() or not re.fullmatch(r"[0-9a-f]{40}", status["head_sha"]):
+            return None
+        if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", status["repository"]):
+            return None
+        updated_at = dt.datetime.fromisoformat(status["updated_at"].replace("Z", "+00:00"))
+        if updated_at.tzinfo is None:
+            return None
+        status["updated_at"] = updated_at.astimezone(dt.timezone.utc).isoformat()
+        return status
+    except (OSError, TypeError, ValueError, json.JSONDecodeError):
+        return None
+
+
+def workflow_status_verdict(status: dict[str, str] | None, now: dt.datetime) -> tuple[str, str]:
+    if status is None:
+        return "neutral", "Unavailable"
+    updated_at = dt.datetime.fromisoformat(status["updated_at"])
+    if now.astimezone(dt.timezone.utc) - updated_at > WORKFLOW_STATUS_MAX_AGE:
+        return "neutral", "Stale"
+    conclusion = status["conclusion"]
+    if conclusion == "success":
+        return "fast", "Passed"
+    if conclusion in {"failure", "timed_out", "action_required", "startup_failure"}:
+        return "slow", conclusion.replace("_", " ").title()
+    if conclusion in {"cancelled", "skipped"}:
+        return "neutral", conclusion.title()
+    return "neutral", "Partial"
+
+
+def workflow_status_card(site_dir: Path, source: str, title: str, subtitle: str,
+                         report_href: str, now: dt.datetime) -> str:
+    status = read_workflow_status(site_dir, source)
+    tone, label = workflow_status_verdict(status, now)
+    meta = ""
+    summary = ""
+    if status is not None:
+        updated_at = dt.datetime.fromisoformat(status["updated_at"])
+        repo_url = f'https://github.com/{status["repository"]}'
+        run_url = f'{repo_url}/actions/runs/{status["run_id"]}'
+        links = [
+            html_anchor(f'{repo_url}/commit/{status["head_sha"]}', status["head_sha"][:12]),
+            html_anchor(run_url, "Run"),
+            html_anchor(f"{run_url}#artifacts", "Artifacts"),
+        ]
+        if report_href:
+            links.insert(0, html_anchor(report_href, "Report"))
+        meta = (
+            f'<div class="health-meta"><time datetime="{html_escape(status["updated_at"])}">'
+            f'{updated_at.strftime("%Y-%m-%d %H:%M UTC")}</time> · {" · ".join(links)}</div>'
+        )
+        messages = status.get("summary")
+        if isinstance(messages, list):
+            items = "".join(
+                f"<li>{html_escape(message[:240])}</li>"
+                for message in messages[:3]
+                if isinstance(message, str) and message
+            )
+            if items:
+                summary = f'<ul class="health-summary">{items}</ul>'
+    return (
+        '<article class="health-card"><div class="health-head">'
+        f'<strong>{html_escape(title)}</strong>{verdict_html(tone, label)}</div>'
+        f'<span class="subtitle">{html_escape(subtitle)}</span>{meta}{summary}</article>'
+    )
+
+
+def write_root_index(site_dir: Path, dataset_count: int | None = None,
+                     now: dt.datetime | None = None) -> None:
     site_dir.mkdir(parents=True, exist_ok=True)
+    now = now or dt.datetime.now(dt.timezone.utc)
     cards = []
     for href, title, subtitle, icon, source in ROOT_REPORT_LINKS:
         tone, label = root_card_badge(site_dir, href, dataset_count)
@@ -259,12 +345,16 @@ def write_root_index(site_dir: Path, dataset_count: int | None = None) -> None:
             f'<span class="subtitle">{html_escape(subtitle)}</span></span></a>'
         )
     card_html = "\n".join(cards)
+    status_html = "\n".join(
+        workflow_status_card(site_dir, source, title, subtitle, report_href, now)
+        for source, title, subtitle, report_href in ROOT_WORKFLOW_STATUS
+    )
     (site_dir / INDEX_HTML).write_text(f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Arm Perception kit reports</title><style>
 *{{box-sizing:border-box}}body{{margin:0;font:16px system-ui,sans-serif;background:#101418;color:#edf4f1}}
-main{{max-width:920px;margin:0 auto;padding:48px 24px}}h1{{margin:0 0 8px;font-size:34px}}
-p{{margin:0 0 24px;color:#b8c7c1}}.grid{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}
+main{{max-width:920px;margin:0 auto;padding:48px 24px}}h1{{margin:0 0 8px;font-size:34px}}h2{{margin:30px 0 10px;font-size:20px}}
+p{{margin:0 0 24px;color:#b8c7c1}}.grid,.health-grid{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}
 .card{{display:grid;grid-template-columns:30px minmax(0,1fr);align-items:center;gap:12px;min-width:0;padding:12px 14px;border:1px solid #2f4a43;border-radius:8px;color:inherit;text-decoration:none;background:#17211f}}
 .card:hover{{border-color:#49b27d}}.card:focus-visible{{outline:2px solid #49b27d;outline-offset:2px}}
 .icon{{display:grid;width:30px;height:30px;place-items:center;border:1px solid #2f4a43;border-radius:6px;color:#49b27d}}
@@ -274,9 +364,13 @@ p{{margin:0 0 24px;color:#b8c7c1}}.grid{{display:grid;grid-template-columns:repe
 .verdict{{max-width:100%;border-radius:999px;padding:2px 7px;font-size:11px;font-weight:700;line-height:15px;white-space:nowrap}}
 .verdict-fast{{background:#13271b;color:#3fb950}}.verdict-slow{{background:#331c1f;color:#ff7b72}}.verdict-neutral{{background:#26302d;color:#9fb0aa}}
 strong{{display:block;flex:1 1 110px;min-width:0;font-size:17px;line-height:22px}}.subtitle{{display:block;margin-top:2px;color:#9fb0aa;font-size:13px;line-height:18px}}
-@media(max-width:640px){{main{{padding:28px 16px}}h1{{font-size:28px}}.grid{{grid-template-columns:1fr}}}}
-</style></head><body><main><h1>Arm Perception kit reports</h1><p>Reports and benchmark inputs.</p><div class="grid">
+ .health-card{{min-width:0;padding:12px 14px;border:1px solid #2f4a43;border-radius:8px;background:#17211f}}.health-head{{display:flex;align-items:center;justify-content:space-between;gap:10px}}
+.health-meta{{margin-top:8px;color:#9fb0aa;font-size:12px;line-height:18px}}.health-meta a{{color:#72d6a2}}.health-summary{{margin:8px 0 0;padding-left:18px;color:#d7e2de;font-size:12px;line-height:18px}}
+@media(max-width:640px){{main{{padding:28px 16px}}h1{{font-size:28px}}.grid,.health-grid{{grid-template-columns:1fr}}}}
+</style></head><body><main><h1>Arm Perception kit reports</h1><p>Reports and benchmark inputs.</p><h2>Reports</h2><div class="grid">
 {card_html}
+</div><h2>Nightly CI</h2><div class="health-grid">
+{status_html}
 </div></main></body></html>
 """, encoding="utf-8")
 
