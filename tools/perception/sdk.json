@@ -1,0 +1,51 @@
+{
+  "flatbuffers": {
+    "python_wheel": {
+      "filename": "flatbuffers-25.9.23-py2.py3-none-any.whl",
+      "sha256": "255538574d6cb6d0a79a17ec8bc0d30985913b87513a01cce8bcdb6b4c44d0e2",
+      "url": "https://files.pythonhosted.org/packages/ee/1b/00a78aa2e8fbd63f9af08c9c19e6deb3d5d66b4dda677a0f61654680ee89/flatbuffers-25.9.23-py2.py3-none-any.whl"
+    },
+    "source_archive": {
+      "filename": "v25.9.23.tar.gz",
+      "sha256": "9102253214dea6ae10c2ac966ea1ed2155d22202390b532d1dea64935c518ada",
+      "url": "https://github.com/google/flatbuffers/archive/refs/tags/v25.9.23.tar.gz"
+    },
+    "version": "25.9.23"
+  },
+  "flowdata_sdk": {
+    "generator": "tools/flowdata/gen.py",
+    "submodule": "tools/flowdata-sdk"
+  },
+  "generated_dir": "generated/perception",
+  "name": "perception",
+  "project_generated_files": {
+    "internal_meson": "development/perception/meson.build"
+  },
+  "python_build": {
+    "tools": [
+      {
+        "filename": "pip-25.1.1-py3-none-any.whl",
+        "name": "pip",
+        "sha256": "2913a38a2abf4ea6b64ab507bd9e967f3b53dc1ede74b01b0931e1ce548751af",
+        "url": "https://files.pythonhosted.org/packages/29/a2/d40fb2460e883eca5199c62cfc2463fd261f760556ae6290f88488c362c0/pip-25.1.1-py3-none-any.whl",
+        "version": "25.1.1"
+      },
+      {
+        "filename": "setuptools-80.9.0-py3-none-any.whl",
+        "name": "setuptools",
+        "sha256": "062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922",
+        "url": "https://files.pythonhosted.org/packages/a3/dc/17031897dae0efacfea57dfd3a82fdd2a2aeb58e0ff71b77b87e44edc772/setuptools-80.9.0-py3-none-any.whl",
+        "version": "80.9.0"
+      },
+      {
+        "filename": "wheel-0.45.1-py3-none-any.whl",
+        "name": "wheel",
+        "sha256": "708e7481cc80179af0e556bbf0cc00b8444c7321e2700b8d8580231d13017248",
+        "url": "https://files.pythonhosted.org/packages/0b/2c/87f3254fd8ffd29e4c02732eee68a83a1d3c346ae39bc6822dcbcb697f2b/wheel-0.45.1-py3-none-any.whl",
+        "version": "0.45.1"
+      }
+    ]
+  },
+  "schema_dir": "schemas/perception/metadata",
+  "version": "0.1.0"
+}

@@ -212,16 +212,15 @@ append_unique_missing_package() {
 
 collect_required_prereqs() {
     local array_name
-    local requirements
     local requirement
 
     REQUIRED_PREREQS=()
 
     for array_name in "${SELECTED_PREREQ_ARRAYS[@]}"; do
-        eval 'requirements=("${'"$array_name"'[@]}")'
-        for requirement in "${requirements[@]}"; do
+        while IFS= read -r requirement; do
+            [[ -z "$requirement" ]] && continue
             append_unique_requirement "$requirement"
-        done
+        done < <(eval 'printf "%s\n" "${'"$array_name"'[@]-}"')
     done
 }
 

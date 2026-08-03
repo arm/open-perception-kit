@@ -124,6 +124,13 @@ jobs:
           ref: ${{ github.event.inputs.valgrind_baseline_sha || steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
+      - name: Prepare private submodules
+        env:
+          DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }}
+        run: |
+          source .github/scripts/configure_workspace_ssh.sh
+          git submodule update --init --recursive
+
       - name: Checkout workflow helpers
         uses: actions/checkout@v7
         with:
@@ -321,6 +328,14 @@ jobs:
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
 
+      - name: Prepare private submodules
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }}
+        run: |
+          source .github/scripts/configure_workspace_ssh.sh
+          git submodule update --init --recursive
+
       - name: Show detected quick-start platform
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
         run: ./scripts/quick-start/detect-environment.sh
@@ -414,6 +429,14 @@ jobs:
           ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.event.pull_request.head.sha || github.sha }}
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
+
+      - name: Prepare private submodules
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }}
+        run: |
+          source .github/scripts/configure_workspace_ssh.sh
+          git submodule update --init --recursive
 
       - name: Clean stale browser smoke containers
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -526,6 +549,14 @@ jobs:
           ref: ${{ steps.manual_pr.outputs.head_sha || steps.manual_pr.outputs.head_ref || github.event.pull_request.head.sha || github.sha }}
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
+
+      - name: Prepare private submodules
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }}
+        run: |
+          source .github/scripts/configure_workspace_ssh.sh
+          git submodule update --init --recursive
 
       - name: Start Colima and check macOS Docker integration
         working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
@@ -662,6 +693,14 @@ jobs:
           git switch --force-create "$PR_HEAD_REF" "$PR_HEAD_SHA"
           test "$(git rev-parse HEAD)" = "$PR_HEAD_SHA"
           test "$(git branch --show-current)" = "$PR_HEAD_REF"
+
+      - name: Prepare private submodules
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }}
+        run: |
+          source .github/scripts/configure_workspace_ssh.sh
+          git submodule update --init --recursive
 
       - name: Restore compiler cache
         uses: actions/cache@v6
@@ -827,6 +866,14 @@ jobs:
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
 
+      - name: Prepare private submodules
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }}
+        run: |
+          source .github/scripts/configure_workspace_ssh.sh
+          git submodule update --init --recursive
+
       - name: Restore compiler cache
         id: compiler-cache
         uses: actions/cache/restore@v6
@@ -954,6 +1001,14 @@ jobs:
           path: ${{ env.CI_CHECKOUT_PATH }}
           persist-credentials: false
 
+      - name: Prepare private submodules
+        working-directory: ${{ github.workspace }}/${{ env.CI_CHECKOUT_PATH }}
+        env:
+          DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }}
+        run: |
+          source .github/scripts/configure_workspace_ssh.sh
+          git submodule update --init --recursive
+
       - name: Restore compiler cache
         id: compiler-cache
         uses: actions/cache/restore@v6
@@ -1079,6 +1134,14 @@ jobs:
           ref: ${{ needs.build-ci-image.outputs.head_sha }}
           path: valgrind-source
           persist-credentials: false
+
+      - name: Prepare private submodules
+        working-directory: ${{ github.workspace }}/valgrind-source
+        env:
+          DEPLOY_KEY_FLOWDATA_SDK: ${{ secrets.DEPLOY_KEY_FLOWDATA_SDK }}
+        run: |
+          source .github/scripts/configure_workspace_ssh.sh
+          git submodule update --init --recursive
 
       - name: Restore compiler cache
         uses: actions/cache@v6

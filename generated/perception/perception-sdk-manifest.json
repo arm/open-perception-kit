@@ -1,0 +1,931 @@
+{
+  "artifact": {
+    "name": "perception-sdk",
+    "version": "0.1.0"
+  },
+  "descriptor": {
+    "path": "tools/perception/sdk.json",
+    "sha256": "6e75b1624b6cab8d02e4fdf35b84c850b323a801e56f6401ba4803643ccedc4e"
+  },
+  "files": [
+    {
+      "path": "cpp/cmake/perception.cmake",
+      "sha256": "4a9dd3dc478e302757c2e4a41c3678cb11c2bd2f7bae292632ca45d92c49909c",
+      "size": 3404
+    },
+    {
+      "path": "cpp/fb/box_detections_generated.h",
+      "sha256": "09ab6edc32174067e3412b4a863933438da8661fc5c49a0e07c3cbf127ee4ccb",
+      "size": 20245
+    },
+    {
+      "path": "cpp/fb/classifications_generated.h",
+      "sha256": "0f86543e521e2de0af2df30fbef0a0986500f0f9939a84edfa393751886212ae",
+      "size": 36971
+    },
+    {
+      "path": "cpp/fb/common_generated.h",
+      "sha256": "ab71a42496f2cf516a3086420ea5635f81f2a6c74c4e0fc85dbb0145897166dd",
+      "size": 30152
+    },
+    {
+      "path": "cpp/fb/frame_context_generated.h",
+      "sha256": "72858350e02ae306b845bdffe3bfc98977047b5691fdeb21e7370375cd222080",
+      "size": 34080
+    },
+    {
+      "path": "cpp/fb/internal/wire_envelope_generated.h",
+      "sha256": "46b9b1c8eb9a029a244caeb46beca421724bf0ceb9b748cc76cf19478fa79cca",
+      "size": 17987
+    },
+    {
+      "path": "cpp/fb/object_embeddings_generated.h",
+      "sha256": "ed9134ac15b20d5edae99bd60c7bf0d9f10082fe40068fb5a51e4952d3d2a0cb",
+      "size": 18575
+    },
+    {
+      "path": "cpp/fb/object_tracks_generated.h",
+      "sha256": "fa655e29b8671dab076b4ad176e26a387b7fba33edbc5a7e1d80bb72c79028cf",
+      "size": 23832
+    },
+    {
+      "path": "cpp/fb/performance_overlay_generated.h",
+      "sha256": "adc74c38fafc871383841d569ba74cecab0957d298897e5d7caef878007a94ee",
+      "size": 9422
+    },
+    {
+      "path": "cpp/fb/pose_estimations_generated.h",
+      "sha256": "34012c0071eac8a5d5befac480127ffc8ffc0967fb7d74006571ff41792ee8bb",
+      "size": 18362
+    },
+    {
+      "path": "cpp/fb/segmentation_masks_generated.h",
+      "sha256": "cd7cfc61e7d2f34337b14e31d13cb3ff7f523a05f844a0479d56ff62c1fb9294",
+      "size": 18340
+    },
+    {
+      "path": "cpp/fb/track_traces_generated.h",
+      "sha256": "f8c963118a5cb4bf1b18a854ed4b320770b15bdab12fe04886e956aaf679b88b",
+      "size": 19434
+    },
+    {
+      "path": "cpp/meson/perception/meson.build",
+      "sha256": "5b0a2af39b0372c57af8eea220b36e414f6be84aae8be96f1bd68685b3d2929d",
+      "size": 3163
+    },
+    {
+      "path": "cpp/meson/perception/python_bridge/meson.build",
+      "sha256": "17ba1aae6bffa9996ea0e330e6cedc6037363050ec67d30b5a97cd425cb3a92a",
+      "size": 694
+    },
+    {
+      "path": "cpp/perception.h",
+      "sha256": "6c0f9347bf286fd3d8cf234edf1bc5da80338826cc4e71e62bb63e52d7d9b644",
+      "size": 31222
+    },
+    {
+      "path": "cpp/python_bridge/perception_python_bridge.cpp",
+      "sha256": "dfae6d81f7b23de64bc425a20ad27cf967ade9df2b927a59bb1b07dd40f7d482",
+      "size": 211507
+    },
+    {
+      "path": "cpp/python_bridge/perception_python_bridge.h",
+      "sha256": "9efdcbaa6036ef06e4b38b23957c1b6366ec255274c58639c37f37ff1ac518d0",
+      "size": 1031
+    },
+    {
+      "path": "python/pyproject.toml",
+      "sha256": "c68c8c121e691f8ee68d41aee136a4f197bd07a4cd504bcd830f127d7ec7fc6c",
+      "size": 470
+    },
+    {
+      "path": "python/src/perception/__init__.py",
+      "sha256": "1e5f76957b6c1989a806d1891307379b353fa4d866f66d6d1687b019663ffd58",
+      "size": 655
+    },
+    {
+      "path": "python/src/perception/fb/__init__.py",
+      "sha256": "9f9848c7f6f42a4341ae2e98400774c89ac07b42c8bf189c3e824eff83c6f79b",
+      "size": 185
+    },
+    {
+      "path": "python/src/perception/fb/perception/__init__.py",
+      "sha256": "9f9848c7f6f42a4341ae2e98400774c89ac07b42c8bf189c3e824eff83c6f79b",
+      "size": 185
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/AudioFrameContext.py",
+      "sha256": "74aad114d107cc44ed658f511210997e77c3805162c1b20b41a72aca7b3fa08b",
+      "size": 7432
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/BitmapData.py",
+      "sha256": "fe32e624bd15500e09623f570263bc66663264ced2231eb629a917d6056698bd",
+      "size": 6115
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/BoundingBox.py",
+      "sha256": "cfe89507529e6d2d3d226161f008884a8f2844bf47411384cfc67850d3b9f7cf",
+      "size": 4106
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/BoxDetection.py",
+      "sha256": "8d971cc85d8f591023f57a07d9683fbf92c9f096537e3212fe3860183f714a4e",
+      "size": 6390
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/BoxDetections.py",
+      "sha256": "80736328a5bfaa93afaf5fd6af56b6957aba8aa6a46385483e2cc8ec059d2bb8",
+      "size": 7284
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/Classification.py",
+      "sha256": "2eda4588b8c6475c3f8e518e2d00896371609087bcf491ec351fb8b09d1dc2cc",
+      "size": 6162
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/ClassificationCandidate.py",
+      "sha256": "e1d580d51c1668ac434bc2ce79642dac39d1722cac9e0205ecd5a419a2aa153b",
+      "size": 6829
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/Classifications.py",
+      "sha256": "84b4c2a8c8415a89089f006f8814621fac37a31e21f1e0c7a860c1a70c864ae2",
+      "size": 10369
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/FrameContext.py",
+      "sha256": "b28730f90247aa7c34819283c75721d9aa46eddb38054f0a3cbf649d0a521829",
+      "size": 7013
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/LayerInfo.py",
+      "sha256": "36a48e12731cde1aa4d181d30e107224ee1bee70ce8a13be2f215677670005f4",
+      "size": 7423
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/ObjectEmbedding.py",
+      "sha256": "2c46bce64dd95a2c8655220ef4c4fb23b9256c23c4cd7e20461a626712b93eb9",
+      "size": 5795
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/ObjectEmbeddings.py",
+      "sha256": "283e8e6b1c0c95c100d16ba6f748eb46ac8f9160adc3d44398d9bd7c4f752acb",
+      "size": 7479
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/ObjectMeta.py",
+      "sha256": "44c93d379b63d52490c3a192c7f5a58ca4ddd88deb01f26c6519c6113d1c546f",
+      "size": 3684
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/ObjectTrack.py",
+      "sha256": "2f2bb520f4e8c4eb878a513052a8162346ff95c86ec06d1caa164b9b9248006c",
+      "size": 9007
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/ObjectTracks.py",
+      "sha256": "7ec1d1bb160d170ccf5d1d2003564f959f051ace60d5e13e4c56806dca204ddd",
+      "size": 7068
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/PerformanceOverlay.py",
+      "sha256": "5da4b2a6bb4e37ee4b99a36d0418e9b9f1f9a2fa67b86dfe747e307caa5ea611",
+      "size": 5659
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/PersonPresence.py",
+      "sha256": "3318efccc0f901a7c1b0d67650b39058b665b2ffe53dbba23f73273f783a6766",
+      "size": 4828
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/Point2f.py",
+      "sha256": "f593be428046af7c58731d26e5eaeec273adbd4d3266ee1d98b4a3082730fc81",
+      "size": 2828
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/PoseEstimation.py",
+      "sha256": "018043181a2f8448bb3e06f66c84da25b96c4894f3a147b31cb8871c56036056",
+      "size": 5225
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/PoseEstimations.py",
+      "sha256": "50d659e4ab8626d3cd18d3851f9c9df2a081e9f3ce8576b54e418a4619cfe461",
+      "size": 7227
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/SegmentationMask.py",
+      "sha256": "29bf748848c822318964f8295649eca882b391b892f6dfcfdda26263a92d88f4",
+      "size": 4700
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/SegmentationMasks.py",
+      "sha256": "7ef37e18313e4f76262366e35e5f0ef889b7c01ae541e89fbf2575d2aa9112e6",
+      "size": 7357
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/TrackTrace.py",
+      "sha256": "f0e0d2d1f345197f5308bcfd0b155b9ba752659786ec37d57191f04727f58cb2",
+      "size": 6222
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/TrackTraces.py",
+      "sha256": "27157ef4d34175573b0398cc3fc32aba32e51cf3973796d9721bc660562d4b80",
+      "size": 7003
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/VideoFrameContext.py",
+      "sha256": "1c51d55c6591f75e0c35b65fad34fe3160beb18e43df59d9d27d7bb558475e21",
+      "size": 10719
+    },
+    {
+      "path": "python/src/perception/fb/perception/metadata/__init__.py",
+      "sha256": "9f9848c7f6f42a4341ae2e98400774c89ac07b42c8bf189c3e824eff83c6f79b",
+      "size": 185
+    },
+    {
+      "path": "python/src/perception/guest.py",
+      "sha256": "49767961f97e43fef7a8d44be51317186e973f1c5ce5035ad52067b1b9821445",
+      "size": 848
+    },
+    {
+      "path": "python/src/perception/guest.pyi",
+      "sha256": "84564e59065cfd74ab9d777e6580fc09a8dd0d8b0abdf256e6abea5f7c2fd7a2",
+      "size": 1608
+    },
+    {
+      "path": "python/src/perception/internalfb/WireEnvelope.py",
+      "sha256": "0be0a08208b51941ac4be6d1182f861034682918ad51911b9d0e7e7daeb6dab9",
+      "size": 7596
+    },
+    {
+      "path": "python/src/perception/internalfb/WirePayload.py",
+      "sha256": "e961305b0db12fd3c698b772e3d5322e23f5d2ee0c9e238f6edf022e23a307af",
+      "size": 4908
+    },
+    {
+      "path": "python/src/perception/internalfb/__init__.py",
+      "sha256": "9f9848c7f6f42a4341ae2e98400774c89ac07b42c8bf189c3e824eff83c6f79b",
+      "size": 185
+    },
+    {
+      "path": "python/src/perception/packet.py",
+      "sha256": "86ebb43419c2b9b4067839d151eec149e27bfd44f5e8ff04fc43f706237db6e0",
+      "size": 608
+    },
+    {
+      "path": "python/src/perception/py.typed",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "python/src/perception/registry.py",
+      "sha256": "b349674ec960b24d045d8c1324719aa9bc1b07933395d7df29838ef60e411d6e",
+      "size": 3433
+    },
+    {
+      "path": "python/src/perception/sdk.py",
+      "sha256": "b4dae53c2a95d3b85294bbeadc1fe9eef767bef83707597d55cc7801811b1109",
+      "size": 15472
+    }
+  ],
+  "generation": {
+    "flowdata_sdk": {
+      "commit": "4f9cc297e8a2deecbc9464bd88b979243c34d004",
+      "generator": {
+        "name": "flowdata-sdk",
+        "version": "0.5.0"
+      }
+    },
+    "tools": [
+      {
+        "path": "tools/perception/generate.py",
+        "sha256": "f5af870eac8a1f7ee62ee8055de1fec86dd9abce94a50d25ee01424d3a8a5d47",
+        "size": 22378
+      },
+      {
+        "path": "tools/perception/release_common.py",
+        "sha256": "88536e05220cb2bd7aba3dd4ad42ba993d5fc676fa2fc02404cd7b192f79299a",
+        "size": 1487
+      },
+      {
+        "path": "tools/perception/sdk_config.py",
+        "sha256": "ba37780836c634e1aa1a3245617f7f951f795a2b8e2552c0c638918e695498e9",
+        "size": 7808
+      },
+      {
+        "path": ".clang-format",
+        "sha256": "fa130370f59deb3040c7a8ae61ca9991647f7420d1ee7be7072e5f2be3ec71be",
+        "size": 396
+      },
+      {
+        "path": ".cmake-format.yaml",
+        "sha256": "0ef60b649ad3b79de7cf778c4aec05f7401b8337e8ef0f9f84eeccb757124f37",
+        "size": 376
+      }
+    ]
+  },
+  "postprocessing": {
+    "cmake_formatter": "0.6.13",
+    "copyright_headers": "Arm Limited 2025",
+    "cpp_formatter": "clang-format version 20.1.8",
+    "python_formatter": "autopep8 2.3.1 (pycodestyle: 2.12.1)"
+  },
+  "project_files": [
+    {
+      "path": "development/perception/meson.build",
+      "sha256": "ca82fcaff95430e8234a5182e7c377d469a565b3fe8531a7792d290ef9872e56",
+      "size": 558
+    }
+  ],
+  "upstream_receipts": {
+    "cpp": {
+      "files": [
+        {
+          "path": "cmake/perception.cmake",
+          "sha256": "cb453fe99f9c00fcd743c87662142f301299864b0a0583b432d746b1fea59ea2",
+          "size": 3149
+        },
+        {
+          "path": "fb/box_detections_generated.h",
+          "sha256": "5608835e84da4b3683bcf8120d2a1a92eb896e0c5685c48c42f591c76b01ef08",
+          "size": 18143
+        },
+        {
+          "path": "fb/classifications_generated.h",
+          "sha256": "4dbbbe6999f09f10bf733959d92308011d650599366bb1f44f7225b43af23cde",
+          "size": 32422
+        },
+        {
+          "path": "fb/common_generated.h",
+          "sha256": "5e05e3c556ffb217d2590677684c0b998e5364293b5baa1159377a12428a0d9a",
+          "size": 26502
+        },
+        {
+          "path": "fb/frame_context_generated.h",
+          "sha256": "560baee948021bdcdfa23a09f071814b5a5a39aa698ea854856552e0cff41bea",
+          "size": 30024
+        },
+        {
+          "path": "fb/internal/wire_envelope_generated.h",
+          "sha256": "392aeb13b614b64feaa356115d0f5c63e9ba15a90d34943edb92b8bc7576bf0b",
+          "size": 15966
+        },
+        {
+          "path": "fb/object_embeddings_generated.h",
+          "sha256": "027625df8af20497dde750bd0062b478d20ba1bbbd8141997f03e900ad4dc9d7",
+          "size": 16662
+        },
+        {
+          "path": "fb/object_tracks_generated.h",
+          "sha256": "39044d1925cbdceced3f00f4a70593cfc5ea5c634f09fa48e3463b8a3ef6dc2b",
+          "size": 20617
+        },
+        {
+          "path": "fb/performance_overlay_generated.h",
+          "sha256": "a031f0277c5e9124c86909e5818c2e3ab97b6ef02cc42fb7b0b9922de6546ff5",
+          "size": 8646
+        },
+        {
+          "path": "fb/pose_estimations_generated.h",
+          "sha256": "2929105c89f216ee1d469aa22210e115df844445e7280bb9ee2c0ac344ded758",
+          "size": 16493
+        },
+        {
+          "path": "fb/segmentation_masks_generated.h",
+          "sha256": "d7c7b9e3b7d1cf3488b0f8d67466f599dc7120b9a02ce165c174dec0f66b66de",
+          "size": 16388
+        },
+        {
+          "path": "fb/track_traces_generated.h",
+          "sha256": "a9e0c7083209e2da4b3131776c61862d0d1543341f30e27778673d9a0f41a055",
+          "size": 17144
+        },
+        {
+          "path": "meson/perception/meson.build",
+          "sha256": "4db95621d2fa5b74f9998e8cb7e53144d33f1d9332b290c61272ab781a442f6c",
+          "size": 3164
+        },
+        {
+          "path": "meson/perception/python_bridge/meson.build",
+          "sha256": "17ba1aae6bffa9996ea0e330e6cedc6037363050ec67d30b5a97cd425cb3a92a",
+          "size": 694
+        },
+        {
+          "path": "perception.h",
+          "sha256": "eac41c762f7d3a6df2929334b6897b371406a250e5bace6d1233efd8d9287888",
+          "size": 30810
+        },
+        {
+          "path": "python_bridge/perception_python_bridge.cpp",
+          "sha256": "71d05e7f3f9e130f6690f1b0ef259ea50b06e0300610bc07b041c6dfe3e56b2c",
+          "size": 207595
+        },
+        {
+          "path": "python_bridge/perception_python_bridge.h",
+          "sha256": "392d57ecd42876263796b1efb0c38f1f9580ded3049223f8421bd36e61e6a167",
+          "size": 841
+        }
+      ],
+      "flatbuffers_runtimes": [
+        {
+          "language": "cpp",
+          "package": "flatbuffers",
+          "version_requirement": "==25.9.23"
+        },
+        {
+          "language": "python",
+          "package": "flatbuffers",
+          "version_requirement": ">=24.3.25,<26.0.0"
+        }
+      ],
+      "flatc": {
+        "semantic_version": "25.9.23",
+        "version": "flatc version 25.9.23",
+        "version_requirement": ">=24.3.25,<26.0.0"
+      },
+      "generator": {
+        "name": "flowdata-sdk",
+        "version": "0.5.0"
+      },
+      "outputs": {
+        "cpp_python_bridge": true,
+        "integrations": [
+          "cmake",
+          "meson"
+        ],
+        "sdk": "cpp"
+      },
+      "payloads": [
+        {
+          "file_identifier": "BDET",
+          "payload_id": "0x01c3894e2878ac7c",
+          "qualified_root_type": "perception.metadata.BoxDetections",
+          "schema": "box_detections.fbs"
+        },
+        {
+          "file_identifier": "CLSF",
+          "payload_id": "0x7f6abc2009042491",
+          "qualified_root_type": "perception.metadata.Classifications",
+          "schema": "classifications.fbs"
+        },
+        {
+          "file_identifier": "FCTX",
+          "payload_id": "0x5e32d827978c7f10",
+          "qualified_root_type": "perception.metadata.FrameContext",
+          "schema": "frame_context.fbs"
+        },
+        {
+          "file_identifier": "EMBE",
+          "payload_id": "0x31f9831d97cd5dd4",
+          "qualified_root_type": "perception.metadata.ObjectEmbeddings",
+          "schema": "object_embeddings.fbs"
+        },
+        {
+          "file_identifier": "TRKS",
+          "payload_id": "0x10b6adabb985ad72",
+          "qualified_root_type": "perception.metadata.ObjectTracks",
+          "schema": "object_tracks.fbs"
+        },
+        {
+          "file_identifier": "PERF",
+          "payload_id": "0x3a016f29e2dedcff",
+          "qualified_root_type": "perception.metadata.PerformanceOverlay",
+          "schema": "performance_overlay.fbs"
+        },
+        {
+          "file_identifier": "POSE",
+          "payload_id": "0x548388c28bb71b08",
+          "qualified_root_type": "perception.metadata.PoseEstimations",
+          "schema": "pose_estimations.fbs"
+        },
+        {
+          "file_identifier": "SGMS",
+          "payload_id": "0x344a75354d0384ae",
+          "qualified_root_type": "perception.metadata.SegmentationMasks",
+          "schema": "segmentation_masks.fbs"
+        },
+        {
+          "file_identifier": "TRCE",
+          "payload_id": "0x4485ef4530c94214",
+          "qualified_root_type": "perception.metadata.TrackTraces",
+          "schema": "track_traces.fbs"
+        }
+      ],
+      "python_bridge": {
+        "header": "python_bridge/perception_python_bridge.h",
+        "module_name": "perception_bridge",
+        "registration_function": "perception::python_bridge::append_inittab",
+        "requires_python": ">=3.10",
+        "sdk_import_name": "perception",
+        "source": "python_bridge/perception_python_bridge.cpp",
+        "wrapper_type": "perception::python_bridge::scoped_envelope"
+      },
+      "schema_files": [
+        {
+          "path": "box_detections.fbs",
+          "sha256": "fef9b1a679c99977c10410ef0ac18889a50ddaf7392f5deff3e42b0cd086c57e",
+          "size": 431
+        },
+        {
+          "path": "classifications.fbs",
+          "sha256": "dfcc8380bc7bb68ad35db6b8ab9b08f0827792abb4bf74762833e4d49e2d740e",
+          "size": 714
+        },
+        {
+          "path": "common.fbs",
+          "sha256": "5c0897a7f77fb2f59827c110412469f13a94b2bb4cb552c18a903789b20e10b8",
+          "size": 484
+        },
+        {
+          "path": "frame_context.fbs",
+          "sha256": "331fc0b70017804976253f3cbd130cb41ef313ceaba591f88035cf314cc7060b",
+          "size": 856
+        },
+        {
+          "path": "object_embeddings.fbs",
+          "sha256": "9c6fa19199b16fbded3b50d1c0510e9a107972544b60ce7e6ec7ed62bbeec604",
+          "size": 366
+        },
+        {
+          "path": "object_tracks.fbs",
+          "sha256": "83529d0043559e9033b7080d66d6e4d2fc4b7a90e438e77da7915f7020f76e6d",
+          "size": 504
+        },
+        {
+          "path": "performance_overlay.fbs",
+          "sha256": "9f83a45af191752dbbde5a680798d642836a6a5a6bb5ec939fdf42a21be393a6",
+          "size": 188
+        },
+        {
+          "path": "pose_estimations.fbs",
+          "sha256": "e2224e5f114c45059ee3562a6169e4cdaa0cad4247d3f676e1ccfa8e8f7e2137",
+          "size": 387
+        },
+        {
+          "path": "segmentation_masks.fbs",
+          "sha256": "1474553d40ca6ae27cffd54bcc4befd232e2b7610d1e25af6fa1c0ec817437e7",
+          "size": 388
+        },
+        {
+          "path": "track_traces.fbs",
+          "sha256": "85a90ebf6eb8b3c2a7f5c1613a4fa0bcf00a0f51b0514e186650ae0bb751f923",
+          "size": 382
+        }
+      ],
+      "schema_set_sha256": "0ba6dfe959e1453ce12c7a8707623bc15d94d52c9235c26f7e27f31dda0775c5",
+      "sdk": {
+        "name": "perception",
+        "version": "0.1.0"
+      }
+    },
+    "python": {
+      "files": [
+        {
+          "path": "pyproject.toml",
+          "sha256": "c68c8c121e691f8ee68d41aee136a4f197bd07a4cd504bcd830f127d7ec7fc6c",
+          "size": 470
+        },
+        {
+          "path": "src/perception/__init__.py",
+          "sha256": "77493568fd291d14a80bfc930e2bc389ce7d69e6d21bd397e723b601a249fcb4",
+          "size": 470
+        },
+        {
+          "path": "src/perception/fb/__init__.py",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "src/perception/fb/perception/__init__.py",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/AudioFrameContext.py",
+          "sha256": "8991405be6eed3394d0db689fd0cbc8cffb146ef2ea68c23241c9787d8a377d4",
+          "size": 7221
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/BitmapData.py",
+          "sha256": "53f70939334d92ae32baded3a0ef26df4ba46fb1de60a58d6b19d499a083af06",
+          "size": 5919
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/BoundingBox.py",
+          "sha256": "e791c595e17301e1c8f042ce98f9cb69b1347306e8f4c9e4c02a85882ba1a47f",
+          "size": 3914
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/BoxDetection.py",
+          "sha256": "06c3ea8edc3b9cf6a6973e1e793be25fc6dcc85ea95c5702441e61780c6c53fa",
+          "size": 6196
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/BoxDetections.py",
+          "sha256": "a27367d3958986728d56dd3de0e5ce26b1967300ad622394c67991e35292a748",
+          "size": 7056
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/Classification.py",
+          "sha256": "2a14240d77522b40974c4a2681421f747b4100ecf983383220a331e0e5e00a26",
+          "size": 5934
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/ClassificationCandidate.py",
+          "sha256": "def8b7149b74071ce86f93837bf362724beeb086a3e16f3b8bd2aa04da02792a",
+          "size": 6637
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/Classifications.py",
+          "sha256": "92eb533800d8e5b862d1b61b4ed1ceee6813360d7141dc9e8e8cdaa29a0ded05",
+          "size": 10107
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/FrameContext.py",
+          "sha256": "43932f328a3ae9d5955712bdd88c0ed759f975f776abaa26721cf3d4e4c9e2ec",
+          "size": 6785
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/LayerInfo.py",
+          "sha256": "32e57838b733d3648ba17ca1ae8e584532f8357bda7099818655ed606b07a53d",
+          "size": 7231
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/ObjectEmbedding.py",
+          "sha256": "9878ecec13ee7f6657be82156a6fbd44cc03c6baeee8b8ce8f58335b792d6d8c",
+          "size": 5599
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/ObjectEmbeddings.py",
+          "sha256": "dcf35248f1d85d64e1dbbd916aa341d5d890dc5c6ce4dcfb99c9711b23d9e77b",
+          "size": 7251
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/ObjectMeta.py",
+          "sha256": "62549936175a4ad0d5a3f276469e2a2ad6ac3ef757d1deda2724d0ef6a95ed43",
+          "size": 3492
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/ObjectTrack.py",
+          "sha256": "7240a2c8a7183ea677bcc86510a182dab7b3f3cb769fa9fa8dfab3ac6b1c1fdb",
+          "size": 8813
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/ObjectTracks.py",
+          "sha256": "947b085bf255d1e12a85ca06e252a8596e2672f237006eff593efb104d3c12ac",
+          "size": 6847
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/PerformanceOverlay.py",
+          "sha256": "0ee3e5e63f991a32e619dba3ac2e73971e428c977c8081aa6e6ccf446ed2503a",
+          "size": 5463
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/PersonPresence.py",
+          "sha256": "c019a93c870eb6da6cf372eecdfcf65294a6ba32783e83a063ec7cebdebf649c",
+          "size": 4634
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/Point2f.py",
+          "sha256": "f2c86389f548235e821962de0bdf55cdcc99e174b44562f3418073b825aad492",
+          "size": 2636
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/PoseEstimation.py",
+          "sha256": "e9164600012eeeb074914d64d1171405001e725faa6176b10cd1782d29c60d72",
+          "size": 5031
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/PoseEstimations.py",
+          "sha256": "748d81646cef27629214cc66dab403125d9e15d507cdaeaac21b11019b121a2d",
+          "size": 7006
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/SegmentationMask.py",
+          "sha256": "09538521b8d0073361d5438cf88f44f05ab493eebafccada14c935efdb1edaf6",
+          "size": 4472
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/SegmentationMasks.py",
+          "sha256": "b522cc6879c4d5641beb488379b5f46cdde69168f950bbcb5c646a8f277b0161",
+          "size": 7136
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/TrackTrace.py",
+          "sha256": "600a1fe234e734344f953997470da3d65659c58fc391796d21ee342e689c956b",
+          "size": 6026
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/TrackTraces.py",
+          "sha256": "1636359c8f316147aaa4c9a50c8be4b8be3d76d139cb3eb976b074253dab0b5d",
+          "size": 6782
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/VideoFrameContext.py",
+          "sha256": "2af0e9d28ca9742e43fe547b3258e8c298144fe078b63236fdd06af5ac41c60e",
+          "size": 10508
+        },
+        {
+          "path": "src/perception/fb/perception/metadata/__init__.py",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "src/perception/guest.py",
+          "sha256": "a7e486d8517f468909d0327539e2e606a534cf2e99fa2b2c8074a3b9fc3d01b4",
+          "size": 662
+        },
+        {
+          "path": "src/perception/guest.pyi",
+          "sha256": "e1c74a4f241bc0c6846aca4c40f5fbe37296921e72b8461b3ff8fbce829e79b0",
+          "size": 1421
+        },
+        {
+          "path": "src/perception/internalfb/WireEnvelope.py",
+          "sha256": "71aa8266a9b393550bd061783148fc9fd28e9ee05b0ae6f0d009ac5227a646d0",
+          "size": 7400
+        },
+        {
+          "path": "src/perception/internalfb/WirePayload.py",
+          "sha256": "8fe8a642297f0b1b4d1838f0563195cc79b7c2652512bac08996579fb5ec398c",
+          "size": 4712
+        },
+        {
+          "path": "src/perception/internalfb/__init__.py",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "src/perception/packet.py",
+          "sha256": "f823e8eb6e135d84aace9ae13508a48673412459341ccc98ff4a7e3c0f71f6d3",
+          "size": 422
+        },
+        {
+          "path": "src/perception/py.typed",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "src/perception/registry.py",
+          "sha256": "7b24e3e817965520a090667bfe6d0cebb52c0efa75fb75bde13dd00dc1d7cf01",
+          "size": 3247
+        },
+        {
+          "path": "src/perception/sdk.py",
+          "sha256": "0db197f9f03270549b08caebb1d00ceac9102dac339c108ee57c0ffc70bc95b0",
+          "size": 15286
+        }
+      ],
+      "flatbuffers_runtimes": [
+        {
+          "language": "python",
+          "package": "flatbuffers",
+          "version_requirement": ">=24.3.25,<26.0.0"
+        }
+      ],
+      "flatc": {
+        "semantic_version": "25.9.23",
+        "version": "flatc version 25.9.23",
+        "version_requirement": ">=24.3.25,<26.0.0"
+      },
+      "generator": {
+        "name": "flowdata-sdk",
+        "version": "0.5.0"
+      },
+      "outputs": {
+        "cpp_python_bridge": false,
+        "integrations": [],
+        "sdk": "python"
+      },
+      "payloads": [
+        {
+          "file_identifier": "BDET",
+          "payload_id": "0x01c3894e2878ac7c",
+          "qualified_root_type": "perception.metadata.BoxDetections",
+          "schema": "box_detections.fbs"
+        },
+        {
+          "file_identifier": "CLSF",
+          "payload_id": "0x7f6abc2009042491",
+          "qualified_root_type": "perception.metadata.Classifications",
+          "schema": "classifications.fbs"
+        },
+        {
+          "file_identifier": "FCTX",
+          "payload_id": "0x5e32d827978c7f10",
+          "qualified_root_type": "perception.metadata.FrameContext",
+          "schema": "frame_context.fbs"
+        },
+        {
+          "file_identifier": "EMBE",
+          "payload_id": "0x31f9831d97cd5dd4",
+          "qualified_root_type": "perception.metadata.ObjectEmbeddings",
+          "schema": "object_embeddings.fbs"
+        },
+        {
+          "file_identifier": "TRKS",
+          "payload_id": "0x10b6adabb985ad72",
+          "qualified_root_type": "perception.metadata.ObjectTracks",
+          "schema": "object_tracks.fbs"
+        },
+        {
+          "file_identifier": "PERF",
+          "payload_id": "0x3a016f29e2dedcff",
+          "qualified_root_type": "perception.metadata.PerformanceOverlay",
+          "schema": "performance_overlay.fbs"
+        },
+        {
+          "file_identifier": "POSE",
+          "payload_id": "0x548388c28bb71b08",
+          "qualified_root_type": "perception.metadata.PoseEstimations",
+          "schema": "pose_estimations.fbs"
+        },
+        {
+          "file_identifier": "SGMS",
+          "payload_id": "0x344a75354d0384ae",
+          "qualified_root_type": "perception.metadata.SegmentationMasks",
+          "schema": "segmentation_masks.fbs"
+        },
+        {
+          "file_identifier": "TRCE",
+          "payload_id": "0x4485ef4530c94214",
+          "qualified_root_type": "perception.metadata.TrackTraces",
+          "schema": "track_traces.fbs"
+        }
+      ],
+      "python_package": {
+        "build_backend": "setuptools.build_meta",
+        "distribution_name": "perception",
+        "import_name": "perception",
+        "pure_python": true,
+        "requires_python": ">=3.10",
+        "typing": {
+          "marker": "src/perception/py.typed",
+          "stubs": [
+            "src/perception/guest.pyi"
+          ]
+        },
+        "version": "0.1.0",
+        "wheel_tag": "py3-none-any"
+      },
+      "schema_files": [
+        {
+          "path": "box_detections.fbs",
+          "sha256": "fef9b1a679c99977c10410ef0ac18889a50ddaf7392f5deff3e42b0cd086c57e",
+          "size": 431
+        },
+        {
+          "path": "classifications.fbs",
+          "sha256": "dfcc8380bc7bb68ad35db6b8ab9b08f0827792abb4bf74762833e4d49e2d740e",
+          "size": 714
+        },
+        {
+          "path": "common.fbs",
+          "sha256": "5c0897a7f77fb2f59827c110412469f13a94b2bb4cb552c18a903789b20e10b8",
+          "size": 484
+        },
+        {
+          "path": "frame_context.fbs",
+          "sha256": "331fc0b70017804976253f3cbd130cb41ef313ceaba591f88035cf314cc7060b",
+          "size": 856
+        },
+        {
+          "path": "object_embeddings.fbs",
+          "sha256": "9c6fa19199b16fbded3b50d1c0510e9a107972544b60ce7e6ec7ed62bbeec604",
+          "size": 366
+        },
+        {
+          "path": "object_tracks.fbs",
+          "sha256": "83529d0043559e9033b7080d66d6e4d2fc4b7a90e438e77da7915f7020f76e6d",
+          "size": 504
+        },
+        {
+          "path": "performance_overlay.fbs",
+          "sha256": "9f83a45af191752dbbde5a680798d642836a6a5a6bb5ec939fdf42a21be393a6",
+          "size": 188
+        },
+        {
+          "path": "pose_estimations.fbs",
+          "sha256": "e2224e5f114c45059ee3562a6169e4cdaa0cad4247d3f676e1ccfa8e8f7e2137",
+          "size": 387
+        },
+        {
+          "path": "segmentation_masks.fbs",
+          "sha256": "1474553d40ca6ae27cffd54bcc4befd232e2b7610d1e25af6fa1c0ec817437e7",
+          "size": 388
+        },
+        {
+          "path": "track_traces.fbs",
+          "sha256": "85a90ebf6eb8b3c2a7f5c1613a4fa0bcf00a0f51b0514e186650ae0bb751f923",
+          "size": 382
+        }
+      ],
+      "schema_set_sha256": "0ba6dfe959e1453ce12c7a8707623bc15d94d52c9235c26f7e27f31dda0775c5",
+      "sdk": {
+        "name": "perception",
+        "version": "0.1.0"
+      }
+    }
+  }
+}

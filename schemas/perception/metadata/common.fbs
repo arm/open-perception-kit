@@ -1,0 +1,36 @@
+namespace perception.metadata;
+
+table ObjectMeta {
+  id:ulong;
+  parent_id:ulong;
+  creation_ts_ns:ulong;
+}
+
+table LayerInfo {
+  engine:string;
+  model:string;
+  tags:string;
+  infer_element_id:string;
+  label_family:string;
+  content_type:string;
+  compositing_mode:string;
+}
+
+table BoundingBox {
+  x:float;
+  y:float;
+  width:float;
+  height:float;
+}
+
+table Point2f {
+  x:float;
+  y:float;
+}
+
+table BitmapData {
+  width:uint;
+  height:uint;
+  value_type:string;
+  pixels:[ubyte];
+}

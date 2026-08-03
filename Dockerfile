@@ -25,6 +25,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+COPY tools/perception/sdk.json /tmp/perception-sdk.json
+COPY --chmod=0755 scripts/private/install-perception-flatbuffers.sh /usr/local/bin/install-perception-flatbuffers
+
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   set -eux; \
@@ -32,10 +35,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   apt-get install -y --no-install-recommends \
   ca-certificates curl git \
   build-essential meson ninja-build pkg-config cmake unzip \
-  python3 \
+  python3 python3-dev \
   libssl-dev libfmt-dev libfftw3-dev libsoup-3.0-dev libjson-glib-dev libcairo2-dev \
   libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev; \
-  update-ca-certificates
+  update-ca-certificates; \
+  install-perception-flatbuffers /tmp/perception-sdk.json; \
+  rm -f /tmp/perception-sdk.json
 
 
 FROM pek-build-base AS pek-cross-build-base
@@ -100,7 +105,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   file gnupg gstreamer1.0-gl gstreamer1.0-nice gstreamer1.0-pipewire \
   gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
   gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
-  gstreamer1.0-tools gstreamer1.0-x lldb-17 pre-commit python3-pip \
+  gstreamer1.0-tools gstreamer1.0-x lldb-17 pre-commit python3-pip python3-venv \
   shellcheck shfmt sudo valgrind wget zip; \
   update-ca-certificates
 
@@ -164,6 +169,7 @@ RUN set -eux; \
   /tmp/pek-tools/expkits-ci \
   /tmp/pek-tools/plumber \
   huggingface_hub==1.18.0; \
+  chown -R "${USER_UID}:${USER_GID}" /opt/pek-venvs/devtools; \
   rm -rf /tmp/pek-tools
 
 EXPOSE 8000 8001 9999 8080 2222
@@ -428,6 +434,7 @@ COPY scripts/build-elements.sh scripts/build-elements.sh
 COPY scripts/private/shtools.sh scripts/private/shtools.sh
 COPY scripts/private/deployment-runtime.sh scripts/private/deployment-runtime.sh
 COPY development development
+COPY generated generated
 COPY --from=pek-models /work/config config
 COPY data data
 COPY --from=pek-demo-media /work/data/videos /work/data/videos

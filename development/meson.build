@@ -160,6 +160,9 @@ endif
 # Common include(s)
 common_include = include_directories('common', 'common/logging/include')
 
+subdir('perception')
+pek_deps += [perception_dep]
+
 # gtest dependencies
 cmake = import('cmake')
 
