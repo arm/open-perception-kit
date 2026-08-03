@@ -49,7 +49,7 @@ struct LifecycleResult {
     TrackIdList tracksToRemove;
 };
 
-perception::metadata::BoundingBoxT &boxOf(perception::metadata::BoxDetectionT &detection) {
+perception::metadata::BoundingBoxT &ensureBox(perception::metadata::BoxDetectionT &detection) {
     if (!detection.box) {
         detection.box = std::make_unique<perception::metadata::BoundingBoxT>();
     }
@@ -97,7 +97,7 @@ void applyMatchedDetection(DetectionIndex detectionIndex,
         resolvedPoint = trackstate::correctCenterWithMeasurement(
             track, track.lastDetection, frameTrackingContext.config);
     } else {
-        const auto &lastBox = boxOf(track.lastDetection);
+        const auto &lastBox = ensureBox(track.lastDetection);
         resolvedPoint =
             makePoint(lastBox.x + (lastBox.width * 0.5f), lastBox.y + (lastBox.height * 0.5f));
         track.predictedThisFrame = false;
@@ -117,7 +117,7 @@ void applyMatchedDetection(DetectionIndex detectionIndex,
         track.hasEmbedding = true;
     }
 
-    auto &lastBox = boxOf(track.lastDetection);
+    auto &lastBox = ensureBox(track.lastDetection);
     lastBox.x = resolvedPoint.x - (lastBox.width * 0.5f);
     lastBox.y = resolvedPoint.y - (lastBox.height * 0.5f);
     result.assignedTrackByDetection[detectionIndex] = trackId;
@@ -177,13 +177,13 @@ bool tryRestoreDormantTrack(DetectionIndex detectionIndex,
         initPoint = trackstate::predictCenter(restoredTrack, frameTrackingContext.config);
         restoredTrack.predictedThisFrame = true;
     } else {
-        const auto &restoredBox = boxOf(restoredTrack.lastDetection);
+        const auto &restoredBox = ensureBox(restoredTrack.lastDetection);
         initPoint = makePoint(restoredBox.x + (restoredBox.width * 0.5f),
                               restoredBox.y + (restoredBox.height * 0.5f));
         restoredTrack.predictedThisFrame = false;
     }
     trackstate::appendTracePoint(restoredTrack, initPoint, frameTrackingContext.config);
-    auto &restoredBox = boxOf(restoredTrack.lastDetection);
+    auto &restoredBox = ensureBox(restoredTrack.lastDetection);
     restoredBox.x = initPoint.x - (restoredBox.width * 0.5f);
     restoredBox.y = initPoint.y - (restoredBox.height * 0.5f);
 
@@ -217,13 +217,13 @@ void createTrackFromDetection(DetectionIndex detectionIndex,
         initPoint = trackstate::predictCenter(newTrack, frameTrackingContext.config);
         newTrack.predictedThisFrame = true;
     } else {
-        const auto &newBox = boxOf(newTrack.lastDetection);
+        const auto &newBox = ensureBox(newTrack.lastDetection);
         initPoint = makePoint(newBox.x + (newBox.width * 0.5f), newBox.y + (newBox.height * 0.5f));
         newTrack.predictedThisFrame = false;
     }
     trackstate::appendTracePoint(newTrack, initPoint, frameTrackingContext.config);
 
-    auto &newBox = boxOf(newTrack.lastDetection);
+    auto &newBox = ensureBox(newTrack.lastDetection);
     newBox.x = initPoint.x - (newBox.width * 0.5f);
     newBox.y = initPoint.y - (newBox.height * 0.5f);
 
@@ -259,7 +259,7 @@ void updatePredictedOnlyTracks(const FrameTrackingContext &frameTrackingContext,
             continue;
         }
 
-        auto &lastBox = boxOf(track.lastDetection);
+        auto &lastBox = ensureBox(track.lastDetection);
         Point2f predictedPoint =
             makePoint(lastBox.x + (lastBox.width * 0.5f), lastBox.y + (lastBox.height * 0.5f));
         if (frameTrackingContext.config.useKalman) {

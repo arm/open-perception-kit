@@ -23,12 +23,6 @@ namespace {
 using CostMatrix = std::vector<std::vector<float>>;
 using SimilarityMatrix = std::vector<std::vector<std::optional<float>>>;
 
-const perception::metadata::BoundingBoxT &
-boxOf(const perception::metadata::BoxDetectionT &detection) {
-    assert(detection.box);
-    return *detection.box;
-}
-
 const perception::metadata::BoxDetectionT &detectionAt(const DetectionBatch &detections,
                                                        size_t index) {
     assert(index < detections.size());
@@ -63,7 +57,8 @@ std::vector<perception::metadata::BoundingBoxT> predictTrackBoxes(ActiveTrackMap
 
     for (auto &[trackId, track] : activeTracks) {
         (void)trackId;
-        auto predictedBox = boxOf(track.lastDetection);
+        assert(track.lastDetection.box);
+        auto predictedBox = *track.lastDetection.box;
         if (config.useKalman) {
             const auto predictedPoint = trackstate::predictCenter(track, config);
             track.predictedThisFrame = true;
@@ -178,8 +173,9 @@ void buildAssociationMatrices(
 
     for (size_t detIdx = 0; detIdx < detections.size(); ++detIdx) {
         const auto &det = detectionAt(detections, detIdx);
+        assert(det.box);
         for (size_t trackIdx = 0; trackIdx < trackIds.size(); ++trackIdx) {
-            const float iou = pek::algo::computeIoU(boxOf(det), predictedTrackBoxes[trackIdx]);
+            const float iou = pek::algo::computeIoU(*det.box, predictedTrackBoxes[trackIdx]);
             iouMatrix[detIdx][trackIdx] = iou;
             const auto similarity = computeValidSimilarity(
                 detIdx, detections, trackIds[trackIdx], embeddings, activeTracks, config);

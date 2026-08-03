@@ -16,15 +16,12 @@ using namespace pek::stdop::postproc;
 
 using FaceDetection = perception::metadata::BoxDetectionT;
 
-inline const perception::metadata::BoundingBoxT &boxOf(const FaceDetection &det) {
-    assert(det.box);
-    return *det.box;
-}
-
 // IoU between two boxes (x,y = top-left, w,h = size)
 inline float iou(const FaceDetection &a, const FaceDetection &b) {
-    const auto &abox = boxOf(a);
-    const auto &bbox = boxOf(b);
+    assert(a.box);
+    assert(b.box);
+    const auto &abox = *a.box;
+    const auto &bbox = *b.box;
     float ax2 = abox.x + abox.width;
     float ay2 = abox.y + abox.height;
     float bx2 = bbox.x + bbox.width;

@@ -19,13 +19,9 @@ using FaceDetection = perception::metadata::BoxDetectionT;
 
 namespace {
 
-inline const perception::metadata::BoundingBoxT &boxOf(const FaceDetection &det) {
-    return *det.box;
-}
-
 inline float iou(const FaceDetection &a, const FaceDetection &b) {
-    const auto &abox = boxOf(a);
-    const auto &bbox = boxOf(b);
+    const auto &abox = *a.box;
+    const auto &bbox = *b.box;
     const float ax2 = abox.x + abox.width;
     const float ay2 = abox.y + abox.height;
     const float bx2 = bbox.x + bbox.width;

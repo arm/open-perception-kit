@@ -14,12 +14,6 @@ namespace pek::tracker::trackstate {
 
 namespace {
 
-const perception::metadata::BoundingBoxT &
-boxOf(const perception::metadata::BoxDetectionT &detection) {
-    assert(detection.box);
-    return *detection.box;
-}
-
 Point2f makePoint(float x, float y) {
     return Point2f{x, y};
 }
@@ -35,7 +29,8 @@ Point2f predictCenter(TrackState &track, const Config &config) {
     using StateMatrix = TrackState::Kalman::StateMatrix;
 
     if (!track.kalmanInitialized) {
-        const auto &box = boxOf(track.lastDetection);
+        assert(track.lastDetection.box);
+        const auto &box = *track.lastDetection.box;
         const float centerX = box.x + (box.width * 0.5f);
         const float centerY = box.y + (box.height * 0.5f);
 
@@ -89,7 +84,8 @@ Point2f correctCenterWithMeasurement(TrackState &track,
         track.predictedThisFrame = true;
     }
 
-    const auto &box = boxOf(detection);
+    assert(detection.box);
+    const auto &box = *detection.box;
     const float measX = box.x + (box.width * 0.5f);
     const float measY = box.y + (box.height * 0.5f);
 

@@ -510,11 +510,6 @@ static inline void gazeEndpoint(float eyeX,
     outY = eyeY + dy * lengthPx;
 }
 
-static const perception::metadata::BoundingBoxT *
-boxOf(const std::unique_ptr<perception::metadata::BoundingBoxT> &box) {
-    return box ? box.get() : nullptr;
-}
-
 static constexpr const char *HUMAN_FACE_CONTENT_TYPE = "humanFace";
 static constexpr const char *GENERIC_OBJECT_CONTENT_TYPE = "genericObject";
 static constexpr const char *CLASSIFICATION_CONTENT_TYPE = "classification";
@@ -627,7 +622,7 @@ static void drawGazeVectors(Osd::Layer *layer, const perception::FrameResults &f
                 continue;
             }
 
-            const auto *parentBox = boxOf(parent->box);
+            const auto *parentBox = parent->box.get();
             if (parentBox == nullptr) {
                 continue;
             }
@@ -673,7 +668,7 @@ static void drawCameraContactMarkers(Osd::Layer *layer,
                 continue;
             }
 
-            const auto *face = boxOf(parent->box);
+            const auto *face = parent->box.get();
             if (face == nullptr) {
                 continue;
             }
