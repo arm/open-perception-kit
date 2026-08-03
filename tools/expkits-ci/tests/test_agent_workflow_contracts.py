@@ -754,7 +754,7 @@ class AgentWorkflowContractTests(unittest.TestCase):
         secret_steps = {
             "linux-quick-start-build-test": "Build and start quick-start container",
             "rpi5-quick-start-build-test": "Build and start quick-start container",
-            "quality-checks": "Build model-bearing Docker images for checks",
+            "quality-checks": "Build Docker images for checks",
         }
         jobs_with_huggingface_secret = {
             name
@@ -782,23 +782,6 @@ class AgentWorkflowContractTests(unittest.TestCase):
             linux_steps["Reconcile running quick-start container"]["run"],
             "./scripts/quick-start/start-container.sh",
         )
-
-        quality_steps = step_map(workflow["jobs"]["quality-checks"])
-        tokenless_build = quality_steps["Build Docker images without model downloads"]
-        model_build = quality_steps["Build model-bearing Docker images for checks"]
-        for service in (
-            "pek-quality-check-full",
-            "pek-release-with-ut",
-            "pek-valgrind-check",
-        ):
-            self.assertIn(service, tokenless_build["run"])
-            self.assertNotIn(service, model_build["run"])
-        for service in (
-            "pek-quality-check-pull-request",
-            "pek-clang-tidy-baseline-check",
-        ):
-            self.assertIn(service, model_build["run"])
-            self.assertNotIn(service, tokenless_build["run"])
 
     def test_blackduck_limits_huggingface_token_to_model_build_children(self):
         workflow = load_yaml(BLACKDUCK_WORKFLOW_FILE)
