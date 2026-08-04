@@ -172,6 +172,11 @@ class TestPublishPlaywrightPages(unittest.TestCase):
                 "yolo-imageset-benchmark/index.html",
                 "playwright/index.html",
                 "yolo-performance-datasets/index.html",
+                "python-audit/index.html",
+                "docker-scout/index.html",
+                "workflow-freshness/index.html",
+                "valgrind/index.html",
+                "nightly/index.html",
             ])
 
     def test_playwright_nightly_badge_uses_embedded_report_stats(self):

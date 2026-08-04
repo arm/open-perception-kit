@@ -7,6 +7,7 @@ import importlib.util
 import sys
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
@@ -153,6 +154,7 @@ class TestSummarizeValgrindOutput(unittest.TestCase):
         self.assertEqual(root.get("raw_errors"), "4")
         self.assertEqual(root.get("duplicate_errors"), "2")
         self.assertEqual(root.get("collected_errors"), "2")
+        self.assertEqual(root.get("repo_owned_errors"), "2")
         self.assertEqual(len(errors), 2)
         self.assertEqual(errors[0].findtext("unique"), "0x1")
         self.assertEqual(errors[0].findtext("tid"), "THREAD")
@@ -196,8 +198,26 @@ class TestSummarizeValgrindOutput(unittest.TestCase):
         self.assertEqual(root.get("source_logs"), "2")
         self.assertEqual(root.get("raw_errors"), "1")
         self.assertEqual(root.get("collected_errors"), "1")
+        self.assertEqual(root.get("repo_owned_errors"), "0")
         self.assertEqual(root.findtext("error/tid"), "THREAD")
         self.assertEqual(root.findtext("error/what"), "Invalid read of size 4 at 0xADDR")
+
+    def test_repo_owned_error_excludes_third_party_and_subprojects(self):
+        root = ET.fromstring("""<valgrindoutput>
+          <error><stack><frame><obj>/usr/lib/libthird-party.so</obj></frame></stack></error>
+          <error><stack><frame><obj>/work/development/build/meson-out/libcommon.so</obj></frame></stack></error>
+          <error><stack><frame><dir>/work/development/elements</dir></frame></stack></error>
+          <error><stack><frame><dir>/work/development/subprojects/vendor</dir></frame></stack></error>
+        </valgrindoutput>""")
+        errors = root.findall("error")
+
+        self.assertEqual(list(map(summary.is_repo_owned_error, errors)), [False, True, True, False])
+        markdown = summary.repo_owned_markdown(root)
+        self.assertIn("2 baseline record(s)", markdown)
+        self.assertIn("meson-out/libcommon.so", markdown)
+        self.assertIn("development/elements", markdown)
+        self.assertNotIn("/usr/lib/libthird-party.so", markdown)
+        self.assertNotIn("subprojects", markdown)
 
     def test_collect_errors_rejects_incomplete_valgrind_xml(self):
         with tempfile.TemporaryDirectory() as tmpdir:

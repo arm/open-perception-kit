@@ -133,7 +133,9 @@ jobs:
       - name: Generate Valgrind error summary
         id: valgrind_summary
         if: always() && steps.valgrind_checks.outcome != 'skipped'
-        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-generate-valgrind-summary
+        run: |
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm pek-generate-valgrind-summary
+          cat scripts/testing/valgrind/valgrind-repo-owned.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Compare Valgrind results to baseline
         if: ${{ github.event_name == 'pull_request' && steps.valgrind_checks.outcome == 'success' && steps.valgrind_summary.outcome == 'success' }}

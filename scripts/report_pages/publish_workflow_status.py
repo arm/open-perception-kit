@@ -8,6 +8,8 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -16,6 +18,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.report_pages.publish import (  # noqa: E402
     PublishError,
+    WORKFLOW_PR_REPORTS,
     WORKFLOW_STATUS_DIRECTORY,
     checkout_site_branch,
     env,
@@ -35,6 +38,7 @@ WORKFLOW_SOURCES = {
     "Workflow Dependency Freshness": "workflow-freshness",
     "YOLO Video Benchmark": "yolo-video",
     "YOLO Imageset Benchmark": "yolo-imageset",
+    "Valgrind Baseline Artifact": "valgrind",
 }
 FAILURE_CONCLUSIONS = {"action_required", "failure", "startup_failure", "timed_out"}
 
@@ -56,9 +60,7 @@ def read_status(path: Path) -> dict[str, object] | None:
         return None
 
 
-def job_summary(repository: str, run_id: str, conclusion: str) -> list[str]:
-    if conclusion == "success":
-        return []
+def workflow_jobs(repository: str, run_id: str) -> list[dict[str, object]]:
     result = subprocess.run(
         ["gh", "api", f"repos/{repository}/actions/runs/{run_id}/jobs?per_page=100"],
         check=False,
@@ -69,12 +71,18 @@ def job_summary(repository: str, run_id: str, conclusion: str) -> list[str]:
     try:
         jobs = json.loads(result.stdout).get("jobs", []) if result.returncode == 0 else []
     except (AttributeError, json.JSONDecodeError):
-        jobs = []
+        return []
+    return [job for job in jobs if isinstance(job, dict)]
+
+
+def job_summary(jobs: list[dict[str, object]], conclusion: str) -> list[str]:
+    if conclusion == "success":
+        return []
 
     target_conclusions = {"cancelled"} if conclusion == "cancelled" else FAILURE_CONCLUSIONS
     messages = []
     for job in jobs:
-        if not isinstance(job, dict) or job.get("conclusion") not in target_conclusions:
+        if job.get("conclusion") not in target_conclusions:
             continue
         name = job.get("name")
         if not isinstance(name, str) or not name:
@@ -95,19 +103,143 @@ def job_summary(repository: str, run_id: str, conclusion: str) -> list[str]:
     return [f"Run {conclusion.replace('_', ' ')}; open the workflow run for details."]
 
 
+def freshness_metric(repository: str, run_id: str) -> tuple[str, str]:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = subprocess.run(
+            ["gh", "run", "download", run_id, "--repo", repository,
+             "--name", "workflow-dependency-freshness", "--dir", tmpdir],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+        paths = list(Path(tmpdir).rglob("workflow-dependency-freshness.json"))
+        if result.returncode != 0 or len(paths) != 1:
+            return "", ""
+        try:
+            report = json.loads(paths[0].read_text(encoding="utf-8"))
+            behind = int(report["behind_latest"])
+            review = int(report["needs_review"])
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError, OSError):
+            return "", ""
+    if behind:
+        return f"{behind} behind", "neutral"
+    if review:
+        return f"{review} need{'s' if review == 1 else ''} review", "neutral"
+    return "Up to date", "fast"
+
+
+def docker_scout_report_metric(paths: list[Path], expected_reports: int) -> tuple[str, str]:
+    severities = ("critical", "high", "medium", "low", "unspecified")
+    totals = dict.fromkeys(severities, 0)
+    if len(paths) != expected_reports:
+        return "", ""
+    for path in paths:
+        try:
+            report = json.loads(path.read_text(encoding="utf-8"))
+            counts = report["severity_counts"]
+            if report["sarif_present"] is not True or not isinstance(counts, dict):
+                return "", ""
+            for severity in severities:
+                count = counts[severity]
+                if not isinstance(count, int) or isinstance(count, bool) or count < 0:
+                    return "", ""
+                totals[severity] += count
+        except (KeyError, TypeError, json.JSONDecodeError, OSError):
+            return "", ""
+
+    visible = [(severity, totals[severity]) for severity in severities if totals[severity]][:2]
+    if not visible:
+        return "No vulnerabilities", "fast"
+    metric = " · ".join(f"{count} {severity}" for severity, count in visible)
+    return metric, "slow" if totals["critical"] or totals["high"] else "neutral"
+
+
+def docker_scout_metric(repository: str, run_id: str,
+                        expected_reports: int) -> tuple[str, str]:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = subprocess.run(
+            ["gh", "run", "download", run_id, "--repo", repository,
+             "--pattern", "docker-scout-*", "--dir", tmpdir],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+        paths = list(Path(tmpdir).rglob("component-report.json"))
+        if result.returncode != 0:
+            return "", ""
+        return docker_scout_report_metric(paths, expected_reports)
+
+
+def valgrind_report_metric(path: Path) -> tuple[str, str]:
+    root = ET.parse(path).getroot()
+    if root.tag != "valgrindoutput":
+        raise ValueError(f"unexpected Valgrind report root: {root.tag}")
+    count = int(root.attrib["repo_owned_errors"])
+    if count < 0:
+        raise ValueError("repo_owned_errors must not be negative")
+    return f"{count} repo-owned baseline", "neutral" if count else "fast"
+
+
+def valgrind_metric(repository: str, run_id: str) -> tuple[str, str]:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = subprocess.run(
+            ["gh", "run", "download", run_id, "--repo", repository,
+             "--name", "valgrind-baseline", "--dir", tmpdir],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+        paths = list(Path(tmpdir).rglob("valgrind-error-summary.xml"))
+        if result.returncode != 0 or len(paths) != 1:
+            return "", ""
+        try:
+            return valgrind_report_metric(paths[0])
+        except (ET.ParseError, KeyError, OSError, ValueError):
+            return "", ""
+
+
+def workflow_metric(source: str, event: str, conclusion: str,
+                    jobs: list[dict[str, object]], repository: str,
+                    run_id: str) -> tuple[str, str]:
+    if source in {"python-audit", "docker-scout"}:
+        active = [job for job in jobs if job.get("conclusion") != "skipped"]
+        failed = sum(job.get("conclusion") in FAILURE_CONCLUSIONS for job in active)
+        if active:
+            if source == "docker-scout":
+                metric = docker_scout_metric(repository, run_id, len(active))
+                if metric[0]:
+                    return metric
+                return (f"{failed}/{len(active)} incomplete" if failed
+                        else f"{len(active)}/{len(active)} audited"), ""
+            return (f"{failed}/{len(active)} failed" if failed else f"{len(active)}/{len(active)} clean"), ""
+    if source == "workflow-freshness":
+        return freshness_metric(repository, run_id)
+    if source == "valgrind" and event == "pull_request" and conclusion == "success":
+        return "0 new errors", "fast"
+    return "", ""
+
+
 def upstream_status() -> tuple[str, dict[str, object]] | None:
     event = require_env("UPSTREAM_EVENT")
     branch = require_env("UPSTREAM_HEAD_BRANCH")
     repository = require_env("GITHUB_REPOSITORY")
     head_repository = require_env("UPSTREAM_HEAD_REPOSITORY")
-    if event != "schedule" or branch != "develop" or head_repository != repository:
-        print(f"Ignoring non-nightly upstream run: event={event}, branch={branch}, repo={head_repository}")
-        return None
-
     workflow_name = require_env("UPSTREAM_WORKFLOW_NAME")
     source = WORKFLOW_SOURCES.get(workflow_name)
     if source is None:
         raise PublishError(f"Unsupported upstream workflow: {workflow_name}")
+    pull_request_number = env("UPSTREAM_PULL_REQUEST_NUMBER")
+    scheduled = event == "schedule" and branch == "develop"
+    pull_request = event == "pull_request" and source in WORKFLOW_PR_REPORTS
+    develop_push = event == "push" and branch == "develop" and source == "valgrind"
+    if head_repository != repository or not (scheduled or pull_request or develop_push):
+        print(f"Ignoring upstream run: event={event}, branch={branch}, repo={head_repository}")
+        return None
+    if pull_request and not pull_request_number.isdigit():
+        raise PublishError("UPSTREAM_PULL_REQUEST_NUMBER must be numeric for pull requests.")
 
     run_id = require_env("UPSTREAM_RUN_ID")
     run_attempt = require_env("UPSTREAM_RUN_ATTEMPT")
@@ -118,15 +250,28 @@ def upstream_status() -> tuple[str, dict[str, object]] | None:
         raise PublishError("UPSTREAM_HEAD_SHA must be a full lowercase Git SHA.")
 
     conclusion = require_env("UPSTREAM_CONCLUSION")
+    if pull_request and conclusion == "skipped":
+        print(f"Ignoring skipped pull request run: workflow={workflow_name}, pr={pull_request_number}")
+        return None
+    jobs = workflow_jobs(repository, run_id)
+    if source == "valgrind" and event == "push" and conclusion == "success":
+        metric, metric_tone = valgrind_metric(repository, run_id)
+    else:
+        metric, metric_tone = workflow_metric(source, event, conclusion, jobs, repository, run_id)
     return source, {
         "conclusion": conclusion,
+        "event": event,
+        "head_branch": branch,
         "head_sha": head_sha,
+        "metric": metric,
+        "metric_tone": metric_tone,
+        "pull_request_number": pull_request_number,
         "repository": repository,
         "run_attempt": run_attempt,
         "run_id": run_id,
         "updated_at": require_env("UPSTREAM_UPDATED_AT"),
         "workflow": workflow_name,
-        "summary": job_summary(repository, run_id, conclusion),
+        "summary": job_summary(jobs, conclusion),
     }
 
 
@@ -138,9 +283,14 @@ def publish(site_dir: Path, storage_branch: str = STORAGE_BRANCH) -> bool:
     source, status = selected
 
     checkout_site_branch(site_dir, storage_branch, DRY_RUN_ENV, "local-report-status-pages")
-    status_dir = site_dir / WORKFLOW_STATUS_DIRECTORY
-    status_dir.mkdir(parents=True, exist_ok=True)
-    status_path = status_dir / f"{source}.json"
+    status_dir = site_dir / WORKFLOW_STATUS_DIRECTORY / source
+    if status["event"] == "schedule":
+        status_path = status_dir / "nightly.json"
+    elif status["event"] == "push":
+        status_path = status_dir / "develop.json"
+    else:
+        status_path = status_dir / "prs" / f'{status["pull_request_number"]}.json'
+    status_path.parent.mkdir(parents=True, exist_ok=True)
     if run_order(read_status(status_path)) > run_order(status):
         print(f"Ignoring stale {status['workflow']} run {status['run_id']} attempt {status['run_attempt']}.")
         set_output("deploy", "false")
