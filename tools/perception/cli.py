@@ -24,7 +24,11 @@ def run_script(name: str, arguments: list[str]) -> int:
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        prog="./scripts/perception-sdk.sh",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     commands = dict((
         ("generate", "regenerate the canonical SDK snapshot"),
         ("check", "regenerate in a temporary directory and check for drift"),
@@ -34,8 +38,18 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     ))
     parser.add_argument("command", nargs="?", choices=commands, help="SDK command")
     if not argv or argv[0] in {"-h", "--help"}:
-        parser.epilog = "Commands:\n" + "\n".join(
-            f"  {command:<12} {help_text}" for command, help_text in commands.items()
+        parser.epilog = (
+            "commands:\n"
+            + "\n".join(
+                f"  {command:<12} {help_text}" for command, help_text in commands.items()
+            )
+            + "\n\n"
+            "Run './scripts/perception-sdk.sh <command> --help' for command options.\n\n"
+            "examples:\n"
+            "  ./scripts/perception-sdk.sh check\n"
+            "  ./scripts/perception-sdk.sh package --expect-version 0.1.0\n"
+            "  ./scripts/perception-sdk.sh verify artifacts/perception-sdk-0.1.0.zip "
+            "--require-sidecars"
         )
         parser.print_help()
         raise SystemExit(0)

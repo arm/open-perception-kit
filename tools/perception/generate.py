@@ -509,13 +509,60 @@ def install_candidate(config: SdkConfig, candidate: Path, internal: Path, worksp
         meson_backup.unlink()
 
 
+class SdkHelpFormatter(
+    argparse.ArgumentDefaultsHelpFormatter,
+    argparse.RawDescriptionHelpFormatter,
+):
+    def _get_help_string(self, action: argparse.Action) -> str:
+        if action.default in {None, False, argparse.SUPPRESS} or action.required:
+            return action.help
+        return super()._get_help_string(action)
+
+
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true", help="fail when checked-in outputs differ")
-    parser.add_argument("--flatc", default="flatc")
-    parser.add_argument("--python", default=sys.executable)
-    parser.add_argument("--clang-format", default="clang-format")
-    parser.add_argument("--formatter-python", default=autopep8_python())
+    check_mode = "--check" in sys.argv[1:]
+    command = "check" if check_mode else "generate"
+    description = (
+        "Regenerate the SDK in a temporary directory and fail if the checked-in "
+        "snapshot differs."
+        if check_mode
+        else __doc__
+    )
+    parser = argparse.ArgumentParser(
+        prog=f"./scripts/perception-sdk.sh {command}",
+        description=description,
+        formatter_class=SdkHelpFormatter,
+        epilog=(
+            "examples:\n"
+            f"  ./scripts/perception-sdk.sh {command}\n"
+            f"  ./scripts/perception-sdk.sh {command} --flatc /usr/local/bin/flatc"
+        ),
+    )
+    parser.add_argument("--check", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--flatc",
+        default="flatc",
+        metavar="EXECUTABLE",
+        help="FlatBuffers compiler used by flowdata-sdk generation",
+    )
+    parser.add_argument(
+        "--python",
+        default=sys.executable,
+        metavar="EXECUTABLE",
+        help="Python interpreter used to run flowdata-sdk and manifest verification",
+    )
+    parser.add_argument(
+        "--clang-format",
+        default="clang-format",
+        metavar="EXECUTABLE",
+        help="clang-format executable used to format generated C++ sources",
+    )
+    parser.add_argument(
+        "--formatter-python",
+        default=autopep8_python(),
+        metavar="EXECUTABLE",
+        help="Python interpreter whose autopep8 module formats generated Python files",
+    )
     return parser.parse_args()
 
 

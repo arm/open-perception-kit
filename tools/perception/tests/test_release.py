@@ -8,6 +8,7 @@ import hashlib
 import importlib.util
 import json
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -28,6 +29,51 @@ SPEC.loader.exec_module(release_package)
 
 def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+class CommandHelpTests(unittest.TestCase):
+    def run_help(self, *arguments: str) -> str:
+        result = subprocess.run(
+            [sys.executable, str(PACKAGE_MODULE_PATH.parent / "cli.py"), *arguments, "--help"],
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+        self.assertEqual(result.stderr, "")
+        return result.stdout
+
+    def test_top_level_help_documents_commands_and_examples(self) -> None:
+        output = self.run_help()
+        self.assertIn("./scripts/perception-sdk.sh <command> --help", output)
+        self.assertIn("package", output)
+        self.assertIn("install-dev", output)
+
+    def test_generate_and_check_help_document_tool_overrides(self) -> None:
+        for command in ("generate", "check"):
+            with self.subTest(command=command):
+                output = self.run_help(command)
+                self.assertIn(f"./scripts/perception-sdk.sh {command}", output)
+                self.assertIn("FlatBuffers compiler", output)
+                self.assertIn("autopep8", output)
+
+    def test_package_help_documents_release_controls(self) -> None:
+        output = self.run_help("package")
+        self.assertIn("never regenerates SDK files", output)
+        self.assertIn("does not override the descriptor", output)
+        self.assertIn("dirty=true", output)
+        self.assertIn("provenance", output)
+        self.assertIn("read-write cache", output)
+
+    def test_verify_help_documents_sidecar_behavior(self) -> None:
+        output = self.run_help("verify")
+        self.assertIn("Existing sidecars are always checked", output)
+        self.assertIn("require and verify both", output)
+
+    def test_install_dev_help_documents_target_and_cache(self) -> None:
+        output = self.run_help("install-dev")
+        self.assertIn("target Python interpreter", output)
+        self.assertIn("checksum-locked FlatBuffers", output)
+        self.assertIn("wheel", output)
 
 
 class SemanticVersionTests(unittest.TestCase):

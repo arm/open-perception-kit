@@ -649,21 +649,113 @@ def verify_release_path(path: Path, require_sidecars: bool = False) -> None:
         verify_release_sidecars(path)
 
 
+class SdkHelpFormatter(
+    argparse.ArgumentDefaultsHelpFormatter,
+    argparse.RawDescriptionHelpFormatter,
+):
+    def _get_help_string(self, action: argparse.Action) -> str:
+        if action.default in {None, False, argparse.SUPPRESS} or action.required:
+            return action.help
+        return super()._get_help_string(action)
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     if not argv or argv[0] not in {"package", "verify"}:
         argv = ["package", *argv]
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        prog="./scripts/perception-sdk.sh",
+        description=__doc__,
+        formatter_class=SdkHelpFormatter,
+    )
     commands = parser.add_subparsers(dest="command", required=True)
-    package_parser = commands.add_parser("package", help="build the SDK release bundle")
-    package_parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
-    package_parser.add_argument("--expect-version")
-    package_parser.add_argument("--allow-dirty", action="store_true")
-    package_parser.add_argument("--flatbuffers-wheel", type=Path)
-    package_parser.add_argument("--artifact-dir", type=Path)
-    package_parser.add_argument("--python", default=sys.executable)
-    verify_parser = commands.add_parser("verify", help="verify a bundle directory or ZIP")
-    verify_parser.add_argument("path", type=Path)
-    verify_parser.add_argument("--require-sidecars", action="store_true")
+    package_parser = commands.add_parser(
+        "package",
+        help="build the SDK release bundle",
+        description=(
+            "Build a deterministic SDK ZIP from the checked-in generated snapshot. "
+            "This command verifies generation metadata but never regenerates SDK files."
+        ),
+        formatter_class=SdkHelpFormatter,
+        epilog=(
+            "examples:\n"
+            "  ./scripts/perception-sdk.sh package --expect-version 0.1.0\n"
+            "  ./scripts/perception-sdk.sh package --output-dir /tmp/sdk "
+            "--artifact-dir /tmp/sdk-cache\n\n"
+            "The command writes the ZIP, .sha256 checksum, and .provenance.json sidecar."
+        ),
+    )
+    package_parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=DEFAULT_OUTPUT_DIR,
+        metavar="PATH",
+        help="directory receiving the release ZIP and checksum/provenance sidecars",
+    )
+    package_parser.add_argument(
+        "--expect-version",
+        metavar="MAJOR.MINOR.PATCH",
+        help=(
+            "fail unless tools/perception/sdk.json contains exactly this SDK version; "
+            "does not override the descriptor"
+        ),
+    )
+    package_parser.add_argument(
+        "--allow-dirty",
+        action="store_true",
+        help=(
+            "allow tracked repository modifications and record dirty=true in provenance; "
+            "intended only for local experiments"
+        ),
+    )
+    package_parser.add_argument(
+        "--flatbuffers-wheel",
+        type=Path,
+        metavar="FILE",
+        help=(
+            "use this local FlatBuffers wheel instead of acquiring it; filename and "
+            "SHA-256 must match the descriptor lock"
+        ),
+    )
+    package_parser.add_argument(
+        "--artifact-dir",
+        type=Path,
+        metavar="PATH",
+        help=(
+            "read-write cache for checksum-locked Python build tools and FlatBuffers; "
+            "missing or invalid artifacts are downloaded"
+        ),
+    )
+    package_parser.add_argument(
+        "--python",
+        default=sys.executable,
+        metavar="EXECUTABLE",
+        help="Python interpreter used to create the isolated wheel-build environment",
+    )
+    verify_parser = commands.add_parser(
+        "verify",
+        help="verify a bundle directory or ZIP",
+        description=(
+            "Verify a staged SDK bundle directory or release ZIP. Existing sidecars are "
+            "always checked; use --require-sidecars to reject archives without them."
+        ),
+        formatter_class=SdkHelpFormatter,
+        epilog=(
+            "example:\n"
+            "  ./scripts/perception-sdk.sh verify "
+            "artifacts/perception-sdk-0.1.0.zip --require-sidecars"
+        ),
+    )
+    verify_parser.add_argument(
+        "path",
+        type=Path,
+        metavar="PATH",
+        help="bundle directory or release ZIP to verify",
+    )
+    verify_parser.add_argument(
+        "--require-sidecars",
+        action="store_true",
+        help="require and verify both .sha256 and .provenance.json sidecars",
+    )
     return parser.parse_args(argv)
 
 
