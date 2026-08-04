@@ -9,15 +9,14 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 ARG ACTIONLINT_VERSION=1.7.12
 
-RUN apt-get update && \
+RUN set -eux; \
+  apt-get update; \
   apt-get install -y --no-install-recommends \
   ca-certificates \
   curl \
   git \
-  shfmt && \
-  rm -rf /var/lib/apt/lists/*
-
-RUN set -eux; \
+  shfmt; \
+  rm -rf /var/lib/apt/lists/*; \
   arch="$(dpkg --print-architecture)"; \
   case "${arch}" in \
     amd64) actionlint_arch="amd64" ;; \

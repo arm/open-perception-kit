@@ -48,7 +48,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   set -eux; \
   apt-get update; \
-  apt-get install -y --no-install-recommends ca-certificates curl bash; \
+  apt-get install -y --no-install-recommends bash ca-certificates curl; \
   update-ca-certificates
 
 ARG NO_EXAMPLE_CONTENT=false
@@ -95,12 +95,11 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  wget sudo gnupg shfmt zip python3-pip pre-commit \
-  lldb-17 valgrind file \
-  gstreamer1.0-tools gstreamer1.0-x gstreamer1.0-gl \
-  gstreamer1.0-plugins-base gstreamer1.0-plugins-bad \
+  file gnupg gstreamer1.0-gl gstreamer1.0-nice gstreamer1.0-pipewire \
+  gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
   gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
-  gstreamer1.0-nice gstreamer1.0-pipewire; \
+  gstreamer1.0-tools gstreamer1.0-x lldb-17 pre-commit python3-pip \
+  shfmt sudo valgrind wget zip; \
   update-ca-certificates
 
 RUN ln -sf /usr/bin/lldb-17 /usr/local/bin/lldb && \
@@ -204,11 +203,11 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  locales bash-completion mc vim nano neovim gdb clangd net-tools zsh \
-  openssh-client less ripgrep fd-find tmux firefox-esr v4l-utils \
-  xz-utils powerline fonts-powerline eza bat gosu \
-  lua5.1 luarocks tree-sitter-cli wl-clipboard \
-  iproute2 iputils-ping traceroute iputils-arping dnsutils tcpdump nmap; \
+  bash-completion bat clangd dnsutils eza fd-find firefox-esr fonts-powerline \
+  gdb gosu iproute2 iputils-arping iputils-ping less locales lua5.1 \
+  luarocks mc nano neovim net-tools nmap openssh-client powerline ripgrep \
+  tcpdump tmux traceroute tree-sitter-cli v4l-utils vim wl-clipboard \
+  xz-utils zsh; \
   if apt-get install -y --no-install-recommends --dry-run gstreamer1.0-libav; then \
     apt-get install -y --no-install-recommends gstreamer1.0-libav; \
   else \
@@ -257,7 +256,7 @@ RUN set -eux; \
   ln -sfn "/home/${USERNAME}/configs/nvchad_2026_04" "/home/${USERNAME}/.config/nvim"; \
   chown -R "${USER_UID}:${USER_GID}" "/home/${USERNAME}/.config" "/home/${USERNAME}/configs" "/home/${USERNAME}/.zshrc"
 
-COPY --chown=${USERNAME}:${USERNAME} .devcontainer/configs/zshrc /home/${USERNAME}/configs/zshrc
+COPY --chmod=0444 .devcontainer/configs/zshrc /home/${USERNAME}/configs/zshrc
 
 COPY --chmod=0755 scripts/private/development-entrypoint.sh /usr/local/bin/development-entrypoint
 
@@ -319,7 +318,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  openjdk-25-jdk graphviz pandoc doxygen
+  doxygen graphviz openjdk-25-jdk pandoc
 
 RUN set -eux; \
   mkdir -p /opt/pek-deps; \
@@ -347,9 +346,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   set -eux; \
   apt-get update; \
   apt-get install -y --no-install-recommends \
-  openjdk-25-jdk graphviz pandoc doxygen gcovr \
-  python3-dev python3-venv python3-gi python3-gst-1.0 \
-  libffi-dev zlib1g-dev libbz2-dev liblzma-dev libsqlite3-dev
+  doxygen gcovr graphviz libbz2-dev libffi-dev liblzma-dev libsqlite3-dev \
+  openjdk-25-jdk pandoc python3-dev python3-gi python3-gst-1.0 \
+  python3-venv zlib1g-dev
 
 RUN set -eux; \
   mkdir -p /opt/pek-deps; \
