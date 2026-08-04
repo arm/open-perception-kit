@@ -46,7 +46,7 @@ ROOT_QUALITY_LINKS = (
     ("valgrind/index.html", "Valgrind", "Memory regression baseline", "memory", "Develop"),
 )
 ROOT_NIGHTLY_LINKS = (
-    ("nightly/index.html", "Nightly CI", "Scheduled checks at a glance", "moon", "Overview"),
+    ("nightly-ci/index.html", "Nightly CI", "Scheduled checks at a glance", "moon", "Overview"),
 )
 ROOT_REPORT_ICONS = {
     "video": (
@@ -283,7 +283,7 @@ def root_card_badge(site_dir: Path, href: str, dataset_count: int | None,
     if source in WORKFLOW_PR_REPORTS:
         path = "develop.json" if source == "valgrind" else "nightly.json"
         return workflow_status_badge(read_workflow_status(site_dir, source, path), now)
-    if href == "nightly/index.html":
+    if href == "nightly-ci/index.html":
         return nightly_status_verdict(site_dir, now)
     if dataset_count:
         return "fast", f"{dataset_count} input{'s' if dataset_count != 1 else ''}"
@@ -451,7 +451,7 @@ def write_status_indexes(site_dir: Path, now: dt.datetime) -> None:
             encoding="utf-8",
         )
 
-    target = site_dir / "nightly"
+    target = site_dir / "nightly-ci"
     target.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(css_source, target / "report-index.css")
     links = []

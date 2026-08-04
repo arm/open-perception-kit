@@ -69,14 +69,14 @@ class TestPublishWorkflowStatus(unittest.TestCase):
 
             report_pages.write_root_index(site_dir, now=NOW)
             index = (site_dir / "index.html").read_text(encoding="utf-8")
-            nightly = (site_dir / "nightly" / "index.html").read_text(encoding="utf-8")
-            nightly_css = (site_dir / "nightly" / "report-index.css").read_text(encoding="utf-8")
+            nightly = (site_dir / "nightly-ci" / "index.html").read_text(encoding="utf-8")
+            nightly_css = (site_dir / "nightly-ci" / "report-index.css").read_text(encoding="utf-8")
             python_audit = (site_dir / "python-audit" / "index.html").read_text(encoding="utf-8")
             valgrind = (site_dir / "valgrind" / "index.html").read_text(encoding="utf-8")
 
         for label in ("Passed", "1/2 failed", "10 critical · 160 high", "Stale"):
             self.assertIn(f">{label}<", nightly)
-        self.assertIn('href="nightly/index.html"', index)
+        self.assertIn('href="nightly-ci/index.html"', index)
         self.assertIn('href="python-audit/index.html"', index)
         self.assertIn(".verdict-slow", nightly_css)
         self.assertNotIn("<h2>Nightly CI</h2>", index)
@@ -184,12 +184,14 @@ class TestPublishWorkflowStatus(unittest.TestCase):
                 (site_dir / "playwright" / "nightly" / "index.html").read_text(),
                 "legacy Playwright",
             )
+            self.assertFalse((site_dir / "nightly").exists())
+            self.assertTrue((site_dir / "nightly-ci" / "index.html").is_file())
 
     def test_nightly_overview_links_runs_and_lists_unavailable_sources(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             site_dir = Path(tmpdir)
             report_pages.write_root_index(site_dir, now=NOW)
-            nightly = (site_dir / "nightly" / "index.html").read_text(encoding="utf-8")
+            nightly = (site_dir / "nightly-ci" / "index.html").read_text(encoding="utf-8")
 
         self.assertIn("PEK CI", nightly)
         self.assertIn("Unavailable", nightly)

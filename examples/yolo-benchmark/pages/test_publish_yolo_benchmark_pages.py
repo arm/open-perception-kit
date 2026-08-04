@@ -708,7 +708,7 @@ class TestPublishYoloBenchmarkPages(unittest.TestCase):
                 "docker-scout/index.html",
                 "workflow-freshness/index.html",
                 "valgrind/index.html",
-                "nightly/index.html",
+                "nightly-ci/index.html",
             ])
 
     def test_restore_dataset_overlay_writes_deploy_only_dataset_page(self) -> None:
