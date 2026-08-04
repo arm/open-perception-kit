@@ -251,6 +251,7 @@ class PerformanceTracer {
     // Callbacks
     mutable std::mutex callback_mutex_;
     std::vector<CycleEndCallback> cycle_end_callbacks_;
+    std::atomic_bool has_cycle_end_callbacks_{false};
 };
 class PerformanceMonitor {
   public:

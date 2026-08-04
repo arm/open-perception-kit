@@ -28,3 +28,17 @@ TEST(PerformanceTracer, DoesNotRetainCurrentCycleMeasurementsWithoutConsumer) {
     tracer.unregisterCurrentCycleConsumer();
     EXPECT_TRUE(tracer.getCurrentCycleMeasurements().empty());
 }
+
+TEST(PerformanceTracer, CycleEndCallbackReceivesMeasurementsWithoutConsumer) {
+    pek::perf::PerformanceTracer tracer;
+    std::vector<pek::perf::TimingMeasurement> received_measurements;
+
+    tracer.registerCycleEndCallback(
+        [&](size_t, const auto &measurements) { received_measurements = measurements; });
+    tracer.start("test");
+    tracer.end("test");
+    tracer.endCycle();
+
+    ASSERT_EQ(received_measurements.size(), 1);
+    EXPECT_EQ(received_measurements.front().key, "test");
+}

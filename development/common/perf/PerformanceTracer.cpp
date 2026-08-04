@@ -53,7 +53,7 @@ std::chrono::nanoseconds PerformanceTracer::end(const std::string &key) {
     // Add to current cycle
     {
         std::lock_guard<std::mutex> lock(current_cycle_mutex_);
-        if (current_cycle_consumer_count_ > 0) {
+        if (current_cycle_consumer_count_ > 0 || has_cycle_end_callbacks_.load()) {
             current_cycle_measurements_.push_back(m);
         }
     }
@@ -146,6 +146,7 @@ std::vector<TimingMeasurement> PerformanceTracer::getMeasurements(const std::str
 void PerformanceTracer::registerCycleEndCallback(CycleEndCallback callback) {
     std::lock_guard<std::mutex> lock(callback_mutex_);
     cycle_end_callbacks_.push_back(std::move(callback));
+    has_cycle_end_callbacks_.store(true);
 }
 
 void PerformanceTracer::reset() {
