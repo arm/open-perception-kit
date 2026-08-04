@@ -173,6 +173,24 @@ class TestPublishWorkflowStatus(unittest.TestCase):
         summary = publisher.job_summary([], "cancelled")
         self.assertEqual(summary, ["Run cancelled before all jobs completed."])
 
+    def test_valgrind_develop_status_uses_baseline_artifact_lifetime(self):
+        valgrind = status("success", "2026-08-01T00:00:00Z")
+        valgrind.update({
+            "event": "push",
+            "workflow": "Valgrind Baseline Artifact",
+            "metric": "18 repo-owned baseline",
+            "metric_tone": "neutral",
+        })
+
+        self.assertEqual(
+            report_pages.workflow_status_badge(status("success", "2026-08-01T00:00:00Z"), NOW),
+            ("neutral", "Stale"),
+        )
+        self.assertEqual(
+            report_pages.workflow_status_badge(valgrind, NOW),
+            ("neutral", "18 repo-owned baseline"),
+        )
+
     def test_workflow_metrics_use_job_counts_and_valgrind_comparison(self):
         jobs = [{"conclusion": "failure"}, {"conclusion": "success"}]
         self.assertEqual(
@@ -190,6 +208,13 @@ class TestPublishWorkflowStatus(unittest.TestCase):
             publisher.workflow_metric("valgrind", "pull_request", "success", [], "repo", "1"),
             ("0 new errors", "fast"),
         )
+        for source in ("python-audit", "docker-scout"):
+            self.assertEqual(
+                publisher.workflow_metric(
+                    source, "schedule", "cancelled", [{"conclusion": "cancelled"}], "repo", "1"
+                ),
+                ("", ""),
+            )
 
     def test_docker_scout_metric_aggregates_explicit_producer_counts(self):
         with tempfile.TemporaryDirectory() as tmpdir:

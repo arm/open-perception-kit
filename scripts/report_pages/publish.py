@@ -22,6 +22,7 @@ LEGACY_ROOT_PATHS = (INDEX_HTML, "report-index.css", "report-shell.css", "report
 LEGACY_PLAYWRIGHT_REPORT_ROOTS = ("nightly", "prs")
 WORKFLOW_STATUS_DIRECTORY = "workflow-status"
 WORKFLOW_STATUS_MAX_AGE = dt.timedelta(hours=36)
+VALGRIND_STATUS_MAX_AGE = dt.timedelta(days=60)
 WORKFLOW_STATUS_REPORTS = (
     ("pek-ci", "PEK CI", "Build, browser and quality", "playwright/index.html"),
     ("python-audit", "Python audit", "Python dependency vulnerabilities", "python-audit/index.html"),
@@ -322,7 +323,12 @@ def workflow_status_verdict(status: dict[str, object] | None,
     if status is None:
         return "neutral", "Unavailable"
     updated_at = dt.datetime.fromisoformat(str(status["updated_at"]))
-    if now.astimezone(dt.timezone.utc) - updated_at > WORKFLOW_STATUS_MAX_AGE:
+    max_age = (
+        VALGRIND_STATUS_MAX_AGE
+        if status.get("event") == "push" and status.get("workflow") == "Valgrind Baseline Artifact"
+        else WORKFLOW_STATUS_MAX_AGE
+    )
+    if now.astimezone(dt.timezone.utc) - updated_at > max_age:
         return "neutral", "Stale"
     conclusion = str(status["conclusion"])
     if conclusion == "success":

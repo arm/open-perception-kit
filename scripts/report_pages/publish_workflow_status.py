@@ -205,6 +205,8 @@ def workflow_metric(source: str, event: str, conclusion: str,
                     jobs: list[dict[str, object]], repository: str,
                     run_id: str) -> tuple[str, str]:
     if source in {"python-audit", "docker-scout"}:
+        if conclusion == "cancelled":
+            return "", ""
         active = [job for job in jobs if job.get("conclusion") != "skipped"]
         failed = sum(job.get("conclusion") in FAILURE_CONCLUSIONS for job in active)
         if active:
