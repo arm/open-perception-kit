@@ -1,4 +1,4 @@
-name: Publish Nightly CI Status
+name: Publish CI Report Status
 
 on:
   workflow_run:
@@ -9,11 +9,12 @@ on:
       - Workflow Dependency Freshness
       - YOLO Video Benchmark
       - YOLO Imageset Benchmark
+      - Valgrind Baseline Artifact
     types: [completed]
   workflow_dispatch:
     inputs:
       upstream_run_id:
-        description: "Completed scheduled run ID to publish"
+        description: "Completed workflow run ID to publish"
         required: true
         type: string
 
@@ -29,13 +30,27 @@ concurrency:
 
 jobs:
   publish-status:
-    name: Publish nightly CI status
+    name: Publish CI report status
     if: |
       github.event_name == 'workflow_dispatch' ||
       (
-        github.event.workflow_run.event == 'schedule' &&
-        github.event.workflow_run.head_branch == 'develop' &&
-        github.event.workflow_run.head_repository.full_name == github.repository
+        github.event.workflow_run.head_repository.full_name == github.repository &&
+        (
+          (
+            github.event.workflow_run.event == 'schedule' &&
+            github.event.workflow_run.head_branch == 'develop'
+          ) ||
+          (
+            github.event.workflow_run.event == 'pull_request' &&
+            github.event.workflow_run.pull_requests[0].number &&
+            contains(fromJSON('["Python Dependency Audit","Docker Scout Image Audit","Workflow Dependency Freshness","Valgrind Baseline Artifact"]'), github.event.workflow_run.name)
+          ) ||
+          (
+            github.event.workflow_run.event == 'push' &&
+            github.event.workflow_run.head_branch == 'develop' &&
+            github.event.workflow_run.name == 'Valgrind Baseline Artifact'
+          )
+        )
       )
     runs-on: ubuntu-latest
     environment:
@@ -53,6 +68,7 @@ jobs:
           EVENT_UPSTREAM_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
           EVENT_UPSTREAM_HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
           EVENT_UPSTREAM_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          EVENT_UPSTREAM_PULL_REQUEST_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
           EVENT_UPSTREAM_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
           EVENT_UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id }}
           EVENT_UPSTREAM_UPDATED_AT: ${{ github.event.workflow_run.updated_at }}
@@ -64,6 +80,7 @@ jobs:
             printf 'UPSTREAM_HEAD_BRANCH=%s\n' "${EVENT_UPSTREAM_HEAD_BRANCH}"
             printf 'UPSTREAM_HEAD_REPOSITORY=%s\n' "${EVENT_UPSTREAM_HEAD_REPOSITORY}"
             printf 'UPSTREAM_HEAD_SHA=%s\n' "${EVENT_UPSTREAM_HEAD_SHA}"
+            printf 'UPSTREAM_PULL_REQUEST_NUMBER=%s\n' "${EVENT_UPSTREAM_PULL_REQUEST_NUMBER}"
             printf 'UPSTREAM_RUN_ATTEMPT=%s\n' "${EVENT_UPSTREAM_RUN_ATTEMPT}"
             printf 'UPSTREAM_RUN_ID=%s\n' "${EVENT_UPSTREAM_RUN_ID}"
             printf 'UPSTREAM_UPDATED_AT=%s\n' "${EVENT_UPSTREAM_UPDATED_AT}"
@@ -83,6 +100,7 @@ jobs:
             "UPSTREAM_HEAD_BRANCH=" + (.head_branch // ""),
             "UPSTREAM_HEAD_REPOSITORY=" + (.head_repository.full_name // ""),
             "UPSTREAM_HEAD_SHA=" + (.head_sha // ""),
+            "UPSTREAM_PULL_REQUEST_NUMBER=" + ((.pull_requests[0].number // "") | tostring),
             "UPSTREAM_RUN_ATTEMPT=" + (.run_attempt | tostring),
             "UPSTREAM_RUN_ID=" + (.id | tostring),
             "UPSTREAM_UPDATED_AT=" + (.updated_at // ""),

@@ -6,6 +6,7 @@
   --panel: #f6f8fa;
   --accent: #0969da;
   --pass: #1a7f37;
+  --fail: #cf222e;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -16,6 +17,7 @@
     --panel: #161b22;
     --accent: #58a6ff;
     --pass: #3fb950;
+    --fail: #ff7b72;
   }
 }
 body {
@@ -105,7 +107,8 @@ section {
   font-size: 12px;
   margin-top: 2px;
 }
-.badge {
+.badge,
+.verdict {
   border: 1px solid var(--border);
   border-radius: 12px;
   color: var(--pass);
@@ -115,6 +118,9 @@ section {
   padding: 2px 8px;
   text-decoration: none;
 }
+.verdict-fast { color: var(--pass); }
+.verdict-slow { color: var(--fail); }
+.verdict-neutral { color: var(--muted); }
 .back-link {
   color: var(--accent);
   display: inline-block;
